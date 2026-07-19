@@ -1,0 +1,165 @@
+# golangci-lint v2 configuration for Beamers.
+#
+# Philosophy: strict where analysis catches concrete defect classes, quiet where
+# a rule would enforce taste alone. The standard preset supplies errcheck,
+# govet, ineffassign, staticcheck, and unused.
+
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: standard
+  enable:
+    # Resource and context correctness.
+    - bodyclose
+    - contextcheck
+    - noctx
+    - rowserrcheck
+    - sqlclosecheck
+
+    # Error handling correctness.
+    - errchkjson
+    - errname
+    - errorlint
+    - nilerr
+    - nilnesserr
+
+    # Modern Go supported by this module's go directive.
+    - copyloopvar
+    - intrange
+    - modernize
+
+    # Subtle bug classes.
+    - asasalint
+    - containedctx
+    - durationcheck
+    - exhaustive
+    - fatcontext
+    - forcetypeassert
+    - gocheckcompilerdirectives
+    - loggercheck
+    - makezero
+    - mirror
+    - musttag
+    - nosprintfhostport
+    - protogetter
+    - reassign
+    - recvcheck
+    - sloglint
+    - spancheck
+
+    # Security.
+    - asciicheck
+    - bidichk
+    - gosec
+
+    # Dead code and redundancy beyond the standard preset.
+    - predeclared
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - wastedassign
+
+    # Curated idiom and style checks.
+    - depguard
+    - gocritic
+    - misspell
+    - nolintlint
+    - revive
+
+    # Tests.
+    - thelper
+    - tparallel
+    - usetesting
+
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+    revive:
+      severity: warning
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: empty-block
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: exported
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: range
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: superfluous-else
+        - name: time-naming
+        - name: unreachable-code
+        - name: unused-parameter
+        - name: var-declaration
+        - name: var-naming
+    errcheck:
+      check-type-assertions: true
+    exhaustive:
+      default-signifies-exhaustive: true
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+        - style
+      disabled-checks:
+        - hugeParam
+        - rangeValCopy
+        - unnamedResult
+    misspell:
+      locale: US
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    depguard:
+      rules:
+        structured-logging-must-be-slog:
+          list-mode: lax
+          files:
+            - "$all"
+            - "!$test"
+          deny:
+            - pkg: github.com/rs/zerolog
+              desc: Beamers uses log/slog for structured application logging.
+            - pkg: github.com/sirupsen/logrus
+              desc: Beamers uses log/slog for structured application logging.
+            - pkg: go.uber.org/zap
+              desc: Beamers uses log/slog for structured application logging.
+
+  exclusions:
+    rules:
+      # Security heuristics and exported-documentation rules are noisy in tests.
+      - path: _test\.go
+        linters:
+          - gosec
+          - revive
+      # Main packages do not need exported-symbol documentation comments.
+      - path: cmd/
+        linters:
+          - revive
+
+issues:
+  max-same-issues: 0
+  max-issues-per-linter: 0
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - github.com/dotwaffle/beamers

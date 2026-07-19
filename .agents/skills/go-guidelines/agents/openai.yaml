@@ -1,0 +1,4 @@
+interface:
+  display_name: "Beamers Go Guidelines"
+  short_description: "Go engineering rules for Beamers"
+  default_prompt: "Use $go-guidelines to implement or review Go code according to the Beamers project rules."

@@ -1,0 +1,33 @@
+# .rumdl.toml — Beamers Markdown standard
+#
+# Philosophy: rumdl's default rules are ON. We disable only the rules whose
+# autofix would change rendered content or structure, and we reflow prose to
+# semantic line breaks so prose changes remain easy to review.
+#
+# Used locally by agents and contributors when checking Markdown.
+
+[global]
+# Ignore repository metadata, automation, dependencies, build outputs, and
+# archived specifications.
+exclude = [
+    ".agents",
+    ".git",
+    ".github",
+    "node_modules",
+    "vendor",
+    "dist",
+    "build",
+]
+
+respect-gitignore = true
+
+# Disable caching to prevent large cache directories in the repo.
+cache = false
+
+# Reflow prose to semantic line breaks (one sentence per line). The large
+# line-length disables column-width wrapping so only sentence boundaries break;
+# long single sentences stay on one line.
+[MD013]
+reflow = true
+reflow-mode = "sentence-per-line"
+line-length = 100000
