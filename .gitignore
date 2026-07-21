@@ -1,0 +1,12 @@
+# Local environment files.
+/.env
+/.env.*
+!/.env.example
+
+# Go build and test artifacts.
+/beamers
+/*.test
+/bin/
+/dist/
+/coverage.out
+/coverage.html
