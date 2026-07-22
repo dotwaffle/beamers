@@ -3,7 +3,13 @@
 Control surfaces require individual Accounts so permissions can be revoked and every state-changing action can record who acted, when, on what, and with what outcome.
 Displays authenticate through Enrollment credentials, while public read-only Views may remain open.
 Regular account login is sufficient initially.
-Passkeys and roaming security keys may be added later through WebAuthn; enabling them on the Venue network requires a stable HTTPS origin.
+Password authentication remains supported, but password possession is not intrinsic to an Account.
+A future Account may have no password credential, one password credential, one or more WebAuthn credentials, or both kinds.
+WebAuthn may therefore replace a password rather than serving only as a second factor.
+All WebAuthn credentials for one Account share that Account's stable opaque user handle, while each credential retains its own public key and revocation lifecycle so people can register primary and backup authenticators.
+An enabled Account that can log in must retain at least one active authentication credential outside a controlled enrollment or recovery flow.
+Account sessions belong to the Account rather than to a particular credential, preserving one actor identity across authentication methods.
+Passkeys and roaming security keys may be added later through WebAuthn; enabling them on the Venue network requires a stable HTTPS origin and relying-party identity.
 
 Authorization starts with four fixed roles.
 Administrators manage the service, Accounts, and Display Enrollment.
