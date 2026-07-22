@@ -104,21 +104,9 @@ func decodeCommandReceipt(outcome string, target any, description string) error 
 	return nil
 }
 
-func rejectCommandConflict(
-	ctx context.Context,
-	transaction *ent.Tx,
-	params commandReceiptParams,
-) error {
-	if err := auditRejectedCommand(
-		ctx, transaction.AuditEntry, params.ActorAccountID, params.Action,
-		"Command", params.CommandID, params.Now,
-	); err != nil {
-		return opaqueError("audit conflicting Command ID", err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return opaqueError("commit conflicting Command ID audit", err)
-	}
-	return ErrCommandConflict
+// DecodeCommandReceipt restores a successful projection or stable rejection.
+func DecodeCommandReceipt(outcome string, target any) error {
+	return decodeCommandReceipt(outcome, target, "decode Command Receipt")
 }
 
 func auditRejectedCommand(
@@ -139,57 +127,4 @@ func auditRejectedCommand(
 		SetResult(auditentry.ResultRejected).
 		Save(ctx)
 	return err
-}
-
-// RecordRejectedCommand atomically records one rejected command and makes exact
-// retries return the same rejection without another Audit Entry.
-func (installation *SQLite) RecordRejectedCommand(
-	ctx context.Context,
-	actorAccountID int,
-	commandID string,
-	payloadHash string,
-	action string,
-	targetType string,
-	targetID string,
-	rejection CommandRejection,
-	now time.Time,
-) (bool, error) {
-	if targetID == "" {
-		targetID = "unidentified"
-	}
-	transaction, err := installation.client.Tx(ctx)
-	if err != nil {
-		return false, opaqueError("begin rejected command", err)
-	}
-	defer func() {
-		_ = transaction.Rollback()
-	}()
-	outcomeJSON, err := json.Marshal(commandOutcome{Rejected: &rejection})
-	if err != nil {
-		return false, opaqueError("encode rejected command outcome", err)
-	}
-	receipt := commandReceiptParams{
-		ActorAccountID: actorAccountID, CommandID: commandID, PayloadHash: payloadHash,
-		Action: action, TargetType: targetType, TargetID: targetID,
-		OutcomeJSON: string(outcomeJSON), Now: now,
-	}
-	_, retry, err := findCommandReceipt(ctx, transaction, receipt)
-	if errors.Is(err, ErrCommandConflict) {
-		return false, rejectCommandConflict(ctx, transaction, receipt)
-	}
-	if err != nil || retry {
-		return retry, err
-	}
-	if err := createCommandReceipt(ctx, transaction, receipt); err != nil {
-		return false, opaqueError("record rejected Command Receipt", err)
-	}
-	if err := auditRejectedCommand(
-		ctx, transaction.AuditEntry, actorAccountID, action, targetType, targetID, now,
-	); err != nil {
-		return false, opaqueError("audit rejected command", err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return false, opaqueError("commit rejected command", err)
-	}
-	return false, nil
 }

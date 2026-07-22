@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -254,48 +255,85 @@ func (service *Service) CreateAccount(
 	if err := command.ValidateID(commandID); err != nil {
 		return Account{}, ErrInvalidAccountDetails
 	}
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID, CommandID: commandID, PayloadHash: payloadHash,
+		Action: "CreateAccount", TargetType: "Account", TargetID: "unidentified", Now: service.now().UTC(),
+	}
+	transaction, err := service.storage.BeginCommand(actor.Context(ctx))
+	if err != nil {
+		return Account{}, err
+	}
+	defer func() { _ = transaction.Rollback() }()
+	outcome, retry, err := transaction.LookupReceipt(ctx, identity)
+	if errors.Is(err, ErrCommandConflict) {
+		if commitErr := transaction.CommitConflict(actor.Context(ctx), identity); commitErr != nil {
+			return Account{}, commitErr
+		}
+		return Account{}, ErrCommandConflict
+	}
+	if err != nil {
+		return Account{}, err
+	}
+	if retry {
+		var original store.AccountCredential
+		if decodeErr := store.DecodeCommandReceipt(outcome, &original); decodeErr != nil {
+			return Account{}, restoreRejected(decodeErr)
+		}
+		return account(original), nil
+	}
 	if !actor.Administrator {
-		return Account{}, service.rejected(ctx, actor, commandID, payloadHash, ErrAdministratorRequired)
+		return Account{}, service.rejectTransaction(actor.Context(ctx), transaction, identity, ErrAdministratorRequired)
 	}
 	normalizedName, displayName, err := normalizeAccountName(name)
 	if err != nil || !validPassword(password) {
-		return Account{}, service.rejected(ctx, actor, commandID, payloadHash, ErrInvalidAccountDetails)
+		return Account{}, service.rejectTransaction(actor.Context(ctx), transaction, identity, ErrInvalidAccountDetails)
 	}
 	passwordHash, err := service.hashPassword(password)
 	if err != nil {
 		return Account{}, err
 	}
-	created, err := service.storage.CreateAccount(actor.Context(ctx), store.CreateAccountParams{
+	created, err := transaction.CreateAccount(actor.Context(ctx), store.CreateAccountParams{
 		ActorAccountID: actor.ID,
 		Name:           displayName,
 		NormalizedName: normalizedName,
 		PasswordHash:   passwordHash,
-		Now:            service.now().UTC(),
+		Now:            identity.Now,
 		CommandID:      commandID,
 		PayloadHash:    command.PayloadHash(normalizedName, password),
 	})
 	if err != nil {
-		err = restoreRejected(err)
-		if !errors.Is(err, ErrCommandConflict) {
-			err = service.rejected(ctx, actor, commandID, payloadHash, err)
+		if errors.Is(err, ErrAccountExists) {
+			return Account{}, service.rejectTransaction(actor.Context(ctx), transaction, identity, err)
 		}
+		return Account{}, err
+	}
+	identity.TargetID = strconv.Itoa(created.ID)
+	encoded, err := json.Marshal(created)
+	if err != nil {
+		return Account{}, errors.New("encode Account creation outcome")
+	}
+	if err := transaction.RecordOutcome(actor.Context(ctx), identity, string(encoded), false); err != nil {
+		return Account{}, err
+	}
+	if err := transaction.Commit(); err != nil {
 		return Account{}, err
 	}
 	return account(created), nil
 }
 
-func (service *Service) rejected(
+func (service *Service) rejectTransaction(
 	ctx context.Context,
-	actor Account,
-	targetID string,
-	payloadHash string,
+	transaction *store.CommandTx,
+	identity store.CommandIdentity,
 	reason error,
 ) error {
-	_, auditErr := service.storage.RecordRejectedCommand(
-		actor.Context(ctx), actor.ID, targetID, payloadHash,
-		"CreateAccount", "Account", "unidentified", accountRejection(reason), service.now().UTC(),
-	)
-	return errors.Join(reason, auditErr)
+	if err := transaction.RecordRejection(ctx, identity, accountRejection(reason)); err != nil {
+		return errors.Join(reason, err)
+	}
+	if err := transaction.Commit(); err != nil {
+		return errors.Join(reason, err)
+	}
+	return reason
 }
 
 func accountRejection(reason error) store.CommandRejection {

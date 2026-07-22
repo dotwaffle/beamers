@@ -241,6 +241,11 @@ func (commands *Commands) EditDraft(
 		})
 	}
 	stored, err := transaction.EditDraft(actor.Context(ctx), editDraftParams(actor.ID, normalized, identity.Now))
+	if errors.Is(err, store.ErrDraftReference) {
+		return EditDraftResult{}, commands.rejectEditDraft(ctx, transaction, actor, identity, rejection{
+			Code: "validation", Field: "references", Message: "must identify Draft structure in this Event",
+		})
+	}
 	if errors.Is(err, ErrDraftRevisionConflict) {
 		return EditDraftResult{}, commands.rejectEditDraft(ctx, transaction, actor, identity, rejection{
 			Code: "draft_revision_conflict", Message: ErrDraftRevisionConflict.Error(),

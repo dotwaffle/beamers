@@ -192,6 +192,7 @@ func TestEventCreationRejectsInvalidTimezoneAndLocale(t *testing.T) {
 			input := make(map[string]string, len(valid))
 			maps.Copy(input, valid)
 			input[test.field] = test.value
+			input["command_id"] = "create-event-invalid-" + strings.ReplaceAll(strings.ToLower(test.name), " ", "-")
 			assertJSONRequest(
 				t, client, server.address, "/admin/events", input,
 				http.StatusUnprocessableEntity, test.wantBody,
@@ -333,6 +334,7 @@ func TestAdministratorAuthorityDoesNotPermitEventCrewMutation(t *testing.T) {
 	)
 	changed := validEventInput()
 	changed["name"] = "Changed without an Event Grant"
+	changed["command_id"] = "update-event-without-grant"
 	assertJSONMethodRequest(
 		t, http.MethodPut, administrator, server.address, "/crew/events/1",
 		changed, http.StatusForbidden, "Event access denied\n",

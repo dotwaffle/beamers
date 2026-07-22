@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
@@ -25,7 +26,7 @@ func TestEventAndGrantChangesCreateAuditEntries(t *testing.T) {
 	administratorContext := viewer.NewContext(t.Context(), viewer.Identity{
 		AccountID: administrator.ID, Administrator: true,
 	})
-	producer, err := installation.CreateAccount(administratorContext, CreateAccountParams{
+	producer, err := createAccountCommand(t, installation, administratorContext, CreateAccountParams{
 		ActorAccountID: administrator.ID,
 		Name:           "Pat Producer",
 		NormalizedName: "pat producer",
@@ -37,7 +38,7 @@ func TestEventAndGrantChangesCreateAuditEntries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create Producer Account: %v", err)
 	}
-	createdEvent, err := installation.CreateEvent(administratorContext, CreateEventParams{
+	createdEvent, err := createEventCommand(t, installation, administratorContext, CreateEventParams{
 		ActorAccountID:   administrator.ID,
 		Name:             "Revision 2026",
 		PlannedStartDate: "2026-08-21", PlannedEndDate: "2026-08-23",
@@ -49,7 +50,7 @@ func TestEventAndGrantChangesCreateAuditEntries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create Event: %v", err)
 	}
-	_, grantErr := installation.GrantEventAccess(administratorContext, GrantEventAccessParams{
+	_, grantErr := grantEventAccessCommand(t, installation, administratorContext, GrantEventAccessParams{
 		ActorAccountID: administrator.ID,
 		EventID:        createdEvent.ID,
 		AccountID:      producer.ID,
@@ -94,11 +95,11 @@ func TestEventCommandRetryReturnsOriginalOutcomeAndConflictIsAudited(t *testing.
 		PlannedStartDate: "2026-08-21", PlannedEndDate: "2026-08-23",
 		Timezone: "Europe/Berlin", EventLocale: "de-DE", EventDayBoundary: "00:00", Now: now,
 	}
-	first, err := installation.CreateEvent(ctx, params)
+	first, err := createEventCommand(t, installation, ctx, params)
 	if err != nil {
 		t.Fatalf("create Event: %v", err)
 	}
-	retry, err := installation.CreateEvent(ctx, params)
+	retry, err := createEventCommand(t, installation, ctx, params)
 	if err != nil {
 		t.Fatalf("retry Event creation: %v", err)
 	}
@@ -106,7 +107,7 @@ func TestEventCommandRetryReturnsOriginalOutcomeAndConflictIsAudited(t *testing.
 		t.Errorf("retry outcome = %+v, want original %+v", retry, first)
 	}
 	params.PayloadHash = strings.Repeat("b", 64)
-	_, conflictErr := installation.CreateEvent(ctx, params)
+	_, conflictErr := createEventCommand(t, installation, ctx, params)
 	if !errors.Is(conflictErr, ErrCommandConflict) {
 		t.Fatalf("conflicting retry error = %v, want %v", conflictErr, ErrCommandConflict)
 	}
@@ -140,13 +141,28 @@ func TestRejectedCommandRetryKeepsOneAuditWithDomainTarget(t *testing.T) {
 	})
 
 	for attempt := range 2 {
-		retry, err := installation.RecordRejectedCommand(
-			ctx, administrator.ID, "grant-invalid-role", strings.Repeat("f", 64),
-			"CreateEventGrant", "EventGrant", "7:11",
-			CommandRejection{Code: "producer_required"}, now,
-		)
+		transaction, err := installation.BeginCommand(ctx)
 		if err != nil {
-			t.Fatalf("record rejected command attempt %d: %v", attempt+1, err)
+			t.Fatalf("begin rejected command attempt %d: %v", attempt+1, err)
+		}
+		identity := CommandIdentity{
+			ActorAccountID: administrator.ID, CommandID: "grant-invalid-role",
+			PayloadHash: strings.Repeat("f", 64), Action: "CreateEventGrant",
+			TargetType: "EventGrant", TargetID: "7:11", Now: now,
+		}
+		_, retry, err := transaction.LookupReceipt(ctx, identity)
+		if err != nil {
+			t.Fatalf("lookup rejected command attempt %d: %v", attempt+1, err)
+		}
+		if !retry {
+			if err := transaction.RecordRejection(ctx, identity, CommandRejection{Code: "producer_required"}); err != nil {
+				t.Fatalf("record rejected command attempt %d: %v", attempt+1, err)
+			}
+			if err := transaction.Commit(); err != nil {
+				t.Fatalf("commit rejected command attempt %d: %v", attempt+1, err)
+			}
+		} else if err := transaction.Rollback(); err != nil {
+			t.Fatalf("rollback rejected retry attempt %d: %v", attempt+1, err)
 		}
 		if retry != (attempt == 1) {
 			t.Errorf("attempt %d retry = %t, want %t", attempt+1, retry, attempt == 1)
@@ -278,7 +294,7 @@ func createEventTestAccount(
 	now time.Time,
 ) AccountCredential {
 	t.Helper()
-	created, err := installation.CreateAccount(ctx, CreateAccountParams{
+	created, err := createAccountCommand(t, installation, ctx, CreateAccountParams{
 		ActorAccountID: administratorID, Name: name, NormalizedName: strings.ToLower(name),
 		PasswordHash: "password hash", Now: now,
 		CommandID:   "create-account-" + strings.ReplaceAll(strings.ToLower(name), " ", "-"),
@@ -299,7 +315,7 @@ func createEventTestEvent(
 	now time.Time,
 ) Event {
 	t.Helper()
-	created, err := installation.CreateEvent(ctx, CreateEventParams{
+	created, err := createEventCommand(t, installation, ctx, CreateEventParams{
 		ActorAccountID: administratorID, Name: name,
 		PlannedStartDate: "2026-08-21", PlannedEndDate: "2026-08-23",
 		Timezone: "Europe/Berlin", EventLocale: "de-DE", EventDayBoundary: "00:00", Now: now,
@@ -323,7 +339,7 @@ func grantEventTestRole(
 	now time.Time,
 ) {
 	t.Helper()
-	if _, err := installation.GrantEventAccess(ctx, GrantEventAccessParams{
+	if _, err := grantEventAccessCommand(t, installation, ctx, GrantEventAccessParams{
 		ActorAccountID: administratorID, EventID: eventID, AccountID: accountID,
 		Role: role, Now: now,
 		CommandID:   "grant-" + strconv.Itoa(eventID) + "-" + strconv.Itoa(accountID),
@@ -331,6 +347,107 @@ func grantEventTestRole(
 	}); err != nil {
 		t.Fatalf("grant %s role: %v", role, err)
 	}
+}
+
+func createEventCommand(
+	t *testing.T,
+	installation *SQLite,
+	ctx context.Context,
+	params CreateEventParams,
+) (Event, error) {
+	t.Helper()
+	identity := CommandIdentity{
+		ActorAccountID: params.ActorAccountID, CommandID: params.CommandID,
+		PayloadHash: params.PayloadHash, Action: "CreateEvent", TargetType: "Event", Now: params.Now,
+	}
+	return executeTestCommand(t, installation, ctx, identity, func(transaction *CommandTx) (Event, error) {
+		return transaction.CreateEvent(ctx, params)
+	}, func(created Event) string { return strconv.Itoa(created.ID) })
+}
+
+func createAccountCommand(
+	t *testing.T,
+	installation *SQLite,
+	ctx context.Context,
+	params CreateAccountParams,
+) (AccountCredential, error) {
+	t.Helper()
+	identity := CommandIdentity{
+		ActorAccountID: params.ActorAccountID, CommandID: params.CommandID,
+		PayloadHash: params.PayloadHash, Action: "CreateAccount", TargetType: "Account", Now: params.Now,
+	}
+	return executeTestCommand(t, installation, ctx, identity, func(transaction *CommandTx) (AccountCredential, error) {
+		return transaction.CreateAccount(ctx, params)
+	}, func(created AccountCredential) string { return strconv.Itoa(created.ID) })
+}
+
+func grantEventAccessCommand(
+	t *testing.T,
+	installation *SQLite,
+	ctx context.Context,
+	params GrantEventAccessParams,
+) (EventGrant, error) {
+	t.Helper()
+	identity := CommandIdentity{
+		ActorAccountID: params.ActorAccountID, CommandID: params.CommandID,
+		PayloadHash: params.PayloadHash, Action: "CreateEventGrant", TargetType: "EventGrant",
+		TargetID: strconv.Itoa(params.EventID) + ":" + strconv.Itoa(params.AccountID), Now: params.Now,
+	}
+	return executeTestCommand(t, installation, ctx, identity, func(transaction *CommandTx) (EventGrant, error) {
+		return transaction.GrantEventAccess(ctx, params)
+	}, nil)
+}
+
+func executeTestCommand[T any](
+	t *testing.T,
+	installation *SQLite,
+	ctx context.Context,
+	identity CommandIdentity,
+	mutate func(*CommandTx) (T, error),
+	targetID func(T) string,
+) (T, error) {
+	t.Helper()
+	var zero T
+	transaction, err := installation.BeginCommand(ctx)
+	if err != nil {
+		return zero, err
+	}
+	defer func() { _ = transaction.Rollback() }()
+	outcome, retry, err := transaction.LookupReceipt(ctx, identity)
+	if errors.Is(err, ErrCommandConflict) {
+		if commitErr := transaction.CommitConflict(ctx, identity); commitErr != nil {
+			return zero, commitErr
+		}
+		return zero, ErrCommandConflict
+	}
+	if err != nil {
+		return zero, err
+	}
+	if retry {
+		var original T
+		if decodeErr := DecodeCommandReceipt(outcome, &original); decodeErr != nil {
+			return zero, decodeErr
+		}
+		return original, nil
+	}
+	result, err := mutate(transaction)
+	if err != nil {
+		return zero, err
+	}
+	if targetID != nil {
+		identity.TargetID = targetID(result)
+	}
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		return zero, err
+	}
+	if err := transaction.RecordOutcome(ctx, identity, string(encoded), false); err != nil {
+		return zero, err
+	}
+	if err := transaction.Commit(); err != nil {
+		return zero, err
+	}
+	return result, nil
 }
 
 func openEventTestInstallation(t *testing.T) *SQLite {

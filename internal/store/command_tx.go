@@ -8,8 +8,11 @@ import (
 
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/auditentry"
+	"github.com/dotwaffle/beamers/ent/lane"
+	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
+	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -93,6 +96,19 @@ func (transaction *CommandTx) RecordOutcome(
 		return opaqueError("record command Audit Entry", err)
 	}
 	return nil
+}
+
+// RecordRejection appends one stable rejected outcome and its Audit Entry.
+func (transaction *CommandTx) RecordRejection(
+	ctx context.Context,
+	identity CommandIdentity,
+	rejection CommandRejection,
+) error {
+	encoded, err := json.Marshal(commandOutcome{Rejected: &rejection})
+	if err != nil {
+		return opaqueError("encode rejected command outcome", err)
+	}
+	return transaction.RecordOutcome(ctx, identity, string(encoded), true)
 }
 
 // CommitConflict records one conflicting Command ID reuse without altering its receipt.
@@ -213,6 +229,9 @@ func (transaction *CommandTx) EditDraft(
 	}
 	if err != nil {
 		return EditDraftResult{}, opaqueError("load Rundown Draft", err)
+	}
+	if referenceErr := transaction.validateDraftReferences(ctx, params); referenceErr != nil {
+		return EditDraftResult{}, referenceErr
 	}
 	if params.ExpectedDraftRevision != current.DraftRevision {
 		return EditDraftResult{}, ErrDraftRevisionConflict
@@ -352,6 +371,64 @@ func (transaction *CommandTx) EditDraft(
 		result.Changes = append(result.Changes, draftChangeResult(change))
 	}
 	return result, nil
+}
+
+func (transaction *CommandTx) validateDraftReferences(ctx context.Context, params EditDraftParams) error {
+	locationIDs := make(map[int]struct{})
+	laneIDs := make(map[int]struct{})
+	trackIDs := make(map[int]struct{})
+	for _, item := range params.Lanes {
+		if item.Location.ID > 0 {
+			locationIDs[item.Location.ID] = struct{}{}
+		}
+	}
+	for _, item := range params.Sessions {
+		collectDraftTargetIDs(laneIDs, item.Lanes)
+		collectDraftTargetIDs(locationIDs, item.Locations)
+		collectDraftTargetIDs(trackIDs, item.Tracks)
+	}
+	for id := range locationIDs {
+		exists, err := transaction.transaction.Location.Query().
+			Where(location.IDEQ(id), location.EventIDEQ(params.EventID)).
+			Exist(ctx)
+		if err != nil {
+			return opaqueError("validate Draft Location reference", err)
+		}
+		if !exists {
+			return ErrDraftReference
+		}
+	}
+	for id := range laneIDs {
+		exists, err := transaction.transaction.Lane.Query().
+			Where(lane.IDEQ(id), lane.EventIDEQ(params.EventID)).
+			Exist(ctx)
+		if err != nil {
+			return opaqueError("validate Draft Lane reference", err)
+		}
+		if !exists {
+			return ErrDraftReference
+		}
+	}
+	for id := range trackIDs {
+		exists, err := transaction.transaction.Track.Query().
+			Where(track.IDEQ(id), track.EventIDEQ(params.EventID)).
+			Exist(ctx)
+		if err != nil {
+			return opaqueError("validate Draft Track reference", err)
+		}
+		if !exists {
+			return ErrDraftReference
+		}
+	}
+	return nil
+}
+
+func collectDraftTargetIDs(ids map[int]struct{}, targets []DraftTarget) {
+	for _, target := range targets {
+		if target.ID > 0 {
+			ids[target.ID] = struct{}{}
+		}
+	}
 }
 
 type draftCreationState struct {

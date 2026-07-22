@@ -98,6 +98,21 @@ func TestEditDraftRejectionIsAtomicAndReplayable(t *testing.T) {
 	if _, commandErr := commands.EditDraft(t.Context(), actor, conflict); !errors.Is(commandErr, rundown.ErrCommandConflict) {
 		t.Fatalf("conflicting Command ID error = %v, want %v", commandErr, rundown.ErrCommandConflict)
 	}
+	invalidReference := rundown.EditDraftInput{
+		EventID: eventID, CommandID: "invalid-reference", ExpectedDraftRevision: 0,
+		Lanes: []rundown.LaneDraftInput{{
+			Ref: "missing-location-lane", Name: "Missing Location Lane",
+			Location: rundown.TargetRef{ID: 999999},
+		}},
+	}
+	if _, commandErr := commands.EditDraft(t.Context(), actor, invalidReference); commandErr == nil {
+		t.Fatal("Edit Draft with unknown stable reference succeeded")
+	} else {
+		var validation *rundown.ValidationError
+		if !errors.As(commandErr, &validation) || validation.Field != "references" {
+			t.Fatalf("unknown stable reference error = %v, want references ValidationError", commandErr)
+		}
+	}
 	conflict.CommandID = "valid-after-rejection"
 	created, err := commands.EditDraft(t.Context(), actor, conflict)
 	if err != nil {
@@ -105,6 +120,16 @@ func TestEditDraftRejectionIsAtomicAndReplayable(t *testing.T) {
 	}
 	if created.DraftRevision != 1 {
 		t.Fatalf("Draft revision = %d, want 1 after atomic rejection", created.DraftRevision)
+	}
+	stale := rundown.EditDraftInput{
+		EventID: eventID, CommandID: "stale-draft", ExpectedDraftRevision: 0,
+		Locations: []rundown.LocationDraftInput{{Ref: "late", Name: "Late Hall"}},
+	}
+	if _, commandErr := commands.EditDraft(t.Context(), actor, stale); !errors.Is(commandErr, rundown.ErrDraftRevisionConflict) {
+		t.Fatalf("stale Edit Draft error = %v, want %v", commandErr, rundown.ErrDraftRevisionConflict)
+	}
+	if _, replayErr := commands.EditDraft(t.Context(), revokedActor, stale); !errors.Is(replayErr, rundown.ErrDraftRevisionConflict) {
+		t.Fatalf("stale Edit Draft retry error = %v, want %v", replayErr, rundown.ErrDraftRevisionConflict)
 	}
 }
 

@@ -2,15 +2,12 @@ package store
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"strconv"
 	"time"
 
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/accountsession"
-	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
@@ -60,39 +57,12 @@ type CreateAccountParams struct {
 	PayloadHash    string
 }
 
-// CreateAccount atomically records an individual non-Administrator Account,
-// its credential, and its Audit Entry.
-func (installation *SQLite) CreateAccount(
+// CreateAccount mutates Account state without owning command lifecycle evidence.
+func (transaction *CommandTx) CreateAccount(
 	ctx context.Context,
 	params CreateAccountParams,
 ) (AccountCredential, error) {
-	transaction, err := installation.client.Tx(ctx)
-	if err != nil {
-		return AccountCredential{}, opaqueError("begin Account creation", err)
-	}
-	defer func() {
-		_ = transaction.Rollback()
-	}()
-	receipt := commandReceiptParams{
-		ActorAccountID: params.ActorAccountID, CommandID: params.CommandID,
-		PayloadHash: params.PayloadHash, Action: "CreateAccount", TargetType: "Account", Now: params.Now,
-	}
-	outcome, retry, err := findCommandReceipt(ctx, transaction, receipt)
-	if errors.Is(err, ErrCommandConflict) {
-		return AccountCredential{}, rejectCommandConflict(ctx, transaction, receipt)
-	}
-	if err != nil {
-		return AccountCredential{}, err
-	}
-	if retry {
-		var original AccountCredential
-		if decodeErr := decodeCommandReceipt(outcome, &original, "decode Account Command Receipt"); decodeErr != nil {
-			return AccountCredential{}, decodeErr
-		}
-		return original, nil
-	}
-
-	created, err := transaction.Account.Create().
+	created, err := transaction.transaction.Account.Create().
 		SetName(params.Name).
 		SetNormalizedName(params.NormalizedName).
 		SetAdministrator(false).
@@ -104,37 +74,14 @@ func (installation *SQLite) CreateAccount(
 	if err != nil {
 		return AccountCredential{}, opaqueError("create Account", err)
 	}
-	if _, credentialErr := transaction.PasswordCredential.Create().
+	if _, credentialErr := transaction.transaction.PasswordCredential.Create().
 		SetAccountID(created.ID).
 		SetPasswordHash(params.PasswordHash).
 		SetCreatedAt(params.Now).
 		Save(viewer.SystemContext(ctx)); credentialErr != nil {
 		return AccountCredential{}, opaqueError("create Account credential", credentialErr)
 	}
-	projected := accountCredential(created, params.PasswordHash)
-	outcomeJSON, err := json.Marshal(projected)
-	if err != nil {
-		return AccountCredential{}, opaqueError("encode Account command outcome", err)
-	}
-	receipt.TargetID = strconv.Itoa(created.ID)
-	receipt.OutcomeJSON = string(outcomeJSON)
-	if err := createCommandReceipt(ctx, transaction, receipt); err != nil {
-		return AccountCredential{}, opaqueError("record Account Command Receipt", err)
-	}
-	if _, err := transaction.AuditEntry.Create().
-		SetActorAccountID(params.ActorAccountID).
-		SetCreatedAt(params.Now).
-		SetAction("CreateAccount").
-		SetTargetType("Account").
-		SetTargetID(strconv.Itoa(created.ID)).
-		SetResult(auditentry.ResultSucceeded).
-		Save(ctx); err != nil {
-		return AccountCredential{}, opaqueError("audit Account creation", err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return AccountCredential{}, opaqueError("commit Account creation", err)
-	}
-	return projected, nil
+	return accountCredential(created, params.PasswordHash), nil
 }
 
 // IssueBootstrap records one active credential when no Account or unexpired

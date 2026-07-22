@@ -2,16 +2,13 @@ package store
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"strconv"
 	"time"
 
 	"entgo.io/ent/privacy"
 
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/account"
-	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/internal/viewer"
@@ -91,38 +88,9 @@ type UpdateEventParams struct {
 	ExpectedRevision int
 }
 
-// CreateEvent atomically records an Event and its Audit Entry.
-func (installation *SQLite) CreateEvent(
-	ctx context.Context,
-	params CreateEventParams,
-) (Event, error) {
-	transaction, err := installation.client.Tx(ctx)
-	if err != nil {
-		return Event{}, opaqueError("begin Event creation", err)
-	}
-	defer func() {
-		_ = transaction.Rollback()
-	}()
-	receipt := commandReceiptParams{
-		ActorAccountID: params.ActorAccountID, CommandID: params.CommandID,
-		PayloadHash: params.PayloadHash, Action: "CreateEvent", TargetType: "Event", Now: params.Now,
-	}
-	outcome, retry, err := findCommandReceipt(ctx, transaction, receipt)
-	if errors.Is(err, ErrCommandConflict) {
-		return Event{}, rejectCommandConflict(ctx, transaction, receipt)
-	}
-	if err != nil {
-		return Event{}, err
-	}
-	if retry {
-		var original Event
-		if decodeErr := decodeCommandReceipt(outcome, &original, "decode Event Command Receipt"); decodeErr != nil {
-			return Event{}, decodeErr
-		}
-		return original, nil
-	}
-
-	create := transaction.Event.Create().
+// CreateEvent mutates Event state without owning command lifecycle evidence.
+func (transaction *CommandTx) CreateEvent(ctx context.Context, params CreateEventParams) (Event, error) {
+	create := transaction.transaction.Event.Create().
 		SetName(params.Name).
 		SetPlannedStartDate(params.PlannedStartDate).
 		SetPlannedEndDate(params.PlannedEndDate).
@@ -137,77 +105,29 @@ func (installation *SQLite) CreateEvent(
 	if err != nil {
 		return Event{}, opaqueError("create Event", err)
 	}
-	if _, createErr := transaction.Rundown.Create().
+	if _, createErr := transaction.transaction.Rundown.Create().
 		SetEventID(created.ID).
 		Save(viewer.SystemContext(ctx)); createErr != nil {
 		return Event{}, opaqueError("create Event Rundown", createErr)
 	}
-	projected := eventProjection(created)
-	outcomeJSON, err := json.Marshal(projected)
-	if err != nil {
-		return Event{}, opaqueError("encode Event command outcome", err)
-	}
-	receipt.TargetID = strconv.Itoa(created.ID)
-	receipt.OutcomeJSON = string(outcomeJSON)
-	if err := createCommandReceipt(ctx, transaction, receipt); err != nil {
-		return Event{}, opaqueError("record Event Command Receipt", err)
-	}
-	if _, err := transaction.AuditEntry.Create().
-		SetActorAccountID(params.ActorAccountID).
-		SetCreatedAt(params.Now).
-		SetAction("CreateEvent").
-		SetTargetType("Event").
-		SetTargetID(strconv.Itoa(created.ID)).
-		SetResult(auditentry.ResultSucceeded).
-		Save(ctx); err != nil {
-		return Event{}, opaqueError("audit Event creation", err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return Event{}, opaqueError("commit Event creation", err)
-	}
-	return projected, nil
+	return eventProjection(created), nil
 }
 
-// GrantEventAccess atomically records an Event Grant and its Audit Entry.
-func (installation *SQLite) GrantEventAccess(
+// GrantEventAccess mutates Event Grant state without owning command lifecycle evidence.
+func (transaction *CommandTx) GrantEventAccess(
 	ctx context.Context,
 	params GrantEventAccessParams,
 ) (EventGrant, error) {
-	transaction, err := installation.client.Tx(ctx)
-	if err != nil {
-		return EventGrant{}, opaqueError("begin Event Grant", err)
-	}
-	defer func() {
-		_ = transaction.Rollback()
-	}()
-	receipt := commandReceiptParams{
-		ActorAccountID: params.ActorAccountID, CommandID: params.CommandID,
-		PayloadHash: params.PayloadHash, Action: "CreateEventGrant",
-		TargetType: "EventGrant", Now: params.Now,
-	}
-	outcome, retry, err := findCommandReceipt(ctx, transaction, receipt)
-	if errors.Is(err, ErrCommandConflict) {
-		return EventGrant{}, rejectCommandConflict(ctx, transaction, receipt)
-	}
-	if err != nil {
-		return EventGrant{}, err
-	}
-	if retry {
-		var original EventGrant
-		if decodeErr := decodeCommandReceipt(outcome, &original, "decode Event Grant Command Receipt"); decodeErr != nil {
-			return EventGrant{}, decodeErr
-		}
-		return original, nil
-	}
-
-	eventExists, err := transaction.Event.Query().Where(event.IDEQ(params.EventID)).Exist(viewer.SystemContext(ctx))
+	eventExists, err := transaction.transaction.Event.Query().
+		Where(event.IDEQ(params.EventID)).
+		Exist(viewer.SystemContext(ctx))
 	if err != nil {
 		return EventGrant{}, opaqueError("find Event for Grant", err)
 	}
 	if !eventExists {
 		return EventGrant{}, ErrEventNotFound
 	}
-	accountExists, err := transaction.Account.Query().Where(
+	accountExists, err := transaction.transaction.Account.Query().Where(
 		account.IDEQ(params.AccountID), account.DisabledAtIsNil(),
 	).Exist(ctx)
 	if err != nil {
@@ -216,7 +136,7 @@ func (installation *SQLite) GrantEventAccess(
 	if !accountExists {
 		return EventGrant{}, ErrAccountNotFound
 	}
-	created, err := transaction.EventGrant.Create().
+	created, err := transaction.transaction.EventGrant.Create().
 		SetEventID(params.EventID).
 		SetAccountID(params.AccountID).
 		SetRole(params.Role).
@@ -228,84 +148,12 @@ func (installation *SQLite) GrantEventAccess(
 	if err != nil {
 		return EventGrant{}, opaqueError("create Event Grant", err)
 	}
-	projected := EventGrant{EventID: created.EventID, AccountID: created.AccountID, Role: created.Role.String()}
-	outcomeJSON, err := json.Marshal(projected)
-	if err != nil {
-		return EventGrant{}, opaqueError("encode Event Grant command outcome", err)
-	}
-	receipt.TargetID = strconv.Itoa(created.ID)
-	receipt.OutcomeJSON = string(outcomeJSON)
-	if err := createCommandReceipt(ctx, transaction, receipt); err != nil {
-		return EventGrant{}, opaqueError("record Event Grant Command Receipt", err)
-	}
-	if _, err := transaction.AuditEntry.Create().
-		SetActorAccountID(params.ActorAccountID).
-		SetCreatedAt(params.Now).
-		SetAction("CreateEventGrant").
-		SetTargetType("EventGrant").
-		SetTargetID(strconv.Itoa(created.ID)).
-		SetResult(auditentry.ResultSucceeded).
-		Save(ctx); err != nil {
-		return EventGrant{}, opaqueError("audit Event Grant", err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return EventGrant{}, opaqueError("commit Event Grant", err)
-	}
-	return projected, nil
+	return EventGrant{EventID: created.EventID, AccountID: created.AccountID, Role: created.Role.String()}, nil
 }
 
-// FindCrewEvent returns an Event only when the Account has an Event Grant.
-func (installation *SQLite) FindCrewEvent(
-	ctx context.Context,
-	accountID int,
-	eventID int,
-) (Event, error) {
-	found, err := installation.client.Event.Query().Where(
-		event.IDEQ(eventID),
-		event.HasGrantsWith(eventgrant.AccountIDEQ(accountID)),
-	).Only(ctx)
-	if ent.IsNotFound(err) || errors.Is(err, privacy.Deny) {
-		return Event{}, ErrEventAccessDenied
-	}
-	if err != nil {
-		return Event{}, opaqueError("read crew Event", err)
-	}
-	return eventProjection(found), nil
-}
-
-// UpdateCrewEvent atomically replaces Event configuration and records its Audit Entry.
-func (installation *SQLite) UpdateCrewEvent(
-	ctx context.Context,
-	params UpdateEventParams,
-) (Event, error) {
-	transaction, err := installation.client.Tx(ctx)
-	if err != nil {
-		return Event{}, opaqueError("begin Event update", err)
-	}
-	defer func() {
-		_ = transaction.Rollback()
-	}()
-	receipt := commandReceiptParams{
-		ActorAccountID: params.ActorAccountID, CommandID: params.CommandID,
-		PayloadHash: params.PayloadHash, Action: "UpdateEvent", TargetType: "Event",
-		TargetID: strconv.Itoa(params.EventID), Now: params.Now,
-	}
-	outcome, retry, err := findCommandReceipt(ctx, transaction, receipt)
-	if errors.Is(err, ErrCommandConflict) {
-		return Event{}, rejectCommandConflict(ctx, transaction, receipt)
-	}
-	if err != nil {
-		return Event{}, err
-	}
-	if retry {
-		var original Event
-		if decodeErr := decodeCommandReceipt(outcome, &original, "decode Event update Command Receipt"); decodeErr != nil {
-			return Event{}, decodeErr
-		}
-		return original, nil
-	}
-
-	update := transaction.Event.UpdateOneID(params.EventID).
+// UpdateEvent mutates Event configuration without owning command lifecycle evidence.
+func (transaction *CommandTx) UpdateEvent(ctx context.Context, params UpdateEventParams) (Event, error) {
+	update := transaction.transaction.Event.UpdateOneID(params.EventID).
 		Where(event.RevisionEQ(params.ExpectedRevision)).
 		SetName(params.Name).
 		SetPlannedStartDate(params.PlannedStartDate).
@@ -326,27 +174,24 @@ func (installation *SQLite) UpdateCrewEvent(
 	if err != nil {
 		return Event{}, opaqueError("update Event", err)
 	}
-	projected := eventProjection(updated)
-	outcomeJSON, err := json.Marshal(projected)
+	return eventProjection(updated), nil
+}
+
+// FindCrewEvent returns an Event only when the Account has an Event Grant.
+func (installation *SQLite) FindCrewEvent(
+	ctx context.Context,
+	accountID int,
+	eventID int,
+) (Event, error) {
+	found, err := installation.client.Event.Query().Where(
+		event.IDEQ(eventID),
+		event.HasGrantsWith(eventgrant.AccountIDEQ(accountID)),
+	).Only(ctx)
+	if ent.IsNotFound(err) || errors.Is(err, privacy.Deny) {
+		return Event{}, ErrEventAccessDenied
+	}
 	if err != nil {
-		return Event{}, opaqueError("encode Event update command outcome", err)
+		return Event{}, opaqueError("read crew Event", err)
 	}
-	receipt.OutcomeJSON = string(outcomeJSON)
-	if err := createCommandReceipt(ctx, transaction, receipt); err != nil {
-		return Event{}, opaqueError("record Event update Command Receipt", err)
-	}
-	if _, err := transaction.AuditEntry.Create().
-		SetActorAccountID(params.ActorAccountID).
-		SetCreatedAt(params.Now).
-		SetAction("UpdateEvent").
-		SetTargetType("Event").
-		SetTargetID(strconv.Itoa(params.EventID)).
-		SetResult(auditentry.ResultSucceeded).
-		Save(ctx); err != nil {
-		return Event{}, opaqueError("audit Event update", err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return Event{}, opaqueError("commit Event update", err)
-	}
-	return projected, nil
+	return eventProjection(found), nil
 }
