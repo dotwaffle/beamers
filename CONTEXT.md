@@ -67,10 +67,11 @@ Within one Rundown, it is bound to at most one Lane.
 _Avoid_: Venue, space
 
 **Rundown**: The authoritative live plan for an Event, containing one or more independently progressing Lanes.
+It has separate Draft and Published Revisions independent of Event configuration revision.
 _Avoid_: Schedule, timetable, track
 
 **Lane**: An independently progressing sequence of Sessions within a Rundown, bound to exactly one Location.
-Parallel programs use distinct Locations and Lanes.
+That binding may change through Publish without replacing the Lane's identity; parallel programs use distinct Locations and Lanes.
 _Avoid_: Rundown, track
 
 **Track**: An optional thematic grouping of Sessions that has no effect on live timing or progression.
@@ -83,6 +84,10 @@ _Avoid_: Rundown Item, event, slot
 **Session Deletion**: Permanent removal of a never-Published, unreferenced Session from Draft state.
 Once Published, a Session cannot be deleted.
 _Avoid_: Cancel Session, Crew Only, archival
+
+**Structural Retirement**: Publish removal of a Location, Lane, or Track from the current Rundown while retaining its stable identity and history for later inspection or reinstatement.
+It is allowed only when no current Draft, Published, or Live dependency requires that structure.
+_Avoid_: Session Deletion, Cancel Session, hard deletion
 
 **Scheduled**: The lifecycle state of a Published Session awaiting its next start.
 _Avoid_: Draft, proposed
@@ -316,24 +321,36 @@ _Avoid_: Session identity, synchronization key
 **Draft**: Unpublished structural changes to an Event that do not affect live operation.
 _Avoid_: Forecast Time
 
+**Draft Fact**: The smallest part of Draft state considered independently for concurrent-edit conflicts, such as one scalar value or one unordered relationship membership.
+An ordered collection is one Draft Fact unless its domain model defines finer independent parts.
+_Avoid_: Draft Change, database column
+
+**Draft Change**: The smallest proposed structural change that may be selected for Publish.
+Its dependencies must be selected with it or already be Published.
+_Avoid_: Draft Edit, database patch
+
 **Draft Edit**: One atomic set of related structural changes applied to shared Draft state under one expected Draft Revision.
 All changes succeed together, and changes within the set may refer to other new Draft elements in that same edit.
 _Avoid_: Publish, partial Draft update, generic patch
 
-**Draft Revision**: The version of relevant shared Draft state that an edit expects.
-A stale edit to the same field is rejected rather than overwriting another Crew Member's work.
+**Draft Revision**: The monotonic version identifying one snapshot of shared Draft state.
+An edit based on an older revision conflicts only when an intervening Draft Change overlaps a fact that edit targets.
 _Avoid_: Live State Revision, Results Draft revision
 
-**Draft Revert**: An ordinary undo or discard of unpublished Draft changes, retained in Draft history and producing no live corrective action.
+**Published Revision**: The monotonic version identifying one exact authoritative state of an Event's Rundown after Publish.
+_Avoid_: Draft Revision, Live State Revision
+
+**Draft Revert**: An ordinary undo or discard expressed as a new Draft Change while the superseded unpublished changes remain in Draft history.
+When it restores the Published baseline, no effective Draft Change remains selectable for that fact.
 _Avoid_: live Undo, Results Correction
 
 **Publish**: The deliberate action that atomically makes a reviewed, dependency-valid selection of Draft changes authoritative for live operation.
 _Avoid_: Live command
 
-**Publish Selection**: The reviewed subset of a Draft chosen for one atomic Publish; blocked or conflicting changes remain in Draft.
+**Publish Selection**: The reviewed, dependency-closed subset of a Draft chosen for one atomic Publish; blocked or conflicting changes remain in Draft.
 _Avoid_: partial database commit, import selection
 
-**Publish Preview**: The exact proposed diff and impact for a Publish Selection, bound to its Draft and Published revisions and invalidated when either changes.
+**Publish Preview**: The exact proposed diff, automatically included dependencies, and impact for a Publish Selection, bound to its Draft and Published revisions and invalidated when either changes.
 _Avoid_: generic diff, import preview
 
 **Publish Note**: Optional Crew context attached to an audited Publish; routine publication does not require a written reason.

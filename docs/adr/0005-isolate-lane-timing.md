@@ -5,6 +5,7 @@ Extensions, compression, and Pull Forward normally recalculate only the affected
 A Shared Session may be included in selected Lanes as one entity with common timing and live state, anchoring those Lanes to boundaries such as the end of lunch.
 Tracks are thematic groupings only and do not participate in timing.
 Each Lane is bound to exactly one Location, and a Location has at most one Lane in a Rundown.
+A later Draft may reassign a Lane to another Location without replacing Lane identity; Publish validates the resulting one-to-one bindings and rejects changes unsafe for current Live Sessions.
 A venue area hosting simultaneous programs is represented by named sub-Locations rather than parallel Lanes claiming the same Location.
 Session Locations are explicit and separate from Lane membership, defaulting to the Lane's Location.
 This lets a Shared Session synchronize several Lanes while occurring elsewhere; its explicit Locations drive occupancy and Location Signage directions.
