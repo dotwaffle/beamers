@@ -639,6 +639,9 @@ func (transaction *CommandTx) recordNamedFactChange(
 	factKey string,
 	before, after any,
 ) (*ent.DraftChange, error) {
+	if err := transaction.draftFacts().validate(targetType, factKey); err != nil {
+		return nil, err
+	}
 	encoded, err := json.Marshal(struct {
 		Version int `json:"version"`
 		Before  any `json:"before"`
@@ -1090,6 +1093,9 @@ func (transaction *CommandTx) createDraftChange(
 	targetID int,
 	payload any,
 ) (*ent.DraftChange, error) {
+	if err := transaction.draftFacts().validate(targetType, draftFactEntity); err != nil {
+		return nil, err
+	}
 	encoded, err := json.Marshal(struct {
 		Version int `json:"version"`
 		After   any `json:"after"`
@@ -1104,7 +1110,7 @@ func (transaction *CommandTx) createDraftChange(
 		SetKind(kind).
 		SetTargetType(targetType).
 		SetTargetID(targetID).
-		SetFactKey("entity").
+		SetFactKey(draftFactEntity).
 		SetPayloadJSON(string(encoded)).
 		SetCreatedAt(params.Now).
 		Save(ctx)

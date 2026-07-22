@@ -222,7 +222,7 @@ func (transaction *CommandTx) publishChanges(
 		}
 		key := draftFactTarget{targetType: change.TargetType, targetID: change.TargetID}
 		if strings.HasPrefix(change.Kind, "Create") && len(updates[key]) > 0 {
-			if err := transaction.publishCreatedChanges(ctx, change, updates[key], publishedRevision, now); err != nil {
+			if err := transaction.draftFacts().publishCreated(ctx, change, updates[key], publishedRevision, now); err != nil {
 				return err
 			}
 			delete(updates, key)
@@ -233,35 +233,50 @@ func (transaction *CommandTx) publishChanges(
 		}
 	}
 	for target, facts := range updates {
-		if err := transaction.publishFactUpdates(ctx, target, facts, publishedRevision, now); err != nil {
+		if err := transaction.draftFacts().publishUpdates(ctx, target, facts, publishedRevision, now); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (transaction *CommandTx) publishCreatedChanges(ctx context.Context, creation *ent.DraftChange, facts []*ent.DraftChange, revision int, now time.Time) error {
+func (facts rundownDraftFacts) publishCreated(ctx context.Context, creation *ent.DraftChange, changes []*ent.DraftChange, revision int, now time.Time) error {
+	if err := facts.validate(creation.TargetType, draftFactEntity); err != nil {
+		return err
+	}
+	for _, change := range changes {
+		if err := facts.validate(change.TargetType, change.FactKey); err != nil {
+			return err
+		}
+	}
+	transaction := facts.transaction
 	switch creation.TargetType {
 	case "Location":
-		return transaction.publishCreatedLocationFacts(ctx, creation, facts, revision, now)
+		return transaction.publishCreatedLocationFacts(ctx, creation, changes, revision, now)
 	case "Lane":
-		return transaction.publishCreatedLaneFacts(ctx, creation, facts, revision, now)
+		return transaction.publishCreatedLaneFacts(ctx, creation, changes, revision, now)
 	case "Track":
-		return transaction.publishCreatedTrackFacts(ctx, creation, facts, revision, now)
+		return transaction.publishCreatedTrackFacts(ctx, creation, changes, revision, now)
 	case "Session":
-		return transaction.publishCreatedSessionFacts(ctx, creation, facts, revision, now)
+		return transaction.publishCreatedSessionFacts(ctx, creation, changes, revision, now)
 	default:
 		return errors.New("unsupported Draft creation target")
 	}
 }
 
-func (transaction *CommandTx) publishFactUpdates(
+func (facts rundownDraftFacts) publishUpdates(
 	ctx context.Context,
 	target draftFactTarget,
 	changes []*ent.DraftChange,
 	revision int,
 	now time.Time,
 ) error {
+	for _, change := range changes {
+		if err := facts.validate(change.TargetType, change.FactKey); err != nil {
+			return err
+		}
+	}
+	transaction := facts.transaction
 	switch target.targetType {
 	case "Location":
 		return transaction.publishLocationFacts(ctx, target.targetID, changes, revision, now)

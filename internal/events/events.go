@@ -127,59 +127,31 @@ func (service *Service) Create(
 		ActorAccountID: actor.ID, CommandID: input.CommandID, PayloadHash: payloadHash,
 		Action: "CreateEvent", TargetType: "Event", TargetID: "unidentified", Now: service.now().UTC(),
 	}
-	transaction, err := service.storage.BeginCommand(actor.Context(ctx))
-	if err != nil {
-		return Event{}, err
-	}
-	defer func() { _ = transaction.Rollback() }()
-	outcome, retry, err := transaction.LookupReceipt(ctx, identity)
-	if errors.Is(err, ErrCommandConflict) {
-		if commitErr := transaction.CommitConflict(actor.Context(ctx), identity); commitErr != nil {
-			return Event{}, commitErr
-		}
-		return Event{}, ErrCommandConflict
-	}
-	if err != nil {
-		return Event{}, err
-	}
-	if retry {
-		var original store.Event
-		if decodeErr := store.DecodeCommandReceipt(outcome, &original); decodeErr != nil {
-			return Event{}, restoreRejected(decodeErr)
-		}
-		return event(original), nil
-	}
-	if !actor.Administrator {
-		return Event{}, service.rejectTransaction(actor.Context(ctx), transaction, identity, ErrAdministratorRequired)
-	}
-	normalized, err := validateCreateInput(input)
-	if err != nil {
-		return Event{}, service.rejectTransaction(actor.Context(ctx), transaction, identity, err)
-	}
-	created, err := transaction.CreateEvent(actor.Context(ctx), store.CreateEventParams{
-		ActorAccountID: actor.ID, Name: normalized.Name,
-		PlannedStartDate: normalized.PlannedStartDate, PlannedEndDate: normalized.PlannedEndDate,
-		Timezone: normalized.Timezone, EventLocale: normalized.EventLocale,
-		ContentLanguage: normalized.ContentLanguage, EventDayBoundary: normalized.EventDayBoundary,
-		Now:         identity.Now,
-		CommandID:   input.CommandID,
-		PayloadHash: eventPayloadHash(normalized, 0),
+	return command.Execute(actor.Context(ctx), command.Plan[Event]{
+		Storage: service.storage, Identity: identity, Replay: replayEvent,
+		Apply: func(transaction *store.CommandTx) (command.Execution[Event], error) {
+			if !actor.Administrator {
+				return eventRejection[Event](ErrAdministratorRequired), nil
+			}
+			normalized, validationErr := validateCreateInput(input)
+			if validationErr != nil {
+				return eventRejection[Event](validationErr), nil
+			}
+			created, createErr := transaction.CreateEvent(actor.Context(ctx), store.CreateEventParams{
+				ActorAccountID: actor.ID, Name: normalized.Name,
+				PlannedStartDate: normalized.PlannedStartDate, PlannedEndDate: normalized.PlannedEndDate,
+				Timezone: normalized.Timezone, EventLocale: normalized.EventLocale,
+				ContentLanguage: normalized.ContentLanguage, EventDayBoundary: normalized.EventDayBoundary,
+				Now:         identity.Now,
+				CommandID:   input.CommandID,
+				PayloadHash: eventPayloadHash(normalized, 0),
+			})
+			if createErr != nil {
+				return command.Execution[Event]{}, createErr
+			}
+			return eventSuccess(event(created), created, strconv.Itoa(created.ID), "encode Event creation outcome")
+		},
 	})
-	if err != nil {
-		return Event{}, err
-	}
-	identity.TargetID = strconv.Itoa(created.ID)
-	encoded, err := json.Marshal(created)
-	if err != nil {
-		return Event{}, errors.New("encode Event creation outcome")
-	}
-	if err := transaction.RecordOutcome(actor.Context(ctx), identity, string(encoded), false); err != nil {
-		return Event{}, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return Event{}, err
-	}
-	return event(created), nil
 }
 
 // GrantEventAccess gives an Account unscoped authority for one Event.
@@ -215,64 +187,37 @@ func (service *Service) GrantScopedEventAccess(
 		ActorAccountID: actor.ID, CommandID: input.CommandID, PayloadHash: payloadHash,
 		Action: "CreateEventGrant", TargetType: "EventGrant", TargetID: targetID, Now: service.now().UTC(),
 	}
-	transaction, err := service.storage.BeginCommand(actor.Context(ctx))
-	if err != nil {
-		return Grant{}, err
-	}
-	defer func() { _ = transaction.Rollback() }()
-	outcome, retry, err := transaction.LookupReceipt(ctx, identity)
-	if errors.Is(err, ErrCommandConflict) {
-		if commitErr := transaction.CommitConflict(actor.Context(ctx), identity); commitErr != nil {
-			return Grant{}, commitErr
-		}
-		return Grant{}, ErrCommandConflict
-	}
-	if err != nil {
-		return Grant{}, err
-	}
-	if retry {
-		var original store.EventGrant
-		if decodeErr := store.DecodeCommandReceipt(outcome, &original); decodeErr != nil {
-			return Grant{}, restoreRejected(decodeErr)
-		}
-		return grant(original), nil
-	}
-	if !actor.Administrator {
-		return Grant{}, service.rejectTransaction(actor.Context(ctx), transaction, identity, ErrAdministratorRequired)
-	}
-	normalized, validationErr := validateGrantInput(input)
-	if validationErr != nil {
-		return Grant{}, service.rejectTransaction(actor.Context(ctx), transaction, identity, validationErr)
-	}
-	created, err := transaction.GrantEventAccess(actor.Context(ctx), store.GrantEventAccessParams{
-		ActorAccountID:   actor.ID,
-		EventID:          eventID,
-		AccountID:        normalized.AccountID,
-		Role:             normalized.Role,
-		LaneIDs:          normalized.LaneIDs,
-		DisplayGroupKeys: normalized.DisplayGroupKeys,
-		Capabilities:     normalized.Capabilities,
-		Now:              identity.Now,
-		CommandID:        input.CommandID,
-		PayloadHash:      payloadHash,
+	return command.Execute(actor.Context(ctx), command.Plan[Grant]{
+		Storage: service.storage, Identity: identity, Replay: replayGrant,
+		Apply: func(transaction *store.CommandTx) (command.Execution[Grant], error) {
+			if !actor.Administrator {
+				return eventRejection[Grant](ErrAdministratorRequired), nil
+			}
+			normalized, validationErr := validateGrantInput(input)
+			if validationErr != nil {
+				return eventRejection[Grant](validationErr), nil
+			}
+			created, createErr := transaction.GrantEventAccess(actor.Context(ctx), store.GrantEventAccessParams{
+				ActorAccountID:   actor.ID,
+				EventID:          eventID,
+				AccountID:        normalized.AccountID,
+				Role:             normalized.Role,
+				LaneIDs:          normalized.LaneIDs,
+				DisplayGroupKeys: normalized.DisplayGroupKeys,
+				Capabilities:     normalized.Capabilities,
+				Now:              identity.Now,
+				CommandID:        input.CommandID,
+				PayloadHash:      payloadHash,
+			})
+			if createErr != nil {
+				if errors.Is(createErr, ErrEventNotFound) || errors.Is(createErr, ErrAccountNotFound) || errors.Is(createErr, ErrEventGrantExists) {
+					return eventRejection[Grant](createErr), nil
+				}
+				return command.Execution[Grant]{}, createErr
+			}
+			return eventSuccess(grant(created), created, "", "encode Event Grant outcome")
+		},
 	})
-	if err != nil {
-		if errors.Is(err, ErrEventNotFound) || errors.Is(err, ErrAccountNotFound) || errors.Is(err, ErrEventGrantExists) {
-			return Grant{}, service.rejectTransaction(actor.Context(ctx), transaction, identity, err)
-		}
-		return Grant{}, err
-	}
-	encoded, err := json.Marshal(created)
-	if err != nil {
-		return Grant{}, errors.New("encode Event Grant outcome")
-	}
-	if err := transaction.RecordOutcome(actor.Context(ctx), identity, string(encoded), false); err != nil {
-		return Grant{}, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return Grant{}, err
-	}
-	return grant(created), nil
 }
 
 // CrewEvent returns Event crew data only through an explicit Event Grant.
@@ -304,80 +249,72 @@ func (service *Service) Update(
 		ActorAccountID: actor.ID, CommandID: input.CommandID, PayloadHash: payloadHash,
 		Action: "UpdateEvent", TargetType: "Event", TargetID: targetID, Now: service.now().UTC(),
 	}
-	transaction, err := service.storage.BeginCommand(actor.Context(ctx))
-	if err != nil {
-		return Event{}, err
-	}
-	defer func() { _ = transaction.Rollback() }()
-	outcome, retry, err := transaction.LookupReceipt(ctx, identity)
-	if errors.Is(err, ErrCommandConflict) {
-		if commitErr := transaction.CommitConflict(actor.Context(ctx), identity); commitErr != nil {
-			return Event{}, commitErr
-		}
-		return Event{}, ErrCommandConflict
-	}
-	if err != nil {
-		return Event{}, err
-	}
-	if retry {
-		var original store.Event
-		if decodeErr := store.DecodeCommandReceipt(outcome, &original); decodeErr != nil {
-			return Event{}, restoreRejected(decodeErr)
-		}
-		return event(original), nil
-	}
-	if !actor.CanProduceEvent(eventID) {
-		return Event{}, service.rejectTransaction(actor.Context(ctx), transaction, identity, ErrEventAccessDenied)
-	}
-	normalized, err := validateCreateInput(input)
-	if err != nil {
-		return Event{}, service.rejectTransaction(actor.Context(ctx), transaction, identity, err)
-	}
-	if input.ExpectedRevision <= 0 {
-		validation := invalid("expected_revision", "must be a positive Event revision")
-		return Event{}, service.rejectTransaction(actor.Context(ctx), transaction, identity, validation)
-	}
-	updated, err := transaction.UpdateEvent(actor.Context(ctx), store.UpdateEventParams{
-		ActorAccountID: actor.ID, EventID: eventID, Name: normalized.Name,
-		PlannedStartDate: normalized.PlannedStartDate, PlannedEndDate: normalized.PlannedEndDate,
-		Timezone: normalized.Timezone, EventLocale: normalized.EventLocale,
-		ContentLanguage: normalized.ContentLanguage, EventDayBoundary: normalized.EventDayBoundary,
-		Now:       identity.Now,
-		CommandID: input.CommandID, PayloadHash: eventPayloadHash(normalized, input.ExpectedRevision),
-		ExpectedRevision: input.ExpectedRevision,
+	return command.Execute(actor.Context(ctx), command.Plan[Event]{
+		Storage: service.storage, Identity: identity, Replay: replayEvent,
+		Apply: func(transaction *store.CommandTx) (command.Execution[Event], error) {
+			if !actor.CanProduceEvent(eventID) {
+				return eventRejection[Event](ErrEventAccessDenied), nil
+			}
+			normalized, validationErr := validateCreateInput(input)
+			if validationErr != nil {
+				return eventRejection[Event](validationErr), nil
+			}
+			if input.ExpectedRevision <= 0 {
+				validation := invalid("expected_revision", "must be a positive Event revision")
+				return eventRejection[Event](validation), nil
+			}
+			updated, updateErr := transaction.UpdateEvent(actor.Context(ctx), store.UpdateEventParams{
+				ActorAccountID: actor.ID, EventID: eventID, Name: normalized.Name,
+				PlannedStartDate: normalized.PlannedStartDate, PlannedEndDate: normalized.PlannedEndDate,
+				Timezone: normalized.Timezone, EventLocale: normalized.EventLocale,
+				ContentLanguage: normalized.ContentLanguage, EventDayBoundary: normalized.EventDayBoundary,
+				Now:       identity.Now,
+				CommandID: input.CommandID, PayloadHash: eventPayloadHash(normalized, input.ExpectedRevision),
+				ExpectedRevision: input.ExpectedRevision,
+			})
+			if errors.Is(updateErr, ErrRevisionConflict) {
+				return eventRejection[Event](updateErr), nil
+			}
+			if updateErr != nil {
+				return command.Execution[Event]{}, updateErr
+			}
+			return eventSuccess(event(updated), updated, "", "encode Event update outcome")
+		},
 	})
-	if err != nil {
-		if errors.Is(err, ErrRevisionConflict) {
-			return Event{}, service.rejectTransaction(actor.Context(ctx), transaction, identity, err)
-		}
-		return Event{}, err
-	}
-	encoded, err := json.Marshal(updated)
-	if err != nil {
-		return Event{}, errors.New("encode Event update outcome")
-	}
-	if err := transaction.RecordOutcome(actor.Context(ctx), identity, string(encoded), false); err != nil {
-		return Event{}, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return Event{}, err
-	}
-	return event(updated), nil
 }
 
-func (service *Service) rejectTransaction(
-	ctx context.Context,
-	transaction *store.CommandTx,
-	identity store.CommandIdentity,
-	reason error,
-) error {
-	if err := transaction.RecordRejection(ctx, identity, commandRejection(reason)); err != nil {
-		return errors.Join(reason, err)
+func replayEvent(outcome string) (Event, error) {
+	var original store.Event
+	if err := store.DecodeCommandReceipt(outcome, &original); err != nil {
+		return Event{}, restoreRejected(err)
 	}
-	if err := transaction.Commit(); err != nil {
-		return errors.Join(reason, err)
+	return event(original), nil
+}
+
+func replayGrant(outcome string) (Grant, error) {
+	var original store.EventGrant
+	if err := store.DecodeCommandReceipt(outcome, &original); err != nil {
+		return Grant{}, restoreRejected(err)
 	}
-	return reason
+	return grant(original), nil
+}
+
+func eventRejection[T any](reason error) command.Execution[T] {
+	rejection := commandRejection(reason)
+	var zero T
+	return command.Reject(zero, rejection, reason)
+}
+
+func eventSuccess[T any](value T, stored any, targetID, description string) (command.Execution[T], error) {
+	encoded, err := json.Marshal(stored)
+	if err != nil {
+		return command.Execution[T]{}, errors.New(description)
+	}
+	execution := command.Success(value, string(encoded))
+	if targetID != "" {
+		execution = execution.WithTargetID(targetID)
+	}
+	return execution, nil
 }
 
 func validateCreateInput(input CreateInput) (CreateInput, error) {

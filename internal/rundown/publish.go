@@ -114,89 +114,52 @@ func (commands *Commands) Publish(
 		PayloadHash: command.PayloadHash(string(payload)), Action: "Publish",
 		TargetType: "Event", TargetID: strconv.Itoa(input.EventID), Now: commands.now().UTC(),
 	}
-	transaction, err := commands.storage.BeginCommand(actor.Context(ctx))
-	if err != nil {
-		return PublishResult{}, err
-	}
-	defer func() { _ = transaction.Rollback() }()
-	original, retry, err := transaction.LookupReceipt(ctx, identity)
-	if errors.Is(err, ErrCommandConflict) {
-		if commitErr := transaction.CommitConflict(actor.Context(ctx), identity); commitErr != nil {
-			return PublishResult{}, commitErr
-		}
-		return PublishResult{}, ErrCommandConflict
-	}
-	if err != nil {
-		return PublishResult{}, err
-	}
-	if retry {
-		return decodePublishOutcome(original)
-	}
-	if !actor.CanProduceEvent(input.EventID) {
-		return PublishResult{}, commands.rejectPublish(ctx, transaction, actor, identity, rejection{
-			Code: "event_access_denied", Message: ErrEventAccessDenied.Error(),
-		})
-	}
-	state, err := transaction.LoadPublishState(actor.Context(ctx), input.EventID)
-	if err != nil {
-		return PublishResult{}, err
-	}
-	preview, err := formPublishPreview(state, input.Confirmation.ChangeIDs)
-	if err != nil || len(preview.ValidationFailures) > 0 || !confirmationMatches(input.Confirmation, preview) {
-		return PublishResult{}, commands.rejectPublish(ctx, transaction, actor, identity, rejection{
-			Code: "stale_preview", Message: ErrStalePreview.Error(),
-		})
-	}
-	stored, err := transaction.Publish(actor.Context(ctx), store.PublishParams{
-		EventID:                   input.EventID,
-		ExpectedDraftRevision:     input.Confirmation.DraftRevision,
-		ExpectedPublishedRevision: input.Confirmation.PublishedRevision,
-		ChangeIDs:                 input.Confirmation.ChangeIDs,
-		Now:                       identity.Now,
+	return command.Execute(actor.Context(ctx), command.Plan[PublishResult]{
+		Storage: commands.storage, Identity: identity, Replay: decodePublishOutcome,
+		Apply: func(transaction *store.CommandTx) (command.Execution[PublishResult], error) {
+			if !actor.CanProduceEvent(input.EventID) {
+				return publishRejection(rejection{Code: "event_access_denied", Message: ErrEventAccessDenied.Error()})
+			}
+			state, loadErr := transaction.LoadPublishState(actor.Context(ctx), input.EventID)
+			if loadErr != nil {
+				return command.Execution[PublishResult]{}, loadErr
+			}
+			preview, previewErr := formPublishPreview(state, input.Confirmation.ChangeIDs)
+			if previewErr != nil || len(preview.ValidationFailures) > 0 || !confirmationMatches(input.Confirmation, preview) {
+				return publishRejection(rejection{Code: "stale_preview", Message: ErrStalePreview.Error()})
+			}
+			stored, publishErr := transaction.Publish(actor.Context(ctx), store.PublishParams{
+				EventID:                   input.EventID,
+				ExpectedDraftRevision:     input.Confirmation.DraftRevision,
+				ExpectedPublishedRevision: input.Confirmation.PublishedRevision,
+				ChangeIDs:                 input.Confirmation.ChangeIDs,
+				Now:                       identity.Now,
+			})
+			if errors.Is(publishErr, store.ErrDraftRevisionConflict) {
+				return publishRejection(rejection{Code: "stale_preview", Message: ErrStalePreview.Error()})
+			}
+			if publishErr != nil {
+				return command.Execution[PublishResult]{}, publishErr
+			}
+			result := PublishResult{
+				DraftRevision: stored.DraftRevision, PublishedRevision: stored.PublishedRevision,
+				ChangeIDs: stored.ChangeIDs,
+			}
+			encoded, encodeErr := json.Marshal(publishOutcome{Result: &result})
+			if encodeErr != nil {
+				return command.Execution[PublishResult]{}, errors.New("encode Publish outcome")
+			}
+			return command.Success(result, string(encoded)), nil
+		},
 	})
-	if errors.Is(err, store.ErrDraftRevisionConflict) {
-		return PublishResult{}, commands.rejectPublish(ctx, transaction, actor, identity, rejection{
-			Code: "stale_preview", Message: ErrStalePreview.Error(),
-		})
-	}
-	if err != nil {
-		return PublishResult{}, err
-	}
-	result := PublishResult{
-		DraftRevision: stored.DraftRevision, PublishedRevision: stored.PublishedRevision,
-		ChangeIDs: stored.ChangeIDs,
-	}
-	encoded, err := json.Marshal(publishOutcome{Result: &result})
-	if err != nil {
-		return PublishResult{}, errors.New("encode Publish outcome")
-	}
-	if err := transaction.RecordOutcome(actor.Context(ctx), identity, string(encoded), false); err != nil {
-		return PublishResult{}, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return PublishResult{}, err
-	}
-	return result, nil
 }
 
-func (commands *Commands) rejectPublish(
-	ctx context.Context,
-	transaction *store.CommandTx,
-	actor auth.Account,
-	identity store.CommandIdentity,
-	rejected rejection,
-) error {
+func publishRejection(rejected rejection) (command.Execution[PublishResult], error) {
 	encoded, err := json.Marshal(publishOutcome{Rejection: &rejected})
 	if err != nil {
-		return errors.New("encode rejected Publish outcome")
+		return command.Execution[PublishResult]{}, errors.New("encode rejected Publish outcome")
 	}
-	if err := transaction.RecordOutcome(actor.Context(ctx), identity, string(encoded), true); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
-		return err
-	}
-	return publishRejectionError(rejected)
+	return command.RejectEncoded(PublishResult{}, string(encoded), publishRejectionError(rejected)), nil
 }
 
 func decodePublishOutcome(encoded string) (PublishResult, error) {

@@ -89,7 +89,7 @@ func (transaction *CommandTx) changeDraftHistory(ctx context.Context, params Dra
 		if currentErr != nil {
 			return EditDraftResult{}, currentErr
 		}
-		if applyErr := transaction.applyDraftFact(ctx, change.TargetType, change.TargetID, change.FactKey, evidence.Before); applyErr != nil {
+		if applyErr := transaction.draftFacts().apply(ctx, change.TargetType, change.TargetID, change.FactKey, evidence.Before); applyErr != nil {
 			return EditDraftResult{}, applyErr
 		}
 		if !revert {
@@ -211,7 +211,7 @@ func (transaction *CommandTx) publishedDraftFact(ctx context.Context, selected *
 		if creationErr != nil {
 			return nil, opaqueError("load Published creation evidence", creationErr)
 		}
-		return creationFactValue(creation, selected.FactKey)
+		return transaction.draftFacts().creationValue(creation, selected.FactKey)
 	}
 	if err != nil {
 		return nil, opaqueError("load Published Draft fact evidence", err)
@@ -225,7 +225,10 @@ func (transaction *CommandTx) publishedDraftFact(ctx context.Context, selected *
 	return evidence.After, nil
 }
 
-func creationFactValue(creation *ent.DraftChange, factKey string) (json.RawMessage, error) {
+func (facts rundownDraftFacts) creationValue(creation *ent.DraftChange, factKey string) (json.RawMessage, error) {
+	if err := facts.validate(creation.TargetType, factKey); err != nil {
+		return nil, err
+	}
 	var value any
 	switch creation.TargetType {
 	case "Location":
@@ -339,7 +342,11 @@ func (transaction *CommandTx) currentDraftFact(ctx context.Context, selected *en
 	return evidence.After, nil
 }
 
-func (transaction *CommandTx) applyDraftFact(ctx context.Context, targetType string, targetID int, factKey string, encoded json.RawMessage) error {
+func (facts rundownDraftFacts) apply(ctx context.Context, targetType string, targetID int, factKey string, encoded json.RawMessage) error {
+	if err := facts.validate(targetType, factKey); err != nil {
+		return err
+	}
+	transaction := facts.transaction
 	switch targetType {
 	case "Location":
 		identity, err := transaction.transaction.Location.Query().Where(location.IDEQ(targetID)).Only(ctx)

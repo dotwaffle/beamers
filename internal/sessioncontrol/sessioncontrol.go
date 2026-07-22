@@ -101,64 +101,16 @@ func (service *Service) Start(
 	if err != nil {
 		return State{}, errors.New("encode Start Session command")
 	}
-	identity := store.CommandIdentity{
-		ActorAccountID: actor.ID, CommandID: input.CommandID,
-		PayloadHash: command.PayloadHash(string(payload)), Action: "StartSession",
-		TargetType: "Session", TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
-	}
-	transaction, err := service.storage.BeginCommand(actor.Context(ctx))
-	if err != nil {
-		return State{}, err
-	}
-	defer func() { _ = transaction.Rollback() }()
-	outcome, retry, err := transaction.LookupReceipt(ctx, identity)
-	if errors.Is(err, ErrCommandConflict) {
-		if commitErr := transaction.CommitConflict(actor.Context(ctx), identity); commitErr != nil {
-			return State{}, commitErr
-		}
-		return State{}, ErrCommandConflict
-	}
-	if err != nil {
-		return State{}, err
-	}
-	if retry {
-		var original store.LiveSessionState
-		if decodeErr := store.DecodeCommandReceipt(outcome, &original); decodeErr != nil {
-			return restoreRejected(decodeErr)
-		}
-		return state(original), nil
-	}
-	if !actor.CanOperateEvent(input.EventID) {
-		_, rejectionErr := service.reject(ctx, transaction, actor, identity, "operator_required", ErrOperatorRequired)
-		return State{}, rejectionErr
-	}
-	stored, err := transaction.StartSession(
-		actor.Context(ctx), input.EventID, input.SessionID,
-		input.ExpectedLiveStateRevision, identity.Now,
+	return service.execute(
+		ctx, actor,
+		sessionCommand{EventID: input.EventID, SessionID: input.SessionID, CommandID: input.CommandID,
+			Action: "StartSession", Payload: string(payload)},
+		func(transaction *store.CommandTx, now time.Time) (store.LiveSessionState, error) {
+			return transaction.StartSession(
+				actor.Context(ctx), input.EventID, input.SessionID, input.ExpectedLiveStateRevision, now,
+			)
+		},
 	)
-	if err != nil {
-		code, rejected := rejectionCode(err)
-		if !rejected {
-			return State{}, err
-		}
-		current := state(stored)
-		committed, rejectionErr := service.reject(ctx, transaction, actor, identity, code, err, stored)
-		if errors.Is(err, ErrLiveStateRevisionConflict) && committed {
-			return current, &RevisionConflictError{Current: current}
-		}
-		return current, rejectionErr
-	}
-	encoded, err := json.Marshal(stored)
-	if err != nil {
-		return State{}, errors.New("encode Start Session outcome")
-	}
-	if err := transaction.RecordOutcome(actor.Context(ctx), identity, string(encoded), false); err != nil {
-		return State{}, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return State{}, err
-	}
-	return state(stored), nil
 }
 
 // End records Actual End without moving later Sessions.
@@ -174,90 +126,84 @@ func (service *Service) End(
 	if err != nil {
 		return State{}, errors.New("encode End Session command")
 	}
-	identity := store.CommandIdentity{
-		ActorAccountID: actor.ID, CommandID: input.CommandID,
-		PayloadHash: command.PayloadHash(string(payload)), Action: "EndSession",
-		TargetType: "Session", TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
-	}
-	transaction, err := service.storage.BeginCommand(actor.Context(ctx))
-	if err != nil {
-		return State{}, err
-	}
-	defer func() { _ = transaction.Rollback() }()
-	outcome, retry, err := transaction.LookupReceipt(ctx, identity)
-	if errors.Is(err, ErrCommandConflict) {
-		if commitErr := transaction.CommitConflict(actor.Context(ctx), identity); commitErr != nil {
-			return State{}, commitErr
-		}
-		return State{}, ErrCommandConflict
-	}
-	if err != nil {
-		return State{}, err
-	}
-	if retry {
-		var original store.LiveSessionState
-		if decodeErr := store.DecodeCommandReceipt(outcome, &original); decodeErr != nil {
-			return restoreRejected(decodeErr)
-		}
-		return state(original), nil
-	}
-	if !actor.CanOperateEvent(input.EventID) {
-		_, rejectionErr := service.reject(ctx, transaction, actor, identity, "operator_required", ErrOperatorRequired)
-		return State{}, rejectionErr
-	}
-	stored, err := transaction.EndSession(
-		actor.Context(ctx), input.EventID, input.SessionID,
-		input.ExpectedLiveStateRevision, identity.Now,
+	return service.execute(
+		ctx, actor,
+		sessionCommand{EventID: input.EventID, SessionID: input.SessionID, CommandID: input.CommandID,
+			Action: "EndSession", Payload: string(payload)},
+		func(transaction *store.CommandTx, now time.Time) (store.LiveSessionState, error) {
+			return transaction.EndSession(
+				actor.Context(ctx), input.EventID, input.SessionID, input.ExpectedLiveStateRevision, now,
+			)
+		},
 	)
-	if err != nil {
-		code, rejected := rejectionCode(err)
-		if !rejected {
-			return State{}, err
-		}
-		current := state(stored)
-		committed, rejectionErr := service.reject(ctx, transaction, actor, identity, code, err, stored)
-		if errors.Is(err, ErrLiveStateRevisionConflict) && committed {
-			return current, &RevisionConflictError{Current: current}
-		}
-		return current, rejectionErr
-	}
-	encoded, err := json.Marshal(stored)
-	if err != nil {
-		return State{}, errors.New("encode End Session outcome")
-	}
-	if err := transaction.RecordOutcome(actor.Context(ctx), identity, string(encoded), false); err != nil {
-		return State{}, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return State{}, err
-	}
-	return state(stored), nil
 }
 
-func (service *Service) reject(
+type sessionCommand struct {
+	EventID   int
+	SessionID int
+	CommandID string
+	Action    string
+	Payload   string
+}
+
+func (service *Service) execute(
 	ctx context.Context,
-	transaction *store.CommandTx,
 	actor auth.Account,
-	identity store.CommandIdentity,
+	input sessionCommand,
+	transition func(*store.CommandTx, time.Time) (store.LiveSessionState, error),
+) (State, error) {
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID, CommandID: input.CommandID,
+		PayloadHash: command.PayloadHash(input.Payload), Action: input.Action,
+		TargetType: "Session", TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
+	}
+	return command.Execute(actor.Context(ctx), command.Plan[State]{
+		Storage: service.storage, Identity: identity,
+		Replay: func(outcome string) (State, error) {
+			var original store.LiveSessionState
+			if err := store.DecodeCommandReceipt(outcome, &original); err != nil {
+				return restoreRejected(err)
+			}
+			return state(original), nil
+		},
+		Apply: func(transaction *store.CommandTx) (command.Execution[State], error) {
+			if !actor.CanOperateEvent(input.EventID) {
+				return sessionRejection(State{}, store.LiveSessionState{}, "operator_required", ErrOperatorRequired)
+			}
+			stored, transitionErr := transition(transaction, identity.Now)
+			if transitionErr != nil {
+				code, rejected := rejectionCode(transitionErr)
+				if !rejected {
+					return command.Execution[State]{}, transitionErr
+				}
+				return sessionRejection(state(stored), stored, code, transitionErr)
+			}
+			encoded, err := json.Marshal(stored)
+			if err != nil {
+				return command.Execution[State]{}, errors.New("encode Session command outcome")
+			}
+			return command.Success(state(stored), string(encoded)), nil
+		},
+	})
+}
+
+func sessionRejection(
+	current State,
+	stored store.LiveSessionState,
 	code string,
 	reason error,
-	current ...store.LiveSessionState,
-) (bool, error) {
+) (command.Execution[State], error) {
 	rejection := store.CommandRejection{Code: code, Message: reason.Error()}
-	if len(current) > 0 && errors.Is(reason, ErrLiveStateRevisionConflict) {
-		encoded, err := json.Marshal(current[0])
+	returnErr := reason
+	if errors.Is(reason, ErrLiveStateRevisionConflict) {
+		encoded, err := json.Marshal(stored)
 		if err != nil {
-			return false, errors.Join(reason, errors.New("encode stale Session state"))
+			return command.Execution[State]{}, errors.Join(reason, errors.New("encode stale Session state"))
 		}
 		rejection.Details = encoded
+		returnErr = &RevisionConflictError{Current: current}
 	}
-	if err := transaction.RecordRejection(actor.Context(ctx), identity, rejection); err != nil {
-		return false, errors.Join(reason, err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return false, errors.Join(reason, err)
-	}
-	return true, reason
+	return command.Reject(current, rejection, returnErr), nil
 }
 
 func rejectionCode(err error) (string, bool) {

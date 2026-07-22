@@ -280,66 +280,51 @@ func (service *Service) CreateAccount(
 		ActorAccountID: actor.ID, CommandID: commandID, PayloadHash: payloadHash,
 		Action: "CreateAccount", TargetType: "Account", TargetID: "unidentified", Now: service.now().UTC(),
 	}
-	transaction, err := service.storage.BeginCommand(actor.Context(ctx))
-	if err != nil {
-		return Account{}, err
-	}
-	defer func() { _ = transaction.Rollback() }()
-	outcome, retry, err := transaction.LookupReceipt(ctx, identity)
-	if errors.Is(err, ErrCommandConflict) {
-		if commitErr := transaction.CommitConflict(actor.Context(ctx), identity); commitErr != nil {
-			return Account{}, commitErr
-		}
-		return Account{}, ErrCommandConflict
-	}
-	if err != nil {
-		return Account{}, err
-	}
-	if retry {
-		var original store.AccountCredential
-		if decodeErr := store.DecodeCommandReceipt(outcome, &original); decodeErr != nil {
-			return Account{}, restoreRejected(decodeErr)
-		}
-		return account(original), nil
-	}
-	if !actor.Administrator {
-		return Account{}, service.rejectTransaction(actor.Context(ctx), transaction, identity, ErrAdministratorRequired)
-	}
-	normalizedName, displayName, err := normalizeAccountName(name)
-	if err != nil || !validPassword(password) {
-		return Account{}, service.rejectTransaction(actor.Context(ctx), transaction, identity, ErrInvalidAccountDetails)
-	}
-	passwordHash, err := service.hashPassword(password)
-	if err != nil {
-		return Account{}, err
-	}
-	created, err := transaction.CreateAccount(actor.Context(ctx), store.CreateAccountParams{
-		ActorAccountID: actor.ID,
-		Name:           displayName,
-		NormalizedName: normalizedName,
-		PasswordHash:   passwordHash,
-		Now:            identity.Now,
-		CommandID:      commandID,
-		PayloadHash:    command.PayloadHash(normalizedName, password),
+	return command.Execute(actor.Context(ctx), command.Plan[Account]{
+		Storage: service.storage, Identity: identity,
+		Replay: func(outcome string) (Account, error) {
+			var original store.AccountCredential
+			if decodeErr := store.DecodeCommandReceipt(outcome, &original); decodeErr != nil {
+				return Account{}, restoreRejected(decodeErr)
+			}
+			return account(original), nil
+		},
+		Apply: func(transaction *store.CommandTx) (command.Execution[Account], error) {
+			if !actor.Administrator {
+				return accountRejectionExecution[Account](ErrAdministratorRequired), nil
+			}
+			normalizedName, displayName, normalizeErr := normalizeAccountName(name)
+			if normalizeErr != nil || !validPassword(password) {
+				// The executor returns this rejection only after its Receipt and Audit Entry commit.
+				//nolint:nilerr // A callback error would roll back the durable rejection.
+				return accountRejectionExecution[Account](ErrInvalidAccountDetails), nil
+			}
+			passwordHash, hashErr := service.hashPassword(password)
+			if hashErr != nil {
+				return command.Execution[Account]{}, hashErr
+			}
+			created, createErr := transaction.CreateAccount(actor.Context(ctx), store.CreateAccountParams{
+				ActorAccountID: actor.ID,
+				Name:           displayName,
+				NormalizedName: normalizedName,
+				PasswordHash:   passwordHash,
+				Now:            identity.Now,
+				CommandID:      commandID,
+				PayloadHash:    command.PayloadHash(normalizedName, password),
+			})
+			if errors.Is(createErr, ErrAccountExists) {
+				return accountRejectionExecution[Account](createErr), nil
+			}
+			if createErr != nil {
+				return command.Execution[Account]{}, createErr
+			}
+			encoded, encodeErr := json.Marshal(created)
+			if encodeErr != nil {
+				return command.Execution[Account]{}, errors.New("encode Account creation outcome")
+			}
+			return command.Success(account(created), string(encoded)).WithTargetID(strconv.Itoa(created.ID)), nil
+		},
 	})
-	if err != nil {
-		if errors.Is(err, ErrAccountExists) {
-			return Account{}, service.rejectTransaction(actor.Context(ctx), transaction, identity, err)
-		}
-		return Account{}, err
-	}
-	identity.TargetID = strconv.Itoa(created.ID)
-	encoded, err := json.Marshal(created)
-	if err != nil {
-		return Account{}, errors.New("encode Account creation outcome")
-	}
-	if err := transaction.RecordOutcome(actor.Context(ctx), identity, string(encoded), false); err != nil {
-		return Account{}, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return Account{}, err
-	}
-	return account(created), nil
 }
 
 // DisableAccount retires one enabled Account while preserving a final Administrator.
@@ -366,66 +351,43 @@ func (service *Service) DisableAccount(
 		PayloadHash: command.PayloadHash(string(payload)), Action: "DisableAccount",
 		TargetType: "Account", TargetID: strconv.Itoa(accountID), Now: service.now().UTC(),
 	}
-	transaction, err := service.storage.BeginCommand(actor.Context(ctx))
-	if err != nil {
-		return err
-	}
-	defer func() { _ = transaction.Rollback() }()
-	outcome, retry, err := transaction.LookupReceipt(ctx, identity)
-	if errors.Is(err, ErrCommandConflict) {
-		if commitErr := transaction.CommitConflict(actor.Context(ctx), identity); commitErr != nil {
-			return commitErr
-		}
-		return ErrCommandConflict
-	}
-	if err != nil {
-		return err
-	}
-	if retry {
-		var original store.DisabledAccount
-		if decodeErr := store.DecodeCommandReceipt(outcome, &original); decodeErr != nil {
-			return restoreRejected(decodeErr)
-		}
-		return nil
-	}
-	if !actor.Administrator {
-		return service.rejectTransaction(actor.Context(ctx), transaction, identity, ErrAdministratorRequired)
-	}
-	if !validDisableReason(reason) {
-		return service.rejectTransaction(actor.Context(ctx), transaction, identity, ErrDisableReasonRequired)
-	}
-	disabled, err := transaction.DisableAccount(actor.Context(ctx), accountID, identity.Now)
-	if err != nil {
-		if errors.Is(err, ErrDisableAccountNotFound) || errors.Is(err, ErrLastAdministrator) {
-			return service.rejectTransaction(actor.Context(ctx), transaction, identity, err)
-		}
-		return err
-	}
-	encoded, err := json.Marshal(disabled)
-	if err != nil {
-		return errors.New("encode Disable Account outcome")
-	}
-	if err := transaction.RecordOutcomeWithAudit(
-		actor.Context(ctx), identity, string(encoded), false, store.AuditDetails{Reason: reason},
-	); err != nil {
-		return err
-	}
-	return transaction.Commit()
+	_, err = command.Execute(actor.Context(ctx), command.Plan[struct{}]{
+		Storage: service.storage, Identity: identity,
+		Replay: func(outcome string) (struct{}, error) {
+			var original store.DisabledAccount
+			if decodeErr := store.DecodeCommandReceipt(outcome, &original); decodeErr != nil {
+				return struct{}{}, restoreRejected(decodeErr)
+			}
+			return struct{}{}, nil
+		},
+		Apply: func(transaction *store.CommandTx) (command.Execution[struct{}], error) {
+			if !actor.Administrator {
+				return accountRejectionExecution[struct{}](ErrAdministratorRequired), nil
+			}
+			if !validDisableReason(reason) {
+				return accountRejectionExecution[struct{}](ErrDisableReasonRequired), nil
+			}
+			disabled, disableErr := transaction.DisableAccount(actor.Context(ctx), accountID, identity.Now)
+			if errors.Is(disableErr, ErrDisableAccountNotFound) || errors.Is(disableErr, ErrLastAdministrator) {
+				return accountRejectionExecution[struct{}](disableErr), nil
+			}
+			if disableErr != nil {
+				return command.Execution[struct{}]{}, disableErr
+			}
+			encoded, encodeErr := json.Marshal(disabled)
+			if encodeErr != nil {
+				return command.Execution[struct{}]{}, errors.New("encode Disable Account outcome")
+			}
+			return command.Success(struct{}{}, string(encoded)).WithAudit(store.AuditDetails{Reason: reason}), nil
+		},
+	})
+	return err
 }
 
-func (service *Service) rejectTransaction(
-	ctx context.Context,
-	transaction *store.CommandTx,
-	identity store.CommandIdentity,
-	reason error,
-) error {
-	if err := transaction.RecordRejection(ctx, identity, accountRejection(reason)); err != nil {
-		return errors.Join(reason, err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return errors.Join(reason, err)
-	}
-	return reason
+func accountRejectionExecution[T any](reason error) command.Execution[T] {
+	rejection := accountRejection(reason)
+	var zero T
+	return command.Reject(zero, rejection, reason)
 }
 
 func accountRejection(reason error) store.CommandRejection {

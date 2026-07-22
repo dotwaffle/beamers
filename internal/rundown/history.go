@@ -52,52 +52,37 @@ func (commands *Commands) changeDraftHistory(
 	identity := store.CommandIdentity{ActorAccountID: actor.ID, CommandID: input.CommandID,
 		PayloadHash: command.PayloadHash(string(payload)), Action: action, TargetType: "Event",
 		TargetID: strconv.Itoa(input.EventID), Now: commands.now().UTC()}
-	transaction, err := commands.storage.BeginCommand(actor.Context(ctx))
-	if err != nil {
-		return EditDraftResult{}, err
-	}
-	defer func() { _ = transaction.Rollback() }()
-	original, retry, err := transaction.LookupReceipt(ctx, identity)
-	if errors.Is(err, ErrCommandConflict) {
-		if commitErr := transaction.CommitConflict(actor.Context(ctx), identity); commitErr != nil {
-			return EditDraftResult{}, commitErr
-		}
-		return EditDraftResult{}, ErrCommandConflict
-	}
-	if err != nil {
-		return EditDraftResult{}, err
-	}
-	if retry {
-		var result EditDraftResult
-		if err = json.Unmarshal([]byte(original), &result); err != nil {
-			return EditDraftResult{}, errors.New("decode Draft history outcome")
-		}
-		return result, nil
-	}
-	if !actor.CanProduceEvent(input.EventID) {
-		return EditDraftResult{}, ErrEventAccessDenied
-	}
-	params := store.DraftHistoryParams{EventID: input.EventID, ActorAccountID: actor.ID,
-		ExpectedDraftRevision: input.ExpectedDraftRevision, ChangeIDs: input.ChangeIDs, Now: identity.Now}
-	var stored store.EditDraftResult
-	if revert {
-		stored, err = transaction.RevertDraftChange(actor.Context(ctx), params)
-	} else {
-		stored, err = transaction.DiscardDraftChanges(actor.Context(ctx), params)
-	}
-	if err != nil {
-		return EditDraftResult{}, err
-	}
-	result := editDraftResult(stored)
-	encoded, err := json.Marshal(result)
-	if err != nil {
-		return EditDraftResult{}, errors.New("encode Draft history outcome")
-	}
-	if recordErr := transaction.RecordOutcome(actor.Context(ctx), identity, string(encoded), false); recordErr != nil {
-		return EditDraftResult{}, recordErr
-	}
-	if commitErr := transaction.Commit(); commitErr != nil {
-		return EditDraftResult{}, commitErr
-	}
-	return result, nil
+	return command.Execute(actor.Context(ctx), command.Plan[EditDraftResult]{
+		Storage: commands.storage, Identity: identity,
+		Replay: func(original string) (EditDraftResult, error) {
+			var result EditDraftResult
+			if decodeErr := json.Unmarshal([]byte(original), &result); decodeErr != nil {
+				return EditDraftResult{}, errors.New("decode Draft history outcome")
+			}
+			return result, nil
+		},
+		Apply: func(transaction *store.CommandTx) (command.Execution[EditDraftResult], error) {
+			if !actor.CanProduceEvent(input.EventID) {
+				return command.Execution[EditDraftResult]{}, ErrEventAccessDenied
+			}
+			params := store.DraftHistoryParams{EventID: input.EventID, ActorAccountID: actor.ID,
+				ExpectedDraftRevision: input.ExpectedDraftRevision, ChangeIDs: input.ChangeIDs, Now: identity.Now}
+			var stored store.EditDraftResult
+			var historyErr error
+			if revert {
+				stored, historyErr = transaction.RevertDraftChange(actor.Context(ctx), params)
+			} else {
+				stored, historyErr = transaction.DiscardDraftChanges(actor.Context(ctx), params)
+			}
+			if historyErr != nil {
+				return command.Execution[EditDraftResult]{}, historyErr
+			}
+			result := editDraftResult(stored)
+			encoded, encodeErr := json.Marshal(result)
+			if encodeErr != nil {
+				return command.Execution[EditDraftResult]{}, errors.New("encode Draft history outcome")
+			}
+			return command.Success(result, string(encoded)), nil
+		},
+	})
 }

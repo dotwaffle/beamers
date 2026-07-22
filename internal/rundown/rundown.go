@@ -230,93 +230,53 @@ func (commands *Commands) EditDraft(
 		TargetID:       strconv.Itoa(input.EventID),
 		Now:            commands.now().UTC(),
 	}
-	transaction, err := commands.storage.BeginCommand(actor.Context(ctx))
-	if err != nil {
-		return EditDraftResult{}, err
-	}
-	defer func() {
-		_ = transaction.Rollback()
-	}()
-	original, retry, err := transaction.LookupReceipt(ctx, identity)
-	if errors.Is(err, ErrCommandConflict) {
-		if commitErr := transaction.CommitConflict(actor.Context(ctx), identity); commitErr != nil {
-			return EditDraftResult{}, commitErr
-		}
-		return EditDraftResult{}, ErrCommandConflict
-	}
-	if err != nil {
-		return EditDraftResult{}, err
-	}
-	if retry {
-		return decodeEditDraftOutcome(original)
-	}
-	if !actor.CanProduceEvent(input.EventID) {
-		return EditDraftResult{}, commands.rejectEditDraft(ctx, transaction, actor, identity, rejection{
-			Code: "event_access_denied", Message: ErrEventAccessDenied.Error(),
-		})
-	}
-	normalized, validationErr := validateEditDraft(input)
-	if validationErr != nil {
-		var invalid *ValidationError
-		_ = errors.As(validationErr, &invalid)
-		return EditDraftResult{}, commands.rejectEditDraft(ctx, transaction, actor, identity, rejection{
-			Code: "validation", Field: invalid.Field, Message: invalid.Message,
-		})
-	}
-	stored, err := transaction.EditDraft(actor.Context(ctx), editDraftParams(actor.ID, normalized, identity.Now))
-	if errors.Is(err, store.ErrDraftReference) {
-		return EditDraftResult{}, commands.rejectEditDraft(ctx, transaction, actor, identity, rejection{
-			Code: "validation", Field: "references", Message: "must identify Draft structure in this Event",
-		})
-	}
-	if errors.Is(err, ErrDraftRevisionConflict) {
-		var conflict *store.DraftRevisionConflictError
-		_ = errors.As(err, &conflict)
-		rejected := rejection{Code: "draft_revision_conflict", Message: ErrDraftRevisionConflict.Error()}
-		if conflict != nil {
-			rejected.CurrentDraftRevision = conflict.CurrentDraftRevision
-			rejected.OverlappingChanges = editDraftResult(store.EditDraftResult{Changes: conflict.OverlappingChanges}).Changes
-		}
-		return EditDraftResult{}, commands.rejectEditDraft(ctx, transaction, actor, identity, rejection{
-			Code: rejected.Code, Message: rejected.Message, CurrentDraftRevision: rejected.CurrentDraftRevision,
-			OverlappingChanges: rejected.OverlappingChanges,
-		})
-	}
-	if err != nil {
-		return EditDraftResult{}, err
-	}
-	result := editDraftResult(stored)
-	encoded, err := json.Marshal(editDraftOutcome{Result: &result})
-	if err != nil {
-		return EditDraftResult{}, errors.New("encode Edit Draft outcome")
-	}
-	if err := transaction.RecordOutcome(actor.Context(ctx), identity, string(encoded), false); err != nil {
-		return EditDraftResult{}, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return EditDraftResult{}, err
-	}
-	return result, nil
+	return command.Execute(actor.Context(ctx), command.Plan[EditDraftResult]{
+		Storage: commands.storage, Identity: identity, Replay: decodeEditDraftOutcome,
+		Apply: func(transaction *store.CommandTx) (command.Execution[EditDraftResult], error) {
+			if !actor.CanProduceEvent(input.EventID) {
+				return editDraftRejection(rejection{Code: "event_access_denied", Message: ErrEventAccessDenied.Error()})
+			}
+			normalized, validationErr := validateEditDraft(input)
+			if validationErr != nil {
+				var invalid *ValidationError
+				_ = errors.As(validationErr, &invalid)
+				return editDraftRejection(rejection{Code: "validation", Field: invalid.Field, Message: invalid.Message})
+			}
+			stored, editErr := transaction.EditDraft(actor.Context(ctx), editDraftParams(actor.ID, normalized, identity.Now))
+			if errors.Is(editErr, store.ErrDraftReference) {
+				return editDraftRejection(rejection{
+					Code: "validation", Field: "references", Message: "must identify Draft structure in this Event",
+				})
+			}
+			if errors.Is(editErr, ErrDraftRevisionConflict) {
+				var conflict *store.DraftRevisionConflictError
+				_ = errors.As(editErr, &conflict)
+				rejected := rejection{Code: "draft_revision_conflict", Message: ErrDraftRevisionConflict.Error()}
+				if conflict != nil {
+					rejected.CurrentDraftRevision = conflict.CurrentDraftRevision
+					rejected.OverlappingChanges = editDraftResult(store.EditDraftResult{Changes: conflict.OverlappingChanges}).Changes
+				}
+				return editDraftRejection(rejected)
+			}
+			if editErr != nil {
+				return command.Execution[EditDraftResult]{}, editErr
+			}
+			result := editDraftResult(stored)
+			encoded, encodeErr := json.Marshal(editDraftOutcome{Result: &result})
+			if encodeErr != nil {
+				return command.Execution[EditDraftResult]{}, errors.New("encode Edit Draft outcome")
+			}
+			return command.Success(result, string(encoded)), nil
+		},
+	})
 }
 
-func (commands *Commands) rejectEditDraft(
-	ctx context.Context,
-	transaction *store.CommandTx,
-	actor auth.Account,
-	identity store.CommandIdentity,
-	rejected rejection,
-) error {
+func editDraftRejection(rejected rejection) (command.Execution[EditDraftResult], error) {
 	encoded, err := json.Marshal(editDraftOutcome{Rejection: &rejected})
 	if err != nil {
-		return errors.New("encode rejected Edit Draft outcome")
+		return command.Execution[EditDraftResult]{}, errors.New("encode rejected Edit Draft outcome")
 	}
-	if err := transaction.RecordOutcome(actor.Context(ctx), identity, string(encoded), true); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
-		return err
-	}
-	return rejectionError(rejected)
+	return command.RejectEncoded(EditDraftResult{}, string(encoded), rejectionError(rejected)), nil
 }
 
 func decodeEditDraftOutcome(encoded string) (EditDraftResult, error) {
@@ -387,13 +347,13 @@ func validateEditDraft(input EditDraftInput) (EditDraftInput, error) {
 	}
 	for index := range input.Locations {
 		input.Locations[index].Name = strings.TrimSpace(input.Locations[index].Name)
-		if err := validateUpdateFields("locations", input.Locations[index].ID, input.Locations[index].UpdateFields, "name"); err != nil {
+		if err := validateUpdateFields("locations", input.Locations[index].ID, input.Locations[index].UpdateFields, store.RundownDraftUpdateFields("Location")...); err != nil {
 			return EditDraftInput{}, err
 		}
 	}
 	for index := range input.Lanes {
 		input.Lanes[index].Name = strings.TrimSpace(input.Lanes[index].Name)
-		if err := validateUpdateFields("lanes", input.Lanes[index].ID, input.Lanes[index].UpdateFields, "name", "location"); err != nil {
+		if err := validateUpdateFields("lanes", input.Lanes[index].ID, input.Lanes[index].UpdateFields, store.RundownDraftUpdateFields("Lane")...); err != nil {
 			return EditDraftInput{}, err
 		}
 		if input.Lanes[index].ID == 0 || contains(input.Lanes[index].UpdateFields, "location") {
@@ -404,7 +364,7 @@ func validateEditDraft(input EditDraftInput) (EditDraftInput, error) {
 	}
 	for index := range input.Tracks {
 		input.Tracks[index].Name = strings.TrimSpace(input.Tracks[index].Name)
-		if err := validateUpdateFields("tracks", input.Tracks[index].ID, input.Tracks[index].UpdateFields, "name"); err != nil {
+		if err := validateUpdateFields("tracks", input.Tracks[index].ID, input.Tracks[index].UpdateFields, store.RundownDraftUpdateFields("Track")...); err != nil {
 			return EditDraftInput{}, err
 		}
 	}
@@ -418,10 +378,9 @@ func validateEditDraft(input EditDraftInput) (EditDraftInput, error) {
 		} else if item.Ref != "" {
 			return EditDraftInput{}, invalid("sessions.ref", "must be empty for an update")
 		}
-		if err := validateUpdateFields("sessions", item.ID, item.UpdateFields,
-			"title", "type", "audience_visibility", "public_details", "crew_notes", "planned_start", "planned_end",
-			"timing_policy", "minimum_duration", "start_boundary", "end_boundary",
-			"add_lanes", "remove_lanes", "add_locations", "remove_locations", "add_tracks", "remove_tracks"); err != nil {
+		if err := validateUpdateFields(
+			"sessions", item.ID, item.UpdateFields, store.RundownDraftUpdateFields("Session")...,
+		); err != nil {
 			return EditDraftInput{}, err
 		}
 		item.Title = strings.TrimSpace(item.Title)

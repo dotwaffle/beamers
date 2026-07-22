@@ -115,68 +115,52 @@ func (service *Service) Activate(
 		PayloadHash: command.PayloadHash(string(payload)), Action: "ActivateEvent",
 		TargetType: "Event", TargetID: strconv.Itoa(input.EventID), Now: service.now().UTC(),
 	}
-	transaction, err := service.storage.BeginCommand(actor.Context(ctx))
-	if err != nil {
-		return ActiveEvent{}, err
-	}
-	defer func() { _ = transaction.Rollback() }()
-	original, retry, err := transaction.LookupReceipt(ctx, identity)
-	if errors.Is(err, ErrCommandConflict) {
-		if commitErr := transaction.CommitConflict(actor.Context(ctx), identity); commitErr != nil {
-			return ActiveEvent{}, commitErr
-		}
-		return ActiveEvent{}, ErrCommandConflict
-	}
-	if err != nil {
-		return ActiveEvent{}, err
-	}
-	if retry {
-		var result ActiveEvent
-		if decodeErr := store.DecodeCommandReceipt(original, &result); decodeErr != nil {
-			return ActiveEvent{}, activationError(decodeErr)
-		}
-		return result, nil
-	}
-	if !actor.Administrator {
-		return ActiveEvent{}, service.reject(ctx, transaction, actor, identity, "administrator_required", ErrAdministratorRequired)
-	}
-	state, err := transaction.LoadActivationPreflight(actor.Context(ctx), input.EventID)
-	if errors.Is(err, ErrEventNotFound) {
-		return ActiveEvent{}, service.reject(ctx, transaction, actor, identity, "event_not_found", ErrEventNotFound)
-	}
-	if err != nil {
-		return ActiveEvent{}, err
-	}
-	preflight := formPreflight(state, identity.Now)
-	if len(preflight.Blockers) > 0 {
-		return ActiveEvent{}, service.reject(ctx, transaction, actor, identity, "preflight_blocked", ErrPreflightBlocked)
-	}
-	if input.Confirmation != preflight.Confirmation {
-		return ActiveEvent{}, service.reject(ctx, transaction, actor, identity, "stale_preflight", ErrStalePreflight)
-	}
-	stored, err := transaction.ActivateEvent(
-		actor.Context(ctx), input.EventID,
-		input.Confirmation.EventRevision, input.Confirmation.PublishedRevision,
-		input.Confirmation.ActivationGeneration,
-	)
-	if errors.Is(err, store.ErrActivationRevisionConflict) {
-		return ActiveEvent{}, service.reject(ctx, transaction, actor, identity, "stale_preflight", ErrStalePreflight)
-	}
-	if err != nil {
-		return ActiveEvent{}, err
-	}
-	result := ActiveEvent{EventID: stored.EventID, Generation: stored.Generation}
-	encoded, err := json.Marshal(result)
-	if err != nil {
-		return ActiveEvent{}, errors.New("encode Activate Event outcome")
-	}
-	if err := transaction.RecordOutcome(actor.Context(ctx), identity, string(encoded), false); err != nil {
-		return ActiveEvent{}, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return ActiveEvent{}, err
-	}
-	return result, nil
+	return command.Execute(actor.Context(ctx), command.Plan[ActiveEvent]{
+		Storage: service.storage, Identity: identity,
+		Replay: func(original string) (ActiveEvent, error) {
+			var result ActiveEvent
+			if decodeErr := store.DecodeCommandReceipt(original, &result); decodeErr != nil {
+				return ActiveEvent{}, activationError(decodeErr)
+			}
+			return result, nil
+		},
+		Apply: func(transaction *store.CommandTx) (command.Execution[ActiveEvent], error) {
+			if !actor.Administrator {
+				return activationRejection("administrator_required", ErrAdministratorRequired), nil
+			}
+			state, loadErr := transaction.LoadActivationPreflight(actor.Context(ctx), input.EventID)
+			if errors.Is(loadErr, ErrEventNotFound) {
+				return activationRejection("event_not_found", ErrEventNotFound), nil
+			}
+			if loadErr != nil {
+				return command.Execution[ActiveEvent]{}, loadErr
+			}
+			preflight := formPreflight(state, identity.Now)
+			if len(preflight.Blockers) > 0 {
+				return activationRejection("preflight_blocked", ErrPreflightBlocked), nil
+			}
+			if input.Confirmation != preflight.Confirmation {
+				return activationRejection("stale_preflight", ErrStalePreflight), nil
+			}
+			stored, activateErr := transaction.ActivateEvent(
+				actor.Context(ctx), input.EventID,
+				input.Confirmation.EventRevision, input.Confirmation.PublishedRevision,
+				input.Confirmation.ActivationGeneration,
+			)
+			if errors.Is(activateErr, store.ErrActivationRevisionConflict) {
+				return activationRejection("stale_preflight", ErrStalePreflight), nil
+			}
+			if activateErr != nil {
+				return command.Execution[ActiveEvent]{}, activateErr
+			}
+			result := ActiveEvent{EventID: stored.EventID, Generation: stored.Generation}
+			encoded, encodeErr := json.Marshal(result)
+			if encodeErr != nil {
+				return command.Execution[ActiveEvent]{}, errors.New("encode Activate Event outcome")
+			}
+			return command.Success(result, string(encoded)), nil
+		},
+	})
 }
 
 // ActiveEvent returns current live authority routing to an Administrator.
@@ -191,23 +175,10 @@ func (service *Service) ActiveEvent(ctx context.Context, actor auth.Account) (Ac
 	return ActiveEvent{EventID: found.EventID, Generation: found.Generation}, nil
 }
 
-func (service *Service) reject(
-	ctx context.Context,
-	transaction *store.CommandTx,
-	actor auth.Account,
-	identity store.CommandIdentity,
-	code string,
-	reason error,
-) error {
-	if err := transaction.RecordRejection(actor.Context(ctx), identity, store.CommandRejection{
-		Code: code, Message: reason.Error(),
-	}); err != nil {
-		return errors.Join(reason, err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return errors.Join(reason, err)
-	}
-	return reason
+func activationRejection(code string, reason error) command.Execution[ActiveEvent] {
+	return command.Reject(
+		ActiveEvent{}, store.CommandRejection{Code: code, Message: reason.Error()}, reason,
+	)
 }
 
 func formPreflight(state store.ActivationPreflightState, now time.Time) Preflight {
