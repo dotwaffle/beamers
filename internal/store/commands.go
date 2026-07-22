@@ -126,6 +126,7 @@ func auditRejectedCommand(
 		SetTargetType(targetType).
 		SetTargetID(targetID).
 		SetResult(auditentry.ResultRejected).
+		SetReason("command_id_conflict").
 		Save(ctx)
 	return err
 }

@@ -30,6 +30,10 @@ type AuditEntry struct {
 	TargetID string `json:"target_id,omitempty"`
 	// Result holds the value of the "result" field.
 	Result auditentry.Result `json:"result,omitempty"`
+	// Reason holds the value of the "reason" field.
+	Reason string `json:"reason,omitempty"`
+	// Note holds the value of the "note" field.
+	Note string `json:"note,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the AuditEntryQuery when eager-loading is set.
 	Edges        AuditEntryEdges `json:"edges"`
@@ -63,7 +67,7 @@ func (*AuditEntry) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case auditentry.FieldID, auditentry.FieldActorAccountID:
 			values[i] = new(sql.NullInt64)
-		case auditentry.FieldAction, auditentry.FieldTargetType, auditentry.FieldTargetID, auditentry.FieldResult:
+		case auditentry.FieldAction, auditentry.FieldTargetType, auditentry.FieldTargetID, auditentry.FieldResult, auditentry.FieldReason, auditentry.FieldNote:
 			values[i] = new(sql.NullString)
 		case auditentry.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -124,6 +128,18 @@ func (_m *AuditEntry) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Result = auditentry.Result(value.String)
 			}
+		case auditentry.FieldReason:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field reason", values[i])
+			} else if value.Valid {
+				_m.Reason = value.String
+			}
+		case auditentry.FieldNote:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field note", values[i])
+			} else if value.Valid {
+				_m.Note = value.String
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -182,6 +198,12 @@ func (_m *AuditEntry) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("result=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Result))
+	builder.WriteString(", ")
+	builder.WriteString("reason=")
+	builder.WriteString(_m.Reason)
+	builder.WriteString(", ")
+	builder.WriteString("note=")
+	builder.WriteString(_m.Note)
 	builder.WriteByte(')')
 	return builder.String()
 }

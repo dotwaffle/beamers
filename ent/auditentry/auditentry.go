@@ -28,6 +28,10 @@ const (
 	FieldTargetID = "target_id"
 	// FieldResult holds the string denoting the result field in the database.
 	FieldResult = "result"
+	// FieldReason holds the string denoting the reason field in the database.
+	FieldReason = "reason"
+	// FieldNote holds the string denoting the note field in the database.
+	FieldNote = "note"
 	// EdgeActor holds the string denoting the actor edge name in mutations.
 	EdgeActor = "actor"
 	// Table holds the table name of the auditentry in the database.
@@ -50,6 +54,8 @@ var Columns = []string{
 	FieldTargetType,
 	FieldTargetID,
 	FieldResult,
+	FieldReason,
+	FieldNote,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -78,6 +84,10 @@ var (
 	TargetTypeValidator func(string) error
 	// TargetIDValidator is a validator for the "target_id" field. It is called by the builders before save.
 	TargetIDValidator func(string) error
+	// ReasonValidator is a validator for the "reason" field. It is called by the builders before save.
+	ReasonValidator func(string) error
+	// NoteValidator is a validator for the "note" field. It is called by the builders before save.
+	NoteValidator func(string) error
 )
 
 // Result defines the type for the "result" enum field.
@@ -139,6 +149,16 @@ func ByTargetID(opts ...sql.OrderTermOption) OrderOption {
 // ByResult orders the results by the result field.
 func ByResult(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldResult, opts...).ToFunc()
+}
+
+// ByReason orders the results by the reason field.
+func ByReason(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldReason, opts...).ToFunc()
+}
+
+// ByNote orders the results by the note field.
+func ByNote(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldNote, opts...).ToFunc()
 }
 
 // ByActorField orders the results by actor field.

@@ -79,6 +79,12 @@ func (_u *AuditEntryUpdate) sqlSave(ctx context.Context) (_node int, err error) 
 			}
 		}
 	}
+	if _u.mutation.ReasonCleared() {
+		_spec.ClearField(auditentry.FieldReason, field.TypeString)
+	}
+	if _u.mutation.NoteCleared() {
+		_spec.ClearField(auditentry.FieldNote, field.TypeString)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{auditentry.Label}
@@ -180,6 +186,12 @@ func (_u *AuditEntryUpdateOne) sqlSave(ctx context.Context) (_node *AuditEntry, 
 				ps[i](selector)
 			}
 		}
+	}
+	if _u.mutation.ReasonCleared() {
+		_spec.ClearField(auditentry.FieldReason, field.TypeString)
+	}
+	if _u.mutation.NoteCleared() {
+		_spec.ClearField(auditentry.FieldNote, field.TypeString)
 	}
 	_node = &AuditEntry{config: _u.config}
 	_spec.Assign = _node.assignValues

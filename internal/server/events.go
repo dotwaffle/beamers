@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/events"
 )
 
@@ -35,8 +36,81 @@ func registerEventRoutes(
 	}
 	mux.HandleFunc("/admin/events", handlers.createEvent)
 	mux.HandleFunc("/admin/accounts", handlers.createAccount)
+	mux.HandleFunc("/admin/accounts/{accountID}/disable", handlers.disableAccount)
+	mux.HandleFunc("/admin/audit", handlers.listAuditEntries)
 	mux.HandleFunc("/admin/events/{eventID}/grants", handlers.grantEventAccess)
 	mux.HandleFunc("/crew/events/{eventID}", handlers.crewEvent)
+}
+
+func (handlers eventHandlers) disableAccount(response http.ResponseWriter, request *http.Request) {
+	if !requestAllowed(response, request, http.MethodPost, handlers.allowPlaintextCrew) {
+		return
+	}
+	actor, ok := handlers.authenticate(response, request)
+	if !ok {
+		return
+	}
+	accountID, err := positivePathID(request, "accountID")
+	if err != nil {
+		http.Error(response, "Account not found", http.StatusNotFound)
+		return
+	}
+	var input struct {
+		CommandID string `json:"command_id"`
+		Reason    string `json:"reason"`
+	}
+	if decodeErr := decodeAuthJSON(response, request, &input); decodeErr != nil {
+		http.Error(response, "invalid request", http.StatusBadRequest)
+		return
+	}
+	if validationErr := command.ValidateID(input.CommandID); validationErr != nil {
+		http.Error(response, "invalid request", http.StatusBadRequest)
+		return
+	}
+	err = handlers.authentication.DisableAccount(
+		request.Context(), actor, accountID, input.CommandID, input.Reason,
+	)
+	switch {
+	case errors.Is(err, auth.ErrAdministratorRequired):
+		http.Error(response, "Administrator authority required", http.StatusForbidden)
+	case errors.Is(err, auth.ErrDisableReasonRequired), errors.Is(err, auth.ErrInvalidAccountDetails):
+		http.Error(response, "valid command_id and reason are required", http.StatusUnprocessableEntity)
+	case errors.Is(err, auth.ErrDisableAccountNotFound):
+		http.Error(response, "Account not found", http.StatusNotFound)
+	case errors.Is(err, auth.ErrLastAdministrator):
+		http.Error(response, "last Administrator cannot be disabled", http.StatusConflict)
+	case errors.Is(err, auth.ErrCommandConflict):
+		http.Error(response, err.Error(), http.StatusConflict)
+	case err != nil:
+		handlers.logger.ErrorContext(request.Context(), "Disable Account failed", "error", err)
+		http.Error(response, "Disable Account unavailable", http.StatusInternalServerError)
+	default:
+		response.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func (handlers eventHandlers) listAuditEntries(response http.ResponseWriter, request *http.Request) {
+	if !requestAllowed(response, request, http.MethodGet, handlers.allowPlaintextCrew) {
+		return
+	}
+	actor, ok := handlers.authenticate(response, request)
+	if !ok {
+		return
+	}
+	found, err := handlers.authentication.ListAuditEntries(request.Context(), actor)
+	if errors.Is(err, auth.ErrAdministratorRequired) {
+		http.Error(response, "Administrator authority required", http.StatusForbidden)
+		return
+	}
+	if err != nil {
+		handlers.logger.ErrorContext(request.Context(), "Audit history listing failed", "error", err)
+		http.Error(response, "Audit history unavailable", http.StatusInternalServerError)
+		return
+	}
+	response.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(response).Encode(found); err != nil {
+		handlers.logger.ErrorContext(request.Context(), "write Audit history", "error", err)
+	}
 }
 
 func (handlers eventHandlers) grantEventAccess(response http.ResponseWriter, request *http.Request) {

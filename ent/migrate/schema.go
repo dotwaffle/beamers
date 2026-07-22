@@ -55,6 +55,8 @@ var (
 		{Name: "target_type", Type: field.TypeString, Size: 100},
 		{Name: "target_id", Type: field.TypeString, Size: 100},
 		{Name: "result", Type: field.TypeEnum, Enums: []string{"Succeeded", "Rejected"}},
+		{Name: "reason", Type: field.TypeString, Nullable: true, Size: 1000},
+		{Name: "note", Type: field.TypeString, Nullable: true, Size: 1000},
 		{Name: "actor_account_id", Type: field.TypeInt},
 	}
 	// AuditEntriesTable holds the schema information for the "audit_entries" table.
@@ -65,7 +67,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "audit_entries_accounts_audit_entries",
-				Columns:    []*schema.Column{AuditEntriesColumns[6]},
+				Columns:    []*schema.Column{AuditEntriesColumns[8]},
 				RefColumns: []*schema.Column{AccountsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},

@@ -23,6 +23,10 @@ var (
 	ErrInvalidSession = errors.New("invalid account session")
 	// ErrAccountExists means an Account already uses the requested normalized name.
 	ErrAccountExists = errors.New("account already exists")
+	// ErrDisableAccountNotFound means an Account cannot be retired by the command.
+	ErrDisableAccountNotFound = errors.New("account not found")
+	// ErrLastAdministrator means retirement would leave no installation Administrator.
+	ErrLastAdministrator = errors.New("last Administrator cannot be disabled")
 )
 
 // AccountCredential is the authentication projection of an Account.
@@ -55,6 +59,70 @@ type CreateAccountParams struct {
 	Now            time.Time
 	CommandID      string
 	PayloadHash    string
+}
+
+// DisabledAccount is the durable outcome of retiring one enabled Account.
+type DisabledAccount struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+// DisableAccount retires an enabled Account and revokes all current access atomically.
+func (transaction *CommandTx) DisableAccount(
+	ctx context.Context,
+	accountID int,
+	now time.Time,
+) (DisabledAccount, error) {
+	internalContext := viewer.SystemContext(ctx)
+	target, err := transaction.transaction.Account.Query().Where(
+		account.IDEQ(accountID),
+		account.DisabledAtIsNil(),
+	).Only(internalContext)
+	if ent.IsNotFound(err) {
+		return DisabledAccount{}, ErrDisableAccountNotFound
+	}
+	if err != nil {
+		return DisabledAccount{}, opaqueError("load Account to disable", err)
+	}
+	if target.Administrator {
+		administrators, countErr := transaction.transaction.Account.Query().Where(
+			account.AdministratorEQ(true), account.DisabledAtIsNil(),
+		).Count(internalContext)
+		if countErr != nil {
+			return DisabledAccount{}, opaqueError("count enabled Administrators", countErr)
+		}
+		if administrators <= 1 {
+			return DisabledAccount{}, ErrLastAdministrator
+		}
+	}
+	updated, err := transaction.transaction.Account.Update().Where(
+		account.IDEQ(accountID),
+		account.DisabledAtIsNil(),
+	).SetDisabledAt(now).Save(internalContext)
+	if err != nil {
+		return DisabledAccount{}, opaqueError("disable Account", err)
+	}
+	if updated != 1 {
+		return DisabledAccount{}, ErrDisableAccountNotFound
+	}
+	if _, err := transaction.transaction.AccountSession.Update().Where(
+		accountsession.AccountIDEQ(accountID),
+		accountsession.RevokedAtIsNil(),
+	).SetRevokedAt(now).Save(internalContext); err != nil {
+		return DisabledAccount{}, opaqueError("revoke Account sessions", err)
+	}
+	if _, err := transaction.transaction.PasswordCredential.Update().Where(
+		passwordcredential.AccountIDEQ(accountID),
+		passwordcredential.RevokedAtIsNil(),
+	).SetRevokedAt(now).Save(internalContext); err != nil {
+		return DisabledAccount{}, opaqueError("revoke Account credentials", err)
+	}
+	if _, err := transaction.transaction.EventGrant.Delete().Where(
+		eventgrant.AccountIDEQ(accountID),
+	).Exec(internalContext); err != nil {
+		return DisabledAccount{}, opaqueError("revoke Account Event Grants", err)
+	}
+	return DisabledAccount{ID: target.ID, Name: target.Name}, nil
 }
 
 // CreateAccount mutates Account state without owning command lifecycle evidence.

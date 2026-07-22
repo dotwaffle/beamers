@@ -55,6 +55,12 @@ var (
 	ErrAdministratorRequired = errors.New("administrator authority required")
 	// ErrAccountExists means the requested Account name is already in use.
 	ErrAccountExists = store.ErrAccountExists
+	// ErrDisableAccountNotFound means the target is unknown or already disabled.
+	ErrDisableAccountNotFound = store.ErrDisableAccountNotFound
+	// ErrLastAdministrator means retirement would remove all installation administration.
+	ErrLastAdministrator = store.ErrLastAdministrator
+	// ErrDisableReasonRequired means retirement lacks safe audit evidence.
+	ErrDisableReasonRequired = errors.New("disable reason is required")
 	// ErrCommandConflict means a Command ID was reused for different Account work.
 	ErrCommandConflict = store.ErrCommandConflict
 )
@@ -65,6 +71,20 @@ type Account struct {
 	Name          string
 	Administrator bool
 	EventRoles    map[int]viewer.Role
+}
+
+// AuditEntry is one Administrator-readable authenticated action.
+type AuditEntry struct {
+	ID             int       `json:"id"`
+	ActorAccountID int       `json:"actor_account_id"`
+	ActorName      string    `json:"actor_name"`
+	ServerTime     time.Time `json:"server_time"`
+	Action         string    `json:"action"`
+	TargetType     string    `json:"target_type"`
+	TargetID       string    `json:"target_id"`
+	Outcome        string    `json:"outcome"`
+	Reason         string    `json:"reason,omitempty"`
+	Note           string    `json:"note,omitempty"`
 }
 
 // Session is a newly authenticated session. Token is returned only to the
@@ -321,6 +341,77 @@ func (service *Service) CreateAccount(
 	return account(created), nil
 }
 
+// DisableAccount retires one enabled Account while preserving a final Administrator.
+func (service *Service) DisableAccount(
+	ctx context.Context,
+	actor Account,
+	accountID int,
+	commandID string,
+	reason string,
+) error {
+	if err := command.ValidateID(commandID); err != nil {
+		return ErrInvalidAccountDetails
+	}
+	reason = strings.TrimSpace(reason)
+	payload, err := json.Marshal(struct {
+		AccountID int    `json:"account_id"`
+		Reason    string `json:"reason"`
+	}{AccountID: accountID, Reason: reason})
+	if err != nil {
+		return errors.New("encode Disable Account command")
+	}
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID, CommandID: commandID,
+		PayloadHash: command.PayloadHash(string(payload)), Action: "DisableAccount",
+		TargetType: "Account", TargetID: strconv.Itoa(accountID), Now: service.now().UTC(),
+	}
+	transaction, err := service.storage.BeginCommand(actor.Context(ctx))
+	if err != nil {
+		return err
+	}
+	defer func() { _ = transaction.Rollback() }()
+	outcome, retry, err := transaction.LookupReceipt(ctx, identity)
+	if errors.Is(err, ErrCommandConflict) {
+		if commitErr := transaction.CommitConflict(actor.Context(ctx), identity); commitErr != nil {
+			return commitErr
+		}
+		return ErrCommandConflict
+	}
+	if err != nil {
+		return err
+	}
+	if retry {
+		var original store.DisabledAccount
+		if decodeErr := store.DecodeCommandReceipt(outcome, &original); decodeErr != nil {
+			return restoreRejected(decodeErr)
+		}
+		return nil
+	}
+	if !actor.Administrator {
+		return service.rejectTransaction(actor.Context(ctx), transaction, identity, ErrAdministratorRequired)
+	}
+	if !validDisableReason(reason) {
+		return service.rejectTransaction(actor.Context(ctx), transaction, identity, ErrDisableReasonRequired)
+	}
+	disabled, err := transaction.DisableAccount(actor.Context(ctx), accountID, identity.Now)
+	if err != nil {
+		if errors.Is(err, ErrDisableAccountNotFound) || errors.Is(err, ErrLastAdministrator) {
+			return service.rejectTransaction(actor.Context(ctx), transaction, identity, err)
+		}
+		return err
+	}
+	encoded, err := json.Marshal(disabled)
+	if err != nil {
+		return errors.New("encode Disable Account outcome")
+	}
+	if err := transaction.RecordOutcomeWithAudit(
+		actor.Context(ctx), identity, string(encoded), false, store.AuditDetails{Reason: reason},
+	); err != nil {
+		return err
+	}
+	return transaction.Commit()
+}
+
 func (service *Service) rejectTransaction(
 	ctx context.Context,
 	transaction *store.CommandTx,
@@ -344,6 +435,12 @@ func accountRejection(reason error) store.CommandRejection {
 		return store.CommandRejection{Code: "invalid_account_details"}
 	case errors.Is(reason, ErrAccountExists):
 		return store.CommandRejection{Code: "account_exists"}
+	case errors.Is(reason, ErrDisableAccountNotFound):
+		return store.CommandRejection{Code: "account_not_found"}
+	case errors.Is(reason, ErrDisableReasonRequired):
+		return store.CommandRejection{Code: "disable_reason_required"}
+	case errors.Is(reason, ErrLastAdministrator):
+		return store.CommandRejection{Code: "last_administrator"}
 	default:
 		return store.CommandRejection{Code: "unavailable"}
 	}
@@ -361,8 +458,23 @@ func restoreRejected(err error) error {
 		return ErrInvalidAccountDetails
 	case "account_exists":
 		return ErrAccountExists
+	case "account_not_found":
+		return ErrDisableAccountNotFound
+	case "disable_reason_required":
+		return ErrDisableReasonRequired
+	case "last_administrator":
+		return ErrLastAdministrator
 	default:
 		return errors.New("Account command unavailable")
+	}
+}
+
+func validDisableReason(value string) bool {
+	switch value {
+	case "crew_departed", "access_revoked", "account_compromised", "duplicate_account":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -383,6 +495,30 @@ func (service *Service) ListAccounts(
 		accounts = append(accounts, account(item))
 	}
 	return accounts, nil
+}
+
+// ListAuditEntries returns installation history to an Administrator.
+func (service *Service) ListAuditEntries(
+	ctx context.Context,
+	actor Account,
+) ([]AuditEntry, error) {
+	if !actor.Administrator {
+		return nil, ErrAdministratorRequired
+	}
+	found, err := service.storage.ListAuditEntries(actor.Context(ctx))
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]AuditEntry, 0, len(found))
+	for _, item := range found {
+		entries = append(entries, AuditEntry{
+			ID: item.ID, ActorAccountID: item.ActorAccountID, ActorName: item.ActorName,
+			ServerTime: item.ServerTime, Action: item.Action,
+			TargetType: item.TargetType, TargetID: item.TargetID,
+			Outcome: item.Outcome, Reason: item.Reason, Note: item.Note,
+		})
+	}
+	return entries, nil
 }
 
 // Authenticate returns the Account for an active durable session.

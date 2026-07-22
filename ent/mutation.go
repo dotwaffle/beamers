@@ -1759,6 +1759,8 @@ type AuditEntryMutation struct {
 	target_type   *string
 	target_id     *string
 	result        *auditentry.Result
+	reason        *string
+	note          *string
 	clearedFields map[string]struct{}
 	actor         *int
 	clearedactor  bool
@@ -2081,6 +2083,104 @@ func (m *AuditEntryMutation) ResetResult() {
 	m.result = nil
 }
 
+// SetReason sets the "reason" field.
+func (m *AuditEntryMutation) SetReason(s string) {
+	m.reason = &s
+}
+
+// Reason returns the value of the "reason" field in the mutation.
+func (m *AuditEntryMutation) Reason() (r string, exists bool) {
+	v := m.reason
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReason returns the old "reason" field's value of the AuditEntry entity.
+// If the AuditEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AuditEntryMutation) OldReason(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReason is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReason requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReason: %w", err)
+	}
+	return oldValue.Reason, nil
+}
+
+// ClearReason clears the value of the "reason" field.
+func (m *AuditEntryMutation) ClearReason() {
+	m.reason = nil
+	m.clearedFields[auditentry.FieldReason] = struct{}{}
+}
+
+// ReasonCleared returns if the "reason" field was cleared in this mutation.
+func (m *AuditEntryMutation) ReasonCleared() bool {
+	_, ok := m.clearedFields[auditentry.FieldReason]
+	return ok
+}
+
+// ResetReason resets all changes to the "reason" field.
+func (m *AuditEntryMutation) ResetReason() {
+	m.reason = nil
+	delete(m.clearedFields, auditentry.FieldReason)
+}
+
+// SetNote sets the "note" field.
+func (m *AuditEntryMutation) SetNote(s string) {
+	m.note = &s
+}
+
+// Note returns the value of the "note" field in the mutation.
+func (m *AuditEntryMutation) Note() (r string, exists bool) {
+	v := m.note
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNote returns the old "note" field's value of the AuditEntry entity.
+// If the AuditEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AuditEntryMutation) OldNote(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNote is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNote requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNote: %w", err)
+	}
+	return oldValue.Note, nil
+}
+
+// ClearNote clears the value of the "note" field.
+func (m *AuditEntryMutation) ClearNote() {
+	m.note = nil
+	m.clearedFields[auditentry.FieldNote] = struct{}{}
+}
+
+// NoteCleared returns if the "note" field was cleared in this mutation.
+func (m *AuditEntryMutation) NoteCleared() bool {
+	_, ok := m.clearedFields[auditentry.FieldNote]
+	return ok
+}
+
+// ResetNote resets all changes to the "note" field.
+func (m *AuditEntryMutation) ResetNote() {
+	m.note = nil
+	delete(m.clearedFields, auditentry.FieldNote)
+}
+
 // SetActorID sets the "actor" edge to the Account entity by id.
 func (m *AuditEntryMutation) SetActorID(id int) {
 	m.actor = &id
@@ -2155,7 +2255,7 @@ func (m *AuditEntryMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AuditEntryMutation) Fields() []string {
-	fields := make([]string, 0, 6)
+	fields := make([]string, 0, 8)
 	if m.actor != nil {
 		fields = append(fields, auditentry.FieldActorAccountID)
 	}
@@ -2173,6 +2273,12 @@ func (m *AuditEntryMutation) Fields() []string {
 	}
 	if m.result != nil {
 		fields = append(fields, auditentry.FieldResult)
+	}
+	if m.reason != nil {
+		fields = append(fields, auditentry.FieldReason)
+	}
+	if m.note != nil {
+		fields = append(fields, auditentry.FieldNote)
 	}
 	return fields
 }
@@ -2194,6 +2300,10 @@ func (m *AuditEntryMutation) Field(name string) (ent.Value, bool) {
 		return m.TargetID()
 	case auditentry.FieldResult:
 		return m.Result()
+	case auditentry.FieldReason:
+		return m.Reason()
+	case auditentry.FieldNote:
+		return m.Note()
 	}
 	return nil, false
 }
@@ -2215,6 +2325,10 @@ func (m *AuditEntryMutation) OldField(ctx context.Context, name string) (ent.Val
 		return m.OldTargetID(ctx)
 	case auditentry.FieldResult:
 		return m.OldResult(ctx)
+	case auditentry.FieldReason:
+		return m.OldReason(ctx)
+	case auditentry.FieldNote:
+		return m.OldNote(ctx)
 	}
 	return nil, fmt.Errorf("unknown AuditEntry field %s", name)
 }
@@ -2266,6 +2380,20 @@ func (m *AuditEntryMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetResult(v)
 		return nil
+	case auditentry.FieldReason:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReason(v)
+		return nil
+	case auditentry.FieldNote:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNote(v)
+		return nil
 	}
 	return fmt.Errorf("unknown AuditEntry field %s", name)
 }
@@ -2298,7 +2426,14 @@ func (m *AuditEntryMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *AuditEntryMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(auditentry.FieldReason) {
+		fields = append(fields, auditentry.FieldReason)
+	}
+	if m.FieldCleared(auditentry.FieldNote) {
+		fields = append(fields, auditentry.FieldNote)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -2311,6 +2446,14 @@ func (m *AuditEntryMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *AuditEntryMutation) ClearField(name string) error {
+	switch name {
+	case auditentry.FieldReason:
+		m.ClearReason()
+		return nil
+	case auditentry.FieldNote:
+		m.ClearNote()
+		return nil
+	}
 	return fmt.Errorf("unknown AuditEntry nullable field %s", name)
 }
 
@@ -2335,6 +2478,12 @@ func (m *AuditEntryMutation) ResetField(name string) error {
 		return nil
 	case auditentry.FieldResult:
 		m.ResetResult()
+		return nil
+	case auditentry.FieldReason:
+		m.ResetReason()
+		return nil
+	case auditentry.FieldNote:
+		m.ResetNote()
 		return nil
 	}
 	return fmt.Errorf("unknown AuditEntry field %s", name)

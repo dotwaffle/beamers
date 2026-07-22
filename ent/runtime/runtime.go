@@ -196,6 +196,14 @@ func init() {
 			return nil
 		}
 	}()
+	// auditentryDescReason is the schema descriptor for reason field.
+	auditentryDescReason := auditentryFields[6].Descriptor()
+	// auditentry.ReasonValidator is a validator for the "reason" field. It is called by the builders before save.
+	auditentry.ReasonValidator = auditentryDescReason.Validators[0].(func(string) error)
+	// auditentryDescNote is the schema descriptor for note field.
+	auditentryDescNote := auditentryFields[7].Descriptor()
+	// auditentry.NoteValidator is a validator for the "note" field. It is called by the builders before save.
+	auditentry.NoteValidator = auditentryDescNote.Validators[0].(func(string) error)
 	bootstrapcredential.Policy = privacy.NewPolicies(schema.BootstrapCredential{})
 	bootstrapcredential.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

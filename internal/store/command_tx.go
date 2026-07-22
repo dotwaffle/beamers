@@ -40,6 +40,12 @@ type CommandTx struct {
 	committed   bool
 }
 
+// AuditDetails contains optional domain-required evidence for one outcome.
+type AuditDetails struct {
+	Reason string
+	Note   string
+}
+
 // BeginCommand starts one concrete command transaction.
 func (installation *SQLite) BeginCommand(ctx context.Context) (*CommandTx, error) {
 	transaction, err := installation.client.Tx(ctx)
@@ -69,6 +75,17 @@ func (transaction *CommandTx) RecordOutcome(
 	outcomeJSON string,
 	rejected bool,
 ) error {
+	return transaction.RecordOutcomeWithAudit(ctx, identity, outcomeJSON, rejected, AuditDetails{})
+}
+
+// RecordOutcomeWithAudit appends a receipt and detailed Audit Entry without committing.
+func (transaction *CommandTx) RecordOutcomeWithAudit(
+	ctx context.Context,
+	identity CommandIdentity,
+	outcomeJSON string,
+	rejected bool,
+	details AuditDetails,
+) error {
 	result := auditentry.ResultSucceeded
 	if rejected {
 		result = auditentry.ResultRejected
@@ -92,10 +109,26 @@ func (transaction *CommandTx) RecordOutcome(
 		SetTargetType(identity.TargetType).
 		SetTargetID(identity.TargetID).
 		SetResult(result).
+		SetReason(auditReason(outcomeJSON, rejected, details.Reason)).
+		SetNote(details.Note).
 		Save(ctx); err != nil {
 		return opaqueError("record command Audit Entry", err)
 	}
 	return nil
+}
+
+func auditReason(outcomeJSON string, rejected bool, reason string) string {
+	if reason != "" {
+		return reason
+	}
+	if !rejected {
+		return ""
+	}
+	var outcome commandOutcome
+	if err := json.Unmarshal([]byte(outcomeJSON), &outcome); err != nil || outcome.Rejected == nil {
+		return ""
+	}
+	return outcome.Rejected.Code
 }
 
 // RecordRejection appends one stable rejected outcome and its Audit Entry.

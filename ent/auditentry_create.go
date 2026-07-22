@@ -65,6 +65,34 @@ func (_c *AuditEntryCreate) SetResult(v auditentry.Result) *AuditEntryCreate {
 	return _c
 }
 
+// SetReason sets the "reason" field.
+func (_c *AuditEntryCreate) SetReason(v string) *AuditEntryCreate {
+	_c.mutation.SetReason(v)
+	return _c
+}
+
+// SetNillableReason sets the "reason" field if the given value is not nil.
+func (_c *AuditEntryCreate) SetNillableReason(v *string) *AuditEntryCreate {
+	if v != nil {
+		_c.SetReason(*v)
+	}
+	return _c
+}
+
+// SetNote sets the "note" field.
+func (_c *AuditEntryCreate) SetNote(v string) *AuditEntryCreate {
+	_c.mutation.SetNote(v)
+	return _c
+}
+
+// SetNillableNote sets the "note" field if the given value is not nil.
+func (_c *AuditEntryCreate) SetNillableNote(v *string) *AuditEntryCreate {
+	if v != nil {
+		_c.SetNote(*v)
+	}
+	return _c
+}
+
 // SetActorID sets the "actor" edge to the Account entity by ID.
 func (_c *AuditEntryCreate) SetActorID(id int) *AuditEntryCreate {
 	_c.mutation.SetActorID(id)
@@ -163,6 +191,16 @@ func (_c *AuditEntryCreate) check() error {
 			return &ValidationError{Name: "result", err: fmt.Errorf(`ent: validator failed for field "AuditEntry.result": %w`, err)}
 		}
 	}
+	if v, ok := _c.mutation.Reason(); ok {
+		if err := auditentry.ReasonValidator(v); err != nil {
+			return &ValidationError{Name: "reason", err: fmt.Errorf(`ent: validator failed for field "AuditEntry.reason": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.Note(); ok {
+		if err := auditentry.NoteValidator(v); err != nil {
+			return &ValidationError{Name: "note", err: fmt.Errorf(`ent: validator failed for field "AuditEntry.note": %w`, err)}
+		}
+	}
 	if len(_c.mutation.ActorIDs()) == 0 {
 		return &ValidationError{Name: "actor", err: errors.New(`ent: missing required edge "AuditEntry.actor"`)}
 	}
@@ -211,6 +249,14 @@ func (_c *AuditEntryCreate) createSpec() (*AuditEntry, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Result(); ok {
 		_spec.SetField(auditentry.FieldResult, field.TypeEnum, value)
 		_node.Result = value
+	}
+	if value, ok := _c.mutation.Reason(); ok {
+		_spec.SetField(auditentry.FieldReason, field.TypeString, value)
+		_node.Reason = value
+	}
+	if value, ok := _c.mutation.Note(); ok {
+		_spec.SetField(auditentry.FieldNote, field.TypeString, value)
+		_node.Note = value
 	}
 	if nodes := _c.mutation.ActorIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

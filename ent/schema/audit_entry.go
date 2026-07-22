@@ -35,6 +35,8 @@ func (AuditEntry) Fields() []ent.Field {
 		field.String("target_type").NotEmpty().MaxLen(100).Immutable(),
 		field.String("target_id").NotEmpty().MaxLen(100).Immutable(),
 		field.Enum("result").Values("Succeeded", "Rejected").Immutable(),
+		field.String("reason").Optional().MaxLen(1000).Immutable(),
+		field.String("note").Optional().MaxLen(1000).Immutable(),
 	}
 }
 

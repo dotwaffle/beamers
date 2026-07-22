@@ -80,6 +80,16 @@ func TargetID(v string) predicate.AuditEntry {
 	return predicate.AuditEntry(sql.FieldEQ(FieldTargetID, v))
 }
 
+// Reason applies equality check predicate on the "reason" field. It's identical to ReasonEQ.
+func Reason(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldEQ(FieldReason, v))
+}
+
+// Note applies equality check predicate on the "note" field. It's identical to NoteEQ.
+func Note(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldEQ(FieldNote, v))
+}
+
 // ActorAccountIDEQ applies the EQ predicate on the "actor_account_id" field.
 func ActorAccountIDEQ(v int) predicate.AuditEntry {
 	return predicate.AuditEntry(sql.FieldEQ(FieldActorAccountID, v))
@@ -353,6 +363,156 @@ func ResultIn(vs ...Result) predicate.AuditEntry {
 // ResultNotIn applies the NotIn predicate on the "result" field.
 func ResultNotIn(vs ...Result) predicate.AuditEntry {
 	return predicate.AuditEntry(sql.FieldNotIn(FieldResult, vs...))
+}
+
+// ReasonEQ applies the EQ predicate on the "reason" field.
+func ReasonEQ(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldEQ(FieldReason, v))
+}
+
+// ReasonNEQ applies the NEQ predicate on the "reason" field.
+func ReasonNEQ(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldNEQ(FieldReason, v))
+}
+
+// ReasonIn applies the In predicate on the "reason" field.
+func ReasonIn(vs ...string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldIn(FieldReason, vs...))
+}
+
+// ReasonNotIn applies the NotIn predicate on the "reason" field.
+func ReasonNotIn(vs ...string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldNotIn(FieldReason, vs...))
+}
+
+// ReasonGT applies the GT predicate on the "reason" field.
+func ReasonGT(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldGT(FieldReason, v))
+}
+
+// ReasonGTE applies the GTE predicate on the "reason" field.
+func ReasonGTE(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldGTE(FieldReason, v))
+}
+
+// ReasonLT applies the LT predicate on the "reason" field.
+func ReasonLT(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldLT(FieldReason, v))
+}
+
+// ReasonLTE applies the LTE predicate on the "reason" field.
+func ReasonLTE(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldLTE(FieldReason, v))
+}
+
+// ReasonContains applies the Contains predicate on the "reason" field.
+func ReasonContains(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldContains(FieldReason, v))
+}
+
+// ReasonHasPrefix applies the HasPrefix predicate on the "reason" field.
+func ReasonHasPrefix(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldHasPrefix(FieldReason, v))
+}
+
+// ReasonHasSuffix applies the HasSuffix predicate on the "reason" field.
+func ReasonHasSuffix(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldHasSuffix(FieldReason, v))
+}
+
+// ReasonIsNil applies the IsNil predicate on the "reason" field.
+func ReasonIsNil() predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldIsNull(FieldReason))
+}
+
+// ReasonNotNil applies the NotNil predicate on the "reason" field.
+func ReasonNotNil() predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldNotNull(FieldReason))
+}
+
+// ReasonEqualFold applies the EqualFold predicate on the "reason" field.
+func ReasonEqualFold(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldEqualFold(FieldReason, v))
+}
+
+// ReasonContainsFold applies the ContainsFold predicate on the "reason" field.
+func ReasonContainsFold(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldContainsFold(FieldReason, v))
+}
+
+// NoteEQ applies the EQ predicate on the "note" field.
+func NoteEQ(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldEQ(FieldNote, v))
+}
+
+// NoteNEQ applies the NEQ predicate on the "note" field.
+func NoteNEQ(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldNEQ(FieldNote, v))
+}
+
+// NoteIn applies the In predicate on the "note" field.
+func NoteIn(vs ...string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldIn(FieldNote, vs...))
+}
+
+// NoteNotIn applies the NotIn predicate on the "note" field.
+func NoteNotIn(vs ...string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldNotIn(FieldNote, vs...))
+}
+
+// NoteGT applies the GT predicate on the "note" field.
+func NoteGT(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldGT(FieldNote, v))
+}
+
+// NoteGTE applies the GTE predicate on the "note" field.
+func NoteGTE(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldGTE(FieldNote, v))
+}
+
+// NoteLT applies the LT predicate on the "note" field.
+func NoteLT(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldLT(FieldNote, v))
+}
+
+// NoteLTE applies the LTE predicate on the "note" field.
+func NoteLTE(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldLTE(FieldNote, v))
+}
+
+// NoteContains applies the Contains predicate on the "note" field.
+func NoteContains(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldContains(FieldNote, v))
+}
+
+// NoteHasPrefix applies the HasPrefix predicate on the "note" field.
+func NoteHasPrefix(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldHasPrefix(FieldNote, v))
+}
+
+// NoteHasSuffix applies the HasSuffix predicate on the "note" field.
+func NoteHasSuffix(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldHasSuffix(FieldNote, v))
+}
+
+// NoteIsNil applies the IsNil predicate on the "note" field.
+func NoteIsNil() predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldIsNull(FieldNote))
+}
+
+// NoteNotNil applies the NotNil predicate on the "note" field.
+func NoteNotNil() predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldNotNull(FieldNote))
+}
+
+// NoteEqualFold applies the EqualFold predicate on the "note" field.
+func NoteEqualFold(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldEqualFold(FieldNote, v))
+}
+
+// NoteContainsFold applies the ContainsFold predicate on the "note" field.
+func NoteContainsFold(v string) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldContainsFold(FieldNote, v))
 }
 
 // HasActor applies the HasEdge predicate on the "actor" edge.
