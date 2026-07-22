@@ -14,8 +14,13 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/dotwaffle/beamers/ent/account"
+	"github.com/dotwaffle/beamers/ent/accountsession"
+	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/migration"
+	"github.com/dotwaffle/beamers/ent/passwordcredential"
 )
 
 // Client is the client that holds all ent builders.
@@ -23,10 +28,18 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
+	// Account is the client for interacting with the Account builders.
+	Account *AccountClient
+	// AccountSession is the client for interacting with the AccountSession builders.
+	AccountSession *AccountSessionClient
+	// BootstrapCredential is the client for interacting with the BootstrapCredential builders.
+	BootstrapCredential *BootstrapCredentialClient
 	// Installation is the client for interacting with the Installation builders.
 	Installation *InstallationClient
 	// Migration is the client for interacting with the Migration builders.
 	Migration *MigrationClient
+	// PasswordCredential is the client for interacting with the PasswordCredential builders.
+	PasswordCredential *PasswordCredentialClient
 }
 
 // NewClient creates a new client configured with the given options.
@@ -38,8 +51,12 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
+	c.Account = NewAccountClient(c.config)
+	c.AccountSession = NewAccountSessionClient(c.config)
+	c.BootstrapCredential = NewBootstrapCredentialClient(c.config)
 	c.Installation = NewInstallationClient(c.config)
 	c.Migration = NewMigrationClient(c.config)
+	c.PasswordCredential = NewPasswordCredentialClient(c.config)
 }
 
 type (
@@ -130,10 +147,14 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:          ctx,
-		config:       cfg,
-		Installation: NewInstallationClient(cfg),
-		Migration:    NewMigrationClient(cfg),
+		ctx:                 ctx,
+		config:              cfg,
+		Account:             NewAccountClient(cfg),
+		AccountSession:      NewAccountSessionClient(cfg),
+		BootstrapCredential: NewBootstrapCredentialClient(cfg),
+		Installation:        NewInstallationClient(cfg),
+		Migration:           NewMigrationClient(cfg),
+		PasswordCredential:  NewPasswordCredentialClient(cfg),
 	}, nil
 }
 
@@ -151,17 +172,21 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:          ctx,
-		config:       cfg,
-		Installation: NewInstallationClient(cfg),
-		Migration:    NewMigrationClient(cfg),
+		ctx:                 ctx,
+		config:              cfg,
+		Account:             NewAccountClient(cfg),
+		AccountSession:      NewAccountSessionClient(cfg),
+		BootstrapCredential: NewBootstrapCredentialClient(cfg),
+		Installation:        NewInstallationClient(cfg),
+		Migration:           NewMigrationClient(cfg),
+		PasswordCredential:  NewPasswordCredentialClient(cfg),
 	}, nil
 }
 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		Installation.
+//		Account.
 //		Query().
 //		Count(ctx)
 func (c *Client) Debug() *Client {
@@ -183,26 +208,489 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
-	c.Installation.Use(hooks...)
-	c.Migration.Use(hooks...)
+	for _, n := range []interface{ Use(...Hook) }{
+		c.Account, c.AccountSession, c.BootstrapCredential, c.Installation, c.Migration,
+		c.PasswordCredential,
+	} {
+		n.Use(hooks...)
+	}
 }
 
 // Intercept adds the query interceptors to all the entity clients.
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
-	c.Installation.Intercept(interceptors...)
-	c.Migration.Intercept(interceptors...)
+	for _, n := range []interface{ Intercept(...Interceptor) }{
+		c.Account, c.AccountSession, c.BootstrapCredential, c.Installation, c.Migration,
+		c.PasswordCredential,
+	} {
+		n.Intercept(interceptors...)
+	}
 }
 
 // Mutate implements the ent.Mutator interface.
 func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
+	case *AccountMutation:
+		return c.Account.mutate(ctx, m)
+	case *AccountSessionMutation:
+		return c.AccountSession.mutate(ctx, m)
+	case *BootstrapCredentialMutation:
+		return c.BootstrapCredential.mutate(ctx, m)
 	case *InstallationMutation:
 		return c.Installation.mutate(ctx, m)
 	case *MigrationMutation:
 		return c.Migration.mutate(ctx, m)
+	case *PasswordCredentialMutation:
+		return c.PasswordCredential.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
+	}
+}
+
+// AccountClient is a client for the Account schema.
+type AccountClient struct {
+	config
+}
+
+// NewAccountClient returns a client for the Account from the given config.
+func NewAccountClient(c config) *AccountClient {
+	return &AccountClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `account.Hooks(f(g(h())))`.
+func (c *AccountClient) Use(hooks ...Hook) {
+	c.hooks.Account = append(c.hooks.Account, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `account.Intercept(f(g(h())))`.
+func (c *AccountClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Account = append(c.inters.Account, interceptors...)
+}
+
+// Create returns a builder for creating a Account entity.
+func (c *AccountClient) Create() *AccountCreate {
+	mutation := newAccountMutation(c.config, OpCreate)
+	return &AccountCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Account entities.
+func (c *AccountClient) CreateBulk(builders ...*AccountCreate) *AccountCreateBulk {
+	return &AccountCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *AccountClient) MapCreateBulk(slice any, setFunc func(*AccountCreate, int)) *AccountCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &AccountCreateBulk{err: fmt.Errorf("calling to AccountClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*AccountCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &AccountCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Account.
+func (c *AccountClient) Update() *AccountUpdate {
+	mutation := newAccountMutation(c.config, OpUpdate)
+	return &AccountUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *AccountClient) UpdateOne(_m *Account) *AccountUpdateOne {
+	mutation := newAccountMutation(c.config, OpUpdateOne, withAccount(_m))
+	return &AccountUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *AccountClient) UpdateOneID(id int) *AccountUpdateOne {
+	mutation := newAccountMutation(c.config, OpUpdateOne, withAccountID(id))
+	return &AccountUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Account.
+func (c *AccountClient) Delete() *AccountDelete {
+	mutation := newAccountMutation(c.config, OpDelete)
+	return &AccountDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *AccountClient) DeleteOne(_m *Account) *AccountDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *AccountClient) DeleteOneID(id int) *AccountDeleteOne {
+	builder := c.Delete().Where(account.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &AccountDeleteOne{builder}
+}
+
+// Query returns a query builder for Account.
+func (c *AccountClient) Query() *AccountQuery {
+	return &AccountQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAccount},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Account entity by its id.
+func (c *AccountClient) Get(ctx context.Context, id int) (*Account, error) {
+	return c.Query().Where(account.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *AccountClient) GetX(ctx context.Context, id int) *Account {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryPasswordCredential queries the password_credential edge of a Account.
+func (c *AccountClient) QueryPasswordCredential(_m *Account) *PasswordCredentialQuery {
+	query := (&PasswordCredentialClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(passwordcredential.Table, passwordcredential.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, account.PasswordCredentialTable, account.PasswordCredentialColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySessions queries the sessions edge of a Account.
+func (c *AccountClient) QuerySessions(_m *Account) *AccountSessionQuery {
+	query := (&AccountSessionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(accountsession.Table, accountsession.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.SessionsTable, account.SessionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *AccountClient) Hooks() []Hook {
+	return c.hooks.Account
+}
+
+// Interceptors returns the client interceptors.
+func (c *AccountClient) Interceptors() []Interceptor {
+	return c.inters.Account
+}
+
+func (c *AccountClient) mutate(ctx context.Context, m *AccountMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&AccountCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&AccountUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&AccountUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&AccountDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Account mutation op: %q", m.Op())
+	}
+}
+
+// AccountSessionClient is a client for the AccountSession schema.
+type AccountSessionClient struct {
+	config
+}
+
+// NewAccountSessionClient returns a client for the AccountSession from the given config.
+func NewAccountSessionClient(c config) *AccountSessionClient {
+	return &AccountSessionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `accountsession.Hooks(f(g(h())))`.
+func (c *AccountSessionClient) Use(hooks ...Hook) {
+	c.hooks.AccountSession = append(c.hooks.AccountSession, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `accountsession.Intercept(f(g(h())))`.
+func (c *AccountSessionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.AccountSession = append(c.inters.AccountSession, interceptors...)
+}
+
+// Create returns a builder for creating a AccountSession entity.
+func (c *AccountSessionClient) Create() *AccountSessionCreate {
+	mutation := newAccountSessionMutation(c.config, OpCreate)
+	return &AccountSessionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of AccountSession entities.
+func (c *AccountSessionClient) CreateBulk(builders ...*AccountSessionCreate) *AccountSessionCreateBulk {
+	return &AccountSessionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *AccountSessionClient) MapCreateBulk(slice any, setFunc func(*AccountSessionCreate, int)) *AccountSessionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &AccountSessionCreateBulk{err: fmt.Errorf("calling to AccountSessionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*AccountSessionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &AccountSessionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for AccountSession.
+func (c *AccountSessionClient) Update() *AccountSessionUpdate {
+	mutation := newAccountSessionMutation(c.config, OpUpdate)
+	return &AccountSessionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *AccountSessionClient) UpdateOne(_m *AccountSession) *AccountSessionUpdateOne {
+	mutation := newAccountSessionMutation(c.config, OpUpdateOne, withAccountSession(_m))
+	return &AccountSessionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *AccountSessionClient) UpdateOneID(id int) *AccountSessionUpdateOne {
+	mutation := newAccountSessionMutation(c.config, OpUpdateOne, withAccountSessionID(id))
+	return &AccountSessionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for AccountSession.
+func (c *AccountSessionClient) Delete() *AccountSessionDelete {
+	mutation := newAccountSessionMutation(c.config, OpDelete)
+	return &AccountSessionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *AccountSessionClient) DeleteOne(_m *AccountSession) *AccountSessionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *AccountSessionClient) DeleteOneID(id int) *AccountSessionDeleteOne {
+	builder := c.Delete().Where(accountsession.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &AccountSessionDeleteOne{builder}
+}
+
+// Query returns a query builder for AccountSession.
+func (c *AccountSessionClient) Query() *AccountSessionQuery {
+	return &AccountSessionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAccountSession},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a AccountSession entity by its id.
+func (c *AccountSessionClient) Get(ctx context.Context, id int) (*AccountSession, error) {
+	return c.Query().Where(accountsession.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *AccountSessionClient) GetX(ctx context.Context, id int) *AccountSession {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryAccount queries the account edge of a AccountSession.
+func (c *AccountSessionClient) QueryAccount(_m *AccountSession) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(accountsession.Table, accountsession.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, accountsession.AccountTable, accountsession.AccountColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *AccountSessionClient) Hooks() []Hook {
+	return c.hooks.AccountSession
+}
+
+// Interceptors returns the client interceptors.
+func (c *AccountSessionClient) Interceptors() []Interceptor {
+	return c.inters.AccountSession
+}
+
+func (c *AccountSessionClient) mutate(ctx context.Context, m *AccountSessionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&AccountSessionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&AccountSessionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&AccountSessionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&AccountSessionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown AccountSession mutation op: %q", m.Op())
+	}
+}
+
+// BootstrapCredentialClient is a client for the BootstrapCredential schema.
+type BootstrapCredentialClient struct {
+	config
+}
+
+// NewBootstrapCredentialClient returns a client for the BootstrapCredential from the given config.
+func NewBootstrapCredentialClient(c config) *BootstrapCredentialClient {
+	return &BootstrapCredentialClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `bootstrapcredential.Hooks(f(g(h())))`.
+func (c *BootstrapCredentialClient) Use(hooks ...Hook) {
+	c.hooks.BootstrapCredential = append(c.hooks.BootstrapCredential, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `bootstrapcredential.Intercept(f(g(h())))`.
+func (c *BootstrapCredentialClient) Intercept(interceptors ...Interceptor) {
+	c.inters.BootstrapCredential = append(c.inters.BootstrapCredential, interceptors...)
+}
+
+// Create returns a builder for creating a BootstrapCredential entity.
+func (c *BootstrapCredentialClient) Create() *BootstrapCredentialCreate {
+	mutation := newBootstrapCredentialMutation(c.config, OpCreate)
+	return &BootstrapCredentialCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of BootstrapCredential entities.
+func (c *BootstrapCredentialClient) CreateBulk(builders ...*BootstrapCredentialCreate) *BootstrapCredentialCreateBulk {
+	return &BootstrapCredentialCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *BootstrapCredentialClient) MapCreateBulk(slice any, setFunc func(*BootstrapCredentialCreate, int)) *BootstrapCredentialCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &BootstrapCredentialCreateBulk{err: fmt.Errorf("calling to BootstrapCredentialClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*BootstrapCredentialCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &BootstrapCredentialCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for BootstrapCredential.
+func (c *BootstrapCredentialClient) Update() *BootstrapCredentialUpdate {
+	mutation := newBootstrapCredentialMutation(c.config, OpUpdate)
+	return &BootstrapCredentialUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *BootstrapCredentialClient) UpdateOne(_m *BootstrapCredential) *BootstrapCredentialUpdateOne {
+	mutation := newBootstrapCredentialMutation(c.config, OpUpdateOne, withBootstrapCredential(_m))
+	return &BootstrapCredentialUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *BootstrapCredentialClient) UpdateOneID(id int) *BootstrapCredentialUpdateOne {
+	mutation := newBootstrapCredentialMutation(c.config, OpUpdateOne, withBootstrapCredentialID(id))
+	return &BootstrapCredentialUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for BootstrapCredential.
+func (c *BootstrapCredentialClient) Delete() *BootstrapCredentialDelete {
+	mutation := newBootstrapCredentialMutation(c.config, OpDelete)
+	return &BootstrapCredentialDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *BootstrapCredentialClient) DeleteOne(_m *BootstrapCredential) *BootstrapCredentialDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *BootstrapCredentialClient) DeleteOneID(id int) *BootstrapCredentialDeleteOne {
+	builder := c.Delete().Where(bootstrapcredential.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &BootstrapCredentialDeleteOne{builder}
+}
+
+// Query returns a query builder for BootstrapCredential.
+func (c *BootstrapCredentialClient) Query() *BootstrapCredentialQuery {
+	return &BootstrapCredentialQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeBootstrapCredential},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a BootstrapCredential entity by its id.
+func (c *BootstrapCredentialClient) Get(ctx context.Context, id int) (*BootstrapCredential, error) {
+	return c.Query().Where(bootstrapcredential.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *BootstrapCredentialClient) GetX(ctx context.Context, id int) *BootstrapCredential {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *BootstrapCredentialClient) Hooks() []Hook {
+	return c.hooks.BootstrapCredential
+}
+
+// Interceptors returns the client interceptors.
+func (c *BootstrapCredentialClient) Interceptors() []Interceptor {
+	return c.inters.BootstrapCredential
+}
+
+func (c *BootstrapCredentialClient) mutate(ctx context.Context, m *BootstrapCredentialMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&BootstrapCredentialCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&BootstrapCredentialUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&BootstrapCredentialUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&BootstrapCredentialDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown BootstrapCredential mutation op: %q", m.Op())
 	}
 }
 
@@ -472,12 +960,163 @@ func (c *MigrationClient) mutate(ctx context.Context, m *MigrationMutation) (Val
 	}
 }
 
+// PasswordCredentialClient is a client for the PasswordCredential schema.
+type PasswordCredentialClient struct {
+	config
+}
+
+// NewPasswordCredentialClient returns a client for the PasswordCredential from the given config.
+func NewPasswordCredentialClient(c config) *PasswordCredentialClient {
+	return &PasswordCredentialClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `passwordcredential.Hooks(f(g(h())))`.
+func (c *PasswordCredentialClient) Use(hooks ...Hook) {
+	c.hooks.PasswordCredential = append(c.hooks.PasswordCredential, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `passwordcredential.Intercept(f(g(h())))`.
+func (c *PasswordCredentialClient) Intercept(interceptors ...Interceptor) {
+	c.inters.PasswordCredential = append(c.inters.PasswordCredential, interceptors...)
+}
+
+// Create returns a builder for creating a PasswordCredential entity.
+func (c *PasswordCredentialClient) Create() *PasswordCredentialCreate {
+	mutation := newPasswordCredentialMutation(c.config, OpCreate)
+	return &PasswordCredentialCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of PasswordCredential entities.
+func (c *PasswordCredentialClient) CreateBulk(builders ...*PasswordCredentialCreate) *PasswordCredentialCreateBulk {
+	return &PasswordCredentialCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *PasswordCredentialClient) MapCreateBulk(slice any, setFunc func(*PasswordCredentialCreate, int)) *PasswordCredentialCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &PasswordCredentialCreateBulk{err: fmt.Errorf("calling to PasswordCredentialClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*PasswordCredentialCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &PasswordCredentialCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for PasswordCredential.
+func (c *PasswordCredentialClient) Update() *PasswordCredentialUpdate {
+	mutation := newPasswordCredentialMutation(c.config, OpUpdate)
+	return &PasswordCredentialUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *PasswordCredentialClient) UpdateOne(_m *PasswordCredential) *PasswordCredentialUpdateOne {
+	mutation := newPasswordCredentialMutation(c.config, OpUpdateOne, withPasswordCredential(_m))
+	return &PasswordCredentialUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *PasswordCredentialClient) UpdateOneID(id int) *PasswordCredentialUpdateOne {
+	mutation := newPasswordCredentialMutation(c.config, OpUpdateOne, withPasswordCredentialID(id))
+	return &PasswordCredentialUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for PasswordCredential.
+func (c *PasswordCredentialClient) Delete() *PasswordCredentialDelete {
+	mutation := newPasswordCredentialMutation(c.config, OpDelete)
+	return &PasswordCredentialDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *PasswordCredentialClient) DeleteOne(_m *PasswordCredential) *PasswordCredentialDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *PasswordCredentialClient) DeleteOneID(id int) *PasswordCredentialDeleteOne {
+	builder := c.Delete().Where(passwordcredential.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &PasswordCredentialDeleteOne{builder}
+}
+
+// Query returns a query builder for PasswordCredential.
+func (c *PasswordCredentialClient) Query() *PasswordCredentialQuery {
+	return &PasswordCredentialQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypePasswordCredential},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a PasswordCredential entity by its id.
+func (c *PasswordCredentialClient) Get(ctx context.Context, id int) (*PasswordCredential, error) {
+	return c.Query().Where(passwordcredential.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *PasswordCredentialClient) GetX(ctx context.Context, id int) *PasswordCredential {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryAccount queries the account edge of a PasswordCredential.
+func (c *PasswordCredentialClient) QueryAccount(_m *PasswordCredential) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(passwordcredential.Table, passwordcredential.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, passwordcredential.AccountTable, passwordcredential.AccountColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *PasswordCredentialClient) Hooks() []Hook {
+	return c.hooks.PasswordCredential
+}
+
+// Interceptors returns the client interceptors.
+func (c *PasswordCredentialClient) Interceptors() []Interceptor {
+	return c.inters.PasswordCredential
+}
+
+func (c *PasswordCredentialClient) mutate(ctx context.Context, m *PasswordCredentialMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&PasswordCredentialCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&PasswordCredentialUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&PasswordCredentialUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&PasswordCredentialDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown PasswordCredential mutation op: %q", m.Op())
+	}
+}
+
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Installation, Migration []ent.Hook
+		Account, AccountSession, BootstrapCredential, Installation, Migration,
+		PasswordCredential []ent.Hook
 	}
 	inters struct {
-		Installation, Migration []ent.Interceptor
+		Account, AccountSession, BootstrapCredential, Installation, Migration,
+		PasswordCredential []ent.Interceptor
 	}
 )

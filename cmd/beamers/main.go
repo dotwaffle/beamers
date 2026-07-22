@@ -37,6 +37,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "init":
 		err = runInit(ctx, args[1:], stdout, stderr)
+	case "bootstrap":
+		err = runBootstrap(ctx, args[1:], stdout, stderr)
 	case "serve":
 		err = runServe(ctx, args[1:], stderr, logger)
 	case "help", "-h", "--help":
@@ -51,6 +53,24 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	logger.Error("command failed", "command", args[0], "error", err)
 	return 1
+}
+
+func runBootstrap(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	flags := flag.NewFlagSet("bootstrap", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	dataDir := flags.String("data-dir", "", "installation data directory")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 {
+		return errors.New("bootstrap accepts no positional arguments")
+	}
+	token, err := operations.IssueAdministratorBootstrap(ctx, *dataDir)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(stdout, token)
+	return err
 }
 
 func runInit(ctx context.Context, args []string, stdout, stderr io.Writer) error {
@@ -90,5 +110,5 @@ func runServe(ctx context.Context, args []string, stderr io.Writer, logger *slog
 }
 
 func printUsage(output io.Writer) {
-	_, _ = fmt.Fprintln(output, "usage: beamers <init|serve> [options]")
+	_, _ = fmt.Fprintln(output, "usage: beamers <init|bootstrap|serve> [options]")
 }

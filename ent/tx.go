@@ -12,10 +12,18 @@ import (
 // Tx is a transactional client that is created by calling Client.Tx().
 type Tx struct {
 	config
+	// Account is the client for interacting with the Account builders.
+	Account *AccountClient
+	// AccountSession is the client for interacting with the AccountSession builders.
+	AccountSession *AccountSessionClient
+	// BootstrapCredential is the client for interacting with the BootstrapCredential builders.
+	BootstrapCredential *BootstrapCredentialClient
 	// Installation is the client for interacting with the Installation builders.
 	Installation *InstallationClient
 	// Migration is the client for interacting with the Migration builders.
 	Migration *MigrationClient
+	// PasswordCredential is the client for interacting with the PasswordCredential builders.
+	PasswordCredential *PasswordCredentialClient
 
 	// lazily loaded.
 	client     *Client
@@ -147,8 +155,12 @@ func (tx *Tx) Client() *Client {
 }
 
 func (tx *Tx) init() {
+	tx.Account = NewAccountClient(tx.config)
+	tx.AccountSession = NewAccountSessionClient(tx.config)
+	tx.BootstrapCredential = NewBootstrapCredentialClient(tx.config)
 	tx.Installation = NewInstallationClient(tx.config)
 	tx.Migration = NewMigrationClient(tx.config)
+	tx.PasswordCredential = NewPasswordCredentialClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.
@@ -158,7 +170,7 @@ func (tx *Tx) init() {
 // of them in order to commit or rollback the transaction.
 //
 // If a closed transaction is embedded in one of the generated entities, and the entity
-// applies a query, for example: Installation.QueryXXX(), the query will be executed
+// applies a query, for example: Account.QueryXXX(), the query will be executed
 // through the driver which created this transaction.
 //
 // Note that txDriver is not goroutine safe.

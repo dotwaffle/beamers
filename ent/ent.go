@@ -12,8 +12,12 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/dotwaffle/beamers/ent/account"
+	"github.com/dotwaffle/beamers/ent/accountsession"
+	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/migration"
+	"github.com/dotwaffle/beamers/ent/passwordcredential"
 )
 
 // ent aliases to avoid import conflicts in user's code.
@@ -74,8 +78,12 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			installation.Table: installation.ValidColumn,
-			migration.Table:    migration.ValidColumn,
+			account.Table:             account.ValidColumn,
+			accountsession.Table:      accountsession.ValidColumn,
+			bootstrapcredential.Table: bootstrapcredential.ValidColumn,
+			installation.Table:        installation.ValidColumn,
+			migration.Table:           migration.ValidColumn,
+			passwordcredential.Table:  passwordcredential.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

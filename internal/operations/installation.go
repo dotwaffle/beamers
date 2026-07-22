@@ -2,7 +2,9 @@ package operations
 
 import (
 	"context"
+	"errors"
 
+	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/store"
 )
 
@@ -19,7 +21,8 @@ var (
 
 // Installation coordinates access to installation persistence.
 type Installation struct {
-	storage *store.SQLite
+	storage        *store.SQLite
+	authentication *auth.Service
 }
 
 // Initialize creates a new installation with the committed schema.
@@ -33,7 +36,42 @@ func OpenInstallation(ctx context.Context, dataDir string) (*Installation, error
 	if err != nil {
 		return nil, err
 	}
-	return &Installation{storage: storage}, nil
+	installation := &Installation{storage: storage}
+	startupErr := storage.StartupError()
+	if startupErr != nil {
+		// Startup storage failures deliberately produce a recovery-mode handle.
+		return installation, nil //nolint:nilerr // The caller reads StartupError to select recovery mode.
+	}
+	authentication, err := auth.New(storage, auth.DefaultConfig())
+	if err != nil {
+		return nil, errors.Join(err, storage.Close())
+	}
+	installation.authentication = authentication
+	return installation, nil
+}
+
+// IssueAdministratorBootstrap creates a short-lived credential while holding
+// exclusive host access to an initialized installation.
+func IssueAdministratorBootstrap(
+	ctx context.Context,
+	dataDir string,
+) (token string, returnErr error) {
+	storage, err := store.Open(ctx, dataDir)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, storage.Close())
+	}()
+	startupErr := storage.StartupError()
+	if startupErr != nil {
+		return "", startupErr
+	}
+	authentication, err := auth.New(storage, auth.DefaultConfig())
+	if err != nil {
+		return "", err
+	}
+	return authentication.IssueBootstrap(ctx)
 }
 
 // StartupError reports why the installation must remain in recovery mode.
@@ -44,6 +82,12 @@ func (installation *Installation) StartupError() error {
 // Ready reports whether storage is usable and on the supported schema.
 func (installation *Installation) Ready(ctx context.Context) error {
 	return installation.storage.Ready(ctx)
+}
+
+// Authentication returns the Account authentication application service.
+// It is nil only while the installation is restricted to recovery mode.
+func (installation *Installation) Authentication() *auth.Service {
+	return installation.authentication
 }
 
 // Close closes storage and releases the installation lock.

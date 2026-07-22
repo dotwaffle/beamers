@@ -9,6 +9,42 @@ import (
 	"github.com/dotwaffle/beamers/ent"
 )
 
+// The AccountFunc type is an adapter to allow the use of ordinary
+// function as Account mutator.
+type AccountFunc func(context.Context, *ent.AccountMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AccountFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AccountMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AccountMutation", m)
+}
+
+// The AccountSessionFunc type is an adapter to allow the use of ordinary
+// function as AccountSession mutator.
+type AccountSessionFunc func(context.Context, *ent.AccountSessionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AccountSessionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AccountSessionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AccountSessionMutation", m)
+}
+
+// The BootstrapCredentialFunc type is an adapter to allow the use of ordinary
+// function as BootstrapCredential mutator.
+type BootstrapCredentialFunc func(context.Context, *ent.BootstrapCredentialMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f BootstrapCredentialFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.BootstrapCredentialMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.BootstrapCredentialMutation", m)
+}
+
 // The InstallationFunc type is an adapter to allow the use of ordinary
 // function as Installation mutator.
 type InstallationFunc func(context.Context, *ent.InstallationMutation) (ent.Value, error)
@@ -31,6 +67,18 @@ func (f MigrationFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, e
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.MigrationMutation", m)
+}
+
+// The PasswordCredentialFunc type is an adapter to allow the use of ordinary
+// function as PasswordCredential mutator.
+type PasswordCredentialFunc func(context.Context, *ent.PasswordCredentialMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f PasswordCredentialFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.PasswordCredentialMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PasswordCredentialMutation", m)
 }
 
 // Condition is a hook condition function.

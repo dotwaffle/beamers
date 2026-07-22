@@ -51,6 +51,14 @@ func Run(ctx context.Context, config Config) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/livez", liveness)
 	mux.HandleFunc("/readyz", readiness(&accepting, installation, config.Logger))
+	if startupErr == nil {
+		registerAuthenticationRoutes(
+			mux,
+			installation.Authentication(),
+			config.Logger,
+			listener.Addr(),
+		)
+	}
 
 	httpServer := &http.Server{
 		Handler:           mux,

@@ -2,21 +2,188 @@ package acceptance_test
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"net"
 	"net/http"
+	"net/http/cookiejar"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/store/storetest"
 )
+
+func TestAdministratorBootstrapAndSessionLifecycle(t *testing.T) {
+	bin := buildBeamers(t)
+	dataDir := filepath.Join(t.TempDir(), "data")
+	runBeamers(t, bin, "init", "--data-dir", dataDir)
+
+	bootstrapToken := strings.TrimSpace(runBeamersOutput(t, bin, "bootstrap", "--data-dir", dataDir))
+	if bootstrapToken == "" {
+		t.Fatal("bootstrap produced an empty credential")
+	}
+	runBeamersFails(t, bin, "bootstrap", "--data-dir", dataDir)
+
+	client := authenticatedClient(t)
+	first := startBeamers(t, bin, dataDir)
+	bootstrapHeaders := assertJSONRequest(
+		t,
+		client,
+		first.address,
+		"/auth/bootstrap",
+		map[string]string{
+			"bootstrap_token": bootstrapToken,
+			"name":            "Ada Admin",
+			"password":        "correct horse battery staple",
+		},
+		http.StatusCreated,
+		"",
+	)
+	assertProtectedSessionCookie(t, bootstrapHeaders)
+	assertAuthenticated(t, client, first.address, "Ada Admin")
+	assertJSONRequest(
+		t,
+		authenticatedClient(t),
+		first.address,
+		"/auth/bootstrap",
+		map[string]string{
+			"bootstrap_token": bootstrapToken,
+			"name":            "Another Admin",
+			"password":        "another correct horse battery staple",
+		},
+		http.StatusUnauthorized,
+		"authentication failed\n",
+	)
+	first.stop(t)
+
+	second := startBeamers(t, bin, dataDir)
+	assertAuthenticated(t, client, second.address, "Ada Admin")
+	assertJSONRequest(t, client, second.address, "/auth/sign-out", nil, http.StatusNoContent, "")
+	assertSessionRejected(t, client, second.address)
+	second.stop(t)
+
+	third := startBeamers(t, bin, dataDir)
+	assertSessionRejected(t, client, third.address)
+	assertJSONRequest(
+		t,
+		client,
+		third.address,
+		"/auth/sign-in",
+		map[string]string{"name": "Ada Admin", "password": "wrong password"},
+		http.StatusUnauthorized,
+		"authentication failed\n",
+	)
+	assertJSONRequest(
+		t,
+		client,
+		third.address,
+		"/auth/sign-in",
+		map[string]string{
+			"name":     "Ada Admin",
+			"password": "correct horse battery staple",
+		},
+		http.StatusNoContent,
+		"",
+	)
+	assertAuthenticated(t, client, third.address, "Ada Admin")
+	third.stop(t)
+
+	runBeamersFails(t, bin, "bootstrap", "--data-dir", dataDir)
+}
+
+func TestSignInFailuresAreGenericAndRateLimited(t *testing.T) {
+	bin := buildBeamers(t)
+	dataDir := filepath.Join(t.TempDir(), "data")
+	runBeamers(t, bin, "init", "--data-dir", dataDir)
+	bootstrapToken := strings.TrimSpace(runBeamersOutput(t, bin, "bootstrap", "--data-dir", dataDir))
+
+	client := authenticatedClient(t)
+	server := startBeamers(t, bin, dataDir)
+	assertJSONRequest(
+		t,
+		client,
+		server.address,
+		"/auth/bootstrap",
+		map[string]string{
+			"bootstrap_token": bootstrapToken,
+			"name":            "Ada Admin",
+			"password":        "correct horse battery staple",
+		},
+		http.StatusCreated,
+		"",
+	)
+	assertJSONRequest(t, client, server.address, "/auth/sign-out", nil, http.StatusNoContent, "")
+
+	assertJSONRequest(
+		t,
+		client,
+		server.address,
+		"/auth/sign-in",
+		map[string]string{"name": "Unknown Account", "password": "wrong password"},
+		http.StatusUnauthorized,
+		"authentication failed\n",
+	)
+	for range 5 {
+		assertJSONRequest(
+			t,
+			client,
+			server.address,
+			"/auth/sign-in",
+			map[string]string{"name": "Ada Admin", "password": "wrong password"},
+			http.StatusUnauthorized,
+			"authentication failed\n",
+		)
+	}
+	assertJSONRequest(
+		t,
+		client,
+		server.address,
+		"/auth/sign-in",
+		map[string]string{
+			"name":     "Ada Admin",
+			"password": "correct horse battery staple",
+		},
+		http.StatusTooManyRequests,
+		"authentication failed\n",
+	)
+	server.stop(t)
+}
+
+func TestPlaintextNonLoopbackRefusesAuthentication(t *testing.T) {
+	bin := buildBeamers(t)
+	dataDir := filepath.Join(t.TempDir(), "data")
+	runBeamers(t, bin, "init", "--data-dir", dataDir)
+	bootstrapToken := strings.TrimSpace(runBeamersOutput(t, bin, "bootstrap", "--data-dir", dataDir))
+
+	server := startBeamersAt(t, bin, dataDir, "0.0.0.0:0")
+	_, port, err := net.SplitHostPort(server.address)
+	if err != nil {
+		t.Fatalf("parse non-loopback listener address: %v", err)
+	}
+	dialAddress := net.JoinHostPort("127.0.0.1", port)
+	assertJSONRequest(
+		t,
+		authenticatedClient(t),
+		dialAddress,
+		"/auth/bootstrap",
+		map[string]string{
+			"bootstrap_token": bootstrapToken,
+			"name":            "Ada Admin",
+			"password":        "correct horse battery staple",
+		},
+		http.StatusForbidden,
+		"secure transport required\n",
+	)
+	server.stop(t)
+}
 
 func TestInstallationStartsHealthyAndRestarts(t *testing.T) {
 	bin := buildBeamers(t)
@@ -147,6 +314,17 @@ func runBeamers(t *testing.T, bin string, args ...string) {
 	if err != nil {
 		t.Fatalf("run beamers %v: %v\n%s", args, err, output)
 	}
+}
+
+func runBeamersOutput(t *testing.T, bin string, args ...string) string {
+	t.Helper()
+
+	cmd := exec.CommandContext(t.Context(), bin, args...)
+	output, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("run beamers %v: %v", args, err)
+	}
+	return string(output)
 }
 
 func runBeamersFails(t *testing.T, bin string, args ...string) {
@@ -280,6 +458,169 @@ func requestProbe(ctx context.Context, address, path string, timeout time.Durati
 		return probeResult{err: errors.Join(err, closeErr)}
 	}
 	return probeResult{status: response.StatusCode, body: string(body)}
+}
+
+func authenticatedClient(t *testing.T) *http.Client {
+	t.Helper()
+
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatalf("create cookie jar: %v", err)
+	}
+	return &http.Client{Jar: jar, Timeout: 5 * time.Second}
+}
+
+func assertJSONRequest(
+	t *testing.T,
+	client *http.Client,
+	address string,
+	path string,
+	body any,
+	wantStatus int,
+	wantBody string,
+) http.Header {
+	t.Helper()
+
+	result := requestJSON(t.Context(), client, address, path, body)
+	if result.err != nil {
+		t.Fatalf("POST %s: %v", path, result.err)
+	}
+	if result.status != wantStatus || result.body != wantBody {
+		t.Fatalf(
+			"POST %s = %d %q, want %d %q",
+			path,
+			result.status,
+			result.body,
+			wantStatus,
+			wantBody,
+		)
+	}
+	return result.header
+}
+
+type jsonResponse struct {
+	header http.Header
+	status int
+	body   string
+	err    error
+}
+
+func requestJSON(
+	ctx context.Context,
+	client *http.Client,
+	address string,
+	path string,
+	body any,
+) jsonResponse {
+	encoded, err := json.Marshal(body)
+	if err != nil {
+		return jsonResponse{err: errors.Join(errors.New("encode JSON request"), err)}
+	}
+	request, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		"http://"+address+path,
+		bytes.NewReader(encoded),
+	)
+	if err != nil {
+		return jsonResponse{err: errors.Join(errors.New("create JSON request"), err)}
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(request)
+	if err != nil {
+		return jsonResponse{err: err}
+	}
+	responseBody, readErr := io.ReadAll(response.Body)
+	closeErr := response.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		return jsonResponse{err: err}
+	}
+	return jsonResponse{
+		header: response.Header.Clone(),
+		status: response.StatusCode,
+		body:   string(responseBody),
+	}
+}
+
+func assertProtectedSessionCookie(t *testing.T, headers http.Header) {
+	t.Helper()
+
+	cookie := headers.Get("Set-Cookie")
+	for _, attribute := range []string{"Path=/", "Expires=", "HttpOnly", "SameSite=Strict"} {
+		if !strings.Contains(cookie, attribute) {
+			t.Errorf("session cookie %q does not contain %q", cookie, attribute)
+		}
+	}
+	if got := headers.Get("Cache-Control"); got != "no-store" {
+		t.Errorf("authentication Cache-Control = %q, want no-store", got)
+	}
+}
+
+func assertAuthenticated(t *testing.T, client *http.Client, address, wantName string) {
+	t.Helper()
+
+	response := get(t, client, address, "/auth/session")
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			t.Errorf("close session response: %v", err)
+		}
+	}()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("GET /auth/session status = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+	var got struct {
+		Name          string `json:"name"`
+		Administrator bool   `json:"administrator"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&got); err != nil {
+		t.Fatalf("decode session response: %v", err)
+	}
+	if got.Name != wantName || !got.Administrator {
+		t.Errorf("session = %+v, want name %q and Administrator", got, wantName)
+	}
+}
+
+func assertSessionRejected(t *testing.T, client *http.Client, address string) {
+	t.Helper()
+
+	response := get(t, client, address, "/auth/session")
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			t.Errorf("close rejected session response: %v", err)
+		}
+	}()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read rejected session response: %v", err)
+	}
+	if response.StatusCode != http.StatusUnauthorized || string(body) != "authentication required\n" {
+		t.Errorf(
+			"GET /auth/session = %d %q, want %d %q",
+			response.StatusCode,
+			body,
+			http.StatusUnauthorized,
+			"authentication required\n",
+		)
+	}
+}
+
+func get(t *testing.T, client *http.Client, address, path string) *http.Response {
+	t.Helper()
+
+	request, err := http.NewRequestWithContext(
+		t.Context(),
+		http.MethodGet,
+		"http://"+address+path,
+		http.NoBody,
+	)
+	if err != nil {
+		t.Fatalf("create GET %s: %v", path, err)
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		t.Fatalf("GET %s: %v", path, err)
+	}
+	return response
 }
 
 func assertProbeResult(t *testing.T, path string, result probeResult, wantStatus int, wantBody string) {

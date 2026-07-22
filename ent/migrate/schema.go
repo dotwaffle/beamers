@@ -9,6 +9,58 @@ import (
 )
 
 var (
+	// AccountsColumns holds the columns for the "accounts" table.
+	AccountsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "name", Type: field.TypeString, Size: 200},
+		{Name: "normalized_name", Type: field.TypeString, Unique: true, Size: 200},
+		{Name: "administrator", Type: field.TypeBool},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "disabled_at", Type: field.TypeTime, Nullable: true},
+	}
+	// AccountsTable holds the schema information for the "accounts" table.
+	AccountsTable = &schema.Table{
+		Name:       "accounts",
+		Columns:    AccountsColumns,
+		PrimaryKey: []*schema.Column{AccountsColumns[0]},
+	}
+	// AccountSessionsColumns holds the columns for the "account_sessions" table.
+	AccountSessionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "token_hash", Type: field.TypeString, Unique: true, Size: 64},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "revoked_at", Type: field.TypeTime, Nullable: true},
+		{Name: "account_id", Type: field.TypeInt},
+	}
+	// AccountSessionsTable holds the schema information for the "account_sessions" table.
+	AccountSessionsTable = &schema.Table{
+		Name:       "account_sessions",
+		Columns:    AccountSessionsColumns,
+		PrimaryKey: []*schema.Column{AccountSessionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "account_sessions_accounts_sessions",
+				Columns:    []*schema.Column{AccountSessionsColumns[5]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
+	// BootstrapCredentialsColumns holds the columns for the "bootstrap_credentials" table.
+	BootstrapCredentialsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "token_hash", Type: field.TypeString, Unique: true, Size: 64},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "used_at", Type: field.TypeTime, Nullable: true},
+	}
+	// BootstrapCredentialsTable holds the schema information for the "bootstrap_credentials" table.
+	BootstrapCredentialsTable = &schema.Table{
+		Name:       "bootstrap_credentials",
+		Columns:    BootstrapCredentialsColumns,
+		PrimaryKey: []*schema.Column{BootstrapCredentialsColumns[0]},
+	}
 	// InstallationsColumns holds the columns for the "installations" table.
 	InstallationsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -34,18 +86,46 @@ var (
 		Columns:    BeamersSchemaMigrationsColumns,
 		PrimaryKey: []*schema.Column{BeamersSchemaMigrationsColumns[0]},
 	}
+	// PasswordCredentialsColumns holds the columns for the "password_credentials" table.
+	PasswordCredentialsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "password_hash", Type: field.TypeString},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "revoked_at", Type: field.TypeTime, Nullable: true},
+		{Name: "account_id", Type: field.TypeInt, Unique: true},
+	}
+	// PasswordCredentialsTable holds the schema information for the "password_credentials" table.
+	PasswordCredentialsTable = &schema.Table{
+		Name:       "password_credentials",
+		Columns:    PasswordCredentialsColumns,
+		PrimaryKey: []*schema.Column{PasswordCredentialsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "password_credentials_accounts_password_credential",
+				Columns:    []*schema.Column{PasswordCredentialsColumns[4]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		AccountsTable,
+		AccountSessionsTable,
+		BootstrapCredentialsTable,
 		InstallationsTable,
 		BeamersSchemaMigrationsTable,
+		PasswordCredentialsTable,
 	}
 )
 
 func init() {
+	AccountSessionsTable.ForeignKeys[0].RefTable = AccountsTable
 	BeamersSchemaMigrationsTable.Annotation = &entsql.Annotation{
 		Table: "beamers_schema_migrations",
 	}
 	BeamersSchemaMigrationsTable.Annotation.Checks = map[string]string{
 		"schema_migrations_checksum_length": "length(checksum) = 64",
 	}
+	PasswordCredentialsTable.ForeignKeys[0].RefTable = AccountsTable
 }

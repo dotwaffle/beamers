@@ -6,8 +6,20 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
+// Account is the predicate function for account builders.
+type Account func(*sql.Selector)
+
+// AccountSession is the predicate function for accountsession builders.
+type AccountSession func(*sql.Selector)
+
+// BootstrapCredential is the predicate function for bootstrapcredential builders.
+type BootstrapCredential func(*sql.Selector)
+
 // Installation is the predicate function for installation builders.
 type Installation func(*sql.Selector)
 
 // Migration is the predicate function for migration builders.
 type Migration func(*sql.Selector)
+
+// PasswordCredential is the predicate function for passwordcredential builders.
+type PasswordCredential func(*sql.Selector)
