@@ -7,6 +7,7 @@ lockfile = true
 govulncheck = "go:golang.org/x/vuln/cmd/govulncheck"
 
 [tools]
+atlas = "1.2.0"
 go = "1.26.5"
 golangci-lint = "2.12.2"
 govulncheck = "1.3.0"
@@ -34,9 +35,13 @@ run = "go test -race ./..."
 description = "Check Go dependencies for known vulnerabilities"
 run = "govulncheck ./..."
 
+[tasks.migrations]
+description = "Validate migration checksums and Ent schema parity"
+run = "sh scripts/check-migrations.sh"
+
 [tasks.check]
 description = "Run the canonical validation sweep"
-depends = ["lint", "test", "vulncheck"]
+depends = ["lint", "migrations", "test", "vulncheck"]
 run = """
 go vet ./...
 go build ./...
