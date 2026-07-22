@@ -29,6 +29,9 @@ import (
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/rundown"
+	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/ent/sessiondraft"
+	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
@@ -60,6 +63,9 @@ const (
 	TypeMigration                = "Migration"
 	TypePasswordCredential       = "PasswordCredential"
 	TypeRundown                  = "Rundown"
+	TypeSession                  = "Session"
+	TypeSessionDraft             = "SessionDraft"
+	TypeSessionPublishedVersion  = "SessionPublishedVersion"
 	TypeTrack                    = "Track"
 	TypeTrackDraft               = "TrackDraft"
 	TypeTrackPublishedVersion    = "TrackPublishedVersion"
@@ -3632,6 +3638,9 @@ type EventMutation struct {
 	tracks             map[int]struct{}
 	removedtracks      map[int]struct{}
 	clearedtracks      bool
+	sessions           map[int]struct{}
+	removedsessions    map[int]struct{}
+	clearedsessions    bool
 	done               bool
 	oldValue           func(context.Context) (*Event, error)
 	predicates         []predicate.Event
@@ -4347,6 +4356,60 @@ func (m *EventMutation) ResetTracks() {
 	m.removedtracks = nil
 }
 
+// AddSessionIDs adds the "sessions" edge to the Session entity by ids.
+func (m *EventMutation) AddSessionIDs(ids ...int) {
+	if m.sessions == nil {
+		m.sessions = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.sessions[ids[i]] = struct{}{}
+	}
+}
+
+// ClearSessions clears the "sessions" edge to the Session entity.
+func (m *EventMutation) ClearSessions() {
+	m.clearedsessions = true
+}
+
+// SessionsCleared reports if the "sessions" edge to the Session entity was cleared.
+func (m *EventMutation) SessionsCleared() bool {
+	return m.clearedsessions
+}
+
+// RemoveSessionIDs removes the "sessions" edge to the Session entity by IDs.
+func (m *EventMutation) RemoveSessionIDs(ids ...int) {
+	if m.removedsessions == nil {
+		m.removedsessions = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.sessions, ids[i])
+		m.removedsessions[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedSessions returns the removed IDs of the "sessions" edge to the Session entity.
+func (m *EventMutation) RemovedSessionsIDs() (ids []int) {
+	for id := range m.removedsessions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// SessionsIDs returns the "sessions" edge IDs in the mutation.
+func (m *EventMutation) SessionsIDs() (ids []int) {
+	for id := range m.sessions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetSessions resets all changes to the "sessions" edge.
+func (m *EventMutation) ResetSessions() {
+	m.sessions = nil
+	m.clearedsessions = false
+	m.removedsessions = nil
+}
+
 // Where appends a list predicates to the EventMutation builder.
 func (m *EventMutation) Where(ps ...predicate.Event) {
 	m.predicates = append(m.predicates, ps...)
@@ -4640,7 +4703,7 @@ func (m *EventMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *EventMutation) AddedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.grants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -4655,6 +4718,9 @@ func (m *EventMutation) AddedEdges() []string {
 	}
 	if m.tracks != nil {
 		edges = append(edges, event.EdgeTracks)
+	}
+	if m.sessions != nil {
+		edges = append(edges, event.EdgeSessions)
 	}
 	return edges
 }
@@ -4691,13 +4757,19 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeSessions:
+		ids := make([]ent.Value, 0, len(m.sessions))
+		for id := range m.sessions {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *EventMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.removedgrants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -4709,6 +4781,9 @@ func (m *EventMutation) RemovedEdges() []string {
 	}
 	if m.removedtracks != nil {
 		edges = append(edges, event.EdgeTracks)
+	}
+	if m.removedsessions != nil {
+		edges = append(edges, event.EdgeSessions)
 	}
 	return edges
 }
@@ -4741,13 +4816,19 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeSessions:
+		ids := make([]ent.Value, 0, len(m.removedsessions))
+		for id := range m.removedsessions {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *EventMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.clearedgrants {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -4762,6 +4843,9 @@ func (m *EventMutation) ClearedEdges() []string {
 	}
 	if m.clearedtracks {
 		edges = append(edges, event.EdgeTracks)
+	}
+	if m.clearedsessions {
+		edges = append(edges, event.EdgeSessions)
 	}
 	return edges
 }
@@ -4780,6 +4864,8 @@ func (m *EventMutation) EdgeCleared(name string) bool {
 		return m.clearedlanes
 	case event.EdgeTracks:
 		return m.clearedtracks
+	case event.EdgeSessions:
+		return m.clearedsessions
 	}
 	return false
 }
@@ -4813,6 +4899,9 @@ func (m *EventMutation) ResetEdge(name string) error {
 		return nil
 	case event.EdgeTracks:
 		m.ResetTracks()
+		return nil
+	case event.EdgeSessions:
+		m.ResetSessions()
 		return nil
 	}
 	return fmt.Errorf("unknown Event edge %s", name)
@@ -5738,21 +5827,27 @@ func (m *InstallationMutation) ResetEdge(name string) error {
 // LaneMutation represents an operation that mutates the Lane nodes in the graph.
 type LaneMutation struct {
 	config
-	op                        Op
-	typ                       string
-	id                        *int
-	created_at                *time.Time
-	clearedFields             map[string]struct{}
-	event                     *int
-	clearedevent              bool
-	draft                     *int
-	cleareddraft              bool
-	published_versions        map[int]struct{}
-	removedpublished_versions map[int]struct{}
-	clearedpublished_versions bool
-	done                      bool
-	oldValue                  func(context.Context) (*Lane, error)
-	predicates                []predicate.Lane
+	op                                Op
+	typ                               string
+	id                                *int
+	created_at                        *time.Time
+	clearedFields                     map[string]struct{}
+	event                             *int
+	clearedevent                      bool
+	draft                             *int
+	cleareddraft                      bool
+	published_versions                map[int]struct{}
+	removedpublished_versions         map[int]struct{}
+	clearedpublished_versions         bool
+	session_drafts                    map[int]struct{}
+	removedsession_drafts             map[int]struct{}
+	clearedsession_drafts             bool
+	session_published_versions        map[int]struct{}
+	removedsession_published_versions map[int]struct{}
+	clearedsession_published_versions bool
+	done                              bool
+	oldValue                          func(context.Context) (*Lane, error)
+	predicates                        []predicate.Lane
 }
 
 var _ ent.Mutation = (*LaneMutation)(nil)
@@ -6045,6 +6140,114 @@ func (m *LaneMutation) ResetPublishedVersions() {
 	m.removedpublished_versions = nil
 }
 
+// AddSessionDraftIDs adds the "session_drafts" edge to the SessionDraft entity by ids.
+func (m *LaneMutation) AddSessionDraftIDs(ids ...int) {
+	if m.session_drafts == nil {
+		m.session_drafts = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.session_drafts[ids[i]] = struct{}{}
+	}
+}
+
+// ClearSessionDrafts clears the "session_drafts" edge to the SessionDraft entity.
+func (m *LaneMutation) ClearSessionDrafts() {
+	m.clearedsession_drafts = true
+}
+
+// SessionDraftsCleared reports if the "session_drafts" edge to the SessionDraft entity was cleared.
+func (m *LaneMutation) SessionDraftsCleared() bool {
+	return m.clearedsession_drafts
+}
+
+// RemoveSessionDraftIDs removes the "session_drafts" edge to the SessionDraft entity by IDs.
+func (m *LaneMutation) RemoveSessionDraftIDs(ids ...int) {
+	if m.removedsession_drafts == nil {
+		m.removedsession_drafts = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.session_drafts, ids[i])
+		m.removedsession_drafts[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedSessionDrafts returns the removed IDs of the "session_drafts" edge to the SessionDraft entity.
+func (m *LaneMutation) RemovedSessionDraftsIDs() (ids []int) {
+	for id := range m.removedsession_drafts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// SessionDraftsIDs returns the "session_drafts" edge IDs in the mutation.
+func (m *LaneMutation) SessionDraftsIDs() (ids []int) {
+	for id := range m.session_drafts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetSessionDrafts resets all changes to the "session_drafts" edge.
+func (m *LaneMutation) ResetSessionDrafts() {
+	m.session_drafts = nil
+	m.clearedsession_drafts = false
+	m.removedsession_drafts = nil
+}
+
+// AddSessionPublishedVersionIDs adds the "session_published_versions" edge to the SessionPublishedVersion entity by ids.
+func (m *LaneMutation) AddSessionPublishedVersionIDs(ids ...int) {
+	if m.session_published_versions == nil {
+		m.session_published_versions = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.session_published_versions[ids[i]] = struct{}{}
+	}
+}
+
+// ClearSessionPublishedVersions clears the "session_published_versions" edge to the SessionPublishedVersion entity.
+func (m *LaneMutation) ClearSessionPublishedVersions() {
+	m.clearedsession_published_versions = true
+}
+
+// SessionPublishedVersionsCleared reports if the "session_published_versions" edge to the SessionPublishedVersion entity was cleared.
+func (m *LaneMutation) SessionPublishedVersionsCleared() bool {
+	return m.clearedsession_published_versions
+}
+
+// RemoveSessionPublishedVersionIDs removes the "session_published_versions" edge to the SessionPublishedVersion entity by IDs.
+func (m *LaneMutation) RemoveSessionPublishedVersionIDs(ids ...int) {
+	if m.removedsession_published_versions == nil {
+		m.removedsession_published_versions = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.session_published_versions, ids[i])
+		m.removedsession_published_versions[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedSessionPublishedVersions returns the removed IDs of the "session_published_versions" edge to the SessionPublishedVersion entity.
+func (m *LaneMutation) RemovedSessionPublishedVersionsIDs() (ids []int) {
+	for id := range m.removedsession_published_versions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// SessionPublishedVersionsIDs returns the "session_published_versions" edge IDs in the mutation.
+func (m *LaneMutation) SessionPublishedVersionsIDs() (ids []int) {
+	for id := range m.session_published_versions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetSessionPublishedVersions resets all changes to the "session_published_versions" edge.
+func (m *LaneMutation) ResetSessionPublishedVersions() {
+	m.session_published_versions = nil
+	m.clearedsession_published_versions = false
+	m.removedsession_published_versions = nil
+}
+
 // Where appends a list predicates to the LaneMutation builder.
 func (m *LaneMutation) Where(ps ...predicate.Lane) {
 	m.predicates = append(m.predicates, ps...)
@@ -6198,7 +6401,7 @@ func (m *LaneMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *LaneMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 5)
 	if m.event != nil {
 		edges = append(edges, lane.EdgeEvent)
 	}
@@ -6207,6 +6410,12 @@ func (m *LaneMutation) AddedEdges() []string {
 	}
 	if m.published_versions != nil {
 		edges = append(edges, lane.EdgePublishedVersions)
+	}
+	if m.session_drafts != nil {
+		edges = append(edges, lane.EdgeSessionDrafts)
+	}
+	if m.session_published_versions != nil {
+		edges = append(edges, lane.EdgeSessionPublishedVersions)
 	}
 	return edges
 }
@@ -6229,15 +6438,33 @@ func (m *LaneMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case lane.EdgeSessionDrafts:
+		ids := make([]ent.Value, 0, len(m.session_drafts))
+		for id := range m.session_drafts {
+			ids = append(ids, id)
+		}
+		return ids
+	case lane.EdgeSessionPublishedVersions:
+		ids := make([]ent.Value, 0, len(m.session_published_versions))
+		for id := range m.session_published_versions {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *LaneMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 5)
 	if m.removedpublished_versions != nil {
 		edges = append(edges, lane.EdgePublishedVersions)
+	}
+	if m.removedsession_drafts != nil {
+		edges = append(edges, lane.EdgeSessionDrafts)
+	}
+	if m.removedsession_published_versions != nil {
+		edges = append(edges, lane.EdgeSessionPublishedVersions)
 	}
 	return edges
 }
@@ -6252,13 +6479,25 @@ func (m *LaneMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case lane.EdgeSessionDrafts:
+		ids := make([]ent.Value, 0, len(m.removedsession_drafts))
+		for id := range m.removedsession_drafts {
+			ids = append(ids, id)
+		}
+		return ids
+	case lane.EdgeSessionPublishedVersions:
+		ids := make([]ent.Value, 0, len(m.removedsession_published_versions))
+		for id := range m.removedsession_published_versions {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *LaneMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 5)
 	if m.clearedevent {
 		edges = append(edges, lane.EdgeEvent)
 	}
@@ -6267,6 +6506,12 @@ func (m *LaneMutation) ClearedEdges() []string {
 	}
 	if m.clearedpublished_versions {
 		edges = append(edges, lane.EdgePublishedVersions)
+	}
+	if m.clearedsession_drafts {
+		edges = append(edges, lane.EdgeSessionDrafts)
+	}
+	if m.clearedsession_published_versions {
+		edges = append(edges, lane.EdgeSessionPublishedVersions)
 	}
 	return edges
 }
@@ -6281,6 +6526,10 @@ func (m *LaneMutation) EdgeCleared(name string) bool {
 		return m.cleareddraft
 	case lane.EdgePublishedVersions:
 		return m.clearedpublished_versions
+	case lane.EdgeSessionDrafts:
+		return m.clearedsession_drafts
+	case lane.EdgeSessionPublishedVersions:
+		return m.clearedsession_published_versions
 	}
 	return false
 }
@@ -6311,6 +6560,12 @@ func (m *LaneMutation) ResetEdge(name string) error {
 		return nil
 	case lane.EdgePublishedVersions:
 		m.ResetPublishedVersions()
+		return nil
+	case lane.EdgeSessionDrafts:
+		m.ResetSessionDrafts()
+		return nil
+	case lane.EdgeSessionPublishedVersions:
+		m.ResetSessionPublishedVersions()
 		return nil
 	}
 	return fmt.Errorf("unknown Lane edge %s", name)
@@ -7642,27 +7897,33 @@ func (m *LanePublishedVersionMutation) ResetEdge(name string) error {
 // LocationMutation represents an operation that mutates the Location nodes in the graph.
 type LocationMutation struct {
 	config
-	op                             Op
-	typ                            string
-	id                             *int
-	created_at                     *time.Time
-	clearedFields                  map[string]struct{}
-	event                          *int
-	clearedevent                   bool
-	draft                          *int
-	cleareddraft                   bool
-	published_versions             map[int]struct{}
-	removedpublished_versions      map[int]struct{}
-	clearedpublished_versions      bool
-	lane_drafts                    map[int]struct{}
-	removedlane_drafts             map[int]struct{}
-	clearedlane_drafts             bool
-	lane_published_versions        map[int]struct{}
-	removedlane_published_versions map[int]struct{}
-	clearedlane_published_versions bool
-	done                           bool
-	oldValue                       func(context.Context) (*Location, error)
-	predicates                     []predicate.Location
+	op                                Op
+	typ                               string
+	id                                *int
+	created_at                        *time.Time
+	clearedFields                     map[string]struct{}
+	event                             *int
+	clearedevent                      bool
+	draft                             *int
+	cleareddraft                      bool
+	published_versions                map[int]struct{}
+	removedpublished_versions         map[int]struct{}
+	clearedpublished_versions         bool
+	lane_drafts                       map[int]struct{}
+	removedlane_drafts                map[int]struct{}
+	clearedlane_drafts                bool
+	lane_published_versions           map[int]struct{}
+	removedlane_published_versions    map[int]struct{}
+	clearedlane_published_versions    bool
+	session_drafts                    map[int]struct{}
+	removedsession_drafts             map[int]struct{}
+	clearedsession_drafts             bool
+	session_published_versions        map[int]struct{}
+	removedsession_published_versions map[int]struct{}
+	clearedsession_published_versions bool
+	done                              bool
+	oldValue                          func(context.Context) (*Location, error)
+	predicates                        []predicate.Location
 }
 
 var _ ent.Mutation = (*LocationMutation)(nil)
@@ -8063,6 +8324,114 @@ func (m *LocationMutation) ResetLanePublishedVersions() {
 	m.removedlane_published_versions = nil
 }
 
+// AddSessionDraftIDs adds the "session_drafts" edge to the SessionDraft entity by ids.
+func (m *LocationMutation) AddSessionDraftIDs(ids ...int) {
+	if m.session_drafts == nil {
+		m.session_drafts = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.session_drafts[ids[i]] = struct{}{}
+	}
+}
+
+// ClearSessionDrafts clears the "session_drafts" edge to the SessionDraft entity.
+func (m *LocationMutation) ClearSessionDrafts() {
+	m.clearedsession_drafts = true
+}
+
+// SessionDraftsCleared reports if the "session_drafts" edge to the SessionDraft entity was cleared.
+func (m *LocationMutation) SessionDraftsCleared() bool {
+	return m.clearedsession_drafts
+}
+
+// RemoveSessionDraftIDs removes the "session_drafts" edge to the SessionDraft entity by IDs.
+func (m *LocationMutation) RemoveSessionDraftIDs(ids ...int) {
+	if m.removedsession_drafts == nil {
+		m.removedsession_drafts = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.session_drafts, ids[i])
+		m.removedsession_drafts[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedSessionDrafts returns the removed IDs of the "session_drafts" edge to the SessionDraft entity.
+func (m *LocationMutation) RemovedSessionDraftsIDs() (ids []int) {
+	for id := range m.removedsession_drafts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// SessionDraftsIDs returns the "session_drafts" edge IDs in the mutation.
+func (m *LocationMutation) SessionDraftsIDs() (ids []int) {
+	for id := range m.session_drafts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetSessionDrafts resets all changes to the "session_drafts" edge.
+func (m *LocationMutation) ResetSessionDrafts() {
+	m.session_drafts = nil
+	m.clearedsession_drafts = false
+	m.removedsession_drafts = nil
+}
+
+// AddSessionPublishedVersionIDs adds the "session_published_versions" edge to the SessionPublishedVersion entity by ids.
+func (m *LocationMutation) AddSessionPublishedVersionIDs(ids ...int) {
+	if m.session_published_versions == nil {
+		m.session_published_versions = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.session_published_versions[ids[i]] = struct{}{}
+	}
+}
+
+// ClearSessionPublishedVersions clears the "session_published_versions" edge to the SessionPublishedVersion entity.
+func (m *LocationMutation) ClearSessionPublishedVersions() {
+	m.clearedsession_published_versions = true
+}
+
+// SessionPublishedVersionsCleared reports if the "session_published_versions" edge to the SessionPublishedVersion entity was cleared.
+func (m *LocationMutation) SessionPublishedVersionsCleared() bool {
+	return m.clearedsession_published_versions
+}
+
+// RemoveSessionPublishedVersionIDs removes the "session_published_versions" edge to the SessionPublishedVersion entity by IDs.
+func (m *LocationMutation) RemoveSessionPublishedVersionIDs(ids ...int) {
+	if m.removedsession_published_versions == nil {
+		m.removedsession_published_versions = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.session_published_versions, ids[i])
+		m.removedsession_published_versions[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedSessionPublishedVersions returns the removed IDs of the "session_published_versions" edge to the SessionPublishedVersion entity.
+func (m *LocationMutation) RemovedSessionPublishedVersionsIDs() (ids []int) {
+	for id := range m.removedsession_published_versions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// SessionPublishedVersionsIDs returns the "session_published_versions" edge IDs in the mutation.
+func (m *LocationMutation) SessionPublishedVersionsIDs() (ids []int) {
+	for id := range m.session_published_versions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetSessionPublishedVersions resets all changes to the "session_published_versions" edge.
+func (m *LocationMutation) ResetSessionPublishedVersions() {
+	m.session_published_versions = nil
+	m.clearedsession_published_versions = false
+	m.removedsession_published_versions = nil
+}
+
 // Where appends a list predicates to the LocationMutation builder.
 func (m *LocationMutation) Where(ps ...predicate.Location) {
 	m.predicates = append(m.predicates, ps...)
@@ -8216,7 +8585,7 @@ func (m *LocationMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *LocationMutation) AddedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 7)
 	if m.event != nil {
 		edges = append(edges, location.EdgeEvent)
 	}
@@ -8231,6 +8600,12 @@ func (m *LocationMutation) AddedEdges() []string {
 	}
 	if m.lane_published_versions != nil {
 		edges = append(edges, location.EdgeLanePublishedVersions)
+	}
+	if m.session_drafts != nil {
+		edges = append(edges, location.EdgeSessionDrafts)
+	}
+	if m.session_published_versions != nil {
+		edges = append(edges, location.EdgeSessionPublishedVersions)
 	}
 	return edges
 }
@@ -8265,13 +8640,25 @@ func (m *LocationMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case location.EdgeSessionDrafts:
+		ids := make([]ent.Value, 0, len(m.session_drafts))
+		for id := range m.session_drafts {
+			ids = append(ids, id)
+		}
+		return ids
+	case location.EdgeSessionPublishedVersions:
+		ids := make([]ent.Value, 0, len(m.session_published_versions))
+		for id := range m.session_published_versions {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *LocationMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 7)
 	if m.removedpublished_versions != nil {
 		edges = append(edges, location.EdgePublishedVersions)
 	}
@@ -8280,6 +8667,12 @@ func (m *LocationMutation) RemovedEdges() []string {
 	}
 	if m.removedlane_published_versions != nil {
 		edges = append(edges, location.EdgeLanePublishedVersions)
+	}
+	if m.removedsession_drafts != nil {
+		edges = append(edges, location.EdgeSessionDrafts)
+	}
+	if m.removedsession_published_versions != nil {
+		edges = append(edges, location.EdgeSessionPublishedVersions)
 	}
 	return edges
 }
@@ -8306,13 +8699,25 @@ func (m *LocationMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case location.EdgeSessionDrafts:
+		ids := make([]ent.Value, 0, len(m.removedsession_drafts))
+		for id := range m.removedsession_drafts {
+			ids = append(ids, id)
+		}
+		return ids
+	case location.EdgeSessionPublishedVersions:
+		ids := make([]ent.Value, 0, len(m.removedsession_published_versions))
+		for id := range m.removedsession_published_versions {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *LocationMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 7)
 	if m.clearedevent {
 		edges = append(edges, location.EdgeEvent)
 	}
@@ -8327,6 +8732,12 @@ func (m *LocationMutation) ClearedEdges() []string {
 	}
 	if m.clearedlane_published_versions {
 		edges = append(edges, location.EdgeLanePublishedVersions)
+	}
+	if m.clearedsession_drafts {
+		edges = append(edges, location.EdgeSessionDrafts)
+	}
+	if m.clearedsession_published_versions {
+		edges = append(edges, location.EdgeSessionPublishedVersions)
 	}
 	return edges
 }
@@ -8345,6 +8756,10 @@ func (m *LocationMutation) EdgeCleared(name string) bool {
 		return m.clearedlane_drafts
 	case location.EdgeLanePublishedVersions:
 		return m.clearedlane_published_versions
+	case location.EdgeSessionDrafts:
+		return m.clearedsession_drafts
+	case location.EdgeSessionPublishedVersions:
+		return m.clearedsession_published_versions
 	}
 	return false
 }
@@ -8381,6 +8796,12 @@ func (m *LocationMutation) ResetEdge(name string) error {
 		return nil
 	case location.EdgeLanePublishedVersions:
 		m.ResetLanePublishedVersions()
+		return nil
+	case location.EdgeSessionDrafts:
+		m.ResetSessionDrafts()
+		return nil
+	case location.EdgeSessionPublishedVersions:
+		m.ResetSessionPublishedVersions()
 		return nil
 	}
 	return fmt.Errorf("unknown Location edge %s", name)
@@ -11157,8 +11578,8 @@ func (m *RundownMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown Rundown edge %s", name)
 }
 
-// TrackMutation represents an operation that mutates the Track nodes in the graph.
-type TrackMutation struct {
+// SessionMutation represents an operation that mutates the Session nodes in the graph.
+type SessionMutation struct {
 	config
 	op                        Op
 	typ                       string
@@ -11173,8 +11594,3340 @@ type TrackMutation struct {
 	removedpublished_versions map[int]struct{}
 	clearedpublished_versions bool
 	done                      bool
-	oldValue                  func(context.Context) (*Track, error)
-	predicates                []predicate.Track
+	oldValue                  func(context.Context) (*Session, error)
+	predicates                []predicate.Session
+}
+
+var _ ent.Mutation = (*SessionMutation)(nil)
+
+// sessionOption allows management of the mutation configuration using functional options.
+type sessionOption func(*SessionMutation)
+
+// newSessionMutation creates new mutation for the Session entity.
+func newSessionMutation(c config, op Op, opts ...sessionOption) *SessionMutation {
+	m := &SessionMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeSession,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withSessionID sets the ID field of the mutation.
+func withSessionID(id int) sessionOption {
+	return func(m *SessionMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Session
+		)
+		m.oldValue = func(ctx context.Context) (*Session, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Session.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withSession sets the old Session of the mutation.
+func withSession(node *Session) sessionOption {
+	return func(m *SessionMutation) {
+		m.oldValue = func(context.Context) (*Session, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m SessionMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m SessionMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *SessionMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *SessionMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Session.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetEventID sets the "event_id" field.
+func (m *SessionMutation) SetEventID(i int) {
+	m.event = &i
+}
+
+// EventID returns the value of the "event_id" field in the mutation.
+func (m *SessionMutation) EventID() (r int, exists bool) {
+	v := m.event
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventID returns the old "event_id" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldEventID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventID: %w", err)
+	}
+	return oldValue.EventID, nil
+}
+
+// ResetEventID resets all changes to the "event_id" field.
+func (m *SessionMutation) ResetEventID() {
+	m.event = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *SessionMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *SessionMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *SessionMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearEvent clears the "event" edge to the Event entity.
+func (m *SessionMutation) ClearEvent() {
+	m.clearedevent = true
+	m.clearedFields[session.FieldEventID] = struct{}{}
+}
+
+// EventCleared reports if the "event" edge to the Event entity was cleared.
+func (m *SessionMutation) EventCleared() bool {
+	return m.clearedevent
+}
+
+// EventIDs returns the "event" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// EventID instead. It exists only for internal usage by the builders.
+func (m *SessionMutation) EventIDs() (ids []int) {
+	if id := m.event; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetEvent resets all changes to the "event" edge.
+func (m *SessionMutation) ResetEvent() {
+	m.event = nil
+	m.clearedevent = false
+}
+
+// SetDraftID sets the "draft" edge to the SessionDraft entity by id.
+func (m *SessionMutation) SetDraftID(id int) {
+	m.draft = &id
+}
+
+// ClearDraft clears the "draft" edge to the SessionDraft entity.
+func (m *SessionMutation) ClearDraft() {
+	m.cleareddraft = true
+}
+
+// DraftCleared reports if the "draft" edge to the SessionDraft entity was cleared.
+func (m *SessionMutation) DraftCleared() bool {
+	return m.cleareddraft
+}
+
+// DraftID returns the "draft" edge ID in the mutation.
+func (m *SessionMutation) DraftID() (id int, exists bool) {
+	if m.draft != nil {
+		return *m.draft, true
+	}
+	return
+}
+
+// DraftIDs returns the "draft" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// DraftID instead. It exists only for internal usage by the builders.
+func (m *SessionMutation) DraftIDs() (ids []int) {
+	if id := m.draft; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetDraft resets all changes to the "draft" edge.
+func (m *SessionMutation) ResetDraft() {
+	m.draft = nil
+	m.cleareddraft = false
+}
+
+// AddPublishedVersionIDs adds the "published_versions" edge to the SessionPublishedVersion entity by ids.
+func (m *SessionMutation) AddPublishedVersionIDs(ids ...int) {
+	if m.published_versions == nil {
+		m.published_versions = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.published_versions[ids[i]] = struct{}{}
+	}
+}
+
+// ClearPublishedVersions clears the "published_versions" edge to the SessionPublishedVersion entity.
+func (m *SessionMutation) ClearPublishedVersions() {
+	m.clearedpublished_versions = true
+}
+
+// PublishedVersionsCleared reports if the "published_versions" edge to the SessionPublishedVersion entity was cleared.
+func (m *SessionMutation) PublishedVersionsCleared() bool {
+	return m.clearedpublished_versions
+}
+
+// RemovePublishedVersionIDs removes the "published_versions" edge to the SessionPublishedVersion entity by IDs.
+func (m *SessionMutation) RemovePublishedVersionIDs(ids ...int) {
+	if m.removedpublished_versions == nil {
+		m.removedpublished_versions = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.published_versions, ids[i])
+		m.removedpublished_versions[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedPublishedVersions returns the removed IDs of the "published_versions" edge to the SessionPublishedVersion entity.
+func (m *SessionMutation) RemovedPublishedVersionsIDs() (ids []int) {
+	for id := range m.removedpublished_versions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// PublishedVersionsIDs returns the "published_versions" edge IDs in the mutation.
+func (m *SessionMutation) PublishedVersionsIDs() (ids []int) {
+	for id := range m.published_versions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetPublishedVersions resets all changes to the "published_versions" edge.
+func (m *SessionMutation) ResetPublishedVersions() {
+	m.published_versions = nil
+	m.clearedpublished_versions = false
+	m.removedpublished_versions = nil
+}
+
+// Where appends a list predicates to the SessionMutation builder.
+func (m *SessionMutation) Where(ps ...predicate.Session) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the SessionMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *SessionMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Session, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *SessionMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *SessionMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Session).
+func (m *SessionMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *SessionMutation) Fields() []string {
+	fields := make([]string, 0, 2)
+	if m.event != nil {
+		fields = append(fields, session.FieldEventID)
+	}
+	if m.created_at != nil {
+		fields = append(fields, session.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *SessionMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case session.FieldEventID:
+		return m.EventID()
+	case session.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *SessionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case session.FieldEventID:
+		return m.OldEventID(ctx)
+	case session.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown Session field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SessionMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case session.FieldEventID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventID(v)
+		return nil
+	case session.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Session field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *SessionMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *SessionMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SessionMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Session numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *SessionMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *SessionMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *SessionMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown Session nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *SessionMutation) ResetField(name string) error {
+	switch name {
+	case session.FieldEventID:
+		m.ResetEventID()
+		return nil
+	case session.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown Session field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *SessionMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.event != nil {
+		edges = append(edges, session.EdgeEvent)
+	}
+	if m.draft != nil {
+		edges = append(edges, session.EdgeDraft)
+	}
+	if m.published_versions != nil {
+		edges = append(edges, session.EdgePublishedVersions)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *SessionMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case session.EdgeEvent:
+		if id := m.event; id != nil {
+			return []ent.Value{*id}
+		}
+	case session.EdgeDraft:
+		if id := m.draft; id != nil {
+			return []ent.Value{*id}
+		}
+	case session.EdgePublishedVersions:
+		ids := make([]ent.Value, 0, len(m.published_versions))
+		for id := range m.published_versions {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *SessionMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.removedpublished_versions != nil {
+		edges = append(edges, session.EdgePublishedVersions)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *SessionMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case session.EdgePublishedVersions:
+		ids := make([]ent.Value, 0, len(m.removedpublished_versions))
+		for id := range m.removedpublished_versions {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *SessionMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.clearedevent {
+		edges = append(edges, session.EdgeEvent)
+	}
+	if m.cleareddraft {
+		edges = append(edges, session.EdgeDraft)
+	}
+	if m.clearedpublished_versions {
+		edges = append(edges, session.EdgePublishedVersions)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *SessionMutation) EdgeCleared(name string) bool {
+	switch name {
+	case session.EdgeEvent:
+		return m.clearedevent
+	case session.EdgeDraft:
+		return m.cleareddraft
+	case session.EdgePublishedVersions:
+		return m.clearedpublished_versions
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *SessionMutation) ClearEdge(name string) error {
+	switch name {
+	case session.EdgeEvent:
+		m.ClearEvent()
+		return nil
+	case session.EdgeDraft:
+		m.ClearDraft()
+		return nil
+	}
+	return fmt.Errorf("unknown Session unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *SessionMutation) ResetEdge(name string) error {
+	switch name {
+	case session.EdgeEvent:
+		m.ResetEvent()
+		return nil
+	case session.EdgeDraft:
+		m.ResetDraft()
+		return nil
+	case session.EdgePublishedVersions:
+		m.ResetPublishedVersions()
+		return nil
+	}
+	return fmt.Errorf("unknown Session edge %s", name)
+}
+
+// SessionDraftMutation represents an operation that mutates the SessionDraft nodes in the graph.
+type SessionDraftMutation struct {
+	config
+	op                          Op
+	typ                         string
+	id                          *int
+	title                       *string
+	_type                       *sessiondraft.Type
+	audience_visibility         *sessiondraft.AudienceVisibility
+	public_details              *string
+	crew_notes                  *string
+	planned_start               *time.Time
+	planned_end                 *time.Time
+	timing_policy               *sessiondraft.TimingPolicy
+	minimum_duration_seconds    *int
+	addminimum_duration_seconds *int
+	start_boundary              *sessiondraft.StartBoundary
+	end_boundary                *sessiondraft.EndBoundary
+	clearedFields               map[string]struct{}
+	session                     *int
+	clearedsession              bool
+	lanes                       map[int]struct{}
+	removedlanes                map[int]struct{}
+	clearedlanes                bool
+	locations                   map[int]struct{}
+	removedlocations            map[int]struct{}
+	clearedlocations            bool
+	tracks                      map[int]struct{}
+	removedtracks               map[int]struct{}
+	clearedtracks               bool
+	done                        bool
+	oldValue                    func(context.Context) (*SessionDraft, error)
+	predicates                  []predicate.SessionDraft
+}
+
+var _ ent.Mutation = (*SessionDraftMutation)(nil)
+
+// sessiondraftOption allows management of the mutation configuration using functional options.
+type sessiondraftOption func(*SessionDraftMutation)
+
+// newSessionDraftMutation creates new mutation for the SessionDraft entity.
+func newSessionDraftMutation(c config, op Op, opts ...sessiondraftOption) *SessionDraftMutation {
+	m := &SessionDraftMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeSessionDraft,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withSessionDraftID sets the ID field of the mutation.
+func withSessionDraftID(id int) sessiondraftOption {
+	return func(m *SessionDraftMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *SessionDraft
+		)
+		m.oldValue = func(ctx context.Context) (*SessionDraft, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().SessionDraft.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withSessionDraft sets the old SessionDraft of the mutation.
+func withSessionDraft(node *SessionDraft) sessiondraftOption {
+	return func(m *SessionDraftMutation) {
+		m.oldValue = func(context.Context) (*SessionDraft, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m SessionDraftMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m SessionDraftMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *SessionDraftMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *SessionDraftMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().SessionDraft.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetSessionID sets the "session_id" field.
+func (m *SessionDraftMutation) SetSessionID(i int) {
+	m.session = &i
+}
+
+// SessionID returns the value of the "session_id" field in the mutation.
+func (m *SessionDraftMutation) SessionID() (r int, exists bool) {
+	v := m.session
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSessionID returns the old "session_id" field's value of the SessionDraft entity.
+// If the SessionDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionDraftMutation) OldSessionID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSessionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSessionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSessionID: %w", err)
+	}
+	return oldValue.SessionID, nil
+}
+
+// ResetSessionID resets all changes to the "session_id" field.
+func (m *SessionDraftMutation) ResetSessionID() {
+	m.session = nil
+}
+
+// SetTitle sets the "title" field.
+func (m *SessionDraftMutation) SetTitle(s string) {
+	m.title = &s
+}
+
+// Title returns the value of the "title" field in the mutation.
+func (m *SessionDraftMutation) Title() (r string, exists bool) {
+	v := m.title
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTitle returns the old "title" field's value of the SessionDraft entity.
+// If the SessionDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionDraftMutation) OldTitle(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTitle is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTitle requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTitle: %w", err)
+	}
+	return oldValue.Title, nil
+}
+
+// ResetTitle resets all changes to the "title" field.
+func (m *SessionDraftMutation) ResetTitle() {
+	m.title = nil
+}
+
+// SetType sets the "type" field.
+func (m *SessionDraftMutation) SetType(s sessiondraft.Type) {
+	m._type = &s
+}
+
+// GetType returns the value of the "type" field in the mutation.
+func (m *SessionDraftMutation) GetType() (r sessiondraft.Type, exists bool) {
+	v := m._type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldType returns the old "type" field's value of the SessionDraft entity.
+// If the SessionDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionDraftMutation) OldType(ctx context.Context) (v sessiondraft.Type, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldType: %w", err)
+	}
+	return oldValue.Type, nil
+}
+
+// ResetType resets all changes to the "type" field.
+func (m *SessionDraftMutation) ResetType() {
+	m._type = nil
+}
+
+// SetAudienceVisibility sets the "audience_visibility" field.
+func (m *SessionDraftMutation) SetAudienceVisibility(sv sessiondraft.AudienceVisibility) {
+	m.audience_visibility = &sv
+}
+
+// AudienceVisibility returns the value of the "audience_visibility" field in the mutation.
+func (m *SessionDraftMutation) AudienceVisibility() (r sessiondraft.AudienceVisibility, exists bool) {
+	v := m.audience_visibility
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAudienceVisibility returns the old "audience_visibility" field's value of the SessionDraft entity.
+// If the SessionDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionDraftMutation) OldAudienceVisibility(ctx context.Context) (v sessiondraft.AudienceVisibility, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAudienceVisibility is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAudienceVisibility requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAudienceVisibility: %w", err)
+	}
+	return oldValue.AudienceVisibility, nil
+}
+
+// ResetAudienceVisibility resets all changes to the "audience_visibility" field.
+func (m *SessionDraftMutation) ResetAudienceVisibility() {
+	m.audience_visibility = nil
+}
+
+// SetPublicDetails sets the "public_details" field.
+func (m *SessionDraftMutation) SetPublicDetails(s string) {
+	m.public_details = &s
+}
+
+// PublicDetails returns the value of the "public_details" field in the mutation.
+func (m *SessionDraftMutation) PublicDetails() (r string, exists bool) {
+	v := m.public_details
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublicDetails returns the old "public_details" field's value of the SessionDraft entity.
+// If the SessionDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionDraftMutation) OldPublicDetails(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublicDetails is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublicDetails requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublicDetails: %w", err)
+	}
+	return oldValue.PublicDetails, nil
+}
+
+// ClearPublicDetails clears the value of the "public_details" field.
+func (m *SessionDraftMutation) ClearPublicDetails() {
+	m.public_details = nil
+	m.clearedFields[sessiondraft.FieldPublicDetails] = struct{}{}
+}
+
+// PublicDetailsCleared returns if the "public_details" field was cleared in this mutation.
+func (m *SessionDraftMutation) PublicDetailsCleared() bool {
+	_, ok := m.clearedFields[sessiondraft.FieldPublicDetails]
+	return ok
+}
+
+// ResetPublicDetails resets all changes to the "public_details" field.
+func (m *SessionDraftMutation) ResetPublicDetails() {
+	m.public_details = nil
+	delete(m.clearedFields, sessiondraft.FieldPublicDetails)
+}
+
+// SetCrewNotes sets the "crew_notes" field.
+func (m *SessionDraftMutation) SetCrewNotes(s string) {
+	m.crew_notes = &s
+}
+
+// CrewNotes returns the value of the "crew_notes" field in the mutation.
+func (m *SessionDraftMutation) CrewNotes() (r string, exists bool) {
+	v := m.crew_notes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCrewNotes returns the old "crew_notes" field's value of the SessionDraft entity.
+// If the SessionDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionDraftMutation) OldCrewNotes(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCrewNotes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCrewNotes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCrewNotes: %w", err)
+	}
+	return oldValue.CrewNotes, nil
+}
+
+// ClearCrewNotes clears the value of the "crew_notes" field.
+func (m *SessionDraftMutation) ClearCrewNotes() {
+	m.crew_notes = nil
+	m.clearedFields[sessiondraft.FieldCrewNotes] = struct{}{}
+}
+
+// CrewNotesCleared returns if the "crew_notes" field was cleared in this mutation.
+func (m *SessionDraftMutation) CrewNotesCleared() bool {
+	_, ok := m.clearedFields[sessiondraft.FieldCrewNotes]
+	return ok
+}
+
+// ResetCrewNotes resets all changes to the "crew_notes" field.
+func (m *SessionDraftMutation) ResetCrewNotes() {
+	m.crew_notes = nil
+	delete(m.clearedFields, sessiondraft.FieldCrewNotes)
+}
+
+// SetPlannedStart sets the "planned_start" field.
+func (m *SessionDraftMutation) SetPlannedStart(t time.Time) {
+	m.planned_start = &t
+}
+
+// PlannedStart returns the value of the "planned_start" field in the mutation.
+func (m *SessionDraftMutation) PlannedStart() (r time.Time, exists bool) {
+	v := m.planned_start
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPlannedStart returns the old "planned_start" field's value of the SessionDraft entity.
+// If the SessionDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionDraftMutation) OldPlannedStart(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPlannedStart is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPlannedStart requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPlannedStart: %w", err)
+	}
+	return oldValue.PlannedStart, nil
+}
+
+// ResetPlannedStart resets all changes to the "planned_start" field.
+func (m *SessionDraftMutation) ResetPlannedStart() {
+	m.planned_start = nil
+}
+
+// SetPlannedEnd sets the "planned_end" field.
+func (m *SessionDraftMutation) SetPlannedEnd(t time.Time) {
+	m.planned_end = &t
+}
+
+// PlannedEnd returns the value of the "planned_end" field in the mutation.
+func (m *SessionDraftMutation) PlannedEnd() (r time.Time, exists bool) {
+	v := m.planned_end
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPlannedEnd returns the old "planned_end" field's value of the SessionDraft entity.
+// If the SessionDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionDraftMutation) OldPlannedEnd(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPlannedEnd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPlannedEnd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPlannedEnd: %w", err)
+	}
+	return oldValue.PlannedEnd, nil
+}
+
+// ResetPlannedEnd resets all changes to the "planned_end" field.
+func (m *SessionDraftMutation) ResetPlannedEnd() {
+	m.planned_end = nil
+}
+
+// SetTimingPolicy sets the "timing_policy" field.
+func (m *SessionDraftMutation) SetTimingPolicy(sp sessiondraft.TimingPolicy) {
+	m.timing_policy = &sp
+}
+
+// TimingPolicy returns the value of the "timing_policy" field in the mutation.
+func (m *SessionDraftMutation) TimingPolicy() (r sessiondraft.TimingPolicy, exists bool) {
+	v := m.timing_policy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTimingPolicy returns the old "timing_policy" field's value of the SessionDraft entity.
+// If the SessionDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionDraftMutation) OldTimingPolicy(ctx context.Context) (v sessiondraft.TimingPolicy, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTimingPolicy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTimingPolicy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTimingPolicy: %w", err)
+	}
+	return oldValue.TimingPolicy, nil
+}
+
+// ResetTimingPolicy resets all changes to the "timing_policy" field.
+func (m *SessionDraftMutation) ResetTimingPolicy() {
+	m.timing_policy = nil
+}
+
+// SetMinimumDurationSeconds sets the "minimum_duration_seconds" field.
+func (m *SessionDraftMutation) SetMinimumDurationSeconds(i int) {
+	m.minimum_duration_seconds = &i
+	m.addminimum_duration_seconds = nil
+}
+
+// MinimumDurationSeconds returns the value of the "minimum_duration_seconds" field in the mutation.
+func (m *SessionDraftMutation) MinimumDurationSeconds() (r int, exists bool) {
+	v := m.minimum_duration_seconds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMinimumDurationSeconds returns the old "minimum_duration_seconds" field's value of the SessionDraft entity.
+// If the SessionDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionDraftMutation) OldMinimumDurationSeconds(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMinimumDurationSeconds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMinimumDurationSeconds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMinimumDurationSeconds: %w", err)
+	}
+	return oldValue.MinimumDurationSeconds, nil
+}
+
+// AddMinimumDurationSeconds adds i to the "minimum_duration_seconds" field.
+func (m *SessionDraftMutation) AddMinimumDurationSeconds(i int) {
+	if m.addminimum_duration_seconds != nil {
+		*m.addminimum_duration_seconds += i
+	} else {
+		m.addminimum_duration_seconds = &i
+	}
+}
+
+// AddedMinimumDurationSeconds returns the value that was added to the "minimum_duration_seconds" field in this mutation.
+func (m *SessionDraftMutation) AddedMinimumDurationSeconds() (r int, exists bool) {
+	v := m.addminimum_duration_seconds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetMinimumDurationSeconds resets all changes to the "minimum_duration_seconds" field.
+func (m *SessionDraftMutation) ResetMinimumDurationSeconds() {
+	m.minimum_duration_seconds = nil
+	m.addminimum_duration_seconds = nil
+}
+
+// SetStartBoundary sets the "start_boundary" field.
+func (m *SessionDraftMutation) SetStartBoundary(sb sessiondraft.StartBoundary) {
+	m.start_boundary = &sb
+}
+
+// StartBoundary returns the value of the "start_boundary" field in the mutation.
+func (m *SessionDraftMutation) StartBoundary() (r sessiondraft.StartBoundary, exists bool) {
+	v := m.start_boundary
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStartBoundary returns the old "start_boundary" field's value of the SessionDraft entity.
+// If the SessionDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionDraftMutation) OldStartBoundary(ctx context.Context) (v sessiondraft.StartBoundary, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStartBoundary is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStartBoundary requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStartBoundary: %w", err)
+	}
+	return oldValue.StartBoundary, nil
+}
+
+// ResetStartBoundary resets all changes to the "start_boundary" field.
+func (m *SessionDraftMutation) ResetStartBoundary() {
+	m.start_boundary = nil
+}
+
+// SetEndBoundary sets the "end_boundary" field.
+func (m *SessionDraftMutation) SetEndBoundary(sb sessiondraft.EndBoundary) {
+	m.end_boundary = &sb
+}
+
+// EndBoundary returns the value of the "end_boundary" field in the mutation.
+func (m *SessionDraftMutation) EndBoundary() (r sessiondraft.EndBoundary, exists bool) {
+	v := m.end_boundary
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEndBoundary returns the old "end_boundary" field's value of the SessionDraft entity.
+// If the SessionDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionDraftMutation) OldEndBoundary(ctx context.Context) (v sessiondraft.EndBoundary, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEndBoundary is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEndBoundary requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEndBoundary: %w", err)
+	}
+	return oldValue.EndBoundary, nil
+}
+
+// ResetEndBoundary resets all changes to the "end_boundary" field.
+func (m *SessionDraftMutation) ResetEndBoundary() {
+	m.end_boundary = nil
+}
+
+// ClearSession clears the "session" edge to the Session entity.
+func (m *SessionDraftMutation) ClearSession() {
+	m.clearedsession = true
+	m.clearedFields[sessiondraft.FieldSessionID] = struct{}{}
+}
+
+// SessionCleared reports if the "session" edge to the Session entity was cleared.
+func (m *SessionDraftMutation) SessionCleared() bool {
+	return m.clearedsession
+}
+
+// SessionIDs returns the "session" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SessionID instead. It exists only for internal usage by the builders.
+func (m *SessionDraftMutation) SessionIDs() (ids []int) {
+	if id := m.session; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSession resets all changes to the "session" edge.
+func (m *SessionDraftMutation) ResetSession() {
+	m.session = nil
+	m.clearedsession = false
+}
+
+// AddLaneIDs adds the "lanes" edge to the Lane entity by ids.
+func (m *SessionDraftMutation) AddLaneIDs(ids ...int) {
+	if m.lanes == nil {
+		m.lanes = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.lanes[ids[i]] = struct{}{}
+	}
+}
+
+// ClearLanes clears the "lanes" edge to the Lane entity.
+func (m *SessionDraftMutation) ClearLanes() {
+	m.clearedlanes = true
+}
+
+// LanesCleared reports if the "lanes" edge to the Lane entity was cleared.
+func (m *SessionDraftMutation) LanesCleared() bool {
+	return m.clearedlanes
+}
+
+// RemoveLaneIDs removes the "lanes" edge to the Lane entity by IDs.
+func (m *SessionDraftMutation) RemoveLaneIDs(ids ...int) {
+	if m.removedlanes == nil {
+		m.removedlanes = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.lanes, ids[i])
+		m.removedlanes[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedLanes returns the removed IDs of the "lanes" edge to the Lane entity.
+func (m *SessionDraftMutation) RemovedLanesIDs() (ids []int) {
+	for id := range m.removedlanes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// LanesIDs returns the "lanes" edge IDs in the mutation.
+func (m *SessionDraftMutation) LanesIDs() (ids []int) {
+	for id := range m.lanes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetLanes resets all changes to the "lanes" edge.
+func (m *SessionDraftMutation) ResetLanes() {
+	m.lanes = nil
+	m.clearedlanes = false
+	m.removedlanes = nil
+}
+
+// AddLocationIDs adds the "locations" edge to the Location entity by ids.
+func (m *SessionDraftMutation) AddLocationIDs(ids ...int) {
+	if m.locations == nil {
+		m.locations = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.locations[ids[i]] = struct{}{}
+	}
+}
+
+// ClearLocations clears the "locations" edge to the Location entity.
+func (m *SessionDraftMutation) ClearLocations() {
+	m.clearedlocations = true
+}
+
+// LocationsCleared reports if the "locations" edge to the Location entity was cleared.
+func (m *SessionDraftMutation) LocationsCleared() bool {
+	return m.clearedlocations
+}
+
+// RemoveLocationIDs removes the "locations" edge to the Location entity by IDs.
+func (m *SessionDraftMutation) RemoveLocationIDs(ids ...int) {
+	if m.removedlocations == nil {
+		m.removedlocations = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.locations, ids[i])
+		m.removedlocations[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedLocations returns the removed IDs of the "locations" edge to the Location entity.
+func (m *SessionDraftMutation) RemovedLocationsIDs() (ids []int) {
+	for id := range m.removedlocations {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// LocationsIDs returns the "locations" edge IDs in the mutation.
+func (m *SessionDraftMutation) LocationsIDs() (ids []int) {
+	for id := range m.locations {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetLocations resets all changes to the "locations" edge.
+func (m *SessionDraftMutation) ResetLocations() {
+	m.locations = nil
+	m.clearedlocations = false
+	m.removedlocations = nil
+}
+
+// AddTrackIDs adds the "tracks" edge to the Track entity by ids.
+func (m *SessionDraftMutation) AddTrackIDs(ids ...int) {
+	if m.tracks == nil {
+		m.tracks = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.tracks[ids[i]] = struct{}{}
+	}
+}
+
+// ClearTracks clears the "tracks" edge to the Track entity.
+func (m *SessionDraftMutation) ClearTracks() {
+	m.clearedtracks = true
+}
+
+// TracksCleared reports if the "tracks" edge to the Track entity was cleared.
+func (m *SessionDraftMutation) TracksCleared() bool {
+	return m.clearedtracks
+}
+
+// RemoveTrackIDs removes the "tracks" edge to the Track entity by IDs.
+func (m *SessionDraftMutation) RemoveTrackIDs(ids ...int) {
+	if m.removedtracks == nil {
+		m.removedtracks = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.tracks, ids[i])
+		m.removedtracks[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedTracks returns the removed IDs of the "tracks" edge to the Track entity.
+func (m *SessionDraftMutation) RemovedTracksIDs() (ids []int) {
+	for id := range m.removedtracks {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// TracksIDs returns the "tracks" edge IDs in the mutation.
+func (m *SessionDraftMutation) TracksIDs() (ids []int) {
+	for id := range m.tracks {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetTracks resets all changes to the "tracks" edge.
+func (m *SessionDraftMutation) ResetTracks() {
+	m.tracks = nil
+	m.clearedtracks = false
+	m.removedtracks = nil
+}
+
+// Where appends a list predicates to the SessionDraftMutation builder.
+func (m *SessionDraftMutation) Where(ps ...predicate.SessionDraft) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the SessionDraftMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *SessionDraftMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.SessionDraft, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *SessionDraftMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *SessionDraftMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (SessionDraft).
+func (m *SessionDraftMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *SessionDraftMutation) Fields() []string {
+	fields := make([]string, 0, 12)
+	if m.session != nil {
+		fields = append(fields, sessiondraft.FieldSessionID)
+	}
+	if m.title != nil {
+		fields = append(fields, sessiondraft.FieldTitle)
+	}
+	if m._type != nil {
+		fields = append(fields, sessiondraft.FieldType)
+	}
+	if m.audience_visibility != nil {
+		fields = append(fields, sessiondraft.FieldAudienceVisibility)
+	}
+	if m.public_details != nil {
+		fields = append(fields, sessiondraft.FieldPublicDetails)
+	}
+	if m.crew_notes != nil {
+		fields = append(fields, sessiondraft.FieldCrewNotes)
+	}
+	if m.planned_start != nil {
+		fields = append(fields, sessiondraft.FieldPlannedStart)
+	}
+	if m.planned_end != nil {
+		fields = append(fields, sessiondraft.FieldPlannedEnd)
+	}
+	if m.timing_policy != nil {
+		fields = append(fields, sessiondraft.FieldTimingPolicy)
+	}
+	if m.minimum_duration_seconds != nil {
+		fields = append(fields, sessiondraft.FieldMinimumDurationSeconds)
+	}
+	if m.start_boundary != nil {
+		fields = append(fields, sessiondraft.FieldStartBoundary)
+	}
+	if m.end_boundary != nil {
+		fields = append(fields, sessiondraft.FieldEndBoundary)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *SessionDraftMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case sessiondraft.FieldSessionID:
+		return m.SessionID()
+	case sessiondraft.FieldTitle:
+		return m.Title()
+	case sessiondraft.FieldType:
+		return m.GetType()
+	case sessiondraft.FieldAudienceVisibility:
+		return m.AudienceVisibility()
+	case sessiondraft.FieldPublicDetails:
+		return m.PublicDetails()
+	case sessiondraft.FieldCrewNotes:
+		return m.CrewNotes()
+	case sessiondraft.FieldPlannedStart:
+		return m.PlannedStart()
+	case sessiondraft.FieldPlannedEnd:
+		return m.PlannedEnd()
+	case sessiondraft.FieldTimingPolicy:
+		return m.TimingPolicy()
+	case sessiondraft.FieldMinimumDurationSeconds:
+		return m.MinimumDurationSeconds()
+	case sessiondraft.FieldStartBoundary:
+		return m.StartBoundary()
+	case sessiondraft.FieldEndBoundary:
+		return m.EndBoundary()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *SessionDraftMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case sessiondraft.FieldSessionID:
+		return m.OldSessionID(ctx)
+	case sessiondraft.FieldTitle:
+		return m.OldTitle(ctx)
+	case sessiondraft.FieldType:
+		return m.OldType(ctx)
+	case sessiondraft.FieldAudienceVisibility:
+		return m.OldAudienceVisibility(ctx)
+	case sessiondraft.FieldPublicDetails:
+		return m.OldPublicDetails(ctx)
+	case sessiondraft.FieldCrewNotes:
+		return m.OldCrewNotes(ctx)
+	case sessiondraft.FieldPlannedStart:
+		return m.OldPlannedStart(ctx)
+	case sessiondraft.FieldPlannedEnd:
+		return m.OldPlannedEnd(ctx)
+	case sessiondraft.FieldTimingPolicy:
+		return m.OldTimingPolicy(ctx)
+	case sessiondraft.FieldMinimumDurationSeconds:
+		return m.OldMinimumDurationSeconds(ctx)
+	case sessiondraft.FieldStartBoundary:
+		return m.OldStartBoundary(ctx)
+	case sessiondraft.FieldEndBoundary:
+		return m.OldEndBoundary(ctx)
+	}
+	return nil, fmt.Errorf("unknown SessionDraft field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SessionDraftMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case sessiondraft.FieldSessionID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSessionID(v)
+		return nil
+	case sessiondraft.FieldTitle:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTitle(v)
+		return nil
+	case sessiondraft.FieldType:
+		v, ok := value.(sessiondraft.Type)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetType(v)
+		return nil
+	case sessiondraft.FieldAudienceVisibility:
+		v, ok := value.(sessiondraft.AudienceVisibility)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAudienceVisibility(v)
+		return nil
+	case sessiondraft.FieldPublicDetails:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublicDetails(v)
+		return nil
+	case sessiondraft.FieldCrewNotes:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCrewNotes(v)
+		return nil
+	case sessiondraft.FieldPlannedStart:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPlannedStart(v)
+		return nil
+	case sessiondraft.FieldPlannedEnd:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPlannedEnd(v)
+		return nil
+	case sessiondraft.FieldTimingPolicy:
+		v, ok := value.(sessiondraft.TimingPolicy)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTimingPolicy(v)
+		return nil
+	case sessiondraft.FieldMinimumDurationSeconds:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMinimumDurationSeconds(v)
+		return nil
+	case sessiondraft.FieldStartBoundary:
+		v, ok := value.(sessiondraft.StartBoundary)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStartBoundary(v)
+		return nil
+	case sessiondraft.FieldEndBoundary:
+		v, ok := value.(sessiondraft.EndBoundary)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEndBoundary(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SessionDraft field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *SessionDraftMutation) AddedFields() []string {
+	var fields []string
+	if m.addminimum_duration_seconds != nil {
+		fields = append(fields, sessiondraft.FieldMinimumDurationSeconds)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *SessionDraftMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case sessiondraft.FieldMinimumDurationSeconds:
+		return m.AddedMinimumDurationSeconds()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SessionDraftMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case sessiondraft.FieldMinimumDurationSeconds:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddMinimumDurationSeconds(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SessionDraft numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *SessionDraftMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(sessiondraft.FieldPublicDetails) {
+		fields = append(fields, sessiondraft.FieldPublicDetails)
+	}
+	if m.FieldCleared(sessiondraft.FieldCrewNotes) {
+		fields = append(fields, sessiondraft.FieldCrewNotes)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *SessionDraftMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *SessionDraftMutation) ClearField(name string) error {
+	switch name {
+	case sessiondraft.FieldPublicDetails:
+		m.ClearPublicDetails()
+		return nil
+	case sessiondraft.FieldCrewNotes:
+		m.ClearCrewNotes()
+		return nil
+	}
+	return fmt.Errorf("unknown SessionDraft nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *SessionDraftMutation) ResetField(name string) error {
+	switch name {
+	case sessiondraft.FieldSessionID:
+		m.ResetSessionID()
+		return nil
+	case sessiondraft.FieldTitle:
+		m.ResetTitle()
+		return nil
+	case sessiondraft.FieldType:
+		m.ResetType()
+		return nil
+	case sessiondraft.FieldAudienceVisibility:
+		m.ResetAudienceVisibility()
+		return nil
+	case sessiondraft.FieldPublicDetails:
+		m.ResetPublicDetails()
+		return nil
+	case sessiondraft.FieldCrewNotes:
+		m.ResetCrewNotes()
+		return nil
+	case sessiondraft.FieldPlannedStart:
+		m.ResetPlannedStart()
+		return nil
+	case sessiondraft.FieldPlannedEnd:
+		m.ResetPlannedEnd()
+		return nil
+	case sessiondraft.FieldTimingPolicy:
+		m.ResetTimingPolicy()
+		return nil
+	case sessiondraft.FieldMinimumDurationSeconds:
+		m.ResetMinimumDurationSeconds()
+		return nil
+	case sessiondraft.FieldStartBoundary:
+		m.ResetStartBoundary()
+		return nil
+	case sessiondraft.FieldEndBoundary:
+		m.ResetEndBoundary()
+		return nil
+	}
+	return fmt.Errorf("unknown SessionDraft field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *SessionDraftMutation) AddedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.session != nil {
+		edges = append(edges, sessiondraft.EdgeSession)
+	}
+	if m.lanes != nil {
+		edges = append(edges, sessiondraft.EdgeLanes)
+	}
+	if m.locations != nil {
+		edges = append(edges, sessiondraft.EdgeLocations)
+	}
+	if m.tracks != nil {
+		edges = append(edges, sessiondraft.EdgeTracks)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *SessionDraftMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case sessiondraft.EdgeSession:
+		if id := m.session; id != nil {
+			return []ent.Value{*id}
+		}
+	case sessiondraft.EdgeLanes:
+		ids := make([]ent.Value, 0, len(m.lanes))
+		for id := range m.lanes {
+			ids = append(ids, id)
+		}
+		return ids
+	case sessiondraft.EdgeLocations:
+		ids := make([]ent.Value, 0, len(m.locations))
+		for id := range m.locations {
+			ids = append(ids, id)
+		}
+		return ids
+	case sessiondraft.EdgeTracks:
+		ids := make([]ent.Value, 0, len(m.tracks))
+		for id := range m.tracks {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *SessionDraftMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.removedlanes != nil {
+		edges = append(edges, sessiondraft.EdgeLanes)
+	}
+	if m.removedlocations != nil {
+		edges = append(edges, sessiondraft.EdgeLocations)
+	}
+	if m.removedtracks != nil {
+		edges = append(edges, sessiondraft.EdgeTracks)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *SessionDraftMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case sessiondraft.EdgeLanes:
+		ids := make([]ent.Value, 0, len(m.removedlanes))
+		for id := range m.removedlanes {
+			ids = append(ids, id)
+		}
+		return ids
+	case sessiondraft.EdgeLocations:
+		ids := make([]ent.Value, 0, len(m.removedlocations))
+		for id := range m.removedlocations {
+			ids = append(ids, id)
+		}
+		return ids
+	case sessiondraft.EdgeTracks:
+		ids := make([]ent.Value, 0, len(m.removedtracks))
+		for id := range m.removedtracks {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *SessionDraftMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.clearedsession {
+		edges = append(edges, sessiondraft.EdgeSession)
+	}
+	if m.clearedlanes {
+		edges = append(edges, sessiondraft.EdgeLanes)
+	}
+	if m.clearedlocations {
+		edges = append(edges, sessiondraft.EdgeLocations)
+	}
+	if m.clearedtracks {
+		edges = append(edges, sessiondraft.EdgeTracks)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *SessionDraftMutation) EdgeCleared(name string) bool {
+	switch name {
+	case sessiondraft.EdgeSession:
+		return m.clearedsession
+	case sessiondraft.EdgeLanes:
+		return m.clearedlanes
+	case sessiondraft.EdgeLocations:
+		return m.clearedlocations
+	case sessiondraft.EdgeTracks:
+		return m.clearedtracks
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *SessionDraftMutation) ClearEdge(name string) error {
+	switch name {
+	case sessiondraft.EdgeSession:
+		m.ClearSession()
+		return nil
+	}
+	return fmt.Errorf("unknown SessionDraft unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *SessionDraftMutation) ResetEdge(name string) error {
+	switch name {
+	case sessiondraft.EdgeSession:
+		m.ResetSession()
+		return nil
+	case sessiondraft.EdgeLanes:
+		m.ResetLanes()
+		return nil
+	case sessiondraft.EdgeLocations:
+		m.ResetLocations()
+		return nil
+	case sessiondraft.EdgeTracks:
+		m.ResetTracks()
+		return nil
+	}
+	return fmt.Errorf("unknown SessionDraft edge %s", name)
+}
+
+// SessionPublishedVersionMutation represents an operation that mutates the SessionPublishedVersion nodes in the graph.
+type SessionPublishedVersionMutation struct {
+	config
+	op                          Op
+	typ                         string
+	id                          *int
+	published_revision          *int
+	addpublished_revision       *int
+	title                       *string
+	_type                       *sessionpublishedversion.Type
+	audience_visibility         *sessionpublishedversion.AudienceVisibility
+	public_details              *string
+	crew_notes                  *string
+	planned_start               *time.Time
+	planned_end                 *time.Time
+	timing_policy               *sessionpublishedversion.TimingPolicy
+	minimum_duration_seconds    *int
+	addminimum_duration_seconds *int
+	start_boundary              *sessionpublishedversion.StartBoundary
+	end_boundary                *sessionpublishedversion.EndBoundary
+	created_at                  *time.Time
+	clearedFields               map[string]struct{}
+	session                     *int
+	clearedsession              bool
+	lanes                       map[int]struct{}
+	removedlanes                map[int]struct{}
+	clearedlanes                bool
+	locations                   map[int]struct{}
+	removedlocations            map[int]struct{}
+	clearedlocations            bool
+	tracks                      map[int]struct{}
+	removedtracks               map[int]struct{}
+	clearedtracks               bool
+	done                        bool
+	oldValue                    func(context.Context) (*SessionPublishedVersion, error)
+	predicates                  []predicate.SessionPublishedVersion
+}
+
+var _ ent.Mutation = (*SessionPublishedVersionMutation)(nil)
+
+// sessionpublishedversionOption allows management of the mutation configuration using functional options.
+type sessionpublishedversionOption func(*SessionPublishedVersionMutation)
+
+// newSessionPublishedVersionMutation creates new mutation for the SessionPublishedVersion entity.
+func newSessionPublishedVersionMutation(c config, op Op, opts ...sessionpublishedversionOption) *SessionPublishedVersionMutation {
+	m := &SessionPublishedVersionMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeSessionPublishedVersion,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withSessionPublishedVersionID sets the ID field of the mutation.
+func withSessionPublishedVersionID(id int) sessionpublishedversionOption {
+	return func(m *SessionPublishedVersionMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *SessionPublishedVersion
+		)
+		m.oldValue = func(ctx context.Context) (*SessionPublishedVersion, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().SessionPublishedVersion.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withSessionPublishedVersion sets the old SessionPublishedVersion of the mutation.
+func withSessionPublishedVersion(node *SessionPublishedVersion) sessionpublishedversionOption {
+	return func(m *SessionPublishedVersionMutation) {
+		m.oldValue = func(context.Context) (*SessionPublishedVersion, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m SessionPublishedVersionMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m SessionPublishedVersionMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *SessionPublishedVersionMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *SessionPublishedVersionMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().SessionPublishedVersion.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetSessionID sets the "session_id" field.
+func (m *SessionPublishedVersionMutation) SetSessionID(i int) {
+	m.session = &i
+}
+
+// SessionID returns the value of the "session_id" field in the mutation.
+func (m *SessionPublishedVersionMutation) SessionID() (r int, exists bool) {
+	v := m.session
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSessionID returns the old "session_id" field's value of the SessionPublishedVersion entity.
+// If the SessionPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionPublishedVersionMutation) OldSessionID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSessionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSessionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSessionID: %w", err)
+	}
+	return oldValue.SessionID, nil
+}
+
+// ResetSessionID resets all changes to the "session_id" field.
+func (m *SessionPublishedVersionMutation) ResetSessionID() {
+	m.session = nil
+}
+
+// SetPublishedRevision sets the "published_revision" field.
+func (m *SessionPublishedVersionMutation) SetPublishedRevision(i int) {
+	m.published_revision = &i
+	m.addpublished_revision = nil
+}
+
+// PublishedRevision returns the value of the "published_revision" field in the mutation.
+func (m *SessionPublishedVersionMutation) PublishedRevision() (r int, exists bool) {
+	v := m.published_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublishedRevision returns the old "published_revision" field's value of the SessionPublishedVersion entity.
+// If the SessionPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionPublishedVersionMutation) OldPublishedRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublishedRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublishedRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublishedRevision: %w", err)
+	}
+	return oldValue.PublishedRevision, nil
+}
+
+// AddPublishedRevision adds i to the "published_revision" field.
+func (m *SessionPublishedVersionMutation) AddPublishedRevision(i int) {
+	if m.addpublished_revision != nil {
+		*m.addpublished_revision += i
+	} else {
+		m.addpublished_revision = &i
+	}
+}
+
+// AddedPublishedRevision returns the value that was added to the "published_revision" field in this mutation.
+func (m *SessionPublishedVersionMutation) AddedPublishedRevision() (r int, exists bool) {
+	v := m.addpublished_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPublishedRevision resets all changes to the "published_revision" field.
+func (m *SessionPublishedVersionMutation) ResetPublishedRevision() {
+	m.published_revision = nil
+	m.addpublished_revision = nil
+}
+
+// SetTitle sets the "title" field.
+func (m *SessionPublishedVersionMutation) SetTitle(s string) {
+	m.title = &s
+}
+
+// Title returns the value of the "title" field in the mutation.
+func (m *SessionPublishedVersionMutation) Title() (r string, exists bool) {
+	v := m.title
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTitle returns the old "title" field's value of the SessionPublishedVersion entity.
+// If the SessionPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionPublishedVersionMutation) OldTitle(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTitle is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTitle requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTitle: %w", err)
+	}
+	return oldValue.Title, nil
+}
+
+// ResetTitle resets all changes to the "title" field.
+func (m *SessionPublishedVersionMutation) ResetTitle() {
+	m.title = nil
+}
+
+// SetType sets the "type" field.
+func (m *SessionPublishedVersionMutation) SetType(s sessionpublishedversion.Type) {
+	m._type = &s
+}
+
+// GetType returns the value of the "type" field in the mutation.
+func (m *SessionPublishedVersionMutation) GetType() (r sessionpublishedversion.Type, exists bool) {
+	v := m._type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldType returns the old "type" field's value of the SessionPublishedVersion entity.
+// If the SessionPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionPublishedVersionMutation) OldType(ctx context.Context) (v sessionpublishedversion.Type, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldType: %w", err)
+	}
+	return oldValue.Type, nil
+}
+
+// ResetType resets all changes to the "type" field.
+func (m *SessionPublishedVersionMutation) ResetType() {
+	m._type = nil
+}
+
+// SetAudienceVisibility sets the "audience_visibility" field.
+func (m *SessionPublishedVersionMutation) SetAudienceVisibility(sv sessionpublishedversion.AudienceVisibility) {
+	m.audience_visibility = &sv
+}
+
+// AudienceVisibility returns the value of the "audience_visibility" field in the mutation.
+func (m *SessionPublishedVersionMutation) AudienceVisibility() (r sessionpublishedversion.AudienceVisibility, exists bool) {
+	v := m.audience_visibility
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAudienceVisibility returns the old "audience_visibility" field's value of the SessionPublishedVersion entity.
+// If the SessionPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionPublishedVersionMutation) OldAudienceVisibility(ctx context.Context) (v sessionpublishedversion.AudienceVisibility, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAudienceVisibility is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAudienceVisibility requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAudienceVisibility: %w", err)
+	}
+	return oldValue.AudienceVisibility, nil
+}
+
+// ResetAudienceVisibility resets all changes to the "audience_visibility" field.
+func (m *SessionPublishedVersionMutation) ResetAudienceVisibility() {
+	m.audience_visibility = nil
+}
+
+// SetPublicDetails sets the "public_details" field.
+func (m *SessionPublishedVersionMutation) SetPublicDetails(s string) {
+	m.public_details = &s
+}
+
+// PublicDetails returns the value of the "public_details" field in the mutation.
+func (m *SessionPublishedVersionMutation) PublicDetails() (r string, exists bool) {
+	v := m.public_details
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublicDetails returns the old "public_details" field's value of the SessionPublishedVersion entity.
+// If the SessionPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionPublishedVersionMutation) OldPublicDetails(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublicDetails is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublicDetails requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublicDetails: %w", err)
+	}
+	return oldValue.PublicDetails, nil
+}
+
+// ClearPublicDetails clears the value of the "public_details" field.
+func (m *SessionPublishedVersionMutation) ClearPublicDetails() {
+	m.public_details = nil
+	m.clearedFields[sessionpublishedversion.FieldPublicDetails] = struct{}{}
+}
+
+// PublicDetailsCleared returns if the "public_details" field was cleared in this mutation.
+func (m *SessionPublishedVersionMutation) PublicDetailsCleared() bool {
+	_, ok := m.clearedFields[sessionpublishedversion.FieldPublicDetails]
+	return ok
+}
+
+// ResetPublicDetails resets all changes to the "public_details" field.
+func (m *SessionPublishedVersionMutation) ResetPublicDetails() {
+	m.public_details = nil
+	delete(m.clearedFields, sessionpublishedversion.FieldPublicDetails)
+}
+
+// SetCrewNotes sets the "crew_notes" field.
+func (m *SessionPublishedVersionMutation) SetCrewNotes(s string) {
+	m.crew_notes = &s
+}
+
+// CrewNotes returns the value of the "crew_notes" field in the mutation.
+func (m *SessionPublishedVersionMutation) CrewNotes() (r string, exists bool) {
+	v := m.crew_notes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCrewNotes returns the old "crew_notes" field's value of the SessionPublishedVersion entity.
+// If the SessionPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionPublishedVersionMutation) OldCrewNotes(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCrewNotes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCrewNotes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCrewNotes: %w", err)
+	}
+	return oldValue.CrewNotes, nil
+}
+
+// ClearCrewNotes clears the value of the "crew_notes" field.
+func (m *SessionPublishedVersionMutation) ClearCrewNotes() {
+	m.crew_notes = nil
+	m.clearedFields[sessionpublishedversion.FieldCrewNotes] = struct{}{}
+}
+
+// CrewNotesCleared returns if the "crew_notes" field was cleared in this mutation.
+func (m *SessionPublishedVersionMutation) CrewNotesCleared() bool {
+	_, ok := m.clearedFields[sessionpublishedversion.FieldCrewNotes]
+	return ok
+}
+
+// ResetCrewNotes resets all changes to the "crew_notes" field.
+func (m *SessionPublishedVersionMutation) ResetCrewNotes() {
+	m.crew_notes = nil
+	delete(m.clearedFields, sessionpublishedversion.FieldCrewNotes)
+}
+
+// SetPlannedStart sets the "planned_start" field.
+func (m *SessionPublishedVersionMutation) SetPlannedStart(t time.Time) {
+	m.planned_start = &t
+}
+
+// PlannedStart returns the value of the "planned_start" field in the mutation.
+func (m *SessionPublishedVersionMutation) PlannedStart() (r time.Time, exists bool) {
+	v := m.planned_start
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPlannedStart returns the old "planned_start" field's value of the SessionPublishedVersion entity.
+// If the SessionPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionPublishedVersionMutation) OldPlannedStart(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPlannedStart is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPlannedStart requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPlannedStart: %w", err)
+	}
+	return oldValue.PlannedStart, nil
+}
+
+// ResetPlannedStart resets all changes to the "planned_start" field.
+func (m *SessionPublishedVersionMutation) ResetPlannedStart() {
+	m.planned_start = nil
+}
+
+// SetPlannedEnd sets the "planned_end" field.
+func (m *SessionPublishedVersionMutation) SetPlannedEnd(t time.Time) {
+	m.planned_end = &t
+}
+
+// PlannedEnd returns the value of the "planned_end" field in the mutation.
+func (m *SessionPublishedVersionMutation) PlannedEnd() (r time.Time, exists bool) {
+	v := m.planned_end
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPlannedEnd returns the old "planned_end" field's value of the SessionPublishedVersion entity.
+// If the SessionPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionPublishedVersionMutation) OldPlannedEnd(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPlannedEnd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPlannedEnd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPlannedEnd: %w", err)
+	}
+	return oldValue.PlannedEnd, nil
+}
+
+// ResetPlannedEnd resets all changes to the "planned_end" field.
+func (m *SessionPublishedVersionMutation) ResetPlannedEnd() {
+	m.planned_end = nil
+}
+
+// SetTimingPolicy sets the "timing_policy" field.
+func (m *SessionPublishedVersionMutation) SetTimingPolicy(sp sessionpublishedversion.TimingPolicy) {
+	m.timing_policy = &sp
+}
+
+// TimingPolicy returns the value of the "timing_policy" field in the mutation.
+func (m *SessionPublishedVersionMutation) TimingPolicy() (r sessionpublishedversion.TimingPolicy, exists bool) {
+	v := m.timing_policy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTimingPolicy returns the old "timing_policy" field's value of the SessionPublishedVersion entity.
+// If the SessionPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionPublishedVersionMutation) OldTimingPolicy(ctx context.Context) (v sessionpublishedversion.TimingPolicy, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTimingPolicy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTimingPolicy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTimingPolicy: %w", err)
+	}
+	return oldValue.TimingPolicy, nil
+}
+
+// ResetTimingPolicy resets all changes to the "timing_policy" field.
+func (m *SessionPublishedVersionMutation) ResetTimingPolicy() {
+	m.timing_policy = nil
+}
+
+// SetMinimumDurationSeconds sets the "minimum_duration_seconds" field.
+func (m *SessionPublishedVersionMutation) SetMinimumDurationSeconds(i int) {
+	m.minimum_duration_seconds = &i
+	m.addminimum_duration_seconds = nil
+}
+
+// MinimumDurationSeconds returns the value of the "minimum_duration_seconds" field in the mutation.
+func (m *SessionPublishedVersionMutation) MinimumDurationSeconds() (r int, exists bool) {
+	v := m.minimum_duration_seconds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMinimumDurationSeconds returns the old "minimum_duration_seconds" field's value of the SessionPublishedVersion entity.
+// If the SessionPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionPublishedVersionMutation) OldMinimumDurationSeconds(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMinimumDurationSeconds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMinimumDurationSeconds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMinimumDurationSeconds: %w", err)
+	}
+	return oldValue.MinimumDurationSeconds, nil
+}
+
+// AddMinimumDurationSeconds adds i to the "minimum_duration_seconds" field.
+func (m *SessionPublishedVersionMutation) AddMinimumDurationSeconds(i int) {
+	if m.addminimum_duration_seconds != nil {
+		*m.addminimum_duration_seconds += i
+	} else {
+		m.addminimum_duration_seconds = &i
+	}
+}
+
+// AddedMinimumDurationSeconds returns the value that was added to the "minimum_duration_seconds" field in this mutation.
+func (m *SessionPublishedVersionMutation) AddedMinimumDurationSeconds() (r int, exists bool) {
+	v := m.addminimum_duration_seconds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetMinimumDurationSeconds resets all changes to the "minimum_duration_seconds" field.
+func (m *SessionPublishedVersionMutation) ResetMinimumDurationSeconds() {
+	m.minimum_duration_seconds = nil
+	m.addminimum_duration_seconds = nil
+}
+
+// SetStartBoundary sets the "start_boundary" field.
+func (m *SessionPublishedVersionMutation) SetStartBoundary(sb sessionpublishedversion.StartBoundary) {
+	m.start_boundary = &sb
+}
+
+// StartBoundary returns the value of the "start_boundary" field in the mutation.
+func (m *SessionPublishedVersionMutation) StartBoundary() (r sessionpublishedversion.StartBoundary, exists bool) {
+	v := m.start_boundary
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStartBoundary returns the old "start_boundary" field's value of the SessionPublishedVersion entity.
+// If the SessionPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionPublishedVersionMutation) OldStartBoundary(ctx context.Context) (v sessionpublishedversion.StartBoundary, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStartBoundary is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStartBoundary requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStartBoundary: %w", err)
+	}
+	return oldValue.StartBoundary, nil
+}
+
+// ResetStartBoundary resets all changes to the "start_boundary" field.
+func (m *SessionPublishedVersionMutation) ResetStartBoundary() {
+	m.start_boundary = nil
+}
+
+// SetEndBoundary sets the "end_boundary" field.
+func (m *SessionPublishedVersionMutation) SetEndBoundary(sb sessionpublishedversion.EndBoundary) {
+	m.end_boundary = &sb
+}
+
+// EndBoundary returns the value of the "end_boundary" field in the mutation.
+func (m *SessionPublishedVersionMutation) EndBoundary() (r sessionpublishedversion.EndBoundary, exists bool) {
+	v := m.end_boundary
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEndBoundary returns the old "end_boundary" field's value of the SessionPublishedVersion entity.
+// If the SessionPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionPublishedVersionMutation) OldEndBoundary(ctx context.Context) (v sessionpublishedversion.EndBoundary, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEndBoundary is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEndBoundary requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEndBoundary: %w", err)
+	}
+	return oldValue.EndBoundary, nil
+}
+
+// ResetEndBoundary resets all changes to the "end_boundary" field.
+func (m *SessionPublishedVersionMutation) ResetEndBoundary() {
+	m.end_boundary = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *SessionPublishedVersionMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *SessionPublishedVersionMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the SessionPublishedVersion entity.
+// If the SessionPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionPublishedVersionMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *SessionPublishedVersionMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearSession clears the "session" edge to the Session entity.
+func (m *SessionPublishedVersionMutation) ClearSession() {
+	m.clearedsession = true
+	m.clearedFields[sessionpublishedversion.FieldSessionID] = struct{}{}
+}
+
+// SessionCleared reports if the "session" edge to the Session entity was cleared.
+func (m *SessionPublishedVersionMutation) SessionCleared() bool {
+	return m.clearedsession
+}
+
+// SessionIDs returns the "session" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SessionID instead. It exists only for internal usage by the builders.
+func (m *SessionPublishedVersionMutation) SessionIDs() (ids []int) {
+	if id := m.session; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSession resets all changes to the "session" edge.
+func (m *SessionPublishedVersionMutation) ResetSession() {
+	m.session = nil
+	m.clearedsession = false
+}
+
+// AddLaneIDs adds the "lanes" edge to the Lane entity by ids.
+func (m *SessionPublishedVersionMutation) AddLaneIDs(ids ...int) {
+	if m.lanes == nil {
+		m.lanes = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.lanes[ids[i]] = struct{}{}
+	}
+}
+
+// ClearLanes clears the "lanes" edge to the Lane entity.
+func (m *SessionPublishedVersionMutation) ClearLanes() {
+	m.clearedlanes = true
+}
+
+// LanesCleared reports if the "lanes" edge to the Lane entity was cleared.
+func (m *SessionPublishedVersionMutation) LanesCleared() bool {
+	return m.clearedlanes
+}
+
+// RemoveLaneIDs removes the "lanes" edge to the Lane entity by IDs.
+func (m *SessionPublishedVersionMutation) RemoveLaneIDs(ids ...int) {
+	if m.removedlanes == nil {
+		m.removedlanes = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.lanes, ids[i])
+		m.removedlanes[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedLanes returns the removed IDs of the "lanes" edge to the Lane entity.
+func (m *SessionPublishedVersionMutation) RemovedLanesIDs() (ids []int) {
+	for id := range m.removedlanes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// LanesIDs returns the "lanes" edge IDs in the mutation.
+func (m *SessionPublishedVersionMutation) LanesIDs() (ids []int) {
+	for id := range m.lanes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetLanes resets all changes to the "lanes" edge.
+func (m *SessionPublishedVersionMutation) ResetLanes() {
+	m.lanes = nil
+	m.clearedlanes = false
+	m.removedlanes = nil
+}
+
+// AddLocationIDs adds the "locations" edge to the Location entity by ids.
+func (m *SessionPublishedVersionMutation) AddLocationIDs(ids ...int) {
+	if m.locations == nil {
+		m.locations = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.locations[ids[i]] = struct{}{}
+	}
+}
+
+// ClearLocations clears the "locations" edge to the Location entity.
+func (m *SessionPublishedVersionMutation) ClearLocations() {
+	m.clearedlocations = true
+}
+
+// LocationsCleared reports if the "locations" edge to the Location entity was cleared.
+func (m *SessionPublishedVersionMutation) LocationsCleared() bool {
+	return m.clearedlocations
+}
+
+// RemoveLocationIDs removes the "locations" edge to the Location entity by IDs.
+func (m *SessionPublishedVersionMutation) RemoveLocationIDs(ids ...int) {
+	if m.removedlocations == nil {
+		m.removedlocations = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.locations, ids[i])
+		m.removedlocations[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedLocations returns the removed IDs of the "locations" edge to the Location entity.
+func (m *SessionPublishedVersionMutation) RemovedLocationsIDs() (ids []int) {
+	for id := range m.removedlocations {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// LocationsIDs returns the "locations" edge IDs in the mutation.
+func (m *SessionPublishedVersionMutation) LocationsIDs() (ids []int) {
+	for id := range m.locations {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetLocations resets all changes to the "locations" edge.
+func (m *SessionPublishedVersionMutation) ResetLocations() {
+	m.locations = nil
+	m.clearedlocations = false
+	m.removedlocations = nil
+}
+
+// AddTrackIDs adds the "tracks" edge to the Track entity by ids.
+func (m *SessionPublishedVersionMutation) AddTrackIDs(ids ...int) {
+	if m.tracks == nil {
+		m.tracks = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.tracks[ids[i]] = struct{}{}
+	}
+}
+
+// ClearTracks clears the "tracks" edge to the Track entity.
+func (m *SessionPublishedVersionMutation) ClearTracks() {
+	m.clearedtracks = true
+}
+
+// TracksCleared reports if the "tracks" edge to the Track entity was cleared.
+func (m *SessionPublishedVersionMutation) TracksCleared() bool {
+	return m.clearedtracks
+}
+
+// RemoveTrackIDs removes the "tracks" edge to the Track entity by IDs.
+func (m *SessionPublishedVersionMutation) RemoveTrackIDs(ids ...int) {
+	if m.removedtracks == nil {
+		m.removedtracks = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.tracks, ids[i])
+		m.removedtracks[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedTracks returns the removed IDs of the "tracks" edge to the Track entity.
+func (m *SessionPublishedVersionMutation) RemovedTracksIDs() (ids []int) {
+	for id := range m.removedtracks {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// TracksIDs returns the "tracks" edge IDs in the mutation.
+func (m *SessionPublishedVersionMutation) TracksIDs() (ids []int) {
+	for id := range m.tracks {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetTracks resets all changes to the "tracks" edge.
+func (m *SessionPublishedVersionMutation) ResetTracks() {
+	m.tracks = nil
+	m.clearedtracks = false
+	m.removedtracks = nil
+}
+
+// Where appends a list predicates to the SessionPublishedVersionMutation builder.
+func (m *SessionPublishedVersionMutation) Where(ps ...predicate.SessionPublishedVersion) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the SessionPublishedVersionMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *SessionPublishedVersionMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.SessionPublishedVersion, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *SessionPublishedVersionMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *SessionPublishedVersionMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (SessionPublishedVersion).
+func (m *SessionPublishedVersionMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *SessionPublishedVersionMutation) Fields() []string {
+	fields := make([]string, 0, 14)
+	if m.session != nil {
+		fields = append(fields, sessionpublishedversion.FieldSessionID)
+	}
+	if m.published_revision != nil {
+		fields = append(fields, sessionpublishedversion.FieldPublishedRevision)
+	}
+	if m.title != nil {
+		fields = append(fields, sessionpublishedversion.FieldTitle)
+	}
+	if m._type != nil {
+		fields = append(fields, sessionpublishedversion.FieldType)
+	}
+	if m.audience_visibility != nil {
+		fields = append(fields, sessionpublishedversion.FieldAudienceVisibility)
+	}
+	if m.public_details != nil {
+		fields = append(fields, sessionpublishedversion.FieldPublicDetails)
+	}
+	if m.crew_notes != nil {
+		fields = append(fields, sessionpublishedversion.FieldCrewNotes)
+	}
+	if m.planned_start != nil {
+		fields = append(fields, sessionpublishedversion.FieldPlannedStart)
+	}
+	if m.planned_end != nil {
+		fields = append(fields, sessionpublishedversion.FieldPlannedEnd)
+	}
+	if m.timing_policy != nil {
+		fields = append(fields, sessionpublishedversion.FieldTimingPolicy)
+	}
+	if m.minimum_duration_seconds != nil {
+		fields = append(fields, sessionpublishedversion.FieldMinimumDurationSeconds)
+	}
+	if m.start_boundary != nil {
+		fields = append(fields, sessionpublishedversion.FieldStartBoundary)
+	}
+	if m.end_boundary != nil {
+		fields = append(fields, sessionpublishedversion.FieldEndBoundary)
+	}
+	if m.created_at != nil {
+		fields = append(fields, sessionpublishedversion.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *SessionPublishedVersionMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case sessionpublishedversion.FieldSessionID:
+		return m.SessionID()
+	case sessionpublishedversion.FieldPublishedRevision:
+		return m.PublishedRevision()
+	case sessionpublishedversion.FieldTitle:
+		return m.Title()
+	case sessionpublishedversion.FieldType:
+		return m.GetType()
+	case sessionpublishedversion.FieldAudienceVisibility:
+		return m.AudienceVisibility()
+	case sessionpublishedversion.FieldPublicDetails:
+		return m.PublicDetails()
+	case sessionpublishedversion.FieldCrewNotes:
+		return m.CrewNotes()
+	case sessionpublishedversion.FieldPlannedStart:
+		return m.PlannedStart()
+	case sessionpublishedversion.FieldPlannedEnd:
+		return m.PlannedEnd()
+	case sessionpublishedversion.FieldTimingPolicy:
+		return m.TimingPolicy()
+	case sessionpublishedversion.FieldMinimumDurationSeconds:
+		return m.MinimumDurationSeconds()
+	case sessionpublishedversion.FieldStartBoundary:
+		return m.StartBoundary()
+	case sessionpublishedversion.FieldEndBoundary:
+		return m.EndBoundary()
+	case sessionpublishedversion.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *SessionPublishedVersionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case sessionpublishedversion.FieldSessionID:
+		return m.OldSessionID(ctx)
+	case sessionpublishedversion.FieldPublishedRevision:
+		return m.OldPublishedRevision(ctx)
+	case sessionpublishedversion.FieldTitle:
+		return m.OldTitle(ctx)
+	case sessionpublishedversion.FieldType:
+		return m.OldType(ctx)
+	case sessionpublishedversion.FieldAudienceVisibility:
+		return m.OldAudienceVisibility(ctx)
+	case sessionpublishedversion.FieldPublicDetails:
+		return m.OldPublicDetails(ctx)
+	case sessionpublishedversion.FieldCrewNotes:
+		return m.OldCrewNotes(ctx)
+	case sessionpublishedversion.FieldPlannedStart:
+		return m.OldPlannedStart(ctx)
+	case sessionpublishedversion.FieldPlannedEnd:
+		return m.OldPlannedEnd(ctx)
+	case sessionpublishedversion.FieldTimingPolicy:
+		return m.OldTimingPolicy(ctx)
+	case sessionpublishedversion.FieldMinimumDurationSeconds:
+		return m.OldMinimumDurationSeconds(ctx)
+	case sessionpublishedversion.FieldStartBoundary:
+		return m.OldStartBoundary(ctx)
+	case sessionpublishedversion.FieldEndBoundary:
+		return m.OldEndBoundary(ctx)
+	case sessionpublishedversion.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown SessionPublishedVersion field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SessionPublishedVersionMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case sessionpublishedversion.FieldSessionID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSessionID(v)
+		return nil
+	case sessionpublishedversion.FieldPublishedRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublishedRevision(v)
+		return nil
+	case sessionpublishedversion.FieldTitle:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTitle(v)
+		return nil
+	case sessionpublishedversion.FieldType:
+		v, ok := value.(sessionpublishedversion.Type)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetType(v)
+		return nil
+	case sessionpublishedversion.FieldAudienceVisibility:
+		v, ok := value.(sessionpublishedversion.AudienceVisibility)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAudienceVisibility(v)
+		return nil
+	case sessionpublishedversion.FieldPublicDetails:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublicDetails(v)
+		return nil
+	case sessionpublishedversion.FieldCrewNotes:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCrewNotes(v)
+		return nil
+	case sessionpublishedversion.FieldPlannedStart:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPlannedStart(v)
+		return nil
+	case sessionpublishedversion.FieldPlannedEnd:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPlannedEnd(v)
+		return nil
+	case sessionpublishedversion.FieldTimingPolicy:
+		v, ok := value.(sessionpublishedversion.TimingPolicy)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTimingPolicy(v)
+		return nil
+	case sessionpublishedversion.FieldMinimumDurationSeconds:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMinimumDurationSeconds(v)
+		return nil
+	case sessionpublishedversion.FieldStartBoundary:
+		v, ok := value.(sessionpublishedversion.StartBoundary)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStartBoundary(v)
+		return nil
+	case sessionpublishedversion.FieldEndBoundary:
+		v, ok := value.(sessionpublishedversion.EndBoundary)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEndBoundary(v)
+		return nil
+	case sessionpublishedversion.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SessionPublishedVersion field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *SessionPublishedVersionMutation) AddedFields() []string {
+	var fields []string
+	if m.addpublished_revision != nil {
+		fields = append(fields, sessionpublishedversion.FieldPublishedRevision)
+	}
+	if m.addminimum_duration_seconds != nil {
+		fields = append(fields, sessionpublishedversion.FieldMinimumDurationSeconds)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *SessionPublishedVersionMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case sessionpublishedversion.FieldPublishedRevision:
+		return m.AddedPublishedRevision()
+	case sessionpublishedversion.FieldMinimumDurationSeconds:
+		return m.AddedMinimumDurationSeconds()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SessionPublishedVersionMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case sessionpublishedversion.FieldPublishedRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPublishedRevision(v)
+		return nil
+	case sessionpublishedversion.FieldMinimumDurationSeconds:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddMinimumDurationSeconds(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SessionPublishedVersion numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *SessionPublishedVersionMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(sessionpublishedversion.FieldPublicDetails) {
+		fields = append(fields, sessionpublishedversion.FieldPublicDetails)
+	}
+	if m.FieldCleared(sessionpublishedversion.FieldCrewNotes) {
+		fields = append(fields, sessionpublishedversion.FieldCrewNotes)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *SessionPublishedVersionMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *SessionPublishedVersionMutation) ClearField(name string) error {
+	switch name {
+	case sessionpublishedversion.FieldPublicDetails:
+		m.ClearPublicDetails()
+		return nil
+	case sessionpublishedversion.FieldCrewNotes:
+		m.ClearCrewNotes()
+		return nil
+	}
+	return fmt.Errorf("unknown SessionPublishedVersion nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *SessionPublishedVersionMutation) ResetField(name string) error {
+	switch name {
+	case sessionpublishedversion.FieldSessionID:
+		m.ResetSessionID()
+		return nil
+	case sessionpublishedversion.FieldPublishedRevision:
+		m.ResetPublishedRevision()
+		return nil
+	case sessionpublishedversion.FieldTitle:
+		m.ResetTitle()
+		return nil
+	case sessionpublishedversion.FieldType:
+		m.ResetType()
+		return nil
+	case sessionpublishedversion.FieldAudienceVisibility:
+		m.ResetAudienceVisibility()
+		return nil
+	case sessionpublishedversion.FieldPublicDetails:
+		m.ResetPublicDetails()
+		return nil
+	case sessionpublishedversion.FieldCrewNotes:
+		m.ResetCrewNotes()
+		return nil
+	case sessionpublishedversion.FieldPlannedStart:
+		m.ResetPlannedStart()
+		return nil
+	case sessionpublishedversion.FieldPlannedEnd:
+		m.ResetPlannedEnd()
+		return nil
+	case sessionpublishedversion.FieldTimingPolicy:
+		m.ResetTimingPolicy()
+		return nil
+	case sessionpublishedversion.FieldMinimumDurationSeconds:
+		m.ResetMinimumDurationSeconds()
+		return nil
+	case sessionpublishedversion.FieldStartBoundary:
+		m.ResetStartBoundary()
+		return nil
+	case sessionpublishedversion.FieldEndBoundary:
+		m.ResetEndBoundary()
+		return nil
+	case sessionpublishedversion.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown SessionPublishedVersion field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *SessionPublishedVersionMutation) AddedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.session != nil {
+		edges = append(edges, sessionpublishedversion.EdgeSession)
+	}
+	if m.lanes != nil {
+		edges = append(edges, sessionpublishedversion.EdgeLanes)
+	}
+	if m.locations != nil {
+		edges = append(edges, sessionpublishedversion.EdgeLocations)
+	}
+	if m.tracks != nil {
+		edges = append(edges, sessionpublishedversion.EdgeTracks)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *SessionPublishedVersionMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case sessionpublishedversion.EdgeSession:
+		if id := m.session; id != nil {
+			return []ent.Value{*id}
+		}
+	case sessionpublishedversion.EdgeLanes:
+		ids := make([]ent.Value, 0, len(m.lanes))
+		for id := range m.lanes {
+			ids = append(ids, id)
+		}
+		return ids
+	case sessionpublishedversion.EdgeLocations:
+		ids := make([]ent.Value, 0, len(m.locations))
+		for id := range m.locations {
+			ids = append(ids, id)
+		}
+		return ids
+	case sessionpublishedversion.EdgeTracks:
+		ids := make([]ent.Value, 0, len(m.tracks))
+		for id := range m.tracks {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *SessionPublishedVersionMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.removedlanes != nil {
+		edges = append(edges, sessionpublishedversion.EdgeLanes)
+	}
+	if m.removedlocations != nil {
+		edges = append(edges, sessionpublishedversion.EdgeLocations)
+	}
+	if m.removedtracks != nil {
+		edges = append(edges, sessionpublishedversion.EdgeTracks)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *SessionPublishedVersionMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case sessionpublishedversion.EdgeLanes:
+		ids := make([]ent.Value, 0, len(m.removedlanes))
+		for id := range m.removedlanes {
+			ids = append(ids, id)
+		}
+		return ids
+	case sessionpublishedversion.EdgeLocations:
+		ids := make([]ent.Value, 0, len(m.removedlocations))
+		for id := range m.removedlocations {
+			ids = append(ids, id)
+		}
+		return ids
+	case sessionpublishedversion.EdgeTracks:
+		ids := make([]ent.Value, 0, len(m.removedtracks))
+		for id := range m.removedtracks {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *SessionPublishedVersionMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.clearedsession {
+		edges = append(edges, sessionpublishedversion.EdgeSession)
+	}
+	if m.clearedlanes {
+		edges = append(edges, sessionpublishedversion.EdgeLanes)
+	}
+	if m.clearedlocations {
+		edges = append(edges, sessionpublishedversion.EdgeLocations)
+	}
+	if m.clearedtracks {
+		edges = append(edges, sessionpublishedversion.EdgeTracks)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *SessionPublishedVersionMutation) EdgeCleared(name string) bool {
+	switch name {
+	case sessionpublishedversion.EdgeSession:
+		return m.clearedsession
+	case sessionpublishedversion.EdgeLanes:
+		return m.clearedlanes
+	case sessionpublishedversion.EdgeLocations:
+		return m.clearedlocations
+	case sessionpublishedversion.EdgeTracks:
+		return m.clearedtracks
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *SessionPublishedVersionMutation) ClearEdge(name string) error {
+	switch name {
+	case sessionpublishedversion.EdgeSession:
+		m.ClearSession()
+		return nil
+	}
+	return fmt.Errorf("unknown SessionPublishedVersion unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *SessionPublishedVersionMutation) ResetEdge(name string) error {
+	switch name {
+	case sessionpublishedversion.EdgeSession:
+		m.ResetSession()
+		return nil
+	case sessionpublishedversion.EdgeLanes:
+		m.ResetLanes()
+		return nil
+	case sessionpublishedversion.EdgeLocations:
+		m.ResetLocations()
+		return nil
+	case sessionpublishedversion.EdgeTracks:
+		m.ResetTracks()
+		return nil
+	}
+	return fmt.Errorf("unknown SessionPublishedVersion edge %s", name)
+}
+
+// TrackMutation represents an operation that mutates the Track nodes in the graph.
+type TrackMutation struct {
+	config
+	op                                Op
+	typ                               string
+	id                                *int
+	created_at                        *time.Time
+	clearedFields                     map[string]struct{}
+	event                             *int
+	clearedevent                      bool
+	draft                             *int
+	cleareddraft                      bool
+	published_versions                map[int]struct{}
+	removedpublished_versions         map[int]struct{}
+	clearedpublished_versions         bool
+	session_drafts                    map[int]struct{}
+	removedsession_drafts             map[int]struct{}
+	clearedsession_drafts             bool
+	session_published_versions        map[int]struct{}
+	removedsession_published_versions map[int]struct{}
+	clearedsession_published_versions bool
+	done                              bool
+	oldValue                          func(context.Context) (*Track, error)
+	predicates                        []predicate.Track
 }
 
 var _ ent.Mutation = (*TrackMutation)(nil)
@@ -11467,6 +15220,114 @@ func (m *TrackMutation) ResetPublishedVersions() {
 	m.removedpublished_versions = nil
 }
 
+// AddSessionDraftIDs adds the "session_drafts" edge to the SessionDraft entity by ids.
+func (m *TrackMutation) AddSessionDraftIDs(ids ...int) {
+	if m.session_drafts == nil {
+		m.session_drafts = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.session_drafts[ids[i]] = struct{}{}
+	}
+}
+
+// ClearSessionDrafts clears the "session_drafts" edge to the SessionDraft entity.
+func (m *TrackMutation) ClearSessionDrafts() {
+	m.clearedsession_drafts = true
+}
+
+// SessionDraftsCleared reports if the "session_drafts" edge to the SessionDraft entity was cleared.
+func (m *TrackMutation) SessionDraftsCleared() bool {
+	return m.clearedsession_drafts
+}
+
+// RemoveSessionDraftIDs removes the "session_drafts" edge to the SessionDraft entity by IDs.
+func (m *TrackMutation) RemoveSessionDraftIDs(ids ...int) {
+	if m.removedsession_drafts == nil {
+		m.removedsession_drafts = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.session_drafts, ids[i])
+		m.removedsession_drafts[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedSessionDrafts returns the removed IDs of the "session_drafts" edge to the SessionDraft entity.
+func (m *TrackMutation) RemovedSessionDraftsIDs() (ids []int) {
+	for id := range m.removedsession_drafts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// SessionDraftsIDs returns the "session_drafts" edge IDs in the mutation.
+func (m *TrackMutation) SessionDraftsIDs() (ids []int) {
+	for id := range m.session_drafts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetSessionDrafts resets all changes to the "session_drafts" edge.
+func (m *TrackMutation) ResetSessionDrafts() {
+	m.session_drafts = nil
+	m.clearedsession_drafts = false
+	m.removedsession_drafts = nil
+}
+
+// AddSessionPublishedVersionIDs adds the "session_published_versions" edge to the SessionPublishedVersion entity by ids.
+func (m *TrackMutation) AddSessionPublishedVersionIDs(ids ...int) {
+	if m.session_published_versions == nil {
+		m.session_published_versions = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.session_published_versions[ids[i]] = struct{}{}
+	}
+}
+
+// ClearSessionPublishedVersions clears the "session_published_versions" edge to the SessionPublishedVersion entity.
+func (m *TrackMutation) ClearSessionPublishedVersions() {
+	m.clearedsession_published_versions = true
+}
+
+// SessionPublishedVersionsCleared reports if the "session_published_versions" edge to the SessionPublishedVersion entity was cleared.
+func (m *TrackMutation) SessionPublishedVersionsCleared() bool {
+	return m.clearedsession_published_versions
+}
+
+// RemoveSessionPublishedVersionIDs removes the "session_published_versions" edge to the SessionPublishedVersion entity by IDs.
+func (m *TrackMutation) RemoveSessionPublishedVersionIDs(ids ...int) {
+	if m.removedsession_published_versions == nil {
+		m.removedsession_published_versions = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.session_published_versions, ids[i])
+		m.removedsession_published_versions[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedSessionPublishedVersions returns the removed IDs of the "session_published_versions" edge to the SessionPublishedVersion entity.
+func (m *TrackMutation) RemovedSessionPublishedVersionsIDs() (ids []int) {
+	for id := range m.removedsession_published_versions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// SessionPublishedVersionsIDs returns the "session_published_versions" edge IDs in the mutation.
+func (m *TrackMutation) SessionPublishedVersionsIDs() (ids []int) {
+	for id := range m.session_published_versions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetSessionPublishedVersions resets all changes to the "session_published_versions" edge.
+func (m *TrackMutation) ResetSessionPublishedVersions() {
+	m.session_published_versions = nil
+	m.clearedsession_published_versions = false
+	m.removedsession_published_versions = nil
+}
+
 // Where appends a list predicates to the TrackMutation builder.
 func (m *TrackMutation) Where(ps ...predicate.Track) {
 	m.predicates = append(m.predicates, ps...)
@@ -11620,7 +15481,7 @@ func (m *TrackMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *TrackMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 5)
 	if m.event != nil {
 		edges = append(edges, track.EdgeEvent)
 	}
@@ -11629,6 +15490,12 @@ func (m *TrackMutation) AddedEdges() []string {
 	}
 	if m.published_versions != nil {
 		edges = append(edges, track.EdgePublishedVersions)
+	}
+	if m.session_drafts != nil {
+		edges = append(edges, track.EdgeSessionDrafts)
+	}
+	if m.session_published_versions != nil {
+		edges = append(edges, track.EdgeSessionPublishedVersions)
 	}
 	return edges
 }
@@ -11651,15 +15518,33 @@ func (m *TrackMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case track.EdgeSessionDrafts:
+		ids := make([]ent.Value, 0, len(m.session_drafts))
+		for id := range m.session_drafts {
+			ids = append(ids, id)
+		}
+		return ids
+	case track.EdgeSessionPublishedVersions:
+		ids := make([]ent.Value, 0, len(m.session_published_versions))
+		for id := range m.session_published_versions {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *TrackMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 5)
 	if m.removedpublished_versions != nil {
 		edges = append(edges, track.EdgePublishedVersions)
+	}
+	if m.removedsession_drafts != nil {
+		edges = append(edges, track.EdgeSessionDrafts)
+	}
+	if m.removedsession_published_versions != nil {
+		edges = append(edges, track.EdgeSessionPublishedVersions)
 	}
 	return edges
 }
@@ -11674,13 +15559,25 @@ func (m *TrackMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case track.EdgeSessionDrafts:
+		ids := make([]ent.Value, 0, len(m.removedsession_drafts))
+		for id := range m.removedsession_drafts {
+			ids = append(ids, id)
+		}
+		return ids
+	case track.EdgeSessionPublishedVersions:
+		ids := make([]ent.Value, 0, len(m.removedsession_published_versions))
+		for id := range m.removedsession_published_versions {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *TrackMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 5)
 	if m.clearedevent {
 		edges = append(edges, track.EdgeEvent)
 	}
@@ -11689,6 +15586,12 @@ func (m *TrackMutation) ClearedEdges() []string {
 	}
 	if m.clearedpublished_versions {
 		edges = append(edges, track.EdgePublishedVersions)
+	}
+	if m.clearedsession_drafts {
+		edges = append(edges, track.EdgeSessionDrafts)
+	}
+	if m.clearedsession_published_versions {
+		edges = append(edges, track.EdgeSessionPublishedVersions)
 	}
 	return edges
 }
@@ -11703,6 +15606,10 @@ func (m *TrackMutation) EdgeCleared(name string) bool {
 		return m.cleareddraft
 	case track.EdgePublishedVersions:
 		return m.clearedpublished_versions
+	case track.EdgeSessionDrafts:
+		return m.clearedsession_drafts
+	case track.EdgeSessionPublishedVersions:
+		return m.clearedsession_published_versions
 	}
 	return false
 }
@@ -11733,6 +15640,12 @@ func (m *TrackMutation) ResetEdge(name string) error {
 		return nil
 	case track.EdgePublishedVersions:
 		m.ResetPublishedVersions()
+		return nil
+	case track.EdgeSessionDrafts:
+		m.ResetSessionDrafts()
+		return nil
+	case track.EdgeSessionPublishedVersions:
+		m.ResetSessionPublishedVersions()
 		return nil
 	}
 	return fmt.Errorf("unknown Track edge %s", name)

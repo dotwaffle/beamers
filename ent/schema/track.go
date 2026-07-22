@@ -45,5 +45,7 @@ func (Track) Edges() []ent.Edge {
 			Required(),
 		edge.To("draft", TrackDraft.Type).Unique(),
 		edge.To("published_versions", TrackPublishedVersion.Type),
+		edge.From("session_drafts", SessionDraft.Type).Ref("tracks"),
+		edge.From("session_published_versions", SessionPublishedVersion.Type).Ref("tracks"),
 	}
 }

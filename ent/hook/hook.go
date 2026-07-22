@@ -213,6 +213,42 @@ func (f RundownFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, err
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RundownMutation", m)
 }
 
+// The SessionFunc type is an adapter to allow the use of ordinary
+// function as Session mutator.
+type SessionFunc func(context.Context, *ent.SessionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SessionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SessionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SessionMutation", m)
+}
+
+// The SessionDraftFunc type is an adapter to allow the use of ordinary
+// function as SessionDraft mutator.
+type SessionDraftFunc func(context.Context, *ent.SessionDraftMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SessionDraftFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SessionDraftMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SessionDraftMutation", m)
+}
+
+// The SessionPublishedVersionFunc type is an adapter to allow the use of ordinary
+// function as SessionPublishedVersion mutator.
+type SessionPublishedVersionFunc func(context.Context, *ent.SessionPublishedVersionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SessionPublishedVersionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SessionPublishedVersionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SessionPublishedVersionMutation", m)
+}
+
 // The TrackFunc type is an adapter to allow the use of ordinary
 // function as Track mutator.
 type TrackFunc func(context.Context, *ent.TrackMutation) (ent.Value, error)

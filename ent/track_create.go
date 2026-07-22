@@ -11,6 +11,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/event"
+	"github.com/dotwaffle/beamers/ent/sessiondraft"
+	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
@@ -80,6 +82,36 @@ func (_c *TrackCreate) AddPublishedVersions(v ...*TrackPublishedVersion) *TrackC
 		ids[i] = v[i].ID
 	}
 	return _c.AddPublishedVersionIDs(ids...)
+}
+
+// AddSessionDraftIDs adds the "session_drafts" edge to the SessionDraft entity by IDs.
+func (_c *TrackCreate) AddSessionDraftIDs(ids ...int) *TrackCreate {
+	_c.mutation.AddSessionDraftIDs(ids...)
+	return _c
+}
+
+// AddSessionDrafts adds the "session_drafts" edges to the SessionDraft entity.
+func (_c *TrackCreate) AddSessionDrafts(v ...*SessionDraft) *TrackCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddSessionDraftIDs(ids...)
+}
+
+// AddSessionPublishedVersionIDs adds the "session_published_versions" edge to the SessionPublishedVersion entity by IDs.
+func (_c *TrackCreate) AddSessionPublishedVersionIDs(ids ...int) *TrackCreate {
+	_c.mutation.AddSessionPublishedVersionIDs(ids...)
+	return _c
+}
+
+// AddSessionPublishedVersions adds the "session_published_versions" edges to the SessionPublishedVersion entity.
+func (_c *TrackCreate) AddSessionPublishedVersions(v ...*SessionPublishedVersion) *TrackCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddSessionPublishedVersionIDs(ids...)
 }
 
 // Mutation returns the TrackMutation object of the builder.
@@ -212,6 +244,38 @@ func (_c *TrackCreate) createSpec() (*Track, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(trackpublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.SessionDraftsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   track.SessionDraftsTable,
+			Columns: track.SessionDraftsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessiondraft.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.SessionPublishedVersionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   track.SessionPublishedVersionsTable,
+			Columns: track.SessionPublishedVersionsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionpublishedversion.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

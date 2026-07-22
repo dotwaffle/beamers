@@ -46,6 +46,12 @@ type Tx struct {
 	PasswordCredential *PasswordCredentialClient
 	// Rundown is the client for interacting with the Rundown builders.
 	Rundown *RundownClient
+	// Session is the client for interacting with the Session builders.
+	Session *SessionClient
+	// SessionDraft is the client for interacting with the SessionDraft builders.
+	SessionDraft *SessionDraftClient
+	// SessionPublishedVersion is the client for interacting with the SessionPublishedVersion builders.
+	SessionPublishedVersion *SessionPublishedVersionClient
 	// Track is the client for interacting with the Track builders.
 	Track *TrackClient
 	// TrackDraft is the client for interacting with the TrackDraft builders.
@@ -200,6 +206,9 @@ func (tx *Tx) init() {
 	tx.Migration = NewMigrationClient(tx.config)
 	tx.PasswordCredential = NewPasswordCredentialClient(tx.config)
 	tx.Rundown = NewRundownClient(tx.config)
+	tx.Session = NewSessionClient(tx.config)
+	tx.SessionDraft = NewSessionDraftClient(tx.config)
+	tx.SessionPublishedVersion = NewSessionPublishedVersionClient(tx.config)
 	tx.Track = NewTrackClient(tx.config)
 	tx.TrackDraft = NewTrackDraftClient(tx.config)
 	tx.TrackPublishedVersion = NewTrackPublishedVersionClient(tx.config)

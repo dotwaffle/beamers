@@ -15,6 +15,9 @@ import (
 	"github.com/dotwaffle/beamers/ent/locationdraft"
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
 	"github.com/dotwaffle/beamers/ent/predicate"
+	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/ent/sessiondraft"
+	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
@@ -262,6 +265,62 @@ func filterGrantedTrackPublishedVersions() privacy.QueryRule {
 	})
 }
 
+func filterGrantedSessions() privacy.QueryRule {
+	type selectorFilter interface {
+		Where(...predicate.Session) *beamersent.SessionQuery
+	}
+	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
+		ids, err := grantedEventIDs(ctx)
+		if err != nil {
+			return err
+		}
+		filter, ok := query.(selectorFilter)
+		if !ok {
+			return privacy.Denyf("unexpected Session query %T", query)
+		}
+		filter.Where(func(selector *sql.Selector) {
+			selector.Where(sql.InInts(selector.C("event_id"), ids...))
+		})
+		return privacy.Skip
+	})
+}
+
+func filterGrantedSessionDrafts() privacy.QueryRule {
+	type selectorFilter interface {
+		Where(...predicate.SessionDraft) *beamersent.SessionDraftQuery
+	}
+	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
+		ids, err := grantedEventIDs(ctx)
+		if err != nil {
+			return err
+		}
+		filter, ok := query.(selectorFilter)
+		if !ok {
+			return privacy.Denyf("unexpected Session Draft query %T", query)
+		}
+		filter.Where(sessiondraft.HasSessionWith(session.EventIDIn(ids...)))
+		return privacy.Skip
+	})
+}
+
+func filterGrantedSessionPublishedVersions() privacy.QueryRule {
+	type selectorFilter interface {
+		Where(...predicate.SessionPublishedVersion) *beamersent.SessionPublishedVersionQuery
+	}
+	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
+		ids, err := grantedEventIDs(ctx)
+		if err != nil {
+			return err
+		}
+		filter, ok := query.(selectorFilter)
+		if !ok {
+			return privacy.Denyf("unexpected Published Session version query %T", query)
+		}
+		filter.Where(sessionpublishedversion.HasSessionWith(session.EventIDIn(ids...)))
+		return privacy.Skip
+	})
+}
+
 func grantedEventIDs(ctx context.Context) ([]int, error) {
 	identity, _ := viewer.FromContext(ctx)
 	ids := make([]int, 0, len(identity.EventRoles))
@@ -451,6 +510,50 @@ func allowTrackOwnedMutation() privacy.MutationRule {
 
 func allowTrackOwnedCreation() privacy.MutationRule {
 	owned := allowTrackOwnedMutation()
+	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
+		if !mutation.Op().Is(ent.OpCreate) {
+			return privacy.Skip
+		}
+		return owned.EvalMutation(ctx, mutation)
+	})
+}
+
+func allowSessionOwnedMutation() privacy.MutationRule {
+	type sessionOwnedMutation interface {
+		SessionID() (int, bool)
+		OldSessionID(context.Context) (int, error)
+		Client() *beamersent.Client
+	}
+	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
+		identity, _ := viewer.FromContext(ctx)
+		owned, ok := mutation.(sessionOwnedMutation)
+		if !ok {
+			return privacy.Skip
+		}
+		sessionID, exists := owned.SessionID()
+		if !exists {
+			var err error
+			sessionID, err = owned.OldSessionID(ctx)
+			if err != nil {
+				return privacy.Denyf("read mutation Session ownership: %v", err)
+			}
+		}
+		found, err := owned.Client().Session.Get(
+			privacy.DecisionContext(ctx, privacy.Allow),
+			sessionID,
+		)
+		if err != nil {
+			return privacy.Denyf("read mutation Event ownership: %v", err)
+		}
+		if identity.CanProduceEvent(found.EventID) {
+			return privacy.Allow
+		}
+		return privacy.Skip
+	})
+}
+
+func allowSessionOwnedCreation() privacy.MutationRule {
+	owned := allowSessionOwnedMutation()
 	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
 		if !mutation.Op().Is(ent.OpCreate) {
 			return privacy.Skip

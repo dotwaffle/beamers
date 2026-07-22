@@ -16,6 +16,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/locationdraft"
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
 	"github.com/dotwaffle/beamers/ent/predicate"
+	"github.com/dotwaffle/beamers/ent/sessiondraft"
+	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 )
 
 // LocationUpdate is the builder for updating Location entities.
@@ -95,6 +97,36 @@ func (_u *LocationUpdate) AddLanePublishedVersions(v ...*LanePublishedVersion) *
 	return _u.AddLanePublishedVersionIDs(ids...)
 }
 
+// AddSessionDraftIDs adds the "session_drafts" edge to the SessionDraft entity by IDs.
+func (_u *LocationUpdate) AddSessionDraftIDs(ids ...int) *LocationUpdate {
+	_u.mutation.AddSessionDraftIDs(ids...)
+	return _u
+}
+
+// AddSessionDrafts adds the "session_drafts" edges to the SessionDraft entity.
+func (_u *LocationUpdate) AddSessionDrafts(v ...*SessionDraft) *LocationUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSessionDraftIDs(ids...)
+}
+
+// AddSessionPublishedVersionIDs adds the "session_published_versions" edge to the SessionPublishedVersion entity by IDs.
+func (_u *LocationUpdate) AddSessionPublishedVersionIDs(ids ...int) *LocationUpdate {
+	_u.mutation.AddSessionPublishedVersionIDs(ids...)
+	return _u
+}
+
+// AddSessionPublishedVersions adds the "session_published_versions" edges to the SessionPublishedVersion entity.
+func (_u *LocationUpdate) AddSessionPublishedVersions(v ...*SessionPublishedVersion) *LocationUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSessionPublishedVersionIDs(ids...)
+}
+
 // Mutation returns the LocationMutation object of the builder.
 func (_u *LocationUpdate) Mutation() *LocationMutation {
 	return _u.mutation
@@ -167,6 +199,48 @@ func (_u *LocationUpdate) RemoveLanePublishedVersions(v ...*LanePublishedVersion
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveLanePublishedVersionIDs(ids...)
+}
+
+// ClearSessionDrafts clears all "session_drafts" edges to the SessionDraft entity.
+func (_u *LocationUpdate) ClearSessionDrafts() *LocationUpdate {
+	_u.mutation.ClearSessionDrafts()
+	return _u
+}
+
+// RemoveSessionDraftIDs removes the "session_drafts" edge to SessionDraft entities by IDs.
+func (_u *LocationUpdate) RemoveSessionDraftIDs(ids ...int) *LocationUpdate {
+	_u.mutation.RemoveSessionDraftIDs(ids...)
+	return _u
+}
+
+// RemoveSessionDrafts removes "session_drafts" edges to SessionDraft entities.
+func (_u *LocationUpdate) RemoveSessionDrafts(v ...*SessionDraft) *LocationUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSessionDraftIDs(ids...)
+}
+
+// ClearSessionPublishedVersions clears all "session_published_versions" edges to the SessionPublishedVersion entity.
+func (_u *LocationUpdate) ClearSessionPublishedVersions() *LocationUpdate {
+	_u.mutation.ClearSessionPublishedVersions()
+	return _u
+}
+
+// RemoveSessionPublishedVersionIDs removes the "session_published_versions" edge to SessionPublishedVersion entities by IDs.
+func (_u *LocationUpdate) RemoveSessionPublishedVersionIDs(ids ...int) *LocationUpdate {
+	_u.mutation.RemoveSessionPublishedVersionIDs(ids...)
+	return _u
+}
+
+// RemoveSessionPublishedVersions removes "session_published_versions" edges to SessionPublishedVersion entities.
+func (_u *LocationUpdate) RemoveSessionPublishedVersions(v ...*SessionPublishedVersion) *LocationUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSessionPublishedVersionIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -380,6 +454,96 @@ func (_u *LocationUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.SessionDraftsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   location.SessionDraftsTable,
+			Columns: location.SessionDraftsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessiondraft.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSessionDraftsIDs(); len(nodes) > 0 && !_u.mutation.SessionDraftsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   location.SessionDraftsTable,
+			Columns: location.SessionDraftsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessiondraft.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SessionDraftsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   location.SessionDraftsTable,
+			Columns: location.SessionDraftsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessiondraft.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SessionPublishedVersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   location.SessionPublishedVersionsTable,
+			Columns: location.SessionPublishedVersionsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionpublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSessionPublishedVersionsIDs(); len(nodes) > 0 && !_u.mutation.SessionPublishedVersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   location.SessionPublishedVersionsTable,
+			Columns: location.SessionPublishedVersionsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionpublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SessionPublishedVersionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   location.SessionPublishedVersionsTable,
+			Columns: location.SessionPublishedVersionsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionpublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{location.Label}
@@ -464,6 +628,36 @@ func (_u *LocationUpdateOne) AddLanePublishedVersions(v ...*LanePublishedVersion
 	return _u.AddLanePublishedVersionIDs(ids...)
 }
 
+// AddSessionDraftIDs adds the "session_drafts" edge to the SessionDraft entity by IDs.
+func (_u *LocationUpdateOne) AddSessionDraftIDs(ids ...int) *LocationUpdateOne {
+	_u.mutation.AddSessionDraftIDs(ids...)
+	return _u
+}
+
+// AddSessionDrafts adds the "session_drafts" edges to the SessionDraft entity.
+func (_u *LocationUpdateOne) AddSessionDrafts(v ...*SessionDraft) *LocationUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSessionDraftIDs(ids...)
+}
+
+// AddSessionPublishedVersionIDs adds the "session_published_versions" edge to the SessionPublishedVersion entity by IDs.
+func (_u *LocationUpdateOne) AddSessionPublishedVersionIDs(ids ...int) *LocationUpdateOne {
+	_u.mutation.AddSessionPublishedVersionIDs(ids...)
+	return _u
+}
+
+// AddSessionPublishedVersions adds the "session_published_versions" edges to the SessionPublishedVersion entity.
+func (_u *LocationUpdateOne) AddSessionPublishedVersions(v ...*SessionPublishedVersion) *LocationUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSessionPublishedVersionIDs(ids...)
+}
+
 // Mutation returns the LocationMutation object of the builder.
 func (_u *LocationUpdateOne) Mutation() *LocationMutation {
 	return _u.mutation
@@ -536,6 +730,48 @@ func (_u *LocationUpdateOne) RemoveLanePublishedVersions(v ...*LanePublishedVers
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveLanePublishedVersionIDs(ids...)
+}
+
+// ClearSessionDrafts clears all "session_drafts" edges to the SessionDraft entity.
+func (_u *LocationUpdateOne) ClearSessionDrafts() *LocationUpdateOne {
+	_u.mutation.ClearSessionDrafts()
+	return _u
+}
+
+// RemoveSessionDraftIDs removes the "session_drafts" edge to SessionDraft entities by IDs.
+func (_u *LocationUpdateOne) RemoveSessionDraftIDs(ids ...int) *LocationUpdateOne {
+	_u.mutation.RemoveSessionDraftIDs(ids...)
+	return _u
+}
+
+// RemoveSessionDrafts removes "session_drafts" edges to SessionDraft entities.
+func (_u *LocationUpdateOne) RemoveSessionDrafts(v ...*SessionDraft) *LocationUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSessionDraftIDs(ids...)
+}
+
+// ClearSessionPublishedVersions clears all "session_published_versions" edges to the SessionPublishedVersion entity.
+func (_u *LocationUpdateOne) ClearSessionPublishedVersions() *LocationUpdateOne {
+	_u.mutation.ClearSessionPublishedVersions()
+	return _u
+}
+
+// RemoveSessionPublishedVersionIDs removes the "session_published_versions" edge to SessionPublishedVersion entities by IDs.
+func (_u *LocationUpdateOne) RemoveSessionPublishedVersionIDs(ids ...int) *LocationUpdateOne {
+	_u.mutation.RemoveSessionPublishedVersionIDs(ids...)
+	return _u
+}
+
+// RemoveSessionPublishedVersions removes "session_published_versions" edges to SessionPublishedVersion entities.
+func (_u *LocationUpdateOne) RemoveSessionPublishedVersions(v ...*SessionPublishedVersion) *LocationUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSessionPublishedVersionIDs(ids...)
 }
 
 // Where appends a list predicates to the LocationUpdate builder.
@@ -772,6 +1008,96 @@ func (_u *LocationUpdateOne) sqlSave(ctx context.Context) (_node *Location, err 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(lanepublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SessionDraftsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   location.SessionDraftsTable,
+			Columns: location.SessionDraftsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessiondraft.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSessionDraftsIDs(); len(nodes) > 0 && !_u.mutation.SessionDraftsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   location.SessionDraftsTable,
+			Columns: location.SessionDraftsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessiondraft.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SessionDraftsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   location.SessionDraftsTable,
+			Columns: location.SessionDraftsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessiondraft.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SessionPublishedVersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   location.SessionPublishedVersionsTable,
+			Columns: location.SessionPublishedVersionsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionpublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSessionPublishedVersionsIDs(); len(nodes) > 0 && !_u.mutation.SessionPublishedVersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   location.SessionPublishedVersionsTable,
+			Columns: location.SessionPublishedVersionsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionpublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SessionPublishedVersionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   location.SessionPublishedVersionsTable,
+			Columns: location.SessionPublishedVersionsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionpublishedversion.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

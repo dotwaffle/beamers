@@ -29,6 +29,9 @@ import (
 	"github.com/dotwaffle/beamers/ent/migration"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/rundown"
+	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/ent/sessiondraft"
+	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
@@ -109,6 +112,9 @@ func checkColumn(t, c string) error {
 			migration.Table:                migration.ValidColumn,
 			passwordcredential.Table:       passwordcredential.ValidColumn,
 			rundown.Table:                  rundown.ValidColumn,
+			session.Table:                  session.ValidColumn,
+			sessiondraft.Table:             sessiondraft.ValidColumn,
+			sessionpublishedversion.Table:  sessionpublishedversion.ValidColumn,
 			track.Table:                    track.ValidColumn,
 			trackdraft.Table:               trackdraft.ValidColumn,
 			trackpublishedversion.Table:    trackpublishedversion.ValidColumn,

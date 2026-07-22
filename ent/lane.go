@@ -37,9 +37,13 @@ type LaneEdges struct {
 	Draft *LaneDraft `json:"draft,omitempty"`
 	// PublishedVersions holds the value of the published_versions edge.
 	PublishedVersions []*LanePublishedVersion `json:"published_versions,omitempty"`
+	// SessionDrafts holds the value of the session_drafts edge.
+	SessionDrafts []*SessionDraft `json:"session_drafts,omitempty"`
+	// SessionPublishedVersions holds the value of the session_published_versions edge.
+	SessionPublishedVersions []*SessionPublishedVersion `json:"session_published_versions,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [5]bool
 }
 
 // EventOrErr returns the Event value or an error if the edge
@@ -71,6 +75,24 @@ func (e LaneEdges) PublishedVersionsOrErr() ([]*LanePublishedVersion, error) {
 		return e.PublishedVersions, nil
 	}
 	return nil, &NotLoadedError{edge: "published_versions"}
+}
+
+// SessionDraftsOrErr returns the SessionDrafts value or an error if the edge
+// was not loaded in eager-loading.
+func (e LaneEdges) SessionDraftsOrErr() ([]*SessionDraft, error) {
+	if e.loadedTypes[3] {
+		return e.SessionDrafts, nil
+	}
+	return nil, &NotLoadedError{edge: "session_drafts"}
+}
+
+// SessionPublishedVersionsOrErr returns the SessionPublishedVersions value or an error if the edge
+// was not loaded in eager-loading.
+func (e LaneEdges) SessionPublishedVersionsOrErr() ([]*SessionPublishedVersion, error) {
+	if e.loadedTypes[4] {
+		return e.SessionPublishedVersions, nil
+	}
+	return nil, &NotLoadedError{edge: "session_published_versions"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -141,6 +163,16 @@ func (_m *Lane) QueryDraft() *LaneDraftQuery {
 // QueryPublishedVersions queries the "published_versions" edge of the Lane entity.
 func (_m *Lane) QueryPublishedVersions() *LanePublishedVersionQuery {
 	return NewLaneClient(_m.config).QueryPublishedVersions(_m)
+}
+
+// QuerySessionDrafts queries the "session_drafts" edge of the Lane entity.
+func (_m *Lane) QuerySessionDrafts() *SessionDraftQuery {
+	return NewLaneClient(_m.config).QuerySessionDrafts(_m)
+}
+
+// QuerySessionPublishedVersions queries the "session_published_versions" edge of the Lane entity.
+func (_m *Lane) QuerySessionPublishedVersions() *SessionPublishedVersionQuery {
+	return NewLaneClient(_m.config).QuerySessionPublishedVersions(_m)
 }
 
 // Update returns a builder for updating this Lane.

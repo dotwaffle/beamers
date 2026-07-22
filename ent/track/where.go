@@ -194,6 +194,52 @@ func HasPublishedVersionsWith(preds ...predicate.TrackPublishedVersion) predicat
 	})
 }
 
+// HasSessionDrafts applies the HasEdge predicate on the "session_drafts" edge.
+func HasSessionDrafts() predicate.Track {
+	return predicate.Track(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, SessionDraftsTable, SessionDraftsPrimaryKey...),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSessionDraftsWith applies the HasEdge predicate on the "session_drafts" edge with a given conditions (other predicates).
+func HasSessionDraftsWith(preds ...predicate.SessionDraft) predicate.Track {
+	return predicate.Track(func(s *sql.Selector) {
+		step := newSessionDraftsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasSessionPublishedVersions applies the HasEdge predicate on the "session_published_versions" edge.
+func HasSessionPublishedVersions() predicate.Track {
+	return predicate.Track(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, SessionPublishedVersionsTable, SessionPublishedVersionsPrimaryKey...),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSessionPublishedVersionsWith applies the HasEdge predicate on the "session_published_versions" edge with a given conditions (other predicates).
+func HasSessionPublishedVersionsWith(preds ...predicate.SessionPublishedVersion) predicate.Track {
+	return predicate.Track(func(s *sql.Selector) {
+		step := newSessionPublishedVersionsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Track) predicate.Track {
 	return predicate.Track(sql.AndPredicates(predicates...))

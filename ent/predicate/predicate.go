@@ -57,6 +57,15 @@ type PasswordCredential func(*sql.Selector)
 // Rundown is the predicate function for rundown builders.
 type Rundown func(*sql.Selector)
 
+// Session is the predicate function for session builders.
+type Session func(*sql.Selector)
+
+// SessionDraft is the predicate function for sessiondraft builders.
+type SessionDraft func(*sql.Selector)
+
+// SessionPublishedVersion is the predicate function for sessionpublishedversion builders.
+type SessionPublishedVersion func(*sql.Selector)
+
 // Track is the predicate function for track builders.
 type Track func(*sql.Selector)
 

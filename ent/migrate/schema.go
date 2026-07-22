@@ -399,6 +399,95 @@ var (
 			},
 		},
 	}
+	// SessionsColumns holds the columns for the "sessions" table.
+	SessionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "event_id", Type: field.TypeInt},
+	}
+	// SessionsTable holds the schema information for the "sessions" table.
+	SessionsTable = &schema.Table{
+		Name:       "sessions",
+		Columns:    SessionsColumns,
+		PrimaryKey: []*schema.Column{SessionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "sessions_events_sessions",
+				Columns:    []*schema.Column{SessionsColumns[2]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
+	// SessionDraftsColumns holds the columns for the "session_drafts" table.
+	SessionDraftsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "title", Type: field.TypeString, Size: 200},
+		{Name: "type", Type: field.TypeEnum, Enums: []string{"Presentation", "Competition", "Break", "Activity", "Ceremony", "Performance", "Hold"}},
+		{Name: "audience_visibility", Type: field.TypeEnum, Enums: []string{"Public", "CrewOnly"}},
+		{Name: "public_details", Type: field.TypeString, Nullable: true, Size: 10000},
+		{Name: "crew_notes", Type: field.TypeString, Nullable: true, Size: 10000},
+		{Name: "planned_start", Type: field.TypeTime},
+		{Name: "planned_end", Type: field.TypeTime},
+		{Name: "timing_policy", Type: field.TypeEnum, Enums: []string{"FixedEnd", "FixedDuration", "ManualEnd"}},
+		{Name: "minimum_duration_seconds", Type: field.TypeInt},
+		{Name: "start_boundary", Type: field.TypeEnum, Enums: []string{"Hard", "Soft"}},
+		{Name: "end_boundary", Type: field.TypeEnum, Enums: []string{"Hard", "Soft"}},
+		{Name: "session_id", Type: field.TypeInt, Unique: true},
+	}
+	// SessionDraftsTable holds the schema information for the "session_drafts" table.
+	SessionDraftsTable = &schema.Table{
+		Name:       "session_drafts",
+		Columns:    SessionDraftsColumns,
+		PrimaryKey: []*schema.Column{SessionDraftsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "session_drafts_sessions_draft",
+				Columns:    []*schema.Column{SessionDraftsColumns[12]},
+				RefColumns: []*schema.Column{SessionsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
+	// SessionPublishedVersionsColumns holds the columns for the "session_published_versions" table.
+	SessionPublishedVersionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "published_revision", Type: field.TypeInt},
+		{Name: "title", Type: field.TypeString, Size: 200},
+		{Name: "type", Type: field.TypeEnum, Enums: []string{"Presentation", "Competition", "Break", "Activity", "Ceremony", "Performance", "Hold"}},
+		{Name: "audience_visibility", Type: field.TypeEnum, Enums: []string{"Public", "CrewOnly"}},
+		{Name: "public_details", Type: field.TypeString, Nullable: true, Size: 10000},
+		{Name: "crew_notes", Type: field.TypeString, Nullable: true, Size: 10000},
+		{Name: "planned_start", Type: field.TypeTime},
+		{Name: "planned_end", Type: field.TypeTime},
+		{Name: "timing_policy", Type: field.TypeEnum, Enums: []string{"FixedEnd", "FixedDuration", "ManualEnd"}},
+		{Name: "minimum_duration_seconds", Type: field.TypeInt},
+		{Name: "start_boundary", Type: field.TypeEnum, Enums: []string{"Hard", "Soft"}},
+		{Name: "end_boundary", Type: field.TypeEnum, Enums: []string{"Hard", "Soft"}},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "session_id", Type: field.TypeInt},
+	}
+	// SessionPublishedVersionsTable holds the schema information for the "session_published_versions" table.
+	SessionPublishedVersionsTable = &schema.Table{
+		Name:       "session_published_versions",
+		Columns:    SessionPublishedVersionsColumns,
+		PrimaryKey: []*schema.Column{SessionPublishedVersionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "session_published_versions_sessions_published_versions",
+				Columns:    []*schema.Column{SessionPublishedVersionsColumns[14]},
+				RefColumns: []*schema.Column{SessionsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "sessionpublishedversion_session_id_published_revision",
+				Unique:  true,
+				Columns: []*schema.Column{SessionPublishedVersionsColumns[14], SessionPublishedVersionsColumns[1]},
+			},
+		},
+	}
 	// TracksColumns holds the columns for the "tracks" table.
 	TracksColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -470,6 +559,156 @@ var (
 			},
 		},
 	}
+	// SessionDraftLanesColumns holds the columns for the "session_draft_lanes" table.
+	SessionDraftLanesColumns = []*schema.Column{
+		{Name: "session_draft_id", Type: field.TypeInt},
+		{Name: "lane_id", Type: field.TypeInt},
+	}
+	// SessionDraftLanesTable holds the schema information for the "session_draft_lanes" table.
+	SessionDraftLanesTable = &schema.Table{
+		Name:       "session_draft_lanes",
+		Columns:    SessionDraftLanesColumns,
+		PrimaryKey: []*schema.Column{SessionDraftLanesColumns[0], SessionDraftLanesColumns[1]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "session_draft_lanes_session_draft_id",
+				Columns:    []*schema.Column{SessionDraftLanesColumns[0]},
+				RefColumns: []*schema.Column{SessionDraftsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "session_draft_lanes_lane_id",
+				Columns:    []*schema.Column{SessionDraftLanesColumns[1]},
+				RefColumns: []*schema.Column{LanesColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
+	// SessionDraftLocationsColumns holds the columns for the "session_draft_locations" table.
+	SessionDraftLocationsColumns = []*schema.Column{
+		{Name: "session_draft_id", Type: field.TypeInt},
+		{Name: "location_id", Type: field.TypeInt},
+	}
+	// SessionDraftLocationsTable holds the schema information for the "session_draft_locations" table.
+	SessionDraftLocationsTable = &schema.Table{
+		Name:       "session_draft_locations",
+		Columns:    SessionDraftLocationsColumns,
+		PrimaryKey: []*schema.Column{SessionDraftLocationsColumns[0], SessionDraftLocationsColumns[1]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "session_draft_locations_session_draft_id",
+				Columns:    []*schema.Column{SessionDraftLocationsColumns[0]},
+				RefColumns: []*schema.Column{SessionDraftsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "session_draft_locations_location_id",
+				Columns:    []*schema.Column{SessionDraftLocationsColumns[1]},
+				RefColumns: []*schema.Column{LocationsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
+	// SessionDraftTracksColumns holds the columns for the "session_draft_tracks" table.
+	SessionDraftTracksColumns = []*schema.Column{
+		{Name: "session_draft_id", Type: field.TypeInt},
+		{Name: "track_id", Type: field.TypeInt},
+	}
+	// SessionDraftTracksTable holds the schema information for the "session_draft_tracks" table.
+	SessionDraftTracksTable = &schema.Table{
+		Name:       "session_draft_tracks",
+		Columns:    SessionDraftTracksColumns,
+		PrimaryKey: []*schema.Column{SessionDraftTracksColumns[0], SessionDraftTracksColumns[1]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "session_draft_tracks_session_draft_id",
+				Columns:    []*schema.Column{SessionDraftTracksColumns[0]},
+				RefColumns: []*schema.Column{SessionDraftsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "session_draft_tracks_track_id",
+				Columns:    []*schema.Column{SessionDraftTracksColumns[1]},
+				RefColumns: []*schema.Column{TracksColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
+	// SessionPublishedVersionLanesColumns holds the columns for the "session_published_version_lanes" table.
+	SessionPublishedVersionLanesColumns = []*schema.Column{
+		{Name: "session_published_version_id", Type: field.TypeInt},
+		{Name: "lane_id", Type: field.TypeInt},
+	}
+	// SessionPublishedVersionLanesTable holds the schema information for the "session_published_version_lanes" table.
+	SessionPublishedVersionLanesTable = &schema.Table{
+		Name:       "session_published_version_lanes",
+		Columns:    SessionPublishedVersionLanesColumns,
+		PrimaryKey: []*schema.Column{SessionPublishedVersionLanesColumns[0], SessionPublishedVersionLanesColumns[1]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "session_published_version_lanes_session_published_version_id",
+				Columns:    []*schema.Column{SessionPublishedVersionLanesColumns[0]},
+				RefColumns: []*schema.Column{SessionPublishedVersionsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "session_published_version_lanes_lane_id",
+				Columns:    []*schema.Column{SessionPublishedVersionLanesColumns[1]},
+				RefColumns: []*schema.Column{LanesColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
+	// SessionPublishedVersionLocationsColumns holds the columns for the "session_published_version_locations" table.
+	SessionPublishedVersionLocationsColumns = []*schema.Column{
+		{Name: "session_published_version_id", Type: field.TypeInt},
+		{Name: "location_id", Type: field.TypeInt},
+	}
+	// SessionPublishedVersionLocationsTable holds the schema information for the "session_published_version_locations" table.
+	SessionPublishedVersionLocationsTable = &schema.Table{
+		Name:       "session_published_version_locations",
+		Columns:    SessionPublishedVersionLocationsColumns,
+		PrimaryKey: []*schema.Column{SessionPublishedVersionLocationsColumns[0], SessionPublishedVersionLocationsColumns[1]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "session_published_version_locations_session_published_version_id",
+				Columns:    []*schema.Column{SessionPublishedVersionLocationsColumns[0]},
+				RefColumns: []*schema.Column{SessionPublishedVersionsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "session_published_version_locations_location_id",
+				Columns:    []*schema.Column{SessionPublishedVersionLocationsColumns[1]},
+				RefColumns: []*schema.Column{LocationsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
+	// SessionPublishedVersionTracksColumns holds the columns for the "session_published_version_tracks" table.
+	SessionPublishedVersionTracksColumns = []*schema.Column{
+		{Name: "session_published_version_id", Type: field.TypeInt},
+		{Name: "track_id", Type: field.TypeInt},
+	}
+	// SessionPublishedVersionTracksTable holds the schema information for the "session_published_version_tracks" table.
+	SessionPublishedVersionTracksTable = &schema.Table{
+		Name:       "session_published_version_tracks",
+		Columns:    SessionPublishedVersionTracksColumns,
+		PrimaryKey: []*schema.Column{SessionPublishedVersionTracksColumns[0], SessionPublishedVersionTracksColumns[1]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "session_published_version_tracks_session_published_version_id",
+				Columns:    []*schema.Column{SessionPublishedVersionTracksColumns[0]},
+				RefColumns: []*schema.Column{SessionPublishedVersionsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "session_published_version_tracks_track_id",
+				Columns:    []*schema.Column{SessionPublishedVersionTracksColumns[1]},
+				RefColumns: []*schema.Column{TracksColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		AccountsTable,
@@ -489,9 +728,18 @@ var (
 		BeamersSchemaMigrationsTable,
 		PasswordCredentialsTable,
 		RundownsTable,
+		SessionsTable,
+		SessionDraftsTable,
+		SessionPublishedVersionsTable,
 		TracksTable,
 		TrackDraftsTable,
 		TrackPublishedVersionsTable,
+		SessionDraftLanesTable,
+		SessionDraftLocationsTable,
+		SessionDraftTracksTable,
+		SessionPublishedVersionLanesTable,
+		SessionPublishedVersionLocationsTable,
+		SessionPublishedVersionTracksTable,
 	}
 )
 
@@ -517,7 +765,22 @@ func init() {
 	}
 	PasswordCredentialsTable.ForeignKeys[0].RefTable = AccountsTable
 	RundownsTable.ForeignKeys[0].RefTable = EventsTable
+	SessionsTable.ForeignKeys[0].RefTable = EventsTable
+	SessionDraftsTable.ForeignKeys[0].RefTable = SessionsTable
+	SessionPublishedVersionsTable.ForeignKeys[0].RefTable = SessionsTable
 	TracksTable.ForeignKeys[0].RefTable = EventsTable
 	TrackDraftsTable.ForeignKeys[0].RefTable = TracksTable
 	TrackPublishedVersionsTable.ForeignKeys[0].RefTable = TracksTable
+	SessionDraftLanesTable.ForeignKeys[0].RefTable = SessionDraftsTable
+	SessionDraftLanesTable.ForeignKeys[1].RefTable = LanesTable
+	SessionDraftLocationsTable.ForeignKeys[0].RefTable = SessionDraftsTable
+	SessionDraftLocationsTable.ForeignKeys[1].RefTable = LocationsTable
+	SessionDraftTracksTable.ForeignKeys[0].RefTable = SessionDraftsTable
+	SessionDraftTracksTable.ForeignKeys[1].RefTable = TracksTable
+	SessionPublishedVersionLanesTable.ForeignKeys[0].RefTable = SessionPublishedVersionsTable
+	SessionPublishedVersionLanesTable.ForeignKeys[1].RefTable = LanesTable
+	SessionPublishedVersionLocationsTable.ForeignKeys[0].RefTable = SessionPublishedVersionsTable
+	SessionPublishedVersionLocationsTable.ForeignKeys[1].RefTable = LocationsTable
+	SessionPublishedVersionTracksTable.ForeignKeys[0].RefTable = SessionPublishedVersionsTable
+	SessionPublishedVersionTracksTable.ForeignKeys[1].RefTable = TracksTable
 }

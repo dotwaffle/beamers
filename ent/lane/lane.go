@@ -25,6 +25,10 @@ const (
 	EdgeDraft = "draft"
 	// EdgePublishedVersions holds the string denoting the published_versions edge name in mutations.
 	EdgePublishedVersions = "published_versions"
+	// EdgeSessionDrafts holds the string denoting the session_drafts edge name in mutations.
+	EdgeSessionDrafts = "session_drafts"
+	// EdgeSessionPublishedVersions holds the string denoting the session_published_versions edge name in mutations.
+	EdgeSessionPublishedVersions = "session_published_versions"
 	// Table holds the table name of the lane in the database.
 	Table = "lanes"
 	// EventTable is the table that holds the event relation/edge.
@@ -48,6 +52,16 @@ const (
 	PublishedVersionsInverseTable = "lane_published_versions"
 	// PublishedVersionsColumn is the table column denoting the published_versions relation/edge.
 	PublishedVersionsColumn = "lane_id"
+	// SessionDraftsTable is the table that holds the session_drafts relation/edge. The primary key declared below.
+	SessionDraftsTable = "session_draft_lanes"
+	// SessionDraftsInverseTable is the table name for the SessionDraft entity.
+	// It exists in this package in order to avoid circular dependency with the "sessiondraft" package.
+	SessionDraftsInverseTable = "session_drafts"
+	// SessionPublishedVersionsTable is the table that holds the session_published_versions relation/edge. The primary key declared below.
+	SessionPublishedVersionsTable = "session_published_version_lanes"
+	// SessionPublishedVersionsInverseTable is the table name for the SessionPublishedVersion entity.
+	// It exists in this package in order to avoid circular dependency with the "sessionpublishedversion" package.
+	SessionPublishedVersionsInverseTable = "session_published_versions"
 )
 
 // Columns holds all SQL columns for lane fields.
@@ -56,6 +70,15 @@ var Columns = []string{
 	FieldEventID,
 	FieldCreatedAt,
 }
+
+var (
+	// SessionDraftsPrimaryKey and SessionDraftsColumn2 are the table columns denoting the
+	// primary key for the session_drafts relation (M2M).
+	SessionDraftsPrimaryKey = []string{"session_draft_id", "lane_id"}
+	// SessionPublishedVersionsPrimaryKey and SessionPublishedVersionsColumn2 are the table columns denoting the
+	// primary key for the session_published_versions relation (M2M).
+	SessionPublishedVersionsPrimaryKey = []string{"session_published_version_id", "lane_id"}
+)
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
@@ -124,6 +147,34 @@ func ByPublishedVersions(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption
 		sqlgraph.OrderByNeighborTerms(s, newPublishedVersionsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// BySessionDraftsCount orders the results by session_drafts count.
+func BySessionDraftsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSessionDraftsStep(), opts...)
+	}
+}
+
+// BySessionDrafts orders the results by session_drafts terms.
+func BySessionDrafts(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSessionDraftsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// BySessionPublishedVersionsCount orders the results by session_published_versions count.
+func BySessionPublishedVersionsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSessionPublishedVersionsStep(), opts...)
+	}
+}
+
+// BySessionPublishedVersions orders the results by session_published_versions terms.
+func BySessionPublishedVersions(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSessionPublishedVersionsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newEventStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -143,5 +194,19 @@ func newPublishedVersionsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(PublishedVersionsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, PublishedVersionsTable, PublishedVersionsColumn),
+	)
+}
+func newSessionDraftsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SessionDraftsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2M, true, SessionDraftsTable, SessionDraftsPrimaryKey...),
+	)
+}
+func newSessionPublishedVersionsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SessionPublishedVersionsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2M, true, SessionPublishedVersionsTable, SessionPublishedVersionsPrimaryKey...),
 	)
 }

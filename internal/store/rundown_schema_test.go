@@ -9,6 +9,7 @@ import (
 
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
+	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -105,6 +106,39 @@ func TestRundownStateStaysWithinGrantedEvents(t *testing.T) {
 			SetPublishedRevision(1).
 			SetName("Track").
 			SaveX(ctx)
+		plannedStart := time.Date(2026, 8, 21, 8, 0, 0, 0, time.UTC)
+		session := client.Session.Create().SetEventID(event.ID).SaveX(ctx)
+		client.SessionDraft.Create().
+			SetSessionID(session.ID).
+			SetTitle("Session").
+			SetType("Presentation").
+			SetAudienceVisibility("Public").
+			SetPlannedStart(plannedStart).
+			SetPlannedEnd(plannedStart.Add(time.Hour)).
+			SetTimingPolicy("FixedEnd").
+			SetMinimumDurationSeconds(3600).
+			SetStartBoundary("Soft").
+			SetEndBoundary("Soft").
+			AddLaneIDs(lane.ID).
+			AddLocationIDs(location.ID).
+			AddTrackIDs(track.ID).
+			SaveX(ctx)
+		client.SessionPublishedVersion.Create().
+			SetSessionID(session.ID).
+			SetPublishedRevision(1).
+			SetTitle("Session").
+			SetType("Presentation").
+			SetAudienceVisibility("Public").
+			SetPlannedStart(plannedStart).
+			SetPlannedEnd(plannedStart.Add(time.Hour)).
+			SetTimingPolicy("FixedEnd").
+			SetMinimumDurationSeconds(3600).
+			SetStartBoundary("Soft").
+			SetEndBoundary("Soft").
+			AddLaneIDs(lane.ID).
+			AddLocationIDs(location.ID).
+			AddTrackIDs(track.ID).
+			SaveX(ctx)
 	}
 	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
 		AccountID:  11,
@@ -122,6 +156,9 @@ func TestRundownStateStaysWithinGrantedEvents(t *testing.T) {
 		"Tracks":                      client.Track.Query().CountX(producerContext),
 		"Track Drafts":                client.TrackDraft.Query().CountX(producerContext),
 		"Published Track versions":    client.TrackPublishedVersion.Query().CountX(producerContext),
+		"Sessions":                    client.Session.Query().CountX(producerContext),
+		"Session Drafts":              client.SessionDraft.Query().CountX(producerContext),
+		"Published Session versions":  client.SessionPublishedVersion.Query().CountX(producerContext),
 	} {
 		if count != 1 {
 			t.Errorf("%s visible to Producer = %d, want 1", name, count)
@@ -164,6 +201,24 @@ func TestPublishedStructuralVersionsAreAppendOnly(t *testing.T) {
 		SaveX(ctx)
 	if err := client.TrackPublishedVersion.DeleteOne(trackVersion).Exec(ctx); !errors.Is(err, privacy.Deny) {
 		t.Fatalf("Published Track deletion error = %v, want privacy denial", err)
+	}
+	session := client.Session.Create().SetEventID(event.ID).SaveX(ctx)
+	plannedStart := time.Date(2026, 8, 21, 8, 0, 0, 0, time.UTC)
+	sessionVersion := client.SessionPublishedVersion.Create().
+		SetSessionID(session.ID).
+		SetPublishedRevision(1).
+		SetTitle("Session").
+		SetType("Presentation").
+		SetAudienceVisibility("Public").
+		SetPlannedStart(plannedStart).
+		SetPlannedEnd(plannedStart.Add(time.Hour)).
+		SetTimingPolicy("FixedEnd").
+		SetMinimumDurationSeconds(3600).
+		SetStartBoundary("Soft").
+		SetEndBoundary("Soft").
+		SaveX(ctx)
+	if err := client.SessionPublishedVersion.DeleteOne(sessionVersion).Exec(ctx); !errors.Is(err, privacy.Deny) {
+		t.Fatalf("Published Session deletion error = %v, want privacy denial", err)
 	}
 }
 
@@ -317,6 +372,198 @@ func TestTrackDraftAndPublishedStatesAreIndependent(t *testing.T) {
 	updatedDraft := track.QueryDraft().OnlyX(ctx)
 	if updatedDraft.Name != "Systems Engineering" {
 		t.Fatalf("Draft Track name = %q, want Systems Engineering", updatedDraft.Name)
+	}
+}
+
+func TestSessionDraftAndPublishedStatesAreIndependent(t *testing.T) {
+	client := openEntTestClient(t)
+	ctx := viewer.SystemContext(t.Context())
+	event := createSchemaTestEvent(t, client)
+	firstLocation := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
+	secondLocation := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
+	lane := client.Lane.Create().SetEventID(event.ID).SaveX(ctx)
+	track := client.Track.Create().SetEventID(event.ID).SaveX(ctx)
+	session := client.Session.Create().SetEventID(event.ID).SaveX(ctx)
+	plannedStart := time.Date(2026, 8, 21, 8, 0, 0, 0, time.UTC)
+	plannedEnd := plannedStart.Add(time.Hour)
+	draft := client.SessionDraft.Create().
+		SetSessionID(session.ID).
+		SetTitle("Opening Session").
+		SetType("Ceremony").
+		SetAudienceVisibility("Public").
+		SetPlannedStart(plannedStart).
+		SetPlannedEnd(plannedEnd).
+		SetTimingPolicy("FixedEnd").
+		SetMinimumDurationSeconds(1800).
+		SetStartBoundary("Hard").
+		SetEndBoundary("Soft").
+		AddLaneIDs(lane.ID).
+		AddLocationIDs(firstLocation.ID).
+		AddTrackIDs(track.ID).
+		SaveX(ctx)
+	client.SessionPublishedVersion.Create().
+		SetSessionID(session.ID).
+		SetPublishedRevision(1).
+		SetTitle("Opening Session").
+		SetType("Ceremony").
+		SetAudienceVisibility("Public").
+		SetPlannedStart(plannedStart).
+		SetPlannedEnd(plannedEnd).
+		SetTimingPolicy("FixedEnd").
+		SetMinimumDurationSeconds(1800).
+		SetStartBoundary("Hard").
+		SetEndBoundary("Soft").
+		AddLaneIDs(lane.ID).
+		AddLocationIDs(firstLocation.ID).
+		AddTrackIDs(track.ID).
+		SaveX(ctx)
+	draft.Update().
+		SetTitle("Welcome Session").
+		ClearLocations().
+		AddLocationIDs(secondLocation.ID).
+		SaveX(ctx)
+
+	published := session.QueryPublishedVersions().OnlyX(ctx)
+	if published.Title != "Opening Session" || published.PublishedRevision != 1 {
+		t.Fatalf("Published Session = %+v, want Opening Session at revision 1", published)
+	}
+	publishedLocations := published.QueryLocations().IDsX(ctx)
+	if len(publishedLocations) != 1 || publishedLocations[0] != firstLocation.ID {
+		t.Fatalf("Published Session Locations = %v, want first Location", publishedLocations)
+	}
+	updatedDraft := session.QueryDraft().OnlyX(ctx)
+	if updatedDraft.Title != "Welcome Session" {
+		t.Fatalf("Draft Session title = %q, want Welcome Session", updatedDraft.Title)
+	}
+	draftLocations := updatedDraft.QueryLocations().IDsX(ctx)
+	if len(draftLocations) != 1 || draftLocations[0] != secondLocation.ID {
+		t.Fatalf("Draft Session Locations = %v, want second Location", draftLocations)
+	}
+}
+
+func TestSessionDraftSupportsEveryVersionOneType(t *testing.T) {
+	client := openEntTestClient(t)
+	ctx := viewer.SystemContext(t.Context())
+	event := createSchemaTestEvent(t, client)
+	location := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
+	lane := client.Lane.Create().SetEventID(event.ID).SaveX(ctx)
+	plannedStart := time.Date(2026, 8, 21, 8, 0, 0, 0, time.UTC)
+	types := []string{"Presentation", "Competition", "Break", "Activity", "Ceremony", "Performance", "Hold"}
+	for _, sessionType := range types {
+		session := client.Session.Create().SetEventID(event.ID).SaveX(ctx)
+		created, err := client.SessionDraft.Create().
+			SetSessionID(session.ID).
+			SetTitle(sessionType).
+			SetType(sessiondraft.Type(sessionType)).
+			SetAudienceVisibility("Public").
+			SetPlannedStart(plannedStart).
+			SetPlannedEnd(plannedStart.Add(time.Hour)).
+			SetTimingPolicy("FixedEnd").
+			SetMinimumDurationSeconds(3600).
+			SetStartBoundary("Soft").
+			SetEndBoundary("Soft").
+			AddLaneIDs(lane.ID).
+			AddLocationIDs(location.ID).
+			Save(ctx)
+		if err != nil {
+			t.Errorf("create %s Session Draft: %v", sessionType, err)
+			continue
+		}
+		if created.Type.String() != sessionType {
+			t.Errorf("Session type = %q, want %q", created.Type, sessionType)
+		}
+	}
+}
+
+func TestSessionStateRejectsCrossEventMemberships(t *testing.T) {
+	client := openEntTestClient(t)
+	ctx := viewer.SystemContext(t.Context())
+	sessionEvent := createSchemaTestEvent(t, client)
+	memberEvent := createSchemaTestEvent(t, client)
+	session := client.Session.Create().SetEventID(sessionEvent.ID).SaveX(ctx)
+	lane := client.Lane.Create().SetEventID(memberEvent.ID).SaveX(ctx)
+	location := client.Location.Create().SetEventID(memberEvent.ID).SaveX(ctx)
+	track := client.Track.Create().SetEventID(memberEvent.ID).SaveX(ctx)
+	plannedStart := time.Date(2026, 8, 21, 8, 0, 0, 0, time.UTC)
+
+	createDraft := client.SessionDraft.Create().
+		SetSessionID(session.ID).
+		SetTitle("Invalid Session").
+		SetType("Presentation").
+		SetAudienceVisibility("Public").
+		SetPlannedStart(plannedStart).
+		SetPlannedEnd(plannedStart.Add(time.Hour)).
+		SetTimingPolicy("FixedEnd").
+		SetMinimumDurationSeconds(3600).
+		SetStartBoundary("Soft").
+		SetEndBoundary("Soft").
+		AddLaneIDs(lane.ID).
+		AddLocationIDs(location.ID).
+		AddTrackIDs(track.ID)
+	if _, err := createDraft.Save(ctx); err == nil {
+		t.Fatal("cross-Event Session Draft succeeded, want rejection")
+	}
+}
+
+func TestCommittedMigrationRejectsCrossEventSessionMembership(t *testing.T) {
+	dataDir := t.TempDir()
+	if err := Initialize(t.Context(), dataDir); err != nil {
+		t.Fatalf("initialize installation: %v", err)
+	}
+	installation, err := Open(t.Context(), dataDir)
+	if err != nil {
+		t.Fatalf("open installation: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := installation.Close(); err != nil {
+			t.Errorf("close installation: %v", err)
+		}
+	})
+	ctx := viewer.SystemContext(t.Context())
+	sessionEvent := createSchemaTestEvent(t, installation.client)
+	memberEvent := createSchemaTestEvent(t, installation.client)
+	session := installation.client.Session.Create().SetEventID(sessionEvent.ID).SaveX(ctx)
+	lane := installation.client.Lane.Create().SetEventID(memberEvent.ID).SaveX(ctx)
+	plannedStart := time.Date(2026, 8, 21, 8, 0, 0, 0, time.UTC)
+	draft := installation.client.SessionDraft.Create().
+		SetSessionID(session.ID).
+		SetTitle("Session").
+		SetType("Presentation").
+		SetAudienceVisibility("Public").
+		SetPlannedStart(plannedStart).
+		SetPlannedEnd(plannedStart.Add(time.Hour)).
+		SetTimingPolicy("FixedEnd").
+		SetMinimumDurationSeconds(3600).
+		SetStartBoundary("Soft").
+		SetEndBoundary("Soft").
+		SaveX(ctx)
+	published := installation.client.SessionPublishedVersion.Create().
+		SetSessionID(session.ID).
+		SetPublishedRevision(1).
+		SetTitle("Session").
+		SetType("Presentation").
+		SetAudienceVisibility("Public").
+		SetPlannedStart(plannedStart).
+		SetPlannedEnd(plannedStart.Add(time.Hour)).
+		SetTimingPolicy("FixedEnd").
+		SetMinimumDurationSeconds(3600).
+		SetStartBoundary("Soft").
+		SetEndBoundary("Soft").
+		SaveX(ctx)
+
+	if _, err := installation.database.ExecContext(
+		ctx,
+		"INSERT INTO session_draft_lanes (session_draft_id, lane_id) VALUES (?, ?)",
+		draft.ID, lane.ID,
+	); err == nil {
+		t.Fatal("direct cross-Event Session Draft Lane insert succeeded, want rejection")
+	}
+	if _, err := installation.database.ExecContext(
+		ctx,
+		"INSERT INTO session_published_version_lanes (session_published_version_id, lane_id) VALUES (?, ?)",
+		published.ID, lane.ID,
+	); err == nil {
+		t.Fatal("direct cross-Event Published Session Lane insert succeeded, want rejection")
 	}
 }
 

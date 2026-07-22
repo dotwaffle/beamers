@@ -41,9 +41,13 @@ type LocationEdges struct {
 	LaneDrafts []*LaneDraft `json:"lane_drafts,omitempty"`
 	// LanePublishedVersions holds the value of the lane_published_versions edge.
 	LanePublishedVersions []*LanePublishedVersion `json:"lane_published_versions,omitempty"`
+	// SessionDrafts holds the value of the session_drafts edge.
+	SessionDrafts []*SessionDraft `json:"session_drafts,omitempty"`
+	// SessionPublishedVersions holds the value of the session_published_versions edge.
+	SessionPublishedVersions []*SessionPublishedVersion `json:"session_published_versions,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [5]bool
+	loadedTypes [7]bool
 }
 
 // EventOrErr returns the Event value or an error if the edge
@@ -93,6 +97,24 @@ func (e LocationEdges) LanePublishedVersionsOrErr() ([]*LanePublishedVersion, er
 		return e.LanePublishedVersions, nil
 	}
 	return nil, &NotLoadedError{edge: "lane_published_versions"}
+}
+
+// SessionDraftsOrErr returns the SessionDrafts value or an error if the edge
+// was not loaded in eager-loading.
+func (e LocationEdges) SessionDraftsOrErr() ([]*SessionDraft, error) {
+	if e.loadedTypes[5] {
+		return e.SessionDrafts, nil
+	}
+	return nil, &NotLoadedError{edge: "session_drafts"}
+}
+
+// SessionPublishedVersionsOrErr returns the SessionPublishedVersions value or an error if the edge
+// was not loaded in eager-loading.
+func (e LocationEdges) SessionPublishedVersionsOrErr() ([]*SessionPublishedVersion, error) {
+	if e.loadedTypes[6] {
+		return e.SessionPublishedVersions, nil
+	}
+	return nil, &NotLoadedError{edge: "session_published_versions"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -173,6 +195,16 @@ func (_m *Location) QueryLaneDrafts() *LaneDraftQuery {
 // QueryLanePublishedVersions queries the "lane_published_versions" edge of the Location entity.
 func (_m *Location) QueryLanePublishedVersions() *LanePublishedVersionQuery {
 	return NewLocationClient(_m.config).QueryLanePublishedVersions(_m)
+}
+
+// QuerySessionDrafts queries the "session_drafts" edge of the Location entity.
+func (_m *Location) QuerySessionDrafts() *SessionDraftQuery {
+	return NewLocationClient(_m.config).QuerySessionDrafts(_m)
+}
+
+// QuerySessionPublishedVersions queries the "session_published_versions" edge of the Location entity.
+func (_m *Location) QuerySessionPublishedVersions() *SessionPublishedVersionQuery {
+	return NewLocationClient(_m.config).QuerySessionPublishedVersions(_m)
 }
 
 // Update returns a builder for updating this Location.

@@ -24,6 +24,9 @@ import (
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/schema"
+	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/ent/sessiondraft"
+	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
@@ -741,6 +744,117 @@ func init() {
 	rundown.DefaultPublishedRevision = rundownDescPublishedRevision.Default.(int)
 	// rundown.PublishedRevisionValidator is a validator for the "published_revision" field. It is called by the builders before save.
 	rundown.PublishedRevisionValidator = rundownDescPublishedRevision.Validators[0].(func(int) error)
+	session.Policy = privacy.NewPolicies(schema.Session{})
+	session.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := session.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	sessionFields := schema.Session{}.Fields()
+	_ = sessionFields
+	// sessionDescCreatedAt is the schema descriptor for created_at field.
+	sessionDescCreatedAt := sessionFields[1].Descriptor()
+	// session.DefaultCreatedAt holds the default value on creation for the created_at field.
+	session.DefaultCreatedAt = sessionDescCreatedAt.Default.(func() time.Time)
+	sessiondraft.Policy = privacy.NewPolicies(schema.SessionDraft{})
+	sessiondraft.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := sessiondraft.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	sessiondraftHooks := schema.SessionDraft{}.Hooks()
+
+	sessiondraft.Hooks[1] = sessiondraftHooks[0]
+	sessiondraftFields := schema.SessionDraft{}.Fields()
+	_ = sessiondraftFields
+	// sessiondraftDescTitle is the schema descriptor for title field.
+	sessiondraftDescTitle := sessiondraftFields[1].Descriptor()
+	// sessiondraft.TitleValidator is a validator for the "title" field. It is called by the builders before save.
+	sessiondraft.TitleValidator = func() func(string) error {
+		validators := sessiondraftDescTitle.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(title string) error {
+			for _, fn := range fns {
+				if err := fn(title); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// sessiondraftDescPublicDetails is the schema descriptor for public_details field.
+	sessiondraftDescPublicDetails := sessiondraftFields[4].Descriptor()
+	// sessiondraft.PublicDetailsValidator is a validator for the "public_details" field. It is called by the builders before save.
+	sessiondraft.PublicDetailsValidator = sessiondraftDescPublicDetails.Validators[0].(func(string) error)
+	// sessiondraftDescCrewNotes is the schema descriptor for crew_notes field.
+	sessiondraftDescCrewNotes := sessiondraftFields[5].Descriptor()
+	// sessiondraft.CrewNotesValidator is a validator for the "crew_notes" field. It is called by the builders before save.
+	sessiondraft.CrewNotesValidator = sessiondraftDescCrewNotes.Validators[0].(func(string) error)
+	// sessiondraftDescMinimumDurationSeconds is the schema descriptor for minimum_duration_seconds field.
+	sessiondraftDescMinimumDurationSeconds := sessiondraftFields[9].Descriptor()
+	// sessiondraft.MinimumDurationSecondsValidator is a validator for the "minimum_duration_seconds" field. It is called by the builders before save.
+	sessiondraft.MinimumDurationSecondsValidator = sessiondraftDescMinimumDurationSeconds.Validators[0].(func(int) error)
+	sessionpublishedversion.Policy = privacy.NewPolicies(schema.SessionPublishedVersion{})
+	sessionpublishedversion.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := sessionpublishedversion.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	sessionpublishedversionHooks := schema.SessionPublishedVersion{}.Hooks()
+
+	sessionpublishedversion.Hooks[1] = sessionpublishedversionHooks[0]
+	sessionpublishedversionFields := schema.SessionPublishedVersion{}.Fields()
+	_ = sessionpublishedversionFields
+	// sessionpublishedversionDescPublishedRevision is the schema descriptor for published_revision field.
+	sessionpublishedversionDescPublishedRevision := sessionpublishedversionFields[1].Descriptor()
+	// sessionpublishedversion.PublishedRevisionValidator is a validator for the "published_revision" field. It is called by the builders before save.
+	sessionpublishedversion.PublishedRevisionValidator = sessionpublishedversionDescPublishedRevision.Validators[0].(func(int) error)
+	// sessionpublishedversionDescTitle is the schema descriptor for title field.
+	sessionpublishedversionDescTitle := sessionpublishedversionFields[2].Descriptor()
+	// sessionpublishedversion.TitleValidator is a validator for the "title" field. It is called by the builders before save.
+	sessionpublishedversion.TitleValidator = func() func(string) error {
+		validators := sessionpublishedversionDescTitle.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(title string) error {
+			for _, fn := range fns {
+				if err := fn(title); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// sessionpublishedversionDescPublicDetails is the schema descriptor for public_details field.
+	sessionpublishedversionDescPublicDetails := sessionpublishedversionFields[5].Descriptor()
+	// sessionpublishedversion.PublicDetailsValidator is a validator for the "public_details" field. It is called by the builders before save.
+	sessionpublishedversion.PublicDetailsValidator = sessionpublishedversionDescPublicDetails.Validators[0].(func(string) error)
+	// sessionpublishedversionDescCrewNotes is the schema descriptor for crew_notes field.
+	sessionpublishedversionDescCrewNotes := sessionpublishedversionFields[6].Descriptor()
+	// sessionpublishedversion.CrewNotesValidator is a validator for the "crew_notes" field. It is called by the builders before save.
+	sessionpublishedversion.CrewNotesValidator = sessionpublishedversionDescCrewNotes.Validators[0].(func(string) error)
+	// sessionpublishedversionDescMinimumDurationSeconds is the schema descriptor for minimum_duration_seconds field.
+	sessionpublishedversionDescMinimumDurationSeconds := sessionpublishedversionFields[10].Descriptor()
+	// sessionpublishedversion.MinimumDurationSecondsValidator is a validator for the "minimum_duration_seconds" field. It is called by the builders before save.
+	sessionpublishedversion.MinimumDurationSecondsValidator = sessionpublishedversionDescMinimumDurationSeconds.Validators[0].(func(int) error)
+	// sessionpublishedversionDescCreatedAt is the schema descriptor for created_at field.
+	sessionpublishedversionDescCreatedAt := sessionpublishedversionFields[13].Descriptor()
+	// sessionpublishedversion.DefaultCreatedAt holds the default value on creation for the created_at field.
+	sessionpublishedversion.DefaultCreatedAt = sessionpublishedversionDescCreatedAt.Default.(func() time.Time)
 	track.Policy = privacy.NewPolicies(schema.Track{})
 	track.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

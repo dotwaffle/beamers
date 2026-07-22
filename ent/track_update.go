@@ -11,6 +11,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/predicate"
+	"github.com/dotwaffle/beamers/ent/sessiondraft"
+	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
@@ -63,6 +65,36 @@ func (_u *TrackUpdate) AddPublishedVersions(v ...*TrackPublishedVersion) *TrackU
 	return _u.AddPublishedVersionIDs(ids...)
 }
 
+// AddSessionDraftIDs adds the "session_drafts" edge to the SessionDraft entity by IDs.
+func (_u *TrackUpdate) AddSessionDraftIDs(ids ...int) *TrackUpdate {
+	_u.mutation.AddSessionDraftIDs(ids...)
+	return _u
+}
+
+// AddSessionDrafts adds the "session_drafts" edges to the SessionDraft entity.
+func (_u *TrackUpdate) AddSessionDrafts(v ...*SessionDraft) *TrackUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSessionDraftIDs(ids...)
+}
+
+// AddSessionPublishedVersionIDs adds the "session_published_versions" edge to the SessionPublishedVersion entity by IDs.
+func (_u *TrackUpdate) AddSessionPublishedVersionIDs(ids ...int) *TrackUpdate {
+	_u.mutation.AddSessionPublishedVersionIDs(ids...)
+	return _u
+}
+
+// AddSessionPublishedVersions adds the "session_published_versions" edges to the SessionPublishedVersion entity.
+func (_u *TrackUpdate) AddSessionPublishedVersions(v ...*SessionPublishedVersion) *TrackUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSessionPublishedVersionIDs(ids...)
+}
+
 // Mutation returns the TrackMutation object of the builder.
 func (_u *TrackUpdate) Mutation() *TrackMutation {
 	return _u.mutation
@@ -93,6 +125,48 @@ func (_u *TrackUpdate) RemovePublishedVersions(v ...*TrackPublishedVersion) *Tra
 		ids[i] = v[i].ID
 	}
 	return _u.RemovePublishedVersionIDs(ids...)
+}
+
+// ClearSessionDrafts clears all "session_drafts" edges to the SessionDraft entity.
+func (_u *TrackUpdate) ClearSessionDrafts() *TrackUpdate {
+	_u.mutation.ClearSessionDrafts()
+	return _u
+}
+
+// RemoveSessionDraftIDs removes the "session_drafts" edge to SessionDraft entities by IDs.
+func (_u *TrackUpdate) RemoveSessionDraftIDs(ids ...int) *TrackUpdate {
+	_u.mutation.RemoveSessionDraftIDs(ids...)
+	return _u
+}
+
+// RemoveSessionDrafts removes "session_drafts" edges to SessionDraft entities.
+func (_u *TrackUpdate) RemoveSessionDrafts(v ...*SessionDraft) *TrackUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSessionDraftIDs(ids...)
+}
+
+// ClearSessionPublishedVersions clears all "session_published_versions" edges to the SessionPublishedVersion entity.
+func (_u *TrackUpdate) ClearSessionPublishedVersions() *TrackUpdate {
+	_u.mutation.ClearSessionPublishedVersions()
+	return _u
+}
+
+// RemoveSessionPublishedVersionIDs removes the "session_published_versions" edge to SessionPublishedVersion entities by IDs.
+func (_u *TrackUpdate) RemoveSessionPublishedVersionIDs(ids ...int) *TrackUpdate {
+	_u.mutation.RemoveSessionPublishedVersionIDs(ids...)
+	return _u
+}
+
+// RemoveSessionPublishedVersions removes "session_published_versions" edges to SessionPublishedVersion entities.
+func (_u *TrackUpdate) RemoveSessionPublishedVersions(v ...*SessionPublishedVersion) *TrackUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSessionPublishedVersionIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -216,6 +290,96 @@ func (_u *TrackUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.SessionDraftsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   track.SessionDraftsTable,
+			Columns: track.SessionDraftsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessiondraft.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSessionDraftsIDs(); len(nodes) > 0 && !_u.mutation.SessionDraftsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   track.SessionDraftsTable,
+			Columns: track.SessionDraftsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessiondraft.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SessionDraftsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   track.SessionDraftsTable,
+			Columns: track.SessionDraftsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessiondraft.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SessionPublishedVersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   track.SessionPublishedVersionsTable,
+			Columns: track.SessionPublishedVersionsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionpublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSessionPublishedVersionsIDs(); len(nodes) > 0 && !_u.mutation.SessionPublishedVersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   track.SessionPublishedVersionsTable,
+			Columns: track.SessionPublishedVersionsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionpublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SessionPublishedVersionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   track.SessionPublishedVersionsTable,
+			Columns: track.SessionPublishedVersionsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionpublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{track.Label}
@@ -270,6 +434,36 @@ func (_u *TrackUpdateOne) AddPublishedVersions(v ...*TrackPublishedVersion) *Tra
 	return _u.AddPublishedVersionIDs(ids...)
 }
 
+// AddSessionDraftIDs adds the "session_drafts" edge to the SessionDraft entity by IDs.
+func (_u *TrackUpdateOne) AddSessionDraftIDs(ids ...int) *TrackUpdateOne {
+	_u.mutation.AddSessionDraftIDs(ids...)
+	return _u
+}
+
+// AddSessionDrafts adds the "session_drafts" edges to the SessionDraft entity.
+func (_u *TrackUpdateOne) AddSessionDrafts(v ...*SessionDraft) *TrackUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSessionDraftIDs(ids...)
+}
+
+// AddSessionPublishedVersionIDs adds the "session_published_versions" edge to the SessionPublishedVersion entity by IDs.
+func (_u *TrackUpdateOne) AddSessionPublishedVersionIDs(ids ...int) *TrackUpdateOne {
+	_u.mutation.AddSessionPublishedVersionIDs(ids...)
+	return _u
+}
+
+// AddSessionPublishedVersions adds the "session_published_versions" edges to the SessionPublishedVersion entity.
+func (_u *TrackUpdateOne) AddSessionPublishedVersions(v ...*SessionPublishedVersion) *TrackUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSessionPublishedVersionIDs(ids...)
+}
+
 // Mutation returns the TrackMutation object of the builder.
 func (_u *TrackUpdateOne) Mutation() *TrackMutation {
 	return _u.mutation
@@ -300,6 +494,48 @@ func (_u *TrackUpdateOne) RemovePublishedVersions(v ...*TrackPublishedVersion) *
 		ids[i] = v[i].ID
 	}
 	return _u.RemovePublishedVersionIDs(ids...)
+}
+
+// ClearSessionDrafts clears all "session_drafts" edges to the SessionDraft entity.
+func (_u *TrackUpdateOne) ClearSessionDrafts() *TrackUpdateOne {
+	_u.mutation.ClearSessionDrafts()
+	return _u
+}
+
+// RemoveSessionDraftIDs removes the "session_drafts" edge to SessionDraft entities by IDs.
+func (_u *TrackUpdateOne) RemoveSessionDraftIDs(ids ...int) *TrackUpdateOne {
+	_u.mutation.RemoveSessionDraftIDs(ids...)
+	return _u
+}
+
+// RemoveSessionDrafts removes "session_drafts" edges to SessionDraft entities.
+func (_u *TrackUpdateOne) RemoveSessionDrafts(v ...*SessionDraft) *TrackUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSessionDraftIDs(ids...)
+}
+
+// ClearSessionPublishedVersions clears all "session_published_versions" edges to the SessionPublishedVersion entity.
+func (_u *TrackUpdateOne) ClearSessionPublishedVersions() *TrackUpdateOne {
+	_u.mutation.ClearSessionPublishedVersions()
+	return _u
+}
+
+// RemoveSessionPublishedVersionIDs removes the "session_published_versions" edge to SessionPublishedVersion entities by IDs.
+func (_u *TrackUpdateOne) RemoveSessionPublishedVersionIDs(ids ...int) *TrackUpdateOne {
+	_u.mutation.RemoveSessionPublishedVersionIDs(ids...)
+	return _u
+}
+
+// RemoveSessionPublishedVersions removes "session_published_versions" edges to SessionPublishedVersion entities.
+func (_u *TrackUpdateOne) RemoveSessionPublishedVersions(v ...*SessionPublishedVersion) *TrackUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSessionPublishedVersionIDs(ids...)
 }
 
 // Where appends a list predicates to the TrackUpdate builder.
@@ -446,6 +682,96 @@ func (_u *TrackUpdateOne) sqlSave(ctx context.Context) (_node *Track, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(trackpublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SessionDraftsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   track.SessionDraftsTable,
+			Columns: track.SessionDraftsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessiondraft.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSessionDraftsIDs(); len(nodes) > 0 && !_u.mutation.SessionDraftsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   track.SessionDraftsTable,
+			Columns: track.SessionDraftsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessiondraft.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SessionDraftsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   track.SessionDraftsTable,
+			Columns: track.SessionDraftsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessiondraft.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SessionPublishedVersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   track.SessionPublishedVersionsTable,
+			Columns: track.SessionPublishedVersionsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionpublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSessionPublishedVersionsIDs(); len(nodes) > 0 && !_u.mutation.SessionPublishedVersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   track.SessionPublishedVersionsTable,
+			Columns: track.SessionPublishedVersionsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionpublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SessionPublishedVersionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   track.SessionPublishedVersionsTable,
+			Columns: track.SessionPublishedVersionsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionpublishedversion.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

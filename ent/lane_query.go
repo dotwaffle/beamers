@@ -18,18 +18,22 @@ import (
 	"github.com/dotwaffle/beamers/ent/lanedraft"
 	"github.com/dotwaffle/beamers/ent/lanepublishedversion"
 	"github.com/dotwaffle/beamers/ent/predicate"
+	"github.com/dotwaffle/beamers/ent/sessiondraft"
+	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 )
 
 // LaneQuery is the builder for querying Lane entities.
 type LaneQuery struct {
 	config
-	ctx                   *QueryContext
-	order                 []lane.OrderOption
-	inters                []Interceptor
-	predicates            []predicate.Lane
-	withEvent             *EventQuery
-	withDraft             *LaneDraftQuery
-	withPublishedVersions *LanePublishedVersionQuery
+	ctx                          *QueryContext
+	order                        []lane.OrderOption
+	inters                       []Interceptor
+	predicates                   []predicate.Lane
+	withEvent                    *EventQuery
+	withDraft                    *LaneDraftQuery
+	withPublishedVersions        *LanePublishedVersionQuery
+	withSessionDrafts            *SessionDraftQuery
+	withSessionPublishedVersions *SessionPublishedVersionQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -125,6 +129,50 @@ func (_q *LaneQuery) QueryPublishedVersions() *LanePublishedVersionQuery {
 			sqlgraph.From(lane.Table, lane.FieldID, selector),
 			sqlgraph.To(lanepublishedversion.Table, lanepublishedversion.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, lane.PublishedVersionsTable, lane.PublishedVersionsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QuerySessionDrafts chains the current query on the "session_drafts" edge.
+func (_q *LaneQuery) QuerySessionDrafts() *SessionDraftQuery {
+	query := (&SessionDraftClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(lane.Table, lane.FieldID, selector),
+			sqlgraph.To(sessiondraft.Table, sessiondraft.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, lane.SessionDraftsTable, lane.SessionDraftsPrimaryKey...),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QuerySessionPublishedVersions chains the current query on the "session_published_versions" edge.
+func (_q *LaneQuery) QuerySessionPublishedVersions() *SessionPublishedVersionQuery {
+	query := (&SessionPublishedVersionClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(lane.Table, lane.FieldID, selector),
+			sqlgraph.To(sessionpublishedversion.Table, sessionpublishedversion.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, lane.SessionPublishedVersionsTable, lane.SessionPublishedVersionsPrimaryKey...),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -319,14 +367,16 @@ func (_q *LaneQuery) Clone() *LaneQuery {
 		return nil
 	}
 	return &LaneQuery{
-		config:                _q.config,
-		ctx:                   _q.ctx.Clone(),
-		order:                 append([]lane.OrderOption{}, _q.order...),
-		inters:                append([]Interceptor{}, _q.inters...),
-		predicates:            append([]predicate.Lane{}, _q.predicates...),
-		withEvent:             _q.withEvent.Clone(),
-		withDraft:             _q.withDraft.Clone(),
-		withPublishedVersions: _q.withPublishedVersions.Clone(),
+		config:                       _q.config,
+		ctx:                          _q.ctx.Clone(),
+		order:                        append([]lane.OrderOption{}, _q.order...),
+		inters:                       append([]Interceptor{}, _q.inters...),
+		predicates:                   append([]predicate.Lane{}, _q.predicates...),
+		withEvent:                    _q.withEvent.Clone(),
+		withDraft:                    _q.withDraft.Clone(),
+		withPublishedVersions:        _q.withPublishedVersions.Clone(),
+		withSessionDrafts:            _q.withSessionDrafts.Clone(),
+		withSessionPublishedVersions: _q.withSessionPublishedVersions.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -363,6 +413,28 @@ func (_q *LaneQuery) WithPublishedVersions(opts ...func(*LanePublishedVersionQue
 		opt(query)
 	}
 	_q.withPublishedVersions = query
+	return _q
+}
+
+// WithSessionDrafts tells the query-builder to eager-load the nodes that are connected to
+// the "session_drafts" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *LaneQuery) WithSessionDrafts(opts ...func(*SessionDraftQuery)) *LaneQuery {
+	query := (&SessionDraftClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withSessionDrafts = query
+	return _q
+}
+
+// WithSessionPublishedVersions tells the query-builder to eager-load the nodes that are connected to
+// the "session_published_versions" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *LaneQuery) WithSessionPublishedVersions(opts ...func(*SessionPublishedVersionQuery)) *LaneQuery {
+	query := (&SessionPublishedVersionClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withSessionPublishedVersions = query
 	return _q
 }
 
@@ -450,10 +522,12 @@ func (_q *LaneQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Lane, e
 	var (
 		nodes       = []*Lane{}
 		_spec       = _q.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [5]bool{
 			_q.withEvent != nil,
 			_q.withDraft != nil,
 			_q.withPublishedVersions != nil,
+			_q.withSessionDrafts != nil,
+			_q.withSessionPublishedVersions != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -491,6 +565,22 @@ func (_q *LaneQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Lane, e
 			func(n *Lane) { n.Edges.PublishedVersions = []*LanePublishedVersion{} },
 			func(n *Lane, e *LanePublishedVersion) {
 				n.Edges.PublishedVersions = append(n.Edges.PublishedVersions, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withSessionDrafts; query != nil {
+		if err := _q.loadSessionDrafts(ctx, query, nodes,
+			func(n *Lane) { n.Edges.SessionDrafts = []*SessionDraft{} },
+			func(n *Lane, e *SessionDraft) { n.Edges.SessionDrafts = append(n.Edges.SessionDrafts, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withSessionPublishedVersions; query != nil {
+		if err := _q.loadSessionPublishedVersions(ctx, query, nodes,
+			func(n *Lane) { n.Edges.SessionPublishedVersions = []*SessionPublishedVersion{} },
+			func(n *Lane, e *SessionPublishedVersion) {
+				n.Edges.SessionPublishedVersions = append(n.Edges.SessionPublishedVersions, e)
 			}); err != nil {
 			return nil, err
 		}
@@ -581,6 +671,128 @@ func (_q *LaneQuery) loadPublishedVersions(ctx context.Context, query *LanePubli
 			return fmt.Errorf(`unexpected referenced foreign-key "lane_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
+	}
+	return nil
+}
+func (_q *LaneQuery) loadSessionDrafts(ctx context.Context, query *SessionDraftQuery, nodes []*Lane, init func(*Lane), assign func(*Lane, *SessionDraft)) error {
+	edgeIDs := make([]driver.Value, len(nodes))
+	byID := make(map[int]*Lane)
+	nids := make(map[int]map[*Lane]struct{})
+	for i, node := range nodes {
+		edgeIDs[i] = node.ID
+		byID[node.ID] = node
+		if init != nil {
+			init(node)
+		}
+	}
+	query.Where(func(s *sql.Selector) {
+		joinT := sql.Table(lane.SessionDraftsTable)
+		s.Join(joinT).On(s.C(sessiondraft.FieldID), joinT.C(lane.SessionDraftsPrimaryKey[0]))
+		s.Where(sql.InValues(joinT.C(lane.SessionDraftsPrimaryKey[1]), edgeIDs...))
+		columns := s.SelectedColumns()
+		s.Select(joinT.C(lane.SessionDraftsPrimaryKey[1]))
+		s.AppendSelect(columns...)
+		s.SetDistinct(false)
+	})
+	if err := query.prepareQuery(ctx); err != nil {
+		return err
+	}
+	qr := QuerierFunc(func(ctx context.Context, q Query) (Value, error) {
+		return query.sqlAll(ctx, func(_ context.Context, spec *sqlgraph.QuerySpec) {
+			assign := spec.Assign
+			values := spec.ScanValues
+			spec.ScanValues = func(columns []string) ([]any, error) {
+				values, err := values(columns[1:])
+				if err != nil {
+					return nil, err
+				}
+				return append([]any{new(sql.NullInt64)}, values...), nil
+			}
+			spec.Assign = func(columns []string, values []any) error {
+				outValue := int(values[0].(*sql.NullInt64).Int64)
+				inValue := int(values[1].(*sql.NullInt64).Int64)
+				if nids[inValue] == nil {
+					nids[inValue] = map[*Lane]struct{}{byID[outValue]: {}}
+					return assign(columns[1:], values[1:])
+				}
+				nids[inValue][byID[outValue]] = struct{}{}
+				return nil
+			}
+		})
+	})
+	neighbors, err := withInterceptors[[]*SessionDraft](ctx, query, qr, query.inters)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected "session_drafts" node returned %v`, n.ID)
+		}
+		for kn := range nodes {
+			assign(kn, n)
+		}
+	}
+	return nil
+}
+func (_q *LaneQuery) loadSessionPublishedVersions(ctx context.Context, query *SessionPublishedVersionQuery, nodes []*Lane, init func(*Lane), assign func(*Lane, *SessionPublishedVersion)) error {
+	edgeIDs := make([]driver.Value, len(nodes))
+	byID := make(map[int]*Lane)
+	nids := make(map[int]map[*Lane]struct{})
+	for i, node := range nodes {
+		edgeIDs[i] = node.ID
+		byID[node.ID] = node
+		if init != nil {
+			init(node)
+		}
+	}
+	query.Where(func(s *sql.Selector) {
+		joinT := sql.Table(lane.SessionPublishedVersionsTable)
+		s.Join(joinT).On(s.C(sessionpublishedversion.FieldID), joinT.C(lane.SessionPublishedVersionsPrimaryKey[0]))
+		s.Where(sql.InValues(joinT.C(lane.SessionPublishedVersionsPrimaryKey[1]), edgeIDs...))
+		columns := s.SelectedColumns()
+		s.Select(joinT.C(lane.SessionPublishedVersionsPrimaryKey[1]))
+		s.AppendSelect(columns...)
+		s.SetDistinct(false)
+	})
+	if err := query.prepareQuery(ctx); err != nil {
+		return err
+	}
+	qr := QuerierFunc(func(ctx context.Context, q Query) (Value, error) {
+		return query.sqlAll(ctx, func(_ context.Context, spec *sqlgraph.QuerySpec) {
+			assign := spec.Assign
+			values := spec.ScanValues
+			spec.ScanValues = func(columns []string) ([]any, error) {
+				values, err := values(columns[1:])
+				if err != nil {
+					return nil, err
+				}
+				return append([]any{new(sql.NullInt64)}, values...), nil
+			}
+			spec.Assign = func(columns []string, values []any) error {
+				outValue := int(values[0].(*sql.NullInt64).Int64)
+				inValue := int(values[1].(*sql.NullInt64).Int64)
+				if nids[inValue] == nil {
+					nids[inValue] = map[*Lane]struct{}{byID[outValue]: {}}
+					return assign(columns[1:], values[1:])
+				}
+				nids[inValue][byID[outValue]] = struct{}{}
+				return nil
+			}
+		})
+	})
+	neighbors, err := withInterceptors[[]*SessionPublishedVersion](ctx, query, qr, query.inters)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected "session_published_versions" node returned %v`, n.ID)
+		}
+		for kn := range nodes {
+			assign(kn, n)
+		}
 	}
 	return nil
 }

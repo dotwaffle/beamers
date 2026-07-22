@@ -37,9 +37,13 @@ type TrackEdges struct {
 	Draft *TrackDraft `json:"draft,omitempty"`
 	// PublishedVersions holds the value of the published_versions edge.
 	PublishedVersions []*TrackPublishedVersion `json:"published_versions,omitempty"`
+	// SessionDrafts holds the value of the session_drafts edge.
+	SessionDrafts []*SessionDraft `json:"session_drafts,omitempty"`
+	// SessionPublishedVersions holds the value of the session_published_versions edge.
+	SessionPublishedVersions []*SessionPublishedVersion `json:"session_published_versions,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [5]bool
 }
 
 // EventOrErr returns the Event value or an error if the edge
@@ -71,6 +75,24 @@ func (e TrackEdges) PublishedVersionsOrErr() ([]*TrackPublishedVersion, error) {
 		return e.PublishedVersions, nil
 	}
 	return nil, &NotLoadedError{edge: "published_versions"}
+}
+
+// SessionDraftsOrErr returns the SessionDrafts value or an error if the edge
+// was not loaded in eager-loading.
+func (e TrackEdges) SessionDraftsOrErr() ([]*SessionDraft, error) {
+	if e.loadedTypes[3] {
+		return e.SessionDrafts, nil
+	}
+	return nil, &NotLoadedError{edge: "session_drafts"}
+}
+
+// SessionPublishedVersionsOrErr returns the SessionPublishedVersions value or an error if the edge
+// was not loaded in eager-loading.
+func (e TrackEdges) SessionPublishedVersionsOrErr() ([]*SessionPublishedVersion, error) {
+	if e.loadedTypes[4] {
+		return e.SessionPublishedVersions, nil
+	}
+	return nil, &NotLoadedError{edge: "session_published_versions"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -141,6 +163,16 @@ func (_m *Track) QueryDraft() *TrackDraftQuery {
 // QueryPublishedVersions queries the "published_versions" edge of the Track entity.
 func (_m *Track) QueryPublishedVersions() *TrackPublishedVersionQuery {
 	return NewTrackClient(_m.config).QueryPublishedVersions(_m)
+}
+
+// QuerySessionDrafts queries the "session_drafts" edge of the Track entity.
+func (_m *Track) QuerySessionDrafts() *SessionDraftQuery {
+	return NewTrackClient(_m.config).QuerySessionDrafts(_m)
+}
+
+// QuerySessionPublishedVersions queries the "session_published_versions" edge of the Track entity.
+func (_m *Track) QuerySessionPublishedVersions() *SessionPublishedVersionQuery {
+	return NewTrackClient(_m.config).QuerySessionPublishedVersions(_m)
 }
 
 // Update returns a builder for updating this Track.

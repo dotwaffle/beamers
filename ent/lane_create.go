@@ -14,6 +14,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/lanedraft"
 	"github.com/dotwaffle/beamers/ent/lanepublishedversion"
+	"github.com/dotwaffle/beamers/ent/sessiondraft"
+	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 )
 
 // LaneCreate is the builder for creating a Lane entity.
@@ -80,6 +82,36 @@ func (_c *LaneCreate) AddPublishedVersions(v ...*LanePublishedVersion) *LaneCrea
 		ids[i] = v[i].ID
 	}
 	return _c.AddPublishedVersionIDs(ids...)
+}
+
+// AddSessionDraftIDs adds the "session_drafts" edge to the SessionDraft entity by IDs.
+func (_c *LaneCreate) AddSessionDraftIDs(ids ...int) *LaneCreate {
+	_c.mutation.AddSessionDraftIDs(ids...)
+	return _c
+}
+
+// AddSessionDrafts adds the "session_drafts" edges to the SessionDraft entity.
+func (_c *LaneCreate) AddSessionDrafts(v ...*SessionDraft) *LaneCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddSessionDraftIDs(ids...)
+}
+
+// AddSessionPublishedVersionIDs adds the "session_published_versions" edge to the SessionPublishedVersion entity by IDs.
+func (_c *LaneCreate) AddSessionPublishedVersionIDs(ids ...int) *LaneCreate {
+	_c.mutation.AddSessionPublishedVersionIDs(ids...)
+	return _c
+}
+
+// AddSessionPublishedVersions adds the "session_published_versions" edges to the SessionPublishedVersion entity.
+func (_c *LaneCreate) AddSessionPublishedVersions(v ...*SessionPublishedVersion) *LaneCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddSessionPublishedVersionIDs(ids...)
 }
 
 // Mutation returns the LaneMutation object of the builder.
@@ -212,6 +244,38 @@ func (_c *LaneCreate) createSpec() (*Lane, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(lanepublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.SessionDraftsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   lane.SessionDraftsTable,
+			Columns: lane.SessionDraftsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessiondraft.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.SessionPublishedVersionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   lane.SessionPublishedVersionsTable,
+			Columns: lane.SessionPublishedVersionsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionpublishedversion.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

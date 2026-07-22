@@ -45,5 +45,7 @@ func (Lane) Edges() []ent.Edge {
 			Required(),
 		edge.To("draft", LaneDraft.Type).Unique(),
 		edge.To("published_versions", LanePublishedVersion.Type),
+		edge.From("session_drafts", SessionDraft.Type).Ref("lanes"),
+		edge.From("session_published_versions", SessionPublishedVersion.Type).Ref("lanes"),
 	}
 }

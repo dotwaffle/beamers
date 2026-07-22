@@ -49,5 +49,6 @@ func (Event) Edges() []ent.Edge {
 		edge.To("locations", Location.Type),
 		edge.To("lanes", Lane.Type),
 		edge.To("tracks", Track.Type),
+		edge.To("sessions", Session.Type),
 	}
 }

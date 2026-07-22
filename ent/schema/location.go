@@ -47,5 +47,7 @@ func (Location) Edges() []ent.Edge {
 		edge.To("published_versions", LocationPublishedVersion.Type),
 		edge.To("lane_drafts", LaneDraft.Type),
 		edge.To("lane_published_versions", LanePublishedVersion.Type),
+		edge.From("session_drafts", SessionDraft.Type).Ref("locations"),
+		edge.From("session_published_versions", SessionPublishedVersion.Type).Ref("locations"),
 	}
 }
