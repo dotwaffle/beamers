@@ -213,6 +213,42 @@ func (f RundownFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, err
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RundownMutation", m)
 }
 
+// The TrackFunc type is an adapter to allow the use of ordinary
+// function as Track mutator.
+type TrackFunc func(context.Context, *ent.TrackMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f TrackFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.TrackMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.TrackMutation", m)
+}
+
+// The TrackDraftFunc type is an adapter to allow the use of ordinary
+// function as TrackDraft mutator.
+type TrackDraftFunc func(context.Context, *ent.TrackDraftMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f TrackDraftFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.TrackDraftMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.TrackDraftMutation", m)
+}
+
+// The TrackPublishedVersionFunc type is an adapter to allow the use of ordinary
+// function as TrackPublishedVersion mutator.
+type TrackPublishedVersionFunc func(context.Context, *ent.TrackPublishedVersionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f TrackPublishedVersionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.TrackPublishedVersionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.TrackPublishedVersionMutation", m)
+}
+
 // Condition is a hook condition function.
 type Condition func(context.Context, ent.Mutation) bool
 

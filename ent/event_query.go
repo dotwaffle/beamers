@@ -19,6 +19,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/rundown"
+	"github.com/dotwaffle/beamers/ent/track"
 )
 
 // EventQuery is the builder for querying Event entities.
@@ -32,6 +33,7 @@ type EventQuery struct {
 	withRundown   *RundownQuery
 	withLocations *LocationQuery
 	withLanes     *LaneQuery
+	withTracks    *TrackQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -149,6 +151,28 @@ func (_q *EventQuery) QueryLanes() *LaneQuery {
 			sqlgraph.From(event.Table, event.FieldID, selector),
 			sqlgraph.To(lane.Table, lane.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, event.LanesTable, event.LanesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryTracks chains the current query on the "tracks" edge.
+func (_q *EventQuery) QueryTracks() *TrackQuery {
+	query := (&TrackClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, selector),
+			sqlgraph.To(track.Table, track.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.TracksTable, event.TracksColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -352,6 +376,7 @@ func (_q *EventQuery) Clone() *EventQuery {
 		withRundown:   _q.withRundown.Clone(),
 		withLocations: _q.withLocations.Clone(),
 		withLanes:     _q.withLanes.Clone(),
+		withTracks:    _q.withTracks.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -399,6 +424,17 @@ func (_q *EventQuery) WithLanes(opts ...func(*LaneQuery)) *EventQuery {
 		opt(query)
 	}
 	_q.withLanes = query
+	return _q
+}
+
+// WithTracks tells the query-builder to eager-load the nodes that are connected to
+// the "tracks" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *EventQuery) WithTracks(opts ...func(*TrackQuery)) *EventQuery {
+	query := (&TrackClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withTracks = query
 	return _q
 }
 
@@ -486,11 +522,12 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 	var (
 		nodes       = []*Event{}
 		_spec       = _q.querySpec()
-		loadedTypes = [4]bool{
+		loadedTypes = [5]bool{
 			_q.withGrants != nil,
 			_q.withRundown != nil,
 			_q.withLocations != nil,
 			_q.withLanes != nil,
+			_q.withTracks != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -535,6 +572,13 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 		if err := _q.loadLanes(ctx, query, nodes,
 			func(n *Event) { n.Edges.Lanes = []*Lane{} },
 			func(n *Event, e *Lane) { n.Edges.Lanes = append(n.Edges.Lanes, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withTracks; query != nil {
+		if err := _q.loadTracks(ctx, query, nodes,
+			func(n *Event) { n.Edges.Tracks = []*Track{} },
+			func(n *Event, e *Track) { n.Edges.Tracks = append(n.Edges.Tracks, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -643,6 +687,36 @@ func (_q *EventQuery) loadLanes(ctx context.Context, query *LaneQuery, nodes []*
 	}
 	query.Where(predicate.Lane(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(event.LanesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.EventID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "event_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *EventQuery) loadTracks(ctx context.Context, query *TrackQuery, nodes []*Event, init func(*Event), assign func(*Event, *Track)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Event)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(track.FieldEventID)
+	}
+	query.Where(predicate.Track(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(event.TracksColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

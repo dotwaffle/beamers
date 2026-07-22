@@ -32,6 +32,9 @@ import (
 	"github.com/dotwaffle/beamers/ent/migration"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/rundown"
+	"github.com/dotwaffle/beamers/ent/track"
+	"github.com/dotwaffle/beamers/ent/trackdraft"
+	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
 )
 
 // Client is the client that holds all ent builders.
@@ -73,6 +76,12 @@ type Client struct {
 	PasswordCredential *PasswordCredentialClient
 	// Rundown is the client for interacting with the Rundown builders.
 	Rundown *RundownClient
+	// Track is the client for interacting with the Track builders.
+	Track *TrackClient
+	// TrackDraft is the client for interacting with the TrackDraft builders.
+	TrackDraft *TrackDraftClient
+	// TrackPublishedVersion is the client for interacting with the TrackPublishedVersion builders.
+	TrackPublishedVersion *TrackPublishedVersionClient
 }
 
 // NewClient creates a new client configured with the given options.
@@ -101,6 +110,9 @@ func (c *Client) init() {
 	c.Migration = NewMigrationClient(c.config)
 	c.PasswordCredential = NewPasswordCredentialClient(c.config)
 	c.Rundown = NewRundownClient(c.config)
+	c.Track = NewTrackClient(c.config)
+	c.TrackDraft = NewTrackDraftClient(c.config)
+	c.TrackPublishedVersion = NewTrackPublishedVersionClient(c.config)
 }
 
 type (
@@ -210,6 +222,9 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Migration:                NewMigrationClient(cfg),
 		PasswordCredential:       NewPasswordCredentialClient(cfg),
 		Rundown:                  NewRundownClient(cfg),
+		Track:                    NewTrackClient(cfg),
+		TrackDraft:               NewTrackDraftClient(cfg),
+		TrackPublishedVersion:    NewTrackPublishedVersionClient(cfg),
 	}, nil
 }
 
@@ -246,6 +261,9 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Migration:                NewMigrationClient(cfg),
 		PasswordCredential:       NewPasswordCredentialClient(cfg),
 		Rundown:                  NewRundownClient(cfg),
+		Track:                    NewTrackClient(cfg),
+		TrackDraft:               NewTrackDraftClient(cfg),
+		TrackPublishedVersion:    NewTrackPublishedVersionClient(cfg),
 	}, nil
 }
 
@@ -279,6 +297,7 @@ func (c *Client) Use(hooks ...Hook) {
 		c.CommandReceipt, c.Event, c.EventGrant, c.Installation, c.Lane, c.LaneDraft,
 		c.LanePublishedVersion, c.Location, c.LocationDraft,
 		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Rundown,
+		c.Track, c.TrackDraft, c.TrackPublishedVersion,
 	} {
 		n.Use(hooks...)
 	}
@@ -292,6 +311,7 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.CommandReceipt, c.Event, c.EventGrant, c.Installation, c.Lane, c.LaneDraft,
 		c.LanePublishedVersion, c.Location, c.LocationDraft,
 		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Rundown,
+		c.Track, c.TrackDraft, c.TrackPublishedVersion,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -334,6 +354,12 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.PasswordCredential.mutate(ctx, m)
 	case *RundownMutation:
 		return c.Rundown.mutate(ctx, m)
+	case *TrackMutation:
+		return c.Track.mutate(ctx, m)
+	case *TrackDraftMutation:
+		return c.TrackDraft.mutate(ctx, m)
+	case *TrackPublishedVersionMutation:
+		return c.TrackPublishedVersion.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
 	}
@@ -1302,6 +1328,22 @@ func (c *EventClient) QueryLanes(_m *Event) *LaneQuery {
 			sqlgraph.From(event.Table, event.FieldID, id),
 			sqlgraph.To(lane.Table, lane.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, event.LanesTable, event.LanesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryTracks queries the tracks edge of a Event.
+func (c *EventClient) QueryTracks(_m *Event) *TrackQuery {
+	query := (&TrackClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(track.Table, track.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.TracksTable, event.TracksColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -3095,18 +3137,500 @@ func (c *RundownClient) mutate(ctx context.Context, m *RundownMutation) (Value, 
 	}
 }
 
+// TrackClient is a client for the Track schema.
+type TrackClient struct {
+	config
+}
+
+// NewTrackClient returns a client for the Track from the given config.
+func NewTrackClient(c config) *TrackClient {
+	return &TrackClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `track.Hooks(f(g(h())))`.
+func (c *TrackClient) Use(hooks ...Hook) {
+	c.hooks.Track = append(c.hooks.Track, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `track.Intercept(f(g(h())))`.
+func (c *TrackClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Track = append(c.inters.Track, interceptors...)
+}
+
+// Create returns a builder for creating a Track entity.
+func (c *TrackClient) Create() *TrackCreate {
+	mutation := newTrackMutation(c.config, OpCreate)
+	return &TrackCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Track entities.
+func (c *TrackClient) CreateBulk(builders ...*TrackCreate) *TrackCreateBulk {
+	return &TrackCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *TrackClient) MapCreateBulk(slice any, setFunc func(*TrackCreate, int)) *TrackCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &TrackCreateBulk{err: fmt.Errorf("calling to TrackClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*TrackCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &TrackCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Track.
+func (c *TrackClient) Update() *TrackUpdate {
+	mutation := newTrackMutation(c.config, OpUpdate)
+	return &TrackUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *TrackClient) UpdateOne(_m *Track) *TrackUpdateOne {
+	mutation := newTrackMutation(c.config, OpUpdateOne, withTrack(_m))
+	return &TrackUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *TrackClient) UpdateOneID(id int) *TrackUpdateOne {
+	mutation := newTrackMutation(c.config, OpUpdateOne, withTrackID(id))
+	return &TrackUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Track.
+func (c *TrackClient) Delete() *TrackDelete {
+	mutation := newTrackMutation(c.config, OpDelete)
+	return &TrackDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *TrackClient) DeleteOne(_m *Track) *TrackDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *TrackClient) DeleteOneID(id int) *TrackDeleteOne {
+	builder := c.Delete().Where(track.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &TrackDeleteOne{builder}
+}
+
+// Query returns a query builder for Track.
+func (c *TrackClient) Query() *TrackQuery {
+	return &TrackQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeTrack},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Track entity by its id.
+func (c *TrackClient) Get(ctx context.Context, id int) (*Track, error) {
+	return c.Query().Where(track.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *TrackClient) GetX(ctx context.Context, id int) *Track {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a Track.
+func (c *TrackClient) QueryEvent(_m *Track) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(track.Table, track.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, track.EventTable, track.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDraft queries the draft edge of a Track.
+func (c *TrackClient) QueryDraft(_m *Track) *TrackDraftQuery {
+	query := (&TrackDraftClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(track.Table, track.FieldID, id),
+			sqlgraph.To(trackdraft.Table, trackdraft.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, track.DraftTable, track.DraftColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryPublishedVersions queries the published_versions edge of a Track.
+func (c *TrackClient) QueryPublishedVersions(_m *Track) *TrackPublishedVersionQuery {
+	query := (&TrackPublishedVersionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(track.Table, track.FieldID, id),
+			sqlgraph.To(trackpublishedversion.Table, trackpublishedversion.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, track.PublishedVersionsTable, track.PublishedVersionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *TrackClient) Hooks() []Hook {
+	hooks := c.hooks.Track
+	return append(hooks[:len(hooks):len(hooks)], track.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *TrackClient) Interceptors() []Interceptor {
+	return c.inters.Track
+}
+
+func (c *TrackClient) mutate(ctx context.Context, m *TrackMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&TrackCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&TrackUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&TrackUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&TrackDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Track mutation op: %q", m.Op())
+	}
+}
+
+// TrackDraftClient is a client for the TrackDraft schema.
+type TrackDraftClient struct {
+	config
+}
+
+// NewTrackDraftClient returns a client for the TrackDraft from the given config.
+func NewTrackDraftClient(c config) *TrackDraftClient {
+	return &TrackDraftClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `trackdraft.Hooks(f(g(h())))`.
+func (c *TrackDraftClient) Use(hooks ...Hook) {
+	c.hooks.TrackDraft = append(c.hooks.TrackDraft, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `trackdraft.Intercept(f(g(h())))`.
+func (c *TrackDraftClient) Intercept(interceptors ...Interceptor) {
+	c.inters.TrackDraft = append(c.inters.TrackDraft, interceptors...)
+}
+
+// Create returns a builder for creating a TrackDraft entity.
+func (c *TrackDraftClient) Create() *TrackDraftCreate {
+	mutation := newTrackDraftMutation(c.config, OpCreate)
+	return &TrackDraftCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of TrackDraft entities.
+func (c *TrackDraftClient) CreateBulk(builders ...*TrackDraftCreate) *TrackDraftCreateBulk {
+	return &TrackDraftCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *TrackDraftClient) MapCreateBulk(slice any, setFunc func(*TrackDraftCreate, int)) *TrackDraftCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &TrackDraftCreateBulk{err: fmt.Errorf("calling to TrackDraftClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*TrackDraftCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &TrackDraftCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for TrackDraft.
+func (c *TrackDraftClient) Update() *TrackDraftUpdate {
+	mutation := newTrackDraftMutation(c.config, OpUpdate)
+	return &TrackDraftUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *TrackDraftClient) UpdateOne(_m *TrackDraft) *TrackDraftUpdateOne {
+	mutation := newTrackDraftMutation(c.config, OpUpdateOne, withTrackDraft(_m))
+	return &TrackDraftUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *TrackDraftClient) UpdateOneID(id int) *TrackDraftUpdateOne {
+	mutation := newTrackDraftMutation(c.config, OpUpdateOne, withTrackDraftID(id))
+	return &TrackDraftUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for TrackDraft.
+func (c *TrackDraftClient) Delete() *TrackDraftDelete {
+	mutation := newTrackDraftMutation(c.config, OpDelete)
+	return &TrackDraftDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *TrackDraftClient) DeleteOne(_m *TrackDraft) *TrackDraftDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *TrackDraftClient) DeleteOneID(id int) *TrackDraftDeleteOne {
+	builder := c.Delete().Where(trackdraft.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &TrackDraftDeleteOne{builder}
+}
+
+// Query returns a query builder for TrackDraft.
+func (c *TrackDraftClient) Query() *TrackDraftQuery {
+	return &TrackDraftQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeTrackDraft},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a TrackDraft entity by its id.
+func (c *TrackDraftClient) Get(ctx context.Context, id int) (*TrackDraft, error) {
+	return c.Query().Where(trackdraft.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *TrackDraftClient) GetX(ctx context.Context, id int) *TrackDraft {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryTrack queries the track edge of a TrackDraft.
+func (c *TrackDraftClient) QueryTrack(_m *TrackDraft) *TrackQuery {
+	query := (&TrackClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(trackdraft.Table, trackdraft.FieldID, id),
+			sqlgraph.To(track.Table, track.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, trackdraft.TrackTable, trackdraft.TrackColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *TrackDraftClient) Hooks() []Hook {
+	hooks := c.hooks.TrackDraft
+	return append(hooks[:len(hooks):len(hooks)], trackdraft.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *TrackDraftClient) Interceptors() []Interceptor {
+	return c.inters.TrackDraft
+}
+
+func (c *TrackDraftClient) mutate(ctx context.Context, m *TrackDraftMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&TrackDraftCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&TrackDraftUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&TrackDraftUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&TrackDraftDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown TrackDraft mutation op: %q", m.Op())
+	}
+}
+
+// TrackPublishedVersionClient is a client for the TrackPublishedVersion schema.
+type TrackPublishedVersionClient struct {
+	config
+}
+
+// NewTrackPublishedVersionClient returns a client for the TrackPublishedVersion from the given config.
+func NewTrackPublishedVersionClient(c config) *TrackPublishedVersionClient {
+	return &TrackPublishedVersionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `trackpublishedversion.Hooks(f(g(h())))`.
+func (c *TrackPublishedVersionClient) Use(hooks ...Hook) {
+	c.hooks.TrackPublishedVersion = append(c.hooks.TrackPublishedVersion, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `trackpublishedversion.Intercept(f(g(h())))`.
+func (c *TrackPublishedVersionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.TrackPublishedVersion = append(c.inters.TrackPublishedVersion, interceptors...)
+}
+
+// Create returns a builder for creating a TrackPublishedVersion entity.
+func (c *TrackPublishedVersionClient) Create() *TrackPublishedVersionCreate {
+	mutation := newTrackPublishedVersionMutation(c.config, OpCreate)
+	return &TrackPublishedVersionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of TrackPublishedVersion entities.
+func (c *TrackPublishedVersionClient) CreateBulk(builders ...*TrackPublishedVersionCreate) *TrackPublishedVersionCreateBulk {
+	return &TrackPublishedVersionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *TrackPublishedVersionClient) MapCreateBulk(slice any, setFunc func(*TrackPublishedVersionCreate, int)) *TrackPublishedVersionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &TrackPublishedVersionCreateBulk{err: fmt.Errorf("calling to TrackPublishedVersionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*TrackPublishedVersionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &TrackPublishedVersionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for TrackPublishedVersion.
+func (c *TrackPublishedVersionClient) Update() *TrackPublishedVersionUpdate {
+	mutation := newTrackPublishedVersionMutation(c.config, OpUpdate)
+	return &TrackPublishedVersionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *TrackPublishedVersionClient) UpdateOne(_m *TrackPublishedVersion) *TrackPublishedVersionUpdateOne {
+	mutation := newTrackPublishedVersionMutation(c.config, OpUpdateOne, withTrackPublishedVersion(_m))
+	return &TrackPublishedVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *TrackPublishedVersionClient) UpdateOneID(id int) *TrackPublishedVersionUpdateOne {
+	mutation := newTrackPublishedVersionMutation(c.config, OpUpdateOne, withTrackPublishedVersionID(id))
+	return &TrackPublishedVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for TrackPublishedVersion.
+func (c *TrackPublishedVersionClient) Delete() *TrackPublishedVersionDelete {
+	mutation := newTrackPublishedVersionMutation(c.config, OpDelete)
+	return &TrackPublishedVersionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *TrackPublishedVersionClient) DeleteOne(_m *TrackPublishedVersion) *TrackPublishedVersionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *TrackPublishedVersionClient) DeleteOneID(id int) *TrackPublishedVersionDeleteOne {
+	builder := c.Delete().Where(trackpublishedversion.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &TrackPublishedVersionDeleteOne{builder}
+}
+
+// Query returns a query builder for TrackPublishedVersion.
+func (c *TrackPublishedVersionClient) Query() *TrackPublishedVersionQuery {
+	return &TrackPublishedVersionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeTrackPublishedVersion},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a TrackPublishedVersion entity by its id.
+func (c *TrackPublishedVersionClient) Get(ctx context.Context, id int) (*TrackPublishedVersion, error) {
+	return c.Query().Where(trackpublishedversion.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *TrackPublishedVersionClient) GetX(ctx context.Context, id int) *TrackPublishedVersion {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryTrack queries the track edge of a TrackPublishedVersion.
+func (c *TrackPublishedVersionClient) QueryTrack(_m *TrackPublishedVersion) *TrackQuery {
+	query := (&TrackClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(trackpublishedversion.Table, trackpublishedversion.FieldID, id),
+			sqlgraph.To(track.Table, track.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, trackpublishedversion.TrackTable, trackpublishedversion.TrackColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *TrackPublishedVersionClient) Hooks() []Hook {
+	hooks := c.hooks.TrackPublishedVersion
+	return append(hooks[:len(hooks):len(hooks)], trackpublishedversion.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *TrackPublishedVersionClient) Interceptors() []Interceptor {
+	return c.inters.TrackPublishedVersion
+}
+
+func (c *TrackPublishedVersionClient) mutate(ctx context.Context, m *TrackPublishedVersionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&TrackPublishedVersionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&TrackPublishedVersionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&TrackPublishedVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&TrackPublishedVersionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown TrackPublishedVersion mutation op: %q", m.Op())
+	}
+}
+
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
 		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt, Event,
 		EventGrant, Installation, Lane, LaneDraft, LanePublishedVersion, Location,
 		LocationDraft, LocationPublishedVersion, Migration, PasswordCredential,
-		Rundown []ent.Hook
+		Rundown, Track, TrackDraft, TrackPublishedVersion []ent.Hook
 	}
 	inters struct {
 		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt, Event,
 		EventGrant, Installation, Lane, LaneDraft, LanePublishedVersion, Location,
 		LocationDraft, LocationPublishedVersion, Migration, PasswordCredential,
-		Rundown []ent.Interceptor
+		Rundown, Track, TrackDraft, TrackPublishedVersion []ent.Interceptor
 	}
 )

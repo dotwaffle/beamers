@@ -15,6 +15,9 @@ import (
 	"github.com/dotwaffle/beamers/ent/locationdraft"
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
 	"github.com/dotwaffle/beamers/ent/predicate"
+	"github.com/dotwaffle/beamers/ent/track"
+	"github.com/dotwaffle/beamers/ent/trackdraft"
+	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -203,6 +206,62 @@ func filterGrantedLanePublishedVersions() privacy.QueryRule {
 	})
 }
 
+func filterGrantedTracks() privacy.QueryRule {
+	type selectorFilter interface {
+		Where(...predicate.Track) *beamersent.TrackQuery
+	}
+	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
+		ids, err := grantedEventIDs(ctx)
+		if err != nil {
+			return err
+		}
+		filter, ok := query.(selectorFilter)
+		if !ok {
+			return privacy.Denyf("unexpected Track query %T", query)
+		}
+		filter.Where(func(selector *sql.Selector) {
+			selector.Where(sql.InInts(selector.C("event_id"), ids...))
+		})
+		return privacy.Skip
+	})
+}
+
+func filterGrantedTrackDrafts() privacy.QueryRule {
+	type selectorFilter interface {
+		Where(...predicate.TrackDraft) *beamersent.TrackDraftQuery
+	}
+	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
+		ids, err := grantedEventIDs(ctx)
+		if err != nil {
+			return err
+		}
+		filter, ok := query.(selectorFilter)
+		if !ok {
+			return privacy.Denyf("unexpected Track Draft query %T", query)
+		}
+		filter.Where(trackdraft.HasTrackWith(track.EventIDIn(ids...)))
+		return privacy.Skip
+	})
+}
+
+func filterGrantedTrackPublishedVersions() privacy.QueryRule {
+	type selectorFilter interface {
+		Where(...predicate.TrackPublishedVersion) *beamersent.TrackPublishedVersionQuery
+	}
+	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
+		ids, err := grantedEventIDs(ctx)
+		if err != nil {
+			return err
+		}
+		filter, ok := query.(selectorFilter)
+		if !ok {
+			return privacy.Denyf("unexpected Published Track version query %T", query)
+		}
+		filter.Where(trackpublishedversion.HasTrackWith(track.EventIDIn(ids...)))
+		return privacy.Skip
+	})
+}
+
 func grantedEventIDs(ctx context.Context) ([]int, error) {
 	identity, _ := viewer.FromContext(ctx)
 	ids := make([]int, 0, len(identity.EventRoles))
@@ -348,6 +407,50 @@ func allowLaneOwnedMutation() privacy.MutationRule {
 
 func allowLaneOwnedCreation() privacy.MutationRule {
 	owned := allowLaneOwnedMutation()
+	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
+		if !mutation.Op().Is(ent.OpCreate) {
+			return privacy.Skip
+		}
+		return owned.EvalMutation(ctx, mutation)
+	})
+}
+
+func allowTrackOwnedMutation() privacy.MutationRule {
+	type trackOwnedMutation interface {
+		TrackID() (int, bool)
+		OldTrackID(context.Context) (int, error)
+		Client() *beamersent.Client
+	}
+	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
+		identity, _ := viewer.FromContext(ctx)
+		owned, ok := mutation.(trackOwnedMutation)
+		if !ok {
+			return privacy.Skip
+		}
+		trackID, exists := owned.TrackID()
+		if !exists {
+			var err error
+			trackID, err = owned.OldTrackID(ctx)
+			if err != nil {
+				return privacy.Denyf("read mutation Track ownership: %v", err)
+			}
+		}
+		found, err := owned.Client().Track.Get(
+			privacy.DecisionContext(ctx, privacy.Allow),
+			trackID,
+		)
+		if err != nil {
+			return privacy.Denyf("read mutation Event ownership: %v", err)
+		}
+		if identity.CanProduceEvent(found.EventID) {
+			return privacy.Allow
+		}
+		return privacy.Skip
+	})
+}
+
+func allowTrackOwnedCreation() privacy.MutationRule {
+	owned := allowTrackOwnedMutation()
 	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
 		if !mutation.Op().Is(ent.OpCreate) {
 			return privacy.Skip

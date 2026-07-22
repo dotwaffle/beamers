@@ -399,6 +399,77 @@ var (
 			},
 		},
 	}
+	// TracksColumns holds the columns for the "tracks" table.
+	TracksColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "event_id", Type: field.TypeInt},
+	}
+	// TracksTable holds the schema information for the "tracks" table.
+	TracksTable = &schema.Table{
+		Name:       "tracks",
+		Columns:    TracksColumns,
+		PrimaryKey: []*schema.Column{TracksColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "tracks_events_tracks",
+				Columns:    []*schema.Column{TracksColumns[2]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
+	// TrackDraftsColumns holds the columns for the "track_drafts" table.
+	TrackDraftsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "name", Type: field.TypeString, Size: 200},
+		{Name: "retired", Type: field.TypeBool, Default: false},
+		{Name: "track_id", Type: field.TypeInt, Unique: true},
+	}
+	// TrackDraftsTable holds the schema information for the "track_drafts" table.
+	TrackDraftsTable = &schema.Table{
+		Name:       "track_drafts",
+		Columns:    TrackDraftsColumns,
+		PrimaryKey: []*schema.Column{TrackDraftsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "track_drafts_tracks_draft",
+				Columns:    []*schema.Column{TrackDraftsColumns[3]},
+				RefColumns: []*schema.Column{TracksColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
+	// TrackPublishedVersionsColumns holds the columns for the "track_published_versions" table.
+	TrackPublishedVersionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "published_revision", Type: field.TypeInt},
+		{Name: "name", Type: field.TypeString, Size: 200},
+		{Name: "retired", Type: field.TypeBool, Default: false},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "track_id", Type: field.TypeInt},
+	}
+	// TrackPublishedVersionsTable holds the schema information for the "track_published_versions" table.
+	TrackPublishedVersionsTable = &schema.Table{
+		Name:       "track_published_versions",
+		Columns:    TrackPublishedVersionsColumns,
+		PrimaryKey: []*schema.Column{TrackPublishedVersionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "track_published_versions_tracks_published_versions",
+				Columns:    []*schema.Column{TrackPublishedVersionsColumns[5]},
+				RefColumns: []*schema.Column{TracksColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "trackpublishedversion_track_id_published_revision",
+				Unique:  true,
+				Columns: []*schema.Column{TrackPublishedVersionsColumns[5], TrackPublishedVersionsColumns[1]},
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		AccountsTable,
@@ -418,6 +489,9 @@ var (
 		BeamersSchemaMigrationsTable,
 		PasswordCredentialsTable,
 		RundownsTable,
+		TracksTable,
+		TrackDraftsTable,
+		TrackPublishedVersionsTable,
 	}
 )
 
@@ -443,4 +517,7 @@ func init() {
 	}
 	PasswordCredentialsTable.ForeignKeys[0].RefTable = AccountsTable
 	RundownsTable.ForeignKeys[0].RefTable = EventsTable
+	TracksTable.ForeignKeys[0].RefTable = EventsTable
+	TrackDraftsTable.ForeignKeys[0].RefTable = TracksTable
+	TrackPublishedVersionsTable.ForeignKeys[0].RefTable = TracksTable
 }

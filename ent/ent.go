@@ -29,6 +29,9 @@ import (
 	"github.com/dotwaffle/beamers/ent/migration"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/rundown"
+	"github.com/dotwaffle/beamers/ent/track"
+	"github.com/dotwaffle/beamers/ent/trackdraft"
+	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
 )
 
 // ent aliases to avoid import conflicts in user's code.
@@ -106,6 +109,9 @@ func checkColumn(t, c string) error {
 			migration.Table:                migration.ValidColumn,
 			passwordcredential.Table:       passwordcredential.ValidColumn,
 			rundown.Table:                  rundown.ValidColumn,
+			track.Table:                    track.ValidColumn,
+			trackdraft.Table:               trackdraft.ValidColumn,
+			trackpublishedversion.Table:    trackpublishedversion.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

@@ -95,6 +95,16 @@ func TestRundownStateStaysWithinGrantedEvents(t *testing.T) {
 			SetPublishedRevision(1).
 			SetName("Lane").
 			SaveX(ctx)
+		track := client.Track.Create().SetEventID(event.ID).SaveX(ctx)
+		client.TrackDraft.Create().
+			SetTrackID(track.ID).
+			SetName("Track").
+			SaveX(ctx)
+		client.TrackPublishedVersion.Create().
+			SetTrackID(track.ID).
+			SetPublishedRevision(1).
+			SetName("Track").
+			SaveX(ctx)
 	}
 	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
 		AccountID:  11,
@@ -109,6 +119,9 @@ func TestRundownStateStaysWithinGrantedEvents(t *testing.T) {
 		"Lanes":                       client.Lane.Query().CountX(producerContext),
 		"Lane Drafts":                 client.LaneDraft.Query().CountX(producerContext),
 		"Published Lane versions":     client.LanePublishedVersion.Query().CountX(producerContext),
+		"Tracks":                      client.Track.Query().CountX(producerContext),
+		"Track Drafts":                client.TrackDraft.Query().CountX(producerContext),
+		"Published Track versions":    client.TrackPublishedVersion.Query().CountX(producerContext),
 	} {
 		if count != 1 {
 			t.Errorf("%s visible to Producer = %d, want 1", name, count)
@@ -142,6 +155,15 @@ func TestPublishedStructuralVersionsAreAppendOnly(t *testing.T) {
 		SaveX(ctx)
 	if err := client.LanePublishedVersion.DeleteOne(laneVersion).Exec(ctx); !errors.Is(err, privacy.Deny) {
 		t.Fatalf("Published Lane deletion error = %v, want privacy denial", err)
+	}
+	track := client.Track.Create().SetEventID(event.ID).SaveX(ctx)
+	trackVersion := client.TrackPublishedVersion.Create().
+		SetTrackID(track.ID).
+		SetPublishedRevision(1).
+		SetName("Track").
+		SaveX(ctx)
+	if err := client.TrackPublishedVersion.DeleteOne(trackVersion).Exec(ctx); !errors.Is(err, privacy.Deny) {
+		t.Fatalf("Published Track deletion error = %v, want privacy denial", err)
 	}
 }
 
@@ -269,6 +291,32 @@ func TestCommittedMigrationRejectsCrossEventLanePlacement(t *testing.T) {
 		"Invalid Lane", time.Now(), lane.ID, location.ID,
 	); err == nil {
 		t.Fatal("direct cross-Event Published Lane insert succeeded, want rejection")
+	}
+}
+
+func TestTrackDraftAndPublishedStatesAreIndependent(t *testing.T) {
+	client := openEntTestClient(t)
+	ctx := viewer.SystemContext(t.Context())
+	event := createSchemaTestEvent(t, client)
+	track := client.Track.Create().SetEventID(event.ID).SaveX(ctx)
+	draft := client.TrackDraft.Create().
+		SetTrackID(track.ID).
+		SetName("Systems").
+		SaveX(ctx)
+	client.TrackPublishedVersion.Create().
+		SetTrackID(track.ID).
+		SetPublishedRevision(1).
+		SetName("Systems").
+		SaveX(ctx)
+	draft.Update().SetName("Systems Engineering").SaveX(ctx)
+
+	published := track.QueryPublishedVersions().OnlyX(ctx)
+	if published.Name != "Systems" || published.PublishedRevision != 1 {
+		t.Fatalf("Published Track = %+v, want Systems at revision 1", published)
+	}
+	updatedDraft := track.QueryDraft().OnlyX(ctx)
+	if updatedDraft.Name != "Systems Engineering" {
+		t.Fatalf("Draft Track name = %q, want Systems Engineering", updatedDraft.Name)
 	}
 }
 

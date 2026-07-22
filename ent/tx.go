@@ -46,6 +46,12 @@ type Tx struct {
 	PasswordCredential *PasswordCredentialClient
 	// Rundown is the client for interacting with the Rundown builders.
 	Rundown *RundownClient
+	// Track is the client for interacting with the Track builders.
+	Track *TrackClient
+	// TrackDraft is the client for interacting with the TrackDraft builders.
+	TrackDraft *TrackDraftClient
+	// TrackPublishedVersion is the client for interacting with the TrackPublishedVersion builders.
+	TrackPublishedVersion *TrackPublishedVersionClient
 
 	// lazily loaded.
 	client     *Client
@@ -194,6 +200,9 @@ func (tx *Tx) init() {
 	tx.Migration = NewMigrationClient(tx.config)
 	tx.PasswordCredential = NewPasswordCredentialClient(tx.config)
 	tx.Rundown = NewRundownClient(tx.config)
+	tx.Track = NewTrackClient(tx.config)
+	tx.TrackDraft = NewTrackDraftClient(tx.config)
+	tx.TrackPublishedVersion = NewTrackPublishedVersionClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

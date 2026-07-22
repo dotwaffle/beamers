@@ -16,6 +16,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/rundown"
+	"github.com/dotwaffle/beamers/ent/track"
 )
 
 // EventUpdate is the builder for updating Event entities.
@@ -220,6 +221,21 @@ func (_u *EventUpdate) AddLanes(v ...*Lane) *EventUpdate {
 	return _u.AddLaneIDs(ids...)
 }
 
+// AddTrackIDs adds the "tracks" edge to the Track entity by IDs.
+func (_u *EventUpdate) AddTrackIDs(ids ...int) *EventUpdate {
+	_u.mutation.AddTrackIDs(ids...)
+	return _u
+}
+
+// AddTracks adds the "tracks" edges to the Track entity.
+func (_u *EventUpdate) AddTracks(v ...*Track) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddTrackIDs(ids...)
+}
+
 // Mutation returns the EventMutation object of the builder.
 func (_u *EventUpdate) Mutation() *EventMutation {
 	return _u.mutation
@@ -292,6 +308,27 @@ func (_u *EventUpdate) RemoveLanes(v ...*Lane) *EventUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveLaneIDs(ids...)
+}
+
+// ClearTracks clears all "tracks" edges to the Track entity.
+func (_u *EventUpdate) ClearTracks() *EventUpdate {
+	_u.mutation.ClearTracks()
+	return _u
+}
+
+// RemoveTrackIDs removes the "tracks" edge to Track entities by IDs.
+func (_u *EventUpdate) RemoveTrackIDs(ids ...int) *EventUpdate {
+	_u.mutation.RemoveTrackIDs(ids...)
+	return _u
+}
+
+// RemoveTracks removes "tracks" edges to Track entities.
+func (_u *EventUpdate) RemoveTracks(v ...*Track) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveTrackIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -567,6 +604,51 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.TracksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.TracksTable,
+			Columns: []string{event.TracksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(track.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedTracksIDs(); len(nodes) > 0 && !_u.mutation.TracksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.TracksTable,
+			Columns: []string{event.TracksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(track.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.TracksIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.TracksTable,
+			Columns: []string{event.TracksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(track.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{event.Label}
@@ -776,6 +858,21 @@ func (_u *EventUpdateOne) AddLanes(v ...*Lane) *EventUpdateOne {
 	return _u.AddLaneIDs(ids...)
 }
 
+// AddTrackIDs adds the "tracks" edge to the Track entity by IDs.
+func (_u *EventUpdateOne) AddTrackIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.AddTrackIDs(ids...)
+	return _u
+}
+
+// AddTracks adds the "tracks" edges to the Track entity.
+func (_u *EventUpdateOne) AddTracks(v ...*Track) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddTrackIDs(ids...)
+}
+
 // Mutation returns the EventMutation object of the builder.
 func (_u *EventUpdateOne) Mutation() *EventMutation {
 	return _u.mutation
@@ -848,6 +945,27 @@ func (_u *EventUpdateOne) RemoveLanes(v ...*Lane) *EventUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveLaneIDs(ids...)
+}
+
+// ClearTracks clears all "tracks" edges to the Track entity.
+func (_u *EventUpdateOne) ClearTracks() *EventUpdateOne {
+	_u.mutation.ClearTracks()
+	return _u
+}
+
+// RemoveTrackIDs removes the "tracks" edge to Track entities by IDs.
+func (_u *EventUpdateOne) RemoveTrackIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.RemoveTrackIDs(ids...)
+	return _u
+}
+
+// RemoveTracks removes "tracks" edges to Track entities.
+func (_u *EventUpdateOne) RemoveTracks(v ...*Track) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveTrackIDs(ids...)
 }
 
 // Where appends a list predicates to the EventUpdate builder.
@@ -1146,6 +1264,51 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(lane.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.TracksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.TracksTable,
+			Columns: []string{event.TracksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(track.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedTracksIDs(); len(nodes) > 0 && !_u.mutation.TracksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.TracksTable,
+			Columns: []string{event.TracksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(track.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.TracksIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.TracksTable,
+			Columns: []string{event.TracksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(track.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

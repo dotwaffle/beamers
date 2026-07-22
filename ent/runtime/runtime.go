@@ -24,6 +24,9 @@ import (
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/schema"
+	"github.com/dotwaffle/beamers/ent/track"
+	"github.com/dotwaffle/beamers/ent/trackdraft"
+	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
 
 	"entgo.io/ent"
 	"entgo.io/ent/privacy"
@@ -738,6 +741,95 @@ func init() {
 	rundown.DefaultPublishedRevision = rundownDescPublishedRevision.Default.(int)
 	// rundown.PublishedRevisionValidator is a validator for the "published_revision" field. It is called by the builders before save.
 	rundown.PublishedRevisionValidator = rundownDescPublishedRevision.Validators[0].(func(int) error)
+	track.Policy = privacy.NewPolicies(schema.Track{})
+	track.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := track.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	trackFields := schema.Track{}.Fields()
+	_ = trackFields
+	// trackDescCreatedAt is the schema descriptor for created_at field.
+	trackDescCreatedAt := trackFields[1].Descriptor()
+	// track.DefaultCreatedAt holds the default value on creation for the created_at field.
+	track.DefaultCreatedAt = trackDescCreatedAt.Default.(func() time.Time)
+	trackdraft.Policy = privacy.NewPolicies(schema.TrackDraft{})
+	trackdraft.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := trackdraft.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	trackdraftFields := schema.TrackDraft{}.Fields()
+	_ = trackdraftFields
+	// trackdraftDescName is the schema descriptor for name field.
+	trackdraftDescName := trackdraftFields[1].Descriptor()
+	// trackdraft.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	trackdraft.NameValidator = func() func(string) error {
+		validators := trackdraftDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// trackdraftDescRetired is the schema descriptor for retired field.
+	trackdraftDescRetired := trackdraftFields[2].Descriptor()
+	// trackdraft.DefaultRetired holds the default value on creation for the retired field.
+	trackdraft.DefaultRetired = trackdraftDescRetired.Default.(bool)
+	trackpublishedversion.Policy = privacy.NewPolicies(schema.TrackPublishedVersion{})
+	trackpublishedversion.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := trackpublishedversion.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	trackpublishedversionFields := schema.TrackPublishedVersion{}.Fields()
+	_ = trackpublishedversionFields
+	// trackpublishedversionDescPublishedRevision is the schema descriptor for published_revision field.
+	trackpublishedversionDescPublishedRevision := trackpublishedversionFields[1].Descriptor()
+	// trackpublishedversion.PublishedRevisionValidator is a validator for the "published_revision" field. It is called by the builders before save.
+	trackpublishedversion.PublishedRevisionValidator = trackpublishedversionDescPublishedRevision.Validators[0].(func(int) error)
+	// trackpublishedversionDescName is the schema descriptor for name field.
+	trackpublishedversionDescName := trackpublishedversionFields[2].Descriptor()
+	// trackpublishedversion.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	trackpublishedversion.NameValidator = func() func(string) error {
+		validators := trackpublishedversionDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// trackpublishedversionDescRetired is the schema descriptor for retired field.
+	trackpublishedversionDescRetired := trackpublishedversionFields[3].Descriptor()
+	// trackpublishedversion.DefaultRetired holds the default value on creation for the retired field.
+	trackpublishedversion.DefaultRetired = trackpublishedversionDescRetired.Default.(bool)
+	// trackpublishedversionDescCreatedAt is the schema descriptor for created_at field.
+	trackpublishedversionDescCreatedAt := trackpublishedversionFields[4].Descriptor()
+	// trackpublishedversion.DefaultCreatedAt holds the default value on creation for the created_at field.
+	trackpublishedversion.DefaultCreatedAt = trackpublishedversionDescCreatedAt.Default.(func() time.Time)
 }
 
 const (

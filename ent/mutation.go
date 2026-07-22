@@ -29,6 +29,9 @@ import (
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/rundown"
+	"github.com/dotwaffle/beamers/ent/track"
+	"github.com/dotwaffle/beamers/ent/trackdraft"
+	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
 )
 
 const (
@@ -57,6 +60,9 @@ const (
 	TypeMigration                = "Migration"
 	TypePasswordCredential       = "PasswordCredential"
 	TypeRundown                  = "Rundown"
+	TypeTrack                    = "Track"
+	TypeTrackDraft               = "TrackDraft"
+	TypeTrackPublishedVersion    = "TrackPublishedVersion"
 )
 
 // AccountMutation represents an operation that mutates the Account nodes in the graph.
@@ -3623,6 +3629,9 @@ type EventMutation struct {
 	lanes              map[int]struct{}
 	removedlanes       map[int]struct{}
 	clearedlanes       bool
+	tracks             map[int]struct{}
+	removedtracks      map[int]struct{}
+	clearedtracks      bool
 	done               bool
 	oldValue           func(context.Context) (*Event, error)
 	predicates         []predicate.Event
@@ -4284,6 +4293,60 @@ func (m *EventMutation) ResetLanes() {
 	m.removedlanes = nil
 }
 
+// AddTrackIDs adds the "tracks" edge to the Track entity by ids.
+func (m *EventMutation) AddTrackIDs(ids ...int) {
+	if m.tracks == nil {
+		m.tracks = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.tracks[ids[i]] = struct{}{}
+	}
+}
+
+// ClearTracks clears the "tracks" edge to the Track entity.
+func (m *EventMutation) ClearTracks() {
+	m.clearedtracks = true
+}
+
+// TracksCleared reports if the "tracks" edge to the Track entity was cleared.
+func (m *EventMutation) TracksCleared() bool {
+	return m.clearedtracks
+}
+
+// RemoveTrackIDs removes the "tracks" edge to the Track entity by IDs.
+func (m *EventMutation) RemoveTrackIDs(ids ...int) {
+	if m.removedtracks == nil {
+		m.removedtracks = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.tracks, ids[i])
+		m.removedtracks[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedTracks returns the removed IDs of the "tracks" edge to the Track entity.
+func (m *EventMutation) RemovedTracksIDs() (ids []int) {
+	for id := range m.removedtracks {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// TracksIDs returns the "tracks" edge IDs in the mutation.
+func (m *EventMutation) TracksIDs() (ids []int) {
+	for id := range m.tracks {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetTracks resets all changes to the "tracks" edge.
+func (m *EventMutation) ResetTracks() {
+	m.tracks = nil
+	m.clearedtracks = false
+	m.removedtracks = nil
+}
+
 // Where appends a list predicates to the EventMutation builder.
 func (m *EventMutation) Where(ps ...predicate.Event) {
 	m.predicates = append(m.predicates, ps...)
@@ -4577,7 +4640,7 @@ func (m *EventMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *EventMutation) AddedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.grants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -4589,6 +4652,9 @@ func (m *EventMutation) AddedEdges() []string {
 	}
 	if m.lanes != nil {
 		edges = append(edges, event.EdgeLanes)
+	}
+	if m.tracks != nil {
+		edges = append(edges, event.EdgeTracks)
 	}
 	return edges
 }
@@ -4619,13 +4685,19 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeTracks:
+		ids := make([]ent.Value, 0, len(m.tracks))
+		for id := range m.tracks {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *EventMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.removedgrants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -4634,6 +4706,9 @@ func (m *EventMutation) RemovedEdges() []string {
 	}
 	if m.removedlanes != nil {
 		edges = append(edges, event.EdgeLanes)
+	}
+	if m.removedtracks != nil {
+		edges = append(edges, event.EdgeTracks)
 	}
 	return edges
 }
@@ -4660,13 +4735,19 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeTracks:
+		ids := make([]ent.Value, 0, len(m.removedtracks))
+		for id := range m.removedtracks {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *EventMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.clearedgrants {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -4678,6 +4759,9 @@ func (m *EventMutation) ClearedEdges() []string {
 	}
 	if m.clearedlanes {
 		edges = append(edges, event.EdgeLanes)
+	}
+	if m.clearedtracks {
+		edges = append(edges, event.EdgeTracks)
 	}
 	return edges
 }
@@ -4694,6 +4778,8 @@ func (m *EventMutation) EdgeCleared(name string) bool {
 		return m.clearedlocations
 	case event.EdgeLanes:
 		return m.clearedlanes
+	case event.EdgeTracks:
+		return m.clearedtracks
 	}
 	return false
 }
@@ -4724,6 +4810,9 @@ func (m *EventMutation) ResetEdge(name string) error {
 		return nil
 	case event.EdgeLanes:
 		m.ResetLanes()
+		return nil
+	case event.EdgeTracks:
+		m.ResetTracks()
 		return nil
 	}
 	return fmt.Errorf("unknown Event edge %s", name)
@@ -11066,4 +11155,1708 @@ func (m *RundownMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown Rundown edge %s", name)
+}
+
+// TrackMutation represents an operation that mutates the Track nodes in the graph.
+type TrackMutation struct {
+	config
+	op                        Op
+	typ                       string
+	id                        *int
+	created_at                *time.Time
+	clearedFields             map[string]struct{}
+	event                     *int
+	clearedevent              bool
+	draft                     *int
+	cleareddraft              bool
+	published_versions        map[int]struct{}
+	removedpublished_versions map[int]struct{}
+	clearedpublished_versions bool
+	done                      bool
+	oldValue                  func(context.Context) (*Track, error)
+	predicates                []predicate.Track
+}
+
+var _ ent.Mutation = (*TrackMutation)(nil)
+
+// trackOption allows management of the mutation configuration using functional options.
+type trackOption func(*TrackMutation)
+
+// newTrackMutation creates new mutation for the Track entity.
+func newTrackMutation(c config, op Op, opts ...trackOption) *TrackMutation {
+	m := &TrackMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeTrack,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withTrackID sets the ID field of the mutation.
+func withTrackID(id int) trackOption {
+	return func(m *TrackMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Track
+		)
+		m.oldValue = func(ctx context.Context) (*Track, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Track.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withTrack sets the old Track of the mutation.
+func withTrack(node *Track) trackOption {
+	return func(m *TrackMutation) {
+		m.oldValue = func(context.Context) (*Track, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m TrackMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m TrackMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *TrackMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *TrackMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Track.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetEventID sets the "event_id" field.
+func (m *TrackMutation) SetEventID(i int) {
+	m.event = &i
+}
+
+// EventID returns the value of the "event_id" field in the mutation.
+func (m *TrackMutation) EventID() (r int, exists bool) {
+	v := m.event
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventID returns the old "event_id" field's value of the Track entity.
+// If the Track object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TrackMutation) OldEventID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventID: %w", err)
+	}
+	return oldValue.EventID, nil
+}
+
+// ResetEventID resets all changes to the "event_id" field.
+func (m *TrackMutation) ResetEventID() {
+	m.event = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *TrackMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *TrackMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the Track entity.
+// If the Track object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TrackMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *TrackMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearEvent clears the "event" edge to the Event entity.
+func (m *TrackMutation) ClearEvent() {
+	m.clearedevent = true
+	m.clearedFields[track.FieldEventID] = struct{}{}
+}
+
+// EventCleared reports if the "event" edge to the Event entity was cleared.
+func (m *TrackMutation) EventCleared() bool {
+	return m.clearedevent
+}
+
+// EventIDs returns the "event" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// EventID instead. It exists only for internal usage by the builders.
+func (m *TrackMutation) EventIDs() (ids []int) {
+	if id := m.event; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetEvent resets all changes to the "event" edge.
+func (m *TrackMutation) ResetEvent() {
+	m.event = nil
+	m.clearedevent = false
+}
+
+// SetDraftID sets the "draft" edge to the TrackDraft entity by id.
+func (m *TrackMutation) SetDraftID(id int) {
+	m.draft = &id
+}
+
+// ClearDraft clears the "draft" edge to the TrackDraft entity.
+func (m *TrackMutation) ClearDraft() {
+	m.cleareddraft = true
+}
+
+// DraftCleared reports if the "draft" edge to the TrackDraft entity was cleared.
+func (m *TrackMutation) DraftCleared() bool {
+	return m.cleareddraft
+}
+
+// DraftID returns the "draft" edge ID in the mutation.
+func (m *TrackMutation) DraftID() (id int, exists bool) {
+	if m.draft != nil {
+		return *m.draft, true
+	}
+	return
+}
+
+// DraftIDs returns the "draft" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// DraftID instead. It exists only for internal usage by the builders.
+func (m *TrackMutation) DraftIDs() (ids []int) {
+	if id := m.draft; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetDraft resets all changes to the "draft" edge.
+func (m *TrackMutation) ResetDraft() {
+	m.draft = nil
+	m.cleareddraft = false
+}
+
+// AddPublishedVersionIDs adds the "published_versions" edge to the TrackPublishedVersion entity by ids.
+func (m *TrackMutation) AddPublishedVersionIDs(ids ...int) {
+	if m.published_versions == nil {
+		m.published_versions = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.published_versions[ids[i]] = struct{}{}
+	}
+}
+
+// ClearPublishedVersions clears the "published_versions" edge to the TrackPublishedVersion entity.
+func (m *TrackMutation) ClearPublishedVersions() {
+	m.clearedpublished_versions = true
+}
+
+// PublishedVersionsCleared reports if the "published_versions" edge to the TrackPublishedVersion entity was cleared.
+func (m *TrackMutation) PublishedVersionsCleared() bool {
+	return m.clearedpublished_versions
+}
+
+// RemovePublishedVersionIDs removes the "published_versions" edge to the TrackPublishedVersion entity by IDs.
+func (m *TrackMutation) RemovePublishedVersionIDs(ids ...int) {
+	if m.removedpublished_versions == nil {
+		m.removedpublished_versions = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.published_versions, ids[i])
+		m.removedpublished_versions[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedPublishedVersions returns the removed IDs of the "published_versions" edge to the TrackPublishedVersion entity.
+func (m *TrackMutation) RemovedPublishedVersionsIDs() (ids []int) {
+	for id := range m.removedpublished_versions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// PublishedVersionsIDs returns the "published_versions" edge IDs in the mutation.
+func (m *TrackMutation) PublishedVersionsIDs() (ids []int) {
+	for id := range m.published_versions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetPublishedVersions resets all changes to the "published_versions" edge.
+func (m *TrackMutation) ResetPublishedVersions() {
+	m.published_versions = nil
+	m.clearedpublished_versions = false
+	m.removedpublished_versions = nil
+}
+
+// Where appends a list predicates to the TrackMutation builder.
+func (m *TrackMutation) Where(ps ...predicate.Track) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the TrackMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *TrackMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Track, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *TrackMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *TrackMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Track).
+func (m *TrackMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *TrackMutation) Fields() []string {
+	fields := make([]string, 0, 2)
+	if m.event != nil {
+		fields = append(fields, track.FieldEventID)
+	}
+	if m.created_at != nil {
+		fields = append(fields, track.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *TrackMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case track.FieldEventID:
+		return m.EventID()
+	case track.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *TrackMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case track.FieldEventID:
+		return m.OldEventID(ctx)
+	case track.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown Track field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *TrackMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case track.FieldEventID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventID(v)
+		return nil
+	case track.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Track field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *TrackMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *TrackMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *TrackMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Track numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *TrackMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *TrackMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *TrackMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown Track nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *TrackMutation) ResetField(name string) error {
+	switch name {
+	case track.FieldEventID:
+		m.ResetEventID()
+		return nil
+	case track.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown Track field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *TrackMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.event != nil {
+		edges = append(edges, track.EdgeEvent)
+	}
+	if m.draft != nil {
+		edges = append(edges, track.EdgeDraft)
+	}
+	if m.published_versions != nil {
+		edges = append(edges, track.EdgePublishedVersions)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *TrackMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case track.EdgeEvent:
+		if id := m.event; id != nil {
+			return []ent.Value{*id}
+		}
+	case track.EdgeDraft:
+		if id := m.draft; id != nil {
+			return []ent.Value{*id}
+		}
+	case track.EdgePublishedVersions:
+		ids := make([]ent.Value, 0, len(m.published_versions))
+		for id := range m.published_versions {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *TrackMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.removedpublished_versions != nil {
+		edges = append(edges, track.EdgePublishedVersions)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *TrackMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case track.EdgePublishedVersions:
+		ids := make([]ent.Value, 0, len(m.removedpublished_versions))
+		for id := range m.removedpublished_versions {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *TrackMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.clearedevent {
+		edges = append(edges, track.EdgeEvent)
+	}
+	if m.cleareddraft {
+		edges = append(edges, track.EdgeDraft)
+	}
+	if m.clearedpublished_versions {
+		edges = append(edges, track.EdgePublishedVersions)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *TrackMutation) EdgeCleared(name string) bool {
+	switch name {
+	case track.EdgeEvent:
+		return m.clearedevent
+	case track.EdgeDraft:
+		return m.cleareddraft
+	case track.EdgePublishedVersions:
+		return m.clearedpublished_versions
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *TrackMutation) ClearEdge(name string) error {
+	switch name {
+	case track.EdgeEvent:
+		m.ClearEvent()
+		return nil
+	case track.EdgeDraft:
+		m.ClearDraft()
+		return nil
+	}
+	return fmt.Errorf("unknown Track unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *TrackMutation) ResetEdge(name string) error {
+	switch name {
+	case track.EdgeEvent:
+		m.ResetEvent()
+		return nil
+	case track.EdgeDraft:
+		m.ResetDraft()
+		return nil
+	case track.EdgePublishedVersions:
+		m.ResetPublishedVersions()
+		return nil
+	}
+	return fmt.Errorf("unknown Track edge %s", name)
+}
+
+// TrackDraftMutation represents an operation that mutates the TrackDraft nodes in the graph.
+type TrackDraftMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int
+	name          *string
+	retired       *bool
+	clearedFields map[string]struct{}
+	track         *int
+	clearedtrack  bool
+	done          bool
+	oldValue      func(context.Context) (*TrackDraft, error)
+	predicates    []predicate.TrackDraft
+}
+
+var _ ent.Mutation = (*TrackDraftMutation)(nil)
+
+// trackdraftOption allows management of the mutation configuration using functional options.
+type trackdraftOption func(*TrackDraftMutation)
+
+// newTrackDraftMutation creates new mutation for the TrackDraft entity.
+func newTrackDraftMutation(c config, op Op, opts ...trackdraftOption) *TrackDraftMutation {
+	m := &TrackDraftMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeTrackDraft,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withTrackDraftID sets the ID field of the mutation.
+func withTrackDraftID(id int) trackdraftOption {
+	return func(m *TrackDraftMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *TrackDraft
+		)
+		m.oldValue = func(ctx context.Context) (*TrackDraft, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().TrackDraft.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withTrackDraft sets the old TrackDraft of the mutation.
+func withTrackDraft(node *TrackDraft) trackdraftOption {
+	return func(m *TrackDraftMutation) {
+		m.oldValue = func(context.Context) (*TrackDraft, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m TrackDraftMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m TrackDraftMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *TrackDraftMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *TrackDraftMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().TrackDraft.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetTrackID sets the "track_id" field.
+func (m *TrackDraftMutation) SetTrackID(i int) {
+	m.track = &i
+}
+
+// TrackID returns the value of the "track_id" field in the mutation.
+func (m *TrackDraftMutation) TrackID() (r int, exists bool) {
+	v := m.track
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTrackID returns the old "track_id" field's value of the TrackDraft entity.
+// If the TrackDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TrackDraftMutation) OldTrackID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTrackID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTrackID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTrackID: %w", err)
+	}
+	return oldValue.TrackID, nil
+}
+
+// ResetTrackID resets all changes to the "track_id" field.
+func (m *TrackDraftMutation) ResetTrackID() {
+	m.track = nil
+}
+
+// SetName sets the "name" field.
+func (m *TrackDraftMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *TrackDraftMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the TrackDraft entity.
+// If the TrackDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TrackDraftMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *TrackDraftMutation) ResetName() {
+	m.name = nil
+}
+
+// SetRetired sets the "retired" field.
+func (m *TrackDraftMutation) SetRetired(b bool) {
+	m.retired = &b
+}
+
+// Retired returns the value of the "retired" field in the mutation.
+func (m *TrackDraftMutation) Retired() (r bool, exists bool) {
+	v := m.retired
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRetired returns the old "retired" field's value of the TrackDraft entity.
+// If the TrackDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TrackDraftMutation) OldRetired(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRetired is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRetired requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRetired: %w", err)
+	}
+	return oldValue.Retired, nil
+}
+
+// ResetRetired resets all changes to the "retired" field.
+func (m *TrackDraftMutation) ResetRetired() {
+	m.retired = nil
+}
+
+// ClearTrack clears the "track" edge to the Track entity.
+func (m *TrackDraftMutation) ClearTrack() {
+	m.clearedtrack = true
+	m.clearedFields[trackdraft.FieldTrackID] = struct{}{}
+}
+
+// TrackCleared reports if the "track" edge to the Track entity was cleared.
+func (m *TrackDraftMutation) TrackCleared() bool {
+	return m.clearedtrack
+}
+
+// TrackIDs returns the "track" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// TrackID instead. It exists only for internal usage by the builders.
+func (m *TrackDraftMutation) TrackIDs() (ids []int) {
+	if id := m.track; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetTrack resets all changes to the "track" edge.
+func (m *TrackDraftMutation) ResetTrack() {
+	m.track = nil
+	m.clearedtrack = false
+}
+
+// Where appends a list predicates to the TrackDraftMutation builder.
+func (m *TrackDraftMutation) Where(ps ...predicate.TrackDraft) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the TrackDraftMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *TrackDraftMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.TrackDraft, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *TrackDraftMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *TrackDraftMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (TrackDraft).
+func (m *TrackDraftMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *TrackDraftMutation) Fields() []string {
+	fields := make([]string, 0, 3)
+	if m.track != nil {
+		fields = append(fields, trackdraft.FieldTrackID)
+	}
+	if m.name != nil {
+		fields = append(fields, trackdraft.FieldName)
+	}
+	if m.retired != nil {
+		fields = append(fields, trackdraft.FieldRetired)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *TrackDraftMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case trackdraft.FieldTrackID:
+		return m.TrackID()
+	case trackdraft.FieldName:
+		return m.Name()
+	case trackdraft.FieldRetired:
+		return m.Retired()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *TrackDraftMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case trackdraft.FieldTrackID:
+		return m.OldTrackID(ctx)
+	case trackdraft.FieldName:
+		return m.OldName(ctx)
+	case trackdraft.FieldRetired:
+		return m.OldRetired(ctx)
+	}
+	return nil, fmt.Errorf("unknown TrackDraft field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *TrackDraftMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case trackdraft.FieldTrackID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTrackID(v)
+		return nil
+	case trackdraft.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case trackdraft.FieldRetired:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRetired(v)
+		return nil
+	}
+	return fmt.Errorf("unknown TrackDraft field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *TrackDraftMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *TrackDraftMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *TrackDraftMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown TrackDraft numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *TrackDraftMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *TrackDraftMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *TrackDraftMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown TrackDraft nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *TrackDraftMutation) ResetField(name string) error {
+	switch name {
+	case trackdraft.FieldTrackID:
+		m.ResetTrackID()
+		return nil
+	case trackdraft.FieldName:
+		m.ResetName()
+		return nil
+	case trackdraft.FieldRetired:
+		m.ResetRetired()
+		return nil
+	}
+	return fmt.Errorf("unknown TrackDraft field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *TrackDraftMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.track != nil {
+		edges = append(edges, trackdraft.EdgeTrack)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *TrackDraftMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case trackdraft.EdgeTrack:
+		if id := m.track; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *TrackDraftMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *TrackDraftMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *TrackDraftMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedtrack {
+		edges = append(edges, trackdraft.EdgeTrack)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *TrackDraftMutation) EdgeCleared(name string) bool {
+	switch name {
+	case trackdraft.EdgeTrack:
+		return m.clearedtrack
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *TrackDraftMutation) ClearEdge(name string) error {
+	switch name {
+	case trackdraft.EdgeTrack:
+		m.ClearTrack()
+		return nil
+	}
+	return fmt.Errorf("unknown TrackDraft unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *TrackDraftMutation) ResetEdge(name string) error {
+	switch name {
+	case trackdraft.EdgeTrack:
+		m.ResetTrack()
+		return nil
+	}
+	return fmt.Errorf("unknown TrackDraft edge %s", name)
+}
+
+// TrackPublishedVersionMutation represents an operation that mutates the TrackPublishedVersion nodes in the graph.
+type TrackPublishedVersionMutation struct {
+	config
+	op                    Op
+	typ                   string
+	id                    *int
+	published_revision    *int
+	addpublished_revision *int
+	name                  *string
+	retired               *bool
+	created_at            *time.Time
+	clearedFields         map[string]struct{}
+	track                 *int
+	clearedtrack          bool
+	done                  bool
+	oldValue              func(context.Context) (*TrackPublishedVersion, error)
+	predicates            []predicate.TrackPublishedVersion
+}
+
+var _ ent.Mutation = (*TrackPublishedVersionMutation)(nil)
+
+// trackpublishedversionOption allows management of the mutation configuration using functional options.
+type trackpublishedversionOption func(*TrackPublishedVersionMutation)
+
+// newTrackPublishedVersionMutation creates new mutation for the TrackPublishedVersion entity.
+func newTrackPublishedVersionMutation(c config, op Op, opts ...trackpublishedversionOption) *TrackPublishedVersionMutation {
+	m := &TrackPublishedVersionMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeTrackPublishedVersion,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withTrackPublishedVersionID sets the ID field of the mutation.
+func withTrackPublishedVersionID(id int) trackpublishedversionOption {
+	return func(m *TrackPublishedVersionMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *TrackPublishedVersion
+		)
+		m.oldValue = func(ctx context.Context) (*TrackPublishedVersion, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().TrackPublishedVersion.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withTrackPublishedVersion sets the old TrackPublishedVersion of the mutation.
+func withTrackPublishedVersion(node *TrackPublishedVersion) trackpublishedversionOption {
+	return func(m *TrackPublishedVersionMutation) {
+		m.oldValue = func(context.Context) (*TrackPublishedVersion, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m TrackPublishedVersionMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m TrackPublishedVersionMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *TrackPublishedVersionMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *TrackPublishedVersionMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().TrackPublishedVersion.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetTrackID sets the "track_id" field.
+func (m *TrackPublishedVersionMutation) SetTrackID(i int) {
+	m.track = &i
+}
+
+// TrackID returns the value of the "track_id" field in the mutation.
+func (m *TrackPublishedVersionMutation) TrackID() (r int, exists bool) {
+	v := m.track
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTrackID returns the old "track_id" field's value of the TrackPublishedVersion entity.
+// If the TrackPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TrackPublishedVersionMutation) OldTrackID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTrackID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTrackID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTrackID: %w", err)
+	}
+	return oldValue.TrackID, nil
+}
+
+// ResetTrackID resets all changes to the "track_id" field.
+func (m *TrackPublishedVersionMutation) ResetTrackID() {
+	m.track = nil
+}
+
+// SetPublishedRevision sets the "published_revision" field.
+func (m *TrackPublishedVersionMutation) SetPublishedRevision(i int) {
+	m.published_revision = &i
+	m.addpublished_revision = nil
+}
+
+// PublishedRevision returns the value of the "published_revision" field in the mutation.
+func (m *TrackPublishedVersionMutation) PublishedRevision() (r int, exists bool) {
+	v := m.published_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublishedRevision returns the old "published_revision" field's value of the TrackPublishedVersion entity.
+// If the TrackPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TrackPublishedVersionMutation) OldPublishedRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublishedRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublishedRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublishedRevision: %w", err)
+	}
+	return oldValue.PublishedRevision, nil
+}
+
+// AddPublishedRevision adds i to the "published_revision" field.
+func (m *TrackPublishedVersionMutation) AddPublishedRevision(i int) {
+	if m.addpublished_revision != nil {
+		*m.addpublished_revision += i
+	} else {
+		m.addpublished_revision = &i
+	}
+}
+
+// AddedPublishedRevision returns the value that was added to the "published_revision" field in this mutation.
+func (m *TrackPublishedVersionMutation) AddedPublishedRevision() (r int, exists bool) {
+	v := m.addpublished_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPublishedRevision resets all changes to the "published_revision" field.
+func (m *TrackPublishedVersionMutation) ResetPublishedRevision() {
+	m.published_revision = nil
+	m.addpublished_revision = nil
+}
+
+// SetName sets the "name" field.
+func (m *TrackPublishedVersionMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *TrackPublishedVersionMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the TrackPublishedVersion entity.
+// If the TrackPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TrackPublishedVersionMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *TrackPublishedVersionMutation) ResetName() {
+	m.name = nil
+}
+
+// SetRetired sets the "retired" field.
+func (m *TrackPublishedVersionMutation) SetRetired(b bool) {
+	m.retired = &b
+}
+
+// Retired returns the value of the "retired" field in the mutation.
+func (m *TrackPublishedVersionMutation) Retired() (r bool, exists bool) {
+	v := m.retired
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRetired returns the old "retired" field's value of the TrackPublishedVersion entity.
+// If the TrackPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TrackPublishedVersionMutation) OldRetired(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRetired is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRetired requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRetired: %w", err)
+	}
+	return oldValue.Retired, nil
+}
+
+// ResetRetired resets all changes to the "retired" field.
+func (m *TrackPublishedVersionMutation) ResetRetired() {
+	m.retired = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *TrackPublishedVersionMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *TrackPublishedVersionMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the TrackPublishedVersion entity.
+// If the TrackPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TrackPublishedVersionMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *TrackPublishedVersionMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearTrack clears the "track" edge to the Track entity.
+func (m *TrackPublishedVersionMutation) ClearTrack() {
+	m.clearedtrack = true
+	m.clearedFields[trackpublishedversion.FieldTrackID] = struct{}{}
+}
+
+// TrackCleared reports if the "track" edge to the Track entity was cleared.
+func (m *TrackPublishedVersionMutation) TrackCleared() bool {
+	return m.clearedtrack
+}
+
+// TrackIDs returns the "track" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// TrackID instead. It exists only for internal usage by the builders.
+func (m *TrackPublishedVersionMutation) TrackIDs() (ids []int) {
+	if id := m.track; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetTrack resets all changes to the "track" edge.
+func (m *TrackPublishedVersionMutation) ResetTrack() {
+	m.track = nil
+	m.clearedtrack = false
+}
+
+// Where appends a list predicates to the TrackPublishedVersionMutation builder.
+func (m *TrackPublishedVersionMutation) Where(ps ...predicate.TrackPublishedVersion) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the TrackPublishedVersionMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *TrackPublishedVersionMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.TrackPublishedVersion, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *TrackPublishedVersionMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *TrackPublishedVersionMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (TrackPublishedVersion).
+func (m *TrackPublishedVersionMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *TrackPublishedVersionMutation) Fields() []string {
+	fields := make([]string, 0, 5)
+	if m.track != nil {
+		fields = append(fields, trackpublishedversion.FieldTrackID)
+	}
+	if m.published_revision != nil {
+		fields = append(fields, trackpublishedversion.FieldPublishedRevision)
+	}
+	if m.name != nil {
+		fields = append(fields, trackpublishedversion.FieldName)
+	}
+	if m.retired != nil {
+		fields = append(fields, trackpublishedversion.FieldRetired)
+	}
+	if m.created_at != nil {
+		fields = append(fields, trackpublishedversion.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *TrackPublishedVersionMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case trackpublishedversion.FieldTrackID:
+		return m.TrackID()
+	case trackpublishedversion.FieldPublishedRevision:
+		return m.PublishedRevision()
+	case trackpublishedversion.FieldName:
+		return m.Name()
+	case trackpublishedversion.FieldRetired:
+		return m.Retired()
+	case trackpublishedversion.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *TrackPublishedVersionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case trackpublishedversion.FieldTrackID:
+		return m.OldTrackID(ctx)
+	case trackpublishedversion.FieldPublishedRevision:
+		return m.OldPublishedRevision(ctx)
+	case trackpublishedversion.FieldName:
+		return m.OldName(ctx)
+	case trackpublishedversion.FieldRetired:
+		return m.OldRetired(ctx)
+	case trackpublishedversion.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown TrackPublishedVersion field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *TrackPublishedVersionMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case trackpublishedversion.FieldTrackID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTrackID(v)
+		return nil
+	case trackpublishedversion.FieldPublishedRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublishedRevision(v)
+		return nil
+	case trackpublishedversion.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case trackpublishedversion.FieldRetired:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRetired(v)
+		return nil
+	case trackpublishedversion.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown TrackPublishedVersion field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *TrackPublishedVersionMutation) AddedFields() []string {
+	var fields []string
+	if m.addpublished_revision != nil {
+		fields = append(fields, trackpublishedversion.FieldPublishedRevision)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *TrackPublishedVersionMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case trackpublishedversion.FieldPublishedRevision:
+		return m.AddedPublishedRevision()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *TrackPublishedVersionMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case trackpublishedversion.FieldPublishedRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPublishedRevision(v)
+		return nil
+	}
+	return fmt.Errorf("unknown TrackPublishedVersion numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *TrackPublishedVersionMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *TrackPublishedVersionMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *TrackPublishedVersionMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown TrackPublishedVersion nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *TrackPublishedVersionMutation) ResetField(name string) error {
+	switch name {
+	case trackpublishedversion.FieldTrackID:
+		m.ResetTrackID()
+		return nil
+	case trackpublishedversion.FieldPublishedRevision:
+		m.ResetPublishedRevision()
+		return nil
+	case trackpublishedversion.FieldName:
+		m.ResetName()
+		return nil
+	case trackpublishedversion.FieldRetired:
+		m.ResetRetired()
+		return nil
+	case trackpublishedversion.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown TrackPublishedVersion field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *TrackPublishedVersionMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.track != nil {
+		edges = append(edges, trackpublishedversion.EdgeTrack)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *TrackPublishedVersionMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case trackpublishedversion.EdgeTrack:
+		if id := m.track; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *TrackPublishedVersionMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *TrackPublishedVersionMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *TrackPublishedVersionMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedtrack {
+		edges = append(edges, trackpublishedversion.EdgeTrack)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *TrackPublishedVersionMutation) EdgeCleared(name string) bool {
+	switch name {
+	case trackpublishedversion.EdgeTrack:
+		return m.clearedtrack
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *TrackPublishedVersionMutation) ClearEdge(name string) error {
+	switch name {
+	case trackpublishedversion.EdgeTrack:
+		m.ClearTrack()
+		return nil
+	}
+	return fmt.Errorf("unknown TrackPublishedVersion unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *TrackPublishedVersionMutation) ResetEdge(name string) error {
+	switch name {
+	case trackpublishedversion.EdgeTrack:
+		m.ResetTrack()
+		return nil
+	}
+	return fmt.Errorf("unknown TrackPublishedVersion edge %s", name)
 }
