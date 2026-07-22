@@ -3,6 +3,7 @@ package rundownconnect
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"math"
 	"net/http"
@@ -15,10 +16,13 @@ import (
 	rundownv1 "github.com/dotwaffle/beamers/gen/beamers/rundown/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/rundown/v1/rundownv1connect"
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/rundown"
 )
 
 const sessionCookieName = "beamers_session"
+
+const requestIDHeader = "X-Request-ID"
 
 type actorContextKey struct{}
 
@@ -47,6 +51,129 @@ func AuthenticationInterceptor(authentication *auth.Service) (connect.Intercepto
 
 type authenticationInterceptor struct {
 	authentication *auth.Service
+}
+
+// RequestIDInterceptor validates or creates one request correlation identifier.
+func RequestIDInterceptor() connect.Interceptor {
+	return requestIDInterceptor{}
+}
+
+type requestIDInterceptor struct{}
+
+func (requestIDInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
+	return func(ctx context.Context, request connect.AnyRequest) (connect.AnyResponse, error) {
+		requestID := request.Header().Get(requestIDHeader)
+		if requestID == "" {
+			requestID = rand.Text()
+		} else if err := command.ValidateID(requestID); err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid request ID"))
+		}
+		response, err := next(ctx, request)
+		if response != nil {
+			response.Header().Set(requestIDHeader, requestID)
+		}
+		var connectErr *connect.Error
+		if errors.As(err, &connectErr) {
+			connectErr.Meta().Set(requestIDHeader, requestID)
+		}
+		return response, err
+	}
+}
+
+func (requestIDInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return next
+}
+
+func (requestIDInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return next
+}
+
+// ErrorInterceptor translates domain classifications into stable Connect codes.
+func ErrorInterceptor() connect.Interceptor {
+	return errorInterceptor{}
+}
+
+type errorInterceptor struct{}
+
+func (errorInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
+	return func(ctx context.Context, request connect.AnyRequest) (connect.AnyResponse, error) {
+		response, err := next(ctx, request)
+		if err == nil {
+			return response, nil
+		}
+		var connectErr *connect.Error
+		if errors.As(err, &connectErr) {
+			return response, err
+		}
+		return response, connectError(err)
+	}
+}
+
+func (errorInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return next
+}
+
+func (errorInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return next
+}
+
+// ValidationInterceptor rejects malformed protobuf shapes before application dispatch.
+func ValidationInterceptor() connect.Interceptor {
+	return validationInterceptor{}
+}
+
+type validationInterceptor struct{}
+
+func (validationInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
+	return func(ctx context.Context, request connect.AnyRequest) (connect.AnyResponse, error) {
+		if err := validateTransportRequest(request.Any()); err != nil {
+			return nil, invalidArgument(err)
+		}
+		return next(ctx, request)
+	}
+}
+
+func (validationInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return next
+}
+
+func (validationInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return next
+}
+
+func validateTransportRequest(message any) error {
+	switch typed := message.(type) {
+	case *rundownv1.EditDraftRequest:
+		_, err := editDraftInput(typed)
+		return err
+	case *rundownv1.PublishPreviewRequest:
+		if _, err := positiveInt64("event_id", typed.GetEventId()); err != nil {
+			return err
+		}
+		_, err := ints64("change_ids", typed.GetChangeIds())
+		return err
+	case *rundownv1.PublishRequest:
+		if _, err := positiveInt64("event_id", typed.GetEventId()); err != nil {
+			return err
+		}
+		confirmation := typed.GetConfirmation()
+		if confirmation == nil {
+			return errors.New("confirmation is required")
+		}
+		if _, err := nonnegativeInt64("confirmation.draft_revision", confirmation.GetDraftRevision()); err != nil {
+			return err
+		}
+		if _, err := nonnegativeInt64("confirmation.published_revision", confirmation.GetPublishedRevision()); err != nil {
+			return err
+		}
+		_, err := ints64("confirmation.change_ids", confirmation.GetChangeIds())
+		return err
+	case *rundownv1.GetCrewRundownRequest:
+		_, err := positiveInt64("event_id", typed.GetEventId())
+		return err
+	default:
+		return errors.New("unsupported Rundown request")
+	}
 }
 
 func (interceptor *authenticationInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
@@ -97,7 +224,7 @@ func (handler *Handler) EditDraft(
 	}
 	result, err := handler.commands.EditDraft(ctx, actor, input)
 	if err != nil {
-		return nil, connectError(err)
+		return nil, err
 	}
 	response := &rundownv1.EditDraftResponse{DraftRevision: int64(result.DraftRevision)}
 	for _, change := range result.Changes {
@@ -127,7 +254,7 @@ func (handler *Handler) PublishPreview(
 		EventID: eventID, ChangeIDs: changeIDs,
 	})
 	if err != nil {
-		return nil, connectError(err)
+		return nil, err
 	}
 	response := &rundownv1.PublishPreviewResponse{
 		DraftRevision: int64(preview.DraftRevision), PublishedRevision: int64(preview.PublishedRevision),
@@ -178,7 +305,7 @@ func (handler *Handler) Publish(
 		},
 	})
 	if err != nil {
-		return nil, connectError(err)
+		return nil, err
 	}
 	return connect.NewResponse(&rundownv1.PublishResponse{
 		DraftRevision: int64(result.DraftRevision), PublishedRevision: int64(result.PublishedRevision),
@@ -201,7 +328,7 @@ func (handler *Handler) GetCrewRundown(
 	}
 	projection, err := handler.queries.CrewRundown(ctx, actor, eventID)
 	if err != nil {
-		return nil, connectError(err)
+		return nil, err
 	}
 	return connect.NewResponse(crewRundown(projection)), nil
 }

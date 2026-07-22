@@ -56,7 +56,14 @@ func TestRundownHandlerTracer(t *testing.T) {
 	}
 	mux := http.NewServeMux()
 	mux.Handle(rundownv1connect.NewRundownServiceHandler(
-		adapter, connect.WithInterceptors(telemetryInterceptor, interceptor),
+		adapter,
+		connect.WithInterceptors(
+			telemetryInterceptor,
+			rundownconnect.RequestIDInterceptor(),
+			rundownconnect.ErrorInterceptor(),
+			interceptor,
+			rundownconnect.ValidationInterceptor(),
+		),
 	))
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
@@ -88,6 +95,9 @@ func TestRundownHandlerTracer(t *testing.T) {
 	}
 	if len(edited.Msg.GetChanges()) != 3 {
 		t.Fatalf("EditDraft changes = %d, want 3", len(edited.Msg.GetChanges()))
+	}
+	if edited.Header().Get("X-Request-ID") == "" {
+		t.Fatal("EditDraft response has no request ID")
 	}
 	sessionChangeID := edited.Msg.GetChanges()[2].GetId()
 	previewRequest := connect.NewRequest(&rundownv1.PublishPreviewRequest{

@@ -52,7 +52,13 @@ func registerRundownRoutes(
 	}
 	path, handler := rundownv1connect.NewRundownServiceHandler(
 		adapter,
-		connect.WithInterceptors(telemetryInterceptor, authenticationInterceptor),
+		connect.WithInterceptors(
+			telemetryInterceptor,
+			rundownconnect.RequestIDInterceptor(),
+			rundownconnect.ErrorInterceptor(),
+			authenticationInterceptor,
+			rundownconnect.ValidationInterceptor(),
+		),
 	)
 	allowPlaintextCrew := listenerIsLoopback(listenerAddress)
 	mux.Handle(path, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
