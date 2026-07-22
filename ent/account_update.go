@@ -15,6 +15,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/predicate"
@@ -146,6 +147,21 @@ func (_u *AccountUpdate) AddCommandReceipts(v ...*CommandReceipt) *AccountUpdate
 	return _u.AddCommandReceiptIDs(ids...)
 }
 
+// AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by IDs.
+func (_u *AccountUpdate) AddDraftEditIDs(ids ...int) *AccountUpdate {
+	_u.mutation.AddDraftEditIDs(ids...)
+	return _u
+}
+
+// AddDraftEdits adds the "draft_edits" edges to the DraftEdit entity.
+func (_u *AccountUpdate) AddDraftEdits(v ...*DraftEdit) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDraftEditIDs(ids...)
+}
+
 // Mutation returns the AccountMutation object of the builder.
 func (_u *AccountUpdate) Mutation() *AccountMutation {
 	return _u.mutation
@@ -239,6 +255,27 @@ func (_u *AccountUpdate) RemoveCommandReceipts(v ...*CommandReceipt) *AccountUpd
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveCommandReceiptIDs(ids...)
+}
+
+// ClearDraftEdits clears all "draft_edits" edges to the DraftEdit entity.
+func (_u *AccountUpdate) ClearDraftEdits() *AccountUpdate {
+	_u.mutation.ClearDraftEdits()
+	return _u
+}
+
+// RemoveDraftEditIDs removes the "draft_edits" edge to DraftEdit entities by IDs.
+func (_u *AccountUpdate) RemoveDraftEditIDs(ids ...int) *AccountUpdate {
+	_u.mutation.RemoveDraftEditIDs(ids...)
+	return _u
+}
+
+// RemoveDraftEdits removes "draft_edits" edges to DraftEdit entities.
+func (_u *AccountUpdate) RemoveDraftEdits(v ...*DraftEdit) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDraftEditIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -508,6 +545,51 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.DraftEditsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.DraftEditsTable,
+			Columns: []string{account.DraftEditsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(draftedit.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDraftEditsIDs(); len(nodes) > 0 && !_u.mutation.DraftEditsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.DraftEditsTable,
+			Columns: []string{account.DraftEditsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(draftedit.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DraftEditsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.DraftEditsTable,
+			Columns: []string{account.DraftEditsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(draftedit.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{account.Label}
@@ -641,6 +723,21 @@ func (_u *AccountUpdateOne) AddCommandReceipts(v ...*CommandReceipt) *AccountUpd
 	return _u.AddCommandReceiptIDs(ids...)
 }
 
+// AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by IDs.
+func (_u *AccountUpdateOne) AddDraftEditIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.AddDraftEditIDs(ids...)
+	return _u
+}
+
+// AddDraftEdits adds the "draft_edits" edges to the DraftEdit entity.
+func (_u *AccountUpdateOne) AddDraftEdits(v ...*DraftEdit) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDraftEditIDs(ids...)
+}
+
 // Mutation returns the AccountMutation object of the builder.
 func (_u *AccountUpdateOne) Mutation() *AccountMutation {
 	return _u.mutation
@@ -734,6 +831,27 @@ func (_u *AccountUpdateOne) RemoveCommandReceipts(v ...*CommandReceipt) *Account
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveCommandReceiptIDs(ids...)
+}
+
+// ClearDraftEdits clears all "draft_edits" edges to the DraftEdit entity.
+func (_u *AccountUpdateOne) ClearDraftEdits() *AccountUpdateOne {
+	_u.mutation.ClearDraftEdits()
+	return _u
+}
+
+// RemoveDraftEditIDs removes the "draft_edits" edge to DraftEdit entities by IDs.
+func (_u *AccountUpdateOne) RemoveDraftEditIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.RemoveDraftEditIDs(ids...)
+	return _u
+}
+
+// RemoveDraftEdits removes "draft_edits" edges to DraftEdit entities.
+func (_u *AccountUpdateOne) RemoveDraftEdits(v ...*DraftEdit) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDraftEditIDs(ids...)
 }
 
 // Where appends a list predicates to the AccountUpdate builder.
@@ -1026,6 +1144,51 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(commandreceipt.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DraftEditsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.DraftEditsTable,
+			Columns: []string{account.DraftEditsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(draftedit.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDraftEditsIDs(); len(nodes) > 0 && !_u.mutation.DraftEditsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.DraftEditsTable,
+			Columns: []string{account.DraftEditsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(draftedit.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DraftEditsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.DraftEditsTable,
+			Columns: []string{account.DraftEditsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(draftedit.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

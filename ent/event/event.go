@@ -45,6 +45,10 @@ const (
 	EdgeTracks = "tracks"
 	// EdgeSessions holds the string denoting the sessions edge name in mutations.
 	EdgeSessions = "sessions"
+	// EdgeDraftEdits holds the string denoting the draft_edits edge name in mutations.
+	EdgeDraftEdits = "draft_edits"
+	// EdgeDraftChanges holds the string denoting the draft_changes edge name in mutations.
+	EdgeDraftChanges = "draft_changes"
 	// Table holds the table name of the event in the database.
 	Table = "events"
 	// GrantsTable is the table that holds the grants relation/edge.
@@ -89,6 +93,20 @@ const (
 	SessionsInverseTable = "sessions"
 	// SessionsColumn is the table column denoting the sessions relation/edge.
 	SessionsColumn = "event_id"
+	// DraftEditsTable is the table that holds the draft_edits relation/edge.
+	DraftEditsTable = "draft_edits"
+	// DraftEditsInverseTable is the table name for the DraftEdit entity.
+	// It exists in this package in order to avoid circular dependency with the "draftedit" package.
+	DraftEditsInverseTable = "draft_edits"
+	// DraftEditsColumn is the table column denoting the draft_edits relation/edge.
+	DraftEditsColumn = "event_id"
+	// DraftChangesTable is the table that holds the draft_changes relation/edge.
+	DraftChangesTable = "draft_changes"
+	// DraftChangesInverseTable is the table name for the DraftChange entity.
+	// It exists in this package in order to avoid circular dependency with the "draftchange" package.
+	DraftChangesInverseTable = "draft_changes"
+	// DraftChangesColumn is the table column denoting the draft_changes relation/edge.
+	DraftChangesColumn = "event_id"
 )
 
 // Columns holds all SQL columns for event fields.
@@ -272,6 +290,34 @@ func BySessions(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newSessionsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByDraftEditsCount orders the results by draft_edits count.
+func ByDraftEditsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newDraftEditsStep(), opts...)
+	}
+}
+
+// ByDraftEdits orders the results by draft_edits terms.
+func ByDraftEdits(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newDraftEditsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByDraftChangesCount orders the results by draft_changes count.
+func ByDraftChangesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newDraftChangesStep(), opts...)
+	}
+}
+
+// ByDraftChanges orders the results by draft_changes terms.
+func ByDraftChanges(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newDraftChangesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newGrantsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -312,5 +358,19 @@ func newSessionsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(SessionsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, SessionsTable, SessionsColumn),
+	)
+}
+func newDraftEditsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(DraftEditsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, DraftEditsTable, DraftEditsColumn),
+	)
+}
+func newDraftChangesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(DraftChangesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, DraftChangesTable, DraftChangesColumn),
 	)
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 )
@@ -148,6 +149,21 @@ func (_c *AccountCreate) AddCommandReceipts(v ...*CommandReceipt) *AccountCreate
 		ids[i] = v[i].ID
 	}
 	return _c.AddCommandReceiptIDs(ids...)
+}
+
+// AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by IDs.
+func (_c *AccountCreate) AddDraftEditIDs(ids ...int) *AccountCreate {
+	_c.mutation.AddDraftEditIDs(ids...)
+	return _c
+}
+
+// AddDraftEdits adds the "draft_edits" edges to the DraftEdit entity.
+func (_c *AccountCreate) AddDraftEdits(v ...*DraftEdit) *AccountCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddDraftEditIDs(ids...)
 }
 
 // Mutation returns the AccountMutation object of the builder.
@@ -340,6 +356,22 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(commandreceipt.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.DraftEditsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.DraftEditsTable,
+			Columns: []string{account.DraftEditsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(draftedit.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

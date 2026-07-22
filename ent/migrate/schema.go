@@ -111,6 +111,121 @@ var (
 			},
 		},
 	}
+	// DraftChangesColumns holds the columns for the "draft_changes" table.
+	DraftChangesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "revision", Type: field.TypeInt},
+		{Name: "kind", Type: field.TypeString, Size: 100},
+		{Name: "target_type", Type: field.TypeString, Size: 100},
+		{Name: "target_id", Type: field.TypeInt},
+		{Name: "fact_key", Type: field.TypeString, Size: 200},
+		{Name: "payload_json", Type: field.TypeString},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"Effective", "Published"}, Default: "Effective"},
+		{Name: "published_revision", Type: field.TypeInt, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "draft_edit_id", Type: field.TypeInt},
+		{Name: "event_id", Type: field.TypeInt},
+	}
+	// DraftChangesTable holds the schema information for the "draft_changes" table.
+	DraftChangesTable = &schema.Table{
+		Name:       "draft_changes",
+		Columns:    DraftChangesColumns,
+		PrimaryKey: []*schema.Column{DraftChangesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "draft_changes_draft_edits_changes",
+				Columns:    []*schema.Column{DraftChangesColumns[10]},
+				RefColumns: []*schema.Column{DraftEditsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "draft_changes_events_draft_changes",
+				Columns:    []*schema.Column{DraftChangesColumns[11]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "draftchange_event_id_revision",
+				Unique:  false,
+				Columns: []*schema.Column{DraftChangesColumns[11], DraftChangesColumns[1]},
+			},
+			{
+				Name:    "draftchange_event_id_target_type_target_id_fact_key_status",
+				Unique:  false,
+				Columns: []*schema.Column{DraftChangesColumns[11], DraftChangesColumns[3], DraftChangesColumns[4], DraftChangesColumns[5], DraftChangesColumns[7]},
+			},
+		},
+	}
+	// DraftChangeDependenciesColumns holds the columns for the "draft_change_dependencies" table.
+	DraftChangeDependenciesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "change_id", Type: field.TypeInt},
+		{Name: "depends_on_id", Type: field.TypeInt},
+	}
+	// DraftChangeDependenciesTable holds the schema information for the "draft_change_dependencies" table.
+	DraftChangeDependenciesTable = &schema.Table{
+		Name:       "draft_change_dependencies",
+		Columns:    DraftChangeDependenciesColumns,
+		PrimaryKey: []*schema.Column{DraftChangeDependenciesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "draft_change_dependencies_draft_changes_dependencies",
+				Columns:    []*schema.Column{DraftChangeDependenciesColumns[1]},
+				RefColumns: []*schema.Column{DraftChangesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "draft_change_dependencies_draft_changes_dependents",
+				Columns:    []*schema.Column{DraftChangeDependenciesColumns[2]},
+				RefColumns: []*schema.Column{DraftChangesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "draftchangedependency_change_id_depends_on_id",
+				Unique:  true,
+				Columns: []*schema.Column{DraftChangeDependenciesColumns[1], DraftChangeDependenciesColumns[2]},
+			},
+		},
+	}
+	// DraftEditsColumns holds the columns for the "draft_edits" table.
+	DraftEditsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "revision", Type: field.TypeInt},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "actor_account_id", Type: field.TypeInt},
+		{Name: "event_id", Type: field.TypeInt},
+	}
+	// DraftEditsTable holds the schema information for the "draft_edits" table.
+	DraftEditsTable = &schema.Table{
+		Name:       "draft_edits",
+		Columns:    DraftEditsColumns,
+		PrimaryKey: []*schema.Column{DraftEditsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "draft_edits_accounts_draft_edits",
+				Columns:    []*schema.Column{DraftEditsColumns[3]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "draft_edits_events_draft_edits",
+				Columns:    []*schema.Column{DraftEditsColumns[4]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "draftedit_event_id_revision",
+				Unique:  true,
+				Columns: []*schema.Column{DraftEditsColumns[4], DraftEditsColumns[1]},
+			},
+		},
+	}
 	// EventsColumns holds the columns for the "events" table.
 	EventsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -716,6 +831,9 @@ var (
 		AuditEntriesTable,
 		BootstrapCredentialsTable,
 		CommandReceiptsTable,
+		DraftChangesTable,
+		DraftChangeDependenciesTable,
+		DraftEditsTable,
 		EventsTable,
 		EventGrantsTable,
 		InstallationsTable,
@@ -747,6 +865,12 @@ func init() {
 	AccountSessionsTable.ForeignKeys[0].RefTable = AccountsTable
 	AuditEntriesTable.ForeignKeys[0].RefTable = AccountsTable
 	CommandReceiptsTable.ForeignKeys[0].RefTable = AccountsTable
+	DraftChangesTable.ForeignKeys[0].RefTable = DraftEditsTable
+	DraftChangesTable.ForeignKeys[1].RefTable = EventsTable
+	DraftChangeDependenciesTable.ForeignKeys[0].RefTable = DraftChangesTable
+	DraftChangeDependenciesTable.ForeignKeys[1].RefTable = DraftChangesTable
+	DraftEditsTable.ForeignKeys[0].RefTable = AccountsTable
+	DraftEditsTable.ForeignKeys[1].RefTable = EventsTable
 	EventGrantsTable.ForeignKeys[0].RefTable = AccountsTable
 	EventGrantsTable.ForeignKeys[1].RefTable = EventsTable
 	LanesTable.ForeignKeys[0].RefTable = EventsTable

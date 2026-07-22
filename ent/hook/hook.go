@@ -69,6 +69,42 @@ func (f CommandReceiptFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Val
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CommandReceiptMutation", m)
 }
 
+// The DraftChangeFunc type is an adapter to allow the use of ordinary
+// function as DraftChange mutator.
+type DraftChangeFunc func(context.Context, *ent.DraftChangeMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f DraftChangeFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DraftChangeMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DraftChangeMutation", m)
+}
+
+// The DraftChangeDependencyFunc type is an adapter to allow the use of ordinary
+// function as DraftChangeDependency mutator.
+type DraftChangeDependencyFunc func(context.Context, *ent.DraftChangeDependencyMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f DraftChangeDependencyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DraftChangeDependencyMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DraftChangeDependencyMutation", m)
+}
+
+// The DraftEditFunc type is an adapter to allow the use of ordinary
+// function as DraftEdit mutator.
+type DraftEditFunc func(context.Context, *ent.DraftEditMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f DraftEditFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DraftEditMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DraftEditMutation", m)
+}
+
 // The EventFunc type is an adapter to allow the use of ordinary
 // function as Event mutator.
 type EventFunc func(context.Context, *ent.EventMutation) (ent.Value, error)

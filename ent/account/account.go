@@ -35,6 +35,8 @@ const (
 	EdgeAuditEntries = "audit_entries"
 	// EdgeCommandReceipts holds the string denoting the command_receipts edge name in mutations.
 	EdgeCommandReceipts = "command_receipts"
+	// EdgeDraftEdits holds the string denoting the draft_edits edge name in mutations.
+	EdgeDraftEdits = "draft_edits"
 	// Table holds the table name of the account in the database.
 	Table = "accounts"
 	// PasswordCredentialTable is the table that holds the password_credential relation/edge.
@@ -72,6 +74,13 @@ const (
 	CommandReceiptsInverseTable = "command_receipts"
 	// CommandReceiptsColumn is the table column denoting the command_receipts relation/edge.
 	CommandReceiptsColumn = "actor_account_id"
+	// DraftEditsTable is the table that holds the draft_edits relation/edge.
+	DraftEditsTable = "draft_edits"
+	// DraftEditsInverseTable is the table name for the DraftEdit entity.
+	// It exists in this package in order to avoid circular dependency with the "draftedit" package.
+	DraftEditsInverseTable = "draft_edits"
+	// DraftEditsColumn is the table column denoting the draft_edits relation/edge.
+	DraftEditsColumn = "actor_account_id"
 )
 
 // Columns holds all SQL columns for account fields.
@@ -205,6 +214,20 @@ func ByCommandReceipts(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newCommandReceiptsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByDraftEditsCount orders the results by draft_edits count.
+func ByDraftEditsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newDraftEditsStep(), opts...)
+	}
+}
+
+// ByDraftEdits orders the results by draft_edits terms.
+func ByDraftEdits(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newDraftEditsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newPasswordCredentialStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -238,5 +261,12 @@ func newCommandReceiptsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(CommandReceiptsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, CommandReceiptsTable, CommandReceiptsColumn),
+	)
+}
+func newDraftEditsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(DraftEditsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, DraftEditsTable, DraftEditsColumn),
 	)
 }

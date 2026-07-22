@@ -13,6 +13,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/dotwaffle/beamers/ent/draftchange"
+	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/lane"
@@ -26,16 +28,18 @@ import (
 // EventQuery is the builder for querying Event entities.
 type EventQuery struct {
 	config
-	ctx           *QueryContext
-	order         []event.OrderOption
-	inters        []Interceptor
-	predicates    []predicate.Event
-	withGrants    *EventGrantQuery
-	withRundown   *RundownQuery
-	withLocations *LocationQuery
-	withLanes     *LaneQuery
-	withTracks    *TrackQuery
-	withSessions  *SessionQuery
+	ctx              *QueryContext
+	order            []event.OrderOption
+	inters           []Interceptor
+	predicates       []predicate.Event
+	withGrants       *EventGrantQuery
+	withRundown      *RundownQuery
+	withLocations    *LocationQuery
+	withLanes        *LaneQuery
+	withTracks       *TrackQuery
+	withSessions     *SessionQuery
+	withDraftEdits   *DraftEditQuery
+	withDraftChanges *DraftChangeQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -197,6 +201,50 @@ func (_q *EventQuery) QuerySessions() *SessionQuery {
 			sqlgraph.From(event.Table, event.FieldID, selector),
 			sqlgraph.To(session.Table, session.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, event.SessionsTable, event.SessionsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryDraftEdits chains the current query on the "draft_edits" edge.
+func (_q *EventQuery) QueryDraftEdits() *DraftEditQuery {
+	query := (&DraftEditClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, selector),
+			sqlgraph.To(draftedit.Table, draftedit.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.DraftEditsTable, event.DraftEditsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryDraftChanges chains the current query on the "draft_changes" edge.
+func (_q *EventQuery) QueryDraftChanges() *DraftChangeQuery {
+	query := (&DraftChangeClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, selector),
+			sqlgraph.To(draftchange.Table, draftchange.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.DraftChangesTable, event.DraftChangesColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -391,17 +439,19 @@ func (_q *EventQuery) Clone() *EventQuery {
 		return nil
 	}
 	return &EventQuery{
-		config:        _q.config,
-		ctx:           _q.ctx.Clone(),
-		order:         append([]event.OrderOption{}, _q.order...),
-		inters:        append([]Interceptor{}, _q.inters...),
-		predicates:    append([]predicate.Event{}, _q.predicates...),
-		withGrants:    _q.withGrants.Clone(),
-		withRundown:   _q.withRundown.Clone(),
-		withLocations: _q.withLocations.Clone(),
-		withLanes:     _q.withLanes.Clone(),
-		withTracks:    _q.withTracks.Clone(),
-		withSessions:  _q.withSessions.Clone(),
+		config:           _q.config,
+		ctx:              _q.ctx.Clone(),
+		order:            append([]event.OrderOption{}, _q.order...),
+		inters:           append([]Interceptor{}, _q.inters...),
+		predicates:       append([]predicate.Event{}, _q.predicates...),
+		withGrants:       _q.withGrants.Clone(),
+		withRundown:      _q.withRundown.Clone(),
+		withLocations:    _q.withLocations.Clone(),
+		withLanes:        _q.withLanes.Clone(),
+		withTracks:       _q.withTracks.Clone(),
+		withSessions:     _q.withSessions.Clone(),
+		withDraftEdits:   _q.withDraftEdits.Clone(),
+		withDraftChanges: _q.withDraftChanges.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -471,6 +521,28 @@ func (_q *EventQuery) WithSessions(opts ...func(*SessionQuery)) *EventQuery {
 		opt(query)
 	}
 	_q.withSessions = query
+	return _q
+}
+
+// WithDraftEdits tells the query-builder to eager-load the nodes that are connected to
+// the "draft_edits" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *EventQuery) WithDraftEdits(opts ...func(*DraftEditQuery)) *EventQuery {
+	query := (&DraftEditClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withDraftEdits = query
+	return _q
+}
+
+// WithDraftChanges tells the query-builder to eager-load the nodes that are connected to
+// the "draft_changes" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *EventQuery) WithDraftChanges(opts ...func(*DraftChangeQuery)) *EventQuery {
+	query := (&DraftChangeClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withDraftChanges = query
 	return _q
 }
 
@@ -558,13 +630,15 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 	var (
 		nodes       = []*Event{}
 		_spec       = _q.querySpec()
-		loadedTypes = [6]bool{
+		loadedTypes = [8]bool{
 			_q.withGrants != nil,
 			_q.withRundown != nil,
 			_q.withLocations != nil,
 			_q.withLanes != nil,
 			_q.withTracks != nil,
 			_q.withSessions != nil,
+			_q.withDraftEdits != nil,
+			_q.withDraftChanges != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -623,6 +697,20 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 		if err := _q.loadSessions(ctx, query, nodes,
 			func(n *Event) { n.Edges.Sessions = []*Session{} },
 			func(n *Event, e *Session) { n.Edges.Sessions = append(n.Edges.Sessions, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withDraftEdits; query != nil {
+		if err := _q.loadDraftEdits(ctx, query, nodes,
+			func(n *Event) { n.Edges.DraftEdits = []*DraftEdit{} },
+			func(n *Event, e *DraftEdit) { n.Edges.DraftEdits = append(n.Edges.DraftEdits, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withDraftChanges; query != nil {
+		if err := _q.loadDraftChanges(ctx, query, nodes,
+			func(n *Event) { n.Edges.DraftChanges = []*DraftChange{} },
+			func(n *Event, e *DraftChange) { n.Edges.DraftChanges = append(n.Edges.DraftChanges, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -791,6 +879,66 @@ func (_q *EventQuery) loadSessions(ctx context.Context, query *SessionQuery, nod
 	}
 	query.Where(predicate.Session(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(event.SessionsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.EventID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "event_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *EventQuery) loadDraftEdits(ctx context.Context, query *DraftEditQuery, nodes []*Event, init func(*Event), assign func(*Event, *DraftEdit)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Event)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(draftedit.FieldEventID)
+	}
+	query.Where(predicate.DraftEdit(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(event.DraftEditsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.EventID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "event_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *EventQuery) loadDraftChanges(ctx context.Context, query *DraftChangeQuery, nodes []*Event, init func(*Event), assign func(*Event, *DraftChange)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Event)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(draftchange.FieldEventID)
+	}
+	query.Where(predicate.DraftChange(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(event.DraftChangesColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

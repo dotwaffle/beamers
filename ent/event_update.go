@@ -10,6 +10,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/dotwaffle/beamers/ent/draftchange"
+	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/lane"
@@ -252,6 +254,36 @@ func (_u *EventUpdate) AddSessions(v ...*Session) *EventUpdate {
 	return _u.AddSessionIDs(ids...)
 }
 
+// AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by IDs.
+func (_u *EventUpdate) AddDraftEditIDs(ids ...int) *EventUpdate {
+	_u.mutation.AddDraftEditIDs(ids...)
+	return _u
+}
+
+// AddDraftEdits adds the "draft_edits" edges to the DraftEdit entity.
+func (_u *EventUpdate) AddDraftEdits(v ...*DraftEdit) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDraftEditIDs(ids...)
+}
+
+// AddDraftChangeIDs adds the "draft_changes" edge to the DraftChange entity by IDs.
+func (_u *EventUpdate) AddDraftChangeIDs(ids ...int) *EventUpdate {
+	_u.mutation.AddDraftChangeIDs(ids...)
+	return _u
+}
+
+// AddDraftChanges adds the "draft_changes" edges to the DraftChange entity.
+func (_u *EventUpdate) AddDraftChanges(v ...*DraftChange) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDraftChangeIDs(ids...)
+}
+
 // Mutation returns the EventMutation object of the builder.
 func (_u *EventUpdate) Mutation() *EventMutation {
 	return _u.mutation
@@ -366,6 +398,48 @@ func (_u *EventUpdate) RemoveSessions(v ...*Session) *EventUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveSessionIDs(ids...)
+}
+
+// ClearDraftEdits clears all "draft_edits" edges to the DraftEdit entity.
+func (_u *EventUpdate) ClearDraftEdits() *EventUpdate {
+	_u.mutation.ClearDraftEdits()
+	return _u
+}
+
+// RemoveDraftEditIDs removes the "draft_edits" edge to DraftEdit entities by IDs.
+func (_u *EventUpdate) RemoveDraftEditIDs(ids ...int) *EventUpdate {
+	_u.mutation.RemoveDraftEditIDs(ids...)
+	return _u
+}
+
+// RemoveDraftEdits removes "draft_edits" edges to DraftEdit entities.
+func (_u *EventUpdate) RemoveDraftEdits(v ...*DraftEdit) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDraftEditIDs(ids...)
+}
+
+// ClearDraftChanges clears all "draft_changes" edges to the DraftChange entity.
+func (_u *EventUpdate) ClearDraftChanges() *EventUpdate {
+	_u.mutation.ClearDraftChanges()
+	return _u
+}
+
+// RemoveDraftChangeIDs removes the "draft_changes" edge to DraftChange entities by IDs.
+func (_u *EventUpdate) RemoveDraftChangeIDs(ids ...int) *EventUpdate {
+	_u.mutation.RemoveDraftChangeIDs(ids...)
+	return _u
+}
+
+// RemoveDraftChanges removes "draft_changes" edges to DraftChange entities.
+func (_u *EventUpdate) RemoveDraftChanges(v ...*DraftChange) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDraftChangeIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -731,6 +805,96 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.DraftEditsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DraftEditsTable,
+			Columns: []string{event.DraftEditsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(draftedit.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDraftEditsIDs(); len(nodes) > 0 && !_u.mutation.DraftEditsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DraftEditsTable,
+			Columns: []string{event.DraftEditsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(draftedit.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DraftEditsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DraftEditsTable,
+			Columns: []string{event.DraftEditsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(draftedit.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DraftChangesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DraftChangesTable,
+			Columns: []string{event.DraftChangesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(draftchange.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDraftChangesIDs(); len(nodes) > 0 && !_u.mutation.DraftChangesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DraftChangesTable,
+			Columns: []string{event.DraftChangesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(draftchange.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DraftChangesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DraftChangesTable,
+			Columns: []string{event.DraftChangesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(draftchange.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{event.Label}
@@ -970,6 +1134,36 @@ func (_u *EventUpdateOne) AddSessions(v ...*Session) *EventUpdateOne {
 	return _u.AddSessionIDs(ids...)
 }
 
+// AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by IDs.
+func (_u *EventUpdateOne) AddDraftEditIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.AddDraftEditIDs(ids...)
+	return _u
+}
+
+// AddDraftEdits adds the "draft_edits" edges to the DraftEdit entity.
+func (_u *EventUpdateOne) AddDraftEdits(v ...*DraftEdit) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDraftEditIDs(ids...)
+}
+
+// AddDraftChangeIDs adds the "draft_changes" edge to the DraftChange entity by IDs.
+func (_u *EventUpdateOne) AddDraftChangeIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.AddDraftChangeIDs(ids...)
+	return _u
+}
+
+// AddDraftChanges adds the "draft_changes" edges to the DraftChange entity.
+func (_u *EventUpdateOne) AddDraftChanges(v ...*DraftChange) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDraftChangeIDs(ids...)
+}
+
 // Mutation returns the EventMutation object of the builder.
 func (_u *EventUpdateOne) Mutation() *EventMutation {
 	return _u.mutation
@@ -1084,6 +1278,48 @@ func (_u *EventUpdateOne) RemoveSessions(v ...*Session) *EventUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveSessionIDs(ids...)
+}
+
+// ClearDraftEdits clears all "draft_edits" edges to the DraftEdit entity.
+func (_u *EventUpdateOne) ClearDraftEdits() *EventUpdateOne {
+	_u.mutation.ClearDraftEdits()
+	return _u
+}
+
+// RemoveDraftEditIDs removes the "draft_edits" edge to DraftEdit entities by IDs.
+func (_u *EventUpdateOne) RemoveDraftEditIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.RemoveDraftEditIDs(ids...)
+	return _u
+}
+
+// RemoveDraftEdits removes "draft_edits" edges to DraftEdit entities.
+func (_u *EventUpdateOne) RemoveDraftEdits(v ...*DraftEdit) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDraftEditIDs(ids...)
+}
+
+// ClearDraftChanges clears all "draft_changes" edges to the DraftChange entity.
+func (_u *EventUpdateOne) ClearDraftChanges() *EventUpdateOne {
+	_u.mutation.ClearDraftChanges()
+	return _u
+}
+
+// RemoveDraftChangeIDs removes the "draft_changes" edge to DraftChange entities by IDs.
+func (_u *EventUpdateOne) RemoveDraftChangeIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.RemoveDraftChangeIDs(ids...)
+	return _u
+}
+
+// RemoveDraftChanges removes "draft_changes" edges to DraftChange entities.
+func (_u *EventUpdateOne) RemoveDraftChanges(v ...*DraftChange) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDraftChangeIDs(ids...)
 }
 
 // Where appends a list predicates to the EventUpdate builder.
@@ -1472,6 +1708,96 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DraftEditsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DraftEditsTable,
+			Columns: []string{event.DraftEditsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(draftedit.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDraftEditsIDs(); len(nodes) > 0 && !_u.mutation.DraftEditsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DraftEditsTable,
+			Columns: []string{event.DraftEditsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(draftedit.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DraftEditsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DraftEditsTable,
+			Columns: []string{event.DraftEditsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(draftedit.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DraftChangesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DraftChangesTable,
+			Columns: []string{event.DraftChangesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(draftchange.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDraftChangesIDs(); len(nodes) > 0 && !_u.mutation.DraftChangesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DraftChangesTable,
+			Columns: []string{event.DraftChangesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(draftchange.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DraftChangesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DraftChangesTable,
+			Columns: []string{event.DraftChangesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(draftchange.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

@@ -601,6 +601,17 @@ func systemOnlyPolicy() ent.Policy {
 	}
 }
 
+func appendOnlySystemPolicy() ent.Policy {
+	return privacy.Policy{
+		Query: privacy.QueryPolicy{
+			denyMissingViewer(), allowSystemViewer(), privacy.AlwaysDenyRule(),
+		},
+		Mutation: privacy.MutationPolicy{
+			denyMissingViewer(), allowSystemCreation(), privacy.AlwaysDenyRule(),
+		},
+	}
+}
+
 func allowSystemCreation() privacy.MutationRule {
 	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
 		identity, _ := viewer.FromContext(ctx)

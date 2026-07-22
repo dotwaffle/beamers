@@ -17,6 +17,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/predicate"
@@ -34,6 +35,7 @@ type AccountQuery struct {
 	withEventGrants        *EventGrantQuery
 	withAuditEntries       *AuditEntryQuery
 	withCommandReceipts    *CommandReceiptQuery
+	withDraftEdits         *DraftEditQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -173,6 +175,28 @@ func (_q *AccountQuery) QueryCommandReceipts() *CommandReceiptQuery {
 			sqlgraph.From(account.Table, account.FieldID, selector),
 			sqlgraph.To(commandreceipt.Table, commandreceipt.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, account.CommandReceiptsTable, account.CommandReceiptsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryDraftEdits chains the current query on the "draft_edits" edge.
+func (_q *AccountQuery) QueryDraftEdits() *DraftEditQuery {
+	query := (&DraftEditClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, selector),
+			sqlgraph.To(draftedit.Table, draftedit.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.DraftEditsTable, account.DraftEditsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -377,6 +401,7 @@ func (_q *AccountQuery) Clone() *AccountQuery {
 		withEventGrants:        _q.withEventGrants.Clone(),
 		withAuditEntries:       _q.withAuditEntries.Clone(),
 		withCommandReceipts:    _q.withCommandReceipts.Clone(),
+		withDraftEdits:         _q.withDraftEdits.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -435,6 +460,17 @@ func (_q *AccountQuery) WithCommandReceipts(opts ...func(*CommandReceiptQuery)) 
 		opt(query)
 	}
 	_q.withCommandReceipts = query
+	return _q
+}
+
+// WithDraftEdits tells the query-builder to eager-load the nodes that are connected to
+// the "draft_edits" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AccountQuery) WithDraftEdits(opts ...func(*DraftEditQuery)) *AccountQuery {
+	query := (&DraftEditClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withDraftEdits = query
 	return _q
 }
 
@@ -522,12 +558,13 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	var (
 		nodes       = []*Account{}
 		_spec       = _q.querySpec()
-		loadedTypes = [5]bool{
+		loadedTypes = [6]bool{
 			_q.withPasswordCredential != nil,
 			_q.withSessions != nil,
 			_q.withEventGrants != nil,
 			_q.withAuditEntries != nil,
 			_q.withCommandReceipts != nil,
+			_q.withDraftEdits != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -579,6 +616,13 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 		if err := _q.loadCommandReceipts(ctx, query, nodes,
 			func(n *Account) { n.Edges.CommandReceipts = []*CommandReceipt{} },
 			func(n *Account, e *CommandReceipt) { n.Edges.CommandReceipts = append(n.Edges.CommandReceipts, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withDraftEdits; query != nil {
+		if err := _q.loadDraftEdits(ctx, query, nodes,
+			func(n *Account) { n.Edges.DraftEdits = []*DraftEdit{} },
+			func(n *Account, e *DraftEdit) { n.Edges.DraftEdits = append(n.Edges.DraftEdits, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -717,6 +761,36 @@ func (_q *AccountQuery) loadCommandReceipts(ctx context.Context, query *CommandR
 	}
 	query.Where(predicate.CommandReceipt(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(account.CommandReceiptsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ActorAccountID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "actor_account_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *AccountQuery) loadDraftEdits(ctx context.Context, query *DraftEditQuery, nodes []*Account, init func(*Account), assign func(*Account, *DraftEdit)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Account)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(draftedit.FieldActorAccountID)
+	}
+	query.Where(predicate.DraftEdit(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(account.DraftEditsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

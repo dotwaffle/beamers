@@ -21,6 +21,15 @@ type BootstrapCredential func(*sql.Selector)
 // CommandReceipt is the predicate function for commandreceipt builders.
 type CommandReceipt func(*sql.Selector)
 
+// DraftChange is the predicate function for draftchange builders.
+type DraftChange func(*sql.Selector)
+
+// DraftChangeDependency is the predicate function for draftchangedependency builders.
+type DraftChangeDependency func(*sql.Selector)
+
+// DraftEdit is the predicate function for draftedit builders.
+type DraftEdit func(*sql.Selector)
+
 // Event is the predicate function for event builders.
 type Event func(*sql.Selector)
 

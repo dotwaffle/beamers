@@ -10,6 +10,8 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/dotwaffle/beamers/ent/draftchange"
+	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/lane"
@@ -196,6 +198,36 @@ func (_c *EventCreate) AddSessions(v ...*Session) *EventCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddSessionIDs(ids...)
+}
+
+// AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by IDs.
+func (_c *EventCreate) AddDraftEditIDs(ids ...int) *EventCreate {
+	_c.mutation.AddDraftEditIDs(ids...)
+	return _c
+}
+
+// AddDraftEdits adds the "draft_edits" edges to the DraftEdit entity.
+func (_c *EventCreate) AddDraftEdits(v ...*DraftEdit) *EventCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddDraftEditIDs(ids...)
+}
+
+// AddDraftChangeIDs adds the "draft_changes" edge to the DraftChange entity by IDs.
+func (_c *EventCreate) AddDraftChangeIDs(ids ...int) *EventCreate {
+	_c.mutation.AddDraftChangeIDs(ids...)
+	return _c
+}
+
+// AddDraftChanges adds the "draft_changes" edges to the DraftChange entity.
+func (_c *EventCreate) AddDraftChanges(v ...*DraftChange) *EventCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddDraftChangeIDs(ids...)
 }
 
 // Mutation returns the EventMutation object of the builder.
@@ -461,6 +493,38 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.DraftEditsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DraftEditsTable,
+			Columns: []string{event.DraftEditsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(draftedit.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.DraftChangesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DraftChangesTable,
+			Columns: []string{event.DraftChangesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(draftchange.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

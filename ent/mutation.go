@@ -16,6 +16,9 @@ import (
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/draftchange"
+	"github.com/dotwaffle/beamers/ent/draftchangedependency"
+	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/installation"
@@ -51,6 +54,9 @@ const (
 	TypeAuditEntry               = "AuditEntry"
 	TypeBootstrapCredential      = "BootstrapCredential"
 	TypeCommandReceipt           = "CommandReceipt"
+	TypeDraftChange              = "DraftChange"
+	TypeDraftChangeDependency    = "DraftChangeDependency"
+	TypeDraftEdit                = "DraftEdit"
 	TypeEvent                    = "Event"
 	TypeEventGrant               = "EventGrant"
 	TypeInstallation             = "Installation"
@@ -97,6 +103,9 @@ type AccountMutation struct {
 	command_receipts           map[int]struct{}
 	removedcommand_receipts    map[int]struct{}
 	clearedcommand_receipts    bool
+	draft_edits                map[int]struct{}
+	removeddraft_edits         map[int]struct{}
+	cleareddraft_edits         bool
 	done                       bool
 	oldValue                   func(context.Context) (*Account, error)
 	predicates                 []predicate.Account
@@ -648,6 +657,60 @@ func (m *AccountMutation) ResetCommandReceipts() {
 	m.removedcommand_receipts = nil
 }
 
+// AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by ids.
+func (m *AccountMutation) AddDraftEditIDs(ids ...int) {
+	if m.draft_edits == nil {
+		m.draft_edits = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.draft_edits[ids[i]] = struct{}{}
+	}
+}
+
+// ClearDraftEdits clears the "draft_edits" edge to the DraftEdit entity.
+func (m *AccountMutation) ClearDraftEdits() {
+	m.cleareddraft_edits = true
+}
+
+// DraftEditsCleared reports if the "draft_edits" edge to the DraftEdit entity was cleared.
+func (m *AccountMutation) DraftEditsCleared() bool {
+	return m.cleareddraft_edits
+}
+
+// RemoveDraftEditIDs removes the "draft_edits" edge to the DraftEdit entity by IDs.
+func (m *AccountMutation) RemoveDraftEditIDs(ids ...int) {
+	if m.removeddraft_edits == nil {
+		m.removeddraft_edits = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.draft_edits, ids[i])
+		m.removeddraft_edits[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedDraftEdits returns the removed IDs of the "draft_edits" edge to the DraftEdit entity.
+func (m *AccountMutation) RemovedDraftEditsIDs() (ids []int) {
+	for id := range m.removeddraft_edits {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// DraftEditsIDs returns the "draft_edits" edge IDs in the mutation.
+func (m *AccountMutation) DraftEditsIDs() (ids []int) {
+	for id := range m.draft_edits {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetDraftEdits resets all changes to the "draft_edits" edge.
+func (m *AccountMutation) ResetDraftEdits() {
+	m.draft_edits = nil
+	m.cleareddraft_edits = false
+	m.removeddraft_edits = nil
+}
+
 // Where appends a list predicates to the AccountMutation builder.
 func (m *AccountMutation) Where(ps ...predicate.Account) {
 	m.predicates = append(m.predicates, ps...)
@@ -858,7 +921,7 @@ func (m *AccountMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AccountMutation) AddedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.password_credential != nil {
 		edges = append(edges, account.EdgePasswordCredential)
 	}
@@ -873,6 +936,9 @@ func (m *AccountMutation) AddedEdges() []string {
 	}
 	if m.command_receipts != nil {
 		edges = append(edges, account.EdgeCommandReceipts)
+	}
+	if m.draft_edits != nil {
+		edges = append(edges, account.EdgeDraftEdits)
 	}
 	return edges
 }
@@ -909,13 +975,19 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case account.EdgeDraftEdits:
+		ids := make([]ent.Value, 0, len(m.draft_edits))
+		for id := range m.draft_edits {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AccountMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.removedsessions != nil {
 		edges = append(edges, account.EdgeSessions)
 	}
@@ -927,6 +999,9 @@ func (m *AccountMutation) RemovedEdges() []string {
 	}
 	if m.removedcommand_receipts != nil {
 		edges = append(edges, account.EdgeCommandReceipts)
+	}
+	if m.removeddraft_edits != nil {
+		edges = append(edges, account.EdgeDraftEdits)
 	}
 	return edges
 }
@@ -959,13 +1034,19 @@ func (m *AccountMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case account.EdgeDraftEdits:
+		ids := make([]ent.Value, 0, len(m.removeddraft_edits))
+		for id := range m.removeddraft_edits {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AccountMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.clearedpassword_credential {
 		edges = append(edges, account.EdgePasswordCredential)
 	}
@@ -980,6 +1061,9 @@ func (m *AccountMutation) ClearedEdges() []string {
 	}
 	if m.clearedcommand_receipts {
 		edges = append(edges, account.EdgeCommandReceipts)
+	}
+	if m.cleareddraft_edits {
+		edges = append(edges, account.EdgeDraftEdits)
 	}
 	return edges
 }
@@ -998,6 +1082,8 @@ func (m *AccountMutation) EdgeCleared(name string) bool {
 		return m.clearedaudit_entries
 	case account.EdgeCommandReceipts:
 		return m.clearedcommand_receipts
+	case account.EdgeDraftEdits:
+		return m.cleareddraft_edits
 	}
 	return false
 }
@@ -1031,6 +1117,9 @@ func (m *AccountMutation) ResetEdge(name string) error {
 		return nil
 	case account.EdgeCommandReceipts:
 		m.ResetCommandReceipts()
+		return nil
+	case account.EdgeDraftEdits:
+		m.ResetDraftEdits()
 		return nil
 	}
 	return fmt.Errorf("unknown Account edge %s", name)
@@ -3607,43 +3696,2513 @@ func (m *CommandReceiptMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown CommandReceipt edge %s", name)
 }
 
+// DraftChangeMutation represents an operation that mutates the DraftChange nodes in the graph.
+type DraftChangeMutation struct {
+	config
+	op                    Op
+	typ                   string
+	id                    *int
+	revision              *int
+	addrevision           *int
+	kind                  *string
+	target_type           *string
+	target_id             *int
+	addtarget_id          *int
+	fact_key              *string
+	payload_json          *string
+	status                *draftchange.Status
+	published_revision    *int
+	addpublished_revision *int
+	created_at            *time.Time
+	clearedFields         map[string]struct{}
+	event                 *int
+	clearedevent          bool
+	draft_edit            *int
+	cleareddraft_edit     bool
+	dependencies          map[int]struct{}
+	removeddependencies   map[int]struct{}
+	cleareddependencies   bool
+	dependents            map[int]struct{}
+	removeddependents     map[int]struct{}
+	cleareddependents     bool
+	done                  bool
+	oldValue              func(context.Context) (*DraftChange, error)
+	predicates            []predicate.DraftChange
+}
+
+var _ ent.Mutation = (*DraftChangeMutation)(nil)
+
+// draftchangeOption allows management of the mutation configuration using functional options.
+type draftchangeOption func(*DraftChangeMutation)
+
+// newDraftChangeMutation creates new mutation for the DraftChange entity.
+func newDraftChangeMutation(c config, op Op, opts ...draftchangeOption) *DraftChangeMutation {
+	m := &DraftChangeMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeDraftChange,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withDraftChangeID sets the ID field of the mutation.
+func withDraftChangeID(id int) draftchangeOption {
+	return func(m *DraftChangeMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *DraftChange
+		)
+		m.oldValue = func(ctx context.Context) (*DraftChange, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().DraftChange.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withDraftChange sets the old DraftChange of the mutation.
+func withDraftChange(node *DraftChange) draftchangeOption {
+	return func(m *DraftChangeMutation) {
+		m.oldValue = func(context.Context) (*DraftChange, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m DraftChangeMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m DraftChangeMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *DraftChangeMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *DraftChangeMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().DraftChange.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetEventID sets the "event_id" field.
+func (m *DraftChangeMutation) SetEventID(i int) {
+	m.event = &i
+}
+
+// EventID returns the value of the "event_id" field in the mutation.
+func (m *DraftChangeMutation) EventID() (r int, exists bool) {
+	v := m.event
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventID returns the old "event_id" field's value of the DraftChange entity.
+// If the DraftChange object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DraftChangeMutation) OldEventID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventID: %w", err)
+	}
+	return oldValue.EventID, nil
+}
+
+// ResetEventID resets all changes to the "event_id" field.
+func (m *DraftChangeMutation) ResetEventID() {
+	m.event = nil
+}
+
+// SetDraftEditID sets the "draft_edit_id" field.
+func (m *DraftChangeMutation) SetDraftEditID(i int) {
+	m.draft_edit = &i
+}
+
+// DraftEditID returns the value of the "draft_edit_id" field in the mutation.
+func (m *DraftChangeMutation) DraftEditID() (r int, exists bool) {
+	v := m.draft_edit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDraftEditID returns the old "draft_edit_id" field's value of the DraftChange entity.
+// If the DraftChange object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DraftChangeMutation) OldDraftEditID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDraftEditID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDraftEditID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDraftEditID: %w", err)
+	}
+	return oldValue.DraftEditID, nil
+}
+
+// ResetDraftEditID resets all changes to the "draft_edit_id" field.
+func (m *DraftChangeMutation) ResetDraftEditID() {
+	m.draft_edit = nil
+}
+
+// SetRevision sets the "revision" field.
+func (m *DraftChangeMutation) SetRevision(i int) {
+	m.revision = &i
+	m.addrevision = nil
+}
+
+// Revision returns the value of the "revision" field in the mutation.
+func (m *DraftChangeMutation) Revision() (r int, exists bool) {
+	v := m.revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRevision returns the old "revision" field's value of the DraftChange entity.
+// If the DraftChange object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DraftChangeMutation) OldRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRevision: %w", err)
+	}
+	return oldValue.Revision, nil
+}
+
+// AddRevision adds i to the "revision" field.
+func (m *DraftChangeMutation) AddRevision(i int) {
+	if m.addrevision != nil {
+		*m.addrevision += i
+	} else {
+		m.addrevision = &i
+	}
+}
+
+// AddedRevision returns the value that was added to the "revision" field in this mutation.
+func (m *DraftChangeMutation) AddedRevision() (r int, exists bool) {
+	v := m.addrevision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRevision resets all changes to the "revision" field.
+func (m *DraftChangeMutation) ResetRevision() {
+	m.revision = nil
+	m.addrevision = nil
+}
+
+// SetKind sets the "kind" field.
+func (m *DraftChangeMutation) SetKind(s string) {
+	m.kind = &s
+}
+
+// Kind returns the value of the "kind" field in the mutation.
+func (m *DraftChangeMutation) Kind() (r string, exists bool) {
+	v := m.kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldKind returns the old "kind" field's value of the DraftChange entity.
+// If the DraftChange object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DraftChangeMutation) OldKind(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldKind: %w", err)
+	}
+	return oldValue.Kind, nil
+}
+
+// ResetKind resets all changes to the "kind" field.
+func (m *DraftChangeMutation) ResetKind() {
+	m.kind = nil
+}
+
+// SetTargetType sets the "target_type" field.
+func (m *DraftChangeMutation) SetTargetType(s string) {
+	m.target_type = &s
+}
+
+// TargetType returns the value of the "target_type" field in the mutation.
+func (m *DraftChangeMutation) TargetType() (r string, exists bool) {
+	v := m.target_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTargetType returns the old "target_type" field's value of the DraftChange entity.
+// If the DraftChange object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DraftChangeMutation) OldTargetType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTargetType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTargetType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTargetType: %w", err)
+	}
+	return oldValue.TargetType, nil
+}
+
+// ResetTargetType resets all changes to the "target_type" field.
+func (m *DraftChangeMutation) ResetTargetType() {
+	m.target_type = nil
+}
+
+// SetTargetID sets the "target_id" field.
+func (m *DraftChangeMutation) SetTargetID(i int) {
+	m.target_id = &i
+	m.addtarget_id = nil
+}
+
+// TargetID returns the value of the "target_id" field in the mutation.
+func (m *DraftChangeMutation) TargetID() (r int, exists bool) {
+	v := m.target_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTargetID returns the old "target_id" field's value of the DraftChange entity.
+// If the DraftChange object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DraftChangeMutation) OldTargetID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTargetID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTargetID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTargetID: %w", err)
+	}
+	return oldValue.TargetID, nil
+}
+
+// AddTargetID adds i to the "target_id" field.
+func (m *DraftChangeMutation) AddTargetID(i int) {
+	if m.addtarget_id != nil {
+		*m.addtarget_id += i
+	} else {
+		m.addtarget_id = &i
+	}
+}
+
+// AddedTargetID returns the value that was added to the "target_id" field in this mutation.
+func (m *DraftChangeMutation) AddedTargetID() (r int, exists bool) {
+	v := m.addtarget_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTargetID resets all changes to the "target_id" field.
+func (m *DraftChangeMutation) ResetTargetID() {
+	m.target_id = nil
+	m.addtarget_id = nil
+}
+
+// SetFactKey sets the "fact_key" field.
+func (m *DraftChangeMutation) SetFactKey(s string) {
+	m.fact_key = &s
+}
+
+// FactKey returns the value of the "fact_key" field in the mutation.
+func (m *DraftChangeMutation) FactKey() (r string, exists bool) {
+	v := m.fact_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFactKey returns the old "fact_key" field's value of the DraftChange entity.
+// If the DraftChange object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DraftChangeMutation) OldFactKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFactKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFactKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFactKey: %w", err)
+	}
+	return oldValue.FactKey, nil
+}
+
+// ResetFactKey resets all changes to the "fact_key" field.
+func (m *DraftChangeMutation) ResetFactKey() {
+	m.fact_key = nil
+}
+
+// SetPayloadJSON sets the "payload_json" field.
+func (m *DraftChangeMutation) SetPayloadJSON(s string) {
+	m.payload_json = &s
+}
+
+// PayloadJSON returns the value of the "payload_json" field in the mutation.
+func (m *DraftChangeMutation) PayloadJSON() (r string, exists bool) {
+	v := m.payload_json
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPayloadJSON returns the old "payload_json" field's value of the DraftChange entity.
+// If the DraftChange object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DraftChangeMutation) OldPayloadJSON(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPayloadJSON is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPayloadJSON requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPayloadJSON: %w", err)
+	}
+	return oldValue.PayloadJSON, nil
+}
+
+// ResetPayloadJSON resets all changes to the "payload_json" field.
+func (m *DraftChangeMutation) ResetPayloadJSON() {
+	m.payload_json = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *DraftChangeMutation) SetStatus(d draftchange.Status) {
+	m.status = &d
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *DraftChangeMutation) Status() (r draftchange.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the DraftChange entity.
+// If the DraftChange object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DraftChangeMutation) OldStatus(ctx context.Context) (v draftchange.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *DraftChangeMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetPublishedRevision sets the "published_revision" field.
+func (m *DraftChangeMutation) SetPublishedRevision(i int) {
+	m.published_revision = &i
+	m.addpublished_revision = nil
+}
+
+// PublishedRevision returns the value of the "published_revision" field in the mutation.
+func (m *DraftChangeMutation) PublishedRevision() (r int, exists bool) {
+	v := m.published_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublishedRevision returns the old "published_revision" field's value of the DraftChange entity.
+// If the DraftChange object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DraftChangeMutation) OldPublishedRevision(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublishedRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublishedRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublishedRevision: %w", err)
+	}
+	return oldValue.PublishedRevision, nil
+}
+
+// AddPublishedRevision adds i to the "published_revision" field.
+func (m *DraftChangeMutation) AddPublishedRevision(i int) {
+	if m.addpublished_revision != nil {
+		*m.addpublished_revision += i
+	} else {
+		m.addpublished_revision = &i
+	}
+}
+
+// AddedPublishedRevision returns the value that was added to the "published_revision" field in this mutation.
+func (m *DraftChangeMutation) AddedPublishedRevision() (r int, exists bool) {
+	v := m.addpublished_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearPublishedRevision clears the value of the "published_revision" field.
+func (m *DraftChangeMutation) ClearPublishedRevision() {
+	m.published_revision = nil
+	m.addpublished_revision = nil
+	m.clearedFields[draftchange.FieldPublishedRevision] = struct{}{}
+}
+
+// PublishedRevisionCleared returns if the "published_revision" field was cleared in this mutation.
+func (m *DraftChangeMutation) PublishedRevisionCleared() bool {
+	_, ok := m.clearedFields[draftchange.FieldPublishedRevision]
+	return ok
+}
+
+// ResetPublishedRevision resets all changes to the "published_revision" field.
+func (m *DraftChangeMutation) ResetPublishedRevision() {
+	m.published_revision = nil
+	m.addpublished_revision = nil
+	delete(m.clearedFields, draftchange.FieldPublishedRevision)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *DraftChangeMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *DraftChangeMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the DraftChange entity.
+// If the DraftChange object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DraftChangeMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *DraftChangeMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearEvent clears the "event" edge to the Event entity.
+func (m *DraftChangeMutation) ClearEvent() {
+	m.clearedevent = true
+	m.clearedFields[draftchange.FieldEventID] = struct{}{}
+}
+
+// EventCleared reports if the "event" edge to the Event entity was cleared.
+func (m *DraftChangeMutation) EventCleared() bool {
+	return m.clearedevent
+}
+
+// EventIDs returns the "event" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// EventID instead. It exists only for internal usage by the builders.
+func (m *DraftChangeMutation) EventIDs() (ids []int) {
+	if id := m.event; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetEvent resets all changes to the "event" edge.
+func (m *DraftChangeMutation) ResetEvent() {
+	m.event = nil
+	m.clearedevent = false
+}
+
+// ClearDraftEdit clears the "draft_edit" edge to the DraftEdit entity.
+func (m *DraftChangeMutation) ClearDraftEdit() {
+	m.cleareddraft_edit = true
+	m.clearedFields[draftchange.FieldDraftEditID] = struct{}{}
+}
+
+// DraftEditCleared reports if the "draft_edit" edge to the DraftEdit entity was cleared.
+func (m *DraftChangeMutation) DraftEditCleared() bool {
+	return m.cleareddraft_edit
+}
+
+// DraftEditIDs returns the "draft_edit" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// DraftEditID instead. It exists only for internal usage by the builders.
+func (m *DraftChangeMutation) DraftEditIDs() (ids []int) {
+	if id := m.draft_edit; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetDraftEdit resets all changes to the "draft_edit" edge.
+func (m *DraftChangeMutation) ResetDraftEdit() {
+	m.draft_edit = nil
+	m.cleareddraft_edit = false
+}
+
+// AddDependencyIDs adds the "dependencies" edge to the DraftChangeDependency entity by ids.
+func (m *DraftChangeMutation) AddDependencyIDs(ids ...int) {
+	if m.dependencies == nil {
+		m.dependencies = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.dependencies[ids[i]] = struct{}{}
+	}
+}
+
+// ClearDependencies clears the "dependencies" edge to the DraftChangeDependency entity.
+func (m *DraftChangeMutation) ClearDependencies() {
+	m.cleareddependencies = true
+}
+
+// DependenciesCleared reports if the "dependencies" edge to the DraftChangeDependency entity was cleared.
+func (m *DraftChangeMutation) DependenciesCleared() bool {
+	return m.cleareddependencies
+}
+
+// RemoveDependencyIDs removes the "dependencies" edge to the DraftChangeDependency entity by IDs.
+func (m *DraftChangeMutation) RemoveDependencyIDs(ids ...int) {
+	if m.removeddependencies == nil {
+		m.removeddependencies = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.dependencies, ids[i])
+		m.removeddependencies[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedDependencies returns the removed IDs of the "dependencies" edge to the DraftChangeDependency entity.
+func (m *DraftChangeMutation) RemovedDependenciesIDs() (ids []int) {
+	for id := range m.removeddependencies {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// DependenciesIDs returns the "dependencies" edge IDs in the mutation.
+func (m *DraftChangeMutation) DependenciesIDs() (ids []int) {
+	for id := range m.dependencies {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetDependencies resets all changes to the "dependencies" edge.
+func (m *DraftChangeMutation) ResetDependencies() {
+	m.dependencies = nil
+	m.cleareddependencies = false
+	m.removeddependencies = nil
+}
+
+// AddDependentIDs adds the "dependents" edge to the DraftChangeDependency entity by ids.
+func (m *DraftChangeMutation) AddDependentIDs(ids ...int) {
+	if m.dependents == nil {
+		m.dependents = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.dependents[ids[i]] = struct{}{}
+	}
+}
+
+// ClearDependents clears the "dependents" edge to the DraftChangeDependency entity.
+func (m *DraftChangeMutation) ClearDependents() {
+	m.cleareddependents = true
+}
+
+// DependentsCleared reports if the "dependents" edge to the DraftChangeDependency entity was cleared.
+func (m *DraftChangeMutation) DependentsCleared() bool {
+	return m.cleareddependents
+}
+
+// RemoveDependentIDs removes the "dependents" edge to the DraftChangeDependency entity by IDs.
+func (m *DraftChangeMutation) RemoveDependentIDs(ids ...int) {
+	if m.removeddependents == nil {
+		m.removeddependents = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.dependents, ids[i])
+		m.removeddependents[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedDependents returns the removed IDs of the "dependents" edge to the DraftChangeDependency entity.
+func (m *DraftChangeMutation) RemovedDependentsIDs() (ids []int) {
+	for id := range m.removeddependents {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// DependentsIDs returns the "dependents" edge IDs in the mutation.
+func (m *DraftChangeMutation) DependentsIDs() (ids []int) {
+	for id := range m.dependents {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetDependents resets all changes to the "dependents" edge.
+func (m *DraftChangeMutation) ResetDependents() {
+	m.dependents = nil
+	m.cleareddependents = false
+	m.removeddependents = nil
+}
+
+// Where appends a list predicates to the DraftChangeMutation builder.
+func (m *DraftChangeMutation) Where(ps ...predicate.DraftChange) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the DraftChangeMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *DraftChangeMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.DraftChange, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *DraftChangeMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *DraftChangeMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (DraftChange).
+func (m *DraftChangeMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *DraftChangeMutation) Fields() []string {
+	fields := make([]string, 0, 11)
+	if m.event != nil {
+		fields = append(fields, draftchange.FieldEventID)
+	}
+	if m.draft_edit != nil {
+		fields = append(fields, draftchange.FieldDraftEditID)
+	}
+	if m.revision != nil {
+		fields = append(fields, draftchange.FieldRevision)
+	}
+	if m.kind != nil {
+		fields = append(fields, draftchange.FieldKind)
+	}
+	if m.target_type != nil {
+		fields = append(fields, draftchange.FieldTargetType)
+	}
+	if m.target_id != nil {
+		fields = append(fields, draftchange.FieldTargetID)
+	}
+	if m.fact_key != nil {
+		fields = append(fields, draftchange.FieldFactKey)
+	}
+	if m.payload_json != nil {
+		fields = append(fields, draftchange.FieldPayloadJSON)
+	}
+	if m.status != nil {
+		fields = append(fields, draftchange.FieldStatus)
+	}
+	if m.published_revision != nil {
+		fields = append(fields, draftchange.FieldPublishedRevision)
+	}
+	if m.created_at != nil {
+		fields = append(fields, draftchange.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *DraftChangeMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case draftchange.FieldEventID:
+		return m.EventID()
+	case draftchange.FieldDraftEditID:
+		return m.DraftEditID()
+	case draftchange.FieldRevision:
+		return m.Revision()
+	case draftchange.FieldKind:
+		return m.Kind()
+	case draftchange.FieldTargetType:
+		return m.TargetType()
+	case draftchange.FieldTargetID:
+		return m.TargetID()
+	case draftchange.FieldFactKey:
+		return m.FactKey()
+	case draftchange.FieldPayloadJSON:
+		return m.PayloadJSON()
+	case draftchange.FieldStatus:
+		return m.Status()
+	case draftchange.FieldPublishedRevision:
+		return m.PublishedRevision()
+	case draftchange.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *DraftChangeMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case draftchange.FieldEventID:
+		return m.OldEventID(ctx)
+	case draftchange.FieldDraftEditID:
+		return m.OldDraftEditID(ctx)
+	case draftchange.FieldRevision:
+		return m.OldRevision(ctx)
+	case draftchange.FieldKind:
+		return m.OldKind(ctx)
+	case draftchange.FieldTargetType:
+		return m.OldTargetType(ctx)
+	case draftchange.FieldTargetID:
+		return m.OldTargetID(ctx)
+	case draftchange.FieldFactKey:
+		return m.OldFactKey(ctx)
+	case draftchange.FieldPayloadJSON:
+		return m.OldPayloadJSON(ctx)
+	case draftchange.FieldStatus:
+		return m.OldStatus(ctx)
+	case draftchange.FieldPublishedRevision:
+		return m.OldPublishedRevision(ctx)
+	case draftchange.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown DraftChange field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DraftChangeMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case draftchange.FieldEventID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventID(v)
+		return nil
+	case draftchange.FieldDraftEditID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDraftEditID(v)
+		return nil
+	case draftchange.FieldRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRevision(v)
+		return nil
+	case draftchange.FieldKind:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetKind(v)
+		return nil
+	case draftchange.FieldTargetType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTargetType(v)
+		return nil
+	case draftchange.FieldTargetID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTargetID(v)
+		return nil
+	case draftchange.FieldFactKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFactKey(v)
+		return nil
+	case draftchange.FieldPayloadJSON:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPayloadJSON(v)
+		return nil
+	case draftchange.FieldStatus:
+		v, ok := value.(draftchange.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case draftchange.FieldPublishedRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublishedRevision(v)
+		return nil
+	case draftchange.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown DraftChange field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *DraftChangeMutation) AddedFields() []string {
+	var fields []string
+	if m.addrevision != nil {
+		fields = append(fields, draftchange.FieldRevision)
+	}
+	if m.addtarget_id != nil {
+		fields = append(fields, draftchange.FieldTargetID)
+	}
+	if m.addpublished_revision != nil {
+		fields = append(fields, draftchange.FieldPublishedRevision)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *DraftChangeMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case draftchange.FieldRevision:
+		return m.AddedRevision()
+	case draftchange.FieldTargetID:
+		return m.AddedTargetID()
+	case draftchange.FieldPublishedRevision:
+		return m.AddedPublishedRevision()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DraftChangeMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case draftchange.FieldRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRevision(v)
+		return nil
+	case draftchange.FieldTargetID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTargetID(v)
+		return nil
+	case draftchange.FieldPublishedRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPublishedRevision(v)
+		return nil
+	}
+	return fmt.Errorf("unknown DraftChange numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *DraftChangeMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(draftchange.FieldPublishedRevision) {
+		fields = append(fields, draftchange.FieldPublishedRevision)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *DraftChangeMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *DraftChangeMutation) ClearField(name string) error {
+	switch name {
+	case draftchange.FieldPublishedRevision:
+		m.ClearPublishedRevision()
+		return nil
+	}
+	return fmt.Errorf("unknown DraftChange nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *DraftChangeMutation) ResetField(name string) error {
+	switch name {
+	case draftchange.FieldEventID:
+		m.ResetEventID()
+		return nil
+	case draftchange.FieldDraftEditID:
+		m.ResetDraftEditID()
+		return nil
+	case draftchange.FieldRevision:
+		m.ResetRevision()
+		return nil
+	case draftchange.FieldKind:
+		m.ResetKind()
+		return nil
+	case draftchange.FieldTargetType:
+		m.ResetTargetType()
+		return nil
+	case draftchange.FieldTargetID:
+		m.ResetTargetID()
+		return nil
+	case draftchange.FieldFactKey:
+		m.ResetFactKey()
+		return nil
+	case draftchange.FieldPayloadJSON:
+		m.ResetPayloadJSON()
+		return nil
+	case draftchange.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case draftchange.FieldPublishedRevision:
+		m.ResetPublishedRevision()
+		return nil
+	case draftchange.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown DraftChange field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *DraftChangeMutation) AddedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.event != nil {
+		edges = append(edges, draftchange.EdgeEvent)
+	}
+	if m.draft_edit != nil {
+		edges = append(edges, draftchange.EdgeDraftEdit)
+	}
+	if m.dependencies != nil {
+		edges = append(edges, draftchange.EdgeDependencies)
+	}
+	if m.dependents != nil {
+		edges = append(edges, draftchange.EdgeDependents)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *DraftChangeMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case draftchange.EdgeEvent:
+		if id := m.event; id != nil {
+			return []ent.Value{*id}
+		}
+	case draftchange.EdgeDraftEdit:
+		if id := m.draft_edit; id != nil {
+			return []ent.Value{*id}
+		}
+	case draftchange.EdgeDependencies:
+		ids := make([]ent.Value, 0, len(m.dependencies))
+		for id := range m.dependencies {
+			ids = append(ids, id)
+		}
+		return ids
+	case draftchange.EdgeDependents:
+		ids := make([]ent.Value, 0, len(m.dependents))
+		for id := range m.dependents {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *DraftChangeMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.removeddependencies != nil {
+		edges = append(edges, draftchange.EdgeDependencies)
+	}
+	if m.removeddependents != nil {
+		edges = append(edges, draftchange.EdgeDependents)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *DraftChangeMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case draftchange.EdgeDependencies:
+		ids := make([]ent.Value, 0, len(m.removeddependencies))
+		for id := range m.removeddependencies {
+			ids = append(ids, id)
+		}
+		return ids
+	case draftchange.EdgeDependents:
+		ids := make([]ent.Value, 0, len(m.removeddependents))
+		for id := range m.removeddependents {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *DraftChangeMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.clearedevent {
+		edges = append(edges, draftchange.EdgeEvent)
+	}
+	if m.cleareddraft_edit {
+		edges = append(edges, draftchange.EdgeDraftEdit)
+	}
+	if m.cleareddependencies {
+		edges = append(edges, draftchange.EdgeDependencies)
+	}
+	if m.cleareddependents {
+		edges = append(edges, draftchange.EdgeDependents)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *DraftChangeMutation) EdgeCleared(name string) bool {
+	switch name {
+	case draftchange.EdgeEvent:
+		return m.clearedevent
+	case draftchange.EdgeDraftEdit:
+		return m.cleareddraft_edit
+	case draftchange.EdgeDependencies:
+		return m.cleareddependencies
+	case draftchange.EdgeDependents:
+		return m.cleareddependents
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *DraftChangeMutation) ClearEdge(name string) error {
+	switch name {
+	case draftchange.EdgeEvent:
+		m.ClearEvent()
+		return nil
+	case draftchange.EdgeDraftEdit:
+		m.ClearDraftEdit()
+		return nil
+	}
+	return fmt.Errorf("unknown DraftChange unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *DraftChangeMutation) ResetEdge(name string) error {
+	switch name {
+	case draftchange.EdgeEvent:
+		m.ResetEvent()
+		return nil
+	case draftchange.EdgeDraftEdit:
+		m.ResetDraftEdit()
+		return nil
+	case draftchange.EdgeDependencies:
+		m.ResetDependencies()
+		return nil
+	case draftchange.EdgeDependents:
+		m.ResetDependents()
+		return nil
+	}
+	return fmt.Errorf("unknown DraftChange edge %s", name)
+}
+
+// DraftChangeDependencyMutation represents an operation that mutates the DraftChangeDependency nodes in the graph.
+type DraftChangeDependencyMutation struct {
+	config
+	op                Op
+	typ               string
+	id                *int
+	clearedFields     map[string]struct{}
+	change            *int
+	clearedchange     bool
+	depends_on        *int
+	cleareddepends_on bool
+	done              bool
+	oldValue          func(context.Context) (*DraftChangeDependency, error)
+	predicates        []predicate.DraftChangeDependency
+}
+
+var _ ent.Mutation = (*DraftChangeDependencyMutation)(nil)
+
+// draftchangedependencyOption allows management of the mutation configuration using functional options.
+type draftchangedependencyOption func(*DraftChangeDependencyMutation)
+
+// newDraftChangeDependencyMutation creates new mutation for the DraftChangeDependency entity.
+func newDraftChangeDependencyMutation(c config, op Op, opts ...draftchangedependencyOption) *DraftChangeDependencyMutation {
+	m := &DraftChangeDependencyMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeDraftChangeDependency,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withDraftChangeDependencyID sets the ID field of the mutation.
+func withDraftChangeDependencyID(id int) draftchangedependencyOption {
+	return func(m *DraftChangeDependencyMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *DraftChangeDependency
+		)
+		m.oldValue = func(ctx context.Context) (*DraftChangeDependency, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().DraftChangeDependency.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withDraftChangeDependency sets the old DraftChangeDependency of the mutation.
+func withDraftChangeDependency(node *DraftChangeDependency) draftchangedependencyOption {
+	return func(m *DraftChangeDependencyMutation) {
+		m.oldValue = func(context.Context) (*DraftChangeDependency, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m DraftChangeDependencyMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m DraftChangeDependencyMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *DraftChangeDependencyMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *DraftChangeDependencyMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().DraftChangeDependency.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetChangeID sets the "change_id" field.
+func (m *DraftChangeDependencyMutation) SetChangeID(i int) {
+	m.change = &i
+}
+
+// ChangeID returns the value of the "change_id" field in the mutation.
+func (m *DraftChangeDependencyMutation) ChangeID() (r int, exists bool) {
+	v := m.change
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldChangeID returns the old "change_id" field's value of the DraftChangeDependency entity.
+// If the DraftChangeDependency object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DraftChangeDependencyMutation) OldChangeID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldChangeID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldChangeID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldChangeID: %w", err)
+	}
+	return oldValue.ChangeID, nil
+}
+
+// ResetChangeID resets all changes to the "change_id" field.
+func (m *DraftChangeDependencyMutation) ResetChangeID() {
+	m.change = nil
+}
+
+// SetDependsOnID sets the "depends_on_id" field.
+func (m *DraftChangeDependencyMutation) SetDependsOnID(i int) {
+	m.depends_on = &i
+}
+
+// DependsOnID returns the value of the "depends_on_id" field in the mutation.
+func (m *DraftChangeDependencyMutation) DependsOnID() (r int, exists bool) {
+	v := m.depends_on
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDependsOnID returns the old "depends_on_id" field's value of the DraftChangeDependency entity.
+// If the DraftChangeDependency object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DraftChangeDependencyMutation) OldDependsOnID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDependsOnID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDependsOnID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDependsOnID: %w", err)
+	}
+	return oldValue.DependsOnID, nil
+}
+
+// ResetDependsOnID resets all changes to the "depends_on_id" field.
+func (m *DraftChangeDependencyMutation) ResetDependsOnID() {
+	m.depends_on = nil
+}
+
+// ClearChange clears the "change" edge to the DraftChange entity.
+func (m *DraftChangeDependencyMutation) ClearChange() {
+	m.clearedchange = true
+	m.clearedFields[draftchangedependency.FieldChangeID] = struct{}{}
+}
+
+// ChangeCleared reports if the "change" edge to the DraftChange entity was cleared.
+func (m *DraftChangeDependencyMutation) ChangeCleared() bool {
+	return m.clearedchange
+}
+
+// ChangeIDs returns the "change" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ChangeID instead. It exists only for internal usage by the builders.
+func (m *DraftChangeDependencyMutation) ChangeIDs() (ids []int) {
+	if id := m.change; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetChange resets all changes to the "change" edge.
+func (m *DraftChangeDependencyMutation) ResetChange() {
+	m.change = nil
+	m.clearedchange = false
+}
+
+// ClearDependsOn clears the "depends_on" edge to the DraftChange entity.
+func (m *DraftChangeDependencyMutation) ClearDependsOn() {
+	m.cleareddepends_on = true
+	m.clearedFields[draftchangedependency.FieldDependsOnID] = struct{}{}
+}
+
+// DependsOnCleared reports if the "depends_on" edge to the DraftChange entity was cleared.
+func (m *DraftChangeDependencyMutation) DependsOnCleared() bool {
+	return m.cleareddepends_on
+}
+
+// DependsOnIDs returns the "depends_on" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// DependsOnID instead. It exists only for internal usage by the builders.
+func (m *DraftChangeDependencyMutation) DependsOnIDs() (ids []int) {
+	if id := m.depends_on; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetDependsOn resets all changes to the "depends_on" edge.
+func (m *DraftChangeDependencyMutation) ResetDependsOn() {
+	m.depends_on = nil
+	m.cleareddepends_on = false
+}
+
+// Where appends a list predicates to the DraftChangeDependencyMutation builder.
+func (m *DraftChangeDependencyMutation) Where(ps ...predicate.DraftChangeDependency) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the DraftChangeDependencyMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *DraftChangeDependencyMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.DraftChangeDependency, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *DraftChangeDependencyMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *DraftChangeDependencyMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (DraftChangeDependency).
+func (m *DraftChangeDependencyMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *DraftChangeDependencyMutation) Fields() []string {
+	fields := make([]string, 0, 2)
+	if m.change != nil {
+		fields = append(fields, draftchangedependency.FieldChangeID)
+	}
+	if m.depends_on != nil {
+		fields = append(fields, draftchangedependency.FieldDependsOnID)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *DraftChangeDependencyMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case draftchangedependency.FieldChangeID:
+		return m.ChangeID()
+	case draftchangedependency.FieldDependsOnID:
+		return m.DependsOnID()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *DraftChangeDependencyMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case draftchangedependency.FieldChangeID:
+		return m.OldChangeID(ctx)
+	case draftchangedependency.FieldDependsOnID:
+		return m.OldDependsOnID(ctx)
+	}
+	return nil, fmt.Errorf("unknown DraftChangeDependency field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DraftChangeDependencyMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case draftchangedependency.FieldChangeID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetChangeID(v)
+		return nil
+	case draftchangedependency.FieldDependsOnID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDependsOnID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown DraftChangeDependency field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *DraftChangeDependencyMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *DraftChangeDependencyMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DraftChangeDependencyMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown DraftChangeDependency numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *DraftChangeDependencyMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *DraftChangeDependencyMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *DraftChangeDependencyMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown DraftChangeDependency nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *DraftChangeDependencyMutation) ResetField(name string) error {
+	switch name {
+	case draftchangedependency.FieldChangeID:
+		m.ResetChangeID()
+		return nil
+	case draftchangedependency.FieldDependsOnID:
+		m.ResetDependsOnID()
+		return nil
+	}
+	return fmt.Errorf("unknown DraftChangeDependency field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *DraftChangeDependencyMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.change != nil {
+		edges = append(edges, draftchangedependency.EdgeChange)
+	}
+	if m.depends_on != nil {
+		edges = append(edges, draftchangedependency.EdgeDependsOn)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *DraftChangeDependencyMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case draftchangedependency.EdgeChange:
+		if id := m.change; id != nil {
+			return []ent.Value{*id}
+		}
+	case draftchangedependency.EdgeDependsOn:
+		if id := m.depends_on; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *DraftChangeDependencyMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *DraftChangeDependencyMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *DraftChangeDependencyMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedchange {
+		edges = append(edges, draftchangedependency.EdgeChange)
+	}
+	if m.cleareddepends_on {
+		edges = append(edges, draftchangedependency.EdgeDependsOn)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *DraftChangeDependencyMutation) EdgeCleared(name string) bool {
+	switch name {
+	case draftchangedependency.EdgeChange:
+		return m.clearedchange
+	case draftchangedependency.EdgeDependsOn:
+		return m.cleareddepends_on
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *DraftChangeDependencyMutation) ClearEdge(name string) error {
+	switch name {
+	case draftchangedependency.EdgeChange:
+		m.ClearChange()
+		return nil
+	case draftchangedependency.EdgeDependsOn:
+		m.ClearDependsOn()
+		return nil
+	}
+	return fmt.Errorf("unknown DraftChangeDependency unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *DraftChangeDependencyMutation) ResetEdge(name string) error {
+	switch name {
+	case draftchangedependency.EdgeChange:
+		m.ResetChange()
+		return nil
+	case draftchangedependency.EdgeDependsOn:
+		m.ResetDependsOn()
+		return nil
+	}
+	return fmt.Errorf("unknown DraftChangeDependency edge %s", name)
+}
+
+// DraftEditMutation represents an operation that mutates the DraftEdit nodes in the graph.
+type DraftEditMutation struct {
+	config
+	op             Op
+	typ            string
+	id             *int
+	revision       *int
+	addrevision    *int
+	created_at     *time.Time
+	clearedFields  map[string]struct{}
+	event          *int
+	clearedevent   bool
+	actor          *int
+	clearedactor   bool
+	changes        map[int]struct{}
+	removedchanges map[int]struct{}
+	clearedchanges bool
+	done           bool
+	oldValue       func(context.Context) (*DraftEdit, error)
+	predicates     []predicate.DraftEdit
+}
+
+var _ ent.Mutation = (*DraftEditMutation)(nil)
+
+// drafteditOption allows management of the mutation configuration using functional options.
+type drafteditOption func(*DraftEditMutation)
+
+// newDraftEditMutation creates new mutation for the DraftEdit entity.
+func newDraftEditMutation(c config, op Op, opts ...drafteditOption) *DraftEditMutation {
+	m := &DraftEditMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeDraftEdit,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withDraftEditID sets the ID field of the mutation.
+func withDraftEditID(id int) drafteditOption {
+	return func(m *DraftEditMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *DraftEdit
+		)
+		m.oldValue = func(ctx context.Context) (*DraftEdit, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().DraftEdit.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withDraftEdit sets the old DraftEdit of the mutation.
+func withDraftEdit(node *DraftEdit) drafteditOption {
+	return func(m *DraftEditMutation) {
+		m.oldValue = func(context.Context) (*DraftEdit, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m DraftEditMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m DraftEditMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *DraftEditMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *DraftEditMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().DraftEdit.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetEventID sets the "event_id" field.
+func (m *DraftEditMutation) SetEventID(i int) {
+	m.event = &i
+}
+
+// EventID returns the value of the "event_id" field in the mutation.
+func (m *DraftEditMutation) EventID() (r int, exists bool) {
+	v := m.event
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventID returns the old "event_id" field's value of the DraftEdit entity.
+// If the DraftEdit object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DraftEditMutation) OldEventID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventID: %w", err)
+	}
+	return oldValue.EventID, nil
+}
+
+// ResetEventID resets all changes to the "event_id" field.
+func (m *DraftEditMutation) ResetEventID() {
+	m.event = nil
+}
+
+// SetActorAccountID sets the "actor_account_id" field.
+func (m *DraftEditMutation) SetActorAccountID(i int) {
+	m.actor = &i
+}
+
+// ActorAccountID returns the value of the "actor_account_id" field in the mutation.
+func (m *DraftEditMutation) ActorAccountID() (r int, exists bool) {
+	v := m.actor
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActorAccountID returns the old "actor_account_id" field's value of the DraftEdit entity.
+// If the DraftEdit object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DraftEditMutation) OldActorAccountID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActorAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActorAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActorAccountID: %w", err)
+	}
+	return oldValue.ActorAccountID, nil
+}
+
+// ResetActorAccountID resets all changes to the "actor_account_id" field.
+func (m *DraftEditMutation) ResetActorAccountID() {
+	m.actor = nil
+}
+
+// SetRevision sets the "revision" field.
+func (m *DraftEditMutation) SetRevision(i int) {
+	m.revision = &i
+	m.addrevision = nil
+}
+
+// Revision returns the value of the "revision" field in the mutation.
+func (m *DraftEditMutation) Revision() (r int, exists bool) {
+	v := m.revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRevision returns the old "revision" field's value of the DraftEdit entity.
+// If the DraftEdit object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DraftEditMutation) OldRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRevision: %w", err)
+	}
+	return oldValue.Revision, nil
+}
+
+// AddRevision adds i to the "revision" field.
+func (m *DraftEditMutation) AddRevision(i int) {
+	if m.addrevision != nil {
+		*m.addrevision += i
+	} else {
+		m.addrevision = &i
+	}
+}
+
+// AddedRevision returns the value that was added to the "revision" field in this mutation.
+func (m *DraftEditMutation) AddedRevision() (r int, exists bool) {
+	v := m.addrevision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRevision resets all changes to the "revision" field.
+func (m *DraftEditMutation) ResetRevision() {
+	m.revision = nil
+	m.addrevision = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *DraftEditMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *DraftEditMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the DraftEdit entity.
+// If the DraftEdit object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DraftEditMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *DraftEditMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearEvent clears the "event" edge to the Event entity.
+func (m *DraftEditMutation) ClearEvent() {
+	m.clearedevent = true
+	m.clearedFields[draftedit.FieldEventID] = struct{}{}
+}
+
+// EventCleared reports if the "event" edge to the Event entity was cleared.
+func (m *DraftEditMutation) EventCleared() bool {
+	return m.clearedevent
+}
+
+// EventIDs returns the "event" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// EventID instead. It exists only for internal usage by the builders.
+func (m *DraftEditMutation) EventIDs() (ids []int) {
+	if id := m.event; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetEvent resets all changes to the "event" edge.
+func (m *DraftEditMutation) ResetEvent() {
+	m.event = nil
+	m.clearedevent = false
+}
+
+// SetActorID sets the "actor" edge to the Account entity by id.
+func (m *DraftEditMutation) SetActorID(id int) {
+	m.actor = &id
+}
+
+// ClearActor clears the "actor" edge to the Account entity.
+func (m *DraftEditMutation) ClearActor() {
+	m.clearedactor = true
+	m.clearedFields[draftedit.FieldActorAccountID] = struct{}{}
+}
+
+// ActorCleared reports if the "actor" edge to the Account entity was cleared.
+func (m *DraftEditMutation) ActorCleared() bool {
+	return m.clearedactor
+}
+
+// ActorID returns the "actor" edge ID in the mutation.
+func (m *DraftEditMutation) ActorID() (id int, exists bool) {
+	if m.actor != nil {
+		return *m.actor, true
+	}
+	return
+}
+
+// ActorIDs returns the "actor" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ActorID instead. It exists only for internal usage by the builders.
+func (m *DraftEditMutation) ActorIDs() (ids []int) {
+	if id := m.actor; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetActor resets all changes to the "actor" edge.
+func (m *DraftEditMutation) ResetActor() {
+	m.actor = nil
+	m.clearedactor = false
+}
+
+// AddChangeIDs adds the "changes" edge to the DraftChange entity by ids.
+func (m *DraftEditMutation) AddChangeIDs(ids ...int) {
+	if m.changes == nil {
+		m.changes = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.changes[ids[i]] = struct{}{}
+	}
+}
+
+// ClearChanges clears the "changes" edge to the DraftChange entity.
+func (m *DraftEditMutation) ClearChanges() {
+	m.clearedchanges = true
+}
+
+// ChangesCleared reports if the "changes" edge to the DraftChange entity was cleared.
+func (m *DraftEditMutation) ChangesCleared() bool {
+	return m.clearedchanges
+}
+
+// RemoveChangeIDs removes the "changes" edge to the DraftChange entity by IDs.
+func (m *DraftEditMutation) RemoveChangeIDs(ids ...int) {
+	if m.removedchanges == nil {
+		m.removedchanges = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.changes, ids[i])
+		m.removedchanges[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedChanges returns the removed IDs of the "changes" edge to the DraftChange entity.
+func (m *DraftEditMutation) RemovedChangesIDs() (ids []int) {
+	for id := range m.removedchanges {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ChangesIDs returns the "changes" edge IDs in the mutation.
+func (m *DraftEditMutation) ChangesIDs() (ids []int) {
+	for id := range m.changes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetChanges resets all changes to the "changes" edge.
+func (m *DraftEditMutation) ResetChanges() {
+	m.changes = nil
+	m.clearedchanges = false
+	m.removedchanges = nil
+}
+
+// Where appends a list predicates to the DraftEditMutation builder.
+func (m *DraftEditMutation) Where(ps ...predicate.DraftEdit) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the DraftEditMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *DraftEditMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.DraftEdit, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *DraftEditMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *DraftEditMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (DraftEdit).
+func (m *DraftEditMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *DraftEditMutation) Fields() []string {
+	fields := make([]string, 0, 4)
+	if m.event != nil {
+		fields = append(fields, draftedit.FieldEventID)
+	}
+	if m.actor != nil {
+		fields = append(fields, draftedit.FieldActorAccountID)
+	}
+	if m.revision != nil {
+		fields = append(fields, draftedit.FieldRevision)
+	}
+	if m.created_at != nil {
+		fields = append(fields, draftedit.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *DraftEditMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case draftedit.FieldEventID:
+		return m.EventID()
+	case draftedit.FieldActorAccountID:
+		return m.ActorAccountID()
+	case draftedit.FieldRevision:
+		return m.Revision()
+	case draftedit.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *DraftEditMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case draftedit.FieldEventID:
+		return m.OldEventID(ctx)
+	case draftedit.FieldActorAccountID:
+		return m.OldActorAccountID(ctx)
+	case draftedit.FieldRevision:
+		return m.OldRevision(ctx)
+	case draftedit.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown DraftEdit field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DraftEditMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case draftedit.FieldEventID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventID(v)
+		return nil
+	case draftedit.FieldActorAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActorAccountID(v)
+		return nil
+	case draftedit.FieldRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRevision(v)
+		return nil
+	case draftedit.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown DraftEdit field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *DraftEditMutation) AddedFields() []string {
+	var fields []string
+	if m.addrevision != nil {
+		fields = append(fields, draftedit.FieldRevision)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *DraftEditMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case draftedit.FieldRevision:
+		return m.AddedRevision()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DraftEditMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case draftedit.FieldRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRevision(v)
+		return nil
+	}
+	return fmt.Errorf("unknown DraftEdit numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *DraftEditMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *DraftEditMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *DraftEditMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown DraftEdit nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *DraftEditMutation) ResetField(name string) error {
+	switch name {
+	case draftedit.FieldEventID:
+		m.ResetEventID()
+		return nil
+	case draftedit.FieldActorAccountID:
+		m.ResetActorAccountID()
+		return nil
+	case draftedit.FieldRevision:
+		m.ResetRevision()
+		return nil
+	case draftedit.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown DraftEdit field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *DraftEditMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.event != nil {
+		edges = append(edges, draftedit.EdgeEvent)
+	}
+	if m.actor != nil {
+		edges = append(edges, draftedit.EdgeActor)
+	}
+	if m.changes != nil {
+		edges = append(edges, draftedit.EdgeChanges)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *DraftEditMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case draftedit.EdgeEvent:
+		if id := m.event; id != nil {
+			return []ent.Value{*id}
+		}
+	case draftedit.EdgeActor:
+		if id := m.actor; id != nil {
+			return []ent.Value{*id}
+		}
+	case draftedit.EdgeChanges:
+		ids := make([]ent.Value, 0, len(m.changes))
+		for id := range m.changes {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *DraftEditMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.removedchanges != nil {
+		edges = append(edges, draftedit.EdgeChanges)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *DraftEditMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case draftedit.EdgeChanges:
+		ids := make([]ent.Value, 0, len(m.removedchanges))
+		for id := range m.removedchanges {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *DraftEditMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.clearedevent {
+		edges = append(edges, draftedit.EdgeEvent)
+	}
+	if m.clearedactor {
+		edges = append(edges, draftedit.EdgeActor)
+	}
+	if m.clearedchanges {
+		edges = append(edges, draftedit.EdgeChanges)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *DraftEditMutation) EdgeCleared(name string) bool {
+	switch name {
+	case draftedit.EdgeEvent:
+		return m.clearedevent
+	case draftedit.EdgeActor:
+		return m.clearedactor
+	case draftedit.EdgeChanges:
+		return m.clearedchanges
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *DraftEditMutation) ClearEdge(name string) error {
+	switch name {
+	case draftedit.EdgeEvent:
+		m.ClearEvent()
+		return nil
+	case draftedit.EdgeActor:
+		m.ClearActor()
+		return nil
+	}
+	return fmt.Errorf("unknown DraftEdit unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *DraftEditMutation) ResetEdge(name string) error {
+	switch name {
+	case draftedit.EdgeEvent:
+		m.ResetEvent()
+		return nil
+	case draftedit.EdgeActor:
+		m.ResetActor()
+		return nil
+	case draftedit.EdgeChanges:
+		m.ResetChanges()
+		return nil
+	}
+	return fmt.Errorf("unknown DraftEdit edge %s", name)
+}
+
 // EventMutation represents an operation that mutates the Event nodes in the graph.
 type EventMutation struct {
 	config
-	op                 Op
-	typ                string
-	id                 *int
-	name               *string
-	planned_start_date *string
-	planned_end_date   *string
-	timezone           *string
-	event_locale       *string
-	content_language   *string
-	event_day_boundary *string
-	revision           *int
-	addrevision        *int
-	created_at         *time.Time
-	clearedFields      map[string]struct{}
-	grants             map[int]struct{}
-	removedgrants      map[int]struct{}
-	clearedgrants      bool
-	rundown            *int
-	clearedrundown     bool
-	locations          map[int]struct{}
-	removedlocations   map[int]struct{}
-	clearedlocations   bool
-	lanes              map[int]struct{}
-	removedlanes       map[int]struct{}
-	clearedlanes       bool
-	tracks             map[int]struct{}
-	removedtracks      map[int]struct{}
-	clearedtracks      bool
-	sessions           map[int]struct{}
-	removedsessions    map[int]struct{}
-	clearedsessions    bool
-	done               bool
-	oldValue           func(context.Context) (*Event, error)
-	predicates         []predicate.Event
+	op                   Op
+	typ                  string
+	id                   *int
+	name                 *string
+	planned_start_date   *string
+	planned_end_date     *string
+	timezone             *string
+	event_locale         *string
+	content_language     *string
+	event_day_boundary   *string
+	revision             *int
+	addrevision          *int
+	created_at           *time.Time
+	clearedFields        map[string]struct{}
+	grants               map[int]struct{}
+	removedgrants        map[int]struct{}
+	clearedgrants        bool
+	rundown              *int
+	clearedrundown       bool
+	locations            map[int]struct{}
+	removedlocations     map[int]struct{}
+	clearedlocations     bool
+	lanes                map[int]struct{}
+	removedlanes         map[int]struct{}
+	clearedlanes         bool
+	tracks               map[int]struct{}
+	removedtracks        map[int]struct{}
+	clearedtracks        bool
+	sessions             map[int]struct{}
+	removedsessions      map[int]struct{}
+	clearedsessions      bool
+	draft_edits          map[int]struct{}
+	removeddraft_edits   map[int]struct{}
+	cleareddraft_edits   bool
+	draft_changes        map[int]struct{}
+	removeddraft_changes map[int]struct{}
+	cleareddraft_changes bool
+	done                 bool
+	oldValue             func(context.Context) (*Event, error)
+	predicates           []predicate.Event
 }
 
 var _ ent.Mutation = (*EventMutation)(nil)
@@ -4410,6 +6969,114 @@ func (m *EventMutation) ResetSessions() {
 	m.removedsessions = nil
 }
 
+// AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by ids.
+func (m *EventMutation) AddDraftEditIDs(ids ...int) {
+	if m.draft_edits == nil {
+		m.draft_edits = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.draft_edits[ids[i]] = struct{}{}
+	}
+}
+
+// ClearDraftEdits clears the "draft_edits" edge to the DraftEdit entity.
+func (m *EventMutation) ClearDraftEdits() {
+	m.cleareddraft_edits = true
+}
+
+// DraftEditsCleared reports if the "draft_edits" edge to the DraftEdit entity was cleared.
+func (m *EventMutation) DraftEditsCleared() bool {
+	return m.cleareddraft_edits
+}
+
+// RemoveDraftEditIDs removes the "draft_edits" edge to the DraftEdit entity by IDs.
+func (m *EventMutation) RemoveDraftEditIDs(ids ...int) {
+	if m.removeddraft_edits == nil {
+		m.removeddraft_edits = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.draft_edits, ids[i])
+		m.removeddraft_edits[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedDraftEdits returns the removed IDs of the "draft_edits" edge to the DraftEdit entity.
+func (m *EventMutation) RemovedDraftEditsIDs() (ids []int) {
+	for id := range m.removeddraft_edits {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// DraftEditsIDs returns the "draft_edits" edge IDs in the mutation.
+func (m *EventMutation) DraftEditsIDs() (ids []int) {
+	for id := range m.draft_edits {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetDraftEdits resets all changes to the "draft_edits" edge.
+func (m *EventMutation) ResetDraftEdits() {
+	m.draft_edits = nil
+	m.cleareddraft_edits = false
+	m.removeddraft_edits = nil
+}
+
+// AddDraftChangeIDs adds the "draft_changes" edge to the DraftChange entity by ids.
+func (m *EventMutation) AddDraftChangeIDs(ids ...int) {
+	if m.draft_changes == nil {
+		m.draft_changes = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.draft_changes[ids[i]] = struct{}{}
+	}
+}
+
+// ClearDraftChanges clears the "draft_changes" edge to the DraftChange entity.
+func (m *EventMutation) ClearDraftChanges() {
+	m.cleareddraft_changes = true
+}
+
+// DraftChangesCleared reports if the "draft_changes" edge to the DraftChange entity was cleared.
+func (m *EventMutation) DraftChangesCleared() bool {
+	return m.cleareddraft_changes
+}
+
+// RemoveDraftChangeIDs removes the "draft_changes" edge to the DraftChange entity by IDs.
+func (m *EventMutation) RemoveDraftChangeIDs(ids ...int) {
+	if m.removeddraft_changes == nil {
+		m.removeddraft_changes = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.draft_changes, ids[i])
+		m.removeddraft_changes[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedDraftChanges returns the removed IDs of the "draft_changes" edge to the DraftChange entity.
+func (m *EventMutation) RemovedDraftChangesIDs() (ids []int) {
+	for id := range m.removeddraft_changes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// DraftChangesIDs returns the "draft_changes" edge IDs in the mutation.
+func (m *EventMutation) DraftChangesIDs() (ids []int) {
+	for id := range m.draft_changes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetDraftChanges resets all changes to the "draft_changes" edge.
+func (m *EventMutation) ResetDraftChanges() {
+	m.draft_changes = nil
+	m.cleareddraft_changes = false
+	m.removeddraft_changes = nil
+}
+
 // Where appends a list predicates to the EventMutation builder.
 func (m *EventMutation) Where(ps ...predicate.Event) {
 	m.predicates = append(m.predicates, ps...)
@@ -4703,7 +7370,7 @@ func (m *EventMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *EventMutation) AddedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 8)
 	if m.grants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -4721,6 +7388,12 @@ func (m *EventMutation) AddedEdges() []string {
 	}
 	if m.sessions != nil {
 		edges = append(edges, event.EdgeSessions)
+	}
+	if m.draft_edits != nil {
+		edges = append(edges, event.EdgeDraftEdits)
+	}
+	if m.draft_changes != nil {
+		edges = append(edges, event.EdgeDraftChanges)
 	}
 	return edges
 }
@@ -4763,13 +7436,25 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeDraftEdits:
+		ids := make([]ent.Value, 0, len(m.draft_edits))
+		for id := range m.draft_edits {
+			ids = append(ids, id)
+		}
+		return ids
+	case event.EdgeDraftChanges:
+		ids := make([]ent.Value, 0, len(m.draft_changes))
+		for id := range m.draft_changes {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *EventMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 8)
 	if m.removedgrants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -4784,6 +7469,12 @@ func (m *EventMutation) RemovedEdges() []string {
 	}
 	if m.removedsessions != nil {
 		edges = append(edges, event.EdgeSessions)
+	}
+	if m.removeddraft_edits != nil {
+		edges = append(edges, event.EdgeDraftEdits)
+	}
+	if m.removeddraft_changes != nil {
+		edges = append(edges, event.EdgeDraftChanges)
 	}
 	return edges
 }
@@ -4822,13 +7513,25 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeDraftEdits:
+		ids := make([]ent.Value, 0, len(m.removeddraft_edits))
+		for id := range m.removeddraft_edits {
+			ids = append(ids, id)
+		}
+		return ids
+	case event.EdgeDraftChanges:
+		ids := make([]ent.Value, 0, len(m.removeddraft_changes))
+		for id := range m.removeddraft_changes {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *EventMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 8)
 	if m.clearedgrants {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -4846,6 +7549,12 @@ func (m *EventMutation) ClearedEdges() []string {
 	}
 	if m.clearedsessions {
 		edges = append(edges, event.EdgeSessions)
+	}
+	if m.cleareddraft_edits {
+		edges = append(edges, event.EdgeDraftEdits)
+	}
+	if m.cleareddraft_changes {
+		edges = append(edges, event.EdgeDraftChanges)
 	}
 	return edges
 }
@@ -4866,6 +7575,10 @@ func (m *EventMutation) EdgeCleared(name string) bool {
 		return m.clearedtracks
 	case event.EdgeSessions:
 		return m.clearedsessions
+	case event.EdgeDraftEdits:
+		return m.cleareddraft_edits
+	case event.EdgeDraftChanges:
+		return m.cleareddraft_changes
 	}
 	return false
 }
@@ -4902,6 +7615,12 @@ func (m *EventMutation) ResetEdge(name string) error {
 		return nil
 	case event.EdgeSessions:
 		m.ResetSessions()
+		return nil
+	case event.EdgeDraftEdits:
+		m.ResetDraftEdits()
+		return nil
+	case event.EdgeDraftChanges:
+		m.ResetDraftChanges()
 		return nil
 	}
 	return fmt.Errorf("unknown Event edge %s", name)

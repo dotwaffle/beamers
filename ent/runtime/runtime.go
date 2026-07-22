@@ -11,6 +11,9 @@ import (
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/draftchange"
+	"github.com/dotwaffle/beamers/ent/draftchangedependency"
+	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/installation"
@@ -334,6 +337,115 @@ func init() {
 	commandreceiptDescCreatedAt := commandreceiptFields[7].Descriptor()
 	// commandreceipt.DefaultCreatedAt holds the default value on creation for the created_at field.
 	commandreceipt.DefaultCreatedAt = commandreceiptDescCreatedAt.Default.(func() time.Time)
+	draftchange.Policy = privacy.NewPolicies(schema.DraftChange{})
+	draftchange.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := draftchange.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	draftchangeFields := schema.DraftChange{}.Fields()
+	_ = draftchangeFields
+	// draftchangeDescRevision is the schema descriptor for revision field.
+	draftchangeDescRevision := draftchangeFields[2].Descriptor()
+	// draftchange.RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
+	draftchange.RevisionValidator = draftchangeDescRevision.Validators[0].(func(int) error)
+	// draftchangeDescKind is the schema descriptor for kind field.
+	draftchangeDescKind := draftchangeFields[3].Descriptor()
+	// draftchange.KindValidator is a validator for the "kind" field. It is called by the builders before save.
+	draftchange.KindValidator = func() func(string) error {
+		validators := draftchangeDescKind.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(kind string) error {
+			for _, fn := range fns {
+				if err := fn(kind); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// draftchangeDescTargetType is the schema descriptor for target_type field.
+	draftchangeDescTargetType := draftchangeFields[4].Descriptor()
+	// draftchange.TargetTypeValidator is a validator for the "target_type" field. It is called by the builders before save.
+	draftchange.TargetTypeValidator = func() func(string) error {
+		validators := draftchangeDescTargetType.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(target_type string) error {
+			for _, fn := range fns {
+				if err := fn(target_type); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// draftchangeDescTargetID is the schema descriptor for target_id field.
+	draftchangeDescTargetID := draftchangeFields[5].Descriptor()
+	// draftchange.TargetIDValidator is a validator for the "target_id" field. It is called by the builders before save.
+	draftchange.TargetIDValidator = draftchangeDescTargetID.Validators[0].(func(int) error)
+	// draftchangeDescFactKey is the schema descriptor for fact_key field.
+	draftchangeDescFactKey := draftchangeFields[6].Descriptor()
+	// draftchange.FactKeyValidator is a validator for the "fact_key" field. It is called by the builders before save.
+	draftchange.FactKeyValidator = func() func(string) error {
+		validators := draftchangeDescFactKey.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(fact_key string) error {
+			for _, fn := range fns {
+				if err := fn(fact_key); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// draftchangeDescPayloadJSON is the schema descriptor for payload_json field.
+	draftchangeDescPayloadJSON := draftchangeFields[7].Descriptor()
+	// draftchange.PayloadJSONValidator is a validator for the "payload_json" field. It is called by the builders before save.
+	draftchange.PayloadJSONValidator = draftchangeDescPayloadJSON.Validators[0].(func(string) error)
+	// draftchangeDescCreatedAt is the schema descriptor for created_at field.
+	draftchangeDescCreatedAt := draftchangeFields[10].Descriptor()
+	// draftchange.DefaultCreatedAt holds the default value on creation for the created_at field.
+	draftchange.DefaultCreatedAt = draftchangeDescCreatedAt.Default.(func() time.Time)
+	draftchangedependency.Policy = privacy.NewPolicies(schema.DraftChangeDependency{})
+	draftchangedependency.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := draftchangedependency.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	draftedit.Policy = privacy.NewPolicies(schema.DraftEdit{})
+	draftedit.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := draftedit.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	drafteditFields := schema.DraftEdit{}.Fields()
+	_ = drafteditFields
+	// drafteditDescRevision is the schema descriptor for revision field.
+	drafteditDescRevision := drafteditFields[2].Descriptor()
+	// draftedit.RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
+	draftedit.RevisionValidator = drafteditDescRevision.Validators[0].(func(int) error)
+	// drafteditDescCreatedAt is the schema descriptor for created_at field.
+	drafteditDescCreatedAt := drafteditFields[3].Descriptor()
+	// draftedit.DefaultCreatedAt holds the default value on creation for the created_at field.
+	draftedit.DefaultCreatedAt = drafteditDescCreatedAt.Default.(func() time.Time)
 	event.Policy = privacy.NewPolicies(schema.Event{})
 	event.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

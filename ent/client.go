@@ -20,6 +20,9 @@ import (
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/draftchange"
+	"github.com/dotwaffle/beamers/ent/draftchangedependency"
+	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/installation"
@@ -55,6 +58,12 @@ type Client struct {
 	BootstrapCredential *BootstrapCredentialClient
 	// CommandReceipt is the client for interacting with the CommandReceipt builders.
 	CommandReceipt *CommandReceiptClient
+	// DraftChange is the client for interacting with the DraftChange builders.
+	DraftChange *DraftChangeClient
+	// DraftChangeDependency is the client for interacting with the DraftChangeDependency builders.
+	DraftChangeDependency *DraftChangeDependencyClient
+	// DraftEdit is the client for interacting with the DraftEdit builders.
+	DraftEdit *DraftEditClient
 	// Event is the client for interacting with the Event builders.
 	Event *EventClient
 	// EventGrant is the client for interacting with the EventGrant builders.
@@ -107,6 +116,9 @@ func (c *Client) init() {
 	c.AuditEntry = NewAuditEntryClient(c.config)
 	c.BootstrapCredential = NewBootstrapCredentialClient(c.config)
 	c.CommandReceipt = NewCommandReceiptClient(c.config)
+	c.DraftChange = NewDraftChangeClient(c.config)
+	c.DraftChangeDependency = NewDraftChangeDependencyClient(c.config)
+	c.DraftEdit = NewDraftEditClient(c.config)
 	c.Event = NewEventClient(c.config)
 	c.EventGrant = NewEventGrantClient(c.config)
 	c.Installation = NewInstallationClient(c.config)
@@ -222,6 +234,9 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		AuditEntry:               NewAuditEntryClient(cfg),
 		BootstrapCredential:      NewBootstrapCredentialClient(cfg),
 		CommandReceipt:           NewCommandReceiptClient(cfg),
+		DraftChange:              NewDraftChangeClient(cfg),
+		DraftChangeDependency:    NewDraftChangeDependencyClient(cfg),
+		DraftEdit:                NewDraftEditClient(cfg),
 		Event:                    NewEventClient(cfg),
 		EventGrant:               NewEventGrantClient(cfg),
 		Installation:             NewInstallationClient(cfg),
@@ -264,6 +279,9 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		AuditEntry:               NewAuditEntryClient(cfg),
 		BootstrapCredential:      NewBootstrapCredentialClient(cfg),
 		CommandReceipt:           NewCommandReceiptClient(cfg),
+		DraftChange:              NewDraftChangeClient(cfg),
+		DraftChangeDependency:    NewDraftChangeDependencyClient(cfg),
+		DraftEdit:                NewDraftEditClient(cfg),
 		Event:                    NewEventClient(cfg),
 		EventGrant:               NewEventGrantClient(cfg),
 		Installation:             NewInstallationClient(cfg),
@@ -312,11 +330,11 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.Account, c.AccountSession, c.AuditEntry, c.BootstrapCredential,
-		c.CommandReceipt, c.Event, c.EventGrant, c.Installation, c.Lane, c.LaneDraft,
-		c.LanePublishedVersion, c.Location, c.LocationDraft,
-		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Rundown,
-		c.Session, c.SessionDraft, c.SessionPublishedVersion, c.Track, c.TrackDraft,
-		c.TrackPublishedVersion,
+		c.CommandReceipt, c.DraftChange, c.DraftChangeDependency, c.DraftEdit, c.Event,
+		c.EventGrant, c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion,
+		c.Location, c.LocationDraft, c.LocationPublishedVersion, c.Migration,
+		c.PasswordCredential, c.Rundown, c.Session, c.SessionDraft,
+		c.SessionPublishedVersion, c.Track, c.TrackDraft, c.TrackPublishedVersion,
 	} {
 		n.Use(hooks...)
 	}
@@ -327,11 +345,11 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.Account, c.AccountSession, c.AuditEntry, c.BootstrapCredential,
-		c.CommandReceipt, c.Event, c.EventGrant, c.Installation, c.Lane, c.LaneDraft,
-		c.LanePublishedVersion, c.Location, c.LocationDraft,
-		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Rundown,
-		c.Session, c.SessionDraft, c.SessionPublishedVersion, c.Track, c.TrackDraft,
-		c.TrackPublishedVersion,
+		c.CommandReceipt, c.DraftChange, c.DraftChangeDependency, c.DraftEdit, c.Event,
+		c.EventGrant, c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion,
+		c.Location, c.LocationDraft, c.LocationPublishedVersion, c.Migration,
+		c.PasswordCredential, c.Rundown, c.Session, c.SessionDraft,
+		c.SessionPublishedVersion, c.Track, c.TrackDraft, c.TrackPublishedVersion,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -350,6 +368,12 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.BootstrapCredential.mutate(ctx, m)
 	case *CommandReceiptMutation:
 		return c.CommandReceipt.mutate(ctx, m)
+	case *DraftChangeMutation:
+		return c.DraftChange.mutate(ctx, m)
+	case *DraftChangeDependencyMutation:
+		return c.DraftChangeDependency.mutate(ctx, m)
+	case *DraftEditMutation:
+		return c.DraftEdit.mutate(ctx, m)
 	case *EventMutation:
 		return c.Event.mutate(ctx, m)
 	case *EventGrantMutation:
@@ -572,6 +596,22 @@ func (c *AccountClient) QueryCommandReceipts(_m *Account) *CommandReceiptQuery {
 			sqlgraph.From(account.Table, account.FieldID, id),
 			sqlgraph.To(commandreceipt.Table, commandreceipt.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, account.CommandReceiptsTable, account.CommandReceiptsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDraftEdits queries the draft_edits edge of a Account.
+func (c *AccountClient) QueryDraftEdits(_m *Account) *DraftEditQuery {
+	query := (&DraftEditClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(draftedit.Table, draftedit.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.DraftEditsTable, account.DraftEditsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -1189,6 +1229,552 @@ func (c *CommandReceiptClient) mutate(ctx context.Context, m *CommandReceiptMuta
 	}
 }
 
+// DraftChangeClient is a client for the DraftChange schema.
+type DraftChangeClient struct {
+	config
+}
+
+// NewDraftChangeClient returns a client for the DraftChange from the given config.
+func NewDraftChangeClient(c config) *DraftChangeClient {
+	return &DraftChangeClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `draftchange.Hooks(f(g(h())))`.
+func (c *DraftChangeClient) Use(hooks ...Hook) {
+	c.hooks.DraftChange = append(c.hooks.DraftChange, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `draftchange.Intercept(f(g(h())))`.
+func (c *DraftChangeClient) Intercept(interceptors ...Interceptor) {
+	c.inters.DraftChange = append(c.inters.DraftChange, interceptors...)
+}
+
+// Create returns a builder for creating a DraftChange entity.
+func (c *DraftChangeClient) Create() *DraftChangeCreate {
+	mutation := newDraftChangeMutation(c.config, OpCreate)
+	return &DraftChangeCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of DraftChange entities.
+func (c *DraftChangeClient) CreateBulk(builders ...*DraftChangeCreate) *DraftChangeCreateBulk {
+	return &DraftChangeCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *DraftChangeClient) MapCreateBulk(slice any, setFunc func(*DraftChangeCreate, int)) *DraftChangeCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &DraftChangeCreateBulk{err: fmt.Errorf("calling to DraftChangeClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*DraftChangeCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &DraftChangeCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for DraftChange.
+func (c *DraftChangeClient) Update() *DraftChangeUpdate {
+	mutation := newDraftChangeMutation(c.config, OpUpdate)
+	return &DraftChangeUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *DraftChangeClient) UpdateOne(_m *DraftChange) *DraftChangeUpdateOne {
+	mutation := newDraftChangeMutation(c.config, OpUpdateOne, withDraftChange(_m))
+	return &DraftChangeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *DraftChangeClient) UpdateOneID(id int) *DraftChangeUpdateOne {
+	mutation := newDraftChangeMutation(c.config, OpUpdateOne, withDraftChangeID(id))
+	return &DraftChangeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for DraftChange.
+func (c *DraftChangeClient) Delete() *DraftChangeDelete {
+	mutation := newDraftChangeMutation(c.config, OpDelete)
+	return &DraftChangeDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *DraftChangeClient) DeleteOne(_m *DraftChange) *DraftChangeDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *DraftChangeClient) DeleteOneID(id int) *DraftChangeDeleteOne {
+	builder := c.Delete().Where(draftchange.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &DraftChangeDeleteOne{builder}
+}
+
+// Query returns a query builder for DraftChange.
+func (c *DraftChangeClient) Query() *DraftChangeQuery {
+	return &DraftChangeQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeDraftChange},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a DraftChange entity by its id.
+func (c *DraftChangeClient) Get(ctx context.Context, id int) (*DraftChange, error) {
+	return c.Query().Where(draftchange.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *DraftChangeClient) GetX(ctx context.Context, id int) *DraftChange {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a DraftChange.
+func (c *DraftChangeClient) QueryEvent(_m *DraftChange) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(draftchange.Table, draftchange.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, draftchange.EventTable, draftchange.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDraftEdit queries the draft_edit edge of a DraftChange.
+func (c *DraftChangeClient) QueryDraftEdit(_m *DraftChange) *DraftEditQuery {
+	query := (&DraftEditClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(draftchange.Table, draftchange.FieldID, id),
+			sqlgraph.To(draftedit.Table, draftedit.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, draftchange.DraftEditTable, draftchange.DraftEditColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDependencies queries the dependencies edge of a DraftChange.
+func (c *DraftChangeClient) QueryDependencies(_m *DraftChange) *DraftChangeDependencyQuery {
+	query := (&DraftChangeDependencyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(draftchange.Table, draftchange.FieldID, id),
+			sqlgraph.To(draftchangedependency.Table, draftchangedependency.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, draftchange.DependenciesTable, draftchange.DependenciesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDependents queries the dependents edge of a DraftChange.
+func (c *DraftChangeClient) QueryDependents(_m *DraftChange) *DraftChangeDependencyQuery {
+	query := (&DraftChangeDependencyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(draftchange.Table, draftchange.FieldID, id),
+			sqlgraph.To(draftchangedependency.Table, draftchangedependency.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, draftchange.DependentsTable, draftchange.DependentsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *DraftChangeClient) Hooks() []Hook {
+	hooks := c.hooks.DraftChange
+	return append(hooks[:len(hooks):len(hooks)], draftchange.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *DraftChangeClient) Interceptors() []Interceptor {
+	return c.inters.DraftChange
+}
+
+func (c *DraftChangeClient) mutate(ctx context.Context, m *DraftChangeMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&DraftChangeCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&DraftChangeUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&DraftChangeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&DraftChangeDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown DraftChange mutation op: %q", m.Op())
+	}
+}
+
+// DraftChangeDependencyClient is a client for the DraftChangeDependency schema.
+type DraftChangeDependencyClient struct {
+	config
+}
+
+// NewDraftChangeDependencyClient returns a client for the DraftChangeDependency from the given config.
+func NewDraftChangeDependencyClient(c config) *DraftChangeDependencyClient {
+	return &DraftChangeDependencyClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `draftchangedependency.Hooks(f(g(h())))`.
+func (c *DraftChangeDependencyClient) Use(hooks ...Hook) {
+	c.hooks.DraftChangeDependency = append(c.hooks.DraftChangeDependency, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `draftchangedependency.Intercept(f(g(h())))`.
+func (c *DraftChangeDependencyClient) Intercept(interceptors ...Interceptor) {
+	c.inters.DraftChangeDependency = append(c.inters.DraftChangeDependency, interceptors...)
+}
+
+// Create returns a builder for creating a DraftChangeDependency entity.
+func (c *DraftChangeDependencyClient) Create() *DraftChangeDependencyCreate {
+	mutation := newDraftChangeDependencyMutation(c.config, OpCreate)
+	return &DraftChangeDependencyCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of DraftChangeDependency entities.
+func (c *DraftChangeDependencyClient) CreateBulk(builders ...*DraftChangeDependencyCreate) *DraftChangeDependencyCreateBulk {
+	return &DraftChangeDependencyCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *DraftChangeDependencyClient) MapCreateBulk(slice any, setFunc func(*DraftChangeDependencyCreate, int)) *DraftChangeDependencyCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &DraftChangeDependencyCreateBulk{err: fmt.Errorf("calling to DraftChangeDependencyClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*DraftChangeDependencyCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &DraftChangeDependencyCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for DraftChangeDependency.
+func (c *DraftChangeDependencyClient) Update() *DraftChangeDependencyUpdate {
+	mutation := newDraftChangeDependencyMutation(c.config, OpUpdate)
+	return &DraftChangeDependencyUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *DraftChangeDependencyClient) UpdateOne(_m *DraftChangeDependency) *DraftChangeDependencyUpdateOne {
+	mutation := newDraftChangeDependencyMutation(c.config, OpUpdateOne, withDraftChangeDependency(_m))
+	return &DraftChangeDependencyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *DraftChangeDependencyClient) UpdateOneID(id int) *DraftChangeDependencyUpdateOne {
+	mutation := newDraftChangeDependencyMutation(c.config, OpUpdateOne, withDraftChangeDependencyID(id))
+	return &DraftChangeDependencyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for DraftChangeDependency.
+func (c *DraftChangeDependencyClient) Delete() *DraftChangeDependencyDelete {
+	mutation := newDraftChangeDependencyMutation(c.config, OpDelete)
+	return &DraftChangeDependencyDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *DraftChangeDependencyClient) DeleteOne(_m *DraftChangeDependency) *DraftChangeDependencyDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *DraftChangeDependencyClient) DeleteOneID(id int) *DraftChangeDependencyDeleteOne {
+	builder := c.Delete().Where(draftchangedependency.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &DraftChangeDependencyDeleteOne{builder}
+}
+
+// Query returns a query builder for DraftChangeDependency.
+func (c *DraftChangeDependencyClient) Query() *DraftChangeDependencyQuery {
+	return &DraftChangeDependencyQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeDraftChangeDependency},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a DraftChangeDependency entity by its id.
+func (c *DraftChangeDependencyClient) Get(ctx context.Context, id int) (*DraftChangeDependency, error) {
+	return c.Query().Where(draftchangedependency.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *DraftChangeDependencyClient) GetX(ctx context.Context, id int) *DraftChangeDependency {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryChange queries the change edge of a DraftChangeDependency.
+func (c *DraftChangeDependencyClient) QueryChange(_m *DraftChangeDependency) *DraftChangeQuery {
+	query := (&DraftChangeClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(draftchangedependency.Table, draftchangedependency.FieldID, id),
+			sqlgraph.To(draftchange.Table, draftchange.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, draftchangedependency.ChangeTable, draftchangedependency.ChangeColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDependsOn queries the depends_on edge of a DraftChangeDependency.
+func (c *DraftChangeDependencyClient) QueryDependsOn(_m *DraftChangeDependency) *DraftChangeQuery {
+	query := (&DraftChangeClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(draftchangedependency.Table, draftchangedependency.FieldID, id),
+			sqlgraph.To(draftchange.Table, draftchange.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, draftchangedependency.DependsOnTable, draftchangedependency.DependsOnColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *DraftChangeDependencyClient) Hooks() []Hook {
+	hooks := c.hooks.DraftChangeDependency
+	return append(hooks[:len(hooks):len(hooks)], draftchangedependency.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *DraftChangeDependencyClient) Interceptors() []Interceptor {
+	return c.inters.DraftChangeDependency
+}
+
+func (c *DraftChangeDependencyClient) mutate(ctx context.Context, m *DraftChangeDependencyMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&DraftChangeDependencyCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&DraftChangeDependencyUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&DraftChangeDependencyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&DraftChangeDependencyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown DraftChangeDependency mutation op: %q", m.Op())
+	}
+}
+
+// DraftEditClient is a client for the DraftEdit schema.
+type DraftEditClient struct {
+	config
+}
+
+// NewDraftEditClient returns a client for the DraftEdit from the given config.
+func NewDraftEditClient(c config) *DraftEditClient {
+	return &DraftEditClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `draftedit.Hooks(f(g(h())))`.
+func (c *DraftEditClient) Use(hooks ...Hook) {
+	c.hooks.DraftEdit = append(c.hooks.DraftEdit, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `draftedit.Intercept(f(g(h())))`.
+func (c *DraftEditClient) Intercept(interceptors ...Interceptor) {
+	c.inters.DraftEdit = append(c.inters.DraftEdit, interceptors...)
+}
+
+// Create returns a builder for creating a DraftEdit entity.
+func (c *DraftEditClient) Create() *DraftEditCreate {
+	mutation := newDraftEditMutation(c.config, OpCreate)
+	return &DraftEditCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of DraftEdit entities.
+func (c *DraftEditClient) CreateBulk(builders ...*DraftEditCreate) *DraftEditCreateBulk {
+	return &DraftEditCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *DraftEditClient) MapCreateBulk(slice any, setFunc func(*DraftEditCreate, int)) *DraftEditCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &DraftEditCreateBulk{err: fmt.Errorf("calling to DraftEditClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*DraftEditCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &DraftEditCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for DraftEdit.
+func (c *DraftEditClient) Update() *DraftEditUpdate {
+	mutation := newDraftEditMutation(c.config, OpUpdate)
+	return &DraftEditUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *DraftEditClient) UpdateOne(_m *DraftEdit) *DraftEditUpdateOne {
+	mutation := newDraftEditMutation(c.config, OpUpdateOne, withDraftEdit(_m))
+	return &DraftEditUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *DraftEditClient) UpdateOneID(id int) *DraftEditUpdateOne {
+	mutation := newDraftEditMutation(c.config, OpUpdateOne, withDraftEditID(id))
+	return &DraftEditUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for DraftEdit.
+func (c *DraftEditClient) Delete() *DraftEditDelete {
+	mutation := newDraftEditMutation(c.config, OpDelete)
+	return &DraftEditDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *DraftEditClient) DeleteOne(_m *DraftEdit) *DraftEditDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *DraftEditClient) DeleteOneID(id int) *DraftEditDeleteOne {
+	builder := c.Delete().Where(draftedit.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &DraftEditDeleteOne{builder}
+}
+
+// Query returns a query builder for DraftEdit.
+func (c *DraftEditClient) Query() *DraftEditQuery {
+	return &DraftEditQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeDraftEdit},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a DraftEdit entity by its id.
+func (c *DraftEditClient) Get(ctx context.Context, id int) (*DraftEdit, error) {
+	return c.Query().Where(draftedit.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *DraftEditClient) GetX(ctx context.Context, id int) *DraftEdit {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a DraftEdit.
+func (c *DraftEditClient) QueryEvent(_m *DraftEdit) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(draftedit.Table, draftedit.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, draftedit.EventTable, draftedit.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryActor queries the actor edge of a DraftEdit.
+func (c *DraftEditClient) QueryActor(_m *DraftEdit) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(draftedit.Table, draftedit.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, draftedit.ActorTable, draftedit.ActorColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryChanges queries the changes edge of a DraftEdit.
+func (c *DraftEditClient) QueryChanges(_m *DraftEdit) *DraftChangeQuery {
+	query := (&DraftChangeClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(draftedit.Table, draftedit.FieldID, id),
+			sqlgraph.To(draftchange.Table, draftchange.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, draftedit.ChangesTable, draftedit.ChangesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *DraftEditClient) Hooks() []Hook {
+	hooks := c.hooks.DraftEdit
+	return append(hooks[:len(hooks):len(hooks)], draftedit.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *DraftEditClient) Interceptors() []Interceptor {
+	return c.inters.DraftEdit
+}
+
+func (c *DraftEditClient) mutate(ctx context.Context, m *DraftEditMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&DraftEditCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&DraftEditUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&DraftEditUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&DraftEditDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown DraftEdit mutation op: %q", m.Op())
+	}
+}
+
 // EventClient is a client for the Event schema.
 type EventClient struct {
 	config
@@ -1386,6 +1972,38 @@ func (c *EventClient) QuerySessions(_m *Event) *SessionQuery {
 			sqlgraph.From(event.Table, event.FieldID, id),
 			sqlgraph.To(session.Table, session.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, event.SessionsTable, event.SessionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDraftEdits queries the draft_edits edge of a Event.
+func (c *EventClient) QueryDraftEdits(_m *Event) *DraftEditQuery {
+	query := (&DraftEditClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(draftedit.Table, draftedit.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.DraftEditsTable, event.DraftEditsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDraftChanges queries the draft_changes edge of a Event.
+func (c *EventClient) QueryDraftChanges(_m *Event) *DraftChangeQuery {
+	query := (&DraftChangeClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(draftchange.Table, draftchange.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.DraftChangesTable, event.DraftChangesColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -4338,17 +4956,19 @@ func (c *TrackPublishedVersionClient) mutate(ctx context.Context, m *TrackPublis
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt, Event,
-		EventGrant, Installation, Lane, LaneDraft, LanePublishedVersion, Location,
-		LocationDraft, LocationPublishedVersion, Migration, PasswordCredential,
-		Rundown, Session, SessionDraft, SessionPublishedVersion, Track, TrackDraft,
+		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt,
+		DraftChange, DraftChangeDependency, DraftEdit, Event, EventGrant, Installation,
+		Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
+		LocationPublishedVersion, Migration, PasswordCredential, Rundown, Session,
+		SessionDraft, SessionPublishedVersion, Track, TrackDraft,
 		TrackPublishedVersion []ent.Hook
 	}
 	inters struct {
-		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt, Event,
-		EventGrant, Installation, Lane, LaneDraft, LanePublishedVersion, Location,
-		LocationDraft, LocationPublishedVersion, Migration, PasswordCredential,
-		Rundown, Session, SessionDraft, SessionPublishedVersion, Track, TrackDraft,
+		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt,
+		DraftChange, DraftChangeDependency, DraftEdit, Event, EventGrant, Installation,
+		Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
+		LocationPublishedVersion, Migration, PasswordCredential, Rundown, Session,
+		SessionDraft, SessionPublishedVersion, Track, TrackDraft,
 		TrackPublishedVersion []ent.Interceptor
 	}
 )

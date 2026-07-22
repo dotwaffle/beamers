@@ -46,9 +46,11 @@ type AccountEdges struct {
 	AuditEntries []*AuditEntry `json:"audit_entries,omitempty"`
 	// CommandReceipts holds the value of the command_receipts edge.
 	CommandReceipts []*CommandReceipt `json:"command_receipts,omitempty"`
+	// DraftEdits holds the value of the draft_edits edge.
+	DraftEdits []*DraftEdit `json:"draft_edits,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [5]bool
+	loadedTypes [6]bool
 }
 
 // PasswordCredentialOrErr returns the PasswordCredential value or an error if the edge
@@ -96,6 +98,15 @@ func (e AccountEdges) CommandReceiptsOrErr() ([]*CommandReceipt, error) {
 		return e.CommandReceipts, nil
 	}
 	return nil, &NotLoadedError{edge: "command_receipts"}
+}
+
+// DraftEditsOrErr returns the DraftEdits value or an error if the edge
+// was not loaded in eager-loading.
+func (e AccountEdges) DraftEditsOrErr() ([]*DraftEdit, error) {
+	if e.loadedTypes[5] {
+		return e.DraftEdits, nil
+	}
+	return nil, &NotLoadedError{edge: "draft_edits"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -199,6 +210,11 @@ func (_m *Account) QueryAuditEntries() *AuditEntryQuery {
 // QueryCommandReceipts queries the "command_receipts" edge of the Account entity.
 func (_m *Account) QueryCommandReceipts() *CommandReceiptQuery {
 	return NewAccountClient(_m.config).QueryCommandReceipts(_m)
+}
+
+// QueryDraftEdits queries the "draft_edits" edge of the Account entity.
+func (_m *Account) QueryDraftEdits() *DraftEditQuery {
+	return NewAccountClient(_m.config).QueryDraftEdits(_m)
 }
 
 // Update returns a builder for updating this Account.

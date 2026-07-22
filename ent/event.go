@@ -56,9 +56,13 @@ type EventEdges struct {
 	Tracks []*Track `json:"tracks,omitempty"`
 	// Sessions holds the value of the sessions edge.
 	Sessions []*Session `json:"sessions,omitempty"`
+	// DraftEdits holds the value of the draft_edits edge.
+	DraftEdits []*DraftEdit `json:"draft_edits,omitempty"`
+	// DraftChanges holds the value of the draft_changes edge.
+	DraftChanges []*DraftChange `json:"draft_changes,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [6]bool
+	loadedTypes [8]bool
 }
 
 // GrantsOrErr returns the Grants value or an error if the edge
@@ -115,6 +119,24 @@ func (e EventEdges) SessionsOrErr() ([]*Session, error) {
 		return e.Sessions, nil
 	}
 	return nil, &NotLoadedError{edge: "sessions"}
+}
+
+// DraftEditsOrErr returns the DraftEdits value or an error if the edge
+// was not loaded in eager-loading.
+func (e EventEdges) DraftEditsOrErr() ([]*DraftEdit, error) {
+	if e.loadedTypes[6] {
+		return e.DraftEdits, nil
+	}
+	return nil, &NotLoadedError{edge: "draft_edits"}
+}
+
+// DraftChangesOrErr returns the DraftChanges value or an error if the edge
+// was not loaded in eager-loading.
+func (e EventEdges) DraftChangesOrErr() ([]*DraftChange, error) {
+	if e.loadedTypes[7] {
+		return e.DraftChanges, nil
+	}
+	return nil, &NotLoadedError{edge: "draft_changes"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -244,6 +266,16 @@ func (_m *Event) QueryTracks() *TrackQuery {
 // QuerySessions queries the "sessions" edge of the Event entity.
 func (_m *Event) QuerySessions() *SessionQuery {
 	return NewEventClient(_m.config).QuerySessions(_m)
+}
+
+// QueryDraftEdits queries the "draft_edits" edge of the Event entity.
+func (_m *Event) QueryDraftEdits() *DraftEditQuery {
+	return NewEventClient(_m.config).QueryDraftEdits(_m)
+}
+
+// QueryDraftChanges queries the "draft_changes" edge of the Event entity.
+func (_m *Event) QueryDraftChanges() *DraftChangeQuery {
+	return NewEventClient(_m.config).QueryDraftChanges(_m)
 }
 
 // Update returns a builder for updating this Event.

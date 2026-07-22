@@ -783,6 +783,52 @@ func HasSessionsWith(preds ...predicate.Session) predicate.Event {
 	})
 }
 
+// HasDraftEdits applies the HasEdge predicate on the "draft_edits" edge.
+func HasDraftEdits() predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, DraftEditsTable, DraftEditsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasDraftEditsWith applies the HasEdge predicate on the "draft_edits" edge with a given conditions (other predicates).
+func HasDraftEditsWith(preds ...predicate.DraftEdit) predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := newDraftEditsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasDraftChanges applies the HasEdge predicate on the "draft_changes" edge.
+func HasDraftChanges() predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, DraftChangesTable, DraftChangesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasDraftChangesWith applies the HasEdge predicate on the "draft_changes" edge with a given conditions (other predicates).
+func HasDraftChangesWith(preds ...predicate.DraftChange) predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := newDraftChangesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Event) predicate.Event {
 	return predicate.Event(sql.AndPredicates(predicates...))

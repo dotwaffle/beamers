@@ -137,6 +137,11 @@ func (installation *SQLite) CreateEvent(
 	if err != nil {
 		return Event{}, opaqueError("create Event", err)
 	}
+	if _, createErr := transaction.Rundown.Create().
+		SetEventID(created.ID).
+		Save(viewer.SystemContext(ctx)); createErr != nil {
+		return Event{}, opaqueError("create Event Rundown", createErr)
+	}
 	projected := eventProjection(created)
 	outcomeJSON, err := json.Marshal(projected)
 	if err != nil {

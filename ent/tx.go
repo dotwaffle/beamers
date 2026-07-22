@@ -22,6 +22,12 @@ type Tx struct {
 	BootstrapCredential *BootstrapCredentialClient
 	// CommandReceipt is the client for interacting with the CommandReceipt builders.
 	CommandReceipt *CommandReceiptClient
+	// DraftChange is the client for interacting with the DraftChange builders.
+	DraftChange *DraftChangeClient
+	// DraftChangeDependency is the client for interacting with the DraftChangeDependency builders.
+	DraftChangeDependency *DraftChangeDependencyClient
+	// DraftEdit is the client for interacting with the DraftEdit builders.
+	DraftEdit *DraftEditClient
 	// Event is the client for interacting with the Event builders.
 	Event *EventClient
 	// EventGrant is the client for interacting with the EventGrant builders.
@@ -194,6 +200,9 @@ func (tx *Tx) init() {
 	tx.AuditEntry = NewAuditEntryClient(tx.config)
 	tx.BootstrapCredential = NewBootstrapCredentialClient(tx.config)
 	tx.CommandReceipt = NewCommandReceiptClient(tx.config)
+	tx.DraftChange = NewDraftChangeClient(tx.config)
+	tx.DraftChangeDependency = NewDraftChangeDependencyClient(tx.config)
+	tx.DraftEdit = NewDraftEditClient(tx.config)
 	tx.Event = NewEventClient(tx.config)
 	tx.EventGrant = NewEventGrantClient(tx.config)
 	tx.Installation = NewInstallationClient(tx.config)

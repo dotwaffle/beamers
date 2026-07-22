@@ -45,5 +45,6 @@ func (Account) Edges() []ent.Edge {
 		edge.To("event_grants", EventGrant.Type),
 		edge.To("audit_entries", AuditEntry.Type),
 		edge.To("command_receipts", CommandReceipt.Type),
+		edge.To("draft_edits", DraftEdit.Type),
 	}
 }

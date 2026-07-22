@@ -7,6 +7,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/store"
 )
 
@@ -23,9 +24,11 @@ var (
 
 // Installation coordinates access to installation persistence.
 type Installation struct {
-	storage        *store.SQLite
-	authentication *auth.Service
-	events         *events.Service
+	storage         *store.SQLite
+	authentication  *auth.Service
+	events          *events.Service
+	rundownCommands *rundown.Commands
+	rundownQueries  *rundown.Queries
 }
 
 // Initialize creates a new installation with the committed schema.
@@ -55,6 +58,16 @@ func OpenInstallation(ctx context.Context, dataDir string) (*Installation, error
 		return nil, errors.Join(err, storage.Close())
 	}
 	installation.events = eventService
+	rundownCommands, err := rundown.NewCommands(storage, time.Now)
+	if err != nil {
+		return nil, errors.Join(err, storage.Close())
+	}
+	installation.rundownCommands = rundownCommands
+	rundownQueries, err := rundown.NewQueries(storage)
+	if err != nil {
+		return nil, errors.Join(err, storage.Close())
+	}
+	installation.rundownQueries = rundownQueries
 	return installation, nil
 }
 
@@ -102,6 +115,18 @@ func (installation *Installation) Authentication() *auth.Service {
 // It is nil only while the installation is restricted to recovery mode.
 func (installation *Installation) Events() *events.Service {
 	return installation.events
+}
+
+// RundownCommands returns the Rundown command application service.
+// It is nil only while the installation is restricted to recovery mode.
+func (installation *Installation) RundownCommands() *rundown.Commands {
+	return installation.rundownCommands
+}
+
+// RundownQueries returns the Rundown query application service.
+// It is nil only while the installation is restricted to recovery mode.
+func (installation *Installation) RundownQueries() *rundown.Queries {
+	return installation.rundownQueries
 }
 
 // Close closes storage and releases the installation lock.
