@@ -30,8 +30,20 @@ type EventGrant func(*sql.Selector)
 // Installation is the predicate function for installation builders.
 type Installation func(*sql.Selector)
 
+// Location is the predicate function for location builders.
+type Location func(*sql.Selector)
+
+// LocationDraft is the predicate function for locationdraft builders.
+type LocationDraft func(*sql.Selector)
+
+// LocationPublishedVersion is the predicate function for locationpublishedversion builders.
+type LocationPublishedVersion func(*sql.Selector)
+
 // Migration is the predicate function for migration builders.
 type Migration func(*sql.Selector)
 
 // PasswordCredential is the predicate function for passwordcredential builders.
 type PasswordCredential func(*sql.Selector)
+
+// Rundown is the predicate function for rundown builders.
+type Rundown func(*sql.Selector)

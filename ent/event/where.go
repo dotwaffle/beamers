@@ -668,6 +668,52 @@ func HasGrantsWith(preds ...predicate.EventGrant) predicate.Event {
 	})
 }
 
+// HasRundown applies the HasEdge predicate on the "rundown" edge.
+func HasRundown() predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, RundownTable, RundownColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasRundownWith applies the HasEdge predicate on the "rundown" edge with a given conditions (other predicates).
+func HasRundownWith(preds ...predicate.Rundown) predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := newRundownStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasLocations applies the HasEdge predicate on the "locations" edge.
+func HasLocations() predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, LocationsTable, LocationsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasLocationsWith applies the HasEdge predicate on the "locations" edge with a given conditions (other predicates).
+func HasLocationsWith(preds ...predicate.Location) predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := newLocationsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Event) predicate.Event {
 	return predicate.Event(sql.AndPredicates(predicates...))

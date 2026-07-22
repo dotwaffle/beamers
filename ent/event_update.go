@@ -12,7 +12,9 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/predicate"
+	"github.com/dotwaffle/beamers/ent/rundown"
 )
 
 // EventUpdate is the builder for updating Event entities.
@@ -168,6 +170,40 @@ func (_u *EventUpdate) AddGrants(v ...*EventGrant) *EventUpdate {
 	return _u.AddGrantIDs(ids...)
 }
 
+// SetRundownID sets the "rundown" edge to the Rundown entity by ID.
+func (_u *EventUpdate) SetRundownID(id int) *EventUpdate {
+	_u.mutation.SetRundownID(id)
+	return _u
+}
+
+// SetNillableRundownID sets the "rundown" edge to the Rundown entity by ID if the given value is not nil.
+func (_u *EventUpdate) SetNillableRundownID(id *int) *EventUpdate {
+	if id != nil {
+		_u = _u.SetRundownID(*id)
+	}
+	return _u
+}
+
+// SetRundown sets the "rundown" edge to the Rundown entity.
+func (_u *EventUpdate) SetRundown(v *Rundown) *EventUpdate {
+	return _u.SetRundownID(v.ID)
+}
+
+// AddLocationIDs adds the "locations" edge to the Location entity by IDs.
+func (_u *EventUpdate) AddLocationIDs(ids ...int) *EventUpdate {
+	_u.mutation.AddLocationIDs(ids...)
+	return _u
+}
+
+// AddLocations adds the "locations" edges to the Location entity.
+func (_u *EventUpdate) AddLocations(v ...*Location) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddLocationIDs(ids...)
+}
+
 // Mutation returns the EventMutation object of the builder.
 func (_u *EventUpdate) Mutation() *EventMutation {
 	return _u.mutation
@@ -192,6 +228,33 @@ func (_u *EventUpdate) RemoveGrants(v ...*EventGrant) *EventUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveGrantIDs(ids...)
+}
+
+// ClearRundown clears the "rundown" edge to the Rundown entity.
+func (_u *EventUpdate) ClearRundown() *EventUpdate {
+	_u.mutation.ClearRundown()
+	return _u
+}
+
+// ClearLocations clears all "locations" edges to the Location entity.
+func (_u *EventUpdate) ClearLocations() *EventUpdate {
+	_u.mutation.ClearLocations()
+	return _u
+}
+
+// RemoveLocationIDs removes the "locations" edge to Location entities by IDs.
+func (_u *EventUpdate) RemoveLocationIDs(ids ...int) *EventUpdate {
+	_u.mutation.RemoveLocationIDs(ids...)
+	return _u
+}
+
+// RemoveLocations removes "locations" edges to Location entities.
+func (_u *EventUpdate) RemoveLocations(v ...*Location) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveLocationIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -341,6 +404,80 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(eventgrant.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RundownCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   event.RundownTable,
+			Columns: []string{event.RundownColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(rundown.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RundownIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   event.RundownTable,
+			Columns: []string{event.RundownColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(rundown.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.LocationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.LocationsTable,
+			Columns: []string{event.LocationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(location.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedLocationsIDs(); len(nodes) > 0 && !_u.mutation.LocationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.LocationsTable,
+			Columns: []string{event.LocationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(location.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.LocationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.LocationsTable,
+			Columns: []string{event.LocationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(location.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -508,6 +645,40 @@ func (_u *EventUpdateOne) AddGrants(v ...*EventGrant) *EventUpdateOne {
 	return _u.AddGrantIDs(ids...)
 }
 
+// SetRundownID sets the "rundown" edge to the Rundown entity by ID.
+func (_u *EventUpdateOne) SetRundownID(id int) *EventUpdateOne {
+	_u.mutation.SetRundownID(id)
+	return _u
+}
+
+// SetNillableRundownID sets the "rundown" edge to the Rundown entity by ID if the given value is not nil.
+func (_u *EventUpdateOne) SetNillableRundownID(id *int) *EventUpdateOne {
+	if id != nil {
+		_u = _u.SetRundownID(*id)
+	}
+	return _u
+}
+
+// SetRundown sets the "rundown" edge to the Rundown entity.
+func (_u *EventUpdateOne) SetRundown(v *Rundown) *EventUpdateOne {
+	return _u.SetRundownID(v.ID)
+}
+
+// AddLocationIDs adds the "locations" edge to the Location entity by IDs.
+func (_u *EventUpdateOne) AddLocationIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.AddLocationIDs(ids...)
+	return _u
+}
+
+// AddLocations adds the "locations" edges to the Location entity.
+func (_u *EventUpdateOne) AddLocations(v ...*Location) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddLocationIDs(ids...)
+}
+
 // Mutation returns the EventMutation object of the builder.
 func (_u *EventUpdateOne) Mutation() *EventMutation {
 	return _u.mutation
@@ -532,6 +703,33 @@ func (_u *EventUpdateOne) RemoveGrants(v ...*EventGrant) *EventUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveGrantIDs(ids...)
+}
+
+// ClearRundown clears the "rundown" edge to the Rundown entity.
+func (_u *EventUpdateOne) ClearRundown() *EventUpdateOne {
+	_u.mutation.ClearRundown()
+	return _u
+}
+
+// ClearLocations clears all "locations" edges to the Location entity.
+func (_u *EventUpdateOne) ClearLocations() *EventUpdateOne {
+	_u.mutation.ClearLocations()
+	return _u
+}
+
+// RemoveLocationIDs removes the "locations" edge to Location entities by IDs.
+func (_u *EventUpdateOne) RemoveLocationIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.RemoveLocationIDs(ids...)
+	return _u
+}
+
+// RemoveLocations removes "locations" edges to Location entities.
+func (_u *EventUpdateOne) RemoveLocations(v ...*Location) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveLocationIDs(ids...)
 }
 
 // Where appends a list predicates to the EventUpdate builder.
@@ -711,6 +909,80 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(eventgrant.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RundownCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   event.RundownTable,
+			Columns: []string{event.RundownColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(rundown.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RundownIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   event.RundownTable,
+			Columns: []string{event.RundownColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(rundown.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.LocationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.LocationsTable,
+			Columns: []string{event.LocationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(location.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedLocationsIDs(); len(nodes) > 0 && !_u.mutation.LocationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.LocationsTable,
+			Columns: []string{event.LocationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(location.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.LocationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.LocationsTable,
+			Columns: []string{event.LocationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(location.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

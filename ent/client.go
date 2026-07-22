@@ -23,8 +23,12 @@ import (
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/ent/location"
+	"github.com/dotwaffle/beamers/ent/locationdraft"
+	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
 	"github.com/dotwaffle/beamers/ent/migration"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
+	"github.com/dotwaffle/beamers/ent/rundown"
 )
 
 // Client is the client that holds all ent builders.
@@ -48,10 +52,18 @@ type Client struct {
 	EventGrant *EventGrantClient
 	// Installation is the client for interacting with the Installation builders.
 	Installation *InstallationClient
+	// Location is the client for interacting with the Location builders.
+	Location *LocationClient
+	// LocationDraft is the client for interacting with the LocationDraft builders.
+	LocationDraft *LocationDraftClient
+	// LocationPublishedVersion is the client for interacting with the LocationPublishedVersion builders.
+	LocationPublishedVersion *LocationPublishedVersionClient
 	// Migration is the client for interacting with the Migration builders.
 	Migration *MigrationClient
 	// PasswordCredential is the client for interacting with the PasswordCredential builders.
 	PasswordCredential *PasswordCredentialClient
+	// Rundown is the client for interacting with the Rundown builders.
+	Rundown *RundownClient
 }
 
 // NewClient creates a new client configured with the given options.
@@ -71,8 +83,12 @@ func (c *Client) init() {
 	c.Event = NewEventClient(c.config)
 	c.EventGrant = NewEventGrantClient(c.config)
 	c.Installation = NewInstallationClient(c.config)
+	c.Location = NewLocationClient(c.config)
+	c.LocationDraft = NewLocationDraftClient(c.config)
+	c.LocationPublishedVersion = NewLocationPublishedVersionClient(c.config)
 	c.Migration = NewMigrationClient(c.config)
 	c.PasswordCredential = NewPasswordCredentialClient(c.config)
+	c.Rundown = NewRundownClient(c.config)
 }
 
 type (
@@ -163,18 +179,22 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:                 ctx,
-		config:              cfg,
-		Account:             NewAccountClient(cfg),
-		AccountSession:      NewAccountSessionClient(cfg),
-		AuditEntry:          NewAuditEntryClient(cfg),
-		BootstrapCredential: NewBootstrapCredentialClient(cfg),
-		CommandReceipt:      NewCommandReceiptClient(cfg),
-		Event:               NewEventClient(cfg),
-		EventGrant:          NewEventGrantClient(cfg),
-		Installation:        NewInstallationClient(cfg),
-		Migration:           NewMigrationClient(cfg),
-		PasswordCredential:  NewPasswordCredentialClient(cfg),
+		ctx:                      ctx,
+		config:                   cfg,
+		Account:                  NewAccountClient(cfg),
+		AccountSession:           NewAccountSessionClient(cfg),
+		AuditEntry:               NewAuditEntryClient(cfg),
+		BootstrapCredential:      NewBootstrapCredentialClient(cfg),
+		CommandReceipt:           NewCommandReceiptClient(cfg),
+		Event:                    NewEventClient(cfg),
+		EventGrant:               NewEventGrantClient(cfg),
+		Installation:             NewInstallationClient(cfg),
+		Location:                 NewLocationClient(cfg),
+		LocationDraft:            NewLocationDraftClient(cfg),
+		LocationPublishedVersion: NewLocationPublishedVersionClient(cfg),
+		Migration:                NewMigrationClient(cfg),
+		PasswordCredential:       NewPasswordCredentialClient(cfg),
+		Rundown:                  NewRundownClient(cfg),
 	}, nil
 }
 
@@ -192,18 +212,22 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:                 ctx,
-		config:              cfg,
-		Account:             NewAccountClient(cfg),
-		AccountSession:      NewAccountSessionClient(cfg),
-		AuditEntry:          NewAuditEntryClient(cfg),
-		BootstrapCredential: NewBootstrapCredentialClient(cfg),
-		CommandReceipt:      NewCommandReceiptClient(cfg),
-		Event:               NewEventClient(cfg),
-		EventGrant:          NewEventGrantClient(cfg),
-		Installation:        NewInstallationClient(cfg),
-		Migration:           NewMigrationClient(cfg),
-		PasswordCredential:  NewPasswordCredentialClient(cfg),
+		ctx:                      ctx,
+		config:                   cfg,
+		Account:                  NewAccountClient(cfg),
+		AccountSession:           NewAccountSessionClient(cfg),
+		AuditEntry:               NewAuditEntryClient(cfg),
+		BootstrapCredential:      NewBootstrapCredentialClient(cfg),
+		CommandReceipt:           NewCommandReceiptClient(cfg),
+		Event:                    NewEventClient(cfg),
+		EventGrant:               NewEventGrantClient(cfg),
+		Installation:             NewInstallationClient(cfg),
+		Location:                 NewLocationClient(cfg),
+		LocationDraft:            NewLocationDraftClient(cfg),
+		LocationPublishedVersion: NewLocationPublishedVersionClient(cfg),
+		Migration:                NewMigrationClient(cfg),
+		PasswordCredential:       NewPasswordCredentialClient(cfg),
+		Rundown:                  NewRundownClient(cfg),
 	}, nil
 }
 
@@ -234,8 +258,9 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.Account, c.AccountSession, c.AuditEntry, c.BootstrapCredential,
-		c.CommandReceipt, c.Event, c.EventGrant, c.Installation, c.Migration,
-		c.PasswordCredential,
+		c.CommandReceipt, c.Event, c.EventGrant, c.Installation, c.Location,
+		c.LocationDraft, c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
+		c.Rundown,
 	} {
 		n.Use(hooks...)
 	}
@@ -246,8 +271,9 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.Account, c.AccountSession, c.AuditEntry, c.BootstrapCredential,
-		c.CommandReceipt, c.Event, c.EventGrant, c.Installation, c.Migration,
-		c.PasswordCredential,
+		c.CommandReceipt, c.Event, c.EventGrant, c.Installation, c.Location,
+		c.LocationDraft, c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
+		c.Rundown,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -272,10 +298,18 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.EventGrant.mutate(ctx, m)
 	case *InstallationMutation:
 		return c.Installation.mutate(ctx, m)
+	case *LocationMutation:
+		return c.Location.mutate(ctx, m)
+	case *LocationDraftMutation:
+		return c.LocationDraft.mutate(ctx, m)
+	case *LocationPublishedVersionMutation:
+		return c.LocationPublishedVersion.mutate(ctx, m)
 	case *MigrationMutation:
 		return c.Migration.mutate(ctx, m)
 	case *PasswordCredentialMutation:
 		return c.PasswordCredential.mutate(ctx, m)
+	case *RundownMutation:
+		return c.Rundown.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
 	}
@@ -1203,6 +1237,38 @@ func (c *EventClient) QueryGrants(_m *Event) *EventGrantQuery {
 	return query
 }
 
+// QueryRundown queries the rundown edge of a Event.
+func (c *EventClient) QueryRundown(_m *Event) *RundownQuery {
+	query := (&RundownClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(rundown.Table, rundown.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, event.RundownTable, event.RundownColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryLocations queries the locations edge of a Event.
+func (c *EventClient) QueryLocations(_m *Event) *LocationQuery {
+	query := (&LocationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(location.Table, location.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.LocationsTable, event.LocationsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *EventClient) Hooks() []Hook {
 	hooks := c.hooks.Event
@@ -1528,6 +1594,488 @@ func (c *InstallationClient) mutate(ctx context.Context, m *InstallationMutation
 	}
 }
 
+// LocationClient is a client for the Location schema.
+type LocationClient struct {
+	config
+}
+
+// NewLocationClient returns a client for the Location from the given config.
+func NewLocationClient(c config) *LocationClient {
+	return &LocationClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `location.Hooks(f(g(h())))`.
+func (c *LocationClient) Use(hooks ...Hook) {
+	c.hooks.Location = append(c.hooks.Location, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `location.Intercept(f(g(h())))`.
+func (c *LocationClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Location = append(c.inters.Location, interceptors...)
+}
+
+// Create returns a builder for creating a Location entity.
+func (c *LocationClient) Create() *LocationCreate {
+	mutation := newLocationMutation(c.config, OpCreate)
+	return &LocationCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Location entities.
+func (c *LocationClient) CreateBulk(builders ...*LocationCreate) *LocationCreateBulk {
+	return &LocationCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *LocationClient) MapCreateBulk(slice any, setFunc func(*LocationCreate, int)) *LocationCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &LocationCreateBulk{err: fmt.Errorf("calling to LocationClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*LocationCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &LocationCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Location.
+func (c *LocationClient) Update() *LocationUpdate {
+	mutation := newLocationMutation(c.config, OpUpdate)
+	return &LocationUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *LocationClient) UpdateOne(_m *Location) *LocationUpdateOne {
+	mutation := newLocationMutation(c.config, OpUpdateOne, withLocation(_m))
+	return &LocationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *LocationClient) UpdateOneID(id int) *LocationUpdateOne {
+	mutation := newLocationMutation(c.config, OpUpdateOne, withLocationID(id))
+	return &LocationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Location.
+func (c *LocationClient) Delete() *LocationDelete {
+	mutation := newLocationMutation(c.config, OpDelete)
+	return &LocationDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *LocationClient) DeleteOne(_m *Location) *LocationDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *LocationClient) DeleteOneID(id int) *LocationDeleteOne {
+	builder := c.Delete().Where(location.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &LocationDeleteOne{builder}
+}
+
+// Query returns a query builder for Location.
+func (c *LocationClient) Query() *LocationQuery {
+	return &LocationQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeLocation},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Location entity by its id.
+func (c *LocationClient) Get(ctx context.Context, id int) (*Location, error) {
+	return c.Query().Where(location.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *LocationClient) GetX(ctx context.Context, id int) *Location {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a Location.
+func (c *LocationClient) QueryEvent(_m *Location) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(location.Table, location.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, location.EventTable, location.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDraft queries the draft edge of a Location.
+func (c *LocationClient) QueryDraft(_m *Location) *LocationDraftQuery {
+	query := (&LocationDraftClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(location.Table, location.FieldID, id),
+			sqlgraph.To(locationdraft.Table, locationdraft.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, location.DraftTable, location.DraftColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryPublishedVersions queries the published_versions edge of a Location.
+func (c *LocationClient) QueryPublishedVersions(_m *Location) *LocationPublishedVersionQuery {
+	query := (&LocationPublishedVersionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(location.Table, location.FieldID, id),
+			sqlgraph.To(locationpublishedversion.Table, locationpublishedversion.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, location.PublishedVersionsTable, location.PublishedVersionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *LocationClient) Hooks() []Hook {
+	hooks := c.hooks.Location
+	return append(hooks[:len(hooks):len(hooks)], location.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *LocationClient) Interceptors() []Interceptor {
+	return c.inters.Location
+}
+
+func (c *LocationClient) mutate(ctx context.Context, m *LocationMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&LocationCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&LocationUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&LocationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&LocationDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Location mutation op: %q", m.Op())
+	}
+}
+
+// LocationDraftClient is a client for the LocationDraft schema.
+type LocationDraftClient struct {
+	config
+}
+
+// NewLocationDraftClient returns a client for the LocationDraft from the given config.
+func NewLocationDraftClient(c config) *LocationDraftClient {
+	return &LocationDraftClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `locationdraft.Hooks(f(g(h())))`.
+func (c *LocationDraftClient) Use(hooks ...Hook) {
+	c.hooks.LocationDraft = append(c.hooks.LocationDraft, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `locationdraft.Intercept(f(g(h())))`.
+func (c *LocationDraftClient) Intercept(interceptors ...Interceptor) {
+	c.inters.LocationDraft = append(c.inters.LocationDraft, interceptors...)
+}
+
+// Create returns a builder for creating a LocationDraft entity.
+func (c *LocationDraftClient) Create() *LocationDraftCreate {
+	mutation := newLocationDraftMutation(c.config, OpCreate)
+	return &LocationDraftCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of LocationDraft entities.
+func (c *LocationDraftClient) CreateBulk(builders ...*LocationDraftCreate) *LocationDraftCreateBulk {
+	return &LocationDraftCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *LocationDraftClient) MapCreateBulk(slice any, setFunc func(*LocationDraftCreate, int)) *LocationDraftCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &LocationDraftCreateBulk{err: fmt.Errorf("calling to LocationDraftClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*LocationDraftCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &LocationDraftCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for LocationDraft.
+func (c *LocationDraftClient) Update() *LocationDraftUpdate {
+	mutation := newLocationDraftMutation(c.config, OpUpdate)
+	return &LocationDraftUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *LocationDraftClient) UpdateOne(_m *LocationDraft) *LocationDraftUpdateOne {
+	mutation := newLocationDraftMutation(c.config, OpUpdateOne, withLocationDraft(_m))
+	return &LocationDraftUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *LocationDraftClient) UpdateOneID(id int) *LocationDraftUpdateOne {
+	mutation := newLocationDraftMutation(c.config, OpUpdateOne, withLocationDraftID(id))
+	return &LocationDraftUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for LocationDraft.
+func (c *LocationDraftClient) Delete() *LocationDraftDelete {
+	mutation := newLocationDraftMutation(c.config, OpDelete)
+	return &LocationDraftDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *LocationDraftClient) DeleteOne(_m *LocationDraft) *LocationDraftDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *LocationDraftClient) DeleteOneID(id int) *LocationDraftDeleteOne {
+	builder := c.Delete().Where(locationdraft.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &LocationDraftDeleteOne{builder}
+}
+
+// Query returns a query builder for LocationDraft.
+func (c *LocationDraftClient) Query() *LocationDraftQuery {
+	return &LocationDraftQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeLocationDraft},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a LocationDraft entity by its id.
+func (c *LocationDraftClient) Get(ctx context.Context, id int) (*LocationDraft, error) {
+	return c.Query().Where(locationdraft.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *LocationDraftClient) GetX(ctx context.Context, id int) *LocationDraft {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryLocation queries the location edge of a LocationDraft.
+func (c *LocationDraftClient) QueryLocation(_m *LocationDraft) *LocationQuery {
+	query := (&LocationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(locationdraft.Table, locationdraft.FieldID, id),
+			sqlgraph.To(location.Table, location.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, locationdraft.LocationTable, locationdraft.LocationColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *LocationDraftClient) Hooks() []Hook {
+	hooks := c.hooks.LocationDraft
+	return append(hooks[:len(hooks):len(hooks)], locationdraft.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *LocationDraftClient) Interceptors() []Interceptor {
+	return c.inters.LocationDraft
+}
+
+func (c *LocationDraftClient) mutate(ctx context.Context, m *LocationDraftMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&LocationDraftCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&LocationDraftUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&LocationDraftUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&LocationDraftDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown LocationDraft mutation op: %q", m.Op())
+	}
+}
+
+// LocationPublishedVersionClient is a client for the LocationPublishedVersion schema.
+type LocationPublishedVersionClient struct {
+	config
+}
+
+// NewLocationPublishedVersionClient returns a client for the LocationPublishedVersion from the given config.
+func NewLocationPublishedVersionClient(c config) *LocationPublishedVersionClient {
+	return &LocationPublishedVersionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `locationpublishedversion.Hooks(f(g(h())))`.
+func (c *LocationPublishedVersionClient) Use(hooks ...Hook) {
+	c.hooks.LocationPublishedVersion = append(c.hooks.LocationPublishedVersion, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `locationpublishedversion.Intercept(f(g(h())))`.
+func (c *LocationPublishedVersionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.LocationPublishedVersion = append(c.inters.LocationPublishedVersion, interceptors...)
+}
+
+// Create returns a builder for creating a LocationPublishedVersion entity.
+func (c *LocationPublishedVersionClient) Create() *LocationPublishedVersionCreate {
+	mutation := newLocationPublishedVersionMutation(c.config, OpCreate)
+	return &LocationPublishedVersionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of LocationPublishedVersion entities.
+func (c *LocationPublishedVersionClient) CreateBulk(builders ...*LocationPublishedVersionCreate) *LocationPublishedVersionCreateBulk {
+	return &LocationPublishedVersionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *LocationPublishedVersionClient) MapCreateBulk(slice any, setFunc func(*LocationPublishedVersionCreate, int)) *LocationPublishedVersionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &LocationPublishedVersionCreateBulk{err: fmt.Errorf("calling to LocationPublishedVersionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*LocationPublishedVersionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &LocationPublishedVersionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for LocationPublishedVersion.
+func (c *LocationPublishedVersionClient) Update() *LocationPublishedVersionUpdate {
+	mutation := newLocationPublishedVersionMutation(c.config, OpUpdate)
+	return &LocationPublishedVersionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *LocationPublishedVersionClient) UpdateOne(_m *LocationPublishedVersion) *LocationPublishedVersionUpdateOne {
+	mutation := newLocationPublishedVersionMutation(c.config, OpUpdateOne, withLocationPublishedVersion(_m))
+	return &LocationPublishedVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *LocationPublishedVersionClient) UpdateOneID(id int) *LocationPublishedVersionUpdateOne {
+	mutation := newLocationPublishedVersionMutation(c.config, OpUpdateOne, withLocationPublishedVersionID(id))
+	return &LocationPublishedVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for LocationPublishedVersion.
+func (c *LocationPublishedVersionClient) Delete() *LocationPublishedVersionDelete {
+	mutation := newLocationPublishedVersionMutation(c.config, OpDelete)
+	return &LocationPublishedVersionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *LocationPublishedVersionClient) DeleteOne(_m *LocationPublishedVersion) *LocationPublishedVersionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *LocationPublishedVersionClient) DeleteOneID(id int) *LocationPublishedVersionDeleteOne {
+	builder := c.Delete().Where(locationpublishedversion.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &LocationPublishedVersionDeleteOne{builder}
+}
+
+// Query returns a query builder for LocationPublishedVersion.
+func (c *LocationPublishedVersionClient) Query() *LocationPublishedVersionQuery {
+	return &LocationPublishedVersionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeLocationPublishedVersion},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a LocationPublishedVersion entity by its id.
+func (c *LocationPublishedVersionClient) Get(ctx context.Context, id int) (*LocationPublishedVersion, error) {
+	return c.Query().Where(locationpublishedversion.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *LocationPublishedVersionClient) GetX(ctx context.Context, id int) *LocationPublishedVersion {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryLocation queries the location edge of a LocationPublishedVersion.
+func (c *LocationPublishedVersionClient) QueryLocation(_m *LocationPublishedVersion) *LocationQuery {
+	query := (&LocationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(locationpublishedversion.Table, locationpublishedversion.FieldID, id),
+			sqlgraph.To(location.Table, location.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, locationpublishedversion.LocationTable, locationpublishedversion.LocationColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *LocationPublishedVersionClient) Hooks() []Hook {
+	hooks := c.hooks.LocationPublishedVersion
+	return append(hooks[:len(hooks):len(hooks)], locationpublishedversion.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *LocationPublishedVersionClient) Interceptors() []Interceptor {
+	return c.inters.LocationPublishedVersion
+}
+
+func (c *LocationPublishedVersionClient) mutate(ctx context.Context, m *LocationPublishedVersionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&LocationPublishedVersionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&LocationPublishedVersionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&LocationPublishedVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&LocationPublishedVersionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown LocationPublishedVersion mutation op: %q", m.Op())
+	}
+}
+
 // MigrationClient is a client for the Migration schema.
 type MigrationClient struct {
 	config
@@ -1811,14 +2359,166 @@ func (c *PasswordCredentialClient) mutate(ctx context.Context, m *PasswordCreden
 	}
 }
 
+// RundownClient is a client for the Rundown schema.
+type RundownClient struct {
+	config
+}
+
+// NewRundownClient returns a client for the Rundown from the given config.
+func NewRundownClient(c config) *RundownClient {
+	return &RundownClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `rundown.Hooks(f(g(h())))`.
+func (c *RundownClient) Use(hooks ...Hook) {
+	c.hooks.Rundown = append(c.hooks.Rundown, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `rundown.Intercept(f(g(h())))`.
+func (c *RundownClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Rundown = append(c.inters.Rundown, interceptors...)
+}
+
+// Create returns a builder for creating a Rundown entity.
+func (c *RundownClient) Create() *RundownCreate {
+	mutation := newRundownMutation(c.config, OpCreate)
+	return &RundownCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Rundown entities.
+func (c *RundownClient) CreateBulk(builders ...*RundownCreate) *RundownCreateBulk {
+	return &RundownCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *RundownClient) MapCreateBulk(slice any, setFunc func(*RundownCreate, int)) *RundownCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &RundownCreateBulk{err: fmt.Errorf("calling to RundownClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*RundownCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &RundownCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Rundown.
+func (c *RundownClient) Update() *RundownUpdate {
+	mutation := newRundownMutation(c.config, OpUpdate)
+	return &RundownUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *RundownClient) UpdateOne(_m *Rundown) *RundownUpdateOne {
+	mutation := newRundownMutation(c.config, OpUpdateOne, withRundown(_m))
+	return &RundownUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *RundownClient) UpdateOneID(id int) *RundownUpdateOne {
+	mutation := newRundownMutation(c.config, OpUpdateOne, withRundownID(id))
+	return &RundownUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Rundown.
+func (c *RundownClient) Delete() *RundownDelete {
+	mutation := newRundownMutation(c.config, OpDelete)
+	return &RundownDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *RundownClient) DeleteOne(_m *Rundown) *RundownDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *RundownClient) DeleteOneID(id int) *RundownDeleteOne {
+	builder := c.Delete().Where(rundown.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &RundownDeleteOne{builder}
+}
+
+// Query returns a query builder for Rundown.
+func (c *RundownClient) Query() *RundownQuery {
+	return &RundownQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeRundown},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Rundown entity by its id.
+func (c *RundownClient) Get(ctx context.Context, id int) (*Rundown, error) {
+	return c.Query().Where(rundown.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *RundownClient) GetX(ctx context.Context, id int) *Rundown {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a Rundown.
+func (c *RundownClient) QueryEvent(_m *Rundown) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(rundown.Table, rundown.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, rundown.EventTable, rundown.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *RundownClient) Hooks() []Hook {
+	hooks := c.hooks.Rundown
+	return append(hooks[:len(hooks):len(hooks)], rundown.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *RundownClient) Interceptors() []Interceptor {
+	return c.inters.Rundown
+}
+
+func (c *RundownClient) mutate(ctx context.Context, m *RundownMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&RundownCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&RundownUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&RundownUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&RundownDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Rundown mutation op: %q", m.Op())
+	}
+}
+
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
 		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt, Event,
-		EventGrant, Installation, Migration, PasswordCredential []ent.Hook
+		EventGrant, Installation, Location, LocationDraft, LocationPublishedVersion,
+		Migration, PasswordCredential, Rundown []ent.Hook
 	}
 	inters struct {
 		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt, Event,
-		EventGrant, Installation, Migration, PasswordCredential []ent.Interceptor
+		EventGrant, Installation, Location, LocationDraft, LocationPublishedVersion,
+		Migration, PasswordCredential, Rundown []ent.Interceptor
 	}
 )

@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/dotwaffle/beamers/ent/event"
+	"github.com/dotwaffle/beamers/ent/rundown"
 )
 
 // Event is the model entity for the Event schema.
@@ -45,9 +46,13 @@ type Event struct {
 type EventEdges struct {
 	// Grants holds the value of the grants edge.
 	Grants []*EventGrant `json:"grants,omitempty"`
+	// Rundown holds the value of the rundown edge.
+	Rundown *Rundown `json:"rundown,omitempty"`
+	// Locations holds the value of the locations edge.
+	Locations []*Location `json:"locations,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [3]bool
 }
 
 // GrantsOrErr returns the Grants value or an error if the edge
@@ -57,6 +62,26 @@ func (e EventEdges) GrantsOrErr() ([]*EventGrant, error) {
 		return e.Grants, nil
 	}
 	return nil, &NotLoadedError{edge: "grants"}
+}
+
+// RundownOrErr returns the Rundown value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e EventEdges) RundownOrErr() (*Rundown, error) {
+	if e.Rundown != nil {
+		return e.Rundown, nil
+	} else if e.loadedTypes[1] {
+		return nil, &NotFoundError{label: rundown.Label}
+	}
+	return nil, &NotLoadedError{edge: "rundown"}
+}
+
+// LocationsOrErr returns the Locations value or an error if the edge
+// was not loaded in eager-loading.
+func (e EventEdges) LocationsOrErr() ([]*Location, error) {
+	if e.loadedTypes[2] {
+		return e.Locations, nil
+	}
+	return nil, &NotLoadedError{edge: "locations"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -161,6 +186,16 @@ func (_m *Event) Value(name string) (ent.Value, error) {
 // QueryGrants queries the "grants" edge of the Event entity.
 func (_m *Event) QueryGrants() *EventGrantQuery {
 	return NewEventClient(_m.config).QueryGrants(_m)
+}
+
+// QueryRundown queries the "rundown" edge of the Event entity.
+func (_m *Event) QueryRundown() *RundownQuery {
+	return NewEventClient(_m.config).QueryRundown(_m)
+}
+
+// QueryLocations queries the "locations" edge of the Event entity.
+func (_m *Event) QueryLocations() *LocationQuery {
+	return NewEventClient(_m.config).QueryLocations(_m)
 }
 
 // Update returns a builder for updating this Event.

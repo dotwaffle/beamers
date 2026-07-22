@@ -176,6 +176,77 @@ var (
 		Columns:    InstallationsColumns,
 		PrimaryKey: []*schema.Column{InstallationsColumns[0]},
 	}
+	// LocationsColumns holds the columns for the "locations" table.
+	LocationsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "event_id", Type: field.TypeInt},
+	}
+	// LocationsTable holds the schema information for the "locations" table.
+	LocationsTable = &schema.Table{
+		Name:       "locations",
+		Columns:    LocationsColumns,
+		PrimaryKey: []*schema.Column{LocationsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "locations_events_locations",
+				Columns:    []*schema.Column{LocationsColumns[2]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
+	// LocationDraftsColumns holds the columns for the "location_drafts" table.
+	LocationDraftsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "name", Type: field.TypeString, Size: 200},
+		{Name: "retired", Type: field.TypeBool, Default: false},
+		{Name: "location_id", Type: field.TypeInt, Unique: true},
+	}
+	// LocationDraftsTable holds the schema information for the "location_drafts" table.
+	LocationDraftsTable = &schema.Table{
+		Name:       "location_drafts",
+		Columns:    LocationDraftsColumns,
+		PrimaryKey: []*schema.Column{LocationDraftsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "location_drafts_locations_draft",
+				Columns:    []*schema.Column{LocationDraftsColumns[3]},
+				RefColumns: []*schema.Column{LocationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
+	// LocationPublishedVersionsColumns holds the columns for the "location_published_versions" table.
+	LocationPublishedVersionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "published_revision", Type: field.TypeInt},
+		{Name: "name", Type: field.TypeString, Size: 200},
+		{Name: "retired", Type: field.TypeBool, Default: false},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "location_id", Type: field.TypeInt},
+	}
+	// LocationPublishedVersionsTable holds the schema information for the "location_published_versions" table.
+	LocationPublishedVersionsTable = &schema.Table{
+		Name:       "location_published_versions",
+		Columns:    LocationPublishedVersionsColumns,
+		PrimaryKey: []*schema.Column{LocationPublishedVersionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "location_published_versions_locations_published_versions",
+				Columns:    []*schema.Column{LocationPublishedVersionsColumns[5]},
+				RefColumns: []*schema.Column{LocationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "locationpublishedversion_location_id_published_revision",
+				Unique:  true,
+				Columns: []*schema.Column{LocationPublishedVersionsColumns[5], LocationPublishedVersionsColumns[1]},
+			},
+		},
+	}
 	// BeamersSchemaMigrationsColumns holds the columns for the "beamers_schema_migrations" table.
 	BeamersSchemaMigrationsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -212,6 +283,27 @@ var (
 			},
 		},
 	}
+	// RundownsColumns holds the columns for the "rundowns" table.
+	RundownsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "draft_revision", Type: field.TypeInt, Default: 0},
+		{Name: "published_revision", Type: field.TypeInt, Default: 0},
+		{Name: "event_id", Type: field.TypeInt, Unique: true},
+	}
+	// RundownsTable holds the schema information for the "rundowns" table.
+	RundownsTable = &schema.Table{
+		Name:       "rundowns",
+		Columns:    RundownsColumns,
+		PrimaryKey: []*schema.Column{RundownsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "rundowns_events_rundown",
+				Columns:    []*schema.Column{RundownsColumns[3]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		AccountsTable,
@@ -222,8 +314,12 @@ var (
 		EventsTable,
 		EventGrantsTable,
 		InstallationsTable,
+		LocationsTable,
+		LocationDraftsTable,
+		LocationPublishedVersionsTable,
 		BeamersSchemaMigrationsTable,
 		PasswordCredentialsTable,
+		RundownsTable,
 	}
 )
 
@@ -233,6 +329,9 @@ func init() {
 	CommandReceiptsTable.ForeignKeys[0].RefTable = AccountsTable
 	EventGrantsTable.ForeignKeys[0].RefTable = AccountsTable
 	EventGrantsTable.ForeignKeys[1].RefTable = EventsTable
+	LocationsTable.ForeignKeys[0].RefTable = EventsTable
+	LocationDraftsTable.ForeignKeys[0].RefTable = LocationsTable
+	LocationPublishedVersionsTable.ForeignKeys[0].RefTable = LocationsTable
 	BeamersSchemaMigrationsTable.Annotation = &entsql.Annotation{
 		Table: "beamers_schema_migrations",
 	}
@@ -240,4 +339,5 @@ func init() {
 		"schema_migrations_checksum_length": "length(checksum) = 64",
 	}
 	PasswordCredentialsTable.ForeignKeys[0].RefTable = AccountsTable
+	RundownsTable.ForeignKeys[0].RefTable = EventsTable
 }

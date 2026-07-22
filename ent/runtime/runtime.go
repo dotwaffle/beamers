@@ -14,8 +14,12 @@ import (
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/ent/location"
+	"github.com/dotwaffle/beamers/ent/locationdraft"
+	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
 	"github.com/dotwaffle/beamers/ent/migration"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
+	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/schema"
 
 	"entgo.io/ent"
@@ -473,6 +477,95 @@ func init() {
 	installationDescCreatedAt := installationFields[0].Descriptor()
 	// installation.DefaultCreatedAt holds the default value on creation for the created_at field.
 	installation.DefaultCreatedAt = installationDescCreatedAt.Default.(func() time.Time)
+	location.Policy = privacy.NewPolicies(schema.Location{})
+	location.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := location.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	locationFields := schema.Location{}.Fields()
+	_ = locationFields
+	// locationDescCreatedAt is the schema descriptor for created_at field.
+	locationDescCreatedAt := locationFields[1].Descriptor()
+	// location.DefaultCreatedAt holds the default value on creation for the created_at field.
+	location.DefaultCreatedAt = locationDescCreatedAt.Default.(func() time.Time)
+	locationdraft.Policy = privacy.NewPolicies(schema.LocationDraft{})
+	locationdraft.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := locationdraft.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	locationdraftFields := schema.LocationDraft{}.Fields()
+	_ = locationdraftFields
+	// locationdraftDescName is the schema descriptor for name field.
+	locationdraftDescName := locationdraftFields[1].Descriptor()
+	// locationdraft.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	locationdraft.NameValidator = func() func(string) error {
+		validators := locationdraftDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// locationdraftDescRetired is the schema descriptor for retired field.
+	locationdraftDescRetired := locationdraftFields[2].Descriptor()
+	// locationdraft.DefaultRetired holds the default value on creation for the retired field.
+	locationdraft.DefaultRetired = locationdraftDescRetired.Default.(bool)
+	locationpublishedversion.Policy = privacy.NewPolicies(schema.LocationPublishedVersion{})
+	locationpublishedversion.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := locationpublishedversion.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	locationpublishedversionFields := schema.LocationPublishedVersion{}.Fields()
+	_ = locationpublishedversionFields
+	// locationpublishedversionDescPublishedRevision is the schema descriptor for published_revision field.
+	locationpublishedversionDescPublishedRevision := locationpublishedversionFields[1].Descriptor()
+	// locationpublishedversion.PublishedRevisionValidator is a validator for the "published_revision" field. It is called by the builders before save.
+	locationpublishedversion.PublishedRevisionValidator = locationpublishedversionDescPublishedRevision.Validators[0].(func(int) error)
+	// locationpublishedversionDescName is the schema descriptor for name field.
+	locationpublishedversionDescName := locationpublishedversionFields[2].Descriptor()
+	// locationpublishedversion.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	locationpublishedversion.NameValidator = func() func(string) error {
+		validators := locationpublishedversionDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// locationpublishedversionDescRetired is the schema descriptor for retired field.
+	locationpublishedversionDescRetired := locationpublishedversionFields[3].Descriptor()
+	// locationpublishedversion.DefaultRetired holds the default value on creation for the retired field.
+	locationpublishedversion.DefaultRetired = locationpublishedversionDescRetired.Default.(bool)
+	// locationpublishedversionDescCreatedAt is the schema descriptor for created_at field.
+	locationpublishedversionDescCreatedAt := locationpublishedversionFields[4].Descriptor()
+	// locationpublishedversion.DefaultCreatedAt holds the default value on creation for the created_at field.
+	locationpublishedversion.DefaultCreatedAt = locationpublishedversionDescCreatedAt.Default.(func() time.Time)
 	migrationFields := schema.Migration{}.Fields()
 	_ = migrationFields
 	// migrationDescVersion is the schema descriptor for version field.
@@ -524,6 +617,29 @@ func init() {
 	passwordcredentialDescCreatedAt := passwordcredentialFields[2].Descriptor()
 	// passwordcredential.DefaultCreatedAt holds the default value on creation for the created_at field.
 	passwordcredential.DefaultCreatedAt = passwordcredentialDescCreatedAt.Default.(func() time.Time)
+	rundown.Policy = privacy.NewPolicies(schema.Rundown{})
+	rundown.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := rundown.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	rundownFields := schema.Rundown{}.Fields()
+	_ = rundownFields
+	// rundownDescDraftRevision is the schema descriptor for draft_revision field.
+	rundownDescDraftRevision := rundownFields[1].Descriptor()
+	// rundown.DefaultDraftRevision holds the default value on creation for the draft_revision field.
+	rundown.DefaultDraftRevision = rundownDescDraftRevision.Default.(int)
+	// rundown.DraftRevisionValidator is a validator for the "draft_revision" field. It is called by the builders before save.
+	rundown.DraftRevisionValidator = rundownDescDraftRevision.Validators[0].(func(int) error)
+	// rundownDescPublishedRevision is the schema descriptor for published_revision field.
+	rundownDescPublishedRevision := rundownFields[2].Descriptor()
+	// rundown.DefaultPublishedRevision holds the default value on creation for the published_revision field.
+	rundown.DefaultPublishedRevision = rundownDescPublishedRevision.Default.(int)
+	// rundown.PublishedRevisionValidator is a validator for the "published_revision" field. It is called by the builders before save.
+	rundown.PublishedRevisionValidator = rundownDescPublishedRevision.Validators[0].(func(int) error)
 }
 
 const (

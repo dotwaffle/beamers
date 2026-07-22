@@ -28,10 +28,18 @@ type Tx struct {
 	EventGrant *EventGrantClient
 	// Installation is the client for interacting with the Installation builders.
 	Installation *InstallationClient
+	// Location is the client for interacting with the Location builders.
+	Location *LocationClient
+	// LocationDraft is the client for interacting with the LocationDraft builders.
+	LocationDraft *LocationDraftClient
+	// LocationPublishedVersion is the client for interacting with the LocationPublishedVersion builders.
+	LocationPublishedVersion *LocationPublishedVersionClient
 	// Migration is the client for interacting with the Migration builders.
 	Migration *MigrationClient
 	// PasswordCredential is the client for interacting with the PasswordCredential builders.
 	PasswordCredential *PasswordCredentialClient
+	// Rundown is the client for interacting with the Rundown builders.
+	Rundown *RundownClient
 
 	// lazily loaded.
 	client     *Client
@@ -171,8 +179,12 @@ func (tx *Tx) init() {
 	tx.Event = NewEventClient(tx.config)
 	tx.EventGrant = NewEventGrantClient(tx.config)
 	tx.Installation = NewInstallationClient(tx.config)
+	tx.Location = NewLocationClient(tx.config)
+	tx.LocationDraft = NewLocationDraftClient(tx.config)
+	tx.LocationPublishedVersion = NewLocationPublishedVersionClient(tx.config)
 	tx.Migration = NewMigrationClient(tx.config)
 	tx.PasswordCredential = NewPasswordCredentialClient(tx.config)
+	tx.Rundown = NewRundownClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

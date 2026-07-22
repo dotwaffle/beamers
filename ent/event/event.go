@@ -35,6 +35,10 @@ const (
 	FieldCreatedAt = "created_at"
 	// EdgeGrants holds the string denoting the grants edge name in mutations.
 	EdgeGrants = "grants"
+	// EdgeRundown holds the string denoting the rundown edge name in mutations.
+	EdgeRundown = "rundown"
+	// EdgeLocations holds the string denoting the locations edge name in mutations.
+	EdgeLocations = "locations"
 	// Table holds the table name of the event in the database.
 	Table = "events"
 	// GrantsTable is the table that holds the grants relation/edge.
@@ -44,6 +48,20 @@ const (
 	GrantsInverseTable = "event_grants"
 	// GrantsColumn is the table column denoting the grants relation/edge.
 	GrantsColumn = "event_id"
+	// RundownTable is the table that holds the rundown relation/edge.
+	RundownTable = "rundowns"
+	// RundownInverseTable is the table name for the Rundown entity.
+	// It exists in this package in order to avoid circular dependency with the "rundown" package.
+	RundownInverseTable = "rundowns"
+	// RundownColumn is the table column denoting the rundown relation/edge.
+	RundownColumn = "event_id"
+	// LocationsTable is the table that holds the locations relation/edge.
+	LocationsTable = "locations"
+	// LocationsInverseTable is the table name for the Location entity.
+	// It exists in this package in order to avoid circular dependency with the "location" package.
+	LocationsInverseTable = "locations"
+	// LocationsColumn is the table column denoting the locations relation/edge.
+	LocationsColumn = "event_id"
 )
 
 // Columns holds all SQL columns for event fields.
@@ -164,10 +182,45 @@ func ByGrants(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newGrantsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByRundownField orders the results by rundown field.
+func ByRundownField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newRundownStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByLocationsCount orders the results by locations count.
+func ByLocationsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newLocationsStep(), opts...)
+	}
+}
+
+// ByLocations orders the results by locations terms.
+func ByLocations(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newLocationsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newGrantsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(GrantsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, GrantsTable, GrantsColumn),
+	)
+}
+func newRundownStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(RundownInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2O, false, RundownTable, RundownColumn),
+	)
+}
+func newLocationsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(LocationsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, LocationsTable, LocationsColumn),
 	)
 }

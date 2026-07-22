@@ -8,6 +8,9 @@ import (
 	"entgo.io/ent/privacy"
 
 	beamersent "github.com/dotwaffle/beamers/ent"
+	"github.com/dotwaffle/beamers/ent/location"
+	"github.com/dotwaffle/beamers/ent/locationdraft"
+	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
@@ -65,6 +68,94 @@ func filterGrantedEvents() privacy.QueryRule {
 	})
 }
 
+func filterGrantedRundowns() privacy.QueryRule {
+	type selectorFilter interface {
+		Where(...predicate.Rundown) *beamersent.RundownQuery
+	}
+	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
+		ids, err := grantedEventIDs(ctx)
+		if err != nil {
+			return err
+		}
+		filter, ok := query.(selectorFilter)
+		if !ok {
+			return privacy.Denyf("unexpected Rundown query %T", query)
+		}
+		filter.Where(func(selector *sql.Selector) {
+			selector.Where(sql.InInts(selector.C("event_id"), ids...))
+		})
+		return privacy.Skip
+	})
+}
+
+func filterGrantedLocations() privacy.QueryRule {
+	type selectorFilter interface {
+		Where(...predicate.Location) *beamersent.LocationQuery
+	}
+	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
+		ids, err := grantedEventIDs(ctx)
+		if err != nil {
+			return err
+		}
+		filter, ok := query.(selectorFilter)
+		if !ok {
+			return privacy.Denyf("unexpected Location query %T", query)
+		}
+		filter.Where(func(selector *sql.Selector) {
+			selector.Where(sql.InInts(selector.C("event_id"), ids...))
+		})
+		return privacy.Skip
+	})
+}
+
+func filterGrantedLocationDrafts() privacy.QueryRule {
+	type selectorFilter interface {
+		Where(...predicate.LocationDraft) *beamersent.LocationDraftQuery
+	}
+	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
+		ids, err := grantedEventIDs(ctx)
+		if err != nil {
+			return err
+		}
+		filter, ok := query.(selectorFilter)
+		if !ok {
+			return privacy.Denyf("unexpected Location Draft query %T", query)
+		}
+		filter.Where(locationdraft.HasLocationWith(location.EventIDIn(ids...)))
+		return privacy.Skip
+	})
+}
+
+func filterGrantedLocationPublishedVersions() privacy.QueryRule {
+	type selectorFilter interface {
+		Where(...predicate.LocationPublishedVersion) *beamersent.LocationPublishedVersionQuery
+	}
+	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
+		ids, err := grantedEventIDs(ctx)
+		if err != nil {
+			return err
+		}
+		filter, ok := query.(selectorFilter)
+		if !ok {
+			return privacy.Denyf("unexpected Published Location version query %T", query)
+		}
+		filter.Where(locationpublishedversion.HasLocationWith(location.EventIDIn(ids...)))
+		return privacy.Skip
+	})
+}
+
+func grantedEventIDs(ctx context.Context) ([]int, error) {
+	identity, _ := viewer.FromContext(ctx)
+	ids := make([]int, 0, len(identity.EventRoles))
+	for eventID := range identity.EventRoles {
+		ids = append(ids, eventID)
+	}
+	if len(ids) == 0 {
+		return nil, privacy.Denyf("Event Grant is required")
+	}
+	return ids, nil
+}
+
 type eventQueryRule func(context.Context, ent.Query) error
 
 func (rule eventQueryRule) EvalQuery(ctx context.Context, query ent.Query) error {
@@ -89,6 +180,76 @@ func allowEventMutation() privacy.MutationRule {
 			return privacy.Allow
 		}
 		return privacy.Skip
+	})
+}
+
+func allowEventOwnedMutation() privacy.MutationRule {
+	type eventOwnedMutation interface {
+		EventID() (int, bool)
+		OldEventID(context.Context) (int, error)
+	}
+	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
+		identity, _ := viewer.FromContext(ctx)
+		owned, ok := mutation.(eventOwnedMutation)
+		if !ok {
+			return privacy.Skip
+		}
+		eventID, exists := owned.EventID()
+		if !exists {
+			var err error
+			eventID, err = owned.OldEventID(ctx)
+			if err != nil {
+				return privacy.Denyf("read mutation Event ownership: %v", err)
+			}
+		}
+		if identity.CanProduceEvent(eventID) {
+			return privacy.Allow
+		}
+		return privacy.Skip
+	})
+}
+
+func allowLocationOwnedMutation() privacy.MutationRule {
+	type locationOwnedMutation interface {
+		LocationID() (int, bool)
+		OldLocationID(context.Context) (int, error)
+		Client() *beamersent.Client
+	}
+	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
+		identity, _ := viewer.FromContext(ctx)
+		owned, ok := mutation.(locationOwnedMutation)
+		if !ok {
+			return privacy.Skip
+		}
+		locationID, exists := owned.LocationID()
+		if !exists {
+			var err error
+			locationID, err = owned.OldLocationID(ctx)
+			if err != nil {
+				return privacy.Denyf("read mutation Location ownership: %v", err)
+			}
+		}
+		found, err := owned.Client().Location.Get(
+			privacy.DecisionContext(ctx, privacy.Allow),
+			locationID,
+		)
+		if err != nil {
+			return privacy.Denyf("read mutation Event ownership: %v", err)
+		}
+		if identity.CanProduceEvent(found.EventID) {
+			return privacy.Allow
+		}
+		return privacy.Skip
+	})
+}
+
+func allowLocationOwnedCreation() privacy.MutationRule {
+	owned := allowLocationOwnedMutation()
+	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
+		if !mutation.Op().Is(ent.OpCreate) {
+			return privacy.Skip
+		}
+		return owned.EvalMutation(ctx, mutation)
 	})
 }
 

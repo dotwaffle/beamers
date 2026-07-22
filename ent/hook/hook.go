@@ -105,6 +105,42 @@ func (f InstallationFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.InstallationMutation", m)
 }
 
+// The LocationFunc type is an adapter to allow the use of ordinary
+// function as Location mutator.
+type LocationFunc func(context.Context, *ent.LocationMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f LocationFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.LocationMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.LocationMutation", m)
+}
+
+// The LocationDraftFunc type is an adapter to allow the use of ordinary
+// function as LocationDraft mutator.
+type LocationDraftFunc func(context.Context, *ent.LocationDraftMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f LocationDraftFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.LocationDraftMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.LocationDraftMutation", m)
+}
+
+// The LocationPublishedVersionFunc type is an adapter to allow the use of ordinary
+// function as LocationPublishedVersion mutator.
+type LocationPublishedVersionFunc func(context.Context, *ent.LocationPublishedVersionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f LocationPublishedVersionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.LocationPublishedVersionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.LocationPublishedVersionMutation", m)
+}
+
 // The MigrationFunc type is an adapter to allow the use of ordinary
 // function as Migration mutator.
 type MigrationFunc func(context.Context, *ent.MigrationMutation) (ent.Value, error)
@@ -127,6 +163,18 @@ func (f PasswordCredentialFunc) Mutate(ctx context.Context, m ent.Mutation) (ent
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PasswordCredentialMutation", m)
+}
+
+// The RundownFunc type is an adapter to allow the use of ordinary
+// function as Rundown mutator.
+type RundownFunc func(context.Context, *ent.RundownMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f RundownFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.RundownMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RundownMutation", m)
 }
 
 // Condition is a hook condition function.

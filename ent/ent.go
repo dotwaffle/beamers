@@ -20,8 +20,12 @@ import (
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/ent/location"
+	"github.com/dotwaffle/beamers/ent/locationdraft"
+	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
 	"github.com/dotwaffle/beamers/ent/migration"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
+	"github.com/dotwaffle/beamers/ent/rundown"
 )
 
 // ent aliases to avoid import conflicts in user's code.
@@ -82,16 +86,20 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			account.Table:             account.ValidColumn,
-			accountsession.Table:      accountsession.ValidColumn,
-			auditentry.Table:          auditentry.ValidColumn,
-			bootstrapcredential.Table: bootstrapcredential.ValidColumn,
-			commandreceipt.Table:      commandreceipt.ValidColumn,
-			event.Table:               event.ValidColumn,
-			eventgrant.Table:          eventgrant.ValidColumn,
-			installation.Table:        installation.ValidColumn,
-			migration.Table:           migration.ValidColumn,
-			passwordcredential.Table:  passwordcredential.ValidColumn,
+			account.Table:                  account.ValidColumn,
+			accountsession.Table:           accountsession.ValidColumn,
+			auditentry.Table:               auditentry.ValidColumn,
+			bootstrapcredential.Table:      bootstrapcredential.ValidColumn,
+			commandreceipt.Table:           commandreceipt.ValidColumn,
+			event.Table:                    event.ValidColumn,
+			eventgrant.Table:               eventgrant.ValidColumn,
+			installation.Table:             installation.ValidColumn,
+			location.Table:                 location.ValidColumn,
+			locationdraft.Table:            locationdraft.ValidColumn,
+			locationpublishedversion.Table: locationpublishedversion.ValidColumn,
+			migration.Table:                migration.ValidColumn,
+			passwordcredential.Table:       passwordcredential.ValidColumn,
+			rundown.Table:                  rundown.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

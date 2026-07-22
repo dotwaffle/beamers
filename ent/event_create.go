@@ -12,6 +12,8 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/location"
+	"github.com/dotwaffle/beamers/ent/rundown"
 )
 
 // EventCreate is the builder for creating a Event entity.
@@ -112,6 +114,40 @@ func (_c *EventCreate) AddGrants(v ...*EventGrant) *EventCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddGrantIDs(ids...)
+}
+
+// SetRundownID sets the "rundown" edge to the Rundown entity by ID.
+func (_c *EventCreate) SetRundownID(id int) *EventCreate {
+	_c.mutation.SetRundownID(id)
+	return _c
+}
+
+// SetNillableRundownID sets the "rundown" edge to the Rundown entity by ID if the given value is not nil.
+func (_c *EventCreate) SetNillableRundownID(id *int) *EventCreate {
+	if id != nil {
+		_c = _c.SetRundownID(*id)
+	}
+	return _c
+}
+
+// SetRundown sets the "rundown" edge to the Rundown entity.
+func (_c *EventCreate) SetRundown(v *Rundown) *EventCreate {
+	return _c.SetRundownID(v.ID)
+}
+
+// AddLocationIDs adds the "locations" edge to the Location entity by IDs.
+func (_c *EventCreate) AddLocationIDs(ids ...int) *EventCreate {
+	_c.mutation.AddLocationIDs(ids...)
+	return _c
+}
+
+// AddLocations adds the "locations" edges to the Location entity.
+func (_c *EventCreate) AddLocations(v ...*Location) *EventCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddLocationIDs(ids...)
 }
 
 // Mutation returns the EventMutation object of the builder.
@@ -297,6 +333,38 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(eventgrant.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.RundownIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   event.RundownTable,
+			Columns: []string{event.RundownColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(rundown.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.LocationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.LocationsTable,
+			Columns: []string{event.LocationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(location.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
