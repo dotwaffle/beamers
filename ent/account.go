@@ -40,9 +40,15 @@ type AccountEdges struct {
 	PasswordCredential *PasswordCredential `json:"password_credential,omitempty"`
 	// Sessions holds the value of the sessions edge.
 	Sessions []*AccountSession `json:"sessions,omitempty"`
+	// EventGrants holds the value of the event_grants edge.
+	EventGrants []*EventGrant `json:"event_grants,omitempty"`
+	// AuditEntries holds the value of the audit_entries edge.
+	AuditEntries []*AuditEntry `json:"audit_entries,omitempty"`
+	// CommandReceipts holds the value of the command_receipts edge.
+	CommandReceipts []*CommandReceipt `json:"command_receipts,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [5]bool
 }
 
 // PasswordCredentialOrErr returns the PasswordCredential value or an error if the edge
@@ -63,6 +69,33 @@ func (e AccountEdges) SessionsOrErr() ([]*AccountSession, error) {
 		return e.Sessions, nil
 	}
 	return nil, &NotLoadedError{edge: "sessions"}
+}
+
+// EventGrantsOrErr returns the EventGrants value or an error if the edge
+// was not loaded in eager-loading.
+func (e AccountEdges) EventGrantsOrErr() ([]*EventGrant, error) {
+	if e.loadedTypes[2] {
+		return e.EventGrants, nil
+	}
+	return nil, &NotLoadedError{edge: "event_grants"}
+}
+
+// AuditEntriesOrErr returns the AuditEntries value or an error if the edge
+// was not loaded in eager-loading.
+func (e AccountEdges) AuditEntriesOrErr() ([]*AuditEntry, error) {
+	if e.loadedTypes[3] {
+		return e.AuditEntries, nil
+	}
+	return nil, &NotLoadedError{edge: "audit_entries"}
+}
+
+// CommandReceiptsOrErr returns the CommandReceipts value or an error if the edge
+// was not loaded in eager-loading.
+func (e AccountEdges) CommandReceiptsOrErr() ([]*CommandReceipt, error) {
+	if e.loadedTypes[4] {
+		return e.CommandReceipts, nil
+	}
+	return nil, &NotLoadedError{edge: "command_receipts"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -151,6 +184,21 @@ func (_m *Account) QueryPasswordCredential() *PasswordCredentialQuery {
 // QuerySessions queries the "sessions" edge of the Account entity.
 func (_m *Account) QuerySessions() *AccountSessionQuery {
 	return NewAccountClient(_m.config).QuerySessions(_m)
+}
+
+// QueryEventGrants queries the "event_grants" edge of the Account entity.
+func (_m *Account) QueryEventGrants() *EventGrantQuery {
+	return NewAccountClient(_m.config).QueryEventGrants(_m)
+}
+
+// QueryAuditEntries queries the "audit_entries" edge of the Account entity.
+func (_m *Account) QueryAuditEntries() *AuditEntryQuery {
+	return NewAccountClient(_m.config).QueryAuditEntries(_m)
+}
+
+// QueryCommandReceipts queries the "command_receipts" edge of the Account entity.
+func (_m *Account) QueryCommandReceipts() *CommandReceiptQuery {
+	return NewAccountClient(_m.config).QueryCommandReceipts(_m)
 }
 
 // Update returns a builder for updating this Account.

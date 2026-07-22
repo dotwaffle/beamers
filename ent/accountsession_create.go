@@ -79,7 +79,9 @@ func (_c *AccountSessionCreate) Mutation() *AccountSessionMutation {
 
 // Save creates the AccountSession in the database.
 func (_c *AccountSessionCreate) Save(ctx context.Context) (*AccountSession, error) {
-	_c.defaults()
+	if err := _c.defaults(); err != nil {
+		return nil, err
+	}
 	return withHooks(ctx, _c.sqlSave, _c.mutation, _c.hooks)
 }
 
@@ -106,11 +108,15 @@ func (_c *AccountSessionCreate) ExecX(ctx context.Context) {
 }
 
 // defaults sets the default values of the builder before save.
-func (_c *AccountSessionCreate) defaults() {
+func (_c *AccountSessionCreate) defaults() error {
 	if _, ok := _c.mutation.CreatedAt(); !ok {
+		if accountsession.DefaultCreatedAt == nil {
+			return fmt.Errorf("ent: uninitialized accountsession.DefaultCreatedAt (forgotten import ent/runtime?)")
+		}
 		v := accountsession.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
 	}
+	return nil
 }
 
 // check runs all checks and user-defined validators on the builder.

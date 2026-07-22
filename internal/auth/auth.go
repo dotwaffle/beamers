@@ -18,7 +18,9 @@ import (
 
 	"golang.org/x/crypto/argon2"
 
+	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 const (
@@ -48,12 +50,20 @@ var (
 	ErrInvalidSession = errors.New("authentication required")
 	// ErrBootstrapUnavailable means host bootstrap cannot issue a credential.
 	ErrBootstrapUnavailable = store.ErrBootstrapUnavailable
+	// ErrAdministratorRequired means Account administration lacked installation authority.
+	ErrAdministratorRequired = errors.New("administrator authority required")
+	// ErrAccountExists means the requested Account name is already in use.
+	ErrAccountExists = store.ErrAccountExists
+	// ErrCommandConflict means a Command ID was reused for different Account work.
+	ErrCommandConflict = store.ErrCommandConflict
 )
 
 // Account is the authenticated identity exposed above the persistence boundary.
 type Account struct {
+	ID            int
 	Name          string
 	Administrator bool
+	EventRoles    map[int]viewer.Role
 }
 
 // Session is a newly authenticated session. Token is returned only to the
@@ -230,6 +240,111 @@ func (service *Service) SignIn(ctx context.Context, name, password string) (Sess
 		return Session{}, err
 	}
 	return newSession(token, expiresAt, credential), nil
+}
+
+// CreateAccount creates an individual non-Administrator Account.
+func (service *Service) CreateAccount(
+	ctx context.Context,
+	actor Account,
+	name string,
+	password string,
+	commandID string,
+) (Account, error) {
+	payloadHash := command.PayloadHash(name, password)
+	if err := command.ValidateID(commandID); err != nil {
+		return Account{}, ErrInvalidAccountDetails
+	}
+	if !actor.Administrator {
+		return Account{}, service.rejected(ctx, actor, commandID, payloadHash, ErrAdministratorRequired)
+	}
+	normalizedName, displayName, err := normalizeAccountName(name)
+	if err != nil || !validPassword(password) {
+		return Account{}, service.rejected(ctx, actor, commandID, payloadHash, ErrInvalidAccountDetails)
+	}
+	passwordHash, err := service.hashPassword(password)
+	if err != nil {
+		return Account{}, err
+	}
+	created, err := service.storage.CreateAccount(actor.Context(ctx), store.CreateAccountParams{
+		ActorAccountID: actor.ID,
+		Name:           displayName,
+		NormalizedName: normalizedName,
+		PasswordHash:   passwordHash,
+		Now:            service.now().UTC(),
+		CommandID:      commandID,
+		PayloadHash:    command.PayloadHash(normalizedName, password),
+	})
+	if err != nil {
+		err = restoreRejected(err)
+		if !errors.Is(err, ErrCommandConflict) {
+			err = service.rejected(ctx, actor, commandID, payloadHash, err)
+		}
+		return Account{}, err
+	}
+	return account(created), nil
+}
+
+func (service *Service) rejected(
+	ctx context.Context,
+	actor Account,
+	targetID string,
+	payloadHash string,
+	reason error,
+) error {
+	_, auditErr := service.storage.RecordRejectedCommand(
+		actor.Context(ctx), actor.ID, targetID, payloadHash,
+		"CreateAccount", "Account", "unidentified", accountRejection(reason), service.now().UTC(),
+	)
+	return errors.Join(reason, auditErr)
+}
+
+func accountRejection(reason error) store.CommandRejection {
+	switch {
+	case errors.Is(reason, ErrAdministratorRequired):
+		return store.CommandRejection{Code: "administrator_required"}
+	case errors.Is(reason, ErrInvalidAccountDetails):
+		return store.CommandRejection{Code: "invalid_account_details"}
+	case errors.Is(reason, ErrAccountExists):
+		return store.CommandRejection{Code: "account_exists"}
+	default:
+		return store.CommandRejection{Code: "unavailable"}
+	}
+}
+
+func restoreRejected(err error) error {
+	var rejected *store.RejectedCommandError
+	if !errors.As(err, &rejected) {
+		return err
+	}
+	switch rejected.Rejection.Code {
+	case "administrator_required":
+		return ErrAdministratorRequired
+	case "invalid_account_details":
+		return ErrInvalidAccountDetails
+	case "account_exists":
+		return ErrAccountExists
+	default:
+		return errors.New("Account command unavailable")
+	}
+}
+
+// ListAccounts returns selectable enabled Accounts for an Administrator.
+func (service *Service) ListAccounts(
+	ctx context.Context,
+	actor Account,
+) ([]Account, error) {
+	if !actor.Administrator {
+		return nil, ErrAdministratorRequired
+	}
+	found, err := service.storage.ListAccounts(actor.Context(ctx))
+	if err != nil {
+		return nil, err
+	}
+	accounts := make([]Account, 0, len(found))
+	for _, item := range found {
+		accounts = append(accounts, account(item))
+	}
+	return accounts, nil
 }
 
 // Authenticate returns the Account for an active durable session.
@@ -449,5 +564,20 @@ func newSession(token string, expiresAt time.Time, found store.AccountCredential
 }
 
 func account(found store.AccountCredential) Account {
-	return Account{Name: found.Name, Administrator: found.Administrator}
+	return Account{
+		ID: found.ID, Name: found.Name, Administrator: found.Administrator,
+		EventRoles: found.EventRoles,
+	}
+}
+
+// Context adds the Account's authenticated authorization facts for Ent privacy.
+func (account Account) Context(ctx context.Context) context.Context {
+	return viewer.NewContext(ctx, viewer.Identity{
+		AccountID: account.ID, Administrator: account.Administrator, EventRoles: account.EventRoles,
+	})
+}
+
+// CanProduceEvent reports whether the Account has explicit Producer authority.
+func (account Account) CanProduceEvent(eventID int) bool {
+	return account.EventRoles[eventID] == viewer.Producer
 }

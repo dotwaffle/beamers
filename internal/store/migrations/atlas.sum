@@ -1,3 +1,5 @@
-h1:wyBMFQ0tWrvuR5lqSc8XwkG0yYLp5kE79OKf9EjLwRo=
+h1:Nd9tLOQaVIwIOMipX8w/Uk5zPx/cZZ05XzEtej3UMhk=
 0001_initialize.sql h1:xwTCiCDERoBPK7+31D4g3SOs7BivkqIi3/tf+14eOlo=
 0002_bootstrap_auth.sql h1:Z4h1bvDVGzPXbmlEc3NCEn1HvMSf2V6eY56wIlxFLjA=
+0003_add_events.sql h1:6XxTAjVp9ntlWbsdacCMQkdgTAG185npJMhgxOSnAtA=
+0004_add_command_receipts.sql h1:fwsl3dkPxFpotdcxK2AIXGkjo30FXr8Wwu2H91c0lB4=

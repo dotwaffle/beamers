@@ -14,7 +14,11 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/accountsession"
+	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
+	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/event"
+	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/migration"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
@@ -80,7 +84,11 @@ func checkColumn(t, c string) error {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			account.Table:             account.ValidColumn,
 			accountsession.Table:      accountsession.ValidColumn,
+			auditentry.Table:          auditentry.ValidColumn,
 			bootstrapcredential.Table: bootstrapcredential.ValidColumn,
+			commandreceipt.Table:      commandreceipt.ValidColumn,
+			event.Table:               event.ValidColumn,
+			eventgrant.Table:          eventgrant.ValidColumn,
 			installation.Table:        installation.ValidColumn,
 			migration.Table:           migration.ValidColumn,
 			passwordcredential.Table:  passwordcredential.ValidColumn,

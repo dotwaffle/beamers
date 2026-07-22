@@ -13,6 +13,11 @@ type AccountSession struct {
 	ent.Schema
 }
 
+// Policy keeps Account session access inside authentication storage paths.
+func (AccountSession) Policy() ent.Policy {
+	return systemOnlyPolicy()
+}
+
 // Fields defines AccountSession persistence.
 func (AccountSession) Fields() []ent.Field {
 	return []ent.Field{

@@ -47,6 +47,30 @@ var (
 			},
 		},
 	}
+	// AuditEntriesColumns holds the columns for the "audit_entries" table.
+	AuditEntriesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "action", Type: field.TypeString, Size: 100},
+		{Name: "target_type", Type: field.TypeString, Size: 100},
+		{Name: "target_id", Type: field.TypeString, Size: 100},
+		{Name: "result", Type: field.TypeEnum, Enums: []string{"Succeeded", "Rejected"}},
+		{Name: "actor_account_id", Type: field.TypeInt},
+	}
+	// AuditEntriesTable holds the schema information for the "audit_entries" table.
+	AuditEntriesTable = &schema.Table{
+		Name:       "audit_entries",
+		Columns:    AuditEntriesColumns,
+		PrimaryKey: []*schema.Column{AuditEntriesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "audit_entries_accounts_audit_entries",
+				Columns:    []*schema.Column{AuditEntriesColumns[6]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
 	// BootstrapCredentialsColumns holds the columns for the "bootstrap_credentials" table.
 	BootstrapCredentialsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -60,6 +84,86 @@ var (
 		Name:       "bootstrap_credentials",
 		Columns:    BootstrapCredentialsColumns,
 		PrimaryKey: []*schema.Column{BootstrapCredentialsColumns[0]},
+	}
+	// CommandReceiptsColumns holds the columns for the "command_receipts" table.
+	CommandReceiptsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "command_id", Type: field.TypeString, Unique: true, Size: 200},
+		{Name: "payload_hash", Type: field.TypeString, Size: 64},
+		{Name: "action", Type: field.TypeString, Size: 100},
+		{Name: "target_type", Type: field.TypeString, Size: 100},
+		{Name: "target_id", Type: field.TypeString, Size: 100},
+		{Name: "outcome_json", Type: field.TypeString},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "actor_account_id", Type: field.TypeInt},
+	}
+	// CommandReceiptsTable holds the schema information for the "command_receipts" table.
+	CommandReceiptsTable = &schema.Table{
+		Name:       "command_receipts",
+		Columns:    CommandReceiptsColumns,
+		PrimaryKey: []*schema.Column{CommandReceiptsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "command_receipts_accounts_command_receipts",
+				Columns:    []*schema.Column{CommandReceiptsColumns[8]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
+	// EventsColumns holds the columns for the "events" table.
+	EventsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "name", Type: field.TypeString, Size: 200},
+		{Name: "planned_start_date", Type: field.TypeString, Size: 10},
+		{Name: "planned_end_date", Type: field.TypeString, Size: 10},
+		{Name: "timezone", Type: field.TypeString, Size: 200},
+		{Name: "event_locale", Type: field.TypeString, Size: 100},
+		{Name: "content_language", Type: field.TypeString, Nullable: true, Size: 100},
+		{Name: "event_day_boundary", Type: field.TypeString, Size: 5},
+		{Name: "revision", Type: field.TypeInt, Default: 1},
+		{Name: "created_at", Type: field.TypeTime},
+	}
+	// EventsTable holds the schema information for the "events" table.
+	EventsTable = &schema.Table{
+		Name:       "events",
+		Columns:    EventsColumns,
+		PrimaryKey: []*schema.Column{EventsColumns[0]},
+	}
+	// EventGrantsColumns holds the columns for the "event_grants" table.
+	EventGrantsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "role", Type: field.TypeEnum, Enums: []string{"Producer", "Operator", "Observer"}},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "account_id", Type: field.TypeInt},
+		{Name: "event_id", Type: field.TypeInt},
+	}
+	// EventGrantsTable holds the schema information for the "event_grants" table.
+	EventGrantsTable = &schema.Table{
+		Name:       "event_grants",
+		Columns:    EventGrantsColumns,
+		PrimaryKey: []*schema.Column{EventGrantsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "event_grants_accounts_event_grants",
+				Columns:    []*schema.Column{EventGrantsColumns[3]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "event_grants_events_grants",
+				Columns:    []*schema.Column{EventGrantsColumns[4]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "eventgrant_event_id_account_id",
+				Unique:  true,
+				Columns: []*schema.Column{EventGrantsColumns[4], EventGrantsColumns[3]},
+			},
+		},
 	}
 	// InstallationsColumns holds the columns for the "installations" table.
 	InstallationsColumns = []*schema.Column{
@@ -112,7 +216,11 @@ var (
 	Tables = []*schema.Table{
 		AccountsTable,
 		AccountSessionsTable,
+		AuditEntriesTable,
 		BootstrapCredentialsTable,
+		CommandReceiptsTable,
+		EventsTable,
+		EventGrantsTable,
 		InstallationsTable,
 		BeamersSchemaMigrationsTable,
 		PasswordCredentialsTable,
@@ -121,6 +229,10 @@ var (
 
 func init() {
 	AccountSessionsTable.ForeignKeys[0].RefTable = AccountsTable
+	AuditEntriesTable.ForeignKeys[0].RefTable = AccountsTable
+	CommandReceiptsTable.ForeignKeys[0].RefTable = AccountsTable
+	EventGrantsTable.ForeignKeys[0].RefTable = AccountsTable
+	EventGrantsTable.ForeignKeys[1].RefTable = EventsTable
 	BeamersSchemaMigrationsTable.Annotation = &entsql.Annotation{
 		Table: "beamers_schema_migrations",
 	}

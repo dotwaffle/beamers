@@ -2,7 +2,529 @@
 
 package runtime
 
-// The schema-stitching logic is generated in github.com/dotwaffle/beamers/ent/runtime.go
+import (
+	"context"
+	"time"
+
+	"github.com/dotwaffle/beamers/ent/account"
+	"github.com/dotwaffle/beamers/ent/accountsession"
+	"github.com/dotwaffle/beamers/ent/auditentry"
+	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
+	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/event"
+	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/ent/migration"
+	"github.com/dotwaffle/beamers/ent/passwordcredential"
+	"github.com/dotwaffle/beamers/ent/schema"
+
+	"entgo.io/ent"
+	"entgo.io/ent/privacy"
+)
+
+// The init function reads all schema descriptors with runtime code
+// (default values, validators, hooks and policies) and stitches it
+// to their package variables.
+func init() {
+	account.Policy = privacy.NewPolicies(schema.Account{})
+	account.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := account.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	accountFields := schema.Account{}.Fields()
+	_ = accountFields
+	// accountDescName is the schema descriptor for name field.
+	accountDescName := accountFields[0].Descriptor()
+	// account.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	account.NameValidator = func() func(string) error {
+		validators := accountDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// accountDescNormalizedName is the schema descriptor for normalized_name field.
+	accountDescNormalizedName := accountFields[1].Descriptor()
+	// account.NormalizedNameValidator is a validator for the "normalized_name" field. It is called by the builders before save.
+	account.NormalizedNameValidator = func() func(string) error {
+		validators := accountDescNormalizedName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(normalized_name string) error {
+			for _, fn := range fns {
+				if err := fn(normalized_name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// accountDescCreatedAt is the schema descriptor for created_at field.
+	accountDescCreatedAt := accountFields[3].Descriptor()
+	// account.DefaultCreatedAt holds the default value on creation for the created_at field.
+	account.DefaultCreatedAt = accountDescCreatedAt.Default.(func() time.Time)
+	accountsession.Policy = privacy.NewPolicies(schema.AccountSession{})
+	accountsession.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := accountsession.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	accountsessionFields := schema.AccountSession{}.Fields()
+	_ = accountsessionFields
+	// accountsessionDescTokenHash is the schema descriptor for token_hash field.
+	accountsessionDescTokenHash := accountsessionFields[1].Descriptor()
+	// accountsession.TokenHashValidator is a validator for the "token_hash" field. It is called by the builders before save.
+	accountsession.TokenHashValidator = func() func(string) error {
+		validators := accountsessionDescTokenHash.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(token_hash string) error {
+			for _, fn := range fns {
+				if err := fn(token_hash); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// accountsessionDescCreatedAt is the schema descriptor for created_at field.
+	accountsessionDescCreatedAt := accountsessionFields[2].Descriptor()
+	// accountsession.DefaultCreatedAt holds the default value on creation for the created_at field.
+	accountsession.DefaultCreatedAt = accountsessionDescCreatedAt.Default.(func() time.Time)
+	auditentry.Policy = privacy.NewPolicies(schema.AuditEntry{})
+	auditentry.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := auditentry.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	auditentryFields := schema.AuditEntry{}.Fields()
+	_ = auditentryFields
+	// auditentryDescCreatedAt is the schema descriptor for created_at field.
+	auditentryDescCreatedAt := auditentryFields[1].Descriptor()
+	// auditentry.DefaultCreatedAt holds the default value on creation for the created_at field.
+	auditentry.DefaultCreatedAt = auditentryDescCreatedAt.Default.(func() time.Time)
+	// auditentryDescAction is the schema descriptor for action field.
+	auditentryDescAction := auditentryFields[2].Descriptor()
+	// auditentry.ActionValidator is a validator for the "action" field. It is called by the builders before save.
+	auditentry.ActionValidator = func() func(string) error {
+		validators := auditentryDescAction.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(action string) error {
+			for _, fn := range fns {
+				if err := fn(action); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// auditentryDescTargetType is the schema descriptor for target_type field.
+	auditentryDescTargetType := auditentryFields[3].Descriptor()
+	// auditentry.TargetTypeValidator is a validator for the "target_type" field. It is called by the builders before save.
+	auditentry.TargetTypeValidator = func() func(string) error {
+		validators := auditentryDescTargetType.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(target_type string) error {
+			for _, fn := range fns {
+				if err := fn(target_type); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// auditentryDescTargetID is the schema descriptor for target_id field.
+	auditentryDescTargetID := auditentryFields[4].Descriptor()
+	// auditentry.TargetIDValidator is a validator for the "target_id" field. It is called by the builders before save.
+	auditentry.TargetIDValidator = func() func(string) error {
+		validators := auditentryDescTargetID.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(target_id string) error {
+			for _, fn := range fns {
+				if err := fn(target_id); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	bootstrapcredential.Policy = privacy.NewPolicies(schema.BootstrapCredential{})
+	bootstrapcredential.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := bootstrapcredential.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	bootstrapcredentialFields := schema.BootstrapCredential{}.Fields()
+	_ = bootstrapcredentialFields
+	// bootstrapcredentialDescTokenHash is the schema descriptor for token_hash field.
+	bootstrapcredentialDescTokenHash := bootstrapcredentialFields[0].Descriptor()
+	// bootstrapcredential.TokenHashValidator is a validator for the "token_hash" field. It is called by the builders before save.
+	bootstrapcredential.TokenHashValidator = func() func(string) error {
+		validators := bootstrapcredentialDescTokenHash.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(token_hash string) error {
+			for _, fn := range fns {
+				if err := fn(token_hash); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// bootstrapcredentialDescCreatedAt is the schema descriptor for created_at field.
+	bootstrapcredentialDescCreatedAt := bootstrapcredentialFields[1].Descriptor()
+	// bootstrapcredential.DefaultCreatedAt holds the default value on creation for the created_at field.
+	bootstrapcredential.DefaultCreatedAt = bootstrapcredentialDescCreatedAt.Default.(func() time.Time)
+	commandreceipt.Policy = privacy.NewPolicies(schema.CommandReceipt{})
+	commandreceipt.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := commandreceipt.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	commandreceiptFields := schema.CommandReceipt{}.Fields()
+	_ = commandreceiptFields
+	// commandreceiptDescCommandID is the schema descriptor for command_id field.
+	commandreceiptDescCommandID := commandreceiptFields[1].Descriptor()
+	// commandreceipt.CommandIDValidator is a validator for the "command_id" field. It is called by the builders before save.
+	commandreceipt.CommandIDValidator = func() func(string) error {
+		validators := commandreceiptDescCommandID.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(command_id string) error {
+			for _, fn := range fns {
+				if err := fn(command_id); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// commandreceiptDescPayloadHash is the schema descriptor for payload_hash field.
+	commandreceiptDescPayloadHash := commandreceiptFields[2].Descriptor()
+	// commandreceipt.PayloadHashValidator is a validator for the "payload_hash" field. It is called by the builders before save.
+	commandreceipt.PayloadHashValidator = func() func(string) error {
+		validators := commandreceiptDescPayloadHash.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(payload_hash string) error {
+			for _, fn := range fns {
+				if err := fn(payload_hash); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// commandreceiptDescAction is the schema descriptor for action field.
+	commandreceiptDescAction := commandreceiptFields[3].Descriptor()
+	// commandreceipt.ActionValidator is a validator for the "action" field. It is called by the builders before save.
+	commandreceipt.ActionValidator = func() func(string) error {
+		validators := commandreceiptDescAction.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(action string) error {
+			for _, fn := range fns {
+				if err := fn(action); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// commandreceiptDescTargetType is the schema descriptor for target_type field.
+	commandreceiptDescTargetType := commandreceiptFields[4].Descriptor()
+	// commandreceipt.TargetTypeValidator is a validator for the "target_type" field. It is called by the builders before save.
+	commandreceipt.TargetTypeValidator = func() func(string) error {
+		validators := commandreceiptDescTargetType.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(target_type string) error {
+			for _, fn := range fns {
+				if err := fn(target_type); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// commandreceiptDescTargetID is the schema descriptor for target_id field.
+	commandreceiptDescTargetID := commandreceiptFields[5].Descriptor()
+	// commandreceipt.TargetIDValidator is a validator for the "target_id" field. It is called by the builders before save.
+	commandreceipt.TargetIDValidator = func() func(string) error {
+		validators := commandreceiptDescTargetID.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(target_id string) error {
+			for _, fn := range fns {
+				if err := fn(target_id); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// commandreceiptDescOutcomeJSON is the schema descriptor for outcome_json field.
+	commandreceiptDescOutcomeJSON := commandreceiptFields[6].Descriptor()
+	// commandreceipt.OutcomeJSONValidator is a validator for the "outcome_json" field. It is called by the builders before save.
+	commandreceipt.OutcomeJSONValidator = commandreceiptDescOutcomeJSON.Validators[0].(func(string) error)
+	// commandreceiptDescCreatedAt is the schema descriptor for created_at field.
+	commandreceiptDescCreatedAt := commandreceiptFields[7].Descriptor()
+	// commandreceipt.DefaultCreatedAt holds the default value on creation for the created_at field.
+	commandreceipt.DefaultCreatedAt = commandreceiptDescCreatedAt.Default.(func() time.Time)
+	event.Policy = privacy.NewPolicies(schema.Event{})
+	event.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := event.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	eventFields := schema.Event{}.Fields()
+	_ = eventFields
+	// eventDescName is the schema descriptor for name field.
+	eventDescName := eventFields[0].Descriptor()
+	// event.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	event.NameValidator = func() func(string) error {
+		validators := eventDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// eventDescPlannedStartDate is the schema descriptor for planned_start_date field.
+	eventDescPlannedStartDate := eventFields[1].Descriptor()
+	// event.PlannedStartDateValidator is a validator for the "planned_start_date" field. It is called by the builders before save.
+	event.PlannedStartDateValidator = func() func(string) error {
+		validators := eventDescPlannedStartDate.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(planned_start_date string) error {
+			for _, fn := range fns {
+				if err := fn(planned_start_date); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// eventDescPlannedEndDate is the schema descriptor for planned_end_date field.
+	eventDescPlannedEndDate := eventFields[2].Descriptor()
+	// event.PlannedEndDateValidator is a validator for the "planned_end_date" field. It is called by the builders before save.
+	event.PlannedEndDateValidator = func() func(string) error {
+		validators := eventDescPlannedEndDate.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(planned_end_date string) error {
+			for _, fn := range fns {
+				if err := fn(planned_end_date); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// eventDescTimezone is the schema descriptor for timezone field.
+	eventDescTimezone := eventFields[3].Descriptor()
+	// event.TimezoneValidator is a validator for the "timezone" field. It is called by the builders before save.
+	event.TimezoneValidator = func() func(string) error {
+		validators := eventDescTimezone.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(timezone string) error {
+			for _, fn := range fns {
+				if err := fn(timezone); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// eventDescEventLocale is the schema descriptor for event_locale field.
+	eventDescEventLocale := eventFields[4].Descriptor()
+	// event.EventLocaleValidator is a validator for the "event_locale" field. It is called by the builders before save.
+	event.EventLocaleValidator = func() func(string) error {
+		validators := eventDescEventLocale.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(event_locale string) error {
+			for _, fn := range fns {
+				if err := fn(event_locale); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// eventDescContentLanguage is the schema descriptor for content_language field.
+	eventDescContentLanguage := eventFields[5].Descriptor()
+	// event.ContentLanguageValidator is a validator for the "content_language" field. It is called by the builders before save.
+	event.ContentLanguageValidator = eventDescContentLanguage.Validators[0].(func(string) error)
+	// eventDescEventDayBoundary is the schema descriptor for event_day_boundary field.
+	eventDescEventDayBoundary := eventFields[6].Descriptor()
+	// event.EventDayBoundaryValidator is a validator for the "event_day_boundary" field. It is called by the builders before save.
+	event.EventDayBoundaryValidator = func() func(string) error {
+		validators := eventDescEventDayBoundary.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(event_day_boundary string) error {
+			for _, fn := range fns {
+				if err := fn(event_day_boundary); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// eventDescRevision is the schema descriptor for revision field.
+	eventDescRevision := eventFields[7].Descriptor()
+	// event.DefaultRevision holds the default value on creation for the revision field.
+	event.DefaultRevision = eventDescRevision.Default.(int)
+	// eventDescCreatedAt is the schema descriptor for created_at field.
+	eventDescCreatedAt := eventFields[8].Descriptor()
+	// event.DefaultCreatedAt holds the default value on creation for the created_at field.
+	event.DefaultCreatedAt = eventDescCreatedAt.Default.(func() time.Time)
+	eventgrant.Policy = privacy.NewPolicies(schema.EventGrant{})
+	eventgrant.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := eventgrant.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	eventgrantFields := schema.EventGrant{}.Fields()
+	_ = eventgrantFields
+	// eventgrantDescCreatedAt is the schema descriptor for created_at field.
+	eventgrantDescCreatedAt := eventgrantFields[3].Descriptor()
+	// eventgrant.DefaultCreatedAt holds the default value on creation for the created_at field.
+	eventgrant.DefaultCreatedAt = eventgrantDescCreatedAt.Default.(func() time.Time)
+	installationFields := schema.Installation{}.Fields()
+	_ = installationFields
+	// installationDescCreatedAt is the schema descriptor for created_at field.
+	installationDescCreatedAt := installationFields[0].Descriptor()
+	// installation.DefaultCreatedAt holds the default value on creation for the created_at field.
+	installation.DefaultCreatedAt = installationDescCreatedAt.Default.(func() time.Time)
+	migrationFields := schema.Migration{}.Fields()
+	_ = migrationFields
+	// migrationDescVersion is the schema descriptor for version field.
+	migrationDescVersion := migrationFields[0].Descriptor()
+	// migration.VersionValidator is a validator for the "version" field. It is called by the builders before save.
+	migration.VersionValidator = migrationDescVersion.Validators[0].(func(int) error)
+	// migrationDescName is the schema descriptor for name field.
+	migrationDescName := migrationFields[1].Descriptor()
+	// migration.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	migration.NameValidator = migrationDescName.Validators[0].(func(string) error)
+	// migrationDescChecksum is the schema descriptor for checksum field.
+	migrationDescChecksum := migrationFields[2].Descriptor()
+	// migration.ChecksumValidator is a validator for the "checksum" field. It is called by the builders before save.
+	migration.ChecksumValidator = func() func(string) error {
+		validators := migrationDescChecksum.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(checksum string) error {
+			for _, fn := range fns {
+				if err := fn(checksum); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// migrationDescAppliedAt is the schema descriptor for applied_at field.
+	migrationDescAppliedAt := migrationFields[3].Descriptor()
+	// migration.DefaultAppliedAt holds the default value on creation for the applied_at field.
+	migration.DefaultAppliedAt = migrationDescAppliedAt.Default.(func() time.Time)
+	passwordcredential.Policy = privacy.NewPolicies(schema.PasswordCredential{})
+	passwordcredential.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := passwordcredential.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	passwordcredentialFields := schema.PasswordCredential{}.Fields()
+	_ = passwordcredentialFields
+	// passwordcredentialDescPasswordHash is the schema descriptor for password_hash field.
+	passwordcredentialDescPasswordHash := passwordcredentialFields[1].Descriptor()
+	// passwordcredential.PasswordHashValidator is a validator for the "password_hash" field. It is called by the builders before save.
+	passwordcredential.PasswordHashValidator = passwordcredentialDescPasswordHash.Validators[0].(func(string) error)
+	// passwordcredentialDescCreatedAt is the schema descriptor for created_at field.
+	passwordcredentialDescCreatedAt := passwordcredentialFields[2].Descriptor()
+	// passwordcredential.DefaultCreatedAt holds the default value on creation for the created_at field.
+	passwordcredential.DefaultCreatedAt = passwordcredentialDescCreatedAt.Default.(func() time.Time)
+}
 
 const (
 	Version = "v0.14.6"                                         // Version of ent codegen.

@@ -33,6 +33,18 @@ func (f AccountSessionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Val
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AccountSessionMutation", m)
 }
 
+// The AuditEntryFunc type is an adapter to allow the use of ordinary
+// function as AuditEntry mutator.
+type AuditEntryFunc func(context.Context, *ent.AuditEntryMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AuditEntryFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AuditEntryMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AuditEntryMutation", m)
+}
+
 // The BootstrapCredentialFunc type is an adapter to allow the use of ordinary
 // function as BootstrapCredential mutator.
 type BootstrapCredentialFunc func(context.Context, *ent.BootstrapCredentialMutation) (ent.Value, error)
@@ -43,6 +55,42 @@ func (f BootstrapCredentialFunc) Mutate(ctx context.Context, m ent.Mutation) (en
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.BootstrapCredentialMutation", m)
+}
+
+// The CommandReceiptFunc type is an adapter to allow the use of ordinary
+// function as CommandReceipt mutator.
+type CommandReceiptFunc func(context.Context, *ent.CommandReceiptMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f CommandReceiptFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.CommandReceiptMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CommandReceiptMutation", m)
+}
+
+// The EventFunc type is an adapter to allow the use of ordinary
+// function as Event mutator.
+type EventFunc func(context.Context, *ent.EventMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f EventFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.EventMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.EventMutation", m)
+}
+
+// The EventGrantFunc type is an adapter to allow the use of ordinary
+// function as EventGrant mutator.
+type EventGrantFunc func(context.Context, *ent.EventGrantMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f EventGrantFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.EventGrantMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.EventGrantMutation", m)
 }
 
 // The InstallationFunc type is an adapter to allow the use of ordinary

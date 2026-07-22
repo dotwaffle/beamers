@@ -67,7 +67,9 @@ func (_c *BootstrapCredentialCreate) Mutation() *BootstrapCredentialMutation {
 
 // Save creates the BootstrapCredential in the database.
 func (_c *BootstrapCredentialCreate) Save(ctx context.Context) (*BootstrapCredential, error) {
-	_c.defaults()
+	if err := _c.defaults(); err != nil {
+		return nil, err
+	}
 	return withHooks(ctx, _c.sqlSave, _c.mutation, _c.hooks)
 }
 
@@ -94,11 +96,15 @@ func (_c *BootstrapCredentialCreate) ExecX(ctx context.Context) {
 }
 
 // defaults sets the default values of the builder before save.
-func (_c *BootstrapCredentialCreate) defaults() {
+func (_c *BootstrapCredentialCreate) defaults() error {
 	if _, ok := _c.mutation.CreatedAt(); !ok {
+		if bootstrapcredential.DefaultCreatedAt == nil {
+			return fmt.Errorf("ent: uninitialized bootstrapcredential.DefaultCreatedAt (forgotten import ent/runtime?)")
+		}
 		v := bootstrapcredential.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
 	}
+	return nil
 }
 
 // check runs all checks and user-defined validators on the builder.

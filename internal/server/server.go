@@ -58,6 +58,13 @@ func Run(ctx context.Context, config Config) error {
 			config.Logger,
 			listener.Addr(),
 		)
+		registerEventRoutes(
+			mux,
+			installation.Authentication(),
+			installation.Events(),
+			config.Logger,
+			listener.Addr(),
+		)
 	}
 
 	httpServer := &http.Server{

@@ -356,6 +356,75 @@ func HasSessionsWith(preds ...predicate.AccountSession) predicate.Account {
 	})
 }
 
+// HasEventGrants applies the HasEdge predicate on the "event_grants" edge.
+func HasEventGrants() predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, EventGrantsTable, EventGrantsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasEventGrantsWith applies the HasEdge predicate on the "event_grants" edge with a given conditions (other predicates).
+func HasEventGrantsWith(preds ...predicate.EventGrant) predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := newEventGrantsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasAuditEntries applies the HasEdge predicate on the "audit_entries" edge.
+func HasAuditEntries() predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AuditEntriesTable, AuditEntriesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAuditEntriesWith applies the HasEdge predicate on the "audit_entries" edge with a given conditions (other predicates).
+func HasAuditEntriesWith(preds ...predicate.AuditEntry) predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := newAuditEntriesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasCommandReceipts applies the HasEdge predicate on the "command_receipts" edge.
+func HasCommandReceipts() predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CommandReceiptsTable, CommandReceiptsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCommandReceiptsWith applies the HasEdge predicate on the "command_receipts" edge with a given conditions (other predicates).
+func HasCommandReceiptsWith(preds ...predicate.CommandReceipt) predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := newCommandReceiptsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Account) predicate.Account {
 	return predicate.Account(sql.AndPredicates(predicates...))

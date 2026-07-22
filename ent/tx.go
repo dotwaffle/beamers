@@ -16,8 +16,16 @@ type Tx struct {
 	Account *AccountClient
 	// AccountSession is the client for interacting with the AccountSession builders.
 	AccountSession *AccountSessionClient
+	// AuditEntry is the client for interacting with the AuditEntry builders.
+	AuditEntry *AuditEntryClient
 	// BootstrapCredential is the client for interacting with the BootstrapCredential builders.
 	BootstrapCredential *BootstrapCredentialClient
+	// CommandReceipt is the client for interacting with the CommandReceipt builders.
+	CommandReceipt *CommandReceiptClient
+	// Event is the client for interacting with the Event builders.
+	Event *EventClient
+	// EventGrant is the client for interacting with the EventGrant builders.
+	EventGrant *EventGrantClient
 	// Installation is the client for interacting with the Installation builders.
 	Installation *InstallationClient
 	// Migration is the client for interacting with the Migration builders.
@@ -157,7 +165,11 @@ func (tx *Tx) Client() *Client {
 func (tx *Tx) init() {
 	tx.Account = NewAccountClient(tx.config)
 	tx.AccountSession = NewAccountSessionClient(tx.config)
+	tx.AuditEntry = NewAuditEntryClient(tx.config)
 	tx.BootstrapCredential = NewBootstrapCredentialClient(tx.config)
+	tx.CommandReceipt = NewCommandReceiptClient(tx.config)
+	tx.Event = NewEventClient(tx.config)
+	tx.EventGrant = NewEventGrantClient(tx.config)
 	tx.Installation = NewInstallationClient(tx.config)
 	tx.Migration = NewMigrationClient(tx.config)
 	tx.PasswordCredential = NewPasswordCredentialClient(tx.config)

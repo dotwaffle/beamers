@@ -5,6 +5,7 @@ package account
 import (
 	"time"
 
+	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 )
@@ -28,6 +29,12 @@ const (
 	EdgePasswordCredential = "password_credential"
 	// EdgeSessions holds the string denoting the sessions edge name in mutations.
 	EdgeSessions = "sessions"
+	// EdgeEventGrants holds the string denoting the event_grants edge name in mutations.
+	EdgeEventGrants = "event_grants"
+	// EdgeAuditEntries holds the string denoting the audit_entries edge name in mutations.
+	EdgeAuditEntries = "audit_entries"
+	// EdgeCommandReceipts holds the string denoting the command_receipts edge name in mutations.
+	EdgeCommandReceipts = "command_receipts"
 	// Table holds the table name of the account in the database.
 	Table = "accounts"
 	// PasswordCredentialTable is the table that holds the password_credential relation/edge.
@@ -44,6 +51,27 @@ const (
 	SessionsInverseTable = "account_sessions"
 	// SessionsColumn is the table column denoting the sessions relation/edge.
 	SessionsColumn = "account_id"
+	// EventGrantsTable is the table that holds the event_grants relation/edge.
+	EventGrantsTable = "event_grants"
+	// EventGrantsInverseTable is the table name for the EventGrant entity.
+	// It exists in this package in order to avoid circular dependency with the "eventgrant" package.
+	EventGrantsInverseTable = "event_grants"
+	// EventGrantsColumn is the table column denoting the event_grants relation/edge.
+	EventGrantsColumn = "account_id"
+	// AuditEntriesTable is the table that holds the audit_entries relation/edge.
+	AuditEntriesTable = "audit_entries"
+	// AuditEntriesInverseTable is the table name for the AuditEntry entity.
+	// It exists in this package in order to avoid circular dependency with the "auditentry" package.
+	AuditEntriesInverseTable = "audit_entries"
+	// AuditEntriesColumn is the table column denoting the audit_entries relation/edge.
+	AuditEntriesColumn = "actor_account_id"
+	// CommandReceiptsTable is the table that holds the command_receipts relation/edge.
+	CommandReceiptsTable = "command_receipts"
+	// CommandReceiptsInverseTable is the table name for the CommandReceipt entity.
+	// It exists in this package in order to avoid circular dependency with the "commandreceipt" package.
+	CommandReceiptsInverseTable = "command_receipts"
+	// CommandReceiptsColumn is the table column denoting the command_receipts relation/edge.
+	CommandReceiptsColumn = "actor_account_id"
 )
 
 // Columns holds all SQL columns for account fields.
@@ -66,7 +94,14 @@ func ValidColumn(column string) bool {
 	return false
 }
 
+// Note that the variables below are initialized by the runtime
+// package on the initialization of the application. Therefore,
+// it should be imported in the main as follows:
+//
+//	import _ "github.com/dotwaffle/beamers/ent/runtime"
 var (
+	Hooks  [1]ent.Hook
+	Policy ent.Policy
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
 	// NormalizedNameValidator is a validator for the "normalized_name" field. It is called by the builders before save.
@@ -128,6 +163,48 @@ func BySessions(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newSessionsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByEventGrantsCount orders the results by event_grants count.
+func ByEventGrantsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newEventGrantsStep(), opts...)
+	}
+}
+
+// ByEventGrants orders the results by event_grants terms.
+func ByEventGrants(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newEventGrantsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByAuditEntriesCount orders the results by audit_entries count.
+func ByAuditEntriesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAuditEntriesStep(), opts...)
+	}
+}
+
+// ByAuditEntries orders the results by audit_entries terms.
+func ByAuditEntries(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAuditEntriesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByCommandReceiptsCount orders the results by command_receipts count.
+func ByCommandReceiptsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCommandReceiptsStep(), opts...)
+	}
+}
+
+// ByCommandReceipts orders the results by command_receipts terms.
+func ByCommandReceipts(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCommandReceiptsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newPasswordCredentialStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -140,5 +217,26 @@ func newSessionsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(SessionsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, SessionsTable, SessionsColumn),
+	)
+}
+func newEventGrantsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(EventGrantsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, EventGrantsTable, EventGrantsColumn),
+	)
+}
+func newAuditEntriesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AuditEntriesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AuditEntriesTable, AuditEntriesColumn),
+	)
+}
+func newCommandReceiptsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CommandReceiptsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CommandReceiptsTable, CommandReceiptsColumn),
 	)
 }

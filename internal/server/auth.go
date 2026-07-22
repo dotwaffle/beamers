@@ -215,13 +215,22 @@ func (handlers authenticationHandlers) authRequestAllowed(
 	request *http.Request,
 	method string,
 ) bool {
+	return requestAllowed(response, request, method, handlers.allowPlaintextCrew)
+}
+
+func requestAllowed(
+	response http.ResponseWriter,
+	request *http.Request,
+	method string,
+	allowPlaintextCrew bool,
+) bool {
 	setAuthHeaders(response)
 	if request.Method != method {
 		response.Header().Set("Allow", method)
 		http.Error(response, "method not allowed", http.StatusMethodNotAllowed)
 		return false
 	}
-	if request.TLS == nil && !handlers.allowPlaintextCrew {
+	if request.TLS == nil && !allowPlaintextCrew {
 		http.Error(response, "secure transport required", http.StatusForbidden)
 		return false
 	}

@@ -12,8 +12,20 @@ type Account func(*sql.Selector)
 // AccountSession is the predicate function for accountsession builders.
 type AccountSession func(*sql.Selector)
 
+// AuditEntry is the predicate function for auditentry builders.
+type AuditEntry func(*sql.Selector)
+
 // BootstrapCredential is the predicate function for bootstrapcredential builders.
 type BootstrapCredential func(*sql.Selector)
+
+// CommandReceipt is the predicate function for commandreceipt builders.
+type CommandReceipt func(*sql.Selector)
+
+// Event is the predicate function for event builders.
+type Event func(*sql.Selector)
+
+// EventGrant is the predicate function for eventgrant builders.
+type EventGrant func(*sql.Selector)
 
 // Installation is the predicate function for installation builders.
 type Installation func(*sql.Selector)

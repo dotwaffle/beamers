@@ -73,7 +73,9 @@ func (_c *PasswordCredentialCreate) Mutation() *PasswordCredentialMutation {
 
 // Save creates the PasswordCredential in the database.
 func (_c *PasswordCredentialCreate) Save(ctx context.Context) (*PasswordCredential, error) {
-	_c.defaults()
+	if err := _c.defaults(); err != nil {
+		return nil, err
+	}
 	return withHooks(ctx, _c.sqlSave, _c.mutation, _c.hooks)
 }
 
@@ -100,11 +102,15 @@ func (_c *PasswordCredentialCreate) ExecX(ctx context.Context) {
 }
 
 // defaults sets the default values of the builder before save.
-func (_c *PasswordCredentialCreate) defaults() {
+func (_c *PasswordCredentialCreate) defaults() error {
 	if _, ok := _c.mutation.CreatedAt(); !ok {
+		if passwordcredential.DefaultCreatedAt == nil {
+			return fmt.Errorf("ent: uninitialized passwordcredential.DefaultCreatedAt (forgotten import ent/runtime?)")
+		}
 		v := passwordcredential.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
 	}
+	return nil
 }
 
 // check runs all checks and user-defined validators on the builder.

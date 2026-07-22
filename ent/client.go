@@ -17,7 +17,11 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/accountsession"
+	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
+	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/event"
+	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/migration"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
@@ -32,8 +36,16 @@ type Client struct {
 	Account *AccountClient
 	// AccountSession is the client for interacting with the AccountSession builders.
 	AccountSession *AccountSessionClient
+	// AuditEntry is the client for interacting with the AuditEntry builders.
+	AuditEntry *AuditEntryClient
 	// BootstrapCredential is the client for interacting with the BootstrapCredential builders.
 	BootstrapCredential *BootstrapCredentialClient
+	// CommandReceipt is the client for interacting with the CommandReceipt builders.
+	CommandReceipt *CommandReceiptClient
+	// Event is the client for interacting with the Event builders.
+	Event *EventClient
+	// EventGrant is the client for interacting with the EventGrant builders.
+	EventGrant *EventGrantClient
 	// Installation is the client for interacting with the Installation builders.
 	Installation *InstallationClient
 	// Migration is the client for interacting with the Migration builders.
@@ -53,7 +65,11 @@ func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
 	c.Account = NewAccountClient(c.config)
 	c.AccountSession = NewAccountSessionClient(c.config)
+	c.AuditEntry = NewAuditEntryClient(c.config)
 	c.BootstrapCredential = NewBootstrapCredentialClient(c.config)
+	c.CommandReceipt = NewCommandReceiptClient(c.config)
+	c.Event = NewEventClient(c.config)
+	c.EventGrant = NewEventGrantClient(c.config)
 	c.Installation = NewInstallationClient(c.config)
 	c.Migration = NewMigrationClient(c.config)
 	c.PasswordCredential = NewPasswordCredentialClient(c.config)
@@ -151,7 +167,11 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		config:              cfg,
 		Account:             NewAccountClient(cfg),
 		AccountSession:      NewAccountSessionClient(cfg),
+		AuditEntry:          NewAuditEntryClient(cfg),
 		BootstrapCredential: NewBootstrapCredentialClient(cfg),
+		CommandReceipt:      NewCommandReceiptClient(cfg),
+		Event:               NewEventClient(cfg),
+		EventGrant:          NewEventGrantClient(cfg),
 		Installation:        NewInstallationClient(cfg),
 		Migration:           NewMigrationClient(cfg),
 		PasswordCredential:  NewPasswordCredentialClient(cfg),
@@ -176,7 +196,11 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		config:              cfg,
 		Account:             NewAccountClient(cfg),
 		AccountSession:      NewAccountSessionClient(cfg),
+		AuditEntry:          NewAuditEntryClient(cfg),
 		BootstrapCredential: NewBootstrapCredentialClient(cfg),
+		CommandReceipt:      NewCommandReceiptClient(cfg),
+		Event:               NewEventClient(cfg),
+		EventGrant:          NewEventGrantClient(cfg),
 		Installation:        NewInstallationClient(cfg),
 		Migration:           NewMigrationClient(cfg),
 		PasswordCredential:  NewPasswordCredentialClient(cfg),
@@ -209,7 +233,8 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.Account, c.AccountSession, c.BootstrapCredential, c.Installation, c.Migration,
+		c.Account, c.AccountSession, c.AuditEntry, c.BootstrapCredential,
+		c.CommandReceipt, c.Event, c.EventGrant, c.Installation, c.Migration,
 		c.PasswordCredential,
 	} {
 		n.Use(hooks...)
@@ -220,7 +245,8 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.Account, c.AccountSession, c.BootstrapCredential, c.Installation, c.Migration,
+		c.Account, c.AccountSession, c.AuditEntry, c.BootstrapCredential,
+		c.CommandReceipt, c.Event, c.EventGrant, c.Installation, c.Migration,
 		c.PasswordCredential,
 	} {
 		n.Intercept(interceptors...)
@@ -234,8 +260,16 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Account.mutate(ctx, m)
 	case *AccountSessionMutation:
 		return c.AccountSession.mutate(ctx, m)
+	case *AuditEntryMutation:
+		return c.AuditEntry.mutate(ctx, m)
 	case *BootstrapCredentialMutation:
 		return c.BootstrapCredential.mutate(ctx, m)
+	case *CommandReceiptMutation:
+		return c.CommandReceipt.mutate(ctx, m)
+	case *EventMutation:
+		return c.Event.mutate(ctx, m)
+	case *EventGrantMutation:
+		return c.EventGrant.mutate(ctx, m)
 	case *InstallationMutation:
 		return c.Installation.mutate(ctx, m)
 	case *MigrationMutation:
@@ -387,9 +421,58 @@ func (c *AccountClient) QuerySessions(_m *Account) *AccountSessionQuery {
 	return query
 }
 
+// QueryEventGrants queries the event_grants edge of a Account.
+func (c *AccountClient) QueryEventGrants(_m *Account) *EventGrantQuery {
+	query := (&EventGrantClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(eventgrant.Table, eventgrant.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.EventGrantsTable, account.EventGrantsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAuditEntries queries the audit_entries edge of a Account.
+func (c *AccountClient) QueryAuditEntries(_m *Account) *AuditEntryQuery {
+	query := (&AuditEntryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(auditentry.Table, auditentry.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.AuditEntriesTable, account.AuditEntriesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCommandReceipts queries the command_receipts edge of a Account.
+func (c *AccountClient) QueryCommandReceipts(_m *Account) *CommandReceiptQuery {
+	query := (&CommandReceiptClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(commandreceipt.Table, commandreceipt.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.CommandReceiptsTable, account.CommandReceiptsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *AccountClient) Hooks() []Hook {
-	return c.hooks.Account
+	hooks := c.hooks.Account
+	return append(hooks[:len(hooks):len(hooks)], account.Hooks[:]...)
 }
 
 // Interceptors returns the client interceptors.
@@ -538,7 +621,8 @@ func (c *AccountSessionClient) QueryAccount(_m *AccountSession) *AccountQuery {
 
 // Hooks returns the client hooks.
 func (c *AccountSessionClient) Hooks() []Hook {
-	return c.hooks.AccountSession
+	hooks := c.hooks.AccountSession
+	return append(hooks[:len(hooks):len(hooks)], accountsession.Hooks[:]...)
 }
 
 // Interceptors returns the client interceptors.
@@ -558,6 +642,156 @@ func (c *AccountSessionClient) mutate(ctx context.Context, m *AccountSessionMuta
 		return (&AccountSessionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown AccountSession mutation op: %q", m.Op())
+	}
+}
+
+// AuditEntryClient is a client for the AuditEntry schema.
+type AuditEntryClient struct {
+	config
+}
+
+// NewAuditEntryClient returns a client for the AuditEntry from the given config.
+func NewAuditEntryClient(c config) *AuditEntryClient {
+	return &AuditEntryClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `auditentry.Hooks(f(g(h())))`.
+func (c *AuditEntryClient) Use(hooks ...Hook) {
+	c.hooks.AuditEntry = append(c.hooks.AuditEntry, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `auditentry.Intercept(f(g(h())))`.
+func (c *AuditEntryClient) Intercept(interceptors ...Interceptor) {
+	c.inters.AuditEntry = append(c.inters.AuditEntry, interceptors...)
+}
+
+// Create returns a builder for creating a AuditEntry entity.
+func (c *AuditEntryClient) Create() *AuditEntryCreate {
+	mutation := newAuditEntryMutation(c.config, OpCreate)
+	return &AuditEntryCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of AuditEntry entities.
+func (c *AuditEntryClient) CreateBulk(builders ...*AuditEntryCreate) *AuditEntryCreateBulk {
+	return &AuditEntryCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *AuditEntryClient) MapCreateBulk(slice any, setFunc func(*AuditEntryCreate, int)) *AuditEntryCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &AuditEntryCreateBulk{err: fmt.Errorf("calling to AuditEntryClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*AuditEntryCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &AuditEntryCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for AuditEntry.
+func (c *AuditEntryClient) Update() *AuditEntryUpdate {
+	mutation := newAuditEntryMutation(c.config, OpUpdate)
+	return &AuditEntryUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *AuditEntryClient) UpdateOne(_m *AuditEntry) *AuditEntryUpdateOne {
+	mutation := newAuditEntryMutation(c.config, OpUpdateOne, withAuditEntry(_m))
+	return &AuditEntryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *AuditEntryClient) UpdateOneID(id int) *AuditEntryUpdateOne {
+	mutation := newAuditEntryMutation(c.config, OpUpdateOne, withAuditEntryID(id))
+	return &AuditEntryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for AuditEntry.
+func (c *AuditEntryClient) Delete() *AuditEntryDelete {
+	mutation := newAuditEntryMutation(c.config, OpDelete)
+	return &AuditEntryDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *AuditEntryClient) DeleteOne(_m *AuditEntry) *AuditEntryDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *AuditEntryClient) DeleteOneID(id int) *AuditEntryDeleteOne {
+	builder := c.Delete().Where(auditentry.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &AuditEntryDeleteOne{builder}
+}
+
+// Query returns a query builder for AuditEntry.
+func (c *AuditEntryClient) Query() *AuditEntryQuery {
+	return &AuditEntryQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAuditEntry},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a AuditEntry entity by its id.
+func (c *AuditEntryClient) Get(ctx context.Context, id int) (*AuditEntry, error) {
+	return c.Query().Where(auditentry.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *AuditEntryClient) GetX(ctx context.Context, id int) *AuditEntry {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryActor queries the actor edge of a AuditEntry.
+func (c *AuditEntryClient) QueryActor(_m *AuditEntry) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(auditentry.Table, auditentry.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, auditentry.ActorTable, auditentry.ActorColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *AuditEntryClient) Hooks() []Hook {
+	hooks := c.hooks.AuditEntry
+	return append(hooks[:len(hooks):len(hooks)], auditentry.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *AuditEntryClient) Interceptors() []Interceptor {
+	return c.inters.AuditEntry
+}
+
+func (c *AuditEntryClient) mutate(ctx context.Context, m *AuditEntryMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&AuditEntryCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&AuditEntryUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&AuditEntryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&AuditEntryDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown AuditEntry mutation op: %q", m.Op())
 	}
 }
 
@@ -671,7 +905,8 @@ func (c *BootstrapCredentialClient) GetX(ctx context.Context, id int) *Bootstrap
 
 // Hooks returns the client hooks.
 func (c *BootstrapCredentialClient) Hooks() []Hook {
-	return c.hooks.BootstrapCredential
+	hooks := c.hooks.BootstrapCredential
+	return append(hooks[:len(hooks):len(hooks)], bootstrapcredential.Hooks[:]...)
 }
 
 // Interceptors returns the client interceptors.
@@ -691,6 +926,472 @@ func (c *BootstrapCredentialClient) mutate(ctx context.Context, m *BootstrapCred
 		return (&BootstrapCredentialDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown BootstrapCredential mutation op: %q", m.Op())
+	}
+}
+
+// CommandReceiptClient is a client for the CommandReceipt schema.
+type CommandReceiptClient struct {
+	config
+}
+
+// NewCommandReceiptClient returns a client for the CommandReceipt from the given config.
+func NewCommandReceiptClient(c config) *CommandReceiptClient {
+	return &CommandReceiptClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `commandreceipt.Hooks(f(g(h())))`.
+func (c *CommandReceiptClient) Use(hooks ...Hook) {
+	c.hooks.CommandReceipt = append(c.hooks.CommandReceipt, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `commandreceipt.Intercept(f(g(h())))`.
+func (c *CommandReceiptClient) Intercept(interceptors ...Interceptor) {
+	c.inters.CommandReceipt = append(c.inters.CommandReceipt, interceptors...)
+}
+
+// Create returns a builder for creating a CommandReceipt entity.
+func (c *CommandReceiptClient) Create() *CommandReceiptCreate {
+	mutation := newCommandReceiptMutation(c.config, OpCreate)
+	return &CommandReceiptCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of CommandReceipt entities.
+func (c *CommandReceiptClient) CreateBulk(builders ...*CommandReceiptCreate) *CommandReceiptCreateBulk {
+	return &CommandReceiptCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *CommandReceiptClient) MapCreateBulk(slice any, setFunc func(*CommandReceiptCreate, int)) *CommandReceiptCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &CommandReceiptCreateBulk{err: fmt.Errorf("calling to CommandReceiptClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*CommandReceiptCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &CommandReceiptCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for CommandReceipt.
+func (c *CommandReceiptClient) Update() *CommandReceiptUpdate {
+	mutation := newCommandReceiptMutation(c.config, OpUpdate)
+	return &CommandReceiptUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *CommandReceiptClient) UpdateOne(_m *CommandReceipt) *CommandReceiptUpdateOne {
+	mutation := newCommandReceiptMutation(c.config, OpUpdateOne, withCommandReceipt(_m))
+	return &CommandReceiptUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *CommandReceiptClient) UpdateOneID(id int) *CommandReceiptUpdateOne {
+	mutation := newCommandReceiptMutation(c.config, OpUpdateOne, withCommandReceiptID(id))
+	return &CommandReceiptUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for CommandReceipt.
+func (c *CommandReceiptClient) Delete() *CommandReceiptDelete {
+	mutation := newCommandReceiptMutation(c.config, OpDelete)
+	return &CommandReceiptDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *CommandReceiptClient) DeleteOne(_m *CommandReceipt) *CommandReceiptDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *CommandReceiptClient) DeleteOneID(id int) *CommandReceiptDeleteOne {
+	builder := c.Delete().Where(commandreceipt.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &CommandReceiptDeleteOne{builder}
+}
+
+// Query returns a query builder for CommandReceipt.
+func (c *CommandReceiptClient) Query() *CommandReceiptQuery {
+	return &CommandReceiptQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeCommandReceipt},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a CommandReceipt entity by its id.
+func (c *CommandReceiptClient) Get(ctx context.Context, id int) (*CommandReceipt, error) {
+	return c.Query().Where(commandreceipt.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *CommandReceiptClient) GetX(ctx context.Context, id int) *CommandReceipt {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryActor queries the actor edge of a CommandReceipt.
+func (c *CommandReceiptClient) QueryActor(_m *CommandReceipt) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(commandreceipt.Table, commandreceipt.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, commandreceipt.ActorTable, commandreceipt.ActorColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *CommandReceiptClient) Hooks() []Hook {
+	hooks := c.hooks.CommandReceipt
+	return append(hooks[:len(hooks):len(hooks)], commandreceipt.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *CommandReceiptClient) Interceptors() []Interceptor {
+	return c.inters.CommandReceipt
+}
+
+func (c *CommandReceiptClient) mutate(ctx context.Context, m *CommandReceiptMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&CommandReceiptCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&CommandReceiptUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&CommandReceiptUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&CommandReceiptDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown CommandReceipt mutation op: %q", m.Op())
+	}
+}
+
+// EventClient is a client for the Event schema.
+type EventClient struct {
+	config
+}
+
+// NewEventClient returns a client for the Event from the given config.
+func NewEventClient(c config) *EventClient {
+	return &EventClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `event.Hooks(f(g(h())))`.
+func (c *EventClient) Use(hooks ...Hook) {
+	c.hooks.Event = append(c.hooks.Event, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `event.Intercept(f(g(h())))`.
+func (c *EventClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Event = append(c.inters.Event, interceptors...)
+}
+
+// Create returns a builder for creating a Event entity.
+func (c *EventClient) Create() *EventCreate {
+	mutation := newEventMutation(c.config, OpCreate)
+	return &EventCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Event entities.
+func (c *EventClient) CreateBulk(builders ...*EventCreate) *EventCreateBulk {
+	return &EventCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *EventClient) MapCreateBulk(slice any, setFunc func(*EventCreate, int)) *EventCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &EventCreateBulk{err: fmt.Errorf("calling to EventClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*EventCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &EventCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Event.
+func (c *EventClient) Update() *EventUpdate {
+	mutation := newEventMutation(c.config, OpUpdate)
+	return &EventUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *EventClient) UpdateOne(_m *Event) *EventUpdateOne {
+	mutation := newEventMutation(c.config, OpUpdateOne, withEvent(_m))
+	return &EventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *EventClient) UpdateOneID(id int) *EventUpdateOne {
+	mutation := newEventMutation(c.config, OpUpdateOne, withEventID(id))
+	return &EventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Event.
+func (c *EventClient) Delete() *EventDelete {
+	mutation := newEventMutation(c.config, OpDelete)
+	return &EventDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *EventClient) DeleteOne(_m *Event) *EventDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *EventClient) DeleteOneID(id int) *EventDeleteOne {
+	builder := c.Delete().Where(event.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &EventDeleteOne{builder}
+}
+
+// Query returns a query builder for Event.
+func (c *EventClient) Query() *EventQuery {
+	return &EventQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeEvent},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Event entity by its id.
+func (c *EventClient) Get(ctx context.Context, id int) (*Event, error) {
+	return c.Query().Where(event.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *EventClient) GetX(ctx context.Context, id int) *Event {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryGrants queries the grants edge of a Event.
+func (c *EventClient) QueryGrants(_m *Event) *EventGrantQuery {
+	query := (&EventGrantClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(eventgrant.Table, eventgrant.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.GrantsTable, event.GrantsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *EventClient) Hooks() []Hook {
+	hooks := c.hooks.Event
+	return append(hooks[:len(hooks):len(hooks)], event.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *EventClient) Interceptors() []Interceptor {
+	return c.inters.Event
+}
+
+func (c *EventClient) mutate(ctx context.Context, m *EventMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&EventCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&EventUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&EventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&EventDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Event mutation op: %q", m.Op())
+	}
+}
+
+// EventGrantClient is a client for the EventGrant schema.
+type EventGrantClient struct {
+	config
+}
+
+// NewEventGrantClient returns a client for the EventGrant from the given config.
+func NewEventGrantClient(c config) *EventGrantClient {
+	return &EventGrantClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `eventgrant.Hooks(f(g(h())))`.
+func (c *EventGrantClient) Use(hooks ...Hook) {
+	c.hooks.EventGrant = append(c.hooks.EventGrant, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `eventgrant.Intercept(f(g(h())))`.
+func (c *EventGrantClient) Intercept(interceptors ...Interceptor) {
+	c.inters.EventGrant = append(c.inters.EventGrant, interceptors...)
+}
+
+// Create returns a builder for creating a EventGrant entity.
+func (c *EventGrantClient) Create() *EventGrantCreate {
+	mutation := newEventGrantMutation(c.config, OpCreate)
+	return &EventGrantCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of EventGrant entities.
+func (c *EventGrantClient) CreateBulk(builders ...*EventGrantCreate) *EventGrantCreateBulk {
+	return &EventGrantCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *EventGrantClient) MapCreateBulk(slice any, setFunc func(*EventGrantCreate, int)) *EventGrantCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &EventGrantCreateBulk{err: fmt.Errorf("calling to EventGrantClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*EventGrantCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &EventGrantCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for EventGrant.
+func (c *EventGrantClient) Update() *EventGrantUpdate {
+	mutation := newEventGrantMutation(c.config, OpUpdate)
+	return &EventGrantUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *EventGrantClient) UpdateOne(_m *EventGrant) *EventGrantUpdateOne {
+	mutation := newEventGrantMutation(c.config, OpUpdateOne, withEventGrant(_m))
+	return &EventGrantUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *EventGrantClient) UpdateOneID(id int) *EventGrantUpdateOne {
+	mutation := newEventGrantMutation(c.config, OpUpdateOne, withEventGrantID(id))
+	return &EventGrantUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for EventGrant.
+func (c *EventGrantClient) Delete() *EventGrantDelete {
+	mutation := newEventGrantMutation(c.config, OpDelete)
+	return &EventGrantDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *EventGrantClient) DeleteOne(_m *EventGrant) *EventGrantDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *EventGrantClient) DeleteOneID(id int) *EventGrantDeleteOne {
+	builder := c.Delete().Where(eventgrant.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &EventGrantDeleteOne{builder}
+}
+
+// Query returns a query builder for EventGrant.
+func (c *EventGrantClient) Query() *EventGrantQuery {
+	return &EventGrantQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeEventGrant},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a EventGrant entity by its id.
+func (c *EventGrantClient) Get(ctx context.Context, id int) (*EventGrant, error) {
+	return c.Query().Where(eventgrant.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *EventGrantClient) GetX(ctx context.Context, id int) *EventGrant {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a EventGrant.
+func (c *EventGrantClient) QueryEvent(_m *EventGrant) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(eventgrant.Table, eventgrant.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, eventgrant.EventTable, eventgrant.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAccount queries the account edge of a EventGrant.
+func (c *EventGrantClient) QueryAccount(_m *EventGrant) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(eventgrant.Table, eventgrant.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, eventgrant.AccountTable, eventgrant.AccountColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *EventGrantClient) Hooks() []Hook {
+	hooks := c.hooks.EventGrant
+	return append(hooks[:len(hooks):len(hooks)], eventgrant.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *EventGrantClient) Interceptors() []Interceptor {
+	return c.inters.EventGrant
+}
+
+func (c *EventGrantClient) mutate(ctx context.Context, m *EventGrantMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&EventGrantCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&EventGrantUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&EventGrantUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&EventGrantDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown EventGrant mutation op: %q", m.Op())
 	}
 }
 
@@ -1086,7 +1787,8 @@ func (c *PasswordCredentialClient) QueryAccount(_m *PasswordCredential) *Account
 
 // Hooks returns the client hooks.
 func (c *PasswordCredentialClient) Hooks() []Hook {
-	return c.hooks.PasswordCredential
+	hooks := c.hooks.PasswordCredential
+	return append(hooks[:len(hooks):len(hooks)], passwordcredential.Hooks[:]...)
 }
 
 // Interceptors returns the client interceptors.
@@ -1112,11 +1814,11 @@ func (c *PasswordCredentialClient) mutate(ctx context.Context, m *PasswordCreden
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Account, AccountSession, BootstrapCredential, Installation, Migration,
-		PasswordCredential []ent.Hook
+		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt, Event,
+		EventGrant, Installation, Migration, PasswordCredential []ent.Hook
 	}
 	inters struct {
-		Account, AccountSession, BootstrapCredential, Installation, Migration,
-		PasswordCredential []ent.Interceptor
+		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt, Event,
+		EventGrant, Installation, Migration, PasswordCredential []ent.Interceptor
 	}
 )

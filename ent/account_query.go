@@ -5,6 +5,7 @@ package ent
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"math"
 
@@ -14,6 +15,9 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/accountsession"
+	"github.com/dotwaffle/beamers/ent/auditentry"
+	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/predicate"
 )
@@ -27,6 +31,9 @@ type AccountQuery struct {
 	predicates             []predicate.Account
 	withPasswordCredential *PasswordCredentialQuery
 	withSessions           *AccountSessionQuery
+	withEventGrants        *EventGrantQuery
+	withAuditEntries       *AuditEntryQuery
+	withCommandReceipts    *CommandReceiptQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -100,6 +107,72 @@ func (_q *AccountQuery) QuerySessions() *AccountSessionQuery {
 			sqlgraph.From(account.Table, account.FieldID, selector),
 			sqlgraph.To(accountsession.Table, accountsession.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, account.SessionsTable, account.SessionsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryEventGrants chains the current query on the "event_grants" edge.
+func (_q *AccountQuery) QueryEventGrants() *EventGrantQuery {
+	query := (&EventGrantClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, selector),
+			sqlgraph.To(eventgrant.Table, eventgrant.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.EventGrantsTable, account.EventGrantsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAuditEntries chains the current query on the "audit_entries" edge.
+func (_q *AccountQuery) QueryAuditEntries() *AuditEntryQuery {
+	query := (&AuditEntryClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, selector),
+			sqlgraph.To(auditentry.Table, auditentry.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.AuditEntriesTable, account.AuditEntriesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryCommandReceipts chains the current query on the "command_receipts" edge.
+func (_q *AccountQuery) QueryCommandReceipts() *CommandReceiptQuery {
+	query := (&CommandReceiptClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, selector),
+			sqlgraph.To(commandreceipt.Table, commandreceipt.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.CommandReceiptsTable, account.CommandReceiptsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -301,6 +374,9 @@ func (_q *AccountQuery) Clone() *AccountQuery {
 		predicates:             append([]predicate.Account{}, _q.predicates...),
 		withPasswordCredential: _q.withPasswordCredential.Clone(),
 		withSessions:           _q.withSessions.Clone(),
+		withEventGrants:        _q.withEventGrants.Clone(),
+		withAuditEntries:       _q.withAuditEntries.Clone(),
+		withCommandReceipts:    _q.withCommandReceipts.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -326,6 +402,39 @@ func (_q *AccountQuery) WithSessions(opts ...func(*AccountSessionQuery)) *Accoun
 		opt(query)
 	}
 	_q.withSessions = query
+	return _q
+}
+
+// WithEventGrants tells the query-builder to eager-load the nodes that are connected to
+// the "event_grants" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AccountQuery) WithEventGrants(opts ...func(*EventGrantQuery)) *AccountQuery {
+	query := (&EventGrantClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withEventGrants = query
+	return _q
+}
+
+// WithAuditEntries tells the query-builder to eager-load the nodes that are connected to
+// the "audit_entries" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AccountQuery) WithAuditEntries(opts ...func(*AuditEntryQuery)) *AccountQuery {
+	query := (&AuditEntryClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAuditEntries = query
+	return _q
+}
+
+// WithCommandReceipts tells the query-builder to eager-load the nodes that are connected to
+// the "command_receipts" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AccountQuery) WithCommandReceipts(opts ...func(*CommandReceiptQuery)) *AccountQuery {
+	query := (&CommandReceiptClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withCommandReceipts = query
 	return _q
 }
 
@@ -400,6 +509,12 @@ func (_q *AccountQuery) prepareQuery(ctx context.Context) error {
 		}
 		_q.sql = prev
 	}
+	if account.Policy == nil {
+		return errors.New("ent: uninitialized account.Policy (forgotten import ent/runtime?)")
+	}
+	if err := account.Policy.EvalQuery(ctx, _q); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -407,9 +522,12 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	var (
 		nodes       = []*Account{}
 		_spec       = _q.querySpec()
-		loadedTypes = [2]bool{
+		loadedTypes = [5]bool{
 			_q.withPasswordCredential != nil,
 			_q.withSessions != nil,
+			_q.withEventGrants != nil,
+			_q.withAuditEntries != nil,
+			_q.withCommandReceipts != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -440,6 +558,27 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 		if err := _q.loadSessions(ctx, query, nodes,
 			func(n *Account) { n.Edges.Sessions = []*AccountSession{} },
 			func(n *Account, e *AccountSession) { n.Edges.Sessions = append(n.Edges.Sessions, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withEventGrants; query != nil {
+		if err := _q.loadEventGrants(ctx, query, nodes,
+			func(n *Account) { n.Edges.EventGrants = []*EventGrant{} },
+			func(n *Account, e *EventGrant) { n.Edges.EventGrants = append(n.Edges.EventGrants, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withAuditEntries; query != nil {
+		if err := _q.loadAuditEntries(ctx, query, nodes,
+			func(n *Account) { n.Edges.AuditEntries = []*AuditEntry{} },
+			func(n *Account, e *AuditEntry) { n.Edges.AuditEntries = append(n.Edges.AuditEntries, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withCommandReceipts; query != nil {
+		if err := _q.loadCommandReceipts(ctx, query, nodes,
+			func(n *Account) { n.Edges.CommandReceipts = []*CommandReceipt{} },
+			func(n *Account, e *CommandReceipt) { n.Edges.CommandReceipts = append(n.Edges.CommandReceipts, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -498,6 +637,96 @@ func (_q *AccountQuery) loadSessions(ctx context.Context, query *AccountSessionQ
 		node, ok := nodeids[fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "account_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *AccountQuery) loadEventGrants(ctx context.Context, query *EventGrantQuery, nodes []*Account, init func(*Account), assign func(*Account, *EventGrant)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Account)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(eventgrant.FieldAccountID)
+	}
+	query.Where(predicate.EventGrant(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(account.EventGrantsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.AccountID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "account_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *AccountQuery) loadAuditEntries(ctx context.Context, query *AuditEntryQuery, nodes []*Account, init func(*Account), assign func(*Account, *AuditEntry)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Account)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(auditentry.FieldActorAccountID)
+	}
+	query.Where(predicate.AuditEntry(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(account.AuditEntriesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ActorAccountID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "actor_account_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *AccountQuery) loadCommandReceipts(ctx context.Context, query *CommandReceiptQuery, nodes []*Account, init func(*Account), assign func(*Account, *CommandReceipt)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Account)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(commandreceipt.FieldActorAccountID)
+	}
+	query.Where(predicate.CommandReceipt(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(account.CommandReceiptsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ActorAccountID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "actor_account_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}

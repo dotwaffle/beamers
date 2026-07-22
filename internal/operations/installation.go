@@ -3,8 +3,10 @@ package operations
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/store"
 )
 
@@ -23,6 +25,7 @@ var (
 type Installation struct {
 	storage        *store.SQLite
 	authentication *auth.Service
+	events         *events.Service
 }
 
 // Initialize creates a new installation with the committed schema.
@@ -47,6 +50,11 @@ func OpenInstallation(ctx context.Context, dataDir string) (*Installation, error
 		return nil, errors.Join(err, storage.Close())
 	}
 	installation.authentication = authentication
+	eventService, err := events.New(storage, time.Now)
+	if err != nil {
+		return nil, errors.Join(err, storage.Close())
+	}
+	installation.events = eventService
 	return installation, nil
 }
 
@@ -88,6 +96,12 @@ func (installation *Installation) Ready(ctx context.Context) error {
 // It is nil only while the installation is restricted to recovery mode.
 func (installation *Installation) Authentication() *auth.Service {
 	return installation.authentication
+}
+
+// Events returns the Event application service.
+// It is nil only while the installation is restricted to recovery mode.
+func (installation *Installation) Events() *events.Service {
+	return installation.events
 }
 
 // Close closes storage and releases the installation lock.

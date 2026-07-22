@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/cookiejar"
@@ -97,6 +98,284 @@ func TestAdministratorBootstrapAndSessionLifecycle(t *testing.T) {
 	third.stop(t)
 
 	runBeamersFails(t, bin, "bootstrap", "--data-dir", dataDir)
+}
+
+func TestAdministratorCreatesEventWithCoreConfiguration(t *testing.T) {
+	client, server := startAuthenticatedAdministrator(t)
+
+	result := requestJSON(
+		t.Context(),
+		client,
+		server.address,
+		"/admin/events",
+		map[string]string{
+			"name":               "Revision 2026",
+			"planned_start_date": "2026-08-21",
+			"planned_end_date":   "2026-08-23",
+			"timezone":           "Europe/Berlin",
+			"event_locale":       "de-DE",
+			"content_language":   "en-GB",
+			"event_day_boundary": "06:00",
+			"command_id":         "create-event-1",
+		},
+	)
+	if result.err != nil {
+		t.Fatalf("create Event: %v", result.err)
+	}
+	if result.status != http.StatusCreated {
+		t.Fatalf("create Event status = %d, want %d; body: %s", result.status, http.StatusCreated, result.body)
+	}
+	var created struct {
+		ID               int    `json:"id"`
+		Name             string `json:"name"`
+		PlannedStartDate string `json:"planned_start_date"`
+		PlannedEndDate   string `json:"planned_end_date"`
+		Timezone         string `json:"timezone"`
+		EventLocale      string `json:"event_locale"`
+		ContentLanguage  string `json:"content_language"`
+		EventDayBoundary string `json:"event_day_boundary"`
+		Revision         int    `json:"revision"`
+	}
+	if err := json.Unmarshal([]byte(result.body), &created); err != nil {
+		t.Fatalf("decode created Event: %v", err)
+	}
+	want := struct {
+		ID               int    `json:"id"`
+		Name             string `json:"name"`
+		PlannedStartDate string `json:"planned_start_date"`
+		PlannedEndDate   string `json:"planned_end_date"`
+		Timezone         string `json:"timezone"`
+		EventLocale      string `json:"event_locale"`
+		ContentLanguage  string `json:"content_language"`
+		EventDayBoundary string `json:"event_day_boundary"`
+		Revision         int    `json:"revision"`
+	}{
+		ID: 1, Name: "Revision 2026",
+		PlannedStartDate: "2026-08-21", PlannedEndDate: "2026-08-23",
+		Timezone: "Europe/Berlin", EventLocale: "de-DE", ContentLanguage: "en-GB",
+		EventDayBoundary: "06:00", Revision: 1,
+	}
+	if created != want {
+		t.Errorf("created Event = %+v, want %+v", created, want)
+	}
+	server.stop(t)
+}
+
+func TestEventCreationRejectsInvalidTimezoneAndLocale(t *testing.T) {
+	client, server := startAuthenticatedAdministrator(t)
+	valid := map[string]string{
+		"name":               "Revision 2026",
+		"planned_start_date": "2026-08-21",
+		"planned_end_date":   "2026-08-23",
+		"timezone":           "Europe/Berlin",
+		"event_locale":       "de-DE",
+		"event_day_boundary": "06:00",
+		"command_id":         "create-event-invalid",
+	}
+	tests := []struct {
+		name     string
+		field    string
+		value    string
+		wantBody string
+	}{
+		{
+			name: "timezone", field: "timezone", value: "Mars/Olympus_Mons",
+			wantBody: `{"field":"timezone","message":"must be a recognized IANA timezone such as Europe/Berlin"}` + "\n",
+		},
+		{
+			name: "Event Locale", field: "event_locale", value: "not_a_locale",
+			wantBody: `{"field":"event_locale","message":"must be a recognized BCP 47 language tag such as en-GB"}` + "\n",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			input := make(map[string]string, len(valid))
+			maps.Copy(input, valid)
+			input[test.field] = test.value
+			assertJSONRequest(
+				t, client, server.address, "/admin/events", input,
+				http.StatusUnprocessableEntity, test.wantBody,
+			)
+		})
+	}
+	server.stop(t)
+}
+
+func TestAdministratorCreatesIndividualAccount(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	created := assertJSONRequest(
+		t,
+		administrator,
+		server.address,
+		"/admin/accounts",
+		map[string]string{
+			"name":       "Pat Producer",
+			"password":   "producer correct horse battery staple",
+			"command_id": "create-account-pat",
+		},
+		http.StatusCreated,
+		"{\"id\":2,\"name\":\"Pat Producer\",\"administrator\":false}\n",
+	)
+	_ = created
+
+	producer := authenticatedClient(t)
+	assertJSONRequest(
+		t,
+		producer,
+		server.address,
+		"/auth/sign-in",
+		map[string]string{
+			"name":     "Pat Producer",
+			"password": "producer correct horse battery staple",
+		},
+		http.StatusNoContent,
+		"",
+	)
+	response := get(t, producer, server.address, "/auth/session")
+	if err := response.Body.Close(); err != nil {
+		t.Errorf("close created Account session response: %v", err)
+	}
+	if response.StatusCode != http.StatusOK {
+		t.Errorf("created Account sign-in status = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+	server.stop(t)
+}
+
+func TestAdministratorSelectsExistingAccountForEventGrant(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/accounts",
+		map[string]string{
+			"name": "Pat Producer", "password": "producer correct horse battery staple",
+			"command_id": "create-account-pat",
+		},
+		http.StatusCreated,
+		"{\"id\":2,\"name\":\"Pat Producer\",\"administrator\":false}\n",
+	)
+	assertGETResponse(
+		t, administrator, server.address, "/admin/accounts", http.StatusOK,
+		"[{\"id\":1,\"name\":\"Ada Admin\",\"administrator\":true},{\"id\":2,\"name\":\"Pat Producer\",\"administrator\":false}]\n",
+	)
+	server.stop(t)
+}
+
+func TestRejectedEventGrantRetryReturnsOriginalOutcome(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/accounts",
+		map[string]string{
+			"name": "Pat Producer", "password": "producer correct horse battery staple",
+			"command_id": "create-account-pat",
+		},
+		http.StatusCreated,
+		"{\"id\":2,\"name\":\"Pat Producer\",\"administrator\":false}\n",
+	)
+	grant := map[string]any{
+		"account_id": 2, "role": "Producer", "command_id": "grant-missing-event",
+	}
+	for range 2 {
+		assertJSONRequest(
+			t, administrator, server.address, "/admin/events/99/grants",
+			grant, http.StatusNotFound, "Event not found\n",
+		)
+	}
+	server.stop(t)
+}
+
+func TestProducerGrantControlsEventCrewRead(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events",
+		validEventInput(), http.StatusCreated,
+		"{\"id\":1,\"name\":\"Revision 2026\",\"planned_start_date\":\"2026-08-21\",\"planned_end_date\":\"2026-08-23\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"de-DE\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":1}\n",
+	)
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/accounts",
+		map[string]string{
+			"name": "Pat Producer", "password": "producer correct horse battery staple",
+			"command_id": "create-account-pat",
+		},
+		http.StatusCreated,
+		"{\"id\":2,\"name\":\"Pat Producer\",\"administrator\":false}\n",
+	)
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events/1/grants",
+		map[string]any{"account_id": 2, "role": "Producer", "command_id": "grant-pat-producer"},
+		http.StatusCreated,
+		"{\"event_id\":1,\"account_id\":2,\"role\":\"Producer\"}\n",
+	)
+
+	producer := authenticatedClient(t)
+	assertJSONRequest(
+		t, producer, server.address, "/auth/sign-in",
+		map[string]string{
+			"name": "Pat Producer", "password": "producer correct horse battery staple",
+		},
+		http.StatusNoContent, "",
+	)
+	assertGETResponse(
+		t, producer, server.address, "/crew/events/1", http.StatusOK,
+		"{\"id\":1,\"name\":\"Revision 2026\",\"planned_start_date\":\"2026-08-21\",\"planned_end_date\":\"2026-08-23\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"de-DE\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":1}\n",
+	)
+	assertGETResponse(
+		t, administrator, server.address, "/crew/events/1",
+		http.StatusForbidden, "Event access denied\n",
+	)
+	server.stop(t)
+}
+
+func TestAdministratorAuthorityDoesNotPermitEventCrewMutation(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events",
+		validEventInput(), http.StatusCreated,
+		"{\"id\":1,\"name\":\"Revision 2026\",\"planned_start_date\":\"2026-08-21\",\"planned_end_date\":\"2026-08-23\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"de-DE\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":1}\n",
+	)
+	changed := validEventInput()
+	changed["name"] = "Changed without an Event Grant"
+	assertJSONMethodRequest(
+		t, http.MethodPut, administrator, server.address, "/crew/events/1",
+		changed, http.StatusForbidden, "Event access denied\n",
+	)
+	server.stop(t)
+}
+
+func validEventInput() map[string]string {
+	return map[string]string{
+		"name":               "Revision 2026",
+		"planned_start_date": "2026-08-21",
+		"planned_end_date":   "2026-08-23",
+		"timezone":           "Europe/Berlin",
+		"event_locale":       "de-DE",
+		"content_language":   "en-GB",
+		"event_day_boundary": "06:00",
+		"command_id":         "create-event-1",
+	}
+}
+
+func startAuthenticatedAdministrator(t *testing.T) (*http.Client, *runningServer) {
+	t.Helper()
+
+	bin := buildBeamers(t)
+	dataDir := filepath.Join(t.TempDir(), "data")
+	runBeamers(t, bin, "init", "--data-dir", dataDir)
+	bootstrapToken := strings.TrimSpace(runBeamersOutput(t, bin, "bootstrap", "--data-dir", dataDir))
+	client := authenticatedClient(t)
+	server := startBeamers(t, bin, dataDir)
+	assertJSONRequest(
+		t,
+		client,
+		server.address,
+		"/auth/bootstrap",
+		map[string]string{
+			"bootstrap_token": bootstrapToken,
+			"name":            "Ada Admin",
+			"password":        "correct horse battery staple",
+		},
+		http.StatusCreated,
+		"",
+	)
+	return client, server
 }
 
 func TestSignInFailuresAreGenericAndRateLimited(t *testing.T) {
@@ -498,6 +777,31 @@ func assertJSONRequest(
 	return result.header
 }
 
+func assertJSONMethodRequest(
+	t *testing.T,
+	method string,
+	client *http.Client,
+	address string,
+	path string,
+	body any,
+	wantStatus int,
+	wantBody string,
+) http.Header {
+	t.Helper()
+
+	result := requestJSONMethod(t.Context(), method, client, address, path, body)
+	if result.err != nil {
+		t.Fatalf("%s %s: %v", method, path, result.err)
+	}
+	if result.status != wantStatus || result.body != wantBody {
+		t.Fatalf(
+			"%s %s = %d %q, want %d %q",
+			method, path, result.status, result.body, wantStatus, wantBody,
+		)
+	}
+	return result.header
+}
+
 type jsonResponse struct {
 	header http.Header
 	status int
@@ -512,13 +816,24 @@ func requestJSON(
 	path string,
 	body any,
 ) jsonResponse {
+	return requestJSONMethod(ctx, http.MethodPost, client, address, path, body)
+}
+
+func requestJSONMethod(
+	ctx context.Context,
+	method string,
+	client *http.Client,
+	address string,
+	path string,
+	body any,
+) jsonResponse {
 	encoded, err := json.Marshal(body)
 	if err != nil {
 		return jsonResponse{err: errors.Join(errors.New("encode JSON request"), err)}
 	}
 	request, err := http.NewRequestWithContext(
 		ctx,
-		http.MethodPost,
+		method,
 		"http://"+address+path,
 		bytes.NewReader(encoded),
 	)
@@ -621,6 +936,29 @@ func get(t *testing.T, client *http.Client, address, path string) *http.Response
 		t.Fatalf("GET %s: %v", path, err)
 	}
 	return response
+}
+
+func assertGETResponse(
+	t *testing.T,
+	client *http.Client,
+	address string,
+	path string,
+	wantStatus int,
+	wantBody string,
+) {
+	t.Helper()
+	response := get(t, client, address, path)
+	body, readErr := io.ReadAll(response.Body)
+	closeErr := response.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read GET %s response: %v", path, err)
+	}
+	if response.StatusCode != wantStatus || string(body) != wantBody {
+		t.Errorf(
+			"GET %s = %d %q, want %d %q",
+			path, response.StatusCode, body, wantStatus, wantBody,
+		)
+	}
 }
 
 func assertProbeResult(t *testing.T, path string, result probeResult, wantStatus int, wantBody string) {

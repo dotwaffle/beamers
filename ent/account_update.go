@@ -13,6 +13,9 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/accountsession"
+	"github.com/dotwaffle/beamers/ent/auditentry"
+	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/predicate"
 )
@@ -98,6 +101,51 @@ func (_u *AccountUpdate) AddSessions(v ...*AccountSession) *AccountUpdate {
 	return _u.AddSessionIDs(ids...)
 }
 
+// AddEventGrantIDs adds the "event_grants" edge to the EventGrant entity by IDs.
+func (_u *AccountUpdate) AddEventGrantIDs(ids ...int) *AccountUpdate {
+	_u.mutation.AddEventGrantIDs(ids...)
+	return _u
+}
+
+// AddEventGrants adds the "event_grants" edges to the EventGrant entity.
+func (_u *AccountUpdate) AddEventGrants(v ...*EventGrant) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddEventGrantIDs(ids...)
+}
+
+// AddAuditEntryIDs adds the "audit_entries" edge to the AuditEntry entity by IDs.
+func (_u *AccountUpdate) AddAuditEntryIDs(ids ...int) *AccountUpdate {
+	_u.mutation.AddAuditEntryIDs(ids...)
+	return _u
+}
+
+// AddAuditEntries adds the "audit_entries" edges to the AuditEntry entity.
+func (_u *AccountUpdate) AddAuditEntries(v ...*AuditEntry) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAuditEntryIDs(ids...)
+}
+
+// AddCommandReceiptIDs adds the "command_receipts" edge to the CommandReceipt entity by IDs.
+func (_u *AccountUpdate) AddCommandReceiptIDs(ids ...int) *AccountUpdate {
+	_u.mutation.AddCommandReceiptIDs(ids...)
+	return _u
+}
+
+// AddCommandReceipts adds the "command_receipts" edges to the CommandReceipt entity.
+func (_u *AccountUpdate) AddCommandReceipts(v ...*CommandReceipt) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCommandReceiptIDs(ids...)
+}
+
 // Mutation returns the AccountMutation object of the builder.
 func (_u *AccountUpdate) Mutation() *AccountMutation {
 	return _u.mutation
@@ -128,6 +176,69 @@ func (_u *AccountUpdate) RemoveSessions(v ...*AccountSession) *AccountUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveSessionIDs(ids...)
+}
+
+// ClearEventGrants clears all "event_grants" edges to the EventGrant entity.
+func (_u *AccountUpdate) ClearEventGrants() *AccountUpdate {
+	_u.mutation.ClearEventGrants()
+	return _u
+}
+
+// RemoveEventGrantIDs removes the "event_grants" edge to EventGrant entities by IDs.
+func (_u *AccountUpdate) RemoveEventGrantIDs(ids ...int) *AccountUpdate {
+	_u.mutation.RemoveEventGrantIDs(ids...)
+	return _u
+}
+
+// RemoveEventGrants removes "event_grants" edges to EventGrant entities.
+func (_u *AccountUpdate) RemoveEventGrants(v ...*EventGrant) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveEventGrantIDs(ids...)
+}
+
+// ClearAuditEntries clears all "audit_entries" edges to the AuditEntry entity.
+func (_u *AccountUpdate) ClearAuditEntries() *AccountUpdate {
+	_u.mutation.ClearAuditEntries()
+	return _u
+}
+
+// RemoveAuditEntryIDs removes the "audit_entries" edge to AuditEntry entities by IDs.
+func (_u *AccountUpdate) RemoveAuditEntryIDs(ids ...int) *AccountUpdate {
+	_u.mutation.RemoveAuditEntryIDs(ids...)
+	return _u
+}
+
+// RemoveAuditEntries removes "audit_entries" edges to AuditEntry entities.
+func (_u *AccountUpdate) RemoveAuditEntries(v ...*AuditEntry) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAuditEntryIDs(ids...)
+}
+
+// ClearCommandReceipts clears all "command_receipts" edges to the CommandReceipt entity.
+func (_u *AccountUpdate) ClearCommandReceipts() *AccountUpdate {
+	_u.mutation.ClearCommandReceipts()
+	return _u
+}
+
+// RemoveCommandReceiptIDs removes the "command_receipts" edge to CommandReceipt entities by IDs.
+func (_u *AccountUpdate) RemoveCommandReceiptIDs(ids ...int) *AccountUpdate {
+	_u.mutation.RemoveCommandReceiptIDs(ids...)
+	return _u
+}
+
+// RemoveCommandReceipts removes "command_receipts" edges to CommandReceipt entities.
+func (_u *AccountUpdate) RemoveCommandReceipts(v ...*CommandReceipt) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCommandReceiptIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -262,6 +373,141 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.EventGrantsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.EventGrantsTable,
+			Columns: []string{account.EventGrantsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventgrant.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedEventGrantsIDs(); len(nodes) > 0 && !_u.mutation.EventGrantsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.EventGrantsTable,
+			Columns: []string{account.EventGrantsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventgrant.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.EventGrantsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.EventGrantsTable,
+			Columns: []string{account.EventGrantsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventgrant.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AuditEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.AuditEntriesTable,
+			Columns: []string{account.AuditEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(auditentry.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAuditEntriesIDs(); len(nodes) > 0 && !_u.mutation.AuditEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.AuditEntriesTable,
+			Columns: []string{account.AuditEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(auditentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AuditEntriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.AuditEntriesTable,
+			Columns: []string{account.AuditEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(auditentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CommandReceiptsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.CommandReceiptsTable,
+			Columns: []string{account.CommandReceiptsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(commandreceipt.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCommandReceiptsIDs(); len(nodes) > 0 && !_u.mutation.CommandReceiptsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.CommandReceiptsTable,
+			Columns: []string{account.CommandReceiptsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(commandreceipt.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CommandReceiptsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.CommandReceiptsTable,
+			Columns: []string{account.CommandReceiptsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(commandreceipt.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{account.Label}
@@ -350,6 +596,51 @@ func (_u *AccountUpdateOne) AddSessions(v ...*AccountSession) *AccountUpdateOne 
 	return _u.AddSessionIDs(ids...)
 }
 
+// AddEventGrantIDs adds the "event_grants" edge to the EventGrant entity by IDs.
+func (_u *AccountUpdateOne) AddEventGrantIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.AddEventGrantIDs(ids...)
+	return _u
+}
+
+// AddEventGrants adds the "event_grants" edges to the EventGrant entity.
+func (_u *AccountUpdateOne) AddEventGrants(v ...*EventGrant) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddEventGrantIDs(ids...)
+}
+
+// AddAuditEntryIDs adds the "audit_entries" edge to the AuditEntry entity by IDs.
+func (_u *AccountUpdateOne) AddAuditEntryIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.AddAuditEntryIDs(ids...)
+	return _u
+}
+
+// AddAuditEntries adds the "audit_entries" edges to the AuditEntry entity.
+func (_u *AccountUpdateOne) AddAuditEntries(v ...*AuditEntry) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAuditEntryIDs(ids...)
+}
+
+// AddCommandReceiptIDs adds the "command_receipts" edge to the CommandReceipt entity by IDs.
+func (_u *AccountUpdateOne) AddCommandReceiptIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.AddCommandReceiptIDs(ids...)
+	return _u
+}
+
+// AddCommandReceipts adds the "command_receipts" edges to the CommandReceipt entity.
+func (_u *AccountUpdateOne) AddCommandReceipts(v ...*CommandReceipt) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCommandReceiptIDs(ids...)
+}
+
 // Mutation returns the AccountMutation object of the builder.
 func (_u *AccountUpdateOne) Mutation() *AccountMutation {
 	return _u.mutation
@@ -380,6 +671,69 @@ func (_u *AccountUpdateOne) RemoveSessions(v ...*AccountSession) *AccountUpdateO
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveSessionIDs(ids...)
+}
+
+// ClearEventGrants clears all "event_grants" edges to the EventGrant entity.
+func (_u *AccountUpdateOne) ClearEventGrants() *AccountUpdateOne {
+	_u.mutation.ClearEventGrants()
+	return _u
+}
+
+// RemoveEventGrantIDs removes the "event_grants" edge to EventGrant entities by IDs.
+func (_u *AccountUpdateOne) RemoveEventGrantIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.RemoveEventGrantIDs(ids...)
+	return _u
+}
+
+// RemoveEventGrants removes "event_grants" edges to EventGrant entities.
+func (_u *AccountUpdateOne) RemoveEventGrants(v ...*EventGrant) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveEventGrantIDs(ids...)
+}
+
+// ClearAuditEntries clears all "audit_entries" edges to the AuditEntry entity.
+func (_u *AccountUpdateOne) ClearAuditEntries() *AccountUpdateOne {
+	_u.mutation.ClearAuditEntries()
+	return _u
+}
+
+// RemoveAuditEntryIDs removes the "audit_entries" edge to AuditEntry entities by IDs.
+func (_u *AccountUpdateOne) RemoveAuditEntryIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.RemoveAuditEntryIDs(ids...)
+	return _u
+}
+
+// RemoveAuditEntries removes "audit_entries" edges to AuditEntry entities.
+func (_u *AccountUpdateOne) RemoveAuditEntries(v ...*AuditEntry) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAuditEntryIDs(ids...)
+}
+
+// ClearCommandReceipts clears all "command_receipts" edges to the CommandReceipt entity.
+func (_u *AccountUpdateOne) ClearCommandReceipts() *AccountUpdateOne {
+	_u.mutation.ClearCommandReceipts()
+	return _u
+}
+
+// RemoveCommandReceiptIDs removes the "command_receipts" edge to CommandReceipt entities by IDs.
+func (_u *AccountUpdateOne) RemoveCommandReceiptIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.RemoveCommandReceiptIDs(ids...)
+	return _u
+}
+
+// RemoveCommandReceipts removes "command_receipts" edges to CommandReceipt entities.
+func (_u *AccountUpdateOne) RemoveCommandReceipts(v ...*CommandReceipt) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCommandReceiptIDs(ids...)
 }
 
 // Where appends a list predicates to the AccountUpdate builder.
@@ -537,6 +891,141 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(accountsession.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.EventGrantsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.EventGrantsTable,
+			Columns: []string{account.EventGrantsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventgrant.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedEventGrantsIDs(); len(nodes) > 0 && !_u.mutation.EventGrantsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.EventGrantsTable,
+			Columns: []string{account.EventGrantsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventgrant.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.EventGrantsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.EventGrantsTable,
+			Columns: []string{account.EventGrantsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventgrant.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AuditEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.AuditEntriesTable,
+			Columns: []string{account.AuditEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(auditentry.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAuditEntriesIDs(); len(nodes) > 0 && !_u.mutation.AuditEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.AuditEntriesTable,
+			Columns: []string{account.AuditEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(auditentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AuditEntriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.AuditEntriesTable,
+			Columns: []string{account.AuditEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(auditentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CommandReceiptsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.CommandReceiptsTable,
+			Columns: []string{account.CommandReceiptsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(commandreceipt.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCommandReceiptsIDs(); len(nodes) > 0 && !_u.mutation.CommandReceiptsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.CommandReceiptsTable,
+			Columns: []string{account.CommandReceiptsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(commandreceipt.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CommandReceiptsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.CommandReceiptsTable,
+			Columns: []string{account.CommandReceiptsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(commandreceipt.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

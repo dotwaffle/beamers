@@ -13,6 +13,11 @@ type PasswordCredential struct {
 	ent.Schema
 }
 
+// Policy keeps password credential access inside authentication storage paths.
+func (PasswordCredential) Policy() ent.Policy {
+	return systemOnlyPolicy()
+}
+
 // Fields defines PasswordCredential persistence.
 func (PasswordCredential) Fields() []ent.Field {
 	return []ent.Field{

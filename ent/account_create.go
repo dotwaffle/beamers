@@ -12,6 +12,9 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/accountsession"
+	"github.com/dotwaffle/beamers/ent/auditentry"
+	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 )
 
@@ -102,6 +105,51 @@ func (_c *AccountCreate) AddSessions(v ...*AccountSession) *AccountCreate {
 	return _c.AddSessionIDs(ids...)
 }
 
+// AddEventGrantIDs adds the "event_grants" edge to the EventGrant entity by IDs.
+func (_c *AccountCreate) AddEventGrantIDs(ids ...int) *AccountCreate {
+	_c.mutation.AddEventGrantIDs(ids...)
+	return _c
+}
+
+// AddEventGrants adds the "event_grants" edges to the EventGrant entity.
+func (_c *AccountCreate) AddEventGrants(v ...*EventGrant) *AccountCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddEventGrantIDs(ids...)
+}
+
+// AddAuditEntryIDs adds the "audit_entries" edge to the AuditEntry entity by IDs.
+func (_c *AccountCreate) AddAuditEntryIDs(ids ...int) *AccountCreate {
+	_c.mutation.AddAuditEntryIDs(ids...)
+	return _c
+}
+
+// AddAuditEntries adds the "audit_entries" edges to the AuditEntry entity.
+func (_c *AccountCreate) AddAuditEntries(v ...*AuditEntry) *AccountCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAuditEntryIDs(ids...)
+}
+
+// AddCommandReceiptIDs adds the "command_receipts" edge to the CommandReceipt entity by IDs.
+func (_c *AccountCreate) AddCommandReceiptIDs(ids ...int) *AccountCreate {
+	_c.mutation.AddCommandReceiptIDs(ids...)
+	return _c
+}
+
+// AddCommandReceipts adds the "command_receipts" edges to the CommandReceipt entity.
+func (_c *AccountCreate) AddCommandReceipts(v ...*CommandReceipt) *AccountCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddCommandReceiptIDs(ids...)
+}
+
 // Mutation returns the AccountMutation object of the builder.
 func (_c *AccountCreate) Mutation() *AccountMutation {
 	return _c.mutation
@@ -109,7 +157,9 @@ func (_c *AccountCreate) Mutation() *AccountMutation {
 
 // Save creates the Account in the database.
 func (_c *AccountCreate) Save(ctx context.Context) (*Account, error) {
-	_c.defaults()
+	if err := _c.defaults(); err != nil {
+		return nil, err
+	}
 	return withHooks(ctx, _c.sqlSave, _c.mutation, _c.hooks)
 }
 
@@ -136,11 +186,15 @@ func (_c *AccountCreate) ExecX(ctx context.Context) {
 }
 
 // defaults sets the default values of the builder before save.
-func (_c *AccountCreate) defaults() {
+func (_c *AccountCreate) defaults() error {
 	if _, ok := _c.mutation.CreatedAt(); !ok {
+		if account.DefaultCreatedAt == nil {
+			return fmt.Errorf("ent: uninitialized account.DefaultCreatedAt (forgotten import ent/runtime?)")
+		}
 		v := account.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
 	}
+	return nil
 }
 
 // check runs all checks and user-defined validators on the builder.
@@ -238,6 +292,54 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(accountsession.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.EventGrantsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.EventGrantsTable,
+			Columns: []string{account.EventGrantsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventgrant.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AuditEntriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.AuditEntriesTable,
+			Columns: []string{account.AuditEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(auditentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.CommandReceiptsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.CommandReceiptsTable,
+			Columns: []string{account.CommandReceiptsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(commandreceipt.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
