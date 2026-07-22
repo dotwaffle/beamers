@@ -22,8 +22,8 @@ var (
 	// ErrAdministratorRequired means an Event administration action lacked
 	// installation-wide Administrator authority.
 	ErrAdministratorRequired = errors.New("administrator authority required")
-	// ErrProducerRoleRequired means a Grant requested a role outside this ticket's scope.
-	ErrProducerRoleRequired = errors.New("role must be Producer")
+	// ErrGrantRoleRequired means a Grant requested a role not yet supported by Event commands.
+	ErrGrantRoleRequired = errors.New("role must be Producer or Operator")
 	// ErrEventNotFound means an Event Grant targeted an unknown Event.
 	ErrEventNotFound = store.ErrEventNotFound
 	// ErrAccountNotFound means an Event Grant targeted an unknown or disabled Account.
@@ -168,8 +168,8 @@ func (service *Service) Create(
 	return event(created), nil
 }
 
-// GrantProducer gives an Account Producer authority for one Event.
-func (service *Service) GrantProducer(
+// GrantEventAccess gives an Account Producer or Operator authority for one Event.
+func (service *Service) GrantEventAccess(
 	ctx context.Context,
 	actor auth.Account,
 	eventID int,
@@ -211,14 +211,14 @@ func (service *Service) GrantProducer(
 	if !actor.Administrator {
 		return Grant{}, service.rejectTransaction(actor.Context(ctx), transaction, identity, ErrAdministratorRequired)
 	}
-	if role != "Producer" {
-		return Grant{}, service.rejectTransaction(actor.Context(ctx), transaction, identity, ErrProducerRoleRequired)
+	if role != "Producer" && role != "Operator" {
+		return Grant{}, service.rejectTransaction(actor.Context(ctx), transaction, identity, ErrGrantRoleRequired)
 	}
 	created, err := transaction.GrantEventAccess(actor.Context(ctx), store.GrantEventAccessParams{
 		ActorAccountID: actor.ID,
 		EventID:        eventID,
 		AccountID:      accountID,
-		Role:           "Producer",
+		Role:           role,
 		Now:            identity.Now,
 		CommandID:      commandID,
 		PayloadHash:    payloadHash,
@@ -490,7 +490,7 @@ func commandRejection(reason error) store.CommandRejection {
 	}
 	for candidate, code := range map[error]string{
 		ErrAdministratorRequired: "administrator_required",
-		ErrProducerRoleRequired:  "producer_required",
+		ErrGrantRoleRequired:     "grant_role_required",
 		ErrEventNotFound:         "event_not_found",
 		ErrAccountNotFound:       "account_not_found",
 		ErrEventGrantExists:      "event_grant_exists",
@@ -514,8 +514,8 @@ func restoreRejected(err error) error {
 		return invalid(rejected.Rejection.Field, rejected.Rejection.Message)
 	case "administrator_required":
 		return ErrAdministratorRequired
-	case "producer_required":
-		return ErrProducerRoleRequired
+	case "grant_role_required":
+		return ErrGrantRoleRequired
 	case "event_not_found":
 		return ErrEventNotFound
 	case "account_not_found":

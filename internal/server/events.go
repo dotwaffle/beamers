@@ -61,15 +61,15 @@ func (handlers eventHandlers) grantEventAccess(response http.ResponseWriter, req
 		http.Error(response, "invalid request", http.StatusBadRequest)
 		return
 	}
-	created, err := handlers.events.GrantProducer(
+	created, err := handlers.events.GrantEventAccess(
 		request.Context(), actor, eventID, input.AccountID, input.Role, input.CommandID,
 	)
 	switch {
 	case errors.Is(err, events.ErrAdministratorRequired):
 		http.Error(response, "Administrator authority required", http.StatusForbidden)
 		return
-	case errors.Is(err, events.ErrProducerRoleRequired):
-		http.Error(response, "role must be Producer", http.StatusUnprocessableEntity)
+	case errors.Is(err, events.ErrGrantRoleRequired):
+		http.Error(response, "role must be Producer or Operator", http.StatusUnprocessableEntity)
 		return
 	case errors.Is(err, events.ErrEventNotFound):
 		http.Error(response, "Event not found", http.StatusNotFound)

@@ -285,6 +285,18 @@ func (f SessionPublishedVersionFunc) Mutate(ctx context.Context, m ent.Mutation)
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SessionPublishedVersionMutation", m)
 }
 
+// The SessionRunFunc type is an adapter to allow the use of ordinary
+// function as SessionRun mutator.
+type SessionRunFunc func(context.Context, *ent.SessionRunMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SessionRunFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SessionRunMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SessionRunMutation", m)
+}
+
 // The TrackFunc type is an adapter to allow the use of ordinary
 // function as Track mutator.
 type TrackFunc func(context.Context, *ent.TrackMutation) (ent.Value, error)

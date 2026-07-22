@@ -44,7 +44,14 @@ templ SessionPage(snapshot Snapshot, session Session) {
 
 templ SessionDetails(session Session) {
 	<p>{ session.PublicDetails }</p>
+	<p>Status: { session.Lifecycle }</p>
 	<p>Forecast Time: <time datetime={ session.ForecastStart }>{ session.ForecastStart }</time>–<time datetime={ session.ForecastEnd }>{ session.ForecastEnd }</time></p>
+	if session.ActualStart != "" {
+		<p>Actual Start: <time datetime={ session.ActualStart }>{ session.ActualStart }</time></p>
+	}
+	if session.ActualEnd != "" {
+		<p>Actual End: <time datetime={ session.ActualEnd }>{ session.ActualEnd }</time></p>
+	}
 	for _, location := range session.Locations {
 		<p>Location: { location }</p>
 	}

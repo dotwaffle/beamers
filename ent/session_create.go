@@ -14,6 +14,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
+	"github.com/dotwaffle/beamers/ent/sessionrun"
 )
 
 // SessionCreate is the builder for creating a Session entity.
@@ -26,6 +27,34 @@ type SessionCreate struct {
 // SetEventID sets the "event_id" field.
 func (_c *SessionCreate) SetEventID(v int) *SessionCreate {
 	_c.mutation.SetEventID(v)
+	return _c
+}
+
+// SetLifecycle sets the "lifecycle" field.
+func (_c *SessionCreate) SetLifecycle(v session.Lifecycle) *SessionCreate {
+	_c.mutation.SetLifecycle(v)
+	return _c
+}
+
+// SetNillableLifecycle sets the "lifecycle" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableLifecycle(v *session.Lifecycle) *SessionCreate {
+	if v != nil {
+		_c.SetLifecycle(*v)
+	}
+	return _c
+}
+
+// SetLiveStateRevision sets the "live_state_revision" field.
+func (_c *SessionCreate) SetLiveStateRevision(v int) *SessionCreate {
+	_c.mutation.SetLiveStateRevision(v)
+	return _c
+}
+
+// SetNillableLiveStateRevision sets the "live_state_revision" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableLiveStateRevision(v *int) *SessionCreate {
+	if v != nil {
+		_c.SetLiveStateRevision(*v)
+	}
 	return _c
 }
 
@@ -82,6 +111,21 @@ func (_c *SessionCreate) AddPublishedVersions(v ...*SessionPublishedVersion) *Se
 	return _c.AddPublishedVersionIDs(ids...)
 }
 
+// AddRunIDs adds the "runs" edge to the SessionRun entity by IDs.
+func (_c *SessionCreate) AddRunIDs(ids ...int) *SessionCreate {
+	_c.mutation.AddRunIDs(ids...)
+	return _c
+}
+
+// AddRuns adds the "runs" edges to the SessionRun entity.
+func (_c *SessionCreate) AddRuns(v ...*SessionRun) *SessionCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddRunIDs(ids...)
+}
+
 // Mutation returns the SessionMutation object of the builder.
 func (_c *SessionCreate) Mutation() *SessionMutation {
 	return _c.mutation
@@ -119,6 +163,14 @@ func (_c *SessionCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *SessionCreate) defaults() error {
+	if _, ok := _c.mutation.Lifecycle(); !ok {
+		v := session.DefaultLifecycle
+		_c.mutation.SetLifecycle(v)
+	}
+	if _, ok := _c.mutation.LiveStateRevision(); !ok {
+		v := session.DefaultLiveStateRevision
+		_c.mutation.SetLiveStateRevision(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		if session.DefaultCreatedAt == nil {
 			return fmt.Errorf("ent: uninitialized session.DefaultCreatedAt (forgotten import ent/runtime?)")
@@ -133,6 +185,22 @@ func (_c *SessionCreate) defaults() error {
 func (_c *SessionCreate) check() error {
 	if _, ok := _c.mutation.EventID(); !ok {
 		return &ValidationError{Name: "event_id", err: errors.New(`ent: missing required field "Session.event_id"`)}
+	}
+	if _, ok := _c.mutation.Lifecycle(); !ok {
+		return &ValidationError{Name: "lifecycle", err: errors.New(`ent: missing required field "Session.lifecycle"`)}
+	}
+	if v, ok := _c.mutation.Lifecycle(); ok {
+		if err := session.LifecycleValidator(v); err != nil {
+			return &ValidationError{Name: "lifecycle", err: fmt.Errorf(`ent: validator failed for field "Session.lifecycle": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.LiveStateRevision(); !ok {
+		return &ValidationError{Name: "live_state_revision", err: errors.New(`ent: missing required field "Session.live_state_revision"`)}
+	}
+	if v, ok := _c.mutation.LiveStateRevision(); ok {
+		if err := session.LiveStateRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "live_state_revision", err: fmt.Errorf(`ent: validator failed for field "Session.live_state_revision": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Session.created_at"`)}
@@ -166,6 +234,14 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 		_node = &Session{config: _c.config}
 		_spec = sqlgraph.NewCreateSpec(session.Table, sqlgraph.NewFieldSpec(session.FieldID, field.TypeInt))
 	)
+	if value, ok := _c.mutation.Lifecycle(); ok {
+		_spec.SetField(session.FieldLifecycle, field.TypeEnum, value)
+		_node.Lifecycle = value
+	}
+	if value, ok := _c.mutation.LiveStateRevision(); ok {
+		_spec.SetField(session.FieldLiveStateRevision, field.TypeInt, value)
+		_node.LiveStateRevision = value
+	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(session.FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value
@@ -212,6 +288,22 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(sessionpublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.RunsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.RunsTable,
+			Columns: []string{session.RunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionrun.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

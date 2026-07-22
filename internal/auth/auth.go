@@ -619,3 +619,9 @@ func (account Account) Context(ctx context.Context) context.Context {
 func (account Account) CanProduceEvent(eventID int) bool {
 	return account.EventRoles[eventID] == viewer.Producer
 }
+
+// CanOperateEvent reports baseline live-control authority before scoped grants are applied.
+func (account Account) CanOperateEvent(eventID int) bool {
+	role := account.EventRoles[eventID]
+	return role == viewer.Producer || role == viewer.Operator
+}

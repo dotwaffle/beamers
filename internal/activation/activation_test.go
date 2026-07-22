@@ -264,7 +264,7 @@ func createActivationEvent(
 	if err != nil {
 		t.Fatalf("create Event: %v", err)
 	}
-	if _, err := service.GrantProducer(
+	if _, err := service.GrantEventAccess(
 		t.Context(), administrator, created.ID, administrator.ID, "Producer", commandID+"-grant",
 	); err != nil {
 		t.Fatalf("grant Event Producer: %v", err)

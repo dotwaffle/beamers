@@ -10,6 +10,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
+	"github.com/dotwaffle/beamers/ent/sessionrun"
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
@@ -51,6 +52,9 @@ type PublicScheduleSession struct {
 	PublicDetails string
 	ForecastStart time.Time
 	ForecastEnd   time.Time
+	Lifecycle     string
+	ActualStart   time.Time
+	ActualEnd     *time.Time
 	LocationIDs   []int
 	LaneIDs       []int
 	TrackIDs      []int
@@ -176,9 +180,24 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 		if queryErr != nil {
 			return opaqueError("load public Schedule Session Tracks", queryErr)
 		}
+		var actualStart time.Time
+		var actualEnd *time.Time
+		run, queryErr := installationStore.client.SessionRun.Query().
+			Where(sessionrun.SessionIDEQ(identity.ID)).Order(ent.Desc(sessionrun.FieldID)).First(ctx)
+		if queryErr != nil && !ent.IsNotFound(queryErr) {
+			return opaqueError("load public Schedule Session Run", queryErr)
+		}
+		if queryErr == nil {
+			actualStart = run.ActualStart
+			if !run.ActualEnd.IsZero() {
+				ended := run.ActualEnd
+				actualEnd = &ended
+			}
+		}
 		result.Sessions = append(result.Sessions, PublicScheduleSession{
 			ID: identity.ID, Title: version.Title, PublicDetails: version.PublicDetails,
 			ForecastStart: version.PlannedStart, ForecastEnd: version.PlannedEnd,
+			Lifecycle: identity.Lifecycle.String(), ActualStart: actualStart, ActualEnd: actualEnd,
 			LocationIDs: locations, LaneIDs: lanes, TrackIDs: tracks,
 		})
 	}

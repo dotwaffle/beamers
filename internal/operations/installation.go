@@ -10,6 +10,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/schedule"
+	"github.com/dotwaffle/beamers/internal/sessioncontrol"
 	"github.com/dotwaffle/beamers/internal/store"
 )
 
@@ -33,6 +34,7 @@ type Installation struct {
 	rundownCommands *rundown.Commands
 	rundownQueries  *rundown.Queries
 	schedule        *schedule.Service
+	sessionControl  *sessioncontrol.Service
 }
 
 // Initialize creates a new installation with the committed schema.
@@ -82,6 +84,11 @@ func OpenInstallation(ctx context.Context, dataDir string) (*Installation, error
 		return nil, errors.Join(err, storage.Close())
 	}
 	installation.schedule = scheduleService
+	sessionControlService, err := sessioncontrol.New(storage, time.Now)
+	if err != nil {
+		return nil, errors.Join(err, storage.Close())
+	}
+	installation.sessionControl = sessionControlService
 	return installation, nil
 }
 
@@ -153,6 +160,12 @@ func (installation *Installation) RundownQueries() *rundown.Queries {
 // It is nil only while the installation is restricted to recovery mode.
 func (installation *Installation) Schedule() *schedule.Service {
 	return installation.schedule
+}
+
+// SessionControl returns the live Session command service.
+// It is nil only while the installation is restricted to recovery mode.
+func (installation *Installation) SessionControl() *sessioncontrol.Service {
+	return installation.sessionControl
 }
 
 // Close closes storage and releases the installation lock.

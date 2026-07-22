@@ -21,6 +21,10 @@ type Session struct {
 	ID int `json:"id,omitempty"`
 	// EventID holds the value of the "event_id" field.
 	EventID int `json:"event_id,omitempty"`
+	// Lifecycle holds the value of the "lifecycle" field.
+	Lifecycle session.Lifecycle `json:"lifecycle,omitempty"`
+	// LiveStateRevision holds the value of the "live_state_revision" field.
+	LiveStateRevision int `json:"live_state_revision,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -37,9 +41,11 @@ type SessionEdges struct {
 	Draft *SessionDraft `json:"draft,omitempty"`
 	// PublishedVersions holds the value of the published_versions edge.
 	PublishedVersions []*SessionPublishedVersion `json:"published_versions,omitempty"`
+	// Runs holds the value of the runs edge.
+	Runs []*SessionRun `json:"runs,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [4]bool
 }
 
 // EventOrErr returns the Event value or an error if the edge
@@ -73,13 +79,24 @@ func (e SessionEdges) PublishedVersionsOrErr() ([]*SessionPublishedVersion, erro
 	return nil, &NotLoadedError{edge: "published_versions"}
 }
 
+// RunsOrErr returns the Runs value or an error if the edge
+// was not loaded in eager-loading.
+func (e SessionEdges) RunsOrErr() ([]*SessionRun, error) {
+	if e.loadedTypes[3] {
+		return e.Runs, nil
+	}
+	return nil, &NotLoadedError{edge: "runs"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Session) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case session.FieldID, session.FieldEventID:
+		case session.FieldID, session.FieldEventID, session.FieldLiveStateRevision:
 			values[i] = new(sql.NullInt64)
+		case session.FieldLifecycle:
+			values[i] = new(sql.NullString)
 		case session.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		default:
@@ -108,6 +125,18 @@ func (_m *Session) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field event_id", values[i])
 			} else if value.Valid {
 				_m.EventID = int(value.Int64)
+			}
+		case session.FieldLifecycle:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field lifecycle", values[i])
+			} else if value.Valid {
+				_m.Lifecycle = session.Lifecycle(value.String)
+			}
+		case session.FieldLiveStateRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field live_state_revision", values[i])
+			} else if value.Valid {
+				_m.LiveStateRevision = int(value.Int64)
 			}
 		case session.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -143,6 +172,11 @@ func (_m *Session) QueryPublishedVersions() *SessionPublishedVersionQuery {
 	return NewSessionClient(_m.config).QueryPublishedVersions(_m)
 }
 
+// QueryRuns queries the "runs" edge of the Session entity.
+func (_m *Session) QueryRuns() *SessionRunQuery {
+	return NewSessionClient(_m.config).QueryRuns(_m)
+}
+
 // Update returns a builder for updating this Session.
 // Note that you need to call Session.Unwrap() before calling this method if this Session
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -168,6 +202,12 @@ func (_m *Session) String() string {
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
 	builder.WriteString("event_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.EventID))
+	builder.WriteString(", ")
+	builder.WriteString("lifecycle=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Lifecycle))
+	builder.WriteString(", ")
+	builder.WriteString("live_state_revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.LiveStateRevision))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

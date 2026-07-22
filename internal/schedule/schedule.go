@@ -35,6 +35,9 @@ type Session struct {
 	PublicDetails string   `json:"public_details,omitempty"`
 	ForecastStart string   `json:"forecast_start"`
 	ForecastEnd   string   `json:"forecast_end"`
+	Lifecycle     string   `json:"lifecycle"`
+	ActualStart   string   `json:"actual_start,omitempty"`
+	ActualEnd     string   `json:"actual_end,omitempty"`
 	Locations     []string `json:"locations,omitempty"`
 	Lanes         []string `json:"lanes,omitempty"`
 	Tracks        []string `json:"tracks,omitempty"`
@@ -76,13 +79,25 @@ func (service *Service) snapshot(ctx context.Context, upcomingOnly bool) (Snapsh
 	laneNames := laneNames(state.Lanes)
 	trackNames := trackNames(state.Tracks)
 	for _, item := range state.Sessions {
-		if upcomingOnly && !item.ForecastEnd.After(service.now()) {
+		if upcomingOnly && (item.Lifecycle == "Ended" ||
+			(item.Lifecycle != "Live" && !item.ForecastEnd.After(service.now()))) {
 			continue
+		}
+		actualStart := ""
+		if !item.ActualStart.IsZero() {
+			actualStart = item.ActualStart.In(zone).Format(time.RFC3339)
+		}
+		actualEnd := ""
+		if item.ActualEnd != nil {
+			actualEnd = item.ActualEnd.In(zone).Format(time.RFC3339)
 		}
 		result.Sessions = append(result.Sessions, Session{
 			ID: item.ID, Title: item.Title, PublicDetails: item.PublicDetails,
 			ForecastStart: item.ForecastStart.In(zone).Format(time.RFC3339),
 			ForecastEnd:   item.ForecastEnd.In(zone).Format(time.RFC3339),
+			Lifecycle:     item.Lifecycle,
+			ActualStart:   actualStart,
+			ActualEnd:     actualEnd,
 			Locations:     names(item.LocationIDs, locationNames),
 			Lanes:         names(item.LaneIDs, laneNames),
 			Tracks:        names(item.TrackIDs, trackNames),

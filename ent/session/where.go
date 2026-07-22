@@ -60,6 +60,11 @@ func EventID(v int) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldEventID, v))
 }
 
+// LiveStateRevision applies equality check predicate on the "live_state_revision" field. It's identical to LiveStateRevisionEQ.
+func LiveStateRevision(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldLiveStateRevision, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldCreatedAt, v))
@@ -83,6 +88,66 @@ func EventIDIn(vs ...int) predicate.Session {
 // EventIDNotIn applies the NotIn predicate on the "event_id" field.
 func EventIDNotIn(vs ...int) predicate.Session {
 	return predicate.Session(sql.FieldNotIn(FieldEventID, vs...))
+}
+
+// LifecycleEQ applies the EQ predicate on the "lifecycle" field.
+func LifecycleEQ(v Lifecycle) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldLifecycle, v))
+}
+
+// LifecycleNEQ applies the NEQ predicate on the "lifecycle" field.
+func LifecycleNEQ(v Lifecycle) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldLifecycle, v))
+}
+
+// LifecycleIn applies the In predicate on the "lifecycle" field.
+func LifecycleIn(vs ...Lifecycle) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldLifecycle, vs...))
+}
+
+// LifecycleNotIn applies the NotIn predicate on the "lifecycle" field.
+func LifecycleNotIn(vs ...Lifecycle) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldLifecycle, vs...))
+}
+
+// LiveStateRevisionEQ applies the EQ predicate on the "live_state_revision" field.
+func LiveStateRevisionEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldLiveStateRevision, v))
+}
+
+// LiveStateRevisionNEQ applies the NEQ predicate on the "live_state_revision" field.
+func LiveStateRevisionNEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldLiveStateRevision, v))
+}
+
+// LiveStateRevisionIn applies the In predicate on the "live_state_revision" field.
+func LiveStateRevisionIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldLiveStateRevision, vs...))
+}
+
+// LiveStateRevisionNotIn applies the NotIn predicate on the "live_state_revision" field.
+func LiveStateRevisionNotIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldLiveStateRevision, vs...))
+}
+
+// LiveStateRevisionGT applies the GT predicate on the "live_state_revision" field.
+func LiveStateRevisionGT(v int) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldLiveStateRevision, v))
+}
+
+// LiveStateRevisionGTE applies the GTE predicate on the "live_state_revision" field.
+func LiveStateRevisionGTE(v int) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldLiveStateRevision, v))
+}
+
+// LiveStateRevisionLT applies the LT predicate on the "live_state_revision" field.
+func LiveStateRevisionLT(v int) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldLiveStateRevision, v))
+}
+
+// LiveStateRevisionLTE applies the LTE predicate on the "live_state_revision" field.
+func LiveStateRevisionLTE(v int) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldLiveStateRevision, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
@@ -186,6 +251,29 @@ func HasPublishedVersions() predicate.Session {
 func HasPublishedVersionsWith(preds ...predicate.SessionPublishedVersion) predicate.Session {
 	return predicate.Session(func(s *sql.Selector) {
 		step := newPublishedVersionsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasRuns applies the HasEdge predicate on the "runs" edge.
+func HasRuns() predicate.Session {
+	return predicate.Session(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, RunsTable, RunsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasRunsWith applies the HasEdge predicate on the "runs" edge with a given conditions (other predicates).
+func HasRunsWith(preds ...predicate.SessionRun) predicate.Session {
+	return predicate.Session(func(s *sql.Selector) {
+		step := newRunsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

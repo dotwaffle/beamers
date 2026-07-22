@@ -38,6 +38,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
+	"github.com/dotwaffle/beamers/ent/sessionrun"
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
@@ -94,6 +95,8 @@ type Client struct {
 	SessionDraft *SessionDraftClient
 	// SessionPublishedVersion is the client for interacting with the SessionPublishedVersion builders.
 	SessionPublishedVersion *SessionPublishedVersionClient
+	// SessionRun is the client for interacting with the SessionRun builders.
+	SessionRun *SessionRunClient
 	// Track is the client for interacting with the Track builders.
 	Track *TrackClient
 	// TrackDraft is the client for interacting with the TrackDraft builders.
@@ -134,6 +137,7 @@ func (c *Client) init() {
 	c.Session = NewSessionClient(c.config)
 	c.SessionDraft = NewSessionDraftClient(c.config)
 	c.SessionPublishedVersion = NewSessionPublishedVersionClient(c.config)
+	c.SessionRun = NewSessionRunClient(c.config)
 	c.Track = NewTrackClient(c.config)
 	c.TrackDraft = NewTrackDraftClient(c.config)
 	c.TrackPublishedVersion = NewTrackPublishedVersionClient(c.config)
@@ -252,6 +256,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Session:                  NewSessionClient(cfg),
 		SessionDraft:             NewSessionDraftClient(cfg),
 		SessionPublishedVersion:  NewSessionPublishedVersionClient(cfg),
+		SessionRun:               NewSessionRunClient(cfg),
 		Track:                    NewTrackClient(cfg),
 		TrackDraft:               NewTrackDraftClient(cfg),
 		TrackPublishedVersion:    NewTrackPublishedVersionClient(cfg),
@@ -297,6 +302,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Session:                  NewSessionClient(cfg),
 		SessionDraft:             NewSessionDraftClient(cfg),
 		SessionPublishedVersion:  NewSessionPublishedVersionClient(cfg),
+		SessionRun:               NewSessionRunClient(cfg),
 		Track:                    NewTrackClient(cfg),
 		TrackDraft:               NewTrackDraftClient(cfg),
 		TrackPublishedVersion:    NewTrackPublishedVersionClient(cfg),
@@ -334,7 +340,8 @@ func (c *Client) Use(hooks ...Hook) {
 		c.EventGrant, c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion,
 		c.Location, c.LocationDraft, c.LocationPublishedVersion, c.Migration,
 		c.PasswordCredential, c.Rundown, c.Session, c.SessionDraft,
-		c.SessionPublishedVersion, c.Track, c.TrackDraft, c.TrackPublishedVersion,
+		c.SessionPublishedVersion, c.SessionRun, c.Track, c.TrackDraft,
+		c.TrackPublishedVersion,
 	} {
 		n.Use(hooks...)
 	}
@@ -349,7 +356,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.EventGrant, c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion,
 		c.Location, c.LocationDraft, c.LocationPublishedVersion, c.Migration,
 		c.PasswordCredential, c.Rundown, c.Session, c.SessionDraft,
-		c.SessionPublishedVersion, c.Track, c.TrackDraft, c.TrackPublishedVersion,
+		c.SessionPublishedVersion, c.SessionRun, c.Track, c.TrackDraft,
+		c.TrackPublishedVersion,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -404,6 +412,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.SessionDraft.mutate(ctx, m)
 	case *SessionPublishedVersionMutation:
 		return c.SessionPublishedVersion.mutate(ctx, m)
+	case *SessionRunMutation:
+		return c.SessionRun.mutate(ctx, m)
 	case *TrackMutation:
 		return c.Track.mutate(ctx, m)
 	case *TrackDraftMutation:
@@ -4034,6 +4044,22 @@ func (c *SessionClient) QueryPublishedVersions(_m *Session) *SessionPublishedVer
 	return query
 }
 
+// QueryRuns queries the runs edge of a Session.
+func (c *SessionClient) QueryRuns(_m *Session) *SessionRunQuery {
+	query := (&SessionRunClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(session.Table, session.FieldID, id),
+			sqlgraph.To(sessionrun.Table, sessionrun.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, session.RunsTable, session.RunsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *SessionClient) Hooks() []Hook {
 	hooks := c.hooks.Session
@@ -4453,6 +4479,156 @@ func (c *SessionPublishedVersionClient) mutate(ctx context.Context, m *SessionPu
 		return (&SessionPublishedVersionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown SessionPublishedVersion mutation op: %q", m.Op())
+	}
+}
+
+// SessionRunClient is a client for the SessionRun schema.
+type SessionRunClient struct {
+	config
+}
+
+// NewSessionRunClient returns a client for the SessionRun from the given config.
+func NewSessionRunClient(c config) *SessionRunClient {
+	return &SessionRunClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `sessionrun.Hooks(f(g(h())))`.
+func (c *SessionRunClient) Use(hooks ...Hook) {
+	c.hooks.SessionRun = append(c.hooks.SessionRun, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `sessionrun.Intercept(f(g(h())))`.
+func (c *SessionRunClient) Intercept(interceptors ...Interceptor) {
+	c.inters.SessionRun = append(c.inters.SessionRun, interceptors...)
+}
+
+// Create returns a builder for creating a SessionRun entity.
+func (c *SessionRunClient) Create() *SessionRunCreate {
+	mutation := newSessionRunMutation(c.config, OpCreate)
+	return &SessionRunCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of SessionRun entities.
+func (c *SessionRunClient) CreateBulk(builders ...*SessionRunCreate) *SessionRunCreateBulk {
+	return &SessionRunCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *SessionRunClient) MapCreateBulk(slice any, setFunc func(*SessionRunCreate, int)) *SessionRunCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &SessionRunCreateBulk{err: fmt.Errorf("calling to SessionRunClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*SessionRunCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &SessionRunCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for SessionRun.
+func (c *SessionRunClient) Update() *SessionRunUpdate {
+	mutation := newSessionRunMutation(c.config, OpUpdate)
+	return &SessionRunUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *SessionRunClient) UpdateOne(_m *SessionRun) *SessionRunUpdateOne {
+	mutation := newSessionRunMutation(c.config, OpUpdateOne, withSessionRun(_m))
+	return &SessionRunUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *SessionRunClient) UpdateOneID(id int) *SessionRunUpdateOne {
+	mutation := newSessionRunMutation(c.config, OpUpdateOne, withSessionRunID(id))
+	return &SessionRunUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for SessionRun.
+func (c *SessionRunClient) Delete() *SessionRunDelete {
+	mutation := newSessionRunMutation(c.config, OpDelete)
+	return &SessionRunDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *SessionRunClient) DeleteOne(_m *SessionRun) *SessionRunDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *SessionRunClient) DeleteOneID(id int) *SessionRunDeleteOne {
+	builder := c.Delete().Where(sessionrun.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &SessionRunDeleteOne{builder}
+}
+
+// Query returns a query builder for SessionRun.
+func (c *SessionRunClient) Query() *SessionRunQuery {
+	return &SessionRunQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeSessionRun},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a SessionRun entity by its id.
+func (c *SessionRunClient) Get(ctx context.Context, id int) (*SessionRun, error) {
+	return c.Query().Where(sessionrun.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *SessionRunClient) GetX(ctx context.Context, id int) *SessionRun {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QuerySession queries the session edge of a SessionRun.
+func (c *SessionRunClient) QuerySession(_m *SessionRun) *SessionQuery {
+	query := (&SessionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(sessionrun.Table, sessionrun.FieldID, id),
+			sqlgraph.To(session.Table, session.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, sessionrun.SessionTable, sessionrun.SessionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *SessionRunClient) Hooks() []Hook {
+	hooks := c.hooks.SessionRun
+	return append(hooks[:len(hooks):len(hooks)], sessionrun.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *SessionRunClient) Interceptors() []Interceptor {
+	return c.inters.SessionRun
+}
+
+func (c *SessionRunClient) mutate(ctx context.Context, m *SessionRunMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&SessionRunCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&SessionRunUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&SessionRunUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&SessionRunDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown SessionRun mutation op: %q", m.Op())
 	}
 }
 
@@ -4977,7 +5153,7 @@ type (
 		DraftChange, DraftChangeDependency, DraftEdit, Event, EventGrant, Installation,
 		Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
 		LocationPublishedVersion, Migration, PasswordCredential, Rundown, Session,
-		SessionDraft, SessionPublishedVersion, Track, TrackDraft,
+		SessionDraft, SessionPublishedVersion, SessionRun, Track, TrackDraft,
 		TrackPublishedVersion []ent.Hook
 	}
 	inters struct {
@@ -4985,7 +5161,7 @@ type (
 		DraftChange, DraftChangeDependency, DraftEdit, Event, EventGrant, Installation,
 		Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
 		LocationPublishedVersion, Migration, PasswordCredential, Rundown, Session,
-		SessionDraft, SessionPublishedVersion, Track, TrackDraft,
+		SessionDraft, SessionPublishedVersion, SessionRun, Track, TrackDraft,
 		TrackPublishedVersion []ent.Interceptor
 	}
 )

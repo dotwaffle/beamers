@@ -54,7 +54,7 @@ func TestEventAndGrantChangesCreateAuditEntries(t *testing.T) {
 		ActorAccountID: administrator.ID,
 		EventID:        createdEvent.ID,
 		AccountID:      producer.ID,
-		Role:           eventgrant.RoleProducer,
+		Role:           string(eventgrant.RoleProducer),
 		Now:            now.Add(3 * time.Minute),
 		CommandID:      "grant-pat-producer", PayloadHash: strings.Repeat("e", 64),
 	})
@@ -341,7 +341,7 @@ func grantEventTestRole(
 	t.Helper()
 	if _, err := grantEventAccessCommand(t, installation, ctx, GrantEventAccessParams{
 		ActorAccountID: administratorID, EventID: eventID, AccountID: accountID,
-		Role: role, Now: now,
+		Role: string(role), Now: now,
 		CommandID:   "grant-" + strconv.Itoa(eventID) + "-" + strconv.Itoa(accountID),
 		PayloadHash: strings.Repeat("c", 64),
 	}); err != nil {

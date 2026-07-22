@@ -181,7 +181,7 @@ func openHandlerTest(t *testing.T) (*store.SQLite, *auth.Service, auth.Session, 
 	if err != nil {
 		t.Fatalf("create Event: %v", err)
 	}
-	if _, err := eventService.GrantProducer(
+	if _, err := eventService.GrantEventAccess(
 		t.Context(), session.Account, event.ID, session.Account.ID, "Producer", "rpc-grant-producer",
 	); err != nil {
 		t.Fatalf("grant Producer: %v", err)

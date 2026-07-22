@@ -3,6 +3,7 @@
 package session
 
 import (
+	"fmt"
 	"time"
 
 	"entgo.io/ent"
@@ -17,6 +18,10 @@ const (
 	FieldID = "id"
 	// FieldEventID holds the string denoting the event_id field in the database.
 	FieldEventID = "event_id"
+	// FieldLifecycle holds the string denoting the lifecycle field in the database.
+	FieldLifecycle = "lifecycle"
+	// FieldLiveStateRevision holds the string denoting the live_state_revision field in the database.
+	FieldLiveStateRevision = "live_state_revision"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeEvent holds the string denoting the event edge name in mutations.
@@ -25,6 +30,8 @@ const (
 	EdgeDraft = "draft"
 	// EdgePublishedVersions holds the string denoting the published_versions edge name in mutations.
 	EdgePublishedVersions = "published_versions"
+	// EdgeRuns holds the string denoting the runs edge name in mutations.
+	EdgeRuns = "runs"
 	// Table holds the table name of the session in the database.
 	Table = "sessions"
 	// EventTable is the table that holds the event relation/edge.
@@ -48,12 +55,21 @@ const (
 	PublishedVersionsInverseTable = "session_published_versions"
 	// PublishedVersionsColumn is the table column denoting the published_versions relation/edge.
 	PublishedVersionsColumn = "session_id"
+	// RunsTable is the table that holds the runs relation/edge.
+	RunsTable = "session_runs"
+	// RunsInverseTable is the table name for the SessionRun entity.
+	// It exists in this package in order to avoid circular dependency with the "sessionrun" package.
+	RunsInverseTable = "session_runs"
+	// RunsColumn is the table column denoting the runs relation/edge.
+	RunsColumn = "session_id"
 )
 
 // Columns holds all SQL columns for session fields.
 var Columns = []string{
 	FieldID,
 	FieldEventID,
+	FieldLifecycle,
+	FieldLiveStateRevision,
 	FieldCreatedAt,
 }
 
@@ -75,9 +91,41 @@ func ValidColumn(column string) bool {
 var (
 	Hooks  [1]ent.Hook
 	Policy ent.Policy
+	// DefaultLiveStateRevision holds the default value on creation for the "live_state_revision" field.
+	DefaultLiveStateRevision int
+	// LiveStateRevisionValidator is a validator for the "live_state_revision" field. It is called by the builders before save.
+	LiveStateRevisionValidator func(int) error
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 )
+
+// Lifecycle defines the type for the "lifecycle" enum field.
+type Lifecycle string
+
+// LifecycleScheduled is the default value of the Lifecycle enum.
+const DefaultLifecycle = LifecycleScheduled
+
+// Lifecycle values.
+const (
+	LifecycleScheduled Lifecycle = "Scheduled"
+	LifecycleLive      Lifecycle = "Live"
+	LifecycleEnded     Lifecycle = "Ended"
+	LifecycleCanceled  Lifecycle = "Canceled"
+)
+
+func (l Lifecycle) String() string {
+	return string(l)
+}
+
+// LifecycleValidator is a validator for the "lifecycle" field enum values. It is called by the builders before save.
+func LifecycleValidator(l Lifecycle) error {
+	switch l {
+	case LifecycleScheduled, LifecycleLive, LifecycleEnded, LifecycleCanceled:
+		return nil
+	default:
+		return fmt.Errorf("session: invalid enum value for lifecycle field: %q", l)
+	}
+}
 
 // OrderOption defines the ordering options for the Session queries.
 type OrderOption func(*sql.Selector)
@@ -90,6 +138,16 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 // ByEventID orders the results by the event_id field.
 func ByEventID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEventID, opts...).ToFunc()
+}
+
+// ByLifecycle orders the results by the lifecycle field.
+func ByLifecycle(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLifecycle, opts...).ToFunc()
+}
+
+// ByLiveStateRevision orders the results by the live_state_revision field.
+func ByLiveStateRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLiveStateRevision, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.
@@ -124,6 +182,20 @@ func ByPublishedVersions(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption
 		sqlgraph.OrderByNeighborTerms(s, newPublishedVersionsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByRunsCount orders the results by runs count.
+func ByRunsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newRunsStep(), opts...)
+	}
+}
+
+// ByRuns orders the results by runs terms.
+func ByRuns(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newRunsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newEventStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -143,5 +215,12 @@ func newPublishedVersionsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(PublishedVersionsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, PublishedVersionsTable, PublishedVersionsColumn),
+	)
+}
+func newRunsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(RunsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, RunsTable, RunsColumn),
 	)
 }

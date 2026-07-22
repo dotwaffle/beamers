@@ -30,6 +30,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
+	"github.com/dotwaffle/beamers/ent/sessionrun"
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
@@ -882,8 +883,14 @@ func init() {
 	}
 	sessionFields := schema.Session{}.Fields()
 	_ = sessionFields
+	// sessionDescLiveStateRevision is the schema descriptor for live_state_revision field.
+	sessionDescLiveStateRevision := sessionFields[2].Descriptor()
+	// session.DefaultLiveStateRevision holds the default value on creation for the live_state_revision field.
+	session.DefaultLiveStateRevision = sessionDescLiveStateRevision.Default.(int)
+	// session.LiveStateRevisionValidator is a validator for the "live_state_revision" field. It is called by the builders before save.
+	session.LiveStateRevisionValidator = sessionDescLiveStateRevision.Validators[0].(func(int) error)
 	// sessionDescCreatedAt is the schema descriptor for created_at field.
-	sessionDescCreatedAt := sessionFields[1].Descriptor()
+	sessionDescCreatedAt := sessionFields[3].Descriptor()
 	// session.DefaultCreatedAt holds the default value on creation for the created_at field.
 	session.DefaultCreatedAt = sessionDescCreatedAt.Default.(func() time.Time)
 	sessiondraft.Policy = privacy.NewPolicies(schema.SessionDraft{})
@@ -982,6 +989,25 @@ func init() {
 	sessionpublishedversionDescCreatedAt := sessionpublishedversionFields[13].Descriptor()
 	// sessionpublishedversion.DefaultCreatedAt holds the default value on creation for the created_at field.
 	sessionpublishedversion.DefaultCreatedAt = sessionpublishedversionDescCreatedAt.Default.(func() time.Time)
+	sessionrun.Policy = privacy.NewPolicies(schema.SessionRun{})
+	sessionrun.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := sessionrun.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	sessionrunFields := schema.SessionRun{}.Fields()
+	_ = sessionrunFields
+	// sessionrunDescSnapshotJSON is the schema descriptor for snapshot_json field.
+	sessionrunDescSnapshotJSON := sessionrunFields[3].Descriptor()
+	// sessionrun.SnapshotJSONValidator is a validator for the "snapshot_json" field. It is called by the builders before save.
+	sessionrun.SnapshotJSONValidator = sessionrunDescSnapshotJSON.Validators[0].(func(string) error)
+	// sessionrunDescCreatedAt is the schema descriptor for created_at field.
+	sessionrunDescCreatedAt := sessionrunFields[4].Descriptor()
+	// sessionrun.DefaultCreatedAt holds the default value on creation for the created_at field.
+	sessionrun.DefaultCreatedAt = sessionrunDescCreatedAt.Default.(func() time.Time)
 	track.Policy = privacy.NewPolicies(schema.Track{})
 	track.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package beamers.session.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/dotwaffle/beamers/gen/beamers/session/v1;sessionv1";
+
+service SessionControlService {
+  rpc StartSession(StartSessionRequest) returns (StartSessionResponse);
+  rpc EndSession(EndSessionRequest) returns (EndSessionResponse);
+}
+
+enum SessionLifecycle {
+  SESSION_LIFECYCLE_UNSPECIFIED = 0;
+  SESSION_LIFECYCLE_SCHEDULED = 1;
+  SESSION_LIFECYCLE_LIVE = 2;
+  SESSION_LIFECYCLE_ENDED = 3;
+  SESSION_LIFECYCLE_CANCELED = 4;
+}
+
+message StartSessionRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  string command_id = 3;
+  optional int64 expected_live_state_revision = 4;
+}
+
+message EndSessionRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  string command_id = 3;
+  optional int64 expected_live_state_revision = 4;
+}
+
+message StartSessionResponse {
+  SessionState state = 1;
+}
+
+message EndSessionResponse {
+  SessionState state = 1;
+}
+
+message SessionState {
+  int64 session_id = 1;
+  int64 session_run_id = 2;
+  SessionLifecycle lifecycle = 3;
+  int64 live_state_revision = 4;
+  google.protobuf.Timestamp actual_start = 5;
+  google.protobuf.Timestamp actual_end = 6;
+}

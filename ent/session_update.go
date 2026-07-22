@@ -14,6 +14,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
+	"github.com/dotwaffle/beamers/ent/sessionrun"
 )
 
 // SessionUpdate is the builder for updating Session entities.
@@ -26,6 +27,41 @@ type SessionUpdate struct {
 // Where appends a list predicates to the SessionUpdate builder.
 func (_u *SessionUpdate) Where(ps ...predicate.Session) *SessionUpdate {
 	_u.mutation.Where(ps...)
+	return _u
+}
+
+// SetLifecycle sets the "lifecycle" field.
+func (_u *SessionUpdate) SetLifecycle(v session.Lifecycle) *SessionUpdate {
+	_u.mutation.SetLifecycle(v)
+	return _u
+}
+
+// SetNillableLifecycle sets the "lifecycle" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableLifecycle(v *session.Lifecycle) *SessionUpdate {
+	if v != nil {
+		_u.SetLifecycle(*v)
+	}
+	return _u
+}
+
+// SetLiveStateRevision sets the "live_state_revision" field.
+func (_u *SessionUpdate) SetLiveStateRevision(v int) *SessionUpdate {
+	_u.mutation.ResetLiveStateRevision()
+	_u.mutation.SetLiveStateRevision(v)
+	return _u
+}
+
+// SetNillableLiveStateRevision sets the "live_state_revision" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableLiveStateRevision(v *int) *SessionUpdate {
+	if v != nil {
+		_u.SetLiveStateRevision(*v)
+	}
+	return _u
+}
+
+// AddLiveStateRevision adds value to the "live_state_revision" field.
+func (_u *SessionUpdate) AddLiveStateRevision(v int) *SessionUpdate {
+	_u.mutation.AddLiveStateRevision(v)
 	return _u
 }
 
@@ -63,6 +99,21 @@ func (_u *SessionUpdate) AddPublishedVersions(v ...*SessionPublishedVersion) *Se
 	return _u.AddPublishedVersionIDs(ids...)
 }
 
+// AddRunIDs adds the "runs" edge to the SessionRun entity by IDs.
+func (_u *SessionUpdate) AddRunIDs(ids ...int) *SessionUpdate {
+	_u.mutation.AddRunIDs(ids...)
+	return _u
+}
+
+// AddRuns adds the "runs" edges to the SessionRun entity.
+func (_u *SessionUpdate) AddRuns(v ...*SessionRun) *SessionUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRunIDs(ids...)
+}
+
 // Mutation returns the SessionMutation object of the builder.
 func (_u *SessionUpdate) Mutation() *SessionMutation {
 	return _u.mutation
@@ -95,6 +146,27 @@ func (_u *SessionUpdate) RemovePublishedVersions(v ...*SessionPublishedVersion) 
 	return _u.RemovePublishedVersionIDs(ids...)
 }
 
+// ClearRuns clears all "runs" edges to the SessionRun entity.
+func (_u *SessionUpdate) ClearRuns() *SessionUpdate {
+	_u.mutation.ClearRuns()
+	return _u
+}
+
+// RemoveRunIDs removes the "runs" edge to SessionRun entities by IDs.
+func (_u *SessionUpdate) RemoveRunIDs(ids ...int) *SessionUpdate {
+	_u.mutation.RemoveRunIDs(ids...)
+	return _u
+}
+
+// RemoveRuns removes "runs" edges to SessionRun entities.
+func (_u *SessionUpdate) RemoveRuns(v ...*SessionRun) *SessionUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRunIDs(ids...)
+}
+
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (_u *SessionUpdate) Save(ctx context.Context) (int, error) {
 	return withHooks(ctx, _u.sqlSave, _u.mutation, _u.hooks)
@@ -124,6 +196,16 @@ func (_u *SessionUpdate) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *SessionUpdate) check() error {
+	if v, ok := _u.mutation.Lifecycle(); ok {
+		if err := session.LifecycleValidator(v); err != nil {
+			return &ValidationError{Name: "lifecycle", err: fmt.Errorf(`ent: validator failed for field "Session.lifecycle": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.LiveStateRevision(); ok {
+		if err := session.LiveStateRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "live_state_revision", err: fmt.Errorf(`ent: validator failed for field "Session.live_state_revision": %w`, err)}
+		}
+	}
 	if _u.mutation.EventCleared() && len(_u.mutation.EventIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Session.event"`)
 	}
@@ -141,6 +223,15 @@ func (_u *SessionUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := _u.mutation.Lifecycle(); ok {
+		_spec.SetField(session.FieldLifecycle, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.LiveStateRevision(); ok {
+		_spec.SetField(session.FieldLiveStateRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedLiveStateRevision(); ok {
+		_spec.AddField(session.FieldLiveStateRevision, field.TypeInt, value)
 	}
 	if _u.mutation.DraftCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -216,6 +307,51 @@ func (_u *SessionUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.RunsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.RunsTable,
+			Columns: []string{session.RunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionrun.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRunsIDs(); len(nodes) > 0 && !_u.mutation.RunsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.RunsTable,
+			Columns: []string{session.RunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionrun.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RunsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.RunsTable,
+			Columns: []string{session.RunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionrun.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{session.Label}
@@ -234,6 +370,41 @@ type SessionUpdateOne struct {
 	fields   []string
 	hooks    []Hook
 	mutation *SessionMutation
+}
+
+// SetLifecycle sets the "lifecycle" field.
+func (_u *SessionUpdateOne) SetLifecycle(v session.Lifecycle) *SessionUpdateOne {
+	_u.mutation.SetLifecycle(v)
+	return _u
+}
+
+// SetNillableLifecycle sets the "lifecycle" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableLifecycle(v *session.Lifecycle) *SessionUpdateOne {
+	if v != nil {
+		_u.SetLifecycle(*v)
+	}
+	return _u
+}
+
+// SetLiveStateRevision sets the "live_state_revision" field.
+func (_u *SessionUpdateOne) SetLiveStateRevision(v int) *SessionUpdateOne {
+	_u.mutation.ResetLiveStateRevision()
+	_u.mutation.SetLiveStateRevision(v)
+	return _u
+}
+
+// SetNillableLiveStateRevision sets the "live_state_revision" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableLiveStateRevision(v *int) *SessionUpdateOne {
+	if v != nil {
+		_u.SetLiveStateRevision(*v)
+	}
+	return _u
+}
+
+// AddLiveStateRevision adds value to the "live_state_revision" field.
+func (_u *SessionUpdateOne) AddLiveStateRevision(v int) *SessionUpdateOne {
+	_u.mutation.AddLiveStateRevision(v)
+	return _u
 }
 
 // SetDraftID sets the "draft" edge to the SessionDraft entity by ID.
@@ -270,6 +441,21 @@ func (_u *SessionUpdateOne) AddPublishedVersions(v ...*SessionPublishedVersion) 
 	return _u.AddPublishedVersionIDs(ids...)
 }
 
+// AddRunIDs adds the "runs" edge to the SessionRun entity by IDs.
+func (_u *SessionUpdateOne) AddRunIDs(ids ...int) *SessionUpdateOne {
+	_u.mutation.AddRunIDs(ids...)
+	return _u
+}
+
+// AddRuns adds the "runs" edges to the SessionRun entity.
+func (_u *SessionUpdateOne) AddRuns(v ...*SessionRun) *SessionUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRunIDs(ids...)
+}
+
 // Mutation returns the SessionMutation object of the builder.
 func (_u *SessionUpdateOne) Mutation() *SessionMutation {
 	return _u.mutation
@@ -300,6 +486,27 @@ func (_u *SessionUpdateOne) RemovePublishedVersions(v ...*SessionPublishedVersio
 		ids[i] = v[i].ID
 	}
 	return _u.RemovePublishedVersionIDs(ids...)
+}
+
+// ClearRuns clears all "runs" edges to the SessionRun entity.
+func (_u *SessionUpdateOne) ClearRuns() *SessionUpdateOne {
+	_u.mutation.ClearRuns()
+	return _u
+}
+
+// RemoveRunIDs removes the "runs" edge to SessionRun entities by IDs.
+func (_u *SessionUpdateOne) RemoveRunIDs(ids ...int) *SessionUpdateOne {
+	_u.mutation.RemoveRunIDs(ids...)
+	return _u
+}
+
+// RemoveRuns removes "runs" edges to SessionRun entities.
+func (_u *SessionUpdateOne) RemoveRuns(v ...*SessionRun) *SessionUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRunIDs(ids...)
 }
 
 // Where appends a list predicates to the SessionUpdate builder.
@@ -344,6 +551,16 @@ func (_u *SessionUpdateOne) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *SessionUpdateOne) check() error {
+	if v, ok := _u.mutation.Lifecycle(); ok {
+		if err := session.LifecycleValidator(v); err != nil {
+			return &ValidationError{Name: "lifecycle", err: fmt.Errorf(`ent: validator failed for field "Session.lifecycle": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.LiveStateRevision(); ok {
+		if err := session.LiveStateRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "live_state_revision", err: fmt.Errorf(`ent: validator failed for field "Session.live_state_revision": %w`, err)}
+		}
+	}
 	if _u.mutation.EventCleared() && len(_u.mutation.EventIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Session.event"`)
 	}
@@ -378,6 +595,15 @@ func (_u *SessionUpdateOne) sqlSave(ctx context.Context) (_node *Session, err er
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := _u.mutation.Lifecycle(); ok {
+		_spec.SetField(session.FieldLifecycle, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.LiveStateRevision(); ok {
+		_spec.SetField(session.FieldLiveStateRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedLiveStateRevision(); ok {
+		_spec.AddField(session.FieldLiveStateRevision, field.TypeInt, value)
 	}
 	if _u.mutation.DraftCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -446,6 +672,51 @@ func (_u *SessionUpdateOne) sqlSave(ctx context.Context) (_node *Session, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(sessionpublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RunsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.RunsTable,
+			Columns: []string{session.RunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionrun.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRunsIDs(); len(nodes) > 0 && !_u.mutation.RunsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.RunsTable,
+			Columns: []string{session.RunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionrun.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RunsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.RunsTable,
+			Columns: []string{session.RunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionrun.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

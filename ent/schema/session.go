@@ -30,6 +30,8 @@ func (Session) Policy() ent.Policy {
 func (Session) Fields() []ent.Field {
 	return []ent.Field{
 		field.Int("event_id").Immutable(),
+		field.Enum("lifecycle").Values("Scheduled", "Live", "Ended", "Canceled").Default("Scheduled"),
+		field.Int("live_state_revision").Default(0).NonNegative(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 	}
 }
@@ -45,5 +47,6 @@ func (Session) Edges() []ent.Edge {
 			Required(),
 		edge.To("draft", SessionDraft.Type).Unique(),
 		edge.To("published_versions", SessionPublishedVersion.Type),
+		edge.To("runs", SessionRun.Type),
 	}
 }

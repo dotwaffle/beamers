@@ -75,6 +75,9 @@ type SessionDraft func(*sql.Selector)
 // SessionPublishedVersion is the predicate function for sessionpublishedversion builders.
 type SessionPublishedVersion func(*sql.Selector)
 
+// SessionRun is the predicate function for sessionrun builders.
+type SessionRun func(*sql.Selector)
+
 // Track is the predicate function for track builders.
 type Track func(*sql.Selector)
 

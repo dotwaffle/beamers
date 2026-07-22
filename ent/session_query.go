@@ -18,6 +18,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
+	"github.com/dotwaffle/beamers/ent/sessionrun"
 )
 
 // SessionQuery is the builder for querying Session entities.
@@ -30,6 +31,7 @@ type SessionQuery struct {
 	withEvent             *EventQuery
 	withDraft             *SessionDraftQuery
 	withPublishedVersions *SessionPublishedVersionQuery
+	withRuns              *SessionRunQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -125,6 +127,28 @@ func (_q *SessionQuery) QueryPublishedVersions() *SessionPublishedVersionQuery {
 			sqlgraph.From(session.Table, session.FieldID, selector),
 			sqlgraph.To(sessionpublishedversion.Table, sessionpublishedversion.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, session.PublishedVersionsTable, session.PublishedVersionsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryRuns chains the current query on the "runs" edge.
+func (_q *SessionQuery) QueryRuns() *SessionRunQuery {
+	query := (&SessionRunClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(session.Table, session.FieldID, selector),
+			sqlgraph.To(sessionrun.Table, sessionrun.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, session.RunsTable, session.RunsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -327,6 +351,7 @@ func (_q *SessionQuery) Clone() *SessionQuery {
 		withEvent:             _q.withEvent.Clone(),
 		withDraft:             _q.withDraft.Clone(),
 		withPublishedVersions: _q.withPublishedVersions.Clone(),
+		withRuns:              _q.withRuns.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -363,6 +388,17 @@ func (_q *SessionQuery) WithPublishedVersions(opts ...func(*SessionPublishedVers
 		opt(query)
 	}
 	_q.withPublishedVersions = query
+	return _q
+}
+
+// WithRuns tells the query-builder to eager-load the nodes that are connected to
+// the "runs" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *SessionQuery) WithRuns(opts ...func(*SessionRunQuery)) *SessionQuery {
+	query := (&SessionRunClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withRuns = query
 	return _q
 }
 
@@ -450,10 +486,11 @@ func (_q *SessionQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Sess
 	var (
 		nodes       = []*Session{}
 		_spec       = _q.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [4]bool{
 			_q.withEvent != nil,
 			_q.withDraft != nil,
 			_q.withPublishedVersions != nil,
+			_q.withRuns != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -492,6 +529,13 @@ func (_q *SessionQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Sess
 			func(n *Session, e *SessionPublishedVersion) {
 				n.Edges.PublishedVersions = append(n.Edges.PublishedVersions, e)
 			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withRuns; query != nil {
+		if err := _q.loadRuns(ctx, query, nodes,
+			func(n *Session) { n.Edges.Runs = []*SessionRun{} },
+			func(n *Session, e *SessionRun) { n.Edges.Runs = append(n.Edges.Runs, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -569,6 +613,36 @@ func (_q *SessionQuery) loadPublishedVersions(ctx context.Context, query *Sessio
 	}
 	query.Where(predicate.SessionPublishedVersion(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(session.PublishedVersionsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.SessionID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "session_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *SessionQuery) loadRuns(ctx context.Context, query *SessionRunQuery, nodes []*Session, init func(*Session), assign func(*Session, *SessionRun)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Session)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(sessionrun.FieldSessionID)
+	}
+	query.Where(predicate.SessionRun(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(session.RunsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

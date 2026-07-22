@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -28,6 +29,8 @@ import (
 	"github.com/dotwaffle/beamers/gen/beamers/activation/v1/activationv1connect"
 	rundownv1 "github.com/dotwaffle/beamers/gen/beamers/rundown/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/rundown/v1/rundownv1connect"
+	sessionv1 "github.com/dotwaffle/beamers/gen/beamers/session/v1"
+	"github.com/dotwaffle/beamers/gen/beamers/session/v1/sessionv1connect"
 	"github.com/dotwaffle/beamers/internal/store/storetest"
 )
 
@@ -493,6 +496,20 @@ func prepareActiveSchedule(t *testing.T, client *http.Client, server *runningSer
 				Locations:          []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Ref{Ref: "main"}}},
 				Lanes:              []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Ref{Ref: "main-lane"}}},
 			},
+			{
+				Ref: "closing", Title: "Closing Session",
+				Type:               rundownv1.SessionType_SESSION_TYPE_CEREMONY,
+				AudienceVisibility: rundownv1.AudienceVisibility_AUDIENCE_VISIBILITY_PUBLIC,
+				PublicDetails:      "The unchanged later Session",
+				PlannedStart:       timestamppb.New(plannedStart.Add(2 * time.Hour)),
+				PlannedEnd:         timestamppb.New(plannedStart.Add(3 * time.Hour)),
+				TimingPolicy:       rundownv1.TimingPolicy_TIMING_POLICY_FIXED_END,
+				MinimumDuration:    durationpb.New(30 * time.Minute),
+				StartBoundary:      rundownv1.Boundary_BOUNDARY_HARD,
+				EndBoundary:        rundownv1.Boundary_BOUNDARY_SOFT,
+				Locations:          []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Ref{Ref: "main"}}},
+				Lanes:              []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Ref{Ref: "main-lane"}}},
+			},
 		},
 	}))
 	if err != nil {
@@ -616,6 +633,257 @@ func TestAdministratorCreatesIndividualAccount(t *testing.T) {
 		t.Errorf("created Account sign-in status = %d, want %d", response.StatusCode, http.StatusOK)
 	}
 	server.stop(t)
+}
+
+func TestAdministratorGrantsOperatorAccess(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events",
+		validEventInput(), http.StatusCreated,
+		"{\"id\":1,\"name\":\"Revision 2026\",\"planned_start_date\":\"2026-08-21\",\"planned_end_date\":\"2026-08-23\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"de-DE\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":1}\n",
+	)
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/accounts",
+		map[string]string{
+			"name": "Opal Operator", "password": "operator correct horse battery staple",
+			"command_id": "create-account-opal",
+		},
+		http.StatusCreated, "{\"id\":2,\"name\":\"Opal Operator\",\"administrator\":false}\n",
+	)
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events/1/grants",
+		map[string]any{"account_id": 2, "role": "Operator", "command_id": "grant-opal-operator"},
+		http.StatusCreated, "{\"event_id\":1,\"account_id\":2,\"role\":\"Operator\"}\n",
+	)
+	server.stop(t)
+}
+
+func TestOperatorStartsPublishedSessionDurably(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	sessionID := prepareActiveSchedule(t, administrator, server)
+	operator := provisionOperator(t, administrator, server)
+	client := sessionv1connect.NewSessionControlServiceClient(
+		operator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+
+	started, err := client.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "start-keynote",
+		ExpectedLiveStateRevision: proto.Int64(0),
+	}))
+	if err != nil {
+		t.Fatalf("Start Session RPC: %v", err)
+	}
+	state := started.Msg.GetState()
+	if state.GetSessionId() != sessionID || state.GetSessionRunId() <= 0 ||
+		state.GetLifecycle() != sessionv1.SessionLifecycle_SESSION_LIFECYCLE_LIVE ||
+		state.GetLiveStateRevision() != 1 || state.GetActualStart() == nil || state.GetActualEnd() != nil {
+		t.Errorf("started Session state = %+v", state)
+	}
+	wantActualStart := state.GetActualStart().AsTime().In(time.FixedZone("CEST", 2*60*60)).Format(time.RFC3339)
+	public := get(t, authenticatedClient(t), server.address, "/schedule")
+	publicBody, readErr := io.ReadAll(public.Body)
+	closeErr := public.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Live public Schedule: %v", err)
+	}
+	if public.StatusCode != http.StatusOK || !strings.Contains(string(publicBody), "Status: Live") ||
+		!strings.Contains(string(publicBody), wantActualStart) {
+		t.Errorf("Live public Schedule = %d %q", public.StatusCode, publicBody)
+	}
+
+	dataDir := server.dataDir
+	bin := server.bin
+	server.stop(t)
+	restarted := startBeamers(t, bin, dataDir)
+	deepLink := get(t, authenticatedClient(t), restarted.address, fmt.Sprintf("/schedule/sessions/%d", sessionID))
+	deepLinkBody, readErr := io.ReadAll(deepLink.Body)
+	closeErr = deepLink.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read restarted Live public Session: %v", err)
+	}
+	if deepLink.StatusCode != http.StatusOK || !strings.Contains(string(deepLinkBody), "Status: Live") ||
+		!strings.Contains(string(deepLinkBody), wantActualStart) {
+		t.Errorf("restarted Live public Session = %d %q", deepLink.StatusCode, deepLinkBody)
+	}
+	restarted.stop(t)
+}
+
+func TestOperatorEndsLiveSessionWithoutMovingLaterSessions(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	sessionID := prepareActiveSchedule(t, administrator, server)
+	operator := provisionOperator(t, administrator, server)
+	client := sessionv1connect.NewSessionControlServiceClient(
+		operator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	started, err := client.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "start-keynote-before-end",
+		ExpectedLiveStateRevision: proto.Int64(0),
+	}))
+	if err != nil {
+		t.Fatalf("Start Session before End: %v", err)
+	}
+	ended, err := client.EndSession(t.Context(), connect.NewRequest(&sessionv1.EndSessionRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "end-keynote",
+		ExpectedLiveStateRevision: proto.Int64(1),
+	}))
+	if err != nil {
+		t.Fatalf("End Session RPC: %v", err)
+	}
+	state := ended.Msg.GetState()
+	if state.GetSessionId() != sessionID || state.GetSessionRunId() != started.Msg.GetState().GetSessionRunId() ||
+		state.GetLifecycle() != sessionv1.SessionLifecycle_SESSION_LIFECYCLE_ENDED ||
+		state.GetLiveStateRevision() != 2 || state.GetActualEnd() == nil ||
+		state.GetActualEnd().AsTime().Before(state.GetActualStart().AsTime()) {
+		t.Errorf("ended Session state = %+v", state)
+	}
+
+	listing := get(t, authenticatedClient(t), server.address, "/schedule")
+	listingBody, readErr := io.ReadAll(listing.Body)
+	closeErr := listing.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Schedule after End: %v", err)
+	}
+	if listing.StatusCode != http.StatusOK || strings.Contains(string(listingBody), "Opening Keynote") ||
+		!strings.Contains(string(listingBody), "Closing Session") ||
+		!strings.Contains(string(listingBody), "2099-08-21T12:00:00+02:00") {
+		t.Errorf("Schedule after End = %d %q", listing.StatusCode, listingBody)
+	}
+	deepLink := get(t, authenticatedClient(t), server.address, fmt.Sprintf("/schedule/sessions/%d", sessionID))
+	deepLinkBody, readErr := io.ReadAll(deepLink.Body)
+	closeErr = deepLink.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read ended Session deep link: %v", err)
+	}
+	if deepLink.StatusCode != http.StatusOK || !strings.Contains(string(deepLinkBody), "Status: Ended") ||
+		!strings.Contains(string(deepLinkBody), "Actual End:") {
+		t.Errorf("ended Session deep link = %d %q", deepLink.StatusCode, deepLinkBody)
+	}
+	server.stop(t)
+}
+
+func TestSessionCommandsRejectStaleAndConflictingRetries(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	sessionID := prepareActiveSchedule(t, administrator, server)
+	operator := provisionOperator(t, administrator, server)
+	client := sessionv1connect.NewSessionControlServiceClient(
+		operator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	_, missingRevisionErr := client.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "missing-live-state-revision",
+	}))
+	if connect.CodeOf(missingRevisionErr) != connect.CodeInvalidArgument {
+		t.Fatalf("missing expected Live State Revision error = %v, want InvalidArgument", missingRevisionErr)
+	}
+	request := connect.NewRequest(&sessionv1.StartSessionRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "idempotent-start",
+		ExpectedLiveStateRevision: proto.Int64(0),
+	})
+	started, err := client.StartSession(t.Context(), request)
+	if err != nil {
+		t.Fatalf("first Start Session: %v", err)
+	}
+	retried, err := client.StartSession(t.Context(), connect.NewRequest(request.Msg))
+	if err != nil {
+		t.Fatalf("exact Start Session retry: %v", err)
+	}
+	if retried.Msg.GetState().GetSessionRunId() != started.Msg.GetState().GetSessionRunId() ||
+		retried.Msg.GetState().GetLiveStateRevision() != 1 ||
+		!retried.Msg.GetState().GetActualStart().AsTime().Equal(started.Msg.GetState().GetActualStart().AsTime()) {
+		t.Errorf("exact retry = %+v, want original %+v", retried.Msg.GetState(), started.Msg.GetState())
+	}
+
+	staleRequest := &sessionv1.StartSessionRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "stale-start",
+		ExpectedLiveStateRevision: proto.Int64(0),
+	}
+	_, staleErr := client.StartSession(t.Context(), connect.NewRequest(staleRequest))
+	if connect.CodeOf(staleErr) != connect.CodeAborted {
+		t.Fatalf("stale Start error = %v, want Aborted", staleErr)
+	}
+	var staleConnectErr *connect.Error
+	if !errors.As(staleErr, &staleConnectErr) {
+		t.Fatalf("stale Start error type = %T", staleErr)
+	}
+	var current *sessionv1.SessionState
+	for _, detail := range staleConnectErr.Details() {
+		value, detailErr := detail.Value()
+		if detailErr != nil {
+			t.Fatalf("decode stale Start detail: %v", detailErr)
+		}
+		if state, ok := value.(*sessionv1.SessionState); ok {
+			current = state
+		}
+	}
+	if current == nil || current.GetSessionRunId() != started.Msg.GetState().GetSessionRunId() ||
+		current.GetLifecycle() != sessionv1.SessionLifecycle_SESSION_LIFECYCLE_LIVE ||
+		current.GetLiveStateRevision() != 1 {
+		t.Errorf("stale Start current state = %+v", current)
+	}
+	_, staleRetryErr := client.StartSession(t.Context(), connect.NewRequest(staleRequest))
+	var staleRetryConnectErr *connect.Error
+	if connect.CodeOf(staleRetryErr) != connect.CodeAborted ||
+		!errors.As(staleRetryErr, &staleRetryConnectErr) || len(staleRetryConnectErr.Details()) != 1 {
+		t.Fatalf("stale Start retry error = %v, want original Aborted detail", staleRetryErr)
+	}
+	retriedDetail, detailErr := staleRetryConnectErr.Details()[0].Value()
+	if detailErr != nil {
+		t.Fatalf("decode stale Start retry detail: %v", detailErr)
+	}
+	retriedCurrent, ok := retriedDetail.(*sessionv1.SessionState)
+	if !ok || retriedCurrent.GetSessionRunId() != current.GetSessionRunId() ||
+		retriedCurrent.GetLiveStateRevision() != current.GetLiveStateRevision() {
+		t.Errorf("stale Start retry detail = %+v, want original %+v", retriedCurrent, current)
+	}
+
+	_, conflictErr := client.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "idempotent-start",
+		ExpectedLiveStateRevision: proto.Int64(1),
+	}))
+	if connect.CodeOf(conflictErr) != connect.CodeAlreadyExists {
+		t.Errorf("conflicting Command ID error = %v, want AlreadyExists", conflictErr)
+	}
+	ended, err := client.EndSession(t.Context(), connect.NewRequest(&sessionv1.EndSessionRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "end-after-rejections",
+		ExpectedLiveStateRevision: proto.Int64(1),
+	}))
+	if err != nil {
+		t.Fatalf("End Session after rejected commands: %v", err)
+	}
+	if ended.Msg.GetState().GetSessionRunId() != started.Msg.GetState().GetSessionRunId() ||
+		ended.Msg.GetState().GetLiveStateRevision() != 2 {
+		t.Errorf("state mutated by rejected commands: %+v", ended.Msg.GetState())
+	}
+	server.stop(t)
+}
+
+func provisionOperator(
+	t *testing.T,
+	administrator *http.Client,
+	server *runningServer,
+) *http.Client {
+	t.Helper()
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/accounts",
+		map[string]string{
+			"name": "Opal Operator", "password": "operator correct horse battery staple",
+			"command_id": "create-account-opal",
+		},
+		http.StatusCreated, "{\"id\":2,\"name\":\"Opal Operator\",\"administrator\":false}\n",
+	)
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events/1/grants",
+		map[string]any{"account_id": 2, "role": "Operator", "command_id": "grant-opal-operator"},
+		http.StatusCreated, "{\"event_id\":1,\"account_id\":2,\"role\":\"Operator\"}\n",
+	)
+	operator := authenticatedClient(t)
+	assertJSONRequest(
+		t, operator, server.address, "/auth/sign-in",
+		map[string]string{
+			"name": "Opal Operator", "password": "operator correct horse battery staple",
+		},
+		http.StatusNoContent, "",
+	)
+	return operator
 }
 
 func TestAdministratorSelectsExistingAccountForEventGrant(t *testing.T) {

@@ -527,6 +527,8 @@ var (
 	// SessionsColumns holds the columns for the "sessions" table.
 	SessionsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "lifecycle", Type: field.TypeEnum, Enums: []string{"Scheduled", "Live", "Ended", "Canceled"}, Default: "Scheduled"},
+		{Name: "live_state_revision", Type: field.TypeInt, Default: 0},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "event_id", Type: field.TypeInt},
 	}
@@ -538,7 +540,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "sessions_events_sessions",
-				Columns:    []*schema.Column{SessionsColumns[2]},
+				Columns:    []*schema.Column{SessionsColumns[4]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -610,6 +612,36 @@ var (
 				Name:    "sessionpublishedversion_session_id_published_revision",
 				Unique:  true,
 				Columns: []*schema.Column{SessionPublishedVersionsColumns[14], SessionPublishedVersionsColumns[1]},
+			},
+		},
+	}
+	// SessionRunsColumns holds the columns for the "session_runs" table.
+	SessionRunsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "actual_start", Type: field.TypeTime},
+		{Name: "actual_end", Type: field.TypeTime, Nullable: true},
+		{Name: "snapshot_json", Type: field.TypeString, Size: 2147483647},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "session_id", Type: field.TypeInt},
+	}
+	// SessionRunsTable holds the schema information for the "session_runs" table.
+	SessionRunsTable = &schema.Table{
+		Name:       "session_runs",
+		Columns:    SessionRunsColumns,
+		PrimaryKey: []*schema.Column{SessionRunsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "session_runs_sessions_runs",
+				Columns:    []*schema.Column{SessionRunsColumns[5]},
+				RefColumns: []*schema.Column{SessionsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "sessionrun_session_id_actual_end",
+				Unique:  false,
+				Columns: []*schema.Column{SessionRunsColumns[5], SessionRunsColumns[2]},
 			},
 		},
 	}
@@ -859,6 +891,7 @@ var (
 		SessionsTable,
 		SessionDraftsTable,
 		SessionPublishedVersionsTable,
+		SessionRunsTable,
 		TracksTable,
 		TrackDraftsTable,
 		TrackPublishedVersionsTable,
@@ -903,6 +936,7 @@ func init() {
 	SessionsTable.ForeignKeys[0].RefTable = EventsTable
 	SessionDraftsTable.ForeignKeys[0].RefTable = SessionsTable
 	SessionPublishedVersionsTable.ForeignKeys[0].RefTable = SessionsTable
+	SessionRunsTable.ForeignKeys[0].RefTable = SessionsTable
 	TracksTable.ForeignKeys[0].RefTable = EventsTable
 	TrackDraftsTable.ForeignKeys[0].RefTable = TracksTable
 	TrackPublishedVersionsTable.ForeignKeys[0].RefTable = TracksTable

@@ -392,7 +392,7 @@ func openRundownTest(t *testing.T) (*store.SQLite, auth.Account, int) {
 	if err != nil {
 		t.Fatalf("create Event: %v", err)
 	}
-	if _, err := eventService.GrantProducer(
+	if _, err := eventService.GrantEventAccess(
 		t.Context(), administrator, event.ID, administrator.ID, "Producer", "grant-rundown-producer",
 	); err != nil {
 		t.Fatalf("grant Producer: %v", err)

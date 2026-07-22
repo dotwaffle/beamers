@@ -21,9 +21,10 @@ var (
 
 // CommandRejection is the stable, non-sensitive outcome of a rejected command.
 type CommandRejection struct {
-	Code    string `json:"code"`
-	Field   string `json:"field,omitempty"`
-	Message string `json:"message,omitempty"`
+	Code    string          `json:"code"`
+	Field   string          `json:"field,omitempty"`
+	Message string          `json:"message,omitempty"`
+	Details json.RawMessage `json:"details,omitempty"`
 }
 
 // RejectedCommandError replays a Command's original rejected outcome.

@@ -65,7 +65,7 @@ type GrantEventAccessParams struct {
 	ActorAccountID int
 	EventID        int
 	AccountID      int
-	Role           eventgrant.Role
+	Role           string
 	Now            time.Time
 	CommandID      string
 	PayloadHash    string
@@ -139,7 +139,7 @@ func (transaction *CommandTx) GrantEventAccess(
 	created, err := transaction.transaction.EventGrant.Create().
 		SetEventID(params.EventID).
 		SetAccountID(params.AccountID).
-		SetRole(params.Role).
+		SetRole(eventgrant.Role(params.Role)).
 		SetCreatedAt(params.Now).
 		Save(ctx)
 	if ent.IsConstraintError(err) {
