@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/predicate"
 )
@@ -27,9 +28,61 @@ func (_u *InstallationUpdate) Where(ps ...predicate.Installation) *InstallationU
 	return _u
 }
 
+// SetActiveEventID sets the "active_event_id" field.
+func (_u *InstallationUpdate) SetActiveEventID(v int) *InstallationUpdate {
+	_u.mutation.SetActiveEventID(v)
+	return _u
+}
+
+// SetNillableActiveEventID sets the "active_event_id" field if the given value is not nil.
+func (_u *InstallationUpdate) SetNillableActiveEventID(v *int) *InstallationUpdate {
+	if v != nil {
+		_u.SetActiveEventID(*v)
+	}
+	return _u
+}
+
+// ClearActiveEventID clears the value of the "active_event_id" field.
+func (_u *InstallationUpdate) ClearActiveEventID() *InstallationUpdate {
+	_u.mutation.ClearActiveEventID()
+	return _u
+}
+
+// SetActivationGeneration sets the "activation_generation" field.
+func (_u *InstallationUpdate) SetActivationGeneration(v int) *InstallationUpdate {
+	_u.mutation.ResetActivationGeneration()
+	_u.mutation.SetActivationGeneration(v)
+	return _u
+}
+
+// SetNillableActivationGeneration sets the "activation_generation" field if the given value is not nil.
+func (_u *InstallationUpdate) SetNillableActivationGeneration(v *int) *InstallationUpdate {
+	if v != nil {
+		_u.SetActivationGeneration(*v)
+	}
+	return _u
+}
+
+// AddActivationGeneration adds value to the "activation_generation" field.
+func (_u *InstallationUpdate) AddActivationGeneration(v int) *InstallationUpdate {
+	_u.mutation.AddActivationGeneration(v)
+	return _u
+}
+
+// SetActiveEvent sets the "active_event" edge to the Event entity.
+func (_u *InstallationUpdate) SetActiveEvent(v *Event) *InstallationUpdate {
+	return _u.SetActiveEventID(v.ID)
+}
+
 // Mutation returns the InstallationMutation object of the builder.
 func (_u *InstallationUpdate) Mutation() *InstallationMutation {
 	return _u.mutation
+}
+
+// ClearActiveEvent clears the "active_event" edge to the Event entity.
+func (_u *InstallationUpdate) ClearActiveEvent() *InstallationUpdate {
+	_u.mutation.ClearActiveEvent()
+	return _u
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -59,7 +112,20 @@ func (_u *InstallationUpdate) ExecX(ctx context.Context) {
 	}
 }
 
+// check runs all checks and user-defined validators on the builder.
+func (_u *InstallationUpdate) check() error {
+	if v, ok := _u.mutation.ActivationGeneration(); ok {
+		if err := installation.ActivationGenerationValidator(v); err != nil {
+			return &ValidationError{Name: "activation_generation", err: fmt.Errorf(`ent: validator failed for field "Installation.activation_generation": %w`, err)}
+		}
+	}
+	return nil
+}
+
 func (_u *InstallationUpdate) sqlSave(ctx context.Context) (_node int, err error) {
+	if err := _u.check(); err != nil {
+		return _node, err
+	}
 	_spec := sqlgraph.NewUpdateSpec(installation.Table, installation.Columns, sqlgraph.NewFieldSpec(installation.FieldID, field.TypeInt))
 	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
@@ -67,6 +133,41 @@ func (_u *InstallationUpdate) sqlSave(ctx context.Context) (_node int, err error
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := _u.mutation.ActivationGeneration(); ok {
+		_spec.SetField(installation.FieldActivationGeneration, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedActivationGeneration(); ok {
+		_spec.AddField(installation.FieldActivationGeneration, field.TypeInt, value)
+	}
+	if _u.mutation.ActiveEventCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   installation.ActiveEventTable,
+			Columns: []string{installation.ActiveEventColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(event.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ActiveEventIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   installation.ActiveEventTable,
+			Columns: []string{installation.ActiveEventColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(event.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -88,9 +189,61 @@ type InstallationUpdateOne struct {
 	mutation *InstallationMutation
 }
 
+// SetActiveEventID sets the "active_event_id" field.
+func (_u *InstallationUpdateOne) SetActiveEventID(v int) *InstallationUpdateOne {
+	_u.mutation.SetActiveEventID(v)
+	return _u
+}
+
+// SetNillableActiveEventID sets the "active_event_id" field if the given value is not nil.
+func (_u *InstallationUpdateOne) SetNillableActiveEventID(v *int) *InstallationUpdateOne {
+	if v != nil {
+		_u.SetActiveEventID(*v)
+	}
+	return _u
+}
+
+// ClearActiveEventID clears the value of the "active_event_id" field.
+func (_u *InstallationUpdateOne) ClearActiveEventID() *InstallationUpdateOne {
+	_u.mutation.ClearActiveEventID()
+	return _u
+}
+
+// SetActivationGeneration sets the "activation_generation" field.
+func (_u *InstallationUpdateOne) SetActivationGeneration(v int) *InstallationUpdateOne {
+	_u.mutation.ResetActivationGeneration()
+	_u.mutation.SetActivationGeneration(v)
+	return _u
+}
+
+// SetNillableActivationGeneration sets the "activation_generation" field if the given value is not nil.
+func (_u *InstallationUpdateOne) SetNillableActivationGeneration(v *int) *InstallationUpdateOne {
+	if v != nil {
+		_u.SetActivationGeneration(*v)
+	}
+	return _u
+}
+
+// AddActivationGeneration adds value to the "activation_generation" field.
+func (_u *InstallationUpdateOne) AddActivationGeneration(v int) *InstallationUpdateOne {
+	_u.mutation.AddActivationGeneration(v)
+	return _u
+}
+
+// SetActiveEvent sets the "active_event" edge to the Event entity.
+func (_u *InstallationUpdateOne) SetActiveEvent(v *Event) *InstallationUpdateOne {
+	return _u.SetActiveEventID(v.ID)
+}
+
 // Mutation returns the InstallationMutation object of the builder.
 func (_u *InstallationUpdateOne) Mutation() *InstallationMutation {
 	return _u.mutation
+}
+
+// ClearActiveEvent clears the "active_event" edge to the Event entity.
+func (_u *InstallationUpdateOne) ClearActiveEvent() *InstallationUpdateOne {
+	_u.mutation.ClearActiveEvent()
+	return _u
 }
 
 // Where appends a list predicates to the InstallationUpdate builder.
@@ -133,7 +286,20 @@ func (_u *InstallationUpdateOne) ExecX(ctx context.Context) {
 	}
 }
 
+// check runs all checks and user-defined validators on the builder.
+func (_u *InstallationUpdateOne) check() error {
+	if v, ok := _u.mutation.ActivationGeneration(); ok {
+		if err := installation.ActivationGenerationValidator(v); err != nil {
+			return &ValidationError{Name: "activation_generation", err: fmt.Errorf(`ent: validator failed for field "Installation.activation_generation": %w`, err)}
+		}
+	}
+	return nil
+}
+
 func (_u *InstallationUpdateOne) sqlSave(ctx context.Context) (_node *Installation, err error) {
+	if err := _u.check(); err != nil {
+		return _node, err
+	}
 	_spec := sqlgraph.NewUpdateSpec(installation.Table, installation.Columns, sqlgraph.NewFieldSpec(installation.FieldID, field.TypeInt))
 	id, ok := _u.mutation.ID()
 	if !ok {
@@ -158,6 +324,41 @@ func (_u *InstallationUpdateOne) sqlSave(ctx context.Context) (_node *Installati
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := _u.mutation.ActivationGeneration(); ok {
+		_spec.SetField(installation.FieldActivationGeneration, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedActivationGeneration(); ok {
+		_spec.AddField(installation.FieldActivationGeneration, field.TypeInt, value)
+	}
+	if _u.mutation.ActiveEventCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   installation.ActiveEventTable,
+			Columns: []string{installation.ActiveEventColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(event.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ActiveEventIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   installation.ActiveEventTable,
+			Columns: []string{installation.ActiveEventColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(event.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &Installation{config: _u.config}
 	_spec.Assign = _node.assignValues

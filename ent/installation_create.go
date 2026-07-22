@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/installation"
 )
 
@@ -34,6 +35,39 @@ func (_c *InstallationCreate) SetNillableCreatedAt(v *time.Time) *InstallationCr
 	return _c
 }
 
+// SetActiveEventID sets the "active_event_id" field.
+func (_c *InstallationCreate) SetActiveEventID(v int) *InstallationCreate {
+	_c.mutation.SetActiveEventID(v)
+	return _c
+}
+
+// SetNillableActiveEventID sets the "active_event_id" field if the given value is not nil.
+func (_c *InstallationCreate) SetNillableActiveEventID(v *int) *InstallationCreate {
+	if v != nil {
+		_c.SetActiveEventID(*v)
+	}
+	return _c
+}
+
+// SetActivationGeneration sets the "activation_generation" field.
+func (_c *InstallationCreate) SetActivationGeneration(v int) *InstallationCreate {
+	_c.mutation.SetActivationGeneration(v)
+	return _c
+}
+
+// SetNillableActivationGeneration sets the "activation_generation" field if the given value is not nil.
+func (_c *InstallationCreate) SetNillableActivationGeneration(v *int) *InstallationCreate {
+	if v != nil {
+		_c.SetActivationGeneration(*v)
+	}
+	return _c
+}
+
+// SetActiveEvent sets the "active_event" edge to the Event entity.
+func (_c *InstallationCreate) SetActiveEvent(v *Event) *InstallationCreate {
+	return _c.SetActiveEventID(v.ID)
+}
+
 // Mutation returns the InstallationMutation object of the builder.
 func (_c *InstallationCreate) Mutation() *InstallationMutation {
 	return _c.mutation
@@ -41,7 +75,9 @@ func (_c *InstallationCreate) Mutation() *InstallationMutation {
 
 // Save creates the Installation in the database.
 func (_c *InstallationCreate) Save(ctx context.Context) (*Installation, error) {
-	_c.defaults()
+	if err := _c.defaults(); err != nil {
+		return nil, err
+	}
 	return withHooks(ctx, _c.sqlSave, _c.mutation, _c.hooks)
 }
 
@@ -68,17 +104,33 @@ func (_c *InstallationCreate) ExecX(ctx context.Context) {
 }
 
 // defaults sets the default values of the builder before save.
-func (_c *InstallationCreate) defaults() {
+func (_c *InstallationCreate) defaults() error {
 	if _, ok := _c.mutation.CreatedAt(); !ok {
+		if installation.DefaultCreatedAt == nil {
+			return fmt.Errorf("ent: uninitialized installation.DefaultCreatedAt (forgotten import ent/runtime?)")
+		}
 		v := installation.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
 	}
+	if _, ok := _c.mutation.ActivationGeneration(); !ok {
+		v := installation.DefaultActivationGeneration
+		_c.mutation.SetActivationGeneration(v)
+	}
+	return nil
 }
 
 // check runs all checks and user-defined validators on the builder.
 func (_c *InstallationCreate) check() error {
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Installation.created_at"`)}
+	}
+	if _, ok := _c.mutation.ActivationGeneration(); !ok {
+		return &ValidationError{Name: "activation_generation", err: errors.New(`ent: missing required field "Installation.activation_generation"`)}
+	}
+	if v, ok := _c.mutation.ActivationGeneration(); ok {
+		if err := installation.ActivationGenerationValidator(v); err != nil {
+			return &ValidationError{Name: "activation_generation", err: fmt.Errorf(`ent: validator failed for field "Installation.activation_generation": %w`, err)}
+		}
 	}
 	return nil
 }
@@ -109,6 +161,27 @@ func (_c *InstallationCreate) createSpec() (*Installation, *sqlgraph.CreateSpec)
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(installation.FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value
+	}
+	if value, ok := _c.mutation.ActivationGeneration(); ok {
+		_spec.SetField(installation.FieldActivationGeneration, field.TypeInt, value)
+		_node.ActivationGeneration = value
+	}
+	if nodes := _c.mutation.ActiveEventIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   installation.ActiveEventTable,
+			Columns: []string{installation.ActiveEventColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(event.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.ActiveEventID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }

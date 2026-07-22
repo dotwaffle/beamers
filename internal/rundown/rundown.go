@@ -362,26 +362,8 @@ func validateEditDraft(input EditDraftInput) (EditDraftInput, error) {
 			return EditDraftInput{}, err
 		}
 		item.Title = strings.TrimSpace(item.Title)
-		if !validText(item.Title, 200) {
-			return EditDraftInput{}, invalid("sessions.title", "must be 1 to 200 characters without control characters")
-		}
-		if !validSessionType(item.Type) {
-			return EditDraftInput{}, invalid("sessions.type", "must be a supported version-one Session type")
-		}
-		if item.AudienceVisibility != AudiencePublic && item.AudienceVisibility != AudienceCrewOnly {
-			return EditDraftInput{}, invalid("sessions.audience_visibility", "must be Public or CrewOnly")
-		}
-		if item.PlannedStart.IsZero() || !item.PlannedEnd.After(item.PlannedStart) {
-			return EditDraftInput{}, invalid("sessions.planned_end", "must be after planned_start")
-		}
-		if item.TimingPolicy != TimingFixedEnd && item.TimingPolicy != TimingFixedDuration && item.TimingPolicy != TimingManualEnd {
-			return EditDraftInput{}, invalid("sessions.timing_policy", "must be FixedEnd, FixedDuration, or ManualEnd")
-		}
-		if item.MinimumDuration < 0 || item.MinimumDuration > item.PlannedEnd.Sub(item.PlannedStart) {
-			return EditDraftInput{}, invalid("sessions.minimum_duration", "must fit within Planned Time")
-		}
-		if !validBoundary(item.StartBoundary) || !validBoundary(item.EndBoundary) {
-			return EditDraftInput{}, invalid("sessions.boundary", "must be Hard or Soft")
+		if err := ValidateSessionScalars(*item); err != nil {
+			return EditDraftInput{}, err
 		}
 		if len(item.Lanes) == 0 {
 			return EditDraftInput{}, invalid("sessions.lanes", "must include at least one Lane")
@@ -403,6 +385,33 @@ func validateEditDraft(input EditDraftInput) (EditDraftInput, error) {
 		}
 	}
 	return input, nil
+}
+
+// ValidateSessionScalars applies the authoritative invariants shared by Draft
+// input and persisted Published Session state.
+func ValidateSessionScalars(item SessionDraftInput) error {
+	if !validText(item.Title, 200) {
+		return invalid("sessions.title", "must be 1 to 200 characters without control characters")
+	}
+	if !validSessionType(item.Type) {
+		return invalid("sessions.type", "must be a supported version-one Session type")
+	}
+	if item.AudienceVisibility != AudiencePublic && item.AudienceVisibility != AudienceCrewOnly {
+		return invalid("sessions.audience_visibility", "must be Public or CrewOnly")
+	}
+	if item.PlannedStart.IsZero() || !item.PlannedEnd.After(item.PlannedStart) {
+		return invalid("sessions.planned_end", "must be after planned_start")
+	}
+	if item.TimingPolicy != TimingFixedEnd && item.TimingPolicy != TimingFixedDuration && item.TimingPolicy != TimingManualEnd {
+		return invalid("sessions.timing_policy", "must be FixedEnd, FixedDuration, or ManualEnd")
+	}
+	if item.MinimumDuration < 0 || item.MinimumDuration > item.PlannedEnd.Sub(item.PlannedStart) {
+		return invalid("sessions.minimum_duration", "must fit within Planned Time")
+	}
+	if !validBoundary(item.StartBoundary) || !validBoundary(item.EndBoundary) {
+		return invalid("sessions.boundary", "must be Hard or Soft")
+	}
+	return nil
 }
 
 func validateNamedRefs[T any](

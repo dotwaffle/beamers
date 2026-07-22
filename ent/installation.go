@@ -9,6 +9,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/installation"
 )
 
@@ -18,8 +19,35 @@ type Installation struct {
 	// ID of the ent.
 	ID int `json:"id,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
-	CreatedAt    time.Time `json:"created_at,omitempty"`
+	CreatedAt time.Time `json:"created_at,omitempty"`
+	// ActiveEventID holds the value of the "active_event_id" field.
+	ActiveEventID *int `json:"active_event_id,omitempty"`
+	// ActivationGeneration holds the value of the "activation_generation" field.
+	ActivationGeneration int `json:"activation_generation,omitempty"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the InstallationQuery when eager-loading is set.
+	Edges        InstallationEdges `json:"edges"`
 	selectValues sql.SelectValues
+}
+
+// InstallationEdges holds the relations/edges for other nodes in the graph.
+type InstallationEdges struct {
+	// ActiveEvent holds the value of the active_event edge.
+	ActiveEvent *Event `json:"active_event,omitempty"`
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [1]bool
+}
+
+// ActiveEventOrErr returns the ActiveEvent value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e InstallationEdges) ActiveEventOrErr() (*Event, error) {
+	if e.ActiveEvent != nil {
+		return e.ActiveEvent, nil
+	} else if e.loadedTypes[0] {
+		return nil, &NotFoundError{label: event.Label}
+	}
+	return nil, &NotLoadedError{edge: "active_event"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -27,7 +55,7 @@ func (*Installation) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case installation.FieldID:
+		case installation.FieldID, installation.FieldActiveEventID, installation.FieldActivationGeneration:
 			values[i] = new(sql.NullInt64)
 		case installation.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -58,6 +86,19 @@ func (_m *Installation) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.CreatedAt = value.Time
 			}
+		case installation.FieldActiveEventID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field active_event_id", values[i])
+			} else if value.Valid {
+				_m.ActiveEventID = new(int)
+				*_m.ActiveEventID = int(value.Int64)
+			}
+		case installation.FieldActivationGeneration:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field activation_generation", values[i])
+			} else if value.Valid {
+				_m.ActivationGeneration = int(value.Int64)
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -69,6 +110,11 @@ func (_m *Installation) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (_m *Installation) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
+}
+
+// QueryActiveEvent queries the "active_event" edge of the Installation entity.
+func (_m *Installation) QueryActiveEvent() *EventQuery {
+	return NewInstallationClient(_m.config).QueryActiveEvent(_m)
 }
 
 // Update returns a builder for updating this Installation.
@@ -96,6 +142,14 @@ func (_m *Installation) String() string {
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	if v := _m.ActiveEventID; v != nil {
+		builder.WriteString("active_event_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("activation_generation=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ActivationGeneration))
 	builder.WriteByte(')')
 	return builder.String()
 }

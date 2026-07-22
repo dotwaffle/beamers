@@ -8220,14 +8220,18 @@ func (m *EventGrantMutation) ResetEdge(name string) error {
 // InstallationMutation represents an operation that mutates the Installation nodes in the graph.
 type InstallationMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *int
-	created_at    *time.Time
-	clearedFields map[string]struct{}
-	done          bool
-	oldValue      func(context.Context) (*Installation, error)
-	predicates    []predicate.Installation
+	op                       Op
+	typ                      string
+	id                       *int
+	created_at               *time.Time
+	activation_generation    *int
+	addactivation_generation *int
+	clearedFields            map[string]struct{}
+	active_event             *int
+	clearedactive_event      bool
+	done                     bool
+	oldValue                 func(context.Context) (*Installation, error)
+	predicates               []predicate.Installation
 }
 
 var _ ent.Mutation = (*InstallationMutation)(nil)
@@ -8364,6 +8368,138 @@ func (m *InstallationMutation) ResetCreatedAt() {
 	m.created_at = nil
 }
 
+// SetActiveEventID sets the "active_event_id" field.
+func (m *InstallationMutation) SetActiveEventID(i int) {
+	m.active_event = &i
+}
+
+// ActiveEventID returns the value of the "active_event_id" field in the mutation.
+func (m *InstallationMutation) ActiveEventID() (r int, exists bool) {
+	v := m.active_event
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActiveEventID returns the old "active_event_id" field's value of the Installation entity.
+// If the Installation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstallationMutation) OldActiveEventID(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActiveEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActiveEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActiveEventID: %w", err)
+	}
+	return oldValue.ActiveEventID, nil
+}
+
+// ClearActiveEventID clears the value of the "active_event_id" field.
+func (m *InstallationMutation) ClearActiveEventID() {
+	m.active_event = nil
+	m.clearedFields[installation.FieldActiveEventID] = struct{}{}
+}
+
+// ActiveEventIDCleared returns if the "active_event_id" field was cleared in this mutation.
+func (m *InstallationMutation) ActiveEventIDCleared() bool {
+	_, ok := m.clearedFields[installation.FieldActiveEventID]
+	return ok
+}
+
+// ResetActiveEventID resets all changes to the "active_event_id" field.
+func (m *InstallationMutation) ResetActiveEventID() {
+	m.active_event = nil
+	delete(m.clearedFields, installation.FieldActiveEventID)
+}
+
+// SetActivationGeneration sets the "activation_generation" field.
+func (m *InstallationMutation) SetActivationGeneration(i int) {
+	m.activation_generation = &i
+	m.addactivation_generation = nil
+}
+
+// ActivationGeneration returns the value of the "activation_generation" field in the mutation.
+func (m *InstallationMutation) ActivationGeneration() (r int, exists bool) {
+	v := m.activation_generation
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActivationGeneration returns the old "activation_generation" field's value of the Installation entity.
+// If the Installation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstallationMutation) OldActivationGeneration(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActivationGeneration is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActivationGeneration requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActivationGeneration: %w", err)
+	}
+	return oldValue.ActivationGeneration, nil
+}
+
+// AddActivationGeneration adds i to the "activation_generation" field.
+func (m *InstallationMutation) AddActivationGeneration(i int) {
+	if m.addactivation_generation != nil {
+		*m.addactivation_generation += i
+	} else {
+		m.addactivation_generation = &i
+	}
+}
+
+// AddedActivationGeneration returns the value that was added to the "activation_generation" field in this mutation.
+func (m *InstallationMutation) AddedActivationGeneration() (r int, exists bool) {
+	v := m.addactivation_generation
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetActivationGeneration resets all changes to the "activation_generation" field.
+func (m *InstallationMutation) ResetActivationGeneration() {
+	m.activation_generation = nil
+	m.addactivation_generation = nil
+}
+
+// ClearActiveEvent clears the "active_event" edge to the Event entity.
+func (m *InstallationMutation) ClearActiveEvent() {
+	m.clearedactive_event = true
+	m.clearedFields[installation.FieldActiveEventID] = struct{}{}
+}
+
+// ActiveEventCleared reports if the "active_event" edge to the Event entity was cleared.
+func (m *InstallationMutation) ActiveEventCleared() bool {
+	return m.ActiveEventIDCleared() || m.clearedactive_event
+}
+
+// ActiveEventIDs returns the "active_event" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ActiveEventID instead. It exists only for internal usage by the builders.
+func (m *InstallationMutation) ActiveEventIDs() (ids []int) {
+	if id := m.active_event; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetActiveEvent resets all changes to the "active_event" edge.
+func (m *InstallationMutation) ResetActiveEvent() {
+	m.active_event = nil
+	m.clearedactive_event = false
+}
+
 // Where appends a list predicates to the InstallationMutation builder.
 func (m *InstallationMutation) Where(ps ...predicate.Installation) {
 	m.predicates = append(m.predicates, ps...)
@@ -8398,9 +8534,15 @@ func (m *InstallationMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *InstallationMutation) Fields() []string {
-	fields := make([]string, 0, 1)
+	fields := make([]string, 0, 3)
 	if m.created_at != nil {
 		fields = append(fields, installation.FieldCreatedAt)
+	}
+	if m.active_event != nil {
+		fields = append(fields, installation.FieldActiveEventID)
+	}
+	if m.activation_generation != nil {
+		fields = append(fields, installation.FieldActivationGeneration)
 	}
 	return fields
 }
@@ -8412,6 +8554,10 @@ func (m *InstallationMutation) Field(name string) (ent.Value, bool) {
 	switch name {
 	case installation.FieldCreatedAt:
 		return m.CreatedAt()
+	case installation.FieldActiveEventID:
+		return m.ActiveEventID()
+	case installation.FieldActivationGeneration:
+		return m.ActivationGeneration()
 	}
 	return nil, false
 }
@@ -8423,6 +8569,10 @@ func (m *InstallationMutation) OldField(ctx context.Context, name string) (ent.V
 	switch name {
 	case installation.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
+	case installation.FieldActiveEventID:
+		return m.OldActiveEventID(ctx)
+	case installation.FieldActivationGeneration:
+		return m.OldActivationGeneration(ctx)
 	}
 	return nil, fmt.Errorf("unknown Installation field %s", name)
 }
@@ -8439,6 +8589,20 @@ func (m *InstallationMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetCreatedAt(v)
 		return nil
+	case installation.FieldActiveEventID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActiveEventID(v)
+		return nil
+	case installation.FieldActivationGeneration:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActivationGeneration(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Installation field %s", name)
 }
@@ -8446,13 +8610,21 @@ func (m *InstallationMutation) SetField(name string, value ent.Value) error {
 // AddedFields returns all numeric fields that were incremented/decremented during
 // this mutation.
 func (m *InstallationMutation) AddedFields() []string {
-	return nil
+	var fields []string
+	if m.addactivation_generation != nil {
+		fields = append(fields, installation.FieldActivationGeneration)
+	}
+	return fields
 }
 
 // AddedField returns the numeric value that was incremented/decremented on a field
 // with the given name. The second boolean return value indicates that this field
 // was not set, or was not defined in the schema.
 func (m *InstallationMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case installation.FieldActivationGeneration:
+		return m.AddedActivationGeneration()
+	}
 	return nil, false
 }
 
@@ -8461,6 +8633,13 @@ func (m *InstallationMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *InstallationMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case installation.FieldActivationGeneration:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddActivationGeneration(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Installation numeric field %s", name)
 }
@@ -8468,7 +8647,11 @@ func (m *InstallationMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *InstallationMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(installation.FieldActiveEventID) {
+		fields = append(fields, installation.FieldActiveEventID)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -8481,6 +8664,11 @@ func (m *InstallationMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *InstallationMutation) ClearField(name string) error {
+	switch name {
+	case installation.FieldActiveEventID:
+		m.ClearActiveEventID()
+		return nil
+	}
 	return fmt.Errorf("unknown Installation nullable field %s", name)
 }
 
@@ -8491,25 +8679,40 @@ func (m *InstallationMutation) ResetField(name string) error {
 	case installation.FieldCreatedAt:
 		m.ResetCreatedAt()
 		return nil
+	case installation.FieldActiveEventID:
+		m.ResetActiveEventID()
+		return nil
+	case installation.FieldActivationGeneration:
+		m.ResetActivationGeneration()
+		return nil
 	}
 	return fmt.Errorf("unknown Installation field %s", name)
 }
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *InstallationMutation) AddedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.active_event != nil {
+		edges = append(edges, installation.EdgeActiveEvent)
+	}
 	return edges
 }
 
 // AddedIDs returns all IDs (to other nodes) that were added for the given edge
 // name in this mutation.
 func (m *InstallationMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case installation.EdgeActiveEvent:
+		if id := m.active_event; id != nil {
+			return []ent.Value{*id}
+		}
+	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *InstallationMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
 	return edges
 }
 
@@ -8521,25 +8724,42 @@ func (m *InstallationMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *InstallationMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.clearedactive_event {
+		edges = append(edges, installation.EdgeActiveEvent)
+	}
 	return edges
 }
 
 // EdgeCleared returns a boolean which indicates if the edge with the given name
 // was cleared in this mutation.
 func (m *InstallationMutation) EdgeCleared(name string) bool {
+	switch name {
+	case installation.EdgeActiveEvent:
+		return m.clearedactive_event
+	}
 	return false
 }
 
 // ClearEdge clears the value of the edge with the given name. It returns an error
 // if that edge is not defined in the schema.
 func (m *InstallationMutation) ClearEdge(name string) error {
+	switch name {
+	case installation.EdgeActiveEvent:
+		m.ClearActiveEvent()
+		return nil
+	}
 	return fmt.Errorf("unknown Installation unique edge %s", name)
 }
 
 // ResetEdge resets all changes to the edge with the given name in this mutation.
 // It returns an error if the edge is not defined in the schema.
 func (m *InstallationMutation) ResetEdge(name string) error {
+	switch name {
+	case installation.EdgeActiveEvent:
+		m.ResetActiveEvent()
+		return nil
+	}
 	return fmt.Errorf("unknown Installation edge %s", name)
 }
 

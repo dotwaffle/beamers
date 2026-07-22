@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 
@@ -11,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/predicate"
 )
@@ -18,10 +20,11 @@ import (
 // InstallationQuery is the builder for querying Installation entities.
 type InstallationQuery struct {
 	config
-	ctx        *QueryContext
-	order      []installation.OrderOption
-	inters     []Interceptor
-	predicates []predicate.Installation
+	ctx             *QueryContext
+	order           []installation.OrderOption
+	inters          []Interceptor
+	predicates      []predicate.Installation
+	withActiveEvent *EventQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -56,6 +59,28 @@ func (_q *InstallationQuery) Unique(unique bool) *InstallationQuery {
 func (_q *InstallationQuery) Order(o ...installation.OrderOption) *InstallationQuery {
 	_q.order = append(_q.order, o...)
 	return _q
+}
+
+// QueryActiveEvent chains the current query on the "active_event" edge.
+func (_q *InstallationQuery) QueryActiveEvent() *EventQuery {
+	query := (&EventClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(installation.Table, installation.FieldID, selector),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, installation.ActiveEventTable, installation.ActiveEventColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
 }
 
 // First returns the first Installation entity from the query.
@@ -245,15 +270,27 @@ func (_q *InstallationQuery) Clone() *InstallationQuery {
 		return nil
 	}
 	return &InstallationQuery{
-		config:     _q.config,
-		ctx:        _q.ctx.Clone(),
-		order:      append([]installation.OrderOption{}, _q.order...),
-		inters:     append([]Interceptor{}, _q.inters...),
-		predicates: append([]predicate.Installation{}, _q.predicates...),
+		config:          _q.config,
+		ctx:             _q.ctx.Clone(),
+		order:           append([]installation.OrderOption{}, _q.order...),
+		inters:          append([]Interceptor{}, _q.inters...),
+		predicates:      append([]predicate.Installation{}, _q.predicates...),
+		withActiveEvent: _q.withActiveEvent.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
 	}
+}
+
+// WithActiveEvent tells the query-builder to eager-load the nodes that are connected to
+// the "active_event" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *InstallationQuery) WithActiveEvent(opts ...func(*EventQuery)) *InstallationQuery {
+	query := (&EventClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withActiveEvent = query
+	return _q
 }
 
 // GroupBy is used to group vertices by one or more fields/columns.
@@ -327,13 +364,22 @@ func (_q *InstallationQuery) prepareQuery(ctx context.Context) error {
 		}
 		_q.sql = prev
 	}
+	if installation.Policy == nil {
+		return errors.New("ent: uninitialized installation.Policy (forgotten import ent/runtime?)")
+	}
+	if err := installation.Policy.EvalQuery(ctx, _q); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (_q *InstallationQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Installation, error) {
 	var (
-		nodes = []*Installation{}
-		_spec = _q.querySpec()
+		nodes       = []*Installation{}
+		_spec       = _q.querySpec()
+		loadedTypes = [1]bool{
+			_q.withActiveEvent != nil,
+		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*Installation).scanValues(nil, columns)
@@ -341,6 +387,7 @@ func (_q *InstallationQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	_spec.Assign = func(columns []string, values []any) error {
 		node := &Installation{config: _q.config}
 		nodes = append(nodes, node)
+		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
 	for i := range hooks {
@@ -352,7 +399,46 @@ func (_q *InstallationQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+	if query := _q.withActiveEvent; query != nil {
+		if err := _q.loadActiveEvent(ctx, query, nodes, nil,
+			func(n *Installation, e *Event) { n.Edges.ActiveEvent = e }); err != nil {
+			return nil, err
+		}
+	}
 	return nodes, nil
+}
+
+func (_q *InstallationQuery) loadActiveEvent(ctx context.Context, query *EventQuery, nodes []*Installation, init func(*Installation), assign func(*Installation, *Event)) error {
+	ids := make([]int, 0, len(nodes))
+	nodeids := make(map[int][]*Installation)
+	for i := range nodes {
+		if nodes[i].ActiveEventID == nil {
+			continue
+		}
+		fk := *nodes[i].ActiveEventID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(event.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "active_event_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
 }
 
 func (_q *InstallationQuery) sqlCount(ctx context.Context) (int, error) {
@@ -379,6 +465,9 @@ func (_q *InstallationQuery) querySpec() *sqlgraph.QuerySpec {
 			if fields[i] != installation.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
+		}
+		if _q.withActiveEvent != nil {
+			_spec.Node.AddColumnOnce(installation.FieldActiveEventID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

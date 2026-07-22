@@ -415,7 +415,11 @@ type PublishedSession struct {
 
 // LoadCrewRundown returns the current Published versions without exposing Ent entities.
 func (installation *SQLite) LoadCrewRundown(ctx context.Context, eventID int) (CrewRundownState, error) {
-	revisions, err := installation.client.Rundown.Query().Where(rundown.EventIDEQ(eventID)).Only(ctx)
+	return loadCrewRundown(ctx, installation.client, eventID)
+}
+
+func loadCrewRundown(ctx context.Context, client *ent.Client, eventID int) (CrewRundownState, error) {
+	revisions, err := client.Rundown.Query().Where(rundown.EventIDEQ(eventID)).Only(ctx)
 	if ent.IsNotFound(err) {
 		return CrewRundownState{}, ErrEventNotFound
 	}
@@ -425,7 +429,7 @@ func (installation *SQLite) LoadCrewRundown(ctx context.Context, eventID int) (C
 	result := CrewRundownState{
 		DraftRevision: revisions.DraftRevision, PublishedRevision: revisions.PublishedRevision,
 	}
-	locations, err := installation.client.Location.Query().Where(location.EventIDEQ(eventID)).All(ctx)
+	locations, err := client.Location.Query().Where(location.EventIDEQ(eventID)).All(ctx)
 	if err != nil {
 		return CrewRundownState{}, opaqueError("load Crew Locations", err)
 	}
@@ -443,7 +447,7 @@ func (installation *SQLite) LoadCrewRundown(ctx context.Context, eventID int) (C
 			result.Locations = append(result.Locations, PublishedLocation{ID: identity.ID, Name: version.Name})
 		}
 	}
-	lanes, err := installation.client.Lane.Query().Where(lane.EventIDEQ(eventID)).All(ctx)
+	lanes, err := client.Lane.Query().Where(lane.EventIDEQ(eventID)).All(ctx)
 	if err != nil {
 		return CrewRundownState{}, opaqueError("load Crew Lanes", err)
 	}
@@ -461,7 +465,7 @@ func (installation *SQLite) LoadCrewRundown(ctx context.Context, eventID int) (C
 			})
 		}
 	}
-	tracks, err := installation.client.Track.Query().Where(track.EventIDEQ(eventID)).All(ctx)
+	tracks, err := client.Track.Query().Where(track.EventIDEQ(eventID)).All(ctx)
 	if err != nil {
 		return CrewRundownState{}, opaqueError("load Crew Tracks", err)
 	}
@@ -477,7 +481,7 @@ func (installation *SQLite) LoadCrewRundown(ctx context.Context, eventID int) (C
 			result.Tracks = append(result.Tracks, PublishedTrack{ID: identity.ID, Name: version.Name})
 		}
 	}
-	sessions, err := installation.client.Session.Query().Where(session.EventIDEQ(eventID)).All(ctx)
+	sessions, err := client.Session.Query().Where(session.EventIDEQ(eventID)).All(ctx)
 	if err != nil {
 		return CrewRundownState{}, opaqueError("load Crew Sessions", err)
 	}

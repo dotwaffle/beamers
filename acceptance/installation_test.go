@@ -19,6 +19,14 @@ import (
 	"testing"
 	"time"
 
+	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	activationv1 "github.com/dotwaffle/beamers/gen/beamers/activation/v1"
+	"github.com/dotwaffle/beamers/gen/beamers/activation/v1/activationv1connect"
+	rundownv1 "github.com/dotwaffle/beamers/gen/beamers/rundown/v1"
+	"github.com/dotwaffle/beamers/gen/beamers/rundown/v1/rundownv1connect"
 	"github.com/dotwaffle/beamers/internal/store/storetest"
 )
 
@@ -159,6 +167,117 @@ func TestAdministratorCreatesEventWithCoreConfiguration(t *testing.T) {
 		t.Errorf("created Event = %+v, want %+v", created, want)
 	}
 	server.stop(t)
+}
+
+func TestAdministratorActivatesPublishedEventAcrossRestart(t *testing.T) {
+	client, server := startAuthenticatedAdministrator(t)
+	createdResult := requestJSON(
+		t.Context(), client, server.address, "/admin/events",
+		map[string]string{
+			"name": "Revision 2026", "planned_start_date": "2026-08-21",
+			"planned_end_date": "2026-08-23", "timezone": "Europe/Berlin",
+			"event_locale": "de-DE", "event_day_boundary": "06:00",
+			"command_id": "create-event-for-activation",
+		},
+	)
+	if createdResult.err != nil || createdResult.status != http.StatusCreated {
+		t.Fatalf("create Event = %d, %v; body: %s", createdResult.status, createdResult.err, createdResult.body)
+	}
+	var created struct {
+		ID int `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(createdResult.body), &created); err != nil {
+		t.Fatalf("decode created Event: %v", err)
+	}
+	assertJSONRequest(
+		t, client, server.address, "/admin/events/1/grants",
+		map[string]any{"account_id": 1, "role": "Producer", "command_id": "grant-admin-producer"},
+		http.StatusCreated, "{\"event_id\":1,\"account_id\":1,\"role\":\"Producer\"}\n",
+	)
+
+	rundownClient := rundownv1connect.NewRundownServiceClient(
+		client, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	plannedStart := time.Date(2026, 8, 21, 8, 0, 0, 0, time.UTC)
+	edited, err := rundownClient.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: int64(created.ID), CommandId: "activation-draft", ExpectedDraftRevision: 0,
+		Locations: []*rundownv1.LocationDraft{{Ref: "main", Name: "Main Hall"}},
+		Lanes: []*rundownv1.LaneDraft{{
+			Ref: "main-lane", Name: "Main Lane",
+			Location: &rundownv1.TargetRef{Target: &rundownv1.TargetRef_Ref{Ref: "main"}},
+		}},
+		Sessions: []*rundownv1.SessionDraft{{
+			Ref: "opening", Title: "Opening", Type: rundownv1.SessionType_SESSION_TYPE_CEREMONY,
+			AudienceVisibility: rundownv1.AudienceVisibility_AUDIENCE_VISIBILITY_PUBLIC,
+			PlannedStart:       timestamppb.New(plannedStart), PlannedEnd: timestamppb.New(plannedStart.Add(time.Hour)),
+			TimingPolicy:    rundownv1.TimingPolicy_TIMING_POLICY_FIXED_END,
+			MinimumDuration: durationpb.New(30 * time.Minute),
+			StartBoundary:   rundownv1.Boundary_BOUNDARY_HARD, EndBoundary: rundownv1.Boundary_BOUNDARY_SOFT,
+			Lanes: []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Ref{Ref: "main-lane"}}},
+		}},
+	}))
+	if err != nil {
+		t.Fatalf("Edit Draft RPC: %v", err)
+	}
+	changeIDs := make([]int64, 0, len(edited.Msg.GetChanges()))
+	for _, change := range edited.Msg.GetChanges() {
+		changeIDs = append(changeIDs, change.GetId())
+	}
+	preview, err := rundownClient.PublishPreview(t.Context(), connect.NewRequest(&rundownv1.PublishPreviewRequest{
+		EventId: int64(created.ID), ChangeIds: changeIDs,
+	}))
+	if err != nil {
+		t.Fatalf("Publish Preview RPC: %v", err)
+	}
+	if _, publishErr := rundownClient.Publish(t.Context(), connect.NewRequest(&rundownv1.PublishRequest{
+		EventId: int64(created.ID), CommandId: "activation-publish",
+		Confirmation: &rundownv1.PublishConfirmation{
+			DraftRevision: preview.Msg.GetDraftRevision(), PublishedRevision: preview.Msg.GetPublishedRevision(),
+			ChangeIds: preview.Msg.GetChangeIds(), Fingerprint: preview.Msg.GetFingerprint(),
+		},
+	})); publishErr != nil {
+		t.Fatalf("Publish RPC: %v", publishErr)
+	}
+
+	activationClient := activationv1connect.NewActivationServiceClient(
+		client, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	preflight, err := activationClient.Preflight(t.Context(), connect.NewRequest(&activationv1.PreflightRequest{
+		EventId: int64(created.ID),
+	}))
+	if err != nil {
+		t.Fatalf("Activation Preflight RPC: %v", err)
+	}
+	if len(preflight.Msg.GetBlockers()) != 0 || preflight.Msg.GetConfirmation() == nil {
+		t.Fatalf("Activation Preflight = %+v, want confirmation without blockers", preflight.Msg)
+	}
+	activated, err := activationClient.Activate(t.Context(), connect.NewRequest(&activationv1.ActivateRequest{
+		EventId: int64(created.ID), CommandId: "activate-event-1",
+		Confirmation: preflight.Msg.GetConfirmation(),
+	}))
+	if err != nil {
+		t.Fatalf("Activate RPC: %v", err)
+	}
+	if activated.Msg.GetEventId() != int64(created.ID) || activated.Msg.GetGeneration() != 1 {
+		t.Fatalf("Activate response = %+v, want Event %d generation 1", activated.Msg, created.ID)
+	}
+
+	dataDir := server.dataDir
+	server.stop(t)
+	restarted := startBeamers(t, server.bin, dataDir)
+	restartedClient := activationv1connect.NewActivationServiceClient(
+		client, "http://"+restarted.address, connect.WithProtoJSON(),
+	)
+	active, err := restartedClient.GetActiveEvent(
+		t.Context(), connect.NewRequest(&activationv1.GetActiveEventRequest{}),
+	)
+	if err != nil {
+		t.Fatalf("Get Active Event after restart: %v", err)
+	}
+	if active.Msg.EventId == nil || active.Msg.GetEventId() != int64(created.ID) || active.Msg.GetGeneration() != 1 {
+		t.Fatalf("Active Event after restart = %+v, want Event %d generation 1", active.Msg, created.ID)
+	}
+	restarted.stop(t)
 }
 
 func TestEventCreationRejectsInvalidTimezoneAndLocale(t *testing.T) {
@@ -571,6 +690,8 @@ func TestMissingDatabaseCannotBeReinitialized(t *testing.T) {
 
 type runningServer struct {
 	address string
+	bin     string
+	dataDir string
 	cmd     *exec.Cmd
 	done    chan error
 }
@@ -640,7 +761,7 @@ func startBeamersAt(t *testing.T, bin, dataDir, listenAddress string) *runningSe
 		done <- cmd.Wait()
 	}()
 
-	server := &runningServer{cmd: cmd, done: done}
+	server := &runningServer{bin: bin, dataDir: dataDir, cmd: cmd, done: done}
 	t.Cleanup(func() {
 		if server.cmd.Process != nil {
 			_ = server.cmd.Process.Kill()

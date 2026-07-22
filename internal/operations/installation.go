@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/dotwaffle/beamers/internal/activation"
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/rundown"
@@ -26,6 +27,7 @@ var (
 type Installation struct {
 	storage         *store.SQLite
 	authentication  *auth.Service
+	activation      *activation.Service
 	events          *events.Service
 	rundownCommands *rundown.Commands
 	rundownQueries  *rundown.Queries
@@ -53,6 +55,11 @@ func OpenInstallation(ctx context.Context, dataDir string) (*Installation, error
 		return nil, errors.Join(err, storage.Close())
 	}
 	installation.authentication = authentication
+	activationService, err := activation.New(storage, time.Now)
+	if err != nil {
+		return nil, errors.Join(err, storage.Close())
+	}
+	installation.activation = activationService
 	eventService, err := events.New(storage, time.Now)
 	if err != nil {
 		return nil, errors.Join(err, storage.Close())
@@ -69,6 +76,12 @@ func OpenInstallation(ctx context.Context, dataDir string) (*Installation, error
 	}
 	installation.rundownQueries = rundownQueries
 	return installation, nil
+}
+
+// Activation returns the Active Event application service.
+// It is nil only while the installation is restricted to recovery mode.
+func (installation *Installation) Activation() *activation.Service {
+	return installation.activation
 }
 
 // IssueAdministratorBootstrap creates a short-lived credential while holding

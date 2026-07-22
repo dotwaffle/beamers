@@ -18,6 +18,7 @@ import (
 	rundownv1 "github.com/dotwaffle/beamers/gen/beamers/rundown/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/rundown/v1/rundownv1connect"
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/connectapi"
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/rundownconnect"
@@ -38,7 +39,7 @@ func TestRundownHandlerTracer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create Rundown Connect handler: %v", err)
 	}
-	interceptor, err := rundownconnect.AuthenticationInterceptor(authentication)
+	interceptor, err := connectapi.AuthenticationInterceptor(authentication)
 	if err != nil {
 		t.Fatalf("create authentication interceptor: %v", err)
 	}
@@ -59,7 +60,7 @@ func TestRundownHandlerTracer(t *testing.T) {
 		adapter,
 		connect.WithInterceptors(
 			telemetryInterceptor,
-			rundownconnect.RequestIDInterceptor(),
+			connectapi.RequestIDInterceptor(),
 			rundownconnect.ErrorInterceptor(),
 			interceptor,
 			rundownconnect.ValidationInterceptor(),

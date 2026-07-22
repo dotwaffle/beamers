@@ -2311,9 +2311,26 @@ func (c *InstallationClient) GetX(ctx context.Context, id int) *Installation {
 	return obj
 }
 
+// QueryActiveEvent queries the active_event edge of a Installation.
+func (c *InstallationClient) QueryActiveEvent(_m *Installation) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(installation.Table, installation.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, installation.ActiveEventTable, installation.ActiveEventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *InstallationClient) Hooks() []Hook {
-	return c.hooks.Installation
+	hooks := c.hooks.Installation
+	return append(hooks[:len(hooks):len(hooks)], installation.Hooks[:]...)
 }
 
 // Interceptors returns the client interceptors.

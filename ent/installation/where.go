@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/dotwaffle/beamers/ent/predicate"
 )
 
@@ -59,6 +60,16 @@ func CreatedAt(v time.Time) predicate.Installation {
 	return predicate.Installation(sql.FieldEQ(FieldCreatedAt, v))
 }
 
+// ActiveEventID applies equality check predicate on the "active_event_id" field. It's identical to ActiveEventIDEQ.
+func ActiveEventID(v int) predicate.Installation {
+	return predicate.Installation(sql.FieldEQ(FieldActiveEventID, v))
+}
+
+// ActivationGeneration applies equality check predicate on the "activation_generation" field. It's identical to ActivationGenerationEQ.
+func ActivationGeneration(v int) predicate.Installation {
+	return predicate.Installation(sql.FieldEQ(FieldActivationGeneration, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.Installation {
 	return predicate.Installation(sql.FieldEQ(FieldCreatedAt, v))
@@ -97,6 +108,99 @@ func CreatedAtLT(v time.Time) predicate.Installation {
 // CreatedAtLTE applies the LTE predicate on the "created_at" field.
 func CreatedAtLTE(v time.Time) predicate.Installation {
 	return predicate.Installation(sql.FieldLTE(FieldCreatedAt, v))
+}
+
+// ActiveEventIDEQ applies the EQ predicate on the "active_event_id" field.
+func ActiveEventIDEQ(v int) predicate.Installation {
+	return predicate.Installation(sql.FieldEQ(FieldActiveEventID, v))
+}
+
+// ActiveEventIDNEQ applies the NEQ predicate on the "active_event_id" field.
+func ActiveEventIDNEQ(v int) predicate.Installation {
+	return predicate.Installation(sql.FieldNEQ(FieldActiveEventID, v))
+}
+
+// ActiveEventIDIn applies the In predicate on the "active_event_id" field.
+func ActiveEventIDIn(vs ...int) predicate.Installation {
+	return predicate.Installation(sql.FieldIn(FieldActiveEventID, vs...))
+}
+
+// ActiveEventIDNotIn applies the NotIn predicate on the "active_event_id" field.
+func ActiveEventIDNotIn(vs ...int) predicate.Installation {
+	return predicate.Installation(sql.FieldNotIn(FieldActiveEventID, vs...))
+}
+
+// ActiveEventIDIsNil applies the IsNil predicate on the "active_event_id" field.
+func ActiveEventIDIsNil() predicate.Installation {
+	return predicate.Installation(sql.FieldIsNull(FieldActiveEventID))
+}
+
+// ActiveEventIDNotNil applies the NotNil predicate on the "active_event_id" field.
+func ActiveEventIDNotNil() predicate.Installation {
+	return predicate.Installation(sql.FieldNotNull(FieldActiveEventID))
+}
+
+// ActivationGenerationEQ applies the EQ predicate on the "activation_generation" field.
+func ActivationGenerationEQ(v int) predicate.Installation {
+	return predicate.Installation(sql.FieldEQ(FieldActivationGeneration, v))
+}
+
+// ActivationGenerationNEQ applies the NEQ predicate on the "activation_generation" field.
+func ActivationGenerationNEQ(v int) predicate.Installation {
+	return predicate.Installation(sql.FieldNEQ(FieldActivationGeneration, v))
+}
+
+// ActivationGenerationIn applies the In predicate on the "activation_generation" field.
+func ActivationGenerationIn(vs ...int) predicate.Installation {
+	return predicate.Installation(sql.FieldIn(FieldActivationGeneration, vs...))
+}
+
+// ActivationGenerationNotIn applies the NotIn predicate on the "activation_generation" field.
+func ActivationGenerationNotIn(vs ...int) predicate.Installation {
+	return predicate.Installation(sql.FieldNotIn(FieldActivationGeneration, vs...))
+}
+
+// ActivationGenerationGT applies the GT predicate on the "activation_generation" field.
+func ActivationGenerationGT(v int) predicate.Installation {
+	return predicate.Installation(sql.FieldGT(FieldActivationGeneration, v))
+}
+
+// ActivationGenerationGTE applies the GTE predicate on the "activation_generation" field.
+func ActivationGenerationGTE(v int) predicate.Installation {
+	return predicate.Installation(sql.FieldGTE(FieldActivationGeneration, v))
+}
+
+// ActivationGenerationLT applies the LT predicate on the "activation_generation" field.
+func ActivationGenerationLT(v int) predicate.Installation {
+	return predicate.Installation(sql.FieldLT(FieldActivationGeneration, v))
+}
+
+// ActivationGenerationLTE applies the LTE predicate on the "activation_generation" field.
+func ActivationGenerationLTE(v int) predicate.Installation {
+	return predicate.Installation(sql.FieldLTE(FieldActivationGeneration, v))
+}
+
+// HasActiveEvent applies the HasEdge predicate on the "active_event" edge.
+func HasActiveEvent() predicate.Installation {
+	return predicate.Installation(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, ActiveEventTable, ActiveEventColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasActiveEventWith applies the HasEdge predicate on the "active_event" edge with a given conditions (other predicates).
+func HasActiveEventWith(preds ...predicate.Event) predicate.Installation {
+	return predicate.Installation(func(s *sql.Selector) {
+		step := newActiveEventStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
 }
 
 // And groups predicates with the AND operator between them.

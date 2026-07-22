@@ -284,12 +284,22 @@ var (
 	InstallationsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "created_at", Type: field.TypeTime},
+		{Name: "activation_generation", Type: field.TypeInt, Default: 0},
+		{Name: "active_event_id", Type: field.TypeInt, Nullable: true},
 	}
 	// InstallationsTable holds the schema information for the "installations" table.
 	InstallationsTable = &schema.Table{
 		Name:       "installations",
 		Columns:    InstallationsColumns,
 		PrimaryKey: []*schema.Column{InstallationsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "installations_events_active_event",
+				Columns:    []*schema.Column{InstallationsColumns[3]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
 	}
 	// LanesColumns holds the columns for the "lanes" table.
 	LanesColumns = []*schema.Column{
@@ -873,6 +883,7 @@ func init() {
 	DraftEditsTable.ForeignKeys[1].RefTable = EventsTable
 	EventGrantsTable.ForeignKeys[0].RefTable = AccountsTable
 	EventGrantsTable.ForeignKeys[1].RefTable = EventsTable
+	InstallationsTable.ForeignKeys[0].RefTable = EventsTable
 	LanesTable.ForeignKeys[0].RefTable = EventsTable
 	LaneDraftsTable.ForeignKeys[0].RefTable = LanesTable
 	LaneDraftsTable.ForeignKeys[1].RefTable = LocationsTable

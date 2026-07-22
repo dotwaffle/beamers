@@ -11,29 +11,28 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/dotwaffle/beamers/gen/beamers/rundown/v1/rundownv1connect"
+	"github.com/dotwaffle/beamers/gen/beamers/activation/v1/activationv1connect"
+	"github.com/dotwaffle/beamers/internal/activation"
+	"github.com/dotwaffle/beamers/internal/activationconnect"
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/connectapi"
-	"github.com/dotwaffle/beamers/internal/rundown"
-	"github.com/dotwaffle/beamers/internal/rundownconnect"
 )
 
-const maxRundownRPCBodyBytes = 1 << 20
+const maxActivationRPCBodyBytes = 64 << 10
 
-func registerRundownRoutes(
+func registerActivationRoutes(
 	mux *http.ServeMux,
 	authentication *auth.Service,
-	commands *rundown.Commands,
-	queries *rundown.Queries,
+	service *activation.Service,
 	listenerAddress net.Addr,
 	tracerProvider trace.TracerProvider,
 	meterProvider metric.MeterProvider,
 	propagator propagation.TextMapPropagator,
 ) error {
 	if tracerProvider == nil || meterProvider == nil || propagator == nil {
-		return errors.New("rundown telemetry providers and propagator are required")
+		return errors.New("activation telemetry providers and propagator are required")
 	}
-	adapter, err := rundownconnect.NewHandler(commands, queries)
+	adapter, err := activationconnect.NewHandler(service)
 	if err != nil {
 		return err
 	}
@@ -51,14 +50,14 @@ func registerRundownRoutes(
 	if err != nil {
 		return err
 	}
-	path, handler := rundownv1connect.NewRundownServiceHandler(
+	path, handler := activationv1connect.NewActivationServiceHandler(
 		adapter,
 		connect.WithInterceptors(
 			telemetryInterceptor,
 			connectapi.RequestIDInterceptor(),
-			rundownconnect.ErrorInterceptor(),
+			activationconnect.ErrorInterceptor(),
 			authenticationInterceptor,
-			rundownconnect.ValidationInterceptor(),
+			activationconnect.ValidationInterceptor(),
 		),
 	)
 	allowPlaintextCrew := listenerIsLoopback(listenerAddress)
@@ -66,7 +65,7 @@ func registerRundownRoutes(
 		if !requestAllowed(response, request, http.MethodPost, allowPlaintextCrew) {
 			return
 		}
-		request.Body = http.MaxBytesReader(response, request.Body, maxRundownRPCBodyBytes)
+		request.Body = http.MaxBytesReader(response, request.Body, maxActivationRPCBodyBytes)
 		handler.ServeHTTP(response, request)
 	}))
 	return nil

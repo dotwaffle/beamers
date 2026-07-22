@@ -5,7 +5,9 @@ package installation
 import (
 	"time"
 
+	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 )
 
 const (
@@ -15,14 +17,29 @@ const (
 	FieldID = "id"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
+	// FieldActiveEventID holds the string denoting the active_event_id field in the database.
+	FieldActiveEventID = "active_event_id"
+	// FieldActivationGeneration holds the string denoting the activation_generation field in the database.
+	FieldActivationGeneration = "activation_generation"
+	// EdgeActiveEvent holds the string denoting the active_event edge name in mutations.
+	EdgeActiveEvent = "active_event"
 	// Table holds the table name of the installation in the database.
 	Table = "installations"
+	// ActiveEventTable is the table that holds the active_event relation/edge.
+	ActiveEventTable = "installations"
+	// ActiveEventInverseTable is the table name for the Event entity.
+	// It exists in this package in order to avoid circular dependency with the "event" package.
+	ActiveEventInverseTable = "events"
+	// ActiveEventColumn is the table column denoting the active_event relation/edge.
+	ActiveEventColumn = "active_event_id"
 )
 
 // Columns holds all SQL columns for installation fields.
 var Columns = []string{
 	FieldID,
 	FieldCreatedAt,
+	FieldActiveEventID,
+	FieldActivationGeneration,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -35,9 +52,20 @@ func ValidColumn(column string) bool {
 	return false
 }
 
+// Note that the variables below are initialized by the runtime
+// package on the initialization of the application. Therefore,
+// it should be imported in the main as follows:
+//
+//	import _ "github.com/dotwaffle/beamers/ent/runtime"
 var (
+	Hooks  [1]ent.Hook
+	Policy ent.Policy
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
+	// DefaultActivationGeneration holds the default value on creation for the "activation_generation" field.
+	DefaultActivationGeneration int
+	// ActivationGenerationValidator is a validator for the "activation_generation" field. It is called by the builders before save.
+	ActivationGenerationValidator func(int) error
 )
 
 // OrderOption defines the ordering options for the Installation queries.
@@ -51,4 +79,28 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 // ByCreatedAt orders the results by the created_at field.
 func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCreatedAt, opts...).ToFunc()
+}
+
+// ByActiveEventID orders the results by the active_event_id field.
+func ByActiveEventID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldActiveEventID, opts...).ToFunc()
+}
+
+// ByActivationGeneration orders the results by the activation_generation field.
+func ByActivationGeneration(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldActivationGeneration, opts...).ToFunc()
+}
+
+// ByActiveEventField orders the results by active_event field.
+func ByActiveEventField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newActiveEventStep(), sql.OrderByField(field, opts...))
+	}
+}
+func newActiveEventStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ActiveEventInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, false, ActiveEventTable, ActiveEventColumn),
+	)
 }

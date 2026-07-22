@@ -3,10 +3,8 @@ package rundownconnect
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"math"
-	"net/http"
 	"time"
 
 	"connectrpc.com/connect"
@@ -15,16 +13,9 @@ import (
 
 	rundownv1 "github.com/dotwaffle/beamers/gen/beamers/rundown/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/rundown/v1/rundownv1connect"
-	"github.com/dotwaffle/beamers/internal/auth"
-	"github.com/dotwaffle/beamers/internal/command"
+	"github.com/dotwaffle/beamers/internal/connectapi"
 	"github.com/dotwaffle/beamers/internal/rundown"
 )
-
-const sessionCookieName = "beamers_session"
-
-const requestIDHeader = "X-Request-ID"
-
-type actorContextKey struct{}
 
 // Handler translates Connect requests without owning Rundown transitions.
 type Handler struct {
@@ -39,53 +30,6 @@ func NewHandler(commands *rundown.Commands, queries *rundown.Queries) (*Handler,
 		return nil, errors.New("rundown commands and queries are required")
 	}
 	return &Handler{commands: commands, queries: queries}, nil
-}
-
-// AuthenticationInterceptor authenticates the shared browser session cookie once per RPC.
-func AuthenticationInterceptor(authentication *auth.Service) (connect.Interceptor, error) {
-	if authentication == nil {
-		return nil, errors.New("authentication service is required")
-	}
-	return &authenticationInterceptor{authentication: authentication}, nil
-}
-
-type authenticationInterceptor struct {
-	authentication *auth.Service
-}
-
-// RequestIDInterceptor validates or creates one request correlation identifier.
-func RequestIDInterceptor() connect.Interceptor {
-	return requestIDInterceptor{}
-}
-
-type requestIDInterceptor struct{}
-
-func (requestIDInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, request connect.AnyRequest) (connect.AnyResponse, error) {
-		requestID := request.Header().Get(requestIDHeader)
-		if requestID == "" {
-			requestID = rand.Text()
-		} else if err := command.ValidateID(requestID); err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid request ID"))
-		}
-		response, err := next(ctx, request)
-		if response != nil {
-			response.Header().Set(requestIDHeader, requestID)
-		}
-		var connectErr *connect.Error
-		if errors.As(err, &connectErr) {
-			connectErr.Meta().Set(requestIDHeader, requestID)
-		}
-		return response, err
-	}
-}
-
-func (requestIDInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return next
-}
-
-func (requestIDInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return next
 }
 
 // ErrorInterceptor translates domain classifications into stable Connect codes.
@@ -176,45 +120,12 @@ func validateTransportRequest(message any) error {
 	}
 }
 
-func (interceptor *authenticationInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, request connect.AnyRequest) (connect.AnyResponse, error) {
-		cookie, err := (&http.Request{Header: request.Header()}).Cookie(sessionCookieName)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
-		}
-		actor, err := interceptor.authentication.Authenticate(ctx, cookie.Value)
-		if errors.Is(err, auth.ErrInvalidSession) {
-			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
-		}
-		if err != nil {
-			return nil, connect.NewError(connect.CodeUnavailable, errors.New("authentication unavailable"))
-		}
-		return next(context.WithValue(ctx, actorContextKey{}, actor), request)
-	}
-}
-
-func (interceptor *authenticationInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return next
-}
-
-func (interceptor *authenticationInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return next
-}
-
-func actorFromContext(ctx context.Context) (auth.Account, error) {
-	actor, ok := ctx.Value(actorContextKey{}).(auth.Account)
-	if !ok {
-		return auth.Account{}, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
-	}
-	return actor, nil
-}
-
 // EditDraft translates one atomic structural Draft Edit.
 func (handler *Handler) EditDraft(
 	ctx context.Context,
 	request *connect.Request[rundownv1.EditDraftRequest],
 ) (*connect.Response[rundownv1.EditDraftResponse], error) {
-	actor, err := actorFromContext(ctx)
+	actor, err := connectapi.ActorFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +149,7 @@ func (handler *Handler) PublishPreview(
 	ctx context.Context,
 	request *connect.Request[rundownv1.PublishPreviewRequest],
 ) (*connect.Response[rundownv1.PublishPreviewResponse], error) {
-	actor, err := actorFromContext(ctx)
+	actor, err := connectapi.ActorFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +184,7 @@ func (handler *Handler) Publish(
 	ctx context.Context,
 	request *connect.Request[rundownv1.PublishRequest],
 ) (*connect.Response[rundownv1.PublishResponse], error) {
-	actor, err := actorFromContext(ctx)
+	actor, err := connectapi.ActorFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +229,7 @@ func (handler *Handler) GetCrewRundown(
 	ctx context.Context,
 	request *connect.Request[rundownv1.GetCrewRundownRequest],
 ) (*connect.Response[rundownv1.GetCrewRundownResponse], error) {
-	actor, err := actorFromContext(ctx)
+	actor, err := connectapi.ActorFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}

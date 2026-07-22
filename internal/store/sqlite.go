@@ -20,6 +20,7 @@ import (
 	entsql "entgo.io/ent/dialect/sql"
 
 	"github.com/dotwaffle/beamers/ent"
+	"github.com/dotwaffle/beamers/internal/viewer"
 
 	_ "modernc.org/sqlite" // Register the pure-Go SQLite database/sql driver.
 )
@@ -215,7 +216,7 @@ func (installation *SQLite) Ready(ctx context.Context) error {
 	if err := validateCurrentSchema(ctx, installation.database, installation.migrations); err != nil {
 		return err
 	}
-	count, err := installation.client.Installation.Query().Count(ctx)
+	count, err := installation.client.Installation.Query().Count(viewer.SystemContext(ctx))
 	if err != nil {
 		return fmt.Errorf("read installation identity: %w", err)
 	}

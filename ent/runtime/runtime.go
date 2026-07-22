@@ -592,12 +592,27 @@ func init() {
 	eventgrantDescCreatedAt := eventgrantFields[3].Descriptor()
 	// eventgrant.DefaultCreatedAt holds the default value on creation for the created_at field.
 	eventgrant.DefaultCreatedAt = eventgrantDescCreatedAt.Default.(func() time.Time)
+	installation.Policy = privacy.NewPolicies(schema.Installation{})
+	installation.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := installation.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
 	installationFields := schema.Installation{}.Fields()
 	_ = installationFields
 	// installationDescCreatedAt is the schema descriptor for created_at field.
 	installationDescCreatedAt := installationFields[0].Descriptor()
 	// installation.DefaultCreatedAt holds the default value on creation for the created_at field.
 	installation.DefaultCreatedAt = installationDescCreatedAt.Default.(func() time.Time)
+	// installationDescActivationGeneration is the schema descriptor for activation_generation field.
+	installationDescActivationGeneration := installationFields[2].Descriptor()
+	// installation.DefaultActivationGeneration holds the default value on creation for the activation_generation field.
+	installation.DefaultActivationGeneration = installationDescActivationGeneration.Default.(int)
+	// installation.ActivationGenerationValidator is a validator for the "activation_generation" field. It is called by the builders before save.
+	installation.ActivationGenerationValidator = installationDescActivationGeneration.Validators[0].(func(int) error)
 	lane.Policy = privacy.NewPolicies(schema.Lane{})
 	lane.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

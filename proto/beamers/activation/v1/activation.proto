@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package beamers.activation.v1;
+
+option go_package = "github.com/dotwaffle/beamers/gen/beamers/activation/v1;activationv1";
+
+service ActivationService {
+  rpc Preflight(PreflightRequest) returns (PreflightResponse);
+  rpc Activate(ActivateRequest) returns (ActivateResponse);
+  rpc GetActiveEvent(GetActiveEventRequest) returns (GetActiveEventResponse);
+}
+
+message Finding {
+  string code = 1;
+  string message = 2;
+}
+
+message Confirmation {
+  int64 event_revision = 1;
+  int64 published_revision = 2;
+  string fingerprint = 3;
+  int64 activation_generation = 4;
+}
+
+message PreflightRequest {
+  int64 event_id = 1;
+}
+
+message PreflightResponse {
+  int64 event_id = 1;
+  Confirmation confirmation = 2;
+  repeated Finding blockers = 3;
+  repeated Finding warnings = 4;
+}
+
+message ActivateRequest {
+  int64 event_id = 1;
+  string command_id = 2;
+  Confirmation confirmation = 3;
+}
+
+message ActivateResponse {
+  int64 event_id = 1;
+  int64 generation = 2;
+}
+
+message GetActiveEventRequest {}
+
+message GetActiveEventResponse {
+  optional int64 event_id = 1;
+  int64 generation = 2;
+}
