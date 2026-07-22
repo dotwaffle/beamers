@@ -9,7 +9,6 @@ import (
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
-	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 var (
@@ -62,7 +61,7 @@ func findCommandReceipt(
 ) (outcomeJSON string, retry bool, err error) {
 	found, err := transaction.CommandReceipt.Query().
 		Where(commandreceipt.CommandIDEQ(params.CommandID)).
-		Only(viewer.SystemContext(ctx))
+		Only(systemContext(ctx))
 	if ent.IsNotFound(err) {
 		return "", false, nil
 	}
@@ -90,7 +89,7 @@ func createCommandReceipt(
 		SetTargetID(params.TargetID).
 		SetOutcomeJSON(params.OutcomeJSON).
 		SetCreatedAt(params.Now).
-		Save(viewer.SystemContext(ctx))
+		Save(systemContext(ctx))
 	return err
 }
 

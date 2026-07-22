@@ -18,9 +18,9 @@ import (
 
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
+	"entgo.io/ent/privacy"
 
 	"github.com/dotwaffle/beamers/ent"
-	"github.com/dotwaffle/beamers/internal/viewer"
 
 	_ "modernc.org/sqlite" // Register the pure-Go SQLite database/sql driver.
 )
@@ -60,6 +60,11 @@ type migration struct {
 	name     string
 	checksum string
 	sql      string
+}
+
+// systemContext is the store-only boundary for narrowly isolated internal work.
+func systemContext(ctx context.Context) context.Context {
+	return privacy.DecisionContext(ctx, privacy.Allow)
 }
 
 // Initialize creates a new installation and atomically installs its committed
@@ -216,7 +221,7 @@ func (installation *SQLite) Ready(ctx context.Context) error {
 	if err := validateCurrentSchema(ctx, installation.database, installation.migrations); err != nil {
 		return err
 	}
-	count, err := installation.client.Installation.Query().Count(viewer.SystemContext(ctx))
+	count, err := installation.client.Installation.Query().Count(systemContext(ctx))
 	if err != nil {
 		return fmt.Errorf("read installation identity: %w", err)
 	}

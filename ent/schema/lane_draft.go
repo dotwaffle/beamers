@@ -23,10 +23,10 @@ func (LaneDraft) Hooks() []ent.Hook {
 func (LaneDraft) Policy() ent.Policy {
 	return privacy.Policy{
 		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowSystemViewer(), filterGrantedLaneDrafts(), privacy.AlwaysAllowRule(),
+			denyMissingViewer(), filterGrantedLaneDrafts(), privacy.AlwaysAllowRule(),
 		},
 		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowSystemViewer(), allowLaneOwnedMutation(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowLaneOwnedMutation(), privacy.AlwaysDenyRule(),
 		},
 	}
 }

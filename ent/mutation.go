@@ -7780,19 +7780,25 @@ func (m *EventMutation) ResetEdge(name string) error {
 // EventGrantMutation represents an operation that mutates the EventGrant nodes in the graph.
 type EventGrantMutation struct {
 	config
-	op             Op
-	typ            string
-	id             *int
-	role           *eventgrant.Role
-	created_at     *time.Time
-	clearedFields  map[string]struct{}
-	event          *int
-	clearedevent   bool
-	account        *int
-	clearedaccount bool
-	done           bool
-	oldValue       func(context.Context) (*EventGrant, error)
-	predicates     []predicate.EventGrant
+	op                       Op
+	typ                      string
+	id                       *int
+	role                     *eventgrant.Role
+	lane_ids                 *[]int
+	appendlane_ids           []int
+	display_group_keys       *[]string
+	appenddisplay_group_keys []string
+	capabilities             *[]string
+	appendcapabilities       []string
+	created_at               *time.Time
+	clearedFields            map[string]struct{}
+	event                    *int
+	clearedevent             bool
+	account                  *int
+	clearedaccount           bool
+	done                     bool
+	oldValue                 func(context.Context) (*EventGrant, error)
+	predicates               []predicate.EventGrant
 }
 
 var _ ent.Mutation = (*EventGrantMutation)(nil)
@@ -8001,6 +8007,201 @@ func (m *EventGrantMutation) ResetRole() {
 	m.role = nil
 }
 
+// SetLaneIds sets the "lane_ids" field.
+func (m *EventGrantMutation) SetLaneIds(i []int) {
+	m.lane_ids = &i
+	m.appendlane_ids = nil
+}
+
+// LaneIds returns the value of the "lane_ids" field in the mutation.
+func (m *EventGrantMutation) LaneIds() (r []int, exists bool) {
+	v := m.lane_ids
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLaneIds returns the old "lane_ids" field's value of the EventGrant entity.
+// If the EventGrant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventGrantMutation) OldLaneIds(ctx context.Context) (v []int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLaneIds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLaneIds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLaneIds: %w", err)
+	}
+	return oldValue.LaneIds, nil
+}
+
+// AppendLaneIds adds i to the "lane_ids" field.
+func (m *EventGrantMutation) AppendLaneIds(i []int) {
+	m.appendlane_ids = append(m.appendlane_ids, i...)
+}
+
+// AppendedLaneIds returns the list of values that were appended to the "lane_ids" field in this mutation.
+func (m *EventGrantMutation) AppendedLaneIds() ([]int, bool) {
+	if len(m.appendlane_ids) == 0 {
+		return nil, false
+	}
+	return m.appendlane_ids, true
+}
+
+// ClearLaneIds clears the value of the "lane_ids" field.
+func (m *EventGrantMutation) ClearLaneIds() {
+	m.lane_ids = nil
+	m.appendlane_ids = nil
+	m.clearedFields[eventgrant.FieldLaneIds] = struct{}{}
+}
+
+// LaneIdsCleared returns if the "lane_ids" field was cleared in this mutation.
+func (m *EventGrantMutation) LaneIdsCleared() bool {
+	_, ok := m.clearedFields[eventgrant.FieldLaneIds]
+	return ok
+}
+
+// ResetLaneIds resets all changes to the "lane_ids" field.
+func (m *EventGrantMutation) ResetLaneIds() {
+	m.lane_ids = nil
+	m.appendlane_ids = nil
+	delete(m.clearedFields, eventgrant.FieldLaneIds)
+}
+
+// SetDisplayGroupKeys sets the "display_group_keys" field.
+func (m *EventGrantMutation) SetDisplayGroupKeys(s []string) {
+	m.display_group_keys = &s
+	m.appenddisplay_group_keys = nil
+}
+
+// DisplayGroupKeys returns the value of the "display_group_keys" field in the mutation.
+func (m *EventGrantMutation) DisplayGroupKeys() (r []string, exists bool) {
+	v := m.display_group_keys
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDisplayGroupKeys returns the old "display_group_keys" field's value of the EventGrant entity.
+// If the EventGrant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventGrantMutation) OldDisplayGroupKeys(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDisplayGroupKeys is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDisplayGroupKeys requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDisplayGroupKeys: %w", err)
+	}
+	return oldValue.DisplayGroupKeys, nil
+}
+
+// AppendDisplayGroupKeys adds s to the "display_group_keys" field.
+func (m *EventGrantMutation) AppendDisplayGroupKeys(s []string) {
+	m.appenddisplay_group_keys = append(m.appenddisplay_group_keys, s...)
+}
+
+// AppendedDisplayGroupKeys returns the list of values that were appended to the "display_group_keys" field in this mutation.
+func (m *EventGrantMutation) AppendedDisplayGroupKeys() ([]string, bool) {
+	if len(m.appenddisplay_group_keys) == 0 {
+		return nil, false
+	}
+	return m.appenddisplay_group_keys, true
+}
+
+// ClearDisplayGroupKeys clears the value of the "display_group_keys" field.
+func (m *EventGrantMutation) ClearDisplayGroupKeys() {
+	m.display_group_keys = nil
+	m.appenddisplay_group_keys = nil
+	m.clearedFields[eventgrant.FieldDisplayGroupKeys] = struct{}{}
+}
+
+// DisplayGroupKeysCleared returns if the "display_group_keys" field was cleared in this mutation.
+func (m *EventGrantMutation) DisplayGroupKeysCleared() bool {
+	_, ok := m.clearedFields[eventgrant.FieldDisplayGroupKeys]
+	return ok
+}
+
+// ResetDisplayGroupKeys resets all changes to the "display_group_keys" field.
+func (m *EventGrantMutation) ResetDisplayGroupKeys() {
+	m.display_group_keys = nil
+	m.appenddisplay_group_keys = nil
+	delete(m.clearedFields, eventgrant.FieldDisplayGroupKeys)
+}
+
+// SetCapabilities sets the "capabilities" field.
+func (m *EventGrantMutation) SetCapabilities(s []string) {
+	m.capabilities = &s
+	m.appendcapabilities = nil
+}
+
+// Capabilities returns the value of the "capabilities" field in the mutation.
+func (m *EventGrantMutation) Capabilities() (r []string, exists bool) {
+	v := m.capabilities
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCapabilities returns the old "capabilities" field's value of the EventGrant entity.
+// If the EventGrant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventGrantMutation) OldCapabilities(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCapabilities is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCapabilities requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCapabilities: %w", err)
+	}
+	return oldValue.Capabilities, nil
+}
+
+// AppendCapabilities adds s to the "capabilities" field.
+func (m *EventGrantMutation) AppendCapabilities(s []string) {
+	m.appendcapabilities = append(m.appendcapabilities, s...)
+}
+
+// AppendedCapabilities returns the list of values that were appended to the "capabilities" field in this mutation.
+func (m *EventGrantMutation) AppendedCapabilities() ([]string, bool) {
+	if len(m.appendcapabilities) == 0 {
+		return nil, false
+	}
+	return m.appendcapabilities, true
+}
+
+// ClearCapabilities clears the value of the "capabilities" field.
+func (m *EventGrantMutation) ClearCapabilities() {
+	m.capabilities = nil
+	m.appendcapabilities = nil
+	m.clearedFields[eventgrant.FieldCapabilities] = struct{}{}
+}
+
+// CapabilitiesCleared returns if the "capabilities" field was cleared in this mutation.
+func (m *EventGrantMutation) CapabilitiesCleared() bool {
+	_, ok := m.clearedFields[eventgrant.FieldCapabilities]
+	return ok
+}
+
+// ResetCapabilities resets all changes to the "capabilities" field.
+func (m *EventGrantMutation) ResetCapabilities() {
+	m.capabilities = nil
+	m.appendcapabilities = nil
+	delete(m.clearedFields, eventgrant.FieldCapabilities)
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *EventGrantMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -8125,7 +8326,7 @@ func (m *EventGrantMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *EventGrantMutation) Fields() []string {
-	fields := make([]string, 0, 4)
+	fields := make([]string, 0, 7)
 	if m.event != nil {
 		fields = append(fields, eventgrant.FieldEventID)
 	}
@@ -8134,6 +8335,15 @@ func (m *EventGrantMutation) Fields() []string {
 	}
 	if m.role != nil {
 		fields = append(fields, eventgrant.FieldRole)
+	}
+	if m.lane_ids != nil {
+		fields = append(fields, eventgrant.FieldLaneIds)
+	}
+	if m.display_group_keys != nil {
+		fields = append(fields, eventgrant.FieldDisplayGroupKeys)
+	}
+	if m.capabilities != nil {
+		fields = append(fields, eventgrant.FieldCapabilities)
 	}
 	if m.created_at != nil {
 		fields = append(fields, eventgrant.FieldCreatedAt)
@@ -8152,6 +8362,12 @@ func (m *EventGrantMutation) Field(name string) (ent.Value, bool) {
 		return m.AccountID()
 	case eventgrant.FieldRole:
 		return m.Role()
+	case eventgrant.FieldLaneIds:
+		return m.LaneIds()
+	case eventgrant.FieldDisplayGroupKeys:
+		return m.DisplayGroupKeys()
+	case eventgrant.FieldCapabilities:
+		return m.Capabilities()
 	case eventgrant.FieldCreatedAt:
 		return m.CreatedAt()
 	}
@@ -8169,6 +8385,12 @@ func (m *EventGrantMutation) OldField(ctx context.Context, name string) (ent.Val
 		return m.OldAccountID(ctx)
 	case eventgrant.FieldRole:
 		return m.OldRole(ctx)
+	case eventgrant.FieldLaneIds:
+		return m.OldLaneIds(ctx)
+	case eventgrant.FieldDisplayGroupKeys:
+		return m.OldDisplayGroupKeys(ctx)
+	case eventgrant.FieldCapabilities:
+		return m.OldCapabilities(ctx)
 	case eventgrant.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	}
@@ -8200,6 +8422,27 @@ func (m *EventGrantMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRole(v)
+		return nil
+	case eventgrant.FieldLaneIds:
+		v, ok := value.([]int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLaneIds(v)
+		return nil
+	case eventgrant.FieldDisplayGroupKeys:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDisplayGroupKeys(v)
+		return nil
+	case eventgrant.FieldCapabilities:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCapabilities(v)
 		return nil
 	case eventgrant.FieldCreatedAt:
 		v, ok := value.(time.Time)
@@ -8240,7 +8483,17 @@ func (m *EventGrantMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *EventGrantMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(eventgrant.FieldLaneIds) {
+		fields = append(fields, eventgrant.FieldLaneIds)
+	}
+	if m.FieldCleared(eventgrant.FieldDisplayGroupKeys) {
+		fields = append(fields, eventgrant.FieldDisplayGroupKeys)
+	}
+	if m.FieldCleared(eventgrant.FieldCapabilities) {
+		fields = append(fields, eventgrant.FieldCapabilities)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -8253,6 +8506,17 @@ func (m *EventGrantMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *EventGrantMutation) ClearField(name string) error {
+	switch name {
+	case eventgrant.FieldLaneIds:
+		m.ClearLaneIds()
+		return nil
+	case eventgrant.FieldDisplayGroupKeys:
+		m.ClearDisplayGroupKeys()
+		return nil
+	case eventgrant.FieldCapabilities:
+		m.ClearCapabilities()
+		return nil
+	}
 	return fmt.Errorf("unknown EventGrant nullable field %s", name)
 }
 
@@ -8268,6 +8532,15 @@ func (m *EventGrantMutation) ResetField(name string) error {
 		return nil
 	case eventgrant.FieldRole:
 		m.ResetRole()
+		return nil
+	case eventgrant.FieldLaneIds:
+		m.ResetLaneIds()
+		return nil
+	case eventgrant.FieldDisplayGroupKeys:
+		m.ResetDisplayGroupKeys()
+		return nil
+	case eventgrant.FieldCapabilities:
+		m.ResetCapabilities()
 		return nil
 	case eventgrant.FieldCreatedAt:
 		m.ResetCreatedAt()

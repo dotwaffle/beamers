@@ -22,6 +22,12 @@ const (
 	FieldAccountID = "account_id"
 	// FieldRole holds the string denoting the role field in the database.
 	FieldRole = "role"
+	// FieldLaneIds holds the string denoting the lane_ids field in the database.
+	FieldLaneIds = "lane_ids"
+	// FieldDisplayGroupKeys holds the string denoting the display_group_keys field in the database.
+	FieldDisplayGroupKeys = "display_group_keys"
+	// FieldCapabilities holds the string denoting the capabilities field in the database.
+	FieldCapabilities = "capabilities"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeEvent holds the string denoting the event edge name in mutations.
@@ -52,6 +58,9 @@ var Columns = []string{
 	FieldEventID,
 	FieldAccountID,
 	FieldRole,
+	FieldLaneIds,
+	FieldDisplayGroupKeys,
+	FieldCapabilities,
 	FieldCreatedAt,
 }
 

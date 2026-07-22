@@ -24,6 +24,8 @@ var (
 	ErrSessionLifecycleTransition = store.ErrSessionLifecycleTransition
 	// ErrEventNotActive means a live command targeted an inactive Event.
 	ErrEventNotActive = store.ErrEventNotActive
+	// ErrSessionScopeRequired means an Operator lacks one or more Session Lanes.
+	ErrSessionScopeRequired = store.ErrSessionScopeRequired
 	// ErrCommandConflict means a Command ID was reused for different work.
 	ErrCommandConflict = store.ErrCommandConflict
 )
@@ -268,6 +270,8 @@ func rejectionCode(err error) (string, bool) {
 		return "session_lifecycle_transition", true
 	case errors.Is(err, ErrEventNotActive):
 		return "event_not_active", true
+	case errors.Is(err, ErrSessionScopeRequired):
+		return "session_scope_required", true
 	default:
 		return "", false
 	}
@@ -297,6 +301,8 @@ func restoreRejected(err error) (State, error) {
 		return State{}, ErrSessionLifecycleTransition
 	case "event_not_active":
 		return State{}, ErrEventNotActive
+	case "session_scope_required":
+		return State{}, ErrSessionScopeRequired
 	default:
 		return State{}, errors.New("session command unavailable")
 	}

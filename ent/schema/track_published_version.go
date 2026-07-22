@@ -19,10 +19,10 @@ type TrackPublishedVersion struct {
 func (TrackPublishedVersion) Policy() ent.Policy {
 	return privacy.Policy{
 		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowSystemViewer(), filterGrantedTrackPublishedVersions(), privacy.AlwaysAllowRule(),
+			denyMissingViewer(), filterGrantedTrackPublishedVersions(), privacy.AlwaysAllowRule(),
 		},
 		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowSystemCreation(), allowTrackOwnedCreation(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowTrackOwnedCreation(), privacy.AlwaysDenyRule(),
 		},
 	}
 }

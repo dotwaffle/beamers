@@ -51,7 +51,7 @@ func TestActivateEventCommitsGenerationReceiptAndAuditTogether(t *testing.T) {
 	if active != activated {
 		t.Errorf("Active Event = %+v, want %+v", active, activated)
 	}
-	receipts, err := installationStore.client.CommandReceipt.Query().All(viewer.SystemContext(t.Context()))
+	receipts, err := installationStore.client.CommandReceipt.Query().All(systemContext(t.Context()))
 	if err != nil {
 		t.Fatalf("read activation Command Receipt: %v", err)
 	}

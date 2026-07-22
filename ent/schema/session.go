@@ -18,10 +18,11 @@ type Session struct {
 func (Session) Policy() ent.Policy {
 	return privacy.Policy{
 		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowSystemViewer(), filterGrantedSessions(), privacy.AlwaysAllowRule(),
+			denyMissingViewer(), filterGrantedSessions(), privacy.AlwaysAllowRule(),
 		},
 		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowSystemViewer(), allowEventOwnedMutation(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowEventOwnedMutation(),
+			allowScopedSessionLiveMutation(), privacy.AlwaysDenyRule(),
 		},
 	}
 }

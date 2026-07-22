@@ -18,10 +18,10 @@ type Track struct {
 func (Track) Policy() ent.Policy {
 	return privacy.Policy{
 		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowSystemViewer(), filterGrantedTracks(), privacy.AlwaysAllowRule(),
+			denyMissingViewer(), filterGrantedTracks(), privacy.AlwaysAllowRule(),
 		},
 		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowSystemViewer(), allowEventOwnedMutation(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowEventOwnedMutation(), privacy.AlwaysDenyRule(),
 		},
 	}
 }

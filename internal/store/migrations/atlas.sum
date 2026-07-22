@@ -1,4 +1,4 @@
-h1:t8WvPo621W6SIJOIZ2YtsYPjqBpQfQc7JLr0Xd9q99o=
+h1:m8Me8rTzGJDacjsfMFUqD0FhUknTf0N/dRM+eyKf53g=
 0001_initialize.sql h1:xwTCiCDERoBPK7+31D4g3SOs7BivkqIi3/tf+14eOlo=
 0002_bootstrap_auth.sql h1:Z4h1bvDVGzPXbmlEc3NCEn1HvMSf2V6eY56wIlxFLjA=
 0003_add_events.sql h1:6XxTAjVp9ntlWbsdacCMQkdgTAG185npJMhgxOSnAtA=
@@ -11,3 +11,4 @@ h1:t8WvPo621W6SIJOIZ2YtsYPjqBpQfQc7JLr0Xd9q99o=
 0010_add_event_activation.sql h1:x//nNcs/qZxi1AYWXw+xnmd1cTBSdT37M/74w6IbfRg=
 0011_add_session_runs.sql h1:uGH1VZFVUKOKIlr2aenne/4kiNOiI+xSXVemscJbnno=
 0012_add_audit_details.sql h1:qO/Rd+nNIqvEfR0p5IWpgXfMN5Qcd+6Tw0ACzz7l3IQ=
+0013_add_event_grant_scopes.sql h1:k2k6VOU/hZWIvAiAacPVpaAqmgaESnl79OURK9GHdHw=

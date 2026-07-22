@@ -21,10 +21,10 @@ func (SessionDraft) Hooks() []ent.Hook {
 func (SessionDraft) Policy() ent.Policy {
 	return privacy.Policy{
 		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowSystemViewer(), filterGrantedSessionDrafts(), privacy.AlwaysAllowRule(),
+			denyMissingViewer(), filterGrantedSessionDrafts(), privacy.AlwaysAllowRule(),
 		},
 		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowSystemViewer(), allowSessionOwnedMutation(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowSessionOwnedMutation(), privacy.AlwaysDenyRule(),
 		},
 	}
 }

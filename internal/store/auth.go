@@ -31,11 +31,12 @@ var (
 
 // AccountCredential is the authentication projection of an Account.
 type AccountCredential struct {
-	ID            int                 `json:"id"`
-	Name          string              `json:"name"`
-	PasswordHash  string              `json:"-"`
-	Administrator bool                `json:"administrator"`
-	EventRoles    map[int]viewer.Role `json:"-"`
+	ID            int                       `json:"id"`
+	Name          string                    `json:"name"`
+	PasswordHash  string                    `json:"-"`
+	Administrator bool                      `json:"administrator"`
+	EventRoles    map[int]viewer.Role       `json:"-"`
+	EventScopes   map[int]viewer.EventScope `json:"-"`
 }
 
 // BootstrapAdministratorParams contains the values committed atomically when
@@ -73,7 +74,7 @@ func (transaction *CommandTx) DisableAccount(
 	accountID int,
 	now time.Time,
 ) (DisabledAccount, error) {
-	internalContext := viewer.SystemContext(ctx)
+	internalContext := systemContext(ctx)
 	target, err := transaction.transaction.Account.Query().Where(
 		account.IDEQ(accountID),
 		account.DisabledAtIsNil(),
@@ -146,7 +147,7 @@ func (transaction *CommandTx) CreateAccount(
 		SetAccountID(created.ID).
 		SetPasswordHash(params.PasswordHash).
 		SetCreatedAt(params.Now).
-		Save(viewer.SystemContext(ctx)); credentialErr != nil {
+		Save(systemContext(ctx)); credentialErr != nil {
 		return AccountCredential{}, opaqueError("create Account credential", credentialErr)
 	}
 	return accountCredential(created, params.PasswordHash), nil
@@ -160,7 +161,7 @@ func (installation *SQLite) IssueBootstrap(
 	now time.Time,
 	expiresAt time.Time,
 ) error {
-	ctx = viewer.SystemContext(ctx)
+	ctx = systemContext(ctx)
 	transaction, err := installation.client.Tx(ctx)
 	if err != nil {
 		return opaqueError("begin bootstrap issuance", err)
@@ -207,7 +208,7 @@ func (installation *SQLite) BootstrapAdministrator(
 	ctx context.Context,
 	params BootstrapAdministratorParams,
 ) (AccountCredential, error) {
-	ctx = viewer.SystemContext(ctx)
+	ctx = systemContext(ctx)
 	transaction, err := installation.client.Tx(ctx)
 	if err != nil {
 		return AccountCredential{}, opaqueError("begin Administrator bootstrap", err)
@@ -289,7 +290,7 @@ func (installation *SQLite) FindAccountCredential(
 	ctx context.Context,
 	normalizedName string,
 ) (AccountCredential, bool, error) {
-	ctx = viewer.SystemContext(ctx)
+	ctx = systemContext(ctx)
 	found, err := installation.client.PasswordCredential.Query().
 		Where(
 			passwordcredential.RevokedAtIsNil(),
@@ -337,7 +338,7 @@ func (installation *SQLite) CreateAccountSession(
 	now time.Time,
 	expiresAt time.Time,
 ) error {
-	ctx = viewer.SystemContext(ctx)
+	ctx = systemContext(ctx)
 	if err := createAccountSession(
 		ctx,
 		installation.client.AccountSession,
@@ -357,7 +358,7 @@ func (installation *SQLite) FindAccountSession(
 	tokenHash string,
 	now time.Time,
 ) (AccountCredential, error) {
-	ctx = viewer.SystemContext(ctx)
+	ctx = systemContext(ctx)
 	session, err := installation.client.AccountSession.Query().
 		Where(
 			accountsession.TokenHashEQ(tokenHash),
@@ -378,28 +379,44 @@ func (installation *SQLite) FindAccountSession(
 		return AccountCredential{}, opaqueError("read session Account", err)
 	}
 	credential := accountCredential(found, "")
-	credential.EventRoles, err = installation.findEventRoles(ctx, found.ID)
+	credential.EventRoles, credential.EventScopes, err = installation.findEventAccess(ctx, found.ID)
 	if err != nil {
 		return AccountCredential{}, err
 	}
 	return credential, nil
 }
 
-func (installation *SQLite) findEventRoles(
+func (installation *SQLite) findEventAccess(
 	ctx context.Context,
 	accountID int,
-) (map[int]viewer.Role, error) {
+) (map[int]viewer.Role, map[int]viewer.EventScope, error) {
 	found, err := installation.client.EventGrant.Query().
 		Where(eventgrant.AccountIDEQ(accountID)).
-		All(viewer.SystemContext(ctx))
+		All(systemContext(ctx))
 	if err != nil {
-		return nil, opaqueError("read Account Event Grants", err)
+		return nil, nil, opaqueError("read Account Event Grants", err)
 	}
 	roles := make(map[int]viewer.Role, len(found))
+	scopes := make(map[int]viewer.EventScope, len(found))
 	for _, grant := range found {
 		roles[grant.EventID] = viewer.Role(grant.Role)
+		scope := viewer.EventScope{
+			LaneIDs:          make(map[int]struct{}, len(grant.LaneIds)),
+			DisplayGroupKeys: make(map[string]struct{}, len(grant.DisplayGroupKeys)),
+			Capabilities:     make(map[viewer.Capability]struct{}, len(grant.Capabilities)),
+		}
+		for _, laneID := range grant.LaneIds {
+			scope.LaneIDs[laneID] = struct{}{}
+		}
+		for _, key := range grant.DisplayGroupKeys {
+			scope.DisplayGroupKeys[key] = struct{}{}
+		}
+		for _, capability := range grant.Capabilities {
+			scope.Capabilities[viewer.Capability(capability)] = struct{}{}
+		}
+		scopes[grant.EventID] = scope
 	}
-	return roles, nil
+	return roles, scopes, nil
 }
 
 // RevokeAccountSession makes a session durably unusable. Unknown and already
@@ -409,7 +426,7 @@ func (installation *SQLite) RevokeAccountSession(
 	tokenHash string,
 	now time.Time,
 ) error {
-	ctx = viewer.SystemContext(ctx)
+	ctx = systemContext(ctx)
 	if _, err := installation.client.AccountSession.Update().
 		Where(
 			accountsession.TokenHashEQ(tokenHash),

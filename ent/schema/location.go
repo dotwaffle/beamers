@@ -18,10 +18,10 @@ type Location struct {
 func (Location) Policy() ent.Policy {
 	return privacy.Policy{
 		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowSystemViewer(), filterGrantedLocations(), privacy.AlwaysAllowRule(),
+			denyMissingViewer(), filterGrantedLocations(), privacy.AlwaysAllowRule(),
 		},
 		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowSystemViewer(), allowEventOwnedMutation(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowEventOwnedMutation(), privacy.AlwaysDenyRule(),
 		},
 	}
 }

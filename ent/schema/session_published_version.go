@@ -24,10 +24,10 @@ func (SessionPublishedVersion) Hooks() []ent.Hook {
 func (SessionPublishedVersion) Policy() ent.Policy {
 	return privacy.Policy{
 		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowSystemViewer(), filterGrantedSessionPublishedVersions(), privacy.AlwaysAllowRule(),
+			denyMissingViewer(), filterGrantedSessionPublishedVersions(), privacy.AlwaysAllowRule(),
 		},
 		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowSystemCreation(), allowSessionOwnedCreation(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowSessionOwnedCreation(), privacy.AlwaysDenyRule(),
 		},
 	}
 }

@@ -652,9 +652,31 @@ func TestAdministratorGrantsOperatorAccess(t *testing.T) {
 	)
 	assertJSONRequest(
 		t, administrator, server.address, "/admin/events/1/grants",
-		map[string]any{"account_id": 2, "role": "Operator", "command_id": "grant-opal-operator"},
-		http.StatusCreated, "{\"event_id\":1,\"account_id\":2,\"role\":\"Operator\"}\n",
+		map[string]any{
+			"account_id": 2, "role": "Operator", "command_id": "grant-opal-operator",
+			"display_group_keys": []string{"crew:stage"},
+			"capabilities":       []string{"EmergencyAlert", "ViewResults"},
+		},
+		http.StatusCreated,
+		"{\"event_id\":1,\"account_id\":2,\"role\":\"Operator\",\"display_group_keys\":[\"crew:stage\"],\"capabilities\":[\"EmergencyAlert\",\"ViewResults\"]}\n",
 	)
+	server.stop(t)
+}
+
+func TestUnscopedOperatorCannotStartSession(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	sessionID := prepareActiveSchedule(t, administrator, server)
+	operator := provisionOperatorWithLanes(t, administrator, server, nil)
+	client := sessionv1connect.NewSessionControlServiceClient(
+		operator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	_, err := client.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "unscoped-operator-start",
+		ExpectedLiveStateRevision: proto.Int64(0),
+	}))
+	if connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Errorf("unscoped Operator Start error = %v, want PermissionDenied", err)
+	}
 	server.stop(t)
 }
 
@@ -862,6 +884,16 @@ func provisionOperator(
 	server *runningServer,
 ) *http.Client {
 	t.Helper()
+	return provisionOperatorWithLanes(t, administrator, server, []int{1})
+}
+
+func provisionOperatorWithLanes(
+	t *testing.T,
+	administrator *http.Client,
+	server *runningServer,
+	laneIDs []int,
+) *http.Client {
+	t.Helper()
 	assertJSONRequest(
 		t, administrator, server.address, "/admin/accounts",
 		map[string]string{
@@ -870,10 +902,17 @@ func provisionOperator(
 		},
 		http.StatusCreated, "{\"id\":2,\"name\":\"Opal Operator\",\"administrator\":false}\n",
 	)
+	grant := map[string]any{
+		"account_id": 2, "role": "Operator", "command_id": "grant-opal-operator",
+	}
+	wantGrant := "{\"event_id\":1,\"account_id\":2,\"role\":\"Operator\"}\n"
+	if len(laneIDs) > 0 {
+		grant["lane_ids"] = laneIDs
+		wantGrant = "{\"event_id\":1,\"account_id\":2,\"role\":\"Operator\",\"lane_ids\":[1]}\n"
+	}
 	assertJSONRequest(
 		t, administrator, server.address, "/admin/events/1/grants",
-		map[string]any{"account_id": 2, "role": "Operator", "command_id": "grant-opal-operator"},
-		http.StatusCreated, "{\"event_id\":1,\"account_id\":2,\"role\":\"Operator\"}\n",
+		grant, http.StatusCreated, wantGrant,
 	)
 	operator := authenticatedClient(t)
 	assertJSONRequest(

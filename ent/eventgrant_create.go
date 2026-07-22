@@ -40,6 +40,24 @@ func (_c *EventGrantCreate) SetRole(v eventgrant.Role) *EventGrantCreate {
 	return _c
 }
 
+// SetLaneIds sets the "lane_ids" field.
+func (_c *EventGrantCreate) SetLaneIds(v []int) *EventGrantCreate {
+	_c.mutation.SetLaneIds(v)
+	return _c
+}
+
+// SetDisplayGroupKeys sets the "display_group_keys" field.
+func (_c *EventGrantCreate) SetDisplayGroupKeys(v []string) *EventGrantCreate {
+	_c.mutation.SetDisplayGroupKeys(v)
+	return _c
+}
+
+// SetCapabilities sets the "capabilities" field.
+func (_c *EventGrantCreate) SetCapabilities(v []string) *EventGrantCreate {
+	_c.mutation.SetCapabilities(v)
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *EventGrantCreate) SetCreatedAt(v time.Time) *EventGrantCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -165,6 +183,18 @@ func (_c *EventGrantCreate) createSpec() (*EventGrant, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Role(); ok {
 		_spec.SetField(eventgrant.FieldRole, field.TypeEnum, value)
 		_node.Role = value
+	}
+	if value, ok := _c.mutation.LaneIds(); ok {
+		_spec.SetField(eventgrant.FieldLaneIds, field.TypeJSON, value)
+		_node.LaneIds = value
+	}
+	if value, ok := _c.mutation.DisplayGroupKeys(); ok {
+		_spec.SetField(eventgrant.FieldDisplayGroupKeys, field.TypeJSON, value)
+		_node.DisplayGroupKeys = value
+	}
+	if value, ok := _c.mutation.Capabilities(); ok {
+		_spec.SetField(eventgrant.FieldCapabilities, field.TypeJSON, value)
+		_node.Capabilities = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(eventgrant.FieldCreatedAt, field.TypeTime, value)

@@ -6,6 +6,8 @@ import (
 	"errors"
 	"time"
 
+	"entgo.io/ent/privacy"
+
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/session"
@@ -22,6 +24,8 @@ var (
 	ErrSessionLifecycleTransition = errors.New("invalid Session lifecycle transition")
 	// ErrEventNotActive means the command targeted an Event outside live authority.
 	ErrEventNotActive = errors.New("event is not active")
+	// ErrSessionScopeRequired means the actor cannot control every Session Lane.
+	ErrSessionScopeRequired = errors.New("session Lane scope required")
 )
 
 // SessionRunSnapshot is the immutable Published context captured by Start.
@@ -59,28 +63,33 @@ func (transaction *CommandTx) StartSession(
 	expectedRevision int,
 	now time.Time,
 ) (LiveSessionState, error) {
-	internalContext := viewer.SystemContext(ctx)
-	if err := transaction.requireActiveEvent(internalContext, eventID); err != nil {
+	if err := transaction.requireActiveEvent(ctx, eventID); err != nil {
 		return LiveSessionState{}, err
 	}
 	identity, err := transaction.transaction.Session.Query().Where(
 		session.IDEQ(sessionID), session.EventIDEQ(eventID),
-	).Only(internalContext)
+	).Only(ctx)
+	if errors.Is(err, privacy.Deny) {
+		return LiveSessionState{}, ErrSessionScopeRequired
+	}
 	if ent.IsNotFound(err) {
 		return LiveSessionState{}, ErrSessionNotFound
 	}
 	if err != nil {
 		return LiveSessionState{}, opaqueError("load Session live state", err)
 	}
+	snapshot, err := sessionRunSnapshot(ctx, identity)
+	if err != nil {
+		return LiveSessionState{}, err
+	}
+	if scopeErr := requireSessionLaneScope(ctx, eventID, snapshot.LaneIDs); scopeErr != nil {
+		return LiveSessionState{}, scopeErr
+	}
 	if identity.LiveStateRevision != expectedRevision {
 		return liveSessionState(ctx, transaction.transaction.SessionRun, identity)
 	}
 	if identity.Lifecycle != session.LifecycleScheduled {
 		return LiveSessionState{}, ErrSessionLifecycleTransition
-	}
-	snapshot, err := sessionRunSnapshot(internalContext, identity)
-	if err != nil {
-		return LiveSessionState{}, err
 	}
 	encoded, err := json.Marshal(snapshot)
 	if err != nil {
@@ -94,7 +103,7 @@ func (transaction *CommandTx) StartSession(
 		).
 		SetLifecycle(session.LifecycleLive).
 		AddLiveStateRevision(1).
-		Save(internalContext)
+		Save(ctx)
 	if ent.IsNotFound(err) {
 		return transaction.currentLiveSessionState(ctx, eventID, sessionID)
 	}
@@ -106,7 +115,7 @@ func (transaction *CommandTx) StartSession(
 		SetActualStart(now).
 		SetSnapshotJSON(string(encoded)).
 		SetCreatedAt(now).
-		Save(internalContext)
+		Save(ctx)
 	if err != nil {
 		return LiveSessionState{}, opaqueError("create Session Run", err)
 	}
@@ -125,18 +134,23 @@ func (transaction *CommandTx) EndSession(
 	expectedRevision int,
 	now time.Time,
 ) (LiveSessionState, error) {
-	internalContext := viewer.SystemContext(ctx)
-	if err := transaction.requireActiveEvent(internalContext, eventID); err != nil {
+	if err := transaction.requireActiveEvent(ctx, eventID); err != nil {
 		return LiveSessionState{}, err
 	}
 	identity, err := transaction.transaction.Session.Query().Where(
 		session.IDEQ(sessionID), session.EventIDEQ(eventID),
-	).Only(internalContext)
+	).Only(ctx)
+	if errors.Is(err, privacy.Deny) {
+		return LiveSessionState{}, ErrSessionScopeRequired
+	}
 	if ent.IsNotFound(err) {
 		return LiveSessionState{}, ErrSessionNotFound
 	}
 	if err != nil {
 		return LiveSessionState{}, opaqueError("load Session live state", err)
+	}
+	if scopeErr := requireSessionControlScope(ctx, identity); scopeErr != nil {
+		return LiveSessionState{}, scopeErr
 	}
 	if identity.LiveStateRevision != expectedRevision {
 		return liveSessionState(ctx, transaction.transaction.SessionRun, identity)
@@ -146,7 +160,7 @@ func (transaction *CommandTx) EndSession(
 	}
 	run, err := transaction.transaction.SessionRun.Query().Where(
 		sessionrun.SessionIDEQ(sessionID), sessionrun.ActualEndIsNil(),
-	).Order(ent.Desc(sessionrun.FieldID)).First(internalContext)
+	).Order(ent.Desc(sessionrun.FieldID)).First(ctx)
 	if ent.IsNotFound(err) {
 		return LiveSessionState{}, ErrSessionLifecycleTransition
 	}
@@ -161,7 +175,7 @@ func (transaction *CommandTx) EndSession(
 		).
 		SetLifecycle(session.LifecycleEnded).
 		AddLiveStateRevision(1).
-		Save(internalContext)
+		Save(ctx)
 	if ent.IsNotFound(err) {
 		return transaction.currentLiveSessionState(ctx, eventID, sessionID)
 	}
@@ -169,7 +183,7 @@ func (transaction *CommandTx) EndSession(
 		return LiveSessionState{}, opaqueError("end Session", err)
 	}
 	endedRun, err := transaction.transaction.SessionRun.UpdateOneID(run.ID).
-		Where(sessionrun.ActualEndIsNil()).SetActualEnd(now).Save(internalContext)
+		Where(sessionrun.ActualEndIsNil()).SetActualEnd(now).Save(ctx)
 	if ent.IsNotFound(err) {
 		return LiveSessionState{}, opaqueError("end Session Run", errors.New("open session run disappeared"))
 	}
@@ -185,6 +199,7 @@ func (transaction *CommandTx) EndSession(
 }
 
 func (transaction *CommandTx) requireActiveEvent(ctx context.Context, eventID int) error {
+	ctx = systemContext(ctx)
 	active, err := transaction.transaction.Installation.Query().
 		Where(installation.ActiveEventIDEQ(eventID)).Exist(ctx)
 	if err != nil {
@@ -196,6 +211,41 @@ func (transaction *CommandTx) requireActiveEvent(ctx context.Context, eventID in
 	return nil
 }
 
+func requireSessionControlScope(ctx context.Context, identity *ent.Session) error {
+	version, err := identity.QueryPublishedVersions().
+		Order(ent.Desc("published_revision")).First(ctx)
+	if ent.IsNotFound(err) {
+		return ErrSessionNotFound
+	}
+	if err != nil {
+		return opaqueError("load Published Session scope", err)
+	}
+	laneIDs, err := version.QueryLanes().IDs(ctx)
+	if err != nil {
+		return opaqueError("load Session Lane scope", err)
+	}
+	return requireSessionLaneScope(ctx, identity.EventID, laneIDs)
+}
+
+func requireSessionLaneScope(ctx context.Context, eventID int, laneIDs []int) error {
+	identity, ok := viewer.FromContext(ctx)
+	if !ok {
+		return ErrSessionScopeRequired
+	}
+	if identity.CanProduceEvent(eventID) {
+		return nil
+	}
+	if len(laneIDs) == 0 {
+		return ErrSessionScopeRequired
+	}
+	for _, laneID := range laneIDs {
+		if !identity.CanOperateLane(eventID, laneID) {
+			return ErrSessionScopeRequired
+		}
+	}
+	return nil
+}
+
 func (transaction *CommandTx) currentLiveSessionState(
 	ctx context.Context,
 	eventID int,
@@ -203,7 +253,7 @@ func (transaction *CommandTx) currentLiveSessionState(
 ) (LiveSessionState, error) {
 	identity, err := transaction.transaction.Session.Query().Where(
 		session.IDEQ(sessionID), session.EventIDEQ(eventID),
-	).Only(viewer.SystemContext(ctx))
+	).Only(ctx)
 	if ent.IsNotFound(err) {
 		return LiveSessionState{}, ErrSessionNotFound
 	}
@@ -253,7 +303,7 @@ func liveSessionState(
 		LiveStateRevision: identity.LiveStateRevision,
 	}
 	run, err := runs.Query().Where(sessionrun.SessionIDEQ(identity.ID)).
-		Order(ent.Desc(sessionrun.FieldID)).First(viewer.SystemContext(ctx))
+		Order(ent.Desc(sessionrun.FieldID)).First(ctx)
 	if ent.IsNotFound(err) {
 		return state, ErrLiveStateRevisionConflict
 	}

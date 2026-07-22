@@ -19,10 +19,10 @@ type Installation struct {
 func (Installation) Policy() ent.Policy {
 	return privacy.Policy{
 		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowSystemViewer(), allowAdministrator(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowAdministrator(), privacy.AlwaysDenyRule(),
 		},
 		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowSystemViewer(), allowAdministratorMutation(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowAdministratorMutation(), privacy.AlwaysDenyRule(),
 		},
 	}
 }

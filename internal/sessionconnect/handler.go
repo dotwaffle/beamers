@@ -200,6 +200,8 @@ func connectError(err error) error {
 	switch {
 	case errors.Is(err, sessioncontrol.ErrOperatorRequired):
 		return connect.NewError(connect.CodePermissionDenied, err)
+	case errors.Is(err, sessioncontrol.ErrSessionScopeRequired):
+		return connect.NewError(connect.CodePermissionDenied, err)
 	case errors.Is(err, sessioncontrol.ErrSessionNotFound):
 		return connect.NewError(connect.CodeNotFound, err)
 	case errors.Is(err, sessioncontrol.ErrLiveStateRevisionConflict):

@@ -126,24 +126,18 @@ func (handlers eventHandlers) grantEventAccess(response http.ResponseWriter, req
 		http.Error(response, "Event not found", http.StatusNotFound)
 		return
 	}
-	var input struct {
-		AccountID int    `json:"account_id"`
-		Role      string `json:"role"`
-		CommandID string `json:"command_id"`
-	}
+	var input events.GrantInput
 	if decodeErr := decodeAuthJSON(response, request, &input); decodeErr != nil {
 		http.Error(response, "invalid request", http.StatusBadRequest)
 		return
 	}
-	created, err := handlers.events.GrantEventAccess(
-		request.Context(), actor, eventID, input.AccountID, input.Role, input.CommandID,
-	)
+	created, err := handlers.events.GrantScopedEventAccess(request.Context(), actor, eventID, input)
 	switch {
 	case errors.Is(err, events.ErrAdministratorRequired):
 		http.Error(response, "Administrator authority required", http.StatusForbidden)
 		return
 	case errors.Is(err, events.ErrGrantRoleRequired):
-		http.Error(response, "role must be Producer or Operator", http.StatusUnprocessableEntity)
+		http.Error(response, "role must be Producer, Operator, or Observer", http.StatusUnprocessableEntity)
 		return
 	case errors.Is(err, events.ErrEventNotFound):
 		http.Error(response, "Event not found", http.StatusNotFound)

@@ -1,7 +1,9 @@
 package store
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -9,13 +11,14 @@ import (
 
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
+	entsession "github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 func TestLocationDraftAndPublishedStatesAreIndependent(t *testing.T) {
 	client := openEntTestClient(t)
-	ctx := viewer.SystemContext(t.Context())
+	ctx := systemContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	rundown := client.Rundown.Create().SetEventID(event.ID).SaveX(ctx)
 	location := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
@@ -53,7 +56,7 @@ func TestLocationDraftAndPublishedStatesAreIndependent(t *testing.T) {
 
 func TestEventHasAtMostOneRundown(t *testing.T) {
 	client := openEntTestClient(t)
-	ctx := viewer.SystemContext(t.Context())
+	ctx := systemContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	client.Rundown.Create().SetEventID(event.ID).SaveX(ctx)
 
@@ -65,7 +68,7 @@ func TestEventHasAtMostOneRundown(t *testing.T) {
 
 func TestRundownStateStaysWithinGrantedEvents(t *testing.T) {
 	client := openEntTestClient(t)
-	ctx := viewer.SystemContext(t.Context())
+	ctx := systemContext(t.Context())
 	granted := createSchemaTestEvent(t, client)
 	other := createSchemaTestEvent(t, client)
 	var otherDraft *ent.LocationDraft
@@ -169,10 +172,267 @@ func TestRundownStateStaysWithinGrantedEvents(t *testing.T) {
 	}
 }
 
+func TestSessionLiveMutationRequiresEveryLaneScope(t *testing.T) {
+	client := openEntTestClient(t)
+	systemContext := systemContext(t.Context())
+	event := createSchemaTestEvent(t, client)
+	otherEvent := createSchemaTestEvent(t, client)
+	lane := client.Lane.Create().SetEventID(event.ID).SaveX(systemContext)
+	secondLane := client.Lane.Create().SetEventID(event.ID).SaveX(systemContext)
+	identity := client.Session.Create().SetEventID(event.ID).SaveX(systemContext)
+	plannedStart := time.Date(2026, 8, 21, 8, 0, 0, 0, time.UTC)
+	client.SessionPublishedVersion.Create().
+		SetSessionID(identity.ID).
+		SetPublishedRevision(1).
+		SetTitle("Session").
+		SetType("Presentation").
+		SetAudienceVisibility("Public").
+		SetPlannedStart(plannedStart).
+		SetPlannedEnd(plannedStart.Add(time.Hour)).
+		SetTimingPolicy("FixedEnd").
+		SetMinimumDurationSeconds(3600).
+		SetStartBoundary("Soft").
+		SetEndBoundary("Soft").
+		AddLaneIDs(lane.ID, secondLane.ID).
+		SaveX(systemContext)
+
+	tests := []struct {
+		name     string
+		identity *viewer.Identity
+		wantRead bool
+		wantDeny bool
+	}{
+		{
+			name: "scoped Operator",
+			identity: &viewer.Identity{
+				AccountID:  11,
+				EventRoles: map[int]viewer.Role{event.ID: viewer.Operator},
+				EventScopes: map[int]viewer.EventScope{
+					event.ID: {LaneIDs: map[int]struct{}{lane.ID: {}, secondLane.ID: {}}},
+				},
+			},
+			wantRead: true,
+		},
+		{
+			name: "partially scoped Operator",
+			identity: &viewer.Identity{
+				AccountID:  15,
+				EventRoles: map[int]viewer.Role{event.ID: viewer.Operator},
+				EventScopes: map[int]viewer.EventScope{
+					event.ID: {LaneIDs: map[int]struct{}{lane.ID: {}}},
+				},
+			},
+			wantDeny: true,
+		},
+		{
+			name: "unscoped Operator",
+			identity: &viewer.Identity{
+				AccountID:  12,
+				EventRoles: map[int]viewer.Role{event.ID: viewer.Operator},
+			},
+			wantDeny: true,
+		},
+		{
+			name: "cross-Event Operator",
+			identity: &viewer.Identity{
+				AccountID:  13,
+				EventRoles: map[int]viewer.Role{otherEvent.ID: viewer.Operator},
+				EventScopes: map[int]viewer.EventScope{
+					otherEvent.ID: {LaneIDs: map[int]struct{}{lane.ID: {}}},
+				},
+			},
+			wantDeny: true,
+		},
+		{
+			name: "Observer",
+			identity: &viewer.Identity{
+				AccountID:  14,
+				EventRoles: map[int]viewer.Role{event.ID: viewer.Observer},
+			},
+			wantRead: true,
+			wantDeny: true,
+		},
+		{name: "missing viewer", wantDeny: true},
+	}
+	baseContext := t.Context()
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := baseContext
+			if test.identity != nil {
+				ctx = viewer.NewContext(ctx, *test.identity)
+			}
+			read, readErr := client.Session.Get(ctx, identity.ID)
+			if test.wantRead {
+				if readErr != nil || read.ID != identity.ID {
+					t.Fatalf("read scoped Session = (%v, %v), want Session %d", read, readErr, identity.ID)
+				}
+			} else if !errors.Is(readErr, privacy.Deny) && !ent.IsNotFound(readErr) {
+				t.Fatalf("Session read error = %v, want privacy denial or filtered not found", readErr)
+			}
+			_, err := client.Session.UpdateOneID(identity.ID).
+				SetLifecycle(entsession.LifecycleLive).
+				AddLiveStateRevision(1).
+				Save(ctx)
+			run, runErr := client.SessionRun.Create().
+				SetSessionID(identity.ID).
+				SetActualStart(plannedStart).
+				SetSnapshotJSON(`{"title":"Session"}`).
+				Save(ctx)
+			if test.wantDeny {
+				if !errors.Is(err, privacy.Deny) {
+					t.Fatalf("live mutation error = %v, want privacy denial", err)
+				}
+				if !errors.Is(runErr, privacy.Deny) {
+					t.Fatalf("Session Run creation error = %v, want privacy denial", runErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("live mutation: %v", err)
+			}
+			if runErr != nil {
+				t.Fatalf("create Session Run: %v", runErr)
+			}
+			client.SessionRun.DeleteOneID(run.ID).ExecX(systemContext)
+			client.Session.UpdateOneID(identity.ID).
+				SetLifecycle(entsession.LifecycleScheduled).
+				SetLiveStateRevision(0).
+				SaveX(systemContext)
+		})
+	}
+}
+
+func TestLaneQueriesApplyOperatorScope(t *testing.T) {
+	client := openEntTestClient(t)
+	ctx := systemContext(t.Context())
+	event := createSchemaTestEvent(t, client)
+	first := client.Lane.Create().SetEventID(event.ID).SaveX(ctx)
+	client.Lane.Create().SetEventID(event.ID).SaveX(ctx)
+
+	operatorContext := viewer.NewContext(t.Context(), viewer.Identity{
+		AccountID:  11,
+		EventRoles: map[int]viewer.Role{event.ID: viewer.Operator},
+		EventScopes: map[int]viewer.EventScope{
+			event.ID: {LaneIDs: map[int]struct{}{first.ID: {}}},
+		},
+	})
+	ids, err := client.Lane.Query().IDs(operatorContext)
+	if err != nil {
+		t.Fatalf("read scoped Operator Lanes: %v", err)
+	}
+	if len(ids) != 1 || ids[0] != first.ID {
+		t.Errorf("Operator Lane IDs = %v, want [%d]", ids, first.ID)
+	}
+
+	unscopedContext := viewer.NewContext(t.Context(), viewer.Identity{
+		AccountID: 12, EventRoles: map[int]viewer.Role{event.ID: viewer.Operator},
+	})
+	if _, queryErr := client.Lane.Query().IDs(unscopedContext); !errors.Is(queryErr, privacy.Deny) {
+		t.Errorf("unscoped Operator Lane query error = %v, want privacy denial", queryErr)
+	}
+
+	observerContext := viewer.NewContext(t.Context(), viewer.Identity{
+		AccountID: 13, EventRoles: map[int]viewer.Role{event.ID: viewer.Observer},
+	})
+	ids, err = client.Lane.Query().IDs(observerContext)
+	if err != nil || len(ids) != 2 {
+		t.Errorf("Observer Lane query = (%v, %v), want both Lanes", ids, err)
+	}
+}
+
+func TestSessionChildReadsUseTheirOwnLaneRevision(t *testing.T) {
+	client := openEntTestClient(t)
+	system := systemContext(t.Context())
+	event := createSchemaTestEvent(t, client)
+	firstLane := client.Lane.Create().SetEventID(event.ID).SaveX(system)
+	secondLane := client.Lane.Create().SetEventID(event.ID).SaveX(system)
+	identity := client.Session.Create().SetEventID(event.ID).SaveX(system)
+	plannedStart := time.Date(2026, 8, 21, 8, 0, 0, 0, time.UTC)
+
+	client.SessionDraft.Create().
+		SetSessionID(identity.ID).
+		SetTitle("Second Lane Draft").
+		SetType("Presentation").
+		SetAudienceVisibility("CrewOnly").
+		SetCrewNotes("second-lane secret").
+		SetPlannedStart(plannedStart).
+		SetPlannedEnd(plannedStart.Add(time.Hour)).
+		SetTimingPolicy("FixedEnd").
+		SetMinimumDurationSeconds(3600).
+		SetStartBoundary("Soft").
+		SetEndBoundary("Soft").
+		AddLaneIDs(secondLane.ID).
+		SaveX(system)
+	for revision, laneID := range []int{firstLane.ID, secondLane.ID} {
+		client.SessionPublishedVersion.Create().
+			SetSessionID(identity.ID).
+			SetPublishedRevision(revision + 1).
+			SetTitle(fmt.Sprintf("Version %d", revision+1)).
+			SetType("Presentation").
+			SetAudienceVisibility("CrewOnly").
+			SetCrewNotes(fmt.Sprintf("revision-%d secret", revision+1)).
+			SetPlannedStart(plannedStart).
+			SetPlannedEnd(plannedStart.Add(time.Hour)).
+			SetTimingPolicy("FixedEnd").
+			SetMinimumDurationSeconds(3600).
+			SetStartBoundary("Soft").
+			SetEndBoundary("Soft").
+			AddLaneIDs(laneID).
+			SaveX(system)
+		client.SessionRun.Create().
+			SetSessionID(identity.ID).
+			SetActualStart(plannedStart.Add(time.Duration(revision) * time.Hour)).
+			SetSnapshotJSON(fmt.Sprintf(`{"lane_ids":[%d]}`, laneID)).
+			SaveX(system)
+	}
+
+	operatorContext := func(accountID, laneID int) context.Context {
+		return viewer.NewContext(t.Context(), viewer.Identity{
+			AccountID:  accountID,
+			EventRoles: map[int]viewer.Role{event.ID: viewer.Operator},
+			EventScopes: map[int]viewer.EventScope{
+				event.ID: {LaneIDs: map[int]struct{}{laneID: {}}},
+			},
+		})
+	}
+	firstContext := operatorContext(11, firstLane.ID)
+	secondContext := operatorContext(12, secondLane.ID)
+
+	if _, err := client.Session.Get(firstContext, identity.ID); !ent.IsNotFound(err) {
+		t.Errorf("first-Lane Operator current Session error = %v, want filtered not found", err)
+	}
+	if _, err := client.Session.Get(secondContext, identity.ID); err != nil {
+		t.Errorf("second-Lane Operator current Session: %v", err)
+	}
+	if _, err := client.SessionDraft.Query().Only(firstContext); !ent.IsNotFound(err) {
+		t.Errorf("first-Lane Operator Draft error = %v, want filtered not found", err)
+	}
+	if draft, err := client.SessionDraft.Query().Only(secondContext); err != nil || draft.CrewNotes == "" {
+		t.Errorf("second-Lane Operator Draft = (%v, %v), want visible crew notes", draft, err)
+	}
+	if versions, err := client.SessionPublishedVersion.Query().All(firstContext); err != nil ||
+		len(versions) != 1 || versions[0].PublishedRevision != 1 {
+		t.Errorf("first-Lane Published Versions = (%v, %v), want revision 1", versions, err)
+	}
+	if versions, err := client.SessionPublishedVersion.Query().All(secondContext); err != nil ||
+		len(versions) != 1 || versions[0].PublishedRevision != 2 {
+		t.Errorf("second-Lane Published Versions = (%v, %v), want revision 2", versions, err)
+	}
+	if runs, err := client.SessionRun.Query().All(firstContext); err != nil || len(runs) != 1 {
+		t.Errorf("first-Lane Session Runs = (%v, %v), want one frozen Run", runs, err)
+	}
+	if runs, err := client.SessionRun.Query().All(secondContext); err != nil || len(runs) != 1 {
+		t.Errorf("second-Lane Session Runs = (%v, %v), want one frozen Run", runs, err)
+	}
+}
+
 func TestPublishedStructuralVersionsAreAppendOnly(t *testing.T) {
 	client := openEntTestClient(t)
-	ctx := viewer.SystemContext(t.Context())
+	ctx := systemContext(t.Context())
 	event := createSchemaTestEvent(t, client)
+	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+		AccountID: 11, EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
+	})
 	location := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
 	version := client.LocationPublishedVersion.Create().
 		SetLocationID(location.ID).
@@ -180,7 +440,7 @@ func TestPublishedStructuralVersionsAreAppendOnly(t *testing.T) {
 		SetName("Stage").
 		SaveX(ctx)
 
-	if err := client.LocationPublishedVersion.DeleteOne(version).Exec(ctx); !errors.Is(err, privacy.Deny) {
+	if err := client.LocationPublishedVersion.DeleteOne(version).Exec(producerContext); !errors.Is(err, privacy.Deny) {
 		t.Fatalf("Published Location deletion error = %v, want privacy denial", err)
 	}
 	lane := client.Lane.Create().SetEventID(event.ID).SaveX(ctx)
@@ -190,7 +450,7 @@ func TestPublishedStructuralVersionsAreAppendOnly(t *testing.T) {
 		SetPublishedRevision(1).
 		SetName("Lane").
 		SaveX(ctx)
-	if err := client.LanePublishedVersion.DeleteOne(laneVersion).Exec(ctx); !errors.Is(err, privacy.Deny) {
+	if err := client.LanePublishedVersion.DeleteOne(laneVersion).Exec(producerContext); !errors.Is(err, privacy.Deny) {
 		t.Fatalf("Published Lane deletion error = %v, want privacy denial", err)
 	}
 	track := client.Track.Create().SetEventID(event.ID).SaveX(ctx)
@@ -199,7 +459,7 @@ func TestPublishedStructuralVersionsAreAppendOnly(t *testing.T) {
 		SetPublishedRevision(1).
 		SetName("Track").
 		SaveX(ctx)
-	if err := client.TrackPublishedVersion.DeleteOne(trackVersion).Exec(ctx); !errors.Is(err, privacy.Deny) {
+	if err := client.TrackPublishedVersion.DeleteOne(trackVersion).Exec(producerContext); !errors.Is(err, privacy.Deny) {
 		t.Fatalf("Published Track deletion error = %v, want privacy denial", err)
 	}
 	session := client.Session.Create().SetEventID(event.ID).SaveX(ctx)
@@ -217,14 +477,14 @@ func TestPublishedStructuralVersionsAreAppendOnly(t *testing.T) {
 		SetStartBoundary("Soft").
 		SetEndBoundary("Soft").
 		SaveX(ctx)
-	if err := client.SessionPublishedVersion.DeleteOne(sessionVersion).Exec(ctx); !errors.Is(err, privacy.Deny) {
+	if err := client.SessionPublishedVersion.DeleteOne(sessionVersion).Exec(producerContext); !errors.Is(err, privacy.Deny) {
 		t.Fatalf("Published Session deletion error = %v, want privacy denial", err)
 	}
 }
 
 func TestLaneDraftAndPublishedStatesAreIndependent(t *testing.T) {
 	client := openEntTestClient(t)
-	ctx := viewer.SystemContext(t.Context())
+	ctx := systemContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	firstLocation := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
 	secondLocation := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
@@ -257,7 +517,7 @@ func TestLaneDraftAndPublishedStatesAreIndependent(t *testing.T) {
 
 func TestRetiredDraftLaneReleasesItsLocation(t *testing.T) {
 	client := openEntTestClient(t)
-	ctx := viewer.SystemContext(t.Context())
+	ctx := systemContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	location := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
 	first := client.Lane.Create().SetEventID(event.ID).SaveX(ctx)
@@ -288,7 +548,7 @@ func TestRetiredDraftLaneReleasesItsLocation(t *testing.T) {
 
 func TestLaneDraftRejectsCrossEventLocation(t *testing.T) {
 	client := openEntTestClient(t)
-	ctx := viewer.SystemContext(t.Context())
+	ctx := systemContext(t.Context())
 	laneEvent := createSchemaTestEvent(t, client)
 	locationEvent := createSchemaTestEvent(t, client)
 	lane := client.Lane.Create().SetEventID(laneEvent.ID).SaveX(ctx)
@@ -327,7 +587,7 @@ func TestCommittedMigrationRejectsCrossEventLanePlacement(t *testing.T) {
 			t.Errorf("close installation: %v", err)
 		}
 	})
-	ctx := viewer.SystemContext(t.Context())
+	ctx := systemContext(t.Context())
 	laneEvent := createSchemaTestEvent(t, installation.client)
 	locationEvent := createSchemaTestEvent(t, installation.client)
 	lane := installation.client.Lane.Create().SetEventID(laneEvent.ID).SaveX(ctx)
@@ -351,7 +611,7 @@ func TestCommittedMigrationRejectsCrossEventLanePlacement(t *testing.T) {
 
 func TestTrackDraftAndPublishedStatesAreIndependent(t *testing.T) {
 	client := openEntTestClient(t)
-	ctx := viewer.SystemContext(t.Context())
+	ctx := systemContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	track := client.Track.Create().SetEventID(event.ID).SaveX(ctx)
 	draft := client.TrackDraft.Create().
@@ -377,7 +637,7 @@ func TestTrackDraftAndPublishedStatesAreIndependent(t *testing.T) {
 
 func TestSessionDraftAndPublishedStatesAreIndependent(t *testing.T) {
 	client := openEntTestClient(t)
-	ctx := viewer.SystemContext(t.Context())
+	ctx := systemContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	firstLocation := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
 	secondLocation := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
@@ -443,7 +703,7 @@ func TestSessionDraftAndPublishedStatesAreIndependent(t *testing.T) {
 
 func TestSessionDraftSupportsEveryVersionOneType(t *testing.T) {
 	client := openEntTestClient(t)
-	ctx := viewer.SystemContext(t.Context())
+	ctx := systemContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	location := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
 	lane := client.Lane.Create().SetEventID(event.ID).SaveX(ctx)
@@ -477,7 +737,7 @@ func TestSessionDraftSupportsEveryVersionOneType(t *testing.T) {
 
 func TestSessionStateRejectsCrossEventMemberships(t *testing.T) {
 	client := openEntTestClient(t)
-	ctx := viewer.SystemContext(t.Context())
+	ctx := systemContext(t.Context())
 	sessionEvent := createSchemaTestEvent(t, client)
 	memberEvent := createSchemaTestEvent(t, client)
 	session := client.Session.Create().SetEventID(sessionEvent.ID).SaveX(ctx)
@@ -519,7 +779,7 @@ func TestCommittedMigrationRejectsCrossEventSessionMembership(t *testing.T) {
 			t.Errorf("close installation: %v", err)
 		}
 	})
-	ctx := viewer.SystemContext(t.Context())
+	ctx := systemContext(t.Context())
 	sessionEvent := createSchemaTestEvent(t, installation.client)
 	memberEvent := createSchemaTestEvent(t, installation.client)
 	session := installation.client.Session.Create().SetEventID(sessionEvent.ID).SaveX(ctx)
@@ -576,5 +836,5 @@ func createSchemaTestEvent(t *testing.T, client *ent.Client) *ent.Event {
 		SetTimezone("Europe/Berlin").
 		SetEventLocale("de-DE").
 		SetEventDayBoundary("06:00").
-		SaveX(viewer.SystemContext(t.Context()))
+		SaveX(systemContext(t.Context()))
 }

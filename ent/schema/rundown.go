@@ -16,10 +16,10 @@ type Rundown struct {
 func (Rundown) Policy() ent.Policy {
 	return privacy.Policy{
 		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowSystemViewer(), filterGrantedRundowns(), privacy.AlwaysAllowRule(),
+			denyMissingViewer(), filterGrantedRundowns(), privacy.AlwaysAllowRule(),
 		},
 		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowSystemViewer(), allowEventOwnedMutation(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowEventOwnedMutation(), privacy.AlwaysDenyRule(),
 		},
 	}
 }

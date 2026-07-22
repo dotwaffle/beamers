@@ -251,6 +251,9 @@ var (
 	EventGrantsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "role", Type: field.TypeEnum, Enums: []string{"Producer", "Operator", "Observer"}},
+		{Name: "lane_ids", Type: field.TypeJSON, Nullable: true},
+		{Name: "display_group_keys", Type: field.TypeJSON, Nullable: true},
+		{Name: "capabilities", Type: field.TypeJSON, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "account_id", Type: field.TypeInt},
 		{Name: "event_id", Type: field.TypeInt},
@@ -263,13 +266,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "event_grants_accounts_event_grants",
-				Columns:    []*schema.Column{EventGrantsColumns[3]},
+				Columns:    []*schema.Column{EventGrantsColumns[6]},
 				RefColumns: []*schema.Column{AccountsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "event_grants_events_grants",
-				Columns:    []*schema.Column{EventGrantsColumns[4]},
+				Columns:    []*schema.Column{EventGrantsColumns[7]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -278,7 +281,7 @@ var (
 			{
 				Name:    "eventgrant_event_id_account_id",
 				Unique:  true,
-				Columns: []*schema.Column{EventGrantsColumns[4], EventGrantsColumns[3]},
+				Columns: []*schema.Column{EventGrantsColumns[7], EventGrantsColumns[6]},
 			},
 		},
 	}

@@ -19,10 +19,10 @@ type LocationPublishedVersion struct {
 func (LocationPublishedVersion) Policy() ent.Policy {
 	return privacy.Policy{
 		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowSystemViewer(), filterGrantedLocationPublishedVersions(), privacy.AlwaysAllowRule(),
+			denyMissingViewer(), filterGrantedLocationPublishedVersions(), privacy.AlwaysAllowRule(),
 		},
 		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowSystemCreation(), allowLocationOwnedCreation(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowLocationOwnedCreation(), privacy.AlwaysDenyRule(),
 		},
 	}
 }

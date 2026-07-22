@@ -18,10 +18,10 @@ type AuditEntry struct {
 func (AuditEntry) Policy() ent.Policy {
 	return privacy.Policy{
 		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowSystemViewer(), allowAdministrator(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowAdministrator(), privacy.AlwaysDenyRule(),
 		},
 		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowSystemCreation(), allowAuthenticatedAuditCreation(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowAuthenticatedAuditCreation(), privacy.AlwaysDenyRule(),
 		},
 	}
 }

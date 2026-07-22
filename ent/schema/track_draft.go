@@ -16,10 +16,10 @@ type TrackDraft struct {
 func (TrackDraft) Policy() ent.Policy {
 	return privacy.Policy{
 		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowSystemViewer(), filterGrantedTrackDrafts(), privacy.AlwaysAllowRule(),
+			denyMissingViewer(), filterGrantedTrackDrafts(), privacy.AlwaysAllowRule(),
 		},
 		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowSystemViewer(), allowTrackOwnedMutation(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowTrackOwnedMutation(), privacy.AlwaysDenyRule(),
 		},
 	}
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/track"
-	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 var (
@@ -281,7 +280,7 @@ func (transaction *CommandTx) EditDraft(
 		return EditDraftResult{}, opaqueError("advance Draft revision", err)
 	}
 	_ = updated
-	internalContext := viewer.SystemContext(ctx)
+	internalContext := systemContext(ctx)
 	edit, err := transaction.transaction.DraftEdit.Create().
 		SetEventID(params.EventID).
 		SetActorAccountID(params.ActorAccountID).

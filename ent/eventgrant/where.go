@@ -130,6 +130,36 @@ func RoleNotIn(vs ...Role) predicate.EventGrant {
 	return predicate.EventGrant(sql.FieldNotIn(FieldRole, vs...))
 }
 
+// LaneIdsIsNil applies the IsNil predicate on the "lane_ids" field.
+func LaneIdsIsNil() predicate.EventGrant {
+	return predicate.EventGrant(sql.FieldIsNull(FieldLaneIds))
+}
+
+// LaneIdsNotNil applies the NotNil predicate on the "lane_ids" field.
+func LaneIdsNotNil() predicate.EventGrant {
+	return predicate.EventGrant(sql.FieldNotNull(FieldLaneIds))
+}
+
+// DisplayGroupKeysIsNil applies the IsNil predicate on the "display_group_keys" field.
+func DisplayGroupKeysIsNil() predicate.EventGrant {
+	return predicate.EventGrant(sql.FieldIsNull(FieldDisplayGroupKeys))
+}
+
+// DisplayGroupKeysNotNil applies the NotNil predicate on the "display_group_keys" field.
+func DisplayGroupKeysNotNil() predicate.EventGrant {
+	return predicate.EventGrant(sql.FieldNotNull(FieldDisplayGroupKeys))
+}
+
+// CapabilitiesIsNil applies the IsNil predicate on the "capabilities" field.
+func CapabilitiesIsNil() predicate.EventGrant {
+	return predicate.EventGrant(sql.FieldIsNull(FieldCapabilities))
+}
+
+// CapabilitiesNotNil applies the NotNil predicate on the "capabilities" field.
+func CapabilitiesNotNil() predicate.EventGrant {
+	return predicate.EventGrant(sql.FieldNotNull(FieldCapabilities))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.EventGrant {
 	return predicate.EventGrant(sql.FieldEQ(FieldCreatedAt, v))

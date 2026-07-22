@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -25,6 +26,12 @@ type EventGrant struct {
 	AccountID int `json:"account_id,omitempty"`
 	// Role holds the value of the "role" field.
 	Role eventgrant.Role `json:"role,omitempty"`
+	// LaneIds holds the value of the "lane_ids" field.
+	LaneIds []int `json:"lane_ids,omitempty"`
+	// DisplayGroupKeys holds the value of the "display_group_keys" field.
+	DisplayGroupKeys []string `json:"display_group_keys,omitempty"`
+	// Capabilities holds the value of the "capabilities" field.
+	Capabilities []string `json:"capabilities,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -71,6 +78,8 @@ func (*EventGrant) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case eventgrant.FieldLaneIds, eventgrant.FieldDisplayGroupKeys, eventgrant.FieldCapabilities:
+			values[i] = new([]byte)
 		case eventgrant.FieldID, eventgrant.FieldEventID, eventgrant.FieldAccountID:
 			values[i] = new(sql.NullInt64)
 		case eventgrant.FieldRole:
@@ -115,6 +124,30 @@ func (_m *EventGrant) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field role", values[i])
 			} else if value.Valid {
 				_m.Role = eventgrant.Role(value.String)
+			}
+		case eventgrant.FieldLaneIds:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field lane_ids", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.LaneIds); err != nil {
+					return fmt.Errorf("unmarshal field lane_ids: %w", err)
+				}
+			}
+		case eventgrant.FieldDisplayGroupKeys:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field display_group_keys", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.DisplayGroupKeys); err != nil {
+					return fmt.Errorf("unmarshal field display_group_keys: %w", err)
+				}
+			}
+		case eventgrant.FieldCapabilities:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field capabilities", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Capabilities); err != nil {
+					return fmt.Errorf("unmarshal field capabilities: %w", err)
+				}
 			}
 		case eventgrant.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -176,6 +209,15 @@ func (_m *EventGrant) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("role=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Role))
+	builder.WriteString(", ")
+	builder.WriteString("lane_ids=")
+	builder.WriteString(fmt.Sprintf("%v", _m.LaneIds))
+	builder.WriteString(", ")
+	builder.WriteString("display_group_keys=")
+	builder.WriteString(fmt.Sprintf("%v", _m.DisplayGroupKeys))
+	builder.WriteString(", ")
+	builder.WriteString("capabilities=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Capabilities))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

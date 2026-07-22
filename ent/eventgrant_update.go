@@ -82,6 +82,15 @@ func (_u *EventGrantUpdate) sqlSave(ctx context.Context) (_node int, err error) 
 			}
 		}
 	}
+	if _u.mutation.LaneIdsCleared() {
+		_spec.ClearField(eventgrant.FieldLaneIds, field.TypeJSON)
+	}
+	if _u.mutation.DisplayGroupKeysCleared() {
+		_spec.ClearField(eventgrant.FieldDisplayGroupKeys, field.TypeJSON)
+	}
+	if _u.mutation.CapabilitiesCleared() {
+		_spec.ClearField(eventgrant.FieldCapabilities, field.TypeJSON)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{eventgrant.Label}
@@ -186,6 +195,15 @@ func (_u *EventGrantUpdateOne) sqlSave(ctx context.Context) (_node *EventGrant, 
 				ps[i](selector)
 			}
 		}
+	}
+	if _u.mutation.LaneIdsCleared() {
+		_spec.ClearField(eventgrant.FieldLaneIds, field.TypeJSON)
+	}
+	if _u.mutation.DisplayGroupKeysCleared() {
+		_spec.ClearField(eventgrant.FieldDisplayGroupKeys, field.TypeJSON)
+	}
+	if _u.mutation.CapabilitiesCleared() {
+		_spec.ClearField(eventgrant.FieldCapabilities, field.TypeJSON)
 	}
 	_node = &EventGrant{config: _u.config}
 	_spec.Assign = _node.assignValues

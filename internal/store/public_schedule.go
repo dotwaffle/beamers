@@ -12,7 +12,6 @@ import (
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
 	"github.com/dotwaffle/beamers/ent/track"
-	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 // PublicScheduleState contains only attendee-safe current Published data.
@@ -62,7 +61,7 @@ type PublicScheduleSession struct {
 
 // LoadPublicSchedule returns the Active Event's current public projection.
 func (installationStore *SQLite) LoadPublicSchedule(ctx context.Context) (PublicScheduleState, error) {
-	internalContext := viewer.SystemContext(ctx)
+	internalContext := systemContext(ctx)
 	active, err := installationStore.client.Installation.Query().
 		Where(installation.ActiveEventIDNotNil()).
 		Only(internalContext)

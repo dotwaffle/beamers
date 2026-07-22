@@ -71,6 +71,7 @@ type Account struct {
 	Name          string
 	Administrator bool
 	EventRoles    map[int]viewer.Role
+	EventScopes   map[int]viewer.EventScope
 }
 
 // AuditEntry is one Administrator-readable authenticated action.
@@ -740,14 +741,15 @@ func newSession(token string, expiresAt time.Time, found store.AccountCredential
 func account(found store.AccountCredential) Account {
 	return Account{
 		ID: found.ID, Name: found.Name, Administrator: found.Administrator,
-		EventRoles: found.EventRoles,
+		EventRoles: found.EventRoles, EventScopes: found.EventScopes,
 	}
 }
 
 // Context adds the Account's authenticated authorization facts for Ent privacy.
 func (account Account) Context(ctx context.Context) context.Context {
 	return viewer.NewContext(ctx, viewer.Identity{
-		AccountID: account.ID, Administrator: account.Administrator, EventRoles: account.EventRoles,
+		AccountID: account.ID, Administrator: account.Administrator,
+		EventRoles: account.EventRoles, EventScopes: account.EventScopes,
 	})
 }
 

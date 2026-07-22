@@ -15,7 +15,6 @@ import (
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/track"
-	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 // PendingDraftChange is the persistence projection used to form a Publish Preview.
@@ -73,7 +72,7 @@ func loadPublishState(
 	if err != nil {
 		return PublishState{}, opaqueError("load Rundown revisions", err)
 	}
-	internalContext := viewer.SystemContext(ctx)
+	internalContext := systemContext(ctx)
 	storedChanges, err := changes.Query().
 		Where(draftchange.EventIDEQ(eventID)).
 		Order(ent.Asc(draftchange.FieldID)).
@@ -147,7 +146,7 @@ func (transaction *CommandTx) Publish(ctx context.Context, params PublishParams)
 	if err != nil {
 		return PublishResult{}, opaqueError("load confirmed Rundown revisions", err)
 	}
-	internalContext := viewer.SystemContext(ctx)
+	internalContext := systemContext(ctx)
 	changes, err := transaction.transaction.DraftChange.Query().
 		Where(
 			draftchange.EventIDEQ(params.EventID),

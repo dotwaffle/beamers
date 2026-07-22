@@ -18,10 +18,10 @@ type CommandReceipt struct {
 func (CommandReceipt) Policy() ent.Policy {
 	return privacy.Policy{
 		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowSystemViewer(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), privacy.AlwaysDenyRule(),
 		},
 		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowSystemCreation(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), privacy.AlwaysDenyRule(),
 		},
 	}
 }

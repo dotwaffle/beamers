@@ -18,10 +18,10 @@ type Event struct {
 func (Event) Policy() ent.Policy {
 	return privacy.Policy{
 		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowSystemViewer(), filterGrantedEvents(), privacy.AlwaysAllowRule(),
+			denyMissingViewer(), filterGrantedEvents(), privacy.AlwaysAllowRule(),
 		},
 		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowSystemViewer(), allowEventMutation(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowEventMutation(), privacy.AlwaysDenyRule(),
 		},
 	}
 }

@@ -19,10 +19,10 @@ type EventGrant struct {
 func (EventGrant) Policy() ent.Policy {
 	return privacy.Policy{
 		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowSystemViewer(), allowAdministrator(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowAdministrator(), privacy.AlwaysDenyRule(),
 		},
 		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowSystemViewer(), allowAdministrator(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowAdministrator(), privacy.AlwaysDenyRule(),
 		},
 	}
 }
@@ -33,6 +33,9 @@ func (EventGrant) Fields() []ent.Field {
 		field.Int("event_id").Immutable(),
 		field.Int("account_id").Immutable(),
 		field.Enum("role").Values("Producer", "Operator", "Observer").Immutable(),
+		field.JSON("lane_ids", []int{}).Optional().Immutable(),
+		field.JSON("display_group_keys", []string{}).Optional().Immutable(),
+		field.JSON("capabilities", []string{}).Optional().Immutable(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 	}
 }

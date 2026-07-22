@@ -112,11 +112,11 @@ func TestEventCommandRetryReturnsOriginalOutcomeAndConflictIsAudited(t *testing.
 		t.Fatalf("conflicting retry error = %v, want %v", conflictErr, ErrCommandConflict)
 	}
 
-	eventCount, err := installation.client.Event.Query().Count(viewer.SystemContext(t.Context()))
+	eventCount, err := installation.client.Event.Query().Count(systemContext(t.Context()))
 	if err != nil {
 		t.Fatalf("count Events: %v", err)
 	}
-	receiptCount, err := installation.client.CommandReceipt.Query().Count(viewer.SystemContext(t.Context()))
+	receiptCount, err := installation.client.CommandReceipt.Query().Count(systemContext(t.Context()))
 	if err != nil {
 		t.Fatalf("count Command Receipts: %v", err)
 	}
@@ -277,10 +277,10 @@ func TestEventPrivacyDefaultsDenyAndScopesEveryRole(t *testing.T) {
 		SetName("Cross-Event edit").Save(producerContext); !errors.Is(err, privacy.Deny) {
 		t.Errorf("cross-Event Producer mutation error = %v, want privacy denial", err)
 	}
-	if _, err := installation.client.AuditEntry.Delete().Exec(viewer.SystemContext(t.Context())); !errors.Is(err, privacy.Deny) {
+	if _, err := installation.client.AuditEntry.Delete().Exec(administratorContext); !errors.Is(err, privacy.Deny) {
 		t.Errorf("Audit Entry deletion error = %v, want append-only privacy denial", err)
 	}
-	if _, err := installation.client.CommandReceipt.Delete().Exec(viewer.SystemContext(t.Context())); !errors.Is(err, privacy.Deny) {
+	if _, err := installation.client.CommandReceipt.Delete().Exec(administratorContext); !errors.Is(err, privacy.Deny) {
 		t.Errorf("Command Receipt deletion error = %v, want immutable privacy denial", err)
 	}
 }

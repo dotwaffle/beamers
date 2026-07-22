@@ -18,10 +18,10 @@ type Lane struct {
 func (Lane) Policy() ent.Policy {
 	return privacy.Policy{
 		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowSystemViewer(), filterGrantedLanes(), privacy.AlwaysAllowRule(),
+			denyMissingViewer(), filterGrantedLanes(), privacy.AlwaysAllowRule(),
 		},
 		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowSystemViewer(), allowEventOwnedMutation(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowEventOwnedMutation(), privacy.AlwaysDenyRule(),
 		},
 	}
 }

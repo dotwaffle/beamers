@@ -8,7 +8,6 @@ import (
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/rundown"
-	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 var (
@@ -54,7 +53,7 @@ func loadActivationPreflight(
 	client *ent.Client,
 	eventID int,
 ) (ActivationPreflightState, error) {
-	internalContext := viewer.SystemContext(ctx)
+	internalContext := systemContext(ctx)
 	routing, err := client.Installation.Query().Only(ctx)
 	if err != nil {
 		return ActivationPreflightState{}, opaqueError("load installation activation generation", err)
@@ -86,7 +85,7 @@ func (transaction *CommandTx) ActivateEvent(
 	expectedPublishedRevision int,
 	expectedActivationGeneration int,
 ) (ActiveEventState, error) {
-	internalContext := viewer.SystemContext(ctx)
+	internalContext := systemContext(ctx)
 	exists, err := transaction.transaction.Event.Query().
 		Where(event.IDEQ(eventID), event.RevisionEQ(expectedEventRevision)).
 		Exist(internalContext)

@@ -19,10 +19,10 @@ type SessionRun struct {
 func (SessionRun) Policy() ent.Policy {
 	return privacy.Policy{
 		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowSystemViewer(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), filterGrantedSessionRuns(), privacy.AlwaysAllowRule(),
 		},
 		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowSystemViewer(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowScopedSessionRunMutation(), privacy.AlwaysDenyRule(),
 		},
 	}
 }

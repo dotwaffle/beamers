@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -23,7 +24,7 @@ var (
 	// installation-wide Administrator authority.
 	ErrAdministratorRequired = errors.New("administrator authority required")
 	// ErrGrantRoleRequired means a Grant requested a role not yet supported by Event commands.
-	ErrGrantRoleRequired = errors.New("role must be Producer or Operator")
+	ErrGrantRoleRequired = errors.New("role must be Producer, Operator, or Observer")
 	// ErrEventNotFound means an Event Grant targeted an unknown Event.
 	ErrEventNotFound = store.ErrEventNotFound
 	// ErrAccountNotFound means an Event Grant targeted an unknown or disabled Account.
@@ -77,9 +78,22 @@ type CreateInput struct {
 
 // Grant is an Account's role for one Event.
 type Grant struct {
-	EventID   int    `json:"event_id"`
-	AccountID int    `json:"account_id"`
-	Role      string `json:"role"`
+	EventID          int      `json:"event_id"`
+	AccountID        int      `json:"account_id"`
+	Role             string   `json:"role"`
+	LaneIDs          []int    `json:"lane_ids,omitempty"`
+	DisplayGroupKeys []string `json:"display_group_keys,omitempty"`
+	Capabilities     []string `json:"capabilities,omitempty"`
+}
+
+// GrantInput is one Event role and its explicit scopes.
+type GrantInput struct {
+	AccountID        int      `json:"account_id"`
+	Role             string   `json:"role"`
+	LaneIDs          []int    `json:"lane_ids,omitempty"`
+	DisplayGroupKeys []string `json:"display_group_keys,omitempty"`
+	Capabilities     []string `json:"capabilities,omitempty"`
+	CommandID        string   `json:"command_id"`
 }
 
 // Service owns Event commands and authorization.
@@ -168,7 +182,7 @@ func (service *Service) Create(
 	return event(created), nil
 }
 
-// GrantEventAccess gives an Account Producer or Operator authority for one Event.
+// GrantEventAccess gives an Account unscoped authority for one Event.
 func (service *Service) GrantEventAccess(
 	ctx context.Context,
 	actor auth.Account,
@@ -177,13 +191,28 @@ func (service *Service) GrantEventAccess(
 	role string,
 	commandID string,
 ) (Grant, error) {
-	payloadHash := command.PayloadHash(strconv.Itoa(eventID), strconv.Itoa(accountID), role)
-	targetID := strconv.Itoa(eventID) + ":" + strconv.Itoa(accountID)
-	if err := command.ValidateID(commandID); err != nil {
-		return Grant{}, invalid("command_id", err.Error())
+	return service.GrantScopedEventAccess(ctx, actor, eventID, GrantInput{
+		AccountID: accountID, Role: role, CommandID: commandID,
+	})
+}
+
+// GrantScopedEventAccess gives an Account an Event role with explicit scopes.
+func (service *Service) GrantScopedEventAccess(
+	ctx context.Context,
+	actor auth.Account,
+	eventID int,
+	input GrantInput,
+) (Grant, error) {
+	payloadHash, err := grantPayloadHash(eventID, input)
+	if err != nil {
+		return Grant{}, err
+	}
+	targetID := strconv.Itoa(eventID) + ":" + strconv.Itoa(input.AccountID)
+	if validationErr := command.ValidateID(input.CommandID); validationErr != nil {
+		return Grant{}, invalid("command_id", validationErr.Error())
 	}
 	identity := store.CommandIdentity{
-		ActorAccountID: actor.ID, CommandID: commandID, PayloadHash: payloadHash,
+		ActorAccountID: actor.ID, CommandID: input.CommandID, PayloadHash: payloadHash,
 		Action: "CreateEventGrant", TargetType: "EventGrant", TargetID: targetID, Now: service.now().UTC(),
 	}
 	transaction, err := service.storage.BeginCommand(actor.Context(ctx))
@@ -206,22 +235,26 @@ func (service *Service) GrantEventAccess(
 		if decodeErr := store.DecodeCommandReceipt(outcome, &original); decodeErr != nil {
 			return Grant{}, restoreRejected(decodeErr)
 		}
-		return Grant{EventID: original.EventID, AccountID: original.AccountID, Role: original.Role}, nil
+		return grant(original), nil
 	}
 	if !actor.Administrator {
 		return Grant{}, service.rejectTransaction(actor.Context(ctx), transaction, identity, ErrAdministratorRequired)
 	}
-	if role != "Producer" && role != "Operator" {
-		return Grant{}, service.rejectTransaction(actor.Context(ctx), transaction, identity, ErrGrantRoleRequired)
+	normalized, validationErr := validateGrantInput(input)
+	if validationErr != nil {
+		return Grant{}, service.rejectTransaction(actor.Context(ctx), transaction, identity, validationErr)
 	}
 	created, err := transaction.GrantEventAccess(actor.Context(ctx), store.GrantEventAccessParams{
-		ActorAccountID: actor.ID,
-		EventID:        eventID,
-		AccountID:      accountID,
-		Role:           role,
-		Now:            identity.Now,
-		CommandID:      commandID,
-		PayloadHash:    payloadHash,
+		ActorAccountID:   actor.ID,
+		EventID:          eventID,
+		AccountID:        normalized.AccountID,
+		Role:             normalized.Role,
+		LaneIDs:          normalized.LaneIDs,
+		DisplayGroupKeys: normalized.DisplayGroupKeys,
+		Capabilities:     normalized.Capabilities,
+		Now:              identity.Now,
+		CommandID:        input.CommandID,
+		PayloadHash:      payloadHash,
 	})
 	if err != nil {
 		if errors.Is(err, ErrEventNotFound) || errors.Is(err, ErrAccountNotFound) || errors.Is(err, ErrEventGrantExists) {
@@ -239,7 +272,7 @@ func (service *Service) GrantEventAccess(
 	if err := transaction.Commit(); err != nil {
 		return Grant{}, err
 	}
-	return Grant{EventID: created.EventID, AccountID: created.AccountID, Role: created.Role}, nil
+	return grant(created), nil
 }
 
 // CrewEvent returns Event crew data only through an explicit Event Grant.
@@ -473,6 +506,115 @@ func event(found store.Event) Event {
 		ContentLanguage: found.ContentLanguage, EventDayBoundary: found.EventDayBoundary,
 		Revision: found.Revision,
 	}
+}
+
+func grant(found store.EventGrant) Grant {
+	return Grant{
+		EventID: found.EventID, AccountID: found.AccountID, Role: found.Role,
+		LaneIDs: found.LaneIDs, DisplayGroupKeys: found.DisplayGroupKeys,
+		Capabilities: found.Capabilities,
+	}
+}
+
+func grantPayloadHash(eventID int, input GrantInput) (string, error) {
+	parts := []string{strconv.Itoa(eventID), strconv.Itoa(input.AccountID), input.Role}
+	if len(input.LaneIDs) == 0 && len(input.DisplayGroupKeys) == 0 && len(input.Capabilities) == 0 {
+		return command.PayloadHash(parts...), nil
+	}
+	laneIDs := append([]int(nil), input.LaneIDs...)
+	displayGroupKeys := append([]string(nil), input.DisplayGroupKeys...)
+	capabilities := append([]string(nil), input.Capabilities...)
+	sort.Ints(laneIDs)
+	sort.Strings(displayGroupKeys)
+	sort.Strings(capabilities)
+	scopes, err := json.Marshal(struct {
+		LaneIDs          []int    `json:"lane_ids,omitempty"`
+		DisplayGroupKeys []string `json:"display_group_keys,omitempty"`
+		Capabilities     []string `json:"capabilities,omitempty"`
+	}{
+		LaneIDs: laneIDs, DisplayGroupKeys: displayGroupKeys,
+		Capabilities: capabilities,
+	})
+	if err != nil {
+		return "", errors.New("encode Event Grant scopes")
+	}
+	return command.PayloadHash(append(parts, string(scopes))...), nil
+}
+
+func validateGrantInput(input GrantInput) (GrantInput, error) {
+	if input.Role != "Producer" && input.Role != "Operator" && input.Role != "Observer" {
+		return GrantInput{}, ErrGrantRoleRequired
+	}
+	if input.AccountID <= 0 {
+		return GrantInput{}, invalid("account_id", "must identify an Account")
+	}
+	lanes := make(map[int]struct{}, len(input.LaneIDs))
+	for _, laneID := range input.LaneIDs {
+		if laneID <= 0 {
+			return GrantInput{}, invalid("lane_ids", "must contain positive Lane IDs")
+		}
+		if _, duplicate := lanes[laneID]; duplicate {
+			return GrantInput{}, invalid("lane_ids", "must not contain duplicates")
+		}
+		lanes[laneID] = struct{}{}
+	}
+	sort.Ints(input.LaneIDs)
+	groups := make(map[string]struct{}, len(input.DisplayGroupKeys))
+	for _, key := range input.DisplayGroupKeys {
+		if !validScopeKey(key) {
+			return GrantInput{}, invalid("display_group_keys", "must contain stable opaque keys")
+		}
+		if _, duplicate := groups[key]; duplicate {
+			return GrantInput{}, invalid("display_group_keys", "must not contain duplicates")
+		}
+		groups[key] = struct{}{}
+	}
+	sort.Strings(input.DisplayGroupKeys)
+	capabilities := make(map[string]struct{}, len(input.Capabilities))
+	for _, capability := range input.Capabilities {
+		switch capability {
+		case "EmergencyAlert", "ViewResults", "ManageResults":
+		default:
+			return GrantInput{}, invalid("capabilities", "contains an unsupported capability")
+		}
+		if _, duplicate := capabilities[capability]; duplicate {
+			return GrantInput{}, invalid("capabilities", "must not contain duplicates")
+		}
+		capabilities[capability] = struct{}{}
+	}
+	sort.Strings(input.Capabilities)
+	if input.Role == "Producer" &&
+		(len(input.LaneIDs) > 0 || len(input.DisplayGroupKeys) > 0 || len(input.Capabilities) > 0) {
+		return GrantInput{}, invalid("role", "Producer authority is Event-wide")
+	}
+	if input.Role == "Observer" && (len(input.LaneIDs) > 0 || len(input.DisplayGroupKeys) > 0) {
+		return GrantInput{}, invalid("role", "Observer authority is read-only")
+	}
+	if input.Role == "Observer" {
+		for _, capability := range input.Capabilities {
+			if capability != "ViewResults" {
+				return GrantInput{}, invalid("capabilities", "Observer may receive only ViewResults")
+			}
+		}
+	}
+	return input, nil
+}
+
+func validScopeKey(value string) bool {
+	if value == "" || len(value) > 100 {
+		return false
+	}
+	for _, character := range value {
+		switch {
+		case character >= 'a' && character <= 'z':
+		case character >= 'A' && character <= 'Z':
+		case character >= '0' && character <= '9':
+		case character == '-', character == '_', character == ':':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func eventPayloadHash(input CreateInput, expectedRevision int) string {

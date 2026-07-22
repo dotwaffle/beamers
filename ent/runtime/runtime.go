@@ -598,7 +598,7 @@ func init() {
 	eventgrantFields := schema.EventGrant{}.Fields()
 	_ = eventgrantFields
 	// eventgrantDescCreatedAt is the schema descriptor for created_at field.
-	eventgrantDescCreatedAt := eventgrantFields[3].Descriptor()
+	eventgrantDescCreatedAt := eventgrantFields[6].Descriptor()
 	// eventgrant.DefaultCreatedAt holds the default value on creation for the created_at field.
 	eventgrant.DefaultCreatedAt = eventgrantDescCreatedAt.Default.(func() time.Time)
 	installation.Policy = privacy.NewPolicies(schema.Installation{})

@@ -11,7 +11,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
-	"github.com/dotwaffle/beamers/internal/viewer"
+	"github.com/dotwaffle/beamers/ent/lane"
 )
 
 var (
@@ -55,20 +55,26 @@ type CreateEventParams struct {
 
 // EventGrant is the persistence projection of an Event role assignment.
 type EventGrant struct {
-	EventID   int    `json:"event_id"`
-	AccountID int    `json:"account_id"`
-	Role      string `json:"role"`
+	EventID          int      `json:"event_id"`
+	AccountID        int      `json:"account_id"`
+	Role             string   `json:"role"`
+	LaneIDs          []int    `json:"lane_ids,omitempty"`
+	DisplayGroupKeys []string `json:"display_group_keys,omitempty"`
+	Capabilities     []string `json:"capabilities,omitempty"`
 }
 
 // GrantEventAccessParams contains an Event Grant command's durable values.
 type GrantEventAccessParams struct {
-	ActorAccountID int
-	EventID        int
-	AccountID      int
-	Role           string
-	Now            time.Time
-	CommandID      string
-	PayloadHash    string
+	ActorAccountID   int
+	EventID          int
+	AccountID        int
+	Role             string
+	LaneIDs          []int
+	DisplayGroupKeys []string
+	Capabilities     []string
+	Now              time.Time
+	CommandID        string
+	PayloadHash      string
 }
 
 // UpdateEventParams contains a Producer's Event configuration replacement.
@@ -107,7 +113,7 @@ func (transaction *CommandTx) CreateEvent(ctx context.Context, params CreateEven
 	}
 	if _, createErr := transaction.transaction.Rundown.Create().
 		SetEventID(created.ID).
-		Save(viewer.SystemContext(ctx)); createErr != nil {
+		Save(systemContext(ctx)); createErr != nil {
 		return Event{}, opaqueError("create Event Rundown", createErr)
 	}
 	return eventProjection(created), nil
@@ -120,7 +126,7 @@ func (transaction *CommandTx) GrantEventAccess(
 ) (EventGrant, error) {
 	eventExists, err := transaction.transaction.Event.Query().
 		Where(event.IDEQ(params.EventID)).
-		Exist(viewer.SystemContext(ctx))
+		Exist(systemContext(ctx))
 	if err != nil {
 		return EventGrant{}, opaqueError("find Event for Grant", err)
 	}
@@ -136,10 +142,24 @@ func (transaction *CommandTx) GrantEventAccess(
 	if !accountExists {
 		return EventGrant{}, ErrAccountNotFound
 	}
+	if len(params.LaneIDs) > 0 {
+		laneCount, countErr := transaction.transaction.Lane.Query().Where(
+			lane.IDIn(params.LaneIDs...), lane.EventIDEQ(params.EventID),
+		).Count(systemContext(ctx))
+		if countErr != nil {
+			return EventGrant{}, opaqueError("validate Event Grant Lanes", countErr)
+		}
+		if laneCount != len(params.LaneIDs) {
+			return EventGrant{}, ErrEventNotFound
+		}
+	}
 	created, err := transaction.transaction.EventGrant.Create().
 		SetEventID(params.EventID).
 		SetAccountID(params.AccountID).
 		SetRole(eventgrant.Role(params.Role)).
+		SetLaneIds(params.LaneIDs).
+		SetDisplayGroupKeys(params.DisplayGroupKeys).
+		SetCapabilities(params.Capabilities).
 		SetCreatedAt(params.Now).
 		Save(ctx)
 	if ent.IsConstraintError(err) {
@@ -148,7 +168,11 @@ func (transaction *CommandTx) GrantEventAccess(
 	if err != nil {
 		return EventGrant{}, opaqueError("create Event Grant", err)
 	}
-	return EventGrant{EventID: created.EventID, AccountID: created.AccountID, Role: created.Role.String()}, nil
+	return EventGrant{
+		EventID: created.EventID, AccountID: created.AccountID, Role: created.Role.String(),
+		LaneIDs: created.LaneIds, DisplayGroupKeys: created.DisplayGroupKeys,
+		Capabilities: created.Capabilities,
+	}, nil
 }
 
 // UpdateEvent mutates Event configuration without owning command lifecycle evidence.
