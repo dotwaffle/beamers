@@ -112,12 +112,98 @@ func validateTransportRequest(message any) error {
 		}
 		_, err := ints64("confirmation.change_ids", confirmation.GetChangeIds())
 		return err
+	case *rundownv1.DiscardDraftChangesRequest:
+		if _, err := positiveInt64("event_id", typed.GetEventId()); err != nil {
+			return err
+		}
+		if _, err := nonnegativeInt64("expected_draft_revision", typed.GetExpectedDraftRevision()); err != nil {
+			return err
+		}
+		_, err := ints64("change_ids", typed.GetChangeIds())
+		return err
+	case *rundownv1.RevertDraftChangeRequest:
+		if _, err := positiveInt64("event_id", typed.GetEventId()); err != nil {
+			return err
+		}
+		if _, err := nonnegativeInt64("expected_draft_revision", typed.GetExpectedDraftRevision()); err != nil {
+			return err
+		}
+		_, err := positiveInt64("change_id", typed.GetChangeId())
+		return err
 	case *rundownv1.GetCrewRundownRequest:
 		_, err := positiveInt64("event_id", typed.GetEventId())
 		return err
 	default:
 		return errors.New("unsupported Rundown request")
 	}
+}
+
+// DiscardDraftChanges restores selected effective facts without publishing them.
+func (handler *Handler) DiscardDraftChanges(
+	ctx context.Context,
+	request *connect.Request[rundownv1.DiscardDraftChangesRequest],
+) (*connect.Response[rundownv1.DiscardDraftChangesResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	eventID, err := positiveInt64("event_id", request.Msg.GetEventId())
+	if err != nil {
+		return nil, invalidArgument(err)
+	}
+	revision, err := nonnegativeInt64("expected_draft_revision", request.Msg.GetExpectedDraftRevision())
+	if err != nil {
+		return nil, invalidArgument(err)
+	}
+	changeIDs, err := ints64("change_ids", request.Msg.GetChangeIds())
+	if err != nil {
+		return nil, invalidArgument(err)
+	}
+	result, err := handler.commands.DiscardDraftChanges(ctx, actor, rundown.DraftHistoryInput{
+		EventID: eventID, CommandID: request.Msg.GetCommandId(), ExpectedDraftRevision: revision, ChangeIDs: changeIDs,
+	})
+	if err != nil {
+		return nil, err
+	}
+	response := &rundownv1.DiscardDraftChangesResponse{DraftRevision: int64(result.DraftRevision)}
+	for _, change := range result.Changes {
+		response.Changes = append(response.Changes, draftChange(change))
+	}
+	return connect.NewResponse(response), nil
+}
+
+// RevertDraftChange appends an inverse fact change from immutable history.
+func (handler *Handler) RevertDraftChange(
+	ctx context.Context,
+	request *connect.Request[rundownv1.RevertDraftChangeRequest],
+) (*connect.Response[rundownv1.RevertDraftChangeResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	eventID, err := positiveInt64("event_id", request.Msg.GetEventId())
+	if err != nil {
+		return nil, invalidArgument(err)
+	}
+	revision, err := nonnegativeInt64("expected_draft_revision", request.Msg.GetExpectedDraftRevision())
+	if err != nil {
+		return nil, invalidArgument(err)
+	}
+	changeID, err := positiveInt64("change_id", request.Msg.GetChangeId())
+	if err != nil {
+		return nil, invalidArgument(err)
+	}
+	result, err := handler.commands.RevertDraftChange(ctx, actor, rundown.DraftHistoryInput{
+		EventID: eventID, CommandID: request.Msg.GetCommandId(), ExpectedDraftRevision: revision, ChangeIDs: []int{changeID},
+	})
+	if err != nil {
+		return nil, err
+	}
+	response := &rundownv1.RevertDraftChangeResponse{DraftRevision: int64(result.DraftRevision)}
+	for _, change := range result.Changes {
+		response.Changes = append(response.Changes, draftChange(change))
+	}
+	return connect.NewResponse(response), nil
 }
 
 // EditDraft translates one atomic structural Draft Edit.
@@ -247,6 +333,8 @@ func (handler *Handler) GetCrewRundown(
 func draftChange(change rundown.DraftChange) *rundownv1.DraftChange {
 	return &rundownv1.DraftChange{
 		Id: int64(change.ID), Kind: change.Kind, TargetType: change.TargetType, TargetId: int64(change.TargetID),
+		FactKey: change.FactKey, Status: change.Status,
+		CurrentValueJson: change.CurrentValueJSON,
 	}
 }
 
@@ -259,7 +347,26 @@ func connectError(err error) error {
 		return connect.NewError(connect.CodePermissionDenied, errors.New("event access denied"))
 	case errors.Is(err, rundown.ErrCommandConflict):
 		return connect.NewError(connect.CodeAlreadyExists, errors.New("command ID conflict"))
-	case errors.Is(err, rundown.ErrDraftRevisionConflict), errors.Is(err, rundown.ErrStalePreview):
+	case errors.Is(err, rundown.ErrDraftRevisionConflict):
+		connectErr := connect.NewError(connect.CodeAborted, errors.New("rundown revision conflict"))
+		var conflict *rundown.DraftRevisionConflictError
+		if errors.As(err, &conflict) {
+			message := &rundownv1.DraftRevisionConflict{CurrentDraftRevision: int64(conflict.CurrentDraftRevision)}
+			for _, change := range conflict.OverlappingChanges {
+				message.OverlappingChanges = append(message.OverlappingChanges, draftChange(rundown.DraftChange{
+					ID: change.ID, Kind: change.Kind, TargetType: change.TargetType, TargetID: change.TargetID,
+					FactKey: change.FactKey, Status: change.Status,
+					CurrentValueJSON: change.CurrentValueJSON,
+				}))
+			}
+			detail, detailErr := connect.NewErrorDetail(message)
+			if detailErr != nil {
+				return connect.NewError(connect.CodeInternal, errors.New("rundown operation failed"))
+			}
+			connectErr.AddDetail(detail)
+		}
+		return connectErr
+	case errors.Is(err, rundown.ErrStalePreview):
 		return connect.NewError(connect.CodeAborted, errors.New("rundown revision conflict"))
 	case errors.Is(err, rundown.ErrPublishSelection):
 		return connect.NewError(connect.CodeFailedPrecondition, errors.New("publish selection is invalid"))

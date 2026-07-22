@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -25,6 +26,9 @@ var (
 	ErrDraftRevisionConflict = store.ErrDraftRevisionConflict
 )
 
+// DraftRevisionConflictError describes current overlapping facts for a stale edit.
+type DraftRevisionConflictError = store.DraftRevisionConflictError
+
 // ValidationError describes one actionable invalid Draft field.
 type ValidationError struct {
 	Field   string
@@ -44,21 +48,27 @@ type TargetRef struct {
 
 // LocationDraftInput creates one Location in shared Draft state.
 type LocationDraftInput struct {
-	Ref  string `json:"ref"`
-	Name string `json:"name"`
+	ID           int      `json:"id,omitempty"`
+	Ref          string   `json:"ref"`
+	Name         string   `json:"name"`
+	UpdateFields []string `json:"update_fields,omitempty"`
 }
 
 // LaneDraftInput creates one Lane in shared Draft state.
 type LaneDraftInput struct {
-	Ref      string    `json:"ref"`
-	Name     string    `json:"name"`
-	Location TargetRef `json:"location"`
+	ID           int       `json:"id,omitempty"`
+	Ref          string    `json:"ref"`
+	Name         string    `json:"name"`
+	Location     TargetRef `json:"location"`
+	UpdateFields []string  `json:"update_fields,omitempty"`
 }
 
 // TrackDraftInput creates one Track in shared Draft state.
 type TrackDraftInput struct {
-	Ref  string `json:"ref"`
-	Name string `json:"name"`
+	ID           int      `json:"id,omitempty"`
+	Ref          string   `json:"ref"`
+	Name         string   `json:"name"`
+	UpdateFields []string `json:"update_fields,omitempty"`
 }
 
 // SessionType is one supported version-one Session type.
@@ -115,6 +125,7 @@ const (
 
 // SessionDraftInput creates one Session in shared Draft state.
 type SessionDraftInput struct {
+	ID                 int                `json:"id,omitempty"`
 	Ref                string             `json:"ref"`
 	Title              string             `json:"title"`
 	Type               SessionType        `json:"type"`
@@ -130,6 +141,13 @@ type SessionDraftInput struct {
 	Lanes              []TargetRef        `json:"lanes"`
 	Locations          []TargetRef        `json:"locations"`
 	Tracks             []TargetRef        `json:"tracks,omitempty"`
+	AddLanes           []TargetRef        `json:"add_lanes,omitempty"`
+	RemoveLanes        []TargetRef        `json:"remove_lanes,omitempty"`
+	AddLocations       []TargetRef        `json:"add_locations,omitempty"`
+	RemoveLocations    []TargetRef        `json:"remove_locations,omitempty"`
+	AddTracks          []TargetRef        `json:"add_tracks,omitempty"`
+	RemoveTracks       []TargetRef        `json:"remove_tracks,omitempty"`
+	UpdateFields       []string           `json:"update_fields,omitempty"`
 }
 
 // EditDraftInput is one atomic set of structural creations.
@@ -145,10 +163,13 @@ type EditDraftInput struct {
 
 // DraftChange identifies one independently publishable effective change.
 type DraftChange struct {
-	ID         int    `json:"id"`
-	Kind       string `json:"kind"`
-	TargetType string `json:"target_type"`
-	TargetID   int    `json:"target_id"`
+	ID               int    `json:"id"`
+	Kind             string `json:"kind"`
+	TargetType       string `json:"target_type"`
+	TargetID         int    `json:"target_id"`
+	FactKey          string `json:"fact_key,omitempty"`
+	Status           string `json:"status,omitempty"`
+	CurrentValueJSON string `json:"current_value_json,omitempty"`
 }
 
 // EditDraftResult is the minimal committed result of one Draft Edit.
@@ -180,9 +201,11 @@ type editDraftOutcome struct {
 }
 
 type rejection struct {
-	Code    string `json:"code"`
-	Field   string `json:"field,omitempty"`
-	Message string `json:"message,omitempty"`
+	Code                 string        `json:"code"`
+	Field                string        `json:"field,omitempty"`
+	Message              string        `json:"message,omitempty"`
+	CurrentDraftRevision int           `json:"current_draft_revision,omitempty"`
+	OverlappingChanges   []DraftChange `json:"overlapping_changes,omitempty"`
 }
 
 // EditDraft validates and atomically records one set of structural creations.
@@ -247,8 +270,16 @@ func (commands *Commands) EditDraft(
 		})
 	}
 	if errors.Is(err, ErrDraftRevisionConflict) {
+		var conflict *store.DraftRevisionConflictError
+		_ = errors.As(err, &conflict)
+		rejected := rejection{Code: "draft_revision_conflict", Message: ErrDraftRevisionConflict.Error()}
+		if conflict != nil {
+			rejected.CurrentDraftRevision = conflict.CurrentDraftRevision
+			rejected.OverlappingChanges = editDraftResult(store.EditDraftResult{Changes: conflict.OverlappingChanges}).Changes
+		}
 		return EditDraftResult{}, commands.rejectEditDraft(ctx, transaction, actor, identity, rejection{
-			Code: "draft_revision_conflict", Message: ErrDraftRevisionConflict.Error(),
+			Code: rejected.Code, Message: rejected.Message, CurrentDraftRevision: rejected.CurrentDraftRevision,
+			OverlappingChanges: rejected.OverlappingChanges,
 		})
 	}
 	if err != nil {
@@ -307,6 +338,17 @@ func rejectionError(rejected rejection) error {
 	case "event_access_denied":
 		return ErrEventAccessDenied
 	case "draft_revision_conflict":
+		if rejected.CurrentDraftRevision > 0 || len(rejected.OverlappingChanges) > 0 {
+			changes := make([]store.DraftChangeResult, 0, len(rejected.OverlappingChanges))
+			for _, change := range rejected.OverlappingChanges {
+				changes = append(changes, store.DraftChangeResult{
+					ID: change.ID, Kind: change.Kind, TargetType: change.TargetType, TargetID: change.TargetID,
+					FactKey: change.FactKey, Status: change.Status,
+					CurrentValueJSON: change.CurrentValueJSON,
+				})
+			}
+			return &store.DraftRevisionConflictError{CurrentDraftRevision: rejected.CurrentDraftRevision, OverlappingChanges: changes}
+		}
 		return ErrDraftRevisionConflict
 	case "validation":
 		return &ValidationError{Field: rejected.Field, Message: rejected.Message}
@@ -325,47 +367,96 @@ func validateEditDraft(input EditDraftInput) (EditDraftInput, error) {
 	if len(input.Locations)+len(input.Lanes)+len(input.Tracks)+len(input.Sessions) == 0 {
 		return EditDraftInput{}, invalid("changes", "must contain at least one structural change")
 	}
-	locationRefs, err := validateNamedRefs("locations", input.Locations, func(item LocationDraftInput) (string, string) {
-		return item.Ref, item.Name
+	locationRefs, err := validateNamedRefs("locations", input.Locations, func(item LocationDraftInput) (int, string, string, []string) {
+		return item.ID, item.Ref, item.Name, item.UpdateFields
 	})
 	if err != nil {
 		return EditDraftInput{}, err
 	}
-	laneRefs, err := validateNamedRefs("lanes", input.Lanes, func(item LaneDraftInput) (string, string) {
-		return item.Ref, item.Name
+	laneRefs, err := validateNamedRefs("lanes", input.Lanes, func(item LaneDraftInput) (int, string, string, []string) {
+		return item.ID, item.Ref, item.Name, item.UpdateFields
 	})
 	if err != nil {
 		return EditDraftInput{}, err
 	}
-	trackRefs, err := validateNamedRefs("tracks", input.Tracks, func(item TrackDraftInput) (string, string) {
-		return item.Ref, item.Name
+	trackRefs, err := validateNamedRefs("tracks", input.Tracks, func(item TrackDraftInput) (int, string, string, []string) {
+		return item.ID, item.Ref, item.Name, item.UpdateFields
 	})
 	if err != nil {
 		return EditDraftInput{}, err
 	}
 	for index := range input.Locations {
 		input.Locations[index].Name = strings.TrimSpace(input.Locations[index].Name)
+		if err := validateUpdateFields("locations", input.Locations[index].ID, input.Locations[index].UpdateFields, "name"); err != nil {
+			return EditDraftInput{}, err
+		}
 	}
 	for index := range input.Lanes {
 		input.Lanes[index].Name = strings.TrimSpace(input.Lanes[index].Name)
-		if err := validateTarget("lanes.location", input.Lanes[index].Location, locationRefs); err != nil {
+		if err := validateUpdateFields("lanes", input.Lanes[index].ID, input.Lanes[index].UpdateFields, "name", "location"); err != nil {
 			return EditDraftInput{}, err
+		}
+		if input.Lanes[index].ID == 0 || contains(input.Lanes[index].UpdateFields, "location") {
+			if err := validateTarget("lanes.location", input.Lanes[index].Location, locationRefs); err != nil {
+				return EditDraftInput{}, err
+			}
 		}
 	}
 	for index := range input.Tracks {
 		input.Tracks[index].Name = strings.TrimSpace(input.Tracks[index].Name)
+		if err := validateUpdateFields("tracks", input.Tracks[index].ID, input.Tracks[index].UpdateFields, "name"); err != nil {
+			return EditDraftInput{}, err
+		}
 	}
 	sessionRefs := make(map[string]struct{}, len(input.Sessions))
 	for index := range input.Sessions {
 		item := &input.Sessions[index]
-		if err := validateRef("sessions.ref", item.Ref, sessionRefs); err != nil {
+		if item.ID == 0 {
+			if err := validateRef("sessions.ref", item.Ref, sessionRefs); err != nil {
+				return EditDraftInput{}, err
+			}
+		} else if item.Ref != "" {
+			return EditDraftInput{}, invalid("sessions.ref", "must be empty for an update")
+		}
+		if err := validateUpdateFields("sessions", item.ID, item.UpdateFields,
+			"title", "type", "audience_visibility", "public_details", "crew_notes", "planned_start", "planned_end",
+			"timing_policy", "minimum_duration", "start_boundary", "end_boundary",
+			"add_lanes", "remove_lanes", "add_locations", "remove_locations", "add_tracks", "remove_tracks"); err != nil {
 			return EditDraftInput{}, err
 		}
 		item.Title = strings.TrimSpace(item.Title)
-		if err := ValidateSessionScalars(*item); err != nil {
-			return EditDraftInput{}, err
+		if item.ID == 0 {
+			if err := ValidateSessionScalars(*item); err != nil {
+				return EditDraftInput{}, err
+			}
+		} else if contains(item.UpdateFields, "title") && !validText(item.Title, 200) {
+			return EditDraftInput{}, invalid("sessions.title", "must be 1 to 200 characters without control characters")
 		}
-		if len(item.Lanes) == 0 {
+		if item.ID > 0 && contains(item.UpdateFields, "public_details") && utf8.RuneCountInString(item.PublicDetails) > 10000 {
+			return EditDraftInput{}, invalid("sessions.public_details", "must not exceed 10000 characters")
+		}
+		if item.ID > 0 && contains(item.UpdateFields, "crew_notes") && utf8.RuneCountInString(item.CrewNotes) > 10000 {
+			return EditDraftInput{}, invalid("sessions.crew_notes", "must not exceed 10000 characters")
+		}
+		if item.ID > 0 && contains(item.UpdateFields, "type") && !validSessionType(item.Type) {
+			return EditDraftInput{}, invalid("sessions.type", "must be a supported version-one Session type")
+		}
+		if item.ID > 0 && contains(item.UpdateFields, "audience_visibility") && item.AudienceVisibility != AudiencePublic && item.AudienceVisibility != AudienceCrewOnly {
+			return EditDraftInput{}, invalid("sessions.audience_visibility", "must be Public or CrewOnly")
+		}
+		if item.ID > 0 && contains(item.UpdateFields, "timing_policy") && item.TimingPolicy != TimingFixedEnd && item.TimingPolicy != TimingFixedDuration && item.TimingPolicy != TimingManualEnd {
+			return EditDraftInput{}, invalid("sessions.timing_policy", "must be FixedEnd, FixedDuration, or ManualEnd")
+		}
+		if item.ID > 0 && contains(item.UpdateFields, "start_boundary") && !validBoundary(item.StartBoundary) {
+			return EditDraftInput{}, invalid("sessions.start_boundary", "must be Hard or Soft")
+		}
+		if item.ID > 0 && contains(item.UpdateFields, "end_boundary") && !validBoundary(item.EndBoundary) {
+			return EditDraftInput{}, invalid("sessions.end_boundary", "must be Hard or Soft")
+		}
+		if item.ID > 0 && contains(item.UpdateFields, "minimum_duration") && item.MinimumDuration < 0 {
+			return EditDraftInput{}, invalid("sessions.minimum_duration", "must not be negative")
+		}
+		if item.ID == 0 && len(item.Lanes) == 0 {
 			return EditDraftInput{}, invalid("sessions.lanes", "must include at least one Lane")
 		}
 		for _, target := range item.Lanes {
@@ -383,8 +474,52 @@ func validateEditDraft(input EditDraftInput) (EditDraftInput, error) {
 				return EditDraftInput{}, err
 			}
 		}
+		for _, targets := range [][]TargetRef{item.AddLanes, item.RemoveLanes} {
+			for _, target := range targets {
+				if err := validateTarget("sessions.lanes", target, laneRefs); err != nil {
+					return EditDraftInput{}, err
+				}
+			}
+		}
+		for _, targets := range [][]TargetRef{item.AddLocations, item.RemoveLocations} {
+			for _, target := range targets {
+				if err := validateTarget("sessions.locations", target, locationRefs); err != nil {
+					return EditDraftInput{}, err
+				}
+			}
+		}
+		for _, targets := range [][]TargetRef{item.AddTracks, item.RemoveTracks} {
+			for _, target := range targets {
+				if err := validateTarget("sessions.tracks", target, trackRefs); err != nil {
+					return EditDraftInput{}, err
+				}
+			}
+		}
+		for _, membership := range []struct {
+			field       string
+			add, remove []TargetRef
+		}{{"lanes", item.AddLanes, item.RemoveLanes}, {"locations", item.AddLocations, item.RemoveLocations}, {"tracks", item.AddTracks, item.RemoveTracks}} {
+			if err := validateMembershipOperations("sessions."+membership.field, membership.add, membership.remove); err != nil {
+				return EditDraftInput{}, err
+			}
+		}
 	}
 	return input, nil
+}
+
+func validateMembershipOperations(field string, additions, removals []TargetRef) error {
+	seen := make(map[string]struct{}, len(additions)+len(removals))
+	for _, target := range append(append([]TargetRef(nil), additions...), removals...) {
+		key := target.Ref
+		if target.ID > 0 {
+			key = strconv.Itoa(target.ID)
+		}
+		if _, exists := seen[key]; exists {
+			return invalid(field, "must not repeat or both add and remove one member")
+		}
+		seen[key] = struct{}{}
+	}
+	return nil
 }
 
 // ValidateSessionScalars applies the authoritative invariants shared by Draft
@@ -417,19 +552,50 @@ func ValidateSessionScalars(item SessionDraftInput) error {
 func validateNamedRefs[T any](
 	field string,
 	items []T,
-	values func(T) (string, string),
+	values func(T) (int, string, string, []string),
 ) (map[string]struct{}, error) {
 	refs := make(map[string]struct{}, len(items))
 	for _, item := range items {
-		ref, name := values(item)
-		if err := validateRef(field+".ref", ref, refs); err != nil {
-			return nil, err
+		id, ref, name, updateFields := values(item)
+		if id == 0 {
+			if err := validateRef(field+".ref", ref, refs); err != nil {
+				return nil, err
+			}
+		} else if ref != "" {
+			return nil, invalid(field+".ref", "must be empty for an update")
 		}
-		if !validText(strings.TrimSpace(name), 200) {
+		if (id == 0 || contains(updateFields, "name")) && !validText(strings.TrimSpace(name), 200) {
 			return nil, invalid(field+".name", "must be 1 to 200 characters without control characters")
 		}
 	}
 	return refs, nil
+}
+
+func validateUpdateFields(field string, id int, fields []string, allowed ...string) error {
+	if id <= 0 {
+		if len(fields) != 0 {
+			return invalid(field+".update_mask", "must be empty for a creation")
+		}
+		return nil
+	}
+	if len(fields) == 0 {
+		return invalid(field+".update_mask", "must select at least one field for an update")
+	}
+	seen := make(map[string]struct{}, len(fields))
+	for _, candidate := range fields {
+		if !contains(allowed, candidate) {
+			return invalid(field+".update_mask", "contains an unsupported field")
+		}
+		if _, exists := seen[candidate]; exists {
+			return invalid(field+".update_mask", "must not contain duplicate fields")
+		}
+		seen[candidate] = struct{}{}
+	}
+	return nil
+}
+
+func contains(values []string, wanted string) bool {
+	return slices.Contains(values, wanted)
 }
 
 func validateRef(field, ref string, seen map[string]struct{}) error {
@@ -491,25 +657,30 @@ func editDraftParams(actorID int, input EditDraftInput, now time.Time) store.Edi
 		ExpectedDraftRevision: input.ExpectedDraftRevision, Now: now,
 	}
 	for _, item := range input.Locations {
-		params.Locations = append(params.Locations, store.LocationDraftCreate{Ref: item.Ref, Name: item.Name})
+		params.Locations = append(params.Locations, store.LocationDraftCreate{
+			ID: item.ID, Ref: item.Ref, Name: item.Name, UpdateFields: item.UpdateFields,
+		})
 	}
 	for _, item := range input.Lanes {
 		params.Lanes = append(params.Lanes, store.LaneDraftCreate{
-			Ref: item.Ref, Name: item.Name, Location: draftTarget(item.Location),
+			ID: item.ID, Ref: item.Ref, Name: item.Name, Location: draftTarget(item.Location), UpdateFields: item.UpdateFields,
 		})
 	}
 	for _, item := range input.Tracks {
-		params.Tracks = append(params.Tracks, store.TrackDraftCreate{Ref: item.Ref, Name: item.Name})
+		params.Tracks = append(params.Tracks, store.TrackDraftCreate{
+			ID: item.ID, Ref: item.Ref, Name: item.Name, UpdateFields: item.UpdateFields,
+		})
 	}
 	for _, item := range input.Sessions {
 		created := store.SessionDraftCreate{
-			Ref: item.Ref, Title: item.Title, Type: string(item.Type),
+			ID: item.ID, Ref: item.Ref, Title: item.Title, Type: string(item.Type),
 			AudienceVisibility: string(item.AudienceVisibility),
 			PublicDetails:      item.PublicDetails, CrewNotes: item.CrewNotes,
 			PlannedStart: item.PlannedStart, PlannedEnd: item.PlannedEnd,
 			TimingPolicy:           string(item.TimingPolicy),
 			MinimumDurationSeconds: int(item.MinimumDuration / time.Second),
 			StartBoundary:          string(item.StartBoundary), EndBoundary: string(item.EndBoundary),
+			UpdateFields: item.UpdateFields,
 		}
 		for _, target := range item.Lanes {
 			created.Lanes = append(created.Lanes, draftTarget(target))
@@ -519,6 +690,24 @@ func editDraftParams(actorID int, input EditDraftInput, now time.Time) store.Edi
 		}
 		for _, target := range item.Tracks {
 			created.Tracks = append(created.Tracks, draftTarget(target))
+		}
+		for _, target := range item.AddLanes {
+			created.AddLanes = append(created.AddLanes, draftTarget(target))
+		}
+		for _, target := range item.RemoveLanes {
+			created.RemoveLanes = append(created.RemoveLanes, draftTarget(target))
+		}
+		for _, target := range item.AddLocations {
+			created.AddLocations = append(created.AddLocations, draftTarget(target))
+		}
+		for _, target := range item.RemoveLocations {
+			created.RemoveLocations = append(created.RemoveLocations, draftTarget(target))
+		}
+		for _, target := range item.AddTracks {
+			created.AddTracks = append(created.AddTracks, draftTarget(target))
+		}
+		for _, target := range item.RemoveTracks {
+			created.RemoveTracks = append(created.RemoveTracks, draftTarget(target))
 		}
 		params.Sessions = append(params.Sessions, created)
 	}
@@ -534,6 +723,8 @@ func editDraftResult(stored store.EditDraftResult) EditDraftResult {
 	for _, change := range stored.Changes {
 		result.Changes = append(result.Changes, DraftChange{
 			ID: change.ID, Kind: change.Kind, TargetType: change.TargetType, TargetID: change.TargetID,
+			FactKey: change.FactKey, Status: change.Status,
+			CurrentValueJSON: change.CurrentValueJSON,
 		})
 	}
 	return result

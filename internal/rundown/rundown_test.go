@@ -313,6 +313,154 @@ func TestPublishLeavesUnselectedChangesInDraft(t *testing.T) {
 	}
 }
 
+func TestPublishCreationUsesOnlySelectedLaterFacts(t *testing.T) {
+	storage, actor, eventID := openRundownTest(t)
+	commands, err := rundown.NewCommands(storage, time.Now)
+	if err != nil {
+		t.Fatalf("create Rundown Commands: %v", err)
+	}
+	queries, err := rundown.NewQueries(storage)
+	if err != nil {
+		t.Fatalf("create Rundown Queries: %v", err)
+	}
+	created, err := commands.EditDraft(t.Context(), actor, rundown.EditDraftInput{
+		EventID: eventID, CommandID: "create-two-unpublished", ExpectedDraftRevision: 0,
+		Locations: []rundown.LocationDraftInput{{Ref: "selected", Name: "Selected Original"}, {Ref: "deferred", Name: "Deferred Original"}},
+	})
+	if err != nil {
+		t.Fatalf("create unpublished Locations: %v", err)
+	}
+	updated, err := commands.EditDraft(t.Context(), actor, rundown.EditDraftInput{
+		EventID: eventID, CommandID: "update-two-unpublished", ExpectedDraftRevision: created.DraftRevision,
+		Locations: []rundown.LocationDraftInput{
+			{ID: created.Changes[0].TargetID, Name: "Selected Updated", UpdateFields: []string{"name"}},
+			{ID: created.Changes[1].TargetID, Name: "Deferred Updated", UpdateFields: []string{"name"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("update unpublished Locations: %v", err)
+	}
+	preview, err := queries.PublishPreview(t.Context(), actor, rundown.PublishPreviewInput{
+		EventID: eventID, ChangeIDs: []int{updated.Changes[0].ID, created.Changes[1].ID},
+	})
+	if err != nil {
+		t.Fatalf("preview mixed creation and fact selection: %v", err)
+	}
+	if _, err = commands.Publish(t.Context(), actor, rundown.PublishInput{
+		EventID: eventID, CommandID: "publish-mixed-selection", Confirmation: rundown.PublishConfirmation{
+			DraftRevision: preview.DraftRevision, PublishedRevision: preview.PublishedRevision,
+			ChangeIDs: preview.ChangeIDs, Fingerprint: preview.Fingerprint,
+		},
+	}); err != nil {
+		t.Fatalf("publish mixed selection: %v", err)
+	}
+	crew, err := queries.CrewRundown(t.Context(), actor, eventID)
+	if err != nil {
+		t.Fatalf("read mixed Published selection: %v", err)
+	}
+	if len(crew.Locations) != 2 || crew.Locations[0].Name != "Selected Updated" || crew.Locations[1].Name != "Deferred Original" {
+		t.Fatalf("Published Locations = %+v, want selected update and deferred original", crew.Locations)
+	}
+	remaining, err := queries.PublishPreview(t.Context(), actor, rundown.PublishPreviewInput{EventID: eventID})
+	if err != nil {
+		t.Fatalf("preview remaining deferred fact: %v", err)
+	}
+	if len(remaining.ChangeIDs) != 1 || remaining.ChangeIDs[0] != updated.Changes[1].ID {
+		t.Fatalf("remaining changes = %v, want deferred update %d", remaining.ChangeIDs, updated.Changes[1].ID)
+	}
+}
+
+func TestDiscardReactivatesRemainingFactAndBaselineRevertIsNotSelectable(t *testing.T) {
+	storage, actor, eventID := openRundownTest(t)
+	commands, err := rundown.NewCommands(storage, time.Now)
+	if err != nil {
+		t.Fatalf("create Rundown Commands: %v", err)
+	}
+	queries, err := rundown.NewQueries(storage)
+	if err != nil {
+		t.Fatalf("create Rundown Queries: %v", err)
+	}
+	created, err := commands.EditDraft(t.Context(), actor, rundown.EditDraftInput{
+		EventID: eventID, CommandID: "history-create", ExpectedDraftRevision: 0,
+		Locations: []rundown.LocationDraftInput{{Ref: "history", Name: "Published A"}},
+	})
+	if err != nil {
+		t.Fatalf("create history Location: %v", err)
+	}
+	preview, err := queries.PublishPreview(t.Context(), actor, rundown.PublishPreviewInput{EventID: eventID, ChangeIDs: []int{created.Changes[0].ID}})
+	if err != nil {
+		t.Fatalf("preview history baseline: %v", err)
+	}
+	published, err := commands.Publish(t.Context(), actor, rundown.PublishInput{EventID: eventID, CommandID: "history-publish", Confirmation: rundown.PublishConfirmation{
+		DraftRevision: preview.DraftRevision, PublishedRevision: preview.PublishedRevision, ChangeIDs: preview.ChangeIDs, Fingerprint: preview.Fingerprint,
+	}})
+	if err != nil {
+		t.Fatalf("publish history baseline: %v", err)
+	}
+	locationID := created.Changes[0].TargetID
+	changeB, err := commands.EditDraft(t.Context(), actor, rundown.EditDraftInput{EventID: eventID, CommandID: "history-b",
+		ExpectedDraftRevision: published.DraftRevision, Locations: []rundown.LocationDraftInput{{ID: locationID, Name: "Draft B", UpdateFields: []string{"name"}}}})
+	if err != nil {
+		t.Fatalf("edit history B: %v", err)
+	}
+	changeC, err := commands.EditDraft(t.Context(), actor, rundown.EditDraftInput{EventID: eventID, CommandID: "history-c",
+		ExpectedDraftRevision: changeB.DraftRevision, Locations: []rundown.LocationDraftInput{{ID: locationID, Name: "Draft C", UpdateFields: []string{"name"}}}})
+	if err != nil {
+		t.Fatalf("edit history C: %v", err)
+	}
+	discarded, err := commands.DiscardDraftChanges(t.Context(), actor, rundown.DraftHistoryInput{EventID: eventID,
+		CommandID: "history-discard-c", ExpectedDraftRevision: changeC.DraftRevision, ChangeIDs: []int{changeC.Changes[0].ID}})
+	if err != nil {
+		t.Fatalf("discard history C: %v", err)
+	}
+	revoked := actor
+	revoked.EventRoles = nil
+	if retried, retryErr := commands.DiscardDraftChanges(t.Context(), revoked, rundown.DraftHistoryInput{EventID: eventID,
+		CommandID: "history-discard-c", ExpectedDraftRevision: changeC.DraftRevision, ChangeIDs: []int{changeC.Changes[0].ID}}); retryErr != nil || retried.DraftRevision != discarded.DraftRevision {
+		t.Fatalf("exact Discard retry after revoked authority = %+v, %v", retried, retryErr)
+	}
+	if _, conflictErr := commands.DiscardDraftChanges(t.Context(), actor, rundown.DraftHistoryInput{EventID: eventID,
+		CommandID: "history-discard-c", ExpectedDraftRevision: discarded.DraftRevision, ChangeIDs: []int{changeB.Changes[0].ID}}); !errors.Is(conflictErr, rundown.ErrCommandConflict) {
+		t.Errorf("Discard command ID conflict = %v, want %v", conflictErr, rundown.ErrCommandConflict)
+	}
+	if _, staleErr := commands.DiscardDraftChanges(t.Context(), actor, rundown.DraftHistoryInput{EventID: eventID,
+		CommandID: "history-stale-discard", ExpectedDraftRevision: changeC.DraftRevision, ChangeIDs: []int{changeB.Changes[0].ID}}); !errors.Is(staleErr, rundown.ErrDraftRevisionConflict) {
+		t.Errorf("stale Discard = %v, want %v", staleErr, rundown.ErrDraftRevisionConflict)
+	}
+	if _, deniedErr := commands.RevertDraftChange(t.Context(), revoked, rundown.DraftHistoryInput{EventID: eventID,
+		CommandID: "history-denied-revert", ExpectedDraftRevision: discarded.DraftRevision, ChangeIDs: []int{changeB.Changes[0].ID}}); !errors.Is(deniedErr, rundown.ErrEventAccessDenied) {
+		t.Errorf("denied Revert = %v, want %v", deniedErr, rundown.ErrEventAccessDenied)
+	}
+	remaining, err := queries.PublishPreview(t.Context(), actor, rundown.PublishPreviewInput{EventID: eventID})
+	if err != nil {
+		t.Fatalf("preview reactivated history B: %v", err)
+	}
+	if len(remaining.ChangeIDs) != 1 || remaining.ChangeIDs[0] != changeB.Changes[0].ID {
+		t.Fatalf("remaining history = %v, want reactivated B %d", remaining.ChangeIDs, changeB.Changes[0].ID)
+	}
+	reverted, err := commands.RevertDraftChange(t.Context(), actor, rundown.DraftHistoryInput{EventID: eventID,
+		CommandID: "history-revert-b", ExpectedDraftRevision: discarded.DraftRevision, ChangeIDs: []int{changeB.Changes[0].ID}})
+	if err != nil {
+		t.Fatalf("revert history B to baseline: %v", err)
+	}
+	if len(reverted.Changes) != 1 || reverted.Changes[0].Status != "Reverted" {
+		t.Fatalf("baseline Revert = %+v, want Reverted evidence", reverted)
+	}
+	none, err := queries.PublishPreview(t.Context(), actor, rundown.PublishPreviewInput{EventID: eventID})
+	if err != nil {
+		t.Fatalf("preview baseline Revert: %v", err)
+	}
+	if len(none.ChangeIDs) != 0 {
+		t.Fatalf("baseline Revert changes = %v, want none", none.ChangeIDs)
+	}
+	if _, err = commands.EditDraft(t.Context(), actor, rundown.EditDraftInput{EventID: eventID,
+		CommandID: "history-stale-after-baseline-revert", ExpectedDraftRevision: published.DraftRevision,
+		Locations: []rundown.LocationDraftInput{{ID: locationID, Name: "Fresh D", UpdateFields: []string{"name"}}},
+	}); err != nil {
+		t.Fatalf("stale edit after baseline Revert: %v", err)
+	}
+}
+
 func TestEditDraftAcceptsEverySessionTypeAndDefaultsLocations(t *testing.T) {
 	storage, actor, eventID := openRundownTest(t)
 	commands, err := rundown.NewCommands(storage, time.Now)

@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 	"testing"
@@ -23,6 +24,7 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	activationv1 "github.com/dotwaffle/beamers/gen/beamers/activation/v1"
@@ -676,6 +678,262 @@ func TestUnscopedOperatorCannotStartSession(t *testing.T) {
 	}))
 	if connect.CodeOf(err) != connect.CodePermissionDenied {
 		t.Errorf("unscoped Operator Start error = %v, want PermissionDenied", err)
+	}
+	server.stop(t)
+}
+
+func TestConcurrentDraftEditsConflictOnlyOnChangedFacts(t *testing.T) {
+	producer, server := startAuthenticatedAdministrator(t)
+	sessionID := prepareActiveSchedule(t, producer, server)
+	client := rundownv1connect.NewRundownServiceClient(
+		producer, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	current, err := client.GetCrewRundown(t.Context(), connect.NewRequest(
+		&rundownv1.GetCrewRundownRequest{EventId: 1},
+	))
+	if err != nil {
+		t.Fatalf("read current Rundown revision: %v", err)
+	}
+	baseRevision := current.Msg.GetDraftRevision()
+
+	titleEdit, err := client.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "concurrent-title", ExpectedDraftRevision: baseRevision,
+		Sessions: []*rundownv1.SessionDraft{{
+			Id: sessionID, Title: "Opening Keynote Updated",
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"title"}},
+		}},
+	}))
+	if err != nil {
+		t.Fatalf("edit Session title: %v", err)
+	}
+	notesEdit, err := client.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "concurrent-notes", ExpectedDraftRevision: baseRevision,
+		Sessions: []*rundownv1.SessionDraft{{
+			Id: sessionID, CrewNotes: "updated cue notes",
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"crew_notes"}},
+		}},
+	}))
+	if err != nil {
+		t.Fatalf("independent stale Session edit: %v", err)
+	}
+	if notesEdit.Msg.GetDraftRevision() != titleEdit.Msg.GetDraftRevision()+1 {
+		t.Errorf("independent Draft revisions = %d then %d, want consecutive", titleEdit.Msg.GetDraftRevision(), notesEdit.Msg.GetDraftRevision())
+	}
+
+	_, err = client.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "conflicting-title", ExpectedDraftRevision: baseRevision,
+		Sessions: []*rundownv1.SessionDraft{{
+			Id: sessionID, Title: "Last write must not win",
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"title"}},
+		}},
+	}))
+	if connect.CodeOf(err) != connect.CodeAborted {
+		t.Errorf("overlapping stale Edit error = %v, want Aborted", err)
+	}
+	var conflictErr *connect.Error
+	if !errors.As(err, &conflictErr) || len(conflictErr.Details()) != 1 {
+		t.Fatalf("overlapping stale Edit detail = %v, want one current-state detail", err)
+	}
+	conflictValue, detailErr := conflictErr.Details()[0].Value()
+	if detailErr != nil {
+		t.Fatalf("decode Draft conflict detail: %v", detailErr)
+	}
+	conflict, ok := conflictValue.(*rundownv1.DraftRevisionConflict)
+	if !ok || conflict.GetCurrentDraftRevision() != notesEdit.Msg.GetDraftRevision() ||
+		len(conflict.GetOverlappingChanges()) != 1 || conflict.GetOverlappingChanges()[0].GetFactKey() != "title" ||
+		conflict.GetOverlappingChanges()[0].GetCurrentValueJson() != `"Opening Keynote Updated"` {
+		t.Errorf("Draft conflict detail = %+v", conflictValue)
+	}
+
+	preview, err := client.PublishPreview(t.Context(), connect.NewRequest(&rundownv1.PublishPreviewRequest{
+		EventId: 1, ChangeIds: []int64{titleEdit.Msg.GetChanges()[0].GetId()},
+	}))
+	if err != nil {
+		t.Fatalf("preview selected title fact: %v", err)
+	}
+	if _, err = client.Publish(t.Context(), connect.NewRequest(&rundownv1.PublishRequest{
+		EventId: 1, CommandId: "publish-selected-title",
+		Confirmation: &rundownv1.PublishConfirmation{
+			DraftRevision: preview.Msg.GetDraftRevision(), PublishedRevision: preview.Msg.GetPublishedRevision(),
+			ChangeIds: preview.Msg.GetChangeIds(), Fingerprint: preview.Msg.GetFingerprint(),
+		},
+	})); err != nil {
+		t.Fatalf("publish selected title fact: %v", err)
+	}
+	published, err := client.GetCrewRundown(t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}))
+	if err != nil {
+		t.Fatalf("read partially Published Rundown: %v", err)
+	}
+	var publishedSession *rundownv1.CrewSession
+	for _, candidate := range published.Msg.GetSessions() {
+		if candidate.GetId() == sessionID {
+			publishedSession = candidate
+		}
+	}
+	if publishedSession == nil || publishedSession.GetTitle() != "Opening Keynote Updated" || publishedSession.GetCrewNotes() == "updated cue notes" {
+		t.Errorf("partially Published Session = %+v, want selected title without unselected notes", publishedSession)
+	}
+	_, staleAfterPublishErr := client.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "stale-title-after-publish", ExpectedDraftRevision: baseRevision,
+		Sessions: []*rundownv1.SessionDraft{{Id: sessionID, Title: "Stale after Publish",
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"title"}}}},
+	}))
+	if connect.CodeOf(staleAfterPublishErr) != connect.CodeAborted {
+		t.Errorf("stale title after Publish = %v, want Aborted", staleAfterPublishErr)
+	}
+	var staleAfterPublishConnectErr *connect.Error
+	if !errors.As(staleAfterPublishErr, &staleAfterPublishConnectErr) || len(staleAfterPublishConnectErr.Details()) != 1 {
+		t.Fatalf("stale title after Publish detail = %v", staleAfterPublishErr)
+	}
+	staleAfterPublishValue, detailErr := staleAfterPublishConnectErr.Details()[0].Value()
+	staleAfterPublishConflict, ok := staleAfterPublishValue.(*rundownv1.DraftRevisionConflict)
+	if detailErr != nil || !ok || len(staleAfterPublishConflict.GetOverlappingChanges()) != 1 ||
+		staleAfterPublishConflict.GetOverlappingChanges()[0].GetCurrentValueJson() != `"Opening Keynote Updated"` {
+		t.Errorf("stale title after Publish current state = %+v, %v", staleAfterPublishValue, detailErr)
+	}
+	if _, err = client.PublishPreview(t.Context(), connect.NewRequest(&rundownv1.PublishPreviewRequest{
+		EventId: 1, ChangeIds: []int64{notesEdit.Msg.GetChanges()[0].GetId()},
+	})); err != nil {
+		t.Errorf("unselected notes no longer effective: %v", err)
+	}
+	discarded, err := client.DiscardDraftChanges(t.Context(), connect.NewRequest(&rundownv1.DiscardDraftChangesRequest{
+		EventId: 1, CommandId: "discard-unselected-notes", ExpectedDraftRevision: published.Msg.GetDraftRevision(),
+		ChangeIds: []int64{notesEdit.Msg.GetChanges()[0].GetId()},
+	}))
+	if err != nil {
+		t.Fatalf("discard unselected notes: %v", err)
+	}
+	if len(discarded.Msg.GetChanges()) != 1 || discarded.Msg.GetChanges()[0].GetStatus() != "Discarded" {
+		t.Errorf("Discard response = %+v", discarded.Msg)
+	}
+	discardPreview, err := client.PublishPreview(t.Context(), connect.NewRequest(&rundownv1.PublishPreviewRequest{
+		EventId: 1, ChangeIds: []int64{notesEdit.Msg.GetChanges()[0].GetId()},
+	}))
+	if err != nil || len(discardPreview.Msg.GetValidationFailures()) == 0 {
+		t.Errorf("discarded notes Preview = %+v, %v; want validation failure", discardPreview, err)
+	}
+	reverted, err := client.RevertDraftChange(t.Context(), connect.NewRequest(&rundownv1.RevertDraftChangeRequest{
+		EventId: 1, CommandId: "revert-published-title", ExpectedDraftRevision: discarded.Msg.GetDraftRevision(),
+		ChangeId: titleEdit.Msg.GetChanges()[0].GetId(),
+	}))
+	if err != nil {
+		t.Fatalf("revert Published title: %v", err)
+	}
+	if len(reverted.Msg.GetChanges()) != 1 || reverted.Msg.GetChanges()[0].GetKind() != "RevertSession" {
+		t.Fatalf("Revert response = %+v", reverted.Msg)
+	}
+	revertPreview, err := client.PublishPreview(t.Context(), connect.NewRequest(&rundownv1.PublishPreviewRequest{
+		EventId: 1, ChangeIds: []int64{reverted.Msg.GetChanges()[0].GetId()},
+	}))
+	if err != nil {
+		t.Fatalf("preview Draft Revert: %v", err)
+	}
+	if _, err = client.Publish(t.Context(), connect.NewRequest(&rundownv1.PublishRequest{
+		EventId: 1, CommandId: "publish-reverted-title", Confirmation: &rundownv1.PublishConfirmation{
+			DraftRevision: revertPreview.Msg.GetDraftRevision(), PublishedRevision: revertPreview.Msg.GetPublishedRevision(),
+			ChangeIds: revertPreview.Msg.GetChangeIds(), Fingerprint: revertPreview.Msg.GetFingerprint(),
+		},
+	})); err != nil {
+		t.Fatalf("publish Draft Revert: %v", err)
+	}
+	revertedRundown, err := client.GetCrewRundown(t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}))
+	if err != nil {
+		t.Fatalf("read Reverted Rundown: %v", err)
+	}
+	for _, candidate := range revertedRundown.Msg.GetSessions() {
+		if candidate.GetId() == sessionID && candidate.GetTitle() != "Opening Keynote" {
+			t.Errorf("Reverted Published title = %q", candidate.GetTitle())
+		}
+	}
+	server.stop(t)
+}
+
+func TestConcurrentSessionMembershipEditsUsePerMemberFacts(t *testing.T) {
+	producer, server := startAuthenticatedAdministrator(t)
+	sessionID := prepareActiveSchedule(t, producer, server)
+	client := rundownv1connect.NewRundownServiceClient(producer, "http://"+server.address, connect.WithProtoJSON())
+	current, err := client.GetCrewRundown(t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}))
+	if err != nil {
+		t.Fatalf("read current Rundown: %v", err)
+	}
+	created, err := client.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "create-membership-lanes", ExpectedDraftRevision: current.Msg.GetDraftRevision(),
+		Locations: []*rundownv1.LocationDraft{{Ref: "membership-location-two", Name: "Membership Hall Two"}, {Ref: "membership-location-three", Name: "Membership Hall Three"}},
+		Lanes: []*rundownv1.LaneDraft{
+			{Ref: "membership-two", Name: "Membership Two", Location: &rundownv1.TargetRef{Target: &rundownv1.TargetRef_Ref{Ref: "membership-location-two"}}},
+			{Ref: "membership-three", Name: "Membership Three", Location: &rundownv1.TargetRef{Target: &rundownv1.TargetRef_Ref{Ref: "membership-location-three"}}},
+		},
+		Sessions: []*rundownv1.SessionDraft{{
+			Id: sessionID,
+			AddLanes: []*rundownv1.TargetRef{
+				{Target: &rundownv1.TargetRef_Ref{Ref: "membership-two"}},
+				{Target: &rundownv1.TargetRef_Ref{Ref: "membership-three"}},
+			},
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"add_lanes"}},
+		}},
+	}))
+	if err != nil {
+		t.Fatalf("create Session membership facts: %v", err)
+	}
+	var laneIDs []int64
+	var firstLaneCreationID int64
+	for _, change := range created.Msg.GetChanges() {
+		if change.GetKind() == "CreateLane" {
+			laneIDs = append(laneIDs, change.GetTargetId())
+			if firstLaneCreationID == 0 {
+				firstLaneCreationID = change.GetId()
+			}
+		}
+	}
+	if len(laneIDs) != 2 {
+		t.Fatalf("created Lane IDs = %v", laneIDs)
+	}
+	baseRevision := created.Msg.GetDraftRevision()
+	first, err := client.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "remove-membership-two", ExpectedDraftRevision: baseRevision,
+		Sessions: []*rundownv1.SessionDraft{{Id: sessionID,
+			RemoveLanes: []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Id{Id: laneIDs[0]}}},
+			UpdateMask:  &fieldmaskpb.FieldMask{Paths: []string{"remove_lanes"}},
+		}},
+	}))
+	if err != nil {
+		t.Fatalf("remove first independent membership: %v", err)
+	}
+	second, err := client.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "remove-membership-three", ExpectedDraftRevision: baseRevision,
+		Sessions: []*rundownv1.SessionDraft{{Id: sessionID,
+			RemoveLanes: []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Id{Id: laneIDs[1]}}},
+			UpdateMask:  &fieldmaskpb.FieldMask{Paths: []string{"remove_lanes"}},
+		}},
+	}))
+	if err != nil || second.Msg.GetDraftRevision() != first.Msg.GetDraftRevision()+1 {
+		t.Fatalf("independent stale membership edit = %+v, %v", second, err)
+	}
+	_, err = client.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "repeat-membership-two", ExpectedDraftRevision: baseRevision,
+		Sessions: []*rundownv1.SessionDraft{{Id: sessionID,
+			RemoveLanes: []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Id{Id: laneIDs[0]}}},
+			UpdateMask:  &fieldmaskpb.FieldMask{Paths: []string{"remove_lanes"}},
+		}},
+	}))
+	if connect.CodeOf(err) != connect.CodeAborted {
+		t.Errorf("same-membership stale edit = %v, want Aborted", err)
+	}
+	reverted, err := client.RevertDraftChange(t.Context(), connect.NewRequest(&rundownv1.RevertDraftChangeRequest{
+		EventId: 1, CommandId: "revert-membership-two-removal", ExpectedDraftRevision: second.Msg.GetDraftRevision(),
+		ChangeId: first.Msg.GetChanges()[0].GetId(),
+	}))
+	if err != nil {
+		t.Fatalf("Revert membership removal: %v", err)
+	}
+	preview, err := client.PublishPreview(t.Context(), connect.NewRequest(&rundownv1.PublishPreviewRequest{
+		EventId: 1, ChangeIds: []int64{reverted.Msg.GetChanges()[0].GetId()},
+	}))
+	if err != nil {
+		t.Fatalf("Preview membership Revert: %v", err)
+	}
+	if !slices.Contains(preview.Msg.GetAutoIncludedChangeIds(), firstLaneCreationID) {
+		t.Errorf("membership Revert auto-included changes = %v, want Lane creation %d", preview.Msg.GetAutoIncludedChangeIds(), firstLaneCreationID)
 	}
 	server.stop(t)
 }

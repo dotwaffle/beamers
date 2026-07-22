@@ -2,6 +2,7 @@ package rundownconnect
 
 import (
 	"errors"
+	"slices"
 
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -23,19 +24,28 @@ func editDraftInput(message *rundownv1.EditDraftRequest) (rundown.EditDraftInput
 		EventID: eventID, CommandID: message.GetCommandId(), ExpectedDraftRevision: expectedRevision,
 	}
 	for _, item := range message.GetLocations() {
-		input.Locations = append(input.Locations, rundown.LocationDraftInput{Ref: item.GetRef(), Name: item.GetName()})
+		input.Locations = append(input.Locations, rundown.LocationDraftInput{
+			ID: int(item.GetId()), Ref: item.GetRef(), Name: item.GetName(), UpdateFields: item.GetUpdateMask().GetPaths(),
+		})
 	}
 	for _, item := range message.GetLanes() {
-		location, targetErr := targetRef("lanes.location", item.GetLocation())
-		if targetErr != nil {
-			return rundown.EditDraftInput{}, targetErr
+		var location rundown.TargetRef
+		if item.GetUpdateMask() == nil || containsPath(item.GetUpdateMask().GetPaths(), "location") {
+			var targetErr error
+			location, targetErr = targetRef("lanes.location", item.GetLocation())
+			if targetErr != nil {
+				return rundown.EditDraftInput{}, targetErr
+			}
 		}
 		input.Lanes = append(input.Lanes, rundown.LaneDraftInput{
-			Ref: item.GetRef(), Name: item.GetName(), Location: location,
+			ID: int(item.GetId()), Ref: item.GetRef(), Name: item.GetName(), Location: location,
+			UpdateFields: item.GetUpdateMask().GetPaths(),
 		})
 	}
 	for _, item := range message.GetTracks() {
-		input.Tracks = append(input.Tracks, rundown.TrackDraftInput{Ref: item.GetRef(), Name: item.GetName()})
+		input.Tracks = append(input.Tracks, rundown.TrackDraftInput{
+			ID: int(item.GetId()), Ref: item.GetRef(), Name: item.GetName(), UpdateFields: item.GetUpdateMask().GetPaths(),
+		})
 	}
 	for _, item := range message.GetSessions() {
 		converted, sessionErr := sessionDraft(item)
@@ -47,7 +57,15 @@ func editDraftInput(message *rundownv1.EditDraftRequest) (rundown.EditDraftInput
 	return input, nil
 }
 
+func containsPath(paths []string, wanted string) bool {
+	return slices.Contains(paths, wanted)
+}
+
 func sessionDraft(message *rundownv1.SessionDraft) (rundown.SessionDraftInput, error) {
+	fields := message.GetUpdateMask().GetPaths()
+	if len(fields) > 0 {
+		return sessionDraftUpdate(message, fields)
+	}
 	plannedStart, err := timestamp("sessions.planned_start", message.GetPlannedStart())
 	if err != nil {
 		return rundown.SessionDraftInput{}, err
@@ -73,7 +91,7 @@ func sessionDraft(message *rundownv1.SessionDraft) (rundown.SessionDraftInput, e
 		return rundown.SessionDraftInput{}, err
 	}
 	return rundown.SessionDraftInput{
-		Ref: message.GetRef(), Title: message.GetTitle(), Type: sessionType(message.GetType()),
+		ID: int(message.GetId()), Ref: message.GetRef(), Title: message.GetTitle(), Type: sessionType(message.GetType()),
 		AudienceVisibility: audienceVisibility(message.GetAudienceVisibility()),
 		PublicDetails:      message.GetPublicDetails(), CrewNotes: message.GetCrewNotes(),
 		PlannedStart: plannedStart, PlannedEnd: plannedEnd,
@@ -81,6 +99,86 @@ func sessionDraft(message *rundownv1.SessionDraft) (rundown.SessionDraftInput, e
 		StartBoundary: boundary(message.GetStartBoundary()), EndBoundary: boundary(message.GetEndBoundary()),
 		Lanes: lanes, Locations: locations, Tracks: tracks,
 	}, nil
+}
+
+func sessionDraftUpdate(message *rundownv1.SessionDraft, fields []string) (rundown.SessionDraftInput, error) {
+	input := rundown.SessionDraftInput{
+		ID: int(message.GetId()), Title: message.GetTitle(), Type: sessionType(message.GetType()),
+		AudienceVisibility: audienceVisibility(message.GetAudienceVisibility()),
+		PublicDetails:      message.GetPublicDetails(), CrewNotes: message.GetCrewNotes(),
+		TimingPolicy: timingPolicy(message.GetTimingPolicy()), MinimumDuration: message.GetMinimumDuration().AsDuration(),
+		StartBoundary: boundary(message.GetStartBoundary()), EndBoundary: boundary(message.GetEndBoundary()),
+		UpdateFields: append([]string(nil), fields...),
+	}
+	selected := make(map[string]bool, len(fields))
+	for _, field := range fields {
+		selected[field] = true
+	}
+	var err error
+	if selected["planned_start"] {
+		input.PlannedStart, err = timestamp("sessions.planned_start", message.GetPlannedStart())
+		if err != nil {
+			return rundown.SessionDraftInput{}, err
+		}
+	}
+	if selected["planned_end"] {
+		input.PlannedEnd, err = timestamp("sessions.planned_end", message.GetPlannedEnd())
+		if err != nil {
+			return rundown.SessionDraftInput{}, err
+		}
+	}
+	if selected["minimum_duration"] {
+		input.MinimumDuration, err = duration("sessions.minimum_duration", message.GetMinimumDuration())
+		if err != nil {
+			return rundown.SessionDraftInput{}, err
+		}
+	}
+	if selected["lanes"] {
+		input.Lanes, err = targetRefs("sessions.lanes", message.GetLanes())
+		if err != nil {
+			return rundown.SessionDraftInput{}, err
+		}
+	}
+	if selected["locations"] {
+		input.Locations, err = targetRefs("sessions.locations", message.GetLocations())
+		if err != nil {
+			return rundown.SessionDraftInput{}, err
+		}
+	}
+	if selected["tracks"] {
+		input.Tracks, err = targetRefs("sessions.tracks", message.GetTracks())
+		if err != nil {
+			return rundown.SessionDraftInput{}, err
+		}
+	}
+	for field, messages := range map[string][]*rundownv1.TargetRef{
+		"add_lanes": message.GetAddLanes(), "remove_lanes": message.GetRemoveLanes(),
+		"add_locations": message.GetAddLocations(), "remove_locations": message.GetRemoveLocations(),
+		"add_tracks": message.GetAddTracks(), "remove_tracks": message.GetRemoveTracks(),
+	} {
+		if !selected[field] {
+			continue
+		}
+		converted, convertErr := targetRefs("sessions."+field, messages)
+		if convertErr != nil {
+			return rundown.SessionDraftInput{}, convertErr
+		}
+		switch field {
+		case "add_lanes":
+			input.AddLanes = converted
+		case "remove_lanes":
+			input.RemoveLanes = converted
+		case "add_locations":
+			input.AddLocations = converted
+		case "remove_locations":
+			input.RemoveLocations = converted
+		case "add_tracks":
+			input.AddTracks = converted
+		case "remove_tracks":
+			input.RemoveTracks = converted
+		}
+	}
+	return input, nil
 }
 
 func targetRefs(field string, messages []*rundownv1.TargetRef) ([]rundown.TargetRef, error) {

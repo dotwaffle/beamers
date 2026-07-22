@@ -2,19 +2,26 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"slices"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftchangedependency"
 	"github.com/dotwaffle/beamers/ent/lane"
+	"github.com/dotwaffle/beamers/ent/lanepublishedversion"
 	"github.com/dotwaffle/beamers/ent/location"
+	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/track"
+	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
 )
 
 // PendingDraftChange is the persistence projection used to form a Publish Preview.
@@ -164,10 +171,8 @@ func (transaction *CommandTx) Publish(ctx context.Context, params PublishParams)
 	sort.Slice(changes, func(first, second int) bool {
 		return publishKindOrder(changes[first].Kind) < publishKindOrder(changes[second].Kind)
 	})
-	for _, change := range changes {
-		if publishErr := transaction.publishChange(ctx, change, nextPublishedRevision, params.Now); publishErr != nil {
-			return PublishResult{}, publishErr
-		}
+	if publishErr := transaction.publishChanges(ctx, changes, nextPublishedRevision, params.Now); publishErr != nil {
+		return PublishResult{}, publishErr
 	}
 	if _, updateErr := transaction.transaction.DraftChange.Update().
 		Where(draftchange.IDIn(params.ChangeIDs...)).
@@ -198,6 +203,89 @@ func (transaction *CommandTx) Publish(ctx context.Context, params PublishParams)
 	}, nil
 }
 
+func (transaction *CommandTx) publishChanges(
+	ctx context.Context,
+	changes []*ent.DraftChange,
+	publishedRevision int,
+	now time.Time,
+) error {
+	updates := make(map[draftFactTarget][]*ent.DraftChange)
+	for _, change := range changes {
+		if strings.HasPrefix(change.Kind, "Update") || strings.HasPrefix(change.Kind, "Revert") {
+			key := draftFactTarget{targetType: change.TargetType, targetID: change.TargetID}
+			updates[key] = append(updates[key], change)
+		}
+	}
+	for _, change := range changes {
+		if strings.HasPrefix(change.Kind, "Update") || strings.HasPrefix(change.Kind, "Revert") {
+			continue
+		}
+		key := draftFactTarget{targetType: change.TargetType, targetID: change.TargetID}
+		if strings.HasPrefix(change.Kind, "Create") && len(updates[key]) > 0 {
+			if err := transaction.publishCreatedChanges(ctx, change, updates[key], publishedRevision, now); err != nil {
+				return err
+			}
+			delete(updates, key)
+			continue
+		}
+		if err := transaction.publishChange(ctx, change, publishedRevision, now); err != nil {
+			return err
+		}
+	}
+	for target, facts := range updates {
+		if err := transaction.publishFactUpdates(ctx, target, facts, publishedRevision, now); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (transaction *CommandTx) publishCreatedChanges(ctx context.Context, creation *ent.DraftChange, facts []*ent.DraftChange, revision int, now time.Time) error {
+	switch creation.TargetType {
+	case "Location":
+		return transaction.publishCreatedLocationFacts(ctx, creation, facts, revision, now)
+	case "Lane":
+		return transaction.publishCreatedLaneFacts(ctx, creation, facts, revision, now)
+	case "Track":
+		return transaction.publishCreatedTrackFacts(ctx, creation, facts, revision, now)
+	case "Session":
+		return transaction.publishCreatedSessionFacts(ctx, creation, facts, revision, now)
+	default:
+		return errors.New("unsupported Draft creation target")
+	}
+}
+
+func (transaction *CommandTx) publishFactUpdates(
+	ctx context.Context,
+	target draftFactTarget,
+	changes []*ent.DraftChange,
+	revision int,
+	now time.Time,
+) error {
+	switch target.targetType {
+	case "Location":
+		return transaction.publishLocationFacts(ctx, target.targetID, changes, revision, now)
+	case "Lane":
+		return transaction.publishLaneFacts(ctx, target.targetID, changes, revision, now)
+	case "Track":
+		return transaction.publishTrackFacts(ctx, target.targetID, changes, revision, now)
+	case "Session":
+		return transaction.publishSessionFacts(ctx, target.targetID, changes, revision, now)
+	default:
+		return errors.New("unsupported Draft fact target")
+	}
+}
+
+func changeAfter(change *ent.DraftChange, destination any) error {
+	var evidence struct {
+		After json.RawMessage `json:"after"`
+	}
+	if err := json.Unmarshal([]byte(change.PayloadJSON), &evidence); err != nil {
+		return err
+	}
+	return json.Unmarshal(evidence.After, destination)
+}
+
 func (transaction *CommandTx) publishChange(
 	ctx context.Context,
 	change *ent.DraftChange,
@@ -206,16 +294,224 @@ func (transaction *CommandTx) publishChange(
 ) error {
 	switch change.Kind {
 	case "CreateLocation":
-		return transaction.publishLocation(ctx, change.TargetID, publishedRevision, now)
+		return transaction.publishCreatedLocation(ctx, change, publishedRevision, now)
 	case "CreateLane":
-		return transaction.publishLane(ctx, change.TargetID, publishedRevision, now)
+		return transaction.publishCreatedLane(ctx, change, publishedRevision, now)
 	case "CreateTrack":
-		return transaction.publishTrack(ctx, change.TargetID, publishedRevision, now)
+		return transaction.publishCreatedTrack(ctx, change, publishedRevision, now)
 	case "CreateSession":
-		return transaction.publishSession(ctx, change.TargetID, publishedRevision, now)
+		return transaction.publishCreatedSession(ctx, change, publishedRevision, now)
 	default:
 		return errors.New("unsupported Draft Change kind")
 	}
+}
+
+func (transaction *CommandTx) publishCreatedLocation(ctx context.Context, change *ent.DraftChange, revision int, now time.Time) error {
+	var input LocationDraftCreate
+	if err := changeAfter(change, &input); err != nil {
+		return errors.New("decode Location creation evidence")
+	}
+	_, err := transaction.transaction.LocationPublishedVersion.Create().SetLocationID(change.TargetID).
+		SetPublishedRevision(revision).SetName(input.Name).SetCreatedAt(now).Save(ctx)
+	if err != nil {
+		return opaqueError("publish Location creation", err)
+	}
+	return nil
+}
+
+func (transaction *CommandTx) publishCreatedLane(ctx context.Context, change *ent.DraftChange, revision int, now time.Time) error {
+	var input LaneDraftCreate
+	if err := changeAfter(change, &input); err != nil {
+		return errors.New("decode Lane creation evidence")
+	}
+	_, err := transaction.transaction.LanePublishedVersion.Create().SetLaneID(change.TargetID).
+		SetPublishedRevision(revision).SetName(input.Name).SetLocationID(input.Location.ID).SetCreatedAt(now).Save(ctx)
+	if err != nil {
+		return opaqueError("publish Lane creation", err)
+	}
+	return nil
+}
+
+func (transaction *CommandTx) publishCreatedTrack(ctx context.Context, change *ent.DraftChange, revision int, now time.Time) error {
+	var input TrackDraftCreate
+	if err := changeAfter(change, &input); err != nil {
+		return errors.New("decode Track creation evidence")
+	}
+	_, err := transaction.transaction.TrackPublishedVersion.Create().SetTrackID(change.TargetID).
+		SetPublishedRevision(revision).SetName(input.Name).SetCreatedAt(now).Save(ctx)
+	if err != nil {
+		return opaqueError("publish Track creation", err)
+	}
+	return nil
+}
+
+func (transaction *CommandTx) publishCreatedSession(ctx context.Context, change *ent.DraftChange, revision int, now time.Time) error {
+	var input SessionDraftCreate
+	if err := changeAfter(change, &input); err != nil {
+		return errors.New("decode Session creation evidence")
+	}
+	laneIDs, locationIDs, trackIDs := targetIDs(input.Lanes), targetIDs(input.Locations), targetIDs(input.Tracks)
+	create := transaction.transaction.SessionPublishedVersion.Create().SetSessionID(change.TargetID).SetPublishedRevision(revision).
+		SetTitle(input.Title).SetType(sessionpublishedversion.Type(input.Type)).
+		SetAudienceVisibility(sessionpublishedversion.AudienceVisibility(input.AudienceVisibility)).
+		SetPublicDetails(input.PublicDetails).SetCrewNotes(input.CrewNotes).
+		SetPlannedStart(input.PlannedStart).SetPlannedEnd(input.PlannedEnd).
+		SetTimingPolicy(sessionpublishedversion.TimingPolicy(input.TimingPolicy)).SetMinimumDurationSeconds(input.MinimumDurationSeconds).
+		SetStartBoundary(sessionpublishedversion.StartBoundary(input.StartBoundary)).SetEndBoundary(sessionpublishedversion.EndBoundary(input.EndBoundary)).
+		SetCreatedAt(now).AddLaneIDs(laneIDs...).AddLocationIDs(locationIDs...).AddTrackIDs(trackIDs...)
+	if _, err := create.Save(ctx); err != nil {
+		return opaqueError("publish Session creation", err)
+	}
+	return nil
+}
+
+func targetIDs(targets []DraftTarget) []int {
+	result := make([]int, 0, len(targets))
+	for _, target := range targets {
+		result = append(result, target.ID)
+	}
+	return result
+}
+
+func (transaction *CommandTx) publishCreatedLocationFacts(ctx context.Context, creation *ent.DraftChange, facts []*ent.DraftChange, revision int, now time.Time) error {
+	var input LocationDraftCreate
+	if err := changeAfter(creation, &input); err != nil {
+		return errors.New("decode Location creation evidence")
+	}
+	for _, fact := range facts {
+		if fact.FactKey == "name" {
+			if err := changeAfter(fact, &input.Name); err != nil {
+				return err
+			}
+		}
+	}
+	_, err := transaction.transaction.LocationPublishedVersion.Create().SetLocationID(creation.TargetID).
+		SetPublishedRevision(revision).SetName(input.Name).SetCreatedAt(now).Save(ctx)
+	return err
+}
+
+func (transaction *CommandTx) publishCreatedLaneFacts(ctx context.Context, creation *ent.DraftChange, facts []*ent.DraftChange, revision int, now time.Time) error {
+	var input LaneDraftCreate
+	if err := changeAfter(creation, &input); err != nil {
+		return errors.New("decode Lane creation evidence")
+	}
+	for _, fact := range facts {
+		switch fact.FactKey {
+		case "name":
+			if err := changeAfter(fact, &input.Name); err != nil {
+				return err
+			}
+		case "location":
+			if err := changeAfter(fact, &input.Location.ID); err != nil {
+				return err
+			}
+		}
+	}
+	_, err := transaction.transaction.LanePublishedVersion.Create().SetLaneID(creation.TargetID).
+		SetPublishedRevision(revision).SetName(input.Name).SetLocationID(input.Location.ID).SetCreatedAt(now).Save(ctx)
+	return err
+}
+
+func (transaction *CommandTx) publishCreatedTrackFacts(ctx context.Context, creation *ent.DraftChange, facts []*ent.DraftChange, revision int, now time.Time) error {
+	var input TrackDraftCreate
+	if err := changeAfter(creation, &input); err != nil {
+		return errors.New("decode Track creation evidence")
+	}
+	for _, fact := range facts {
+		if fact.FactKey == "name" {
+			if err := changeAfter(fact, &input.Name); err != nil {
+				return err
+			}
+		}
+	}
+	_, err := transaction.transaction.TrackPublishedVersion.Create().SetTrackID(creation.TargetID).
+		SetPublishedRevision(revision).SetName(input.Name).SetCreatedAt(now).Save(ctx)
+	return err
+}
+
+func (transaction *CommandTx) publishCreatedSessionFacts(ctx context.Context, creation *ent.DraftChange, facts []*ent.DraftChange, revision int, now time.Time) error {
+	var input SessionDraftCreate
+	if err := changeAfter(creation, &input); err != nil {
+		return errors.New("decode Session creation evidence")
+	}
+	laneIDs, locationIDs, trackIDs := targetIDs(input.Lanes), targetIDs(input.Locations), targetIDs(input.Tracks)
+	for _, fact := range facts {
+		handled, membershipErr := applyMembershipAfter(fact, &laneIDs, &locationIDs, &trackIDs)
+		if membershipErr != nil {
+			return membershipErr
+		}
+		if handled {
+			continue
+		}
+		switch fact.FactKey {
+		case "title":
+			if err := changeAfter(fact, &input.Title); err != nil {
+				return err
+			}
+		case "type":
+			if err := changeAfter(fact, &input.Type); err != nil {
+				return err
+			}
+		case "audience_visibility":
+			if err := changeAfter(fact, &input.AudienceVisibility); err != nil {
+				return err
+			}
+		case "public_details":
+			if err := changeAfter(fact, &input.PublicDetails); err != nil {
+				return err
+			}
+		case "crew_notes":
+			if err := changeAfter(fact, &input.CrewNotes); err != nil {
+				return err
+			}
+		case "planned_start":
+			if err := changeAfter(fact, &input.PlannedStart); err != nil {
+				return err
+			}
+		case "planned_end":
+			if err := changeAfter(fact, &input.PlannedEnd); err != nil {
+				return err
+			}
+		case "timing_policy":
+			if err := changeAfter(fact, &input.TimingPolicy); err != nil {
+				return err
+			}
+		case "minimum_duration":
+			if err := changeAfter(fact, &input.MinimumDurationSeconds); err != nil {
+				return err
+			}
+		case "start_boundary":
+			if err := changeAfter(fact, &input.StartBoundary); err != nil {
+				return err
+			}
+		case "end_boundary":
+			if err := changeAfter(fact, &input.EndBoundary); err != nil {
+				return err
+			}
+		case "lanes":
+			if err := changeAfter(fact, &laneIDs); err != nil {
+				return err
+			}
+		case "locations":
+			if err := changeAfter(fact, &locationIDs); err != nil {
+				return err
+			}
+		case "tracks":
+			if err := changeAfter(fact, &trackIDs); err != nil {
+				return err
+			}
+		default:
+			return errors.New("unsupported Session creation fact")
+		}
+	}
+	create := transaction.transaction.SessionPublishedVersion.Create().SetSessionID(creation.TargetID).SetPublishedRevision(revision).
+		SetTitle(input.Title).SetType(sessionpublishedversion.Type(input.Type)).SetAudienceVisibility(sessionpublishedversion.AudienceVisibility(input.AudienceVisibility)).
+		SetPublicDetails(input.PublicDetails).SetCrewNotes(input.CrewNotes).SetPlannedStart(input.PlannedStart).SetPlannedEnd(input.PlannedEnd).
+		SetTimingPolicy(sessionpublishedversion.TimingPolicy(input.TimingPolicy)).SetMinimumDurationSeconds(input.MinimumDurationSeconds).
+		SetStartBoundary(sessionpublishedversion.StartBoundary(input.StartBoundary)).SetEndBoundary(sessionpublishedversion.EndBoundary(input.EndBoundary)).
+		SetCreatedAt(now).AddLaneIDs(laneIDs...).AddLocationIDs(locationIDs...).AddTrackIDs(trackIDs...)
+	_, err := create.Save(ctx)
+	return err
 }
 
 func publishKindOrder(kind string) int {
@@ -233,130 +529,203 @@ func publishKindOrder(kind string) int {
 	}
 }
 
-func (transaction *CommandTx) publishLocation(ctx context.Context, id, revision int, now time.Time) error {
+func (transaction *CommandTx) publishLocationFacts(ctx context.Context, id int, changes []*ent.DraftChange, revision int, now time.Time) error {
 	identity, err := transaction.transaction.Location.Get(ctx, id)
 	if err != nil {
-		return opaqueError("load Draft Location identity", err)
+		return opaqueError("load Location identity for fact Publish", err)
 	}
-	state, err := identity.QueryDraft().Only(ctx)
+	baseline, err := identity.QueryPublishedVersions().Order(ent.Desc(locationpublishedversion.FieldPublishedRevision)).First(ctx)
 	if err != nil {
-		return opaqueError("load Location Draft state", err)
+		return opaqueError("load Published Location baseline", err)
 	}
-	_, err = transaction.transaction.LocationPublishedVersion.Create().
-		SetLocationID(id).
-		SetPublishedRevision(revision).
-		SetName(state.Name).
-		SetRetired(state.Retired).
-		SetCreatedAt(now).
-		Save(ctx)
+	name := baseline.Name
+	for _, change := range changes {
+		if change.FactKey == "name" && changeAfter(change, &name) != nil {
+			return errors.New("decode Location fact change")
+		}
+	}
+	_, err = transaction.transaction.LocationPublishedVersion.Create().SetLocationID(id).SetPublishedRevision(revision).
+		SetName(name).SetRetired(baseline.Retired).SetCreatedAt(now).Save(ctx)
 	if err != nil {
-		return opaqueError("publish Location version", err)
+		return opaqueError("publish Location fact version", err)
 	}
 	return nil
 }
 
-func (transaction *CommandTx) publishLane(ctx context.Context, id, revision int, now time.Time) error {
+func (transaction *CommandTx) publishLaneFacts(ctx context.Context, id int, changes []*ent.DraftChange, revision int, now time.Time) error {
 	identity, err := transaction.transaction.Lane.Get(ctx, id)
 	if err != nil {
-		return opaqueError("load Draft Lane identity", err)
+		return opaqueError("load Lane identity for fact Publish", err)
 	}
-	state, err := identity.QueryDraft().Only(ctx)
+	baseline, err := identity.QueryPublishedVersions().Order(ent.Desc(lanepublishedversion.FieldPublishedRevision)).First(ctx)
 	if err != nil {
-		return opaqueError("load Lane Draft state", err)
+		return opaqueError("load Published Lane baseline", err)
 	}
-	_, err = transaction.transaction.LanePublishedVersion.Create().
-		SetLaneID(id).
-		SetLocationID(state.LocationID).
-		SetPublishedRevision(revision).
-		SetName(state.Name).
-		SetRetired(state.Retired).
-		SetCreatedAt(now).
-		Save(ctx)
+	name, locationID := baseline.Name, baseline.LocationID
+	for _, change := range changes {
+		switch change.FactKey {
+		case "name":
+			if err = changeAfter(change, &name); err != nil {
+				return errors.New("decode Lane name fact")
+			}
+		case "location":
+			if err = changeAfter(change, &locationID); err != nil {
+				return errors.New("decode Lane location fact")
+			}
+		}
+	}
+	_, err = transaction.transaction.LanePublishedVersion.Create().SetLaneID(id).SetPublishedRevision(revision).
+		SetName(name).SetLocationID(locationID).SetRetired(baseline.Retired).SetCreatedAt(now).Save(ctx)
 	if err != nil {
-		return opaqueError("publish Lane version", err)
+		return opaqueError("publish Lane fact version", err)
 	}
 	return nil
 }
 
-func (transaction *CommandTx) publishTrack(ctx context.Context, id, revision int, now time.Time) error {
+func applyMembershipAfter(change *ent.DraftChange, laneIDs, locationIDs, trackIDs *[]int) (bool, error) {
+	family, encodedID, found := strings.Cut(change.FactKey, ":")
+	if !found {
+		return false, nil
+	}
+	id, err := strconv.Atoi(encodedID)
+	if err != nil {
+		return true, errors.New("decode Draft membership fact key")
+	}
+	var present bool
+	if err = changeAfter(change, &present); err != nil {
+		return true, errors.New("decode Draft membership fact")
+	}
+	var ids *[]int
+	switch family {
+	case "lanes":
+		ids = laneIDs
+	case "locations":
+		ids = locationIDs
+	case "tracks":
+		ids = trackIDs
+	default:
+		return false, nil
+	}
+	if present && !slices.Contains(*ids, id) {
+		*ids = append(*ids, id)
+	}
+	if !present {
+		filtered := (*ids)[:0]
+		for _, candidate := range *ids {
+			if candidate != id {
+				filtered = append(filtered, candidate)
+			}
+		}
+		*ids = filtered
+	}
+	return true, nil
+}
+
+func (transaction *CommandTx) publishTrackFacts(ctx context.Context, id int, changes []*ent.DraftChange, revision int, now time.Time) error {
 	identity, err := transaction.transaction.Track.Get(ctx, id)
 	if err != nil {
-		return opaqueError("load Draft Track identity", err)
+		return opaqueError("load Track identity for fact Publish", err)
 	}
-	state, err := identity.QueryDraft().Only(ctx)
+	baseline, err := identity.QueryPublishedVersions().Order(ent.Desc(trackpublishedversion.FieldPublishedRevision)).First(ctx)
 	if err != nil {
-		return opaqueError("load Track Draft state", err)
+		return opaqueError("load Published Track baseline", err)
 	}
-	_, err = transaction.transaction.TrackPublishedVersion.Create().
-		SetTrackID(id).
-		SetPublishedRevision(revision).
-		SetName(state.Name).
-		SetRetired(state.Retired).
-		SetCreatedAt(now).
-		Save(ctx)
+	name := baseline.Name
+	for _, change := range changes {
+		if change.FactKey == "name" && changeAfter(change, &name) != nil {
+			return errors.New("decode Track fact change")
+		}
+	}
+	_, err = transaction.transaction.TrackPublishedVersion.Create().SetTrackID(id).SetPublishedRevision(revision).
+		SetName(name).SetRetired(baseline.Retired).SetCreatedAt(now).Save(ctx)
 	if err != nil {
-		return opaqueError("publish Track version", err)
+		return opaqueError("publish Track fact version", err)
 	}
 	return nil
 }
 
-func (transaction *CommandTx) publishSession(ctx context.Context, id, revision int, now time.Time) error {
+func (transaction *CommandTx) publishSessionFacts(ctx context.Context, id int, changes []*ent.DraftChange, revision int, now time.Time) error {
 	identity, err := transaction.transaction.Session.Get(ctx, id)
 	if err != nil {
-		return opaqueError("load Draft Session identity", err)
+		return opaqueError("load Session identity for fact Publish", err)
 	}
-	state, err := identity.QueryDraft().Only(ctx)
+	baseline, err := identity.QueryPublishedVersions().Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).First(ctx)
 	if err != nil {
-		return opaqueError("load Session Draft state", err)
+		return opaqueError("load Published Session baseline", err)
 	}
-	lanes, err := state.QueryLanes().All(ctx)
+	laneIDs, err := baseline.QueryLanes().IDs(ctx)
 	if err != nil {
-		return opaqueError("load Session Draft Lanes", err)
+		return opaqueError("load Published Session Lanes", err)
 	}
-	laneIDs := make([]int, 0, len(lanes))
-	for _, item := range lanes {
-		laneIDs = append(laneIDs, item.ID)
-	}
-	locations, err := state.QueryLocations().All(ctx)
+	locationIDs, err := baseline.QueryLocations().IDs(ctx)
 	if err != nil {
-		return opaqueError("load Session Draft Locations", err)
+		return opaqueError("load Published Session Locations", err)
 	}
-	locationIDs := make([]int, 0, len(locations))
-	for _, item := range locations {
-		locationIDs = append(locationIDs, item.ID)
-	}
-	tracks, err := state.QueryTracks().All(ctx)
+	trackIDs, err := baseline.QueryTracks().IDs(ctx)
 	if err != nil {
-		return opaqueError("load Session Draft Tracks", err)
+		return opaqueError("load Published Session Tracks", err)
 	}
-	trackIDs := make([]int, 0, len(tracks))
-	for _, item := range tracks {
-		trackIDs = append(trackIDs, item.ID)
+	title, sessionType := baseline.Title, string(baseline.Type)
+	audience, publicDetails, crewNotes := string(baseline.AudienceVisibility), baseline.PublicDetails, baseline.CrewNotes
+	plannedStart, plannedEnd := baseline.PlannedStart, baseline.PlannedEnd
+	timingPolicy, minimumDuration := string(baseline.TimingPolicy), baseline.MinimumDurationSeconds
+	startBoundary, endBoundary := string(baseline.StartBoundary), string(baseline.EndBoundary)
+	for _, change := range changes {
+		handled, membershipErr := applyMembershipAfter(change, &laneIDs, &locationIDs, &trackIDs)
+		if membershipErr != nil {
+			return membershipErr
+		}
+		if handled {
+			continue
+		}
+		switch change.FactKey {
+		case "title":
+			err = changeAfter(change, &title)
+		case "type":
+			err = changeAfter(change, &sessionType)
+		case "audience_visibility":
+			err = changeAfter(change, &audience)
+		case "public_details":
+			err = changeAfter(change, &publicDetails)
+		case "crew_notes":
+			err = changeAfter(change, &crewNotes)
+		case "planned_start":
+			err = changeAfter(change, &plannedStart)
+		case "planned_end":
+			err = changeAfter(change, &plannedEnd)
+		case "timing_policy":
+			err = changeAfter(change, &timingPolicy)
+		case "minimum_duration":
+			err = changeAfter(change, &minimumDuration)
+		case "start_boundary":
+			err = changeAfter(change, &startBoundary)
+		case "end_boundary":
+			err = changeAfter(change, &endBoundary)
+		case "lanes":
+			err = changeAfter(change, &laneIDs)
+		case "locations":
+			err = changeAfter(change, &locationIDs)
+		case "tracks":
+			err = changeAfter(change, &trackIDs)
+		default:
+			return errors.New("unsupported Session fact change")
+		}
+		if err != nil {
+			return errors.New("decode Session fact change")
+		}
 	}
-	create := transaction.transaction.SessionPublishedVersion.Create().
-		SetSessionID(id).
-		SetPublishedRevision(revision).
-		SetTitle(state.Title).
-		SetType(sessionpublishedversion.Type(state.Type)).
-		SetAudienceVisibility(sessionpublishedversion.AudienceVisibility(state.AudienceVisibility)).
-		SetPlannedStart(state.PlannedStart).
-		SetPlannedEnd(state.PlannedEnd).
-		SetTimingPolicy(sessionpublishedversion.TimingPolicy(state.TimingPolicy)).
-		SetMinimumDurationSeconds(state.MinimumDurationSeconds).
-		SetStartBoundary(sessionpublishedversion.StartBoundary(state.StartBoundary)).
-		SetEndBoundary(sessionpublishedversion.EndBoundary(state.EndBoundary)).
-		SetCreatedAt(now).
-		AddLaneIDs(laneIDs...).
-		AddLocationIDs(locationIDs...).
-		AddTrackIDs(trackIDs...)
-	if state.PublicDetails != "" {
-		create.SetPublicDetails(state.PublicDetails)
-	}
-	if state.CrewNotes != "" {
-		create.SetCrewNotes(state.CrewNotes)
-	}
+	create := transaction.transaction.SessionPublishedVersion.Create().SetSessionID(id).SetPublishedRevision(revision).
+		SetTitle(title).SetType(sessionpublishedversion.Type(sessionType)).
+		SetAudienceVisibility(sessionpublishedversion.AudienceVisibility(audience)).
+		SetPublicDetails(publicDetails).SetCrewNotes(crewNotes).
+		SetPlannedStart(plannedStart).SetPlannedEnd(plannedEnd).
+		SetTimingPolicy(sessionpublishedversion.TimingPolicy(timingPolicy)).
+		SetMinimumDurationSeconds(minimumDuration).
+		SetStartBoundary(sessionpublishedversion.StartBoundary(startBoundary)).
+		SetEndBoundary(sessionpublishedversion.EndBoundary(endBoundary)).SetCreatedAt(now).
+		AddLaneIDs(laneIDs...).AddLocationIDs(locationIDs...).AddTrackIDs(trackIDs...)
 	if _, err = create.Save(ctx); err != nil {
-		return opaqueError("publish Session version", err)
+		return opaqueError("publish Session fact version", err)
 	}
 	return nil
 }

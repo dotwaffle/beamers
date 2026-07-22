@@ -4,13 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
+	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/auditentry"
+	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/rundown"
+	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/track"
 )
@@ -21,6 +27,16 @@ var (
 	// ErrDraftReference means a Draft entity references unknown structural identity.
 	ErrDraftReference = errors.New("invalid Draft reference")
 )
+
+// DraftRevisionConflictError describes the current state that overlaps a stale edit.
+type DraftRevisionConflictError struct {
+	CurrentDraftRevision int
+	OverlappingChanges   []DraftChangeResult
+}
+
+func (conflict *DraftRevisionConflictError) Error() string { return ErrDraftRevisionConflict.Error() }
+
+func (conflict *DraftRevisionConflictError) Unwrap() error { return ErrDraftRevisionConflict }
 
 // CommandIdentity contains one command's durable replay identity.
 type CommandIdentity struct {
@@ -184,25 +200,32 @@ type DraftTarget struct {
 
 // LocationDraftCreate contains one new Location's materialized Draft state.
 type LocationDraftCreate struct {
-	Ref  string
-	Name string
+	ID           int
+	Ref          string
+	Name         string
+	UpdateFields []string
 }
 
 // LaneDraftCreate contains one new Lane's materialized Draft state.
 type LaneDraftCreate struct {
-	Ref      string
-	Name     string
-	Location DraftTarget
+	ID           int
+	Ref          string
+	Name         string
+	Location     DraftTarget
+	UpdateFields []string
 }
 
 // TrackDraftCreate contains one new Track's materialized Draft state.
 type TrackDraftCreate struct {
-	Ref  string
-	Name string
+	ID           int
+	Ref          string
+	Name         string
+	UpdateFields []string
 }
 
 // SessionDraftCreate contains one new Session's materialized Draft state.
 type SessionDraftCreate struct {
+	ID                     int
 	Ref                    string
 	Title                  string
 	Type                   string
@@ -218,6 +241,13 @@ type SessionDraftCreate struct {
 	Lanes                  []DraftTarget
 	Locations              []DraftTarget
 	Tracks                 []DraftTarget
+	AddLanes               []DraftTarget
+	RemoveLanes            []DraftTarget
+	AddLocations           []DraftTarget
+	RemoveLocations        []DraftTarget
+	AddTracks              []DraftTarget
+	RemoveTracks           []DraftTarget
+	UpdateFields           []string
 }
 
 // EditDraftParams contains one validated atomic Draft Edit.
@@ -234,10 +264,13 @@ type EditDraftParams struct {
 
 // DraftChangeResult identifies one durable effective Draft Change.
 type DraftChangeResult struct {
-	ID         int    `json:"id"`
-	Kind       string `json:"kind"`
-	TargetType string `json:"target_type"`
-	TargetID   int    `json:"target_id"`
+	ID               int    `json:"id"`
+	Kind             string `json:"kind"`
+	TargetType       string `json:"target_type"`
+	TargetID         int    `json:"target_id"`
+	FactKey          string `json:"fact_key,omitempty"`
+	Status           string `json:"status,omitempty"`
+	CurrentValueJSON string `json:"current_value_json,omitempty"`
 }
 
 // EditDraftResult is the minimal durable outcome of one Draft Edit.
@@ -265,8 +298,19 @@ func (transaction *CommandTx) EditDraft(
 	if referenceErr := transaction.validateDraftReferences(ctx, params); referenceErr != nil {
 		return EditDraftResult{}, referenceErr
 	}
-	if params.ExpectedDraftRevision != current.DraftRevision {
+	if params.ExpectedDraftRevision > current.DraftRevision {
 		return EditDraftResult{}, ErrDraftRevisionConflict
+	}
+	if params.ExpectedDraftRevision < current.DraftRevision {
+		overlaps, overlapErr := transaction.draftOverlaps(ctx, params, params.ExpectedDraftRevision)
+		if overlapErr != nil {
+			return EditDraftResult{}, overlapErr
+		}
+		if len(overlaps) > 0 {
+			return EditDraftResult{}, &DraftRevisionConflictError{
+				CurrentDraftRevision: current.DraftRevision, OverlappingChanges: overlaps,
+			}
+		}
 	}
 	nextRevision := current.DraftRevision + 1
 	updated, err := transaction.transaction.Rundown.UpdateOneID(current.ID).
@@ -297,6 +341,14 @@ func (transaction *CommandTx) EditDraft(
 	}
 	result := EditDraftResult{DraftRevision: nextRevision}
 	for _, input := range params.Locations {
+		if input.ID > 0 {
+			changes, updateErr := transaction.updateLocationDraft(ctx, internalContext, params, edit.ID, nextRevision, input)
+			if updateErr != nil {
+				return EditDraftResult{}, updateErr
+			}
+			result.Changes = append(result.Changes, changes...)
+			continue
+		}
 		created, createErr := transaction.transaction.Location.Create().
 			SetEventID(params.EventID).
 			SetCreatedAt(params.Now).
@@ -322,6 +374,14 @@ func (transaction *CommandTx) EditDraft(
 		result.Changes = append(result.Changes, draftChangeResult(change))
 	}
 	for _, input := range params.Lanes {
+		if input.ID > 0 {
+			changes, updateErr := transaction.updateLaneDraft(ctx, internalContext, params, edit.ID, nextRevision, input, state)
+			if updateErr != nil {
+				return EditDraftResult{}, updateErr
+			}
+			result.Changes = append(result.Changes, changes...)
+			continue
+		}
 		locationID, dependencyID, resolveErr := resolveDraftTarget(
 			input.Location, state.locationIDs, state.locationChanges,
 		)
@@ -344,7 +404,7 @@ func (transaction *CommandTx) EditDraft(
 		}
 		change, createErr := transaction.createDraftChange(
 			internalContext, params, edit.ID, nextRevision,
-			"CreateLane", "Lane", created.ID, input,
+			"CreateLane", "Lane", created.ID, LaneDraftCreate{Name: input.Name, Location: DraftTarget{ID: locationID}},
 		)
 		if createErr != nil {
 			return EditDraftResult{}, createErr
@@ -359,6 +419,14 @@ func (transaction *CommandTx) EditDraft(
 		result.Changes = append(result.Changes, draftChangeResult(change))
 	}
 	for _, input := range params.Tracks {
+		if input.ID > 0 {
+			changes, updateErr := transaction.updateTrackDraft(ctx, internalContext, params, edit.ID, nextRevision, input)
+			if updateErr != nil {
+				return EditDraftResult{}, updateErr
+			}
+			result.Changes = append(result.Changes, changes...)
+			continue
+		}
 		created, createErr := transaction.transaction.Track.Create().
 			SetEventID(params.EventID).
 			SetCreatedAt(params.Now).
@@ -384,13 +452,21 @@ func (transaction *CommandTx) EditDraft(
 		result.Changes = append(result.Changes, draftChangeResult(change))
 	}
 	for _, input := range params.Sessions {
+		if input.ID > 0 {
+			changes, updateErr := transaction.updateSessionDraft(ctx, internalContext, params, edit.ID, nextRevision, input, state)
+			if updateErr != nil {
+				return EditDraftResult{}, updateErr
+			}
+			result.Changes = append(result.Changes, changes...)
+			continue
+		}
 		created, createErr := transaction.createSessionDraft(ctx, params, input, state)
 		if createErr != nil {
 			return EditDraftResult{}, createErr
 		}
 		change, createErr := transaction.createDraftChange(
 			internalContext, params, edit.ID, nextRevision,
-			"CreateSession", "Session", created.sessionID, input,
+			"CreateSession", "Session", created.sessionID, created.payload,
 		)
 		if createErr != nil {
 			return EditDraftResult{}, createErr
@@ -416,8 +492,14 @@ func (transaction *CommandTx) validateDraftReferences(ctx context.Context, param
 	}
 	for _, item := range params.Sessions {
 		collectDraftTargetIDs(laneIDs, item.Lanes)
+		collectDraftTargetIDs(laneIDs, item.AddLanes)
+		collectDraftTargetIDs(laneIDs, item.RemoveLanes)
 		collectDraftTargetIDs(locationIDs, item.Locations)
+		collectDraftTargetIDs(locationIDs, item.AddLocations)
+		collectDraftTargetIDs(locationIDs, item.RemoveLocations)
 		collectDraftTargetIDs(trackIDs, item.Tracks)
+		collectDraftTargetIDs(trackIDs, item.AddTracks)
+		collectDraftTargetIDs(trackIDs, item.RemoveTracks)
 	}
 	for id := range locationIDs {
 		exists, err := transaction.transaction.Location.Query().
@@ -455,6 +537,436 @@ func (transaction *CommandTx) validateDraftReferences(ctx context.Context, param
 	return nil
 }
 
+type draftFactTarget struct {
+	targetType string
+	targetID   int
+	factKey    string
+}
+
+func (transaction *CommandTx) draftOverlaps(ctx context.Context, params EditDraftParams, afterRevision int) ([]DraftChangeResult, error) {
+	wanted := make(map[draftFactTarget]struct{})
+	add := func(targetType string, targetID int, fields []string) {
+		for _, field := range fields {
+			wanted[draftFactTarget{targetType: targetType, targetID: targetID, factKey: field}] = struct{}{}
+		}
+	}
+	for _, item := range params.Locations {
+		add("Location", item.ID, item.UpdateFields)
+	}
+	for _, item := range params.Lanes {
+		add("Lane", item.ID, item.UpdateFields)
+	}
+	for _, item := range params.Tracks {
+		add("Track", item.ID, item.UpdateFields)
+	}
+	for _, item := range params.Sessions {
+		for _, field := range item.UpdateFields {
+			if !strings.HasPrefix(field, "add_") && !strings.HasPrefix(field, "remove_") {
+				add("Session", item.ID, []string{field})
+			}
+		}
+		addMembership := func(family string, targets ...[]DraftTarget) {
+			for _, group := range targets {
+				for _, target := range group {
+					key := target.Ref
+					if target.ID > 0 {
+						key = strconv.Itoa(target.ID)
+					}
+					add("Session", item.ID, []string{family + ":" + key})
+				}
+			}
+		}
+		addMembership("lanes", item.AddLanes, item.RemoveLanes)
+		addMembership("locations", item.AddLocations, item.RemoveLocations)
+		addMembership("tracks", item.AddTracks, item.RemoveTracks)
+	}
+	if len(wanted) == 0 {
+		return []DraftChangeResult{{Kind: "ConcurrentDraftEdit"}}, nil
+	}
+	changes, err := transaction.transaction.DraftChange.Query().
+		Where(draftchange.EventIDEQ(params.EventID), draftchange.RevisionGT(afterRevision),
+			draftchange.StatusIn(draftchange.StatusEffective, draftchange.StatusPublished)).
+		Order(ent.Desc(draftchange.FieldRevision), ent.Desc(draftchange.FieldID)).
+		All(systemContext(ctx))
+	if err != nil {
+		return nil, opaqueError("check overlapping Draft changes", err)
+	}
+	result := make([]DraftChangeResult, 0)
+	seen := make(map[draftFactTarget]struct{})
+	for _, change := range changes {
+		for target := range wanted {
+			if change.TargetType != target.targetType || change.TargetID != target.targetID ||
+				(change.FactKey != target.factKey && change.FactKey != "entity") {
+				continue
+			}
+			key := draftFactTarget{targetType: change.TargetType, targetID: change.TargetID, factKey: target.factKey}
+			if _, exists := seen[key]; exists {
+				break
+			}
+			found := draftChangeResult(change)
+			var evidence struct {
+				After json.RawMessage `json:"after"`
+			}
+			if json.Unmarshal([]byte(change.PayloadJSON), &evidence) == nil {
+				found.CurrentValueJSON = string(evidence.After)
+			}
+			result = append(result, found)
+			seen[key] = struct{}{}
+			break
+		}
+	}
+	return result, nil
+}
+
+func (transaction *CommandTx) recordFactChange(
+	ctx context.Context,
+	params EditDraftParams,
+	editID, revision int,
+	targetType string,
+	targetID int,
+	factKey string,
+	before, after any,
+) (*ent.DraftChange, error) {
+	return transaction.recordNamedFactChange(ctx, params, editID, revision, "Update"+targetType, targetType, targetID, factKey, before, after)
+}
+
+func (transaction *CommandTx) recordNamedFactChange(
+	ctx context.Context,
+	params EditDraftParams,
+	editID, revision int,
+	kind, targetType string,
+	targetID int,
+	factKey string,
+	before, after any,
+) (*ent.DraftChange, error) {
+	encoded, err := json.Marshal(struct {
+		Version int `json:"version"`
+		Before  any `json:"before"`
+		After   any `json:"after"`
+	}{Version: 1, Before: before, After: after})
+	if err != nil {
+		return nil, opaqueError("encode Draft fact change", err)
+	}
+	if _, err = transaction.transaction.DraftChange.Update().
+		Where(
+			draftchange.EventIDEQ(params.EventID), draftchange.TargetTypeEQ(targetType),
+			draftchange.TargetIDEQ(targetID), draftchange.FactKeyEQ(factKey),
+			draftchange.StatusEQ(draftchange.StatusEffective),
+		).
+		SetStatus(draftchange.StatusSuperseded).
+		Save(ctx); err != nil {
+		return nil, opaqueError("supersede Draft fact change", err)
+	}
+	change, err := transaction.transaction.DraftChange.Create().
+		SetEventID(params.EventID).SetDraftEditID(editID).SetRevision(revision).
+		SetKind(kind).SetTargetType(targetType).SetTargetID(targetID).
+		SetFactKey(factKey).SetPayloadJSON(string(encoded)).SetCreatedAt(params.Now).Save(ctx)
+	if err != nil {
+		return nil, opaqueError("record Draft fact change", err)
+	}
+	creation, queryErr := transaction.transaction.DraftChange.Query().Where(
+		draftchange.EventIDEQ(params.EventID), draftchange.TargetTypeEQ(targetType), draftchange.TargetIDEQ(targetID),
+		draftchange.FactKeyEQ("entity"), draftchange.StatusEQ(draftchange.StatusEffective),
+	).Only(ctx)
+	if queryErr == nil {
+		if dependencyErr := transaction.createDraftDependency(ctx, change.ID, creation.ID); dependencyErr != nil {
+			return nil, dependencyErr
+		}
+	} else if !ent.IsNotFound(queryErr) {
+		return nil, opaqueError("load Draft entity creation dependency", queryErr)
+	}
+	return change, nil
+}
+
+func (transaction *CommandTx) updateLocationDraft(
+	ctx, internalContext context.Context,
+	params EditDraftParams,
+	editID, revision int,
+	input LocationDraftCreate,
+) ([]DraftChangeResult, error) {
+	identity, err := transaction.transaction.Location.Query().Where(location.IDEQ(input.ID), location.EventIDEQ(params.EventID)).Only(ctx)
+	if err != nil {
+		return nil, ErrDraftReference
+	}
+	state, err := identity.QueryDraft().Only(ctx)
+	if err != nil {
+		return nil, opaqueError("load Location Draft state", err)
+	}
+	if state.Name == input.Name {
+		return nil, nil
+	}
+	change, err := transaction.recordFactChange(internalContext, params, editID, revision, "Location", input.ID, "name", state.Name, input.Name)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = transaction.transaction.LocationDraft.UpdateOne(state).SetName(input.Name).Save(ctx); err != nil {
+		return nil, opaqueError("update Location Draft state", err)
+	}
+	return []DraftChangeResult{draftChangeResult(change)}, nil
+}
+
+func (transaction *CommandTx) updateLaneDraft(
+	ctx, internalContext context.Context,
+	params EditDraftParams,
+	editID, revision int,
+	input LaneDraftCreate,
+	creations draftCreationState,
+) ([]DraftChangeResult, error) {
+	identity, err := transaction.transaction.Lane.Query().Where(lane.IDEQ(input.ID), lane.EventIDEQ(params.EventID)).Only(ctx)
+	if err != nil {
+		return nil, ErrDraftReference
+	}
+	state, err := identity.QueryDraft().Only(ctx)
+	if err != nil {
+		return nil, opaqueError("load Lane Draft state", err)
+	}
+	results := make([]DraftChangeResult, 0, len(input.UpdateFields))
+	update := transaction.transaction.LaneDraft.UpdateOne(state)
+	for _, field := range input.UpdateFields {
+		var before, after any
+		dependencyID := 0
+		switch field {
+		case "name":
+			before, after = state.Name, input.Name
+			update.SetName(input.Name)
+		case "location":
+			locationID, resolvedDependencyID, resolveErr := resolveDraftTarget(input.Location, creations.locationIDs, creations.locationChanges)
+			if resolveErr != nil {
+				return nil, resolveErr
+			}
+			before, after, dependencyID = state.LocationID, locationID, resolvedDependencyID
+			update.SetLocationID(locationID)
+		}
+		if before == after {
+			continue
+		}
+		change, changeErr := transaction.recordFactChange(internalContext, params, editID, revision, "Lane", input.ID, field, before, after)
+		if changeErr != nil {
+			return nil, changeErr
+		}
+		if dependencyID > 0 {
+			if dependencyErr := transaction.createDraftDependency(internalContext, change.ID, dependencyID); dependencyErr != nil {
+				return nil, dependencyErr
+			}
+		}
+		results = append(results, draftChangeResult(change))
+	}
+	if _, err = update.Save(ctx); err != nil {
+		return nil, opaqueError("update Lane Draft state", err)
+	}
+	return results, nil
+}
+
+func (transaction *CommandTx) updateTrackDraft(
+	ctx, internalContext context.Context,
+	params EditDraftParams,
+	editID, revision int,
+	input TrackDraftCreate,
+) ([]DraftChangeResult, error) {
+	identity, err := transaction.transaction.Track.Query().Where(track.IDEQ(input.ID), track.EventIDEQ(params.EventID)).Only(ctx)
+	if err != nil {
+		return nil, ErrDraftReference
+	}
+	state, err := identity.QueryDraft().Only(ctx)
+	if err != nil {
+		return nil, opaqueError("load Track Draft state", err)
+	}
+	if state.Name == input.Name {
+		return nil, nil
+	}
+	change, err := transaction.recordFactChange(internalContext, params, editID, revision, "Track", input.ID, "name", state.Name, input.Name)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = transaction.transaction.TrackDraft.UpdateOne(state).SetName(input.Name).Save(ctx); err != nil {
+		return nil, opaqueError("update Track Draft state", err)
+	}
+	return []DraftChangeResult{draftChangeResult(change)}, nil
+}
+
+func (transaction *CommandTx) updateSessionDraft(
+	ctx, internalContext context.Context,
+	params EditDraftParams,
+	editID, revision int,
+	input SessionDraftCreate,
+	creations draftCreationState,
+) ([]DraftChangeResult, error) {
+	identity, err := transaction.transaction.Session.Query().Where(session.IDEQ(input.ID), session.EventIDEQ(params.EventID)).Only(ctx)
+	if err != nil {
+		return nil, ErrDraftReference
+	}
+	state, err := identity.QueryDraft().Only(ctx)
+	if err != nil {
+		return nil, opaqueError("load Session Draft state", err)
+	}
+	currentLaneIDs, err := state.QueryLanes().IDs(ctx)
+	if err != nil {
+		return nil, opaqueError("load Session Draft Lanes", err)
+	}
+	currentLocationIDs, err := state.QueryLocations().IDs(ctx)
+	if err != nil {
+		return nil, opaqueError("load Session Draft Locations", err)
+	}
+	currentTrackIDs, err := state.QueryTracks().IDs(ctx)
+	if err != nil {
+		return nil, opaqueError("load Session Draft Tracks", err)
+	}
+	results := make([]DraftChangeResult, 0, len(input.UpdateFields))
+	update := transaction.transaction.SessionDraft.UpdateOne(state)
+	for _, field := range input.UpdateFields {
+		if strings.HasPrefix(field, "add_") || strings.HasPrefix(field, "remove_") {
+			continue
+		}
+		var before, after any
+		switch field {
+		case "title":
+			before, after = state.Title, input.Title
+			update.SetTitle(input.Title)
+		case "type":
+			before, after = string(state.Type), input.Type
+			update.SetType(sessiondraft.Type(input.Type))
+		case "audience_visibility":
+			before, after = string(state.AudienceVisibility), input.AudienceVisibility
+			update.SetAudienceVisibility(sessiondraft.AudienceVisibility(input.AudienceVisibility))
+		case "public_details":
+			before, after = state.PublicDetails, input.PublicDetails
+			update.SetPublicDetails(input.PublicDetails)
+		case "crew_notes":
+			before, after = state.CrewNotes, input.CrewNotes
+			update.SetCrewNotes(input.CrewNotes)
+		case "planned_start":
+			before, after = state.PlannedStart, input.PlannedStart
+			update.SetPlannedStart(input.PlannedStart)
+		case "planned_end":
+			before, after = state.PlannedEnd, input.PlannedEnd
+			update.SetPlannedEnd(input.PlannedEnd)
+		case "timing_policy":
+			before, after = string(state.TimingPolicy), input.TimingPolicy
+			update.SetTimingPolicy(sessiondraft.TimingPolicy(input.TimingPolicy))
+		case "minimum_duration":
+			before, after = state.MinimumDurationSeconds, input.MinimumDurationSeconds
+			update.SetMinimumDurationSeconds(input.MinimumDurationSeconds)
+		case "start_boundary":
+			before, after = string(state.StartBoundary), input.StartBoundary
+			update.SetStartBoundary(sessiondraft.StartBoundary(input.StartBoundary))
+		case "end_boundary":
+			before, after = string(state.EndBoundary), input.EndBoundary
+			update.SetEndBoundary(sessiondraft.EndBoundary(input.EndBoundary))
+		default:
+			return nil, ErrDraftReference
+		}
+		if reflect.DeepEqual(before, after) {
+			continue
+		}
+		change, changeErr := transaction.recordFactChange(internalContext, params, editID, revision, "Session", input.ID, field, before, after)
+		if changeErr != nil {
+			return nil, changeErr
+		}
+		results = append(results, draftChangeResult(change))
+	}
+	membershipResults, membershipErr := transaction.updateSessionMemberships(
+		internalContext, params, editID, revision, input, creations, update,
+		currentLaneIDs, currentLocationIDs, currentTrackIDs,
+	)
+	if membershipErr != nil {
+		return nil, membershipErr
+	}
+	results = append(results, membershipResults...)
+	if _, err = update.Save(ctx); err != nil {
+		return nil, opaqueError("update Session Draft state", err)
+	}
+	return results, nil
+}
+
+func containsString(values []string, wanted string) bool {
+	return slices.Contains(values, wanted)
+}
+
+func (transaction *CommandTx) updateSessionMemberships(
+	ctx context.Context,
+	params EditDraftParams,
+	editID, revision int,
+	input SessionDraftCreate,
+	creations draftCreationState,
+	update *ent.SessionDraftUpdateOne,
+	currentLaneIDs, currentLocationIDs, currentTrackIDs []int,
+) ([]DraftChangeResult, error) {
+	type operation struct {
+		field, family          string
+		targets                []DraftTarget
+		current                []int
+		localIDs, localChanges map[string]int
+		adding                 bool
+	}
+	operations := []operation{
+		{"add_lanes", "lanes", input.AddLanes, currentLaneIDs, creations.laneIDs, creations.laneChanges, true},
+		{"remove_lanes", "lanes", input.RemoveLanes, currentLaneIDs, creations.laneIDs, creations.laneChanges, false},
+		{"add_locations", "locations", input.AddLocations, currentLocationIDs, creations.locationIDs, creations.locationChanges, true},
+		{"remove_locations", "locations", input.RemoveLocations, currentLocationIDs, creations.locationIDs, creations.locationChanges, false},
+		{"add_tracks", "tracks", input.AddTracks, currentTrackIDs, creations.trackIDs, creations.trackChanges, true},
+		{"remove_tracks", "tracks", input.RemoveTracks, currentTrackIDs, creations.trackIDs, creations.trackChanges, false},
+	}
+	results := make([]DraftChangeResult, 0)
+	laneCount := len(currentLaneIDs)
+	for _, operation := range operations {
+		if !containsString(input.UpdateFields, operation.field) {
+			continue
+		}
+		if len(operation.targets) == 0 {
+			return nil, ErrDraftReference
+		}
+		for _, target := range operation.targets {
+			id, dependencyID, err := resolveDraftTarget(target, operation.localIDs, operation.localChanges)
+			if err != nil {
+				return nil, err
+			}
+			present := slices.Contains(operation.current, id)
+			if present == operation.adding {
+				continue
+			}
+			switch operation.family {
+			case "lanes":
+				if operation.adding {
+					update.AddLaneIDs(id)
+					laneCount++
+				} else {
+					update.RemoveLaneIDs(id)
+					laneCount--
+				}
+			case "locations":
+				if operation.adding {
+					update.AddLocationIDs(id)
+				} else {
+					update.RemoveLocationIDs(id)
+				}
+			default:
+				if operation.adding {
+					update.AddTrackIDs(id)
+				} else {
+					update.RemoveTrackIDs(id)
+				}
+			}
+			change, err := transaction.recordFactChange(
+				ctx, params, editID, revision, "Session", input.ID,
+				operation.family+":"+strconv.Itoa(id), present, operation.adding,
+			)
+			if err != nil {
+				return nil, err
+			}
+			if dependencyID > 0 {
+				if dependencyErr := transaction.createDraftDependency(ctx, change.ID, dependencyID); dependencyErr != nil {
+					return nil, dependencyErr
+				}
+			}
+			results = append(results, draftChangeResult(change))
+		}
+	}
+	if laneCount == 0 {
+		return nil, ErrDraftReference
+	}
+	return results, nil
+}
+
 func collectDraftTargetIDs(ids map[int]struct{}, targets []DraftTarget) {
 	for _, target := range targets {
 		if target.ID > 0 {
@@ -475,6 +987,7 @@ type draftCreationState struct {
 type createdSessionDraft struct {
 	sessionID     int
 	dependencyIDs []int
+	payload       SessionDraftCreate
 }
 
 func (transaction *CommandTx) createSessionDraft(
@@ -536,7 +1049,19 @@ func (transaction *CommandTx) createSessionDraft(
 	dependencies := append([]int(nil), laneDependencies...)
 	dependencies = append(dependencies, locationDependencies...)
 	dependencies = append(dependencies, trackDependencies...)
-	return createdSessionDraft{sessionID: created.ID, dependencyIDs: uniqueInts(dependencies)}, nil
+	payload := input
+	payload.Lanes = draftIDs(laneIDs)
+	payload.Locations = draftIDs(locationIDs)
+	payload.Tracks = draftIDs(trackIDs)
+	return createdSessionDraft{sessionID: created.ID, dependencyIDs: uniqueInts(dependencies), payload: payload}, nil
+}
+
+func draftIDs(ids []int) []DraftTarget {
+	result := make([]DraftTarget, 0, len(ids))
+	for _, id := range ids {
+		result = append(result, DraftTarget{ID: id})
+	}
+	return result
 }
 
 func (transaction *CommandTx) laneLocationIDs(ctx context.Context, laneIDs []int) ([]int, error) {
@@ -647,5 +1172,6 @@ func uniqueInts(values []int) []int {
 func draftChangeResult(change *ent.DraftChange) DraftChangeResult {
 	return DraftChangeResult{
 		ID: change.ID, Kind: change.Kind, TargetType: change.TargetType, TargetID: change.TargetID,
+		FactKey: change.FactKey, Status: change.Status.String(),
 	}
 }

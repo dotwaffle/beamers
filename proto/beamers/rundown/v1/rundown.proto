@@ -3,12 +3,15 @@ syntax = "proto3";
 package beamers.rundown.v1;
 
 import "google/protobuf/duration.proto";
+import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/dotwaffle/beamers/gen/beamers/rundown/v1;rundownv1";
 
 service RundownService {
   rpc EditDraft(EditDraftRequest) returns (EditDraftResponse);
+  rpc DiscardDraftChanges(DiscardDraftChangesRequest) returns (DiscardDraftChangesResponse);
+  rpc RevertDraftChange(RevertDraftChangeRequest) returns (RevertDraftChangeResponse);
   rpc PublishPreview(PublishPreviewRequest) returns (PublishPreviewResponse);
   rpc Publish(PublishRequest) returns (PublishResponse);
   rpc GetCrewRundown(GetCrewRundownRequest) returns (GetCrewRundownResponse);
@@ -24,17 +27,23 @@ message TargetRef {
 message LocationDraft {
   string ref = 1;
   string name = 2;
+  int64 id = 3;
+  google.protobuf.FieldMask update_mask = 4;
 }
 
 message LaneDraft {
   string ref = 1;
   string name = 2;
   TargetRef location = 3;
+  int64 id = 4;
+  google.protobuf.FieldMask update_mask = 5;
 }
 
 message TrackDraft {
   string ref = 1;
   string name = 2;
+  int64 id = 3;
+  google.protobuf.FieldMask update_mask = 4;
 }
 
 enum SessionType {
@@ -83,6 +92,14 @@ message SessionDraft {
   repeated TargetRef lanes = 13;
   repeated TargetRef locations = 14;
   repeated TargetRef tracks = 15;
+  int64 id = 16;
+  google.protobuf.FieldMask update_mask = 17;
+  repeated TargetRef add_lanes = 18;
+  repeated TargetRef remove_lanes = 19;
+  repeated TargetRef add_locations = 20;
+  repeated TargetRef remove_locations = 21;
+  repeated TargetRef add_tracks = 22;
+  repeated TargetRef remove_tracks = 23;
 }
 
 message EditDraftRequest {
@@ -100,6 +117,38 @@ message DraftChange {
   string kind = 2;
   string target_type = 3;
   int64 target_id = 4;
+  string fact_key = 5;
+  string status = 6;
+  string current_value_json = 7;
+}
+
+message DiscardDraftChangesRequest {
+  int64 event_id = 1;
+  string command_id = 2;
+  int64 expected_draft_revision = 3;
+  repeated int64 change_ids = 4;
+}
+
+message DiscardDraftChangesResponse {
+  int64 draft_revision = 1;
+  repeated DraftChange changes = 2;
+}
+
+message RevertDraftChangeRequest {
+  int64 event_id = 1;
+  string command_id = 2;
+  int64 expected_draft_revision = 3;
+  int64 change_id = 4;
+}
+
+message RevertDraftChangeResponse {
+  int64 draft_revision = 1;
+  repeated DraftChange changes = 2;
+}
+
+message DraftRevisionConflict {
+  int64 current_draft_revision = 1;
+  repeated DraftChange overlapping_changes = 2;
 }
 
 message EditDraftResponse {

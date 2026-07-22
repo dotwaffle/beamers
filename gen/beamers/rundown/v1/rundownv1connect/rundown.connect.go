@@ -36,6 +36,12 @@ const (
 	// RundownServiceEditDraftProcedure is the fully-qualified name of the RundownService's EditDraft
 	// RPC.
 	RundownServiceEditDraftProcedure = "/beamers.rundown.v1.RundownService/EditDraft"
+	// RundownServiceDiscardDraftChangesProcedure is the fully-qualified name of the RundownService's
+	// DiscardDraftChanges RPC.
+	RundownServiceDiscardDraftChangesProcedure = "/beamers.rundown.v1.RundownService/DiscardDraftChanges"
+	// RundownServiceRevertDraftChangeProcedure is the fully-qualified name of the RundownService's
+	// RevertDraftChange RPC.
+	RundownServiceRevertDraftChangeProcedure = "/beamers.rundown.v1.RundownService/RevertDraftChange"
 	// RundownServicePublishPreviewProcedure is the fully-qualified name of the RundownService's
 	// PublishPreview RPC.
 	RundownServicePublishPreviewProcedure = "/beamers.rundown.v1.RundownService/PublishPreview"
@@ -49,6 +55,8 @@ const (
 // RundownServiceClient is a client for the beamers.rundown.v1.RundownService service.
 type RundownServiceClient interface {
 	EditDraft(context.Context, *connect.Request[v1.EditDraftRequest]) (*connect.Response[v1.EditDraftResponse], error)
+	DiscardDraftChanges(context.Context, *connect.Request[v1.DiscardDraftChangesRequest]) (*connect.Response[v1.DiscardDraftChangesResponse], error)
+	RevertDraftChange(context.Context, *connect.Request[v1.RevertDraftChangeRequest]) (*connect.Response[v1.RevertDraftChangeResponse], error)
 	PublishPreview(context.Context, *connect.Request[v1.PublishPreviewRequest]) (*connect.Response[v1.PublishPreviewResponse], error)
 	Publish(context.Context, *connect.Request[v1.PublishRequest]) (*connect.Response[v1.PublishResponse], error)
 	GetCrewRundown(context.Context, *connect.Request[v1.GetCrewRundownRequest]) (*connect.Response[v1.GetCrewRundownResponse], error)
@@ -69,6 +77,18 @@ func NewRundownServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			httpClient,
 			baseURL+RundownServiceEditDraftProcedure,
 			connect.WithSchema(rundownServiceMethods.ByName("EditDraft")),
+			connect.WithClientOptions(opts...),
+		),
+		discardDraftChanges: connect.NewClient[v1.DiscardDraftChangesRequest, v1.DiscardDraftChangesResponse](
+			httpClient,
+			baseURL+RundownServiceDiscardDraftChangesProcedure,
+			connect.WithSchema(rundownServiceMethods.ByName("DiscardDraftChanges")),
+			connect.WithClientOptions(opts...),
+		),
+		revertDraftChange: connect.NewClient[v1.RevertDraftChangeRequest, v1.RevertDraftChangeResponse](
+			httpClient,
+			baseURL+RundownServiceRevertDraftChangeProcedure,
+			connect.WithSchema(rundownServiceMethods.ByName("RevertDraftChange")),
 			connect.WithClientOptions(opts...),
 		),
 		publishPreview: connect.NewClient[v1.PublishPreviewRequest, v1.PublishPreviewResponse](
@@ -94,15 +114,27 @@ func NewRundownServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 
 // rundownServiceClient implements RundownServiceClient.
 type rundownServiceClient struct {
-	editDraft      *connect.Client[v1.EditDraftRequest, v1.EditDraftResponse]
-	publishPreview *connect.Client[v1.PublishPreviewRequest, v1.PublishPreviewResponse]
-	publish        *connect.Client[v1.PublishRequest, v1.PublishResponse]
-	getCrewRundown *connect.Client[v1.GetCrewRundownRequest, v1.GetCrewRundownResponse]
+	editDraft           *connect.Client[v1.EditDraftRequest, v1.EditDraftResponse]
+	discardDraftChanges *connect.Client[v1.DiscardDraftChangesRequest, v1.DiscardDraftChangesResponse]
+	revertDraftChange   *connect.Client[v1.RevertDraftChangeRequest, v1.RevertDraftChangeResponse]
+	publishPreview      *connect.Client[v1.PublishPreviewRequest, v1.PublishPreviewResponse]
+	publish             *connect.Client[v1.PublishRequest, v1.PublishResponse]
+	getCrewRundown      *connect.Client[v1.GetCrewRundownRequest, v1.GetCrewRundownResponse]
 }
 
 // EditDraft calls beamers.rundown.v1.RundownService.EditDraft.
 func (c *rundownServiceClient) EditDraft(ctx context.Context, req *connect.Request[v1.EditDraftRequest]) (*connect.Response[v1.EditDraftResponse], error) {
 	return c.editDraft.CallUnary(ctx, req)
+}
+
+// DiscardDraftChanges calls beamers.rundown.v1.RundownService.DiscardDraftChanges.
+func (c *rundownServiceClient) DiscardDraftChanges(ctx context.Context, req *connect.Request[v1.DiscardDraftChangesRequest]) (*connect.Response[v1.DiscardDraftChangesResponse], error) {
+	return c.discardDraftChanges.CallUnary(ctx, req)
+}
+
+// RevertDraftChange calls beamers.rundown.v1.RundownService.RevertDraftChange.
+func (c *rundownServiceClient) RevertDraftChange(ctx context.Context, req *connect.Request[v1.RevertDraftChangeRequest]) (*connect.Response[v1.RevertDraftChangeResponse], error) {
+	return c.revertDraftChange.CallUnary(ctx, req)
 }
 
 // PublishPreview calls beamers.rundown.v1.RundownService.PublishPreview.
@@ -123,6 +155,8 @@ func (c *rundownServiceClient) GetCrewRundown(ctx context.Context, req *connect.
 // RundownServiceHandler is an implementation of the beamers.rundown.v1.RundownService service.
 type RundownServiceHandler interface {
 	EditDraft(context.Context, *connect.Request[v1.EditDraftRequest]) (*connect.Response[v1.EditDraftResponse], error)
+	DiscardDraftChanges(context.Context, *connect.Request[v1.DiscardDraftChangesRequest]) (*connect.Response[v1.DiscardDraftChangesResponse], error)
+	RevertDraftChange(context.Context, *connect.Request[v1.RevertDraftChangeRequest]) (*connect.Response[v1.RevertDraftChangeResponse], error)
 	PublishPreview(context.Context, *connect.Request[v1.PublishPreviewRequest]) (*connect.Response[v1.PublishPreviewResponse], error)
 	Publish(context.Context, *connect.Request[v1.PublishRequest]) (*connect.Response[v1.PublishResponse], error)
 	GetCrewRundown(context.Context, *connect.Request[v1.GetCrewRundownRequest]) (*connect.Response[v1.GetCrewRundownResponse], error)
@@ -139,6 +173,18 @@ func NewRundownServiceHandler(svc RundownServiceHandler, opts ...connect.Handler
 		RundownServiceEditDraftProcedure,
 		svc.EditDraft,
 		connect.WithSchema(rundownServiceMethods.ByName("EditDraft")),
+		connect.WithHandlerOptions(opts...),
+	)
+	rundownServiceDiscardDraftChangesHandler := connect.NewUnaryHandler(
+		RundownServiceDiscardDraftChangesProcedure,
+		svc.DiscardDraftChanges,
+		connect.WithSchema(rundownServiceMethods.ByName("DiscardDraftChanges")),
+		connect.WithHandlerOptions(opts...),
+	)
+	rundownServiceRevertDraftChangeHandler := connect.NewUnaryHandler(
+		RundownServiceRevertDraftChangeProcedure,
+		svc.RevertDraftChange,
+		connect.WithSchema(rundownServiceMethods.ByName("RevertDraftChange")),
 		connect.WithHandlerOptions(opts...),
 	)
 	rundownServicePublishPreviewHandler := connect.NewUnaryHandler(
@@ -163,6 +209,10 @@ func NewRundownServiceHandler(svc RundownServiceHandler, opts ...connect.Handler
 		switch r.URL.Path {
 		case RundownServiceEditDraftProcedure:
 			rundownServiceEditDraftHandler.ServeHTTP(w, r)
+		case RundownServiceDiscardDraftChangesProcedure:
+			rundownServiceDiscardDraftChangesHandler.ServeHTTP(w, r)
+		case RundownServiceRevertDraftChangeProcedure:
+			rundownServiceRevertDraftChangeHandler.ServeHTTP(w, r)
 		case RundownServicePublishPreviewProcedure:
 			rundownServicePublishPreviewHandler.ServeHTTP(w, r)
 		case RundownServicePublishProcedure:
@@ -180,6 +230,14 @@ type UnimplementedRundownServiceHandler struct{}
 
 func (UnimplementedRundownServiceHandler) EditDraft(context.Context, *connect.Request[v1.EditDraftRequest]) (*connect.Response[v1.EditDraftResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.rundown.v1.RundownService.EditDraft is not implemented"))
+}
+
+func (UnimplementedRundownServiceHandler) DiscardDraftChanges(context.Context, *connect.Request[v1.DiscardDraftChangesRequest]) (*connect.Response[v1.DiscardDraftChangesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.rundown.v1.RundownService.DiscardDraftChanges is not implemented"))
+}
+
+func (UnimplementedRundownServiceHandler) RevertDraftChange(context.Context, *connect.Request[v1.RevertDraftChangeRequest]) (*connect.Response[v1.RevertDraftChangeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.rundown.v1.RundownService.RevertDraftChange is not implemented"))
 }
 
 func (UnimplementedRundownServiceHandler) PublishPreview(context.Context, *connect.Request[v1.PublishPreviewRequest]) (*connect.Response[v1.PublishPreviewResponse], error) {

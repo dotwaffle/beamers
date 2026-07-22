@@ -122,7 +122,7 @@ var (
 		{Name: "target_id", Type: field.TypeInt},
 		{Name: "fact_key", Type: field.TypeString, Size: 200},
 		{Name: "payload_json", Type: field.TypeString},
-		{Name: "status", Type: field.TypeEnum, Enums: []string{"Effective", "Published"}, Default: "Effective"},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"Effective", "Published", "Superseded", "Discarded", "Reverted"}, Default: "Effective"},
 		{Name: "published_revision", Type: field.TypeInt, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "draft_edit_id", Type: field.TypeInt},
