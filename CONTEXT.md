@@ -316,6 +316,10 @@ _Avoid_: Session identity, synchronization key
 **Draft**: Unpublished structural changes to an Event that do not affect live operation.
 _Avoid_: Forecast Time
 
+**Draft Edit**: One atomic set of related structural changes applied to shared Draft state under one expected Draft Revision.
+All changes succeed together, and changes within the set may refer to other new Draft elements in that same edit.
+_Avoid_: Publish, partial Draft update, generic patch
+
 **Draft Revision**: The version of relevant shared Draft state that an edit expects.
 A stale edit to the same field is rejected rather than overwriting another Crew Member's work.
 _Avoid_: Live State Revision, Results Draft revision
