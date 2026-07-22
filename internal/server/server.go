@@ -9,6 +9,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/dotwaffle/beamers/internal/operations"
 )
 
@@ -18,6 +22,9 @@ type Config struct {
 	ListenAddress   string
 	ShutdownTimeout time.Duration
 	Logger          *slog.Logger
+	TracerProvider  trace.TracerProvider
+	MeterProvider   metric.MeterProvider
+	Propagator      propagation.TextMapPropagator
 }
 
 // Run serves health endpoints until the context is canceled.
@@ -65,6 +72,18 @@ func Run(ctx context.Context, config Config) error {
 			config.Logger,
 			listener.Addr(),
 		)
+		if err := registerRundownRoutes(
+			mux,
+			installation.Authentication(),
+			installation.RundownCommands(),
+			installation.RundownQueries(),
+			listener.Addr(),
+			config.TracerProvider,
+			config.MeterProvider,
+			config.Propagator,
+		); err != nil {
+			return errors.Join(err, listener.Close(), installation.Close())
+		}
 	}
 
 	httpServer := &http.Server{

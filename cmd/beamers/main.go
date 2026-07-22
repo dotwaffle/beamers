@@ -12,6 +12,10 @@ import (
 	"syscall"
 	"time"
 
+	"go.opentelemetry.io/otel/metric/noop"
+	"go.opentelemetry.io/otel/propagation"
+	tracenoop "go.opentelemetry.io/otel/trace/noop"
+
 	_ "github.com/dotwaffle/beamers/ent/runtime" // Register generated hooks, validators, and privacy policies.
 	"github.com/dotwaffle/beamers/internal/operations"
 	"github.com/dotwaffle/beamers/internal/server"
@@ -107,6 +111,12 @@ func runServe(ctx context.Context, args []string, stderr io.Writer, logger *slog
 		ListenAddress:   *listenAddress,
 		ShutdownTimeout: 10 * time.Second,
 		Logger:          logger,
+		TracerProvider:  tracenoop.NewTracerProvider(),
+		MeterProvider:   noop.NewMeterProvider(),
+		Propagator: propagation.NewCompositeTextMapPropagator(
+			propagation.TraceContext{},
+			propagation.Baggage{},
+		),
 	})
 }
 

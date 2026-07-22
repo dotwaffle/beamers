@@ -45,5 +45,9 @@ jobs:
           git diff --exit-code
           test -z "$(git ls-files --others --exclude-standard)"
 
+      - name: Check Protocol Buffer compatibility
+        if: github.event_name == 'pull_request'
+        run: buf breaking --against 'https://github.com/dotwaffle/beamers.git#branch=main'
+
       - name: Run canonical checks
         run: mise run check

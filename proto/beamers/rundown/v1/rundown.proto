@@ -1,0 +1,191 @@
+syntax = "proto3";
+
+package beamers.rundown.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/dotwaffle/beamers/gen/beamers/rundown/v1;rundownv1";
+
+service RundownService {
+  rpc EditDraft(EditDraftRequest) returns (EditDraftResponse);
+  rpc PublishPreview(PublishPreviewRequest) returns (PublishPreviewResponse);
+  rpc Publish(PublishRequest) returns (PublishResponse);
+  rpc GetCrewRundown(GetCrewRundownRequest) returns (GetCrewRundownResponse);
+}
+
+message TargetRef {
+  oneof target {
+    int64 id = 1;
+    string ref = 2;
+  }
+}
+
+message LocationDraft {
+  string ref = 1;
+  string name = 2;
+}
+
+message LaneDraft {
+  string ref = 1;
+  string name = 2;
+  TargetRef location = 3;
+}
+
+message TrackDraft {
+  string ref = 1;
+  string name = 2;
+}
+
+enum SessionType {
+  SESSION_TYPE_UNSPECIFIED = 0;
+  SESSION_TYPE_PRESENTATION = 1;
+  SESSION_TYPE_COMPETITION = 2;
+  SESSION_TYPE_BREAK = 3;
+  SESSION_TYPE_ACTIVITY = 4;
+  SESSION_TYPE_CEREMONY = 5;
+  SESSION_TYPE_PERFORMANCE = 6;
+  SESSION_TYPE_HOLD = 7;
+}
+
+enum AudienceVisibility {
+  AUDIENCE_VISIBILITY_UNSPECIFIED = 0;
+  AUDIENCE_VISIBILITY_PUBLIC = 1;
+  AUDIENCE_VISIBILITY_CREW_ONLY = 2;
+}
+
+enum TimingPolicy {
+  TIMING_POLICY_UNSPECIFIED = 0;
+  TIMING_POLICY_FIXED_END = 1;
+  TIMING_POLICY_FIXED_DURATION = 2;
+  TIMING_POLICY_MANUAL_END = 3;
+}
+
+enum Boundary {
+  BOUNDARY_UNSPECIFIED = 0;
+  BOUNDARY_HARD = 1;
+  BOUNDARY_SOFT = 2;
+}
+
+message SessionDraft {
+  string ref = 1;
+  string title = 2;
+  SessionType type = 3;
+  AudienceVisibility audience_visibility = 4;
+  string public_details = 5;
+  string crew_notes = 6;
+  google.protobuf.Timestamp planned_start = 7;
+  google.protobuf.Timestamp planned_end = 8;
+  TimingPolicy timing_policy = 9;
+  google.protobuf.Duration minimum_duration = 10;
+  Boundary start_boundary = 11;
+  Boundary end_boundary = 12;
+  repeated TargetRef lanes = 13;
+  repeated TargetRef locations = 14;
+  repeated TargetRef tracks = 15;
+}
+
+message EditDraftRequest {
+  int64 event_id = 1;
+  string command_id = 2;
+  int64 expected_draft_revision = 3;
+  repeated LocationDraft locations = 4;
+  repeated LaneDraft lanes = 5;
+  repeated TrackDraft tracks = 6;
+  repeated SessionDraft sessions = 7;
+}
+
+message DraftChange {
+  int64 id = 1;
+  string kind = 2;
+  string target_type = 3;
+  int64 target_id = 4;
+}
+
+message EditDraftResponse {
+  int64 draft_revision = 1;
+  repeated DraftChange changes = 2;
+}
+
+message PublishPreviewRequest {
+  int64 event_id = 1;
+  repeated int64 change_ids = 2;
+}
+
+message PublishPreviewResponse {
+  int64 draft_revision = 1;
+  int64 published_revision = 2;
+  repeated int64 change_ids = 3;
+  repeated int64 auto_included_change_ids = 4;
+  repeated DraftChange changes = 5;
+  string fingerprint = 6;
+  repeated string validation_failures = 7;
+  repeated string affected_structure = 8;
+}
+
+message PublishConfirmation {
+  int64 draft_revision = 1;
+  int64 published_revision = 2;
+  repeated int64 change_ids = 3;
+  string fingerprint = 4;
+}
+
+message PublishRequest {
+  int64 event_id = 1;
+  string command_id = 2;
+  PublishConfirmation confirmation = 3;
+  string publish_note = 4;
+}
+
+message PublishResponse {
+  int64 draft_revision = 1;
+  int64 published_revision = 2;
+  repeated int64 change_ids = 3;
+}
+
+message GetCrewRundownRequest {
+  int64 event_id = 1;
+}
+
+message CrewLocation {
+  int64 id = 1;
+  string name = 2;
+}
+
+message CrewLane {
+  int64 id = 1;
+  string name = 2;
+  int64 location_id = 3;
+}
+
+message CrewTrack {
+  int64 id = 1;
+  string name = 2;
+}
+
+message CrewSession {
+  int64 id = 1;
+  string title = 2;
+  SessionType type = 3;
+  AudienceVisibility audience_visibility = 4;
+  string public_details = 5;
+  string crew_notes = 6;
+  google.protobuf.Timestamp planned_start = 7;
+  google.protobuf.Timestamp planned_end = 8;
+  TimingPolicy timing_policy = 9;
+  google.protobuf.Duration minimum_duration = 10;
+  Boundary start_boundary = 11;
+  Boundary end_boundary = 12;
+  repeated int64 lane_ids = 13;
+  repeated int64 location_ids = 14;
+  repeated int64 track_ids = 15;
+}
+
+message GetCrewRundownResponse {
+  int64 draft_revision = 1;
+  int64 published_revision = 2;
+  repeated CrewLocation locations = 3;
+  repeated CrewLane lanes = 4;
+  repeated CrewTrack tracks = 5;
+  repeated CrewSession sessions = 6;
+}
