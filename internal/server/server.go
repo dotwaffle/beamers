@@ -72,6 +72,7 @@ func Run(ctx context.Context, config Config) error {
 			config.Logger,
 			listener.Addr(),
 		)
+		registerScheduleRoutes(mux, installation.Schedule(), config.Logger)
 		if err := registerRundownRoutes(
 			mux,
 			installation.Authentication(),

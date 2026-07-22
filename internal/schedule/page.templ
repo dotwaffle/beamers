@@ -1,0 +1,57 @@
+package schedule
+
+templ Page(snapshot Snapshot) {
+	<!doctype html>
+	<html lang={ snapshot.Language }>
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<link rel="stylesheet" href="/assets/schedule.css"/>
+			<title>{ snapshot.EventName } Schedule</title>
+		</head>
+		<body>
+			<main>
+				<h1>{ snapshot.EventName } Schedule</h1>
+				for _, session := range snapshot.Sessions {
+					<article>
+						<h2><a href={ session.Path() }>{ session.Title }</a></h2>
+						@SessionDetails(session)
+					</article>
+				}
+			</main>
+		</body>
+	</html>
+}
+
+templ SessionPage(snapshot Snapshot, session Session) {
+	<!doctype html>
+	<html lang={ snapshot.Language }>
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<link rel="stylesheet" href="/assets/schedule.css"/>
+			<title>{ session.Title } · { snapshot.EventName } Schedule</title>
+		</head>
+		<body>
+			<main>
+				<a href="/schedule">Schedule</a>
+				<h1>{ session.Title }</h1>
+				@SessionDetails(session)
+			</main>
+		</body>
+	</html>
+}
+
+templ SessionDetails(session Session) {
+	<p>{ session.PublicDetails }</p>
+	<p>Forecast Time: <time datetime={ session.ForecastStart }>{ session.ForecastStart }</time>–<time datetime={ session.ForecastEnd }>{ session.ForecastEnd }</time></p>
+	for _, location := range session.Locations {
+		<p>Location: { location }</p>
+	}
+	for _, lane := range session.Lanes {
+		<p>Lane: { lane }</p>
+	}
+	for _, track := range session.Tracks {
+		<p>Track: { track }</p>
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"maps"
 	"net"
@@ -278,6 +279,262 @@ func TestAdministratorActivatesPublishedEventAcrossRestart(t *testing.T) {
 		t.Fatalf("Active Event after restart = %+v, want Event %d generation 1", active.Msg, created.ID)
 	}
 	restarted.stop(t)
+}
+
+func TestPublicScheduleListsOnlyPublicSessions(t *testing.T) {
+	client, server := startAuthenticatedAdministrator(t)
+	publicSessionID := prepareActiveSchedule(t, client, server)
+
+	response := get(t, authenticatedClient(t), server.address, "/schedule")
+	body, readErr := io.ReadAll(response.Body)
+	closeErr := response.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read public Schedule: %v", err)
+	}
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("GET /schedule = %d %q, want %d", response.StatusCode, body, http.StatusOK)
+	}
+	page := string(body)
+	for _, want := range []string{
+		`<html lang="en-GB">`,
+		"Opening Keynote",
+		"2099-08-21T10:00:00+02:00",
+		"Main Hall",
+		"Main Lane",
+		"General",
+		fmt.Sprintf(`href="/schedule/sessions/%d"`, publicSessionID),
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("public Schedule does not contain %q; body: %s", want, page)
+		}
+	}
+	for _, private := range []string{
+		"Private Soundcheck",
+		"Old Announcement",
+		"Call Pat on +44 20 7946 0958",
+		"radio channel 4",
+		"/srv/beamers/private/keynote.pdf",
+	} {
+		if strings.Contains(page, private) {
+			t.Errorf("public Schedule contains private value %q; body: %s", private, page)
+		}
+	}
+	server.stop(t)
+}
+
+func TestPublicScheduleSessionHidesCrewOnlyAndUnknownIdentically(t *testing.T) {
+	client, server := startAuthenticatedAdministrator(t)
+	publicSessionID := prepareActiveSchedule(t, client, server)
+
+	public := get(t, authenticatedClient(t), server.address, fmt.Sprintf("/schedule/sessions/%d", publicSessionID))
+	publicBody, readErr := io.ReadAll(public.Body)
+	closeErr := public.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read public Session: %v", err)
+	}
+	if public.StatusCode != http.StatusOK || !strings.Contains(string(publicBody), "Opening Keynote") {
+		t.Errorf("public Session = %d %q, want 200 with title", public.StatusCode, publicBody)
+	}
+	ended := get(t, authenticatedClient(t), server.address, "/schedule/sessions/3")
+	endedBody, readErr := io.ReadAll(ended.Body)
+	closeErr = ended.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read ended public Session: %v", err)
+	}
+	if ended.StatusCode != http.StatusOK || !strings.Contains(string(endedBody), "Old Announcement") {
+		t.Errorf("ended public Session = %d %q, want stable 200 deep link", ended.StatusCode, endedBody)
+	}
+
+	crewOnly := get(t, authenticatedClient(t), server.address, "/schedule/sessions/2")
+	crewOnlyBody, readErr := io.ReadAll(crewOnly.Body)
+	closeErr = crewOnly.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Crew Only Session response: %v", err)
+	}
+	unknown := get(t, authenticatedClient(t), server.address, "/schedule/sessions/999999")
+	unknownBody, readErr := io.ReadAll(unknown.Body)
+	closeErr = unknown.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read unknown Session response: %v", err)
+	}
+	if crewOnly.StatusCode != http.StatusNotFound || unknown.StatusCode != http.StatusNotFound ||
+		!bytes.Equal(crewOnlyBody, unknownBody) {
+		t.Errorf(
+			"private responses differ: Crew Only = %d %q; unknown = %d %q",
+			crewOnly.StatusCode, crewOnlyBody, unknown.StatusCode, unknownBody,
+		)
+	}
+	for _, body := range [][]byte{crewOnlyBody, unknownBody} {
+		if bytes.Contains(body, []byte("Private Soundcheck")) || bytes.Contains(body, []byte("Crew")) {
+			t.Errorf("generic not-found response leaks private information: %q", body)
+		}
+	}
+	server.stop(t)
+}
+
+func TestPublicScheduleSupportsConditionalPolling(t *testing.T) {
+	client, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, client, server)
+	publicClient := authenticatedClient(t)
+
+	initial := get(t, publicClient, server.address, "/schedule")
+	initialBody, readErr := io.ReadAll(initial.Body)
+	closeErr := initial.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read initial public Schedule: %v", err)
+	}
+	if initial.StatusCode != http.StatusOK || len(initialBody) == 0 {
+		t.Fatalf("initial public Schedule = %d %q, want nonempty 200", initial.StatusCode, initialBody)
+	}
+	etag := initial.Header.Get("ETag")
+	if etag == "" {
+		t.Fatal("initial public Schedule has no ETag")
+	}
+	if got := initial.Header.Get("Cache-Control"); got != "public, max-age=15, must-revalidate" {
+		t.Errorf("public Schedule Cache-Control = %q", got)
+	}
+
+	request, err := http.NewRequestWithContext(
+		t.Context(), http.MethodGet, "http://"+server.address+"/schedule", http.NoBody,
+	)
+	if err != nil {
+		t.Fatalf("create conditional public Schedule request: %v", err)
+	}
+	request.Header.Set("If-None-Match", etag)
+	conditional, err := publicClient.Do(request)
+	if err != nil {
+		t.Fatalf("conditional public Schedule request: %v", err)
+	}
+	conditionalBody, readErr := io.ReadAll(conditional.Body)
+	closeErr = conditional.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read conditional public Schedule: %v", err)
+	}
+	if conditional.StatusCode != http.StatusNotModified || len(conditionalBody) != 0 {
+		t.Errorf(
+			"conditional public Schedule = %d %q, want empty 304",
+			conditional.StatusCode, conditionalBody,
+		)
+	}
+	server.stop(t)
+}
+
+func prepareActiveSchedule(t *testing.T, client *http.Client, server *runningServer) int64 {
+	t.Helper()
+	assertJSONRequest(
+		t, client, server.address, "/admin/events",
+		map[string]string{
+			"name": "Revision 2099", "planned_start_date": "2099-08-21",
+			"planned_end_date": "2099-08-23", "timezone": "Europe/Berlin",
+			"event_locale": "en-GB", "content_language": "en-GB",
+			"event_day_boundary": "06:00", "command_id": "create-schedule-event",
+		},
+		http.StatusCreated,
+		"{\"id\":1,\"name\":\"Revision 2099\",\"planned_start_date\":\"2099-08-21\",\"planned_end_date\":\"2099-08-23\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"en-GB\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":1}\n",
+	)
+	assertJSONRequest(
+		t, client, server.address, "/admin/events/1/grants",
+		map[string]any{"account_id": 1, "role": "Producer", "command_id": "grant-schedule-producer"},
+		http.StatusCreated, "{\"event_id\":1,\"account_id\":1,\"role\":\"Producer\"}\n",
+	)
+
+	rundownClient := rundownv1connect.NewRundownServiceClient(
+		client, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	plannedStart := time.Date(2099, 8, 21, 8, 0, 0, 0, time.UTC)
+	edited, err := rundownClient.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "edit-schedule", ExpectedDraftRevision: 0,
+		Locations: []*rundownv1.LocationDraft{{Ref: "main", Name: "Main Hall"}},
+		Lanes: []*rundownv1.LaneDraft{{
+			Ref: "main-lane", Name: "Main Lane",
+			Location: &rundownv1.TargetRef{Target: &rundownv1.TargetRef_Ref{Ref: "main"}},
+		}},
+		Tracks: []*rundownv1.TrackDraft{{Ref: "general", Name: "General"}},
+		Sessions: []*rundownv1.SessionDraft{
+			{
+				Ref: "keynote", Title: "Opening Keynote",
+				Type:               rundownv1.SessionType_SESSION_TYPE_PRESENTATION,
+				AudienceVisibility: rundownv1.AudienceVisibility_AUDIENCE_VISIBILITY_PUBLIC,
+				PublicDetails:      "Welcome to Revision 2099",
+				CrewNotes:          "Call Pat on +44 20 7946 0958; /srv/beamers/private/keynote.pdf",
+				PlannedStart:       timestamppb.New(plannedStart), PlannedEnd: timestamppb.New(plannedStart.Add(time.Hour)),
+				TimingPolicy:    rundownv1.TimingPolicy_TIMING_POLICY_FIXED_END,
+				MinimumDuration: durationpb.New(30 * time.Minute),
+				StartBoundary:   rundownv1.Boundary_BOUNDARY_HARD,
+				EndBoundary:     rundownv1.Boundary_BOUNDARY_SOFT,
+				Locations:       []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Ref{Ref: "main"}}},
+				Lanes:           []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Ref{Ref: "main-lane"}}},
+				Tracks:          []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Ref{Ref: "general"}}},
+			},
+			{
+				Ref: "soundcheck", Title: "Private Soundcheck",
+				Type:               rundownv1.SessionType_SESSION_TYPE_ACTIVITY,
+				AudienceVisibility: rundownv1.AudienceVisibility_AUDIENCE_VISIBILITY_CREW_ONLY,
+				PublicDetails:      "must remain undiscoverable", CrewNotes: "radio channel 4",
+				PlannedStart: timestamppb.New(plannedStart.Add(-time.Hour)), PlannedEnd: timestamppb.New(plannedStart),
+				TimingPolicy:    rundownv1.TimingPolicy_TIMING_POLICY_FIXED_END,
+				MinimumDuration: durationpb.New(30 * time.Minute),
+				StartBoundary:   rundownv1.Boundary_BOUNDARY_HARD,
+				EndBoundary:     rundownv1.Boundary_BOUNDARY_SOFT,
+				Locations:       []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Ref{Ref: "main"}}},
+				Lanes:           []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Ref{Ref: "main-lane"}}},
+			},
+			{
+				Ref: "old-announcement", Title: "Old Announcement",
+				Type:               rundownv1.SessionType_SESSION_TYPE_PRESENTATION,
+				AudienceVisibility: rundownv1.AudienceVisibility_AUDIENCE_VISIBILITY_PUBLIC,
+				PublicDetails:      "This historical Session is no longer upcoming",
+				PlannedStart:       timestamppb.New(time.Date(2000, 1, 1, 8, 0, 0, 0, time.UTC)),
+				PlannedEnd:         timestamppb.New(time.Date(2000, 1, 1, 9, 0, 0, 0, time.UTC)),
+				TimingPolicy:       rundownv1.TimingPolicy_TIMING_POLICY_FIXED_END,
+				MinimumDuration:    durationpb.New(30 * time.Minute),
+				StartBoundary:      rundownv1.Boundary_BOUNDARY_HARD,
+				EndBoundary:        rundownv1.Boundary_BOUNDARY_SOFT,
+				Locations:          []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Ref{Ref: "main"}}},
+				Lanes:              []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Ref{Ref: "main-lane"}}},
+			},
+		},
+	}))
+	if err != nil {
+		t.Fatalf("Edit public Schedule Draft: %v", err)
+	}
+	var publicSessionID int64
+	changeIDs := make([]int64, 0, len(edited.Msg.GetChanges()))
+	for _, change := range edited.Msg.GetChanges() {
+		changeIDs = append(changeIDs, change.GetId())
+		if change.GetKind() == "CreateSession" && publicSessionID == 0 {
+			publicSessionID = change.GetTargetId()
+		}
+	}
+	preview, err := rundownClient.PublishPreview(t.Context(), connect.NewRequest(&rundownv1.PublishPreviewRequest{
+		EventId: 1, ChangeIds: changeIDs,
+	}))
+	if err != nil {
+		t.Fatalf("Preview public Schedule Publish: %v", err)
+	}
+	if _, publishErr := rundownClient.Publish(t.Context(), connect.NewRequest(&rundownv1.PublishRequest{
+		EventId: 1, CommandId: "publish-schedule",
+		Confirmation: &rundownv1.PublishConfirmation{
+			DraftRevision: preview.Msg.GetDraftRevision(), PublishedRevision: preview.Msg.GetPublishedRevision(),
+			ChangeIds: preview.Msg.GetChangeIds(), Fingerprint: preview.Msg.GetFingerprint(),
+		},
+	})); publishErr != nil {
+		t.Fatalf("Publish public Schedule: %v", publishErr)
+	}
+
+	activationClient := activationv1connect.NewActivationServiceClient(
+		client, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	preflight, err := activationClient.Preflight(t.Context(), connect.NewRequest(&activationv1.PreflightRequest{EventId: 1}))
+	if err != nil {
+		t.Fatalf("Preflight public Schedule Event: %v", err)
+	}
+	if _, err := activationClient.Activate(t.Context(), connect.NewRequest(&activationv1.ActivateRequest{
+		EventId: 1, CommandId: "activate-schedule", Confirmation: preflight.Msg.GetConfirmation(),
+	})); err != nil {
+		t.Fatalf("Activate public Schedule Event: %v", err)
+	}
+	return publicSessionID
 }
 
 func TestEventCreationRejectsInvalidTimezoneAndLocale(t *testing.T) {
