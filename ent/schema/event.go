@@ -47,5 +47,6 @@ func (Event) Edges() []ent.Edge {
 		edge.To("grants", EventGrant.Type),
 		edge.To("rundown", Rundown.Type).Unique(),
 		edge.To("locations", Location.Type),
+		edge.To("lanes", Lane.Type),
 	}
 }

@@ -10,6 +10,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/dotwaffle/beamers/ent/lanedraft"
+	"github.com/dotwaffle/beamers/ent/lanepublishedversion"
 	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/locationdraft"
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
@@ -63,6 +65,36 @@ func (_u *LocationUpdate) AddPublishedVersions(v ...*LocationPublishedVersion) *
 	return _u.AddPublishedVersionIDs(ids...)
 }
 
+// AddLaneDraftIDs adds the "lane_drafts" edge to the LaneDraft entity by IDs.
+func (_u *LocationUpdate) AddLaneDraftIDs(ids ...int) *LocationUpdate {
+	_u.mutation.AddLaneDraftIDs(ids...)
+	return _u
+}
+
+// AddLaneDrafts adds the "lane_drafts" edges to the LaneDraft entity.
+func (_u *LocationUpdate) AddLaneDrafts(v ...*LaneDraft) *LocationUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddLaneDraftIDs(ids...)
+}
+
+// AddLanePublishedVersionIDs adds the "lane_published_versions" edge to the LanePublishedVersion entity by IDs.
+func (_u *LocationUpdate) AddLanePublishedVersionIDs(ids ...int) *LocationUpdate {
+	_u.mutation.AddLanePublishedVersionIDs(ids...)
+	return _u
+}
+
+// AddLanePublishedVersions adds the "lane_published_versions" edges to the LanePublishedVersion entity.
+func (_u *LocationUpdate) AddLanePublishedVersions(v ...*LanePublishedVersion) *LocationUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddLanePublishedVersionIDs(ids...)
+}
+
 // Mutation returns the LocationMutation object of the builder.
 func (_u *LocationUpdate) Mutation() *LocationMutation {
 	return _u.mutation
@@ -93,6 +125,48 @@ func (_u *LocationUpdate) RemovePublishedVersions(v ...*LocationPublishedVersion
 		ids[i] = v[i].ID
 	}
 	return _u.RemovePublishedVersionIDs(ids...)
+}
+
+// ClearLaneDrafts clears all "lane_drafts" edges to the LaneDraft entity.
+func (_u *LocationUpdate) ClearLaneDrafts() *LocationUpdate {
+	_u.mutation.ClearLaneDrafts()
+	return _u
+}
+
+// RemoveLaneDraftIDs removes the "lane_drafts" edge to LaneDraft entities by IDs.
+func (_u *LocationUpdate) RemoveLaneDraftIDs(ids ...int) *LocationUpdate {
+	_u.mutation.RemoveLaneDraftIDs(ids...)
+	return _u
+}
+
+// RemoveLaneDrafts removes "lane_drafts" edges to LaneDraft entities.
+func (_u *LocationUpdate) RemoveLaneDrafts(v ...*LaneDraft) *LocationUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveLaneDraftIDs(ids...)
+}
+
+// ClearLanePublishedVersions clears all "lane_published_versions" edges to the LanePublishedVersion entity.
+func (_u *LocationUpdate) ClearLanePublishedVersions() *LocationUpdate {
+	_u.mutation.ClearLanePublishedVersions()
+	return _u
+}
+
+// RemoveLanePublishedVersionIDs removes the "lane_published_versions" edge to LanePublishedVersion entities by IDs.
+func (_u *LocationUpdate) RemoveLanePublishedVersionIDs(ids ...int) *LocationUpdate {
+	_u.mutation.RemoveLanePublishedVersionIDs(ids...)
+	return _u
+}
+
+// RemoveLanePublishedVersions removes "lane_published_versions" edges to LanePublishedVersion entities.
+func (_u *LocationUpdate) RemoveLanePublishedVersions(v ...*LanePublishedVersion) *LocationUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveLanePublishedVersionIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -216,6 +290,96 @@ func (_u *LocationUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.LaneDraftsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   location.LaneDraftsTable,
+			Columns: []string{location.LaneDraftsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lanedraft.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedLaneDraftsIDs(); len(nodes) > 0 && !_u.mutation.LaneDraftsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   location.LaneDraftsTable,
+			Columns: []string{location.LaneDraftsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lanedraft.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.LaneDraftsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   location.LaneDraftsTable,
+			Columns: []string{location.LaneDraftsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lanedraft.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.LanePublishedVersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   location.LanePublishedVersionsTable,
+			Columns: []string{location.LanePublishedVersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lanepublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedLanePublishedVersionsIDs(); len(nodes) > 0 && !_u.mutation.LanePublishedVersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   location.LanePublishedVersionsTable,
+			Columns: []string{location.LanePublishedVersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lanepublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.LanePublishedVersionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   location.LanePublishedVersionsTable,
+			Columns: []string{location.LanePublishedVersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lanepublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{location.Label}
@@ -270,6 +434,36 @@ func (_u *LocationUpdateOne) AddPublishedVersions(v ...*LocationPublishedVersion
 	return _u.AddPublishedVersionIDs(ids...)
 }
 
+// AddLaneDraftIDs adds the "lane_drafts" edge to the LaneDraft entity by IDs.
+func (_u *LocationUpdateOne) AddLaneDraftIDs(ids ...int) *LocationUpdateOne {
+	_u.mutation.AddLaneDraftIDs(ids...)
+	return _u
+}
+
+// AddLaneDrafts adds the "lane_drafts" edges to the LaneDraft entity.
+func (_u *LocationUpdateOne) AddLaneDrafts(v ...*LaneDraft) *LocationUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddLaneDraftIDs(ids...)
+}
+
+// AddLanePublishedVersionIDs adds the "lane_published_versions" edge to the LanePublishedVersion entity by IDs.
+func (_u *LocationUpdateOne) AddLanePublishedVersionIDs(ids ...int) *LocationUpdateOne {
+	_u.mutation.AddLanePublishedVersionIDs(ids...)
+	return _u
+}
+
+// AddLanePublishedVersions adds the "lane_published_versions" edges to the LanePublishedVersion entity.
+func (_u *LocationUpdateOne) AddLanePublishedVersions(v ...*LanePublishedVersion) *LocationUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddLanePublishedVersionIDs(ids...)
+}
+
 // Mutation returns the LocationMutation object of the builder.
 func (_u *LocationUpdateOne) Mutation() *LocationMutation {
 	return _u.mutation
@@ -300,6 +494,48 @@ func (_u *LocationUpdateOne) RemovePublishedVersions(v ...*LocationPublishedVers
 		ids[i] = v[i].ID
 	}
 	return _u.RemovePublishedVersionIDs(ids...)
+}
+
+// ClearLaneDrafts clears all "lane_drafts" edges to the LaneDraft entity.
+func (_u *LocationUpdateOne) ClearLaneDrafts() *LocationUpdateOne {
+	_u.mutation.ClearLaneDrafts()
+	return _u
+}
+
+// RemoveLaneDraftIDs removes the "lane_drafts" edge to LaneDraft entities by IDs.
+func (_u *LocationUpdateOne) RemoveLaneDraftIDs(ids ...int) *LocationUpdateOne {
+	_u.mutation.RemoveLaneDraftIDs(ids...)
+	return _u
+}
+
+// RemoveLaneDrafts removes "lane_drafts" edges to LaneDraft entities.
+func (_u *LocationUpdateOne) RemoveLaneDrafts(v ...*LaneDraft) *LocationUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveLaneDraftIDs(ids...)
+}
+
+// ClearLanePublishedVersions clears all "lane_published_versions" edges to the LanePublishedVersion entity.
+func (_u *LocationUpdateOne) ClearLanePublishedVersions() *LocationUpdateOne {
+	_u.mutation.ClearLanePublishedVersions()
+	return _u
+}
+
+// RemoveLanePublishedVersionIDs removes the "lane_published_versions" edge to LanePublishedVersion entities by IDs.
+func (_u *LocationUpdateOne) RemoveLanePublishedVersionIDs(ids ...int) *LocationUpdateOne {
+	_u.mutation.RemoveLanePublishedVersionIDs(ids...)
+	return _u
+}
+
+// RemoveLanePublishedVersions removes "lane_published_versions" edges to LanePublishedVersion entities.
+func (_u *LocationUpdateOne) RemoveLanePublishedVersions(v ...*LanePublishedVersion) *LocationUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveLanePublishedVersionIDs(ids...)
 }
 
 // Where appends a list predicates to the LocationUpdate builder.
@@ -446,6 +682,96 @@ func (_u *LocationUpdateOne) sqlSave(ctx context.Context) (_node *Location, err 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(locationpublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.LaneDraftsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   location.LaneDraftsTable,
+			Columns: []string{location.LaneDraftsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lanedraft.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedLaneDraftsIDs(); len(nodes) > 0 && !_u.mutation.LaneDraftsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   location.LaneDraftsTable,
+			Columns: []string{location.LaneDraftsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lanedraft.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.LaneDraftsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   location.LaneDraftsTable,
+			Columns: []string{location.LaneDraftsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lanedraft.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.LanePublishedVersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   location.LanePublishedVersionsTable,
+			Columns: []string{location.LanePublishedVersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lanepublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedLanePublishedVersionsIDs(); len(nodes) > 0 && !_u.mutation.LanePublishedVersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   location.LanePublishedVersionsTable,
+			Columns: []string{location.LanePublishedVersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lanepublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.LanePublishedVersionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   location.LanePublishedVersionsTable,
+			Columns: []string{location.LanePublishedVersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lanepublishedversion.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

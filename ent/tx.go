@@ -28,6 +28,12 @@ type Tx struct {
 	EventGrant *EventGrantClient
 	// Installation is the client for interacting with the Installation builders.
 	Installation *InstallationClient
+	// Lane is the client for interacting with the Lane builders.
+	Lane *LaneClient
+	// LaneDraft is the client for interacting with the LaneDraft builders.
+	LaneDraft *LaneDraftClient
+	// LanePublishedVersion is the client for interacting with the LanePublishedVersion builders.
+	LanePublishedVersion *LanePublishedVersionClient
 	// Location is the client for interacting with the Location builders.
 	Location *LocationClient
 	// LocationDraft is the client for interacting with the LocationDraft builders.
@@ -179,6 +185,9 @@ func (tx *Tx) init() {
 	tx.Event = NewEventClient(tx.config)
 	tx.EventGrant = NewEventGrantClient(tx.config)
 	tx.Installation = NewInstallationClient(tx.config)
+	tx.Lane = NewLaneClient(tx.config)
+	tx.LaneDraft = NewLaneDraftClient(tx.config)
+	tx.LanePublishedVersion = NewLanePublishedVersionClient(tx.config)
 	tx.Location = NewLocationClient(tx.config)
 	tx.LocationDraft = NewLocationDraftClient(tx.config)
 	tx.LocationPublishedVersion = NewLocationPublishedVersionClient(tx.config)

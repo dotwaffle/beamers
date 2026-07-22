@@ -194,6 +194,52 @@ func HasPublishedVersionsWith(preds ...predicate.LocationPublishedVersion) predi
 	})
 }
 
+// HasLaneDrafts applies the HasEdge predicate on the "lane_drafts" edge.
+func HasLaneDrafts() predicate.Location {
+	return predicate.Location(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, LaneDraftsTable, LaneDraftsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasLaneDraftsWith applies the HasEdge predicate on the "lane_drafts" edge with a given conditions (other predicates).
+func HasLaneDraftsWith(preds ...predicate.LaneDraft) predicate.Location {
+	return predicate.Location(func(s *sql.Selector) {
+		step := newLaneDraftsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasLanePublishedVersions applies the HasEdge predicate on the "lane_published_versions" edge.
+func HasLanePublishedVersions() predicate.Location {
+	return predicate.Location(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, LanePublishedVersionsTable, LanePublishedVersionsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasLanePublishedVersionsWith applies the HasEdge predicate on the "lane_published_versions" edge with a given conditions (other predicates).
+func HasLanePublishedVersionsWith(preds ...predicate.LanePublishedVersion) predicate.Location {
+	return predicate.Location(func(s *sql.Selector) {
+		step := newLanePublishedVersionsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Location) predicate.Location {
 	return predicate.Location(sql.AndPredicates(predicates...))

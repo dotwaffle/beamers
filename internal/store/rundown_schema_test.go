@@ -3,8 +3,10 @@ package store
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"entgo.io/ent/privacy"
+
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
 	"github.com/dotwaffle/beamers/internal/viewer"
@@ -81,6 +83,18 @@ func TestRundownStateStaysWithinGrantedEvents(t *testing.T) {
 			SetPublishedRevision(1).
 			SetName("Stage").
 			SaveX(ctx)
+		lane := client.Lane.Create().SetEventID(event.ID).SaveX(ctx)
+		client.LaneDraft.Create().
+			SetLaneID(lane.ID).
+			SetLocationID(location.ID).
+			SetName("Lane").
+			SaveX(ctx)
+		client.LanePublishedVersion.Create().
+			SetLaneID(lane.ID).
+			SetLocationID(location.ID).
+			SetPublishedRevision(1).
+			SetName("Lane").
+			SaveX(ctx)
 	}
 	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
 		AccountID:  11,
@@ -92,6 +106,9 @@ func TestRundownStateStaysWithinGrantedEvents(t *testing.T) {
 		"Locations":                   client.Location.Query().CountX(producerContext),
 		"Location Drafts":             client.LocationDraft.Query().CountX(producerContext),
 		"Published Location versions": client.LocationPublishedVersion.Query().CountX(producerContext),
+		"Lanes":                       client.Lane.Query().CountX(producerContext),
+		"Lane Drafts":                 client.LaneDraft.Query().CountX(producerContext),
+		"Published Lane versions":     client.LanePublishedVersion.Query().CountX(producerContext),
 	} {
 		if count != 1 {
 			t.Errorf("%s visible to Producer = %d, want 1", name, count)
@@ -102,7 +119,7 @@ func TestRundownStateStaysWithinGrantedEvents(t *testing.T) {
 	}
 }
 
-func TestPublishedLocationVersionsAreAppendOnly(t *testing.T) {
+func TestPublishedStructuralVersionsAreAppendOnly(t *testing.T) {
 	client := openEntTestClient(t)
 	ctx := viewer.SystemContext(t.Context())
 	event := createSchemaTestEvent(t, client)
@@ -115,6 +132,143 @@ func TestPublishedLocationVersionsAreAppendOnly(t *testing.T) {
 
 	if err := client.LocationPublishedVersion.DeleteOne(version).Exec(ctx); !errors.Is(err, privacy.Deny) {
 		t.Fatalf("Published Location deletion error = %v, want privacy denial", err)
+	}
+	lane := client.Lane.Create().SetEventID(event.ID).SaveX(ctx)
+	laneVersion := client.LanePublishedVersion.Create().
+		SetLaneID(lane.ID).
+		SetLocationID(location.ID).
+		SetPublishedRevision(1).
+		SetName("Lane").
+		SaveX(ctx)
+	if err := client.LanePublishedVersion.DeleteOne(laneVersion).Exec(ctx); !errors.Is(err, privacy.Deny) {
+		t.Fatalf("Published Lane deletion error = %v, want privacy denial", err)
+	}
+}
+
+func TestLaneDraftAndPublishedStatesAreIndependent(t *testing.T) {
+	client := openEntTestClient(t)
+	ctx := viewer.SystemContext(t.Context())
+	event := createSchemaTestEvent(t, client)
+	firstLocation := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
+	secondLocation := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
+	lane := client.Lane.Create().SetEventID(event.ID).SaveX(ctx)
+	draft := client.LaneDraft.Create().
+		SetLaneID(lane.ID).
+		SetLocationID(firstLocation.ID).
+		SetName("Main Lane").
+		SaveX(ctx)
+	client.LanePublishedVersion.Create().
+		SetLaneID(lane.ID).
+		SetLocationID(firstLocation.ID).
+		SetPublishedRevision(1).
+		SetName("Main Lane").
+		SaveX(ctx)
+	draft.Update().
+		SetLocationID(secondLocation.ID).
+		SetName("Second Lane").
+		SaveX(ctx)
+
+	published := lane.QueryPublishedVersions().OnlyX(ctx)
+	if published.Name != "Main Lane" || published.LocationID != firstLocation.ID {
+		t.Fatalf("Published Lane = %+v, want Main Lane at first Location", published)
+	}
+	updatedDraft := lane.QueryDraft().OnlyX(ctx)
+	if updatedDraft.Name != "Second Lane" || updatedDraft.LocationID != secondLocation.ID {
+		t.Fatalf("Draft Lane = %+v, want Second Lane at second Location", updatedDraft)
+	}
+}
+
+func TestRetiredDraftLaneReleasesItsLocation(t *testing.T) {
+	client := openEntTestClient(t)
+	ctx := viewer.SystemContext(t.Context())
+	event := createSchemaTestEvent(t, client)
+	location := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
+	first := client.Lane.Create().SetEventID(event.ID).SaveX(ctx)
+	second := client.Lane.Create().SetEventID(event.ID).SaveX(ctx)
+	firstDraft := client.LaneDraft.Create().
+		SetLaneID(first.ID).
+		SetLocationID(location.ID).
+		SetName("First Lane").
+		SaveX(ctx)
+
+	_, err := client.LaneDraft.Create().
+		SetLaneID(second.ID).
+		SetLocationID(location.ID).
+		SetName("Second Lane").
+		Save(ctx)
+	if !ent.IsConstraintError(err) {
+		t.Fatalf("second active Lane error = %v, want constraint error", err)
+	}
+	firstDraft.Update().SetRetired(true).SaveX(ctx)
+	if _, err := client.LaneDraft.Create().
+		SetLaneID(second.ID).
+		SetLocationID(location.ID).
+		SetName("Second Lane").
+		Save(ctx); err != nil {
+		t.Fatalf("reuse Location after Draft retirement: %v", err)
+	}
+}
+
+func TestLaneDraftRejectsCrossEventLocation(t *testing.T) {
+	client := openEntTestClient(t)
+	ctx := viewer.SystemContext(t.Context())
+	laneEvent := createSchemaTestEvent(t, client)
+	locationEvent := createSchemaTestEvent(t, client)
+	lane := client.Lane.Create().SetEventID(laneEvent.ID).SaveX(ctx)
+	location := client.Location.Create().SetEventID(locationEvent.ID).SaveX(ctx)
+
+	_, err := client.LaneDraft.Create().
+		SetLaneID(lane.ID).
+		SetLocationID(location.ID).
+		SetName("Invalid Lane").
+		Save(ctx)
+	if err == nil {
+		t.Fatal("cross-Event Lane Draft succeeded, want rejection")
+	}
+	_, err = client.LanePublishedVersion.Create().
+		SetLaneID(lane.ID).
+		SetLocationID(location.ID).
+		SetPublishedRevision(1).
+		SetName("Invalid Lane").
+		Save(ctx)
+	if err == nil {
+		t.Fatal("cross-Event Published Lane succeeded, want rejection")
+	}
+}
+
+func TestCommittedMigrationRejectsCrossEventLanePlacement(t *testing.T) {
+	dataDir := t.TempDir()
+	if err := Initialize(t.Context(), dataDir); err != nil {
+		t.Fatalf("initialize installation: %v", err)
+	}
+	installation, err := Open(t.Context(), dataDir)
+	if err != nil {
+		t.Fatalf("open installation: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := installation.Close(); err != nil {
+			t.Errorf("close installation: %v", err)
+		}
+	})
+	ctx := viewer.SystemContext(t.Context())
+	laneEvent := createSchemaTestEvent(t, installation.client)
+	locationEvent := createSchemaTestEvent(t, installation.client)
+	lane := installation.client.Lane.Create().SetEventID(laneEvent.ID).SaveX(ctx)
+	location := installation.client.Location.Create().SetEventID(locationEvent.ID).SaveX(ctx)
+
+	if _, err := installation.database.ExecContext(
+		ctx,
+		"INSERT INTO lane_drafts (name, retired, lane_id, location_id) VALUES (?, false, ?, ?)",
+		"Invalid Lane", lane.ID, location.ID,
+	); err == nil {
+		t.Fatal("direct cross-Event Lane Draft insert succeeded, want rejection")
+	}
+	if _, err := installation.database.ExecContext(
+		ctx,
+		"INSERT INTO lane_published_versions (published_revision, name, retired, created_at, lane_id, location_id) VALUES (1, ?, false, ?, ?, ?)",
+		"Invalid Lane", time.Now(), lane.ID, location.ID,
+	); err == nil {
+		t.Fatal("direct cross-Event Published Lane insert succeeded, want rejection")
 	}
 }
 

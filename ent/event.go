@@ -50,9 +50,11 @@ type EventEdges struct {
 	Rundown *Rundown `json:"rundown,omitempty"`
 	// Locations holds the value of the locations edge.
 	Locations []*Location `json:"locations,omitempty"`
+	// Lanes holds the value of the lanes edge.
+	Lanes []*Lane `json:"lanes,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [4]bool
 }
 
 // GrantsOrErr returns the Grants value or an error if the edge
@@ -82,6 +84,15 @@ func (e EventEdges) LocationsOrErr() ([]*Location, error) {
 		return e.Locations, nil
 	}
 	return nil, &NotLoadedError{edge: "locations"}
+}
+
+// LanesOrErr returns the Lanes value or an error if the edge
+// was not loaded in eager-loading.
+func (e EventEdges) LanesOrErr() ([]*Lane, error) {
+	if e.loadedTypes[3] {
+		return e.Lanes, nil
+	}
+	return nil, &NotLoadedError{edge: "lanes"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -196,6 +207,11 @@ func (_m *Event) QueryRundown() *RundownQuery {
 // QueryLocations queries the "locations" edge of the Event entity.
 func (_m *Event) QueryLocations() *LocationQuery {
 	return NewEventClient(_m.config).QueryLocations(_m)
+}
+
+// QueryLanes queries the "lanes" edge of the Event entity.
+func (_m *Event) QueryLanes() *LaneQuery {
+	return NewEventClient(_m.config).QueryLanes(_m)
 }
 
 // Update returns a builder for updating this Event.

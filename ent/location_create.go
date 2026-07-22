@@ -11,6 +11,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/event"
+	"github.com/dotwaffle/beamers/ent/lanedraft"
+	"github.com/dotwaffle/beamers/ent/lanepublishedversion"
 	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/locationdraft"
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
@@ -80,6 +82,36 @@ func (_c *LocationCreate) AddPublishedVersions(v ...*LocationPublishedVersion) *
 		ids[i] = v[i].ID
 	}
 	return _c.AddPublishedVersionIDs(ids...)
+}
+
+// AddLaneDraftIDs adds the "lane_drafts" edge to the LaneDraft entity by IDs.
+func (_c *LocationCreate) AddLaneDraftIDs(ids ...int) *LocationCreate {
+	_c.mutation.AddLaneDraftIDs(ids...)
+	return _c
+}
+
+// AddLaneDrafts adds the "lane_drafts" edges to the LaneDraft entity.
+func (_c *LocationCreate) AddLaneDrafts(v ...*LaneDraft) *LocationCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddLaneDraftIDs(ids...)
+}
+
+// AddLanePublishedVersionIDs adds the "lane_published_versions" edge to the LanePublishedVersion entity by IDs.
+func (_c *LocationCreate) AddLanePublishedVersionIDs(ids ...int) *LocationCreate {
+	_c.mutation.AddLanePublishedVersionIDs(ids...)
+	return _c
+}
+
+// AddLanePublishedVersions adds the "lane_published_versions" edges to the LanePublishedVersion entity.
+func (_c *LocationCreate) AddLanePublishedVersions(v ...*LanePublishedVersion) *LocationCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddLanePublishedVersionIDs(ids...)
 }
 
 // Mutation returns the LocationMutation object of the builder.
@@ -212,6 +244,38 @@ func (_c *LocationCreate) createSpec() (*Location, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(locationpublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.LaneDraftsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   location.LaneDraftsTable,
+			Columns: []string{location.LaneDraftsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lanedraft.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.LanePublishedVersionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   location.LanePublishedVersionsTable,
+			Columns: []string{location.LanePublishedVersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lanepublishedversion.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

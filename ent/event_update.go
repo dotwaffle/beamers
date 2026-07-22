@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/rundown"
@@ -204,6 +205,21 @@ func (_u *EventUpdate) AddLocations(v ...*Location) *EventUpdate {
 	return _u.AddLocationIDs(ids...)
 }
 
+// AddLaneIDs adds the "lanes" edge to the Lane entity by IDs.
+func (_u *EventUpdate) AddLaneIDs(ids ...int) *EventUpdate {
+	_u.mutation.AddLaneIDs(ids...)
+	return _u
+}
+
+// AddLanes adds the "lanes" edges to the Lane entity.
+func (_u *EventUpdate) AddLanes(v ...*Lane) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddLaneIDs(ids...)
+}
+
 // Mutation returns the EventMutation object of the builder.
 func (_u *EventUpdate) Mutation() *EventMutation {
 	return _u.mutation
@@ -255,6 +271,27 @@ func (_u *EventUpdate) RemoveLocations(v ...*Location) *EventUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveLocationIDs(ids...)
+}
+
+// ClearLanes clears all "lanes" edges to the Lane entity.
+func (_u *EventUpdate) ClearLanes() *EventUpdate {
+	_u.mutation.ClearLanes()
+	return _u
+}
+
+// RemoveLaneIDs removes the "lanes" edge to Lane entities by IDs.
+func (_u *EventUpdate) RemoveLaneIDs(ids ...int) *EventUpdate {
+	_u.mutation.RemoveLaneIDs(ids...)
+	return _u
+}
+
+// RemoveLanes removes "lanes" edges to Lane entities.
+func (_u *EventUpdate) RemoveLanes(v ...*Lane) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveLaneIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -485,6 +522,51 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.LanesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.LanesTable,
+			Columns: []string{event.LanesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lane.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedLanesIDs(); len(nodes) > 0 && !_u.mutation.LanesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.LanesTable,
+			Columns: []string{event.LanesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lane.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.LanesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.LanesTable,
+			Columns: []string{event.LanesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lane.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{event.Label}
@@ -679,6 +761,21 @@ func (_u *EventUpdateOne) AddLocations(v ...*Location) *EventUpdateOne {
 	return _u.AddLocationIDs(ids...)
 }
 
+// AddLaneIDs adds the "lanes" edge to the Lane entity by IDs.
+func (_u *EventUpdateOne) AddLaneIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.AddLaneIDs(ids...)
+	return _u
+}
+
+// AddLanes adds the "lanes" edges to the Lane entity.
+func (_u *EventUpdateOne) AddLanes(v ...*Lane) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddLaneIDs(ids...)
+}
+
 // Mutation returns the EventMutation object of the builder.
 func (_u *EventUpdateOne) Mutation() *EventMutation {
 	return _u.mutation
@@ -730,6 +827,27 @@ func (_u *EventUpdateOne) RemoveLocations(v ...*Location) *EventUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveLocationIDs(ids...)
+}
+
+// ClearLanes clears all "lanes" edges to the Lane entity.
+func (_u *EventUpdateOne) ClearLanes() *EventUpdateOne {
+	_u.mutation.ClearLanes()
+	return _u
+}
+
+// RemoveLaneIDs removes the "lanes" edge to Lane entities by IDs.
+func (_u *EventUpdateOne) RemoveLaneIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.RemoveLaneIDs(ids...)
+	return _u
+}
+
+// RemoveLanes removes "lanes" edges to Lane entities.
+func (_u *EventUpdateOne) RemoveLanes(v ...*Lane) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveLaneIDs(ids...)
 }
 
 // Where appends a list predicates to the EventUpdate builder.
@@ -983,6 +1101,51 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(location.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.LanesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.LanesTable,
+			Columns: []string{event.LanesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lane.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedLanesIDs(); len(nodes) > 0 && !_u.mutation.LanesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.LanesTable,
+			Columns: []string{event.LanesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lane.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.LanesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.LanesTable,
+			Columns: []string{event.LanesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lane.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

@@ -19,6 +19,9 @@ import (
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/ent/lane"
+	"github.com/dotwaffle/beamers/ent/lanedraft"
+	"github.com/dotwaffle/beamers/ent/lanepublishedversion"
 	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/locationdraft"
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
@@ -45,6 +48,9 @@ const (
 	TypeEvent                    = "Event"
 	TypeEventGrant               = "EventGrant"
 	TypeInstallation             = "Installation"
+	TypeLane                     = "Lane"
+	TypeLaneDraft                = "LaneDraft"
+	TypeLanePublishedVersion     = "LanePublishedVersion"
 	TypeLocation                 = "Location"
 	TypeLocationDraft            = "LocationDraft"
 	TypeLocationPublishedVersion = "LocationPublishedVersion"
@@ -3614,6 +3620,9 @@ type EventMutation struct {
 	locations          map[int]struct{}
 	removedlocations   map[int]struct{}
 	clearedlocations   bool
+	lanes              map[int]struct{}
+	removedlanes       map[int]struct{}
+	clearedlanes       bool
 	done               bool
 	oldValue           func(context.Context) (*Event, error)
 	predicates         []predicate.Event
@@ -4221,6 +4230,60 @@ func (m *EventMutation) ResetLocations() {
 	m.removedlocations = nil
 }
 
+// AddLaneIDs adds the "lanes" edge to the Lane entity by ids.
+func (m *EventMutation) AddLaneIDs(ids ...int) {
+	if m.lanes == nil {
+		m.lanes = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.lanes[ids[i]] = struct{}{}
+	}
+}
+
+// ClearLanes clears the "lanes" edge to the Lane entity.
+func (m *EventMutation) ClearLanes() {
+	m.clearedlanes = true
+}
+
+// LanesCleared reports if the "lanes" edge to the Lane entity was cleared.
+func (m *EventMutation) LanesCleared() bool {
+	return m.clearedlanes
+}
+
+// RemoveLaneIDs removes the "lanes" edge to the Lane entity by IDs.
+func (m *EventMutation) RemoveLaneIDs(ids ...int) {
+	if m.removedlanes == nil {
+		m.removedlanes = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.lanes, ids[i])
+		m.removedlanes[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedLanes returns the removed IDs of the "lanes" edge to the Lane entity.
+func (m *EventMutation) RemovedLanesIDs() (ids []int) {
+	for id := range m.removedlanes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// LanesIDs returns the "lanes" edge IDs in the mutation.
+func (m *EventMutation) LanesIDs() (ids []int) {
+	for id := range m.lanes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetLanes resets all changes to the "lanes" edge.
+func (m *EventMutation) ResetLanes() {
+	m.lanes = nil
+	m.clearedlanes = false
+	m.removedlanes = nil
+}
+
 // Where appends a list predicates to the EventMutation builder.
 func (m *EventMutation) Where(ps ...predicate.Event) {
 	m.predicates = append(m.predicates, ps...)
@@ -4514,7 +4577,7 @@ func (m *EventMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *EventMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.grants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -4523,6 +4586,9 @@ func (m *EventMutation) AddedEdges() []string {
 	}
 	if m.locations != nil {
 		edges = append(edges, event.EdgeLocations)
+	}
+	if m.lanes != nil {
+		edges = append(edges, event.EdgeLanes)
 	}
 	return edges
 }
@@ -4547,18 +4613,27 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeLanes:
+		ids := make([]ent.Value, 0, len(m.lanes))
+		for id := range m.lanes {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *EventMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.removedgrants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
 	if m.removedlocations != nil {
 		edges = append(edges, event.EdgeLocations)
+	}
+	if m.removedlanes != nil {
+		edges = append(edges, event.EdgeLanes)
 	}
 	return edges
 }
@@ -4579,13 +4654,19 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeLanes:
+		ids := make([]ent.Value, 0, len(m.removedlanes))
+		for id := range m.removedlanes {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *EventMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.clearedgrants {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -4594,6 +4675,9 @@ func (m *EventMutation) ClearedEdges() []string {
 	}
 	if m.clearedlocations {
 		edges = append(edges, event.EdgeLocations)
+	}
+	if m.clearedlanes {
+		edges = append(edges, event.EdgeLanes)
 	}
 	return edges
 }
@@ -4608,6 +4692,8 @@ func (m *EventMutation) EdgeCleared(name string) bool {
 		return m.clearedrundown
 	case event.EdgeLocations:
 		return m.clearedlocations
+	case event.EdgeLanes:
+		return m.clearedlanes
 	}
 	return false
 }
@@ -4635,6 +4721,9 @@ func (m *EventMutation) ResetEdge(name string) error {
 		return nil
 	case event.EdgeLocations:
 		m.ResetLocations()
+		return nil
+	case event.EdgeLanes:
+		m.ResetLanes()
 		return nil
 	}
 	return fmt.Errorf("unknown Event edge %s", name)
@@ -5557,8 +5646,8 @@ func (m *InstallationMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown Installation edge %s", name)
 }
 
-// LocationMutation represents an operation that mutates the Location nodes in the graph.
-type LocationMutation struct {
+// LaneMutation represents an operation that mutates the Lane nodes in the graph.
+type LaneMutation struct {
 	config
 	op                        Op
 	typ                       string
@@ -5573,8 +5662,1918 @@ type LocationMutation struct {
 	removedpublished_versions map[int]struct{}
 	clearedpublished_versions bool
 	done                      bool
-	oldValue                  func(context.Context) (*Location, error)
-	predicates                []predicate.Location
+	oldValue                  func(context.Context) (*Lane, error)
+	predicates                []predicate.Lane
+}
+
+var _ ent.Mutation = (*LaneMutation)(nil)
+
+// laneOption allows management of the mutation configuration using functional options.
+type laneOption func(*LaneMutation)
+
+// newLaneMutation creates new mutation for the Lane entity.
+func newLaneMutation(c config, op Op, opts ...laneOption) *LaneMutation {
+	m := &LaneMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeLane,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withLaneID sets the ID field of the mutation.
+func withLaneID(id int) laneOption {
+	return func(m *LaneMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Lane
+		)
+		m.oldValue = func(ctx context.Context) (*Lane, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Lane.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withLane sets the old Lane of the mutation.
+func withLane(node *Lane) laneOption {
+	return func(m *LaneMutation) {
+		m.oldValue = func(context.Context) (*Lane, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m LaneMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m LaneMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *LaneMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *LaneMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Lane.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetEventID sets the "event_id" field.
+func (m *LaneMutation) SetEventID(i int) {
+	m.event = &i
+}
+
+// EventID returns the value of the "event_id" field in the mutation.
+func (m *LaneMutation) EventID() (r int, exists bool) {
+	v := m.event
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventID returns the old "event_id" field's value of the Lane entity.
+// If the Lane object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LaneMutation) OldEventID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventID: %w", err)
+	}
+	return oldValue.EventID, nil
+}
+
+// ResetEventID resets all changes to the "event_id" field.
+func (m *LaneMutation) ResetEventID() {
+	m.event = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *LaneMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *LaneMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the Lane entity.
+// If the Lane object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LaneMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *LaneMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearEvent clears the "event" edge to the Event entity.
+func (m *LaneMutation) ClearEvent() {
+	m.clearedevent = true
+	m.clearedFields[lane.FieldEventID] = struct{}{}
+}
+
+// EventCleared reports if the "event" edge to the Event entity was cleared.
+func (m *LaneMutation) EventCleared() bool {
+	return m.clearedevent
+}
+
+// EventIDs returns the "event" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// EventID instead. It exists only for internal usage by the builders.
+func (m *LaneMutation) EventIDs() (ids []int) {
+	if id := m.event; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetEvent resets all changes to the "event" edge.
+func (m *LaneMutation) ResetEvent() {
+	m.event = nil
+	m.clearedevent = false
+}
+
+// SetDraftID sets the "draft" edge to the LaneDraft entity by id.
+func (m *LaneMutation) SetDraftID(id int) {
+	m.draft = &id
+}
+
+// ClearDraft clears the "draft" edge to the LaneDraft entity.
+func (m *LaneMutation) ClearDraft() {
+	m.cleareddraft = true
+}
+
+// DraftCleared reports if the "draft" edge to the LaneDraft entity was cleared.
+func (m *LaneMutation) DraftCleared() bool {
+	return m.cleareddraft
+}
+
+// DraftID returns the "draft" edge ID in the mutation.
+func (m *LaneMutation) DraftID() (id int, exists bool) {
+	if m.draft != nil {
+		return *m.draft, true
+	}
+	return
+}
+
+// DraftIDs returns the "draft" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// DraftID instead. It exists only for internal usage by the builders.
+func (m *LaneMutation) DraftIDs() (ids []int) {
+	if id := m.draft; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetDraft resets all changes to the "draft" edge.
+func (m *LaneMutation) ResetDraft() {
+	m.draft = nil
+	m.cleareddraft = false
+}
+
+// AddPublishedVersionIDs adds the "published_versions" edge to the LanePublishedVersion entity by ids.
+func (m *LaneMutation) AddPublishedVersionIDs(ids ...int) {
+	if m.published_versions == nil {
+		m.published_versions = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.published_versions[ids[i]] = struct{}{}
+	}
+}
+
+// ClearPublishedVersions clears the "published_versions" edge to the LanePublishedVersion entity.
+func (m *LaneMutation) ClearPublishedVersions() {
+	m.clearedpublished_versions = true
+}
+
+// PublishedVersionsCleared reports if the "published_versions" edge to the LanePublishedVersion entity was cleared.
+func (m *LaneMutation) PublishedVersionsCleared() bool {
+	return m.clearedpublished_versions
+}
+
+// RemovePublishedVersionIDs removes the "published_versions" edge to the LanePublishedVersion entity by IDs.
+func (m *LaneMutation) RemovePublishedVersionIDs(ids ...int) {
+	if m.removedpublished_versions == nil {
+		m.removedpublished_versions = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.published_versions, ids[i])
+		m.removedpublished_versions[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedPublishedVersions returns the removed IDs of the "published_versions" edge to the LanePublishedVersion entity.
+func (m *LaneMutation) RemovedPublishedVersionsIDs() (ids []int) {
+	for id := range m.removedpublished_versions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// PublishedVersionsIDs returns the "published_versions" edge IDs in the mutation.
+func (m *LaneMutation) PublishedVersionsIDs() (ids []int) {
+	for id := range m.published_versions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetPublishedVersions resets all changes to the "published_versions" edge.
+func (m *LaneMutation) ResetPublishedVersions() {
+	m.published_versions = nil
+	m.clearedpublished_versions = false
+	m.removedpublished_versions = nil
+}
+
+// Where appends a list predicates to the LaneMutation builder.
+func (m *LaneMutation) Where(ps ...predicate.Lane) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the LaneMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *LaneMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Lane, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *LaneMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *LaneMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Lane).
+func (m *LaneMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *LaneMutation) Fields() []string {
+	fields := make([]string, 0, 2)
+	if m.event != nil {
+		fields = append(fields, lane.FieldEventID)
+	}
+	if m.created_at != nil {
+		fields = append(fields, lane.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *LaneMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case lane.FieldEventID:
+		return m.EventID()
+	case lane.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *LaneMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case lane.FieldEventID:
+		return m.OldEventID(ctx)
+	case lane.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown Lane field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *LaneMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case lane.FieldEventID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventID(v)
+		return nil
+	case lane.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Lane field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *LaneMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *LaneMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *LaneMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Lane numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *LaneMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *LaneMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *LaneMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown Lane nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *LaneMutation) ResetField(name string) error {
+	switch name {
+	case lane.FieldEventID:
+		m.ResetEventID()
+		return nil
+	case lane.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown Lane field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *LaneMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.event != nil {
+		edges = append(edges, lane.EdgeEvent)
+	}
+	if m.draft != nil {
+		edges = append(edges, lane.EdgeDraft)
+	}
+	if m.published_versions != nil {
+		edges = append(edges, lane.EdgePublishedVersions)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *LaneMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case lane.EdgeEvent:
+		if id := m.event; id != nil {
+			return []ent.Value{*id}
+		}
+	case lane.EdgeDraft:
+		if id := m.draft; id != nil {
+			return []ent.Value{*id}
+		}
+	case lane.EdgePublishedVersions:
+		ids := make([]ent.Value, 0, len(m.published_versions))
+		for id := range m.published_versions {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *LaneMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.removedpublished_versions != nil {
+		edges = append(edges, lane.EdgePublishedVersions)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *LaneMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case lane.EdgePublishedVersions:
+		ids := make([]ent.Value, 0, len(m.removedpublished_versions))
+		for id := range m.removedpublished_versions {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *LaneMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.clearedevent {
+		edges = append(edges, lane.EdgeEvent)
+	}
+	if m.cleareddraft {
+		edges = append(edges, lane.EdgeDraft)
+	}
+	if m.clearedpublished_versions {
+		edges = append(edges, lane.EdgePublishedVersions)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *LaneMutation) EdgeCleared(name string) bool {
+	switch name {
+	case lane.EdgeEvent:
+		return m.clearedevent
+	case lane.EdgeDraft:
+		return m.cleareddraft
+	case lane.EdgePublishedVersions:
+		return m.clearedpublished_versions
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *LaneMutation) ClearEdge(name string) error {
+	switch name {
+	case lane.EdgeEvent:
+		m.ClearEvent()
+		return nil
+	case lane.EdgeDraft:
+		m.ClearDraft()
+		return nil
+	}
+	return fmt.Errorf("unknown Lane unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *LaneMutation) ResetEdge(name string) error {
+	switch name {
+	case lane.EdgeEvent:
+		m.ResetEvent()
+		return nil
+	case lane.EdgeDraft:
+		m.ResetDraft()
+		return nil
+	case lane.EdgePublishedVersions:
+		m.ResetPublishedVersions()
+		return nil
+	}
+	return fmt.Errorf("unknown Lane edge %s", name)
+}
+
+// LaneDraftMutation represents an operation that mutates the LaneDraft nodes in the graph.
+type LaneDraftMutation struct {
+	config
+	op              Op
+	typ             string
+	id              *int
+	name            *string
+	retired         *bool
+	clearedFields   map[string]struct{}
+	lane            *int
+	clearedlane     bool
+	location        *int
+	clearedlocation bool
+	done            bool
+	oldValue        func(context.Context) (*LaneDraft, error)
+	predicates      []predicate.LaneDraft
+}
+
+var _ ent.Mutation = (*LaneDraftMutation)(nil)
+
+// lanedraftOption allows management of the mutation configuration using functional options.
+type lanedraftOption func(*LaneDraftMutation)
+
+// newLaneDraftMutation creates new mutation for the LaneDraft entity.
+func newLaneDraftMutation(c config, op Op, opts ...lanedraftOption) *LaneDraftMutation {
+	m := &LaneDraftMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeLaneDraft,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withLaneDraftID sets the ID field of the mutation.
+func withLaneDraftID(id int) lanedraftOption {
+	return func(m *LaneDraftMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *LaneDraft
+		)
+		m.oldValue = func(ctx context.Context) (*LaneDraft, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().LaneDraft.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withLaneDraft sets the old LaneDraft of the mutation.
+func withLaneDraft(node *LaneDraft) lanedraftOption {
+	return func(m *LaneDraftMutation) {
+		m.oldValue = func(context.Context) (*LaneDraft, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m LaneDraftMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m LaneDraftMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *LaneDraftMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *LaneDraftMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().LaneDraft.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetLaneID sets the "lane_id" field.
+func (m *LaneDraftMutation) SetLaneID(i int) {
+	m.lane = &i
+}
+
+// LaneID returns the value of the "lane_id" field in the mutation.
+func (m *LaneDraftMutation) LaneID() (r int, exists bool) {
+	v := m.lane
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLaneID returns the old "lane_id" field's value of the LaneDraft entity.
+// If the LaneDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LaneDraftMutation) OldLaneID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLaneID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLaneID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLaneID: %w", err)
+	}
+	return oldValue.LaneID, nil
+}
+
+// ResetLaneID resets all changes to the "lane_id" field.
+func (m *LaneDraftMutation) ResetLaneID() {
+	m.lane = nil
+}
+
+// SetLocationID sets the "location_id" field.
+func (m *LaneDraftMutation) SetLocationID(i int) {
+	m.location = &i
+}
+
+// LocationID returns the value of the "location_id" field in the mutation.
+func (m *LaneDraftMutation) LocationID() (r int, exists bool) {
+	v := m.location
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLocationID returns the old "location_id" field's value of the LaneDraft entity.
+// If the LaneDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LaneDraftMutation) OldLocationID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLocationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLocationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLocationID: %w", err)
+	}
+	return oldValue.LocationID, nil
+}
+
+// ResetLocationID resets all changes to the "location_id" field.
+func (m *LaneDraftMutation) ResetLocationID() {
+	m.location = nil
+}
+
+// SetName sets the "name" field.
+func (m *LaneDraftMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *LaneDraftMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the LaneDraft entity.
+// If the LaneDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LaneDraftMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *LaneDraftMutation) ResetName() {
+	m.name = nil
+}
+
+// SetRetired sets the "retired" field.
+func (m *LaneDraftMutation) SetRetired(b bool) {
+	m.retired = &b
+}
+
+// Retired returns the value of the "retired" field in the mutation.
+func (m *LaneDraftMutation) Retired() (r bool, exists bool) {
+	v := m.retired
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRetired returns the old "retired" field's value of the LaneDraft entity.
+// If the LaneDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LaneDraftMutation) OldRetired(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRetired is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRetired requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRetired: %w", err)
+	}
+	return oldValue.Retired, nil
+}
+
+// ResetRetired resets all changes to the "retired" field.
+func (m *LaneDraftMutation) ResetRetired() {
+	m.retired = nil
+}
+
+// ClearLane clears the "lane" edge to the Lane entity.
+func (m *LaneDraftMutation) ClearLane() {
+	m.clearedlane = true
+	m.clearedFields[lanedraft.FieldLaneID] = struct{}{}
+}
+
+// LaneCleared reports if the "lane" edge to the Lane entity was cleared.
+func (m *LaneDraftMutation) LaneCleared() bool {
+	return m.clearedlane
+}
+
+// LaneIDs returns the "lane" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// LaneID instead. It exists only for internal usage by the builders.
+func (m *LaneDraftMutation) LaneIDs() (ids []int) {
+	if id := m.lane; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetLane resets all changes to the "lane" edge.
+func (m *LaneDraftMutation) ResetLane() {
+	m.lane = nil
+	m.clearedlane = false
+}
+
+// ClearLocation clears the "location" edge to the Location entity.
+func (m *LaneDraftMutation) ClearLocation() {
+	m.clearedlocation = true
+	m.clearedFields[lanedraft.FieldLocationID] = struct{}{}
+}
+
+// LocationCleared reports if the "location" edge to the Location entity was cleared.
+func (m *LaneDraftMutation) LocationCleared() bool {
+	return m.clearedlocation
+}
+
+// LocationIDs returns the "location" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// LocationID instead. It exists only for internal usage by the builders.
+func (m *LaneDraftMutation) LocationIDs() (ids []int) {
+	if id := m.location; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetLocation resets all changes to the "location" edge.
+func (m *LaneDraftMutation) ResetLocation() {
+	m.location = nil
+	m.clearedlocation = false
+}
+
+// Where appends a list predicates to the LaneDraftMutation builder.
+func (m *LaneDraftMutation) Where(ps ...predicate.LaneDraft) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the LaneDraftMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *LaneDraftMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.LaneDraft, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *LaneDraftMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *LaneDraftMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (LaneDraft).
+func (m *LaneDraftMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *LaneDraftMutation) Fields() []string {
+	fields := make([]string, 0, 4)
+	if m.lane != nil {
+		fields = append(fields, lanedraft.FieldLaneID)
+	}
+	if m.location != nil {
+		fields = append(fields, lanedraft.FieldLocationID)
+	}
+	if m.name != nil {
+		fields = append(fields, lanedraft.FieldName)
+	}
+	if m.retired != nil {
+		fields = append(fields, lanedraft.FieldRetired)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *LaneDraftMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case lanedraft.FieldLaneID:
+		return m.LaneID()
+	case lanedraft.FieldLocationID:
+		return m.LocationID()
+	case lanedraft.FieldName:
+		return m.Name()
+	case lanedraft.FieldRetired:
+		return m.Retired()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *LaneDraftMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case lanedraft.FieldLaneID:
+		return m.OldLaneID(ctx)
+	case lanedraft.FieldLocationID:
+		return m.OldLocationID(ctx)
+	case lanedraft.FieldName:
+		return m.OldName(ctx)
+	case lanedraft.FieldRetired:
+		return m.OldRetired(ctx)
+	}
+	return nil, fmt.Errorf("unknown LaneDraft field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *LaneDraftMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case lanedraft.FieldLaneID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLaneID(v)
+		return nil
+	case lanedraft.FieldLocationID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLocationID(v)
+		return nil
+	case lanedraft.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case lanedraft.FieldRetired:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRetired(v)
+		return nil
+	}
+	return fmt.Errorf("unknown LaneDraft field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *LaneDraftMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *LaneDraftMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *LaneDraftMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown LaneDraft numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *LaneDraftMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *LaneDraftMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *LaneDraftMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown LaneDraft nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *LaneDraftMutation) ResetField(name string) error {
+	switch name {
+	case lanedraft.FieldLaneID:
+		m.ResetLaneID()
+		return nil
+	case lanedraft.FieldLocationID:
+		m.ResetLocationID()
+		return nil
+	case lanedraft.FieldName:
+		m.ResetName()
+		return nil
+	case lanedraft.FieldRetired:
+		m.ResetRetired()
+		return nil
+	}
+	return fmt.Errorf("unknown LaneDraft field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *LaneDraftMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.lane != nil {
+		edges = append(edges, lanedraft.EdgeLane)
+	}
+	if m.location != nil {
+		edges = append(edges, lanedraft.EdgeLocation)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *LaneDraftMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case lanedraft.EdgeLane:
+		if id := m.lane; id != nil {
+			return []ent.Value{*id}
+		}
+	case lanedraft.EdgeLocation:
+		if id := m.location; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *LaneDraftMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *LaneDraftMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *LaneDraftMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedlane {
+		edges = append(edges, lanedraft.EdgeLane)
+	}
+	if m.clearedlocation {
+		edges = append(edges, lanedraft.EdgeLocation)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *LaneDraftMutation) EdgeCleared(name string) bool {
+	switch name {
+	case lanedraft.EdgeLane:
+		return m.clearedlane
+	case lanedraft.EdgeLocation:
+		return m.clearedlocation
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *LaneDraftMutation) ClearEdge(name string) error {
+	switch name {
+	case lanedraft.EdgeLane:
+		m.ClearLane()
+		return nil
+	case lanedraft.EdgeLocation:
+		m.ClearLocation()
+		return nil
+	}
+	return fmt.Errorf("unknown LaneDraft unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *LaneDraftMutation) ResetEdge(name string) error {
+	switch name {
+	case lanedraft.EdgeLane:
+		m.ResetLane()
+		return nil
+	case lanedraft.EdgeLocation:
+		m.ResetLocation()
+		return nil
+	}
+	return fmt.Errorf("unknown LaneDraft edge %s", name)
+}
+
+// LanePublishedVersionMutation represents an operation that mutates the LanePublishedVersion nodes in the graph.
+type LanePublishedVersionMutation struct {
+	config
+	op                    Op
+	typ                   string
+	id                    *int
+	published_revision    *int
+	addpublished_revision *int
+	name                  *string
+	retired               *bool
+	created_at            *time.Time
+	clearedFields         map[string]struct{}
+	lane                  *int
+	clearedlane           bool
+	location              *int
+	clearedlocation       bool
+	done                  bool
+	oldValue              func(context.Context) (*LanePublishedVersion, error)
+	predicates            []predicate.LanePublishedVersion
+}
+
+var _ ent.Mutation = (*LanePublishedVersionMutation)(nil)
+
+// lanepublishedversionOption allows management of the mutation configuration using functional options.
+type lanepublishedversionOption func(*LanePublishedVersionMutation)
+
+// newLanePublishedVersionMutation creates new mutation for the LanePublishedVersion entity.
+func newLanePublishedVersionMutation(c config, op Op, opts ...lanepublishedversionOption) *LanePublishedVersionMutation {
+	m := &LanePublishedVersionMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeLanePublishedVersion,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withLanePublishedVersionID sets the ID field of the mutation.
+func withLanePublishedVersionID(id int) lanepublishedversionOption {
+	return func(m *LanePublishedVersionMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *LanePublishedVersion
+		)
+		m.oldValue = func(ctx context.Context) (*LanePublishedVersion, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().LanePublishedVersion.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withLanePublishedVersion sets the old LanePublishedVersion of the mutation.
+func withLanePublishedVersion(node *LanePublishedVersion) lanepublishedversionOption {
+	return func(m *LanePublishedVersionMutation) {
+		m.oldValue = func(context.Context) (*LanePublishedVersion, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m LanePublishedVersionMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m LanePublishedVersionMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *LanePublishedVersionMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *LanePublishedVersionMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().LanePublishedVersion.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetLaneID sets the "lane_id" field.
+func (m *LanePublishedVersionMutation) SetLaneID(i int) {
+	m.lane = &i
+}
+
+// LaneID returns the value of the "lane_id" field in the mutation.
+func (m *LanePublishedVersionMutation) LaneID() (r int, exists bool) {
+	v := m.lane
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLaneID returns the old "lane_id" field's value of the LanePublishedVersion entity.
+// If the LanePublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LanePublishedVersionMutation) OldLaneID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLaneID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLaneID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLaneID: %w", err)
+	}
+	return oldValue.LaneID, nil
+}
+
+// ResetLaneID resets all changes to the "lane_id" field.
+func (m *LanePublishedVersionMutation) ResetLaneID() {
+	m.lane = nil
+}
+
+// SetLocationID sets the "location_id" field.
+func (m *LanePublishedVersionMutation) SetLocationID(i int) {
+	m.location = &i
+}
+
+// LocationID returns the value of the "location_id" field in the mutation.
+func (m *LanePublishedVersionMutation) LocationID() (r int, exists bool) {
+	v := m.location
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLocationID returns the old "location_id" field's value of the LanePublishedVersion entity.
+// If the LanePublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LanePublishedVersionMutation) OldLocationID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLocationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLocationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLocationID: %w", err)
+	}
+	return oldValue.LocationID, nil
+}
+
+// ResetLocationID resets all changes to the "location_id" field.
+func (m *LanePublishedVersionMutation) ResetLocationID() {
+	m.location = nil
+}
+
+// SetPublishedRevision sets the "published_revision" field.
+func (m *LanePublishedVersionMutation) SetPublishedRevision(i int) {
+	m.published_revision = &i
+	m.addpublished_revision = nil
+}
+
+// PublishedRevision returns the value of the "published_revision" field in the mutation.
+func (m *LanePublishedVersionMutation) PublishedRevision() (r int, exists bool) {
+	v := m.published_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublishedRevision returns the old "published_revision" field's value of the LanePublishedVersion entity.
+// If the LanePublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LanePublishedVersionMutation) OldPublishedRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublishedRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublishedRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublishedRevision: %w", err)
+	}
+	return oldValue.PublishedRevision, nil
+}
+
+// AddPublishedRevision adds i to the "published_revision" field.
+func (m *LanePublishedVersionMutation) AddPublishedRevision(i int) {
+	if m.addpublished_revision != nil {
+		*m.addpublished_revision += i
+	} else {
+		m.addpublished_revision = &i
+	}
+}
+
+// AddedPublishedRevision returns the value that was added to the "published_revision" field in this mutation.
+func (m *LanePublishedVersionMutation) AddedPublishedRevision() (r int, exists bool) {
+	v := m.addpublished_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPublishedRevision resets all changes to the "published_revision" field.
+func (m *LanePublishedVersionMutation) ResetPublishedRevision() {
+	m.published_revision = nil
+	m.addpublished_revision = nil
+}
+
+// SetName sets the "name" field.
+func (m *LanePublishedVersionMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *LanePublishedVersionMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the LanePublishedVersion entity.
+// If the LanePublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LanePublishedVersionMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *LanePublishedVersionMutation) ResetName() {
+	m.name = nil
+}
+
+// SetRetired sets the "retired" field.
+func (m *LanePublishedVersionMutation) SetRetired(b bool) {
+	m.retired = &b
+}
+
+// Retired returns the value of the "retired" field in the mutation.
+func (m *LanePublishedVersionMutation) Retired() (r bool, exists bool) {
+	v := m.retired
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRetired returns the old "retired" field's value of the LanePublishedVersion entity.
+// If the LanePublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LanePublishedVersionMutation) OldRetired(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRetired is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRetired requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRetired: %w", err)
+	}
+	return oldValue.Retired, nil
+}
+
+// ResetRetired resets all changes to the "retired" field.
+func (m *LanePublishedVersionMutation) ResetRetired() {
+	m.retired = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *LanePublishedVersionMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *LanePublishedVersionMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the LanePublishedVersion entity.
+// If the LanePublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LanePublishedVersionMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *LanePublishedVersionMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearLane clears the "lane" edge to the Lane entity.
+func (m *LanePublishedVersionMutation) ClearLane() {
+	m.clearedlane = true
+	m.clearedFields[lanepublishedversion.FieldLaneID] = struct{}{}
+}
+
+// LaneCleared reports if the "lane" edge to the Lane entity was cleared.
+func (m *LanePublishedVersionMutation) LaneCleared() bool {
+	return m.clearedlane
+}
+
+// LaneIDs returns the "lane" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// LaneID instead. It exists only for internal usage by the builders.
+func (m *LanePublishedVersionMutation) LaneIDs() (ids []int) {
+	if id := m.lane; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetLane resets all changes to the "lane" edge.
+func (m *LanePublishedVersionMutation) ResetLane() {
+	m.lane = nil
+	m.clearedlane = false
+}
+
+// ClearLocation clears the "location" edge to the Location entity.
+func (m *LanePublishedVersionMutation) ClearLocation() {
+	m.clearedlocation = true
+	m.clearedFields[lanepublishedversion.FieldLocationID] = struct{}{}
+}
+
+// LocationCleared reports if the "location" edge to the Location entity was cleared.
+func (m *LanePublishedVersionMutation) LocationCleared() bool {
+	return m.clearedlocation
+}
+
+// LocationIDs returns the "location" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// LocationID instead. It exists only for internal usage by the builders.
+func (m *LanePublishedVersionMutation) LocationIDs() (ids []int) {
+	if id := m.location; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetLocation resets all changes to the "location" edge.
+func (m *LanePublishedVersionMutation) ResetLocation() {
+	m.location = nil
+	m.clearedlocation = false
+}
+
+// Where appends a list predicates to the LanePublishedVersionMutation builder.
+func (m *LanePublishedVersionMutation) Where(ps ...predicate.LanePublishedVersion) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the LanePublishedVersionMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *LanePublishedVersionMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.LanePublishedVersion, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *LanePublishedVersionMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *LanePublishedVersionMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (LanePublishedVersion).
+func (m *LanePublishedVersionMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *LanePublishedVersionMutation) Fields() []string {
+	fields := make([]string, 0, 6)
+	if m.lane != nil {
+		fields = append(fields, lanepublishedversion.FieldLaneID)
+	}
+	if m.location != nil {
+		fields = append(fields, lanepublishedversion.FieldLocationID)
+	}
+	if m.published_revision != nil {
+		fields = append(fields, lanepublishedversion.FieldPublishedRevision)
+	}
+	if m.name != nil {
+		fields = append(fields, lanepublishedversion.FieldName)
+	}
+	if m.retired != nil {
+		fields = append(fields, lanepublishedversion.FieldRetired)
+	}
+	if m.created_at != nil {
+		fields = append(fields, lanepublishedversion.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *LanePublishedVersionMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case lanepublishedversion.FieldLaneID:
+		return m.LaneID()
+	case lanepublishedversion.FieldLocationID:
+		return m.LocationID()
+	case lanepublishedversion.FieldPublishedRevision:
+		return m.PublishedRevision()
+	case lanepublishedversion.FieldName:
+		return m.Name()
+	case lanepublishedversion.FieldRetired:
+		return m.Retired()
+	case lanepublishedversion.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *LanePublishedVersionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case lanepublishedversion.FieldLaneID:
+		return m.OldLaneID(ctx)
+	case lanepublishedversion.FieldLocationID:
+		return m.OldLocationID(ctx)
+	case lanepublishedversion.FieldPublishedRevision:
+		return m.OldPublishedRevision(ctx)
+	case lanepublishedversion.FieldName:
+		return m.OldName(ctx)
+	case lanepublishedversion.FieldRetired:
+		return m.OldRetired(ctx)
+	case lanepublishedversion.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown LanePublishedVersion field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *LanePublishedVersionMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case lanepublishedversion.FieldLaneID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLaneID(v)
+		return nil
+	case lanepublishedversion.FieldLocationID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLocationID(v)
+		return nil
+	case lanepublishedversion.FieldPublishedRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublishedRevision(v)
+		return nil
+	case lanepublishedversion.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case lanepublishedversion.FieldRetired:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRetired(v)
+		return nil
+	case lanepublishedversion.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown LanePublishedVersion field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *LanePublishedVersionMutation) AddedFields() []string {
+	var fields []string
+	if m.addpublished_revision != nil {
+		fields = append(fields, lanepublishedversion.FieldPublishedRevision)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *LanePublishedVersionMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case lanepublishedversion.FieldPublishedRevision:
+		return m.AddedPublishedRevision()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *LanePublishedVersionMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case lanepublishedversion.FieldPublishedRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPublishedRevision(v)
+		return nil
+	}
+	return fmt.Errorf("unknown LanePublishedVersion numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *LanePublishedVersionMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *LanePublishedVersionMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *LanePublishedVersionMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown LanePublishedVersion nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *LanePublishedVersionMutation) ResetField(name string) error {
+	switch name {
+	case lanepublishedversion.FieldLaneID:
+		m.ResetLaneID()
+		return nil
+	case lanepublishedversion.FieldLocationID:
+		m.ResetLocationID()
+		return nil
+	case lanepublishedversion.FieldPublishedRevision:
+		m.ResetPublishedRevision()
+		return nil
+	case lanepublishedversion.FieldName:
+		m.ResetName()
+		return nil
+	case lanepublishedversion.FieldRetired:
+		m.ResetRetired()
+		return nil
+	case lanepublishedversion.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown LanePublishedVersion field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *LanePublishedVersionMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.lane != nil {
+		edges = append(edges, lanepublishedversion.EdgeLane)
+	}
+	if m.location != nil {
+		edges = append(edges, lanepublishedversion.EdgeLocation)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *LanePublishedVersionMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case lanepublishedversion.EdgeLane:
+		if id := m.lane; id != nil {
+			return []ent.Value{*id}
+		}
+	case lanepublishedversion.EdgeLocation:
+		if id := m.location; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *LanePublishedVersionMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *LanePublishedVersionMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *LanePublishedVersionMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedlane {
+		edges = append(edges, lanepublishedversion.EdgeLane)
+	}
+	if m.clearedlocation {
+		edges = append(edges, lanepublishedversion.EdgeLocation)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *LanePublishedVersionMutation) EdgeCleared(name string) bool {
+	switch name {
+	case lanepublishedversion.EdgeLane:
+		return m.clearedlane
+	case lanepublishedversion.EdgeLocation:
+		return m.clearedlocation
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *LanePublishedVersionMutation) ClearEdge(name string) error {
+	switch name {
+	case lanepublishedversion.EdgeLane:
+		m.ClearLane()
+		return nil
+	case lanepublishedversion.EdgeLocation:
+		m.ClearLocation()
+		return nil
+	}
+	return fmt.Errorf("unknown LanePublishedVersion unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *LanePublishedVersionMutation) ResetEdge(name string) error {
+	switch name {
+	case lanepublishedversion.EdgeLane:
+		m.ResetLane()
+		return nil
+	case lanepublishedversion.EdgeLocation:
+		m.ResetLocation()
+		return nil
+	}
+	return fmt.Errorf("unknown LanePublishedVersion edge %s", name)
+}
+
+// LocationMutation represents an operation that mutates the Location nodes in the graph.
+type LocationMutation struct {
+	config
+	op                             Op
+	typ                            string
+	id                             *int
+	created_at                     *time.Time
+	clearedFields                  map[string]struct{}
+	event                          *int
+	clearedevent                   bool
+	draft                          *int
+	cleareddraft                   bool
+	published_versions             map[int]struct{}
+	removedpublished_versions      map[int]struct{}
+	clearedpublished_versions      bool
+	lane_drafts                    map[int]struct{}
+	removedlane_drafts             map[int]struct{}
+	clearedlane_drafts             bool
+	lane_published_versions        map[int]struct{}
+	removedlane_published_versions map[int]struct{}
+	clearedlane_published_versions bool
+	done                           bool
+	oldValue                       func(context.Context) (*Location, error)
+	predicates                     []predicate.Location
 }
 
 var _ ent.Mutation = (*LocationMutation)(nil)
@@ -5867,6 +7866,114 @@ func (m *LocationMutation) ResetPublishedVersions() {
 	m.removedpublished_versions = nil
 }
 
+// AddLaneDraftIDs adds the "lane_drafts" edge to the LaneDraft entity by ids.
+func (m *LocationMutation) AddLaneDraftIDs(ids ...int) {
+	if m.lane_drafts == nil {
+		m.lane_drafts = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.lane_drafts[ids[i]] = struct{}{}
+	}
+}
+
+// ClearLaneDrafts clears the "lane_drafts" edge to the LaneDraft entity.
+func (m *LocationMutation) ClearLaneDrafts() {
+	m.clearedlane_drafts = true
+}
+
+// LaneDraftsCleared reports if the "lane_drafts" edge to the LaneDraft entity was cleared.
+func (m *LocationMutation) LaneDraftsCleared() bool {
+	return m.clearedlane_drafts
+}
+
+// RemoveLaneDraftIDs removes the "lane_drafts" edge to the LaneDraft entity by IDs.
+func (m *LocationMutation) RemoveLaneDraftIDs(ids ...int) {
+	if m.removedlane_drafts == nil {
+		m.removedlane_drafts = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.lane_drafts, ids[i])
+		m.removedlane_drafts[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedLaneDrafts returns the removed IDs of the "lane_drafts" edge to the LaneDraft entity.
+func (m *LocationMutation) RemovedLaneDraftsIDs() (ids []int) {
+	for id := range m.removedlane_drafts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// LaneDraftsIDs returns the "lane_drafts" edge IDs in the mutation.
+func (m *LocationMutation) LaneDraftsIDs() (ids []int) {
+	for id := range m.lane_drafts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetLaneDrafts resets all changes to the "lane_drafts" edge.
+func (m *LocationMutation) ResetLaneDrafts() {
+	m.lane_drafts = nil
+	m.clearedlane_drafts = false
+	m.removedlane_drafts = nil
+}
+
+// AddLanePublishedVersionIDs adds the "lane_published_versions" edge to the LanePublishedVersion entity by ids.
+func (m *LocationMutation) AddLanePublishedVersionIDs(ids ...int) {
+	if m.lane_published_versions == nil {
+		m.lane_published_versions = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.lane_published_versions[ids[i]] = struct{}{}
+	}
+}
+
+// ClearLanePublishedVersions clears the "lane_published_versions" edge to the LanePublishedVersion entity.
+func (m *LocationMutation) ClearLanePublishedVersions() {
+	m.clearedlane_published_versions = true
+}
+
+// LanePublishedVersionsCleared reports if the "lane_published_versions" edge to the LanePublishedVersion entity was cleared.
+func (m *LocationMutation) LanePublishedVersionsCleared() bool {
+	return m.clearedlane_published_versions
+}
+
+// RemoveLanePublishedVersionIDs removes the "lane_published_versions" edge to the LanePublishedVersion entity by IDs.
+func (m *LocationMutation) RemoveLanePublishedVersionIDs(ids ...int) {
+	if m.removedlane_published_versions == nil {
+		m.removedlane_published_versions = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.lane_published_versions, ids[i])
+		m.removedlane_published_versions[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedLanePublishedVersions returns the removed IDs of the "lane_published_versions" edge to the LanePublishedVersion entity.
+func (m *LocationMutation) RemovedLanePublishedVersionsIDs() (ids []int) {
+	for id := range m.removedlane_published_versions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// LanePublishedVersionsIDs returns the "lane_published_versions" edge IDs in the mutation.
+func (m *LocationMutation) LanePublishedVersionsIDs() (ids []int) {
+	for id := range m.lane_published_versions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetLanePublishedVersions resets all changes to the "lane_published_versions" edge.
+func (m *LocationMutation) ResetLanePublishedVersions() {
+	m.lane_published_versions = nil
+	m.clearedlane_published_versions = false
+	m.removedlane_published_versions = nil
+}
+
 // Where appends a list predicates to the LocationMutation builder.
 func (m *LocationMutation) Where(ps ...predicate.Location) {
 	m.predicates = append(m.predicates, ps...)
@@ -6020,7 +8127,7 @@ func (m *LocationMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *LocationMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 5)
 	if m.event != nil {
 		edges = append(edges, location.EdgeEvent)
 	}
@@ -6029,6 +8136,12 @@ func (m *LocationMutation) AddedEdges() []string {
 	}
 	if m.published_versions != nil {
 		edges = append(edges, location.EdgePublishedVersions)
+	}
+	if m.lane_drafts != nil {
+		edges = append(edges, location.EdgeLaneDrafts)
+	}
+	if m.lane_published_versions != nil {
+		edges = append(edges, location.EdgeLanePublishedVersions)
 	}
 	return edges
 }
@@ -6051,15 +8164,33 @@ func (m *LocationMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case location.EdgeLaneDrafts:
+		ids := make([]ent.Value, 0, len(m.lane_drafts))
+		for id := range m.lane_drafts {
+			ids = append(ids, id)
+		}
+		return ids
+	case location.EdgeLanePublishedVersions:
+		ids := make([]ent.Value, 0, len(m.lane_published_versions))
+		for id := range m.lane_published_versions {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *LocationMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 5)
 	if m.removedpublished_versions != nil {
 		edges = append(edges, location.EdgePublishedVersions)
+	}
+	if m.removedlane_drafts != nil {
+		edges = append(edges, location.EdgeLaneDrafts)
+	}
+	if m.removedlane_published_versions != nil {
+		edges = append(edges, location.EdgeLanePublishedVersions)
 	}
 	return edges
 }
@@ -6074,13 +8205,25 @@ func (m *LocationMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case location.EdgeLaneDrafts:
+		ids := make([]ent.Value, 0, len(m.removedlane_drafts))
+		for id := range m.removedlane_drafts {
+			ids = append(ids, id)
+		}
+		return ids
+	case location.EdgeLanePublishedVersions:
+		ids := make([]ent.Value, 0, len(m.removedlane_published_versions))
+		for id := range m.removedlane_published_versions {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *LocationMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 5)
 	if m.clearedevent {
 		edges = append(edges, location.EdgeEvent)
 	}
@@ -6089,6 +8232,12 @@ func (m *LocationMutation) ClearedEdges() []string {
 	}
 	if m.clearedpublished_versions {
 		edges = append(edges, location.EdgePublishedVersions)
+	}
+	if m.clearedlane_drafts {
+		edges = append(edges, location.EdgeLaneDrafts)
+	}
+	if m.clearedlane_published_versions {
+		edges = append(edges, location.EdgeLanePublishedVersions)
 	}
 	return edges
 }
@@ -6103,6 +8252,10 @@ func (m *LocationMutation) EdgeCleared(name string) bool {
 		return m.cleareddraft
 	case location.EdgePublishedVersions:
 		return m.clearedpublished_versions
+	case location.EdgeLaneDrafts:
+		return m.clearedlane_drafts
+	case location.EdgeLanePublishedVersions:
+		return m.clearedlane_published_versions
 	}
 	return false
 }
@@ -6133,6 +8286,12 @@ func (m *LocationMutation) ResetEdge(name string) error {
 		return nil
 	case location.EdgePublishedVersions:
 		m.ResetPublishedVersions()
+		return nil
+	case location.EdgeLaneDrafts:
+		m.ResetLaneDrafts()
+		return nil
+	case location.EdgeLanePublishedVersions:
+		m.ResetLanePublishedVersions()
 		return nil
 	}
 	return fmt.Errorf("unknown Location edge %s", name)

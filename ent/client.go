@@ -23,6 +23,9 @@ import (
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/ent/lane"
+	"github.com/dotwaffle/beamers/ent/lanedraft"
+	"github.com/dotwaffle/beamers/ent/lanepublishedversion"
 	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/locationdraft"
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
@@ -52,6 +55,12 @@ type Client struct {
 	EventGrant *EventGrantClient
 	// Installation is the client for interacting with the Installation builders.
 	Installation *InstallationClient
+	// Lane is the client for interacting with the Lane builders.
+	Lane *LaneClient
+	// LaneDraft is the client for interacting with the LaneDraft builders.
+	LaneDraft *LaneDraftClient
+	// LanePublishedVersion is the client for interacting with the LanePublishedVersion builders.
+	LanePublishedVersion *LanePublishedVersionClient
 	// Location is the client for interacting with the Location builders.
 	Location *LocationClient
 	// LocationDraft is the client for interacting with the LocationDraft builders.
@@ -83,6 +92,9 @@ func (c *Client) init() {
 	c.Event = NewEventClient(c.config)
 	c.EventGrant = NewEventGrantClient(c.config)
 	c.Installation = NewInstallationClient(c.config)
+	c.Lane = NewLaneClient(c.config)
+	c.LaneDraft = NewLaneDraftClient(c.config)
+	c.LanePublishedVersion = NewLanePublishedVersionClient(c.config)
 	c.Location = NewLocationClient(c.config)
 	c.LocationDraft = NewLocationDraftClient(c.config)
 	c.LocationPublishedVersion = NewLocationPublishedVersionClient(c.config)
@@ -189,6 +201,9 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Event:                    NewEventClient(cfg),
 		EventGrant:               NewEventGrantClient(cfg),
 		Installation:             NewInstallationClient(cfg),
+		Lane:                     NewLaneClient(cfg),
+		LaneDraft:                NewLaneDraftClient(cfg),
+		LanePublishedVersion:     NewLanePublishedVersionClient(cfg),
 		Location:                 NewLocationClient(cfg),
 		LocationDraft:            NewLocationDraftClient(cfg),
 		LocationPublishedVersion: NewLocationPublishedVersionClient(cfg),
@@ -222,6 +237,9 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Event:                    NewEventClient(cfg),
 		EventGrant:               NewEventGrantClient(cfg),
 		Installation:             NewInstallationClient(cfg),
+		Lane:                     NewLaneClient(cfg),
+		LaneDraft:                NewLaneDraftClient(cfg),
+		LanePublishedVersion:     NewLanePublishedVersionClient(cfg),
 		Location:                 NewLocationClient(cfg),
 		LocationDraft:            NewLocationDraftClient(cfg),
 		LocationPublishedVersion: NewLocationPublishedVersionClient(cfg),
@@ -258,9 +276,9 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.Account, c.AccountSession, c.AuditEntry, c.BootstrapCredential,
-		c.CommandReceipt, c.Event, c.EventGrant, c.Installation, c.Location,
-		c.LocationDraft, c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
-		c.Rundown,
+		c.CommandReceipt, c.Event, c.EventGrant, c.Installation, c.Lane, c.LaneDraft,
+		c.LanePublishedVersion, c.Location, c.LocationDraft,
+		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Rundown,
 	} {
 		n.Use(hooks...)
 	}
@@ -271,9 +289,9 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.Account, c.AccountSession, c.AuditEntry, c.BootstrapCredential,
-		c.CommandReceipt, c.Event, c.EventGrant, c.Installation, c.Location,
-		c.LocationDraft, c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
-		c.Rundown,
+		c.CommandReceipt, c.Event, c.EventGrant, c.Installation, c.Lane, c.LaneDraft,
+		c.LanePublishedVersion, c.Location, c.LocationDraft,
+		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Rundown,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -298,6 +316,12 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.EventGrant.mutate(ctx, m)
 	case *InstallationMutation:
 		return c.Installation.mutate(ctx, m)
+	case *LaneMutation:
+		return c.Lane.mutate(ctx, m)
+	case *LaneDraftMutation:
+		return c.LaneDraft.mutate(ctx, m)
+	case *LanePublishedVersionMutation:
+		return c.LanePublishedVersion.mutate(ctx, m)
 	case *LocationMutation:
 		return c.Location.mutate(ctx, m)
 	case *LocationDraftMutation:
@@ -1269,6 +1293,22 @@ func (c *EventClient) QueryLocations(_m *Event) *LocationQuery {
 	return query
 }
 
+// QueryLanes queries the lanes edge of a Event.
+func (c *EventClient) QueryLanes(_m *Event) *LaneQuery {
+	query := (&LaneClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(lane.Table, lane.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.LanesTable, event.LanesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *EventClient) Hooks() []Hook {
 	hooks := c.hooks.Event
@@ -1594,6 +1634,520 @@ func (c *InstallationClient) mutate(ctx context.Context, m *InstallationMutation
 	}
 }
 
+// LaneClient is a client for the Lane schema.
+type LaneClient struct {
+	config
+}
+
+// NewLaneClient returns a client for the Lane from the given config.
+func NewLaneClient(c config) *LaneClient {
+	return &LaneClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `lane.Hooks(f(g(h())))`.
+func (c *LaneClient) Use(hooks ...Hook) {
+	c.hooks.Lane = append(c.hooks.Lane, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `lane.Intercept(f(g(h())))`.
+func (c *LaneClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Lane = append(c.inters.Lane, interceptors...)
+}
+
+// Create returns a builder for creating a Lane entity.
+func (c *LaneClient) Create() *LaneCreate {
+	mutation := newLaneMutation(c.config, OpCreate)
+	return &LaneCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Lane entities.
+func (c *LaneClient) CreateBulk(builders ...*LaneCreate) *LaneCreateBulk {
+	return &LaneCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *LaneClient) MapCreateBulk(slice any, setFunc func(*LaneCreate, int)) *LaneCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &LaneCreateBulk{err: fmt.Errorf("calling to LaneClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*LaneCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &LaneCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Lane.
+func (c *LaneClient) Update() *LaneUpdate {
+	mutation := newLaneMutation(c.config, OpUpdate)
+	return &LaneUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *LaneClient) UpdateOne(_m *Lane) *LaneUpdateOne {
+	mutation := newLaneMutation(c.config, OpUpdateOne, withLane(_m))
+	return &LaneUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *LaneClient) UpdateOneID(id int) *LaneUpdateOne {
+	mutation := newLaneMutation(c.config, OpUpdateOne, withLaneID(id))
+	return &LaneUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Lane.
+func (c *LaneClient) Delete() *LaneDelete {
+	mutation := newLaneMutation(c.config, OpDelete)
+	return &LaneDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *LaneClient) DeleteOne(_m *Lane) *LaneDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *LaneClient) DeleteOneID(id int) *LaneDeleteOne {
+	builder := c.Delete().Where(lane.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &LaneDeleteOne{builder}
+}
+
+// Query returns a query builder for Lane.
+func (c *LaneClient) Query() *LaneQuery {
+	return &LaneQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeLane},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Lane entity by its id.
+func (c *LaneClient) Get(ctx context.Context, id int) (*Lane, error) {
+	return c.Query().Where(lane.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *LaneClient) GetX(ctx context.Context, id int) *Lane {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a Lane.
+func (c *LaneClient) QueryEvent(_m *Lane) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(lane.Table, lane.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, lane.EventTable, lane.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDraft queries the draft edge of a Lane.
+func (c *LaneClient) QueryDraft(_m *Lane) *LaneDraftQuery {
+	query := (&LaneDraftClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(lane.Table, lane.FieldID, id),
+			sqlgraph.To(lanedraft.Table, lanedraft.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, lane.DraftTable, lane.DraftColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryPublishedVersions queries the published_versions edge of a Lane.
+func (c *LaneClient) QueryPublishedVersions(_m *Lane) *LanePublishedVersionQuery {
+	query := (&LanePublishedVersionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(lane.Table, lane.FieldID, id),
+			sqlgraph.To(lanepublishedversion.Table, lanepublishedversion.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, lane.PublishedVersionsTable, lane.PublishedVersionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *LaneClient) Hooks() []Hook {
+	hooks := c.hooks.Lane
+	return append(hooks[:len(hooks):len(hooks)], lane.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *LaneClient) Interceptors() []Interceptor {
+	return c.inters.Lane
+}
+
+func (c *LaneClient) mutate(ctx context.Context, m *LaneMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&LaneCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&LaneUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&LaneUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&LaneDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Lane mutation op: %q", m.Op())
+	}
+}
+
+// LaneDraftClient is a client for the LaneDraft schema.
+type LaneDraftClient struct {
+	config
+}
+
+// NewLaneDraftClient returns a client for the LaneDraft from the given config.
+func NewLaneDraftClient(c config) *LaneDraftClient {
+	return &LaneDraftClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `lanedraft.Hooks(f(g(h())))`.
+func (c *LaneDraftClient) Use(hooks ...Hook) {
+	c.hooks.LaneDraft = append(c.hooks.LaneDraft, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `lanedraft.Intercept(f(g(h())))`.
+func (c *LaneDraftClient) Intercept(interceptors ...Interceptor) {
+	c.inters.LaneDraft = append(c.inters.LaneDraft, interceptors...)
+}
+
+// Create returns a builder for creating a LaneDraft entity.
+func (c *LaneDraftClient) Create() *LaneDraftCreate {
+	mutation := newLaneDraftMutation(c.config, OpCreate)
+	return &LaneDraftCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of LaneDraft entities.
+func (c *LaneDraftClient) CreateBulk(builders ...*LaneDraftCreate) *LaneDraftCreateBulk {
+	return &LaneDraftCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *LaneDraftClient) MapCreateBulk(slice any, setFunc func(*LaneDraftCreate, int)) *LaneDraftCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &LaneDraftCreateBulk{err: fmt.Errorf("calling to LaneDraftClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*LaneDraftCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &LaneDraftCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for LaneDraft.
+func (c *LaneDraftClient) Update() *LaneDraftUpdate {
+	mutation := newLaneDraftMutation(c.config, OpUpdate)
+	return &LaneDraftUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *LaneDraftClient) UpdateOne(_m *LaneDraft) *LaneDraftUpdateOne {
+	mutation := newLaneDraftMutation(c.config, OpUpdateOne, withLaneDraft(_m))
+	return &LaneDraftUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *LaneDraftClient) UpdateOneID(id int) *LaneDraftUpdateOne {
+	mutation := newLaneDraftMutation(c.config, OpUpdateOne, withLaneDraftID(id))
+	return &LaneDraftUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for LaneDraft.
+func (c *LaneDraftClient) Delete() *LaneDraftDelete {
+	mutation := newLaneDraftMutation(c.config, OpDelete)
+	return &LaneDraftDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *LaneDraftClient) DeleteOne(_m *LaneDraft) *LaneDraftDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *LaneDraftClient) DeleteOneID(id int) *LaneDraftDeleteOne {
+	builder := c.Delete().Where(lanedraft.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &LaneDraftDeleteOne{builder}
+}
+
+// Query returns a query builder for LaneDraft.
+func (c *LaneDraftClient) Query() *LaneDraftQuery {
+	return &LaneDraftQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeLaneDraft},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a LaneDraft entity by its id.
+func (c *LaneDraftClient) Get(ctx context.Context, id int) (*LaneDraft, error) {
+	return c.Query().Where(lanedraft.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *LaneDraftClient) GetX(ctx context.Context, id int) *LaneDraft {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryLane queries the lane edge of a LaneDraft.
+func (c *LaneDraftClient) QueryLane(_m *LaneDraft) *LaneQuery {
+	query := (&LaneClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(lanedraft.Table, lanedraft.FieldID, id),
+			sqlgraph.To(lane.Table, lane.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, lanedraft.LaneTable, lanedraft.LaneColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryLocation queries the location edge of a LaneDraft.
+func (c *LaneDraftClient) QueryLocation(_m *LaneDraft) *LocationQuery {
+	query := (&LocationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(lanedraft.Table, lanedraft.FieldID, id),
+			sqlgraph.To(location.Table, location.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, lanedraft.LocationTable, lanedraft.LocationColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *LaneDraftClient) Hooks() []Hook {
+	hooks := c.hooks.LaneDraft
+	return append(hooks[:len(hooks):len(hooks)], lanedraft.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *LaneDraftClient) Interceptors() []Interceptor {
+	return c.inters.LaneDraft
+}
+
+func (c *LaneDraftClient) mutate(ctx context.Context, m *LaneDraftMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&LaneDraftCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&LaneDraftUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&LaneDraftUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&LaneDraftDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown LaneDraft mutation op: %q", m.Op())
+	}
+}
+
+// LanePublishedVersionClient is a client for the LanePublishedVersion schema.
+type LanePublishedVersionClient struct {
+	config
+}
+
+// NewLanePublishedVersionClient returns a client for the LanePublishedVersion from the given config.
+func NewLanePublishedVersionClient(c config) *LanePublishedVersionClient {
+	return &LanePublishedVersionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `lanepublishedversion.Hooks(f(g(h())))`.
+func (c *LanePublishedVersionClient) Use(hooks ...Hook) {
+	c.hooks.LanePublishedVersion = append(c.hooks.LanePublishedVersion, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `lanepublishedversion.Intercept(f(g(h())))`.
+func (c *LanePublishedVersionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.LanePublishedVersion = append(c.inters.LanePublishedVersion, interceptors...)
+}
+
+// Create returns a builder for creating a LanePublishedVersion entity.
+func (c *LanePublishedVersionClient) Create() *LanePublishedVersionCreate {
+	mutation := newLanePublishedVersionMutation(c.config, OpCreate)
+	return &LanePublishedVersionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of LanePublishedVersion entities.
+func (c *LanePublishedVersionClient) CreateBulk(builders ...*LanePublishedVersionCreate) *LanePublishedVersionCreateBulk {
+	return &LanePublishedVersionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *LanePublishedVersionClient) MapCreateBulk(slice any, setFunc func(*LanePublishedVersionCreate, int)) *LanePublishedVersionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &LanePublishedVersionCreateBulk{err: fmt.Errorf("calling to LanePublishedVersionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*LanePublishedVersionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &LanePublishedVersionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for LanePublishedVersion.
+func (c *LanePublishedVersionClient) Update() *LanePublishedVersionUpdate {
+	mutation := newLanePublishedVersionMutation(c.config, OpUpdate)
+	return &LanePublishedVersionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *LanePublishedVersionClient) UpdateOne(_m *LanePublishedVersion) *LanePublishedVersionUpdateOne {
+	mutation := newLanePublishedVersionMutation(c.config, OpUpdateOne, withLanePublishedVersion(_m))
+	return &LanePublishedVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *LanePublishedVersionClient) UpdateOneID(id int) *LanePublishedVersionUpdateOne {
+	mutation := newLanePublishedVersionMutation(c.config, OpUpdateOne, withLanePublishedVersionID(id))
+	return &LanePublishedVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for LanePublishedVersion.
+func (c *LanePublishedVersionClient) Delete() *LanePublishedVersionDelete {
+	mutation := newLanePublishedVersionMutation(c.config, OpDelete)
+	return &LanePublishedVersionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *LanePublishedVersionClient) DeleteOne(_m *LanePublishedVersion) *LanePublishedVersionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *LanePublishedVersionClient) DeleteOneID(id int) *LanePublishedVersionDeleteOne {
+	builder := c.Delete().Where(lanepublishedversion.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &LanePublishedVersionDeleteOne{builder}
+}
+
+// Query returns a query builder for LanePublishedVersion.
+func (c *LanePublishedVersionClient) Query() *LanePublishedVersionQuery {
+	return &LanePublishedVersionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeLanePublishedVersion},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a LanePublishedVersion entity by its id.
+func (c *LanePublishedVersionClient) Get(ctx context.Context, id int) (*LanePublishedVersion, error) {
+	return c.Query().Where(lanepublishedversion.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *LanePublishedVersionClient) GetX(ctx context.Context, id int) *LanePublishedVersion {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryLane queries the lane edge of a LanePublishedVersion.
+func (c *LanePublishedVersionClient) QueryLane(_m *LanePublishedVersion) *LaneQuery {
+	query := (&LaneClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(lanepublishedversion.Table, lanepublishedversion.FieldID, id),
+			sqlgraph.To(lane.Table, lane.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, lanepublishedversion.LaneTable, lanepublishedversion.LaneColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryLocation queries the location edge of a LanePublishedVersion.
+func (c *LanePublishedVersionClient) QueryLocation(_m *LanePublishedVersion) *LocationQuery {
+	query := (&LocationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(lanepublishedversion.Table, lanepublishedversion.FieldID, id),
+			sqlgraph.To(location.Table, location.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, lanepublishedversion.LocationTable, lanepublishedversion.LocationColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *LanePublishedVersionClient) Hooks() []Hook {
+	hooks := c.hooks.LanePublishedVersion
+	return append(hooks[:len(hooks):len(hooks)], lanepublishedversion.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *LanePublishedVersionClient) Interceptors() []Interceptor {
+	return c.inters.LanePublishedVersion
+}
+
+func (c *LanePublishedVersionClient) mutate(ctx context.Context, m *LanePublishedVersionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&LanePublishedVersionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&LanePublishedVersionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&LanePublishedVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&LanePublishedVersionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown LanePublishedVersion mutation op: %q", m.Op())
+	}
+}
+
 // LocationClient is a client for the Location schema.
 type LocationClient struct {
 	config
@@ -1743,6 +2297,38 @@ func (c *LocationClient) QueryPublishedVersions(_m *Location) *LocationPublished
 			sqlgraph.From(location.Table, location.FieldID, id),
 			sqlgraph.To(locationpublishedversion.Table, locationpublishedversion.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, location.PublishedVersionsTable, location.PublishedVersionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryLaneDrafts queries the lane_drafts edge of a Location.
+func (c *LocationClient) QueryLaneDrafts(_m *Location) *LaneDraftQuery {
+	query := (&LaneDraftClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(location.Table, location.FieldID, id),
+			sqlgraph.To(lanedraft.Table, lanedraft.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, location.LaneDraftsTable, location.LaneDraftsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryLanePublishedVersions queries the lane_published_versions edge of a Location.
+func (c *LocationClient) QueryLanePublishedVersions(_m *Location) *LanePublishedVersionQuery {
+	query := (&LanePublishedVersionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(location.Table, location.FieldID, id),
+			sqlgraph.To(lanepublishedversion.Table, lanepublishedversion.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, location.LanePublishedVersionsTable, location.LanePublishedVersionsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -2513,12 +3099,14 @@ func (c *RundownClient) mutate(ctx context.Context, m *RundownMutation) (Value, 
 type (
 	hooks struct {
 		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt, Event,
-		EventGrant, Installation, Location, LocationDraft, LocationPublishedVersion,
-		Migration, PasswordCredential, Rundown []ent.Hook
+		EventGrant, Installation, Lane, LaneDraft, LanePublishedVersion, Location,
+		LocationDraft, LocationPublishedVersion, Migration, PasswordCredential,
+		Rundown []ent.Hook
 	}
 	inters struct {
 		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt, Event,
-		EventGrant, Installation, Location, LocationDraft, LocationPublishedVersion,
-		Migration, PasswordCredential, Rundown []ent.Interceptor
+		EventGrant, Installation, Lane, LaneDraft, LanePublishedVersion, Location,
+		LocationDraft, LocationPublishedVersion, Migration, PasswordCredential,
+		Rundown []ent.Interceptor
 	}
 )

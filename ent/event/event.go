@@ -39,6 +39,8 @@ const (
 	EdgeRundown = "rundown"
 	// EdgeLocations holds the string denoting the locations edge name in mutations.
 	EdgeLocations = "locations"
+	// EdgeLanes holds the string denoting the lanes edge name in mutations.
+	EdgeLanes = "lanes"
 	// Table holds the table name of the event in the database.
 	Table = "events"
 	// GrantsTable is the table that holds the grants relation/edge.
@@ -62,6 +64,13 @@ const (
 	LocationsInverseTable = "locations"
 	// LocationsColumn is the table column denoting the locations relation/edge.
 	LocationsColumn = "event_id"
+	// LanesTable is the table that holds the lanes relation/edge.
+	LanesTable = "lanes"
+	// LanesInverseTable is the table name for the Lane entity.
+	// It exists in this package in order to avoid circular dependency with the "lane" package.
+	LanesInverseTable = "lanes"
+	// LanesColumn is the table column denoting the lanes relation/edge.
+	LanesColumn = "event_id"
 )
 
 // Columns holds all SQL columns for event fields.
@@ -203,6 +212,20 @@ func ByLocations(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newLocationsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByLanesCount orders the results by lanes count.
+func ByLanesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newLanesStep(), opts...)
+	}
+}
+
+// ByLanes orders the results by lanes terms.
+func ByLanes(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newLanesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newGrantsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -222,5 +245,12 @@ func newLocationsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(LocationsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, LocationsTable, LocationsColumn),
+	)
+}
+func newLanesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(LanesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, LanesTable, LanesColumn),
 	)
 }

@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/rundown"
 )
@@ -148,6 +149,21 @@ func (_c *EventCreate) AddLocations(v ...*Location) *EventCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddLocationIDs(ids...)
+}
+
+// AddLaneIDs adds the "lanes" edge to the Lane entity by IDs.
+func (_c *EventCreate) AddLaneIDs(ids ...int) *EventCreate {
+	_c.mutation.AddLaneIDs(ids...)
+	return _c
+}
+
+// AddLanes adds the "lanes" edges to the Lane entity.
+func (_c *EventCreate) AddLanes(v ...*Lane) *EventCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddLaneIDs(ids...)
 }
 
 // Mutation returns the EventMutation object of the builder.
@@ -365,6 +381,22 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(location.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.LanesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.LanesTable,
+			Columns: []string{event.LanesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lane.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

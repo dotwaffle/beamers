@@ -176,6 +176,101 @@ var (
 		Columns:    InstallationsColumns,
 		PrimaryKey: []*schema.Column{InstallationsColumns[0]},
 	}
+	// LanesColumns holds the columns for the "lanes" table.
+	LanesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "event_id", Type: field.TypeInt},
+	}
+	// LanesTable holds the schema information for the "lanes" table.
+	LanesTable = &schema.Table{
+		Name:       "lanes",
+		Columns:    LanesColumns,
+		PrimaryKey: []*schema.Column{LanesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "lanes_events_lanes",
+				Columns:    []*schema.Column{LanesColumns[2]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
+	// LaneDraftsColumns holds the columns for the "lane_drafts" table.
+	LaneDraftsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "name", Type: field.TypeString, Size: 200},
+		{Name: "retired", Type: field.TypeBool, Default: false},
+		{Name: "lane_id", Type: field.TypeInt, Unique: true},
+		{Name: "location_id", Type: field.TypeInt},
+	}
+	// LaneDraftsTable holds the schema information for the "lane_drafts" table.
+	LaneDraftsTable = &schema.Table{
+		Name:       "lane_drafts",
+		Columns:    LaneDraftsColumns,
+		PrimaryKey: []*schema.Column{LaneDraftsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "lane_drafts_lanes_draft",
+				Columns:    []*schema.Column{LaneDraftsColumns[3]},
+				RefColumns: []*schema.Column{LanesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "lane_drafts_locations_lane_drafts",
+				Columns:    []*schema.Column{LaneDraftsColumns[4]},
+				RefColumns: []*schema.Column{LocationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "lanedraft_location_id",
+				Unique:  true,
+				Columns: []*schema.Column{LaneDraftsColumns[4]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "NOT retired",
+				},
+			},
+		},
+	}
+	// LanePublishedVersionsColumns holds the columns for the "lane_published_versions" table.
+	LanePublishedVersionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "published_revision", Type: field.TypeInt},
+		{Name: "name", Type: field.TypeString, Size: 200},
+		{Name: "retired", Type: field.TypeBool, Default: false},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "lane_id", Type: field.TypeInt},
+		{Name: "location_id", Type: field.TypeInt},
+	}
+	// LanePublishedVersionsTable holds the schema information for the "lane_published_versions" table.
+	LanePublishedVersionsTable = &schema.Table{
+		Name:       "lane_published_versions",
+		Columns:    LanePublishedVersionsColumns,
+		PrimaryKey: []*schema.Column{LanePublishedVersionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "lane_published_versions_lanes_published_versions",
+				Columns:    []*schema.Column{LanePublishedVersionsColumns[5]},
+				RefColumns: []*schema.Column{LanesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "lane_published_versions_locations_lane_published_versions",
+				Columns:    []*schema.Column{LanePublishedVersionsColumns[6]},
+				RefColumns: []*schema.Column{LocationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "lanepublishedversion_lane_id_published_revision",
+				Unique:  true,
+				Columns: []*schema.Column{LanePublishedVersionsColumns[5], LanePublishedVersionsColumns[1]},
+			},
+		},
+	}
 	// LocationsColumns holds the columns for the "locations" table.
 	LocationsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -314,6 +409,9 @@ var (
 		EventsTable,
 		EventGrantsTable,
 		InstallationsTable,
+		LanesTable,
+		LaneDraftsTable,
+		LanePublishedVersionsTable,
 		LocationsTable,
 		LocationDraftsTable,
 		LocationPublishedVersionsTable,
@@ -329,6 +427,11 @@ func init() {
 	CommandReceiptsTable.ForeignKeys[0].RefTable = AccountsTable
 	EventGrantsTable.ForeignKeys[0].RefTable = AccountsTable
 	EventGrantsTable.ForeignKeys[1].RefTable = EventsTable
+	LanesTable.ForeignKeys[0].RefTable = EventsTable
+	LaneDraftsTable.ForeignKeys[0].RefTable = LanesTable
+	LaneDraftsTable.ForeignKeys[1].RefTable = LocationsTable
+	LanePublishedVersionsTable.ForeignKeys[0].RefTable = LanesTable
+	LanePublishedVersionsTable.ForeignKeys[1].RefTable = LocationsTable
 	LocationsTable.ForeignKeys[0].RefTable = EventsTable
 	LocationDraftsTable.ForeignKeys[0].RefTable = LocationsTable
 	LocationPublishedVersionsTable.ForeignKeys[0].RefTable = LocationsTable

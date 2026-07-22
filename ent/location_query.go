@@ -14,6 +14,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/event"
+	"github.com/dotwaffle/beamers/ent/lanedraft"
+	"github.com/dotwaffle/beamers/ent/lanepublishedversion"
 	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/locationdraft"
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
@@ -23,13 +25,15 @@ import (
 // LocationQuery is the builder for querying Location entities.
 type LocationQuery struct {
 	config
-	ctx                   *QueryContext
-	order                 []location.OrderOption
-	inters                []Interceptor
-	predicates            []predicate.Location
-	withEvent             *EventQuery
-	withDraft             *LocationDraftQuery
-	withPublishedVersions *LocationPublishedVersionQuery
+	ctx                       *QueryContext
+	order                     []location.OrderOption
+	inters                    []Interceptor
+	predicates                []predicate.Location
+	withEvent                 *EventQuery
+	withDraft                 *LocationDraftQuery
+	withPublishedVersions     *LocationPublishedVersionQuery
+	withLaneDrafts            *LaneDraftQuery
+	withLanePublishedVersions *LanePublishedVersionQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -125,6 +129,50 @@ func (_q *LocationQuery) QueryPublishedVersions() *LocationPublishedVersionQuery
 			sqlgraph.From(location.Table, location.FieldID, selector),
 			sqlgraph.To(locationpublishedversion.Table, locationpublishedversion.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, location.PublishedVersionsTable, location.PublishedVersionsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryLaneDrafts chains the current query on the "lane_drafts" edge.
+func (_q *LocationQuery) QueryLaneDrafts() *LaneDraftQuery {
+	query := (&LaneDraftClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(location.Table, location.FieldID, selector),
+			sqlgraph.To(lanedraft.Table, lanedraft.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, location.LaneDraftsTable, location.LaneDraftsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryLanePublishedVersions chains the current query on the "lane_published_versions" edge.
+func (_q *LocationQuery) QueryLanePublishedVersions() *LanePublishedVersionQuery {
+	query := (&LanePublishedVersionClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(location.Table, location.FieldID, selector),
+			sqlgraph.To(lanepublishedversion.Table, lanepublishedversion.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, location.LanePublishedVersionsTable, location.LanePublishedVersionsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -319,14 +367,16 @@ func (_q *LocationQuery) Clone() *LocationQuery {
 		return nil
 	}
 	return &LocationQuery{
-		config:                _q.config,
-		ctx:                   _q.ctx.Clone(),
-		order:                 append([]location.OrderOption{}, _q.order...),
-		inters:                append([]Interceptor{}, _q.inters...),
-		predicates:            append([]predicate.Location{}, _q.predicates...),
-		withEvent:             _q.withEvent.Clone(),
-		withDraft:             _q.withDraft.Clone(),
-		withPublishedVersions: _q.withPublishedVersions.Clone(),
+		config:                    _q.config,
+		ctx:                       _q.ctx.Clone(),
+		order:                     append([]location.OrderOption{}, _q.order...),
+		inters:                    append([]Interceptor{}, _q.inters...),
+		predicates:                append([]predicate.Location{}, _q.predicates...),
+		withEvent:                 _q.withEvent.Clone(),
+		withDraft:                 _q.withDraft.Clone(),
+		withPublishedVersions:     _q.withPublishedVersions.Clone(),
+		withLaneDrafts:            _q.withLaneDrafts.Clone(),
+		withLanePublishedVersions: _q.withLanePublishedVersions.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -363,6 +413,28 @@ func (_q *LocationQuery) WithPublishedVersions(opts ...func(*LocationPublishedVe
 		opt(query)
 	}
 	_q.withPublishedVersions = query
+	return _q
+}
+
+// WithLaneDrafts tells the query-builder to eager-load the nodes that are connected to
+// the "lane_drafts" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *LocationQuery) WithLaneDrafts(opts ...func(*LaneDraftQuery)) *LocationQuery {
+	query := (&LaneDraftClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withLaneDrafts = query
+	return _q
+}
+
+// WithLanePublishedVersions tells the query-builder to eager-load the nodes that are connected to
+// the "lane_published_versions" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *LocationQuery) WithLanePublishedVersions(opts ...func(*LanePublishedVersionQuery)) *LocationQuery {
+	query := (&LanePublishedVersionClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withLanePublishedVersions = query
 	return _q
 }
 
@@ -450,10 +522,12 @@ func (_q *LocationQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Loc
 	var (
 		nodes       = []*Location{}
 		_spec       = _q.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [5]bool{
 			_q.withEvent != nil,
 			_q.withDraft != nil,
 			_q.withPublishedVersions != nil,
+			_q.withLaneDrafts != nil,
+			_q.withLanePublishedVersions != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -491,6 +565,22 @@ func (_q *LocationQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Loc
 			func(n *Location) { n.Edges.PublishedVersions = []*LocationPublishedVersion{} },
 			func(n *Location, e *LocationPublishedVersion) {
 				n.Edges.PublishedVersions = append(n.Edges.PublishedVersions, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withLaneDrafts; query != nil {
+		if err := _q.loadLaneDrafts(ctx, query, nodes,
+			func(n *Location) { n.Edges.LaneDrafts = []*LaneDraft{} },
+			func(n *Location, e *LaneDraft) { n.Edges.LaneDrafts = append(n.Edges.LaneDrafts, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withLanePublishedVersions; query != nil {
+		if err := _q.loadLanePublishedVersions(ctx, query, nodes,
+			func(n *Location) { n.Edges.LanePublishedVersions = []*LanePublishedVersion{} },
+			func(n *Location, e *LanePublishedVersion) {
+				n.Edges.LanePublishedVersions = append(n.Edges.LanePublishedVersions, e)
 			}); err != nil {
 			return nil, err
 		}
@@ -569,6 +659,66 @@ func (_q *LocationQuery) loadPublishedVersions(ctx context.Context, query *Locat
 	}
 	query.Where(predicate.LocationPublishedVersion(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(location.PublishedVersionsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.LocationID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "location_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *LocationQuery) loadLaneDrafts(ctx context.Context, query *LaneDraftQuery, nodes []*Location, init func(*Location), assign func(*Location, *LaneDraft)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Location)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(lanedraft.FieldLocationID)
+	}
+	query.Where(predicate.LaneDraft(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(location.LaneDraftsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.LocationID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "location_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *LocationQuery) loadLanePublishedVersions(ctx context.Context, query *LanePublishedVersionQuery, nodes []*Location, init func(*Location), assign func(*Location, *LanePublishedVersion)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Location)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(lanepublishedversion.FieldLocationID)
+	}
+	query.Where(predicate.LanePublishedVersion(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(location.LanePublishedVersionsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

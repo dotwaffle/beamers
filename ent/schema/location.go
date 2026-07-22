@@ -45,5 +45,7 @@ func (Location) Edges() []ent.Edge {
 			Required(),
 		edge.To("draft", LocationDraft.Type).Unique(),
 		edge.To("published_versions", LocationPublishedVersion.Type),
+		edge.To("lane_drafts", LaneDraft.Type),
+		edge.To("lane_published_versions", LanePublishedVersion.Type),
 	}
 }

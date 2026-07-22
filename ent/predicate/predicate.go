@@ -30,6 +30,15 @@ type EventGrant func(*sql.Selector)
 // Installation is the predicate function for installation builders.
 type Installation func(*sql.Selector)
 
+// Lane is the predicate function for lane builders.
+type Lane func(*sql.Selector)
+
+// LaneDraft is the predicate function for lanedraft builders.
+type LaneDraft func(*sql.Selector)
+
+// LanePublishedVersion is the predicate function for lanepublishedversion builders.
+type LanePublishedVersion func(*sql.Selector)
+
 // Location is the predicate function for location builders.
 type Location func(*sql.Selector)
 

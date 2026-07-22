@@ -8,6 +8,9 @@ import (
 	"entgo.io/ent/privacy"
 
 	beamersent "github.com/dotwaffle/beamers/ent"
+	"github.com/dotwaffle/beamers/ent/lane"
+	"github.com/dotwaffle/beamers/ent/lanedraft"
+	"github.com/dotwaffle/beamers/ent/lanepublishedversion"
 	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/locationdraft"
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
@@ -144,6 +147,62 @@ func filterGrantedLocationPublishedVersions() privacy.QueryRule {
 	})
 }
 
+func filterGrantedLanes() privacy.QueryRule {
+	type selectorFilter interface {
+		Where(...predicate.Lane) *beamersent.LaneQuery
+	}
+	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
+		ids, err := grantedEventIDs(ctx)
+		if err != nil {
+			return err
+		}
+		filter, ok := query.(selectorFilter)
+		if !ok {
+			return privacy.Denyf("unexpected Lane query %T", query)
+		}
+		filter.Where(func(selector *sql.Selector) {
+			selector.Where(sql.InInts(selector.C("event_id"), ids...))
+		})
+		return privacy.Skip
+	})
+}
+
+func filterGrantedLaneDrafts() privacy.QueryRule {
+	type selectorFilter interface {
+		Where(...predicate.LaneDraft) *beamersent.LaneDraftQuery
+	}
+	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
+		ids, err := grantedEventIDs(ctx)
+		if err != nil {
+			return err
+		}
+		filter, ok := query.(selectorFilter)
+		if !ok {
+			return privacy.Denyf("unexpected Lane Draft query %T", query)
+		}
+		filter.Where(lanedraft.HasLaneWith(lane.EventIDIn(ids...)))
+		return privacy.Skip
+	})
+}
+
+func filterGrantedLanePublishedVersions() privacy.QueryRule {
+	type selectorFilter interface {
+		Where(...predicate.LanePublishedVersion) *beamersent.LanePublishedVersionQuery
+	}
+	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
+		ids, err := grantedEventIDs(ctx)
+		if err != nil {
+			return err
+		}
+		filter, ok := query.(selectorFilter)
+		if !ok {
+			return privacy.Denyf("unexpected Published Lane version query %T", query)
+		}
+		filter.Where(lanepublishedversion.HasLaneWith(lane.EventIDIn(ids...)))
+		return privacy.Skip
+	})
+}
+
 func grantedEventIDs(ctx context.Context) ([]int, error) {
 	identity, _ := viewer.FromContext(ctx)
 	ids := make([]int, 0, len(identity.EventRoles))
@@ -245,6 +304,50 @@ func allowLocationOwnedMutation() privacy.MutationRule {
 
 func allowLocationOwnedCreation() privacy.MutationRule {
 	owned := allowLocationOwnedMutation()
+	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
+		if !mutation.Op().Is(ent.OpCreate) {
+			return privacy.Skip
+		}
+		return owned.EvalMutation(ctx, mutation)
+	})
+}
+
+func allowLaneOwnedMutation() privacy.MutationRule {
+	type laneOwnedMutation interface {
+		LaneID() (int, bool)
+		OldLaneID(context.Context) (int, error)
+		Client() *beamersent.Client
+	}
+	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
+		identity, _ := viewer.FromContext(ctx)
+		owned, ok := mutation.(laneOwnedMutation)
+		if !ok {
+			return privacy.Skip
+		}
+		laneID, exists := owned.LaneID()
+		if !exists {
+			var err error
+			laneID, err = owned.OldLaneID(ctx)
+			if err != nil {
+				return privacy.Denyf("read mutation Lane ownership: %v", err)
+			}
+		}
+		found, err := owned.Client().Lane.Get(
+			privacy.DecisionContext(ctx, privacy.Allow),
+			laneID,
+		)
+		if err != nil {
+			return privacy.Denyf("read mutation Event ownership: %v", err)
+		}
+		if identity.CanProduceEvent(found.EventID) {
+			return privacy.Allow
+		}
+		return privacy.Skip
+	})
+}
+
+func allowLaneOwnedCreation() privacy.MutationRule {
+	owned := allowLaneOwnedMutation()
 	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
 		if !mutation.Op().Is(ent.OpCreate) {
 			return privacy.Skip

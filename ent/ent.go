@@ -20,6 +20,9 @@ import (
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/ent/lane"
+	"github.com/dotwaffle/beamers/ent/lanedraft"
+	"github.com/dotwaffle/beamers/ent/lanepublishedversion"
 	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/locationdraft"
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
@@ -94,6 +97,9 @@ func checkColumn(t, c string) error {
 			event.Table:                    event.ValidColumn,
 			eventgrant.Table:               eventgrant.ValidColumn,
 			installation.Table:             installation.ValidColumn,
+			lane.Table:                     lane.ValidColumn,
+			lanedraft.Table:                lanedraft.ValidColumn,
+			lanepublishedversion.Table:     lanepublishedversion.ValidColumn,
 			location.Table:                 location.ValidColumn,
 			locationdraft.Table:            locationdraft.ValidColumn,
 			locationpublishedversion.Table: locationpublishedversion.ValidColumn,

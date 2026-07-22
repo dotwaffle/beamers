@@ -105,6 +105,42 @@ func (f InstallationFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.InstallationMutation", m)
 }
 
+// The LaneFunc type is an adapter to allow the use of ordinary
+// function as Lane mutator.
+type LaneFunc func(context.Context, *ent.LaneMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f LaneFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.LaneMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.LaneMutation", m)
+}
+
+// The LaneDraftFunc type is an adapter to allow the use of ordinary
+// function as LaneDraft mutator.
+type LaneDraftFunc func(context.Context, *ent.LaneDraftMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f LaneDraftFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.LaneDraftMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.LaneDraftMutation", m)
+}
+
+// The LanePublishedVersionFunc type is an adapter to allow the use of ordinary
+// function as LanePublishedVersion mutator.
+type LanePublishedVersionFunc func(context.Context, *ent.LanePublishedVersionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f LanePublishedVersionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.LanePublishedVersionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.LanePublishedVersionMutation", m)
+}
+
 // The LocationFunc type is an adapter to allow the use of ordinary
 // function as Location mutator.
 type LocationFunc func(context.Context, *ent.LocationMutation) (ent.Value, error)

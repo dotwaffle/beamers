@@ -14,6 +14,9 @@ import (
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/ent/lane"
+	"github.com/dotwaffle/beamers/ent/lanedraft"
+	"github.com/dotwaffle/beamers/ent/lanepublishedversion"
 	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/locationdraft"
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
@@ -477,6 +480,101 @@ func init() {
 	installationDescCreatedAt := installationFields[0].Descriptor()
 	// installation.DefaultCreatedAt holds the default value on creation for the created_at field.
 	installation.DefaultCreatedAt = installationDescCreatedAt.Default.(func() time.Time)
+	lane.Policy = privacy.NewPolicies(schema.Lane{})
+	lane.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := lane.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	laneFields := schema.Lane{}.Fields()
+	_ = laneFields
+	// laneDescCreatedAt is the schema descriptor for created_at field.
+	laneDescCreatedAt := laneFields[1].Descriptor()
+	// lane.DefaultCreatedAt holds the default value on creation for the created_at field.
+	lane.DefaultCreatedAt = laneDescCreatedAt.Default.(func() time.Time)
+	lanedraft.Policy = privacy.NewPolicies(schema.LaneDraft{})
+	lanedraft.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := lanedraft.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	lanedraftHooks := schema.LaneDraft{}.Hooks()
+
+	lanedraft.Hooks[1] = lanedraftHooks[0]
+	lanedraftFields := schema.LaneDraft{}.Fields()
+	_ = lanedraftFields
+	// lanedraftDescName is the schema descriptor for name field.
+	lanedraftDescName := lanedraftFields[2].Descriptor()
+	// lanedraft.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	lanedraft.NameValidator = func() func(string) error {
+		validators := lanedraftDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// lanedraftDescRetired is the schema descriptor for retired field.
+	lanedraftDescRetired := lanedraftFields[3].Descriptor()
+	// lanedraft.DefaultRetired holds the default value on creation for the retired field.
+	lanedraft.DefaultRetired = lanedraftDescRetired.Default.(bool)
+	lanepublishedversion.Policy = privacy.NewPolicies(schema.LanePublishedVersion{})
+	lanepublishedversion.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := lanepublishedversion.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	lanepublishedversionHooks := schema.LanePublishedVersion{}.Hooks()
+
+	lanepublishedversion.Hooks[1] = lanepublishedversionHooks[0]
+	lanepublishedversionFields := schema.LanePublishedVersion{}.Fields()
+	_ = lanepublishedversionFields
+	// lanepublishedversionDescPublishedRevision is the schema descriptor for published_revision field.
+	lanepublishedversionDescPublishedRevision := lanepublishedversionFields[2].Descriptor()
+	// lanepublishedversion.PublishedRevisionValidator is a validator for the "published_revision" field. It is called by the builders before save.
+	lanepublishedversion.PublishedRevisionValidator = lanepublishedversionDescPublishedRevision.Validators[0].(func(int) error)
+	// lanepublishedversionDescName is the schema descriptor for name field.
+	lanepublishedversionDescName := lanepublishedversionFields[3].Descriptor()
+	// lanepublishedversion.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	lanepublishedversion.NameValidator = func() func(string) error {
+		validators := lanepublishedversionDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// lanepublishedversionDescRetired is the schema descriptor for retired field.
+	lanepublishedversionDescRetired := lanepublishedversionFields[4].Descriptor()
+	// lanepublishedversion.DefaultRetired holds the default value on creation for the retired field.
+	lanepublishedversion.DefaultRetired = lanepublishedversionDescRetired.Default.(bool)
+	// lanepublishedversionDescCreatedAt is the schema descriptor for created_at field.
+	lanepublishedversionDescCreatedAt := lanepublishedversionFields[5].Descriptor()
+	// lanepublishedversion.DefaultCreatedAt holds the default value on creation for the created_at field.
+	lanepublishedversion.DefaultCreatedAt = lanepublishedversionDescCreatedAt.Default.(func() time.Time)
 	location.Policy = privacy.NewPolicies(schema.Location{})
 	location.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

@@ -15,6 +15,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/rundown"
@@ -30,6 +31,7 @@ type EventQuery struct {
 	withGrants    *EventGrantQuery
 	withRundown   *RundownQuery
 	withLocations *LocationQuery
+	withLanes     *LaneQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -125,6 +127,28 @@ func (_q *EventQuery) QueryLocations() *LocationQuery {
 			sqlgraph.From(event.Table, event.FieldID, selector),
 			sqlgraph.To(location.Table, location.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, event.LocationsTable, event.LocationsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryLanes chains the current query on the "lanes" edge.
+func (_q *EventQuery) QueryLanes() *LaneQuery {
+	query := (&LaneClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, selector),
+			sqlgraph.To(lane.Table, lane.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.LanesTable, event.LanesColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -327,6 +351,7 @@ func (_q *EventQuery) Clone() *EventQuery {
 		withGrants:    _q.withGrants.Clone(),
 		withRundown:   _q.withRundown.Clone(),
 		withLocations: _q.withLocations.Clone(),
+		withLanes:     _q.withLanes.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -363,6 +388,17 @@ func (_q *EventQuery) WithLocations(opts ...func(*LocationQuery)) *EventQuery {
 		opt(query)
 	}
 	_q.withLocations = query
+	return _q
+}
+
+// WithLanes tells the query-builder to eager-load the nodes that are connected to
+// the "lanes" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *EventQuery) WithLanes(opts ...func(*LaneQuery)) *EventQuery {
+	query := (&LaneClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withLanes = query
 	return _q
 }
 
@@ -450,10 +486,11 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 	var (
 		nodes       = []*Event{}
 		_spec       = _q.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [4]bool{
 			_q.withGrants != nil,
 			_q.withRundown != nil,
 			_q.withLocations != nil,
+			_q.withLanes != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -491,6 +528,13 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 		if err := _q.loadLocations(ctx, query, nodes,
 			func(n *Event) { n.Edges.Locations = []*Location{} },
 			func(n *Event, e *Location) { n.Edges.Locations = append(n.Edges.Locations, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withLanes; query != nil {
+		if err := _q.loadLanes(ctx, query, nodes,
+			func(n *Event) { n.Edges.Lanes = []*Lane{} },
+			func(n *Event, e *Lane) { n.Edges.Lanes = append(n.Edges.Lanes, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -569,6 +613,36 @@ func (_q *EventQuery) loadLocations(ctx context.Context, query *LocationQuery, n
 	}
 	query.Where(predicate.Location(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(event.LocationsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.EventID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "event_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *EventQuery) loadLanes(ctx context.Context, query *LaneQuery, nodes []*Event, init func(*Event), assign func(*Event, *Lane)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Event)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(lane.FieldEventID)
+	}
+	query.Where(predicate.Lane(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(event.LanesColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {
