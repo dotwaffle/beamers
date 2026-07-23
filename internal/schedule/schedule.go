@@ -96,8 +96,10 @@ type Session struct {
 
 // CompetitionEntry is one attendee-visible Included submission.
 type CompetitionEntry struct {
-	Name          string `json:"name"`
-	PublicDetails string `json:"public_details,omitempty"`
+	Name                          string `json:"name"`
+	PublicDetails                 string `json:"public_details,omitempty"`
+	ResultDisposition             string `json:"result_disposition"`
+	PublicDisqualificationMessage string `json:"public_disqualification_message,omitempty"`
 }
 
 // TimePoint is one labeled attendee-facing operational instant.
@@ -238,6 +240,8 @@ func (service *Service) snapshot(ctx context.Context, upcomingOnly bool, filter 
 		for _, foundEntry := range item.CompetitionEntries {
 			competitionEntries = append(competitionEntries, CompetitionEntry{
 				Name: foundEntry.Name, PublicDetails: foundEntry.PublicDetails,
+				ResultDisposition:             foundEntry.ResultDisposition,
+				PublicDisqualificationMessage: foundEntry.PublicDisqualificationMessage,
 			})
 		}
 		result.Sessions = append(result.Sessions, Session{

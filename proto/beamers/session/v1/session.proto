@@ -49,6 +49,8 @@ message EndSessionRequest {
   int64 session_id = 2;
   string command_id = 3;
   optional int64 expected_live_state_revision = 4;
+  bool confirmed_deferred_entries = 5;
+  string deferred_entries_fingerprint = 6;
 }
 
 message CancelSessionRequest {

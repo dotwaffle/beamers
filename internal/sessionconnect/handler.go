@@ -118,8 +118,10 @@ func (handler *Handler) EndSession(
 	}
 	result, err := handler.service.End(ctx, actor, sessioncontrol.EndInput{
 		EventID: int(request.Msg.GetEventId()), SessionID: int(request.Msg.GetSessionId()),
-		CommandID:                 request.Msg.GetCommandId(),
-		ExpectedLiveStateRevision: int(request.Msg.GetExpectedLiveStateRevision()),
+		CommandID:                  request.Msg.GetCommandId(),
+		ExpectedLiveStateRevision:  int(request.Msg.GetExpectedLiveStateRevision()),
+		ConfirmedDeferredEntries:   request.Msg.GetConfirmedDeferredEntries(),
+		DeferredEntriesFingerprint: request.Msg.GetDeferredEntriesFingerprint(),
 	})
 	if err != nil {
 		return nil, err
@@ -763,6 +765,10 @@ func connectError(err error) error {
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, sessioncontrol.ErrCompetitionPreflightBlocked):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
+	case errors.Is(err, sessioncontrol.ErrDeferredEntriesConfirmation):
+		return connect.NewError(connect.CodeFailedPrecondition, err)
+	case errors.Is(err, sessioncontrol.ErrDeferredEntriesPreviewStale):
+		return connect.NewError(connect.CodeAborted, err)
 	case errors.Is(err, sessioncontrol.ErrLiveDetailConfirmation):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, sessioncontrol.ErrLiveDetailFields):

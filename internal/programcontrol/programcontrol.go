@@ -33,6 +33,10 @@ var (
 	ErrControlRevision = errors.New("program Channel control revision conflict")
 	// ErrProgramItem means Preview is not in the current catalog.
 	ErrProgramItem = store.ErrProgramItem
+	// ErrEntryRevision means Defer observed stale Entry state.
+	ErrEntryRevision = store.ErrCompetitionEntryRevision
+	// ErrEntryDefer means the Entry is not the current canonical Next item.
+	ErrEntryDefer = store.ErrCompetitionEntryDefer
 	// ErrCommandConflict means a Command ID was reused with another payload.
 	ErrCommandConflict = store.ErrCommandConflict
 )
@@ -97,6 +101,15 @@ type TakeInput struct {
 	EntryOrderFingerprint      string
 }
 
+// DeferEntryInput advances past one exact unpresented canonical Entry.
+type DeferEntryInput struct {
+	EventID, SessionID, EntryID int
+	CommandID                   string
+	ExpectedEntryRevision       int
+	ExpectedProgramRevision     int
+	ExpectedControlRevision     int
+}
+
 // TakeResult distinguishes a new durable commit from an exact receipt replay.
 type TakeResult struct {
 	State     State
@@ -132,6 +145,8 @@ const (
 	rejectionProgramItemInvalid   rejectionCode = "program_item_invalid"
 	rejectionEntryOrderRevision   rejectionCode = "competition_entry_order_revision_conflict"
 	rejectionEntryOrderStale      rejectionCode = "competition_entry_order_preview_stale"
+	rejectionEntryRevision        rejectionCode = "competition_entry_revision_conflict"
+	rejectionEntryDefer           rejectionCode = "competition_entry_defer_invalid"
 )
 
 type controlReceipt struct {
@@ -268,30 +283,56 @@ func (service *Service) controlIdentity(actor auth.Account, input ControlInput) 
 }
 
 func (service *Service) previewIdentity(actor auth.Account, input SelectPreviewInput) store.CommandIdentity {
+	payload := []string{
+		strconv.Itoa(input.EventID), strconv.Itoa(input.SessionID),
+		strconv.Itoa(input.ExpectedRevision), string(input.Item.Kind),
+		strconv.Itoa(input.Item.EntryID),
+	}
+	if input.Item.Retry {
+		payload = append(payload, "retry")
+	}
 	return store.CommandIdentity{
 		ActorAccountID: actor.ID, CommandID: input.CommandID,
-		PayloadHash: command.PayloadHash(
-			strconv.Itoa(input.EventID), strconv.Itoa(input.SessionID),
-			strconv.Itoa(input.ExpectedRevision), string(input.Item.Kind),
-			strconv.Itoa(input.Item.EntryID),
-		),
-		Action: "SelectProgramPreview", TargetType: "ProgramChannel",
+		PayloadHash: command.PayloadHash(payload...),
+		Action:      "SelectProgramPreview", TargetType: "ProgramChannel",
 		TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
 	}
 }
 
 func (service *Service) takeIdentity(actor auth.Account, input TakeInput) store.CommandIdentity {
+	payload := []string{
+		strconv.Itoa(input.EventID), strconv.Itoa(input.SessionID),
+		strconv.Itoa(input.ExpectedRevision), string(input.Item.Kind),
+		strconv.Itoa(input.Item.EntryID),
+	}
+	if input.Item.Retry {
+		payload = append(payload, "retry")
+	}
+	payload = append(
+		payload,
+		strconv.Itoa(input.ExpectedControlRevision),
+		strconv.Itoa(input.ExpectedEntryOrderRevision),
+		input.EntryOrderFingerprint,
+	)
+	return store.CommandIdentity{
+		ActorAccountID: actor.ID, CommandID: input.CommandID,
+		PayloadHash: command.PayloadHash(payload...),
+		Action:      "TakeProgramOutput", TargetType: "ProgramChannel",
+		TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
+	}
+}
+
+func (service *Service) deferIdentity(actor auth.Account, input DeferEntryInput) store.CommandIdentity {
 	return store.CommandIdentity{
 		ActorAccountID: actor.ID, CommandID: input.CommandID,
 		PayloadHash: command.PayloadHash(
 			strconv.Itoa(input.EventID), strconv.Itoa(input.SessionID),
-			strconv.Itoa(input.ExpectedRevision), string(input.Item.Kind),
-			strconv.Itoa(input.Item.EntryID),
+			strconv.Itoa(input.EntryID), strconv.Itoa(input.ExpectedEntryRevision),
+			strconv.Itoa(input.ExpectedProgramRevision),
 			strconv.Itoa(input.ExpectedControlRevision),
-			strconv.Itoa(input.ExpectedEntryOrderRevision), input.EntryOrderFingerprint,
 		),
-		Action: "TakeProgramOutput", TargetType: "ProgramChannel",
-		TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
+		Action: "DeferCompetitionEntry", TargetType: "CompetitionEntry",
+		TargetID: strconv.Itoa(input.EntryID), Now: service.now().UTC(),
 	}
 }
 
@@ -672,6 +713,119 @@ func (service *Service) Take(
 	}, nil
 }
 
+// DeferEntry advances the cursor while serializing the change through Control Owner.
+func (service *Service) DeferEntry(
+	ctx context.Context,
+	actor auth.Account,
+	input DeferEntryInput,
+) (TakeResult, error) {
+	if err := command.ValidateID(input.CommandID); err != nil {
+		return TakeResult{}, err
+	}
+	identity := service.deferIdentity(actor, input)
+	if !actor.CanOperateEvent(input.EventID) {
+		return TakeResult{}, service.auditOperatorRejection(actor.Context(ctx), identity)
+	}
+	if _, err := service.storage.LoadProgramChannel(
+		actor.Context(ctx), input.EventID, input.SessionID,
+	); err != nil {
+		return TakeResult{}, err
+	}
+	owned := service.controlFor(input.SessionID)
+	owned.mu.Lock()
+	defer owned.mu.Unlock()
+	control := owned.state
+	committed := false
+	outcome, err := command.Execute(actor.Context(ctx), command.Plan[takeReceipt]{
+		Storage:  service.storage,
+		Identity: identity,
+		Replay: func(outcome string) (takeReceipt, error) {
+			var replayed takeReceipt
+			if err := store.DecodeCommandReceipt(outcome, &replayed); err != nil {
+				return takeReceipt{}, err
+			}
+			return replayed, nil
+		},
+		Apply: func(transaction *store.CommandTx) (command.Execution[takeReceipt], error) {
+			current, loadErr := transaction.LoadProgramChannel(
+				actor.Context(ctx), input.EventID, input.SessionID,
+			)
+			if loadErr != nil {
+				return command.Execution[takeReceipt]{}, loadErr
+			}
+			if control.revision != input.ExpectedControlRevision {
+				return takeRejection(
+					current, control, rejectionControlRevision, ErrControlRevision,
+				), nil
+			}
+			if !control.hasOwner || control.owner.AccountID != actor.ID {
+				return takeRejection(
+					current, control, rejectionControlOwnerRequired, ErrControlOwnerRequired,
+				), nil
+			}
+			if current.Revision != input.ExpectedProgramRevision {
+				return takeRejection(
+					current, control, rejectionProgramRevision, ErrProgramRevision,
+				), nil
+			}
+			if _, deferErr := transaction.DeferCompetitionEntry(
+				actor.Context(ctx),
+				store.DeferCompetitionEntryParams{
+					EventID: input.EventID, SessionID: input.SessionID, EntryID: input.EntryID,
+					ExpectedEntryRevision:   input.ExpectedEntryRevision,
+					ExpectedProgramRevision: input.ExpectedProgramRevision,
+					Now:                     identity.Now,
+				},
+			); deferErr != nil {
+				switch {
+				case errors.Is(deferErr, store.ErrCompetitionEntryRevision):
+					return takeRejection(
+						current, control, rejectionEntryRevision, ErrEntryRevision,
+					), nil
+				case errors.Is(deferErr, store.ErrCompetitionEntryDefer):
+					return takeRejection(
+						current, control, rejectionEntryDefer, ErrEntryDefer,
+					), nil
+				}
+				return command.Execution[takeReceipt]{}, deferErr
+			}
+			deferred, loadErr := transaction.LoadProgramChannel(
+				actor.Context(ctx), input.EventID, input.SessionID,
+			)
+			if loadErr != nil {
+				return command.Execution[takeReceipt]{}, loadErr
+			}
+			nextControl := control
+			nextControl.preview = deferred.Next
+			nextControl.revision++
+			result := takeReceipt{
+				Channel: deferred,
+				Control: controlReceiptFrom(nextControl),
+			}
+			encoded, encodeErr := json.Marshal(result)
+			if encodeErr != nil {
+				return command.Execution[takeReceipt]{}, errors.New("encode Program Defer outcome")
+			}
+			committed = true
+			return command.Success(result, string(encoded)), nil
+		},
+	})
+	if err != nil {
+		var rejected *store.RejectedCommandError
+		if errors.As(err, &rejected) {
+			err = takeError(rejected.Rejection.Code)
+		}
+		return TakeResult{}, err
+	}
+	if committed {
+		owned.state = outcome.Control.control()
+	}
+	return TakeResult{
+		State:     service.state(outcome.Channel, outcome.Control.control()),
+		Committed: committed,
+	}, nil
+}
+
 func (service *Service) state(channel store.ProgramChannelState, control controlState) State {
 	result := State{Channel: channel, ControlRevision: control.revision, Preview: control.preview}
 	if result.Preview.Kind == "" {
@@ -702,7 +856,7 @@ func selectItem(items []store.ProgramItem, wanted store.ProgramItem) (store.Prog
 }
 
 func programItemEqual(left, right store.ProgramItem) bool {
-	return left.Kind == right.Kind && left.EntryID == right.EntryID
+	return left.Kind == right.Kind && left.EntryID == right.EntryID && left.Retry == right.Retry
 }
 
 func controlReceiptFrom(control controlState) controlReceipt {
@@ -800,6 +954,10 @@ func rejectionError(code, fallback string) error {
 		return store.ErrEntryOrderRevision
 	case rejectionEntryOrderStale:
 		return store.ErrEntryOrderPreviewStale
+	case rejectionEntryRevision:
+		return ErrEntryRevision
+	case rejectionEntryDefer:
+		return ErrEntryDefer
 	default:
 		return errors.New(fallback)
 	}

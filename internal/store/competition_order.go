@@ -198,6 +198,16 @@ func (transaction *CommandTx) TakeCompetitionEntrySlide(
 	if presented.FirstPresentedAt.IsZero() {
 		if _, err = presented.Update().
 			SetFirstPresentedAt(params.Now).
+			SetPresentationStatus(competitionentry.PresentationStatusPresented).
+			AddRevision(1).
+			Save(ctx); err != nil {
+			return EntryOrderState{}, opaqueError("mark presented Entry", err)
+		}
+	}
+	if !presented.FirstPresentedAt.IsZero() &&
+		presented.PresentationStatus != competitionentry.PresentationStatusPresented {
+		if _, err = presented.Update().
+			SetPresentationStatus(competitionentry.PresentationStatusPresented).
 			AddRevision(1).
 			Save(ctx); err != nil {
 			return EntryOrderState{}, opaqueError("mark presented Entry", err)

@@ -35,6 +35,10 @@ var (
 	ErrSessionScopeRequired = store.ErrSessionScopeRequired
 	// ErrCompetitionPreflightBlocked means configured Entry readiness rules failed.
 	ErrCompetitionPreflightBlocked = store.ErrCompetitionPreflightBlocked
+	// ErrDeferredEntriesConfirmation means Ending requires warned confirmation.
+	ErrDeferredEntriesConfirmation = store.ErrDeferredEntriesConfirmation
+	// ErrDeferredEntriesPreviewStale means deferred Entries changed after preflight.
+	ErrDeferredEntriesPreviewStale = store.ErrDeferredEntriesPreviewStale
 	// ErrCommandConflict means a Command ID was reused for different work.
 	ErrCommandConflict = store.ErrCommandConflict
 	// ErrLiveDetailConfirmation means a correction was not explicitly confirmed.
@@ -79,10 +83,12 @@ type StartInput struct {
 
 // EndInput is one exact End Session command.
 type EndInput struct {
-	EventID                   int    `json:"event_id"`
-	SessionID                 int    `json:"session_id"`
-	CommandID                 string `json:"command_id"`
-	ExpectedLiveStateRevision int    `json:"expected_live_state_revision"`
+	EventID                    int    `json:"event_id"`
+	SessionID                  int    `json:"session_id"`
+	CommandID                  string `json:"command_id"`
+	ExpectedLiveStateRevision  int    `json:"expected_live_state_revision"`
+	ConfirmedDeferredEntries   bool   `json:"confirmed_deferred_entries"`
+	DeferredEntriesFingerprint string `json:"deferred_entries_fingerprint,omitempty"`
 }
 
 // CancelInput is one exact confirmed Cancel Session command.
@@ -396,7 +402,13 @@ func (service *Service) End(
 			Action: "EndSession", Payload: string(payload)},
 		func(transaction *store.CommandTx, now time.Time) (store.LiveSessionState, error) {
 			return transaction.EndSession(
-				actor.Context(ctx), input.EventID, input.SessionID, input.ExpectedLiveStateRevision, now,
+				actor.Context(ctx),
+				input.EventID,
+				input.SessionID,
+				input.ExpectedLiveStateRevision,
+				input.ConfirmedDeferredEntries,
+				input.DeferredEntriesFingerprint,
+				now,
 			)
 		},
 	)
@@ -1111,6 +1123,10 @@ func rejectionCode(err error) (string, bool) {
 		return "event_not_active", true
 	case errors.Is(err, ErrSessionScopeRequired):
 		return "session_scope_required", true
+	case errors.Is(err, ErrDeferredEntriesConfirmation):
+		return "deferred_entries_confirmation_required", true
+	case errors.Is(err, ErrDeferredEntriesPreviewStale):
+		return "deferred_entries_preview_stale", true
 	default:
 		return "", false
 	}
@@ -1142,6 +1158,10 @@ func restoreRejected(err error) (State, error) {
 		return State{}, ErrEventNotActive
 	case "session_scope_required":
 		return State{}, ErrSessionScopeRequired
+	case "deferred_entries_confirmation_required":
+		return State{}, ErrDeferredEntriesConfirmation
+	case "deferred_entries_preview_stale":
+		return State{}, ErrDeferredEntriesPreviewStale
 	default:
 		return State{}, errors.New("session command unavailable")
 	}

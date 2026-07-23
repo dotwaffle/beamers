@@ -698,7 +698,15 @@ func allowScopedCompetitionEntryPresentationMutation() privacy.MutationRule {
 	}
 	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
 		if !mutation.Op().Is(ent.OpUpdateOne) ||
-			!onlyFields(mutation, "first_presented_at", "revision") {
+			!onlyFields(
+				mutation,
+				"first_presented_at",
+				"presentation_status",
+				"deferred_sequence",
+				"resolution_required",
+				"technical_failure_reason",
+				"revision",
+			) {
 			return privacy.Skip
 		}
 		owned, ok := mutation.(entryMutation)

@@ -6126,33 +6126,42 @@ func (m *CommandReceiptMutation) ResetEdge(name string) error {
 // CompetitionEntryMutation represents an operation that mutates the CompetitionEntry nodes in the graph.
 type CompetitionEntryMutation struct {
 	config
-	op                           Op
-	typ                          string
-	id                           *int
-	name                         *string
-	public_details               *string
-	crew_notes                   *string
-	disposition                  *competitionentry.Disposition
-	upload_closed_at             *time.Time
-	content_revision             *int
-	addcontent_revision          *int
-	reviewed_content_revision    *int
-	addreviewed_content_revision *int
-	reviewed_by_account_id       *int
-	addreviewed_by_account_id    *int
-	reviewed_at                  *time.Time
-	first_presented_at           *time.Time
-	revision                     *int
-	addrevision                  *int
-	created_at                   *time.Time
-	clearedFields                map[string]struct{}
-	event                        *int
-	clearedevent                 bool
-	competition                  *int
-	clearedcompetition           bool
-	done                         bool
-	oldValue                     func(context.Context) (*CompetitionEntry, error)
-	predicates                   []predicate.CompetitionEntry
+	op                              Op
+	typ                             string
+	id                              *int
+	name                            *string
+	public_details                  *string
+	crew_notes                      *string
+	disposition                     *competitionentry.Disposition
+	upload_closed_at                *time.Time
+	content_revision                *int
+	addcontent_revision             *int
+	reviewed_content_revision       *int
+	addreviewed_content_revision    *int
+	reviewed_by_account_id          *int
+	addreviewed_by_account_id       *int
+	reviewed_at                     *time.Time
+	first_presented_at              *time.Time
+	presentation_status             *competitionentry.PresentationStatus
+	deferred_sequence               *int
+	adddeferred_sequence            *int
+	resolution_required             *bool
+	result_disposition              *competitionentry.ResultDisposition
+	technical_failure_reason        *string
+	resolution_crew_reason          *string
+	public_disqualification_message *string
+	release_hold                    *bool
+	revision                        *int
+	addrevision                     *int
+	created_at                      *time.Time
+	clearedFields                   map[string]struct{}
+	event                           *int
+	clearedevent                    bool
+	competition                     *int
+	clearedcompetition              bool
+	done                            bool
+	oldValue                        func(context.Context) (*CompetitionEntry, error)
+	predicates                      []predicate.CompetitionEntry
 }
 
 var _ ent.Mutation = (*CompetitionEntryMutation)(nil)
@@ -6838,6 +6847,367 @@ func (m *CompetitionEntryMutation) ResetFirstPresentedAt() {
 	delete(m.clearedFields, competitionentry.FieldFirstPresentedAt)
 }
 
+// SetPresentationStatus sets the "presentation_status" field.
+func (m *CompetitionEntryMutation) SetPresentationStatus(cs competitionentry.PresentationStatus) {
+	m.presentation_status = &cs
+}
+
+// PresentationStatus returns the value of the "presentation_status" field in the mutation.
+func (m *CompetitionEntryMutation) PresentationStatus() (r competitionentry.PresentationStatus, exists bool) {
+	v := m.presentation_status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPresentationStatus returns the old "presentation_status" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldPresentationStatus(ctx context.Context) (v competitionentry.PresentationStatus, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPresentationStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPresentationStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPresentationStatus: %w", err)
+	}
+	return oldValue.PresentationStatus, nil
+}
+
+// ResetPresentationStatus resets all changes to the "presentation_status" field.
+func (m *CompetitionEntryMutation) ResetPresentationStatus() {
+	m.presentation_status = nil
+}
+
+// SetDeferredSequence sets the "deferred_sequence" field.
+func (m *CompetitionEntryMutation) SetDeferredSequence(i int) {
+	m.deferred_sequence = &i
+	m.adddeferred_sequence = nil
+}
+
+// DeferredSequence returns the value of the "deferred_sequence" field in the mutation.
+func (m *CompetitionEntryMutation) DeferredSequence() (r int, exists bool) {
+	v := m.deferred_sequence
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeferredSequence returns the old "deferred_sequence" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldDeferredSequence(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeferredSequence is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeferredSequence requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeferredSequence: %w", err)
+	}
+	return oldValue.DeferredSequence, nil
+}
+
+// AddDeferredSequence adds i to the "deferred_sequence" field.
+func (m *CompetitionEntryMutation) AddDeferredSequence(i int) {
+	if m.adddeferred_sequence != nil {
+		*m.adddeferred_sequence += i
+	} else {
+		m.adddeferred_sequence = &i
+	}
+}
+
+// AddedDeferredSequence returns the value that was added to the "deferred_sequence" field in this mutation.
+func (m *CompetitionEntryMutation) AddedDeferredSequence() (r int, exists bool) {
+	v := m.adddeferred_sequence
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearDeferredSequence clears the value of the "deferred_sequence" field.
+func (m *CompetitionEntryMutation) ClearDeferredSequence() {
+	m.deferred_sequence = nil
+	m.adddeferred_sequence = nil
+	m.clearedFields[competitionentry.FieldDeferredSequence] = struct{}{}
+}
+
+// DeferredSequenceCleared returns if the "deferred_sequence" field was cleared in this mutation.
+func (m *CompetitionEntryMutation) DeferredSequenceCleared() bool {
+	_, ok := m.clearedFields[competitionentry.FieldDeferredSequence]
+	return ok
+}
+
+// ResetDeferredSequence resets all changes to the "deferred_sequence" field.
+func (m *CompetitionEntryMutation) ResetDeferredSequence() {
+	m.deferred_sequence = nil
+	m.adddeferred_sequence = nil
+	delete(m.clearedFields, competitionentry.FieldDeferredSequence)
+}
+
+// SetResolutionRequired sets the "resolution_required" field.
+func (m *CompetitionEntryMutation) SetResolutionRequired(b bool) {
+	m.resolution_required = &b
+}
+
+// ResolutionRequired returns the value of the "resolution_required" field in the mutation.
+func (m *CompetitionEntryMutation) ResolutionRequired() (r bool, exists bool) {
+	v := m.resolution_required
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResolutionRequired returns the old "resolution_required" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldResolutionRequired(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResolutionRequired is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResolutionRequired requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResolutionRequired: %w", err)
+	}
+	return oldValue.ResolutionRequired, nil
+}
+
+// ResetResolutionRequired resets all changes to the "resolution_required" field.
+func (m *CompetitionEntryMutation) ResetResolutionRequired() {
+	m.resolution_required = nil
+}
+
+// SetResultDisposition sets the "result_disposition" field.
+func (m *CompetitionEntryMutation) SetResultDisposition(cd competitionentry.ResultDisposition) {
+	m.result_disposition = &cd
+}
+
+// ResultDisposition returns the value of the "result_disposition" field in the mutation.
+func (m *CompetitionEntryMutation) ResultDisposition() (r competitionentry.ResultDisposition, exists bool) {
+	v := m.result_disposition
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResultDisposition returns the old "result_disposition" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldResultDisposition(ctx context.Context) (v competitionentry.ResultDisposition, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResultDisposition is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResultDisposition requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResultDisposition: %w", err)
+	}
+	return oldValue.ResultDisposition, nil
+}
+
+// ResetResultDisposition resets all changes to the "result_disposition" field.
+func (m *CompetitionEntryMutation) ResetResultDisposition() {
+	m.result_disposition = nil
+}
+
+// SetTechnicalFailureReason sets the "technical_failure_reason" field.
+func (m *CompetitionEntryMutation) SetTechnicalFailureReason(s string) {
+	m.technical_failure_reason = &s
+}
+
+// TechnicalFailureReason returns the value of the "technical_failure_reason" field in the mutation.
+func (m *CompetitionEntryMutation) TechnicalFailureReason() (r string, exists bool) {
+	v := m.technical_failure_reason
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTechnicalFailureReason returns the old "technical_failure_reason" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldTechnicalFailureReason(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTechnicalFailureReason is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTechnicalFailureReason requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTechnicalFailureReason: %w", err)
+	}
+	return oldValue.TechnicalFailureReason, nil
+}
+
+// ClearTechnicalFailureReason clears the value of the "technical_failure_reason" field.
+func (m *CompetitionEntryMutation) ClearTechnicalFailureReason() {
+	m.technical_failure_reason = nil
+	m.clearedFields[competitionentry.FieldTechnicalFailureReason] = struct{}{}
+}
+
+// TechnicalFailureReasonCleared returns if the "technical_failure_reason" field was cleared in this mutation.
+func (m *CompetitionEntryMutation) TechnicalFailureReasonCleared() bool {
+	_, ok := m.clearedFields[competitionentry.FieldTechnicalFailureReason]
+	return ok
+}
+
+// ResetTechnicalFailureReason resets all changes to the "technical_failure_reason" field.
+func (m *CompetitionEntryMutation) ResetTechnicalFailureReason() {
+	m.technical_failure_reason = nil
+	delete(m.clearedFields, competitionentry.FieldTechnicalFailureReason)
+}
+
+// SetResolutionCrewReason sets the "resolution_crew_reason" field.
+func (m *CompetitionEntryMutation) SetResolutionCrewReason(s string) {
+	m.resolution_crew_reason = &s
+}
+
+// ResolutionCrewReason returns the value of the "resolution_crew_reason" field in the mutation.
+func (m *CompetitionEntryMutation) ResolutionCrewReason() (r string, exists bool) {
+	v := m.resolution_crew_reason
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResolutionCrewReason returns the old "resolution_crew_reason" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldResolutionCrewReason(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResolutionCrewReason is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResolutionCrewReason requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResolutionCrewReason: %w", err)
+	}
+	return oldValue.ResolutionCrewReason, nil
+}
+
+// ClearResolutionCrewReason clears the value of the "resolution_crew_reason" field.
+func (m *CompetitionEntryMutation) ClearResolutionCrewReason() {
+	m.resolution_crew_reason = nil
+	m.clearedFields[competitionentry.FieldResolutionCrewReason] = struct{}{}
+}
+
+// ResolutionCrewReasonCleared returns if the "resolution_crew_reason" field was cleared in this mutation.
+func (m *CompetitionEntryMutation) ResolutionCrewReasonCleared() bool {
+	_, ok := m.clearedFields[competitionentry.FieldResolutionCrewReason]
+	return ok
+}
+
+// ResetResolutionCrewReason resets all changes to the "resolution_crew_reason" field.
+func (m *CompetitionEntryMutation) ResetResolutionCrewReason() {
+	m.resolution_crew_reason = nil
+	delete(m.clearedFields, competitionentry.FieldResolutionCrewReason)
+}
+
+// SetPublicDisqualificationMessage sets the "public_disqualification_message" field.
+func (m *CompetitionEntryMutation) SetPublicDisqualificationMessage(s string) {
+	m.public_disqualification_message = &s
+}
+
+// PublicDisqualificationMessage returns the value of the "public_disqualification_message" field in the mutation.
+func (m *CompetitionEntryMutation) PublicDisqualificationMessage() (r string, exists bool) {
+	v := m.public_disqualification_message
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublicDisqualificationMessage returns the old "public_disqualification_message" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldPublicDisqualificationMessage(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublicDisqualificationMessage is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublicDisqualificationMessage requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublicDisqualificationMessage: %w", err)
+	}
+	return oldValue.PublicDisqualificationMessage, nil
+}
+
+// ClearPublicDisqualificationMessage clears the value of the "public_disqualification_message" field.
+func (m *CompetitionEntryMutation) ClearPublicDisqualificationMessage() {
+	m.public_disqualification_message = nil
+	m.clearedFields[competitionentry.FieldPublicDisqualificationMessage] = struct{}{}
+}
+
+// PublicDisqualificationMessageCleared returns if the "public_disqualification_message" field was cleared in this mutation.
+func (m *CompetitionEntryMutation) PublicDisqualificationMessageCleared() bool {
+	_, ok := m.clearedFields[competitionentry.FieldPublicDisqualificationMessage]
+	return ok
+}
+
+// ResetPublicDisqualificationMessage resets all changes to the "public_disqualification_message" field.
+func (m *CompetitionEntryMutation) ResetPublicDisqualificationMessage() {
+	m.public_disqualification_message = nil
+	delete(m.clearedFields, competitionentry.FieldPublicDisqualificationMessage)
+}
+
+// SetReleaseHold sets the "release_hold" field.
+func (m *CompetitionEntryMutation) SetReleaseHold(b bool) {
+	m.release_hold = &b
+}
+
+// ReleaseHold returns the value of the "release_hold" field in the mutation.
+func (m *CompetitionEntryMutation) ReleaseHold() (r bool, exists bool) {
+	v := m.release_hold
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReleaseHold returns the old "release_hold" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldReleaseHold(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReleaseHold is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReleaseHold requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReleaseHold: %w", err)
+	}
+	return oldValue.ReleaseHold, nil
+}
+
+// ResetReleaseHold resets all changes to the "release_hold" field.
+func (m *CompetitionEntryMutation) ResetReleaseHold() {
+	m.release_hold = nil
+}
+
 // SetRevision sets the "revision" field.
 func (m *CompetitionEntryMutation) SetRevision(i int) {
 	m.revision = &i
@@ -7031,7 +7401,7 @@ func (m *CompetitionEntryMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *CompetitionEntryMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 22)
 	if m.event != nil {
 		fields = append(fields, competitionentry.FieldEventID)
 	}
@@ -7067,6 +7437,30 @@ func (m *CompetitionEntryMutation) Fields() []string {
 	}
 	if m.first_presented_at != nil {
 		fields = append(fields, competitionentry.FieldFirstPresentedAt)
+	}
+	if m.presentation_status != nil {
+		fields = append(fields, competitionentry.FieldPresentationStatus)
+	}
+	if m.deferred_sequence != nil {
+		fields = append(fields, competitionentry.FieldDeferredSequence)
+	}
+	if m.resolution_required != nil {
+		fields = append(fields, competitionentry.FieldResolutionRequired)
+	}
+	if m.result_disposition != nil {
+		fields = append(fields, competitionentry.FieldResultDisposition)
+	}
+	if m.technical_failure_reason != nil {
+		fields = append(fields, competitionentry.FieldTechnicalFailureReason)
+	}
+	if m.resolution_crew_reason != nil {
+		fields = append(fields, competitionentry.FieldResolutionCrewReason)
+	}
+	if m.public_disqualification_message != nil {
+		fields = append(fields, competitionentry.FieldPublicDisqualificationMessage)
+	}
+	if m.release_hold != nil {
+		fields = append(fields, competitionentry.FieldReleaseHold)
 	}
 	if m.revision != nil {
 		fields = append(fields, competitionentry.FieldRevision)
@@ -7106,6 +7500,22 @@ func (m *CompetitionEntryMutation) Field(name string) (ent.Value, bool) {
 		return m.ReviewedAt()
 	case competitionentry.FieldFirstPresentedAt:
 		return m.FirstPresentedAt()
+	case competitionentry.FieldPresentationStatus:
+		return m.PresentationStatus()
+	case competitionentry.FieldDeferredSequence:
+		return m.DeferredSequence()
+	case competitionentry.FieldResolutionRequired:
+		return m.ResolutionRequired()
+	case competitionentry.FieldResultDisposition:
+		return m.ResultDisposition()
+	case competitionentry.FieldTechnicalFailureReason:
+		return m.TechnicalFailureReason()
+	case competitionentry.FieldResolutionCrewReason:
+		return m.ResolutionCrewReason()
+	case competitionentry.FieldPublicDisqualificationMessage:
+		return m.PublicDisqualificationMessage()
+	case competitionentry.FieldReleaseHold:
+		return m.ReleaseHold()
 	case competitionentry.FieldRevision:
 		return m.Revision()
 	case competitionentry.FieldCreatedAt:
@@ -7143,6 +7553,22 @@ func (m *CompetitionEntryMutation) OldField(ctx context.Context, name string) (e
 		return m.OldReviewedAt(ctx)
 	case competitionentry.FieldFirstPresentedAt:
 		return m.OldFirstPresentedAt(ctx)
+	case competitionentry.FieldPresentationStatus:
+		return m.OldPresentationStatus(ctx)
+	case competitionentry.FieldDeferredSequence:
+		return m.OldDeferredSequence(ctx)
+	case competitionentry.FieldResolutionRequired:
+		return m.OldResolutionRequired(ctx)
+	case competitionentry.FieldResultDisposition:
+		return m.OldResultDisposition(ctx)
+	case competitionentry.FieldTechnicalFailureReason:
+		return m.OldTechnicalFailureReason(ctx)
+	case competitionentry.FieldResolutionCrewReason:
+		return m.OldResolutionCrewReason(ctx)
+	case competitionentry.FieldPublicDisqualificationMessage:
+		return m.OldPublicDisqualificationMessage(ctx)
+	case competitionentry.FieldReleaseHold:
+		return m.OldReleaseHold(ctx)
 	case competitionentry.FieldRevision:
 		return m.OldRevision(ctx)
 	case competitionentry.FieldCreatedAt:
@@ -7240,6 +7666,62 @@ func (m *CompetitionEntryMutation) SetField(name string, value ent.Value) error 
 		}
 		m.SetFirstPresentedAt(v)
 		return nil
+	case competitionentry.FieldPresentationStatus:
+		v, ok := value.(competitionentry.PresentationStatus)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPresentationStatus(v)
+		return nil
+	case competitionentry.FieldDeferredSequence:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeferredSequence(v)
+		return nil
+	case competitionentry.FieldResolutionRequired:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResolutionRequired(v)
+		return nil
+	case competitionentry.FieldResultDisposition:
+		v, ok := value.(competitionentry.ResultDisposition)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResultDisposition(v)
+		return nil
+	case competitionentry.FieldTechnicalFailureReason:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTechnicalFailureReason(v)
+		return nil
+	case competitionentry.FieldResolutionCrewReason:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResolutionCrewReason(v)
+		return nil
+	case competitionentry.FieldPublicDisqualificationMessage:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublicDisqualificationMessage(v)
+		return nil
+	case competitionentry.FieldReleaseHold:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReleaseHold(v)
+		return nil
 	case competitionentry.FieldRevision:
 		v, ok := value.(int)
 		if !ok {
@@ -7271,6 +7753,9 @@ func (m *CompetitionEntryMutation) AddedFields() []string {
 	if m.addreviewed_by_account_id != nil {
 		fields = append(fields, competitionentry.FieldReviewedByAccountID)
 	}
+	if m.adddeferred_sequence != nil {
+		fields = append(fields, competitionentry.FieldDeferredSequence)
+	}
 	if m.addrevision != nil {
 		fields = append(fields, competitionentry.FieldRevision)
 	}
@@ -7288,6 +7773,8 @@ func (m *CompetitionEntryMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedReviewedContentRevision()
 	case competitionentry.FieldReviewedByAccountID:
 		return m.AddedReviewedByAccountID()
+	case competitionentry.FieldDeferredSequence:
+		return m.AddedDeferredSequence()
 	case competitionentry.FieldRevision:
 		return m.AddedRevision()
 	}
@@ -7319,6 +7806,13 @@ func (m *CompetitionEntryMutation) AddField(name string, value ent.Value) error 
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddReviewedByAccountID(v)
+		return nil
+	case competitionentry.FieldDeferredSequence:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDeferredSequence(v)
 		return nil
 	case competitionentry.FieldRevision:
 		v, ok := value.(int)
@@ -7356,6 +7850,18 @@ func (m *CompetitionEntryMutation) ClearedFields() []string {
 	if m.FieldCleared(competitionentry.FieldFirstPresentedAt) {
 		fields = append(fields, competitionentry.FieldFirstPresentedAt)
 	}
+	if m.FieldCleared(competitionentry.FieldDeferredSequence) {
+		fields = append(fields, competitionentry.FieldDeferredSequence)
+	}
+	if m.FieldCleared(competitionentry.FieldTechnicalFailureReason) {
+		fields = append(fields, competitionentry.FieldTechnicalFailureReason)
+	}
+	if m.FieldCleared(competitionentry.FieldResolutionCrewReason) {
+		fields = append(fields, competitionentry.FieldResolutionCrewReason)
+	}
+	if m.FieldCleared(competitionentry.FieldPublicDisqualificationMessage) {
+		fields = append(fields, competitionentry.FieldPublicDisqualificationMessage)
+	}
 	return fields
 }
 
@@ -7390,6 +7896,18 @@ func (m *CompetitionEntryMutation) ClearField(name string) error {
 		return nil
 	case competitionentry.FieldFirstPresentedAt:
 		m.ClearFirstPresentedAt()
+		return nil
+	case competitionentry.FieldDeferredSequence:
+		m.ClearDeferredSequence()
+		return nil
+	case competitionentry.FieldTechnicalFailureReason:
+		m.ClearTechnicalFailureReason()
+		return nil
+	case competitionentry.FieldResolutionCrewReason:
+		m.ClearResolutionCrewReason()
+		return nil
+	case competitionentry.FieldPublicDisqualificationMessage:
+		m.ClearPublicDisqualificationMessage()
 		return nil
 	}
 	return fmt.Errorf("unknown CompetitionEntry nullable field %s", name)
@@ -7434,6 +7952,30 @@ func (m *CompetitionEntryMutation) ResetField(name string) error {
 		return nil
 	case competitionentry.FieldFirstPresentedAt:
 		m.ResetFirstPresentedAt()
+		return nil
+	case competitionentry.FieldPresentationStatus:
+		m.ResetPresentationStatus()
+		return nil
+	case competitionentry.FieldDeferredSequence:
+		m.ResetDeferredSequence()
+		return nil
+	case competitionentry.FieldResolutionRequired:
+		m.ResetResolutionRequired()
+		return nil
+	case competitionentry.FieldResultDisposition:
+		m.ResetResultDisposition()
+		return nil
+	case competitionentry.FieldTechnicalFailureReason:
+		m.ResetTechnicalFailureReason()
+		return nil
+	case competitionentry.FieldResolutionCrewReason:
+		m.ResetResolutionCrewReason()
+		return nil
+	case competitionentry.FieldPublicDisqualificationMessage:
+		m.ResetPublicDisqualificationMessage()
+		return nil
+	case competitionentry.FieldReleaseHold:
+		m.ResetReleaseHold()
 		return nil
 	case competitionentry.FieldRevision:
 		m.ResetRevision()

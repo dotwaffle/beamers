@@ -157,6 +157,35 @@ func (handler *Handler) Take(
 	return connect.NewResponse(&programv1.TakeResponse{Channel: channel}), nil
 }
 
+// DeferEntry advances past one canonical Entry through the current Control Owner.
+func (handler *Handler) DeferEntry(
+	ctx context.Context,
+	request *connect.Request[programv1.DeferEntryRequest],
+) (*connect.Response[programv1.DeferEntryResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	deferred, err := handler.service.DeferEntry(ctx, actor, programcontrol.DeferEntryInput{
+		EventID: int(request.Msg.GetEventId()), SessionID: int(request.Msg.GetSessionId()),
+		EntryID: int(request.Msg.GetEntryId()), CommandID: request.Msg.GetCommandId(),
+		ExpectedEntryRevision:   int(request.Msg.GetExpectedEntryRevision()),
+		ExpectedProgramRevision: int(request.Msg.GetExpectedProgramRevision()),
+		ExpectedControlRevision: int(request.Msg.GetExpectedControlStateRevision()),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if deferred.Committed {
+		handler.programStream.Notify()
+	}
+	channel, err := handler.channel(ctx, deferred.State, false)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&programv1.DeferEntryResponse{Channel: channel}), nil
+}
+
 func (handler *Handler) channel(
 	ctx context.Context,
 	state programcontrol.State,
@@ -234,6 +263,7 @@ func programItemFromMessage(found *programv1.ProgramItem) store.ProgramItem {
 			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_ENDING:   store.ProgramItemEnding,
 		}[found.GetKind()],
 		EntryID: int(found.GetEntryId()),
+		Retry:   found.GetRetry(),
 	}
 }
 
@@ -249,7 +279,7 @@ func programItemMessage(found store.ProgramItem) *programv1.ProgramItem {
 			store.ProgramItemEntry:    programv1.ProgramItemKind_PROGRAM_ITEM_KIND_ENTRY,
 			store.ProgramItemEnding:   programv1.ProgramItemKind_PROGRAM_ITEM_KIND_ENDING,
 		}[found.Kind],
-		EntryId: int64(found.EntryID), Title: found.Title,
+		EntryId: int64(found.EntryID), Title: found.Title, Retry: found.Retry,
 	}
 }
 
@@ -297,12 +327,14 @@ func connectError(err error) error {
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, programcontrol.ErrProgramRevision),
 		errors.Is(err, programcontrol.ErrControlRevision),
+		errors.Is(err, programcontrol.ErrEntryRevision),
 		errors.Is(err, store.ErrEntryOrderRevision),
 		errors.Is(err, store.ErrEntryOrderPreviewStale),
 		errors.Is(err, programcontrol.ErrCommandConflict):
 		return connect.NewError(connect.CodeAborted, err)
 	case errors.Is(err, programcontrol.ErrPreviewItem),
-		errors.Is(err, programcontrol.ErrProgramItem):
+		errors.Is(err, programcontrol.ErrProgramItem),
+		errors.Is(err, programcontrol.ErrEntryDefer):
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	default:
 		return connect.NewError(connect.CodeInternal, errors.New("program control request failed"))

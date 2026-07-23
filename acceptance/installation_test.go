@@ -3308,6 +3308,127 @@ func TestControlOwnerTakesCompetitionEntryToDurableProgramOutput(t *testing.T) {
 	restarted.stop(t)
 }
 
+func TestControlOwnerDefersCompetitionEntry(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	competitionID, _ := addCompetitionSession(t, administrator, server)
+	competitionClient := competitionv1connect.NewCompetitionServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	entries := make([]*competitionv1.Entry, 0, 2)
+	for index, name := range []string{"Aurora", "Beacon"} {
+		created, err := competitionClient.CreateEntry(t.Context(), connect.NewRequest(
+			&competitionv1.CreateEntryRequest{
+				EventId: 1, SessionId: competitionID,
+				CommandId: fmt.Sprintf("create-defer-entry-%d", index), Name: name,
+			},
+		))
+		if err != nil {
+			t.Fatalf("create defer Entry: %v", err)
+		}
+		entries = append(entries, created.Msg.GetEntry())
+	}
+	if _, err := competitionClient.ConfigureReadiness(t.Context(), connect.NewRequest(
+		&competitionv1.ConfigureReadinessRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "disable-defer-file-delivery",
+			ExpectedReadinessRevision: 0,
+		},
+	)); err != nil {
+		t.Fatalf("disable defer Competition file delivery: %v", err)
+	}
+	sessionClient := sessionv1connect.NewSessionControlServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	if _, err := sessionClient.StartSession(t.Context(), connect.NewRequest(
+		&sessionv1.StartSessionRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "start-defer-competition",
+			ExpectedLiveStateRevision: proto.Int64(0),
+		},
+	)); err != nil {
+		t.Fatalf("start defer Competition: %v", err)
+	}
+	order, err := competitionClient.PreviewEntryOrder(t.Context(), connect.NewRequest(
+		&competitionv1.PreviewEntryOrderRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil {
+		t.Fatalf("preview defer Entry Order: %v", err)
+	}
+	entryByID := map[int64]*competitionv1.Entry{}
+	for _, entry := range entries {
+		entryByID[entry.GetId()] = entry
+	}
+	orderedIDs := order.Msg.GetEntryOrder().GetEntryIds()
+	deferredEntry := entryByID[orderedIDs[0]]
+	programClient := programv1connect.NewProgramControlServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	claimed, err := programClient.ChangeControl(t.Context(), connect.NewRequest(
+		&programv1.ChangeControlRequest{
+			EventId: 1, SessionId: competitionID,
+			Action:    programv1.ControlAction_CONTROL_ACTION_CLAIM,
+			CommandId: "claim-defer-control",
+		},
+	))
+	if err != nil {
+		t.Fatalf("claim defer control: %v", err)
+	}
+	channel := claimed.Msg.GetChannel()
+	for _, commandID := range []string{"take-defer-upcoming", "take-defer-starting"} {
+		taken, takeErr := programClient.Take(t.Context(), connect.NewRequest(
+			&programv1.TakeRequest{
+				EventId: 1, SessionId: competitionID, CommandId: commandID,
+				ExpectedLiveStateRevision:    channel.GetLiveStateRevision(),
+				ExpectedControlStateRevision: channel.GetControlStateRevision(),
+				Preview:                      channel.GetPreview(),
+			},
+		))
+		if takeErr != nil {
+			t.Fatalf("advance to first defer Entry: %v", takeErr)
+		}
+		channel = taken.Msg.GetChannel()
+	}
+	if channel.GetNext().GetEntryId() != orderedIDs[0] {
+		t.Fatalf("canonical defer Next = %+v", channel.GetNext())
+	}
+	operator := provisionOperator(t, administrator, server)
+	operatorProgram := programv1connect.NewProgramControlServiceClient(
+		operator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	deferRequest := &programv1.DeferEntryRequest{
+		EventId: 1, SessionId: competitionID, EntryId: deferredEntry.GetId(),
+		CommandId: "defer-first-entry", ExpectedEntryRevision: deferredEntry.GetRevision(),
+		ExpectedProgramRevision:      channel.GetLiveStateRevision(),
+		ExpectedControlStateRevision: channel.GetControlStateRevision(),
+	}
+	if _, err = operatorProgram.DeferEntry(
+		t.Context(), connect.NewRequest(deferRequest),
+	); connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("non-owner Defer = %v, want PermissionDenied", err)
+	}
+	deferRequest.CommandId = "defer-first-entry-as-owner"
+	deferred, err := programClient.DeferEntry(t.Context(), connect.NewRequest(deferRequest))
+	if err != nil {
+		t.Fatalf("owner Defer Entry: %v", err)
+	}
+	channel = deferred.Msg.GetChannel()
+	if channel.GetCurrent().GetEntryId() != orderedIDs[0] ||
+		channel.GetNext().GetEntryId() != orderedIDs[1] ||
+		channel.GetPreview().GetEntryId() != orderedIDs[1] ||
+		channel.GetControlStateRevision() != deferRequest.GetExpectedControlStateRevision()+1 {
+		t.Fatalf("deferred Program Channel = %+v", channel)
+	}
+	var retries []*programv1.ProgramItem
+	for _, item := range channel.GetItems() {
+		if item.GetRetry() {
+			retries = append(retries, item)
+		}
+	}
+	if len(retries) != 1 || retries[0].GetEntryId() != orderedIDs[0] {
+		t.Fatalf("defer retry queue = %+v", retries)
+	}
+	server.stop(t)
+}
+
 func sameInt64Set(left, right []int64) bool {
 	if len(left) != len(right) {
 		return false

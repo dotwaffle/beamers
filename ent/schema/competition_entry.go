@@ -43,6 +43,18 @@ func (CompetitionEntry) Fields() []ent.Field {
 		field.Int("reviewed_by_account_id").Optional().Positive(),
 		field.Time("reviewed_at").Optional(),
 		field.Time("first_presented_at").Optional(),
+		field.Enum("presentation_status").
+			Values("Scheduled", "Deferred", "Presented", "NotPresented").
+			Default("Scheduled"),
+		field.Int("deferred_sequence").Optional().Positive(),
+		field.Bool("resolution_required").Default(false),
+		field.Enum("result_disposition").
+			Values("Eligible", "Disqualified", "Withheld").
+			Default("Eligible"),
+		field.String("technical_failure_reason").Optional().MaxLen(10000),
+		field.String("resolution_crew_reason").Optional().MaxLen(10000),
+		field.String("public_disqualification_message").Optional().MaxLen(10000),
+		field.Bool("release_hold").Default(false),
 		field.Int("revision").Default(1).Positive(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 	}

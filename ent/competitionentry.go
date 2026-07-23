@@ -43,6 +43,22 @@ type CompetitionEntry struct {
 	ReviewedAt time.Time `json:"reviewed_at,omitempty"`
 	// FirstPresentedAt holds the value of the "first_presented_at" field.
 	FirstPresentedAt time.Time `json:"first_presented_at,omitempty"`
+	// PresentationStatus holds the value of the "presentation_status" field.
+	PresentationStatus competitionentry.PresentationStatus `json:"presentation_status,omitempty"`
+	// DeferredSequence holds the value of the "deferred_sequence" field.
+	DeferredSequence int `json:"deferred_sequence,omitempty"`
+	// ResolutionRequired holds the value of the "resolution_required" field.
+	ResolutionRequired bool `json:"resolution_required,omitempty"`
+	// ResultDisposition holds the value of the "result_disposition" field.
+	ResultDisposition competitionentry.ResultDisposition `json:"result_disposition,omitempty"`
+	// TechnicalFailureReason holds the value of the "technical_failure_reason" field.
+	TechnicalFailureReason string `json:"technical_failure_reason,omitempty"`
+	// ResolutionCrewReason holds the value of the "resolution_crew_reason" field.
+	ResolutionCrewReason string `json:"resolution_crew_reason,omitempty"`
+	// PublicDisqualificationMessage holds the value of the "public_disqualification_message" field.
+	PublicDisqualificationMessage string `json:"public_disqualification_message,omitempty"`
+	// ReleaseHold holds the value of the "release_hold" field.
+	ReleaseHold bool `json:"release_hold,omitempty"`
 	// Revision holds the value of the "revision" field.
 	Revision int `json:"revision,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -91,9 +107,11 @@ func (*CompetitionEntry) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case competitionentry.FieldID, competitionentry.FieldEventID, competitionentry.FieldCompetitionSessionID, competitionentry.FieldContentRevision, competitionentry.FieldReviewedContentRevision, competitionentry.FieldReviewedByAccountID, competitionentry.FieldRevision:
+		case competitionentry.FieldResolutionRequired, competitionentry.FieldReleaseHold:
+			values[i] = new(sql.NullBool)
+		case competitionentry.FieldID, competitionentry.FieldEventID, competitionentry.FieldCompetitionSessionID, competitionentry.FieldContentRevision, competitionentry.FieldReviewedContentRevision, competitionentry.FieldReviewedByAccountID, competitionentry.FieldDeferredSequence, competitionentry.FieldRevision:
 			values[i] = new(sql.NullInt64)
-		case competitionentry.FieldName, competitionentry.FieldPublicDetails, competitionentry.FieldCrewNotes, competitionentry.FieldDisposition:
+		case competitionentry.FieldName, competitionentry.FieldPublicDetails, competitionentry.FieldCrewNotes, competitionentry.FieldDisposition, competitionentry.FieldPresentationStatus, competitionentry.FieldResultDisposition, competitionentry.FieldTechnicalFailureReason, competitionentry.FieldResolutionCrewReason, competitionentry.FieldPublicDisqualificationMessage:
 			values[i] = new(sql.NullString)
 		case competitionentry.FieldUploadClosedAt, competitionentry.FieldReviewedAt, competitionentry.FieldFirstPresentedAt, competitionentry.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -190,6 +208,54 @@ func (_m *CompetitionEntry) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.FirstPresentedAt = value.Time
 			}
+		case competitionentry.FieldPresentationStatus:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field presentation_status", values[i])
+			} else if value.Valid {
+				_m.PresentationStatus = competitionentry.PresentationStatus(value.String)
+			}
+		case competitionentry.FieldDeferredSequence:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field deferred_sequence", values[i])
+			} else if value.Valid {
+				_m.DeferredSequence = int(value.Int64)
+			}
+		case competitionentry.FieldResolutionRequired:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field resolution_required", values[i])
+			} else if value.Valid {
+				_m.ResolutionRequired = value.Bool
+			}
+		case competitionentry.FieldResultDisposition:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field result_disposition", values[i])
+			} else if value.Valid {
+				_m.ResultDisposition = competitionentry.ResultDisposition(value.String)
+			}
+		case competitionentry.FieldTechnicalFailureReason:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field technical_failure_reason", values[i])
+			} else if value.Valid {
+				_m.TechnicalFailureReason = value.String
+			}
+		case competitionentry.FieldResolutionCrewReason:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field resolution_crew_reason", values[i])
+			} else if value.Valid {
+				_m.ResolutionCrewReason = value.String
+			}
+		case competitionentry.FieldPublicDisqualificationMessage:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field public_disqualification_message", values[i])
+			} else if value.Valid {
+				_m.PublicDisqualificationMessage = value.String
+			}
+		case competitionentry.FieldReleaseHold:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field release_hold", values[i])
+			} else if value.Valid {
+				_m.ReleaseHold = value.Bool
+			}
 		case competitionentry.FieldRevision:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for field revision", values[i])
@@ -283,6 +349,30 @@ func (_m *CompetitionEntry) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("first_presented_at=")
 	builder.WriteString(_m.FirstPresentedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("presentation_status=")
+	builder.WriteString(fmt.Sprintf("%v", _m.PresentationStatus))
+	builder.WriteString(", ")
+	builder.WriteString("deferred_sequence=")
+	builder.WriteString(fmt.Sprintf("%v", _m.DeferredSequence))
+	builder.WriteString(", ")
+	builder.WriteString("resolution_required=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ResolutionRequired))
+	builder.WriteString(", ")
+	builder.WriteString("result_disposition=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ResultDisposition))
+	builder.WriteString(", ")
+	builder.WriteString("technical_failure_reason=")
+	builder.WriteString(_m.TechnicalFailureReason)
+	builder.WriteString(", ")
+	builder.WriteString("resolution_crew_reason=")
+	builder.WriteString(_m.ResolutionCrewReason)
+	builder.WriteString(", ")
+	builder.WriteString("public_disqualification_message=")
+	builder.WriteString(_m.PublicDisqualificationMessage)
+	builder.WriteString(", ")
+	builder.WriteString("release_hold=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ReleaseHold))
 	builder.WriteString(", ")
 	builder.WriteString("revision=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Revision))

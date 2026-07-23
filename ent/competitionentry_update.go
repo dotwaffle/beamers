@@ -231,6 +231,149 @@ func (_u *CompetitionEntryUpdate) ClearFirstPresentedAt() *CompetitionEntryUpdat
 	return _u
 }
 
+// SetPresentationStatus sets the "presentation_status" field.
+func (_u *CompetitionEntryUpdate) SetPresentationStatus(v competitionentry.PresentationStatus) *CompetitionEntryUpdate {
+	_u.mutation.SetPresentationStatus(v)
+	return _u
+}
+
+// SetNillablePresentationStatus sets the "presentation_status" field if the given value is not nil.
+func (_u *CompetitionEntryUpdate) SetNillablePresentationStatus(v *competitionentry.PresentationStatus) *CompetitionEntryUpdate {
+	if v != nil {
+		_u.SetPresentationStatus(*v)
+	}
+	return _u
+}
+
+// SetDeferredSequence sets the "deferred_sequence" field.
+func (_u *CompetitionEntryUpdate) SetDeferredSequence(v int) *CompetitionEntryUpdate {
+	_u.mutation.ResetDeferredSequence()
+	_u.mutation.SetDeferredSequence(v)
+	return _u
+}
+
+// SetNillableDeferredSequence sets the "deferred_sequence" field if the given value is not nil.
+func (_u *CompetitionEntryUpdate) SetNillableDeferredSequence(v *int) *CompetitionEntryUpdate {
+	if v != nil {
+		_u.SetDeferredSequence(*v)
+	}
+	return _u
+}
+
+// AddDeferredSequence adds value to the "deferred_sequence" field.
+func (_u *CompetitionEntryUpdate) AddDeferredSequence(v int) *CompetitionEntryUpdate {
+	_u.mutation.AddDeferredSequence(v)
+	return _u
+}
+
+// ClearDeferredSequence clears the value of the "deferred_sequence" field.
+func (_u *CompetitionEntryUpdate) ClearDeferredSequence() *CompetitionEntryUpdate {
+	_u.mutation.ClearDeferredSequence()
+	return _u
+}
+
+// SetResolutionRequired sets the "resolution_required" field.
+func (_u *CompetitionEntryUpdate) SetResolutionRequired(v bool) *CompetitionEntryUpdate {
+	_u.mutation.SetResolutionRequired(v)
+	return _u
+}
+
+// SetNillableResolutionRequired sets the "resolution_required" field if the given value is not nil.
+func (_u *CompetitionEntryUpdate) SetNillableResolutionRequired(v *bool) *CompetitionEntryUpdate {
+	if v != nil {
+		_u.SetResolutionRequired(*v)
+	}
+	return _u
+}
+
+// SetResultDisposition sets the "result_disposition" field.
+func (_u *CompetitionEntryUpdate) SetResultDisposition(v competitionentry.ResultDisposition) *CompetitionEntryUpdate {
+	_u.mutation.SetResultDisposition(v)
+	return _u
+}
+
+// SetNillableResultDisposition sets the "result_disposition" field if the given value is not nil.
+func (_u *CompetitionEntryUpdate) SetNillableResultDisposition(v *competitionentry.ResultDisposition) *CompetitionEntryUpdate {
+	if v != nil {
+		_u.SetResultDisposition(*v)
+	}
+	return _u
+}
+
+// SetTechnicalFailureReason sets the "technical_failure_reason" field.
+func (_u *CompetitionEntryUpdate) SetTechnicalFailureReason(v string) *CompetitionEntryUpdate {
+	_u.mutation.SetTechnicalFailureReason(v)
+	return _u
+}
+
+// SetNillableTechnicalFailureReason sets the "technical_failure_reason" field if the given value is not nil.
+func (_u *CompetitionEntryUpdate) SetNillableTechnicalFailureReason(v *string) *CompetitionEntryUpdate {
+	if v != nil {
+		_u.SetTechnicalFailureReason(*v)
+	}
+	return _u
+}
+
+// ClearTechnicalFailureReason clears the value of the "technical_failure_reason" field.
+func (_u *CompetitionEntryUpdate) ClearTechnicalFailureReason() *CompetitionEntryUpdate {
+	_u.mutation.ClearTechnicalFailureReason()
+	return _u
+}
+
+// SetResolutionCrewReason sets the "resolution_crew_reason" field.
+func (_u *CompetitionEntryUpdate) SetResolutionCrewReason(v string) *CompetitionEntryUpdate {
+	_u.mutation.SetResolutionCrewReason(v)
+	return _u
+}
+
+// SetNillableResolutionCrewReason sets the "resolution_crew_reason" field if the given value is not nil.
+func (_u *CompetitionEntryUpdate) SetNillableResolutionCrewReason(v *string) *CompetitionEntryUpdate {
+	if v != nil {
+		_u.SetResolutionCrewReason(*v)
+	}
+	return _u
+}
+
+// ClearResolutionCrewReason clears the value of the "resolution_crew_reason" field.
+func (_u *CompetitionEntryUpdate) ClearResolutionCrewReason() *CompetitionEntryUpdate {
+	_u.mutation.ClearResolutionCrewReason()
+	return _u
+}
+
+// SetPublicDisqualificationMessage sets the "public_disqualification_message" field.
+func (_u *CompetitionEntryUpdate) SetPublicDisqualificationMessage(v string) *CompetitionEntryUpdate {
+	_u.mutation.SetPublicDisqualificationMessage(v)
+	return _u
+}
+
+// SetNillablePublicDisqualificationMessage sets the "public_disqualification_message" field if the given value is not nil.
+func (_u *CompetitionEntryUpdate) SetNillablePublicDisqualificationMessage(v *string) *CompetitionEntryUpdate {
+	if v != nil {
+		_u.SetPublicDisqualificationMessage(*v)
+	}
+	return _u
+}
+
+// ClearPublicDisqualificationMessage clears the value of the "public_disqualification_message" field.
+func (_u *CompetitionEntryUpdate) ClearPublicDisqualificationMessage() *CompetitionEntryUpdate {
+	_u.mutation.ClearPublicDisqualificationMessage()
+	return _u
+}
+
+// SetReleaseHold sets the "release_hold" field.
+func (_u *CompetitionEntryUpdate) SetReleaseHold(v bool) *CompetitionEntryUpdate {
+	_u.mutation.SetReleaseHold(v)
+	return _u
+}
+
+// SetNillableReleaseHold sets the "release_hold" field if the given value is not nil.
+func (_u *CompetitionEntryUpdate) SetNillableReleaseHold(v *bool) *CompetitionEntryUpdate {
+	if v != nil {
+		_u.SetReleaseHold(*v)
+	}
+	return _u
+}
+
 // SetRevision sets the "revision" field.
 func (_u *CompetitionEntryUpdate) SetRevision(v int) *CompetitionEntryUpdate {
 	_u.mutation.ResetRevision()
@@ -321,6 +464,36 @@ func (_u *CompetitionEntryUpdate) check() error {
 			return &ValidationError{Name: "reviewed_by_account_id", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.reviewed_by_account_id": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.PresentationStatus(); ok {
+		if err := competitionentry.PresentationStatusValidator(v); err != nil {
+			return &ValidationError{Name: "presentation_status", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.presentation_status": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.DeferredSequence(); ok {
+		if err := competitionentry.DeferredSequenceValidator(v); err != nil {
+			return &ValidationError{Name: "deferred_sequence", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.deferred_sequence": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ResultDisposition(); ok {
+		if err := competitionentry.ResultDispositionValidator(v); err != nil {
+			return &ValidationError{Name: "result_disposition", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.result_disposition": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.TechnicalFailureReason(); ok {
+		if err := competitionentry.TechnicalFailureReasonValidator(v); err != nil {
+			return &ValidationError{Name: "technical_failure_reason", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.technical_failure_reason": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ResolutionCrewReason(); ok {
+		if err := competitionentry.ResolutionCrewReasonValidator(v); err != nil {
+			return &ValidationError{Name: "resolution_crew_reason", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.resolution_crew_reason": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.PublicDisqualificationMessage(); ok {
+		if err := competitionentry.PublicDisqualificationMessageValidator(v); err != nil {
+			return &ValidationError{Name: "public_disqualification_message", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.public_disqualification_message": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Revision(); ok {
 		if err := competitionentry.RevisionValidator(v); err != nil {
 			return &ValidationError{Name: "revision", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.revision": %w`, err)}
@@ -406,6 +579,45 @@ func (_u *CompetitionEntryUpdate) sqlSave(ctx context.Context) (_node int, err e
 	}
 	if _u.mutation.FirstPresentedAtCleared() {
 		_spec.ClearField(competitionentry.FieldFirstPresentedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.PresentationStatus(); ok {
+		_spec.SetField(competitionentry.FieldPresentationStatus, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.DeferredSequence(); ok {
+		_spec.SetField(competitionentry.FieldDeferredSequence, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedDeferredSequence(); ok {
+		_spec.AddField(competitionentry.FieldDeferredSequence, field.TypeInt, value)
+	}
+	if _u.mutation.DeferredSequenceCleared() {
+		_spec.ClearField(competitionentry.FieldDeferredSequence, field.TypeInt)
+	}
+	if value, ok := _u.mutation.ResolutionRequired(); ok {
+		_spec.SetField(competitionentry.FieldResolutionRequired, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ResultDisposition(); ok {
+		_spec.SetField(competitionentry.FieldResultDisposition, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.TechnicalFailureReason(); ok {
+		_spec.SetField(competitionentry.FieldTechnicalFailureReason, field.TypeString, value)
+	}
+	if _u.mutation.TechnicalFailureReasonCleared() {
+		_spec.ClearField(competitionentry.FieldTechnicalFailureReason, field.TypeString)
+	}
+	if value, ok := _u.mutation.ResolutionCrewReason(); ok {
+		_spec.SetField(competitionentry.FieldResolutionCrewReason, field.TypeString, value)
+	}
+	if _u.mutation.ResolutionCrewReasonCleared() {
+		_spec.ClearField(competitionentry.FieldResolutionCrewReason, field.TypeString)
+	}
+	if value, ok := _u.mutation.PublicDisqualificationMessage(); ok {
+		_spec.SetField(competitionentry.FieldPublicDisqualificationMessage, field.TypeString, value)
+	}
+	if _u.mutation.PublicDisqualificationMessageCleared() {
+		_spec.ClearField(competitionentry.FieldPublicDisqualificationMessage, field.TypeString)
+	}
+	if value, ok := _u.mutation.ReleaseHold(); ok {
+		_spec.SetField(competitionentry.FieldReleaseHold, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.Revision(); ok {
 		_spec.SetField(competitionentry.FieldRevision, field.TypeInt, value)
@@ -636,6 +848,149 @@ func (_u *CompetitionEntryUpdateOne) ClearFirstPresentedAt() *CompetitionEntryUp
 	return _u
 }
 
+// SetPresentationStatus sets the "presentation_status" field.
+func (_u *CompetitionEntryUpdateOne) SetPresentationStatus(v competitionentry.PresentationStatus) *CompetitionEntryUpdateOne {
+	_u.mutation.SetPresentationStatus(v)
+	return _u
+}
+
+// SetNillablePresentationStatus sets the "presentation_status" field if the given value is not nil.
+func (_u *CompetitionEntryUpdateOne) SetNillablePresentationStatus(v *competitionentry.PresentationStatus) *CompetitionEntryUpdateOne {
+	if v != nil {
+		_u.SetPresentationStatus(*v)
+	}
+	return _u
+}
+
+// SetDeferredSequence sets the "deferred_sequence" field.
+func (_u *CompetitionEntryUpdateOne) SetDeferredSequence(v int) *CompetitionEntryUpdateOne {
+	_u.mutation.ResetDeferredSequence()
+	_u.mutation.SetDeferredSequence(v)
+	return _u
+}
+
+// SetNillableDeferredSequence sets the "deferred_sequence" field if the given value is not nil.
+func (_u *CompetitionEntryUpdateOne) SetNillableDeferredSequence(v *int) *CompetitionEntryUpdateOne {
+	if v != nil {
+		_u.SetDeferredSequence(*v)
+	}
+	return _u
+}
+
+// AddDeferredSequence adds value to the "deferred_sequence" field.
+func (_u *CompetitionEntryUpdateOne) AddDeferredSequence(v int) *CompetitionEntryUpdateOne {
+	_u.mutation.AddDeferredSequence(v)
+	return _u
+}
+
+// ClearDeferredSequence clears the value of the "deferred_sequence" field.
+func (_u *CompetitionEntryUpdateOne) ClearDeferredSequence() *CompetitionEntryUpdateOne {
+	_u.mutation.ClearDeferredSequence()
+	return _u
+}
+
+// SetResolutionRequired sets the "resolution_required" field.
+func (_u *CompetitionEntryUpdateOne) SetResolutionRequired(v bool) *CompetitionEntryUpdateOne {
+	_u.mutation.SetResolutionRequired(v)
+	return _u
+}
+
+// SetNillableResolutionRequired sets the "resolution_required" field if the given value is not nil.
+func (_u *CompetitionEntryUpdateOne) SetNillableResolutionRequired(v *bool) *CompetitionEntryUpdateOne {
+	if v != nil {
+		_u.SetResolutionRequired(*v)
+	}
+	return _u
+}
+
+// SetResultDisposition sets the "result_disposition" field.
+func (_u *CompetitionEntryUpdateOne) SetResultDisposition(v competitionentry.ResultDisposition) *CompetitionEntryUpdateOne {
+	_u.mutation.SetResultDisposition(v)
+	return _u
+}
+
+// SetNillableResultDisposition sets the "result_disposition" field if the given value is not nil.
+func (_u *CompetitionEntryUpdateOne) SetNillableResultDisposition(v *competitionentry.ResultDisposition) *CompetitionEntryUpdateOne {
+	if v != nil {
+		_u.SetResultDisposition(*v)
+	}
+	return _u
+}
+
+// SetTechnicalFailureReason sets the "technical_failure_reason" field.
+func (_u *CompetitionEntryUpdateOne) SetTechnicalFailureReason(v string) *CompetitionEntryUpdateOne {
+	_u.mutation.SetTechnicalFailureReason(v)
+	return _u
+}
+
+// SetNillableTechnicalFailureReason sets the "technical_failure_reason" field if the given value is not nil.
+func (_u *CompetitionEntryUpdateOne) SetNillableTechnicalFailureReason(v *string) *CompetitionEntryUpdateOne {
+	if v != nil {
+		_u.SetTechnicalFailureReason(*v)
+	}
+	return _u
+}
+
+// ClearTechnicalFailureReason clears the value of the "technical_failure_reason" field.
+func (_u *CompetitionEntryUpdateOne) ClearTechnicalFailureReason() *CompetitionEntryUpdateOne {
+	_u.mutation.ClearTechnicalFailureReason()
+	return _u
+}
+
+// SetResolutionCrewReason sets the "resolution_crew_reason" field.
+func (_u *CompetitionEntryUpdateOne) SetResolutionCrewReason(v string) *CompetitionEntryUpdateOne {
+	_u.mutation.SetResolutionCrewReason(v)
+	return _u
+}
+
+// SetNillableResolutionCrewReason sets the "resolution_crew_reason" field if the given value is not nil.
+func (_u *CompetitionEntryUpdateOne) SetNillableResolutionCrewReason(v *string) *CompetitionEntryUpdateOne {
+	if v != nil {
+		_u.SetResolutionCrewReason(*v)
+	}
+	return _u
+}
+
+// ClearResolutionCrewReason clears the value of the "resolution_crew_reason" field.
+func (_u *CompetitionEntryUpdateOne) ClearResolutionCrewReason() *CompetitionEntryUpdateOne {
+	_u.mutation.ClearResolutionCrewReason()
+	return _u
+}
+
+// SetPublicDisqualificationMessage sets the "public_disqualification_message" field.
+func (_u *CompetitionEntryUpdateOne) SetPublicDisqualificationMessage(v string) *CompetitionEntryUpdateOne {
+	_u.mutation.SetPublicDisqualificationMessage(v)
+	return _u
+}
+
+// SetNillablePublicDisqualificationMessage sets the "public_disqualification_message" field if the given value is not nil.
+func (_u *CompetitionEntryUpdateOne) SetNillablePublicDisqualificationMessage(v *string) *CompetitionEntryUpdateOne {
+	if v != nil {
+		_u.SetPublicDisqualificationMessage(*v)
+	}
+	return _u
+}
+
+// ClearPublicDisqualificationMessage clears the value of the "public_disqualification_message" field.
+func (_u *CompetitionEntryUpdateOne) ClearPublicDisqualificationMessage() *CompetitionEntryUpdateOne {
+	_u.mutation.ClearPublicDisqualificationMessage()
+	return _u
+}
+
+// SetReleaseHold sets the "release_hold" field.
+func (_u *CompetitionEntryUpdateOne) SetReleaseHold(v bool) *CompetitionEntryUpdateOne {
+	_u.mutation.SetReleaseHold(v)
+	return _u
+}
+
+// SetNillableReleaseHold sets the "release_hold" field if the given value is not nil.
+func (_u *CompetitionEntryUpdateOne) SetNillableReleaseHold(v *bool) *CompetitionEntryUpdateOne {
+	if v != nil {
+		_u.SetReleaseHold(*v)
+	}
+	return _u
+}
+
 // SetRevision sets the "revision" field.
 func (_u *CompetitionEntryUpdateOne) SetRevision(v int) *CompetitionEntryUpdateOne {
 	_u.mutation.ResetRevision()
@@ -737,6 +1092,36 @@ func (_u *CompetitionEntryUpdateOne) check() error {
 	if v, ok := _u.mutation.ReviewedByAccountID(); ok {
 		if err := competitionentry.ReviewedByAccountIDValidator(v); err != nil {
 			return &ValidationError{Name: "reviewed_by_account_id", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.reviewed_by_account_id": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.PresentationStatus(); ok {
+		if err := competitionentry.PresentationStatusValidator(v); err != nil {
+			return &ValidationError{Name: "presentation_status", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.presentation_status": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.DeferredSequence(); ok {
+		if err := competitionentry.DeferredSequenceValidator(v); err != nil {
+			return &ValidationError{Name: "deferred_sequence", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.deferred_sequence": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ResultDisposition(); ok {
+		if err := competitionentry.ResultDispositionValidator(v); err != nil {
+			return &ValidationError{Name: "result_disposition", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.result_disposition": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.TechnicalFailureReason(); ok {
+		if err := competitionentry.TechnicalFailureReasonValidator(v); err != nil {
+			return &ValidationError{Name: "technical_failure_reason", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.technical_failure_reason": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ResolutionCrewReason(); ok {
+		if err := competitionentry.ResolutionCrewReasonValidator(v); err != nil {
+			return &ValidationError{Name: "resolution_crew_reason", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.resolution_crew_reason": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.PublicDisqualificationMessage(); ok {
+		if err := competitionentry.PublicDisqualificationMessageValidator(v); err != nil {
+			return &ValidationError{Name: "public_disqualification_message", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.public_disqualification_message": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Revision(); ok {
@@ -841,6 +1226,45 @@ func (_u *CompetitionEntryUpdateOne) sqlSave(ctx context.Context) (_node *Compet
 	}
 	if _u.mutation.FirstPresentedAtCleared() {
 		_spec.ClearField(competitionentry.FieldFirstPresentedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.PresentationStatus(); ok {
+		_spec.SetField(competitionentry.FieldPresentationStatus, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.DeferredSequence(); ok {
+		_spec.SetField(competitionentry.FieldDeferredSequence, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedDeferredSequence(); ok {
+		_spec.AddField(competitionentry.FieldDeferredSequence, field.TypeInt, value)
+	}
+	if _u.mutation.DeferredSequenceCleared() {
+		_spec.ClearField(competitionentry.FieldDeferredSequence, field.TypeInt)
+	}
+	if value, ok := _u.mutation.ResolutionRequired(); ok {
+		_spec.SetField(competitionentry.FieldResolutionRequired, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ResultDisposition(); ok {
+		_spec.SetField(competitionentry.FieldResultDisposition, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.TechnicalFailureReason(); ok {
+		_spec.SetField(competitionentry.FieldTechnicalFailureReason, field.TypeString, value)
+	}
+	if _u.mutation.TechnicalFailureReasonCleared() {
+		_spec.ClearField(competitionentry.FieldTechnicalFailureReason, field.TypeString)
+	}
+	if value, ok := _u.mutation.ResolutionCrewReason(); ok {
+		_spec.SetField(competitionentry.FieldResolutionCrewReason, field.TypeString, value)
+	}
+	if _u.mutation.ResolutionCrewReasonCleared() {
+		_spec.ClearField(competitionentry.FieldResolutionCrewReason, field.TypeString)
+	}
+	if value, ok := _u.mutation.PublicDisqualificationMessage(); ok {
+		_spec.SetField(competitionentry.FieldPublicDisqualificationMessage, field.TypeString, value)
+	}
+	if _u.mutation.PublicDisqualificationMessageCleared() {
+		_spec.ClearField(competitionentry.FieldPublicDisqualificationMessage, field.TypeString)
+	}
+	if value, ok := _u.mutation.ReleaseHold(); ok {
+		_spec.SetField(competitionentry.FieldReleaseHold, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.Revision(); ok {
 		_spec.SetField(competitionentry.FieldRevision, field.TypeInt, value)

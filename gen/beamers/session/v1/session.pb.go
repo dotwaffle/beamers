@@ -198,13 +198,15 @@ func (x *StartSessionRequest) GetExpectedLiveStateRevision() int64 {
 }
 
 type EndSessionRequest struct {
-	state                     protoimpl.MessageState `protogen:"open.v1"`
-	EventId                   int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
-	SessionId                 int64                  `protobuf:"varint,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	CommandId                 string                 `protobuf:"bytes,3,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
-	ExpectedLiveStateRevision *int64                 `protobuf:"varint,4,opt,name=expected_live_state_revision,json=expectedLiveStateRevision,proto3,oneof" json:"expected_live_state_revision,omitempty"`
-	unknownFields             protoimpl.UnknownFields
-	sizeCache                 protoimpl.SizeCache
+	state                      protoimpl.MessageState `protogen:"open.v1"`
+	EventId                    int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	SessionId                  int64                  `protobuf:"varint,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	CommandId                  string                 `protobuf:"bytes,3,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
+	ExpectedLiveStateRevision  *int64                 `protobuf:"varint,4,opt,name=expected_live_state_revision,json=expectedLiveStateRevision,proto3,oneof" json:"expected_live_state_revision,omitempty"`
+	ConfirmedDeferredEntries   bool                   `protobuf:"varint,5,opt,name=confirmed_deferred_entries,json=confirmedDeferredEntries,proto3" json:"confirmed_deferred_entries,omitempty"`
+	DeferredEntriesFingerprint string                 `protobuf:"bytes,6,opt,name=deferred_entries_fingerprint,json=deferredEntriesFingerprint,proto3" json:"deferred_entries_fingerprint,omitempty"`
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *EndSessionRequest) Reset() {
@@ -263,6 +265,20 @@ func (x *EndSessionRequest) GetExpectedLiveStateRevision() int64 {
 		return *x.ExpectedLiveStateRevision
 	}
 	return 0
+}
+
+func (x *EndSessionRequest) GetConfirmedDeferredEntries() bool {
+	if x != nil {
+		return x.ConfirmedDeferredEntries
+	}
+	return false
+}
+
+func (x *EndSessionRequest) GetDeferredEntriesFingerprint() string {
+	if x != nil {
+		return x.DeferredEntriesFingerprint
+	}
+	return ""
 }
 
 type CancelSessionRequest struct {
@@ -2465,14 +2481,16 @@ const file_beamers_session_v1_session_proto_rawDesc = "" +
 	"\n" +
 	"command_id\x18\x03 \x01(\tR\tcommandId\x12D\n" +
 	"\x1cexpected_live_state_revision\x18\x04 \x01(\x03H\x00R\x19expectedLiveStateRevision\x88\x01\x01B\x1f\n" +
-	"\x1d_expected_live_state_revision\"\xd3\x01\n" +
+	"\x1d_expected_live_state_revision\"\xd3\x02\n" +
 	"\x11EndSessionRequest\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x02 \x01(\x03R\tsessionId\x12\x1d\n" +
 	"\n" +
 	"command_id\x18\x03 \x01(\tR\tcommandId\x12D\n" +
-	"\x1cexpected_live_state_revision\x18\x04 \x01(\x03H\x00R\x19expectedLiveStateRevision\x88\x01\x01B\x1f\n" +
+	"\x1cexpected_live_state_revision\x18\x04 \x01(\x03H\x00R\x19expectedLiveStateRevision\x88\x01\x01\x12<\n" +
+	"\x1aconfirmed_deferred_entries\x18\x05 \x01(\bR\x18confirmedDeferredEntries\x12@\n" +
+	"\x1cdeferred_entries_fingerprint\x18\x06 \x01(\tR\x1adeferredEntriesFingerprintB\x1f\n" +
 	"\x1d_expected_live_state_revision\"\xd3\x02\n" +
 	"\x14CancelSessionRequest\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +

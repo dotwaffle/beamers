@@ -190,6 +190,14 @@ var (
 		{Name: "reviewed_by_account_id", Type: field.TypeInt, Nullable: true},
 		{Name: "reviewed_at", Type: field.TypeTime, Nullable: true},
 		{Name: "first_presented_at", Type: field.TypeTime, Nullable: true},
+		{Name: "presentation_status", Type: field.TypeEnum, Enums: []string{"Scheduled", "Deferred", "Presented", "NotPresented"}, Default: "Scheduled"},
+		{Name: "deferred_sequence", Type: field.TypeInt, Nullable: true},
+		{Name: "resolution_required", Type: field.TypeBool, Default: false},
+		{Name: "result_disposition", Type: field.TypeEnum, Enums: []string{"Eligible", "Disqualified", "Withheld"}, Default: "Eligible"},
+		{Name: "technical_failure_reason", Type: field.TypeString, Nullable: true, Size: 10000},
+		{Name: "resolution_crew_reason", Type: field.TypeString, Nullable: true, Size: 10000},
+		{Name: "public_disqualification_message", Type: field.TypeString, Nullable: true, Size: 10000},
+		{Name: "release_hold", Type: field.TypeBool, Default: false},
 		{Name: "revision", Type: field.TypeInt, Default: 1},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "event_id", Type: field.TypeInt},
@@ -203,13 +211,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "competition_entries_events_competition_entries",
-				Columns:    []*schema.Column{CompetitionEntriesColumns[13]},
+				Columns:    []*schema.Column{CompetitionEntriesColumns[21]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "competition_entries_sessions_competition_entries",
-				Columns:    []*schema.Column{CompetitionEntriesColumns[14]},
+				Columns:    []*schema.Column{CompetitionEntriesColumns[22]},
 				RefColumns: []*schema.Column{SessionsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -218,7 +226,7 @@ var (
 			{
 				Name:    "competitionentry_competition_session_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{CompetitionEntriesColumns[14], CompetitionEntriesColumns[12]},
+				Columns: []*schema.Column{CompetitionEntriesColumns[22], CompetitionEntriesColumns[20]},
 			},
 		},
 	}

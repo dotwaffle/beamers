@@ -72,8 +72,10 @@ type PublicScheduleSession struct {
 
 // PublicCompetitionEntry contains attendee-safe Included Entry details.
 type PublicCompetitionEntry struct {
-	Name          string
-	PublicDetails string
+	Name                          string
+	PublicDetails                 string
+	ResultDisposition             string
+	PublicDisqualificationMessage string
 }
 
 // LoadPublicSchedule returns the Active Event's current public projection.
@@ -229,6 +231,9 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 				Where(
 					competitionentry.CompetitionSessionIDEQ(identity.ID),
 					competitionentry.DispositionEQ(competitionentry.DispositionIncluded),
+					competitionentry.ResultDispositionNEQ(
+						competitionentry.ResultDispositionWithheld,
+					),
 				).
 				Order(ent.Asc(competitionentry.FieldCreatedAt), ent.Asc(competitionentry.FieldID)).
 				All(ctx)
@@ -239,6 +244,8 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 			for _, entry := range entries {
 				competitionEntries = append(competitionEntries, PublicCompetitionEntry{
 					Name: entry.Name, PublicDetails: entry.PublicDetails,
+					ResultDisposition:             string(entry.ResultDisposition),
+					PublicDisqualificationMessage: entry.PublicDisqualificationMessage,
 				})
 			}
 		}

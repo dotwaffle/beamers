@@ -36,16 +36,25 @@ var (
 
 // CompetitionEntry is one retained Competition submission.
 type CompetitionEntry struct {
-	ID                   int       `json:"id"`
-	CompetitionSessionID int       `json:"competition_session_id"`
-	Name                 string    `json:"name"`
-	PublicDetails        string    `json:"public_details,omitempty"`
-	CrewNotes            string    `json:"crew_notes,omitempty"`
-	Disposition          string    `json:"disposition"`
-	Revision             int       `json:"revision"`
-	ContentRevision      int       `json:"content_revision"`
-	ReviewCurrent        bool      `json:"review_current"`
-	CreatedAt            time.Time `json:"created_at"`
+	ID                            int       `json:"id"`
+	CompetitionSessionID          int       `json:"competition_session_id"`
+	Name                          string    `json:"name"`
+	PublicDetails                 string    `json:"public_details,omitempty"`
+	CrewNotes                     string    `json:"crew_notes,omitempty"`
+	Disposition                   string    `json:"disposition"`
+	Revision                      int       `json:"revision"`
+	ContentRevision               int       `json:"content_revision"`
+	ReviewCurrent                 bool      `json:"review_current"`
+	PresentationStatus            string    `json:"presentation_status"`
+	DeferredSequence              int       `json:"deferred_sequence,omitempty"`
+	ResolutionRequired            bool      `json:"resolution_required"`
+	ResultDisposition             string    `json:"result_disposition"`
+	TechnicalFailureReason        string    `json:"technical_failure_reason,omitempty"`
+	ResolutionCrewReason          string    `json:"resolution_crew_reason,omitempty"`
+	PublicDisqualificationMessage string    `json:"public_disqualification_message,omitempty"`
+	ReleaseHold                   bool      `json:"release_hold"`
+	FirstPresentedAt              time.Time `json:"first_presented_at,omitzero"`
+	CreatedAt                     time.Time `json:"created_at"`
 }
 
 // CompetitionState is the current fixed configuration and retained Entries.
@@ -59,6 +68,8 @@ type CompetitionState struct {
 	ReadinessRevision           int
 	EntryOrder                  EntryOrderState
 	Entries                     []CompetitionEntry
+	ResultsReady                bool
+	ReleaseReady                bool
 }
 
 // CompetitionPreflightCode is the closed vocabulary of Start blockers.
@@ -193,6 +204,14 @@ func (installation *SQLite) LoadCompetition(ctx context.Context, eventID, sessio
 	}
 	for _, entry := range entries {
 		state.Entries = append(state.Entries, competitionEntry(entry))
+	}
+	state.ResultsReady = true
+	state.ReleaseReady = true
+	for _, entry := range state.Entries {
+		if entry.ResolutionRequired {
+			state.ResultsReady = false
+			state.ReleaseReady = false
+		}
 	}
 	included := make([]*ent.CompetitionEntry, 0, len(entries))
 	for _, entry := range entries {
@@ -699,9 +718,18 @@ func competitionEntry(entry *ent.CompetitionEntry) CompetitionEntry {
 		ID: entry.ID, CompetitionSessionID: entry.CompetitionSessionID,
 		Name: entry.Name, PublicDetails: entry.PublicDetails, CrewNotes: entry.CrewNotes,
 		Disposition: string(entry.Disposition), Revision: entry.Revision,
-		ContentRevision: entry.ContentRevision,
-		ReviewCurrent:   entry.ReviewedContentRevision == entry.ContentRevision,
-		CreatedAt:       entry.CreatedAt,
+		ContentRevision:               entry.ContentRevision,
+		ReviewCurrent:                 entry.ReviewedContentRevision == entry.ContentRevision,
+		PresentationStatus:            string(entry.PresentationStatus),
+		DeferredSequence:              entry.DeferredSequence,
+		ResolutionRequired:            entry.ResolutionRequired,
+		ResultDisposition:             string(entry.ResultDisposition),
+		TechnicalFailureReason:        entry.TechnicalFailureReason,
+		ResolutionCrewReason:          entry.ResolutionCrewReason,
+		PublicDisqualificationMessage: entry.PublicDisqualificationMessage,
+		ReleaseHold:                   entry.ReleaseHold,
+		FirstPresentedAt:              entry.FirstPresentedAt,
+		CreatedAt:                     entry.CreatedAt,
 	}
 }
 

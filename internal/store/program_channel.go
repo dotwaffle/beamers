@@ -1,8 +1,10 @@
 package store
 
 import (
+	"cmp"
 	"context"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/dotwaffle/beamers/ent"
@@ -39,6 +41,7 @@ type ProgramItem struct {
 	Kind    ProgramItemKind `json:"kind"`
 	EntryID int             `json:"entry_id,omitempty"`
 	Title   string          `json:"title"`
+	Retry   bool            `json:"retry,omitempty"`
 }
 
 // ProgramChannelState is durable Program Output plus its canonical context.
@@ -212,6 +215,11 @@ func competitionProgramItems(
 		item.Title = programItemTitle(item, title, entries)
 		items = append(items, item)
 	}
+	for _, entry := range deferredEntries(entries) {
+		item := ProgramItem{Kind: ProgramItemEntry, EntryID: entry.ID, Retry: true}
+		item.Title = programItemTitle(item, title, entries)
+		items = append(items, item)
+	}
 	return append(items,
 		ProgramItem{Kind: ProgramItemEnding, Title: title + " ending"},
 		ProgramItem{Kind: ProgramItemStandby, Title: "Standby"},
@@ -240,7 +248,7 @@ func programItemTitle(item ProgramItem, competitionTitle string, entries []*ent.
 
 func findProgramItem(items []ProgramItem, wanted ProgramItem) (ProgramItem, int, bool) {
 	for index, item := range items {
-		if item.Kind == wanted.Kind && item.EntryID == wanted.EntryID {
+		if programItemEqual(item, wanted) {
 			return item, index, true
 		}
 	}
@@ -269,7 +277,20 @@ func setProgramContext(state *ProgramChannelState, cursor int) {
 }
 
 func programItemEqual(left, right ProgramItem) bool {
-	return left.Kind == right.Kind && left.EntryID == right.EntryID
+	return left.Kind == right.Kind && left.EntryID == right.EntryID && left.Retry == right.Retry
+}
+
+func deferredEntries(entries []*ent.CompetitionEntry) []*ent.CompetitionEntry {
+	deferred := make([]*ent.CompetitionEntry, 0, len(entries))
+	for _, entry := range entries {
+		if entry.DeferredSequence > 0 {
+			deferred = append(deferred, entry)
+		}
+	}
+	slices.SortFunc(deferred, func(left, right *ent.CompetitionEntry) int {
+		return cmp.Compare(left.DeferredSequence, right.DeferredSequence)
+	})
+	return deferred
 }
 
 func valueOrZero(value *int) int {

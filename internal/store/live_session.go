@@ -16,6 +16,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessioncancellation"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
+	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
 	"github.com/dotwaffle/beamers/ent/sessionrunamendment"
 	"github.com/dotwaffle/beamers/internal/viewer"
@@ -217,6 +218,8 @@ func (transaction *CommandTx) EndSession(
 	eventID int,
 	sessionID int,
 	expectedRevision int,
+	confirmedDeferredEntries bool,
+	deferredEntriesFingerprint string,
 	now time.Time,
 ) (LiveSessionState, error) {
 	if err := transaction.requireActiveEvent(ctx, eventID); err != nil {
@@ -242,6 +245,23 @@ func (transaction *CommandTx) EndSession(
 	}
 	if identity.Lifecycle != session.LifecycleLive {
 		return LiveSessionState{}, ErrSessionLifecycleTransition
+	}
+	version, err := identity.QueryPublishedVersions().
+		Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).
+		First(ctx)
+	if err != nil {
+		return LiveSessionState{}, opaqueError("load Session type before End", err)
+	}
+	if version.Type == sessionpublishedversion.TypeCompetition {
+		if confirmErr := transaction.confirmCompetitionEnd(
+			ctx,
+			eventID,
+			sessionID,
+			confirmedDeferredEntries,
+			deferredEntriesFingerprint,
+		); confirmErr != nil {
+			return LiveSessionState{}, confirmErr
+		}
 	}
 	communicatedEnd := identity.ForecastEnd
 	run, err := transaction.transaction.SessionRun.Query().Where(

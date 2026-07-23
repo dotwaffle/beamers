@@ -78,6 +78,8 @@ func (handler *Handler) GetCompetition(
 		FileDeliveryRequired:        found.FileDeliveryRequired,
 		ReadinessRevision:           int64(found.ReadinessRevision),
 		EntryOrder:                  entryOrder(found.EntryOrder),
+		ResultsReady:                found.ResultsReady,
+		ReleaseReady:                found.ReleaseReady,
 	}
 	for _, foundEntry := range found.Entries {
 		response.Entries = append(response.Entries, entry(foundEntry))
@@ -190,6 +192,31 @@ func (handler *Handler) PreflightStart(
 	return connect.NewResponse(response), nil
 }
 
+// PreflightEnd returns the exact deferred Entries requiring warned confirmation.
+func (handler *Handler) PreflightEnd(
+	ctx context.Context,
+	request *connect.Request[competitionv1.PreflightEndRequest],
+) (*connect.Response[competitionv1.PreflightEndResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	found, err := handler.service.PreflightEnd(
+		ctx, actor, int(request.Msg.GetEventId()), int(request.Msg.GetSessionId()),
+	)
+	if err != nil {
+		return nil, err
+	}
+	response := &competitionv1.PreflightEndResponse{
+		Fingerprint:          found.Fingerprint,
+		RequiresConfirmation: found.RequiresConfirmation,
+	}
+	for _, deferred := range found.DeferredEntries {
+		response.DeferredEntries = append(response.DeferredEntries, entry(deferred))
+	}
+	return connect.NewResponse(response), nil
+}
+
 // CreateEntry creates one Entry before the Deadline.
 func (handler *Handler) CreateEntry(
 	ctx context.Context,
@@ -273,6 +300,55 @@ func (handler *Handler) ReviewEntry(
 	return connect.NewResponse(&competitionv1.ReviewEntryResponse{Entry: entry(reviewed)}), nil
 }
 
+// RecordTechnicalFailure records cause without deciding judging or release.
+func (handler *Handler) RecordTechnicalFailure(
+	ctx context.Context,
+	request *connect.Request[competitionv1.RecordTechnicalFailureRequest],
+) (*connect.Response[competitionv1.RecordTechnicalFailureResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	updated, err := handler.service.RecordTechnicalFailure(
+		ctx,
+		actor,
+		competition.RecordTechnicalFailureInput{
+			EventID: int(request.Msg.GetEventId()), SessionID: int(request.Msg.GetSessionId()),
+			EntryID: int(request.Msg.GetEntryId()), CommandID: request.Msg.GetCommandId(),
+			ExpectedRevision: int(request.Msg.GetExpectedRevision()), Reason: request.Msg.GetReason(),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(
+		&competitionv1.RecordTechnicalFailureResponse{Entry: entry(updated)},
+	), nil
+}
+
+// ResolveEntry records a Producer's final result, visibility, and hold decision.
+func (handler *Handler) ResolveEntry(
+	ctx context.Context,
+	request *connect.Request[competitionv1.ResolveEntryRequest],
+) (*connect.Response[competitionv1.ResolveEntryResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	updated, err := handler.service.ResolveEntry(ctx, actor, competition.ResolveEntryInput{
+		EventID: int(request.Msg.GetEventId()), SessionID: int(request.Msg.GetSessionId()),
+		EntryID: int(request.Msg.GetEntryId()), CommandID: request.Msg.GetCommandId(),
+		ExpectedRevision:              int(request.Msg.GetExpectedRevision()),
+		ResultDisposition:             resultDispositionFromProto(request.Msg.GetDisposition()),
+		CrewReason:                    request.Msg.GetCrewReason(),
+		PublicDisqualificationMessage: request.Msg.GetPublicDisqualificationMessage(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&competitionv1.ResolveEntryResponse{Entry: entry(updated)}), nil
+}
+
 // SetEntryAttachmentReadiness changes Final and Primary independently.
 func (handler *Handler) SetEntryAttachmentReadiness(
 	ctx context.Context,
@@ -353,15 +429,52 @@ func orderInts(values []int64) []int {
 }
 
 func entry(found competition.Entry) *competitionv1.Entry {
-	return &competitionv1.Entry{
+	result := &competitionv1.Entry{
 		Id: int64(found.ID), CompetitionSessionId: int64(found.CompetitionSessionID),
 		Name: found.Name, PublicDetails: found.PublicDetails, CrewNotes: found.CrewNotes,
 		Disposition: disposition(found.Disposition), Revision: int64(found.Revision),
-		CreatedAt:       timestamppb.New(found.CreatedAt),
-		Participating:   found.Disposition == competition.DispositionIncluded,
-		ContentRevision: int64(found.ContentRevision),
-		ReviewCurrent:   found.ReviewCurrent,
+		CreatedAt:                     timestamppb.New(found.CreatedAt),
+		Participating:                 found.Disposition == competition.DispositionIncluded,
+		ContentRevision:               int64(found.ContentRevision),
+		ReviewCurrent:                 found.ReviewCurrent,
+		PresentationStatus:            presentationStatus(found.PresentationStatus),
+		DeferredSequence:              int64(found.DeferredSequence),
+		ResolutionRequired:            found.ResolutionRequired,
+		ResultDisposition:             resultDisposition(found.ResultDisposition),
+		TechnicalFailureReason:        found.TechnicalFailureReason,
+		ResolutionCrewReason:          found.ResolutionCrewReason,
+		PublicDisqualificationMessage: found.PublicDisqualificationMessage,
+		ReleaseHold:                   found.ReleaseHold,
 	}
+	if !found.FirstPresentedAt.IsZero() {
+		result.FirstPresentedAt = timestamppb.New(found.FirstPresentedAt)
+	}
+	return result
+}
+
+func presentationStatus(value string) competitionv1.EntryPresentationStatus {
+	return map[string]competitionv1.EntryPresentationStatus{
+		"Scheduled":    competitionv1.EntryPresentationStatus_ENTRY_PRESENTATION_STATUS_SCHEDULED,
+		"Deferred":     competitionv1.EntryPresentationStatus_ENTRY_PRESENTATION_STATUS_DEFERRED,
+		"Presented":    competitionv1.EntryPresentationStatus_ENTRY_PRESENTATION_STATUS_PRESENTED,
+		"NotPresented": competitionv1.EntryPresentationStatus_ENTRY_PRESENTATION_STATUS_NOT_PRESENTED,
+	}[value]
+}
+
+func resultDisposition(value string) competitionv1.EntryResultDisposition {
+	return map[string]competitionv1.EntryResultDisposition{
+		"Eligible":     competitionv1.EntryResultDisposition_ENTRY_RESULT_DISPOSITION_ELIGIBLE,
+		"Disqualified": competitionv1.EntryResultDisposition_ENTRY_RESULT_DISPOSITION_DISQUALIFIED,
+		"Withheld":     competitionv1.EntryResultDisposition_ENTRY_RESULT_DISPOSITION_WITHHELD,
+	}[value]
+}
+
+func resultDispositionFromProto(value competitionv1.EntryResultDisposition) string {
+	return map[competitionv1.EntryResultDisposition]string{
+		competitionv1.EntryResultDisposition_ENTRY_RESULT_DISPOSITION_ELIGIBLE:     "Eligible",
+		competitionv1.EntryResultDisposition_ENTRY_RESULT_DISPOSITION_DISQUALIFIED: "Disqualified",
+		competitionv1.EntryResultDisposition_ENTRY_RESULT_DISPOSITION_WITHHELD:     "Withheld",
+	}[value]
 }
 
 func disposition(value competition.Disposition) rundownv1.EntryDisposition {
@@ -384,9 +497,13 @@ func connectError(err error) error {
 	switch {
 	case errors.Is(err, competition.ErrProducerRequired):
 		return connect.NewError(connect.CodePermissionDenied, err)
+	case errors.Is(err, competition.ErrOperatorRequired):
+		return connect.NewError(connect.CodePermissionDenied, err)
 	case errors.Is(err, competition.ErrCompetitionNotFound), errors.Is(err, competition.ErrEntryNotFound):
 		return connect.NewError(connect.CodeNotFound, err)
 	case errors.Is(err, competition.ErrSubmissionClosed), errors.Is(err, competition.ErrLiveDispositionConfirmation):
+		return connect.NewError(connect.CodeFailedPrecondition, err)
+	case errors.Is(err, competition.ErrEntryResolution):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, competition.ErrEntryOrderLocked),
 		errors.Is(err, competition.ErrPresentedEntryDisposition):
@@ -399,7 +516,7 @@ func connectError(err error) error {
 		errors.Is(err, competition.ErrCommandConflict):
 		return connect.NewError(connect.CodeAborted, err)
 	case errors.Is(err, command.ErrInvalidID), errors.Is(err, competition.ErrInvalidInput),
-		errors.Is(err, competition.ErrEntryOrderInvalid):
+		errors.Is(err, competition.ErrEntryOrderInvalid), errors.Is(err, competition.ErrCrewReasonRequired):
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	default:
 		return connect.NewError(connect.CodeInternal, errors.New("competition request failed"))

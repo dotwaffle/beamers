@@ -45,6 +45,9 @@ const (
 	// ProgramControlServiceTakeProcedure is the fully-qualified name of the ProgramControlService's
 	// Take RPC.
 	ProgramControlServiceTakeProcedure = "/beamers.program.v1.ProgramControlService/Take"
+	// ProgramControlServiceDeferEntryProcedure is the fully-qualified name of the
+	// ProgramControlService's DeferEntry RPC.
+	ProgramControlServiceDeferEntryProcedure = "/beamers.program.v1.ProgramControlService/DeferEntry"
 )
 
 // ProgramControlServiceClient is a client for the beamers.program.v1.ProgramControlService service.
@@ -53,6 +56,7 @@ type ProgramControlServiceClient interface {
 	ChangeControl(context.Context, *connect.Request[v1.ChangeControlRequest]) (*connect.Response[v1.ChangeControlResponse], error)
 	SelectPreview(context.Context, *connect.Request[v1.SelectPreviewRequest]) (*connect.Response[v1.SelectPreviewResponse], error)
 	Take(context.Context, *connect.Request[v1.TakeRequest]) (*connect.Response[v1.TakeResponse], error)
+	DeferEntry(context.Context, *connect.Request[v1.DeferEntryRequest]) (*connect.Response[v1.DeferEntryResponse], error)
 }
 
 // NewProgramControlServiceClient constructs a client for the
@@ -90,6 +94,12 @@ func NewProgramControlServiceClient(httpClient connect.HTTPClient, baseURL strin
 			connect.WithSchema(programControlServiceMethods.ByName("Take")),
 			connect.WithClientOptions(opts...),
 		),
+		deferEntry: connect.NewClient[v1.DeferEntryRequest, v1.DeferEntryResponse](
+			httpClient,
+			baseURL+ProgramControlServiceDeferEntryProcedure,
+			connect.WithSchema(programControlServiceMethods.ByName("DeferEntry")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -99,6 +109,7 @@ type programControlServiceClient struct {
 	changeControl     *connect.Client[v1.ChangeControlRequest, v1.ChangeControlResponse]
 	selectPreview     *connect.Client[v1.SelectPreviewRequest, v1.SelectPreviewResponse]
 	take              *connect.Client[v1.TakeRequest, v1.TakeResponse]
+	deferEntry        *connect.Client[v1.DeferEntryRequest, v1.DeferEntryResponse]
 }
 
 // GetProgramChannel calls beamers.program.v1.ProgramControlService.GetProgramChannel.
@@ -121,6 +132,11 @@ func (c *programControlServiceClient) Take(ctx context.Context, req *connect.Req
 	return c.take.CallUnary(ctx, req)
 }
 
+// DeferEntry calls beamers.program.v1.ProgramControlService.DeferEntry.
+func (c *programControlServiceClient) DeferEntry(ctx context.Context, req *connect.Request[v1.DeferEntryRequest]) (*connect.Response[v1.DeferEntryResponse], error) {
+	return c.deferEntry.CallUnary(ctx, req)
+}
+
 // ProgramControlServiceHandler is an implementation of the beamers.program.v1.ProgramControlService
 // service.
 type ProgramControlServiceHandler interface {
@@ -128,6 +144,7 @@ type ProgramControlServiceHandler interface {
 	ChangeControl(context.Context, *connect.Request[v1.ChangeControlRequest]) (*connect.Response[v1.ChangeControlResponse], error)
 	SelectPreview(context.Context, *connect.Request[v1.SelectPreviewRequest]) (*connect.Response[v1.SelectPreviewResponse], error)
 	Take(context.Context, *connect.Request[v1.TakeRequest]) (*connect.Response[v1.TakeResponse], error)
+	DeferEntry(context.Context, *connect.Request[v1.DeferEntryRequest]) (*connect.Response[v1.DeferEntryResponse], error)
 }
 
 // NewProgramControlServiceHandler builds an HTTP handler from the service implementation. It
@@ -161,6 +178,12 @@ func NewProgramControlServiceHandler(svc ProgramControlServiceHandler, opts ...c
 		connect.WithSchema(programControlServiceMethods.ByName("Take")),
 		connect.WithHandlerOptions(opts...),
 	)
+	programControlServiceDeferEntryHandler := connect.NewUnaryHandler(
+		ProgramControlServiceDeferEntryProcedure,
+		svc.DeferEntry,
+		connect.WithSchema(programControlServiceMethods.ByName("DeferEntry")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/beamers.program.v1.ProgramControlService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ProgramControlServiceGetProgramChannelProcedure:
@@ -171,6 +194,8 @@ func NewProgramControlServiceHandler(svc ProgramControlServiceHandler, opts ...c
 			programControlServiceSelectPreviewHandler.ServeHTTP(w, r)
 		case ProgramControlServiceTakeProcedure:
 			programControlServiceTakeHandler.ServeHTTP(w, r)
+		case ProgramControlServiceDeferEntryProcedure:
+			programControlServiceDeferEntryHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -194,4 +219,8 @@ func (UnimplementedProgramControlServiceHandler) SelectPreview(context.Context, 
 
 func (UnimplementedProgramControlServiceHandler) Take(context.Context, *connect.Request[v1.TakeRequest]) (*connect.Response[v1.TakeResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.program.v1.ProgramControlService.Take is not implemented"))
+}
+
+func (UnimplementedProgramControlServiceHandler) DeferEntry(context.Context, *connect.Request[v1.DeferEntryRequest]) (*connect.Response[v1.DeferEntryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.program.v1.ProgramControlService.DeferEntry is not implemented"))
 }

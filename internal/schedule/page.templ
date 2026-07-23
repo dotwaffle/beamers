@@ -128,6 +128,12 @@ templ SessionDetails(session Session) {
 		for _, entry := range session.CompetitionEntries {
 			<article class="competition-entry">
 				<h3>{ entry.Name }</h3>
+				if entry.ResultDisposition == "Disqualified" {
+					<p><strong>Disqualified</strong></p>
+					if entry.PublicDisqualificationMessage != "" {
+						<p>{ entry.PublicDisqualificationMessage }</p>
+					}
+				}
 				if entry.PublicDetails != "" {
 					<p>{ entry.PublicDetails }</p>
 				}

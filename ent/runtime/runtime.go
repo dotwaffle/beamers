@@ -545,14 +545,38 @@ func init() {
 	competitionentryDescReviewedByAccountID := competitionentryFields[9].Descriptor()
 	// competitionentry.ReviewedByAccountIDValidator is a validator for the "reviewed_by_account_id" field. It is called by the builders before save.
 	competitionentry.ReviewedByAccountIDValidator = competitionentryDescReviewedByAccountID.Validators[0].(func(int) error)
+	// competitionentryDescDeferredSequence is the schema descriptor for deferred_sequence field.
+	competitionentryDescDeferredSequence := competitionentryFields[13].Descriptor()
+	// competitionentry.DeferredSequenceValidator is a validator for the "deferred_sequence" field. It is called by the builders before save.
+	competitionentry.DeferredSequenceValidator = competitionentryDescDeferredSequence.Validators[0].(func(int) error)
+	// competitionentryDescResolutionRequired is the schema descriptor for resolution_required field.
+	competitionentryDescResolutionRequired := competitionentryFields[14].Descriptor()
+	// competitionentry.DefaultResolutionRequired holds the default value on creation for the resolution_required field.
+	competitionentry.DefaultResolutionRequired = competitionentryDescResolutionRequired.Default.(bool)
+	// competitionentryDescTechnicalFailureReason is the schema descriptor for technical_failure_reason field.
+	competitionentryDescTechnicalFailureReason := competitionentryFields[16].Descriptor()
+	// competitionentry.TechnicalFailureReasonValidator is a validator for the "technical_failure_reason" field. It is called by the builders before save.
+	competitionentry.TechnicalFailureReasonValidator = competitionentryDescTechnicalFailureReason.Validators[0].(func(string) error)
+	// competitionentryDescResolutionCrewReason is the schema descriptor for resolution_crew_reason field.
+	competitionentryDescResolutionCrewReason := competitionentryFields[17].Descriptor()
+	// competitionentry.ResolutionCrewReasonValidator is a validator for the "resolution_crew_reason" field. It is called by the builders before save.
+	competitionentry.ResolutionCrewReasonValidator = competitionentryDescResolutionCrewReason.Validators[0].(func(string) error)
+	// competitionentryDescPublicDisqualificationMessage is the schema descriptor for public_disqualification_message field.
+	competitionentryDescPublicDisqualificationMessage := competitionentryFields[18].Descriptor()
+	// competitionentry.PublicDisqualificationMessageValidator is a validator for the "public_disqualification_message" field. It is called by the builders before save.
+	competitionentry.PublicDisqualificationMessageValidator = competitionentryDescPublicDisqualificationMessage.Validators[0].(func(string) error)
+	// competitionentryDescReleaseHold is the schema descriptor for release_hold field.
+	competitionentryDescReleaseHold := competitionentryFields[19].Descriptor()
+	// competitionentry.DefaultReleaseHold holds the default value on creation for the release_hold field.
+	competitionentry.DefaultReleaseHold = competitionentryDescReleaseHold.Default.(bool)
 	// competitionentryDescRevision is the schema descriptor for revision field.
-	competitionentryDescRevision := competitionentryFields[12].Descriptor()
+	competitionentryDescRevision := competitionentryFields[20].Descriptor()
 	// competitionentry.DefaultRevision holds the default value on creation for the revision field.
 	competitionentry.DefaultRevision = competitionentryDescRevision.Default.(int)
 	// competitionentry.RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
 	competitionentry.RevisionValidator = competitionentryDescRevision.Validators[0].(func(int) error)
 	// competitionentryDescCreatedAt is the schema descriptor for created_at field.
-	competitionentryDescCreatedAt := competitionentryFields[13].Descriptor()
+	competitionentryDescCreatedAt := competitionentryFields[21].Descriptor()
 	// competitionentry.DefaultCreatedAt holds the default value on creation for the created_at field.
 	competitionentry.DefaultCreatedAt = competitionentryDescCreatedAt.Default.(func() time.Time)
 	display.Policy = privacy.NewPolicies(schema.Display{})

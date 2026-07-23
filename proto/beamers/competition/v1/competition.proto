@@ -18,6 +18,9 @@ service CompetitionService {
   rpc PreflightStart(PreflightStartRequest) returns (PreflightStartResponse);
   rpc ConfigureEntryOrder(ConfigureEntryOrderRequest) returns (ConfigureEntryOrderResponse);
   rpc PreviewEntryOrder(PreviewEntryOrderRequest) returns (PreviewEntryOrderResponse);
+  rpc RecordTechnicalFailure(RecordTechnicalFailureRequest) returns (RecordTechnicalFailureResponse);
+  rpc ResolveEntry(ResolveEntryRequest) returns (ResolveEntryResponse);
+  rpc PreflightEnd(PreflightEndRequest) returns (PreflightEndResponse);
 }
 
 enum EntryOrderPolicy {
@@ -39,6 +42,30 @@ message Entry {
   bool participating = 9;
   int64 content_revision = 10;
   bool review_current = 11;
+  EntryPresentationStatus presentation_status = 12;
+  int64 deferred_sequence = 13;
+  bool resolution_required = 14;
+  EntryResultDisposition result_disposition = 15;
+  string technical_failure_reason = 16;
+  string resolution_crew_reason = 17;
+  string public_disqualification_message = 18;
+  bool release_hold = 19;
+  google.protobuf.Timestamp first_presented_at = 20;
+}
+
+enum EntryPresentationStatus {
+  ENTRY_PRESENTATION_STATUS_UNSPECIFIED = 0;
+  ENTRY_PRESENTATION_STATUS_SCHEDULED = 1;
+  ENTRY_PRESENTATION_STATUS_DEFERRED = 2;
+  ENTRY_PRESENTATION_STATUS_PRESENTED = 3;
+  ENTRY_PRESENTATION_STATUS_NOT_PRESENTED = 4;
+}
+
+enum EntryResultDisposition {
+  ENTRY_RESULT_DISPOSITION_UNSPECIFIED = 0;
+  ENTRY_RESULT_DISPOSITION_ELIGIBLE = 1;
+  ENTRY_RESULT_DISPOSITION_DISQUALIFIED = 2;
+  ENTRY_RESULT_DISPOSITION_WITHHELD = 3;
 }
 
 message GetCompetitionRequest {
@@ -56,6 +83,8 @@ message GetCompetitionResponse {
   bool file_delivery_required = 7;
   int64 readiness_revision = 8;
   EntryOrderState entry_order = 9;
+  bool results_ready = 10;
+  bool release_ready = 11;
 }
 
 message ConfigureReadinessRequest {
@@ -203,4 +232,43 @@ message PreviewEntryOrderRequest {
 message PreviewEntryOrderResponse {
   EntryOrderState entry_order = 1;
   string fingerprint = 2;
+}
+
+message RecordTechnicalFailureRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  int64 entry_id = 3;
+  string command_id = 4;
+  int64 expected_revision = 5;
+  string reason = 6;
+}
+
+message RecordTechnicalFailureResponse {
+  Entry entry = 1;
+}
+
+message ResolveEntryRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  int64 entry_id = 3;
+  string command_id = 4;
+  int64 expected_revision = 5;
+  EntryResultDisposition disposition = 6;
+  string crew_reason = 7;
+  string public_disqualification_message = 8;
+}
+
+message ResolveEntryResponse {
+  Entry entry = 1;
+}
+
+message PreflightEndRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+}
+
+message PreflightEndResponse {
+  repeated Entry deferred_entries = 1;
+  string fingerprint = 2;
+  bool requires_confirmation = 3;
 }

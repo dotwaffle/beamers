@@ -21,6 +21,8 @@ import (
 var (
 	// ErrProducerRequired means a Competition command lacked Producer authority.
 	ErrProducerRequired = errors.New("producer authority required")
+	// ErrOperatorRequired means a live Competition command lacked Operator authority.
+	ErrOperatorRequired = errors.New("operator authority required")
 	// ErrCompetitionNotFound means no published Competition matched the stable IDs.
 	ErrCompetitionNotFound = store.ErrCompetitionNotFound
 	// ErrSubmissionClosed means the fixed Deadline has arrived.
@@ -49,6 +51,10 @@ var (
 	ErrCommandConflict = store.ErrCommandConflict
 	// ErrInvalidInput means a Competition request contains unsafe values.
 	ErrInvalidInput = errors.New("invalid Competition input")
+	// ErrEntryResolution means a final Entry resolution is invalid.
+	ErrEntryResolution = store.ErrCompetitionResolution
+	// ErrCrewReasonRequired means an exception omitted its durable Crew Reason.
+	ErrCrewReasonRequired = store.ErrCompetitionCrewReason
 )
 
 // Disposition controls whether an Entry participates.
@@ -65,16 +71,25 @@ const (
 
 // Entry is one retained Competition submission.
 type Entry struct {
-	ID                   int
-	CompetitionSessionID int
-	Name                 string
-	PublicDetails        string
-	CrewNotes            string
-	Disposition          Disposition
-	Revision             int
-	ContentRevision      int
-	ReviewCurrent        bool
-	CreatedAt            time.Time
+	ID                            int
+	CompetitionSessionID          int
+	Name                          string
+	PublicDetails                 string
+	CrewNotes                     string
+	Disposition                   Disposition
+	Revision                      int
+	ContentRevision               int
+	ReviewCurrent                 bool
+	PresentationStatus            string
+	DeferredSequence              int
+	ResolutionRequired            bool
+	ResultDisposition             string
+	TechnicalFailureReason        string
+	ResolutionCrewReason          string
+	PublicDisqualificationMessage string
+	ReleaseHold                   bool
+	FirstPresentedAt              time.Time
+	CreatedAt                     time.Time
 }
 
 // State is current fixed Competition configuration and retained Entries.
@@ -88,6 +103,8 @@ type State struct {
 	ReadinessRevision           int
 	EntryOrder                  EntryOrder
 	Entries                     []Entry
+	ResultsReady                bool
+	ReleaseReady                bool
 }
 
 // EntryOrderPolicy selects the canonical Included Entry sequence.
@@ -205,6 +222,31 @@ type SetEntryAttachmentReadinessInput struct {
 	Primary             bool   `json:"primary"`
 }
 
+// RecordTechnicalFailureInput records cause without deciding the Entry result.
+type RecordTechnicalFailureInput struct {
+	EventID, SessionID, EntryID int
+	CommandID                   string
+	ExpectedRevision            int
+	Reason                      string
+}
+
+// ResolveEntryInput records one final result, visibility, and hold decision.
+type ResolveEntryInput struct {
+	EventID, SessionID, EntryID   int
+	CommandID                     string
+	ExpectedRevision              int
+	ResultDisposition             string
+	CrewReason                    string
+	PublicDisqualificationMessage string
+}
+
+// EndPreflight is the warned deferred set bound to current revisions.
+type EndPreflight struct {
+	DeferredEntries      []Entry
+	Fingerprint          string
+	RequiresConfirmation bool
+}
+
 // AttachmentReadiness is current Final and Primary state.
 type AttachmentReadiness struct {
 	AttachmentVersionID int
@@ -278,6 +320,33 @@ func (service *Service) PreflightStart(
 	}
 	for _, attachment := range stored.Attachments {
 		result.Attachments = append(result.Attachments, attachmentReadiness(attachment))
+	}
+	return result, nil
+}
+
+// PreflightEnd returns the exact deferred Entries requiring warned confirmation.
+func (service *Service) PreflightEnd(
+	ctx context.Context,
+	actor auth.Account,
+	eventID, sessionID int,
+) (EndPreflight, error) {
+	if eventID <= 0 || sessionID <= 0 {
+		return EndPreflight{}, ErrInvalidInput
+	}
+	if !actor.CanOperateEvent(eventID) {
+		return EndPreflight{}, ErrOperatorRequired
+	}
+	stored, err := service.storage.PreflightCompetitionEnd(actor.Context(ctx), eventID, sessionID)
+	if err != nil {
+		return EndPreflight{}, err
+	}
+	result := EndPreflight{
+		DeferredEntries:      make([]Entry, 0, len(stored.DeferredEntries)),
+		Fingerprint:          stored.Fingerprint,
+		RequiresConfirmation: stored.RequiresConfirmation,
+	}
+	for _, deferred := range stored.DeferredEntries {
+		result.DeferredEntries = append(result.DeferredEntries, entry(deferred))
 	}
 	return result, nil
 }
@@ -532,6 +601,90 @@ func (service *Service) ReviewEntry(
 	)
 }
 
+// RecordTechnicalFailure records a reason without deciding judging or release.
+func (service *Service) RecordTechnicalFailure(
+	ctx context.Context,
+	actor auth.Account,
+	input RecordTechnicalFailureInput,
+) (Entry, error) {
+	input.Reason = strings.TrimSpace(input.Reason)
+	if err := validateExceptionCommand(
+		input.EventID,
+		input.SessionID,
+		input.EntryID,
+		input.ExpectedRevision,
+		input.CommandID,
+	); err != nil {
+		return Entry{}, err
+	}
+	if input.Reason == "" || !boundedText(input.Reason, 10000) {
+		return Entry{}, ErrCrewReasonRequired
+	}
+	return service.executeOperator(
+		ctx,
+		actor,
+		input.EventID,
+		input.CommandID,
+		"RecordCompetitionTechnicalFailure",
+		strconv.Itoa(input.EntryID),
+		input,
+		func(transaction *store.CommandTx, _ time.Time) (store.CompetitionEntry, error) {
+			return transaction.RecordCompetitionTechnicalFailure(
+				actor.Context(ctx),
+				store.TechnicalFailureParams{
+					EventID: input.EventID, SessionID: input.SessionID, EntryID: input.EntryID,
+					ExpectedRevision: input.ExpectedRevision, Reason: input.Reason,
+				},
+			)
+		},
+	)
+}
+
+// ResolveEntry records a Producer's final result, visibility, and hold decision.
+func (service *Service) ResolveEntry(
+	ctx context.Context,
+	actor auth.Account,
+	input ResolveEntryInput,
+) (Entry, error) {
+	input.CrewReason = strings.TrimSpace(input.CrewReason)
+	input.PublicDisqualificationMessage = strings.TrimSpace(input.PublicDisqualificationMessage)
+	if err := validateExceptionCommand(
+		input.EventID,
+		input.SessionID,
+		input.EntryID,
+		input.ExpectedRevision,
+		input.CommandID,
+	); err != nil {
+		return Entry{}, err
+	}
+	if input.CrewReason == "" ||
+		!boundedText(input.CrewReason, 10000) ||
+		!boundedText(input.PublicDisqualificationMessage, 10000) {
+		return Entry{}, ErrCrewReasonRequired
+	}
+	return service.execute(
+		ctx,
+		actor,
+		input.EventID,
+		input.CommandID,
+		"ResolveCompetitionEntry",
+		strconv.Itoa(input.EntryID),
+		input,
+		func(transaction *store.CommandTx, _ time.Time) (store.CompetitionEntry, error) {
+			return transaction.ResolveCompetitionEntry(
+				actor.Context(ctx),
+				store.ResolveCompetitionEntryParams{
+					EventID: input.EventID, SessionID: input.SessionID, EntryID: input.EntryID,
+					ExpectedRevision:              input.ExpectedRevision,
+					ResultDisposition:             input.ResultDisposition,
+					CrewReason:                    input.CrewReason,
+					PublicDisqualificationMessage: input.PublicDisqualificationMessage,
+				},
+			)
+		},
+	)
+}
+
 // SetEntryAttachmentReadiness changes Final and Primary independently.
 func (service *Service) SetEntryAttachmentReadiness(
 	ctx context.Context,
@@ -596,6 +749,36 @@ func (service *Service) execute(
 	payload any,
 	apply func(*store.CommandTx, time.Time) (store.CompetitionEntry, error),
 ) (Entry, error) {
+	return service.executeEntryCommand(
+		ctx, actor, eventID, commandID, action, targetID, payload,
+		actor.CanProduceEvent, ErrProducerRequired, apply,
+	)
+}
+
+func (service *Service) executeOperator(
+	ctx context.Context,
+	actor auth.Account,
+	eventID int,
+	commandID, action, targetID string,
+	payload any,
+	apply func(*store.CommandTx, time.Time) (store.CompetitionEntry, error),
+) (Entry, error) {
+	return service.executeEntryCommand(
+		ctx, actor, eventID, commandID, action, targetID, payload,
+		actor.CanOperateEvent, ErrOperatorRequired, apply,
+	)
+}
+
+func (service *Service) executeEntryCommand(
+	ctx context.Context,
+	actor auth.Account,
+	eventID int,
+	commandID, action, targetID string,
+	payload any,
+	authorized func(int) bool,
+	authorizationError error,
+	apply func(*store.CommandTx, time.Time) (store.CompetitionEntry, error),
+) (Entry, error) {
 	encodedPayload, err := json.Marshal(payload)
 	if err != nil {
 		return Entry{}, errors.New("encode Competition Entry command")
@@ -614,8 +797,8 @@ func (service *Service) execute(
 			return entry(stored), nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Entry], error) {
-			if !actor.CanProduceEvent(eventID) {
-				return command.Execution[Entry]{}, ErrProducerRequired
+			if !authorized(eventID) {
+				return command.Execution[Entry]{}, authorizationError
 			}
 			stored, applyErr := apply(transaction, identity.Now)
 			if applyErr != nil {
@@ -629,6 +812,19 @@ func (service *Service) execute(
 				WithTargetID(strconv.Itoa(stored.ID)), nil
 		},
 	})
+}
+
+func validateExceptionCommand(
+	eventID, sessionID, entryID, expectedRevision int,
+	commandID string,
+) error {
+	if err := command.ValidateID(commandID); err != nil {
+		return err
+	}
+	if eventID <= 0 || sessionID <= 0 || entryID <= 0 || expectedRevision <= 0 {
+		return ErrInvalidInput
+	}
+	return nil
 }
 
 func validateEntryCommand(
@@ -676,6 +872,8 @@ func state(stored store.CompetitionState) State {
 		FileDeliveryRequired:        stored.FileDeliveryRequired,
 		ReadinessRevision:           stored.ReadinessRevision,
 		EntryOrder:                  entryOrder(stored.EntryOrder),
+		ResultsReady:                stored.ResultsReady,
+		ReleaseReady:                stored.ReleaseReady,
 		Entries:                     make([]Entry, 0, len(stored.Entries)),
 	}
 	for _, storedEntry := range stored.Entries {
@@ -697,7 +895,16 @@ func entry(stored store.CompetitionEntry) Entry {
 		Name: stored.Name, PublicDetails: stored.PublicDetails, CrewNotes: stored.CrewNotes,
 		Disposition: Disposition(stored.Disposition), Revision: stored.Revision,
 		ContentRevision: stored.ContentRevision, ReviewCurrent: stored.ReviewCurrent,
-		CreatedAt: stored.CreatedAt,
+		PresentationStatus:            stored.PresentationStatus,
+		DeferredSequence:              stored.DeferredSequence,
+		ResolutionRequired:            stored.ResolutionRequired,
+		ResultDisposition:             stored.ResultDisposition,
+		TechnicalFailureReason:        stored.TechnicalFailureReason,
+		ResolutionCrewReason:          stored.ResolutionCrewReason,
+		PublicDisqualificationMessage: stored.PublicDisqualificationMessage,
+		ReleaseHold:                   stored.ReleaseHold,
+		FirstPresentedAt:              stored.FirstPresentedAt,
+		CreatedAt:                     stored.CreatedAt,
 	}
 }
 

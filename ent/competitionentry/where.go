@@ -110,6 +110,36 @@ func FirstPresentedAt(v time.Time) predicate.CompetitionEntry {
 	return predicate.CompetitionEntry(sql.FieldEQ(FieldFirstPresentedAt, v))
 }
 
+// DeferredSequence applies equality check predicate on the "deferred_sequence" field. It's identical to DeferredSequenceEQ.
+func DeferredSequence(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldDeferredSequence, v))
+}
+
+// ResolutionRequired applies equality check predicate on the "resolution_required" field. It's identical to ResolutionRequiredEQ.
+func ResolutionRequired(v bool) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldResolutionRequired, v))
+}
+
+// TechnicalFailureReason applies equality check predicate on the "technical_failure_reason" field. It's identical to TechnicalFailureReasonEQ.
+func TechnicalFailureReason(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldTechnicalFailureReason, v))
+}
+
+// ResolutionCrewReason applies equality check predicate on the "resolution_crew_reason" field. It's identical to ResolutionCrewReasonEQ.
+func ResolutionCrewReason(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldResolutionCrewReason, v))
+}
+
+// PublicDisqualificationMessage applies equality check predicate on the "public_disqualification_message" field. It's identical to PublicDisqualificationMessageEQ.
+func PublicDisqualificationMessage(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldPublicDisqualificationMessage, v))
+}
+
+// ReleaseHold applies equality check predicate on the "release_hold" field. It's identical to ReleaseHoldEQ.
+func ReleaseHold(v bool) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldReleaseHold, v))
+}
+
 // Revision applies equality check predicate on the "revision" field. It's identical to RevisionEQ.
 func Revision(v int) predicate.CompetitionEntry {
 	return predicate.CompetitionEntry(sql.FieldEQ(FieldRevision, v))
@@ -683,6 +713,341 @@ func FirstPresentedAtIsNil() predicate.CompetitionEntry {
 // FirstPresentedAtNotNil applies the NotNil predicate on the "first_presented_at" field.
 func FirstPresentedAtNotNil() predicate.CompetitionEntry {
 	return predicate.CompetitionEntry(sql.FieldNotNull(FieldFirstPresentedAt))
+}
+
+// PresentationStatusEQ applies the EQ predicate on the "presentation_status" field.
+func PresentationStatusEQ(v PresentationStatus) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldPresentationStatus, v))
+}
+
+// PresentationStatusNEQ applies the NEQ predicate on the "presentation_status" field.
+func PresentationStatusNEQ(v PresentationStatus) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNEQ(FieldPresentationStatus, v))
+}
+
+// PresentationStatusIn applies the In predicate on the "presentation_status" field.
+func PresentationStatusIn(vs ...PresentationStatus) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIn(FieldPresentationStatus, vs...))
+}
+
+// PresentationStatusNotIn applies the NotIn predicate on the "presentation_status" field.
+func PresentationStatusNotIn(vs ...PresentationStatus) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotIn(FieldPresentationStatus, vs...))
+}
+
+// DeferredSequenceEQ applies the EQ predicate on the "deferred_sequence" field.
+func DeferredSequenceEQ(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldDeferredSequence, v))
+}
+
+// DeferredSequenceNEQ applies the NEQ predicate on the "deferred_sequence" field.
+func DeferredSequenceNEQ(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNEQ(FieldDeferredSequence, v))
+}
+
+// DeferredSequenceIn applies the In predicate on the "deferred_sequence" field.
+func DeferredSequenceIn(vs ...int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIn(FieldDeferredSequence, vs...))
+}
+
+// DeferredSequenceNotIn applies the NotIn predicate on the "deferred_sequence" field.
+func DeferredSequenceNotIn(vs ...int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotIn(FieldDeferredSequence, vs...))
+}
+
+// DeferredSequenceGT applies the GT predicate on the "deferred_sequence" field.
+func DeferredSequenceGT(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldGT(FieldDeferredSequence, v))
+}
+
+// DeferredSequenceGTE applies the GTE predicate on the "deferred_sequence" field.
+func DeferredSequenceGTE(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldGTE(FieldDeferredSequence, v))
+}
+
+// DeferredSequenceLT applies the LT predicate on the "deferred_sequence" field.
+func DeferredSequenceLT(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldLT(FieldDeferredSequence, v))
+}
+
+// DeferredSequenceLTE applies the LTE predicate on the "deferred_sequence" field.
+func DeferredSequenceLTE(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldLTE(FieldDeferredSequence, v))
+}
+
+// DeferredSequenceIsNil applies the IsNil predicate on the "deferred_sequence" field.
+func DeferredSequenceIsNil() predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIsNull(FieldDeferredSequence))
+}
+
+// DeferredSequenceNotNil applies the NotNil predicate on the "deferred_sequence" field.
+func DeferredSequenceNotNil() predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotNull(FieldDeferredSequence))
+}
+
+// ResolutionRequiredEQ applies the EQ predicate on the "resolution_required" field.
+func ResolutionRequiredEQ(v bool) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldResolutionRequired, v))
+}
+
+// ResolutionRequiredNEQ applies the NEQ predicate on the "resolution_required" field.
+func ResolutionRequiredNEQ(v bool) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNEQ(FieldResolutionRequired, v))
+}
+
+// ResultDispositionEQ applies the EQ predicate on the "result_disposition" field.
+func ResultDispositionEQ(v ResultDisposition) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldResultDisposition, v))
+}
+
+// ResultDispositionNEQ applies the NEQ predicate on the "result_disposition" field.
+func ResultDispositionNEQ(v ResultDisposition) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNEQ(FieldResultDisposition, v))
+}
+
+// ResultDispositionIn applies the In predicate on the "result_disposition" field.
+func ResultDispositionIn(vs ...ResultDisposition) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIn(FieldResultDisposition, vs...))
+}
+
+// ResultDispositionNotIn applies the NotIn predicate on the "result_disposition" field.
+func ResultDispositionNotIn(vs ...ResultDisposition) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotIn(FieldResultDisposition, vs...))
+}
+
+// TechnicalFailureReasonEQ applies the EQ predicate on the "technical_failure_reason" field.
+func TechnicalFailureReasonEQ(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldTechnicalFailureReason, v))
+}
+
+// TechnicalFailureReasonNEQ applies the NEQ predicate on the "technical_failure_reason" field.
+func TechnicalFailureReasonNEQ(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNEQ(FieldTechnicalFailureReason, v))
+}
+
+// TechnicalFailureReasonIn applies the In predicate on the "technical_failure_reason" field.
+func TechnicalFailureReasonIn(vs ...string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIn(FieldTechnicalFailureReason, vs...))
+}
+
+// TechnicalFailureReasonNotIn applies the NotIn predicate on the "technical_failure_reason" field.
+func TechnicalFailureReasonNotIn(vs ...string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotIn(FieldTechnicalFailureReason, vs...))
+}
+
+// TechnicalFailureReasonGT applies the GT predicate on the "technical_failure_reason" field.
+func TechnicalFailureReasonGT(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldGT(FieldTechnicalFailureReason, v))
+}
+
+// TechnicalFailureReasonGTE applies the GTE predicate on the "technical_failure_reason" field.
+func TechnicalFailureReasonGTE(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldGTE(FieldTechnicalFailureReason, v))
+}
+
+// TechnicalFailureReasonLT applies the LT predicate on the "technical_failure_reason" field.
+func TechnicalFailureReasonLT(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldLT(FieldTechnicalFailureReason, v))
+}
+
+// TechnicalFailureReasonLTE applies the LTE predicate on the "technical_failure_reason" field.
+func TechnicalFailureReasonLTE(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldLTE(FieldTechnicalFailureReason, v))
+}
+
+// TechnicalFailureReasonContains applies the Contains predicate on the "technical_failure_reason" field.
+func TechnicalFailureReasonContains(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldContains(FieldTechnicalFailureReason, v))
+}
+
+// TechnicalFailureReasonHasPrefix applies the HasPrefix predicate on the "technical_failure_reason" field.
+func TechnicalFailureReasonHasPrefix(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldHasPrefix(FieldTechnicalFailureReason, v))
+}
+
+// TechnicalFailureReasonHasSuffix applies the HasSuffix predicate on the "technical_failure_reason" field.
+func TechnicalFailureReasonHasSuffix(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldHasSuffix(FieldTechnicalFailureReason, v))
+}
+
+// TechnicalFailureReasonIsNil applies the IsNil predicate on the "technical_failure_reason" field.
+func TechnicalFailureReasonIsNil() predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIsNull(FieldTechnicalFailureReason))
+}
+
+// TechnicalFailureReasonNotNil applies the NotNil predicate on the "technical_failure_reason" field.
+func TechnicalFailureReasonNotNil() predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotNull(FieldTechnicalFailureReason))
+}
+
+// TechnicalFailureReasonEqualFold applies the EqualFold predicate on the "technical_failure_reason" field.
+func TechnicalFailureReasonEqualFold(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEqualFold(FieldTechnicalFailureReason, v))
+}
+
+// TechnicalFailureReasonContainsFold applies the ContainsFold predicate on the "technical_failure_reason" field.
+func TechnicalFailureReasonContainsFold(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldContainsFold(FieldTechnicalFailureReason, v))
+}
+
+// ResolutionCrewReasonEQ applies the EQ predicate on the "resolution_crew_reason" field.
+func ResolutionCrewReasonEQ(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldResolutionCrewReason, v))
+}
+
+// ResolutionCrewReasonNEQ applies the NEQ predicate on the "resolution_crew_reason" field.
+func ResolutionCrewReasonNEQ(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNEQ(FieldResolutionCrewReason, v))
+}
+
+// ResolutionCrewReasonIn applies the In predicate on the "resolution_crew_reason" field.
+func ResolutionCrewReasonIn(vs ...string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIn(FieldResolutionCrewReason, vs...))
+}
+
+// ResolutionCrewReasonNotIn applies the NotIn predicate on the "resolution_crew_reason" field.
+func ResolutionCrewReasonNotIn(vs ...string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotIn(FieldResolutionCrewReason, vs...))
+}
+
+// ResolutionCrewReasonGT applies the GT predicate on the "resolution_crew_reason" field.
+func ResolutionCrewReasonGT(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldGT(FieldResolutionCrewReason, v))
+}
+
+// ResolutionCrewReasonGTE applies the GTE predicate on the "resolution_crew_reason" field.
+func ResolutionCrewReasonGTE(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldGTE(FieldResolutionCrewReason, v))
+}
+
+// ResolutionCrewReasonLT applies the LT predicate on the "resolution_crew_reason" field.
+func ResolutionCrewReasonLT(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldLT(FieldResolutionCrewReason, v))
+}
+
+// ResolutionCrewReasonLTE applies the LTE predicate on the "resolution_crew_reason" field.
+func ResolutionCrewReasonLTE(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldLTE(FieldResolutionCrewReason, v))
+}
+
+// ResolutionCrewReasonContains applies the Contains predicate on the "resolution_crew_reason" field.
+func ResolutionCrewReasonContains(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldContains(FieldResolutionCrewReason, v))
+}
+
+// ResolutionCrewReasonHasPrefix applies the HasPrefix predicate on the "resolution_crew_reason" field.
+func ResolutionCrewReasonHasPrefix(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldHasPrefix(FieldResolutionCrewReason, v))
+}
+
+// ResolutionCrewReasonHasSuffix applies the HasSuffix predicate on the "resolution_crew_reason" field.
+func ResolutionCrewReasonHasSuffix(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldHasSuffix(FieldResolutionCrewReason, v))
+}
+
+// ResolutionCrewReasonIsNil applies the IsNil predicate on the "resolution_crew_reason" field.
+func ResolutionCrewReasonIsNil() predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIsNull(FieldResolutionCrewReason))
+}
+
+// ResolutionCrewReasonNotNil applies the NotNil predicate on the "resolution_crew_reason" field.
+func ResolutionCrewReasonNotNil() predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotNull(FieldResolutionCrewReason))
+}
+
+// ResolutionCrewReasonEqualFold applies the EqualFold predicate on the "resolution_crew_reason" field.
+func ResolutionCrewReasonEqualFold(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEqualFold(FieldResolutionCrewReason, v))
+}
+
+// ResolutionCrewReasonContainsFold applies the ContainsFold predicate on the "resolution_crew_reason" field.
+func ResolutionCrewReasonContainsFold(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldContainsFold(FieldResolutionCrewReason, v))
+}
+
+// PublicDisqualificationMessageEQ applies the EQ predicate on the "public_disqualification_message" field.
+func PublicDisqualificationMessageEQ(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldPublicDisqualificationMessage, v))
+}
+
+// PublicDisqualificationMessageNEQ applies the NEQ predicate on the "public_disqualification_message" field.
+func PublicDisqualificationMessageNEQ(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNEQ(FieldPublicDisqualificationMessage, v))
+}
+
+// PublicDisqualificationMessageIn applies the In predicate on the "public_disqualification_message" field.
+func PublicDisqualificationMessageIn(vs ...string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIn(FieldPublicDisqualificationMessage, vs...))
+}
+
+// PublicDisqualificationMessageNotIn applies the NotIn predicate on the "public_disqualification_message" field.
+func PublicDisqualificationMessageNotIn(vs ...string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotIn(FieldPublicDisqualificationMessage, vs...))
+}
+
+// PublicDisqualificationMessageGT applies the GT predicate on the "public_disqualification_message" field.
+func PublicDisqualificationMessageGT(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldGT(FieldPublicDisqualificationMessage, v))
+}
+
+// PublicDisqualificationMessageGTE applies the GTE predicate on the "public_disqualification_message" field.
+func PublicDisqualificationMessageGTE(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldGTE(FieldPublicDisqualificationMessage, v))
+}
+
+// PublicDisqualificationMessageLT applies the LT predicate on the "public_disqualification_message" field.
+func PublicDisqualificationMessageLT(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldLT(FieldPublicDisqualificationMessage, v))
+}
+
+// PublicDisqualificationMessageLTE applies the LTE predicate on the "public_disqualification_message" field.
+func PublicDisqualificationMessageLTE(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldLTE(FieldPublicDisqualificationMessage, v))
+}
+
+// PublicDisqualificationMessageContains applies the Contains predicate on the "public_disqualification_message" field.
+func PublicDisqualificationMessageContains(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldContains(FieldPublicDisqualificationMessage, v))
+}
+
+// PublicDisqualificationMessageHasPrefix applies the HasPrefix predicate on the "public_disqualification_message" field.
+func PublicDisqualificationMessageHasPrefix(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldHasPrefix(FieldPublicDisqualificationMessage, v))
+}
+
+// PublicDisqualificationMessageHasSuffix applies the HasSuffix predicate on the "public_disqualification_message" field.
+func PublicDisqualificationMessageHasSuffix(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldHasSuffix(FieldPublicDisqualificationMessage, v))
+}
+
+// PublicDisqualificationMessageIsNil applies the IsNil predicate on the "public_disqualification_message" field.
+func PublicDisqualificationMessageIsNil() predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIsNull(FieldPublicDisqualificationMessage))
+}
+
+// PublicDisqualificationMessageNotNil applies the NotNil predicate on the "public_disqualification_message" field.
+func PublicDisqualificationMessageNotNil() predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotNull(FieldPublicDisqualificationMessage))
+}
+
+// PublicDisqualificationMessageEqualFold applies the EqualFold predicate on the "public_disqualification_message" field.
+func PublicDisqualificationMessageEqualFold(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEqualFold(FieldPublicDisqualificationMessage, v))
+}
+
+// PublicDisqualificationMessageContainsFold applies the ContainsFold predicate on the "public_disqualification_message" field.
+func PublicDisqualificationMessageContainsFold(v string) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldContainsFold(FieldPublicDisqualificationMessage, v))
+}
+
+// ReleaseHoldEQ applies the EQ predicate on the "release_hold" field.
+func ReleaseHoldEQ(v bool) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldReleaseHold, v))
+}
+
+// ReleaseHoldNEQ applies the NEQ predicate on the "release_hold" field.
+func ReleaseHoldNEQ(v bool) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNEQ(FieldReleaseHold, v))
 }
 
 // RevisionEQ applies the EQ predicate on the "revision" field.

@@ -11,6 +11,7 @@ service ProgramControlService {
   rpc ChangeControl(ChangeControlRequest) returns (ChangeControlResponse);
   rpc SelectPreview(SelectPreviewRequest) returns (SelectPreviewResponse);
   rpc Take(TakeRequest) returns (TakeResponse);
+  rpc DeferEntry(DeferEntryRequest) returns (DeferEntryResponse);
 }
 
 enum ProgramItemKind {
@@ -26,6 +27,7 @@ message ProgramItem {
   ProgramItemKind kind = 1;
   int64 entry_id = 2;
   string title = 3;
+  bool retry = 4;
 }
 
 message ControlOwner {
@@ -113,5 +115,19 @@ message TakeRequest {
 }
 
 message TakeResponse {
+  ProgramChannel channel = 1;
+}
+
+message DeferEntryRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  int64 entry_id = 3;
+  string command_id = 4;
+  int64 expected_entry_revision = 5;
+  int64 expected_program_revision = 6;
+  int64 expected_control_state_revision = 7;
+}
+
+message DeferEntryResponse {
   ProgramChannel channel = 1;
 }

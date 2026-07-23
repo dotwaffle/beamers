@@ -63,6 +63,15 @@ const (
 	// CompetitionServicePreviewEntryOrderProcedure is the fully-qualified name of the
 	// CompetitionService's PreviewEntryOrder RPC.
 	CompetitionServicePreviewEntryOrderProcedure = "/beamers.competition.v1.CompetitionService/PreviewEntryOrder"
+	// CompetitionServiceRecordTechnicalFailureProcedure is the fully-qualified name of the
+	// CompetitionService's RecordTechnicalFailure RPC.
+	CompetitionServiceRecordTechnicalFailureProcedure = "/beamers.competition.v1.CompetitionService/RecordTechnicalFailure"
+	// CompetitionServiceResolveEntryProcedure is the fully-qualified name of the CompetitionService's
+	// ResolveEntry RPC.
+	CompetitionServiceResolveEntryProcedure = "/beamers.competition.v1.CompetitionService/ResolveEntry"
+	// CompetitionServicePreflightEndProcedure is the fully-qualified name of the CompetitionService's
+	// PreflightEnd RPC.
+	CompetitionServicePreflightEndProcedure = "/beamers.competition.v1.CompetitionService/PreflightEnd"
 )
 
 // CompetitionServiceClient is a client for the beamers.competition.v1.CompetitionService service.
@@ -77,6 +86,9 @@ type CompetitionServiceClient interface {
 	PreflightStart(context.Context, *connect.Request[v1.PreflightStartRequest]) (*connect.Response[v1.PreflightStartResponse], error)
 	ConfigureEntryOrder(context.Context, *connect.Request[v1.ConfigureEntryOrderRequest]) (*connect.Response[v1.ConfigureEntryOrderResponse], error)
 	PreviewEntryOrder(context.Context, *connect.Request[v1.PreviewEntryOrderRequest]) (*connect.Response[v1.PreviewEntryOrderResponse], error)
+	RecordTechnicalFailure(context.Context, *connect.Request[v1.RecordTechnicalFailureRequest]) (*connect.Response[v1.RecordTechnicalFailureResponse], error)
+	ResolveEntry(context.Context, *connect.Request[v1.ResolveEntryRequest]) (*connect.Response[v1.ResolveEntryResponse], error)
+	PreflightEnd(context.Context, *connect.Request[v1.PreflightEndRequest]) (*connect.Response[v1.PreflightEndResponse], error)
 }
 
 // NewCompetitionServiceClient constructs a client for the beamers.competition.v1.CompetitionService
@@ -150,6 +162,24 @@ func NewCompetitionServiceClient(httpClient connect.HTTPClient, baseURL string, 
 			connect.WithSchema(competitionServiceMethods.ByName("PreviewEntryOrder")),
 			connect.WithClientOptions(opts...),
 		),
+		recordTechnicalFailure: connect.NewClient[v1.RecordTechnicalFailureRequest, v1.RecordTechnicalFailureResponse](
+			httpClient,
+			baseURL+CompetitionServiceRecordTechnicalFailureProcedure,
+			connect.WithSchema(competitionServiceMethods.ByName("RecordTechnicalFailure")),
+			connect.WithClientOptions(opts...),
+		),
+		resolveEntry: connect.NewClient[v1.ResolveEntryRequest, v1.ResolveEntryResponse](
+			httpClient,
+			baseURL+CompetitionServiceResolveEntryProcedure,
+			connect.WithSchema(competitionServiceMethods.ByName("ResolveEntry")),
+			connect.WithClientOptions(opts...),
+		),
+		preflightEnd: connect.NewClient[v1.PreflightEndRequest, v1.PreflightEndResponse](
+			httpClient,
+			baseURL+CompetitionServicePreflightEndProcedure,
+			connect.WithSchema(competitionServiceMethods.ByName("PreflightEnd")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -165,6 +195,9 @@ type competitionServiceClient struct {
 	preflightStart              *connect.Client[v1.PreflightStartRequest, v1.PreflightStartResponse]
 	configureEntryOrder         *connect.Client[v1.ConfigureEntryOrderRequest, v1.ConfigureEntryOrderResponse]
 	previewEntryOrder           *connect.Client[v1.PreviewEntryOrderRequest, v1.PreviewEntryOrderResponse]
+	recordTechnicalFailure      *connect.Client[v1.RecordTechnicalFailureRequest, v1.RecordTechnicalFailureResponse]
+	resolveEntry                *connect.Client[v1.ResolveEntryRequest, v1.ResolveEntryResponse]
+	preflightEnd                *connect.Client[v1.PreflightEndRequest, v1.PreflightEndResponse]
 }
 
 // GetCompetition calls beamers.competition.v1.CompetitionService.GetCompetition.
@@ -218,6 +251,21 @@ func (c *competitionServiceClient) PreviewEntryOrder(ctx context.Context, req *c
 	return c.previewEntryOrder.CallUnary(ctx, req)
 }
 
+// RecordTechnicalFailure calls beamers.competition.v1.CompetitionService.RecordTechnicalFailure.
+func (c *competitionServiceClient) RecordTechnicalFailure(ctx context.Context, req *connect.Request[v1.RecordTechnicalFailureRequest]) (*connect.Response[v1.RecordTechnicalFailureResponse], error) {
+	return c.recordTechnicalFailure.CallUnary(ctx, req)
+}
+
+// ResolveEntry calls beamers.competition.v1.CompetitionService.ResolveEntry.
+func (c *competitionServiceClient) ResolveEntry(ctx context.Context, req *connect.Request[v1.ResolveEntryRequest]) (*connect.Response[v1.ResolveEntryResponse], error) {
+	return c.resolveEntry.CallUnary(ctx, req)
+}
+
+// PreflightEnd calls beamers.competition.v1.CompetitionService.PreflightEnd.
+func (c *competitionServiceClient) PreflightEnd(ctx context.Context, req *connect.Request[v1.PreflightEndRequest]) (*connect.Response[v1.PreflightEndResponse], error) {
+	return c.preflightEnd.CallUnary(ctx, req)
+}
+
 // CompetitionServiceHandler is an implementation of the beamers.competition.v1.CompetitionService
 // service.
 type CompetitionServiceHandler interface {
@@ -231,6 +279,9 @@ type CompetitionServiceHandler interface {
 	PreflightStart(context.Context, *connect.Request[v1.PreflightStartRequest]) (*connect.Response[v1.PreflightStartResponse], error)
 	ConfigureEntryOrder(context.Context, *connect.Request[v1.ConfigureEntryOrderRequest]) (*connect.Response[v1.ConfigureEntryOrderResponse], error)
 	PreviewEntryOrder(context.Context, *connect.Request[v1.PreviewEntryOrderRequest]) (*connect.Response[v1.PreviewEntryOrderResponse], error)
+	RecordTechnicalFailure(context.Context, *connect.Request[v1.RecordTechnicalFailureRequest]) (*connect.Response[v1.RecordTechnicalFailureResponse], error)
+	ResolveEntry(context.Context, *connect.Request[v1.ResolveEntryRequest]) (*connect.Response[v1.ResolveEntryResponse], error)
+	PreflightEnd(context.Context, *connect.Request[v1.PreflightEndRequest]) (*connect.Response[v1.PreflightEndResponse], error)
 }
 
 // NewCompetitionServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -300,6 +351,24 @@ func NewCompetitionServiceHandler(svc CompetitionServiceHandler, opts ...connect
 		connect.WithSchema(competitionServiceMethods.ByName("PreviewEntryOrder")),
 		connect.WithHandlerOptions(opts...),
 	)
+	competitionServiceRecordTechnicalFailureHandler := connect.NewUnaryHandler(
+		CompetitionServiceRecordTechnicalFailureProcedure,
+		svc.RecordTechnicalFailure,
+		connect.WithSchema(competitionServiceMethods.ByName("RecordTechnicalFailure")),
+		connect.WithHandlerOptions(opts...),
+	)
+	competitionServiceResolveEntryHandler := connect.NewUnaryHandler(
+		CompetitionServiceResolveEntryProcedure,
+		svc.ResolveEntry,
+		connect.WithSchema(competitionServiceMethods.ByName("ResolveEntry")),
+		connect.WithHandlerOptions(opts...),
+	)
+	competitionServicePreflightEndHandler := connect.NewUnaryHandler(
+		CompetitionServicePreflightEndProcedure,
+		svc.PreflightEnd,
+		connect.WithSchema(competitionServiceMethods.ByName("PreflightEnd")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/beamers.competition.v1.CompetitionService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CompetitionServiceGetCompetitionProcedure:
@@ -322,6 +391,12 @@ func NewCompetitionServiceHandler(svc CompetitionServiceHandler, opts ...connect
 			competitionServiceConfigureEntryOrderHandler.ServeHTTP(w, r)
 		case CompetitionServicePreviewEntryOrderProcedure:
 			competitionServicePreviewEntryOrderHandler.ServeHTTP(w, r)
+		case CompetitionServiceRecordTechnicalFailureProcedure:
+			competitionServiceRecordTechnicalFailureHandler.ServeHTTP(w, r)
+		case CompetitionServiceResolveEntryProcedure:
+			competitionServiceResolveEntryHandler.ServeHTTP(w, r)
+		case CompetitionServicePreflightEndProcedure:
+			competitionServicePreflightEndHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -369,4 +444,16 @@ func (UnimplementedCompetitionServiceHandler) ConfigureEntryOrder(context.Contex
 
 func (UnimplementedCompetitionServiceHandler) PreviewEntryOrder(context.Context, *connect.Request[v1.PreviewEntryOrderRequest]) (*connect.Response[v1.PreviewEntryOrderResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.competition.v1.CompetitionService.PreviewEntryOrder is not implemented"))
+}
+
+func (UnimplementedCompetitionServiceHandler) RecordTechnicalFailure(context.Context, *connect.Request[v1.RecordTechnicalFailureRequest]) (*connect.Response[v1.RecordTechnicalFailureResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.competition.v1.CompetitionService.RecordTechnicalFailure is not implemented"))
+}
+
+func (UnimplementedCompetitionServiceHandler) ResolveEntry(context.Context, *connect.Request[v1.ResolveEntryRequest]) (*connect.Response[v1.ResolveEntryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.competition.v1.CompetitionService.ResolveEntry is not implemented"))
+}
+
+func (UnimplementedCompetitionServiceHandler) PreflightEnd(context.Context, *connect.Request[v1.PreflightEndRequest]) (*connect.Response[v1.PreflightEndResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.competition.v1.CompetitionService.PreflightEnd is not implemented"))
 }

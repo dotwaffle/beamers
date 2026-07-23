@@ -143,6 +143,7 @@ type ProgramItem struct {
 	Kind          ProgramItemKind        `protobuf:"varint,1,opt,name=kind,proto3,enum=beamers.program.v1.ProgramItemKind" json:"kind,omitempty"`
 	EntryId       int64                  `protobuf:"varint,2,opt,name=entry_id,json=entryId,proto3" json:"entry_id,omitempty"`
 	Title         string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	Retry         bool                   `protobuf:"varint,4,opt,name=retry,proto3" json:"retry,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -196,6 +197,13 @@ func (x *ProgramItem) GetTitle() string {
 		return x.Title
 	}
 	return ""
+}
+
+func (x *ProgramItem) GetRetry() bool {
+	if x != nil {
+		return x.Retry
+	}
+	return false
 }
 
 type ControlOwner struct {
@@ -962,15 +970,152 @@ func (x *TakeResponse) GetChannel() *ProgramChannel {
 	return nil
 }
 
+type DeferEntryRequest struct {
+	state                        protoimpl.MessageState `protogen:"open.v1"`
+	EventId                      int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	SessionId                    int64                  `protobuf:"varint,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	EntryId                      int64                  `protobuf:"varint,3,opt,name=entry_id,json=entryId,proto3" json:"entry_id,omitempty"`
+	CommandId                    string                 `protobuf:"bytes,4,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
+	ExpectedEntryRevision        int64                  `protobuf:"varint,5,opt,name=expected_entry_revision,json=expectedEntryRevision,proto3" json:"expected_entry_revision,omitempty"`
+	ExpectedProgramRevision      int64                  `protobuf:"varint,6,opt,name=expected_program_revision,json=expectedProgramRevision,proto3" json:"expected_program_revision,omitempty"`
+	ExpectedControlStateRevision int64                  `protobuf:"varint,7,opt,name=expected_control_state_revision,json=expectedControlStateRevision,proto3" json:"expected_control_state_revision,omitempty"`
+	unknownFields                protoimpl.UnknownFields
+	sizeCache                    protoimpl.SizeCache
+}
+
+func (x *DeferEntryRequest) Reset() {
+	*x = DeferEntryRequest{}
+	mi := &file_beamers_program_v1_program_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeferEntryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeferEntryRequest) ProtoMessage() {}
+
+func (x *DeferEntryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_program_v1_program_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeferEntryRequest.ProtoReflect.Descriptor instead.
+func (*DeferEntryRequest) Descriptor() ([]byte, []int) {
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *DeferEntryRequest) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+func (x *DeferEntryRequest) GetSessionId() int64 {
+	if x != nil {
+		return x.SessionId
+	}
+	return 0
+}
+
+func (x *DeferEntryRequest) GetEntryId() int64 {
+	if x != nil {
+		return x.EntryId
+	}
+	return 0
+}
+
+func (x *DeferEntryRequest) GetCommandId() string {
+	if x != nil {
+		return x.CommandId
+	}
+	return ""
+}
+
+func (x *DeferEntryRequest) GetExpectedEntryRevision() int64 {
+	if x != nil {
+		return x.ExpectedEntryRevision
+	}
+	return 0
+}
+
+func (x *DeferEntryRequest) GetExpectedProgramRevision() int64 {
+	if x != nil {
+		return x.ExpectedProgramRevision
+	}
+	return 0
+}
+
+func (x *DeferEntryRequest) GetExpectedControlStateRevision() int64 {
+	if x != nil {
+		return x.ExpectedControlStateRevision
+	}
+	return 0
+}
+
+type DeferEntryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Channel       *ProgramChannel        `protobuf:"bytes,1,opt,name=channel,proto3" json:"channel,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeferEntryResponse) Reset() {
+	*x = DeferEntryResponse{}
+	mi := &file_beamers_program_v1_program_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeferEntryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeferEntryResponse) ProtoMessage() {}
+
+func (x *DeferEntryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_program_v1_program_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeferEntryResponse.ProtoReflect.Descriptor instead.
+func (*DeferEntryResponse) Descriptor() ([]byte, []int) {
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *DeferEntryResponse) GetChannel() *ProgramChannel {
+	if x != nil {
+		return x.Channel
+	}
+	return nil
+}
+
 var File_beamers_program_v1_program_proto protoreflect.FileDescriptor
 
 const file_beamers_program_v1_program_proto_rawDesc = "" +
 	"\n" +
-	" beamers/program/v1/program.proto\x12\x12beamers.program.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"w\n" +
+	" beamers/program/v1/program.proto\x12\x12beamers.program.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8d\x01\n" +
 	"\vProgramItem\x127\n" +
 	"\x04kind\x18\x01 \x01(\x0e2#.beamers.program.v1.ProgramItemKindR\x04kind\x12\x19\n" +
 	"\bentry_id\x18\x02 \x01(\x03R\aentryId\x12\x14\n" +
-	"\x05title\x18\x03 \x01(\tR\x05title\"_\n" +
+	"\x05title\x18\x03 \x01(\tR\x05title\x12\x14\n" +
+	"\x05retry\x18\x04 \x01(\bR\x05retry\"_\n" +
 	"\fControlOwner\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
@@ -1038,6 +1183,18 @@ const file_beamers_program_v1_program_proto_rawDesc = "" +
 	"\x17entry_order_fingerprint\x18\a \x01(\tR\x15entryOrderFingerprint\x12E\n" +
 	"\x1fexpected_control_state_revision\x18\b \x01(\x03R\x1cexpectedControlStateRevision\"L\n" +
 	"\fTakeResponse\x12<\n" +
+	"\achannel\x18\x01 \x01(\v2\".beamers.program.v1.ProgramChannelR\achannel\"\xc2\x02\n" +
+	"\x11DeferEntryRequest\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\x03R\tsessionId\x12\x19\n" +
+	"\bentry_id\x18\x03 \x01(\x03R\aentryId\x12\x1d\n" +
+	"\n" +
+	"command_id\x18\x04 \x01(\tR\tcommandId\x126\n" +
+	"\x17expected_entry_revision\x18\x05 \x01(\x03R\x15expectedEntryRevision\x12:\n" +
+	"\x19expected_program_revision\x18\x06 \x01(\x03R\x17expectedProgramRevision\x12E\n" +
+	"\x1fexpected_control_state_revision\x18\a \x01(\x03R\x1cexpectedControlStateRevision\"R\n" +
+	"\x12DeferEntryResponse\x12<\n" +
 	"\achannel\x18\x01 \x01(\v2\".beamers.program.v1.ProgramChannelR\achannel*\xce\x01\n" +
 	"\x0fProgramItemKind\x12!\n" +
 	"\x1dPROGRAM_ITEM_KIND_UNSPECIFIED\x10\x00\x12\x1d\n" +
@@ -1052,12 +1209,14 @@ const file_beamers_program_v1_program_proto_rawDesc = "" +
 	"\x1fCONTROL_ACTION_REQUEST_HANDOVER\x10\x02\x12\x1b\n" +
 	"\x17CONTROL_ACTION_HANDOVER\x10\x03\x12\x1b\n" +
 	"\x17CONTROL_ACTION_TAKEOVER\x10\x04\x12\x1d\n" +
-	"\x19CONTROL_ACTION_DISCONNECT\x10\x052\xa0\x03\n" +
+	"\x19CONTROL_ACTION_DISCONNECT\x10\x052\xfd\x03\n" +
 	"\x15ProgramControlService\x12p\n" +
 	"\x11GetProgramChannel\x12,.beamers.program.v1.GetProgramChannelRequest\x1a-.beamers.program.v1.GetProgramChannelResponse\x12d\n" +
 	"\rChangeControl\x12(.beamers.program.v1.ChangeControlRequest\x1a).beamers.program.v1.ChangeControlResponse\x12d\n" +
 	"\rSelectPreview\x12(.beamers.program.v1.SelectPreviewRequest\x1a).beamers.program.v1.SelectPreviewResponse\x12I\n" +
-	"\x04Take\x12\x1f.beamers.program.v1.TakeRequest\x1a .beamers.program.v1.TakeResponseB?Z=github.com/dotwaffle/beamers/gen/beamers/program/v1;programv1b\x06proto3"
+	"\x04Take\x12\x1f.beamers.program.v1.TakeRequest\x1a .beamers.program.v1.TakeResponse\x12[\n" +
+	"\n" +
+	"DeferEntry\x12%.beamers.program.v1.DeferEntryRequest\x1a&.beamers.program.v1.DeferEntryResponseB?Z=github.com/dotwaffle/beamers/gen/beamers/program/v1;programv1b\x06proto3"
 
 var (
 	file_beamers_program_v1_program_proto_rawDescOnce sync.Once
@@ -1072,7 +1231,7 @@ func file_beamers_program_v1_program_proto_rawDescGZIP() []byte {
 }
 
 var file_beamers_program_v1_program_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_beamers_program_v1_program_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_beamers_program_v1_program_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_beamers_program_v1_program_proto_goTypes = []any{
 	(ProgramItemKind)(0),              // 0: beamers.program.v1.ProgramItemKind
 	(ControlAction)(0),                // 1: beamers.program.v1.ControlAction
@@ -1088,7 +1247,9 @@ var file_beamers_program_v1_program_proto_goTypes = []any{
 	(*SelectPreviewResponse)(nil),     // 11: beamers.program.v1.SelectPreviewResponse
 	(*TakeRequest)(nil),               // 12: beamers.program.v1.TakeRequest
 	(*TakeResponse)(nil),              // 13: beamers.program.v1.TakeResponse
-	(*timestamppb.Timestamp)(nil),     // 14: google.protobuf.Timestamp
+	(*DeferEntryRequest)(nil),         // 14: beamers.program.v1.DeferEntryRequest
+	(*DeferEntryResponse)(nil),        // 15: beamers.program.v1.DeferEntryResponse
+	(*timestamppb.Timestamp)(nil),     // 16: google.protobuf.Timestamp
 }
 var file_beamers_program_v1_program_proto_depIdxs = []int32{
 	0,  // 0: beamers.program.v1.ProgramItem.kind:type_name -> beamers.program.v1.ProgramItemKind
@@ -1100,7 +1261,7 @@ var file_beamers_program_v1_program_proto_depIdxs = []int32{
 	2,  // 6: beamers.program.v1.ProgramChannel.preview:type_name -> beamers.program.v1.ProgramItem
 	2,  // 7: beamers.program.v1.ProgramChannel.program_output:type_name -> beamers.program.v1.ProgramItem
 	2,  // 8: beamers.program.v1.ProgramChannel.items:type_name -> beamers.program.v1.ProgramItem
-	14, // 9: beamers.program.v1.ProgramChannel.taken_at:type_name -> google.protobuf.Timestamp
+	16, // 9: beamers.program.v1.ProgramChannel.taken_at:type_name -> google.protobuf.Timestamp
 	4,  // 10: beamers.program.v1.ProgramChannel.consuming_displays:type_name -> beamers.program.v1.ConsumingDisplay
 	5,  // 11: beamers.program.v1.GetProgramChannelResponse.channel:type_name -> beamers.program.v1.ProgramChannel
 	1,  // 12: beamers.program.v1.ChangeControlRequest.action:type_name -> beamers.program.v1.ControlAction
@@ -1109,19 +1270,22 @@ var file_beamers_program_v1_program_proto_depIdxs = []int32{
 	5,  // 15: beamers.program.v1.SelectPreviewResponse.channel:type_name -> beamers.program.v1.ProgramChannel
 	2,  // 16: beamers.program.v1.TakeRequest.preview:type_name -> beamers.program.v1.ProgramItem
 	5,  // 17: beamers.program.v1.TakeResponse.channel:type_name -> beamers.program.v1.ProgramChannel
-	6,  // 18: beamers.program.v1.ProgramControlService.GetProgramChannel:input_type -> beamers.program.v1.GetProgramChannelRequest
-	8,  // 19: beamers.program.v1.ProgramControlService.ChangeControl:input_type -> beamers.program.v1.ChangeControlRequest
-	10, // 20: beamers.program.v1.ProgramControlService.SelectPreview:input_type -> beamers.program.v1.SelectPreviewRequest
-	12, // 21: beamers.program.v1.ProgramControlService.Take:input_type -> beamers.program.v1.TakeRequest
-	7,  // 22: beamers.program.v1.ProgramControlService.GetProgramChannel:output_type -> beamers.program.v1.GetProgramChannelResponse
-	9,  // 23: beamers.program.v1.ProgramControlService.ChangeControl:output_type -> beamers.program.v1.ChangeControlResponse
-	11, // 24: beamers.program.v1.ProgramControlService.SelectPreview:output_type -> beamers.program.v1.SelectPreviewResponse
-	13, // 25: beamers.program.v1.ProgramControlService.Take:output_type -> beamers.program.v1.TakeResponse
-	22, // [22:26] is the sub-list for method output_type
-	18, // [18:22] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	5,  // 18: beamers.program.v1.DeferEntryResponse.channel:type_name -> beamers.program.v1.ProgramChannel
+	6,  // 19: beamers.program.v1.ProgramControlService.GetProgramChannel:input_type -> beamers.program.v1.GetProgramChannelRequest
+	8,  // 20: beamers.program.v1.ProgramControlService.ChangeControl:input_type -> beamers.program.v1.ChangeControlRequest
+	10, // 21: beamers.program.v1.ProgramControlService.SelectPreview:input_type -> beamers.program.v1.SelectPreviewRequest
+	12, // 22: beamers.program.v1.ProgramControlService.Take:input_type -> beamers.program.v1.TakeRequest
+	14, // 23: beamers.program.v1.ProgramControlService.DeferEntry:input_type -> beamers.program.v1.DeferEntryRequest
+	7,  // 24: beamers.program.v1.ProgramControlService.GetProgramChannel:output_type -> beamers.program.v1.GetProgramChannelResponse
+	9,  // 25: beamers.program.v1.ProgramControlService.ChangeControl:output_type -> beamers.program.v1.ChangeControlResponse
+	11, // 26: beamers.program.v1.ProgramControlService.SelectPreview:output_type -> beamers.program.v1.SelectPreviewResponse
+	13, // 27: beamers.program.v1.ProgramControlService.Take:output_type -> beamers.program.v1.TakeResponse
+	15, // 28: beamers.program.v1.ProgramControlService.DeferEntry:output_type -> beamers.program.v1.DeferEntryResponse
+	24, // [24:29] is the sub-list for method output_type
+	19, // [19:24] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_beamers_program_v1_program_proto_init() }
@@ -1135,7 +1299,7 @@ func file_beamers_program_v1_program_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_beamers_program_v1_program_proto_rawDesc), len(file_beamers_program_v1_program_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   12,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -40,6 +40,22 @@ const (
 	FieldReviewedAt = "reviewed_at"
 	// FieldFirstPresentedAt holds the string denoting the first_presented_at field in the database.
 	FieldFirstPresentedAt = "first_presented_at"
+	// FieldPresentationStatus holds the string denoting the presentation_status field in the database.
+	FieldPresentationStatus = "presentation_status"
+	// FieldDeferredSequence holds the string denoting the deferred_sequence field in the database.
+	FieldDeferredSequence = "deferred_sequence"
+	// FieldResolutionRequired holds the string denoting the resolution_required field in the database.
+	FieldResolutionRequired = "resolution_required"
+	// FieldResultDisposition holds the string denoting the result_disposition field in the database.
+	FieldResultDisposition = "result_disposition"
+	// FieldTechnicalFailureReason holds the string denoting the technical_failure_reason field in the database.
+	FieldTechnicalFailureReason = "technical_failure_reason"
+	// FieldResolutionCrewReason holds the string denoting the resolution_crew_reason field in the database.
+	FieldResolutionCrewReason = "resolution_crew_reason"
+	// FieldPublicDisqualificationMessage holds the string denoting the public_disqualification_message field in the database.
+	FieldPublicDisqualificationMessage = "public_disqualification_message"
+	// FieldReleaseHold holds the string denoting the release_hold field in the database.
+	FieldReleaseHold = "release_hold"
 	// FieldRevision holds the string denoting the revision field in the database.
 	FieldRevision = "revision"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -81,6 +97,14 @@ var Columns = []string{
 	FieldReviewedByAccountID,
 	FieldReviewedAt,
 	FieldFirstPresentedAt,
+	FieldPresentationStatus,
+	FieldDeferredSequence,
+	FieldResolutionRequired,
+	FieldResultDisposition,
+	FieldTechnicalFailureReason,
+	FieldResolutionCrewReason,
+	FieldPublicDisqualificationMessage,
+	FieldReleaseHold,
 	FieldRevision,
 	FieldCreatedAt,
 }
@@ -117,6 +141,18 @@ var (
 	ReviewedContentRevisionValidator func(int) error
 	// ReviewedByAccountIDValidator is a validator for the "reviewed_by_account_id" field. It is called by the builders before save.
 	ReviewedByAccountIDValidator func(int) error
+	// DeferredSequenceValidator is a validator for the "deferred_sequence" field. It is called by the builders before save.
+	DeferredSequenceValidator func(int) error
+	// DefaultResolutionRequired holds the default value on creation for the "resolution_required" field.
+	DefaultResolutionRequired bool
+	// TechnicalFailureReasonValidator is a validator for the "technical_failure_reason" field. It is called by the builders before save.
+	TechnicalFailureReasonValidator func(string) error
+	// ResolutionCrewReasonValidator is a validator for the "resolution_crew_reason" field. It is called by the builders before save.
+	ResolutionCrewReasonValidator func(string) error
+	// PublicDisqualificationMessageValidator is a validator for the "public_disqualification_message" field. It is called by the builders before save.
+	PublicDisqualificationMessageValidator func(string) error
+	// DefaultReleaseHold holds the default value on creation for the "release_hold" field.
+	DefaultReleaseHold bool
 	// DefaultRevision holds the default value on creation for the "revision" field.
 	DefaultRevision int
 	// RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
@@ -146,6 +182,61 @@ func DispositionValidator(d Disposition) error {
 		return nil
 	default:
 		return fmt.Errorf("competitionentry: invalid enum value for disposition field: %q", d)
+	}
+}
+
+// PresentationStatus defines the type for the "presentation_status" enum field.
+type PresentationStatus string
+
+// PresentationStatusScheduled is the default value of the PresentationStatus enum.
+const DefaultPresentationStatus = PresentationStatusScheduled
+
+// PresentationStatus values.
+const (
+	PresentationStatusScheduled    PresentationStatus = "Scheduled"
+	PresentationStatusDeferred     PresentationStatus = "Deferred"
+	PresentationStatusPresented    PresentationStatus = "Presented"
+	PresentationStatusNotPresented PresentationStatus = "NotPresented"
+)
+
+func (ps PresentationStatus) String() string {
+	return string(ps)
+}
+
+// PresentationStatusValidator is a validator for the "presentation_status" field enum values. It is called by the builders before save.
+func PresentationStatusValidator(ps PresentationStatus) error {
+	switch ps {
+	case PresentationStatusScheduled, PresentationStatusDeferred, PresentationStatusPresented, PresentationStatusNotPresented:
+		return nil
+	default:
+		return fmt.Errorf("competitionentry: invalid enum value for presentation_status field: %q", ps)
+	}
+}
+
+// ResultDisposition defines the type for the "result_disposition" enum field.
+type ResultDisposition string
+
+// ResultDispositionEligible is the default value of the ResultDisposition enum.
+const DefaultResultDisposition = ResultDispositionEligible
+
+// ResultDisposition values.
+const (
+	ResultDispositionEligible     ResultDisposition = "Eligible"
+	ResultDispositionDisqualified ResultDisposition = "Disqualified"
+	ResultDispositionWithheld     ResultDisposition = "Withheld"
+)
+
+func (rd ResultDisposition) String() string {
+	return string(rd)
+}
+
+// ResultDispositionValidator is a validator for the "result_disposition" field enum values. It is called by the builders before save.
+func ResultDispositionValidator(rd ResultDisposition) error {
+	switch rd {
+	case ResultDispositionEligible, ResultDispositionDisqualified, ResultDispositionWithheld:
+		return nil
+	default:
+		return fmt.Errorf("competitionentry: invalid enum value for result_disposition field: %q", rd)
 	}
 }
 
@@ -215,6 +306,46 @@ func ByReviewedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByFirstPresentedAt orders the results by the first_presented_at field.
 func ByFirstPresentedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldFirstPresentedAt, opts...).ToFunc()
+}
+
+// ByPresentationStatus orders the results by the presentation_status field.
+func ByPresentationStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPresentationStatus, opts...).ToFunc()
+}
+
+// ByDeferredSequence orders the results by the deferred_sequence field.
+func ByDeferredSequence(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDeferredSequence, opts...).ToFunc()
+}
+
+// ByResolutionRequired orders the results by the resolution_required field.
+func ByResolutionRequired(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldResolutionRequired, opts...).ToFunc()
+}
+
+// ByResultDisposition orders the results by the result_disposition field.
+func ByResultDisposition(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldResultDisposition, opts...).ToFunc()
+}
+
+// ByTechnicalFailureReason orders the results by the technical_failure_reason field.
+func ByTechnicalFailureReason(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTechnicalFailureReason, opts...).ToFunc()
+}
+
+// ByResolutionCrewReason orders the results by the resolution_crew_reason field.
+func ByResolutionCrewReason(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldResolutionCrewReason, opts...).ToFunc()
+}
+
+// ByPublicDisqualificationMessage orders the results by the public_disqualification_message field.
+func ByPublicDisqualificationMessage(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPublicDisqualificationMessage, opts...).ToFunc()
+}
+
+// ByReleaseHold orders the results by the release_hold field.
+func ByReleaseHold(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldReleaseHold, opts...).ToFunc()
 }
 
 // ByRevision orders the results by the revision field.
