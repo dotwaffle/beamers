@@ -99,22 +99,25 @@ type Display struct {
 
 // Snapshot is the current output routing projection for one Display.
 type Snapshot struct {
-	ProtocolVersion      string
-	AssetVersion         string
-	ServerTime           time.Time
-	Display              Display
-	ActiveEventID        int
-	EventName            string
-	EventTimezone        string
-	ActivationGeneration int
-	PublishedRevision    int
-	LocationID           int
-	LocationName         string
-	ViewKey              string
-	Standby              bool
-	Composition          displayviews.Composition
-	Sessions             []Session
-	StageTimer           *StageTimer
+	ProtocolVersion       string
+	AssetVersion          string
+	ServerTime            time.Time
+	Display               Display
+	ActiveEventID         int
+	EventName             string
+	EventTimezone         string
+	ActivationGeneration  int
+	PublishedRevision     int
+	LocationID            int
+	LocationName          string
+	ViewKey               string
+	Standby               bool
+	Composition           displayviews.Composition
+	Sessions              []Session
+	StageTimer            *StageTimer
+	ProgramChannelID      int
+	ProgramOutputRevision int
+	ProgramOutput         *ProgramItem
 }
 
 // AcknowledgmentInput reports the exact state one Display has applied.
@@ -183,6 +186,13 @@ type StageTimer struct {
 	AdjustmentNoticeExpiresAt time.Time
 }
 
+// ProgramItem is one Display-safe committed Competition presentation state.
+type ProgramItem struct {
+	Kind    string
+	EntryID int
+	Title   string
+}
+
 // ClaimInput confirms one Display Enrollment code.
 type ClaimInput struct {
 	Code      string `json:"code"`
@@ -214,8 +224,10 @@ type Status struct {
 	ActiveEventID               int        `json:"active_event_id"`
 	Standby                     bool       `json:"standby"`
 	EventName                   string     `json:"event_name,omitempty"`
+	LocationID                  int        `json:"location_id,omitempty"`
 	LocationName                string     `json:"location_name,omitempty"`
 	ViewKey                     string     `json:"view_key,omitempty"`
+	ProgramChannelID            int        `json:"program_channel_id,omitempty"`
 	DeliveryState               string     `json:"delivery_state"`
 	AppliedActiveEventID        int        `json:"applied_active_event_id"`
 	AppliedActivationGeneration int        `json:"applied_activation_generation"`
@@ -265,6 +277,14 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 		ActivationGeneration: found.ActivationGeneration,
 		PublishedRevision:    found.PublishedRevision, LocationID: found.LocationID,
 		LocationName: found.LocationName, ViewKey: found.ViewKey, Standby: found.Standby,
+		ProgramChannelID:      found.ProgramChannelID,
+		ProgramOutputRevision: found.ProgramOutputRevision,
+	}
+	if found.ProgramChannelID > 0 {
+		result.ProgramOutput = &ProgramItem{
+			Kind: string(found.ProgramOutput.Kind), EntryID: found.ProgramOutput.EntryID,
+			Title: found.ProgramOutput.Title,
+		}
 	}
 	configuration, err := displayviews.ParseConfiguration(found.DisplayConfiguration)
 	if err != nil {
@@ -667,6 +687,8 @@ func status(found store.DisplayStatus, cursor displaystream.Cursor, now time.Tim
 	result := Status{
 		ID: found.ID, Name: found.Name, ActiveEventID: found.ActiveEventID, Standby: found.Standby,
 		EventName: found.EventName, LocationName: found.LocationName, ViewKey: found.ViewKey,
+		LocationID:                  found.LocationID,
+		ProgramChannelID:            found.ProgramChannelID,
 		AppliedActiveEventID:        found.AppliedActiveEventID,
 		AppliedActivationGeneration: found.AppliedActivationGeneration,
 		AppliedPublishedRevision:    found.AppliedPublishedRevision,

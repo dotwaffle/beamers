@@ -153,7 +153,12 @@ templ displayRegion(snapshot Snapshot, name string, widget string, persistent bo
 				<p>No Session is live at this Location.</p>
 			}
 		} else if widget == "program-output" {
-			<h2>Program Output</h2>
+			if snapshot.ProgramOutput != nil {
+				<h2>{ snapshot.ProgramOutput.Title }</h2>
+				<p>{ snapshot.ProgramOutput.Kind }</p>
+			} else {
+				<h2>Standby</h2>
+			}
 		}
 	</section>
 }

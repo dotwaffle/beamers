@@ -37,7 +37,8 @@ func crewClientPath(path string) bool {
 	return strings.HasPrefix(path, "/admin/") ||
 		strings.HasPrefix(path, "/beamers.activation.") ||
 		strings.HasPrefix(path, "/beamers.rundown.") ||
-		strings.HasPrefix(path, "/beamers.session.")
+		strings.HasPrefix(path, "/beamers.session.") ||
+		strings.HasPrefix(path, "/beamers.program.")
 }
 
 func mutationMethod(method string) bool {

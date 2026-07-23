@@ -22,7 +22,8 @@ func (CompetitionEntry) Policy() ent.Policy {
 			denyMissingViewer(), filterGrantedCompetitionEntries(), privacy.AlwaysAllowRule(),
 		},
 		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowEventOwnedMutation(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowEventOwnedMutation(),
+			allowScopedCompetitionEntryPresentationMutation(), privacy.AlwaysDenyRule(),
 		},
 	}
 }

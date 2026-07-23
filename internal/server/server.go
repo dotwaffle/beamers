@@ -65,6 +65,10 @@ func Run(ctx context.Context, config Config) error {
 	if err != nil {
 		return errors.Join(err, listener.Close(), installation.Close())
 	}
+	programStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
+	if err != nil {
+		return errors.Join(err, listener.Close(), installation.Close())
+	}
 
 	var accepting atomic.Bool
 	accepting.Store(startupErr == nil)
@@ -135,6 +139,22 @@ func Run(ctx context.Context, config Config) error {
 			config.TracerProvider,
 			config.MeterProvider,
 			config.Propagator,
+		); err != nil {
+			return errors.Join(err, listener.Close(), installation.Close())
+		}
+		if err := registerProgramControlRoutes(
+			mux,
+			installation.Authentication(),
+			installation.ProgramControl(),
+			installation.Displays(),
+			displayStream,
+			programStream,
+			listener.Addr(),
+			config.TracerProvider,
+			config.MeterProvider,
+			config.Propagator,
+			config.BuildVersion,
+			config.Logger,
 		); err != nil {
 			return errors.Join(err, listener.Close(), installation.Close())
 		}

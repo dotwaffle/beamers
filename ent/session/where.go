@@ -145,6 +145,26 @@ func EntryOrderRevision(v int) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldEntryOrderRevision, v))
 }
 
+// ProgramOutputEntryID applies equality check predicate on the "program_output_entry_id" field. It's identical to ProgramOutputEntryIDEQ.
+func ProgramOutputEntryID(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldProgramOutputEntryID, v))
+}
+
+// ProgramOutputRevision applies equality check predicate on the "program_output_revision" field. It's identical to ProgramOutputRevisionEQ.
+func ProgramOutputRevision(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldProgramOutputRevision, v))
+}
+
+// ProgramCursor applies equality check predicate on the "program_cursor" field. It's identical to ProgramCursorEQ.
+func ProgramCursor(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldProgramCursor, v))
+}
+
+// ProgramOutputTakenAt applies equality check predicate on the "program_output_taken_at" field. It's identical to ProgramOutputTakenAtEQ.
+func ProgramOutputTakenAt(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldProgramOutputTakenAt, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldCreatedAt, v))
@@ -1113,6 +1133,206 @@ func EntryOrderRevisionLT(v int) predicate.Session {
 // EntryOrderRevisionLTE applies the LTE predicate on the "entry_order_revision" field.
 func EntryOrderRevisionLTE(v int) predicate.Session {
 	return predicate.Session(sql.FieldLTE(FieldEntryOrderRevision, v))
+}
+
+// ProgramOutputKindEQ applies the EQ predicate on the "program_output_kind" field.
+func ProgramOutputKindEQ(v ProgramOutputKind) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldProgramOutputKind, v))
+}
+
+// ProgramOutputKindNEQ applies the NEQ predicate on the "program_output_kind" field.
+func ProgramOutputKindNEQ(v ProgramOutputKind) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldProgramOutputKind, v))
+}
+
+// ProgramOutputKindIn applies the In predicate on the "program_output_kind" field.
+func ProgramOutputKindIn(vs ...ProgramOutputKind) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldProgramOutputKind, vs...))
+}
+
+// ProgramOutputKindNotIn applies the NotIn predicate on the "program_output_kind" field.
+func ProgramOutputKindNotIn(vs ...ProgramOutputKind) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldProgramOutputKind, vs...))
+}
+
+// ProgramOutputEntryIDEQ applies the EQ predicate on the "program_output_entry_id" field.
+func ProgramOutputEntryIDEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldProgramOutputEntryID, v))
+}
+
+// ProgramOutputEntryIDNEQ applies the NEQ predicate on the "program_output_entry_id" field.
+func ProgramOutputEntryIDNEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldProgramOutputEntryID, v))
+}
+
+// ProgramOutputEntryIDIn applies the In predicate on the "program_output_entry_id" field.
+func ProgramOutputEntryIDIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldProgramOutputEntryID, vs...))
+}
+
+// ProgramOutputEntryIDNotIn applies the NotIn predicate on the "program_output_entry_id" field.
+func ProgramOutputEntryIDNotIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldProgramOutputEntryID, vs...))
+}
+
+// ProgramOutputEntryIDGT applies the GT predicate on the "program_output_entry_id" field.
+func ProgramOutputEntryIDGT(v int) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldProgramOutputEntryID, v))
+}
+
+// ProgramOutputEntryIDGTE applies the GTE predicate on the "program_output_entry_id" field.
+func ProgramOutputEntryIDGTE(v int) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldProgramOutputEntryID, v))
+}
+
+// ProgramOutputEntryIDLT applies the LT predicate on the "program_output_entry_id" field.
+func ProgramOutputEntryIDLT(v int) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldProgramOutputEntryID, v))
+}
+
+// ProgramOutputEntryIDLTE applies the LTE predicate on the "program_output_entry_id" field.
+func ProgramOutputEntryIDLTE(v int) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldProgramOutputEntryID, v))
+}
+
+// ProgramOutputEntryIDIsNil applies the IsNil predicate on the "program_output_entry_id" field.
+func ProgramOutputEntryIDIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldProgramOutputEntryID))
+}
+
+// ProgramOutputEntryIDNotNil applies the NotNil predicate on the "program_output_entry_id" field.
+func ProgramOutputEntryIDNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldProgramOutputEntryID))
+}
+
+// ProgramOutputRevisionEQ applies the EQ predicate on the "program_output_revision" field.
+func ProgramOutputRevisionEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldProgramOutputRevision, v))
+}
+
+// ProgramOutputRevisionNEQ applies the NEQ predicate on the "program_output_revision" field.
+func ProgramOutputRevisionNEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldProgramOutputRevision, v))
+}
+
+// ProgramOutputRevisionIn applies the In predicate on the "program_output_revision" field.
+func ProgramOutputRevisionIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldProgramOutputRevision, vs...))
+}
+
+// ProgramOutputRevisionNotIn applies the NotIn predicate on the "program_output_revision" field.
+func ProgramOutputRevisionNotIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldProgramOutputRevision, vs...))
+}
+
+// ProgramOutputRevisionGT applies the GT predicate on the "program_output_revision" field.
+func ProgramOutputRevisionGT(v int) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldProgramOutputRevision, v))
+}
+
+// ProgramOutputRevisionGTE applies the GTE predicate on the "program_output_revision" field.
+func ProgramOutputRevisionGTE(v int) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldProgramOutputRevision, v))
+}
+
+// ProgramOutputRevisionLT applies the LT predicate on the "program_output_revision" field.
+func ProgramOutputRevisionLT(v int) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldProgramOutputRevision, v))
+}
+
+// ProgramOutputRevisionLTE applies the LTE predicate on the "program_output_revision" field.
+func ProgramOutputRevisionLTE(v int) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldProgramOutputRevision, v))
+}
+
+// ProgramCursorEQ applies the EQ predicate on the "program_cursor" field.
+func ProgramCursorEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldProgramCursor, v))
+}
+
+// ProgramCursorNEQ applies the NEQ predicate on the "program_cursor" field.
+func ProgramCursorNEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldProgramCursor, v))
+}
+
+// ProgramCursorIn applies the In predicate on the "program_cursor" field.
+func ProgramCursorIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldProgramCursor, vs...))
+}
+
+// ProgramCursorNotIn applies the NotIn predicate on the "program_cursor" field.
+func ProgramCursorNotIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldProgramCursor, vs...))
+}
+
+// ProgramCursorGT applies the GT predicate on the "program_cursor" field.
+func ProgramCursorGT(v int) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldProgramCursor, v))
+}
+
+// ProgramCursorGTE applies the GTE predicate on the "program_cursor" field.
+func ProgramCursorGTE(v int) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldProgramCursor, v))
+}
+
+// ProgramCursorLT applies the LT predicate on the "program_cursor" field.
+func ProgramCursorLT(v int) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldProgramCursor, v))
+}
+
+// ProgramCursorLTE applies the LTE predicate on the "program_cursor" field.
+func ProgramCursorLTE(v int) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldProgramCursor, v))
+}
+
+// ProgramOutputTakenAtEQ applies the EQ predicate on the "program_output_taken_at" field.
+func ProgramOutputTakenAtEQ(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldProgramOutputTakenAt, v))
+}
+
+// ProgramOutputTakenAtNEQ applies the NEQ predicate on the "program_output_taken_at" field.
+func ProgramOutputTakenAtNEQ(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldProgramOutputTakenAt, v))
+}
+
+// ProgramOutputTakenAtIn applies the In predicate on the "program_output_taken_at" field.
+func ProgramOutputTakenAtIn(vs ...time.Time) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldProgramOutputTakenAt, vs...))
+}
+
+// ProgramOutputTakenAtNotIn applies the NotIn predicate on the "program_output_taken_at" field.
+func ProgramOutputTakenAtNotIn(vs ...time.Time) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldProgramOutputTakenAt, vs...))
+}
+
+// ProgramOutputTakenAtGT applies the GT predicate on the "program_output_taken_at" field.
+func ProgramOutputTakenAtGT(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldProgramOutputTakenAt, v))
+}
+
+// ProgramOutputTakenAtGTE applies the GTE predicate on the "program_output_taken_at" field.
+func ProgramOutputTakenAtGTE(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldProgramOutputTakenAt, v))
+}
+
+// ProgramOutputTakenAtLT applies the LT predicate on the "program_output_taken_at" field.
+func ProgramOutputTakenAtLT(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldProgramOutputTakenAt, v))
+}
+
+// ProgramOutputTakenAtLTE applies the LTE predicate on the "program_output_taken_at" field.
+func ProgramOutputTakenAtLTE(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldProgramOutputTakenAt, v))
+}
+
+// ProgramOutputTakenAtIsNil applies the IsNil predicate on the "program_output_taken_at" field.
+func ProgramOutputTakenAtIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldProgramOutputTakenAt))
+}
+
+// ProgramOutputTakenAtNotNil applies the NotNil predicate on the "program_output_taken_at" field.
+func ProgramOutputTakenAtNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldProgramOutputTakenAt))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

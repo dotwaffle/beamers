@@ -62,8 +62,10 @@ type DisplayStatus struct {
 	PublishedRevision            int
 	Standby                      bool
 	EventName                    string
+	LocationID                   int
 	LocationName                 string
 	ViewKey                      string
+	ProgramChannelID             int
 	AppliedProtocolVersion       string
 	AppliedAssetVersion          string
 	AppliedStreamID              string
@@ -365,8 +367,17 @@ func loadDisplayStatus(
 		return status, nil
 	}
 	status.Standby = false
+	status.LocationID = assignment.LocationID
 	status.LocationName = published.Name
 	status.ViewKey = assignment.ViewKey
+	if status.ViewKey == "competition-output" {
+		status.ProgramChannelID, err = competitionOutputProgramChannelID(
+			ctx, client, routing.ActiveEventID, assignment.LocationID,
+		)
+		if err != nil {
+			return DisplayStatus{}, err
+		}
+	}
 	return status, nil
 }
 

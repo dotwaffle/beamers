@@ -7,6 +7,7 @@
 package displayv1
 
 import (
+	v1 "github.com/dotwaffle/beamers/gen/beamers/program/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -204,29 +205,32 @@ func (x *GetSnapshotResponse) GetSnapshot() *DisplaySnapshot {
 }
 
 type DisplaySnapshot struct {
-	state                protoimpl.MessageState `protogen:"open.v1"`
-	ProtocolVersion      string                 `protobuf:"bytes,1,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
-	ServerTime           *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=server_time,json=serverTime,proto3" json:"server_time,omitempty"`
-	DisplayId            int64                  `protobuf:"varint,3,opt,name=display_id,json=displayId,proto3" json:"display_id,omitempty"`
-	DisplayName          string                 `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
-	ActiveEventId        int64                  `protobuf:"varint,5,opt,name=active_event_id,json=activeEventId,proto3" json:"active_event_id,omitempty"`
-	EventName            string                 `protobuf:"bytes,6,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`
-	ActivationGeneration int64                  `protobuf:"varint,7,opt,name=activation_generation,json=activationGeneration,proto3" json:"activation_generation,omitempty"`
-	PublishedRevision    int64                  `protobuf:"varint,8,opt,name=published_revision,json=publishedRevision,proto3" json:"published_revision,omitempty"`
-	LocationId           int64                  `protobuf:"varint,9,opt,name=location_id,json=locationId,proto3" json:"location_id,omitempty"`
-	LocationName         string                 `protobuf:"bytes,10,opt,name=location_name,json=locationName,proto3" json:"location_name,omitempty"`
-	ViewKey              string                 `protobuf:"bytes,11,opt,name=view_key,json=viewKey,proto3" json:"view_key,omitempty"`
-	Standby              bool                   `protobuf:"varint,12,opt,name=standby,proto3" json:"standby,omitempty"`
-	Sessions             []*DisplaySession      `protobuf:"bytes,13,rep,name=sessions,proto3" json:"sessions,omitempty"`
-	StreamId             string                 `protobuf:"bytes,14,opt,name=stream_id,json=streamId,proto3" json:"stream_id,omitempty"`
-	StreamPosition       *uint64                `protobuf:"varint,15,opt,name=stream_position,json=streamPosition,proto3,oneof" json:"stream_position,omitempty"`
-	EventTimezone        string                 `protobuf:"bytes,16,opt,name=event_timezone,json=eventTimezone,proto3" json:"event_timezone,omitempty"`
-	SnapshotToken        string                 `protobuf:"bytes,17,opt,name=snapshot_token,json=snapshotToken,proto3" json:"snapshot_token,omitempty"`
-	AssetVersion         string                 `protobuf:"bytes,18,opt,name=asset_version,json=assetVersion,proto3" json:"asset_version,omitempty"`
-	Composition          *DisplayComposition    `protobuf:"bytes,19,opt,name=composition,proto3" json:"composition,omitempty"`
-	StageTimer           *StageTimer            `protobuf:"bytes,20,opt,name=stage_timer,json=stageTimer,proto3" json:"stage_timer,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	ProtocolVersion       string                 `protobuf:"bytes,1,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
+	ServerTime            *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=server_time,json=serverTime,proto3" json:"server_time,omitempty"`
+	DisplayId             int64                  `protobuf:"varint,3,opt,name=display_id,json=displayId,proto3" json:"display_id,omitempty"`
+	DisplayName           string                 `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	ActiveEventId         int64                  `protobuf:"varint,5,opt,name=active_event_id,json=activeEventId,proto3" json:"active_event_id,omitempty"`
+	EventName             string                 `protobuf:"bytes,6,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`
+	ActivationGeneration  int64                  `protobuf:"varint,7,opt,name=activation_generation,json=activationGeneration,proto3" json:"activation_generation,omitempty"`
+	PublishedRevision     int64                  `protobuf:"varint,8,opt,name=published_revision,json=publishedRevision,proto3" json:"published_revision,omitempty"`
+	LocationId            int64                  `protobuf:"varint,9,opt,name=location_id,json=locationId,proto3" json:"location_id,omitempty"`
+	LocationName          string                 `protobuf:"bytes,10,opt,name=location_name,json=locationName,proto3" json:"location_name,omitempty"`
+	ViewKey               string                 `protobuf:"bytes,11,opt,name=view_key,json=viewKey,proto3" json:"view_key,omitempty"`
+	Standby               bool                   `protobuf:"varint,12,opt,name=standby,proto3" json:"standby,omitempty"`
+	Sessions              []*DisplaySession      `protobuf:"bytes,13,rep,name=sessions,proto3" json:"sessions,omitempty"`
+	StreamId              string                 `protobuf:"bytes,14,opt,name=stream_id,json=streamId,proto3" json:"stream_id,omitempty"`
+	StreamPosition        *uint64                `protobuf:"varint,15,opt,name=stream_position,json=streamPosition,proto3,oneof" json:"stream_position,omitempty"`
+	EventTimezone         string                 `protobuf:"bytes,16,opt,name=event_timezone,json=eventTimezone,proto3" json:"event_timezone,omitempty"`
+	SnapshotToken         string                 `protobuf:"bytes,17,opt,name=snapshot_token,json=snapshotToken,proto3" json:"snapshot_token,omitempty"`
+	AssetVersion          string                 `protobuf:"bytes,18,opt,name=asset_version,json=assetVersion,proto3" json:"asset_version,omitempty"`
+	Composition           *DisplayComposition    `protobuf:"bytes,19,opt,name=composition,proto3" json:"composition,omitempty"`
+	StageTimer            *StageTimer            `protobuf:"bytes,20,opt,name=stage_timer,json=stageTimer,proto3" json:"stage_timer,omitempty"`
+	ProgramOutput         *v1.ProgramItem        `protobuf:"bytes,21,opt,name=program_output,json=programOutput,proto3" json:"program_output,omitempty"`
+	ProgramOutputRevision int64                  `protobuf:"varint,22,opt,name=program_output_revision,json=programOutputRevision,proto3" json:"program_output_revision,omitempty"`
+	ProgramChannelId      int64                  `protobuf:"varint,23,opt,name=program_channel_id,json=programChannelId,proto3" json:"program_channel_id,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *DisplaySnapshot) Reset() {
@@ -397,6 +401,27 @@ func (x *DisplaySnapshot) GetStageTimer() *StageTimer {
 		return x.StageTimer
 	}
 	return nil
+}
+
+func (x *DisplaySnapshot) GetProgramOutput() *v1.ProgramItem {
+	if x != nil {
+		return x.ProgramOutput
+	}
+	return nil
+}
+
+func (x *DisplaySnapshot) GetProgramOutputRevision() int64 {
+	if x != nil {
+		return x.ProgramOutputRevision
+	}
+	return 0
+}
+
+func (x *DisplaySnapshot) GetProgramChannelId() int64 {
+	if x != nil {
+		return x.ProgramChannelId
+	}
+	return 0
 }
 
 type DisplayComposition struct {
@@ -1307,10 +1332,10 @@ var File_beamers_display_v1_display_proto protoreflect.FileDescriptor
 
 const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\n" +
-	" beamers/display/v1/display.proto\x12\x12beamers.display.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x14\n" +
+	" beamers/display/v1/display.proto\x12\x12beamers.display.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a beamers/program/v1/program.proto\"\x14\n" +
 	"\x12GetSnapshotRequest\"V\n" +
 	"\x13GetSnapshotResponse\x12?\n" +
-	"\bsnapshot\x18\x01 \x01(\v2#.beamers.display.v1.DisplaySnapshotR\bsnapshot\"\xfe\x06\n" +
+	"\bsnapshot\x18\x01 \x01(\v2#.beamers.display.v1.DisplaySnapshotR\bsnapshot\"\xac\b\n" +
 	"\x0fDisplaySnapshot\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\tR\x0fprotocolVersion\x12;\n" +
 	"\vserver_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
@@ -1337,7 +1362,10 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\rasset_version\x18\x12 \x01(\tR\fassetVersion\x12H\n" +
 	"\vcomposition\x18\x13 \x01(\v2&.beamers.display.v1.DisplayCompositionR\vcomposition\x12?\n" +
 	"\vstage_timer\x18\x14 \x01(\v2\x1e.beamers.display.v1.StageTimerR\n" +
-	"stageTimerB\x12\n" +
+	"stageTimer\x12F\n" +
+	"\x0eprogram_output\x18\x15 \x01(\v2\x1f.beamers.program.v1.ProgramItemR\rprogramOutput\x126\n" +
+	"\x17program_output_revision\x18\x16 \x01(\x03R\x15programOutputRevision\x12,\n" +
+	"\x12program_channel_id\x18\x17 \x01(\x03R\x10programChannelIdB\x12\n" +
 	"\x10_stream_position\"\x87\x01\n" +
 	"\x12DisplayComposition\x129\n" +
 	"\x06layout\x18\x01 \x01(\v2!.beamers.display.v1.DisplayLayoutR\x06layout\x126\n" +
@@ -1478,6 +1506,7 @@ var file_beamers_display_v1_display_proto_goTypes = []any{
 	(*AcknowledgeResponse)(nil),   // 13: beamers.display.v1.AcknowledgeResponse
 	(*DisplayAcknowledgment)(nil), // 14: beamers.display.v1.DisplayAcknowledgment
 	(*timestamppb.Timestamp)(nil), // 15: google.protobuf.Timestamp
+	(*v1.ProgramItem)(nil),        // 16: beamers.program.v1.ProgramItem
 }
 var file_beamers_display_v1_display_proto_depIdxs = []int32{
 	4,  // 0: beamers.display.v1.GetSnapshotResponse.snapshot:type_name -> beamers.display.v1.DisplaySnapshot
@@ -1485,30 +1514,31 @@ var file_beamers_display_v1_display_proto_depIdxs = []int32{
 	9,  // 2: beamers.display.v1.DisplaySnapshot.sessions:type_name -> beamers.display.v1.DisplaySession
 	5,  // 3: beamers.display.v1.DisplaySnapshot.composition:type_name -> beamers.display.v1.DisplayComposition
 	11, // 4: beamers.display.v1.DisplaySnapshot.stage_timer:type_name -> beamers.display.v1.StageTimer
-	6,  // 5: beamers.display.v1.DisplayComposition.layout:type_name -> beamers.display.v1.DisplayLayout
-	8,  // 6: beamers.display.v1.DisplayComposition.theme:type_name -> beamers.display.v1.DisplayTheme
-	7,  // 7: beamers.display.v1.DisplayLayout.regions:type_name -> beamers.display.v1.DisplayRegion
-	15, // 8: beamers.display.v1.DisplaySession.forecast_start:type_name -> google.protobuf.Timestamp
-	15, // 9: beamers.display.v1.DisplaySession.forecast_end:type_name -> google.protobuf.Timestamp
-	15, // 10: beamers.display.v1.DisplaySession.actual_start:type_name -> google.protobuf.Timestamp
-	15, // 11: beamers.display.v1.DisplaySession.actual_end:type_name -> google.protobuf.Timestamp
-	1,  // 12: beamers.display.v1.TimerThreshold.emphasis:type_name -> beamers.display.v1.TimerEmphasis
-	0,  // 13: beamers.display.v1.StageTimer.mode:type_name -> beamers.display.v1.StageTimerMode
-	15, // 14: beamers.display.v1.StageTimer.anchor:type_name -> google.protobuf.Timestamp
-	10, // 15: beamers.display.v1.StageTimer.thresholds:type_name -> beamers.display.v1.TimerThreshold
-	15, // 16: beamers.display.v1.StageTimer.forecast_end:type_name -> google.protobuf.Timestamp
-	15, // 17: beamers.display.v1.StageTimer.adjustment_notice_expires_at:type_name -> google.protobuf.Timestamp
-	14, // 18: beamers.display.v1.AcknowledgeResponse.acknowledgment:type_name -> beamers.display.v1.DisplayAcknowledgment
-	15, // 19: beamers.display.v1.DisplayAcknowledgment.applied_at:type_name -> google.protobuf.Timestamp
-	2,  // 20: beamers.display.v1.DisplayService.GetSnapshot:input_type -> beamers.display.v1.GetSnapshotRequest
-	12, // 21: beamers.display.v1.DisplayService.Acknowledge:input_type -> beamers.display.v1.AcknowledgeRequest
-	3,  // 22: beamers.display.v1.DisplayService.GetSnapshot:output_type -> beamers.display.v1.GetSnapshotResponse
-	13, // 23: beamers.display.v1.DisplayService.Acknowledge:output_type -> beamers.display.v1.AcknowledgeResponse
-	22, // [22:24] is the sub-list for method output_type
-	20, // [20:22] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	16, // 5: beamers.display.v1.DisplaySnapshot.program_output:type_name -> beamers.program.v1.ProgramItem
+	6,  // 6: beamers.display.v1.DisplayComposition.layout:type_name -> beamers.display.v1.DisplayLayout
+	8,  // 7: beamers.display.v1.DisplayComposition.theme:type_name -> beamers.display.v1.DisplayTheme
+	7,  // 8: beamers.display.v1.DisplayLayout.regions:type_name -> beamers.display.v1.DisplayRegion
+	15, // 9: beamers.display.v1.DisplaySession.forecast_start:type_name -> google.protobuf.Timestamp
+	15, // 10: beamers.display.v1.DisplaySession.forecast_end:type_name -> google.protobuf.Timestamp
+	15, // 11: beamers.display.v1.DisplaySession.actual_start:type_name -> google.protobuf.Timestamp
+	15, // 12: beamers.display.v1.DisplaySession.actual_end:type_name -> google.protobuf.Timestamp
+	1,  // 13: beamers.display.v1.TimerThreshold.emphasis:type_name -> beamers.display.v1.TimerEmphasis
+	0,  // 14: beamers.display.v1.StageTimer.mode:type_name -> beamers.display.v1.StageTimerMode
+	15, // 15: beamers.display.v1.StageTimer.anchor:type_name -> google.protobuf.Timestamp
+	10, // 16: beamers.display.v1.StageTimer.thresholds:type_name -> beamers.display.v1.TimerThreshold
+	15, // 17: beamers.display.v1.StageTimer.forecast_end:type_name -> google.protobuf.Timestamp
+	15, // 18: beamers.display.v1.StageTimer.adjustment_notice_expires_at:type_name -> google.protobuf.Timestamp
+	14, // 19: beamers.display.v1.AcknowledgeResponse.acknowledgment:type_name -> beamers.display.v1.DisplayAcknowledgment
+	15, // 20: beamers.display.v1.DisplayAcknowledgment.applied_at:type_name -> google.protobuf.Timestamp
+	2,  // 21: beamers.display.v1.DisplayService.GetSnapshot:input_type -> beamers.display.v1.GetSnapshotRequest
+	12, // 22: beamers.display.v1.DisplayService.Acknowledge:input_type -> beamers.display.v1.AcknowledgeRequest
+	3,  // 23: beamers.display.v1.DisplayService.GetSnapshot:output_type -> beamers.display.v1.GetSnapshotResponse
+	13, // 24: beamers.display.v1.DisplayService.Acknowledge:output_type -> beamers.display.v1.AcknowledgeResponse
+	23, // [23:25] is the sub-list for method output_type
+	21, // [21:23] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_beamers_display_v1_display_proto_init() }

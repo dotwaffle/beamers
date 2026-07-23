@@ -64,6 +64,16 @@ const (
 	FieldEntryOrderLockedAt = "entry_order_locked_at"
 	// FieldEntryOrderRevision holds the string denoting the entry_order_revision field in the database.
 	FieldEntryOrderRevision = "entry_order_revision"
+	// FieldProgramOutputKind holds the string denoting the program_output_kind field in the database.
+	FieldProgramOutputKind = "program_output_kind"
+	// FieldProgramOutputEntryID holds the string denoting the program_output_entry_id field in the database.
+	FieldProgramOutputEntryID = "program_output_entry_id"
+	// FieldProgramOutputRevision holds the string denoting the program_output_revision field in the database.
+	FieldProgramOutputRevision = "program_output_revision"
+	// FieldProgramCursor holds the string denoting the program_cursor field in the database.
+	FieldProgramCursor = "program_cursor"
+	// FieldProgramOutputTakenAt holds the string denoting the program_output_taken_at field in the database.
+	FieldProgramOutputTakenAt = "program_output_taken_at"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeEvent holds the string denoting the event edge name in mutations.
@@ -151,6 +161,11 @@ var Columns = []string{
 	FieldLockedEntryOrderIds,
 	FieldEntryOrderLockedAt,
 	FieldEntryOrderRevision,
+	FieldProgramOutputKind,
+	FieldProgramOutputEntryID,
+	FieldProgramOutputRevision,
+	FieldProgramCursor,
+	FieldProgramOutputTakenAt,
 	FieldCreatedAt,
 }
 
@@ -200,6 +215,14 @@ var (
 	DefaultEntryOrderRevision int
 	// EntryOrderRevisionValidator is a validator for the "entry_order_revision" field. It is called by the builders before save.
 	EntryOrderRevisionValidator func(int) error
+	// ProgramOutputEntryIDValidator is a validator for the "program_output_entry_id" field. It is called by the builders before save.
+	ProgramOutputEntryIDValidator func(int) error
+	// DefaultProgramOutputRevision holds the default value on creation for the "program_output_revision" field.
+	DefaultProgramOutputRevision int
+	// ProgramOutputRevisionValidator is a validator for the "program_output_revision" field. It is called by the builders before save.
+	ProgramOutputRevisionValidator func(int) error
+	// DefaultProgramCursor holds the default value on creation for the "program_cursor" field.
+	DefaultProgramCursor int
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 )
@@ -256,6 +279,35 @@ func EntryOrderPolicyValidator(eop EntryOrderPolicy) error {
 		return nil
 	default:
 		return fmt.Errorf("session: invalid enum value for entry_order_policy field: %q", eop)
+	}
+}
+
+// ProgramOutputKind defines the type for the "program_output_kind" enum field.
+type ProgramOutputKind string
+
+// ProgramOutputKindStandby is the default value of the ProgramOutputKind enum.
+const DefaultProgramOutputKind = ProgramOutputKindStandby
+
+// ProgramOutputKind values.
+const (
+	ProgramOutputKindStandby  ProgramOutputKind = "Standby"
+	ProgramOutputKindUpcoming ProgramOutputKind = "Upcoming"
+	ProgramOutputKindStarting ProgramOutputKind = "Starting"
+	ProgramOutputKindEntry    ProgramOutputKind = "Entry"
+	ProgramOutputKindEnding   ProgramOutputKind = "Ending"
+)
+
+func (pok ProgramOutputKind) String() string {
+	return string(pok)
+}
+
+// ProgramOutputKindValidator is a validator for the "program_output_kind" field enum values. It is called by the builders before save.
+func ProgramOutputKindValidator(pok ProgramOutputKind) error {
+	switch pok {
+	case ProgramOutputKindStandby, ProgramOutputKindUpcoming, ProgramOutputKindStarting, ProgramOutputKindEntry, ProgramOutputKindEnding:
+		return nil
+	default:
+		return fmt.Errorf("session: invalid enum value for program_output_kind field: %q", pok)
 	}
 }
 
@@ -365,6 +417,31 @@ func ByEntryOrderLockedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByEntryOrderRevision orders the results by the entry_order_revision field.
 func ByEntryOrderRevision(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEntryOrderRevision, opts...).ToFunc()
+}
+
+// ByProgramOutputKind orders the results by the program_output_kind field.
+func ByProgramOutputKind(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProgramOutputKind, opts...).ToFunc()
+}
+
+// ByProgramOutputEntryID orders the results by the program_output_entry_id field.
+func ByProgramOutputEntryID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProgramOutputEntryID, opts...).ToFunc()
+}
+
+// ByProgramOutputRevision orders the results by the program_output_revision field.
+func ByProgramOutputRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProgramOutputRevision, opts...).ToFunc()
+}
+
+// ByProgramCursor orders the results by the program_cursor field.
+func ByProgramCursor(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProgramCursor, opts...).ToFunc()
+}
+
+// ByProgramOutputTakenAt orders the results by the program_output_taken_at field.
+func ByProgramOutputTakenAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProgramOutputTakenAt, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

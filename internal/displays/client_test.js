@@ -173,6 +173,29 @@ test("health refresh preserves an unchanged composition and its rotation", async
   assert.ok(browser.timerDelays().includes(15000));
 });
 
+test("Competition Output renders committed Program Output", async () => {
+  const browser = await startBrowser({
+    snapshot: displaySnapshot({
+      standby: false,
+      viewKey: "competition-output",
+      composition: displayComposition({
+        key: "competition-output",
+        regions: [
+          {name: "program", widget: "program-output", persistent: true},
+        ],
+      }),
+      programOutput: {
+        kind: "PROGRAM_ITEM_KIND_ENTRY",
+        entryId: "42",
+        title: "Aurora",
+      },
+    }),
+  });
+  const program = browser.document.main.children[0];
+  assert.match(nodeText(program), /Aurora/);
+  assert.match(nodeText(program), /Entry/);
+});
+
 test("persistent clock advances without replacing the committed frame", async () => {
   const browser = await startBrowser({
     snapshot: displaySnapshot({

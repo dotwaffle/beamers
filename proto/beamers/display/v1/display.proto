@@ -3,6 +3,7 @@ syntax = "proto3";
 package beamers.display.v1;
 
 import "google/protobuf/timestamp.proto";
+import "beamers/program/v1/program.proto";
 
 option go_package = "github.com/dotwaffle/beamers/gen/beamers/display/v1;displayv1";
 
@@ -38,6 +39,9 @@ message DisplaySnapshot {
   string asset_version = 18;
   DisplayComposition composition = 19;
   StageTimer stage_timer = 20;
+  beamers.program.v1.ProgramItem program_output = 21;
+  int64 program_output_revision = 22;
+  int64 program_channel_id = 23;
 }
 
 message DisplayComposition {

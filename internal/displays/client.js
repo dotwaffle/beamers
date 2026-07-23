@@ -359,7 +359,15 @@ function renderWidget(region, widget, snapshot, theme, candidateClockReference) 
   case "stage-timer":
     return prepareStageTimer(region, snapshot, candidateClockReference);
   case "program-output":
-    appendHeading(region, "Program Output");
+    if (snapshot.programOutput) {
+      appendHeading(region, snapshot.programOutput.title || "Program Output");
+      const kind = String(snapshot.programOutput.kind || "Standby")
+        .replace("PROGRAM_ITEM_KIND_", "")
+        .toLowerCase();
+      appendParagraph(region, kind.charAt(0).toUpperCase() + kind.slice(1));
+    } else {
+      appendHeading(region, "Standby");
+    }
     return;
   default:
     throw new Error("snapshot widget is invalid");

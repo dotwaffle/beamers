@@ -56,6 +56,13 @@ func (Session) Fields() []ent.Field {
 		field.JSON("locked_entry_order_ids", []int{}).Optional(),
 		field.Time("entry_order_locked_at").Optional(),
 		field.Int("entry_order_revision").Default(0).NonNegative(),
+		field.Enum("program_output_kind").
+			Values("Standby", "Upcoming", "Starting", "Entry", "Ending").
+			Default("Standby"),
+		field.Int("program_output_entry_id").Optional().Nillable().Positive(),
+		field.Int("program_output_revision").Default(0).NonNegative(),
+		field.Int("program_cursor").Default(-1),
+		field.Time("program_output_taken_at").Optional(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 	}
 }

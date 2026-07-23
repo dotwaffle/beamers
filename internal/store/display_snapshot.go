@@ -17,18 +17,21 @@ import (
 
 // DisplaySnapshotState is one authorized, transactionally consistent Display projection.
 type DisplaySnapshotState struct {
-	Display              Display
-	ActiveEventID        int
-	EventName            string
-	EventTimezone        string
-	DisplayConfiguration string
-	ActivationGeneration int
-	PublishedRevision    int
-	LocationID           int
-	LocationName         string
-	ViewKey              string
-	Standby              bool
-	Sessions             []DisplaySessionState
+	Display               Display
+	ActiveEventID         int
+	EventName             string
+	EventTimezone         string
+	DisplayConfiguration  string
+	ActivationGeneration  int
+	PublishedRevision     int
+	LocationID            int
+	LocationName          string
+	ViewKey               string
+	Standby               bool
+	Sessions              []DisplaySessionState
+	ProgramChannelID      int
+	ProgramOutputRevision int
+	ProgramOutput         ProgramItem
 }
 
 // DisplaySessionState contains only Display-safe Published and live Session facts.
@@ -138,6 +141,24 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 			return DisplaySnapshotState{}, sessionErr
 		}
 		result.Sessions = append(result.Sessions, sessionState)
+		if result.ViewKey == "competition-output" &&
+			publishedSession.Type == "Competition" &&
+			slices.Contains(sessionState.LocationIDs, result.LocationID) &&
+			(result.ProgramChannelID == 0 || sessionState.Lifecycle == "Live") {
+			channel, channelErr := loadProgramChannel(
+				internalContext, client.Session, client.CompetitionEntry, client.Event,
+				result.ActiveEventID, publishedSession.ID,
+			)
+			if channelErr != nil {
+				return DisplaySnapshotState{}, channelErr
+			}
+			result.ProgramChannelID = channel.SessionID
+			result.ProgramOutputRevision = channel.Revision
+			result.ProgramOutput = channel.Output
+			if sessionState.Lifecycle == "Live" {
+				break
+			}
+		}
 	}
 	return result, nil
 }
@@ -204,6 +225,37 @@ func loadDisplaySession(
 		}
 	}
 	return result, nil
+}
+
+func competitionOutputProgramChannelID(
+	ctx context.Context,
+	client *ent.Client,
+	eventID, locationID int,
+) (int, error) {
+	published, err := loadCrewRundown(ctx, client, eventID)
+	if err != nil {
+		return 0, err
+	}
+	selected := 0
+	for _, publishedSession := range published.Sessions {
+		if publishedSession.Type != "Competition" {
+			continue
+		}
+		sessionState, sessionErr := loadDisplaySession(ctx, client, publishedSession)
+		if sessionErr != nil {
+			return 0, sessionErr
+		}
+		if !slices.Contains(sessionState.LocationIDs, locationID) {
+			continue
+		}
+		if selected == 0 {
+			selected = publishedSession.ID
+		}
+		if sessionState.Lifecycle == "Live" {
+			return publishedSession.ID, nil
+		}
+	}
+	return selected, nil
 }
 
 func publishedLocationName(locations []PublishedLocation, locationID int) string {

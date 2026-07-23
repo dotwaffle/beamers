@@ -1,0 +1,79 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+  background: #11151c;
+  color: #f5f7fa;
+}
+
+body {
+  margin: 0 auto;
+  max-width: 90rem;
+  padding: 1.5rem;
+}
+
+.eyebrow {
+  color: #84d7ff;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.sequence {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+
+.item, section {
+  background: #1b2330;
+  border: 1px solid #39475b;
+  border-radius: .5rem;
+  padding: 1rem;
+}
+
+.item:last-child {
+  border-color: #f4bd50;
+}
+
+main {
+  display: grid;
+  gap: 1rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+}
+
+button {
+  background: #29364a;
+  border: 2px solid #6681a8;
+  border-radius: .4rem;
+  color: inherit;
+  cursor: pointer;
+  min-height: 3rem;
+  padding: .6rem 1rem;
+}
+
+button:focus-visible {
+  outline: 3px solid #84d7ff;
+  outline-offset: 2px;
+}
+
+button[aria-pressed="true"], .take {
+  background: #8b4b00;
+  border-color: #f4bd50;
+}
+
+[data-delivery="applied"]::marker {
+  color: #5ee38b;
+}
+
+[data-delivery="lagging"]::marker {
+  color: #f4bd50;
+}
+
+[data-delivery="offline"]::marker {
+  color: #ff7373;
+}

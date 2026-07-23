@@ -1,0 +1,117 @@
+syntax = "proto3";
+
+package beamers.program.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/dotwaffle/beamers/gen/beamers/program/v1;programv1";
+
+service ProgramControlService {
+  rpc GetProgramChannel(GetProgramChannelRequest) returns (GetProgramChannelResponse);
+  rpc ChangeControl(ChangeControlRequest) returns (ChangeControlResponse);
+  rpc SelectPreview(SelectPreviewRequest) returns (SelectPreviewResponse);
+  rpc Take(TakeRequest) returns (TakeResponse);
+}
+
+enum ProgramItemKind {
+  PROGRAM_ITEM_KIND_UNSPECIFIED = 0;
+  PROGRAM_ITEM_KIND_STANDBY = 1;
+  PROGRAM_ITEM_KIND_UPCOMING = 2;
+  PROGRAM_ITEM_KIND_STARTING = 3;
+  PROGRAM_ITEM_KIND_ENTRY = 4;
+  PROGRAM_ITEM_KIND_ENDING = 5;
+}
+
+message ProgramItem {
+  ProgramItemKind kind = 1;
+  int64 entry_id = 2;
+  string title = 3;
+}
+
+message ControlOwner {
+  int64 account_id = 1;
+  string name = 2;
+  bool connected = 3;
+}
+
+message ConsumingDisplay {
+  int64 display_id = 1;
+  string name = 2;
+  string delivery_state = 3;
+}
+
+message ProgramChannel {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  string name = 3;
+  int64 live_state_revision = 4;
+  ControlOwner control_owner = 5;
+  ControlOwner handover_requester = 6;
+  ProgramItem previous = 7;
+  ProgramItem current = 8;
+  ProgramItem next = 9;
+  ProgramItem preview = 10;
+  ProgramItem program_output = 11;
+  repeated ProgramItem items = 12;
+  google.protobuf.Timestamp taken_at = 13;
+  repeated ConsumingDisplay consuming_displays = 14;
+  int64 control_state_revision = 15;
+}
+
+message GetProgramChannelRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+}
+
+message GetProgramChannelResponse {
+  ProgramChannel channel = 1;
+}
+
+enum ControlAction {
+  CONTROL_ACTION_UNSPECIFIED = 0;
+  CONTROL_ACTION_CLAIM = 1;
+  CONTROL_ACTION_REQUEST_HANDOVER = 2;
+  CONTROL_ACTION_HANDOVER = 3;
+  CONTROL_ACTION_TAKEOVER = 4;
+  CONTROL_ACTION_DISCONNECT = 5;
+}
+
+message ChangeControlRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  ControlAction action = 3;
+  bool confirmed = 4;
+  string command_id = 5;
+  int64 expected_control_state_revision = 6;
+}
+
+message ChangeControlResponse {
+  ProgramChannel channel = 1;
+}
+
+message SelectPreviewRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  ProgramItem item = 3;
+  string command_id = 4;
+  int64 expected_control_state_revision = 5;
+}
+
+message SelectPreviewResponse {
+  ProgramChannel channel = 1;
+}
+
+message TakeRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  string command_id = 3;
+  int64 expected_live_state_revision = 4;
+  ProgramItem preview = 5;
+  int64 expected_entry_order_revision = 6;
+  string entry_order_fingerprint = 7;
+  int64 expected_control_state_revision = 8;
+}
+
+message TakeResponse {
+  ProgramChannel channel = 1;
+}

@@ -12,6 +12,7 @@ import (
 
 	displayv1 "github.com/dotwaffle/beamers/gen/beamers/display/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/display/v1/displayv1connect"
+	programv1 "github.com/dotwaffle/beamers/gen/beamers/program/v1"
 	"github.com/dotwaffle/beamers/internal/displays"
 	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/displayviews"
@@ -187,24 +188,39 @@ func snapshotMessage(
 	snapshotToken string,
 ) *displayv1.DisplaySnapshot {
 	result := &displayv1.DisplaySnapshot{
-		ProtocolVersion:      found.ProtocolVersion,
-		AssetVersion:         found.AssetVersion,
-		ServerTime:           timestamppb.New(found.ServerTime),
-		DisplayId:            int64(found.Display.ID),
-		DisplayName:          found.Display.Name,
-		ActiveEventId:        int64(found.ActiveEventID),
-		EventName:            found.EventName,
-		EventTimezone:        found.EventTimezone,
-		ActivationGeneration: int64(found.ActivationGeneration),
-		PublishedRevision:    int64(found.PublishedRevision),
-		LocationId:           int64(found.LocationID),
-		LocationName:         found.LocationName,
-		ViewKey:              found.ViewKey,
-		Standby:              found.Standby,
-		StreamId:             cursor.StreamID,
-		StreamPosition:       &cursor.Position,
-		SnapshotToken:        snapshotToken,
-		Composition:          compositionMessage(found.Composition),
+		ProtocolVersion:       found.ProtocolVersion,
+		AssetVersion:          found.AssetVersion,
+		ServerTime:            timestamppb.New(found.ServerTime),
+		DisplayId:             int64(found.Display.ID),
+		DisplayName:           found.Display.Name,
+		ActiveEventId:         int64(found.ActiveEventID),
+		EventName:             found.EventName,
+		EventTimezone:         found.EventTimezone,
+		ActivationGeneration:  int64(found.ActivationGeneration),
+		PublishedRevision:     int64(found.PublishedRevision),
+		LocationId:            int64(found.LocationID),
+		LocationName:          found.LocationName,
+		ViewKey:               found.ViewKey,
+		Standby:               found.Standby,
+		StreamId:              cursor.StreamID,
+		StreamPosition:        &cursor.Position,
+		SnapshotToken:         snapshotToken,
+		Composition:           compositionMessage(found.Composition),
+		ProgramChannelId:      int64(found.ProgramChannelID),
+		ProgramOutputRevision: int64(found.ProgramOutputRevision),
+	}
+	if found.ProgramOutput != nil {
+		result.ProgramOutput = &programv1.ProgramItem{
+			Kind: map[string]programv1.ProgramItemKind{
+				"Standby":  programv1.ProgramItemKind_PROGRAM_ITEM_KIND_STANDBY,
+				"Upcoming": programv1.ProgramItemKind_PROGRAM_ITEM_KIND_UPCOMING,
+				"Starting": programv1.ProgramItemKind_PROGRAM_ITEM_KIND_STARTING,
+				"Entry":    programv1.ProgramItemKind_PROGRAM_ITEM_KIND_ENTRY,
+				"Ending":   programv1.ProgramItemKind_PROGRAM_ITEM_KIND_ENDING,
+			}[found.ProgramOutput.Kind],
+			EntryId: int64(found.ProgramOutput.EntryID),
+			Title:   found.ProgramOutput.Title,
+		}
 	}
 	for _, item := range found.Sessions {
 		result.Sessions = append(result.Sessions, sessionMessage(item))

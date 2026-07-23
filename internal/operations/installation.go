@@ -11,6 +11,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/competition"
 	"github.com/dotwaffle/beamers/internal/displays"
 	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/programcontrol"
 	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/schedule"
 	"github.com/dotwaffle/beamers/internal/sessioncontrol"
@@ -37,6 +38,7 @@ type Installation struct {
 	attachments     *attachments.Service
 	competition     *competition.Service
 	events          *events.Service
+	programControl  *programcontrol.Service
 	rundownCommands *rundown.Commands
 	rundownQueries  *rundown.Queries
 	schedule        *schedule.Service
@@ -90,6 +92,11 @@ func OpenInstallation(ctx context.Context, dataDir string) (*Installation, error
 		return nil, errors.Join(err, storage.Close())
 	}
 	installation.competition = competitionService
+	programControlService, err := programcontrol.New(storage, time.Now)
+	if err != nil {
+		return nil, errors.Join(err, storage.Close())
+	}
+	installation.programControl = programControlService
 	rundownCommands, err := rundown.NewCommands(storage, time.Now)
 	if err != nil {
 		return nil, errors.Join(err, storage.Close())
@@ -181,6 +188,12 @@ func (installation *Installation) Competition() *competition.Service {
 // It is nil only while the installation is restricted to recovery mode.
 func (installation *Installation) Displays() *displays.Service {
 	return installation.displays
+}
+
+// ProgramControl returns volatile ownership and durable Program Output control.
+// It is nil only while the installation is restricted to recovery mode.
+func (installation *Installation) ProgramControl() *programcontrol.Service {
+	return installation.programControl
 }
 
 // RundownCommands returns the Rundown command application service.

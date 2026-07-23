@@ -472,6 +472,109 @@ func (_u *SessionUpdate) AddEntryOrderRevision(v int) *SessionUpdate {
 	return _u
 }
 
+// SetProgramOutputKind sets the "program_output_kind" field.
+func (_u *SessionUpdate) SetProgramOutputKind(v session.ProgramOutputKind) *SessionUpdate {
+	_u.mutation.SetProgramOutputKind(v)
+	return _u
+}
+
+// SetNillableProgramOutputKind sets the "program_output_kind" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableProgramOutputKind(v *session.ProgramOutputKind) *SessionUpdate {
+	if v != nil {
+		_u.SetProgramOutputKind(*v)
+	}
+	return _u
+}
+
+// SetProgramOutputEntryID sets the "program_output_entry_id" field.
+func (_u *SessionUpdate) SetProgramOutputEntryID(v int) *SessionUpdate {
+	_u.mutation.ResetProgramOutputEntryID()
+	_u.mutation.SetProgramOutputEntryID(v)
+	return _u
+}
+
+// SetNillableProgramOutputEntryID sets the "program_output_entry_id" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableProgramOutputEntryID(v *int) *SessionUpdate {
+	if v != nil {
+		_u.SetProgramOutputEntryID(*v)
+	}
+	return _u
+}
+
+// AddProgramOutputEntryID adds value to the "program_output_entry_id" field.
+func (_u *SessionUpdate) AddProgramOutputEntryID(v int) *SessionUpdate {
+	_u.mutation.AddProgramOutputEntryID(v)
+	return _u
+}
+
+// ClearProgramOutputEntryID clears the value of the "program_output_entry_id" field.
+func (_u *SessionUpdate) ClearProgramOutputEntryID() *SessionUpdate {
+	_u.mutation.ClearProgramOutputEntryID()
+	return _u
+}
+
+// SetProgramOutputRevision sets the "program_output_revision" field.
+func (_u *SessionUpdate) SetProgramOutputRevision(v int) *SessionUpdate {
+	_u.mutation.ResetProgramOutputRevision()
+	_u.mutation.SetProgramOutputRevision(v)
+	return _u
+}
+
+// SetNillableProgramOutputRevision sets the "program_output_revision" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableProgramOutputRevision(v *int) *SessionUpdate {
+	if v != nil {
+		_u.SetProgramOutputRevision(*v)
+	}
+	return _u
+}
+
+// AddProgramOutputRevision adds value to the "program_output_revision" field.
+func (_u *SessionUpdate) AddProgramOutputRevision(v int) *SessionUpdate {
+	_u.mutation.AddProgramOutputRevision(v)
+	return _u
+}
+
+// SetProgramCursor sets the "program_cursor" field.
+func (_u *SessionUpdate) SetProgramCursor(v int) *SessionUpdate {
+	_u.mutation.ResetProgramCursor()
+	_u.mutation.SetProgramCursor(v)
+	return _u
+}
+
+// SetNillableProgramCursor sets the "program_cursor" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableProgramCursor(v *int) *SessionUpdate {
+	if v != nil {
+		_u.SetProgramCursor(*v)
+	}
+	return _u
+}
+
+// AddProgramCursor adds value to the "program_cursor" field.
+func (_u *SessionUpdate) AddProgramCursor(v int) *SessionUpdate {
+	_u.mutation.AddProgramCursor(v)
+	return _u
+}
+
+// SetProgramOutputTakenAt sets the "program_output_taken_at" field.
+func (_u *SessionUpdate) SetProgramOutputTakenAt(v time.Time) *SessionUpdate {
+	_u.mutation.SetProgramOutputTakenAt(v)
+	return _u
+}
+
+// SetNillableProgramOutputTakenAt sets the "program_output_taken_at" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableProgramOutputTakenAt(v *time.Time) *SessionUpdate {
+	if v != nil {
+		_u.SetProgramOutputTakenAt(*v)
+	}
+	return _u
+}
+
+// ClearProgramOutputTakenAt clears the value of the "program_output_taken_at" field.
+func (_u *SessionUpdate) ClearProgramOutputTakenAt() *SessionUpdate {
+	_u.mutation.ClearProgramOutputTakenAt()
+	return _u
+}
+
 // SetDraftID sets the "draft" edge to the SessionDraft entity by ID.
 func (_u *SessionUpdate) SetDraftID(id int) *SessionUpdate {
 	_u.mutation.SetDraftID(id)
@@ -730,6 +833,21 @@ func (_u *SessionUpdate) check() error {
 			return &ValidationError{Name: "entry_order_revision", err: fmt.Errorf(`ent: validator failed for field "Session.entry_order_revision": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ProgramOutputKind(); ok {
+		if err := session.ProgramOutputKindValidator(v); err != nil {
+			return &ValidationError{Name: "program_output_kind", err: fmt.Errorf(`ent: validator failed for field "Session.program_output_kind": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ProgramOutputEntryID(); ok {
+		if err := session.ProgramOutputEntryIDValidator(v); err != nil {
+			return &ValidationError{Name: "program_output_entry_id", err: fmt.Errorf(`ent: validator failed for field "Session.program_output_entry_id": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ProgramOutputRevision(); ok {
+		if err := session.ProgramOutputRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "program_output_revision", err: fmt.Errorf(`ent: validator failed for field "Session.program_output_revision": %w`, err)}
+		}
+	}
 	if _u.mutation.EventCleared() && len(_u.mutation.EventIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Session.event"`)
 	}
@@ -896,6 +1014,36 @@ func (_u *SessionUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedEntryOrderRevision(); ok {
 		_spec.AddField(session.FieldEntryOrderRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ProgramOutputKind(); ok {
+		_spec.SetField(session.FieldProgramOutputKind, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.ProgramOutputEntryID(); ok {
+		_spec.SetField(session.FieldProgramOutputEntryID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedProgramOutputEntryID(); ok {
+		_spec.AddField(session.FieldProgramOutputEntryID, field.TypeInt, value)
+	}
+	if _u.mutation.ProgramOutputEntryIDCleared() {
+		_spec.ClearField(session.FieldProgramOutputEntryID, field.TypeInt)
+	}
+	if value, ok := _u.mutation.ProgramOutputRevision(); ok {
+		_spec.SetField(session.FieldProgramOutputRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedProgramOutputRevision(); ok {
+		_spec.AddField(session.FieldProgramOutputRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ProgramCursor(); ok {
+		_spec.SetField(session.FieldProgramCursor, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedProgramCursor(); ok {
+		_spec.AddField(session.FieldProgramCursor, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ProgramOutputTakenAt(); ok {
+		_spec.SetField(session.FieldProgramOutputTakenAt, field.TypeTime, value)
+	}
+	if _u.mutation.ProgramOutputTakenAtCleared() {
+		_spec.ClearField(session.FieldProgramOutputTakenAt, field.TypeTime)
 	}
 	if _u.mutation.DraftCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1564,6 +1712,109 @@ func (_u *SessionUpdateOne) AddEntryOrderRevision(v int) *SessionUpdateOne {
 	return _u
 }
 
+// SetProgramOutputKind sets the "program_output_kind" field.
+func (_u *SessionUpdateOne) SetProgramOutputKind(v session.ProgramOutputKind) *SessionUpdateOne {
+	_u.mutation.SetProgramOutputKind(v)
+	return _u
+}
+
+// SetNillableProgramOutputKind sets the "program_output_kind" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableProgramOutputKind(v *session.ProgramOutputKind) *SessionUpdateOne {
+	if v != nil {
+		_u.SetProgramOutputKind(*v)
+	}
+	return _u
+}
+
+// SetProgramOutputEntryID sets the "program_output_entry_id" field.
+func (_u *SessionUpdateOne) SetProgramOutputEntryID(v int) *SessionUpdateOne {
+	_u.mutation.ResetProgramOutputEntryID()
+	_u.mutation.SetProgramOutputEntryID(v)
+	return _u
+}
+
+// SetNillableProgramOutputEntryID sets the "program_output_entry_id" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableProgramOutputEntryID(v *int) *SessionUpdateOne {
+	if v != nil {
+		_u.SetProgramOutputEntryID(*v)
+	}
+	return _u
+}
+
+// AddProgramOutputEntryID adds value to the "program_output_entry_id" field.
+func (_u *SessionUpdateOne) AddProgramOutputEntryID(v int) *SessionUpdateOne {
+	_u.mutation.AddProgramOutputEntryID(v)
+	return _u
+}
+
+// ClearProgramOutputEntryID clears the value of the "program_output_entry_id" field.
+func (_u *SessionUpdateOne) ClearProgramOutputEntryID() *SessionUpdateOne {
+	_u.mutation.ClearProgramOutputEntryID()
+	return _u
+}
+
+// SetProgramOutputRevision sets the "program_output_revision" field.
+func (_u *SessionUpdateOne) SetProgramOutputRevision(v int) *SessionUpdateOne {
+	_u.mutation.ResetProgramOutputRevision()
+	_u.mutation.SetProgramOutputRevision(v)
+	return _u
+}
+
+// SetNillableProgramOutputRevision sets the "program_output_revision" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableProgramOutputRevision(v *int) *SessionUpdateOne {
+	if v != nil {
+		_u.SetProgramOutputRevision(*v)
+	}
+	return _u
+}
+
+// AddProgramOutputRevision adds value to the "program_output_revision" field.
+func (_u *SessionUpdateOne) AddProgramOutputRevision(v int) *SessionUpdateOne {
+	_u.mutation.AddProgramOutputRevision(v)
+	return _u
+}
+
+// SetProgramCursor sets the "program_cursor" field.
+func (_u *SessionUpdateOne) SetProgramCursor(v int) *SessionUpdateOne {
+	_u.mutation.ResetProgramCursor()
+	_u.mutation.SetProgramCursor(v)
+	return _u
+}
+
+// SetNillableProgramCursor sets the "program_cursor" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableProgramCursor(v *int) *SessionUpdateOne {
+	if v != nil {
+		_u.SetProgramCursor(*v)
+	}
+	return _u
+}
+
+// AddProgramCursor adds value to the "program_cursor" field.
+func (_u *SessionUpdateOne) AddProgramCursor(v int) *SessionUpdateOne {
+	_u.mutation.AddProgramCursor(v)
+	return _u
+}
+
+// SetProgramOutputTakenAt sets the "program_output_taken_at" field.
+func (_u *SessionUpdateOne) SetProgramOutputTakenAt(v time.Time) *SessionUpdateOne {
+	_u.mutation.SetProgramOutputTakenAt(v)
+	return _u
+}
+
+// SetNillableProgramOutputTakenAt sets the "program_output_taken_at" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableProgramOutputTakenAt(v *time.Time) *SessionUpdateOne {
+	if v != nil {
+		_u.SetProgramOutputTakenAt(*v)
+	}
+	return _u
+}
+
+// ClearProgramOutputTakenAt clears the value of the "program_output_taken_at" field.
+func (_u *SessionUpdateOne) ClearProgramOutputTakenAt() *SessionUpdateOne {
+	_u.mutation.ClearProgramOutputTakenAt()
+	return _u
+}
+
 // SetDraftID sets the "draft" edge to the SessionDraft entity by ID.
 func (_u *SessionUpdateOne) SetDraftID(id int) *SessionUpdateOne {
 	_u.mutation.SetDraftID(id)
@@ -1835,6 +2086,21 @@ func (_u *SessionUpdateOne) check() error {
 			return &ValidationError{Name: "entry_order_revision", err: fmt.Errorf(`ent: validator failed for field "Session.entry_order_revision": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ProgramOutputKind(); ok {
+		if err := session.ProgramOutputKindValidator(v); err != nil {
+			return &ValidationError{Name: "program_output_kind", err: fmt.Errorf(`ent: validator failed for field "Session.program_output_kind": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ProgramOutputEntryID(); ok {
+		if err := session.ProgramOutputEntryIDValidator(v); err != nil {
+			return &ValidationError{Name: "program_output_entry_id", err: fmt.Errorf(`ent: validator failed for field "Session.program_output_entry_id": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ProgramOutputRevision(); ok {
+		if err := session.ProgramOutputRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "program_output_revision", err: fmt.Errorf(`ent: validator failed for field "Session.program_output_revision": %w`, err)}
+		}
+	}
 	if _u.mutation.EventCleared() && len(_u.mutation.EventIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Session.event"`)
 	}
@@ -2018,6 +2284,36 @@ func (_u *SessionUpdateOne) sqlSave(ctx context.Context) (_node *Session, err er
 	}
 	if value, ok := _u.mutation.AddedEntryOrderRevision(); ok {
 		_spec.AddField(session.FieldEntryOrderRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ProgramOutputKind(); ok {
+		_spec.SetField(session.FieldProgramOutputKind, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.ProgramOutputEntryID(); ok {
+		_spec.SetField(session.FieldProgramOutputEntryID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedProgramOutputEntryID(); ok {
+		_spec.AddField(session.FieldProgramOutputEntryID, field.TypeInt, value)
+	}
+	if _u.mutation.ProgramOutputEntryIDCleared() {
+		_spec.ClearField(session.FieldProgramOutputEntryID, field.TypeInt)
+	}
+	if value, ok := _u.mutation.ProgramOutputRevision(); ok {
+		_spec.SetField(session.FieldProgramOutputRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedProgramOutputRevision(); ok {
+		_spec.AddField(session.FieldProgramOutputRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ProgramCursor(); ok {
+		_spec.SetField(session.FieldProgramCursor, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedProgramCursor(); ok {
+		_spec.AddField(session.FieldProgramCursor, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ProgramOutputTakenAt(); ok {
+		_spec.SetField(session.FieldProgramOutputTakenAt, field.TypeTime, value)
+	}
+	if _u.mutation.ProgramOutputTakenAtCleared() {
+		_spec.ClearField(session.FieldProgramOutputTakenAt, field.TypeTime)
 	}
 	if _u.mutation.DraftCleared() {
 		edge := &sqlgraph.EdgeSpec{

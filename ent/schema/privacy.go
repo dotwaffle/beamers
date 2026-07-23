@@ -620,6 +620,14 @@ func allowScopedSessionLiveMutation() privacy.MutationRule {
 			"corrected_title",
 			"corrected_speaker",
 			"corrected_public_details",
+			"locked_entry_order_ids",
+			"entry_order_locked_at",
+			"entry_order_revision",
+			"program_output_kind",
+			"program_output_entry_id",
+			"program_output_revision",
+			"program_cursor",
+			"program_output_taken_at",
 		) {
 			return privacy.Skip
 		}
@@ -674,6 +682,40 @@ func allowScopedSessionRunMutation() privacy.MutationRule {
 		allowed, err := canOperateSession(ctx, owned.Client(), sessionID)
 		if err != nil {
 			return privacy.Denyf("authorize Session Run mutation: %v", err)
+		}
+		if allowed {
+			return privacy.Allow
+		}
+		return privacy.Skip
+	})
+}
+
+func allowScopedCompetitionEntryPresentationMutation() privacy.MutationRule {
+	type entryMutation interface {
+		CompetitionSessionID() (int, bool)
+		OldCompetitionSessionID(context.Context) (int, error)
+		Client() *beamersent.Client
+	}
+	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
+		if !mutation.Op().Is(ent.OpUpdateOne) ||
+			!onlyFields(mutation, "first_presented_at", "revision") {
+			return privacy.Skip
+		}
+		owned, ok := mutation.(entryMutation)
+		if !ok {
+			return privacy.Skip
+		}
+		sessionID, exists := owned.CompetitionSessionID()
+		if !exists {
+			var err error
+			sessionID, err = owned.OldCompetitionSessionID(ctx)
+			if err != nil {
+				return privacy.Denyf("read Competition Entry ownership: %v", err)
+			}
+		}
+		allowed, err := canOperateSession(ctx, owned.Client(), sessionID)
+		if err != nil {
+			return privacy.Denyf("authorize Competition Entry presentation: %v", err)
 		}
 		if allowed {
 			return privacy.Allow

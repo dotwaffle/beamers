@@ -322,6 +322,76 @@ func (_c *SessionCreate) SetNillableEntryOrderRevision(v *int) *SessionCreate {
 	return _c
 }
 
+// SetProgramOutputKind sets the "program_output_kind" field.
+func (_c *SessionCreate) SetProgramOutputKind(v session.ProgramOutputKind) *SessionCreate {
+	_c.mutation.SetProgramOutputKind(v)
+	return _c
+}
+
+// SetNillableProgramOutputKind sets the "program_output_kind" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableProgramOutputKind(v *session.ProgramOutputKind) *SessionCreate {
+	if v != nil {
+		_c.SetProgramOutputKind(*v)
+	}
+	return _c
+}
+
+// SetProgramOutputEntryID sets the "program_output_entry_id" field.
+func (_c *SessionCreate) SetProgramOutputEntryID(v int) *SessionCreate {
+	_c.mutation.SetProgramOutputEntryID(v)
+	return _c
+}
+
+// SetNillableProgramOutputEntryID sets the "program_output_entry_id" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableProgramOutputEntryID(v *int) *SessionCreate {
+	if v != nil {
+		_c.SetProgramOutputEntryID(*v)
+	}
+	return _c
+}
+
+// SetProgramOutputRevision sets the "program_output_revision" field.
+func (_c *SessionCreate) SetProgramOutputRevision(v int) *SessionCreate {
+	_c.mutation.SetProgramOutputRevision(v)
+	return _c
+}
+
+// SetNillableProgramOutputRevision sets the "program_output_revision" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableProgramOutputRevision(v *int) *SessionCreate {
+	if v != nil {
+		_c.SetProgramOutputRevision(*v)
+	}
+	return _c
+}
+
+// SetProgramCursor sets the "program_cursor" field.
+func (_c *SessionCreate) SetProgramCursor(v int) *SessionCreate {
+	_c.mutation.SetProgramCursor(v)
+	return _c
+}
+
+// SetNillableProgramCursor sets the "program_cursor" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableProgramCursor(v *int) *SessionCreate {
+	if v != nil {
+		_c.SetProgramCursor(*v)
+	}
+	return _c
+}
+
+// SetProgramOutputTakenAt sets the "program_output_taken_at" field.
+func (_c *SessionCreate) SetProgramOutputTakenAt(v time.Time) *SessionCreate {
+	_c.mutation.SetProgramOutputTakenAt(v)
+	return _c
+}
+
+// SetNillableProgramOutputTakenAt sets the "program_output_taken_at" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableProgramOutputTakenAt(v *time.Time) *SessionCreate {
+	if v != nil {
+		_c.SetProgramOutputTakenAt(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *SessionCreate) SetCreatedAt(v time.Time) *SessionCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -485,6 +555,18 @@ func (_c *SessionCreate) defaults() error {
 		v := session.DefaultEntryOrderRevision
 		_c.mutation.SetEntryOrderRevision(v)
 	}
+	if _, ok := _c.mutation.ProgramOutputKind(); !ok {
+		v := session.DefaultProgramOutputKind
+		_c.mutation.SetProgramOutputKind(v)
+	}
+	if _, ok := _c.mutation.ProgramOutputRevision(); !ok {
+		v := session.DefaultProgramOutputRevision
+		_c.mutation.SetProgramOutputRevision(v)
+	}
+	if _, ok := _c.mutation.ProgramCursor(); !ok {
+		v := session.DefaultProgramCursor
+		_c.mutation.SetProgramCursor(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		if session.DefaultCreatedAt == nil {
 			return fmt.Errorf("ent: uninitialized session.DefaultCreatedAt (forgotten import ent/runtime?)")
@@ -575,6 +657,30 @@ func (_c *SessionCreate) check() error {
 		if err := session.EntryOrderRevisionValidator(v); err != nil {
 			return &ValidationError{Name: "entry_order_revision", err: fmt.Errorf(`ent: validator failed for field "Session.entry_order_revision": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.ProgramOutputKind(); !ok {
+		return &ValidationError{Name: "program_output_kind", err: errors.New(`ent: missing required field "Session.program_output_kind"`)}
+	}
+	if v, ok := _c.mutation.ProgramOutputKind(); ok {
+		if err := session.ProgramOutputKindValidator(v); err != nil {
+			return &ValidationError{Name: "program_output_kind", err: fmt.Errorf(`ent: validator failed for field "Session.program_output_kind": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.ProgramOutputEntryID(); ok {
+		if err := session.ProgramOutputEntryIDValidator(v); err != nil {
+			return &ValidationError{Name: "program_output_entry_id", err: fmt.Errorf(`ent: validator failed for field "Session.program_output_entry_id": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.ProgramOutputRevision(); !ok {
+		return &ValidationError{Name: "program_output_revision", err: errors.New(`ent: missing required field "Session.program_output_revision"`)}
+	}
+	if v, ok := _c.mutation.ProgramOutputRevision(); ok {
+		if err := session.ProgramOutputRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "program_output_revision", err: fmt.Errorf(`ent: validator failed for field "Session.program_output_revision": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.ProgramCursor(); !ok {
+		return &ValidationError{Name: "program_cursor", err: errors.New(`ent: missing required field "Session.program_cursor"`)}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Session.created_at"`)}
@@ -699,6 +805,26 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.EntryOrderRevision(); ok {
 		_spec.SetField(session.FieldEntryOrderRevision, field.TypeInt, value)
 		_node.EntryOrderRevision = value
+	}
+	if value, ok := _c.mutation.ProgramOutputKind(); ok {
+		_spec.SetField(session.FieldProgramOutputKind, field.TypeEnum, value)
+		_node.ProgramOutputKind = value
+	}
+	if value, ok := _c.mutation.ProgramOutputEntryID(); ok {
+		_spec.SetField(session.FieldProgramOutputEntryID, field.TypeInt, value)
+		_node.ProgramOutputEntryID = &value
+	}
+	if value, ok := _c.mutation.ProgramOutputRevision(); ok {
+		_spec.SetField(session.FieldProgramOutputRevision, field.TypeInt, value)
+		_node.ProgramOutputRevision = value
+	}
+	if value, ok := _c.mutation.ProgramCursor(); ok {
+		_spec.SetField(session.FieldProgramCursor, field.TypeInt, value)
+		_node.ProgramCursor = value
+	}
+	if value, ok := _c.mutation.ProgramOutputTakenAt(); ok {
+		_spec.SetField(session.FieldProgramOutputTakenAt, field.TypeTime, value)
+		_node.ProgramOutputTakenAt = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(session.FieldCreatedAt, field.TypeTime, value)

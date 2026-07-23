@@ -1492,8 +1492,22 @@ func init() {
 	session.DefaultEntryOrderRevision = sessionDescEntryOrderRevision.Default.(int)
 	// session.EntryOrderRevisionValidator is a validator for the "entry_order_revision" field. It is called by the builders before save.
 	session.EntryOrderRevisionValidator = sessionDescEntryOrderRevision.Validators[0].(func(int) error)
+	// sessionDescProgramOutputEntryID is the schema descriptor for program_output_entry_id field.
+	sessionDescProgramOutputEntryID := sessionFields[25].Descriptor()
+	// session.ProgramOutputEntryIDValidator is a validator for the "program_output_entry_id" field. It is called by the builders before save.
+	session.ProgramOutputEntryIDValidator = sessionDescProgramOutputEntryID.Validators[0].(func(int) error)
+	// sessionDescProgramOutputRevision is the schema descriptor for program_output_revision field.
+	sessionDescProgramOutputRevision := sessionFields[26].Descriptor()
+	// session.DefaultProgramOutputRevision holds the default value on creation for the program_output_revision field.
+	session.DefaultProgramOutputRevision = sessionDescProgramOutputRevision.Default.(int)
+	// session.ProgramOutputRevisionValidator is a validator for the "program_output_revision" field. It is called by the builders before save.
+	session.ProgramOutputRevisionValidator = sessionDescProgramOutputRevision.Validators[0].(func(int) error)
+	// sessionDescProgramCursor is the schema descriptor for program_cursor field.
+	sessionDescProgramCursor := sessionFields[27].Descriptor()
+	// session.DefaultProgramCursor holds the default value on creation for the program_cursor field.
+	session.DefaultProgramCursor = sessionDescProgramCursor.Default.(int)
 	// sessionDescCreatedAt is the schema descriptor for created_at field.
-	sessionDescCreatedAt := sessionFields[24].Descriptor()
+	sessionDescCreatedAt := sessionFields[29].Descriptor()
 	// session.DefaultCreatedAt holds the default value on creation for the created_at field.
 	session.DefaultCreatedAt = sessionDescCreatedAt.Default.(func() time.Time)
 	sessioncancellation.Policy = privacy.NewPolicies(schema.SessionCancellation{})

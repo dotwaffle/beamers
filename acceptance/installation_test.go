@@ -36,6 +36,8 @@ import (
 	"github.com/dotwaffle/beamers/gen/beamers/activation/v1/activationv1connect"
 	competitionv1 "github.com/dotwaffle/beamers/gen/beamers/competition/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/competition/v1/competitionv1connect"
+	programv1 "github.com/dotwaffle/beamers/gen/beamers/program/v1"
+	"github.com/dotwaffle/beamers/gen/beamers/program/v1/programv1connect"
 	rundownv1 "github.com/dotwaffle/beamers/gen/beamers/rundown/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/rundown/v1/rundownv1connect"
 	sessionv1 "github.com/dotwaffle/beamers/gen/beamers/session/v1"
@@ -2883,6 +2885,429 @@ func TestCrewConfiguresCompetitionEntryOrder(t *testing.T) {
 	restarted.stop(t)
 }
 
+func TestControlOwnerTakesCompetitionEntryToDurableProgramOutput(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	displayClient := enrollAndAssignDisplay(
+		t, administrator, server, "Competition Display", "competition-output",
+	)
+	competitionID, _ := addCompetitionSession(t, administrator, server)
+	competitionClient := competitionv1connect.NewCompetitionServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	entry, err := competitionClient.CreateEntry(t.Context(), connect.NewRequest(
+		&competitionv1.CreateEntryRequest{
+			EventId: 1, SessionId: competitionID,
+			CommandId: "create-program-entry", Name: "Aurora",
+		},
+	))
+	if err != nil {
+		t.Fatalf("create Program Entry: %v", err)
+	}
+	if _, err = competitionClient.ConfigureReadiness(t.Context(), connect.NewRequest(
+		&competitionv1.ConfigureReadinessRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "disable-program-file-delivery",
+			ExpectedReadinessRevision: 0,
+		},
+	)); err != nil {
+		t.Fatalf("disable Program Competition file delivery: %v", err)
+	}
+	sessionClient := sessionv1connect.NewSessionControlServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	if _, err = sessionClient.StartSession(t.Context(), connect.NewRequest(
+		&sessionv1.StartSessionRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "start-program-competition",
+			ExpectedLiveStateRevision: proto.Int64(0),
+		},
+	)); err != nil {
+		t.Fatalf("start Program Competition: %v", err)
+	}
+	order, err := competitionClient.PreviewEntryOrder(t.Context(), connect.NewRequest(
+		&competitionv1.PreviewEntryOrderRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil {
+		t.Fatalf("preview Program Entry Order: %v", err)
+	}
+	programClient := programv1connect.NewProgramControlServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	claimed, err := programClient.ChangeControl(t.Context(), connect.NewRequest(
+		&programv1.ChangeControlRequest{
+			EventId: 1, SessionId: competitionID,
+			Action:    programv1.ControlAction_CONTROL_ACTION_CLAIM,
+			CommandId: "claim-program-control",
+		},
+	))
+	if err != nil || claimed.Msg.GetChannel().GetControlOwner().GetAccountId() != 1 ||
+		claimed.Msg.GetChannel().GetPrevious() != nil ||
+		claimed.Msg.GetChannel().GetCurrent() != nil ||
+		claimed.Msg.GetChannel().GetNext().GetKind() !=
+			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_UPCOMING ||
+		claimed.Msg.GetChannel().GetPreview().GetKind() !=
+			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_UPCOMING ||
+		claimed.Msg.GetChannel().GetProgramOutput().GetKind() !=
+			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_STANDBY {
+		t.Fatalf("claim Program Channel = %+v, %v", claimed, err)
+	}
+	controlView := get(
+		t, administrator, server.address,
+		fmt.Sprintf("/crew/program/%d?event_id=1", competitionID),
+	)
+	controlViewBody, readErr := io.ReadAll(controlView.Body)
+	closeErr := controlView.Body.Close()
+	if err = errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Program control View: %v", err)
+	}
+	for _, want := range []string{
+		"Previous", "Current", "Next", "Preview", "Program Output",
+		"Consuming Displays", "Take Preview",
+	} {
+		if !bytes.Contains(controlViewBody, []byte(want)) {
+			t.Fatalf("Program control View missing %q: %s", want, controlViewBody)
+		}
+	}
+	openAndCloseProgramStream(t, administrator, server.address, competitionID)
+	var presence *programv1.ProgramChannel
+	for range 50 {
+		current, currentErr := programClient.GetProgramChannel(t.Context(), connect.NewRequest(
+			&programv1.GetProgramChannelRequest{EventId: 1, SessionId: competitionID},
+		))
+		if currentErr != nil {
+			t.Fatalf("read disconnected Program owner: %v", currentErr)
+		}
+		presence = current.Msg.GetChannel()
+		if !presence.GetControlOwner().GetConnected() {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if presence.GetControlOwner().GetConnected() {
+		t.Fatalf("closed control stream retained connected owner: %+v", presence)
+	}
+	entryItem := &programv1.ProgramItem{
+		Kind:    programv1.ProgramItemKind_PROGRAM_ITEM_KIND_ENTRY,
+		EntryId: entry.Msg.GetEntry().GetId(),
+	}
+	if len(claimed.Msg.GetChannel().GetItems()) != 5 {
+		t.Fatalf("Competition Program Items = %+v", claimed.Msg.GetChannel().GetItems())
+	}
+	controlRevision := presence.GetControlStateRevision()
+	for index, item := range claimed.Msg.GetChannel().GetItems() {
+		previewed, previewErr := programClient.SelectPreview(t.Context(), connect.NewRequest(
+			&programv1.SelectPreviewRequest{
+				EventId: 1, SessionId: competitionID, Item: item,
+				CommandId:                    fmt.Sprintf("preview-program-item-%d", index),
+				ExpectedControlStateRevision: controlRevision,
+			},
+		))
+		if previewErr != nil ||
+			previewed.Msg.GetChannel().GetPreview().GetKind() != item.GetKind() ||
+			previewed.Msg.GetChannel().GetProgramOutput().GetKind() !=
+				programv1.ProgramItemKind_PROGRAM_ITEM_KIND_STANDBY {
+			t.Fatalf("select %s Preview = %+v, %v", item.GetKind(), previewed, previewErr)
+		}
+		controlRevision = previewed.Msg.GetChannel().GetControlStateRevision()
+	}
+	selected, err := programClient.SelectPreview(t.Context(), connect.NewRequest(
+		&programv1.SelectPreviewRequest{
+			EventId: 1, SessionId: competitionID, Item: entryItem,
+			CommandId:                    "select-entry-program-preview",
+			ExpectedControlStateRevision: controlRevision,
+		},
+	))
+	if err != nil ||
+		selected.Msg.GetChannel().GetPreview().GetEntryId() != entryItem.GetEntryId() ||
+		selected.Msg.GetChannel().GetProgramOutput().GetKind() !=
+			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_STANDBY {
+		t.Fatalf("select Program Preview = %+v, %v", selected, err)
+	}
+	offline, err := programClient.GetProgramChannel(t.Context(), connect.NewRequest(
+		&programv1.GetProgramChannelRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil || len(offline.Msg.GetChannel().GetConsumingDisplays()) != 1 ||
+		offline.Msg.GetChannel().GetConsumingDisplays()[0].GetDeliveryState() != "offline" {
+		t.Fatalf("offline consuming Display = %+v, %v", offline, err)
+	}
+	acknowledgeDisplaySnapshot(
+		t, displayClient, server.address, readDisplaySnapshot(t, displayClient, server.address),
+	)
+	applied, err := programClient.GetProgramChannel(t.Context(), connect.NewRequest(
+		&programv1.GetProgramChannelRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil ||
+		applied.Msg.GetChannel().GetConsumingDisplays()[0].GetDeliveryState() != "applied" {
+		t.Fatalf("applied consuming Display = %+v, %v", applied, err)
+	}
+	operator := provisionOperator(t, administrator, server)
+	observer := provisionObserver(t, administrator, server)
+	operatorProgram := programv1connect.NewProgramControlServiceClient(
+		operator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	observerProgram := programv1connect.NewProgramControlServiceClient(
+		observer, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	unauthorizedCommands := []func() error{
+		func() error {
+			_, commandErr := observerProgram.ChangeControl(t.Context(), connect.NewRequest(
+				&programv1.ChangeControlRequest{
+					EventId: 1, SessionId: competitionID,
+					Action:                       programv1.ControlAction_CONTROL_ACTION_CLAIM,
+					CommandId:                    "reject-observer-program-control",
+					ExpectedControlStateRevision: selected.Msg.GetChannel().GetControlStateRevision(),
+				},
+			))
+			return commandErr
+		},
+		func() error {
+			_, commandErr := observerProgram.SelectPreview(t.Context(), connect.NewRequest(
+				&programv1.SelectPreviewRequest{
+					EventId: 1, SessionId: competitionID, Item: entryItem,
+					CommandId:                    "reject-observer-program-preview",
+					ExpectedControlStateRevision: selected.Msg.GetChannel().GetControlStateRevision(),
+				},
+			))
+			return commandErr
+		},
+		func() error {
+			_, commandErr := observerProgram.Take(t.Context(), connect.NewRequest(
+				&programv1.TakeRequest{
+					EventId: 1, SessionId: competitionID,
+					CommandId:                 "reject-observer-program-take",
+					ExpectedLiveStateRevision: 0, Preview: entryItem,
+					ExpectedControlStateRevision: selected.Msg.GetChannel().GetControlStateRevision(),
+				},
+			))
+			return commandErr
+		},
+	}
+	for _, unauthorizedCommand := range unauthorizedCommands {
+		if commandErr := unauthorizedCommand(); connect.CodeOf(commandErr) != connect.CodePermissionDenied {
+			t.Fatalf("unauthorized Program command = %v, want PermissionDenied", commandErr)
+		}
+	}
+	_, ownedErr := operatorProgram.ChangeControl(t.Context(), connect.NewRequest(
+		&programv1.ChangeControlRequest{
+			EventId: 1, SessionId: competitionID,
+			Action:                       programv1.ControlAction_CONTROL_ACTION_CLAIM,
+			CommandId:                    "reject-second-program-owner",
+			ExpectedControlStateRevision: selected.Msg.GetChannel().GetControlStateRevision(),
+		},
+	))
+	if connect.CodeOf(ownedErr) != connect.CodeFailedPrecondition {
+		t.Fatalf("second Program owner claim = %v", ownedErr)
+	}
+	requested, err := operatorProgram.ChangeControl(t.Context(), connect.NewRequest(
+		&programv1.ChangeControlRequest{
+			EventId: 1, SessionId: competitionID,
+			Action:                       programv1.ControlAction_CONTROL_ACTION_REQUEST_HANDOVER,
+			CommandId:                    "request-program-handover",
+			ExpectedControlStateRevision: selected.Msg.GetChannel().GetControlStateRevision(),
+		},
+	))
+	if err != nil {
+		t.Fatalf("request Program handover: %v", err)
+	}
+	openAndCloseProgramStream(t, operator, server.address, competitionID)
+	requesterPresence := requested.Msg.GetChannel()
+	for range 50 {
+		current, currentErr := programClient.GetProgramChannel(t.Context(), connect.NewRequest(
+			&programv1.GetProgramChannelRequest{EventId: 1, SessionId: competitionID},
+		))
+		if currentErr != nil {
+			t.Fatalf("read disconnected Program requester: %v", currentErr)
+		}
+		requesterPresence = current.Msg.GetChannel()
+		if !requesterPresence.GetHandoverRequester().GetConnected() {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if requesterPresence.GetHandoverRequester().GetConnected() {
+		t.Fatalf("closed control stream retained connected requester: %+v", requesterPresence)
+	}
+	_, staleHandoverErr := programClient.ChangeControl(t.Context(), connect.NewRequest(
+		&programv1.ChangeControlRequest{
+			EventId: 1, SessionId: competitionID,
+			Action:                       programv1.ControlAction_CONTROL_ACTION_HANDOVER,
+			CommandId:                    "reject-stale-program-handover",
+			ExpectedControlStateRevision: selected.Msg.GetChannel().GetControlStateRevision(),
+		},
+	))
+	if connect.CodeOf(staleHandoverErr) != connect.CodeAborted {
+		t.Fatalf("stale Program handover = %v, want Aborted", staleHandoverErr)
+	}
+	handed, err := programClient.ChangeControl(t.Context(), connect.NewRequest(
+		&programv1.ChangeControlRequest{
+			EventId: 1, SessionId: competitionID,
+			Action:                       programv1.ControlAction_CONTROL_ACTION_HANDOVER,
+			CommandId:                    "hand-over-program-control",
+			ExpectedControlStateRevision: requesterPresence.GetControlStateRevision(),
+		},
+	))
+	if err != nil || handed.Msg.GetChannel().GetControlOwner().GetAccountId() != 2 ||
+		handed.Msg.GetChannel().GetControlOwner().GetConnected() {
+		t.Fatalf("hand over Program Channel = %+v, %v", handed, err)
+	}
+	takeRequest := &programv1.TakeRequest{
+		EventId: 1, SessionId: competitionID, CommandId: "take-aurora-program-slide",
+		ExpectedLiveStateRevision: 0, Preview: entryItem,
+		ExpectedEntryOrderRevision:   order.Msg.GetEntryOrder().GetRevision(),
+		EntryOrderFingerprint:        order.Msg.GetFingerprint(),
+		ExpectedControlStateRevision: handed.Msg.GetChannel().GetControlStateRevision(),
+	}
+	staleOrderRequest := &programv1.TakeRequest{
+		EventId: 1, SessionId: competitionID,
+		CommandId:                    "reject-stale-entry-order-program-take",
+		ExpectedLiveStateRevision:    takeRequest.GetExpectedLiveStateRevision(),
+		Preview:                      entryItem,
+		ExpectedEntryOrderRevision:   takeRequest.GetExpectedEntryOrderRevision() + 1,
+		EntryOrderFingerprint:        takeRequest.GetEntryOrderFingerprint(),
+		ExpectedControlStateRevision: takeRequest.GetExpectedControlStateRevision(),
+	}
+	_, staleOrderErr := operatorProgram.Take(t.Context(), connect.NewRequest(staleOrderRequest))
+	if connect.CodeOf(staleOrderErr) != connect.CodeAborted {
+		t.Fatalf("stale Entry Order Program Take = %v, want Aborted", staleOrderErr)
+	}
+	taken, err := operatorProgram.Take(t.Context(), connect.NewRequest(takeRequest))
+	if err != nil || taken.Msg.GetChannel().GetLiveStateRevision() != 1 ||
+		taken.Msg.GetChannel().GetProgramOutput().GetEntryId() != entryItem.GetEntryId() ||
+		taken.Msg.GetChannel().GetConsumingDisplays()[0].GetDeliveryState() != "lagging" {
+		t.Fatalf("Take Program Output = %+v, %v", taken, err)
+	}
+	retried, err := operatorProgram.Take(t.Context(), connect.NewRequest(takeRequest))
+	if err != nil || retried.Msg.GetChannel().GetLiveStateRevision() != 1 {
+		t.Fatalf("retry Take Program Output = %+v, %v", retried, err)
+	}
+	replayedPreview, err := programClient.SelectPreview(t.Context(), connect.NewRequest(
+		&programv1.SelectPreviewRequest{
+			EventId: 1, SessionId: competitionID, Item: entryItem,
+			CommandId:                    "select-entry-program-preview",
+			ExpectedControlStateRevision: controlRevision,
+		},
+	))
+	if err != nil ||
+		replayedPreview.Msg.GetChannel().GetControlStateRevision() !=
+			selected.Msg.GetChannel().GetControlStateRevision() ||
+		replayedPreview.Msg.GetChannel().GetPreview().GetEntryId() != entryItem.GetEntryId() {
+		t.Fatalf("replay original Program Preview outcome = %+v, %v", replayedPreview, err)
+	}
+	_, staleTakeErr := operatorProgram.Take(t.Context(), connect.NewRequest(
+		&programv1.TakeRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "reject-stale-program-take",
+			ExpectedLiveStateRevision: 0, Preview: claimed.Msg.GetChannel().GetNext(),
+			ExpectedControlStateRevision: taken.Msg.GetChannel().GetControlStateRevision(),
+		},
+	))
+	if connect.CodeOf(staleTakeErr) != connect.CodeAborted {
+		t.Fatalf("stale Program Take = %v, want Aborted", staleTakeErr)
+	}
+	displaySnapshot := readDisplaySnapshot(t, displayClient, server.address)
+	if displaySnapshot.ProgramOutput.Title != "Aurora" ||
+		displaySnapshot.ProgramOutputRevision != "1" {
+		t.Fatalf("Display Program Output = %+v", displaySnapshot)
+	}
+	acknowledgeDisplaySnapshot(t, displayClient, server.address, displaySnapshot)
+	appliedOutput, err := operatorProgram.GetProgramChannel(t.Context(), connect.NewRequest(
+		&programv1.GetProgramChannelRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil ||
+		appliedOutput.Msg.GetChannel().GetConsumingDisplays()[0].GetDeliveryState() != "applied" {
+		t.Fatalf("applied Program Output Display = %+v, %v", appliedOutput, err)
+	}
+	disconnected, err := operatorProgram.ChangeControl(t.Context(), connect.NewRequest(
+		&programv1.ChangeControlRequest{
+			EventId: 1, SessionId: competitionID,
+			Action:                       programv1.ControlAction_CONTROL_ACTION_DISCONNECT,
+			CommandId:                    "disconnect-program-owner",
+			ExpectedControlStateRevision: taken.Msg.GetChannel().GetControlStateRevision(),
+		},
+	))
+	if err != nil || disconnected.Msg.GetChannel().GetControlOwner().GetConnected() {
+		t.Fatalf("disconnect Program owner = %+v, %v", disconnected, err)
+	}
+	replayedHandover, err := programClient.ChangeControl(t.Context(), connect.NewRequest(
+		&programv1.ChangeControlRequest{
+			EventId: 1, SessionId: competitionID,
+			Action:                       programv1.ControlAction_CONTROL_ACTION_HANDOVER,
+			CommandId:                    "hand-over-program-control",
+			ExpectedControlStateRevision: requesterPresence.GetControlStateRevision(),
+		},
+	))
+	if err != nil ||
+		replayedHandover.Msg.GetChannel().GetControlStateRevision() !=
+			handed.Msg.GetChannel().GetControlStateRevision() ||
+		replayedHandover.Msg.GetChannel().GetControlOwner().GetAccountId() != 2 {
+		t.Fatalf("replay original Program handover outcome = %+v, %v", replayedHandover, err)
+	}
+	replayedTake, err := operatorProgram.Take(t.Context(), connect.NewRequest(takeRequest))
+	if err != nil ||
+		replayedTake.Msg.GetChannel().GetControlStateRevision() !=
+			taken.Msg.GetChannel().GetControlStateRevision() ||
+		replayedTake.Msg.GetChannel().GetProgramOutput().GetEntryId() != entryItem.GetEntryId() {
+		t.Fatalf("replay original Program Take outcome = %+v, %v", replayedTake, err)
+	}
+	_, unconfirmedErr := programClient.ChangeControl(t.Context(), connect.NewRequest(
+		&programv1.ChangeControlRequest{
+			EventId: 1, SessionId: competitionID,
+			Action:                       programv1.ControlAction_CONTROL_ACTION_TAKEOVER,
+			CommandId:                    "reject-unconfirmed-program-takeover",
+			ExpectedControlStateRevision: disconnected.Msg.GetChannel().GetControlStateRevision(),
+		},
+	))
+	if connect.CodeOf(unconfirmedErr) != connect.CodeFailedPrecondition {
+		t.Fatalf("unconfirmed Program takeover = %v", unconfirmedErr)
+	}
+	if _, err = programClient.ChangeControl(t.Context(), connect.NewRequest(
+		&programv1.ChangeControlRequest{
+			EventId: 1, SessionId: competitionID,
+			Action: programv1.ControlAction_CONTROL_ACTION_TAKEOVER, Confirmed: true,
+			CommandId:                    "confirm-program-takeover",
+			ExpectedControlStateRevision: disconnected.Msg.GetChannel().GetControlStateRevision(),
+		},
+	)); err != nil {
+		t.Fatalf("confirmed Program takeover: %v", err)
+	}
+	dataDir, bin := server.dataDir, server.bin
+	server.stop(t)
+	restarted := startBeamers(t, bin, dataDir)
+	programClient = programv1connect.NewProgramControlServiceClient(
+		administrator, "http://"+restarted.address, connect.WithProtoJSON(),
+	)
+	restored, err := programClient.GetProgramChannel(t.Context(), connect.NewRequest(
+		&programv1.GetProgramChannelRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil || restored.Msg.GetChannel().GetControlOwner() != nil ||
+		restored.Msg.GetChannel().GetProgramOutput().GetEntryId() != entryItem.GetEntryId() ||
+		restored.Msg.GetChannel().GetPreview().GetKind() !=
+			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_UPCOMING {
+		t.Fatalf("restored Program Channel = %+v, %v", restored, err)
+	}
+	restoredDisplay := readDisplaySnapshot(t, displayClient, restarted.address)
+	if restoredDisplay.ProgramOutput.Title != "Aurora" ||
+		restoredDisplay.ProgramOutputRevision != "1" {
+		t.Fatalf("restored Display Program Output = %+v", restoredDisplay)
+	}
+	audit := get(t, administrator, restarted.address, "/admin/audit")
+	auditBody, readErr := io.ReadAll(audit.Body)
+	closeErr = audit.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Program Output Audit: %v", err)
+	}
+	if bytes.Count(auditBody, []byte(`"action":"TakeProgramOutput"`)) != 4 {
+		t.Fatalf("Program Output Audit entries = %s", auditBody)
+	}
+	if !bytes.Contains(auditBody, []byte("ChangeProgramControlTakeover")) ||
+		!bytes.Contains(auditBody, []byte("program_takeover_confirmation_required")) ||
+		!bytes.Contains(auditBody, []byte("program_revision_conflict")) ||
+		!bytes.Contains(auditBody, []byte("program_control_revision_conflict")) ||
+		!bytes.Contains(auditBody, []byte("competition_entry_order_revision_conflict")) ||
+		bytes.Count(auditBody, []byte("program_operator_required")) != 3 {
+		t.Fatalf("Program takeover Audit evidence missing: %s", auditBody)
+	}
+	restarted.stop(t)
+}
+
 func sameInt64Set(left, right []int64) bool {
 	if len(left) != len(right) {
 		return false
@@ -5540,6 +5965,69 @@ func provisionOperator(
 	return provisionOperatorWithLanes(t, administrator, server, []int{1})
 }
 
+func openAndCloseProgramStream(
+	t *testing.T,
+	client *http.Client,
+	address string,
+	sessionID int64,
+) {
+	t.Helper()
+	streamContext, cancelStream := context.WithCancel(t.Context())
+	request, err := http.NewRequestWithContext(
+		streamContext,
+		http.MethodGet,
+		fmt.Sprintf(
+			"http://%s/crew/program/%d/events?event_id=1",
+			address,
+			sessionID,
+		),
+		http.NoBody,
+	)
+	if err != nil {
+		t.Fatalf("create Program control stream request: %v", err)
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		t.Fatalf("open Program control stream: %v", err)
+	}
+	cancelStream()
+	if err = response.Body.Close(); err != nil {
+		t.Fatalf("close Program control stream: %v", err)
+	}
+}
+
+func provisionObserver(
+	t *testing.T,
+	administrator *http.Client,
+	server *runningServer,
+) *http.Client {
+	t.Helper()
+	const password = "observer correct horse battery staple"
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/accounts",
+		map[string]string{
+			"name": "Oli Observer", "password": password,
+			"command_id": "create-account-oli",
+		},
+		http.StatusCreated, "{\"id\":3,\"name\":\"Oli Observer\",\"administrator\":false}\n",
+	)
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events/1/grants",
+		map[string]any{
+			"account_id": 3, "role": "Observer", "command_id": "grant-oli-observer",
+		},
+		http.StatusCreated,
+		"{\"event_id\":1,\"account_id\":3,\"role\":\"Observer\"}\n",
+	)
+	observer := authenticatedClient(t)
+	assertJSONRequest(
+		t, observer, server.address, "/auth/sign-in",
+		map[string]string{"name": "Oli Observer", "password": password},
+		http.StatusNoContent, "",
+	)
+	return observer
+}
+
 func provisionOperatorWithLanes(
 	t *testing.T,
 	administrator *http.Client,
@@ -6480,16 +6968,21 @@ type jsonResponse struct {
 }
 
 type displaySnapshotState struct {
-	ProtocolVersion      string `json:"protocolVersion"`
-	AssetVersion         string `json:"assetVersion"`
-	StreamID             string `json:"streamId"`
-	StreamPosition       string `json:"streamPosition"`
-	ActiveEventID        string `json:"activeEventId"`
-	ActivationGeneration string `json:"activationGeneration"`
-	PublishedRevision    string `json:"publishedRevision"`
-	Standby              bool   `json:"standby"`
-	SnapshotToken        string `json:"snapshotToken"`
-	Composition          struct {
+	ProtocolVersion       string `json:"protocolVersion"`
+	AssetVersion          string `json:"assetVersion"`
+	StreamID              string `json:"streamId"`
+	StreamPosition        string `json:"streamPosition"`
+	ActiveEventID         string `json:"activeEventId"`
+	ActivationGeneration  string `json:"activationGeneration"`
+	PublishedRevision     string `json:"publishedRevision"`
+	Standby               bool   `json:"standby"`
+	SnapshotToken         string `json:"snapshotToken"`
+	ProgramOutputRevision string `json:"programOutputRevision"`
+	ProgramOutput         struct {
+		Kind  string `json:"kind"`
+		Title string `json:"title"`
+	} `json:"programOutput"`
+	Composition struct {
 		Layout struct {
 			Key             string `json:"key"`
 			RotationSeconds int    `json:"rotationSeconds"`

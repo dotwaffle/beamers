@@ -24311,6 +24311,14 @@ type SessionMutation struct {
 	entry_order_locked_at        *time.Time
 	entry_order_revision         *int
 	addentry_order_revision      *int
+	program_output_kind          *session.ProgramOutputKind
+	program_output_entry_id      *int
+	addprogram_output_entry_id   *int
+	program_output_revision      *int
+	addprogram_output_revision   *int
+	program_cursor               *int
+	addprogram_cursor            *int
+	program_output_taken_at      *time.Time
 	created_at                   *time.Time
 	clearedFields                map[string]struct{}
 	event                        *int
@@ -25648,6 +25656,273 @@ func (m *SessionMutation) ResetEntryOrderRevision() {
 	m.addentry_order_revision = nil
 }
 
+// SetProgramOutputKind sets the "program_output_kind" field.
+func (m *SessionMutation) SetProgramOutputKind(sok session.ProgramOutputKind) {
+	m.program_output_kind = &sok
+}
+
+// ProgramOutputKind returns the value of the "program_output_kind" field in the mutation.
+func (m *SessionMutation) ProgramOutputKind() (r session.ProgramOutputKind, exists bool) {
+	v := m.program_output_kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProgramOutputKind returns the old "program_output_kind" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldProgramOutputKind(ctx context.Context) (v session.ProgramOutputKind, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProgramOutputKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProgramOutputKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProgramOutputKind: %w", err)
+	}
+	return oldValue.ProgramOutputKind, nil
+}
+
+// ResetProgramOutputKind resets all changes to the "program_output_kind" field.
+func (m *SessionMutation) ResetProgramOutputKind() {
+	m.program_output_kind = nil
+}
+
+// SetProgramOutputEntryID sets the "program_output_entry_id" field.
+func (m *SessionMutation) SetProgramOutputEntryID(i int) {
+	m.program_output_entry_id = &i
+	m.addprogram_output_entry_id = nil
+}
+
+// ProgramOutputEntryID returns the value of the "program_output_entry_id" field in the mutation.
+func (m *SessionMutation) ProgramOutputEntryID() (r int, exists bool) {
+	v := m.program_output_entry_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProgramOutputEntryID returns the old "program_output_entry_id" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldProgramOutputEntryID(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProgramOutputEntryID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProgramOutputEntryID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProgramOutputEntryID: %w", err)
+	}
+	return oldValue.ProgramOutputEntryID, nil
+}
+
+// AddProgramOutputEntryID adds i to the "program_output_entry_id" field.
+func (m *SessionMutation) AddProgramOutputEntryID(i int) {
+	if m.addprogram_output_entry_id != nil {
+		*m.addprogram_output_entry_id += i
+	} else {
+		m.addprogram_output_entry_id = &i
+	}
+}
+
+// AddedProgramOutputEntryID returns the value that was added to the "program_output_entry_id" field in this mutation.
+func (m *SessionMutation) AddedProgramOutputEntryID() (r int, exists bool) {
+	v := m.addprogram_output_entry_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearProgramOutputEntryID clears the value of the "program_output_entry_id" field.
+func (m *SessionMutation) ClearProgramOutputEntryID() {
+	m.program_output_entry_id = nil
+	m.addprogram_output_entry_id = nil
+	m.clearedFields[session.FieldProgramOutputEntryID] = struct{}{}
+}
+
+// ProgramOutputEntryIDCleared returns if the "program_output_entry_id" field was cleared in this mutation.
+func (m *SessionMutation) ProgramOutputEntryIDCleared() bool {
+	_, ok := m.clearedFields[session.FieldProgramOutputEntryID]
+	return ok
+}
+
+// ResetProgramOutputEntryID resets all changes to the "program_output_entry_id" field.
+func (m *SessionMutation) ResetProgramOutputEntryID() {
+	m.program_output_entry_id = nil
+	m.addprogram_output_entry_id = nil
+	delete(m.clearedFields, session.FieldProgramOutputEntryID)
+}
+
+// SetProgramOutputRevision sets the "program_output_revision" field.
+func (m *SessionMutation) SetProgramOutputRevision(i int) {
+	m.program_output_revision = &i
+	m.addprogram_output_revision = nil
+}
+
+// ProgramOutputRevision returns the value of the "program_output_revision" field in the mutation.
+func (m *SessionMutation) ProgramOutputRevision() (r int, exists bool) {
+	v := m.program_output_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProgramOutputRevision returns the old "program_output_revision" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldProgramOutputRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProgramOutputRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProgramOutputRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProgramOutputRevision: %w", err)
+	}
+	return oldValue.ProgramOutputRevision, nil
+}
+
+// AddProgramOutputRevision adds i to the "program_output_revision" field.
+func (m *SessionMutation) AddProgramOutputRevision(i int) {
+	if m.addprogram_output_revision != nil {
+		*m.addprogram_output_revision += i
+	} else {
+		m.addprogram_output_revision = &i
+	}
+}
+
+// AddedProgramOutputRevision returns the value that was added to the "program_output_revision" field in this mutation.
+func (m *SessionMutation) AddedProgramOutputRevision() (r int, exists bool) {
+	v := m.addprogram_output_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetProgramOutputRevision resets all changes to the "program_output_revision" field.
+func (m *SessionMutation) ResetProgramOutputRevision() {
+	m.program_output_revision = nil
+	m.addprogram_output_revision = nil
+}
+
+// SetProgramCursor sets the "program_cursor" field.
+func (m *SessionMutation) SetProgramCursor(i int) {
+	m.program_cursor = &i
+	m.addprogram_cursor = nil
+}
+
+// ProgramCursor returns the value of the "program_cursor" field in the mutation.
+func (m *SessionMutation) ProgramCursor() (r int, exists bool) {
+	v := m.program_cursor
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProgramCursor returns the old "program_cursor" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldProgramCursor(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProgramCursor is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProgramCursor requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProgramCursor: %w", err)
+	}
+	return oldValue.ProgramCursor, nil
+}
+
+// AddProgramCursor adds i to the "program_cursor" field.
+func (m *SessionMutation) AddProgramCursor(i int) {
+	if m.addprogram_cursor != nil {
+		*m.addprogram_cursor += i
+	} else {
+		m.addprogram_cursor = &i
+	}
+}
+
+// AddedProgramCursor returns the value that was added to the "program_cursor" field in this mutation.
+func (m *SessionMutation) AddedProgramCursor() (r int, exists bool) {
+	v := m.addprogram_cursor
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetProgramCursor resets all changes to the "program_cursor" field.
+func (m *SessionMutation) ResetProgramCursor() {
+	m.program_cursor = nil
+	m.addprogram_cursor = nil
+}
+
+// SetProgramOutputTakenAt sets the "program_output_taken_at" field.
+func (m *SessionMutation) SetProgramOutputTakenAt(t time.Time) {
+	m.program_output_taken_at = &t
+}
+
+// ProgramOutputTakenAt returns the value of the "program_output_taken_at" field in the mutation.
+func (m *SessionMutation) ProgramOutputTakenAt() (r time.Time, exists bool) {
+	v := m.program_output_taken_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProgramOutputTakenAt returns the old "program_output_taken_at" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldProgramOutputTakenAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProgramOutputTakenAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProgramOutputTakenAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProgramOutputTakenAt: %w", err)
+	}
+	return oldValue.ProgramOutputTakenAt, nil
+}
+
+// ClearProgramOutputTakenAt clears the value of the "program_output_taken_at" field.
+func (m *SessionMutation) ClearProgramOutputTakenAt() {
+	m.program_output_taken_at = nil
+	m.clearedFields[session.FieldProgramOutputTakenAt] = struct{}{}
+}
+
+// ProgramOutputTakenAtCleared returns if the "program_output_taken_at" field was cleared in this mutation.
+func (m *SessionMutation) ProgramOutputTakenAtCleared() bool {
+	_, ok := m.clearedFields[session.FieldProgramOutputTakenAt]
+	return ok
+}
+
+// ResetProgramOutputTakenAt resets all changes to the "program_output_taken_at" field.
+func (m *SessionMutation) ResetProgramOutputTakenAt() {
+	m.program_output_taken_at = nil
+	delete(m.clearedFields, session.FieldProgramOutputTakenAt)
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *SessionMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -26000,7 +26275,7 @@ func (m *SessionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SessionMutation) Fields() []string {
-	fields := make([]string, 0, 25)
+	fields := make([]string, 0, 30)
 	if m.event != nil {
 		fields = append(fields, session.FieldEventID)
 	}
@@ -26073,6 +26348,21 @@ func (m *SessionMutation) Fields() []string {
 	if m.entry_order_revision != nil {
 		fields = append(fields, session.FieldEntryOrderRevision)
 	}
+	if m.program_output_kind != nil {
+		fields = append(fields, session.FieldProgramOutputKind)
+	}
+	if m.program_output_entry_id != nil {
+		fields = append(fields, session.FieldProgramOutputEntryID)
+	}
+	if m.program_output_revision != nil {
+		fields = append(fields, session.FieldProgramOutputRevision)
+	}
+	if m.program_cursor != nil {
+		fields = append(fields, session.FieldProgramCursor)
+	}
+	if m.program_output_taken_at != nil {
+		fields = append(fields, session.FieldProgramOutputTakenAt)
+	}
 	if m.created_at != nil {
 		fields = append(fields, session.FieldCreatedAt)
 	}
@@ -26132,6 +26422,16 @@ func (m *SessionMutation) Field(name string) (ent.Value, bool) {
 		return m.EntryOrderLockedAt()
 	case session.FieldEntryOrderRevision:
 		return m.EntryOrderRevision()
+	case session.FieldProgramOutputKind:
+		return m.ProgramOutputKind()
+	case session.FieldProgramOutputEntryID:
+		return m.ProgramOutputEntryID()
+	case session.FieldProgramOutputRevision:
+		return m.ProgramOutputRevision()
+	case session.FieldProgramCursor:
+		return m.ProgramCursor()
+	case session.FieldProgramOutputTakenAt:
+		return m.ProgramOutputTakenAt()
 	case session.FieldCreatedAt:
 		return m.CreatedAt()
 	}
@@ -26191,6 +26491,16 @@ func (m *SessionMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldEntryOrderLockedAt(ctx)
 	case session.FieldEntryOrderRevision:
 		return m.OldEntryOrderRevision(ctx)
+	case session.FieldProgramOutputKind:
+		return m.OldProgramOutputKind(ctx)
+	case session.FieldProgramOutputEntryID:
+		return m.OldProgramOutputEntryID(ctx)
+	case session.FieldProgramOutputRevision:
+		return m.OldProgramOutputRevision(ctx)
+	case session.FieldProgramCursor:
+		return m.OldProgramCursor(ctx)
+	case session.FieldProgramOutputTakenAt:
+		return m.OldProgramOutputTakenAt(ctx)
 	case session.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	}
@@ -26370,6 +26680,41 @@ func (m *SessionMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetEntryOrderRevision(v)
 		return nil
+	case session.FieldProgramOutputKind:
+		v, ok := value.(session.ProgramOutputKind)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProgramOutputKind(v)
+		return nil
+	case session.FieldProgramOutputEntryID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProgramOutputEntryID(v)
+		return nil
+	case session.FieldProgramOutputRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProgramOutputRevision(v)
+		return nil
+	case session.FieldProgramCursor:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProgramCursor(v)
+		return nil
+	case session.FieldProgramOutputTakenAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProgramOutputTakenAt(v)
+		return nil
 	case session.FieldCreatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -26397,6 +26742,15 @@ func (m *SessionMutation) AddedFields() []string {
 	if m.addentry_order_revision != nil {
 		fields = append(fields, session.FieldEntryOrderRevision)
 	}
+	if m.addprogram_output_entry_id != nil {
+		fields = append(fields, session.FieldProgramOutputEntryID)
+	}
+	if m.addprogram_output_revision != nil {
+		fields = append(fields, session.FieldProgramOutputRevision)
+	}
+	if m.addprogram_cursor != nil {
+		fields = append(fields, session.FieldProgramCursor)
+	}
 	return fields
 }
 
@@ -26413,6 +26767,12 @@ func (m *SessionMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedEntryOrderSeed()
 	case session.FieldEntryOrderRevision:
 		return m.AddedEntryOrderRevision()
+	case session.FieldProgramOutputEntryID:
+		return m.AddedProgramOutputEntryID()
+	case session.FieldProgramOutputRevision:
+		return m.AddedProgramOutputRevision()
+	case session.FieldProgramCursor:
+		return m.AddedProgramCursor()
 	}
 	return nil, false
 }
@@ -26449,6 +26809,27 @@ func (m *SessionMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddEntryOrderRevision(v)
+		return nil
+	case session.FieldProgramOutputEntryID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddProgramOutputEntryID(v)
+		return nil
+	case session.FieldProgramOutputRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddProgramOutputRevision(v)
+		return nil
+	case session.FieldProgramCursor:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddProgramCursor(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Session numeric field %s", name)
@@ -26505,6 +26886,12 @@ func (m *SessionMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(session.FieldEntryOrderLockedAt) {
 		fields = append(fields, session.FieldEntryOrderLockedAt)
+	}
+	if m.FieldCleared(session.FieldProgramOutputEntryID) {
+		fields = append(fields, session.FieldProgramOutputEntryID)
+	}
+	if m.FieldCleared(session.FieldProgramOutputTakenAt) {
+		fields = append(fields, session.FieldProgramOutputTakenAt)
 	}
 	return fields
 }
@@ -26567,6 +26954,12 @@ func (m *SessionMutation) ClearField(name string) error {
 		return nil
 	case session.FieldEntryOrderLockedAt:
 		m.ClearEntryOrderLockedAt()
+		return nil
+	case session.FieldProgramOutputEntryID:
+		m.ClearProgramOutputEntryID()
+		return nil
+	case session.FieldProgramOutputTakenAt:
+		m.ClearProgramOutputTakenAt()
 		return nil
 	}
 	return fmt.Errorf("unknown Session nullable field %s", name)
@@ -26647,6 +27040,21 @@ func (m *SessionMutation) ResetField(name string) error {
 		return nil
 	case session.FieldEntryOrderRevision:
 		m.ResetEntryOrderRevision()
+		return nil
+	case session.FieldProgramOutputKind:
+		m.ResetProgramOutputKind()
+		return nil
+	case session.FieldProgramOutputEntryID:
+		m.ResetProgramOutputEntryID()
+		return nil
+	case session.FieldProgramOutputRevision:
+		m.ResetProgramOutputRevision()
+		return nil
+	case session.FieldProgramCursor:
+		m.ResetProgramCursor()
+		return nil
+	case session.FieldProgramOutputTakenAt:
+		m.ResetProgramOutputTakenAt()
 		return nil
 	case session.FieldCreatedAt:
 		m.ResetCreatedAt()

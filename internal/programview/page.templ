@@ -1,0 +1,59 @@
+package programview
+
+import "strconv"
+
+templ Page(eventID int, sessionID int, channelName string, buildVersion string) {
+	<!doctype html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="beamers-build" content={ buildVersion }/>
+			<link rel="stylesheet" href="/crew/program/assets/control.css"/>
+			<title>{ channelName } · Program control</title>
+		</head>
+		<body data-event-id={ strconv.Itoa(eventID) } data-session-id={ strconv.Itoa(sessionID) }>
+			<header>
+				<p class="eyebrow">Program Channel</p>
+				<h1>{ channelName }</h1>
+				<p id="connection-status" role="status">Loading authoritative state…</p>
+			</header>
+			<main>
+				<section class="sequence" aria-label="Program sequence">
+					@ItemPanel("Previous", "previous")
+					@ItemPanel("Current", "current")
+					@ItemPanel("Next", "next")
+					@ItemPanel("Preview", "preview")
+					@ItemPanel("Program Output", "programOutput")
+				</section>
+				<section aria-labelledby="preview-heading">
+					<h2 id="preview-heading">Preview selection</h2>
+					<div id="program-items" class="actions"></div>
+				</section>
+				<section aria-labelledby="control-heading">
+					<h2 id="control-heading">Control</h2>
+					<p id="owner">Unowned</p>
+					<div class="actions">
+						<button type="button" data-control-action="CONTROL_ACTION_CLAIM">Claim</button>
+						<button type="button" data-control-action="CONTROL_ACTION_REQUEST_HANDOVER">Request handover</button>
+						<button type="button" data-control-action="CONTROL_ACTION_HANDOVER">Hand over</button>
+						<button type="button" data-control-action="CONTROL_ACTION_TAKEOVER">Confirmed takeover</button>
+						<button type="button" id="take" class="take">Take Preview</button>
+					</div>
+				</section>
+				<section aria-labelledby="displays-heading">
+					<h2 id="displays-heading">Consuming Displays</h2>
+					<ul id="displays"></ul>
+				</section>
+			</main>
+			<script src="/crew/program/assets/control.js" defer></script>
+		</body>
+	</html>
+}
+
+templ ItemPanel(label string, role string) {
+	<article class="item">
+		<h2>{ label }</h2>
+		<p data-item={ role }>—</p>
+	</article>
+}

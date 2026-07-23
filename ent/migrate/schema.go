@@ -841,6 +841,11 @@ var (
 		{Name: "locked_entry_order_ids", Type: field.TypeJSON, Nullable: true},
 		{Name: "entry_order_locked_at", Type: field.TypeTime, Nullable: true},
 		{Name: "entry_order_revision", Type: field.TypeInt, Default: 0},
+		{Name: "program_output_kind", Type: field.TypeEnum, Enums: []string{"Standby", "Upcoming", "Starting", "Entry", "Ending"}, Default: "Standby"},
+		{Name: "program_output_entry_id", Type: field.TypeInt, Nullable: true},
+		{Name: "program_output_revision", Type: field.TypeInt, Default: 0},
+		{Name: "program_cursor", Type: field.TypeInt, Default: -1},
+		{Name: "program_output_taken_at", Type: field.TypeTime, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "event_id", Type: field.TypeInt},
 	}
@@ -852,7 +857,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "sessions_events_sessions",
-				Columns:    []*schema.Column{SessionsColumns[25]},
+				Columns:    []*schema.Column{SessionsColumns[30]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
