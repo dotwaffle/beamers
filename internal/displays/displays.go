@@ -173,12 +173,14 @@ type Session struct {
 
 // StageTimer is one authoritative live Session clock for a Display.
 type StageTimer struct {
-	SessionID   int
-	Title       string
-	Mode        stagetimer.Mode
-	Anchor      time.Time
-	ForecastEnd time.Time
-	Thresholds  []stagetimer.Threshold
+	SessionID                 int
+	Title                     string
+	Mode                      stagetimer.Mode
+	Anchor                    time.Time
+	ForecastEnd               time.Time
+	Thresholds                []stagetimer.Threshold
+	AdjustmentSeconds         int
+	AdjustmentNoticeExpiresAt time.Time
 }
 
 // ClaimInput confirms one Display Enrollment code.
@@ -341,18 +343,21 @@ func projectStageTimer(
 		ActualStart:  selected.ActualStart,
 		PlannedStart: selected.RunPlannedStart,
 		PlannedEnd:   selected.RunPlannedEnd,
+		TargetEnd:    selected.ForecastEnd,
 		Thresholds:   resolved,
 	})
 	if err != nil {
 		return StageTimer{}, false, err
 	}
 	return StageTimer{
-		SessionID:   timer.SessionID,
-		Title:       selected.TimerTitle,
-		Mode:        timer.Mode,
-		Anchor:      timer.Anchor,
-		ForecastEnd: selected.ForecastEnd,
-		Thresholds:  timer.Thresholds,
+		SessionID:                 timer.SessionID,
+		Title:                     selected.TimerTitle,
+		Mode:                      timer.Mode,
+		Anchor:                    timer.Anchor,
+		ForecastEnd:               selected.ForecastEnd,
+		Thresholds:                timer.Thresholds,
+		AdjustmentSeconds:         selected.TargetAdjustmentSeconds,
+		AdjustmentNoticeExpiresAt: selected.TargetAdjustedAt.Add(5 * time.Second),
 	}, true, nil
 }
 

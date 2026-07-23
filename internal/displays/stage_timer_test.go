@@ -30,7 +30,7 @@ func TestProjectStageTimerUsesLiveSessionAtAssignedLocation(t *testing.T) {
 				Type: "Presentation", TimingPolicy: "FixedDuration",
 				RunPlannedStart: start.Add(-3 * time.Minute),
 				RunPlannedEnd:   start.Add(27 * time.Minute),
-				ForecastEnd:     start.Add(27 * time.Minute),
+				ForecastEnd:     start.Add(30 * time.Minute),
 				ActualStart:     start,
 			},
 		},
@@ -53,7 +53,7 @@ func TestProjectStageTimerUsesLiveSessionAtAssignedLocation(t *testing.T) {
 	if got, want := timer.Anchor, start.Add(30*time.Minute); !got.Equal(want) {
 		t.Errorf("timer anchor = %v, want %v", got, want)
 	}
-	if got, want := timer.ForecastEnd, start.Add(27*time.Minute); !got.Equal(want) {
+	if got, want := timer.ForecastEnd, start.Add(30*time.Minute); !got.Equal(want) {
 		t.Errorf("timer Forecast End = %v, want %v", got, want)
 	}
 	if len(timer.Thresholds) != 1 || timer.Thresholds[0].Remaining != 2*time.Minute {

@@ -141,6 +141,9 @@ templ displayRegion(snapshot Snapshot, name string, widget string, persistent bo
 					<p>{ timer.Direction }</p>
 					<time data-stage-timer-clock datetime={ timer.Anchor.Format("2006-01-02T15:04:05Z07:00") }>{ timer.Text }</time>
 					<p data-timer-emphasis-label>{ timer.EmphasisLabel }</p>
+					if timer.AdjustmentNotice != "" && snapshot.ServerTime.Before(timer.AdjustmentNoticeExpiresAt) {
+						<p data-timer-adjustment-notice data-expires-at={ timer.AdjustmentNoticeExpiresAt.Format("2006-01-02T15:04:05Z07:00") }>{ timer.AdjustmentNotice }</p>
+					}
 					if !timer.ForecastEnd.IsZero() {
 						<p>Forecast End: <time datetime={ timer.ForecastEnd.Format("2006-01-02T15:04:05Z07:00") }>{ timer.DisplayForecastEnd }</time></p>
 					}

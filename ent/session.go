@@ -25,6 +25,10 @@ type Session struct {
 	Lifecycle session.Lifecycle `json:"lifecycle,omitempty"`
 	// LiveStateRevision holds the value of the "live_state_revision" field.
 	LiveStateRevision int `json:"live_state_revision,omitempty"`
+	// ForecastStart holds the value of the "forecast_start" field.
+	ForecastStart time.Time `json:"forecast_start,omitempty"`
+	// ForecastEnd holds the value of the "forecast_end" field.
+	ForecastEnd time.Time `json:"forecast_end,omitempty"`
 	// CorrectedTitle holds the value of the "corrected_title" field.
 	CorrectedTitle *string `json:"corrected_title,omitempty"`
 	// CorrectedSpeaker holds the value of the "corrected_speaker" field.
@@ -103,7 +107,7 @@ func (*Session) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullInt64)
 		case session.FieldLifecycle, session.FieldCorrectedTitle, session.FieldCorrectedSpeaker, session.FieldCorrectedPublicDetails:
 			values[i] = new(sql.NullString)
-		case session.FieldCreatedAt:
+		case session.FieldForecastStart, session.FieldForecastEnd, session.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -143,6 +147,18 @@ func (_m *Session) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field live_state_revision", values[i])
 			} else if value.Valid {
 				_m.LiveStateRevision = int(value.Int64)
+			}
+		case session.FieldForecastStart:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field forecast_start", values[i])
+			} else if value.Valid {
+				_m.ForecastStart = value.Time
+			}
+		case session.FieldForecastEnd:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field forecast_end", values[i])
+			} else if value.Valid {
+				_m.ForecastEnd = value.Time
 			}
 		case session.FieldCorrectedTitle:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -235,6 +251,12 @@ func (_m *Session) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("live_state_revision=")
 	builder.WriteString(fmt.Sprintf("%v", _m.LiveStateRevision))
+	builder.WriteString(", ")
+	builder.WriteString("forecast_start=")
+	builder.WriteString(_m.ForecastStart.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("forecast_end=")
+	builder.WriteString(_m.ForecastEnd.Format(time.ANSIC))
 	builder.WriteString(", ")
 	if v := _m.CorrectedTitle; v != nil {
 		builder.WriteString("corrected_title=")

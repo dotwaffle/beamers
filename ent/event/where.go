@@ -90,6 +90,11 @@ func EventDayBoundary(v string) predicate.Event {
 	return predicate.Event(sql.FieldEQ(FieldEventDayBoundary, v))
 }
 
+// TargetAdjustmentPresets applies equality check predicate on the "target_adjustment_presets" field. It's identical to TargetAdjustmentPresetsEQ.
+func TargetAdjustmentPresets(v string) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldTargetAdjustmentPresets, v))
+}
+
 // DisplayConfiguration applies equality check predicate on the "display_configuration" field. It's identical to DisplayConfigurationEQ.
 func DisplayConfiguration(v string) predicate.Event {
 	return predicate.Event(sql.FieldEQ(FieldDisplayConfiguration, v))
@@ -568,6 +573,71 @@ func EventDayBoundaryEqualFold(v string) predicate.Event {
 // EventDayBoundaryContainsFold applies the ContainsFold predicate on the "event_day_boundary" field.
 func EventDayBoundaryContainsFold(v string) predicate.Event {
 	return predicate.Event(sql.FieldContainsFold(FieldEventDayBoundary, v))
+}
+
+// TargetAdjustmentPresetsEQ applies the EQ predicate on the "target_adjustment_presets" field.
+func TargetAdjustmentPresetsEQ(v string) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldTargetAdjustmentPresets, v))
+}
+
+// TargetAdjustmentPresetsNEQ applies the NEQ predicate on the "target_adjustment_presets" field.
+func TargetAdjustmentPresetsNEQ(v string) predicate.Event {
+	return predicate.Event(sql.FieldNEQ(FieldTargetAdjustmentPresets, v))
+}
+
+// TargetAdjustmentPresetsIn applies the In predicate on the "target_adjustment_presets" field.
+func TargetAdjustmentPresetsIn(vs ...string) predicate.Event {
+	return predicate.Event(sql.FieldIn(FieldTargetAdjustmentPresets, vs...))
+}
+
+// TargetAdjustmentPresetsNotIn applies the NotIn predicate on the "target_adjustment_presets" field.
+func TargetAdjustmentPresetsNotIn(vs ...string) predicate.Event {
+	return predicate.Event(sql.FieldNotIn(FieldTargetAdjustmentPresets, vs...))
+}
+
+// TargetAdjustmentPresetsGT applies the GT predicate on the "target_adjustment_presets" field.
+func TargetAdjustmentPresetsGT(v string) predicate.Event {
+	return predicate.Event(sql.FieldGT(FieldTargetAdjustmentPresets, v))
+}
+
+// TargetAdjustmentPresetsGTE applies the GTE predicate on the "target_adjustment_presets" field.
+func TargetAdjustmentPresetsGTE(v string) predicate.Event {
+	return predicate.Event(sql.FieldGTE(FieldTargetAdjustmentPresets, v))
+}
+
+// TargetAdjustmentPresetsLT applies the LT predicate on the "target_adjustment_presets" field.
+func TargetAdjustmentPresetsLT(v string) predicate.Event {
+	return predicate.Event(sql.FieldLT(FieldTargetAdjustmentPresets, v))
+}
+
+// TargetAdjustmentPresetsLTE applies the LTE predicate on the "target_adjustment_presets" field.
+func TargetAdjustmentPresetsLTE(v string) predicate.Event {
+	return predicate.Event(sql.FieldLTE(FieldTargetAdjustmentPresets, v))
+}
+
+// TargetAdjustmentPresetsContains applies the Contains predicate on the "target_adjustment_presets" field.
+func TargetAdjustmentPresetsContains(v string) predicate.Event {
+	return predicate.Event(sql.FieldContains(FieldTargetAdjustmentPresets, v))
+}
+
+// TargetAdjustmentPresetsHasPrefix applies the HasPrefix predicate on the "target_adjustment_presets" field.
+func TargetAdjustmentPresetsHasPrefix(v string) predicate.Event {
+	return predicate.Event(sql.FieldHasPrefix(FieldTargetAdjustmentPresets, v))
+}
+
+// TargetAdjustmentPresetsHasSuffix applies the HasSuffix predicate on the "target_adjustment_presets" field.
+func TargetAdjustmentPresetsHasSuffix(v string) predicate.Event {
+	return predicate.Event(sql.FieldHasSuffix(FieldTargetAdjustmentPresets, v))
+}
+
+// TargetAdjustmentPresetsEqualFold applies the EqualFold predicate on the "target_adjustment_presets" field.
+func TargetAdjustmentPresetsEqualFold(v string) predicate.Event {
+	return predicate.Event(sql.FieldEqualFold(FieldTargetAdjustmentPresets, v))
+}
+
+// TargetAdjustmentPresetsContainsFold applies the ContainsFold predicate on the "target_adjustment_presets" field.
+func TargetAdjustmentPresetsContainsFold(v string) predicate.Event {
+	return predicate.Event(sql.FieldContainsFold(FieldTargetAdjustmentPresets, v))
 }
 
 // DisplayConfigurationEQ applies the EQ predicate on the "display_configuration" field.

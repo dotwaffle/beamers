@@ -37,6 +37,31 @@ func ReplaceMigrationChecksum(ctx context.Context, path string) error {
 	})
 }
 
+// FailSessionRunUpdates installs a test-only trigger that forces target adjustment rollback.
+func FailSessionRunUpdates(ctx context.Context, path string) error {
+	return mutateSchema(path, func(database *sql.DB) error {
+		const statement = `CREATE TRIGGER fail_session_run_update
+BEFORE UPDATE OF target_adjustment_seconds, target_adjusted_at ON session_runs
+BEGIN
+	SELECT RAISE(FAIL, 'forced Session Run update failure');
+END`
+		if _, err := database.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("install Session Run failure trigger: %w", err)
+		}
+		return nil
+	})
+}
+
+// AllowSessionRunUpdates removes the test-only target adjustment failure trigger.
+func AllowSessionRunUpdates(ctx context.Context, path string) error {
+	return mutateSchema(path, func(database *sql.DB) error {
+		if _, err := database.ExecContext(ctx, "DROP TRIGGER fail_session_run_update"); err != nil {
+			return fmt.Errorf("remove Session Run failure trigger: %w", err)
+		}
+		return nil
+	})
+}
+
 func mutateSchema(
 	path string,
 	mutation func(*sql.DB) error,

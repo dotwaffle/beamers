@@ -282,6 +282,10 @@ func stageTimerMessage(found displays.StageTimer) *displayv1.StageTimer {
 	if !found.ForecastEnd.IsZero() {
 		result.ForecastEnd = timestamppb.New(found.ForecastEnd)
 	}
+	result.AdjustmentSeconds = int64(found.AdjustmentSeconds)
+	if !found.AdjustmentNoticeExpiresAt.IsZero() {
+		result.AdjustmentNoticeExpiresAt = timestamppb.New(found.AdjustmentNoticeExpiresAt)
+	}
 	for _, threshold := range found.Thresholds {
 		result.Thresholds = append(result.Thresholds, &displayv1.TimerThreshold{
 			RemainingSeconds: int64(threshold.Remaining / time.Second),

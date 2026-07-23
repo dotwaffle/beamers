@@ -70,6 +70,16 @@ func ActualEnd(v time.Time) predicate.SessionRun {
 	return predicate.SessionRun(sql.FieldEQ(FieldActualEnd, v))
 }
 
+// TargetAdjustmentSeconds applies equality check predicate on the "target_adjustment_seconds" field. It's identical to TargetAdjustmentSecondsEQ.
+func TargetAdjustmentSeconds(v int) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldEQ(FieldTargetAdjustmentSeconds, v))
+}
+
+// TargetAdjustedAt applies equality check predicate on the "target_adjusted_at" field. It's identical to TargetAdjustedAtEQ.
+func TargetAdjustedAt(v time.Time) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldEQ(FieldTargetAdjustedAt, v))
+}
+
 // SnapshotJSON applies equality check predicate on the "snapshot_json" field. It's identical to SnapshotJSONEQ.
 func SnapshotJSON(v string) predicate.SessionRun {
 	return predicate.SessionRun(sql.FieldEQ(FieldSnapshotJSON, v))
@@ -188,6 +198,96 @@ func ActualEndIsNil() predicate.SessionRun {
 // ActualEndNotNil applies the NotNil predicate on the "actual_end" field.
 func ActualEndNotNil() predicate.SessionRun {
 	return predicate.SessionRun(sql.FieldNotNull(FieldActualEnd))
+}
+
+// TargetAdjustmentSecondsEQ applies the EQ predicate on the "target_adjustment_seconds" field.
+func TargetAdjustmentSecondsEQ(v int) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldEQ(FieldTargetAdjustmentSeconds, v))
+}
+
+// TargetAdjustmentSecondsNEQ applies the NEQ predicate on the "target_adjustment_seconds" field.
+func TargetAdjustmentSecondsNEQ(v int) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldNEQ(FieldTargetAdjustmentSeconds, v))
+}
+
+// TargetAdjustmentSecondsIn applies the In predicate on the "target_adjustment_seconds" field.
+func TargetAdjustmentSecondsIn(vs ...int) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldIn(FieldTargetAdjustmentSeconds, vs...))
+}
+
+// TargetAdjustmentSecondsNotIn applies the NotIn predicate on the "target_adjustment_seconds" field.
+func TargetAdjustmentSecondsNotIn(vs ...int) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldNotIn(FieldTargetAdjustmentSeconds, vs...))
+}
+
+// TargetAdjustmentSecondsGT applies the GT predicate on the "target_adjustment_seconds" field.
+func TargetAdjustmentSecondsGT(v int) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldGT(FieldTargetAdjustmentSeconds, v))
+}
+
+// TargetAdjustmentSecondsGTE applies the GTE predicate on the "target_adjustment_seconds" field.
+func TargetAdjustmentSecondsGTE(v int) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldGTE(FieldTargetAdjustmentSeconds, v))
+}
+
+// TargetAdjustmentSecondsLT applies the LT predicate on the "target_adjustment_seconds" field.
+func TargetAdjustmentSecondsLT(v int) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldLT(FieldTargetAdjustmentSeconds, v))
+}
+
+// TargetAdjustmentSecondsLTE applies the LTE predicate on the "target_adjustment_seconds" field.
+func TargetAdjustmentSecondsLTE(v int) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldLTE(FieldTargetAdjustmentSeconds, v))
+}
+
+// TargetAdjustedAtEQ applies the EQ predicate on the "target_adjusted_at" field.
+func TargetAdjustedAtEQ(v time.Time) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldEQ(FieldTargetAdjustedAt, v))
+}
+
+// TargetAdjustedAtNEQ applies the NEQ predicate on the "target_adjusted_at" field.
+func TargetAdjustedAtNEQ(v time.Time) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldNEQ(FieldTargetAdjustedAt, v))
+}
+
+// TargetAdjustedAtIn applies the In predicate on the "target_adjusted_at" field.
+func TargetAdjustedAtIn(vs ...time.Time) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldIn(FieldTargetAdjustedAt, vs...))
+}
+
+// TargetAdjustedAtNotIn applies the NotIn predicate on the "target_adjusted_at" field.
+func TargetAdjustedAtNotIn(vs ...time.Time) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldNotIn(FieldTargetAdjustedAt, vs...))
+}
+
+// TargetAdjustedAtGT applies the GT predicate on the "target_adjusted_at" field.
+func TargetAdjustedAtGT(v time.Time) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldGT(FieldTargetAdjustedAt, v))
+}
+
+// TargetAdjustedAtGTE applies the GTE predicate on the "target_adjusted_at" field.
+func TargetAdjustedAtGTE(v time.Time) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldGTE(FieldTargetAdjustedAt, v))
+}
+
+// TargetAdjustedAtLT applies the LT predicate on the "target_adjusted_at" field.
+func TargetAdjustedAtLT(v time.Time) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldLT(FieldTargetAdjustedAt, v))
+}
+
+// TargetAdjustedAtLTE applies the LTE predicate on the "target_adjusted_at" field.
+func TargetAdjustedAtLTE(v time.Time) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldLTE(FieldTargetAdjustedAt, v))
+}
+
+// TargetAdjustedAtIsNil applies the IsNil predicate on the "target_adjusted_at" field.
+func TargetAdjustedAtIsNil() predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldIsNull(FieldTargetAdjustedAt))
+}
+
+// TargetAdjustedAtNotNil applies the NotNil predicate on the "target_adjusted_at" field.
+func TargetAdjustedAtNotNil() predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldNotNull(FieldTargetAdjustedAt))
 }
 
 // SnapshotJSONEQ applies the EQ predicate on the "snapshot_json" field.

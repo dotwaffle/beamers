@@ -80,6 +80,20 @@ func (_c *EventCreate) SetEventDayBoundary(v string) *EventCreate {
 	return _c
 }
 
+// SetTargetAdjustmentPresets sets the "target_adjustment_presets" field.
+func (_c *EventCreate) SetTargetAdjustmentPresets(v string) *EventCreate {
+	_c.mutation.SetTargetAdjustmentPresets(v)
+	return _c
+}
+
+// SetNillableTargetAdjustmentPresets sets the "target_adjustment_presets" field if the given value is not nil.
+func (_c *EventCreate) SetNillableTargetAdjustmentPresets(v *string) *EventCreate {
+	if v != nil {
+		_c.SetTargetAdjustmentPresets(*v)
+	}
+	return _c
+}
+
 // SetDisplayConfiguration sets the "display_configuration" field.
 func (_c *EventCreate) SetDisplayConfiguration(v string) *EventCreate {
 	_c.mutation.SetDisplayConfiguration(v)
@@ -313,6 +327,10 @@ func (_c *EventCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *EventCreate) defaults() error {
+	if _, ok := _c.mutation.TargetAdjustmentPresets(); !ok {
+		v := event.DefaultTargetAdjustmentPresets
+		_c.mutation.SetTargetAdjustmentPresets(v)
+	}
 	if _, ok := _c.mutation.DisplayConfiguration(); !ok {
 		v := event.DefaultDisplayConfiguration
 		_c.mutation.SetDisplayConfiguration(v)
@@ -386,6 +404,14 @@ func (_c *EventCreate) check() error {
 			return &ValidationError{Name: "event_day_boundary", err: fmt.Errorf(`ent: validator failed for field "Event.event_day_boundary": %w`, err)}
 		}
 	}
+	if _, ok := _c.mutation.TargetAdjustmentPresets(); !ok {
+		return &ValidationError{Name: "target_adjustment_presets", err: errors.New(`ent: missing required field "Event.target_adjustment_presets"`)}
+	}
+	if v, ok := _c.mutation.TargetAdjustmentPresets(); ok {
+		if err := event.TargetAdjustmentPresetsValidator(v); err != nil {
+			return &ValidationError{Name: "target_adjustment_presets", err: fmt.Errorf(`ent: validator failed for field "Event.target_adjustment_presets": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.DisplayConfiguration(); !ok {
 		return &ValidationError{Name: "display_configuration", err: errors.New(`ent: missing required field "Event.display_configuration"`)}
 	}
@@ -453,6 +479,10 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.EventDayBoundary(); ok {
 		_spec.SetField(event.FieldEventDayBoundary, field.TypeString, value)
 		_node.EventDayBoundary = value
+	}
+	if value, ok := _c.mutation.TargetAdjustmentPresets(); ok {
+		_spec.SetField(event.FieldTargetAdjustmentPresets, field.TypeString, value)
+		_node.TargetAdjustmentPresets = value
 	}
 	if value, ok := _c.mutation.DisplayConfiguration(); ok {
 		_spec.SetField(event.FieldDisplayConfiguration, field.TypeString, value)

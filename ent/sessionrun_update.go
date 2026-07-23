@@ -49,6 +49,47 @@ func (_u *SessionRunUpdate) ClearActualEnd() *SessionRunUpdate {
 	return _u
 }
 
+// SetTargetAdjustmentSeconds sets the "target_adjustment_seconds" field.
+func (_u *SessionRunUpdate) SetTargetAdjustmentSeconds(v int) *SessionRunUpdate {
+	_u.mutation.ResetTargetAdjustmentSeconds()
+	_u.mutation.SetTargetAdjustmentSeconds(v)
+	return _u
+}
+
+// SetNillableTargetAdjustmentSeconds sets the "target_adjustment_seconds" field if the given value is not nil.
+func (_u *SessionRunUpdate) SetNillableTargetAdjustmentSeconds(v *int) *SessionRunUpdate {
+	if v != nil {
+		_u.SetTargetAdjustmentSeconds(*v)
+	}
+	return _u
+}
+
+// AddTargetAdjustmentSeconds adds value to the "target_adjustment_seconds" field.
+func (_u *SessionRunUpdate) AddTargetAdjustmentSeconds(v int) *SessionRunUpdate {
+	_u.mutation.AddTargetAdjustmentSeconds(v)
+	return _u
+}
+
+// SetTargetAdjustedAt sets the "target_adjusted_at" field.
+func (_u *SessionRunUpdate) SetTargetAdjustedAt(v time.Time) *SessionRunUpdate {
+	_u.mutation.SetTargetAdjustedAt(v)
+	return _u
+}
+
+// SetNillableTargetAdjustedAt sets the "target_adjusted_at" field if the given value is not nil.
+func (_u *SessionRunUpdate) SetNillableTargetAdjustedAt(v *time.Time) *SessionRunUpdate {
+	if v != nil {
+		_u.SetTargetAdjustedAt(*v)
+	}
+	return _u
+}
+
+// ClearTargetAdjustedAt clears the value of the "target_adjusted_at" field.
+func (_u *SessionRunUpdate) ClearTargetAdjustedAt() *SessionRunUpdate {
+	_u.mutation.ClearTargetAdjustedAt()
+	return _u
+}
+
 // AddAmendmentIDs adds the "amendments" edge to the SessionRunAmendment entity by IDs.
 func (_u *SessionRunUpdate) AddAmendmentIDs(ids ...int) *SessionRunUpdate {
 	_u.mutation.AddAmendmentIDs(ids...)
@@ -143,6 +184,18 @@ func (_u *SessionRunUpdate) sqlSave(ctx context.Context) (_node int, err error) 
 	if _u.mutation.ActualEndCleared() {
 		_spec.ClearField(sessionrun.FieldActualEnd, field.TypeTime)
 	}
+	if value, ok := _u.mutation.TargetAdjustmentSeconds(); ok {
+		_spec.SetField(sessionrun.FieldTargetAdjustmentSeconds, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedTargetAdjustmentSeconds(); ok {
+		_spec.AddField(sessionrun.FieldTargetAdjustmentSeconds, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.TargetAdjustedAt(); ok {
+		_spec.SetField(sessionrun.FieldTargetAdjustedAt, field.TypeTime, value)
+	}
+	if _u.mutation.TargetAdjustedAtCleared() {
+		_spec.ClearField(sessionrun.FieldTargetAdjustedAt, field.TypeTime)
+	}
 	if _u.mutation.AmendmentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -225,6 +278,47 @@ func (_u *SessionRunUpdateOne) SetNillableActualEnd(v *time.Time) *SessionRunUpd
 // ClearActualEnd clears the value of the "actual_end" field.
 func (_u *SessionRunUpdateOne) ClearActualEnd() *SessionRunUpdateOne {
 	_u.mutation.ClearActualEnd()
+	return _u
+}
+
+// SetTargetAdjustmentSeconds sets the "target_adjustment_seconds" field.
+func (_u *SessionRunUpdateOne) SetTargetAdjustmentSeconds(v int) *SessionRunUpdateOne {
+	_u.mutation.ResetTargetAdjustmentSeconds()
+	_u.mutation.SetTargetAdjustmentSeconds(v)
+	return _u
+}
+
+// SetNillableTargetAdjustmentSeconds sets the "target_adjustment_seconds" field if the given value is not nil.
+func (_u *SessionRunUpdateOne) SetNillableTargetAdjustmentSeconds(v *int) *SessionRunUpdateOne {
+	if v != nil {
+		_u.SetTargetAdjustmentSeconds(*v)
+	}
+	return _u
+}
+
+// AddTargetAdjustmentSeconds adds value to the "target_adjustment_seconds" field.
+func (_u *SessionRunUpdateOne) AddTargetAdjustmentSeconds(v int) *SessionRunUpdateOne {
+	_u.mutation.AddTargetAdjustmentSeconds(v)
+	return _u
+}
+
+// SetTargetAdjustedAt sets the "target_adjusted_at" field.
+func (_u *SessionRunUpdateOne) SetTargetAdjustedAt(v time.Time) *SessionRunUpdateOne {
+	_u.mutation.SetTargetAdjustedAt(v)
+	return _u
+}
+
+// SetNillableTargetAdjustedAt sets the "target_adjusted_at" field if the given value is not nil.
+func (_u *SessionRunUpdateOne) SetNillableTargetAdjustedAt(v *time.Time) *SessionRunUpdateOne {
+	if v != nil {
+		_u.SetTargetAdjustedAt(*v)
+	}
+	return _u
+}
+
+// ClearTargetAdjustedAt clears the value of the "target_adjusted_at" field.
+func (_u *SessionRunUpdateOne) ClearTargetAdjustedAt() *SessionRunUpdateOne {
+	_u.mutation.ClearTargetAdjustedAt()
 	return _u
 }
 
@@ -351,6 +445,18 @@ func (_u *SessionRunUpdateOne) sqlSave(ctx context.Context) (_node *SessionRun, 
 	}
 	if _u.mutation.ActualEndCleared() {
 		_spec.ClearField(sessionrun.FieldActualEnd, field.TypeTime)
+	}
+	if value, ok := _u.mutation.TargetAdjustmentSeconds(); ok {
+		_spec.SetField(sessionrun.FieldTargetAdjustmentSeconds, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedTargetAdjustmentSeconds(); ok {
+		_spec.AddField(sessionrun.FieldTargetAdjustmentSeconds, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.TargetAdjustedAt(); ok {
+		_spec.SetField(sessionrun.FieldTargetAdjustedAt, field.TypeTime, value)
+	}
+	if _u.mutation.TargetAdjustedAtCleared() {
+		_spec.ClearField(sessionrun.FieldTargetAdjustedAt, field.TypeTime)
 	}
 	if _u.mutation.AmendmentsCleared() {
 		edge := &sqlgraph.EdgeSpec{

@@ -31,25 +31,27 @@ type DisplaySnapshotState struct {
 
 // DisplaySessionState contains only Display-safe Published and live Session facts.
 type DisplaySessionState struct {
-	ID                 int
-	Title              string
-	Speaker            string
-	PublicDetails      string
-	AudienceVisibility string
-	TimerTitle         string
-	ForecastStart      time.Time
-	ForecastEnd        time.Time
-	Lifecycle          string
-	LiveStateRevision  int
-	ActualStart        time.Time
-	ActualEnd          *time.Time
-	Type               string
-	TimingPolicy       string
-	RunPlannedStart    time.Time
-	RunPlannedEnd      time.Time
-	LocationIDs        []int
-	LaneIDs            []int
-	TrackIDs           []int
+	ID                      int
+	Title                   string
+	Speaker                 string
+	PublicDetails           string
+	AudienceVisibility      string
+	TimerTitle              string
+	ForecastStart           time.Time
+	ForecastEnd             time.Time
+	Lifecycle               string
+	LiveStateRevision       int
+	ActualStart             time.Time
+	ActualEnd               *time.Time
+	Type                    string
+	TimingPolicy            string
+	RunPlannedStart         time.Time
+	RunPlannedEnd           time.Time
+	TargetAdjustmentSeconds int
+	TargetAdjustedAt        time.Time
+	LocationIDs             []int
+	LaneIDs                 []int
+	TrackIDs                []int
 }
 
 // LoadDisplaySnapshot authenticates a credential hash and captures one Active Event snapshot.
@@ -156,6 +158,12 @@ func loadDisplaySession(
 		Lifecycle: identity.Lifecycle.String(), LiveStateRevision: identity.LiveStateRevision,
 		LocationIDs: published.LocationIDs, LaneIDs: published.LaneIDs, TrackIDs: published.TrackIDs,
 	}
+	if !identity.ForecastStart.IsZero() {
+		result.ForecastStart = identity.ForecastStart
+	}
+	if !identity.ForecastEnd.IsZero() {
+		result.ForecastEnd = identity.ForecastEnd
+	}
 	if published.AudienceVisibility == "Public" {
 		result.Title = published.Title
 		result.Speaker = published.Speaker
@@ -173,6 +181,8 @@ func loadDisplaySession(
 			return DisplaySessionState{}, opaqueError("decode Display Session Run Snapshot", decodeErr)
 		}
 		result.ActualStart = run.ActualStart
+		result.TargetAdjustmentSeconds = run.TargetAdjustmentSeconds
+		result.TargetAdjustedAt = run.TargetAdjustedAt
 		result.Type = snapshot.Type
 		result.TimingPolicy = snapshot.TimingPolicy
 		result.RunPlannedStart = snapshot.PlannedStart

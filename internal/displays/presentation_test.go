@@ -105,10 +105,12 @@ func TestDisplayPageServerRendersStageTimerState(t *testing.T) {
 		ViewKey:         displayviews.StageTimer,
 		Composition:     composition,
 		StageTimer: &StageTimer{
-			SessionID: 42,
-			Title:     "Closing Keynote",
-			Mode:      stagetimer.Countdown,
-			Anchor:    now.Add(30 * time.Second),
+			SessionID:                 42,
+			Title:                     "Closing Keynote",
+			Mode:                      stagetimer.Countdown,
+			Anchor:                    now.Add(30 * time.Second),
+			AdjustmentSeconds:         300,
+			AdjustmentNoticeExpiresAt: now.Add(5 * time.Second),
 			Thresholds: []stagetimer.Threshold{
 				{Remaining: time.Minute, Emphasis: stagetimer.Urgent},
 			},
@@ -124,6 +126,8 @@ func TestDisplayPageServerRendersStageTimerState(t *testing.T) {
 		"00:30",
 		`data-timer-emphasis="urgent"`,
 		"Urgent",
+		"Time adjusted: +5:00",
+		"data-timer-adjustment-notice",
 	} {
 		if !strings.Contains(rendered.String(), want) {
 			t.Errorf("Stage Timer page missing %q: %s", want, rendered.String())

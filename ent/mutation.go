@@ -9693,6 +9693,7 @@ type EventMutation struct {
 	event_locale               *string
 	content_language           *string
 	event_day_boundary         *string
+	target_adjustment_presets  *string
 	display_configuration      *string
 	revision                   *int
 	addrevision                *int
@@ -10093,6 +10094,42 @@ func (m *EventMutation) OldEventDayBoundary(ctx context.Context) (v string, err 
 // ResetEventDayBoundary resets all changes to the "event_day_boundary" field.
 func (m *EventMutation) ResetEventDayBoundary() {
 	m.event_day_boundary = nil
+}
+
+// SetTargetAdjustmentPresets sets the "target_adjustment_presets" field.
+func (m *EventMutation) SetTargetAdjustmentPresets(s string) {
+	m.target_adjustment_presets = &s
+}
+
+// TargetAdjustmentPresets returns the value of the "target_adjustment_presets" field in the mutation.
+func (m *EventMutation) TargetAdjustmentPresets() (r string, exists bool) {
+	v := m.target_adjustment_presets
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTargetAdjustmentPresets returns the old "target_adjustment_presets" field's value of the Event entity.
+// If the Event object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventMutation) OldTargetAdjustmentPresets(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTargetAdjustmentPresets is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTargetAdjustmentPresets requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTargetAdjustmentPresets: %w", err)
+	}
+	return oldValue.TargetAdjustmentPresets, nil
+}
+
+// ResetTargetAdjustmentPresets resets all changes to the "target_adjustment_presets" field.
+func (m *EventMutation) ResetTargetAdjustmentPresets() {
+	m.target_adjustment_presets = nil
 }
 
 // SetDisplayConfiguration sets the "display_configuration" field.
@@ -10782,7 +10819,7 @@ func (m *EventMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *EventMutation) Fields() []string {
-	fields := make([]string, 0, 10)
+	fields := make([]string, 0, 11)
 	if m.name != nil {
 		fields = append(fields, event.FieldName)
 	}
@@ -10803,6 +10840,9 @@ func (m *EventMutation) Fields() []string {
 	}
 	if m.event_day_boundary != nil {
 		fields = append(fields, event.FieldEventDayBoundary)
+	}
+	if m.target_adjustment_presets != nil {
+		fields = append(fields, event.FieldTargetAdjustmentPresets)
 	}
 	if m.display_configuration != nil {
 		fields = append(fields, event.FieldDisplayConfiguration)
@@ -10835,6 +10875,8 @@ func (m *EventMutation) Field(name string) (ent.Value, bool) {
 		return m.ContentLanguage()
 	case event.FieldEventDayBoundary:
 		return m.EventDayBoundary()
+	case event.FieldTargetAdjustmentPresets:
+		return m.TargetAdjustmentPresets()
 	case event.FieldDisplayConfiguration:
 		return m.DisplayConfiguration()
 	case event.FieldRevision:
@@ -10864,6 +10906,8 @@ func (m *EventMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldContentLanguage(ctx)
 	case event.FieldEventDayBoundary:
 		return m.OldEventDayBoundary(ctx)
+	case event.FieldTargetAdjustmentPresets:
+		return m.OldTargetAdjustmentPresets(ctx)
 	case event.FieldDisplayConfiguration:
 		return m.OldDisplayConfiguration(ctx)
 	case event.FieldRevision:
@@ -10927,6 +10971,13 @@ func (m *EventMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetEventDayBoundary(v)
+		return nil
+	case event.FieldTargetAdjustmentPresets:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTargetAdjustmentPresets(v)
 		return nil
 	case event.FieldDisplayConfiguration:
 		v, ok := value.(string)
@@ -11042,6 +11093,9 @@ func (m *EventMutation) ResetField(name string) error {
 		return nil
 	case event.FieldEventDayBoundary:
 		m.ResetEventDayBoundary()
+		return nil
+	case event.FieldTargetAdjustmentPresets:
+		m.ResetTargetAdjustmentPresets()
 		return nil
 	case event.FieldDisplayConfiguration:
 		m.ResetDisplayConfiguration()
@@ -19362,6 +19416,8 @@ type SessionMutation struct {
 	lifecycle                 *session.Lifecycle
 	live_state_revision       *int
 	addlive_state_revision    *int
+	forecast_start            *time.Time
+	forecast_end              *time.Time
 	corrected_title           *string
 	corrected_speaker         *string
 	corrected_public_details  *string
@@ -19606,6 +19662,104 @@ func (m *SessionMutation) AddedLiveStateRevision() (r int, exists bool) {
 func (m *SessionMutation) ResetLiveStateRevision() {
 	m.live_state_revision = nil
 	m.addlive_state_revision = nil
+}
+
+// SetForecastStart sets the "forecast_start" field.
+func (m *SessionMutation) SetForecastStart(t time.Time) {
+	m.forecast_start = &t
+}
+
+// ForecastStart returns the value of the "forecast_start" field in the mutation.
+func (m *SessionMutation) ForecastStart() (r time.Time, exists bool) {
+	v := m.forecast_start
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldForecastStart returns the old "forecast_start" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldForecastStart(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldForecastStart is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldForecastStart requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldForecastStart: %w", err)
+	}
+	return oldValue.ForecastStart, nil
+}
+
+// ClearForecastStart clears the value of the "forecast_start" field.
+func (m *SessionMutation) ClearForecastStart() {
+	m.forecast_start = nil
+	m.clearedFields[session.FieldForecastStart] = struct{}{}
+}
+
+// ForecastStartCleared returns if the "forecast_start" field was cleared in this mutation.
+func (m *SessionMutation) ForecastStartCleared() bool {
+	_, ok := m.clearedFields[session.FieldForecastStart]
+	return ok
+}
+
+// ResetForecastStart resets all changes to the "forecast_start" field.
+func (m *SessionMutation) ResetForecastStart() {
+	m.forecast_start = nil
+	delete(m.clearedFields, session.FieldForecastStart)
+}
+
+// SetForecastEnd sets the "forecast_end" field.
+func (m *SessionMutation) SetForecastEnd(t time.Time) {
+	m.forecast_end = &t
+}
+
+// ForecastEnd returns the value of the "forecast_end" field in the mutation.
+func (m *SessionMutation) ForecastEnd() (r time.Time, exists bool) {
+	v := m.forecast_end
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldForecastEnd returns the old "forecast_end" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldForecastEnd(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldForecastEnd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldForecastEnd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldForecastEnd: %w", err)
+	}
+	return oldValue.ForecastEnd, nil
+}
+
+// ClearForecastEnd clears the value of the "forecast_end" field.
+func (m *SessionMutation) ClearForecastEnd() {
+	m.forecast_end = nil
+	m.clearedFields[session.FieldForecastEnd] = struct{}{}
+}
+
+// ForecastEndCleared returns if the "forecast_end" field was cleared in this mutation.
+func (m *SessionMutation) ForecastEndCleared() bool {
+	_, ok := m.clearedFields[session.FieldForecastEnd]
+	return ok
+}
+
+// ResetForecastEnd resets all changes to the "forecast_end" field.
+func (m *SessionMutation) ResetForecastEnd() {
+	m.forecast_end = nil
+	delete(m.clearedFields, session.FieldForecastEnd)
 }
 
 // SetCorrectedTitle sets the "corrected_title" field.
@@ -19999,7 +20153,7 @@ func (m *SessionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SessionMutation) Fields() []string {
-	fields := make([]string, 0, 7)
+	fields := make([]string, 0, 9)
 	if m.event != nil {
 		fields = append(fields, session.FieldEventID)
 	}
@@ -20008,6 +20162,12 @@ func (m *SessionMutation) Fields() []string {
 	}
 	if m.live_state_revision != nil {
 		fields = append(fields, session.FieldLiveStateRevision)
+	}
+	if m.forecast_start != nil {
+		fields = append(fields, session.FieldForecastStart)
+	}
+	if m.forecast_end != nil {
+		fields = append(fields, session.FieldForecastEnd)
 	}
 	if m.corrected_title != nil {
 		fields = append(fields, session.FieldCorrectedTitle)
@@ -20035,6 +20195,10 @@ func (m *SessionMutation) Field(name string) (ent.Value, bool) {
 		return m.Lifecycle()
 	case session.FieldLiveStateRevision:
 		return m.LiveStateRevision()
+	case session.FieldForecastStart:
+		return m.ForecastStart()
+	case session.FieldForecastEnd:
+		return m.ForecastEnd()
 	case session.FieldCorrectedTitle:
 		return m.CorrectedTitle()
 	case session.FieldCorrectedSpeaker:
@@ -20058,6 +20222,10 @@ func (m *SessionMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldLifecycle(ctx)
 	case session.FieldLiveStateRevision:
 		return m.OldLiveStateRevision(ctx)
+	case session.FieldForecastStart:
+		return m.OldForecastStart(ctx)
+	case session.FieldForecastEnd:
+		return m.OldForecastEnd(ctx)
 	case session.FieldCorrectedTitle:
 		return m.OldCorrectedTitle(ctx)
 	case session.FieldCorrectedSpeaker:
@@ -20095,6 +20263,20 @@ func (m *SessionMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetLiveStateRevision(v)
+		return nil
+	case session.FieldForecastStart:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetForecastStart(v)
+		return nil
+	case session.FieldForecastEnd:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetForecastEnd(v)
 		return nil
 	case session.FieldCorrectedTitle:
 		v, ok := value.(string)
@@ -20169,6 +20351,12 @@ func (m *SessionMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *SessionMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(session.FieldForecastStart) {
+		fields = append(fields, session.FieldForecastStart)
+	}
+	if m.FieldCleared(session.FieldForecastEnd) {
+		fields = append(fields, session.FieldForecastEnd)
+	}
 	if m.FieldCleared(session.FieldCorrectedTitle) {
 		fields = append(fields, session.FieldCorrectedTitle)
 	}
@@ -20192,6 +20380,12 @@ func (m *SessionMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *SessionMutation) ClearField(name string) error {
 	switch name {
+	case session.FieldForecastStart:
+		m.ClearForecastStart()
+		return nil
+	case session.FieldForecastEnd:
+		m.ClearForecastEnd()
+		return nil
 	case session.FieldCorrectedTitle:
 		m.ClearCorrectedTitle()
 		return nil
@@ -20217,6 +20411,12 @@ func (m *SessionMutation) ResetField(name string) error {
 		return nil
 	case session.FieldLiveStateRevision:
 		m.ResetLiveStateRevision()
+		return nil
+	case session.FieldForecastStart:
+		m.ResetForecastStart()
+		return nil
+	case session.FieldForecastEnd:
+		m.ResetForecastEnd()
 		return nil
 	case session.FieldCorrectedTitle:
 		m.ResetCorrectedTitle()
@@ -23274,22 +23474,25 @@ func (m *SessionPublishedVersionMutation) ResetEdge(name string) error {
 // SessionRunMutation represents an operation that mutates the SessionRun nodes in the graph.
 type SessionRunMutation struct {
 	config
-	op                Op
-	typ               string
-	id                *int
-	actual_start      *time.Time
-	actual_end        *time.Time
-	snapshot_json     *string
-	created_at        *time.Time
-	clearedFields     map[string]struct{}
-	session           *int
-	clearedsession    bool
-	amendments        map[int]struct{}
-	removedamendments map[int]struct{}
-	clearedamendments bool
-	done              bool
-	oldValue          func(context.Context) (*SessionRun, error)
-	predicates        []predicate.SessionRun
+	op                           Op
+	typ                          string
+	id                           *int
+	actual_start                 *time.Time
+	actual_end                   *time.Time
+	target_adjustment_seconds    *int
+	addtarget_adjustment_seconds *int
+	target_adjusted_at           *time.Time
+	snapshot_json                *string
+	created_at                   *time.Time
+	clearedFields                map[string]struct{}
+	session                      *int
+	clearedsession               bool
+	amendments                   map[int]struct{}
+	removedamendments            map[int]struct{}
+	clearedamendments            bool
+	done                         bool
+	oldValue                     func(context.Context) (*SessionRun, error)
+	predicates                   []predicate.SessionRun
 }
 
 var _ ent.Mutation = (*SessionRunMutation)(nil)
@@ -23511,6 +23714,111 @@ func (m *SessionRunMutation) ResetActualEnd() {
 	delete(m.clearedFields, sessionrun.FieldActualEnd)
 }
 
+// SetTargetAdjustmentSeconds sets the "target_adjustment_seconds" field.
+func (m *SessionRunMutation) SetTargetAdjustmentSeconds(i int) {
+	m.target_adjustment_seconds = &i
+	m.addtarget_adjustment_seconds = nil
+}
+
+// TargetAdjustmentSeconds returns the value of the "target_adjustment_seconds" field in the mutation.
+func (m *SessionRunMutation) TargetAdjustmentSeconds() (r int, exists bool) {
+	v := m.target_adjustment_seconds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTargetAdjustmentSeconds returns the old "target_adjustment_seconds" field's value of the SessionRun entity.
+// If the SessionRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionRunMutation) OldTargetAdjustmentSeconds(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTargetAdjustmentSeconds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTargetAdjustmentSeconds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTargetAdjustmentSeconds: %w", err)
+	}
+	return oldValue.TargetAdjustmentSeconds, nil
+}
+
+// AddTargetAdjustmentSeconds adds i to the "target_adjustment_seconds" field.
+func (m *SessionRunMutation) AddTargetAdjustmentSeconds(i int) {
+	if m.addtarget_adjustment_seconds != nil {
+		*m.addtarget_adjustment_seconds += i
+	} else {
+		m.addtarget_adjustment_seconds = &i
+	}
+}
+
+// AddedTargetAdjustmentSeconds returns the value that was added to the "target_adjustment_seconds" field in this mutation.
+func (m *SessionRunMutation) AddedTargetAdjustmentSeconds() (r int, exists bool) {
+	v := m.addtarget_adjustment_seconds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTargetAdjustmentSeconds resets all changes to the "target_adjustment_seconds" field.
+func (m *SessionRunMutation) ResetTargetAdjustmentSeconds() {
+	m.target_adjustment_seconds = nil
+	m.addtarget_adjustment_seconds = nil
+}
+
+// SetTargetAdjustedAt sets the "target_adjusted_at" field.
+func (m *SessionRunMutation) SetTargetAdjustedAt(t time.Time) {
+	m.target_adjusted_at = &t
+}
+
+// TargetAdjustedAt returns the value of the "target_adjusted_at" field in the mutation.
+func (m *SessionRunMutation) TargetAdjustedAt() (r time.Time, exists bool) {
+	v := m.target_adjusted_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTargetAdjustedAt returns the old "target_adjusted_at" field's value of the SessionRun entity.
+// If the SessionRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionRunMutation) OldTargetAdjustedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTargetAdjustedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTargetAdjustedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTargetAdjustedAt: %w", err)
+	}
+	return oldValue.TargetAdjustedAt, nil
+}
+
+// ClearTargetAdjustedAt clears the value of the "target_adjusted_at" field.
+func (m *SessionRunMutation) ClearTargetAdjustedAt() {
+	m.target_adjusted_at = nil
+	m.clearedFields[sessionrun.FieldTargetAdjustedAt] = struct{}{}
+}
+
+// TargetAdjustedAtCleared returns if the "target_adjusted_at" field was cleared in this mutation.
+func (m *SessionRunMutation) TargetAdjustedAtCleared() bool {
+	_, ok := m.clearedFields[sessionrun.FieldTargetAdjustedAt]
+	return ok
+}
+
+// ResetTargetAdjustedAt resets all changes to the "target_adjusted_at" field.
+func (m *SessionRunMutation) ResetTargetAdjustedAt() {
+	m.target_adjusted_at = nil
+	delete(m.clearedFields, sessionrun.FieldTargetAdjustedAt)
+}
+
 // SetSnapshotJSON sets the "snapshot_json" field.
 func (m *SessionRunMutation) SetSnapshotJSON(s string) {
 	m.snapshot_json = &s
@@ -23698,7 +24006,7 @@ func (m *SessionRunMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SessionRunMutation) Fields() []string {
-	fields := make([]string, 0, 5)
+	fields := make([]string, 0, 7)
 	if m.session != nil {
 		fields = append(fields, sessionrun.FieldSessionID)
 	}
@@ -23707,6 +24015,12 @@ func (m *SessionRunMutation) Fields() []string {
 	}
 	if m.actual_end != nil {
 		fields = append(fields, sessionrun.FieldActualEnd)
+	}
+	if m.target_adjustment_seconds != nil {
+		fields = append(fields, sessionrun.FieldTargetAdjustmentSeconds)
+	}
+	if m.target_adjusted_at != nil {
+		fields = append(fields, sessionrun.FieldTargetAdjustedAt)
 	}
 	if m.snapshot_json != nil {
 		fields = append(fields, sessionrun.FieldSnapshotJSON)
@@ -23728,6 +24042,10 @@ func (m *SessionRunMutation) Field(name string) (ent.Value, bool) {
 		return m.ActualStart()
 	case sessionrun.FieldActualEnd:
 		return m.ActualEnd()
+	case sessionrun.FieldTargetAdjustmentSeconds:
+		return m.TargetAdjustmentSeconds()
+	case sessionrun.FieldTargetAdjustedAt:
+		return m.TargetAdjustedAt()
 	case sessionrun.FieldSnapshotJSON:
 		return m.SnapshotJSON()
 	case sessionrun.FieldCreatedAt:
@@ -23747,6 +24065,10 @@ func (m *SessionRunMutation) OldField(ctx context.Context, name string) (ent.Val
 		return m.OldActualStart(ctx)
 	case sessionrun.FieldActualEnd:
 		return m.OldActualEnd(ctx)
+	case sessionrun.FieldTargetAdjustmentSeconds:
+		return m.OldTargetAdjustmentSeconds(ctx)
+	case sessionrun.FieldTargetAdjustedAt:
+		return m.OldTargetAdjustedAt(ctx)
 	case sessionrun.FieldSnapshotJSON:
 		return m.OldSnapshotJSON(ctx)
 	case sessionrun.FieldCreatedAt:
@@ -23781,6 +24103,20 @@ func (m *SessionRunMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetActualEnd(v)
 		return nil
+	case sessionrun.FieldTargetAdjustmentSeconds:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTargetAdjustmentSeconds(v)
+		return nil
+	case sessionrun.FieldTargetAdjustedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTargetAdjustedAt(v)
+		return nil
 	case sessionrun.FieldSnapshotJSON:
 		v, ok := value.(string)
 		if !ok {
@@ -23803,6 +24139,9 @@ func (m *SessionRunMutation) SetField(name string, value ent.Value) error {
 // this mutation.
 func (m *SessionRunMutation) AddedFields() []string {
 	var fields []string
+	if m.addtarget_adjustment_seconds != nil {
+		fields = append(fields, sessionrun.FieldTargetAdjustmentSeconds)
+	}
 	return fields
 }
 
@@ -23811,6 +24150,8 @@ func (m *SessionRunMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *SessionRunMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
+	case sessionrun.FieldTargetAdjustmentSeconds:
+		return m.AddedTargetAdjustmentSeconds()
 	}
 	return nil, false
 }
@@ -23820,6 +24161,13 @@ func (m *SessionRunMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *SessionRunMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case sessionrun.FieldTargetAdjustmentSeconds:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTargetAdjustmentSeconds(v)
+		return nil
 	}
 	return fmt.Errorf("unknown SessionRun numeric field %s", name)
 }
@@ -23830,6 +24178,9 @@ func (m *SessionRunMutation) ClearedFields() []string {
 	var fields []string
 	if m.FieldCleared(sessionrun.FieldActualEnd) {
 		fields = append(fields, sessionrun.FieldActualEnd)
+	}
+	if m.FieldCleared(sessionrun.FieldTargetAdjustedAt) {
+		fields = append(fields, sessionrun.FieldTargetAdjustedAt)
 	}
 	return fields
 }
@@ -23848,6 +24199,9 @@ func (m *SessionRunMutation) ClearField(name string) error {
 	case sessionrun.FieldActualEnd:
 		m.ClearActualEnd()
 		return nil
+	case sessionrun.FieldTargetAdjustedAt:
+		m.ClearTargetAdjustedAt()
+		return nil
 	}
 	return fmt.Errorf("unknown SessionRun nullable field %s", name)
 }
@@ -23864,6 +24218,12 @@ func (m *SessionRunMutation) ResetField(name string) error {
 		return nil
 	case sessionrun.FieldActualEnd:
 		m.ResetActualEnd()
+		return nil
+	case sessionrun.FieldTargetAdjustmentSeconds:
+		m.ResetTargetAdjustmentSeconds()
+		return nil
+	case sessionrun.FieldTargetAdjustedAt:
+		m.ResetTargetAdjustedAt()
 		return nil
 	case sessionrun.FieldSnapshotJSON:
 		m.ResetSnapshotJSON()

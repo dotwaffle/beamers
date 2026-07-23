@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -62,6 +63,46 @@ func (_u *SessionUpdate) SetNillableLiveStateRevision(v *int) *SessionUpdate {
 // AddLiveStateRevision adds value to the "live_state_revision" field.
 func (_u *SessionUpdate) AddLiveStateRevision(v int) *SessionUpdate {
 	_u.mutation.AddLiveStateRevision(v)
+	return _u
+}
+
+// SetForecastStart sets the "forecast_start" field.
+func (_u *SessionUpdate) SetForecastStart(v time.Time) *SessionUpdate {
+	_u.mutation.SetForecastStart(v)
+	return _u
+}
+
+// SetNillableForecastStart sets the "forecast_start" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableForecastStart(v *time.Time) *SessionUpdate {
+	if v != nil {
+		_u.SetForecastStart(*v)
+	}
+	return _u
+}
+
+// ClearForecastStart clears the value of the "forecast_start" field.
+func (_u *SessionUpdate) ClearForecastStart() *SessionUpdate {
+	_u.mutation.ClearForecastStart()
+	return _u
+}
+
+// SetForecastEnd sets the "forecast_end" field.
+func (_u *SessionUpdate) SetForecastEnd(v time.Time) *SessionUpdate {
+	_u.mutation.SetForecastEnd(v)
+	return _u
+}
+
+// SetNillableForecastEnd sets the "forecast_end" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableForecastEnd(v *time.Time) *SessionUpdate {
+	if v != nil {
+		_u.SetForecastEnd(*v)
+	}
+	return _u
+}
+
+// ClearForecastEnd clears the value of the "forecast_end" field.
+func (_u *SessionUpdate) ClearForecastEnd() *SessionUpdate {
+	_u.mutation.ClearForecastEnd()
 	return _u
 }
 
@@ -308,6 +349,18 @@ func (_u *SessionUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.AddedLiveStateRevision(); ok {
 		_spec.AddField(session.FieldLiveStateRevision, field.TypeInt, value)
 	}
+	if value, ok := _u.mutation.ForecastStart(); ok {
+		_spec.SetField(session.FieldForecastStart, field.TypeTime, value)
+	}
+	if _u.mutation.ForecastStartCleared() {
+		_spec.ClearField(session.FieldForecastStart, field.TypeTime)
+	}
+	if value, ok := _u.mutation.ForecastEnd(); ok {
+		_spec.SetField(session.FieldForecastEnd, field.TypeTime, value)
+	}
+	if _u.mutation.ForecastEndCleared() {
+		_spec.ClearField(session.FieldForecastEnd, field.TypeTime)
+	}
 	if value, ok := _u.mutation.CorrectedTitle(); ok {
 		_spec.SetField(session.FieldCorrectedTitle, field.TypeString, value)
 	}
@@ -497,6 +550,46 @@ func (_u *SessionUpdateOne) SetNillableLiveStateRevision(v *int) *SessionUpdateO
 // AddLiveStateRevision adds value to the "live_state_revision" field.
 func (_u *SessionUpdateOne) AddLiveStateRevision(v int) *SessionUpdateOne {
 	_u.mutation.AddLiveStateRevision(v)
+	return _u
+}
+
+// SetForecastStart sets the "forecast_start" field.
+func (_u *SessionUpdateOne) SetForecastStart(v time.Time) *SessionUpdateOne {
+	_u.mutation.SetForecastStart(v)
+	return _u
+}
+
+// SetNillableForecastStart sets the "forecast_start" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableForecastStart(v *time.Time) *SessionUpdateOne {
+	if v != nil {
+		_u.SetForecastStart(*v)
+	}
+	return _u
+}
+
+// ClearForecastStart clears the value of the "forecast_start" field.
+func (_u *SessionUpdateOne) ClearForecastStart() *SessionUpdateOne {
+	_u.mutation.ClearForecastStart()
+	return _u
+}
+
+// SetForecastEnd sets the "forecast_end" field.
+func (_u *SessionUpdateOne) SetForecastEnd(v time.Time) *SessionUpdateOne {
+	_u.mutation.SetForecastEnd(v)
+	return _u
+}
+
+// SetNillableForecastEnd sets the "forecast_end" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableForecastEnd(v *time.Time) *SessionUpdateOne {
+	if v != nil {
+		_u.SetForecastEnd(*v)
+	}
+	return _u
+}
+
+// ClearForecastEnd clears the value of the "forecast_end" field.
+func (_u *SessionUpdateOne) ClearForecastEnd() *SessionUpdateOne {
+	_u.mutation.ClearForecastEnd()
 	return _u
 }
 
@@ -772,6 +865,18 @@ func (_u *SessionUpdateOne) sqlSave(ctx context.Context) (_node *Session, err er
 	}
 	if value, ok := _u.mutation.AddedLiveStateRevision(); ok {
 		_spec.AddField(session.FieldLiveStateRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ForecastStart(); ok {
+		_spec.SetField(session.FieldForecastStart, field.TypeTime, value)
+	}
+	if _u.mutation.ForecastStartCleared() {
+		_spec.ClearField(session.FieldForecastStart, field.TypeTime)
+	}
+	if value, ok := _u.mutation.ForecastEnd(); ok {
+		_spec.SetField(session.FieldForecastEnd, field.TypeTime, value)
+	}
+	if _u.mutation.ForecastEndCleared() {
+		_spec.ClearField(session.FieldForecastEnd, field.TypeTime)
 	}
 	if value, ok := _u.mutation.CorrectedTitle(); ok {
 		_spec.SetField(session.FieldCorrectedTitle, field.TypeString, value)

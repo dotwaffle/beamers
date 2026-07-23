@@ -396,9 +396,13 @@ function prepareStageTimer(region, snapshot, reference) {
   const direction = document.createElement("p");
   const clock = document.createElement("time");
   const emphasis = document.createElement("p");
+  const adjustmentNotice = prepareTimerAdjustmentNotice(timer, reference);
   clock.dataset.stageTimerClock = "true";
   emphasis.dataset.timerEmphasisLabel = "true";
   region.append(direction, clock, emphasis);
+  if (adjustmentNotice) {
+    region.append(adjustmentNotice);
+  }
   if (timer.mode === "STAGE_TIMER_MODE_ELAPSED" && timer.forecastEnd) {
     const forecastEnd = new Date(timer.forecastEnd);
     if (!Number.isFinite(forecastEnd.getTime())) {
@@ -446,6 +450,31 @@ function prepareStageTimer(region, snapshot, reference) {
     };
     clockTimer = setTimeout(tick, 250);
   };
+}
+
+function prepareTimerAdjustmentNotice(timer, reference) {
+  const seconds = Number(timer.adjustmentSeconds);
+  if (!Number.isSafeInteger(seconds) || seconds === 0 || !timer.adjustmentNoticeExpiresAt) {
+    return null;
+  }
+  const expiresAt = Date.parse(timer.adjustmentNoticeExpiresAt);
+  if (!Number.isFinite(expiresAt) || estimatedServerNow(reference) >= expiresAt) {
+    return null;
+  }
+  const absolute = Math.abs(seconds);
+  const notice = document.createElement("p");
+  notice.dataset.timerAdjustmentNotice = "true";
+  notice.textContent = `Time adjusted: ${seconds > 0 ? "+" : "-"}${Math.floor(absolute / 60)}:` +
+    String(absolute % 60).padStart(2, "0");
+  const hide = () => {
+    if (estimatedServerNow() >= expiresAt) {
+      notice.hidden = true;
+      return;
+    }
+    setTimeout(hide, Math.min(expiresAt - estimatedServerNow(), 250));
+  };
+  setTimeout(hide, Math.min(expiresAt - estimatedServerNow(reference), 250));
+  return notice;
 }
 
 function estimatedServerNow(reference = clockReference) {

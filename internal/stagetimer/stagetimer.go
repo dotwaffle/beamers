@@ -56,6 +56,7 @@ type Spec struct {
 	ActualStart  time.Time
 	PlannedStart time.Time
 	PlannedEnd   time.Time
+	TargetEnd    time.Time
 	Thresholds   []Threshold
 }
 
@@ -91,11 +92,17 @@ func New(spec Spec) (Timer, error) {
 	switch spec.Policy {
 	case FixedEnd:
 		timer.Mode = Countdown
-		timer.Anchor = spec.PlannedEnd
+		timer.Anchor = spec.TargetEnd
+		if timer.Anchor.IsZero() {
+			timer.Anchor = spec.PlannedEnd
+		}
 		thresholdDuration = timer.Anchor.Sub(spec.ActualStart)
 	case FixedDuration:
 		timer.Mode = Countdown
-		timer.Anchor = spec.ActualStart.Add(duration)
+		timer.Anchor = spec.TargetEnd
+		if timer.Anchor.IsZero() {
+			timer.Anchor = spec.ActualStart.Add(duration)
+		}
 	case ManualEnd:
 		timer.Mode = Elapsed
 		timer.Anchor = spec.ActualStart

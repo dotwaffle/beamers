@@ -21,6 +21,10 @@ const (
 	FieldActualStart = "actual_start"
 	// FieldActualEnd holds the string denoting the actual_end field in the database.
 	FieldActualEnd = "actual_end"
+	// FieldTargetAdjustmentSeconds holds the string denoting the target_adjustment_seconds field in the database.
+	FieldTargetAdjustmentSeconds = "target_adjustment_seconds"
+	// FieldTargetAdjustedAt holds the string denoting the target_adjusted_at field in the database.
+	FieldTargetAdjustedAt = "target_adjusted_at"
 	// FieldSnapshotJSON holds the string denoting the snapshot_json field in the database.
 	FieldSnapshotJSON = "snapshot_json"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -53,6 +57,8 @@ var Columns = []string{
 	FieldSessionID,
 	FieldActualStart,
 	FieldActualEnd,
+	FieldTargetAdjustmentSeconds,
+	FieldTargetAdjustedAt,
 	FieldSnapshotJSON,
 	FieldCreatedAt,
 }
@@ -75,6 +81,8 @@ func ValidColumn(column string) bool {
 var (
 	Hooks  [1]ent.Hook
 	Policy ent.Policy
+	// DefaultTargetAdjustmentSeconds holds the default value on creation for the "target_adjustment_seconds" field.
+	DefaultTargetAdjustmentSeconds int
 	// SnapshotJSONValidator is a validator for the "snapshot_json" field. It is called by the builders before save.
 	SnapshotJSONValidator func(string) error
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
@@ -102,6 +110,16 @@ func ByActualStart(opts ...sql.OrderTermOption) OrderOption {
 // ByActualEnd orders the results by the actual_end field.
 func ByActualEnd(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldActualEnd, opts...).ToFunc()
+}
+
+// ByTargetAdjustmentSeconds orders the results by the target_adjustment_seconds field.
+func ByTargetAdjustmentSeconds(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTargetAdjustmentSeconds, opts...).ToFunc()
+}
+
+// ByTargetAdjustedAt orders the results by the target_adjusted_at field.
+func ByTargetAdjustedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTargetAdjustedAt, opts...).ToFunc()
 }
 
 // BySnapshotJSON orders the results by the snapshot_json field.

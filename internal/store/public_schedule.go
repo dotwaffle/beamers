@@ -200,9 +200,16 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 		details := correctedSessionDetails(identity, SessionDetails{
 			Title: version.Title, Speaker: version.Speaker, PublicDetails: version.PublicDetails,
 		})
+		forecastStart, forecastEnd := version.PlannedStart, version.PlannedEnd
+		if !identity.ForecastStart.IsZero() {
+			forecastStart = identity.ForecastStart
+		}
+		if !identity.ForecastEnd.IsZero() {
+			forecastEnd = identity.ForecastEnd
+		}
 		result.Sessions = append(result.Sessions, PublicScheduleSession{
 			ID: identity.ID, Title: details.Title, Speaker: details.Speaker, PublicDetails: details.PublicDetails,
-			ForecastStart: version.PlannedStart, ForecastEnd: version.PlannedEnd,
+			ForecastStart: forecastStart, ForecastEnd: forecastEnd,
 			Lifecycle: identity.Lifecycle.String(), ActualStart: actualStart, ActualEnd: actualEnd,
 			LocationIDs: locations, LaneIDs: lanes, TrackIDs: tracks,
 		})

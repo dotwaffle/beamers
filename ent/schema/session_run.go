@@ -33,6 +33,8 @@ func (SessionRun) Fields() []ent.Field {
 		field.Int("session_id").Immutable(),
 		field.Time("actual_start").Immutable(),
 		field.Time("actual_end").Optional(),
+		field.Int("target_adjustment_seconds").Default(0),
+		field.Time("target_adjusted_at").Optional(),
 		field.Text("snapshot_json").NotEmpty().Immutable(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 	}

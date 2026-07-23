@@ -58,6 +58,34 @@ func (_c *SessionCreate) SetNillableLiveStateRevision(v *int) *SessionCreate {
 	return _c
 }
 
+// SetForecastStart sets the "forecast_start" field.
+func (_c *SessionCreate) SetForecastStart(v time.Time) *SessionCreate {
+	_c.mutation.SetForecastStart(v)
+	return _c
+}
+
+// SetNillableForecastStart sets the "forecast_start" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableForecastStart(v *time.Time) *SessionCreate {
+	if v != nil {
+		_c.SetForecastStart(*v)
+	}
+	return _c
+}
+
+// SetForecastEnd sets the "forecast_end" field.
+func (_c *SessionCreate) SetForecastEnd(v time.Time) *SessionCreate {
+	_c.mutation.SetForecastEnd(v)
+	return _c
+}
+
+// SetNillableForecastEnd sets the "forecast_end" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableForecastEnd(v *time.Time) *SessionCreate {
+	if v != nil {
+		_c.SetForecastEnd(*v)
+	}
+	return _c
+}
+
 // SetCorrectedTitle sets the "corrected_title" field.
 func (_c *SessionCreate) SetCorrectedTitle(v string) *SessionCreate {
 	_c.mutation.SetCorrectedTitle(v)
@@ -298,6 +326,14 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.LiveStateRevision(); ok {
 		_spec.SetField(session.FieldLiveStateRevision, field.TypeInt, value)
 		_node.LiveStateRevision = value
+	}
+	if value, ok := _c.mutation.ForecastStart(); ok {
+		_spec.SetField(session.FieldForecastStart, field.TypeTime, value)
+		_node.ForecastStart = value
+	}
+	if value, ok := _c.mutation.ForecastEnd(); ok {
+		_spec.SetField(session.FieldForecastEnd, field.TypeTime, value)
+		_node.ForecastEnd = value
 	}
 	if value, ok := _c.mutation.CorrectedTitle(); ok {
 		_spec.SetField(session.FieldCorrectedTitle, field.TypeString, value)

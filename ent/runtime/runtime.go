@@ -782,8 +782,28 @@ func init() {
 			return nil
 		}
 	}()
+	// eventDescTargetAdjustmentPresets is the schema descriptor for target_adjustment_presets field.
+	eventDescTargetAdjustmentPresets := eventFields[7].Descriptor()
+	// event.DefaultTargetAdjustmentPresets holds the default value on creation for the target_adjustment_presets field.
+	event.DefaultTargetAdjustmentPresets = eventDescTargetAdjustmentPresets.Default.(string)
+	// event.TargetAdjustmentPresetsValidator is a validator for the "target_adjustment_presets" field. It is called by the builders before save.
+	event.TargetAdjustmentPresetsValidator = func() func(string) error {
+		validators := eventDescTargetAdjustmentPresets.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(target_adjustment_presets string) error {
+			for _, fn := range fns {
+				if err := fn(target_adjustment_presets); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
 	// eventDescDisplayConfiguration is the schema descriptor for display_configuration field.
-	eventDescDisplayConfiguration := eventFields[7].Descriptor()
+	eventDescDisplayConfiguration := eventFields[8].Descriptor()
 	// event.DefaultDisplayConfiguration holds the default value on creation for the display_configuration field.
 	event.DefaultDisplayConfiguration = eventDescDisplayConfiguration.Default.(string)
 	// event.DisplayConfigurationValidator is a validator for the "display_configuration" field. It is called by the builders before save.
@@ -803,11 +823,11 @@ func init() {
 		}
 	}()
 	// eventDescRevision is the schema descriptor for revision field.
-	eventDescRevision := eventFields[8].Descriptor()
+	eventDescRevision := eventFields[9].Descriptor()
 	// event.DefaultRevision holds the default value on creation for the revision field.
 	event.DefaultRevision = eventDescRevision.Default.(int)
 	// eventDescCreatedAt is the schema descriptor for created_at field.
-	eventDescCreatedAt := eventFields[9].Descriptor()
+	eventDescCreatedAt := eventFields[10].Descriptor()
 	// event.DefaultCreatedAt holds the default value on creation for the created_at field.
 	event.DefaultCreatedAt = eventDescCreatedAt.Default.(func() time.Time)
 	eventgrant.Policy = privacy.NewPolicies(schema.EventGrant{})
@@ -1177,19 +1197,19 @@ func init() {
 	// session.LiveStateRevisionValidator is a validator for the "live_state_revision" field. It is called by the builders before save.
 	session.LiveStateRevisionValidator = sessionDescLiveStateRevision.Validators[0].(func(int) error)
 	// sessionDescCorrectedTitle is the schema descriptor for corrected_title field.
-	sessionDescCorrectedTitle := sessionFields[3].Descriptor()
+	sessionDescCorrectedTitle := sessionFields[5].Descriptor()
 	// session.CorrectedTitleValidator is a validator for the "corrected_title" field. It is called by the builders before save.
 	session.CorrectedTitleValidator = sessionDescCorrectedTitle.Validators[0].(func(string) error)
 	// sessionDescCorrectedSpeaker is the schema descriptor for corrected_speaker field.
-	sessionDescCorrectedSpeaker := sessionFields[4].Descriptor()
+	sessionDescCorrectedSpeaker := sessionFields[6].Descriptor()
 	// session.CorrectedSpeakerValidator is a validator for the "corrected_speaker" field. It is called by the builders before save.
 	session.CorrectedSpeakerValidator = sessionDescCorrectedSpeaker.Validators[0].(func(string) error)
 	// sessionDescCorrectedPublicDetails is the schema descriptor for corrected_public_details field.
-	sessionDescCorrectedPublicDetails := sessionFields[5].Descriptor()
+	sessionDescCorrectedPublicDetails := sessionFields[7].Descriptor()
 	// session.CorrectedPublicDetailsValidator is a validator for the "corrected_public_details" field. It is called by the builders before save.
 	session.CorrectedPublicDetailsValidator = sessionDescCorrectedPublicDetails.Validators[0].(func(string) error)
 	// sessionDescCreatedAt is the schema descriptor for created_at field.
-	sessionDescCreatedAt := sessionFields[6].Descriptor()
+	sessionDescCreatedAt := sessionFields[8].Descriptor()
 	// session.DefaultCreatedAt holds the default value on creation for the created_at field.
 	session.DefaultCreatedAt = sessionDescCreatedAt.Default.(func() time.Time)
 	sessiondraft.Policy = privacy.NewPolicies(schema.SessionDraft{})
@@ -1307,12 +1327,16 @@ func init() {
 	}
 	sessionrunFields := schema.SessionRun{}.Fields()
 	_ = sessionrunFields
+	// sessionrunDescTargetAdjustmentSeconds is the schema descriptor for target_adjustment_seconds field.
+	sessionrunDescTargetAdjustmentSeconds := sessionrunFields[3].Descriptor()
+	// sessionrun.DefaultTargetAdjustmentSeconds holds the default value on creation for the target_adjustment_seconds field.
+	sessionrun.DefaultTargetAdjustmentSeconds = sessionrunDescTargetAdjustmentSeconds.Default.(int)
 	// sessionrunDescSnapshotJSON is the schema descriptor for snapshot_json field.
-	sessionrunDescSnapshotJSON := sessionrunFields[3].Descriptor()
+	sessionrunDescSnapshotJSON := sessionrunFields[5].Descriptor()
 	// sessionrun.SnapshotJSONValidator is a validator for the "snapshot_json" field. It is called by the builders before save.
 	sessionrun.SnapshotJSONValidator = sessionrunDescSnapshotJSON.Validators[0].(func(string) error)
 	// sessionrunDescCreatedAt is the schema descriptor for created_at field.
-	sessionrunDescCreatedAt := sessionrunFields[4].Descriptor()
+	sessionrunDescCreatedAt := sessionrunFields[6].Descriptor()
 	// sessionrun.DefaultCreatedAt holds the default value on creation for the created_at field.
 	sessionrun.DefaultCreatedAt = sessionrunDescCreatedAt.Default.(func() time.Time)
 	sessionrunamendment.Policy = privacy.NewPolicies(schema.SessionRunAmendment{})

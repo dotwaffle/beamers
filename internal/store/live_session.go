@@ -149,6 +149,8 @@ func (transaction *CommandTx) StartSession(
 			session.LifecycleEQ(session.LifecycleScheduled),
 		).
 		SetLifecycle(session.LifecycleLive).
+		SetForecastStart(now).
+		SetForecastEnd(initialForecastEnd(snapshot, now)).
 		AddLiveStateRevision(1).
 		Save(ctx)
 	if ent.IsNotFound(err) {

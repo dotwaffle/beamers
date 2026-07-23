@@ -32,6 +32,8 @@ type Event struct {
 	ContentLanguage string `json:"content_language,omitempty"`
 	// EventDayBoundary holds the value of the "event_day_boundary" field.
 	EventDayBoundary string `json:"event_day_boundary,omitempty"`
+	// TargetAdjustmentPresets holds the value of the "target_adjustment_presets" field.
+	TargetAdjustmentPresets string `json:"target_adjustment_presets,omitempty"`
 	// DisplayConfiguration holds the value of the "display_configuration" field.
 	DisplayConfiguration string `json:"display_configuration,omitempty"`
 	// Revision holds the value of the "revision" field.
@@ -170,7 +172,7 @@ func (*Event) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case event.FieldID, event.FieldRevision:
 			values[i] = new(sql.NullInt64)
-		case event.FieldName, event.FieldPlannedStartDate, event.FieldPlannedEndDate, event.FieldTimezone, event.FieldEventLocale, event.FieldContentLanguage, event.FieldEventDayBoundary, event.FieldDisplayConfiguration:
+		case event.FieldName, event.FieldPlannedStartDate, event.FieldPlannedEndDate, event.FieldTimezone, event.FieldEventLocale, event.FieldContentLanguage, event.FieldEventDayBoundary, event.FieldTargetAdjustmentPresets, event.FieldDisplayConfiguration:
 			values[i] = new(sql.NullString)
 		case event.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -236,6 +238,12 @@ func (_m *Event) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field event_day_boundary", values[i])
 			} else if value.Valid {
 				_m.EventDayBoundary = value.String
+			}
+		case event.FieldTargetAdjustmentPresets:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field target_adjustment_presets", values[i])
+			} else if value.Valid {
+				_m.TargetAdjustmentPresets = value.String
 			}
 		case event.FieldDisplayConfiguration:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -361,6 +369,9 @@ func (_m *Event) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("event_day_boundary=")
 	builder.WriteString(_m.EventDayBoundary)
+	builder.WriteString(", ")
+	builder.WriteString("target_adjustment_presets=")
+	builder.WriteString(_m.TargetAdjustmentPresets)
 	builder.WriteString(", ")
 	builder.WriteString("display_configuration=")
 	builder.WriteString(_m.DisplayConfiguration)

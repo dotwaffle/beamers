@@ -60,15 +60,17 @@ func displayNowNext(sessions []Session) []Session {
 }
 
 type stageTimerPresentation struct {
-	Title              string
-	Direction          string
-	Text               string
-	Emphasis           string
-	EmphasisLabel      string
-	Anchor             time.Time
-	ForecastEnd        time.Time
-	DisplayForecastEnd string
-	Overtime           bool
+	Title                     string
+	Direction                 string
+	Text                      string
+	Emphasis                  string
+	EmphasisLabel             string
+	Anchor                    time.Time
+	ForecastEnd               time.Time
+	DisplayForecastEnd        string
+	AdjustmentNotice          string
+	AdjustmentNoticeExpiresAt time.Time
+	Overtime                  bool
 }
 
 func displayStageTimer(snapshot Snapshot) (stageTimerPresentation, bool) {
@@ -108,9 +110,23 @@ func displayStageTimer(snapshot Snapshot) (stageTimerPresentation, bool) {
 		Title: snapshot.StageTimer.Title, Direction: direction,
 		Text: frame.Text, Emphasis: emphasis, EmphasisLabel: label,
 		Anchor: snapshot.StageTimer.Anchor, ForecastEnd: forecastEnd,
-		DisplayForecastEnd: displayForecastEnd,
-		Overtime:           frame.Overtime,
+		DisplayForecastEnd:        displayForecastEnd,
+		AdjustmentNotice:          timerAdjustmentNotice(snapshot.StageTimer.AdjustmentSeconds),
+		AdjustmentNoticeExpiresAt: snapshot.StageTimer.AdjustmentNoticeExpiresAt,
+		Overtime:                  frame.Overtime,
 	}, true
+}
+
+func timerAdjustmentNotice(seconds int) string {
+	if seconds == 0 {
+		return ""
+	}
+	sign := "+"
+	if seconds < 0 {
+		sign = "-"
+		seconds = -seconds
+	}
+	return fmt.Sprintf("Time adjusted: %s%d:%02d", sign, seconds/60, seconds%60)
 }
 
 func displayThemeStyle(snapshot Snapshot) templ.SafeCSS {

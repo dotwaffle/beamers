@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -27,30 +28,32 @@ var (
 
 // Event is the persistence projection of an Event's core configuration.
 type Event struct {
-	ID               int    `json:"id"`
-	Name             string `json:"name"`
-	PlannedStartDate string `json:"planned_start_date"`
-	PlannedEndDate   string `json:"planned_end_date"`
-	Timezone         string `json:"timezone"`
-	EventLocale      string `json:"event_locale"`
-	ContentLanguage  string `json:"content_language,omitempty"`
-	EventDayBoundary string `json:"event_day_boundary"`
-	Revision         int    `json:"revision"`
+	ID                      int    `json:"id"`
+	Name                    string `json:"name"`
+	PlannedStartDate        string `json:"planned_start_date"`
+	PlannedEndDate          string `json:"planned_end_date"`
+	Timezone                string `json:"timezone"`
+	EventLocale             string `json:"event_locale"`
+	ContentLanguage         string `json:"content_language,omitempty"`
+	EventDayBoundary        string `json:"event_day_boundary"`
+	TargetAdjustmentPresets string `json:"target_adjustment_presets"`
+	Revision                int    `json:"revision"`
 }
 
 // CreateEventParams contains an Event creation command's durable values.
 type CreateEventParams struct {
-	ActorAccountID   int
-	Name             string
-	PlannedStartDate string
-	PlannedEndDate   string
-	Timezone         string
-	EventLocale      string
-	ContentLanguage  string
-	EventDayBoundary string
-	Now              time.Time
-	CommandID        string
-	PayloadHash      string
+	ActorAccountID                 int
+	Name                           string
+	PlannedStartDate               string
+	PlannedEndDate                 string
+	Timezone                       string
+	EventLocale                    string
+	ContentLanguage                string
+	EventDayBoundary               string
+	TargetAdjustmentPresetsSeconds []int
+	Now                            time.Time
+	CommandID                      string
+	PayloadHash                    string
 }
 
 // EventGrant is the persistence projection of an Event role assignment.
@@ -79,23 +82,28 @@ type GrantEventAccessParams struct {
 
 // UpdateEventParams contains a Producer's Event configuration replacement.
 type UpdateEventParams struct {
-	ActorAccountID   int
-	EventID          int
-	Name             string
-	PlannedStartDate string
-	PlannedEndDate   string
-	Timezone         string
-	EventLocale      string
-	ContentLanguage  string
-	EventDayBoundary string
-	Now              time.Time
-	CommandID        string
-	PayloadHash      string
-	ExpectedRevision int
+	ActorAccountID                 int
+	EventID                        int
+	Name                           string
+	PlannedStartDate               string
+	PlannedEndDate                 string
+	Timezone                       string
+	EventLocale                    string
+	ContentLanguage                string
+	EventDayBoundary               string
+	TargetAdjustmentPresetsSeconds []int
+	Now                            time.Time
+	CommandID                      string
+	PayloadHash                    string
+	ExpectedRevision               int
 }
 
 // CreateEvent mutates Event state without owning command lifecycle evidence.
 func (transaction *CommandTx) CreateEvent(ctx context.Context, params CreateEventParams) (Event, error) {
+	presets, err := json.Marshal(params.TargetAdjustmentPresetsSeconds)
+	if err != nil {
+		return Event{}, opaqueError("encode Adjust Target presets", err)
+	}
 	create := transaction.transaction.Event.Create().
 		SetName(params.Name).
 		SetPlannedStartDate(params.PlannedStartDate).
@@ -103,6 +111,7 @@ func (transaction *CommandTx) CreateEvent(ctx context.Context, params CreateEven
 		SetTimezone(params.Timezone).
 		SetEventLocale(params.EventLocale).
 		SetEventDayBoundary(params.EventDayBoundary).
+		SetTargetAdjustmentPresets(string(presets)).
 		SetCreatedAt(params.Now)
 	if params.ContentLanguage != "" {
 		create.SetContentLanguage(params.ContentLanguage)
@@ -177,6 +186,10 @@ func (transaction *CommandTx) GrantEventAccess(
 
 // UpdateEvent mutates Event configuration without owning command lifecycle evidence.
 func (transaction *CommandTx) UpdateEvent(ctx context.Context, params UpdateEventParams) (Event, error) {
+	presets, err := json.Marshal(params.TargetAdjustmentPresetsSeconds)
+	if err != nil {
+		return Event{}, opaqueError("encode Adjust Target presets", err)
+	}
 	update := transaction.transaction.Event.UpdateOneID(params.EventID).
 		Where(event.RevisionEQ(params.ExpectedRevision)).
 		SetName(params.Name).
@@ -185,6 +198,7 @@ func (transaction *CommandTx) UpdateEvent(ctx context.Context, params UpdateEven
 		SetTimezone(params.Timezone).
 		SetEventLocale(params.EventLocale).
 		SetEventDayBoundary(params.EventDayBoundary).
+		SetTargetAdjustmentPresets(string(presets)).
 		AddRevision(1)
 	if params.ContentLanguage == "" {
 		update.ClearContentLanguage()

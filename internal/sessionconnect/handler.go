@@ -128,6 +128,77 @@ func (handler *Handler) EndSession(
 	return connect.NewResponse(&sessionv1.EndSessionResponse{State: sessionState(result)}), nil
 }
 
+// PreviewAdjustTarget returns the current downstream impact without mutation.
+func (handler *Handler) PreviewAdjustTarget(
+	ctx context.Context,
+	request *connect.Request[sessionv1.PreviewAdjustTargetRequest],
+) (*connect.Response[sessionv1.PreviewAdjustTargetResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	adjustment, err := targetAdjustment(request.Msg.GetPreset(), request.Msg.GetCustom())
+	if err != nil {
+		return nil, err
+	}
+	result, err := handler.service.PreviewAdjustTarget(ctx, actor, sessioncontrol.PreviewAdjustTargetInput{
+		EventID: int(request.Msg.GetEventId()), SessionID: int(request.Msg.GetSessionId()),
+		Adjustment: adjustment,
+	})
+	if err != nil {
+		return nil, err
+	}
+	response := &sessionv1.PreviewAdjustTargetResponse{
+		CurrentTarget:                    timestamppb.New(result.CurrentTarget),
+		ProposedTarget:                   timestamppb.New(result.ProposedTarget),
+		Adjustment:                       durationpb.New(result.Adjustment),
+		RequiresHardBoundaryConfirmation: result.RequiresHardBoundaryConfirmation,
+		PreviewFingerprint:               result.Fingerprint,
+	}
+	for _, effect := range result.Effects {
+		response.Effects = append(response.Effects, &sessionv1.TargetEffect{
+			SessionId:       int64(effect.SessionID),
+			CurrentOverlap:  durationpb.New(effect.CurrentOverlap),
+			ProposedOverlap: durationpb.New(effect.ProposedOverlap),
+		})
+	}
+	for _, preset := range result.ConfiguredPresets {
+		response.ConfiguredPresets = append(response.ConfiguredPresets, durationpb.New(preset))
+	}
+	return connect.NewResponse(response), nil
+}
+
+// AdjustTarget confirms and commits one freshly previewed target.
+func (handler *Handler) AdjustTarget(
+	ctx context.Context,
+	request *connect.Request[sessionv1.AdjustTargetRequest],
+) (*connect.Response[sessionv1.AdjustTargetResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	adjustment, err := targetAdjustment(request.Msg.GetPreset(), request.Msg.GetCustom())
+	if err != nil {
+		return nil, err
+	}
+	result, err := handler.service.AdjustTarget(ctx, actor, sessioncontrol.AdjustTargetInput{
+		EventID: int(request.Msg.GetEventId()), SessionID: int(request.Msg.GetSessionId()),
+		CommandID:                 request.Msg.GetCommandId(),
+		ExpectedLiveStateRevision: int(request.Msg.GetExpectedLiveStateRevision()),
+		Adjustment:                adjustment, PreviewFingerprint: request.Msg.GetPreviewFingerprint(),
+		Confirmed:             request.Msg.GetConfirmed(),
+		HardBoundaryConfirmed: request.Msg.GetHardBoundaryConfirmed(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	handler.notifyDisplays()
+	return connect.NewResponse(&sessionv1.AdjustTargetResponse{
+		State: sessionState(result.State), ForecastEnd: timestamppb.New(result.ForecastEnd),
+		Adjustment: durationpb.New(result.Adjustment), AdjustedAt: timestamppb.New(result.AdjustedAt),
+	}), nil
+}
+
 func validateRequest(message any) error {
 	switch request := message.(type) {
 	case *sessionv1.StartSessionRequest:
@@ -164,6 +235,34 @@ func validateRequest(message any) error {
 			return errors.New("expected_live_state_revision must be a supported non-negative integer")
 		}
 		return nil
+	case *sessionv1.PreviewAdjustTargetRequest:
+		if err := positiveID(request.GetEventId(), "event_id"); err != nil {
+			return err
+		}
+		if err := positiveID(request.GetSessionId(), "session_id"); err != nil {
+			return err
+		}
+		return validateTargetAdjustment(request.GetPreset(), request.GetCustom())
+	case *sessionv1.AdjustTargetRequest:
+		if err := positiveID(request.GetEventId(), "event_id"); err != nil {
+			return err
+		}
+		if err := positiveID(request.GetSessionId(), "session_id"); err != nil {
+			return err
+		}
+		if err := command.ValidateID(request.GetCommandId()); err != nil {
+			return err
+		}
+		if request.ExpectedLiveStateRevision == nil {
+			return errors.New("expected_live_state_revision is required")
+		}
+		if request.GetExpectedLiveStateRevision() < 0 || request.GetExpectedLiveStateRevision() > math.MaxInt {
+			return errors.New("expected_live_state_revision must be a supported non-negative integer")
+		}
+		if request.GetPreviewFingerprint() == "" {
+			return errors.New("preview_fingerprint is required")
+		}
+		return validateTargetAdjustment(request.GetPreset(), request.GetCustom())
 	case *sessionv1.CorrectLiveDetailsRequest:
 		if err := positiveID(request.GetEventId(), "event_id"); err != nil {
 			return err
@@ -192,6 +291,35 @@ func validateRequest(message any) error {
 	default:
 		return errors.New("unsupported Session control request")
 	}
+}
+
+func validateTargetAdjustment(preset, custom *durationpb.Duration) error {
+	if (preset == nil) == (custom == nil) {
+		return errors.New("exactly one target adjustment is required")
+	}
+	selected := preset
+	if selected == nil {
+		selected = custom
+	}
+	if err := selected.CheckValid(); err != nil {
+		return errors.New("target adjustment must be a valid duration")
+	}
+	duration := selected.AsDuration()
+	if duration == 0 || duration%time.Second != 0 ||
+		duration < -24*time.Hour || duration > 24*time.Hour {
+		return errors.New("target adjustment must use whole seconds and be non-zero and no more than 24 hours")
+	}
+	return nil
+}
+
+func targetAdjustment(preset, custom *durationpb.Duration) (sessioncontrol.TargetAdjustment, error) {
+	if err := validateTargetAdjustment(preset, custom); err != nil {
+		return sessioncontrol.TargetAdjustment{}, err
+	}
+	if preset != nil {
+		return sessioncontrol.TargetAdjustment{Duration: preset.AsDuration(), Preset: true}, nil
+	}
+	return sessioncontrol.TargetAdjustment{Duration: custom.AsDuration()}, nil
 }
 
 // CorrectLiveDetails applies one confirmed descriptive correction.
@@ -370,6 +498,18 @@ func connectError(err error) error {
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, sessioncontrol.ErrLiveDetailFields):
 		return connect.NewError(connect.CodeInvalidArgument, err)
+	case errors.Is(err, sessioncontrol.ErrPresetNotConfigured):
+		return connect.NewError(connect.CodeInvalidArgument, err)
+	case errors.Is(err, sessioncontrol.ErrTargetBeforeNow):
+		return connect.NewError(connect.CodeFailedPrecondition, err)
+	case errors.Is(err, sessioncontrol.ErrNoCountdownTarget):
+		return connect.NewError(connect.CodeFailedPrecondition, err)
+	case errors.Is(err, sessioncontrol.ErrTargetPreviewStale):
+		return connect.NewError(connect.CodeAborted, err)
+	case errors.Is(err, sessioncontrol.ErrTargetConfirmation):
+		return connect.NewError(connect.CodeFailedPrecondition, err)
+	case errors.Is(err, sessioncontrol.ErrHardBoundaryConfirmation):
+		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, sessioncontrol.ErrEventNotActive):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, sessioncontrol.ErrCommandConflict):

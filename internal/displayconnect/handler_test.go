@@ -15,13 +15,16 @@ func TestSnapshotMessageCarriesStageTimerContract(t *testing.T) {
 
 	anchor := time.Date(2026, 2, 7, 12, 30, 0, 0, time.UTC)
 	forecastEnd := anchor.Add(15 * time.Minute)
+	noticeExpires := anchor.Add(5 * time.Second)
 	message := snapshotMessage(displays.Snapshot{
 		StageTimer: &displays.StageTimer{
-			SessionID:   42,
-			Title:       "Closing Keynote",
-			Mode:        stagetimer.Countdown,
-			Anchor:      anchor,
-			ForecastEnd: forecastEnd,
+			SessionID:                 42,
+			Title:                     "Closing Keynote",
+			Mode:                      stagetimer.Countdown,
+			Anchor:                    anchor,
+			ForecastEnd:               forecastEnd,
+			AdjustmentSeconds:         300,
+			AdjustmentNoticeExpiresAt: noticeExpires,
 			Thresholds: []stagetimer.Threshold{
 				{Remaining: 2 * time.Minute, Emphasis: stagetimer.Attention},
 				{Remaining: 30 * time.Second, Emphasis: stagetimer.Urgent},
@@ -41,6 +44,10 @@ func TestSnapshotMessageCarriesStageTimerContract(t *testing.T) {
 	}
 	if got := timer.GetForecastEnd().AsTime(); !got.Equal(forecastEnd) {
 		t.Errorf("Forecast End = %v, want %v", got, forecastEnd)
+	}
+	if timer.GetAdjustmentSeconds() != 300 ||
+		!timer.GetAdjustmentNoticeExpiresAt().AsTime().Equal(noticeExpires) {
+		t.Errorf("adjustment notice = %+v", timer)
 	}
 	if len(timer.GetThresholds()) != 2 ||
 		timer.GetThresholds()[0].GetRemainingSeconds() != 120 ||

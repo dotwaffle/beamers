@@ -348,6 +348,7 @@ var (
 		{Name: "event_locale", Type: field.TypeString, Size: 100},
 		{Name: "content_language", Type: field.TypeString, Nullable: true, Size: 100},
 		{Name: "event_day_boundary", Type: field.TypeString, Size: 5},
+		{Name: "target_adjustment_presets", Type: field.TypeString, Size: 256, Default: "[-300,300,600]"},
 		{Name: "display_configuration", Type: field.TypeString, Size: 4096, Default: "{\"rotation_seconds\":15,\"theme\":{\"branding\":\"\",\"foreground_color\":\"#ffffff\",\"background_color\":\"#101828\",\"accent_color\":\"#1d4ed8\",\"background\":\"solid\",\"scrim_color\":\"#000000\",\"scrim_opacity\":85,\"font\":\"sans\",\"transition\":\"fade\"}}"},
 		{Name: "revision", Type: field.TypeInt, Default: 1},
 		{Name: "created_at", Type: field.TypeTime},
@@ -682,6 +683,8 @@ var (
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "lifecycle", Type: field.TypeEnum, Enums: []string{"Scheduled", "Live", "Ended", "Canceled"}, Default: "Scheduled"},
 		{Name: "live_state_revision", Type: field.TypeInt, Default: 0},
+		{Name: "forecast_start", Type: field.TypeTime, Nullable: true},
+		{Name: "forecast_end", Type: field.TypeTime, Nullable: true},
 		{Name: "corrected_title", Type: field.TypeString, Nullable: true, Size: 200},
 		{Name: "corrected_speaker", Type: field.TypeString, Nullable: true, Size: 200},
 		{Name: "corrected_public_details", Type: field.TypeString, Nullable: true, Size: 10000},
@@ -696,7 +699,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "sessions_events_sessions",
-				Columns:    []*schema.Column{SessionsColumns[7]},
+				Columns:    []*schema.Column{SessionsColumns[9]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -778,6 +781,8 @@ var (
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "actual_start", Type: field.TypeTime},
 		{Name: "actual_end", Type: field.TypeTime, Nullable: true},
+		{Name: "target_adjustment_seconds", Type: field.TypeInt, Default: 0},
+		{Name: "target_adjusted_at", Type: field.TypeTime, Nullable: true},
 		{Name: "snapshot_json", Type: field.TypeString, Size: 2147483647},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "session_id", Type: field.TypeInt},
@@ -790,7 +795,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "session_runs_sessions_runs",
-				Columns:    []*schema.Column{SessionRunsColumns[5]},
+				Columns:    []*schema.Column{SessionRunsColumns[7]},
 				RefColumns: []*schema.Column{SessionsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -799,7 +804,7 @@ var (
 			{
 				Name:    "sessionrun_session_id_actual_end",
 				Unique:  false,
-				Columns: []*schema.Column{SessionRunsColumns[5], SessionRunsColumns[2]},
+				Columns: []*schema.Column{SessionRunsColumns[7], SessionRunsColumns[2]},
 			},
 		},
 	}

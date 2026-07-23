@@ -48,6 +48,34 @@ func (_c *SessionRunCreate) SetNillableActualEnd(v *time.Time) *SessionRunCreate
 	return _c
 }
 
+// SetTargetAdjustmentSeconds sets the "target_adjustment_seconds" field.
+func (_c *SessionRunCreate) SetTargetAdjustmentSeconds(v int) *SessionRunCreate {
+	_c.mutation.SetTargetAdjustmentSeconds(v)
+	return _c
+}
+
+// SetNillableTargetAdjustmentSeconds sets the "target_adjustment_seconds" field if the given value is not nil.
+func (_c *SessionRunCreate) SetNillableTargetAdjustmentSeconds(v *int) *SessionRunCreate {
+	if v != nil {
+		_c.SetTargetAdjustmentSeconds(*v)
+	}
+	return _c
+}
+
+// SetTargetAdjustedAt sets the "target_adjusted_at" field.
+func (_c *SessionRunCreate) SetTargetAdjustedAt(v time.Time) *SessionRunCreate {
+	_c.mutation.SetTargetAdjustedAt(v)
+	return _c
+}
+
+// SetNillableTargetAdjustedAt sets the "target_adjusted_at" field if the given value is not nil.
+func (_c *SessionRunCreate) SetNillableTargetAdjustedAt(v *time.Time) *SessionRunCreate {
+	if v != nil {
+		_c.SetTargetAdjustedAt(*v)
+	}
+	return _c
+}
+
 // SetSnapshotJSON sets the "snapshot_json" field.
 func (_c *SessionRunCreate) SetSnapshotJSON(v string) *SessionRunCreate {
 	_c.mutation.SetSnapshotJSON(v)
@@ -125,6 +153,10 @@ func (_c *SessionRunCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *SessionRunCreate) defaults() error {
+	if _, ok := _c.mutation.TargetAdjustmentSeconds(); !ok {
+		v := sessionrun.DefaultTargetAdjustmentSeconds
+		_c.mutation.SetTargetAdjustmentSeconds(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		if sessionrun.DefaultCreatedAt == nil {
 			return fmt.Errorf("ent: uninitialized sessionrun.DefaultCreatedAt (forgotten import ent/runtime?)")
@@ -142,6 +174,9 @@ func (_c *SessionRunCreate) check() error {
 	}
 	if _, ok := _c.mutation.ActualStart(); !ok {
 		return &ValidationError{Name: "actual_start", err: errors.New(`ent: missing required field "SessionRun.actual_start"`)}
+	}
+	if _, ok := _c.mutation.TargetAdjustmentSeconds(); !ok {
+		return &ValidationError{Name: "target_adjustment_seconds", err: errors.New(`ent: missing required field "SessionRun.target_adjustment_seconds"`)}
 	}
 	if _, ok := _c.mutation.SnapshotJSON(); !ok {
 		return &ValidationError{Name: "snapshot_json", err: errors.New(`ent: missing required field "SessionRun.snapshot_json"`)}
@@ -190,6 +225,14 @@ func (_c *SessionRunCreate) createSpec() (*SessionRun, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ActualEnd(); ok {
 		_spec.SetField(sessionrun.FieldActualEnd, field.TypeTime, value)
 		_node.ActualEnd = value
+	}
+	if value, ok := _c.mutation.TargetAdjustmentSeconds(); ok {
+		_spec.SetField(sessionrun.FieldTargetAdjustmentSeconds, field.TypeInt, value)
+		_node.TargetAdjustmentSeconds = value
+	}
+	if value, ok := _c.mutation.TargetAdjustedAt(); ok {
+		_spec.SetField(sessionrun.FieldTargetAdjustedAt, field.TypeTime, value)
+		_node.TargetAdjustedAt = value
 	}
 	if value, ok := _c.mutation.SnapshotJSON(); ok {
 		_spec.SetField(sessionrun.FieldSnapshotJSON, field.TypeString, value)

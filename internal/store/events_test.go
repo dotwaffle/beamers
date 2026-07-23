@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -44,11 +45,15 @@ func TestEventAndGrantChangesCreateAuditEntries(t *testing.T) {
 		PlannedStartDate: "2026-08-21", PlannedEndDate: "2026-08-23",
 		Timezone: "Europe/Berlin", EventLocale: "de-DE",
 		ContentLanguage: "en-GB", EventDayBoundary: "06:00",
-		Now:       now.Add(2 * time.Minute),
-		CommandID: "create-event-revision", PayloadHash: strings.Repeat("d", 64),
+		TargetAdjustmentPresetsSeconds: []int{-120, 180},
+		Now:                            now.Add(2 * time.Minute),
+		CommandID:                      "create-event-revision", PayloadHash: strings.Repeat("d", 64),
 	})
 	if err != nil {
 		t.Fatalf("create Event: %v", err)
+	}
+	if got := createdEvent.TargetAdjustmentPresets; got != "[-120,180]" {
+		t.Fatalf("Adjust Target presets = %q, want [-120,180]", got)
 	}
 	_, grantErr := grantEventAccessCommand(t, installation, administratorContext, GrantEventAccessParams{
 		ActorAccountID: administrator.ID,
@@ -103,7 +108,7 @@ func TestEventCommandRetryReturnsOriginalOutcomeAndConflictIsAudited(t *testing.
 	if err != nil {
 		t.Fatalf("retry Event creation: %v", err)
 	}
-	if retry != first {
+	if !reflect.DeepEqual(retry, first) {
 		t.Errorf("retry outcome = %+v, want original %+v", retry, first)
 	}
 	params.PayloadHash = strings.Repeat("b", 64)

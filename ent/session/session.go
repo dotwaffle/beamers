@@ -22,6 +22,10 @@ const (
 	FieldLifecycle = "lifecycle"
 	// FieldLiveStateRevision holds the string denoting the live_state_revision field in the database.
 	FieldLiveStateRevision = "live_state_revision"
+	// FieldForecastStart holds the string denoting the forecast_start field in the database.
+	FieldForecastStart = "forecast_start"
+	// FieldForecastEnd holds the string denoting the forecast_end field in the database.
+	FieldForecastEnd = "forecast_end"
 	// FieldCorrectedTitle holds the string denoting the corrected_title field in the database.
 	FieldCorrectedTitle = "corrected_title"
 	// FieldCorrectedSpeaker holds the string denoting the corrected_speaker field in the database.
@@ -76,6 +80,8 @@ var Columns = []string{
 	FieldEventID,
 	FieldLifecycle,
 	FieldLiveStateRevision,
+	FieldForecastStart,
+	FieldForecastEnd,
 	FieldCorrectedTitle,
 	FieldCorrectedSpeaker,
 	FieldCorrectedPublicDetails,
@@ -163,6 +169,16 @@ func ByLifecycle(opts ...sql.OrderTermOption) OrderOption {
 // ByLiveStateRevision orders the results by the live_state_revision field.
 func ByLiveStateRevision(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldLiveStateRevision, opts...).ToFunc()
+}
+
+// ByForecastStart orders the results by the forecast_start field.
+func ByForecastStart(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldForecastStart, opts...).ToFunc()
+}
+
+// ByForecastEnd orders the results by the forecast_end field.
+func ByForecastEnd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldForecastEnd, opts...).ToFunc()
 }
 
 // ByCorrectedTitle orders the results by the corrected_title field.

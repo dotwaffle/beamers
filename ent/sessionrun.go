@@ -24,6 +24,10 @@ type SessionRun struct {
 	ActualStart time.Time `json:"actual_start,omitempty"`
 	// ActualEnd holds the value of the "actual_end" field.
 	ActualEnd time.Time `json:"actual_end,omitempty"`
+	// TargetAdjustmentSeconds holds the value of the "target_adjustment_seconds" field.
+	TargetAdjustmentSeconds int `json:"target_adjustment_seconds,omitempty"`
+	// TargetAdjustedAt holds the value of the "target_adjusted_at" field.
+	TargetAdjustedAt time.Time `json:"target_adjusted_at,omitempty"`
 	// SnapshotJSON holds the value of the "snapshot_json" field.
 	SnapshotJSON string `json:"snapshot_json,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -70,11 +74,11 @@ func (*SessionRun) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case sessionrun.FieldID, sessionrun.FieldSessionID:
+		case sessionrun.FieldID, sessionrun.FieldSessionID, sessionrun.FieldTargetAdjustmentSeconds:
 			values[i] = new(sql.NullInt64)
 		case sessionrun.FieldSnapshotJSON:
 			values[i] = new(sql.NullString)
-		case sessionrun.FieldActualStart, sessionrun.FieldActualEnd, sessionrun.FieldCreatedAt:
+		case sessionrun.FieldActualStart, sessionrun.FieldActualEnd, sessionrun.FieldTargetAdjustedAt, sessionrun.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -114,6 +118,18 @@ func (_m *SessionRun) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field actual_end", values[i])
 			} else if value.Valid {
 				_m.ActualEnd = value.Time
+			}
+		case sessionrun.FieldTargetAdjustmentSeconds:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field target_adjustment_seconds", values[i])
+			} else if value.Valid {
+				_m.TargetAdjustmentSeconds = int(value.Int64)
+			}
+		case sessionrun.FieldTargetAdjustedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field target_adjusted_at", values[i])
+			} else if value.Valid {
+				_m.TargetAdjustedAt = value.Time
 			}
 		case sessionrun.FieldSnapshotJSON:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -181,6 +197,12 @@ func (_m *SessionRun) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("actual_end=")
 	builder.WriteString(_m.ActualEnd.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("target_adjustment_seconds=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TargetAdjustmentSeconds))
+	builder.WriteString(", ")
+	builder.WriteString("target_adjusted_at=")
+	builder.WriteString(_m.TargetAdjustedAt.Format(time.ANSIC))
 	builder.WriteString(", ")
 	builder.WriteString("snapshot_json=")
 	builder.WriteString(_m.SnapshotJSON)

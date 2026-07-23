@@ -1873,7 +1873,7 @@ func prepareActiveSchedule(t *testing.T, client *http.Client, server *runningSer
 				TimingPolicy:    rundownv1.TimingPolicy_TIMING_POLICY_FIXED_END,
 				MinimumDuration: durationpb.New(30 * time.Minute),
 				StartBoundary:   rundownv1.Boundary_BOUNDARY_HARD,
-				EndBoundary:     rundownv1.Boundary_BOUNDARY_SOFT,
+				EndBoundary:     rundownv1.Boundary_BOUNDARY_HARD,
 				Locations:       []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Ref{Ref: "main"}}},
 				Lanes:           []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Ref{Ref: "main-lane"}}},
 				Tracks:          []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Ref{Ref: "general"}}},
@@ -2472,6 +2472,168 @@ func TestOperatorStartsPublishedSessionDurably(t *testing.T) {
 	restarted.stop(t)
 }
 
+func TestOperatorPreviewsAndAdjustsLiveSessionTarget(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	sessionID := prepareActiveSchedule(t, administrator, server)
+	operator := provisionOperator(t, administrator, server)
+	client := sessionv1connect.NewSessionControlServiceClient(
+		operator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	started, err := client.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "start-before-target-adjustment",
+		ExpectedLiveStateRevision: proto.Int64(0),
+	}))
+	if err != nil {
+		t.Fatalf("Start Session before Adjust Target: %v", err)
+	}
+	customPreview, err := client.PreviewAdjustTarget(t.Context(), connect.NewRequest(
+		&sessionv1.PreviewAdjustTargetRequest{
+			EventId: 1, SessionId: sessionID,
+			Adjustment: &sessionv1.PreviewAdjustTargetRequest_Custom{
+				Custom: durationpb.New(-2 * time.Minute),
+			},
+		},
+	))
+	if err != nil || !customPreview.Msg.GetProposedTarget().AsTime().Equal(
+		customPreview.Msg.GetCurrentTarget().AsTime().Add(-2*time.Minute),
+	) {
+		t.Fatalf("custom Adjust Target preview = %+v, %v", customPreview, err)
+	}
+	_, unknownPresetErr := client.PreviewAdjustTarget(t.Context(), connect.NewRequest(
+		&sessionv1.PreviewAdjustTargetRequest{
+			EventId: 1, SessionId: sessionID,
+			Adjustment: &sessionv1.PreviewAdjustTargetRequest_Preset{
+				Preset: durationpb.New(7 * time.Minute),
+			},
+		},
+	))
+	if connect.CodeOf(unknownPresetErr) != connect.CodeInvalidArgument {
+		t.Fatalf("unknown Adjust Target preset error = %v, want InvalidArgument", unknownPresetErr)
+	}
+	previewRequest := &sessionv1.PreviewAdjustTargetRequest{
+		EventId: 1, SessionId: sessionID,
+		Adjustment: &sessionv1.PreviewAdjustTargetRequest_Preset{
+			Preset: durationpb.New(5 * time.Minute),
+		},
+	}
+	preview, err := client.PreviewAdjustTarget(t.Context(), connect.NewRequest(previewRequest))
+	if err != nil {
+		t.Fatalf("Preview Adjust Target: %v", err)
+	}
+	if preview.Msg.GetPreviewFingerprint() == "" ||
+		!preview.Msg.GetProposedTarget().AsTime().Equal(preview.Msg.GetCurrentTarget().AsTime().Add(5*time.Minute)) ||
+		len(preview.Msg.GetConfiguredPresets()) != 3 ||
+		!preview.Msg.GetRequiresHardBoundaryConfirmation() {
+		t.Fatalf("Adjust Target preview = %+v", preview.Msg)
+	}
+	targetRequest := func(
+		commandID string,
+		expectedRevision int64,
+		fingerprint string,
+		confirmed bool,
+		hardBoundaryConfirmed bool,
+	) *sessionv1.AdjustTargetRequest {
+		return &sessionv1.AdjustTargetRequest{
+			EventId: 1, SessionId: sessionID, CommandId: commandID,
+			ExpectedLiveStateRevision: new(expectedRevision),
+			Adjustment: &sessionv1.AdjustTargetRequest_Preset{
+				Preset: durationpb.New(5 * time.Minute),
+			},
+			PreviewFingerprint: fingerprint, Confirmed: confirmed,
+			HardBoundaryConfirmed: hardBoundaryConfirmed,
+		}
+	}
+	unconfirmed := targetRequest(
+		"reject-unconfirmed-target", started.Msg.GetState().GetLiveStateRevision(),
+		preview.Msg.GetPreviewFingerprint(), false, false,
+	)
+	_, unconfirmedErr := client.AdjustTarget(t.Context(), connect.NewRequest(unconfirmed))
+	if connect.CodeOf(unconfirmedErr) != connect.CodeFailedPrecondition {
+		t.Fatalf("unconfirmed Adjust Target error = %v, want FailedPrecondition", unconfirmedErr)
+	}
+	missingHardConfirmation := targetRequest(
+		"reject-unconfirmed-hard-boundary", started.Msg.GetState().GetLiveStateRevision(),
+		preview.Msg.GetPreviewFingerprint(), true, false,
+	)
+	_, missingHardErr := client.AdjustTarget(t.Context(), connect.NewRequest(missingHardConfirmation))
+	if connect.CodeOf(missingHardErr) != connect.CodeFailedPrecondition {
+		t.Fatalf("unconfirmed Hard Boundary error = %v, want FailedPrecondition", missingHardErr)
+	}
+	corrected, err := client.CorrectLiveDetails(t.Context(), connect.NewRequest(
+		&sessionv1.CorrectLiveDetailsRequest{
+			EventId: 1, SessionId: sessionID, CommandId: "correct-before-stale-target",
+			ExpectedLiveStateRevision: new(started.Msg.GetState().GetLiveStateRevision()),
+			Confirmed:                 true, Title: "Target-adjusted Keynote",
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"title"}},
+		},
+	))
+	if err != nil || corrected.Msg.GetState().GetLiveStateRevision() != 2 {
+		t.Fatalf("Live correction before stale Adjust Target = %+v, %v", corrected, err)
+	}
+	staleRequest := targetRequest(
+		"reject-stale-target-preview", started.Msg.GetState().GetLiveStateRevision(),
+		preview.Msg.GetPreviewFingerprint(), true, true,
+	)
+	_, staleErr := client.AdjustTarget(t.Context(), connect.NewRequest(staleRequest))
+	if connect.CodeOf(staleErr) != connect.CodeAborted {
+		t.Fatalf("stale Adjust Target preview error = %v, want Aborted", staleErr)
+	}
+	freshPreview, err := client.PreviewAdjustTarget(t.Context(), connect.NewRequest(previewRequest))
+	if err != nil {
+		t.Fatalf("refresh Adjust Target preview: %v", err)
+	}
+	revisionConflict := targetRequest(
+		"reject-target-revision-conflict", started.Msg.GetState().GetLiveStateRevision(),
+		freshPreview.Msg.GetPreviewFingerprint(), true, true,
+	)
+	_, revisionErr := client.AdjustTarget(t.Context(), connect.NewRequest(revisionConflict))
+	if connect.CodeOf(revisionErr) != connect.CodeAborted {
+		t.Fatalf("Adjust Target revision error = %v, want Aborted", revisionErr)
+	}
+	databasePath := filepath.Join(server.dataDir, "beamers.db")
+	if fixtureErr := storetest.FailSessionRunUpdates(t.Context(), databasePath); fixtureErr != nil {
+		t.Fatalf("install Adjust Target rollback fixture: %v", fixtureErr)
+	}
+	rollbackRequest := targetRequest(
+		"force-target-rollback", corrected.Msg.GetState().GetLiveStateRevision(),
+		freshPreview.Msg.GetPreviewFingerprint(), true, true,
+	)
+	_, rollbackErr := client.AdjustTarget(t.Context(), connect.NewRequest(rollbackRequest))
+	if connect.CodeOf(rollbackErr) != connect.CodeInternal {
+		t.Fatalf("forced Adjust Target rollback error = %v, want Internal", rollbackErr)
+	}
+	if fixtureErr := storetest.AllowSessionRunUpdates(t.Context(), databasePath); fixtureErr != nil {
+		t.Fatalf("remove Adjust Target rollback fixture: %v", fixtureErr)
+	}
+	request := targetRequest(
+		"adjust-keynote-target", corrected.Msg.GetState().GetLiveStateRevision(),
+		freshPreview.Msg.GetPreviewFingerprint(), true, true,
+	)
+	adjusted, err := client.AdjustTarget(t.Context(), connect.NewRequest(request))
+	if err != nil {
+		t.Fatalf("Adjust Target: %v", err)
+	}
+	if adjusted.Msg.GetState().GetLiveStateRevision() != 3 ||
+		!adjusted.Msg.GetForecastEnd().AsTime().Equal(freshPreview.Msg.GetProposedTarget().AsTime()) {
+		t.Errorf("adjusted target = %+v", adjusted.Msg)
+	}
+	retried, err := client.AdjustTarget(t.Context(), connect.NewRequest(request))
+	if err != nil || !retried.Msg.GetForecastEnd().AsTime().Equal(adjusted.Msg.GetForecastEnd().AsTime()) {
+		t.Fatalf("exact Adjust Target retry = %+v, %v", retried, err)
+	}
+	listing := get(t, authenticatedClient(t), server.address, "/schedule")
+	body, readErr := io.ReadAll(listing.Body)
+	closeErr := listing.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read adjusted public Schedule: %v", err)
+	}
+	if !strings.Contains(string(body), freshPreview.Msg.GetProposedTarget().AsTime().
+		In(time.FixedZone("CEST", 2*60*60)).Format(time.RFC3339)) {
+		t.Errorf("adjusted public Schedule missing Forecast End: %s", body)
+	}
+	server.stop(t)
+}
+
 func TestOperatorCorrectsLiveDetailsWithoutRewritingRunSnapshot(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	sessionID := prepareActiveSchedule(t, administrator, server)
@@ -2620,7 +2782,7 @@ func TestOperatorCorrectsLiveDetailsWithoutRewritingRunSnapshot(t *testing.T) {
 		run.GetSnapshot().GetType() != rundownv1.SessionType_SESSION_TYPE_PRESENTATION ||
 		run.GetSnapshot().GetTimingPolicy() != rundownv1.TimingPolicy_TIMING_POLICY_FIXED_END ||
 		run.GetSnapshot().GetStartBoundary() != rundownv1.Boundary_BOUNDARY_HARD ||
-		run.GetSnapshot().GetEndBoundary() != rundownv1.Boundary_BOUNDARY_SOFT ||
+		run.GetSnapshot().GetEndBoundary() != rundownv1.Boundary_BOUNDARY_HARD ||
 		run.GetSnapshot().GetMinimumDuration().AsDuration() != 30*time.Minute ||
 		len(run.GetSnapshot().GetLaneIds()) != 1 || len(run.GetSnapshot().GetLocationIds()) != 1 ||
 		len(run.GetAmendments()) != 1 || run.GetAmendments()[0].GetId() != corrected.Msg.GetAmendmentId() ||

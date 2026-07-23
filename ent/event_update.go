@@ -141,6 +141,20 @@ func (_u *EventUpdate) SetNillableEventDayBoundary(v *string) *EventUpdate {
 	return _u
 }
 
+// SetTargetAdjustmentPresets sets the "target_adjustment_presets" field.
+func (_u *EventUpdate) SetTargetAdjustmentPresets(v string) *EventUpdate {
+	_u.mutation.SetTargetAdjustmentPresets(v)
+	return _u
+}
+
+// SetNillableTargetAdjustmentPresets sets the "target_adjustment_presets" field if the given value is not nil.
+func (_u *EventUpdate) SetNillableTargetAdjustmentPresets(v *string) *EventUpdate {
+	if v != nil {
+		_u.SetTargetAdjustmentPresets(*v)
+	}
+	return _u
+}
+
 // SetDisplayConfiguration sets the "display_configuration" field.
 func (_u *EventUpdate) SetDisplayConfiguration(v string) *EventUpdate {
 	_u.mutation.SetDisplayConfiguration(v)
@@ -594,6 +608,11 @@ func (_u *EventUpdate) check() error {
 			return &ValidationError{Name: "event_day_boundary", err: fmt.Errorf(`ent: validator failed for field "Event.event_day_boundary": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.TargetAdjustmentPresets(); ok {
+		if err := event.TargetAdjustmentPresetsValidator(v); err != nil {
+			return &ValidationError{Name: "target_adjustment_presets", err: fmt.Errorf(`ent: validator failed for field "Event.target_adjustment_presets": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.DisplayConfiguration(); ok {
 		if err := event.DisplayConfigurationValidator(v); err != nil {
 			return &ValidationError{Name: "display_configuration", err: fmt.Errorf(`ent: validator failed for field "Event.display_configuration": %w`, err)}
@@ -637,6 +656,9 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.EventDayBoundary(); ok {
 		_spec.SetField(event.FieldEventDayBoundary, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.TargetAdjustmentPresets(); ok {
+		_spec.SetField(event.FieldTargetAdjustmentPresets, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.DisplayConfiguration(); ok {
 		_spec.SetField(event.FieldDisplayConfiguration, field.TypeString, value)
@@ -1205,6 +1227,20 @@ func (_u *EventUpdateOne) SetNillableEventDayBoundary(v *string) *EventUpdateOne
 	return _u
 }
 
+// SetTargetAdjustmentPresets sets the "target_adjustment_presets" field.
+func (_u *EventUpdateOne) SetTargetAdjustmentPresets(v string) *EventUpdateOne {
+	_u.mutation.SetTargetAdjustmentPresets(v)
+	return _u
+}
+
+// SetNillableTargetAdjustmentPresets sets the "target_adjustment_presets" field if the given value is not nil.
+func (_u *EventUpdateOne) SetNillableTargetAdjustmentPresets(v *string) *EventUpdateOne {
+	if v != nil {
+		_u.SetTargetAdjustmentPresets(*v)
+	}
+	return _u
+}
+
 // SetDisplayConfiguration sets the "display_configuration" field.
 func (_u *EventUpdateOne) SetDisplayConfiguration(v string) *EventUpdateOne {
 	_u.mutation.SetDisplayConfiguration(v)
@@ -1671,6 +1707,11 @@ func (_u *EventUpdateOne) check() error {
 			return &ValidationError{Name: "event_day_boundary", err: fmt.Errorf(`ent: validator failed for field "Event.event_day_boundary": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.TargetAdjustmentPresets(); ok {
+		if err := event.TargetAdjustmentPresetsValidator(v); err != nil {
+			return &ValidationError{Name: "target_adjustment_presets", err: fmt.Errorf(`ent: validator failed for field "Event.target_adjustment_presets": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.DisplayConfiguration(); ok {
 		if err := event.DisplayConfigurationValidator(v); err != nil {
 			return &ValidationError{Name: "display_configuration", err: fmt.Errorf(`ent: validator failed for field "Event.display_configuration": %w`, err)}
@@ -1731,6 +1772,9 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 	}
 	if value, ok := _u.mutation.EventDayBoundary(); ok {
 		_spec.SetField(event.FieldEventDayBoundary, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.TargetAdjustmentPresets(); ok {
+		_spec.SetField(event.FieldTargetAdjustmentPresets, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.DisplayConfiguration(); ok {
 		_spec.SetField(event.FieldDisplayConfiguration, field.TypeString, value)

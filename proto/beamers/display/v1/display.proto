@@ -112,6 +112,8 @@ message StageTimer {
   google.protobuf.Timestamp anchor = 4;
   repeated TimerThreshold thresholds = 5;
   google.protobuf.Timestamp forecast_end = 6;
+  sint64 adjustment_seconds = 7;
+  google.protobuf.Timestamp adjustment_notice_expires_at = 8;
 }
 
 message AcknowledgeRequest {

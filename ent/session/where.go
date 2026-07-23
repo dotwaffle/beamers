@@ -65,6 +65,16 @@ func LiveStateRevision(v int) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldLiveStateRevision, v))
 }
 
+// ForecastStart applies equality check predicate on the "forecast_start" field. It's identical to ForecastStartEQ.
+func ForecastStart(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldForecastStart, v))
+}
+
+// ForecastEnd applies equality check predicate on the "forecast_end" field. It's identical to ForecastEndEQ.
+func ForecastEnd(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldForecastEnd, v))
+}
+
 // CorrectedTitle applies equality check predicate on the "corrected_title" field. It's identical to CorrectedTitleEQ.
 func CorrectedTitle(v string) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldCorrectedTitle, v))
@@ -163,6 +173,106 @@ func LiveStateRevisionLT(v int) predicate.Session {
 // LiveStateRevisionLTE applies the LTE predicate on the "live_state_revision" field.
 func LiveStateRevisionLTE(v int) predicate.Session {
 	return predicate.Session(sql.FieldLTE(FieldLiveStateRevision, v))
+}
+
+// ForecastStartEQ applies the EQ predicate on the "forecast_start" field.
+func ForecastStartEQ(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldForecastStart, v))
+}
+
+// ForecastStartNEQ applies the NEQ predicate on the "forecast_start" field.
+func ForecastStartNEQ(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldForecastStart, v))
+}
+
+// ForecastStartIn applies the In predicate on the "forecast_start" field.
+func ForecastStartIn(vs ...time.Time) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldForecastStart, vs...))
+}
+
+// ForecastStartNotIn applies the NotIn predicate on the "forecast_start" field.
+func ForecastStartNotIn(vs ...time.Time) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldForecastStart, vs...))
+}
+
+// ForecastStartGT applies the GT predicate on the "forecast_start" field.
+func ForecastStartGT(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldForecastStart, v))
+}
+
+// ForecastStartGTE applies the GTE predicate on the "forecast_start" field.
+func ForecastStartGTE(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldForecastStart, v))
+}
+
+// ForecastStartLT applies the LT predicate on the "forecast_start" field.
+func ForecastStartLT(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldForecastStart, v))
+}
+
+// ForecastStartLTE applies the LTE predicate on the "forecast_start" field.
+func ForecastStartLTE(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldForecastStart, v))
+}
+
+// ForecastStartIsNil applies the IsNil predicate on the "forecast_start" field.
+func ForecastStartIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldForecastStart))
+}
+
+// ForecastStartNotNil applies the NotNil predicate on the "forecast_start" field.
+func ForecastStartNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldForecastStart))
+}
+
+// ForecastEndEQ applies the EQ predicate on the "forecast_end" field.
+func ForecastEndEQ(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldForecastEnd, v))
+}
+
+// ForecastEndNEQ applies the NEQ predicate on the "forecast_end" field.
+func ForecastEndNEQ(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldForecastEnd, v))
+}
+
+// ForecastEndIn applies the In predicate on the "forecast_end" field.
+func ForecastEndIn(vs ...time.Time) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldForecastEnd, vs...))
+}
+
+// ForecastEndNotIn applies the NotIn predicate on the "forecast_end" field.
+func ForecastEndNotIn(vs ...time.Time) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldForecastEnd, vs...))
+}
+
+// ForecastEndGT applies the GT predicate on the "forecast_end" field.
+func ForecastEndGT(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldForecastEnd, v))
+}
+
+// ForecastEndGTE applies the GTE predicate on the "forecast_end" field.
+func ForecastEndGTE(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldForecastEnd, v))
+}
+
+// ForecastEndLT applies the LT predicate on the "forecast_end" field.
+func ForecastEndLT(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldForecastEnd, v))
+}
+
+// ForecastEndLTE applies the LTE predicate on the "forecast_end" field.
+func ForecastEndLTE(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldForecastEnd, v))
+}
+
+// ForecastEndIsNil applies the IsNil predicate on the "forecast_end" field.
+func ForecastEndIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldForecastEnd))
+}
+
+// ForecastEndNotNil applies the NotNil predicate on the "forecast_end" field.
+func ForecastEndNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldForecastEnd))
 }
 
 // CorrectedTitleEQ applies the EQ predicate on the "corrected_title" field.

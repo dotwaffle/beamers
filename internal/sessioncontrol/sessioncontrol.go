@@ -13,6 +13,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/command"
+	"github.com/dotwaffle/beamers/internal/sessiontarget"
 	"github.com/dotwaffle/beamers/internal/store"
 )
 
@@ -35,6 +36,18 @@ var (
 	ErrLiveDetailConfirmation = errors.New("live detail correction requires confirmation")
 	// ErrLiveDetailFields means a correction selected unsupported or invalid detail fields.
 	ErrLiveDetailFields = errors.New("invalid Live Detail Correction fields")
+	// ErrTargetPreviewStale means live timing changed after the Operator's preview.
+	ErrTargetPreviewStale = store.ErrTargetPreviewStale
+	// ErrTargetConfirmation means the Operator did not explicitly confirm the preview.
+	ErrTargetConfirmation = store.ErrTargetConfirmation
+	// ErrHardBoundaryConfirmation means a Hard Boundary override was not explicitly confirmed.
+	ErrHardBoundaryConfirmation = store.ErrHardBoundaryConfirmation
+	// ErrPresetNotConfigured means a preset is not part of the Event configuration.
+	ErrPresetNotConfigured = sessiontarget.ErrPresetNotConfigured
+	// ErrTargetBeforeNow directs the Operator to End Now instead.
+	ErrTargetBeforeNow = sessiontarget.ErrTargetBeforeNow
+	// ErrNoCountdownTarget means the Session uses Manual End.
+	ErrNoCountdownTarget = sessiontarget.ErrNoCountdownTarget
 )
 
 // StartInput is one exact Start Session command.
@@ -51,6 +64,57 @@ type EndInput struct {
 	SessionID                 int    `json:"session_id"`
 	CommandID                 string `json:"command_id"`
 	ExpectedLiveStateRevision int    `json:"expected_live_state_revision"`
+}
+
+// TargetAdjustment is one preset or custom signed target change.
+type TargetAdjustment struct {
+	Duration time.Duration `json:"duration"`
+	Preset   bool          `json:"preset"`
+}
+
+// PreviewAdjustTargetInput requests a read-only downstream impact decision.
+type PreviewAdjustTargetInput struct {
+	EventID    int
+	SessionID  int
+	Adjustment TargetAdjustment
+}
+
+// AdjustTargetInput confirms one exact preview.
+type AdjustTargetInput struct {
+	EventID                   int              `json:"event_id"`
+	SessionID                 int              `json:"session_id"`
+	CommandID                 string           `json:"command_id"`
+	ExpectedLiveStateRevision int              `json:"expected_live_state_revision"`
+	Adjustment                TargetAdjustment `json:"adjustment"`
+	PreviewFingerprint        string           `json:"preview_fingerprint"`
+	Confirmed                 bool             `json:"confirmed"`
+	HardBoundaryConfirmed     bool             `json:"hard_boundary_confirmed"`
+}
+
+// TargetEffect is one downstream overlap exposed before confirmation.
+type TargetEffect struct {
+	SessionID       int
+	CurrentOverlap  time.Duration
+	ProposedOverlap time.Duration
+}
+
+// TargetPreview is the complete current Adjust Target decision.
+type TargetPreview struct {
+	CurrentTarget                    time.Time
+	ProposedTarget                   time.Time
+	Adjustment                       time.Duration
+	Effects                          []TargetEffect
+	RequiresHardBoundaryConfirmation bool
+	Fingerprint                      string
+	ConfiguredPresets                []time.Duration
+}
+
+// TargetAdjustmentResult is one committed Forecast target.
+type TargetAdjustmentResult struct {
+	State       State
+	ForecastEnd time.Time
+	Adjustment  time.Duration
+	AdjustedAt  time.Time
 }
 
 // CorrectLiveDetailsInput is one confirmed descriptive correction.
@@ -207,6 +271,90 @@ func (service *Service) End(
 	)
 }
 
+// PreviewAdjustTarget returns all effects without mutating live state.
+func (service *Service) PreviewAdjustTarget(
+	ctx context.Context,
+	actor auth.Account,
+	input PreviewAdjustTargetInput,
+) (TargetPreview, error) {
+	if !actor.CanOperateEvent(input.EventID) {
+		return TargetPreview{}, ErrOperatorRequired
+	}
+	found, err := service.storage.PreviewSessionTarget(
+		actor.Context(ctx), input.EventID, input.SessionID,
+		sessiontarget.Adjustment{
+			Duration: input.Adjustment.Duration,
+			Preset:   input.Adjustment.Preset,
+		},
+		service.now().UTC(),
+	)
+	if err != nil {
+		return TargetPreview{}, err
+	}
+	return targetPreview(found), nil
+}
+
+// AdjustTarget revalidates and atomically commits a previewed Forecast target.
+func (service *Service) AdjustTarget(
+	ctx context.Context,
+	actor auth.Account,
+	input AdjustTargetInput,
+) (TargetAdjustmentResult, error) {
+	if err := command.ValidateID(input.CommandID); err != nil {
+		return TargetAdjustmentResult{}, err
+	}
+	payload, err := json.Marshal(input)
+	if err != nil {
+		return TargetAdjustmentResult{}, errors.New("encode Adjust Target command")
+	}
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID, CommandID: input.CommandID,
+		PayloadHash: command.PayloadHash(string(payload)), Action: "AdjustTarget",
+		TargetType: "Session", TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
+	}
+	return command.Execute(actor.Context(ctx), command.Plan[TargetAdjustmentResult]{
+		Storage: service.storage, Identity: identity,
+		Replay: func(outcome string) (TargetAdjustmentResult, error) {
+			var stored store.SessionTargetAdjustment
+			if decodeErr := store.DecodeCommandReceipt(outcome, &stored); decodeErr != nil {
+				return TargetAdjustmentResult{}, restoreTargetRejection(decodeErr)
+			}
+			return targetAdjustmentResult(stored), nil
+		},
+		Apply: func(transaction *store.CommandTx) (command.Execution[TargetAdjustmentResult], error) {
+			if !actor.CanOperateEvent(input.EventID) {
+				return targetRejection(TargetAdjustmentResult{}, store.SessionTargetAdjustment{}, "operator_required", ErrOperatorRequired)
+			}
+			stored, adjustErr := transaction.AdjustSessionTarget(
+				actor.Context(ctx),
+				store.AdjustSessionTargetParams{
+					EventID: input.EventID, SessionID: input.SessionID,
+					ExpectedRevision: input.ExpectedLiveStateRevision,
+					Adjustment: sessiontarget.Adjustment{
+						Duration: input.Adjustment.Duration,
+						Preset:   input.Adjustment.Preset,
+					},
+					PreviewFingerprint: input.PreviewFingerprint,
+					Confirmed:          input.Confirmed, HardBoundaryConfirmed: input.HardBoundaryConfirmed,
+					Now: identity.Now,
+				},
+			)
+			if adjustErr != nil {
+				code, rejected := targetRejectionCode(adjustErr)
+				if !rejected {
+					return command.Execution[TargetAdjustmentResult]{}, adjustErr
+				}
+				return targetRejection(targetAdjustmentResult(stored), stored, code, adjustErr)
+			}
+			encoded, encodeErr := json.Marshal(stored)
+			if encodeErr != nil {
+				return command.Execution[TargetAdjustmentResult]{}, errors.New("encode Adjust Target outcome")
+			}
+			return command.Success(targetAdjustmentResult(stored), string(encoded)), nil
+		},
+	})
+}
+
 // CorrectLiveDetails applies confirmed descriptive facts without rewriting the Run Snapshot.
 func (service *Service) CorrectLiveDetails(
 	ctx context.Context,
@@ -338,6 +486,95 @@ func correction(stored store.LiveDetailCorrection) Correction {
 		State: state(stored.State), AmendmentID: stored.AmendmentID,
 		Details: Details{Title: stored.Details.Title, Speaker: stored.Details.Speaker, PublicDetails: stored.Details.PublicDetails},
 	}
+}
+
+func targetPreview(stored store.SessionTargetPreview) TargetPreview {
+	result := TargetPreview{
+		CurrentTarget: stored.Result.CurrentTarget, ProposedTarget: stored.Result.ProposedTarget,
+		Adjustment:                       stored.Result.Adjustment,
+		RequiresHardBoundaryConfirmation: stored.Result.RequiresHardBoundaryConfirmation,
+		Fingerprint:                      stored.Result.Fingerprint, ConfiguredPresets: stored.Presets,
+	}
+	for _, effect := range stored.Result.Effects {
+		result.Effects = append(result.Effects, TargetEffect{
+			SessionID: effect.SessionID, CurrentOverlap: effect.CurrentOverlap,
+			ProposedOverlap: effect.ProposedOverlap,
+		})
+	}
+	return result
+}
+
+func targetAdjustmentResult(stored store.SessionTargetAdjustment) TargetAdjustmentResult {
+	return TargetAdjustmentResult{
+		State: state(stored.State), ForecastEnd: stored.ForecastEnd,
+		Adjustment: stored.Adjustment, AdjustedAt: stored.AdjustedAt,
+	}
+}
+
+func targetRejection(
+	current TargetAdjustmentResult,
+	stored store.SessionTargetAdjustment,
+	code string,
+	reason error,
+) (command.Execution[TargetAdjustmentResult], error) {
+	rejection := store.CommandRejection{Code: code, Message: reason.Error()}
+	returnErr := reason
+	if errors.Is(reason, ErrLiveStateRevisionConflict) {
+		encoded, err := json.Marshal(stored.State)
+		if err != nil {
+			return command.Execution[TargetAdjustmentResult]{}, errors.Join(reason, errors.New("encode stale Session state"))
+		}
+		rejection.Details = encoded
+		returnErr = &RevisionConflictError{Current: current.State}
+	}
+	return command.Reject(current, rejection, returnErr), nil
+}
+
+func targetRejectionCode(err error) (string, bool) {
+	for _, rejection := range targetRejections {
+		if errors.Is(err, rejection.err) {
+			return rejection.code, true
+		}
+	}
+	return "", false
+}
+
+func restoreTargetRejection(err error) error {
+	var rejected *store.RejectedCommandError
+	if !errors.As(err, &rejected) {
+		return err
+	}
+	for _, rejection := range targetRejections {
+		if rejected.Rejection.Code == rejection.code {
+			if errors.Is(rejection.err, ErrLiveStateRevisionConflict) && len(rejected.Rejection.Details) > 0 {
+				var current store.LiveSessionState
+				if decodeErr := json.Unmarshal(rejected.Rejection.Details, &current); decodeErr != nil {
+					return errors.Join(rejection.err, decodeErr)
+				}
+				return &RevisionConflictError{Current: state(current)}
+			}
+			return rejection.err
+		}
+	}
+	return errors.New("adjust target unavailable")
+}
+
+var targetRejections = []struct {
+	err  error
+	code string
+}{
+	{ErrOperatorRequired, "operator_required"},
+	{ErrSessionNotFound, "session_not_found"},
+	{ErrLiveStateRevisionConflict, "live_state_revision_conflict"},
+	{ErrSessionLifecycleTransition, "session_lifecycle_transition"},
+	{ErrEventNotActive, "event_not_active"},
+	{ErrSessionScopeRequired, "session_scope_required"},
+	{ErrTargetPreviewStale, "target_preview_stale"},
+	{ErrTargetConfirmation, "target_confirmation_required"},
+	{ErrHardBoundaryConfirmation, "hard_boundary_confirmation_required"},
+	{ErrPresetNotConfigured, "preset_not_configured"},
+	{ErrTargetBeforeNow, "target_before_now"},
+	{ErrNoCountdownTarget, "no_countdown_target"},
 }
 
 func correctionRejection(

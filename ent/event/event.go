@@ -29,6 +29,8 @@ const (
 	FieldContentLanguage = "content_language"
 	// FieldEventDayBoundary holds the string denoting the event_day_boundary field in the database.
 	FieldEventDayBoundary = "event_day_boundary"
+	// FieldTargetAdjustmentPresets holds the string denoting the target_adjustment_presets field in the database.
+	FieldTargetAdjustmentPresets = "target_adjustment_presets"
 	// FieldDisplayConfiguration holds the string denoting the display_configuration field in the database.
 	FieldDisplayConfiguration = "display_configuration"
 	// FieldRevision holds the string denoting the revision field in the database.
@@ -139,6 +141,7 @@ var Columns = []string{
 	FieldEventLocale,
 	FieldContentLanguage,
 	FieldEventDayBoundary,
+	FieldTargetAdjustmentPresets,
 	FieldDisplayConfiguration,
 	FieldRevision,
 	FieldCreatedAt,
@@ -176,6 +179,10 @@ var (
 	ContentLanguageValidator func(string) error
 	// EventDayBoundaryValidator is a validator for the "event_day_boundary" field. It is called by the builders before save.
 	EventDayBoundaryValidator func(string) error
+	// DefaultTargetAdjustmentPresets holds the default value on creation for the "target_adjustment_presets" field.
+	DefaultTargetAdjustmentPresets string
+	// TargetAdjustmentPresetsValidator is a validator for the "target_adjustment_presets" field. It is called by the builders before save.
+	TargetAdjustmentPresetsValidator func(string) error
 	// DefaultDisplayConfiguration holds the default value on creation for the "display_configuration" field.
 	DefaultDisplayConfiguration string
 	// DisplayConfigurationValidator is a validator for the "display_configuration" field. It is called by the builders before save.
@@ -227,6 +234,11 @@ func ByContentLanguage(opts ...sql.OrderTermOption) OrderOption {
 // ByEventDayBoundary orders the results by the event_day_boundary field.
 func ByEventDayBoundary(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEventDayBoundary, opts...).ToFunc()
+}
+
+// ByTargetAdjustmentPresets orders the results by the target_adjustment_presets field.
+func ByTargetAdjustmentPresets(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTargetAdjustmentPresets, opts...).ToFunc()
 }
 
 // ByDisplayConfiguration orders the results by the display_configuration field.

@@ -262,6 +262,33 @@ test("Stage Timer shows manual elapsed time and accessible threshold emphasis", 
   assert.match(nodeText(urgentRegion), /Urgent/);
 });
 
+test("Stage Timer shows and expires a distinct adjustment notice", async () => {
+  const browser = await startBrowser({
+    snapshot: stageTimerSnapshot({
+      serverTime: "2099-08-21T08:00:00Z",
+      stageTimer: {
+        sessionId: "42",
+        title: "Closing Keynote",
+        mode: "STAGE_TIMER_MODE_COUNTDOWN",
+        anchor: "2099-08-21T08:10:00Z",
+        thresholds: [],
+        adjustmentSeconds: "300",
+        adjustmentNoticeExpiresAt: "2099-08-21T08:00:01Z",
+      },
+    }),
+  });
+  const region = browser.document.main.children[1];
+  const notice = region.children.find((node) => node.dataset.timerAdjustmentNotice);
+  assert.ok(notice);
+  assert.equal(notice.textContent, "Time adjusted: +5:00");
+  assert.doesNotMatch(notice.textContent, /Stage Message/);
+
+  for (let tick = 0; tick < 8 && !notice.hidden; tick++) {
+    await browser.runTimer((delay) => delay === 250);
+  }
+  assert.equal(notice.hidden, true);
+});
+
 test("Stage Timer ignores browser wall-clock jumps after synchronization", async () => {
   const browser = await startBrowser({
     snapshot: stageTimerSnapshot({

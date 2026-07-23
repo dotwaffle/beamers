@@ -39,6 +39,12 @@ const (
 	// SessionControlServiceEndSessionProcedure is the fully-qualified name of the
 	// SessionControlService's EndSession RPC.
 	SessionControlServiceEndSessionProcedure = "/beamers.session.v1.SessionControlService/EndSession"
+	// SessionControlServicePreviewAdjustTargetProcedure is the fully-qualified name of the
+	// SessionControlService's PreviewAdjustTarget RPC.
+	SessionControlServicePreviewAdjustTargetProcedure = "/beamers.session.v1.SessionControlService/PreviewAdjustTarget"
+	// SessionControlServiceAdjustTargetProcedure is the fully-qualified name of the
+	// SessionControlService's AdjustTarget RPC.
+	SessionControlServiceAdjustTargetProcedure = "/beamers.session.v1.SessionControlService/AdjustTarget"
 	// SessionControlServiceCorrectLiveDetailsProcedure is the fully-qualified name of the
 	// SessionControlService's CorrectLiveDetails RPC.
 	SessionControlServiceCorrectLiveDetailsProcedure = "/beamers.session.v1.SessionControlService/CorrectLiveDetails"
@@ -51,6 +57,8 @@ const (
 type SessionControlServiceClient interface {
 	StartSession(context.Context, *connect.Request[v1.StartSessionRequest]) (*connect.Response[v1.StartSessionResponse], error)
 	EndSession(context.Context, *connect.Request[v1.EndSessionRequest]) (*connect.Response[v1.EndSessionResponse], error)
+	PreviewAdjustTarget(context.Context, *connect.Request[v1.PreviewAdjustTargetRequest]) (*connect.Response[v1.PreviewAdjustTargetResponse], error)
+	AdjustTarget(context.Context, *connect.Request[v1.AdjustTargetRequest]) (*connect.Response[v1.AdjustTargetResponse], error)
 	CorrectLiveDetails(context.Context, *connect.Request[v1.CorrectLiveDetailsRequest]) (*connect.Response[v1.CorrectLiveDetailsResponse], error)
 	GetSessionHistory(context.Context, *connect.Request[v1.GetSessionHistoryRequest]) (*connect.Response[v1.GetSessionHistoryResponse], error)
 }
@@ -78,6 +86,18 @@ func NewSessionControlServiceClient(httpClient connect.HTTPClient, baseURL strin
 			connect.WithSchema(sessionControlServiceMethods.ByName("EndSession")),
 			connect.WithClientOptions(opts...),
 		),
+		previewAdjustTarget: connect.NewClient[v1.PreviewAdjustTargetRequest, v1.PreviewAdjustTargetResponse](
+			httpClient,
+			baseURL+SessionControlServicePreviewAdjustTargetProcedure,
+			connect.WithSchema(sessionControlServiceMethods.ByName("PreviewAdjustTarget")),
+			connect.WithClientOptions(opts...),
+		),
+		adjustTarget: connect.NewClient[v1.AdjustTargetRequest, v1.AdjustTargetResponse](
+			httpClient,
+			baseURL+SessionControlServiceAdjustTargetProcedure,
+			connect.WithSchema(sessionControlServiceMethods.ByName("AdjustTarget")),
+			connect.WithClientOptions(opts...),
+		),
 		correctLiveDetails: connect.NewClient[v1.CorrectLiveDetailsRequest, v1.CorrectLiveDetailsResponse](
 			httpClient,
 			baseURL+SessionControlServiceCorrectLiveDetailsProcedure,
@@ -95,10 +115,12 @@ func NewSessionControlServiceClient(httpClient connect.HTTPClient, baseURL strin
 
 // sessionControlServiceClient implements SessionControlServiceClient.
 type sessionControlServiceClient struct {
-	startSession       *connect.Client[v1.StartSessionRequest, v1.StartSessionResponse]
-	endSession         *connect.Client[v1.EndSessionRequest, v1.EndSessionResponse]
-	correctLiveDetails *connect.Client[v1.CorrectLiveDetailsRequest, v1.CorrectLiveDetailsResponse]
-	getSessionHistory  *connect.Client[v1.GetSessionHistoryRequest, v1.GetSessionHistoryResponse]
+	startSession        *connect.Client[v1.StartSessionRequest, v1.StartSessionResponse]
+	endSession          *connect.Client[v1.EndSessionRequest, v1.EndSessionResponse]
+	previewAdjustTarget *connect.Client[v1.PreviewAdjustTargetRequest, v1.PreviewAdjustTargetResponse]
+	adjustTarget        *connect.Client[v1.AdjustTargetRequest, v1.AdjustTargetResponse]
+	correctLiveDetails  *connect.Client[v1.CorrectLiveDetailsRequest, v1.CorrectLiveDetailsResponse]
+	getSessionHistory   *connect.Client[v1.GetSessionHistoryRequest, v1.GetSessionHistoryResponse]
 }
 
 // StartSession calls beamers.session.v1.SessionControlService.StartSession.
@@ -109,6 +131,16 @@ func (c *sessionControlServiceClient) StartSession(ctx context.Context, req *con
 // EndSession calls beamers.session.v1.SessionControlService.EndSession.
 func (c *sessionControlServiceClient) EndSession(ctx context.Context, req *connect.Request[v1.EndSessionRequest]) (*connect.Response[v1.EndSessionResponse], error) {
 	return c.endSession.CallUnary(ctx, req)
+}
+
+// PreviewAdjustTarget calls beamers.session.v1.SessionControlService.PreviewAdjustTarget.
+func (c *sessionControlServiceClient) PreviewAdjustTarget(ctx context.Context, req *connect.Request[v1.PreviewAdjustTargetRequest]) (*connect.Response[v1.PreviewAdjustTargetResponse], error) {
+	return c.previewAdjustTarget.CallUnary(ctx, req)
+}
+
+// AdjustTarget calls beamers.session.v1.SessionControlService.AdjustTarget.
+func (c *sessionControlServiceClient) AdjustTarget(ctx context.Context, req *connect.Request[v1.AdjustTargetRequest]) (*connect.Response[v1.AdjustTargetResponse], error) {
+	return c.adjustTarget.CallUnary(ctx, req)
 }
 
 // CorrectLiveDetails calls beamers.session.v1.SessionControlService.CorrectLiveDetails.
@@ -126,6 +158,8 @@ func (c *sessionControlServiceClient) GetSessionHistory(ctx context.Context, req
 type SessionControlServiceHandler interface {
 	StartSession(context.Context, *connect.Request[v1.StartSessionRequest]) (*connect.Response[v1.StartSessionResponse], error)
 	EndSession(context.Context, *connect.Request[v1.EndSessionRequest]) (*connect.Response[v1.EndSessionResponse], error)
+	PreviewAdjustTarget(context.Context, *connect.Request[v1.PreviewAdjustTargetRequest]) (*connect.Response[v1.PreviewAdjustTargetResponse], error)
+	AdjustTarget(context.Context, *connect.Request[v1.AdjustTargetRequest]) (*connect.Response[v1.AdjustTargetResponse], error)
 	CorrectLiveDetails(context.Context, *connect.Request[v1.CorrectLiveDetailsRequest]) (*connect.Response[v1.CorrectLiveDetailsResponse], error)
 	GetSessionHistory(context.Context, *connect.Request[v1.GetSessionHistoryRequest]) (*connect.Response[v1.GetSessionHistoryResponse], error)
 }
@@ -149,6 +183,18 @@ func NewSessionControlServiceHandler(svc SessionControlServiceHandler, opts ...c
 		connect.WithSchema(sessionControlServiceMethods.ByName("EndSession")),
 		connect.WithHandlerOptions(opts...),
 	)
+	sessionControlServicePreviewAdjustTargetHandler := connect.NewUnaryHandler(
+		SessionControlServicePreviewAdjustTargetProcedure,
+		svc.PreviewAdjustTarget,
+		connect.WithSchema(sessionControlServiceMethods.ByName("PreviewAdjustTarget")),
+		connect.WithHandlerOptions(opts...),
+	)
+	sessionControlServiceAdjustTargetHandler := connect.NewUnaryHandler(
+		SessionControlServiceAdjustTargetProcedure,
+		svc.AdjustTarget,
+		connect.WithSchema(sessionControlServiceMethods.ByName("AdjustTarget")),
+		connect.WithHandlerOptions(opts...),
+	)
 	sessionControlServiceCorrectLiveDetailsHandler := connect.NewUnaryHandler(
 		SessionControlServiceCorrectLiveDetailsProcedure,
 		svc.CorrectLiveDetails,
@@ -167,6 +213,10 @@ func NewSessionControlServiceHandler(svc SessionControlServiceHandler, opts ...c
 			sessionControlServiceStartSessionHandler.ServeHTTP(w, r)
 		case SessionControlServiceEndSessionProcedure:
 			sessionControlServiceEndSessionHandler.ServeHTTP(w, r)
+		case SessionControlServicePreviewAdjustTargetProcedure:
+			sessionControlServicePreviewAdjustTargetHandler.ServeHTTP(w, r)
+		case SessionControlServiceAdjustTargetProcedure:
+			sessionControlServiceAdjustTargetHandler.ServeHTTP(w, r)
 		case SessionControlServiceCorrectLiveDetailsProcedure:
 			sessionControlServiceCorrectLiveDetailsHandler.ServeHTTP(w, r)
 		case SessionControlServiceGetSessionHistoryProcedure:
@@ -186,6 +236,14 @@ func (UnimplementedSessionControlServiceHandler) StartSession(context.Context, *
 
 func (UnimplementedSessionControlServiceHandler) EndSession(context.Context, *connect.Request[v1.EndSessionRequest]) (*connect.Response[v1.EndSessionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.session.v1.SessionControlService.EndSession is not implemented"))
+}
+
+func (UnimplementedSessionControlServiceHandler) PreviewAdjustTarget(context.Context, *connect.Request[v1.PreviewAdjustTargetRequest]) (*connect.Response[v1.PreviewAdjustTargetResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.session.v1.SessionControlService.PreviewAdjustTarget is not implemented"))
+}
+
+func (UnimplementedSessionControlServiceHandler) AdjustTarget(context.Context, *connect.Request[v1.AdjustTargetRequest]) (*connect.Response[v1.AdjustTargetResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.session.v1.SessionControlService.AdjustTarget is not implemented"))
 }
 
 func (UnimplementedSessionControlServiceHandler) CorrectLiveDetails(context.Context, *connect.Request[v1.CorrectLiveDetailsRequest]) (*connect.Response[v1.CorrectLiveDetailsResponse], error) {

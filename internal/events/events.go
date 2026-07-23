@@ -66,15 +66,16 @@ type Event struct {
 
 // CreateInput contains an Administrator's proposed Event configuration.
 type CreateInput struct {
-	Name             string `json:"name"`
-	PlannedStartDate string `json:"planned_start_date"`
-	PlannedEndDate   string `json:"planned_end_date"`
-	Timezone         string `json:"timezone"`
-	EventLocale      string `json:"event_locale"`
-	ContentLanguage  string `json:"content_language"`
-	EventDayBoundary string `json:"event_day_boundary"`
-	CommandID        string `json:"command_id"`
-	ExpectedRevision int    `json:"expected_revision,omitempty"`
+	Name                           string `json:"name"`
+	PlannedStartDate               string `json:"planned_start_date"`
+	PlannedEndDate                 string `json:"planned_end_date"`
+	Timezone                       string `json:"timezone"`
+	EventLocale                    string `json:"event_locale"`
+	ContentLanguage                string `json:"content_language"`
+	EventDayBoundary               string `json:"event_day_boundary"`
+	TargetAdjustmentPresetsSeconds []int  `json:"target_adjustment_presets_seconds,omitempty"`
+	CommandID                      string `json:"command_id"`
+	ExpectedRevision               int    `json:"expected_revision,omitempty"`
 }
 
 // Grant is an Account's role for one Event.
@@ -157,9 +158,10 @@ func (service *Service) Create(
 				PlannedStartDate: normalized.PlannedStartDate, PlannedEndDate: normalized.PlannedEndDate,
 				Timezone: normalized.Timezone, EventLocale: normalized.EventLocale,
 				ContentLanguage: normalized.ContentLanguage, EventDayBoundary: normalized.EventDayBoundary,
-				Now:         identity.Now,
-				CommandID:   input.CommandID,
-				PayloadHash: eventPayloadHash(normalized, 0),
+				TargetAdjustmentPresetsSeconds: normalized.TargetAdjustmentPresetsSeconds,
+				Now:                            identity.Now,
+				CommandID:                      input.CommandID,
+				PayloadHash:                    eventPayloadHash(normalized, 0),
 			})
 			if createErr != nil {
 				return command.Execution[Event]{}, createErr
@@ -283,8 +285,9 @@ func (service *Service) Update(
 				PlannedStartDate: normalized.PlannedStartDate, PlannedEndDate: normalized.PlannedEndDate,
 				Timezone: normalized.Timezone, EventLocale: normalized.EventLocale,
 				ContentLanguage: normalized.ContentLanguage, EventDayBoundary: normalized.EventDayBoundary,
-				Now:       identity.Now,
-				CommandID: input.CommandID, PayloadHash: eventPayloadHash(normalized, input.ExpectedRevision),
+				TargetAdjustmentPresetsSeconds: normalized.TargetAdjustmentPresetsSeconds,
+				Now:                            identity.Now,
+				CommandID:                      input.CommandID, PayloadHash: eventPayloadHash(normalized, input.ExpectedRevision),
 				ExpectedRevision: input.ExpectedRevision,
 			})
 			if errors.Is(updateErr, ErrRevisionConflict) {
@@ -471,6 +474,22 @@ func validateCreateInput(input CreateInput) (CreateInput, error) {
 	boundary, err := time.Parse("15:04", input.EventDayBoundary)
 	if err != nil || boundary.Format("15:04") != input.EventDayBoundary {
 		return CreateInput{}, invalid("event_day_boundary", "must be a 24-hour local time in HH:MM form")
+	}
+	if input.TargetAdjustmentPresetsSeconds == nil {
+		input.TargetAdjustmentPresetsSeconds = []int{-300, 300, 600}
+	}
+	if len(input.TargetAdjustmentPresetsSeconds) > 12 {
+		return CreateInput{}, invalid("target_adjustment_presets_seconds", "must contain no more than 12 presets")
+	}
+	seenPresets := make(map[int]struct{}, len(input.TargetAdjustmentPresetsSeconds))
+	for _, seconds := range input.TargetAdjustmentPresetsSeconds {
+		if seconds == 0 || seconds < -86400 || seconds > 86400 {
+			return CreateInput{}, invalid("target_adjustment_presets_seconds", "values must be non-zero and no more than 86400 seconds")
+		}
+		if _, exists := seenPresets[seconds]; exists {
+			return CreateInput{}, invalid("target_adjustment_presets_seconds", "values must be unique")
+		}
+		seenPresets[seconds] = struct{}{}
 	}
 	return input, nil
 }
@@ -684,8 +703,22 @@ func eventPayloadHash(input CreateInput, expectedRevision int) string {
 	return command.PayloadHash(
 		input.Name, input.PlannedStartDate, input.PlannedEndDate, input.Timezone,
 		input.EventLocale, input.ContentLanguage, input.EventDayBoundary,
+		intsPayload(input.TargetAdjustmentPresetsSeconds),
 		strconv.Itoa(expectedRevision),
 	)
+}
+
+func intsPayload(values []int) string {
+	var result strings.Builder
+	result.WriteByte('[')
+	for index, value := range values {
+		if index > 0 {
+			result.WriteByte(',')
+		}
+		result.WriteString(strconv.Itoa(value))
+	}
+	result.WriteByte(']')
+	return result.String()
 }
 
 func commandRejection(reason error) store.CommandRejection {

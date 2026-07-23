@@ -12,6 +12,8 @@ option go_package = "github.com/dotwaffle/beamers/gen/beamers/session/v1;session
 service SessionControlService {
   rpc StartSession(StartSessionRequest) returns (StartSessionResponse);
   rpc EndSession(EndSessionRequest) returns (EndSessionResponse);
+  rpc PreviewAdjustTarget(PreviewAdjustTargetRequest) returns (PreviewAdjustTargetResponse);
+  rpc AdjustTarget(AdjustTargetRequest) returns (AdjustTargetResponse);
   rpc CorrectLiveDetails(CorrectLiveDetailsRequest) returns (CorrectLiveDetailsResponse);
   rpc GetSessionHistory(GetSessionHistoryRequest) returns (GetSessionHistoryResponse);
 }
@@ -38,6 +40,29 @@ message EndSessionRequest {
   optional int64 expected_live_state_revision = 4;
 }
 
+message PreviewAdjustTargetRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  oneof adjustment {
+    google.protobuf.Duration preset = 3;
+    google.protobuf.Duration custom = 4;
+  }
+}
+
+message AdjustTargetRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  string command_id = 3;
+  optional int64 expected_live_state_revision = 4;
+  oneof adjustment {
+    google.protobuf.Duration preset = 5;
+    google.protobuf.Duration custom = 6;
+  }
+  string preview_fingerprint = 7;
+  bool confirmed = 8;
+  bool hard_boundary_confirmed = 9;
+}
+
 message CorrectLiveDetailsRequest {
   int64 event_id = 1;
   int64 session_id = 2;
@@ -61,6 +86,29 @@ message StartSessionResponse {
 
 message EndSessionResponse {
   SessionState state = 1;
+}
+
+message TargetEffect {
+  int64 session_id = 1;
+  google.protobuf.Duration current_overlap = 2;
+  google.protobuf.Duration proposed_overlap = 3;
+}
+
+message PreviewAdjustTargetResponse {
+  google.protobuf.Timestamp current_target = 1;
+  google.protobuf.Timestamp proposed_target = 2;
+  google.protobuf.Duration adjustment = 3;
+  repeated TargetEffect effects = 4;
+  bool requires_hard_boundary_confirmation = 5;
+  string preview_fingerprint = 6;
+  repeated google.protobuf.Duration configured_presets = 7;
+}
+
+message AdjustTargetResponse {
+  SessionState state = 1;
+  google.protobuf.Timestamp forecast_end = 2;
+  google.protobuf.Duration adjustment = 3;
+  google.protobuf.Timestamp adjusted_at = 4;
 }
 
 message CorrectLiveDetailsResponse {
