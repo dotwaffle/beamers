@@ -16,6 +16,55 @@ service RundownService {
   rpc PublishPreview(PublishPreviewRequest) returns (PublishPreviewResponse);
   rpc Publish(PublishRequest) returns (PublishResponse);
   rpc GetCrewRundown(GetCrewRundownRequest) returns (GetCrewRundownResponse);
+  rpc PreviewCSVImport(PreviewCSVImportRequest) returns (PreviewCSVImportResponse);
+  rpc ImportCSV(ImportCSVRequest) returns (ImportCSVResponse);
+}
+
+message CSVFieldMapping {
+  string source_column = 1;
+  string target_field = 2;
+}
+
+message CSVImportProposal {
+  string id = 1;
+  int64 row_number = 2;
+  string record_type = 3;
+  string external_key = 4;
+  string classification = 5;
+  int64 session_id = 6;
+  string field = 7;
+  string current_value = 8;
+  string proposed_value = 9;
+  string message = 10;
+}
+
+message PreviewCSVImportRequest {
+  int64 event_id = 1;
+  bytes csv_data = 2;
+  repeated CSVFieldMapping mappings = 3;
+}
+
+message PreviewCSVImportResponse {
+  int64 draft_revision = 1;
+  string fingerprint = 2;
+  repeated CSVImportProposal proposals = 3;
+  repeated string ignored_fields = 4;
+  repeated string validation_failures = 5;
+}
+
+message ImportCSVRequest {
+  int64 event_id = 1;
+  string command_id = 2;
+  int64 expected_draft_revision = 3;
+  bytes csv_data = 4;
+  repeated CSVFieldMapping mappings = 5;
+  string fingerprint = 6;
+  repeated string proposal_ids = 7;
+}
+
+message ImportCSVResponse {
+  int64 draft_revision = 1;
+  repeated DraftChange changes = 2;
 }
 
 message DeleteDraftSessionRequest {

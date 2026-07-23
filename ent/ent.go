@@ -22,6 +22,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/lanedraft"
@@ -110,6 +111,7 @@ func checkColumn(t, c string) error {
 			draftedit.Table:                draftedit.ValidColumn,
 			event.Table:                    event.ValidColumn,
 			eventgrant.Table:               eventgrant.ValidColumn,
+			importreference.Table:          importreference.ValidColumn,
 			installation.Table:             installation.ValidColumn,
 			lane.Table:                     lane.ValidColumn,
 			lanedraft.Table:                lanedraft.ValidColumn,

@@ -36,6 +36,9 @@ type Event func(*sql.Selector)
 // EventGrant is the predicate function for eventgrant builders.
 type EventGrant func(*sql.Selector)
 
+// ImportReference is the predicate function for importreference builders.
+type ImportReference func(*sql.Selector)
+
 // Installation is the predicate function for installation builders.
 type Installation func(*sql.Selector)
 

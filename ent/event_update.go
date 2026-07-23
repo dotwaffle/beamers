@@ -14,6 +14,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/predicate"
@@ -284,6 +285,21 @@ func (_u *EventUpdate) AddDraftChanges(v ...*DraftChange) *EventUpdate {
 	return _u.AddDraftChangeIDs(ids...)
 }
 
+// AddImportReferenceIDs adds the "import_references" edge to the ImportReference entity by IDs.
+func (_u *EventUpdate) AddImportReferenceIDs(ids ...int) *EventUpdate {
+	_u.mutation.AddImportReferenceIDs(ids...)
+	return _u
+}
+
+// AddImportReferences adds the "import_references" edges to the ImportReference entity.
+func (_u *EventUpdate) AddImportReferences(v ...*ImportReference) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddImportReferenceIDs(ids...)
+}
+
 // Mutation returns the EventMutation object of the builder.
 func (_u *EventUpdate) Mutation() *EventMutation {
 	return _u.mutation
@@ -440,6 +456,27 @@ func (_u *EventUpdate) RemoveDraftChanges(v ...*DraftChange) *EventUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveDraftChangeIDs(ids...)
+}
+
+// ClearImportReferences clears all "import_references" edges to the ImportReference entity.
+func (_u *EventUpdate) ClearImportReferences() *EventUpdate {
+	_u.mutation.ClearImportReferences()
+	return _u
+}
+
+// RemoveImportReferenceIDs removes the "import_references" edge to ImportReference entities by IDs.
+func (_u *EventUpdate) RemoveImportReferenceIDs(ids ...int) *EventUpdate {
+	_u.mutation.RemoveImportReferenceIDs(ids...)
+	return _u
+}
+
+// RemoveImportReferences removes "import_references" edges to ImportReference entities.
+func (_u *EventUpdate) RemoveImportReferences(v ...*ImportReference) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveImportReferenceIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -895,6 +932,51 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.ImportReferencesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.ImportReferencesTable,
+			Columns: []string{event.ImportReferencesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(importreference.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedImportReferencesIDs(); len(nodes) > 0 && !_u.mutation.ImportReferencesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.ImportReferencesTable,
+			Columns: []string{event.ImportReferencesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(importreference.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ImportReferencesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.ImportReferencesTable,
+			Columns: []string{event.ImportReferencesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(importreference.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{event.Label}
@@ -1164,6 +1246,21 @@ func (_u *EventUpdateOne) AddDraftChanges(v ...*DraftChange) *EventUpdateOne {
 	return _u.AddDraftChangeIDs(ids...)
 }
 
+// AddImportReferenceIDs adds the "import_references" edge to the ImportReference entity by IDs.
+func (_u *EventUpdateOne) AddImportReferenceIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.AddImportReferenceIDs(ids...)
+	return _u
+}
+
+// AddImportReferences adds the "import_references" edges to the ImportReference entity.
+func (_u *EventUpdateOne) AddImportReferences(v ...*ImportReference) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddImportReferenceIDs(ids...)
+}
+
 // Mutation returns the EventMutation object of the builder.
 func (_u *EventUpdateOne) Mutation() *EventMutation {
 	return _u.mutation
@@ -1320,6 +1417,27 @@ func (_u *EventUpdateOne) RemoveDraftChanges(v ...*DraftChange) *EventUpdateOne 
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveDraftChangeIDs(ids...)
+}
+
+// ClearImportReferences clears all "import_references" edges to the ImportReference entity.
+func (_u *EventUpdateOne) ClearImportReferences() *EventUpdateOne {
+	_u.mutation.ClearImportReferences()
+	return _u
+}
+
+// RemoveImportReferenceIDs removes the "import_references" edge to ImportReference entities by IDs.
+func (_u *EventUpdateOne) RemoveImportReferenceIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.RemoveImportReferenceIDs(ids...)
+	return _u
+}
+
+// RemoveImportReferences removes "import_references" edges to ImportReference entities.
+func (_u *EventUpdateOne) RemoveImportReferences(v ...*ImportReference) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveImportReferenceIDs(ids...)
 }
 
 // Where appends a list predicates to the EventUpdate builder.
@@ -1798,6 +1916,51 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(draftchange.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ImportReferencesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.ImportReferencesTable,
+			Columns: []string{event.ImportReferencesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(importreference.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedImportReferencesIDs(); len(nodes) > 0 && !_u.mutation.ImportReferencesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.ImportReferencesTable,
+			Columns: []string{event.ImportReferencesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(importreference.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ImportReferencesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.ImportReferencesTable,
+			Columns: []string{event.ImportReferencesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(importreference.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

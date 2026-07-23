@@ -32,6 +32,8 @@ type Tx struct {
 	Event *EventClient
 	// EventGrant is the client for interacting with the EventGrant builders.
 	EventGrant *EventGrantClient
+	// ImportReference is the client for interacting with the ImportReference builders.
+	ImportReference *ImportReferenceClient
 	// Installation is the client for interacting with the Installation builders.
 	Installation *InstallationClient
 	// Lane is the client for interacting with the Lane builders.
@@ -209,6 +211,7 @@ func (tx *Tx) init() {
 	tx.DraftEdit = NewDraftEditClient(tx.config)
 	tx.Event = NewEventClient(tx.config)
 	tx.EventGrant = NewEventGrantClient(tx.config)
+	tx.ImportReference = NewImportReferenceClient(tx.config)
 	tx.Installation = NewInstallationClient(tx.config)
 	tx.Lane = NewLaneClient(tx.config)
 	tx.LaneDraft = NewLaneDraftClient(tx.config)

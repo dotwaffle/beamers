@@ -49,6 +49,8 @@ const (
 	EdgeDraftEdits = "draft_edits"
 	// EdgeDraftChanges holds the string denoting the draft_changes edge name in mutations.
 	EdgeDraftChanges = "draft_changes"
+	// EdgeImportReferences holds the string denoting the import_references edge name in mutations.
+	EdgeImportReferences = "import_references"
 	// Table holds the table name of the event in the database.
 	Table = "events"
 	// GrantsTable is the table that holds the grants relation/edge.
@@ -107,6 +109,13 @@ const (
 	DraftChangesInverseTable = "draft_changes"
 	// DraftChangesColumn is the table column denoting the draft_changes relation/edge.
 	DraftChangesColumn = "event_id"
+	// ImportReferencesTable is the table that holds the import_references relation/edge.
+	ImportReferencesTable = "import_references"
+	// ImportReferencesInverseTable is the table name for the ImportReference entity.
+	// It exists in this package in order to avoid circular dependency with the "importreference" package.
+	ImportReferencesInverseTable = "import_references"
+	// ImportReferencesColumn is the table column denoting the import_references relation/edge.
+	ImportReferencesColumn = "event_id"
 )
 
 // Columns holds all SQL columns for event fields.
@@ -318,6 +327,20 @@ func ByDraftChanges(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newDraftChangesStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByImportReferencesCount orders the results by import_references count.
+func ByImportReferencesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newImportReferencesStep(), opts...)
+	}
+}
+
+// ByImportReferences orders the results by import_references terms.
+func ByImportReferences(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newImportReferencesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newGrantsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -372,5 +395,12 @@ func newDraftChangesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(DraftChangesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, DraftChangesTable, DraftChangesColumn),
+	)
+}
+func newImportReferencesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ImportReferencesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ImportReferencesTable, ImportReferencesColumn),
 	)
 }

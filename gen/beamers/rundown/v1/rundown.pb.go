@@ -238,6 +238,454 @@ func (Boundary) EnumDescriptor() ([]byte, []int) {
 	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{3}
 }
 
+type CSVFieldMapping struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SourceColumn  string                 `protobuf:"bytes,1,opt,name=source_column,json=sourceColumn,proto3" json:"source_column,omitempty"`
+	TargetField   string                 `protobuf:"bytes,2,opt,name=target_field,json=targetField,proto3" json:"target_field,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CSVFieldMapping) Reset() {
+	*x = CSVFieldMapping{}
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CSVFieldMapping) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CSVFieldMapping) ProtoMessage() {}
+
+func (x *CSVFieldMapping) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CSVFieldMapping.ProtoReflect.Descriptor instead.
+func (*CSVFieldMapping) Descriptor() ([]byte, []int) {
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *CSVFieldMapping) GetSourceColumn() string {
+	if x != nil {
+		return x.SourceColumn
+	}
+	return ""
+}
+
+func (x *CSVFieldMapping) GetTargetField() string {
+	if x != nil {
+		return x.TargetField
+	}
+	return ""
+}
+
+type CSVImportProposal struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	RowNumber      int64                  `protobuf:"varint,2,opt,name=row_number,json=rowNumber,proto3" json:"row_number,omitempty"`
+	RecordType     string                 `protobuf:"bytes,3,opt,name=record_type,json=recordType,proto3" json:"record_type,omitempty"`
+	ExternalKey    string                 `protobuf:"bytes,4,opt,name=external_key,json=externalKey,proto3" json:"external_key,omitempty"`
+	Classification string                 `protobuf:"bytes,5,opt,name=classification,proto3" json:"classification,omitempty"`
+	SessionId      int64                  `protobuf:"varint,6,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	Field          string                 `protobuf:"bytes,7,opt,name=field,proto3" json:"field,omitempty"`
+	CurrentValue   string                 `protobuf:"bytes,8,opt,name=current_value,json=currentValue,proto3" json:"current_value,omitempty"`
+	ProposedValue  string                 `protobuf:"bytes,9,opt,name=proposed_value,json=proposedValue,proto3" json:"proposed_value,omitempty"`
+	Message        string                 `protobuf:"bytes,10,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *CSVImportProposal) Reset() {
+	*x = CSVImportProposal{}
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CSVImportProposal) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CSVImportProposal) ProtoMessage() {}
+
+func (x *CSVImportProposal) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CSVImportProposal.ProtoReflect.Descriptor instead.
+func (*CSVImportProposal) Descriptor() ([]byte, []int) {
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *CSVImportProposal) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *CSVImportProposal) GetRowNumber() int64 {
+	if x != nil {
+		return x.RowNumber
+	}
+	return 0
+}
+
+func (x *CSVImportProposal) GetRecordType() string {
+	if x != nil {
+		return x.RecordType
+	}
+	return ""
+}
+
+func (x *CSVImportProposal) GetExternalKey() string {
+	if x != nil {
+		return x.ExternalKey
+	}
+	return ""
+}
+
+func (x *CSVImportProposal) GetClassification() string {
+	if x != nil {
+		return x.Classification
+	}
+	return ""
+}
+
+func (x *CSVImportProposal) GetSessionId() int64 {
+	if x != nil {
+		return x.SessionId
+	}
+	return 0
+}
+
+func (x *CSVImportProposal) GetField() string {
+	if x != nil {
+		return x.Field
+	}
+	return ""
+}
+
+func (x *CSVImportProposal) GetCurrentValue() string {
+	if x != nil {
+		return x.CurrentValue
+	}
+	return ""
+}
+
+func (x *CSVImportProposal) GetProposedValue() string {
+	if x != nil {
+		return x.ProposedValue
+	}
+	return ""
+}
+
+func (x *CSVImportProposal) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type PreviewCSVImportRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	EventId       int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	CsvData       []byte                 `protobuf:"bytes,2,opt,name=csv_data,json=csvData,proto3" json:"csv_data,omitempty"`
+	Mappings      []*CSVFieldMapping     `protobuf:"bytes,3,rep,name=mappings,proto3" json:"mappings,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PreviewCSVImportRequest) Reset() {
+	*x = PreviewCSVImportRequest{}
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PreviewCSVImportRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PreviewCSVImportRequest) ProtoMessage() {}
+
+func (x *PreviewCSVImportRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PreviewCSVImportRequest.ProtoReflect.Descriptor instead.
+func (*PreviewCSVImportRequest) Descriptor() ([]byte, []int) {
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *PreviewCSVImportRequest) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+func (x *PreviewCSVImportRequest) GetCsvData() []byte {
+	if x != nil {
+		return x.CsvData
+	}
+	return nil
+}
+
+func (x *PreviewCSVImportRequest) GetMappings() []*CSVFieldMapping {
+	if x != nil {
+		return x.Mappings
+	}
+	return nil
+}
+
+type PreviewCSVImportResponse struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	DraftRevision      int64                  `protobuf:"varint,1,opt,name=draft_revision,json=draftRevision,proto3" json:"draft_revision,omitempty"`
+	Fingerprint        string                 `protobuf:"bytes,2,opt,name=fingerprint,proto3" json:"fingerprint,omitempty"`
+	Proposals          []*CSVImportProposal   `protobuf:"bytes,3,rep,name=proposals,proto3" json:"proposals,omitempty"`
+	IgnoredFields      []string               `protobuf:"bytes,4,rep,name=ignored_fields,json=ignoredFields,proto3" json:"ignored_fields,omitempty"`
+	ValidationFailures []string               `protobuf:"bytes,5,rep,name=validation_failures,json=validationFailures,proto3" json:"validation_failures,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *PreviewCSVImportResponse) Reset() {
+	*x = PreviewCSVImportResponse{}
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PreviewCSVImportResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PreviewCSVImportResponse) ProtoMessage() {}
+
+func (x *PreviewCSVImportResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PreviewCSVImportResponse.ProtoReflect.Descriptor instead.
+func (*PreviewCSVImportResponse) Descriptor() ([]byte, []int) {
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *PreviewCSVImportResponse) GetDraftRevision() int64 {
+	if x != nil {
+		return x.DraftRevision
+	}
+	return 0
+}
+
+func (x *PreviewCSVImportResponse) GetFingerprint() string {
+	if x != nil {
+		return x.Fingerprint
+	}
+	return ""
+}
+
+func (x *PreviewCSVImportResponse) GetProposals() []*CSVImportProposal {
+	if x != nil {
+		return x.Proposals
+	}
+	return nil
+}
+
+func (x *PreviewCSVImportResponse) GetIgnoredFields() []string {
+	if x != nil {
+		return x.IgnoredFields
+	}
+	return nil
+}
+
+func (x *PreviewCSVImportResponse) GetValidationFailures() []string {
+	if x != nil {
+		return x.ValidationFailures
+	}
+	return nil
+}
+
+type ImportCSVRequest struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	EventId               int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	CommandId             string                 `protobuf:"bytes,2,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
+	ExpectedDraftRevision int64                  `protobuf:"varint,3,opt,name=expected_draft_revision,json=expectedDraftRevision,proto3" json:"expected_draft_revision,omitempty"`
+	CsvData               []byte                 `protobuf:"bytes,4,opt,name=csv_data,json=csvData,proto3" json:"csv_data,omitempty"`
+	Mappings              []*CSVFieldMapping     `protobuf:"bytes,5,rep,name=mappings,proto3" json:"mappings,omitempty"`
+	Fingerprint           string                 `protobuf:"bytes,6,opt,name=fingerprint,proto3" json:"fingerprint,omitempty"`
+	ProposalIds           []string               `protobuf:"bytes,7,rep,name=proposal_ids,json=proposalIds,proto3" json:"proposal_ids,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *ImportCSVRequest) Reset() {
+	*x = ImportCSVRequest{}
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ImportCSVRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ImportCSVRequest) ProtoMessage() {}
+
+func (x *ImportCSVRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ImportCSVRequest.ProtoReflect.Descriptor instead.
+func (*ImportCSVRequest) Descriptor() ([]byte, []int) {
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ImportCSVRequest) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+func (x *ImportCSVRequest) GetCommandId() string {
+	if x != nil {
+		return x.CommandId
+	}
+	return ""
+}
+
+func (x *ImportCSVRequest) GetExpectedDraftRevision() int64 {
+	if x != nil {
+		return x.ExpectedDraftRevision
+	}
+	return 0
+}
+
+func (x *ImportCSVRequest) GetCsvData() []byte {
+	if x != nil {
+		return x.CsvData
+	}
+	return nil
+}
+
+func (x *ImportCSVRequest) GetMappings() []*CSVFieldMapping {
+	if x != nil {
+		return x.Mappings
+	}
+	return nil
+}
+
+func (x *ImportCSVRequest) GetFingerprint() string {
+	if x != nil {
+		return x.Fingerprint
+	}
+	return ""
+}
+
+func (x *ImportCSVRequest) GetProposalIds() []string {
+	if x != nil {
+		return x.ProposalIds
+	}
+	return nil
+}
+
+type ImportCSVResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DraftRevision int64                  `protobuf:"varint,1,opt,name=draft_revision,json=draftRevision,proto3" json:"draft_revision,omitempty"`
+	Changes       []*DraftChange         `protobuf:"bytes,2,rep,name=changes,proto3" json:"changes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ImportCSVResponse) Reset() {
+	*x = ImportCSVResponse{}
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ImportCSVResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ImportCSVResponse) ProtoMessage() {}
+
+func (x *ImportCSVResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ImportCSVResponse.ProtoReflect.Descriptor instead.
+func (*ImportCSVResponse) Descriptor() ([]byte, []int) {
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ImportCSVResponse) GetDraftRevision() int64 {
+	if x != nil {
+		return x.DraftRevision
+	}
+	return 0
+}
+
+func (x *ImportCSVResponse) GetChanges() []*DraftChange {
+	if x != nil {
+		return x.Changes
+	}
+	return nil
+}
+
 type DeleteDraftSessionRequest struct {
 	state                 protoimpl.MessageState `protogen:"open.v1"`
 	EventId               int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
@@ -250,7 +698,7 @@ type DeleteDraftSessionRequest struct {
 
 func (x *DeleteDraftSessionRequest) Reset() {
 	*x = DeleteDraftSessionRequest{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[0]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -262,7 +710,7 @@ func (x *DeleteDraftSessionRequest) String() string {
 func (*DeleteDraftSessionRequest) ProtoMessage() {}
 
 func (x *DeleteDraftSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[0]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -275,7 +723,7 @@ func (x *DeleteDraftSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDraftSessionRequest.ProtoReflect.Descriptor instead.
 func (*DeleteDraftSessionRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{0}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *DeleteDraftSessionRequest) GetEventId() int64 {
@@ -316,7 +764,7 @@ type DeleteDraftSessionResponse struct {
 
 func (x *DeleteDraftSessionResponse) Reset() {
 	*x = DeleteDraftSessionResponse{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[1]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -328,7 +776,7 @@ func (x *DeleteDraftSessionResponse) String() string {
 func (*DeleteDraftSessionResponse) ProtoMessage() {}
 
 func (x *DeleteDraftSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[1]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -341,7 +789,7 @@ func (x *DeleteDraftSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDraftSessionResponse.ProtoReflect.Descriptor instead.
 func (*DeleteDraftSessionResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{1}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *DeleteDraftSessionResponse) GetDraftRevision() int64 {
@@ -371,7 +819,7 @@ type TargetRef struct {
 
 func (x *TargetRef) Reset() {
 	*x = TargetRef{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[2]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -383,7 +831,7 @@ func (x *TargetRef) String() string {
 func (*TargetRef) ProtoMessage() {}
 
 func (x *TargetRef) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[2]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -396,7 +844,7 @@ func (x *TargetRef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TargetRef.ProtoReflect.Descriptor instead.
 func (*TargetRef) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{2}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *TargetRef) GetTarget() isTargetRef_Target {
@@ -452,7 +900,7 @@ type LocationDraft struct {
 
 func (x *LocationDraft) Reset() {
 	*x = LocationDraft{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[3]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -464,7 +912,7 @@ func (x *LocationDraft) String() string {
 func (*LocationDraft) ProtoMessage() {}
 
 func (x *LocationDraft) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[3]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -477,7 +925,7 @@ func (x *LocationDraft) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocationDraft.ProtoReflect.Descriptor instead.
 func (*LocationDraft) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{3}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *LocationDraft) GetRef() string {
@@ -521,7 +969,7 @@ type LaneDraft struct {
 
 func (x *LaneDraft) Reset() {
 	*x = LaneDraft{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[4]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -533,7 +981,7 @@ func (x *LaneDraft) String() string {
 func (*LaneDraft) ProtoMessage() {}
 
 func (x *LaneDraft) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[4]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -546,7 +994,7 @@ func (x *LaneDraft) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LaneDraft.ProtoReflect.Descriptor instead.
 func (*LaneDraft) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{4}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *LaneDraft) GetRef() string {
@@ -596,7 +1044,7 @@ type TrackDraft struct {
 
 func (x *TrackDraft) Reset() {
 	*x = TrackDraft{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[5]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -608,7 +1056,7 @@ func (x *TrackDraft) String() string {
 func (*TrackDraft) ProtoMessage() {}
 
 func (x *TrackDraft) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[5]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -621,7 +1069,7 @@ func (x *TrackDraft) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrackDraft.ProtoReflect.Descriptor instead.
 func (*TrackDraft) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{5}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *TrackDraft) GetRef() string {
@@ -684,7 +1132,7 @@ type SessionDraft struct {
 
 func (x *SessionDraft) Reset() {
 	*x = SessionDraft{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[6]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -696,7 +1144,7 @@ func (x *SessionDraft) String() string {
 func (*SessionDraft) ProtoMessage() {}
 
 func (x *SessionDraft) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[6]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -709,7 +1157,7 @@ func (x *SessionDraft) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionDraft.ProtoReflect.Descriptor instead.
 func (*SessionDraft) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{6}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *SessionDraft) GetRef() string {
@@ -895,7 +1343,7 @@ type EditDraftRequest struct {
 
 func (x *EditDraftRequest) Reset() {
 	*x = EditDraftRequest{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[7]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -907,7 +1355,7 @@ func (x *EditDraftRequest) String() string {
 func (*EditDraftRequest) ProtoMessage() {}
 
 func (x *EditDraftRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[7]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -920,7 +1368,7 @@ func (x *EditDraftRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EditDraftRequest.ProtoReflect.Descriptor instead.
 func (*EditDraftRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{7}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *EditDraftRequest) GetEventId() int64 {
@@ -987,7 +1435,7 @@ type DraftChange struct {
 
 func (x *DraftChange) Reset() {
 	*x = DraftChange{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[8]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -999,7 +1447,7 @@ func (x *DraftChange) String() string {
 func (*DraftChange) ProtoMessage() {}
 
 func (x *DraftChange) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[8]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1012,7 +1460,7 @@ func (x *DraftChange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DraftChange.ProtoReflect.Descriptor instead.
 func (*DraftChange) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{8}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *DraftChange) GetId() int64 {
@@ -1076,7 +1524,7 @@ type DiscardDraftChangesRequest struct {
 
 func (x *DiscardDraftChangesRequest) Reset() {
 	*x = DiscardDraftChangesRequest{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[9]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1088,7 +1536,7 @@ func (x *DiscardDraftChangesRequest) String() string {
 func (*DiscardDraftChangesRequest) ProtoMessage() {}
 
 func (x *DiscardDraftChangesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[9]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1101,7 +1549,7 @@ func (x *DiscardDraftChangesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscardDraftChangesRequest.ProtoReflect.Descriptor instead.
 func (*DiscardDraftChangesRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{9}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *DiscardDraftChangesRequest) GetEventId() int64 {
@@ -1142,7 +1590,7 @@ type DiscardDraftChangesResponse struct {
 
 func (x *DiscardDraftChangesResponse) Reset() {
 	*x = DiscardDraftChangesResponse{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[10]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1154,7 +1602,7 @@ func (x *DiscardDraftChangesResponse) String() string {
 func (*DiscardDraftChangesResponse) ProtoMessage() {}
 
 func (x *DiscardDraftChangesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[10]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1167,7 +1615,7 @@ func (x *DiscardDraftChangesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscardDraftChangesResponse.ProtoReflect.Descriptor instead.
 func (*DiscardDraftChangesResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{10}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *DiscardDraftChangesResponse) GetDraftRevision() int64 {
@@ -1196,7 +1644,7 @@ type RevertDraftChangeRequest struct {
 
 func (x *RevertDraftChangeRequest) Reset() {
 	*x = RevertDraftChangeRequest{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[11]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1208,7 +1656,7 @@ func (x *RevertDraftChangeRequest) String() string {
 func (*RevertDraftChangeRequest) ProtoMessage() {}
 
 func (x *RevertDraftChangeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[11]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1221,7 +1669,7 @@ func (x *RevertDraftChangeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevertDraftChangeRequest.ProtoReflect.Descriptor instead.
 func (*RevertDraftChangeRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{11}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *RevertDraftChangeRequest) GetEventId() int64 {
@@ -1262,7 +1710,7 @@ type RevertDraftChangeResponse struct {
 
 func (x *RevertDraftChangeResponse) Reset() {
 	*x = RevertDraftChangeResponse{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[12]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1274,7 +1722,7 @@ func (x *RevertDraftChangeResponse) String() string {
 func (*RevertDraftChangeResponse) ProtoMessage() {}
 
 func (x *RevertDraftChangeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[12]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1287,7 +1735,7 @@ func (x *RevertDraftChangeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevertDraftChangeResponse.ProtoReflect.Descriptor instead.
 func (*RevertDraftChangeResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{12}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *RevertDraftChangeResponse) GetDraftRevision() int64 {
@@ -1314,7 +1762,7 @@ type DraftRevisionConflict struct {
 
 func (x *DraftRevisionConflict) Reset() {
 	*x = DraftRevisionConflict{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[13]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1326,7 +1774,7 @@ func (x *DraftRevisionConflict) String() string {
 func (*DraftRevisionConflict) ProtoMessage() {}
 
 func (x *DraftRevisionConflict) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[13]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1339,7 +1787,7 @@ func (x *DraftRevisionConflict) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DraftRevisionConflict.ProtoReflect.Descriptor instead.
 func (*DraftRevisionConflict) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{13}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *DraftRevisionConflict) GetCurrentDraftRevision() int64 {
@@ -1366,7 +1814,7 @@ type EditDraftResponse struct {
 
 func (x *EditDraftResponse) Reset() {
 	*x = EditDraftResponse{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[14]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1378,7 +1826,7 @@ func (x *EditDraftResponse) String() string {
 func (*EditDraftResponse) ProtoMessage() {}
 
 func (x *EditDraftResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[14]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1391,7 +1839,7 @@ func (x *EditDraftResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EditDraftResponse.ProtoReflect.Descriptor instead.
 func (*EditDraftResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{14}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *EditDraftResponse) GetDraftRevision() int64 {
@@ -1418,7 +1866,7 @@ type PublishPreviewRequest struct {
 
 func (x *PublishPreviewRequest) Reset() {
 	*x = PublishPreviewRequest{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[15]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1430,7 +1878,7 @@ func (x *PublishPreviewRequest) String() string {
 func (*PublishPreviewRequest) ProtoMessage() {}
 
 func (x *PublishPreviewRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[15]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1443,7 +1891,7 @@ func (x *PublishPreviewRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublishPreviewRequest.ProtoReflect.Descriptor instead.
 func (*PublishPreviewRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{15}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *PublishPreviewRequest) GetEventId() int64 {
@@ -1476,7 +1924,7 @@ type PublishPreviewResponse struct {
 
 func (x *PublishPreviewResponse) Reset() {
 	*x = PublishPreviewResponse{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[16]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1488,7 +1936,7 @@ func (x *PublishPreviewResponse) String() string {
 func (*PublishPreviewResponse) ProtoMessage() {}
 
 func (x *PublishPreviewResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[16]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1501,7 +1949,7 @@ func (x *PublishPreviewResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublishPreviewResponse.ProtoReflect.Descriptor instead.
 func (*PublishPreviewResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{16}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *PublishPreviewResponse) GetDraftRevision() int64 {
@@ -1572,7 +2020,7 @@ type PublishConfirmation struct {
 
 func (x *PublishConfirmation) Reset() {
 	*x = PublishConfirmation{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[17]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1584,7 +2032,7 @@ func (x *PublishConfirmation) String() string {
 func (*PublishConfirmation) ProtoMessage() {}
 
 func (x *PublishConfirmation) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[17]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1597,7 +2045,7 @@ func (x *PublishConfirmation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublishConfirmation.ProtoReflect.Descriptor instead.
 func (*PublishConfirmation) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{17}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *PublishConfirmation) GetDraftRevision() int64 {
@@ -1640,7 +2088,7 @@ type PublishRequest struct {
 
 func (x *PublishRequest) Reset() {
 	*x = PublishRequest{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[18]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1652,7 +2100,7 @@ func (x *PublishRequest) String() string {
 func (*PublishRequest) ProtoMessage() {}
 
 func (x *PublishRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[18]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1665,7 +2113,7 @@ func (x *PublishRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublishRequest.ProtoReflect.Descriptor instead.
 func (*PublishRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{18}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *PublishRequest) GetEventId() int64 {
@@ -1707,7 +2155,7 @@ type PublishResponse struct {
 
 func (x *PublishResponse) Reset() {
 	*x = PublishResponse{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[19]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1719,7 +2167,7 @@ func (x *PublishResponse) String() string {
 func (*PublishResponse) ProtoMessage() {}
 
 func (x *PublishResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[19]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1732,7 +2180,7 @@ func (x *PublishResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublishResponse.ProtoReflect.Descriptor instead.
 func (*PublishResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{19}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *PublishResponse) GetDraftRevision() int64 {
@@ -1765,7 +2213,7 @@ type GetCrewRundownRequest struct {
 
 func (x *GetCrewRundownRequest) Reset() {
 	*x = GetCrewRundownRequest{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[20]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1777,7 +2225,7 @@ func (x *GetCrewRundownRequest) String() string {
 func (*GetCrewRundownRequest) ProtoMessage() {}
 
 func (x *GetCrewRundownRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[20]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1790,7 +2238,7 @@ func (x *GetCrewRundownRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCrewRundownRequest.ProtoReflect.Descriptor instead.
 func (*GetCrewRundownRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{20}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *GetCrewRundownRequest) GetEventId() int64 {
@@ -1810,7 +2258,7 @@ type CrewLocation struct {
 
 func (x *CrewLocation) Reset() {
 	*x = CrewLocation{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[21]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1822,7 +2270,7 @@ func (x *CrewLocation) String() string {
 func (*CrewLocation) ProtoMessage() {}
 
 func (x *CrewLocation) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[21]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1835,7 +2283,7 @@ func (x *CrewLocation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrewLocation.ProtoReflect.Descriptor instead.
 func (*CrewLocation) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{21}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *CrewLocation) GetId() int64 {
@@ -1863,7 +2311,7 @@ type CrewLane struct {
 
 func (x *CrewLane) Reset() {
 	*x = CrewLane{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[22]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1875,7 +2323,7 @@ func (x *CrewLane) String() string {
 func (*CrewLane) ProtoMessage() {}
 
 func (x *CrewLane) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[22]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1888,7 +2336,7 @@ func (x *CrewLane) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrewLane.ProtoReflect.Descriptor instead.
 func (*CrewLane) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{22}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *CrewLane) GetId() int64 {
@@ -1922,7 +2370,7 @@ type CrewTrack struct {
 
 func (x *CrewTrack) Reset() {
 	*x = CrewTrack{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[23]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1934,7 +2382,7 @@ func (x *CrewTrack) String() string {
 func (*CrewTrack) ProtoMessage() {}
 
 func (x *CrewTrack) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[23]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1947,7 +2395,7 @@ func (x *CrewTrack) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrewTrack.ProtoReflect.Descriptor instead.
 func (*CrewTrack) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{23}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *CrewTrack) GetId() int64 {
@@ -1988,7 +2436,7 @@ type CrewSession struct {
 
 func (x *CrewSession) Reset() {
 	*x = CrewSession{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[24]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2000,7 +2448,7 @@ func (x *CrewSession) String() string {
 func (*CrewSession) ProtoMessage() {}
 
 func (x *CrewSession) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[24]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2013,7 +2461,7 @@ func (x *CrewSession) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrewSession.ProtoReflect.Descriptor instead.
 func (*CrewSession) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{24}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *CrewSession) GetId() int64 {
@@ -2142,7 +2590,7 @@ type GetCrewRundownResponse struct {
 
 func (x *GetCrewRundownResponse) Reset() {
 	*x = GetCrewRundownResponse{}
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[25]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2154,7 +2602,7 @@ func (x *GetCrewRundownResponse) String() string {
 func (*GetCrewRundownResponse) ProtoMessage() {}
 
 func (x *GetCrewRundownResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[25]
+	mi := &file_beamers_rundown_v1_rundown_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2167,7 +2615,7 @@ func (x *GetCrewRundownResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCrewRundownResponse.ProtoReflect.Descriptor instead.
 func (*GetCrewRundownResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{25}
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *GetCrewRundownResponse) GetDraftRevision() int64 {
@@ -2216,7 +2664,47 @@ var File_beamers_rundown_v1_rundown_proto protoreflect.FileDescriptor
 
 const file_beamers_rundown_v1_rundown_proto_rawDesc = "" +
 	"\n" +
-	" beamers/rundown/v1/rundown.proto\x12\x12beamers.rundown.v1\x1a\x1egoogle/protobuf/duration.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xac\x01\n" +
+	" beamers/rundown/v1/rundown.proto\x12\x12beamers.rundown.v1\x1a\x1egoogle/protobuf/duration.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"Y\n" +
+	"\x0fCSVFieldMapping\x12#\n" +
+	"\rsource_column\x18\x01 \x01(\tR\fsourceColumn\x12!\n" +
+	"\ftarget_field\x18\x02 \x01(\tR\vtargetField\"\xc9\x02\n" +
+	"\x11CSVImportProposal\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
+	"\n" +
+	"row_number\x18\x02 \x01(\x03R\trowNumber\x12\x1f\n" +
+	"\vrecord_type\x18\x03 \x01(\tR\n" +
+	"recordType\x12!\n" +
+	"\fexternal_key\x18\x04 \x01(\tR\vexternalKey\x12&\n" +
+	"\x0eclassification\x18\x05 \x01(\tR\x0eclassification\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x06 \x01(\x03R\tsessionId\x12\x14\n" +
+	"\x05field\x18\a \x01(\tR\x05field\x12#\n" +
+	"\rcurrent_value\x18\b \x01(\tR\fcurrentValue\x12%\n" +
+	"\x0eproposed_value\x18\t \x01(\tR\rproposedValue\x12\x18\n" +
+	"\amessage\x18\n" +
+	" \x01(\tR\amessage\"\x90\x01\n" +
+	"\x17PreviewCSVImportRequest\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x19\n" +
+	"\bcsv_data\x18\x02 \x01(\fR\acsvData\x12?\n" +
+	"\bmappings\x18\x03 \x03(\v2#.beamers.rundown.v1.CSVFieldMappingR\bmappings\"\x80\x02\n" +
+	"\x18PreviewCSVImportResponse\x12%\n" +
+	"\x0edraft_revision\x18\x01 \x01(\x03R\rdraftRevision\x12 \n" +
+	"\vfingerprint\x18\x02 \x01(\tR\vfingerprint\x12C\n" +
+	"\tproposals\x18\x03 \x03(\v2%.beamers.rundown.v1.CSVImportProposalR\tproposals\x12%\n" +
+	"\x0eignored_fields\x18\x04 \x03(\tR\rignoredFields\x12/\n" +
+	"\x13validation_failures\x18\x05 \x03(\tR\x12validationFailures\"\xa5\x02\n" +
+	"\x10ImportCSVRequest\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
+	"\n" +
+	"command_id\x18\x02 \x01(\tR\tcommandId\x126\n" +
+	"\x17expected_draft_revision\x18\x03 \x01(\x03R\x15expectedDraftRevision\x12\x19\n" +
+	"\bcsv_data\x18\x04 \x01(\fR\acsvData\x12?\n" +
+	"\bmappings\x18\x05 \x03(\v2#.beamers.rundown.v1.CSVFieldMappingR\bmappings\x12 \n" +
+	"\vfingerprint\x18\x06 \x01(\tR\vfingerprint\x12!\n" +
+	"\fproposal_ids\x18\a \x03(\tR\vproposalIds\"u\n" +
+	"\x11ImportCSVResponse\x12%\n" +
+	"\x0edraft_revision\x18\x01 \x01(\x03R\rdraftRevision\x129\n" +
+	"\achanges\x18\x02 \x03(\v2\x1f.beamers.rundown.v1.DraftChangeR\achanges\"\xac\x01\n" +
 	"\x19DeleteDraftSessionRequest\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
 	"\n" +
@@ -2418,7 +2906,7 @@ const file_beamers_rundown_v1_rundown_proto_rawDesc = "" +
 	"\bBoundary\x12\x18\n" +
 	"\x14BOUNDARY_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rBOUNDARY_HARD\x10\x01\x12\x11\n" +
-	"\rBOUNDARY_SOFT\x10\x022\xef\x05\n" +
+	"\rBOUNDARY_SOFT\x10\x022\xb8\a\n" +
 	"\x0eRundownService\x12X\n" +
 	"\tEditDraft\x12$.beamers.rundown.v1.EditDraftRequest\x1a%.beamers.rundown.v1.EditDraftResponse\x12s\n" +
 	"\x12DeleteDraftSession\x12-.beamers.rundown.v1.DeleteDraftSessionRequest\x1a..beamers.rundown.v1.DeleteDraftSessionResponse\x12v\n" +
@@ -2426,7 +2914,9 @@ const file_beamers_rundown_v1_rundown_proto_rawDesc = "" +
 	"\x11RevertDraftChange\x12,.beamers.rundown.v1.RevertDraftChangeRequest\x1a-.beamers.rundown.v1.RevertDraftChangeResponse\x12g\n" +
 	"\x0ePublishPreview\x12).beamers.rundown.v1.PublishPreviewRequest\x1a*.beamers.rundown.v1.PublishPreviewResponse\x12R\n" +
 	"\aPublish\x12\".beamers.rundown.v1.PublishRequest\x1a#.beamers.rundown.v1.PublishResponse\x12g\n" +
-	"\x0eGetCrewRundown\x12).beamers.rundown.v1.GetCrewRundownRequest\x1a*.beamers.rundown.v1.GetCrewRundownResponseB?Z=github.com/dotwaffle/beamers/gen/beamers/rundown/v1;rundownv1b\x06proto3"
+	"\x0eGetCrewRundown\x12).beamers.rundown.v1.GetCrewRundownRequest\x1a*.beamers.rundown.v1.GetCrewRundownResponse\x12m\n" +
+	"\x10PreviewCSVImport\x12+.beamers.rundown.v1.PreviewCSVImportRequest\x1a,.beamers.rundown.v1.PreviewCSVImportResponse\x12X\n" +
+	"\tImportCSV\x12$.beamers.rundown.v1.ImportCSVRequest\x1a%.beamers.rundown.v1.ImportCSVResponseB?Z=github.com/dotwaffle/beamers/gen/beamers/rundown/v1;rundownv1b\x06proto3"
 
 var (
 	file_beamers_rundown_v1_rundown_proto_rawDescOnce sync.Once
@@ -2441,106 +2931,120 @@ func file_beamers_rundown_v1_rundown_proto_rawDescGZIP() []byte {
 }
 
 var file_beamers_rundown_v1_rundown_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_beamers_rundown_v1_rundown_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
+var file_beamers_rundown_v1_rundown_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
 var file_beamers_rundown_v1_rundown_proto_goTypes = []any{
 	(SessionType)(0),                    // 0: beamers.rundown.v1.SessionType
 	(AudienceVisibility)(0),             // 1: beamers.rundown.v1.AudienceVisibility
 	(TimingPolicy)(0),                   // 2: beamers.rundown.v1.TimingPolicy
 	(Boundary)(0),                       // 3: beamers.rundown.v1.Boundary
-	(*DeleteDraftSessionRequest)(nil),   // 4: beamers.rundown.v1.DeleteDraftSessionRequest
-	(*DeleteDraftSessionResponse)(nil),  // 5: beamers.rundown.v1.DeleteDraftSessionResponse
-	(*TargetRef)(nil),                   // 6: beamers.rundown.v1.TargetRef
-	(*LocationDraft)(nil),               // 7: beamers.rundown.v1.LocationDraft
-	(*LaneDraft)(nil),                   // 8: beamers.rundown.v1.LaneDraft
-	(*TrackDraft)(nil),                  // 9: beamers.rundown.v1.TrackDraft
-	(*SessionDraft)(nil),                // 10: beamers.rundown.v1.SessionDraft
-	(*EditDraftRequest)(nil),            // 11: beamers.rundown.v1.EditDraftRequest
-	(*DraftChange)(nil),                 // 12: beamers.rundown.v1.DraftChange
-	(*DiscardDraftChangesRequest)(nil),  // 13: beamers.rundown.v1.DiscardDraftChangesRequest
-	(*DiscardDraftChangesResponse)(nil), // 14: beamers.rundown.v1.DiscardDraftChangesResponse
-	(*RevertDraftChangeRequest)(nil),    // 15: beamers.rundown.v1.RevertDraftChangeRequest
-	(*RevertDraftChangeResponse)(nil),   // 16: beamers.rundown.v1.RevertDraftChangeResponse
-	(*DraftRevisionConflict)(nil),       // 17: beamers.rundown.v1.DraftRevisionConflict
-	(*EditDraftResponse)(nil),           // 18: beamers.rundown.v1.EditDraftResponse
-	(*PublishPreviewRequest)(nil),       // 19: beamers.rundown.v1.PublishPreviewRequest
-	(*PublishPreviewResponse)(nil),      // 20: beamers.rundown.v1.PublishPreviewResponse
-	(*PublishConfirmation)(nil),         // 21: beamers.rundown.v1.PublishConfirmation
-	(*PublishRequest)(nil),              // 22: beamers.rundown.v1.PublishRequest
-	(*PublishResponse)(nil),             // 23: beamers.rundown.v1.PublishResponse
-	(*GetCrewRundownRequest)(nil),       // 24: beamers.rundown.v1.GetCrewRundownRequest
-	(*CrewLocation)(nil),                // 25: beamers.rundown.v1.CrewLocation
-	(*CrewLane)(nil),                    // 26: beamers.rundown.v1.CrewLane
-	(*CrewTrack)(nil),                   // 27: beamers.rundown.v1.CrewTrack
-	(*CrewSession)(nil),                 // 28: beamers.rundown.v1.CrewSession
-	(*GetCrewRundownResponse)(nil),      // 29: beamers.rundown.v1.GetCrewRundownResponse
-	(*fieldmaskpb.FieldMask)(nil),       // 30: google.protobuf.FieldMask
-	(*timestamppb.Timestamp)(nil),       // 31: google.protobuf.Timestamp
-	(*durationpb.Duration)(nil),         // 32: google.protobuf.Duration
+	(*CSVFieldMapping)(nil),             // 4: beamers.rundown.v1.CSVFieldMapping
+	(*CSVImportProposal)(nil),           // 5: beamers.rundown.v1.CSVImportProposal
+	(*PreviewCSVImportRequest)(nil),     // 6: beamers.rundown.v1.PreviewCSVImportRequest
+	(*PreviewCSVImportResponse)(nil),    // 7: beamers.rundown.v1.PreviewCSVImportResponse
+	(*ImportCSVRequest)(nil),            // 8: beamers.rundown.v1.ImportCSVRequest
+	(*ImportCSVResponse)(nil),           // 9: beamers.rundown.v1.ImportCSVResponse
+	(*DeleteDraftSessionRequest)(nil),   // 10: beamers.rundown.v1.DeleteDraftSessionRequest
+	(*DeleteDraftSessionResponse)(nil),  // 11: beamers.rundown.v1.DeleteDraftSessionResponse
+	(*TargetRef)(nil),                   // 12: beamers.rundown.v1.TargetRef
+	(*LocationDraft)(nil),               // 13: beamers.rundown.v1.LocationDraft
+	(*LaneDraft)(nil),                   // 14: beamers.rundown.v1.LaneDraft
+	(*TrackDraft)(nil),                  // 15: beamers.rundown.v1.TrackDraft
+	(*SessionDraft)(nil),                // 16: beamers.rundown.v1.SessionDraft
+	(*EditDraftRequest)(nil),            // 17: beamers.rundown.v1.EditDraftRequest
+	(*DraftChange)(nil),                 // 18: beamers.rundown.v1.DraftChange
+	(*DiscardDraftChangesRequest)(nil),  // 19: beamers.rundown.v1.DiscardDraftChangesRequest
+	(*DiscardDraftChangesResponse)(nil), // 20: beamers.rundown.v1.DiscardDraftChangesResponse
+	(*RevertDraftChangeRequest)(nil),    // 21: beamers.rundown.v1.RevertDraftChangeRequest
+	(*RevertDraftChangeResponse)(nil),   // 22: beamers.rundown.v1.RevertDraftChangeResponse
+	(*DraftRevisionConflict)(nil),       // 23: beamers.rundown.v1.DraftRevisionConflict
+	(*EditDraftResponse)(nil),           // 24: beamers.rundown.v1.EditDraftResponse
+	(*PublishPreviewRequest)(nil),       // 25: beamers.rundown.v1.PublishPreviewRequest
+	(*PublishPreviewResponse)(nil),      // 26: beamers.rundown.v1.PublishPreviewResponse
+	(*PublishConfirmation)(nil),         // 27: beamers.rundown.v1.PublishConfirmation
+	(*PublishRequest)(nil),              // 28: beamers.rundown.v1.PublishRequest
+	(*PublishResponse)(nil),             // 29: beamers.rundown.v1.PublishResponse
+	(*GetCrewRundownRequest)(nil),       // 30: beamers.rundown.v1.GetCrewRundownRequest
+	(*CrewLocation)(nil),                // 31: beamers.rundown.v1.CrewLocation
+	(*CrewLane)(nil),                    // 32: beamers.rundown.v1.CrewLane
+	(*CrewTrack)(nil),                   // 33: beamers.rundown.v1.CrewTrack
+	(*CrewSession)(nil),                 // 34: beamers.rundown.v1.CrewSession
+	(*GetCrewRundownResponse)(nil),      // 35: beamers.rundown.v1.GetCrewRundownResponse
+	(*fieldmaskpb.FieldMask)(nil),       // 36: google.protobuf.FieldMask
+	(*timestamppb.Timestamp)(nil),       // 37: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),         // 38: google.protobuf.Duration
 }
 var file_beamers_rundown_v1_rundown_proto_depIdxs = []int32{
-	30, // 0: beamers.rundown.v1.LocationDraft.update_mask:type_name -> google.protobuf.FieldMask
-	6,  // 1: beamers.rundown.v1.LaneDraft.location:type_name -> beamers.rundown.v1.TargetRef
-	30, // 2: beamers.rundown.v1.LaneDraft.update_mask:type_name -> google.protobuf.FieldMask
-	30, // 3: beamers.rundown.v1.TrackDraft.update_mask:type_name -> google.protobuf.FieldMask
-	0,  // 4: beamers.rundown.v1.SessionDraft.type:type_name -> beamers.rundown.v1.SessionType
-	1,  // 5: beamers.rundown.v1.SessionDraft.audience_visibility:type_name -> beamers.rundown.v1.AudienceVisibility
-	31, // 6: beamers.rundown.v1.SessionDraft.planned_start:type_name -> google.protobuf.Timestamp
-	31, // 7: beamers.rundown.v1.SessionDraft.planned_end:type_name -> google.protobuf.Timestamp
-	2,  // 8: beamers.rundown.v1.SessionDraft.timing_policy:type_name -> beamers.rundown.v1.TimingPolicy
-	32, // 9: beamers.rundown.v1.SessionDraft.minimum_duration:type_name -> google.protobuf.Duration
-	3,  // 10: beamers.rundown.v1.SessionDraft.start_boundary:type_name -> beamers.rundown.v1.Boundary
-	3,  // 11: beamers.rundown.v1.SessionDraft.end_boundary:type_name -> beamers.rundown.v1.Boundary
-	6,  // 12: beamers.rundown.v1.SessionDraft.lanes:type_name -> beamers.rundown.v1.TargetRef
-	6,  // 13: beamers.rundown.v1.SessionDraft.locations:type_name -> beamers.rundown.v1.TargetRef
-	6,  // 14: beamers.rundown.v1.SessionDraft.tracks:type_name -> beamers.rundown.v1.TargetRef
-	30, // 15: beamers.rundown.v1.SessionDraft.update_mask:type_name -> google.protobuf.FieldMask
-	6,  // 16: beamers.rundown.v1.SessionDraft.add_lanes:type_name -> beamers.rundown.v1.TargetRef
-	6,  // 17: beamers.rundown.v1.SessionDraft.remove_lanes:type_name -> beamers.rundown.v1.TargetRef
-	6,  // 18: beamers.rundown.v1.SessionDraft.add_locations:type_name -> beamers.rundown.v1.TargetRef
-	6,  // 19: beamers.rundown.v1.SessionDraft.remove_locations:type_name -> beamers.rundown.v1.TargetRef
-	6,  // 20: beamers.rundown.v1.SessionDraft.add_tracks:type_name -> beamers.rundown.v1.TargetRef
-	6,  // 21: beamers.rundown.v1.SessionDraft.remove_tracks:type_name -> beamers.rundown.v1.TargetRef
-	7,  // 22: beamers.rundown.v1.EditDraftRequest.locations:type_name -> beamers.rundown.v1.LocationDraft
-	8,  // 23: beamers.rundown.v1.EditDraftRequest.lanes:type_name -> beamers.rundown.v1.LaneDraft
-	9,  // 24: beamers.rundown.v1.EditDraftRequest.tracks:type_name -> beamers.rundown.v1.TrackDraft
-	10, // 25: beamers.rundown.v1.EditDraftRequest.sessions:type_name -> beamers.rundown.v1.SessionDraft
-	12, // 26: beamers.rundown.v1.DiscardDraftChangesResponse.changes:type_name -> beamers.rundown.v1.DraftChange
-	12, // 27: beamers.rundown.v1.RevertDraftChangeResponse.changes:type_name -> beamers.rundown.v1.DraftChange
-	12, // 28: beamers.rundown.v1.DraftRevisionConflict.overlapping_changes:type_name -> beamers.rundown.v1.DraftChange
-	12, // 29: beamers.rundown.v1.EditDraftResponse.changes:type_name -> beamers.rundown.v1.DraftChange
-	12, // 30: beamers.rundown.v1.PublishPreviewResponse.changes:type_name -> beamers.rundown.v1.DraftChange
-	21, // 31: beamers.rundown.v1.PublishRequest.confirmation:type_name -> beamers.rundown.v1.PublishConfirmation
-	0,  // 32: beamers.rundown.v1.CrewSession.type:type_name -> beamers.rundown.v1.SessionType
-	1,  // 33: beamers.rundown.v1.CrewSession.audience_visibility:type_name -> beamers.rundown.v1.AudienceVisibility
-	31, // 34: beamers.rundown.v1.CrewSession.planned_start:type_name -> google.protobuf.Timestamp
-	31, // 35: beamers.rundown.v1.CrewSession.planned_end:type_name -> google.protobuf.Timestamp
-	2,  // 36: beamers.rundown.v1.CrewSession.timing_policy:type_name -> beamers.rundown.v1.TimingPolicy
-	32, // 37: beamers.rundown.v1.CrewSession.minimum_duration:type_name -> google.protobuf.Duration
-	3,  // 38: beamers.rundown.v1.CrewSession.start_boundary:type_name -> beamers.rundown.v1.Boundary
-	3,  // 39: beamers.rundown.v1.CrewSession.end_boundary:type_name -> beamers.rundown.v1.Boundary
-	25, // 40: beamers.rundown.v1.GetCrewRundownResponse.locations:type_name -> beamers.rundown.v1.CrewLocation
-	26, // 41: beamers.rundown.v1.GetCrewRundownResponse.lanes:type_name -> beamers.rundown.v1.CrewLane
-	27, // 42: beamers.rundown.v1.GetCrewRundownResponse.tracks:type_name -> beamers.rundown.v1.CrewTrack
-	28, // 43: beamers.rundown.v1.GetCrewRundownResponse.sessions:type_name -> beamers.rundown.v1.CrewSession
-	11, // 44: beamers.rundown.v1.RundownService.EditDraft:input_type -> beamers.rundown.v1.EditDraftRequest
-	4,  // 45: beamers.rundown.v1.RundownService.DeleteDraftSession:input_type -> beamers.rundown.v1.DeleteDraftSessionRequest
-	13, // 46: beamers.rundown.v1.RundownService.DiscardDraftChanges:input_type -> beamers.rundown.v1.DiscardDraftChangesRequest
-	15, // 47: beamers.rundown.v1.RundownService.RevertDraftChange:input_type -> beamers.rundown.v1.RevertDraftChangeRequest
-	19, // 48: beamers.rundown.v1.RundownService.PublishPreview:input_type -> beamers.rundown.v1.PublishPreviewRequest
-	22, // 49: beamers.rundown.v1.RundownService.Publish:input_type -> beamers.rundown.v1.PublishRequest
-	24, // 50: beamers.rundown.v1.RundownService.GetCrewRundown:input_type -> beamers.rundown.v1.GetCrewRundownRequest
-	18, // 51: beamers.rundown.v1.RundownService.EditDraft:output_type -> beamers.rundown.v1.EditDraftResponse
-	5,  // 52: beamers.rundown.v1.RundownService.DeleteDraftSession:output_type -> beamers.rundown.v1.DeleteDraftSessionResponse
-	14, // 53: beamers.rundown.v1.RundownService.DiscardDraftChanges:output_type -> beamers.rundown.v1.DiscardDraftChangesResponse
-	16, // 54: beamers.rundown.v1.RundownService.RevertDraftChange:output_type -> beamers.rundown.v1.RevertDraftChangeResponse
-	20, // 55: beamers.rundown.v1.RundownService.PublishPreview:output_type -> beamers.rundown.v1.PublishPreviewResponse
-	23, // 56: beamers.rundown.v1.RundownService.Publish:output_type -> beamers.rundown.v1.PublishResponse
-	29, // 57: beamers.rundown.v1.RundownService.GetCrewRundown:output_type -> beamers.rundown.v1.GetCrewRundownResponse
-	51, // [51:58] is the sub-list for method output_type
-	44, // [44:51] is the sub-list for method input_type
-	44, // [44:44] is the sub-list for extension type_name
-	44, // [44:44] is the sub-list for extension extendee
-	0,  // [0:44] is the sub-list for field type_name
+	4,  // 0: beamers.rundown.v1.PreviewCSVImportRequest.mappings:type_name -> beamers.rundown.v1.CSVFieldMapping
+	5,  // 1: beamers.rundown.v1.PreviewCSVImportResponse.proposals:type_name -> beamers.rundown.v1.CSVImportProposal
+	4,  // 2: beamers.rundown.v1.ImportCSVRequest.mappings:type_name -> beamers.rundown.v1.CSVFieldMapping
+	18, // 3: beamers.rundown.v1.ImportCSVResponse.changes:type_name -> beamers.rundown.v1.DraftChange
+	36, // 4: beamers.rundown.v1.LocationDraft.update_mask:type_name -> google.protobuf.FieldMask
+	12, // 5: beamers.rundown.v1.LaneDraft.location:type_name -> beamers.rundown.v1.TargetRef
+	36, // 6: beamers.rundown.v1.LaneDraft.update_mask:type_name -> google.protobuf.FieldMask
+	36, // 7: beamers.rundown.v1.TrackDraft.update_mask:type_name -> google.protobuf.FieldMask
+	0,  // 8: beamers.rundown.v1.SessionDraft.type:type_name -> beamers.rundown.v1.SessionType
+	1,  // 9: beamers.rundown.v1.SessionDraft.audience_visibility:type_name -> beamers.rundown.v1.AudienceVisibility
+	37, // 10: beamers.rundown.v1.SessionDraft.planned_start:type_name -> google.protobuf.Timestamp
+	37, // 11: beamers.rundown.v1.SessionDraft.planned_end:type_name -> google.protobuf.Timestamp
+	2,  // 12: beamers.rundown.v1.SessionDraft.timing_policy:type_name -> beamers.rundown.v1.TimingPolicy
+	38, // 13: beamers.rundown.v1.SessionDraft.minimum_duration:type_name -> google.protobuf.Duration
+	3,  // 14: beamers.rundown.v1.SessionDraft.start_boundary:type_name -> beamers.rundown.v1.Boundary
+	3,  // 15: beamers.rundown.v1.SessionDraft.end_boundary:type_name -> beamers.rundown.v1.Boundary
+	12, // 16: beamers.rundown.v1.SessionDraft.lanes:type_name -> beamers.rundown.v1.TargetRef
+	12, // 17: beamers.rundown.v1.SessionDraft.locations:type_name -> beamers.rundown.v1.TargetRef
+	12, // 18: beamers.rundown.v1.SessionDraft.tracks:type_name -> beamers.rundown.v1.TargetRef
+	36, // 19: beamers.rundown.v1.SessionDraft.update_mask:type_name -> google.protobuf.FieldMask
+	12, // 20: beamers.rundown.v1.SessionDraft.add_lanes:type_name -> beamers.rundown.v1.TargetRef
+	12, // 21: beamers.rundown.v1.SessionDraft.remove_lanes:type_name -> beamers.rundown.v1.TargetRef
+	12, // 22: beamers.rundown.v1.SessionDraft.add_locations:type_name -> beamers.rundown.v1.TargetRef
+	12, // 23: beamers.rundown.v1.SessionDraft.remove_locations:type_name -> beamers.rundown.v1.TargetRef
+	12, // 24: beamers.rundown.v1.SessionDraft.add_tracks:type_name -> beamers.rundown.v1.TargetRef
+	12, // 25: beamers.rundown.v1.SessionDraft.remove_tracks:type_name -> beamers.rundown.v1.TargetRef
+	13, // 26: beamers.rundown.v1.EditDraftRequest.locations:type_name -> beamers.rundown.v1.LocationDraft
+	14, // 27: beamers.rundown.v1.EditDraftRequest.lanes:type_name -> beamers.rundown.v1.LaneDraft
+	15, // 28: beamers.rundown.v1.EditDraftRequest.tracks:type_name -> beamers.rundown.v1.TrackDraft
+	16, // 29: beamers.rundown.v1.EditDraftRequest.sessions:type_name -> beamers.rundown.v1.SessionDraft
+	18, // 30: beamers.rundown.v1.DiscardDraftChangesResponse.changes:type_name -> beamers.rundown.v1.DraftChange
+	18, // 31: beamers.rundown.v1.RevertDraftChangeResponse.changes:type_name -> beamers.rundown.v1.DraftChange
+	18, // 32: beamers.rundown.v1.DraftRevisionConflict.overlapping_changes:type_name -> beamers.rundown.v1.DraftChange
+	18, // 33: beamers.rundown.v1.EditDraftResponse.changes:type_name -> beamers.rundown.v1.DraftChange
+	18, // 34: beamers.rundown.v1.PublishPreviewResponse.changes:type_name -> beamers.rundown.v1.DraftChange
+	27, // 35: beamers.rundown.v1.PublishRequest.confirmation:type_name -> beamers.rundown.v1.PublishConfirmation
+	0,  // 36: beamers.rundown.v1.CrewSession.type:type_name -> beamers.rundown.v1.SessionType
+	1,  // 37: beamers.rundown.v1.CrewSession.audience_visibility:type_name -> beamers.rundown.v1.AudienceVisibility
+	37, // 38: beamers.rundown.v1.CrewSession.planned_start:type_name -> google.protobuf.Timestamp
+	37, // 39: beamers.rundown.v1.CrewSession.planned_end:type_name -> google.protobuf.Timestamp
+	2,  // 40: beamers.rundown.v1.CrewSession.timing_policy:type_name -> beamers.rundown.v1.TimingPolicy
+	38, // 41: beamers.rundown.v1.CrewSession.minimum_duration:type_name -> google.protobuf.Duration
+	3,  // 42: beamers.rundown.v1.CrewSession.start_boundary:type_name -> beamers.rundown.v1.Boundary
+	3,  // 43: beamers.rundown.v1.CrewSession.end_boundary:type_name -> beamers.rundown.v1.Boundary
+	31, // 44: beamers.rundown.v1.GetCrewRundownResponse.locations:type_name -> beamers.rundown.v1.CrewLocation
+	32, // 45: beamers.rundown.v1.GetCrewRundownResponse.lanes:type_name -> beamers.rundown.v1.CrewLane
+	33, // 46: beamers.rundown.v1.GetCrewRundownResponse.tracks:type_name -> beamers.rundown.v1.CrewTrack
+	34, // 47: beamers.rundown.v1.GetCrewRundownResponse.sessions:type_name -> beamers.rundown.v1.CrewSession
+	17, // 48: beamers.rundown.v1.RundownService.EditDraft:input_type -> beamers.rundown.v1.EditDraftRequest
+	10, // 49: beamers.rundown.v1.RundownService.DeleteDraftSession:input_type -> beamers.rundown.v1.DeleteDraftSessionRequest
+	19, // 50: beamers.rundown.v1.RundownService.DiscardDraftChanges:input_type -> beamers.rundown.v1.DiscardDraftChangesRequest
+	21, // 51: beamers.rundown.v1.RundownService.RevertDraftChange:input_type -> beamers.rundown.v1.RevertDraftChangeRequest
+	25, // 52: beamers.rundown.v1.RundownService.PublishPreview:input_type -> beamers.rundown.v1.PublishPreviewRequest
+	28, // 53: beamers.rundown.v1.RundownService.Publish:input_type -> beamers.rundown.v1.PublishRequest
+	30, // 54: beamers.rundown.v1.RundownService.GetCrewRundown:input_type -> beamers.rundown.v1.GetCrewRundownRequest
+	6,  // 55: beamers.rundown.v1.RundownService.PreviewCSVImport:input_type -> beamers.rundown.v1.PreviewCSVImportRequest
+	8,  // 56: beamers.rundown.v1.RundownService.ImportCSV:input_type -> beamers.rundown.v1.ImportCSVRequest
+	24, // 57: beamers.rundown.v1.RundownService.EditDraft:output_type -> beamers.rundown.v1.EditDraftResponse
+	11, // 58: beamers.rundown.v1.RundownService.DeleteDraftSession:output_type -> beamers.rundown.v1.DeleteDraftSessionResponse
+	20, // 59: beamers.rundown.v1.RundownService.DiscardDraftChanges:output_type -> beamers.rundown.v1.DiscardDraftChangesResponse
+	22, // 60: beamers.rundown.v1.RundownService.RevertDraftChange:output_type -> beamers.rundown.v1.RevertDraftChangeResponse
+	26, // 61: beamers.rundown.v1.RundownService.PublishPreview:output_type -> beamers.rundown.v1.PublishPreviewResponse
+	29, // 62: beamers.rundown.v1.RundownService.Publish:output_type -> beamers.rundown.v1.PublishResponse
+	35, // 63: beamers.rundown.v1.RundownService.GetCrewRundown:output_type -> beamers.rundown.v1.GetCrewRundownResponse
+	7,  // 64: beamers.rundown.v1.RundownService.PreviewCSVImport:output_type -> beamers.rundown.v1.PreviewCSVImportResponse
+	9,  // 65: beamers.rundown.v1.RundownService.ImportCSV:output_type -> beamers.rundown.v1.ImportCSVResponse
+	57, // [57:66] is the sub-list for method output_type
+	48, // [48:57] is the sub-list for method input_type
+	48, // [48:48] is the sub-list for extension type_name
+	48, // [48:48] is the sub-list for extension extendee
+	0,  // [0:48] is the sub-list for field type_name
 }
 
 func init() { file_beamers_rundown_v1_rundown_proto_init() }
@@ -2548,7 +3052,7 @@ func file_beamers_rundown_v1_rundown_proto_init() {
 	if File_beamers_rundown_v1_rundown_proto != nil {
 		return
 	}
-	file_beamers_rundown_v1_rundown_proto_msgTypes[2].OneofWrappers = []any{
+	file_beamers_rundown_v1_rundown_proto_msgTypes[8].OneofWrappers = []any{
 		(*TargetRef_Id)(nil),
 		(*TargetRef_Ref)(nil),
 	}
@@ -2558,7 +3062,7 @@ func file_beamers_rundown_v1_rundown_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_beamers_rundown_v1_rundown_proto_rawDesc), len(file_beamers_rundown_v1_rundown_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   26,
+			NumMessages:   32,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

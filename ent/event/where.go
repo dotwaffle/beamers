@@ -829,6 +829,29 @@ func HasDraftChangesWith(preds ...predicate.DraftChange) predicate.Event {
 	})
 }
 
+// HasImportReferences applies the HasEdge predicate on the "import_references" edge.
+func HasImportReferences() predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ImportReferencesTable, ImportReferencesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasImportReferencesWith applies the HasEdge predicate on the "import_references" edge with a given conditions (other predicates).
+func HasImportReferencesWith(preds ...predicate.ImportReference) predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := newImportReferencesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Event) predicate.Event {
 	return predicate.Event(sql.AndPredicates(predicates...))

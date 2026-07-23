@@ -142,9 +142,96 @@ func validateTransportRequest(message any) error {
 	case *rundownv1.GetCrewRundownRequest:
 		_, err := positiveInt64("event_id", typed.GetEventId())
 		return err
+	case *rundownv1.PreviewCSVImportRequest:
+		_, err := positiveInt64("event_id", typed.GetEventId())
+		return err
+	case *rundownv1.ImportCSVRequest:
+		if _, err := positiveInt64("event_id", typed.GetEventId()); err != nil {
+			return err
+		}
+		_, err := nonnegativeInt64("expected_draft_revision", typed.GetExpectedDraftRevision())
+		return err
 	default:
 		return errors.New("unsupported Rundown request")
 	}
+}
+
+// PreviewCSVImport maps CSV data into reviewable Draft proposals.
+func (handler *Handler) PreviewCSVImport(
+	ctx context.Context,
+	request *connect.Request[rundownv1.PreviewCSVImportRequest],
+) (*connect.Response[rundownv1.PreviewCSVImportResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	eventID, err := positiveInt64("event_id", request.Msg.GetEventId())
+	if err != nil {
+		return nil, invalidArgument(err)
+	}
+	preview, err := handler.queries.PreviewCSVImport(ctx, actor, rundown.CSVImportPreviewInput{
+		EventID: eventID, CSVData: string(request.Msg.GetCsvData()), Mappings: csvMappings(request.Msg.GetMappings()),
+	})
+	if err != nil {
+		return nil, err
+	}
+	response := &rundownv1.PreviewCSVImportResponse{
+		DraftRevision: int64(preview.DraftRevision), Fingerprint: preview.Fingerprint,
+		IgnoredFields: preview.IgnoredFields, ValidationFailures: preview.ValidationFailures,
+	}
+	for _, proposal := range preview.Proposals {
+		response.Proposals = append(response.Proposals, &rundownv1.CSVImportProposal{
+			Id: proposal.ID, RowNumber: int64(proposal.RowNumber), RecordType: proposal.RecordType,
+			ExternalKey: proposal.ExternalKey, Classification: proposal.Classification,
+			SessionId: int64(proposal.SessionID), Field: proposal.Field,
+			CurrentValue: proposal.CurrentValue, ProposedValue: proposal.ProposedValue, Message: proposal.Message,
+		})
+	}
+	return connect.NewResponse(response), nil
+}
+
+// ImportCSV applies selected proposals to shared Draft state.
+func (handler *Handler) ImportCSV(
+	ctx context.Context,
+	request *connect.Request[rundownv1.ImportCSVRequest],
+) (*connect.Response[rundownv1.ImportCSVResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	eventID, err := positiveInt64("event_id", request.Msg.GetEventId())
+	if err != nil {
+		return nil, invalidArgument(err)
+	}
+	revision, err := nonnegativeInt64("expected_draft_revision", request.Msg.GetExpectedDraftRevision())
+	if err != nil {
+		return nil, invalidArgument(err)
+	}
+	result, err := handler.commands.ImportCSV(ctx, actor, rundown.CSVImportInput{
+		EventID: eventID, CommandID: request.Msg.GetCommandId(), ExpectedDraftRevision: revision,
+		CSVData: string(request.Msg.GetCsvData()), Mappings: csvMappings(request.Msg.GetMappings()),
+		Fingerprint: request.Msg.GetFingerprint(), ProposalIDs: request.Msg.GetProposalIds(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	response := &rundownv1.ImportCSVResponse{DraftRevision: int64(result.DraftRevision)}
+	for _, change := range result.Changes {
+		response.Changes = append(response.Changes, draftChange(change))
+	}
+	return connect.NewResponse(response), nil
+}
+
+func csvMappings(values []*rundownv1.CSVFieldMapping) []rundown.CSVFieldMapping {
+	result := make([]rundown.CSVFieldMapping, 0, len(values))
+	for _, value := range values {
+		if value != nil {
+			result = append(result, rundown.CSVFieldMapping{
+				SourceColumn: value.GetSourceColumn(), TargetField: value.GetTargetField(),
+			})
+		}
+	}
+	return result
 }
 
 // DeleteDraftSession permanently removes one eligible Draft-only Session.

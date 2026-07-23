@@ -1288,6 +1288,118 @@ func TestProducerDeletesOnlyNeverPublishedDraftSession(t *testing.T) {
 	server.stop(t)
 }
 
+func TestProducerImportsCSVAsReviewedDraftProposals(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	client := rundownv1connect.NewRundownServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	mappings := []*rundownv1.CSVFieldMapping{
+		{SourceColumn: "key", TargetField: "external_key"},
+		{SourceColumn: "title", TargetField: "title"},
+		{SourceColumn: "speaker", TargetField: "speaker"},
+		{SourceColumn: "details", TargetField: "public_details"},
+		{SourceColumn: "start", TargetField: "planned_start"},
+		{SourceColumn: "end", TargetField: "planned_end"},
+		{SourceColumn: "lane", TargetField: "lane"},
+	}
+	csvData := []byte("key,title,speaker,details,start,end,lane,vendor_only\n" +
+		"fosdem-1,Imported Session,Ada Speaker,Imported public details,2099-08-21 12:00,2099-08-21 13:00,Main Lane,ignored\n")
+	preview, err := client.PreviewCSVImport(t.Context(), connect.NewRequest(&rundownv1.PreviewCSVImportRequest{
+		EventId: 1, CsvData: csvData, Mappings: mappings,
+	}))
+	if err != nil {
+		t.Fatalf("Preview CSV Import: %v", err)
+	}
+	if len(preview.Msg.GetValidationFailures()) != 0 || len(preview.Msg.GetProposals()) != 1 ||
+		preview.Msg.GetProposals()[0].GetClassification() != "Addition" ||
+		len(preview.Msg.GetIgnoredFields()) != 1 || preview.Msg.GetIgnoredFields()[0] != "vendor_only" {
+		t.Fatalf("CSV Import Preview = %+v", preview.Msg)
+	}
+	request := &rundownv1.ImportCSVRequest{
+		EventId: 1, CommandId: "import-csv-session", ExpectedDraftRevision: preview.Msg.GetDraftRevision(),
+		CsvData: csvData, Mappings: mappings, Fingerprint: preview.Msg.GetFingerprint(),
+		ProposalIds: []string{preview.Msg.GetProposals()[0].GetId()},
+	}
+	imported, err := client.ImportCSV(t.Context(), connect.NewRequest(request))
+	if err != nil || len(imported.Msg.GetChanges()) != 1 || imported.Msg.GetChanges()[0].GetKind() != "CreateSession" {
+		t.Fatalf("Import CSV = %+v, %v", imported, err)
+	}
+	retried, err := client.ImportCSV(t.Context(), connect.NewRequest(request))
+	if err != nil || retried.Msg.GetDraftRevision() != imported.Msg.GetDraftRevision() {
+		t.Fatalf("exact CSV Import retry = %+v, %v", retried, err)
+	}
+	published, err := client.GetCrewRundown(t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}))
+	if err != nil {
+		t.Fatalf("Get Published Rundown after CSV Import: %v", err)
+	}
+	for _, session := range published.Msg.GetSessions() {
+		if session.GetTitle() == "Imported Session" {
+			t.Error("CSV Import mutated Published state")
+		}
+	}
+
+	repeatData := []byte("key,title,details\nfosdem-1,Reviewed Imported Session,Updated imported details\n")
+	repeatMappings := []*rundownv1.CSVFieldMapping{
+		{SourceColumn: "key", TargetField: "external_key"},
+		{SourceColumn: "title", TargetField: "title"},
+		{SourceColumn: "details", TargetField: "public_details"},
+	}
+	repeat, err := client.PreviewCSVImport(t.Context(), connect.NewRequest(&rundownv1.PreviewCSVImportRequest{
+		EventId: 1, CsvData: repeatData, Mappings: repeatMappings,
+	}))
+	if err != nil || len(repeat.Msg.GetProposals()) != 2 {
+		t.Fatalf("Preview repeat CSV Import = %+v, %v", repeat, err)
+	}
+	selected := []string{}
+	for _, proposal := range repeat.Msg.GetProposals() {
+		if proposal.GetClassification() != "Update" {
+			t.Errorf("repeat CSV proposal = %+v, want Update", proposal)
+		}
+		if proposal.GetField() == "title" {
+			selected = append(selected, proposal.GetId())
+		}
+	}
+	updated, err := client.ImportCSV(t.Context(), connect.NewRequest(&rundownv1.ImportCSVRequest{
+		EventId: 1, CommandId: "import-reviewed-csv-title", ExpectedDraftRevision: repeat.Msg.GetDraftRevision(),
+		CsvData: repeatData, Mappings: repeatMappings, Fingerprint: repeat.Msg.GetFingerprint(), ProposalIds: selected,
+	}))
+	if err != nil || len(updated.Msg.GetChanges()) != 1 || updated.Msg.GetChanges()[0].GetFactKey() != "title" {
+		t.Fatalf("Apply reviewed CSV field = %+v, %v", updated, err)
+	}
+
+	duplicate, err := client.PreviewCSVImport(t.Context(), connect.NewRequest(&rundownv1.PreviewCSVImportRequest{
+		EventId: 1, CsvData: []byte("key\nduplicate\nduplicate\n"),
+		Mappings: []*rundownv1.CSVFieldMapping{{SourceColumn: "key", TargetField: "external_key"}},
+	}))
+	if err != nil || len(duplicate.Msg.GetValidationFailures()) == 0 ||
+		!strings.Contains(duplicate.Msg.GetValidationFailures()[0], "duplicate Import Reference") {
+		t.Errorf("duplicate CSV Import References = %+v, %v", duplicate, err)
+	}
+	unsafe, err := client.PreviewCSVImport(t.Context(), connect.NewRequest(&rundownv1.PreviewCSVImportRequest{
+		EventId: 1, CsvData: []byte("key,notes\nunsafe,secret\n"),
+		Mappings: []*rundownv1.CSVFieldMapping{
+			{SourceColumn: "key", TargetField: "external_key"},
+			{SourceColumn: "notes", TargetField: "crew_notes"},
+		},
+	}))
+	if err != nil || len(unsafe.Msg.GetValidationFailures()) == 0 ||
+		!strings.Contains(strings.Join(unsafe.Msg.GetValidationFailures(), " "), "cannot target crew_notes") {
+		t.Errorf("unsafe CSV target = %+v, %v", unsafe, err)
+	}
+	_, malformedErr := client.PreviewCSVImport(t.Context(), connect.NewRequest(&rundownv1.PreviewCSVImportRequest{
+		EventId: 1, CsvData: []byte("key,title\nmalformed,\"unterminated\n"),
+		Mappings: []*rundownv1.CSVFieldMapping{
+			{SourceColumn: "key", TargetField: "external_key"},
+			{SourceColumn: "title", TargetField: "title"},
+		},
+	}))
+	if connect.CodeOf(malformedErr) != connect.CodeInvalidArgument {
+		t.Errorf("malformed CSV error = %v, want InvalidArgument", malformedErr)
+	}
+	server.stop(t)
+}
+
 func TestOperatorEndsLiveSessionWithoutMovingLaterSessions(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	sessionID := prepareActiveSchedule(t, administrator, server)

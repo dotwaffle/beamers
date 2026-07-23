@@ -53,6 +53,12 @@ const (
 	// RundownServiceGetCrewRundownProcedure is the fully-qualified name of the RundownService's
 	// GetCrewRundown RPC.
 	RundownServiceGetCrewRundownProcedure = "/beamers.rundown.v1.RundownService/GetCrewRundown"
+	// RundownServicePreviewCSVImportProcedure is the fully-qualified name of the RundownService's
+	// PreviewCSVImport RPC.
+	RundownServicePreviewCSVImportProcedure = "/beamers.rundown.v1.RundownService/PreviewCSVImport"
+	// RundownServiceImportCSVProcedure is the fully-qualified name of the RundownService's ImportCSV
+	// RPC.
+	RundownServiceImportCSVProcedure = "/beamers.rundown.v1.RundownService/ImportCSV"
 )
 
 // RundownServiceClient is a client for the beamers.rundown.v1.RundownService service.
@@ -64,6 +70,8 @@ type RundownServiceClient interface {
 	PublishPreview(context.Context, *connect.Request[v1.PublishPreviewRequest]) (*connect.Response[v1.PublishPreviewResponse], error)
 	Publish(context.Context, *connect.Request[v1.PublishRequest]) (*connect.Response[v1.PublishResponse], error)
 	GetCrewRundown(context.Context, *connect.Request[v1.GetCrewRundownRequest]) (*connect.Response[v1.GetCrewRundownResponse], error)
+	PreviewCSVImport(context.Context, *connect.Request[v1.PreviewCSVImportRequest]) (*connect.Response[v1.PreviewCSVImportResponse], error)
+	ImportCSV(context.Context, *connect.Request[v1.ImportCSVRequest]) (*connect.Response[v1.ImportCSVResponse], error)
 }
 
 // NewRundownServiceClient constructs a client for the beamers.rundown.v1.RundownService service. By
@@ -119,6 +127,18 @@ func NewRundownServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(rundownServiceMethods.ByName("GetCrewRundown")),
 			connect.WithClientOptions(opts...),
 		),
+		previewCSVImport: connect.NewClient[v1.PreviewCSVImportRequest, v1.PreviewCSVImportResponse](
+			httpClient,
+			baseURL+RundownServicePreviewCSVImportProcedure,
+			connect.WithSchema(rundownServiceMethods.ByName("PreviewCSVImport")),
+			connect.WithClientOptions(opts...),
+		),
+		importCSV: connect.NewClient[v1.ImportCSVRequest, v1.ImportCSVResponse](
+			httpClient,
+			baseURL+RundownServiceImportCSVProcedure,
+			connect.WithSchema(rundownServiceMethods.ByName("ImportCSV")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -131,6 +151,8 @@ type rundownServiceClient struct {
 	publishPreview      *connect.Client[v1.PublishPreviewRequest, v1.PublishPreviewResponse]
 	publish             *connect.Client[v1.PublishRequest, v1.PublishResponse]
 	getCrewRundown      *connect.Client[v1.GetCrewRundownRequest, v1.GetCrewRundownResponse]
+	previewCSVImport    *connect.Client[v1.PreviewCSVImportRequest, v1.PreviewCSVImportResponse]
+	importCSV           *connect.Client[v1.ImportCSVRequest, v1.ImportCSVResponse]
 }
 
 // EditDraft calls beamers.rundown.v1.RundownService.EditDraft.
@@ -168,6 +190,16 @@ func (c *rundownServiceClient) GetCrewRundown(ctx context.Context, req *connect.
 	return c.getCrewRundown.CallUnary(ctx, req)
 }
 
+// PreviewCSVImport calls beamers.rundown.v1.RundownService.PreviewCSVImport.
+func (c *rundownServiceClient) PreviewCSVImport(ctx context.Context, req *connect.Request[v1.PreviewCSVImportRequest]) (*connect.Response[v1.PreviewCSVImportResponse], error) {
+	return c.previewCSVImport.CallUnary(ctx, req)
+}
+
+// ImportCSV calls beamers.rundown.v1.RundownService.ImportCSV.
+func (c *rundownServiceClient) ImportCSV(ctx context.Context, req *connect.Request[v1.ImportCSVRequest]) (*connect.Response[v1.ImportCSVResponse], error) {
+	return c.importCSV.CallUnary(ctx, req)
+}
+
 // RundownServiceHandler is an implementation of the beamers.rundown.v1.RundownService service.
 type RundownServiceHandler interface {
 	EditDraft(context.Context, *connect.Request[v1.EditDraftRequest]) (*connect.Response[v1.EditDraftResponse], error)
@@ -177,6 +209,8 @@ type RundownServiceHandler interface {
 	PublishPreview(context.Context, *connect.Request[v1.PublishPreviewRequest]) (*connect.Response[v1.PublishPreviewResponse], error)
 	Publish(context.Context, *connect.Request[v1.PublishRequest]) (*connect.Response[v1.PublishResponse], error)
 	GetCrewRundown(context.Context, *connect.Request[v1.GetCrewRundownRequest]) (*connect.Response[v1.GetCrewRundownResponse], error)
+	PreviewCSVImport(context.Context, *connect.Request[v1.PreviewCSVImportRequest]) (*connect.Response[v1.PreviewCSVImportResponse], error)
+	ImportCSV(context.Context, *connect.Request[v1.ImportCSVRequest]) (*connect.Response[v1.ImportCSVResponse], error)
 }
 
 // NewRundownServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -228,6 +262,18 @@ func NewRundownServiceHandler(svc RundownServiceHandler, opts ...connect.Handler
 		connect.WithSchema(rundownServiceMethods.ByName("GetCrewRundown")),
 		connect.WithHandlerOptions(opts...),
 	)
+	rundownServicePreviewCSVImportHandler := connect.NewUnaryHandler(
+		RundownServicePreviewCSVImportProcedure,
+		svc.PreviewCSVImport,
+		connect.WithSchema(rundownServiceMethods.ByName("PreviewCSVImport")),
+		connect.WithHandlerOptions(opts...),
+	)
+	rundownServiceImportCSVHandler := connect.NewUnaryHandler(
+		RundownServiceImportCSVProcedure,
+		svc.ImportCSV,
+		connect.WithSchema(rundownServiceMethods.ByName("ImportCSV")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/beamers.rundown.v1.RundownService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case RundownServiceEditDraftProcedure:
@@ -244,6 +290,10 @@ func NewRundownServiceHandler(svc RundownServiceHandler, opts ...connect.Handler
 			rundownServicePublishHandler.ServeHTTP(w, r)
 		case RundownServiceGetCrewRundownProcedure:
 			rundownServiceGetCrewRundownHandler.ServeHTTP(w, r)
+		case RundownServicePreviewCSVImportProcedure:
+			rundownServicePreviewCSVImportHandler.ServeHTTP(w, r)
+		case RundownServiceImportCSVProcedure:
+			rundownServiceImportCSVHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -279,4 +329,12 @@ func (UnimplementedRundownServiceHandler) Publish(context.Context, *connect.Requ
 
 func (UnimplementedRundownServiceHandler) GetCrewRundown(context.Context, *connect.Request[v1.GetCrewRundownRequest]) (*connect.Response[v1.GetCrewRundownResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.rundown.v1.RundownService.GetCrewRundown is not implemented"))
+}
+
+func (UnimplementedRundownServiceHandler) PreviewCSVImport(context.Context, *connect.Request[v1.PreviewCSVImportRequest]) (*connect.Response[v1.PreviewCSVImportResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.rundown.v1.RundownService.PreviewCSVImport is not implemented"))
+}
+
+func (UnimplementedRundownServiceHandler) ImportCSV(context.Context, *connect.Request[v1.ImportCSVRequest]) (*connect.Response[v1.ImportCSVResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.rundown.v1.RundownService.ImportCSV is not implemented"))
 }

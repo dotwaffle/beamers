@@ -14,6 +14,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/rundown"
@@ -228,6 +229,21 @@ func (_c *EventCreate) AddDraftChanges(v ...*DraftChange) *EventCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddDraftChangeIDs(ids...)
+}
+
+// AddImportReferenceIDs adds the "import_references" edge to the ImportReference entity by IDs.
+func (_c *EventCreate) AddImportReferenceIDs(ids ...int) *EventCreate {
+	_c.mutation.AddImportReferenceIDs(ids...)
+	return _c
+}
+
+// AddImportReferences adds the "import_references" edges to the ImportReference entity.
+func (_c *EventCreate) AddImportReferences(v ...*ImportReference) *EventCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddImportReferenceIDs(ids...)
 }
 
 // Mutation returns the EventMutation object of the builder.
@@ -525,6 +541,22 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(draftchange.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.ImportReferencesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.ImportReferencesTable,
+			Columns: []string{event.ImportReferencesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(importreference.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

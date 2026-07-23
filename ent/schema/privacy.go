@@ -10,6 +10,7 @@ import (
 	beamersent "github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftchangedependency"
+	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/lanedraft"
 	"github.com/dotwaffle/beamers/ent/lanepublishedversion"
@@ -926,6 +927,16 @@ func allowSessionDeletion() privacy.MutationRule {
 				return privacy.Denyf("check deleted Session Draft references: %v", queryErr)
 			}
 			referenced = dependencies
+		}
+		if !referenced {
+			referenced, err = identified.Client().ImportReference.Query().Where(
+				importreference.EventIDEQ(found.EventID),
+				importreference.TargetTypeEQ("Session"),
+				importreference.TargetIDEQ(sessionID),
+			).Exist(internalContext)
+			if err != nil {
+				return privacy.Denyf("check deleted Session Import References: %v", err)
+			}
 		}
 		if published || runs || referenced {
 			return privacy.Denyf("only a never-Published, unreferenced Draft Session can be deleted")

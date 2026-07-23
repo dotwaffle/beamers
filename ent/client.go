@@ -25,6 +25,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/lanedraft"
@@ -70,6 +71,8 @@ type Client struct {
 	Event *EventClient
 	// EventGrant is the client for interacting with the EventGrant builders.
 	EventGrant *EventGrantClient
+	// ImportReference is the client for interacting with the ImportReference builders.
+	ImportReference *ImportReferenceClient
 	// Installation is the client for interacting with the Installation builders.
 	Installation *InstallationClient
 	// Lane is the client for interacting with the Lane builders.
@@ -127,6 +130,7 @@ func (c *Client) init() {
 	c.DraftEdit = NewDraftEditClient(c.config)
 	c.Event = NewEventClient(c.config)
 	c.EventGrant = NewEventGrantClient(c.config)
+	c.ImportReference = NewImportReferenceClient(c.config)
 	c.Installation = NewInstallationClient(c.config)
 	c.Lane = NewLaneClient(c.config)
 	c.LaneDraft = NewLaneDraftClient(c.config)
@@ -247,6 +251,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		DraftEdit:                NewDraftEditClient(cfg),
 		Event:                    NewEventClient(cfg),
 		EventGrant:               NewEventGrantClient(cfg),
+		ImportReference:          NewImportReferenceClient(cfg),
 		Installation:             NewInstallationClient(cfg),
 		Lane:                     NewLaneClient(cfg),
 		LaneDraft:                NewLaneDraftClient(cfg),
@@ -294,6 +299,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		DraftEdit:                NewDraftEditClient(cfg),
 		Event:                    NewEventClient(cfg),
 		EventGrant:               NewEventGrantClient(cfg),
+		ImportReference:          NewImportReferenceClient(cfg),
 		Installation:             NewInstallationClient(cfg),
 		Lane:                     NewLaneClient(cfg),
 		LaneDraft:                NewLaneDraftClient(cfg),
@@ -343,11 +349,11 @@ func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.Account, c.AccountSession, c.AuditEntry, c.BootstrapCredential,
 		c.CommandReceipt, c.DraftChange, c.DraftChangeDependency, c.DraftEdit, c.Event,
-		c.EventGrant, c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion,
-		c.Location, c.LocationDraft, c.LocationPublishedVersion, c.Migration,
-		c.PasswordCredential, c.Rundown, c.Session, c.SessionDraft,
-		c.SessionPublishedVersion, c.SessionRun, c.SessionRunAmendment, c.Track,
-		c.TrackDraft, c.TrackPublishedVersion,
+		c.EventGrant, c.ImportReference, c.Installation, c.Lane, c.LaneDraft,
+		c.LanePublishedVersion, c.Location, c.LocationDraft,
+		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Rundown,
+		c.Session, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
+		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion,
 	} {
 		n.Use(hooks...)
 	}
@@ -359,11 +365,11 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.Account, c.AccountSession, c.AuditEntry, c.BootstrapCredential,
 		c.CommandReceipt, c.DraftChange, c.DraftChangeDependency, c.DraftEdit, c.Event,
-		c.EventGrant, c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion,
-		c.Location, c.LocationDraft, c.LocationPublishedVersion, c.Migration,
-		c.PasswordCredential, c.Rundown, c.Session, c.SessionDraft,
-		c.SessionPublishedVersion, c.SessionRun, c.SessionRunAmendment, c.Track,
-		c.TrackDraft, c.TrackPublishedVersion,
+		c.EventGrant, c.ImportReference, c.Installation, c.Lane, c.LaneDraft,
+		c.LanePublishedVersion, c.Location, c.LocationDraft,
+		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Rundown,
+		c.Session, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
+		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -392,6 +398,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Event.mutate(ctx, m)
 	case *EventGrantMutation:
 		return c.EventGrant.mutate(ctx, m)
+	case *ImportReferenceMutation:
+		return c.ImportReference.mutate(ctx, m)
 	case *InstallationMutation:
 		return c.Installation.mutate(ctx, m)
 	case *LaneMutation:
@@ -2029,6 +2037,22 @@ func (c *EventClient) QueryDraftChanges(_m *Event) *DraftChangeQuery {
 	return query
 }
 
+// QueryImportReferences queries the import_references edge of a Event.
+func (c *EventClient) QueryImportReferences(_m *Event) *ImportReferenceQuery {
+	query := (&ImportReferenceClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(importreference.Table, importreference.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.ImportReferencesTable, event.ImportReferencesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *EventClient) Hooks() []Hook {
 	hooks := c.hooks.Event
@@ -2218,6 +2242,156 @@ func (c *EventGrantClient) mutate(ctx context.Context, m *EventGrantMutation) (V
 		return (&EventGrantDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown EventGrant mutation op: %q", m.Op())
+	}
+}
+
+// ImportReferenceClient is a client for the ImportReference schema.
+type ImportReferenceClient struct {
+	config
+}
+
+// NewImportReferenceClient returns a client for the ImportReference from the given config.
+func NewImportReferenceClient(c config) *ImportReferenceClient {
+	return &ImportReferenceClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `importreference.Hooks(f(g(h())))`.
+func (c *ImportReferenceClient) Use(hooks ...Hook) {
+	c.hooks.ImportReference = append(c.hooks.ImportReference, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `importreference.Intercept(f(g(h())))`.
+func (c *ImportReferenceClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ImportReference = append(c.inters.ImportReference, interceptors...)
+}
+
+// Create returns a builder for creating a ImportReference entity.
+func (c *ImportReferenceClient) Create() *ImportReferenceCreate {
+	mutation := newImportReferenceMutation(c.config, OpCreate)
+	return &ImportReferenceCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ImportReference entities.
+func (c *ImportReferenceClient) CreateBulk(builders ...*ImportReferenceCreate) *ImportReferenceCreateBulk {
+	return &ImportReferenceCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ImportReferenceClient) MapCreateBulk(slice any, setFunc func(*ImportReferenceCreate, int)) *ImportReferenceCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ImportReferenceCreateBulk{err: fmt.Errorf("calling to ImportReferenceClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ImportReferenceCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ImportReferenceCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ImportReference.
+func (c *ImportReferenceClient) Update() *ImportReferenceUpdate {
+	mutation := newImportReferenceMutation(c.config, OpUpdate)
+	return &ImportReferenceUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ImportReferenceClient) UpdateOne(_m *ImportReference) *ImportReferenceUpdateOne {
+	mutation := newImportReferenceMutation(c.config, OpUpdateOne, withImportReference(_m))
+	return &ImportReferenceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ImportReferenceClient) UpdateOneID(id int) *ImportReferenceUpdateOne {
+	mutation := newImportReferenceMutation(c.config, OpUpdateOne, withImportReferenceID(id))
+	return &ImportReferenceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ImportReference.
+func (c *ImportReferenceClient) Delete() *ImportReferenceDelete {
+	mutation := newImportReferenceMutation(c.config, OpDelete)
+	return &ImportReferenceDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ImportReferenceClient) DeleteOne(_m *ImportReference) *ImportReferenceDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ImportReferenceClient) DeleteOneID(id int) *ImportReferenceDeleteOne {
+	builder := c.Delete().Where(importreference.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ImportReferenceDeleteOne{builder}
+}
+
+// Query returns a query builder for ImportReference.
+func (c *ImportReferenceClient) Query() *ImportReferenceQuery {
+	return &ImportReferenceQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeImportReference},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ImportReference entity by its id.
+func (c *ImportReferenceClient) Get(ctx context.Context, id int) (*ImportReference, error) {
+	return c.Query().Where(importreference.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ImportReferenceClient) GetX(ctx context.Context, id int) *ImportReference {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a ImportReference.
+func (c *ImportReferenceClient) QueryEvent(_m *ImportReference) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(importreference.Table, importreference.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, importreference.EventTable, importreference.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ImportReferenceClient) Hooks() []Hook {
+	hooks := c.hooks.ImportReference
+	return append(hooks[:len(hooks):len(hooks)], importreference.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *ImportReferenceClient) Interceptors() []Interceptor {
+	return c.inters.ImportReference
+}
+
+func (c *ImportReferenceClient) mutate(ctx context.Context, m *ImportReferenceMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ImportReferenceCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ImportReferenceUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ImportReferenceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ImportReferenceDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ImportReference mutation op: %q", m.Op())
 	}
 }
 
@@ -5324,18 +5498,18 @@ func (c *TrackPublishedVersionClient) mutate(ctx context.Context, m *TrackPublis
 type (
 	hooks struct {
 		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt,
-		DraftChange, DraftChangeDependency, DraftEdit, Event, EventGrant, Installation,
-		Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
-		LocationPublishedVersion, Migration, PasswordCredential, Rundown, Session,
-		SessionDraft, SessionPublishedVersion, SessionRun, SessionRunAmendment, Track,
-		TrackDraft, TrackPublishedVersion []ent.Hook
+		DraftChange, DraftChangeDependency, DraftEdit, Event, EventGrant,
+		ImportReference, Installation, Lane, LaneDraft, LanePublishedVersion, Location,
+		LocationDraft, LocationPublishedVersion, Migration, PasswordCredential,
+		Rundown, Session, SessionDraft, SessionPublishedVersion, SessionRun,
+		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion []ent.Hook
 	}
 	inters struct {
 		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt,
-		DraftChange, DraftChangeDependency, DraftEdit, Event, EventGrant, Installation,
-		Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
-		LocationPublishedVersion, Migration, PasswordCredential, Rundown, Session,
-		SessionDraft, SessionPublishedVersion, SessionRun, SessionRunAmendment, Track,
-		TrackDraft, TrackPublishedVersion []ent.Interceptor
+		DraftChange, DraftChangeDependency, DraftEdit, Event, EventGrant,
+		ImportReference, Installation, Lane, LaneDraft, LanePublishedVersion, Location,
+		LocationDraft, LocationPublishedVersion, Migration, PasswordCredential,
+		Rundown, Session, SessionDraft, SessionPublishedVersion, SessionRun,
+		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion []ent.Interceptor
 	}
 )

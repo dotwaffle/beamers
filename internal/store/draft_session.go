@@ -8,6 +8,7 @@ import (
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftchangedependency"
+	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
 )
@@ -108,6 +109,17 @@ func (transaction *CommandTx) draftSessionHasDependents(
 	sessionID int,
 ) (bool, error) {
 	internalContext := systemContext(ctx)
+	imported, err := transaction.transaction.ImportReference.Query().Where(
+		importreference.EventIDEQ(eventID),
+		importreference.TargetTypeEQ(draftTargetSession),
+		importreference.TargetIDEQ(sessionID),
+	).Exist(internalContext)
+	if err != nil {
+		return false, opaqueError("load Draft Session Import References", err)
+	}
+	if imported {
+		return true, nil
+	}
 	owned, err := transaction.transaction.DraftChange.Query().Where(
 		draftchange.EventIDEQ(eventID),
 		draftchange.TargetTypeEQ(draftTargetSession),

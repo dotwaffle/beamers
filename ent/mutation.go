@@ -21,6 +21,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/lanedraft"
@@ -61,6 +62,7 @@ const (
 	TypeDraftEdit                = "DraftEdit"
 	TypeEvent                    = "Event"
 	TypeEventGrant               = "EventGrant"
+	TypeImportReference          = "ImportReference"
 	TypeInstallation             = "Installation"
 	TypeLane                     = "Lane"
 	TypeLaneDraft                = "LaneDraft"
@@ -6316,46 +6318,49 @@ func (m *DraftEditMutation) ResetEdge(name string) error {
 // EventMutation represents an operation that mutates the Event nodes in the graph.
 type EventMutation struct {
 	config
-	op                   Op
-	typ                  string
-	id                   *int
-	name                 *string
-	planned_start_date   *string
-	planned_end_date     *string
-	timezone             *string
-	event_locale         *string
-	content_language     *string
-	event_day_boundary   *string
-	revision             *int
-	addrevision          *int
-	created_at           *time.Time
-	clearedFields        map[string]struct{}
-	grants               map[int]struct{}
-	removedgrants        map[int]struct{}
-	clearedgrants        bool
-	rundown              *int
-	clearedrundown       bool
-	locations            map[int]struct{}
-	removedlocations     map[int]struct{}
-	clearedlocations     bool
-	lanes                map[int]struct{}
-	removedlanes         map[int]struct{}
-	clearedlanes         bool
-	tracks               map[int]struct{}
-	removedtracks        map[int]struct{}
-	clearedtracks        bool
-	sessions             map[int]struct{}
-	removedsessions      map[int]struct{}
-	clearedsessions      bool
-	draft_edits          map[int]struct{}
-	removeddraft_edits   map[int]struct{}
-	cleareddraft_edits   bool
-	draft_changes        map[int]struct{}
-	removeddraft_changes map[int]struct{}
-	cleareddraft_changes bool
-	done                 bool
-	oldValue             func(context.Context) (*Event, error)
-	predicates           []predicate.Event
+	op                       Op
+	typ                      string
+	id                       *int
+	name                     *string
+	planned_start_date       *string
+	planned_end_date         *string
+	timezone                 *string
+	event_locale             *string
+	content_language         *string
+	event_day_boundary       *string
+	revision                 *int
+	addrevision              *int
+	created_at               *time.Time
+	clearedFields            map[string]struct{}
+	grants                   map[int]struct{}
+	removedgrants            map[int]struct{}
+	clearedgrants            bool
+	rundown                  *int
+	clearedrundown           bool
+	locations                map[int]struct{}
+	removedlocations         map[int]struct{}
+	clearedlocations         bool
+	lanes                    map[int]struct{}
+	removedlanes             map[int]struct{}
+	clearedlanes             bool
+	tracks                   map[int]struct{}
+	removedtracks            map[int]struct{}
+	clearedtracks            bool
+	sessions                 map[int]struct{}
+	removedsessions          map[int]struct{}
+	clearedsessions          bool
+	draft_edits              map[int]struct{}
+	removeddraft_edits       map[int]struct{}
+	cleareddraft_edits       bool
+	draft_changes            map[int]struct{}
+	removeddraft_changes     map[int]struct{}
+	cleareddraft_changes     bool
+	import_references        map[int]struct{}
+	removedimport_references map[int]struct{}
+	clearedimport_references bool
+	done                     bool
+	oldValue                 func(context.Context) (*Event, error)
+	predicates               []predicate.Event
 }
 
 var _ ent.Mutation = (*EventMutation)(nil)
@@ -7230,6 +7235,60 @@ func (m *EventMutation) ResetDraftChanges() {
 	m.removeddraft_changes = nil
 }
 
+// AddImportReferenceIDs adds the "import_references" edge to the ImportReference entity by ids.
+func (m *EventMutation) AddImportReferenceIDs(ids ...int) {
+	if m.import_references == nil {
+		m.import_references = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.import_references[ids[i]] = struct{}{}
+	}
+}
+
+// ClearImportReferences clears the "import_references" edge to the ImportReference entity.
+func (m *EventMutation) ClearImportReferences() {
+	m.clearedimport_references = true
+}
+
+// ImportReferencesCleared reports if the "import_references" edge to the ImportReference entity was cleared.
+func (m *EventMutation) ImportReferencesCleared() bool {
+	return m.clearedimport_references
+}
+
+// RemoveImportReferenceIDs removes the "import_references" edge to the ImportReference entity by IDs.
+func (m *EventMutation) RemoveImportReferenceIDs(ids ...int) {
+	if m.removedimport_references == nil {
+		m.removedimport_references = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.import_references, ids[i])
+		m.removedimport_references[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedImportReferences returns the removed IDs of the "import_references" edge to the ImportReference entity.
+func (m *EventMutation) RemovedImportReferencesIDs() (ids []int) {
+	for id := range m.removedimport_references {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ImportReferencesIDs returns the "import_references" edge IDs in the mutation.
+func (m *EventMutation) ImportReferencesIDs() (ids []int) {
+	for id := range m.import_references {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetImportReferences resets all changes to the "import_references" edge.
+func (m *EventMutation) ResetImportReferences() {
+	m.import_references = nil
+	m.clearedimport_references = false
+	m.removedimport_references = nil
+}
+
 // Where appends a list predicates to the EventMutation builder.
 func (m *EventMutation) Where(ps ...predicate.Event) {
 	m.predicates = append(m.predicates, ps...)
@@ -7523,7 +7582,7 @@ func (m *EventMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *EventMutation) AddedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 9)
 	if m.grants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -7547,6 +7606,9 @@ func (m *EventMutation) AddedEdges() []string {
 	}
 	if m.draft_changes != nil {
 		edges = append(edges, event.EdgeDraftChanges)
+	}
+	if m.import_references != nil {
+		edges = append(edges, event.EdgeImportReferences)
 	}
 	return edges
 }
@@ -7601,13 +7663,19 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeImportReferences:
+		ids := make([]ent.Value, 0, len(m.import_references))
+		for id := range m.import_references {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *EventMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 9)
 	if m.removedgrants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -7628,6 +7696,9 @@ func (m *EventMutation) RemovedEdges() []string {
 	}
 	if m.removeddraft_changes != nil {
 		edges = append(edges, event.EdgeDraftChanges)
+	}
+	if m.removedimport_references != nil {
+		edges = append(edges, event.EdgeImportReferences)
 	}
 	return edges
 }
@@ -7678,13 +7749,19 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeImportReferences:
+		ids := make([]ent.Value, 0, len(m.removedimport_references))
+		for id := range m.removedimport_references {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *EventMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 9)
 	if m.clearedgrants {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -7709,6 +7786,9 @@ func (m *EventMutation) ClearedEdges() []string {
 	if m.cleareddraft_changes {
 		edges = append(edges, event.EdgeDraftChanges)
 	}
+	if m.clearedimport_references {
+		edges = append(edges, event.EdgeImportReferences)
+	}
 	return edges
 }
 
@@ -7732,6 +7812,8 @@ func (m *EventMutation) EdgeCleared(name string) bool {
 		return m.cleareddraft_edits
 	case event.EdgeDraftChanges:
 		return m.cleareddraft_changes
+	case event.EdgeImportReferences:
+		return m.clearedimport_references
 	}
 	return false
 }
@@ -7774,6 +7856,9 @@ func (m *EventMutation) ResetEdge(name string) error {
 		return nil
 	case event.EdgeDraftChanges:
 		m.ResetDraftChanges()
+		return nil
+	case event.EdgeImportReferences:
+		m.ResetImportReferences()
 		return nil
 	}
 	return fmt.Errorf("unknown Event edge %s", name)
@@ -8641,6 +8726,746 @@ func (m *EventGrantMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown EventGrant edge %s", name)
+}
+
+// ImportReferenceMutation represents an operation that mutates the ImportReference nodes in the graph.
+type ImportReferenceMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int
+	source_format *importreference.SourceFormat
+	record_type   *importreference.RecordType
+	external_key  *string
+	target_type   *string
+	target_id     *int
+	addtarget_id  *int
+	created_at    *time.Time
+	clearedFields map[string]struct{}
+	event         *int
+	clearedevent  bool
+	done          bool
+	oldValue      func(context.Context) (*ImportReference, error)
+	predicates    []predicate.ImportReference
+}
+
+var _ ent.Mutation = (*ImportReferenceMutation)(nil)
+
+// importreferenceOption allows management of the mutation configuration using functional options.
+type importreferenceOption func(*ImportReferenceMutation)
+
+// newImportReferenceMutation creates new mutation for the ImportReference entity.
+func newImportReferenceMutation(c config, op Op, opts ...importreferenceOption) *ImportReferenceMutation {
+	m := &ImportReferenceMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeImportReference,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withImportReferenceID sets the ID field of the mutation.
+func withImportReferenceID(id int) importreferenceOption {
+	return func(m *ImportReferenceMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ImportReference
+		)
+		m.oldValue = func(ctx context.Context) (*ImportReference, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ImportReference.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withImportReference sets the old ImportReference of the mutation.
+func withImportReference(node *ImportReference) importreferenceOption {
+	return func(m *ImportReferenceMutation) {
+		m.oldValue = func(context.Context) (*ImportReference, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ImportReferenceMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ImportReferenceMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ImportReferenceMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ImportReferenceMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ImportReference.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetEventID sets the "event_id" field.
+func (m *ImportReferenceMutation) SetEventID(i int) {
+	m.event = &i
+}
+
+// EventID returns the value of the "event_id" field in the mutation.
+func (m *ImportReferenceMutation) EventID() (r int, exists bool) {
+	v := m.event
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventID returns the old "event_id" field's value of the ImportReference entity.
+// If the ImportReference object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImportReferenceMutation) OldEventID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventID: %w", err)
+	}
+	return oldValue.EventID, nil
+}
+
+// ResetEventID resets all changes to the "event_id" field.
+func (m *ImportReferenceMutation) ResetEventID() {
+	m.event = nil
+}
+
+// SetSourceFormat sets the "source_format" field.
+func (m *ImportReferenceMutation) SetSourceFormat(_if importreference.SourceFormat) {
+	m.source_format = &_if
+}
+
+// SourceFormat returns the value of the "source_format" field in the mutation.
+func (m *ImportReferenceMutation) SourceFormat() (r importreference.SourceFormat, exists bool) {
+	v := m.source_format
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSourceFormat returns the old "source_format" field's value of the ImportReference entity.
+// If the ImportReference object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImportReferenceMutation) OldSourceFormat(ctx context.Context) (v importreference.SourceFormat, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSourceFormat is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSourceFormat requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSourceFormat: %w", err)
+	}
+	return oldValue.SourceFormat, nil
+}
+
+// ResetSourceFormat resets all changes to the "source_format" field.
+func (m *ImportReferenceMutation) ResetSourceFormat() {
+	m.source_format = nil
+}
+
+// SetRecordType sets the "record_type" field.
+func (m *ImportReferenceMutation) SetRecordType(it importreference.RecordType) {
+	m.record_type = &it
+}
+
+// RecordType returns the value of the "record_type" field in the mutation.
+func (m *ImportReferenceMutation) RecordType() (r importreference.RecordType, exists bool) {
+	v := m.record_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRecordType returns the old "record_type" field's value of the ImportReference entity.
+// If the ImportReference object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImportReferenceMutation) OldRecordType(ctx context.Context) (v importreference.RecordType, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRecordType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRecordType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRecordType: %w", err)
+	}
+	return oldValue.RecordType, nil
+}
+
+// ResetRecordType resets all changes to the "record_type" field.
+func (m *ImportReferenceMutation) ResetRecordType() {
+	m.record_type = nil
+}
+
+// SetExternalKey sets the "external_key" field.
+func (m *ImportReferenceMutation) SetExternalKey(s string) {
+	m.external_key = &s
+}
+
+// ExternalKey returns the value of the "external_key" field in the mutation.
+func (m *ImportReferenceMutation) ExternalKey() (r string, exists bool) {
+	v := m.external_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExternalKey returns the old "external_key" field's value of the ImportReference entity.
+// If the ImportReference object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImportReferenceMutation) OldExternalKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExternalKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExternalKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExternalKey: %w", err)
+	}
+	return oldValue.ExternalKey, nil
+}
+
+// ResetExternalKey resets all changes to the "external_key" field.
+func (m *ImportReferenceMutation) ResetExternalKey() {
+	m.external_key = nil
+}
+
+// SetTargetType sets the "target_type" field.
+func (m *ImportReferenceMutation) SetTargetType(s string) {
+	m.target_type = &s
+}
+
+// TargetType returns the value of the "target_type" field in the mutation.
+func (m *ImportReferenceMutation) TargetType() (r string, exists bool) {
+	v := m.target_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTargetType returns the old "target_type" field's value of the ImportReference entity.
+// If the ImportReference object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImportReferenceMutation) OldTargetType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTargetType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTargetType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTargetType: %w", err)
+	}
+	return oldValue.TargetType, nil
+}
+
+// ResetTargetType resets all changes to the "target_type" field.
+func (m *ImportReferenceMutation) ResetTargetType() {
+	m.target_type = nil
+}
+
+// SetTargetID sets the "target_id" field.
+func (m *ImportReferenceMutation) SetTargetID(i int) {
+	m.target_id = &i
+	m.addtarget_id = nil
+}
+
+// TargetID returns the value of the "target_id" field in the mutation.
+func (m *ImportReferenceMutation) TargetID() (r int, exists bool) {
+	v := m.target_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTargetID returns the old "target_id" field's value of the ImportReference entity.
+// If the ImportReference object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImportReferenceMutation) OldTargetID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTargetID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTargetID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTargetID: %w", err)
+	}
+	return oldValue.TargetID, nil
+}
+
+// AddTargetID adds i to the "target_id" field.
+func (m *ImportReferenceMutation) AddTargetID(i int) {
+	if m.addtarget_id != nil {
+		*m.addtarget_id += i
+	} else {
+		m.addtarget_id = &i
+	}
+}
+
+// AddedTargetID returns the value that was added to the "target_id" field in this mutation.
+func (m *ImportReferenceMutation) AddedTargetID() (r int, exists bool) {
+	v := m.addtarget_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTargetID resets all changes to the "target_id" field.
+func (m *ImportReferenceMutation) ResetTargetID() {
+	m.target_id = nil
+	m.addtarget_id = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ImportReferenceMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ImportReferenceMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ImportReference entity.
+// If the ImportReference object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImportReferenceMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ImportReferenceMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearEvent clears the "event" edge to the Event entity.
+func (m *ImportReferenceMutation) ClearEvent() {
+	m.clearedevent = true
+	m.clearedFields[importreference.FieldEventID] = struct{}{}
+}
+
+// EventCleared reports if the "event" edge to the Event entity was cleared.
+func (m *ImportReferenceMutation) EventCleared() bool {
+	return m.clearedevent
+}
+
+// EventIDs returns the "event" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// EventID instead. It exists only for internal usage by the builders.
+func (m *ImportReferenceMutation) EventIDs() (ids []int) {
+	if id := m.event; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetEvent resets all changes to the "event" edge.
+func (m *ImportReferenceMutation) ResetEvent() {
+	m.event = nil
+	m.clearedevent = false
+}
+
+// Where appends a list predicates to the ImportReferenceMutation builder.
+func (m *ImportReferenceMutation) Where(ps ...predicate.ImportReference) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ImportReferenceMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ImportReferenceMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ImportReference, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ImportReferenceMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ImportReferenceMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ImportReference).
+func (m *ImportReferenceMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ImportReferenceMutation) Fields() []string {
+	fields := make([]string, 0, 7)
+	if m.event != nil {
+		fields = append(fields, importreference.FieldEventID)
+	}
+	if m.source_format != nil {
+		fields = append(fields, importreference.FieldSourceFormat)
+	}
+	if m.record_type != nil {
+		fields = append(fields, importreference.FieldRecordType)
+	}
+	if m.external_key != nil {
+		fields = append(fields, importreference.FieldExternalKey)
+	}
+	if m.target_type != nil {
+		fields = append(fields, importreference.FieldTargetType)
+	}
+	if m.target_id != nil {
+		fields = append(fields, importreference.FieldTargetID)
+	}
+	if m.created_at != nil {
+		fields = append(fields, importreference.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ImportReferenceMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case importreference.FieldEventID:
+		return m.EventID()
+	case importreference.FieldSourceFormat:
+		return m.SourceFormat()
+	case importreference.FieldRecordType:
+		return m.RecordType()
+	case importreference.FieldExternalKey:
+		return m.ExternalKey()
+	case importreference.FieldTargetType:
+		return m.TargetType()
+	case importreference.FieldTargetID:
+		return m.TargetID()
+	case importreference.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ImportReferenceMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case importreference.FieldEventID:
+		return m.OldEventID(ctx)
+	case importreference.FieldSourceFormat:
+		return m.OldSourceFormat(ctx)
+	case importreference.FieldRecordType:
+		return m.OldRecordType(ctx)
+	case importreference.FieldExternalKey:
+		return m.OldExternalKey(ctx)
+	case importreference.FieldTargetType:
+		return m.OldTargetType(ctx)
+	case importreference.FieldTargetID:
+		return m.OldTargetID(ctx)
+	case importreference.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ImportReference field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ImportReferenceMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case importreference.FieldEventID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventID(v)
+		return nil
+	case importreference.FieldSourceFormat:
+		v, ok := value.(importreference.SourceFormat)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSourceFormat(v)
+		return nil
+	case importreference.FieldRecordType:
+		v, ok := value.(importreference.RecordType)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRecordType(v)
+		return nil
+	case importreference.FieldExternalKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExternalKey(v)
+		return nil
+	case importreference.FieldTargetType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTargetType(v)
+		return nil
+	case importreference.FieldTargetID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTargetID(v)
+		return nil
+	case importreference.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ImportReference field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ImportReferenceMutation) AddedFields() []string {
+	var fields []string
+	if m.addtarget_id != nil {
+		fields = append(fields, importreference.FieldTargetID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ImportReferenceMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case importreference.FieldTargetID:
+		return m.AddedTargetID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ImportReferenceMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case importreference.FieldTargetID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTargetID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ImportReference numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ImportReferenceMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ImportReferenceMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ImportReferenceMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown ImportReference nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ImportReferenceMutation) ResetField(name string) error {
+	switch name {
+	case importreference.FieldEventID:
+		m.ResetEventID()
+		return nil
+	case importreference.FieldSourceFormat:
+		m.ResetSourceFormat()
+		return nil
+	case importreference.FieldRecordType:
+		m.ResetRecordType()
+		return nil
+	case importreference.FieldExternalKey:
+		m.ResetExternalKey()
+		return nil
+	case importreference.FieldTargetType:
+		m.ResetTargetType()
+		return nil
+	case importreference.FieldTargetID:
+		m.ResetTargetID()
+		return nil
+	case importreference.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ImportReference field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ImportReferenceMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.event != nil {
+		edges = append(edges, importreference.EdgeEvent)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ImportReferenceMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case importreference.EdgeEvent:
+		if id := m.event; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ImportReferenceMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ImportReferenceMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ImportReferenceMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedevent {
+		edges = append(edges, importreference.EdgeEvent)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ImportReferenceMutation) EdgeCleared(name string) bool {
+	switch name {
+	case importreference.EdgeEvent:
+		return m.clearedevent
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ImportReferenceMutation) ClearEdge(name string) error {
+	switch name {
+	case importreference.EdgeEvent:
+		m.ClearEvent()
+		return nil
+	}
+	return fmt.Errorf("unknown ImportReference unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ImportReferenceMutation) ResetEdge(name string) error {
+	switch name {
+	case importreference.EdgeEvent:
+		m.ResetEvent()
+		return nil
+	}
+	return fmt.Errorf("unknown ImportReference edge %s", name)
 }
 
 // InstallationMutation represents an operation that mutates the Installation nodes in the graph.

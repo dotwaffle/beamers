@@ -285,6 +285,43 @@ var (
 			},
 		},
 	}
+	// ImportReferencesColumns holds the columns for the "import_references" table.
+	ImportReferencesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "source_format", Type: field.TypeEnum, Enums: []string{"CSV"}},
+		{Name: "record_type", Type: field.TypeEnum, Enums: []string{"Session", "CompetitionEntry"}},
+		{Name: "external_key", Type: field.TypeString, Size: 500},
+		{Name: "target_type", Type: field.TypeString, Size: 100},
+		{Name: "target_id", Type: field.TypeInt},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "event_id", Type: field.TypeInt},
+	}
+	// ImportReferencesTable holds the schema information for the "import_references" table.
+	ImportReferencesTable = &schema.Table{
+		Name:       "import_references",
+		Columns:    ImportReferencesColumns,
+		PrimaryKey: []*schema.Column{ImportReferencesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "import_references_events_import_references",
+				Columns:    []*schema.Column{ImportReferencesColumns[7]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "importreference_event_id_source_format_record_type_external_key",
+				Unique:  true,
+				Columns: []*schema.Column{ImportReferencesColumns[7], ImportReferencesColumns[1], ImportReferencesColumns[2], ImportReferencesColumns[3]},
+			},
+			{
+				Name:    "importreference_target_type_target_id",
+				Unique:  false,
+				Columns: []*schema.Column{ImportReferencesColumns[4], ImportReferencesColumns[5]},
+			},
+		},
+	}
 	// InstallationsColumns holds the columns for the "installations" table.
 	InstallationsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -917,6 +954,7 @@ var (
 		DraftEditsTable,
 		EventsTable,
 		EventGrantsTable,
+		ImportReferencesTable,
 		InstallationsTable,
 		LanesTable,
 		LaneDraftsTable,
@@ -956,6 +994,7 @@ func init() {
 	DraftEditsTable.ForeignKeys[1].RefTable = EventsTable
 	EventGrantsTable.ForeignKeys[0].RefTable = AccountsTable
 	EventGrantsTable.ForeignKeys[1].RefTable = EventsTable
+	ImportReferencesTable.ForeignKeys[0].RefTable = EventsTable
 	InstallationsTable.ForeignKeys[0].RefTable = EventsTable
 	LanesTable.ForeignKeys[0].RefTable = EventsTable
 	LaneDraftsTable.ForeignKeys[0].RefTable = LanesTable

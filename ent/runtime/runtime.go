@@ -16,6 +16,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/lanedraft"
@@ -602,6 +603,61 @@ func init() {
 	eventgrantDescCreatedAt := eventgrantFields[6].Descriptor()
 	// eventgrant.DefaultCreatedAt holds the default value on creation for the created_at field.
 	eventgrant.DefaultCreatedAt = eventgrantDescCreatedAt.Default.(func() time.Time)
+	importreference.Policy = privacy.NewPolicies(schema.ImportReference{})
+	importreference.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := importreference.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	importreferenceFields := schema.ImportReference{}.Fields()
+	_ = importreferenceFields
+	// importreferenceDescExternalKey is the schema descriptor for external_key field.
+	importreferenceDescExternalKey := importreferenceFields[3].Descriptor()
+	// importreference.ExternalKeyValidator is a validator for the "external_key" field. It is called by the builders before save.
+	importreference.ExternalKeyValidator = func() func(string) error {
+		validators := importreferenceDescExternalKey.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(external_key string) error {
+			for _, fn := range fns {
+				if err := fn(external_key); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// importreferenceDescTargetType is the schema descriptor for target_type field.
+	importreferenceDescTargetType := importreferenceFields[4].Descriptor()
+	// importreference.TargetTypeValidator is a validator for the "target_type" field. It is called by the builders before save.
+	importreference.TargetTypeValidator = func() func(string) error {
+		validators := importreferenceDescTargetType.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(target_type string) error {
+			for _, fn := range fns {
+				if err := fn(target_type); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// importreferenceDescTargetID is the schema descriptor for target_id field.
+	importreferenceDescTargetID := importreferenceFields[5].Descriptor()
+	// importreference.TargetIDValidator is a validator for the "target_id" field. It is called by the builders before save.
+	importreference.TargetIDValidator = importreferenceDescTargetID.Validators[0].(func(int) error)
+	// importreferenceDescCreatedAt is the schema descriptor for created_at field.
+	importreferenceDescCreatedAt := importreferenceFields[6].Descriptor()
+	// importreference.DefaultCreatedAt holds the default value on creation for the created_at field.
+	importreference.DefaultCreatedAt = importreferenceDescCreatedAt.Default.(func() time.Time)
 	installation.Policy = privacy.NewPolicies(schema.Installation{})
 	installation.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

@@ -60,9 +60,11 @@ type EventEdges struct {
 	DraftEdits []*DraftEdit `json:"draft_edits,omitempty"`
 	// DraftChanges holds the value of the draft_changes edge.
 	DraftChanges []*DraftChange `json:"draft_changes,omitempty"`
+	// ImportReferences holds the value of the import_references edge.
+	ImportReferences []*ImportReference `json:"import_references,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [8]bool
+	loadedTypes [9]bool
 }
 
 // GrantsOrErr returns the Grants value or an error if the edge
@@ -137,6 +139,15 @@ func (e EventEdges) DraftChangesOrErr() ([]*DraftChange, error) {
 		return e.DraftChanges, nil
 	}
 	return nil, &NotLoadedError{edge: "draft_changes"}
+}
+
+// ImportReferencesOrErr returns the ImportReferences value or an error if the edge
+// was not loaded in eager-loading.
+func (e EventEdges) ImportReferencesOrErr() ([]*ImportReference, error) {
+	if e.loadedTypes[8] {
+		return e.ImportReferences, nil
+	}
+	return nil, &NotLoadedError{edge: "import_references"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -276,6 +287,11 @@ func (_m *Event) QueryDraftEdits() *DraftEditQuery {
 // QueryDraftChanges queries the "draft_changes" edge of the Event entity.
 func (_m *Event) QueryDraftChanges() *DraftChangeQuery {
 	return NewEventClient(_m.config).QueryDraftChanges(_m)
+}
+
+// QueryImportReferences queries the "import_references" edge of the Event entity.
+func (_m *Event) QueryImportReferences() *ImportReferenceQuery {
+	return NewEventClient(_m.config).QueryImportReferences(_m)
 }
 
 // Update returns a builder for updating this Event.

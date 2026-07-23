@@ -129,6 +129,18 @@ func (f EventGrantFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, 
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.EventGrantMutation", m)
 }
 
+// The ImportReferenceFunc type is an adapter to allow the use of ordinary
+// function as ImportReference mutator.
+type ImportReferenceFunc func(context.Context, *ent.ImportReferenceMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ImportReferenceFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ImportReferenceMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ImportReferenceMutation", m)
+}
+
 // The InstallationFunc type is an adapter to allow the use of ordinary
 // function as Installation mutator.
 type InstallationFunc func(context.Context, *ent.InstallationMutation) (ent.Value, error)
