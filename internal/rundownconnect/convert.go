@@ -74,9 +74,12 @@ func sessionDraft(message *rundownv1.SessionDraft) (rundown.SessionDraftInput, e
 	if err != nil {
 		return rundown.SessionDraftInput{}, err
 	}
-	minimumDuration, err := duration("sessions.minimum_duration", message.GetMinimumDuration())
-	if err != nil {
-		return rundown.SessionDraftInput{}, err
+	minimumDuration := plannedEnd.Sub(plannedStart)
+	if message.GetMinimumDuration() != nil {
+		minimumDuration, err = duration("sessions.minimum_duration", message.GetMinimumDuration())
+		if err != nil {
+			return rundown.SessionDraftInput{}, err
+		}
 	}
 	lanes, err := targetRefs("sessions.lanes", message.GetLanes())
 	if err != nil {

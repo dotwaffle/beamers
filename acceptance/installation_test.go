@@ -1963,6 +1963,72 @@ func prepareActiveSchedule(t *testing.T, client *http.Client, server *runningSer
 	return publicSessionID
 }
 
+func addSoftRippleSession(t *testing.T, client *http.Client, server *runningServer) int64 {
+	t.Helper()
+	rundownClient := rundownv1connect.NewRundownServiceClient(
+		client, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	current, err := rundownClient.GetCrewRundown(
+		t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
+	)
+	if err != nil {
+		t.Fatalf("load Rundown before adding ripple Session: %v", err)
+	}
+	plannedStart := time.Date(2099, 8, 21, 9, 0, 0, 0, time.UTC)
+	edited, err := rundownClient.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "add-soft-ripple-session",
+		ExpectedDraftRevision: current.Msg.GetDraftRevision(),
+		Sessions: []*rundownv1.SessionDraft{{
+			Ref: "soft-ripple", Title: "Soft Ripple Session",
+			Type:               rundownv1.SessionType_SESSION_TYPE_PRESENTATION,
+			AudienceVisibility: rundownv1.AudienceVisibility_AUDIENCE_VISIBILITY_PUBLIC,
+			PlannedStart:       timestamppb.New(plannedStart),
+			PlannedEnd:         timestamppb.New(plannedStart.Add(time.Hour)),
+			TimingPolicy:       rundownv1.TimingPolicy_TIMING_POLICY_FIXED_DURATION,
+			MinimumDuration:    durationpb.New(55 * time.Minute),
+			StartBoundary:      rundownv1.Boundary_BOUNDARY_SOFT,
+			EndBoundary:        rundownv1.Boundary_BOUNDARY_SOFT,
+			Locations: []*rundownv1.TargetRef{{
+				Target: &rundownv1.TargetRef_Id{Id: 1},
+			}},
+			Lanes: []*rundownv1.TargetRef{{
+				Target: &rundownv1.TargetRef_Id{Id: 1},
+			}},
+		}},
+	}))
+	if err != nil {
+		t.Fatalf("add soft ripple Session: %v", err)
+	}
+	var sessionID int64
+	changeIDs := make([]int64, 0, len(edited.Msg.GetChanges()))
+	for _, change := range edited.Msg.GetChanges() {
+		changeIDs = append(changeIDs, change.GetId())
+		if change.GetKind() == "CreateSession" {
+			sessionID = change.GetTargetId()
+		}
+	}
+	preview, err := rundownClient.PublishPreview(t.Context(), connect.NewRequest(
+		&rundownv1.PublishPreviewRequest{EventId: 1, ChangeIds: changeIDs},
+	))
+	if err != nil {
+		t.Fatalf("preview soft ripple Session Publish: %v", err)
+	}
+	if _, err := rundownClient.Publish(t.Context(), connect.NewRequest(&rundownv1.PublishRequest{
+		EventId: 1, CommandId: "publish-soft-ripple-session",
+		Confirmation: &rundownv1.PublishConfirmation{
+			DraftRevision:     preview.Msg.GetDraftRevision(),
+			PublishedRevision: preview.Msg.GetPublishedRevision(),
+			ChangeIds:         preview.Msg.GetChangeIds(), Fingerprint: preview.Msg.GetFingerprint(),
+		},
+	})); err != nil {
+		t.Fatalf("publish soft ripple Session: %v", err)
+	}
+	if sessionID <= 0 {
+		t.Fatal("soft ripple Session ID is missing")
+	}
+	return sessionID
+}
+
 func prepareAndActivateSecondEvent(t *testing.T, client *http.Client, server *runningServer) {
 	t.Helper()
 	assertJSONRequest(
@@ -2475,6 +2541,7 @@ func TestOperatorStartsPublishedSessionDurably(t *testing.T) {
 func TestOperatorPreviewsAndAdjustsLiveSessionTarget(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	sessionID := prepareActiveSchedule(t, administrator, server)
+	rippleSessionID := addSoftRippleSession(t, administrator, server)
 	operator := provisionOperator(t, administrator, server)
 	client := sessionv1connect.NewSessionControlServiceClient(
 		operator, "http://"+server.address, connect.WithProtoJSON(),
@@ -2523,7 +2590,15 @@ func TestOperatorPreviewsAndAdjustsLiveSessionTarget(t *testing.T) {
 	if preview.Msg.GetPreviewFingerprint() == "" ||
 		!preview.Msg.GetProposedTarget().AsTime().Equal(preview.Msg.GetCurrentTarget().AsTime().Add(5*time.Minute)) ||
 		len(preview.Msg.GetConfiguredPresets()) != 3 ||
-		!preview.Msg.GetRequiresHardBoundaryConfirmation() {
+		!preview.Msg.GetRequiresHardBoundaryConfirmation() ||
+		len(preview.Msg.GetEffects()) != 1 ||
+		preview.Msg.GetEffects()[0].GetSessionId() != rippleSessionID ||
+		!preview.Msg.GetEffects()[0].GetProposedForecastStart().AsTime().Equal(
+			time.Date(2099, 8, 21, 9, 5, 0, 0, time.UTC),
+		) ||
+		!preview.Msg.GetEffects()[0].GetProposedForecastEnd().AsTime().Equal(
+			time.Date(2099, 8, 21, 10, 0, 0, 0, time.UTC),
+		) {
 		t.Fatalf("Adjust Target preview = %+v", preview.Msg)
 	}
 	targetRequest := func(
@@ -2614,7 +2689,8 @@ func TestOperatorPreviewsAndAdjustsLiveSessionTarget(t *testing.T) {
 		t.Fatalf("Adjust Target: %v", err)
 	}
 	if adjusted.Msg.GetState().GetLiveStateRevision() != 3 ||
-		!adjusted.Msg.GetForecastEnd().AsTime().Equal(freshPreview.Msg.GetProposedTarget().AsTime()) {
+		!adjusted.Msg.GetForecastEnd().AsTime().Equal(freshPreview.Msg.GetProposedTarget().AsTime()) ||
+		len(adjusted.Msg.GetChanges()) != 2 {
 		t.Errorf("adjusted target = %+v", adjusted.Msg)
 	}
 	retried, err := client.AdjustTarget(t.Context(), connect.NewRequest(request))
@@ -2630,6 +2706,103 @@ func TestOperatorPreviewsAndAdjustsLiveSessionTarget(t *testing.T) {
 	if !strings.Contains(string(body), freshPreview.Msg.GetProposedTarget().AsTime().
 		In(time.FixedZone("CEST", 2*60*60)).Format(time.RFC3339)) {
 		t.Errorf("adjusted public Schedule missing Forecast End: %s", body)
+	}
+	server.stop(t)
+}
+
+func TestOperatorPullsForwardOnlyAfterExplicitEndAndPreview(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	sessionID := prepareActiveSchedule(t, administrator, server)
+	rippleSessionID := addSoftRippleSession(t, administrator, server)
+	operator := provisionOperator(t, administrator, server)
+	client := sessionv1connect.NewSessionControlServiceClient(
+		operator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	started, err := client.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "start-before-pull-forward",
+		ExpectedLiveStateRevision: proto.Int64(0),
+	}))
+	if err != nil {
+		t.Fatalf("Start Session before Pull Forward: %v", err)
+	}
+	ended, err := client.EndSession(t.Context(), connect.NewRequest(&sessionv1.EndSessionRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "end-before-pull-forward",
+		ExpectedLiveStateRevision: new(started.Msg.GetState().GetLiveStateRevision()),
+	}))
+	if err != nil {
+		t.Fatalf("End Session before Pull Forward: %v", err)
+	}
+	preview, err := client.PreviewPullForward(t.Context(), connect.NewRequest(
+		&sessionv1.PreviewPullForwardRequest{EventId: 1, SessionId: sessionID},
+	))
+	if err != nil {
+		t.Fatalf("Preview Pull Forward: %v", err)
+	}
+	if preview.Msg.GetPreviewFingerprint() == "" || len(preview.Msg.GetChanges()) != 1 ||
+		len(preview.Msg.GetEffects()) != 1 ||
+		preview.Msg.GetChanges()[0].GetSessionId() != rippleSessionID ||
+		!preview.Msg.GetEffects()[0].GetCurrentForecastStart().AsTime().Equal(
+			time.Date(2099, 8, 21, 9, 0, 0, 0, time.UTC),
+		) ||
+		!preview.Msg.GetChanges()[0].GetForecastStart().AsTime().Equal(
+			ended.Msg.GetState().GetActualEnd().AsTime(),
+		) {
+		t.Fatalf("Pull Forward preview = %+v", preview.Msg)
+	}
+	unconfirmed := &sessionv1.PullForwardRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "reject-unconfirmed-pull-forward",
+		ExpectedLiveStateRevision: new(ended.Msg.GetState().GetLiveStateRevision()),
+		PreviewFingerprint:        preview.Msg.GetPreviewFingerprint(),
+	}
+	_, unconfirmedErr := client.PullForward(t.Context(), connect.NewRequest(unconfirmed))
+	if connect.CodeOf(unconfirmedErr) != connect.CodeFailedPrecondition {
+		t.Fatalf("unconfirmed Pull Forward error = %v, want FailedPrecondition", unconfirmedErr)
+	}
+	databasePath := filepath.Join(server.dataDir, "beamers.db")
+	if fixtureErr := storetest.FailSessionForecastUpdate(
+		t.Context(), databasePath, rippleSessionID,
+	); fixtureErr != nil {
+		t.Fatalf("install Pull Forward rollback fixture: %v", fixtureErr)
+	}
+	request := &sessionv1.PullForwardRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "pull-forward-after-end",
+		ExpectedLiveStateRevision: new(ended.Msg.GetState().GetLiveStateRevision()),
+		PreviewFingerprint:        preview.Msg.GetPreviewFingerprint(), Confirmed: true,
+	}
+	_, rollbackErr := client.PullForward(t.Context(), connect.NewRequest(request))
+	if connect.CodeOf(rollbackErr) != connect.CodeInternal {
+		t.Fatalf("forced Pull Forward rollback error = %v, want Internal", rollbackErr)
+	}
+	if fixtureErr := storetest.AllowSessionForecastUpdates(
+		t.Context(), databasePath,
+	); fixtureErr != nil {
+		t.Fatalf("remove Pull Forward rollback fixture: %v", fixtureErr)
+	}
+	afterRollback, err := client.PreviewPullForward(t.Context(), connect.NewRequest(
+		&sessionv1.PreviewPullForwardRequest{EventId: 1, SessionId: sessionID},
+	))
+	if err != nil ||
+		afterRollback.Msg.GetPreviewFingerprint() != preview.Msg.GetPreviewFingerprint() {
+		t.Fatalf("Pull Forward rollback changed timing = %+v, %v", afterRollback, err)
+	}
+	pulled, err := client.PullForward(t.Context(), connect.NewRequest(request))
+	if err != nil {
+		t.Fatalf(
+			"Pull Forward with expected revision %d: %v",
+			request.GetExpectedLiveStateRevision(), err,
+		)
+	}
+	if pulled.Msg.GetState().GetLifecycle() !=
+		sessionv1.SessionLifecycle_SESSION_LIFECYCLE_ENDED ||
+		pulled.Msg.GetState().GetLiveStateRevision() !=
+			ended.Msg.GetState().GetLiveStateRevision() ||
+		len(pulled.Msg.GetChanges()) != 1 ||
+		pulled.Msg.GetChanges()[0].GetSessionId() != rippleSessionID {
+		t.Fatalf("Pull Forward result = %+v", pulled.Msg)
+	}
+	retried, err := client.PullForward(t.Context(), connect.NewRequest(request))
+	if err != nil || !proto.Equal(retried.Msg, pulled.Msg) {
+		t.Fatalf("exact Pull Forward retry = %+v, %v", retried, err)
 	}
 	server.stop(t)
 }

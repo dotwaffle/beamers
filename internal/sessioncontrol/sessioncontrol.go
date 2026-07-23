@@ -42,6 +42,10 @@ var (
 	ErrTargetConfirmation = store.ErrTargetConfirmation
 	// ErrHardBoundaryConfirmation means a Hard Boundary override was not explicitly confirmed.
 	ErrHardBoundaryConfirmation = store.ErrHardBoundaryConfirmation
+	// ErrPullForwardPreviewStale means timing changed after the Operator's preview.
+	ErrPullForwardPreviewStale = store.ErrPullForwardPreviewStale
+	// ErrPullForwardConfirmation means Pull Forward lacked explicit confirmation.
+	ErrPullForwardConfirmation = store.ErrPullForwardConfirmation
 	// ErrPresetNotConfigured means a preset is not part of the Event configuration.
 	ErrPresetNotConfigured = sessiontarget.ErrPresetNotConfigured
 	// ErrTargetBeforeNow directs the Operator to End Now instead.
@@ -93,9 +97,13 @@ type AdjustTargetInput struct {
 
 // TargetEffect is one downstream overlap exposed before confirmation.
 type TargetEffect struct {
-	SessionID       int
-	CurrentOverlap  time.Duration
-	ProposedOverlap time.Duration
+	SessionID             int
+	CurrentForecastStart  time.Time
+	CurrentForecastEnd    time.Time
+	ProposedForecastStart time.Time
+	ProposedForecastEnd   time.Time
+	CurrentOverlap        time.Duration
+	ProposedOverlap       time.Duration
 }
 
 // TargetPreview is the complete current Adjust Target decision.
@@ -115,6 +123,43 @@ type TargetAdjustmentResult struct {
 	ForecastEnd time.Time
 	Adjustment  time.Duration
 	AdjustedAt  time.Time
+	Changes     []ForecastChange
+}
+
+// ForecastChange is one committed Session Forecast interval.
+type ForecastChange struct {
+	SessionID     int
+	ForecastStart time.Time
+	ForecastEnd   time.Time
+}
+
+// PreviewPullForwardInput requests a read-only early-finish recalculation.
+type PreviewPullForwardInput struct {
+	EventID   int
+	SessionID int
+}
+
+// PullForwardInput confirms one exact early-finish preview.
+type PullForwardInput struct {
+	EventID                   int    `json:"event_id"`
+	SessionID                 int    `json:"session_id"`
+	CommandID                 string `json:"command_id"`
+	ExpectedLiveStateRevision int    `json:"expected_live_state_revision"`
+	PreviewFingerprint        string `json:"preview_fingerprint"`
+	Confirmed                 bool   `json:"confirmed"`
+}
+
+// PullForwardPreview is the complete current early-finish decision.
+type PullForwardPreview struct {
+	Effects     []TargetEffect
+	Changes     []ForecastChange
+	Fingerprint string
+}
+
+// PullForwardResult is one committed early-finish recalculation.
+type PullForwardResult struct {
+	State   State
+	Changes []ForecastChange
 }
 
 // CorrectLiveDetailsInput is one confirmed descriptive correction.
@@ -317,13 +362,18 @@ func (service *Service) AdjustTarget(
 		Replay: func(outcome string) (TargetAdjustmentResult, error) {
 			var stored store.SessionTargetAdjustment
 			if decodeErr := store.DecodeCommandReceipt(outcome, &stored); decodeErr != nil {
-				return TargetAdjustmentResult{}, restoreTargetRejection(decodeErr)
+				return TargetAdjustmentResult{}, restoreTimingRejection(
+					decodeErr, "adjust target unavailable",
+				)
 			}
 			return targetAdjustmentResult(stored), nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[TargetAdjustmentResult], error) {
 			if !actor.CanOperateEvent(input.EventID) {
-				return targetRejection(TargetAdjustmentResult{}, store.SessionTargetAdjustment{}, "operator_required", ErrOperatorRequired)
+				return timingCommandRejection(
+					TargetAdjustmentResult{}, State{}, store.LiveSessionState{},
+					"operator_required", ErrOperatorRequired,
+				)
 			}
 			stored, adjustErr := transaction.AdjustSessionTarget(
 				actor.Context(ctx),
@@ -340,17 +390,98 @@ func (service *Service) AdjustTarget(
 				},
 			)
 			if adjustErr != nil {
-				code, rejected := targetRejectionCode(adjustErr)
+				code, rejected := timingRejectionCode(adjustErr)
 				if !rejected {
 					return command.Execution[TargetAdjustmentResult]{}, adjustErr
 				}
-				return targetRejection(targetAdjustmentResult(stored), stored, code, adjustErr)
+				current := targetAdjustmentResult(stored)
+				return timingCommandRejection(
+					current, current.State, stored.State, code, adjustErr,
+				)
 			}
 			encoded, encodeErr := json.Marshal(stored)
 			if encodeErr != nil {
 				return command.Execution[TargetAdjustmentResult]{}, errors.New("encode Adjust Target outcome")
 			}
 			return command.Success(targetAdjustmentResult(stored), string(encoded)), nil
+		},
+	})
+}
+
+// PreviewPullForward returns eligible later Soft-Boundary movement without mutation.
+func (service *Service) PreviewPullForward(
+	ctx context.Context,
+	actor auth.Account,
+	input PreviewPullForwardInput,
+) (PullForwardPreview, error) {
+	if !actor.CanOperateEvent(input.EventID) {
+		return PullForwardPreview{}, ErrOperatorRequired
+	}
+	found, err := service.storage.PreviewPullForward(
+		actor.Context(ctx), input.EventID, input.SessionID,
+	)
+	if err != nil {
+		return PullForwardPreview{}, err
+	}
+	return pullForwardPreview(found), nil
+}
+
+// PullForward revalidates and atomically commits one early-finish preview.
+func (service *Service) PullForward(
+	ctx context.Context,
+	actor auth.Account,
+	input PullForwardInput,
+) (PullForwardResult, error) {
+	if err := command.ValidateID(input.CommandID); err != nil {
+		return PullForwardResult{}, err
+	}
+	payload, err := json.Marshal(input)
+	if err != nil {
+		return PullForwardResult{}, errors.New("encode Pull Forward command")
+	}
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID, CommandID: input.CommandID,
+		PayloadHash: command.PayloadHash(string(payload)), Action: "PullForward",
+		TargetType: "Session", TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
+	}
+	return command.Execute(actor.Context(ctx), command.Plan[PullForwardResult]{
+		Storage: service.storage, Identity: identity,
+		Replay: func(outcome string) (PullForwardResult, error) {
+			var stored store.PullForwardAdjustment
+			if decodeErr := store.DecodeCommandReceipt(outcome, &stored); decodeErr != nil {
+				return PullForwardResult{}, restoreTimingRejection(
+					decodeErr, "pull forward unavailable",
+				)
+			}
+			return pullForwardResult(stored), nil
+		},
+		Apply: func(transaction *store.CommandTx) (command.Execution[PullForwardResult], error) {
+			if !actor.CanOperateEvent(input.EventID) {
+				return timingCommandRejection(
+					PullForwardResult{}, State{}, store.LiveSessionState{},
+					"operator_required", ErrOperatorRequired,
+				)
+			}
+			stored, pullErr := transaction.PullForward(actor.Context(ctx), store.PullForwardParams{
+				EventID: input.EventID, SessionID: input.SessionID,
+				ExpectedRevision:   input.ExpectedLiveStateRevision,
+				PreviewFingerprint: input.PreviewFingerprint, Confirmed: input.Confirmed,
+			})
+			if pullErr != nil {
+				code, rejected := timingRejectionCode(pullErr)
+				if !rejected {
+					return command.Execution[PullForwardResult]{}, pullErr
+				}
+				current := pullForwardResult(stored)
+				return timingCommandRejection(
+					current, current.State, stored.State, code, pullErr,
+				)
+			}
+			encoded, encodeErr := json.Marshal(stored)
+			if encodeErr != nil {
+				return command.Execution[PullForwardResult]{}, errors.New("encode Pull Forward outcome")
+			}
+			return command.Success(pullForwardResult(stored), string(encoded)), nil
 		},
 	})
 }
@@ -497,41 +628,88 @@ func targetPreview(stored store.SessionTargetPreview) TargetPreview {
 	}
 	for _, effect := range stored.Result.Effects {
 		result.Effects = append(result.Effects, TargetEffect{
-			SessionID: effect.SessionID, CurrentOverlap: effect.CurrentOverlap,
-			ProposedOverlap: effect.ProposedOverlap,
+			SessionID:             effect.SessionID,
+			CurrentForecastStart:  effect.CurrentForecastStart,
+			CurrentForecastEnd:    effect.CurrentForecastEnd,
+			ProposedForecastStart: effect.ProposedForecastStart,
+			ProposedForecastEnd:   effect.ProposedForecastEnd,
+			CurrentOverlap:        effect.CurrentOverlap, ProposedOverlap: effect.ProposedOverlap,
 		})
 	}
 	return result
 }
 
 func targetAdjustmentResult(stored store.SessionTargetAdjustment) TargetAdjustmentResult {
-	return TargetAdjustmentResult{
+	result := TargetAdjustmentResult{
 		State: state(stored.State), ForecastEnd: stored.ForecastEnd,
 		Adjustment: stored.Adjustment, AdjustedAt: stored.AdjustedAt,
 	}
+	result.Changes = forecastChanges(stored.Changes)
+	return result
 }
 
-func targetRejection(
-	current TargetAdjustmentResult,
-	stored store.SessionTargetAdjustment,
+func pullForwardPreview(stored store.PullForwardPreview) PullForwardPreview {
+	result := PullForwardPreview{Fingerprint: stored.Result.Fingerprint}
+	for _, effect := range stored.Result.Effects {
+		result.Effects = append(result.Effects, TargetEffect{
+			SessionID:             effect.SessionID,
+			CurrentForecastStart:  effect.CurrentForecastStart,
+			CurrentForecastEnd:    effect.CurrentForecastEnd,
+			ProposedForecastStart: effect.ProposedForecastStart,
+			ProposedForecastEnd:   effect.ProposedForecastEnd,
+			CurrentOverlap:        effect.CurrentOverlap, ProposedOverlap: effect.ProposedOverlap,
+		})
+	}
+	for _, change := range stored.Result.Changes {
+		result.Changes = append(result.Changes, ForecastChange{
+			SessionID: change.SessionID, ForecastStart: change.ForecastStart,
+			ForecastEnd: change.ForecastEnd,
+		})
+	}
+	return result
+}
+
+func pullForwardResult(stored store.PullForwardAdjustment) PullForwardResult {
+	return PullForwardResult{
+		State: state(stored.State), Changes: forecastChanges(stored.Changes),
+	}
+}
+
+func forecastChanges(stored []store.ForecastChange) []ForecastChange {
+	result := make([]ForecastChange, 0, len(stored))
+	for _, change := range stored {
+		result = append(result, ForecastChange{
+			SessionID: change.SessionID, ForecastStart: change.ForecastStart,
+			ForecastEnd: change.ForecastEnd,
+		})
+	}
+	return result
+}
+
+func timingCommandRejection[T any](
+	current T,
+	currentState State,
+	storedState store.LiveSessionState,
 	code string,
 	reason error,
-) (command.Execution[TargetAdjustmentResult], error) {
+) (command.Execution[T], error) {
 	rejection := store.CommandRejection{Code: code, Message: reason.Error()}
 	returnErr := reason
 	if errors.Is(reason, ErrLiveStateRevisionConflict) {
-		encoded, err := json.Marshal(stored.State)
+		encoded, err := json.Marshal(storedState)
 		if err != nil {
-			return command.Execution[TargetAdjustmentResult]{}, errors.Join(reason, errors.New("encode stale Session state"))
+			return command.Execution[T]{}, errors.Join(
+				reason, errors.New("encode stale Session state"),
+			)
 		}
 		rejection.Details = encoded
-		returnErr = &RevisionConflictError{Current: current.State}
+		returnErr = &RevisionConflictError{Current: currentState}
 	}
 	return command.Reject(current, rejection, returnErr), nil
 }
 
-func targetRejectionCode(err error) (string, bool) {
-	for _, rejection := range targetRejections {
+func timingRejectionCode(err error) (string, bool) {
+	for _, rejection := range timingRejections {
 		if errors.Is(err, rejection.err) {
 			return rejection.code, true
 		}
@@ -539,14 +717,15 @@ func targetRejectionCode(err error) (string, bool) {
 	return "", false
 }
 
-func restoreTargetRejection(err error) error {
+func restoreTimingRejection(err error, unavailable string) error {
 	var rejected *store.RejectedCommandError
 	if !errors.As(err, &rejected) {
 		return err
 	}
-	for _, rejection := range targetRejections {
+	for _, rejection := range timingRejections {
 		if rejected.Rejection.Code == rejection.code {
-			if errors.Is(rejection.err, ErrLiveStateRevisionConflict) && len(rejected.Rejection.Details) > 0 {
+			if errors.Is(rejection.err, ErrLiveStateRevisionConflict) &&
+				len(rejected.Rejection.Details) > 0 {
 				var current store.LiveSessionState
 				if decodeErr := json.Unmarshal(rejected.Rejection.Details, &current); decodeErr != nil {
 					return errors.Join(rejection.err, decodeErr)
@@ -556,10 +735,10 @@ func restoreTargetRejection(err error) error {
 			return rejection.err
 		}
 	}
-	return errors.New("adjust target unavailable")
+	return errors.New(unavailable)
 }
 
-var targetRejections = []struct {
+var timingRejections = []struct {
 	err  error
 	code string
 }{
@@ -575,6 +754,8 @@ var targetRejections = []struct {
 	{ErrPresetNotConfigured, "preset_not_configured"},
 	{ErrTargetBeforeNow, "target_before_now"},
 	{ErrNoCountdownTarget, "no_countdown_target"},
+	{ErrPullForwardPreviewStale, "pull_forward_preview_stale"},
+	{ErrPullForwardConfirmation, "pull_forward_confirmation_required"},
 }
 
 func correctionRejection(

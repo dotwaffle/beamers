@@ -14,6 +14,8 @@ service SessionControlService {
   rpc EndSession(EndSessionRequest) returns (EndSessionResponse);
   rpc PreviewAdjustTarget(PreviewAdjustTargetRequest) returns (PreviewAdjustTargetResponse);
   rpc AdjustTarget(AdjustTargetRequest) returns (AdjustTargetResponse);
+  rpc PreviewPullForward(PreviewPullForwardRequest) returns (PreviewPullForwardResponse);
+  rpc PullForward(PullForwardRequest) returns (PullForwardResponse);
   rpc CorrectLiveDetails(CorrectLiveDetailsRequest) returns (CorrectLiveDetailsResponse);
   rpc GetSessionHistory(GetSessionHistoryRequest) returns (GetSessionHistoryResponse);
 }
@@ -63,6 +65,20 @@ message AdjustTargetRequest {
   bool hard_boundary_confirmed = 9;
 }
 
+message PreviewPullForwardRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+}
+
+message PullForwardRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  string command_id = 3;
+  optional int64 expected_live_state_revision = 4;
+  string preview_fingerprint = 5;
+  bool confirmed = 6;
+}
+
 message CorrectLiveDetailsRequest {
   int64 event_id = 1;
   int64 session_id = 2;
@@ -92,6 +108,16 @@ message TargetEffect {
   int64 session_id = 1;
   google.protobuf.Duration current_overlap = 2;
   google.protobuf.Duration proposed_overlap = 3;
+  google.protobuf.Timestamp current_forecast_start = 4;
+  google.protobuf.Timestamp current_forecast_end = 5;
+  google.protobuf.Timestamp proposed_forecast_start = 6;
+  google.protobuf.Timestamp proposed_forecast_end = 7;
+}
+
+message ForecastChange {
+  int64 session_id = 1;
+  google.protobuf.Timestamp forecast_start = 2;
+  google.protobuf.Timestamp forecast_end = 3;
 }
 
 message PreviewAdjustTargetResponse {
@@ -109,6 +135,18 @@ message AdjustTargetResponse {
   google.protobuf.Timestamp forecast_end = 2;
   google.protobuf.Duration adjustment = 3;
   google.protobuf.Timestamp adjusted_at = 4;
+  repeated ForecastChange changes = 5;
+}
+
+message PreviewPullForwardResponse {
+  repeated TargetEffect effects = 1;
+  repeated ForecastChange changes = 2;
+  string preview_fingerprint = 3;
+}
+
+message PullForwardResponse {
+  SessionState state = 1;
+  repeated ForecastChange changes = 2;
 }
 
 message CorrectLiveDetailsResponse {

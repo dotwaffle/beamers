@@ -45,6 +45,12 @@ const (
 	// SessionControlServiceAdjustTargetProcedure is the fully-qualified name of the
 	// SessionControlService's AdjustTarget RPC.
 	SessionControlServiceAdjustTargetProcedure = "/beamers.session.v1.SessionControlService/AdjustTarget"
+	// SessionControlServicePreviewPullForwardProcedure is the fully-qualified name of the
+	// SessionControlService's PreviewPullForward RPC.
+	SessionControlServicePreviewPullForwardProcedure = "/beamers.session.v1.SessionControlService/PreviewPullForward"
+	// SessionControlServicePullForwardProcedure is the fully-qualified name of the
+	// SessionControlService's PullForward RPC.
+	SessionControlServicePullForwardProcedure = "/beamers.session.v1.SessionControlService/PullForward"
 	// SessionControlServiceCorrectLiveDetailsProcedure is the fully-qualified name of the
 	// SessionControlService's CorrectLiveDetails RPC.
 	SessionControlServiceCorrectLiveDetailsProcedure = "/beamers.session.v1.SessionControlService/CorrectLiveDetails"
@@ -59,6 +65,8 @@ type SessionControlServiceClient interface {
 	EndSession(context.Context, *connect.Request[v1.EndSessionRequest]) (*connect.Response[v1.EndSessionResponse], error)
 	PreviewAdjustTarget(context.Context, *connect.Request[v1.PreviewAdjustTargetRequest]) (*connect.Response[v1.PreviewAdjustTargetResponse], error)
 	AdjustTarget(context.Context, *connect.Request[v1.AdjustTargetRequest]) (*connect.Response[v1.AdjustTargetResponse], error)
+	PreviewPullForward(context.Context, *connect.Request[v1.PreviewPullForwardRequest]) (*connect.Response[v1.PreviewPullForwardResponse], error)
+	PullForward(context.Context, *connect.Request[v1.PullForwardRequest]) (*connect.Response[v1.PullForwardResponse], error)
 	CorrectLiveDetails(context.Context, *connect.Request[v1.CorrectLiveDetailsRequest]) (*connect.Response[v1.CorrectLiveDetailsResponse], error)
 	GetSessionHistory(context.Context, *connect.Request[v1.GetSessionHistoryRequest]) (*connect.Response[v1.GetSessionHistoryResponse], error)
 }
@@ -98,6 +106,18 @@ func NewSessionControlServiceClient(httpClient connect.HTTPClient, baseURL strin
 			connect.WithSchema(sessionControlServiceMethods.ByName("AdjustTarget")),
 			connect.WithClientOptions(opts...),
 		),
+		previewPullForward: connect.NewClient[v1.PreviewPullForwardRequest, v1.PreviewPullForwardResponse](
+			httpClient,
+			baseURL+SessionControlServicePreviewPullForwardProcedure,
+			connect.WithSchema(sessionControlServiceMethods.ByName("PreviewPullForward")),
+			connect.WithClientOptions(opts...),
+		),
+		pullForward: connect.NewClient[v1.PullForwardRequest, v1.PullForwardResponse](
+			httpClient,
+			baseURL+SessionControlServicePullForwardProcedure,
+			connect.WithSchema(sessionControlServiceMethods.ByName("PullForward")),
+			connect.WithClientOptions(opts...),
+		),
 		correctLiveDetails: connect.NewClient[v1.CorrectLiveDetailsRequest, v1.CorrectLiveDetailsResponse](
 			httpClient,
 			baseURL+SessionControlServiceCorrectLiveDetailsProcedure,
@@ -119,6 +139,8 @@ type sessionControlServiceClient struct {
 	endSession          *connect.Client[v1.EndSessionRequest, v1.EndSessionResponse]
 	previewAdjustTarget *connect.Client[v1.PreviewAdjustTargetRequest, v1.PreviewAdjustTargetResponse]
 	adjustTarget        *connect.Client[v1.AdjustTargetRequest, v1.AdjustTargetResponse]
+	previewPullForward  *connect.Client[v1.PreviewPullForwardRequest, v1.PreviewPullForwardResponse]
+	pullForward         *connect.Client[v1.PullForwardRequest, v1.PullForwardResponse]
 	correctLiveDetails  *connect.Client[v1.CorrectLiveDetailsRequest, v1.CorrectLiveDetailsResponse]
 	getSessionHistory   *connect.Client[v1.GetSessionHistoryRequest, v1.GetSessionHistoryResponse]
 }
@@ -143,6 +165,16 @@ func (c *sessionControlServiceClient) AdjustTarget(ctx context.Context, req *con
 	return c.adjustTarget.CallUnary(ctx, req)
 }
 
+// PreviewPullForward calls beamers.session.v1.SessionControlService.PreviewPullForward.
+func (c *sessionControlServiceClient) PreviewPullForward(ctx context.Context, req *connect.Request[v1.PreviewPullForwardRequest]) (*connect.Response[v1.PreviewPullForwardResponse], error) {
+	return c.previewPullForward.CallUnary(ctx, req)
+}
+
+// PullForward calls beamers.session.v1.SessionControlService.PullForward.
+func (c *sessionControlServiceClient) PullForward(ctx context.Context, req *connect.Request[v1.PullForwardRequest]) (*connect.Response[v1.PullForwardResponse], error) {
+	return c.pullForward.CallUnary(ctx, req)
+}
+
 // CorrectLiveDetails calls beamers.session.v1.SessionControlService.CorrectLiveDetails.
 func (c *sessionControlServiceClient) CorrectLiveDetails(ctx context.Context, req *connect.Request[v1.CorrectLiveDetailsRequest]) (*connect.Response[v1.CorrectLiveDetailsResponse], error) {
 	return c.correctLiveDetails.CallUnary(ctx, req)
@@ -160,6 +192,8 @@ type SessionControlServiceHandler interface {
 	EndSession(context.Context, *connect.Request[v1.EndSessionRequest]) (*connect.Response[v1.EndSessionResponse], error)
 	PreviewAdjustTarget(context.Context, *connect.Request[v1.PreviewAdjustTargetRequest]) (*connect.Response[v1.PreviewAdjustTargetResponse], error)
 	AdjustTarget(context.Context, *connect.Request[v1.AdjustTargetRequest]) (*connect.Response[v1.AdjustTargetResponse], error)
+	PreviewPullForward(context.Context, *connect.Request[v1.PreviewPullForwardRequest]) (*connect.Response[v1.PreviewPullForwardResponse], error)
+	PullForward(context.Context, *connect.Request[v1.PullForwardRequest]) (*connect.Response[v1.PullForwardResponse], error)
 	CorrectLiveDetails(context.Context, *connect.Request[v1.CorrectLiveDetailsRequest]) (*connect.Response[v1.CorrectLiveDetailsResponse], error)
 	GetSessionHistory(context.Context, *connect.Request[v1.GetSessionHistoryRequest]) (*connect.Response[v1.GetSessionHistoryResponse], error)
 }
@@ -195,6 +229,18 @@ func NewSessionControlServiceHandler(svc SessionControlServiceHandler, opts ...c
 		connect.WithSchema(sessionControlServiceMethods.ByName("AdjustTarget")),
 		connect.WithHandlerOptions(opts...),
 	)
+	sessionControlServicePreviewPullForwardHandler := connect.NewUnaryHandler(
+		SessionControlServicePreviewPullForwardProcedure,
+		svc.PreviewPullForward,
+		connect.WithSchema(sessionControlServiceMethods.ByName("PreviewPullForward")),
+		connect.WithHandlerOptions(opts...),
+	)
+	sessionControlServicePullForwardHandler := connect.NewUnaryHandler(
+		SessionControlServicePullForwardProcedure,
+		svc.PullForward,
+		connect.WithSchema(sessionControlServiceMethods.ByName("PullForward")),
+		connect.WithHandlerOptions(opts...),
+	)
 	sessionControlServiceCorrectLiveDetailsHandler := connect.NewUnaryHandler(
 		SessionControlServiceCorrectLiveDetailsProcedure,
 		svc.CorrectLiveDetails,
@@ -217,6 +263,10 @@ func NewSessionControlServiceHandler(svc SessionControlServiceHandler, opts ...c
 			sessionControlServicePreviewAdjustTargetHandler.ServeHTTP(w, r)
 		case SessionControlServiceAdjustTargetProcedure:
 			sessionControlServiceAdjustTargetHandler.ServeHTTP(w, r)
+		case SessionControlServicePreviewPullForwardProcedure:
+			sessionControlServicePreviewPullForwardHandler.ServeHTTP(w, r)
+		case SessionControlServicePullForwardProcedure:
+			sessionControlServicePullForwardHandler.ServeHTTP(w, r)
 		case SessionControlServiceCorrectLiveDetailsProcedure:
 			sessionControlServiceCorrectLiveDetailsHandler.ServeHTTP(w, r)
 		case SessionControlServiceGetSessionHistoryProcedure:
@@ -244,6 +294,14 @@ func (UnimplementedSessionControlServiceHandler) PreviewAdjustTarget(context.Con
 
 func (UnimplementedSessionControlServiceHandler) AdjustTarget(context.Context, *connect.Request[v1.AdjustTargetRequest]) (*connect.Response[v1.AdjustTargetResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.session.v1.SessionControlService.AdjustTarget is not implemented"))
+}
+
+func (UnimplementedSessionControlServiceHandler) PreviewPullForward(context.Context, *connect.Request[v1.PreviewPullForwardRequest]) (*connect.Response[v1.PreviewPullForwardResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.session.v1.SessionControlService.PreviewPullForward is not implemented"))
+}
+
+func (UnimplementedSessionControlServiceHandler) PullForward(context.Context, *connect.Request[v1.PullForwardRequest]) (*connect.Response[v1.PullForwardResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.session.v1.SessionControlService.PullForward is not implemented"))
 }
 
 func (UnimplementedSessionControlServiceHandler) CorrectLiveDetails(context.Context, *connect.Request[v1.CorrectLiveDetailsRequest]) (*connect.Response[v1.CorrectLiveDetailsResponse], error) {

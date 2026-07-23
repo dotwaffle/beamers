@@ -1,11 +1,9 @@
 package store
 
 import (
-	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
-	"slices"
 	"time"
 
 	"entgo.io/ent/privacy"
@@ -29,8 +27,9 @@ var (
 
 // SessionTargetPreview is one authoritative target-adjustment preview.
 type SessionTargetPreview struct {
-	Result  sessiontarget.Result
-	Presets []time.Duration
+	Result    sessiontarget.Result
+	Presets   []time.Duration
+	Revisions map[int]int
 }
 
 // AdjustSessionTargetParams identifies one confirmed target adjustment.
@@ -51,6 +50,14 @@ type SessionTargetAdjustment struct {
 	ForecastEnd time.Time        `json:"forecast_end"`
 	Adjustment  time.Duration    `json:"adjustment"`
 	AdjustedAt  time.Time        `json:"adjusted_at"`
+	Changes     []ForecastChange `json:"changes"`
+}
+
+// ForecastChange is one atomically committed Session Forecast.
+type ForecastChange struct {
+	SessionID     int       `json:"session_id"`
+	ForecastStart time.Time `json:"forecast_start"`
+	ForecastEnd   time.Time `json:"forecast_end"`
 }
 
 // PreviewSessionTarget loads current live and shared-resource downstream timing.
@@ -106,20 +113,39 @@ func (transaction *CommandTx) AdjustSessionTarget(
 		}
 		return SessionTargetAdjustment{State: state}, ErrLiveStateRevisionConflict
 	}
-	updated, err := transaction.transaction.Session.UpdateOneID(params.SessionID).
-		Where(
-			session.EventIDEQ(params.EventID),
-			session.LiveStateRevisionEQ(params.ExpectedRevision),
-			session.LifecycleEQ(session.LifecycleLive),
-		).
-		SetForecastEnd(preview.Result.ProposedTarget).
-		AddLiveStateRevision(1).
-		Save(ctx)
-	if ent.IsNotFound(err) {
-		return SessionTargetAdjustment{}, ErrLiveStateRevisionConflict
+	var updated *ent.Session
+	changes := make([]ForecastChange, 0, len(preview.Result.Changes))
+	for _, change := range preview.Result.Changes {
+		expectedRevision, ok := preview.Revisions[change.SessionID]
+		if !ok {
+			return SessionTargetAdjustment{}, errors.New("adjust target plan omitted a Session revision")
+		}
+		found, updateErr := transaction.transaction.Session.UpdateOneID(change.SessionID).
+			Where(
+				session.EventIDEQ(params.EventID),
+				session.LiveStateRevisionEQ(expectedRevision),
+				session.LifecycleNotIn(session.LifecycleEnded, session.LifecycleCanceled),
+			).
+			SetForecastStart(change.ForecastStart).
+			SetForecastEnd(change.ForecastEnd).
+			AddLiveStateRevision(1).
+			Save(ctx)
+		if ent.IsNotFound(updateErr) {
+			return SessionTargetAdjustment{}, ErrTargetPreviewStale
+		}
+		if updateErr != nil {
+			return SessionTargetAdjustment{}, opaqueError("apply Session timing ripple", updateErr)
+		}
+		if change.SessionID == params.SessionID {
+			updated = found
+		}
+		changes = append(changes, ForecastChange{
+			SessionID: change.SessionID, ForecastStart: change.ForecastStart,
+			ForecastEnd: change.ForecastEnd,
+		})
 	}
-	if err != nil {
-		return SessionTargetAdjustment{}, opaqueError("adjust Session target", err)
+	if updated == nil {
+		return SessionTargetAdjustment{}, errors.New("adjust target plan omitted the target Session")
 	}
 	run, err := transaction.transaction.SessionRun.Query().Where(
 		sessionrun.SessionIDEQ(params.SessionID), sessionrun.ActualEndIsNil(),
@@ -142,6 +168,7 @@ func (transaction *CommandTx) AdjustSessionTarget(
 		ForecastEnd: preview.Result.ProposedTarget,
 		Adjustment:  params.Adjustment.Duration,
 		AdjustedAt:  params.Now,
+		Changes:     changes,
 	}, nil
 }
 
@@ -192,10 +219,6 @@ func previewSessionTarget(
 	if currentTarget.IsZero() {
 		currentTarget = initialForecastEnd(snapshot, run.ActualStart)
 	}
-	currentStart := identity.ForecastStart
-	if currentStart.IsZero() {
-		currentStart = run.ActualStart
-	}
 	foundEvent, err := client.Event.Query().Where(event.IDEQ(eventID)).Only(ctx)
 	if err != nil {
 		return SessionTargetPreview{}, opaqueError("load Adjust Target presets", err)
@@ -209,53 +232,24 @@ func previewSessionTarget(
 		presets[index] = time.Duration(seconds) * time.Second
 	}
 	internalContext := systemContext(ctx)
-	published, err := loadCrewRundown(internalContext, client, eventID)
+	timing, err := loadTimingState(internalContext, client, eventID, sessionID)
 	if err != nil {
 		return SessionTargetPreview{}, err
 	}
-	downstream := make([]sessiontarget.DownstreamSession, 0)
-	for _, item := range published.Sessions {
-		if item.ID == sessionID || !sharesResource(
-			item.LaneIDs, item.LocationIDs, snapshot.LaneIDs, snapshot.LocationIDs,
-		) {
-			continue
-		}
-		found, queryErr := client.Session.Get(internalContext, item.ID)
-		if queryErr != nil {
-			return SessionTargetPreview{}, opaqueError("load downstream Session timing", queryErr)
-		}
-		if found.Lifecycle == session.LifecycleEnded ||
-			found.Lifecycle == session.LifecycleCanceled {
-			continue
-		}
-		start, end := item.PlannedStart, item.PlannedEnd
-		if !found.ForecastStart.IsZero() {
-			start = found.ForecastStart
-		}
-		if !found.ForecastEnd.IsZero() {
-			end = found.ForecastEnd
-		}
-		if start.Before(currentStart) {
-			continue
-		}
-		downstream = append(downstream, sessiontarget.DownstreamSession{
-			SessionID: item.ID, ForecastStart: start, ForecastEnd: end,
-			StartBoundary: item.StartBoundary,
-		})
-	}
-	slices.SortFunc(downstream, func(first, second sessiontarget.DownstreamSession) int {
-		if order := first.ForecastStart.Compare(second.ForecastStart); order != 0 {
-			return order
-		}
-		return cmp.Compare(first.SessionID, second.SessionID)
-	})
 	result, err := sessiontarget.Preview(sessiontarget.State{
 		SessionID: sessionID, Revision: identity.LiveStateRevision,
 		CurrentTarget: currentTarget, EndBoundary: snapshot.EndBoundary,
 		TimingPolicy: snapshot.TimingPolicy,
-		Presets:      presets, Downstream: downstream,
+		Presets:      presets, Timing: timing.Sessions,
 	}, adjustment, now)
-	return SessionTargetPreview{Result: result, Presets: presets}, err
+	if err == nil {
+		if scopeErr := requireSessionLaneScope(
+			ctx, eventID, timing.affectedLaneIDs(result.Changes),
+		); scopeErr != nil {
+			return SessionTargetPreview{}, scopeErr
+		}
+	}
+	return SessionTargetPreview{Result: result, Presets: presets, Revisions: timing.Revisions}, err
 }
 
 func initialForecastEnd(snapshot SessionRunSnapshot, actualStart time.Time) time.Time {
@@ -263,17 +257,4 @@ func initialForecastEnd(snapshot SessionRunSnapshot, actualStart time.Time) time
 		return snapshot.PlannedEnd
 	}
 	return actualStart.Add(snapshot.PlannedEnd.Sub(snapshot.PlannedStart))
-}
-
-func sharesID(first, second []int) bool {
-	for _, value := range first {
-		if slices.Contains(second, value) {
-			return true
-		}
-	}
-	return false
-}
-
-func sharesResource(lanes, locations, currentLanes, currentLocations []int) bool {
-	return sharesID(lanes, currentLanes) || sharesID(locations, currentLocations)
 }

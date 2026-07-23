@@ -156,11 +156,7 @@ func (handler *Handler) PreviewAdjustTarget(
 		PreviewFingerprint:               result.Fingerprint,
 	}
 	for _, effect := range result.Effects {
-		response.Effects = append(response.Effects, &sessionv1.TargetEffect{
-			SessionId:       int64(effect.SessionID),
-			CurrentOverlap:  durationpb.New(effect.CurrentOverlap),
-			ProposedOverlap: durationpb.New(effect.ProposedOverlap),
-		})
+		response.Effects = append(response.Effects, targetEffect(effect))
 	}
 	for _, preset := range result.ConfiguredPresets {
 		response.ConfiguredPresets = append(response.ConfiguredPresets, durationpb.New(preset))
@@ -193,10 +189,68 @@ func (handler *Handler) AdjustTarget(
 		return nil, err
 	}
 	handler.notifyDisplays()
-	return connect.NewResponse(&sessionv1.AdjustTargetResponse{
+	response := &sessionv1.AdjustTargetResponse{
 		State: sessionState(result.State), ForecastEnd: timestamppb.New(result.ForecastEnd),
 		Adjustment: durationpb.New(result.Adjustment), AdjustedAt: timestamppb.New(result.AdjustedAt),
-	}), nil
+	}
+	for _, change := range result.Changes {
+		response.Changes = append(response.Changes, forecastChange(change))
+	}
+	return connect.NewResponse(response), nil
+}
+
+// PreviewPullForward returns eligible later Soft-Boundary movement without mutation.
+func (handler *Handler) PreviewPullForward(
+	ctx context.Context,
+	request *connect.Request[sessionv1.PreviewPullForwardRequest],
+) (*connect.Response[sessionv1.PreviewPullForwardResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result, err := handler.service.PreviewPullForward(ctx, actor, sessioncontrol.PreviewPullForwardInput{
+		EventID: int(request.Msg.GetEventId()), SessionID: int(request.Msg.GetSessionId()),
+	})
+	if err != nil {
+		return nil, err
+	}
+	response := &sessionv1.PreviewPullForwardResponse{
+		PreviewFingerprint: result.Fingerprint,
+	}
+	for _, effect := range result.Effects {
+		response.Effects = append(response.Effects, targetEffect(effect))
+	}
+	for _, change := range result.Changes {
+		response.Changes = append(response.Changes, forecastChange(change))
+	}
+	return connect.NewResponse(response), nil
+}
+
+// PullForward confirms and commits one freshly previewed early-finish recalculation.
+func (handler *Handler) PullForward(
+	ctx context.Context,
+	request *connect.Request[sessionv1.PullForwardRequest],
+) (*connect.Response[sessionv1.PullForwardResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result, err := handler.service.PullForward(ctx, actor, sessioncontrol.PullForwardInput{
+		EventID: int(request.Msg.GetEventId()), SessionID: int(request.Msg.GetSessionId()),
+		CommandID:                 request.Msg.GetCommandId(),
+		ExpectedLiveStateRevision: int(request.Msg.GetExpectedLiveStateRevision()),
+		PreviewFingerprint:        request.Msg.GetPreviewFingerprint(),
+		Confirmed:                 request.Msg.GetConfirmed(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	response := &sessionv1.PullForwardResponse{State: sessionState(result.State)}
+	for _, change := range result.Changes {
+		response.Changes = append(response.Changes, forecastChange(change))
+	}
+	handler.notifyDisplays()
+	return connect.NewResponse(response), nil
 }
 
 func validateRequest(message any) error {
@@ -263,6 +317,32 @@ func validateRequest(message any) error {
 			return errors.New("preview_fingerprint is required")
 		}
 		return validateTargetAdjustment(request.GetPreset(), request.GetCustom())
+	case *sessionv1.PreviewPullForwardRequest:
+		if err := positiveID(request.GetEventId(), "event_id"); err != nil {
+			return err
+		}
+		return positiveID(request.GetSessionId(), "session_id")
+	case *sessionv1.PullForwardRequest:
+		if err := positiveID(request.GetEventId(), "event_id"); err != nil {
+			return err
+		}
+		if err := positiveID(request.GetSessionId(), "session_id"); err != nil {
+			return err
+		}
+		if err := command.ValidateID(request.GetCommandId()); err != nil {
+			return err
+		}
+		if request.ExpectedLiveStateRevision == nil {
+			return errors.New("expected_live_state_revision is required")
+		}
+		if request.GetExpectedLiveStateRevision() < 0 ||
+			request.GetExpectedLiveStateRevision() > math.MaxInt {
+			return errors.New("expected_live_state_revision must be a supported non-negative integer")
+		}
+		if request.GetPreviewFingerprint() == "" {
+			return errors.New("preview_fingerprint is required")
+		}
+		return nil
 	case *sessionv1.CorrectLiveDetailsRequest:
 		if err := positiveID(request.GetEventId(), "event_id"); err != nil {
 			return err
@@ -458,6 +538,25 @@ func sessionState(found sessioncontrol.State) *sessionv1.SessionState {
 	return result
 }
 
+func targetEffect(found sessioncontrol.TargetEffect) *sessionv1.TargetEffect {
+	return &sessionv1.TargetEffect{
+		SessionId:             int64(found.SessionID),
+		CurrentOverlap:        durationpb.New(found.CurrentOverlap),
+		ProposedOverlap:       durationpb.New(found.ProposedOverlap),
+		CurrentForecastStart:  timestamppb.New(found.CurrentForecastStart),
+		CurrentForecastEnd:    timestamppb.New(found.CurrentForecastEnd),
+		ProposedForecastStart: timestamppb.New(found.ProposedForecastStart),
+		ProposedForecastEnd:   timestamppb.New(found.ProposedForecastEnd),
+	}
+}
+
+func forecastChange(found sessioncontrol.ForecastChange) *sessionv1.ForecastChange {
+	return &sessionv1.ForecastChange{
+		SessionId: int64(found.SessionID), ForecastStart: timestamppb.New(found.ForecastStart),
+		ForecastEnd: timestamppb.New(found.ForecastEnd),
+	}
+}
+
 func lifecycle(value string) sessionv1.SessionLifecycle {
 	switch value {
 	case "Scheduled":
@@ -509,6 +608,10 @@ func connectError(err error) error {
 	case errors.Is(err, sessioncontrol.ErrTargetConfirmation):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, sessioncontrol.ErrHardBoundaryConfirmation):
+		return connect.NewError(connect.CodeFailedPrecondition, err)
+	case errors.Is(err, sessioncontrol.ErrPullForwardPreviewStale):
+		return connect.NewError(connect.CodeAborted, err)
+	case errors.Is(err, sessioncontrol.ErrPullForwardConfirmation):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, sessioncontrol.ErrEventNotActive):
 		return connect.NewError(connect.CodeFailedPrecondition, err)

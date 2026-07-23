@@ -62,6 +62,35 @@ func AllowSessionRunUpdates(ctx context.Context, path string) error {
 	})
 }
 
+// FailSessionForecastUpdate installs a test-only trigger for one Session.
+func FailSessionForecastUpdate(ctx context.Context, path string, sessionID int64) error {
+	if sessionID <= 0 {
+		return errors.New("session ID must be positive")
+	}
+	return mutateSchema(path, func(database *sql.DB) error {
+		statement := fmt.Sprintf(`CREATE TRIGGER fail_session_forecast_update
+BEFORE UPDATE OF forecast_start, forecast_end ON sessions
+WHEN OLD.id = %d
+BEGIN
+	SELECT RAISE(FAIL, 'forced Session Forecast update failure');
+END`, sessionID)
+		if _, err := database.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("install Session Forecast failure trigger: %w", err)
+		}
+		return nil
+	})
+}
+
+// AllowSessionForecastUpdates removes the test-only Forecast failure trigger.
+func AllowSessionForecastUpdates(ctx context.Context, path string) error {
+	return mutateSchema(path, func(database *sql.DB) error {
+		if _, err := database.ExecContext(ctx, "DROP TRIGGER fail_session_forecast_update"); err != nil {
+			return fmt.Errorf("remove Session Forecast failure trigger: %w", err)
+		}
+		return nil
+	})
+}
+
 func mutateSchema(
 	path string,
 	mutation func(*sql.DB) error,

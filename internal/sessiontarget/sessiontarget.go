@@ -2,12 +2,11 @@
 package sessiontarget
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"slices"
-	"strconv"
 	"time"
+
+	"github.com/dotwaffle/beamers/internal/timingripple"
 )
 
 const (
@@ -33,15 +32,7 @@ type State struct {
 	EndBoundary   string
 	TimingPolicy  string
 	Presets       []time.Duration
-	Downstream    []DownstreamSession
-}
-
-// DownstreamSession is one later shared-resource Session relevant to the preview.
-type DownstreamSession struct {
-	SessionID     int
-	ForecastStart time.Time
-	ForecastEnd   time.Time
-	StartBoundary string
+	Timing        []timingripple.Session
 }
 
 // Adjustment selects a configured preset or custom signed duration.
@@ -52,9 +43,13 @@ type Adjustment struct {
 
 // Effect reports one overlap introduced by the proposed target.
 type Effect struct {
-	SessionID       int
-	CurrentOverlap  time.Duration
-	ProposedOverlap time.Duration
+	SessionID             int
+	CurrentForecastStart  time.Time
+	CurrentForecastEnd    time.Time
+	ProposedForecastStart time.Time
+	ProposedForecastEnd   time.Time
+	CurrentOverlap        time.Duration
+	ProposedOverlap       time.Duration
 }
 
 // Result is the complete deterministic preview shown before confirmation.
@@ -63,6 +58,7 @@ type Result struct {
 	ProposedTarget                   time.Time
 	Adjustment                       time.Duration
 	Effects                          []Effect
+	Changes                          []timingripple.Change
 	RequiresHardBoundaryConfirmation bool
 	Fingerprint                      string
 }
@@ -93,51 +89,34 @@ func Preview(state State, adjustment Adjustment, now time.Time) (Result, error) 
 		Adjustment:                       adjustment.Duration,
 		RequiresHardBoundaryConfirmation: state.EndBoundary == HardBoundary,
 	}
-	for _, downstream := range state.Downstream {
-		if downstream.SessionID <= 0 || downstream.ForecastStart.IsZero() ||
-			downstream.ForecastEnd.Before(downstream.ForecastStart) {
-			return Result{}, errors.New("downstream Session timing is invalid")
+	action := timingripple.AdjustTarget{SessionID: state.SessionID, TargetEnd: proposed}
+	if len(state.Timing) > 0 {
+		plan, err := timingripple.Calculate(state.Timing, action)
+		if err != nil {
+			return Result{}, err
 		}
-		currentOverlap := max(state.CurrentTarget.Sub(downstream.ForecastStart), 0)
-		proposedOverlap := max(proposed.Sub(downstream.ForecastStart), 0)
-		if currentOverlap != proposedOverlap {
-			result.Effects = append(result.Effects, Effect{
-				SessionID:       downstream.SessionID,
-				CurrentOverlap:  currentOverlap,
-				ProposedOverlap: proposedOverlap,
-			})
-			if proposedOverlap > 0 && downstream.StartBoundary == HardBoundary {
-				result.RequiresHardBoundaryConfirmation = true
+		result.Changes = plan.Changes
+		for _, effect := range plan.Effects {
+			if effect.SessionID == state.SessionID {
+				continue
 			}
+			result.Effects = append(result.Effects, Effect{
+				SessionID:             effect.SessionID,
+				CurrentForecastStart:  effect.CurrentForecastStart,
+				CurrentForecastEnd:    effect.CurrentForecastEnd,
+				ProposedForecastStart: effect.ProposedForecastStart,
+				ProposedForecastEnd:   effect.ProposedForecastEnd,
+				CurrentOverlap:        effect.CurrentOverlap,
+				ProposedOverlap:       effect.ProposedOverlap,
+			})
 		}
+		result.RequiresHardBoundaryConfirmation = result.RequiresHardBoundaryConfirmation ||
+			len(plan.HardCollisions) > 0
 	}
-	result.Fingerprint = fingerprint(state, result)
+	result.Fingerprint = timingripple.Fingerprint(state.Timing, action, state.Revision)
 	return result, nil
 }
 
 func configuredPreset(presets []time.Duration, adjustment time.Duration) bool {
 	return slices.Contains(presets, adjustment)
-}
-
-func fingerprint(state State, result Result) string {
-	hash := sha256.New()
-	writeFingerprint(hash.Write, strconv.Itoa(state.SessionID))
-	writeFingerprint(hash.Write, strconv.Itoa(state.Revision))
-	writeFingerprint(hash.Write, result.CurrentTarget.UTC().Format(time.RFC3339Nano))
-	writeFingerprint(hash.Write, result.ProposedTarget.UTC().Format(time.RFC3339Nano))
-	writeFingerprint(hash.Write, strconv.FormatInt(int64(result.Adjustment), 10))
-	writeFingerprint(hash.Write, strconv.FormatBool(result.RequiresHardBoundaryConfirmation))
-	for _, downstream := range state.Downstream {
-		writeFingerprint(hash.Write, strconv.Itoa(downstream.SessionID))
-		writeFingerprint(hash.Write, downstream.ForecastStart.UTC().Format(time.RFC3339Nano))
-		writeFingerprint(hash.Write, downstream.ForecastEnd.UTC().Format(time.RFC3339Nano))
-		writeFingerprint(hash.Write, downstream.StartBoundary)
-	}
-	return hex.EncodeToString(hash.Sum(nil))
-}
-
-func writeFingerprint(write func([]byte) (int, error), value string) {
-	_, _ = write([]byte(strconv.Itoa(len(value))))
-	_, _ = write([]byte{':'})
-	_, _ = write([]byte(value))
 }

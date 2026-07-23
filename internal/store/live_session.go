@@ -607,6 +607,18 @@ func liveSessionState(
 	runs *ent.SessionRunClient,
 	identity *ent.Session,
 ) (LiveSessionState, error) {
+	state, err := loadLiveSessionState(ctx, runs, identity)
+	if err != nil {
+		return state, err
+	}
+	return state, ErrLiveStateRevisionConflict
+}
+
+func loadLiveSessionState(
+	ctx context.Context,
+	runs *ent.SessionRunClient,
+	identity *ent.Session,
+) (LiveSessionState, error) {
 	state := LiveSessionState{
 		SessionID: identity.ID, Lifecycle: identity.Lifecycle.String(),
 		LiveStateRevision: identity.LiveStateRevision,
@@ -614,7 +626,7 @@ func liveSessionState(
 	run, err := runs.Query().Where(sessionrun.SessionIDEQ(identity.ID)).
 		Order(ent.Desc(sessionrun.FieldID)).First(ctx)
 	if ent.IsNotFound(err) {
-		return state, ErrLiveStateRevisionConflict
+		return state, nil
 	}
 	if err != nil {
 		return LiveSessionState{}, opaqueError("load current Session Run", err)
@@ -625,5 +637,5 @@ func liveSessionState(
 		actualEnd := run.ActualEnd
 		state.ActualEnd = &actualEnd
 	}
-	return state, ErrLiveStateRevisionConflict
+	return state, nil
 }
