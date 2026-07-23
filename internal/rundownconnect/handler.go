@@ -90,6 +90,15 @@ func validateTransportRequest(message any) error {
 	case *rundownv1.EditDraftRequest:
 		_, err := editDraftInput(typed)
 		return err
+	case *rundownv1.DeleteDraftSessionRequest:
+		if _, err := positiveInt64("event_id", typed.GetEventId()); err != nil {
+			return err
+		}
+		if _, err := positiveInt64("session_id", typed.GetSessionId()); err != nil {
+			return err
+		}
+		_, err := nonnegativeInt64("expected_draft_revision", typed.GetExpectedDraftRevision())
+		return err
 	case *rundownv1.PublishPreviewRequest:
 		if _, err := positiveInt64("event_id", typed.GetEventId()); err != nil {
 			return err
@@ -136,6 +145,38 @@ func validateTransportRequest(message any) error {
 	default:
 		return errors.New("unsupported Rundown request")
 	}
+}
+
+// DeleteDraftSession permanently removes one eligible Draft-only Session.
+func (handler *Handler) DeleteDraftSession(
+	ctx context.Context,
+	request *connect.Request[rundownv1.DeleteDraftSessionRequest],
+) (*connect.Response[rundownv1.DeleteDraftSessionResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	eventID, err := positiveInt64("event_id", request.Msg.GetEventId())
+	if err != nil {
+		return nil, invalidArgument(err)
+	}
+	sessionID, err := positiveInt64("session_id", request.Msg.GetSessionId())
+	if err != nil {
+		return nil, invalidArgument(err)
+	}
+	revision, err := nonnegativeInt64("expected_draft_revision", request.Msg.GetExpectedDraftRevision())
+	if err != nil {
+		return nil, invalidArgument(err)
+	}
+	result, err := handler.commands.DeleteDraftSession(ctx, actor, rundown.DeleteDraftSessionInput{
+		EventID: eventID, SessionID: sessionID, CommandID: request.Msg.GetCommandId(), ExpectedDraftRevision: revision,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&rundownv1.DeleteDraftSessionResponse{
+		DraftRevision: int64(result.DraftRevision), SessionId: int64(result.SessionID),
+	}), nil
 }
 
 // DiscardDraftChanges restores selected effective facts without publishing them.
@@ -370,6 +411,10 @@ func connectError(err error) error {
 		return connect.NewError(connect.CodeAborted, errors.New("rundown revision conflict"))
 	case errors.Is(err, rundown.ErrPublishSelection):
 		return connect.NewError(connect.CodeFailedPrecondition, errors.New("publish selection is invalid"))
+	case errors.Is(err, rundown.ErrDraftSessionDeletion):
+		return connect.NewError(connect.CodeFailedPrecondition, err)
+	case errors.Is(err, rundown.ErrSessionNotFound):
+		return connect.NewError(connect.CodeNotFound, err)
 	default:
 		return connect.NewError(connect.CodeInternal, errors.New("rundown operation failed"))
 	}

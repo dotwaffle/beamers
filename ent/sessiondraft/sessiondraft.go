@@ -19,6 +19,8 @@ const (
 	FieldSessionID = "session_id"
 	// FieldTitle holds the string denoting the title field in the database.
 	FieldTitle = "title"
+	// FieldSpeaker holds the string denoting the speaker field in the database.
+	FieldSpeaker = "speaker"
 	// FieldType holds the string denoting the type field in the database.
 	FieldType = "type"
 	// FieldAudienceVisibility holds the string denoting the audience_visibility field in the database.
@@ -78,6 +80,7 @@ var Columns = []string{
 	FieldID,
 	FieldSessionID,
 	FieldTitle,
+	FieldSpeaker,
 	FieldType,
 	FieldAudienceVisibility,
 	FieldPublicDetails,
@@ -122,6 +125,8 @@ var (
 	Policy ent.Policy
 	// TitleValidator is a validator for the "title" field. It is called by the builders before save.
 	TitleValidator func(string) error
+	// SpeakerValidator is a validator for the "speaker" field. It is called by the builders before save.
+	SpeakerValidator func(string) error
 	// PublicDetailsValidator is a validator for the "public_details" field. It is called by the builders before save.
 	PublicDetailsValidator func(string) error
 	// CrewNotesValidator is a validator for the "crew_notes" field. It is called by the builders before save.
@@ -267,6 +272,11 @@ func BySessionID(opts ...sql.OrderTermOption) OrderOption {
 // ByTitle orders the results by the title field.
 func ByTitle(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTitle, opts...).ToFunc()
+}
+
+// BySpeaker orders the results by the speaker field.
+func BySpeaker(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSpeaker, opts...).ToFunc()
 }
 
 // ByType orders the results by the type field.

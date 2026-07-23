@@ -30,7 +30,7 @@ func (DraftChange) Fields() []ent.Field {
 		field.Int("target_id").Positive().Immutable(),
 		field.String("fact_key").NotEmpty().MaxLen(200).Immutable(),
 		field.String("payload_json").NotEmpty().Immutable(),
-		field.Enum("status").Values("Effective", "Published", "Superseded", "Discarded", "Reverted").Default("Effective"),
+		field.Enum("status").Values("Effective", "Published", "Superseded", "Discarded", "Reverted", "Conflicted").Default("Effective"),
 		field.Int("published_revision").Optional().Nillable(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 	}

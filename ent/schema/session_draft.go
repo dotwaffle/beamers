@@ -24,7 +24,7 @@ func (SessionDraft) Policy() ent.Policy {
 			denyMissingViewer(), filterGrantedSessionDrafts(), privacy.AlwaysAllowRule(),
 		},
 		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowSessionOwnedMutation(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowSessionDraftDeletion(), allowSessionOwnedMutation(), privacy.AlwaysDenyRule(),
 		},
 	}
 }
@@ -34,6 +34,7 @@ func (SessionDraft) Fields() []ent.Field {
 	return []ent.Field{
 		field.Int("session_id").Unique().Immutable(),
 		field.String("title").NotEmpty().MaxLen(200),
+		field.String("speaker").Optional().MaxLen(200),
 		field.Enum("type").Values(
 			"Presentation", "Competition", "Break", "Activity", "Ceremony", "Performance", "Hold",
 		),

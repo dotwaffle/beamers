@@ -277,7 +277,7 @@ func validPublishedSession(session store.PublishedSession) bool {
 		return false
 	}
 	return rundown.ValidateSessionScalars(rundown.SessionDraftInput{
-		Title: session.Title, Type: rundown.SessionType(session.Type),
+		Title: session.Title, Speaker: session.Speaker, Type: rundown.SessionType(session.Type),
 		AudienceVisibility: rundown.AudienceVisibility(session.AudienceVisibility),
 		PlannedStart:       session.PlannedStart, PlannedEnd: session.PlannedEnd,
 		TimingPolicy:    rundown.TimingPolicy(session.TimingPolicy),

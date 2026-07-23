@@ -141,6 +141,7 @@ const (
 	StatusSuperseded Status = "Superseded"
 	StatusDiscarded  Status = "Discarded"
 	StatusReverted   Status = "Reverted"
+	StatusConflicted Status = "Conflicted"
 )
 
 func (s Status) String() string {
@@ -150,7 +151,7 @@ func (s Status) String() string {
 // StatusValidator is a validator for the "status" field enum values. It is called by the builders before save.
 func StatusValidator(s Status) error {
 	switch s {
-	case StatusEffective, StatusPublished, StatusSuperseded, StatusDiscarded, StatusReverted:
+	case StatusEffective, StatusPublished, StatusSuperseded, StatusDiscarded, StatusReverted, StatusConflicted:
 		return nil
 	default:
 		return fmt.Errorf("draftchange: invalid enum value for status field: %q", s)

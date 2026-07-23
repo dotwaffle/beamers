@@ -60,6 +60,8 @@ type Tx struct {
 	SessionPublishedVersion *SessionPublishedVersionClient
 	// SessionRun is the client for interacting with the SessionRun builders.
 	SessionRun *SessionRunClient
+	// SessionRunAmendment is the client for interacting with the SessionRunAmendment builders.
+	SessionRunAmendment *SessionRunAmendmentClient
 	// Track is the client for interacting with the Track builders.
 	Track *TrackClient
 	// TrackDraft is the client for interacting with the TrackDraft builders.
@@ -221,6 +223,7 @@ func (tx *Tx) init() {
 	tx.SessionDraft = NewSessionDraftClient(tx.config)
 	tx.SessionPublishedVersion = NewSessionPublishedVersionClient(tx.config)
 	tx.SessionRun = NewSessionRunClient(tx.config)
+	tx.SessionRunAmendment = NewSessionRunAmendmentClient(tx.config)
 	tx.Track = NewTrackClient(tx.config)
 	tx.TrackDraft = NewTrackDraftClient(tx.config)
 	tx.TrackPublishedVersion = NewTrackPublishedVersionClient(tx.config)

@@ -7,8 +7,11 @@
 package sessionv1
 
 import (
+	v1 "github.com/dotwaffle/beamers/gen/beamers/rundown/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
+	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
@@ -213,6 +216,166 @@ func (x *EndSessionRequest) GetExpectedLiveStateRevision() int64 {
 	return 0
 }
 
+type CorrectLiveDetailsRequest struct {
+	state                     protoimpl.MessageState `protogen:"open.v1"`
+	EventId                   int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	SessionId                 int64                  `protobuf:"varint,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	CommandId                 string                 `protobuf:"bytes,3,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
+	ExpectedLiveStateRevision *int64                 `protobuf:"varint,4,opt,name=expected_live_state_revision,json=expectedLiveStateRevision,proto3,oneof" json:"expected_live_state_revision,omitempty"`
+	Confirmed                 bool                   `protobuf:"varint,5,opt,name=confirmed,proto3" json:"confirmed,omitempty"`
+	Title                     string                 `protobuf:"bytes,6,opt,name=title,proto3" json:"title,omitempty"`
+	Speaker                   string                 `protobuf:"bytes,7,opt,name=speaker,proto3" json:"speaker,omitempty"`
+	PublicDetails             string                 `protobuf:"bytes,8,opt,name=public_details,json=publicDetails,proto3" json:"public_details,omitempty"`
+	UpdateMask                *fieldmaskpb.FieldMask `protobuf:"bytes,9,opt,name=update_mask,json=updateMask,proto3" json:"update_mask,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
+}
+
+func (x *CorrectLiveDetailsRequest) Reset() {
+	*x = CorrectLiveDetailsRequest{}
+	mi := &file_beamers_session_v1_session_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CorrectLiveDetailsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CorrectLiveDetailsRequest) ProtoMessage() {}
+
+func (x *CorrectLiveDetailsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_session_v1_session_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CorrectLiveDetailsRequest.ProtoReflect.Descriptor instead.
+func (*CorrectLiveDetailsRequest) Descriptor() ([]byte, []int) {
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *CorrectLiveDetailsRequest) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+func (x *CorrectLiveDetailsRequest) GetSessionId() int64 {
+	if x != nil {
+		return x.SessionId
+	}
+	return 0
+}
+
+func (x *CorrectLiveDetailsRequest) GetCommandId() string {
+	if x != nil {
+		return x.CommandId
+	}
+	return ""
+}
+
+func (x *CorrectLiveDetailsRequest) GetExpectedLiveStateRevision() int64 {
+	if x != nil && x.ExpectedLiveStateRevision != nil {
+		return *x.ExpectedLiveStateRevision
+	}
+	return 0
+}
+
+func (x *CorrectLiveDetailsRequest) GetConfirmed() bool {
+	if x != nil {
+		return x.Confirmed
+	}
+	return false
+}
+
+func (x *CorrectLiveDetailsRequest) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *CorrectLiveDetailsRequest) GetSpeaker() string {
+	if x != nil {
+		return x.Speaker
+	}
+	return ""
+}
+
+func (x *CorrectLiveDetailsRequest) GetPublicDetails() string {
+	if x != nil {
+		return x.PublicDetails
+	}
+	return ""
+}
+
+func (x *CorrectLiveDetailsRequest) GetUpdateMask() *fieldmaskpb.FieldMask {
+	if x != nil {
+		return x.UpdateMask
+	}
+	return nil
+}
+
+type GetSessionHistoryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	EventId       int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	SessionId     int64                  `protobuf:"varint,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSessionHistoryRequest) Reset() {
+	*x = GetSessionHistoryRequest{}
+	mi := &file_beamers_session_v1_session_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSessionHistoryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSessionHistoryRequest) ProtoMessage() {}
+
+func (x *GetSessionHistoryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_session_v1_session_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSessionHistoryRequest.ProtoReflect.Descriptor instead.
+func (*GetSessionHistoryRequest) Descriptor() ([]byte, []int) {
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *GetSessionHistoryRequest) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+func (x *GetSessionHistoryRequest) GetSessionId() int64 {
+	if x != nil {
+		return x.SessionId
+	}
+	return 0
+}
+
 type StartSessionResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	State         *SessionState          `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
@@ -222,7 +385,7 @@ type StartSessionResponse struct {
 
 func (x *StartSessionResponse) Reset() {
 	*x = StartSessionResponse{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[2]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -234,7 +397,7 @@ func (x *StartSessionResponse) String() string {
 func (*StartSessionResponse) ProtoMessage() {}
 
 func (x *StartSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[2]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -247,7 +410,7 @@ func (x *StartSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartSessionResponse.ProtoReflect.Descriptor instead.
 func (*StartSessionResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{2}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *StartSessionResponse) GetState() *SessionState {
@@ -266,7 +429,7 @@ type EndSessionResponse struct {
 
 func (x *EndSessionResponse) Reset() {
 	*x = EndSessionResponse{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[3]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -278,7 +441,7 @@ func (x *EndSessionResponse) String() string {
 func (*EndSessionResponse) ProtoMessage() {}
 
 func (x *EndSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[3]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -291,12 +454,468 @@ func (x *EndSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EndSessionResponse.ProtoReflect.Descriptor instead.
 func (*EndSessionResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{3}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *EndSessionResponse) GetState() *SessionState {
 	if x != nil {
 		return x.State
+	}
+	return nil
+}
+
+type CorrectLiveDetailsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	State         *SessionState          `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
+	AmendmentId   int64                  `protobuf:"varint,2,opt,name=amendment_id,json=amendmentId,proto3" json:"amendment_id,omitempty"`
+	Details       *SessionDetails        `protobuf:"bytes,3,opt,name=details,proto3" json:"details,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CorrectLiveDetailsResponse) Reset() {
+	*x = CorrectLiveDetailsResponse{}
+	mi := &file_beamers_session_v1_session_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CorrectLiveDetailsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CorrectLiveDetailsResponse) ProtoMessage() {}
+
+func (x *CorrectLiveDetailsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_session_v1_session_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CorrectLiveDetailsResponse.ProtoReflect.Descriptor instead.
+func (*CorrectLiveDetailsResponse) Descriptor() ([]byte, []int) {
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *CorrectLiveDetailsResponse) GetState() *SessionState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
+func (x *CorrectLiveDetailsResponse) GetAmendmentId() int64 {
+	if x != nil {
+		return x.AmendmentId
+	}
+	return 0
+}
+
+func (x *CorrectLiveDetailsResponse) GetDetails() *SessionDetails {
+	if x != nil {
+		return x.Details
+	}
+	return nil
+}
+
+type GetSessionHistoryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Runs          []*SessionRunHistory   `protobuf:"bytes,1,rep,name=runs,proto3" json:"runs,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSessionHistoryResponse) Reset() {
+	*x = GetSessionHistoryResponse{}
+	mi := &file_beamers_session_v1_session_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSessionHistoryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSessionHistoryResponse) ProtoMessage() {}
+
+func (x *GetSessionHistoryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_session_v1_session_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSessionHistoryResponse.ProtoReflect.Descriptor instead.
+func (*GetSessionHistoryResponse) Descriptor() ([]byte, []int) {
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *GetSessionHistoryResponse) GetRuns() []*SessionRunHistory {
+	if x != nil {
+		return x.Runs
+	}
+	return nil
+}
+
+type SessionDetails struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Title         string                 `protobuf:"bytes,1,opt,name=title,proto3" json:"title,omitempty"`
+	Speaker       string                 `protobuf:"bytes,2,opt,name=speaker,proto3" json:"speaker,omitempty"`
+	PublicDetails string                 `protobuf:"bytes,3,opt,name=public_details,json=publicDetails,proto3" json:"public_details,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SessionDetails) Reset() {
+	*x = SessionDetails{}
+	mi := &file_beamers_session_v1_session_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionDetails) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionDetails) ProtoMessage() {}
+
+func (x *SessionDetails) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_session_v1_session_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SessionDetails.ProtoReflect.Descriptor instead.
+func (*SessionDetails) Descriptor() ([]byte, []int) {
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *SessionDetails) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *SessionDetails) GetSpeaker() string {
+	if x != nil {
+		return x.Speaker
+	}
+	return ""
+}
+
+func (x *SessionDetails) GetPublicDetails() string {
+	if x != nil {
+		return x.PublicDetails
+	}
+	return ""
+}
+
+type RunAmendment struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Details       *SessionDetails        `protobuf:"bytes,2,opt,name=details,proto3" json:"details,omitempty"`
+	ChangedFields []string               `protobuf:"bytes,3,rep,name=changed_fields,json=changedFields,proto3" json:"changed_fields,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RunAmendment) Reset() {
+	*x = RunAmendment{}
+	mi := &file_beamers_session_v1_session_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RunAmendment) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RunAmendment) ProtoMessage() {}
+
+func (x *RunAmendment) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_session_v1_session_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RunAmendment.ProtoReflect.Descriptor instead.
+func (*RunAmendment) Descriptor() ([]byte, []int) {
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *RunAmendment) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *RunAmendment) GetDetails() *SessionDetails {
+	if x != nil {
+		return x.Details
+	}
+	return nil
+}
+
+func (x *RunAmendment) GetChangedFields() []string {
+	if x != nil {
+		return x.ChangedFields
+	}
+	return nil
+}
+
+func (x *RunAmendment) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type SessionRunHistory struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	ActualStart   *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=actual_start,json=actualStart,proto3" json:"actual_start,omitempty"`
+	ActualEnd     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=actual_end,json=actualEnd,proto3" json:"actual_end,omitempty"`
+	Snapshot      *RunSnapshot           `protobuf:"bytes,4,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
+	Amendments    []*RunAmendment        `protobuf:"bytes,5,rep,name=amendments,proto3" json:"amendments,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SessionRunHistory) Reset() {
+	*x = SessionRunHistory{}
+	mi := &file_beamers_session_v1_session_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionRunHistory) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionRunHistory) ProtoMessage() {}
+
+func (x *SessionRunHistory) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_session_v1_session_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SessionRunHistory.ProtoReflect.Descriptor instead.
+func (*SessionRunHistory) Descriptor() ([]byte, []int) {
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *SessionRunHistory) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *SessionRunHistory) GetActualStart() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ActualStart
+	}
+	return nil
+}
+
+func (x *SessionRunHistory) GetActualEnd() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ActualEnd
+	}
+	return nil
+}
+
+func (x *SessionRunHistory) GetSnapshot() *RunSnapshot {
+	if x != nil {
+		return x.Snapshot
+	}
+	return nil
+}
+
+func (x *SessionRunHistory) GetAmendments() []*RunAmendment {
+	if x != nil {
+		return x.Amendments
+	}
+	return nil
+}
+
+type RunSnapshot struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	PublishedRevision int64                  `protobuf:"varint,1,opt,name=published_revision,json=publishedRevision,proto3" json:"published_revision,omitempty"`
+	Title             string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Speaker           string                 `protobuf:"bytes,3,opt,name=speaker,proto3" json:"speaker,omitempty"`
+	Type              v1.SessionType         `protobuf:"varint,4,opt,name=type,proto3,enum=beamers.rundown.v1.SessionType" json:"type,omitempty"`
+	PublicDetails     string                 `protobuf:"bytes,5,opt,name=public_details,json=publicDetails,proto3" json:"public_details,omitempty"`
+	PlannedStart      *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=planned_start,json=plannedStart,proto3" json:"planned_start,omitempty"`
+	PlannedEnd        *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=planned_end,json=plannedEnd,proto3" json:"planned_end,omitempty"`
+	TimingPolicy      v1.TimingPolicy        `protobuf:"varint,8,opt,name=timing_policy,json=timingPolicy,proto3,enum=beamers.rundown.v1.TimingPolicy" json:"timing_policy,omitempty"`
+	MinimumDuration   *durationpb.Duration   `protobuf:"bytes,9,opt,name=minimum_duration,json=minimumDuration,proto3" json:"minimum_duration,omitempty"`
+	StartBoundary     v1.Boundary            `protobuf:"varint,10,opt,name=start_boundary,json=startBoundary,proto3,enum=beamers.rundown.v1.Boundary" json:"start_boundary,omitempty"`
+	EndBoundary       v1.Boundary            `protobuf:"varint,11,opt,name=end_boundary,json=endBoundary,proto3,enum=beamers.rundown.v1.Boundary" json:"end_boundary,omitempty"`
+	LaneIds           []int64                `protobuf:"varint,12,rep,packed,name=lane_ids,json=laneIds,proto3" json:"lane_ids,omitempty"`
+	LocationIds       []int64                `protobuf:"varint,13,rep,packed,name=location_ids,json=locationIds,proto3" json:"location_ids,omitempty"`
+	TrackIds          []int64                `protobuf:"varint,14,rep,packed,name=track_ids,json=trackIds,proto3" json:"track_ids,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *RunSnapshot) Reset() {
+	*x = RunSnapshot{}
+	mi := &file_beamers_session_v1_session_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RunSnapshot) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RunSnapshot) ProtoMessage() {}
+
+func (x *RunSnapshot) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_session_v1_session_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RunSnapshot.ProtoReflect.Descriptor instead.
+func (*RunSnapshot) Descriptor() ([]byte, []int) {
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *RunSnapshot) GetPublishedRevision() int64 {
+	if x != nil {
+		return x.PublishedRevision
+	}
+	return 0
+}
+
+func (x *RunSnapshot) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *RunSnapshot) GetSpeaker() string {
+	if x != nil {
+		return x.Speaker
+	}
+	return ""
+}
+
+func (x *RunSnapshot) GetType() v1.SessionType {
+	if x != nil {
+		return x.Type
+	}
+	return v1.SessionType(0)
+}
+
+func (x *RunSnapshot) GetPublicDetails() string {
+	if x != nil {
+		return x.PublicDetails
+	}
+	return ""
+}
+
+func (x *RunSnapshot) GetPlannedStart() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PlannedStart
+	}
+	return nil
+}
+
+func (x *RunSnapshot) GetPlannedEnd() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PlannedEnd
+	}
+	return nil
+}
+
+func (x *RunSnapshot) GetTimingPolicy() v1.TimingPolicy {
+	if x != nil {
+		return x.TimingPolicy
+	}
+	return v1.TimingPolicy(0)
+}
+
+func (x *RunSnapshot) GetMinimumDuration() *durationpb.Duration {
+	if x != nil {
+		return x.MinimumDuration
+	}
+	return nil
+}
+
+func (x *RunSnapshot) GetStartBoundary() v1.Boundary {
+	if x != nil {
+		return x.StartBoundary
+	}
+	return v1.Boundary(0)
+}
+
+func (x *RunSnapshot) GetEndBoundary() v1.Boundary {
+	if x != nil {
+		return x.EndBoundary
+	}
+	return v1.Boundary(0)
+}
+
+func (x *RunSnapshot) GetLaneIds() []int64 {
+	if x != nil {
+		return x.LaneIds
+	}
+	return nil
+}
+
+func (x *RunSnapshot) GetLocationIds() []int64 {
+	if x != nil {
+		return x.LocationIds
+	}
+	return nil
+}
+
+func (x *RunSnapshot) GetTrackIds() []int64 {
+	if x != nil {
+		return x.TrackIds
 	}
 	return nil
 }
@@ -315,7 +934,7 @@ type SessionState struct {
 
 func (x *SessionState) Reset() {
 	*x = SessionState{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[4]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -327,7 +946,7 @@ func (x *SessionState) String() string {
 func (*SessionState) ProtoMessage() {}
 
 func (x *SessionState) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[4]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -340,7 +959,7 @@ func (x *SessionState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionState.ProtoReflect.Descriptor instead.
 func (*SessionState) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{4}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *SessionState) GetSessionId() int64 {
@@ -389,7 +1008,7 @@ var File_beamers_session_v1_session_proto protoreflect.FileDescriptor
 
 const file_beamers_session_v1_session_proto_rawDesc = "" +
 	"\n" +
-	" beamers/session/v1/session.proto\x12\x12beamers.session.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd5\x01\n" +
+	" beamers/session/v1/session.proto\x12\x12beamers.session.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a google/protobuf/field_mask.proto\x1a\x1egoogle/protobuf/duration.proto\x1a beamers/rundown/v1/rundown.proto\"\xd5\x01\n" +
 	"\x13StartSessionRequest\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
 	"\n" +
@@ -405,11 +1024,71 @@ const file_beamers_session_v1_session_proto_rawDesc = "" +
 	"\n" +
 	"command_id\x18\x03 \x01(\tR\tcommandId\x12D\n" +
 	"\x1cexpected_live_state_revision\x18\x04 \x01(\x03H\x00R\x19expectedLiveStateRevision\x88\x01\x01B\x1f\n" +
-	"\x1d_expected_live_state_revision\"N\n" +
+	"\x1d_expected_live_state_revision\"\x8d\x03\n" +
+	"\x19CorrectLiveDetailsRequest\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\x03R\tsessionId\x12\x1d\n" +
+	"\n" +
+	"command_id\x18\x03 \x01(\tR\tcommandId\x12D\n" +
+	"\x1cexpected_live_state_revision\x18\x04 \x01(\x03H\x00R\x19expectedLiveStateRevision\x88\x01\x01\x12\x1c\n" +
+	"\tconfirmed\x18\x05 \x01(\bR\tconfirmed\x12\x14\n" +
+	"\x05title\x18\x06 \x01(\tR\x05title\x12\x18\n" +
+	"\aspeaker\x18\a \x01(\tR\aspeaker\x12%\n" +
+	"\x0epublic_details\x18\b \x01(\tR\rpublicDetails\x12;\n" +
+	"\vupdate_mask\x18\t \x01(\v2\x1a.google.protobuf.FieldMaskR\n" +
+	"updateMaskB\x1f\n" +
+	"\x1d_expected_live_state_revision\"T\n" +
+	"\x18GetSessionHistoryRequest\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\x03R\tsessionId\"N\n" +
 	"\x14StartSessionResponse\x126\n" +
 	"\x05state\x18\x01 \x01(\v2 .beamers.session.v1.SessionStateR\x05state\"L\n" +
 	"\x12EndSessionResponse\x126\n" +
-	"\x05state\x18\x01 \x01(\v2 .beamers.session.v1.SessionStateR\x05state\"\xc1\x02\n" +
+	"\x05state\x18\x01 \x01(\v2 .beamers.session.v1.SessionStateR\x05state\"\xb5\x01\n" +
+	"\x1aCorrectLiveDetailsResponse\x126\n" +
+	"\x05state\x18\x01 \x01(\v2 .beamers.session.v1.SessionStateR\x05state\x12!\n" +
+	"\famendment_id\x18\x02 \x01(\x03R\vamendmentId\x12<\n" +
+	"\adetails\x18\x03 \x01(\v2\".beamers.session.v1.SessionDetailsR\adetails\"V\n" +
+	"\x19GetSessionHistoryResponse\x129\n" +
+	"\x04runs\x18\x01 \x03(\v2%.beamers.session.v1.SessionRunHistoryR\x04runs\"g\n" +
+	"\x0eSessionDetails\x12\x14\n" +
+	"\x05title\x18\x01 \x01(\tR\x05title\x12\x18\n" +
+	"\aspeaker\x18\x02 \x01(\tR\aspeaker\x12%\n" +
+	"\x0epublic_details\x18\x03 \x01(\tR\rpublicDetails\"\xbe\x01\n" +
+	"\fRunAmendment\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12<\n" +
+	"\adetails\x18\x02 \x01(\v2\".beamers.session.v1.SessionDetailsR\adetails\x12%\n" +
+	"\x0echanged_fields\x18\x03 \x03(\tR\rchangedFields\x129\n" +
+	"\n" +
+	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\x9c\x02\n" +
+	"\x11SessionRunHistory\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12=\n" +
+	"\factual_start\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vactualStart\x129\n" +
+	"\n" +
+	"actual_end\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tactualEnd\x12;\n" +
+	"\bsnapshot\x18\x04 \x01(\v2\x1f.beamers.session.v1.RunSnapshotR\bsnapshot\x12@\n" +
+	"\n" +
+	"amendments\x18\x05 \x03(\v2 .beamers.session.v1.RunAmendmentR\n" +
+	"amendments\"\xb4\x05\n" +
+	"\vRunSnapshot\x12-\n" +
+	"\x12published_revision\x18\x01 \x01(\x03R\x11publishedRevision\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12\x18\n" +
+	"\aspeaker\x18\x03 \x01(\tR\aspeaker\x123\n" +
+	"\x04type\x18\x04 \x01(\x0e2\x1f.beamers.rundown.v1.SessionTypeR\x04type\x12%\n" +
+	"\x0epublic_details\x18\x05 \x01(\tR\rpublicDetails\x12?\n" +
+	"\rplanned_start\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\fplannedStart\x12;\n" +
+	"\vplanned_end\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"plannedEnd\x12E\n" +
+	"\rtiming_policy\x18\b \x01(\x0e2 .beamers.rundown.v1.TimingPolicyR\ftimingPolicy\x12D\n" +
+	"\x10minimum_duration\x18\t \x01(\v2\x19.google.protobuf.DurationR\x0fminimumDuration\x12C\n" +
+	"\x0estart_boundary\x18\n" +
+	" \x01(\x0e2\x1c.beamers.rundown.v1.BoundaryR\rstartBoundary\x12?\n" +
+	"\fend_boundary\x18\v \x01(\x0e2\x1c.beamers.rundown.v1.BoundaryR\vendBoundary\x12\x19\n" +
+	"\blane_ids\x18\f \x03(\x03R\alaneIds\x12!\n" +
+	"\flocation_ids\x18\r \x03(\x03R\vlocationIds\x12\x1b\n" +
+	"\ttrack_ids\x18\x0e \x03(\x03R\btrackIds\"\xc1\x02\n" +
 	"\fSessionState\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\x03R\tsessionId\x12$\n" +
@@ -424,11 +1103,13 @@ const file_beamers_session_v1_session_proto_rawDesc = "" +
 	"\x1bSESSION_LIFECYCLE_SCHEDULED\x10\x01\x12\x1a\n" +
 	"\x16SESSION_LIFECYCLE_LIVE\x10\x02\x12\x1b\n" +
 	"\x17SESSION_LIFECYCLE_ENDED\x10\x03\x12\x1e\n" +
-	"\x1aSESSION_LIFECYCLE_CANCELED\x10\x042\xd7\x01\n" +
+	"\x1aSESSION_LIFECYCLE_CANCELED\x10\x042\xbe\x03\n" +
 	"\x15SessionControlService\x12a\n" +
 	"\fStartSession\x12'.beamers.session.v1.StartSessionRequest\x1a(.beamers.session.v1.StartSessionResponse\x12[\n" +
 	"\n" +
-	"EndSession\x12%.beamers.session.v1.EndSessionRequest\x1a&.beamers.session.v1.EndSessionResponseB?Z=github.com/dotwaffle/beamers/gen/beamers/session/v1;sessionv1b\x06proto3"
+	"EndSession\x12%.beamers.session.v1.EndSessionRequest\x1a&.beamers.session.v1.EndSessionResponse\x12s\n" +
+	"\x12CorrectLiveDetails\x12-.beamers.session.v1.CorrectLiveDetailsRequest\x1a..beamers.session.v1.CorrectLiveDetailsResponse\x12p\n" +
+	"\x11GetSessionHistory\x12,.beamers.session.v1.GetSessionHistoryRequest\x1a-.beamers.session.v1.GetSessionHistoryResponseB?Z=github.com/dotwaffle/beamers/gen/beamers/session/v1;sessionv1b\x06proto3"
 
 var (
 	file_beamers_session_v1_session_proto_rawDescOnce sync.Once
@@ -443,31 +1124,65 @@ func file_beamers_session_v1_session_proto_rawDescGZIP() []byte {
 }
 
 var file_beamers_session_v1_session_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_beamers_session_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_beamers_session_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_beamers_session_v1_session_proto_goTypes = []any{
-	(SessionLifecycle)(0),         // 0: beamers.session.v1.SessionLifecycle
-	(*StartSessionRequest)(nil),   // 1: beamers.session.v1.StartSessionRequest
-	(*EndSessionRequest)(nil),     // 2: beamers.session.v1.EndSessionRequest
-	(*StartSessionResponse)(nil),  // 3: beamers.session.v1.StartSessionResponse
-	(*EndSessionResponse)(nil),    // 4: beamers.session.v1.EndSessionResponse
-	(*SessionState)(nil),          // 5: beamers.session.v1.SessionState
-	(*timestamppb.Timestamp)(nil), // 6: google.protobuf.Timestamp
+	(SessionLifecycle)(0),              // 0: beamers.session.v1.SessionLifecycle
+	(*StartSessionRequest)(nil),        // 1: beamers.session.v1.StartSessionRequest
+	(*EndSessionRequest)(nil),          // 2: beamers.session.v1.EndSessionRequest
+	(*CorrectLiveDetailsRequest)(nil),  // 3: beamers.session.v1.CorrectLiveDetailsRequest
+	(*GetSessionHistoryRequest)(nil),   // 4: beamers.session.v1.GetSessionHistoryRequest
+	(*StartSessionResponse)(nil),       // 5: beamers.session.v1.StartSessionResponse
+	(*EndSessionResponse)(nil),         // 6: beamers.session.v1.EndSessionResponse
+	(*CorrectLiveDetailsResponse)(nil), // 7: beamers.session.v1.CorrectLiveDetailsResponse
+	(*GetSessionHistoryResponse)(nil),  // 8: beamers.session.v1.GetSessionHistoryResponse
+	(*SessionDetails)(nil),             // 9: beamers.session.v1.SessionDetails
+	(*RunAmendment)(nil),               // 10: beamers.session.v1.RunAmendment
+	(*SessionRunHistory)(nil),          // 11: beamers.session.v1.SessionRunHistory
+	(*RunSnapshot)(nil),                // 12: beamers.session.v1.RunSnapshot
+	(*SessionState)(nil),               // 13: beamers.session.v1.SessionState
+	(*fieldmaskpb.FieldMask)(nil),      // 14: google.protobuf.FieldMask
+	(*timestamppb.Timestamp)(nil),      // 15: google.protobuf.Timestamp
+	(v1.SessionType)(0),                // 16: beamers.rundown.v1.SessionType
+	(v1.TimingPolicy)(0),               // 17: beamers.rundown.v1.TimingPolicy
+	(*durationpb.Duration)(nil),        // 18: google.protobuf.Duration
+	(v1.Boundary)(0),                   // 19: beamers.rundown.v1.Boundary
 }
 var file_beamers_session_v1_session_proto_depIdxs = []int32{
-	5, // 0: beamers.session.v1.StartSessionResponse.state:type_name -> beamers.session.v1.SessionState
-	5, // 1: beamers.session.v1.EndSessionResponse.state:type_name -> beamers.session.v1.SessionState
-	0, // 2: beamers.session.v1.SessionState.lifecycle:type_name -> beamers.session.v1.SessionLifecycle
-	6, // 3: beamers.session.v1.SessionState.actual_start:type_name -> google.protobuf.Timestamp
-	6, // 4: beamers.session.v1.SessionState.actual_end:type_name -> google.protobuf.Timestamp
-	1, // 5: beamers.session.v1.SessionControlService.StartSession:input_type -> beamers.session.v1.StartSessionRequest
-	2, // 6: beamers.session.v1.SessionControlService.EndSession:input_type -> beamers.session.v1.EndSessionRequest
-	3, // 7: beamers.session.v1.SessionControlService.StartSession:output_type -> beamers.session.v1.StartSessionResponse
-	4, // 8: beamers.session.v1.SessionControlService.EndSession:output_type -> beamers.session.v1.EndSessionResponse
-	7, // [7:9] is the sub-list for method output_type
-	5, // [5:7] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	14, // 0: beamers.session.v1.CorrectLiveDetailsRequest.update_mask:type_name -> google.protobuf.FieldMask
+	13, // 1: beamers.session.v1.StartSessionResponse.state:type_name -> beamers.session.v1.SessionState
+	13, // 2: beamers.session.v1.EndSessionResponse.state:type_name -> beamers.session.v1.SessionState
+	13, // 3: beamers.session.v1.CorrectLiveDetailsResponse.state:type_name -> beamers.session.v1.SessionState
+	9,  // 4: beamers.session.v1.CorrectLiveDetailsResponse.details:type_name -> beamers.session.v1.SessionDetails
+	11, // 5: beamers.session.v1.GetSessionHistoryResponse.runs:type_name -> beamers.session.v1.SessionRunHistory
+	9,  // 6: beamers.session.v1.RunAmendment.details:type_name -> beamers.session.v1.SessionDetails
+	15, // 7: beamers.session.v1.RunAmendment.created_at:type_name -> google.protobuf.Timestamp
+	15, // 8: beamers.session.v1.SessionRunHistory.actual_start:type_name -> google.protobuf.Timestamp
+	15, // 9: beamers.session.v1.SessionRunHistory.actual_end:type_name -> google.protobuf.Timestamp
+	12, // 10: beamers.session.v1.SessionRunHistory.snapshot:type_name -> beamers.session.v1.RunSnapshot
+	10, // 11: beamers.session.v1.SessionRunHistory.amendments:type_name -> beamers.session.v1.RunAmendment
+	16, // 12: beamers.session.v1.RunSnapshot.type:type_name -> beamers.rundown.v1.SessionType
+	15, // 13: beamers.session.v1.RunSnapshot.planned_start:type_name -> google.protobuf.Timestamp
+	15, // 14: beamers.session.v1.RunSnapshot.planned_end:type_name -> google.protobuf.Timestamp
+	17, // 15: beamers.session.v1.RunSnapshot.timing_policy:type_name -> beamers.rundown.v1.TimingPolicy
+	18, // 16: beamers.session.v1.RunSnapshot.minimum_duration:type_name -> google.protobuf.Duration
+	19, // 17: beamers.session.v1.RunSnapshot.start_boundary:type_name -> beamers.rundown.v1.Boundary
+	19, // 18: beamers.session.v1.RunSnapshot.end_boundary:type_name -> beamers.rundown.v1.Boundary
+	0,  // 19: beamers.session.v1.SessionState.lifecycle:type_name -> beamers.session.v1.SessionLifecycle
+	15, // 20: beamers.session.v1.SessionState.actual_start:type_name -> google.protobuf.Timestamp
+	15, // 21: beamers.session.v1.SessionState.actual_end:type_name -> google.protobuf.Timestamp
+	1,  // 22: beamers.session.v1.SessionControlService.StartSession:input_type -> beamers.session.v1.StartSessionRequest
+	2,  // 23: beamers.session.v1.SessionControlService.EndSession:input_type -> beamers.session.v1.EndSessionRequest
+	3,  // 24: beamers.session.v1.SessionControlService.CorrectLiveDetails:input_type -> beamers.session.v1.CorrectLiveDetailsRequest
+	4,  // 25: beamers.session.v1.SessionControlService.GetSessionHistory:input_type -> beamers.session.v1.GetSessionHistoryRequest
+	5,  // 26: beamers.session.v1.SessionControlService.StartSession:output_type -> beamers.session.v1.StartSessionResponse
+	6,  // 27: beamers.session.v1.SessionControlService.EndSession:output_type -> beamers.session.v1.EndSessionResponse
+	7,  // 28: beamers.session.v1.SessionControlService.CorrectLiveDetails:output_type -> beamers.session.v1.CorrectLiveDetailsResponse
+	8,  // 29: beamers.session.v1.SessionControlService.GetSessionHistory:output_type -> beamers.session.v1.GetSessionHistoryResponse
+	26, // [26:30] is the sub-list for method output_type
+	22, // [22:26] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_beamers_session_v1_session_proto_init() }
@@ -477,13 +1192,14 @@ func file_beamers_session_v1_session_proto_init() {
 	}
 	file_beamers_session_v1_session_proto_msgTypes[0].OneofWrappers = []any{}
 	file_beamers_session_v1_session_proto_msgTypes[1].OneofWrappers = []any{}
+	file_beamers_session_v1_session_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_beamers_session_v1_session_proto_rawDesc), len(file_beamers_session_v1_session_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   5,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

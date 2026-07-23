@@ -48,6 +48,7 @@ type PublicScheduleTrack struct {
 type PublicScheduleSession struct {
 	ID            int
 	Title         string
+	Speaker       string
 	PublicDetails string
 	ForecastStart time.Time
 	ForecastEnd   time.Time
@@ -193,8 +194,11 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 				actualEnd = &ended
 			}
 		}
+		details := correctedSessionDetails(identity, SessionDetails{
+			Title: version.Title, Speaker: version.Speaker, PublicDetails: version.PublicDetails,
+		})
 		result.Sessions = append(result.Sessions, PublicScheduleSession{
-			ID: identity.ID, Title: version.Title, PublicDetails: version.PublicDetails,
+			ID: identity.ID, Title: details.Title, Speaker: details.Speaker, PublicDetails: details.PublicDetails,
 			ForecastStart: version.PlannedStart, ForecastEnd: version.PlannedEnd,
 			Lifecycle: identity.Lifecycle.String(), ActualStart: actualStart, ActualEnd: actualEnd,
 			LocationIDs: locations, LaneIDs: lanes, TrackIDs: tracks,

@@ -3,12 +3,17 @@ syntax = "proto3";
 package beamers.session.v1;
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/duration.proto";
+import "beamers/rundown/v1/rundown.proto";
 
 option go_package = "github.com/dotwaffle/beamers/gen/beamers/session/v1;sessionv1";
 
 service SessionControlService {
   rpc StartSession(StartSessionRequest) returns (StartSessionResponse);
   rpc EndSession(EndSessionRequest) returns (EndSessionResponse);
+  rpc CorrectLiveDetails(CorrectLiveDetailsRequest) returns (CorrectLiveDetailsResponse);
+  rpc GetSessionHistory(GetSessionHistoryRequest) returns (GetSessionHistoryResponse);
 }
 
 enum SessionLifecycle {
@@ -33,12 +38,77 @@ message EndSessionRequest {
   optional int64 expected_live_state_revision = 4;
 }
 
+message CorrectLiveDetailsRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  string command_id = 3;
+  optional int64 expected_live_state_revision = 4;
+  bool confirmed = 5;
+  string title = 6;
+  string speaker = 7;
+  string public_details = 8;
+  google.protobuf.FieldMask update_mask = 9;
+}
+
+message GetSessionHistoryRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+}
+
 message StartSessionResponse {
   SessionState state = 1;
 }
 
 message EndSessionResponse {
   SessionState state = 1;
+}
+
+message CorrectLiveDetailsResponse {
+  SessionState state = 1;
+  int64 amendment_id = 2;
+  SessionDetails details = 3;
+}
+
+message GetSessionHistoryResponse {
+  repeated SessionRunHistory runs = 1;
+}
+
+message SessionDetails {
+  string title = 1;
+  string speaker = 2;
+  string public_details = 3;
+}
+
+message RunAmendment {
+  int64 id = 1;
+  SessionDetails details = 2;
+  repeated string changed_fields = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message SessionRunHistory {
+  int64 id = 1;
+  google.protobuf.Timestamp actual_start = 2;
+  google.protobuf.Timestamp actual_end = 3;
+  RunSnapshot snapshot = 4;
+  repeated RunAmendment amendments = 5;
+}
+
+message RunSnapshot {
+  int64 published_revision = 1;
+  string title = 2;
+  string speaker = 3;
+  beamers.rundown.v1.SessionType type = 4;
+  string public_details = 5;
+  google.protobuf.Timestamp planned_start = 6;
+  google.protobuf.Timestamp planned_end = 7;
+  beamers.rundown.v1.TimingPolicy timing_policy = 8;
+  google.protobuf.Duration minimum_duration = 9;
+  beamers.rundown.v1.Boundary start_boundary = 10;
+  beamers.rundown.v1.Boundary end_boundary = 11;
+  repeated int64 lane_ids = 12;
+  repeated int64 location_ids = 13;
+  repeated int64 track_ids = 14;
 }
 
 message SessionState {

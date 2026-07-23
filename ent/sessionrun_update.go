@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
+	"github.com/dotwaffle/beamers/ent/sessionrunamendment"
 )
 
 // SessionRunUpdate is the builder for updating SessionRun entities.
@@ -48,9 +49,45 @@ func (_u *SessionRunUpdate) ClearActualEnd() *SessionRunUpdate {
 	return _u
 }
 
+// AddAmendmentIDs adds the "amendments" edge to the SessionRunAmendment entity by IDs.
+func (_u *SessionRunUpdate) AddAmendmentIDs(ids ...int) *SessionRunUpdate {
+	_u.mutation.AddAmendmentIDs(ids...)
+	return _u
+}
+
+// AddAmendments adds the "amendments" edges to the SessionRunAmendment entity.
+func (_u *SessionRunUpdate) AddAmendments(v ...*SessionRunAmendment) *SessionRunUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAmendmentIDs(ids...)
+}
+
 // Mutation returns the SessionRunMutation object of the builder.
 func (_u *SessionRunUpdate) Mutation() *SessionRunMutation {
 	return _u.mutation
+}
+
+// ClearAmendments clears all "amendments" edges to the SessionRunAmendment entity.
+func (_u *SessionRunUpdate) ClearAmendments() *SessionRunUpdate {
+	_u.mutation.ClearAmendments()
+	return _u
+}
+
+// RemoveAmendmentIDs removes the "amendments" edge to SessionRunAmendment entities by IDs.
+func (_u *SessionRunUpdate) RemoveAmendmentIDs(ids ...int) *SessionRunUpdate {
+	_u.mutation.RemoveAmendmentIDs(ids...)
+	return _u
+}
+
+// RemoveAmendments removes "amendments" edges to SessionRunAmendment entities.
+func (_u *SessionRunUpdate) RemoveAmendments(v ...*SessionRunAmendment) *SessionRunUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAmendmentIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -106,6 +143,51 @@ func (_u *SessionRunUpdate) sqlSave(ctx context.Context) (_node int, err error) 
 	if _u.mutation.ActualEndCleared() {
 		_spec.ClearField(sessionrun.FieldActualEnd, field.TypeTime)
 	}
+	if _u.mutation.AmendmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   sessionrun.AmendmentsTable,
+			Columns: []string{sessionrun.AmendmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionrunamendment.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAmendmentsIDs(); len(nodes) > 0 && !_u.mutation.AmendmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   sessionrun.AmendmentsTable,
+			Columns: []string{sessionrun.AmendmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionrunamendment.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AmendmentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   sessionrun.AmendmentsTable,
+			Columns: []string{sessionrun.AmendmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionrunamendment.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{sessionrun.Label}
@@ -146,9 +228,45 @@ func (_u *SessionRunUpdateOne) ClearActualEnd() *SessionRunUpdateOne {
 	return _u
 }
 
+// AddAmendmentIDs adds the "amendments" edge to the SessionRunAmendment entity by IDs.
+func (_u *SessionRunUpdateOne) AddAmendmentIDs(ids ...int) *SessionRunUpdateOne {
+	_u.mutation.AddAmendmentIDs(ids...)
+	return _u
+}
+
+// AddAmendments adds the "amendments" edges to the SessionRunAmendment entity.
+func (_u *SessionRunUpdateOne) AddAmendments(v ...*SessionRunAmendment) *SessionRunUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAmendmentIDs(ids...)
+}
+
 // Mutation returns the SessionRunMutation object of the builder.
 func (_u *SessionRunUpdateOne) Mutation() *SessionRunMutation {
 	return _u.mutation
+}
+
+// ClearAmendments clears all "amendments" edges to the SessionRunAmendment entity.
+func (_u *SessionRunUpdateOne) ClearAmendments() *SessionRunUpdateOne {
+	_u.mutation.ClearAmendments()
+	return _u
+}
+
+// RemoveAmendmentIDs removes the "amendments" edge to SessionRunAmendment entities by IDs.
+func (_u *SessionRunUpdateOne) RemoveAmendmentIDs(ids ...int) *SessionRunUpdateOne {
+	_u.mutation.RemoveAmendmentIDs(ids...)
+	return _u
+}
+
+// RemoveAmendments removes "amendments" edges to SessionRunAmendment entities.
+func (_u *SessionRunUpdateOne) RemoveAmendments(v ...*SessionRunAmendment) *SessionRunUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAmendmentIDs(ids...)
 }
 
 // Where appends a list predicates to the SessionRunUpdate builder.
@@ -233,6 +351,51 @@ func (_u *SessionRunUpdateOne) sqlSave(ctx context.Context) (_node *SessionRun, 
 	}
 	if _u.mutation.ActualEndCleared() {
 		_spec.ClearField(sessionrun.FieldActualEnd, field.TypeTime)
+	}
+	if _u.mutation.AmendmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   sessionrun.AmendmentsTable,
+			Columns: []string{sessionrun.AmendmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionrunamendment.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAmendmentsIDs(); len(nodes) > 0 && !_u.mutation.AmendmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   sessionrun.AmendmentsTable,
+			Columns: []string{sessionrun.AmendmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionrunamendment.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AmendmentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   sessionrun.AmendmentsTable,
+			Columns: []string{sessionrun.AmendmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionrunamendment.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &SessionRun{config: _u.config}
 	_spec.Assign = _node.assignValues

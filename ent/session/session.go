@@ -22,6 +22,12 @@ const (
 	FieldLifecycle = "lifecycle"
 	// FieldLiveStateRevision holds the string denoting the live_state_revision field in the database.
 	FieldLiveStateRevision = "live_state_revision"
+	// FieldCorrectedTitle holds the string denoting the corrected_title field in the database.
+	FieldCorrectedTitle = "corrected_title"
+	// FieldCorrectedSpeaker holds the string denoting the corrected_speaker field in the database.
+	FieldCorrectedSpeaker = "corrected_speaker"
+	// FieldCorrectedPublicDetails holds the string denoting the corrected_public_details field in the database.
+	FieldCorrectedPublicDetails = "corrected_public_details"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeEvent holds the string denoting the event edge name in mutations.
@@ -70,6 +76,9 @@ var Columns = []string{
 	FieldEventID,
 	FieldLifecycle,
 	FieldLiveStateRevision,
+	FieldCorrectedTitle,
+	FieldCorrectedSpeaker,
+	FieldCorrectedPublicDetails,
 	FieldCreatedAt,
 }
 
@@ -95,6 +104,12 @@ var (
 	DefaultLiveStateRevision int
 	// LiveStateRevisionValidator is a validator for the "live_state_revision" field. It is called by the builders before save.
 	LiveStateRevisionValidator func(int) error
+	// CorrectedTitleValidator is a validator for the "corrected_title" field. It is called by the builders before save.
+	CorrectedTitleValidator func(string) error
+	// CorrectedSpeakerValidator is a validator for the "corrected_speaker" field. It is called by the builders before save.
+	CorrectedSpeakerValidator func(string) error
+	// CorrectedPublicDetailsValidator is a validator for the "corrected_public_details" field. It is called by the builders before save.
+	CorrectedPublicDetailsValidator func(string) error
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 )
@@ -148,6 +163,21 @@ func ByLifecycle(opts ...sql.OrderTermOption) OrderOption {
 // ByLiveStateRevision orders the results by the live_state_revision field.
 func ByLiveStateRevision(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldLiveStateRevision, opts...).ToFunc()
+}
+
+// ByCorrectedTitle orders the results by the corrected_title field.
+func ByCorrectedTitle(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCorrectedTitle, opts...).ToFunc()
+}
+
+// ByCorrectedSpeaker orders the results by the corrected_speaker field.
+func ByCorrectedSpeaker(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCorrectedSpeaker, opts...).ToFunc()
+}
+
+// ByCorrectedPublicDetails orders the results by the corrected_public_details field.
+func ByCorrectedPublicDetails(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCorrectedPublicDetails, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

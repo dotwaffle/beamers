@@ -36,6 +36,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
+	"github.com/dotwaffle/beamers/ent/sessionrunamendment"
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
@@ -74,6 +75,7 @@ const (
 	TypeSessionDraft             = "SessionDraft"
 	TypeSessionPublishedVersion  = "SessionPublishedVersion"
 	TypeSessionRun               = "SessionRun"
+	TypeSessionRunAmendment      = "SessionRunAmendment"
 	TypeTrack                    = "Track"
 	TypeTrackDraft               = "TrackDraft"
 	TypeTrackPublishedVersion    = "TrackPublishedVersion"
@@ -14950,6 +14952,9 @@ type SessionMutation struct {
 	lifecycle                 *session.Lifecycle
 	live_state_revision       *int
 	addlive_state_revision    *int
+	corrected_title           *string
+	corrected_speaker         *string
+	corrected_public_details  *string
 	created_at                *time.Time
 	clearedFields             map[string]struct{}
 	event                     *int
@@ -15191,6 +15196,153 @@ func (m *SessionMutation) AddedLiveStateRevision() (r int, exists bool) {
 func (m *SessionMutation) ResetLiveStateRevision() {
 	m.live_state_revision = nil
 	m.addlive_state_revision = nil
+}
+
+// SetCorrectedTitle sets the "corrected_title" field.
+func (m *SessionMutation) SetCorrectedTitle(s string) {
+	m.corrected_title = &s
+}
+
+// CorrectedTitle returns the value of the "corrected_title" field in the mutation.
+func (m *SessionMutation) CorrectedTitle() (r string, exists bool) {
+	v := m.corrected_title
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCorrectedTitle returns the old "corrected_title" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldCorrectedTitle(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCorrectedTitle is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCorrectedTitle requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCorrectedTitle: %w", err)
+	}
+	return oldValue.CorrectedTitle, nil
+}
+
+// ClearCorrectedTitle clears the value of the "corrected_title" field.
+func (m *SessionMutation) ClearCorrectedTitle() {
+	m.corrected_title = nil
+	m.clearedFields[session.FieldCorrectedTitle] = struct{}{}
+}
+
+// CorrectedTitleCleared returns if the "corrected_title" field was cleared in this mutation.
+func (m *SessionMutation) CorrectedTitleCleared() bool {
+	_, ok := m.clearedFields[session.FieldCorrectedTitle]
+	return ok
+}
+
+// ResetCorrectedTitle resets all changes to the "corrected_title" field.
+func (m *SessionMutation) ResetCorrectedTitle() {
+	m.corrected_title = nil
+	delete(m.clearedFields, session.FieldCorrectedTitle)
+}
+
+// SetCorrectedSpeaker sets the "corrected_speaker" field.
+func (m *SessionMutation) SetCorrectedSpeaker(s string) {
+	m.corrected_speaker = &s
+}
+
+// CorrectedSpeaker returns the value of the "corrected_speaker" field in the mutation.
+func (m *SessionMutation) CorrectedSpeaker() (r string, exists bool) {
+	v := m.corrected_speaker
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCorrectedSpeaker returns the old "corrected_speaker" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldCorrectedSpeaker(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCorrectedSpeaker is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCorrectedSpeaker requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCorrectedSpeaker: %w", err)
+	}
+	return oldValue.CorrectedSpeaker, nil
+}
+
+// ClearCorrectedSpeaker clears the value of the "corrected_speaker" field.
+func (m *SessionMutation) ClearCorrectedSpeaker() {
+	m.corrected_speaker = nil
+	m.clearedFields[session.FieldCorrectedSpeaker] = struct{}{}
+}
+
+// CorrectedSpeakerCleared returns if the "corrected_speaker" field was cleared in this mutation.
+func (m *SessionMutation) CorrectedSpeakerCleared() bool {
+	_, ok := m.clearedFields[session.FieldCorrectedSpeaker]
+	return ok
+}
+
+// ResetCorrectedSpeaker resets all changes to the "corrected_speaker" field.
+func (m *SessionMutation) ResetCorrectedSpeaker() {
+	m.corrected_speaker = nil
+	delete(m.clearedFields, session.FieldCorrectedSpeaker)
+}
+
+// SetCorrectedPublicDetails sets the "corrected_public_details" field.
+func (m *SessionMutation) SetCorrectedPublicDetails(s string) {
+	m.corrected_public_details = &s
+}
+
+// CorrectedPublicDetails returns the value of the "corrected_public_details" field in the mutation.
+func (m *SessionMutation) CorrectedPublicDetails() (r string, exists bool) {
+	v := m.corrected_public_details
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCorrectedPublicDetails returns the old "corrected_public_details" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldCorrectedPublicDetails(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCorrectedPublicDetails is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCorrectedPublicDetails requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCorrectedPublicDetails: %w", err)
+	}
+	return oldValue.CorrectedPublicDetails, nil
+}
+
+// ClearCorrectedPublicDetails clears the value of the "corrected_public_details" field.
+func (m *SessionMutation) ClearCorrectedPublicDetails() {
+	m.corrected_public_details = nil
+	m.clearedFields[session.FieldCorrectedPublicDetails] = struct{}{}
+}
+
+// CorrectedPublicDetailsCleared returns if the "corrected_public_details" field was cleared in this mutation.
+func (m *SessionMutation) CorrectedPublicDetailsCleared() bool {
+	_, ok := m.clearedFields[session.FieldCorrectedPublicDetails]
+	return ok
+}
+
+// ResetCorrectedPublicDetails resets all changes to the "corrected_public_details" field.
+func (m *SessionMutation) ResetCorrectedPublicDetails() {
+	m.corrected_public_details = nil
+	delete(m.clearedFields, session.FieldCorrectedPublicDetails)
 }
 
 // SetCreatedAt sets the "created_at" field.
@@ -15437,7 +15589,7 @@ func (m *SessionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SessionMutation) Fields() []string {
-	fields := make([]string, 0, 4)
+	fields := make([]string, 0, 7)
 	if m.event != nil {
 		fields = append(fields, session.FieldEventID)
 	}
@@ -15446,6 +15598,15 @@ func (m *SessionMutation) Fields() []string {
 	}
 	if m.live_state_revision != nil {
 		fields = append(fields, session.FieldLiveStateRevision)
+	}
+	if m.corrected_title != nil {
+		fields = append(fields, session.FieldCorrectedTitle)
+	}
+	if m.corrected_speaker != nil {
+		fields = append(fields, session.FieldCorrectedSpeaker)
+	}
+	if m.corrected_public_details != nil {
+		fields = append(fields, session.FieldCorrectedPublicDetails)
 	}
 	if m.created_at != nil {
 		fields = append(fields, session.FieldCreatedAt)
@@ -15464,6 +15625,12 @@ func (m *SessionMutation) Field(name string) (ent.Value, bool) {
 		return m.Lifecycle()
 	case session.FieldLiveStateRevision:
 		return m.LiveStateRevision()
+	case session.FieldCorrectedTitle:
+		return m.CorrectedTitle()
+	case session.FieldCorrectedSpeaker:
+		return m.CorrectedSpeaker()
+	case session.FieldCorrectedPublicDetails:
+		return m.CorrectedPublicDetails()
 	case session.FieldCreatedAt:
 		return m.CreatedAt()
 	}
@@ -15481,6 +15648,12 @@ func (m *SessionMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldLifecycle(ctx)
 	case session.FieldLiveStateRevision:
 		return m.OldLiveStateRevision(ctx)
+	case session.FieldCorrectedTitle:
+		return m.OldCorrectedTitle(ctx)
+	case session.FieldCorrectedSpeaker:
+		return m.OldCorrectedSpeaker(ctx)
+	case session.FieldCorrectedPublicDetails:
+		return m.OldCorrectedPublicDetails(ctx)
 	case session.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	}
@@ -15512,6 +15685,27 @@ func (m *SessionMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetLiveStateRevision(v)
+		return nil
+	case session.FieldCorrectedTitle:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCorrectedTitle(v)
+		return nil
+	case session.FieldCorrectedSpeaker:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCorrectedSpeaker(v)
+		return nil
+	case session.FieldCorrectedPublicDetails:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCorrectedPublicDetails(v)
 		return nil
 	case session.FieldCreatedAt:
 		v, ok := value.(time.Time)
@@ -15564,7 +15758,17 @@ func (m *SessionMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *SessionMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(session.FieldCorrectedTitle) {
+		fields = append(fields, session.FieldCorrectedTitle)
+	}
+	if m.FieldCleared(session.FieldCorrectedSpeaker) {
+		fields = append(fields, session.FieldCorrectedSpeaker)
+	}
+	if m.FieldCleared(session.FieldCorrectedPublicDetails) {
+		fields = append(fields, session.FieldCorrectedPublicDetails)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -15577,6 +15781,17 @@ func (m *SessionMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *SessionMutation) ClearField(name string) error {
+	switch name {
+	case session.FieldCorrectedTitle:
+		m.ClearCorrectedTitle()
+		return nil
+	case session.FieldCorrectedSpeaker:
+		m.ClearCorrectedSpeaker()
+		return nil
+	case session.FieldCorrectedPublicDetails:
+		m.ClearCorrectedPublicDetails()
+		return nil
+	}
 	return fmt.Errorf("unknown Session nullable field %s", name)
 }
 
@@ -15592,6 +15807,15 @@ func (m *SessionMutation) ResetField(name string) error {
 		return nil
 	case session.FieldLiveStateRevision:
 		m.ResetLiveStateRevision()
+		return nil
+	case session.FieldCorrectedTitle:
+		m.ResetCorrectedTitle()
+		return nil
+	case session.FieldCorrectedSpeaker:
+		m.ResetCorrectedSpeaker()
+		return nil
+	case session.FieldCorrectedPublicDetails:
+		m.ResetCorrectedPublicDetails()
 		return nil
 	case session.FieldCreatedAt:
 		m.ResetCreatedAt()
@@ -15753,6 +15977,7 @@ type SessionDraftMutation struct {
 	typ                         string
 	id                          *int
 	title                       *string
+	speaker                     *string
 	_type                       *sessiondraft.Type
 	audience_visibility         *sessiondraft.AudienceVisibility
 	public_details              *string
@@ -15949,6 +16174,55 @@ func (m *SessionDraftMutation) OldTitle(ctx context.Context) (v string, err erro
 // ResetTitle resets all changes to the "title" field.
 func (m *SessionDraftMutation) ResetTitle() {
 	m.title = nil
+}
+
+// SetSpeaker sets the "speaker" field.
+func (m *SessionDraftMutation) SetSpeaker(s string) {
+	m.speaker = &s
+}
+
+// Speaker returns the value of the "speaker" field in the mutation.
+func (m *SessionDraftMutation) Speaker() (r string, exists bool) {
+	v := m.speaker
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSpeaker returns the old "speaker" field's value of the SessionDraft entity.
+// If the SessionDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionDraftMutation) OldSpeaker(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSpeaker is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSpeaker requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSpeaker: %w", err)
+	}
+	return oldValue.Speaker, nil
+}
+
+// ClearSpeaker clears the value of the "speaker" field.
+func (m *SessionDraftMutation) ClearSpeaker() {
+	m.speaker = nil
+	m.clearedFields[sessiondraft.FieldSpeaker] = struct{}{}
+}
+
+// SpeakerCleared returns if the "speaker" field was cleared in this mutation.
+func (m *SessionDraftMutation) SpeakerCleared() bool {
+	_, ok := m.clearedFields[sessiondraft.FieldSpeaker]
+	return ok
+}
+
+// ResetSpeaker resets all changes to the "speaker" field.
+func (m *SessionDraftMutation) ResetSpeaker() {
+	m.speaker = nil
+	delete(m.clearedFields, sessiondraft.FieldSpeaker)
 }
 
 // SetType sets the "type" field.
@@ -16580,12 +16854,15 @@ func (m *SessionDraftMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SessionDraftMutation) Fields() []string {
-	fields := make([]string, 0, 12)
+	fields := make([]string, 0, 13)
 	if m.session != nil {
 		fields = append(fields, sessiondraft.FieldSessionID)
 	}
 	if m.title != nil {
 		fields = append(fields, sessiondraft.FieldTitle)
+	}
+	if m.speaker != nil {
+		fields = append(fields, sessiondraft.FieldSpeaker)
 	}
 	if m._type != nil {
 		fields = append(fields, sessiondraft.FieldType)
@@ -16629,6 +16906,8 @@ func (m *SessionDraftMutation) Field(name string) (ent.Value, bool) {
 		return m.SessionID()
 	case sessiondraft.FieldTitle:
 		return m.Title()
+	case sessiondraft.FieldSpeaker:
+		return m.Speaker()
 	case sessiondraft.FieldType:
 		return m.GetType()
 	case sessiondraft.FieldAudienceVisibility:
@@ -16662,6 +16941,8 @@ func (m *SessionDraftMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldSessionID(ctx)
 	case sessiondraft.FieldTitle:
 		return m.OldTitle(ctx)
+	case sessiondraft.FieldSpeaker:
+		return m.OldSpeaker(ctx)
 	case sessiondraft.FieldType:
 		return m.OldType(ctx)
 	case sessiondraft.FieldAudienceVisibility:
@@ -16704,6 +16985,13 @@ func (m *SessionDraftMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetTitle(v)
+		return nil
+	case sessiondraft.FieldSpeaker:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSpeaker(v)
 		return nil
 	case sessiondraft.FieldType:
 		v, ok := value.(sessiondraft.Type)
@@ -16820,6 +17108,9 @@ func (m *SessionDraftMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *SessionDraftMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(sessiondraft.FieldSpeaker) {
+		fields = append(fields, sessiondraft.FieldSpeaker)
+	}
 	if m.FieldCleared(sessiondraft.FieldPublicDetails) {
 		fields = append(fields, sessiondraft.FieldPublicDetails)
 	}
@@ -16840,6 +17131,9 @@ func (m *SessionDraftMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *SessionDraftMutation) ClearField(name string) error {
 	switch name {
+	case sessiondraft.FieldSpeaker:
+		m.ClearSpeaker()
+		return nil
 	case sessiondraft.FieldPublicDetails:
 		m.ClearPublicDetails()
 		return nil
@@ -16859,6 +17153,9 @@ func (m *SessionDraftMutation) ResetField(name string) error {
 		return nil
 	case sessiondraft.FieldTitle:
 		m.ResetTitle()
+		return nil
+	case sessiondraft.FieldSpeaker:
+		m.ResetSpeaker()
 		return nil
 	case sessiondraft.FieldType:
 		m.ResetType()
@@ -17057,6 +17354,7 @@ type SessionPublishedVersionMutation struct {
 	published_revision          *int
 	addpublished_revision       *int
 	title                       *string
+	speaker                     *string
 	_type                       *sessionpublishedversion.Type
 	audience_visibility         *sessionpublishedversion.AudienceVisibility
 	public_details              *string
@@ -17310,6 +17608,55 @@ func (m *SessionPublishedVersionMutation) OldTitle(ctx context.Context) (v strin
 // ResetTitle resets all changes to the "title" field.
 func (m *SessionPublishedVersionMutation) ResetTitle() {
 	m.title = nil
+}
+
+// SetSpeaker sets the "speaker" field.
+func (m *SessionPublishedVersionMutation) SetSpeaker(s string) {
+	m.speaker = &s
+}
+
+// Speaker returns the value of the "speaker" field in the mutation.
+func (m *SessionPublishedVersionMutation) Speaker() (r string, exists bool) {
+	v := m.speaker
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSpeaker returns the old "speaker" field's value of the SessionPublishedVersion entity.
+// If the SessionPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionPublishedVersionMutation) OldSpeaker(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSpeaker is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSpeaker requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSpeaker: %w", err)
+	}
+	return oldValue.Speaker, nil
+}
+
+// ClearSpeaker clears the value of the "speaker" field.
+func (m *SessionPublishedVersionMutation) ClearSpeaker() {
+	m.speaker = nil
+	m.clearedFields[sessionpublishedversion.FieldSpeaker] = struct{}{}
+}
+
+// SpeakerCleared returns if the "speaker" field was cleared in this mutation.
+func (m *SessionPublishedVersionMutation) SpeakerCleared() bool {
+	_, ok := m.clearedFields[sessionpublishedversion.FieldSpeaker]
+	return ok
+}
+
+// ResetSpeaker resets all changes to the "speaker" field.
+func (m *SessionPublishedVersionMutation) ResetSpeaker() {
+	m.speaker = nil
+	delete(m.clearedFields, sessionpublishedversion.FieldSpeaker)
 }
 
 // SetType sets the "type" field.
@@ -17977,7 +18324,7 @@ func (m *SessionPublishedVersionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SessionPublishedVersionMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 15)
 	if m.session != nil {
 		fields = append(fields, sessionpublishedversion.FieldSessionID)
 	}
@@ -17986,6 +18333,9 @@ func (m *SessionPublishedVersionMutation) Fields() []string {
 	}
 	if m.title != nil {
 		fields = append(fields, sessionpublishedversion.FieldTitle)
+	}
+	if m.speaker != nil {
+		fields = append(fields, sessionpublishedversion.FieldSpeaker)
 	}
 	if m._type != nil {
 		fields = append(fields, sessionpublishedversion.FieldType)
@@ -18034,6 +18384,8 @@ func (m *SessionPublishedVersionMutation) Field(name string) (ent.Value, bool) {
 		return m.PublishedRevision()
 	case sessionpublishedversion.FieldTitle:
 		return m.Title()
+	case sessionpublishedversion.FieldSpeaker:
+		return m.Speaker()
 	case sessionpublishedversion.FieldType:
 		return m.GetType()
 	case sessionpublishedversion.FieldAudienceVisibility:
@@ -18071,6 +18423,8 @@ func (m *SessionPublishedVersionMutation) OldField(ctx context.Context, name str
 		return m.OldPublishedRevision(ctx)
 	case sessionpublishedversion.FieldTitle:
 		return m.OldTitle(ctx)
+	case sessionpublishedversion.FieldSpeaker:
+		return m.OldSpeaker(ctx)
 	case sessionpublishedversion.FieldType:
 		return m.OldType(ctx)
 	case sessionpublishedversion.FieldAudienceVisibility:
@@ -18122,6 +18476,13 @@ func (m *SessionPublishedVersionMutation) SetField(name string, value ent.Value)
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetTitle(v)
+		return nil
+	case sessionpublishedversion.FieldSpeaker:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSpeaker(v)
 		return nil
 	case sessionpublishedversion.FieldType:
 		v, ok := value.(sessionpublishedversion.Type)
@@ -18257,6 +18618,9 @@ func (m *SessionPublishedVersionMutation) AddField(name string, value ent.Value)
 // mutation.
 func (m *SessionPublishedVersionMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(sessionpublishedversion.FieldSpeaker) {
+		fields = append(fields, sessionpublishedversion.FieldSpeaker)
+	}
 	if m.FieldCleared(sessionpublishedversion.FieldPublicDetails) {
 		fields = append(fields, sessionpublishedversion.FieldPublicDetails)
 	}
@@ -18277,6 +18641,9 @@ func (m *SessionPublishedVersionMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *SessionPublishedVersionMutation) ClearField(name string) error {
 	switch name {
+	case sessionpublishedversion.FieldSpeaker:
+		m.ClearSpeaker()
+		return nil
 	case sessionpublishedversion.FieldPublicDetails:
 		m.ClearPublicDetails()
 		return nil
@@ -18299,6 +18666,9 @@ func (m *SessionPublishedVersionMutation) ResetField(name string) error {
 		return nil
 	case sessionpublishedversion.FieldTitle:
 		m.ResetTitle()
+		return nil
+	case sessionpublishedversion.FieldSpeaker:
+		m.ResetSpeaker()
 		return nil
 	case sessionpublishedversion.FieldType:
 		m.ResetType()
@@ -18494,19 +18864,22 @@ func (m *SessionPublishedVersionMutation) ResetEdge(name string) error {
 // SessionRunMutation represents an operation that mutates the SessionRun nodes in the graph.
 type SessionRunMutation struct {
 	config
-	op             Op
-	typ            string
-	id             *int
-	actual_start   *time.Time
-	actual_end     *time.Time
-	snapshot_json  *string
-	created_at     *time.Time
-	clearedFields  map[string]struct{}
-	session        *int
-	clearedsession bool
-	done           bool
-	oldValue       func(context.Context) (*SessionRun, error)
-	predicates     []predicate.SessionRun
+	op                Op
+	typ               string
+	id                *int
+	actual_start      *time.Time
+	actual_end        *time.Time
+	snapshot_json     *string
+	created_at        *time.Time
+	clearedFields     map[string]struct{}
+	session           *int
+	clearedsession    bool
+	amendments        map[int]struct{}
+	removedamendments map[int]struct{}
+	clearedamendments bool
+	done              bool
+	oldValue          func(context.Context) (*SessionRun, error)
+	predicates        []predicate.SessionRun
 }
 
 var _ ent.Mutation = (*SessionRunMutation)(nil)
@@ -18827,6 +19200,60 @@ func (m *SessionRunMutation) ResetSession() {
 	m.clearedsession = false
 }
 
+// AddAmendmentIDs adds the "amendments" edge to the SessionRunAmendment entity by ids.
+func (m *SessionRunMutation) AddAmendmentIDs(ids ...int) {
+	if m.amendments == nil {
+		m.amendments = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.amendments[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAmendments clears the "amendments" edge to the SessionRunAmendment entity.
+func (m *SessionRunMutation) ClearAmendments() {
+	m.clearedamendments = true
+}
+
+// AmendmentsCleared reports if the "amendments" edge to the SessionRunAmendment entity was cleared.
+func (m *SessionRunMutation) AmendmentsCleared() bool {
+	return m.clearedamendments
+}
+
+// RemoveAmendmentIDs removes the "amendments" edge to the SessionRunAmendment entity by IDs.
+func (m *SessionRunMutation) RemoveAmendmentIDs(ids ...int) {
+	if m.removedamendments == nil {
+		m.removedamendments = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.amendments, ids[i])
+		m.removedamendments[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAmendments returns the removed IDs of the "amendments" edge to the SessionRunAmendment entity.
+func (m *SessionRunMutation) RemovedAmendmentsIDs() (ids []int) {
+	for id := range m.removedamendments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AmendmentsIDs returns the "amendments" edge IDs in the mutation.
+func (m *SessionRunMutation) AmendmentsIDs() (ids []int) {
+	for id := range m.amendments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAmendments resets all changes to the "amendments" edge.
+func (m *SessionRunMutation) ResetAmendments() {
+	m.amendments = nil
+	m.clearedamendments = false
+	m.removedamendments = nil
+}
+
 // Where appends a list predicates to the SessionRunMutation builder.
 func (m *SessionRunMutation) Where(ps ...predicate.SessionRun) {
 	m.predicates = append(m.predicates, ps...)
@@ -19040,9 +19467,12 @@ func (m *SessionRunMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *SessionRunMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.session != nil {
 		edges = append(edges, sessionrun.EdgeSession)
+	}
+	if m.amendments != nil {
+		edges = append(edges, sessionrun.EdgeAmendments)
 	}
 	return edges
 }
@@ -19055,27 +19485,47 @@ func (m *SessionRunMutation) AddedIDs(name string) []ent.Value {
 		if id := m.session; id != nil {
 			return []ent.Value{*id}
 		}
+	case sessionrun.EdgeAmendments:
+		ids := make([]ent.Value, 0, len(m.amendments))
+		for id := range m.amendments {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *SessionRunMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
+	if m.removedamendments != nil {
+		edges = append(edges, sessionrun.EdgeAmendments)
+	}
 	return edges
 }
 
 // RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
 // the given name in this mutation.
 func (m *SessionRunMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case sessionrun.EdgeAmendments:
+		ids := make([]ent.Value, 0, len(m.removedamendments))
+		for id := range m.removedamendments {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *SessionRunMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.clearedsession {
 		edges = append(edges, sessionrun.EdgeSession)
+	}
+	if m.clearedamendments {
+		edges = append(edges, sessionrun.EdgeAmendments)
 	}
 	return edges
 }
@@ -19086,6 +19536,8 @@ func (m *SessionRunMutation) EdgeCleared(name string) bool {
 	switch name {
 	case sessionrun.EdgeSession:
 		return m.clearedsession
+	case sessionrun.EdgeAmendments:
+		return m.clearedamendments
 	}
 	return false
 }
@@ -19108,8 +19560,589 @@ func (m *SessionRunMutation) ResetEdge(name string) error {
 	case sessionrun.EdgeSession:
 		m.ResetSession()
 		return nil
+	case sessionrun.EdgeAmendments:
+		m.ResetAmendments()
+		return nil
 	}
 	return fmt.Errorf("unknown SessionRun edge %s", name)
+}
+
+// SessionRunAmendmentMutation represents an operation that mutates the SessionRunAmendment nodes in the graph.
+type SessionRunAmendmentMutation struct {
+	config
+	op                  Op
+	typ                 string
+	id                  *int
+	actor_account_id    *int
+	addactor_account_id *int
+	details_json        *string
+	created_at          *time.Time
+	clearedFields       map[string]struct{}
+	session_run         *int
+	clearedsession_run  bool
+	done                bool
+	oldValue            func(context.Context) (*SessionRunAmendment, error)
+	predicates          []predicate.SessionRunAmendment
+}
+
+var _ ent.Mutation = (*SessionRunAmendmentMutation)(nil)
+
+// sessionrunamendmentOption allows management of the mutation configuration using functional options.
+type sessionrunamendmentOption func(*SessionRunAmendmentMutation)
+
+// newSessionRunAmendmentMutation creates new mutation for the SessionRunAmendment entity.
+func newSessionRunAmendmentMutation(c config, op Op, opts ...sessionrunamendmentOption) *SessionRunAmendmentMutation {
+	m := &SessionRunAmendmentMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeSessionRunAmendment,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withSessionRunAmendmentID sets the ID field of the mutation.
+func withSessionRunAmendmentID(id int) sessionrunamendmentOption {
+	return func(m *SessionRunAmendmentMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *SessionRunAmendment
+		)
+		m.oldValue = func(ctx context.Context) (*SessionRunAmendment, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().SessionRunAmendment.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withSessionRunAmendment sets the old SessionRunAmendment of the mutation.
+func withSessionRunAmendment(node *SessionRunAmendment) sessionrunamendmentOption {
+	return func(m *SessionRunAmendmentMutation) {
+		m.oldValue = func(context.Context) (*SessionRunAmendment, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m SessionRunAmendmentMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m SessionRunAmendmentMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *SessionRunAmendmentMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *SessionRunAmendmentMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().SessionRunAmendment.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetSessionRunID sets the "session_run_id" field.
+func (m *SessionRunAmendmentMutation) SetSessionRunID(i int) {
+	m.session_run = &i
+}
+
+// SessionRunID returns the value of the "session_run_id" field in the mutation.
+func (m *SessionRunAmendmentMutation) SessionRunID() (r int, exists bool) {
+	v := m.session_run
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSessionRunID returns the old "session_run_id" field's value of the SessionRunAmendment entity.
+// If the SessionRunAmendment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionRunAmendmentMutation) OldSessionRunID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSessionRunID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSessionRunID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSessionRunID: %w", err)
+	}
+	return oldValue.SessionRunID, nil
+}
+
+// ResetSessionRunID resets all changes to the "session_run_id" field.
+func (m *SessionRunAmendmentMutation) ResetSessionRunID() {
+	m.session_run = nil
+}
+
+// SetActorAccountID sets the "actor_account_id" field.
+func (m *SessionRunAmendmentMutation) SetActorAccountID(i int) {
+	m.actor_account_id = &i
+	m.addactor_account_id = nil
+}
+
+// ActorAccountID returns the value of the "actor_account_id" field in the mutation.
+func (m *SessionRunAmendmentMutation) ActorAccountID() (r int, exists bool) {
+	v := m.actor_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActorAccountID returns the old "actor_account_id" field's value of the SessionRunAmendment entity.
+// If the SessionRunAmendment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionRunAmendmentMutation) OldActorAccountID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActorAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActorAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActorAccountID: %w", err)
+	}
+	return oldValue.ActorAccountID, nil
+}
+
+// AddActorAccountID adds i to the "actor_account_id" field.
+func (m *SessionRunAmendmentMutation) AddActorAccountID(i int) {
+	if m.addactor_account_id != nil {
+		*m.addactor_account_id += i
+	} else {
+		m.addactor_account_id = &i
+	}
+}
+
+// AddedActorAccountID returns the value that was added to the "actor_account_id" field in this mutation.
+func (m *SessionRunAmendmentMutation) AddedActorAccountID() (r int, exists bool) {
+	v := m.addactor_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetActorAccountID resets all changes to the "actor_account_id" field.
+func (m *SessionRunAmendmentMutation) ResetActorAccountID() {
+	m.actor_account_id = nil
+	m.addactor_account_id = nil
+}
+
+// SetDetailsJSON sets the "details_json" field.
+func (m *SessionRunAmendmentMutation) SetDetailsJSON(s string) {
+	m.details_json = &s
+}
+
+// DetailsJSON returns the value of the "details_json" field in the mutation.
+func (m *SessionRunAmendmentMutation) DetailsJSON() (r string, exists bool) {
+	v := m.details_json
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDetailsJSON returns the old "details_json" field's value of the SessionRunAmendment entity.
+// If the SessionRunAmendment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionRunAmendmentMutation) OldDetailsJSON(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDetailsJSON is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDetailsJSON requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDetailsJSON: %w", err)
+	}
+	return oldValue.DetailsJSON, nil
+}
+
+// ResetDetailsJSON resets all changes to the "details_json" field.
+func (m *SessionRunAmendmentMutation) ResetDetailsJSON() {
+	m.details_json = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *SessionRunAmendmentMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *SessionRunAmendmentMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the SessionRunAmendment entity.
+// If the SessionRunAmendment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionRunAmendmentMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *SessionRunAmendmentMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearSessionRun clears the "session_run" edge to the SessionRun entity.
+func (m *SessionRunAmendmentMutation) ClearSessionRun() {
+	m.clearedsession_run = true
+	m.clearedFields[sessionrunamendment.FieldSessionRunID] = struct{}{}
+}
+
+// SessionRunCleared reports if the "session_run" edge to the SessionRun entity was cleared.
+func (m *SessionRunAmendmentMutation) SessionRunCleared() bool {
+	return m.clearedsession_run
+}
+
+// SessionRunIDs returns the "session_run" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SessionRunID instead. It exists only for internal usage by the builders.
+func (m *SessionRunAmendmentMutation) SessionRunIDs() (ids []int) {
+	if id := m.session_run; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSessionRun resets all changes to the "session_run" edge.
+func (m *SessionRunAmendmentMutation) ResetSessionRun() {
+	m.session_run = nil
+	m.clearedsession_run = false
+}
+
+// Where appends a list predicates to the SessionRunAmendmentMutation builder.
+func (m *SessionRunAmendmentMutation) Where(ps ...predicate.SessionRunAmendment) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the SessionRunAmendmentMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *SessionRunAmendmentMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.SessionRunAmendment, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *SessionRunAmendmentMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *SessionRunAmendmentMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (SessionRunAmendment).
+func (m *SessionRunAmendmentMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *SessionRunAmendmentMutation) Fields() []string {
+	fields := make([]string, 0, 4)
+	if m.session_run != nil {
+		fields = append(fields, sessionrunamendment.FieldSessionRunID)
+	}
+	if m.actor_account_id != nil {
+		fields = append(fields, sessionrunamendment.FieldActorAccountID)
+	}
+	if m.details_json != nil {
+		fields = append(fields, sessionrunamendment.FieldDetailsJSON)
+	}
+	if m.created_at != nil {
+		fields = append(fields, sessionrunamendment.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *SessionRunAmendmentMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case sessionrunamendment.FieldSessionRunID:
+		return m.SessionRunID()
+	case sessionrunamendment.FieldActorAccountID:
+		return m.ActorAccountID()
+	case sessionrunamendment.FieldDetailsJSON:
+		return m.DetailsJSON()
+	case sessionrunamendment.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *SessionRunAmendmentMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case sessionrunamendment.FieldSessionRunID:
+		return m.OldSessionRunID(ctx)
+	case sessionrunamendment.FieldActorAccountID:
+		return m.OldActorAccountID(ctx)
+	case sessionrunamendment.FieldDetailsJSON:
+		return m.OldDetailsJSON(ctx)
+	case sessionrunamendment.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown SessionRunAmendment field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SessionRunAmendmentMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case sessionrunamendment.FieldSessionRunID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSessionRunID(v)
+		return nil
+	case sessionrunamendment.FieldActorAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActorAccountID(v)
+		return nil
+	case sessionrunamendment.FieldDetailsJSON:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDetailsJSON(v)
+		return nil
+	case sessionrunamendment.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SessionRunAmendment field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *SessionRunAmendmentMutation) AddedFields() []string {
+	var fields []string
+	if m.addactor_account_id != nil {
+		fields = append(fields, sessionrunamendment.FieldActorAccountID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *SessionRunAmendmentMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case sessionrunamendment.FieldActorAccountID:
+		return m.AddedActorAccountID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SessionRunAmendmentMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case sessionrunamendment.FieldActorAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddActorAccountID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SessionRunAmendment numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *SessionRunAmendmentMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *SessionRunAmendmentMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *SessionRunAmendmentMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown SessionRunAmendment nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *SessionRunAmendmentMutation) ResetField(name string) error {
+	switch name {
+	case sessionrunamendment.FieldSessionRunID:
+		m.ResetSessionRunID()
+		return nil
+	case sessionrunamendment.FieldActorAccountID:
+		m.ResetActorAccountID()
+		return nil
+	case sessionrunamendment.FieldDetailsJSON:
+		m.ResetDetailsJSON()
+		return nil
+	case sessionrunamendment.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown SessionRunAmendment field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *SessionRunAmendmentMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.session_run != nil {
+		edges = append(edges, sessionrunamendment.EdgeSessionRun)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *SessionRunAmendmentMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case sessionrunamendment.EdgeSessionRun:
+		if id := m.session_run; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *SessionRunAmendmentMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *SessionRunAmendmentMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *SessionRunAmendmentMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedsession_run {
+		edges = append(edges, sessionrunamendment.EdgeSessionRun)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *SessionRunAmendmentMutation) EdgeCleared(name string) bool {
+	switch name {
+	case sessionrunamendment.EdgeSessionRun:
+		return m.clearedsession_run
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *SessionRunAmendmentMutation) ClearEdge(name string) error {
+	switch name {
+	case sessionrunamendment.EdgeSessionRun:
+		m.ClearSessionRun()
+		return nil
+	}
+	return fmt.Errorf("unknown SessionRunAmendment unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *SessionRunAmendmentMutation) ResetEdge(name string) error {
+	switch name {
+	case sessionrunamendment.EdgeSessionRun:
+		m.ResetSessionRun()
+		return nil
+	}
+	return fmt.Errorf("unknown SessionRunAmendment edge %s", name)
 }
 
 // TrackMutation represents an operation that mutates the Track nodes in the graph.

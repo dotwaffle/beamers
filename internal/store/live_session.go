@@ -9,9 +9,13 @@ import (
 	"entgo.io/ent/privacy"
 
 	"github.com/dotwaffle/beamers/ent"
+	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
+	"github.com/dotwaffle/beamers/ent/sessionrunamendment"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -32,6 +36,7 @@ var (
 type SessionRunSnapshot struct {
 	PublishedRevision      int       `json:"published_revision"`
 	Title                  string    `json:"title"`
+	Speaker                string    `json:"speaker,omitempty"`
 	Type                   string    `json:"type"`
 	PublicDetails          string    `json:"public_details,omitempty"`
 	PlannedStart           time.Time `json:"planned_start"`
@@ -43,6 +48,48 @@ type SessionRunSnapshot struct {
 	LaneIDs                []int     `json:"lane_ids"`
 	LocationIDs            []int     `json:"location_ids"`
 	TrackIDs               []int     `json:"track_ids,omitempty"`
+}
+
+// SessionDetails are the correctable descriptive facts for one Session.
+type SessionDetails struct {
+	Title         string `json:"title"`
+	Speaker       string `json:"speaker,omitempty"`
+	PublicDetails string `json:"public_details,omitempty"`
+}
+
+// LiveDetailCorrectionParams identifies one confirmed descriptive correction.
+type LiveDetailCorrectionParams struct {
+	EventID          int
+	SessionID        int
+	ActorAccountID   int
+	ExpectedRevision int
+	Fields           []string
+	Details          SessionDetails
+	Now              time.Time
+}
+
+// LiveDetailCorrection is one committed correction and its immutable amendment.
+type LiveDetailCorrection struct {
+	State       LiveSessionState `json:"state"`
+	AmendmentID int              `json:"amendment_id"`
+	Details     SessionDetails   `json:"details"`
+}
+
+// RunAmendment is immutable descriptive correction evidence for one Run.
+type RunAmendment struct {
+	ID            int
+	Details       SessionDetails
+	ChangedFields []string
+	CreatedAt     time.Time
+}
+
+// SessionRunHistory preserves one Run Snapshot and all later amendments.
+type SessionRunHistory struct {
+	ID          int
+	ActualStart time.Time
+	ActualEnd   *time.Time
+	Snapshot    SessionRunSnapshot
+	Amendments  []RunAmendment
 }
 
 // LiveSessionState is the durable outcome of one Session progression command.
@@ -198,6 +245,263 @@ func (transaction *CommandTx) EndSession(
 	}, nil
 }
 
+type runAmendmentEvidence struct {
+	Before        SessionDetails `json:"before"`
+	After         SessionDetails `json:"after"`
+	ChangedFields []string       `json:"changed_fields"`
+}
+
+// CorrectLiveDetails records one immutable amendment without rewriting the Run Snapshot.
+func (transaction *CommandTx) CorrectLiveDetails(
+	ctx context.Context,
+	params LiveDetailCorrectionParams,
+) (LiveDetailCorrection, error) {
+	if err := transaction.requireActiveEvent(ctx, params.EventID); err != nil {
+		return LiveDetailCorrection{}, err
+	}
+	identity, err := transaction.transaction.Session.Query().Where(
+		session.IDEQ(params.SessionID), session.EventIDEQ(params.EventID),
+	).Only(ctx)
+	if errors.Is(err, privacy.Deny) {
+		return LiveDetailCorrection{}, ErrSessionScopeRequired
+	}
+	if ent.IsNotFound(err) {
+		return LiveDetailCorrection{}, ErrSessionNotFound
+	}
+	if err != nil {
+		return LiveDetailCorrection{}, opaqueError("load Session for Live Detail Correction", err)
+	}
+	if scopeErr := requireSessionControlScope(ctx, identity); scopeErr != nil {
+		return LiveDetailCorrection{}, scopeErr
+	}
+	if identity.LiveStateRevision != params.ExpectedRevision {
+		current, currentErr := liveSessionState(ctx, transaction.transaction.SessionRun, identity)
+		return LiveDetailCorrection{State: current}, currentErr
+	}
+	if identity.Lifecycle != session.LifecycleLive {
+		return LiveDetailCorrection{}, ErrSessionLifecycleTransition
+	}
+	run, err := transaction.transaction.SessionRun.Query().Where(
+		sessionrun.SessionIDEQ(params.SessionID), sessionrun.ActualEndIsNil(),
+	).Order(ent.Desc(sessionrun.FieldID)).First(ctx)
+	if ent.IsNotFound(err) {
+		return LiveDetailCorrection{}, ErrSessionLifecycleTransition
+	}
+	if err != nil {
+		return LiveDetailCorrection{}, opaqueError("load Session Run for Live Detail Correction", err)
+	}
+	before, err := currentSessionDetails(ctx, identity)
+	if err != nil {
+		return LiveDetailCorrection{}, err
+	}
+	after := applySessionDetailFields(before, params.Details, params.Fields)
+	update := transaction.transaction.Session.UpdateOneID(params.SessionID).
+		Where(session.EventIDEQ(params.EventID), session.LiveStateRevisionEQ(params.ExpectedRevision), session.LifecycleEQ(session.LifecycleLive)).
+		AddLiveStateRevision(1)
+	for _, field := range params.Fields {
+		switch field {
+		case draftFactTitle:
+			update.SetCorrectedTitle(after.Title)
+		case draftFactSpeaker:
+			update.SetCorrectedSpeaker(after.Speaker)
+		case draftFactPublicDetails:
+			update.SetCorrectedPublicDetails(after.PublicDetails)
+		}
+	}
+	updated, err := update.Save(ctx)
+	if ent.IsNotFound(err) {
+		current, currentErr := transaction.currentLiveSessionState(ctx, params.EventID, params.SessionID)
+		return LiveDetailCorrection{State: current}, currentErr
+	}
+	if err != nil {
+		return LiveDetailCorrection{}, opaqueError("correct Live Session details", err)
+	}
+	if rebaseErr := transaction.rebaseDraftAfterLiveCorrection(ctx, params, before, after); rebaseErr != nil {
+		return LiveDetailCorrection{}, rebaseErr
+	}
+	evidence, err := json.Marshal(runAmendmentEvidence{Before: before, After: after, ChangedFields: params.Fields})
+	if err != nil {
+		return LiveDetailCorrection{}, opaqueError("encode Run Amendment", err)
+	}
+	amendment, err := transaction.transaction.SessionRunAmendment.Create().
+		SetSessionRunID(run.ID).SetActorAccountID(params.ActorAccountID).
+		SetDetailsJSON(string(evidence)).SetCreatedAt(params.Now).Save(systemContext(ctx))
+	if err != nil {
+		return LiveDetailCorrection{}, opaqueError("create Run Amendment", err)
+	}
+	state := LiveSessionState{
+		SessionID: updated.ID, SessionRunID: run.ID, Lifecycle: updated.Lifecycle.String(),
+		LiveStateRevision: updated.LiveStateRevision, ActualStart: run.ActualStart,
+	}
+	return LiveDetailCorrection{State: state, AmendmentID: amendment.ID, Details: after}, nil
+}
+
+func currentSessionDetails(ctx context.Context, identity *ent.Session) (SessionDetails, error) {
+	version, err := identity.QueryPublishedVersions().Order(ent.Desc("published_revision")).First(ctx)
+	if ent.IsNotFound(err) {
+		return SessionDetails{}, ErrSessionNotFound
+	}
+	if err != nil {
+		return SessionDetails{}, opaqueError("load Published Session details", err)
+	}
+	details := correctedSessionDetails(identity, SessionDetails{
+		Title: version.Title, Speaker: version.Speaker, PublicDetails: version.PublicDetails,
+	})
+	return details, nil
+}
+
+func correctedSessionDetails(identity *ent.Session, details SessionDetails) SessionDetails {
+	if identity.CorrectedTitle != nil {
+		details.Title = *identity.CorrectedTitle
+	}
+	if identity.CorrectedSpeaker != nil {
+		details.Speaker = *identity.CorrectedSpeaker
+	}
+	if identity.CorrectedPublicDetails != nil {
+		details.PublicDetails = *identity.CorrectedPublicDetails
+	}
+	return details
+}
+
+func applySessionDetailFields(current, proposed SessionDetails, fields []string) SessionDetails {
+	for _, field := range fields {
+		switch field {
+		case draftFactTitle:
+			current.Title = proposed.Title
+		case draftFactSpeaker:
+			current.Speaker = proposed.Speaker
+		case draftFactPublicDetails:
+			current.PublicDetails = proposed.PublicDetails
+		}
+	}
+	return current
+}
+
+func (transaction *CommandTx) rebaseDraftAfterLiveCorrection(
+	ctx context.Context,
+	params LiveDetailCorrectionParams,
+	before SessionDetails,
+	after SessionDetails,
+) error {
+	internalContext := systemContext(ctx)
+	current, err := transaction.transaction.Rundown.Query().Where(rundown.EventIDEQ(params.EventID)).Only(internalContext)
+	if err != nil {
+		return opaqueError("load Rundown for Live Detail Correction", err)
+	}
+	nextRevision := current.DraftRevision + 1
+	if _, updateErr := transaction.transaction.Rundown.UpdateOneID(current.ID).
+		Where(rundown.DraftRevisionEQ(current.DraftRevision)).SetDraftRevision(nextRevision).Save(internalContext); updateErr != nil {
+		return opaqueError("advance Draft for Live Detail Correction", updateErr)
+	}
+	edit, err := transaction.transaction.DraftEdit.Create().
+		SetEventID(params.EventID).SetActorAccountID(params.ActorAccountID).
+		SetRevision(nextRevision).SetCreatedAt(params.Now).Save(internalContext)
+	if err != nil {
+		return opaqueError("record Live Detail Correction Draft rebase", err)
+	}
+	if _, updateErr := transaction.transaction.DraftChange.Update().Where(
+		draftchange.EventIDEQ(params.EventID),
+		draftchange.TargetTypeEQ(draftTargetSession), draftchange.TargetIDEQ(params.SessionID),
+		draftchange.FactKeyIn(params.Fields...), draftchange.StatusEQ(draftchange.StatusEffective),
+	).SetStatus(draftchange.StatusConflicted).Save(internalContext); updateErr != nil {
+		return opaqueError("conflict Draft facts after Live Detail Correction", updateErr)
+	}
+	for _, field := range params.Fields {
+		var previous, corrected string
+		switch field {
+		case draftFactTitle:
+			previous, corrected = before.Title, after.Title
+		case draftFactSpeaker:
+			previous, corrected = before.Speaker, after.Speaker
+		case draftFactPublicDetails:
+			previous, corrected = before.PublicDetails, after.PublicDetails
+		}
+		change, changeErr := transaction.recordNamedFactChange(
+			internalContext,
+			EditDraftParams{EventID: params.EventID, ActorAccountID: params.ActorAccountID, Now: params.Now},
+			edit.ID, nextRevision, "LiveDetailCorrection", draftTargetSession, params.SessionID, field, previous, corrected,
+		)
+		if changeErr != nil {
+			return changeErr
+		}
+		if _, changeErr = change.Update().SetStatus(draftchange.StatusConflicted).Save(internalContext); changeErr != nil {
+			return opaqueError("mark Live Detail Correction Draft evidence", changeErr)
+		}
+	}
+	draft, err := transaction.transaction.SessionDraft.Query().Where(sessiondraft.SessionIDEQ(params.SessionID)).Only(internalContext)
+	if ent.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return opaqueError("load Session Draft for Live Detail Correction", err)
+	}
+	update := draft.Update()
+	for _, field := range params.Fields {
+		switch field {
+		case draftFactTitle:
+			update.SetTitle(after.Title)
+		case draftFactSpeaker:
+			update.SetSpeaker(after.Speaker)
+		case draftFactPublicDetails:
+			update.SetPublicDetails(after.PublicDetails)
+		}
+	}
+	if _, err := update.Save(internalContext); err != nil {
+		return opaqueError("rebase Session Draft after Live Detail Correction", err)
+	}
+	return nil
+}
+
+// LoadSessionHistory returns immutable Run Snapshots and amendments for authorized crew.
+func (installationStore *SQLite) LoadSessionHistory(
+	ctx context.Context,
+	eventID int,
+	sessionID int,
+) ([]SessionRunHistory, error) {
+	identity, err := installationStore.client.Session.Query().Where(
+		session.IDEQ(sessionID), session.EventIDEQ(eventID),
+	).Only(ctx)
+	if ent.IsNotFound(err) || errors.Is(err, privacy.Deny) {
+		return nil, ErrSessionNotFound
+	}
+	if err != nil {
+		return nil, opaqueError("load Session history identity", err)
+	}
+	runs, err := identity.QueryRuns().Order(ent.Asc(sessionrun.FieldID)).All(ctx)
+	if err != nil {
+		return nil, opaqueError("load Session Run history", err)
+	}
+	result := make([]SessionRunHistory, 0, len(runs))
+	for _, run := range runs {
+		var snapshot SessionRunSnapshot
+		if err := json.Unmarshal([]byte(run.SnapshotJSON), &snapshot); err != nil {
+			return nil, opaqueError("decode Session Run Snapshot", err)
+		}
+		found := SessionRunHistory{ID: run.ID, ActualStart: run.ActualStart, Snapshot: snapshot}
+		if !run.ActualEnd.IsZero() {
+			actualEnd := run.ActualEnd
+			found.ActualEnd = &actualEnd
+		}
+		amendments, queryErr := installationStore.client.SessionRunAmendment.Query().Where(
+			sessionrunamendment.SessionRunIDEQ(run.ID),
+		).Order(ent.Asc(sessionrunamendment.FieldID)).All(systemContext(ctx))
+		if queryErr != nil {
+			return nil, opaqueError("load Run Amendments", queryErr)
+		}
+		for _, amendment := range amendments {
+			var evidence runAmendmentEvidence
+			if err := json.Unmarshal([]byte(amendment.DetailsJSON), &evidence); err != nil {
+				return nil, opaqueError("decode Run Amendment", err)
+			}
+			found.Amendments = append(found.Amendments, RunAmendment{
+				ID: amendment.ID, Details: evidence.After, ChangedFields: evidence.ChangedFields, CreatedAt: amendment.CreatedAt,
+			})
+		}
+		result = append(result, found)
+	}
+	return result, nil
+}
+
 func (transaction *CommandTx) requireActiveEvent(ctx context.Context, eventID int) error {
 	ctx = systemContext(ctx)
 	active, err := transaction.transaction.Installation.Query().
@@ -271,6 +575,9 @@ func sessionRunSnapshot(ctx context.Context, identity *ent.Session) (SessionRunS
 	if err != nil {
 		return SessionRunSnapshot{}, opaqueError("load Published Session for Start", err)
 	}
+	details := correctedSessionDetails(identity, SessionDetails{
+		Title: version.Title, Speaker: version.Speaker, PublicDetails: version.PublicDetails,
+	})
 	lanes, err := version.QueryLanes().IDs(ctx)
 	if err != nil {
 		return SessionRunSnapshot{}, opaqueError("load Session Run Snapshot Lanes", err)
@@ -285,7 +592,7 @@ func sessionRunSnapshot(ctx context.Context, identity *ent.Session) (SessionRunS
 	}
 	return SessionRunSnapshot{
 		PublishedRevision: version.PublishedRevision,
-		Title:             version.Title, Type: version.Type.String(), PublicDetails: version.PublicDetails,
+		Title:             details.Title, Speaker: details.Speaker, Type: version.Type.String(), PublicDetails: details.PublicDetails,
 		PlannedStart: version.PlannedStart, PlannedEnd: version.PlannedEnd,
 		TimingPolicy: version.TimingPolicy.String(), MinimumDurationSeconds: version.MinimumDurationSeconds,
 		StartBoundary: version.StartBoundary.String(), EndBoundary: version.EndBoundary.String(),

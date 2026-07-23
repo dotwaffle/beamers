@@ -58,6 +58,48 @@ func (_c *SessionCreate) SetNillableLiveStateRevision(v *int) *SessionCreate {
 	return _c
 }
 
+// SetCorrectedTitle sets the "corrected_title" field.
+func (_c *SessionCreate) SetCorrectedTitle(v string) *SessionCreate {
+	_c.mutation.SetCorrectedTitle(v)
+	return _c
+}
+
+// SetNillableCorrectedTitle sets the "corrected_title" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableCorrectedTitle(v *string) *SessionCreate {
+	if v != nil {
+		_c.SetCorrectedTitle(*v)
+	}
+	return _c
+}
+
+// SetCorrectedSpeaker sets the "corrected_speaker" field.
+func (_c *SessionCreate) SetCorrectedSpeaker(v string) *SessionCreate {
+	_c.mutation.SetCorrectedSpeaker(v)
+	return _c
+}
+
+// SetNillableCorrectedSpeaker sets the "corrected_speaker" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableCorrectedSpeaker(v *string) *SessionCreate {
+	if v != nil {
+		_c.SetCorrectedSpeaker(*v)
+	}
+	return _c
+}
+
+// SetCorrectedPublicDetails sets the "corrected_public_details" field.
+func (_c *SessionCreate) SetCorrectedPublicDetails(v string) *SessionCreate {
+	_c.mutation.SetCorrectedPublicDetails(v)
+	return _c
+}
+
+// SetNillableCorrectedPublicDetails sets the "corrected_public_details" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableCorrectedPublicDetails(v *string) *SessionCreate {
+	if v != nil {
+		_c.SetCorrectedPublicDetails(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *SessionCreate) SetCreatedAt(v time.Time) *SessionCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -202,6 +244,21 @@ func (_c *SessionCreate) check() error {
 			return &ValidationError{Name: "live_state_revision", err: fmt.Errorf(`ent: validator failed for field "Session.live_state_revision": %w`, err)}
 		}
 	}
+	if v, ok := _c.mutation.CorrectedTitle(); ok {
+		if err := session.CorrectedTitleValidator(v); err != nil {
+			return &ValidationError{Name: "corrected_title", err: fmt.Errorf(`ent: validator failed for field "Session.corrected_title": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.CorrectedSpeaker(); ok {
+		if err := session.CorrectedSpeakerValidator(v); err != nil {
+			return &ValidationError{Name: "corrected_speaker", err: fmt.Errorf(`ent: validator failed for field "Session.corrected_speaker": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.CorrectedPublicDetails(); ok {
+		if err := session.CorrectedPublicDetailsValidator(v); err != nil {
+			return &ValidationError{Name: "corrected_public_details", err: fmt.Errorf(`ent: validator failed for field "Session.corrected_public_details": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Session.created_at"`)}
 	}
@@ -241,6 +298,18 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.LiveStateRevision(); ok {
 		_spec.SetField(session.FieldLiveStateRevision, field.TypeInt, value)
 		_node.LiveStateRevision = value
+	}
+	if value, ok := _c.mutation.CorrectedTitle(); ok {
+		_spec.SetField(session.FieldCorrectedTitle, field.TypeString, value)
+		_node.CorrectedTitle = &value
+	}
+	if value, ok := _c.mutation.CorrectedSpeaker(); ok {
+		_spec.SetField(session.FieldCorrectedSpeaker, field.TypeString, value)
+		_node.CorrectedSpeaker = &value
+	}
+	if value, ok := _c.mutation.CorrectedPublicDetails(); ok {
+		_spec.SetField(session.FieldCorrectedPublicDetails, field.TypeString, value)
+		_node.CorrectedPublicDetails = &value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(session.FieldCreatedAt, field.TypeTime, value)

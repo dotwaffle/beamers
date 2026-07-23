@@ -65,6 +65,11 @@ func Title(v string) predicate.SessionDraft {
 	return predicate.SessionDraft(sql.FieldEQ(FieldTitle, v))
 }
 
+// Speaker applies equality check predicate on the "speaker" field. It's identical to SpeakerEQ.
+func Speaker(v string) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldEQ(FieldSpeaker, v))
+}
+
 // PublicDetails applies equality check predicate on the "public_details" field. It's identical to PublicDetailsEQ.
 func PublicDetails(v string) predicate.SessionDraft {
 	return predicate.SessionDraft(sql.FieldEQ(FieldPublicDetails, v))
@@ -173,6 +178,81 @@ func TitleEqualFold(v string) predicate.SessionDraft {
 // TitleContainsFold applies the ContainsFold predicate on the "title" field.
 func TitleContainsFold(v string) predicate.SessionDraft {
 	return predicate.SessionDraft(sql.FieldContainsFold(FieldTitle, v))
+}
+
+// SpeakerEQ applies the EQ predicate on the "speaker" field.
+func SpeakerEQ(v string) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldEQ(FieldSpeaker, v))
+}
+
+// SpeakerNEQ applies the NEQ predicate on the "speaker" field.
+func SpeakerNEQ(v string) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldNEQ(FieldSpeaker, v))
+}
+
+// SpeakerIn applies the In predicate on the "speaker" field.
+func SpeakerIn(vs ...string) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldIn(FieldSpeaker, vs...))
+}
+
+// SpeakerNotIn applies the NotIn predicate on the "speaker" field.
+func SpeakerNotIn(vs ...string) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldNotIn(FieldSpeaker, vs...))
+}
+
+// SpeakerGT applies the GT predicate on the "speaker" field.
+func SpeakerGT(v string) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldGT(FieldSpeaker, v))
+}
+
+// SpeakerGTE applies the GTE predicate on the "speaker" field.
+func SpeakerGTE(v string) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldGTE(FieldSpeaker, v))
+}
+
+// SpeakerLT applies the LT predicate on the "speaker" field.
+func SpeakerLT(v string) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldLT(FieldSpeaker, v))
+}
+
+// SpeakerLTE applies the LTE predicate on the "speaker" field.
+func SpeakerLTE(v string) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldLTE(FieldSpeaker, v))
+}
+
+// SpeakerContains applies the Contains predicate on the "speaker" field.
+func SpeakerContains(v string) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldContains(FieldSpeaker, v))
+}
+
+// SpeakerHasPrefix applies the HasPrefix predicate on the "speaker" field.
+func SpeakerHasPrefix(v string) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldHasPrefix(FieldSpeaker, v))
+}
+
+// SpeakerHasSuffix applies the HasSuffix predicate on the "speaker" field.
+func SpeakerHasSuffix(v string) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldHasSuffix(FieldSpeaker, v))
+}
+
+// SpeakerIsNil applies the IsNil predicate on the "speaker" field.
+func SpeakerIsNil() predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldIsNull(FieldSpeaker))
+}
+
+// SpeakerNotNil applies the NotNil predicate on the "speaker" field.
+func SpeakerNotNil() predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldNotNull(FieldSpeaker))
+}
+
+// SpeakerEqualFold applies the EqualFold predicate on the "speaker" field.
+func SpeakerEqualFold(v string) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldEqualFold(FieldSpeaker, v))
+}
+
+// SpeakerContainsFold applies the ContainsFold predicate on the "speaker" field.
+func SpeakerContainsFold(v string) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldContainsFold(FieldSpeaker, v))
 }
 
 // TypeEQ applies the EQ predicate on the "type" field.

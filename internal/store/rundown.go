@@ -41,6 +41,7 @@ type PublishState struct {
 	DraftRevision     int
 	PublishedRevision int
 	Changes           []PendingDraftChange
+	LiveTargetIDs     map[string][]int
 }
 
 // LoadPublishState returns all Draft Change evidence needed for dependency closure.
@@ -50,6 +51,7 @@ func (installation *SQLite) LoadPublishState(ctx context.Context, eventID int) (
 		installation.client.Rundown,
 		installation.client.DraftChange,
 		installation.client.DraftChangeDependency,
+		installation.client.Session,
 		eventID,
 	)
 }
@@ -61,6 +63,7 @@ func (transaction *CommandTx) LoadPublishState(ctx context.Context, eventID int)
 		transaction.transaction.Rundown,
 		transaction.transaction.DraftChange,
 		transaction.transaction.DraftChangeDependency,
+		transaction.transaction.Session,
 		eventID,
 	)
 }
@@ -70,6 +73,7 @@ func loadPublishState(
 	rundowns *ent.RundownClient,
 	changes *ent.DraftChangeClient,
 	dependencies *ent.DraftChangeDependencyClient,
+	sessions *ent.SessionClient,
 	eventID int,
 ) (PublishState, error) {
 	found, err := rundowns.Query().Where(rundown.EventIDEQ(eventID)).Only(ctx)
@@ -106,6 +110,37 @@ func loadPublishState(
 	state := PublishState{
 		DraftRevision: found.DraftRevision, PublishedRevision: found.PublishedRevision,
 		Changes: make([]PendingDraftChange, 0, len(storedChanges)),
+	}
+	liveSessions, err := sessions.Query().Where(
+		session.EventIDEQ(eventID), session.LifecycleEQ(session.LifecycleLive),
+	).All(internalContext)
+	if err != nil {
+		return PublishState{}, opaqueError("load Live Sessions for Publish Preview", err)
+	}
+	state.LiveTargetIDs = map[string][]int{
+		"Session": {}, "Lane": {}, "Location": {}, "Track": {},
+	}
+	for _, live := range liveSessions {
+		state.LiveTargetIDs["Session"] = append(state.LiveTargetIDs["Session"], live.ID)
+		version, queryErr := live.QueryPublishedVersions().Order(ent.Desc("published_revision")).First(internalContext)
+		if queryErr != nil {
+			return PublishState{}, opaqueError("load Live Session placement for Publish Preview", queryErr)
+		}
+		laneIDs, queryErr := version.QueryLanes().IDs(internalContext)
+		if queryErr != nil {
+			return PublishState{}, opaqueError("load Live Session Lanes for Publish Preview", queryErr)
+		}
+		locationIDs, queryErr := version.QueryLocations().IDs(internalContext)
+		if queryErr != nil {
+			return PublishState{}, opaqueError("load Live Session Locations for Publish Preview", queryErr)
+		}
+		trackIDs, queryErr := version.QueryTracks().IDs(internalContext)
+		if queryErr != nil {
+			return PublishState{}, opaqueError("load Live Session Tracks for Publish Preview", queryErr)
+		}
+		state.LiveTargetIDs["Lane"] = append(state.LiveTargetIDs["Lane"], laneIDs...)
+		state.LiveTargetIDs["Location"] = append(state.LiveTargetIDs["Location"], locationIDs...)
+		state.LiveTargetIDs["Track"] = append(state.LiveTargetIDs["Track"], trackIDs...)
 	}
 	for _, change := range storedChanges {
 		publishedRevision := 0
@@ -367,7 +402,7 @@ func (transaction *CommandTx) publishCreatedSession(ctx context.Context, change 
 	}
 	laneIDs, locationIDs, trackIDs := targetIDs(input.Lanes), targetIDs(input.Locations), targetIDs(input.Tracks)
 	create := transaction.transaction.SessionPublishedVersion.Create().SetSessionID(change.TargetID).SetPublishedRevision(revision).
-		SetTitle(input.Title).SetType(sessionpublishedversion.Type(input.Type)).
+		SetTitle(input.Title).SetSpeaker(input.Speaker).SetType(sessionpublishedversion.Type(input.Type)).
 		SetAudienceVisibility(sessionpublishedversion.AudienceVisibility(input.AudienceVisibility)).
 		SetPublicDetails(input.PublicDetails).SetCrewNotes(input.CrewNotes).
 		SetPlannedStart(input.PlannedStart).SetPlannedEnd(input.PlannedEnd).
@@ -463,6 +498,10 @@ func (transaction *CommandTx) publishCreatedSessionFacts(ctx context.Context, cr
 			if err := changeAfter(fact, &input.Title); err != nil {
 				return err
 			}
+		case "speaker":
+			if err := changeAfter(fact, &input.Speaker); err != nil {
+				return err
+			}
 		case "type":
 			if err := changeAfter(fact, &input.Type); err != nil {
 				return err
@@ -520,7 +559,7 @@ func (transaction *CommandTx) publishCreatedSessionFacts(ctx context.Context, cr
 		}
 	}
 	create := transaction.transaction.SessionPublishedVersion.Create().SetSessionID(creation.TargetID).SetPublishedRevision(revision).
-		SetTitle(input.Title).SetType(sessionpublishedversion.Type(input.Type)).SetAudienceVisibility(sessionpublishedversion.AudienceVisibility(input.AudienceVisibility)).
+		SetTitle(input.Title).SetSpeaker(input.Speaker).SetType(sessionpublishedversion.Type(input.Type)).SetAudienceVisibility(sessionpublishedversion.AudienceVisibility(input.AudienceVisibility)).
 		SetPublicDetails(input.PublicDetails).SetCrewNotes(input.CrewNotes).SetPlannedStart(input.PlannedStart).SetPlannedEnd(input.PlannedEnd).
 		SetTimingPolicy(sessionpublishedversion.TimingPolicy(input.TimingPolicy)).SetMinimumDurationSeconds(input.MinimumDurationSeconds).
 		SetStartBoundary(sessionpublishedversion.StartBoundary(input.StartBoundary)).SetEndBoundary(sessionpublishedversion.EndBoundary(input.EndBoundary)).
@@ -680,7 +719,7 @@ func (transaction *CommandTx) publishSessionFacts(ctx context.Context, id int, c
 	if err != nil {
 		return opaqueError("load Published Session Tracks", err)
 	}
-	title, sessionType := baseline.Title, string(baseline.Type)
+	title, speaker, sessionType := baseline.Title, baseline.Speaker, string(baseline.Type)
 	audience, publicDetails, crewNotes := string(baseline.AudienceVisibility), baseline.PublicDetails, baseline.CrewNotes
 	plannedStart, plannedEnd := baseline.PlannedStart, baseline.PlannedEnd
 	timingPolicy, minimumDuration := string(baseline.TimingPolicy), baseline.MinimumDurationSeconds
@@ -696,6 +735,8 @@ func (transaction *CommandTx) publishSessionFacts(ctx context.Context, id int, c
 		switch change.FactKey {
 		case "title":
 			err = changeAfter(change, &title)
+		case "speaker":
+			err = changeAfter(change, &speaker)
 		case "type":
 			err = changeAfter(change, &sessionType)
 		case "audience_visibility":
@@ -730,7 +771,7 @@ func (transaction *CommandTx) publishSessionFacts(ctx context.Context, id int, c
 		}
 	}
 	create := transaction.transaction.SessionPublishedVersion.Create().SetSessionID(id).SetPublishedRevision(revision).
-		SetTitle(title).SetType(sessionpublishedversion.Type(sessionType)).
+		SetTitle(title).SetSpeaker(speaker).SetType(sessionpublishedversion.Type(sessionType)).
 		SetAudienceVisibility(sessionpublishedversion.AudienceVisibility(audience)).
 		SetPublicDetails(publicDetails).SetCrewNotes(crewNotes).
 		SetPlannedStart(plannedStart).SetPlannedEnd(plannedEnd).
@@ -741,6 +782,26 @@ func (transaction *CommandTx) publishSessionFacts(ctx context.Context, id int, c
 		AddLaneIDs(laneIDs...).AddLocationIDs(locationIDs...).AddTrackIDs(trackIDs...)
 	if _, err = create.Save(ctx); err != nil {
 		return opaqueError("publish Session fact version", err)
+	}
+	overrides := transaction.transaction.Session.UpdateOne(identity)
+	clearOverrides := false
+	for _, change := range changes {
+		switch change.FactKey {
+		case draftFactTitle:
+			overrides.ClearCorrectedTitle()
+			clearOverrides = true
+		case draftFactSpeaker:
+			overrides.ClearCorrectedSpeaker()
+			clearOverrides = true
+		case draftFactPublicDetails:
+			overrides.ClearCorrectedPublicDetails()
+			clearOverrides = true
+		}
+	}
+	if clearOverrides {
+		if _, err = overrides.Save(ctx); err != nil {
+			return opaqueError("clear reviewed Live Detail Correction overrides", err)
+		}
 	}
 	return nil
 }
@@ -781,6 +842,7 @@ type PublishedTrack struct {
 type PublishedSession struct {
 	ID                     int
 	Title                  string
+	Speaker                string
 	Type                   string
 	AudienceVisibility     string
 	PublicDetails          string
@@ -900,10 +962,13 @@ func loadCrewRundown(ctx context.Context, client *ent.Client, eventID int) (Crew
 		for _, item := range tracks {
 			trackIDs = append(trackIDs, item.ID)
 		}
+		details := correctedSessionDetails(identity, SessionDetails{
+			Title: version.Title, Speaker: version.Speaker, PublicDetails: version.PublicDetails,
+		})
 		result.Sessions = append(result.Sessions, PublishedSession{
-			ID: identity.ID, Title: version.Title, Type: version.Type.String(),
+			ID: identity.ID, Title: details.Title, Speaker: details.Speaker, Type: version.Type.String(),
 			AudienceVisibility: version.AudienceVisibility.String(),
-			PublicDetails:      version.PublicDetails, CrewNotes: version.CrewNotes,
+			PublicDetails:      details.PublicDetails, CrewNotes: version.CrewNotes,
 			PlannedStart: version.PlannedStart, PlannedEnd: version.PlannedEnd,
 			TimingPolicy:           version.TimingPolicy.String(),
 			MinimumDurationSeconds: version.MinimumDurationSeconds,

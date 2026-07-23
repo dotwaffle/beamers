@@ -39,6 +39,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
+	"github.com/dotwaffle/beamers/ent/sessionrunamendment"
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
@@ -97,6 +98,8 @@ type Client struct {
 	SessionPublishedVersion *SessionPublishedVersionClient
 	// SessionRun is the client for interacting with the SessionRun builders.
 	SessionRun *SessionRunClient
+	// SessionRunAmendment is the client for interacting with the SessionRunAmendment builders.
+	SessionRunAmendment *SessionRunAmendmentClient
 	// Track is the client for interacting with the Track builders.
 	Track *TrackClient
 	// TrackDraft is the client for interacting with the TrackDraft builders.
@@ -138,6 +141,7 @@ func (c *Client) init() {
 	c.SessionDraft = NewSessionDraftClient(c.config)
 	c.SessionPublishedVersion = NewSessionPublishedVersionClient(c.config)
 	c.SessionRun = NewSessionRunClient(c.config)
+	c.SessionRunAmendment = NewSessionRunAmendmentClient(c.config)
 	c.Track = NewTrackClient(c.config)
 	c.TrackDraft = NewTrackDraftClient(c.config)
 	c.TrackPublishedVersion = NewTrackPublishedVersionClient(c.config)
@@ -257,6 +261,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		SessionDraft:             NewSessionDraftClient(cfg),
 		SessionPublishedVersion:  NewSessionPublishedVersionClient(cfg),
 		SessionRun:               NewSessionRunClient(cfg),
+		SessionRunAmendment:      NewSessionRunAmendmentClient(cfg),
 		Track:                    NewTrackClient(cfg),
 		TrackDraft:               NewTrackDraftClient(cfg),
 		TrackPublishedVersion:    NewTrackPublishedVersionClient(cfg),
@@ -303,6 +308,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		SessionDraft:             NewSessionDraftClient(cfg),
 		SessionPublishedVersion:  NewSessionPublishedVersionClient(cfg),
 		SessionRun:               NewSessionRunClient(cfg),
+		SessionRunAmendment:      NewSessionRunAmendmentClient(cfg),
 		Track:                    NewTrackClient(cfg),
 		TrackDraft:               NewTrackDraftClient(cfg),
 		TrackPublishedVersion:    NewTrackPublishedVersionClient(cfg),
@@ -340,8 +346,8 @@ func (c *Client) Use(hooks ...Hook) {
 		c.EventGrant, c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion,
 		c.Location, c.LocationDraft, c.LocationPublishedVersion, c.Migration,
 		c.PasswordCredential, c.Rundown, c.Session, c.SessionDraft,
-		c.SessionPublishedVersion, c.SessionRun, c.Track, c.TrackDraft,
-		c.TrackPublishedVersion,
+		c.SessionPublishedVersion, c.SessionRun, c.SessionRunAmendment, c.Track,
+		c.TrackDraft, c.TrackPublishedVersion,
 	} {
 		n.Use(hooks...)
 	}
@@ -356,8 +362,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.EventGrant, c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion,
 		c.Location, c.LocationDraft, c.LocationPublishedVersion, c.Migration,
 		c.PasswordCredential, c.Rundown, c.Session, c.SessionDraft,
-		c.SessionPublishedVersion, c.SessionRun, c.Track, c.TrackDraft,
-		c.TrackPublishedVersion,
+		c.SessionPublishedVersion, c.SessionRun, c.SessionRunAmendment, c.Track,
+		c.TrackDraft, c.TrackPublishedVersion,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -414,6 +420,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.SessionPublishedVersion.mutate(ctx, m)
 	case *SessionRunMutation:
 		return c.SessionRun.mutate(ctx, m)
+	case *SessionRunAmendmentMutation:
+		return c.SessionRunAmendment.mutate(ctx, m)
 	case *TrackMutation:
 		return c.Track.mutate(ctx, m)
 	case *TrackDraftMutation:
@@ -4606,6 +4614,22 @@ func (c *SessionRunClient) QuerySession(_m *SessionRun) *SessionQuery {
 	return query
 }
 
+// QueryAmendments queries the amendments edge of a SessionRun.
+func (c *SessionRunClient) QueryAmendments(_m *SessionRun) *SessionRunAmendmentQuery {
+	query := (&SessionRunAmendmentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(sessionrun.Table, sessionrun.FieldID, id),
+			sqlgraph.To(sessionrunamendment.Table, sessionrunamendment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, sessionrun.AmendmentsTable, sessionrun.AmendmentsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *SessionRunClient) Hooks() []Hook {
 	hooks := c.hooks.SessionRun
@@ -4629,6 +4653,156 @@ func (c *SessionRunClient) mutate(ctx context.Context, m *SessionRunMutation) (V
 		return (&SessionRunDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown SessionRun mutation op: %q", m.Op())
+	}
+}
+
+// SessionRunAmendmentClient is a client for the SessionRunAmendment schema.
+type SessionRunAmendmentClient struct {
+	config
+}
+
+// NewSessionRunAmendmentClient returns a client for the SessionRunAmendment from the given config.
+func NewSessionRunAmendmentClient(c config) *SessionRunAmendmentClient {
+	return &SessionRunAmendmentClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `sessionrunamendment.Hooks(f(g(h())))`.
+func (c *SessionRunAmendmentClient) Use(hooks ...Hook) {
+	c.hooks.SessionRunAmendment = append(c.hooks.SessionRunAmendment, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `sessionrunamendment.Intercept(f(g(h())))`.
+func (c *SessionRunAmendmentClient) Intercept(interceptors ...Interceptor) {
+	c.inters.SessionRunAmendment = append(c.inters.SessionRunAmendment, interceptors...)
+}
+
+// Create returns a builder for creating a SessionRunAmendment entity.
+func (c *SessionRunAmendmentClient) Create() *SessionRunAmendmentCreate {
+	mutation := newSessionRunAmendmentMutation(c.config, OpCreate)
+	return &SessionRunAmendmentCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of SessionRunAmendment entities.
+func (c *SessionRunAmendmentClient) CreateBulk(builders ...*SessionRunAmendmentCreate) *SessionRunAmendmentCreateBulk {
+	return &SessionRunAmendmentCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *SessionRunAmendmentClient) MapCreateBulk(slice any, setFunc func(*SessionRunAmendmentCreate, int)) *SessionRunAmendmentCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &SessionRunAmendmentCreateBulk{err: fmt.Errorf("calling to SessionRunAmendmentClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*SessionRunAmendmentCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &SessionRunAmendmentCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for SessionRunAmendment.
+func (c *SessionRunAmendmentClient) Update() *SessionRunAmendmentUpdate {
+	mutation := newSessionRunAmendmentMutation(c.config, OpUpdate)
+	return &SessionRunAmendmentUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *SessionRunAmendmentClient) UpdateOne(_m *SessionRunAmendment) *SessionRunAmendmentUpdateOne {
+	mutation := newSessionRunAmendmentMutation(c.config, OpUpdateOne, withSessionRunAmendment(_m))
+	return &SessionRunAmendmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *SessionRunAmendmentClient) UpdateOneID(id int) *SessionRunAmendmentUpdateOne {
+	mutation := newSessionRunAmendmentMutation(c.config, OpUpdateOne, withSessionRunAmendmentID(id))
+	return &SessionRunAmendmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for SessionRunAmendment.
+func (c *SessionRunAmendmentClient) Delete() *SessionRunAmendmentDelete {
+	mutation := newSessionRunAmendmentMutation(c.config, OpDelete)
+	return &SessionRunAmendmentDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *SessionRunAmendmentClient) DeleteOne(_m *SessionRunAmendment) *SessionRunAmendmentDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *SessionRunAmendmentClient) DeleteOneID(id int) *SessionRunAmendmentDeleteOne {
+	builder := c.Delete().Where(sessionrunamendment.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &SessionRunAmendmentDeleteOne{builder}
+}
+
+// Query returns a query builder for SessionRunAmendment.
+func (c *SessionRunAmendmentClient) Query() *SessionRunAmendmentQuery {
+	return &SessionRunAmendmentQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeSessionRunAmendment},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a SessionRunAmendment entity by its id.
+func (c *SessionRunAmendmentClient) Get(ctx context.Context, id int) (*SessionRunAmendment, error) {
+	return c.Query().Where(sessionrunamendment.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *SessionRunAmendmentClient) GetX(ctx context.Context, id int) *SessionRunAmendment {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QuerySessionRun queries the session_run edge of a SessionRunAmendment.
+func (c *SessionRunAmendmentClient) QuerySessionRun(_m *SessionRunAmendment) *SessionRunQuery {
+	query := (&SessionRunClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(sessionrunamendment.Table, sessionrunamendment.FieldID, id),
+			sqlgraph.To(sessionrun.Table, sessionrun.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, sessionrunamendment.SessionRunTable, sessionrunamendment.SessionRunColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *SessionRunAmendmentClient) Hooks() []Hook {
+	hooks := c.hooks.SessionRunAmendment
+	return append(hooks[:len(hooks):len(hooks)], sessionrunamendment.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *SessionRunAmendmentClient) Interceptors() []Interceptor {
+	return c.inters.SessionRunAmendment
+}
+
+func (c *SessionRunAmendmentClient) mutate(ctx context.Context, m *SessionRunAmendmentMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&SessionRunAmendmentCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&SessionRunAmendmentUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&SessionRunAmendmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&SessionRunAmendmentDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown SessionRunAmendment mutation op: %q", m.Op())
 	}
 }
 
@@ -5153,15 +5327,15 @@ type (
 		DraftChange, DraftChangeDependency, DraftEdit, Event, EventGrant, Installation,
 		Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
 		LocationPublishedVersion, Migration, PasswordCredential, Rundown, Session,
-		SessionDraft, SessionPublishedVersion, SessionRun, Track, TrackDraft,
-		TrackPublishedVersion []ent.Hook
+		SessionDraft, SessionPublishedVersion, SessionRun, SessionRunAmendment, Track,
+		TrackDraft, TrackPublishedVersion []ent.Hook
 	}
 	inters struct {
 		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt,
 		DraftChange, DraftChangeDependency, DraftEdit, Event, EventGrant, Installation,
 		Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
 		LocationPublishedVersion, Migration, PasswordCredential, Rundown, Session,
-		SessionDraft, SessionPublishedVersion, SessionRun, Track, TrackDraft,
-		TrackPublishedVersion []ent.Interceptor
+		SessionDraft, SessionPublishedVersion, SessionRun, SessionRunAmendment, Track,
+		TrackDraft, TrackPublishedVersion []ent.Interceptor
 	}
 )

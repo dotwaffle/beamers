@@ -24,6 +24,8 @@ type SessionPublishedVersion struct {
 	PublishedRevision int `json:"published_revision,omitempty"`
 	// Title holds the value of the "title" field.
 	Title string `json:"title,omitempty"`
+	// Speaker holds the value of the "speaker" field.
+	Speaker string `json:"speaker,omitempty"`
 	// Type holds the value of the "type" field.
 	Type sessionpublishedversion.Type `json:"type,omitempty"`
 	// AudienceVisibility holds the value of the "audience_visibility" field.
@@ -112,7 +114,7 @@ func (*SessionPublishedVersion) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case sessionpublishedversion.FieldID, sessionpublishedversion.FieldSessionID, sessionpublishedversion.FieldPublishedRevision, sessionpublishedversion.FieldMinimumDurationSeconds:
 			values[i] = new(sql.NullInt64)
-		case sessionpublishedversion.FieldTitle, sessionpublishedversion.FieldType, sessionpublishedversion.FieldAudienceVisibility, sessionpublishedversion.FieldPublicDetails, sessionpublishedversion.FieldCrewNotes, sessionpublishedversion.FieldTimingPolicy, sessionpublishedversion.FieldStartBoundary, sessionpublishedversion.FieldEndBoundary:
+		case sessionpublishedversion.FieldTitle, sessionpublishedversion.FieldSpeaker, sessionpublishedversion.FieldType, sessionpublishedversion.FieldAudienceVisibility, sessionpublishedversion.FieldPublicDetails, sessionpublishedversion.FieldCrewNotes, sessionpublishedversion.FieldTimingPolicy, sessionpublishedversion.FieldStartBoundary, sessionpublishedversion.FieldEndBoundary:
 			values[i] = new(sql.NullString)
 		case sessionpublishedversion.FieldPlannedStart, sessionpublishedversion.FieldPlannedEnd, sessionpublishedversion.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -154,6 +156,12 @@ func (_m *SessionPublishedVersion) assignValues(columns []string, values []any) 
 				return fmt.Errorf("unexpected type %T for field title", values[i])
 			} else if value.Valid {
 				_m.Title = value.String
+			}
+		case sessionpublishedversion.FieldSpeaker:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field speaker", values[i])
+			} else if value.Valid {
+				_m.Speaker = value.String
 			}
 		case sessionpublishedversion.FieldType:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -285,6 +293,9 @@ func (_m *SessionPublishedVersion) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("title=")
 	builder.WriteString(_m.Title)
+	builder.WriteString(", ")
+	builder.WriteString("speaker=")
+	builder.WriteString(_m.Speaker)
 	builder.WriteString(", ")
 	builder.WriteString("type=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Type))

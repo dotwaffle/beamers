@@ -36,6 +36,20 @@ func (_c *SessionDraftCreate) SetTitle(v string) *SessionDraftCreate {
 	return _c
 }
 
+// SetSpeaker sets the "speaker" field.
+func (_c *SessionDraftCreate) SetSpeaker(v string) *SessionDraftCreate {
+	_c.mutation.SetSpeaker(v)
+	return _c
+}
+
+// SetNillableSpeaker sets the "speaker" field if the given value is not nil.
+func (_c *SessionDraftCreate) SetNillableSpeaker(v *string) *SessionDraftCreate {
+	if v != nil {
+		_c.SetSpeaker(*v)
+	}
+	return _c
+}
+
 // SetType sets the "type" field.
 func (_c *SessionDraftCreate) SetType(v sessiondraft.Type) *SessionDraftCreate {
 	_c.mutation.SetType(v)
@@ -207,6 +221,11 @@ func (_c *SessionDraftCreate) check() error {
 			return &ValidationError{Name: "title", err: fmt.Errorf(`ent: validator failed for field "SessionDraft.title": %w`, err)}
 		}
 	}
+	if v, ok := _c.mutation.Speaker(); ok {
+		if err := sessiondraft.SpeakerValidator(v); err != nil {
+			return &ValidationError{Name: "speaker", err: fmt.Errorf(`ent: validator failed for field "SessionDraft.speaker": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.GetType(); !ok {
 		return &ValidationError{Name: "type", err: errors.New(`ent: missing required field "SessionDraft.type"`)}
 	}
@@ -303,6 +322,10 @@ func (_c *SessionDraftCreate) createSpec() (*SessionDraft, *sqlgraph.CreateSpec)
 	if value, ok := _c.mutation.Title(); ok {
 		_spec.SetField(sessiondraft.FieldTitle, field.TypeString, value)
 		_node.Title = value
+	}
+	if value, ok := _c.mutation.Speaker(); ok {
+		_spec.SetField(sessiondraft.FieldSpeaker, field.TypeString, value)
+		_node.Speaker = value
 	}
 	if value, ok := _c.mutation.GetType(); ok {
 		_spec.SetField(sessiondraft.FieldType, field.TypeEnum, value)

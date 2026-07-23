@@ -4,7 +4,6 @@ package ent
 
 import (
 	"context"
-	"database/sql/driver"
 	"errors"
 	"fmt"
 	"math"
@@ -14,59 +13,57 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/predicate"
-	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
 	"github.com/dotwaffle/beamers/ent/sessionrunamendment"
 )
 
-// SessionRunQuery is the builder for querying SessionRun entities.
-type SessionRunQuery struct {
+// SessionRunAmendmentQuery is the builder for querying SessionRunAmendment entities.
+type SessionRunAmendmentQuery struct {
 	config
 	ctx            *QueryContext
-	order          []sessionrun.OrderOption
+	order          []sessionrunamendment.OrderOption
 	inters         []Interceptor
-	predicates     []predicate.SessionRun
-	withSession    *SessionQuery
-	withAmendments *SessionRunAmendmentQuery
+	predicates     []predicate.SessionRunAmendment
+	withSessionRun *SessionRunQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
 }
 
-// Where adds a new predicate for the SessionRunQuery builder.
-func (_q *SessionRunQuery) Where(ps ...predicate.SessionRun) *SessionRunQuery {
+// Where adds a new predicate for the SessionRunAmendmentQuery builder.
+func (_q *SessionRunAmendmentQuery) Where(ps ...predicate.SessionRunAmendment) *SessionRunAmendmentQuery {
 	_q.predicates = append(_q.predicates, ps...)
 	return _q
 }
 
 // Limit the number of records to be returned by this query.
-func (_q *SessionRunQuery) Limit(limit int) *SessionRunQuery {
+func (_q *SessionRunAmendmentQuery) Limit(limit int) *SessionRunAmendmentQuery {
 	_q.ctx.Limit = &limit
 	return _q
 }
 
 // Offset to start from.
-func (_q *SessionRunQuery) Offset(offset int) *SessionRunQuery {
+func (_q *SessionRunAmendmentQuery) Offset(offset int) *SessionRunAmendmentQuery {
 	_q.ctx.Offset = &offset
 	return _q
 }
 
 // Unique configures the query builder to filter duplicate records on query.
 // By default, unique is set to true, and can be disabled using this method.
-func (_q *SessionRunQuery) Unique(unique bool) *SessionRunQuery {
+func (_q *SessionRunAmendmentQuery) Unique(unique bool) *SessionRunAmendmentQuery {
 	_q.ctx.Unique = &unique
 	return _q
 }
 
 // Order specifies how the records should be ordered.
-func (_q *SessionRunQuery) Order(o ...sessionrun.OrderOption) *SessionRunQuery {
+func (_q *SessionRunAmendmentQuery) Order(o ...sessionrunamendment.OrderOption) *SessionRunAmendmentQuery {
 	_q.order = append(_q.order, o...)
 	return _q
 }
 
-// QuerySession chains the current query on the "session" edge.
-func (_q *SessionRunQuery) QuerySession() *SessionQuery {
-	query := (&SessionClient{config: _q.config}).Query()
+// QuerySessionRun chains the current query on the "session_run" edge.
+func (_q *SessionRunAmendmentQuery) QuerySessionRun() *SessionRunQuery {
+	query := (&SessionRunClient{config: _q.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := _q.prepareQuery(ctx); err != nil {
 			return nil, err
@@ -76,9 +73,9 @@ func (_q *SessionRunQuery) QuerySession() *SessionQuery {
 			return nil, err
 		}
 		step := sqlgraph.NewStep(
-			sqlgraph.From(sessionrun.Table, sessionrun.FieldID, selector),
-			sqlgraph.To(session.Table, session.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, sessionrun.SessionTable, sessionrun.SessionColumn),
+			sqlgraph.From(sessionrunamendment.Table, sessionrunamendment.FieldID, selector),
+			sqlgraph.To(sessionrun.Table, sessionrun.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, sessionrunamendment.SessionRunTable, sessionrunamendment.SessionRunColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -86,43 +83,21 @@ func (_q *SessionRunQuery) QuerySession() *SessionQuery {
 	return query
 }
 
-// QueryAmendments chains the current query on the "amendments" edge.
-func (_q *SessionRunQuery) QueryAmendments() *SessionRunAmendmentQuery {
-	query := (&SessionRunAmendmentClient{config: _q.config}).Query()
-	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
-		if err := _q.prepareQuery(ctx); err != nil {
-			return nil, err
-		}
-		selector := _q.sqlQuery(ctx)
-		if err := selector.Err(); err != nil {
-			return nil, err
-		}
-		step := sqlgraph.NewStep(
-			sqlgraph.From(sessionrun.Table, sessionrun.FieldID, selector),
-			sqlgraph.To(sessionrunamendment.Table, sessionrunamendment.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, sessionrun.AmendmentsTable, sessionrun.AmendmentsColumn),
-		)
-		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
-		return fromU, nil
-	}
-	return query
-}
-
-// First returns the first SessionRun entity from the query.
-// Returns a *NotFoundError when no SessionRun was found.
-func (_q *SessionRunQuery) First(ctx context.Context) (*SessionRun, error) {
+// First returns the first SessionRunAmendment entity from the query.
+// Returns a *NotFoundError when no SessionRunAmendment was found.
+func (_q *SessionRunAmendmentQuery) First(ctx context.Context) (*SessionRunAmendment, error) {
 	nodes, err := _q.Limit(1).All(setContextOp(ctx, _q.ctx, ent.OpQueryFirst))
 	if err != nil {
 		return nil, err
 	}
 	if len(nodes) == 0 {
-		return nil, &NotFoundError{sessionrun.Label}
+		return nil, &NotFoundError{sessionrunamendment.Label}
 	}
 	return nodes[0], nil
 }
 
 // FirstX is like First, but panics if an error occurs.
-func (_q *SessionRunQuery) FirstX(ctx context.Context) *SessionRun {
+func (_q *SessionRunAmendmentQuery) FirstX(ctx context.Context) *SessionRunAmendment {
 	node, err := _q.First(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -130,22 +105,22 @@ func (_q *SessionRunQuery) FirstX(ctx context.Context) *SessionRun {
 	return node
 }
 
-// FirstID returns the first SessionRun ID from the query.
-// Returns a *NotFoundError when no SessionRun ID was found.
-func (_q *SessionRunQuery) FirstID(ctx context.Context) (id int, err error) {
+// FirstID returns the first SessionRunAmendment ID from the query.
+// Returns a *NotFoundError when no SessionRunAmendment ID was found.
+func (_q *SessionRunAmendmentQuery) FirstID(ctx context.Context) (id int, err error) {
 	var ids []int
 	if ids, err = _q.Limit(1).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryFirstID)); err != nil {
 		return
 	}
 	if len(ids) == 0 {
-		err = &NotFoundError{sessionrun.Label}
+		err = &NotFoundError{sessionrunamendment.Label}
 		return
 	}
 	return ids[0], nil
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (_q *SessionRunQuery) FirstIDX(ctx context.Context) int {
+func (_q *SessionRunAmendmentQuery) FirstIDX(ctx context.Context) int {
 	id, err := _q.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -153,10 +128,10 @@ func (_q *SessionRunQuery) FirstIDX(ctx context.Context) int {
 	return id
 }
 
-// Only returns a single SessionRun entity found by the query, ensuring it only returns one.
-// Returns a *NotSingularError when more than one SessionRun entity is found.
-// Returns a *NotFoundError when no SessionRun entities are found.
-func (_q *SessionRunQuery) Only(ctx context.Context) (*SessionRun, error) {
+// Only returns a single SessionRunAmendment entity found by the query, ensuring it only returns one.
+// Returns a *NotSingularError when more than one SessionRunAmendment entity is found.
+// Returns a *NotFoundError when no SessionRunAmendment entities are found.
+func (_q *SessionRunAmendmentQuery) Only(ctx context.Context) (*SessionRunAmendment, error) {
 	nodes, err := _q.Limit(2).All(setContextOp(ctx, _q.ctx, ent.OpQueryOnly))
 	if err != nil {
 		return nil, err
@@ -165,14 +140,14 @@ func (_q *SessionRunQuery) Only(ctx context.Context) (*SessionRun, error) {
 	case 1:
 		return nodes[0], nil
 	case 0:
-		return nil, &NotFoundError{sessionrun.Label}
+		return nil, &NotFoundError{sessionrunamendment.Label}
 	default:
-		return nil, &NotSingularError{sessionrun.Label}
+		return nil, &NotSingularError{sessionrunamendment.Label}
 	}
 }
 
 // OnlyX is like Only, but panics if an error occurs.
-func (_q *SessionRunQuery) OnlyX(ctx context.Context) *SessionRun {
+func (_q *SessionRunAmendmentQuery) OnlyX(ctx context.Context) *SessionRunAmendment {
 	node, err := _q.Only(ctx)
 	if err != nil {
 		panic(err)
@@ -180,10 +155,10 @@ func (_q *SessionRunQuery) OnlyX(ctx context.Context) *SessionRun {
 	return node
 }
 
-// OnlyID is like Only, but returns the only SessionRun ID in the query.
-// Returns a *NotSingularError when more than one SessionRun ID is found.
+// OnlyID is like Only, but returns the only SessionRunAmendment ID in the query.
+// Returns a *NotSingularError when more than one SessionRunAmendment ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (_q *SessionRunQuery) OnlyID(ctx context.Context) (id int, err error) {
+func (_q *SessionRunAmendmentQuery) OnlyID(ctx context.Context) (id int, err error) {
 	var ids []int
 	if ids, err = _q.Limit(2).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryOnlyID)); err != nil {
 		return
@@ -192,15 +167,15 @@ func (_q *SessionRunQuery) OnlyID(ctx context.Context) (id int, err error) {
 	case 1:
 		id = ids[0]
 	case 0:
-		err = &NotFoundError{sessionrun.Label}
+		err = &NotFoundError{sessionrunamendment.Label}
 	default:
-		err = &NotSingularError{sessionrun.Label}
+		err = &NotSingularError{sessionrunamendment.Label}
 	}
 	return
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (_q *SessionRunQuery) OnlyIDX(ctx context.Context) int {
+func (_q *SessionRunAmendmentQuery) OnlyIDX(ctx context.Context) int {
 	id, err := _q.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -208,18 +183,18 @@ func (_q *SessionRunQuery) OnlyIDX(ctx context.Context) int {
 	return id
 }
 
-// All executes the query and returns a list of SessionRuns.
-func (_q *SessionRunQuery) All(ctx context.Context) ([]*SessionRun, error) {
+// All executes the query and returns a list of SessionRunAmendments.
+func (_q *SessionRunAmendmentQuery) All(ctx context.Context) ([]*SessionRunAmendment, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryAll)
 	if err := _q.prepareQuery(ctx); err != nil {
 		return nil, err
 	}
-	qr := querierAll[[]*SessionRun, *SessionRunQuery]()
-	return withInterceptors[[]*SessionRun](ctx, _q, qr, _q.inters)
+	qr := querierAll[[]*SessionRunAmendment, *SessionRunAmendmentQuery]()
+	return withInterceptors[[]*SessionRunAmendment](ctx, _q, qr, _q.inters)
 }
 
 // AllX is like All, but panics if an error occurs.
-func (_q *SessionRunQuery) AllX(ctx context.Context) []*SessionRun {
+func (_q *SessionRunAmendmentQuery) AllX(ctx context.Context) []*SessionRunAmendment {
 	nodes, err := _q.All(ctx)
 	if err != nil {
 		panic(err)
@@ -227,20 +202,20 @@ func (_q *SessionRunQuery) AllX(ctx context.Context) []*SessionRun {
 	return nodes
 }
 
-// IDs executes the query and returns a list of SessionRun IDs.
-func (_q *SessionRunQuery) IDs(ctx context.Context) (ids []int, err error) {
+// IDs executes the query and returns a list of SessionRunAmendment IDs.
+func (_q *SessionRunAmendmentQuery) IDs(ctx context.Context) (ids []int, err error) {
 	if _q.ctx.Unique == nil && _q.path != nil {
 		_q.Unique(true)
 	}
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryIDs)
-	if err = _q.Select(sessionrun.FieldID).Scan(ctx, &ids); err != nil {
+	if err = _q.Select(sessionrunamendment.FieldID).Scan(ctx, &ids); err != nil {
 		return nil, err
 	}
 	return ids, nil
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (_q *SessionRunQuery) IDsX(ctx context.Context) []int {
+func (_q *SessionRunAmendmentQuery) IDsX(ctx context.Context) []int {
 	ids, err := _q.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -249,16 +224,16 @@ func (_q *SessionRunQuery) IDsX(ctx context.Context) []int {
 }
 
 // Count returns the count of the given query.
-func (_q *SessionRunQuery) Count(ctx context.Context) (int, error) {
+func (_q *SessionRunAmendmentQuery) Count(ctx context.Context) (int, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryCount)
 	if err := _q.prepareQuery(ctx); err != nil {
 		return 0, err
 	}
-	return withInterceptors[int](ctx, _q, querierCount[*SessionRunQuery](), _q.inters)
+	return withInterceptors[int](ctx, _q, querierCount[*SessionRunAmendmentQuery](), _q.inters)
 }
 
 // CountX is like Count, but panics if an error occurs.
-func (_q *SessionRunQuery) CountX(ctx context.Context) int {
+func (_q *SessionRunAmendmentQuery) CountX(ctx context.Context) int {
 	count, err := _q.Count(ctx)
 	if err != nil {
 		panic(err)
@@ -267,7 +242,7 @@ func (_q *SessionRunQuery) CountX(ctx context.Context) int {
 }
 
 // Exist returns true if the query has elements in the graph.
-func (_q *SessionRunQuery) Exist(ctx context.Context) (bool, error) {
+func (_q *SessionRunAmendmentQuery) Exist(ctx context.Context) (bool, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryExist)
 	switch _, err := _q.FirstID(ctx); {
 	case IsNotFound(err):
@@ -280,7 +255,7 @@ func (_q *SessionRunQuery) Exist(ctx context.Context) (bool, error) {
 }
 
 // ExistX is like Exist, but panics if an error occurs.
-func (_q *SessionRunQuery) ExistX(ctx context.Context) bool {
+func (_q *SessionRunAmendmentQuery) ExistX(ctx context.Context) bool {
 	exist, err := _q.Exist(ctx)
 	if err != nil {
 		panic(err)
@@ -288,45 +263,33 @@ func (_q *SessionRunQuery) ExistX(ctx context.Context) bool {
 	return exist
 }
 
-// Clone returns a duplicate of the SessionRunQuery builder, including all associated steps. It can be
+// Clone returns a duplicate of the SessionRunAmendmentQuery builder, including all associated steps. It can be
 // used to prepare common query builders and use them differently after the clone is made.
-func (_q *SessionRunQuery) Clone() *SessionRunQuery {
+func (_q *SessionRunAmendmentQuery) Clone() *SessionRunAmendmentQuery {
 	if _q == nil {
 		return nil
 	}
-	return &SessionRunQuery{
+	return &SessionRunAmendmentQuery{
 		config:         _q.config,
 		ctx:            _q.ctx.Clone(),
-		order:          append([]sessionrun.OrderOption{}, _q.order...),
+		order:          append([]sessionrunamendment.OrderOption{}, _q.order...),
 		inters:         append([]Interceptor{}, _q.inters...),
-		predicates:     append([]predicate.SessionRun{}, _q.predicates...),
-		withSession:    _q.withSession.Clone(),
-		withAmendments: _q.withAmendments.Clone(),
+		predicates:     append([]predicate.SessionRunAmendment{}, _q.predicates...),
+		withSessionRun: _q.withSessionRun.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
 	}
 }
 
-// WithSession tells the query-builder to eager-load the nodes that are connected to
-// the "session" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *SessionRunQuery) WithSession(opts ...func(*SessionQuery)) *SessionRunQuery {
-	query := (&SessionClient{config: _q.config}).Query()
+// WithSessionRun tells the query-builder to eager-load the nodes that are connected to
+// the "session_run" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *SessionRunAmendmentQuery) WithSessionRun(opts ...func(*SessionRunQuery)) *SessionRunAmendmentQuery {
+	query := (&SessionRunClient{config: _q.config}).Query()
 	for _, opt := range opts {
 		opt(query)
 	}
-	_q.withSession = query
-	return _q
-}
-
-// WithAmendments tells the query-builder to eager-load the nodes that are connected to
-// the "amendments" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *SessionRunQuery) WithAmendments(opts ...func(*SessionRunAmendmentQuery)) *SessionRunQuery {
-	query := (&SessionRunAmendmentClient{config: _q.config}).Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-	_q.withAmendments = query
+	_q.withSessionRun = query
 	return _q
 }
 
@@ -336,19 +299,19 @@ func (_q *SessionRunQuery) WithAmendments(opts ...func(*SessionRunAmendmentQuery
 // Example:
 //
 //	var v []struct {
-//		SessionID int `json:"session_id,omitempty"`
+//		SessionRunID int `json:"session_run_id,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
-//	client.SessionRun.Query().
-//		GroupBy(sessionrun.FieldSessionID).
+//	client.SessionRunAmendment.Query().
+//		GroupBy(sessionrunamendment.FieldSessionRunID).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
-func (_q *SessionRunQuery) GroupBy(field string, fields ...string) *SessionRunGroupBy {
+func (_q *SessionRunAmendmentQuery) GroupBy(field string, fields ...string) *SessionRunAmendmentGroupBy {
 	_q.ctx.Fields = append([]string{field}, fields...)
-	grbuild := &SessionRunGroupBy{build: _q}
+	grbuild := &SessionRunAmendmentGroupBy{build: _q}
 	grbuild.flds = &_q.ctx.Fields
-	grbuild.label = sessionrun.Label
+	grbuild.label = sessionrunamendment.Label
 	grbuild.scan = grbuild.Scan
 	return grbuild
 }
@@ -359,26 +322,26 @@ func (_q *SessionRunQuery) GroupBy(field string, fields ...string) *SessionRunGr
 // Example:
 //
 //	var v []struct {
-//		SessionID int `json:"session_id,omitempty"`
+//		SessionRunID int `json:"session_run_id,omitempty"`
 //	}
 //
-//	client.SessionRun.Query().
-//		Select(sessionrun.FieldSessionID).
+//	client.SessionRunAmendment.Query().
+//		Select(sessionrunamendment.FieldSessionRunID).
 //		Scan(ctx, &v)
-func (_q *SessionRunQuery) Select(fields ...string) *SessionRunSelect {
+func (_q *SessionRunAmendmentQuery) Select(fields ...string) *SessionRunAmendmentSelect {
 	_q.ctx.Fields = append(_q.ctx.Fields, fields...)
-	sbuild := &SessionRunSelect{SessionRunQuery: _q}
-	sbuild.label = sessionrun.Label
+	sbuild := &SessionRunAmendmentSelect{SessionRunAmendmentQuery: _q}
+	sbuild.label = sessionrunamendment.Label
 	sbuild.flds, sbuild.scan = &_q.ctx.Fields, sbuild.Scan
 	return sbuild
 }
 
-// Aggregate returns a SessionRunSelect configured with the given aggregations.
-func (_q *SessionRunQuery) Aggregate(fns ...AggregateFunc) *SessionRunSelect {
+// Aggregate returns a SessionRunAmendmentSelect configured with the given aggregations.
+func (_q *SessionRunAmendmentQuery) Aggregate(fns ...AggregateFunc) *SessionRunAmendmentSelect {
 	return _q.Select().Aggregate(fns...)
 }
 
-func (_q *SessionRunQuery) prepareQuery(ctx context.Context) error {
+func (_q *SessionRunAmendmentQuery) prepareQuery(ctx context.Context) error {
 	for _, inter := range _q.inters {
 		if inter == nil {
 			return fmt.Errorf("ent: uninitialized interceptor (forgotten import ent/runtime?)")
@@ -390,7 +353,7 @@ func (_q *SessionRunQuery) prepareQuery(ctx context.Context) error {
 		}
 	}
 	for _, f := range _q.ctx.Fields {
-		if !sessionrun.ValidColumn(f) {
+		if !sessionrunamendment.ValidColumn(f) {
 			return &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 		}
 	}
@@ -401,29 +364,28 @@ func (_q *SessionRunQuery) prepareQuery(ctx context.Context) error {
 		}
 		_q.sql = prev
 	}
-	if sessionrun.Policy == nil {
-		return errors.New("ent: uninitialized sessionrun.Policy (forgotten import ent/runtime?)")
+	if sessionrunamendment.Policy == nil {
+		return errors.New("ent: uninitialized sessionrunamendment.Policy (forgotten import ent/runtime?)")
 	}
-	if err := sessionrun.Policy.EvalQuery(ctx, _q); err != nil {
+	if err := sessionrunamendment.Policy.EvalQuery(ctx, _q); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (_q *SessionRunQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*SessionRun, error) {
+func (_q *SessionRunAmendmentQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*SessionRunAmendment, error) {
 	var (
-		nodes       = []*SessionRun{}
+		nodes       = []*SessionRunAmendment{}
 		_spec       = _q.querySpec()
-		loadedTypes = [2]bool{
-			_q.withSession != nil,
-			_q.withAmendments != nil,
+		loadedTypes = [1]bool{
+			_q.withSessionRun != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
-		return (*SessionRun).scanValues(nil, columns)
+		return (*SessionRunAmendment).scanValues(nil, columns)
 	}
 	_spec.Assign = func(columns []string, values []any) error {
-		node := &SessionRun{config: _q.config}
+		node := &SessionRunAmendment{config: _q.config}
 		nodes = append(nodes, node)
 		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
@@ -437,27 +399,20 @@ func (_q *SessionRunQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*S
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
-	if query := _q.withSession; query != nil {
-		if err := _q.loadSession(ctx, query, nodes, nil,
-			func(n *SessionRun, e *Session) { n.Edges.Session = e }); err != nil {
-			return nil, err
-		}
-	}
-	if query := _q.withAmendments; query != nil {
-		if err := _q.loadAmendments(ctx, query, nodes,
-			func(n *SessionRun) { n.Edges.Amendments = []*SessionRunAmendment{} },
-			func(n *SessionRun, e *SessionRunAmendment) { n.Edges.Amendments = append(n.Edges.Amendments, e) }); err != nil {
+	if query := _q.withSessionRun; query != nil {
+		if err := _q.loadSessionRun(ctx, query, nodes, nil,
+			func(n *SessionRunAmendment, e *SessionRun) { n.Edges.SessionRun = e }); err != nil {
 			return nil, err
 		}
 	}
 	return nodes, nil
 }
 
-func (_q *SessionRunQuery) loadSession(ctx context.Context, query *SessionQuery, nodes []*SessionRun, init func(*SessionRun), assign func(*SessionRun, *Session)) error {
+func (_q *SessionRunAmendmentQuery) loadSessionRun(ctx context.Context, query *SessionRunQuery, nodes []*SessionRunAmendment, init func(*SessionRunAmendment), assign func(*SessionRunAmendment, *SessionRun)) error {
 	ids := make([]int, 0, len(nodes))
-	nodeids := make(map[int][]*SessionRun)
+	nodeids := make(map[int][]*SessionRunAmendment)
 	for i := range nodes {
-		fk := nodes[i].SessionID
+		fk := nodes[i].SessionRunID
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -466,7 +421,7 @@ func (_q *SessionRunQuery) loadSession(ctx context.Context, query *SessionQuery,
 	if len(ids) == 0 {
 		return nil
 	}
-	query.Where(session.IDIn(ids...))
+	query.Where(sessionrun.IDIn(ids...))
 	neighbors, err := query.All(ctx)
 	if err != nil {
 		return err
@@ -474,7 +429,7 @@ func (_q *SessionRunQuery) loadSession(ctx context.Context, query *SessionQuery,
 	for _, n := range neighbors {
 		nodes, ok := nodeids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "session_id" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected foreign-key "session_run_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -482,38 +437,8 @@ func (_q *SessionRunQuery) loadSession(ctx context.Context, query *SessionQuery,
 	}
 	return nil
 }
-func (_q *SessionRunQuery) loadAmendments(ctx context.Context, query *SessionRunAmendmentQuery, nodes []*SessionRun, init func(*SessionRun), assign func(*SessionRun, *SessionRunAmendment)) error {
-	fks := make([]driver.Value, 0, len(nodes))
-	nodeids := make(map[int]*SessionRun)
-	for i := range nodes {
-		fks = append(fks, nodes[i].ID)
-		nodeids[nodes[i].ID] = nodes[i]
-		if init != nil {
-			init(nodes[i])
-		}
-	}
-	if len(query.ctx.Fields) > 0 {
-		query.ctx.AppendFieldOnce(sessionrunamendment.FieldSessionRunID)
-	}
-	query.Where(predicate.SessionRunAmendment(func(s *sql.Selector) {
-		s.Where(sql.InValues(s.C(sessionrun.AmendmentsColumn), fks...))
-	}))
-	neighbors, err := query.All(ctx)
-	if err != nil {
-		return err
-	}
-	for _, n := range neighbors {
-		fk := n.SessionRunID
-		node, ok := nodeids[fk]
-		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "session_run_id" returned %v for node %v`, fk, n.ID)
-		}
-		assign(node, n)
-	}
-	return nil
-}
 
-func (_q *SessionRunQuery) sqlCount(ctx context.Context) (int, error) {
+func (_q *SessionRunAmendmentQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := _q.querySpec()
 	_spec.Node.Columns = _q.ctx.Fields
 	if len(_q.ctx.Fields) > 0 {
@@ -522,8 +447,8 @@ func (_q *SessionRunQuery) sqlCount(ctx context.Context) (int, error) {
 	return sqlgraph.CountNodes(ctx, _q.driver, _spec)
 }
 
-func (_q *SessionRunQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(sessionrun.Table, sessionrun.Columns, sqlgraph.NewFieldSpec(sessionrun.FieldID, field.TypeInt))
+func (_q *SessionRunAmendmentQuery) querySpec() *sqlgraph.QuerySpec {
+	_spec := sqlgraph.NewQuerySpec(sessionrunamendment.Table, sessionrunamendment.Columns, sqlgraph.NewFieldSpec(sessionrunamendment.FieldID, field.TypeInt))
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique
@@ -532,14 +457,14 @@ func (_q *SessionRunQuery) querySpec() *sqlgraph.QuerySpec {
 	}
 	if fields := _q.ctx.Fields; len(fields) > 0 {
 		_spec.Node.Columns = make([]string, 0, len(fields))
-		_spec.Node.Columns = append(_spec.Node.Columns, sessionrun.FieldID)
+		_spec.Node.Columns = append(_spec.Node.Columns, sessionrunamendment.FieldID)
 		for i := range fields {
-			if fields[i] != sessionrun.FieldID {
+			if fields[i] != sessionrunamendment.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
 		}
-		if _q.withSession != nil {
-			_spec.Node.AddColumnOnce(sessionrun.FieldSessionID)
+		if _q.withSessionRun != nil {
+			_spec.Node.AddColumnOnce(sessionrunamendment.FieldSessionRunID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {
@@ -565,12 +490,12 @@ func (_q *SessionRunQuery) querySpec() *sqlgraph.QuerySpec {
 	return _spec
 }
 
-func (_q *SessionRunQuery) sqlQuery(ctx context.Context) *sql.Selector {
+func (_q *SessionRunAmendmentQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	builder := sql.Dialect(_q.driver.Dialect())
-	t1 := builder.Table(sessionrun.Table)
+	t1 := builder.Table(sessionrunamendment.Table)
 	columns := _q.ctx.Fields
 	if len(columns) == 0 {
-		columns = sessionrun.Columns
+		columns = sessionrunamendment.Columns
 	}
 	selector := builder.Select(t1.Columns(columns...)...).From(t1)
 	if _q.sql != nil {
@@ -597,28 +522,28 @@ func (_q *SessionRunQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	return selector
 }
 
-// SessionRunGroupBy is the group-by builder for SessionRun entities.
-type SessionRunGroupBy struct {
+// SessionRunAmendmentGroupBy is the group-by builder for SessionRunAmendment entities.
+type SessionRunAmendmentGroupBy struct {
 	selector
-	build *SessionRunQuery
+	build *SessionRunAmendmentQuery
 }
 
 // Aggregate adds the given aggregation functions to the group-by query.
-func (_g *SessionRunGroupBy) Aggregate(fns ...AggregateFunc) *SessionRunGroupBy {
+func (_g *SessionRunAmendmentGroupBy) Aggregate(fns ...AggregateFunc) *SessionRunAmendmentGroupBy {
 	_g.fns = append(_g.fns, fns...)
 	return _g
 }
 
 // Scan applies the selector query and scans the result into the given value.
-func (_g *SessionRunGroupBy) Scan(ctx context.Context, v any) error {
+func (_g *SessionRunAmendmentGroupBy) Scan(ctx context.Context, v any) error {
 	ctx = setContextOp(ctx, _g.build.ctx, ent.OpQueryGroupBy)
 	if err := _g.build.prepareQuery(ctx); err != nil {
 		return err
 	}
-	return scanWithInterceptors[*SessionRunQuery, *SessionRunGroupBy](ctx, _g.build, _g, _g.build.inters, v)
+	return scanWithInterceptors[*SessionRunAmendmentQuery, *SessionRunAmendmentGroupBy](ctx, _g.build, _g, _g.build.inters, v)
 }
 
-func (_g *SessionRunGroupBy) sqlScan(ctx context.Context, root *SessionRunQuery, v any) error {
+func (_g *SessionRunAmendmentGroupBy) sqlScan(ctx context.Context, root *SessionRunAmendmentQuery, v any) error {
 	selector := root.sqlQuery(ctx).Select()
 	aggregation := make([]string, 0, len(_g.fns))
 	for _, fn := range _g.fns {
@@ -645,28 +570,28 @@ func (_g *SessionRunGroupBy) sqlScan(ctx context.Context, root *SessionRunQuery,
 	return sql.ScanSlice(rows, v)
 }
 
-// SessionRunSelect is the builder for selecting fields of SessionRun entities.
-type SessionRunSelect struct {
-	*SessionRunQuery
+// SessionRunAmendmentSelect is the builder for selecting fields of SessionRunAmendment entities.
+type SessionRunAmendmentSelect struct {
+	*SessionRunAmendmentQuery
 	selector
 }
 
 // Aggregate adds the given aggregation functions to the selector query.
-func (_s *SessionRunSelect) Aggregate(fns ...AggregateFunc) *SessionRunSelect {
+func (_s *SessionRunAmendmentSelect) Aggregate(fns ...AggregateFunc) *SessionRunAmendmentSelect {
 	_s.fns = append(_s.fns, fns...)
 	return _s
 }
 
 // Scan applies the selector query and scans the result into the given value.
-func (_s *SessionRunSelect) Scan(ctx context.Context, v any) error {
+func (_s *SessionRunAmendmentSelect) Scan(ctx context.Context, v any) error {
 	ctx = setContextOp(ctx, _s.ctx, ent.OpQuerySelect)
 	if err := _s.prepareQuery(ctx); err != nil {
 		return err
 	}
-	return scanWithInterceptors[*SessionRunQuery, *SessionRunSelect](ctx, _s.SessionRunQuery, _s, _s.inters, v)
+	return scanWithInterceptors[*SessionRunAmendmentQuery, *SessionRunAmendmentSelect](ctx, _s.SessionRunAmendmentQuery, _s, _s.inters, v)
 }
 
-func (_s *SessionRunSelect) sqlScan(ctx context.Context, root *SessionRunQuery, v any) error {
+func (_s *SessionRunAmendmentSelect) sqlScan(ctx context.Context, root *SessionRunAmendmentQuery, v any) error {
 	selector := root.sqlQuery(ctx)
 	aggregation := make([]string, 0, len(_s.fns))
 	for _, fn := range _s.fns {

@@ -47,6 +47,7 @@ func (SessionRun) Edges() []ent.Edge {
 			Unique().
 			Immutable().
 			Required(),
+		edge.To("amendments", SessionRunAmendment.Type),
 	}
 }
 

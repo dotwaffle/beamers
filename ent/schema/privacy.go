@@ -8,6 +8,8 @@ import (
 	"entgo.io/ent/privacy"
 
 	beamersent "github.com/dotwaffle/beamers/ent"
+	"github.com/dotwaffle/beamers/ent/draftchange"
+	"github.com/dotwaffle/beamers/ent/draftchangedependency"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/lanedraft"
 	"github.com/dotwaffle/beamers/ent/lanepublishedversion"
@@ -563,7 +565,14 @@ func allowScopedSessionLiveMutation() privacy.MutationRule {
 		Client() *beamersent.Client
 	}
 	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
-		if !mutation.Op().Is(ent.OpUpdateOne) || !onlyFields(mutation, "lifecycle", "live_state_revision") {
+		if !mutation.Op().Is(ent.OpUpdateOne) || !onlyFields(
+			mutation,
+			"lifecycle",
+			"live_state_revision",
+			"corrected_title",
+			"corrected_speaker",
+			"corrected_public_details",
+		) {
 			return privacy.Skip
 		}
 		identified, ok := mutation.(sessionMutation)
@@ -826,6 +835,100 @@ func allowSessionOwnedMutation() privacy.MutationRule {
 		)
 		if err != nil {
 			return privacy.Denyf("read mutation Event ownership: %v", err)
+		}
+		if identity.CanProduceEvent(found.EventID) {
+			return privacy.Allow
+		}
+		return privacy.Skip
+	})
+}
+
+func allowSessionDraftDeletion() privacy.MutationRule {
+	type identifiedMutation interface {
+		ID() (int, bool)
+		Client() *beamersent.Client
+	}
+	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
+		if !mutation.Op().Is(ent.OpDeleteOne) {
+			return privacy.Skip
+		}
+		identity, _ := viewer.FromContext(ctx)
+		identified, ok := mutation.(identifiedMutation)
+		if !ok {
+			return privacy.Skip
+		}
+		draftID, ok := identified.ID()
+		if !ok {
+			return privacy.Skip
+		}
+		internalContext := privacy.DecisionContext(ctx, privacy.Allow)
+		draft, err := identified.Client().SessionDraft.Get(internalContext, draftID)
+		if err != nil {
+			return privacy.Denyf("read deleted Session Draft ownership: %v", err)
+		}
+		found, err := identified.Client().Session.Get(internalContext, draft.SessionID)
+		if err != nil {
+			return privacy.Denyf("read deleted Session ownership: %v", err)
+		}
+		if identity.CanProduceEvent(found.EventID) {
+			return privacy.Allow
+		}
+		return privacy.Skip
+	})
+}
+
+func allowSessionDeletion() privacy.MutationRule {
+	type identifiedMutation interface {
+		ID() (int, bool)
+		Client() *beamersent.Client
+	}
+	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
+		if !mutation.Op().Is(ent.OpDeleteOne) {
+			return privacy.Skip
+		}
+		identity, _ := viewer.FromContext(ctx)
+		identified, ok := mutation.(identifiedMutation)
+		if !ok {
+			return privacy.Skip
+		}
+		sessionID, ok := identified.ID()
+		if !ok {
+			return privacy.Skip
+		}
+		found, err := identified.Client().Session.Get(privacy.DecisionContext(ctx, privacy.Allow), sessionID)
+		if err != nil {
+			return privacy.Denyf("read deleted Session ownership: %v", err)
+		}
+		internalContext := privacy.DecisionContext(ctx, privacy.Allow)
+		published, err := found.QueryPublishedVersions().Exist(internalContext)
+		if err != nil {
+			return privacy.Denyf("check deleted Session Published history: %v", err)
+		}
+		runs, err := found.QueryRuns().Exist(internalContext)
+		if err != nil {
+			return privacy.Denyf("check deleted Session Run history: %v", err)
+		}
+		ownedChanges, err := identified.Client().DraftChange.Query().Where(
+			draftchange.EventIDEQ(found.EventID),
+			draftchange.TargetTypeEQ("Session"),
+			draftchange.TargetIDEQ(sessionID),
+		).IDs(internalContext)
+		if err != nil {
+			return privacy.Denyf("check deleted Session Draft history: %v", err)
+		}
+		referenced := false
+		if len(ownedChanges) > 0 {
+			dependencies, queryErr := identified.Client().DraftChangeDependency.Query().Where(
+				draftchangedependency.DependsOnIDIn(ownedChanges...),
+				draftchangedependency.ChangeIDNotIn(ownedChanges...),
+			).Exist(internalContext)
+			if queryErr != nil {
+				return privacy.Denyf("check deleted Session Draft references: %v", queryErr)
+			}
+			referenced = dependencies
+		}
+		if published || runs || referenced {
+			return privacy.Denyf("only a never-Published, unreferenced Draft Session can be deleted")
 		}
 		if identity.CanProduceEvent(found.EventID) {
 			return privacy.Allow

@@ -42,6 +42,20 @@ func (_c *SessionPublishedVersionCreate) SetTitle(v string) *SessionPublishedVer
 	return _c
 }
 
+// SetSpeaker sets the "speaker" field.
+func (_c *SessionPublishedVersionCreate) SetSpeaker(v string) *SessionPublishedVersionCreate {
+	_c.mutation.SetSpeaker(v)
+	return _c
+}
+
+// SetNillableSpeaker sets the "speaker" field if the given value is not nil.
+func (_c *SessionPublishedVersionCreate) SetNillableSpeaker(v *string) *SessionPublishedVersionCreate {
+	if v != nil {
+		_c.SetSpeaker(*v)
+	}
+	return _c
+}
+
 // SetType sets the "type" field.
 func (_c *SessionPublishedVersionCreate) SetType(v sessionpublishedversion.Type) *SessionPublishedVersionCreate {
 	_c.mutation.SetType(v)
@@ -250,6 +264,11 @@ func (_c *SessionPublishedVersionCreate) check() error {
 			return &ValidationError{Name: "title", err: fmt.Errorf(`ent: validator failed for field "SessionPublishedVersion.title": %w`, err)}
 		}
 	}
+	if v, ok := _c.mutation.Speaker(); ok {
+		if err := sessionpublishedversion.SpeakerValidator(v); err != nil {
+			return &ValidationError{Name: "speaker", err: fmt.Errorf(`ent: validator failed for field "SessionPublishedVersion.speaker": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.GetType(); !ok {
 		return &ValidationError{Name: "type", err: errors.New(`ent: missing required field "SessionPublishedVersion.type"`)}
 	}
@@ -353,6 +372,10 @@ func (_c *SessionPublishedVersionCreate) createSpec() (*SessionPublishedVersion,
 	if value, ok := _c.mutation.Title(); ok {
 		_spec.SetField(sessionpublishedversion.FieldTitle, field.TypeString, value)
 		_node.Title = value
+	}
+	if value, ok := _c.mutation.Speaker(); ok {
+		_spec.SetField(sessionpublishedversion.FieldSpeaker, field.TypeString, value)
+		_node.Speaker = value
 	}
 	if value, ok := _c.mutation.GetType(); ok {
 		_spec.SetField(sessionpublishedversion.FieldType, field.TypeEnum, value)

@@ -22,6 +22,8 @@ const (
 	FieldPublishedRevision = "published_revision"
 	// FieldTitle holds the string denoting the title field in the database.
 	FieldTitle = "title"
+	// FieldSpeaker holds the string denoting the speaker field in the database.
+	FieldSpeaker = "speaker"
 	// FieldType holds the string denoting the type field in the database.
 	FieldType = "type"
 	// FieldAudienceVisibility holds the string denoting the audience_visibility field in the database.
@@ -84,6 +86,7 @@ var Columns = []string{
 	FieldSessionID,
 	FieldPublishedRevision,
 	FieldTitle,
+	FieldSpeaker,
 	FieldType,
 	FieldAudienceVisibility,
 	FieldPublicDetails,
@@ -131,6 +134,8 @@ var (
 	PublishedRevisionValidator func(int) error
 	// TitleValidator is a validator for the "title" field. It is called by the builders before save.
 	TitleValidator func(string) error
+	// SpeakerValidator is a validator for the "speaker" field. It is called by the builders before save.
+	SpeakerValidator func(string) error
 	// PublicDetailsValidator is a validator for the "public_details" field. It is called by the builders before save.
 	PublicDetailsValidator func(string) error
 	// CrewNotesValidator is a validator for the "crew_notes" field. It is called by the builders before save.
@@ -283,6 +288,11 @@ func ByPublishedRevision(opts ...sql.OrderTermOption) OrderOption {
 // ByTitle orders the results by the title field.
 func ByTitle(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTitle, opts...).ToFunc()
+}
+
+// BySpeaker orders the results by the speaker field.
+func BySpeaker(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSpeaker, opts...).ToFunc()
 }
 
 // ByType orders the results by the type field.

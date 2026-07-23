@@ -36,6 +36,9 @@ const (
 	// RundownServiceEditDraftProcedure is the fully-qualified name of the RundownService's EditDraft
 	// RPC.
 	RundownServiceEditDraftProcedure = "/beamers.rundown.v1.RundownService/EditDraft"
+	// RundownServiceDeleteDraftSessionProcedure is the fully-qualified name of the RundownService's
+	// DeleteDraftSession RPC.
+	RundownServiceDeleteDraftSessionProcedure = "/beamers.rundown.v1.RundownService/DeleteDraftSession"
 	// RundownServiceDiscardDraftChangesProcedure is the fully-qualified name of the RundownService's
 	// DiscardDraftChanges RPC.
 	RundownServiceDiscardDraftChangesProcedure = "/beamers.rundown.v1.RundownService/DiscardDraftChanges"
@@ -55,6 +58,7 @@ const (
 // RundownServiceClient is a client for the beamers.rundown.v1.RundownService service.
 type RundownServiceClient interface {
 	EditDraft(context.Context, *connect.Request[v1.EditDraftRequest]) (*connect.Response[v1.EditDraftResponse], error)
+	DeleteDraftSession(context.Context, *connect.Request[v1.DeleteDraftSessionRequest]) (*connect.Response[v1.DeleteDraftSessionResponse], error)
 	DiscardDraftChanges(context.Context, *connect.Request[v1.DiscardDraftChangesRequest]) (*connect.Response[v1.DiscardDraftChangesResponse], error)
 	RevertDraftChange(context.Context, *connect.Request[v1.RevertDraftChangeRequest]) (*connect.Response[v1.RevertDraftChangeResponse], error)
 	PublishPreview(context.Context, *connect.Request[v1.PublishPreviewRequest]) (*connect.Response[v1.PublishPreviewResponse], error)
@@ -77,6 +81,12 @@ func NewRundownServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			httpClient,
 			baseURL+RundownServiceEditDraftProcedure,
 			connect.WithSchema(rundownServiceMethods.ByName("EditDraft")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteDraftSession: connect.NewClient[v1.DeleteDraftSessionRequest, v1.DeleteDraftSessionResponse](
+			httpClient,
+			baseURL+RundownServiceDeleteDraftSessionProcedure,
+			connect.WithSchema(rundownServiceMethods.ByName("DeleteDraftSession")),
 			connect.WithClientOptions(opts...),
 		),
 		discardDraftChanges: connect.NewClient[v1.DiscardDraftChangesRequest, v1.DiscardDraftChangesResponse](
@@ -115,6 +125,7 @@ func NewRundownServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 // rundownServiceClient implements RundownServiceClient.
 type rundownServiceClient struct {
 	editDraft           *connect.Client[v1.EditDraftRequest, v1.EditDraftResponse]
+	deleteDraftSession  *connect.Client[v1.DeleteDraftSessionRequest, v1.DeleteDraftSessionResponse]
 	discardDraftChanges *connect.Client[v1.DiscardDraftChangesRequest, v1.DiscardDraftChangesResponse]
 	revertDraftChange   *connect.Client[v1.RevertDraftChangeRequest, v1.RevertDraftChangeResponse]
 	publishPreview      *connect.Client[v1.PublishPreviewRequest, v1.PublishPreviewResponse]
@@ -125,6 +136,11 @@ type rundownServiceClient struct {
 // EditDraft calls beamers.rundown.v1.RundownService.EditDraft.
 func (c *rundownServiceClient) EditDraft(ctx context.Context, req *connect.Request[v1.EditDraftRequest]) (*connect.Response[v1.EditDraftResponse], error) {
 	return c.editDraft.CallUnary(ctx, req)
+}
+
+// DeleteDraftSession calls beamers.rundown.v1.RundownService.DeleteDraftSession.
+func (c *rundownServiceClient) DeleteDraftSession(ctx context.Context, req *connect.Request[v1.DeleteDraftSessionRequest]) (*connect.Response[v1.DeleteDraftSessionResponse], error) {
+	return c.deleteDraftSession.CallUnary(ctx, req)
 }
 
 // DiscardDraftChanges calls beamers.rundown.v1.RundownService.DiscardDraftChanges.
@@ -155,6 +171,7 @@ func (c *rundownServiceClient) GetCrewRundown(ctx context.Context, req *connect.
 // RundownServiceHandler is an implementation of the beamers.rundown.v1.RundownService service.
 type RundownServiceHandler interface {
 	EditDraft(context.Context, *connect.Request[v1.EditDraftRequest]) (*connect.Response[v1.EditDraftResponse], error)
+	DeleteDraftSession(context.Context, *connect.Request[v1.DeleteDraftSessionRequest]) (*connect.Response[v1.DeleteDraftSessionResponse], error)
 	DiscardDraftChanges(context.Context, *connect.Request[v1.DiscardDraftChangesRequest]) (*connect.Response[v1.DiscardDraftChangesResponse], error)
 	RevertDraftChange(context.Context, *connect.Request[v1.RevertDraftChangeRequest]) (*connect.Response[v1.RevertDraftChangeResponse], error)
 	PublishPreview(context.Context, *connect.Request[v1.PublishPreviewRequest]) (*connect.Response[v1.PublishPreviewResponse], error)
@@ -173,6 +190,12 @@ func NewRundownServiceHandler(svc RundownServiceHandler, opts ...connect.Handler
 		RundownServiceEditDraftProcedure,
 		svc.EditDraft,
 		connect.WithSchema(rundownServiceMethods.ByName("EditDraft")),
+		connect.WithHandlerOptions(opts...),
+	)
+	rundownServiceDeleteDraftSessionHandler := connect.NewUnaryHandler(
+		RundownServiceDeleteDraftSessionProcedure,
+		svc.DeleteDraftSession,
+		connect.WithSchema(rundownServiceMethods.ByName("DeleteDraftSession")),
 		connect.WithHandlerOptions(opts...),
 	)
 	rundownServiceDiscardDraftChangesHandler := connect.NewUnaryHandler(
@@ -209,6 +232,8 @@ func NewRundownServiceHandler(svc RundownServiceHandler, opts ...connect.Handler
 		switch r.URL.Path {
 		case RundownServiceEditDraftProcedure:
 			rundownServiceEditDraftHandler.ServeHTTP(w, r)
+		case RundownServiceDeleteDraftSessionProcedure:
+			rundownServiceDeleteDraftSessionHandler.ServeHTTP(w, r)
 		case RundownServiceDiscardDraftChangesProcedure:
 			rundownServiceDiscardDraftChangesHandler.ServeHTTP(w, r)
 		case RundownServiceRevertDraftChangeProcedure:
@@ -230,6 +255,10 @@ type UnimplementedRundownServiceHandler struct{}
 
 func (UnimplementedRundownServiceHandler) EditDraft(context.Context, *connect.Request[v1.EditDraftRequest]) (*connect.Response[v1.EditDraftResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.rundown.v1.RundownService.EditDraft is not implemented"))
+}
+
+func (UnimplementedRundownServiceHandler) DeleteDraftSession(context.Context, *connect.Request[v1.DeleteDraftSessionRequest]) (*connect.Response[v1.DeleteDraftSessionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.rundown.v1.RundownService.DeleteDraftSession is not implemented"))
 }
 
 func (UnimplementedRundownServiceHandler) DiscardDraftChanges(context.Context, *connect.Request[v1.DiscardDraftChangesRequest]) (*connect.Response[v1.DiscardDraftChangesResponse], error) {

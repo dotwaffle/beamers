@@ -194,6 +194,30 @@ func (transaction *CommandTx) reactivateSupersededDraftFact(ctx context.Context,
 }
 
 func (transaction *CommandTx) publishedDraftFact(ctx context.Context, selected *ent.DraftChange) (json.RawMessage, error) {
+	if selected.TargetType == draftTargetSession {
+		identity, identityErr := transaction.transaction.Session.Get(systemContext(ctx), selected.TargetID)
+		if identityErr != nil && !ent.IsNotFound(identityErr) {
+			return nil, opaqueError("load corrected Session Draft baseline", identityErr)
+		}
+		if identityErr == nil {
+			var corrected *string
+			switch selected.FactKey {
+			case draftFactTitle:
+				corrected = identity.CorrectedTitle
+			case draftFactSpeaker:
+				corrected = identity.CorrectedSpeaker
+			case draftFactPublicDetails:
+				corrected = identity.CorrectedPublicDetails
+			}
+			if corrected != nil {
+				encoded, encodeErr := json.Marshal(*corrected)
+				if encodeErr != nil {
+					return nil, errors.New("encode corrected Session Draft baseline")
+				}
+				return encoded, nil
+			}
+		}
+	}
 	published, err := transaction.transaction.DraftChange.Query().Where(
 		draftchange.EventIDEQ(selected.EventID), draftchange.TargetTypeEQ(selected.TargetType),
 		draftchange.TargetIDEQ(selected.TargetID), draftchange.FactKeyEQ(selected.FactKey),
@@ -282,6 +306,8 @@ func (facts rundownDraftFacts) creationValue(creation *ent.DraftChange, factKey 
 			switch factKey {
 			case "title":
 				value = input.Title
+			case "speaker":
+				value = input.Speaker
 			case "type":
 				value = input.Type
 			case "audience_visibility":
@@ -478,6 +504,10 @@ func (transaction *CommandTx) applySessionDraftFact(ctx context.Context, targetI
 		var value string
 		err = json.Unmarshal(encoded, &value)
 		update.SetTitle(value)
+	case "speaker":
+		var value string
+		err = json.Unmarshal(encoded, &value)
+		update.SetSpeaker(value)
 	case "type":
 		var value string
 		err = json.Unmarshal(encoded, &value)

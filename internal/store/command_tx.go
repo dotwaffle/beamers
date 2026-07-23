@@ -228,6 +228,7 @@ type SessionDraftCreate struct {
 	ID                     int
 	Ref                    string
 	Title                  string
+	Speaker                string
 	Type                   string
 	AudienceVisibility     string
 	PublicDetails          string
@@ -585,7 +586,7 @@ func (transaction *CommandTx) draftOverlaps(ctx context.Context, params EditDraf
 	}
 	changes, err := transaction.transaction.DraftChange.Query().
 		Where(draftchange.EventIDEQ(params.EventID), draftchange.RevisionGT(afterRevision),
-			draftchange.StatusIn(draftchange.StatusEffective, draftchange.StatusPublished)).
+			draftchange.StatusIn(draftchange.StatusEffective, draftchange.StatusPublished, draftchange.StatusConflicted)).
 		Order(ent.Desc(draftchange.FieldRevision), ent.Desc(draftchange.FieldID)).
 		All(systemContext(ctx))
 	if err != nil {
@@ -825,6 +826,9 @@ func (transaction *CommandTx) updateSessionDraft(
 		case "title":
 			before, after = state.Title, input.Title
 			update.SetTitle(input.Title)
+		case "speaker":
+			before, after = state.Speaker, input.Speaker
+			update.SetSpeaker(input.Speaker)
 		case "type":
 			before, after = string(state.Type), input.Type
 			update.SetType(sessiondraft.Type(input.Type))
@@ -1029,6 +1033,7 @@ func (transaction *CommandTx) createSessionDraft(
 	create := transaction.transaction.SessionDraft.Create().
 		SetSessionID(created.ID).
 		SetTitle(input.Title).
+		SetSpeaker(input.Speaker).
 		SetType(sessiondraft.Type(input.Type)).
 		SetAudienceVisibility(sessiondraft.AudienceVisibility(input.AudienceVisibility)).
 		SetPlannedStart(input.PlannedStart).

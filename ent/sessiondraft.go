@@ -22,6 +22,8 @@ type SessionDraft struct {
 	SessionID int `json:"session_id,omitempty"`
 	// Title holds the value of the "title" field.
 	Title string `json:"title,omitempty"`
+	// Speaker holds the value of the "speaker" field.
+	Speaker string `json:"speaker,omitempty"`
 	// Type holds the value of the "type" field.
 	Type sessiondraft.Type `json:"type,omitempty"`
 	// AudienceVisibility holds the value of the "audience_visibility" field.
@@ -108,7 +110,7 @@ func (*SessionDraft) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case sessiondraft.FieldID, sessiondraft.FieldSessionID, sessiondraft.FieldMinimumDurationSeconds:
 			values[i] = new(sql.NullInt64)
-		case sessiondraft.FieldTitle, sessiondraft.FieldType, sessiondraft.FieldAudienceVisibility, sessiondraft.FieldPublicDetails, sessiondraft.FieldCrewNotes, sessiondraft.FieldTimingPolicy, sessiondraft.FieldStartBoundary, sessiondraft.FieldEndBoundary:
+		case sessiondraft.FieldTitle, sessiondraft.FieldSpeaker, sessiondraft.FieldType, sessiondraft.FieldAudienceVisibility, sessiondraft.FieldPublicDetails, sessiondraft.FieldCrewNotes, sessiondraft.FieldTimingPolicy, sessiondraft.FieldStartBoundary, sessiondraft.FieldEndBoundary:
 			values[i] = new(sql.NullString)
 		case sessiondraft.FieldPlannedStart, sessiondraft.FieldPlannedEnd:
 			values[i] = new(sql.NullTime)
@@ -144,6 +146,12 @@ func (_m *SessionDraft) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field title", values[i])
 			} else if value.Valid {
 				_m.Title = value.String
+			}
+		case sessiondraft.FieldSpeaker:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field speaker", values[i])
+			} else if value.Valid {
+				_m.Speaker = value.String
 			}
 		case sessiondraft.FieldType:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -266,6 +274,9 @@ func (_m *SessionDraft) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("title=")
 	builder.WriteString(_m.Title)
+	builder.WriteString(", ")
+	builder.WriteString("speaker=")
+	builder.WriteString(_m.Speaker)
 	builder.WriteString(", ")
 	builder.WriteString("type=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Type))

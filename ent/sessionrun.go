@@ -38,9 +38,11 @@ type SessionRun struct {
 type SessionRunEdges struct {
 	// Session holds the value of the session edge.
 	Session *Session `json:"session,omitempty"`
+	// Amendments holds the value of the amendments edge.
+	Amendments []*SessionRunAmendment `json:"amendments,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
 }
 
 // SessionOrErr returns the Session value or an error if the edge
@@ -52,6 +54,15 @@ func (e SessionRunEdges) SessionOrErr() (*Session, error) {
 		return nil, &NotFoundError{label: session.Label}
 	}
 	return nil, &NotLoadedError{edge: "session"}
+}
+
+// AmendmentsOrErr returns the Amendments value or an error if the edge
+// was not loaded in eager-loading.
+func (e SessionRunEdges) AmendmentsOrErr() ([]*SessionRunAmendment, error) {
+	if e.loadedTypes[1] {
+		return e.Amendments, nil
+	}
+	return nil, &NotLoadedError{edge: "amendments"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -132,6 +143,11 @@ func (_m *SessionRun) Value(name string) (ent.Value, error) {
 // QuerySession queries the "session" edge of the SessionRun entity.
 func (_m *SessionRun) QuerySession() *SessionQuery {
 	return NewSessionRunClient(_m.config).QuerySession(_m)
+}
+
+// QueryAmendments queries the "amendments" edge of the SessionRun entity.
+func (_m *SessionRun) QueryAmendments() *SessionRunAmendmentQuery {
+	return NewSessionRunClient(_m.config).QueryAmendments(_m)
 }
 
 // Update returns a builder for updating this SessionRun.

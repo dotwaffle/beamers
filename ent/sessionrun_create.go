@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
+	"github.com/dotwaffle/beamers/ent/sessionrunamendment"
 )
 
 // SessionRunCreate is the builder for creating a SessionRun entity.
@@ -70,6 +71,21 @@ func (_c *SessionRunCreate) SetNillableCreatedAt(v *time.Time) *SessionRunCreate
 // SetSession sets the "session" edge to the Session entity.
 func (_c *SessionRunCreate) SetSession(v *Session) *SessionRunCreate {
 	return _c.SetSessionID(v.ID)
+}
+
+// AddAmendmentIDs adds the "amendments" edge to the SessionRunAmendment entity by IDs.
+func (_c *SessionRunCreate) AddAmendmentIDs(ids ...int) *SessionRunCreate {
+	_c.mutation.AddAmendmentIDs(ids...)
+	return _c
+}
+
+// AddAmendments adds the "amendments" edges to the SessionRunAmendment entity.
+func (_c *SessionRunCreate) AddAmendments(v ...*SessionRunAmendment) *SessionRunCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAmendmentIDs(ids...)
 }
 
 // Mutation returns the SessionRunMutation object of the builder.
@@ -198,6 +214,22 @@ func (_c *SessionRunCreate) createSpec() (*SessionRun, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.SessionID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AmendmentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   sessionrun.AmendmentsTable,
+			Columns: []string{sessionrun.AmendmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessionrunamendment.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

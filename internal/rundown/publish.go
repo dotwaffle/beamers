@@ -216,6 +216,9 @@ func formPublishPreview(state store.PublishState, requested []int) (PublishPrevi
 		if change.Status == "Published" {
 			return nil
 		}
+		if change.Status == "Conflicted" {
+			return errors.New("draft fact conflicts with a live detail correction and requires review")
+		}
 		if change.Status != "Effective" {
 			return ErrPublishSelection
 		}
@@ -258,6 +261,10 @@ func formPublishPreview(state store.PublishState, requested []int) (PublishPrevi
 	}
 	for _, id := range changeIDs {
 		change := byID[id]
+		if slices.Contains(state.LiveTargetIDs[change.TargetType], change.TargetID) {
+			preview.ValidationFailures = []string{"ordinary Publish cannot alter a currently Live Session"}
+			return preview, nil
+		}
 		preview.Changes = append(preview.Changes, DraftChange{
 			ID: id, Kind: change.Kind, TargetType: change.TargetType, TargetID: change.TargetID,
 		})
@@ -320,6 +327,7 @@ type CrewTrack struct {
 type CrewSession struct {
 	ID                 int                `json:"id"`
 	Title              string             `json:"title"`
+	Speaker            string             `json:"speaker,omitempty"`
 	Type               SessionType        `json:"type"`
 	AudienceVisibility AudienceVisibility `json:"audience_visibility"`
 	PublicDetails      string             `json:"public_details,omitempty"`
@@ -366,7 +374,7 @@ func (queries *Queries) CrewRundown(
 	}
 	for _, item := range stored.Sessions {
 		result.Sessions = append(result.Sessions, CrewSession{
-			ID: item.ID, Title: item.Title, Type: SessionType(item.Type),
+			ID: item.ID, Title: item.Title, Speaker: item.Speaker, Type: SessionType(item.Type),
 			AudienceVisibility: AudienceVisibility(item.AudienceVisibility),
 			PublicDetails:      item.PublicDetails, CrewNotes: item.CrewNotes,
 			PlannedStart: item.PlannedStart, PlannedEnd: item.PlannedEnd,

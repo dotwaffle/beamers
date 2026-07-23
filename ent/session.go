@@ -25,6 +25,12 @@ type Session struct {
 	Lifecycle session.Lifecycle `json:"lifecycle,omitempty"`
 	// LiveStateRevision holds the value of the "live_state_revision" field.
 	LiveStateRevision int `json:"live_state_revision,omitempty"`
+	// CorrectedTitle holds the value of the "corrected_title" field.
+	CorrectedTitle *string `json:"corrected_title,omitempty"`
+	// CorrectedSpeaker holds the value of the "corrected_speaker" field.
+	CorrectedSpeaker *string `json:"corrected_speaker,omitempty"`
+	// CorrectedPublicDetails holds the value of the "corrected_public_details" field.
+	CorrectedPublicDetails *string `json:"corrected_public_details,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -95,7 +101,7 @@ func (*Session) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case session.FieldID, session.FieldEventID, session.FieldLiveStateRevision:
 			values[i] = new(sql.NullInt64)
-		case session.FieldLifecycle:
+		case session.FieldLifecycle, session.FieldCorrectedTitle, session.FieldCorrectedSpeaker, session.FieldCorrectedPublicDetails:
 			values[i] = new(sql.NullString)
 		case session.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -137,6 +143,27 @@ func (_m *Session) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field live_state_revision", values[i])
 			} else if value.Valid {
 				_m.LiveStateRevision = int(value.Int64)
+			}
+		case session.FieldCorrectedTitle:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field corrected_title", values[i])
+			} else if value.Valid {
+				_m.CorrectedTitle = new(string)
+				*_m.CorrectedTitle = value.String
+			}
+		case session.FieldCorrectedSpeaker:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field corrected_speaker", values[i])
+			} else if value.Valid {
+				_m.CorrectedSpeaker = new(string)
+				*_m.CorrectedSpeaker = value.String
+			}
+		case session.FieldCorrectedPublicDetails:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field corrected_public_details", values[i])
+			} else if value.Valid {
+				_m.CorrectedPublicDetails = new(string)
+				*_m.CorrectedPublicDetails = value.String
 			}
 		case session.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -208,6 +235,21 @@ func (_m *Session) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("live_state_revision=")
 	builder.WriteString(fmt.Sprintf("%v", _m.LiveStateRevision))
+	builder.WriteString(", ")
+	if v := _m.CorrectedTitle; v != nil {
+		builder.WriteString("corrected_title=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.CorrectedSpeaker; v != nil {
+		builder.WriteString("corrected_speaker=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.CorrectedPublicDetails; v != nil {
+		builder.WriteString("corrected_public_details=")
+		builder.WriteString(*v)
+	}
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

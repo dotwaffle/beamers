@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -458,6 +459,7 @@ func prepareActiveSchedule(t *testing.T, client *http.Client, server *runningSer
 		Sessions: []*rundownv1.SessionDraft{
 			{
 				Ref: "keynote", Title: "Opening Keynote",
+				Speaker:            "Original Speaker",
 				Type:               rundownv1.SessionType_SESSION_TYPE_PRESENTATION,
 				AudienceVisibility: rundownv1.AudienceVisibility_AUDIENCE_VISIBILITY_PUBLIC,
 				PublicDetails:      "Welcome to Revision 2099",
@@ -986,6 +988,304 @@ func TestOperatorStartsPublishedSessionDurably(t *testing.T) {
 		t.Errorf("restarted Live public Session = %d %q", deepLink.StatusCode, deepLinkBody)
 	}
 	restarted.stop(t)
+}
+
+func TestOperatorCorrectsLiveDetailsWithoutRewritingRunSnapshot(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	sessionID := prepareActiveSchedule(t, administrator, server)
+	operator := provisionOperator(t, administrator, server)
+	client := sessionv1connect.NewSessionControlServiceClient(
+		operator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	started, err := client.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "start-before-detail-correction",
+		ExpectedLiveStateRevision: proto.Int64(0),
+	}))
+	if err != nil {
+		t.Fatalf("Start Session before Live Detail Correction: %v", err)
+	}
+	rundownClient := rundownv1connect.NewRundownServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	current, err := rundownClient.GetCrewRundown(t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}))
+	if err != nil {
+		t.Fatalf("Get Rundown before conflicting Draft edit: %v", err)
+	}
+	pending, err := rundownClient.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "draft-title-before-live-correction", ExpectedDraftRevision: current.Msg.GetDraftRevision(),
+		Sessions: []*rundownv1.SessionDraft{{
+			Id: sessionID, Title: "Pending Draft Title",
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"title"}},
+		}},
+	}))
+	if err != nil {
+		t.Fatalf("Edit Draft before Live Detail Correction: %v", err)
+	}
+	request := &sessionv1.CorrectLiveDetailsRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "correct-live-details",
+		ExpectedLiveStateRevision: new(started.Msg.GetState().GetLiveStateRevision()),
+		Confirmed:                 true, Title: "Corrected Keynote", Speaker: "Avery Speaker",
+		PublicDetails: "Corrected public description",
+		UpdateMask:    &fieldmaskpb.FieldMask{Paths: []string{"title", "speaker", "public_details"}},
+	}
+	corrected, err := client.CorrectLiveDetails(t.Context(), connect.NewRequest(request))
+	if err != nil {
+		t.Fatalf("Correct Live Details RPC: %v", err)
+	}
+	if corrected.Msg.GetState().GetLiveStateRevision() != 2 || corrected.Msg.GetAmendmentId() <= 0 {
+		t.Errorf("corrected Live state = %+v, amendment %d", corrected.Msg.GetState(), corrected.Msg.GetAmendmentId())
+	}
+	retried, err := client.CorrectLiveDetails(t.Context(), connect.NewRequest(request))
+	if err != nil || retried.Msg.GetAmendmentId() != corrected.Msg.GetAmendmentId() {
+		t.Fatalf("exact Live Detail Correction retry = %+v, %v", retried, err)
+	}
+	_, unconfirmedErr := client.CorrectLiveDetails(t.Context(), connect.NewRequest(&sessionv1.CorrectLiveDetailsRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "unconfirmed-live-details",
+		ExpectedLiveStateRevision: proto.Int64(2), Title: "Must Not Apply",
+		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"title"}},
+	}))
+	if connect.CodeOf(unconfirmedErr) != connect.CodeFailedPrecondition {
+		t.Errorf("unconfirmed Live Detail Correction error = %v, want FailedPrecondition", unconfirmedErr)
+	}
+	_, broadCorrectionErr := client.CorrectLiveDetails(t.Context(), connect.NewRequest(&sessionv1.CorrectLiveDetailsRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "reject-broad-live-correction",
+		ExpectedLiveStateRevision: proto.Int64(2), Confirmed: true,
+		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"crew_notes"}},
+	}))
+	if connect.CodeOf(broadCorrectionErr) != connect.CodeInvalidArgument {
+		t.Errorf("broad Live Detail Correction error = %v, want InvalidArgument", broadCorrectionErr)
+	}
+
+	public := get(t, authenticatedClient(t), server.address, "/schedule")
+	publicBody, readErr := io.ReadAll(public.Body)
+	closeErr := public.Body.Close()
+	if combinedErr := errors.Join(readErr, closeErr); combinedErr != nil {
+		t.Fatalf("read corrected public Schedule: %v", combinedErr)
+	}
+	for _, expected := range []string{"Corrected Keynote", "Avery Speaker", "Corrected public description"} {
+		if !strings.Contains(string(publicBody), expected) {
+			t.Errorf("corrected public Schedule missing %q: %s", expected, publicBody)
+		}
+	}
+
+	if _, endErr := client.EndSession(t.Context(), connect.NewRequest(&sessionv1.EndSessionRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "end-after-live-detail-correction",
+		ExpectedLiveStateRevision: proto.Int64(2),
+	})); endErr != nil {
+		t.Fatalf("End Session after Live Detail Correction: %v", endErr)
+	}
+	conflictPreview, err := rundownClient.PublishPreview(t.Context(), connect.NewRequest(&rundownv1.PublishPreviewRequest{
+		EventId: 1, ChangeIds: []int64{pending.Msg.GetChanges()[0].GetId()},
+	}))
+	if err != nil {
+		t.Fatalf("Preview Draft conflict after Live Detail Correction: %v", err)
+	}
+	if len(conflictPreview.Msg.GetValidationFailures()) != 1 ||
+		!strings.Contains(conflictPreview.Msg.GetValidationFailures()[0], "live detail correction") {
+		t.Errorf("corrected fact Draft conflict = %v", conflictPreview.Msg.GetValidationFailures())
+	}
+	afterCorrection, err := rundownClient.GetCrewRundown(t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}))
+	if err != nil {
+		t.Fatalf("Get Rundown after Live Detail Correction: %v", err)
+	}
+	reviewed, err := rundownClient.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "review-corrected-title", ExpectedDraftRevision: afterCorrection.Msg.GetDraftRevision(),
+		Sessions: []*rundownv1.SessionDraft{{
+			Id: sessionID, Title: "Reviewed Corrected Keynote",
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"title"}},
+		}},
+	}))
+	if err != nil {
+		t.Fatalf("review corrected Draft fact: %v", err)
+	}
+	reviewedPreview, err := rundownClient.PublishPreview(t.Context(), connect.NewRequest(&rundownv1.PublishPreviewRequest{
+		EventId: 1, ChangeIds: []int64{reviewed.Msg.GetChanges()[0].GetId()},
+	}))
+	if err != nil || len(reviewedPreview.Msg.GetValidationFailures()) != 0 {
+		t.Fatalf("Preview reviewed correction = %+v, %v", reviewedPreview, err)
+	}
+	if _, publishErr := rundownClient.Publish(t.Context(), connect.NewRequest(&rundownv1.PublishRequest{
+		EventId: 1, CommandId: "publish-reviewed-correction",
+		Confirmation: &rundownv1.PublishConfirmation{
+			DraftRevision: reviewedPreview.Msg.GetDraftRevision(), PublishedRevision: reviewedPreview.Msg.GetPublishedRevision(),
+			ChangeIds: reviewedPreview.Msg.GetChangeIds(), Fingerprint: reviewedPreview.Msg.GetFingerprint(),
+		},
+	})); publishErr != nil {
+		t.Fatalf("Publish reviewed correction: %v", publishErr)
+	}
+	deepLink := get(t, authenticatedClient(t), server.address, fmt.Sprintf("/schedule/sessions/%d", sessionID))
+	deepLinkBody, readErr := io.ReadAll(deepLink.Body)
+	closeErr = deepLink.Body.Close()
+	if combinedErr := errors.Join(readErr, closeErr); combinedErr != nil {
+		t.Fatalf("read reviewed corrected Session: %v", combinedErr)
+	}
+	if !strings.Contains(string(deepLinkBody), "Reviewed Corrected Keynote") || strings.Contains(string(deepLinkBody), ">Corrected Keynote<") {
+		t.Errorf("reviewed corrected Session = %s", deepLinkBody)
+	}
+
+	history, err := client.GetSessionHistory(t.Context(), connect.NewRequest(&sessionv1.GetSessionHistoryRequest{
+		EventId: 1, SessionId: sessionID,
+	}))
+	if err != nil {
+		t.Fatalf("Get Session history RPC: %v", err)
+	}
+	if len(history.Msg.GetRuns()) != 1 {
+		t.Fatalf("Session Run history = %+v, want one Run", history.Msg.GetRuns())
+	}
+	run := history.Msg.GetRuns()[0]
+	if run.GetSnapshot().GetTitle() != "Opening Keynote" || run.GetSnapshot().GetSpeaker() != "Original Speaker" ||
+		run.GetSnapshot().GetPublishedRevision() != 1 ||
+		run.GetSnapshot().GetType() != rundownv1.SessionType_SESSION_TYPE_PRESENTATION ||
+		run.GetSnapshot().GetTimingPolicy() != rundownv1.TimingPolicy_TIMING_POLICY_FIXED_END ||
+		run.GetSnapshot().GetStartBoundary() != rundownv1.Boundary_BOUNDARY_HARD ||
+		run.GetSnapshot().GetEndBoundary() != rundownv1.Boundary_BOUNDARY_SOFT ||
+		run.GetSnapshot().GetMinimumDuration().AsDuration() != 30*time.Minute ||
+		len(run.GetSnapshot().GetLaneIds()) != 1 || len(run.GetSnapshot().GetLocationIds()) != 1 ||
+		len(run.GetAmendments()) != 1 || run.GetAmendments()[0].GetId() != corrected.Msg.GetAmendmentId() ||
+		run.GetAmendments()[0].GetDetails().GetTitle() != "Corrected Keynote" {
+		t.Errorf("Session Run immutable history = %+v", run)
+	}
+	audits, _ := readAuditHistory(t, administrator, server.address)
+	correctionAudits := 0
+	for _, entry := range audits {
+		if entry.Action == "CorrectLiveDetails" && entry.TargetType == "Session" &&
+			entry.TargetID == strconv.FormatInt(sessionID, 10) && entry.Outcome == "Succeeded" {
+			correctionAudits++
+		}
+	}
+	if correctionAudits != 1 {
+		t.Errorf("successful Live Detail Correction Audit Entries = %d, want 1", correctionAudits)
+	}
+	server.stop(t)
+}
+
+func TestOrdinaryPublishDoesNotAlterLiveSession(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	sessionID := prepareActiveSchedule(t, administrator, server)
+	operator := provisionOperator(t, administrator, server)
+	sessionClient := sessionv1connect.NewSessionControlServiceClient(
+		operator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	if _, err := sessionClient.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "start-before-blocked-publish",
+		ExpectedLiveStateRevision: proto.Int64(0),
+	})); err != nil {
+		t.Fatalf("Start Session before blocked Publish: %v", err)
+	}
+	rundownClient := rundownv1connect.NewRundownServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	current, err := rundownClient.GetCrewRundown(t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}))
+	if err != nil {
+		t.Fatalf("Get current Rundown before Live edit: %v", err)
+	}
+	edited, err := rundownClient.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "edit-live-session-title", ExpectedDraftRevision: current.Msg.GetDraftRevision(),
+		Sessions: []*rundownv1.SessionDraft{{
+			Id: sessionID, Title: "Draft Must Not Reach Live",
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"title"}},
+		}},
+	}))
+	if err != nil {
+		t.Fatalf("Edit currently Live Session Draft: %v", err)
+	}
+	preview, err := rundownClient.PublishPreview(t.Context(), connect.NewRequest(&rundownv1.PublishPreviewRequest{
+		EventId: 1, ChangeIds: []int64{edited.Msg.GetChanges()[0].GetId()},
+	}))
+	if err != nil {
+		t.Fatalf("Preview currently Live Session Publish: %v", err)
+	}
+	if len(preview.Msg.GetValidationFailures()) != 1 ||
+		!strings.Contains(preview.Msg.GetValidationFailures()[0], "currently Live Session") {
+		t.Errorf("Live Session Publish validation = %v", preview.Msg.GetValidationFailures())
+	}
+	structuralEdit, err := rundownClient.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "rename-live-session-lane", ExpectedDraftRevision: edited.Msg.GetDraftRevision(),
+		Lanes: []*rundownv1.LaneDraft{{
+			Id: current.Msg.GetLanes()[0].GetId(), Name: "Renamed Live Lane",
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"name"}},
+		}},
+	}))
+	if err != nil {
+		t.Fatalf("Edit Live Session Lane Draft: %v", err)
+	}
+	structuralPreview, err := rundownClient.PublishPreview(t.Context(), connect.NewRequest(&rundownv1.PublishPreviewRequest{
+		EventId: 1, ChangeIds: []int64{structuralEdit.Msg.GetChanges()[0].GetId()},
+	}))
+	if err != nil {
+		t.Fatalf("Preview Live Session Lane Publish: %v", err)
+	}
+	if len(structuralPreview.Msg.GetValidationFailures()) != 1 ||
+		!strings.Contains(structuralPreview.Msg.GetValidationFailures()[0], "currently Live Session") {
+		t.Errorf("Live Session Lane Publish validation = %v", structuralPreview.Msg.GetValidationFailures())
+	}
+	public := get(t, authenticatedClient(t), server.address, "/schedule")
+	publicBody, readErr := io.ReadAll(public.Body)
+	closeErr := public.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Schedule after blocked Live Publish: %v", err)
+	}
+	if !strings.Contains(string(publicBody), "Opening Keynote") || strings.Contains(string(publicBody), "Draft Must Not Reach Live") {
+		t.Errorf("public Schedule after blocked Live Publish = %s", publicBody)
+	}
+	server.stop(t)
+}
+
+func TestProducerDeletesOnlyNeverPublishedDraftSession(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	publishedSessionID := prepareActiveSchedule(t, administrator, server)
+	client := rundownv1connect.NewRundownServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	current, err := client.GetCrewRundown(t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}))
+	if err != nil || len(current.Msg.GetLanes()) == 0 || len(current.Msg.GetLocations()) == 0 {
+		t.Fatalf("Get Rundown for Draft Session deletion = %+v, %v", current, err)
+	}
+	created, err := client.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "create-disposable-draft-session", ExpectedDraftRevision: current.Msg.GetDraftRevision(),
+		Sessions: []*rundownv1.SessionDraft{{
+			Ref: "disposable", Title: "Disposable Draft Session",
+			Type:               rundownv1.SessionType_SESSION_TYPE_PRESENTATION,
+			AudienceVisibility: rundownv1.AudienceVisibility_AUDIENCE_VISIBILITY_PUBLIC,
+			PlannedStart:       timestamppb.New(time.Date(2099, 8, 21, 11, 0, 0, 0, time.UTC)),
+			PlannedEnd:         timestamppb.New(time.Date(2099, 8, 21, 12, 0, 0, 0, time.UTC)),
+			TimingPolicy:       rundownv1.TimingPolicy_TIMING_POLICY_FIXED_END,
+			MinimumDuration:    durationpb.New(30 * time.Minute),
+			StartBoundary:      rundownv1.Boundary_BOUNDARY_SOFT, EndBoundary: rundownv1.Boundary_BOUNDARY_SOFT,
+			Lanes:     []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Id{Id: current.Msg.GetLanes()[0].GetId()}}},
+			Locations: []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Id{Id: current.Msg.GetLocations()[0].GetId()}}},
+		}},
+	}))
+	if err != nil {
+		t.Fatalf("Create disposable Draft Session: %v", err)
+	}
+	var draftSessionID int64
+	for _, change := range created.Msg.GetChanges() {
+		if change.GetKind() == "CreateSession" {
+			draftSessionID = change.GetTargetId()
+		}
+	}
+	request := &rundownv1.DeleteDraftSessionRequest{
+		EventId: 1, SessionId: draftSessionID, CommandId: "delete-disposable-draft-session",
+		ExpectedDraftRevision: created.Msg.GetDraftRevision(),
+	}
+	deleted, err := client.DeleteDraftSession(t.Context(), connect.NewRequest(request))
+	if err != nil || deleted.Msg.GetSessionId() != draftSessionID ||
+		deleted.Msg.GetDraftRevision() != created.Msg.GetDraftRevision()+1 {
+		t.Fatalf("Delete Draft Session = %+v, %v", deleted, err)
+	}
+	retried, err := client.DeleteDraftSession(t.Context(), connect.NewRequest(request))
+	if err != nil || retried.Msg.GetDraftRevision() != deleted.Msg.GetDraftRevision() {
+		t.Fatalf("exact Delete Draft Session retry = %+v, %v", retried, err)
+	}
+	_, publishedErr := client.DeleteDraftSession(t.Context(), connect.NewRequest(&rundownv1.DeleteDraftSessionRequest{
+		EventId: 1, SessionId: publishedSessionID, CommandId: "reject-published-session-deletion",
+		ExpectedDraftRevision: deleted.Msg.GetDraftRevision(),
+	}))
+	if connect.CodeOf(publishedErr) != connect.CodeFailedPrecondition {
+		t.Errorf("Published Session deletion error = %v, want FailedPrecondition", publishedErr)
+	}
+	server.stop(t)
 }
 
 func TestOperatorEndsLiveSessionWithoutMovingLaterSessions(t *testing.T) {

@@ -122,7 +122,7 @@ var (
 		{Name: "target_id", Type: field.TypeInt},
 		{Name: "fact_key", Type: field.TypeString, Size: 200},
 		{Name: "payload_json", Type: field.TypeString},
-		{Name: "status", Type: field.TypeEnum, Enums: []string{"Effective", "Published", "Superseded", "Discarded", "Reverted"}, Default: "Effective"},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"Effective", "Published", "Superseded", "Discarded", "Reverted", "Conflicted"}, Default: "Effective"},
 		{Name: "published_revision", Type: field.TypeInt, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "draft_edit_id", Type: field.TypeInt},
@@ -534,6 +534,9 @@ var (
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "lifecycle", Type: field.TypeEnum, Enums: []string{"Scheduled", "Live", "Ended", "Canceled"}, Default: "Scheduled"},
 		{Name: "live_state_revision", Type: field.TypeInt, Default: 0},
+		{Name: "corrected_title", Type: field.TypeString, Nullable: true, Size: 200},
+		{Name: "corrected_speaker", Type: field.TypeString, Nullable: true, Size: 200},
+		{Name: "corrected_public_details", Type: field.TypeString, Nullable: true, Size: 10000},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "event_id", Type: field.TypeInt},
 	}
@@ -545,7 +548,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "sessions_events_sessions",
-				Columns:    []*schema.Column{SessionsColumns[4]},
+				Columns:    []*schema.Column{SessionsColumns[7]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -555,6 +558,7 @@ var (
 	SessionDraftsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "title", Type: field.TypeString, Size: 200},
+		{Name: "speaker", Type: field.TypeString, Nullable: true, Size: 200},
 		{Name: "type", Type: field.TypeEnum, Enums: []string{"Presentation", "Competition", "Break", "Activity", "Ceremony", "Performance", "Hold"}},
 		{Name: "audience_visibility", Type: field.TypeEnum, Enums: []string{"Public", "CrewOnly"}},
 		{Name: "public_details", Type: field.TypeString, Nullable: true, Size: 10000},
@@ -575,7 +579,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "session_drafts_sessions_draft",
-				Columns:    []*schema.Column{SessionDraftsColumns[12]},
+				Columns:    []*schema.Column{SessionDraftsColumns[13]},
 				RefColumns: []*schema.Column{SessionsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -586,6 +590,7 @@ var (
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "published_revision", Type: field.TypeInt},
 		{Name: "title", Type: field.TypeString, Size: 200},
+		{Name: "speaker", Type: field.TypeString, Nullable: true, Size: 200},
 		{Name: "type", Type: field.TypeEnum, Enums: []string{"Presentation", "Competition", "Break", "Activity", "Ceremony", "Performance", "Hold"}},
 		{Name: "audience_visibility", Type: field.TypeEnum, Enums: []string{"Public", "CrewOnly"}},
 		{Name: "public_details", Type: field.TypeString, Nullable: true, Size: 10000},
@@ -607,7 +612,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "session_published_versions_sessions_published_versions",
-				Columns:    []*schema.Column{SessionPublishedVersionsColumns[14]},
+				Columns:    []*schema.Column{SessionPublishedVersionsColumns[15]},
 				RefColumns: []*schema.Column{SessionsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -616,7 +621,7 @@ var (
 			{
 				Name:    "sessionpublishedversion_session_id_published_revision",
 				Unique:  true,
-				Columns: []*schema.Column{SessionPublishedVersionsColumns[14], SessionPublishedVersionsColumns[1]},
+				Columns: []*schema.Column{SessionPublishedVersionsColumns[15], SessionPublishedVersionsColumns[1]},
 			},
 		},
 	}
@@ -647,6 +652,35 @@ var (
 				Name:    "sessionrun_session_id_actual_end",
 				Unique:  false,
 				Columns: []*schema.Column{SessionRunsColumns[5], SessionRunsColumns[2]},
+			},
+		},
+	}
+	// SessionRunAmendmentsColumns holds the columns for the "session_run_amendments" table.
+	SessionRunAmendmentsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "actor_account_id", Type: field.TypeInt},
+		{Name: "details_json", Type: field.TypeString, Size: 2147483647},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "session_run_id", Type: field.TypeInt},
+	}
+	// SessionRunAmendmentsTable holds the schema information for the "session_run_amendments" table.
+	SessionRunAmendmentsTable = &schema.Table{
+		Name:       "session_run_amendments",
+		Columns:    SessionRunAmendmentsColumns,
+		PrimaryKey: []*schema.Column{SessionRunAmendmentsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "session_run_amendments_session_runs_amendments",
+				Columns:    []*schema.Column{SessionRunAmendmentsColumns[4]},
+				RefColumns: []*schema.Column{SessionRunsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "sessionrunamendment_session_run_id",
+				Unique:  false,
+				Columns: []*schema.Column{SessionRunAmendmentsColumns[4]},
 			},
 		},
 	}
@@ -897,6 +931,7 @@ var (
 		SessionDraftsTable,
 		SessionPublishedVersionsTable,
 		SessionRunsTable,
+		SessionRunAmendmentsTable,
 		TracksTable,
 		TrackDraftsTable,
 		TrackPublishedVersionsTable,
@@ -942,6 +977,7 @@ func init() {
 	SessionDraftsTable.ForeignKeys[0].RefTable = SessionsTable
 	SessionPublishedVersionsTable.ForeignKeys[0].RefTable = SessionsTable
 	SessionRunsTable.ForeignKeys[0].RefTable = SessionsTable
+	SessionRunAmendmentsTable.ForeignKeys[0].RefTable = SessionRunsTable
 	TracksTable.ForeignKeys[0].RefTable = EventsTable
 	TrackDraftsTable.ForeignKeys[0].RefTable = TracksTable
 	TrackPublishedVersionsTable.ForeignKeys[0].RefTable = TracksTable

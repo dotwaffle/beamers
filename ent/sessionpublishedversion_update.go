@@ -190,6 +190,9 @@ func (_u *SessionPublishedVersionUpdate) sqlSave(ctx context.Context) (_node int
 			}
 		}
 	}
+	if _u.mutation.SpeakerCleared() {
+		_spec.ClearField(sessionpublishedversion.FieldSpeaker, field.TypeString)
+	}
 	if _u.mutation.PublicDetailsCleared() {
 		_spec.ClearField(sessionpublishedversion.FieldPublicDetails, field.TypeString)
 	}
@@ -540,6 +543,9 @@ func (_u *SessionPublishedVersionUpdateOne) sqlSave(ctx context.Context) (_node 
 				ps[i](selector)
 			}
 		}
+	}
+	if _u.mutation.SpeakerCleared() {
+		_spec.ClearField(sessionpublishedversion.FieldSpeaker, field.TypeString)
 	}
 	if _u.mutation.PublicDetailsCleared() {
 		_spec.ClearField(sessionpublishedversion.FieldPublicDetails, field.TypeString)

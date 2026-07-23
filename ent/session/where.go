@@ -65,6 +65,21 @@ func LiveStateRevision(v int) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldLiveStateRevision, v))
 }
 
+// CorrectedTitle applies equality check predicate on the "corrected_title" field. It's identical to CorrectedTitleEQ.
+func CorrectedTitle(v string) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldCorrectedTitle, v))
+}
+
+// CorrectedSpeaker applies equality check predicate on the "corrected_speaker" field. It's identical to CorrectedSpeakerEQ.
+func CorrectedSpeaker(v string) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldCorrectedSpeaker, v))
+}
+
+// CorrectedPublicDetails applies equality check predicate on the "corrected_public_details" field. It's identical to CorrectedPublicDetailsEQ.
+func CorrectedPublicDetails(v string) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldCorrectedPublicDetails, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldCreatedAt, v))
@@ -148,6 +163,231 @@ func LiveStateRevisionLT(v int) predicate.Session {
 // LiveStateRevisionLTE applies the LTE predicate on the "live_state_revision" field.
 func LiveStateRevisionLTE(v int) predicate.Session {
 	return predicate.Session(sql.FieldLTE(FieldLiveStateRevision, v))
+}
+
+// CorrectedTitleEQ applies the EQ predicate on the "corrected_title" field.
+func CorrectedTitleEQ(v string) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldCorrectedTitle, v))
+}
+
+// CorrectedTitleNEQ applies the NEQ predicate on the "corrected_title" field.
+func CorrectedTitleNEQ(v string) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldCorrectedTitle, v))
+}
+
+// CorrectedTitleIn applies the In predicate on the "corrected_title" field.
+func CorrectedTitleIn(vs ...string) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldCorrectedTitle, vs...))
+}
+
+// CorrectedTitleNotIn applies the NotIn predicate on the "corrected_title" field.
+func CorrectedTitleNotIn(vs ...string) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldCorrectedTitle, vs...))
+}
+
+// CorrectedTitleGT applies the GT predicate on the "corrected_title" field.
+func CorrectedTitleGT(v string) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldCorrectedTitle, v))
+}
+
+// CorrectedTitleGTE applies the GTE predicate on the "corrected_title" field.
+func CorrectedTitleGTE(v string) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldCorrectedTitle, v))
+}
+
+// CorrectedTitleLT applies the LT predicate on the "corrected_title" field.
+func CorrectedTitleLT(v string) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldCorrectedTitle, v))
+}
+
+// CorrectedTitleLTE applies the LTE predicate on the "corrected_title" field.
+func CorrectedTitleLTE(v string) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldCorrectedTitle, v))
+}
+
+// CorrectedTitleContains applies the Contains predicate on the "corrected_title" field.
+func CorrectedTitleContains(v string) predicate.Session {
+	return predicate.Session(sql.FieldContains(FieldCorrectedTitle, v))
+}
+
+// CorrectedTitleHasPrefix applies the HasPrefix predicate on the "corrected_title" field.
+func CorrectedTitleHasPrefix(v string) predicate.Session {
+	return predicate.Session(sql.FieldHasPrefix(FieldCorrectedTitle, v))
+}
+
+// CorrectedTitleHasSuffix applies the HasSuffix predicate on the "corrected_title" field.
+func CorrectedTitleHasSuffix(v string) predicate.Session {
+	return predicate.Session(sql.FieldHasSuffix(FieldCorrectedTitle, v))
+}
+
+// CorrectedTitleIsNil applies the IsNil predicate on the "corrected_title" field.
+func CorrectedTitleIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldCorrectedTitle))
+}
+
+// CorrectedTitleNotNil applies the NotNil predicate on the "corrected_title" field.
+func CorrectedTitleNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldCorrectedTitle))
+}
+
+// CorrectedTitleEqualFold applies the EqualFold predicate on the "corrected_title" field.
+func CorrectedTitleEqualFold(v string) predicate.Session {
+	return predicate.Session(sql.FieldEqualFold(FieldCorrectedTitle, v))
+}
+
+// CorrectedTitleContainsFold applies the ContainsFold predicate on the "corrected_title" field.
+func CorrectedTitleContainsFold(v string) predicate.Session {
+	return predicate.Session(sql.FieldContainsFold(FieldCorrectedTitle, v))
+}
+
+// CorrectedSpeakerEQ applies the EQ predicate on the "corrected_speaker" field.
+func CorrectedSpeakerEQ(v string) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldCorrectedSpeaker, v))
+}
+
+// CorrectedSpeakerNEQ applies the NEQ predicate on the "corrected_speaker" field.
+func CorrectedSpeakerNEQ(v string) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldCorrectedSpeaker, v))
+}
+
+// CorrectedSpeakerIn applies the In predicate on the "corrected_speaker" field.
+func CorrectedSpeakerIn(vs ...string) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldCorrectedSpeaker, vs...))
+}
+
+// CorrectedSpeakerNotIn applies the NotIn predicate on the "corrected_speaker" field.
+func CorrectedSpeakerNotIn(vs ...string) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldCorrectedSpeaker, vs...))
+}
+
+// CorrectedSpeakerGT applies the GT predicate on the "corrected_speaker" field.
+func CorrectedSpeakerGT(v string) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldCorrectedSpeaker, v))
+}
+
+// CorrectedSpeakerGTE applies the GTE predicate on the "corrected_speaker" field.
+func CorrectedSpeakerGTE(v string) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldCorrectedSpeaker, v))
+}
+
+// CorrectedSpeakerLT applies the LT predicate on the "corrected_speaker" field.
+func CorrectedSpeakerLT(v string) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldCorrectedSpeaker, v))
+}
+
+// CorrectedSpeakerLTE applies the LTE predicate on the "corrected_speaker" field.
+func CorrectedSpeakerLTE(v string) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldCorrectedSpeaker, v))
+}
+
+// CorrectedSpeakerContains applies the Contains predicate on the "corrected_speaker" field.
+func CorrectedSpeakerContains(v string) predicate.Session {
+	return predicate.Session(sql.FieldContains(FieldCorrectedSpeaker, v))
+}
+
+// CorrectedSpeakerHasPrefix applies the HasPrefix predicate on the "corrected_speaker" field.
+func CorrectedSpeakerHasPrefix(v string) predicate.Session {
+	return predicate.Session(sql.FieldHasPrefix(FieldCorrectedSpeaker, v))
+}
+
+// CorrectedSpeakerHasSuffix applies the HasSuffix predicate on the "corrected_speaker" field.
+func CorrectedSpeakerHasSuffix(v string) predicate.Session {
+	return predicate.Session(sql.FieldHasSuffix(FieldCorrectedSpeaker, v))
+}
+
+// CorrectedSpeakerIsNil applies the IsNil predicate on the "corrected_speaker" field.
+func CorrectedSpeakerIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldCorrectedSpeaker))
+}
+
+// CorrectedSpeakerNotNil applies the NotNil predicate on the "corrected_speaker" field.
+func CorrectedSpeakerNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldCorrectedSpeaker))
+}
+
+// CorrectedSpeakerEqualFold applies the EqualFold predicate on the "corrected_speaker" field.
+func CorrectedSpeakerEqualFold(v string) predicate.Session {
+	return predicate.Session(sql.FieldEqualFold(FieldCorrectedSpeaker, v))
+}
+
+// CorrectedSpeakerContainsFold applies the ContainsFold predicate on the "corrected_speaker" field.
+func CorrectedSpeakerContainsFold(v string) predicate.Session {
+	return predicate.Session(sql.FieldContainsFold(FieldCorrectedSpeaker, v))
+}
+
+// CorrectedPublicDetailsEQ applies the EQ predicate on the "corrected_public_details" field.
+func CorrectedPublicDetailsEQ(v string) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldCorrectedPublicDetails, v))
+}
+
+// CorrectedPublicDetailsNEQ applies the NEQ predicate on the "corrected_public_details" field.
+func CorrectedPublicDetailsNEQ(v string) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldCorrectedPublicDetails, v))
+}
+
+// CorrectedPublicDetailsIn applies the In predicate on the "corrected_public_details" field.
+func CorrectedPublicDetailsIn(vs ...string) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldCorrectedPublicDetails, vs...))
+}
+
+// CorrectedPublicDetailsNotIn applies the NotIn predicate on the "corrected_public_details" field.
+func CorrectedPublicDetailsNotIn(vs ...string) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldCorrectedPublicDetails, vs...))
+}
+
+// CorrectedPublicDetailsGT applies the GT predicate on the "corrected_public_details" field.
+func CorrectedPublicDetailsGT(v string) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldCorrectedPublicDetails, v))
+}
+
+// CorrectedPublicDetailsGTE applies the GTE predicate on the "corrected_public_details" field.
+func CorrectedPublicDetailsGTE(v string) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldCorrectedPublicDetails, v))
+}
+
+// CorrectedPublicDetailsLT applies the LT predicate on the "corrected_public_details" field.
+func CorrectedPublicDetailsLT(v string) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldCorrectedPublicDetails, v))
+}
+
+// CorrectedPublicDetailsLTE applies the LTE predicate on the "corrected_public_details" field.
+func CorrectedPublicDetailsLTE(v string) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldCorrectedPublicDetails, v))
+}
+
+// CorrectedPublicDetailsContains applies the Contains predicate on the "corrected_public_details" field.
+func CorrectedPublicDetailsContains(v string) predicate.Session {
+	return predicate.Session(sql.FieldContains(FieldCorrectedPublicDetails, v))
+}
+
+// CorrectedPublicDetailsHasPrefix applies the HasPrefix predicate on the "corrected_public_details" field.
+func CorrectedPublicDetailsHasPrefix(v string) predicate.Session {
+	return predicate.Session(sql.FieldHasPrefix(FieldCorrectedPublicDetails, v))
+}
+
+// CorrectedPublicDetailsHasSuffix applies the HasSuffix predicate on the "corrected_public_details" field.
+func CorrectedPublicDetailsHasSuffix(v string) predicate.Session {
+	return predicate.Session(sql.FieldHasSuffix(FieldCorrectedPublicDetails, v))
+}
+
+// CorrectedPublicDetailsIsNil applies the IsNil predicate on the "corrected_public_details" field.
+func CorrectedPublicDetailsIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldCorrectedPublicDetails))
+}
+
+// CorrectedPublicDetailsNotNil applies the NotNil predicate on the "corrected_public_details" field.
+func CorrectedPublicDetailsNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldCorrectedPublicDetails))
+}
+
+// CorrectedPublicDetailsEqualFold applies the EqualFold predicate on the "corrected_public_details" field.
+func CorrectedPublicDetailsEqualFold(v string) predicate.Session {
+	return predicate.Session(sql.FieldEqualFold(FieldCorrectedPublicDetails, v))
+}
+
+// CorrectedPublicDetailsContainsFold applies the ContainsFold predicate on the "corrected_public_details" field.
+func CorrectedPublicDetailsContainsFold(v string) predicate.Session {
+	return predicate.Session(sql.FieldContainsFold(FieldCorrectedPublicDetails, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

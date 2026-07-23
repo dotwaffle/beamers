@@ -38,6 +38,7 @@ func (SessionPublishedVersion) Fields() []ent.Field {
 		field.Int("session_id").Immutable(),
 		field.Int("published_revision").NonNegative().Immutable(),
 		field.String("title").NotEmpty().MaxLen(200).Immutable(),
+		field.String("speaker").Optional().MaxLen(200).Immutable(),
 		field.Enum("type").Values(
 			"Presentation", "Competition", "Break", "Activity", "Ceremony", "Performance", "Hold",
 		).Immutable(),

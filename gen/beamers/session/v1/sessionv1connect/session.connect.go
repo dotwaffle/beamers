@@ -39,12 +39,20 @@ const (
 	// SessionControlServiceEndSessionProcedure is the fully-qualified name of the
 	// SessionControlService's EndSession RPC.
 	SessionControlServiceEndSessionProcedure = "/beamers.session.v1.SessionControlService/EndSession"
+	// SessionControlServiceCorrectLiveDetailsProcedure is the fully-qualified name of the
+	// SessionControlService's CorrectLiveDetails RPC.
+	SessionControlServiceCorrectLiveDetailsProcedure = "/beamers.session.v1.SessionControlService/CorrectLiveDetails"
+	// SessionControlServiceGetSessionHistoryProcedure is the fully-qualified name of the
+	// SessionControlService's GetSessionHistory RPC.
+	SessionControlServiceGetSessionHistoryProcedure = "/beamers.session.v1.SessionControlService/GetSessionHistory"
 )
 
 // SessionControlServiceClient is a client for the beamers.session.v1.SessionControlService service.
 type SessionControlServiceClient interface {
 	StartSession(context.Context, *connect.Request[v1.StartSessionRequest]) (*connect.Response[v1.StartSessionResponse], error)
 	EndSession(context.Context, *connect.Request[v1.EndSessionRequest]) (*connect.Response[v1.EndSessionResponse], error)
+	CorrectLiveDetails(context.Context, *connect.Request[v1.CorrectLiveDetailsRequest]) (*connect.Response[v1.CorrectLiveDetailsResponse], error)
+	GetSessionHistory(context.Context, *connect.Request[v1.GetSessionHistoryRequest]) (*connect.Response[v1.GetSessionHistoryResponse], error)
 }
 
 // NewSessionControlServiceClient constructs a client for the
@@ -70,13 +78,27 @@ func NewSessionControlServiceClient(httpClient connect.HTTPClient, baseURL strin
 			connect.WithSchema(sessionControlServiceMethods.ByName("EndSession")),
 			connect.WithClientOptions(opts...),
 		),
+		correctLiveDetails: connect.NewClient[v1.CorrectLiveDetailsRequest, v1.CorrectLiveDetailsResponse](
+			httpClient,
+			baseURL+SessionControlServiceCorrectLiveDetailsProcedure,
+			connect.WithSchema(sessionControlServiceMethods.ByName("CorrectLiveDetails")),
+			connect.WithClientOptions(opts...),
+		),
+		getSessionHistory: connect.NewClient[v1.GetSessionHistoryRequest, v1.GetSessionHistoryResponse](
+			httpClient,
+			baseURL+SessionControlServiceGetSessionHistoryProcedure,
+			connect.WithSchema(sessionControlServiceMethods.ByName("GetSessionHistory")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // sessionControlServiceClient implements SessionControlServiceClient.
 type sessionControlServiceClient struct {
-	startSession *connect.Client[v1.StartSessionRequest, v1.StartSessionResponse]
-	endSession   *connect.Client[v1.EndSessionRequest, v1.EndSessionResponse]
+	startSession       *connect.Client[v1.StartSessionRequest, v1.StartSessionResponse]
+	endSession         *connect.Client[v1.EndSessionRequest, v1.EndSessionResponse]
+	correctLiveDetails *connect.Client[v1.CorrectLiveDetailsRequest, v1.CorrectLiveDetailsResponse]
+	getSessionHistory  *connect.Client[v1.GetSessionHistoryRequest, v1.GetSessionHistoryResponse]
 }
 
 // StartSession calls beamers.session.v1.SessionControlService.StartSession.
@@ -89,11 +111,23 @@ func (c *sessionControlServiceClient) EndSession(ctx context.Context, req *conne
 	return c.endSession.CallUnary(ctx, req)
 }
 
+// CorrectLiveDetails calls beamers.session.v1.SessionControlService.CorrectLiveDetails.
+func (c *sessionControlServiceClient) CorrectLiveDetails(ctx context.Context, req *connect.Request[v1.CorrectLiveDetailsRequest]) (*connect.Response[v1.CorrectLiveDetailsResponse], error) {
+	return c.correctLiveDetails.CallUnary(ctx, req)
+}
+
+// GetSessionHistory calls beamers.session.v1.SessionControlService.GetSessionHistory.
+func (c *sessionControlServiceClient) GetSessionHistory(ctx context.Context, req *connect.Request[v1.GetSessionHistoryRequest]) (*connect.Response[v1.GetSessionHistoryResponse], error) {
+	return c.getSessionHistory.CallUnary(ctx, req)
+}
+
 // SessionControlServiceHandler is an implementation of the beamers.session.v1.SessionControlService
 // service.
 type SessionControlServiceHandler interface {
 	StartSession(context.Context, *connect.Request[v1.StartSessionRequest]) (*connect.Response[v1.StartSessionResponse], error)
 	EndSession(context.Context, *connect.Request[v1.EndSessionRequest]) (*connect.Response[v1.EndSessionResponse], error)
+	CorrectLiveDetails(context.Context, *connect.Request[v1.CorrectLiveDetailsRequest]) (*connect.Response[v1.CorrectLiveDetailsResponse], error)
+	GetSessionHistory(context.Context, *connect.Request[v1.GetSessionHistoryRequest]) (*connect.Response[v1.GetSessionHistoryResponse], error)
 }
 
 // NewSessionControlServiceHandler builds an HTTP handler from the service implementation. It
@@ -115,12 +149,28 @@ func NewSessionControlServiceHandler(svc SessionControlServiceHandler, opts ...c
 		connect.WithSchema(sessionControlServiceMethods.ByName("EndSession")),
 		connect.WithHandlerOptions(opts...),
 	)
+	sessionControlServiceCorrectLiveDetailsHandler := connect.NewUnaryHandler(
+		SessionControlServiceCorrectLiveDetailsProcedure,
+		svc.CorrectLiveDetails,
+		connect.WithSchema(sessionControlServiceMethods.ByName("CorrectLiveDetails")),
+		connect.WithHandlerOptions(opts...),
+	)
+	sessionControlServiceGetSessionHistoryHandler := connect.NewUnaryHandler(
+		SessionControlServiceGetSessionHistoryProcedure,
+		svc.GetSessionHistory,
+		connect.WithSchema(sessionControlServiceMethods.ByName("GetSessionHistory")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/beamers.session.v1.SessionControlService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SessionControlServiceStartSessionProcedure:
 			sessionControlServiceStartSessionHandler.ServeHTTP(w, r)
 		case SessionControlServiceEndSessionProcedure:
 			sessionControlServiceEndSessionHandler.ServeHTTP(w, r)
+		case SessionControlServiceCorrectLiveDetailsProcedure:
+			sessionControlServiceCorrectLiveDetailsHandler.ServeHTTP(w, r)
+		case SessionControlServiceGetSessionHistoryProcedure:
+			sessionControlServiceGetSessionHistoryHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -136,4 +186,12 @@ func (UnimplementedSessionControlServiceHandler) StartSession(context.Context, *
 
 func (UnimplementedSessionControlServiceHandler) EndSession(context.Context, *connect.Request[v1.EndSessionRequest]) (*connect.Response[v1.EndSessionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.session.v1.SessionControlService.EndSession is not implemented"))
+}
+
+func (UnimplementedSessionControlServiceHandler) CorrectLiveDetails(context.Context, *connect.Request[v1.CorrectLiveDetailsRequest]) (*connect.Response[v1.CorrectLiveDetailsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.session.v1.SessionControlService.CorrectLiveDetails is not implemented"))
+}
+
+func (UnimplementedSessionControlServiceHandler) GetSessionHistory(context.Context, *connect.Request[v1.GetSessionHistoryRequest]) (*connect.Response[v1.GetSessionHistoryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.session.v1.SessionControlService.GetSessionHistory is not implemented"))
 }

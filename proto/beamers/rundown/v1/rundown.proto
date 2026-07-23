@@ -10,11 +10,24 @@ option go_package = "github.com/dotwaffle/beamers/gen/beamers/rundown/v1;rundown
 
 service RundownService {
   rpc EditDraft(EditDraftRequest) returns (EditDraftResponse);
+  rpc DeleteDraftSession(DeleteDraftSessionRequest) returns (DeleteDraftSessionResponse);
   rpc DiscardDraftChanges(DiscardDraftChangesRequest) returns (DiscardDraftChangesResponse);
   rpc RevertDraftChange(RevertDraftChangeRequest) returns (RevertDraftChangeResponse);
   rpc PublishPreview(PublishPreviewRequest) returns (PublishPreviewResponse);
   rpc Publish(PublishRequest) returns (PublishResponse);
   rpc GetCrewRundown(GetCrewRundownRequest) returns (GetCrewRundownResponse);
+}
+
+message DeleteDraftSessionRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  string command_id = 3;
+  int64 expected_draft_revision = 4;
+}
+
+message DeleteDraftSessionResponse {
+  int64 draft_revision = 1;
+  int64 session_id = 2;
 }
 
 message TargetRef {
@@ -100,6 +113,7 @@ message SessionDraft {
   repeated TargetRef remove_locations = 21;
   repeated TargetRef add_tracks = 22;
   repeated TargetRef remove_tracks = 23;
+  string speaker = 24;
 }
 
 message EditDraftRequest {
@@ -228,6 +242,7 @@ message CrewSession {
   repeated int64 lane_ids = 13;
   repeated int64 location_ids = 14;
   repeated int64 track_ids = 15;
+  string speaker = 16;
 }
 
 message GetCrewRundownResponse {

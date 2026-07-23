@@ -5,8 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strconv"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/command"
@@ -28,6 +31,10 @@ var (
 	ErrSessionScopeRequired = store.ErrSessionScopeRequired
 	// ErrCommandConflict means a Command ID was reused for different work.
 	ErrCommandConflict = store.ErrCommandConflict
+	// ErrLiveDetailConfirmation means a correction was not explicitly confirmed.
+	ErrLiveDetailConfirmation = errors.New("live detail correction requires confirmation")
+	// ErrLiveDetailFields means a correction selected unsupported or invalid detail fields.
+	ErrLiveDetailFields = errors.New("invalid Live Detail Correction fields")
 )
 
 // StartInput is one exact Start Session command.
@@ -44,6 +51,68 @@ type EndInput struct {
 	SessionID                 int    `json:"session_id"`
 	CommandID                 string `json:"command_id"`
 	ExpectedLiveStateRevision int    `json:"expected_live_state_revision"`
+}
+
+// CorrectLiveDetailsInput is one confirmed descriptive correction.
+type CorrectLiveDetailsInput struct {
+	EventID                   int      `json:"event_id"`
+	SessionID                 int      `json:"session_id"`
+	CommandID                 string   `json:"command_id"`
+	ExpectedLiveStateRevision int      `json:"expected_live_state_revision"`
+	Confirmed                 bool     `json:"confirmed"`
+	Title                     string   `json:"title,omitempty"`
+	Speaker                   string   `json:"speaker,omitempty"`
+	PublicDetails             string   `json:"public_details,omitempty"`
+	UpdateFields              []string `json:"update_fields"`
+}
+
+// Details are the correctable public facts for one Session.
+type Details struct {
+	Title         string
+	Speaker       string
+	PublicDetails string
+}
+
+// Correction is one committed Live Detail Correction.
+type Correction struct {
+	State       State
+	AmendmentID int
+	Details     Details
+}
+
+// Amendment is immutable correction evidence for one Run.
+type Amendment struct {
+	ID            int
+	Details       Details
+	ChangedFields []string
+	CreatedAt     time.Time
+}
+
+// RunSnapshot is the immutable Published execution context captured at Start.
+type RunSnapshot struct {
+	PublishedRevision      int
+	Title                  string
+	Speaker                string
+	Type                   string
+	PublicDetails          string
+	PlannedStart           time.Time
+	PlannedEnd             time.Time
+	TimingPolicy           string
+	MinimumDurationSeconds int
+	StartBoundary          string
+	EndBoundary            string
+	LaneIDs                []int
+	LocationIDs            []int
+	TrackIDs               []int
+}
+
+// RunHistory exposes one immutable Run Snapshot with later amendments.
+type RunHistory struct {
+	ID          int
+	ActualStart time.Time
+	ActualEnd   *time.Time
+	Snapshot    RunSnapshot
+	Amendments  []Amendment
 }
 
 // State is one committed Session lifecycle state.
@@ -136,6 +205,163 @@ func (service *Service) End(
 			)
 		},
 	)
+}
+
+// CorrectLiveDetails applies confirmed descriptive facts without rewriting the Run Snapshot.
+func (service *Service) CorrectLiveDetails(
+	ctx context.Context,
+	actor auth.Account,
+	input CorrectLiveDetailsInput,
+) (Correction, error) {
+	if err := command.ValidateID(input.CommandID); err != nil {
+		return Correction{}, err
+	}
+	if !input.Confirmed {
+		return Correction{}, ErrLiveDetailConfirmation
+	}
+	input.Title = strings.TrimSpace(input.Title)
+	input.Speaker = strings.TrimSpace(input.Speaker)
+	if err := validateLiveDetailFields(input); err != nil {
+		return Correction{}, err
+	}
+	payload, err := json.Marshal(input)
+	if err != nil {
+		return Correction{}, errors.New("encode Live Detail Correction command")
+	}
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID, CommandID: input.CommandID,
+		PayloadHash: command.PayloadHash(string(payload)), Action: "CorrectLiveDetails",
+		TargetType: "Session", TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
+	}
+	return command.Execute(actor.Context(ctx), command.Plan[Correction]{
+		Storage: service.storage, Identity: identity,
+		Replay: func(outcome string) (Correction, error) {
+			var stored store.LiveDetailCorrection
+			if decodeErr := store.DecodeCommandReceipt(outcome, &stored); decodeErr != nil {
+				return Correction{}, restoreCorrectionRejection(decodeErr)
+			}
+			return correction(stored), nil
+		},
+		Apply: func(transaction *store.CommandTx) (command.Execution[Correction], error) {
+			if !actor.CanOperateEvent(input.EventID) {
+				return correctionRejection(Correction{}, store.LiveDetailCorrection{}, "operator_required", ErrOperatorRequired)
+			}
+			stored, correctionErr := transaction.CorrectLiveDetails(actor.Context(ctx), store.LiveDetailCorrectionParams{
+				EventID: input.EventID, SessionID: input.SessionID, ActorAccountID: actor.ID,
+				ExpectedRevision: input.ExpectedLiveStateRevision, Fields: input.UpdateFields,
+				Details: store.SessionDetails{Title: input.Title, Speaker: input.Speaker, PublicDetails: input.PublicDetails},
+				Now:     identity.Now,
+			})
+			if correctionErr != nil {
+				code, rejected := rejectionCode(correctionErr)
+				if !rejected {
+					return command.Execution[Correction]{}, correctionErr
+				}
+				return correctionRejection(correction(stored), stored, code, correctionErr)
+			}
+			encoded, encodeErr := json.Marshal(stored)
+			if encodeErr != nil {
+				return command.Execution[Correction]{}, errors.New("encode Live Detail Correction outcome")
+			}
+			return command.Success(correction(stored), string(encoded)), nil
+		},
+	})
+}
+
+// History returns immutable Run history to authorized Event crew.
+func (service *Service) History(
+	ctx context.Context,
+	actor auth.Account,
+	eventID int,
+	sessionID int,
+) ([]RunHistory, error) {
+	if _, allowed := actor.EventRoles[eventID]; !allowed {
+		return nil, ErrSessionNotFound
+	}
+	stored, err := service.storage.LoadSessionHistory(actor.Context(ctx), eventID, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]RunHistory, 0, len(stored))
+	for _, run := range stored {
+		found := RunHistory{
+			ID: run.ID, ActualStart: run.ActualStart, ActualEnd: run.ActualEnd,
+			Snapshot: RunSnapshot{
+				PublishedRevision: run.Snapshot.PublishedRevision,
+				Title:             run.Snapshot.Title, Speaker: run.Snapshot.Speaker, Type: run.Snapshot.Type,
+				PublicDetails: run.Snapshot.PublicDetails,
+				PlannedStart:  run.Snapshot.PlannedStart, PlannedEnd: run.Snapshot.PlannedEnd,
+				TimingPolicy:           run.Snapshot.TimingPolicy,
+				MinimumDurationSeconds: run.Snapshot.MinimumDurationSeconds,
+				StartBoundary:          run.Snapshot.StartBoundary, EndBoundary: run.Snapshot.EndBoundary,
+				LaneIDs: run.Snapshot.LaneIDs, LocationIDs: run.Snapshot.LocationIDs,
+				TrackIDs: run.Snapshot.TrackIDs,
+			},
+		}
+		for _, amendment := range run.Amendments {
+			found.Amendments = append(found.Amendments, Amendment{
+				ID:            amendment.ID,
+				Details:       Details{Title: amendment.Details.Title, Speaker: amendment.Details.Speaker, PublicDetails: amendment.Details.PublicDetails},
+				ChangedFields: amendment.ChangedFields, CreatedAt: amendment.CreatedAt,
+			})
+		}
+		result = append(result, found)
+	}
+	return result, nil
+}
+
+func validateLiveDetailFields(input CorrectLiveDetailsInput) error {
+	if len(input.UpdateFields) == 0 {
+		return ErrLiveDetailFields
+	}
+	seen := make(map[string]struct{}, len(input.UpdateFields))
+	for _, field := range input.UpdateFields {
+		if _, duplicate := seen[field]; duplicate || !slices.Contains([]string{"title", "speaker", "public_details"}, field) {
+			return ErrLiveDetailFields
+		}
+		seen[field] = struct{}{}
+	}
+	if slices.Contains(input.UpdateFields, "title") && (input.Title == "" || utf8.RuneCountInString(input.Title) > 200) {
+		return ErrLiveDetailFields
+	}
+	if slices.Contains(input.UpdateFields, "speaker") && utf8.RuneCountInString(input.Speaker) > 200 {
+		return ErrLiveDetailFields
+	}
+	if slices.Contains(input.UpdateFields, "public_details") && utf8.RuneCountInString(input.PublicDetails) > 10000 {
+		return ErrLiveDetailFields
+	}
+	return nil
+}
+
+func correction(stored store.LiveDetailCorrection) Correction {
+	return Correction{
+		State: state(stored.State), AmendmentID: stored.AmendmentID,
+		Details: Details{Title: stored.Details.Title, Speaker: stored.Details.Speaker, PublicDetails: stored.Details.PublicDetails},
+	}
+}
+
+func correctionRejection(
+	current Correction,
+	stored store.LiveDetailCorrection,
+	code string,
+	reason error,
+) (command.Execution[Correction], error) {
+	rejection := store.CommandRejection{Code: code, Message: reason.Error()}
+	returnErr := reason
+	if errors.Is(reason, ErrLiveStateRevisionConflict) {
+		encoded, err := json.Marshal(stored.State)
+		if err != nil {
+			return command.Execution[Correction]{}, errors.Join(reason, errors.New("encode stale Session state"))
+		}
+		rejection.Details = encoded
+		returnErr = &RevisionConflictError{Current: current.State}
+	}
+	return command.Reject(current, rejection, returnErr), nil
+}
+
+func restoreCorrectionRejection(err error) error {
+	_, restored := restoreRejected(err)
+	return restored
 }
 
 type sessionCommand struct {

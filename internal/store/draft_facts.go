@@ -17,6 +17,7 @@ const (
 	draftFactName               = "name"
 	draftFactLocation           = "location"
 	draftFactTitle              = "title"
+	draftFactSpeaker            = "speaker"
 	draftFactType               = "type"
 	draftFactAudienceVisibility = "audience_visibility"
 	draftFactPublicDetails      = "public_details"
@@ -62,7 +63,7 @@ func RundownDraftUpdateFields(target string) []string {
 		return []string{draftFactName, draftFactLocation}
 	case draftTargetSession:
 		return []string{
-			draftFactTitle, draftFactType, draftFactAudienceVisibility,
+			draftFactTitle, draftFactSpeaker, draftFactType, draftFactAudienceVisibility,
 			draftFactPublicDetails, draftFactCrewNotes, draftFactPlannedStart,
 			draftFactPlannedEnd, draftFactTimingPolicy, draftFactMinimumDuration,
 			draftFactStartBoundary, draftFactEndBoundary,

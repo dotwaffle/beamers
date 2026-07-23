@@ -318,6 +318,29 @@ func HasSessionWith(preds ...predicate.Session) predicate.SessionRun {
 	})
 }
 
+// HasAmendments applies the HasEdge predicate on the "amendments" edge.
+func HasAmendments() predicate.SessionRun {
+	return predicate.SessionRun(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AmendmentsTable, AmendmentsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAmendmentsWith applies the HasEdge predicate on the "amendments" edge with a given conditions (other predicates).
+func HasAmendmentsWith(preds ...predicate.SessionRunAmendment) predicate.SessionRun {
+	return predicate.SessionRun(func(s *sql.Selector) {
+		step := newAmendmentsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.SessionRun) predicate.SessionRun {
 	return predicate.SessionRun(sql.AndPredicates(predicates...))

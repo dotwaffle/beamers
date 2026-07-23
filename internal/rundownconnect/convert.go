@@ -91,7 +91,7 @@ func sessionDraft(message *rundownv1.SessionDraft) (rundown.SessionDraftInput, e
 		return rundown.SessionDraftInput{}, err
 	}
 	return rundown.SessionDraftInput{
-		ID: int(message.GetId()), Ref: message.GetRef(), Title: message.GetTitle(), Type: sessionType(message.GetType()),
+		ID: int(message.GetId()), Ref: message.GetRef(), Title: message.GetTitle(), Speaker: message.GetSpeaker(), Type: sessionType(message.GetType()),
 		AudienceVisibility: audienceVisibility(message.GetAudienceVisibility()),
 		PublicDetails:      message.GetPublicDetails(), CrewNotes: message.GetCrewNotes(),
 		PlannedStart: plannedStart, PlannedEnd: plannedEnd,
@@ -103,7 +103,7 @@ func sessionDraft(message *rundownv1.SessionDraft) (rundown.SessionDraftInput, e
 
 func sessionDraftUpdate(message *rundownv1.SessionDraft, fields []string) (rundown.SessionDraftInput, error) {
 	input := rundown.SessionDraftInput{
-		ID: int(message.GetId()), Title: message.GetTitle(), Type: sessionType(message.GetType()),
+		ID: int(message.GetId()), Title: message.GetTitle(), Speaker: message.GetSpeaker(), Type: sessionType(message.GetType()),
 		AudienceVisibility: audienceVisibility(message.GetAudienceVisibility()),
 		PublicDetails:      message.GetPublicDetails(), CrewNotes: message.GetCrewNotes(),
 		TimingPolicy: timingPolicy(message.GetTimingPolicy()), MinimumDuration: message.GetMinimumDuration().AsDuration(),
@@ -259,7 +259,7 @@ func crewRundown(projection rundown.CrewRundown) *rundownv1.GetCrewRundownRespon
 	}
 	for _, item := range projection.Sessions {
 		response.Sessions = append(response.Sessions, &rundownv1.CrewSession{
-			Id: int64(item.ID), Title: item.Title, Type: protoSessionType(item.Type),
+			Id: int64(item.ID), Title: item.Title, Speaker: item.Speaker, Type: protoSessionType(item.Type),
 			AudienceVisibility: protoAudienceVisibility(item.AudienceVisibility),
 			PublicDetails:      item.PublicDetails, CrewNotes: item.CrewNotes,
 			PlannedStart: timestamppb.New(item.PlannedStart), PlannedEnd: timestamppb.New(item.PlannedEnd),

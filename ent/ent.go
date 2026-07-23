@@ -36,6 +36,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
+	"github.com/dotwaffle/beamers/ent/sessionrunamendment"
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
@@ -123,6 +124,7 @@ func checkColumn(t, c string) error {
 			sessiondraft.Table:             sessiondraft.ValidColumn,
 			sessionpublishedversion.Table:  sessionpublishedversion.ValidColumn,
 			sessionrun.Table:               sessionrun.ValidColumn,
+			sessionrunamendment.Table:      sessionrunamendment.ValidColumn,
 			track.Table:                    track.ValidColumn,
 			trackdraft.Table:               trackdraft.ValidColumn,
 			trackpublishedversion.Table:    trackpublishedversion.ValidColumn,

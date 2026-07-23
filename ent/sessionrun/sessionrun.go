@@ -27,6 +27,8 @@ const (
 	FieldCreatedAt = "created_at"
 	// EdgeSession holds the string denoting the session edge name in mutations.
 	EdgeSession = "session"
+	// EdgeAmendments holds the string denoting the amendments edge name in mutations.
+	EdgeAmendments = "amendments"
 	// Table holds the table name of the sessionrun in the database.
 	Table = "session_runs"
 	// SessionTable is the table that holds the session relation/edge.
@@ -36,6 +38,13 @@ const (
 	SessionInverseTable = "sessions"
 	// SessionColumn is the table column denoting the session relation/edge.
 	SessionColumn = "session_id"
+	// AmendmentsTable is the table that holds the amendments relation/edge.
+	AmendmentsTable = "session_run_amendments"
+	// AmendmentsInverseTable is the table name for the SessionRunAmendment entity.
+	// It exists in this package in order to avoid circular dependency with the "sessionrunamendment" package.
+	AmendmentsInverseTable = "session_run_amendments"
+	// AmendmentsColumn is the table column denoting the amendments relation/edge.
+	AmendmentsColumn = "session_run_id"
 )
 
 // Columns holds all SQL columns for sessionrun fields.
@@ -111,10 +120,31 @@ func BySessionField(field string, opts ...sql.OrderTermOption) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newSessionStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByAmendmentsCount orders the results by amendments count.
+func ByAmendmentsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAmendmentsStep(), opts...)
+	}
+}
+
+// ByAmendments orders the results by amendments terms.
+func ByAmendments(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAmendmentsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newSessionStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(SessionInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, SessionTable, SessionColumn),
+	)
+}
+func newAmendmentsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AmendmentsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AmendmentsTable, AmendmentsColumn),
 	)
 }

@@ -43,6 +43,9 @@ templ SessionPage(snapshot Snapshot, session Session) {
 }
 
 templ SessionDetails(session Session) {
+	if session.Speaker != "" {
+		<p>Speaker: { session.Speaker }</p>
+	}
 	<p>{ session.PublicDetails }</p>
 	<p>Status: { session.Lifecycle }</p>
 	<p>Forecast Time: <time datetime={ session.ForecastStart }>{ session.ForecastStart }</time>–<time datetime={ session.ForecastEnd }>{ session.ForecastEnd }</time></p>

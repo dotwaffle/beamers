@@ -32,6 +32,7 @@ type Snapshot struct {
 type Session struct {
 	ID            int      `json:"id"`
 	Title         string   `json:"title"`
+	Speaker       string   `json:"speaker,omitempty"`
 	PublicDetails string   `json:"public_details,omitempty"`
 	ForecastStart string   `json:"forecast_start"`
 	ForecastEnd   string   `json:"forecast_end"`
@@ -92,7 +93,7 @@ func (service *Service) snapshot(ctx context.Context, upcomingOnly bool) (Snapsh
 			actualEnd = item.ActualEnd.In(zone).Format(time.RFC3339)
 		}
 		result.Sessions = append(result.Sessions, Session{
-			ID: item.ID, Title: item.Title, PublicDetails: item.PublicDetails,
+			ID: item.ID, Title: item.Title, Speaker: item.Speaker, PublicDetails: item.PublicDetails,
 			ForecastStart: item.ForecastStart.In(zone).Format(time.RFC3339),
 			ForecastEnd:   item.ForecastEnd.In(zone).Format(time.RFC3339),
 			Lifecycle:     item.Lifecycle,

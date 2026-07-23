@@ -128,6 +128,7 @@ type SessionDraftInput struct {
 	ID                 int                `json:"id,omitempty"`
 	Ref                string             `json:"ref"`
 	Title              string             `json:"title"`
+	Speaker            string             `json:"speaker,omitempty"`
 	Type               SessionType        `json:"type"`
 	AudienceVisibility AudienceVisibility `json:"audience_visibility"`
 	PublicDetails      string             `json:"public_details,omitempty"`
@@ -384,12 +385,16 @@ func validateEditDraft(input EditDraftInput) (EditDraftInput, error) {
 			return EditDraftInput{}, err
 		}
 		item.Title = strings.TrimSpace(item.Title)
+		item.Speaker = strings.TrimSpace(item.Speaker)
 		if item.ID == 0 {
 			if err := ValidateSessionScalars(*item); err != nil {
 				return EditDraftInput{}, err
 			}
 		} else if contains(item.UpdateFields, "title") && !validText(item.Title, 200) {
 			return EditDraftInput{}, invalid("sessions.title", "must be 1 to 200 characters without control characters")
+		}
+		if (item.ID == 0 || contains(item.UpdateFields, "speaker")) && utf8.RuneCountInString(item.Speaker) > 200 {
+			return EditDraftInput{}, invalid("sessions.speaker", "must not exceed 200 characters")
 		}
 		if item.ID > 0 && contains(item.UpdateFields, "public_details") && utf8.RuneCountInString(item.PublicDetails) > 10000 {
 			return EditDraftInput{}, invalid("sessions.public_details", "must not exceed 10000 characters")
@@ -632,7 +637,7 @@ func editDraftParams(actorID int, input EditDraftInput, now time.Time) store.Edi
 	}
 	for _, item := range input.Sessions {
 		created := store.SessionDraftCreate{
-			ID: item.ID, Ref: item.Ref, Title: item.Title, Type: string(item.Type),
+			ID: item.ID, Ref: item.Ref, Title: item.Title, Speaker: item.Speaker, Type: string(item.Type),
 			AudienceVisibility: string(item.AudienceVisibility),
 			PublicDetails:      item.PublicDetails, CrewNotes: item.CrewNotes,
 			PlannedStart: item.PlannedStart, PlannedEnd: item.PlannedEnd,

@@ -65,6 +65,66 @@ func (_u *SessionUpdate) AddLiveStateRevision(v int) *SessionUpdate {
 	return _u
 }
 
+// SetCorrectedTitle sets the "corrected_title" field.
+func (_u *SessionUpdate) SetCorrectedTitle(v string) *SessionUpdate {
+	_u.mutation.SetCorrectedTitle(v)
+	return _u
+}
+
+// SetNillableCorrectedTitle sets the "corrected_title" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableCorrectedTitle(v *string) *SessionUpdate {
+	if v != nil {
+		_u.SetCorrectedTitle(*v)
+	}
+	return _u
+}
+
+// ClearCorrectedTitle clears the value of the "corrected_title" field.
+func (_u *SessionUpdate) ClearCorrectedTitle() *SessionUpdate {
+	_u.mutation.ClearCorrectedTitle()
+	return _u
+}
+
+// SetCorrectedSpeaker sets the "corrected_speaker" field.
+func (_u *SessionUpdate) SetCorrectedSpeaker(v string) *SessionUpdate {
+	_u.mutation.SetCorrectedSpeaker(v)
+	return _u
+}
+
+// SetNillableCorrectedSpeaker sets the "corrected_speaker" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableCorrectedSpeaker(v *string) *SessionUpdate {
+	if v != nil {
+		_u.SetCorrectedSpeaker(*v)
+	}
+	return _u
+}
+
+// ClearCorrectedSpeaker clears the value of the "corrected_speaker" field.
+func (_u *SessionUpdate) ClearCorrectedSpeaker() *SessionUpdate {
+	_u.mutation.ClearCorrectedSpeaker()
+	return _u
+}
+
+// SetCorrectedPublicDetails sets the "corrected_public_details" field.
+func (_u *SessionUpdate) SetCorrectedPublicDetails(v string) *SessionUpdate {
+	_u.mutation.SetCorrectedPublicDetails(v)
+	return _u
+}
+
+// SetNillableCorrectedPublicDetails sets the "corrected_public_details" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableCorrectedPublicDetails(v *string) *SessionUpdate {
+	if v != nil {
+		_u.SetCorrectedPublicDetails(*v)
+	}
+	return _u
+}
+
+// ClearCorrectedPublicDetails clears the value of the "corrected_public_details" field.
+func (_u *SessionUpdate) ClearCorrectedPublicDetails() *SessionUpdate {
+	_u.mutation.ClearCorrectedPublicDetails()
+	return _u
+}
+
 // SetDraftID sets the "draft" edge to the SessionDraft entity by ID.
 func (_u *SessionUpdate) SetDraftID(id int) *SessionUpdate {
 	_u.mutation.SetDraftID(id)
@@ -206,6 +266,21 @@ func (_u *SessionUpdate) check() error {
 			return &ValidationError{Name: "live_state_revision", err: fmt.Errorf(`ent: validator failed for field "Session.live_state_revision": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.CorrectedTitle(); ok {
+		if err := session.CorrectedTitleValidator(v); err != nil {
+			return &ValidationError{Name: "corrected_title", err: fmt.Errorf(`ent: validator failed for field "Session.corrected_title": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.CorrectedSpeaker(); ok {
+		if err := session.CorrectedSpeakerValidator(v); err != nil {
+			return &ValidationError{Name: "corrected_speaker", err: fmt.Errorf(`ent: validator failed for field "Session.corrected_speaker": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.CorrectedPublicDetails(); ok {
+		if err := session.CorrectedPublicDetailsValidator(v); err != nil {
+			return &ValidationError{Name: "corrected_public_details", err: fmt.Errorf(`ent: validator failed for field "Session.corrected_public_details": %w`, err)}
+		}
+	}
 	if _u.mutation.EventCleared() && len(_u.mutation.EventIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Session.event"`)
 	}
@@ -232,6 +307,24 @@ func (_u *SessionUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedLiveStateRevision(); ok {
 		_spec.AddField(session.FieldLiveStateRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.CorrectedTitle(); ok {
+		_spec.SetField(session.FieldCorrectedTitle, field.TypeString, value)
+	}
+	if _u.mutation.CorrectedTitleCleared() {
+		_spec.ClearField(session.FieldCorrectedTitle, field.TypeString)
+	}
+	if value, ok := _u.mutation.CorrectedSpeaker(); ok {
+		_spec.SetField(session.FieldCorrectedSpeaker, field.TypeString, value)
+	}
+	if _u.mutation.CorrectedSpeakerCleared() {
+		_spec.ClearField(session.FieldCorrectedSpeaker, field.TypeString)
+	}
+	if value, ok := _u.mutation.CorrectedPublicDetails(); ok {
+		_spec.SetField(session.FieldCorrectedPublicDetails, field.TypeString, value)
+	}
+	if _u.mutation.CorrectedPublicDetailsCleared() {
+		_spec.ClearField(session.FieldCorrectedPublicDetails, field.TypeString)
 	}
 	if _u.mutation.DraftCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -407,6 +500,66 @@ func (_u *SessionUpdateOne) AddLiveStateRevision(v int) *SessionUpdateOne {
 	return _u
 }
 
+// SetCorrectedTitle sets the "corrected_title" field.
+func (_u *SessionUpdateOne) SetCorrectedTitle(v string) *SessionUpdateOne {
+	_u.mutation.SetCorrectedTitle(v)
+	return _u
+}
+
+// SetNillableCorrectedTitle sets the "corrected_title" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableCorrectedTitle(v *string) *SessionUpdateOne {
+	if v != nil {
+		_u.SetCorrectedTitle(*v)
+	}
+	return _u
+}
+
+// ClearCorrectedTitle clears the value of the "corrected_title" field.
+func (_u *SessionUpdateOne) ClearCorrectedTitle() *SessionUpdateOne {
+	_u.mutation.ClearCorrectedTitle()
+	return _u
+}
+
+// SetCorrectedSpeaker sets the "corrected_speaker" field.
+func (_u *SessionUpdateOne) SetCorrectedSpeaker(v string) *SessionUpdateOne {
+	_u.mutation.SetCorrectedSpeaker(v)
+	return _u
+}
+
+// SetNillableCorrectedSpeaker sets the "corrected_speaker" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableCorrectedSpeaker(v *string) *SessionUpdateOne {
+	if v != nil {
+		_u.SetCorrectedSpeaker(*v)
+	}
+	return _u
+}
+
+// ClearCorrectedSpeaker clears the value of the "corrected_speaker" field.
+func (_u *SessionUpdateOne) ClearCorrectedSpeaker() *SessionUpdateOne {
+	_u.mutation.ClearCorrectedSpeaker()
+	return _u
+}
+
+// SetCorrectedPublicDetails sets the "corrected_public_details" field.
+func (_u *SessionUpdateOne) SetCorrectedPublicDetails(v string) *SessionUpdateOne {
+	_u.mutation.SetCorrectedPublicDetails(v)
+	return _u
+}
+
+// SetNillableCorrectedPublicDetails sets the "corrected_public_details" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableCorrectedPublicDetails(v *string) *SessionUpdateOne {
+	if v != nil {
+		_u.SetCorrectedPublicDetails(*v)
+	}
+	return _u
+}
+
+// ClearCorrectedPublicDetails clears the value of the "corrected_public_details" field.
+func (_u *SessionUpdateOne) ClearCorrectedPublicDetails() *SessionUpdateOne {
+	_u.mutation.ClearCorrectedPublicDetails()
+	return _u
+}
+
 // SetDraftID sets the "draft" edge to the SessionDraft entity by ID.
 func (_u *SessionUpdateOne) SetDraftID(id int) *SessionUpdateOne {
 	_u.mutation.SetDraftID(id)
@@ -561,6 +714,21 @@ func (_u *SessionUpdateOne) check() error {
 			return &ValidationError{Name: "live_state_revision", err: fmt.Errorf(`ent: validator failed for field "Session.live_state_revision": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.CorrectedTitle(); ok {
+		if err := session.CorrectedTitleValidator(v); err != nil {
+			return &ValidationError{Name: "corrected_title", err: fmt.Errorf(`ent: validator failed for field "Session.corrected_title": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.CorrectedSpeaker(); ok {
+		if err := session.CorrectedSpeakerValidator(v); err != nil {
+			return &ValidationError{Name: "corrected_speaker", err: fmt.Errorf(`ent: validator failed for field "Session.corrected_speaker": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.CorrectedPublicDetails(); ok {
+		if err := session.CorrectedPublicDetailsValidator(v); err != nil {
+			return &ValidationError{Name: "corrected_public_details", err: fmt.Errorf(`ent: validator failed for field "Session.corrected_public_details": %w`, err)}
+		}
+	}
 	if _u.mutation.EventCleared() && len(_u.mutation.EventIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Session.event"`)
 	}
@@ -604,6 +772,24 @@ func (_u *SessionUpdateOne) sqlSave(ctx context.Context) (_node *Session, err er
 	}
 	if value, ok := _u.mutation.AddedLiveStateRevision(); ok {
 		_spec.AddField(session.FieldLiveStateRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.CorrectedTitle(); ok {
+		_spec.SetField(session.FieldCorrectedTitle, field.TypeString, value)
+	}
+	if _u.mutation.CorrectedTitleCleared() {
+		_spec.ClearField(session.FieldCorrectedTitle, field.TypeString)
+	}
+	if value, ok := _u.mutation.CorrectedSpeaker(); ok {
+		_spec.SetField(session.FieldCorrectedSpeaker, field.TypeString, value)
+	}
+	if _u.mutation.CorrectedSpeakerCleared() {
+		_spec.ClearField(session.FieldCorrectedSpeaker, field.TypeString)
+	}
+	if value, ok := _u.mutation.CorrectedPublicDetails(); ok {
+		_spec.SetField(session.FieldCorrectedPublicDetails, field.TypeString, value)
+	}
+	if _u.mutation.CorrectedPublicDetailsCleared() {
+		_spec.ClearField(session.FieldCorrectedPublicDetails, field.TypeString)
 	}
 	if _u.mutation.DraftCleared() {
 		edge := &sqlgraph.EdgeSpec{

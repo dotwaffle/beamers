@@ -45,6 +45,26 @@ func (_u *SessionDraftUpdate) SetNillableTitle(v *string) *SessionDraftUpdate {
 	return _u
 }
 
+// SetSpeaker sets the "speaker" field.
+func (_u *SessionDraftUpdate) SetSpeaker(v string) *SessionDraftUpdate {
+	_u.mutation.SetSpeaker(v)
+	return _u
+}
+
+// SetNillableSpeaker sets the "speaker" field if the given value is not nil.
+func (_u *SessionDraftUpdate) SetNillableSpeaker(v *string) *SessionDraftUpdate {
+	if v != nil {
+		_u.SetSpeaker(*v)
+	}
+	return _u
+}
+
+// ClearSpeaker clears the value of the "speaker" field.
+func (_u *SessionDraftUpdate) ClearSpeaker() *SessionDraftUpdate {
+	_u.mutation.ClearSpeaker()
+	return _u
+}
+
 // SetType sets the "type" field.
 func (_u *SessionDraftUpdate) SetType(v sessiondraft.Type) *SessionDraftUpdate {
 	_u.mutation.SetType(v)
@@ -351,6 +371,11 @@ func (_u *SessionDraftUpdate) check() error {
 			return &ValidationError{Name: "title", err: fmt.Errorf(`ent: validator failed for field "SessionDraft.title": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Speaker(); ok {
+		if err := sessiondraft.SpeakerValidator(v); err != nil {
+			return &ValidationError{Name: "speaker", err: fmt.Errorf(`ent: validator failed for field "SessionDraft.speaker": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.GetType(); ok {
 		if err := sessiondraft.TypeValidator(v); err != nil {
 			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "SessionDraft.type": %w`, err)}
@@ -411,6 +436,12 @@ func (_u *SessionDraftUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if value, ok := _u.mutation.Title(); ok {
 		_spec.SetField(sessiondraft.FieldTitle, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Speaker(); ok {
+		_spec.SetField(sessiondraft.FieldSpeaker, field.TypeString, value)
+	}
+	if _u.mutation.SpeakerCleared() {
+		_spec.ClearField(sessiondraft.FieldSpeaker, field.TypeString)
 	}
 	if value, ok := _u.mutation.GetType(); ok {
 		_spec.SetField(sessiondraft.FieldType, field.TypeEnum, value)
@@ -617,6 +648,26 @@ func (_u *SessionDraftUpdateOne) SetNillableTitle(v *string) *SessionDraftUpdate
 	if v != nil {
 		_u.SetTitle(*v)
 	}
+	return _u
+}
+
+// SetSpeaker sets the "speaker" field.
+func (_u *SessionDraftUpdateOne) SetSpeaker(v string) *SessionDraftUpdateOne {
+	_u.mutation.SetSpeaker(v)
+	return _u
+}
+
+// SetNillableSpeaker sets the "speaker" field if the given value is not nil.
+func (_u *SessionDraftUpdateOne) SetNillableSpeaker(v *string) *SessionDraftUpdateOne {
+	if v != nil {
+		_u.SetSpeaker(*v)
+	}
+	return _u
+}
+
+// ClearSpeaker clears the value of the "speaker" field.
+func (_u *SessionDraftUpdateOne) ClearSpeaker() *SessionDraftUpdateOne {
+	_u.mutation.ClearSpeaker()
 	return _u
 }
 
@@ -939,6 +990,11 @@ func (_u *SessionDraftUpdateOne) check() error {
 			return &ValidationError{Name: "title", err: fmt.Errorf(`ent: validator failed for field "SessionDraft.title": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Speaker(); ok {
+		if err := sessiondraft.SpeakerValidator(v); err != nil {
+			return &ValidationError{Name: "speaker", err: fmt.Errorf(`ent: validator failed for field "SessionDraft.speaker": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.GetType(); ok {
 		if err := sessiondraft.TypeValidator(v); err != nil {
 			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "SessionDraft.type": %w`, err)}
@@ -1016,6 +1072,12 @@ func (_u *SessionDraftUpdateOne) sqlSave(ctx context.Context) (_node *SessionDra
 	}
 	if value, ok := _u.mutation.Title(); ok {
 		_spec.SetField(sessiondraft.FieldTitle, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Speaker(); ok {
+		_spec.SetField(sessiondraft.FieldSpeaker, field.TypeString, value)
+	}
+	if _u.mutation.SpeakerCleared() {
+		_spec.ClearField(sessiondraft.FieldSpeaker, field.TypeString)
 	}
 	if value, ok := _u.mutation.GetType(); ok {
 		_spec.SetField(sessiondraft.FieldType, field.TypeEnum, value)

@@ -480,6 +480,9 @@ func TestPublishedStructuralVersionsAreAppendOnly(t *testing.T) {
 	if err := client.SessionPublishedVersion.DeleteOne(sessionVersion).Exec(producerContext); !errors.Is(err, privacy.Deny) {
 		t.Fatalf("Published Session deletion error = %v, want privacy denial", err)
 	}
+	if err := client.Session.DeleteOne(session).Exec(producerContext); !errors.Is(err, privacy.Deny) {
+		t.Fatalf("Published Session identity deletion error = %v, want privacy denial", err)
+	}
 }
 
 func TestLaneDraftAndPublishedStatesAreIndependent(t *testing.T) {
