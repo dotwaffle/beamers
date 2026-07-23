@@ -17,6 +17,7 @@ import (
 type eventHandlers struct {
 	authentication     *auth.Service
 	events             *events.Service
+	notifyDisplays     func()
 	logger             *slog.Logger
 	allowPlaintextCrew bool
 }
@@ -25,12 +26,14 @@ func registerEventRoutes(
 	mux *http.ServeMux,
 	authentication *auth.Service,
 	eventService *events.Service,
+	notifyDisplays func(),
 	logger *slog.Logger,
 	listenerAddress net.Addr,
 ) {
 	handlers := eventHandlers{
 		authentication:     authentication,
 		events:             eventService,
+		notifyDisplays:     notifyDisplays,
 		logger:             logger,
 		allowPlaintextCrew: listenerIsLoopback(listenerAddress),
 	}
@@ -237,6 +240,7 @@ func (handlers eventHandlers) updateCrewEvent(response http.ResponseWriter, requ
 	if err := json.NewEncoder(response).Encode(updated); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write updated Event", "error", err)
 	}
+	handlers.notifyDisplays()
 }
 
 func positivePathID(request *http.Request, name string) (int, error) {

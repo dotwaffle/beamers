@@ -12,16 +12,20 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/displays"
+	"github.com/dotwaffle/beamers/internal/displaystream"
+	"github.com/dotwaffle/beamers/internal/displayviews"
 )
 
 const (
 	displayCookieName           = "beamers_display"
 	displayEnrollmentCookieName = "beamers_display_enrollment"
+	displayConnectCookiePath    = "/beamers.display.v1.DisplayService"
 )
 
 type displayHandlers struct {
 	authentication        *auth.Service
 	service               *displays.Service
+	stream                *displaystream.Hub
 	logger                *slog.Logger
 	allowPlaintextDisplay bool
 	claimOrigin           string
@@ -31,15 +35,18 @@ func registerDisplayRoutes(
 	mux *http.ServeMux,
 	authentication *auth.Service,
 	service *displays.Service,
+	stream *displaystream.Hub,
 	logger *slog.Logger,
 	listenerAddress net.Addr,
 ) {
 	handlers := displayHandlers{
-		authentication: authentication, service: service, logger: logger,
+		authentication: authentication, service: service, stream: stream, logger: logger,
 		allowPlaintextDisplay: listenerIsLoopback(listenerAddress),
 		claimOrigin:           "http://" + listenerAddress.String(),
 	}
 	mux.HandleFunc("/display", handlers.display)
+	mux.HandleFunc("/display/client.js", handlers.clientJavaScript)
+	mux.HandleFunc("/display/events", handlers.events)
 	mux.HandleFunc("/admin/displays", handlers.list)
 	mux.HandleFunc("/admin/displays/enroll", handlers.enroll)
 	mux.HandleFunc("/admin/displays/{displayID}/assign", handlers.assign)
@@ -58,6 +65,12 @@ func (handlers displayHandlers) display(response http.ResponseWriter, request *h
 		page := displays.StandbyPage(snapshot) //nolint:contextcheck // Generated templ closures receive context when rendered.
 		if !snapshot.Standby {
 			page = displays.AssignedPage(snapshot) //nolint:contextcheck // Generated templ closures receive context when rendered.
+			switch snapshot.ViewKey {
+			case displayviews.EventOverview:
+				page = displays.EventOverviewPage(snapshot) //nolint:contextcheck // Generated templ closures receive context when rendered.
+			case displayviews.LocationSignage:
+				page = displays.LocationSignagePage(snapshot) //nolint:contextcheck // Generated templ closures receive context when rendered.
+			}
 		}
 		if err := page.Render(request.Context(), response); err != nil {
 			handlers.logger.ErrorContext(request.Context(), "write Display Standby page", "error", err)
@@ -90,6 +103,17 @@ func (handlers displayHandlers) display(response http.ResponseWriter, request *h
 	//nolint:contextcheck // Generated templ closures receive context when rendered.
 	if err := displays.EnrollmentPage(enrollment.Code, qrCode).Render(request.Context(), response); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write Display Enrollment page", "error", err)
+	}
+}
+
+func (handlers displayHandlers) clientJavaScript(response http.ResponseWriter, request *http.Request) {
+	if !requestAllowed(response, request, http.MethodGet, handlers.allowPlaintextDisplay) {
+		return
+	}
+	response.Header().Set("Cache-Control", "no-cache")
+	response.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+	if _, err := response.Write(displays.ClientJavaScript); err != nil {
+		handlers.logger.ErrorContext(request.Context(), "write Display client", "error", err)
 	}
 }
 
@@ -166,6 +190,7 @@ func (handlers displayHandlers) assign(response http.ResponseWriter, request *ht
 	if err := json.NewEncoder(response).Encode(assigned); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write Display Assignment", "error", err)
 	}
+	handlers.stream.Notify()
 }
 
 func (handlers displayHandlers) enroll(response http.ResponseWriter, request *http.Request) {
@@ -279,6 +304,12 @@ func setDisplayCookies(response http.ResponseWriter, request *http.Request, enro
 		//nolint:gosec // G124 cannot infer the listener-level loopback restriction.
 		{
 			Name: displayCookieName, Value: enrollment.Credential, Path: "/display",
+			Expires: enrollment.CredentialExpires, HttpOnly: true,
+			Secure: request.TLS != nil, SameSite: http.SameSiteStrictMode,
+		},
+		//nolint:gosec // G124 cannot infer the listener-level loopback restriction.
+		{
+			Name: displayCookieName, Value: enrollment.Credential, Path: displayConnectCookiePath,
 			Expires: enrollment.CredentialExpires, HttpOnly: true,
 			Secure: request.TLS != nil, SameSite: http.SameSiteStrictMode,
 		},

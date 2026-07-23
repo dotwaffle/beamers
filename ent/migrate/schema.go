@@ -119,6 +119,13 @@ var (
 		{Name: "name", Type: field.TypeString, Size: 200},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "enrolled_at", Type: field.TypeTime},
+		{Name: "applied_protocol_version", Type: field.TypeString, Default: ""},
+		{Name: "applied_stream_id", Type: field.TypeString, Default: ""},
+		{Name: "applied_stream_position", Type: field.TypeInt64, Default: 0},
+		{Name: "applied_active_event_id", Type: field.TypeInt, Default: 0},
+		{Name: "applied_activation_generation", Type: field.TypeInt, Default: 0},
+		{Name: "applied_published_revision", Type: field.TypeInt, Default: 0},
+		{Name: "applied_at", Type: field.TypeTime, Nullable: true},
 	}
 	// DisplaysTable holds the schema information for the "displays" table.
 	DisplaysTable = &schema.Table{

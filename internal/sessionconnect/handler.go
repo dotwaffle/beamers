@@ -23,14 +23,18 @@ import (
 type Handler struct {
 	sessionv1connect.UnimplementedSessionControlServiceHandler
 	service *sessioncontrol.Service
+	notify  func()
 }
 
 // NewHandler creates a Session control Connect adapter.
-func NewHandler(service *sessioncontrol.Service) (*Handler, error) {
+func NewHandler(service *sessioncontrol.Service, notifyDisplays func()) (*Handler, error) {
 	if service == nil {
 		return nil, errors.New("session control service is required")
 	}
-	return &Handler{service: service}, nil
+	if notifyDisplays == nil {
+		return nil, errors.New("display notifier is required")
+	}
+	return &Handler{service: service, notify: notifyDisplays}, nil
 }
 
 // ErrorInterceptor translates Session control failures into stable Connect codes.
@@ -99,6 +103,7 @@ func (handler *Handler) StartSession(
 	if err != nil {
 		return nil, err
 	}
+	handler.notifyDisplays()
 	return connect.NewResponse(&sessionv1.StartSessionResponse{State: sessionState(result)}), nil
 }
 
@@ -119,6 +124,7 @@ func (handler *Handler) EndSession(
 	if err != nil {
 		return nil, err
 	}
+	handler.notifyDisplays()
 	return connect.NewResponse(&sessionv1.EndSessionResponse{State: sessionState(result)}), nil
 }
 
@@ -206,9 +212,14 @@ func (handler *Handler) CorrectLiveDetails(
 	if err != nil {
 		return nil, err
 	}
+	handler.notifyDisplays()
 	return connect.NewResponse(&sessionv1.CorrectLiveDetailsResponse{
 		State: sessionState(result.State), AmendmentId: int64(result.AmendmentID), Details: sessionDetails(result.Details),
 	}), nil
+}
+
+func (handler *Handler) notifyDisplays() {
+	handler.notify()
 }
 
 // GetSessionHistory returns immutable Run Snapshots and amendments.

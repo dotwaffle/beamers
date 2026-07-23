@@ -21,12 +21,13 @@ func registerActivationRoutes(
 	mux *http.ServeMux,
 	authentication *auth.Service,
 	service *activation.Service,
+	notifyDisplays func(),
 	listenerAddress net.Addr,
 	tracerProvider trace.TracerProvider,
 	meterProvider metric.MeterProvider,
 	propagator propagation.TextMapPropagator,
 ) error {
-	adapter, err := activationconnect.NewHandler(service)
+	adapter, err := activationconnect.NewHandler(service, notifyDisplays)
 	if err != nil {
 		return err
 	}

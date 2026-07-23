@@ -181,7 +181,7 @@ func TestAdministratorClaimsDisplayEnrollmentOnceWithoutGrantingCrewAuthority(t 
 	}
 
 	claim := url.Values{"code": {code}, "name": {"Stage Left"}, "command_id": {"claim-stage-left"}}
-	claimed := postForm(t, administrator, server.address, "/admin/displays/enroll", claim)
+	claimed := postForm(t, administrator, server.address, claim)
 	claimedBody, readErr := io.ReadAll(claimed.Body)
 	closeErr = claimed.Body.Close()
 	if err := errors.Join(readErr, closeErr); err != nil {
@@ -190,7 +190,7 @@ func TestAdministratorClaimsDisplayEnrollmentOnceWithoutGrantingCrewAuthority(t 
 	if claimed.StatusCode != http.StatusCreated || !strings.Contains(string(claimedBody), "Stage Left") {
 		t.Fatalf("claim Display = %d %q", claimed.StatusCode, claimedBody)
 	}
-	reused := postForm(t, administrator, server.address, "/admin/displays/enroll", url.Values{
+	reused := postForm(t, administrator, server.address, url.Values{
 		"code": {code}, "name": {"Other Name"}, "command_id": {"reuse-stage-left-code"},
 	})
 	if reused.StatusCode != http.StatusConflict {
@@ -271,7 +271,7 @@ func TestDisplayAssignmentIsDurableAndNeverInheritedAcrossActiveEvents(t *testin
 		t.Fatalf("read Display Enrollment page: %v", err)
 	}
 	code := regexp.MustCompile(`[A-Z2-7]{4}-[A-Z2-7]{4}`).FindString(string(body))
-	claimed := postForm(t, administrator, server.address, "/admin/displays/enroll", url.Values{
+	claimed := postForm(t, administrator, server.address, url.Values{
 		"code": {code}, "name": {"Lobby Display"}, "command_id": {"claim-lobby-display"},
 	})
 	closeErr = claimed.Body.Close()
@@ -439,6 +439,457 @@ func TestDisplayAssignmentIsDurableAndNeverInheritedAcrossActiveEvents(t *testin
 	restarted.stop(t)
 }
 
+func TestDisplaySnapshotContainsOnlyAuthorizedPublicActiveEventState(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	displayClient := enrollAndAssignDisplay(t, administrator, server, "Overview Display", "event-overview")
+
+	result := requestJSON(
+		t.Context(),
+		displayClient,
+		server.address,
+		"/beamers.display.v1.DisplayService/GetSnapshot",
+		map[string]any{},
+	)
+	if result.err != nil {
+		t.Fatalf("Get Display Snapshot: %v", result.err)
+	}
+	if result.status != http.StatusOK {
+		t.Fatalf("Get Display Snapshot = %d %q, want %d", result.status, result.body, http.StatusOK)
+	}
+	for _, want := range []string{
+		`"protocolVersion":"beamers.display.v1"`,
+		`"displayId":"1"`,
+		`"activeEventId":"1"`,
+		`"activationGeneration":"1"`,
+		`"publishedRevision":"1"`,
+		`"eventTimezone":"Europe/Berlin"`,
+		`"viewKey":"event-overview"`,
+		`"title":"Opening Keynote"`,
+	} {
+		if !strings.Contains(result.body, want) {
+			t.Errorf("Display Snapshot missing %s: %s", want, result.body)
+		}
+	}
+	for _, private := range []string{"Private Soundcheck", "radio channel 4", "CrewOnly"} {
+		if strings.Contains(result.body, private) {
+			t.Errorf("Display Snapshot leaked %q: %s", private, result.body)
+		}
+	}
+	var decoded struct {
+		Snapshot struct {
+			StreamID       string `json:"streamId"`
+			StreamPosition string `json:"streamPosition"`
+			SnapshotToken  string `json:"snapshotToken"`
+		} `json:"snapshot"`
+	}
+	if err := json.Unmarshal([]byte(result.body), &decoded); err != nil {
+		t.Fatalf("decode Display Snapshot: %v", err)
+	}
+	if decoded.Snapshot.StreamID == "" {
+		t.Errorf("Display Snapshot missing stream ID: %s", result.body)
+	}
+	if decoded.Snapshot.SnapshotToken == "" {
+		t.Errorf("Display Snapshot missing acknowledgment token: %s", result.body)
+	}
+	if _, err := strconv.ParseUint(decoded.Snapshot.StreamPosition, 10, 64); err != nil {
+		t.Errorf("Display Snapshot stream position = %q: %v", decoded.Snapshot.StreamPosition, err)
+	}
+	server.stop(t)
+}
+
+func TestDisplaySSEStreamsRevisionedInvalidationsAfterSnapshot(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	sessionID := prepareActiveSchedule(t, administrator, server)
+	displayClient := enrollAndAssignDisplay(t, administrator, server, "Streaming Display", "event-overview")
+
+	snapshotResult := requestJSON(
+		t.Context(),
+		displayClient,
+		server.address,
+		"/beamers.display.v1.DisplayService/GetSnapshot",
+		map[string]any{},
+	)
+	if snapshotResult.err != nil || snapshotResult.status != http.StatusOK {
+		t.Fatalf(
+			"Get Display Snapshot = %d %q, %v, want %d",
+			snapshotResult.status,
+			snapshotResult.body,
+			snapshotResult.err,
+			http.StatusOK,
+		)
+	}
+	var snapshot struct {
+		Snapshot struct {
+			StreamID       string `json:"streamId"`
+			StreamPosition string `json:"streamPosition"`
+		} `json:"snapshot"`
+	}
+	if err := json.Unmarshal([]byte(snapshotResult.body), &snapshot); err != nil {
+		t.Fatalf("decode Display Snapshot: %v", err)
+	}
+	snapshotPosition, err := strconv.ParseUint(snapshot.Snapshot.StreamPosition, 10, 64)
+	if err != nil {
+		t.Fatalf("parse Display Snapshot stream position: %v", err)
+	}
+	expectedPosition := snapshotPosition + 1
+
+	streamContext, cancelStream := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancelStream()
+	streamURL := fmt.Sprintf(
+		"http://%s/display/events?stream_id=%s&after=%s",
+		server.address,
+		url.QueryEscape(snapshot.Snapshot.StreamID),
+		url.QueryEscape(snapshot.Snapshot.StreamPosition),
+	)
+	streamRequest, err := http.NewRequestWithContext(streamContext, http.MethodGet, streamURL, http.NoBody)
+	if err != nil {
+		t.Fatalf("create Display stream request: %v", err)
+	}
+	streamResponse, err := displayClient.Do(streamRequest)
+	if err != nil {
+		t.Fatalf("open Display stream: %v", err)
+	}
+	defer func() {
+		_ = streamResponse.Body.Close()
+	}()
+	if streamResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(streamResponse.Body)
+		t.Fatalf("open Display stream = %d %q, want %d", streamResponse.StatusCode, body, http.StatusOK)
+	}
+	if got := streamResponse.Header.Get("Content-Type"); got != "text/event-stream" {
+		t.Errorf("Display stream Content-Type = %q, want text/event-stream", got)
+	}
+	reader := bufio.NewReader(streamResponse.Body)
+	heartbeat, err := reader.ReadString('\n')
+	if err != nil {
+		t.Fatalf("read Display heartbeat: %v", err)
+	}
+	if heartbeat != ": heartbeat\n" {
+		t.Errorf("Display heartbeat = %q, want %q", heartbeat, ": heartbeat\n")
+	}
+	if _, err := reader.ReadString('\n'); err != nil {
+		t.Fatalf("finish Display heartbeat: %v", err)
+	}
+
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/displays/1/assign",
+		map[string]any{
+			"event_id": 1, "location_id": 1, "view_key": "location-signage",
+			"command_id": "reroute-streaming-display",
+		},
+		http.StatusOK,
+		"{\"display_id\":1,\"event_id\":1,\"location_id\":1,\"view_key\":\"location-signage\"}\n",
+	)
+
+	var event strings.Builder
+	for {
+		line, readErr := reader.ReadString('\n')
+		if readErr != nil {
+			t.Fatalf("read Display invalidation: %v", readErr)
+		}
+		if line == "\n" {
+			break
+		}
+		event.WriteString(line)
+	}
+	for _, want := range []string{
+		fmt.Sprintf("id: %d\n", expectedPosition),
+		"event: invalidate\n",
+		`"protocol_version":"beamers.display.v1"`,
+		fmt.Sprintf(`"stream_position":%d`, expectedPosition),
+		`"active_event_id":1`,
+		`"activation_generation":1`,
+		`"published_revision":1`,
+	} {
+		if !strings.Contains(event.String(), want) {
+			t.Errorf("Display invalidation missing %q: %s", want, event.String())
+		}
+	}
+
+	sessionClient := sessionv1connect.NewSessionControlServiceClient(
+		administrator,
+		"http://"+server.address,
+		connect.WithProtoJSON(),
+	)
+	if _, err := sessionClient.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "start-streaming-session",
+		ExpectedLiveStateRevision: proto.Int64(0),
+	})); err != nil {
+		t.Fatalf("Start Session while Display subscribed: %v", err)
+	}
+	var liveEvent strings.Builder
+	for {
+		line, readErr := reader.ReadString('\n')
+		if readErr != nil {
+			t.Fatalf("read live Display invalidation: %v", readErr)
+		}
+		if line == "\n" {
+			break
+		}
+		liveEvent.WriteString(line)
+	}
+	for _, want := range []string{
+		fmt.Sprintf("id: %d\n", expectedPosition+1),
+		fmt.Sprintf(`"stream_position":%d`, expectedPosition+1),
+		`"activation_generation":1`,
+		`"published_revision":1`,
+	} {
+		if !strings.Contains(liveEvent.String(), want) {
+			t.Errorf("live Display invalidation missing %q: %s", want, liveEvent.String())
+		}
+	}
+	cancelStream()
+	if err := streamResponse.Body.Close(); err != nil {
+		t.Errorf("close Display stream: %v", err)
+	}
+	server.stop(t)
+}
+
+func TestDisplayAcknowledgesAppliedStateIndependentlyOfCommands(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	displayClient := enrollAndAssignDisplay(t, administrator, server, "Acknowledging Display", "event-overview")
+	type appliedDisplayState struct {
+		ProtocolVersion      string `json:"protocolVersion"`
+		StreamID             string `json:"streamId"`
+		StreamPosition       string `json:"streamPosition"`
+		ActiveEventID        string `json:"activeEventId"`
+		ActivationGeneration string `json:"activationGeneration"`
+		PublishedRevision    string `json:"publishedRevision"`
+		SnapshotToken        string `json:"snapshotToken"`
+	}
+	readApplied := func() appliedDisplayState {
+		result := requestJSON(
+			t.Context(),
+			displayClient,
+			server.address,
+			"/beamers.display.v1.DisplayService/GetSnapshot",
+			map[string]any{},
+		)
+		if result.err != nil || result.status != http.StatusOK {
+			t.Fatalf(
+				"Get Display Snapshot = %d %q, %v, want %d",
+				result.status,
+				result.body,
+				result.err,
+				http.StatusOK,
+			)
+		}
+		var decoded struct {
+			Snapshot appliedDisplayState `json:"snapshot"`
+		}
+		if err := json.Unmarshal([]byte(result.body), &decoded); err != nil {
+			t.Fatalf("decode Display Snapshot: %v", err)
+		}
+		return decoded.Snapshot
+	}
+	acknowledge := func(applied appliedDisplayState) jsonResponse {
+		return requestJSON(
+			t.Context(),
+			displayClient,
+			server.address,
+			"/beamers.display.v1.DisplayService/Acknowledge",
+			map[string]any{
+				"protocol_version":      applied.ProtocolVersion,
+				"stream_id":             applied.StreamID,
+				"stream_position":       applied.StreamPosition,
+				"active_event_id":       applied.ActiveEventID,
+				"activation_generation": applied.ActivationGeneration,
+				"published_revision":    applied.PublishedRevision,
+				"snapshot_token":        applied.SnapshotToken,
+			},
+		)
+	}
+	previouslyApplied := readApplied()
+
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/displays/1/assign",
+		map[string]any{
+			"event_id": 1, "location_id": 1, "view_key": "location-signage",
+			"command_id": "reroute-before-acknowledgment",
+		},
+		http.StatusOK,
+		"{\"display_id\":1,\"event_id\":1,\"location_id\":1,\"view_key\":\"location-signage\"}\n",
+	)
+	delayed := acknowledge(previouslyApplied)
+	if delayed.err != nil || delayed.status != http.StatusOK {
+		t.Fatalf(
+			"delayed Display acknowledgment = %d %q, %v, want %d",
+			delayed.status,
+			delayed.body,
+			delayed.err,
+			http.StatusOK,
+		)
+	}
+	applied := readApplied()
+	acknowledged := acknowledge(applied)
+	if acknowledged.err != nil {
+		t.Fatalf("Acknowledge Display state: %v", acknowledged.err)
+	}
+	if acknowledged.status != http.StatusOK {
+		t.Fatalf("Acknowledge Display state = %d %q, want %d", acknowledged.status, acknowledged.body, http.StatusOK)
+	}
+	for _, want := range []string{
+		`"displayId":"1"`,
+		fmt.Sprintf(`"streamId":%q`, applied.StreamID),
+		fmt.Sprintf(`"streamPosition":%q`, applied.StreamPosition),
+		`"activeEventId":"1"`,
+		`"activationGeneration":"1"`,
+		`"publishedRevision":"1"`,
+		`"appliedAt":`,
+	} {
+		if !strings.Contains(acknowledged.body, want) {
+			t.Errorf("Display acknowledgment missing %s: %s", want, acknowledged.body)
+		}
+	}
+	replayed := acknowledge(applied)
+	if replayed.err != nil || replayed.status != http.StatusOK || replayed.body != acknowledged.body {
+		t.Errorf(
+			"idempotent Display acknowledgment = %d %q, %v, want %d %q",
+			replayed.status,
+			replayed.body,
+			replayed.err,
+			http.StatusOK,
+			acknowledged.body,
+		)
+	}
+	regressed := acknowledge(previouslyApplied)
+	if regressed.err != nil {
+		t.Fatalf("send regressed Display acknowledgment: %v", regressed.err)
+	}
+	if regressed.status != http.StatusBadRequest ||
+		!strings.Contains(regressed.body, `"code":"failed_precondition"`) {
+		t.Errorf(
+			"regressed Display acknowledgment = %d %q, want failed_precondition",
+			regressed.status,
+			regressed.body,
+		)
+	}
+	impossible := requestJSON(
+		t.Context(),
+		displayClient,
+		server.address,
+		"/beamers.display.v1.DisplayService/Acknowledge",
+		map[string]any{
+			"protocol_version":      applied.ProtocolVersion,
+			"stream_id":             applied.StreamID,
+			"stream_position":       applied.StreamPosition,
+			"active_event_id":       "999",
+			"activation_generation": applied.ActivationGeneration,
+			"published_revision":    applied.PublishedRevision,
+			"snapshot_token":        applied.SnapshotToken,
+		},
+	)
+	if impossible.err != nil {
+		t.Fatalf("send impossible Display acknowledgment: %v", impossible.err)
+	}
+	if impossible.status != http.StatusBadRequest ||
+		!strings.Contains(impossible.body, `"code":"invalid_argument"`) {
+		t.Errorf(
+			"impossible Display acknowledgment = %d %q, want invalid_argument",
+			impossible.status,
+			impossible.body,
+		)
+	}
+	server.stop(t)
+}
+
+func TestLocationSignageRendersPublicScheduleAndNeutralCrewOnlyOccupancy(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	displayClient := enrollAndAssignDisplay(t, administrator, server, "Signage Display", "location-signage")
+
+	response := get(t, displayClient, server.address, "/display")
+	body, readErr := io.ReadAll(response.Body)
+	closeErr := response.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Location Signage: %v", err)
+	}
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("Location Signage = %d %q, want %d", response.StatusCode, body, http.StatusOK)
+	}
+	for _, want := range []string{
+		"Location Signage", "Opening Keynote", "Forecast Time:", "Location unavailable until",
+	} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("Location Signage missing %q: %s", want, body)
+		}
+	}
+	for _, private := range []string{"Private Soundcheck", "radio channel 4"} {
+		if strings.Contains(string(body), private) {
+			t.Errorf("Location Signage leaked %q: %s", private, body)
+		}
+	}
+	snapshot := requestJSON(
+		t.Context(),
+		displayClient,
+		server.address,
+		"/beamers.display.v1.DisplayService/GetSnapshot",
+		map[string]any{},
+	)
+	if snapshot.err != nil || snapshot.status != http.StatusOK {
+		t.Fatalf("Get Location Signage Snapshot = %d %q, %v", snapshot.status, snapshot.body, snapshot.err)
+	}
+	if !strings.Contains(snapshot.body, `"availabilityMessage":"Location unavailable until `) {
+		t.Errorf("Location Signage Snapshot missing neutral occupancy: %s", snapshot.body)
+	}
+	for _, private := range []string{`"id":"2"`, `"title":"Private Soundcheck"`, "radio channel 4"} {
+		if strings.Contains(snapshot.body, private) {
+			t.Errorf("Location Signage Snapshot leaked %q: %s", private, snapshot.body)
+		}
+	}
+	server.stop(t)
+}
+
+func TestEventOverviewRendersCommittedPublicSchedule(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	displayClient := enrollAndAssignDisplay(t, administrator, server, "Overview Display", "event-overview")
+
+	response := get(t, displayClient, server.address, "/display")
+	body, readErr := io.ReadAll(response.Body)
+	closeErr := response.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Event Overview: %v", err)
+	}
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("Event Overview = %d %q, want %d", response.StatusCode, body, http.StatusOK)
+	}
+	for _, want := range []string{
+		"Event Overview", "Opening Keynote", "Forecast Time:", `src="/display/client.js"`,
+	} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("Event Overview missing %q: %s", want, body)
+		}
+	}
+	for _, private := range []string{"Private Soundcheck", "radio channel 4", "Location unavailable"} {
+		if strings.Contains(string(body), private) {
+			t.Errorf("Event Overview leaked %q: %s", private, body)
+		}
+	}
+	clientScript := get(t, displayClient, server.address, "/display/client.js")
+	scriptBody, readErr := io.ReadAll(clientScript.Body)
+	closeErr = clientScript.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Display client: %v", err)
+	}
+	if clientScript.StatusCode != http.StatusOK {
+		t.Fatalf("Display client = %d %q, want %d", clientScript.StatusCode, scriptBody, http.StatusOK)
+	}
+	for _, want := range []string{
+		"GetSnapshot",
+		"renderSnapshot(snapshot)",
+		"Acknowledge",
+		"new EventSource",
+	} {
+		if !strings.Contains(string(scriptBody), want) {
+			t.Errorf("Display client missing %q: %s", want, scriptBody)
+		}
+	}
+	server.stop(t)
+}
+
 func TestAdministratorCreatesEventWithCoreConfiguration(t *testing.T) {
 	client, server := startAuthenticatedAdministrator(t)
 
@@ -498,6 +949,46 @@ func TestAdministratorCreatesEventWithCoreConfiguration(t *testing.T) {
 		t.Errorf("created Event = %+v, want %+v", created, want)
 	}
 	server.stop(t)
+}
+
+func enrollAndAssignDisplay(
+	t *testing.T,
+	administrator *http.Client,
+	server *runningServer,
+	name string,
+	viewKey string,
+) *http.Client {
+	t.Helper()
+	displayClient := authenticatedClient(t)
+	enrollment := get(t, displayClient, server.address, "/display")
+	body, readErr := io.ReadAll(enrollment.Body)
+	closeErr := enrollment.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Display Enrollment page: %v", err)
+	}
+	code := regexp.MustCompile(`[A-Z2-7]{4}-[A-Z2-7]{4}`).FindString(string(body))
+	claimed := postForm(t, administrator, server.address, url.Values{
+		"code": {code}, "name": {name}, "command_id": {"claim-snapshot-display"},
+	})
+	if closeErr := claimed.Body.Close(); closeErr != nil {
+		t.Errorf("close Display claim response: %v", closeErr)
+	}
+	if claimed.StatusCode != http.StatusCreated {
+		t.Fatalf("claim Display = %d, want %d", claimed.StatusCode, http.StatusCreated)
+	}
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/displays/1/assign",
+		map[string]any{
+			"event_id": 1, "location_id": 1, "view_key": viewKey,
+			"command_id": "assign-snapshot-display",
+		},
+		http.StatusOK,
+		fmt.Sprintf(
+			"{\"display_id\":1,\"event_id\":1,\"location_id\":1,\"view_key\":%q}\n",
+			viewKey,
+		),
+	)
+	return displayClient
 }
 
 func TestAdministratorActivatesPublishedEventAcrossRestart(t *testing.T) {
@@ -2819,12 +3310,14 @@ func postForm(
 	t *testing.T,
 	client *http.Client,
 	address string,
-	path string,
 	values url.Values,
 ) *http.Response {
 	t.Helper()
 	request, err := http.NewRequestWithContext(
-		t.Context(), http.MethodPost, "http://"+address+path, strings.NewReader(values.Encode()),
+		t.Context(),
+		http.MethodPost,
+		"http://"+address+"/admin/displays/enroll",
+		strings.NewReader(values.Encode()),
 	)
 	if err != nil {
 		t.Fatalf("create form request: %v", err)

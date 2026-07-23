@@ -21,6 +21,20 @@ const (
 	FieldCreatedAt = "created_at"
 	// FieldEnrolledAt holds the string denoting the enrolled_at field in the database.
 	FieldEnrolledAt = "enrolled_at"
+	// FieldAppliedProtocolVersion holds the string denoting the applied_protocol_version field in the database.
+	FieldAppliedProtocolVersion = "applied_protocol_version"
+	// FieldAppliedStreamID holds the string denoting the applied_stream_id field in the database.
+	FieldAppliedStreamID = "applied_stream_id"
+	// FieldAppliedStreamPosition holds the string denoting the applied_stream_position field in the database.
+	FieldAppliedStreamPosition = "applied_stream_position"
+	// FieldAppliedActiveEventID holds the string denoting the applied_active_event_id field in the database.
+	FieldAppliedActiveEventID = "applied_active_event_id"
+	// FieldAppliedActivationGeneration holds the string denoting the applied_activation_generation field in the database.
+	FieldAppliedActivationGeneration = "applied_activation_generation"
+	// FieldAppliedPublishedRevision holds the string denoting the applied_published_revision field in the database.
+	FieldAppliedPublishedRevision = "applied_published_revision"
+	// FieldAppliedAt holds the string denoting the applied_at field in the database.
+	FieldAppliedAt = "applied_at"
 	// EdgeCredentials holds the string denoting the credentials edge name in mutations.
 	EdgeCredentials = "credentials"
 	// EdgeAssignments holds the string denoting the assignments edge name in mutations.
@@ -49,6 +63,13 @@ var Columns = []string{
 	FieldName,
 	FieldCreatedAt,
 	FieldEnrolledAt,
+	FieldAppliedProtocolVersion,
+	FieldAppliedStreamID,
+	FieldAppliedStreamPosition,
+	FieldAppliedActiveEventID,
+	FieldAppliedActivationGeneration,
+	FieldAppliedPublishedRevision,
+	FieldAppliedAt,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -73,6 +94,18 @@ var (
 	NameValidator func(string) error
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
+	// DefaultAppliedProtocolVersion holds the default value on creation for the "applied_protocol_version" field.
+	DefaultAppliedProtocolVersion string
+	// DefaultAppliedStreamID holds the default value on creation for the "applied_stream_id" field.
+	DefaultAppliedStreamID string
+	// DefaultAppliedStreamPosition holds the default value on creation for the "applied_stream_position" field.
+	DefaultAppliedStreamPosition int64
+	// DefaultAppliedActiveEventID holds the default value on creation for the "applied_active_event_id" field.
+	DefaultAppliedActiveEventID int
+	// DefaultAppliedActivationGeneration holds the default value on creation for the "applied_activation_generation" field.
+	DefaultAppliedActivationGeneration int
+	// DefaultAppliedPublishedRevision holds the default value on creation for the "applied_published_revision" field.
+	DefaultAppliedPublishedRevision int
 )
 
 // OrderOption defines the ordering options for the Display queries.
@@ -96,6 +129,41 @@ func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByEnrolledAt orders the results by the enrolled_at field.
 func ByEnrolledAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEnrolledAt, opts...).ToFunc()
+}
+
+// ByAppliedProtocolVersion orders the results by the applied_protocol_version field.
+func ByAppliedProtocolVersion(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAppliedProtocolVersion, opts...).ToFunc()
+}
+
+// ByAppliedStreamID orders the results by the applied_stream_id field.
+func ByAppliedStreamID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAppliedStreamID, opts...).ToFunc()
+}
+
+// ByAppliedStreamPosition orders the results by the applied_stream_position field.
+func ByAppliedStreamPosition(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAppliedStreamPosition, opts...).ToFunc()
+}
+
+// ByAppliedActiveEventID orders the results by the applied_active_event_id field.
+func ByAppliedActiveEventID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAppliedActiveEventID, opts...).ToFunc()
+}
+
+// ByAppliedActivationGeneration orders the results by the applied_activation_generation field.
+func ByAppliedActivationGeneration(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAppliedActivationGeneration, opts...).ToFunc()
+}
+
+// ByAppliedPublishedRevision orders the results by the applied_published_revision field.
+func ByAppliedPublishedRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAppliedPublishedRevision, opts...).ToFunc()
+}
+
+// ByAppliedAt orders the results by the applied_at field.
+func ByAppliedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAppliedAt, opts...).ToFunc()
 }
 
 // ByCredentialsCount orders the results by credentials count.

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -40,6 +41,138 @@ func (_u *DisplayUpdate) SetNillableName(v *string) *DisplayUpdate {
 	if v != nil {
 		_u.SetName(*v)
 	}
+	return _u
+}
+
+// SetAppliedProtocolVersion sets the "applied_protocol_version" field.
+func (_u *DisplayUpdate) SetAppliedProtocolVersion(v string) *DisplayUpdate {
+	_u.mutation.SetAppliedProtocolVersion(v)
+	return _u
+}
+
+// SetNillableAppliedProtocolVersion sets the "applied_protocol_version" field if the given value is not nil.
+func (_u *DisplayUpdate) SetNillableAppliedProtocolVersion(v *string) *DisplayUpdate {
+	if v != nil {
+		_u.SetAppliedProtocolVersion(*v)
+	}
+	return _u
+}
+
+// SetAppliedStreamID sets the "applied_stream_id" field.
+func (_u *DisplayUpdate) SetAppliedStreamID(v string) *DisplayUpdate {
+	_u.mutation.SetAppliedStreamID(v)
+	return _u
+}
+
+// SetNillableAppliedStreamID sets the "applied_stream_id" field if the given value is not nil.
+func (_u *DisplayUpdate) SetNillableAppliedStreamID(v *string) *DisplayUpdate {
+	if v != nil {
+		_u.SetAppliedStreamID(*v)
+	}
+	return _u
+}
+
+// SetAppliedStreamPosition sets the "applied_stream_position" field.
+func (_u *DisplayUpdate) SetAppliedStreamPosition(v int64) *DisplayUpdate {
+	_u.mutation.ResetAppliedStreamPosition()
+	_u.mutation.SetAppliedStreamPosition(v)
+	return _u
+}
+
+// SetNillableAppliedStreamPosition sets the "applied_stream_position" field if the given value is not nil.
+func (_u *DisplayUpdate) SetNillableAppliedStreamPosition(v *int64) *DisplayUpdate {
+	if v != nil {
+		_u.SetAppliedStreamPosition(*v)
+	}
+	return _u
+}
+
+// AddAppliedStreamPosition adds value to the "applied_stream_position" field.
+func (_u *DisplayUpdate) AddAppliedStreamPosition(v int64) *DisplayUpdate {
+	_u.mutation.AddAppliedStreamPosition(v)
+	return _u
+}
+
+// SetAppliedActiveEventID sets the "applied_active_event_id" field.
+func (_u *DisplayUpdate) SetAppliedActiveEventID(v int) *DisplayUpdate {
+	_u.mutation.ResetAppliedActiveEventID()
+	_u.mutation.SetAppliedActiveEventID(v)
+	return _u
+}
+
+// SetNillableAppliedActiveEventID sets the "applied_active_event_id" field if the given value is not nil.
+func (_u *DisplayUpdate) SetNillableAppliedActiveEventID(v *int) *DisplayUpdate {
+	if v != nil {
+		_u.SetAppliedActiveEventID(*v)
+	}
+	return _u
+}
+
+// AddAppliedActiveEventID adds value to the "applied_active_event_id" field.
+func (_u *DisplayUpdate) AddAppliedActiveEventID(v int) *DisplayUpdate {
+	_u.mutation.AddAppliedActiveEventID(v)
+	return _u
+}
+
+// SetAppliedActivationGeneration sets the "applied_activation_generation" field.
+func (_u *DisplayUpdate) SetAppliedActivationGeneration(v int) *DisplayUpdate {
+	_u.mutation.ResetAppliedActivationGeneration()
+	_u.mutation.SetAppliedActivationGeneration(v)
+	return _u
+}
+
+// SetNillableAppliedActivationGeneration sets the "applied_activation_generation" field if the given value is not nil.
+func (_u *DisplayUpdate) SetNillableAppliedActivationGeneration(v *int) *DisplayUpdate {
+	if v != nil {
+		_u.SetAppliedActivationGeneration(*v)
+	}
+	return _u
+}
+
+// AddAppliedActivationGeneration adds value to the "applied_activation_generation" field.
+func (_u *DisplayUpdate) AddAppliedActivationGeneration(v int) *DisplayUpdate {
+	_u.mutation.AddAppliedActivationGeneration(v)
+	return _u
+}
+
+// SetAppliedPublishedRevision sets the "applied_published_revision" field.
+func (_u *DisplayUpdate) SetAppliedPublishedRevision(v int) *DisplayUpdate {
+	_u.mutation.ResetAppliedPublishedRevision()
+	_u.mutation.SetAppliedPublishedRevision(v)
+	return _u
+}
+
+// SetNillableAppliedPublishedRevision sets the "applied_published_revision" field if the given value is not nil.
+func (_u *DisplayUpdate) SetNillableAppliedPublishedRevision(v *int) *DisplayUpdate {
+	if v != nil {
+		_u.SetAppliedPublishedRevision(*v)
+	}
+	return _u
+}
+
+// AddAppliedPublishedRevision adds value to the "applied_published_revision" field.
+func (_u *DisplayUpdate) AddAppliedPublishedRevision(v int) *DisplayUpdate {
+	_u.mutation.AddAppliedPublishedRevision(v)
+	return _u
+}
+
+// SetAppliedAt sets the "applied_at" field.
+func (_u *DisplayUpdate) SetAppliedAt(v time.Time) *DisplayUpdate {
+	_u.mutation.SetAppliedAt(v)
+	return _u
+}
+
+// SetNillableAppliedAt sets the "applied_at" field if the given value is not nil.
+func (_u *DisplayUpdate) SetNillableAppliedAt(v *time.Time) *DisplayUpdate {
+	if v != nil {
+		_u.SetAppliedAt(*v)
+	}
+	return _u
+}
+
+// ClearAppliedAt clears the value of the "applied_at" field.
+func (_u *DisplayUpdate) ClearAppliedAt() *DisplayUpdate {
+	_u.mutation.ClearAppliedAt()
 	return _u
 }
 
@@ -172,6 +305,42 @@ func (_u *DisplayUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(display.FieldName, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.AppliedProtocolVersion(); ok {
+		_spec.SetField(display.FieldAppliedProtocolVersion, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.AppliedStreamID(); ok {
+		_spec.SetField(display.FieldAppliedStreamID, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.AppliedStreamPosition(); ok {
+		_spec.SetField(display.FieldAppliedStreamPosition, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedStreamPosition(); ok {
+		_spec.AddField(display.FieldAppliedStreamPosition, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AppliedActiveEventID(); ok {
+		_spec.SetField(display.FieldAppliedActiveEventID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedActiveEventID(); ok {
+		_spec.AddField(display.FieldAppliedActiveEventID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedActivationGeneration(); ok {
+		_spec.SetField(display.FieldAppliedActivationGeneration, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedActivationGeneration(); ok {
+		_spec.AddField(display.FieldAppliedActivationGeneration, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedPublishedRevision(); ok {
+		_spec.SetField(display.FieldAppliedPublishedRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedPublishedRevision(); ok {
+		_spec.AddField(display.FieldAppliedPublishedRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedAt(); ok {
+		_spec.SetField(display.FieldAppliedAt, field.TypeTime, value)
+	}
+	if _u.mutation.AppliedAtCleared() {
+		_spec.ClearField(display.FieldAppliedAt, field.TypeTime)
+	}
 	if _u.mutation.CredentialsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -293,6 +462,138 @@ func (_u *DisplayUpdateOne) SetNillableName(v *string) *DisplayUpdateOne {
 	if v != nil {
 		_u.SetName(*v)
 	}
+	return _u
+}
+
+// SetAppliedProtocolVersion sets the "applied_protocol_version" field.
+func (_u *DisplayUpdateOne) SetAppliedProtocolVersion(v string) *DisplayUpdateOne {
+	_u.mutation.SetAppliedProtocolVersion(v)
+	return _u
+}
+
+// SetNillableAppliedProtocolVersion sets the "applied_protocol_version" field if the given value is not nil.
+func (_u *DisplayUpdateOne) SetNillableAppliedProtocolVersion(v *string) *DisplayUpdateOne {
+	if v != nil {
+		_u.SetAppliedProtocolVersion(*v)
+	}
+	return _u
+}
+
+// SetAppliedStreamID sets the "applied_stream_id" field.
+func (_u *DisplayUpdateOne) SetAppliedStreamID(v string) *DisplayUpdateOne {
+	_u.mutation.SetAppliedStreamID(v)
+	return _u
+}
+
+// SetNillableAppliedStreamID sets the "applied_stream_id" field if the given value is not nil.
+func (_u *DisplayUpdateOne) SetNillableAppliedStreamID(v *string) *DisplayUpdateOne {
+	if v != nil {
+		_u.SetAppliedStreamID(*v)
+	}
+	return _u
+}
+
+// SetAppliedStreamPosition sets the "applied_stream_position" field.
+func (_u *DisplayUpdateOne) SetAppliedStreamPosition(v int64) *DisplayUpdateOne {
+	_u.mutation.ResetAppliedStreamPosition()
+	_u.mutation.SetAppliedStreamPosition(v)
+	return _u
+}
+
+// SetNillableAppliedStreamPosition sets the "applied_stream_position" field if the given value is not nil.
+func (_u *DisplayUpdateOne) SetNillableAppliedStreamPosition(v *int64) *DisplayUpdateOne {
+	if v != nil {
+		_u.SetAppliedStreamPosition(*v)
+	}
+	return _u
+}
+
+// AddAppliedStreamPosition adds value to the "applied_stream_position" field.
+func (_u *DisplayUpdateOne) AddAppliedStreamPosition(v int64) *DisplayUpdateOne {
+	_u.mutation.AddAppliedStreamPosition(v)
+	return _u
+}
+
+// SetAppliedActiveEventID sets the "applied_active_event_id" field.
+func (_u *DisplayUpdateOne) SetAppliedActiveEventID(v int) *DisplayUpdateOne {
+	_u.mutation.ResetAppliedActiveEventID()
+	_u.mutation.SetAppliedActiveEventID(v)
+	return _u
+}
+
+// SetNillableAppliedActiveEventID sets the "applied_active_event_id" field if the given value is not nil.
+func (_u *DisplayUpdateOne) SetNillableAppliedActiveEventID(v *int) *DisplayUpdateOne {
+	if v != nil {
+		_u.SetAppliedActiveEventID(*v)
+	}
+	return _u
+}
+
+// AddAppliedActiveEventID adds value to the "applied_active_event_id" field.
+func (_u *DisplayUpdateOne) AddAppliedActiveEventID(v int) *DisplayUpdateOne {
+	_u.mutation.AddAppliedActiveEventID(v)
+	return _u
+}
+
+// SetAppliedActivationGeneration sets the "applied_activation_generation" field.
+func (_u *DisplayUpdateOne) SetAppliedActivationGeneration(v int) *DisplayUpdateOne {
+	_u.mutation.ResetAppliedActivationGeneration()
+	_u.mutation.SetAppliedActivationGeneration(v)
+	return _u
+}
+
+// SetNillableAppliedActivationGeneration sets the "applied_activation_generation" field if the given value is not nil.
+func (_u *DisplayUpdateOne) SetNillableAppliedActivationGeneration(v *int) *DisplayUpdateOne {
+	if v != nil {
+		_u.SetAppliedActivationGeneration(*v)
+	}
+	return _u
+}
+
+// AddAppliedActivationGeneration adds value to the "applied_activation_generation" field.
+func (_u *DisplayUpdateOne) AddAppliedActivationGeneration(v int) *DisplayUpdateOne {
+	_u.mutation.AddAppliedActivationGeneration(v)
+	return _u
+}
+
+// SetAppliedPublishedRevision sets the "applied_published_revision" field.
+func (_u *DisplayUpdateOne) SetAppliedPublishedRevision(v int) *DisplayUpdateOne {
+	_u.mutation.ResetAppliedPublishedRevision()
+	_u.mutation.SetAppliedPublishedRevision(v)
+	return _u
+}
+
+// SetNillableAppliedPublishedRevision sets the "applied_published_revision" field if the given value is not nil.
+func (_u *DisplayUpdateOne) SetNillableAppliedPublishedRevision(v *int) *DisplayUpdateOne {
+	if v != nil {
+		_u.SetAppliedPublishedRevision(*v)
+	}
+	return _u
+}
+
+// AddAppliedPublishedRevision adds value to the "applied_published_revision" field.
+func (_u *DisplayUpdateOne) AddAppliedPublishedRevision(v int) *DisplayUpdateOne {
+	_u.mutation.AddAppliedPublishedRevision(v)
+	return _u
+}
+
+// SetAppliedAt sets the "applied_at" field.
+func (_u *DisplayUpdateOne) SetAppliedAt(v time.Time) *DisplayUpdateOne {
+	_u.mutation.SetAppliedAt(v)
+	return _u
+}
+
+// SetNillableAppliedAt sets the "applied_at" field if the given value is not nil.
+func (_u *DisplayUpdateOne) SetNillableAppliedAt(v *time.Time) *DisplayUpdateOne {
+	if v != nil {
+		_u.SetAppliedAt(*v)
+	}
+	return _u
+}
+
+// ClearAppliedAt clears the value of the "applied_at" field.
+func (_u *DisplayUpdateOne) ClearAppliedAt() *DisplayUpdateOne {
+	_u.mutation.ClearAppliedAt()
 	return _u
 }
 
@@ -454,6 +755,42 @@ func (_u *DisplayUpdateOne) sqlSave(ctx context.Context) (_node *Display, err er
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(display.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.AppliedProtocolVersion(); ok {
+		_spec.SetField(display.FieldAppliedProtocolVersion, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.AppliedStreamID(); ok {
+		_spec.SetField(display.FieldAppliedStreamID, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.AppliedStreamPosition(); ok {
+		_spec.SetField(display.FieldAppliedStreamPosition, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedStreamPosition(); ok {
+		_spec.AddField(display.FieldAppliedStreamPosition, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AppliedActiveEventID(); ok {
+		_spec.SetField(display.FieldAppliedActiveEventID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedActiveEventID(); ok {
+		_spec.AddField(display.FieldAppliedActiveEventID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedActivationGeneration(); ok {
+		_spec.SetField(display.FieldAppliedActivationGeneration, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedActivationGeneration(); ok {
+		_spec.AddField(display.FieldAppliedActivationGeneration, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedPublishedRevision(); ok {
+		_spec.SetField(display.FieldAppliedPublishedRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedPublishedRevision(); ok {
+		_spec.AddField(display.FieldAppliedPublishedRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedAt(); ok {
+		_spec.SetField(display.FieldAppliedAt, field.TypeTime, value)
+	}
+	if _u.mutation.AppliedAtCleared() {
+		_spec.ClearField(display.FieldAppliedAt, field.TypeTime)
 	}
 	if _u.mutation.CredentialsCleared() {
 		edge := &sqlgraph.EdgeSpec{

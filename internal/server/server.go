@@ -13,8 +13,13 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/operations"
 )
+
+// One pending refetch invalidation is sufficient. A second publication while
+// it remains queued proves the subscriber is not draining and disconnects it.
+const displaySubscriberQueueCapacity = 1
 
 // Config contains the immutable service configuration.
 type Config struct {
@@ -52,6 +57,10 @@ func Run(ctx context.Context, config Config) error {
 	if err != nil {
 		return errors.Join(err, installation.Close())
 	}
+	displayStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
+	if err != nil {
+		return errors.Join(err, listener.Close(), installation.Close())
+	}
 
 	var accepting atomic.Bool
 	accepting.Store(startupErr == nil)
@@ -69,18 +78,36 @@ func Run(ctx context.Context, config Config) error {
 			mux,
 			installation.Authentication(),
 			installation.Events(),
+			displayStream.Notify,
 			config.Logger,
 			listener.Addr(),
 		)
 		registerScheduleRoutes(mux, installation.Schedule(), config.Logger)
 		registerDisplayRoutes(
-			mux, installation.Authentication(), installation.Displays(), config.Logger, listener.Addr(),
+			mux,
+			installation.Authentication(),
+			installation.Displays(),
+			displayStream,
+			config.Logger,
+			listener.Addr(),
 		)
+		if err := registerDisplayConnectRoutes(
+			mux,
+			installation.Displays(),
+			displayStream,
+			listener.Addr(),
+			config.TracerProvider,
+			config.MeterProvider,
+			config.Propagator,
+		); err != nil {
+			return errors.Join(err, listener.Close(), installation.Close())
+		}
 		if err := registerRundownRoutes(
 			mux,
 			installation.Authentication(),
 			installation.RundownCommands(),
 			installation.RundownQueries(),
+			displayStream.Notify,
 			listener.Addr(),
 			config.TracerProvider,
 			config.MeterProvider,
@@ -92,6 +119,7 @@ func Run(ctx context.Context, config Config) error {
 			mux,
 			installation.Authentication(),
 			installation.Activation(),
+			displayStream.Notify,
 			listener.Addr(),
 			config.TracerProvider,
 			config.MeterProvider,
@@ -103,6 +131,7 @@ func Run(ctx context.Context, config Config) error {
 			mux,
 			installation.Authentication(),
 			installation.SessionControl(),
+			displayStream.Notify,
 			listener.Addr(),
 			config.TracerProvider,
 			config.MeterProvider,

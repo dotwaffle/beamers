@@ -21,12 +21,13 @@ func registerSessionControlRoutes(
 	mux *http.ServeMux,
 	authentication *auth.Service,
 	service *sessioncontrol.Service,
+	notifyDisplays func(),
 	listenerAddress net.Addr,
 	tracerProvider trace.TracerProvider,
 	meterProvider metric.MeterProvider,
 	propagator propagation.TextMapPropagator,
 ) error {
-	adapter, err := sessionconnect.NewHandler(service)
+	adapter, err := sessionconnect.NewHandler(service, notifyDisplays)
 	if err != nil {
 		return err
 	}

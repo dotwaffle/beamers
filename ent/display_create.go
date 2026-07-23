@@ -48,6 +48,104 @@ func (_c *DisplayCreate) SetEnrolledAt(v time.Time) *DisplayCreate {
 	return _c
 }
 
+// SetAppliedProtocolVersion sets the "applied_protocol_version" field.
+func (_c *DisplayCreate) SetAppliedProtocolVersion(v string) *DisplayCreate {
+	_c.mutation.SetAppliedProtocolVersion(v)
+	return _c
+}
+
+// SetNillableAppliedProtocolVersion sets the "applied_protocol_version" field if the given value is not nil.
+func (_c *DisplayCreate) SetNillableAppliedProtocolVersion(v *string) *DisplayCreate {
+	if v != nil {
+		_c.SetAppliedProtocolVersion(*v)
+	}
+	return _c
+}
+
+// SetAppliedStreamID sets the "applied_stream_id" field.
+func (_c *DisplayCreate) SetAppliedStreamID(v string) *DisplayCreate {
+	_c.mutation.SetAppliedStreamID(v)
+	return _c
+}
+
+// SetNillableAppliedStreamID sets the "applied_stream_id" field if the given value is not nil.
+func (_c *DisplayCreate) SetNillableAppliedStreamID(v *string) *DisplayCreate {
+	if v != nil {
+		_c.SetAppliedStreamID(*v)
+	}
+	return _c
+}
+
+// SetAppliedStreamPosition sets the "applied_stream_position" field.
+func (_c *DisplayCreate) SetAppliedStreamPosition(v int64) *DisplayCreate {
+	_c.mutation.SetAppliedStreamPosition(v)
+	return _c
+}
+
+// SetNillableAppliedStreamPosition sets the "applied_stream_position" field if the given value is not nil.
+func (_c *DisplayCreate) SetNillableAppliedStreamPosition(v *int64) *DisplayCreate {
+	if v != nil {
+		_c.SetAppliedStreamPosition(*v)
+	}
+	return _c
+}
+
+// SetAppliedActiveEventID sets the "applied_active_event_id" field.
+func (_c *DisplayCreate) SetAppliedActiveEventID(v int) *DisplayCreate {
+	_c.mutation.SetAppliedActiveEventID(v)
+	return _c
+}
+
+// SetNillableAppliedActiveEventID sets the "applied_active_event_id" field if the given value is not nil.
+func (_c *DisplayCreate) SetNillableAppliedActiveEventID(v *int) *DisplayCreate {
+	if v != nil {
+		_c.SetAppliedActiveEventID(*v)
+	}
+	return _c
+}
+
+// SetAppliedActivationGeneration sets the "applied_activation_generation" field.
+func (_c *DisplayCreate) SetAppliedActivationGeneration(v int) *DisplayCreate {
+	_c.mutation.SetAppliedActivationGeneration(v)
+	return _c
+}
+
+// SetNillableAppliedActivationGeneration sets the "applied_activation_generation" field if the given value is not nil.
+func (_c *DisplayCreate) SetNillableAppliedActivationGeneration(v *int) *DisplayCreate {
+	if v != nil {
+		_c.SetAppliedActivationGeneration(*v)
+	}
+	return _c
+}
+
+// SetAppliedPublishedRevision sets the "applied_published_revision" field.
+func (_c *DisplayCreate) SetAppliedPublishedRevision(v int) *DisplayCreate {
+	_c.mutation.SetAppliedPublishedRevision(v)
+	return _c
+}
+
+// SetNillableAppliedPublishedRevision sets the "applied_published_revision" field if the given value is not nil.
+func (_c *DisplayCreate) SetNillableAppliedPublishedRevision(v *int) *DisplayCreate {
+	if v != nil {
+		_c.SetAppliedPublishedRevision(*v)
+	}
+	return _c
+}
+
+// SetAppliedAt sets the "applied_at" field.
+func (_c *DisplayCreate) SetAppliedAt(v time.Time) *DisplayCreate {
+	_c.mutation.SetAppliedAt(v)
+	return _c
+}
+
+// SetNillableAppliedAt sets the "applied_at" field if the given value is not nil.
+func (_c *DisplayCreate) SetNillableAppliedAt(v *time.Time) *DisplayCreate {
+	if v != nil {
+		_c.SetAppliedAt(*v)
+	}
+	return _c
+}
+
 // AddCredentialIDs adds the "credentials" edge to the DisplayCredential entity by IDs.
 func (_c *DisplayCreate) AddCredentialIDs(ids ...int) *DisplayCreate {
 	_c.mutation.AddCredentialIDs(ids...)
@@ -122,6 +220,30 @@ func (_c *DisplayCreate) defaults() error {
 		v := display.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
 	}
+	if _, ok := _c.mutation.AppliedProtocolVersion(); !ok {
+		v := display.DefaultAppliedProtocolVersion
+		_c.mutation.SetAppliedProtocolVersion(v)
+	}
+	if _, ok := _c.mutation.AppliedStreamID(); !ok {
+		v := display.DefaultAppliedStreamID
+		_c.mutation.SetAppliedStreamID(v)
+	}
+	if _, ok := _c.mutation.AppliedStreamPosition(); !ok {
+		v := display.DefaultAppliedStreamPosition
+		_c.mutation.SetAppliedStreamPosition(v)
+	}
+	if _, ok := _c.mutation.AppliedActiveEventID(); !ok {
+		v := display.DefaultAppliedActiveEventID
+		_c.mutation.SetAppliedActiveEventID(v)
+	}
+	if _, ok := _c.mutation.AppliedActivationGeneration(); !ok {
+		v := display.DefaultAppliedActivationGeneration
+		_c.mutation.SetAppliedActivationGeneration(v)
+	}
+	if _, ok := _c.mutation.AppliedPublishedRevision(); !ok {
+		v := display.DefaultAppliedPublishedRevision
+		_c.mutation.SetAppliedPublishedRevision(v)
+	}
 	return nil
 }
 
@@ -140,6 +262,24 @@ func (_c *DisplayCreate) check() error {
 	}
 	if _, ok := _c.mutation.EnrolledAt(); !ok {
 		return &ValidationError{Name: "enrolled_at", err: errors.New(`ent: missing required field "Display.enrolled_at"`)}
+	}
+	if _, ok := _c.mutation.AppliedProtocolVersion(); !ok {
+		return &ValidationError{Name: "applied_protocol_version", err: errors.New(`ent: missing required field "Display.applied_protocol_version"`)}
+	}
+	if _, ok := _c.mutation.AppliedStreamID(); !ok {
+		return &ValidationError{Name: "applied_stream_id", err: errors.New(`ent: missing required field "Display.applied_stream_id"`)}
+	}
+	if _, ok := _c.mutation.AppliedStreamPosition(); !ok {
+		return &ValidationError{Name: "applied_stream_position", err: errors.New(`ent: missing required field "Display.applied_stream_position"`)}
+	}
+	if _, ok := _c.mutation.AppliedActiveEventID(); !ok {
+		return &ValidationError{Name: "applied_active_event_id", err: errors.New(`ent: missing required field "Display.applied_active_event_id"`)}
+	}
+	if _, ok := _c.mutation.AppliedActivationGeneration(); !ok {
+		return &ValidationError{Name: "applied_activation_generation", err: errors.New(`ent: missing required field "Display.applied_activation_generation"`)}
+	}
+	if _, ok := _c.mutation.AppliedPublishedRevision(); !ok {
+		return &ValidationError{Name: "applied_published_revision", err: errors.New(`ent: missing required field "Display.applied_published_revision"`)}
 	}
 	return nil
 }
@@ -178,6 +318,34 @@ func (_c *DisplayCreate) createSpec() (*Display, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.EnrolledAt(); ok {
 		_spec.SetField(display.FieldEnrolledAt, field.TypeTime, value)
 		_node.EnrolledAt = value
+	}
+	if value, ok := _c.mutation.AppliedProtocolVersion(); ok {
+		_spec.SetField(display.FieldAppliedProtocolVersion, field.TypeString, value)
+		_node.AppliedProtocolVersion = value
+	}
+	if value, ok := _c.mutation.AppliedStreamID(); ok {
+		_spec.SetField(display.FieldAppliedStreamID, field.TypeString, value)
+		_node.AppliedStreamID = value
+	}
+	if value, ok := _c.mutation.AppliedStreamPosition(); ok {
+		_spec.SetField(display.FieldAppliedStreamPosition, field.TypeInt64, value)
+		_node.AppliedStreamPosition = value
+	}
+	if value, ok := _c.mutation.AppliedActiveEventID(); ok {
+		_spec.SetField(display.FieldAppliedActiveEventID, field.TypeInt, value)
+		_node.AppliedActiveEventID = value
+	}
+	if value, ok := _c.mutation.AppliedActivationGeneration(); ok {
+		_spec.SetField(display.FieldAppliedActivationGeneration, field.TypeInt, value)
+		_node.AppliedActivationGeneration = value
+	}
+	if value, ok := _c.mutation.AppliedPublishedRevision(); ok {
+		_spec.SetField(display.FieldAppliedPublishedRevision, field.TypeInt, value)
+		_node.AppliedPublishedRevision = value
+	}
+	if value, ok := _c.mutation.AppliedAt(); ok {
+		_spec.SetField(display.FieldAppliedAt, field.TypeTime, value)
+		_node.AppliedAt = &value
 	}
 	if nodes := _c.mutation.CredentialsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

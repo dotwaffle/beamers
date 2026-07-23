@@ -18,6 +18,7 @@ import (
 type connectRouteConfig struct {
 	name                  string
 	authentication        *auth.Service
+	authenticationLayer   connect.Interceptor
 	listenerAddress       net.Addr
 	tracerProvider        trace.TracerProvider
 	meterProvider         metric.MeterProvider
@@ -35,9 +36,13 @@ func registerConnectRoute(mux *http.ServeMux, config connectRouteConfig) error {
 	if config.tracerProvider == nil || config.meterProvider == nil || config.propagator == nil {
 		return errors.New(config.name + " telemetry providers and propagator are required")
 	}
-	authenticationInterceptor, err := connectapi.AuthenticationInterceptor(config.authentication)
-	if err != nil {
-		return err
+	authenticationInterceptor := config.authenticationLayer
+	if authenticationInterceptor == nil {
+		var err error
+		authenticationInterceptor, err = connectapi.AuthenticationInterceptor(config.authentication)
+		if err != nil {
+			return err
+		}
 	}
 	telemetryInterceptor, err := otelconnect.NewInterceptor(
 		otelconnect.WithTracerProvider(config.tracerProvider),

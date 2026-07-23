@@ -385,6 +385,30 @@ func init() {
 	displayDescCreatedAt := displayFields[1].Descriptor()
 	// display.DefaultCreatedAt holds the default value on creation for the created_at field.
 	display.DefaultCreatedAt = displayDescCreatedAt.Default.(func() time.Time)
+	// displayDescAppliedProtocolVersion is the schema descriptor for applied_protocol_version field.
+	displayDescAppliedProtocolVersion := displayFields[3].Descriptor()
+	// display.DefaultAppliedProtocolVersion holds the default value on creation for the applied_protocol_version field.
+	display.DefaultAppliedProtocolVersion = displayDescAppliedProtocolVersion.Default.(string)
+	// displayDescAppliedStreamID is the schema descriptor for applied_stream_id field.
+	displayDescAppliedStreamID := displayFields[4].Descriptor()
+	// display.DefaultAppliedStreamID holds the default value on creation for the applied_stream_id field.
+	display.DefaultAppliedStreamID = displayDescAppliedStreamID.Default.(string)
+	// displayDescAppliedStreamPosition is the schema descriptor for applied_stream_position field.
+	displayDescAppliedStreamPosition := displayFields[5].Descriptor()
+	// display.DefaultAppliedStreamPosition holds the default value on creation for the applied_stream_position field.
+	display.DefaultAppliedStreamPosition = displayDescAppliedStreamPosition.Default.(int64)
+	// displayDescAppliedActiveEventID is the schema descriptor for applied_active_event_id field.
+	displayDescAppliedActiveEventID := displayFields[6].Descriptor()
+	// display.DefaultAppliedActiveEventID holds the default value on creation for the applied_active_event_id field.
+	display.DefaultAppliedActiveEventID = displayDescAppliedActiveEventID.Default.(int)
+	// displayDescAppliedActivationGeneration is the schema descriptor for applied_activation_generation field.
+	displayDescAppliedActivationGeneration := displayFields[7].Descriptor()
+	// display.DefaultAppliedActivationGeneration holds the default value on creation for the applied_activation_generation field.
+	display.DefaultAppliedActivationGeneration = displayDescAppliedActivationGeneration.Default.(int)
+	// displayDescAppliedPublishedRevision is the schema descriptor for applied_published_revision field.
+	displayDescAppliedPublishedRevision := displayFields[8].Descriptor()
+	// display.DefaultAppliedPublishedRevision holds the default value on creation for the applied_published_revision field.
+	display.DefaultAppliedPublishedRevision = displayDescAppliedPublishedRevision.Default.(int)
 	displayassignment.Policy = privacy.NewPolicies(schema.DisplayAssignment{})
 	displayassignment.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

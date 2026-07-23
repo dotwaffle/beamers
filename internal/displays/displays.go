@@ -11,6 +11,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
+	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -28,6 +31,7 @@ const (
 	displayTokenBytes    = 32
 	enrollmentCodeBytes  = 5
 	credentialLifetime   = 10 * 365 * 24 * time.Hour
+	protocolVersion      = "beamers.display.v1"
 )
 
 var (
@@ -41,6 +45,12 @@ var (
 	ErrInvalidDisplay = errors.New("invalid Display details")
 	// ErrDisplayAuthentication means a credential cannot authenticate a Display.
 	ErrDisplayAuthentication = errors.New("Display authentication required")
+	// ErrInvalidAcknowledgment means applied Display state is malformed.
+	ErrInvalidAcknowledgment = errors.New("invalid Display acknowledgment")
+	// ErrAcknowledgmentRegression means applied Display state moved backward.
+	ErrAcknowledgmentRegression = errors.New("Display acknowledgment regressed")
+	// ErrAcknowledgmentConflict means one stream position names different applied state.
+	ErrAcknowledgmentConflict = errors.New("Display acknowledgment conflicts")
 	// ErrDisplayNotFound means Assignment targeted no enrolled Display.
 	ErrDisplayNotFound = errors.New("Display not found")
 	// ErrAssignmentReference means Event, Location, or View routing is invalid.
@@ -86,12 +96,63 @@ type Display struct {
 
 // Snapshot is the current output routing projection for one Display.
 type Snapshot struct {
-	Display       Display
-	ActiveEventID int
-	EventName     string
-	LocationName  string
-	ViewKey       string
-	Standby       bool
+	ProtocolVersion      string
+	ServerTime           time.Time
+	Display              Display
+	ActiveEventID        int
+	EventName            string
+	EventTimezone        string
+	ActivationGeneration int
+	PublishedRevision    int
+	LocationID           int
+	LocationName         string
+	ViewKey              string
+	Standby              bool
+	Sessions             []Session
+}
+
+// AcknowledgmentInput reports the exact state one Display has applied.
+type AcknowledgmentInput struct {
+	ProtocolVersion      string
+	StreamID             string
+	StreamPosition       uint64
+	ActiveEventID        int64
+	ActivationGeneration int64
+	PublishedRevision    int64
+}
+
+// Acknowledgment is the latest durably recorded state one Display applied.
+type Acknowledgment struct {
+	DisplayID            int
+	ProtocolVersion      string
+	StreamID             string
+	StreamPosition       uint64
+	ActiveEventID        int
+	ActivationGeneration int
+	PublishedRevision    int
+	AppliedAt            time.Time
+}
+
+// Session is one Display-safe committed Schedule item.
+type Session struct {
+	ID                   int
+	Title                string
+	Speaker              string
+	PublicDetails        string
+	ForecastStart        time.Time
+	ForecastEnd          time.Time
+	Lifecycle            string
+	LiveStateRevision    int
+	ActualStart          time.Time
+	ActualEnd            *time.Time
+	LocationIDs          []int
+	LaneIDs              []int
+	TrackIDs             []int
+	Unavailable          bool
+	AvailabilityMessage  string
+	DisplayForecastStart string
+	DisplayForecastEnd   string
+	orderAt              time.Time
 }
 
 // ClaimInput confirms one Display Enrollment code.
@@ -148,26 +209,89 @@ func New(storage *store.SQLite, config Config) (*Service, error) {
 	}, nil
 }
 
-// Current authenticates a Display and returns its current Standby projection.
+// Current authenticates a Display and returns its complete authorized Active Event Snapshot.
 func (service *Service) Current(ctx context.Context, credential string) (Snapshot, error) {
 	if !validDisplayToken(credential) {
 		return Snapshot{}, ErrDisplayAuthentication
 	}
-	found, err := service.storage.FindDisplayByCredential(ctx, digest(credential))
+	found, err := service.storage.LoadDisplaySnapshot(ctx, digest(credential))
 	if errors.Is(err, store.ErrDisplayCredential) {
 		return Snapshot{}, ErrDisplayAuthentication
 	}
 	if err != nil {
 		return Snapshot{}, err
 	}
-	status, err := service.storage.LoadDisplayStatus(ctx, found.ID)
-	if err != nil {
-		return Snapshot{}, err
+	now := service.now().UTC()
+	result := Snapshot{
+		ProtocolVersion: protocolVersion, ServerTime: now,
+		Display: display(found.Display), ActiveEventID: found.ActiveEventID,
+		EventName: found.EventName, EventTimezone: found.EventTimezone,
+		ActivationGeneration: found.ActivationGeneration,
+		PublishedRevision:    found.PublishedRevision, LocationID: found.LocationID,
+		LocationName: found.LocationName, ViewKey: found.ViewKey, Standby: found.Standby,
 	}
-	return Snapshot{
-		Display: display(found), ActiveEventID: status.ActiveEventID,
-		EventName: status.EventName, LocationName: status.LocationName,
-		ViewKey: status.ViewKey, Standby: status.Standby,
+	zone := time.UTC
+	if found.EventTimezone != "" {
+		zone, err = time.LoadLocation(found.EventTimezone)
+		if err != nil {
+			return Snapshot{}, errors.Join(errors.New("load Display Event timezone"), err)
+		}
+	}
+	for _, item := range found.Sessions {
+		if selected, ok := displaySession(found, item, now, zone); ok {
+			result.Sessions = append(result.Sessions, selected)
+		}
+	}
+	sort.SliceStable(result.Sessions, func(first, second int) bool {
+		return result.Sessions[first].orderAt.Before(result.Sessions[second].orderAt)
+	})
+	return result, nil
+}
+
+// Acknowledge independently records state already applied by one Display.
+func (service *Service) Acknowledge(
+	ctx context.Context,
+	credential string,
+	input AcknowledgmentInput,
+) (Acknowledgment, error) {
+	if !validDisplayToken(credential) {
+		return Acknowledgment{}, ErrDisplayAuthentication
+	}
+	if input.ProtocolVersion != protocolVersion ||
+		input.StreamID == "" ||
+		len(input.StreamID) > 200 ||
+		input.StreamPosition > math.MaxInt64 ||
+		input.ActiveEventID < 0 || input.ActiveEventID > math.MaxInt ||
+		input.ActivationGeneration < 0 || input.ActivationGeneration > math.MaxInt ||
+		input.PublishedRevision < 0 || input.PublishedRevision > math.MaxInt {
+		return Acknowledgment{}, ErrInvalidAcknowledgment
+	}
+	stored, err := service.storage.RecordDisplayAcknowledgment(ctx, digest(credential), store.DisplayAcknowledgment{
+		ProtocolVersion: input.ProtocolVersion, StreamID: input.StreamID,
+		StreamPosition: int64(input.StreamPosition), ActiveEventID: int(input.ActiveEventID),
+		ActivationGeneration: int(input.ActivationGeneration),
+		PublishedRevision:    int(input.PublishedRevision),
+		AppliedAt:            service.now().UTC(),
+	})
+	switch {
+	case errors.Is(err, store.ErrDisplayCredential):
+		return Acknowledgment{}, ErrDisplayAuthentication
+	case errors.Is(err, store.ErrDisplayAcknowledgmentRegression):
+		return Acknowledgment{}, ErrAcknowledgmentRegression
+	case errors.Is(err, store.ErrDisplayAcknowledgmentConflict):
+		return Acknowledgment{}, ErrAcknowledgmentConflict
+	case err != nil:
+		return Acknowledgment{}, err
+	}
+	if stored.StreamPosition < 0 {
+		return Acknowledgment{}, errors.New("stored Display acknowledgment position is invalid")
+	}
+	return Acknowledgment{
+		DisplayID: stored.DisplayID, ProtocolVersion: stored.ProtocolVersion,
+		StreamID: stored.StreamID, StreamPosition: uint64(stored.StreamPosition),
+		ActiveEventID:        stored.ActiveEventID,
+		ActivationGeneration: stored.ActivationGeneration,
+		PublishedRevision:    stored.PublishedRevision, AppliedAt: stored.AppliedAt,
 	}, nil
 }
 
@@ -398,6 +522,45 @@ func status(found store.DisplayStatus) Status {
 		ID: found.ID, Name: found.Name, ActiveEventID: found.ActiveEventID, Standby: found.Standby,
 		EventName: found.EventName, LocationName: found.LocationName, ViewKey: found.ViewKey,
 	}
+}
+
+func displaySession(
+	snapshot store.DisplaySnapshotState,
+	found store.DisplaySessionState,
+	now time.Time,
+	zone *time.Location,
+) (Session, bool) {
+	if found.Lifecycle == "Ended" || found.Lifecycle != "Live" && !found.ForecastEnd.After(now) {
+		return Session{}, false
+	}
+	if snapshot.ViewKey == displayviews.EventOverview && found.AudienceVisibility != "Public" {
+		return Session{}, false
+	}
+	if snapshot.ViewKey == displayviews.LocationSignage && !containsID(found.LocationIDs, snapshot.LocationID) {
+		return Session{}, false
+	}
+	if found.AudienceVisibility != "Public" {
+		return Session{
+			Unavailable: true,
+			AvailabilityMessage: "Location unavailable until " +
+				found.ForecastEnd.In(zone).Format("Jan 2, 2006 15:04 MST"),
+			orderAt: found.ForecastStart,
+		}, true
+	}
+	return Session{
+		ID: found.ID, Title: found.Title, Speaker: found.Speaker, PublicDetails: found.PublicDetails,
+		ForecastStart: found.ForecastStart, ForecastEnd: found.ForecastEnd,
+		Lifecycle: found.Lifecycle, LiveStateRevision: found.LiveStateRevision,
+		ActualStart: found.ActualStart, ActualEnd: found.ActualEnd,
+		LocationIDs: found.LocationIDs, LaneIDs: found.LaneIDs, TrackIDs: found.TrackIDs,
+		DisplayForecastStart: found.ForecastStart.In(zone).Format("Jan 2, 2006 15:04 MST"),
+		DisplayForecastEnd:   found.ForecastEnd.In(zone).Format("Jan 2, 2006 15:04 MST"),
+		orderAt:              found.ForecastStart,
+	}, true
+}
+
+func containsID(ids []int, selected int) bool {
+	return slices.Contains(ids, selected)
 }
 
 func displayRejection(reason error) command.Execution[Display] {

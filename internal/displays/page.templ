@@ -77,6 +77,7 @@ templ StandbyPage(snapshot Snapshot) {
 				}
 				<p>This Display has no Assignment for the Active Event.</p>
 			</main>
+			@displayClient()
 		</body>
 	</html>
 }
@@ -96,6 +97,78 @@ templ AssignedPage(snapshot Snapshot) {
 				<p>Location: { snapshot.LocationName }</p>
 				<p>View: { snapshot.ViewKey }</p>
 			</main>
+			@displayClient()
 		</body>
 	</html>
+}
+
+templ LocationSignagePage(snapshot Snapshot) {
+	<!doctype html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ snapshot.LocationName } · Location Signage</title>
+		</head>
+		<body>
+			<main>
+				<h1>Location Signage</h1>
+				<p>Location: { snapshot.LocationName }</p>
+				for _, session := range snapshot.Sessions {
+					<article>
+						if session.Unavailable {
+							<p>{ session.AvailabilityMessage }</p>
+						} else {
+							<h2>{ session.Title }</h2>
+							<p>Status: { session.Lifecycle }</p>
+							<p>Forecast Time: <time datetime={ session.ForecastStart.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayForecastStart }</time>–<time datetime={ session.ForecastEnd.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayForecastEnd }</time></p>
+							if session.Speaker != "" {
+								<p>{ session.Speaker }</p>
+							}
+							if session.PublicDetails != "" {
+								<p>{ session.PublicDetails }</p>
+							}
+						}
+					</article>
+				}
+			</main>
+			@displayClient()
+		</body>
+	</html>
+}
+
+templ EventOverviewPage(snapshot Snapshot) {
+	<!doctype html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ snapshot.Display.Name } · Event Overview</title>
+		</head>
+		<body>
+			<main>
+				<h1>Event Overview</h1>
+				<p>Location: { snapshot.LocationName }</p>
+				<p>View: { snapshot.ViewKey }</p>
+				for _, session := range snapshot.Sessions {
+					<article>
+						<h2>{ session.Title }</h2>
+						<p>Status: { session.Lifecycle }</p>
+						<p>Forecast Time: <time datetime={ session.ForecastStart.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayForecastStart }</time>–<time datetime={ session.ForecastEnd.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayForecastEnd }</time></p>
+						if session.Speaker != "" {
+							<p>{ session.Speaker }</p>
+						}
+						if session.PublicDetails != "" {
+							<p>{ session.PublicDetails }</p>
+						}
+					</article>
+				}
+			</main>
+			@displayClient()
+		</body>
+	</html>
+}
+
+templ displayClient() {
+	<script src="/display/client.js" defer></script>
 }

@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package beamers.display.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/dotwaffle/beamers/gen/beamers/display/v1;displayv1";
+
+service DisplayService {
+  rpc GetSnapshot(GetSnapshotRequest) returns (GetSnapshotResponse);
+  rpc Acknowledge(AcknowledgeRequest) returns (AcknowledgeResponse);
+}
+
+message GetSnapshotRequest {}
+
+message GetSnapshotResponse {
+  DisplaySnapshot snapshot = 1;
+}
+
+message DisplaySnapshot {
+  string protocol_version = 1;
+  google.protobuf.Timestamp server_time = 2;
+  int64 display_id = 3;
+  string display_name = 4;
+  int64 active_event_id = 5;
+  string event_name = 6;
+  int64 activation_generation = 7;
+  int64 published_revision = 8;
+  int64 location_id = 9;
+  string location_name = 10;
+  string view_key = 11;
+  bool standby = 12;
+  repeated DisplaySession sessions = 13;
+  string stream_id = 14;
+  optional uint64 stream_position = 15;
+  string event_timezone = 16;
+  string snapshot_token = 17;
+}
+
+message DisplaySession {
+  int64 id = 1;
+  string title = 2;
+  string speaker = 3;
+  string public_details = 4;
+  google.protobuf.Timestamp forecast_start = 5;
+  google.protobuf.Timestamp forecast_end = 6;
+  string lifecycle = 7;
+  int64 live_state_revision = 8;
+  google.protobuf.Timestamp actual_start = 9;
+  google.protobuf.Timestamp actual_end = 10;
+  repeated int64 location_ids = 11;
+  repeated int64 lane_ids = 12;
+  repeated int64 track_ids = 13;
+  bool unavailable = 14;
+  string availability_message = 15;
+}
+
+message AcknowledgeRequest {
+  string protocol_version = 1;
+  string stream_id = 2;
+  uint64 stream_position = 3;
+  int64 active_event_id = 4;
+  int64 activation_generation = 5;
+  int64 published_revision = 6;
+  string snapshot_token = 7;
+}
+
+message AcknowledgeResponse {
+  DisplayAcknowledgment acknowledgment = 1;
+}
+
+message DisplayAcknowledgment {
+  int64 display_id = 1;
+  string protocol_version = 2;
+  string stream_id = 3;
+  uint64 stream_position = 4;
+  int64 active_event_id = 5;
+  int64 activation_generation = 6;
+  int64 published_revision = 7;
+  google.protobuf.Timestamp applied_at = 8;
+}

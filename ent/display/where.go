@@ -70,6 +70,41 @@ func EnrolledAt(v time.Time) predicate.Display {
 	return predicate.Display(sql.FieldEQ(FieldEnrolledAt, v))
 }
 
+// AppliedProtocolVersion applies equality check predicate on the "applied_protocol_version" field. It's identical to AppliedProtocolVersionEQ.
+func AppliedProtocolVersion(v string) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedProtocolVersion, v))
+}
+
+// AppliedStreamID applies equality check predicate on the "applied_stream_id" field. It's identical to AppliedStreamIDEQ.
+func AppliedStreamID(v string) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedStreamID, v))
+}
+
+// AppliedStreamPosition applies equality check predicate on the "applied_stream_position" field. It's identical to AppliedStreamPositionEQ.
+func AppliedStreamPosition(v int64) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedStreamPosition, v))
+}
+
+// AppliedActiveEventID applies equality check predicate on the "applied_active_event_id" field. It's identical to AppliedActiveEventIDEQ.
+func AppliedActiveEventID(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedActiveEventID, v))
+}
+
+// AppliedActivationGeneration applies equality check predicate on the "applied_activation_generation" field. It's identical to AppliedActivationGenerationEQ.
+func AppliedActivationGeneration(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedActivationGeneration, v))
+}
+
+// AppliedPublishedRevision applies equality check predicate on the "applied_published_revision" field. It's identical to AppliedPublishedRevisionEQ.
+func AppliedPublishedRevision(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedPublishedRevision, v))
+}
+
+// AppliedAt applies equality check predicate on the "applied_at" field. It's identical to AppliedAtEQ.
+func AppliedAt(v time.Time) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedAt, v))
+}
+
 // NameEQ applies the EQ predicate on the "name" field.
 func NameEQ(v string) predicate.Display {
 	return predicate.Display(sql.FieldEQ(FieldName, v))
@@ -213,6 +248,346 @@ func EnrolledAtLT(v time.Time) predicate.Display {
 // EnrolledAtLTE applies the LTE predicate on the "enrolled_at" field.
 func EnrolledAtLTE(v time.Time) predicate.Display {
 	return predicate.Display(sql.FieldLTE(FieldEnrolledAt, v))
+}
+
+// AppliedProtocolVersionEQ applies the EQ predicate on the "applied_protocol_version" field.
+func AppliedProtocolVersionEQ(v string) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedProtocolVersion, v))
+}
+
+// AppliedProtocolVersionNEQ applies the NEQ predicate on the "applied_protocol_version" field.
+func AppliedProtocolVersionNEQ(v string) predicate.Display {
+	return predicate.Display(sql.FieldNEQ(FieldAppliedProtocolVersion, v))
+}
+
+// AppliedProtocolVersionIn applies the In predicate on the "applied_protocol_version" field.
+func AppliedProtocolVersionIn(vs ...string) predicate.Display {
+	return predicate.Display(sql.FieldIn(FieldAppliedProtocolVersion, vs...))
+}
+
+// AppliedProtocolVersionNotIn applies the NotIn predicate on the "applied_protocol_version" field.
+func AppliedProtocolVersionNotIn(vs ...string) predicate.Display {
+	return predicate.Display(sql.FieldNotIn(FieldAppliedProtocolVersion, vs...))
+}
+
+// AppliedProtocolVersionGT applies the GT predicate on the "applied_protocol_version" field.
+func AppliedProtocolVersionGT(v string) predicate.Display {
+	return predicate.Display(sql.FieldGT(FieldAppliedProtocolVersion, v))
+}
+
+// AppliedProtocolVersionGTE applies the GTE predicate on the "applied_protocol_version" field.
+func AppliedProtocolVersionGTE(v string) predicate.Display {
+	return predicate.Display(sql.FieldGTE(FieldAppliedProtocolVersion, v))
+}
+
+// AppliedProtocolVersionLT applies the LT predicate on the "applied_protocol_version" field.
+func AppliedProtocolVersionLT(v string) predicate.Display {
+	return predicate.Display(sql.FieldLT(FieldAppliedProtocolVersion, v))
+}
+
+// AppliedProtocolVersionLTE applies the LTE predicate on the "applied_protocol_version" field.
+func AppliedProtocolVersionLTE(v string) predicate.Display {
+	return predicate.Display(sql.FieldLTE(FieldAppliedProtocolVersion, v))
+}
+
+// AppliedProtocolVersionContains applies the Contains predicate on the "applied_protocol_version" field.
+func AppliedProtocolVersionContains(v string) predicate.Display {
+	return predicate.Display(sql.FieldContains(FieldAppliedProtocolVersion, v))
+}
+
+// AppliedProtocolVersionHasPrefix applies the HasPrefix predicate on the "applied_protocol_version" field.
+func AppliedProtocolVersionHasPrefix(v string) predicate.Display {
+	return predicate.Display(sql.FieldHasPrefix(FieldAppliedProtocolVersion, v))
+}
+
+// AppliedProtocolVersionHasSuffix applies the HasSuffix predicate on the "applied_protocol_version" field.
+func AppliedProtocolVersionHasSuffix(v string) predicate.Display {
+	return predicate.Display(sql.FieldHasSuffix(FieldAppliedProtocolVersion, v))
+}
+
+// AppliedProtocolVersionEqualFold applies the EqualFold predicate on the "applied_protocol_version" field.
+func AppliedProtocolVersionEqualFold(v string) predicate.Display {
+	return predicate.Display(sql.FieldEqualFold(FieldAppliedProtocolVersion, v))
+}
+
+// AppliedProtocolVersionContainsFold applies the ContainsFold predicate on the "applied_protocol_version" field.
+func AppliedProtocolVersionContainsFold(v string) predicate.Display {
+	return predicate.Display(sql.FieldContainsFold(FieldAppliedProtocolVersion, v))
+}
+
+// AppliedStreamIDEQ applies the EQ predicate on the "applied_stream_id" field.
+func AppliedStreamIDEQ(v string) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedStreamID, v))
+}
+
+// AppliedStreamIDNEQ applies the NEQ predicate on the "applied_stream_id" field.
+func AppliedStreamIDNEQ(v string) predicate.Display {
+	return predicate.Display(sql.FieldNEQ(FieldAppliedStreamID, v))
+}
+
+// AppliedStreamIDIn applies the In predicate on the "applied_stream_id" field.
+func AppliedStreamIDIn(vs ...string) predicate.Display {
+	return predicate.Display(sql.FieldIn(FieldAppliedStreamID, vs...))
+}
+
+// AppliedStreamIDNotIn applies the NotIn predicate on the "applied_stream_id" field.
+func AppliedStreamIDNotIn(vs ...string) predicate.Display {
+	return predicate.Display(sql.FieldNotIn(FieldAppliedStreamID, vs...))
+}
+
+// AppliedStreamIDGT applies the GT predicate on the "applied_stream_id" field.
+func AppliedStreamIDGT(v string) predicate.Display {
+	return predicate.Display(sql.FieldGT(FieldAppliedStreamID, v))
+}
+
+// AppliedStreamIDGTE applies the GTE predicate on the "applied_stream_id" field.
+func AppliedStreamIDGTE(v string) predicate.Display {
+	return predicate.Display(sql.FieldGTE(FieldAppliedStreamID, v))
+}
+
+// AppliedStreamIDLT applies the LT predicate on the "applied_stream_id" field.
+func AppliedStreamIDLT(v string) predicate.Display {
+	return predicate.Display(sql.FieldLT(FieldAppliedStreamID, v))
+}
+
+// AppliedStreamIDLTE applies the LTE predicate on the "applied_stream_id" field.
+func AppliedStreamIDLTE(v string) predicate.Display {
+	return predicate.Display(sql.FieldLTE(FieldAppliedStreamID, v))
+}
+
+// AppliedStreamIDContains applies the Contains predicate on the "applied_stream_id" field.
+func AppliedStreamIDContains(v string) predicate.Display {
+	return predicate.Display(sql.FieldContains(FieldAppliedStreamID, v))
+}
+
+// AppliedStreamIDHasPrefix applies the HasPrefix predicate on the "applied_stream_id" field.
+func AppliedStreamIDHasPrefix(v string) predicate.Display {
+	return predicate.Display(sql.FieldHasPrefix(FieldAppliedStreamID, v))
+}
+
+// AppliedStreamIDHasSuffix applies the HasSuffix predicate on the "applied_stream_id" field.
+func AppliedStreamIDHasSuffix(v string) predicate.Display {
+	return predicate.Display(sql.FieldHasSuffix(FieldAppliedStreamID, v))
+}
+
+// AppliedStreamIDEqualFold applies the EqualFold predicate on the "applied_stream_id" field.
+func AppliedStreamIDEqualFold(v string) predicate.Display {
+	return predicate.Display(sql.FieldEqualFold(FieldAppliedStreamID, v))
+}
+
+// AppliedStreamIDContainsFold applies the ContainsFold predicate on the "applied_stream_id" field.
+func AppliedStreamIDContainsFold(v string) predicate.Display {
+	return predicate.Display(sql.FieldContainsFold(FieldAppliedStreamID, v))
+}
+
+// AppliedStreamPositionEQ applies the EQ predicate on the "applied_stream_position" field.
+func AppliedStreamPositionEQ(v int64) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedStreamPosition, v))
+}
+
+// AppliedStreamPositionNEQ applies the NEQ predicate on the "applied_stream_position" field.
+func AppliedStreamPositionNEQ(v int64) predicate.Display {
+	return predicate.Display(sql.FieldNEQ(FieldAppliedStreamPosition, v))
+}
+
+// AppliedStreamPositionIn applies the In predicate on the "applied_stream_position" field.
+func AppliedStreamPositionIn(vs ...int64) predicate.Display {
+	return predicate.Display(sql.FieldIn(FieldAppliedStreamPosition, vs...))
+}
+
+// AppliedStreamPositionNotIn applies the NotIn predicate on the "applied_stream_position" field.
+func AppliedStreamPositionNotIn(vs ...int64) predicate.Display {
+	return predicate.Display(sql.FieldNotIn(FieldAppliedStreamPosition, vs...))
+}
+
+// AppliedStreamPositionGT applies the GT predicate on the "applied_stream_position" field.
+func AppliedStreamPositionGT(v int64) predicate.Display {
+	return predicate.Display(sql.FieldGT(FieldAppliedStreamPosition, v))
+}
+
+// AppliedStreamPositionGTE applies the GTE predicate on the "applied_stream_position" field.
+func AppliedStreamPositionGTE(v int64) predicate.Display {
+	return predicate.Display(sql.FieldGTE(FieldAppliedStreamPosition, v))
+}
+
+// AppliedStreamPositionLT applies the LT predicate on the "applied_stream_position" field.
+func AppliedStreamPositionLT(v int64) predicate.Display {
+	return predicate.Display(sql.FieldLT(FieldAppliedStreamPosition, v))
+}
+
+// AppliedStreamPositionLTE applies the LTE predicate on the "applied_stream_position" field.
+func AppliedStreamPositionLTE(v int64) predicate.Display {
+	return predicate.Display(sql.FieldLTE(FieldAppliedStreamPosition, v))
+}
+
+// AppliedActiveEventIDEQ applies the EQ predicate on the "applied_active_event_id" field.
+func AppliedActiveEventIDEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedActiveEventID, v))
+}
+
+// AppliedActiveEventIDNEQ applies the NEQ predicate on the "applied_active_event_id" field.
+func AppliedActiveEventIDNEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldNEQ(FieldAppliedActiveEventID, v))
+}
+
+// AppliedActiveEventIDIn applies the In predicate on the "applied_active_event_id" field.
+func AppliedActiveEventIDIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldIn(FieldAppliedActiveEventID, vs...))
+}
+
+// AppliedActiveEventIDNotIn applies the NotIn predicate on the "applied_active_event_id" field.
+func AppliedActiveEventIDNotIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldNotIn(FieldAppliedActiveEventID, vs...))
+}
+
+// AppliedActiveEventIDGT applies the GT predicate on the "applied_active_event_id" field.
+func AppliedActiveEventIDGT(v int) predicate.Display {
+	return predicate.Display(sql.FieldGT(FieldAppliedActiveEventID, v))
+}
+
+// AppliedActiveEventIDGTE applies the GTE predicate on the "applied_active_event_id" field.
+func AppliedActiveEventIDGTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldGTE(FieldAppliedActiveEventID, v))
+}
+
+// AppliedActiveEventIDLT applies the LT predicate on the "applied_active_event_id" field.
+func AppliedActiveEventIDLT(v int) predicate.Display {
+	return predicate.Display(sql.FieldLT(FieldAppliedActiveEventID, v))
+}
+
+// AppliedActiveEventIDLTE applies the LTE predicate on the "applied_active_event_id" field.
+func AppliedActiveEventIDLTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldLTE(FieldAppliedActiveEventID, v))
+}
+
+// AppliedActivationGenerationEQ applies the EQ predicate on the "applied_activation_generation" field.
+func AppliedActivationGenerationEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedActivationGeneration, v))
+}
+
+// AppliedActivationGenerationNEQ applies the NEQ predicate on the "applied_activation_generation" field.
+func AppliedActivationGenerationNEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldNEQ(FieldAppliedActivationGeneration, v))
+}
+
+// AppliedActivationGenerationIn applies the In predicate on the "applied_activation_generation" field.
+func AppliedActivationGenerationIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldIn(FieldAppliedActivationGeneration, vs...))
+}
+
+// AppliedActivationGenerationNotIn applies the NotIn predicate on the "applied_activation_generation" field.
+func AppliedActivationGenerationNotIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldNotIn(FieldAppliedActivationGeneration, vs...))
+}
+
+// AppliedActivationGenerationGT applies the GT predicate on the "applied_activation_generation" field.
+func AppliedActivationGenerationGT(v int) predicate.Display {
+	return predicate.Display(sql.FieldGT(FieldAppliedActivationGeneration, v))
+}
+
+// AppliedActivationGenerationGTE applies the GTE predicate on the "applied_activation_generation" field.
+func AppliedActivationGenerationGTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldGTE(FieldAppliedActivationGeneration, v))
+}
+
+// AppliedActivationGenerationLT applies the LT predicate on the "applied_activation_generation" field.
+func AppliedActivationGenerationLT(v int) predicate.Display {
+	return predicate.Display(sql.FieldLT(FieldAppliedActivationGeneration, v))
+}
+
+// AppliedActivationGenerationLTE applies the LTE predicate on the "applied_activation_generation" field.
+func AppliedActivationGenerationLTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldLTE(FieldAppliedActivationGeneration, v))
+}
+
+// AppliedPublishedRevisionEQ applies the EQ predicate on the "applied_published_revision" field.
+func AppliedPublishedRevisionEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedPublishedRevision, v))
+}
+
+// AppliedPublishedRevisionNEQ applies the NEQ predicate on the "applied_published_revision" field.
+func AppliedPublishedRevisionNEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldNEQ(FieldAppliedPublishedRevision, v))
+}
+
+// AppliedPublishedRevisionIn applies the In predicate on the "applied_published_revision" field.
+func AppliedPublishedRevisionIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldIn(FieldAppliedPublishedRevision, vs...))
+}
+
+// AppliedPublishedRevisionNotIn applies the NotIn predicate on the "applied_published_revision" field.
+func AppliedPublishedRevisionNotIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldNotIn(FieldAppliedPublishedRevision, vs...))
+}
+
+// AppliedPublishedRevisionGT applies the GT predicate on the "applied_published_revision" field.
+func AppliedPublishedRevisionGT(v int) predicate.Display {
+	return predicate.Display(sql.FieldGT(FieldAppliedPublishedRevision, v))
+}
+
+// AppliedPublishedRevisionGTE applies the GTE predicate on the "applied_published_revision" field.
+func AppliedPublishedRevisionGTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldGTE(FieldAppliedPublishedRevision, v))
+}
+
+// AppliedPublishedRevisionLT applies the LT predicate on the "applied_published_revision" field.
+func AppliedPublishedRevisionLT(v int) predicate.Display {
+	return predicate.Display(sql.FieldLT(FieldAppliedPublishedRevision, v))
+}
+
+// AppliedPublishedRevisionLTE applies the LTE predicate on the "applied_published_revision" field.
+func AppliedPublishedRevisionLTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldLTE(FieldAppliedPublishedRevision, v))
+}
+
+// AppliedAtEQ applies the EQ predicate on the "applied_at" field.
+func AppliedAtEQ(v time.Time) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedAt, v))
+}
+
+// AppliedAtNEQ applies the NEQ predicate on the "applied_at" field.
+func AppliedAtNEQ(v time.Time) predicate.Display {
+	return predicate.Display(sql.FieldNEQ(FieldAppliedAt, v))
+}
+
+// AppliedAtIn applies the In predicate on the "applied_at" field.
+func AppliedAtIn(vs ...time.Time) predicate.Display {
+	return predicate.Display(sql.FieldIn(FieldAppliedAt, vs...))
+}
+
+// AppliedAtNotIn applies the NotIn predicate on the "applied_at" field.
+func AppliedAtNotIn(vs ...time.Time) predicate.Display {
+	return predicate.Display(sql.FieldNotIn(FieldAppliedAt, vs...))
+}
+
+// AppliedAtGT applies the GT predicate on the "applied_at" field.
+func AppliedAtGT(v time.Time) predicate.Display {
+	return predicate.Display(sql.FieldGT(FieldAppliedAt, v))
+}
+
+// AppliedAtGTE applies the GTE predicate on the "applied_at" field.
+func AppliedAtGTE(v time.Time) predicate.Display {
+	return predicate.Display(sql.FieldGTE(FieldAppliedAt, v))
+}
+
+// AppliedAtLT applies the LT predicate on the "applied_at" field.
+func AppliedAtLT(v time.Time) predicate.Display {
+	return predicate.Display(sql.FieldLT(FieldAppliedAt, v))
+}
+
+// AppliedAtLTE applies the LTE predicate on the "applied_at" field.
+func AppliedAtLTE(v time.Time) predicate.Display {
+	return predicate.Display(sql.FieldLTE(FieldAppliedAt, v))
+}
+
+// AppliedAtIsNil applies the IsNil predicate on the "applied_at" field.
+func AppliedAtIsNil() predicate.Display {
+	return predicate.Display(sql.FieldIsNull(FieldAppliedAt))
+}
+
+// AppliedAtNotNil applies the NotNil predicate on the "applied_at" field.
+func AppliedAtNotNil() predicate.Display {
+	return predicate.Display(sql.FieldNotNull(FieldAppliedAt))
 }
 
 // HasCredentials applies the HasEdge predicate on the "credentials" edge.

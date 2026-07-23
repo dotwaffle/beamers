@@ -3862,22 +3862,33 @@ func (m *CommandReceiptMutation) ResetEdge(name string) error {
 // DisplayMutation represents an operation that mutates the Display nodes in the graph.
 type DisplayMutation struct {
 	config
-	op                 Op
-	typ                string
-	id                 *int
-	name               *string
-	created_at         *time.Time
-	enrolled_at        *time.Time
-	clearedFields      map[string]struct{}
-	credentials        map[int]struct{}
-	removedcredentials map[int]struct{}
-	clearedcredentials bool
-	assignments        map[int]struct{}
-	removedassignments map[int]struct{}
-	clearedassignments bool
-	done               bool
-	oldValue           func(context.Context) (*Display, error)
-	predicates         []predicate.Display
+	op                               Op
+	typ                              string
+	id                               *int
+	name                             *string
+	created_at                       *time.Time
+	enrolled_at                      *time.Time
+	applied_protocol_version         *string
+	applied_stream_id                *string
+	applied_stream_position          *int64
+	addapplied_stream_position       *int64
+	applied_active_event_id          *int
+	addapplied_active_event_id       *int
+	applied_activation_generation    *int
+	addapplied_activation_generation *int
+	applied_published_revision       *int
+	addapplied_published_revision    *int
+	applied_at                       *time.Time
+	clearedFields                    map[string]struct{}
+	credentials                      map[int]struct{}
+	removedcredentials               map[int]struct{}
+	clearedcredentials               bool
+	assignments                      map[int]struct{}
+	removedassignments               map[int]struct{}
+	clearedassignments               bool
+	done                             bool
+	oldValue                         func(context.Context) (*Display, error)
+	predicates                       []predicate.Display
 }
 
 var _ ent.Mutation = (*DisplayMutation)(nil)
@@ -4086,6 +4097,351 @@ func (m *DisplayMutation) ResetEnrolledAt() {
 	m.enrolled_at = nil
 }
 
+// SetAppliedProtocolVersion sets the "applied_protocol_version" field.
+func (m *DisplayMutation) SetAppliedProtocolVersion(s string) {
+	m.applied_protocol_version = &s
+}
+
+// AppliedProtocolVersion returns the value of the "applied_protocol_version" field in the mutation.
+func (m *DisplayMutation) AppliedProtocolVersion() (r string, exists bool) {
+	v := m.applied_protocol_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAppliedProtocolVersion returns the old "applied_protocol_version" field's value of the Display entity.
+// If the Display object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayMutation) OldAppliedProtocolVersion(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAppliedProtocolVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAppliedProtocolVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAppliedProtocolVersion: %w", err)
+	}
+	return oldValue.AppliedProtocolVersion, nil
+}
+
+// ResetAppliedProtocolVersion resets all changes to the "applied_protocol_version" field.
+func (m *DisplayMutation) ResetAppliedProtocolVersion() {
+	m.applied_protocol_version = nil
+}
+
+// SetAppliedStreamID sets the "applied_stream_id" field.
+func (m *DisplayMutation) SetAppliedStreamID(s string) {
+	m.applied_stream_id = &s
+}
+
+// AppliedStreamID returns the value of the "applied_stream_id" field in the mutation.
+func (m *DisplayMutation) AppliedStreamID() (r string, exists bool) {
+	v := m.applied_stream_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAppliedStreamID returns the old "applied_stream_id" field's value of the Display entity.
+// If the Display object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayMutation) OldAppliedStreamID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAppliedStreamID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAppliedStreamID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAppliedStreamID: %w", err)
+	}
+	return oldValue.AppliedStreamID, nil
+}
+
+// ResetAppliedStreamID resets all changes to the "applied_stream_id" field.
+func (m *DisplayMutation) ResetAppliedStreamID() {
+	m.applied_stream_id = nil
+}
+
+// SetAppliedStreamPosition sets the "applied_stream_position" field.
+func (m *DisplayMutation) SetAppliedStreamPosition(i int64) {
+	m.applied_stream_position = &i
+	m.addapplied_stream_position = nil
+}
+
+// AppliedStreamPosition returns the value of the "applied_stream_position" field in the mutation.
+func (m *DisplayMutation) AppliedStreamPosition() (r int64, exists bool) {
+	v := m.applied_stream_position
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAppliedStreamPosition returns the old "applied_stream_position" field's value of the Display entity.
+// If the Display object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayMutation) OldAppliedStreamPosition(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAppliedStreamPosition is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAppliedStreamPosition requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAppliedStreamPosition: %w", err)
+	}
+	return oldValue.AppliedStreamPosition, nil
+}
+
+// AddAppliedStreamPosition adds i to the "applied_stream_position" field.
+func (m *DisplayMutation) AddAppliedStreamPosition(i int64) {
+	if m.addapplied_stream_position != nil {
+		*m.addapplied_stream_position += i
+	} else {
+		m.addapplied_stream_position = &i
+	}
+}
+
+// AddedAppliedStreamPosition returns the value that was added to the "applied_stream_position" field in this mutation.
+func (m *DisplayMutation) AddedAppliedStreamPosition() (r int64, exists bool) {
+	v := m.addapplied_stream_position
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAppliedStreamPosition resets all changes to the "applied_stream_position" field.
+func (m *DisplayMutation) ResetAppliedStreamPosition() {
+	m.applied_stream_position = nil
+	m.addapplied_stream_position = nil
+}
+
+// SetAppliedActiveEventID sets the "applied_active_event_id" field.
+func (m *DisplayMutation) SetAppliedActiveEventID(i int) {
+	m.applied_active_event_id = &i
+	m.addapplied_active_event_id = nil
+}
+
+// AppliedActiveEventID returns the value of the "applied_active_event_id" field in the mutation.
+func (m *DisplayMutation) AppliedActiveEventID() (r int, exists bool) {
+	v := m.applied_active_event_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAppliedActiveEventID returns the old "applied_active_event_id" field's value of the Display entity.
+// If the Display object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayMutation) OldAppliedActiveEventID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAppliedActiveEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAppliedActiveEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAppliedActiveEventID: %w", err)
+	}
+	return oldValue.AppliedActiveEventID, nil
+}
+
+// AddAppliedActiveEventID adds i to the "applied_active_event_id" field.
+func (m *DisplayMutation) AddAppliedActiveEventID(i int) {
+	if m.addapplied_active_event_id != nil {
+		*m.addapplied_active_event_id += i
+	} else {
+		m.addapplied_active_event_id = &i
+	}
+}
+
+// AddedAppliedActiveEventID returns the value that was added to the "applied_active_event_id" field in this mutation.
+func (m *DisplayMutation) AddedAppliedActiveEventID() (r int, exists bool) {
+	v := m.addapplied_active_event_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAppliedActiveEventID resets all changes to the "applied_active_event_id" field.
+func (m *DisplayMutation) ResetAppliedActiveEventID() {
+	m.applied_active_event_id = nil
+	m.addapplied_active_event_id = nil
+}
+
+// SetAppliedActivationGeneration sets the "applied_activation_generation" field.
+func (m *DisplayMutation) SetAppliedActivationGeneration(i int) {
+	m.applied_activation_generation = &i
+	m.addapplied_activation_generation = nil
+}
+
+// AppliedActivationGeneration returns the value of the "applied_activation_generation" field in the mutation.
+func (m *DisplayMutation) AppliedActivationGeneration() (r int, exists bool) {
+	v := m.applied_activation_generation
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAppliedActivationGeneration returns the old "applied_activation_generation" field's value of the Display entity.
+// If the Display object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayMutation) OldAppliedActivationGeneration(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAppliedActivationGeneration is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAppliedActivationGeneration requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAppliedActivationGeneration: %w", err)
+	}
+	return oldValue.AppliedActivationGeneration, nil
+}
+
+// AddAppliedActivationGeneration adds i to the "applied_activation_generation" field.
+func (m *DisplayMutation) AddAppliedActivationGeneration(i int) {
+	if m.addapplied_activation_generation != nil {
+		*m.addapplied_activation_generation += i
+	} else {
+		m.addapplied_activation_generation = &i
+	}
+}
+
+// AddedAppliedActivationGeneration returns the value that was added to the "applied_activation_generation" field in this mutation.
+func (m *DisplayMutation) AddedAppliedActivationGeneration() (r int, exists bool) {
+	v := m.addapplied_activation_generation
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAppliedActivationGeneration resets all changes to the "applied_activation_generation" field.
+func (m *DisplayMutation) ResetAppliedActivationGeneration() {
+	m.applied_activation_generation = nil
+	m.addapplied_activation_generation = nil
+}
+
+// SetAppliedPublishedRevision sets the "applied_published_revision" field.
+func (m *DisplayMutation) SetAppliedPublishedRevision(i int) {
+	m.applied_published_revision = &i
+	m.addapplied_published_revision = nil
+}
+
+// AppliedPublishedRevision returns the value of the "applied_published_revision" field in the mutation.
+func (m *DisplayMutation) AppliedPublishedRevision() (r int, exists bool) {
+	v := m.applied_published_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAppliedPublishedRevision returns the old "applied_published_revision" field's value of the Display entity.
+// If the Display object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayMutation) OldAppliedPublishedRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAppliedPublishedRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAppliedPublishedRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAppliedPublishedRevision: %w", err)
+	}
+	return oldValue.AppliedPublishedRevision, nil
+}
+
+// AddAppliedPublishedRevision adds i to the "applied_published_revision" field.
+func (m *DisplayMutation) AddAppliedPublishedRevision(i int) {
+	if m.addapplied_published_revision != nil {
+		*m.addapplied_published_revision += i
+	} else {
+		m.addapplied_published_revision = &i
+	}
+}
+
+// AddedAppliedPublishedRevision returns the value that was added to the "applied_published_revision" field in this mutation.
+func (m *DisplayMutation) AddedAppliedPublishedRevision() (r int, exists bool) {
+	v := m.addapplied_published_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAppliedPublishedRevision resets all changes to the "applied_published_revision" field.
+func (m *DisplayMutation) ResetAppliedPublishedRevision() {
+	m.applied_published_revision = nil
+	m.addapplied_published_revision = nil
+}
+
+// SetAppliedAt sets the "applied_at" field.
+func (m *DisplayMutation) SetAppliedAt(t time.Time) {
+	m.applied_at = &t
+}
+
+// AppliedAt returns the value of the "applied_at" field in the mutation.
+func (m *DisplayMutation) AppliedAt() (r time.Time, exists bool) {
+	v := m.applied_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAppliedAt returns the old "applied_at" field's value of the Display entity.
+// If the Display object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayMutation) OldAppliedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAppliedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAppliedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAppliedAt: %w", err)
+	}
+	return oldValue.AppliedAt, nil
+}
+
+// ClearAppliedAt clears the value of the "applied_at" field.
+func (m *DisplayMutation) ClearAppliedAt() {
+	m.applied_at = nil
+	m.clearedFields[display.FieldAppliedAt] = struct{}{}
+}
+
+// AppliedAtCleared returns if the "applied_at" field was cleared in this mutation.
+func (m *DisplayMutation) AppliedAtCleared() bool {
+	_, ok := m.clearedFields[display.FieldAppliedAt]
+	return ok
+}
+
+// ResetAppliedAt resets all changes to the "applied_at" field.
+func (m *DisplayMutation) ResetAppliedAt() {
+	m.applied_at = nil
+	delete(m.clearedFields, display.FieldAppliedAt)
+}
+
 // AddCredentialIDs adds the "credentials" edge to the DisplayCredential entity by ids.
 func (m *DisplayMutation) AddCredentialIDs(ids ...int) {
 	if m.credentials == nil {
@@ -4228,7 +4584,7 @@ func (m *DisplayMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DisplayMutation) Fields() []string {
-	fields := make([]string, 0, 3)
+	fields := make([]string, 0, 10)
 	if m.name != nil {
 		fields = append(fields, display.FieldName)
 	}
@@ -4237,6 +4593,27 @@ func (m *DisplayMutation) Fields() []string {
 	}
 	if m.enrolled_at != nil {
 		fields = append(fields, display.FieldEnrolledAt)
+	}
+	if m.applied_protocol_version != nil {
+		fields = append(fields, display.FieldAppliedProtocolVersion)
+	}
+	if m.applied_stream_id != nil {
+		fields = append(fields, display.FieldAppliedStreamID)
+	}
+	if m.applied_stream_position != nil {
+		fields = append(fields, display.FieldAppliedStreamPosition)
+	}
+	if m.applied_active_event_id != nil {
+		fields = append(fields, display.FieldAppliedActiveEventID)
+	}
+	if m.applied_activation_generation != nil {
+		fields = append(fields, display.FieldAppliedActivationGeneration)
+	}
+	if m.applied_published_revision != nil {
+		fields = append(fields, display.FieldAppliedPublishedRevision)
+	}
+	if m.applied_at != nil {
+		fields = append(fields, display.FieldAppliedAt)
 	}
 	return fields
 }
@@ -4252,6 +4629,20 @@ func (m *DisplayMutation) Field(name string) (ent.Value, bool) {
 		return m.CreatedAt()
 	case display.FieldEnrolledAt:
 		return m.EnrolledAt()
+	case display.FieldAppliedProtocolVersion:
+		return m.AppliedProtocolVersion()
+	case display.FieldAppliedStreamID:
+		return m.AppliedStreamID()
+	case display.FieldAppliedStreamPosition:
+		return m.AppliedStreamPosition()
+	case display.FieldAppliedActiveEventID:
+		return m.AppliedActiveEventID()
+	case display.FieldAppliedActivationGeneration:
+		return m.AppliedActivationGeneration()
+	case display.FieldAppliedPublishedRevision:
+		return m.AppliedPublishedRevision()
+	case display.FieldAppliedAt:
+		return m.AppliedAt()
 	}
 	return nil, false
 }
@@ -4267,6 +4658,20 @@ func (m *DisplayMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldCreatedAt(ctx)
 	case display.FieldEnrolledAt:
 		return m.OldEnrolledAt(ctx)
+	case display.FieldAppliedProtocolVersion:
+		return m.OldAppliedProtocolVersion(ctx)
+	case display.FieldAppliedStreamID:
+		return m.OldAppliedStreamID(ctx)
+	case display.FieldAppliedStreamPosition:
+		return m.OldAppliedStreamPosition(ctx)
+	case display.FieldAppliedActiveEventID:
+		return m.OldAppliedActiveEventID(ctx)
+	case display.FieldAppliedActivationGeneration:
+		return m.OldAppliedActivationGeneration(ctx)
+	case display.FieldAppliedPublishedRevision:
+		return m.OldAppliedPublishedRevision(ctx)
+	case display.FieldAppliedAt:
+		return m.OldAppliedAt(ctx)
 	}
 	return nil, fmt.Errorf("unknown Display field %s", name)
 }
@@ -4297,6 +4702,55 @@ func (m *DisplayMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetEnrolledAt(v)
 		return nil
+	case display.FieldAppliedProtocolVersion:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAppliedProtocolVersion(v)
+		return nil
+	case display.FieldAppliedStreamID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAppliedStreamID(v)
+		return nil
+	case display.FieldAppliedStreamPosition:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAppliedStreamPosition(v)
+		return nil
+	case display.FieldAppliedActiveEventID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAppliedActiveEventID(v)
+		return nil
+	case display.FieldAppliedActivationGeneration:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAppliedActivationGeneration(v)
+		return nil
+	case display.FieldAppliedPublishedRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAppliedPublishedRevision(v)
+		return nil
+	case display.FieldAppliedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAppliedAt(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Display field %s", name)
 }
@@ -4304,13 +4758,36 @@ func (m *DisplayMutation) SetField(name string, value ent.Value) error {
 // AddedFields returns all numeric fields that were incremented/decremented during
 // this mutation.
 func (m *DisplayMutation) AddedFields() []string {
-	return nil
+	var fields []string
+	if m.addapplied_stream_position != nil {
+		fields = append(fields, display.FieldAppliedStreamPosition)
+	}
+	if m.addapplied_active_event_id != nil {
+		fields = append(fields, display.FieldAppliedActiveEventID)
+	}
+	if m.addapplied_activation_generation != nil {
+		fields = append(fields, display.FieldAppliedActivationGeneration)
+	}
+	if m.addapplied_published_revision != nil {
+		fields = append(fields, display.FieldAppliedPublishedRevision)
+	}
+	return fields
 }
 
 // AddedField returns the numeric value that was incremented/decremented on a field
 // with the given name. The second boolean return value indicates that this field
 // was not set, or was not defined in the schema.
 func (m *DisplayMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case display.FieldAppliedStreamPosition:
+		return m.AddedAppliedStreamPosition()
+	case display.FieldAppliedActiveEventID:
+		return m.AddedAppliedActiveEventID()
+	case display.FieldAppliedActivationGeneration:
+		return m.AddedAppliedActivationGeneration()
+	case display.FieldAppliedPublishedRevision:
+		return m.AddedAppliedPublishedRevision()
+	}
 	return nil, false
 }
 
@@ -4319,6 +4796,34 @@ func (m *DisplayMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *DisplayMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case display.FieldAppliedStreamPosition:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAppliedStreamPosition(v)
+		return nil
+	case display.FieldAppliedActiveEventID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAppliedActiveEventID(v)
+		return nil
+	case display.FieldAppliedActivationGeneration:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAppliedActivationGeneration(v)
+		return nil
+	case display.FieldAppliedPublishedRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAppliedPublishedRevision(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Display numeric field %s", name)
 }
@@ -4326,7 +4831,11 @@ func (m *DisplayMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *DisplayMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(display.FieldAppliedAt) {
+		fields = append(fields, display.FieldAppliedAt)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -4339,6 +4848,11 @@ func (m *DisplayMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *DisplayMutation) ClearField(name string) error {
+	switch name {
+	case display.FieldAppliedAt:
+		m.ClearAppliedAt()
+		return nil
+	}
 	return fmt.Errorf("unknown Display nullable field %s", name)
 }
 
@@ -4354,6 +4868,27 @@ func (m *DisplayMutation) ResetField(name string) error {
 		return nil
 	case display.FieldEnrolledAt:
 		m.ResetEnrolledAt()
+		return nil
+	case display.FieldAppliedProtocolVersion:
+		m.ResetAppliedProtocolVersion()
+		return nil
+	case display.FieldAppliedStreamID:
+		m.ResetAppliedStreamID()
+		return nil
+	case display.FieldAppliedStreamPosition:
+		m.ResetAppliedStreamPosition()
+		return nil
+	case display.FieldAppliedActiveEventID:
+		m.ResetAppliedActiveEventID()
+		return nil
+	case display.FieldAppliedActivationGeneration:
+		m.ResetAppliedActivationGeneration()
+		return nil
+	case display.FieldAppliedPublishedRevision:
+		m.ResetAppliedPublishedRevision()
+		return nil
+	case display.FieldAppliedAt:
+		m.ResetAppliedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown Display field %s", name)

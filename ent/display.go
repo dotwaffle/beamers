@@ -23,6 +23,20 @@ type Display struct {
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// EnrolledAt holds the value of the "enrolled_at" field.
 	EnrolledAt time.Time `json:"enrolled_at,omitempty"`
+	// AppliedProtocolVersion holds the value of the "applied_protocol_version" field.
+	AppliedProtocolVersion string `json:"applied_protocol_version,omitempty"`
+	// AppliedStreamID holds the value of the "applied_stream_id" field.
+	AppliedStreamID string `json:"applied_stream_id,omitempty"`
+	// AppliedStreamPosition holds the value of the "applied_stream_position" field.
+	AppliedStreamPosition int64 `json:"applied_stream_position,omitempty"`
+	// AppliedActiveEventID holds the value of the "applied_active_event_id" field.
+	AppliedActiveEventID int `json:"applied_active_event_id,omitempty"`
+	// AppliedActivationGeneration holds the value of the "applied_activation_generation" field.
+	AppliedActivationGeneration int `json:"applied_activation_generation,omitempty"`
+	// AppliedPublishedRevision holds the value of the "applied_published_revision" field.
+	AppliedPublishedRevision int `json:"applied_published_revision,omitempty"`
+	// AppliedAt holds the value of the "applied_at" field.
+	AppliedAt *time.Time `json:"applied_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the DisplayQuery when eager-loading is set.
 	Edges        DisplayEdges `json:"edges"`
@@ -63,11 +77,11 @@ func (*Display) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case display.FieldID:
+		case display.FieldID, display.FieldAppliedStreamPosition, display.FieldAppliedActiveEventID, display.FieldAppliedActivationGeneration, display.FieldAppliedPublishedRevision:
 			values[i] = new(sql.NullInt64)
-		case display.FieldName:
+		case display.FieldName, display.FieldAppliedProtocolVersion, display.FieldAppliedStreamID:
 			values[i] = new(sql.NullString)
-		case display.FieldCreatedAt, display.FieldEnrolledAt:
+		case display.FieldCreatedAt, display.FieldEnrolledAt, display.FieldAppliedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -107,6 +121,49 @@ func (_m *Display) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field enrolled_at", values[i])
 			} else if value.Valid {
 				_m.EnrolledAt = value.Time
+			}
+		case display.FieldAppliedProtocolVersion:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field applied_protocol_version", values[i])
+			} else if value.Valid {
+				_m.AppliedProtocolVersion = value.String
+			}
+		case display.FieldAppliedStreamID:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field applied_stream_id", values[i])
+			} else if value.Valid {
+				_m.AppliedStreamID = value.String
+			}
+		case display.FieldAppliedStreamPosition:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field applied_stream_position", values[i])
+			} else if value.Valid {
+				_m.AppliedStreamPosition = value.Int64
+			}
+		case display.FieldAppliedActiveEventID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field applied_active_event_id", values[i])
+			} else if value.Valid {
+				_m.AppliedActiveEventID = int(value.Int64)
+			}
+		case display.FieldAppliedActivationGeneration:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field applied_activation_generation", values[i])
+			} else if value.Valid {
+				_m.AppliedActivationGeneration = int(value.Int64)
+			}
+		case display.FieldAppliedPublishedRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field applied_published_revision", values[i])
+			} else if value.Valid {
+				_m.AppliedPublishedRevision = int(value.Int64)
+			}
+		case display.FieldAppliedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field applied_at", values[i])
+			} else if value.Valid {
+				_m.AppliedAt = new(time.Time)
+				*_m.AppliedAt = value.Time
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -162,6 +219,29 @@ func (_m *Display) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("enrolled_at=")
 	builder.WriteString(_m.EnrolledAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("applied_protocol_version=")
+	builder.WriteString(_m.AppliedProtocolVersion)
+	builder.WriteString(", ")
+	builder.WriteString("applied_stream_id=")
+	builder.WriteString(_m.AppliedStreamID)
+	builder.WriteString(", ")
+	builder.WriteString("applied_stream_position=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AppliedStreamPosition))
+	builder.WriteString(", ")
+	builder.WriteString("applied_active_event_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AppliedActiveEventID))
+	builder.WriteString(", ")
+	builder.WriteString("applied_activation_generation=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AppliedActivationGeneration))
+	builder.WriteString(", ")
+	builder.WriteString("applied_published_revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AppliedPublishedRevision))
+	builder.WriteString(", ")
+	if v := _m.AppliedAt; v != nil {
+		builder.WriteString("applied_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }
