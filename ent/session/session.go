@@ -58,6 +58,8 @@ const (
 	EdgeRuns = "runs"
 	// EdgeCancellations holds the string denoting the cancellations edge name in mutations.
 	EdgeCancellations = "cancellations"
+	// EdgeCompetitionEntries holds the string denoting the competition_entries edge name in mutations.
+	EdgeCompetitionEntries = "competition_entries"
 	// Table holds the table name of the session in the database.
 	Table = "sessions"
 	// EventTable is the table that holds the event relation/edge.
@@ -95,6 +97,13 @@ const (
 	CancellationsInverseTable = "session_cancellations"
 	// CancellationsColumn is the table column denoting the cancellations relation/edge.
 	CancellationsColumn = "session_id"
+	// CompetitionEntriesTable is the table that holds the competition_entries relation/edge.
+	CompetitionEntriesTable = "competition_entries"
+	// CompetitionEntriesInverseTable is the table name for the CompetitionEntry entity.
+	// It exists in this package in order to avoid circular dependency with the "competitionentry" package.
+	CompetitionEntriesInverseTable = "competition_entries"
+	// CompetitionEntriesColumn is the table column denoting the competition_entries relation/edge.
+	CompetitionEntriesColumn = "competition_session_id"
 )
 
 // Columns holds all SQL columns for session fields.
@@ -315,6 +324,20 @@ func ByCancellations(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newCancellationsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByCompetitionEntriesCount orders the results by competition_entries count.
+func ByCompetitionEntriesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCompetitionEntriesStep(), opts...)
+	}
+}
+
+// ByCompetitionEntries orders the results by competition_entries terms.
+func ByCompetitionEntries(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCompetitionEntriesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newEventStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -348,5 +371,12 @@ func newCancellationsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(CancellationsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, CancellationsTable, CancellationsColumn),
+	)
+}
+func newCompetitionEntriesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CompetitionEntriesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CompetitionEntriesTable, CompetitionEntriesColumn),
 	)
 }

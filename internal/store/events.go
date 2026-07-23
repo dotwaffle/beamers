@@ -50,6 +50,7 @@ type CreateEventParams struct {
 	EventLocale                    string
 	ContentLanguage                string
 	EventDayBoundary               string
+	EntryDefaultDisposition        string
 	TargetAdjustmentPresetsSeconds []int
 	Now                            time.Time
 	CommandID                      string
@@ -91,6 +92,7 @@ type UpdateEventParams struct {
 	EventLocale                    string
 	ContentLanguage                string
 	EventDayBoundary               string
+	EntryDefaultDisposition        string
 	TargetAdjustmentPresetsSeconds []int
 	Now                            time.Time
 	CommandID                      string
@@ -113,6 +115,9 @@ func (transaction *CommandTx) CreateEvent(ctx context.Context, params CreateEven
 		SetEventDayBoundary(params.EventDayBoundary).
 		SetTargetAdjustmentPresets(string(presets)).
 		SetCreatedAt(params.Now)
+	if params.EntryDefaultDisposition != "" {
+		create.SetEntryDefaultDisposition(event.EntryDefaultDisposition(params.EntryDefaultDisposition))
+	}
 	if params.ContentLanguage != "" {
 		create.SetContentLanguage(params.ContentLanguage)
 	}
@@ -190,6 +195,10 @@ func (transaction *CommandTx) UpdateEvent(ctx context.Context, params UpdateEven
 	if err != nil {
 		return Event{}, opaqueError("encode Adjust Target presets", err)
 	}
+	entryDefaultDisposition := params.EntryDefaultDisposition
+	if entryDefaultDisposition == "" {
+		entryDefaultDisposition = "Pending"
+	}
 	update := transaction.transaction.Event.UpdateOneID(params.EventID).
 		Where(event.RevisionEQ(params.ExpectedRevision)).
 		SetName(params.Name).
@@ -198,6 +207,7 @@ func (transaction *CommandTx) UpdateEvent(ctx context.Context, params UpdateEven
 		SetTimezone(params.Timezone).
 		SetEventLocale(params.EventLocale).
 		SetEventDayBoundary(params.EventDayBoundary).
+		SetEntryDefaultDisposition(event.EntryDefaultDisposition(entryDefaultDisposition)).
 		SetTargetAdjustmentPresets(string(presets)).
 		AddRevision(1)
 	if params.ContentLanguage == "" {

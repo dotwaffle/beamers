@@ -301,10 +301,12 @@ func validPublishedSession(session store.PublishedSession) bool {
 		Title: session.Title, Speaker: session.Speaker, Type: rundown.SessionType(session.Type),
 		AudienceVisibility: rundown.AudienceVisibility(session.AudienceVisibility),
 		PlannedStart:       session.PlannedStart, PlannedEnd: session.PlannedEnd,
-		TimingPolicy:    rundown.TimingPolicy(session.TimingPolicy),
-		MinimumDuration: time.Duration(session.MinimumDurationSeconds) * time.Second,
-		StartBoundary:   rundown.Boundary(session.StartBoundary),
-		EndBoundary:     rundown.Boundary(session.EndBoundary),
+		TimingPolicy:       rundown.TimingPolicy(session.TimingPolicy),
+		MinimumDuration:    time.Duration(session.MinimumDurationSeconds) * time.Second,
+		StartBoundary:      rundown.Boundary(session.StartBoundary),
+		EndBoundary:        rundown.Boundary(session.EndBoundary),
+		SubmissionDeadline: session.SubmissionDeadline,
+		EntryDefault:       rundown.EntryDisposition(session.EntryDefaultDisposition),
 	}) == nil
 }
 

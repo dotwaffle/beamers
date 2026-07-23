@@ -238,6 +238,58 @@ func (Boundary) EnumDescriptor() ([]byte, []int) {
 	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{3}
 }
 
+type EntryDisposition int32
+
+const (
+	EntryDisposition_ENTRY_DISPOSITION_UNSPECIFIED EntryDisposition = 0
+	EntryDisposition_ENTRY_DISPOSITION_PENDING     EntryDisposition = 1
+	EntryDisposition_ENTRY_DISPOSITION_INCLUDED    EntryDisposition = 2
+	EntryDisposition_ENTRY_DISPOSITION_REJECTED    EntryDisposition = 3
+)
+
+// Enum value maps for EntryDisposition.
+var (
+	EntryDisposition_name = map[int32]string{
+		0: "ENTRY_DISPOSITION_UNSPECIFIED",
+		1: "ENTRY_DISPOSITION_PENDING",
+		2: "ENTRY_DISPOSITION_INCLUDED",
+		3: "ENTRY_DISPOSITION_REJECTED",
+	}
+	EntryDisposition_value = map[string]int32{
+		"ENTRY_DISPOSITION_UNSPECIFIED": 0,
+		"ENTRY_DISPOSITION_PENDING":     1,
+		"ENTRY_DISPOSITION_INCLUDED":    2,
+		"ENTRY_DISPOSITION_REJECTED":    3,
+	}
+)
+
+func (x EntryDisposition) Enum() *EntryDisposition {
+	p := new(EntryDisposition)
+	*p = x
+	return p
+}
+
+func (x EntryDisposition) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (EntryDisposition) Descriptor() protoreflect.EnumDescriptor {
+	return file_beamers_rundown_v1_rundown_proto_enumTypes[4].Descriptor()
+}
+
+func (EntryDisposition) Type() protoreflect.EnumType {
+	return &file_beamers_rundown_v1_rundown_proto_enumTypes[4]
+}
+
+func (x EntryDisposition) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use EntryDisposition.Descriptor instead.
+func (EntryDisposition) EnumDescriptor() ([]byte, []int) {
+	return file_beamers_rundown_v1_rundown_proto_rawDescGZIP(), []int{4}
+}
+
 type ICalendarOccurrenceChoice struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Uid           string                 `protobuf:"bytes,1,opt,name=uid,proto3" json:"uid,omitempty"`
@@ -1457,33 +1509,35 @@ func (x *TrackDraft) GetUpdateMask() *fieldmaskpb.FieldMask {
 }
 
 type SessionDraft struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	Ref                string                 `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
-	Title              string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	Type               SessionType            `protobuf:"varint,3,opt,name=type,proto3,enum=beamers.rundown.v1.SessionType" json:"type,omitempty"`
-	AudienceVisibility AudienceVisibility     `protobuf:"varint,4,opt,name=audience_visibility,json=audienceVisibility,proto3,enum=beamers.rundown.v1.AudienceVisibility" json:"audience_visibility,omitempty"`
-	PublicDetails      string                 `protobuf:"bytes,5,opt,name=public_details,json=publicDetails,proto3" json:"public_details,omitempty"`
-	CrewNotes          string                 `protobuf:"bytes,6,opt,name=crew_notes,json=crewNotes,proto3" json:"crew_notes,omitempty"`
-	PlannedStart       *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=planned_start,json=plannedStart,proto3" json:"planned_start,omitempty"`
-	PlannedEnd         *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=planned_end,json=plannedEnd,proto3" json:"planned_end,omitempty"`
-	TimingPolicy       TimingPolicy           `protobuf:"varint,9,opt,name=timing_policy,json=timingPolicy,proto3,enum=beamers.rundown.v1.TimingPolicy" json:"timing_policy,omitempty"`
-	MinimumDuration    *durationpb.Duration   `protobuf:"bytes,10,opt,name=minimum_duration,json=minimumDuration,proto3" json:"minimum_duration,omitempty"`
-	StartBoundary      Boundary               `protobuf:"varint,11,opt,name=start_boundary,json=startBoundary,proto3,enum=beamers.rundown.v1.Boundary" json:"start_boundary,omitempty"`
-	EndBoundary        Boundary               `protobuf:"varint,12,opt,name=end_boundary,json=endBoundary,proto3,enum=beamers.rundown.v1.Boundary" json:"end_boundary,omitempty"`
-	Lanes              []*TargetRef           `protobuf:"bytes,13,rep,name=lanes,proto3" json:"lanes,omitempty"`
-	Locations          []*TargetRef           `protobuf:"bytes,14,rep,name=locations,proto3" json:"locations,omitempty"`
-	Tracks             []*TargetRef           `protobuf:"bytes,15,rep,name=tracks,proto3" json:"tracks,omitempty"`
-	Id                 int64                  `protobuf:"varint,16,opt,name=id,proto3" json:"id,omitempty"`
-	UpdateMask         *fieldmaskpb.FieldMask `protobuf:"bytes,17,opt,name=update_mask,json=updateMask,proto3" json:"update_mask,omitempty"`
-	AddLanes           []*TargetRef           `protobuf:"bytes,18,rep,name=add_lanes,json=addLanes,proto3" json:"add_lanes,omitempty"`
-	RemoveLanes        []*TargetRef           `protobuf:"bytes,19,rep,name=remove_lanes,json=removeLanes,proto3" json:"remove_lanes,omitempty"`
-	AddLocations       []*TargetRef           `protobuf:"bytes,20,rep,name=add_locations,json=addLocations,proto3" json:"add_locations,omitempty"`
-	RemoveLocations    []*TargetRef           `protobuf:"bytes,21,rep,name=remove_locations,json=removeLocations,proto3" json:"remove_locations,omitempty"`
-	AddTracks          []*TargetRef           `protobuf:"bytes,22,rep,name=add_tracks,json=addTracks,proto3" json:"add_tracks,omitempty"`
-	RemoveTracks       []*TargetRef           `protobuf:"bytes,23,rep,name=remove_tracks,json=removeTracks,proto3" json:"remove_tracks,omitempty"`
-	Speaker            string                 `protobuf:"bytes,24,opt,name=speaker,proto3" json:"speaker,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	Ref                     string                 `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
+	Title                   string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Type                    SessionType            `protobuf:"varint,3,opt,name=type,proto3,enum=beamers.rundown.v1.SessionType" json:"type,omitempty"`
+	AudienceVisibility      AudienceVisibility     `protobuf:"varint,4,opt,name=audience_visibility,json=audienceVisibility,proto3,enum=beamers.rundown.v1.AudienceVisibility" json:"audience_visibility,omitempty"`
+	PublicDetails           string                 `protobuf:"bytes,5,opt,name=public_details,json=publicDetails,proto3" json:"public_details,omitempty"`
+	CrewNotes               string                 `protobuf:"bytes,6,opt,name=crew_notes,json=crewNotes,proto3" json:"crew_notes,omitempty"`
+	PlannedStart            *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=planned_start,json=plannedStart,proto3" json:"planned_start,omitempty"`
+	PlannedEnd              *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=planned_end,json=plannedEnd,proto3" json:"planned_end,omitempty"`
+	TimingPolicy            TimingPolicy           `protobuf:"varint,9,opt,name=timing_policy,json=timingPolicy,proto3,enum=beamers.rundown.v1.TimingPolicy" json:"timing_policy,omitempty"`
+	MinimumDuration         *durationpb.Duration   `protobuf:"bytes,10,opt,name=minimum_duration,json=minimumDuration,proto3" json:"minimum_duration,omitempty"`
+	StartBoundary           Boundary               `protobuf:"varint,11,opt,name=start_boundary,json=startBoundary,proto3,enum=beamers.rundown.v1.Boundary" json:"start_boundary,omitempty"`
+	EndBoundary             Boundary               `protobuf:"varint,12,opt,name=end_boundary,json=endBoundary,proto3,enum=beamers.rundown.v1.Boundary" json:"end_boundary,omitempty"`
+	Lanes                   []*TargetRef           `protobuf:"bytes,13,rep,name=lanes,proto3" json:"lanes,omitempty"`
+	Locations               []*TargetRef           `protobuf:"bytes,14,rep,name=locations,proto3" json:"locations,omitempty"`
+	Tracks                  []*TargetRef           `protobuf:"bytes,15,rep,name=tracks,proto3" json:"tracks,omitempty"`
+	Id                      int64                  `protobuf:"varint,16,opt,name=id,proto3" json:"id,omitempty"`
+	UpdateMask              *fieldmaskpb.FieldMask `protobuf:"bytes,17,opt,name=update_mask,json=updateMask,proto3" json:"update_mask,omitempty"`
+	AddLanes                []*TargetRef           `protobuf:"bytes,18,rep,name=add_lanes,json=addLanes,proto3" json:"add_lanes,omitempty"`
+	RemoveLanes             []*TargetRef           `protobuf:"bytes,19,rep,name=remove_lanes,json=removeLanes,proto3" json:"remove_lanes,omitempty"`
+	AddLocations            []*TargetRef           `protobuf:"bytes,20,rep,name=add_locations,json=addLocations,proto3" json:"add_locations,omitempty"`
+	RemoveLocations         []*TargetRef           `protobuf:"bytes,21,rep,name=remove_locations,json=removeLocations,proto3" json:"remove_locations,omitempty"`
+	AddTracks               []*TargetRef           `protobuf:"bytes,22,rep,name=add_tracks,json=addTracks,proto3" json:"add_tracks,omitempty"`
+	RemoveTracks            []*TargetRef           `protobuf:"bytes,23,rep,name=remove_tracks,json=removeTracks,proto3" json:"remove_tracks,omitempty"`
+	Speaker                 string                 `protobuf:"bytes,24,opt,name=speaker,proto3" json:"speaker,omitempty"`
+	SubmissionDeadline      *timestamppb.Timestamp `protobuf:"bytes,25,opt,name=submission_deadline,json=submissionDeadline,proto3" json:"submission_deadline,omitempty"`
+	EntryDefaultDisposition EntryDisposition       `protobuf:"varint,26,opt,name=entry_default_disposition,json=entryDefaultDisposition,proto3,enum=beamers.rundown.v1.EntryDisposition" json:"entry_default_disposition,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *SessionDraft) Reset() {
@@ -1682,6 +1736,20 @@ func (x *SessionDraft) GetSpeaker() string {
 		return x.Speaker
 	}
 	return ""
+}
+
+func (x *SessionDraft) GetSubmissionDeadline() *timestamppb.Timestamp {
+	if x != nil {
+		return x.SubmissionDeadline
+	}
+	return nil
+}
+
+func (x *SessionDraft) GetEntryDefaultDisposition() EntryDisposition {
+	if x != nil {
+		return x.EntryDefaultDisposition
+	}
+	return EntryDisposition_ENTRY_DISPOSITION_UNSPECIFIED
 }
 
 type EditDraftRequest struct {
@@ -3125,8 +3193,7 @@ const file_beamers_rundown_v1_rundown_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x0e\n" +
 	"\x02id\x18\x03 \x01(\x03R\x02id\x12;\n" +
 	"\vupdate_mask\x18\x04 \x01(\v2\x1a.google.protobuf.FieldMaskR\n" +
-	"updateMask\"\xb9\n" +
-	"\n" +
+	"updateMask\"\xe8\v\n" +
 	"\fSessionDraft\x12\x10\n" +
 	"\x03ref\x18\x01 \x01(\tR\x03ref\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x123\n" +
@@ -3156,7 +3223,9 @@ const file_beamers_rundown_v1_rundown_proto_rawDesc = "" +
 	"\n" +
 	"add_tracks\x18\x16 \x03(\v2\x1d.beamers.rundown.v1.TargetRefR\taddTracks\x12B\n" +
 	"\rremove_tracks\x18\x17 \x03(\v2\x1d.beamers.rundown.v1.TargetRefR\fremoveTracks\x12\x18\n" +
-	"\aspeaker\x18\x18 \x01(\tR\aspeaker\"\xf0\x02\n" +
+	"\aspeaker\x18\x18 \x01(\tR\aspeaker\x12K\n" +
+	"\x13submission_deadline\x18\x19 \x01(\v2\x1a.google.protobuf.TimestampR\x12submissionDeadline\x12`\n" +
+	"\x19entry_default_disposition\x18\x1a \x01(\x0e2$.beamers.rundown.v1.EntryDispositionR\x17entryDefaultDisposition\"\xf0\x02\n" +
 	"\x10EditDraftRequest\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
 	"\n" +
@@ -3292,7 +3361,12 @@ const file_beamers_rundown_v1_rundown_proto_rawDesc = "" +
 	"\bBoundary\x12\x18\n" +
 	"\x14BOUNDARY_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rBOUNDARY_HARD\x10\x01\x12\x11\n" +
-	"\rBOUNDARY_SOFT\x10\x022\xa5\t\n" +
+	"\rBOUNDARY_SOFT\x10\x02*\x94\x01\n" +
+	"\x10EntryDisposition\x12!\n" +
+	"\x1dENTRY_DISPOSITION_UNSPECIFIED\x10\x00\x12\x1d\n" +
+	"\x19ENTRY_DISPOSITION_PENDING\x10\x01\x12\x1e\n" +
+	"\x1aENTRY_DISPOSITION_INCLUDED\x10\x02\x12\x1e\n" +
+	"\x1aENTRY_DISPOSITION_REJECTED\x10\x032\xa5\t\n" +
 	"\x0eRundownService\x12X\n" +
 	"\tEditDraft\x12$.beamers.rundown.v1.EditDraftRequest\x1a%.beamers.rundown.v1.EditDraftResponse\x12s\n" +
 	"\x12DeleteDraftSession\x12-.beamers.rundown.v1.DeleteDraftSessionRequest\x1a..beamers.rundown.v1.DeleteDraftSessionResponse\x12v\n" +
@@ -3318,134 +3392,137 @@ func file_beamers_rundown_v1_rundown_proto_rawDescGZIP() []byte {
 	return file_beamers_rundown_v1_rundown_proto_rawDescData
 }
 
-var file_beamers_rundown_v1_rundown_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_beamers_rundown_v1_rundown_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
 var file_beamers_rundown_v1_rundown_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
 var file_beamers_rundown_v1_rundown_proto_goTypes = []any{
 	(SessionType)(0),                       // 0: beamers.rundown.v1.SessionType
 	(AudienceVisibility)(0),                // 1: beamers.rundown.v1.AudienceVisibility
 	(TimingPolicy)(0),                      // 2: beamers.rundown.v1.TimingPolicy
 	(Boundary)(0),                          // 3: beamers.rundown.v1.Boundary
-	(*ICalendarOccurrenceChoice)(nil),      // 4: beamers.rundown.v1.ICalendarOccurrenceChoice
-	(*PreviewICalendarImportRequest)(nil),  // 5: beamers.rundown.v1.PreviewICalendarImportRequest
-	(*PreviewICalendarImportResponse)(nil), // 6: beamers.rundown.v1.PreviewICalendarImportResponse
-	(*ImportICalendarRequest)(nil),         // 7: beamers.rundown.v1.ImportICalendarRequest
-	(*ImportICalendarResponse)(nil),        // 8: beamers.rundown.v1.ImportICalendarResponse
-	(*CSVFieldMapping)(nil),                // 9: beamers.rundown.v1.CSVFieldMapping
-	(*CSVImportProposal)(nil),              // 10: beamers.rundown.v1.CSVImportProposal
-	(*PreviewCSVImportRequest)(nil),        // 11: beamers.rundown.v1.PreviewCSVImportRequest
-	(*PreviewCSVImportResponse)(nil),       // 12: beamers.rundown.v1.PreviewCSVImportResponse
-	(*ImportCSVRequest)(nil),               // 13: beamers.rundown.v1.ImportCSVRequest
-	(*ImportCSVResponse)(nil),              // 14: beamers.rundown.v1.ImportCSVResponse
-	(*DeleteDraftSessionRequest)(nil),      // 15: beamers.rundown.v1.DeleteDraftSessionRequest
-	(*DeleteDraftSessionResponse)(nil),     // 16: beamers.rundown.v1.DeleteDraftSessionResponse
-	(*TargetRef)(nil),                      // 17: beamers.rundown.v1.TargetRef
-	(*LocationDraft)(nil),                  // 18: beamers.rundown.v1.LocationDraft
-	(*LaneDraft)(nil),                      // 19: beamers.rundown.v1.LaneDraft
-	(*TrackDraft)(nil),                     // 20: beamers.rundown.v1.TrackDraft
-	(*SessionDraft)(nil),                   // 21: beamers.rundown.v1.SessionDraft
-	(*EditDraftRequest)(nil),               // 22: beamers.rundown.v1.EditDraftRequest
-	(*DraftChange)(nil),                    // 23: beamers.rundown.v1.DraftChange
-	(*DiscardDraftChangesRequest)(nil),     // 24: beamers.rundown.v1.DiscardDraftChangesRequest
-	(*DiscardDraftChangesResponse)(nil),    // 25: beamers.rundown.v1.DiscardDraftChangesResponse
-	(*RevertDraftChangeRequest)(nil),       // 26: beamers.rundown.v1.RevertDraftChangeRequest
-	(*RevertDraftChangeResponse)(nil),      // 27: beamers.rundown.v1.RevertDraftChangeResponse
-	(*DraftRevisionConflict)(nil),          // 28: beamers.rundown.v1.DraftRevisionConflict
-	(*EditDraftResponse)(nil),              // 29: beamers.rundown.v1.EditDraftResponse
-	(*PublishPreviewRequest)(nil),          // 30: beamers.rundown.v1.PublishPreviewRequest
-	(*PublishPreviewResponse)(nil),         // 31: beamers.rundown.v1.PublishPreviewResponse
-	(*PublishConfirmation)(nil),            // 32: beamers.rundown.v1.PublishConfirmation
-	(*PublishRequest)(nil),                 // 33: beamers.rundown.v1.PublishRequest
-	(*PublishResponse)(nil),                // 34: beamers.rundown.v1.PublishResponse
-	(*GetCrewRundownRequest)(nil),          // 35: beamers.rundown.v1.GetCrewRundownRequest
-	(*CrewLocation)(nil),                   // 36: beamers.rundown.v1.CrewLocation
-	(*CrewLane)(nil),                       // 37: beamers.rundown.v1.CrewLane
-	(*CrewTrack)(nil),                      // 38: beamers.rundown.v1.CrewTrack
-	(*CrewSession)(nil),                    // 39: beamers.rundown.v1.CrewSession
-	(*GetCrewRundownResponse)(nil),         // 40: beamers.rundown.v1.GetCrewRundownResponse
-	(*fieldmaskpb.FieldMask)(nil),          // 41: google.protobuf.FieldMask
-	(*timestamppb.Timestamp)(nil),          // 42: google.protobuf.Timestamp
-	(*durationpb.Duration)(nil),            // 43: google.protobuf.Duration
+	(EntryDisposition)(0),                  // 4: beamers.rundown.v1.EntryDisposition
+	(*ICalendarOccurrenceChoice)(nil),      // 5: beamers.rundown.v1.ICalendarOccurrenceChoice
+	(*PreviewICalendarImportRequest)(nil),  // 6: beamers.rundown.v1.PreviewICalendarImportRequest
+	(*PreviewICalendarImportResponse)(nil), // 7: beamers.rundown.v1.PreviewICalendarImportResponse
+	(*ImportICalendarRequest)(nil),         // 8: beamers.rundown.v1.ImportICalendarRequest
+	(*ImportICalendarResponse)(nil),        // 9: beamers.rundown.v1.ImportICalendarResponse
+	(*CSVFieldMapping)(nil),                // 10: beamers.rundown.v1.CSVFieldMapping
+	(*CSVImportProposal)(nil),              // 11: beamers.rundown.v1.CSVImportProposal
+	(*PreviewCSVImportRequest)(nil),        // 12: beamers.rundown.v1.PreviewCSVImportRequest
+	(*PreviewCSVImportResponse)(nil),       // 13: beamers.rundown.v1.PreviewCSVImportResponse
+	(*ImportCSVRequest)(nil),               // 14: beamers.rundown.v1.ImportCSVRequest
+	(*ImportCSVResponse)(nil),              // 15: beamers.rundown.v1.ImportCSVResponse
+	(*DeleteDraftSessionRequest)(nil),      // 16: beamers.rundown.v1.DeleteDraftSessionRequest
+	(*DeleteDraftSessionResponse)(nil),     // 17: beamers.rundown.v1.DeleteDraftSessionResponse
+	(*TargetRef)(nil),                      // 18: beamers.rundown.v1.TargetRef
+	(*LocationDraft)(nil),                  // 19: beamers.rundown.v1.LocationDraft
+	(*LaneDraft)(nil),                      // 20: beamers.rundown.v1.LaneDraft
+	(*TrackDraft)(nil),                     // 21: beamers.rundown.v1.TrackDraft
+	(*SessionDraft)(nil),                   // 22: beamers.rundown.v1.SessionDraft
+	(*EditDraftRequest)(nil),               // 23: beamers.rundown.v1.EditDraftRequest
+	(*DraftChange)(nil),                    // 24: beamers.rundown.v1.DraftChange
+	(*DiscardDraftChangesRequest)(nil),     // 25: beamers.rundown.v1.DiscardDraftChangesRequest
+	(*DiscardDraftChangesResponse)(nil),    // 26: beamers.rundown.v1.DiscardDraftChangesResponse
+	(*RevertDraftChangeRequest)(nil),       // 27: beamers.rundown.v1.RevertDraftChangeRequest
+	(*RevertDraftChangeResponse)(nil),      // 28: beamers.rundown.v1.RevertDraftChangeResponse
+	(*DraftRevisionConflict)(nil),          // 29: beamers.rundown.v1.DraftRevisionConflict
+	(*EditDraftResponse)(nil),              // 30: beamers.rundown.v1.EditDraftResponse
+	(*PublishPreviewRequest)(nil),          // 31: beamers.rundown.v1.PublishPreviewRequest
+	(*PublishPreviewResponse)(nil),         // 32: beamers.rundown.v1.PublishPreviewResponse
+	(*PublishConfirmation)(nil),            // 33: beamers.rundown.v1.PublishConfirmation
+	(*PublishRequest)(nil),                 // 34: beamers.rundown.v1.PublishRequest
+	(*PublishResponse)(nil),                // 35: beamers.rundown.v1.PublishResponse
+	(*GetCrewRundownRequest)(nil),          // 36: beamers.rundown.v1.GetCrewRundownRequest
+	(*CrewLocation)(nil),                   // 37: beamers.rundown.v1.CrewLocation
+	(*CrewLane)(nil),                       // 38: beamers.rundown.v1.CrewLane
+	(*CrewTrack)(nil),                      // 39: beamers.rundown.v1.CrewTrack
+	(*CrewSession)(nil),                    // 40: beamers.rundown.v1.CrewSession
+	(*GetCrewRundownResponse)(nil),         // 41: beamers.rundown.v1.GetCrewRundownResponse
+	(*fieldmaskpb.FieldMask)(nil),          // 42: google.protobuf.FieldMask
+	(*timestamppb.Timestamp)(nil),          // 43: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),            // 44: google.protobuf.Duration
 }
 var file_beamers_rundown_v1_rundown_proto_depIdxs = []int32{
-	4,  // 0: beamers.rundown.v1.PreviewICalendarImportRequest.choices:type_name -> beamers.rundown.v1.ICalendarOccurrenceChoice
-	10, // 1: beamers.rundown.v1.PreviewICalendarImportResponse.proposals:type_name -> beamers.rundown.v1.CSVImportProposal
-	4,  // 2: beamers.rundown.v1.ImportICalendarRequest.choices:type_name -> beamers.rundown.v1.ICalendarOccurrenceChoice
-	23, // 3: beamers.rundown.v1.ImportICalendarResponse.changes:type_name -> beamers.rundown.v1.DraftChange
-	9,  // 4: beamers.rundown.v1.PreviewCSVImportRequest.mappings:type_name -> beamers.rundown.v1.CSVFieldMapping
-	10, // 5: beamers.rundown.v1.PreviewCSVImportResponse.proposals:type_name -> beamers.rundown.v1.CSVImportProposal
-	9,  // 6: beamers.rundown.v1.ImportCSVRequest.mappings:type_name -> beamers.rundown.v1.CSVFieldMapping
-	23, // 7: beamers.rundown.v1.ImportCSVResponse.changes:type_name -> beamers.rundown.v1.DraftChange
-	41, // 8: beamers.rundown.v1.LocationDraft.update_mask:type_name -> google.protobuf.FieldMask
-	17, // 9: beamers.rundown.v1.LaneDraft.location:type_name -> beamers.rundown.v1.TargetRef
-	41, // 10: beamers.rundown.v1.LaneDraft.update_mask:type_name -> google.protobuf.FieldMask
-	41, // 11: beamers.rundown.v1.TrackDraft.update_mask:type_name -> google.protobuf.FieldMask
+	5,  // 0: beamers.rundown.v1.PreviewICalendarImportRequest.choices:type_name -> beamers.rundown.v1.ICalendarOccurrenceChoice
+	11, // 1: beamers.rundown.v1.PreviewICalendarImportResponse.proposals:type_name -> beamers.rundown.v1.CSVImportProposal
+	5,  // 2: beamers.rundown.v1.ImportICalendarRequest.choices:type_name -> beamers.rundown.v1.ICalendarOccurrenceChoice
+	24, // 3: beamers.rundown.v1.ImportICalendarResponse.changes:type_name -> beamers.rundown.v1.DraftChange
+	10, // 4: beamers.rundown.v1.PreviewCSVImportRequest.mappings:type_name -> beamers.rundown.v1.CSVFieldMapping
+	11, // 5: beamers.rundown.v1.PreviewCSVImportResponse.proposals:type_name -> beamers.rundown.v1.CSVImportProposal
+	10, // 6: beamers.rundown.v1.ImportCSVRequest.mappings:type_name -> beamers.rundown.v1.CSVFieldMapping
+	24, // 7: beamers.rundown.v1.ImportCSVResponse.changes:type_name -> beamers.rundown.v1.DraftChange
+	42, // 8: beamers.rundown.v1.LocationDraft.update_mask:type_name -> google.protobuf.FieldMask
+	18, // 9: beamers.rundown.v1.LaneDraft.location:type_name -> beamers.rundown.v1.TargetRef
+	42, // 10: beamers.rundown.v1.LaneDraft.update_mask:type_name -> google.protobuf.FieldMask
+	42, // 11: beamers.rundown.v1.TrackDraft.update_mask:type_name -> google.protobuf.FieldMask
 	0,  // 12: beamers.rundown.v1.SessionDraft.type:type_name -> beamers.rundown.v1.SessionType
 	1,  // 13: beamers.rundown.v1.SessionDraft.audience_visibility:type_name -> beamers.rundown.v1.AudienceVisibility
-	42, // 14: beamers.rundown.v1.SessionDraft.planned_start:type_name -> google.protobuf.Timestamp
-	42, // 15: beamers.rundown.v1.SessionDraft.planned_end:type_name -> google.protobuf.Timestamp
+	43, // 14: beamers.rundown.v1.SessionDraft.planned_start:type_name -> google.protobuf.Timestamp
+	43, // 15: beamers.rundown.v1.SessionDraft.planned_end:type_name -> google.protobuf.Timestamp
 	2,  // 16: beamers.rundown.v1.SessionDraft.timing_policy:type_name -> beamers.rundown.v1.TimingPolicy
-	43, // 17: beamers.rundown.v1.SessionDraft.minimum_duration:type_name -> google.protobuf.Duration
+	44, // 17: beamers.rundown.v1.SessionDraft.minimum_duration:type_name -> google.protobuf.Duration
 	3,  // 18: beamers.rundown.v1.SessionDraft.start_boundary:type_name -> beamers.rundown.v1.Boundary
 	3,  // 19: beamers.rundown.v1.SessionDraft.end_boundary:type_name -> beamers.rundown.v1.Boundary
-	17, // 20: beamers.rundown.v1.SessionDraft.lanes:type_name -> beamers.rundown.v1.TargetRef
-	17, // 21: beamers.rundown.v1.SessionDraft.locations:type_name -> beamers.rundown.v1.TargetRef
-	17, // 22: beamers.rundown.v1.SessionDraft.tracks:type_name -> beamers.rundown.v1.TargetRef
-	41, // 23: beamers.rundown.v1.SessionDraft.update_mask:type_name -> google.protobuf.FieldMask
-	17, // 24: beamers.rundown.v1.SessionDraft.add_lanes:type_name -> beamers.rundown.v1.TargetRef
-	17, // 25: beamers.rundown.v1.SessionDraft.remove_lanes:type_name -> beamers.rundown.v1.TargetRef
-	17, // 26: beamers.rundown.v1.SessionDraft.add_locations:type_name -> beamers.rundown.v1.TargetRef
-	17, // 27: beamers.rundown.v1.SessionDraft.remove_locations:type_name -> beamers.rundown.v1.TargetRef
-	17, // 28: beamers.rundown.v1.SessionDraft.add_tracks:type_name -> beamers.rundown.v1.TargetRef
-	17, // 29: beamers.rundown.v1.SessionDraft.remove_tracks:type_name -> beamers.rundown.v1.TargetRef
-	18, // 30: beamers.rundown.v1.EditDraftRequest.locations:type_name -> beamers.rundown.v1.LocationDraft
-	19, // 31: beamers.rundown.v1.EditDraftRequest.lanes:type_name -> beamers.rundown.v1.LaneDraft
-	20, // 32: beamers.rundown.v1.EditDraftRequest.tracks:type_name -> beamers.rundown.v1.TrackDraft
-	21, // 33: beamers.rundown.v1.EditDraftRequest.sessions:type_name -> beamers.rundown.v1.SessionDraft
-	23, // 34: beamers.rundown.v1.DiscardDraftChangesResponse.changes:type_name -> beamers.rundown.v1.DraftChange
-	23, // 35: beamers.rundown.v1.RevertDraftChangeResponse.changes:type_name -> beamers.rundown.v1.DraftChange
-	23, // 36: beamers.rundown.v1.DraftRevisionConflict.overlapping_changes:type_name -> beamers.rundown.v1.DraftChange
-	23, // 37: beamers.rundown.v1.EditDraftResponse.changes:type_name -> beamers.rundown.v1.DraftChange
-	23, // 38: beamers.rundown.v1.PublishPreviewResponse.changes:type_name -> beamers.rundown.v1.DraftChange
-	32, // 39: beamers.rundown.v1.PublishRequest.confirmation:type_name -> beamers.rundown.v1.PublishConfirmation
-	0,  // 40: beamers.rundown.v1.CrewSession.type:type_name -> beamers.rundown.v1.SessionType
-	1,  // 41: beamers.rundown.v1.CrewSession.audience_visibility:type_name -> beamers.rundown.v1.AudienceVisibility
-	42, // 42: beamers.rundown.v1.CrewSession.planned_start:type_name -> google.protobuf.Timestamp
-	42, // 43: beamers.rundown.v1.CrewSession.planned_end:type_name -> google.protobuf.Timestamp
-	2,  // 44: beamers.rundown.v1.CrewSession.timing_policy:type_name -> beamers.rundown.v1.TimingPolicy
-	43, // 45: beamers.rundown.v1.CrewSession.minimum_duration:type_name -> google.protobuf.Duration
-	3,  // 46: beamers.rundown.v1.CrewSession.start_boundary:type_name -> beamers.rundown.v1.Boundary
-	3,  // 47: beamers.rundown.v1.CrewSession.end_boundary:type_name -> beamers.rundown.v1.Boundary
-	36, // 48: beamers.rundown.v1.GetCrewRundownResponse.locations:type_name -> beamers.rundown.v1.CrewLocation
-	37, // 49: beamers.rundown.v1.GetCrewRundownResponse.lanes:type_name -> beamers.rundown.v1.CrewLane
-	38, // 50: beamers.rundown.v1.GetCrewRundownResponse.tracks:type_name -> beamers.rundown.v1.CrewTrack
-	39, // 51: beamers.rundown.v1.GetCrewRundownResponse.sessions:type_name -> beamers.rundown.v1.CrewSession
-	22, // 52: beamers.rundown.v1.RundownService.EditDraft:input_type -> beamers.rundown.v1.EditDraftRequest
-	15, // 53: beamers.rundown.v1.RundownService.DeleteDraftSession:input_type -> beamers.rundown.v1.DeleteDraftSessionRequest
-	24, // 54: beamers.rundown.v1.RundownService.DiscardDraftChanges:input_type -> beamers.rundown.v1.DiscardDraftChangesRequest
-	26, // 55: beamers.rundown.v1.RundownService.RevertDraftChange:input_type -> beamers.rundown.v1.RevertDraftChangeRequest
-	30, // 56: beamers.rundown.v1.RundownService.PublishPreview:input_type -> beamers.rundown.v1.PublishPreviewRequest
-	33, // 57: beamers.rundown.v1.RundownService.Publish:input_type -> beamers.rundown.v1.PublishRequest
-	35, // 58: beamers.rundown.v1.RundownService.GetCrewRundown:input_type -> beamers.rundown.v1.GetCrewRundownRequest
-	11, // 59: beamers.rundown.v1.RundownService.PreviewCSVImport:input_type -> beamers.rundown.v1.PreviewCSVImportRequest
-	13, // 60: beamers.rundown.v1.RundownService.ImportCSV:input_type -> beamers.rundown.v1.ImportCSVRequest
-	5,  // 61: beamers.rundown.v1.RundownService.PreviewICalendarImport:input_type -> beamers.rundown.v1.PreviewICalendarImportRequest
-	7,  // 62: beamers.rundown.v1.RundownService.ImportICalendar:input_type -> beamers.rundown.v1.ImportICalendarRequest
-	29, // 63: beamers.rundown.v1.RundownService.EditDraft:output_type -> beamers.rundown.v1.EditDraftResponse
-	16, // 64: beamers.rundown.v1.RundownService.DeleteDraftSession:output_type -> beamers.rundown.v1.DeleteDraftSessionResponse
-	25, // 65: beamers.rundown.v1.RundownService.DiscardDraftChanges:output_type -> beamers.rundown.v1.DiscardDraftChangesResponse
-	27, // 66: beamers.rundown.v1.RundownService.RevertDraftChange:output_type -> beamers.rundown.v1.RevertDraftChangeResponse
-	31, // 67: beamers.rundown.v1.RundownService.PublishPreview:output_type -> beamers.rundown.v1.PublishPreviewResponse
-	34, // 68: beamers.rundown.v1.RundownService.Publish:output_type -> beamers.rundown.v1.PublishResponse
-	40, // 69: beamers.rundown.v1.RundownService.GetCrewRundown:output_type -> beamers.rundown.v1.GetCrewRundownResponse
-	12, // 70: beamers.rundown.v1.RundownService.PreviewCSVImport:output_type -> beamers.rundown.v1.PreviewCSVImportResponse
-	14, // 71: beamers.rundown.v1.RundownService.ImportCSV:output_type -> beamers.rundown.v1.ImportCSVResponse
-	6,  // 72: beamers.rundown.v1.RundownService.PreviewICalendarImport:output_type -> beamers.rundown.v1.PreviewICalendarImportResponse
-	8,  // 73: beamers.rundown.v1.RundownService.ImportICalendar:output_type -> beamers.rundown.v1.ImportICalendarResponse
-	63, // [63:74] is the sub-list for method output_type
-	52, // [52:63] is the sub-list for method input_type
-	52, // [52:52] is the sub-list for extension type_name
-	52, // [52:52] is the sub-list for extension extendee
-	0,  // [0:52] is the sub-list for field type_name
+	18, // 20: beamers.rundown.v1.SessionDraft.lanes:type_name -> beamers.rundown.v1.TargetRef
+	18, // 21: beamers.rundown.v1.SessionDraft.locations:type_name -> beamers.rundown.v1.TargetRef
+	18, // 22: beamers.rundown.v1.SessionDraft.tracks:type_name -> beamers.rundown.v1.TargetRef
+	42, // 23: beamers.rundown.v1.SessionDraft.update_mask:type_name -> google.protobuf.FieldMask
+	18, // 24: beamers.rundown.v1.SessionDraft.add_lanes:type_name -> beamers.rundown.v1.TargetRef
+	18, // 25: beamers.rundown.v1.SessionDraft.remove_lanes:type_name -> beamers.rundown.v1.TargetRef
+	18, // 26: beamers.rundown.v1.SessionDraft.add_locations:type_name -> beamers.rundown.v1.TargetRef
+	18, // 27: beamers.rundown.v1.SessionDraft.remove_locations:type_name -> beamers.rundown.v1.TargetRef
+	18, // 28: beamers.rundown.v1.SessionDraft.add_tracks:type_name -> beamers.rundown.v1.TargetRef
+	18, // 29: beamers.rundown.v1.SessionDraft.remove_tracks:type_name -> beamers.rundown.v1.TargetRef
+	43, // 30: beamers.rundown.v1.SessionDraft.submission_deadline:type_name -> google.protobuf.Timestamp
+	4,  // 31: beamers.rundown.v1.SessionDraft.entry_default_disposition:type_name -> beamers.rundown.v1.EntryDisposition
+	19, // 32: beamers.rundown.v1.EditDraftRequest.locations:type_name -> beamers.rundown.v1.LocationDraft
+	20, // 33: beamers.rundown.v1.EditDraftRequest.lanes:type_name -> beamers.rundown.v1.LaneDraft
+	21, // 34: beamers.rundown.v1.EditDraftRequest.tracks:type_name -> beamers.rundown.v1.TrackDraft
+	22, // 35: beamers.rundown.v1.EditDraftRequest.sessions:type_name -> beamers.rundown.v1.SessionDraft
+	24, // 36: beamers.rundown.v1.DiscardDraftChangesResponse.changes:type_name -> beamers.rundown.v1.DraftChange
+	24, // 37: beamers.rundown.v1.RevertDraftChangeResponse.changes:type_name -> beamers.rundown.v1.DraftChange
+	24, // 38: beamers.rundown.v1.DraftRevisionConflict.overlapping_changes:type_name -> beamers.rundown.v1.DraftChange
+	24, // 39: beamers.rundown.v1.EditDraftResponse.changes:type_name -> beamers.rundown.v1.DraftChange
+	24, // 40: beamers.rundown.v1.PublishPreviewResponse.changes:type_name -> beamers.rundown.v1.DraftChange
+	33, // 41: beamers.rundown.v1.PublishRequest.confirmation:type_name -> beamers.rundown.v1.PublishConfirmation
+	0,  // 42: beamers.rundown.v1.CrewSession.type:type_name -> beamers.rundown.v1.SessionType
+	1,  // 43: beamers.rundown.v1.CrewSession.audience_visibility:type_name -> beamers.rundown.v1.AudienceVisibility
+	43, // 44: beamers.rundown.v1.CrewSession.planned_start:type_name -> google.protobuf.Timestamp
+	43, // 45: beamers.rundown.v1.CrewSession.planned_end:type_name -> google.protobuf.Timestamp
+	2,  // 46: beamers.rundown.v1.CrewSession.timing_policy:type_name -> beamers.rundown.v1.TimingPolicy
+	44, // 47: beamers.rundown.v1.CrewSession.minimum_duration:type_name -> google.protobuf.Duration
+	3,  // 48: beamers.rundown.v1.CrewSession.start_boundary:type_name -> beamers.rundown.v1.Boundary
+	3,  // 49: beamers.rundown.v1.CrewSession.end_boundary:type_name -> beamers.rundown.v1.Boundary
+	37, // 50: beamers.rundown.v1.GetCrewRundownResponse.locations:type_name -> beamers.rundown.v1.CrewLocation
+	38, // 51: beamers.rundown.v1.GetCrewRundownResponse.lanes:type_name -> beamers.rundown.v1.CrewLane
+	39, // 52: beamers.rundown.v1.GetCrewRundownResponse.tracks:type_name -> beamers.rundown.v1.CrewTrack
+	40, // 53: beamers.rundown.v1.GetCrewRundownResponse.sessions:type_name -> beamers.rundown.v1.CrewSession
+	23, // 54: beamers.rundown.v1.RundownService.EditDraft:input_type -> beamers.rundown.v1.EditDraftRequest
+	16, // 55: beamers.rundown.v1.RundownService.DeleteDraftSession:input_type -> beamers.rundown.v1.DeleteDraftSessionRequest
+	25, // 56: beamers.rundown.v1.RundownService.DiscardDraftChanges:input_type -> beamers.rundown.v1.DiscardDraftChangesRequest
+	27, // 57: beamers.rundown.v1.RundownService.RevertDraftChange:input_type -> beamers.rundown.v1.RevertDraftChangeRequest
+	31, // 58: beamers.rundown.v1.RundownService.PublishPreview:input_type -> beamers.rundown.v1.PublishPreviewRequest
+	34, // 59: beamers.rundown.v1.RundownService.Publish:input_type -> beamers.rundown.v1.PublishRequest
+	36, // 60: beamers.rundown.v1.RundownService.GetCrewRundown:input_type -> beamers.rundown.v1.GetCrewRundownRequest
+	12, // 61: beamers.rundown.v1.RundownService.PreviewCSVImport:input_type -> beamers.rundown.v1.PreviewCSVImportRequest
+	14, // 62: beamers.rundown.v1.RundownService.ImportCSV:input_type -> beamers.rundown.v1.ImportCSVRequest
+	6,  // 63: beamers.rundown.v1.RundownService.PreviewICalendarImport:input_type -> beamers.rundown.v1.PreviewICalendarImportRequest
+	8,  // 64: beamers.rundown.v1.RundownService.ImportICalendar:input_type -> beamers.rundown.v1.ImportICalendarRequest
+	30, // 65: beamers.rundown.v1.RundownService.EditDraft:output_type -> beamers.rundown.v1.EditDraftResponse
+	17, // 66: beamers.rundown.v1.RundownService.DeleteDraftSession:output_type -> beamers.rundown.v1.DeleteDraftSessionResponse
+	26, // 67: beamers.rundown.v1.RundownService.DiscardDraftChanges:output_type -> beamers.rundown.v1.DiscardDraftChangesResponse
+	28, // 68: beamers.rundown.v1.RundownService.RevertDraftChange:output_type -> beamers.rundown.v1.RevertDraftChangeResponse
+	32, // 69: beamers.rundown.v1.RundownService.PublishPreview:output_type -> beamers.rundown.v1.PublishPreviewResponse
+	35, // 70: beamers.rundown.v1.RundownService.Publish:output_type -> beamers.rundown.v1.PublishResponse
+	41, // 71: beamers.rundown.v1.RundownService.GetCrewRundown:output_type -> beamers.rundown.v1.GetCrewRundownResponse
+	13, // 72: beamers.rundown.v1.RundownService.PreviewCSVImport:output_type -> beamers.rundown.v1.PreviewCSVImportResponse
+	15, // 73: beamers.rundown.v1.RundownService.ImportCSV:output_type -> beamers.rundown.v1.ImportCSVResponse
+	7,  // 74: beamers.rundown.v1.RundownService.PreviewICalendarImport:output_type -> beamers.rundown.v1.PreviewICalendarImportResponse
+	9,  // 75: beamers.rundown.v1.RundownService.ImportICalendar:output_type -> beamers.rundown.v1.ImportICalendarResponse
+	65, // [65:76] is the sub-list for method output_type
+	54, // [54:65] is the sub-list for method input_type
+	54, // [54:54] is the sub-list for extension type_name
+	54, // [54:54] is the sub-list for extension extendee
+	0,  // [0:54] is the sub-list for field type_name
 }
 
 func init() { file_beamers_rundown_v1_rundown_proto_init() }
@@ -3462,7 +3539,7 @@ func file_beamers_rundown_v1_rundown_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_beamers_rundown_v1_rundown_proto_rawDesc), len(file_beamers_rundown_v1_rundown_proto_rawDesc)),
-			NumEnums:      4,
+			NumEnums:      5,
 			NumMessages:   37,
 			NumExtensions: 0,
 			NumServices:   1,

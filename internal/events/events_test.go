@@ -20,9 +20,35 @@ func TestEventDayBoundaryDefaultsToMidnight(t *testing.T) {
 	if validated.EventDayBoundary != "00:00" {
 		t.Errorf("default Event Day Boundary = %q, want 00:00", validated.EventDayBoundary)
 	}
+	if validated.EntryDefaultDisposition != "Pending" {
+		t.Errorf("default Entry disposition = %q, want Pending", validated.EntryDefaultDisposition)
+	}
 	if got := validated.TargetAdjustmentPresetsSeconds; len(got) != 3 ||
 		got[0] != -300 || got[1] != 300 || got[2] != 600 {
 		t.Errorf("default Adjust Target presets = %v, want [-300 300 600]", got)
+	}
+}
+
+func TestEventEntryDefaultDispositionAcceptsIncluded(t *testing.T) {
+	input := CreateInput{
+		Name: "Revision 2026", PlannedStartDate: "2026-08-21", PlannedEndDate: "2026-08-23",
+		Timezone: "Europe/Berlin", EventLocale: "de-DE", EntryDefaultDisposition: "Included",
+	}
+	validated, err := validateCreateInput(input)
+	if err != nil || validated.EntryDefaultDisposition != "Included" {
+		t.Fatalf("Included Entry default = %+v, %v", validated, err)
+	}
+}
+
+func TestEventEntryDefaultDispositionRejectsUnsupportedValue(t *testing.T) {
+	input := CreateInput{
+		Name: "Revision 2026", PlannedStartDate: "2026-08-21", PlannedEndDate: "2026-08-23",
+		Timezone: "Europe/Berlin", EventLocale: "de-DE", EntryDefaultDisposition: "Rejected",
+	}
+	_, err := validateCreateInput(input)
+	var validation *ValidationError
+	if !errors.As(err, &validation) || validation.Field != "entry_default_disposition" {
+		t.Fatalf("unsupported Entry default error = %v", err)
 	}
 }
 

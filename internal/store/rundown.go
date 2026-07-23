@@ -409,6 +409,7 @@ func (transaction *CommandTx) publishCreatedSession(ctx context.Context, change 
 		SetTimingPolicy(sessionpublishedversion.TimingPolicy(input.TimingPolicy)).SetMinimumDurationSeconds(input.MinimumDurationSeconds).
 		SetStartBoundary(sessionpublishedversion.StartBoundary(input.StartBoundary)).SetEndBoundary(sessionpublishedversion.EndBoundary(input.EndBoundary)).
 		SetCreatedAt(now).AddLaneIDs(laneIDs...).AddLocationIDs(locationIDs...).AddTrackIDs(trackIDs...)
+	setCompetitionPublishedFields(create, input.SubmissionDeadline, input.EntryDefaultDisposition)
 	if _, err := create.Save(ctx); err != nil {
 		return opaqueError("publish Session creation", err)
 	}
@@ -542,6 +543,14 @@ func (transaction *CommandTx) publishCreatedSessionFacts(ctx context.Context, cr
 			if err := changeAfter(fact, &input.EndBoundary); err != nil {
 				return err
 			}
+		case "submission_deadline":
+			if err := changeAfter(fact, &input.SubmissionDeadline); err != nil {
+				return err
+			}
+		case "entry_default_disposition":
+			if err := changeAfter(fact, &input.EntryDefaultDisposition); err != nil {
+				return err
+			}
 		case "lanes":
 			if err := changeAfter(fact, &laneIDs); err != nil {
 				return err
@@ -564,6 +573,7 @@ func (transaction *CommandTx) publishCreatedSessionFacts(ctx context.Context, cr
 		SetTimingPolicy(sessionpublishedversion.TimingPolicy(input.TimingPolicy)).SetMinimumDurationSeconds(input.MinimumDurationSeconds).
 		SetStartBoundary(sessionpublishedversion.StartBoundary(input.StartBoundary)).SetEndBoundary(sessionpublishedversion.EndBoundary(input.EndBoundary)).
 		SetCreatedAt(now).AddLaneIDs(laneIDs...).AddLocationIDs(locationIDs...).AddTrackIDs(trackIDs...)
+	setCompetitionPublishedFields(create, input.SubmissionDeadline, input.EntryDefaultDisposition)
 	_, err := create.Save(ctx)
 	return err
 }
@@ -724,6 +734,7 @@ func (transaction *CommandTx) publishSessionFacts(ctx context.Context, id int, c
 	plannedStart, plannedEnd := baseline.PlannedStart, baseline.PlannedEnd
 	timingPolicy, minimumDuration := string(baseline.TimingPolicy), baseline.MinimumDurationSeconds
 	startBoundary, endBoundary := string(baseline.StartBoundary), string(baseline.EndBoundary)
+	submissionDeadline, entryDefaultDisposition := baseline.SubmissionDeadline, string(baseline.EntryDefaultDisposition)
 	for _, change := range changes {
 		handled, membershipErr := applyMembershipAfter(change, &laneIDs, &locationIDs, &trackIDs)
 		if membershipErr != nil {
@@ -757,6 +768,10 @@ func (transaction *CommandTx) publishSessionFacts(ctx context.Context, id int, c
 			err = changeAfter(change, &startBoundary)
 		case "end_boundary":
 			err = changeAfter(change, &endBoundary)
+		case "submission_deadline":
+			err = changeAfter(change, &submissionDeadline)
+		case "entry_default_disposition":
+			err = changeAfter(change, &entryDefaultDisposition)
 		case "lanes":
 			err = changeAfter(change, &laneIDs)
 		case "locations":
@@ -780,6 +795,7 @@ func (transaction *CommandTx) publishSessionFacts(ctx context.Context, id int, c
 		SetStartBoundary(sessionpublishedversion.StartBoundary(startBoundary)).
 		SetEndBoundary(sessionpublishedversion.EndBoundary(endBoundary)).SetCreatedAt(now).
 		AddLaneIDs(laneIDs...).AddLocationIDs(locationIDs...).AddTrackIDs(trackIDs...)
+	setCompetitionPublishedFields(create, submissionDeadline, entryDefaultDisposition)
 	if _, err = create.Save(ctx); err != nil {
 		return opaqueError("publish Session fact version", err)
 	}
@@ -804,6 +820,19 @@ func (transaction *CommandTx) publishSessionFacts(ctx context.Context, id int, c
 		}
 	}
 	return nil
+}
+
+func setCompetitionPublishedFields(
+	create *ent.SessionPublishedVersionCreate,
+	deadline time.Time,
+	defaultDisposition string,
+) {
+	if !deadline.IsZero() {
+		create.SetSubmissionDeadline(deadline)
+	}
+	if defaultDisposition != "" {
+		create.SetEntryDefaultDisposition(sessionpublishedversion.EntryDefaultDisposition(defaultDisposition))
+	}
 }
 
 // CrewRundownState is the store-owned Published projection input.
@@ -840,22 +869,24 @@ type PublishedTrack struct {
 
 // PublishedSession is the store projection of one current Session version.
 type PublishedSession struct {
-	ID                     int
-	Title                  string
-	Speaker                string
-	Type                   string
-	AudienceVisibility     string
-	PublicDetails          string
-	CrewNotes              string
-	PlannedStart           time.Time
-	PlannedEnd             time.Time
-	TimingPolicy           string
-	MinimumDurationSeconds int
-	StartBoundary          string
-	EndBoundary            string
-	LaneIDs                []int
-	LocationIDs            []int
-	TrackIDs               []int
+	ID                      int
+	Title                   string
+	Speaker                 string
+	Type                    string
+	AudienceVisibility      string
+	PublicDetails           string
+	CrewNotes               string
+	PlannedStart            time.Time
+	PlannedEnd              time.Time
+	TimingPolicy            string
+	MinimumDurationSeconds  int
+	StartBoundary           string
+	EndBoundary             string
+	SubmissionDeadline      time.Time
+	EntryDefaultDisposition string
+	LaneIDs                 []int
+	LocationIDs             []int
+	TrackIDs                []int
 }
 
 // LoadCrewRundown returns the current Published versions without exposing Ent entities.
@@ -973,7 +1004,9 @@ func loadCrewRundown(ctx context.Context, client *ent.Client, eventID int) (Crew
 			TimingPolicy:           version.TimingPolicy.String(),
 			MinimumDurationSeconds: version.MinimumDurationSeconds,
 			StartBoundary:          version.StartBoundary.String(), EndBoundary: version.EndBoundary.String(),
-			LaneIDs: laneIDs, LocationIDs: locationIDs, TrackIDs: trackIDs,
+			SubmissionDeadline:      version.SubmissionDeadline,
+			EntryDefaultDisposition: string(version.EntryDefaultDisposition),
+			LaneIDs:                 laneIDs, LocationIDs: locationIDs, TrackIDs: trackIDs,
 		})
 	}
 	return result, nil

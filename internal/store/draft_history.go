@@ -548,6 +548,14 @@ func (transaction *CommandTx) applySessionDraftFact(ctx context.Context, targetI
 		var value string
 		err = json.Unmarshal(encoded, &value)
 		update.SetEndBoundary(sessiondraft.EndBoundary(value))
+	case "submission_deadline":
+		var value time.Time
+		err = json.Unmarshal(encoded, &value)
+		update.SetSubmissionDeadline(value)
+	case "entry_default_disposition":
+		var value string
+		err = json.Unmarshal(encoded, &value)
+		update.SetEntryDefaultDisposition(sessiondraft.EntryDefaultDisposition(value))
 	case "lanes":
 		var value []int
 		err = json.Unmarshal(encoded, &value)

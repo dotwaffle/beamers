@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/ent"
+	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/location"
@@ -66,6 +67,13 @@ type PublicScheduleSession struct {
 	LocationIDs           []int
 	LaneIDs               []int
 	TrackIDs              []int
+	CompetitionEntries    []PublicCompetitionEntry
+}
+
+// PublicCompetitionEntry contains attendee-safe Included Entry details.
+type PublicCompetitionEntry struct {
+	Name          string
+	PublicDetails string
 }
 
 // LoadPublicSchedule returns the Active Event's current public projection.
@@ -215,6 +223,25 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 		details := correctedSessionDetails(identity, SessionDetails{
 			Title: version.Title, Speaker: version.Speaker, PublicDetails: version.PublicDetails,
 		})
+		var competitionEntries []PublicCompetitionEntry
+		if version.Type == sessionpublishedversion.TypeCompetition {
+			entries, entriesErr := installationStore.client.CompetitionEntry.Query().
+				Where(
+					competitionentry.CompetitionSessionIDEQ(identity.ID),
+					competitionentry.DispositionEQ(competitionentry.DispositionIncluded),
+				).
+				Order(ent.Asc(competitionentry.FieldCreatedAt), ent.Asc(competitionentry.FieldID)).
+				All(ctx)
+			if entriesErr != nil {
+				return opaqueError("load public Competition Entries", entriesErr)
+			}
+			competitionEntries = make([]PublicCompetitionEntry, 0, len(entries))
+			for _, entry := range entries {
+				competitionEntries = append(competitionEntries, PublicCompetitionEntry{
+					Name: entry.Name, PublicDetails: entry.PublicDetails,
+				})
+			}
+		}
 		forecastStart, forecastEnd := version.PlannedStart, version.PlannedEnd
 		if !identity.ForecastStart.IsZero() {
 			forecastStart = identity.ForecastStart
@@ -231,6 +258,7 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 			CommunicatedStart: communicatedStart, CommunicatedEnd: communicatedEnd,
 			PlannedDuration: plannedDuration,
 			LocationIDs:     locations, LaneIDs: lanes, TrackIDs: tracks,
+			CompetitionEntries: competitionEntries,
 		})
 	}
 	return nil

@@ -100,6 +100,11 @@ func MinimumDurationSeconds(v int) predicate.SessionPublishedVersion {
 	return predicate.SessionPublishedVersion(sql.FieldEQ(FieldMinimumDurationSeconds, v))
 }
 
+// SubmissionDeadline applies equality check predicate on the "submission_deadline" field. It's identical to SubmissionDeadlineEQ.
+func SubmissionDeadline(v time.Time) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldEQ(FieldSubmissionDeadline, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.SessionPublishedVersion {
 	return predicate.SessionPublishedVersion(sql.FieldEQ(FieldCreatedAt, v))
@@ -673,6 +678,86 @@ func EndBoundaryIn(vs ...EndBoundary) predicate.SessionPublishedVersion {
 // EndBoundaryNotIn applies the NotIn predicate on the "end_boundary" field.
 func EndBoundaryNotIn(vs ...EndBoundary) predicate.SessionPublishedVersion {
 	return predicate.SessionPublishedVersion(sql.FieldNotIn(FieldEndBoundary, vs...))
+}
+
+// SubmissionDeadlineEQ applies the EQ predicate on the "submission_deadline" field.
+func SubmissionDeadlineEQ(v time.Time) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldEQ(FieldSubmissionDeadline, v))
+}
+
+// SubmissionDeadlineNEQ applies the NEQ predicate on the "submission_deadline" field.
+func SubmissionDeadlineNEQ(v time.Time) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldNEQ(FieldSubmissionDeadline, v))
+}
+
+// SubmissionDeadlineIn applies the In predicate on the "submission_deadline" field.
+func SubmissionDeadlineIn(vs ...time.Time) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldIn(FieldSubmissionDeadline, vs...))
+}
+
+// SubmissionDeadlineNotIn applies the NotIn predicate on the "submission_deadline" field.
+func SubmissionDeadlineNotIn(vs ...time.Time) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldNotIn(FieldSubmissionDeadline, vs...))
+}
+
+// SubmissionDeadlineGT applies the GT predicate on the "submission_deadline" field.
+func SubmissionDeadlineGT(v time.Time) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldGT(FieldSubmissionDeadline, v))
+}
+
+// SubmissionDeadlineGTE applies the GTE predicate on the "submission_deadline" field.
+func SubmissionDeadlineGTE(v time.Time) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldGTE(FieldSubmissionDeadline, v))
+}
+
+// SubmissionDeadlineLT applies the LT predicate on the "submission_deadline" field.
+func SubmissionDeadlineLT(v time.Time) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldLT(FieldSubmissionDeadline, v))
+}
+
+// SubmissionDeadlineLTE applies the LTE predicate on the "submission_deadline" field.
+func SubmissionDeadlineLTE(v time.Time) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldLTE(FieldSubmissionDeadline, v))
+}
+
+// SubmissionDeadlineIsNil applies the IsNil predicate on the "submission_deadline" field.
+func SubmissionDeadlineIsNil() predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldIsNull(FieldSubmissionDeadline))
+}
+
+// SubmissionDeadlineNotNil applies the NotNil predicate on the "submission_deadline" field.
+func SubmissionDeadlineNotNil() predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldNotNull(FieldSubmissionDeadline))
+}
+
+// EntryDefaultDispositionEQ applies the EQ predicate on the "entry_default_disposition" field.
+func EntryDefaultDispositionEQ(v EntryDefaultDisposition) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldEQ(FieldEntryDefaultDisposition, v))
+}
+
+// EntryDefaultDispositionNEQ applies the NEQ predicate on the "entry_default_disposition" field.
+func EntryDefaultDispositionNEQ(v EntryDefaultDisposition) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldNEQ(FieldEntryDefaultDisposition, v))
+}
+
+// EntryDefaultDispositionIn applies the In predicate on the "entry_default_disposition" field.
+func EntryDefaultDispositionIn(vs ...EntryDefaultDisposition) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldIn(FieldEntryDefaultDisposition, vs...))
+}
+
+// EntryDefaultDispositionNotIn applies the NotIn predicate on the "entry_default_disposition" field.
+func EntryDefaultDispositionNotIn(vs ...EntryDefaultDisposition) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldNotIn(FieldEntryDefaultDisposition, vs...))
+}
+
+// EntryDefaultDispositionIsNil applies the IsNil predicate on the "entry_default_disposition" field.
+func EntryDefaultDispositionIsNil() predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldIsNull(FieldEntryDefaultDisposition))
+}
+
+// EntryDefaultDispositionNotNil applies the NotNil predicate on the "entry_default_disposition" field.
+func EntryDefaultDispositionNotNil() predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldNotNull(FieldEntryDefaultDisposition))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

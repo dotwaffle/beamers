@@ -69,6 +69,18 @@ func (f CommandReceiptFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Val
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CommandReceiptMutation", m)
 }
 
+// The CompetitionEntryFunc type is an adapter to allow the use of ordinary
+// function as CompetitionEntry mutator.
+type CompetitionEntryFunc func(context.Context, *ent.CompetitionEntryMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f CompetitionEntryFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.CompetitionEntryMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CompetitionEntryMutation", m)
+}
+
 // The DisplayFunc type is an adapter to allow the use of ordinary
 // function as Display mutator.
 type DisplayFunc func(context.Context, *ent.DisplayMutation) (ent.Value, error)

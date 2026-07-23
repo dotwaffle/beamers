@@ -7,6 +7,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/activation"
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/competition"
 	"github.com/dotwaffle/beamers/internal/displays"
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/rundown"
@@ -32,6 +33,7 @@ type Installation struct {
 	authentication  *auth.Service
 	displays        *displays.Service
 	activation      *activation.Service
+	competition     *competition.Service
 	events          *events.Service
 	rundownCommands *rundown.Commands
 	rundownQueries  *rundown.Queries
@@ -76,6 +78,11 @@ func OpenInstallation(ctx context.Context, dataDir string) (*Installation, error
 		return nil, errors.Join(err, storage.Close())
 	}
 	installation.events = eventService
+	competitionService, err := competition.New(storage, time.Now)
+	if err != nil {
+		return nil, errors.Join(err, storage.Close())
+	}
+	installation.competition = competitionService
 	rundownCommands, err := rundown.NewCommands(storage, time.Now)
 	if err != nil {
 		return nil, errors.Join(err, storage.Close())
@@ -149,6 +156,12 @@ func (installation *Installation) Authentication() *auth.Service {
 // It is nil only while the installation is restricted to recovery mode.
 func (installation *Installation) Events() *events.Service {
 	return installation.events
+}
+
+// Competition returns the Competition Entry application service.
+// It is nil only while the installation is restricted to recovery mode.
+func (installation *Installation) Competition() *competition.Service {
+	return installation.competition
 }
 
 // Displays returns the Display Enrollment and Assignment service.

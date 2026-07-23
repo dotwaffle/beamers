@@ -126,6 +126,34 @@ func (_c *SessionDraftCreate) SetEndBoundary(v sessiondraft.EndBoundary) *Sessio
 	return _c
 }
 
+// SetSubmissionDeadline sets the "submission_deadline" field.
+func (_c *SessionDraftCreate) SetSubmissionDeadline(v time.Time) *SessionDraftCreate {
+	_c.mutation.SetSubmissionDeadline(v)
+	return _c
+}
+
+// SetNillableSubmissionDeadline sets the "submission_deadline" field if the given value is not nil.
+func (_c *SessionDraftCreate) SetNillableSubmissionDeadline(v *time.Time) *SessionDraftCreate {
+	if v != nil {
+		_c.SetSubmissionDeadline(*v)
+	}
+	return _c
+}
+
+// SetEntryDefaultDisposition sets the "entry_default_disposition" field.
+func (_c *SessionDraftCreate) SetEntryDefaultDisposition(v sessiondraft.EntryDefaultDisposition) *SessionDraftCreate {
+	_c.mutation.SetEntryDefaultDisposition(v)
+	return _c
+}
+
+// SetNillableEntryDefaultDisposition sets the "entry_default_disposition" field if the given value is not nil.
+func (_c *SessionDraftCreate) SetNillableEntryDefaultDisposition(v *sessiondraft.EntryDefaultDisposition) *SessionDraftCreate {
+	if v != nil {
+		_c.SetEntryDefaultDisposition(*v)
+	}
+	return _c
+}
+
 // SetSession sets the "session" edge to the Session entity.
 func (_c *SessionDraftCreate) SetSession(v *Session) *SessionDraftCreate {
 	return _c.SetSessionID(v.ID)
@@ -290,6 +318,11 @@ func (_c *SessionDraftCreate) check() error {
 			return &ValidationError{Name: "end_boundary", err: fmt.Errorf(`ent: validator failed for field "SessionDraft.end_boundary": %w`, err)}
 		}
 	}
+	if v, ok := _c.mutation.EntryDefaultDisposition(); ok {
+		if err := sessiondraft.EntryDefaultDispositionValidator(v); err != nil {
+			return &ValidationError{Name: "entry_default_disposition", err: fmt.Errorf(`ent: validator failed for field "SessionDraft.entry_default_disposition": %w`, err)}
+		}
+	}
 	if len(_c.mutation.SessionIDs()) == 0 {
 		return &ValidationError{Name: "session", err: errors.New(`ent: missing required edge "SessionDraft.session"`)}
 	}
@@ -366,6 +399,14 @@ func (_c *SessionDraftCreate) createSpec() (*SessionDraft, *sqlgraph.CreateSpec)
 	if value, ok := _c.mutation.EndBoundary(); ok {
 		_spec.SetField(sessiondraft.FieldEndBoundary, field.TypeEnum, value)
 		_node.EndBoundary = value
+	}
+	if value, ok := _c.mutation.SubmissionDeadline(); ok {
+		_spec.SetField(sessiondraft.FieldSubmissionDeadline, field.TypeTime, value)
+		_node.SubmissionDeadline = value
+	}
+	if value, ok := _c.mutation.EntryDefaultDisposition(); ok {
+		_spec.SetField(sessiondraft.FieldEntryDefaultDisposition, field.TypeEnum, value)
+		_node.EntryDefaultDisposition = value
 	}
 	if nodes := _c.mutation.SessionIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

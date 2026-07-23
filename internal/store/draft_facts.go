@@ -67,6 +67,7 @@ func RundownDraftUpdateFields(target string) []string {
 			draftFactPublicDetails, draftFactCrewNotes, draftFactPlannedStart,
 			draftFactPlannedEnd, draftFactTimingPolicy, draftFactMinimumDuration,
 			draftFactStartBoundary, draftFactEndBoundary,
+			"submission_deadline", "entry_default_disposition",
 			"add_lanes", "remove_lanes", "add_locations", "remove_locations",
 			"add_tracks", "remove_tracks",
 		}

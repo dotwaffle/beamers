@@ -32,6 +32,8 @@ import (
 
 	activationv1 "github.com/dotwaffle/beamers/gen/beamers/activation/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/activation/v1/activationv1connect"
+	competitionv1 "github.com/dotwaffle/beamers/gen/beamers/competition/v1"
+	"github.com/dotwaffle/beamers/gen/beamers/competition/v1/competitionv1connect"
 	rundownv1 "github.com/dotwaffle/beamers/gen/beamers/rundown/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/rundown/v1/rundownv1connect"
 	sessionv1 "github.com/dotwaffle/beamers/gen/beamers/session/v1"
@@ -2133,6 +2135,248 @@ func TestPublicScheduleNormalizesActualEndWithoutChangingCrewHistory(t *testing.
 		t.Errorf("crew Run history changed exact Actual End: %+v, %v", history, err)
 	}
 	server.stop(t)
+}
+
+func TestProducerCreatesIncludedCompetitionEntry(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	competitionID, deadline := addCompetitionSession(t, administrator, server)
+	client := competitionv1connect.NewCompetitionServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+
+	configured, err := client.GetCompetition(t.Context(), connect.NewRequest(
+		&competitionv1.GetCompetitionRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil {
+		t.Fatalf("Get Competition: %v", err)
+	}
+	if !configured.Msg.GetSubmissionDeadline().AsTime().Equal(deadline) ||
+		configured.Msg.GetEffectiveDefaultDisposition() !=
+			rundownv1.EntryDisposition_ENTRY_DISPOSITION_INCLUDED {
+		t.Fatalf("Competition configuration = %+v", configured.Msg)
+	}
+	created, err := client.CreateEntry(t.Context(), connect.NewRequest(
+		&competitionv1.CreateEntryRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "create-included-entry",
+			Name: "Project Aurora", PublicDetails: "An attendee-visible demo",
+			CrewNotes: "Needs the HDMI adapter",
+		},
+	))
+	if err != nil {
+		t.Fatalf("Create Entry: %v", err)
+	}
+	entry := created.Msg.GetEntry()
+	if entry.GetId() <= 0 || entry.GetCompetitionSessionId() != competitionID ||
+		entry.GetName() != "Project Aurora" ||
+		entry.GetDisposition() != rundownv1.EntryDisposition_ENTRY_DISPOSITION_INCLUDED ||
+		!entry.GetParticipating() || entry.GetRevision() != 1 {
+		t.Fatalf("created Competition Entry = %+v", entry)
+	}
+	updated, err := client.UpdateEntry(t.Context(), connect.NewRequest(
+		&competitionv1.UpdateEntryRequest{
+			EventId: 1, SessionId: competitionID, EntryId: entry.GetId(),
+			CommandId: "update-included-entry", ExpectedRevision: entry.GetRevision(),
+			Name: "Project Aurora Revised", PublicDetails: "An attendee-visible revised demo",
+			CrewNotes: "Needs the HDMI adapter",
+		},
+	))
+	if err != nil || updated.Msg.GetEntry().GetRevision() != 2 ||
+		updated.Msg.GetEntry().GetName() != "Project Aurora Revised" {
+		t.Fatalf("updated Competition Entry = %+v, %v", updated, err)
+	}
+	_, staleUpdateErr := client.UpdateEntry(t.Context(), connect.NewRequest(
+		&competitionv1.UpdateEntryRequest{
+			EventId: 1, SessionId: competitionID, EntryId: entry.GetId(),
+			CommandId: "stale-entry-update", ExpectedRevision: entry.GetRevision(),
+			Name: "Stale Project",
+		},
+	))
+	if connect.CodeOf(staleUpdateErr) != connect.CodeAborted {
+		t.Fatalf("stale Entry update error = %v, want Aborted", staleUpdateErr)
+	}
+	entry = updated.Msg.GetEntry()
+	scheduleBody := func() string {
+		t.Helper()
+		response := get(t, authenticatedClient(t), server.address, "/schedule/sessions/"+strconv.FormatInt(competitionID, 10))
+		body, readErr := io.ReadAll(response.Body)
+		closeErr := response.Body.Close()
+		if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
+			t.Fatalf("read public Competition: %v", joinedErr)
+		}
+		if response.StatusCode != http.StatusOK {
+			t.Fatalf("public Competition status = %d: %s", response.StatusCode, body)
+		}
+		return string(body)
+	}
+	if body := scheduleBody(); !strings.Contains(body, "Project Aurora Revised") ||
+		strings.Contains(body, "Needs the HDMI adapter") {
+		t.Fatalf("Included Entry public projection = %q", body)
+	}
+	pending, err := client.ChangeEntryDisposition(t.Context(), connect.NewRequest(
+		&competitionv1.ChangeEntryDispositionRequest{
+			EventId: 1, SessionId: competitionID, EntryId: entry.GetId(),
+			CommandId: "make-entry-pending", ExpectedRevision: entry.GetRevision(),
+			Disposition: rundownv1.EntryDisposition_ENTRY_DISPOSITION_PENDING,
+		},
+	))
+	if err != nil || pending.Msg.GetEntry().GetParticipating() {
+		t.Fatalf("make Entry Pending = %+v, %v", pending, err)
+	}
+	if body := scheduleBody(); strings.Contains(body, "Project Aurora Revised") ||
+		strings.Contains(body, "Needs the HDMI adapter") {
+		t.Fatalf("Pending Entry leaked publicly = %q", body)
+	}
+	included, err := client.ChangeEntryDisposition(t.Context(), connect.NewRequest(
+		&competitionv1.ChangeEntryDispositionRequest{
+			EventId: 1, SessionId: competitionID, EntryId: entry.GetId(),
+			CommandId: "include-entry", ExpectedRevision: pending.Msg.GetEntry().GetRevision(),
+			Disposition: rundownv1.EntryDisposition_ENTRY_DISPOSITION_INCLUDED,
+		},
+	))
+	if err != nil || !included.Msg.GetEntry().GetParticipating() {
+		t.Fatalf("include Entry = %+v, %v", included, err)
+	}
+	sessionClient := sessionv1connect.NewSessionControlServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	started, err := sessionClient.StartSession(t.Context(), connect.NewRequest(
+		&sessionv1.StartSessionRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "start-competition",
+			ExpectedLiveStateRevision: new(int64(0)),
+		},
+	))
+	if err != nil {
+		t.Fatalf("start Competition: %v", err)
+	}
+	_, err = client.ChangeEntryDisposition(t.Context(), connect.NewRequest(
+		&competitionv1.ChangeEntryDispositionRequest{
+			EventId: 1, SessionId: competitionID, EntryId: entry.GetId(),
+			CommandId:        "reject-live-entry-without-confirmation",
+			ExpectedRevision: included.Msg.GetEntry().GetRevision(),
+			Disposition:      rundownv1.EntryDisposition_ENTRY_DISPOSITION_REJECTED,
+		},
+	))
+	if connect.CodeOf(err) != connect.CodeFailedPrecondition {
+		t.Fatalf("unconfirmed live disposition error = %v, want FailedPrecondition", err)
+	}
+	rejected, err := client.ChangeEntryDisposition(t.Context(), connect.NewRequest(
+		&competitionv1.ChangeEntryDispositionRequest{
+			EventId: 1, SessionId: competitionID, EntryId: entry.GetId(),
+			CommandId: "reject-live-entry", ExpectedRevision: included.Msg.GetEntry().GetRevision(),
+			Disposition:           rundownv1.EntryDisposition_ENTRY_DISPOSITION_REJECTED,
+			ConfirmedLiveOverride: true,
+		},
+	))
+	if err != nil || rejected.Msg.GetEntry().GetParticipating() {
+		t.Fatalf("reject live Entry = %+v, %v", rejected, err)
+	}
+	if body := scheduleBody(); strings.Contains(body, "Project Aurora Revised") {
+		t.Fatalf("Rejected Entry remained public = %q", body)
+	}
+	preview, err := sessionClient.PreviewAdjustTarget(t.Context(), connect.NewRequest(
+		&sessionv1.PreviewAdjustTargetRequest{
+			EventId: 1, SessionId: competitionID,
+			Adjustment: &sessionv1.PreviewAdjustTargetRequest_Custom{
+				Custom: durationpb.New(5 * time.Minute),
+			},
+		},
+	))
+	if err != nil {
+		t.Fatalf("preview Competition reschedule: %v", err)
+	}
+	_, err = sessionClient.AdjustTarget(t.Context(), connect.NewRequest(
+		&sessionv1.AdjustTargetRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "reschedule-competition",
+			ExpectedLiveStateRevision: new(started.Msg.GetState().GetLiveStateRevision()),
+			Adjustment: &sessionv1.AdjustTargetRequest_Custom{
+				Custom: durationpb.New(5 * time.Minute),
+			},
+			PreviewFingerprint: preview.Msg.GetPreviewFingerprint(),
+			Confirmed:          true, HardBoundaryConfirmed: true,
+		},
+	))
+	if err != nil {
+		t.Fatalf("reschedule Competition: %v", err)
+	}
+	afterReschedule, err := client.GetCompetition(t.Context(), connect.NewRequest(
+		&competitionv1.GetCompetitionRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil || !afterReschedule.Msg.GetSubmissionDeadline().AsTime().Equal(deadline) {
+		t.Fatalf("Competition Deadline moved during reschedule = %+v, %v", afterReschedule, err)
+	}
+	retained, err := client.GetCompetition(t.Context(), connect.NewRequest(
+		&competitionv1.GetCompetitionRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil || len(retained.Msg.GetEntries()) != 1 ||
+		retained.Msg.GetEntries()[0].GetRevision() != rejected.Msg.GetEntry().GetRevision() ||
+		retained.Msg.GetEntries()[0].GetCrewNotes() != "Needs the HDMI adapter" {
+		t.Fatalf("closed Competition changed Entry history = %+v, %v", retained, err)
+	}
+	auditResponse := get(t, administrator, server.address, "/admin/audit")
+	auditBody, readErr := io.ReadAll(auditResponse.Body)
+	closeErr := auditResponse.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Competition Audit history: %v", err)
+	}
+	if !strings.Contains(string(auditBody), "ChangeCompetitionEntryDisposition") {
+		t.Fatalf("Competition disposition change missing from Audit history: %s", auditBody)
+	}
+	server.stop(t)
+}
+
+func addCompetitionSession(
+	t *testing.T,
+	client *http.Client,
+	server *runningServer,
+) (int64, time.Time) {
+	t.Helper()
+	rundownClient := rundownv1connect.NewRundownServiceClient(
+		client, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	current, err := rundownClient.GetCrewRundown(
+		t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
+	)
+	if err != nil {
+		t.Fatalf("load Rundown before adding Competition: %v", err)
+	}
+	deadline := time.Date(2099, 8, 21, 11, 30, 0, 0, time.UTC)
+	plannedStart := time.Date(2099, 8, 21, 12, 0, 0, 0, time.UTC)
+	edited, err := rundownClient.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "add-competition-session",
+		ExpectedDraftRevision: current.Msg.GetDraftRevision(),
+		Sessions: []*rundownv1.SessionDraft{{
+			Ref: "competition", Title: "Demo Competition",
+			Type:               rundownv1.SessionType_SESSION_TYPE_COMPETITION,
+			AudienceVisibility: rundownv1.AudienceVisibility_AUDIENCE_VISIBILITY_PUBLIC,
+			PublicDetails:      "Projects presented by attendees",
+			PlannedStart:       timestamppb.New(plannedStart),
+			PlannedEnd:         timestamppb.New(plannedStart.Add(time.Hour)),
+			TimingPolicy:       rundownv1.TimingPolicy_TIMING_POLICY_FIXED_END,
+			MinimumDuration:    durationpb.New(30 * time.Minute),
+			StartBoundary:      rundownv1.Boundary_BOUNDARY_HARD,
+			EndBoundary:        rundownv1.Boundary_BOUNDARY_HARD,
+			Lanes: []*rundownv1.TargetRef{{
+				Target: &rundownv1.TargetRef_Id{Id: current.Msg.GetLanes()[0].GetId()},
+			}},
+			Locations: []*rundownv1.TargetRef{{
+				Target: &rundownv1.TargetRef_Id{Id: current.Msg.GetLocations()[0].GetId()},
+			}},
+			SubmissionDeadline:      timestamppb.New(deadline),
+			EntryDefaultDisposition: rundownv1.EntryDisposition_ENTRY_DISPOSITION_INCLUDED,
+		}},
+	}))
+	if err != nil {
+		t.Fatalf("add Competition Session: %v", err)
+	}
+	var competitionID int64
+	for _, change := range edited.Msg.GetChanges() {
+		if change.GetKind() == "CreateSession" {
+			competitionID = change.GetTargetId()
+		}
+	}
+	publishEditedDraft(t, rundownClient, edited.Msg, "publish-competition-session")
+	return competitionID, deadline
 }
 
 func prepareCommunicatedTimeSchedule(

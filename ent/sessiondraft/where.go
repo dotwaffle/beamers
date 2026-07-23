@@ -95,6 +95,11 @@ func MinimumDurationSeconds(v int) predicate.SessionDraft {
 	return predicate.SessionDraft(sql.FieldEQ(FieldMinimumDurationSeconds, v))
 }
 
+// SubmissionDeadline applies equality check predicate on the "submission_deadline" field. It's identical to SubmissionDeadlineEQ.
+func SubmissionDeadline(v time.Time) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldEQ(FieldSubmissionDeadline, v))
+}
+
 // SessionIDEQ applies the EQ predicate on the "session_id" field.
 func SessionIDEQ(v int) predicate.SessionDraft {
 	return predicate.SessionDraft(sql.FieldEQ(FieldSessionID, v))
@@ -623,6 +628,86 @@ func EndBoundaryIn(vs ...EndBoundary) predicate.SessionDraft {
 // EndBoundaryNotIn applies the NotIn predicate on the "end_boundary" field.
 func EndBoundaryNotIn(vs ...EndBoundary) predicate.SessionDraft {
 	return predicate.SessionDraft(sql.FieldNotIn(FieldEndBoundary, vs...))
+}
+
+// SubmissionDeadlineEQ applies the EQ predicate on the "submission_deadline" field.
+func SubmissionDeadlineEQ(v time.Time) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldEQ(FieldSubmissionDeadline, v))
+}
+
+// SubmissionDeadlineNEQ applies the NEQ predicate on the "submission_deadline" field.
+func SubmissionDeadlineNEQ(v time.Time) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldNEQ(FieldSubmissionDeadline, v))
+}
+
+// SubmissionDeadlineIn applies the In predicate on the "submission_deadline" field.
+func SubmissionDeadlineIn(vs ...time.Time) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldIn(FieldSubmissionDeadline, vs...))
+}
+
+// SubmissionDeadlineNotIn applies the NotIn predicate on the "submission_deadline" field.
+func SubmissionDeadlineNotIn(vs ...time.Time) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldNotIn(FieldSubmissionDeadline, vs...))
+}
+
+// SubmissionDeadlineGT applies the GT predicate on the "submission_deadline" field.
+func SubmissionDeadlineGT(v time.Time) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldGT(FieldSubmissionDeadline, v))
+}
+
+// SubmissionDeadlineGTE applies the GTE predicate on the "submission_deadline" field.
+func SubmissionDeadlineGTE(v time.Time) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldGTE(FieldSubmissionDeadline, v))
+}
+
+// SubmissionDeadlineLT applies the LT predicate on the "submission_deadline" field.
+func SubmissionDeadlineLT(v time.Time) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldLT(FieldSubmissionDeadline, v))
+}
+
+// SubmissionDeadlineLTE applies the LTE predicate on the "submission_deadline" field.
+func SubmissionDeadlineLTE(v time.Time) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldLTE(FieldSubmissionDeadline, v))
+}
+
+// SubmissionDeadlineIsNil applies the IsNil predicate on the "submission_deadline" field.
+func SubmissionDeadlineIsNil() predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldIsNull(FieldSubmissionDeadline))
+}
+
+// SubmissionDeadlineNotNil applies the NotNil predicate on the "submission_deadline" field.
+func SubmissionDeadlineNotNil() predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldNotNull(FieldSubmissionDeadline))
+}
+
+// EntryDefaultDispositionEQ applies the EQ predicate on the "entry_default_disposition" field.
+func EntryDefaultDispositionEQ(v EntryDefaultDisposition) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldEQ(FieldEntryDefaultDisposition, v))
+}
+
+// EntryDefaultDispositionNEQ applies the NEQ predicate on the "entry_default_disposition" field.
+func EntryDefaultDispositionNEQ(v EntryDefaultDisposition) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldNEQ(FieldEntryDefaultDisposition, v))
+}
+
+// EntryDefaultDispositionIn applies the In predicate on the "entry_default_disposition" field.
+func EntryDefaultDispositionIn(vs ...EntryDefaultDisposition) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldIn(FieldEntryDefaultDisposition, vs...))
+}
+
+// EntryDefaultDispositionNotIn applies the NotIn predicate on the "entry_default_disposition" field.
+func EntryDefaultDispositionNotIn(vs ...EntryDefaultDisposition) predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldNotIn(FieldEntryDefaultDisposition, vs...))
+}
+
+// EntryDefaultDispositionIsNil applies the IsNil predicate on the "entry_default_disposition" field.
+func EntryDefaultDispositionIsNil() predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldIsNull(FieldEntryDefaultDisposition))
+}
+
+// EntryDefaultDispositionNotNil applies the NotNil predicate on the "entry_default_disposition" field.
+func EntryDefaultDispositionNotNil() predicate.SessionDraft {
+	return predicate.SessionDraft(sql.FieldNotNull(FieldEntryDefaultDisposition))
 }
 
 // HasSession applies the HasEdge predicate on the "session" edge.

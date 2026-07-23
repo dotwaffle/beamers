@@ -16,6 +16,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/display"
 	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/displaycredential"
@@ -62,6 +63,7 @@ const (
 	TypeAuditEntry               = "AuditEntry"
 	TypeBootstrapCredential      = "BootstrapCredential"
 	TypeCommandReceipt           = "CommandReceipt"
+	TypeCompetitionEntry         = "CompetitionEntry"
 	TypeDisplay                  = "Display"
 	TypeDisplayAssignment        = "DisplayAssignment"
 	TypeDisplayCredential        = "DisplayCredential"
@@ -3859,6 +3861,900 @@ func (m *CommandReceiptMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown CommandReceipt edge %s", name)
+}
+
+// CompetitionEntryMutation represents an operation that mutates the CompetitionEntry nodes in the graph.
+type CompetitionEntryMutation struct {
+	config
+	op                 Op
+	typ                string
+	id                 *int
+	name               *string
+	public_details     *string
+	crew_notes         *string
+	disposition        *competitionentry.Disposition
+	revision           *int
+	addrevision        *int
+	created_at         *time.Time
+	clearedFields      map[string]struct{}
+	event              *int
+	clearedevent       bool
+	competition        *int
+	clearedcompetition bool
+	done               bool
+	oldValue           func(context.Context) (*CompetitionEntry, error)
+	predicates         []predicate.CompetitionEntry
+}
+
+var _ ent.Mutation = (*CompetitionEntryMutation)(nil)
+
+// competitionentryOption allows management of the mutation configuration using functional options.
+type competitionentryOption func(*CompetitionEntryMutation)
+
+// newCompetitionEntryMutation creates new mutation for the CompetitionEntry entity.
+func newCompetitionEntryMutation(c config, op Op, opts ...competitionentryOption) *CompetitionEntryMutation {
+	m := &CompetitionEntryMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeCompetitionEntry,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withCompetitionEntryID sets the ID field of the mutation.
+func withCompetitionEntryID(id int) competitionentryOption {
+	return func(m *CompetitionEntryMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *CompetitionEntry
+		)
+		m.oldValue = func(ctx context.Context) (*CompetitionEntry, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().CompetitionEntry.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withCompetitionEntry sets the old CompetitionEntry of the mutation.
+func withCompetitionEntry(node *CompetitionEntry) competitionentryOption {
+	return func(m *CompetitionEntryMutation) {
+		m.oldValue = func(context.Context) (*CompetitionEntry, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m CompetitionEntryMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m CompetitionEntryMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *CompetitionEntryMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *CompetitionEntryMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().CompetitionEntry.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetEventID sets the "event_id" field.
+func (m *CompetitionEntryMutation) SetEventID(i int) {
+	m.event = &i
+}
+
+// EventID returns the value of the "event_id" field in the mutation.
+func (m *CompetitionEntryMutation) EventID() (r int, exists bool) {
+	v := m.event
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventID returns the old "event_id" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldEventID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventID: %w", err)
+	}
+	return oldValue.EventID, nil
+}
+
+// ResetEventID resets all changes to the "event_id" field.
+func (m *CompetitionEntryMutation) ResetEventID() {
+	m.event = nil
+}
+
+// SetCompetitionSessionID sets the "competition_session_id" field.
+func (m *CompetitionEntryMutation) SetCompetitionSessionID(i int) {
+	m.competition = &i
+}
+
+// CompetitionSessionID returns the value of the "competition_session_id" field in the mutation.
+func (m *CompetitionEntryMutation) CompetitionSessionID() (r int, exists bool) {
+	v := m.competition
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCompetitionSessionID returns the old "competition_session_id" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldCompetitionSessionID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCompetitionSessionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCompetitionSessionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCompetitionSessionID: %w", err)
+	}
+	return oldValue.CompetitionSessionID, nil
+}
+
+// ResetCompetitionSessionID resets all changes to the "competition_session_id" field.
+func (m *CompetitionEntryMutation) ResetCompetitionSessionID() {
+	m.competition = nil
+}
+
+// SetName sets the "name" field.
+func (m *CompetitionEntryMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *CompetitionEntryMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *CompetitionEntryMutation) ResetName() {
+	m.name = nil
+}
+
+// SetPublicDetails sets the "public_details" field.
+func (m *CompetitionEntryMutation) SetPublicDetails(s string) {
+	m.public_details = &s
+}
+
+// PublicDetails returns the value of the "public_details" field in the mutation.
+func (m *CompetitionEntryMutation) PublicDetails() (r string, exists bool) {
+	v := m.public_details
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublicDetails returns the old "public_details" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldPublicDetails(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublicDetails is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublicDetails requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublicDetails: %w", err)
+	}
+	return oldValue.PublicDetails, nil
+}
+
+// ClearPublicDetails clears the value of the "public_details" field.
+func (m *CompetitionEntryMutation) ClearPublicDetails() {
+	m.public_details = nil
+	m.clearedFields[competitionentry.FieldPublicDetails] = struct{}{}
+}
+
+// PublicDetailsCleared returns if the "public_details" field was cleared in this mutation.
+func (m *CompetitionEntryMutation) PublicDetailsCleared() bool {
+	_, ok := m.clearedFields[competitionentry.FieldPublicDetails]
+	return ok
+}
+
+// ResetPublicDetails resets all changes to the "public_details" field.
+func (m *CompetitionEntryMutation) ResetPublicDetails() {
+	m.public_details = nil
+	delete(m.clearedFields, competitionentry.FieldPublicDetails)
+}
+
+// SetCrewNotes sets the "crew_notes" field.
+func (m *CompetitionEntryMutation) SetCrewNotes(s string) {
+	m.crew_notes = &s
+}
+
+// CrewNotes returns the value of the "crew_notes" field in the mutation.
+func (m *CompetitionEntryMutation) CrewNotes() (r string, exists bool) {
+	v := m.crew_notes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCrewNotes returns the old "crew_notes" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldCrewNotes(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCrewNotes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCrewNotes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCrewNotes: %w", err)
+	}
+	return oldValue.CrewNotes, nil
+}
+
+// ClearCrewNotes clears the value of the "crew_notes" field.
+func (m *CompetitionEntryMutation) ClearCrewNotes() {
+	m.crew_notes = nil
+	m.clearedFields[competitionentry.FieldCrewNotes] = struct{}{}
+}
+
+// CrewNotesCleared returns if the "crew_notes" field was cleared in this mutation.
+func (m *CompetitionEntryMutation) CrewNotesCleared() bool {
+	_, ok := m.clearedFields[competitionentry.FieldCrewNotes]
+	return ok
+}
+
+// ResetCrewNotes resets all changes to the "crew_notes" field.
+func (m *CompetitionEntryMutation) ResetCrewNotes() {
+	m.crew_notes = nil
+	delete(m.clearedFields, competitionentry.FieldCrewNotes)
+}
+
+// SetDisposition sets the "disposition" field.
+func (m *CompetitionEntryMutation) SetDisposition(c competitionentry.Disposition) {
+	m.disposition = &c
+}
+
+// Disposition returns the value of the "disposition" field in the mutation.
+func (m *CompetitionEntryMutation) Disposition() (r competitionentry.Disposition, exists bool) {
+	v := m.disposition
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDisposition returns the old "disposition" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldDisposition(ctx context.Context) (v competitionentry.Disposition, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDisposition is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDisposition requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDisposition: %w", err)
+	}
+	return oldValue.Disposition, nil
+}
+
+// ResetDisposition resets all changes to the "disposition" field.
+func (m *CompetitionEntryMutation) ResetDisposition() {
+	m.disposition = nil
+}
+
+// SetRevision sets the "revision" field.
+func (m *CompetitionEntryMutation) SetRevision(i int) {
+	m.revision = &i
+	m.addrevision = nil
+}
+
+// Revision returns the value of the "revision" field in the mutation.
+func (m *CompetitionEntryMutation) Revision() (r int, exists bool) {
+	v := m.revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRevision returns the old "revision" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRevision: %w", err)
+	}
+	return oldValue.Revision, nil
+}
+
+// AddRevision adds i to the "revision" field.
+func (m *CompetitionEntryMutation) AddRevision(i int) {
+	if m.addrevision != nil {
+		*m.addrevision += i
+	} else {
+		m.addrevision = &i
+	}
+}
+
+// AddedRevision returns the value that was added to the "revision" field in this mutation.
+func (m *CompetitionEntryMutation) AddedRevision() (r int, exists bool) {
+	v := m.addrevision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRevision resets all changes to the "revision" field.
+func (m *CompetitionEntryMutation) ResetRevision() {
+	m.revision = nil
+	m.addrevision = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *CompetitionEntryMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *CompetitionEntryMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *CompetitionEntryMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearEvent clears the "event" edge to the Event entity.
+func (m *CompetitionEntryMutation) ClearEvent() {
+	m.clearedevent = true
+	m.clearedFields[competitionentry.FieldEventID] = struct{}{}
+}
+
+// EventCleared reports if the "event" edge to the Event entity was cleared.
+func (m *CompetitionEntryMutation) EventCleared() bool {
+	return m.clearedevent
+}
+
+// EventIDs returns the "event" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// EventID instead. It exists only for internal usage by the builders.
+func (m *CompetitionEntryMutation) EventIDs() (ids []int) {
+	if id := m.event; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetEvent resets all changes to the "event" edge.
+func (m *CompetitionEntryMutation) ResetEvent() {
+	m.event = nil
+	m.clearedevent = false
+}
+
+// SetCompetitionID sets the "competition" edge to the Session entity by id.
+func (m *CompetitionEntryMutation) SetCompetitionID(id int) {
+	m.competition = &id
+}
+
+// ClearCompetition clears the "competition" edge to the Session entity.
+func (m *CompetitionEntryMutation) ClearCompetition() {
+	m.clearedcompetition = true
+	m.clearedFields[competitionentry.FieldCompetitionSessionID] = struct{}{}
+}
+
+// CompetitionCleared reports if the "competition" edge to the Session entity was cleared.
+func (m *CompetitionEntryMutation) CompetitionCleared() bool {
+	return m.clearedcompetition
+}
+
+// CompetitionID returns the "competition" edge ID in the mutation.
+func (m *CompetitionEntryMutation) CompetitionID() (id int, exists bool) {
+	if m.competition != nil {
+		return *m.competition, true
+	}
+	return
+}
+
+// CompetitionIDs returns the "competition" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// CompetitionID instead. It exists only for internal usage by the builders.
+func (m *CompetitionEntryMutation) CompetitionIDs() (ids []int) {
+	if id := m.competition; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetCompetition resets all changes to the "competition" edge.
+func (m *CompetitionEntryMutation) ResetCompetition() {
+	m.competition = nil
+	m.clearedcompetition = false
+}
+
+// Where appends a list predicates to the CompetitionEntryMutation builder.
+func (m *CompetitionEntryMutation) Where(ps ...predicate.CompetitionEntry) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the CompetitionEntryMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *CompetitionEntryMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.CompetitionEntry, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *CompetitionEntryMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *CompetitionEntryMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (CompetitionEntry).
+func (m *CompetitionEntryMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *CompetitionEntryMutation) Fields() []string {
+	fields := make([]string, 0, 8)
+	if m.event != nil {
+		fields = append(fields, competitionentry.FieldEventID)
+	}
+	if m.competition != nil {
+		fields = append(fields, competitionentry.FieldCompetitionSessionID)
+	}
+	if m.name != nil {
+		fields = append(fields, competitionentry.FieldName)
+	}
+	if m.public_details != nil {
+		fields = append(fields, competitionentry.FieldPublicDetails)
+	}
+	if m.crew_notes != nil {
+		fields = append(fields, competitionentry.FieldCrewNotes)
+	}
+	if m.disposition != nil {
+		fields = append(fields, competitionentry.FieldDisposition)
+	}
+	if m.revision != nil {
+		fields = append(fields, competitionentry.FieldRevision)
+	}
+	if m.created_at != nil {
+		fields = append(fields, competitionentry.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *CompetitionEntryMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case competitionentry.FieldEventID:
+		return m.EventID()
+	case competitionentry.FieldCompetitionSessionID:
+		return m.CompetitionSessionID()
+	case competitionentry.FieldName:
+		return m.Name()
+	case competitionentry.FieldPublicDetails:
+		return m.PublicDetails()
+	case competitionentry.FieldCrewNotes:
+		return m.CrewNotes()
+	case competitionentry.FieldDisposition:
+		return m.Disposition()
+	case competitionentry.FieldRevision:
+		return m.Revision()
+	case competitionentry.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *CompetitionEntryMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case competitionentry.FieldEventID:
+		return m.OldEventID(ctx)
+	case competitionentry.FieldCompetitionSessionID:
+		return m.OldCompetitionSessionID(ctx)
+	case competitionentry.FieldName:
+		return m.OldName(ctx)
+	case competitionentry.FieldPublicDetails:
+		return m.OldPublicDetails(ctx)
+	case competitionentry.FieldCrewNotes:
+		return m.OldCrewNotes(ctx)
+	case competitionentry.FieldDisposition:
+		return m.OldDisposition(ctx)
+	case competitionentry.FieldRevision:
+		return m.OldRevision(ctx)
+	case competitionentry.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown CompetitionEntry field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CompetitionEntryMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case competitionentry.FieldEventID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventID(v)
+		return nil
+	case competitionentry.FieldCompetitionSessionID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCompetitionSessionID(v)
+		return nil
+	case competitionentry.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case competitionentry.FieldPublicDetails:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublicDetails(v)
+		return nil
+	case competitionentry.FieldCrewNotes:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCrewNotes(v)
+		return nil
+	case competitionentry.FieldDisposition:
+		v, ok := value.(competitionentry.Disposition)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDisposition(v)
+		return nil
+	case competitionentry.FieldRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRevision(v)
+		return nil
+	case competitionentry.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CompetitionEntry field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *CompetitionEntryMutation) AddedFields() []string {
+	var fields []string
+	if m.addrevision != nil {
+		fields = append(fields, competitionentry.FieldRevision)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *CompetitionEntryMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case competitionentry.FieldRevision:
+		return m.AddedRevision()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CompetitionEntryMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case competitionentry.FieldRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRevision(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CompetitionEntry numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *CompetitionEntryMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(competitionentry.FieldPublicDetails) {
+		fields = append(fields, competitionentry.FieldPublicDetails)
+	}
+	if m.FieldCleared(competitionentry.FieldCrewNotes) {
+		fields = append(fields, competitionentry.FieldCrewNotes)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *CompetitionEntryMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *CompetitionEntryMutation) ClearField(name string) error {
+	switch name {
+	case competitionentry.FieldPublicDetails:
+		m.ClearPublicDetails()
+		return nil
+	case competitionentry.FieldCrewNotes:
+		m.ClearCrewNotes()
+		return nil
+	}
+	return fmt.Errorf("unknown CompetitionEntry nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *CompetitionEntryMutation) ResetField(name string) error {
+	switch name {
+	case competitionentry.FieldEventID:
+		m.ResetEventID()
+		return nil
+	case competitionentry.FieldCompetitionSessionID:
+		m.ResetCompetitionSessionID()
+		return nil
+	case competitionentry.FieldName:
+		m.ResetName()
+		return nil
+	case competitionentry.FieldPublicDetails:
+		m.ResetPublicDetails()
+		return nil
+	case competitionentry.FieldCrewNotes:
+		m.ResetCrewNotes()
+		return nil
+	case competitionentry.FieldDisposition:
+		m.ResetDisposition()
+		return nil
+	case competitionentry.FieldRevision:
+		m.ResetRevision()
+		return nil
+	case competitionentry.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown CompetitionEntry field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *CompetitionEntryMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.event != nil {
+		edges = append(edges, competitionentry.EdgeEvent)
+	}
+	if m.competition != nil {
+		edges = append(edges, competitionentry.EdgeCompetition)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *CompetitionEntryMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case competitionentry.EdgeEvent:
+		if id := m.event; id != nil {
+			return []ent.Value{*id}
+		}
+	case competitionentry.EdgeCompetition:
+		if id := m.competition; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *CompetitionEntryMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *CompetitionEntryMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *CompetitionEntryMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedevent {
+		edges = append(edges, competitionentry.EdgeEvent)
+	}
+	if m.clearedcompetition {
+		edges = append(edges, competitionentry.EdgeCompetition)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *CompetitionEntryMutation) EdgeCleared(name string) bool {
+	switch name {
+	case competitionentry.EdgeEvent:
+		return m.clearedevent
+	case competitionentry.EdgeCompetition:
+		return m.clearedcompetition
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *CompetitionEntryMutation) ClearEdge(name string) error {
+	switch name {
+	case competitionentry.EdgeEvent:
+		m.ClearEvent()
+		return nil
+	case competitionentry.EdgeCompetition:
+		m.ClearCompetition()
+		return nil
+	}
+	return fmt.Errorf("unknown CompetitionEntry unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *CompetitionEntryMutation) ResetEdge(name string) error {
+	switch name {
+	case competitionentry.EdgeEvent:
+		m.ResetEvent()
+		return nil
+	case competitionentry.EdgeCompetition:
+		m.ResetCompetition()
+		return nil
+	}
+	return fmt.Errorf("unknown CompetitionEntry edge %s", name)
 }
 
 // DisplayMutation represents an operation that mutates the Display nodes in the graph.
@@ -9695,6 +10591,7 @@ type EventMutation struct {
 	event_locale               *string
 	content_language           *string
 	event_day_boundary         *string
+	entry_default_disposition  *event.EntryDefaultDisposition
 	target_adjustment_presets  *string
 	display_configuration      *string
 	revision                   *int
@@ -9718,6 +10615,9 @@ type EventMutation struct {
 	sessions                   map[int]struct{}
 	removedsessions            map[int]struct{}
 	clearedsessions            bool
+	competition_entries        map[int]struct{}
+	removedcompetition_entries map[int]struct{}
+	clearedcompetition_entries bool
 	draft_edits                map[int]struct{}
 	removeddraft_edits         map[int]struct{}
 	cleareddraft_edits         bool
@@ -10096,6 +10996,42 @@ func (m *EventMutation) OldEventDayBoundary(ctx context.Context) (v string, err 
 // ResetEventDayBoundary resets all changes to the "event_day_boundary" field.
 func (m *EventMutation) ResetEventDayBoundary() {
 	m.event_day_boundary = nil
+}
+
+// SetEntryDefaultDisposition sets the "entry_default_disposition" field.
+func (m *EventMutation) SetEntryDefaultDisposition(edd event.EntryDefaultDisposition) {
+	m.entry_default_disposition = &edd
+}
+
+// EntryDefaultDisposition returns the value of the "entry_default_disposition" field in the mutation.
+func (m *EventMutation) EntryDefaultDisposition() (r event.EntryDefaultDisposition, exists bool) {
+	v := m.entry_default_disposition
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEntryDefaultDisposition returns the old "entry_default_disposition" field's value of the Event entity.
+// If the Event object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventMutation) OldEntryDefaultDisposition(ctx context.Context) (v event.EntryDefaultDisposition, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEntryDefaultDisposition is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEntryDefaultDisposition requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEntryDefaultDisposition: %w", err)
+	}
+	return oldValue.EntryDefaultDisposition, nil
+}
+
+// ResetEntryDefaultDisposition resets all changes to the "entry_default_disposition" field.
+func (m *EventMutation) ResetEntryDefaultDisposition() {
+	m.entry_default_disposition = nil
 }
 
 // SetTargetAdjustmentPresets sets the "target_adjustment_presets" field.
@@ -10571,6 +11507,60 @@ func (m *EventMutation) ResetSessions() {
 	m.removedsessions = nil
 }
 
+// AddCompetitionEntryIDs adds the "competition_entries" edge to the CompetitionEntry entity by ids.
+func (m *EventMutation) AddCompetitionEntryIDs(ids ...int) {
+	if m.competition_entries == nil {
+		m.competition_entries = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.competition_entries[ids[i]] = struct{}{}
+	}
+}
+
+// ClearCompetitionEntries clears the "competition_entries" edge to the CompetitionEntry entity.
+func (m *EventMutation) ClearCompetitionEntries() {
+	m.clearedcompetition_entries = true
+}
+
+// CompetitionEntriesCleared reports if the "competition_entries" edge to the CompetitionEntry entity was cleared.
+func (m *EventMutation) CompetitionEntriesCleared() bool {
+	return m.clearedcompetition_entries
+}
+
+// RemoveCompetitionEntryIDs removes the "competition_entries" edge to the CompetitionEntry entity by IDs.
+func (m *EventMutation) RemoveCompetitionEntryIDs(ids ...int) {
+	if m.removedcompetition_entries == nil {
+		m.removedcompetition_entries = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.competition_entries, ids[i])
+		m.removedcompetition_entries[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedCompetitionEntries returns the removed IDs of the "competition_entries" edge to the CompetitionEntry entity.
+func (m *EventMutation) RemovedCompetitionEntriesIDs() (ids []int) {
+	for id := range m.removedcompetition_entries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// CompetitionEntriesIDs returns the "competition_entries" edge IDs in the mutation.
+func (m *EventMutation) CompetitionEntriesIDs() (ids []int) {
+	for id := range m.competition_entries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetCompetitionEntries resets all changes to the "competition_entries" edge.
+func (m *EventMutation) ResetCompetitionEntries() {
+	m.competition_entries = nil
+	m.clearedcompetition_entries = false
+	m.removedcompetition_entries = nil
+}
+
 // AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by ids.
 func (m *EventMutation) AddDraftEditIDs(ids ...int) {
 	if m.draft_edits == nil {
@@ -10821,7 +11811,7 @@ func (m *EventMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *EventMutation) Fields() []string {
-	fields := make([]string, 0, 11)
+	fields := make([]string, 0, 12)
 	if m.name != nil {
 		fields = append(fields, event.FieldName)
 	}
@@ -10842,6 +11832,9 @@ func (m *EventMutation) Fields() []string {
 	}
 	if m.event_day_boundary != nil {
 		fields = append(fields, event.FieldEventDayBoundary)
+	}
+	if m.entry_default_disposition != nil {
+		fields = append(fields, event.FieldEntryDefaultDisposition)
 	}
 	if m.target_adjustment_presets != nil {
 		fields = append(fields, event.FieldTargetAdjustmentPresets)
@@ -10877,6 +11870,8 @@ func (m *EventMutation) Field(name string) (ent.Value, bool) {
 		return m.ContentLanguage()
 	case event.FieldEventDayBoundary:
 		return m.EventDayBoundary()
+	case event.FieldEntryDefaultDisposition:
+		return m.EntryDefaultDisposition()
 	case event.FieldTargetAdjustmentPresets:
 		return m.TargetAdjustmentPresets()
 	case event.FieldDisplayConfiguration:
@@ -10908,6 +11903,8 @@ func (m *EventMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldContentLanguage(ctx)
 	case event.FieldEventDayBoundary:
 		return m.OldEventDayBoundary(ctx)
+	case event.FieldEntryDefaultDisposition:
+		return m.OldEntryDefaultDisposition(ctx)
 	case event.FieldTargetAdjustmentPresets:
 		return m.OldTargetAdjustmentPresets(ctx)
 	case event.FieldDisplayConfiguration:
@@ -10973,6 +11970,13 @@ func (m *EventMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetEventDayBoundary(v)
+		return nil
+	case event.FieldEntryDefaultDisposition:
+		v, ok := value.(event.EntryDefaultDisposition)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEntryDefaultDisposition(v)
 		return nil
 	case event.FieldTargetAdjustmentPresets:
 		v, ok := value.(string)
@@ -11096,6 +12100,9 @@ func (m *EventMutation) ResetField(name string) error {
 	case event.FieldEventDayBoundary:
 		m.ResetEventDayBoundary()
 		return nil
+	case event.FieldEntryDefaultDisposition:
+		m.ResetEntryDefaultDisposition()
+		return nil
 	case event.FieldTargetAdjustmentPresets:
 		m.ResetTargetAdjustmentPresets()
 		return nil
@@ -11114,7 +12121,7 @@ func (m *EventMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *EventMutation) AddedEdges() []string {
-	edges := make([]string, 0, 10)
+	edges := make([]string, 0, 11)
 	if m.grants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -11132,6 +12139,9 @@ func (m *EventMutation) AddedEdges() []string {
 	}
 	if m.sessions != nil {
 		edges = append(edges, event.EdgeSessions)
+	}
+	if m.competition_entries != nil {
+		edges = append(edges, event.EdgeCompetitionEntries)
 	}
 	if m.draft_edits != nil {
 		edges = append(edges, event.EdgeDraftEdits)
@@ -11186,6 +12196,12 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeCompetitionEntries:
+		ids := make([]ent.Value, 0, len(m.competition_entries))
+		for id := range m.competition_entries {
+			ids = append(ids, id)
+		}
+		return ids
 	case event.EdgeDraftEdits:
 		ids := make([]ent.Value, 0, len(m.draft_edits))
 		for id := range m.draft_edits {
@@ -11216,7 +12232,7 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *EventMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 10)
+	edges := make([]string, 0, 11)
 	if m.removedgrants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -11231,6 +12247,9 @@ func (m *EventMutation) RemovedEdges() []string {
 	}
 	if m.removedsessions != nil {
 		edges = append(edges, event.EdgeSessions)
+	}
+	if m.removedcompetition_entries != nil {
+		edges = append(edges, event.EdgeCompetitionEntries)
 	}
 	if m.removeddraft_edits != nil {
 		edges = append(edges, event.EdgeDraftEdits)
@@ -11281,6 +12300,12 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeCompetitionEntries:
+		ids := make([]ent.Value, 0, len(m.removedcompetition_entries))
+		for id := range m.removedcompetition_entries {
+			ids = append(ids, id)
+		}
+		return ids
 	case event.EdgeDraftEdits:
 		ids := make([]ent.Value, 0, len(m.removeddraft_edits))
 		for id := range m.removeddraft_edits {
@@ -11311,7 +12336,7 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *EventMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 10)
+	edges := make([]string, 0, 11)
 	if m.clearedgrants {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -11329,6 +12354,9 @@ func (m *EventMutation) ClearedEdges() []string {
 	}
 	if m.clearedsessions {
 		edges = append(edges, event.EdgeSessions)
+	}
+	if m.clearedcompetition_entries {
+		edges = append(edges, event.EdgeCompetitionEntries)
 	}
 	if m.cleareddraft_edits {
 		edges = append(edges, event.EdgeDraftEdits)
@@ -11361,6 +12389,8 @@ func (m *EventMutation) EdgeCleared(name string) bool {
 		return m.clearedtracks
 	case event.EdgeSessions:
 		return m.clearedsessions
+	case event.EdgeCompetitionEntries:
+		return m.clearedcompetition_entries
 	case event.EdgeDraftEdits:
 		return m.cleareddraft_edits
 	case event.EdgeDraftChanges:
@@ -11405,6 +12435,9 @@ func (m *EventMutation) ResetEdge(name string) error {
 		return nil
 	case event.EdgeSessions:
 		m.ResetSessions()
+		return nil
+	case event.EdgeCompetitionEntries:
+		m.ResetCompetitionEntries()
 		return nil
 	case event.EdgeDraftEdits:
 		m.ResetDraftEdits()
@@ -19447,6 +20480,9 @@ type SessionMutation struct {
 	cancellations               map[int]struct{}
 	removedcancellations        map[int]struct{}
 	clearedcancellations        bool
+	competition_entries         map[int]struct{}
+	removedcompetition_entries  map[int]struct{}
+	clearedcompetition_entries  bool
 	done                        bool
 	oldValue                    func(context.Context) (*Session, error)
 	predicates                  []predicate.Session
@@ -20562,6 +21598,60 @@ func (m *SessionMutation) ResetCancellations() {
 	m.removedcancellations = nil
 }
 
+// AddCompetitionEntryIDs adds the "competition_entries" edge to the CompetitionEntry entity by ids.
+func (m *SessionMutation) AddCompetitionEntryIDs(ids ...int) {
+	if m.competition_entries == nil {
+		m.competition_entries = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.competition_entries[ids[i]] = struct{}{}
+	}
+}
+
+// ClearCompetitionEntries clears the "competition_entries" edge to the CompetitionEntry entity.
+func (m *SessionMutation) ClearCompetitionEntries() {
+	m.clearedcompetition_entries = true
+}
+
+// CompetitionEntriesCleared reports if the "competition_entries" edge to the CompetitionEntry entity was cleared.
+func (m *SessionMutation) CompetitionEntriesCleared() bool {
+	return m.clearedcompetition_entries
+}
+
+// RemoveCompetitionEntryIDs removes the "competition_entries" edge to the CompetitionEntry entity by IDs.
+func (m *SessionMutation) RemoveCompetitionEntryIDs(ids ...int) {
+	if m.removedcompetition_entries == nil {
+		m.removedcompetition_entries = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.competition_entries, ids[i])
+		m.removedcompetition_entries[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedCompetitionEntries returns the removed IDs of the "competition_entries" edge to the CompetitionEntry entity.
+func (m *SessionMutation) RemovedCompetitionEntriesIDs() (ids []int) {
+	for id := range m.removedcompetition_entries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// CompetitionEntriesIDs returns the "competition_entries" edge IDs in the mutation.
+func (m *SessionMutation) CompetitionEntriesIDs() (ids []int) {
+	for id := range m.competition_entries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetCompetitionEntries resets all changes to the "competition_entries" edge.
+func (m *SessionMutation) ResetCompetitionEntries() {
+	m.competition_entries = nil
+	m.clearedcompetition_entries = false
+	m.removedcompetition_entries = nil
+}
+
 // Where appends a list predicates to the SessionMutation builder.
 func (m *SessionMutation) Where(ps ...predicate.Session) {
 	m.predicates = append(m.predicates, ps...)
@@ -21040,7 +22130,7 @@ func (m *SessionMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *SessionMutation) AddedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.event != nil {
 		edges = append(edges, session.EdgeEvent)
 	}
@@ -21055,6 +22145,9 @@ func (m *SessionMutation) AddedEdges() []string {
 	}
 	if m.cancellations != nil {
 		edges = append(edges, session.EdgeCancellations)
+	}
+	if m.competition_entries != nil {
+		edges = append(edges, session.EdgeCompetitionEntries)
 	}
 	return edges
 }
@@ -21089,13 +22182,19 @@ func (m *SessionMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case session.EdgeCompetitionEntries:
+		ids := make([]ent.Value, 0, len(m.competition_entries))
+		for id := range m.competition_entries {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *SessionMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.removedpublished_versions != nil {
 		edges = append(edges, session.EdgePublishedVersions)
 	}
@@ -21104,6 +22203,9 @@ func (m *SessionMutation) RemovedEdges() []string {
 	}
 	if m.removedcancellations != nil {
 		edges = append(edges, session.EdgeCancellations)
+	}
+	if m.removedcompetition_entries != nil {
+		edges = append(edges, session.EdgeCompetitionEntries)
 	}
 	return edges
 }
@@ -21130,13 +22232,19 @@ func (m *SessionMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case session.EdgeCompetitionEntries:
+		ids := make([]ent.Value, 0, len(m.removedcompetition_entries))
+		for id := range m.removedcompetition_entries {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *SessionMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.clearedevent {
 		edges = append(edges, session.EdgeEvent)
 	}
@@ -21151,6 +22259,9 @@ func (m *SessionMutation) ClearedEdges() []string {
 	}
 	if m.clearedcancellations {
 		edges = append(edges, session.EdgeCancellations)
+	}
+	if m.clearedcompetition_entries {
+		edges = append(edges, session.EdgeCompetitionEntries)
 	}
 	return edges
 }
@@ -21169,6 +22280,8 @@ func (m *SessionMutation) EdgeCleared(name string) bool {
 		return m.clearedruns
 	case session.EdgeCancellations:
 		return m.clearedcancellations
+	case session.EdgeCompetitionEntries:
+		return m.clearedcompetition_entries
 	}
 	return false
 }
@@ -21205,6 +22318,9 @@ func (m *SessionMutation) ResetEdge(name string) error {
 		return nil
 	case session.EdgeCancellations:
 		m.ResetCancellations()
+		return nil
+	case session.EdgeCompetitionEntries:
+		m.ResetCompetitionEntries()
 		return nil
 	}
 	return fmt.Errorf("unknown Session edge %s", name)
@@ -21976,6 +23092,8 @@ type SessionDraftMutation struct {
 	addminimum_duration_seconds *int
 	start_boundary              *sessiondraft.StartBoundary
 	end_boundary                *sessiondraft.EndBoundary
+	submission_deadline         *time.Time
+	entry_default_disposition   *sessiondraft.EntryDefaultDisposition
 	clearedFields               map[string]struct{}
 	session                     *int
 	clearedsession              bool
@@ -22618,6 +23736,104 @@ func (m *SessionDraftMutation) ResetEndBoundary() {
 	m.end_boundary = nil
 }
 
+// SetSubmissionDeadline sets the "submission_deadline" field.
+func (m *SessionDraftMutation) SetSubmissionDeadline(t time.Time) {
+	m.submission_deadline = &t
+}
+
+// SubmissionDeadline returns the value of the "submission_deadline" field in the mutation.
+func (m *SessionDraftMutation) SubmissionDeadline() (r time.Time, exists bool) {
+	v := m.submission_deadline
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubmissionDeadline returns the old "submission_deadline" field's value of the SessionDraft entity.
+// If the SessionDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionDraftMutation) OldSubmissionDeadline(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubmissionDeadline is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubmissionDeadline requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubmissionDeadline: %w", err)
+	}
+	return oldValue.SubmissionDeadline, nil
+}
+
+// ClearSubmissionDeadline clears the value of the "submission_deadline" field.
+func (m *SessionDraftMutation) ClearSubmissionDeadline() {
+	m.submission_deadline = nil
+	m.clearedFields[sessiondraft.FieldSubmissionDeadline] = struct{}{}
+}
+
+// SubmissionDeadlineCleared returns if the "submission_deadline" field was cleared in this mutation.
+func (m *SessionDraftMutation) SubmissionDeadlineCleared() bool {
+	_, ok := m.clearedFields[sessiondraft.FieldSubmissionDeadline]
+	return ok
+}
+
+// ResetSubmissionDeadline resets all changes to the "submission_deadline" field.
+func (m *SessionDraftMutation) ResetSubmissionDeadline() {
+	m.submission_deadline = nil
+	delete(m.clearedFields, sessiondraft.FieldSubmissionDeadline)
+}
+
+// SetEntryDefaultDisposition sets the "entry_default_disposition" field.
+func (m *SessionDraftMutation) SetEntryDefaultDisposition(sdd sessiondraft.EntryDefaultDisposition) {
+	m.entry_default_disposition = &sdd
+}
+
+// EntryDefaultDisposition returns the value of the "entry_default_disposition" field in the mutation.
+func (m *SessionDraftMutation) EntryDefaultDisposition() (r sessiondraft.EntryDefaultDisposition, exists bool) {
+	v := m.entry_default_disposition
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEntryDefaultDisposition returns the old "entry_default_disposition" field's value of the SessionDraft entity.
+// If the SessionDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionDraftMutation) OldEntryDefaultDisposition(ctx context.Context) (v sessiondraft.EntryDefaultDisposition, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEntryDefaultDisposition is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEntryDefaultDisposition requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEntryDefaultDisposition: %w", err)
+	}
+	return oldValue.EntryDefaultDisposition, nil
+}
+
+// ClearEntryDefaultDisposition clears the value of the "entry_default_disposition" field.
+func (m *SessionDraftMutation) ClearEntryDefaultDisposition() {
+	m.entry_default_disposition = nil
+	m.clearedFields[sessiondraft.FieldEntryDefaultDisposition] = struct{}{}
+}
+
+// EntryDefaultDispositionCleared returns if the "entry_default_disposition" field was cleared in this mutation.
+func (m *SessionDraftMutation) EntryDefaultDispositionCleared() bool {
+	_, ok := m.clearedFields[sessiondraft.FieldEntryDefaultDisposition]
+	return ok
+}
+
+// ResetEntryDefaultDisposition resets all changes to the "entry_default_disposition" field.
+func (m *SessionDraftMutation) ResetEntryDefaultDisposition() {
+	m.entry_default_disposition = nil
+	delete(m.clearedFields, sessiondraft.FieldEntryDefaultDisposition)
+}
+
 // ClearSession clears the "session" edge to the Session entity.
 func (m *SessionDraftMutation) ClearSession() {
 	m.clearedsession = true
@@ -22841,7 +24057,7 @@ func (m *SessionDraftMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SessionDraftMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 15)
 	if m.session != nil {
 		fields = append(fields, sessiondraft.FieldSessionID)
 	}
@@ -22881,6 +24097,12 @@ func (m *SessionDraftMutation) Fields() []string {
 	if m.end_boundary != nil {
 		fields = append(fields, sessiondraft.FieldEndBoundary)
 	}
+	if m.submission_deadline != nil {
+		fields = append(fields, sessiondraft.FieldSubmissionDeadline)
+	}
+	if m.entry_default_disposition != nil {
+		fields = append(fields, sessiondraft.FieldEntryDefaultDisposition)
+	}
 	return fields
 }
 
@@ -22915,6 +24137,10 @@ func (m *SessionDraftMutation) Field(name string) (ent.Value, bool) {
 		return m.StartBoundary()
 	case sessiondraft.FieldEndBoundary:
 		return m.EndBoundary()
+	case sessiondraft.FieldSubmissionDeadline:
+		return m.SubmissionDeadline()
+	case sessiondraft.FieldEntryDefaultDisposition:
+		return m.EntryDefaultDisposition()
 	}
 	return nil, false
 }
@@ -22950,6 +24176,10 @@ func (m *SessionDraftMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldStartBoundary(ctx)
 	case sessiondraft.FieldEndBoundary:
 		return m.OldEndBoundary(ctx)
+	case sessiondraft.FieldSubmissionDeadline:
+		return m.OldSubmissionDeadline(ctx)
+	case sessiondraft.FieldEntryDefaultDisposition:
+		return m.OldEntryDefaultDisposition(ctx)
 	}
 	return nil, fmt.Errorf("unknown SessionDraft field %s", name)
 }
@@ -23050,6 +24280,20 @@ func (m *SessionDraftMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetEndBoundary(v)
 		return nil
+	case sessiondraft.FieldSubmissionDeadline:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubmissionDeadline(v)
+		return nil
+	case sessiondraft.FieldEntryDefaultDisposition:
+		v, ok := value.(sessiondraft.EntryDefaultDisposition)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEntryDefaultDisposition(v)
+		return nil
 	}
 	return fmt.Errorf("unknown SessionDraft field %s", name)
 }
@@ -23104,6 +24348,12 @@ func (m *SessionDraftMutation) ClearedFields() []string {
 	if m.FieldCleared(sessiondraft.FieldCrewNotes) {
 		fields = append(fields, sessiondraft.FieldCrewNotes)
 	}
+	if m.FieldCleared(sessiondraft.FieldSubmissionDeadline) {
+		fields = append(fields, sessiondraft.FieldSubmissionDeadline)
+	}
+	if m.FieldCleared(sessiondraft.FieldEntryDefaultDisposition) {
+		fields = append(fields, sessiondraft.FieldEntryDefaultDisposition)
+	}
 	return fields
 }
 
@@ -23126,6 +24376,12 @@ func (m *SessionDraftMutation) ClearField(name string) error {
 		return nil
 	case sessiondraft.FieldCrewNotes:
 		m.ClearCrewNotes()
+		return nil
+	case sessiondraft.FieldSubmissionDeadline:
+		m.ClearSubmissionDeadline()
+		return nil
+	case sessiondraft.FieldEntryDefaultDisposition:
+		m.ClearEntryDefaultDisposition()
 		return nil
 	}
 	return fmt.Errorf("unknown SessionDraft nullable field %s", name)
@@ -23173,6 +24429,12 @@ func (m *SessionDraftMutation) ResetField(name string) error {
 		return nil
 	case sessiondraft.FieldEndBoundary:
 		m.ResetEndBoundary()
+		return nil
+	case sessiondraft.FieldSubmissionDeadline:
+		m.ResetSubmissionDeadline()
+		return nil
+	case sessiondraft.FieldEntryDefaultDisposition:
+		m.ResetEntryDefaultDisposition()
 		return nil
 	}
 	return fmt.Errorf("unknown SessionDraft field %s", name)
@@ -23353,6 +24615,8 @@ type SessionPublishedVersionMutation struct {
 	addminimum_duration_seconds *int
 	start_boundary              *sessionpublishedversion.StartBoundary
 	end_boundary                *sessionpublishedversion.EndBoundary
+	submission_deadline         *time.Time
+	entry_default_disposition   *sessionpublishedversion.EntryDefaultDisposition
 	created_at                  *time.Time
 	clearedFields               map[string]struct{}
 	session                     *int
@@ -24052,6 +25316,104 @@ func (m *SessionPublishedVersionMutation) ResetEndBoundary() {
 	m.end_boundary = nil
 }
 
+// SetSubmissionDeadline sets the "submission_deadline" field.
+func (m *SessionPublishedVersionMutation) SetSubmissionDeadline(t time.Time) {
+	m.submission_deadline = &t
+}
+
+// SubmissionDeadline returns the value of the "submission_deadline" field in the mutation.
+func (m *SessionPublishedVersionMutation) SubmissionDeadline() (r time.Time, exists bool) {
+	v := m.submission_deadline
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubmissionDeadline returns the old "submission_deadline" field's value of the SessionPublishedVersion entity.
+// If the SessionPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionPublishedVersionMutation) OldSubmissionDeadline(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubmissionDeadline is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubmissionDeadline requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubmissionDeadline: %w", err)
+	}
+	return oldValue.SubmissionDeadline, nil
+}
+
+// ClearSubmissionDeadline clears the value of the "submission_deadline" field.
+func (m *SessionPublishedVersionMutation) ClearSubmissionDeadline() {
+	m.submission_deadline = nil
+	m.clearedFields[sessionpublishedversion.FieldSubmissionDeadline] = struct{}{}
+}
+
+// SubmissionDeadlineCleared returns if the "submission_deadline" field was cleared in this mutation.
+func (m *SessionPublishedVersionMutation) SubmissionDeadlineCleared() bool {
+	_, ok := m.clearedFields[sessionpublishedversion.FieldSubmissionDeadline]
+	return ok
+}
+
+// ResetSubmissionDeadline resets all changes to the "submission_deadline" field.
+func (m *SessionPublishedVersionMutation) ResetSubmissionDeadline() {
+	m.submission_deadline = nil
+	delete(m.clearedFields, sessionpublishedversion.FieldSubmissionDeadline)
+}
+
+// SetEntryDefaultDisposition sets the "entry_default_disposition" field.
+func (m *SessionPublishedVersionMutation) SetEntryDefaultDisposition(sdd sessionpublishedversion.EntryDefaultDisposition) {
+	m.entry_default_disposition = &sdd
+}
+
+// EntryDefaultDisposition returns the value of the "entry_default_disposition" field in the mutation.
+func (m *SessionPublishedVersionMutation) EntryDefaultDisposition() (r sessionpublishedversion.EntryDefaultDisposition, exists bool) {
+	v := m.entry_default_disposition
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEntryDefaultDisposition returns the old "entry_default_disposition" field's value of the SessionPublishedVersion entity.
+// If the SessionPublishedVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionPublishedVersionMutation) OldEntryDefaultDisposition(ctx context.Context) (v sessionpublishedversion.EntryDefaultDisposition, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEntryDefaultDisposition is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEntryDefaultDisposition requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEntryDefaultDisposition: %w", err)
+	}
+	return oldValue.EntryDefaultDisposition, nil
+}
+
+// ClearEntryDefaultDisposition clears the value of the "entry_default_disposition" field.
+func (m *SessionPublishedVersionMutation) ClearEntryDefaultDisposition() {
+	m.entry_default_disposition = nil
+	m.clearedFields[sessionpublishedversion.FieldEntryDefaultDisposition] = struct{}{}
+}
+
+// EntryDefaultDispositionCleared returns if the "entry_default_disposition" field was cleared in this mutation.
+func (m *SessionPublishedVersionMutation) EntryDefaultDispositionCleared() bool {
+	_, ok := m.clearedFields[sessionpublishedversion.FieldEntryDefaultDisposition]
+	return ok
+}
+
+// ResetEntryDefaultDisposition resets all changes to the "entry_default_disposition" field.
+func (m *SessionPublishedVersionMutation) ResetEntryDefaultDisposition() {
+	m.entry_default_disposition = nil
+	delete(m.clearedFields, sessionpublishedversion.FieldEntryDefaultDisposition)
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *SessionPublishedVersionMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -24311,7 +25673,7 @@ func (m *SessionPublishedVersionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SessionPublishedVersionMutation) Fields() []string {
-	fields := make([]string, 0, 15)
+	fields := make([]string, 0, 17)
 	if m.session != nil {
 		fields = append(fields, sessionpublishedversion.FieldSessionID)
 	}
@@ -24354,6 +25716,12 @@ func (m *SessionPublishedVersionMutation) Fields() []string {
 	if m.end_boundary != nil {
 		fields = append(fields, sessionpublishedversion.FieldEndBoundary)
 	}
+	if m.submission_deadline != nil {
+		fields = append(fields, sessionpublishedversion.FieldSubmissionDeadline)
+	}
+	if m.entry_default_disposition != nil {
+		fields = append(fields, sessionpublishedversion.FieldEntryDefaultDisposition)
+	}
 	if m.created_at != nil {
 		fields = append(fields, sessionpublishedversion.FieldCreatedAt)
 	}
@@ -24393,6 +25761,10 @@ func (m *SessionPublishedVersionMutation) Field(name string) (ent.Value, bool) {
 		return m.StartBoundary()
 	case sessionpublishedversion.FieldEndBoundary:
 		return m.EndBoundary()
+	case sessionpublishedversion.FieldSubmissionDeadline:
+		return m.SubmissionDeadline()
+	case sessionpublishedversion.FieldEntryDefaultDisposition:
+		return m.EntryDefaultDisposition()
 	case sessionpublishedversion.FieldCreatedAt:
 		return m.CreatedAt()
 	}
@@ -24432,6 +25804,10 @@ func (m *SessionPublishedVersionMutation) OldField(ctx context.Context, name str
 		return m.OldStartBoundary(ctx)
 	case sessionpublishedversion.FieldEndBoundary:
 		return m.OldEndBoundary(ctx)
+	case sessionpublishedversion.FieldSubmissionDeadline:
+		return m.OldSubmissionDeadline(ctx)
+	case sessionpublishedversion.FieldEntryDefaultDisposition:
+		return m.OldEntryDefaultDisposition(ctx)
 	case sessionpublishedversion.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	}
@@ -24541,6 +25917,20 @@ func (m *SessionPublishedVersionMutation) SetField(name string, value ent.Value)
 		}
 		m.SetEndBoundary(v)
 		return nil
+	case sessionpublishedversion.FieldSubmissionDeadline:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubmissionDeadline(v)
+		return nil
+	case sessionpublishedversion.FieldEntryDefaultDisposition:
+		v, ok := value.(sessionpublishedversion.EntryDefaultDisposition)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEntryDefaultDisposition(v)
+		return nil
 	case sessionpublishedversion.FieldCreatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -24614,6 +26004,12 @@ func (m *SessionPublishedVersionMutation) ClearedFields() []string {
 	if m.FieldCleared(sessionpublishedversion.FieldCrewNotes) {
 		fields = append(fields, sessionpublishedversion.FieldCrewNotes)
 	}
+	if m.FieldCleared(sessionpublishedversion.FieldSubmissionDeadline) {
+		fields = append(fields, sessionpublishedversion.FieldSubmissionDeadline)
+	}
+	if m.FieldCleared(sessionpublishedversion.FieldEntryDefaultDisposition) {
+		fields = append(fields, sessionpublishedversion.FieldEntryDefaultDisposition)
+	}
 	return fields
 }
 
@@ -24636,6 +26032,12 @@ func (m *SessionPublishedVersionMutation) ClearField(name string) error {
 		return nil
 	case sessionpublishedversion.FieldCrewNotes:
 		m.ClearCrewNotes()
+		return nil
+	case sessionpublishedversion.FieldSubmissionDeadline:
+		m.ClearSubmissionDeadline()
+		return nil
+	case sessionpublishedversion.FieldEntryDefaultDisposition:
+		m.ClearEntryDefaultDisposition()
 		return nil
 	}
 	return fmt.Errorf("unknown SessionPublishedVersion nullable field %s", name)
@@ -24686,6 +26088,12 @@ func (m *SessionPublishedVersionMutation) ResetField(name string) error {
 		return nil
 	case sessionpublishedversion.FieldEndBoundary:
 		m.ResetEndBoundary()
+		return nil
+	case sessionpublishedversion.FieldSubmissionDeadline:
+		m.ResetSubmissionDeadline()
+		return nil
+	case sessionpublishedversion.FieldEntryDefaultDisposition:
+		m.ResetEntryDefaultDisposition()
 		return nil
 	case sessionpublishedversion.FieldCreatedAt:
 		m.ResetCreatedAt()

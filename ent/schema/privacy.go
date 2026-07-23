@@ -8,6 +8,7 @@ import (
 	"entgo.io/ent/privacy"
 
 	beamersent "github.com/dotwaffle/beamers/ent"
+	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftchangedependency"
 	"github.com/dotwaffle/beamers/ent/importreference"
@@ -87,6 +88,24 @@ func filterGrantedRundowns() privacy.QueryRule {
 		filter.Where(func(selector *sql.Selector) {
 			selector.Where(sql.InInts(selector.C("event_id"), ids...))
 		})
+		return privacy.Skip
+	})
+}
+
+func filterGrantedCompetitionEntries() privacy.QueryRule {
+	type selectorFilter interface {
+		Where(...predicate.CompetitionEntry) *beamersent.CompetitionEntryQuery
+	}
+	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
+		ids, err := grantedEventIDs(ctx)
+		if err != nil {
+			return err
+		}
+		filter, ok := query.(selectorFilter)
+		if !ok {
+			return privacy.Denyf("unexpected Competition Entry query %T", query)
+		}
+		filter.Where(competitionentry.EventIDIn(ids...))
 		return privacy.Skip
 	})
 }

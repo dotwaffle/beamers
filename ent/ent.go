@@ -17,6 +17,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/display"
 	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/displaycredential"
@@ -111,6 +112,7 @@ func checkColumn(t, c string) error {
 			auditentry.Table:               auditentry.ValidColumn,
 			bootstrapcredential.Table:      bootstrapcredential.ValidColumn,
 			commandreceipt.Table:           commandreceipt.ValidColumn,
+			competitionentry.Table:         competitionentry.ValidColumn,
 			display.Table:                  display.ValidColumn,
 			displayassignment.Table:        displayassignment.ValidColumn,
 			displaycredential.Table:        displaycredential.ValidColumn,

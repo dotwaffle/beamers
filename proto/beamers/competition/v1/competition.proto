@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package beamers.competition.v1;
+
+import "beamers/rundown/v1/rundown.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/dotwaffle/beamers/gen/beamers/competition/v1;competitionv1";
+
+service CompetitionService {
+  rpc GetCompetition(GetCompetitionRequest) returns (GetCompetitionResponse);
+  rpc CreateEntry(CreateEntryRequest) returns (CreateEntryResponse);
+  rpc UpdateEntry(UpdateEntryRequest) returns (UpdateEntryResponse);
+  rpc ChangeEntryDisposition(ChangeEntryDispositionRequest) returns (ChangeEntryDispositionResponse);
+}
+
+message Entry {
+  int64 id = 1;
+  int64 competition_session_id = 2;
+  string name = 3;
+  string public_details = 4;
+  string crew_notes = 5;
+  beamers.rundown.v1.EntryDisposition disposition = 6;
+  int64 revision = 7;
+  google.protobuf.Timestamp created_at = 8;
+  bool participating = 9;
+}
+
+message GetCompetitionRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+}
+
+message GetCompetitionResponse {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  google.protobuf.Timestamp submission_deadline = 3;
+  beamers.rundown.v1.EntryDisposition effective_default_disposition = 4;
+  repeated Entry entries = 5;
+}
+
+message CreateEntryRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  string command_id = 3;
+  string name = 4;
+  string public_details = 5;
+  string crew_notes = 6;
+}
+
+message CreateEntryResponse {
+  Entry entry = 1;
+}
+
+message UpdateEntryRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  int64 entry_id = 3;
+  string command_id = 4;
+  int64 expected_revision = 5;
+  string name = 6;
+  string public_details = 7;
+  string crew_notes = 8;
+}
+
+message UpdateEntryResponse {
+  Entry entry = 1;
+}
+
+message ChangeEntryDispositionRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  int64 entry_id = 3;
+  string command_id = 4;
+  int64 expected_revision = 5;
+  beamers.rundown.v1.EntryDisposition disposition = 6;
+  bool confirmed_live_override = 7;
+}
+
+message ChangeEntryDispositionResponse {
+  Entry entry = 1;
+}

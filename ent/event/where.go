@@ -575,6 +575,26 @@ func EventDayBoundaryContainsFold(v string) predicate.Event {
 	return predicate.Event(sql.FieldContainsFold(FieldEventDayBoundary, v))
 }
 
+// EntryDefaultDispositionEQ applies the EQ predicate on the "entry_default_disposition" field.
+func EntryDefaultDispositionEQ(v EntryDefaultDisposition) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldEntryDefaultDisposition, v))
+}
+
+// EntryDefaultDispositionNEQ applies the NEQ predicate on the "entry_default_disposition" field.
+func EntryDefaultDispositionNEQ(v EntryDefaultDisposition) predicate.Event {
+	return predicate.Event(sql.FieldNEQ(FieldEntryDefaultDisposition, v))
+}
+
+// EntryDefaultDispositionIn applies the In predicate on the "entry_default_disposition" field.
+func EntryDefaultDispositionIn(vs ...EntryDefaultDisposition) predicate.Event {
+	return predicate.Event(sql.FieldIn(FieldEntryDefaultDisposition, vs...))
+}
+
+// EntryDefaultDispositionNotIn applies the NotIn predicate on the "entry_default_disposition" field.
+func EntryDefaultDispositionNotIn(vs ...EntryDefaultDisposition) predicate.Event {
+	return predicate.Event(sql.FieldNotIn(FieldEntryDefaultDisposition, vs...))
+}
+
 // TargetAdjustmentPresetsEQ applies the EQ predicate on the "target_adjustment_presets" field.
 func TargetAdjustmentPresetsEQ(v string) predicate.Event {
 	return predicate.Event(sql.FieldEQ(FieldTargetAdjustmentPresets, v))
@@ -915,6 +935,29 @@ func HasSessions() predicate.Event {
 func HasSessionsWith(preds ...predicate.Session) predicate.Event {
 	return predicate.Event(func(s *sql.Selector) {
 		step := newSessionsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasCompetitionEntries applies the HasEdge predicate on the "competition_entries" edge.
+func HasCompetitionEntries() predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CompetitionEntriesTable, CompetitionEntriesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCompetitionEntriesWith applies the HasEdge predicate on the "competition_entries" edge with a given conditions (other predicates).
+func HasCompetitionEntriesWith(preds ...predicate.CompetitionEntry) predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := newCompetitionEntriesStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

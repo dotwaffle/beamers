@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftedit"
@@ -77,6 +78,20 @@ func (_c *EventCreate) SetNillableContentLanguage(v *string) *EventCreate {
 // SetEventDayBoundary sets the "event_day_boundary" field.
 func (_c *EventCreate) SetEventDayBoundary(v string) *EventCreate {
 	_c.mutation.SetEventDayBoundary(v)
+	return _c
+}
+
+// SetEntryDefaultDisposition sets the "entry_default_disposition" field.
+func (_c *EventCreate) SetEntryDefaultDisposition(v event.EntryDefaultDisposition) *EventCreate {
+	_c.mutation.SetEntryDefaultDisposition(v)
+	return _c
+}
+
+// SetNillableEntryDefaultDisposition sets the "entry_default_disposition" field if the given value is not nil.
+func (_c *EventCreate) SetNillableEntryDefaultDisposition(v *event.EntryDefaultDisposition) *EventCreate {
+	if v != nil {
+		_c.SetEntryDefaultDisposition(*v)
+	}
 	return _c
 }
 
@@ -230,6 +245,21 @@ func (_c *EventCreate) AddSessions(v ...*Session) *EventCreate {
 	return _c.AddSessionIDs(ids...)
 }
 
+// AddCompetitionEntryIDs adds the "competition_entries" edge to the CompetitionEntry entity by IDs.
+func (_c *EventCreate) AddCompetitionEntryIDs(ids ...int) *EventCreate {
+	_c.mutation.AddCompetitionEntryIDs(ids...)
+	return _c
+}
+
+// AddCompetitionEntries adds the "competition_entries" edges to the CompetitionEntry entity.
+func (_c *EventCreate) AddCompetitionEntries(v ...*CompetitionEntry) *EventCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddCompetitionEntryIDs(ids...)
+}
+
 // AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by IDs.
 func (_c *EventCreate) AddDraftEditIDs(ids ...int) *EventCreate {
 	_c.mutation.AddDraftEditIDs(ids...)
@@ -327,6 +357,10 @@ func (_c *EventCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *EventCreate) defaults() error {
+	if _, ok := _c.mutation.EntryDefaultDisposition(); !ok {
+		v := event.DefaultEntryDefaultDisposition
+		_c.mutation.SetEntryDefaultDisposition(v)
+	}
 	if _, ok := _c.mutation.TargetAdjustmentPresets(); !ok {
 		v := event.DefaultTargetAdjustmentPresets
 		_c.mutation.SetTargetAdjustmentPresets(v)
@@ -404,6 +438,14 @@ func (_c *EventCreate) check() error {
 			return &ValidationError{Name: "event_day_boundary", err: fmt.Errorf(`ent: validator failed for field "Event.event_day_boundary": %w`, err)}
 		}
 	}
+	if _, ok := _c.mutation.EntryDefaultDisposition(); !ok {
+		return &ValidationError{Name: "entry_default_disposition", err: errors.New(`ent: missing required field "Event.entry_default_disposition"`)}
+	}
+	if v, ok := _c.mutation.EntryDefaultDisposition(); ok {
+		if err := event.EntryDefaultDispositionValidator(v); err != nil {
+			return &ValidationError{Name: "entry_default_disposition", err: fmt.Errorf(`ent: validator failed for field "Event.entry_default_disposition": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.TargetAdjustmentPresets(); !ok {
 		return &ValidationError{Name: "target_adjustment_presets", err: errors.New(`ent: missing required field "Event.target_adjustment_presets"`)}
 	}
@@ -479,6 +521,10 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.EventDayBoundary(); ok {
 		_spec.SetField(event.FieldEventDayBoundary, field.TypeString, value)
 		_node.EventDayBoundary = value
+	}
+	if value, ok := _c.mutation.EntryDefaultDisposition(); ok {
+		_spec.SetField(event.FieldEntryDefaultDisposition, field.TypeEnum, value)
+		_node.EntryDefaultDisposition = value
 	}
 	if value, ok := _c.mutation.TargetAdjustmentPresets(); ok {
 		_spec.SetField(event.FieldTargetAdjustmentPresets, field.TypeString, value)
@@ -585,6 +631,22 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.CompetitionEntriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.CompetitionEntriesTable,
+			Columns: []string{event.CompetitionEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

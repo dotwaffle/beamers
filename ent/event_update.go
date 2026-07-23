@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftedit"
@@ -137,6 +138,20 @@ func (_u *EventUpdate) SetEventDayBoundary(v string) *EventUpdate {
 func (_u *EventUpdate) SetNillableEventDayBoundary(v *string) *EventUpdate {
 	if v != nil {
 		_u.SetEventDayBoundary(*v)
+	}
+	return _u
+}
+
+// SetEntryDefaultDisposition sets the "entry_default_disposition" field.
+func (_u *EventUpdate) SetEntryDefaultDisposition(v event.EntryDefaultDisposition) *EventUpdate {
+	_u.mutation.SetEntryDefaultDisposition(v)
+	return _u
+}
+
+// SetNillableEntryDefaultDisposition sets the "entry_default_disposition" field if the given value is not nil.
+func (_u *EventUpdate) SetNillableEntryDefaultDisposition(v *event.EntryDefaultDisposition) *EventUpdate {
+	if v != nil {
+		_u.SetEntryDefaultDisposition(*v)
 	}
 	return _u
 }
@@ -282,6 +297,21 @@ func (_u *EventUpdate) AddSessions(v ...*Session) *EventUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.AddSessionIDs(ids...)
+}
+
+// AddCompetitionEntryIDs adds the "competition_entries" edge to the CompetitionEntry entity by IDs.
+func (_u *EventUpdate) AddCompetitionEntryIDs(ids ...int) *EventUpdate {
+	_u.mutation.AddCompetitionEntryIDs(ids...)
+	return _u
+}
+
+// AddCompetitionEntries adds the "competition_entries" edges to the CompetitionEntry entity.
+func (_u *EventUpdate) AddCompetitionEntries(v ...*CompetitionEntry) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCompetitionEntryIDs(ids...)
 }
 
 // AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by IDs.
@@ -460,6 +490,27 @@ func (_u *EventUpdate) RemoveSessions(v ...*Session) *EventUpdate {
 	return _u.RemoveSessionIDs(ids...)
 }
 
+// ClearCompetitionEntries clears all "competition_entries" edges to the CompetitionEntry entity.
+func (_u *EventUpdate) ClearCompetitionEntries() *EventUpdate {
+	_u.mutation.ClearCompetitionEntries()
+	return _u
+}
+
+// RemoveCompetitionEntryIDs removes the "competition_entries" edge to CompetitionEntry entities by IDs.
+func (_u *EventUpdate) RemoveCompetitionEntryIDs(ids ...int) *EventUpdate {
+	_u.mutation.RemoveCompetitionEntryIDs(ids...)
+	return _u
+}
+
+// RemoveCompetitionEntries removes "competition_entries" edges to CompetitionEntry entities.
+func (_u *EventUpdate) RemoveCompetitionEntries(v ...*CompetitionEntry) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCompetitionEntryIDs(ids...)
+}
+
 // ClearDraftEdits clears all "draft_edits" edges to the DraftEdit entity.
 func (_u *EventUpdate) ClearDraftEdits() *EventUpdate {
 	_u.mutation.ClearDraftEdits()
@@ -608,6 +659,11 @@ func (_u *EventUpdate) check() error {
 			return &ValidationError{Name: "event_day_boundary", err: fmt.Errorf(`ent: validator failed for field "Event.event_day_boundary": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.EntryDefaultDisposition(); ok {
+		if err := event.EntryDefaultDispositionValidator(v); err != nil {
+			return &ValidationError{Name: "entry_default_disposition", err: fmt.Errorf(`ent: validator failed for field "Event.entry_default_disposition": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.TargetAdjustmentPresets(); ok {
 		if err := event.TargetAdjustmentPresetsValidator(v); err != nil {
 			return &ValidationError{Name: "target_adjustment_presets", err: fmt.Errorf(`ent: validator failed for field "Event.target_adjustment_presets": %w`, err)}
@@ -656,6 +712,9 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.EventDayBoundary(); ok {
 		_spec.SetField(event.FieldEventDayBoundary, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.EntryDefaultDisposition(); ok {
+		_spec.SetField(event.FieldEntryDefaultDisposition, field.TypeEnum, value)
 	}
 	if value, ok := _u.mutation.TargetAdjustmentPresets(); ok {
 		_spec.SetField(event.FieldTargetAdjustmentPresets, field.TypeString, value)
@@ -916,6 +975,51 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CompetitionEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.CompetitionEntriesTable,
+			Columns: []string{event.CompetitionEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCompetitionEntriesIDs(); len(nodes) > 0 && !_u.mutation.CompetitionEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.CompetitionEntriesTable,
+			Columns: []string{event.CompetitionEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CompetitionEntriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.CompetitionEntriesTable,
+			Columns: []string{event.CompetitionEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -1227,6 +1331,20 @@ func (_u *EventUpdateOne) SetNillableEventDayBoundary(v *string) *EventUpdateOne
 	return _u
 }
 
+// SetEntryDefaultDisposition sets the "entry_default_disposition" field.
+func (_u *EventUpdateOne) SetEntryDefaultDisposition(v event.EntryDefaultDisposition) *EventUpdateOne {
+	_u.mutation.SetEntryDefaultDisposition(v)
+	return _u
+}
+
+// SetNillableEntryDefaultDisposition sets the "entry_default_disposition" field if the given value is not nil.
+func (_u *EventUpdateOne) SetNillableEntryDefaultDisposition(v *event.EntryDefaultDisposition) *EventUpdateOne {
+	if v != nil {
+		_u.SetEntryDefaultDisposition(*v)
+	}
+	return _u
+}
+
 // SetTargetAdjustmentPresets sets the "target_adjustment_presets" field.
 func (_u *EventUpdateOne) SetTargetAdjustmentPresets(v string) *EventUpdateOne {
 	_u.mutation.SetTargetAdjustmentPresets(v)
@@ -1368,6 +1486,21 @@ func (_u *EventUpdateOne) AddSessions(v ...*Session) *EventUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.AddSessionIDs(ids...)
+}
+
+// AddCompetitionEntryIDs adds the "competition_entries" edge to the CompetitionEntry entity by IDs.
+func (_u *EventUpdateOne) AddCompetitionEntryIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.AddCompetitionEntryIDs(ids...)
+	return _u
+}
+
+// AddCompetitionEntries adds the "competition_entries" edges to the CompetitionEntry entity.
+func (_u *EventUpdateOne) AddCompetitionEntries(v ...*CompetitionEntry) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCompetitionEntryIDs(ids...)
 }
 
 // AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by IDs.
@@ -1546,6 +1679,27 @@ func (_u *EventUpdateOne) RemoveSessions(v ...*Session) *EventUpdateOne {
 	return _u.RemoveSessionIDs(ids...)
 }
 
+// ClearCompetitionEntries clears all "competition_entries" edges to the CompetitionEntry entity.
+func (_u *EventUpdateOne) ClearCompetitionEntries() *EventUpdateOne {
+	_u.mutation.ClearCompetitionEntries()
+	return _u
+}
+
+// RemoveCompetitionEntryIDs removes the "competition_entries" edge to CompetitionEntry entities by IDs.
+func (_u *EventUpdateOne) RemoveCompetitionEntryIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.RemoveCompetitionEntryIDs(ids...)
+	return _u
+}
+
+// RemoveCompetitionEntries removes "competition_entries" edges to CompetitionEntry entities.
+func (_u *EventUpdateOne) RemoveCompetitionEntries(v ...*CompetitionEntry) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCompetitionEntryIDs(ids...)
+}
+
 // ClearDraftEdits clears all "draft_edits" edges to the DraftEdit entity.
 func (_u *EventUpdateOne) ClearDraftEdits() *EventUpdateOne {
 	_u.mutation.ClearDraftEdits()
@@ -1707,6 +1861,11 @@ func (_u *EventUpdateOne) check() error {
 			return &ValidationError{Name: "event_day_boundary", err: fmt.Errorf(`ent: validator failed for field "Event.event_day_boundary": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.EntryDefaultDisposition(); ok {
+		if err := event.EntryDefaultDispositionValidator(v); err != nil {
+			return &ValidationError{Name: "entry_default_disposition", err: fmt.Errorf(`ent: validator failed for field "Event.entry_default_disposition": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.TargetAdjustmentPresets(); ok {
 		if err := event.TargetAdjustmentPresetsValidator(v); err != nil {
 			return &ValidationError{Name: "target_adjustment_presets", err: fmt.Errorf(`ent: validator failed for field "Event.target_adjustment_presets": %w`, err)}
@@ -1772,6 +1931,9 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 	}
 	if value, ok := _u.mutation.EventDayBoundary(); ok {
 		_spec.SetField(event.FieldEventDayBoundary, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.EntryDefaultDisposition(); ok {
+		_spec.SetField(event.FieldEntryDefaultDisposition, field.TypeEnum, value)
 	}
 	if value, ok := _u.mutation.TargetAdjustmentPresets(); ok {
 		_spec.SetField(event.FieldTargetAdjustmentPresets, field.TypeString, value)
@@ -2032,6 +2194,51 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CompetitionEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.CompetitionEntriesTable,
+			Columns: []string{event.CompetitionEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCompetitionEntriesIDs(); len(nodes) > 0 && !_u.mutation.CompetitionEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.CompetitionEntriesTable,
+			Columns: []string{event.CompetitionEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CompetitionEntriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.CompetitionEntriesTable,
+			Columns: []string{event.CompetitionEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

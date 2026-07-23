@@ -480,7 +480,7 @@ func TestEditDraftAcceptsEverySessionTypeAndDefaultsLocations(t *testing.T) {
 		}},
 	}
 	for index, sessionType := range types {
-		input.Sessions = append(input.Sessions, rundown.SessionDraftInput{
+		session := rundown.SessionDraftInput{
 			Ref: fmt.Sprintf("session-%d", index), Title: string(sessionType), Type: sessionType,
 			AudienceVisibility: rundown.AudienceCrewOnly,
 			PlannedStart:       start.Add(time.Duration(index) * time.Hour),
@@ -488,7 +488,11 @@ func TestEditDraftAcceptsEverySessionTypeAndDefaultsLocations(t *testing.T) {
 			TimingPolicy:       rundown.TimingFixedDuration, MinimumDuration: 30 * time.Minute,
 			StartBoundary: rundown.BoundarySoft, EndBoundary: rundown.BoundarySoft,
 			Lanes: []rundown.TargetRef{{Ref: "main-lane"}},
-		})
+		}
+		if sessionType == rundown.SessionCompetition {
+			session.SubmissionDeadline = start.Add(-time.Hour)
+		}
+		input.Sessions = append(input.Sessions, session)
 	}
 	created, err := commands.EditDraft(t.Context(), actor, input)
 	if err != nil {
@@ -496,6 +500,62 @@ func TestEditDraftAcceptsEverySessionTypeAndDefaultsLocations(t *testing.T) {
 	}
 	if len(created.Changes) != 2+len(types) {
 		t.Fatalf("Draft Changes = %d, want %d", len(created.Changes), 2+len(types))
+	}
+}
+
+func TestEditDraftRequiresCompetitionDeadlineDuringTypeChange(t *testing.T) {
+	storage, actor, eventID := openRundownTest(t)
+	commands, err := rundown.NewCommands(storage, time.Now)
+	if err != nil {
+		t.Fatalf("create Rundown Commands: %v", err)
+	}
+	plannedStart := time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)
+	created, err := commands.EditDraft(t.Context(), actor, rundown.EditDraftInput{
+		EventID: eventID, CommandID: "create-presentation-for-competition-change",
+		Locations: []rundown.LocationDraftInput{{Ref: "room", Name: "Room"}},
+		Lanes: []rundown.LaneDraftInput{{
+			Ref: "lane", Name: "Lane", Location: rundown.TargetRef{Ref: "room"},
+		}},
+		Sessions: []rundown.SessionDraftInput{{
+			Ref: "session", Title: "Demo", Type: rundown.SessionPresentation,
+			AudienceVisibility: rundown.AudiencePublic,
+			PlannedStart:       plannedStart, PlannedEnd: plannedStart.Add(time.Hour),
+			TimingPolicy: rundown.TimingFixedEnd, MinimumDuration: 30 * time.Minute,
+			StartBoundary: rundown.BoundaryHard, EndBoundary: rundown.BoundaryHard,
+			Lanes: []rundown.TargetRef{{Ref: "lane"}},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("create Presentation Draft: %v", err)
+	}
+	var sessionID int
+	for _, change := range created.Changes {
+		if change.Kind == "CreateSession" {
+			sessionID = change.TargetID
+		}
+	}
+	_, err = commands.EditDraft(t.Context(), actor, rundown.EditDraftInput{
+		EventID: eventID, CommandID: "reject-deadline-less-competition",
+		ExpectedDraftRevision: created.DraftRevision,
+		Sessions: []rundown.SessionDraftInput{{
+			ID: sessionID, Type: rundown.SessionCompetition, UpdateFields: []string{"type"},
+		}},
+	})
+	var validation *rundown.ValidationError
+	if !errors.As(err, &validation) {
+		t.Fatalf("deadline-less Competition error = %v, want ValidationError", err)
+	}
+	changed, err := commands.EditDraft(t.Context(), actor, rundown.EditDraftInput{
+		EventID: eventID, CommandID: "configure-competition-deadline",
+		ExpectedDraftRevision: created.DraftRevision,
+		Sessions: []rundown.SessionDraftInput{{
+			ID: sessionID, Type: rundown.SessionCompetition,
+			SubmissionDeadline: plannedStart.Add(-30 * time.Minute),
+			UpdateFields:       []string{"type", "submission_deadline"},
+		}},
+	})
+	if err != nil || changed.DraftRevision != created.DraftRevision+1 {
+		t.Fatalf("configured Competition type change = %+v, %v", changed, err)
 	}
 }
 

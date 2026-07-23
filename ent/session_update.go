@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
+	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessioncancellation"
@@ -368,6 +369,21 @@ func (_u *SessionUpdate) AddCancellations(v ...*SessionCancellation) *SessionUpd
 	return _u.AddCancellationIDs(ids...)
 }
 
+// AddCompetitionEntryIDs adds the "competition_entries" edge to the CompetitionEntry entity by IDs.
+func (_u *SessionUpdate) AddCompetitionEntryIDs(ids ...int) *SessionUpdate {
+	_u.mutation.AddCompetitionEntryIDs(ids...)
+	return _u
+}
+
+// AddCompetitionEntries adds the "competition_entries" edges to the CompetitionEntry entity.
+func (_u *SessionUpdate) AddCompetitionEntries(v ...*CompetitionEntry) *SessionUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCompetitionEntryIDs(ids...)
+}
+
 // Mutation returns the SessionMutation object of the builder.
 func (_u *SessionUpdate) Mutation() *SessionMutation {
 	return _u.mutation
@@ -440,6 +456,27 @@ func (_u *SessionUpdate) RemoveCancellations(v ...*SessionCancellation) *Session
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveCancellationIDs(ids...)
+}
+
+// ClearCompetitionEntries clears all "competition_entries" edges to the CompetitionEntry entity.
+func (_u *SessionUpdate) ClearCompetitionEntries() *SessionUpdate {
+	_u.mutation.ClearCompetitionEntries()
+	return _u
+}
+
+// RemoveCompetitionEntryIDs removes the "competition_entries" edge to CompetitionEntry entities by IDs.
+func (_u *SessionUpdate) RemoveCompetitionEntryIDs(ids ...int) *SessionUpdate {
+	_u.mutation.RemoveCompetitionEntryIDs(ids...)
+	return _u
+}
+
+// RemoveCompetitionEntries removes "competition_entries" edges to CompetitionEntry entities.
+func (_u *SessionUpdate) RemoveCompetitionEntries(v ...*CompetitionEntry) *SessionUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCompetitionEntryIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -772,6 +809,51 @@ func (_u *SessionUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(sessioncancellation.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CompetitionEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.CompetitionEntriesTable,
+			Columns: []string{session.CompetitionEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCompetitionEntriesIDs(); len(nodes) > 0 && !_u.mutation.CompetitionEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.CompetitionEntriesTable,
+			Columns: []string{session.CompetitionEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CompetitionEntriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.CompetitionEntriesTable,
+			Columns: []string{session.CompetitionEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -1134,6 +1216,21 @@ func (_u *SessionUpdateOne) AddCancellations(v ...*SessionCancellation) *Session
 	return _u.AddCancellationIDs(ids...)
 }
 
+// AddCompetitionEntryIDs adds the "competition_entries" edge to the CompetitionEntry entity by IDs.
+func (_u *SessionUpdateOne) AddCompetitionEntryIDs(ids ...int) *SessionUpdateOne {
+	_u.mutation.AddCompetitionEntryIDs(ids...)
+	return _u
+}
+
+// AddCompetitionEntries adds the "competition_entries" edges to the CompetitionEntry entity.
+func (_u *SessionUpdateOne) AddCompetitionEntries(v ...*CompetitionEntry) *SessionUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCompetitionEntryIDs(ids...)
+}
+
 // Mutation returns the SessionMutation object of the builder.
 func (_u *SessionUpdateOne) Mutation() *SessionMutation {
 	return _u.mutation
@@ -1206,6 +1303,27 @@ func (_u *SessionUpdateOne) RemoveCancellations(v ...*SessionCancellation) *Sess
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveCancellationIDs(ids...)
+}
+
+// ClearCompetitionEntries clears all "competition_entries" edges to the CompetitionEntry entity.
+func (_u *SessionUpdateOne) ClearCompetitionEntries() *SessionUpdateOne {
+	_u.mutation.ClearCompetitionEntries()
+	return _u
+}
+
+// RemoveCompetitionEntryIDs removes the "competition_entries" edge to CompetitionEntry entities by IDs.
+func (_u *SessionUpdateOne) RemoveCompetitionEntryIDs(ids ...int) *SessionUpdateOne {
+	_u.mutation.RemoveCompetitionEntryIDs(ids...)
+	return _u
+}
+
+// RemoveCompetitionEntries removes "competition_entries" edges to CompetitionEntry entities.
+func (_u *SessionUpdateOne) RemoveCompetitionEntries(v ...*CompetitionEntry) *SessionUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCompetitionEntryIDs(ids...)
 }
 
 // Where appends a list predicates to the SessionUpdate builder.
@@ -1568,6 +1686,51 @@ func (_u *SessionUpdateOne) sqlSave(ctx context.Context) (_node *Session, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(sessioncancellation.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CompetitionEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.CompetitionEntriesTable,
+			Columns: []string{session.CompetitionEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCompetitionEntriesIDs(); len(nodes) > 0 && !_u.mutation.CompetitionEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.CompetitionEntriesTable,
+			Columns: []string{session.CompetitionEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CompetitionEntriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.CompetitionEntriesTable,
+			Columns: []string{session.CompetitionEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

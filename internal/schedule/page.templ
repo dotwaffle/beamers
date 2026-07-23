@@ -123,6 +123,17 @@ templ SessionDetails(session Session) {
 	for _, track := range session.Tracks {
 		<p>Track: { track }</p>
 	}
+	if len(session.CompetitionEntries) > 0 {
+		<h2>Entries</h2>
+		for _, entry := range session.CompetitionEntries {
+			<article class="competition-entry">
+				<h3>{ entry.Name }</h3>
+				if entry.PublicDetails != "" {
+					<p>{ entry.PublicDetails }</p>
+				}
+			</article>
+		}
+	}
 }
 
 templ OperationalTime(presentation TimePresentation) {

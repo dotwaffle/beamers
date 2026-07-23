@@ -70,9 +70,11 @@ type SessionEdges struct {
 	Runs []*SessionRun `json:"runs,omitempty"`
 	// Cancellations holds the value of the cancellations edge.
 	Cancellations []*SessionCancellation `json:"cancellations,omitempty"`
+	// CompetitionEntries holds the value of the competition_entries edge.
+	CompetitionEntries []*CompetitionEntry `json:"competition_entries,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [5]bool
+	loadedTypes [6]bool
 }
 
 // EventOrErr returns the Event value or an error if the edge
@@ -122,6 +124,15 @@ func (e SessionEdges) CancellationsOrErr() ([]*SessionCancellation, error) {
 		return e.Cancellations, nil
 	}
 	return nil, &NotLoadedError{edge: "cancellations"}
+}
+
+// CompetitionEntriesOrErr returns the CompetitionEntries value or an error if the edge
+// was not loaded in eager-loading.
+func (e SessionEdges) CompetitionEntriesOrErr() ([]*CompetitionEntry, error) {
+	if e.loadedTypes[5] {
+		return e.CompetitionEntries, nil
+	}
+	return nil, &NotLoadedError{edge: "competition_entries"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -297,6 +308,11 @@ func (_m *Session) QueryRuns() *SessionRunQuery {
 // QueryCancellations queries the "cancellations" edge of the Session entity.
 func (_m *Session) QueryCancellations() *SessionCancellationQuery {
 	return NewSessionClient(_m.config).QueryCancellations(_m)
+}
+
+// QueryCompetitionEntries queries the "competition_entries" edge of the Session entity.
+func (_m *Session) QueryCompetitionEntries() *CompetitionEntryQuery {
+	return NewSessionClient(_m.config).QueryCompetitionEntries(_m)
 }
 
 // Update returns a builder for updating this Session.

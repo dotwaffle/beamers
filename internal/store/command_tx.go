@@ -225,30 +225,32 @@ type TrackDraftCreate struct {
 
 // SessionDraftCreate contains one new Session's materialized Draft state.
 type SessionDraftCreate struct {
-	ID                     int
-	Ref                    string
-	Title                  string
-	Speaker                string
-	Type                   string
-	AudienceVisibility     string
-	PublicDetails          string
-	CrewNotes              string
-	PlannedStart           time.Time
-	PlannedEnd             time.Time
-	TimingPolicy           string
-	MinimumDurationSeconds int
-	StartBoundary          string
-	EndBoundary            string
-	Lanes                  []DraftTarget
-	Locations              []DraftTarget
-	Tracks                 []DraftTarget
-	AddLanes               []DraftTarget
-	RemoveLanes            []DraftTarget
-	AddLocations           []DraftTarget
-	RemoveLocations        []DraftTarget
-	AddTracks              []DraftTarget
-	RemoveTracks           []DraftTarget
-	UpdateFields           []string
+	ID                      int
+	Ref                     string
+	Title                   string
+	Speaker                 string
+	Type                    string
+	AudienceVisibility      string
+	PublicDetails           string
+	CrewNotes               string
+	PlannedStart            time.Time
+	PlannedEnd              time.Time
+	TimingPolicy            string
+	MinimumDurationSeconds  int
+	StartBoundary           string
+	EndBoundary             string
+	SubmissionDeadline      time.Time
+	EntryDefaultDisposition string
+	Lanes                   []DraftTarget
+	Locations               []DraftTarget
+	Tracks                  []DraftTarget
+	AddLanes                []DraftTarget
+	RemoveLanes             []DraftTarget
+	AddLocations            []DraftTarget
+	RemoveLocations         []DraftTarget
+	AddTracks               []DraftTarget
+	RemoveTracks            []DraftTarget
+	UpdateFields            []string
 }
 
 // EditDraftParams contains one validated atomic Draft Edit.
@@ -298,6 +300,9 @@ func (transaction *CommandTx) EditDraft(
 	}
 	if referenceErr := transaction.validateDraftReferences(ctx, params); referenceErr != nil {
 		return EditDraftResult{}, referenceErr
+	}
+	if configurationErr := transaction.validateSessionDraftConfigurations(ctx, params); configurationErr != nil {
+		return EditDraftResult{}, configurationErr
 	}
 	if params.ExpectedDraftRevision > current.DraftRevision {
 		return EditDraftResult{}, ErrDraftRevisionConflict
@@ -480,6 +485,51 @@ func (transaction *CommandTx) EditDraft(
 		result.Changes = append(result.Changes, draftChangeResult(change))
 	}
 	return result, nil
+}
+
+func (transaction *CommandTx) validateSessionDraftConfigurations(
+	ctx context.Context,
+	params EditDraftParams,
+) error {
+	for _, input := range params.Sessions {
+		if input.ID <= 0 {
+			continue
+		}
+		state, err := transaction.transaction.SessionDraft.Query().
+			Where(
+				sessiondraft.SessionIDEQ(input.ID),
+				sessiondraft.HasSessionWith(session.EventIDEQ(params.EventID)),
+			).
+			Only(ctx)
+		if ent.IsNotFound(err) {
+			return ErrDraftReference
+		}
+		if err != nil {
+			return opaqueError("validate Session Draft configuration", err)
+		}
+		prospectiveType := string(state.Type)
+		prospectiveDeadline := state.SubmissionDeadline
+		prospectiveDefault := string(state.EntryDefaultDisposition)
+		for _, selected := range input.UpdateFields {
+			switch selected {
+			case "type":
+				prospectiveType = input.Type
+			case "submission_deadline":
+				prospectiveDeadline = input.SubmissionDeadline
+			case "entry_default_disposition":
+				prospectiveDefault = input.EntryDefaultDisposition
+			}
+		}
+		if prospectiveType == "Competition" {
+			if prospectiveDeadline.IsZero() ||
+				(prospectiveDefault != "" && prospectiveDefault != "Pending" && prospectiveDefault != "Included") {
+				return ErrDraftReference
+			}
+		} else if !prospectiveDeadline.IsZero() || prospectiveDefault != "" {
+			return ErrDraftReference
+		}
+	}
+	return nil
 }
 
 func (transaction *CommandTx) validateDraftReferences(ctx context.Context, params EditDraftParams) error {
@@ -859,6 +909,20 @@ func (transaction *CommandTx) updateSessionDraft(
 		case "end_boundary":
 			before, after = string(state.EndBoundary), input.EndBoundary
 			update.SetEndBoundary(sessiondraft.EndBoundary(input.EndBoundary))
+		case "submission_deadline":
+			before, after = state.SubmissionDeadline, input.SubmissionDeadline
+			if input.SubmissionDeadline.IsZero() {
+				update.ClearSubmissionDeadline()
+			} else {
+				update.SetSubmissionDeadline(input.SubmissionDeadline)
+			}
+		case "entry_default_disposition":
+			before, after = string(state.EntryDefaultDisposition), input.EntryDefaultDisposition
+			if input.EntryDefaultDisposition == "" {
+				update.ClearEntryDefaultDisposition()
+			} else {
+				update.SetEntryDefaultDisposition(sessiondraft.EntryDefaultDisposition(input.EntryDefaultDisposition))
+			}
 		default:
 			return nil, ErrDraftReference
 		}
@@ -1050,6 +1114,12 @@ func (transaction *CommandTx) createSessionDraft(
 	}
 	if input.CrewNotes != "" {
 		create.SetCrewNotes(input.CrewNotes)
+	}
+	if !input.SubmissionDeadline.IsZero() {
+		create.SetSubmissionDeadline(input.SubmissionDeadline)
+	}
+	if input.EntryDefaultDisposition != "" {
+		create.SetEntryDefaultDisposition(sessiondraft.EntryDefaultDisposition(input.EntryDefaultDisposition))
 	}
 	if _, err = create.Save(ctx); err != nil {
 		return createdSessionDraft{}, opaqueError("create Session Draft state", err)

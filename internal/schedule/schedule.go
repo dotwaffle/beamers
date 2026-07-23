@@ -74,23 +74,30 @@ type Day struct {
 
 // Session is one attendee-visible Schedule entry.
 type Session struct {
-	ID                   int              `json:"id"`
-	Title                string           `json:"title"`
-	Speaker              string           `json:"speaker,omitempty"`
-	PublicDetails        string           `json:"public_details,omitempty"`
-	CancellationMessage  string           `json:"cancellation_message,omitempty"`
-	Lifecycle            string           `json:"lifecycle"`
-	Previous             *TimePoint       `json:"previous,omitempty"`
-	EventDay             string           `json:"event_day"`
-	LocalDate            string           `json:"local_date"`
-	CalendarDateRollover bool             `json:"calendar_date_rollover"`
-	Time                 TimePresentation `json:"time"`
-	LocationIDs          []int            `json:"-"`
-	LaneIDs              []int            `json:"-"`
-	TrackIDs             []int            `json:"-"`
-	Locations            []string         `json:"locations,omitempty"`
-	Lanes                []string         `json:"lanes,omitempty"`
-	Tracks               []string         `json:"tracks,omitempty"`
+	ID                   int                `json:"id"`
+	Title                string             `json:"title"`
+	Speaker              string             `json:"speaker,omitempty"`
+	PublicDetails        string             `json:"public_details,omitempty"`
+	CancellationMessage  string             `json:"cancellation_message,omitempty"`
+	Lifecycle            string             `json:"lifecycle"`
+	Previous             *TimePoint         `json:"previous,omitempty"`
+	EventDay             string             `json:"event_day"`
+	LocalDate            string             `json:"local_date"`
+	CalendarDateRollover bool               `json:"calendar_date_rollover"`
+	Time                 TimePresentation   `json:"time"`
+	LocationIDs          []int              `json:"-"`
+	LaneIDs              []int              `json:"-"`
+	TrackIDs             []int              `json:"-"`
+	Locations            []string           `json:"locations,omitempty"`
+	Lanes                []string           `json:"lanes,omitempty"`
+	Tracks               []string           `json:"tracks,omitempty"`
+	CompetitionEntries   []CompetitionEntry `json:"competition_entries,omitempty"`
+}
+
+// CompetitionEntry is one attendee-visible Included submission.
+type CompetitionEntry struct {
+	Name          string `json:"name"`
+	PublicDetails string `json:"public_details,omitempty"`
 }
 
 // TimePoint is one labeled attendee-facing operational instant.
@@ -227,6 +234,12 @@ func (service *Service) snapshot(ctx context.Context, upcomingOnly bool, filter 
 		timePresentation.ViewerLocal = result.ViewerLocal
 		timePresentation.TimezoneLabel = displayStart.Format("MST -07:00")
 		timePresentation.EventTimezoneLabel = localStart.Format("MST -07:00")
+		competitionEntries := make([]CompetitionEntry, 0, len(item.CompetitionEntries))
+		for _, foundEntry := range item.CompetitionEntries {
+			competitionEntries = append(competitionEntries, CompetitionEntry{
+				Name: foundEntry.Name, PublicDetails: foundEntry.PublicDetails,
+			})
+		}
 		result.Sessions = append(result.Sessions, Session{
 			ID: item.ID, Title: item.Title, Speaker: item.Speaker, PublicDetails: item.PublicDetails,
 			CancellationMessage: item.CancellationMessage,
@@ -234,9 +247,10 @@ func (service *Service) snapshot(ctx context.Context, upcomingOnly bool, filter 
 			EventDay: eventDay, LocalDate: localStart.Format(time.DateOnly),
 			Time:        timePresentation,
 			LocationIDs: item.LocationIDs, LaneIDs: item.LaneIDs, TrackIDs: item.TrackIDs,
-			Locations: names(item.LocationIDs, locationNames),
-			Lanes:     names(item.LaneIDs, laneNames),
-			Tracks:    names(item.TrackIDs, trackNames),
+			Locations:          names(item.LocationIDs, locationNames),
+			Lanes:              names(item.LaneIDs, laneNames),
+			Tracks:             names(item.TrackIDs, trackNames),
+			CompetitionEntries: competitionEntries,
 		})
 	}
 	result.DayOptions = sortedKeys(dayOptions)

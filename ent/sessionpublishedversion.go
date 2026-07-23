@@ -46,6 +46,10 @@ type SessionPublishedVersion struct {
 	StartBoundary sessionpublishedversion.StartBoundary `json:"start_boundary,omitempty"`
 	// EndBoundary holds the value of the "end_boundary" field.
 	EndBoundary sessionpublishedversion.EndBoundary `json:"end_boundary,omitempty"`
+	// SubmissionDeadline holds the value of the "submission_deadline" field.
+	SubmissionDeadline time.Time `json:"submission_deadline,omitempty"`
+	// EntryDefaultDisposition holds the value of the "entry_default_disposition" field.
+	EntryDefaultDisposition sessionpublishedversion.EntryDefaultDisposition `json:"entry_default_disposition,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -114,9 +118,9 @@ func (*SessionPublishedVersion) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case sessionpublishedversion.FieldID, sessionpublishedversion.FieldSessionID, sessionpublishedversion.FieldPublishedRevision, sessionpublishedversion.FieldMinimumDurationSeconds:
 			values[i] = new(sql.NullInt64)
-		case sessionpublishedversion.FieldTitle, sessionpublishedversion.FieldSpeaker, sessionpublishedversion.FieldType, sessionpublishedversion.FieldAudienceVisibility, sessionpublishedversion.FieldPublicDetails, sessionpublishedversion.FieldCrewNotes, sessionpublishedversion.FieldTimingPolicy, sessionpublishedversion.FieldStartBoundary, sessionpublishedversion.FieldEndBoundary:
+		case sessionpublishedversion.FieldTitle, sessionpublishedversion.FieldSpeaker, sessionpublishedversion.FieldType, sessionpublishedversion.FieldAudienceVisibility, sessionpublishedversion.FieldPublicDetails, sessionpublishedversion.FieldCrewNotes, sessionpublishedversion.FieldTimingPolicy, sessionpublishedversion.FieldStartBoundary, sessionpublishedversion.FieldEndBoundary, sessionpublishedversion.FieldEntryDefaultDisposition:
 			values[i] = new(sql.NullString)
-		case sessionpublishedversion.FieldPlannedStart, sessionpublishedversion.FieldPlannedEnd, sessionpublishedversion.FieldCreatedAt:
+		case sessionpublishedversion.FieldPlannedStart, sessionpublishedversion.FieldPlannedEnd, sessionpublishedversion.FieldSubmissionDeadline, sessionpublishedversion.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -223,6 +227,18 @@ func (_m *SessionPublishedVersion) assignValues(columns []string, values []any) 
 			} else if value.Valid {
 				_m.EndBoundary = sessionpublishedversion.EndBoundary(value.String)
 			}
+		case sessionpublishedversion.FieldSubmissionDeadline:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field submission_deadline", values[i])
+			} else if value.Valid {
+				_m.SubmissionDeadline = value.Time
+			}
+		case sessionpublishedversion.FieldEntryDefaultDisposition:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field entry_default_disposition", values[i])
+			} else if value.Valid {
+				_m.EntryDefaultDisposition = sessionpublishedversion.EntryDefaultDisposition(value.String)
+			}
 		case sessionpublishedversion.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
@@ -326,6 +342,12 @@ func (_m *SessionPublishedVersion) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("end_boundary=")
 	builder.WriteString(fmt.Sprintf("%v", _m.EndBoundary))
+	builder.WriteString(", ")
+	builder.WriteString("submission_deadline=")
+	builder.WriteString(_m.SubmissionDeadline.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("entry_default_disposition=")
+	builder.WriteString(fmt.Sprintf("%v", _m.EntryDefaultDisposition))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

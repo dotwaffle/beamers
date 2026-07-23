@@ -20,6 +20,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/display"
 	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/displaycredential"
@@ -66,6 +67,8 @@ type Client struct {
 	BootstrapCredential *BootstrapCredentialClient
 	// CommandReceipt is the client for interacting with the CommandReceipt builders.
 	CommandReceipt *CommandReceiptClient
+	// CompetitionEntry is the client for interacting with the CompetitionEntry builders.
+	CompetitionEntry *CompetitionEntryClient
 	// Display is the client for interacting with the Display builders.
 	Display *DisplayClient
 	// DisplayAssignment is the client for interacting with the DisplayAssignment builders.
@@ -140,6 +143,7 @@ func (c *Client) init() {
 	c.AuditEntry = NewAuditEntryClient(c.config)
 	c.BootstrapCredential = NewBootstrapCredentialClient(c.config)
 	c.CommandReceipt = NewCommandReceiptClient(c.config)
+	c.CompetitionEntry = NewCompetitionEntryClient(c.config)
 	c.Display = NewDisplayClient(c.config)
 	c.DisplayAssignment = NewDisplayAssignmentClient(c.config)
 	c.DisplayCredential = NewDisplayCredentialClient(c.config)
@@ -266,6 +270,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		AuditEntry:               NewAuditEntryClient(cfg),
 		BootstrapCredential:      NewBootstrapCredentialClient(cfg),
 		CommandReceipt:           NewCommandReceiptClient(cfg),
+		CompetitionEntry:         NewCompetitionEntryClient(cfg),
 		Display:                  NewDisplayClient(cfg),
 		DisplayAssignment:        NewDisplayAssignmentClient(cfg),
 		DisplayCredential:        NewDisplayCredentialClient(cfg),
@@ -319,6 +324,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		AuditEntry:               NewAuditEntryClient(cfg),
 		BootstrapCredential:      NewBootstrapCredentialClient(cfg),
 		CommandReceipt:           NewCommandReceiptClient(cfg),
+		CompetitionEntry:         NewCompetitionEntryClient(cfg),
 		Display:                  NewDisplayClient(cfg),
 		DisplayAssignment:        NewDisplayAssignmentClient(cfg),
 		DisplayCredential:        NewDisplayCredentialClient(cfg),
@@ -378,14 +384,14 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.Account, c.AccountSession, c.AuditEntry, c.BootstrapCredential,
-		c.CommandReceipt, c.Display, c.DisplayAssignment, c.DisplayCredential,
-		c.DisplayEnrollment, c.DraftChange, c.DraftChangeDependency, c.DraftEdit,
-		c.Event, c.EventGrant, c.ImportReference, c.Installation, c.Lane, c.LaneDraft,
-		c.LanePublishedVersion, c.Location, c.LocationDraft,
-		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Rundown,
-		c.Session, c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion,
-		c.SessionRun, c.SessionRunAmendment, c.Track, c.TrackDraft,
-		c.TrackPublishedVersion,
+		c.CommandReceipt, c.CompetitionEntry, c.Display, c.DisplayAssignment,
+		c.DisplayCredential, c.DisplayEnrollment, c.DraftChange,
+		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventGrant, c.ImportReference,
+		c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion, c.Location,
+		c.LocationDraft, c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
+		c.Rundown, c.Session, c.SessionCancellation, c.SessionDraft,
+		c.SessionPublishedVersion, c.SessionRun, c.SessionRunAmendment, c.Track,
+		c.TrackDraft, c.TrackPublishedVersion,
 	} {
 		n.Use(hooks...)
 	}
@@ -396,14 +402,14 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.Account, c.AccountSession, c.AuditEntry, c.BootstrapCredential,
-		c.CommandReceipt, c.Display, c.DisplayAssignment, c.DisplayCredential,
-		c.DisplayEnrollment, c.DraftChange, c.DraftChangeDependency, c.DraftEdit,
-		c.Event, c.EventGrant, c.ImportReference, c.Installation, c.Lane, c.LaneDraft,
-		c.LanePublishedVersion, c.Location, c.LocationDraft,
-		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Rundown,
-		c.Session, c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion,
-		c.SessionRun, c.SessionRunAmendment, c.Track, c.TrackDraft,
-		c.TrackPublishedVersion,
+		c.CommandReceipt, c.CompetitionEntry, c.Display, c.DisplayAssignment,
+		c.DisplayCredential, c.DisplayEnrollment, c.DraftChange,
+		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventGrant, c.ImportReference,
+		c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion, c.Location,
+		c.LocationDraft, c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
+		c.Rundown, c.Session, c.SessionCancellation, c.SessionDraft,
+		c.SessionPublishedVersion, c.SessionRun, c.SessionRunAmendment, c.Track,
+		c.TrackDraft, c.TrackPublishedVersion,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -422,6 +428,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.BootstrapCredential.mutate(ctx, m)
 	case *CommandReceiptMutation:
 		return c.CommandReceipt.mutate(ctx, m)
+	case *CompetitionEntryMutation:
+		return c.CompetitionEntry.mutate(ctx, m)
 	case *DisplayMutation:
 		return c.Display.mutate(ctx, m)
 	case *DisplayAssignmentMutation:
@@ -1296,6 +1304,172 @@ func (c *CommandReceiptClient) mutate(ctx context.Context, m *CommandReceiptMuta
 		return (&CommandReceiptDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown CommandReceipt mutation op: %q", m.Op())
+	}
+}
+
+// CompetitionEntryClient is a client for the CompetitionEntry schema.
+type CompetitionEntryClient struct {
+	config
+}
+
+// NewCompetitionEntryClient returns a client for the CompetitionEntry from the given config.
+func NewCompetitionEntryClient(c config) *CompetitionEntryClient {
+	return &CompetitionEntryClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `competitionentry.Hooks(f(g(h())))`.
+func (c *CompetitionEntryClient) Use(hooks ...Hook) {
+	c.hooks.CompetitionEntry = append(c.hooks.CompetitionEntry, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `competitionentry.Intercept(f(g(h())))`.
+func (c *CompetitionEntryClient) Intercept(interceptors ...Interceptor) {
+	c.inters.CompetitionEntry = append(c.inters.CompetitionEntry, interceptors...)
+}
+
+// Create returns a builder for creating a CompetitionEntry entity.
+func (c *CompetitionEntryClient) Create() *CompetitionEntryCreate {
+	mutation := newCompetitionEntryMutation(c.config, OpCreate)
+	return &CompetitionEntryCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of CompetitionEntry entities.
+func (c *CompetitionEntryClient) CreateBulk(builders ...*CompetitionEntryCreate) *CompetitionEntryCreateBulk {
+	return &CompetitionEntryCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *CompetitionEntryClient) MapCreateBulk(slice any, setFunc func(*CompetitionEntryCreate, int)) *CompetitionEntryCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &CompetitionEntryCreateBulk{err: fmt.Errorf("calling to CompetitionEntryClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*CompetitionEntryCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &CompetitionEntryCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for CompetitionEntry.
+func (c *CompetitionEntryClient) Update() *CompetitionEntryUpdate {
+	mutation := newCompetitionEntryMutation(c.config, OpUpdate)
+	return &CompetitionEntryUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *CompetitionEntryClient) UpdateOne(_m *CompetitionEntry) *CompetitionEntryUpdateOne {
+	mutation := newCompetitionEntryMutation(c.config, OpUpdateOne, withCompetitionEntry(_m))
+	return &CompetitionEntryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *CompetitionEntryClient) UpdateOneID(id int) *CompetitionEntryUpdateOne {
+	mutation := newCompetitionEntryMutation(c.config, OpUpdateOne, withCompetitionEntryID(id))
+	return &CompetitionEntryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for CompetitionEntry.
+func (c *CompetitionEntryClient) Delete() *CompetitionEntryDelete {
+	mutation := newCompetitionEntryMutation(c.config, OpDelete)
+	return &CompetitionEntryDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *CompetitionEntryClient) DeleteOne(_m *CompetitionEntry) *CompetitionEntryDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *CompetitionEntryClient) DeleteOneID(id int) *CompetitionEntryDeleteOne {
+	builder := c.Delete().Where(competitionentry.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &CompetitionEntryDeleteOne{builder}
+}
+
+// Query returns a query builder for CompetitionEntry.
+func (c *CompetitionEntryClient) Query() *CompetitionEntryQuery {
+	return &CompetitionEntryQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeCompetitionEntry},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a CompetitionEntry entity by its id.
+func (c *CompetitionEntryClient) Get(ctx context.Context, id int) (*CompetitionEntry, error) {
+	return c.Query().Where(competitionentry.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *CompetitionEntryClient) GetX(ctx context.Context, id int) *CompetitionEntry {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a CompetitionEntry.
+func (c *CompetitionEntryClient) QueryEvent(_m *CompetitionEntry) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(competitionentry.Table, competitionentry.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, competitionentry.EventTable, competitionentry.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCompetition queries the competition edge of a CompetitionEntry.
+func (c *CompetitionEntryClient) QueryCompetition(_m *CompetitionEntry) *SessionQuery {
+	query := (&SessionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(competitionentry.Table, competitionentry.FieldID, id),
+			sqlgraph.To(session.Table, session.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, competitionentry.CompetitionTable, competitionentry.CompetitionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *CompetitionEntryClient) Hooks() []Hook {
+	hooks := c.hooks.CompetitionEntry
+	return append(hooks[:len(hooks):len(hooks)], competitionentry.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *CompetitionEntryClient) Interceptors() []Interceptor {
+	return c.inters.CompetitionEntry
+}
+
+func (c *CompetitionEntryClient) mutate(ctx context.Context, m *CompetitionEntryMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&CompetitionEntryCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&CompetitionEntryUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&CompetitionEntryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&CompetitionEntryDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown CompetitionEntry mutation op: %q", m.Op())
 	}
 }
 
@@ -2674,6 +2848,22 @@ func (c *EventClient) QuerySessions(_m *Event) *SessionQuery {
 			sqlgraph.From(event.Table, event.FieldID, id),
 			sqlgraph.To(session.Table, session.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, event.SessionsTable, event.SessionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCompetitionEntries queries the competition_entries edge of a Event.
+func (c *EventClient) QueryCompetitionEntries(_m *Event) *CompetitionEntryQuery {
+	query := (&CompetitionEntryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(competitionentry.Table, competitionentry.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.CompetitionEntriesTable, event.CompetitionEntriesColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -4966,6 +5156,22 @@ func (c *SessionClient) QueryCancellations(_m *Session) *SessionCancellationQuer
 	return query
 }
 
+// QueryCompetitionEntries queries the competition_entries edge of a Session.
+func (c *SessionClient) QueryCompetitionEntries(_m *Session) *CompetitionEntryQuery {
+	query := (&CompetitionEntryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(session.Table, session.FieldID, id),
+			sqlgraph.To(competitionentry.Table, competitionentry.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, session.CompetitionEntriesTable, session.CompetitionEntriesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *SessionClient) Hooks() []Hook {
 	hooks := c.hooks.Session
@@ -6372,20 +6578,22 @@ func (c *TrackPublishedVersionClient) mutate(ctx context.Context, m *TrackPublis
 type (
 	hooks struct {
 		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt,
-		Display, DisplayAssignment, DisplayCredential, DisplayEnrollment, DraftChange,
-		DraftChangeDependency, DraftEdit, Event, EventGrant, ImportReference,
-		Installation, Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
-		LocationPublishedVersion, Migration, PasswordCredential, Rundown, Session,
-		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
-		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion []ent.Hook
+		CompetitionEntry, Display, DisplayAssignment, DisplayCredential,
+		DisplayEnrollment, DraftChange, DraftChangeDependency, DraftEdit, Event,
+		EventGrant, ImportReference, Installation, Lane, LaneDraft,
+		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
+		Migration, PasswordCredential, Rundown, Session, SessionCancellation,
+		SessionDraft, SessionPublishedVersion, SessionRun, SessionRunAmendment, Track,
+		TrackDraft, TrackPublishedVersion []ent.Hook
 	}
 	inters struct {
 		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt,
-		Display, DisplayAssignment, DisplayCredential, DisplayEnrollment, DraftChange,
-		DraftChangeDependency, DraftEdit, Event, EventGrant, ImportReference,
-		Installation, Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
-		LocationPublishedVersion, Migration, PasswordCredential, Rundown, Session,
-		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
-		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion []ent.Interceptor
+		CompetitionEntry, Display, DisplayAssignment, DisplayCredential,
+		DisplayEnrollment, DraftChange, DraftChangeDependency, DraftEdit, Event,
+		EventGrant, ImportReference, Installation, Lane, LaneDraft,
+		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
+		Migration, PasswordCredential, Rundown, Session, SessionCancellation,
+		SessionDraft, SessionPublishedVersion, SessionRun, SessionRunAmendment, Track,
+		TrackDraft, TrackPublishedVersion []ent.Interceptor
 	}
 )

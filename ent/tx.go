@@ -22,6 +22,8 @@ type Tx struct {
 	BootstrapCredential *BootstrapCredentialClient
 	// CommandReceipt is the client for interacting with the CommandReceipt builders.
 	CommandReceipt *CommandReceiptClient
+	// CompetitionEntry is the client for interacting with the CompetitionEntry builders.
+	CompetitionEntry *CompetitionEntryClient
 	// Display is the client for interacting with the Display builders.
 	Display *DisplayClient
 	// DisplayAssignment is the client for interacting with the DisplayAssignment builders.
@@ -216,6 +218,7 @@ func (tx *Tx) init() {
 	tx.AuditEntry = NewAuditEntryClient(tx.config)
 	tx.BootstrapCredential = NewBootstrapCredentialClient(tx.config)
 	tx.CommandReceipt = NewCommandReceiptClient(tx.config)
+	tx.CompetitionEntry = NewCompetitionEntryClient(tx.config)
 	tx.Display = NewDisplayClient(tx.config)
 	tx.DisplayAssignment = NewDisplayAssignmentClient(tx.config)
 	tx.DisplayCredential = NewDisplayCredentialClient(tx.config)

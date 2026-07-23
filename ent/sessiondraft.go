@@ -44,6 +44,10 @@ type SessionDraft struct {
 	StartBoundary sessiondraft.StartBoundary `json:"start_boundary,omitempty"`
 	// EndBoundary holds the value of the "end_boundary" field.
 	EndBoundary sessiondraft.EndBoundary `json:"end_boundary,omitempty"`
+	// SubmissionDeadline holds the value of the "submission_deadline" field.
+	SubmissionDeadline time.Time `json:"submission_deadline,omitempty"`
+	// EntryDefaultDisposition holds the value of the "entry_default_disposition" field.
+	EntryDefaultDisposition sessiondraft.EntryDefaultDisposition `json:"entry_default_disposition,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the SessionDraftQuery when eager-loading is set.
 	Edges        SessionDraftEdges `json:"edges"`
@@ -110,9 +114,9 @@ func (*SessionDraft) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case sessiondraft.FieldID, sessiondraft.FieldSessionID, sessiondraft.FieldMinimumDurationSeconds:
 			values[i] = new(sql.NullInt64)
-		case sessiondraft.FieldTitle, sessiondraft.FieldSpeaker, sessiondraft.FieldType, sessiondraft.FieldAudienceVisibility, sessiondraft.FieldPublicDetails, sessiondraft.FieldCrewNotes, sessiondraft.FieldTimingPolicy, sessiondraft.FieldStartBoundary, sessiondraft.FieldEndBoundary:
+		case sessiondraft.FieldTitle, sessiondraft.FieldSpeaker, sessiondraft.FieldType, sessiondraft.FieldAudienceVisibility, sessiondraft.FieldPublicDetails, sessiondraft.FieldCrewNotes, sessiondraft.FieldTimingPolicy, sessiondraft.FieldStartBoundary, sessiondraft.FieldEndBoundary, sessiondraft.FieldEntryDefaultDisposition:
 			values[i] = new(sql.NullString)
-		case sessiondraft.FieldPlannedStart, sessiondraft.FieldPlannedEnd:
+		case sessiondraft.FieldPlannedStart, sessiondraft.FieldPlannedEnd, sessiondraft.FieldSubmissionDeadline:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -213,6 +217,18 @@ func (_m *SessionDraft) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.EndBoundary = sessiondraft.EndBoundary(value.String)
 			}
+		case sessiondraft.FieldSubmissionDeadline:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field submission_deadline", values[i])
+			} else if value.Valid {
+				_m.SubmissionDeadline = value.Time
+			}
+		case sessiondraft.FieldEntryDefaultDisposition:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field entry_default_disposition", values[i])
+			} else if value.Valid {
+				_m.EntryDefaultDisposition = sessiondraft.EntryDefaultDisposition(value.String)
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -307,6 +323,12 @@ func (_m *SessionDraft) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("end_boundary=")
 	builder.WriteString(fmt.Sprintf("%v", _m.EndBoundary))
+	builder.WriteString(", ")
+	builder.WriteString("submission_deadline=")
+	builder.WriteString(_m.SubmissionDeadline.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("entry_default_disposition=")
+	builder.WriteString(fmt.Sprintf("%v", _m.EntryDefaultDisposition))
 	builder.WriteByte(')')
 	return builder.String()
 }

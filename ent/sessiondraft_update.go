@@ -224,6 +224,46 @@ func (_u *SessionDraftUpdate) SetNillableEndBoundary(v *sessiondraft.EndBoundary
 	return _u
 }
 
+// SetSubmissionDeadline sets the "submission_deadline" field.
+func (_u *SessionDraftUpdate) SetSubmissionDeadline(v time.Time) *SessionDraftUpdate {
+	_u.mutation.SetSubmissionDeadline(v)
+	return _u
+}
+
+// SetNillableSubmissionDeadline sets the "submission_deadline" field if the given value is not nil.
+func (_u *SessionDraftUpdate) SetNillableSubmissionDeadline(v *time.Time) *SessionDraftUpdate {
+	if v != nil {
+		_u.SetSubmissionDeadline(*v)
+	}
+	return _u
+}
+
+// ClearSubmissionDeadline clears the value of the "submission_deadline" field.
+func (_u *SessionDraftUpdate) ClearSubmissionDeadline() *SessionDraftUpdate {
+	_u.mutation.ClearSubmissionDeadline()
+	return _u
+}
+
+// SetEntryDefaultDisposition sets the "entry_default_disposition" field.
+func (_u *SessionDraftUpdate) SetEntryDefaultDisposition(v sessiondraft.EntryDefaultDisposition) *SessionDraftUpdate {
+	_u.mutation.SetEntryDefaultDisposition(v)
+	return _u
+}
+
+// SetNillableEntryDefaultDisposition sets the "entry_default_disposition" field if the given value is not nil.
+func (_u *SessionDraftUpdate) SetNillableEntryDefaultDisposition(v *sessiondraft.EntryDefaultDisposition) *SessionDraftUpdate {
+	if v != nil {
+		_u.SetEntryDefaultDisposition(*v)
+	}
+	return _u
+}
+
+// ClearEntryDefaultDisposition clears the value of the "entry_default_disposition" field.
+func (_u *SessionDraftUpdate) ClearEntryDefaultDisposition() *SessionDraftUpdate {
+	_u.mutation.ClearEntryDefaultDisposition()
+	return _u
+}
+
 // AddLaneIDs adds the "lanes" edge to the Lane entity by IDs.
 func (_u *SessionDraftUpdate) AddLaneIDs(ids ...int) *SessionDraftUpdate {
 	_u.mutation.AddLaneIDs(ids...)
@@ -416,6 +456,11 @@ func (_u *SessionDraftUpdate) check() error {
 			return &ValidationError{Name: "end_boundary", err: fmt.Errorf(`ent: validator failed for field "SessionDraft.end_boundary": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.EntryDefaultDisposition(); ok {
+		if err := sessiondraft.EntryDefaultDispositionValidator(v); err != nil {
+			return &ValidationError{Name: "entry_default_disposition", err: fmt.Errorf(`ent: validator failed for field "SessionDraft.entry_default_disposition": %w`, err)}
+		}
+	}
 	if _u.mutation.SessionCleared() && len(_u.mutation.SessionIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "SessionDraft.session"`)
 	}
@@ -481,6 +526,18 @@ func (_u *SessionDraftUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if value, ok := _u.mutation.EndBoundary(); ok {
 		_spec.SetField(sessiondraft.FieldEndBoundary, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.SubmissionDeadline(); ok {
+		_spec.SetField(sessiondraft.FieldSubmissionDeadline, field.TypeTime, value)
+	}
+	if _u.mutation.SubmissionDeadlineCleared() {
+		_spec.ClearField(sessiondraft.FieldSubmissionDeadline, field.TypeTime)
+	}
+	if value, ok := _u.mutation.EntryDefaultDisposition(); ok {
+		_spec.SetField(sessiondraft.FieldEntryDefaultDisposition, field.TypeEnum, value)
+	}
+	if _u.mutation.EntryDefaultDispositionCleared() {
+		_spec.ClearField(sessiondraft.FieldEntryDefaultDisposition, field.TypeEnum)
 	}
 	if _u.mutation.LanesCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -830,6 +887,46 @@ func (_u *SessionDraftUpdateOne) SetNillableEndBoundary(v *sessiondraft.EndBound
 	return _u
 }
 
+// SetSubmissionDeadline sets the "submission_deadline" field.
+func (_u *SessionDraftUpdateOne) SetSubmissionDeadline(v time.Time) *SessionDraftUpdateOne {
+	_u.mutation.SetSubmissionDeadline(v)
+	return _u
+}
+
+// SetNillableSubmissionDeadline sets the "submission_deadline" field if the given value is not nil.
+func (_u *SessionDraftUpdateOne) SetNillableSubmissionDeadline(v *time.Time) *SessionDraftUpdateOne {
+	if v != nil {
+		_u.SetSubmissionDeadline(*v)
+	}
+	return _u
+}
+
+// ClearSubmissionDeadline clears the value of the "submission_deadline" field.
+func (_u *SessionDraftUpdateOne) ClearSubmissionDeadline() *SessionDraftUpdateOne {
+	_u.mutation.ClearSubmissionDeadline()
+	return _u
+}
+
+// SetEntryDefaultDisposition sets the "entry_default_disposition" field.
+func (_u *SessionDraftUpdateOne) SetEntryDefaultDisposition(v sessiondraft.EntryDefaultDisposition) *SessionDraftUpdateOne {
+	_u.mutation.SetEntryDefaultDisposition(v)
+	return _u
+}
+
+// SetNillableEntryDefaultDisposition sets the "entry_default_disposition" field if the given value is not nil.
+func (_u *SessionDraftUpdateOne) SetNillableEntryDefaultDisposition(v *sessiondraft.EntryDefaultDisposition) *SessionDraftUpdateOne {
+	if v != nil {
+		_u.SetEntryDefaultDisposition(*v)
+	}
+	return _u
+}
+
+// ClearEntryDefaultDisposition clears the value of the "entry_default_disposition" field.
+func (_u *SessionDraftUpdateOne) ClearEntryDefaultDisposition() *SessionDraftUpdateOne {
+	_u.mutation.ClearEntryDefaultDisposition()
+	return _u
+}
+
 // AddLaneIDs adds the "lanes" edge to the Lane entity by IDs.
 func (_u *SessionDraftUpdateOne) AddLaneIDs(ids ...int) *SessionDraftUpdateOne {
 	_u.mutation.AddLaneIDs(ids...)
@@ -1035,6 +1132,11 @@ func (_u *SessionDraftUpdateOne) check() error {
 			return &ValidationError{Name: "end_boundary", err: fmt.Errorf(`ent: validator failed for field "SessionDraft.end_boundary": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.EntryDefaultDisposition(); ok {
+		if err := sessiondraft.EntryDefaultDispositionValidator(v); err != nil {
+			return &ValidationError{Name: "entry_default_disposition", err: fmt.Errorf(`ent: validator failed for field "SessionDraft.entry_default_disposition": %w`, err)}
+		}
+	}
 	if _u.mutation.SessionCleared() && len(_u.mutation.SessionIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "SessionDraft.session"`)
 	}
@@ -1117,6 +1219,18 @@ func (_u *SessionDraftUpdateOne) sqlSave(ctx context.Context) (_node *SessionDra
 	}
 	if value, ok := _u.mutation.EndBoundary(); ok {
 		_spec.SetField(sessiondraft.FieldEndBoundary, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.SubmissionDeadline(); ok {
+		_spec.SetField(sessiondraft.FieldSubmissionDeadline, field.TypeTime, value)
+	}
+	if _u.mutation.SubmissionDeadlineCleared() {
+		_spec.ClearField(sessiondraft.FieldSubmissionDeadline, field.TypeTime)
+	}
+	if value, ok := _u.mutation.EntryDefaultDisposition(); ok {
+		_spec.SetField(sessiondraft.FieldEntryDefaultDisposition, field.TypeEnum, value)
+	}
+	if _u.mutation.EntryDefaultDispositionCleared() {
+		_spec.ClearField(sessiondraft.FieldEntryDefaultDisposition, field.TypeEnum)
 	}
 	if _u.mutation.LanesCleared() {
 		edge := &sqlgraph.EdgeSpec{

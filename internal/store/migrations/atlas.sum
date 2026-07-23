@@ -1,4 +1,4 @@
-h1:vk1RW1upVeAqaZmJqE0XIr3RP8IybN5G+r1u4RqEZRc=
+h1:LH9BSumQVkErbkXsZ98FYEnuueZP8uZAAvj4X+xfPeU=
 0001_initialize.sql h1:xwTCiCDERoBPK7+31D4g3SOs7BivkqIi3/tf+14eOlo=
 0002_bootstrap_auth.sql h1:Z4h1bvDVGzPXbmlEc3NCEn1HvMSf2V6eY56wIlxFLjA=
 0003_add_events.sql h1:6XxTAjVp9ntlWbsdacCMQkdgTAG185npJMhgxOSnAtA=
@@ -23,3 +23,4 @@ h1:vk1RW1upVeAqaZmJqE0XIr3RP8IybN5G+r1u4RqEZRc=
 0022_add_session_reinstatement.sql h1:Ep+4yRhrDWNMTAmaIS63MSZvR4CfBmUQSou43kikZM0=
 0023_preserve_session_cancellation_history.sql h1:0SXr4I4euAkUjxx6qLDmpPbYK35Z4lJeamUgbvR0NxM=
 0024_add_session_communicated_times.sql h1:eDVmTROBa84KPUUvz+BMkgOWy3D/XWd3UOROGvBF/kw=
+0025_add_competitions_and_entries.sql h1:1vCFJUDtHLjbG1NorT1b/SejgANuEqcbMexrGW/UOPc=

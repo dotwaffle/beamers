@@ -73,6 +73,7 @@ type CreateInput struct {
 	EventLocale                    string `json:"event_locale"`
 	ContentLanguage                string `json:"content_language"`
 	EventDayBoundary               string `json:"event_day_boundary"`
+	EntryDefaultDisposition        string `json:"entry_default_disposition,omitempty"`
 	TargetAdjustmentPresetsSeconds []int  `json:"target_adjustment_presets_seconds,omitempty"`
 	CommandID                      string `json:"command_id"`
 	ExpectedRevision               int    `json:"expected_revision,omitempty"`
@@ -158,6 +159,7 @@ func (service *Service) Create(
 				PlannedStartDate: normalized.PlannedStartDate, PlannedEndDate: normalized.PlannedEndDate,
 				Timezone: normalized.Timezone, EventLocale: normalized.EventLocale,
 				ContentLanguage: normalized.ContentLanguage, EventDayBoundary: normalized.EventDayBoundary,
+				EntryDefaultDisposition:        normalized.EntryDefaultDisposition,
 				TargetAdjustmentPresetsSeconds: normalized.TargetAdjustmentPresetsSeconds,
 				Now:                            identity.Now,
 				CommandID:                      input.CommandID,
@@ -285,6 +287,7 @@ func (service *Service) Update(
 				PlannedStartDate: normalized.PlannedStartDate, PlannedEndDate: normalized.PlannedEndDate,
 				Timezone: normalized.Timezone, EventLocale: normalized.EventLocale,
 				ContentLanguage: normalized.ContentLanguage, EventDayBoundary: normalized.EventDayBoundary,
+				EntryDefaultDisposition:        normalized.EntryDefaultDisposition,
 				TargetAdjustmentPresetsSeconds: normalized.TargetAdjustmentPresetsSeconds,
 				Now:                            identity.Now,
 				CommandID:                      input.CommandID, PayloadHash: eventPayloadHash(normalized, input.ExpectedRevision),
@@ -477,6 +480,12 @@ func validateCreateInput(input CreateInput) (CreateInput, error) {
 	}
 	if input.TargetAdjustmentPresetsSeconds == nil {
 		input.TargetAdjustmentPresetsSeconds = []int{-300, 300, 600}
+	}
+	if input.EntryDefaultDisposition == "" {
+		input.EntryDefaultDisposition = "Pending"
+	}
+	if input.EntryDefaultDisposition != "Pending" && input.EntryDefaultDisposition != "Included" {
+		return CreateInput{}, invalid("entry_default_disposition", "must be Pending or Included")
 	}
 	if len(input.TargetAdjustmentPresetsSeconds) > 12 {
 		return CreateInput{}, invalid("target_adjustment_presets_seconds", "must contain no more than 12 presets")

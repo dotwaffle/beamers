@@ -132,6 +132,34 @@ func (_c *SessionPublishedVersionCreate) SetEndBoundary(v sessionpublishedversio
 	return _c
 }
 
+// SetSubmissionDeadline sets the "submission_deadline" field.
+func (_c *SessionPublishedVersionCreate) SetSubmissionDeadline(v time.Time) *SessionPublishedVersionCreate {
+	_c.mutation.SetSubmissionDeadline(v)
+	return _c
+}
+
+// SetNillableSubmissionDeadline sets the "submission_deadline" field if the given value is not nil.
+func (_c *SessionPublishedVersionCreate) SetNillableSubmissionDeadline(v *time.Time) *SessionPublishedVersionCreate {
+	if v != nil {
+		_c.SetSubmissionDeadline(*v)
+	}
+	return _c
+}
+
+// SetEntryDefaultDisposition sets the "entry_default_disposition" field.
+func (_c *SessionPublishedVersionCreate) SetEntryDefaultDisposition(v sessionpublishedversion.EntryDefaultDisposition) *SessionPublishedVersionCreate {
+	_c.mutation.SetEntryDefaultDisposition(v)
+	return _c
+}
+
+// SetNillableEntryDefaultDisposition sets the "entry_default_disposition" field if the given value is not nil.
+func (_c *SessionPublishedVersionCreate) SetNillableEntryDefaultDisposition(v *sessionpublishedversion.EntryDefaultDisposition) *SessionPublishedVersionCreate {
+	if v != nil {
+		_c.SetEntryDefaultDisposition(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *SessionPublishedVersionCreate) SetCreatedAt(v time.Time) *SessionPublishedVersionCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -333,6 +361,11 @@ func (_c *SessionPublishedVersionCreate) check() error {
 			return &ValidationError{Name: "end_boundary", err: fmt.Errorf(`ent: validator failed for field "SessionPublishedVersion.end_boundary": %w`, err)}
 		}
 	}
+	if v, ok := _c.mutation.EntryDefaultDisposition(); ok {
+		if err := sessionpublishedversion.EntryDefaultDispositionValidator(v); err != nil {
+			return &ValidationError{Name: "entry_default_disposition", err: fmt.Errorf(`ent: validator failed for field "SessionPublishedVersion.entry_default_disposition": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "SessionPublishedVersion.created_at"`)}
 	}
@@ -416,6 +449,14 @@ func (_c *SessionPublishedVersionCreate) createSpec() (*SessionPublishedVersion,
 	if value, ok := _c.mutation.EndBoundary(); ok {
 		_spec.SetField(sessionpublishedversion.FieldEndBoundary, field.TypeEnum, value)
 		_node.EndBoundary = value
+	}
+	if value, ok := _c.mutation.SubmissionDeadline(); ok {
+		_spec.SetField(sessionpublishedversion.FieldSubmissionDeadline, field.TypeTime, value)
+		_node.SubmissionDeadline = value
+	}
+	if value, ok := _c.mutation.EntryDefaultDisposition(); ok {
+		_spec.SetField(sessionpublishedversion.FieldEntryDefaultDisposition, field.TypeEnum, value)
+		_node.EntryDefaultDisposition = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(sessionpublishedversion.FieldCreatedAt, field.TypeTime, value)

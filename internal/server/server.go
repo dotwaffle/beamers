@@ -120,6 +120,17 @@ func Run(ctx context.Context, config Config) error {
 		); err != nil {
 			return errors.Join(err, listener.Close(), installation.Close())
 		}
+		if err := registerCompetitionRoutes(
+			mux,
+			installation.Authentication(),
+			installation.Competition(),
+			listener.Addr(),
+			config.TracerProvider,
+			config.MeterProvider,
+			config.Propagator,
+		); err != nil {
+			return errors.Join(err, listener.Close(), installation.Close())
+		}
 		if err := registerActivationRoutes(
 			mux,
 			installation.Authentication(),

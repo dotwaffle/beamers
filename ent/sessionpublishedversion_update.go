@@ -199,6 +199,12 @@ func (_u *SessionPublishedVersionUpdate) sqlSave(ctx context.Context) (_node int
 	if _u.mutation.CrewNotesCleared() {
 		_spec.ClearField(sessionpublishedversion.FieldCrewNotes, field.TypeString)
 	}
+	if _u.mutation.SubmissionDeadlineCleared() {
+		_spec.ClearField(sessionpublishedversion.FieldSubmissionDeadline, field.TypeTime)
+	}
+	if _u.mutation.EntryDefaultDispositionCleared() {
+		_spec.ClearField(sessionpublishedversion.FieldEntryDefaultDisposition, field.TypeEnum)
+	}
 	if _u.mutation.LanesCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2M,
@@ -552,6 +558,12 @@ func (_u *SessionPublishedVersionUpdateOne) sqlSave(ctx context.Context) (_node 
 	}
 	if _u.mutation.CrewNotesCleared() {
 		_spec.ClearField(sessionpublishedversion.FieldCrewNotes, field.TypeString)
+	}
+	if _u.mutation.SubmissionDeadlineCleared() {
+		_spec.ClearField(sessionpublishedversion.FieldSubmissionDeadline, field.TypeTime)
+	}
+	if _u.mutation.EntryDefaultDispositionCleared() {
+		_spec.ClearField(sessionpublishedversion.FieldEntryDefaultDisposition, field.TypeEnum)
 	}
 	if _u.mutation.LanesCleared() {
 		edge := &sqlgraph.EdgeSpec{

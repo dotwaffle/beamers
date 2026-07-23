@@ -113,6 +113,45 @@ var (
 			},
 		},
 	}
+	// CompetitionEntriesColumns holds the columns for the "competition_entries" table.
+	CompetitionEntriesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "name", Type: field.TypeString, Size: 200},
+		{Name: "public_details", Type: field.TypeString, Nullable: true, Size: 10000},
+		{Name: "crew_notes", Type: field.TypeString, Nullable: true, Size: 10000},
+		{Name: "disposition", Type: field.TypeEnum, Enums: []string{"Pending", "Included", "Rejected"}},
+		{Name: "revision", Type: field.TypeInt, Default: 1},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "event_id", Type: field.TypeInt},
+		{Name: "competition_session_id", Type: field.TypeInt},
+	}
+	// CompetitionEntriesTable holds the schema information for the "competition_entries" table.
+	CompetitionEntriesTable = &schema.Table{
+		Name:       "competition_entries",
+		Columns:    CompetitionEntriesColumns,
+		PrimaryKey: []*schema.Column{CompetitionEntriesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "competition_entries_events_competition_entries",
+				Columns:    []*schema.Column{CompetitionEntriesColumns[7]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "competition_entries_sessions_competition_entries",
+				Columns:    []*schema.Column{CompetitionEntriesColumns[8]},
+				RefColumns: []*schema.Column{SessionsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "competitionentry_competition_session_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{CompetitionEntriesColumns[8], CompetitionEntriesColumns[6]},
+			},
+		},
+	}
 	// DisplaysColumns holds the columns for the "displays" table.
 	DisplaysColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -348,6 +387,7 @@ var (
 		{Name: "event_locale", Type: field.TypeString, Size: 100},
 		{Name: "content_language", Type: field.TypeString, Nullable: true, Size: 100},
 		{Name: "event_day_boundary", Type: field.TypeString, Size: 5},
+		{Name: "entry_default_disposition", Type: field.TypeEnum, Enums: []string{"Pending", "Included"}, Default: "Pending"},
 		{Name: "target_adjustment_presets", Type: field.TypeString, Size: 256, Default: "[-300,300,600]"},
 		{Name: "display_configuration", Type: field.TypeString, Size: 4096, Default: "{\"rotation_seconds\":15,\"theme\":{\"branding\":\"\",\"foreground_color\":\"#ffffff\",\"background_color\":\"#101828\",\"accent_color\":\"#1d4ed8\",\"background\":\"solid\",\"scrim_color\":\"#000000\",\"scrim_opacity\":85,\"font\":\"sans\",\"transition\":\"fade\"}}"},
 		{Name: "revision", Type: field.TypeInt, Default: 1},
@@ -758,6 +798,8 @@ var (
 		{Name: "minimum_duration_seconds", Type: field.TypeInt},
 		{Name: "start_boundary", Type: field.TypeEnum, Enums: []string{"Hard", "Soft"}},
 		{Name: "end_boundary", Type: field.TypeEnum, Enums: []string{"Hard", "Soft"}},
+		{Name: "submission_deadline", Type: field.TypeTime, Nullable: true},
+		{Name: "entry_default_disposition", Type: field.TypeEnum, Nullable: true, Enums: []string{"Pending", "Included"}},
 		{Name: "session_id", Type: field.TypeInt, Unique: true},
 	}
 	// SessionDraftsTable holds the schema information for the "session_drafts" table.
@@ -768,7 +810,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "session_drafts_sessions_draft",
-				Columns:    []*schema.Column{SessionDraftsColumns[13]},
+				Columns:    []*schema.Column{SessionDraftsColumns[15]},
 				RefColumns: []*schema.Column{SessionsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -790,6 +832,8 @@ var (
 		{Name: "minimum_duration_seconds", Type: field.TypeInt},
 		{Name: "start_boundary", Type: field.TypeEnum, Enums: []string{"Hard", "Soft"}},
 		{Name: "end_boundary", Type: field.TypeEnum, Enums: []string{"Hard", "Soft"}},
+		{Name: "submission_deadline", Type: field.TypeTime, Nullable: true},
+		{Name: "entry_default_disposition", Type: field.TypeEnum, Nullable: true, Enums: []string{"Pending", "Included"}},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "session_id", Type: field.TypeInt},
 	}
@@ -801,7 +845,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "session_published_versions_sessions_published_versions",
-				Columns:    []*schema.Column{SessionPublishedVersionsColumns[15]},
+				Columns:    []*schema.Column{SessionPublishedVersionsColumns[17]},
 				RefColumns: []*schema.Column{SessionsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -810,7 +854,7 @@ var (
 			{
 				Name:    "sessionpublishedversion_session_id_published_revision",
 				Unique:  true,
-				Columns: []*schema.Column{SessionPublishedVersionsColumns[15], SessionPublishedVersionsColumns[1]},
+				Columns: []*schema.Column{SessionPublishedVersionsColumns[17], SessionPublishedVersionsColumns[1]},
 			},
 		},
 	}
@@ -1104,6 +1148,7 @@ var (
 		AuditEntriesTable,
 		BootstrapCredentialsTable,
 		CommandReceiptsTable,
+		CompetitionEntriesTable,
 		DisplaysTable,
 		DisplayAssignmentsTable,
 		DisplayCredentialsTable,
@@ -1146,6 +1191,8 @@ func init() {
 	AccountSessionsTable.ForeignKeys[0].RefTable = AccountsTable
 	AuditEntriesTable.ForeignKeys[0].RefTable = AccountsTable
 	CommandReceiptsTable.ForeignKeys[0].RefTable = AccountsTable
+	CompetitionEntriesTable.ForeignKeys[0].RefTable = EventsTable
+	CompetitionEntriesTable.ForeignKeys[1].RefTable = SessionsTable
 	DisplayAssignmentsTable.ForeignKeys[0].RefTable = DisplaysTable
 	DisplayAssignmentsTable.ForeignKeys[1].RefTable = EventsTable
 	DisplayAssignmentsTable.ForeignKeys[2].RefTable = LocationsTable

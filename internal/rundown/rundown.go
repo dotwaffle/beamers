@@ -123,6 +123,18 @@ const (
 	BoundarySoft Boundary = "Soft"
 )
 
+// EntryDisposition controls whether a Competition Entry participates.
+type EntryDisposition string
+
+const (
+	// EntryPending keeps a new Entry crew-only and nonparticipating.
+	EntryPending EntryDisposition = "Pending"
+	// EntryIncluded makes a new Entry public and participating.
+	EntryIncluded EntryDisposition = "Included"
+	// EntryRejected retains an Entry without participation.
+	EntryRejected EntryDisposition = "Rejected"
+)
+
 // SessionDraftInput creates one Session in shared Draft state.
 type SessionDraftInput struct {
 	ID                 int                `json:"id,omitempty"`
@@ -139,6 +151,8 @@ type SessionDraftInput struct {
 	MinimumDuration    time.Duration      `json:"minimum_duration"`
 	StartBoundary      Boundary           `json:"start_boundary"`
 	EndBoundary        Boundary           `json:"end_boundary"`
+	SubmissionDeadline time.Time          `json:"submission_deadline,omitzero"`
+	EntryDefault       EntryDisposition   `json:"entry_default_disposition,omitempty"`
 	Lanes              []TargetRef        `json:"lanes"`
 	Locations          []TargetRef        `json:"locations"`
 	Tracks             []TargetRef        `json:"tracks,omitempty"`
@@ -420,6 +434,10 @@ func validateEditDraft(input EditDraftInput) (EditDraftInput, error) {
 		if item.ID > 0 && contains(item.UpdateFields, "minimum_duration") && item.MinimumDuration < 0 {
 			return EditDraftInput{}, invalid("sessions.minimum_duration", "must not be negative")
 		}
+		if item.ID > 0 && contains(item.UpdateFields, "entry_default_disposition") &&
+			item.EntryDefault != "" && !validEntryDefault(item.EntryDefault) {
+			return EditDraftInput{}, invalid("sessions.entry_default_disposition", "must be Pending or Included")
+		}
 		if item.ID == 0 && len(item.Lanes) == 0 {
 			return EditDraftInput{}, invalid("sessions.lanes", "must include at least one Lane")
 		}
@@ -510,7 +528,21 @@ func ValidateSessionScalars(item SessionDraftInput) error {
 	if !validBoundary(item.StartBoundary) || !validBoundary(item.EndBoundary) {
 		return invalid("sessions.boundary", "must be Hard or Soft")
 	}
+	if item.Type == SessionCompetition {
+		if item.SubmissionDeadline.IsZero() {
+			return invalid("sessions.submission_deadline", "is required for a Competition")
+		}
+		if item.EntryDefault != "" && !validEntryDefault(item.EntryDefault) {
+			return invalid("sessions.entry_default_disposition", "must be Pending or Included")
+		}
+	} else if !item.SubmissionDeadline.IsZero() || item.EntryDefault != "" {
+		return invalid("sessions.submission_deadline", "is only valid for a Competition")
+	}
 	return nil
+}
+
+func validEntryDefault(value EntryDisposition) bool {
+	return value == EntryPending || value == EntryIncluded
 }
 
 func validateNamedRefs[T any](
@@ -644,6 +676,7 @@ func editDraftParams(actorID int, input EditDraftInput, now time.Time) store.Edi
 			TimingPolicy:           string(item.TimingPolicy),
 			MinimumDurationSeconds: int(item.MinimumDuration / time.Second),
 			StartBoundary:          string(item.StartBoundary), EndBoundary: string(item.EndBoundary),
+			SubmissionDeadline: item.SubmissionDeadline, EntryDefaultDisposition: string(item.EntryDefault),
 			UpdateFields: item.UpdateFields,
 		}
 		for _, target := range item.Lanes {

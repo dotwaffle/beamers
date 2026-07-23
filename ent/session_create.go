@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessioncancellation"
@@ -294,6 +295,21 @@ func (_c *SessionCreate) AddCancellations(v ...*SessionCancellation) *SessionCre
 	return _c.AddCancellationIDs(ids...)
 }
 
+// AddCompetitionEntryIDs adds the "competition_entries" edge to the CompetitionEntry entity by IDs.
+func (_c *SessionCreate) AddCompetitionEntryIDs(ids ...int) *SessionCreate {
+	_c.mutation.AddCompetitionEntryIDs(ids...)
+	return _c
+}
+
+// AddCompetitionEntries adds the "competition_entries" edges to the CompetitionEntry entity.
+func (_c *SessionCreate) AddCompetitionEntries(v ...*CompetitionEntry) *SessionCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddCompetitionEntryIDs(ids...)
+}
+
 // Mutation returns the SessionMutation object of the builder.
 func (_c *SessionCreate) Mutation() *SessionMutation {
 	return _c.mutation
@@ -561,6 +577,22 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(sessioncancellation.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.CompetitionEntriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.CompetitionEntriesTable,
+			Columns: []string{session.CompetitionEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

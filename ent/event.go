@@ -32,6 +32,8 @@ type Event struct {
 	ContentLanguage string `json:"content_language,omitempty"`
 	// EventDayBoundary holds the value of the "event_day_boundary" field.
 	EventDayBoundary string `json:"event_day_boundary,omitempty"`
+	// EntryDefaultDisposition holds the value of the "entry_default_disposition" field.
+	EntryDefaultDisposition event.EntryDefaultDisposition `json:"entry_default_disposition,omitempty"`
 	// TargetAdjustmentPresets holds the value of the "target_adjustment_presets" field.
 	TargetAdjustmentPresets string `json:"target_adjustment_presets,omitempty"`
 	// DisplayConfiguration holds the value of the "display_configuration" field.
@@ -60,6 +62,8 @@ type EventEdges struct {
 	Tracks []*Track `json:"tracks,omitempty"`
 	// Sessions holds the value of the sessions edge.
 	Sessions []*Session `json:"sessions,omitempty"`
+	// CompetitionEntries holds the value of the competition_entries edge.
+	CompetitionEntries []*CompetitionEntry `json:"competition_entries,omitempty"`
 	// DraftEdits holds the value of the draft_edits edge.
 	DraftEdits []*DraftEdit `json:"draft_edits,omitempty"`
 	// DraftChanges holds the value of the draft_changes edge.
@@ -70,7 +74,7 @@ type EventEdges struct {
 	DisplayAssignments []*DisplayAssignment `json:"display_assignments,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [10]bool
+	loadedTypes [11]bool
 }
 
 // GrantsOrErr returns the Grants value or an error if the edge
@@ -129,10 +133,19 @@ func (e EventEdges) SessionsOrErr() ([]*Session, error) {
 	return nil, &NotLoadedError{edge: "sessions"}
 }
 
+// CompetitionEntriesOrErr returns the CompetitionEntries value or an error if the edge
+// was not loaded in eager-loading.
+func (e EventEdges) CompetitionEntriesOrErr() ([]*CompetitionEntry, error) {
+	if e.loadedTypes[6] {
+		return e.CompetitionEntries, nil
+	}
+	return nil, &NotLoadedError{edge: "competition_entries"}
+}
+
 // DraftEditsOrErr returns the DraftEdits value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) DraftEditsOrErr() ([]*DraftEdit, error) {
-	if e.loadedTypes[6] {
+	if e.loadedTypes[7] {
 		return e.DraftEdits, nil
 	}
 	return nil, &NotLoadedError{edge: "draft_edits"}
@@ -141,7 +154,7 @@ func (e EventEdges) DraftEditsOrErr() ([]*DraftEdit, error) {
 // DraftChangesOrErr returns the DraftChanges value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) DraftChangesOrErr() ([]*DraftChange, error) {
-	if e.loadedTypes[7] {
+	if e.loadedTypes[8] {
 		return e.DraftChanges, nil
 	}
 	return nil, &NotLoadedError{edge: "draft_changes"}
@@ -150,7 +163,7 @@ func (e EventEdges) DraftChangesOrErr() ([]*DraftChange, error) {
 // ImportReferencesOrErr returns the ImportReferences value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) ImportReferencesOrErr() ([]*ImportReference, error) {
-	if e.loadedTypes[8] {
+	if e.loadedTypes[9] {
 		return e.ImportReferences, nil
 	}
 	return nil, &NotLoadedError{edge: "import_references"}
@@ -159,7 +172,7 @@ func (e EventEdges) ImportReferencesOrErr() ([]*ImportReference, error) {
 // DisplayAssignmentsOrErr returns the DisplayAssignments value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) DisplayAssignmentsOrErr() ([]*DisplayAssignment, error) {
-	if e.loadedTypes[9] {
+	if e.loadedTypes[10] {
 		return e.DisplayAssignments, nil
 	}
 	return nil, &NotLoadedError{edge: "display_assignments"}
@@ -172,7 +185,7 @@ func (*Event) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case event.FieldID, event.FieldRevision:
 			values[i] = new(sql.NullInt64)
-		case event.FieldName, event.FieldPlannedStartDate, event.FieldPlannedEndDate, event.FieldTimezone, event.FieldEventLocale, event.FieldContentLanguage, event.FieldEventDayBoundary, event.FieldTargetAdjustmentPresets, event.FieldDisplayConfiguration:
+		case event.FieldName, event.FieldPlannedStartDate, event.FieldPlannedEndDate, event.FieldTimezone, event.FieldEventLocale, event.FieldContentLanguage, event.FieldEventDayBoundary, event.FieldEntryDefaultDisposition, event.FieldTargetAdjustmentPresets, event.FieldDisplayConfiguration:
 			values[i] = new(sql.NullString)
 		case event.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -238,6 +251,12 @@ func (_m *Event) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field event_day_boundary", values[i])
 			} else if value.Valid {
 				_m.EventDayBoundary = value.String
+			}
+		case event.FieldEntryDefaultDisposition:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field entry_default_disposition", values[i])
+			} else if value.Valid {
+				_m.EntryDefaultDisposition = event.EntryDefaultDisposition(value.String)
 			}
 		case event.FieldTargetAdjustmentPresets:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -306,6 +325,11 @@ func (_m *Event) QuerySessions() *SessionQuery {
 	return NewEventClient(_m.config).QuerySessions(_m)
 }
 
+// QueryCompetitionEntries queries the "competition_entries" edge of the Event entity.
+func (_m *Event) QueryCompetitionEntries() *CompetitionEntryQuery {
+	return NewEventClient(_m.config).QueryCompetitionEntries(_m)
+}
+
 // QueryDraftEdits queries the "draft_edits" edge of the Event entity.
 func (_m *Event) QueryDraftEdits() *DraftEditQuery {
 	return NewEventClient(_m.config).QueryDraftEdits(_m)
@@ -369,6 +393,9 @@ func (_m *Event) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("event_day_boundary=")
 	builder.WriteString(_m.EventDayBoundary)
+	builder.WriteString(", ")
+	builder.WriteString("entry_default_disposition=")
+	builder.WriteString(fmt.Sprintf("%v", _m.EntryDefaultDisposition))
 	builder.WriteString(", ")
 	builder.WriteString("target_adjustment_presets=")
 	builder.WriteString(_m.TargetAdjustmentPresets)

@@ -3,6 +3,7 @@
 package event
 
 import (
+	"fmt"
 	"time"
 
 	"entgo.io/ent"
@@ -29,6 +30,8 @@ const (
 	FieldContentLanguage = "content_language"
 	// FieldEventDayBoundary holds the string denoting the event_day_boundary field in the database.
 	FieldEventDayBoundary = "event_day_boundary"
+	// FieldEntryDefaultDisposition holds the string denoting the entry_default_disposition field in the database.
+	FieldEntryDefaultDisposition = "entry_default_disposition"
 	// FieldTargetAdjustmentPresets holds the string denoting the target_adjustment_presets field in the database.
 	FieldTargetAdjustmentPresets = "target_adjustment_presets"
 	// FieldDisplayConfiguration holds the string denoting the display_configuration field in the database.
@@ -49,6 +52,8 @@ const (
 	EdgeTracks = "tracks"
 	// EdgeSessions holds the string denoting the sessions edge name in mutations.
 	EdgeSessions = "sessions"
+	// EdgeCompetitionEntries holds the string denoting the competition_entries edge name in mutations.
+	EdgeCompetitionEntries = "competition_entries"
 	// EdgeDraftEdits holds the string denoting the draft_edits edge name in mutations.
 	EdgeDraftEdits = "draft_edits"
 	// EdgeDraftChanges holds the string denoting the draft_changes edge name in mutations.
@@ -101,6 +106,13 @@ const (
 	SessionsInverseTable = "sessions"
 	// SessionsColumn is the table column denoting the sessions relation/edge.
 	SessionsColumn = "event_id"
+	// CompetitionEntriesTable is the table that holds the competition_entries relation/edge.
+	CompetitionEntriesTable = "competition_entries"
+	// CompetitionEntriesInverseTable is the table name for the CompetitionEntry entity.
+	// It exists in this package in order to avoid circular dependency with the "competitionentry" package.
+	CompetitionEntriesInverseTable = "competition_entries"
+	// CompetitionEntriesColumn is the table column denoting the competition_entries relation/edge.
+	CompetitionEntriesColumn = "event_id"
 	// DraftEditsTable is the table that holds the draft_edits relation/edge.
 	DraftEditsTable = "draft_edits"
 	// DraftEditsInverseTable is the table name for the DraftEdit entity.
@@ -141,6 +153,7 @@ var Columns = []string{
 	FieldEventLocale,
 	FieldContentLanguage,
 	FieldEventDayBoundary,
+	FieldEntryDefaultDisposition,
 	FieldTargetAdjustmentPresets,
 	FieldDisplayConfiguration,
 	FieldRevision,
@@ -193,6 +206,32 @@ var (
 	DefaultCreatedAt func() time.Time
 )
 
+// EntryDefaultDisposition defines the type for the "entry_default_disposition" enum field.
+type EntryDefaultDisposition string
+
+// EntryDefaultDispositionPending is the default value of the EntryDefaultDisposition enum.
+const DefaultEntryDefaultDisposition = EntryDefaultDispositionPending
+
+// EntryDefaultDisposition values.
+const (
+	EntryDefaultDispositionPending  EntryDefaultDisposition = "Pending"
+	EntryDefaultDispositionIncluded EntryDefaultDisposition = "Included"
+)
+
+func (edd EntryDefaultDisposition) String() string {
+	return string(edd)
+}
+
+// EntryDefaultDispositionValidator is a validator for the "entry_default_disposition" field enum values. It is called by the builders before save.
+func EntryDefaultDispositionValidator(edd EntryDefaultDisposition) error {
+	switch edd {
+	case EntryDefaultDispositionPending, EntryDefaultDispositionIncluded:
+		return nil
+	default:
+		return fmt.Errorf("event: invalid enum value for entry_default_disposition field: %q", edd)
+	}
+}
+
 // OrderOption defines the ordering options for the Event queries.
 type OrderOption func(*sql.Selector)
 
@@ -234,6 +273,11 @@ func ByContentLanguage(opts ...sql.OrderTermOption) OrderOption {
 // ByEventDayBoundary orders the results by the event_day_boundary field.
 func ByEventDayBoundary(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEventDayBoundary, opts...).ToFunc()
+}
+
+// ByEntryDefaultDisposition orders the results by the entry_default_disposition field.
+func ByEntryDefaultDisposition(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEntryDefaultDisposition, opts...).ToFunc()
 }
 
 // ByTargetAdjustmentPresets orders the results by the target_adjustment_presets field.
@@ -333,6 +377,20 @@ func BySessions(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByCompetitionEntriesCount orders the results by competition_entries count.
+func ByCompetitionEntriesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCompetitionEntriesStep(), opts...)
+	}
+}
+
+// ByCompetitionEntries orders the results by competition_entries terms.
+func ByCompetitionEntries(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCompetitionEntriesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByDraftEditsCount orders the results by draft_edits count.
 func ByDraftEditsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -428,6 +486,13 @@ func newSessionsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(SessionsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, SessionsTable, SessionsColumn),
+	)
+}
+func newCompetitionEntriesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CompetitionEntriesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CompetitionEntriesTable, CompetitionEntriesColumn),
 	)
 }
 func newDraftEditsStep() *sqlgraph.Step {

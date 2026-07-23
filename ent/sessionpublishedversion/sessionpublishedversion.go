@@ -44,6 +44,10 @@ const (
 	FieldStartBoundary = "start_boundary"
 	// FieldEndBoundary holds the string denoting the end_boundary field in the database.
 	FieldEndBoundary = "end_boundary"
+	// FieldSubmissionDeadline holds the string denoting the submission_deadline field in the database.
+	FieldSubmissionDeadline = "submission_deadline"
+	// FieldEntryDefaultDisposition holds the string denoting the entry_default_disposition field in the database.
+	FieldEntryDefaultDisposition = "entry_default_disposition"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeSession holds the string denoting the session edge name in mutations.
@@ -97,6 +101,8 @@ var Columns = []string{
 	FieldMinimumDurationSeconds,
 	FieldStartBoundary,
 	FieldEndBoundary,
+	FieldSubmissionDeadline,
+	FieldEntryDefaultDisposition,
 	FieldCreatedAt,
 }
 
@@ -267,6 +273,29 @@ func EndBoundaryValidator(eb EndBoundary) error {
 	}
 }
 
+// EntryDefaultDisposition defines the type for the "entry_default_disposition" enum field.
+type EntryDefaultDisposition string
+
+// EntryDefaultDisposition values.
+const (
+	EntryDefaultDispositionPending  EntryDefaultDisposition = "Pending"
+	EntryDefaultDispositionIncluded EntryDefaultDisposition = "Included"
+)
+
+func (edd EntryDefaultDisposition) String() string {
+	return string(edd)
+}
+
+// EntryDefaultDispositionValidator is a validator for the "entry_default_disposition" field enum values. It is called by the builders before save.
+func EntryDefaultDispositionValidator(edd EntryDefaultDisposition) error {
+	switch edd {
+	case EntryDefaultDispositionPending, EntryDefaultDispositionIncluded:
+		return nil
+	default:
+		return fmt.Errorf("sessionpublishedversion: invalid enum value for entry_default_disposition field: %q", edd)
+	}
+}
+
 // OrderOption defines the ordering options for the SessionPublishedVersion queries.
 type OrderOption func(*sql.Selector)
 
@@ -343,6 +372,16 @@ func ByStartBoundary(opts ...sql.OrderTermOption) OrderOption {
 // ByEndBoundary orders the results by the end_boundary field.
 func ByEndBoundary(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEndBoundary, opts...).ToFunc()
+}
+
+// BySubmissionDeadline orders the results by the submission_deadline field.
+func BySubmissionDeadline(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSubmissionDeadline, opts...).ToFunc()
+}
+
+// ByEntryDefaultDisposition orders the results by the entry_default_disposition field.
+func ByEntryDefaultDisposition(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEntryDefaultDisposition, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

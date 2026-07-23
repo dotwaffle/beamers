@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftedit"
@@ -40,6 +41,7 @@ type EventQuery struct {
 	withLanes              *LaneQuery
 	withTracks             *TrackQuery
 	withSessions           *SessionQuery
+	withCompetitionEntries *CompetitionEntryQuery
 	withDraftEdits         *DraftEditQuery
 	withDraftChanges       *DraftChangeQuery
 	withImportReferences   *ImportReferenceQuery
@@ -205,6 +207,28 @@ func (_q *EventQuery) QuerySessions() *SessionQuery {
 			sqlgraph.From(event.Table, event.FieldID, selector),
 			sqlgraph.To(session.Table, session.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, event.SessionsTable, event.SessionsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryCompetitionEntries chains the current query on the "competition_entries" edge.
+func (_q *EventQuery) QueryCompetitionEntries() *CompetitionEntryQuery {
+	query := (&CompetitionEntryClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, selector),
+			sqlgraph.To(competitionentry.Table, competitionentry.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.CompetitionEntriesTable, event.CompetitionEntriesColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -498,6 +522,7 @@ func (_q *EventQuery) Clone() *EventQuery {
 		withLanes:              _q.withLanes.Clone(),
 		withTracks:             _q.withTracks.Clone(),
 		withSessions:           _q.withSessions.Clone(),
+		withCompetitionEntries: _q.withCompetitionEntries.Clone(),
 		withDraftEdits:         _q.withDraftEdits.Clone(),
 		withDraftChanges:       _q.withDraftChanges.Clone(),
 		withImportReferences:   _q.withImportReferences.Clone(),
@@ -571,6 +596,17 @@ func (_q *EventQuery) WithSessions(opts ...func(*SessionQuery)) *EventQuery {
 		opt(query)
 	}
 	_q.withSessions = query
+	return _q
+}
+
+// WithCompetitionEntries tells the query-builder to eager-load the nodes that are connected to
+// the "competition_entries" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *EventQuery) WithCompetitionEntries(opts ...func(*CompetitionEntryQuery)) *EventQuery {
+	query := (&CompetitionEntryClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withCompetitionEntries = query
 	return _q
 }
 
@@ -702,13 +738,14 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 	var (
 		nodes       = []*Event{}
 		_spec       = _q.querySpec()
-		loadedTypes = [10]bool{
+		loadedTypes = [11]bool{
 			_q.withGrants != nil,
 			_q.withRundown != nil,
 			_q.withLocations != nil,
 			_q.withLanes != nil,
 			_q.withTracks != nil,
 			_q.withSessions != nil,
+			_q.withCompetitionEntries != nil,
 			_q.withDraftEdits != nil,
 			_q.withDraftChanges != nil,
 			_q.withImportReferences != nil,
@@ -771,6 +808,15 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 		if err := _q.loadSessions(ctx, query, nodes,
 			func(n *Event) { n.Edges.Sessions = []*Session{} },
 			func(n *Event, e *Session) { n.Edges.Sessions = append(n.Edges.Sessions, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withCompetitionEntries; query != nil {
+		if err := _q.loadCompetitionEntries(ctx, query, nodes,
+			func(n *Event) { n.Edges.CompetitionEntries = []*CompetitionEntry{} },
+			func(n *Event, e *CompetitionEntry) {
+				n.Edges.CompetitionEntries = append(n.Edges.CompetitionEntries, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -969,6 +1015,36 @@ func (_q *EventQuery) loadSessions(ctx context.Context, query *SessionQuery, nod
 	}
 	query.Where(predicate.Session(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(event.SessionsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.EventID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "event_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *EventQuery) loadCompetitionEntries(ctx context.Context, query *CompetitionEntryQuery, nodes []*Event, init func(*Event), assign func(*Event, *CompetitionEntry)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Event)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(competitionentry.FieldEventID)
+	}
+	query.Where(predicate.CompetitionEntry(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(event.CompetitionEntriesColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

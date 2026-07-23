@@ -11,6 +11,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/display"
 	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/displaycredential"
@@ -353,6 +354,53 @@ func init() {
 	commandreceiptDescCreatedAt := commandreceiptFields[7].Descriptor()
 	// commandreceipt.DefaultCreatedAt holds the default value on creation for the created_at field.
 	commandreceipt.DefaultCreatedAt = commandreceiptDescCreatedAt.Default.(func() time.Time)
+	competitionentry.Policy = privacy.NewPolicies(schema.CompetitionEntry{})
+	competitionentry.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := competitionentry.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	competitionentryFields := schema.CompetitionEntry{}.Fields()
+	_ = competitionentryFields
+	// competitionentryDescName is the schema descriptor for name field.
+	competitionentryDescName := competitionentryFields[2].Descriptor()
+	// competitionentry.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	competitionentry.NameValidator = func() func(string) error {
+		validators := competitionentryDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// competitionentryDescPublicDetails is the schema descriptor for public_details field.
+	competitionentryDescPublicDetails := competitionentryFields[3].Descriptor()
+	// competitionentry.PublicDetailsValidator is a validator for the "public_details" field. It is called by the builders before save.
+	competitionentry.PublicDetailsValidator = competitionentryDescPublicDetails.Validators[0].(func(string) error)
+	// competitionentryDescCrewNotes is the schema descriptor for crew_notes field.
+	competitionentryDescCrewNotes := competitionentryFields[4].Descriptor()
+	// competitionentry.CrewNotesValidator is a validator for the "crew_notes" field. It is called by the builders before save.
+	competitionentry.CrewNotesValidator = competitionentryDescCrewNotes.Validators[0].(func(string) error)
+	// competitionentryDescRevision is the schema descriptor for revision field.
+	competitionentryDescRevision := competitionentryFields[6].Descriptor()
+	// competitionentry.DefaultRevision holds the default value on creation for the revision field.
+	competitionentry.DefaultRevision = competitionentryDescRevision.Default.(int)
+	// competitionentry.RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
+	competitionentry.RevisionValidator = competitionentryDescRevision.Validators[0].(func(int) error)
+	// competitionentryDescCreatedAt is the schema descriptor for created_at field.
+	competitionentryDescCreatedAt := competitionentryFields[7].Descriptor()
+	// competitionentry.DefaultCreatedAt holds the default value on creation for the created_at field.
+	competitionentry.DefaultCreatedAt = competitionentryDescCreatedAt.Default.(func() time.Time)
 	display.Policy = privacy.NewPolicies(schema.Display{})
 	display.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
@@ -784,7 +832,7 @@ func init() {
 		}
 	}()
 	// eventDescTargetAdjustmentPresets is the schema descriptor for target_adjustment_presets field.
-	eventDescTargetAdjustmentPresets := eventFields[7].Descriptor()
+	eventDescTargetAdjustmentPresets := eventFields[8].Descriptor()
 	// event.DefaultTargetAdjustmentPresets holds the default value on creation for the target_adjustment_presets field.
 	event.DefaultTargetAdjustmentPresets = eventDescTargetAdjustmentPresets.Default.(string)
 	// event.TargetAdjustmentPresetsValidator is a validator for the "target_adjustment_presets" field. It is called by the builders before save.
@@ -804,7 +852,7 @@ func init() {
 		}
 	}()
 	// eventDescDisplayConfiguration is the schema descriptor for display_configuration field.
-	eventDescDisplayConfiguration := eventFields[8].Descriptor()
+	eventDescDisplayConfiguration := eventFields[9].Descriptor()
 	// event.DefaultDisplayConfiguration holds the default value on creation for the display_configuration field.
 	event.DefaultDisplayConfiguration = eventDescDisplayConfiguration.Default.(string)
 	// event.DisplayConfigurationValidator is a validator for the "display_configuration" field. It is called by the builders before save.
@@ -824,11 +872,11 @@ func init() {
 		}
 	}()
 	// eventDescRevision is the schema descriptor for revision field.
-	eventDescRevision := eventFields[9].Descriptor()
+	eventDescRevision := eventFields[10].Descriptor()
 	// event.DefaultRevision holds the default value on creation for the revision field.
 	event.DefaultRevision = eventDescRevision.Default.(int)
 	// eventDescCreatedAt is the schema descriptor for created_at field.
-	eventDescCreatedAt := eventFields[10].Descriptor()
+	eventDescCreatedAt := eventFields[11].Descriptor()
 	// event.DefaultCreatedAt holds the default value on creation for the created_at field.
 	event.DefaultCreatedAt = eventDescCreatedAt.Default.(func() time.Time)
 	eventgrant.Policy = privacy.NewPolicies(schema.EventGrant{})
@@ -1345,7 +1393,7 @@ func init() {
 	// sessionpublishedversion.MinimumDurationSecondsValidator is a validator for the "minimum_duration_seconds" field. It is called by the builders before save.
 	sessionpublishedversion.MinimumDurationSecondsValidator = sessionpublishedversionDescMinimumDurationSeconds.Validators[0].(func(int) error)
 	// sessionpublishedversionDescCreatedAt is the schema descriptor for created_at field.
-	sessionpublishedversionDescCreatedAt := sessionpublishedversionFields[14].Descriptor()
+	sessionpublishedversionDescCreatedAt := sessionpublishedversionFields[16].Descriptor()
 	// sessionpublishedversion.DefaultCreatedAt holds the default value on creation for the created_at field.
 	sessionpublishedversion.DefaultCreatedAt = sessionpublishedversionDescCreatedAt.Default.(func() time.Time)
 	sessionrun.Policy = privacy.NewPolicies(schema.SessionRun{})

@@ -1000,6 +1000,29 @@ func HasCancellationsWith(preds ...predicate.SessionCancellation) predicate.Sess
 	})
 }
 
+// HasCompetitionEntries applies the HasEdge predicate on the "competition_entries" edge.
+func HasCompetitionEntries() predicate.Session {
+	return predicate.Session(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CompetitionEntriesTable, CompetitionEntriesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCompetitionEntriesWith applies the HasEdge predicate on the "competition_entries" edge with a given conditions (other predicates).
+func HasCompetitionEntriesWith(preds ...predicate.CompetitionEntry) predicate.Session {
+	return predicate.Session(func(s *sql.Selector) {
+		step := newCompetitionEntriesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Session) predicate.Session {
 	return predicate.Session(sql.AndPredicates(predicates...))

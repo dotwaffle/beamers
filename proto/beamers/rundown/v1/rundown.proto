@@ -177,6 +177,13 @@ enum Boundary {
   BOUNDARY_SOFT = 2;
 }
 
+enum EntryDisposition {
+  ENTRY_DISPOSITION_UNSPECIFIED = 0;
+  ENTRY_DISPOSITION_PENDING = 1;
+  ENTRY_DISPOSITION_INCLUDED = 2;
+  ENTRY_DISPOSITION_REJECTED = 3;
+}
+
 message SessionDraft {
   string ref = 1;
   string title = 2;
@@ -202,6 +209,8 @@ message SessionDraft {
   repeated TargetRef add_tracks = 22;
   repeated TargetRef remove_tracks = 23;
   string speaker = 24;
+  google.protobuf.Timestamp submission_deadline = 25;
+  EntryDisposition entry_default_disposition = 26;
 }
 
 message EditDraftRequest {

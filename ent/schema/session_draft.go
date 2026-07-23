@@ -47,6 +47,8 @@ func (SessionDraft) Fields() []ent.Field {
 		field.Int("minimum_duration_seconds").NonNegative(),
 		field.Enum("start_boundary").Values("Hard", "Soft"),
 		field.Enum("end_boundary").Values("Hard", "Soft"),
+		field.Time("submission_deadline").Optional(),
+		field.Enum("entry_default_disposition").Values("Pending", "Included").Optional(),
 	}
 }
 

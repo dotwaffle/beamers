@@ -3,6 +3,7 @@ package rundownconnect
 import (
 	"errors"
 	"slices"
+	"time"
 
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -93,6 +94,13 @@ func sessionDraft(message *rundownv1.SessionDraft) (rundown.SessionDraftInput, e
 	if err != nil {
 		return rundown.SessionDraftInput{}, err
 	}
+	var submissionDeadline time.Time
+	if message.GetSubmissionDeadline() != nil {
+		submissionDeadline, err = timestamp("sessions.submission_deadline", message.GetSubmissionDeadline())
+		if err != nil {
+			return rundown.SessionDraftInput{}, err
+		}
+	}
 	return rundown.SessionDraftInput{
 		ID: int(message.GetId()), Ref: message.GetRef(), Title: message.GetTitle(), Speaker: message.GetSpeaker(), Type: sessionType(message.GetType()),
 		AudienceVisibility: audienceVisibility(message.GetAudienceVisibility()),
@@ -100,6 +108,7 @@ func sessionDraft(message *rundownv1.SessionDraft) (rundown.SessionDraftInput, e
 		PlannedStart: plannedStart, PlannedEnd: plannedEnd,
 		TimingPolicy: timingPolicy(message.GetTimingPolicy()), MinimumDuration: minimumDuration,
 		StartBoundary: boundary(message.GetStartBoundary()), EndBoundary: boundary(message.GetEndBoundary()),
+		SubmissionDeadline: submissionDeadline, EntryDefault: entryDisposition(message.GetEntryDefaultDisposition()),
 		Lanes: lanes, Locations: locations, Tracks: tracks,
 	}, nil
 }
@@ -135,6 +144,17 @@ func sessionDraftUpdate(message *rundownv1.SessionDraft, fields []string) (rundo
 		if err != nil {
 			return rundown.SessionDraftInput{}, err
 		}
+	}
+	if selected["submission_deadline"] {
+		if message.GetSubmissionDeadline() != nil {
+			input.SubmissionDeadline, err = timestamp("sessions.submission_deadline", message.GetSubmissionDeadline())
+			if err != nil {
+				return rundown.SessionDraftInput{}, err
+			}
+		}
+	}
+	if selected["entry_default_disposition"] {
+		input.EntryDefault = entryDisposition(message.GetEntryDefaultDisposition())
 	}
 	if selected["lanes"] {
 		input.Lanes, err = targetRefs("sessions.lanes", message.GetLanes())
@@ -242,6 +262,14 @@ func boundary(value rundownv1.Boundary) rundown.Boundary {
 	return map[rundownv1.Boundary]rundown.Boundary{
 		rundownv1.Boundary_BOUNDARY_HARD: rundown.BoundaryHard,
 		rundownv1.Boundary_BOUNDARY_SOFT: rundown.BoundarySoft,
+	}[value]
+}
+
+func entryDisposition(value rundownv1.EntryDisposition) rundown.EntryDisposition {
+	return map[rundownv1.EntryDisposition]rundown.EntryDisposition{
+		rundownv1.EntryDisposition_ENTRY_DISPOSITION_PENDING:  rundown.EntryPending,
+		rundownv1.EntryDisposition_ENTRY_DISPOSITION_INCLUDED: rundown.EntryIncluded,
+		rundownv1.EntryDisposition_ENTRY_DISPOSITION_REJECTED: rundown.EntryRejected,
 	}[value]
 }
 
