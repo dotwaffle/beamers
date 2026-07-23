@@ -1585,6 +1585,302 @@ func enrollAndAssignDisplay(
 	return displayClient
 }
 
+func TestStageMessagesAndTechnicalDifficultiesOverrideCurrentDisplayView(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	sessionID := prepareActiveSchedule(t, administrator, server)
+	displayClient := enrollAndAssignDisplay(
+		t, administrator, server, "Stage Display", "stage-timer",
+	)
+	sessionClient := sessionv1connect.NewSessionControlServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	started, err := sessionClient.StartSession(t.Context(), connect.NewRequest(
+		&sessionv1.StartSessionRequest{
+			EventId: 1, SessionId: sessionID, CommandId: "start-override-session",
+			ExpectedLiveStateRevision: proto.Int64(0),
+		},
+	))
+	if err != nil {
+		t.Fatalf("start Session beneath Overrides: %v", err)
+	}
+	configured := requestJSONMethod(
+		t.Context(), http.MethodPatch, administrator, server.address,
+		"/crew/events/1/stage-message-configuration",
+		map[string]any{
+			"default_duration_seconds": 10, "expected_revision": 0,
+			"command_id": "configure-stage-message-presets",
+			"presets": []map[string]any{{
+				"key": "wrap", "text": "Please wrap up",
+				"target_group_key": "crew", "duration_seconds": 15,
+				"emphasis": "Attention",
+			}},
+		},
+	)
+	if configured.status != http.StatusOK {
+		t.Fatalf("configure Stage Message preset = %d: %s", configured.status, configured.body)
+	}
+	preview := requestJSON(
+		t.Context(), administrator, server.address,
+		"/crew/events/1/stage-messages/preview",
+		map[string]any{"preset_key": "wrap", "until_cleared": true},
+	)
+	if preview.status != http.StatusOK ||
+		!strings.Contains(preview.body, `"text":"Please wrap up"`) ||
+		!strings.Contains(preview.body, `"displays":[{"id":1,"name":"Stage Display","view_key":"stage-timer"}]`) {
+		t.Fatalf("preview Stage Message targets = %d: %s", preview.status, preview.body)
+	}
+	operator := provisionOperator(t, administrator, server)
+	denied := requestJSON(
+		t.Context(), operator, server.address, "/crew/events/1/stage-messages",
+		map[string]any{
+			"text": "unauthorized", "target_group_key": "crew",
+			"until_cleared": true, "command_id": "deny-unscoped-stage-message",
+		},
+	)
+	if denied.status != http.StatusForbidden {
+		t.Fatalf("unscoped Operator Stage Message = %d: %s", denied.status, denied.body)
+	}
+	preset := requestJSON(
+		t.Context(), administrator, server.address, "/crew/events/1/stage-messages",
+		map[string]any{
+			"preset_key": "wrap", "until_cleared": true,
+			"command_id": "send-preset-stage-message",
+		},
+	)
+	var presetOverride struct {
+		ID       int `json:"id"`
+		Revision int `json:"revision"`
+	}
+	if err = json.Unmarshal([]byte(preset.body), &presetOverride); err != nil ||
+		preset.status != http.StatusOK || presetOverride.ID <= 0 {
+		t.Fatalf("send preset Stage Message = %d: %s (%v)", preset.status, preset.body, err)
+	}
+	page := readDisplayHTML(t, displayClient, server.address)
+	if !strings.Contains(page, `data-stage-message`) ||
+		!strings.Contains(page, `data-emphasis="Attention"`) ||
+		!strings.Contains(page, "Attention:") ||
+		!strings.Contains(page, "Please wrap up") {
+		t.Fatalf("preset Stage Message missing accessible emphasis: %s", page)
+	}
+	replacement := requestJSON(
+		t.Context(), administrator, server.address, "/crew/events/1/stage-messages",
+		map[string]any{
+			"text": "Stop now", "target_group_key": "crew",
+			"emphasis": "Urgent", "until_cleared": true,
+			"command_id": "replace-stage-message",
+		},
+	)
+	var replacementOverride struct {
+		ID       int `json:"id"`
+		Revision int `json:"revision"`
+	}
+	if err = json.Unmarshal([]byte(replacement.body), &replacementOverride); err != nil ||
+		replacement.status != http.StatusOK || replacementOverride.ID <= presetOverride.ID {
+		t.Fatalf("replace Stage Message = %d: %s (%v)", replacement.status, replacement.body, err)
+	}
+	page = readDisplayHTML(t, displayClient, server.address)
+	if !strings.Contains(page, "Urgent:") || !strings.Contains(page, "Stop now") ||
+		strings.Contains(page, "Please wrap up") {
+		t.Fatalf("replacement Stage Message queued old content: %s", page)
+	}
+
+	reassignedPublic := requestJSON(
+		t.Context(), administrator, server.address, "/admin/displays/1/assign",
+		map[string]any{
+			"event_id": 1, "location_id": 1, "view_key": "event-overview",
+			"display_group_keys": []string{"crew"},
+			"command_id":         "assign-override-display-public",
+		},
+	)
+	if reassignedPublic.status != http.StatusOK {
+		t.Fatalf("assign public Display to crew group = %d: %s", reassignedPublic.status, reassignedPublic.body)
+	}
+	page = readDisplayHTML(t, displayClient, server.address)
+	if strings.Contains(page, "Stop now") || strings.Contains(page, `data-stage-message`) {
+		t.Fatalf("Stage Message leaked to public Display: %s", page)
+	}
+	activeOverrides := requestJSONMethod(
+		t.Context(), http.MethodGet, administrator, server.address,
+		"/crew/events/1/overrides", nil,
+	)
+	if activeOverrides.status != http.StatusOK ||
+		!strings.Contains(activeOverrides.body, fmt.Sprintf(`"id":%d`, replacementOverride.ID)) ||
+		!strings.Contains(activeOverrides.body, `"displays":[]`) {
+		t.Fatalf("active Override targets after membership change = %d: %s", activeOverrides.status, activeOverrides.body)
+	}
+	reassignedCrew := requestJSON(
+		t.Context(), administrator, server.address, "/admin/displays/1/assign",
+		map[string]any{
+			"event_id": 1, "location_id": 1, "view_key": "stage-timer",
+			"display_group_keys": []string{"crew"},
+			"command_id":         "restore-override-display-crew",
+		},
+	)
+	if reassignedCrew.status != http.StatusOK {
+		t.Fatalf("restore crew Display Assignment = %d: %s", reassignedCrew.status, reassignedCrew.body)
+	}
+	if page = readDisplayHTML(t, displayClient, server.address); !strings.Contains(page, "Stop now") {
+		t.Fatalf("live Display Group membership did not restore current Stage Message: %s", page)
+	}
+	activeOverrides = requestJSONMethod(
+		t.Context(), http.MethodGet, administrator, server.address,
+		"/crew/events/1/overrides", nil,
+	)
+	if activeOverrides.status != http.StatusOK ||
+		!strings.Contains(activeOverrides.body, `"displays":[{"id":1,"name":"Stage Display","view_key":"stage-timer"}]`) {
+		t.Fatalf("active Override targets after membership restore = %d: %s", activeOverrides.status, activeOverrides.body)
+	}
+
+	technical := requestJSON(
+		t.Context(), administrator, server.address,
+		"/crew/events/1/technical-difficulties",
+		map[string]any{
+			"target_group_key": "crew", "until_cleared": true,
+			"command_id": "activate-technical-difficulties",
+		},
+	)
+	var technicalOverride struct {
+		ID       int `json:"id"`
+		Revision int `json:"revision"`
+	}
+	if err = json.Unmarshal([]byte(technical.body), &technicalOverride); err != nil ||
+		technical.status != http.StatusOK || technicalOverride.ID <= 0 {
+		t.Fatalf("activate Technical Difficulties = %d: %s (%v)", technical.status, technical.body, err)
+	}
+	page = readDisplayHTML(t, displayClient, server.address)
+	if !strings.Contains(page, `data-override-kind="TechnicalDifficulties"`) ||
+		!strings.Contains(page, "Technical Difficulties") ||
+		!strings.Contains(page, "Stop now") ||
+		strings.Contains(page, `<time data-stage-timer-clock`) {
+		t.Fatalf("Technical Difficulties Replace with Stage Message Overlay = %s", page)
+	}
+	appliedOverrides := readDisplaySnapshot(t, displayClient, server.address)
+	if appliedOverrides.StageMessage.ID != strconv.Itoa(replacementOverride.ID) ||
+		appliedOverrides.TechnicalDifficulties.ID != strconv.Itoa(technicalOverride.ID) {
+		t.Fatalf("Display Override Snapshot = %+v", appliedOverrides)
+	}
+	acknowledgeDisplaySnapshot(t, displayClient, server.address, appliedOverrides)
+	assertDisplayListContains(
+		t, administrator, server.address,
+		fmt.Sprintf(`"applied_stage_message_id":%d`, replacementOverride.ID),
+	)
+	assertDisplayListContains(
+		t, administrator, server.address,
+		fmt.Sprintf(`"applied_technical_difficulties_id":%d`, technicalOverride.ID),
+	)
+
+	dataDir, bin := server.dataDir, server.bin
+	server.stop(t)
+	server = startBeamers(t, bin, dataDir)
+	sessionClient = sessionv1connect.NewSessionControlServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	page = readDisplayHTML(t, displayClient, server.address)
+	if !strings.Contains(page, "Technical Difficulties") || !strings.Contains(page, "Stop now") {
+		t.Fatalf("Overrides did not survive restart: %s", page)
+	}
+	clearedStage := requestJSON(
+		t.Context(), administrator, server.address,
+		fmt.Sprintf("/crew/events/1/overrides/%d/clear", replacementOverride.ID),
+		map[string]any{
+			"expected_revision": replacementOverride.Revision,
+			"command_id":        "clear-stage-message",
+		},
+	)
+	if clearedStage.status != http.StatusOK {
+		t.Fatalf("clear Stage Message = %d: %s", clearedStage.status, clearedStage.body)
+	}
+	page = readDisplayHTML(t, displayClient, server.address)
+	if strings.Contains(page, "Stop now") || strings.Contains(page, "Please wrap up") ||
+		!strings.Contains(page, "Technical Difficulties") {
+		t.Fatalf("clearing Stage Message revealed queued content or cleared Replace: %s", page)
+	}
+	clearedTechnical := requestJSON(
+		t.Context(), administrator, server.address,
+		fmt.Sprintf("/crew/events/1/overrides/%d/clear", technicalOverride.ID),
+		map[string]any{
+			"expected_revision": technicalOverride.Revision,
+			"command_id":        "clear-technical-difficulties",
+		},
+	)
+	if clearedTechnical.status != http.StatusOK {
+		t.Fatalf("clear Technical Difficulties = %d: %s", clearedTechnical.status, clearedTechnical.body)
+	}
+	page = readDisplayHTML(t, displayClient, server.address)
+	if strings.Contains(page, "Technical Difficulties") ||
+		!strings.Contains(page, `<time data-stage-timer-clock`) {
+		t.Fatalf("clearing Replace did not restore current Stage Timer: %s", page)
+	}
+	expiring := requestJSON(
+		t.Context(), administrator, server.address, "/crew/events/1/stage-messages",
+		map[string]any{
+			"text": "One second", "target_group_key": "crew",
+			"duration_seconds": 1, "emphasis": "Normal",
+			"command_id": "send-expiring-stage-message",
+		},
+	)
+	if expiring.status != http.StatusOK {
+		t.Fatalf("send expiring Stage Message = %d: %s", expiring.status, expiring.body)
+	}
+	var expiringOverride struct {
+		ID int `json:"id"`
+	}
+	if err = json.Unmarshal([]byte(expiring.body), &expiringOverride); err != nil ||
+		expiringOverride.ID <= 0 {
+		t.Fatalf("decode expiring Stage Message = %s: %v", expiring.body, err)
+	}
+	if page = readDisplayHTML(t, displayClient, server.address); !strings.Contains(page, "One second") {
+		t.Fatalf("expiring Stage Message not initially visible: %s", page)
+	}
+	appliedExpiring := readDisplaySnapshot(t, displayClient, server.address)
+	acknowledgeDisplaySnapshot(t, displayClient, server.address, appliedExpiring)
+	if fixtureErr := storetest.SetDisplayOverrideExpiry(
+		t.Context(), filepath.Join(server.dataDir, "beamers.db"), expiringOverride.ID, time.Unix(1, 0),
+	); fixtureErr != nil {
+		t.Fatalf("expire Stage Message fixture: %v", fixtureErr)
+	}
+	appliedExpired := readDisplaySnapshot(t, displayClient, server.address)
+	if appliedExpired.StreamPosition != appliedExpiring.StreamPosition ||
+		appliedExpired.StageMessage.ID != "" {
+		t.Fatalf("expired same-cursor Display Snapshot = %+v", appliedExpired)
+	}
+	acknowledgeDisplaySnapshot(t, displayClient, server.address, appliedExpired)
+	stale := requestDisplayAcknowledgment(
+		t, displayClient, server.address, appliedExpiring, displayHealth{},
+	)
+	if stale.status != http.StatusBadRequest ||
+		!strings.Contains(stale.body, `"code":"failed_precondition"`) {
+		t.Fatalf("stale same-cursor Override acknowledgment = %d: %s", stale.status, stale.body)
+	}
+	if page = readDisplayHTML(t, displayClient, server.address); strings.Contains(page, "One second") {
+		t.Fatalf("expired Stage Message remained visible: %s", page)
+	}
+	ended, err := sessionClient.EndSession(t.Context(), connect.NewRequest(
+		&sessionv1.EndSessionRequest{
+			EventId: 1, SessionId: sessionID, CommandId: "end-session-after-overrides",
+			ExpectedLiveStateRevision: new(started.Msg.GetState().GetLiveStateRevision()),
+		},
+	))
+	if err != nil || ended.Msg.GetState().GetLiveStateRevision() != 2 {
+		t.Fatalf("Overrides mutated Session live state = %+v, %v", ended, err)
+	}
+	server.stop(t)
+}
+
+func readDisplayHTML(t *testing.T, client *http.Client, address string) string {
+	t.Helper()
+	response := get(t, client, address, "/display")
+	body, readErr := io.ReadAll(response.Body)
+	closeErr := response.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Display page: %v", err)
+	}
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("Display page = %d: %s", response.StatusCode, body)
+	}
+	return string(body)
+}
+
 func TestAdministratorActivatesPublishedEventAcrossRestart(t *testing.T) {
 	client, server := startAuthenticatedAdministrator(t)
 	createdResult := requestJSON(
@@ -7375,13 +7671,21 @@ type jsonResponse struct {
 }
 
 type displaySnapshotState struct {
-	ProtocolVersion       string `json:"protocolVersion"`
-	AssetVersion          string `json:"assetVersion"`
-	StreamID              string `json:"streamId"`
-	StreamPosition        string `json:"streamPosition"`
-	ActiveEventID         string `json:"activeEventId"`
-	ActivationGeneration  string `json:"activationGeneration"`
-	PublishedRevision     string `json:"publishedRevision"`
+	ProtocolVersion      string `json:"protocolVersion"`
+	AssetVersion         string `json:"assetVersion"`
+	StreamID             string `json:"streamId"`
+	StreamPosition       string `json:"streamPosition"`
+	ActiveEventID        string `json:"activeEventId"`
+	ActivationGeneration string `json:"activationGeneration"`
+	PublishedRevision    string `json:"publishedRevision"`
+	StageMessage         struct {
+		ID       string `json:"id"`
+		Revision string `json:"revision"`
+	} `json:"stageMessage"`
+	TechnicalDifficulties struct {
+		ID       string `json:"id"`
+		Revision string `json:"revision"`
+	} `json:"technicalDifficulties"`
 	Standby               bool   `json:"standby"`
 	SnapshotToken         string `json:"snapshotToken"`
 	ProgramOutputRevision string `json:"programOutputRevision"`
@@ -7481,13 +7785,19 @@ func requestDisplayAcknowledgment(
 		address,
 		"/beamers.display.v1.DisplayService/Acknowledge",
 		map[string]any{
-			"protocol_version":               snapshot.ProtocolVersion,
-			"asset_version":                  snapshot.AssetVersion,
-			"stream_id":                      snapshot.StreamID,
-			"stream_position":                snapshot.StreamPosition,
-			"active_event_id":                snapshot.ActiveEventID,
-			"activation_generation":          snapshot.ActivationGeneration,
-			"published_revision":             snapshot.PublishedRevision,
+			"protocol_version":          snapshot.ProtocolVersion,
+			"asset_version":             snapshot.AssetVersion,
+			"stream_id":                 snapshot.StreamID,
+			"stream_position":           snapshot.StreamPosition,
+			"active_event_id":           snapshot.ActiveEventID,
+			"activation_generation":     snapshot.ActivationGeneration,
+			"published_revision":        snapshot.PublishedRevision,
+			"stage_message_id":          protoJSONInteger(snapshot.StageMessage.ID),
+			"stage_message_revision":    protoJSONInteger(snapshot.StageMessage.Revision),
+			"technical_difficulties_id": protoJSONInteger(snapshot.TechnicalDifficulties.ID),
+			"technical_difficulties_revision": protoJSONInteger(
+				snapshot.TechnicalDifficulties.Revision,
+			),
 			"standby":                        snapshot.Standby,
 			"clock_offset_milliseconds":      health.clockOffsetMilliseconds,
 			"clock_uncertainty_milliseconds": health.clockUncertaintyMilliseconds,
@@ -7496,6 +7806,13 @@ func requestDisplayAcknowledgment(
 		},
 	)
 	return result
+}
+
+func protoJSONInteger(value string) string {
+	if value == "" {
+		return "0"
+	}
+	return value
 }
 
 func requestJSON(

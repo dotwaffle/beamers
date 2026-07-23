@@ -97,6 +97,14 @@ func Run(ctx context.Context, config Config) error {
 			config.Logger,
 			listener.Addr(),
 		)
+		registerOverrideRoutes(
+			mux,
+			installation.Authentication(),
+			installation.Overrides(),
+			displayStream.Notify,
+			config.Logger,
+			listener.Addr(),
+		)
 		registerScheduleRoutes(mux, installation.Schedule(), config.Logger)
 		registerDisplayRoutes(
 			mux,

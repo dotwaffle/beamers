@@ -11,6 +11,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/competition"
 	"github.com/dotwaffle/beamers/internal/displays"
 	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/overrides"
 	"github.com/dotwaffle/beamers/internal/programcontrol"
 	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/schedule"
@@ -38,6 +39,7 @@ type Installation struct {
 	attachments     *attachments.Service
 	competition     *competition.Service
 	events          *events.Service
+	overrides       *overrides.Service
 	programControl  *programcontrol.Service
 	rundownCommands *rundown.Commands
 	rundownQueries  *rundown.Queries
@@ -87,6 +89,11 @@ func OpenInstallation(ctx context.Context, dataDir string) (*Installation, error
 		return nil, errors.Join(err, storage.Close())
 	}
 	installation.events = eventService
+	overrideService, err := overrides.New(storage, time.Now)
+	if err != nil {
+		return nil, errors.Join(err, storage.Close())
+	}
+	installation.overrides = overrideService
 	competitionService, err := competition.New(storage, time.Now)
 	if err != nil {
 		return nil, errors.Join(err, storage.Close())
@@ -176,6 +183,12 @@ func (installation *Installation) Authentication() *auth.Service {
 // It is nil only while the installation is restricted to recovery mode.
 func (installation *Installation) Events() *events.Service {
 	return installation.events
+}
+
+// Overrides returns temporary Display Override control.
+// It is nil only while the installation is restricted to recovery mode.
+func (installation *Installation) Overrides() *overrides.Service {
+	return installation.overrides
 }
 
 // Competition returns the Competition Entry application service.

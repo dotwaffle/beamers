@@ -46,6 +46,12 @@ type Event struct {
 	AttachmentReleaseCueAt time.Time `json:"attachment_release_cue_at,omitempty"`
 	// AttachmentReleaseRevision holds the value of the "attachment_release_revision" field.
 	AttachmentReleaseRevision int `json:"attachment_release_revision,omitempty"`
+	// StageMessagePresets holds the value of the "stage_message_presets" field.
+	StageMessagePresets string `json:"stage_message_presets,omitempty"`
+	// StageMessageDefaultDurationSeconds holds the value of the "stage_message_default_duration_seconds" field.
+	StageMessageDefaultDurationSeconds int `json:"stage_message_default_duration_seconds,omitempty"`
+	// StageMessageConfigurationRevision holds the value of the "stage_message_configuration_revision" field.
+	StageMessageConfigurationRevision int `json:"stage_message_configuration_revision,omitempty"`
 	// Revision holds the value of the "revision" field.
 	Revision int `json:"revision,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -82,9 +88,11 @@ type EventEdges struct {
 	ImportReferences []*ImportReference `json:"import_references,omitempty"`
 	// DisplayAssignments holds the value of the display_assignments edge.
 	DisplayAssignments []*DisplayAssignment `json:"display_assignments,omitempty"`
+	// DisplayOverrides holds the value of the display_overrides edge.
+	DisplayOverrides []*DisplayOverride `json:"display_overrides,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [12]bool
+	loadedTypes [13]bool
 }
 
 // GrantsOrErr returns the Grants value or an error if the edge
@@ -197,14 +205,23 @@ func (e EventEdges) DisplayAssignmentsOrErr() ([]*DisplayAssignment, error) {
 	return nil, &NotLoadedError{edge: "display_assignments"}
 }
 
+// DisplayOverridesOrErr returns the DisplayOverrides value or an error if the edge
+// was not loaded in eager-loading.
+func (e EventEdges) DisplayOverridesOrErr() ([]*DisplayOverride, error) {
+	if e.loadedTypes[12] {
+		return e.DisplayOverrides, nil
+	}
+	return nil, &NotLoadedError{edge: "display_overrides"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Event) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case event.FieldID, event.FieldAttachmentReleaseCueSessionID, event.FieldAttachmentReleaseRevision, event.FieldRevision:
+		case event.FieldID, event.FieldAttachmentReleaseCueSessionID, event.FieldAttachmentReleaseRevision, event.FieldStageMessageDefaultDurationSeconds, event.FieldStageMessageConfigurationRevision, event.FieldRevision:
 			values[i] = new(sql.NullInt64)
-		case event.FieldName, event.FieldPlannedStartDate, event.FieldPlannedEndDate, event.FieldTimezone, event.FieldEventLocale, event.FieldContentLanguage, event.FieldEventDayBoundary, event.FieldEntryDefaultDisposition, event.FieldTargetAdjustmentPresets, event.FieldDisplayConfiguration, event.FieldAttachmentReleasePolicy:
+		case event.FieldName, event.FieldPlannedStartDate, event.FieldPlannedEndDate, event.FieldTimezone, event.FieldEventLocale, event.FieldContentLanguage, event.FieldEventDayBoundary, event.FieldEntryDefaultDisposition, event.FieldTargetAdjustmentPresets, event.FieldDisplayConfiguration, event.FieldAttachmentReleasePolicy, event.FieldStageMessagePresets:
 			values[i] = new(sql.NullString)
 		case event.FieldAttachmentReleaseCueAt, event.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -314,6 +331,24 @@ func (_m *Event) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.AttachmentReleaseRevision = int(value.Int64)
 			}
+		case event.FieldStageMessagePresets:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field stage_message_presets", values[i])
+			} else if value.Valid {
+				_m.StageMessagePresets = value.String
+			}
+		case event.FieldStageMessageDefaultDurationSeconds:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field stage_message_default_duration_seconds", values[i])
+			} else if value.Valid {
+				_m.StageMessageDefaultDurationSeconds = int(value.Int64)
+			}
+		case event.FieldStageMessageConfigurationRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field stage_message_configuration_revision", values[i])
+			} else if value.Valid {
+				_m.StageMessageConfigurationRevision = int(value.Int64)
+			}
 		case event.FieldRevision:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for field revision", values[i])
@@ -399,6 +434,11 @@ func (_m *Event) QueryDisplayAssignments() *DisplayAssignmentQuery {
 	return NewEventClient(_m.config).QueryDisplayAssignments(_m)
 }
 
+// QueryDisplayOverrides queries the "display_overrides" edge of the Event entity.
+func (_m *Event) QueryDisplayOverrides() *DisplayOverrideQuery {
+	return NewEventClient(_m.config).QueryDisplayOverrides(_m)
+}
+
 // Update returns a builder for updating this Event.
 // Note that you need to call Event.Unwrap() before calling this method if this Event
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -465,6 +505,15 @@ func (_m *Event) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("attachment_release_revision=")
 	builder.WriteString(fmt.Sprintf("%v", _m.AttachmentReleaseRevision))
+	builder.WriteString(", ")
+	builder.WriteString("stage_message_presets=")
+	builder.WriteString(_m.StageMessagePresets)
+	builder.WriteString(", ")
+	builder.WriteString("stage_message_default_duration_seconds=")
+	builder.WriteString(fmt.Sprintf("%v", _m.StageMessageDefaultDurationSeconds))
+	builder.WriteString(", ")
+	builder.WriteString("stage_message_configuration_revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.StageMessageConfigurationRevision))
 	builder.WriteString(", ")
 	builder.WriteString("revision=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Revision))

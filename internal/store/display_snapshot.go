@@ -10,6 +10,8 @@ import (
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/displaycredential"
+	"github.com/dotwaffle/beamers/ent/displayoverride"
+	"github.com/dotwaffle/beamers/ent/displayoverridestate"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
@@ -27,7 +29,10 @@ type DisplaySnapshotState struct {
 	LocationID            int
 	LocationName          string
 	ViewKey               string
+	DisplayGroupKeys      []string
 	Standby               bool
+	StageMessage          *DisplayOverride
+	TechnicalDifficulties *DisplayOverride
 	Sessions              []DisplaySessionState
 	ProgramChannelID      int
 	ProgramOutputRevision int
@@ -63,6 +68,7 @@ type DisplaySessionState struct {
 func (installationStore *SQLite) LoadDisplaySnapshot(
 	ctx context.Context,
 	credentialHash string,
+	now time.Time,
 ) (DisplaySnapshotState, error) {
 	internalContext := systemContext(ctx)
 	transaction, err := installationStore.client.Tx(internalContext)
@@ -130,7 +136,13 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 		return result, nil
 	}
 	result.ViewKey = assignment.ViewKey
+	result.DisplayGroupKeys = slices.Clone(assignment.DisplayGroupKeys)
 	result.Standby = false
+	if overrideErr := loadCurrentDisplayOverrides(
+		internalContext, client, assignment, now, &result,
+	); overrideErr != nil {
+		return DisplaySnapshotState{}, overrideErr
+	}
 	for _, publishedSession := range published.Sessions {
 		sessionState, sessionErr := loadDisplaySession(
 			internalContext,
@@ -161,6 +173,64 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 		}
 	}
 	return result, nil
+}
+
+func loadCurrentDisplayOverrides(
+	ctx context.Context,
+	client *ent.Client,
+	assignment *ent.DisplayAssignment,
+	now time.Time,
+	result *DisplaySnapshotState,
+) error {
+	states, err := client.DisplayOverrideState.Query().
+		Where(
+			displayoverridestate.EventIDEQ(assignment.EventID),
+			displayoverridestate.DisplayIDEQ(assignment.DisplayID),
+			displayoverridestate.KindEQ(displayoverridestate.KindStageMessage),
+		).
+		WithOverride().
+		All(ctx)
+	if err != nil {
+		return opaqueError("load current Display Overrides", err)
+	}
+	for _, state := range states {
+		found, edgeErr := state.Edges.OverrideOrErr()
+		if edgeErr != nil {
+			return opaqueError("load selected Display Override", edgeErr)
+		}
+		if found.ClearedAt != nil ||
+			(!found.UntilCleared && (found.ExpiresAt == nil || !found.ExpiresAt.After(now))) ||
+			!assignmentInDisplayGroup(assignment, found.TargetGroupKey) {
+			continue
+		}
+		projected := displayOverride(found)
+		if assignment.ViewKey == "stage-timer" {
+			result.StageMessage = &projected
+		}
+	}
+	technical, err := client.DisplayOverride.Query().
+		Where(
+			displayoverride.EventIDEQ(assignment.EventID),
+			displayoverride.KindEQ(displayoverride.KindTechnicalDifficulties),
+			displayoverride.ClearedAtIsNil(),
+			displayoverride.Or(
+				displayoverride.UntilClearedEQ(true),
+				displayoverride.ExpiresAtGT(now),
+			),
+		).
+		Order(ent.Desc(displayoverride.FieldCreatedAt), ent.Desc(displayoverride.FieldID)).
+		All(ctx)
+	if err != nil {
+		return opaqueError("load current Technical Difficulties Overrides", err)
+	}
+	for _, candidate := range technical {
+		if assignmentInDisplayGroup(assignment, candidate.TargetGroupKey) {
+			projected := displayOverride(candidate)
+			result.TechnicalDifficulties = &projected
+			break
+		}
+	}
+	return nil
 }
 
 func loadDisplaySession(

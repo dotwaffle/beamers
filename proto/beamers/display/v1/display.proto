@@ -42,6 +42,18 @@ message DisplaySnapshot {
   beamers.program.v1.ProgramItem program_output = 21;
   int64 program_output_revision = 22;
   int64 program_channel_id = 23;
+  DisplayOverride stage_message = 24;
+  DisplayOverride technical_difficulties = 25;
+}
+
+message DisplayOverride {
+  int64 id = 1;
+  int64 revision = 2;
+  string kind = 3;
+  string text = 4;
+  string emphasis = 5;
+  bool until_cleared = 6;
+  google.protobuf.Timestamp expires_at = 7;
 }
 
 message DisplayComposition {
@@ -133,6 +145,10 @@ message AcknowledgeRequest {
   uint64 clock_uncertainty_milliseconds = 10;
   bool renderer_unstable = 11;
   string asset_version = 12;
+  int64 stage_message_id = 13;
+  int64 stage_message_revision = 14;
+  int64 technical_difficulties_id = 15;
+  int64 technical_difficulties_revision = 16;
 }
 
 message AcknowledgeResponse {
@@ -153,4 +169,8 @@ message DisplayAcknowledgment {
   uint64 clock_uncertainty_milliseconds = 11;
   bool renderer_unstable = 12;
   string asset_version = 13;
+  int64 stage_message_id = 14;
+  int64 stage_message_revision = 15;
+  int64 technical_difficulties_id = 16;
+  int64 technical_difficulties_revision = 17;
 }

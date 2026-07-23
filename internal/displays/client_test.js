@@ -360,6 +360,76 @@ test("Location Now Next excludes canceled Sessions without removing rotation con
   assert.match(nodeText(rotation), /Canceled Session/);
 });
 
+test("Display Overrides replace content, overlay Stage Messages, and acknowledge identities", async () => {
+  const browser = await startBrowser({
+    snapshot: stageTimerSnapshot({
+      stageMessage: {
+        id: "41",
+        revision: "2",
+        kind: "StageMessage",
+        text: "Stop now",
+        emphasis: "Urgent",
+        untilCleared: true,
+      },
+      technicalDifficulties: {
+        id: "42",
+        revision: "1",
+        kind: "TechnicalDifficulties",
+        text: "Please wait",
+        emphasis: "Normal",
+        untilCleared: true,
+      },
+    }),
+  });
+  assert.equal(browser.document.main.dataset.overrideKind, "TechnicalDifficulties");
+  assert.match(nodeText(browser.document.main), /Please wait/);
+  assert.equal(browser.document.aside.dataset.emphasis, "Urgent");
+  assert.match(nodeText(browser.document.aside), /Urgent:.*Stop now/);
+  assert.deepEqual(
+    {
+      stageMessageId: browser.acknowledgments.at(-1).stageMessageId,
+      stageMessageRevision: browser.acknowledgments.at(-1).stageMessageRevision,
+      technicalDifficultiesId: browser.acknowledgments.at(-1).technicalDifficultiesId,
+      technicalDifficultiesRevision:
+        browser.acknowledgments.at(-1).technicalDifficultiesRevision,
+    },
+    {
+      stageMessageId: "41",
+      stageMessageRevision: "2",
+      technicalDifficultiesId: "42",
+      technicalDifficultiesRevision: "1",
+    },
+  );
+});
+
+test("Display refreshes and acknowledges an Override at its expiry", async () => {
+  const initial = displaySnapshot({
+    serverTime: "2099-08-21T08:00:00Z",
+    stageMessage: {
+      id: "41",
+      revision: "1",
+      kind: "StageMessage",
+      text: "One second",
+      emphasis: "Normal",
+      expiresAt: "2099-08-21T08:00:01Z",
+    },
+  });
+  const browser = await startBrowser({
+    snapshots: [
+      initial,
+      displaySnapshot({
+        serverTime: "2099-08-21T08:00:01Z",
+        streamPosition: initial.streamPosition,
+      }),
+    ],
+  });
+  assert.ok(browser.document.aside);
+  await browser.runTimer((delay) => delay >= 25 && delay <= 1000);
+  assert.equal(browser.document.aside, undefined);
+  assert.equal(browser.acknowledgments.at(-1).stageMessageId, 0);
+  assert.equal(browser.acknowledgments.at(-1).streamPosition, initial.streamPosition);
+});
+
 test("display styles preserve content changes while reducing motion", () => {
   const template = fs.readFileSync(
     new URL("./page.templ", `file://${__filename}`),
@@ -377,6 +447,7 @@ async function startBrowser(options = {}) {
   const eventSources = [];
   const storage = new Map();
   const initialMain = new FakeNode("main");
+  const body = new FakeNode("body");
   const indicator = new FakeNode("p");
   indicator.dataset.connection = "connecting";
   const document = {
@@ -387,6 +458,8 @@ async function startBrowser(options = {}) {
       },
     },
     main: initialMain,
+    aside: undefined,
+    body,
     createElement(tagName) {
       if (browser.failRendering) {
         throw new Error("renderer unavailable");
@@ -400,9 +473,21 @@ async function startBrowser(options = {}) {
       if (selector === "#display-connection") {
         return indicator;
       }
+      if (selector === "aside[data-stage-message]") {
+        return document.aside;
+      }
       return undefined;
     },
   };
+  body.append = (...children) => {
+    for (const child of children) {
+      if (child.tagName === "aside") {
+        document.aside = child;
+      }
+      body.children.push(child);
+    }
+  };
+  body.document = document;
   initialMain.document = document;
   class EventSource {
     constructor(url) {
@@ -640,6 +725,11 @@ class FakeNode {
         this.properties.set(name, value);
       },
     };
+    this.classList = {
+      add: (...names) => {
+        this.className = [this.className, ...names].filter(Boolean).join(" ");
+      },
+    };
     this.tagName = tagName;
     this.textContent = "";
   }
@@ -648,9 +738,19 @@ class FakeNode {
     this.children.push(...children);
   }
 
+  setAttribute(name, value) {
+    this[name] = value;
+  }
+
   replaceWith(replacement) {
     if (this.document?.main === this) {
       this.document.main = replacement;
+    }
+  }
+
+  remove() {
+    if (this.document?.aside === this) {
+      this.document.aside = undefined;
     }
   }
 }

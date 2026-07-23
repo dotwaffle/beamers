@@ -14,6 +14,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/display"
 	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/displaycredential"
+	"github.com/dotwaffle/beamers/ent/displayoverridestate"
 	"github.com/dotwaffle/beamers/ent/predicate"
 )
 
@@ -170,6 +171,90 @@ func (_u *DisplayUpdate) AddAppliedPublishedRevision(v int) *DisplayUpdate {
 	return _u
 }
 
+// SetAppliedStageMessageID sets the "applied_stage_message_id" field.
+func (_u *DisplayUpdate) SetAppliedStageMessageID(v int) *DisplayUpdate {
+	_u.mutation.ResetAppliedStageMessageID()
+	_u.mutation.SetAppliedStageMessageID(v)
+	return _u
+}
+
+// SetNillableAppliedStageMessageID sets the "applied_stage_message_id" field if the given value is not nil.
+func (_u *DisplayUpdate) SetNillableAppliedStageMessageID(v *int) *DisplayUpdate {
+	if v != nil {
+		_u.SetAppliedStageMessageID(*v)
+	}
+	return _u
+}
+
+// AddAppliedStageMessageID adds value to the "applied_stage_message_id" field.
+func (_u *DisplayUpdate) AddAppliedStageMessageID(v int) *DisplayUpdate {
+	_u.mutation.AddAppliedStageMessageID(v)
+	return _u
+}
+
+// SetAppliedStageMessageRevision sets the "applied_stage_message_revision" field.
+func (_u *DisplayUpdate) SetAppliedStageMessageRevision(v int) *DisplayUpdate {
+	_u.mutation.ResetAppliedStageMessageRevision()
+	_u.mutation.SetAppliedStageMessageRevision(v)
+	return _u
+}
+
+// SetNillableAppliedStageMessageRevision sets the "applied_stage_message_revision" field if the given value is not nil.
+func (_u *DisplayUpdate) SetNillableAppliedStageMessageRevision(v *int) *DisplayUpdate {
+	if v != nil {
+		_u.SetAppliedStageMessageRevision(*v)
+	}
+	return _u
+}
+
+// AddAppliedStageMessageRevision adds value to the "applied_stage_message_revision" field.
+func (_u *DisplayUpdate) AddAppliedStageMessageRevision(v int) *DisplayUpdate {
+	_u.mutation.AddAppliedStageMessageRevision(v)
+	return _u
+}
+
+// SetAppliedTechnicalDifficultiesID sets the "applied_technical_difficulties_id" field.
+func (_u *DisplayUpdate) SetAppliedTechnicalDifficultiesID(v int) *DisplayUpdate {
+	_u.mutation.ResetAppliedTechnicalDifficultiesID()
+	_u.mutation.SetAppliedTechnicalDifficultiesID(v)
+	return _u
+}
+
+// SetNillableAppliedTechnicalDifficultiesID sets the "applied_technical_difficulties_id" field if the given value is not nil.
+func (_u *DisplayUpdate) SetNillableAppliedTechnicalDifficultiesID(v *int) *DisplayUpdate {
+	if v != nil {
+		_u.SetAppliedTechnicalDifficultiesID(*v)
+	}
+	return _u
+}
+
+// AddAppliedTechnicalDifficultiesID adds value to the "applied_technical_difficulties_id" field.
+func (_u *DisplayUpdate) AddAppliedTechnicalDifficultiesID(v int) *DisplayUpdate {
+	_u.mutation.AddAppliedTechnicalDifficultiesID(v)
+	return _u
+}
+
+// SetAppliedTechnicalDifficultiesRevision sets the "applied_technical_difficulties_revision" field.
+func (_u *DisplayUpdate) SetAppliedTechnicalDifficultiesRevision(v int) *DisplayUpdate {
+	_u.mutation.ResetAppliedTechnicalDifficultiesRevision()
+	_u.mutation.SetAppliedTechnicalDifficultiesRevision(v)
+	return _u
+}
+
+// SetNillableAppliedTechnicalDifficultiesRevision sets the "applied_technical_difficulties_revision" field if the given value is not nil.
+func (_u *DisplayUpdate) SetNillableAppliedTechnicalDifficultiesRevision(v *int) *DisplayUpdate {
+	if v != nil {
+		_u.SetAppliedTechnicalDifficultiesRevision(*v)
+	}
+	return _u
+}
+
+// AddAppliedTechnicalDifficultiesRevision adds value to the "applied_technical_difficulties_revision" field.
+func (_u *DisplayUpdate) AddAppliedTechnicalDifficultiesRevision(v int) *DisplayUpdate {
+	_u.mutation.AddAppliedTechnicalDifficultiesRevision(v)
+	return _u
+}
+
 // SetAppliedStandby sets the "applied_standby" field.
 func (_u *DisplayUpdate) SetAppliedStandby(v bool) *DisplayUpdate {
 	_u.mutation.SetAppliedStandby(v)
@@ -290,6 +375,21 @@ func (_u *DisplayUpdate) AddAssignments(v ...*DisplayAssignment) *DisplayUpdate 
 	return _u.AddAssignmentIDs(ids...)
 }
 
+// AddOverrideStateIDs adds the "override_states" edge to the DisplayOverrideState entity by IDs.
+func (_u *DisplayUpdate) AddOverrideStateIDs(ids ...int) *DisplayUpdate {
+	_u.mutation.AddOverrideStateIDs(ids...)
+	return _u
+}
+
+// AddOverrideStates adds the "override_states" edges to the DisplayOverrideState entity.
+func (_u *DisplayUpdate) AddOverrideStates(v ...*DisplayOverrideState) *DisplayUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddOverrideStateIDs(ids...)
+}
+
 // Mutation returns the DisplayMutation object of the builder.
 func (_u *DisplayUpdate) Mutation() *DisplayMutation {
 	return _u.mutation
@@ -335,6 +435,27 @@ func (_u *DisplayUpdate) RemoveAssignments(v ...*DisplayAssignment) *DisplayUpda
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAssignmentIDs(ids...)
+}
+
+// ClearOverrideStates clears all "override_states" edges to the DisplayOverrideState entity.
+func (_u *DisplayUpdate) ClearOverrideStates() *DisplayUpdate {
+	_u.mutation.ClearOverrideStates()
+	return _u
+}
+
+// RemoveOverrideStateIDs removes the "override_states" edge to DisplayOverrideState entities by IDs.
+func (_u *DisplayUpdate) RemoveOverrideStateIDs(ids ...int) *DisplayUpdate {
+	_u.mutation.RemoveOverrideStateIDs(ids...)
+	return _u
+}
+
+// RemoveOverrideStates removes "override_states" edges to DisplayOverrideState entities.
+func (_u *DisplayUpdate) RemoveOverrideStates(v ...*DisplayOverrideState) *DisplayUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveOverrideStateIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -421,6 +542,30 @@ func (_u *DisplayUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedAppliedPublishedRevision(); ok {
 		_spec.AddField(display.FieldAppliedPublishedRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedStageMessageID(); ok {
+		_spec.SetField(display.FieldAppliedStageMessageID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedStageMessageID(); ok {
+		_spec.AddField(display.FieldAppliedStageMessageID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedStageMessageRevision(); ok {
+		_spec.SetField(display.FieldAppliedStageMessageRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedStageMessageRevision(); ok {
+		_spec.AddField(display.FieldAppliedStageMessageRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedTechnicalDifficultiesID(); ok {
+		_spec.SetField(display.FieldAppliedTechnicalDifficultiesID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedTechnicalDifficultiesID(); ok {
+		_spec.AddField(display.FieldAppliedTechnicalDifficultiesID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedTechnicalDifficultiesRevision(); ok {
+		_spec.SetField(display.FieldAppliedTechnicalDifficultiesRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedTechnicalDifficultiesRevision(); ok {
+		_spec.AddField(display.FieldAppliedTechnicalDifficultiesRevision, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.AppliedStandby(); ok {
 		_spec.SetField(display.FieldAppliedStandby, field.TypeBool, value)
@@ -529,6 +674,51 @@ func (_u *DisplayUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(displayassignment.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.OverrideStatesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   display.OverrideStatesTable,
+			Columns: []string{display.OverrideStatesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(displayoverridestate.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedOverrideStatesIDs(); len(nodes) > 0 && !_u.mutation.OverrideStatesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   display.OverrideStatesTable,
+			Columns: []string{display.OverrideStatesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(displayoverridestate.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.OverrideStatesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   display.OverrideStatesTable,
+			Columns: []string{display.OverrideStatesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(displayoverridestate.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -696,6 +886,90 @@ func (_u *DisplayUpdateOne) AddAppliedPublishedRevision(v int) *DisplayUpdateOne
 	return _u
 }
 
+// SetAppliedStageMessageID sets the "applied_stage_message_id" field.
+func (_u *DisplayUpdateOne) SetAppliedStageMessageID(v int) *DisplayUpdateOne {
+	_u.mutation.ResetAppliedStageMessageID()
+	_u.mutation.SetAppliedStageMessageID(v)
+	return _u
+}
+
+// SetNillableAppliedStageMessageID sets the "applied_stage_message_id" field if the given value is not nil.
+func (_u *DisplayUpdateOne) SetNillableAppliedStageMessageID(v *int) *DisplayUpdateOne {
+	if v != nil {
+		_u.SetAppliedStageMessageID(*v)
+	}
+	return _u
+}
+
+// AddAppliedStageMessageID adds value to the "applied_stage_message_id" field.
+func (_u *DisplayUpdateOne) AddAppliedStageMessageID(v int) *DisplayUpdateOne {
+	_u.mutation.AddAppliedStageMessageID(v)
+	return _u
+}
+
+// SetAppliedStageMessageRevision sets the "applied_stage_message_revision" field.
+func (_u *DisplayUpdateOne) SetAppliedStageMessageRevision(v int) *DisplayUpdateOne {
+	_u.mutation.ResetAppliedStageMessageRevision()
+	_u.mutation.SetAppliedStageMessageRevision(v)
+	return _u
+}
+
+// SetNillableAppliedStageMessageRevision sets the "applied_stage_message_revision" field if the given value is not nil.
+func (_u *DisplayUpdateOne) SetNillableAppliedStageMessageRevision(v *int) *DisplayUpdateOne {
+	if v != nil {
+		_u.SetAppliedStageMessageRevision(*v)
+	}
+	return _u
+}
+
+// AddAppliedStageMessageRevision adds value to the "applied_stage_message_revision" field.
+func (_u *DisplayUpdateOne) AddAppliedStageMessageRevision(v int) *DisplayUpdateOne {
+	_u.mutation.AddAppliedStageMessageRevision(v)
+	return _u
+}
+
+// SetAppliedTechnicalDifficultiesID sets the "applied_technical_difficulties_id" field.
+func (_u *DisplayUpdateOne) SetAppliedTechnicalDifficultiesID(v int) *DisplayUpdateOne {
+	_u.mutation.ResetAppliedTechnicalDifficultiesID()
+	_u.mutation.SetAppliedTechnicalDifficultiesID(v)
+	return _u
+}
+
+// SetNillableAppliedTechnicalDifficultiesID sets the "applied_technical_difficulties_id" field if the given value is not nil.
+func (_u *DisplayUpdateOne) SetNillableAppliedTechnicalDifficultiesID(v *int) *DisplayUpdateOne {
+	if v != nil {
+		_u.SetAppliedTechnicalDifficultiesID(*v)
+	}
+	return _u
+}
+
+// AddAppliedTechnicalDifficultiesID adds value to the "applied_technical_difficulties_id" field.
+func (_u *DisplayUpdateOne) AddAppliedTechnicalDifficultiesID(v int) *DisplayUpdateOne {
+	_u.mutation.AddAppliedTechnicalDifficultiesID(v)
+	return _u
+}
+
+// SetAppliedTechnicalDifficultiesRevision sets the "applied_technical_difficulties_revision" field.
+func (_u *DisplayUpdateOne) SetAppliedTechnicalDifficultiesRevision(v int) *DisplayUpdateOne {
+	_u.mutation.ResetAppliedTechnicalDifficultiesRevision()
+	_u.mutation.SetAppliedTechnicalDifficultiesRevision(v)
+	return _u
+}
+
+// SetNillableAppliedTechnicalDifficultiesRevision sets the "applied_technical_difficulties_revision" field if the given value is not nil.
+func (_u *DisplayUpdateOne) SetNillableAppliedTechnicalDifficultiesRevision(v *int) *DisplayUpdateOne {
+	if v != nil {
+		_u.SetAppliedTechnicalDifficultiesRevision(*v)
+	}
+	return _u
+}
+
+// AddAppliedTechnicalDifficultiesRevision adds value to the "applied_technical_difficulties_revision" field.
+func (_u *DisplayUpdateOne) AddAppliedTechnicalDifficultiesRevision(v int) *DisplayUpdateOne {
+	_u.mutation.AddAppliedTechnicalDifficultiesRevision(v)
+	return _u
+}
+
 // SetAppliedStandby sets the "applied_standby" field.
 func (_u *DisplayUpdateOne) SetAppliedStandby(v bool) *DisplayUpdateOne {
 	_u.mutation.SetAppliedStandby(v)
@@ -816,6 +1090,21 @@ func (_u *DisplayUpdateOne) AddAssignments(v ...*DisplayAssignment) *DisplayUpda
 	return _u.AddAssignmentIDs(ids...)
 }
 
+// AddOverrideStateIDs adds the "override_states" edge to the DisplayOverrideState entity by IDs.
+func (_u *DisplayUpdateOne) AddOverrideStateIDs(ids ...int) *DisplayUpdateOne {
+	_u.mutation.AddOverrideStateIDs(ids...)
+	return _u
+}
+
+// AddOverrideStates adds the "override_states" edges to the DisplayOverrideState entity.
+func (_u *DisplayUpdateOne) AddOverrideStates(v ...*DisplayOverrideState) *DisplayUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddOverrideStateIDs(ids...)
+}
+
 // Mutation returns the DisplayMutation object of the builder.
 func (_u *DisplayUpdateOne) Mutation() *DisplayMutation {
 	return _u.mutation
@@ -861,6 +1150,27 @@ func (_u *DisplayUpdateOne) RemoveAssignments(v ...*DisplayAssignment) *DisplayU
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAssignmentIDs(ids...)
+}
+
+// ClearOverrideStates clears all "override_states" edges to the DisplayOverrideState entity.
+func (_u *DisplayUpdateOne) ClearOverrideStates() *DisplayUpdateOne {
+	_u.mutation.ClearOverrideStates()
+	return _u
+}
+
+// RemoveOverrideStateIDs removes the "override_states" edge to DisplayOverrideState entities by IDs.
+func (_u *DisplayUpdateOne) RemoveOverrideStateIDs(ids ...int) *DisplayUpdateOne {
+	_u.mutation.RemoveOverrideStateIDs(ids...)
+	return _u
+}
+
+// RemoveOverrideStates removes "override_states" edges to DisplayOverrideState entities.
+func (_u *DisplayUpdateOne) RemoveOverrideStates(v ...*DisplayOverrideState) *DisplayUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveOverrideStateIDs(ids...)
 }
 
 // Where appends a list predicates to the DisplayUpdate builder.
@@ -978,6 +1288,30 @@ func (_u *DisplayUpdateOne) sqlSave(ctx context.Context) (_node *Display, err er
 	if value, ok := _u.mutation.AddedAppliedPublishedRevision(); ok {
 		_spec.AddField(display.FieldAppliedPublishedRevision, field.TypeInt, value)
 	}
+	if value, ok := _u.mutation.AppliedStageMessageID(); ok {
+		_spec.SetField(display.FieldAppliedStageMessageID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedStageMessageID(); ok {
+		_spec.AddField(display.FieldAppliedStageMessageID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedStageMessageRevision(); ok {
+		_spec.SetField(display.FieldAppliedStageMessageRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedStageMessageRevision(); ok {
+		_spec.AddField(display.FieldAppliedStageMessageRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedTechnicalDifficultiesID(); ok {
+		_spec.SetField(display.FieldAppliedTechnicalDifficultiesID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedTechnicalDifficultiesID(); ok {
+		_spec.AddField(display.FieldAppliedTechnicalDifficultiesID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedTechnicalDifficultiesRevision(); ok {
+		_spec.SetField(display.FieldAppliedTechnicalDifficultiesRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedTechnicalDifficultiesRevision(); ok {
+		_spec.AddField(display.FieldAppliedTechnicalDifficultiesRevision, field.TypeInt, value)
+	}
 	if value, ok := _u.mutation.AppliedStandby(); ok {
 		_spec.SetField(display.FieldAppliedStandby, field.TypeBool, value)
 	}
@@ -1085,6 +1419,51 @@ func (_u *DisplayUpdateOne) sqlSave(ctx context.Context) (_node *Display, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(displayassignment.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.OverrideStatesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   display.OverrideStatesTable,
+			Columns: []string{display.OverrideStatesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(displayoverridestate.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedOverrideStatesIDs(); len(nodes) > 0 && !_u.mutation.OverrideStatesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   display.OverrideStatesTable,
+			Columns: []string{display.OverrideStatesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(displayoverridestate.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.OverrideStatesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   display.OverrideStatesTable,
+			Columns: []string{display.OverrideStatesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(displayoverridestate.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

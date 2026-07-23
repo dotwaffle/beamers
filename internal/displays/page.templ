@@ -89,11 +89,26 @@ templ DisplayPage(snapshot Snapshot) {
 			<title>{ displayPageTitle(snapshot) }</title>
 		</head>
 		<body>
-			<main class={ displayPageClass(snapshot) } style={ displayThemeStyle(snapshot) } data-layout={ snapshot.Composition.Layout.Key }>
-				for _, region := range snapshot.Composition.Layout.Regions {
-					@displayRegion(snapshot, region.Name, region.Widget, region.Persistent)
-				}
-			</main>
+			if snapshot.TechnicalDifficulties != nil {
+				<main class={ displayPageClass(snapshot) + " display-override-replace" } style={ displayThemeStyle(snapshot) } data-override-kind="TechnicalDifficulties">
+					<section>
+						<h1>Technical Difficulties</h1>
+						<p class="display-override-text">{ snapshot.TechnicalDifficulties.Text }</p>
+					</section>
+				</main>
+			} else {
+				<main class={ displayPageClass(snapshot) } style={ displayThemeStyle(snapshot) } data-layout={ snapshot.Composition.Layout.Key }>
+					for _, region := range snapshot.Composition.Layout.Regions {
+						@displayRegion(snapshot, region.Name, region.Widget, region.Persistent)
+					}
+				</main>
+			}
+			if snapshot.StageMessage != nil {
+				<aside class="stage-message" role="status" aria-live="assertive" data-stage-message data-emphasis={ snapshot.StageMessage.Emphasis }>
+					<strong>{ stageMessageLabel(snapshot.StageMessage.Emphasis) }</strong>
+					<p>{ snapshot.StageMessage.Text }</p>
+				</aside>
+			}
 			@displayClient()
 		</body>
 	</html>
@@ -204,6 +219,34 @@ templ displayClient() {
 			font-family: system-ui, sans-serif;
 			font-size: clamp(1rem, 1.45vw, 2.25rem);
 			line-height: 1.35;
+		}
+		.display-override-replace {
+			place-items: center;
+			text-align: center;
+		}
+		.display-override-text {
+			white-space: pre-line;
+		}
+		.stage-message {
+			position: fixed;
+			inset: auto clamp(1rem, 3vw, 4rem) clamp(1rem, 3vw, 4rem);
+			z-index: 30;
+			padding: 1rem 1.5rem;
+			border: .35rem solid currentcolor;
+			border-radius: .5rem;
+			color: #101828;
+			background: #fff;
+			box-shadow: 0 .5rem 2rem rgb(0 0 0 / 50%);
+		}
+		.stage-message[data-emphasis="Attention"] {
+			border-style: double;
+			border-width: .6rem;
+		}
+		.stage-message[data-emphasis="Urgent"] {
+			border-style: dashed;
+			border-width: .6rem;
+			font-size: 1.2em;
+			text-transform: uppercase;
 		}
 		.display-font-serif {
 			font-family: Georgia, "Times New Roman", serif;

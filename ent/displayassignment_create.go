@@ -47,6 +47,12 @@ func (_c *DisplayAssignmentCreate) SetViewKey(v string) *DisplayAssignmentCreate
 	return _c
 }
 
+// SetDisplayGroupKeys sets the "display_group_keys" field.
+func (_c *DisplayAssignmentCreate) SetDisplayGroupKeys(v []string) *DisplayAssignmentCreate {
+	_c.mutation.SetDisplayGroupKeys(v)
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *DisplayAssignmentCreate) SetCreatedAt(v time.Time) *DisplayAssignmentCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -207,6 +213,10 @@ func (_c *DisplayAssignmentCreate) createSpec() (*DisplayAssignment, *sqlgraph.C
 	if value, ok := _c.mutation.ViewKey(); ok {
 		_spec.SetField(displayassignment.FieldViewKey, field.TypeString, value)
 		_node.ViewKey = value
+	}
+	if value, ok := _c.mutation.DisplayGroupKeys(); ok {
+		_spec.SetField(displayassignment.FieldDisplayGroupKeys, field.TypeJSON, value)
+		_node.DisplayGroupKeys = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(displayassignment.FieldCreatedAt, field.TypeTime, value)

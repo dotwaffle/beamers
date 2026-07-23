@@ -118,38 +118,59 @@ type Snapshot struct {
 	ProgramChannelID      int
 	ProgramOutputRevision int
 	ProgramOutput         *ProgramItem
+	StageMessage          *DisplayOverride
+	TechnicalDifficulties *DisplayOverride
+}
+
+// DisplayOverride is one attendee-safe currently presented Override.
+type DisplayOverride struct {
+	ID           int
+	Revision     int
+	Kind         string
+	Text         string
+	Emphasis     string
+	UntilCleared bool
+	ExpiresAt    time.Time
 }
 
 // AcknowledgmentInput reports the exact state one Display has applied.
 type AcknowledgmentInput struct {
-	ProtocolVersion      string
-	AssetVersion         string
-	StreamID             string
-	StreamPosition       uint64
-	ActiveEventID        int64
-	ActivationGeneration int64
-	PublishedRevision    int64
-	Standby              bool
-	ClockOffset          int64
-	ClockUncertainty     uint64
-	RendererUnstable     bool
+	ProtocolVersion               string
+	AssetVersion                  string
+	StreamID                      string
+	StreamPosition                uint64
+	ActiveEventID                 int64
+	ActivationGeneration          int64
+	PublishedRevision             int64
+	Standby                       bool
+	ClockOffset                   int64
+	ClockUncertainty              uint64
+	RendererUnstable              bool
+	StageMessageID                int64
+	StageMessageRevision          int64
+	TechnicalDifficultiesID       int64
+	TechnicalDifficultiesRevision int64
 }
 
 // Acknowledgment is the latest durably recorded state one Display applied.
 type Acknowledgment struct {
-	DisplayID            int
-	ProtocolVersion      string
-	AssetVersion         string
-	StreamID             string
-	StreamPosition       uint64
-	ActiveEventID        int
-	ActivationGeneration int
-	PublishedRevision    int
-	AppliedAt            time.Time
-	Standby              bool
-	ClockOffset          int64
-	ClockUncertainty     uint64
-	RendererUnstable     bool
+	DisplayID                     int
+	ProtocolVersion               string
+	AssetVersion                  string
+	StreamID                      string
+	StreamPosition                uint64
+	ActiveEventID                 int
+	ActivationGeneration          int
+	PublishedRevision             int
+	AppliedAt                     time.Time
+	Standby                       bool
+	ClockOffset                   int64
+	ClockUncertainty              uint64
+	RendererUnstable              bool
+	StageMessageID                int
+	StageMessageRevision          int
+	TechnicalDifficultiesID       int
+	TechnicalDifficultiesRevision int
 }
 
 // Session is one Display-safe committed Schedule item.
@@ -202,40 +223,46 @@ type ClaimInput struct {
 
 // AssignInput binds one Display to one Event Location and normal View.
 type AssignInput struct {
-	DisplayID  int    `json:"display_id"`
-	EventID    int    `json:"event_id"`
-	LocationID int    `json:"location_id"`
-	ViewKey    string `json:"view_key"`
-	CommandID  string `json:"command_id"`
+	DisplayID        int      `json:"display_id"`
+	EventID          int      `json:"event_id"`
+	LocationID       int      `json:"location_id"`
+	ViewKey          string   `json:"view_key"`
+	DisplayGroupKeys []string `json:"display_group_keys,omitempty"`
+	CommandID        string   `json:"command_id"`
 }
 
 // Assignment is one committed Event-specific Display route.
 type Assignment struct {
-	DisplayID  int    `json:"display_id"`
-	EventID    int    `json:"event_id"`
-	LocationID int    `json:"location_id"`
-	ViewKey    string `json:"view_key"`
+	DisplayID        int      `json:"display_id"`
+	EventID          int      `json:"event_id"`
+	LocationID       int      `json:"location_id"`
+	ViewKey          string   `json:"view_key"`
+	DisplayGroupKeys []string `json:"display_group_keys,omitempty"`
 }
 
 // Status is one crew-visible current Display routing summary.
 type Status struct {
-	ID                          int        `json:"id"`
-	Name                        string     `json:"name"`
-	ActiveEventID               int        `json:"active_event_id"`
-	Standby                     bool       `json:"standby"`
-	EventName                   string     `json:"event_name,omitempty"`
-	LocationID                  int        `json:"location_id,omitempty"`
-	LocationName                string     `json:"location_name,omitempty"`
-	ViewKey                     string     `json:"view_key,omitempty"`
-	ProgramChannelID            int        `json:"program_channel_id,omitempty"`
-	DeliveryState               string     `json:"delivery_state"`
-	AppliedActiveEventID        int        `json:"applied_active_event_id"`
-	AppliedActivationGeneration int        `json:"applied_activation_generation"`
-	AppliedPublishedRevision    int        `json:"applied_published_revision"`
-	AppliedStandby              bool       `json:"applied_standby"`
-	AppliedAt                   *time.Time `json:"applied_at,omitempty"`
-	ClockOffset                 int64      `json:"clock_offset_milliseconds"`
-	ClockUncertainty            int64      `json:"clock_uncertainty_milliseconds"`
+	ID                                   int        `json:"id"`
+	Name                                 string     `json:"name"`
+	ActiveEventID                        int        `json:"active_event_id"`
+	Standby                              bool       `json:"standby"`
+	EventName                            string     `json:"event_name,omitempty"`
+	LocationID                           int        `json:"location_id,omitempty"`
+	LocationName                         string     `json:"location_name,omitempty"`
+	ViewKey                              string     `json:"view_key,omitempty"`
+	ProgramChannelID                     int        `json:"program_channel_id,omitempty"`
+	DeliveryState                        string     `json:"delivery_state"`
+	AppliedActiveEventID                 int        `json:"applied_active_event_id"`
+	AppliedActivationGeneration          int        `json:"applied_activation_generation"`
+	AppliedPublishedRevision             int        `json:"applied_published_revision"`
+	AppliedStageMessageID                int        `json:"applied_stage_message_id,omitempty"`
+	AppliedStageMessageRevision          int        `json:"applied_stage_message_revision,omitempty"`
+	AppliedTechnicalDifficultiesID       int        `json:"applied_technical_difficulties_id,omitempty"`
+	AppliedTechnicalDifficultiesRevision int        `json:"applied_technical_difficulties_revision,omitempty"`
+	AppliedStandby                       bool       `json:"applied_standby"`
+	AppliedAt                            *time.Time `json:"applied_at,omitempty"`
+	ClockOffset                          int64      `json:"clock_offset_milliseconds"`
+	ClockUncertainty                     int64      `json:"clock_uncertainty_milliseconds"`
 }
 
 // New creates a Display service with explicit storage, clock, and randomness.
@@ -262,14 +289,14 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 	if !validDisplayToken(credential) {
 		return Snapshot{}, ErrDisplayAuthentication
 	}
-	found, err := service.storage.LoadDisplaySnapshot(ctx, digest(credential))
+	now := service.now().UTC()
+	found, err := service.storage.LoadDisplaySnapshot(ctx, digest(credential), now)
 	if errors.Is(err, store.ErrDisplayCredential) {
 		return Snapshot{}, ErrDisplayAuthentication
 	}
 	if err != nil {
 		return Snapshot{}, err
 	}
-	now := service.now().UTC()
 	result := Snapshot{
 		ProtocolVersion: protocolVersion, AssetVersion: AssetVersion(), ServerTime: now,
 		Display: display(found.Display), ActiveEventID: found.ActiveEventID,
@@ -280,6 +307,8 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 		ProgramChannelID:      found.ProgramChannelID,
 		ProgramOutputRevision: found.ProgramOutputRevision,
 	}
+	result.StageMessage = displayOverride(found.StageMessage)
+	result.TechnicalDifficulties = displayOverride(found.TechnicalDifficulties)
 	if found.ProgramChannelID > 0 {
 		result.ProgramOutput = &ProgramItem{
 			Kind: string(found.ProgramOutput.Kind), EntryID: found.ProgramOutput.EntryID,
@@ -317,6 +346,17 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 		return result.Sessions[first].orderAt.Before(result.Sessions[second].orderAt)
 	})
 	return result, nil
+}
+
+func displayOverride(found *store.DisplayOverride) *DisplayOverride {
+	if found == nil {
+		return nil
+	}
+	return &DisplayOverride{
+		ID: found.ID, Revision: found.Revision, Kind: string(found.Kind), Text: found.Text,
+		Emphasis: string(found.Emphasis), UntilCleared: found.UntilCleared,
+		ExpiresAt: found.ExpiresAt,
+	}
 }
 
 func projectStageTimer(
@@ -409,6 +449,10 @@ func (service *Service) Acknowledge(
 		input.ActiveEventID < 0 || input.ActiveEventID > math.MaxInt ||
 		input.ActivationGeneration < 0 || input.ActivationGeneration > math.MaxInt ||
 		input.PublishedRevision < 0 || input.PublishedRevision > math.MaxInt ||
+		input.StageMessageID < 0 || input.StageMessageID > math.MaxInt ||
+		input.StageMessageRevision < 0 || input.StageMessageRevision > math.MaxInt ||
+		input.TechnicalDifficultiesID < 0 || input.TechnicalDifficultiesID > math.MaxInt ||
+		input.TechnicalDifficultiesRevision < 0 || input.TechnicalDifficultiesRevision > math.MaxInt ||
 		input.ClockOffset < -maxClockHealthMillis ||
 		input.ClockOffset > maxClockHealthMillis ||
 		input.ClockUncertainty > uint64(maxClockHealthMillis) {
@@ -418,9 +462,13 @@ func (service *Service) Acknowledge(
 		ProtocolVersion: input.ProtocolVersion, AssetVersion: input.AssetVersion,
 		StreamID:       input.StreamID,
 		StreamPosition: int64(input.StreamPosition), ActiveEventID: int(input.ActiveEventID),
-		ActivationGeneration: int(input.ActivationGeneration),
-		PublishedRevision:    int(input.PublishedRevision),
-		AppliedAt:            service.now().UTC(), AppliedStandby: input.Standby,
+		ActivationGeneration:          int(input.ActivationGeneration),
+		PublishedRevision:             int(input.PublishedRevision),
+		StageMessageID:                int(input.StageMessageID),
+		StageMessageRevision:          int(input.StageMessageRevision),
+		TechnicalDifficultiesID:       int(input.TechnicalDifficultiesID),
+		TechnicalDifficultiesRevision: int(input.TechnicalDifficultiesRevision),
+		AppliedAt:                     service.now().UTC(), AppliedStandby: input.Standby,
 		ClockOffsetMilliseconds:      input.ClockOffset,
 		ClockUncertaintyMilliseconds: int64(input.ClockUncertainty),
 		RendererUnstable:             input.RendererUnstable,
@@ -445,7 +493,10 @@ func (service *Service) Acknowledge(
 		ActiveEventID:        stored.ActiveEventID,
 		ActivationGeneration: stored.ActivationGeneration,
 		PublishedRevision:    stored.PublishedRevision, AppliedAt: stored.AppliedAt,
-		Standby: stored.AppliedStandby, ClockOffset: stored.ClockOffsetMilliseconds,
+		StageMessageID: stored.StageMessageID, StageMessageRevision: stored.StageMessageRevision,
+		TechnicalDifficultiesID:       stored.TechnicalDifficultiesID,
+		TechnicalDifficultiesRevision: stored.TechnicalDifficultiesRevision,
+		Standby:                       stored.AppliedStandby, ClockOffset: stored.ClockOffsetMilliseconds,
 		ClockUncertainty: uint64(stored.ClockUncertaintyMilliseconds),
 		RendererUnstable: stored.RendererUnstable,
 	}, nil
@@ -478,6 +529,7 @@ func (service *Service) Assign(
 	input AssignInput,
 ) (Assignment, error) {
 	input.ViewKey = strings.TrimSpace(input.ViewKey)
+	input.DisplayGroupKeys = normalizeDisplayGroupKeys(input.DisplayGroupKeys)
 	if err := command.ValidateID(input.CommandID); err != nil {
 		return Assignment{}, ErrInvalidDisplay
 	}
@@ -486,6 +538,7 @@ func (service *Service) Assign(
 		PayloadHash: command.PayloadHash(
 			strconv.Itoa(input.DisplayID), strconv.Itoa(input.EventID),
 			strconv.Itoa(input.LocationID), input.ViewKey,
+			strings.Join(input.DisplayGroupKeys, "\x00"),
 		),
 		Action: "AssignDisplay", TargetType: "Display",
 		TargetID: strconv.Itoa(input.DisplayID), Now: service.now().UTC(),
@@ -496,12 +549,15 @@ func (service *Service) Assign(
 			if !actor.Administrator {
 				return assignmentRejection(ErrAdministratorRequired), nil
 			}
-			if input.DisplayID <= 0 || input.EventID <= 0 || input.LocationID <= 0 || !displayviews.IsNormal(input.ViewKey) {
+			if input.DisplayID <= 0 || input.EventID <= 0 || input.LocationID <= 0 ||
+				!displayviews.IsNormal(input.ViewKey) ||
+				!validDisplayGroupKeys(input.DisplayGroupKeys) {
 				return assignmentRejection(ErrInvalidDisplay), nil
 			}
 			stored, storeErr := transaction.AssignDisplay(actor.Context(ctx), store.DisplayAssignment{
 				DisplayID: input.DisplayID, EventID: input.EventID,
 				LocationID: input.LocationID, ViewKey: input.ViewKey,
+				DisplayGroupKeys: input.DisplayGroupKeys,
 			}, identity.Now)
 			switch {
 			case errors.Is(storeErr, store.ErrDisplayNotFound):
@@ -674,7 +730,41 @@ func assignment(found store.DisplayAssignment) Assignment {
 	return Assignment{
 		DisplayID: found.DisplayID, EventID: found.EventID,
 		LocationID: found.LocationID, ViewKey: found.ViewKey,
+		DisplayGroupKeys: slices.Clone(found.DisplayGroupKeys),
 	}
+}
+
+func normalizeDisplayGroupKeys(keys []string) []string {
+	result := make([]string, 0, len(keys))
+	for _, key := range keys {
+		key = strings.TrimSpace(key)
+		if key != "" && !slices.Contains(result, key) {
+			result = append(result, key)
+		}
+	}
+	sort.Strings(result)
+	return result
+}
+
+func validDisplayGroupKeys(keys []string) bool {
+	if len(keys) > 100 {
+		return false
+	}
+	for _, key := range keys {
+		if len(key) > 100 {
+			return false
+		}
+		for _, character := range key {
+			if character >= 'a' && character <= 'z' ||
+				character >= 'A' && character <= 'Z' ||
+				character >= '0' && character <= '9' ||
+				character == '-' || character == '_' || character == ':' {
+				continue
+			}
+			return false
+		}
+	}
+	return true
 }
 
 const (
@@ -687,12 +777,16 @@ func status(found store.DisplayStatus, cursor displaystream.Cursor, now time.Tim
 	result := Status{
 		ID: found.ID, Name: found.Name, ActiveEventID: found.ActiveEventID, Standby: found.Standby,
 		EventName: found.EventName, LocationName: found.LocationName, ViewKey: found.ViewKey,
-		LocationID:                  found.LocationID,
-		ProgramChannelID:            found.ProgramChannelID,
-		AppliedActiveEventID:        found.AppliedActiveEventID,
-		AppliedActivationGeneration: found.AppliedActivationGeneration,
-		AppliedPublishedRevision:    found.AppliedPublishedRevision,
-		AppliedStandby:              found.AppliedStandby, AppliedAt: found.AppliedAt,
+		LocationID:                           found.LocationID,
+		ProgramChannelID:                     found.ProgramChannelID,
+		AppliedActiveEventID:                 found.AppliedActiveEventID,
+		AppliedActivationGeneration:          found.AppliedActivationGeneration,
+		AppliedPublishedRevision:             found.AppliedPublishedRevision,
+		AppliedStageMessageID:                found.AppliedStageMessageID,
+		AppliedStageMessageRevision:          found.AppliedStageMessageRevision,
+		AppliedTechnicalDifficultiesID:       found.AppliedTechnicalDifficultiesID,
+		AppliedTechnicalDifficultiesRevision: found.AppliedTechnicalDifficultiesRevision,
+		AppliedStandby:                       found.AppliedStandby, AppliedAt: found.AppliedAt,
 		ClockOffset:      found.ClockOffsetMilliseconds,
 		ClockUncertainty: found.ClockUncertaintyMilliseconds,
 	}

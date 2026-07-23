@@ -35,6 +35,14 @@ const (
 	FieldAppliedActivationGeneration = "applied_activation_generation"
 	// FieldAppliedPublishedRevision holds the string denoting the applied_published_revision field in the database.
 	FieldAppliedPublishedRevision = "applied_published_revision"
+	// FieldAppliedStageMessageID holds the string denoting the applied_stage_message_id field in the database.
+	FieldAppliedStageMessageID = "applied_stage_message_id"
+	// FieldAppliedStageMessageRevision holds the string denoting the applied_stage_message_revision field in the database.
+	FieldAppliedStageMessageRevision = "applied_stage_message_revision"
+	// FieldAppliedTechnicalDifficultiesID holds the string denoting the applied_technical_difficulties_id field in the database.
+	FieldAppliedTechnicalDifficultiesID = "applied_technical_difficulties_id"
+	// FieldAppliedTechnicalDifficultiesRevision holds the string denoting the applied_technical_difficulties_revision field in the database.
+	FieldAppliedTechnicalDifficultiesRevision = "applied_technical_difficulties_revision"
 	// FieldAppliedStandby holds the string denoting the applied_standby field in the database.
 	FieldAppliedStandby = "applied_standby"
 	// FieldClockOffsetMilliseconds holds the string denoting the clock_offset_milliseconds field in the database.
@@ -49,6 +57,8 @@ const (
 	EdgeCredentials = "credentials"
 	// EdgeAssignments holds the string denoting the assignments edge name in mutations.
 	EdgeAssignments = "assignments"
+	// EdgeOverrideStates holds the string denoting the override_states edge name in mutations.
+	EdgeOverrideStates = "override_states"
 	// Table holds the table name of the display in the database.
 	Table = "displays"
 	// CredentialsTable is the table that holds the credentials relation/edge.
@@ -65,6 +75,13 @@ const (
 	AssignmentsInverseTable = "display_assignments"
 	// AssignmentsColumn is the table column denoting the assignments relation/edge.
 	AssignmentsColumn = "display_id"
+	// OverrideStatesTable is the table that holds the override_states relation/edge.
+	OverrideStatesTable = "display_override_states"
+	// OverrideStatesInverseTable is the table name for the DisplayOverrideState entity.
+	// It exists in this package in order to avoid circular dependency with the "displayoverridestate" package.
+	OverrideStatesInverseTable = "display_override_states"
+	// OverrideStatesColumn is the table column denoting the override_states relation/edge.
+	OverrideStatesColumn = "display_id"
 )
 
 // Columns holds all SQL columns for display fields.
@@ -80,6 +97,10 @@ var Columns = []string{
 	FieldAppliedActiveEventID,
 	FieldAppliedActivationGeneration,
 	FieldAppliedPublishedRevision,
+	FieldAppliedStageMessageID,
+	FieldAppliedStageMessageRevision,
+	FieldAppliedTechnicalDifficultiesID,
+	FieldAppliedTechnicalDifficultiesRevision,
 	FieldAppliedStandby,
 	FieldClockOffsetMilliseconds,
 	FieldClockUncertaintyMilliseconds,
@@ -123,6 +144,14 @@ var (
 	DefaultAppliedActivationGeneration int
 	// DefaultAppliedPublishedRevision holds the default value on creation for the "applied_published_revision" field.
 	DefaultAppliedPublishedRevision int
+	// DefaultAppliedStageMessageID holds the default value on creation for the "applied_stage_message_id" field.
+	DefaultAppliedStageMessageID int
+	// DefaultAppliedStageMessageRevision holds the default value on creation for the "applied_stage_message_revision" field.
+	DefaultAppliedStageMessageRevision int
+	// DefaultAppliedTechnicalDifficultiesID holds the default value on creation for the "applied_technical_difficulties_id" field.
+	DefaultAppliedTechnicalDifficultiesID int
+	// DefaultAppliedTechnicalDifficultiesRevision holds the default value on creation for the "applied_technical_difficulties_revision" field.
+	DefaultAppliedTechnicalDifficultiesRevision int
 	// DefaultAppliedStandby holds the default value on creation for the "applied_standby" field.
 	DefaultAppliedStandby bool
 	// DefaultClockOffsetMilliseconds holds the default value on creation for the "clock_offset_milliseconds" field.
@@ -191,6 +220,26 @@ func ByAppliedPublishedRevision(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAppliedPublishedRevision, opts...).ToFunc()
 }
 
+// ByAppliedStageMessageID orders the results by the applied_stage_message_id field.
+func ByAppliedStageMessageID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAppliedStageMessageID, opts...).ToFunc()
+}
+
+// ByAppliedStageMessageRevision orders the results by the applied_stage_message_revision field.
+func ByAppliedStageMessageRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAppliedStageMessageRevision, opts...).ToFunc()
+}
+
+// ByAppliedTechnicalDifficultiesID orders the results by the applied_technical_difficulties_id field.
+func ByAppliedTechnicalDifficultiesID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAppliedTechnicalDifficultiesID, opts...).ToFunc()
+}
+
+// ByAppliedTechnicalDifficultiesRevision orders the results by the applied_technical_difficulties_revision field.
+func ByAppliedTechnicalDifficultiesRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAppliedTechnicalDifficultiesRevision, opts...).ToFunc()
+}
+
 // ByAppliedStandby orders the results by the applied_standby field.
 func ByAppliedStandby(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAppliedStandby, opts...).ToFunc()
@@ -243,6 +292,20 @@ func ByAssignments(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newAssignmentsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByOverrideStatesCount orders the results by override_states count.
+func ByOverrideStatesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newOverrideStatesStep(), opts...)
+	}
+}
+
+// ByOverrideStates orders the results by override_states terms.
+func ByOverrideStates(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newOverrideStatesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newCredentialsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -255,5 +318,12 @@ func newAssignmentsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AssignmentsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, AssignmentsTable, AssignmentsColumn),
+	)
+}
+func newOverrideStatesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(OverrideStatesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, OverrideStatesTable, OverrideStatesColumn),
 	)
 }

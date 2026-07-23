@@ -19,19 +19,23 @@ var (
 
 // DisplayAcknowledgment is the latest state one Display reports applying.
 type DisplayAcknowledgment struct {
-	DisplayID                    int
-	ProtocolVersion              string
-	AssetVersion                 string
-	StreamID                     string
-	StreamPosition               int64
-	ActiveEventID                int
-	ActivationGeneration         int
-	PublishedRevision            int
-	AppliedAt                    time.Time
-	AppliedStandby               bool
-	ClockOffsetMilliseconds      int64
-	ClockUncertaintyMilliseconds int64
-	RendererUnstable             bool
+	DisplayID                     int
+	ProtocolVersion               string
+	AssetVersion                  string
+	StreamID                      string
+	StreamPosition                int64
+	ActiveEventID                 int
+	ActivationGeneration          int
+	PublishedRevision             int
+	StageMessageID                int
+	StageMessageRevision          int
+	TechnicalDifficultiesID       int
+	TechnicalDifficultiesRevision int
+	AppliedAt                     time.Time
+	AppliedStandby                bool
+	ClockOffsetMilliseconds       int64
+	ClockUncertaintyMilliseconds  int64
+	RendererUnstable              bool
 }
 
 // RecordDisplayAcknowledgment atomically advances one authenticated Display's applied state.
@@ -72,7 +76,8 @@ func (installationStore *SQLite) RecordDisplayAcknowledgment(
 			return DisplayAcknowledgment{}, ErrDisplayAcknowledgmentRegression
 		case found.AppliedStreamPosition == applied.StreamPosition:
 			current := acknowledgment(found)
-			if !sameAppliedState(current, applied) {
+			if !sameAppliedState(current, applied) &&
+				!sameStateWithExpiredOverrides(current, applied) {
 				return DisplayAcknowledgment{}, ErrDisplayAcknowledgmentConflict
 			}
 			if sameAcknowledgment(current, applied) {
@@ -98,6 +103,10 @@ func (installationStore *SQLite) RecordDisplayAcknowledgment(
 		SetAppliedActiveEventID(applied.ActiveEventID).
 		SetAppliedActivationGeneration(applied.ActivationGeneration).
 		SetAppliedPublishedRevision(applied.PublishedRevision).
+		SetAppliedStageMessageID(applied.StageMessageID).
+		SetAppliedStageMessageRevision(applied.StageMessageRevision).
+		SetAppliedTechnicalDifficultiesID(applied.TechnicalDifficultiesID).
+		SetAppliedTechnicalDifficultiesRevision(applied.TechnicalDifficultiesRevision).
 		SetAppliedStandby(applied.AppliedStandby).
 		SetClockOffsetMilliseconds(applied.ClockOffsetMilliseconds).
 		SetClockUncertaintyMilliseconds(applied.ClockUncertaintyMilliseconds).
@@ -121,13 +130,17 @@ func acknowledgment(found *ent.Display) DisplayAcknowledgment {
 		DisplayID: found.ID, ProtocolVersion: found.AppliedProtocolVersion,
 		AssetVersion: found.AppliedAssetVersion,
 		StreamID:     found.AppliedStreamID, StreamPosition: found.AppliedStreamPosition,
-		ActiveEventID:                found.AppliedActiveEventID,
-		ActivationGeneration:         found.AppliedActivationGeneration,
-		PublishedRevision:            found.AppliedPublishedRevision,
-		AppliedStandby:               found.AppliedStandby,
-		ClockOffsetMilliseconds:      found.ClockOffsetMilliseconds,
-		ClockUncertaintyMilliseconds: found.ClockUncertaintyMilliseconds,
-		RendererUnstable:             found.RendererUnstable,
+		ActiveEventID:                 found.AppliedActiveEventID,
+		ActivationGeneration:          found.AppliedActivationGeneration,
+		PublishedRevision:             found.AppliedPublishedRevision,
+		StageMessageID:                found.AppliedStageMessageID,
+		StageMessageRevision:          found.AppliedStageMessageRevision,
+		TechnicalDifficultiesID:       found.AppliedTechnicalDifficultiesID,
+		TechnicalDifficultiesRevision: found.AppliedTechnicalDifficultiesRevision,
+		AppliedStandby:                found.AppliedStandby,
+		ClockOffsetMilliseconds:       found.ClockOffsetMilliseconds,
+		ClockUncertaintyMilliseconds:  found.ClockUncertaintyMilliseconds,
+		RendererUnstable:              found.RendererUnstable,
 	}
 	if found.AppliedAt != nil {
 		result.AppliedAt = *found.AppliedAt
@@ -144,6 +157,33 @@ func sameAcknowledgment(first, second DisplayAcknowledgment) bool {
 }
 
 func sameAppliedState(first, second DisplayAcknowledgment) bool {
+	return sameAppliedStateWithoutOverrides(first, second) &&
+		first.StageMessageID == second.StageMessageID &&
+		first.StageMessageRevision == second.StageMessageRevision &&
+		first.TechnicalDifficultiesID == second.TechnicalDifficultiesID &&
+		first.TechnicalDifficultiesRevision == second.TechnicalDifficultiesRevision
+}
+
+func sameStateWithExpiredOverrides(first, second DisplayAcknowledgment) bool {
+	return sameAppliedStateWithoutOverrides(first, second) &&
+		overrideReferenceClearedOrEqual(
+			first.StageMessageID, first.StageMessageRevision,
+			second.StageMessageID, second.StageMessageRevision,
+		) &&
+		overrideReferenceClearedOrEqual(
+			first.TechnicalDifficultiesID, first.TechnicalDifficultiesRevision,
+			second.TechnicalDifficultiesID, second.TechnicalDifficultiesRevision,
+		)
+}
+
+func overrideReferenceClearedOrEqual(
+	firstID, firstRevision, secondID, secondRevision int,
+) bool {
+	return firstID == secondID && firstRevision == secondRevision ||
+		firstID > 0 && secondID == 0 && secondRevision == 0
+}
+
+func sameAppliedStateWithoutOverrides(first, second DisplayAcknowledgment) bool {
 	return first.ProtocolVersion == second.ProtocolVersion &&
 		first.AssetVersion == second.AssetVersion &&
 		first.StreamID == second.StreamID &&

@@ -246,6 +246,10 @@ var (
 		{Name: "applied_active_event_id", Type: field.TypeInt, Default: 0},
 		{Name: "applied_activation_generation", Type: field.TypeInt, Default: 0},
 		{Name: "applied_published_revision", Type: field.TypeInt, Default: 0},
+		{Name: "applied_stage_message_id", Type: field.TypeInt, Default: 0},
+		{Name: "applied_stage_message_revision", Type: field.TypeInt, Default: 0},
+		{Name: "applied_technical_difficulties_id", Type: field.TypeInt, Default: 0},
+		{Name: "applied_technical_difficulties_revision", Type: field.TypeInt, Default: 0},
 		{Name: "applied_standby", Type: field.TypeBool, Default: true},
 		{Name: "clock_offset_milliseconds", Type: field.TypeInt64, Default: 0},
 		{Name: "clock_uncertainty_milliseconds", Type: field.TypeInt64, Default: 0},
@@ -262,6 +266,7 @@ var (
 	DisplayAssignmentsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "view_key", Type: field.TypeString, Size: 100},
+		{Name: "display_group_keys", Type: field.TypeJSON, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "display_id", Type: field.TypeInt},
@@ -276,19 +281,19 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "display_assignments_displays_assignments",
-				Columns:    []*schema.Column{DisplayAssignmentsColumns[4]},
+				Columns:    []*schema.Column{DisplayAssignmentsColumns[5]},
 				RefColumns: []*schema.Column{DisplaysColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "display_assignments_events_display_assignments",
-				Columns:    []*schema.Column{DisplayAssignmentsColumns[5]},
+				Columns:    []*schema.Column{DisplayAssignmentsColumns[6]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "display_assignments_locations_display_assignments",
-				Columns:    []*schema.Column{DisplayAssignmentsColumns[6]},
+				Columns:    []*schema.Column{DisplayAssignmentsColumns[7]},
 				RefColumns: []*schema.Column{LocationsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -297,12 +302,12 @@ var (
 			{
 				Name:    "displayassignment_display_id_event_id",
 				Unique:  true,
-				Columns: []*schema.Column{DisplayAssignmentsColumns[4], DisplayAssignmentsColumns[5]},
+				Columns: []*schema.Column{DisplayAssignmentsColumns[5], DisplayAssignmentsColumns[6]},
 			},
 			{
 				Name:    "displayassignment_event_id_location_id",
 				Unique:  false,
-				Columns: []*schema.Column{DisplayAssignmentsColumns[5], DisplayAssignmentsColumns[6]},
+				Columns: []*schema.Column{DisplayAssignmentsColumns[6], DisplayAssignmentsColumns[7]},
 			},
 		},
 	}
@@ -342,6 +347,90 @@ var (
 		Name:       "display_enrollments",
 		Columns:    DisplayEnrollmentsColumns,
 		PrimaryKey: []*schema.Column{DisplayEnrollmentsColumns[0]},
+	}
+	// DisplayOverridesColumns holds the columns for the "display_overrides" table.
+	DisplayOverridesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "target_group_key", Type: field.TypeString, Size: 100},
+		{Name: "kind", Type: field.TypeEnum, Enums: []string{"StageMessage", "TechnicalDifficulties"}},
+		{Name: "text", Type: field.TypeString, Size: 2000},
+		{Name: "emphasis", Type: field.TypeEnum, Enums: []string{"Normal", "Attention", "Urgent"}, Default: "Normal"},
+		{Name: "preset_key", Type: field.TypeString, Nullable: true, Size: 100},
+		{Name: "until_cleared", Type: field.TypeBool, Default: false},
+		{Name: "expires_at", Type: field.TypeTime, Nullable: true},
+		{Name: "cleared_at", Type: field.TypeTime, Nullable: true},
+		{Name: "revision", Type: field.TypeInt, Default: 1},
+		{Name: "created_by_account_id", Type: field.TypeInt},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "event_id", Type: field.TypeInt},
+	}
+	// DisplayOverridesTable holds the schema information for the "display_overrides" table.
+	DisplayOverridesTable = &schema.Table{
+		Name:       "display_overrides",
+		Columns:    DisplayOverridesColumns,
+		PrimaryKey: []*schema.Column{DisplayOverridesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "display_overrides_events_display_overrides",
+				Columns:    []*schema.Column{DisplayOverridesColumns[12]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "displayoverride_event_id_kind_target_group_key_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{DisplayOverridesColumns[12], DisplayOverridesColumns[2], DisplayOverridesColumns[1], DisplayOverridesColumns[11]},
+			},
+			{
+				Name:    "displayoverride_event_id_cleared_at_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{DisplayOverridesColumns[12], DisplayOverridesColumns[8], DisplayOverridesColumns[7]},
+			},
+		},
+	}
+	// DisplayOverrideStatesColumns holds the columns for the "display_override_states" table.
+	DisplayOverrideStatesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "event_id", Type: field.TypeInt},
+		{Name: "kind", Type: field.TypeEnum, Enums: []string{"StageMessage", "TechnicalDifficulties"}},
+		{Name: "revision", Type: field.TypeInt, Default: 1},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "display_id", Type: field.TypeInt},
+		{Name: "override_id", Type: field.TypeInt},
+	}
+	// DisplayOverrideStatesTable holds the schema information for the "display_override_states" table.
+	DisplayOverrideStatesTable = &schema.Table{
+		Name:       "display_override_states",
+		Columns:    DisplayOverrideStatesColumns,
+		PrimaryKey: []*schema.Column{DisplayOverrideStatesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "display_override_states_displays_override_states",
+				Columns:    []*schema.Column{DisplayOverrideStatesColumns[5]},
+				RefColumns: []*schema.Column{DisplaysColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "display_override_states_display_overrides_states",
+				Columns:    []*schema.Column{DisplayOverrideStatesColumns[6]},
+				RefColumns: []*schema.Column{DisplayOverridesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "displayoverridestate_event_id_display_id_kind",
+				Unique:  true,
+				Columns: []*schema.Column{DisplayOverrideStatesColumns[1], DisplayOverrideStatesColumns[5], DisplayOverrideStatesColumns[2]},
+			},
+			{
+				Name:    "displayoverridestate_override_id",
+				Unique:  false,
+				Columns: []*schema.Column{DisplayOverrideStatesColumns[6]},
+			},
+		},
 	}
 	// DraftChangesColumns holds the columns for the "draft_changes" table.
 	DraftChangesColumns = []*schema.Column{
@@ -475,6 +564,9 @@ var (
 		{Name: "attachment_release_cue_session_id", Type: field.TypeInt, Nullable: true},
 		{Name: "attachment_release_cue_at", Type: field.TypeTime, Nullable: true},
 		{Name: "attachment_release_revision", Type: field.TypeInt, Default: 0},
+		{Name: "stage_message_presets", Type: field.TypeString, Size: 65536, Default: "[]"},
+		{Name: "stage_message_default_duration_seconds", Type: field.TypeInt, Default: 10},
+		{Name: "stage_message_configuration_revision", Type: field.TypeInt, Default: 0},
 		{Name: "revision", Type: field.TypeInt, Default: 1},
 		{Name: "created_at", Type: field.TypeTime},
 	}
@@ -1317,6 +1409,8 @@ var (
 		DisplayAssignmentsTable,
 		DisplayCredentialsTable,
 		DisplayEnrollmentsTable,
+		DisplayOverridesTable,
+		DisplayOverrideStatesTable,
 		DraftChangesTable,
 		DraftChangeDependenciesTable,
 		DraftEditsTable,
@@ -1364,6 +1458,9 @@ func init() {
 	DisplayAssignmentsTable.ForeignKeys[1].RefTable = EventsTable
 	DisplayAssignmentsTable.ForeignKeys[2].RefTable = LocationsTable
 	DisplayCredentialsTable.ForeignKeys[0].RefTable = DisplaysTable
+	DisplayOverridesTable.ForeignKeys[0].RefTable = EventsTable
+	DisplayOverrideStatesTable.ForeignKeys[0].RefTable = DisplaysTable
+	DisplayOverrideStatesTable.ForeignKeys[1].RefTable = DisplayOverridesTable
 	DraftChangesTable.ForeignKeys[0].RefTable = DraftEditsTable
 	DraftChangesTable.ForeignKeys[1].RefTable = EventsTable
 	DraftChangeDependenciesTable.ForeignKeys[0].RefTable = DraftChangesTable

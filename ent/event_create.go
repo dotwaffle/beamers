@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/displayassignment"
+	"github.com/dotwaffle/beamers/ent/displayoverride"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/event"
@@ -176,6 +177,48 @@ func (_c *EventCreate) SetAttachmentReleaseRevision(v int) *EventCreate {
 func (_c *EventCreate) SetNillableAttachmentReleaseRevision(v *int) *EventCreate {
 	if v != nil {
 		_c.SetAttachmentReleaseRevision(*v)
+	}
+	return _c
+}
+
+// SetStageMessagePresets sets the "stage_message_presets" field.
+func (_c *EventCreate) SetStageMessagePresets(v string) *EventCreate {
+	_c.mutation.SetStageMessagePresets(v)
+	return _c
+}
+
+// SetNillableStageMessagePresets sets the "stage_message_presets" field if the given value is not nil.
+func (_c *EventCreate) SetNillableStageMessagePresets(v *string) *EventCreate {
+	if v != nil {
+		_c.SetStageMessagePresets(*v)
+	}
+	return _c
+}
+
+// SetStageMessageDefaultDurationSeconds sets the "stage_message_default_duration_seconds" field.
+func (_c *EventCreate) SetStageMessageDefaultDurationSeconds(v int) *EventCreate {
+	_c.mutation.SetStageMessageDefaultDurationSeconds(v)
+	return _c
+}
+
+// SetNillableStageMessageDefaultDurationSeconds sets the "stage_message_default_duration_seconds" field if the given value is not nil.
+func (_c *EventCreate) SetNillableStageMessageDefaultDurationSeconds(v *int) *EventCreate {
+	if v != nil {
+		_c.SetStageMessageDefaultDurationSeconds(*v)
+	}
+	return _c
+}
+
+// SetStageMessageConfigurationRevision sets the "stage_message_configuration_revision" field.
+func (_c *EventCreate) SetStageMessageConfigurationRevision(v int) *EventCreate {
+	_c.mutation.SetStageMessageConfigurationRevision(v)
+	return _c
+}
+
+// SetNillableStageMessageConfigurationRevision sets the "stage_message_configuration_revision" field if the given value is not nil.
+func (_c *EventCreate) SetNillableStageMessageConfigurationRevision(v *int) *EventCreate {
+	if v != nil {
+		_c.SetStageMessageConfigurationRevision(*v)
 	}
 	return _c
 }
@@ -392,6 +435,21 @@ func (_c *EventCreate) AddDisplayAssignments(v ...*DisplayAssignment) *EventCrea
 	return _c.AddDisplayAssignmentIDs(ids...)
 }
 
+// AddDisplayOverrideIDs adds the "display_overrides" edge to the DisplayOverride entity by IDs.
+func (_c *EventCreate) AddDisplayOverrideIDs(ids ...int) *EventCreate {
+	_c.mutation.AddDisplayOverrideIDs(ids...)
+	return _c
+}
+
+// AddDisplayOverrides adds the "display_overrides" edges to the DisplayOverride entity.
+func (_c *EventCreate) AddDisplayOverrides(v ...*DisplayOverride) *EventCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddDisplayOverrideIDs(ids...)
+}
+
 // Mutation returns the EventMutation object of the builder.
 func (_c *EventCreate) Mutation() *EventMutation {
 	return _c.mutation
@@ -448,6 +506,18 @@ func (_c *EventCreate) defaults() error {
 	if _, ok := _c.mutation.AttachmentReleaseRevision(); !ok {
 		v := event.DefaultAttachmentReleaseRevision
 		_c.mutation.SetAttachmentReleaseRevision(v)
+	}
+	if _, ok := _c.mutation.StageMessagePresets(); !ok {
+		v := event.DefaultStageMessagePresets
+		_c.mutation.SetStageMessagePresets(v)
+	}
+	if _, ok := _c.mutation.StageMessageDefaultDurationSeconds(); !ok {
+		v := event.DefaultStageMessageDefaultDurationSeconds
+		_c.mutation.SetStageMessageDefaultDurationSeconds(v)
+	}
+	if _, ok := _c.mutation.StageMessageConfigurationRevision(); !ok {
+		v := event.DefaultStageMessageConfigurationRevision
+		_c.mutation.SetStageMessageConfigurationRevision(v)
 	}
 	if _, ok := _c.mutation.Revision(); !ok {
 		v := event.DefaultRevision
@@ -563,6 +633,30 @@ func (_c *EventCreate) check() error {
 			return &ValidationError{Name: "attachment_release_revision", err: fmt.Errorf(`ent: validator failed for field "Event.attachment_release_revision": %w`, err)}
 		}
 	}
+	if _, ok := _c.mutation.StageMessagePresets(); !ok {
+		return &ValidationError{Name: "stage_message_presets", err: errors.New(`ent: missing required field "Event.stage_message_presets"`)}
+	}
+	if v, ok := _c.mutation.StageMessagePresets(); ok {
+		if err := event.StageMessagePresetsValidator(v); err != nil {
+			return &ValidationError{Name: "stage_message_presets", err: fmt.Errorf(`ent: validator failed for field "Event.stage_message_presets": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.StageMessageDefaultDurationSeconds(); !ok {
+		return &ValidationError{Name: "stage_message_default_duration_seconds", err: errors.New(`ent: missing required field "Event.stage_message_default_duration_seconds"`)}
+	}
+	if v, ok := _c.mutation.StageMessageDefaultDurationSeconds(); ok {
+		if err := event.StageMessageDefaultDurationSecondsValidator(v); err != nil {
+			return &ValidationError{Name: "stage_message_default_duration_seconds", err: fmt.Errorf(`ent: validator failed for field "Event.stage_message_default_duration_seconds": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.StageMessageConfigurationRevision(); !ok {
+		return &ValidationError{Name: "stage_message_configuration_revision", err: errors.New(`ent: missing required field "Event.stage_message_configuration_revision"`)}
+	}
+	if v, ok := _c.mutation.StageMessageConfigurationRevision(); ok {
+		if err := event.StageMessageConfigurationRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "stage_message_configuration_revision", err: fmt.Errorf(`ent: validator failed for field "Event.stage_message_configuration_revision": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.Revision(); !ok {
 		return &ValidationError{Name: "revision", err: errors.New(`ent: missing required field "Event.revision"`)}
 	}
@@ -650,6 +744,18 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.AttachmentReleaseRevision(); ok {
 		_spec.SetField(event.FieldAttachmentReleaseRevision, field.TypeInt, value)
 		_node.AttachmentReleaseRevision = value
+	}
+	if value, ok := _c.mutation.StageMessagePresets(); ok {
+		_spec.SetField(event.FieldStageMessagePresets, field.TypeString, value)
+		_node.StageMessagePresets = value
+	}
+	if value, ok := _c.mutation.StageMessageDefaultDurationSeconds(); ok {
+		_spec.SetField(event.FieldStageMessageDefaultDurationSeconds, field.TypeInt, value)
+		_node.StageMessageDefaultDurationSeconds = value
+	}
+	if value, ok := _c.mutation.StageMessageConfigurationRevision(); ok {
+		_spec.SetField(event.FieldStageMessageConfigurationRevision, field.TypeInt, value)
+		_node.StageMessageConfigurationRevision = value
 	}
 	if value, ok := _c.mutation.Revision(); ok {
 		_spec.SetField(event.FieldRevision, field.TypeInt, value)
@@ -844,6 +950,22 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(displayassignment.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.DisplayOverridesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DisplayOverridesTable,
+			Columns: []string{event.DisplayOverridesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(displayoverride.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

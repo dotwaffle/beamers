@@ -210,6 +210,16 @@ func ViewKeyContainsFold(v string) predicate.DisplayAssignment {
 	return predicate.DisplayAssignment(sql.FieldContainsFold(FieldViewKey, v))
 }
 
+// DisplayGroupKeysIsNil applies the IsNil predicate on the "display_group_keys" field.
+func DisplayGroupKeysIsNil() predicate.DisplayAssignment {
+	return predicate.DisplayAssignment(sql.FieldIsNull(FieldDisplayGroupKeys))
+}
+
+// DisplayGroupKeysNotNil applies the NotNil predicate on the "display_group_keys" field.
+func DisplayGroupKeysNotNil() predicate.DisplayAssignment {
+	return predicate.DisplayAssignment(sql.FieldNotNull(FieldDisplayGroupKeys))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.DisplayAssignment {
 	return predicate.DisplayAssignment(sql.FieldEQ(FieldCreatedAt, v))

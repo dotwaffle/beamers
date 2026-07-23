@@ -23,6 +23,8 @@ const (
 	FieldLocationID = "location_id"
 	// FieldViewKey holds the string denoting the view_key field in the database.
 	FieldViewKey = "view_key"
+	// FieldDisplayGroupKeys holds the string denoting the display_group_keys field in the database.
+	FieldDisplayGroupKeys = "display_group_keys"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
@@ -65,6 +67,7 @@ var Columns = []string{
 	FieldEventID,
 	FieldLocationID,
 	FieldViewKey,
+	FieldDisplayGroupKeys,
 	FieldCreatedAt,
 	FieldUpdatedAt,
 }

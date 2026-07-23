@@ -42,6 +42,12 @@ type DisplayCredential func(*sql.Selector)
 // DisplayEnrollment is the predicate function for displayenrollment builders.
 type DisplayEnrollment func(*sql.Selector)
 
+// DisplayOverride is the predicate function for displayoverride builders.
+type DisplayOverride func(*sql.Selector)
+
+// DisplayOverrideState is the predicate function for displayoverridestate builders.
+type DisplayOverrideState func(*sql.Selector)
+
 // DraftChange is the predicate function for draftchange builders.
 type DraftChange func(*sql.Selector)
 

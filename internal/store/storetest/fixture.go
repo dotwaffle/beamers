@@ -8,9 +8,37 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"time"
 
 	_ "modernc.org/sqlite" // Register the pure-Go SQLite fixture driver.
 )
+
+// SetDisplayOverrideExpiry deterministically changes one test Override deadline.
+func SetDisplayOverrideExpiry(
+	ctx context.Context,
+	path string,
+	overrideID int,
+	expiresAt time.Time,
+) error {
+	if overrideID <= 0 {
+		return errors.New("display Override ID must be positive")
+	}
+	return mutateSchema(path, func(database *sql.DB) error {
+		const statement = "UPDATE display_overrides SET expires_at = ? WHERE id = ?"
+		result, err := database.ExecContext(ctx, statement, expiresAt.UTC(), overrideID)
+		if err != nil {
+			return fmt.Errorf("set Display Override expiry: %w", err)
+		}
+		updated, err := result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("read Display Override expiry update count: %w", err)
+		}
+		if updated != 1 {
+			return fmt.Errorf("set Display Override expiry: updated %d rows", updated)
+		}
+		return nil
+	})
+}
 
 // MarkSchemaNewer makes an initialized fixture newer than the executable.
 func MarkSchemaNewer(ctx context.Context, path string) error {

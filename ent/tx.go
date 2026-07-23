@@ -36,6 +36,10 @@ type Tx struct {
 	DisplayCredential *DisplayCredentialClient
 	// DisplayEnrollment is the client for interacting with the DisplayEnrollment builders.
 	DisplayEnrollment *DisplayEnrollmentClient
+	// DisplayOverride is the client for interacting with the DisplayOverride builders.
+	DisplayOverride *DisplayOverrideClient
+	// DisplayOverrideState is the client for interacting with the DisplayOverrideState builders.
+	DisplayOverrideState *DisplayOverrideStateClient
 	// DraftChange is the client for interacting with the DraftChange builders.
 	DraftChange *DraftChangeClient
 	// DraftChangeDependency is the client for interacting with the DraftChangeDependency builders.
@@ -233,6 +237,8 @@ func (tx *Tx) init() {
 	tx.DisplayAssignment = NewDisplayAssignmentClient(tx.config)
 	tx.DisplayCredential = NewDisplayCredentialClient(tx.config)
 	tx.DisplayEnrollment = NewDisplayEnrollmentClient(tx.config)
+	tx.DisplayOverride = NewDisplayOverrideClient(tx.config)
+	tx.DisplayOverrideState = NewDisplayOverrideStateClient(tx.config)
 	tx.DraftChange = NewDraftChangeClient(tx.config)
 	tx.DraftChangeDependency = NewDraftChangeDependencyClient(tx.config)
 	tx.DraftEdit = NewDraftEditClient(tx.config)

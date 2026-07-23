@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/location"
@@ -54,6 +55,24 @@ func (_u *DisplayAssignmentUpdate) SetNillableViewKey(v *string) *DisplayAssignm
 	if v != nil {
 		_u.SetViewKey(*v)
 	}
+	return _u
+}
+
+// SetDisplayGroupKeys sets the "display_group_keys" field.
+func (_u *DisplayAssignmentUpdate) SetDisplayGroupKeys(v []string) *DisplayAssignmentUpdate {
+	_u.mutation.SetDisplayGroupKeys(v)
+	return _u
+}
+
+// AppendDisplayGroupKeys appends value to the "display_group_keys" field.
+func (_u *DisplayAssignmentUpdate) AppendDisplayGroupKeys(v []string) *DisplayAssignmentUpdate {
+	_u.mutation.AppendDisplayGroupKeys(v)
+	return _u
+}
+
+// ClearDisplayGroupKeys clears the value of the "display_group_keys" field.
+func (_u *DisplayAssignmentUpdate) ClearDisplayGroupKeys() *DisplayAssignmentUpdate {
+	_u.mutation.ClearDisplayGroupKeys()
 	return _u
 }
 
@@ -148,6 +167,17 @@ func (_u *DisplayAssignmentUpdate) sqlSave(ctx context.Context) (_node int, err 
 	if value, ok := _u.mutation.ViewKey(); ok {
 		_spec.SetField(displayassignment.FieldViewKey, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.DisplayGroupKeys(); ok {
+		_spec.SetField(displayassignment.FieldDisplayGroupKeys, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedDisplayGroupKeys(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, displayassignment.FieldDisplayGroupKeys, value)
+		})
+	}
+	if _u.mutation.DisplayGroupKeysCleared() {
+		_spec.ClearField(displayassignment.FieldDisplayGroupKeys, field.TypeJSON)
+	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(displayassignment.FieldUpdatedAt, field.TypeTime, value)
 	}
@@ -225,6 +255,24 @@ func (_u *DisplayAssignmentUpdateOne) SetNillableViewKey(v *string) *DisplayAssi
 	if v != nil {
 		_u.SetViewKey(*v)
 	}
+	return _u
+}
+
+// SetDisplayGroupKeys sets the "display_group_keys" field.
+func (_u *DisplayAssignmentUpdateOne) SetDisplayGroupKeys(v []string) *DisplayAssignmentUpdateOne {
+	_u.mutation.SetDisplayGroupKeys(v)
+	return _u
+}
+
+// AppendDisplayGroupKeys appends value to the "display_group_keys" field.
+func (_u *DisplayAssignmentUpdateOne) AppendDisplayGroupKeys(v []string) *DisplayAssignmentUpdateOne {
+	_u.mutation.AppendDisplayGroupKeys(v)
+	return _u
+}
+
+// ClearDisplayGroupKeys clears the value of the "display_group_keys" field.
+func (_u *DisplayAssignmentUpdateOne) ClearDisplayGroupKeys() *DisplayAssignmentUpdateOne {
+	_u.mutation.ClearDisplayGroupKeys()
 	return _u
 }
 
@@ -348,6 +396,17 @@ func (_u *DisplayAssignmentUpdateOne) sqlSave(ctx context.Context) (_node *Displ
 	}
 	if value, ok := _u.mutation.ViewKey(); ok {
 		_spec.SetField(displayassignment.FieldViewKey, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.DisplayGroupKeys(); ok {
+		_spec.SetField(displayassignment.FieldDisplayGroupKeys, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedDisplayGroupKeys(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, displayassignment.FieldDisplayGroupKeys, value)
+		})
+	}
+	if _u.mutation.DisplayGroupKeysCleared() {
+		_spec.ClearField(displayassignment.FieldDisplayGroupKeys, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(displayassignment.FieldUpdatedAt, field.TypeTime, value)

@@ -37,6 +37,14 @@ type Display struct {
 	AppliedActivationGeneration int `json:"applied_activation_generation,omitempty"`
 	// AppliedPublishedRevision holds the value of the "applied_published_revision" field.
 	AppliedPublishedRevision int `json:"applied_published_revision,omitempty"`
+	// AppliedStageMessageID holds the value of the "applied_stage_message_id" field.
+	AppliedStageMessageID int `json:"applied_stage_message_id,omitempty"`
+	// AppliedStageMessageRevision holds the value of the "applied_stage_message_revision" field.
+	AppliedStageMessageRevision int `json:"applied_stage_message_revision,omitempty"`
+	// AppliedTechnicalDifficultiesID holds the value of the "applied_technical_difficulties_id" field.
+	AppliedTechnicalDifficultiesID int `json:"applied_technical_difficulties_id,omitempty"`
+	// AppliedTechnicalDifficultiesRevision holds the value of the "applied_technical_difficulties_revision" field.
+	AppliedTechnicalDifficultiesRevision int `json:"applied_technical_difficulties_revision,omitempty"`
 	// AppliedStandby holds the value of the "applied_standby" field.
 	AppliedStandby bool `json:"applied_standby,omitempty"`
 	// ClockOffsetMilliseconds holds the value of the "clock_offset_milliseconds" field.
@@ -59,9 +67,11 @@ type DisplayEdges struct {
 	Credentials []*DisplayCredential `json:"credentials,omitempty"`
 	// Assignments holds the value of the assignments edge.
 	Assignments []*DisplayAssignment `json:"assignments,omitempty"`
+	// OverrideStates holds the value of the override_states edge.
+	OverrideStates []*DisplayOverrideState `json:"override_states,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [3]bool
 }
 
 // CredentialsOrErr returns the Credentials value or an error if the edge
@@ -82,6 +92,15 @@ func (e DisplayEdges) AssignmentsOrErr() ([]*DisplayAssignment, error) {
 	return nil, &NotLoadedError{edge: "assignments"}
 }
 
+// OverrideStatesOrErr returns the OverrideStates value or an error if the edge
+// was not loaded in eager-loading.
+func (e DisplayEdges) OverrideStatesOrErr() ([]*DisplayOverrideState, error) {
+	if e.loadedTypes[2] {
+		return e.OverrideStates, nil
+	}
+	return nil, &NotLoadedError{edge: "override_states"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Display) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -89,7 +108,7 @@ func (*Display) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case display.FieldAppliedStandby, display.FieldRendererUnstable:
 			values[i] = new(sql.NullBool)
-		case display.FieldID, display.FieldAppliedStreamPosition, display.FieldAppliedActiveEventID, display.FieldAppliedActivationGeneration, display.FieldAppliedPublishedRevision, display.FieldClockOffsetMilliseconds, display.FieldClockUncertaintyMilliseconds:
+		case display.FieldID, display.FieldAppliedStreamPosition, display.FieldAppliedActiveEventID, display.FieldAppliedActivationGeneration, display.FieldAppliedPublishedRevision, display.FieldAppliedStageMessageID, display.FieldAppliedStageMessageRevision, display.FieldAppliedTechnicalDifficultiesID, display.FieldAppliedTechnicalDifficultiesRevision, display.FieldClockOffsetMilliseconds, display.FieldClockUncertaintyMilliseconds:
 			values[i] = new(sql.NullInt64)
 		case display.FieldName, display.FieldAppliedProtocolVersion, display.FieldAppliedAssetVersion, display.FieldAppliedStreamID:
 			values[i] = new(sql.NullString)
@@ -176,6 +195,30 @@ func (_m *Display) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.AppliedPublishedRevision = int(value.Int64)
 			}
+		case display.FieldAppliedStageMessageID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field applied_stage_message_id", values[i])
+			} else if value.Valid {
+				_m.AppliedStageMessageID = int(value.Int64)
+			}
+		case display.FieldAppliedStageMessageRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field applied_stage_message_revision", values[i])
+			} else if value.Valid {
+				_m.AppliedStageMessageRevision = int(value.Int64)
+			}
+		case display.FieldAppliedTechnicalDifficultiesID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field applied_technical_difficulties_id", values[i])
+			} else if value.Valid {
+				_m.AppliedTechnicalDifficultiesID = int(value.Int64)
+			}
+		case display.FieldAppliedTechnicalDifficultiesRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field applied_technical_difficulties_revision", values[i])
+			} else if value.Valid {
+				_m.AppliedTechnicalDifficultiesRevision = int(value.Int64)
+			}
 		case display.FieldAppliedStandby:
 			if value, ok := values[i].(*sql.NullBool); !ok {
 				return fmt.Errorf("unexpected type %T for field applied_standby", values[i])
@@ -230,6 +273,11 @@ func (_m *Display) QueryAssignments() *DisplayAssignmentQuery {
 	return NewDisplayClient(_m.config).QueryAssignments(_m)
 }
 
+// QueryOverrideStates queries the "override_states" edge of the Display entity.
+func (_m *Display) QueryOverrideStates() *DisplayOverrideStateQuery {
+	return NewDisplayClient(_m.config).QueryOverrideStates(_m)
+}
+
 // Update returns a builder for updating this Display.
 // Note that you need to call Display.Unwrap() before calling this method if this Display
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -282,6 +330,18 @@ func (_m *Display) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("applied_published_revision=")
 	builder.WriteString(fmt.Sprintf("%v", _m.AppliedPublishedRevision))
+	builder.WriteString(", ")
+	builder.WriteString("applied_stage_message_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AppliedStageMessageID))
+	builder.WriteString(", ")
+	builder.WriteString("applied_stage_message_revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AppliedStageMessageRevision))
+	builder.WriteString(", ")
+	builder.WriteString("applied_technical_difficulties_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AppliedTechnicalDifficultiesID))
+	builder.WriteString(", ")
+	builder.WriteString("applied_technical_difficulties_revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AppliedTechnicalDifficultiesRevision))
 	builder.WriteString(", ")
 	builder.WriteString("applied_standby=")
 	builder.WriteString(fmt.Sprintf("%v", _m.AppliedStandby))

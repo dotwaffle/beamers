@@ -26,6 +26,7 @@ func (DisplayAssignment) Fields() []ent.Field {
 		field.Int("event_id").Immutable(),
 		field.Int("location_id"),
 		field.String("view_key").NotEmpty().MaxLen(100),
+		field.JSON("display_group_keys", []string{}).Optional(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 		field.Time("updated_at").Default(time.Now),
 	}

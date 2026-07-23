@@ -47,37 +47,42 @@ type Display struct {
 
 // DisplayAssignment is one Event-specific normal route.
 type DisplayAssignment struct {
-	DisplayID  int    `json:"display_id"`
-	EventID    int    `json:"event_id"`
-	LocationID int    `json:"location_id"`
-	ViewKey    string `json:"view_key"`
+	DisplayID        int      `json:"display_id"`
+	EventID          int      `json:"event_id"`
+	LocationID       int      `json:"location_id"`
+	ViewKey          string   `json:"view_key"`
+	DisplayGroupKeys []string `json:"display_group_keys,omitempty"`
 }
 
 // DisplayStatus is one crew-visible current routing summary.
 type DisplayStatus struct {
-	ID                           int
-	Name                         string
-	ActiveEventID                int
-	ActivationGeneration         int
-	PublishedRevision            int
-	Standby                      bool
-	EventName                    string
-	LocationID                   int
-	LocationName                 string
-	ViewKey                      string
-	ProgramChannelID             int
-	AppliedProtocolVersion       string
-	AppliedAssetVersion          string
-	AppliedStreamID              string
-	AppliedStreamPosition        int64
-	AppliedActiveEventID         int
-	AppliedActivationGeneration  int
-	AppliedPublishedRevision     int
-	AppliedStandby               bool
-	AppliedAt                    *time.Time
-	ClockOffsetMilliseconds      int64
-	ClockUncertaintyMilliseconds int64
-	RendererUnstable             bool
+	ID                                   int
+	Name                                 string
+	ActiveEventID                        int
+	ActivationGeneration                 int
+	PublishedRevision                    int
+	Standby                              bool
+	EventName                            string
+	LocationID                           int
+	LocationName                         string
+	ViewKey                              string
+	ProgramChannelID                     int
+	AppliedProtocolVersion               string
+	AppliedAssetVersion                  string
+	AppliedStreamID                      string
+	AppliedStreamPosition                int64
+	AppliedActiveEventID                 int
+	AppliedActivationGeneration          int
+	AppliedPublishedRevision             int
+	AppliedStageMessageID                int
+	AppliedStageMessageRevision          int
+	AppliedTechnicalDifficultiesID       int
+	AppliedTechnicalDifficultiesRevision int
+	AppliedStandby                       bool
+	AppliedAt                            *time.Time
+	ClockOffsetMilliseconds              int64
+	ClockUncertaintyMilliseconds         int64
+	RendererUnstable                     bool
 }
 
 // IssueDisplayEnrollment stores one short-lived, single-use enrollment offer.
@@ -218,6 +223,7 @@ func (transaction *CommandTx) AssignDisplay(
 			SetEventID(assignment.EventID).
 			SetLocationID(assignment.LocationID).
 			SetViewKey(assignment.ViewKey).
+			SetDisplayGroupKeys(assignment.DisplayGroupKeys).
 			SetCreatedAt(now).
 			SetUpdatedAt(now).
 			Save(internalContext)
@@ -225,11 +231,15 @@ func (transaction *CommandTx) AssignDisplay(
 		_, err = transaction.transaction.DisplayAssignment.UpdateOneID(existing.ID).
 			SetLocationID(assignment.LocationID).
 			SetViewKey(assignment.ViewKey).
+			SetDisplayGroupKeys(assignment.DisplayGroupKeys).
 			SetUpdatedAt(now).
 			Save(internalContext)
 	}
 	if err != nil {
 		return DisplayAssignment{}, opaqueError("save Display Assignment", err)
+	}
+	if syncErr := transaction.syncDisplayOverridesForAssignment(ctx, assignment, now); syncErr != nil {
+		return DisplayAssignment{}, syncErr
 	}
 	return assignment, nil
 }
@@ -325,20 +335,24 @@ func loadDisplayStatus(
 	status := DisplayStatus{
 		ID: found.ID, Name: found.Name, Standby: true,
 		ActiveEventID: routing.ActiveEventID, EventName: routing.EventName,
-		ActivationGeneration:         routing.ActivationGeneration,
-		PublishedRevision:            routing.PublishedRevision,
-		AppliedProtocolVersion:       found.AppliedProtocolVersion,
-		AppliedAssetVersion:          found.AppliedAssetVersion,
-		AppliedStreamID:              found.AppliedStreamID,
-		AppliedStreamPosition:        found.AppliedStreamPosition,
-		AppliedActiveEventID:         found.AppliedActiveEventID,
-		AppliedActivationGeneration:  found.AppliedActivationGeneration,
-		AppliedPublishedRevision:     found.AppliedPublishedRevision,
-		AppliedStandby:               found.AppliedStandby,
-		AppliedAt:                    found.AppliedAt,
-		ClockOffsetMilliseconds:      found.ClockOffsetMilliseconds,
-		ClockUncertaintyMilliseconds: found.ClockUncertaintyMilliseconds,
-		RendererUnstable:             found.RendererUnstable,
+		ActivationGeneration:                 routing.ActivationGeneration,
+		PublishedRevision:                    routing.PublishedRevision,
+		AppliedProtocolVersion:               found.AppliedProtocolVersion,
+		AppliedAssetVersion:                  found.AppliedAssetVersion,
+		AppliedStreamID:                      found.AppliedStreamID,
+		AppliedStreamPosition:                found.AppliedStreamPosition,
+		AppliedActiveEventID:                 found.AppliedActiveEventID,
+		AppliedActivationGeneration:          found.AppliedActivationGeneration,
+		AppliedPublishedRevision:             found.AppliedPublishedRevision,
+		AppliedStageMessageID:                found.AppliedStageMessageID,
+		AppliedStageMessageRevision:          found.AppliedStageMessageRevision,
+		AppliedTechnicalDifficultiesID:       found.AppliedTechnicalDifficultiesID,
+		AppliedTechnicalDifficultiesRevision: found.AppliedTechnicalDifficultiesRevision,
+		AppliedStandby:                       found.AppliedStandby,
+		AppliedAt:                            found.AppliedAt,
+		ClockOffsetMilliseconds:              found.ClockOffsetMilliseconds,
+		ClockUncertaintyMilliseconds:         found.ClockUncertaintyMilliseconds,
+		RendererUnstable:                     found.RendererUnstable,
 	}
 	if routing.ActiveEventID == 0 {
 		return status, nil

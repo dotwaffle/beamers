@@ -49,6 +49,17 @@ func displayPersistent(persistent bool) string {
 	return strconv.FormatBool(persistent)
 }
 
+func stageMessageLabel(emphasis string) string {
+	switch emphasis {
+	case "Attention":
+		return "Attention:"
+	case "Urgent":
+		return "Urgent:"
+	default:
+		return "Stage message:"
+	}
+}
+
 func displayNowNext(sessions []Session) []Session {
 	result := make([]Session, 0, len(sessions))
 	for _, session := range sessions {

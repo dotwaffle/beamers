@@ -44,6 +44,12 @@ const (
 	FieldAttachmentReleaseCueAt = "attachment_release_cue_at"
 	// FieldAttachmentReleaseRevision holds the string denoting the attachment_release_revision field in the database.
 	FieldAttachmentReleaseRevision = "attachment_release_revision"
+	// FieldStageMessagePresets holds the string denoting the stage_message_presets field in the database.
+	FieldStageMessagePresets = "stage_message_presets"
+	// FieldStageMessageDefaultDurationSeconds holds the string denoting the stage_message_default_duration_seconds field in the database.
+	FieldStageMessageDefaultDurationSeconds = "stage_message_default_duration_seconds"
+	// FieldStageMessageConfigurationRevision holds the string denoting the stage_message_configuration_revision field in the database.
+	FieldStageMessageConfigurationRevision = "stage_message_configuration_revision"
 	// FieldRevision holds the string denoting the revision field in the database.
 	FieldRevision = "revision"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -72,6 +78,8 @@ const (
 	EdgeImportReferences = "import_references"
 	// EdgeDisplayAssignments holds the string denoting the display_assignments edge name in mutations.
 	EdgeDisplayAssignments = "display_assignments"
+	// EdgeDisplayOverrides holds the string denoting the display_overrides edge name in mutations.
+	EdgeDisplayOverrides = "display_overrides"
 	// Table holds the table name of the event in the database.
 	Table = "events"
 	// GrantsTable is the table that holds the grants relation/edge.
@@ -158,6 +166,13 @@ const (
 	DisplayAssignmentsInverseTable = "display_assignments"
 	// DisplayAssignmentsColumn is the table column denoting the display_assignments relation/edge.
 	DisplayAssignmentsColumn = "event_id"
+	// DisplayOverridesTable is the table that holds the display_overrides relation/edge.
+	DisplayOverridesTable = "display_overrides"
+	// DisplayOverridesInverseTable is the table name for the DisplayOverride entity.
+	// It exists in this package in order to avoid circular dependency with the "displayoverride" package.
+	DisplayOverridesInverseTable = "display_overrides"
+	// DisplayOverridesColumn is the table column denoting the display_overrides relation/edge.
+	DisplayOverridesColumn = "event_id"
 )
 
 // Columns holds all SQL columns for event fields.
@@ -177,6 +192,9 @@ var Columns = []string{
 	FieldAttachmentReleaseCueSessionID,
 	FieldAttachmentReleaseCueAt,
 	FieldAttachmentReleaseRevision,
+	FieldStageMessagePresets,
+	FieldStageMessageDefaultDurationSeconds,
+	FieldStageMessageConfigurationRevision,
 	FieldRevision,
 	FieldCreatedAt,
 }
@@ -227,6 +245,18 @@ var (
 	DefaultAttachmentReleaseRevision int
 	// AttachmentReleaseRevisionValidator is a validator for the "attachment_release_revision" field. It is called by the builders before save.
 	AttachmentReleaseRevisionValidator func(int) error
+	// DefaultStageMessagePresets holds the default value on creation for the "stage_message_presets" field.
+	DefaultStageMessagePresets string
+	// StageMessagePresetsValidator is a validator for the "stage_message_presets" field. It is called by the builders before save.
+	StageMessagePresetsValidator func(string) error
+	// DefaultStageMessageDefaultDurationSeconds holds the default value on creation for the "stage_message_default_duration_seconds" field.
+	DefaultStageMessageDefaultDurationSeconds int
+	// StageMessageDefaultDurationSecondsValidator is a validator for the "stage_message_default_duration_seconds" field. It is called by the builders before save.
+	StageMessageDefaultDurationSecondsValidator func(int) error
+	// DefaultStageMessageConfigurationRevision holds the default value on creation for the "stage_message_configuration_revision" field.
+	DefaultStageMessageConfigurationRevision int
+	// StageMessageConfigurationRevisionValidator is a validator for the "stage_message_configuration_revision" field. It is called by the builders before save.
+	StageMessageConfigurationRevisionValidator func(int) error
 	// DefaultRevision holds the default value on creation for the "revision" field.
 	DefaultRevision int
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
@@ -362,6 +392,21 @@ func ByAttachmentReleaseCueAt(opts ...sql.OrderTermOption) OrderOption {
 // ByAttachmentReleaseRevision orders the results by the attachment_release_revision field.
 func ByAttachmentReleaseRevision(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAttachmentReleaseRevision, opts...).ToFunc()
+}
+
+// ByStageMessagePresets orders the results by the stage_message_presets field.
+func ByStageMessagePresets(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldStageMessagePresets, opts...).ToFunc()
+}
+
+// ByStageMessageDefaultDurationSeconds orders the results by the stage_message_default_duration_seconds field.
+func ByStageMessageDefaultDurationSeconds(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldStageMessageDefaultDurationSeconds, opts...).ToFunc()
+}
+
+// ByStageMessageConfigurationRevision orders the results by the stage_message_configuration_revision field.
+func ByStageMessageConfigurationRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldStageMessageConfigurationRevision, opts...).ToFunc()
 }
 
 // ByRevision orders the results by the revision field.
@@ -534,6 +579,20 @@ func ByDisplayAssignments(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOptio
 		sqlgraph.OrderByNeighborTerms(s, newDisplayAssignmentsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByDisplayOverridesCount orders the results by display_overrides count.
+func ByDisplayOverridesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newDisplayOverridesStep(), opts...)
+	}
+}
+
+// ByDisplayOverrides orders the results by display_overrides terms.
+func ByDisplayOverrides(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newDisplayOverridesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newGrantsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -616,5 +675,12 @@ func newDisplayAssignmentsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(DisplayAssignmentsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, DisplayAssignmentsTable, DisplayAssignmentsColumn),
+	)
+}
+func newDisplayOverridesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(DisplayOverridesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, DisplayOverridesTable, DisplayOverridesColumn),
 	)
 }

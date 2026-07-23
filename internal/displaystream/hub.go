@@ -26,13 +26,17 @@ type Cursor struct {
 // SnapshotState is the bounded revision tuple authenticated for acknowledgment.
 type SnapshotState struct {
 	Cursor
-	DisplayID            int64
-	ProtocolVersion      string
-	AssetVersion         string
-	ActiveEventID        int64
-	ActivationGeneration int64
-	PublishedRevision    int64
-	Standby              bool
+	DisplayID                     int64
+	ProtocolVersion               string
+	AssetVersion                  string
+	ActiveEventID                 int64
+	ActivationGeneration          int64
+	PublishedRevision             int64
+	StageMessageID                int64
+	StageMessageRevision          int64
+	TechnicalDifficultiesID       int64
+	TechnicalDifficultiesRevision int64
+	Standby                       bool
 }
 
 // Subscription is one bounded stream consumer.
@@ -111,6 +115,14 @@ func snapshotTokenPayload(state SnapshotState) []byte {
 	payload = strconv.AppendInt(payload, state.ActivationGeneration, 10)
 	payload = append(payload, 0)
 	payload = strconv.AppendInt(payload, state.PublishedRevision, 10)
+	payload = append(payload, 0)
+	payload = strconv.AppendInt(payload, state.StageMessageID, 10)
+	payload = append(payload, 0)
+	payload = strconv.AppendInt(payload, state.StageMessageRevision, 10)
+	payload = append(payload, 0)
+	payload = strconv.AppendInt(payload, state.TechnicalDifficultiesID, 10)
+	payload = append(payload, 0)
+	payload = strconv.AppendInt(payload, state.TechnicalDifficultiesRevision, 10)
 	payload = append(payload, 0)
 	return strconv.AppendBool(payload, state.Standby)
 }

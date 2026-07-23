@@ -105,6 +105,26 @@ func AppliedPublishedRevision(v int) predicate.Display {
 	return predicate.Display(sql.FieldEQ(FieldAppliedPublishedRevision, v))
 }
 
+// AppliedStageMessageID applies equality check predicate on the "applied_stage_message_id" field. It's identical to AppliedStageMessageIDEQ.
+func AppliedStageMessageID(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedStageMessageID, v))
+}
+
+// AppliedStageMessageRevision applies equality check predicate on the "applied_stage_message_revision" field. It's identical to AppliedStageMessageRevisionEQ.
+func AppliedStageMessageRevision(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedStageMessageRevision, v))
+}
+
+// AppliedTechnicalDifficultiesID applies equality check predicate on the "applied_technical_difficulties_id" field. It's identical to AppliedTechnicalDifficultiesIDEQ.
+func AppliedTechnicalDifficultiesID(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedTechnicalDifficultiesID, v))
+}
+
+// AppliedTechnicalDifficultiesRevision applies equality check predicate on the "applied_technical_difficulties_revision" field. It's identical to AppliedTechnicalDifficultiesRevisionEQ.
+func AppliedTechnicalDifficultiesRevision(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedTechnicalDifficultiesRevision, v))
+}
+
 // AppliedStandby applies equality check predicate on the "applied_standby" field. It's identical to AppliedStandbyEQ.
 func AppliedStandby(v bool) predicate.Display {
 	return predicate.Display(sql.FieldEQ(FieldAppliedStandby, v))
@@ -630,6 +650,166 @@ func AppliedPublishedRevisionLTE(v int) predicate.Display {
 	return predicate.Display(sql.FieldLTE(FieldAppliedPublishedRevision, v))
 }
 
+// AppliedStageMessageIDEQ applies the EQ predicate on the "applied_stage_message_id" field.
+func AppliedStageMessageIDEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedStageMessageID, v))
+}
+
+// AppliedStageMessageIDNEQ applies the NEQ predicate on the "applied_stage_message_id" field.
+func AppliedStageMessageIDNEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldNEQ(FieldAppliedStageMessageID, v))
+}
+
+// AppliedStageMessageIDIn applies the In predicate on the "applied_stage_message_id" field.
+func AppliedStageMessageIDIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldIn(FieldAppliedStageMessageID, vs...))
+}
+
+// AppliedStageMessageIDNotIn applies the NotIn predicate on the "applied_stage_message_id" field.
+func AppliedStageMessageIDNotIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldNotIn(FieldAppliedStageMessageID, vs...))
+}
+
+// AppliedStageMessageIDGT applies the GT predicate on the "applied_stage_message_id" field.
+func AppliedStageMessageIDGT(v int) predicate.Display {
+	return predicate.Display(sql.FieldGT(FieldAppliedStageMessageID, v))
+}
+
+// AppliedStageMessageIDGTE applies the GTE predicate on the "applied_stage_message_id" field.
+func AppliedStageMessageIDGTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldGTE(FieldAppliedStageMessageID, v))
+}
+
+// AppliedStageMessageIDLT applies the LT predicate on the "applied_stage_message_id" field.
+func AppliedStageMessageIDLT(v int) predicate.Display {
+	return predicate.Display(sql.FieldLT(FieldAppliedStageMessageID, v))
+}
+
+// AppliedStageMessageIDLTE applies the LTE predicate on the "applied_stage_message_id" field.
+func AppliedStageMessageIDLTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldLTE(FieldAppliedStageMessageID, v))
+}
+
+// AppliedStageMessageRevisionEQ applies the EQ predicate on the "applied_stage_message_revision" field.
+func AppliedStageMessageRevisionEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedStageMessageRevision, v))
+}
+
+// AppliedStageMessageRevisionNEQ applies the NEQ predicate on the "applied_stage_message_revision" field.
+func AppliedStageMessageRevisionNEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldNEQ(FieldAppliedStageMessageRevision, v))
+}
+
+// AppliedStageMessageRevisionIn applies the In predicate on the "applied_stage_message_revision" field.
+func AppliedStageMessageRevisionIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldIn(FieldAppliedStageMessageRevision, vs...))
+}
+
+// AppliedStageMessageRevisionNotIn applies the NotIn predicate on the "applied_stage_message_revision" field.
+func AppliedStageMessageRevisionNotIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldNotIn(FieldAppliedStageMessageRevision, vs...))
+}
+
+// AppliedStageMessageRevisionGT applies the GT predicate on the "applied_stage_message_revision" field.
+func AppliedStageMessageRevisionGT(v int) predicate.Display {
+	return predicate.Display(sql.FieldGT(FieldAppliedStageMessageRevision, v))
+}
+
+// AppliedStageMessageRevisionGTE applies the GTE predicate on the "applied_stage_message_revision" field.
+func AppliedStageMessageRevisionGTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldGTE(FieldAppliedStageMessageRevision, v))
+}
+
+// AppliedStageMessageRevisionLT applies the LT predicate on the "applied_stage_message_revision" field.
+func AppliedStageMessageRevisionLT(v int) predicate.Display {
+	return predicate.Display(sql.FieldLT(FieldAppliedStageMessageRevision, v))
+}
+
+// AppliedStageMessageRevisionLTE applies the LTE predicate on the "applied_stage_message_revision" field.
+func AppliedStageMessageRevisionLTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldLTE(FieldAppliedStageMessageRevision, v))
+}
+
+// AppliedTechnicalDifficultiesIDEQ applies the EQ predicate on the "applied_technical_difficulties_id" field.
+func AppliedTechnicalDifficultiesIDEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedTechnicalDifficultiesID, v))
+}
+
+// AppliedTechnicalDifficultiesIDNEQ applies the NEQ predicate on the "applied_technical_difficulties_id" field.
+func AppliedTechnicalDifficultiesIDNEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldNEQ(FieldAppliedTechnicalDifficultiesID, v))
+}
+
+// AppliedTechnicalDifficultiesIDIn applies the In predicate on the "applied_technical_difficulties_id" field.
+func AppliedTechnicalDifficultiesIDIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldIn(FieldAppliedTechnicalDifficultiesID, vs...))
+}
+
+// AppliedTechnicalDifficultiesIDNotIn applies the NotIn predicate on the "applied_technical_difficulties_id" field.
+func AppliedTechnicalDifficultiesIDNotIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldNotIn(FieldAppliedTechnicalDifficultiesID, vs...))
+}
+
+// AppliedTechnicalDifficultiesIDGT applies the GT predicate on the "applied_technical_difficulties_id" field.
+func AppliedTechnicalDifficultiesIDGT(v int) predicate.Display {
+	return predicate.Display(sql.FieldGT(FieldAppliedTechnicalDifficultiesID, v))
+}
+
+// AppliedTechnicalDifficultiesIDGTE applies the GTE predicate on the "applied_technical_difficulties_id" field.
+func AppliedTechnicalDifficultiesIDGTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldGTE(FieldAppliedTechnicalDifficultiesID, v))
+}
+
+// AppliedTechnicalDifficultiesIDLT applies the LT predicate on the "applied_technical_difficulties_id" field.
+func AppliedTechnicalDifficultiesIDLT(v int) predicate.Display {
+	return predicate.Display(sql.FieldLT(FieldAppliedTechnicalDifficultiesID, v))
+}
+
+// AppliedTechnicalDifficultiesIDLTE applies the LTE predicate on the "applied_technical_difficulties_id" field.
+func AppliedTechnicalDifficultiesIDLTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldLTE(FieldAppliedTechnicalDifficultiesID, v))
+}
+
+// AppliedTechnicalDifficultiesRevisionEQ applies the EQ predicate on the "applied_technical_difficulties_revision" field.
+func AppliedTechnicalDifficultiesRevisionEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedTechnicalDifficultiesRevision, v))
+}
+
+// AppliedTechnicalDifficultiesRevisionNEQ applies the NEQ predicate on the "applied_technical_difficulties_revision" field.
+func AppliedTechnicalDifficultiesRevisionNEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldNEQ(FieldAppliedTechnicalDifficultiesRevision, v))
+}
+
+// AppliedTechnicalDifficultiesRevisionIn applies the In predicate on the "applied_technical_difficulties_revision" field.
+func AppliedTechnicalDifficultiesRevisionIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldIn(FieldAppliedTechnicalDifficultiesRevision, vs...))
+}
+
+// AppliedTechnicalDifficultiesRevisionNotIn applies the NotIn predicate on the "applied_technical_difficulties_revision" field.
+func AppliedTechnicalDifficultiesRevisionNotIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldNotIn(FieldAppliedTechnicalDifficultiesRevision, vs...))
+}
+
+// AppliedTechnicalDifficultiesRevisionGT applies the GT predicate on the "applied_technical_difficulties_revision" field.
+func AppliedTechnicalDifficultiesRevisionGT(v int) predicate.Display {
+	return predicate.Display(sql.FieldGT(FieldAppliedTechnicalDifficultiesRevision, v))
+}
+
+// AppliedTechnicalDifficultiesRevisionGTE applies the GTE predicate on the "applied_technical_difficulties_revision" field.
+func AppliedTechnicalDifficultiesRevisionGTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldGTE(FieldAppliedTechnicalDifficultiesRevision, v))
+}
+
+// AppliedTechnicalDifficultiesRevisionLT applies the LT predicate on the "applied_technical_difficulties_revision" field.
+func AppliedTechnicalDifficultiesRevisionLT(v int) predicate.Display {
+	return predicate.Display(sql.FieldLT(FieldAppliedTechnicalDifficultiesRevision, v))
+}
+
+// AppliedTechnicalDifficultiesRevisionLTE applies the LTE predicate on the "applied_technical_difficulties_revision" field.
+func AppliedTechnicalDifficultiesRevisionLTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldLTE(FieldAppliedTechnicalDifficultiesRevision, v))
+}
+
 // AppliedStandbyEQ applies the EQ predicate on the "applied_standby" field.
 func AppliedStandbyEQ(v bool) predicate.Display {
 	return predicate.Display(sql.FieldEQ(FieldAppliedStandby, v))
@@ -818,6 +998,29 @@ func HasAssignments() predicate.Display {
 func HasAssignmentsWith(preds ...predicate.DisplayAssignment) predicate.Display {
 	return predicate.Display(func(s *sql.Selector) {
 		step := newAssignmentsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasOverrideStates applies the HasEdge predicate on the "override_states" edge.
+func HasOverrideStates() predicate.Display {
+	return predicate.Display(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, OverrideStatesTable, OverrideStatesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasOverrideStatesWith applies the HasEdge predicate on the "override_states" edge with a given conditions (other predicates).
+func HasOverrideStatesWith(preds ...predicate.DisplayOverrideState) predicate.Display {
+	return predicate.Display(func(s *sql.Selector) {
+		step := newOverrideStatesStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

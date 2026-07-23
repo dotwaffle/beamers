@@ -18,6 +18,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/displaycredential"
 	"github.com/dotwaffle/beamers/ent/displayenrollment"
+	"github.com/dotwaffle/beamers/ent/displayoverride"
+	"github.com/dotwaffle/beamers/ent/displayoverridestate"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftchangedependency"
 	"github.com/dotwaffle/beamers/ent/draftedit"
@@ -650,20 +652,36 @@ func init() {
 	displayDescAppliedPublishedRevision := displayFields[9].Descriptor()
 	// display.DefaultAppliedPublishedRevision holds the default value on creation for the applied_published_revision field.
 	display.DefaultAppliedPublishedRevision = displayDescAppliedPublishedRevision.Default.(int)
+	// displayDescAppliedStageMessageID is the schema descriptor for applied_stage_message_id field.
+	displayDescAppliedStageMessageID := displayFields[10].Descriptor()
+	// display.DefaultAppliedStageMessageID holds the default value on creation for the applied_stage_message_id field.
+	display.DefaultAppliedStageMessageID = displayDescAppliedStageMessageID.Default.(int)
+	// displayDescAppliedStageMessageRevision is the schema descriptor for applied_stage_message_revision field.
+	displayDescAppliedStageMessageRevision := displayFields[11].Descriptor()
+	// display.DefaultAppliedStageMessageRevision holds the default value on creation for the applied_stage_message_revision field.
+	display.DefaultAppliedStageMessageRevision = displayDescAppliedStageMessageRevision.Default.(int)
+	// displayDescAppliedTechnicalDifficultiesID is the schema descriptor for applied_technical_difficulties_id field.
+	displayDescAppliedTechnicalDifficultiesID := displayFields[12].Descriptor()
+	// display.DefaultAppliedTechnicalDifficultiesID holds the default value on creation for the applied_technical_difficulties_id field.
+	display.DefaultAppliedTechnicalDifficultiesID = displayDescAppliedTechnicalDifficultiesID.Default.(int)
+	// displayDescAppliedTechnicalDifficultiesRevision is the schema descriptor for applied_technical_difficulties_revision field.
+	displayDescAppliedTechnicalDifficultiesRevision := displayFields[13].Descriptor()
+	// display.DefaultAppliedTechnicalDifficultiesRevision holds the default value on creation for the applied_technical_difficulties_revision field.
+	display.DefaultAppliedTechnicalDifficultiesRevision = displayDescAppliedTechnicalDifficultiesRevision.Default.(int)
 	// displayDescAppliedStandby is the schema descriptor for applied_standby field.
-	displayDescAppliedStandby := displayFields[10].Descriptor()
+	displayDescAppliedStandby := displayFields[14].Descriptor()
 	// display.DefaultAppliedStandby holds the default value on creation for the applied_standby field.
 	display.DefaultAppliedStandby = displayDescAppliedStandby.Default.(bool)
 	// displayDescClockOffsetMilliseconds is the schema descriptor for clock_offset_milliseconds field.
-	displayDescClockOffsetMilliseconds := displayFields[11].Descriptor()
+	displayDescClockOffsetMilliseconds := displayFields[15].Descriptor()
 	// display.DefaultClockOffsetMilliseconds holds the default value on creation for the clock_offset_milliseconds field.
 	display.DefaultClockOffsetMilliseconds = displayDescClockOffsetMilliseconds.Default.(int64)
 	// displayDescClockUncertaintyMilliseconds is the schema descriptor for clock_uncertainty_milliseconds field.
-	displayDescClockUncertaintyMilliseconds := displayFields[12].Descriptor()
+	displayDescClockUncertaintyMilliseconds := displayFields[16].Descriptor()
 	// display.DefaultClockUncertaintyMilliseconds holds the default value on creation for the clock_uncertainty_milliseconds field.
 	display.DefaultClockUncertaintyMilliseconds = displayDescClockUncertaintyMilliseconds.Default.(int64)
 	// displayDescRendererUnstable is the schema descriptor for renderer_unstable field.
-	displayDescRendererUnstable := displayFields[13].Descriptor()
+	displayDescRendererUnstable := displayFields[17].Descriptor()
 	// display.DefaultRendererUnstable holds the default value on creation for the renderer_unstable field.
 	display.DefaultRendererUnstable = displayDescRendererUnstable.Default.(bool)
 	displayassignment.Policy = privacy.NewPolicies(schema.DisplayAssignment{})
@@ -696,11 +714,11 @@ func init() {
 		}
 	}()
 	// displayassignmentDescCreatedAt is the schema descriptor for created_at field.
-	displayassignmentDescCreatedAt := displayassignmentFields[4].Descriptor()
+	displayassignmentDescCreatedAt := displayassignmentFields[5].Descriptor()
 	// displayassignment.DefaultCreatedAt holds the default value on creation for the created_at field.
 	displayassignment.DefaultCreatedAt = displayassignmentDescCreatedAt.Default.(func() time.Time)
 	// displayassignmentDescUpdatedAt is the schema descriptor for updated_at field.
-	displayassignmentDescUpdatedAt := displayassignmentFields[5].Descriptor()
+	displayassignmentDescUpdatedAt := displayassignmentFields[6].Descriptor()
 	// displayassignment.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	displayassignment.DefaultUpdatedAt = displayassignmentDescUpdatedAt.Default.(func() time.Time)
 	displaycredential.Policy = privacy.NewPolicies(schema.DisplayCredential{})
@@ -787,6 +805,96 @@ func init() {
 	displayenrollmentDescCreatedAt := displayenrollmentFields[2].Descriptor()
 	// displayenrollment.DefaultCreatedAt holds the default value on creation for the created_at field.
 	displayenrollment.DefaultCreatedAt = displayenrollmentDescCreatedAt.Default.(func() time.Time)
+	displayoverride.Policy = privacy.NewPolicies(schema.DisplayOverride{})
+	displayoverride.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := displayoverride.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	displayoverrideFields := schema.DisplayOverride{}.Fields()
+	_ = displayoverrideFields
+	// displayoverrideDescTargetGroupKey is the schema descriptor for target_group_key field.
+	displayoverrideDescTargetGroupKey := displayoverrideFields[1].Descriptor()
+	// displayoverride.TargetGroupKeyValidator is a validator for the "target_group_key" field. It is called by the builders before save.
+	displayoverride.TargetGroupKeyValidator = func() func(string) error {
+		validators := displayoverrideDescTargetGroupKey.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(target_group_key string) error {
+			for _, fn := range fns {
+				if err := fn(target_group_key); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// displayoverrideDescText is the schema descriptor for text field.
+	displayoverrideDescText := displayoverrideFields[3].Descriptor()
+	// displayoverride.TextValidator is a validator for the "text" field. It is called by the builders before save.
+	displayoverride.TextValidator = func() func(string) error {
+		validators := displayoverrideDescText.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(text string) error {
+			for _, fn := range fns {
+				if err := fn(text); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// displayoverrideDescPresetKey is the schema descriptor for preset_key field.
+	displayoverrideDescPresetKey := displayoverrideFields[5].Descriptor()
+	// displayoverride.PresetKeyValidator is a validator for the "preset_key" field. It is called by the builders before save.
+	displayoverride.PresetKeyValidator = displayoverrideDescPresetKey.Validators[0].(func(string) error)
+	// displayoverrideDescUntilCleared is the schema descriptor for until_cleared field.
+	displayoverrideDescUntilCleared := displayoverrideFields[6].Descriptor()
+	// displayoverride.DefaultUntilCleared holds the default value on creation for the until_cleared field.
+	displayoverride.DefaultUntilCleared = displayoverrideDescUntilCleared.Default.(bool)
+	// displayoverrideDescRevision is the schema descriptor for revision field.
+	displayoverrideDescRevision := displayoverrideFields[9].Descriptor()
+	// displayoverride.DefaultRevision holds the default value on creation for the revision field.
+	displayoverride.DefaultRevision = displayoverrideDescRevision.Default.(int)
+	// displayoverride.RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
+	displayoverride.RevisionValidator = displayoverrideDescRevision.Validators[0].(func(int) error)
+	// displayoverrideDescCreatedByAccountID is the schema descriptor for created_by_account_id field.
+	displayoverrideDescCreatedByAccountID := displayoverrideFields[10].Descriptor()
+	// displayoverride.CreatedByAccountIDValidator is a validator for the "created_by_account_id" field. It is called by the builders before save.
+	displayoverride.CreatedByAccountIDValidator = displayoverrideDescCreatedByAccountID.Validators[0].(func(int) error)
+	// displayoverrideDescCreatedAt is the schema descriptor for created_at field.
+	displayoverrideDescCreatedAt := displayoverrideFields[11].Descriptor()
+	// displayoverride.DefaultCreatedAt holds the default value on creation for the created_at field.
+	displayoverride.DefaultCreatedAt = displayoverrideDescCreatedAt.Default.(func() time.Time)
+	displayoverridestate.Policy = privacy.NewPolicies(schema.DisplayOverrideState{})
+	displayoverridestate.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := displayoverridestate.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	displayoverridestateFields := schema.DisplayOverrideState{}.Fields()
+	_ = displayoverridestateFields
+	// displayoverridestateDescRevision is the schema descriptor for revision field.
+	displayoverridestateDescRevision := displayoverridestateFields[4].Descriptor()
+	// displayoverridestate.DefaultRevision holds the default value on creation for the revision field.
+	displayoverridestate.DefaultRevision = displayoverridestateDescRevision.Default.(int)
+	// displayoverridestate.RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
+	displayoverridestate.RevisionValidator = displayoverridestateDescRevision.Validators[0].(func(int) error)
+	// displayoverridestateDescUpdatedAt is the schema descriptor for updated_at field.
+	displayoverridestateDescUpdatedAt := displayoverridestateFields[5].Descriptor()
+	// displayoverridestate.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	displayoverridestate.DefaultUpdatedAt = displayoverridestateDescUpdatedAt.Default.(func() time.Time)
 	draftchange.Policy = privacy.NewPolicies(schema.DraftChange{})
 	draftchange.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
@@ -1069,12 +1177,30 @@ func init() {
 	event.DefaultAttachmentReleaseRevision = eventDescAttachmentReleaseRevision.Default.(int)
 	// event.AttachmentReleaseRevisionValidator is a validator for the "attachment_release_revision" field. It is called by the builders before save.
 	event.AttachmentReleaseRevisionValidator = eventDescAttachmentReleaseRevision.Validators[0].(func(int) error)
+	// eventDescStageMessagePresets is the schema descriptor for stage_message_presets field.
+	eventDescStageMessagePresets := eventFields[14].Descriptor()
+	// event.DefaultStageMessagePresets holds the default value on creation for the stage_message_presets field.
+	event.DefaultStageMessagePresets = eventDescStageMessagePresets.Default.(string)
+	// event.StageMessagePresetsValidator is a validator for the "stage_message_presets" field. It is called by the builders before save.
+	event.StageMessagePresetsValidator = eventDescStageMessagePresets.Validators[0].(func(string) error)
+	// eventDescStageMessageDefaultDurationSeconds is the schema descriptor for stage_message_default_duration_seconds field.
+	eventDescStageMessageDefaultDurationSeconds := eventFields[15].Descriptor()
+	// event.DefaultStageMessageDefaultDurationSeconds holds the default value on creation for the stage_message_default_duration_seconds field.
+	event.DefaultStageMessageDefaultDurationSeconds = eventDescStageMessageDefaultDurationSeconds.Default.(int)
+	// event.StageMessageDefaultDurationSecondsValidator is a validator for the "stage_message_default_duration_seconds" field. It is called by the builders before save.
+	event.StageMessageDefaultDurationSecondsValidator = eventDescStageMessageDefaultDurationSeconds.Validators[0].(func(int) error)
+	// eventDescStageMessageConfigurationRevision is the schema descriptor for stage_message_configuration_revision field.
+	eventDescStageMessageConfigurationRevision := eventFields[16].Descriptor()
+	// event.DefaultStageMessageConfigurationRevision holds the default value on creation for the stage_message_configuration_revision field.
+	event.DefaultStageMessageConfigurationRevision = eventDescStageMessageConfigurationRevision.Default.(int)
+	// event.StageMessageConfigurationRevisionValidator is a validator for the "stage_message_configuration_revision" field. It is called by the builders before save.
+	event.StageMessageConfigurationRevisionValidator = eventDescStageMessageConfigurationRevision.Validators[0].(func(int) error)
 	// eventDescRevision is the schema descriptor for revision field.
-	eventDescRevision := eventFields[14].Descriptor()
+	eventDescRevision := eventFields[17].Descriptor()
 	// event.DefaultRevision holds the default value on creation for the revision field.
 	event.DefaultRevision = eventDescRevision.Default.(int)
 	// eventDescCreatedAt is the schema descriptor for created_at field.
-	eventDescCreatedAt := eventFields[15].Descriptor()
+	eventDescCreatedAt := eventFields[18].Descriptor()
 	// event.DefaultCreatedAt holds the default value on creation for the created_at field.
 	event.DefaultCreatedAt = eventDescCreatedAt.Default.(func() time.Time)
 	eventgrant.Policy = privacy.NewPolicies(schema.EventGrant{})

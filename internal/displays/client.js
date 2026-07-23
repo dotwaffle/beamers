@@ -57,7 +57,7 @@ async function recoverDisplay(reason = "reconnecting") {
     recoveryAttempt = 0;
     void acknowledgeSnapshot(snapshot, false);
     openEventStream(snapshot);
-    scheduleHealthRefresh();
+    scheduleHealthRefresh(snapshot);
   } catch {
     if (generation === recoveryGeneration) {
       if (recoveryAttempt >= 3) {
@@ -154,9 +154,27 @@ function recoveryBackoff() {
   return Math.round(base * (0.75 + (Math.random() * 0.5)));
 }
 
-function scheduleHealthRefresh() {
+function scheduleHealthRefresh(snapshot) {
   clearTimeout(healthTimer);
-  healthTimer = setTimeout(() => void refreshHealth(), healthRefreshMilliseconds);
+  healthTimer = setTimeout(
+    () => void refreshHealth(),
+    nextSnapshotRefreshMilliseconds(snapshot),
+  );
+}
+
+function nextSnapshotRefreshMilliseconds(snapshot) {
+  let delay = healthRefreshMilliseconds;
+  const estimatedNow = Date.now() + clockOffsetMilliseconds;
+  for (const override of [snapshot?.stageMessage, snapshot?.technicalDifficulties]) {
+    if (!override?.expiresAt) {
+      continue;
+    }
+    const expiry = Date.parse(override.expiresAt);
+    if (Number.isFinite(expiry)) {
+      delay = Math.min(delay, Math.max(25, expiry - estimatedNow));
+    }
+  }
+  return delay;
 }
 
 async function refreshHealth() {
@@ -179,7 +197,7 @@ async function refreshHealth() {
       if (rendererFailures >= 3) {
         await controlledReload(snapshot.assetVersion);
       } else {
-        scheduleHealthRefresh();
+        scheduleHealthRefresh(appliedSnapshot);
       }
       return;
     }
@@ -187,7 +205,7 @@ async function refreshHealth() {
     clockOffsetMilliseconds = offset;
     clockUncertaintyMilliseconds = uncertainty;
     void acknowledgeSnapshot(snapshot, false);
-    scheduleHealthRefresh();
+    scheduleHealthRefresh(snapshot);
   } catch {
     scheduleRecovery();
   }
@@ -234,6 +252,8 @@ function renderSnapshot(snapshot, offset) {
     standby: snapshot.standby,
     sessions: snapshot.sessions,
     stageTimer: snapshot.stageTimer,
+    stageMessage: snapshot.stageMessage,
+    technicalDifficulties: snapshot.technicalDifficulties,
     composition,
   });
   const candidateClockReference = {
@@ -270,29 +290,61 @@ function renderSnapshot(snapshot, offset) {
     `${composition.theme.scrimColor}${alpha}`,
   );
 
-  for (const configuredRegion of composition.layout.regions) {
+  if (snapshot.technicalDifficulties) {
+    main.dataset.overrideKind = "TechnicalDifficulties";
+    main.classList.add("display-override-replace");
     const region = document.createElement("section");
-    region.dataset.region = configuredRegion.name;
-    region.dataset.widget = configuredRegion.widget;
-    region.dataset.persistent = String(Boolean(configuredRegion.persistent));
-    region.className = "display-region";
-    const startWidgetUpdates = renderWidget(
-      region,
-      configuredRegion.widget,
-      snapshot,
-      composition.theme,
-      candidateClockReference,
-    );
-    if (startWidgetUpdates) {
-      startClockUpdates = startWidgetUpdates;
-    }
+    appendHeading(region, "Technical Difficulties");
+    appendParagraph(region, snapshot.technicalDifficulties.text);
     main.append(region);
+  } else {
+    for (const configuredRegion of composition.layout.regions) {
+      const region = document.createElement("section");
+      region.dataset.region = configuredRegion.name;
+      region.dataset.widget = configuredRegion.widget;
+      region.dataset.persistent = String(Boolean(configuredRegion.persistent));
+      region.className = "display-region";
+      const startWidgetUpdates = renderWidget(
+        region,
+        configuredRegion.widget,
+        snapshot,
+        composition.theme,
+        candidateClockReference,
+      );
+      if (startWidgetUpdates) {
+        startClockUpdates = startWidgetUpdates;
+      }
+      main.append(region);
+    }
   }
   replaceMain(main);
+  renderStageMessage(snapshot.stageMessage);
   clockReference = candidateClockReference;
   clearTimeout(clockTimer);
   startClockUpdates?.();
   startRotation(main, composition.layout.rotationSeconds);
+}
+
+function renderStageMessage(message) {
+  document.querySelector("aside[data-stage-message]")?.remove();
+  if (!message) {
+    return;
+  }
+  const aside = document.createElement("aside");
+  aside.dataset.stageMessage = "true";
+  aside.dataset.emphasis = message.emphasis;
+  aside.className = "stage-message";
+  aside.setAttribute("role", "status");
+  aside.setAttribute("aria-live", "assertive");
+  const label = document.createElement("strong");
+  label.textContent = {
+    Normal: "Stage message:",
+    Attention: "Attention:",
+    Urgent: "Urgent:",
+  }[message.emphasis] || "Stage message:";
+  aside.append(label);
+  appendParagraph(aside, message.text);
+  document.body.append(aside);
 }
 
 function controlledToken(value, allowed) {
@@ -593,6 +645,10 @@ async function acknowledgeSnapshot(snapshot, rendererUnstable) {
         activeEventId: snapshot.activeEventId,
         activationGeneration: snapshot.activationGeneration,
         publishedRevision: snapshot.publishedRevision,
+        stageMessageId: snapshot.stageMessage?.id || 0,
+        stageMessageRevision: snapshot.stageMessage?.revision || 0,
+        technicalDifficultiesId: snapshot.technicalDifficulties?.id || 0,
+        technicalDifficultiesRevision: snapshot.technicalDifficulties?.revision || 0,
         standby: snapshot.standby,
         clockOffsetMilliseconds,
         clockUncertaintyMilliseconds,

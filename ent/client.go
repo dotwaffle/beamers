@@ -27,6 +27,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/displaycredential"
 	"github.com/dotwaffle/beamers/ent/displayenrollment"
+	"github.com/dotwaffle/beamers/ent/displayoverride"
+	"github.com/dotwaffle/beamers/ent/displayoverridestate"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftchangedependency"
 	"github.com/dotwaffle/beamers/ent/draftedit"
@@ -85,6 +87,10 @@ type Client struct {
 	DisplayCredential *DisplayCredentialClient
 	// DisplayEnrollment is the client for interacting with the DisplayEnrollment builders.
 	DisplayEnrollment *DisplayEnrollmentClient
+	// DisplayOverride is the client for interacting with the DisplayOverride builders.
+	DisplayOverride *DisplayOverrideClient
+	// DisplayOverrideState is the client for interacting with the DisplayOverrideState builders.
+	DisplayOverrideState *DisplayOverrideStateClient
 	// DraftChange is the client for interacting with the DraftChange builders.
 	DraftChange *DraftChangeClient
 	// DraftChangeDependency is the client for interacting with the DraftChangeDependency builders.
@@ -162,6 +168,8 @@ func (c *Client) init() {
 	c.DisplayAssignment = NewDisplayAssignmentClient(c.config)
 	c.DisplayCredential = NewDisplayCredentialClient(c.config)
 	c.DisplayEnrollment = NewDisplayEnrollmentClient(c.config)
+	c.DisplayOverride = NewDisplayOverrideClient(c.config)
+	c.DisplayOverrideState = NewDisplayOverrideStateClient(c.config)
 	c.DraftChange = NewDraftChangeClient(c.config)
 	c.DraftChangeDependency = NewDraftChangeDependencyClient(c.config)
 	c.DraftEdit = NewDraftEditClient(c.config)
@@ -293,6 +301,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		DisplayAssignment:        NewDisplayAssignmentClient(cfg),
 		DisplayCredential:        NewDisplayCredentialClient(cfg),
 		DisplayEnrollment:        NewDisplayEnrollmentClient(cfg),
+		DisplayOverride:          NewDisplayOverrideClient(cfg),
+		DisplayOverrideState:     NewDisplayOverrideStateClient(cfg),
 		DraftChange:              NewDraftChangeClient(cfg),
 		DraftChangeDependency:    NewDraftChangeDependencyClient(cfg),
 		DraftEdit:                NewDraftEditClient(cfg),
@@ -351,6 +361,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		DisplayAssignment:        NewDisplayAssignmentClient(cfg),
 		DisplayCredential:        NewDisplayCredentialClient(cfg),
 		DisplayEnrollment:        NewDisplayEnrollmentClient(cfg),
+		DisplayOverride:          NewDisplayOverrideClient(cfg),
+		DisplayOverrideState:     NewDisplayOverrideStateClient(cfg),
 		DraftChange:              NewDraftChangeClient(cfg),
 		DraftChangeDependency:    NewDraftChangeDependencyClient(cfg),
 		DraftEdit:                NewDraftEditClient(cfg),
@@ -409,7 +421,8 @@ func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.Account, c.AccountSession, c.Attachment, c.AttachmentVersion, c.AuditEntry,
 		c.BootstrapCredential, c.CommandReceipt, c.CompetitionEntry, c.Display,
-		c.DisplayAssignment, c.DisplayCredential, c.DisplayEnrollment, c.DraftChange,
+		c.DisplayAssignment, c.DisplayCredential, c.DisplayEnrollment,
+		c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventGrant, c.ImportReference,
 		c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion, c.Location,
 		c.LocationDraft, c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
@@ -427,7 +440,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.Account, c.AccountSession, c.Attachment, c.AttachmentVersion, c.AuditEntry,
 		c.BootstrapCredential, c.CommandReceipt, c.CompetitionEntry, c.Display,
-		c.DisplayAssignment, c.DisplayCredential, c.DisplayEnrollment, c.DraftChange,
+		c.DisplayAssignment, c.DisplayCredential, c.DisplayEnrollment,
+		c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventGrant, c.ImportReference,
 		c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion, c.Location,
 		c.LocationDraft, c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
@@ -466,6 +480,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.DisplayCredential.mutate(ctx, m)
 	case *DisplayEnrollmentMutation:
 		return c.DisplayEnrollment.mutate(ctx, m)
+	case *DisplayOverrideMutation:
+		return c.DisplayOverride.mutate(ctx, m)
+	case *DisplayOverrideStateMutation:
+		return c.DisplayOverrideState.mutate(ctx, m)
 	case *DraftChangeMutation:
 		return c.DraftChange.mutate(ctx, m)
 	case *DraftChangeDependencyMutation:
@@ -1945,6 +1963,22 @@ func (c *DisplayClient) QueryAssignments(_m *Display) *DisplayAssignmentQuery {
 	return query
 }
 
+// QueryOverrideStates queries the override_states edge of a Display.
+func (c *DisplayClient) QueryOverrideStates(_m *Display) *DisplayOverrideStateQuery {
+	query := (&DisplayOverrideStateClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(display.Table, display.FieldID, id),
+			sqlgraph.To(displayoverridestate.Table, displayoverridestate.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, display.OverrideStatesTable, display.OverrideStatesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *DisplayClient) Hooks() []Hook {
 	hooks := c.hooks.Display
@@ -2434,6 +2468,338 @@ func (c *DisplayEnrollmentClient) mutate(ctx context.Context, m *DisplayEnrollme
 		return (&DisplayEnrollmentDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown DisplayEnrollment mutation op: %q", m.Op())
+	}
+}
+
+// DisplayOverrideClient is a client for the DisplayOverride schema.
+type DisplayOverrideClient struct {
+	config
+}
+
+// NewDisplayOverrideClient returns a client for the DisplayOverride from the given config.
+func NewDisplayOverrideClient(c config) *DisplayOverrideClient {
+	return &DisplayOverrideClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `displayoverride.Hooks(f(g(h())))`.
+func (c *DisplayOverrideClient) Use(hooks ...Hook) {
+	c.hooks.DisplayOverride = append(c.hooks.DisplayOverride, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `displayoverride.Intercept(f(g(h())))`.
+func (c *DisplayOverrideClient) Intercept(interceptors ...Interceptor) {
+	c.inters.DisplayOverride = append(c.inters.DisplayOverride, interceptors...)
+}
+
+// Create returns a builder for creating a DisplayOverride entity.
+func (c *DisplayOverrideClient) Create() *DisplayOverrideCreate {
+	mutation := newDisplayOverrideMutation(c.config, OpCreate)
+	return &DisplayOverrideCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of DisplayOverride entities.
+func (c *DisplayOverrideClient) CreateBulk(builders ...*DisplayOverrideCreate) *DisplayOverrideCreateBulk {
+	return &DisplayOverrideCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *DisplayOverrideClient) MapCreateBulk(slice any, setFunc func(*DisplayOverrideCreate, int)) *DisplayOverrideCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &DisplayOverrideCreateBulk{err: fmt.Errorf("calling to DisplayOverrideClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*DisplayOverrideCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &DisplayOverrideCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for DisplayOverride.
+func (c *DisplayOverrideClient) Update() *DisplayOverrideUpdate {
+	mutation := newDisplayOverrideMutation(c.config, OpUpdate)
+	return &DisplayOverrideUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *DisplayOverrideClient) UpdateOne(_m *DisplayOverride) *DisplayOverrideUpdateOne {
+	mutation := newDisplayOverrideMutation(c.config, OpUpdateOne, withDisplayOverride(_m))
+	return &DisplayOverrideUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *DisplayOverrideClient) UpdateOneID(id int) *DisplayOverrideUpdateOne {
+	mutation := newDisplayOverrideMutation(c.config, OpUpdateOne, withDisplayOverrideID(id))
+	return &DisplayOverrideUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for DisplayOverride.
+func (c *DisplayOverrideClient) Delete() *DisplayOverrideDelete {
+	mutation := newDisplayOverrideMutation(c.config, OpDelete)
+	return &DisplayOverrideDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *DisplayOverrideClient) DeleteOne(_m *DisplayOverride) *DisplayOverrideDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *DisplayOverrideClient) DeleteOneID(id int) *DisplayOverrideDeleteOne {
+	builder := c.Delete().Where(displayoverride.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &DisplayOverrideDeleteOne{builder}
+}
+
+// Query returns a query builder for DisplayOverride.
+func (c *DisplayOverrideClient) Query() *DisplayOverrideQuery {
+	return &DisplayOverrideQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeDisplayOverride},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a DisplayOverride entity by its id.
+func (c *DisplayOverrideClient) Get(ctx context.Context, id int) (*DisplayOverride, error) {
+	return c.Query().Where(displayoverride.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *DisplayOverrideClient) GetX(ctx context.Context, id int) *DisplayOverride {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a DisplayOverride.
+func (c *DisplayOverrideClient) QueryEvent(_m *DisplayOverride) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(displayoverride.Table, displayoverride.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, displayoverride.EventTable, displayoverride.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryStates queries the states edge of a DisplayOverride.
+func (c *DisplayOverrideClient) QueryStates(_m *DisplayOverride) *DisplayOverrideStateQuery {
+	query := (&DisplayOverrideStateClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(displayoverride.Table, displayoverride.FieldID, id),
+			sqlgraph.To(displayoverridestate.Table, displayoverridestate.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, displayoverride.StatesTable, displayoverride.StatesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *DisplayOverrideClient) Hooks() []Hook {
+	hooks := c.hooks.DisplayOverride
+	return append(hooks[:len(hooks):len(hooks)], displayoverride.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *DisplayOverrideClient) Interceptors() []Interceptor {
+	return c.inters.DisplayOverride
+}
+
+func (c *DisplayOverrideClient) mutate(ctx context.Context, m *DisplayOverrideMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&DisplayOverrideCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&DisplayOverrideUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&DisplayOverrideUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&DisplayOverrideDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown DisplayOverride mutation op: %q", m.Op())
+	}
+}
+
+// DisplayOverrideStateClient is a client for the DisplayOverrideState schema.
+type DisplayOverrideStateClient struct {
+	config
+}
+
+// NewDisplayOverrideStateClient returns a client for the DisplayOverrideState from the given config.
+func NewDisplayOverrideStateClient(c config) *DisplayOverrideStateClient {
+	return &DisplayOverrideStateClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `displayoverridestate.Hooks(f(g(h())))`.
+func (c *DisplayOverrideStateClient) Use(hooks ...Hook) {
+	c.hooks.DisplayOverrideState = append(c.hooks.DisplayOverrideState, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `displayoverridestate.Intercept(f(g(h())))`.
+func (c *DisplayOverrideStateClient) Intercept(interceptors ...Interceptor) {
+	c.inters.DisplayOverrideState = append(c.inters.DisplayOverrideState, interceptors...)
+}
+
+// Create returns a builder for creating a DisplayOverrideState entity.
+func (c *DisplayOverrideStateClient) Create() *DisplayOverrideStateCreate {
+	mutation := newDisplayOverrideStateMutation(c.config, OpCreate)
+	return &DisplayOverrideStateCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of DisplayOverrideState entities.
+func (c *DisplayOverrideStateClient) CreateBulk(builders ...*DisplayOverrideStateCreate) *DisplayOverrideStateCreateBulk {
+	return &DisplayOverrideStateCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *DisplayOverrideStateClient) MapCreateBulk(slice any, setFunc func(*DisplayOverrideStateCreate, int)) *DisplayOverrideStateCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &DisplayOverrideStateCreateBulk{err: fmt.Errorf("calling to DisplayOverrideStateClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*DisplayOverrideStateCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &DisplayOverrideStateCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for DisplayOverrideState.
+func (c *DisplayOverrideStateClient) Update() *DisplayOverrideStateUpdate {
+	mutation := newDisplayOverrideStateMutation(c.config, OpUpdate)
+	return &DisplayOverrideStateUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *DisplayOverrideStateClient) UpdateOne(_m *DisplayOverrideState) *DisplayOverrideStateUpdateOne {
+	mutation := newDisplayOverrideStateMutation(c.config, OpUpdateOne, withDisplayOverrideState(_m))
+	return &DisplayOverrideStateUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *DisplayOverrideStateClient) UpdateOneID(id int) *DisplayOverrideStateUpdateOne {
+	mutation := newDisplayOverrideStateMutation(c.config, OpUpdateOne, withDisplayOverrideStateID(id))
+	return &DisplayOverrideStateUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for DisplayOverrideState.
+func (c *DisplayOverrideStateClient) Delete() *DisplayOverrideStateDelete {
+	mutation := newDisplayOverrideStateMutation(c.config, OpDelete)
+	return &DisplayOverrideStateDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *DisplayOverrideStateClient) DeleteOne(_m *DisplayOverrideState) *DisplayOverrideStateDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *DisplayOverrideStateClient) DeleteOneID(id int) *DisplayOverrideStateDeleteOne {
+	builder := c.Delete().Where(displayoverridestate.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &DisplayOverrideStateDeleteOne{builder}
+}
+
+// Query returns a query builder for DisplayOverrideState.
+func (c *DisplayOverrideStateClient) Query() *DisplayOverrideStateQuery {
+	return &DisplayOverrideStateQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeDisplayOverrideState},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a DisplayOverrideState entity by its id.
+func (c *DisplayOverrideStateClient) Get(ctx context.Context, id int) (*DisplayOverrideState, error) {
+	return c.Query().Where(displayoverridestate.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *DisplayOverrideStateClient) GetX(ctx context.Context, id int) *DisplayOverrideState {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryDisplay queries the display edge of a DisplayOverrideState.
+func (c *DisplayOverrideStateClient) QueryDisplay(_m *DisplayOverrideState) *DisplayQuery {
+	query := (&DisplayClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(displayoverridestate.Table, displayoverridestate.FieldID, id),
+			sqlgraph.To(display.Table, display.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, displayoverridestate.DisplayTable, displayoverridestate.DisplayColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryOverride queries the override edge of a DisplayOverrideState.
+func (c *DisplayOverrideStateClient) QueryOverride(_m *DisplayOverrideState) *DisplayOverrideQuery {
+	query := (&DisplayOverrideClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(displayoverridestate.Table, displayoverridestate.FieldID, id),
+			sqlgraph.To(displayoverride.Table, displayoverride.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, displayoverridestate.OverrideTable, displayoverridestate.OverrideColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *DisplayOverrideStateClient) Hooks() []Hook {
+	hooks := c.hooks.DisplayOverrideState
+	return append(hooks[:len(hooks):len(hooks)], displayoverridestate.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *DisplayOverrideStateClient) Interceptors() []Interceptor {
+	return c.inters.DisplayOverrideState
+}
+
+func (c *DisplayOverrideStateClient) mutate(ctx context.Context, m *DisplayOverrideStateMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&DisplayOverrideStateCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&DisplayOverrideStateUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&DisplayOverrideStateUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&DisplayOverrideStateDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown DisplayOverrideState mutation op: %q", m.Op())
 	}
 }
 
@@ -3276,6 +3642,22 @@ func (c *EventClient) QueryDisplayAssignments(_m *Event) *DisplayAssignmentQuery
 			sqlgraph.From(event.Table, event.FieldID, id),
 			sqlgraph.To(displayassignment.Table, displayassignment.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, event.DisplayAssignmentsTable, event.DisplayAssignmentsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDisplayOverrides queries the display_overrides edge of a Event.
+func (c *EventClient) QueryDisplayOverrides(_m *Event) *DisplayOverrideQuery {
+	query := (&DisplayOverrideClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(displayoverride.Table, displayoverride.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.DisplayOverridesTable, event.DisplayOverridesColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -7211,23 +7593,25 @@ type (
 	hooks struct {
 		Account, AccountSession, Attachment, AttachmentVersion, AuditEntry,
 		BootstrapCredential, CommandReceipt, CompetitionEntry, Display,
-		DisplayAssignment, DisplayCredential, DisplayEnrollment, DraftChange,
-		DraftChangeDependency, DraftEdit, Event, EventGrant, ImportReference,
-		Installation, Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
-		LocationPublishedVersion, Migration, PasswordCredential, ReopenWindow, Rundown,
-		Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
-		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
+		DisplayAssignment, DisplayCredential, DisplayEnrollment, DisplayOverride,
+		DisplayOverrideState, DraftChange, DraftChangeDependency, DraftEdit, Event,
+		EventGrant, ImportReference, Installation, Lane, LaneDraft,
+		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
+		Migration, PasswordCredential, ReopenWindow, Rundown, Session,
+		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
+		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
 		UploadLink []ent.Hook
 	}
 	inters struct {
 		Account, AccountSession, Attachment, AttachmentVersion, AuditEntry,
 		BootstrapCredential, CommandReceipt, CompetitionEntry, Display,
-		DisplayAssignment, DisplayCredential, DisplayEnrollment, DraftChange,
-		DraftChangeDependency, DraftEdit, Event, EventGrant, ImportReference,
-		Installation, Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
-		LocationPublishedVersion, Migration, PasswordCredential, ReopenWindow, Rundown,
-		Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
-		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
+		DisplayAssignment, DisplayCredential, DisplayEnrollment, DisplayOverride,
+		DisplayOverrideState, DraftChange, DraftChangeDependency, DraftEdit, Event,
+		EventGrant, ImportReference, Installation, Lane, LaneDraft,
+		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
+		Migration, PasswordCredential, ReopenWindow, Rundown, Session,
+		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
+		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
 		UploadLink []ent.Interceptor
 	}
 )

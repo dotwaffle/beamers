@@ -163,10 +163,11 @@ func (handlers displayHandlers) assign(response http.ResponseWriter, request *ht
 		return
 	}
 	var input struct {
-		EventID    int    `json:"event_id"`
-		LocationID int    `json:"location_id"`
-		ViewKey    string `json:"view_key"`
-		CommandID  string `json:"command_id"`
+		EventID          int      `json:"event_id"`
+		LocationID       int      `json:"location_id"`
+		ViewKey          string   `json:"view_key"`
+		DisplayGroupKeys []string `json:"display_group_keys"`
+		CommandID        string   `json:"command_id"`
 	}
 	if decodeErr := decodeAuthJSON(response, request, &input); decodeErr != nil {
 		http.Error(response, "invalid request", http.StatusBadRequest)
@@ -174,7 +175,8 @@ func (handlers displayHandlers) assign(response http.ResponseWriter, request *ht
 	}
 	assigned, err := handlers.service.Assign(request.Context(), actor, displays.AssignInput{
 		DisplayID: displayID, EventID: input.EventID, LocationID: input.LocationID,
-		ViewKey: input.ViewKey, CommandID: input.CommandID,
+		ViewKey: input.ViewKey, DisplayGroupKeys: input.DisplayGroupKeys,
+		CommandID: input.CommandID,
 	})
 	switch {
 	case errors.Is(err, displays.ErrAdministratorRequired):

@@ -24,6 +24,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/displaycredential"
 	"github.com/dotwaffle/beamers/ent/displayenrollment"
+	"github.com/dotwaffle/beamers/ent/displayoverride"
+	"github.com/dotwaffle/beamers/ent/displayoverridestate"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftchangedependency"
 	"github.com/dotwaffle/beamers/ent/draftedit"
@@ -123,6 +125,8 @@ func checkColumn(t, c string) error {
 			displayassignment.Table:        displayassignment.ValidColumn,
 			displaycredential.Table:        displaycredential.ValidColumn,
 			displayenrollment.Table:        displayenrollment.ValidColumn,
+			displayoverride.Table:          displayoverride.ValidColumn,
+			displayoverridestate.Table:     displayoverridestate.ValidColumn,
 			draftchange.Table:              draftchange.ValidColumn,
 			draftchangedependency.Table:    draftchangedependency.ValidColumn,
 			draftedit.Table:                draftedit.ValidColumn,

@@ -47,6 +47,9 @@ func (Event) Fields() []ent.Field {
 		field.Int("attachment_release_cue_session_id").Optional().Nillable().Positive(),
 		field.Time("attachment_release_cue_at").Optional(),
 		field.Int("attachment_release_revision").Default(0).NonNegative(),
+		field.String("stage_message_presets").Default("[]").MaxLen(65536),
+		field.Int("stage_message_default_duration_seconds").Default(10).Positive(),
+		field.Int("stage_message_configuration_revision").Default(0).NonNegative(),
 		field.Int("revision").Default(1),
 		field.Time("created_at").Default(time.Now).Immutable(),
 	}
@@ -67,5 +70,6 @@ func (Event) Edges() []ent.Edge {
 		edge.To("draft_changes", DraftChange.Type),
 		edge.To("import_references", ImportReference.Type),
 		edge.To("display_assignments", DisplayAssignment.Type),
+		edge.To("display_overrides", DisplayOverride.Type),
 	}
 }

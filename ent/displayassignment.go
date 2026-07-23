@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -28,6 +29,8 @@ type DisplayAssignment struct {
 	LocationID int `json:"location_id,omitempty"`
 	// ViewKey holds the value of the "view_key" field.
 	ViewKey string `json:"view_key,omitempty"`
+	// DisplayGroupKeys holds the value of the "display_group_keys" field.
+	DisplayGroupKeys []string `json:"display_group_keys,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
@@ -89,6 +92,8 @@ func (*DisplayAssignment) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case displayassignment.FieldDisplayGroupKeys:
+			values[i] = new([]byte)
 		case displayassignment.FieldID, displayassignment.FieldDisplayID, displayassignment.FieldEventID, displayassignment.FieldLocationID:
 			values[i] = new(sql.NullInt64)
 		case displayassignment.FieldViewKey:
@@ -139,6 +144,14 @@ func (_m *DisplayAssignment) assignValues(columns []string, values []any) error 
 				return fmt.Errorf("unexpected type %T for field view_key", values[i])
 			} else if value.Valid {
 				_m.ViewKey = value.String
+			}
+		case displayassignment.FieldDisplayGroupKeys:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field display_group_keys", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.DisplayGroupKeys); err != nil {
+					return fmt.Errorf("unmarshal field display_group_keys: %w", err)
+				}
 			}
 		case displayassignment.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -214,6 +227,9 @@ func (_m *DisplayAssignment) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("view_key=")
 	builder.WriteString(_m.ViewKey)
+	builder.WriteString(", ")
+	builder.WriteString("display_group_keys=")
+	builder.WriteString(fmt.Sprintf("%v", _m.DisplayGroupKeys))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

@@ -153,6 +153,30 @@ func (f DisplayEnrollmentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DisplayEnrollmentMutation", m)
 }
 
+// The DisplayOverrideFunc type is an adapter to allow the use of ordinary
+// function as DisplayOverride mutator.
+type DisplayOverrideFunc func(context.Context, *ent.DisplayOverrideMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f DisplayOverrideFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DisplayOverrideMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DisplayOverrideMutation", m)
+}
+
+// The DisplayOverrideStateFunc type is an adapter to allow the use of ordinary
+// function as DisplayOverrideState mutator.
+type DisplayOverrideStateFunc func(context.Context, *ent.DisplayOverrideStateMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f DisplayOverrideStateFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DisplayOverrideStateMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DisplayOverrideStateMutation", m)
+}
+
 // The DraftChangeFunc type is an adapter to allow the use of ordinary
 // function as DraftChange mutator.
 type DraftChangeFunc func(context.Context, *ent.DraftChangeMutation) (ent.Value, error)

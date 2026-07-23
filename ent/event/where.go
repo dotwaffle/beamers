@@ -115,6 +115,21 @@ func AttachmentReleaseRevision(v int) predicate.Event {
 	return predicate.Event(sql.FieldEQ(FieldAttachmentReleaseRevision, v))
 }
 
+// StageMessagePresets applies equality check predicate on the "stage_message_presets" field. It's identical to StageMessagePresetsEQ.
+func StageMessagePresets(v string) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldStageMessagePresets, v))
+}
+
+// StageMessageDefaultDurationSeconds applies equality check predicate on the "stage_message_default_duration_seconds" field. It's identical to StageMessageDefaultDurationSecondsEQ.
+func StageMessageDefaultDurationSeconds(v int) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldStageMessageDefaultDurationSeconds, v))
+}
+
+// StageMessageConfigurationRevision applies equality check predicate on the "stage_message_configuration_revision" field. It's identical to StageMessageConfigurationRevisionEQ.
+func StageMessageConfigurationRevision(v int) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldStageMessageConfigurationRevision, v))
+}
+
 // Revision applies equality check predicate on the "revision" field. It's identical to RevisionEQ.
 func Revision(v int) predicate.Event {
 	return predicate.Event(sql.FieldEQ(FieldRevision, v))
@@ -900,6 +915,151 @@ func AttachmentReleaseRevisionLTE(v int) predicate.Event {
 	return predicate.Event(sql.FieldLTE(FieldAttachmentReleaseRevision, v))
 }
 
+// StageMessagePresetsEQ applies the EQ predicate on the "stage_message_presets" field.
+func StageMessagePresetsEQ(v string) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldStageMessagePresets, v))
+}
+
+// StageMessagePresetsNEQ applies the NEQ predicate on the "stage_message_presets" field.
+func StageMessagePresetsNEQ(v string) predicate.Event {
+	return predicate.Event(sql.FieldNEQ(FieldStageMessagePresets, v))
+}
+
+// StageMessagePresetsIn applies the In predicate on the "stage_message_presets" field.
+func StageMessagePresetsIn(vs ...string) predicate.Event {
+	return predicate.Event(sql.FieldIn(FieldStageMessagePresets, vs...))
+}
+
+// StageMessagePresetsNotIn applies the NotIn predicate on the "stage_message_presets" field.
+func StageMessagePresetsNotIn(vs ...string) predicate.Event {
+	return predicate.Event(sql.FieldNotIn(FieldStageMessagePresets, vs...))
+}
+
+// StageMessagePresetsGT applies the GT predicate on the "stage_message_presets" field.
+func StageMessagePresetsGT(v string) predicate.Event {
+	return predicate.Event(sql.FieldGT(FieldStageMessagePresets, v))
+}
+
+// StageMessagePresetsGTE applies the GTE predicate on the "stage_message_presets" field.
+func StageMessagePresetsGTE(v string) predicate.Event {
+	return predicate.Event(sql.FieldGTE(FieldStageMessagePresets, v))
+}
+
+// StageMessagePresetsLT applies the LT predicate on the "stage_message_presets" field.
+func StageMessagePresetsLT(v string) predicate.Event {
+	return predicate.Event(sql.FieldLT(FieldStageMessagePresets, v))
+}
+
+// StageMessagePresetsLTE applies the LTE predicate on the "stage_message_presets" field.
+func StageMessagePresetsLTE(v string) predicate.Event {
+	return predicate.Event(sql.FieldLTE(FieldStageMessagePresets, v))
+}
+
+// StageMessagePresetsContains applies the Contains predicate on the "stage_message_presets" field.
+func StageMessagePresetsContains(v string) predicate.Event {
+	return predicate.Event(sql.FieldContains(FieldStageMessagePresets, v))
+}
+
+// StageMessagePresetsHasPrefix applies the HasPrefix predicate on the "stage_message_presets" field.
+func StageMessagePresetsHasPrefix(v string) predicate.Event {
+	return predicate.Event(sql.FieldHasPrefix(FieldStageMessagePresets, v))
+}
+
+// StageMessagePresetsHasSuffix applies the HasSuffix predicate on the "stage_message_presets" field.
+func StageMessagePresetsHasSuffix(v string) predicate.Event {
+	return predicate.Event(sql.FieldHasSuffix(FieldStageMessagePresets, v))
+}
+
+// StageMessagePresetsEqualFold applies the EqualFold predicate on the "stage_message_presets" field.
+func StageMessagePresetsEqualFold(v string) predicate.Event {
+	return predicate.Event(sql.FieldEqualFold(FieldStageMessagePresets, v))
+}
+
+// StageMessagePresetsContainsFold applies the ContainsFold predicate on the "stage_message_presets" field.
+func StageMessagePresetsContainsFold(v string) predicate.Event {
+	return predicate.Event(sql.FieldContainsFold(FieldStageMessagePresets, v))
+}
+
+// StageMessageDefaultDurationSecondsEQ applies the EQ predicate on the "stage_message_default_duration_seconds" field.
+func StageMessageDefaultDurationSecondsEQ(v int) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldStageMessageDefaultDurationSeconds, v))
+}
+
+// StageMessageDefaultDurationSecondsNEQ applies the NEQ predicate on the "stage_message_default_duration_seconds" field.
+func StageMessageDefaultDurationSecondsNEQ(v int) predicate.Event {
+	return predicate.Event(sql.FieldNEQ(FieldStageMessageDefaultDurationSeconds, v))
+}
+
+// StageMessageDefaultDurationSecondsIn applies the In predicate on the "stage_message_default_duration_seconds" field.
+func StageMessageDefaultDurationSecondsIn(vs ...int) predicate.Event {
+	return predicate.Event(sql.FieldIn(FieldStageMessageDefaultDurationSeconds, vs...))
+}
+
+// StageMessageDefaultDurationSecondsNotIn applies the NotIn predicate on the "stage_message_default_duration_seconds" field.
+func StageMessageDefaultDurationSecondsNotIn(vs ...int) predicate.Event {
+	return predicate.Event(sql.FieldNotIn(FieldStageMessageDefaultDurationSeconds, vs...))
+}
+
+// StageMessageDefaultDurationSecondsGT applies the GT predicate on the "stage_message_default_duration_seconds" field.
+func StageMessageDefaultDurationSecondsGT(v int) predicate.Event {
+	return predicate.Event(sql.FieldGT(FieldStageMessageDefaultDurationSeconds, v))
+}
+
+// StageMessageDefaultDurationSecondsGTE applies the GTE predicate on the "stage_message_default_duration_seconds" field.
+func StageMessageDefaultDurationSecondsGTE(v int) predicate.Event {
+	return predicate.Event(sql.FieldGTE(FieldStageMessageDefaultDurationSeconds, v))
+}
+
+// StageMessageDefaultDurationSecondsLT applies the LT predicate on the "stage_message_default_duration_seconds" field.
+func StageMessageDefaultDurationSecondsLT(v int) predicate.Event {
+	return predicate.Event(sql.FieldLT(FieldStageMessageDefaultDurationSeconds, v))
+}
+
+// StageMessageDefaultDurationSecondsLTE applies the LTE predicate on the "stage_message_default_duration_seconds" field.
+func StageMessageDefaultDurationSecondsLTE(v int) predicate.Event {
+	return predicate.Event(sql.FieldLTE(FieldStageMessageDefaultDurationSeconds, v))
+}
+
+// StageMessageConfigurationRevisionEQ applies the EQ predicate on the "stage_message_configuration_revision" field.
+func StageMessageConfigurationRevisionEQ(v int) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldStageMessageConfigurationRevision, v))
+}
+
+// StageMessageConfigurationRevisionNEQ applies the NEQ predicate on the "stage_message_configuration_revision" field.
+func StageMessageConfigurationRevisionNEQ(v int) predicate.Event {
+	return predicate.Event(sql.FieldNEQ(FieldStageMessageConfigurationRevision, v))
+}
+
+// StageMessageConfigurationRevisionIn applies the In predicate on the "stage_message_configuration_revision" field.
+func StageMessageConfigurationRevisionIn(vs ...int) predicate.Event {
+	return predicate.Event(sql.FieldIn(FieldStageMessageConfigurationRevision, vs...))
+}
+
+// StageMessageConfigurationRevisionNotIn applies the NotIn predicate on the "stage_message_configuration_revision" field.
+func StageMessageConfigurationRevisionNotIn(vs ...int) predicate.Event {
+	return predicate.Event(sql.FieldNotIn(FieldStageMessageConfigurationRevision, vs...))
+}
+
+// StageMessageConfigurationRevisionGT applies the GT predicate on the "stage_message_configuration_revision" field.
+func StageMessageConfigurationRevisionGT(v int) predicate.Event {
+	return predicate.Event(sql.FieldGT(FieldStageMessageConfigurationRevision, v))
+}
+
+// StageMessageConfigurationRevisionGTE applies the GTE predicate on the "stage_message_configuration_revision" field.
+func StageMessageConfigurationRevisionGTE(v int) predicate.Event {
+	return predicate.Event(sql.FieldGTE(FieldStageMessageConfigurationRevision, v))
+}
+
+// StageMessageConfigurationRevisionLT applies the LT predicate on the "stage_message_configuration_revision" field.
+func StageMessageConfigurationRevisionLT(v int) predicate.Event {
+	return predicate.Event(sql.FieldLT(FieldStageMessageConfigurationRevision, v))
+}
+
+// StageMessageConfigurationRevisionLTE applies the LTE predicate on the "stage_message_configuration_revision" field.
+func StageMessageConfigurationRevisionLTE(v int) predicate.Event {
+	return predicate.Event(sql.FieldLTE(FieldStageMessageConfigurationRevision, v))
+}
+
 // RevisionEQ applies the EQ predicate on the "revision" field.
 func RevisionEQ(v int) predicate.Event {
 	return predicate.Event(sql.FieldEQ(FieldRevision, v))
@@ -1248,6 +1408,29 @@ func HasDisplayAssignments() predicate.Event {
 func HasDisplayAssignmentsWith(preds ...predicate.DisplayAssignment) predicate.Event {
 	return predicate.Event(func(s *sql.Selector) {
 		step := newDisplayAssignmentsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasDisplayOverrides applies the HasEdge predicate on the "display_overrides" edge.
+func HasDisplayOverrides() predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, DisplayOverridesTable, DisplayOverridesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasDisplayOverridesWith applies the HasEdge predicate on the "display_overrides" edge with a given conditions (other predicates).
+func HasDisplayOverridesWith(preds ...predicate.DisplayOverride) predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := newDisplayOverridesStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

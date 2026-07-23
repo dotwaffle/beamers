@@ -13,6 +13,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/display"
 	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/displaycredential"
+	"github.com/dotwaffle/beamers/ent/displayoverridestate"
 )
 
 // DisplayCreate is the builder for creating a Display entity.
@@ -146,6 +147,62 @@ func (_c *DisplayCreate) SetNillableAppliedPublishedRevision(v *int) *DisplayCre
 	return _c
 }
 
+// SetAppliedStageMessageID sets the "applied_stage_message_id" field.
+func (_c *DisplayCreate) SetAppliedStageMessageID(v int) *DisplayCreate {
+	_c.mutation.SetAppliedStageMessageID(v)
+	return _c
+}
+
+// SetNillableAppliedStageMessageID sets the "applied_stage_message_id" field if the given value is not nil.
+func (_c *DisplayCreate) SetNillableAppliedStageMessageID(v *int) *DisplayCreate {
+	if v != nil {
+		_c.SetAppliedStageMessageID(*v)
+	}
+	return _c
+}
+
+// SetAppliedStageMessageRevision sets the "applied_stage_message_revision" field.
+func (_c *DisplayCreate) SetAppliedStageMessageRevision(v int) *DisplayCreate {
+	_c.mutation.SetAppliedStageMessageRevision(v)
+	return _c
+}
+
+// SetNillableAppliedStageMessageRevision sets the "applied_stage_message_revision" field if the given value is not nil.
+func (_c *DisplayCreate) SetNillableAppliedStageMessageRevision(v *int) *DisplayCreate {
+	if v != nil {
+		_c.SetAppliedStageMessageRevision(*v)
+	}
+	return _c
+}
+
+// SetAppliedTechnicalDifficultiesID sets the "applied_technical_difficulties_id" field.
+func (_c *DisplayCreate) SetAppliedTechnicalDifficultiesID(v int) *DisplayCreate {
+	_c.mutation.SetAppliedTechnicalDifficultiesID(v)
+	return _c
+}
+
+// SetNillableAppliedTechnicalDifficultiesID sets the "applied_technical_difficulties_id" field if the given value is not nil.
+func (_c *DisplayCreate) SetNillableAppliedTechnicalDifficultiesID(v *int) *DisplayCreate {
+	if v != nil {
+		_c.SetAppliedTechnicalDifficultiesID(*v)
+	}
+	return _c
+}
+
+// SetAppliedTechnicalDifficultiesRevision sets the "applied_technical_difficulties_revision" field.
+func (_c *DisplayCreate) SetAppliedTechnicalDifficultiesRevision(v int) *DisplayCreate {
+	_c.mutation.SetAppliedTechnicalDifficultiesRevision(v)
+	return _c
+}
+
+// SetNillableAppliedTechnicalDifficultiesRevision sets the "applied_technical_difficulties_revision" field if the given value is not nil.
+func (_c *DisplayCreate) SetNillableAppliedTechnicalDifficultiesRevision(v *int) *DisplayCreate {
+	if v != nil {
+		_c.SetAppliedTechnicalDifficultiesRevision(*v)
+	}
+	return _c
+}
+
 // SetAppliedStandby sets the "applied_standby" field.
 func (_c *DisplayCreate) SetAppliedStandby(v bool) *DisplayCreate {
 	_c.mutation.SetAppliedStandby(v)
@@ -246,6 +303,21 @@ func (_c *DisplayCreate) AddAssignments(v ...*DisplayAssignment) *DisplayCreate 
 	return _c.AddAssignmentIDs(ids...)
 }
 
+// AddOverrideStateIDs adds the "override_states" edge to the DisplayOverrideState entity by IDs.
+func (_c *DisplayCreate) AddOverrideStateIDs(ids ...int) *DisplayCreate {
+	_c.mutation.AddOverrideStateIDs(ids...)
+	return _c
+}
+
+// AddOverrideStates adds the "override_states" edges to the DisplayOverrideState entity.
+func (_c *DisplayCreate) AddOverrideStates(v ...*DisplayOverrideState) *DisplayCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddOverrideStateIDs(ids...)
+}
+
 // Mutation returns the DisplayMutation object of the builder.
 func (_c *DisplayCreate) Mutation() *DisplayMutation {
 	return _c.mutation
@@ -318,6 +390,22 @@ func (_c *DisplayCreate) defaults() error {
 		v := display.DefaultAppliedPublishedRevision
 		_c.mutation.SetAppliedPublishedRevision(v)
 	}
+	if _, ok := _c.mutation.AppliedStageMessageID(); !ok {
+		v := display.DefaultAppliedStageMessageID
+		_c.mutation.SetAppliedStageMessageID(v)
+	}
+	if _, ok := _c.mutation.AppliedStageMessageRevision(); !ok {
+		v := display.DefaultAppliedStageMessageRevision
+		_c.mutation.SetAppliedStageMessageRevision(v)
+	}
+	if _, ok := _c.mutation.AppliedTechnicalDifficultiesID(); !ok {
+		v := display.DefaultAppliedTechnicalDifficultiesID
+		_c.mutation.SetAppliedTechnicalDifficultiesID(v)
+	}
+	if _, ok := _c.mutation.AppliedTechnicalDifficultiesRevision(); !ok {
+		v := display.DefaultAppliedTechnicalDifficultiesRevision
+		_c.mutation.SetAppliedTechnicalDifficultiesRevision(v)
+	}
 	if _, ok := _c.mutation.AppliedStandby(); !ok {
 		v := display.DefaultAppliedStandby
 		_c.mutation.SetAppliedStandby(v)
@@ -373,6 +461,18 @@ func (_c *DisplayCreate) check() error {
 	}
 	if _, ok := _c.mutation.AppliedPublishedRevision(); !ok {
 		return &ValidationError{Name: "applied_published_revision", err: errors.New(`ent: missing required field "Display.applied_published_revision"`)}
+	}
+	if _, ok := _c.mutation.AppliedStageMessageID(); !ok {
+		return &ValidationError{Name: "applied_stage_message_id", err: errors.New(`ent: missing required field "Display.applied_stage_message_id"`)}
+	}
+	if _, ok := _c.mutation.AppliedStageMessageRevision(); !ok {
+		return &ValidationError{Name: "applied_stage_message_revision", err: errors.New(`ent: missing required field "Display.applied_stage_message_revision"`)}
+	}
+	if _, ok := _c.mutation.AppliedTechnicalDifficultiesID(); !ok {
+		return &ValidationError{Name: "applied_technical_difficulties_id", err: errors.New(`ent: missing required field "Display.applied_technical_difficulties_id"`)}
+	}
+	if _, ok := _c.mutation.AppliedTechnicalDifficultiesRevision(); !ok {
+		return &ValidationError{Name: "applied_technical_difficulties_revision", err: errors.New(`ent: missing required field "Display.applied_technical_difficulties_revision"`)}
 	}
 	if _, ok := _c.mutation.AppliedStandby(); !ok {
 		return &ValidationError{Name: "applied_standby", err: errors.New(`ent: missing required field "Display.applied_standby"`)}
@@ -452,6 +552,22 @@ func (_c *DisplayCreate) createSpec() (*Display, *sqlgraph.CreateSpec) {
 		_spec.SetField(display.FieldAppliedPublishedRevision, field.TypeInt, value)
 		_node.AppliedPublishedRevision = value
 	}
+	if value, ok := _c.mutation.AppliedStageMessageID(); ok {
+		_spec.SetField(display.FieldAppliedStageMessageID, field.TypeInt, value)
+		_node.AppliedStageMessageID = value
+	}
+	if value, ok := _c.mutation.AppliedStageMessageRevision(); ok {
+		_spec.SetField(display.FieldAppliedStageMessageRevision, field.TypeInt, value)
+		_node.AppliedStageMessageRevision = value
+	}
+	if value, ok := _c.mutation.AppliedTechnicalDifficultiesID(); ok {
+		_spec.SetField(display.FieldAppliedTechnicalDifficultiesID, field.TypeInt, value)
+		_node.AppliedTechnicalDifficultiesID = value
+	}
+	if value, ok := _c.mutation.AppliedTechnicalDifficultiesRevision(); ok {
+		_spec.SetField(display.FieldAppliedTechnicalDifficultiesRevision, field.TypeInt, value)
+		_node.AppliedTechnicalDifficultiesRevision = value
+	}
 	if value, ok := _c.mutation.AppliedStandby(); ok {
 		_spec.SetField(display.FieldAppliedStandby, field.TypeBool, value)
 		_node.AppliedStandby = value
@@ -497,6 +613,22 @@ func (_c *DisplayCreate) createSpec() (*Display, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(displayassignment.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.OverrideStatesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   display.OverrideStatesTable,
+			Columns: []string{display.OverrideStatesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(displayoverridestate.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

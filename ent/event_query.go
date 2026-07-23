@@ -15,6 +15,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/displayassignment"
+	"github.com/dotwaffle/beamers/ent/displayoverride"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/event"
@@ -48,6 +49,7 @@ type EventQuery struct {
 	withDraftChanges       *DraftChangeQuery
 	withImportReferences   *ImportReferenceQuery
 	withDisplayAssignments *DisplayAssignmentQuery
+	withDisplayOverrides   *DisplayOverrideQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -348,6 +350,28 @@ func (_q *EventQuery) QueryDisplayAssignments() *DisplayAssignmentQuery {
 	return query
 }
 
+// QueryDisplayOverrides chains the current query on the "display_overrides" edge.
+func (_q *EventQuery) QueryDisplayOverrides() *DisplayOverrideQuery {
+	query := (&DisplayOverrideClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, selector),
+			sqlgraph.To(displayoverride.Table, displayoverride.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.DisplayOverridesTable, event.DisplayOverridesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // First returns the first Event entity from the query.
 // Returns a *NotFoundError when no Event was found.
 func (_q *EventQuery) First(ctx context.Context) (*Event, error) {
@@ -552,6 +576,7 @@ func (_q *EventQuery) Clone() *EventQuery {
 		withDraftChanges:       _q.withDraftChanges.Clone(),
 		withImportReferences:   _q.withImportReferences.Clone(),
 		withDisplayAssignments: _q.withDisplayAssignments.Clone(),
+		withDisplayOverrides:   _q.withDisplayOverrides.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -690,6 +715,17 @@ func (_q *EventQuery) WithDisplayAssignments(opts ...func(*DisplayAssignmentQuer
 	return _q
 }
 
+// WithDisplayOverrides tells the query-builder to eager-load the nodes that are connected to
+// the "display_overrides" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *EventQuery) WithDisplayOverrides(opts ...func(*DisplayOverrideQuery)) *EventQuery {
+	query := (&DisplayOverrideClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withDisplayOverrides = query
+	return _q
+}
+
 // GroupBy is used to group vertices by one or more fields/columns.
 // It is often used with aggregate functions, like: count, max, mean, min, sum.
 //
@@ -774,7 +810,7 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 	var (
 		nodes       = []*Event{}
 		_spec       = _q.querySpec()
-		loadedTypes = [12]bool{
+		loadedTypes = [13]bool{
 			_q.withGrants != nil,
 			_q.withRundown != nil,
 			_q.withLocations != nil,
@@ -787,6 +823,7 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 			_q.withDraftChanges != nil,
 			_q.withImportReferences != nil,
 			_q.withDisplayAssignments != nil,
+			_q.withDisplayOverrides != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -891,6 +928,13 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 			func(n *Event, e *DisplayAssignment) {
 				n.Edges.DisplayAssignments = append(n.Edges.DisplayAssignments, e)
 			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withDisplayOverrides; query != nil {
+		if err := _q.loadDisplayOverrides(ctx, query, nodes,
+			func(n *Event) { n.Edges.DisplayOverrides = []*DisplayOverride{} },
+			func(n *Event, e *DisplayOverride) { n.Edges.DisplayOverrides = append(n.Edges.DisplayOverrides, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -1239,6 +1283,36 @@ func (_q *EventQuery) loadDisplayAssignments(ctx context.Context, query *Display
 	}
 	query.Where(predicate.DisplayAssignment(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(event.DisplayAssignmentsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.EventID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "event_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *EventQuery) loadDisplayOverrides(ctx context.Context, query *DisplayOverrideQuery, nodes []*Event, init func(*Event), assign func(*Event, *DisplayOverride)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Event)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(displayoverride.FieldEventID)
+	}
+	query.Where(predicate.DisplayOverride(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(event.DisplayOverridesColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

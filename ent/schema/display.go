@@ -31,6 +31,10 @@ func (Display) Fields() []ent.Field {
 		field.Int("applied_active_event_id").Default(0),
 		field.Int("applied_activation_generation").Default(0),
 		field.Int("applied_published_revision").Default(0),
+		field.Int("applied_stage_message_id").Default(0),
+		field.Int("applied_stage_message_revision").Default(0),
+		field.Int("applied_technical_difficulties_id").Default(0),
+		field.Int("applied_technical_difficulties_revision").Default(0),
 		field.Bool("applied_standby").Default(true),
 		field.Int64("clock_offset_milliseconds").Default(0),
 		field.Int64("clock_uncertainty_milliseconds").Default(0),
@@ -44,5 +48,6 @@ func (Display) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("credentials", DisplayCredential.Type),
 		edge.To("assignments", DisplayAssignment.Type),
+		edge.To("override_states", DisplayOverrideState.Type),
 	}
 }

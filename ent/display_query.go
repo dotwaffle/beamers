@@ -16,18 +16,20 @@ import (
 	"github.com/dotwaffle/beamers/ent/display"
 	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/displaycredential"
+	"github.com/dotwaffle/beamers/ent/displayoverridestate"
 	"github.com/dotwaffle/beamers/ent/predicate"
 )
 
 // DisplayQuery is the builder for querying Display entities.
 type DisplayQuery struct {
 	config
-	ctx             *QueryContext
-	order           []display.OrderOption
-	inters          []Interceptor
-	predicates      []predicate.Display
-	withCredentials *DisplayCredentialQuery
-	withAssignments *DisplayAssignmentQuery
+	ctx                *QueryContext
+	order              []display.OrderOption
+	inters             []Interceptor
+	predicates         []predicate.Display
+	withCredentials    *DisplayCredentialQuery
+	withAssignments    *DisplayAssignmentQuery
+	withOverrideStates *DisplayOverrideStateQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -101,6 +103,28 @@ func (_q *DisplayQuery) QueryAssignments() *DisplayAssignmentQuery {
 			sqlgraph.From(display.Table, display.FieldID, selector),
 			sqlgraph.To(displayassignment.Table, displayassignment.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, display.AssignmentsTable, display.AssignmentsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryOverrideStates chains the current query on the "override_states" edge.
+func (_q *DisplayQuery) QueryOverrideStates() *DisplayOverrideStateQuery {
+	query := (&DisplayOverrideStateClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(display.Table, display.FieldID, selector),
+			sqlgraph.To(displayoverridestate.Table, displayoverridestate.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, display.OverrideStatesTable, display.OverrideStatesColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -295,13 +319,14 @@ func (_q *DisplayQuery) Clone() *DisplayQuery {
 		return nil
 	}
 	return &DisplayQuery{
-		config:          _q.config,
-		ctx:             _q.ctx.Clone(),
-		order:           append([]display.OrderOption{}, _q.order...),
-		inters:          append([]Interceptor{}, _q.inters...),
-		predicates:      append([]predicate.Display{}, _q.predicates...),
-		withCredentials: _q.withCredentials.Clone(),
-		withAssignments: _q.withAssignments.Clone(),
+		config:             _q.config,
+		ctx:                _q.ctx.Clone(),
+		order:              append([]display.OrderOption{}, _q.order...),
+		inters:             append([]Interceptor{}, _q.inters...),
+		predicates:         append([]predicate.Display{}, _q.predicates...),
+		withCredentials:    _q.withCredentials.Clone(),
+		withAssignments:    _q.withAssignments.Clone(),
+		withOverrideStates: _q.withOverrideStates.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -327,6 +352,17 @@ func (_q *DisplayQuery) WithAssignments(opts ...func(*DisplayAssignmentQuery)) *
 		opt(query)
 	}
 	_q.withAssignments = query
+	return _q
+}
+
+// WithOverrideStates tells the query-builder to eager-load the nodes that are connected to
+// the "override_states" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *DisplayQuery) WithOverrideStates(opts ...func(*DisplayOverrideStateQuery)) *DisplayQuery {
+	query := (&DisplayOverrideStateClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withOverrideStates = query
 	return _q
 }
 
@@ -414,9 +450,10 @@ func (_q *DisplayQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Disp
 	var (
 		nodes       = []*Display{}
 		_spec       = _q.querySpec()
-		loadedTypes = [2]bool{
+		loadedTypes = [3]bool{
 			_q.withCredentials != nil,
 			_q.withAssignments != nil,
+			_q.withOverrideStates != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -448,6 +485,13 @@ func (_q *DisplayQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Disp
 		if err := _q.loadAssignments(ctx, query, nodes,
 			func(n *Display) { n.Edges.Assignments = []*DisplayAssignment{} },
 			func(n *Display, e *DisplayAssignment) { n.Edges.Assignments = append(n.Edges.Assignments, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withOverrideStates; query != nil {
+		if err := _q.loadOverrideStates(ctx, query, nodes,
+			func(n *Display) { n.Edges.OverrideStates = []*DisplayOverrideState{} },
+			func(n *Display, e *DisplayOverrideState) { n.Edges.OverrideStates = append(n.Edges.OverrideStates, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -499,6 +543,36 @@ func (_q *DisplayQuery) loadAssignments(ctx context.Context, query *DisplayAssig
 	}
 	query.Where(predicate.DisplayAssignment(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(display.AssignmentsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.DisplayID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "display_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *DisplayQuery) loadOverrideStates(ctx context.Context, query *DisplayOverrideStateQuery, nodes []*Display, init func(*Display), assign func(*Display, *DisplayOverrideState)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Display)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(displayoverridestate.FieldDisplayID)
+	}
+	query.Where(predicate.DisplayOverrideState(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(display.OverrideStatesColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

@@ -105,6 +105,7 @@ func loadDisplayAssignments(
 		assignments = append(assignments, DisplayAssignment{
 			DisplayID: item.DisplayID, EventID: item.EventID,
 			LocationID: item.LocationID, ViewKey: item.ViewKey,
+			DisplayGroupKeys: item.DisplayGroupKeys,
 		})
 		assigned[item.DisplayID] = struct{}{}
 	}
