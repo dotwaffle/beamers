@@ -25,6 +25,7 @@ const displaySubscriberQueueCapacity = 1
 type Config struct {
 	DataDir         string
 	ListenAddress   string
+	BuildVersion    string
 	ShutdownTimeout time.Duration
 	Logger          *slog.Logger
 	TracerProvider  trace.TracerProvider
@@ -34,6 +35,9 @@ type Config struct {
 
 // Run serves health endpoints until the context is canceled.
 func Run(ctx context.Context, config Config) error {
+	if config.BuildVersion == "" {
+		return errors.New("server build version is required")
+	}
 	installation, err := operations.OpenInstallation(ctx, config.DataDir)
 	if err != nil {
 		return err
@@ -88,6 +92,7 @@ func Run(ctx context.Context, config Config) error {
 			installation.Authentication(),
 			installation.Displays(),
 			displayStream,
+			config.BuildVersion,
 			config.Logger,
 			listener.Addr(),
 		)
@@ -142,7 +147,7 @@ func Run(ctx context.Context, config Config) error {
 	}
 
 	httpServer := &http.Server{
-		Handler:           mux,
+		Handler:           requireCompatibleClientBuild(config.BuildVersion, mux),
 		ReadTimeout:       10 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,
 		WriteTimeout:      10 * time.Second,

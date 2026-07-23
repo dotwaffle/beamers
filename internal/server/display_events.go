@@ -19,6 +19,7 @@ const (
 
 type displayInvalidation struct {
 	ProtocolVersion      string `json:"protocol_version"`
+	AssetVersion         string `json:"asset_version"`
 	StreamID             string `json:"stream_id"`
 	StreamPosition       uint64 `json:"stream_position"`
 	ActiveEventID        int    `json:"active_event_id"`
@@ -49,7 +50,8 @@ func (handlers displayHandlers) events(response http.ResponseWriter, request *ht
 	}
 
 	streamChanged := request.URL.Query().Get("stream_id") != current.StreamID
-	if streamChanged {
+	unknownPosition := after > current.Position
+	if streamChanged || unknownPosition {
 		after = current.Position
 	}
 	subscription := handlers.stream.Subscribe(after)
@@ -61,7 +63,7 @@ func (handlers displayHandlers) events(response http.ResponseWriter, request *ht
 	if err := writeDisplayHeartbeat(response); err != nil {
 		return
 	}
-	if streamChanged {
+	if streamChanged || unknownPosition {
 		if err := writeDisplayInvalidation(response, current, snapshot); err != nil {
 			return
 		}
@@ -110,7 +112,8 @@ func writeDisplayInvalidation(
 	snapshot displays.Snapshot,
 ) error {
 	invalidation := displayInvalidation{
-		ProtocolVersion: snapshot.ProtocolVersion, StreamID: cursor.StreamID,
+		ProtocolVersion: snapshot.ProtocolVersion, AssetVersion: snapshot.AssetVersion,
+		StreamID:       cursor.StreamID,
 		StreamPosition: cursor.Position, ActiveEventID: snapshot.ActiveEventID,
 		ActivationGeneration: snapshot.ActivationGeneration,
 		PublishedRevision:    snapshot.PublishedRevision,

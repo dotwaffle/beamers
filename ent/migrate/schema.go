@@ -120,11 +120,16 @@ var (
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "enrolled_at", Type: field.TypeTime},
 		{Name: "applied_protocol_version", Type: field.TypeString, Default: ""},
+		{Name: "applied_asset_version", Type: field.TypeString, Default: ""},
 		{Name: "applied_stream_id", Type: field.TypeString, Default: ""},
 		{Name: "applied_stream_position", Type: field.TypeInt64, Default: 0},
 		{Name: "applied_active_event_id", Type: field.TypeInt, Default: 0},
 		{Name: "applied_activation_generation", Type: field.TypeInt, Default: 0},
 		{Name: "applied_published_revision", Type: field.TypeInt, Default: 0},
+		{Name: "applied_standby", Type: field.TypeBool, Default: true},
+		{Name: "clock_offset_milliseconds", Type: field.TypeInt64, Default: 0},
+		{Name: "clock_uncertainty_milliseconds", Type: field.TypeInt64, Default: 0},
+		{Name: "renderer_unstable", Type: field.TypeBool, Default: false},
 		{Name: "applied_at", Type: field.TypeTime, Nullable: true},
 	}
 	// DisplaysTable holds the schema information for the "displays" table.

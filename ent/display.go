@@ -25,6 +25,8 @@ type Display struct {
 	EnrolledAt time.Time `json:"enrolled_at,omitempty"`
 	// AppliedProtocolVersion holds the value of the "applied_protocol_version" field.
 	AppliedProtocolVersion string `json:"applied_protocol_version,omitempty"`
+	// AppliedAssetVersion holds the value of the "applied_asset_version" field.
+	AppliedAssetVersion string `json:"applied_asset_version,omitempty"`
 	// AppliedStreamID holds the value of the "applied_stream_id" field.
 	AppliedStreamID string `json:"applied_stream_id,omitempty"`
 	// AppliedStreamPosition holds the value of the "applied_stream_position" field.
@@ -35,6 +37,14 @@ type Display struct {
 	AppliedActivationGeneration int `json:"applied_activation_generation,omitempty"`
 	// AppliedPublishedRevision holds the value of the "applied_published_revision" field.
 	AppliedPublishedRevision int `json:"applied_published_revision,omitempty"`
+	// AppliedStandby holds the value of the "applied_standby" field.
+	AppliedStandby bool `json:"applied_standby,omitempty"`
+	// ClockOffsetMilliseconds holds the value of the "clock_offset_milliseconds" field.
+	ClockOffsetMilliseconds int64 `json:"clock_offset_milliseconds,omitempty"`
+	// ClockUncertaintyMilliseconds holds the value of the "clock_uncertainty_milliseconds" field.
+	ClockUncertaintyMilliseconds int64 `json:"clock_uncertainty_milliseconds,omitempty"`
+	// RendererUnstable holds the value of the "renderer_unstable" field.
+	RendererUnstable bool `json:"renderer_unstable,omitempty"`
 	// AppliedAt holds the value of the "applied_at" field.
 	AppliedAt *time.Time `json:"applied_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -77,9 +87,11 @@ func (*Display) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case display.FieldID, display.FieldAppliedStreamPosition, display.FieldAppliedActiveEventID, display.FieldAppliedActivationGeneration, display.FieldAppliedPublishedRevision:
+		case display.FieldAppliedStandby, display.FieldRendererUnstable:
+			values[i] = new(sql.NullBool)
+		case display.FieldID, display.FieldAppliedStreamPosition, display.FieldAppliedActiveEventID, display.FieldAppliedActivationGeneration, display.FieldAppliedPublishedRevision, display.FieldClockOffsetMilliseconds, display.FieldClockUncertaintyMilliseconds:
 			values[i] = new(sql.NullInt64)
-		case display.FieldName, display.FieldAppliedProtocolVersion, display.FieldAppliedStreamID:
+		case display.FieldName, display.FieldAppliedProtocolVersion, display.FieldAppliedAssetVersion, display.FieldAppliedStreamID:
 			values[i] = new(sql.NullString)
 		case display.FieldCreatedAt, display.FieldEnrolledAt, display.FieldAppliedAt:
 			values[i] = new(sql.NullTime)
@@ -128,6 +140,12 @@ func (_m *Display) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.AppliedProtocolVersion = value.String
 			}
+		case display.FieldAppliedAssetVersion:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field applied_asset_version", values[i])
+			} else if value.Valid {
+				_m.AppliedAssetVersion = value.String
+			}
 		case display.FieldAppliedStreamID:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field applied_stream_id", values[i])
@@ -157,6 +175,30 @@ func (_m *Display) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field applied_published_revision", values[i])
 			} else if value.Valid {
 				_m.AppliedPublishedRevision = int(value.Int64)
+			}
+		case display.FieldAppliedStandby:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field applied_standby", values[i])
+			} else if value.Valid {
+				_m.AppliedStandby = value.Bool
+			}
+		case display.FieldClockOffsetMilliseconds:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field clock_offset_milliseconds", values[i])
+			} else if value.Valid {
+				_m.ClockOffsetMilliseconds = value.Int64
+			}
+		case display.FieldClockUncertaintyMilliseconds:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field clock_uncertainty_milliseconds", values[i])
+			} else if value.Valid {
+				_m.ClockUncertaintyMilliseconds = value.Int64
+			}
+		case display.FieldRendererUnstable:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field renderer_unstable", values[i])
+			} else if value.Valid {
+				_m.RendererUnstable = value.Bool
 			}
 		case display.FieldAppliedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -223,6 +265,9 @@ func (_m *Display) String() string {
 	builder.WriteString("applied_protocol_version=")
 	builder.WriteString(_m.AppliedProtocolVersion)
 	builder.WriteString(", ")
+	builder.WriteString("applied_asset_version=")
+	builder.WriteString(_m.AppliedAssetVersion)
+	builder.WriteString(", ")
 	builder.WriteString("applied_stream_id=")
 	builder.WriteString(_m.AppliedStreamID)
 	builder.WriteString(", ")
@@ -237,6 +282,18 @@ func (_m *Display) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("applied_published_revision=")
 	builder.WriteString(fmt.Sprintf("%v", _m.AppliedPublishedRevision))
+	builder.WriteString(", ")
+	builder.WriteString("applied_standby=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AppliedStandby))
+	builder.WriteString(", ")
+	builder.WriteString("clock_offset_milliseconds=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ClockOffsetMilliseconds))
+	builder.WriteString(", ")
+	builder.WriteString("clock_uncertainty_milliseconds=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ClockUncertaintyMilliseconds))
+	builder.WriteString(", ")
+	builder.WriteString("renderer_unstable=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RendererUnstable))
 	builder.WriteString(", ")
 	if v := _m.AppliedAt; v != nil {
 		builder.WriteString("applied_at=")

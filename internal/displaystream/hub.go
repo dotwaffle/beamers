@@ -28,9 +28,11 @@ type SnapshotState struct {
 	Cursor
 	DisplayID            int64
 	ProtocolVersion      string
+	AssetVersion         string
 	ActiveEventID        int64
 	ActivationGeneration int64
 	PublishedRevision    int64
+	Standby              bool
 }
 
 // Subscription is one bounded stream consumer.
@@ -98,6 +100,8 @@ func snapshotTokenPayload(state SnapshotState) []byte {
 	payload = append(payload, 0)
 	payload = append(payload, state.ProtocolVersion...)
 	payload = append(payload, 0)
+	payload = append(payload, state.AssetVersion...)
+	payload = append(payload, 0)
 	payload = append(payload, state.StreamID...)
 	payload = append(payload, 0)
 	payload = strconv.AppendUint(payload, state.Position, 10)
@@ -106,7 +110,9 @@ func snapshotTokenPayload(state SnapshotState) []byte {
 	payload = append(payload, 0)
 	payload = strconv.AppendInt(payload, state.ActivationGeneration, 10)
 	payload = append(payload, 0)
-	return strconv.AppendInt(payload, state.PublishedRevision, 10)
+	payload = strconv.AppendInt(payload, state.PublishedRevision, 10)
+	payload = append(payload, 0)
+	return strconv.AppendBool(payload, state.Standby)
 }
 
 // NewProcess creates a stream identity that changes across process restarts.

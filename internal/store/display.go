@@ -14,6 +14,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
+	"github.com/dotwaffle/beamers/ent/rundown"
 )
 
 var (
@@ -54,13 +55,27 @@ type DisplayAssignment struct {
 
 // DisplayStatus is one crew-visible current routing summary.
 type DisplayStatus struct {
-	ID            int    `json:"id"`
-	Name          string `json:"name"`
-	ActiveEventID int    `json:"active_event_id"`
-	Standby       bool   `json:"standby"`
-	EventName     string `json:"event_name,omitempty"`
-	LocationName  string `json:"location_name,omitempty"`
-	ViewKey       string `json:"view_key,omitempty"`
+	ID                           int
+	Name                         string
+	ActiveEventID                int
+	ActivationGeneration         int
+	PublishedRevision            int
+	Standby                      bool
+	EventName                    string
+	LocationName                 string
+	ViewKey                      string
+	AppliedProtocolVersion       string
+	AppliedAssetVersion          string
+	AppliedStreamID              string
+	AppliedStreamPosition        int64
+	AppliedActiveEventID         int
+	AppliedActivationGeneration  int
+	AppliedPublishedRevision     int
+	AppliedStandby               bool
+	AppliedAt                    *time.Time
+	ClockOffsetMilliseconds      int64
+	ClockUncertaintyMilliseconds int64
+	RendererUnstable             bool
 }
 
 // IssueDisplayEnrollment stores one short-lived, single-use enrollment offer.
@@ -230,11 +245,11 @@ func (installation *SQLite) LoadDisplayStatus(
 	if err != nil {
 		return DisplayStatus{}, opaqueError("load Display status", err)
 	}
-	activeEventID, eventName, err := loadDisplayRouting(internalContext, installation.client)
+	routing, err := loadDisplayRouting(internalContext, installation.client)
 	if err != nil {
 		return DisplayStatus{}, err
 	}
-	return loadDisplayStatus(internalContext, installation.client, found, activeEventID, eventName)
+	return loadDisplayStatus(internalContext, installation.client, found, routing)
 }
 
 // ListDisplayStatuses returns one snapshot's Active Event and crew-visible Assignment summaries.
@@ -248,7 +263,7 @@ func (installation *SQLite) ListDisplayStatuses(ctx context.Context) (int, []Dis
 		_ = transaction.Rollback()
 	}()
 	client := transaction.Client()
-	activeEventID, eventName, err := loadDisplayRouting(internalContext, client)
+	routing, err := loadDisplayRouting(internalContext, client)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -258,47 +273,77 @@ func (installation *SQLite) ListDisplayStatuses(ctx context.Context) (int, []Dis
 	}
 	result := make([]DisplayStatus, 0, len(found))
 	for _, item := range found {
-		status, statusErr := loadDisplayStatus(internalContext, client, item, activeEventID, eventName)
+		status, statusErr := loadDisplayStatus(internalContext, client, item, routing)
 		if statusErr != nil {
 			return 0, nil, statusErr
 		}
 		result = append(result, status)
 	}
-	return activeEventID, result, nil
+	return routing.ActiveEventID, result, nil
 }
 
-func loadDisplayRouting(ctx context.Context, client *ent.Client) (int, string, error) {
+type displayRouting struct {
+	ActiveEventID        int
+	EventName            string
+	ActivationGeneration int
+	PublishedRevision    int
+}
+
+func loadDisplayRouting(ctx context.Context, client *ent.Client) (displayRouting, error) {
 	routing, err := client.Installation.Query().Only(ctx)
 	if err != nil {
-		return 0, "", opaqueError("load Active Event for Display", err)
+		return displayRouting{}, opaqueError("load Active Event for Display", err)
 	}
+	result := displayRouting{ActivationGeneration: routing.ActivationGeneration}
 	if routing.ActiveEventID == nil {
-		return 0, "", nil
+		return result, nil
 	}
 	activeEvent, err := client.Event.Get(ctx, *routing.ActiveEventID)
 	if err != nil {
-		return 0, "", opaqueError("load Active Event Display projection", err)
+		return displayRouting{}, opaqueError("load Active Event Display projection", err)
 	}
-	return activeEvent.ID, activeEvent.Name, nil
+	activeRundown, err := client.Rundown.Query().Where(
+		rundown.EventIDEQ(activeEvent.ID),
+	).Only(ctx)
+	if err != nil {
+		return displayRouting{}, opaqueError("load Active Event Rundown for Display", err)
+	}
+	result.ActiveEventID = activeEvent.ID
+	result.EventName = activeEvent.Name
+	result.PublishedRevision = activeRundown.PublishedRevision
+	return result, nil
 }
 
 func loadDisplayStatus(
 	ctx context.Context,
 	client *ent.Client,
 	found *ent.Display,
-	activeEventID int,
-	eventName string,
+	routing displayRouting,
 ) (DisplayStatus, error) {
 	status := DisplayStatus{
 		ID: found.ID, Name: found.Name, Standby: true,
-		ActiveEventID: activeEventID, EventName: eventName,
+		ActiveEventID: routing.ActiveEventID, EventName: routing.EventName,
+		ActivationGeneration:         routing.ActivationGeneration,
+		PublishedRevision:            routing.PublishedRevision,
+		AppliedProtocolVersion:       found.AppliedProtocolVersion,
+		AppliedAssetVersion:          found.AppliedAssetVersion,
+		AppliedStreamID:              found.AppliedStreamID,
+		AppliedStreamPosition:        found.AppliedStreamPosition,
+		AppliedActiveEventID:         found.AppliedActiveEventID,
+		AppliedActivationGeneration:  found.AppliedActivationGeneration,
+		AppliedPublishedRevision:     found.AppliedPublishedRevision,
+		AppliedStandby:               found.AppliedStandby,
+		AppliedAt:                    found.AppliedAt,
+		ClockOffsetMilliseconds:      found.ClockOffsetMilliseconds,
+		ClockUncertaintyMilliseconds: found.ClockUncertaintyMilliseconds,
+		RendererUnstable:             found.RendererUnstable,
 	}
-	if activeEventID == 0 {
+	if routing.ActiveEventID == 0 {
 		return status, nil
 	}
 	assignment, err := client.DisplayAssignment.Query().Where(
 		displayassignment.DisplayIDEQ(found.ID),
-		displayassignment.EventIDEQ(activeEventID),
+		displayassignment.EventIDEQ(routing.ActiveEventID),
 	).WithLocation().Only(ctx)
 	if ent.IsNotFound(err) {
 		return status, nil

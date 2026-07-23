@@ -20,7 +20,7 @@ templ EnrollmentPage(code string, qrCodeDataURL string) {
 	</html>
 }
 
-templ EnrollmentClaimPage(code string, commandID string) {
+templ EnrollmentClaimPage(code string, commandID string, buildVersion string, initialName string) {
 	<!doctype html>
 	<html lang="en">
 		<head>
@@ -35,9 +35,29 @@ templ EnrollmentClaimPage(code string, commandID string) {
 				<form method="post" action="/admin/displays/enroll">
 					<input type="hidden" name="code" value={ code }/>
 					<input type="hidden" name="command_id" value={ commandID }/>
-					<label>Display name <input name="name" maxlength="200" required/></label>
+					<input type="hidden" name="build_version" value={ buildVersion }/>
+					<label>Display name <input name="name" value={ initialName } maxlength="200" required/></label>
 					<button type="submit">Enroll Display</button>
 				</form>
+			</main>
+		</body>
+	</html>
+}
+
+templ EnrollmentClaimReloadPage(reloadURL string) {
+	<!doctype html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta http-equiv="refresh" content={ "0; url=" + reloadURL }/>
+			<title>Reloading Display claim</title>
+		</head>
+		<body>
+			<main>
+				<h1>Beamers was updated</h1>
+				<p role="status">Reloading this Display claim with the entered name preserved.</p>
+				<p><a href={ templ.SafeURL(reloadURL) }>Continue to the current Display claim page</a></p>
 			</main>
 		</body>
 	</html>
@@ -62,7 +82,7 @@ templ EnrollmentClaimedPage(display Display) {
 
 templ StandbyPage(snapshot Snapshot) {
 	<!doctype html>
-	<html lang="en">
+	<html lang="en" data-protocol-version={ snapshot.ProtocolVersion } data-asset-version={ snapshot.AssetVersion }>
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -84,7 +104,7 @@ templ StandbyPage(snapshot Snapshot) {
 
 templ AssignedPage(snapshot Snapshot) {
 	<!doctype html>
-	<html lang="en">
+	<html lang="en" data-protocol-version={ snapshot.ProtocolVersion } data-asset-version={ snapshot.AssetVersion }>
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -104,7 +124,7 @@ templ AssignedPage(snapshot Snapshot) {
 
 templ LocationSignagePage(snapshot Snapshot) {
 	<!doctype html>
-	<html lang="en">
+	<html lang="en" data-protocol-version={ snapshot.ProtocolVersion } data-asset-version={ snapshot.AssetVersion }>
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -139,7 +159,7 @@ templ LocationSignagePage(snapshot Snapshot) {
 
 templ EventOverviewPage(snapshot Snapshot) {
 	<!doctype html>
-	<html lang="en">
+	<html lang="en" data-protocol-version={ snapshot.ProtocolVersion } data-asset-version={ snapshot.AssetVersion }>
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -170,5 +190,28 @@ templ EventOverviewPage(snapshot Snapshot) {
 }
 
 templ displayClient() {
-	<script src="/display/client.js" defer></script>
+	<style>
+		#display-connection {
+			position: fixed;
+			right: 1rem;
+			bottom: 1rem;
+			z-index: 1000;
+			margin: 0;
+			padding: 0.5rem 0.75rem;
+			border-radius: 0.25rem;
+			background: #111;
+			color: #fff;
+		}
+		html[data-connection="connected"] #display-connection {
+			width: 1px;
+			height: 1px;
+			padding: 0;
+			margin: -1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
+	</style>
+	<p id="display-connection" role="status" aria-live="polite" data-connection="connecting">Connecting…</p>
+	<script src={ ClientJavaScriptPath() } defer></script>
 }

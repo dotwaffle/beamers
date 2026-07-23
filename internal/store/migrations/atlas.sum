@@ -1,4 +1,4 @@
-h1:HKrGySCKEmLBT5t4pOA1Fn1o+Pf5ZhWX2xfUkPkDRyk=
+h1:lF4IQkhZQqVYwbkUSVhRAduwe1LtTEuq1qF9jFYvIdg=
 0001_initialize.sql h1:xwTCiCDERoBPK7+31D4g3SOs7BivkqIi3/tf+14eOlo=
 0002_bootstrap_auth.sql h1:Z4h1bvDVGzPXbmlEc3NCEn1HvMSf2V6eY56wIlxFLjA=
 0003_add_events.sql h1:6XxTAjVp9ntlWbsdacCMQkdgTAG185npJMhgxOSnAtA=
@@ -16,3 +16,4 @@ h1:HKrGySCKEmLBT5t4pOA1Fn1o+Pf5ZhWX2xfUkPkDRyk=
 0015_add_import_references.sql h1:1EXDKTR95s+PQFxBKZGk/SIcwIlpUCjrooSCPxH8T5M=
 0016_add_displays.sql h1:24U8GltmKzHaKZ3ygfaB7Y7mPA8q1BW/6ta+yKHONkg=
 0017_add_display_acknowledgments.sql h1:hI9Xhz5NJvolvGY1JZStaVDxu62urdCotvRru/LzrRY=
+0018_add_display_delivery_health.sql h1:Ng7EZu4PVnNav107BtGS/433iVHIJ9KOqzDA7bHlD9I=

@@ -389,26 +389,46 @@ func init() {
 	displayDescAppliedProtocolVersion := displayFields[3].Descriptor()
 	// display.DefaultAppliedProtocolVersion holds the default value on creation for the applied_protocol_version field.
 	display.DefaultAppliedProtocolVersion = displayDescAppliedProtocolVersion.Default.(string)
+	// displayDescAppliedAssetVersion is the schema descriptor for applied_asset_version field.
+	displayDescAppliedAssetVersion := displayFields[4].Descriptor()
+	// display.DefaultAppliedAssetVersion holds the default value on creation for the applied_asset_version field.
+	display.DefaultAppliedAssetVersion = displayDescAppliedAssetVersion.Default.(string)
 	// displayDescAppliedStreamID is the schema descriptor for applied_stream_id field.
-	displayDescAppliedStreamID := displayFields[4].Descriptor()
+	displayDescAppliedStreamID := displayFields[5].Descriptor()
 	// display.DefaultAppliedStreamID holds the default value on creation for the applied_stream_id field.
 	display.DefaultAppliedStreamID = displayDescAppliedStreamID.Default.(string)
 	// displayDescAppliedStreamPosition is the schema descriptor for applied_stream_position field.
-	displayDescAppliedStreamPosition := displayFields[5].Descriptor()
+	displayDescAppliedStreamPosition := displayFields[6].Descriptor()
 	// display.DefaultAppliedStreamPosition holds the default value on creation for the applied_stream_position field.
 	display.DefaultAppliedStreamPosition = displayDescAppliedStreamPosition.Default.(int64)
 	// displayDescAppliedActiveEventID is the schema descriptor for applied_active_event_id field.
-	displayDescAppliedActiveEventID := displayFields[6].Descriptor()
+	displayDescAppliedActiveEventID := displayFields[7].Descriptor()
 	// display.DefaultAppliedActiveEventID holds the default value on creation for the applied_active_event_id field.
 	display.DefaultAppliedActiveEventID = displayDescAppliedActiveEventID.Default.(int)
 	// displayDescAppliedActivationGeneration is the schema descriptor for applied_activation_generation field.
-	displayDescAppliedActivationGeneration := displayFields[7].Descriptor()
+	displayDescAppliedActivationGeneration := displayFields[8].Descriptor()
 	// display.DefaultAppliedActivationGeneration holds the default value on creation for the applied_activation_generation field.
 	display.DefaultAppliedActivationGeneration = displayDescAppliedActivationGeneration.Default.(int)
 	// displayDescAppliedPublishedRevision is the schema descriptor for applied_published_revision field.
-	displayDescAppliedPublishedRevision := displayFields[8].Descriptor()
+	displayDescAppliedPublishedRevision := displayFields[9].Descriptor()
 	// display.DefaultAppliedPublishedRevision holds the default value on creation for the applied_published_revision field.
 	display.DefaultAppliedPublishedRevision = displayDescAppliedPublishedRevision.Default.(int)
+	// displayDescAppliedStandby is the schema descriptor for applied_standby field.
+	displayDescAppliedStandby := displayFields[10].Descriptor()
+	// display.DefaultAppliedStandby holds the default value on creation for the applied_standby field.
+	display.DefaultAppliedStandby = displayDescAppliedStandby.Default.(bool)
+	// displayDescClockOffsetMilliseconds is the schema descriptor for clock_offset_milliseconds field.
+	displayDescClockOffsetMilliseconds := displayFields[11].Descriptor()
+	// display.DefaultClockOffsetMilliseconds holds the default value on creation for the clock_offset_milliseconds field.
+	display.DefaultClockOffsetMilliseconds = displayDescClockOffsetMilliseconds.Default.(int64)
+	// displayDescClockUncertaintyMilliseconds is the schema descriptor for clock_uncertainty_milliseconds field.
+	displayDescClockUncertaintyMilliseconds := displayFields[12].Descriptor()
+	// display.DefaultClockUncertaintyMilliseconds holds the default value on creation for the clock_uncertainty_milliseconds field.
+	display.DefaultClockUncertaintyMilliseconds = displayDescClockUncertaintyMilliseconds.Default.(int64)
+	// displayDescRendererUnstable is the schema descriptor for renderer_unstable field.
+	displayDescRendererUnstable := displayFields[13].Descriptor()
+	// display.DefaultRendererUnstable holds the default value on creation for the renderer_unstable field.
+	display.DefaultRendererUnstable = displayDescRendererUnstable.Default.(bool)
 	displayassignment.Policy = privacy.NewPolicies(schema.DisplayAssignment{})
 	displayassignment.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

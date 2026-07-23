@@ -179,8 +179,34 @@ func TestAdministratorClaimsDisplayEnrollmentOnceWithoutGrantingCrewAuthority(t 
 	if claimPage.StatusCode != http.StatusOK || !strings.Contains(string(claimBody), code) {
 		t.Fatalf("Display claim page = %d %q", claimPage.StatusCode, claimBody)
 	}
+	currentBuild := claimPage.Header.Get("X-Beamers-Build")
+	if currentBuild == "" || !strings.Contains(string(claimBody), `name="build_version" value="`+currentBuild+`"`) {
+		t.Fatalf("Display claim page does not identify build %q: %s", currentBuild, claimBody)
+	}
 
 	claim := url.Values{"code": {code}, "name": {"Stage Left"}, "command_id": {"claim-stage-left"}}
+	stale := postForm(t, administrator, server.address, claim)
+	staleBody, readErr := io.ReadAll(stale.Body)
+	closeErr = stale.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read stale Display claim response: %v", err)
+	}
+	if stale.StatusCode != http.StatusConflict ||
+		!strings.Contains(string(staleBody), `http-equiv="refresh"`) ||
+		!strings.Contains(string(staleBody), "Beamers was updated") {
+		t.Fatalf("stale Display claim = %d %q, want reload required", stale.StatusCode, staleBody)
+	}
+	reloaded := get(t, administrator, server.address, "/admin/displays/enroll?code="+url.QueryEscape(code))
+	reloadedBody, readErr := io.ReadAll(reloaded.Body)
+	closeErr = reloaded.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read reloaded Display claim page: %v", err)
+	}
+	if reloaded.StatusCode != http.StatusOK ||
+		!strings.Contains(string(reloadedBody), `name="name" value="Stage Left"`) {
+		t.Fatalf("reloaded Display claim did not preserve entered name: %d %q", reloaded.StatusCode, reloadedBody)
+	}
+	claim.Set("build_version", currentBuild)
 	claimed := postForm(t, administrator, server.address, claim)
 	claimedBody, readErr := io.ReadAll(claimed.Body)
 	closeErr = claimed.Body.Close()
@@ -192,6 +218,7 @@ func TestAdministratorClaimsDisplayEnrollmentOnceWithoutGrantingCrewAuthority(t 
 	}
 	reused := postForm(t, administrator, server.address, url.Values{
 		"code": {code}, "name": {"Other Name"}, "command_id": {"reuse-stage-left-code"},
+		"build_version": {currentBuild},
 	})
 	if reused.StatusCode != http.StatusConflict {
 		t.Errorf("reused Display Enrollment code status = %d, want %d", reused.StatusCode, http.StatusConflict)
@@ -273,6 +300,7 @@ func TestDisplayAssignmentIsDurableAndNeverInheritedAcrossActiveEvents(t *testin
 	code := regexp.MustCompile(`[A-Z2-7]{4}-[A-Z2-7]{4}`).FindString(string(body))
 	claimed := postForm(t, administrator, server.address, url.Values{
 		"code": {code}, "name": {"Lobby Display"}, "command_id": {"claim-lobby-display"},
+		"build_version": {crewBuild(t, administrator, server.address)},
 	})
 	closeErr = claimed.Body.Close()
 	if closeErr != nil {
@@ -283,12 +311,12 @@ func TestDisplayAssignmentIsDurableAndNeverInheritedAcrossActiveEvents(t *testin
 	}
 	assertGETResponse(
 		t, administrator, server.address, "/admin/displays", http.StatusOK,
-		"[{\"id\":1,\"name\":\"Lobby Display\",\"active_event_id\":1,\"standby\":true,\"event_name\":\"Revision 2099\"}]\n",
+		"[{\"id\":1,\"name\":\"Lobby Display\",\"active_event_id\":1,\"standby\":true,\"event_name\":\"Revision 2099\",\"delivery_state\":\"offline\",\"applied_active_event_id\":0,\"applied_activation_generation\":0,\"applied_published_revision\":0,\"applied_standby\":true,\"clock_offset_milliseconds\":0,\"clock_uncertainty_milliseconds\":0}]\n",
 	)
 	operator := provisionOperator(t, administrator, server)
 	assertGETResponse(
 		t, operator, server.address, "/admin/displays", http.StatusOK,
-		"[{\"id\":1,\"name\":\"Lobby Display\",\"active_event_id\":1,\"standby\":true,\"event_name\":\"Revision 2099\"}]\n",
+		"[{\"id\":1,\"name\":\"Lobby Display\",\"active_event_id\":1,\"standby\":true,\"event_name\":\"Revision 2099\",\"delivery_state\":\"offline\",\"applied_active_event_id\":0,\"applied_activation_generation\":0,\"applied_published_revision\":0,\"applied_standby\":true,\"clock_offset_milliseconds\":0,\"clock_uncertainty_milliseconds\":0}]\n",
 	)
 	activationClient := activationv1connect.NewActivationServiceClient(
 		administrator, "http://"+server.address, connect.WithProtoJSON(),
@@ -434,7 +462,7 @@ func TestDisplayAssignmentIsDurableAndNeverInheritedAcrossActiveEvents(t *testin
 	}
 	assertGETResponse(
 		t, administrator, restarted.address, "/admin/displays", http.StatusOK,
-		"[{\"id\":1,\"name\":\"Lobby Display\",\"active_event_id\":2,\"standby\":true,\"event_name\":\"Revision 2100\"}]\n",
+		"[{\"id\":1,\"name\":\"Lobby Display\",\"active_event_id\":2,\"standby\":true,\"event_name\":\"Revision 2100\",\"delivery_state\":\"offline\",\"applied_active_event_id\":0,\"applied_activation_generation\":0,\"applied_published_revision\":0,\"applied_standby\":true,\"clock_offset_milliseconds\":0,\"clock_uncertainty_milliseconds\":0}]\n",
 	)
 	restarted.stop(t)
 }
@@ -597,6 +625,7 @@ func TestDisplaySSEStreamsRevisionedInvalidationsAfterSnapshot(t *testing.T) {
 		fmt.Sprintf("id: %d\n", expectedPosition),
 		"event: invalidate\n",
 		`"protocol_version":"beamers.display.v1"`,
+		`"asset_version":"`,
 		fmt.Sprintf(`"stream_position":%d`, expectedPosition),
 		`"active_event_id":1`,
 		`"activation_generation":1`,
@@ -646,59 +675,71 @@ func TestDisplaySSEStreamsRevisionedInvalidationsAfterSnapshot(t *testing.T) {
 	server.stop(t)
 }
 
+func TestDisplaySSEUnknownPositionForcesResnapshot(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	displayClient := enrollAndAssignDisplay(t, administrator, server, "Gap Display", "event-overview")
+	snapshot := readDisplaySnapshot(t, displayClient, server.address)
+	position, err := strconv.ParseUint(snapshot.StreamPosition, 10, 64)
+	if err != nil {
+		t.Fatalf("parse Display stream position: %v", err)
+	}
+
+	streamContext, cancelStream := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancelStream()
+	streamURL := fmt.Sprintf(
+		"http://%s/display/events?stream_id=%s&after=%d",
+		server.address,
+		url.QueryEscape(snapshot.StreamID),
+		position+100,
+	)
+	request, err := http.NewRequestWithContext(streamContext, http.MethodGet, streamURL, http.NoBody)
+	if err != nil {
+		t.Fatalf("create unknown-position stream request: %v", err)
+	}
+	response, err := displayClient.Do(request)
+	if err != nil {
+		t.Fatalf("open unknown-position Display stream: %v", err)
+	}
+	reader := bufio.NewReader(response.Body)
+	var event strings.Builder
+	for strings.Count(event.String(), "\n\n") < 2 {
+		line, readErr := reader.ReadString('\n')
+		if readErr != nil {
+			t.Fatalf("read unknown-position Display stream: %v", readErr)
+		}
+		event.WriteString(line)
+	}
+	for _, want := range []string{
+		": heartbeat\n\n",
+		"event: invalidate\n",
+		fmt.Sprintf(`"stream_position":%d`, position),
+	} {
+		if !strings.Contains(event.String(), want) {
+			t.Errorf("unknown-position Display stream missing %q: %s", want, event.String())
+		}
+	}
+	cancelStream()
+	if closeErr := response.Body.Close(); closeErr != nil {
+		t.Errorf("close unknown-position Display stream: %v", closeErr)
+	}
+	server.stop(t)
+}
+
 func TestDisplayAcknowledgesAppliedStateIndependentlyOfCommands(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	prepareActiveSchedule(t, administrator, server)
 	displayClient := enrollAndAssignDisplay(t, administrator, server, "Acknowledging Display", "event-overview")
-	type appliedDisplayState struct {
-		ProtocolVersion      string `json:"protocolVersion"`
-		StreamID             string `json:"streamId"`
-		StreamPosition       string `json:"streamPosition"`
-		ActiveEventID        string `json:"activeEventId"`
-		ActivationGeneration string `json:"activationGeneration"`
-		PublishedRevision    string `json:"publishedRevision"`
-		SnapshotToken        string `json:"snapshotToken"`
+	readApplied := func() displaySnapshotState {
+		return readDisplaySnapshot(t, displayClient, server.address)
 	}
-	readApplied := func() appliedDisplayState {
-		result := requestJSON(
-			t.Context(),
+	acknowledge := func(applied displaySnapshotState) jsonResponse {
+		return requestDisplayAcknowledgment(
+			t,
 			displayClient,
 			server.address,
-			"/beamers.display.v1.DisplayService/GetSnapshot",
-			map[string]any{},
-		)
-		if result.err != nil || result.status != http.StatusOK {
-			t.Fatalf(
-				"Get Display Snapshot = %d %q, %v, want %d",
-				result.status,
-				result.body,
-				result.err,
-				http.StatusOK,
-			)
-		}
-		var decoded struct {
-			Snapshot appliedDisplayState `json:"snapshot"`
-		}
-		if err := json.Unmarshal([]byte(result.body), &decoded); err != nil {
-			t.Fatalf("decode Display Snapshot: %v", err)
-		}
-		return decoded.Snapshot
-	}
-	acknowledge := func(applied appliedDisplayState) jsonResponse {
-		return requestJSON(
-			t.Context(),
-			displayClient,
-			server.address,
-			"/beamers.display.v1.DisplayService/Acknowledge",
-			map[string]any{
-				"protocol_version":      applied.ProtocolVersion,
-				"stream_id":             applied.StreamID,
-				"stream_position":       applied.StreamPosition,
-				"active_event_id":       applied.ActiveEventID,
-				"activation_generation": applied.ActivationGeneration,
-				"published_revision":    applied.PublishedRevision,
-				"snapshot_token":        applied.SnapshotToken,
-			},
+			applied,
+			displayHealth{},
 		)
 	}
 	previouslyApplied := readApplied()
@@ -795,6 +836,174 @@ func TestDisplayAcknowledgesAppliedStateIndependentlyOfCommands(t *testing.T) {
 	server.stop(t)
 }
 
+func TestCrewSeeDisplayDeliveryHealthAndAppliedGeneration(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	displayClient := enrollAndAssignDisplay(t, administrator, server, "Health Display", "event-overview")
+
+	assertDisplayListContains(
+		t,
+		administrator,
+		server.address,
+		`"delivery_state":"offline"`,
+	)
+	acknowledge := func(offset, uncertainty int64, unstable bool) {
+		acknowledgeDisplaySnapshotWithHealth(
+			t,
+			displayClient,
+			server.address,
+			readDisplaySnapshot(t, displayClient, server.address),
+			displayHealth{
+				clockOffsetMilliseconds:      offset,
+				clockUncertaintyMilliseconds: uncertainty,
+				rendererUnstable:             unstable,
+			},
+		)
+	}
+	acknowledge(25, 10, false)
+	for _, want := range []string{
+		`"delivery_state":"applied"`,
+		`"applied_active_event_id":1`,
+		`"applied_activation_generation":1`,
+		`"applied_published_revision":1`,
+		`"applied_standby":false`,
+		`"clock_offset_milliseconds":25`,
+		`"clock_uncertainty_milliseconds":10`,
+		`"applied_at":`,
+	} {
+		assertDisplayListContains(t, administrator, server.address, want)
+	}
+
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/displays/1/assign",
+		map[string]any{
+			"event_id": 1, "location_id": 1, "view_key": "location-signage",
+			"command_id": "make-health-display-lag",
+		},
+		http.StatusOK,
+		"{\"display_id\":1,\"event_id\":1,\"location_id\":1,\"view_key\":\"location-signage\"}\n",
+	)
+	assertDisplayListContains(
+		t,
+		administrator,
+		server.address,
+		`"delivery_state":"lagging"`,
+	)
+
+	acknowledge(300, 10, false)
+	assertDisplayListContains(
+		t,
+		administrator,
+		server.address,
+		`"delivery_state":"excessively_skewed"`,
+	)
+	acknowledge(0, 10, true)
+	assertDisplayListContains(
+		t,
+		administrator,
+		server.address,
+		`"delivery_state":"unstable"`,
+	)
+	server.stop(t)
+}
+
+func TestObsoleteCrewClientMutationRequiresReload(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	enrollAndAssignDisplay(t, administrator, server, "Build Display", "event-overview")
+
+	list := get(t, administrator, server.address, "/admin/displays")
+	currentBuild := list.Header.Get("X-Beamers-Build")
+	if closeErr := list.Body.Close(); closeErr != nil {
+		t.Errorf("close Display list response: %v", closeErr)
+	}
+	if currentBuild == "" {
+		t.Fatal("crew response does not identify the server build")
+	}
+	liveness := get(t, authenticatedClient(t), server.address, "/livez")
+	if got := liveness.Header.Get("X-Beamers-Build"); got != "" {
+		t.Errorf("public liveness disclosed server build %q", got)
+	}
+	if closeErr := liveness.Body.Close(); closeErr != nil {
+		t.Errorf("close liveness response: %v", closeErr)
+	}
+	body := bytes.NewBufferString(
+		`{"event_id":1,"location_id":1,"view_key":"location-signage","command_id":"stale-crew-build"}`,
+	)
+	request, err := http.NewRequestWithContext(
+		t.Context(),
+		http.MethodPost,
+		"http://"+server.address+"/admin/displays/1/assign",
+		body,
+	)
+	if err != nil {
+		t.Fatalf("create stale crew mutation: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-Beamers-Build", "obsolete-build")
+	response, err := administrator.Do(request)
+	if err != nil {
+		t.Fatalf("send stale crew mutation: %v", err)
+	}
+	responseBody, readErr := io.ReadAll(response.Body)
+	closeErr := response.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read stale crew mutation: %v", err)
+	}
+	if response.StatusCode != http.StatusConflict ||
+		!strings.Contains(string(responseBody), `"code":"reload_required"`) ||
+		response.Header.Get("X-Beamers-Build") != currentBuild {
+		t.Errorf(
+			"stale crew mutation = %d %q build %q, want reload-required build %q",
+			response.StatusCode,
+			responseBody,
+			response.Header.Get("X-Beamers-Build"),
+			currentBuild,
+		)
+	}
+	assertDisplayListContains(t, administrator, server.address, `"view_key":"event-overview"`)
+	server.stop(t)
+}
+
+func TestDisplayAppliedStateRecoversAfterRestartAndActiveEventChange(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	displayClient := enrollAndAssignDisplay(t, administrator, server, "Restart Display", "event-overview")
+
+	acknowledgeDisplaySnapshot(t, displayClient, server.address, readDisplaySnapshot(t, displayClient, server.address))
+	assertDisplayListContains(t, administrator, server.address, `"delivery_state":"applied"`)
+
+	dataDir, bin := server.dataDir, server.bin
+	server.stop(t)
+	restarted := startBeamers(t, bin, dataDir)
+	assertDisplayListContains(t, administrator, restarted.address, `"delivery_state":"lagging"`)
+	acknowledgeDisplaySnapshot(
+		t,
+		displayClient,
+		restarted.address,
+		readDisplaySnapshot(t, displayClient, restarted.address),
+	)
+	assertDisplayListContains(t, administrator, restarted.address, `"delivery_state":"applied"`)
+
+	prepareAndActivateSecondEvent(t, administrator, restarted)
+	standby := readDisplaySnapshot(t, displayClient, restarted.address)
+	if !standby.Standby || standby.ActiveEventID != "2" || standby.ActivationGeneration != "2" {
+		t.Fatalf("Display state after Active Event change = %+v, want Event 2 generation 2 Standby", standby)
+	}
+	acknowledgeDisplaySnapshot(t, displayClient, restarted.address, standby)
+	for _, want := range []string{
+		`"delivery_state":"applied"`,
+		`"active_event_id":2`,
+		`"standby":true`,
+		`"applied_active_event_id":2`,
+		`"applied_activation_generation":2`,
+		`"applied_standby":true`,
+	} {
+		assertDisplayListContains(t, administrator, restarted.address, want)
+	}
+	restarted.stop(t)
+}
+
 func TestLocationSignageRendersPublicScheduleAndNeutralCrewOnlyOccupancy(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	prepareActiveSchedule(t, administrator, server)
@@ -857,7 +1066,7 @@ func TestEventOverviewRendersCommittedPublicSchedule(t *testing.T) {
 		t.Fatalf("Event Overview = %d %q, want %d", response.StatusCode, body, http.StatusOK)
 	}
 	for _, want := range []string{
-		"Event Overview", "Opening Keynote", "Forecast Time:", `src="/display/client.js"`,
+		"Event Overview", "Opening Keynote", "Forecast Time:", `src="/display/assets/`,
 	} {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("Event Overview missing %q: %s", want, body)
@@ -882,9 +1091,100 @@ func TestEventOverviewRendersCommittedPublicSchedule(t *testing.T) {
 		"renderSnapshot(snapshot)",
 		"Acknowledge",
 		"new EventSource",
+		"controlledReload",
+		"sessionStorage",
+		"rendererUnstable",
 	} {
 		if !strings.Contains(string(scriptBody), want) {
 			t.Errorf("Display client missing %q: %s", want, scriptBody)
+		}
+	}
+	server.stop(t)
+}
+
+func TestDisplayEntryUsesRecoverableContentAddressedAssets(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	displayClient := enrollAndAssignDisplay(t, administrator, server, "Recovering Display", "event-overview")
+
+	response := get(t, displayClient, server.address, "/display")
+	body, readErr := io.ReadAll(response.Body)
+	closeErr := response.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Display entry document: %v", err)
+	}
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("Display entry document = %d %q, want %d", response.StatusCode, body, http.StatusOK)
+	}
+	page := string(body)
+	for _, want := range []string{
+		`role="status"`,
+		`aria-live="polite"`,
+		`data-connection="connecting"`,
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("Display entry document missing %q: %s", want, page)
+		}
+	}
+	assetMatch := regexp.MustCompile(`src="(/display/assets/([0-9a-f]{64})/client\.js)"`).FindStringSubmatch(page)
+	if len(assetMatch) != 3 {
+		t.Fatalf("Display entry document has no content-addressed client asset: %s", page)
+	}
+
+	asset := get(t, displayClient, server.address, assetMatch[1])
+	assetBody, readErr := io.ReadAll(asset.Body)
+	closeErr = asset.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read content-addressed Display client: %v", err)
+	}
+	if asset.StatusCode != http.StatusOK || len(assetBody) == 0 {
+		t.Errorf("content-addressed Display client = %d %q, want non-empty %d", asset.StatusCode, assetBody, http.StatusOK)
+	}
+	if got := asset.Header.Get("Cache-Control"); got != "public, max-age=31536000, immutable" {
+		t.Errorf("content-addressed Display client Cache-Control = %q", got)
+	}
+	stale := get(t, displayClient, server.address, "/display/assets/"+strings.Repeat("0", 64)+"/client.js")
+	if stale.StatusCode != http.StatusNotFound {
+		t.Errorf("stale Display client asset = %d, want %d", stale.StatusCode, http.StatusNotFound)
+	}
+	if closeErr := stale.Body.Close(); closeErr != nil {
+		t.Errorf("close stale Display client response: %v", closeErr)
+	}
+	server.stop(t)
+}
+
+func TestDisplaySnapshotIdentifiesItsCompatibleClientAsset(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	displayClient := enrollAndAssignDisplay(t, administrator, server, "Compatible Display", "event-overview")
+
+	entry := get(t, displayClient, server.address, "/display")
+	entryBody, readErr := io.ReadAll(entry.Body)
+	closeErr := entry.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Display entry document: %v", err)
+	}
+	assetMatch := regexp.MustCompile(`/display/assets/([0-9a-f]{64})/client\.js`).FindStringSubmatch(string(entryBody))
+	if len(assetMatch) != 2 {
+		t.Fatalf("Display entry document has no asset version: %s", entryBody)
+	}
+
+	snapshot := requestJSON(
+		t.Context(),
+		displayClient,
+		server.address,
+		"/beamers.display.v1.DisplayService/GetSnapshot",
+		map[string]any{},
+	)
+	if snapshot.err != nil || snapshot.status != http.StatusOK {
+		t.Fatalf("Get Display Snapshot = %d %q, %v", snapshot.status, snapshot.body, snapshot.err)
+	}
+	for _, want := range []string{
+		`"protocolVersion":"beamers.display.v1"`,
+		fmt.Sprintf(`"assetVersion":%q`, assetMatch[1]),
+	} {
+		if !strings.Contains(snapshot.body, want) {
+			t.Errorf("Display Snapshot missing %s: %s", want, snapshot.body)
 		}
 	}
 	server.stop(t)
@@ -969,6 +1269,7 @@ func enrollAndAssignDisplay(
 	code := regexp.MustCompile(`[A-Z2-7]{4}-[A-Z2-7]{4}`).FindString(string(body))
 	claimed := postForm(t, administrator, server.address, url.Values{
 		"code": {code}, "name": {name}, "command_id": {"claim-snapshot-display"},
+		"build_version": {crewBuild(t, administrator, server.address)},
 	})
 	if closeErr := claimed.Body.Close(); closeErr != nil {
 		t.Errorf("close Display claim response: %v", closeErr)
@@ -3330,6 +3631,20 @@ func postForm(
 	return response
 }
 
+func crewBuild(t *testing.T, client *http.Client, address string) string {
+	t.Helper()
+
+	response := get(t, client, address, "/admin/displays")
+	if closeErr := response.Body.Close(); closeErr != nil {
+		t.Fatalf("close crew build response: %v", closeErr)
+	}
+	buildVersion := response.Header.Get("X-Beamers-Build")
+	if buildVersion == "" {
+		t.Fatal("crew response does not identify the server build")
+	}
+	return buildVersion
+}
+
 func assertRecoveryProbes(t *testing.T, address string) {
 	t.Helper()
 	assertProbe(t, address, "/livez", "live\n")
@@ -3410,6 +3725,26 @@ func assertJSONRequest(
 	return result.header
 }
 
+func assertDisplayListContains(
+	t *testing.T,
+	client *http.Client,
+	address string,
+	want string,
+) {
+	t.Helper()
+
+	const path = "/admin/displays"
+	response := get(t, client, address, path)
+	body, readErr := io.ReadAll(response.Body)
+	closeErr := response.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read GET %s: %v", path, err)
+	}
+	if response.StatusCode != http.StatusOK || !strings.Contains(string(body), want) {
+		t.Fatalf("GET %s = %d %q, want %d containing %q", path, response.StatusCode, body, http.StatusOK, want)
+	}
+}
+
 func assertJSONMethodRequest(
 	t *testing.T,
 	method string,
@@ -3440,6 +3775,114 @@ type jsonResponse struct {
 	status int
 	body   string
 	err    error
+}
+
+type displaySnapshotState struct {
+	ProtocolVersion      string `json:"protocolVersion"`
+	AssetVersion         string `json:"assetVersion"`
+	StreamID             string `json:"streamId"`
+	StreamPosition       string `json:"streamPosition"`
+	ActiveEventID        string `json:"activeEventId"`
+	ActivationGeneration string `json:"activationGeneration"`
+	PublishedRevision    string `json:"publishedRevision"`
+	Standby              bool   `json:"standby"`
+	SnapshotToken        string `json:"snapshotToken"`
+}
+
+type displayHealth struct {
+	clockOffsetMilliseconds      int64
+	clockUncertaintyMilliseconds int64
+	rendererUnstable             bool
+}
+
+func readDisplaySnapshot(
+	t *testing.T,
+	client *http.Client,
+	address string,
+) displaySnapshotState {
+	t.Helper()
+
+	result := requestJSON(
+		t.Context(),
+		client,
+		address,
+		"/beamers.display.v1.DisplayService/GetSnapshot",
+		map[string]any{},
+	)
+	if result.err != nil || result.status != http.StatusOK {
+		t.Fatalf("Get Display Snapshot = %d %q, %v", result.status, result.body, result.err)
+	}
+	var decoded struct {
+		Snapshot displaySnapshotState `json:"snapshot"`
+	}
+	if err := json.Unmarshal([]byte(result.body), &decoded); err != nil {
+		t.Fatalf("decode Display Snapshot: %v", err)
+	}
+	return decoded.Snapshot
+}
+
+func acknowledgeDisplaySnapshot(
+	t *testing.T,
+	client *http.Client,
+	address string,
+	snapshot displaySnapshotState,
+) {
+	t.Helper()
+
+	acknowledgeDisplaySnapshotWithHealth(
+		t,
+		client,
+		address,
+		snapshot,
+		displayHealth{},
+	)
+}
+
+func acknowledgeDisplaySnapshotWithHealth(
+	t *testing.T,
+	client *http.Client,
+	address string,
+	snapshot displaySnapshotState,
+	health displayHealth,
+) {
+	t.Helper()
+
+	result := requestDisplayAcknowledgment(t, client, address, snapshot, health)
+	if result.err != nil || result.status != http.StatusOK {
+		t.Fatalf("Acknowledge Display state = %d %q, %v", result.status, result.body, result.err)
+	}
+}
+
+func requestDisplayAcknowledgment(
+	t *testing.T,
+	client *http.Client,
+	address string,
+	snapshot displaySnapshotState,
+	health displayHealth,
+) jsonResponse {
+	t.Helper()
+
+	result := requestJSON(
+		t.Context(),
+		client,
+		address,
+		"/beamers.display.v1.DisplayService/Acknowledge",
+		map[string]any{
+			"protocol_version":               snapshot.ProtocolVersion,
+			"asset_version":                  snapshot.AssetVersion,
+			"stream_id":                      snapshot.StreamID,
+			"stream_position":                snapshot.StreamPosition,
+			"active_event_id":                snapshot.ActiveEventID,
+			"activation_generation":          snapshot.ActivationGeneration,
+			"published_revision":             snapshot.PublishedRevision,
+			"standby":                        snapshot.Standby,
+			"clock_offset_milliseconds":      health.clockOffsetMilliseconds,
+			"clock_uncertainty_milliseconds": health.clockUncertaintyMilliseconds,
+			"renderer_unstable":              health.rendererUnstable,
+			"snapshot_token":                 snapshot.SnapshotToken,
+		},
+	)
+	return result
 }
 
 func requestJSON(

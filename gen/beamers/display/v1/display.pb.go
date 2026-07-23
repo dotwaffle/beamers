@@ -121,6 +121,7 @@ type DisplaySnapshot struct {
 	StreamPosition       *uint64                `protobuf:"varint,15,opt,name=stream_position,json=streamPosition,proto3,oneof" json:"stream_position,omitempty"`
 	EventTimezone        string                 `protobuf:"bytes,16,opt,name=event_timezone,json=eventTimezone,proto3" json:"event_timezone,omitempty"`
 	SnapshotToken        string                 `protobuf:"bytes,17,opt,name=snapshot_token,json=snapshotToken,proto3" json:"snapshot_token,omitempty"`
+	AssetVersion         string                 `protobuf:"bytes,18,opt,name=asset_version,json=assetVersion,proto3" json:"asset_version,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -270,6 +271,13 @@ func (x *DisplaySnapshot) GetEventTimezone() string {
 func (x *DisplaySnapshot) GetSnapshotToken() string {
 	if x != nil {
 		return x.SnapshotToken
+	}
+	return ""
+}
+
+func (x *DisplaySnapshot) GetAssetVersion() string {
+	if x != nil {
+		return x.AssetVersion
 	}
 	return ""
 }
@@ -431,16 +439,21 @@ func (x *DisplaySession) GetAvailabilityMessage() string {
 }
 
 type AcknowledgeRequest struct {
-	state                protoimpl.MessageState `protogen:"open.v1"`
-	ProtocolVersion      string                 `protobuf:"bytes,1,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
-	StreamId             string                 `protobuf:"bytes,2,opt,name=stream_id,json=streamId,proto3" json:"stream_id,omitempty"`
-	StreamPosition       uint64                 `protobuf:"varint,3,opt,name=stream_position,json=streamPosition,proto3" json:"stream_position,omitempty"`
-	ActiveEventId        int64                  `protobuf:"varint,4,opt,name=active_event_id,json=activeEventId,proto3" json:"active_event_id,omitempty"`
-	ActivationGeneration int64                  `protobuf:"varint,5,opt,name=activation_generation,json=activationGeneration,proto3" json:"activation_generation,omitempty"`
-	PublishedRevision    int64                  `protobuf:"varint,6,opt,name=published_revision,json=publishedRevision,proto3" json:"published_revision,omitempty"`
-	SnapshotToken        string                 `protobuf:"bytes,7,opt,name=snapshot_token,json=snapshotToken,proto3" json:"snapshot_token,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	state                        protoimpl.MessageState `protogen:"open.v1"`
+	ProtocolVersion              string                 `protobuf:"bytes,1,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
+	StreamId                     string                 `protobuf:"bytes,2,opt,name=stream_id,json=streamId,proto3" json:"stream_id,omitempty"`
+	StreamPosition               uint64                 `protobuf:"varint,3,opt,name=stream_position,json=streamPosition,proto3" json:"stream_position,omitempty"`
+	ActiveEventId                int64                  `protobuf:"varint,4,opt,name=active_event_id,json=activeEventId,proto3" json:"active_event_id,omitempty"`
+	ActivationGeneration         int64                  `protobuf:"varint,5,opt,name=activation_generation,json=activationGeneration,proto3" json:"activation_generation,omitempty"`
+	PublishedRevision            int64                  `protobuf:"varint,6,opt,name=published_revision,json=publishedRevision,proto3" json:"published_revision,omitempty"`
+	SnapshotToken                string                 `protobuf:"bytes,7,opt,name=snapshot_token,json=snapshotToken,proto3" json:"snapshot_token,omitempty"`
+	Standby                      bool                   `protobuf:"varint,8,opt,name=standby,proto3" json:"standby,omitempty"`
+	ClockOffsetMilliseconds      int64                  `protobuf:"zigzag64,9,opt,name=clock_offset_milliseconds,json=clockOffsetMilliseconds,proto3" json:"clock_offset_milliseconds,omitempty"`
+	ClockUncertaintyMilliseconds uint64                 `protobuf:"varint,10,opt,name=clock_uncertainty_milliseconds,json=clockUncertaintyMilliseconds,proto3" json:"clock_uncertainty_milliseconds,omitempty"`
+	RendererUnstable             bool                   `protobuf:"varint,11,opt,name=renderer_unstable,json=rendererUnstable,proto3" json:"renderer_unstable,omitempty"`
+	AssetVersion                 string                 `protobuf:"bytes,12,opt,name=asset_version,json=assetVersion,proto3" json:"asset_version,omitempty"`
+	unknownFields                protoimpl.UnknownFields
+	sizeCache                    protoimpl.SizeCache
 }
 
 func (x *AcknowledgeRequest) Reset() {
@@ -522,6 +535,41 @@ func (x *AcknowledgeRequest) GetSnapshotToken() string {
 	return ""
 }
 
+func (x *AcknowledgeRequest) GetStandby() bool {
+	if x != nil {
+		return x.Standby
+	}
+	return false
+}
+
+func (x *AcknowledgeRequest) GetClockOffsetMilliseconds() int64 {
+	if x != nil {
+		return x.ClockOffsetMilliseconds
+	}
+	return 0
+}
+
+func (x *AcknowledgeRequest) GetClockUncertaintyMilliseconds() uint64 {
+	if x != nil {
+		return x.ClockUncertaintyMilliseconds
+	}
+	return 0
+}
+
+func (x *AcknowledgeRequest) GetRendererUnstable() bool {
+	if x != nil {
+		return x.RendererUnstable
+	}
+	return false
+}
+
+func (x *AcknowledgeRequest) GetAssetVersion() string {
+	if x != nil {
+		return x.AssetVersion
+	}
+	return ""
+}
+
 type AcknowledgeResponse struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Acknowledgment *DisplayAcknowledgment `protobuf:"bytes,1,opt,name=acknowledgment,proto3" json:"acknowledgment,omitempty"`
@@ -567,17 +615,22 @@ func (x *AcknowledgeResponse) GetAcknowledgment() *DisplayAcknowledgment {
 }
 
 type DisplayAcknowledgment struct {
-	state                protoimpl.MessageState `protogen:"open.v1"`
-	DisplayId            int64                  `protobuf:"varint,1,opt,name=display_id,json=displayId,proto3" json:"display_id,omitempty"`
-	ProtocolVersion      string                 `protobuf:"bytes,2,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
-	StreamId             string                 `protobuf:"bytes,3,opt,name=stream_id,json=streamId,proto3" json:"stream_id,omitempty"`
-	StreamPosition       uint64                 `protobuf:"varint,4,opt,name=stream_position,json=streamPosition,proto3" json:"stream_position,omitempty"`
-	ActiveEventId        int64                  `protobuf:"varint,5,opt,name=active_event_id,json=activeEventId,proto3" json:"active_event_id,omitempty"`
-	ActivationGeneration int64                  `protobuf:"varint,6,opt,name=activation_generation,json=activationGeneration,proto3" json:"activation_generation,omitempty"`
-	PublishedRevision    int64                  `protobuf:"varint,7,opt,name=published_revision,json=publishedRevision,proto3" json:"published_revision,omitempty"`
-	AppliedAt            *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=applied_at,json=appliedAt,proto3" json:"applied_at,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	state                        protoimpl.MessageState `protogen:"open.v1"`
+	DisplayId                    int64                  `protobuf:"varint,1,opt,name=display_id,json=displayId,proto3" json:"display_id,omitempty"`
+	ProtocolVersion              string                 `protobuf:"bytes,2,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
+	StreamId                     string                 `protobuf:"bytes,3,opt,name=stream_id,json=streamId,proto3" json:"stream_id,omitempty"`
+	StreamPosition               uint64                 `protobuf:"varint,4,opt,name=stream_position,json=streamPosition,proto3" json:"stream_position,omitempty"`
+	ActiveEventId                int64                  `protobuf:"varint,5,opt,name=active_event_id,json=activeEventId,proto3" json:"active_event_id,omitempty"`
+	ActivationGeneration         int64                  `protobuf:"varint,6,opt,name=activation_generation,json=activationGeneration,proto3" json:"activation_generation,omitempty"`
+	PublishedRevision            int64                  `protobuf:"varint,7,opt,name=published_revision,json=publishedRevision,proto3" json:"published_revision,omitempty"`
+	AppliedAt                    *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=applied_at,json=appliedAt,proto3" json:"applied_at,omitempty"`
+	Standby                      bool                   `protobuf:"varint,9,opt,name=standby,proto3" json:"standby,omitempty"`
+	ClockOffsetMilliseconds      int64                  `protobuf:"zigzag64,10,opt,name=clock_offset_milliseconds,json=clockOffsetMilliseconds,proto3" json:"clock_offset_milliseconds,omitempty"`
+	ClockUncertaintyMilliseconds uint64                 `protobuf:"varint,11,opt,name=clock_uncertainty_milliseconds,json=clockUncertaintyMilliseconds,proto3" json:"clock_uncertainty_milliseconds,omitempty"`
+	RendererUnstable             bool                   `protobuf:"varint,12,opt,name=renderer_unstable,json=rendererUnstable,proto3" json:"renderer_unstable,omitempty"`
+	AssetVersion                 string                 `protobuf:"bytes,13,opt,name=asset_version,json=assetVersion,proto3" json:"asset_version,omitempty"`
+	unknownFields                protoimpl.UnknownFields
+	sizeCache                    protoimpl.SizeCache
 }
 
 func (x *DisplayAcknowledgment) Reset() {
@@ -666,6 +719,41 @@ func (x *DisplayAcknowledgment) GetAppliedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *DisplayAcknowledgment) GetStandby() bool {
+	if x != nil {
+		return x.Standby
+	}
+	return false
+}
+
+func (x *DisplayAcknowledgment) GetClockOffsetMilliseconds() int64 {
+	if x != nil {
+		return x.ClockOffsetMilliseconds
+	}
+	return 0
+}
+
+func (x *DisplayAcknowledgment) GetClockUncertaintyMilliseconds() uint64 {
+	if x != nil {
+		return x.ClockUncertaintyMilliseconds
+	}
+	return 0
+}
+
+func (x *DisplayAcknowledgment) GetRendererUnstable() bool {
+	if x != nil {
+		return x.RendererUnstable
+	}
+	return false
+}
+
+func (x *DisplayAcknowledgment) GetAssetVersion() string {
+	if x != nil {
+		return x.AssetVersion
+	}
+	return ""
+}
+
 var File_beamers_display_v1_display_proto protoreflect.FileDescriptor
 
 const file_beamers_display_v1_display_proto_rawDesc = "" +
@@ -673,7 +761,7 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	" beamers/display/v1/display.proto\x12\x12beamers.display.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x14\n" +
 	"\x12GetSnapshotRequest\"V\n" +
 	"\x13GetSnapshotResponse\x12?\n" +
-	"\bsnapshot\x18\x01 \x01(\v2#.beamers.display.v1.DisplaySnapshotR\bsnapshot\"\xce\x05\n" +
+	"\bsnapshot\x18\x01 \x01(\v2#.beamers.display.v1.DisplaySnapshotR\bsnapshot\"\xf3\x05\n" +
 	"\x0fDisplaySnapshot\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\tR\x0fprotocolVersion\x12;\n" +
 	"\vserver_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
@@ -696,7 +784,8 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\tstream_id\x18\x0e \x01(\tR\bstreamId\x12,\n" +
 	"\x0fstream_position\x18\x0f \x01(\x04H\x00R\x0estreamPosition\x88\x01\x01\x12%\n" +
 	"\x0eevent_timezone\x18\x10 \x01(\tR\reventTimezone\x12%\n" +
-	"\x0esnapshot_token\x18\x11 \x01(\tR\rsnapshotTokenB\x12\n" +
+	"\x0esnapshot_token\x18\x11 \x01(\tR\rsnapshotToken\x12#\n" +
+	"\rasset_version\x18\x12 \x01(\tR\fassetVersionB\x12\n" +
 	"\x10_stream_position\"\xf1\x04\n" +
 	"\x0eDisplaySession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x14\n" +
@@ -715,7 +804,7 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\blane_ids\x18\f \x03(\x03R\alaneIds\x12\x1b\n" +
 	"\ttrack_ids\x18\r \x03(\x03R\btrackIds\x12 \n" +
 	"\vunavailable\x18\x0e \x01(\bR\vunavailable\x121\n" +
-	"\x14availability_message\x18\x0f \x01(\tR\x13availabilityMessage\"\xb8\x02\n" +
+	"\x14availability_message\x18\x0f \x01(\tR\x13availabilityMessage\"\xa6\x04\n" +
 	"\x12AcknowledgeRequest\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\tR\x0fprotocolVersion\x12\x1b\n" +
 	"\tstream_id\x18\x02 \x01(\tR\bstreamId\x12'\n" +
@@ -723,9 +812,15 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\x0factive_event_id\x18\x04 \x01(\x03R\ractiveEventId\x123\n" +
 	"\x15activation_generation\x18\x05 \x01(\x03R\x14activationGeneration\x12-\n" +
 	"\x12published_revision\x18\x06 \x01(\x03R\x11publishedRevision\x12%\n" +
-	"\x0esnapshot_token\x18\a \x01(\tR\rsnapshotToken\"h\n" +
+	"\x0esnapshot_token\x18\a \x01(\tR\rsnapshotToken\x12\x18\n" +
+	"\astandby\x18\b \x01(\bR\astandby\x12:\n" +
+	"\x19clock_offset_milliseconds\x18\t \x01(\x12R\x17clockOffsetMilliseconds\x12D\n" +
+	"\x1eclock_uncertainty_milliseconds\x18\n" +
+	" \x01(\x04R\x1cclockUncertaintyMilliseconds\x12+\n" +
+	"\x11renderer_unstable\x18\v \x01(\bR\x10rendererUnstable\x12#\n" +
+	"\rasset_version\x18\f \x01(\tR\fassetVersion\"h\n" +
 	"\x13AcknowledgeResponse\x12Q\n" +
-	"\x0eacknowledgment\x18\x01 \x01(\v2).beamers.display.v1.DisplayAcknowledgmentR\x0eacknowledgment\"\xee\x02\n" +
+	"\x0eacknowledgment\x18\x01 \x01(\v2).beamers.display.v1.DisplayAcknowledgmentR\x0eacknowledgment\"\xdc\x04\n" +
 	"\x15DisplayAcknowledgment\x12\x1d\n" +
 	"\n" +
 	"display_id\x18\x01 \x01(\x03R\tdisplayId\x12)\n" +
@@ -736,7 +831,13 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\x15activation_generation\x18\x06 \x01(\x03R\x14activationGeneration\x12-\n" +
 	"\x12published_revision\x18\a \x01(\x03R\x11publishedRevision\x129\n" +
 	"\n" +
-	"applied_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tappliedAt2\xd0\x01\n" +
+	"applied_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tappliedAt\x12\x18\n" +
+	"\astandby\x18\t \x01(\bR\astandby\x12:\n" +
+	"\x19clock_offset_milliseconds\x18\n" +
+	" \x01(\x12R\x17clockOffsetMilliseconds\x12D\n" +
+	"\x1eclock_uncertainty_milliseconds\x18\v \x01(\x04R\x1cclockUncertaintyMilliseconds\x12+\n" +
+	"\x11renderer_unstable\x18\f \x01(\bR\x10rendererUnstable\x12#\n" +
+	"\rasset_version\x18\r \x01(\tR\fassetVersion2\xd0\x01\n" +
 	"\x0eDisplayService\x12^\n" +
 	"\vGetSnapshot\x12&.beamers.display.v1.GetSnapshotRequest\x1a'.beamers.display.v1.GetSnapshotResponse\x12^\n" +
 	"\vAcknowledge\x12&.beamers.display.v1.AcknowledgeRequest\x1a'.beamers.display.v1.AcknowledgeResponseB?Z=github.com/dotwaffle/beamers/gen/beamers/display/v1;displayv1b\x06proto3"

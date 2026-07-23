@@ -104,10 +104,15 @@ func (handler *Handler) Acknowledge(
 	}
 	applied, err := handler.service.Acknowledge(ctx, authorized.credential, displays.AcknowledgmentInput{
 		ProtocolVersion: request.Msg.GetProtocolVersion(),
+		AssetVersion:    request.Msg.GetAssetVersion(),
 		StreamID:        request.Msg.GetStreamId(), StreamPosition: request.Msg.GetStreamPosition(),
 		ActiveEventID:        request.Msg.GetActiveEventId(),
 		ActivationGeneration: request.Msg.GetActivationGeneration(),
 		PublishedRevision:    request.Msg.GetPublishedRevision(),
+		Standby:              request.Msg.GetStandby(),
+		ClockOffset:          request.Msg.GetClockOffsetMilliseconds(),
+		ClockUncertainty:     request.Msg.GetClockUncertaintyMilliseconds(),
+		RendererUnstable:     request.Msg.GetRendererUnstable(),
 	})
 	switch {
 	case errors.Is(err, displays.ErrDisplayAuthentication):
@@ -139,9 +144,11 @@ func (handler *Handler) validateAcknowledgment(
 		},
 		DisplayID:            int64(authorized.snapshot.Display.ID),
 		ProtocolVersion:      request.GetProtocolVersion(),
+		AssetVersion:         request.GetAssetVersion(),
 		ActiveEventID:        request.GetActiveEventId(),
 		ActivationGeneration: request.GetActivationGeneration(),
 		PublishedRevision:    request.GetPublishedRevision(),
+		Standby:              request.GetStandby(),
 	}
 	if !handler.stream.ValidSnapshotToken(request.GetSnapshotToken(), state) {
 		return errors.New("invalid Display snapshot token")
@@ -178,6 +185,7 @@ func snapshotMessage(
 ) *displayv1.DisplaySnapshot {
 	result := &displayv1.DisplaySnapshot{
 		ProtocolVersion:      found.ProtocolVersion,
+		AssetVersion:         found.AssetVersion,
 		ServerTime:           timestamppb.New(found.ServerTime),
 		DisplayId:            int64(found.Display.ID),
 		DisplayName:          found.Display.Name,
@@ -203,9 +211,11 @@ func snapshotMessage(
 func snapshotState(found displays.Snapshot, cursor displaystream.Cursor) displaystream.SnapshotState {
 	return displaystream.SnapshotState{
 		Cursor: cursor, DisplayID: int64(found.Display.ID),
-		ProtocolVersion: found.ProtocolVersion, ActiveEventID: int64(found.ActiveEventID),
+		ProtocolVersion: found.ProtocolVersion, AssetVersion: found.AssetVersion,
+		ActiveEventID:        int64(found.ActiveEventID),
 		ActivationGeneration: int64(found.ActivationGeneration),
 		PublishedRevision:    int64(found.PublishedRevision),
+		Standby:              found.Standby,
 	}
 }
 
@@ -236,11 +246,16 @@ func sessionMessage(found displays.Session) *displayv1.DisplaySession {
 func acknowledgmentMessage(found displays.Acknowledgment) *displayv1.DisplayAcknowledgment {
 	return &displayv1.DisplayAcknowledgment{
 		DisplayId: int64(found.DisplayID), ProtocolVersion: found.ProtocolVersion,
-		StreamId: found.StreamID, StreamPosition: found.StreamPosition,
-		ActiveEventId:        int64(found.ActiveEventID),
-		ActivationGeneration: int64(found.ActivationGeneration),
-		PublishedRevision:    int64(found.PublishedRevision),
-		AppliedAt:            timestamppb.New(found.AppliedAt),
+		AssetVersion: found.AssetVersion,
+		StreamId:     found.StreamID, StreamPosition: found.StreamPosition,
+		ActiveEventId:                int64(found.ActiveEventID),
+		ActivationGeneration:         int64(found.ActivationGeneration),
+		PublishedRevision:            int64(found.PublishedRevision),
+		AppliedAt:                    timestamppb.New(found.AppliedAt),
+		Standby:                      found.Standby,
+		ClockOffsetMilliseconds:      found.ClockOffset,
+		ClockUncertaintyMilliseconds: found.ClockUncertainty,
+		RendererUnstable:             found.RendererUnstable,
 	}
 }
 

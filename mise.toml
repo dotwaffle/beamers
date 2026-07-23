@@ -14,6 +14,7 @@ buf = "1.72.0"
 go = "1.26.5"
 golangci-lint = "2.12.2"
 govulncheck = "1.3.0"
+node = "24.18.0"
 "go:connectrpc.com/connect/cmd/protoc-gen-connect-go" = "1.20.0"
 "go:google.golang.org/protobuf/cmd/protoc-gen-go" = "1.36.11"
 rumdl = "0.2.34"
@@ -39,6 +40,10 @@ rumdl check .
 description = "Run the complete Go race suite"
 run = "go test -race ./..."
 
+[tasks.browser-test]
+description = "Run deterministic Display client recovery tests"
+run = "node --test internal/displays/client_test.js"
+
 [tasks.vulncheck]
 description = "Check Go dependencies for known vulnerabilities"
 run = "govulncheck ./..."
@@ -49,7 +54,7 @@ run = "sh scripts/check-migrations.sh"
 
 [tasks.check]
 description = "Run the canonical validation sweep"
-depends = ["lint", "migrations", "test", "vulncheck"]
+depends = ["browser-test", "lint", "migrations", "test", "vulncheck"]
 run = """
 go vet ./...
 go build ./...

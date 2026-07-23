@@ -62,6 +62,20 @@ func (_c *DisplayCreate) SetNillableAppliedProtocolVersion(v *string) *DisplayCr
 	return _c
 }
 
+// SetAppliedAssetVersion sets the "applied_asset_version" field.
+func (_c *DisplayCreate) SetAppliedAssetVersion(v string) *DisplayCreate {
+	_c.mutation.SetAppliedAssetVersion(v)
+	return _c
+}
+
+// SetNillableAppliedAssetVersion sets the "applied_asset_version" field if the given value is not nil.
+func (_c *DisplayCreate) SetNillableAppliedAssetVersion(v *string) *DisplayCreate {
+	if v != nil {
+		_c.SetAppliedAssetVersion(*v)
+	}
+	return _c
+}
+
 // SetAppliedStreamID sets the "applied_stream_id" field.
 func (_c *DisplayCreate) SetAppliedStreamID(v string) *DisplayCreate {
 	_c.mutation.SetAppliedStreamID(v)
@@ -128,6 +142,62 @@ func (_c *DisplayCreate) SetAppliedPublishedRevision(v int) *DisplayCreate {
 func (_c *DisplayCreate) SetNillableAppliedPublishedRevision(v *int) *DisplayCreate {
 	if v != nil {
 		_c.SetAppliedPublishedRevision(*v)
+	}
+	return _c
+}
+
+// SetAppliedStandby sets the "applied_standby" field.
+func (_c *DisplayCreate) SetAppliedStandby(v bool) *DisplayCreate {
+	_c.mutation.SetAppliedStandby(v)
+	return _c
+}
+
+// SetNillableAppliedStandby sets the "applied_standby" field if the given value is not nil.
+func (_c *DisplayCreate) SetNillableAppliedStandby(v *bool) *DisplayCreate {
+	if v != nil {
+		_c.SetAppliedStandby(*v)
+	}
+	return _c
+}
+
+// SetClockOffsetMilliseconds sets the "clock_offset_milliseconds" field.
+func (_c *DisplayCreate) SetClockOffsetMilliseconds(v int64) *DisplayCreate {
+	_c.mutation.SetClockOffsetMilliseconds(v)
+	return _c
+}
+
+// SetNillableClockOffsetMilliseconds sets the "clock_offset_milliseconds" field if the given value is not nil.
+func (_c *DisplayCreate) SetNillableClockOffsetMilliseconds(v *int64) *DisplayCreate {
+	if v != nil {
+		_c.SetClockOffsetMilliseconds(*v)
+	}
+	return _c
+}
+
+// SetClockUncertaintyMilliseconds sets the "clock_uncertainty_milliseconds" field.
+func (_c *DisplayCreate) SetClockUncertaintyMilliseconds(v int64) *DisplayCreate {
+	_c.mutation.SetClockUncertaintyMilliseconds(v)
+	return _c
+}
+
+// SetNillableClockUncertaintyMilliseconds sets the "clock_uncertainty_milliseconds" field if the given value is not nil.
+func (_c *DisplayCreate) SetNillableClockUncertaintyMilliseconds(v *int64) *DisplayCreate {
+	if v != nil {
+		_c.SetClockUncertaintyMilliseconds(*v)
+	}
+	return _c
+}
+
+// SetRendererUnstable sets the "renderer_unstable" field.
+func (_c *DisplayCreate) SetRendererUnstable(v bool) *DisplayCreate {
+	_c.mutation.SetRendererUnstable(v)
+	return _c
+}
+
+// SetNillableRendererUnstable sets the "renderer_unstable" field if the given value is not nil.
+func (_c *DisplayCreate) SetNillableRendererUnstable(v *bool) *DisplayCreate {
+	if v != nil {
+		_c.SetRendererUnstable(*v)
 	}
 	return _c
 }
@@ -224,6 +294,10 @@ func (_c *DisplayCreate) defaults() error {
 		v := display.DefaultAppliedProtocolVersion
 		_c.mutation.SetAppliedProtocolVersion(v)
 	}
+	if _, ok := _c.mutation.AppliedAssetVersion(); !ok {
+		v := display.DefaultAppliedAssetVersion
+		_c.mutation.SetAppliedAssetVersion(v)
+	}
 	if _, ok := _c.mutation.AppliedStreamID(); !ok {
 		v := display.DefaultAppliedStreamID
 		_c.mutation.SetAppliedStreamID(v)
@@ -243,6 +317,22 @@ func (_c *DisplayCreate) defaults() error {
 	if _, ok := _c.mutation.AppliedPublishedRevision(); !ok {
 		v := display.DefaultAppliedPublishedRevision
 		_c.mutation.SetAppliedPublishedRevision(v)
+	}
+	if _, ok := _c.mutation.AppliedStandby(); !ok {
+		v := display.DefaultAppliedStandby
+		_c.mutation.SetAppliedStandby(v)
+	}
+	if _, ok := _c.mutation.ClockOffsetMilliseconds(); !ok {
+		v := display.DefaultClockOffsetMilliseconds
+		_c.mutation.SetClockOffsetMilliseconds(v)
+	}
+	if _, ok := _c.mutation.ClockUncertaintyMilliseconds(); !ok {
+		v := display.DefaultClockUncertaintyMilliseconds
+		_c.mutation.SetClockUncertaintyMilliseconds(v)
+	}
+	if _, ok := _c.mutation.RendererUnstable(); !ok {
+		v := display.DefaultRendererUnstable
+		_c.mutation.SetRendererUnstable(v)
 	}
 	return nil
 }
@@ -266,6 +356,9 @@ func (_c *DisplayCreate) check() error {
 	if _, ok := _c.mutation.AppliedProtocolVersion(); !ok {
 		return &ValidationError{Name: "applied_protocol_version", err: errors.New(`ent: missing required field "Display.applied_protocol_version"`)}
 	}
+	if _, ok := _c.mutation.AppliedAssetVersion(); !ok {
+		return &ValidationError{Name: "applied_asset_version", err: errors.New(`ent: missing required field "Display.applied_asset_version"`)}
+	}
 	if _, ok := _c.mutation.AppliedStreamID(); !ok {
 		return &ValidationError{Name: "applied_stream_id", err: errors.New(`ent: missing required field "Display.applied_stream_id"`)}
 	}
@@ -280,6 +373,18 @@ func (_c *DisplayCreate) check() error {
 	}
 	if _, ok := _c.mutation.AppliedPublishedRevision(); !ok {
 		return &ValidationError{Name: "applied_published_revision", err: errors.New(`ent: missing required field "Display.applied_published_revision"`)}
+	}
+	if _, ok := _c.mutation.AppliedStandby(); !ok {
+		return &ValidationError{Name: "applied_standby", err: errors.New(`ent: missing required field "Display.applied_standby"`)}
+	}
+	if _, ok := _c.mutation.ClockOffsetMilliseconds(); !ok {
+		return &ValidationError{Name: "clock_offset_milliseconds", err: errors.New(`ent: missing required field "Display.clock_offset_milliseconds"`)}
+	}
+	if _, ok := _c.mutation.ClockUncertaintyMilliseconds(); !ok {
+		return &ValidationError{Name: "clock_uncertainty_milliseconds", err: errors.New(`ent: missing required field "Display.clock_uncertainty_milliseconds"`)}
+	}
+	if _, ok := _c.mutation.RendererUnstable(); !ok {
+		return &ValidationError{Name: "renderer_unstable", err: errors.New(`ent: missing required field "Display.renderer_unstable"`)}
 	}
 	return nil
 }
@@ -323,6 +428,10 @@ func (_c *DisplayCreate) createSpec() (*Display, *sqlgraph.CreateSpec) {
 		_spec.SetField(display.FieldAppliedProtocolVersion, field.TypeString, value)
 		_node.AppliedProtocolVersion = value
 	}
+	if value, ok := _c.mutation.AppliedAssetVersion(); ok {
+		_spec.SetField(display.FieldAppliedAssetVersion, field.TypeString, value)
+		_node.AppliedAssetVersion = value
+	}
 	if value, ok := _c.mutation.AppliedStreamID(); ok {
 		_spec.SetField(display.FieldAppliedStreamID, field.TypeString, value)
 		_node.AppliedStreamID = value
@@ -342,6 +451,22 @@ func (_c *DisplayCreate) createSpec() (*Display, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.AppliedPublishedRevision(); ok {
 		_spec.SetField(display.FieldAppliedPublishedRevision, field.TypeInt, value)
 		_node.AppliedPublishedRevision = value
+	}
+	if value, ok := _c.mutation.AppliedStandby(); ok {
+		_spec.SetField(display.FieldAppliedStandby, field.TypeBool, value)
+		_node.AppliedStandby = value
+	}
+	if value, ok := _c.mutation.ClockOffsetMilliseconds(); ok {
+		_spec.SetField(display.FieldClockOffsetMilliseconds, field.TypeInt64, value)
+		_node.ClockOffsetMilliseconds = value
+	}
+	if value, ok := _c.mutation.ClockUncertaintyMilliseconds(); ok {
+		_spec.SetField(display.FieldClockUncertaintyMilliseconds, field.TypeInt64, value)
+		_node.ClockUncertaintyMilliseconds = value
+	}
+	if value, ok := _c.mutation.RendererUnstable(); ok {
+		_spec.SetField(display.FieldRendererUnstable, field.TypeBool, value)
+		_node.RendererUnstable = value
 	}
 	if value, ok := _c.mutation.AppliedAt(); ok {
 		_spec.SetField(display.FieldAppliedAt, field.TypeTime, value)

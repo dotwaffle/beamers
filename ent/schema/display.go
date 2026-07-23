@@ -25,11 +25,16 @@ func (Display) Fields() []ent.Field {
 		field.Time("created_at").Default(time.Now).Immutable(),
 		field.Time("enrolled_at").Immutable(),
 		field.String("applied_protocol_version").Default(""),
+		field.String("applied_asset_version").Default(""),
 		field.String("applied_stream_id").Default(""),
 		field.Int64("applied_stream_position").Default(0),
 		field.Int("applied_active_event_id").Default(0),
 		field.Int("applied_activation_generation").Default(0),
 		field.Int("applied_published_revision").Default(0),
+		field.Bool("applied_standby").Default(true),
+		field.Int64("clock_offset_milliseconds").Default(0),
+		field.Int64("clock_uncertainty_milliseconds").Default(0),
+		field.Bool("renderer_unstable").Default(false),
 		field.Time("applied_at").Optional().Nillable(),
 	}
 }

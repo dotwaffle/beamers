@@ -58,6 +58,20 @@ func (_u *DisplayUpdate) SetNillableAppliedProtocolVersion(v *string) *DisplayUp
 	return _u
 }
 
+// SetAppliedAssetVersion sets the "applied_asset_version" field.
+func (_u *DisplayUpdate) SetAppliedAssetVersion(v string) *DisplayUpdate {
+	_u.mutation.SetAppliedAssetVersion(v)
+	return _u
+}
+
+// SetNillableAppliedAssetVersion sets the "applied_asset_version" field if the given value is not nil.
+func (_u *DisplayUpdate) SetNillableAppliedAssetVersion(v *string) *DisplayUpdate {
+	if v != nil {
+		_u.SetAppliedAssetVersion(*v)
+	}
+	return _u
+}
+
 // SetAppliedStreamID sets the "applied_stream_id" field.
 func (_u *DisplayUpdate) SetAppliedStreamID(v string) *DisplayUpdate {
 	_u.mutation.SetAppliedStreamID(v)
@@ -153,6 +167,76 @@ func (_u *DisplayUpdate) SetNillableAppliedPublishedRevision(v *int) *DisplayUpd
 // AddAppliedPublishedRevision adds value to the "applied_published_revision" field.
 func (_u *DisplayUpdate) AddAppliedPublishedRevision(v int) *DisplayUpdate {
 	_u.mutation.AddAppliedPublishedRevision(v)
+	return _u
+}
+
+// SetAppliedStandby sets the "applied_standby" field.
+func (_u *DisplayUpdate) SetAppliedStandby(v bool) *DisplayUpdate {
+	_u.mutation.SetAppliedStandby(v)
+	return _u
+}
+
+// SetNillableAppliedStandby sets the "applied_standby" field if the given value is not nil.
+func (_u *DisplayUpdate) SetNillableAppliedStandby(v *bool) *DisplayUpdate {
+	if v != nil {
+		_u.SetAppliedStandby(*v)
+	}
+	return _u
+}
+
+// SetClockOffsetMilliseconds sets the "clock_offset_milliseconds" field.
+func (_u *DisplayUpdate) SetClockOffsetMilliseconds(v int64) *DisplayUpdate {
+	_u.mutation.ResetClockOffsetMilliseconds()
+	_u.mutation.SetClockOffsetMilliseconds(v)
+	return _u
+}
+
+// SetNillableClockOffsetMilliseconds sets the "clock_offset_milliseconds" field if the given value is not nil.
+func (_u *DisplayUpdate) SetNillableClockOffsetMilliseconds(v *int64) *DisplayUpdate {
+	if v != nil {
+		_u.SetClockOffsetMilliseconds(*v)
+	}
+	return _u
+}
+
+// AddClockOffsetMilliseconds adds value to the "clock_offset_milliseconds" field.
+func (_u *DisplayUpdate) AddClockOffsetMilliseconds(v int64) *DisplayUpdate {
+	_u.mutation.AddClockOffsetMilliseconds(v)
+	return _u
+}
+
+// SetClockUncertaintyMilliseconds sets the "clock_uncertainty_milliseconds" field.
+func (_u *DisplayUpdate) SetClockUncertaintyMilliseconds(v int64) *DisplayUpdate {
+	_u.mutation.ResetClockUncertaintyMilliseconds()
+	_u.mutation.SetClockUncertaintyMilliseconds(v)
+	return _u
+}
+
+// SetNillableClockUncertaintyMilliseconds sets the "clock_uncertainty_milliseconds" field if the given value is not nil.
+func (_u *DisplayUpdate) SetNillableClockUncertaintyMilliseconds(v *int64) *DisplayUpdate {
+	if v != nil {
+		_u.SetClockUncertaintyMilliseconds(*v)
+	}
+	return _u
+}
+
+// AddClockUncertaintyMilliseconds adds value to the "clock_uncertainty_milliseconds" field.
+func (_u *DisplayUpdate) AddClockUncertaintyMilliseconds(v int64) *DisplayUpdate {
+	_u.mutation.AddClockUncertaintyMilliseconds(v)
+	return _u
+}
+
+// SetRendererUnstable sets the "renderer_unstable" field.
+func (_u *DisplayUpdate) SetRendererUnstable(v bool) *DisplayUpdate {
+	_u.mutation.SetRendererUnstable(v)
+	return _u
+}
+
+// SetNillableRendererUnstable sets the "renderer_unstable" field if the given value is not nil.
+func (_u *DisplayUpdate) SetNillableRendererUnstable(v *bool) *DisplayUpdate {
+	if v != nil {
+		_u.SetRendererUnstable(*v)
+	}
 	return _u
 }
 
@@ -308,6 +392,9 @@ func (_u *DisplayUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.AppliedProtocolVersion(); ok {
 		_spec.SetField(display.FieldAppliedProtocolVersion, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.AppliedAssetVersion(); ok {
+		_spec.SetField(display.FieldAppliedAssetVersion, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.AppliedStreamID(); ok {
 		_spec.SetField(display.FieldAppliedStreamID, field.TypeString, value)
 	}
@@ -334,6 +421,24 @@ func (_u *DisplayUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedAppliedPublishedRevision(); ok {
 		_spec.AddField(display.FieldAppliedPublishedRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedStandby(); ok {
+		_spec.SetField(display.FieldAppliedStandby, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ClockOffsetMilliseconds(); ok {
+		_spec.SetField(display.FieldClockOffsetMilliseconds, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedClockOffsetMilliseconds(); ok {
+		_spec.AddField(display.FieldClockOffsetMilliseconds, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.ClockUncertaintyMilliseconds(); ok {
+		_spec.SetField(display.FieldClockUncertaintyMilliseconds, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedClockUncertaintyMilliseconds(); ok {
+		_spec.AddField(display.FieldClockUncertaintyMilliseconds, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.RendererUnstable(); ok {
+		_spec.SetField(display.FieldRendererUnstable, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.AppliedAt(); ok {
 		_spec.SetField(display.FieldAppliedAt, field.TypeTime, value)
@@ -479,6 +584,20 @@ func (_u *DisplayUpdateOne) SetNillableAppliedProtocolVersion(v *string) *Displa
 	return _u
 }
 
+// SetAppliedAssetVersion sets the "applied_asset_version" field.
+func (_u *DisplayUpdateOne) SetAppliedAssetVersion(v string) *DisplayUpdateOne {
+	_u.mutation.SetAppliedAssetVersion(v)
+	return _u
+}
+
+// SetNillableAppliedAssetVersion sets the "applied_asset_version" field if the given value is not nil.
+func (_u *DisplayUpdateOne) SetNillableAppliedAssetVersion(v *string) *DisplayUpdateOne {
+	if v != nil {
+		_u.SetAppliedAssetVersion(*v)
+	}
+	return _u
+}
+
 // SetAppliedStreamID sets the "applied_stream_id" field.
 func (_u *DisplayUpdateOne) SetAppliedStreamID(v string) *DisplayUpdateOne {
 	_u.mutation.SetAppliedStreamID(v)
@@ -574,6 +693,76 @@ func (_u *DisplayUpdateOne) SetNillableAppliedPublishedRevision(v *int) *Display
 // AddAppliedPublishedRevision adds value to the "applied_published_revision" field.
 func (_u *DisplayUpdateOne) AddAppliedPublishedRevision(v int) *DisplayUpdateOne {
 	_u.mutation.AddAppliedPublishedRevision(v)
+	return _u
+}
+
+// SetAppliedStandby sets the "applied_standby" field.
+func (_u *DisplayUpdateOne) SetAppliedStandby(v bool) *DisplayUpdateOne {
+	_u.mutation.SetAppliedStandby(v)
+	return _u
+}
+
+// SetNillableAppliedStandby sets the "applied_standby" field if the given value is not nil.
+func (_u *DisplayUpdateOne) SetNillableAppliedStandby(v *bool) *DisplayUpdateOne {
+	if v != nil {
+		_u.SetAppliedStandby(*v)
+	}
+	return _u
+}
+
+// SetClockOffsetMilliseconds sets the "clock_offset_milliseconds" field.
+func (_u *DisplayUpdateOne) SetClockOffsetMilliseconds(v int64) *DisplayUpdateOne {
+	_u.mutation.ResetClockOffsetMilliseconds()
+	_u.mutation.SetClockOffsetMilliseconds(v)
+	return _u
+}
+
+// SetNillableClockOffsetMilliseconds sets the "clock_offset_milliseconds" field if the given value is not nil.
+func (_u *DisplayUpdateOne) SetNillableClockOffsetMilliseconds(v *int64) *DisplayUpdateOne {
+	if v != nil {
+		_u.SetClockOffsetMilliseconds(*v)
+	}
+	return _u
+}
+
+// AddClockOffsetMilliseconds adds value to the "clock_offset_milliseconds" field.
+func (_u *DisplayUpdateOne) AddClockOffsetMilliseconds(v int64) *DisplayUpdateOne {
+	_u.mutation.AddClockOffsetMilliseconds(v)
+	return _u
+}
+
+// SetClockUncertaintyMilliseconds sets the "clock_uncertainty_milliseconds" field.
+func (_u *DisplayUpdateOne) SetClockUncertaintyMilliseconds(v int64) *DisplayUpdateOne {
+	_u.mutation.ResetClockUncertaintyMilliseconds()
+	_u.mutation.SetClockUncertaintyMilliseconds(v)
+	return _u
+}
+
+// SetNillableClockUncertaintyMilliseconds sets the "clock_uncertainty_milliseconds" field if the given value is not nil.
+func (_u *DisplayUpdateOne) SetNillableClockUncertaintyMilliseconds(v *int64) *DisplayUpdateOne {
+	if v != nil {
+		_u.SetClockUncertaintyMilliseconds(*v)
+	}
+	return _u
+}
+
+// AddClockUncertaintyMilliseconds adds value to the "clock_uncertainty_milliseconds" field.
+func (_u *DisplayUpdateOne) AddClockUncertaintyMilliseconds(v int64) *DisplayUpdateOne {
+	_u.mutation.AddClockUncertaintyMilliseconds(v)
+	return _u
+}
+
+// SetRendererUnstable sets the "renderer_unstable" field.
+func (_u *DisplayUpdateOne) SetRendererUnstable(v bool) *DisplayUpdateOne {
+	_u.mutation.SetRendererUnstable(v)
+	return _u
+}
+
+// SetNillableRendererUnstable sets the "renderer_unstable" field if the given value is not nil.
+func (_u *DisplayUpdateOne) SetNillableRendererUnstable(v *bool) *DisplayUpdateOne {
+	if v != nil {
+		_u.SetRendererUnstable(*v)
+	}
 	return _u
 }
 
@@ -759,6 +948,9 @@ func (_u *DisplayUpdateOne) sqlSave(ctx context.Context) (_node *Display, err er
 	if value, ok := _u.mutation.AppliedProtocolVersion(); ok {
 		_spec.SetField(display.FieldAppliedProtocolVersion, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.AppliedAssetVersion(); ok {
+		_spec.SetField(display.FieldAppliedAssetVersion, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.AppliedStreamID(); ok {
 		_spec.SetField(display.FieldAppliedStreamID, field.TypeString, value)
 	}
@@ -785,6 +977,24 @@ func (_u *DisplayUpdateOne) sqlSave(ctx context.Context) (_node *Display, err er
 	}
 	if value, ok := _u.mutation.AddedAppliedPublishedRevision(); ok {
 		_spec.AddField(display.FieldAppliedPublishedRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedStandby(); ok {
+		_spec.SetField(display.FieldAppliedStandby, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ClockOffsetMilliseconds(); ok {
+		_spec.SetField(display.FieldClockOffsetMilliseconds, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedClockOffsetMilliseconds(); ok {
+		_spec.AddField(display.FieldClockOffsetMilliseconds, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.ClockUncertaintyMilliseconds(); ok {
+		_spec.SetField(display.FieldClockUncertaintyMilliseconds, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedClockUncertaintyMilliseconds(); ok {
+		_spec.AddField(display.FieldClockUncertaintyMilliseconds, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.RendererUnstable(); ok {
+		_spec.SetField(display.FieldRendererUnstable, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.AppliedAt(); ok {
 		_spec.SetField(display.FieldAppliedAt, field.TypeTime, value)

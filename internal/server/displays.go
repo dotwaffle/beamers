@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -19,6 +20,7 @@ import (
 const (
 	displayCookieName           = "beamers_display"
 	displayEnrollmentCookieName = "beamers_display_enrollment"
+	displayClaimRecoveryCookie  = "beamers_display_claim_recovery"
 	displayConnectCookiePath    = "/beamers.display.v1.DisplayService"
 )
 
@@ -29,6 +31,7 @@ type displayHandlers struct {
 	logger                *slog.Logger
 	allowPlaintextDisplay bool
 	claimOrigin           string
+	buildVersion          string
 }
 
 func registerDisplayRoutes(
@@ -36,6 +39,7 @@ func registerDisplayRoutes(
 	authentication *auth.Service,
 	service *displays.Service,
 	stream *displaystream.Hub,
+	buildVersion string,
 	logger *slog.Logger,
 	listenerAddress net.Addr,
 ) {
@@ -43,9 +47,11 @@ func registerDisplayRoutes(
 		authentication: authentication, service: service, stream: stream, logger: logger,
 		allowPlaintextDisplay: listenerIsLoopback(listenerAddress),
 		claimOrigin:           "http://" + listenerAddress.String(),
+		buildVersion:          buildVersion,
 	}
 	mux.HandleFunc("/display", handlers.display)
 	mux.HandleFunc("/display/client.js", handlers.clientJavaScript)
+	mux.HandleFunc("/display/assets/", handlers.clientJavaScript)
 	mux.HandleFunc("/display/events", handlers.events)
 	mux.HandleFunc("/admin/displays", handlers.list)
 	mux.HandleFunc("/admin/displays/enroll", handlers.enroll)
@@ -61,6 +67,9 @@ func (handlers displayHandlers) display(response http.ResponseWriter, request *h
 	snapshot, currentErr := handlers.service.Current(request.Context(), credential)
 	if currentErr == nil {
 		clearDisplayEnrollmentCookie(response, request)
+		response.Header().Set("Cache-Control", "no-store")
+		response.Header().Set("X-Beamers-Display-Asset", snapshot.AssetVersion)
+		response.Header().Set("X-Beamers-Display-Protocol", snapshot.ProtocolVersion)
 		response.Header().Set("Content-Type", "text/html; charset=utf-8")
 		page := displays.StandbyPage(snapshot) //nolint:contextcheck // Generated templ closures receive context when rendered.
 		if !snapshot.Standby {
@@ -110,7 +119,16 @@ func (handlers displayHandlers) clientJavaScript(response http.ResponseWriter, r
 	if !requestAllowed(response, request, http.MethodGet, handlers.allowPlaintextDisplay) {
 		return
 	}
-	response.Header().Set("Cache-Control", "no-cache")
+	if request.URL.Path != "/display/client.js" &&
+		request.URL.Path != displays.ClientJavaScriptPath() {
+		http.NotFound(response, request)
+		return
+	}
+	cacheControl := "no-cache"
+	if request.URL.Path == displays.ClientJavaScriptPath() {
+		cacheControl = "public, max-age=31536000, immutable"
+	}
+	response.Header().Set("Cache-Control", cacheControl)
 	response.Header().Set("Content-Type", "text/javascript; charset=utf-8")
 	if _, err := response.Write(displays.ClientJavaScript); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write Display client", "error", err)
@@ -125,7 +143,7 @@ func (handlers displayHandlers) list(response http.ResponseWriter, request *http
 	if !ok {
 		return
 	}
-	statuses, err := handlers.service.List(request.Context(), actor)
+	statuses, err := handlers.service.List(request.Context(), actor, handlers.stream.Cursor())
 	if errors.Is(err, displays.ErrCrewRequired) {
 		http.Error(response, "Active Event crew authority required", http.StatusForbidden)
 		return
@@ -220,8 +238,10 @@ func (handlers displayHandlers) enrollmentClaimPage(response http.ResponseWriter
 	code := request.URL.Query().Get("code")
 	commandID := "enroll-display-" + strings.ToLower(strings.ReplaceAll(code, "-", ""))
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	initialName := displayClaimRecoveryName(request, code)
 	//nolint:contextcheck // Generated templ closures receive context when rendered.
-	if err := displays.EnrollmentClaimPage(code, commandID).Render(request.Context(), response); err != nil {
+	page := displays.EnrollmentClaimPage(code, commandID, handlers.buildVersion, initialName)
+	if err := page.Render(request.Context(), response); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write Display claim page", "error", err)
 	}
 }
@@ -237,6 +257,29 @@ func (handlers displayHandlers) claimEnrollment(response http.ResponseWriter, re
 	request.Body = http.MaxBytesReader(response, request.Body, maxAuthBodyBytes)
 	if err := request.ParseForm(); err != nil {
 		http.Error(response, "invalid request", http.StatusBadRequest)
+		return
+	}
+	if request.PostForm.Get("build_version") != handlers.buildVersion {
+		recoveryCode := request.PostForm.Get("code")
+		if len(recoveryCode) > 20 {
+			recoveryCode = ""
+		}
+		setDisplayClaimRecoveryCookie(
+			response,
+			request,
+			recoveryCode,
+			request.PostForm.Get("name"),
+		)
+		reloadURL := "/admin/displays/enroll?" + url.Values{
+			"code": []string{recoveryCode},
+		}.Encode()
+		response.Header().Set("Content-Type", "text/html; charset=utf-8")
+		response.WriteHeader(http.StatusConflict)
+		//nolint:contextcheck // Generated templ closures receive context when rendered.
+		page := displays.EnrollmentClaimReloadPage(reloadURL)
+		if err := page.Render(request.Context(), response); err != nil {
+			handlers.logger.ErrorContext(request.Context(), "write reload-required page", "error", err)
+		}
 		return
 	}
 	created, err := handlers.service.ClaimEnrollment(request.Context(), actor, displays.ClaimInput{
@@ -262,11 +305,59 @@ func (handlers displayHandlers) claimEnrollment(response http.ResponseWriter, re
 		return
 	}
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	clearDisplayClaimRecoveryCookie(response, request)
 	response.WriteHeader(http.StatusCreated)
 	//nolint:contextcheck // Generated templ closures receive context when rendered.
 	if err := displays.EnrollmentClaimedPage(created).Render(request.Context(), response); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write enrolled Display page", "error", err)
 	}
+}
+
+func setDisplayClaimRecoveryCookie(
+	response http.ResponseWriter,
+	request *http.Request,
+	code string,
+	name string,
+) {
+	if len(code) > 20 {
+		code = ""
+	}
+	nameRunes := []rune(name)
+	if len(nameRunes) > 200 {
+		name = string(nameRunes[:200])
+	}
+	value := base64.RawURLEncoding.EncodeToString([]byte(code + "\n" + name))
+	//nolint:gosec // G124 cannot infer the listener-level loopback restriction.
+	http.SetCookie(response, &http.Cookie{
+		Name: displayClaimRecoveryCookie, Value: value,
+		Path: "/admin/displays/enroll", MaxAge: 60, HttpOnly: true,
+		Secure: request.TLS != nil, SameSite: http.SameSiteStrictMode,
+	})
+}
+
+func displayClaimRecoveryName(request *http.Request, code string) string {
+	cookie, err := request.Cookie(displayClaimRecoveryCookie)
+	if err != nil {
+		return ""
+	}
+	decoded, err := base64.RawURLEncoding.DecodeString(cookie.Value)
+	if err != nil {
+		return ""
+	}
+	storedCode, name, found := strings.Cut(string(decoded), "\n")
+	if !found || storedCode != code {
+		return ""
+	}
+	return name
+}
+
+func clearDisplayClaimRecoveryCookie(response http.ResponseWriter, request *http.Request) {
+	//nolint:gosec // G124 cannot infer the listener-level loopback restriction.
+	http.SetCookie(response, &http.Cookie{
+		Name: displayClaimRecoveryCookie, Path: "/admin/displays/enroll",
+		MaxAge: -1, HttpOnly: true,
+		Secure: request.TLS != nil, SameSite: http.SameSiteStrictMode,
+	})
 }
 
 func (handlers displayHandlers) authenticate(

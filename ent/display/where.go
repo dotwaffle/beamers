@@ -75,6 +75,11 @@ func AppliedProtocolVersion(v string) predicate.Display {
 	return predicate.Display(sql.FieldEQ(FieldAppliedProtocolVersion, v))
 }
 
+// AppliedAssetVersion applies equality check predicate on the "applied_asset_version" field. It's identical to AppliedAssetVersionEQ.
+func AppliedAssetVersion(v string) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedAssetVersion, v))
+}
+
 // AppliedStreamID applies equality check predicate on the "applied_stream_id" field. It's identical to AppliedStreamIDEQ.
 func AppliedStreamID(v string) predicate.Display {
 	return predicate.Display(sql.FieldEQ(FieldAppliedStreamID, v))
@@ -98,6 +103,26 @@ func AppliedActivationGeneration(v int) predicate.Display {
 // AppliedPublishedRevision applies equality check predicate on the "applied_published_revision" field. It's identical to AppliedPublishedRevisionEQ.
 func AppliedPublishedRevision(v int) predicate.Display {
 	return predicate.Display(sql.FieldEQ(FieldAppliedPublishedRevision, v))
+}
+
+// AppliedStandby applies equality check predicate on the "applied_standby" field. It's identical to AppliedStandbyEQ.
+func AppliedStandby(v bool) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedStandby, v))
+}
+
+// ClockOffsetMilliseconds applies equality check predicate on the "clock_offset_milliseconds" field. It's identical to ClockOffsetMillisecondsEQ.
+func ClockOffsetMilliseconds(v int64) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldClockOffsetMilliseconds, v))
+}
+
+// ClockUncertaintyMilliseconds applies equality check predicate on the "clock_uncertainty_milliseconds" field. It's identical to ClockUncertaintyMillisecondsEQ.
+func ClockUncertaintyMilliseconds(v int64) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldClockUncertaintyMilliseconds, v))
+}
+
+// RendererUnstable applies equality check predicate on the "renderer_unstable" field. It's identical to RendererUnstableEQ.
+func RendererUnstable(v bool) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldRendererUnstable, v))
 }
 
 // AppliedAt applies equality check predicate on the "applied_at" field. It's identical to AppliedAtEQ.
@@ -313,6 +338,71 @@ func AppliedProtocolVersionEqualFold(v string) predicate.Display {
 // AppliedProtocolVersionContainsFold applies the ContainsFold predicate on the "applied_protocol_version" field.
 func AppliedProtocolVersionContainsFold(v string) predicate.Display {
 	return predicate.Display(sql.FieldContainsFold(FieldAppliedProtocolVersion, v))
+}
+
+// AppliedAssetVersionEQ applies the EQ predicate on the "applied_asset_version" field.
+func AppliedAssetVersionEQ(v string) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedAssetVersion, v))
+}
+
+// AppliedAssetVersionNEQ applies the NEQ predicate on the "applied_asset_version" field.
+func AppliedAssetVersionNEQ(v string) predicate.Display {
+	return predicate.Display(sql.FieldNEQ(FieldAppliedAssetVersion, v))
+}
+
+// AppliedAssetVersionIn applies the In predicate on the "applied_asset_version" field.
+func AppliedAssetVersionIn(vs ...string) predicate.Display {
+	return predicate.Display(sql.FieldIn(FieldAppliedAssetVersion, vs...))
+}
+
+// AppliedAssetVersionNotIn applies the NotIn predicate on the "applied_asset_version" field.
+func AppliedAssetVersionNotIn(vs ...string) predicate.Display {
+	return predicate.Display(sql.FieldNotIn(FieldAppliedAssetVersion, vs...))
+}
+
+// AppliedAssetVersionGT applies the GT predicate on the "applied_asset_version" field.
+func AppliedAssetVersionGT(v string) predicate.Display {
+	return predicate.Display(sql.FieldGT(FieldAppliedAssetVersion, v))
+}
+
+// AppliedAssetVersionGTE applies the GTE predicate on the "applied_asset_version" field.
+func AppliedAssetVersionGTE(v string) predicate.Display {
+	return predicate.Display(sql.FieldGTE(FieldAppliedAssetVersion, v))
+}
+
+// AppliedAssetVersionLT applies the LT predicate on the "applied_asset_version" field.
+func AppliedAssetVersionLT(v string) predicate.Display {
+	return predicate.Display(sql.FieldLT(FieldAppliedAssetVersion, v))
+}
+
+// AppliedAssetVersionLTE applies the LTE predicate on the "applied_asset_version" field.
+func AppliedAssetVersionLTE(v string) predicate.Display {
+	return predicate.Display(sql.FieldLTE(FieldAppliedAssetVersion, v))
+}
+
+// AppliedAssetVersionContains applies the Contains predicate on the "applied_asset_version" field.
+func AppliedAssetVersionContains(v string) predicate.Display {
+	return predicate.Display(sql.FieldContains(FieldAppliedAssetVersion, v))
+}
+
+// AppliedAssetVersionHasPrefix applies the HasPrefix predicate on the "applied_asset_version" field.
+func AppliedAssetVersionHasPrefix(v string) predicate.Display {
+	return predicate.Display(sql.FieldHasPrefix(FieldAppliedAssetVersion, v))
+}
+
+// AppliedAssetVersionHasSuffix applies the HasSuffix predicate on the "applied_asset_version" field.
+func AppliedAssetVersionHasSuffix(v string) predicate.Display {
+	return predicate.Display(sql.FieldHasSuffix(FieldAppliedAssetVersion, v))
+}
+
+// AppliedAssetVersionEqualFold applies the EqualFold predicate on the "applied_asset_version" field.
+func AppliedAssetVersionEqualFold(v string) predicate.Display {
+	return predicate.Display(sql.FieldEqualFold(FieldAppliedAssetVersion, v))
+}
+
+// AppliedAssetVersionContainsFold applies the ContainsFold predicate on the "applied_asset_version" field.
+func AppliedAssetVersionContainsFold(v string) predicate.Display {
+	return predicate.Display(sql.FieldContainsFold(FieldAppliedAssetVersion, v))
 }
 
 // AppliedStreamIDEQ applies the EQ predicate on the "applied_stream_id" field.
@@ -538,6 +628,106 @@ func AppliedPublishedRevisionLT(v int) predicate.Display {
 // AppliedPublishedRevisionLTE applies the LTE predicate on the "applied_published_revision" field.
 func AppliedPublishedRevisionLTE(v int) predicate.Display {
 	return predicate.Display(sql.FieldLTE(FieldAppliedPublishedRevision, v))
+}
+
+// AppliedStandbyEQ applies the EQ predicate on the "applied_standby" field.
+func AppliedStandbyEQ(v bool) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedStandby, v))
+}
+
+// AppliedStandbyNEQ applies the NEQ predicate on the "applied_standby" field.
+func AppliedStandbyNEQ(v bool) predicate.Display {
+	return predicate.Display(sql.FieldNEQ(FieldAppliedStandby, v))
+}
+
+// ClockOffsetMillisecondsEQ applies the EQ predicate on the "clock_offset_milliseconds" field.
+func ClockOffsetMillisecondsEQ(v int64) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldClockOffsetMilliseconds, v))
+}
+
+// ClockOffsetMillisecondsNEQ applies the NEQ predicate on the "clock_offset_milliseconds" field.
+func ClockOffsetMillisecondsNEQ(v int64) predicate.Display {
+	return predicate.Display(sql.FieldNEQ(FieldClockOffsetMilliseconds, v))
+}
+
+// ClockOffsetMillisecondsIn applies the In predicate on the "clock_offset_milliseconds" field.
+func ClockOffsetMillisecondsIn(vs ...int64) predicate.Display {
+	return predicate.Display(sql.FieldIn(FieldClockOffsetMilliseconds, vs...))
+}
+
+// ClockOffsetMillisecondsNotIn applies the NotIn predicate on the "clock_offset_milliseconds" field.
+func ClockOffsetMillisecondsNotIn(vs ...int64) predicate.Display {
+	return predicate.Display(sql.FieldNotIn(FieldClockOffsetMilliseconds, vs...))
+}
+
+// ClockOffsetMillisecondsGT applies the GT predicate on the "clock_offset_milliseconds" field.
+func ClockOffsetMillisecondsGT(v int64) predicate.Display {
+	return predicate.Display(sql.FieldGT(FieldClockOffsetMilliseconds, v))
+}
+
+// ClockOffsetMillisecondsGTE applies the GTE predicate on the "clock_offset_milliseconds" field.
+func ClockOffsetMillisecondsGTE(v int64) predicate.Display {
+	return predicate.Display(sql.FieldGTE(FieldClockOffsetMilliseconds, v))
+}
+
+// ClockOffsetMillisecondsLT applies the LT predicate on the "clock_offset_milliseconds" field.
+func ClockOffsetMillisecondsLT(v int64) predicate.Display {
+	return predicate.Display(sql.FieldLT(FieldClockOffsetMilliseconds, v))
+}
+
+// ClockOffsetMillisecondsLTE applies the LTE predicate on the "clock_offset_milliseconds" field.
+func ClockOffsetMillisecondsLTE(v int64) predicate.Display {
+	return predicate.Display(sql.FieldLTE(FieldClockOffsetMilliseconds, v))
+}
+
+// ClockUncertaintyMillisecondsEQ applies the EQ predicate on the "clock_uncertainty_milliseconds" field.
+func ClockUncertaintyMillisecondsEQ(v int64) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldClockUncertaintyMilliseconds, v))
+}
+
+// ClockUncertaintyMillisecondsNEQ applies the NEQ predicate on the "clock_uncertainty_milliseconds" field.
+func ClockUncertaintyMillisecondsNEQ(v int64) predicate.Display {
+	return predicate.Display(sql.FieldNEQ(FieldClockUncertaintyMilliseconds, v))
+}
+
+// ClockUncertaintyMillisecondsIn applies the In predicate on the "clock_uncertainty_milliseconds" field.
+func ClockUncertaintyMillisecondsIn(vs ...int64) predicate.Display {
+	return predicate.Display(sql.FieldIn(FieldClockUncertaintyMilliseconds, vs...))
+}
+
+// ClockUncertaintyMillisecondsNotIn applies the NotIn predicate on the "clock_uncertainty_milliseconds" field.
+func ClockUncertaintyMillisecondsNotIn(vs ...int64) predicate.Display {
+	return predicate.Display(sql.FieldNotIn(FieldClockUncertaintyMilliseconds, vs...))
+}
+
+// ClockUncertaintyMillisecondsGT applies the GT predicate on the "clock_uncertainty_milliseconds" field.
+func ClockUncertaintyMillisecondsGT(v int64) predicate.Display {
+	return predicate.Display(sql.FieldGT(FieldClockUncertaintyMilliseconds, v))
+}
+
+// ClockUncertaintyMillisecondsGTE applies the GTE predicate on the "clock_uncertainty_milliseconds" field.
+func ClockUncertaintyMillisecondsGTE(v int64) predicate.Display {
+	return predicate.Display(sql.FieldGTE(FieldClockUncertaintyMilliseconds, v))
+}
+
+// ClockUncertaintyMillisecondsLT applies the LT predicate on the "clock_uncertainty_milliseconds" field.
+func ClockUncertaintyMillisecondsLT(v int64) predicate.Display {
+	return predicate.Display(sql.FieldLT(FieldClockUncertaintyMilliseconds, v))
+}
+
+// ClockUncertaintyMillisecondsLTE applies the LTE predicate on the "clock_uncertainty_milliseconds" field.
+func ClockUncertaintyMillisecondsLTE(v int64) predicate.Display {
+	return predicate.Display(sql.FieldLTE(FieldClockUncertaintyMilliseconds, v))
+}
+
+// RendererUnstableEQ applies the EQ predicate on the "renderer_unstable" field.
+func RendererUnstableEQ(v bool) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldRendererUnstable, v))
+}
+
+// RendererUnstableNEQ applies the NEQ predicate on the "renderer_unstable" field.
+func RendererUnstableNEQ(v bool) predicate.Display {
+	return predicate.Display(sql.FieldNEQ(FieldRendererUnstable, v))
 }
 
 // AppliedAtEQ applies the EQ predicate on the "applied_at" field.

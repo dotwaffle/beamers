@@ -3862,33 +3862,40 @@ func (m *CommandReceiptMutation) ResetEdge(name string) error {
 // DisplayMutation represents an operation that mutates the Display nodes in the graph.
 type DisplayMutation struct {
 	config
-	op                               Op
-	typ                              string
-	id                               *int
-	name                             *string
-	created_at                       *time.Time
-	enrolled_at                      *time.Time
-	applied_protocol_version         *string
-	applied_stream_id                *string
-	applied_stream_position          *int64
-	addapplied_stream_position       *int64
-	applied_active_event_id          *int
-	addapplied_active_event_id       *int
-	applied_activation_generation    *int
-	addapplied_activation_generation *int
-	applied_published_revision       *int
-	addapplied_published_revision    *int
-	applied_at                       *time.Time
-	clearedFields                    map[string]struct{}
-	credentials                      map[int]struct{}
-	removedcredentials               map[int]struct{}
-	clearedcredentials               bool
-	assignments                      map[int]struct{}
-	removedassignments               map[int]struct{}
-	clearedassignments               bool
-	done                             bool
-	oldValue                         func(context.Context) (*Display, error)
-	predicates                       []predicate.Display
+	op                                Op
+	typ                               string
+	id                                *int
+	name                              *string
+	created_at                        *time.Time
+	enrolled_at                       *time.Time
+	applied_protocol_version          *string
+	applied_asset_version             *string
+	applied_stream_id                 *string
+	applied_stream_position           *int64
+	addapplied_stream_position        *int64
+	applied_active_event_id           *int
+	addapplied_active_event_id        *int
+	applied_activation_generation     *int
+	addapplied_activation_generation  *int
+	applied_published_revision        *int
+	addapplied_published_revision     *int
+	applied_standby                   *bool
+	clock_offset_milliseconds         *int64
+	addclock_offset_milliseconds      *int64
+	clock_uncertainty_milliseconds    *int64
+	addclock_uncertainty_milliseconds *int64
+	renderer_unstable                 *bool
+	applied_at                        *time.Time
+	clearedFields                     map[string]struct{}
+	credentials                       map[int]struct{}
+	removedcredentials                map[int]struct{}
+	clearedcredentials                bool
+	assignments                       map[int]struct{}
+	removedassignments                map[int]struct{}
+	clearedassignments                bool
+	done                              bool
+	oldValue                          func(context.Context) (*Display, error)
+	predicates                        []predicate.Display
 }
 
 var _ ent.Mutation = (*DisplayMutation)(nil)
@@ -4131,6 +4138,42 @@ func (m *DisplayMutation) OldAppliedProtocolVersion(ctx context.Context) (v stri
 // ResetAppliedProtocolVersion resets all changes to the "applied_protocol_version" field.
 func (m *DisplayMutation) ResetAppliedProtocolVersion() {
 	m.applied_protocol_version = nil
+}
+
+// SetAppliedAssetVersion sets the "applied_asset_version" field.
+func (m *DisplayMutation) SetAppliedAssetVersion(s string) {
+	m.applied_asset_version = &s
+}
+
+// AppliedAssetVersion returns the value of the "applied_asset_version" field in the mutation.
+func (m *DisplayMutation) AppliedAssetVersion() (r string, exists bool) {
+	v := m.applied_asset_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAppliedAssetVersion returns the old "applied_asset_version" field's value of the Display entity.
+// If the Display object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayMutation) OldAppliedAssetVersion(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAppliedAssetVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAppliedAssetVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAppliedAssetVersion: %w", err)
+	}
+	return oldValue.AppliedAssetVersion, nil
+}
+
+// ResetAppliedAssetVersion resets all changes to the "applied_asset_version" field.
+func (m *DisplayMutation) ResetAppliedAssetVersion() {
+	m.applied_asset_version = nil
 }
 
 // SetAppliedStreamID sets the "applied_stream_id" field.
@@ -4393,6 +4436,190 @@ func (m *DisplayMutation) ResetAppliedPublishedRevision() {
 	m.addapplied_published_revision = nil
 }
 
+// SetAppliedStandby sets the "applied_standby" field.
+func (m *DisplayMutation) SetAppliedStandby(b bool) {
+	m.applied_standby = &b
+}
+
+// AppliedStandby returns the value of the "applied_standby" field in the mutation.
+func (m *DisplayMutation) AppliedStandby() (r bool, exists bool) {
+	v := m.applied_standby
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAppliedStandby returns the old "applied_standby" field's value of the Display entity.
+// If the Display object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayMutation) OldAppliedStandby(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAppliedStandby is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAppliedStandby requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAppliedStandby: %w", err)
+	}
+	return oldValue.AppliedStandby, nil
+}
+
+// ResetAppliedStandby resets all changes to the "applied_standby" field.
+func (m *DisplayMutation) ResetAppliedStandby() {
+	m.applied_standby = nil
+}
+
+// SetClockOffsetMilliseconds sets the "clock_offset_milliseconds" field.
+func (m *DisplayMutation) SetClockOffsetMilliseconds(i int64) {
+	m.clock_offset_milliseconds = &i
+	m.addclock_offset_milliseconds = nil
+}
+
+// ClockOffsetMilliseconds returns the value of the "clock_offset_milliseconds" field in the mutation.
+func (m *DisplayMutation) ClockOffsetMilliseconds() (r int64, exists bool) {
+	v := m.clock_offset_milliseconds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldClockOffsetMilliseconds returns the old "clock_offset_milliseconds" field's value of the Display entity.
+// If the Display object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayMutation) OldClockOffsetMilliseconds(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldClockOffsetMilliseconds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldClockOffsetMilliseconds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldClockOffsetMilliseconds: %w", err)
+	}
+	return oldValue.ClockOffsetMilliseconds, nil
+}
+
+// AddClockOffsetMilliseconds adds i to the "clock_offset_milliseconds" field.
+func (m *DisplayMutation) AddClockOffsetMilliseconds(i int64) {
+	if m.addclock_offset_milliseconds != nil {
+		*m.addclock_offset_milliseconds += i
+	} else {
+		m.addclock_offset_milliseconds = &i
+	}
+}
+
+// AddedClockOffsetMilliseconds returns the value that was added to the "clock_offset_milliseconds" field in this mutation.
+func (m *DisplayMutation) AddedClockOffsetMilliseconds() (r int64, exists bool) {
+	v := m.addclock_offset_milliseconds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetClockOffsetMilliseconds resets all changes to the "clock_offset_milliseconds" field.
+func (m *DisplayMutation) ResetClockOffsetMilliseconds() {
+	m.clock_offset_milliseconds = nil
+	m.addclock_offset_milliseconds = nil
+}
+
+// SetClockUncertaintyMilliseconds sets the "clock_uncertainty_milliseconds" field.
+func (m *DisplayMutation) SetClockUncertaintyMilliseconds(i int64) {
+	m.clock_uncertainty_milliseconds = &i
+	m.addclock_uncertainty_milliseconds = nil
+}
+
+// ClockUncertaintyMilliseconds returns the value of the "clock_uncertainty_milliseconds" field in the mutation.
+func (m *DisplayMutation) ClockUncertaintyMilliseconds() (r int64, exists bool) {
+	v := m.clock_uncertainty_milliseconds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldClockUncertaintyMilliseconds returns the old "clock_uncertainty_milliseconds" field's value of the Display entity.
+// If the Display object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayMutation) OldClockUncertaintyMilliseconds(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldClockUncertaintyMilliseconds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldClockUncertaintyMilliseconds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldClockUncertaintyMilliseconds: %w", err)
+	}
+	return oldValue.ClockUncertaintyMilliseconds, nil
+}
+
+// AddClockUncertaintyMilliseconds adds i to the "clock_uncertainty_milliseconds" field.
+func (m *DisplayMutation) AddClockUncertaintyMilliseconds(i int64) {
+	if m.addclock_uncertainty_milliseconds != nil {
+		*m.addclock_uncertainty_milliseconds += i
+	} else {
+		m.addclock_uncertainty_milliseconds = &i
+	}
+}
+
+// AddedClockUncertaintyMilliseconds returns the value that was added to the "clock_uncertainty_milliseconds" field in this mutation.
+func (m *DisplayMutation) AddedClockUncertaintyMilliseconds() (r int64, exists bool) {
+	v := m.addclock_uncertainty_milliseconds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetClockUncertaintyMilliseconds resets all changes to the "clock_uncertainty_milliseconds" field.
+func (m *DisplayMutation) ResetClockUncertaintyMilliseconds() {
+	m.clock_uncertainty_milliseconds = nil
+	m.addclock_uncertainty_milliseconds = nil
+}
+
+// SetRendererUnstable sets the "renderer_unstable" field.
+func (m *DisplayMutation) SetRendererUnstable(b bool) {
+	m.renderer_unstable = &b
+}
+
+// RendererUnstable returns the value of the "renderer_unstable" field in the mutation.
+func (m *DisplayMutation) RendererUnstable() (r bool, exists bool) {
+	v := m.renderer_unstable
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRendererUnstable returns the old "renderer_unstable" field's value of the Display entity.
+// If the Display object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayMutation) OldRendererUnstable(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRendererUnstable is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRendererUnstable requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRendererUnstable: %w", err)
+	}
+	return oldValue.RendererUnstable, nil
+}
+
+// ResetRendererUnstable resets all changes to the "renderer_unstable" field.
+func (m *DisplayMutation) ResetRendererUnstable() {
+	m.renderer_unstable = nil
+}
+
 // SetAppliedAt sets the "applied_at" field.
 func (m *DisplayMutation) SetAppliedAt(t time.Time) {
 	m.applied_at = &t
@@ -4584,7 +4811,7 @@ func (m *DisplayMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DisplayMutation) Fields() []string {
-	fields := make([]string, 0, 10)
+	fields := make([]string, 0, 15)
 	if m.name != nil {
 		fields = append(fields, display.FieldName)
 	}
@@ -4596,6 +4823,9 @@ func (m *DisplayMutation) Fields() []string {
 	}
 	if m.applied_protocol_version != nil {
 		fields = append(fields, display.FieldAppliedProtocolVersion)
+	}
+	if m.applied_asset_version != nil {
+		fields = append(fields, display.FieldAppliedAssetVersion)
 	}
 	if m.applied_stream_id != nil {
 		fields = append(fields, display.FieldAppliedStreamID)
@@ -4611,6 +4841,18 @@ func (m *DisplayMutation) Fields() []string {
 	}
 	if m.applied_published_revision != nil {
 		fields = append(fields, display.FieldAppliedPublishedRevision)
+	}
+	if m.applied_standby != nil {
+		fields = append(fields, display.FieldAppliedStandby)
+	}
+	if m.clock_offset_milliseconds != nil {
+		fields = append(fields, display.FieldClockOffsetMilliseconds)
+	}
+	if m.clock_uncertainty_milliseconds != nil {
+		fields = append(fields, display.FieldClockUncertaintyMilliseconds)
+	}
+	if m.renderer_unstable != nil {
+		fields = append(fields, display.FieldRendererUnstable)
 	}
 	if m.applied_at != nil {
 		fields = append(fields, display.FieldAppliedAt)
@@ -4631,6 +4873,8 @@ func (m *DisplayMutation) Field(name string) (ent.Value, bool) {
 		return m.EnrolledAt()
 	case display.FieldAppliedProtocolVersion:
 		return m.AppliedProtocolVersion()
+	case display.FieldAppliedAssetVersion:
+		return m.AppliedAssetVersion()
 	case display.FieldAppliedStreamID:
 		return m.AppliedStreamID()
 	case display.FieldAppliedStreamPosition:
@@ -4641,6 +4885,14 @@ func (m *DisplayMutation) Field(name string) (ent.Value, bool) {
 		return m.AppliedActivationGeneration()
 	case display.FieldAppliedPublishedRevision:
 		return m.AppliedPublishedRevision()
+	case display.FieldAppliedStandby:
+		return m.AppliedStandby()
+	case display.FieldClockOffsetMilliseconds:
+		return m.ClockOffsetMilliseconds()
+	case display.FieldClockUncertaintyMilliseconds:
+		return m.ClockUncertaintyMilliseconds()
+	case display.FieldRendererUnstable:
+		return m.RendererUnstable()
 	case display.FieldAppliedAt:
 		return m.AppliedAt()
 	}
@@ -4660,6 +4912,8 @@ func (m *DisplayMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldEnrolledAt(ctx)
 	case display.FieldAppliedProtocolVersion:
 		return m.OldAppliedProtocolVersion(ctx)
+	case display.FieldAppliedAssetVersion:
+		return m.OldAppliedAssetVersion(ctx)
 	case display.FieldAppliedStreamID:
 		return m.OldAppliedStreamID(ctx)
 	case display.FieldAppliedStreamPosition:
@@ -4670,6 +4924,14 @@ func (m *DisplayMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldAppliedActivationGeneration(ctx)
 	case display.FieldAppliedPublishedRevision:
 		return m.OldAppliedPublishedRevision(ctx)
+	case display.FieldAppliedStandby:
+		return m.OldAppliedStandby(ctx)
+	case display.FieldClockOffsetMilliseconds:
+		return m.OldClockOffsetMilliseconds(ctx)
+	case display.FieldClockUncertaintyMilliseconds:
+		return m.OldClockUncertaintyMilliseconds(ctx)
+	case display.FieldRendererUnstable:
+		return m.OldRendererUnstable(ctx)
 	case display.FieldAppliedAt:
 		return m.OldAppliedAt(ctx)
 	}
@@ -4709,6 +4971,13 @@ func (m *DisplayMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetAppliedProtocolVersion(v)
 		return nil
+	case display.FieldAppliedAssetVersion:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAppliedAssetVersion(v)
+		return nil
 	case display.FieldAppliedStreamID:
 		v, ok := value.(string)
 		if !ok {
@@ -4744,6 +5013,34 @@ func (m *DisplayMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetAppliedPublishedRevision(v)
 		return nil
+	case display.FieldAppliedStandby:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAppliedStandby(v)
+		return nil
+	case display.FieldClockOffsetMilliseconds:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetClockOffsetMilliseconds(v)
+		return nil
+	case display.FieldClockUncertaintyMilliseconds:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetClockUncertaintyMilliseconds(v)
+		return nil
+	case display.FieldRendererUnstable:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRendererUnstable(v)
+		return nil
 	case display.FieldAppliedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -4771,6 +5068,12 @@ func (m *DisplayMutation) AddedFields() []string {
 	if m.addapplied_published_revision != nil {
 		fields = append(fields, display.FieldAppliedPublishedRevision)
 	}
+	if m.addclock_offset_milliseconds != nil {
+		fields = append(fields, display.FieldClockOffsetMilliseconds)
+	}
+	if m.addclock_uncertainty_milliseconds != nil {
+		fields = append(fields, display.FieldClockUncertaintyMilliseconds)
+	}
 	return fields
 }
 
@@ -4787,6 +5090,10 @@ func (m *DisplayMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedAppliedActivationGeneration()
 	case display.FieldAppliedPublishedRevision:
 		return m.AddedAppliedPublishedRevision()
+	case display.FieldClockOffsetMilliseconds:
+		return m.AddedClockOffsetMilliseconds()
+	case display.FieldClockUncertaintyMilliseconds:
+		return m.AddedClockUncertaintyMilliseconds()
 	}
 	return nil, false
 }
@@ -4823,6 +5130,20 @@ func (m *DisplayMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddAppliedPublishedRevision(v)
+		return nil
+	case display.FieldClockOffsetMilliseconds:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddClockOffsetMilliseconds(v)
+		return nil
+	case display.FieldClockUncertaintyMilliseconds:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddClockUncertaintyMilliseconds(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Display numeric field %s", name)
@@ -4872,6 +5193,9 @@ func (m *DisplayMutation) ResetField(name string) error {
 	case display.FieldAppliedProtocolVersion:
 		m.ResetAppliedProtocolVersion()
 		return nil
+	case display.FieldAppliedAssetVersion:
+		m.ResetAppliedAssetVersion()
+		return nil
 	case display.FieldAppliedStreamID:
 		m.ResetAppliedStreamID()
 		return nil
@@ -4886,6 +5210,18 @@ func (m *DisplayMutation) ResetField(name string) error {
 		return nil
 	case display.FieldAppliedPublishedRevision:
 		m.ResetAppliedPublishedRevision()
+		return nil
+	case display.FieldAppliedStandby:
+		m.ResetAppliedStandby()
+		return nil
+	case display.FieldClockOffsetMilliseconds:
+		m.ResetClockOffsetMilliseconds()
+		return nil
+	case display.FieldClockUncertaintyMilliseconds:
+		m.ResetClockUncertaintyMilliseconds()
+		return nil
+	case display.FieldRendererUnstable:
+		m.ResetRendererUnstable()
 		return nil
 	case display.FieldAppliedAt:
 		m.ResetAppliedAt()

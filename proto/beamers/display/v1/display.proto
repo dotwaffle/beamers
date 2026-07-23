@@ -35,6 +35,7 @@ message DisplaySnapshot {
   optional uint64 stream_position = 15;
   string event_timezone = 16;
   string snapshot_token = 17;
+  string asset_version = 18;
 }
 
 message DisplaySession {
@@ -63,6 +64,11 @@ message AcknowledgeRequest {
   int64 activation_generation = 5;
   int64 published_revision = 6;
   string snapshot_token = 7;
+  bool standby = 8;
+  sint64 clock_offset_milliseconds = 9;
+  uint64 clock_uncertainty_milliseconds = 10;
+  bool renderer_unstable = 11;
+  string asset_version = 12;
 }
 
 message AcknowledgeResponse {
@@ -78,4 +84,9 @@ message DisplayAcknowledgment {
   int64 activation_generation = 6;
   int64 published_revision = 7;
   google.protobuf.Timestamp applied_at = 8;
+  bool standby = 9;
+  sint64 clock_offset_milliseconds = 10;
+  uint64 clock_uncertainty_milliseconds = 11;
+  bool renderer_unstable = 12;
+  string asset_version = 13;
 }

@@ -22,6 +22,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/command"
+	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/displayviews"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -32,6 +33,7 @@ const (
 	enrollmentCodeBytes  = 5
 	credentialLifetime   = 10 * 365 * 24 * time.Hour
 	protocolVersion      = "beamers.display.v1"
+	maxClockHealthMillis = int64(24 * 60 * 60 * 1000)
 )
 
 var (
@@ -97,6 +99,7 @@ type Display struct {
 // Snapshot is the current output routing projection for one Display.
 type Snapshot struct {
 	ProtocolVersion      string
+	AssetVersion         string
 	ServerTime           time.Time
 	Display              Display
 	ActiveEventID        int
@@ -114,23 +117,33 @@ type Snapshot struct {
 // AcknowledgmentInput reports the exact state one Display has applied.
 type AcknowledgmentInput struct {
 	ProtocolVersion      string
+	AssetVersion         string
 	StreamID             string
 	StreamPosition       uint64
 	ActiveEventID        int64
 	ActivationGeneration int64
 	PublishedRevision    int64
+	Standby              bool
+	ClockOffset          int64
+	ClockUncertainty     uint64
+	RendererUnstable     bool
 }
 
 // Acknowledgment is the latest durably recorded state one Display applied.
 type Acknowledgment struct {
 	DisplayID            int
 	ProtocolVersion      string
+	AssetVersion         string
 	StreamID             string
 	StreamPosition       uint64
 	ActiveEventID        int
 	ActivationGeneration int
 	PublishedRevision    int
 	AppliedAt            time.Time
+	Standby              bool
+	ClockOffset          int64
+	ClockUncertainty     uint64
+	RendererUnstable     bool
 }
 
 // Session is one Display-safe committed Schedule item.
@@ -181,13 +194,21 @@ type Assignment struct {
 
 // Status is one crew-visible current Display routing summary.
 type Status struct {
-	ID            int    `json:"id"`
-	Name          string `json:"name"`
-	ActiveEventID int    `json:"active_event_id"`
-	Standby       bool   `json:"standby"`
-	EventName     string `json:"event_name,omitempty"`
-	LocationName  string `json:"location_name,omitempty"`
-	ViewKey       string `json:"view_key,omitempty"`
+	ID                          int        `json:"id"`
+	Name                        string     `json:"name"`
+	ActiveEventID               int        `json:"active_event_id"`
+	Standby                     bool       `json:"standby"`
+	EventName                   string     `json:"event_name,omitempty"`
+	LocationName                string     `json:"location_name,omitempty"`
+	ViewKey                     string     `json:"view_key,omitempty"`
+	DeliveryState               string     `json:"delivery_state"`
+	AppliedActiveEventID        int        `json:"applied_active_event_id"`
+	AppliedActivationGeneration int        `json:"applied_activation_generation"`
+	AppliedPublishedRevision    int        `json:"applied_published_revision"`
+	AppliedStandby              bool       `json:"applied_standby"`
+	AppliedAt                   *time.Time `json:"applied_at,omitempty"`
+	ClockOffset                 int64      `json:"clock_offset_milliseconds"`
+	ClockUncertainty            int64      `json:"clock_uncertainty_milliseconds"`
 }
 
 // New creates a Display service with explicit storage, clock, and randomness.
@@ -223,7 +244,7 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 	}
 	now := service.now().UTC()
 	result := Snapshot{
-		ProtocolVersion: protocolVersion, ServerTime: now,
+		ProtocolVersion: protocolVersion, AssetVersion: AssetVersion(), ServerTime: now,
 		Display: display(found.Display), ActiveEventID: found.ActiveEventID,
 		EventName: found.EventName, EventTimezone: found.EventTimezone,
 		ActivationGeneration: found.ActivationGeneration,
@@ -258,20 +279,28 @@ func (service *Service) Acknowledge(
 		return Acknowledgment{}, ErrDisplayAuthentication
 	}
 	if input.ProtocolVersion != protocolVersion ||
+		input.AssetVersion != AssetVersion() ||
 		input.StreamID == "" ||
 		len(input.StreamID) > 200 ||
 		input.StreamPosition > math.MaxInt64 ||
 		input.ActiveEventID < 0 || input.ActiveEventID > math.MaxInt ||
 		input.ActivationGeneration < 0 || input.ActivationGeneration > math.MaxInt ||
-		input.PublishedRevision < 0 || input.PublishedRevision > math.MaxInt {
+		input.PublishedRevision < 0 || input.PublishedRevision > math.MaxInt ||
+		input.ClockOffset < -maxClockHealthMillis ||
+		input.ClockOffset > maxClockHealthMillis ||
+		input.ClockUncertainty > uint64(maxClockHealthMillis) {
 		return Acknowledgment{}, ErrInvalidAcknowledgment
 	}
 	stored, err := service.storage.RecordDisplayAcknowledgment(ctx, digest(credential), store.DisplayAcknowledgment{
-		ProtocolVersion: input.ProtocolVersion, StreamID: input.StreamID,
+		ProtocolVersion: input.ProtocolVersion, AssetVersion: input.AssetVersion,
+		StreamID:       input.StreamID,
 		StreamPosition: int64(input.StreamPosition), ActiveEventID: int(input.ActiveEventID),
 		ActivationGeneration: int(input.ActivationGeneration),
 		PublishedRevision:    int(input.PublishedRevision),
-		AppliedAt:            service.now().UTC(),
+		AppliedAt:            service.now().UTC(), AppliedStandby: input.Standby,
+		ClockOffsetMilliseconds:      input.ClockOffset,
+		ClockUncertaintyMilliseconds: int64(input.ClockUncertainty),
+		RendererUnstable:             input.RendererUnstable,
 	})
 	switch {
 	case errors.Is(err, store.ErrDisplayCredential):
@@ -283,20 +312,28 @@ func (service *Service) Acknowledge(
 	case err != nil:
 		return Acknowledgment{}, err
 	}
-	if stored.StreamPosition < 0 {
-		return Acknowledgment{}, errors.New("stored Display acknowledgment position is invalid")
+	if stored.StreamPosition < 0 || stored.ClockUncertaintyMilliseconds < 0 {
+		return Acknowledgment{}, errors.New("stored Display acknowledgment values are invalid")
 	}
 	return Acknowledgment{
 		DisplayID: stored.DisplayID, ProtocolVersion: stored.ProtocolVersion,
-		StreamID: stored.StreamID, StreamPosition: uint64(stored.StreamPosition),
+		AssetVersion: stored.AssetVersion,
+		StreamID:     stored.StreamID, StreamPosition: uint64(stored.StreamPosition),
 		ActiveEventID:        stored.ActiveEventID,
 		ActivationGeneration: stored.ActivationGeneration,
 		PublishedRevision:    stored.PublishedRevision, AppliedAt: stored.AppliedAt,
+		Standby: stored.AppliedStandby, ClockOffset: stored.ClockOffsetMilliseconds,
+		ClockUncertainty: uint64(stored.ClockUncertaintyMilliseconds),
+		RendererUnstable: stored.RendererUnstable,
 	}, nil
 }
 
 // List returns current Display routing summaries to the Active Event's Crew Members.
-func (service *Service) List(ctx context.Context, actor auth.Account) ([]Status, error) {
+func (service *Service) List(
+	ctx context.Context,
+	actor auth.Account,
+	cursor displaystream.Cursor,
+) ([]Status, error) {
 	activeEventID, stored, err := service.storage.ListDisplayStatuses(actor.Context(ctx))
 	if err != nil {
 		return nil, err
@@ -306,7 +343,7 @@ func (service *Service) List(ctx context.Context, actor auth.Account) ([]Status,
 	}
 	result := make([]Status, 0, len(stored))
 	for _, item := range stored {
-		result = append(result, status(item))
+		result = append(result, status(item, cursor, service.now().UTC()))
 	}
 	return result, nil
 }
@@ -517,11 +554,57 @@ func assignment(found store.DisplayAssignment) Assignment {
 	}
 }
 
-func status(found store.DisplayStatus) Status {
-	return Status{
+const (
+	displayOfflineAfter      = 15 * time.Second
+	excessiveClockSkew       = 250 * time.Millisecond
+	unstableClockUncertainty = time.Second
+)
+
+func status(found store.DisplayStatus, cursor displaystream.Cursor, now time.Time) Status {
+	result := Status{
 		ID: found.ID, Name: found.Name, ActiveEventID: found.ActiveEventID, Standby: found.Standby,
 		EventName: found.EventName, LocationName: found.LocationName, ViewKey: found.ViewKey,
+		AppliedActiveEventID:        found.AppliedActiveEventID,
+		AppliedActivationGeneration: found.AppliedActivationGeneration,
+		AppliedPublishedRevision:    found.AppliedPublishedRevision,
+		AppliedStandby:              found.AppliedStandby, AppliedAt: found.AppliedAt,
+		ClockOffset:      found.ClockOffsetMilliseconds,
+		ClockUncertainty: found.ClockUncertaintyMilliseconds,
 	}
+	result.DeliveryState = displayDeliveryState(found, cursor, now)
+	return result
+}
+
+func displayDeliveryState(found store.DisplayStatus, cursor displaystream.Cursor, now time.Time) string {
+	if found.AppliedAt == nil || now.Sub(*found.AppliedAt) > displayOfflineAfter {
+		return "offline"
+	}
+	if found.RendererUnstable ||
+		time.Duration(found.ClockUncertaintyMilliseconds)*time.Millisecond > unstableClockUncertainty {
+		return "unstable"
+	}
+	if abs64(found.ClockOffsetMilliseconds) > excessiveClockSkew.Milliseconds() {
+		return "excessively_skewed"
+	}
+	if found.AppliedProtocolVersion != protocolVersion ||
+		found.AppliedAssetVersion != AssetVersion() ||
+		found.AppliedStreamID != cursor.StreamID ||
+		found.AppliedStreamPosition < 0 ||
+		uint64(found.AppliedStreamPosition) < cursor.Position ||
+		found.AppliedActiveEventID != found.ActiveEventID ||
+		found.AppliedActivationGeneration != found.ActivationGeneration ||
+		found.AppliedPublishedRevision != found.PublishedRevision ||
+		found.AppliedStandby != found.Standby {
+		return "lagging"
+	}
+	return "applied"
+}
+
+func abs64(value int64) int64 {
+	if value < 0 {
+		return -value
+	}
+	return value
 }
 
 func displaySession(

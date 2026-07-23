@@ -23,6 +23,8 @@ const (
 	FieldEnrolledAt = "enrolled_at"
 	// FieldAppliedProtocolVersion holds the string denoting the applied_protocol_version field in the database.
 	FieldAppliedProtocolVersion = "applied_protocol_version"
+	// FieldAppliedAssetVersion holds the string denoting the applied_asset_version field in the database.
+	FieldAppliedAssetVersion = "applied_asset_version"
 	// FieldAppliedStreamID holds the string denoting the applied_stream_id field in the database.
 	FieldAppliedStreamID = "applied_stream_id"
 	// FieldAppliedStreamPosition holds the string denoting the applied_stream_position field in the database.
@@ -33,6 +35,14 @@ const (
 	FieldAppliedActivationGeneration = "applied_activation_generation"
 	// FieldAppliedPublishedRevision holds the string denoting the applied_published_revision field in the database.
 	FieldAppliedPublishedRevision = "applied_published_revision"
+	// FieldAppliedStandby holds the string denoting the applied_standby field in the database.
+	FieldAppliedStandby = "applied_standby"
+	// FieldClockOffsetMilliseconds holds the string denoting the clock_offset_milliseconds field in the database.
+	FieldClockOffsetMilliseconds = "clock_offset_milliseconds"
+	// FieldClockUncertaintyMilliseconds holds the string denoting the clock_uncertainty_milliseconds field in the database.
+	FieldClockUncertaintyMilliseconds = "clock_uncertainty_milliseconds"
+	// FieldRendererUnstable holds the string denoting the renderer_unstable field in the database.
+	FieldRendererUnstable = "renderer_unstable"
 	// FieldAppliedAt holds the string denoting the applied_at field in the database.
 	FieldAppliedAt = "applied_at"
 	// EdgeCredentials holds the string denoting the credentials edge name in mutations.
@@ -64,11 +74,16 @@ var Columns = []string{
 	FieldCreatedAt,
 	FieldEnrolledAt,
 	FieldAppliedProtocolVersion,
+	FieldAppliedAssetVersion,
 	FieldAppliedStreamID,
 	FieldAppliedStreamPosition,
 	FieldAppliedActiveEventID,
 	FieldAppliedActivationGeneration,
 	FieldAppliedPublishedRevision,
+	FieldAppliedStandby,
+	FieldClockOffsetMilliseconds,
+	FieldClockUncertaintyMilliseconds,
+	FieldRendererUnstable,
 	FieldAppliedAt,
 }
 
@@ -96,6 +111,8 @@ var (
 	DefaultCreatedAt func() time.Time
 	// DefaultAppliedProtocolVersion holds the default value on creation for the "applied_protocol_version" field.
 	DefaultAppliedProtocolVersion string
+	// DefaultAppliedAssetVersion holds the default value on creation for the "applied_asset_version" field.
+	DefaultAppliedAssetVersion string
 	// DefaultAppliedStreamID holds the default value on creation for the "applied_stream_id" field.
 	DefaultAppliedStreamID string
 	// DefaultAppliedStreamPosition holds the default value on creation for the "applied_stream_position" field.
@@ -106,6 +123,14 @@ var (
 	DefaultAppliedActivationGeneration int
 	// DefaultAppliedPublishedRevision holds the default value on creation for the "applied_published_revision" field.
 	DefaultAppliedPublishedRevision int
+	// DefaultAppliedStandby holds the default value on creation for the "applied_standby" field.
+	DefaultAppliedStandby bool
+	// DefaultClockOffsetMilliseconds holds the default value on creation for the "clock_offset_milliseconds" field.
+	DefaultClockOffsetMilliseconds int64
+	// DefaultClockUncertaintyMilliseconds holds the default value on creation for the "clock_uncertainty_milliseconds" field.
+	DefaultClockUncertaintyMilliseconds int64
+	// DefaultRendererUnstable holds the default value on creation for the "renderer_unstable" field.
+	DefaultRendererUnstable bool
 )
 
 // OrderOption defines the ordering options for the Display queries.
@@ -136,6 +161,11 @@ func ByAppliedProtocolVersion(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAppliedProtocolVersion, opts...).ToFunc()
 }
 
+// ByAppliedAssetVersion orders the results by the applied_asset_version field.
+func ByAppliedAssetVersion(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAppliedAssetVersion, opts...).ToFunc()
+}
+
 // ByAppliedStreamID orders the results by the applied_stream_id field.
 func ByAppliedStreamID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAppliedStreamID, opts...).ToFunc()
@@ -159,6 +189,26 @@ func ByAppliedActivationGeneration(opts ...sql.OrderTermOption) OrderOption {
 // ByAppliedPublishedRevision orders the results by the applied_published_revision field.
 func ByAppliedPublishedRevision(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAppliedPublishedRevision, opts...).ToFunc()
+}
+
+// ByAppliedStandby orders the results by the applied_standby field.
+func ByAppliedStandby(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAppliedStandby, opts...).ToFunc()
+}
+
+// ByClockOffsetMilliseconds orders the results by the clock_offset_milliseconds field.
+func ByClockOffsetMilliseconds(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldClockOffsetMilliseconds, opts...).ToFunc()
+}
+
+// ByClockUncertaintyMilliseconds orders the results by the clock_uncertainty_milliseconds field.
+func ByClockUncertaintyMilliseconds(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldClockUncertaintyMilliseconds, opts...).ToFunc()
+}
+
+// ByRendererUnstable orders the results by the renderer_unstable field.
+func ByRendererUnstable(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRendererUnstable, opts...).ToFunc()
 }
 
 // ByAppliedAt orders the results by the applied_at field.

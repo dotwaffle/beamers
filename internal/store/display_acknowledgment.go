@@ -19,14 +19,19 @@ var (
 
 // DisplayAcknowledgment is the latest state one Display reports applying.
 type DisplayAcknowledgment struct {
-	DisplayID            int
-	ProtocolVersion      string
-	StreamID             string
-	StreamPosition       int64
-	ActiveEventID        int
-	ActivationGeneration int
-	PublishedRevision    int
-	AppliedAt            time.Time
+	DisplayID                    int
+	ProtocolVersion              string
+	AssetVersion                 string
+	StreamID                     string
+	StreamPosition               int64
+	ActiveEventID                int
+	ActivationGeneration         int
+	PublishedRevision            int
+	AppliedAt                    time.Time
+	AppliedStandby               bool
+	ClockOffsetMilliseconds      int64
+	ClockUncertaintyMilliseconds int64
+	RendererUnstable             bool
 }
 
 // RecordDisplayAcknowledgment atomically advances one authenticated Display's applied state.
@@ -67,10 +72,12 @@ func (installationStore *SQLite) RecordDisplayAcknowledgment(
 			return DisplayAcknowledgment{}, ErrDisplayAcknowledgmentRegression
 		case found.AppliedStreamPosition == applied.StreamPosition:
 			current := acknowledgment(found)
+			if !sameAppliedState(current, applied) {
+				return DisplayAcknowledgment{}, ErrDisplayAcknowledgmentConflict
+			}
 			if sameAcknowledgment(current, applied) {
 				return current, nil
 			}
-			return DisplayAcknowledgment{}, ErrDisplayAcknowledgmentConflict
 		}
 	}
 	updated, err := transaction.Display.Update().Where(
@@ -78,14 +85,23 @@ func (installationStore *SQLite) RecordDisplayAcknowledgment(
 		display.Or(
 			display.AppliedStreamIDNEQ(applied.StreamID),
 			display.AppliedStreamPositionLT(applied.StreamPosition),
+			display.And(
+				display.AppliedStreamIDEQ(applied.StreamID),
+				display.AppliedStreamPositionEQ(applied.StreamPosition),
+			),
 		),
 	).
 		SetAppliedProtocolVersion(applied.ProtocolVersion).
+		SetAppliedAssetVersion(applied.AssetVersion).
 		SetAppliedStreamID(applied.StreamID).
 		SetAppliedStreamPosition(applied.StreamPosition).
 		SetAppliedActiveEventID(applied.ActiveEventID).
 		SetAppliedActivationGeneration(applied.ActivationGeneration).
 		SetAppliedPublishedRevision(applied.PublishedRevision).
+		SetAppliedStandby(applied.AppliedStandby).
+		SetClockOffsetMilliseconds(applied.ClockOffsetMilliseconds).
+		SetClockUncertaintyMilliseconds(applied.ClockUncertaintyMilliseconds).
+		SetRendererUnstable(applied.RendererUnstable).
 		SetAppliedAt(applied.AppliedAt).
 		Save(internalContext)
 	if err != nil {
@@ -103,10 +119,15 @@ func (installationStore *SQLite) RecordDisplayAcknowledgment(
 func acknowledgment(found *ent.Display) DisplayAcknowledgment {
 	result := DisplayAcknowledgment{
 		DisplayID: found.ID, ProtocolVersion: found.AppliedProtocolVersion,
-		StreamID: found.AppliedStreamID, StreamPosition: found.AppliedStreamPosition,
-		ActiveEventID:        found.AppliedActiveEventID,
-		ActivationGeneration: found.AppliedActivationGeneration,
-		PublishedRevision:    found.AppliedPublishedRevision,
+		AssetVersion: found.AppliedAssetVersion,
+		StreamID:     found.AppliedStreamID, StreamPosition: found.AppliedStreamPosition,
+		ActiveEventID:                found.AppliedActiveEventID,
+		ActivationGeneration:         found.AppliedActivationGeneration,
+		PublishedRevision:            found.AppliedPublishedRevision,
+		AppliedStandby:               found.AppliedStandby,
+		ClockOffsetMilliseconds:      found.ClockOffsetMilliseconds,
+		ClockUncertaintyMilliseconds: found.ClockUncertaintyMilliseconds,
+		RendererUnstable:             found.RendererUnstable,
 	}
 	if found.AppliedAt != nil {
 		result.AppliedAt = *found.AppliedAt
@@ -116,10 +137,19 @@ func acknowledgment(found *ent.Display) DisplayAcknowledgment {
 
 func sameAcknowledgment(first, second DisplayAcknowledgment) bool {
 	return first.DisplayID == second.DisplayID &&
-		first.ProtocolVersion == second.ProtocolVersion &&
+		sameAppliedState(first, second) &&
+		first.ClockOffsetMilliseconds == second.ClockOffsetMilliseconds &&
+		first.ClockUncertaintyMilliseconds == second.ClockUncertaintyMilliseconds &&
+		first.RendererUnstable == second.RendererUnstable
+}
+
+func sameAppliedState(first, second DisplayAcknowledgment) bool {
+	return first.ProtocolVersion == second.ProtocolVersion &&
+		first.AssetVersion == second.AssetVersion &&
 		first.StreamID == second.StreamID &&
 		first.StreamPosition == second.StreamPosition &&
 		first.ActiveEventID == second.ActiveEventID &&
 		first.ActivationGeneration == second.ActivationGeneration &&
-		first.PublishedRevision == second.PublishedRevision
+		first.PublishedRevision == second.PublishedRevision &&
+		first.AppliedStandby == second.AppliedStandby
 }
