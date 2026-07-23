@@ -42,15 +42,7 @@ type Adjustment struct {
 }
 
 // Effect reports one overlap introduced by the proposed target.
-type Effect struct {
-	SessionID             int
-	CurrentForecastStart  time.Time
-	CurrentForecastEnd    time.Time
-	ProposedForecastStart time.Time
-	ProposedForecastEnd   time.Time
-	CurrentOverlap        time.Duration
-	ProposedOverlap       time.Duration
-}
+type Effect = timingripple.Effect
 
 // Result is the complete deterministic preview shown before confirmation.
 type Result struct {
@@ -100,15 +92,7 @@ func Preview(state State, adjustment Adjustment, now time.Time) (Result, error) 
 			if effect.SessionID == state.SessionID {
 				continue
 			}
-			result.Effects = append(result.Effects, Effect{
-				SessionID:             effect.SessionID,
-				CurrentForecastStart:  effect.CurrentForecastStart,
-				CurrentForecastEnd:    effect.CurrentForecastEnd,
-				ProposedForecastStart: effect.ProposedForecastStart,
-				ProposedForecastEnd:   effect.ProposedForecastEnd,
-				CurrentOverlap:        effect.CurrentOverlap,
-				ProposedOverlap:       effect.ProposedOverlap,
-			})
+			result.Effects = append(result.Effects, effect)
 		}
 		result.RequiresHardBoundaryConfirmation = result.RequiresHardBoundaryConfirmation ||
 			len(plan.HardCollisions) > 0

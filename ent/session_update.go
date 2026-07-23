@@ -10,9 +10,11 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/ent/sessioncancellation"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
@@ -103,6 +105,102 @@ func (_u *SessionUpdate) SetNillableForecastEnd(v *time.Time) *SessionUpdate {
 // ClearForecastEnd clears the value of the "forecast_end" field.
 func (_u *SessionUpdate) ClearForecastEnd() *SessionUpdate {
 	_u.mutation.ClearForecastEnd()
+	return _u
+}
+
+// SetPreviousForecastStart sets the "previous_forecast_start" field.
+func (_u *SessionUpdate) SetPreviousForecastStart(v time.Time) *SessionUpdate {
+	_u.mutation.SetPreviousForecastStart(v)
+	return _u
+}
+
+// SetNillablePreviousForecastStart sets the "previous_forecast_start" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillablePreviousForecastStart(v *time.Time) *SessionUpdate {
+	if v != nil {
+		_u.SetPreviousForecastStart(*v)
+	}
+	return _u
+}
+
+// ClearPreviousForecastStart clears the value of the "previous_forecast_start" field.
+func (_u *SessionUpdate) ClearPreviousForecastStart() *SessionUpdate {
+	_u.mutation.ClearPreviousForecastStart()
+	return _u
+}
+
+// SetForecastLaneIds sets the "forecast_lane_ids" field.
+func (_u *SessionUpdate) SetForecastLaneIds(v []int) *SessionUpdate {
+	_u.mutation.SetForecastLaneIds(v)
+	return _u
+}
+
+// AppendForecastLaneIds appends value to the "forecast_lane_ids" field.
+func (_u *SessionUpdate) AppendForecastLaneIds(v []int) *SessionUpdate {
+	_u.mutation.AppendForecastLaneIds(v)
+	return _u
+}
+
+// ClearForecastLaneIds clears the value of the "forecast_lane_ids" field.
+func (_u *SessionUpdate) ClearForecastLaneIds() *SessionUpdate {
+	_u.mutation.ClearForecastLaneIds()
+	return _u
+}
+
+// SetForecastLocationIds sets the "forecast_location_ids" field.
+func (_u *SessionUpdate) SetForecastLocationIds(v []int) *SessionUpdate {
+	_u.mutation.SetForecastLocationIds(v)
+	return _u
+}
+
+// AppendForecastLocationIds appends value to the "forecast_location_ids" field.
+func (_u *SessionUpdate) AppendForecastLocationIds(v []int) *SessionUpdate {
+	_u.mutation.AppendForecastLocationIds(v)
+	return _u
+}
+
+// ClearForecastLocationIds clears the value of the "forecast_location_ids" field.
+func (_u *SessionUpdate) ClearForecastLocationIds() *SessionUpdate {
+	_u.mutation.ClearForecastLocationIds()
+	return _u
+}
+
+// SetPublicCancellationMessage sets the "public_cancellation_message" field.
+func (_u *SessionUpdate) SetPublicCancellationMessage(v string) *SessionUpdate {
+	_u.mutation.SetPublicCancellationMessage(v)
+	return _u
+}
+
+// SetNillablePublicCancellationMessage sets the "public_cancellation_message" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillablePublicCancellationMessage(v *string) *SessionUpdate {
+	if v != nil {
+		_u.SetPublicCancellationMessage(*v)
+	}
+	return _u
+}
+
+// ClearPublicCancellationMessage clears the value of the "public_cancellation_message" field.
+func (_u *SessionUpdate) ClearPublicCancellationMessage() *SessionUpdate {
+	_u.mutation.ClearPublicCancellationMessage()
+	return _u
+}
+
+// SetCancellationCrewNotes sets the "cancellation_crew_notes" field.
+func (_u *SessionUpdate) SetCancellationCrewNotes(v string) *SessionUpdate {
+	_u.mutation.SetCancellationCrewNotes(v)
+	return _u
+}
+
+// SetNillableCancellationCrewNotes sets the "cancellation_crew_notes" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableCancellationCrewNotes(v *string) *SessionUpdate {
+	if v != nil {
+		_u.SetCancellationCrewNotes(*v)
+	}
+	return _u
+}
+
+// ClearCancellationCrewNotes clears the value of the "cancellation_crew_notes" field.
+func (_u *SessionUpdate) ClearCancellationCrewNotes() *SessionUpdate {
+	_u.mutation.ClearCancellationCrewNotes()
 	return _u
 }
 
@@ -215,6 +313,21 @@ func (_u *SessionUpdate) AddRuns(v ...*SessionRun) *SessionUpdate {
 	return _u.AddRunIDs(ids...)
 }
 
+// AddCancellationIDs adds the "cancellations" edge to the SessionCancellation entity by IDs.
+func (_u *SessionUpdate) AddCancellationIDs(ids ...int) *SessionUpdate {
+	_u.mutation.AddCancellationIDs(ids...)
+	return _u
+}
+
+// AddCancellations adds the "cancellations" edges to the SessionCancellation entity.
+func (_u *SessionUpdate) AddCancellations(v ...*SessionCancellation) *SessionUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCancellationIDs(ids...)
+}
+
 // Mutation returns the SessionMutation object of the builder.
 func (_u *SessionUpdate) Mutation() *SessionMutation {
 	return _u.mutation
@@ -268,6 +381,27 @@ func (_u *SessionUpdate) RemoveRuns(v ...*SessionRun) *SessionUpdate {
 	return _u.RemoveRunIDs(ids...)
 }
 
+// ClearCancellations clears all "cancellations" edges to the SessionCancellation entity.
+func (_u *SessionUpdate) ClearCancellations() *SessionUpdate {
+	_u.mutation.ClearCancellations()
+	return _u
+}
+
+// RemoveCancellationIDs removes the "cancellations" edge to SessionCancellation entities by IDs.
+func (_u *SessionUpdate) RemoveCancellationIDs(ids ...int) *SessionUpdate {
+	_u.mutation.RemoveCancellationIDs(ids...)
+	return _u
+}
+
+// RemoveCancellations removes "cancellations" edges to SessionCancellation entities.
+func (_u *SessionUpdate) RemoveCancellations(v ...*SessionCancellation) *SessionUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCancellationIDs(ids...)
+}
+
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (_u *SessionUpdate) Save(ctx context.Context) (int, error) {
 	return withHooks(ctx, _u.sqlSave, _u.mutation, _u.hooks)
@@ -305,6 +439,16 @@ func (_u *SessionUpdate) check() error {
 	if v, ok := _u.mutation.LiveStateRevision(); ok {
 		if err := session.LiveStateRevisionValidator(v); err != nil {
 			return &ValidationError{Name: "live_state_revision", err: fmt.Errorf(`ent: validator failed for field "Session.live_state_revision": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.PublicCancellationMessage(); ok {
+		if err := session.PublicCancellationMessageValidator(v); err != nil {
+			return &ValidationError{Name: "public_cancellation_message", err: fmt.Errorf(`ent: validator failed for field "Session.public_cancellation_message": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.CancellationCrewNotes(); ok {
+		if err := session.CancellationCrewNotesValidator(v); err != nil {
+			return &ValidationError{Name: "cancellation_crew_notes", err: fmt.Errorf(`ent: validator failed for field "Session.cancellation_crew_notes": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.CorrectedTitle(); ok {
@@ -360,6 +504,46 @@ func (_u *SessionUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.ForecastEndCleared() {
 		_spec.ClearField(session.FieldForecastEnd, field.TypeTime)
+	}
+	if value, ok := _u.mutation.PreviousForecastStart(); ok {
+		_spec.SetField(session.FieldPreviousForecastStart, field.TypeTime, value)
+	}
+	if _u.mutation.PreviousForecastStartCleared() {
+		_spec.ClearField(session.FieldPreviousForecastStart, field.TypeTime)
+	}
+	if value, ok := _u.mutation.ForecastLaneIds(); ok {
+		_spec.SetField(session.FieldForecastLaneIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedForecastLaneIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, session.FieldForecastLaneIds, value)
+		})
+	}
+	if _u.mutation.ForecastLaneIdsCleared() {
+		_spec.ClearField(session.FieldForecastLaneIds, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.ForecastLocationIds(); ok {
+		_spec.SetField(session.FieldForecastLocationIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedForecastLocationIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, session.FieldForecastLocationIds, value)
+		})
+	}
+	if _u.mutation.ForecastLocationIdsCleared() {
+		_spec.ClearField(session.FieldForecastLocationIds, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.PublicCancellationMessage(); ok {
+		_spec.SetField(session.FieldPublicCancellationMessage, field.TypeString, value)
+	}
+	if _u.mutation.PublicCancellationMessageCleared() {
+		_spec.ClearField(session.FieldPublicCancellationMessage, field.TypeString)
+	}
+	if value, ok := _u.mutation.CancellationCrewNotes(); ok {
+		_spec.SetField(session.FieldCancellationCrewNotes, field.TypeString, value)
+	}
+	if _u.mutation.CancellationCrewNotesCleared() {
+		_spec.ClearField(session.FieldCancellationCrewNotes, field.TypeString)
 	}
 	if value, ok := _u.mutation.CorrectedTitle(); ok {
 		_spec.SetField(session.FieldCorrectedTitle, field.TypeString, value)
@@ -498,6 +682,51 @@ func (_u *SessionUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.CancellationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.CancellationsTable,
+			Columns: []string{session.CancellationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessioncancellation.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCancellationsIDs(); len(nodes) > 0 && !_u.mutation.CancellationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.CancellationsTable,
+			Columns: []string{session.CancellationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessioncancellation.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CancellationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.CancellationsTable,
+			Columns: []string{session.CancellationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessioncancellation.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{session.Label}
@@ -590,6 +819,102 @@ func (_u *SessionUpdateOne) SetNillableForecastEnd(v *time.Time) *SessionUpdateO
 // ClearForecastEnd clears the value of the "forecast_end" field.
 func (_u *SessionUpdateOne) ClearForecastEnd() *SessionUpdateOne {
 	_u.mutation.ClearForecastEnd()
+	return _u
+}
+
+// SetPreviousForecastStart sets the "previous_forecast_start" field.
+func (_u *SessionUpdateOne) SetPreviousForecastStart(v time.Time) *SessionUpdateOne {
+	_u.mutation.SetPreviousForecastStart(v)
+	return _u
+}
+
+// SetNillablePreviousForecastStart sets the "previous_forecast_start" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillablePreviousForecastStart(v *time.Time) *SessionUpdateOne {
+	if v != nil {
+		_u.SetPreviousForecastStart(*v)
+	}
+	return _u
+}
+
+// ClearPreviousForecastStart clears the value of the "previous_forecast_start" field.
+func (_u *SessionUpdateOne) ClearPreviousForecastStart() *SessionUpdateOne {
+	_u.mutation.ClearPreviousForecastStart()
+	return _u
+}
+
+// SetForecastLaneIds sets the "forecast_lane_ids" field.
+func (_u *SessionUpdateOne) SetForecastLaneIds(v []int) *SessionUpdateOne {
+	_u.mutation.SetForecastLaneIds(v)
+	return _u
+}
+
+// AppendForecastLaneIds appends value to the "forecast_lane_ids" field.
+func (_u *SessionUpdateOne) AppendForecastLaneIds(v []int) *SessionUpdateOne {
+	_u.mutation.AppendForecastLaneIds(v)
+	return _u
+}
+
+// ClearForecastLaneIds clears the value of the "forecast_lane_ids" field.
+func (_u *SessionUpdateOne) ClearForecastLaneIds() *SessionUpdateOne {
+	_u.mutation.ClearForecastLaneIds()
+	return _u
+}
+
+// SetForecastLocationIds sets the "forecast_location_ids" field.
+func (_u *SessionUpdateOne) SetForecastLocationIds(v []int) *SessionUpdateOne {
+	_u.mutation.SetForecastLocationIds(v)
+	return _u
+}
+
+// AppendForecastLocationIds appends value to the "forecast_location_ids" field.
+func (_u *SessionUpdateOne) AppendForecastLocationIds(v []int) *SessionUpdateOne {
+	_u.mutation.AppendForecastLocationIds(v)
+	return _u
+}
+
+// ClearForecastLocationIds clears the value of the "forecast_location_ids" field.
+func (_u *SessionUpdateOne) ClearForecastLocationIds() *SessionUpdateOne {
+	_u.mutation.ClearForecastLocationIds()
+	return _u
+}
+
+// SetPublicCancellationMessage sets the "public_cancellation_message" field.
+func (_u *SessionUpdateOne) SetPublicCancellationMessage(v string) *SessionUpdateOne {
+	_u.mutation.SetPublicCancellationMessage(v)
+	return _u
+}
+
+// SetNillablePublicCancellationMessage sets the "public_cancellation_message" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillablePublicCancellationMessage(v *string) *SessionUpdateOne {
+	if v != nil {
+		_u.SetPublicCancellationMessage(*v)
+	}
+	return _u
+}
+
+// ClearPublicCancellationMessage clears the value of the "public_cancellation_message" field.
+func (_u *SessionUpdateOne) ClearPublicCancellationMessage() *SessionUpdateOne {
+	_u.mutation.ClearPublicCancellationMessage()
+	return _u
+}
+
+// SetCancellationCrewNotes sets the "cancellation_crew_notes" field.
+func (_u *SessionUpdateOne) SetCancellationCrewNotes(v string) *SessionUpdateOne {
+	_u.mutation.SetCancellationCrewNotes(v)
+	return _u
+}
+
+// SetNillableCancellationCrewNotes sets the "cancellation_crew_notes" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableCancellationCrewNotes(v *string) *SessionUpdateOne {
+	if v != nil {
+		_u.SetCancellationCrewNotes(*v)
+	}
+	return _u
+}
+
+// ClearCancellationCrewNotes clears the value of the "cancellation_crew_notes" field.
+func (_u *SessionUpdateOne) ClearCancellationCrewNotes() *SessionUpdateOne {
+	_u.mutation.ClearCancellationCrewNotes()
 	return _u
 }
 
@@ -702,6 +1027,21 @@ func (_u *SessionUpdateOne) AddRuns(v ...*SessionRun) *SessionUpdateOne {
 	return _u.AddRunIDs(ids...)
 }
 
+// AddCancellationIDs adds the "cancellations" edge to the SessionCancellation entity by IDs.
+func (_u *SessionUpdateOne) AddCancellationIDs(ids ...int) *SessionUpdateOne {
+	_u.mutation.AddCancellationIDs(ids...)
+	return _u
+}
+
+// AddCancellations adds the "cancellations" edges to the SessionCancellation entity.
+func (_u *SessionUpdateOne) AddCancellations(v ...*SessionCancellation) *SessionUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCancellationIDs(ids...)
+}
+
 // Mutation returns the SessionMutation object of the builder.
 func (_u *SessionUpdateOne) Mutation() *SessionMutation {
 	return _u.mutation
@@ -755,6 +1095,27 @@ func (_u *SessionUpdateOne) RemoveRuns(v ...*SessionRun) *SessionUpdateOne {
 	return _u.RemoveRunIDs(ids...)
 }
 
+// ClearCancellations clears all "cancellations" edges to the SessionCancellation entity.
+func (_u *SessionUpdateOne) ClearCancellations() *SessionUpdateOne {
+	_u.mutation.ClearCancellations()
+	return _u
+}
+
+// RemoveCancellationIDs removes the "cancellations" edge to SessionCancellation entities by IDs.
+func (_u *SessionUpdateOne) RemoveCancellationIDs(ids ...int) *SessionUpdateOne {
+	_u.mutation.RemoveCancellationIDs(ids...)
+	return _u
+}
+
+// RemoveCancellations removes "cancellations" edges to SessionCancellation entities.
+func (_u *SessionUpdateOne) RemoveCancellations(v ...*SessionCancellation) *SessionUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCancellationIDs(ids...)
+}
+
 // Where appends a list predicates to the SessionUpdate builder.
 func (_u *SessionUpdateOne) Where(ps ...predicate.Session) *SessionUpdateOne {
 	_u.mutation.Where(ps...)
@@ -805,6 +1166,16 @@ func (_u *SessionUpdateOne) check() error {
 	if v, ok := _u.mutation.LiveStateRevision(); ok {
 		if err := session.LiveStateRevisionValidator(v); err != nil {
 			return &ValidationError{Name: "live_state_revision", err: fmt.Errorf(`ent: validator failed for field "Session.live_state_revision": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.PublicCancellationMessage(); ok {
+		if err := session.PublicCancellationMessageValidator(v); err != nil {
+			return &ValidationError{Name: "public_cancellation_message", err: fmt.Errorf(`ent: validator failed for field "Session.public_cancellation_message": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.CancellationCrewNotes(); ok {
+		if err := session.CancellationCrewNotesValidator(v); err != nil {
+			return &ValidationError{Name: "cancellation_crew_notes", err: fmt.Errorf(`ent: validator failed for field "Session.cancellation_crew_notes": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.CorrectedTitle(); ok {
@@ -877,6 +1248,46 @@ func (_u *SessionUpdateOne) sqlSave(ctx context.Context) (_node *Session, err er
 	}
 	if _u.mutation.ForecastEndCleared() {
 		_spec.ClearField(session.FieldForecastEnd, field.TypeTime)
+	}
+	if value, ok := _u.mutation.PreviousForecastStart(); ok {
+		_spec.SetField(session.FieldPreviousForecastStart, field.TypeTime, value)
+	}
+	if _u.mutation.PreviousForecastStartCleared() {
+		_spec.ClearField(session.FieldPreviousForecastStart, field.TypeTime)
+	}
+	if value, ok := _u.mutation.ForecastLaneIds(); ok {
+		_spec.SetField(session.FieldForecastLaneIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedForecastLaneIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, session.FieldForecastLaneIds, value)
+		})
+	}
+	if _u.mutation.ForecastLaneIdsCleared() {
+		_spec.ClearField(session.FieldForecastLaneIds, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.ForecastLocationIds(); ok {
+		_spec.SetField(session.FieldForecastLocationIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedForecastLocationIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, session.FieldForecastLocationIds, value)
+		})
+	}
+	if _u.mutation.ForecastLocationIdsCleared() {
+		_spec.ClearField(session.FieldForecastLocationIds, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.PublicCancellationMessage(); ok {
+		_spec.SetField(session.FieldPublicCancellationMessage, field.TypeString, value)
+	}
+	if _u.mutation.PublicCancellationMessageCleared() {
+		_spec.ClearField(session.FieldPublicCancellationMessage, field.TypeString)
+	}
+	if value, ok := _u.mutation.CancellationCrewNotes(); ok {
+		_spec.SetField(session.FieldCancellationCrewNotes, field.TypeString, value)
+	}
+	if _u.mutation.CancellationCrewNotesCleared() {
+		_spec.ClearField(session.FieldCancellationCrewNotes, field.TypeString)
 	}
 	if value, ok := _u.mutation.CorrectedTitle(); ok {
 		_spec.SetField(session.FieldCorrectedTitle, field.TypeString, value)
@@ -1008,6 +1419,51 @@ func (_u *SessionUpdateOne) sqlSave(ctx context.Context) (_node *Session, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(sessionrun.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CancellationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.CancellationsTable,
+			Columns: []string{session.CancellationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessioncancellation.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCancellationsIDs(); len(nodes) > 0 && !_u.mutation.CancellationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.CancellationsTable,
+			Columns: []string{session.CancellationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessioncancellation.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CancellationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.CancellationsTable,
+			Columns: []string{session.CancellationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessioncancellation.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

@@ -12,6 +12,9 @@ option go_package = "github.com/dotwaffle/beamers/gen/beamers/session/v1;session
 service SessionControlService {
   rpc StartSession(StartSessionRequest) returns (StartSessionResponse);
   rpc EndSession(EndSessionRequest) returns (EndSessionResponse);
+  rpc CancelSession(CancelSessionRequest) returns (CancelSessionResponse);
+  rpc PreviewReinstateSession(PreviewReinstateSessionRequest) returns (PreviewReinstateSessionResponse);
+  rpc ReinstateSession(ReinstateSessionRequest) returns (ReinstateSessionResponse);
   rpc PreviewAdjustTarget(PreviewAdjustTargetRequest) returns (PreviewAdjustTargetResponse);
   rpc AdjustTarget(AdjustTargetRequest) returns (AdjustTargetResponse);
   rpc PreviewPullForward(PreviewPullForwardRequest) returns (PreviewPullForwardResponse);
@@ -28,6 +31,12 @@ enum SessionLifecycle {
   SESSION_LIFECYCLE_CANCELED = 4;
 }
 
+enum SessionRunOutcome {
+  SESSION_RUN_OUTCOME_UNSPECIFIED = 0;
+  SESSION_RUN_OUTCOME_COMPLETED = 1;
+  SESSION_RUN_OUTCOME_CANCELED = 2;
+}
+
 message StartSessionRequest {
   int64 event_id = 1;
   int64 session_id = 2;
@@ -40,6 +49,37 @@ message EndSessionRequest {
   int64 session_id = 2;
   string command_id = 3;
   optional int64 expected_live_state_revision = 4;
+}
+
+message CancelSessionRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  string command_id = 3;
+  optional int64 expected_live_state_revision = 4;
+  bool confirmed = 5;
+  string public_cancellation_message = 6;
+  string crew_notes = 7;
+}
+
+message PreviewReinstateSessionRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  google.protobuf.Timestamp forecast_start = 3;
+  repeated int64 lane_ids = 4;
+  repeated int64 location_ids = 5;
+}
+
+message ReinstateSessionRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  string command_id = 3;
+  optional int64 expected_live_state_revision = 4;
+  google.protobuf.Timestamp forecast_start = 5;
+  repeated int64 lane_ids = 6;
+  repeated int64 location_ids = 7;
+  string preview_fingerprint = 8;
+  bool confirmed = 9;
+  bool hard_boundary_confirmed = 10;
 }
 
 message PreviewAdjustTargetRequest {
@@ -104,6 +144,10 @@ message EndSessionResponse {
   SessionState state = 1;
 }
 
+message CancelSessionResponse {
+  SessionState state = 1;
+}
+
 message TargetEffect {
   int64 session_id = 1;
   google.protobuf.Duration current_overlap = 2;
@@ -149,6 +193,23 @@ message PullForwardResponse {
   repeated ForecastChange changes = 2;
 }
 
+message PreviewReinstateSessionResponse {
+  repeated TargetEffect effects = 1;
+  repeated ForecastChange changes = 2;
+  repeated int64 current_lane_ids = 3;
+  repeated int64 proposed_lane_ids = 4;
+  repeated int64 current_location_ids = 5;
+  repeated int64 proposed_location_ids = 6;
+  bool requires_hard_boundary_confirmation = 7;
+  string preview_fingerprint = 8;
+}
+
+message ReinstateSessionResponse {
+  SessionState state = 1;
+  repeated ForecastChange changes = 2;
+  google.protobuf.Timestamp previous_forecast_start = 3;
+}
+
 message CorrectLiveDetailsResponse {
   SessionState state = 1;
   int64 amendment_id = 2;
@@ -157,6 +218,7 @@ message CorrectLiveDetailsResponse {
 
 message GetSessionHistoryResponse {
   repeated SessionRunHistory runs = 1;
+  repeated SessionCancellationHistory cancellations = 2;
 }
 
 message SessionDetails {
@@ -178,6 +240,16 @@ message SessionRunHistory {
   google.protobuf.Timestamp actual_end = 3;
   RunSnapshot snapshot = 4;
   repeated RunAmendment amendments = 5;
+  SessionRunOutcome outcome = 6;
+}
+
+message SessionCancellationHistory {
+  int64 id = 1;
+  optional int64 session_run_id = 2;
+  string public_cancellation_message = 3;
+  string crew_notes = 4;
+  google.protobuf.Timestamp forecast_start = 5;
+  google.protobuf.Timestamp canceled_at = 6;
 }
 
 message RunSnapshot {

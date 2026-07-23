@@ -200,6 +200,36 @@ func ActualEndNotNil() predicate.SessionRun {
 	return predicate.SessionRun(sql.FieldNotNull(FieldActualEnd))
 }
 
+// OutcomeEQ applies the EQ predicate on the "outcome" field.
+func OutcomeEQ(v Outcome) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldEQ(FieldOutcome, v))
+}
+
+// OutcomeNEQ applies the NEQ predicate on the "outcome" field.
+func OutcomeNEQ(v Outcome) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldNEQ(FieldOutcome, v))
+}
+
+// OutcomeIn applies the In predicate on the "outcome" field.
+func OutcomeIn(vs ...Outcome) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldIn(FieldOutcome, vs...))
+}
+
+// OutcomeNotIn applies the NotIn predicate on the "outcome" field.
+func OutcomeNotIn(vs ...Outcome) predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldNotIn(FieldOutcome, vs...))
+}
+
+// OutcomeIsNil applies the IsNil predicate on the "outcome" field.
+func OutcomeIsNil() predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldIsNull(FieldOutcome))
+}
+
+// OutcomeNotNil applies the NotNil predicate on the "outcome" field.
+func OutcomeNotNil() predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldNotNull(FieldOutcome))
+}
+
 // TargetAdjustmentSecondsEQ applies the EQ predicate on the "target_adjustment_seconds" field.
 func TargetAdjustmentSecondsEQ(v int) predicate.SessionRun {
 	return predicate.SessionRun(sql.FieldEQ(FieldTargetAdjustmentSeconds, v))

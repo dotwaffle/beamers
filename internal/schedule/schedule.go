@@ -41,24 +41,27 @@ type Day struct {
 
 // Session is one attendee-visible Schedule entry.
 type Session struct {
-	ID                   int      `json:"id"`
-	Title                string   `json:"title"`
-	Speaker              string   `json:"speaker,omitempty"`
-	PublicDetails        string   `json:"public_details,omitempty"`
-	ForecastStart        string   `json:"forecast_start"`
-	ForecastEnd          string   `json:"forecast_end"`
-	Lifecycle            string   `json:"lifecycle"`
-	ActualStart          string   `json:"actual_start,omitempty"`
-	ActualEnd            string   `json:"actual_end,omitempty"`
-	DisplayForecastStart string   `json:"display_forecast_start"`
-	DisplayForecastEnd   string   `json:"display_forecast_end"`
-	EventDay             string   `json:"event_day"`
-	LocalDate            string   `json:"local_date"`
-	CalendarDateRollover bool     `json:"calendar_date_rollover"`
-	TimezoneLabel        string   `json:"timezone_label"`
-	Locations            []string `json:"locations,omitempty"`
-	Lanes                []string `json:"lanes,omitempty"`
-	Tracks               []string `json:"tracks,omitempty"`
+	ID                           int      `json:"id"`
+	Title                        string   `json:"title"`
+	Speaker                      string   `json:"speaker,omitempty"`
+	PublicDetails                string   `json:"public_details,omitempty"`
+	CancellationMessage          string   `json:"cancellation_message,omitempty"`
+	ForecastStart                string   `json:"forecast_start"`
+	ForecastEnd                  string   `json:"forecast_end"`
+	PreviousForecastStart        string   `json:"previous_forecast_start,omitempty"`
+	Lifecycle                    string   `json:"lifecycle"`
+	ActualStart                  string   `json:"actual_start,omitempty"`
+	ActualEnd                    string   `json:"actual_end,omitempty"`
+	DisplayForecastStart         string   `json:"display_forecast_start"`
+	DisplayForecastEnd           string   `json:"display_forecast_end"`
+	DisplayPreviousForecastStart string   `json:"display_previous_forecast_start,omitempty"`
+	EventDay                     string   `json:"event_day"`
+	LocalDate                    string   `json:"local_date"`
+	CalendarDateRollover         bool     `json:"calendar_date_rollover"`
+	TimezoneLabel                string   `json:"timezone_label"`
+	Locations                    []string `json:"locations,omitempty"`
+	Lanes                        []string `json:"lanes,omitempty"`
+	Tracks                       []string `json:"tracks,omitempty"`
 }
 
 // New creates a public Schedule query with explicit persistence.
@@ -96,7 +99,8 @@ func (service *Service) snapshot(ctx context.Context, upcomingOnly bool) (Snapsh
 	sortScheduleSessions(state.Sessions)
 	for _, item := range state.Sessions {
 		if upcomingOnly && (item.Lifecycle == "Ended" ||
-			(item.Lifecycle != "Live" && !item.ForecastEnd.After(service.now()))) {
+			(item.Lifecycle != "Live" && item.Lifecycle != "Canceled" &&
+				!item.ForecastEnd.After(service.now()))) {
 			continue
 		}
 		actualStart := ""
@@ -109,20 +113,30 @@ func (service *Service) snapshot(ctx context.Context, upcomingOnly bool) (Snapsh
 		}
 		localStart := item.ForecastStart.In(zone)
 		localEnd := item.ForecastEnd.In(zone)
+		previousForecastStart := ""
+		displayPreviousForecastStart := ""
+		if !item.PreviousForecastStart.IsZero() && item.Lifecycle != "Canceled" {
+			previous := item.PreviousForecastStart.In(zone)
+			previousForecastStart = previous.Format(time.RFC3339)
+			displayPreviousForecastStart = formatEventTime(previous, state.EventLocale)
+		}
 		eventDay, dayErr := groupedEventDay(localStart, zone, state.EventDayBoundary)
 		if dayErr != nil {
 			return Snapshot{}, dayErr
 		}
 		result.Sessions = append(result.Sessions, Session{
 			ID: item.ID, Title: item.Title, Speaker: item.Speaker, PublicDetails: item.PublicDetails,
-			ForecastStart:        item.ForecastStart.In(zone).Format(time.RFC3339),
-			ForecastEnd:          item.ForecastEnd.In(zone).Format(time.RFC3339),
-			Lifecycle:            item.Lifecycle,
-			ActualStart:          actualStart,
-			ActualEnd:            actualEnd,
-			DisplayForecastStart: formatEventTime(localStart, state.EventLocale),
-			DisplayForecastEnd:   formatEventTime(localEnd, state.EventLocale),
-			EventDay:             eventDay, LocalDate: localStart.Format(time.DateOnly),
+			CancellationMessage:          item.CancellationMessage,
+			ForecastStart:                item.ForecastStart.In(zone).Format(time.RFC3339),
+			ForecastEnd:                  item.ForecastEnd.In(zone).Format(time.RFC3339),
+			PreviousForecastStart:        previousForecastStart,
+			Lifecycle:                    item.Lifecycle,
+			ActualStart:                  actualStart,
+			ActualEnd:                    actualEnd,
+			DisplayForecastStart:         formatEventTime(localStart, state.EventLocale),
+			DisplayForecastEnd:           formatEventTime(localEnd, state.EventLocale),
+			DisplayPreviousForecastStart: displayPreviousForecastStart,
+			EventDay:                     eventDay, LocalDate: localStart.Format(time.DateOnly),
 			TimezoneLabel: localStart.Format("MST -07:00"),
 			Locations:     names(item.LocationIDs, locationNames),
 			Lanes:         names(item.LaneIDs, laneNames),

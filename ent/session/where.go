@@ -75,6 +75,21 @@ func ForecastEnd(v time.Time) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldForecastEnd, v))
 }
 
+// PreviousForecastStart applies equality check predicate on the "previous_forecast_start" field. It's identical to PreviousForecastStartEQ.
+func PreviousForecastStart(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldPreviousForecastStart, v))
+}
+
+// PublicCancellationMessage applies equality check predicate on the "public_cancellation_message" field. It's identical to PublicCancellationMessageEQ.
+func PublicCancellationMessage(v string) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldPublicCancellationMessage, v))
+}
+
+// CancellationCrewNotes applies equality check predicate on the "cancellation_crew_notes" field. It's identical to CancellationCrewNotesEQ.
+func CancellationCrewNotes(v string) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldCancellationCrewNotes, v))
+}
+
 // CorrectedTitle applies equality check predicate on the "corrected_title" field. It's identical to CorrectedTitleEQ.
 func CorrectedTitle(v string) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldCorrectedTitle, v))
@@ -273,6 +288,226 @@ func ForecastEndIsNil() predicate.Session {
 // ForecastEndNotNil applies the NotNil predicate on the "forecast_end" field.
 func ForecastEndNotNil() predicate.Session {
 	return predicate.Session(sql.FieldNotNull(FieldForecastEnd))
+}
+
+// PreviousForecastStartEQ applies the EQ predicate on the "previous_forecast_start" field.
+func PreviousForecastStartEQ(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldPreviousForecastStart, v))
+}
+
+// PreviousForecastStartNEQ applies the NEQ predicate on the "previous_forecast_start" field.
+func PreviousForecastStartNEQ(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldPreviousForecastStart, v))
+}
+
+// PreviousForecastStartIn applies the In predicate on the "previous_forecast_start" field.
+func PreviousForecastStartIn(vs ...time.Time) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldPreviousForecastStart, vs...))
+}
+
+// PreviousForecastStartNotIn applies the NotIn predicate on the "previous_forecast_start" field.
+func PreviousForecastStartNotIn(vs ...time.Time) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldPreviousForecastStart, vs...))
+}
+
+// PreviousForecastStartGT applies the GT predicate on the "previous_forecast_start" field.
+func PreviousForecastStartGT(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldPreviousForecastStart, v))
+}
+
+// PreviousForecastStartGTE applies the GTE predicate on the "previous_forecast_start" field.
+func PreviousForecastStartGTE(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldPreviousForecastStart, v))
+}
+
+// PreviousForecastStartLT applies the LT predicate on the "previous_forecast_start" field.
+func PreviousForecastStartLT(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldPreviousForecastStart, v))
+}
+
+// PreviousForecastStartLTE applies the LTE predicate on the "previous_forecast_start" field.
+func PreviousForecastStartLTE(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldPreviousForecastStart, v))
+}
+
+// PreviousForecastStartIsNil applies the IsNil predicate on the "previous_forecast_start" field.
+func PreviousForecastStartIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldPreviousForecastStart))
+}
+
+// PreviousForecastStartNotNil applies the NotNil predicate on the "previous_forecast_start" field.
+func PreviousForecastStartNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldPreviousForecastStart))
+}
+
+// ForecastLaneIdsIsNil applies the IsNil predicate on the "forecast_lane_ids" field.
+func ForecastLaneIdsIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldForecastLaneIds))
+}
+
+// ForecastLaneIdsNotNil applies the NotNil predicate on the "forecast_lane_ids" field.
+func ForecastLaneIdsNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldForecastLaneIds))
+}
+
+// ForecastLocationIdsIsNil applies the IsNil predicate on the "forecast_location_ids" field.
+func ForecastLocationIdsIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldForecastLocationIds))
+}
+
+// ForecastLocationIdsNotNil applies the NotNil predicate on the "forecast_location_ids" field.
+func ForecastLocationIdsNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldForecastLocationIds))
+}
+
+// PublicCancellationMessageEQ applies the EQ predicate on the "public_cancellation_message" field.
+func PublicCancellationMessageEQ(v string) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldPublicCancellationMessage, v))
+}
+
+// PublicCancellationMessageNEQ applies the NEQ predicate on the "public_cancellation_message" field.
+func PublicCancellationMessageNEQ(v string) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldPublicCancellationMessage, v))
+}
+
+// PublicCancellationMessageIn applies the In predicate on the "public_cancellation_message" field.
+func PublicCancellationMessageIn(vs ...string) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldPublicCancellationMessage, vs...))
+}
+
+// PublicCancellationMessageNotIn applies the NotIn predicate on the "public_cancellation_message" field.
+func PublicCancellationMessageNotIn(vs ...string) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldPublicCancellationMessage, vs...))
+}
+
+// PublicCancellationMessageGT applies the GT predicate on the "public_cancellation_message" field.
+func PublicCancellationMessageGT(v string) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldPublicCancellationMessage, v))
+}
+
+// PublicCancellationMessageGTE applies the GTE predicate on the "public_cancellation_message" field.
+func PublicCancellationMessageGTE(v string) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldPublicCancellationMessage, v))
+}
+
+// PublicCancellationMessageLT applies the LT predicate on the "public_cancellation_message" field.
+func PublicCancellationMessageLT(v string) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldPublicCancellationMessage, v))
+}
+
+// PublicCancellationMessageLTE applies the LTE predicate on the "public_cancellation_message" field.
+func PublicCancellationMessageLTE(v string) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldPublicCancellationMessage, v))
+}
+
+// PublicCancellationMessageContains applies the Contains predicate on the "public_cancellation_message" field.
+func PublicCancellationMessageContains(v string) predicate.Session {
+	return predicate.Session(sql.FieldContains(FieldPublicCancellationMessage, v))
+}
+
+// PublicCancellationMessageHasPrefix applies the HasPrefix predicate on the "public_cancellation_message" field.
+func PublicCancellationMessageHasPrefix(v string) predicate.Session {
+	return predicate.Session(sql.FieldHasPrefix(FieldPublicCancellationMessage, v))
+}
+
+// PublicCancellationMessageHasSuffix applies the HasSuffix predicate on the "public_cancellation_message" field.
+func PublicCancellationMessageHasSuffix(v string) predicate.Session {
+	return predicate.Session(sql.FieldHasSuffix(FieldPublicCancellationMessage, v))
+}
+
+// PublicCancellationMessageIsNil applies the IsNil predicate on the "public_cancellation_message" field.
+func PublicCancellationMessageIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldPublicCancellationMessage))
+}
+
+// PublicCancellationMessageNotNil applies the NotNil predicate on the "public_cancellation_message" field.
+func PublicCancellationMessageNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldPublicCancellationMessage))
+}
+
+// PublicCancellationMessageEqualFold applies the EqualFold predicate on the "public_cancellation_message" field.
+func PublicCancellationMessageEqualFold(v string) predicate.Session {
+	return predicate.Session(sql.FieldEqualFold(FieldPublicCancellationMessage, v))
+}
+
+// PublicCancellationMessageContainsFold applies the ContainsFold predicate on the "public_cancellation_message" field.
+func PublicCancellationMessageContainsFold(v string) predicate.Session {
+	return predicate.Session(sql.FieldContainsFold(FieldPublicCancellationMessage, v))
+}
+
+// CancellationCrewNotesEQ applies the EQ predicate on the "cancellation_crew_notes" field.
+func CancellationCrewNotesEQ(v string) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldCancellationCrewNotes, v))
+}
+
+// CancellationCrewNotesNEQ applies the NEQ predicate on the "cancellation_crew_notes" field.
+func CancellationCrewNotesNEQ(v string) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldCancellationCrewNotes, v))
+}
+
+// CancellationCrewNotesIn applies the In predicate on the "cancellation_crew_notes" field.
+func CancellationCrewNotesIn(vs ...string) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldCancellationCrewNotes, vs...))
+}
+
+// CancellationCrewNotesNotIn applies the NotIn predicate on the "cancellation_crew_notes" field.
+func CancellationCrewNotesNotIn(vs ...string) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldCancellationCrewNotes, vs...))
+}
+
+// CancellationCrewNotesGT applies the GT predicate on the "cancellation_crew_notes" field.
+func CancellationCrewNotesGT(v string) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldCancellationCrewNotes, v))
+}
+
+// CancellationCrewNotesGTE applies the GTE predicate on the "cancellation_crew_notes" field.
+func CancellationCrewNotesGTE(v string) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldCancellationCrewNotes, v))
+}
+
+// CancellationCrewNotesLT applies the LT predicate on the "cancellation_crew_notes" field.
+func CancellationCrewNotesLT(v string) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldCancellationCrewNotes, v))
+}
+
+// CancellationCrewNotesLTE applies the LTE predicate on the "cancellation_crew_notes" field.
+func CancellationCrewNotesLTE(v string) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldCancellationCrewNotes, v))
+}
+
+// CancellationCrewNotesContains applies the Contains predicate on the "cancellation_crew_notes" field.
+func CancellationCrewNotesContains(v string) predicate.Session {
+	return predicate.Session(sql.FieldContains(FieldCancellationCrewNotes, v))
+}
+
+// CancellationCrewNotesHasPrefix applies the HasPrefix predicate on the "cancellation_crew_notes" field.
+func CancellationCrewNotesHasPrefix(v string) predicate.Session {
+	return predicate.Session(sql.FieldHasPrefix(FieldCancellationCrewNotes, v))
+}
+
+// CancellationCrewNotesHasSuffix applies the HasSuffix predicate on the "cancellation_crew_notes" field.
+func CancellationCrewNotesHasSuffix(v string) predicate.Session {
+	return predicate.Session(sql.FieldHasSuffix(FieldCancellationCrewNotes, v))
+}
+
+// CancellationCrewNotesIsNil applies the IsNil predicate on the "cancellation_crew_notes" field.
+func CancellationCrewNotesIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldCancellationCrewNotes))
+}
+
+// CancellationCrewNotesNotNil applies the NotNil predicate on the "cancellation_crew_notes" field.
+func CancellationCrewNotesNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldCancellationCrewNotes))
+}
+
+// CancellationCrewNotesEqualFold applies the EqualFold predicate on the "cancellation_crew_notes" field.
+func CancellationCrewNotesEqualFold(v string) predicate.Session {
+	return predicate.Session(sql.FieldEqualFold(FieldCancellationCrewNotes, v))
+}
+
+// CancellationCrewNotesContainsFold applies the ContainsFold predicate on the "cancellation_crew_notes" field.
+func CancellationCrewNotesContainsFold(v string) predicate.Session {
+	return predicate.Session(sql.FieldContainsFold(FieldCancellationCrewNotes, v))
 }
 
 // CorrectedTitleEQ applies the EQ predicate on the "corrected_title" field.
@@ -624,6 +859,29 @@ func HasRuns() predicate.Session {
 func HasRunsWith(preds ...predicate.SessionRun) predicate.Session {
 	return predicate.Session(func(s *sql.Selector) {
 		step := newRunsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasCancellations applies the HasEdge predicate on the "cancellations" edge.
+func HasCancellations() predicate.Session {
+	return predicate.Session(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CancellationsTable, CancellationsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCancellationsWith applies the HasEdge predicate on the "cancellations" edge with a given conditions (other predicates).
+func HasCancellationsWith(preds ...predicate.SessionCancellation) predicate.Session {
+	return predicate.Session(func(s *sql.Selector) {
+		step := newCancellationsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

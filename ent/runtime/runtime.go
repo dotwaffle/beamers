@@ -33,6 +33,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/schema"
 	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/ent/sessioncancellation"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
@@ -1196,22 +1197,53 @@ func init() {
 	session.DefaultLiveStateRevision = sessionDescLiveStateRevision.Default.(int)
 	// session.LiveStateRevisionValidator is a validator for the "live_state_revision" field. It is called by the builders before save.
 	session.LiveStateRevisionValidator = sessionDescLiveStateRevision.Validators[0].(func(int) error)
+	// sessionDescPublicCancellationMessage is the schema descriptor for public_cancellation_message field.
+	sessionDescPublicCancellationMessage := sessionFields[8].Descriptor()
+	// session.PublicCancellationMessageValidator is a validator for the "public_cancellation_message" field. It is called by the builders before save.
+	session.PublicCancellationMessageValidator = sessionDescPublicCancellationMessage.Validators[0].(func(string) error)
+	// sessionDescCancellationCrewNotes is the schema descriptor for cancellation_crew_notes field.
+	sessionDescCancellationCrewNotes := sessionFields[9].Descriptor()
+	// session.CancellationCrewNotesValidator is a validator for the "cancellation_crew_notes" field. It is called by the builders before save.
+	session.CancellationCrewNotesValidator = sessionDescCancellationCrewNotes.Validators[0].(func(string) error)
 	// sessionDescCorrectedTitle is the schema descriptor for corrected_title field.
-	sessionDescCorrectedTitle := sessionFields[5].Descriptor()
+	sessionDescCorrectedTitle := sessionFields[10].Descriptor()
 	// session.CorrectedTitleValidator is a validator for the "corrected_title" field. It is called by the builders before save.
 	session.CorrectedTitleValidator = sessionDescCorrectedTitle.Validators[0].(func(string) error)
 	// sessionDescCorrectedSpeaker is the schema descriptor for corrected_speaker field.
-	sessionDescCorrectedSpeaker := sessionFields[6].Descriptor()
+	sessionDescCorrectedSpeaker := sessionFields[11].Descriptor()
 	// session.CorrectedSpeakerValidator is a validator for the "corrected_speaker" field. It is called by the builders before save.
 	session.CorrectedSpeakerValidator = sessionDescCorrectedSpeaker.Validators[0].(func(string) error)
 	// sessionDescCorrectedPublicDetails is the schema descriptor for corrected_public_details field.
-	sessionDescCorrectedPublicDetails := sessionFields[7].Descriptor()
+	sessionDescCorrectedPublicDetails := sessionFields[12].Descriptor()
 	// session.CorrectedPublicDetailsValidator is a validator for the "corrected_public_details" field. It is called by the builders before save.
 	session.CorrectedPublicDetailsValidator = sessionDescCorrectedPublicDetails.Validators[0].(func(string) error)
 	// sessionDescCreatedAt is the schema descriptor for created_at field.
-	sessionDescCreatedAt := sessionFields[8].Descriptor()
+	sessionDescCreatedAt := sessionFields[13].Descriptor()
 	// session.DefaultCreatedAt holds the default value on creation for the created_at field.
 	session.DefaultCreatedAt = sessionDescCreatedAt.Default.(func() time.Time)
+	sessioncancellation.Policy = privacy.NewPolicies(schema.SessionCancellation{})
+	sessioncancellation.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := sessioncancellation.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	sessioncancellationFields := schema.SessionCancellation{}.Fields()
+	_ = sessioncancellationFields
+	// sessioncancellationDescPublicMessage is the schema descriptor for public_message field.
+	sessioncancellationDescPublicMessage := sessioncancellationFields[2].Descriptor()
+	// sessioncancellation.PublicMessageValidator is a validator for the "public_message" field. It is called by the builders before save.
+	sessioncancellation.PublicMessageValidator = sessioncancellationDescPublicMessage.Validators[0].(func(string) error)
+	// sessioncancellationDescCrewNotes is the schema descriptor for crew_notes field.
+	sessioncancellationDescCrewNotes := sessioncancellationFields[3].Descriptor()
+	// sessioncancellation.CrewNotesValidator is a validator for the "crew_notes" field. It is called by the builders before save.
+	sessioncancellation.CrewNotesValidator = sessioncancellationDescCrewNotes.Validators[0].(func(string) error)
+	// sessioncancellationDescCreatedAt is the schema descriptor for created_at field.
+	sessioncancellationDescCreatedAt := sessioncancellationFields[5].Descriptor()
+	// sessioncancellation.DefaultCreatedAt holds the default value on creation for the created_at field.
+	sessioncancellation.DefaultCreatedAt = sessioncancellationDescCreatedAt.Default.(func() time.Time)
 	sessiondraft.Policy = privacy.NewPolicies(schema.SessionDraft{})
 	sessiondraft.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
@@ -1328,15 +1360,15 @@ func init() {
 	sessionrunFields := schema.SessionRun{}.Fields()
 	_ = sessionrunFields
 	// sessionrunDescTargetAdjustmentSeconds is the schema descriptor for target_adjustment_seconds field.
-	sessionrunDescTargetAdjustmentSeconds := sessionrunFields[3].Descriptor()
+	sessionrunDescTargetAdjustmentSeconds := sessionrunFields[4].Descriptor()
 	// sessionrun.DefaultTargetAdjustmentSeconds holds the default value on creation for the target_adjustment_seconds field.
 	sessionrun.DefaultTargetAdjustmentSeconds = sessionrunDescTargetAdjustmentSeconds.Default.(int)
 	// sessionrunDescSnapshotJSON is the schema descriptor for snapshot_json field.
-	sessionrunDescSnapshotJSON := sessionrunFields[5].Descriptor()
+	sessionrunDescSnapshotJSON := sessionrunFields[6].Descriptor()
 	// sessionrun.SnapshotJSONValidator is a validator for the "snapshot_json" field. It is called by the builders before save.
 	sessionrun.SnapshotJSONValidator = sessionrunDescSnapshotJSON.Validators[0].(func(string) error)
 	// sessionrunDescCreatedAt is the schema descriptor for created_at field.
-	sessionrunDescCreatedAt := sessionrunFields[6].Descriptor()
+	sessionrunDescCreatedAt := sessionrunFields[7].Descriptor()
 	// sessionrun.DefaultCreatedAt holds the default value on creation for the created_at field.
 	sessionrun.DefaultCreatedAt = sessionrunDescCreatedAt.Default.(func() time.Time)
 	sessionrunamendment.Policy = privacy.NewPolicies(schema.SessionRunAmendment{})

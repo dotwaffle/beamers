@@ -2029,6 +2029,75 @@ func addSoftRippleSession(t *testing.T, client *http.Client, server *runningServ
 	return sessionID
 }
 
+func addPlacementLane(
+	t *testing.T,
+	client *http.Client,
+	server *runningServer,
+) (int64, int64) {
+	t.Helper()
+	rundownClient := rundownv1connect.NewRundownServiceClient(
+		client, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	current, err := rundownClient.GetCrewRundown(
+		t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
+	)
+	if err != nil {
+		t.Fatalf("load Rundown before adding placement Lane: %v", err)
+	}
+	edited, err := rundownClient.EditDraft(t.Context(), connect.NewRequest(
+		&rundownv1.EditDraftRequest{
+			EventId: 1, CommandId: "add-placement-lane",
+			ExpectedDraftRevision: current.Msg.GetDraftRevision(),
+			Locations: []*rundownv1.LocationDraft{{
+				Ref: "side-hall", Name: "Side Hall",
+			}},
+			Lanes: []*rundownv1.LaneDraft{{
+				Ref: "side-lane", Name: "Side Lane",
+				Location: &rundownv1.TargetRef{
+					Target: &rundownv1.TargetRef_Ref{Ref: "side-hall"},
+				},
+			}},
+		},
+	))
+	if err != nil {
+		t.Fatalf("add placement Lane: %v", err)
+	}
+	var locationID, laneID int64
+	changeIDs := make([]int64, 0, len(edited.Msg.GetChanges()))
+	for _, change := range edited.Msg.GetChanges() {
+		changeIDs = append(changeIDs, change.GetId())
+		switch change.GetKind() {
+		case "CreateLocation":
+			locationID = change.GetTargetId()
+		case "CreateLane":
+			laneID = change.GetTargetId()
+		}
+	}
+	preview, err := rundownClient.PublishPreview(t.Context(), connect.NewRequest(
+		&rundownv1.PublishPreviewRequest{EventId: 1, ChangeIds: changeIDs},
+	))
+	if err != nil {
+		t.Fatalf("preview placement Lane Publish: %v", err)
+	}
+	if _, err := rundownClient.Publish(t.Context(), connect.NewRequest(
+		&rundownv1.PublishRequest{
+			EventId: 1, CommandId: "publish-placement-lane",
+			Confirmation: &rundownv1.PublishConfirmation{
+				DraftRevision:     preview.Msg.GetDraftRevision(),
+				PublishedRevision: preview.Msg.GetPublishedRevision(),
+				ChangeIds:         preview.Msg.GetChangeIds(),
+				Fingerprint:       preview.Msg.GetFingerprint(),
+			},
+		},
+	)); err != nil {
+		t.Fatalf("publish placement Lane: %v", err)
+	}
+	if locationID <= 0 || laneID <= 0 {
+		t.Fatalf("placement identity IDs = Location %d, Lane %d", locationID, laneID)
+	}
+	return locationID, laneID
+}
+
 func prepareAndActivateSecondEvent(t *testing.T, client *http.Client, server *runningServer) {
 	t.Helper()
 	assertJSONRequest(
@@ -2536,6 +2605,281 @@ func TestOperatorStartsPublishedSessionDurably(t *testing.T) {
 		t.Errorf("restarted Live public Session = %d %q", deepLink.StatusCode, deepLinkBody)
 	}
 	restarted.stop(t)
+}
+
+func TestOperatorCancelsScheduledSessionWithPublicMessage(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	sessionID := prepareActiveSchedule(t, administrator, server)
+	operator := provisionOperator(t, administrator, server)
+	client := sessionv1connect.NewSessionControlServiceClient(
+		operator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	crewNotes := strings.Repeat("n", 1001)
+	request := &sessionv1.CancelSessionRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "cancel-keynote",
+		ExpectedLiveStateRevision: proto.Int64(0),
+		Confirmed:                 true,
+		PublicCancellationMessage: "Speaker travel was disrupted.",
+		CrewNotes:                 crewNotes,
+	}
+
+	unconfirmedMessage := proto.Clone(request)
+	unconfirmed, ok := unconfirmedMessage.(*sessionv1.CancelSessionRequest)
+	if !ok {
+		t.Fatalf("cloned Cancel Session request type = %T", unconfirmedMessage)
+	}
+	unconfirmed.CommandId = "reject-unconfirmed-cancel"
+	unconfirmed.Confirmed = false
+	_, unconfirmedErr := client.CancelSession(
+		t.Context(), connect.NewRequest(unconfirmed),
+	)
+	if connect.CodeOf(unconfirmedErr) != connect.CodeFailedPrecondition {
+		t.Fatalf("unconfirmed Cancel Session = %v", unconfirmedErr)
+	}
+	canceled, err := client.CancelSession(t.Context(), connect.NewRequest(request))
+	if err != nil {
+		t.Fatalf("Cancel Session RPC: %v", err)
+	}
+	if canceled.Msg.GetState().GetLifecycle() !=
+		sessionv1.SessionLifecycle_SESSION_LIFECYCLE_CANCELED ||
+		canceled.Msg.GetState().GetLiveStateRevision() != 1 ||
+		canceled.Msg.GetState().GetSessionRunId() != 0 {
+		t.Fatalf("canceled Session state = %+v", canceled.Msg.GetState())
+	}
+	retried, err := client.CancelSession(t.Context(), connect.NewRequest(request))
+	if err != nil || !proto.Equal(retried.Msg, canceled.Msg) {
+		t.Fatalf("exact Cancel Session retry = %+v, %v", retried, err)
+	}
+	public := get(
+		t, authenticatedClient(t), server.address, "/schedule",
+	)
+	body, readErr := io.ReadAll(public.Body)
+	closeErr := public.Body.Close()
+	if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
+		t.Fatalf("read canceled public Session: %v", joinedErr)
+	}
+	if public.StatusCode != http.StatusOK ||
+		!strings.Contains(string(body), "Status: Canceled") ||
+		!strings.Contains(string(body), "Speaker travel was disrupted.") ||
+		strings.Contains(string(body), crewNotes) {
+		t.Fatalf("canceled public Session = %d %q", public.StatusCode, body)
+	}
+	history, err := client.GetSessionHistory(t.Context(), connect.NewRequest(
+		&sessionv1.GetSessionHistoryRequest{EventId: 1, SessionId: sessionID},
+	))
+	if err != nil || len(history.Msg.GetCancellations()) != 1 ||
+		history.Msg.GetCancellations()[0].SessionRunId != nil ||
+		history.Msg.GetCancellations()[0].GetPublicCancellationMessage() !=
+			"Speaker travel was disrupted." ||
+		history.Msg.GetCancellations()[0].GetCrewNotes() != crewNotes {
+		t.Fatalf("cancellation history = %+v, %v", history, err)
+	}
+	server.stop(t)
+}
+
+func TestProducerReinstatesCanceledLiveSessionFromPlacementPreview(t *testing.T) {
+	producer, server := startAuthenticatedAdministrator(t)
+	sessionID := prepareActiveSchedule(t, producer, server)
+	locationID, laneID := addPlacementLane(t, producer, server)
+	operator := provisionOperator(t, producer, server)
+	operatorClient := sessionv1connect.NewSessionControlServiceClient(
+		operator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	started, err := operatorClient.StartSession(t.Context(), connect.NewRequest(
+		&sessionv1.StartSessionRequest{
+			EventId: 1, SessionId: sessionID, CommandId: "start-before-cancel",
+			ExpectedLiveStateRevision: proto.Int64(0),
+		},
+	))
+	if err != nil {
+		t.Fatalf("Start Session before cancellation: %v", err)
+	}
+	canceled, err := operatorClient.CancelSession(t.Context(), connect.NewRequest(
+		&sessionv1.CancelSessionRequest{
+			EventId: 1, SessionId: sessionID, CommandId: "cancel-live-keynote",
+			ExpectedLiveStateRevision: new(started.Msg.GetState().GetLiveStateRevision()),
+			Confirmed:                 true,
+		},
+	))
+	if err != nil {
+		t.Fatalf("Cancel Live Session: %v", err)
+	}
+	if canceled.Msg.GetState().GetActualEnd() == nil {
+		t.Fatalf("canceled Live Session has no Actual End: %+v", canceled.Msg.GetState())
+	}
+	canceledPublic := get(
+		t, authenticatedClient(t), server.address,
+		fmt.Sprintf("/schedule/sessions/%d", sessionID),
+	)
+	canceledBody, readErr := io.ReadAll(canceledPublic.Body)
+	closeErr := canceledPublic.Body.Close()
+	if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
+		t.Fatalf("read canceled Live Session: %v", joinedErr)
+	}
+	if canceledPublic.StatusCode != http.StatusOK ||
+		!strings.Contains(string(canceledBody), "Status: Canceled") ||
+		!strings.Contains(string(canceledBody), "Canceled.") {
+		t.Fatalf(
+			"canceled Live public Session = %d %q",
+			canceledPublic.StatusCode, canceledBody,
+		)
+	}
+
+	producerClient := sessionv1connect.NewSessionControlServiceClient(
+		producer, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	proposedStart := time.Date(2099, 8, 21, 9, 30, 0, 0, time.UTC)
+	hardPreview, err := producerClient.PreviewReinstateSession(
+		t.Context(), connect.NewRequest(&sessionv1.PreviewReinstateSessionRequest{
+			EventId: 1, SessionId: sessionID, ForecastStart: timestamppb.New(proposedStart),
+			LaneIds: []int64{1}, LocationIds: []int64{1},
+		}),
+	)
+	if err != nil || !hardPreview.Msg.GetRequiresHardBoundaryConfirmation() ||
+		len(hardPreview.Msg.GetEffects()) < 2 {
+		t.Fatalf("Hard placement preview = %+v, %v", hardPreview, err)
+	}
+	_, missingHardErr := producerClient.ReinstateSession(
+		t.Context(), connect.NewRequest(&sessionv1.ReinstateSessionRequest{
+			EventId: 1, SessionId: sessionID, CommandId: "reject-hard-reinstatement",
+			ExpectedLiveStateRevision: new(canceled.Msg.GetState().GetLiveStateRevision()),
+			ForecastStart:             timestamppb.New(proposedStart),
+			LaneIds:                   []int64{1},
+			LocationIds:               []int64{1},
+			PreviewFingerprint:        hardPreview.Msg.GetPreviewFingerprint(),
+			Confirmed:                 true,
+		}),
+	)
+	if connect.CodeOf(missingHardErr) != connect.CodeFailedPrecondition {
+		t.Fatalf("Reinstate without Hard confirmation = %v", missingHardErr)
+	}
+	previewRequest := &sessionv1.PreviewReinstateSessionRequest{
+		EventId: 1, SessionId: sessionID, ForecastStart: timestamppb.New(proposedStart),
+		LaneIds: []int64{laneID}, LocationIds: []int64{locationID},
+	}
+	preview, err := producerClient.PreviewReinstateSession(
+		t.Context(), connect.NewRequest(previewRequest),
+	)
+	if err != nil {
+		t.Fatalf("Preview Reinstate Session: %v", err)
+	}
+	if preview.Msg.GetPreviewFingerprint() == "" ||
+		preview.Msg.GetRequiresHardBoundaryConfirmation() ||
+		!slices.Equal(preview.Msg.GetCurrentLaneIds(), []int64{1}) ||
+		!slices.Equal(preview.Msg.GetProposedLaneIds(), []int64{laneID}) ||
+		!slices.Equal(preview.Msg.GetCurrentLocationIds(), []int64{1}) ||
+		!slices.Equal(preview.Msg.GetProposedLocationIds(), []int64{locationID}) ||
+		len(preview.Msg.GetEffects()) != 1 ||
+		len(preview.Msg.GetChanges()) != 1 ||
+		preview.Msg.GetChanges()[0].GetSessionId() != sessionID {
+		t.Fatalf("Reinstate Session preview = %+v", preview.Msg)
+	}
+	request := &sessionv1.ReinstateSessionRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "reinstate-keynote",
+		ExpectedLiveStateRevision: new(canceled.Msg.GetState().GetLiveStateRevision()),
+		ForecastStart:             timestamppb.New(proposedStart),
+		LaneIds:                   []int64{laneID},
+		LocationIds:               []int64{locationID},
+		PreviewFingerprint:        preview.Msg.GetPreviewFingerprint(),
+	}
+	_, unconfirmedErr := producerClient.ReinstateSession(
+		t.Context(), connect.NewRequest(request),
+	)
+	if connect.CodeOf(unconfirmedErr) != connect.CodeFailedPrecondition {
+		t.Fatalf("unconfirmed Reinstate Session = %v", unconfirmedErr)
+	}
+	request.Confirmed = true
+	request.CommandId = "reinstate-keynote-confirmed"
+	databasePath := filepath.Join(server.dataDir, "beamers.db")
+	if fixtureErr := storetest.FailSessionForecastUpdate(
+		t.Context(), databasePath, sessionID,
+	); fixtureErr != nil {
+		t.Fatalf("install Reinstate Session rollback fixture: %v", fixtureErr)
+	}
+	_, rollbackErr := producerClient.ReinstateSession(
+		t.Context(), connect.NewRequest(request),
+	)
+	if connect.CodeOf(rollbackErr) != connect.CodeInternal {
+		t.Fatalf("forced Reinstate Session rollback = %v", rollbackErr)
+	}
+	if fixtureErr := storetest.AllowSessionForecastUpdates(
+		t.Context(), databasePath,
+	); fixtureErr != nil {
+		t.Fatalf("remove Reinstate Session rollback fixture: %v", fixtureErr)
+	}
+	afterRollback, err := producerClient.PreviewReinstateSession(
+		t.Context(), connect.NewRequest(previewRequest),
+	)
+	if err != nil ||
+		afterRollback.Msg.GetPreviewFingerprint() != preview.Msg.GetPreviewFingerprint() {
+		t.Fatalf("Reinstate Session rollback changed placement = %+v, %v", afterRollback, err)
+	}
+	reinstated, err := producerClient.ReinstateSession(
+		t.Context(), connect.NewRequest(request),
+	)
+	if err != nil {
+		t.Fatalf("Reinstate Session: %v", err)
+	}
+	if reinstated.Msg.GetState().GetLifecycle() !=
+		sessionv1.SessionLifecycle_SESSION_LIFECYCLE_SCHEDULED ||
+		reinstated.Msg.GetState().GetLiveStateRevision() != 3 ||
+		!reinstated.Msg.GetPreviousForecastStart().AsTime().Equal(
+			started.Msg.GetState().GetActualStart().AsTime(),
+		) {
+		t.Fatalf("reinstated Session = %+v", reinstated.Msg)
+	}
+	retried, err := producerClient.ReinstateSession(
+		t.Context(), connect.NewRequest(request),
+	)
+	if err != nil || !proto.Equal(retried.Msg, reinstated.Msg) {
+		t.Fatalf("exact Reinstate Session retry = %+v, %v", retried, err)
+	}
+	history, err := producerClient.GetSessionHistory(t.Context(), connect.NewRequest(
+		&sessionv1.GetSessionHistoryRequest{EventId: 1, SessionId: sessionID},
+	))
+	if err != nil || len(history.Msg.GetRuns()) != 1 ||
+		history.Msg.GetRuns()[0].GetActualEnd() == nil ||
+		history.Msg.GetRuns()[0].GetOutcome() !=
+			sessionv1.SessionRunOutcome_SESSION_RUN_OUTCOME_CANCELED ||
+		len(history.Msg.GetCancellations()) != 1 ||
+		history.Msg.GetCancellations()[0].GetSessionRunId() !=
+			history.Msg.GetRuns()[0].GetId() {
+		t.Fatalf("reinstated Session history = %+v, %v", history, err)
+	}
+	public := get(
+		t, authenticatedClient(t), server.address,
+		fmt.Sprintf("/schedule/sessions/%d", sessionID),
+	)
+	body, readErr := io.ReadAll(public.Body)
+	closeErr = public.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read reinstated public Session: %v", err)
+	}
+	if public.StatusCode != http.StatusOK ||
+		!strings.Contains(string(body), "Status: Scheduled") ||
+		!strings.Contains(string(body), "Rescheduled") ||
+		!strings.Contains(string(body), "Location: Side Hall") ||
+		!strings.Contains(string(body), "Lane: Side Lane") ||
+		strings.Contains(string(body), "Actual Start:") ||
+		strings.Contains(string(body), "Actual End:") ||
+		!strings.Contains(
+			string(body),
+			started.Msg.GetState().GetActualStart().AsTime().
+				In(time.FixedZone("CEST", 2*60*60)).
+				Format("02 Jan 2006 15:04 MST"),
+		) {
+		t.Fatalf("reinstated public Session = %d %q", public.StatusCode, body)
+	}
+	_, oldLaneScopeErr := operatorClient.StartSession(
+		t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
+			EventId: 1, SessionId: sessionID, CommandId: "reject-old-lane-scope",
+			ExpectedLiveStateRevision: new(reinstated.Msg.GetState().GetLiveStateRevision()),
+		}),
+	)
+	if connect.CodeOf(oldLaneScopeErr) != connect.CodePermissionDenied {
+		t.Fatalf("old Lane scope after reinstatement = %v", oldLaneScopeErr)
+	}
+	server.stop(t)
 }
 
 func TestOperatorPreviewsAndAdjustsLiveSessionTarget(t *testing.T) {

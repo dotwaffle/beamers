@@ -54,6 +54,13 @@ type PullForward struct {
 
 func (PullForward) timingAction() {}
 
+// Place inserts a currently absent Session at a proposed Forecast placement.
+type Place struct {
+	Session Session
+}
+
+func (Place) timingAction() {}
+
 // Action is one supported timing recalculation request.
 type Action interface {
 	timingAction()
@@ -101,6 +108,8 @@ func Calculate(sessions []Session, action Action) (Plan, error) {
 		return graph.adjustTarget(selected)
 	case PullForward:
 		return graph.pullForward(selected)
+	case Place:
+		return graph.place(selected)
 	default:
 		return Plan{}, errors.New("unsupported timing ripple action")
 	}
@@ -119,6 +128,16 @@ func Fingerprint(sessions []Session, action Action, anchorRevision int) string {
 		writeFingerprint(hash.Write, "PullForward")
 		writeFingerprint(hash.Write, strconv.Itoa(selected.SessionID))
 		writeFingerprint(hash.Write, selected.ActualEnd.UTC().Format(time.RFC3339Nano))
+	case Place:
+		writeFingerprint(hash.Write, "Place")
+		writeFingerprint(hash.Write, strconv.Itoa(selected.Session.ID))
+		writeFingerprint(hash.Write, selected.Session.ForecastStart.UTC().Format(time.RFC3339Nano))
+		writeFingerprint(hash.Write, selected.Session.ForecastEnd.UTC().Format(time.RFC3339Nano))
+		writeFingerprint(hash.Write, string(selected.Session.StartBoundary))
+		writeFingerprint(hash.Write, string(selected.Session.EndBoundary))
+		writeFingerprint(hash.Write, strconv.FormatInt(int64(selected.Session.MinimumDuration), 10))
+		writeFingerprintIDs(hash.Write, "place_lanes", selected.Session.LaneIDs)
+		writeFingerprintIDs(hash.Write, "place_locations", selected.Session.LocationIDs)
 	}
 	ordered := slices.Clone(sessions)
 	slices.SortFunc(ordered, func(first, second Session) int {
@@ -156,6 +175,20 @@ func Fingerprint(sessions []Session, action Action, anchorRevision int) string {
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
+func writeFingerprintIDs(
+	write func([]byte) (int, error),
+	label string,
+	values []int,
+) {
+	ordered := slices.Clone(values)
+	slices.Sort(ordered)
+	writeFingerprint(write, label)
+	writeFingerprint(write, strconv.Itoa(len(ordered)))
+	for _, value := range ordered {
+		writeFingerprint(write, strconv.Itoa(value))
+	}
+}
+
 func writeFingerprint(write func([]byte) (int, error), value string) {
 	_, _ = write([]byte(strconv.Itoa(len(value))))
 	_, _ = write([]byte{':'})
@@ -169,6 +202,7 @@ type graph struct {
 	successors   map[int][]int
 	locations    map[int][]int
 	collisions   map[int]time.Duration
+	absentBefore map[int]bool
 }
 
 func newGraph(sessions []Session) (*graph, error) {
@@ -179,6 +213,7 @@ func newGraph(sessions []Session) (*graph, error) {
 		successors:   make(map[int][]int),
 		locations:    make(map[int][]int),
 		collisions:   make(map[int]time.Duration),
+		absentBefore: make(map[int]bool),
 	}
 	lanes := make(map[int][]int)
 	for _, item := range sessions {
@@ -232,6 +267,29 @@ func newGraph(sessions []Session) (*graph, error) {
 		}
 	}
 	return result, nil
+}
+
+func (graph *graph) place(action Place) (Plan, error) {
+	candidate := action.Session
+	if _, exists := graph.current[candidate.ID]; exists {
+		return Plan{}, errors.New("placed Session is already in timing state")
+	}
+	sessions := make([]Session, 0, len(graph.current)+1)
+	for _, item := range graph.current {
+		sessions = append(sessions, item)
+	}
+	sessions = append(sessions, candidate)
+	placed, err := newGraph(sessions)
+	if err != nil {
+		return Plan{}, err
+	}
+	placed.absentBefore[candidate.ID] = true
+	placed.rippleDelays(candidate.ID)
+	if overlap := placed.predecessorOverlap(candidate); overlap > 0 &&
+		candidate.StartBoundary == Hard {
+		placed.collisions[candidate.ID] = overlap
+	}
+	return placed.plan(), nil
 }
 
 func validateSession(item Session) error {
@@ -407,18 +465,26 @@ func (graph *graph) overlap(item Session, state map[int]Session) time.Duration {
 
 func (graph *graph) plan() Plan {
 	result := Plan{}
-	currentOccupancy := graph.occupancyOverlaps(graph.original)
+	before := maps.Clone(graph.original)
+	for sessionID := range graph.absentBefore {
+		delete(before, sessionID)
+	}
+	currentOccupancy := graph.occupancyOverlaps(before)
 	proposedOccupancy := graph.occupancyOverlaps(graph.current)
 	occupancyChanged := changedOccupancySessions(
 		currentOccupancy.pairs, proposedOccupancy.pairs,
 	)
 	for sessionID, current := range graph.current {
 		original := graph.original[sessionID]
-		changed := timingChanged(original, current)
+		absentBefore := graph.absentBefore[sessionID]
+		changed := absentBefore || timingChanged(original, current)
 		currentOverlap := max(
-			graph.overlap(original, graph.original),
+			graph.overlap(original, before),
 			currentOccupancy.maximums[sessionID],
 		)
+		if absentBefore {
+			currentOverlap = 0
+		}
 		proposedOverlap := max(
 			graph.overlap(current, graph.current),
 			proposedOccupancy.maximums[sessionID],
@@ -495,7 +561,10 @@ func (graph *graph) occupancyOverlaps(
 	for _, sessionIDs := range graph.locations {
 		intervals := make([]occupancyInterval, 0, len(sessionIDs))
 		for _, sessionID := range sessionIDs {
-			item := state[sessionID]
+			item, ok := state[sessionID]
+			if !ok {
+				continue
+			}
 			start, end := item.ForecastStart, item.ForecastEnd
 			if !item.OccupancyStart.IsZero() {
 				start = item.OccupancyStart

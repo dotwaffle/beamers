@@ -48,6 +48,20 @@ func (_c *SessionRunCreate) SetNillableActualEnd(v *time.Time) *SessionRunCreate
 	return _c
 }
 
+// SetOutcome sets the "outcome" field.
+func (_c *SessionRunCreate) SetOutcome(v sessionrun.Outcome) *SessionRunCreate {
+	_c.mutation.SetOutcome(v)
+	return _c
+}
+
+// SetNillableOutcome sets the "outcome" field if the given value is not nil.
+func (_c *SessionRunCreate) SetNillableOutcome(v *sessionrun.Outcome) *SessionRunCreate {
+	if v != nil {
+		_c.SetOutcome(*v)
+	}
+	return _c
+}
+
 // SetTargetAdjustmentSeconds sets the "target_adjustment_seconds" field.
 func (_c *SessionRunCreate) SetTargetAdjustmentSeconds(v int) *SessionRunCreate {
 	_c.mutation.SetTargetAdjustmentSeconds(v)
@@ -175,6 +189,11 @@ func (_c *SessionRunCreate) check() error {
 	if _, ok := _c.mutation.ActualStart(); !ok {
 		return &ValidationError{Name: "actual_start", err: errors.New(`ent: missing required field "SessionRun.actual_start"`)}
 	}
+	if v, ok := _c.mutation.Outcome(); ok {
+		if err := sessionrun.OutcomeValidator(v); err != nil {
+			return &ValidationError{Name: "outcome", err: fmt.Errorf(`ent: validator failed for field "SessionRun.outcome": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.TargetAdjustmentSeconds(); !ok {
 		return &ValidationError{Name: "target_adjustment_seconds", err: errors.New(`ent: missing required field "SessionRun.target_adjustment_seconds"`)}
 	}
@@ -225,6 +244,10 @@ func (_c *SessionRunCreate) createSpec() (*SessionRun, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ActualEnd(); ok {
 		_spec.SetField(sessionrun.FieldActualEnd, field.TypeTime, value)
 		_node.ActualEnd = value
+	}
+	if value, ok := _c.mutation.Outcome(); ok {
+		_spec.SetField(sessionrun.FieldOutcome, field.TypeEnum, value)
+		_node.Outcome = value
 	}
 	if value, ok := _c.mutation.TargetAdjustmentSeconds(); ok {
 		_spec.SetField(sessionrun.FieldTargetAdjustmentSeconds, field.TypeInt, value)

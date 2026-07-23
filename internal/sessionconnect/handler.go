@@ -128,6 +128,101 @@ func (handler *Handler) EndSession(
 	return connect.NewResponse(&sessionv1.EndSessionResponse{State: sessionState(result)}), nil
 }
 
+// CancelSession cancels one Scheduled or Live Session.
+func (handler *Handler) CancelSession(
+	ctx context.Context,
+	request *connect.Request[sessionv1.CancelSessionRequest],
+) (*connect.Response[sessionv1.CancelSessionResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result, err := handler.service.Cancel(ctx, actor, sessioncontrol.CancelInput{
+		EventID: int(request.Msg.GetEventId()), SessionID: int(request.Msg.GetSessionId()),
+		CommandID:                 request.Msg.GetCommandId(),
+		ExpectedLiveStateRevision: int(request.Msg.GetExpectedLiveStateRevision()),
+		Confirmed:                 request.Msg.GetConfirmed(),
+		PublicCancellationMessage: request.Msg.GetPublicCancellationMessage(),
+		CrewNotes:                 request.Msg.GetCrewNotes(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	handler.notifyDisplays()
+	return connect.NewResponse(&sessionv1.CancelSessionResponse{
+		State: sessionState(result),
+	}), nil
+}
+
+// PreviewReinstateSession returns placement effects without mutation.
+func (handler *Handler) PreviewReinstateSession(
+	ctx context.Context,
+	request *connect.Request[sessionv1.PreviewReinstateSessionRequest],
+) (*connect.Response[sessionv1.PreviewReinstateSessionResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result, err := handler.service.PreviewReinstate(ctx, actor, sessioncontrol.PreviewReinstateInput{
+		EventID: int(request.Msg.GetEventId()), SessionID: int(request.Msg.GetSessionId()),
+		ForecastStart: request.Msg.GetForecastStart().AsTime(),
+		LaneIDs:       ints(request.Msg.GetLaneIds()),
+		LocationIDs:   ints(request.Msg.GetLocationIds()),
+	})
+	if err != nil {
+		return nil, err
+	}
+	response := &sessionv1.PreviewReinstateSessionResponse{
+		CurrentLaneIds:                   int64s(result.CurrentLaneIDs),
+		ProposedLaneIds:                  int64s(result.ProposedLaneIDs),
+		CurrentLocationIds:               int64s(result.CurrentLocationIDs),
+		ProposedLocationIds:              int64s(result.ProposedLocationIDs),
+		RequiresHardBoundaryConfirmation: result.RequiresHardBoundaryConfirmation,
+		PreviewFingerprint:               result.Fingerprint,
+	}
+	for _, effect := range result.Effects {
+		response.Effects = append(response.Effects, targetEffect(effect))
+	}
+	for _, change := range result.Changes {
+		response.Changes = append(response.Changes, forecastChange(change))
+	}
+	return connect.NewResponse(response), nil
+}
+
+// ReinstateSession confirms one freshly previewed Session placement.
+func (handler *Handler) ReinstateSession(
+	ctx context.Context,
+	request *connect.Request[sessionv1.ReinstateSessionRequest],
+) (*connect.Response[sessionv1.ReinstateSessionResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result, err := handler.service.Reinstate(ctx, actor, sessioncontrol.ReinstateInput{
+		EventID: int(request.Msg.GetEventId()), SessionID: int(request.Msg.GetSessionId()),
+		CommandID:                 request.Msg.GetCommandId(),
+		ExpectedLiveStateRevision: int(request.Msg.GetExpectedLiveStateRevision()),
+		ForecastStart:             request.Msg.GetForecastStart().AsTime(),
+		LaneIDs:                   ints(request.Msg.GetLaneIds()),
+		LocationIDs:               ints(request.Msg.GetLocationIds()),
+		PreviewFingerprint:        request.Msg.GetPreviewFingerprint(),
+		Confirmed:                 request.Msg.GetConfirmed(),
+		HardBoundaryConfirmed:     request.Msg.GetHardBoundaryConfirmed(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	response := &sessionv1.ReinstateSessionResponse{
+		State:                 sessionState(result.State),
+		PreviousForecastStart: timestamppb.New(result.PreviousForecastStart),
+	}
+	for _, change := range result.Changes {
+		response.Changes = append(response.Changes, forecastChange(change))
+	}
+	handler.notifyDisplays()
+	return connect.NewResponse(response), nil
+}
+
 // PreviewAdjustTarget returns the current downstream impact without mutation.
 func (handler *Handler) PreviewAdjustTarget(
 	ctx context.Context,
@@ -256,39 +351,42 @@ func (handler *Handler) PullForward(
 func validateRequest(message any) error {
 	switch request := message.(type) {
 	case *sessionv1.StartSessionRequest:
-		if err := positiveID(request.GetEventId(), "event_id"); err != nil {
-			return err
-		}
-		if err := positiveID(request.GetSessionId(), "session_id"); err != nil {
-			return err
-		}
-		if err := command.ValidateID(request.GetCommandId()); err != nil {
-			return err
-		}
-		if request.ExpectedLiveStateRevision == nil {
-			return errors.New("expected_live_state_revision is required")
-		}
-		if request.GetExpectedLiveStateRevision() < 0 || request.GetExpectedLiveStateRevision() > math.MaxInt {
-			return errors.New("expected_live_state_revision must be a supported non-negative integer")
-		}
-		return nil
+		return validateCommandEnvelope(
+			request.GetEventId(), request.GetSessionId(), request.GetCommandId(),
+			request.ExpectedLiveStateRevision,
+		)
 	case *sessionv1.EndSessionRequest:
-		if err := positiveID(request.GetEventId(), "event_id"); err != nil {
+		return validateCommandEnvelope(
+			request.GetEventId(), request.GetSessionId(), request.GetCommandId(),
+			request.ExpectedLiveStateRevision,
+		)
+	case *sessionv1.CancelSessionRequest:
+		return validateCommandEnvelope(
+			request.GetEventId(), request.GetSessionId(), request.GetCommandId(),
+			request.ExpectedLiveStateRevision,
+		)
+	case *sessionv1.PreviewReinstateSessionRequest:
+		if err := validatePlacementRequest(
+			request.GetEventId(), request.GetSessionId(), request.GetForecastStart(),
+			request.GetLaneIds(), request.GetLocationIds(),
+		); err != nil {
 			return err
-		}
-		if err := positiveID(request.GetSessionId(), "session_id"); err != nil {
-			return err
-		}
-		if err := command.ValidateID(request.GetCommandId()); err != nil {
-			return err
-		}
-		if request.ExpectedLiveStateRevision == nil {
-			return errors.New("expected_live_state_revision is required")
-		}
-		if request.GetExpectedLiveStateRevision() < 0 || request.GetExpectedLiveStateRevision() > math.MaxInt {
-			return errors.New("expected_live_state_revision must be a supported non-negative integer")
 		}
 		return nil
+	case *sessionv1.ReinstateSessionRequest:
+		if err := validatePlacementRequest(
+			request.GetEventId(), request.GetSessionId(), request.GetForecastStart(),
+			request.GetLaneIds(), request.GetLocationIds(),
+		); err != nil {
+			return err
+		}
+		if err := validateCommandEnvelope(
+			request.GetEventId(), request.GetSessionId(), request.GetCommandId(),
+			request.ExpectedLiveStateRevision,
+		); err != nil {
+			return err
+		}
+		return validatePreviewFingerprint(request.GetPreviewFingerprint())
 	case *sessionv1.PreviewAdjustTargetRequest:
 		if err := positiveID(request.GetEventId(), "event_id"); err != nil {
 			return err
@@ -298,23 +396,14 @@ func validateRequest(message any) error {
 		}
 		return validateTargetAdjustment(request.GetPreset(), request.GetCustom())
 	case *sessionv1.AdjustTargetRequest:
-		if err := positiveID(request.GetEventId(), "event_id"); err != nil {
+		if err := validateCommandEnvelope(
+			request.GetEventId(), request.GetSessionId(), request.GetCommandId(),
+			request.ExpectedLiveStateRevision,
+		); err != nil {
 			return err
 		}
-		if err := positiveID(request.GetSessionId(), "session_id"); err != nil {
+		if err := validatePreviewFingerprint(request.GetPreviewFingerprint()); err != nil {
 			return err
-		}
-		if err := command.ValidateID(request.GetCommandId()); err != nil {
-			return err
-		}
-		if request.ExpectedLiveStateRevision == nil {
-			return errors.New("expected_live_state_revision is required")
-		}
-		if request.GetExpectedLiveStateRevision() < 0 || request.GetExpectedLiveStateRevision() > math.MaxInt {
-			return errors.New("expected_live_state_revision must be a supported non-negative integer")
-		}
-		if request.GetPreviewFingerprint() == "" {
-			return errors.New("preview_fingerprint is required")
 		}
 		return validateTargetAdjustment(request.GetPreset(), request.GetCustom())
 	case *sessionv1.PreviewPullForwardRequest:
@@ -323,41 +412,19 @@ func validateRequest(message any) error {
 		}
 		return positiveID(request.GetSessionId(), "session_id")
 	case *sessionv1.PullForwardRequest:
-		if err := positiveID(request.GetEventId(), "event_id"); err != nil {
+		if err := validateCommandEnvelope(
+			request.GetEventId(), request.GetSessionId(), request.GetCommandId(),
+			request.ExpectedLiveStateRevision,
+		); err != nil {
 			return err
 		}
-		if err := positiveID(request.GetSessionId(), "session_id"); err != nil {
-			return err
-		}
-		if err := command.ValidateID(request.GetCommandId()); err != nil {
-			return err
-		}
-		if request.ExpectedLiveStateRevision == nil {
-			return errors.New("expected_live_state_revision is required")
-		}
-		if request.GetExpectedLiveStateRevision() < 0 ||
-			request.GetExpectedLiveStateRevision() > math.MaxInt {
-			return errors.New("expected_live_state_revision must be a supported non-negative integer")
-		}
-		if request.GetPreviewFingerprint() == "" {
-			return errors.New("preview_fingerprint is required")
-		}
-		return nil
+		return validatePreviewFingerprint(request.GetPreviewFingerprint())
 	case *sessionv1.CorrectLiveDetailsRequest:
-		if err := positiveID(request.GetEventId(), "event_id"); err != nil {
+		if err := validateCommandEnvelope(
+			request.GetEventId(), request.GetSessionId(), request.GetCommandId(),
+			request.ExpectedLiveStateRevision,
+		); err != nil {
 			return err
-		}
-		if err := positiveID(request.GetSessionId(), "session_id"); err != nil {
-			return err
-		}
-		if err := command.ValidateID(request.GetCommandId()); err != nil {
-			return err
-		}
-		if request.ExpectedLiveStateRevision == nil {
-			return errors.New("expected_live_state_revision is required")
-		}
-		if request.GetExpectedLiveStateRevision() < 0 || request.GetExpectedLiveStateRevision() > math.MaxInt {
-			return errors.New("expected_live_state_revision must be a supported non-negative integer")
 		}
 		if request.GetUpdateMask() == nil || len(request.GetUpdateMask().GetPaths()) == 0 {
 			return errors.New("update_mask must select corrected details")
@@ -388,6 +455,72 @@ func validateTargetAdjustment(preset, custom *durationpb.Duration) error {
 	if duration == 0 || duration%time.Second != 0 ||
 		duration < -24*time.Hour || duration > 24*time.Hour {
 		return errors.New("target adjustment must use whole seconds and be non-zero and no more than 24 hours")
+	}
+	return nil
+}
+
+func validateCommandEnvelope(
+	eventID int64,
+	sessionID int64,
+	commandID string,
+	expectedRevision *int64,
+) error {
+	if err := positiveID(eventID, "event_id"); err != nil {
+		return err
+	}
+	if err := positiveID(sessionID, "session_id"); err != nil {
+		return err
+	}
+	if err := command.ValidateID(commandID); err != nil {
+		return err
+	}
+	if expectedRevision == nil {
+		return errors.New("expected_live_state_revision is required")
+	}
+	if *expectedRevision < 0 || *expectedRevision > math.MaxInt {
+		return errors.New("expected_live_state_revision must be a supported non-negative integer")
+	}
+	return nil
+}
+
+func validatePreviewFingerprint(fingerprint string) error {
+	if fingerprint == "" {
+		return errors.New("preview_fingerprint is required")
+	}
+	return nil
+}
+
+func validatePlacementRequest(
+	eventID int64,
+	sessionID int64,
+	forecastStart *timestamppb.Timestamp,
+	laneIDs []int64,
+	locationIDs []int64,
+) error {
+	if err := positiveID(eventID, "event_id"); err != nil {
+		return err
+	}
+	if err := positiveID(sessionID, "session_id"); err != nil {
+		return err
+	}
+	if forecastStart == nil {
+		return errors.New("forecast_start is required")
+	}
+	if err := forecastStart.CheckValid(); err != nil {
+		return errors.New("forecast_start must be a valid timestamp")
+	}
+	if len(laneIDs) == 0 || len(locationIDs) == 0 {
+		return errors.New("lane_ids and location_ids are required")
+	}
+	for _, laneID := range laneIDs {
+		if err := positiveID(laneID, "lane_ids"); err != nil {
+			return err
+		}
+	}
+	for _, locationID := range locationIDs {
+		if err := positiveID(locationID, "location_ids"); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -439,14 +572,15 @@ func (handler *Handler) GetSessionHistory(
 	if err != nil {
 		return nil, err
 	}
-	runs, err := handler.service.History(ctx, actor, int(request.Msg.GetEventId()), int(request.Msg.GetSessionId()))
+	history, err := handler.service.History(ctx, actor, int(request.Msg.GetEventId()), int(request.Msg.GetSessionId()))
 	if err != nil {
 		return nil, err
 	}
 	response := &sessionv1.GetSessionHistoryResponse{}
-	for _, run := range runs {
+	for _, run := range history.Runs {
 		found := &sessionv1.SessionRunHistory{
 			Id: int64(run.ID), ActualStart: timestamppb.New(run.ActualStart), Snapshot: runSnapshot(run.Snapshot),
+			Outcome: sessionRunOutcome(run.Outcome),
 		}
 		if run.ActualEnd != nil {
 			found.ActualEnd = timestamppb.New(*run.ActualEnd)
@@ -459,7 +593,31 @@ func (handler *Handler) GetSessionHistory(
 		}
 		response.Runs = append(response.Runs, found)
 	}
+	for _, cancellation := range history.Cancellations {
+		found := &sessionv1.SessionCancellationHistory{
+			Id:                        int64(cancellation.ID),
+			PublicCancellationMessage: cancellation.PublicCancellationMessage,
+			CrewNotes:                 cancellation.CrewNotes,
+			ForecastStart:             timestamppb.New(cancellation.ForecastStart),
+			CanceledAt:                timestamppb.New(cancellation.CanceledAt),
+		}
+		if cancellation.SessionRunID != nil {
+			found.SessionRunId = new(int64(*cancellation.SessionRunID))
+		}
+		response.Cancellations = append(response.Cancellations, found)
+	}
 	return connect.NewResponse(response), nil
+}
+
+func sessionRunOutcome(value string) sessionv1.SessionRunOutcome {
+	switch value {
+	case "Completed":
+		return sessionv1.SessionRunOutcome_SESSION_RUN_OUTCOME_COMPLETED
+	case "Canceled":
+		return sessionv1.SessionRunOutcome_SESSION_RUN_OUTCOME_CANCELED
+	default:
+		return sessionv1.SessionRunOutcome_SESSION_RUN_OUTCOME_UNSPECIFIED
+	}
 }
 
 func runSnapshot(snapshot sessioncontrol.RunSnapshot) *sessionv1.RunSnapshot {
@@ -507,6 +665,14 @@ func int64s(values []int) []int64 {
 	result := make([]int64, len(values))
 	for index, value := range values {
 		result[index] = int64(value)
+	}
+	return result
+}
+
+func ints(values []int64) []int {
+	result := make([]int, len(values))
+	for index, value := range values {
+		result[index] = int(value)
 	}
 	return result
 }
@@ -576,6 +742,8 @@ func connectError(err error) error {
 	switch {
 	case errors.Is(err, sessioncontrol.ErrOperatorRequired):
 		return connect.NewError(connect.CodePermissionDenied, err)
+	case errors.Is(err, sessioncontrol.ErrProducerRequired):
+		return connect.NewError(connect.CodePermissionDenied, err)
 	case errors.Is(err, sessioncontrol.ErrSessionScopeRequired):
 		return connect.NewError(connect.CodePermissionDenied, err)
 	case errors.Is(err, sessioncontrol.ErrSessionNotFound):
@@ -597,6 +765,10 @@ func connectError(err error) error {
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, sessioncontrol.ErrLiveDetailFields):
 		return connect.NewError(connect.CodeInvalidArgument, err)
+	case errors.Is(err, sessioncontrol.ErrCancelConfirmation):
+		return connect.NewError(connect.CodeFailedPrecondition, err)
+	case errors.Is(err, sessioncontrol.ErrCancellationText):
+		return connect.NewError(connect.CodeInvalidArgument, err)
 	case errors.Is(err, sessioncontrol.ErrPresetNotConfigured):
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	case errors.Is(err, sessioncontrol.ErrTargetBeforeNow):
@@ -613,6 +785,12 @@ func connectError(err error) error {
 		return connect.NewError(connect.CodeAborted, err)
 	case errors.Is(err, sessioncontrol.ErrPullForwardConfirmation):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
+	case errors.Is(err, sessioncontrol.ErrReinstatePreviewStale):
+		return connect.NewError(connect.CodeAborted, err)
+	case errors.Is(err, sessioncontrol.ErrReinstateConfirmation):
+		return connect.NewError(connect.CodeFailedPrecondition, err)
+	case errors.Is(err, sessioncontrol.ErrReinstatePlacement):
+		return connect.NewError(connect.CodeInvalidArgument, err)
 	case errors.Is(err, sessioncontrol.ErrEventNotActive):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, sessioncontrol.ErrCommandConflict):

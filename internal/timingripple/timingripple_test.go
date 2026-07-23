@@ -263,6 +263,63 @@ func TestPullForwardMovesOnlySoftEdgeOfHardEndSession(t *testing.T) {
 	assertChange(t, plan, 2, at.Add(50*time.Minute), at.Add(2*time.Hour))
 }
 
+func TestPlaceRipplesLaterSoftSessionAndReportsLocationCollision(t *testing.T) {
+	at := timeline()
+	first := session(1, at, at.Add(time.Hour), []int{1})
+	next := session(2, at.Add(2*time.Hour), at.Add(3*time.Hour), []int{1})
+	occupied := session(4, at.Add(90*time.Minute), at.Add(2*time.Hour), []int{2})
+	occupied.LocationIDs = []int{20}
+	candidate := session(3, at.Add(90*time.Minute), at.Add(150*time.Minute), []int{1})
+	candidate.LocationIDs = []int{20}
+
+	plan, err := Calculate(
+		[]Session{first, next, occupied},
+		Place{Session: candidate},
+	)
+	if err != nil {
+		t.Fatalf("Calculate() error = %v", err)
+	}
+	assertChange(t, plan, 3, at.Add(90*time.Minute), at.Add(150*time.Minute))
+	assertChange(t, plan, 2, at.Add(150*time.Minute), at.Add(210*time.Minute))
+	assertEffectOverlap(t, plan, 3, 30*time.Minute)
+	assertEffectOverlap(t, plan, 4, 30*time.Minute)
+}
+
+func TestPlaceReportsHardBoundaryWithoutMovingIt(t *testing.T) {
+	at := timeline()
+	next := session(2, at.Add(2*time.Hour), at.Add(3*time.Hour), []int{1})
+	next.StartBoundary = Hard
+	candidate := session(3, at.Add(90*time.Minute), at.Add(150*time.Minute), []int{1})
+
+	plan, err := Calculate([]Session{next}, Place{Session: candidate})
+	if err != nil {
+		t.Fatalf("Calculate() error = %v", err)
+	}
+	assertNoChange(t, plan, 2)
+	if len(plan.HardCollisions) != 1 ||
+		plan.HardCollisions[0].SessionID != 2 ||
+		plan.HardCollisions[0].Overlap != 30*time.Minute {
+		t.Fatalf("HardCollisions = %#v", plan.HardCollisions)
+	}
+}
+
+func TestPlaceReportsHardCandidateOverlappingPredecessor(t *testing.T) {
+	at := timeline()
+	before := session(1, at, at.Add(2*time.Hour), []int{1})
+	candidate := session(2, at.Add(time.Hour), at.Add(3*time.Hour), []int{1})
+	candidate.StartBoundary = Hard
+
+	plan, err := Calculate([]Session{before}, Place{Session: candidate})
+	if err != nil {
+		t.Fatalf("Calculate() error = %v", err)
+	}
+	if len(plan.HardCollisions) != 1 ||
+		plan.HardCollisions[0].SessionID != 2 ||
+		plan.HardCollisions[0].Overlap != time.Hour {
+		t.Fatalf("HardCollisions = %#v", plan.HardCollisions)
+	}
+}
+
 func TestCalculateRejectsRepeatedLaneMembership(t *testing.T) {
 	at := timeline()
 	_, err := Calculate([]Session{

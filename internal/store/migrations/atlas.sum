@@ -1,4 +1,4 @@
-h1:DuXOa4mF2ONPS178C0RsciiehtaoNHz4DtsmIaFMj/M=
+h1:+0bQXDBiiscaOPsxCJVdL7HnZjxQ4hGWyNFxk+Ic47s=
 0001_initialize.sql h1:xwTCiCDERoBPK7+31D4g3SOs7BivkqIi3/tf+14eOlo=
 0002_bootstrap_auth.sql h1:Z4h1bvDVGzPXbmlEc3NCEn1HvMSf2V6eY56wIlxFLjA=
 0003_add_events.sql h1:6XxTAjVp9ntlWbsdacCMQkdgTAG185npJMhgxOSnAtA=
@@ -19,3 +19,6 @@ h1:DuXOa4mF2ONPS178C0RsciiehtaoNHz4DtsmIaFMj/M=
 0018_add_display_delivery_health.sql h1:Ng7EZu4PVnNav107BtGS/433iVHIJ9KOqzDA7bHlD9I=
 0019_add_event_display_configuration.sql h1:kkfi3UyWE1aaYPRVBD7RNxKX6CYG5oFpvzz0MXvGwoM=
 0020_add_live_session_targets.sql h1:4pAsPtIzgjmzP+0B4PbWSsjkIzkRYMSo8UsAw3sjUGo=
+0021_add_session_cancellation.sql h1:EvT2lD3XMpfGtiVIKi82fjZQRVhf9v3+MCFzZQerLew=
+0022_add_session_reinstatement.sql h1:Ep+4yRhrDWNMTAmaIS63MSZvR4CfBmUQSou43kikZM0=
+0023_preserve_session_cancellation_history.sql h1:0SXr4I4euAkUjxx6qLDmpPbYK35Z4lJeamUgbvR0NxM=

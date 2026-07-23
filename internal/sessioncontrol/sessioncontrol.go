@@ -15,11 +15,14 @@ import (
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/sessiontarget"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/timingripple"
 )
 
 var (
 	// ErrOperatorRequired means the actor lacks baseline live-control authority.
 	ErrOperatorRequired = errors.New("operator authority required")
+	// ErrProducerRequired means the actor lacks Producer authority.
+	ErrProducerRequired = errors.New("producer authority required")
 	// ErrSessionNotFound means the target is not a Published Session in the Event.
 	ErrSessionNotFound = store.ErrSessionNotFound
 	// ErrLiveStateRevisionConflict means the command observed stale Session state.
@@ -36,6 +39,10 @@ var (
 	ErrLiveDetailConfirmation = errors.New("live detail correction requires confirmation")
 	// ErrLiveDetailFields means a correction selected unsupported or invalid detail fields.
 	ErrLiveDetailFields = errors.New("invalid Live Detail Correction fields")
+	// ErrCancelConfirmation means cancellation lacked explicit confirmation.
+	ErrCancelConfirmation = errors.New("Cancel Session requires confirmation")
+	// ErrCancellationText means cancellation text exceeds its supported bound.
+	ErrCancellationText = errors.New("invalid Session cancellation text")
 	// ErrTargetPreviewStale means live timing changed after the Operator's preview.
 	ErrTargetPreviewStale = store.ErrTargetPreviewStale
 	// ErrTargetConfirmation means the Operator did not explicitly confirm the preview.
@@ -46,6 +53,12 @@ var (
 	ErrPullForwardPreviewStale = store.ErrPullForwardPreviewStale
 	// ErrPullForwardConfirmation means Pull Forward lacked explicit confirmation.
 	ErrPullForwardConfirmation = store.ErrPullForwardConfirmation
+	// ErrReinstatePreviewStale means placement changed after preview.
+	ErrReinstatePreviewStale = store.ErrReinstatePreviewStale
+	// ErrReinstateConfirmation means reinstatement lacked explicit confirmation.
+	ErrReinstateConfirmation = store.ErrReinstateConfirmation
+	// ErrReinstatePlacement means the proposed Lane, Location, or time is invalid.
+	ErrReinstatePlacement = store.ErrReinstatePlacement
 	// ErrPresetNotConfigured means a preset is not part of the Event configuration.
 	ErrPresetNotConfigured = sessiontarget.ErrPresetNotConfigured
 	// ErrTargetBeforeNow directs the Operator to End Now instead.
@@ -68,6 +81,17 @@ type EndInput struct {
 	SessionID                 int    `json:"session_id"`
 	CommandID                 string `json:"command_id"`
 	ExpectedLiveStateRevision int    `json:"expected_live_state_revision"`
+}
+
+// CancelInput is one exact confirmed Cancel Session command.
+type CancelInput struct {
+	EventID                   int    `json:"event_id"`
+	SessionID                 int    `json:"session_id"`
+	CommandID                 string `json:"command_id"`
+	ExpectedLiveStateRevision int    `json:"expected_live_state_revision"`
+	Confirmed                 bool   `json:"confirmed"`
+	PublicCancellationMessage string `json:"public_cancellation_message,omitempty"`
+	CrewNotes                 string `json:"crew_notes,omitempty"`
 }
 
 // TargetAdjustment is one preset or custom signed target change.
@@ -162,6 +186,48 @@ type PullForwardResult struct {
 	Changes []ForecastChange
 }
 
+// PreviewReinstateInput requests one read-only Placement Preview.
+type PreviewReinstateInput struct {
+	EventID       int
+	SessionID     int
+	ForecastStart time.Time
+	LaneIDs       []int
+	LocationIDs   []int
+}
+
+// ReinstateInput confirms one exact Placement Preview.
+type ReinstateInput struct {
+	EventID                   int       `json:"event_id"`
+	SessionID                 int       `json:"session_id"`
+	CommandID                 string    `json:"command_id"`
+	ExpectedLiveStateRevision int       `json:"expected_live_state_revision"`
+	ForecastStart             time.Time `json:"forecast_start"`
+	LaneIDs                   []int     `json:"lane_ids"`
+	LocationIDs               []int     `json:"location_ids"`
+	PreviewFingerprint        string    `json:"preview_fingerprint"`
+	Confirmed                 bool      `json:"confirmed"`
+	HardBoundaryConfirmed     bool      `json:"hard_boundary_confirmed"`
+}
+
+// ReinstatePreview is the complete current placement decision.
+type ReinstatePreview struct {
+	Effects                          []TargetEffect
+	Changes                          []ForecastChange
+	CurrentLaneIDs                   []int
+	ProposedLaneIDs                  []int
+	CurrentLocationIDs               []int
+	ProposedLocationIDs              []int
+	RequiresHardBoundaryConfirmation bool
+	Fingerprint                      string
+}
+
+// ReinstateResult is one committed Session placement.
+type ReinstateResult struct {
+	State                 State
+	Changes               []ForecastChange
+	PreviousForecastStart time.Time
+}
+
 // CorrectLiveDetailsInput is one confirmed descriptive correction.
 type CorrectLiveDetailsInput struct {
 	EventID                   int      `json:"event_id"`
@@ -221,7 +287,24 @@ type RunHistory struct {
 	ActualStart time.Time
 	ActualEnd   *time.Time
 	Snapshot    RunSnapshot
+	Outcome     string
 	Amendments  []Amendment
+}
+
+// CancellationHistory exposes immutable cancellation evidence to crew.
+type CancellationHistory struct {
+	ID                        int
+	SessionRunID              *int
+	PublicCancellationMessage string
+	CrewNotes                 string
+	ForecastStart             time.Time
+	CanceledAt                time.Time
+}
+
+// HistoryResult contains complete Run and cancellation history.
+type HistoryResult struct {
+	Runs          []RunHistory
+	Cancellations []CancellationHistory
 }
 
 // State is one committed Session lifecycle state.
@@ -312,6 +395,44 @@ func (service *Service) End(
 			return transaction.EndSession(
 				actor.Context(ctx), input.EventID, input.SessionID, input.ExpectedLiveStateRevision, now,
 			)
+		},
+	)
+}
+
+// Cancel immediately cancels a Scheduled or Live Session.
+func (service *Service) Cancel(
+	ctx context.Context,
+	actor auth.Account,
+	input CancelInput,
+) (State, error) {
+	if err := command.ValidateID(input.CommandID); err != nil {
+		return State{}, err
+	}
+	if !input.Confirmed {
+		return State{}, ErrCancelConfirmation
+	}
+	if utf8.RuneCountInString(input.PublicCancellationMessage) > 10000 ||
+		utf8.RuneCountInString(input.CrewNotes) > 10000 {
+		return State{}, ErrCancellationText
+	}
+	payload, err := json.Marshal(input)
+	if err != nil {
+		return State{}, errors.New("encode Cancel Session command")
+	}
+	return service.execute(
+		ctx, actor,
+		sessionCommand{
+			EventID: input.EventID, SessionID: input.SessionID,
+			CommandID: input.CommandID, Action: "CancelSession", Payload: string(payload),
+		},
+		func(transaction *store.CommandTx, now time.Time) (store.LiveSessionState, error) {
+			return transaction.CancelSession(actor.Context(ctx), store.CancelSessionParams{
+				EventID: input.EventID, SessionID: input.SessionID,
+				ExpectedLiveStateRevision: input.ExpectedLiveStateRevision,
+				PublicMessage:             input.PublicCancellationMessage,
+				CrewNotes:                 input.CrewNotes,
+				Now:                       now,
+			})
 		},
 	)
 }
@@ -486,6 +607,93 @@ func (service *Service) PullForward(
 	})
 }
 
+// PreviewReinstate returns placement, collision, and ripple effects without mutation.
+func (service *Service) PreviewReinstate(
+	ctx context.Context,
+	actor auth.Account,
+	input PreviewReinstateInput,
+) (ReinstatePreview, error) {
+	if !actor.CanProduceEvent(input.EventID) {
+		return ReinstatePreview{}, ErrProducerRequired
+	}
+	found, err := service.storage.PreviewReinstateSession(
+		actor.Context(ctx), input.EventID, input.SessionID,
+		input.ForecastStart, input.LaneIDs, input.LocationIDs,
+	)
+	if err != nil {
+		return ReinstatePreview{}, err
+	}
+	return reinstatePreview(found), nil
+}
+
+// Reinstate revalidates and atomically commits one Placement Preview.
+func (service *Service) Reinstate(
+	ctx context.Context,
+	actor auth.Account,
+	input ReinstateInput,
+) (ReinstateResult, error) {
+	if err := command.ValidateID(input.CommandID); err != nil {
+		return ReinstateResult{}, err
+	}
+	payload, err := json.Marshal(input)
+	if err != nil {
+		return ReinstateResult{}, errors.New("encode Reinstate Session command")
+	}
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID, CommandID: input.CommandID,
+		PayloadHash: command.PayloadHash(string(payload)), Action: "ReinstateSession",
+		TargetType: "Session", TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
+	}
+	return command.Execute(actor.Context(ctx), command.Plan[ReinstateResult]{
+		Storage: service.storage, Identity: identity,
+		Replay: func(outcome string) (ReinstateResult, error) {
+			var stored store.ReinstateSessionResult
+			if decodeErr := store.DecodeCommandReceipt(outcome, &stored); decodeErr != nil {
+				return ReinstateResult{}, restoreTimingRejection(
+					decodeErr, "Reinstate Session unavailable",
+				)
+			}
+			return reinstateResult(stored), nil
+		},
+		Apply: func(transaction *store.CommandTx) (command.Execution[ReinstateResult], error) {
+			if !actor.CanProduceEvent(input.EventID) {
+				return timingCommandRejection(
+					ReinstateResult{}, State{}, store.LiveSessionState{},
+					"producer_required", ErrProducerRequired,
+				)
+			}
+			stored, reinstateErr := transaction.ReinstateSession(
+				actor.Context(ctx),
+				store.ReinstateSessionParams{
+					EventID: input.EventID, SessionID: input.SessionID,
+					ExpectedLiveStateRevision: input.ExpectedLiveStateRevision,
+					ForecastStart:             input.ForecastStart,
+					LaneIDs:                   input.LaneIDs,
+					LocationIDs:               input.LocationIDs,
+					PreviewFingerprint:        input.PreviewFingerprint,
+					Confirmed:                 input.Confirmed,
+					HardBoundaryConfirmed:     input.HardBoundaryConfirmed,
+				},
+			)
+			if reinstateErr != nil {
+				code, rejected := timingRejectionCode(reinstateErr)
+				if !rejected {
+					return command.Execution[ReinstateResult]{}, reinstateErr
+				}
+				current := reinstateResult(stored)
+				return timingCommandRejection(
+					current, current.State, stored.State, code, reinstateErr,
+				)
+			}
+			encoded, encodeErr := json.Marshal(stored)
+			if encodeErr != nil {
+				return command.Execution[ReinstateResult]{}, errors.New("encode Reinstate Session outcome")
+			}
+			return command.Success(reinstateResult(stored), string(encoded)), nil
+		},
+	})
+}
+
 // CorrectLiveDetails applies confirmed descriptive facts without rewriting the Run Snapshot.
 func (service *Service) CorrectLiveDetails(
 	ctx context.Context,
@@ -553,18 +761,19 @@ func (service *Service) History(
 	actor auth.Account,
 	eventID int,
 	sessionID int,
-) ([]RunHistory, error) {
+) (HistoryResult, error) {
 	if _, allowed := actor.EventRoles[eventID]; !allowed {
-		return nil, ErrSessionNotFound
+		return HistoryResult{}, ErrSessionNotFound
 	}
 	stored, err := service.storage.LoadSessionHistory(actor.Context(ctx), eventID, sessionID)
 	if err != nil {
-		return nil, err
+		return HistoryResult{}, err
 	}
-	result := make([]RunHistory, 0, len(stored))
-	for _, run := range stored {
+	result := HistoryResult{Runs: make([]RunHistory, 0, len(stored.Runs))}
+	for _, run := range stored.Runs {
 		found := RunHistory{
 			ID: run.ID, ActualStart: run.ActualStart, ActualEnd: run.ActualEnd,
+			Outcome: run.Outcome,
 			Snapshot: RunSnapshot{
 				PublishedRevision: run.Snapshot.PublishedRevision,
 				Title:             run.Snapshot.Title, Speaker: run.Snapshot.Speaker, Type: run.Snapshot.Type,
@@ -584,7 +793,16 @@ func (service *Service) History(
 				ChangedFields: amendment.ChangedFields, CreatedAt: amendment.CreatedAt,
 			})
 		}
-		result = append(result, found)
+		result.Runs = append(result.Runs, found)
+	}
+	for _, cancellation := range stored.Cancellations {
+		result.Cancellations = append(result.Cancellations, CancellationHistory{
+			ID: cancellation.ID, SessionRunID: cancellation.SessionRunID,
+			PublicCancellationMessage: cancellation.PublicMessage,
+			CrewNotes:                 cancellation.CrewNotes,
+			ForecastStart:             cancellation.ForecastStart,
+			CanceledAt:                cancellation.CanceledAt,
+		})
 	}
 	return result, nil
 }
@@ -626,16 +844,7 @@ func targetPreview(stored store.SessionTargetPreview) TargetPreview {
 		RequiresHardBoundaryConfirmation: stored.Result.RequiresHardBoundaryConfirmation,
 		Fingerprint:                      stored.Result.Fingerprint, ConfiguredPresets: stored.Presets,
 	}
-	for _, effect := range stored.Result.Effects {
-		result.Effects = append(result.Effects, TargetEffect{
-			SessionID:             effect.SessionID,
-			CurrentForecastStart:  effect.CurrentForecastStart,
-			CurrentForecastEnd:    effect.CurrentForecastEnd,
-			ProposedForecastStart: effect.ProposedForecastStart,
-			ProposedForecastEnd:   effect.ProposedForecastEnd,
-			CurrentOverlap:        effect.CurrentOverlap, ProposedOverlap: effect.ProposedOverlap,
-		})
-	}
+	result.Effects = targetEffects(stored.Result.Effects)
 	return result
 }
 
@@ -650,16 +859,7 @@ func targetAdjustmentResult(stored store.SessionTargetAdjustment) TargetAdjustme
 
 func pullForwardPreview(stored store.PullForwardPreview) PullForwardPreview {
 	result := PullForwardPreview{Fingerprint: stored.Result.Fingerprint}
-	for _, effect := range stored.Result.Effects {
-		result.Effects = append(result.Effects, TargetEffect{
-			SessionID:             effect.SessionID,
-			CurrentForecastStart:  effect.CurrentForecastStart,
-			CurrentForecastEnd:    effect.CurrentForecastEnd,
-			ProposedForecastStart: effect.ProposedForecastStart,
-			ProposedForecastEnd:   effect.ProposedForecastEnd,
-			CurrentOverlap:        effect.CurrentOverlap, ProposedOverlap: effect.ProposedOverlap,
-		})
-	}
+	result.Effects = targetEffects(stored.Result.Effects)
 	for _, change := range stored.Result.Changes {
 		result.Changes = append(result.Changes, ForecastChange{
 			SessionID: change.SessionID, ForecastStart: change.ForecastStart,
@@ -673,6 +873,48 @@ func pullForwardResult(stored store.PullForwardAdjustment) PullForwardResult {
 	return PullForwardResult{
 		State: state(stored.State), Changes: forecastChanges(stored.Changes),
 	}
+}
+
+func reinstatePreview(stored store.ReinstatePreview) ReinstatePreview {
+	result := ReinstatePreview{
+		CurrentLaneIDs:                   slices.Clone(stored.CurrentLaneIDs),
+		ProposedLaneIDs:                  slices.Clone(stored.ProposedLaneIDs),
+		CurrentLocationIDs:               slices.Clone(stored.CurrentLocationIDs),
+		ProposedLocationIDs:              slices.Clone(stored.ProposedLocationIDs),
+		RequiresHardBoundaryConfirmation: stored.RequiresHardBoundaryConfirmation,
+		Fingerprint:                      stored.Fingerprint,
+	}
+	result.Effects = targetEffects(stored.Plan.Effects)
+	for _, change := range stored.Plan.Changes {
+		result.Changes = append(result.Changes, ForecastChange{
+			SessionID: change.SessionID, ForecastStart: change.ForecastStart,
+			ForecastEnd: change.ForecastEnd,
+		})
+	}
+	return result
+}
+
+func reinstateResult(stored store.ReinstateSessionResult) ReinstateResult {
+	return ReinstateResult{
+		State: state(stored.State), Changes: forecastChanges(stored.Changes),
+		PreviousForecastStart: stored.PreviousForecastStart,
+	}
+}
+
+func targetEffects(stored []timingripple.Effect) []TargetEffect {
+	result := make([]TargetEffect, 0, len(stored))
+	for _, effect := range stored {
+		result = append(result, TargetEffect{
+			SessionID:             effect.SessionID,
+			CurrentForecastStart:  effect.CurrentForecastStart,
+			CurrentForecastEnd:    effect.CurrentForecastEnd,
+			ProposedForecastStart: effect.ProposedForecastStart,
+			ProposedForecastEnd:   effect.ProposedForecastEnd,
+			CurrentOverlap:        effect.CurrentOverlap,
+			ProposedOverlap:       effect.ProposedOverlap,
+		})
+	}
+	return result
 }
 
 func forecastChanges(stored []store.ForecastChange) []ForecastChange {
@@ -743,6 +985,7 @@ var timingRejections = []struct {
 	code string
 }{
 	{ErrOperatorRequired, "operator_required"},
+	{ErrProducerRequired, "producer_required"},
 	{ErrSessionNotFound, "session_not_found"},
 	{ErrLiveStateRevisionConflict, "live_state_revision_conflict"},
 	{ErrSessionLifecycleTransition, "session_lifecycle_transition"},
@@ -756,6 +999,9 @@ var timingRejections = []struct {
 	{ErrNoCountdownTarget, "no_countdown_target"},
 	{ErrPullForwardPreviewStale, "pull_forward_preview_stale"},
 	{ErrPullForwardConfirmation, "pull_forward_confirmation_required"},
+	{ErrReinstatePreviewStale, "reinstate_preview_stale"},
+	{ErrReinstateConfirmation, "reinstate_confirmation_required"},
+	{ErrReinstatePlacement, "reinstate_placement_invalid"},
 }
 
 func correctionRejection(

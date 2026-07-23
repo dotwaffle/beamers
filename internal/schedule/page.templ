@@ -57,7 +57,17 @@ templ SessionDetails(session Session) {
 	}
 	<p>{ session.PublicDetails }</p>
 	<p>Status: { session.Lifecycle }</p>
+	if session.Lifecycle == "Canceled" {
+		if session.CancellationMessage != "" {
+			<p>{ session.CancellationMessage }</p>
+		} else {
+			<p>Canceled.</p>
+		}
+	}
 	<p>Forecast Time: <time datetime={ session.ForecastStart }>{ session.DisplayForecastStart }</time>–<time datetime={ session.ForecastEnd }>{ session.DisplayForecastEnd }</time> ({ session.TimezoneLabel })</p>
+	if session.PreviousForecastStart != "" {
+		<p>Rescheduled; was <time datetime={ session.PreviousForecastStart }>{ session.DisplayPreviousForecastStart }</time></p>
+	}
 	if session.ActualStart != "" {
 		<p>Actual Start: <time datetime={ session.ActualStart }>{ session.ActualStart }</time></p>
 	}

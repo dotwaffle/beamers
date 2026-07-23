@@ -35,6 +35,11 @@ func (Session) Fields() []ent.Field {
 		field.Int("live_state_revision").Default(0).NonNegative(),
 		field.Time("forecast_start").Optional(),
 		field.Time("forecast_end").Optional(),
+		field.Time("previous_forecast_start").Optional(),
+		field.JSON("forecast_lane_ids", []int{}).Optional(),
+		field.JSON("forecast_location_ids", []int{}).Optional(),
+		field.String("public_cancellation_message").Optional().MaxLen(10000),
+		field.String("cancellation_crew_notes").Optional().MaxLen(10000),
 		field.String("corrected_title").Optional().Nillable().MaxLen(200),
 		field.String("corrected_speaker").Optional().Nillable().MaxLen(200),
 		field.String("corrected_public_details").Optional().Nillable().MaxLen(10000),
@@ -54,5 +59,6 @@ func (Session) Edges() []ent.Edge {
 		edge.To("draft", SessionDraft.Type).Unique(),
 		edge.To("published_versions", SessionPublishedVersion.Type),
 		edge.To("runs", SessionRun.Type),
+		edge.To("cancellations", SessionCancellation.Type),
 	}
 }

@@ -84,6 +84,9 @@ type Rundown func(*sql.Selector)
 // Session is the predicate function for session builders.
 type Session func(*sql.Selector)
 
+// SessionCancellation is the predicate function for sessioncancellation builders.
+type SessionCancellation func(*sql.Selector)
+
 // SessionDraft is the predicate function for sessiondraft builders.
 type SessionDraft func(*sql.Selector)
 

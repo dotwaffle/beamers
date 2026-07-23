@@ -41,6 +41,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/ent/sessioncancellation"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
@@ -107,6 +108,8 @@ type Client struct {
 	Rundown *RundownClient
 	// Session is the client for interacting with the Session builders.
 	Session *SessionClient
+	// SessionCancellation is the client for interacting with the SessionCancellation builders.
+	SessionCancellation *SessionCancellationClient
 	// SessionDraft is the client for interacting with the SessionDraft builders.
 	SessionDraft *SessionDraftClient
 	// SessionPublishedVersion is the client for interacting with the SessionPublishedVersion builders.
@@ -158,6 +161,7 @@ func (c *Client) init() {
 	c.PasswordCredential = NewPasswordCredentialClient(c.config)
 	c.Rundown = NewRundownClient(c.config)
 	c.Session = NewSessionClient(c.config)
+	c.SessionCancellation = NewSessionCancellationClient(c.config)
 	c.SessionDraft = NewSessionDraftClient(c.config)
 	c.SessionPublishedVersion = NewSessionPublishedVersionClient(c.config)
 	c.SessionRun = NewSessionRunClient(c.config)
@@ -283,6 +287,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		PasswordCredential:       NewPasswordCredentialClient(cfg),
 		Rundown:                  NewRundownClient(cfg),
 		Session:                  NewSessionClient(cfg),
+		SessionCancellation:      NewSessionCancellationClient(cfg),
 		SessionDraft:             NewSessionDraftClient(cfg),
 		SessionPublishedVersion:  NewSessionPublishedVersionClient(cfg),
 		SessionRun:               NewSessionRunClient(cfg),
@@ -335,6 +340,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		PasswordCredential:       NewPasswordCredentialClient(cfg),
 		Rundown:                  NewRundownClient(cfg),
 		Session:                  NewSessionClient(cfg),
+		SessionCancellation:      NewSessionCancellationClient(cfg),
 		SessionDraft:             NewSessionDraftClient(cfg),
 		SessionPublishedVersion:  NewSessionPublishedVersionClient(cfg),
 		SessionRun:               NewSessionRunClient(cfg),
@@ -377,8 +383,9 @@ func (c *Client) Use(hooks ...Hook) {
 		c.Event, c.EventGrant, c.ImportReference, c.Installation, c.Lane, c.LaneDraft,
 		c.LanePublishedVersion, c.Location, c.LocationDraft,
 		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Rundown,
-		c.Session, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
-		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion,
+		c.Session, c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion,
+		c.SessionRun, c.SessionRunAmendment, c.Track, c.TrackDraft,
+		c.TrackPublishedVersion,
 	} {
 		n.Use(hooks...)
 	}
@@ -394,8 +401,9 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.Event, c.EventGrant, c.ImportReference, c.Installation, c.Lane, c.LaneDraft,
 		c.LanePublishedVersion, c.Location, c.LocationDraft,
 		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Rundown,
-		c.Session, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
-		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion,
+		c.Session, c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion,
+		c.SessionRun, c.SessionRunAmendment, c.Track, c.TrackDraft,
+		c.TrackPublishedVersion,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -456,6 +464,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Rundown.mutate(ctx, m)
 	case *SessionMutation:
 		return c.Session.mutate(ctx, m)
+	case *SessionCancellationMutation:
+		return c.SessionCancellation.mutate(ctx, m)
 	case *SessionDraftMutation:
 		return c.SessionDraft.mutate(ctx, m)
 	case *SessionPublishedVersionMutation:
@@ -4940,6 +4950,22 @@ func (c *SessionClient) QueryRuns(_m *Session) *SessionRunQuery {
 	return query
 }
 
+// QueryCancellations queries the cancellations edge of a Session.
+func (c *SessionClient) QueryCancellations(_m *Session) *SessionCancellationQuery {
+	query := (&SessionCancellationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(session.Table, session.FieldID, id),
+			sqlgraph.To(sessioncancellation.Table, sessioncancellation.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, session.CancellationsTable, session.CancellationsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *SessionClient) Hooks() []Hook {
 	hooks := c.hooks.Session
@@ -4963,6 +4989,156 @@ func (c *SessionClient) mutate(ctx context.Context, m *SessionMutation) (Value, 
 		return (&SessionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Session mutation op: %q", m.Op())
+	}
+}
+
+// SessionCancellationClient is a client for the SessionCancellation schema.
+type SessionCancellationClient struct {
+	config
+}
+
+// NewSessionCancellationClient returns a client for the SessionCancellation from the given config.
+func NewSessionCancellationClient(c config) *SessionCancellationClient {
+	return &SessionCancellationClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `sessioncancellation.Hooks(f(g(h())))`.
+func (c *SessionCancellationClient) Use(hooks ...Hook) {
+	c.hooks.SessionCancellation = append(c.hooks.SessionCancellation, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `sessioncancellation.Intercept(f(g(h())))`.
+func (c *SessionCancellationClient) Intercept(interceptors ...Interceptor) {
+	c.inters.SessionCancellation = append(c.inters.SessionCancellation, interceptors...)
+}
+
+// Create returns a builder for creating a SessionCancellation entity.
+func (c *SessionCancellationClient) Create() *SessionCancellationCreate {
+	mutation := newSessionCancellationMutation(c.config, OpCreate)
+	return &SessionCancellationCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of SessionCancellation entities.
+func (c *SessionCancellationClient) CreateBulk(builders ...*SessionCancellationCreate) *SessionCancellationCreateBulk {
+	return &SessionCancellationCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *SessionCancellationClient) MapCreateBulk(slice any, setFunc func(*SessionCancellationCreate, int)) *SessionCancellationCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &SessionCancellationCreateBulk{err: fmt.Errorf("calling to SessionCancellationClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*SessionCancellationCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &SessionCancellationCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for SessionCancellation.
+func (c *SessionCancellationClient) Update() *SessionCancellationUpdate {
+	mutation := newSessionCancellationMutation(c.config, OpUpdate)
+	return &SessionCancellationUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *SessionCancellationClient) UpdateOne(_m *SessionCancellation) *SessionCancellationUpdateOne {
+	mutation := newSessionCancellationMutation(c.config, OpUpdateOne, withSessionCancellation(_m))
+	return &SessionCancellationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *SessionCancellationClient) UpdateOneID(id int) *SessionCancellationUpdateOne {
+	mutation := newSessionCancellationMutation(c.config, OpUpdateOne, withSessionCancellationID(id))
+	return &SessionCancellationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for SessionCancellation.
+func (c *SessionCancellationClient) Delete() *SessionCancellationDelete {
+	mutation := newSessionCancellationMutation(c.config, OpDelete)
+	return &SessionCancellationDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *SessionCancellationClient) DeleteOne(_m *SessionCancellation) *SessionCancellationDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *SessionCancellationClient) DeleteOneID(id int) *SessionCancellationDeleteOne {
+	builder := c.Delete().Where(sessioncancellation.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &SessionCancellationDeleteOne{builder}
+}
+
+// Query returns a query builder for SessionCancellation.
+func (c *SessionCancellationClient) Query() *SessionCancellationQuery {
+	return &SessionCancellationQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeSessionCancellation},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a SessionCancellation entity by its id.
+func (c *SessionCancellationClient) Get(ctx context.Context, id int) (*SessionCancellation, error) {
+	return c.Query().Where(sessioncancellation.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *SessionCancellationClient) GetX(ctx context.Context, id int) *SessionCancellation {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QuerySession queries the session edge of a SessionCancellation.
+func (c *SessionCancellationClient) QuerySession(_m *SessionCancellation) *SessionQuery {
+	query := (&SessionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(sessioncancellation.Table, sessioncancellation.FieldID, id),
+			sqlgraph.To(session.Table, session.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, sessioncancellation.SessionTable, sessioncancellation.SessionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *SessionCancellationClient) Hooks() []Hook {
+	hooks := c.hooks.SessionCancellation
+	return append(hooks[:len(hooks):len(hooks)], sessioncancellation.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *SessionCancellationClient) Interceptors() []Interceptor {
+	return c.inters.SessionCancellation
+}
+
+func (c *SessionCancellationClient) mutate(ctx context.Context, m *SessionCancellationMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&SessionCancellationCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&SessionCancellationUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&SessionCancellationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&SessionCancellationDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown SessionCancellation mutation op: %q", m.Op())
 	}
 }
 
@@ -6200,8 +6376,8 @@ type (
 		DraftChangeDependency, DraftEdit, Event, EventGrant, ImportReference,
 		Installation, Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
 		LocationPublishedVersion, Migration, PasswordCredential, Rundown, Session,
-		SessionDraft, SessionPublishedVersion, SessionRun, SessionRunAmendment, Track,
-		TrackDraft, TrackPublishedVersion []ent.Hook
+		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
+		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion []ent.Hook
 	}
 	inters struct {
 		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt,
@@ -6209,7 +6385,7 @@ type (
 		DraftChangeDependency, DraftEdit, Event, EventGrant, ImportReference,
 		Installation, Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
 		LocationPublishedVersion, Migration, PasswordCredential, Rundown, Session,
-		SessionDraft, SessionPublishedVersion, SessionRun, SessionRunAmendment, Track,
-		TrackDraft, TrackPublishedVersion []ent.Interceptor
+		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
+		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion []ent.Interceptor
 	}
 )

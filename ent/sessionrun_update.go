@@ -49,6 +49,26 @@ func (_u *SessionRunUpdate) ClearActualEnd() *SessionRunUpdate {
 	return _u
 }
 
+// SetOutcome sets the "outcome" field.
+func (_u *SessionRunUpdate) SetOutcome(v sessionrun.Outcome) *SessionRunUpdate {
+	_u.mutation.SetOutcome(v)
+	return _u
+}
+
+// SetNillableOutcome sets the "outcome" field if the given value is not nil.
+func (_u *SessionRunUpdate) SetNillableOutcome(v *sessionrun.Outcome) *SessionRunUpdate {
+	if v != nil {
+		_u.SetOutcome(*v)
+	}
+	return _u
+}
+
+// ClearOutcome clears the value of the "outcome" field.
+func (_u *SessionRunUpdate) ClearOutcome() *SessionRunUpdate {
+	_u.mutation.ClearOutcome()
+	return _u
+}
+
 // SetTargetAdjustmentSeconds sets the "target_adjustment_seconds" field.
 func (_u *SessionRunUpdate) SetTargetAdjustmentSeconds(v int) *SessionRunUpdate {
 	_u.mutation.ResetTargetAdjustmentSeconds()
@@ -160,6 +180,11 @@ func (_u *SessionRunUpdate) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *SessionRunUpdate) check() error {
+	if v, ok := _u.mutation.Outcome(); ok {
+		if err := sessionrun.OutcomeValidator(v); err != nil {
+			return &ValidationError{Name: "outcome", err: fmt.Errorf(`ent: validator failed for field "SessionRun.outcome": %w`, err)}
+		}
+	}
 	if _u.mutation.SessionCleared() && len(_u.mutation.SessionIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "SessionRun.session"`)
 	}
@@ -183,6 +208,12 @@ func (_u *SessionRunUpdate) sqlSave(ctx context.Context) (_node int, err error) 
 	}
 	if _u.mutation.ActualEndCleared() {
 		_spec.ClearField(sessionrun.FieldActualEnd, field.TypeTime)
+	}
+	if value, ok := _u.mutation.Outcome(); ok {
+		_spec.SetField(sessionrun.FieldOutcome, field.TypeEnum, value)
+	}
+	if _u.mutation.OutcomeCleared() {
+		_spec.ClearField(sessionrun.FieldOutcome, field.TypeEnum)
 	}
 	if value, ok := _u.mutation.TargetAdjustmentSeconds(); ok {
 		_spec.SetField(sessionrun.FieldTargetAdjustmentSeconds, field.TypeInt, value)
@@ -278,6 +309,26 @@ func (_u *SessionRunUpdateOne) SetNillableActualEnd(v *time.Time) *SessionRunUpd
 // ClearActualEnd clears the value of the "actual_end" field.
 func (_u *SessionRunUpdateOne) ClearActualEnd() *SessionRunUpdateOne {
 	_u.mutation.ClearActualEnd()
+	return _u
+}
+
+// SetOutcome sets the "outcome" field.
+func (_u *SessionRunUpdateOne) SetOutcome(v sessionrun.Outcome) *SessionRunUpdateOne {
+	_u.mutation.SetOutcome(v)
+	return _u
+}
+
+// SetNillableOutcome sets the "outcome" field if the given value is not nil.
+func (_u *SessionRunUpdateOne) SetNillableOutcome(v *sessionrun.Outcome) *SessionRunUpdateOne {
+	if v != nil {
+		_u.SetOutcome(*v)
+	}
+	return _u
+}
+
+// ClearOutcome clears the value of the "outcome" field.
+func (_u *SessionRunUpdateOne) ClearOutcome() *SessionRunUpdateOne {
+	_u.mutation.ClearOutcome()
 	return _u
 }
 
@@ -405,6 +456,11 @@ func (_u *SessionRunUpdateOne) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *SessionRunUpdateOne) check() error {
+	if v, ok := _u.mutation.Outcome(); ok {
+		if err := sessionrun.OutcomeValidator(v); err != nil {
+			return &ValidationError{Name: "outcome", err: fmt.Errorf(`ent: validator failed for field "SessionRun.outcome": %w`, err)}
+		}
+	}
 	if _u.mutation.SessionCleared() && len(_u.mutation.SessionIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "SessionRun.session"`)
 	}
@@ -445,6 +501,12 @@ func (_u *SessionRunUpdateOne) sqlSave(ctx context.Context) (_node *SessionRun, 
 	}
 	if _u.mutation.ActualEndCleared() {
 		_spec.ClearField(sessionrun.FieldActualEnd, field.TypeTime)
+	}
+	if value, ok := _u.mutation.Outcome(); ok {
+		_spec.SetField(sessionrun.FieldOutcome, field.TypeEnum, value)
+	}
+	if _u.mutation.OutcomeCleared() {
+		_spec.ClearField(sessionrun.FieldOutcome, field.TypeEnum)
 	}
 	if value, ok := _u.mutation.TargetAdjustmentSeconds(); ok {
 		_spec.SetField(sessionrun.FieldTargetAdjustmentSeconds, field.TypeInt, value)

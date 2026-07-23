@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -29,6 +30,16 @@ type Session struct {
 	ForecastStart time.Time `json:"forecast_start,omitempty"`
 	// ForecastEnd holds the value of the "forecast_end" field.
 	ForecastEnd time.Time `json:"forecast_end,omitempty"`
+	// PreviousForecastStart holds the value of the "previous_forecast_start" field.
+	PreviousForecastStart time.Time `json:"previous_forecast_start,omitempty"`
+	// ForecastLaneIds holds the value of the "forecast_lane_ids" field.
+	ForecastLaneIds []int `json:"forecast_lane_ids,omitempty"`
+	// ForecastLocationIds holds the value of the "forecast_location_ids" field.
+	ForecastLocationIds []int `json:"forecast_location_ids,omitempty"`
+	// PublicCancellationMessage holds the value of the "public_cancellation_message" field.
+	PublicCancellationMessage string `json:"public_cancellation_message,omitempty"`
+	// CancellationCrewNotes holds the value of the "cancellation_crew_notes" field.
+	CancellationCrewNotes string `json:"cancellation_crew_notes,omitempty"`
 	// CorrectedTitle holds the value of the "corrected_title" field.
 	CorrectedTitle *string `json:"corrected_title,omitempty"`
 	// CorrectedSpeaker holds the value of the "corrected_speaker" field.
@@ -53,9 +64,11 @@ type SessionEdges struct {
 	PublishedVersions []*SessionPublishedVersion `json:"published_versions,omitempty"`
 	// Runs holds the value of the runs edge.
 	Runs []*SessionRun `json:"runs,omitempty"`
+	// Cancellations holds the value of the cancellations edge.
+	Cancellations []*SessionCancellation `json:"cancellations,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [5]bool
 }
 
 // EventOrErr returns the Event value or an error if the edge
@@ -98,16 +111,27 @@ func (e SessionEdges) RunsOrErr() ([]*SessionRun, error) {
 	return nil, &NotLoadedError{edge: "runs"}
 }
 
+// CancellationsOrErr returns the Cancellations value or an error if the edge
+// was not loaded in eager-loading.
+func (e SessionEdges) CancellationsOrErr() ([]*SessionCancellation, error) {
+	if e.loadedTypes[4] {
+		return e.Cancellations, nil
+	}
+	return nil, &NotLoadedError{edge: "cancellations"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Session) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case session.FieldForecastLaneIds, session.FieldForecastLocationIds:
+			values[i] = new([]byte)
 		case session.FieldID, session.FieldEventID, session.FieldLiveStateRevision:
 			values[i] = new(sql.NullInt64)
-		case session.FieldLifecycle, session.FieldCorrectedTitle, session.FieldCorrectedSpeaker, session.FieldCorrectedPublicDetails:
+		case session.FieldLifecycle, session.FieldPublicCancellationMessage, session.FieldCancellationCrewNotes, session.FieldCorrectedTitle, session.FieldCorrectedSpeaker, session.FieldCorrectedPublicDetails:
 			values[i] = new(sql.NullString)
-		case session.FieldForecastStart, session.FieldForecastEnd, session.FieldCreatedAt:
+		case session.FieldForecastStart, session.FieldForecastEnd, session.FieldPreviousForecastStart, session.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -159,6 +183,40 @@ func (_m *Session) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field forecast_end", values[i])
 			} else if value.Valid {
 				_m.ForecastEnd = value.Time
+			}
+		case session.FieldPreviousForecastStart:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field previous_forecast_start", values[i])
+			} else if value.Valid {
+				_m.PreviousForecastStart = value.Time
+			}
+		case session.FieldForecastLaneIds:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field forecast_lane_ids", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.ForecastLaneIds); err != nil {
+					return fmt.Errorf("unmarshal field forecast_lane_ids: %w", err)
+				}
+			}
+		case session.FieldForecastLocationIds:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field forecast_location_ids", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.ForecastLocationIds); err != nil {
+					return fmt.Errorf("unmarshal field forecast_location_ids: %w", err)
+				}
+			}
+		case session.FieldPublicCancellationMessage:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field public_cancellation_message", values[i])
+			} else if value.Valid {
+				_m.PublicCancellationMessage = value.String
+			}
+		case session.FieldCancellationCrewNotes:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field cancellation_crew_notes", values[i])
+			} else if value.Valid {
+				_m.CancellationCrewNotes = value.String
 			}
 		case session.FieldCorrectedTitle:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -220,6 +278,11 @@ func (_m *Session) QueryRuns() *SessionRunQuery {
 	return NewSessionClient(_m.config).QueryRuns(_m)
 }
 
+// QueryCancellations queries the "cancellations" edge of the Session entity.
+func (_m *Session) QueryCancellations() *SessionCancellationQuery {
+	return NewSessionClient(_m.config).QueryCancellations(_m)
+}
+
 // Update returns a builder for updating this Session.
 // Note that you need to call Session.Unwrap() before calling this method if this Session
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -257,6 +320,21 @@ func (_m *Session) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("forecast_end=")
 	builder.WriteString(_m.ForecastEnd.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("previous_forecast_start=")
+	builder.WriteString(_m.PreviousForecastStart.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("forecast_lane_ids=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ForecastLaneIds))
+	builder.WriteString(", ")
+	builder.WriteString("forecast_location_ids=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ForecastLocationIds))
+	builder.WriteString(", ")
+	builder.WriteString("public_cancellation_message=")
+	builder.WriteString(_m.PublicCancellationMessage)
+	builder.WriteString(", ")
+	builder.WriteString("cancellation_crew_notes=")
+	builder.WriteString(_m.CancellationCrewNotes)
 	builder.WriteString(", ")
 	if v := _m.CorrectedTitle; v != nil {
 		builder.WriteString("corrected_title=")

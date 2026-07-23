@@ -38,6 +38,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/ent/sessioncancellation"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
@@ -82,6 +83,7 @@ const (
 	TypePasswordCredential       = "PasswordCredential"
 	TypeRundown                  = "Rundown"
 	TypeSession                  = "Session"
+	TypeSessionCancellation      = "SessionCancellation"
 	TypeSessionDraft             = "SessionDraft"
 	TypeSessionPublishedVersion  = "SessionPublishedVersion"
 	TypeSessionRun               = "SessionRun"
@@ -19410,32 +19412,42 @@ func (m *RundownMutation) ResetEdge(name string) error {
 // SessionMutation represents an operation that mutates the Session nodes in the graph.
 type SessionMutation struct {
 	config
-	op                        Op
-	typ                       string
-	id                        *int
-	lifecycle                 *session.Lifecycle
-	live_state_revision       *int
-	addlive_state_revision    *int
-	forecast_start            *time.Time
-	forecast_end              *time.Time
-	corrected_title           *string
-	corrected_speaker         *string
-	corrected_public_details  *string
-	created_at                *time.Time
-	clearedFields             map[string]struct{}
-	event                     *int
-	clearedevent              bool
-	draft                     *int
-	cleareddraft              bool
-	published_versions        map[int]struct{}
-	removedpublished_versions map[int]struct{}
-	clearedpublished_versions bool
-	runs                      map[int]struct{}
-	removedruns               map[int]struct{}
-	clearedruns               bool
-	done                      bool
-	oldValue                  func(context.Context) (*Session, error)
-	predicates                []predicate.Session
+	op                          Op
+	typ                         string
+	id                          *int
+	lifecycle                   *session.Lifecycle
+	live_state_revision         *int
+	addlive_state_revision      *int
+	forecast_start              *time.Time
+	forecast_end                *time.Time
+	previous_forecast_start     *time.Time
+	forecast_lane_ids           *[]int
+	appendforecast_lane_ids     []int
+	forecast_location_ids       *[]int
+	appendforecast_location_ids []int
+	public_cancellation_message *string
+	cancellation_crew_notes     *string
+	corrected_title             *string
+	corrected_speaker           *string
+	corrected_public_details    *string
+	created_at                  *time.Time
+	clearedFields               map[string]struct{}
+	event                       *int
+	clearedevent                bool
+	draft                       *int
+	cleareddraft                bool
+	published_versions          map[int]struct{}
+	removedpublished_versions   map[int]struct{}
+	clearedpublished_versions   bool
+	runs                        map[int]struct{}
+	removedruns                 map[int]struct{}
+	clearedruns                 bool
+	cancellations               map[int]struct{}
+	removedcancellations        map[int]struct{}
+	clearedcancellations        bool
+	done                        bool
+	oldValue                    func(context.Context) (*Session, error)
+	predicates                  []predicate.Session
 }
 
 var _ ent.Mutation = (*SessionMutation)(nil)
@@ -19760,6 +19772,283 @@ func (m *SessionMutation) ForecastEndCleared() bool {
 func (m *SessionMutation) ResetForecastEnd() {
 	m.forecast_end = nil
 	delete(m.clearedFields, session.FieldForecastEnd)
+}
+
+// SetPreviousForecastStart sets the "previous_forecast_start" field.
+func (m *SessionMutation) SetPreviousForecastStart(t time.Time) {
+	m.previous_forecast_start = &t
+}
+
+// PreviousForecastStart returns the value of the "previous_forecast_start" field in the mutation.
+func (m *SessionMutation) PreviousForecastStart() (r time.Time, exists bool) {
+	v := m.previous_forecast_start
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPreviousForecastStart returns the old "previous_forecast_start" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldPreviousForecastStart(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPreviousForecastStart is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPreviousForecastStart requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPreviousForecastStart: %w", err)
+	}
+	return oldValue.PreviousForecastStart, nil
+}
+
+// ClearPreviousForecastStart clears the value of the "previous_forecast_start" field.
+func (m *SessionMutation) ClearPreviousForecastStart() {
+	m.previous_forecast_start = nil
+	m.clearedFields[session.FieldPreviousForecastStart] = struct{}{}
+}
+
+// PreviousForecastStartCleared returns if the "previous_forecast_start" field was cleared in this mutation.
+func (m *SessionMutation) PreviousForecastStartCleared() bool {
+	_, ok := m.clearedFields[session.FieldPreviousForecastStart]
+	return ok
+}
+
+// ResetPreviousForecastStart resets all changes to the "previous_forecast_start" field.
+func (m *SessionMutation) ResetPreviousForecastStart() {
+	m.previous_forecast_start = nil
+	delete(m.clearedFields, session.FieldPreviousForecastStart)
+}
+
+// SetForecastLaneIds sets the "forecast_lane_ids" field.
+func (m *SessionMutation) SetForecastLaneIds(i []int) {
+	m.forecast_lane_ids = &i
+	m.appendforecast_lane_ids = nil
+}
+
+// ForecastLaneIds returns the value of the "forecast_lane_ids" field in the mutation.
+func (m *SessionMutation) ForecastLaneIds() (r []int, exists bool) {
+	v := m.forecast_lane_ids
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldForecastLaneIds returns the old "forecast_lane_ids" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldForecastLaneIds(ctx context.Context) (v []int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldForecastLaneIds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldForecastLaneIds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldForecastLaneIds: %w", err)
+	}
+	return oldValue.ForecastLaneIds, nil
+}
+
+// AppendForecastLaneIds adds i to the "forecast_lane_ids" field.
+func (m *SessionMutation) AppendForecastLaneIds(i []int) {
+	m.appendforecast_lane_ids = append(m.appendforecast_lane_ids, i...)
+}
+
+// AppendedForecastLaneIds returns the list of values that were appended to the "forecast_lane_ids" field in this mutation.
+func (m *SessionMutation) AppendedForecastLaneIds() ([]int, bool) {
+	if len(m.appendforecast_lane_ids) == 0 {
+		return nil, false
+	}
+	return m.appendforecast_lane_ids, true
+}
+
+// ClearForecastLaneIds clears the value of the "forecast_lane_ids" field.
+func (m *SessionMutation) ClearForecastLaneIds() {
+	m.forecast_lane_ids = nil
+	m.appendforecast_lane_ids = nil
+	m.clearedFields[session.FieldForecastLaneIds] = struct{}{}
+}
+
+// ForecastLaneIdsCleared returns if the "forecast_lane_ids" field was cleared in this mutation.
+func (m *SessionMutation) ForecastLaneIdsCleared() bool {
+	_, ok := m.clearedFields[session.FieldForecastLaneIds]
+	return ok
+}
+
+// ResetForecastLaneIds resets all changes to the "forecast_lane_ids" field.
+func (m *SessionMutation) ResetForecastLaneIds() {
+	m.forecast_lane_ids = nil
+	m.appendforecast_lane_ids = nil
+	delete(m.clearedFields, session.FieldForecastLaneIds)
+}
+
+// SetForecastLocationIds sets the "forecast_location_ids" field.
+func (m *SessionMutation) SetForecastLocationIds(i []int) {
+	m.forecast_location_ids = &i
+	m.appendforecast_location_ids = nil
+}
+
+// ForecastLocationIds returns the value of the "forecast_location_ids" field in the mutation.
+func (m *SessionMutation) ForecastLocationIds() (r []int, exists bool) {
+	v := m.forecast_location_ids
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldForecastLocationIds returns the old "forecast_location_ids" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldForecastLocationIds(ctx context.Context) (v []int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldForecastLocationIds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldForecastLocationIds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldForecastLocationIds: %w", err)
+	}
+	return oldValue.ForecastLocationIds, nil
+}
+
+// AppendForecastLocationIds adds i to the "forecast_location_ids" field.
+func (m *SessionMutation) AppendForecastLocationIds(i []int) {
+	m.appendforecast_location_ids = append(m.appendforecast_location_ids, i...)
+}
+
+// AppendedForecastLocationIds returns the list of values that were appended to the "forecast_location_ids" field in this mutation.
+func (m *SessionMutation) AppendedForecastLocationIds() ([]int, bool) {
+	if len(m.appendforecast_location_ids) == 0 {
+		return nil, false
+	}
+	return m.appendforecast_location_ids, true
+}
+
+// ClearForecastLocationIds clears the value of the "forecast_location_ids" field.
+func (m *SessionMutation) ClearForecastLocationIds() {
+	m.forecast_location_ids = nil
+	m.appendforecast_location_ids = nil
+	m.clearedFields[session.FieldForecastLocationIds] = struct{}{}
+}
+
+// ForecastLocationIdsCleared returns if the "forecast_location_ids" field was cleared in this mutation.
+func (m *SessionMutation) ForecastLocationIdsCleared() bool {
+	_, ok := m.clearedFields[session.FieldForecastLocationIds]
+	return ok
+}
+
+// ResetForecastLocationIds resets all changes to the "forecast_location_ids" field.
+func (m *SessionMutation) ResetForecastLocationIds() {
+	m.forecast_location_ids = nil
+	m.appendforecast_location_ids = nil
+	delete(m.clearedFields, session.FieldForecastLocationIds)
+}
+
+// SetPublicCancellationMessage sets the "public_cancellation_message" field.
+func (m *SessionMutation) SetPublicCancellationMessage(s string) {
+	m.public_cancellation_message = &s
+}
+
+// PublicCancellationMessage returns the value of the "public_cancellation_message" field in the mutation.
+func (m *SessionMutation) PublicCancellationMessage() (r string, exists bool) {
+	v := m.public_cancellation_message
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublicCancellationMessage returns the old "public_cancellation_message" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldPublicCancellationMessage(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublicCancellationMessage is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublicCancellationMessage requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublicCancellationMessage: %w", err)
+	}
+	return oldValue.PublicCancellationMessage, nil
+}
+
+// ClearPublicCancellationMessage clears the value of the "public_cancellation_message" field.
+func (m *SessionMutation) ClearPublicCancellationMessage() {
+	m.public_cancellation_message = nil
+	m.clearedFields[session.FieldPublicCancellationMessage] = struct{}{}
+}
+
+// PublicCancellationMessageCleared returns if the "public_cancellation_message" field was cleared in this mutation.
+func (m *SessionMutation) PublicCancellationMessageCleared() bool {
+	_, ok := m.clearedFields[session.FieldPublicCancellationMessage]
+	return ok
+}
+
+// ResetPublicCancellationMessage resets all changes to the "public_cancellation_message" field.
+func (m *SessionMutation) ResetPublicCancellationMessage() {
+	m.public_cancellation_message = nil
+	delete(m.clearedFields, session.FieldPublicCancellationMessage)
+}
+
+// SetCancellationCrewNotes sets the "cancellation_crew_notes" field.
+func (m *SessionMutation) SetCancellationCrewNotes(s string) {
+	m.cancellation_crew_notes = &s
+}
+
+// CancellationCrewNotes returns the value of the "cancellation_crew_notes" field in the mutation.
+func (m *SessionMutation) CancellationCrewNotes() (r string, exists bool) {
+	v := m.cancellation_crew_notes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCancellationCrewNotes returns the old "cancellation_crew_notes" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldCancellationCrewNotes(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCancellationCrewNotes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCancellationCrewNotes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCancellationCrewNotes: %w", err)
+	}
+	return oldValue.CancellationCrewNotes, nil
+}
+
+// ClearCancellationCrewNotes clears the value of the "cancellation_crew_notes" field.
+func (m *SessionMutation) ClearCancellationCrewNotes() {
+	m.cancellation_crew_notes = nil
+	m.clearedFields[session.FieldCancellationCrewNotes] = struct{}{}
+}
+
+// CancellationCrewNotesCleared returns if the "cancellation_crew_notes" field was cleared in this mutation.
+func (m *SessionMutation) CancellationCrewNotesCleared() bool {
+	_, ok := m.clearedFields[session.FieldCancellationCrewNotes]
+	return ok
+}
+
+// ResetCancellationCrewNotes resets all changes to the "cancellation_crew_notes" field.
+func (m *SessionMutation) ResetCancellationCrewNotes() {
+	m.cancellation_crew_notes = nil
+	delete(m.clearedFields, session.FieldCancellationCrewNotes)
 }
 
 // SetCorrectedTitle sets the "corrected_title" field.
@@ -20119,6 +20408,60 @@ func (m *SessionMutation) ResetRuns() {
 	m.removedruns = nil
 }
 
+// AddCancellationIDs adds the "cancellations" edge to the SessionCancellation entity by ids.
+func (m *SessionMutation) AddCancellationIDs(ids ...int) {
+	if m.cancellations == nil {
+		m.cancellations = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.cancellations[ids[i]] = struct{}{}
+	}
+}
+
+// ClearCancellations clears the "cancellations" edge to the SessionCancellation entity.
+func (m *SessionMutation) ClearCancellations() {
+	m.clearedcancellations = true
+}
+
+// CancellationsCleared reports if the "cancellations" edge to the SessionCancellation entity was cleared.
+func (m *SessionMutation) CancellationsCleared() bool {
+	return m.clearedcancellations
+}
+
+// RemoveCancellationIDs removes the "cancellations" edge to the SessionCancellation entity by IDs.
+func (m *SessionMutation) RemoveCancellationIDs(ids ...int) {
+	if m.removedcancellations == nil {
+		m.removedcancellations = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.cancellations, ids[i])
+		m.removedcancellations[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedCancellations returns the removed IDs of the "cancellations" edge to the SessionCancellation entity.
+func (m *SessionMutation) RemovedCancellationsIDs() (ids []int) {
+	for id := range m.removedcancellations {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// CancellationsIDs returns the "cancellations" edge IDs in the mutation.
+func (m *SessionMutation) CancellationsIDs() (ids []int) {
+	for id := range m.cancellations {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetCancellations resets all changes to the "cancellations" edge.
+func (m *SessionMutation) ResetCancellations() {
+	m.cancellations = nil
+	m.clearedcancellations = false
+	m.removedcancellations = nil
+}
+
 // Where appends a list predicates to the SessionMutation builder.
 func (m *SessionMutation) Where(ps ...predicate.Session) {
 	m.predicates = append(m.predicates, ps...)
@@ -20153,7 +20496,7 @@ func (m *SessionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SessionMutation) Fields() []string {
-	fields := make([]string, 0, 9)
+	fields := make([]string, 0, 14)
 	if m.event != nil {
 		fields = append(fields, session.FieldEventID)
 	}
@@ -20168,6 +20511,21 @@ func (m *SessionMutation) Fields() []string {
 	}
 	if m.forecast_end != nil {
 		fields = append(fields, session.FieldForecastEnd)
+	}
+	if m.previous_forecast_start != nil {
+		fields = append(fields, session.FieldPreviousForecastStart)
+	}
+	if m.forecast_lane_ids != nil {
+		fields = append(fields, session.FieldForecastLaneIds)
+	}
+	if m.forecast_location_ids != nil {
+		fields = append(fields, session.FieldForecastLocationIds)
+	}
+	if m.public_cancellation_message != nil {
+		fields = append(fields, session.FieldPublicCancellationMessage)
+	}
+	if m.cancellation_crew_notes != nil {
+		fields = append(fields, session.FieldCancellationCrewNotes)
 	}
 	if m.corrected_title != nil {
 		fields = append(fields, session.FieldCorrectedTitle)
@@ -20199,6 +20557,16 @@ func (m *SessionMutation) Field(name string) (ent.Value, bool) {
 		return m.ForecastStart()
 	case session.FieldForecastEnd:
 		return m.ForecastEnd()
+	case session.FieldPreviousForecastStart:
+		return m.PreviousForecastStart()
+	case session.FieldForecastLaneIds:
+		return m.ForecastLaneIds()
+	case session.FieldForecastLocationIds:
+		return m.ForecastLocationIds()
+	case session.FieldPublicCancellationMessage:
+		return m.PublicCancellationMessage()
+	case session.FieldCancellationCrewNotes:
+		return m.CancellationCrewNotes()
 	case session.FieldCorrectedTitle:
 		return m.CorrectedTitle()
 	case session.FieldCorrectedSpeaker:
@@ -20226,6 +20594,16 @@ func (m *SessionMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldForecastStart(ctx)
 	case session.FieldForecastEnd:
 		return m.OldForecastEnd(ctx)
+	case session.FieldPreviousForecastStart:
+		return m.OldPreviousForecastStart(ctx)
+	case session.FieldForecastLaneIds:
+		return m.OldForecastLaneIds(ctx)
+	case session.FieldForecastLocationIds:
+		return m.OldForecastLocationIds(ctx)
+	case session.FieldPublicCancellationMessage:
+		return m.OldPublicCancellationMessage(ctx)
+	case session.FieldCancellationCrewNotes:
+		return m.OldCancellationCrewNotes(ctx)
 	case session.FieldCorrectedTitle:
 		return m.OldCorrectedTitle(ctx)
 	case session.FieldCorrectedSpeaker:
@@ -20277,6 +20655,41 @@ func (m *SessionMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetForecastEnd(v)
+		return nil
+	case session.FieldPreviousForecastStart:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPreviousForecastStart(v)
+		return nil
+	case session.FieldForecastLaneIds:
+		v, ok := value.([]int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetForecastLaneIds(v)
+		return nil
+	case session.FieldForecastLocationIds:
+		v, ok := value.([]int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetForecastLocationIds(v)
+		return nil
+	case session.FieldPublicCancellationMessage:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublicCancellationMessage(v)
+		return nil
+	case session.FieldCancellationCrewNotes:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCancellationCrewNotes(v)
 		return nil
 	case session.FieldCorrectedTitle:
 		v, ok := value.(string)
@@ -20357,6 +20770,21 @@ func (m *SessionMutation) ClearedFields() []string {
 	if m.FieldCleared(session.FieldForecastEnd) {
 		fields = append(fields, session.FieldForecastEnd)
 	}
+	if m.FieldCleared(session.FieldPreviousForecastStart) {
+		fields = append(fields, session.FieldPreviousForecastStart)
+	}
+	if m.FieldCleared(session.FieldForecastLaneIds) {
+		fields = append(fields, session.FieldForecastLaneIds)
+	}
+	if m.FieldCleared(session.FieldForecastLocationIds) {
+		fields = append(fields, session.FieldForecastLocationIds)
+	}
+	if m.FieldCleared(session.FieldPublicCancellationMessage) {
+		fields = append(fields, session.FieldPublicCancellationMessage)
+	}
+	if m.FieldCleared(session.FieldCancellationCrewNotes) {
+		fields = append(fields, session.FieldCancellationCrewNotes)
+	}
 	if m.FieldCleared(session.FieldCorrectedTitle) {
 		fields = append(fields, session.FieldCorrectedTitle)
 	}
@@ -20385,6 +20813,21 @@ func (m *SessionMutation) ClearField(name string) error {
 		return nil
 	case session.FieldForecastEnd:
 		m.ClearForecastEnd()
+		return nil
+	case session.FieldPreviousForecastStart:
+		m.ClearPreviousForecastStart()
+		return nil
+	case session.FieldForecastLaneIds:
+		m.ClearForecastLaneIds()
+		return nil
+	case session.FieldForecastLocationIds:
+		m.ClearForecastLocationIds()
+		return nil
+	case session.FieldPublicCancellationMessage:
+		m.ClearPublicCancellationMessage()
+		return nil
+	case session.FieldCancellationCrewNotes:
+		m.ClearCancellationCrewNotes()
 		return nil
 	case session.FieldCorrectedTitle:
 		m.ClearCorrectedTitle()
@@ -20418,6 +20861,21 @@ func (m *SessionMutation) ResetField(name string) error {
 	case session.FieldForecastEnd:
 		m.ResetForecastEnd()
 		return nil
+	case session.FieldPreviousForecastStart:
+		m.ResetPreviousForecastStart()
+		return nil
+	case session.FieldForecastLaneIds:
+		m.ResetForecastLaneIds()
+		return nil
+	case session.FieldForecastLocationIds:
+		m.ResetForecastLocationIds()
+		return nil
+	case session.FieldPublicCancellationMessage:
+		m.ResetPublicCancellationMessage()
+		return nil
+	case session.FieldCancellationCrewNotes:
+		m.ResetCancellationCrewNotes()
+		return nil
 	case session.FieldCorrectedTitle:
 		m.ResetCorrectedTitle()
 		return nil
@@ -20436,7 +20894,7 @@ func (m *SessionMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *SessionMutation) AddedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.event != nil {
 		edges = append(edges, session.EdgeEvent)
 	}
@@ -20448,6 +20906,9 @@ func (m *SessionMutation) AddedEdges() []string {
 	}
 	if m.runs != nil {
 		edges = append(edges, session.EdgeRuns)
+	}
+	if m.cancellations != nil {
+		edges = append(edges, session.EdgeCancellations)
 	}
 	return edges
 }
@@ -20476,18 +20937,27 @@ func (m *SessionMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case session.EdgeCancellations:
+		ids := make([]ent.Value, 0, len(m.cancellations))
+		for id := range m.cancellations {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *SessionMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.removedpublished_versions != nil {
 		edges = append(edges, session.EdgePublishedVersions)
 	}
 	if m.removedruns != nil {
 		edges = append(edges, session.EdgeRuns)
+	}
+	if m.removedcancellations != nil {
+		edges = append(edges, session.EdgeCancellations)
 	}
 	return edges
 }
@@ -20508,13 +20978,19 @@ func (m *SessionMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case session.EdgeCancellations:
+		ids := make([]ent.Value, 0, len(m.removedcancellations))
+		for id := range m.removedcancellations {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *SessionMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.clearedevent {
 		edges = append(edges, session.EdgeEvent)
 	}
@@ -20526,6 +21002,9 @@ func (m *SessionMutation) ClearedEdges() []string {
 	}
 	if m.clearedruns {
 		edges = append(edges, session.EdgeRuns)
+	}
+	if m.clearedcancellations {
+		edges = append(edges, session.EdgeCancellations)
 	}
 	return edges
 }
@@ -20542,6 +21021,8 @@ func (m *SessionMutation) EdgeCleared(name string) bool {
 		return m.clearedpublished_versions
 	case session.EdgeRuns:
 		return m.clearedruns
+	case session.EdgeCancellations:
+		return m.clearedcancellations
 	}
 	return false
 }
@@ -20576,8 +21057,758 @@ func (m *SessionMutation) ResetEdge(name string) error {
 	case session.EdgeRuns:
 		m.ResetRuns()
 		return nil
+	case session.EdgeCancellations:
+		m.ResetCancellations()
+		return nil
 	}
 	return fmt.Errorf("unknown Session edge %s", name)
+}
+
+// SessionCancellationMutation represents an operation that mutates the SessionCancellation nodes in the graph.
+type SessionCancellationMutation struct {
+	config
+	op                Op
+	typ               string
+	id                *int
+	session_run_id    *int
+	addsession_run_id *int
+	public_message    *string
+	crew_notes        *string
+	forecast_start    *time.Time
+	created_at        *time.Time
+	clearedFields     map[string]struct{}
+	session           *int
+	clearedsession    bool
+	done              bool
+	oldValue          func(context.Context) (*SessionCancellation, error)
+	predicates        []predicate.SessionCancellation
+}
+
+var _ ent.Mutation = (*SessionCancellationMutation)(nil)
+
+// sessioncancellationOption allows management of the mutation configuration using functional options.
+type sessioncancellationOption func(*SessionCancellationMutation)
+
+// newSessionCancellationMutation creates new mutation for the SessionCancellation entity.
+func newSessionCancellationMutation(c config, op Op, opts ...sessioncancellationOption) *SessionCancellationMutation {
+	m := &SessionCancellationMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeSessionCancellation,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withSessionCancellationID sets the ID field of the mutation.
+func withSessionCancellationID(id int) sessioncancellationOption {
+	return func(m *SessionCancellationMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *SessionCancellation
+		)
+		m.oldValue = func(ctx context.Context) (*SessionCancellation, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().SessionCancellation.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withSessionCancellation sets the old SessionCancellation of the mutation.
+func withSessionCancellation(node *SessionCancellation) sessioncancellationOption {
+	return func(m *SessionCancellationMutation) {
+		m.oldValue = func(context.Context) (*SessionCancellation, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m SessionCancellationMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m SessionCancellationMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *SessionCancellationMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *SessionCancellationMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().SessionCancellation.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetSessionID sets the "session_id" field.
+func (m *SessionCancellationMutation) SetSessionID(i int) {
+	m.session = &i
+}
+
+// SessionID returns the value of the "session_id" field in the mutation.
+func (m *SessionCancellationMutation) SessionID() (r int, exists bool) {
+	v := m.session
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSessionID returns the old "session_id" field's value of the SessionCancellation entity.
+// If the SessionCancellation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionCancellationMutation) OldSessionID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSessionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSessionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSessionID: %w", err)
+	}
+	return oldValue.SessionID, nil
+}
+
+// ResetSessionID resets all changes to the "session_id" field.
+func (m *SessionCancellationMutation) ResetSessionID() {
+	m.session = nil
+}
+
+// SetSessionRunID sets the "session_run_id" field.
+func (m *SessionCancellationMutation) SetSessionRunID(i int) {
+	m.session_run_id = &i
+	m.addsession_run_id = nil
+}
+
+// SessionRunID returns the value of the "session_run_id" field in the mutation.
+func (m *SessionCancellationMutation) SessionRunID() (r int, exists bool) {
+	v := m.session_run_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSessionRunID returns the old "session_run_id" field's value of the SessionCancellation entity.
+// If the SessionCancellation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionCancellationMutation) OldSessionRunID(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSessionRunID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSessionRunID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSessionRunID: %w", err)
+	}
+	return oldValue.SessionRunID, nil
+}
+
+// AddSessionRunID adds i to the "session_run_id" field.
+func (m *SessionCancellationMutation) AddSessionRunID(i int) {
+	if m.addsession_run_id != nil {
+		*m.addsession_run_id += i
+	} else {
+		m.addsession_run_id = &i
+	}
+}
+
+// AddedSessionRunID returns the value that was added to the "session_run_id" field in this mutation.
+func (m *SessionCancellationMutation) AddedSessionRunID() (r int, exists bool) {
+	v := m.addsession_run_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearSessionRunID clears the value of the "session_run_id" field.
+func (m *SessionCancellationMutation) ClearSessionRunID() {
+	m.session_run_id = nil
+	m.addsession_run_id = nil
+	m.clearedFields[sessioncancellation.FieldSessionRunID] = struct{}{}
+}
+
+// SessionRunIDCleared returns if the "session_run_id" field was cleared in this mutation.
+func (m *SessionCancellationMutation) SessionRunIDCleared() bool {
+	_, ok := m.clearedFields[sessioncancellation.FieldSessionRunID]
+	return ok
+}
+
+// ResetSessionRunID resets all changes to the "session_run_id" field.
+func (m *SessionCancellationMutation) ResetSessionRunID() {
+	m.session_run_id = nil
+	m.addsession_run_id = nil
+	delete(m.clearedFields, sessioncancellation.FieldSessionRunID)
+}
+
+// SetPublicMessage sets the "public_message" field.
+func (m *SessionCancellationMutation) SetPublicMessage(s string) {
+	m.public_message = &s
+}
+
+// PublicMessage returns the value of the "public_message" field in the mutation.
+func (m *SessionCancellationMutation) PublicMessage() (r string, exists bool) {
+	v := m.public_message
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublicMessage returns the old "public_message" field's value of the SessionCancellation entity.
+// If the SessionCancellation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionCancellationMutation) OldPublicMessage(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublicMessage is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublicMessage requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublicMessage: %w", err)
+	}
+	return oldValue.PublicMessage, nil
+}
+
+// ClearPublicMessage clears the value of the "public_message" field.
+func (m *SessionCancellationMutation) ClearPublicMessage() {
+	m.public_message = nil
+	m.clearedFields[sessioncancellation.FieldPublicMessage] = struct{}{}
+}
+
+// PublicMessageCleared returns if the "public_message" field was cleared in this mutation.
+func (m *SessionCancellationMutation) PublicMessageCleared() bool {
+	_, ok := m.clearedFields[sessioncancellation.FieldPublicMessage]
+	return ok
+}
+
+// ResetPublicMessage resets all changes to the "public_message" field.
+func (m *SessionCancellationMutation) ResetPublicMessage() {
+	m.public_message = nil
+	delete(m.clearedFields, sessioncancellation.FieldPublicMessage)
+}
+
+// SetCrewNotes sets the "crew_notes" field.
+func (m *SessionCancellationMutation) SetCrewNotes(s string) {
+	m.crew_notes = &s
+}
+
+// CrewNotes returns the value of the "crew_notes" field in the mutation.
+func (m *SessionCancellationMutation) CrewNotes() (r string, exists bool) {
+	v := m.crew_notes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCrewNotes returns the old "crew_notes" field's value of the SessionCancellation entity.
+// If the SessionCancellation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionCancellationMutation) OldCrewNotes(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCrewNotes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCrewNotes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCrewNotes: %w", err)
+	}
+	return oldValue.CrewNotes, nil
+}
+
+// ClearCrewNotes clears the value of the "crew_notes" field.
+func (m *SessionCancellationMutation) ClearCrewNotes() {
+	m.crew_notes = nil
+	m.clearedFields[sessioncancellation.FieldCrewNotes] = struct{}{}
+}
+
+// CrewNotesCleared returns if the "crew_notes" field was cleared in this mutation.
+func (m *SessionCancellationMutation) CrewNotesCleared() bool {
+	_, ok := m.clearedFields[sessioncancellation.FieldCrewNotes]
+	return ok
+}
+
+// ResetCrewNotes resets all changes to the "crew_notes" field.
+func (m *SessionCancellationMutation) ResetCrewNotes() {
+	m.crew_notes = nil
+	delete(m.clearedFields, sessioncancellation.FieldCrewNotes)
+}
+
+// SetForecastStart sets the "forecast_start" field.
+func (m *SessionCancellationMutation) SetForecastStart(t time.Time) {
+	m.forecast_start = &t
+}
+
+// ForecastStart returns the value of the "forecast_start" field in the mutation.
+func (m *SessionCancellationMutation) ForecastStart() (r time.Time, exists bool) {
+	v := m.forecast_start
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldForecastStart returns the old "forecast_start" field's value of the SessionCancellation entity.
+// If the SessionCancellation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionCancellationMutation) OldForecastStart(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldForecastStart is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldForecastStart requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldForecastStart: %w", err)
+	}
+	return oldValue.ForecastStart, nil
+}
+
+// ResetForecastStart resets all changes to the "forecast_start" field.
+func (m *SessionCancellationMutation) ResetForecastStart() {
+	m.forecast_start = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *SessionCancellationMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *SessionCancellationMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the SessionCancellation entity.
+// If the SessionCancellation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionCancellationMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *SessionCancellationMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearSession clears the "session" edge to the Session entity.
+func (m *SessionCancellationMutation) ClearSession() {
+	m.clearedsession = true
+	m.clearedFields[sessioncancellation.FieldSessionID] = struct{}{}
+}
+
+// SessionCleared reports if the "session" edge to the Session entity was cleared.
+func (m *SessionCancellationMutation) SessionCleared() bool {
+	return m.clearedsession
+}
+
+// SessionIDs returns the "session" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SessionID instead. It exists only for internal usage by the builders.
+func (m *SessionCancellationMutation) SessionIDs() (ids []int) {
+	if id := m.session; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSession resets all changes to the "session" edge.
+func (m *SessionCancellationMutation) ResetSession() {
+	m.session = nil
+	m.clearedsession = false
+}
+
+// Where appends a list predicates to the SessionCancellationMutation builder.
+func (m *SessionCancellationMutation) Where(ps ...predicate.SessionCancellation) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the SessionCancellationMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *SessionCancellationMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.SessionCancellation, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *SessionCancellationMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *SessionCancellationMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (SessionCancellation).
+func (m *SessionCancellationMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *SessionCancellationMutation) Fields() []string {
+	fields := make([]string, 0, 6)
+	if m.session != nil {
+		fields = append(fields, sessioncancellation.FieldSessionID)
+	}
+	if m.session_run_id != nil {
+		fields = append(fields, sessioncancellation.FieldSessionRunID)
+	}
+	if m.public_message != nil {
+		fields = append(fields, sessioncancellation.FieldPublicMessage)
+	}
+	if m.crew_notes != nil {
+		fields = append(fields, sessioncancellation.FieldCrewNotes)
+	}
+	if m.forecast_start != nil {
+		fields = append(fields, sessioncancellation.FieldForecastStart)
+	}
+	if m.created_at != nil {
+		fields = append(fields, sessioncancellation.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *SessionCancellationMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case sessioncancellation.FieldSessionID:
+		return m.SessionID()
+	case sessioncancellation.FieldSessionRunID:
+		return m.SessionRunID()
+	case sessioncancellation.FieldPublicMessage:
+		return m.PublicMessage()
+	case sessioncancellation.FieldCrewNotes:
+		return m.CrewNotes()
+	case sessioncancellation.FieldForecastStart:
+		return m.ForecastStart()
+	case sessioncancellation.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *SessionCancellationMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case sessioncancellation.FieldSessionID:
+		return m.OldSessionID(ctx)
+	case sessioncancellation.FieldSessionRunID:
+		return m.OldSessionRunID(ctx)
+	case sessioncancellation.FieldPublicMessage:
+		return m.OldPublicMessage(ctx)
+	case sessioncancellation.FieldCrewNotes:
+		return m.OldCrewNotes(ctx)
+	case sessioncancellation.FieldForecastStart:
+		return m.OldForecastStart(ctx)
+	case sessioncancellation.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown SessionCancellation field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SessionCancellationMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case sessioncancellation.FieldSessionID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSessionID(v)
+		return nil
+	case sessioncancellation.FieldSessionRunID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSessionRunID(v)
+		return nil
+	case sessioncancellation.FieldPublicMessage:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublicMessage(v)
+		return nil
+	case sessioncancellation.FieldCrewNotes:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCrewNotes(v)
+		return nil
+	case sessioncancellation.FieldForecastStart:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetForecastStart(v)
+		return nil
+	case sessioncancellation.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SessionCancellation field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *SessionCancellationMutation) AddedFields() []string {
+	var fields []string
+	if m.addsession_run_id != nil {
+		fields = append(fields, sessioncancellation.FieldSessionRunID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *SessionCancellationMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case sessioncancellation.FieldSessionRunID:
+		return m.AddedSessionRunID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SessionCancellationMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case sessioncancellation.FieldSessionRunID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSessionRunID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SessionCancellation numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *SessionCancellationMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(sessioncancellation.FieldSessionRunID) {
+		fields = append(fields, sessioncancellation.FieldSessionRunID)
+	}
+	if m.FieldCleared(sessioncancellation.FieldPublicMessage) {
+		fields = append(fields, sessioncancellation.FieldPublicMessage)
+	}
+	if m.FieldCleared(sessioncancellation.FieldCrewNotes) {
+		fields = append(fields, sessioncancellation.FieldCrewNotes)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *SessionCancellationMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *SessionCancellationMutation) ClearField(name string) error {
+	switch name {
+	case sessioncancellation.FieldSessionRunID:
+		m.ClearSessionRunID()
+		return nil
+	case sessioncancellation.FieldPublicMessage:
+		m.ClearPublicMessage()
+		return nil
+	case sessioncancellation.FieldCrewNotes:
+		m.ClearCrewNotes()
+		return nil
+	}
+	return fmt.Errorf("unknown SessionCancellation nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *SessionCancellationMutation) ResetField(name string) error {
+	switch name {
+	case sessioncancellation.FieldSessionID:
+		m.ResetSessionID()
+		return nil
+	case sessioncancellation.FieldSessionRunID:
+		m.ResetSessionRunID()
+		return nil
+	case sessioncancellation.FieldPublicMessage:
+		m.ResetPublicMessage()
+		return nil
+	case sessioncancellation.FieldCrewNotes:
+		m.ResetCrewNotes()
+		return nil
+	case sessioncancellation.FieldForecastStart:
+		m.ResetForecastStart()
+		return nil
+	case sessioncancellation.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown SessionCancellation field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *SessionCancellationMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.session != nil {
+		edges = append(edges, sessioncancellation.EdgeSession)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *SessionCancellationMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case sessioncancellation.EdgeSession:
+		if id := m.session; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *SessionCancellationMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *SessionCancellationMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *SessionCancellationMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedsession {
+		edges = append(edges, sessioncancellation.EdgeSession)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *SessionCancellationMutation) EdgeCleared(name string) bool {
+	switch name {
+	case sessioncancellation.EdgeSession:
+		return m.clearedsession
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *SessionCancellationMutation) ClearEdge(name string) error {
+	switch name {
+	case sessioncancellation.EdgeSession:
+		m.ClearSession()
+		return nil
+	}
+	return fmt.Errorf("unknown SessionCancellation unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *SessionCancellationMutation) ResetEdge(name string) error {
+	switch name {
+	case sessioncancellation.EdgeSession:
+		m.ResetSession()
+		return nil
+	}
+	return fmt.Errorf("unknown SessionCancellation edge %s", name)
 }
 
 // SessionDraftMutation represents an operation that mutates the SessionDraft nodes in the graph.
@@ -23479,6 +24710,7 @@ type SessionRunMutation struct {
 	id                           *int
 	actual_start                 *time.Time
 	actual_end                   *time.Time
+	outcome                      *sessionrun.Outcome
 	target_adjustment_seconds    *int
 	addtarget_adjustment_seconds *int
 	target_adjusted_at           *time.Time
@@ -23712,6 +24944,55 @@ func (m *SessionRunMutation) ActualEndCleared() bool {
 func (m *SessionRunMutation) ResetActualEnd() {
 	m.actual_end = nil
 	delete(m.clearedFields, sessionrun.FieldActualEnd)
+}
+
+// SetOutcome sets the "outcome" field.
+func (m *SessionRunMutation) SetOutcome(s sessionrun.Outcome) {
+	m.outcome = &s
+}
+
+// Outcome returns the value of the "outcome" field in the mutation.
+func (m *SessionRunMutation) Outcome() (r sessionrun.Outcome, exists bool) {
+	v := m.outcome
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOutcome returns the old "outcome" field's value of the SessionRun entity.
+// If the SessionRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionRunMutation) OldOutcome(ctx context.Context) (v sessionrun.Outcome, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOutcome is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOutcome requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOutcome: %w", err)
+	}
+	return oldValue.Outcome, nil
+}
+
+// ClearOutcome clears the value of the "outcome" field.
+func (m *SessionRunMutation) ClearOutcome() {
+	m.outcome = nil
+	m.clearedFields[sessionrun.FieldOutcome] = struct{}{}
+}
+
+// OutcomeCleared returns if the "outcome" field was cleared in this mutation.
+func (m *SessionRunMutation) OutcomeCleared() bool {
+	_, ok := m.clearedFields[sessionrun.FieldOutcome]
+	return ok
+}
+
+// ResetOutcome resets all changes to the "outcome" field.
+func (m *SessionRunMutation) ResetOutcome() {
+	m.outcome = nil
+	delete(m.clearedFields, sessionrun.FieldOutcome)
 }
 
 // SetTargetAdjustmentSeconds sets the "target_adjustment_seconds" field.
@@ -24006,7 +25287,7 @@ func (m *SessionRunMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SessionRunMutation) Fields() []string {
-	fields := make([]string, 0, 7)
+	fields := make([]string, 0, 8)
 	if m.session != nil {
 		fields = append(fields, sessionrun.FieldSessionID)
 	}
@@ -24015,6 +25296,9 @@ func (m *SessionRunMutation) Fields() []string {
 	}
 	if m.actual_end != nil {
 		fields = append(fields, sessionrun.FieldActualEnd)
+	}
+	if m.outcome != nil {
+		fields = append(fields, sessionrun.FieldOutcome)
 	}
 	if m.target_adjustment_seconds != nil {
 		fields = append(fields, sessionrun.FieldTargetAdjustmentSeconds)
@@ -24042,6 +25326,8 @@ func (m *SessionRunMutation) Field(name string) (ent.Value, bool) {
 		return m.ActualStart()
 	case sessionrun.FieldActualEnd:
 		return m.ActualEnd()
+	case sessionrun.FieldOutcome:
+		return m.Outcome()
 	case sessionrun.FieldTargetAdjustmentSeconds:
 		return m.TargetAdjustmentSeconds()
 	case sessionrun.FieldTargetAdjustedAt:
@@ -24065,6 +25351,8 @@ func (m *SessionRunMutation) OldField(ctx context.Context, name string) (ent.Val
 		return m.OldActualStart(ctx)
 	case sessionrun.FieldActualEnd:
 		return m.OldActualEnd(ctx)
+	case sessionrun.FieldOutcome:
+		return m.OldOutcome(ctx)
 	case sessionrun.FieldTargetAdjustmentSeconds:
 		return m.OldTargetAdjustmentSeconds(ctx)
 	case sessionrun.FieldTargetAdjustedAt:
@@ -24102,6 +25390,13 @@ func (m *SessionRunMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetActualEnd(v)
+		return nil
+	case sessionrun.FieldOutcome:
+		v, ok := value.(sessionrun.Outcome)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOutcome(v)
 		return nil
 	case sessionrun.FieldTargetAdjustmentSeconds:
 		v, ok := value.(int)
@@ -24179,6 +25474,9 @@ func (m *SessionRunMutation) ClearedFields() []string {
 	if m.FieldCleared(sessionrun.FieldActualEnd) {
 		fields = append(fields, sessionrun.FieldActualEnd)
 	}
+	if m.FieldCleared(sessionrun.FieldOutcome) {
+		fields = append(fields, sessionrun.FieldOutcome)
+	}
 	if m.FieldCleared(sessionrun.FieldTargetAdjustedAt) {
 		fields = append(fields, sessionrun.FieldTargetAdjustedAt)
 	}
@@ -24199,6 +25497,9 @@ func (m *SessionRunMutation) ClearField(name string) error {
 	case sessionrun.FieldActualEnd:
 		m.ClearActualEnd()
 		return nil
+	case sessionrun.FieldOutcome:
+		m.ClearOutcome()
+		return nil
 	case sessionrun.FieldTargetAdjustedAt:
 		m.ClearTargetAdjustedAt()
 		return nil
@@ -24218,6 +25519,9 @@ func (m *SessionRunMutation) ResetField(name string) error {
 		return nil
 	case sessionrun.FieldActualEnd:
 		m.ResetActualEnd()
+		return nil
+	case sessionrun.FieldOutcome:
+		m.ResetOutcome()
 		return nil
 	case sessionrun.FieldTargetAdjustmentSeconds:
 		m.ResetTargetAdjustmentSeconds()

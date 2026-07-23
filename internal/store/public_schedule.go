@@ -48,18 +48,20 @@ type PublicScheduleTrack struct {
 
 // PublicScheduleSession contains no crew-only fields.
 type PublicScheduleSession struct {
-	ID            int
-	Title         string
-	Speaker       string
-	PublicDetails string
-	ForecastStart time.Time
-	ForecastEnd   time.Time
-	Lifecycle     string
-	ActualStart   time.Time
-	ActualEnd     *time.Time
-	LocationIDs   []int
-	LaneIDs       []int
-	TrackIDs      []int
+	ID                    int
+	Title                 string
+	Speaker               string
+	PublicDetails         string
+	CancellationMessage   string
+	ForecastStart         time.Time
+	ForecastEnd           time.Time
+	PreviousForecastStart time.Time
+	Lifecycle             string
+	ActualStart           time.Time
+	ActualEnd             *time.Time
+	LocationIDs           []int
+	LaneIDs               []int
+	TrackIDs              []int
 }
 
 // LoadPublicSchedule returns the Active Event's current public projection.
@@ -171,13 +173,9 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 		if version.AudienceVisibility != sessionpublishedversion.AudienceVisibilityPublic {
 			continue
 		}
-		locations, queryErr := version.QueryLocations().IDs(ctx)
+		lanes, locations, queryErr := sessionPlacement(ctx, identity)
 		if queryErr != nil {
-			return opaqueError("load public Schedule Session Locations", queryErr)
-		}
-		lanes, queryErr := version.QueryLanes().IDs(ctx)
-		if queryErr != nil {
-			return opaqueError("load public Schedule Session Lanes", queryErr)
+			return queryErr
 		}
 		tracks, queryErr := version.QueryTracks().IDs(ctx)
 		if queryErr != nil {
@@ -190,7 +188,9 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 		if queryErr != nil && !ent.IsNotFound(queryErr) {
 			return opaqueError("load public Schedule Session Run", queryErr)
 		}
-		if queryErr == nil {
+		if queryErr == nil &&
+			(identity.Lifecycle == session.LifecycleLive ||
+				identity.Lifecycle == session.LifecycleEnded) {
 			actualStart = run.ActualStart
 			if !run.ActualEnd.IsZero() {
 				ended := run.ActualEnd
@@ -209,8 +209,10 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 		}
 		result.Sessions = append(result.Sessions, PublicScheduleSession{
 			ID: identity.ID, Title: details.Title, Speaker: details.Speaker, PublicDetails: details.PublicDetails,
-			ForecastStart: forecastStart, ForecastEnd: forecastEnd,
-			Lifecycle: identity.Lifecycle.String(), ActualStart: actualStart, ActualEnd: actualEnd,
+			CancellationMessage: identity.PublicCancellationMessage,
+			ForecastStart:       forecastStart, ForecastEnd: forecastEnd,
+			PreviousForecastStart: identity.PreviousForecastStart,
+			Lifecycle:             identity.Lifecycle.String(), ActualStart: actualStart, ActualEnd: actualEnd,
 			LocationIDs: locations, LaneIDs: lanes, TrackIDs: tracks,
 		})
 	}

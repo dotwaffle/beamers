@@ -321,6 +321,18 @@ func (f SessionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, err
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SessionMutation", m)
 }
 
+// The SessionCancellationFunc type is an adapter to allow the use of ordinary
+// function as SessionCancellation mutator.
+type SessionCancellationFunc func(context.Context, *ent.SessionCancellationMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SessionCancellationFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SessionCancellationMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SessionCancellationMutation", m)
+}
+
 // The SessionDraftFunc type is an adapter to allow the use of ordinary
 // function as SessionDraft mutator.
 type SessionDraftFunc func(context.Context, *ent.SessionDraftMutation) (ent.Value, error)

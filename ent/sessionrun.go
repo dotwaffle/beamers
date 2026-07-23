@@ -24,6 +24,8 @@ type SessionRun struct {
 	ActualStart time.Time `json:"actual_start,omitempty"`
 	// ActualEnd holds the value of the "actual_end" field.
 	ActualEnd time.Time `json:"actual_end,omitempty"`
+	// Outcome holds the value of the "outcome" field.
+	Outcome sessionrun.Outcome `json:"outcome,omitempty"`
 	// TargetAdjustmentSeconds holds the value of the "target_adjustment_seconds" field.
 	TargetAdjustmentSeconds int `json:"target_adjustment_seconds,omitempty"`
 	// TargetAdjustedAt holds the value of the "target_adjusted_at" field.
@@ -76,7 +78,7 @@ func (*SessionRun) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case sessionrun.FieldID, sessionrun.FieldSessionID, sessionrun.FieldTargetAdjustmentSeconds:
 			values[i] = new(sql.NullInt64)
-		case sessionrun.FieldSnapshotJSON:
+		case sessionrun.FieldOutcome, sessionrun.FieldSnapshotJSON:
 			values[i] = new(sql.NullString)
 		case sessionrun.FieldActualStart, sessionrun.FieldActualEnd, sessionrun.FieldTargetAdjustedAt, sessionrun.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -118,6 +120,12 @@ func (_m *SessionRun) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field actual_end", values[i])
 			} else if value.Valid {
 				_m.ActualEnd = value.Time
+			}
+		case sessionrun.FieldOutcome:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field outcome", values[i])
+			} else if value.Valid {
+				_m.Outcome = sessionrun.Outcome(value.String)
 			}
 		case sessionrun.FieldTargetAdjustmentSeconds:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -197,6 +205,9 @@ func (_m *SessionRun) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("actual_end=")
 	builder.WriteString(_m.ActualEnd.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("outcome=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Outcome))
 	builder.WriteString(", ")
 	builder.WriteString("target_adjustment_seconds=")
 	builder.WriteString(fmt.Sprintf("%v", _m.TargetAdjustmentSeconds))

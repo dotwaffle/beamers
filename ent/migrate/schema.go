@@ -685,6 +685,11 @@ var (
 		{Name: "live_state_revision", Type: field.TypeInt, Default: 0},
 		{Name: "forecast_start", Type: field.TypeTime, Nullable: true},
 		{Name: "forecast_end", Type: field.TypeTime, Nullable: true},
+		{Name: "previous_forecast_start", Type: field.TypeTime, Nullable: true},
+		{Name: "forecast_lane_ids", Type: field.TypeJSON, Nullable: true},
+		{Name: "forecast_location_ids", Type: field.TypeJSON, Nullable: true},
+		{Name: "public_cancellation_message", Type: field.TypeString, Nullable: true, Size: 10000},
+		{Name: "cancellation_crew_notes", Type: field.TypeString, Nullable: true, Size: 10000},
 		{Name: "corrected_title", Type: field.TypeString, Nullable: true, Size: 200},
 		{Name: "corrected_speaker", Type: field.TypeString, Nullable: true, Size: 200},
 		{Name: "corrected_public_details", Type: field.TypeString, Nullable: true, Size: 10000},
@@ -699,9 +704,40 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "sessions_events_sessions",
-				Columns:    []*schema.Column{SessionsColumns[9]},
+				Columns:    []*schema.Column{SessionsColumns[14]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
+			},
+		},
+	}
+	// SessionCancellationsColumns holds the columns for the "session_cancellations" table.
+	SessionCancellationsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "session_run_id", Type: field.TypeInt, Nullable: true},
+		{Name: "public_message", Type: field.TypeString, Nullable: true, Size: 10000},
+		{Name: "crew_notes", Type: field.TypeString, Nullable: true, Size: 10000},
+		{Name: "forecast_start", Type: field.TypeTime},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "session_id", Type: field.TypeInt},
+	}
+	// SessionCancellationsTable holds the schema information for the "session_cancellations" table.
+	SessionCancellationsTable = &schema.Table{
+		Name:       "session_cancellations",
+		Columns:    SessionCancellationsColumns,
+		PrimaryKey: []*schema.Column{SessionCancellationsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "session_cancellations_sessions_cancellations",
+				Columns:    []*schema.Column{SessionCancellationsColumns[6]},
+				RefColumns: []*schema.Column{SessionsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "sessioncancellation_session_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{SessionCancellationsColumns[6], SessionCancellationsColumns[5]},
 			},
 		},
 	}
@@ -781,6 +817,7 @@ var (
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "actual_start", Type: field.TypeTime},
 		{Name: "actual_end", Type: field.TypeTime, Nullable: true},
+		{Name: "outcome", Type: field.TypeEnum, Nullable: true, Enums: []string{"Completed", "Canceled"}},
 		{Name: "target_adjustment_seconds", Type: field.TypeInt, Default: 0},
 		{Name: "target_adjusted_at", Type: field.TypeTime, Nullable: true},
 		{Name: "snapshot_json", Type: field.TypeString, Size: 2147483647},
@@ -795,7 +832,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "session_runs_sessions_runs",
-				Columns:    []*schema.Column{SessionRunsColumns[7]},
+				Columns:    []*schema.Column{SessionRunsColumns[8]},
 				RefColumns: []*schema.Column{SessionsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -804,7 +841,7 @@ var (
 			{
 				Name:    "sessionrun_session_id_actual_end",
 				Unique:  false,
-				Columns: []*schema.Column{SessionRunsColumns[7], SessionRunsColumns[2]},
+				Columns: []*schema.Column{SessionRunsColumns[8], SessionRunsColumns[2]},
 			},
 		},
 	}
@@ -1086,6 +1123,7 @@ var (
 		PasswordCredentialsTable,
 		RundownsTable,
 		SessionsTable,
+		SessionCancellationsTable,
 		SessionDraftsTable,
 		SessionPublishedVersionsTable,
 		SessionRunsTable,
@@ -1137,6 +1175,7 @@ func init() {
 	PasswordCredentialsTable.ForeignKeys[0].RefTable = AccountsTable
 	RundownsTable.ForeignKeys[0].RefTable = EventsTable
 	SessionsTable.ForeignKeys[0].RefTable = EventsTable
+	SessionCancellationsTable.ForeignKeys[0].RefTable = SessionsTable
 	SessionDraftsTable.ForeignKeys[0].RefTable = SessionsTable
 	SessionPublishedVersionsTable.ForeignKeys[0].RefTable = SessionsTable
 	SessionRunsTable.ForeignKeys[0].RefTable = SessionsTable

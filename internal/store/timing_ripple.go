@@ -61,6 +61,12 @@ func loadTimingState(
 		if !identity.ForecastEnd.IsZero() {
 			timing.ForecastEnd = identity.ForecastEnd
 		}
+		if len(identity.ForecastLaneIds) > 0 {
+			timing.LaneIDs = slices.Clone(identity.ForecastLaneIds)
+		}
+		if len(identity.ForecastLocationIds) > 0 {
+			timing.LocationIDs = slices.Clone(identity.ForecastLocationIds)
+		}
 		if identity.Lifecycle == session.LifecycleLive ||
 			identity.Lifecycle == session.LifecycleEnded {
 			run, queryErr := client.SessionRun.Query().Where(
@@ -101,7 +107,7 @@ func loadTimingState(
 		result.Sessions = append(result.Sessions, timing)
 		result.Revisions[item.ID] = identity.LiveStateRevision
 	}
-	if _, ok := result.Revisions[anchorID]; !ok {
+	if _, ok := result.Revisions[anchorID]; anchorID > 0 && !ok {
 		return timingState{}, errors.New("timing anchor is not in current Rundown state")
 	}
 	return result, nil

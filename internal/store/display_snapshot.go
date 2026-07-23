@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/displaycredential"
 	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
 )
 
@@ -164,6 +166,12 @@ func loadDisplaySession(
 	if !identity.ForecastEnd.IsZero() {
 		result.ForecastEnd = identity.ForecastEnd
 	}
+	if len(identity.ForecastLocationIds) > 0 {
+		result.LocationIDs = slices.Clone(identity.ForecastLocationIds)
+	}
+	if len(identity.ForecastLaneIds) > 0 {
+		result.LaneIDs = slices.Clone(identity.ForecastLaneIds)
+	}
 	if published.AudienceVisibility == "Public" {
 		result.Title = published.Title
 		result.Speaker = published.Speaker
@@ -175,7 +183,8 @@ func loadDisplaySession(
 	if err != nil && !ent.IsNotFound(err) {
 		return DisplaySessionState{}, opaqueError("load Display Session Run", err)
 	}
-	if err == nil {
+	if err == nil && (identity.Lifecycle == session.LifecycleLive ||
+		identity.Lifecycle == session.LifecycleEnded) {
 		var snapshot SessionRunSnapshot
 		if decodeErr := json.Unmarshal([]byte(run.SnapshotJSON), &snapshot); decodeErr != nil {
 			return DisplaySessionState{}, opaqueError("decode Display Session Run Snapshot", decodeErr)
@@ -187,6 +196,8 @@ func loadDisplaySession(
 		result.TimingPolicy = snapshot.TimingPolicy
 		result.RunPlannedStart = snapshot.PlannedStart
 		result.RunPlannedEnd = snapshot.PlannedEnd
+		result.LocationIDs = slices.Clone(snapshot.LocationIDs)
+		result.LaneIDs = slices.Clone(snapshot.LaneIDs)
 		if !run.ActualEnd.IsZero() {
 			actualEnd := run.ActualEnd
 			result.ActualEnd = &actualEnd

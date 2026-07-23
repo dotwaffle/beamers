@@ -64,6 +64,8 @@ type Tx struct {
 	Rundown *RundownClient
 	// Session is the client for interacting with the Session builders.
 	Session *SessionClient
+	// SessionCancellation is the client for interacting with the SessionCancellation builders.
+	SessionCancellation *SessionCancellationClient
 	// SessionDraft is the client for interacting with the SessionDraft builders.
 	SessionDraft *SessionDraftClient
 	// SessionPublishedVersion is the client for interacting with the SessionPublishedVersion builders.
@@ -235,6 +237,7 @@ func (tx *Tx) init() {
 	tx.PasswordCredential = NewPasswordCredentialClient(tx.config)
 	tx.Rundown = NewRundownClient(tx.config)
 	tx.Session = NewSessionClient(tx.config)
+	tx.SessionCancellation = NewSessionCancellationClient(tx.config)
 	tx.SessionDraft = NewSessionDraftClient(tx.config)
 	tx.SessionPublishedVersion = NewSessionPublishedVersionClient(tx.config)
 	tx.SessionRun = NewSessionRunClient(tx.config)

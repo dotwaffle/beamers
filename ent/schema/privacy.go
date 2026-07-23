@@ -572,6 +572,11 @@ func allowScopedSessionLiveMutation() privacy.MutationRule {
 			"live_state_revision",
 			"forecast_start",
 			"forecast_end",
+			"previous_forecast_start",
+			"forecast_lane_ids",
+			"forecast_location_ids",
+			"public_cancellation_message",
+			"cancellation_crew_notes",
 			"corrected_title",
 			"corrected_speaker",
 			"corrected_public_details",
@@ -611,6 +616,7 @@ func allowScopedSessionRunMutation() privacy.MutationRule {
 		if mutation.Op().Is(ent.OpUpdateOne) && !onlyFields(
 			mutation,
 			"actual_end",
+			"outcome",
 			"target_adjustment_seconds",
 			"target_adjusted_at",
 		) {

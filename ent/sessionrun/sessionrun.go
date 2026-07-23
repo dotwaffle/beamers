@@ -3,6 +3,7 @@
 package sessionrun
 
 import (
+	"fmt"
 	"time"
 
 	"entgo.io/ent"
@@ -21,6 +22,8 @@ const (
 	FieldActualStart = "actual_start"
 	// FieldActualEnd holds the string denoting the actual_end field in the database.
 	FieldActualEnd = "actual_end"
+	// FieldOutcome holds the string denoting the outcome field in the database.
+	FieldOutcome = "outcome"
 	// FieldTargetAdjustmentSeconds holds the string denoting the target_adjustment_seconds field in the database.
 	FieldTargetAdjustmentSeconds = "target_adjustment_seconds"
 	// FieldTargetAdjustedAt holds the string denoting the target_adjusted_at field in the database.
@@ -57,6 +60,7 @@ var Columns = []string{
 	FieldSessionID,
 	FieldActualStart,
 	FieldActualEnd,
+	FieldOutcome,
 	FieldTargetAdjustmentSeconds,
 	FieldTargetAdjustedAt,
 	FieldSnapshotJSON,
@@ -89,6 +93,29 @@ var (
 	DefaultCreatedAt func() time.Time
 )
 
+// Outcome defines the type for the "outcome" enum field.
+type Outcome string
+
+// Outcome values.
+const (
+	OutcomeCompleted Outcome = "Completed"
+	OutcomeCanceled  Outcome = "Canceled"
+)
+
+func (o Outcome) String() string {
+	return string(o)
+}
+
+// OutcomeValidator is a validator for the "outcome" field enum values. It is called by the builders before save.
+func OutcomeValidator(o Outcome) error {
+	switch o {
+	case OutcomeCompleted, OutcomeCanceled:
+		return nil
+	default:
+		return fmt.Errorf("sessionrun: invalid enum value for outcome field: %q", o)
+	}
+}
+
 // OrderOption defines the ordering options for the SessionRun queries.
 type OrderOption func(*sql.Selector)
 
@@ -110,6 +137,11 @@ func ByActualStart(opts ...sql.OrderTermOption) OrderOption {
 // ByActualEnd orders the results by the actual_end field.
 func ByActualEnd(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldActualEnd, opts...).ToFunc()
+}
+
+// ByOutcome orders the results by the outcome field.
+func ByOutcome(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOutcome, opts...).ToFunc()
 }
 
 // ByTargetAdjustmentSeconds orders the results by the target_adjustment_seconds field.

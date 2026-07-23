@@ -80,6 +80,55 @@ func (SessionLifecycle) EnumDescriptor() ([]byte, []int) {
 	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{0}
 }
 
+type SessionRunOutcome int32
+
+const (
+	SessionRunOutcome_SESSION_RUN_OUTCOME_UNSPECIFIED SessionRunOutcome = 0
+	SessionRunOutcome_SESSION_RUN_OUTCOME_COMPLETED   SessionRunOutcome = 1
+	SessionRunOutcome_SESSION_RUN_OUTCOME_CANCELED    SessionRunOutcome = 2
+)
+
+// Enum value maps for SessionRunOutcome.
+var (
+	SessionRunOutcome_name = map[int32]string{
+		0: "SESSION_RUN_OUTCOME_UNSPECIFIED",
+		1: "SESSION_RUN_OUTCOME_COMPLETED",
+		2: "SESSION_RUN_OUTCOME_CANCELED",
+	}
+	SessionRunOutcome_value = map[string]int32{
+		"SESSION_RUN_OUTCOME_UNSPECIFIED": 0,
+		"SESSION_RUN_OUTCOME_COMPLETED":   1,
+		"SESSION_RUN_OUTCOME_CANCELED":    2,
+	}
+)
+
+func (x SessionRunOutcome) Enum() *SessionRunOutcome {
+	p := new(SessionRunOutcome)
+	*p = x
+	return p
+}
+
+func (x SessionRunOutcome) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SessionRunOutcome) Descriptor() protoreflect.EnumDescriptor {
+	return file_beamers_session_v1_session_proto_enumTypes[1].Descriptor()
+}
+
+func (SessionRunOutcome) Type() protoreflect.EnumType {
+	return &file_beamers_session_v1_session_proto_enumTypes[1]
+}
+
+func (x SessionRunOutcome) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SessionRunOutcome.Descriptor instead.
+func (SessionRunOutcome) EnumDescriptor() ([]byte, []int) {
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{1}
+}
+
 type StartSessionRequest struct {
 	state                     protoimpl.MessageState `protogen:"open.v1"`
 	EventId                   int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
@@ -216,6 +265,290 @@ func (x *EndSessionRequest) GetExpectedLiveStateRevision() int64 {
 	return 0
 }
 
+type CancelSessionRequest struct {
+	state                     protoimpl.MessageState `protogen:"open.v1"`
+	EventId                   int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	SessionId                 int64                  `protobuf:"varint,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	CommandId                 string                 `protobuf:"bytes,3,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
+	ExpectedLiveStateRevision *int64                 `protobuf:"varint,4,opt,name=expected_live_state_revision,json=expectedLiveStateRevision,proto3,oneof" json:"expected_live_state_revision,omitempty"`
+	Confirmed                 bool                   `protobuf:"varint,5,opt,name=confirmed,proto3" json:"confirmed,omitempty"`
+	PublicCancellationMessage string                 `protobuf:"bytes,6,opt,name=public_cancellation_message,json=publicCancellationMessage,proto3" json:"public_cancellation_message,omitempty"`
+	CrewNotes                 string                 `protobuf:"bytes,7,opt,name=crew_notes,json=crewNotes,proto3" json:"crew_notes,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
+}
+
+func (x *CancelSessionRequest) Reset() {
+	*x = CancelSessionRequest{}
+	mi := &file_beamers_session_v1_session_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelSessionRequest) ProtoMessage() {}
+
+func (x *CancelSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_session_v1_session_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelSessionRequest.ProtoReflect.Descriptor instead.
+func (*CancelSessionRequest) Descriptor() ([]byte, []int) {
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *CancelSessionRequest) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+func (x *CancelSessionRequest) GetSessionId() int64 {
+	if x != nil {
+		return x.SessionId
+	}
+	return 0
+}
+
+func (x *CancelSessionRequest) GetCommandId() string {
+	if x != nil {
+		return x.CommandId
+	}
+	return ""
+}
+
+func (x *CancelSessionRequest) GetExpectedLiveStateRevision() int64 {
+	if x != nil && x.ExpectedLiveStateRevision != nil {
+		return *x.ExpectedLiveStateRevision
+	}
+	return 0
+}
+
+func (x *CancelSessionRequest) GetConfirmed() bool {
+	if x != nil {
+		return x.Confirmed
+	}
+	return false
+}
+
+func (x *CancelSessionRequest) GetPublicCancellationMessage() string {
+	if x != nil {
+		return x.PublicCancellationMessage
+	}
+	return ""
+}
+
+func (x *CancelSessionRequest) GetCrewNotes() string {
+	if x != nil {
+		return x.CrewNotes
+	}
+	return ""
+}
+
+type PreviewReinstateSessionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	EventId       int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	SessionId     int64                  `protobuf:"varint,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	ForecastStart *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=forecast_start,json=forecastStart,proto3" json:"forecast_start,omitempty"`
+	LaneIds       []int64                `protobuf:"varint,4,rep,packed,name=lane_ids,json=laneIds,proto3" json:"lane_ids,omitempty"`
+	LocationIds   []int64                `protobuf:"varint,5,rep,packed,name=location_ids,json=locationIds,proto3" json:"location_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PreviewReinstateSessionRequest) Reset() {
+	*x = PreviewReinstateSessionRequest{}
+	mi := &file_beamers_session_v1_session_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PreviewReinstateSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PreviewReinstateSessionRequest) ProtoMessage() {}
+
+func (x *PreviewReinstateSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_session_v1_session_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PreviewReinstateSessionRequest.ProtoReflect.Descriptor instead.
+func (*PreviewReinstateSessionRequest) Descriptor() ([]byte, []int) {
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *PreviewReinstateSessionRequest) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+func (x *PreviewReinstateSessionRequest) GetSessionId() int64 {
+	if x != nil {
+		return x.SessionId
+	}
+	return 0
+}
+
+func (x *PreviewReinstateSessionRequest) GetForecastStart() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ForecastStart
+	}
+	return nil
+}
+
+func (x *PreviewReinstateSessionRequest) GetLaneIds() []int64 {
+	if x != nil {
+		return x.LaneIds
+	}
+	return nil
+}
+
+func (x *PreviewReinstateSessionRequest) GetLocationIds() []int64 {
+	if x != nil {
+		return x.LocationIds
+	}
+	return nil
+}
+
+type ReinstateSessionRequest struct {
+	state                     protoimpl.MessageState `protogen:"open.v1"`
+	EventId                   int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	SessionId                 int64                  `protobuf:"varint,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	CommandId                 string                 `protobuf:"bytes,3,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
+	ExpectedLiveStateRevision *int64                 `protobuf:"varint,4,opt,name=expected_live_state_revision,json=expectedLiveStateRevision,proto3,oneof" json:"expected_live_state_revision,omitempty"`
+	ForecastStart             *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=forecast_start,json=forecastStart,proto3" json:"forecast_start,omitempty"`
+	LaneIds                   []int64                `protobuf:"varint,6,rep,packed,name=lane_ids,json=laneIds,proto3" json:"lane_ids,omitempty"`
+	LocationIds               []int64                `protobuf:"varint,7,rep,packed,name=location_ids,json=locationIds,proto3" json:"location_ids,omitempty"`
+	PreviewFingerprint        string                 `protobuf:"bytes,8,opt,name=preview_fingerprint,json=previewFingerprint,proto3" json:"preview_fingerprint,omitempty"`
+	Confirmed                 bool                   `protobuf:"varint,9,opt,name=confirmed,proto3" json:"confirmed,omitempty"`
+	HardBoundaryConfirmed     bool                   `protobuf:"varint,10,opt,name=hard_boundary_confirmed,json=hardBoundaryConfirmed,proto3" json:"hard_boundary_confirmed,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
+}
+
+func (x *ReinstateSessionRequest) Reset() {
+	*x = ReinstateSessionRequest{}
+	mi := &file_beamers_session_v1_session_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReinstateSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReinstateSessionRequest) ProtoMessage() {}
+
+func (x *ReinstateSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_session_v1_session_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReinstateSessionRequest.ProtoReflect.Descriptor instead.
+func (*ReinstateSessionRequest) Descriptor() ([]byte, []int) {
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ReinstateSessionRequest) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+func (x *ReinstateSessionRequest) GetSessionId() int64 {
+	if x != nil {
+		return x.SessionId
+	}
+	return 0
+}
+
+func (x *ReinstateSessionRequest) GetCommandId() string {
+	if x != nil {
+		return x.CommandId
+	}
+	return ""
+}
+
+func (x *ReinstateSessionRequest) GetExpectedLiveStateRevision() int64 {
+	if x != nil && x.ExpectedLiveStateRevision != nil {
+		return *x.ExpectedLiveStateRevision
+	}
+	return 0
+}
+
+func (x *ReinstateSessionRequest) GetForecastStart() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ForecastStart
+	}
+	return nil
+}
+
+func (x *ReinstateSessionRequest) GetLaneIds() []int64 {
+	if x != nil {
+		return x.LaneIds
+	}
+	return nil
+}
+
+func (x *ReinstateSessionRequest) GetLocationIds() []int64 {
+	if x != nil {
+		return x.LocationIds
+	}
+	return nil
+}
+
+func (x *ReinstateSessionRequest) GetPreviewFingerprint() string {
+	if x != nil {
+		return x.PreviewFingerprint
+	}
+	return ""
+}
+
+func (x *ReinstateSessionRequest) GetConfirmed() bool {
+	if x != nil {
+		return x.Confirmed
+	}
+	return false
+}
+
+func (x *ReinstateSessionRequest) GetHardBoundaryConfirmed() bool {
+	if x != nil {
+		return x.HardBoundaryConfirmed
+	}
+	return false
+}
+
 type PreviewAdjustTargetRequest struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	EventId   int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
@@ -231,7 +564,7 @@ type PreviewAdjustTargetRequest struct {
 
 func (x *PreviewAdjustTargetRequest) Reset() {
 	*x = PreviewAdjustTargetRequest{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[2]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -243,7 +576,7 @@ func (x *PreviewAdjustTargetRequest) String() string {
 func (*PreviewAdjustTargetRequest) ProtoMessage() {}
 
 func (x *PreviewAdjustTargetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[2]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -256,7 +589,7 @@ func (x *PreviewAdjustTargetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreviewAdjustTargetRequest.ProtoReflect.Descriptor instead.
 func (*PreviewAdjustTargetRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{2}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *PreviewAdjustTargetRequest) GetEventId() int64 {
@@ -334,7 +667,7 @@ type AdjustTargetRequest struct {
 
 func (x *AdjustTargetRequest) Reset() {
 	*x = AdjustTargetRequest{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[3]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -346,7 +679,7 @@ func (x *AdjustTargetRequest) String() string {
 func (*AdjustTargetRequest) ProtoMessage() {}
 
 func (x *AdjustTargetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[3]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -359,7 +692,7 @@ func (x *AdjustTargetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdjustTargetRequest.ProtoReflect.Descriptor instead.
 func (*AdjustTargetRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{3}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *AdjustTargetRequest) GetEventId() int64 {
@@ -462,7 +795,7 @@ type PreviewPullForwardRequest struct {
 
 func (x *PreviewPullForwardRequest) Reset() {
 	*x = PreviewPullForwardRequest{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[4]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -474,7 +807,7 @@ func (x *PreviewPullForwardRequest) String() string {
 func (*PreviewPullForwardRequest) ProtoMessage() {}
 
 func (x *PreviewPullForwardRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[4]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -487,7 +820,7 @@ func (x *PreviewPullForwardRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreviewPullForwardRequest.ProtoReflect.Descriptor instead.
 func (*PreviewPullForwardRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{4}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *PreviewPullForwardRequest) GetEventId() int64 {
@@ -518,7 +851,7 @@ type PullForwardRequest struct {
 
 func (x *PullForwardRequest) Reset() {
 	*x = PullForwardRequest{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[5]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -530,7 +863,7 @@ func (x *PullForwardRequest) String() string {
 func (*PullForwardRequest) ProtoMessage() {}
 
 func (x *PullForwardRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[5]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -543,7 +876,7 @@ func (x *PullForwardRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PullForwardRequest.ProtoReflect.Descriptor instead.
 func (*PullForwardRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{5}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *PullForwardRequest) GetEventId() int64 {
@@ -605,7 +938,7 @@ type CorrectLiveDetailsRequest struct {
 
 func (x *CorrectLiveDetailsRequest) Reset() {
 	*x = CorrectLiveDetailsRequest{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[6]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -617,7 +950,7 @@ func (x *CorrectLiveDetailsRequest) String() string {
 func (*CorrectLiveDetailsRequest) ProtoMessage() {}
 
 func (x *CorrectLiveDetailsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[6]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -630,7 +963,7 @@ func (x *CorrectLiveDetailsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CorrectLiveDetailsRequest.ProtoReflect.Descriptor instead.
 func (*CorrectLiveDetailsRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{6}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *CorrectLiveDetailsRequest) GetEventId() int64 {
@@ -706,7 +1039,7 @@ type GetSessionHistoryRequest struct {
 
 func (x *GetSessionHistoryRequest) Reset() {
 	*x = GetSessionHistoryRequest{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[7]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -718,7 +1051,7 @@ func (x *GetSessionHistoryRequest) String() string {
 func (*GetSessionHistoryRequest) ProtoMessage() {}
 
 func (x *GetSessionHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[7]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -731,7 +1064,7 @@ func (x *GetSessionHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSessionHistoryRequest.ProtoReflect.Descriptor instead.
 func (*GetSessionHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{7}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetSessionHistoryRequest) GetEventId() int64 {
@@ -757,7 +1090,7 @@ type StartSessionResponse struct {
 
 func (x *StartSessionResponse) Reset() {
 	*x = StartSessionResponse{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[8]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -769,7 +1102,7 @@ func (x *StartSessionResponse) String() string {
 func (*StartSessionResponse) ProtoMessage() {}
 
 func (x *StartSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[8]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -782,7 +1115,7 @@ func (x *StartSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartSessionResponse.ProtoReflect.Descriptor instead.
 func (*StartSessionResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{8}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *StartSessionResponse) GetState() *SessionState {
@@ -801,7 +1134,7 @@ type EndSessionResponse struct {
 
 func (x *EndSessionResponse) Reset() {
 	*x = EndSessionResponse{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[9]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -813,7 +1146,7 @@ func (x *EndSessionResponse) String() string {
 func (*EndSessionResponse) ProtoMessage() {}
 
 func (x *EndSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[9]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -826,10 +1159,54 @@ func (x *EndSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EndSessionResponse.ProtoReflect.Descriptor instead.
 func (*EndSessionResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{9}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *EndSessionResponse) GetState() *SessionState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
+type CancelSessionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	State         *SessionState          `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelSessionResponse) Reset() {
+	*x = CancelSessionResponse{}
+	mi := &file_beamers_session_v1_session_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelSessionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelSessionResponse) ProtoMessage() {}
+
+func (x *CancelSessionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_session_v1_session_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelSessionResponse.ProtoReflect.Descriptor instead.
+func (*CancelSessionResponse) Descriptor() ([]byte, []int) {
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *CancelSessionResponse) GetState() *SessionState {
 	if x != nil {
 		return x.State
 	}
@@ -851,7 +1228,7 @@ type TargetEffect struct {
 
 func (x *TargetEffect) Reset() {
 	*x = TargetEffect{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[10]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -863,7 +1240,7 @@ func (x *TargetEffect) String() string {
 func (*TargetEffect) ProtoMessage() {}
 
 func (x *TargetEffect) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[10]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -876,7 +1253,7 @@ func (x *TargetEffect) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TargetEffect.ProtoReflect.Descriptor instead.
 func (*TargetEffect) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{10}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *TargetEffect) GetSessionId() int64 {
@@ -939,7 +1316,7 @@ type ForecastChange struct {
 
 func (x *ForecastChange) Reset() {
 	*x = ForecastChange{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[11]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -951,7 +1328,7 @@ func (x *ForecastChange) String() string {
 func (*ForecastChange) ProtoMessage() {}
 
 func (x *ForecastChange) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[11]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -964,7 +1341,7 @@ func (x *ForecastChange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForecastChange.ProtoReflect.Descriptor instead.
 func (*ForecastChange) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{11}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ForecastChange) GetSessionId() int64 {
@@ -1003,7 +1380,7 @@ type PreviewAdjustTargetResponse struct {
 
 func (x *PreviewAdjustTargetResponse) Reset() {
 	*x = PreviewAdjustTargetResponse{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[12]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1015,7 +1392,7 @@ func (x *PreviewAdjustTargetResponse) String() string {
 func (*PreviewAdjustTargetResponse) ProtoMessage() {}
 
 func (x *PreviewAdjustTargetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[12]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1028,7 +1405,7 @@ func (x *PreviewAdjustTargetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreviewAdjustTargetResponse.ProtoReflect.Descriptor instead.
 func (*PreviewAdjustTargetResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{12}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *PreviewAdjustTargetResponse) GetCurrentTarget() *timestamppb.Timestamp {
@@ -1093,7 +1470,7 @@ type AdjustTargetResponse struct {
 
 func (x *AdjustTargetResponse) Reset() {
 	*x = AdjustTargetResponse{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[13]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1105,7 +1482,7 @@ func (x *AdjustTargetResponse) String() string {
 func (*AdjustTargetResponse) ProtoMessage() {}
 
 func (x *AdjustTargetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[13]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1118,7 +1495,7 @@ func (x *AdjustTargetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdjustTargetResponse.ProtoReflect.Descriptor instead.
 func (*AdjustTargetResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{13}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *AdjustTargetResponse) GetState() *SessionState {
@@ -1167,7 +1544,7 @@ type PreviewPullForwardResponse struct {
 
 func (x *PreviewPullForwardResponse) Reset() {
 	*x = PreviewPullForwardResponse{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[14]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1179,7 +1556,7 @@ func (x *PreviewPullForwardResponse) String() string {
 func (*PreviewPullForwardResponse) ProtoMessage() {}
 
 func (x *PreviewPullForwardResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[14]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1192,7 +1569,7 @@ func (x *PreviewPullForwardResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreviewPullForwardResponse.ProtoReflect.Descriptor instead.
 func (*PreviewPullForwardResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{14}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *PreviewPullForwardResponse) GetEffects() []*TargetEffect {
@@ -1226,7 +1603,7 @@ type PullForwardResponse struct {
 
 func (x *PullForwardResponse) Reset() {
 	*x = PullForwardResponse{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[15]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1238,7 +1615,7 @@ func (x *PullForwardResponse) String() string {
 func (*PullForwardResponse) ProtoMessage() {}
 
 func (x *PullForwardResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[15]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1251,7 +1628,7 @@ func (x *PullForwardResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PullForwardResponse.ProtoReflect.Descriptor instead.
 func (*PullForwardResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{15}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *PullForwardResponse) GetState() *SessionState {
@@ -1268,6 +1645,166 @@ func (x *PullForwardResponse) GetChanges() []*ForecastChange {
 	return nil
 }
 
+type PreviewReinstateSessionResponse struct {
+	state                            protoimpl.MessageState `protogen:"open.v1"`
+	Effects                          []*TargetEffect        `protobuf:"bytes,1,rep,name=effects,proto3" json:"effects,omitempty"`
+	Changes                          []*ForecastChange      `protobuf:"bytes,2,rep,name=changes,proto3" json:"changes,omitempty"`
+	CurrentLaneIds                   []int64                `protobuf:"varint,3,rep,packed,name=current_lane_ids,json=currentLaneIds,proto3" json:"current_lane_ids,omitempty"`
+	ProposedLaneIds                  []int64                `protobuf:"varint,4,rep,packed,name=proposed_lane_ids,json=proposedLaneIds,proto3" json:"proposed_lane_ids,omitempty"`
+	CurrentLocationIds               []int64                `protobuf:"varint,5,rep,packed,name=current_location_ids,json=currentLocationIds,proto3" json:"current_location_ids,omitempty"`
+	ProposedLocationIds              []int64                `protobuf:"varint,6,rep,packed,name=proposed_location_ids,json=proposedLocationIds,proto3" json:"proposed_location_ids,omitempty"`
+	RequiresHardBoundaryConfirmation bool                   `protobuf:"varint,7,opt,name=requires_hard_boundary_confirmation,json=requiresHardBoundaryConfirmation,proto3" json:"requires_hard_boundary_confirmation,omitempty"`
+	PreviewFingerprint               string                 `protobuf:"bytes,8,opt,name=preview_fingerprint,json=previewFingerprint,proto3" json:"preview_fingerprint,omitempty"`
+	unknownFields                    protoimpl.UnknownFields
+	sizeCache                        protoimpl.SizeCache
+}
+
+func (x *PreviewReinstateSessionResponse) Reset() {
+	*x = PreviewReinstateSessionResponse{}
+	mi := &file_beamers_session_v1_session_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PreviewReinstateSessionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PreviewReinstateSessionResponse) ProtoMessage() {}
+
+func (x *PreviewReinstateSessionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_session_v1_session_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PreviewReinstateSessionResponse.ProtoReflect.Descriptor instead.
+func (*PreviewReinstateSessionResponse) Descriptor() ([]byte, []int) {
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *PreviewReinstateSessionResponse) GetEffects() []*TargetEffect {
+	if x != nil {
+		return x.Effects
+	}
+	return nil
+}
+
+func (x *PreviewReinstateSessionResponse) GetChanges() []*ForecastChange {
+	if x != nil {
+		return x.Changes
+	}
+	return nil
+}
+
+func (x *PreviewReinstateSessionResponse) GetCurrentLaneIds() []int64 {
+	if x != nil {
+		return x.CurrentLaneIds
+	}
+	return nil
+}
+
+func (x *PreviewReinstateSessionResponse) GetProposedLaneIds() []int64 {
+	if x != nil {
+		return x.ProposedLaneIds
+	}
+	return nil
+}
+
+func (x *PreviewReinstateSessionResponse) GetCurrentLocationIds() []int64 {
+	if x != nil {
+		return x.CurrentLocationIds
+	}
+	return nil
+}
+
+func (x *PreviewReinstateSessionResponse) GetProposedLocationIds() []int64 {
+	if x != nil {
+		return x.ProposedLocationIds
+	}
+	return nil
+}
+
+func (x *PreviewReinstateSessionResponse) GetRequiresHardBoundaryConfirmation() bool {
+	if x != nil {
+		return x.RequiresHardBoundaryConfirmation
+	}
+	return false
+}
+
+func (x *PreviewReinstateSessionResponse) GetPreviewFingerprint() string {
+	if x != nil {
+		return x.PreviewFingerprint
+	}
+	return ""
+}
+
+type ReinstateSessionResponse struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	State                 *SessionState          `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
+	Changes               []*ForecastChange      `protobuf:"bytes,2,rep,name=changes,proto3" json:"changes,omitempty"`
+	PreviousForecastStart *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=previous_forecast_start,json=previousForecastStart,proto3" json:"previous_forecast_start,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *ReinstateSessionResponse) Reset() {
+	*x = ReinstateSessionResponse{}
+	mi := &file_beamers_session_v1_session_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReinstateSessionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReinstateSessionResponse) ProtoMessage() {}
+
+func (x *ReinstateSessionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_session_v1_session_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReinstateSessionResponse.ProtoReflect.Descriptor instead.
+func (*ReinstateSessionResponse) Descriptor() ([]byte, []int) {
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *ReinstateSessionResponse) GetState() *SessionState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
+func (x *ReinstateSessionResponse) GetChanges() []*ForecastChange {
+	if x != nil {
+		return x.Changes
+	}
+	return nil
+}
+
+func (x *ReinstateSessionResponse) GetPreviousForecastStart() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PreviousForecastStart
+	}
+	return nil
+}
+
 type CorrectLiveDetailsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	State         *SessionState          `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
@@ -1279,7 +1816,7 @@ type CorrectLiveDetailsResponse struct {
 
 func (x *CorrectLiveDetailsResponse) Reset() {
 	*x = CorrectLiveDetailsResponse{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[16]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1291,7 +1828,7 @@ func (x *CorrectLiveDetailsResponse) String() string {
 func (*CorrectLiveDetailsResponse) ProtoMessage() {}
 
 func (x *CorrectLiveDetailsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[16]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1304,7 +1841,7 @@ func (x *CorrectLiveDetailsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CorrectLiveDetailsResponse.ProtoReflect.Descriptor instead.
 func (*CorrectLiveDetailsResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{16}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *CorrectLiveDetailsResponse) GetState() *SessionState {
@@ -1329,15 +1866,16 @@ func (x *CorrectLiveDetailsResponse) GetDetails() *SessionDetails {
 }
 
 type GetSessionHistoryResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Runs          []*SessionRunHistory   `protobuf:"bytes,1,rep,name=runs,proto3" json:"runs,omitempty"`
+	state         protoimpl.MessageState        `protogen:"open.v1"`
+	Runs          []*SessionRunHistory          `protobuf:"bytes,1,rep,name=runs,proto3" json:"runs,omitempty"`
+	Cancellations []*SessionCancellationHistory `protobuf:"bytes,2,rep,name=cancellations,proto3" json:"cancellations,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetSessionHistoryResponse) Reset() {
 	*x = GetSessionHistoryResponse{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[17]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1349,7 +1887,7 @@ func (x *GetSessionHistoryResponse) String() string {
 func (*GetSessionHistoryResponse) ProtoMessage() {}
 
 func (x *GetSessionHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[17]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1362,12 +1900,19 @@ func (x *GetSessionHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSessionHistoryResponse.ProtoReflect.Descriptor instead.
 func (*GetSessionHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{17}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *GetSessionHistoryResponse) GetRuns() []*SessionRunHistory {
 	if x != nil {
 		return x.Runs
+	}
+	return nil
+}
+
+func (x *GetSessionHistoryResponse) GetCancellations() []*SessionCancellationHistory {
+	if x != nil {
+		return x.Cancellations
 	}
 	return nil
 }
@@ -1383,7 +1928,7 @@ type SessionDetails struct {
 
 func (x *SessionDetails) Reset() {
 	*x = SessionDetails{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[18]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1395,7 +1940,7 @@ func (x *SessionDetails) String() string {
 func (*SessionDetails) ProtoMessage() {}
 
 func (x *SessionDetails) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[18]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1408,7 +1953,7 @@ func (x *SessionDetails) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionDetails.ProtoReflect.Descriptor instead.
 func (*SessionDetails) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{18}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *SessionDetails) GetTitle() string {
@@ -1444,7 +1989,7 @@ type RunAmendment struct {
 
 func (x *RunAmendment) Reset() {
 	*x = RunAmendment{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[19]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1456,7 +2001,7 @@ func (x *RunAmendment) String() string {
 func (*RunAmendment) ProtoMessage() {}
 
 func (x *RunAmendment) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[19]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1469,7 +2014,7 @@ func (x *RunAmendment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunAmendment.ProtoReflect.Descriptor instead.
 func (*RunAmendment) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{19}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *RunAmendment) GetId() int64 {
@@ -1507,13 +2052,14 @@ type SessionRunHistory struct {
 	ActualEnd     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=actual_end,json=actualEnd,proto3" json:"actual_end,omitempty"`
 	Snapshot      *RunSnapshot           `protobuf:"bytes,4,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
 	Amendments    []*RunAmendment        `protobuf:"bytes,5,rep,name=amendments,proto3" json:"amendments,omitempty"`
+	Outcome       SessionRunOutcome      `protobuf:"varint,6,opt,name=outcome,proto3,enum=beamers.session.v1.SessionRunOutcome" json:"outcome,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SessionRunHistory) Reset() {
 	*x = SessionRunHistory{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[20]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1525,7 +2071,7 @@ func (x *SessionRunHistory) String() string {
 func (*SessionRunHistory) ProtoMessage() {}
 
 func (x *SessionRunHistory) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[20]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1538,7 +2084,7 @@ func (x *SessionRunHistory) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionRunHistory.ProtoReflect.Descriptor instead.
 func (*SessionRunHistory) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{20}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *SessionRunHistory) GetId() int64 {
@@ -1576,6 +2122,97 @@ func (x *SessionRunHistory) GetAmendments() []*RunAmendment {
 	return nil
 }
 
+func (x *SessionRunHistory) GetOutcome() SessionRunOutcome {
+	if x != nil {
+		return x.Outcome
+	}
+	return SessionRunOutcome_SESSION_RUN_OUTCOME_UNSPECIFIED
+}
+
+type SessionCancellationHistory struct {
+	state                     protoimpl.MessageState `protogen:"open.v1"`
+	Id                        int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	SessionRunId              *int64                 `protobuf:"varint,2,opt,name=session_run_id,json=sessionRunId,proto3,oneof" json:"session_run_id,omitempty"`
+	PublicCancellationMessage string                 `protobuf:"bytes,3,opt,name=public_cancellation_message,json=publicCancellationMessage,proto3" json:"public_cancellation_message,omitempty"`
+	CrewNotes                 string                 `protobuf:"bytes,4,opt,name=crew_notes,json=crewNotes,proto3" json:"crew_notes,omitempty"`
+	ForecastStart             *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=forecast_start,json=forecastStart,proto3" json:"forecast_start,omitempty"`
+	CanceledAt                *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=canceled_at,json=canceledAt,proto3" json:"canceled_at,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
+}
+
+func (x *SessionCancellationHistory) Reset() {
+	*x = SessionCancellationHistory{}
+	mi := &file_beamers_session_v1_session_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionCancellationHistory) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionCancellationHistory) ProtoMessage() {}
+
+func (x *SessionCancellationHistory) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_session_v1_session_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SessionCancellationHistory.ProtoReflect.Descriptor instead.
+func (*SessionCancellationHistory) Descriptor() ([]byte, []int) {
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *SessionCancellationHistory) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *SessionCancellationHistory) GetSessionRunId() int64 {
+	if x != nil && x.SessionRunId != nil {
+		return *x.SessionRunId
+	}
+	return 0
+}
+
+func (x *SessionCancellationHistory) GetPublicCancellationMessage() string {
+	if x != nil {
+		return x.PublicCancellationMessage
+	}
+	return ""
+}
+
+func (x *SessionCancellationHistory) GetCrewNotes() string {
+	if x != nil {
+		return x.CrewNotes
+	}
+	return ""
+}
+
+func (x *SessionCancellationHistory) GetForecastStart() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ForecastStart
+	}
+	return nil
+}
+
+func (x *SessionCancellationHistory) GetCanceledAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CanceledAt
+	}
+	return nil
+}
+
 type RunSnapshot struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	PublishedRevision int64                  `protobuf:"varint,1,opt,name=published_revision,json=publishedRevision,proto3" json:"published_revision,omitempty"`
@@ -1598,7 +2235,7 @@ type RunSnapshot struct {
 
 func (x *RunSnapshot) Reset() {
 	*x = RunSnapshot{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[21]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1610,7 +2247,7 @@ func (x *RunSnapshot) String() string {
 func (*RunSnapshot) ProtoMessage() {}
 
 func (x *RunSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[21]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1623,7 +2260,7 @@ func (x *RunSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunSnapshot.ProtoReflect.Descriptor instead.
 func (*RunSnapshot) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{21}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *RunSnapshot) GetPublishedRevision() int64 {
@@ -1738,7 +2375,7 @@ type SessionState struct {
 
 func (x *SessionState) Reset() {
 	*x = SessionState{}
-	mi := &file_beamers_session_v1_session_proto_msgTypes[22]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1750,7 +2387,7 @@ func (x *SessionState) String() string {
 func (*SessionState) ProtoMessage() {}
 
 func (x *SessionState) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_session_v1_session_proto_msgTypes[22]
+	mi := &file_beamers_session_v1_session_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1763,7 +2400,7 @@ func (x *SessionState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionState.ProtoReflect.Descriptor instead.
 func (*SessionState) Descriptor() ([]byte, []int) {
-	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{22}
+	return file_beamers_session_v1_session_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *SessionState) GetSessionId() int64 {
@@ -1828,6 +2465,40 @@ const file_beamers_session_v1_session_proto_rawDesc = "" +
 	"\n" +
 	"command_id\x18\x03 \x01(\tR\tcommandId\x12D\n" +
 	"\x1cexpected_live_state_revision\x18\x04 \x01(\x03H\x00R\x19expectedLiveStateRevision\x88\x01\x01B\x1f\n" +
+	"\x1d_expected_live_state_revision\"\xd3\x02\n" +
+	"\x14CancelSessionRequest\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\x03R\tsessionId\x12\x1d\n" +
+	"\n" +
+	"command_id\x18\x03 \x01(\tR\tcommandId\x12D\n" +
+	"\x1cexpected_live_state_revision\x18\x04 \x01(\x03H\x00R\x19expectedLiveStateRevision\x88\x01\x01\x12\x1c\n" +
+	"\tconfirmed\x18\x05 \x01(\bR\tconfirmed\x12>\n" +
+	"\x1bpublic_cancellation_message\x18\x06 \x01(\tR\x19publicCancellationMessage\x12\x1d\n" +
+	"\n" +
+	"crew_notes\x18\a \x01(\tR\tcrewNotesB\x1f\n" +
+	"\x1d_expected_live_state_revision\"\xdb\x01\n" +
+	"\x1ePreviewReinstateSessionRequest\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\x03R\tsessionId\x12A\n" +
+	"\x0eforecast_start\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\rforecastStart\x12\x19\n" +
+	"\blane_ids\x18\x04 \x03(\x03R\alaneIds\x12!\n" +
+	"\flocation_ids\x18\x05 \x03(\x03R\vlocationIds\"\xe1\x03\n" +
+	"\x17ReinstateSessionRequest\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\x03R\tsessionId\x12\x1d\n" +
+	"\n" +
+	"command_id\x18\x03 \x01(\tR\tcommandId\x12D\n" +
+	"\x1cexpected_live_state_revision\x18\x04 \x01(\x03H\x00R\x19expectedLiveStateRevision\x88\x01\x01\x12A\n" +
+	"\x0eforecast_start\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\rforecastStart\x12\x19\n" +
+	"\blane_ids\x18\x06 \x03(\x03R\alaneIds\x12!\n" +
+	"\flocation_ids\x18\a \x03(\x03R\vlocationIds\x12/\n" +
+	"\x13preview_fingerprint\x18\b \x01(\tR\x12previewFingerprint\x12\x1c\n" +
+	"\tconfirmed\x18\t \x01(\bR\tconfirmed\x126\n" +
+	"\x17hard_boundary_confirmed\x18\n" +
+	" \x01(\bR\x15hardBoundaryConfirmedB\x1f\n" +
 	"\x1d_expected_live_state_revision\"\xce\x01\n" +
 	"\x1aPreviewAdjustTargetRequest\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
@@ -1887,6 +2558,8 @@ const file_beamers_session_v1_session_proto_rawDesc = "" +
 	"\x14StartSessionResponse\x126\n" +
 	"\x05state\x18\x01 \x01(\v2 .beamers.session.v1.SessionStateR\x05state\"L\n" +
 	"\x12EndSessionResponse\x126\n" +
+	"\x05state\x18\x01 \x01(\v2 .beamers.session.v1.SessionStateR\x05state\"O\n" +
+	"\x15CancelSessionResponse\x126\n" +
 	"\x05state\x18\x01 \x01(\v2 .beamers.session.v1.SessionStateR\x05state\"\xfb\x03\n" +
 	"\fTargetEffect\x12\x1d\n" +
 	"\n" +
@@ -1927,13 +2600,27 @@ const file_beamers_session_v1_session_proto_rawDesc = "" +
 	"\x13preview_fingerprint\x18\x03 \x01(\tR\x12previewFingerprint\"\x8b\x01\n" +
 	"\x13PullForwardResponse\x126\n" +
 	"\x05state\x18\x01 \x01(\v2 .beamers.session.v1.SessionStateR\x05state\x12<\n" +
-	"\achanges\x18\x02 \x03(\v2\".beamers.session.v1.ForecastChangeR\achanges\"\xb5\x01\n" +
+	"\achanges\x18\x02 \x03(\v2\".beamers.session.v1.ForecastChangeR\achanges\"\xd7\x03\n" +
+	"\x1fPreviewReinstateSessionResponse\x12:\n" +
+	"\aeffects\x18\x01 \x03(\v2 .beamers.session.v1.TargetEffectR\aeffects\x12<\n" +
+	"\achanges\x18\x02 \x03(\v2\".beamers.session.v1.ForecastChangeR\achanges\x12(\n" +
+	"\x10current_lane_ids\x18\x03 \x03(\x03R\x0ecurrentLaneIds\x12*\n" +
+	"\x11proposed_lane_ids\x18\x04 \x03(\x03R\x0fproposedLaneIds\x120\n" +
+	"\x14current_location_ids\x18\x05 \x03(\x03R\x12currentLocationIds\x122\n" +
+	"\x15proposed_location_ids\x18\x06 \x03(\x03R\x13proposedLocationIds\x12M\n" +
+	"#requires_hard_boundary_confirmation\x18\a \x01(\bR requiresHardBoundaryConfirmation\x12/\n" +
+	"\x13preview_fingerprint\x18\b \x01(\tR\x12previewFingerprint\"\xe4\x01\n" +
+	"\x18ReinstateSessionResponse\x126\n" +
+	"\x05state\x18\x01 \x01(\v2 .beamers.session.v1.SessionStateR\x05state\x12<\n" +
+	"\achanges\x18\x02 \x03(\v2\".beamers.session.v1.ForecastChangeR\achanges\x12R\n" +
+	"\x17previous_forecast_start\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x15previousForecastStart\"\xb5\x01\n" +
 	"\x1aCorrectLiveDetailsResponse\x126\n" +
 	"\x05state\x18\x01 \x01(\v2 .beamers.session.v1.SessionStateR\x05state\x12!\n" +
 	"\famendment_id\x18\x02 \x01(\x03R\vamendmentId\x12<\n" +
-	"\adetails\x18\x03 \x01(\v2\".beamers.session.v1.SessionDetailsR\adetails\"V\n" +
+	"\adetails\x18\x03 \x01(\v2\".beamers.session.v1.SessionDetailsR\adetails\"\xac\x01\n" +
 	"\x19GetSessionHistoryResponse\x129\n" +
-	"\x04runs\x18\x01 \x03(\v2%.beamers.session.v1.SessionRunHistoryR\x04runs\"g\n" +
+	"\x04runs\x18\x01 \x03(\v2%.beamers.session.v1.SessionRunHistoryR\x04runs\x12T\n" +
+	"\rcancellations\x18\x02 \x03(\v2..beamers.session.v1.SessionCancellationHistoryR\rcancellations\"g\n" +
 	"\x0eSessionDetails\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12\x18\n" +
 	"\aspeaker\x18\x02 \x01(\tR\aspeaker\x12%\n" +
@@ -1943,7 +2630,7 @@ const file_beamers_session_v1_session_proto_rawDesc = "" +
 	"\adetails\x18\x02 \x01(\v2\".beamers.session.v1.SessionDetailsR\adetails\x12%\n" +
 	"\x0echanged_fields\x18\x03 \x03(\tR\rchangedFields\x129\n" +
 	"\n" +
-	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\x9c\x02\n" +
+	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xdd\x02\n" +
 	"\x11SessionRunHistory\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12=\n" +
 	"\factual_start\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vactualStart\x129\n" +
@@ -1952,7 +2639,18 @@ const file_beamers_session_v1_session_proto_rawDesc = "" +
 	"\bsnapshot\x18\x04 \x01(\v2\x1f.beamers.session.v1.RunSnapshotR\bsnapshot\x12@\n" +
 	"\n" +
 	"amendments\x18\x05 \x03(\v2 .beamers.session.v1.RunAmendmentR\n" +
-	"amendments\"\xb4\x05\n" +
+	"amendments\x12?\n" +
+	"\aoutcome\x18\x06 \x01(\x0e2%.beamers.session.v1.SessionRunOutcomeR\aoutcome\"\xc9\x02\n" +
+	"\x1aSessionCancellationHistory\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12)\n" +
+	"\x0esession_run_id\x18\x02 \x01(\x03H\x00R\fsessionRunId\x88\x01\x01\x12>\n" +
+	"\x1bpublic_cancellation_message\x18\x03 \x01(\tR\x19publicCancellationMessage\x12\x1d\n" +
+	"\n" +
+	"crew_notes\x18\x04 \x01(\tR\tcrewNotes\x12A\n" +
+	"\x0eforecast_start\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\rforecastStart\x12;\n" +
+	"\vcanceled_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"canceledAtB\x11\n" +
+	"\x0f_session_run_id\"\xb4\x05\n" +
 	"\vRunSnapshot\x12-\n" +
 	"\x12published_revision\x18\x01 \x01(\x03R\x11publishedRevision\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x18\n" +
@@ -1984,11 +2682,18 @@ const file_beamers_session_v1_session_proto_rawDesc = "" +
 	"\x1bSESSION_LIFECYCLE_SCHEDULED\x10\x01\x12\x1a\n" +
 	"\x16SESSION_LIFECYCLE_LIVE\x10\x02\x12\x1b\n" +
 	"\x17SESSION_LIFECYCLE_ENDED\x10\x03\x12\x1e\n" +
-	"\x1aSESSION_LIFECYCLE_CANCELED\x10\x042\xee\x06\n" +
+	"\x1aSESSION_LIFECYCLE_CANCELED\x10\x04*}\n" +
+	"\x11SessionRunOutcome\x12#\n" +
+	"\x1fSESSION_RUN_OUTCOME_UNSPECIFIED\x10\x00\x12!\n" +
+	"\x1dSESSION_RUN_OUTCOME_COMPLETED\x10\x01\x12 \n" +
+	"\x1cSESSION_RUN_OUTCOME_CANCELED\x10\x022\xc8\t\n" +
 	"\x15SessionControlService\x12a\n" +
 	"\fStartSession\x12'.beamers.session.v1.StartSessionRequest\x1a(.beamers.session.v1.StartSessionResponse\x12[\n" +
 	"\n" +
-	"EndSession\x12%.beamers.session.v1.EndSessionRequest\x1a&.beamers.session.v1.EndSessionResponse\x12v\n" +
+	"EndSession\x12%.beamers.session.v1.EndSessionRequest\x1a&.beamers.session.v1.EndSessionResponse\x12d\n" +
+	"\rCancelSession\x12(.beamers.session.v1.CancelSessionRequest\x1a).beamers.session.v1.CancelSessionResponse\x12\x82\x01\n" +
+	"\x17PreviewReinstateSession\x122.beamers.session.v1.PreviewReinstateSessionRequest\x1a3.beamers.session.v1.PreviewReinstateSessionResponse\x12m\n" +
+	"\x10ReinstateSession\x12+.beamers.session.v1.ReinstateSessionRequest\x1a,.beamers.session.v1.ReinstateSessionResponse\x12v\n" +
 	"\x13PreviewAdjustTarget\x12..beamers.session.v1.PreviewAdjustTargetRequest\x1a/.beamers.session.v1.PreviewAdjustTargetResponse\x12a\n" +
 	"\fAdjustTarget\x12'.beamers.session.v1.AdjustTargetRequest\x1a(.beamers.session.v1.AdjustTargetResponse\x12s\n" +
 	"\x12PreviewPullForward\x12-.beamers.session.v1.PreviewPullForwardRequest\x1a..beamers.session.v1.PreviewPullForwardResponse\x12^\n" +
@@ -2008,110 +2713,136 @@ func file_beamers_session_v1_session_proto_rawDescGZIP() []byte {
 	return file_beamers_session_v1_session_proto_rawDescData
 }
 
-var file_beamers_session_v1_session_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_beamers_session_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
+var file_beamers_session_v1_session_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_beamers_session_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
 var file_beamers_session_v1_session_proto_goTypes = []any{
-	(SessionLifecycle)(0),               // 0: beamers.session.v1.SessionLifecycle
-	(*StartSessionRequest)(nil),         // 1: beamers.session.v1.StartSessionRequest
-	(*EndSessionRequest)(nil),           // 2: beamers.session.v1.EndSessionRequest
-	(*PreviewAdjustTargetRequest)(nil),  // 3: beamers.session.v1.PreviewAdjustTargetRequest
-	(*AdjustTargetRequest)(nil),         // 4: beamers.session.v1.AdjustTargetRequest
-	(*PreviewPullForwardRequest)(nil),   // 5: beamers.session.v1.PreviewPullForwardRequest
-	(*PullForwardRequest)(nil),          // 6: beamers.session.v1.PullForwardRequest
-	(*CorrectLiveDetailsRequest)(nil),   // 7: beamers.session.v1.CorrectLiveDetailsRequest
-	(*GetSessionHistoryRequest)(nil),    // 8: beamers.session.v1.GetSessionHistoryRequest
-	(*StartSessionResponse)(nil),        // 9: beamers.session.v1.StartSessionResponse
-	(*EndSessionResponse)(nil),          // 10: beamers.session.v1.EndSessionResponse
-	(*TargetEffect)(nil),                // 11: beamers.session.v1.TargetEffect
-	(*ForecastChange)(nil),              // 12: beamers.session.v1.ForecastChange
-	(*PreviewAdjustTargetResponse)(nil), // 13: beamers.session.v1.PreviewAdjustTargetResponse
-	(*AdjustTargetResponse)(nil),        // 14: beamers.session.v1.AdjustTargetResponse
-	(*PreviewPullForwardResponse)(nil),  // 15: beamers.session.v1.PreviewPullForwardResponse
-	(*PullForwardResponse)(nil),         // 16: beamers.session.v1.PullForwardResponse
-	(*CorrectLiveDetailsResponse)(nil),  // 17: beamers.session.v1.CorrectLiveDetailsResponse
-	(*GetSessionHistoryResponse)(nil),   // 18: beamers.session.v1.GetSessionHistoryResponse
-	(*SessionDetails)(nil),              // 19: beamers.session.v1.SessionDetails
-	(*RunAmendment)(nil),                // 20: beamers.session.v1.RunAmendment
-	(*SessionRunHistory)(nil),           // 21: beamers.session.v1.SessionRunHistory
-	(*RunSnapshot)(nil),                 // 22: beamers.session.v1.RunSnapshot
-	(*SessionState)(nil),                // 23: beamers.session.v1.SessionState
-	(*durationpb.Duration)(nil),         // 24: google.protobuf.Duration
-	(*fieldmaskpb.FieldMask)(nil),       // 25: google.protobuf.FieldMask
-	(*timestamppb.Timestamp)(nil),       // 26: google.protobuf.Timestamp
-	(v1.SessionType)(0),                 // 27: beamers.rundown.v1.SessionType
-	(v1.TimingPolicy)(0),                // 28: beamers.rundown.v1.TimingPolicy
-	(v1.Boundary)(0),                    // 29: beamers.rundown.v1.Boundary
+	(SessionLifecycle)(0),                   // 0: beamers.session.v1.SessionLifecycle
+	(SessionRunOutcome)(0),                  // 1: beamers.session.v1.SessionRunOutcome
+	(*StartSessionRequest)(nil),             // 2: beamers.session.v1.StartSessionRequest
+	(*EndSessionRequest)(nil),               // 3: beamers.session.v1.EndSessionRequest
+	(*CancelSessionRequest)(nil),            // 4: beamers.session.v1.CancelSessionRequest
+	(*PreviewReinstateSessionRequest)(nil),  // 5: beamers.session.v1.PreviewReinstateSessionRequest
+	(*ReinstateSessionRequest)(nil),         // 6: beamers.session.v1.ReinstateSessionRequest
+	(*PreviewAdjustTargetRequest)(nil),      // 7: beamers.session.v1.PreviewAdjustTargetRequest
+	(*AdjustTargetRequest)(nil),             // 8: beamers.session.v1.AdjustTargetRequest
+	(*PreviewPullForwardRequest)(nil),       // 9: beamers.session.v1.PreviewPullForwardRequest
+	(*PullForwardRequest)(nil),              // 10: beamers.session.v1.PullForwardRequest
+	(*CorrectLiveDetailsRequest)(nil),       // 11: beamers.session.v1.CorrectLiveDetailsRequest
+	(*GetSessionHistoryRequest)(nil),        // 12: beamers.session.v1.GetSessionHistoryRequest
+	(*StartSessionResponse)(nil),            // 13: beamers.session.v1.StartSessionResponse
+	(*EndSessionResponse)(nil),              // 14: beamers.session.v1.EndSessionResponse
+	(*CancelSessionResponse)(nil),           // 15: beamers.session.v1.CancelSessionResponse
+	(*TargetEffect)(nil),                    // 16: beamers.session.v1.TargetEffect
+	(*ForecastChange)(nil),                  // 17: beamers.session.v1.ForecastChange
+	(*PreviewAdjustTargetResponse)(nil),     // 18: beamers.session.v1.PreviewAdjustTargetResponse
+	(*AdjustTargetResponse)(nil),            // 19: beamers.session.v1.AdjustTargetResponse
+	(*PreviewPullForwardResponse)(nil),      // 20: beamers.session.v1.PreviewPullForwardResponse
+	(*PullForwardResponse)(nil),             // 21: beamers.session.v1.PullForwardResponse
+	(*PreviewReinstateSessionResponse)(nil), // 22: beamers.session.v1.PreviewReinstateSessionResponse
+	(*ReinstateSessionResponse)(nil),        // 23: beamers.session.v1.ReinstateSessionResponse
+	(*CorrectLiveDetailsResponse)(nil),      // 24: beamers.session.v1.CorrectLiveDetailsResponse
+	(*GetSessionHistoryResponse)(nil),       // 25: beamers.session.v1.GetSessionHistoryResponse
+	(*SessionDetails)(nil),                  // 26: beamers.session.v1.SessionDetails
+	(*RunAmendment)(nil),                    // 27: beamers.session.v1.RunAmendment
+	(*SessionRunHistory)(nil),               // 28: beamers.session.v1.SessionRunHistory
+	(*SessionCancellationHistory)(nil),      // 29: beamers.session.v1.SessionCancellationHistory
+	(*RunSnapshot)(nil),                     // 30: beamers.session.v1.RunSnapshot
+	(*SessionState)(nil),                    // 31: beamers.session.v1.SessionState
+	(*timestamppb.Timestamp)(nil),           // 32: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),             // 33: google.protobuf.Duration
+	(*fieldmaskpb.FieldMask)(nil),           // 34: google.protobuf.FieldMask
+	(v1.SessionType)(0),                     // 35: beamers.rundown.v1.SessionType
+	(v1.TimingPolicy)(0),                    // 36: beamers.rundown.v1.TimingPolicy
+	(v1.Boundary)(0),                        // 37: beamers.rundown.v1.Boundary
 }
 var file_beamers_session_v1_session_proto_depIdxs = []int32{
-	24, // 0: beamers.session.v1.PreviewAdjustTargetRequest.preset:type_name -> google.protobuf.Duration
-	24, // 1: beamers.session.v1.PreviewAdjustTargetRequest.custom:type_name -> google.protobuf.Duration
-	24, // 2: beamers.session.v1.AdjustTargetRequest.preset:type_name -> google.protobuf.Duration
-	24, // 3: beamers.session.v1.AdjustTargetRequest.custom:type_name -> google.protobuf.Duration
-	25, // 4: beamers.session.v1.CorrectLiveDetailsRequest.update_mask:type_name -> google.protobuf.FieldMask
-	23, // 5: beamers.session.v1.StartSessionResponse.state:type_name -> beamers.session.v1.SessionState
-	23, // 6: beamers.session.v1.EndSessionResponse.state:type_name -> beamers.session.v1.SessionState
-	24, // 7: beamers.session.v1.TargetEffect.current_overlap:type_name -> google.protobuf.Duration
-	24, // 8: beamers.session.v1.TargetEffect.proposed_overlap:type_name -> google.protobuf.Duration
-	26, // 9: beamers.session.v1.TargetEffect.current_forecast_start:type_name -> google.protobuf.Timestamp
-	26, // 10: beamers.session.v1.TargetEffect.current_forecast_end:type_name -> google.protobuf.Timestamp
-	26, // 11: beamers.session.v1.TargetEffect.proposed_forecast_start:type_name -> google.protobuf.Timestamp
-	26, // 12: beamers.session.v1.TargetEffect.proposed_forecast_end:type_name -> google.protobuf.Timestamp
-	26, // 13: beamers.session.v1.ForecastChange.forecast_start:type_name -> google.protobuf.Timestamp
-	26, // 14: beamers.session.v1.ForecastChange.forecast_end:type_name -> google.protobuf.Timestamp
-	26, // 15: beamers.session.v1.PreviewAdjustTargetResponse.current_target:type_name -> google.protobuf.Timestamp
-	26, // 16: beamers.session.v1.PreviewAdjustTargetResponse.proposed_target:type_name -> google.protobuf.Timestamp
-	24, // 17: beamers.session.v1.PreviewAdjustTargetResponse.adjustment:type_name -> google.protobuf.Duration
-	11, // 18: beamers.session.v1.PreviewAdjustTargetResponse.effects:type_name -> beamers.session.v1.TargetEffect
-	24, // 19: beamers.session.v1.PreviewAdjustTargetResponse.configured_presets:type_name -> google.protobuf.Duration
-	23, // 20: beamers.session.v1.AdjustTargetResponse.state:type_name -> beamers.session.v1.SessionState
-	26, // 21: beamers.session.v1.AdjustTargetResponse.forecast_end:type_name -> google.protobuf.Timestamp
-	24, // 22: beamers.session.v1.AdjustTargetResponse.adjustment:type_name -> google.protobuf.Duration
-	26, // 23: beamers.session.v1.AdjustTargetResponse.adjusted_at:type_name -> google.protobuf.Timestamp
-	12, // 24: beamers.session.v1.AdjustTargetResponse.changes:type_name -> beamers.session.v1.ForecastChange
-	11, // 25: beamers.session.v1.PreviewPullForwardResponse.effects:type_name -> beamers.session.v1.TargetEffect
-	12, // 26: beamers.session.v1.PreviewPullForwardResponse.changes:type_name -> beamers.session.v1.ForecastChange
-	23, // 27: beamers.session.v1.PullForwardResponse.state:type_name -> beamers.session.v1.SessionState
-	12, // 28: beamers.session.v1.PullForwardResponse.changes:type_name -> beamers.session.v1.ForecastChange
-	23, // 29: beamers.session.v1.CorrectLiveDetailsResponse.state:type_name -> beamers.session.v1.SessionState
-	19, // 30: beamers.session.v1.CorrectLiveDetailsResponse.details:type_name -> beamers.session.v1.SessionDetails
-	21, // 31: beamers.session.v1.GetSessionHistoryResponse.runs:type_name -> beamers.session.v1.SessionRunHistory
-	19, // 32: beamers.session.v1.RunAmendment.details:type_name -> beamers.session.v1.SessionDetails
-	26, // 33: beamers.session.v1.RunAmendment.created_at:type_name -> google.protobuf.Timestamp
-	26, // 34: beamers.session.v1.SessionRunHistory.actual_start:type_name -> google.protobuf.Timestamp
-	26, // 35: beamers.session.v1.SessionRunHistory.actual_end:type_name -> google.protobuf.Timestamp
-	22, // 36: beamers.session.v1.SessionRunHistory.snapshot:type_name -> beamers.session.v1.RunSnapshot
-	20, // 37: beamers.session.v1.SessionRunHistory.amendments:type_name -> beamers.session.v1.RunAmendment
-	27, // 38: beamers.session.v1.RunSnapshot.type:type_name -> beamers.rundown.v1.SessionType
-	26, // 39: beamers.session.v1.RunSnapshot.planned_start:type_name -> google.protobuf.Timestamp
-	26, // 40: beamers.session.v1.RunSnapshot.planned_end:type_name -> google.protobuf.Timestamp
-	28, // 41: beamers.session.v1.RunSnapshot.timing_policy:type_name -> beamers.rundown.v1.TimingPolicy
-	24, // 42: beamers.session.v1.RunSnapshot.minimum_duration:type_name -> google.protobuf.Duration
-	29, // 43: beamers.session.v1.RunSnapshot.start_boundary:type_name -> beamers.rundown.v1.Boundary
-	29, // 44: beamers.session.v1.RunSnapshot.end_boundary:type_name -> beamers.rundown.v1.Boundary
-	0,  // 45: beamers.session.v1.SessionState.lifecycle:type_name -> beamers.session.v1.SessionLifecycle
-	26, // 46: beamers.session.v1.SessionState.actual_start:type_name -> google.protobuf.Timestamp
-	26, // 47: beamers.session.v1.SessionState.actual_end:type_name -> google.protobuf.Timestamp
-	1,  // 48: beamers.session.v1.SessionControlService.StartSession:input_type -> beamers.session.v1.StartSessionRequest
-	2,  // 49: beamers.session.v1.SessionControlService.EndSession:input_type -> beamers.session.v1.EndSessionRequest
-	3,  // 50: beamers.session.v1.SessionControlService.PreviewAdjustTarget:input_type -> beamers.session.v1.PreviewAdjustTargetRequest
-	4,  // 51: beamers.session.v1.SessionControlService.AdjustTarget:input_type -> beamers.session.v1.AdjustTargetRequest
-	5,  // 52: beamers.session.v1.SessionControlService.PreviewPullForward:input_type -> beamers.session.v1.PreviewPullForwardRequest
-	6,  // 53: beamers.session.v1.SessionControlService.PullForward:input_type -> beamers.session.v1.PullForwardRequest
-	7,  // 54: beamers.session.v1.SessionControlService.CorrectLiveDetails:input_type -> beamers.session.v1.CorrectLiveDetailsRequest
-	8,  // 55: beamers.session.v1.SessionControlService.GetSessionHistory:input_type -> beamers.session.v1.GetSessionHistoryRequest
-	9,  // 56: beamers.session.v1.SessionControlService.StartSession:output_type -> beamers.session.v1.StartSessionResponse
-	10, // 57: beamers.session.v1.SessionControlService.EndSession:output_type -> beamers.session.v1.EndSessionResponse
-	13, // 58: beamers.session.v1.SessionControlService.PreviewAdjustTarget:output_type -> beamers.session.v1.PreviewAdjustTargetResponse
-	14, // 59: beamers.session.v1.SessionControlService.AdjustTarget:output_type -> beamers.session.v1.AdjustTargetResponse
-	15, // 60: beamers.session.v1.SessionControlService.PreviewPullForward:output_type -> beamers.session.v1.PreviewPullForwardResponse
-	16, // 61: beamers.session.v1.SessionControlService.PullForward:output_type -> beamers.session.v1.PullForwardResponse
-	17, // 62: beamers.session.v1.SessionControlService.CorrectLiveDetails:output_type -> beamers.session.v1.CorrectLiveDetailsResponse
-	18, // 63: beamers.session.v1.SessionControlService.GetSessionHistory:output_type -> beamers.session.v1.GetSessionHistoryResponse
-	56, // [56:64] is the sub-list for method output_type
-	48, // [48:56] is the sub-list for method input_type
-	48, // [48:48] is the sub-list for extension type_name
-	48, // [48:48] is the sub-list for extension extendee
-	0,  // [0:48] is the sub-list for field type_name
+	32, // 0: beamers.session.v1.PreviewReinstateSessionRequest.forecast_start:type_name -> google.protobuf.Timestamp
+	32, // 1: beamers.session.v1.ReinstateSessionRequest.forecast_start:type_name -> google.protobuf.Timestamp
+	33, // 2: beamers.session.v1.PreviewAdjustTargetRequest.preset:type_name -> google.protobuf.Duration
+	33, // 3: beamers.session.v1.PreviewAdjustTargetRequest.custom:type_name -> google.protobuf.Duration
+	33, // 4: beamers.session.v1.AdjustTargetRequest.preset:type_name -> google.protobuf.Duration
+	33, // 5: beamers.session.v1.AdjustTargetRequest.custom:type_name -> google.protobuf.Duration
+	34, // 6: beamers.session.v1.CorrectLiveDetailsRequest.update_mask:type_name -> google.protobuf.FieldMask
+	31, // 7: beamers.session.v1.StartSessionResponse.state:type_name -> beamers.session.v1.SessionState
+	31, // 8: beamers.session.v1.EndSessionResponse.state:type_name -> beamers.session.v1.SessionState
+	31, // 9: beamers.session.v1.CancelSessionResponse.state:type_name -> beamers.session.v1.SessionState
+	33, // 10: beamers.session.v1.TargetEffect.current_overlap:type_name -> google.protobuf.Duration
+	33, // 11: beamers.session.v1.TargetEffect.proposed_overlap:type_name -> google.protobuf.Duration
+	32, // 12: beamers.session.v1.TargetEffect.current_forecast_start:type_name -> google.protobuf.Timestamp
+	32, // 13: beamers.session.v1.TargetEffect.current_forecast_end:type_name -> google.protobuf.Timestamp
+	32, // 14: beamers.session.v1.TargetEffect.proposed_forecast_start:type_name -> google.protobuf.Timestamp
+	32, // 15: beamers.session.v1.TargetEffect.proposed_forecast_end:type_name -> google.protobuf.Timestamp
+	32, // 16: beamers.session.v1.ForecastChange.forecast_start:type_name -> google.protobuf.Timestamp
+	32, // 17: beamers.session.v1.ForecastChange.forecast_end:type_name -> google.protobuf.Timestamp
+	32, // 18: beamers.session.v1.PreviewAdjustTargetResponse.current_target:type_name -> google.protobuf.Timestamp
+	32, // 19: beamers.session.v1.PreviewAdjustTargetResponse.proposed_target:type_name -> google.protobuf.Timestamp
+	33, // 20: beamers.session.v1.PreviewAdjustTargetResponse.adjustment:type_name -> google.protobuf.Duration
+	16, // 21: beamers.session.v1.PreviewAdjustTargetResponse.effects:type_name -> beamers.session.v1.TargetEffect
+	33, // 22: beamers.session.v1.PreviewAdjustTargetResponse.configured_presets:type_name -> google.protobuf.Duration
+	31, // 23: beamers.session.v1.AdjustTargetResponse.state:type_name -> beamers.session.v1.SessionState
+	32, // 24: beamers.session.v1.AdjustTargetResponse.forecast_end:type_name -> google.protobuf.Timestamp
+	33, // 25: beamers.session.v1.AdjustTargetResponse.adjustment:type_name -> google.protobuf.Duration
+	32, // 26: beamers.session.v1.AdjustTargetResponse.adjusted_at:type_name -> google.protobuf.Timestamp
+	17, // 27: beamers.session.v1.AdjustTargetResponse.changes:type_name -> beamers.session.v1.ForecastChange
+	16, // 28: beamers.session.v1.PreviewPullForwardResponse.effects:type_name -> beamers.session.v1.TargetEffect
+	17, // 29: beamers.session.v1.PreviewPullForwardResponse.changes:type_name -> beamers.session.v1.ForecastChange
+	31, // 30: beamers.session.v1.PullForwardResponse.state:type_name -> beamers.session.v1.SessionState
+	17, // 31: beamers.session.v1.PullForwardResponse.changes:type_name -> beamers.session.v1.ForecastChange
+	16, // 32: beamers.session.v1.PreviewReinstateSessionResponse.effects:type_name -> beamers.session.v1.TargetEffect
+	17, // 33: beamers.session.v1.PreviewReinstateSessionResponse.changes:type_name -> beamers.session.v1.ForecastChange
+	31, // 34: beamers.session.v1.ReinstateSessionResponse.state:type_name -> beamers.session.v1.SessionState
+	17, // 35: beamers.session.v1.ReinstateSessionResponse.changes:type_name -> beamers.session.v1.ForecastChange
+	32, // 36: beamers.session.v1.ReinstateSessionResponse.previous_forecast_start:type_name -> google.protobuf.Timestamp
+	31, // 37: beamers.session.v1.CorrectLiveDetailsResponse.state:type_name -> beamers.session.v1.SessionState
+	26, // 38: beamers.session.v1.CorrectLiveDetailsResponse.details:type_name -> beamers.session.v1.SessionDetails
+	28, // 39: beamers.session.v1.GetSessionHistoryResponse.runs:type_name -> beamers.session.v1.SessionRunHistory
+	29, // 40: beamers.session.v1.GetSessionHistoryResponse.cancellations:type_name -> beamers.session.v1.SessionCancellationHistory
+	26, // 41: beamers.session.v1.RunAmendment.details:type_name -> beamers.session.v1.SessionDetails
+	32, // 42: beamers.session.v1.RunAmendment.created_at:type_name -> google.protobuf.Timestamp
+	32, // 43: beamers.session.v1.SessionRunHistory.actual_start:type_name -> google.protobuf.Timestamp
+	32, // 44: beamers.session.v1.SessionRunHistory.actual_end:type_name -> google.protobuf.Timestamp
+	30, // 45: beamers.session.v1.SessionRunHistory.snapshot:type_name -> beamers.session.v1.RunSnapshot
+	27, // 46: beamers.session.v1.SessionRunHistory.amendments:type_name -> beamers.session.v1.RunAmendment
+	1,  // 47: beamers.session.v1.SessionRunHistory.outcome:type_name -> beamers.session.v1.SessionRunOutcome
+	32, // 48: beamers.session.v1.SessionCancellationHistory.forecast_start:type_name -> google.protobuf.Timestamp
+	32, // 49: beamers.session.v1.SessionCancellationHistory.canceled_at:type_name -> google.protobuf.Timestamp
+	35, // 50: beamers.session.v1.RunSnapshot.type:type_name -> beamers.rundown.v1.SessionType
+	32, // 51: beamers.session.v1.RunSnapshot.planned_start:type_name -> google.protobuf.Timestamp
+	32, // 52: beamers.session.v1.RunSnapshot.planned_end:type_name -> google.protobuf.Timestamp
+	36, // 53: beamers.session.v1.RunSnapshot.timing_policy:type_name -> beamers.rundown.v1.TimingPolicy
+	33, // 54: beamers.session.v1.RunSnapshot.minimum_duration:type_name -> google.protobuf.Duration
+	37, // 55: beamers.session.v1.RunSnapshot.start_boundary:type_name -> beamers.rundown.v1.Boundary
+	37, // 56: beamers.session.v1.RunSnapshot.end_boundary:type_name -> beamers.rundown.v1.Boundary
+	0,  // 57: beamers.session.v1.SessionState.lifecycle:type_name -> beamers.session.v1.SessionLifecycle
+	32, // 58: beamers.session.v1.SessionState.actual_start:type_name -> google.protobuf.Timestamp
+	32, // 59: beamers.session.v1.SessionState.actual_end:type_name -> google.protobuf.Timestamp
+	2,  // 60: beamers.session.v1.SessionControlService.StartSession:input_type -> beamers.session.v1.StartSessionRequest
+	3,  // 61: beamers.session.v1.SessionControlService.EndSession:input_type -> beamers.session.v1.EndSessionRequest
+	4,  // 62: beamers.session.v1.SessionControlService.CancelSession:input_type -> beamers.session.v1.CancelSessionRequest
+	5,  // 63: beamers.session.v1.SessionControlService.PreviewReinstateSession:input_type -> beamers.session.v1.PreviewReinstateSessionRequest
+	6,  // 64: beamers.session.v1.SessionControlService.ReinstateSession:input_type -> beamers.session.v1.ReinstateSessionRequest
+	7,  // 65: beamers.session.v1.SessionControlService.PreviewAdjustTarget:input_type -> beamers.session.v1.PreviewAdjustTargetRequest
+	8,  // 66: beamers.session.v1.SessionControlService.AdjustTarget:input_type -> beamers.session.v1.AdjustTargetRequest
+	9,  // 67: beamers.session.v1.SessionControlService.PreviewPullForward:input_type -> beamers.session.v1.PreviewPullForwardRequest
+	10, // 68: beamers.session.v1.SessionControlService.PullForward:input_type -> beamers.session.v1.PullForwardRequest
+	11, // 69: beamers.session.v1.SessionControlService.CorrectLiveDetails:input_type -> beamers.session.v1.CorrectLiveDetailsRequest
+	12, // 70: beamers.session.v1.SessionControlService.GetSessionHistory:input_type -> beamers.session.v1.GetSessionHistoryRequest
+	13, // 71: beamers.session.v1.SessionControlService.StartSession:output_type -> beamers.session.v1.StartSessionResponse
+	14, // 72: beamers.session.v1.SessionControlService.EndSession:output_type -> beamers.session.v1.EndSessionResponse
+	15, // 73: beamers.session.v1.SessionControlService.CancelSession:output_type -> beamers.session.v1.CancelSessionResponse
+	22, // 74: beamers.session.v1.SessionControlService.PreviewReinstateSession:output_type -> beamers.session.v1.PreviewReinstateSessionResponse
+	23, // 75: beamers.session.v1.SessionControlService.ReinstateSession:output_type -> beamers.session.v1.ReinstateSessionResponse
+	18, // 76: beamers.session.v1.SessionControlService.PreviewAdjustTarget:output_type -> beamers.session.v1.PreviewAdjustTargetResponse
+	19, // 77: beamers.session.v1.SessionControlService.AdjustTarget:output_type -> beamers.session.v1.AdjustTargetResponse
+	20, // 78: beamers.session.v1.SessionControlService.PreviewPullForward:output_type -> beamers.session.v1.PreviewPullForwardResponse
+	21, // 79: beamers.session.v1.SessionControlService.PullForward:output_type -> beamers.session.v1.PullForwardResponse
+	24, // 80: beamers.session.v1.SessionControlService.CorrectLiveDetails:output_type -> beamers.session.v1.CorrectLiveDetailsResponse
+	25, // 81: beamers.session.v1.SessionControlService.GetSessionHistory:output_type -> beamers.session.v1.GetSessionHistoryResponse
+	71, // [71:82] is the sub-list for method output_type
+	60, // [60:71] is the sub-list for method input_type
+	60, // [60:60] is the sub-list for extension type_name
+	60, // [60:60] is the sub-list for extension extendee
+	0,  // [0:60] is the sub-list for field type_name
 }
 
 func init() { file_beamers_session_v1_session_proto_init() }
@@ -2121,23 +2852,26 @@ func file_beamers_session_v1_session_proto_init() {
 	}
 	file_beamers_session_v1_session_proto_msgTypes[0].OneofWrappers = []any{}
 	file_beamers_session_v1_session_proto_msgTypes[1].OneofWrappers = []any{}
-	file_beamers_session_v1_session_proto_msgTypes[2].OneofWrappers = []any{
+	file_beamers_session_v1_session_proto_msgTypes[2].OneofWrappers = []any{}
+	file_beamers_session_v1_session_proto_msgTypes[4].OneofWrappers = []any{}
+	file_beamers_session_v1_session_proto_msgTypes[5].OneofWrappers = []any{
 		(*PreviewAdjustTargetRequest_Preset)(nil),
 		(*PreviewAdjustTargetRequest_Custom)(nil),
 	}
-	file_beamers_session_v1_session_proto_msgTypes[3].OneofWrappers = []any{
+	file_beamers_session_v1_session_proto_msgTypes[6].OneofWrappers = []any{
 		(*AdjustTargetRequest_Preset)(nil),
 		(*AdjustTargetRequest_Custom)(nil),
 	}
-	file_beamers_session_v1_session_proto_msgTypes[5].OneofWrappers = []any{}
-	file_beamers_session_v1_session_proto_msgTypes[6].OneofWrappers = []any{}
+	file_beamers_session_v1_session_proto_msgTypes[8].OneofWrappers = []any{}
+	file_beamers_session_v1_session_proto_msgTypes[9].OneofWrappers = []any{}
+	file_beamers_session_v1_session_proto_msgTypes[27].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_beamers_session_v1_session_proto_rawDesc), len(file_beamers_session_v1_session_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   23,
+			NumEnums:      2,
+			NumMessages:   30,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

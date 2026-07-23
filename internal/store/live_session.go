@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"time"
 
 	"entgo.io/ent/privacy"
@@ -13,6 +14,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/ent/sessioncancellation"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
 	"github.com/dotwaffle/beamers/ent/sessionrunamendment"
@@ -89,7 +91,24 @@ type SessionRunHistory struct {
 	ActualStart time.Time
 	ActualEnd   *time.Time
 	Snapshot    SessionRunSnapshot
+	Outcome     string
 	Amendments  []RunAmendment
+}
+
+// SessionCancellationHistory preserves one cancellation command.
+type SessionCancellationHistory struct {
+	ID            int
+	SessionRunID  *int
+	PublicMessage string
+	CrewNotes     string
+	ForecastStart time.Time
+	CanceledAt    time.Time
+}
+
+// SessionHistory contains complete Run and cancellation evidence.
+type SessionHistory struct {
+	Runs          []SessionRunHistory
+	Cancellations []SessionCancellationHistory
 }
 
 // LiveSessionState is the durable outcome of one Session progression command.
@@ -232,7 +251,10 @@ func (transaction *CommandTx) EndSession(
 		return LiveSessionState{}, opaqueError("end Session", err)
 	}
 	endedRun, err := transaction.transaction.SessionRun.UpdateOneID(run.ID).
-		Where(sessionrun.ActualEndIsNil()).SetActualEnd(now).Save(ctx)
+		Where(sessionrun.ActualEndIsNil()).
+		SetActualEnd(now).
+		SetOutcome(sessionrun.OutcomeCompleted).
+		Save(ctx)
 	if ent.IsNotFound(err) {
 		return LiveSessionState{}, opaqueError("end Session Run", errors.New("open session run disappeared"))
 	}
@@ -459,27 +481,30 @@ func (installationStore *SQLite) LoadSessionHistory(
 	ctx context.Context,
 	eventID int,
 	sessionID int,
-) ([]SessionRunHistory, error) {
+) (SessionHistory, error) {
 	identity, err := installationStore.client.Session.Query().Where(
 		session.IDEQ(sessionID), session.EventIDEQ(eventID),
 	).Only(ctx)
 	if ent.IsNotFound(err) || errors.Is(err, privacy.Deny) {
-		return nil, ErrSessionNotFound
+		return SessionHistory{}, ErrSessionNotFound
 	}
 	if err != nil {
-		return nil, opaqueError("load Session history identity", err)
+		return SessionHistory{}, opaqueError("load Session history identity", err)
 	}
 	runs, err := identity.QueryRuns().Order(ent.Asc(sessionrun.FieldID)).All(ctx)
 	if err != nil {
-		return nil, opaqueError("load Session Run history", err)
+		return SessionHistory{}, opaqueError("load Session Run history", err)
 	}
-	result := make([]SessionRunHistory, 0, len(runs))
+	result := SessionHistory{Runs: make([]SessionRunHistory, 0, len(runs))}
 	for _, run := range runs {
 		var snapshot SessionRunSnapshot
-		if err := json.Unmarshal([]byte(run.SnapshotJSON), &snapshot); err != nil {
-			return nil, opaqueError("decode Session Run Snapshot", err)
+		if decodeErr := json.Unmarshal([]byte(run.SnapshotJSON), &snapshot); decodeErr != nil {
+			return SessionHistory{}, opaqueError("decode Session Run Snapshot", decodeErr)
 		}
-		found := SessionRunHistory{ID: run.ID, ActualStart: run.ActualStart, Snapshot: snapshot}
+		found := SessionRunHistory{
+			ID: run.ID, ActualStart: run.ActualStart, Snapshot: snapshot,
+			Outcome: run.Outcome.String(),
+		}
 		if !run.ActualEnd.IsZero() {
 			actualEnd := run.ActualEnd
 			found.ActualEnd = &actualEnd
@@ -488,18 +513,32 @@ func (installationStore *SQLite) LoadSessionHistory(
 			sessionrunamendment.SessionRunIDEQ(run.ID),
 		).Order(ent.Asc(sessionrunamendment.FieldID)).All(systemContext(ctx))
 		if queryErr != nil {
-			return nil, opaqueError("load Run Amendments", queryErr)
+			return SessionHistory{}, opaqueError("load Run Amendments", queryErr)
 		}
 		for _, amendment := range amendments {
 			var evidence runAmendmentEvidence
-			if err := json.Unmarshal([]byte(amendment.DetailsJSON), &evidence); err != nil {
-				return nil, opaqueError("decode Run Amendment", err)
+			if decodeErr := json.Unmarshal([]byte(amendment.DetailsJSON), &evidence); decodeErr != nil {
+				return SessionHistory{}, opaqueError("decode Run Amendment", decodeErr)
 			}
 			found.Amendments = append(found.Amendments, RunAmendment{
 				ID: amendment.ID, Details: evidence.After, ChangedFields: evidence.ChangedFields, CreatedAt: amendment.CreatedAt,
 			})
 		}
-		result = append(result, found)
+		result.Runs = append(result.Runs, found)
+	}
+	cancellations, err := installationStore.client.SessionCancellation.Query().
+		Where(sessioncancellation.SessionIDEQ(sessionID)).
+		Order(ent.Asc(sessioncancellation.FieldID)).
+		All(systemContext(ctx))
+	if err != nil {
+		return SessionHistory{}, opaqueError("load Session cancellation history", err)
+	}
+	for _, cancellation := range cancellations {
+		result.Cancellations = append(result.Cancellations, SessionCancellationHistory{
+			ID: cancellation.ID, SessionRunID: cancellation.SessionRunID,
+			PublicMessage: cancellation.PublicMessage, CrewNotes: cancellation.CrewNotes,
+			ForecastStart: cancellation.ForecastStart, CanceledAt: cancellation.CreatedAt,
+		})
 	}
 	return result, nil
 }
@@ -518,17 +557,9 @@ func (transaction *CommandTx) requireActiveEvent(ctx context.Context, eventID in
 }
 
 func requireSessionControlScope(ctx context.Context, identity *ent.Session) error {
-	version, err := identity.QueryPublishedVersions().
-		Order(ent.Desc("published_revision")).First(ctx)
-	if ent.IsNotFound(err) {
-		return ErrSessionNotFound
-	}
+	laneIDs, _, err := sessionPlacement(ctx, identity)
 	if err != nil {
-		return opaqueError("load Published Session scope", err)
-	}
-	laneIDs, err := version.QueryLanes().IDs(ctx)
-	if err != nil {
-		return opaqueError("load Session Lane scope", err)
+		return err
 	}
 	return requireSessionLaneScope(ctx, identity.EventID, laneIDs)
 }
@@ -591,6 +622,12 @@ func sessionRunSnapshot(ctx context.Context, identity *ent.Session) (SessionRunS
 	tracks, err := version.QueryTracks().IDs(ctx)
 	if err != nil {
 		return SessionRunSnapshot{}, opaqueError("load Session Run Snapshot Tracks", err)
+	}
+	if len(identity.ForecastLaneIds) > 0 {
+		lanes = slices.Clone(identity.ForecastLaneIds)
+	}
+	if len(identity.ForecastLocationIds) > 0 {
+		locations = slices.Clone(identity.ForecastLocationIds)
 	}
 	return SessionRunSnapshot{
 		PublishedRevision: version.PublishedRevision,

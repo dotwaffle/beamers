@@ -39,6 +39,15 @@ const (
 	// SessionControlServiceEndSessionProcedure is the fully-qualified name of the
 	// SessionControlService's EndSession RPC.
 	SessionControlServiceEndSessionProcedure = "/beamers.session.v1.SessionControlService/EndSession"
+	// SessionControlServiceCancelSessionProcedure is the fully-qualified name of the
+	// SessionControlService's CancelSession RPC.
+	SessionControlServiceCancelSessionProcedure = "/beamers.session.v1.SessionControlService/CancelSession"
+	// SessionControlServicePreviewReinstateSessionProcedure is the fully-qualified name of the
+	// SessionControlService's PreviewReinstateSession RPC.
+	SessionControlServicePreviewReinstateSessionProcedure = "/beamers.session.v1.SessionControlService/PreviewReinstateSession"
+	// SessionControlServiceReinstateSessionProcedure is the fully-qualified name of the
+	// SessionControlService's ReinstateSession RPC.
+	SessionControlServiceReinstateSessionProcedure = "/beamers.session.v1.SessionControlService/ReinstateSession"
 	// SessionControlServicePreviewAdjustTargetProcedure is the fully-qualified name of the
 	// SessionControlService's PreviewAdjustTarget RPC.
 	SessionControlServicePreviewAdjustTargetProcedure = "/beamers.session.v1.SessionControlService/PreviewAdjustTarget"
@@ -63,6 +72,9 @@ const (
 type SessionControlServiceClient interface {
 	StartSession(context.Context, *connect.Request[v1.StartSessionRequest]) (*connect.Response[v1.StartSessionResponse], error)
 	EndSession(context.Context, *connect.Request[v1.EndSessionRequest]) (*connect.Response[v1.EndSessionResponse], error)
+	CancelSession(context.Context, *connect.Request[v1.CancelSessionRequest]) (*connect.Response[v1.CancelSessionResponse], error)
+	PreviewReinstateSession(context.Context, *connect.Request[v1.PreviewReinstateSessionRequest]) (*connect.Response[v1.PreviewReinstateSessionResponse], error)
+	ReinstateSession(context.Context, *connect.Request[v1.ReinstateSessionRequest]) (*connect.Response[v1.ReinstateSessionResponse], error)
 	PreviewAdjustTarget(context.Context, *connect.Request[v1.PreviewAdjustTargetRequest]) (*connect.Response[v1.PreviewAdjustTargetResponse], error)
 	AdjustTarget(context.Context, *connect.Request[v1.AdjustTargetRequest]) (*connect.Response[v1.AdjustTargetResponse], error)
 	PreviewPullForward(context.Context, *connect.Request[v1.PreviewPullForwardRequest]) (*connect.Response[v1.PreviewPullForwardResponse], error)
@@ -92,6 +104,24 @@ func NewSessionControlServiceClient(httpClient connect.HTTPClient, baseURL strin
 			httpClient,
 			baseURL+SessionControlServiceEndSessionProcedure,
 			connect.WithSchema(sessionControlServiceMethods.ByName("EndSession")),
+			connect.WithClientOptions(opts...),
+		),
+		cancelSession: connect.NewClient[v1.CancelSessionRequest, v1.CancelSessionResponse](
+			httpClient,
+			baseURL+SessionControlServiceCancelSessionProcedure,
+			connect.WithSchema(sessionControlServiceMethods.ByName("CancelSession")),
+			connect.WithClientOptions(opts...),
+		),
+		previewReinstateSession: connect.NewClient[v1.PreviewReinstateSessionRequest, v1.PreviewReinstateSessionResponse](
+			httpClient,
+			baseURL+SessionControlServicePreviewReinstateSessionProcedure,
+			connect.WithSchema(sessionControlServiceMethods.ByName("PreviewReinstateSession")),
+			connect.WithClientOptions(opts...),
+		),
+		reinstateSession: connect.NewClient[v1.ReinstateSessionRequest, v1.ReinstateSessionResponse](
+			httpClient,
+			baseURL+SessionControlServiceReinstateSessionProcedure,
+			connect.WithSchema(sessionControlServiceMethods.ByName("ReinstateSession")),
 			connect.WithClientOptions(opts...),
 		),
 		previewAdjustTarget: connect.NewClient[v1.PreviewAdjustTargetRequest, v1.PreviewAdjustTargetResponse](
@@ -135,14 +165,17 @@ func NewSessionControlServiceClient(httpClient connect.HTTPClient, baseURL strin
 
 // sessionControlServiceClient implements SessionControlServiceClient.
 type sessionControlServiceClient struct {
-	startSession        *connect.Client[v1.StartSessionRequest, v1.StartSessionResponse]
-	endSession          *connect.Client[v1.EndSessionRequest, v1.EndSessionResponse]
-	previewAdjustTarget *connect.Client[v1.PreviewAdjustTargetRequest, v1.PreviewAdjustTargetResponse]
-	adjustTarget        *connect.Client[v1.AdjustTargetRequest, v1.AdjustTargetResponse]
-	previewPullForward  *connect.Client[v1.PreviewPullForwardRequest, v1.PreviewPullForwardResponse]
-	pullForward         *connect.Client[v1.PullForwardRequest, v1.PullForwardResponse]
-	correctLiveDetails  *connect.Client[v1.CorrectLiveDetailsRequest, v1.CorrectLiveDetailsResponse]
-	getSessionHistory   *connect.Client[v1.GetSessionHistoryRequest, v1.GetSessionHistoryResponse]
+	startSession            *connect.Client[v1.StartSessionRequest, v1.StartSessionResponse]
+	endSession              *connect.Client[v1.EndSessionRequest, v1.EndSessionResponse]
+	cancelSession           *connect.Client[v1.CancelSessionRequest, v1.CancelSessionResponse]
+	previewReinstateSession *connect.Client[v1.PreviewReinstateSessionRequest, v1.PreviewReinstateSessionResponse]
+	reinstateSession        *connect.Client[v1.ReinstateSessionRequest, v1.ReinstateSessionResponse]
+	previewAdjustTarget     *connect.Client[v1.PreviewAdjustTargetRequest, v1.PreviewAdjustTargetResponse]
+	adjustTarget            *connect.Client[v1.AdjustTargetRequest, v1.AdjustTargetResponse]
+	previewPullForward      *connect.Client[v1.PreviewPullForwardRequest, v1.PreviewPullForwardResponse]
+	pullForward             *connect.Client[v1.PullForwardRequest, v1.PullForwardResponse]
+	correctLiveDetails      *connect.Client[v1.CorrectLiveDetailsRequest, v1.CorrectLiveDetailsResponse]
+	getSessionHistory       *connect.Client[v1.GetSessionHistoryRequest, v1.GetSessionHistoryResponse]
 }
 
 // StartSession calls beamers.session.v1.SessionControlService.StartSession.
@@ -153,6 +186,21 @@ func (c *sessionControlServiceClient) StartSession(ctx context.Context, req *con
 // EndSession calls beamers.session.v1.SessionControlService.EndSession.
 func (c *sessionControlServiceClient) EndSession(ctx context.Context, req *connect.Request[v1.EndSessionRequest]) (*connect.Response[v1.EndSessionResponse], error) {
 	return c.endSession.CallUnary(ctx, req)
+}
+
+// CancelSession calls beamers.session.v1.SessionControlService.CancelSession.
+func (c *sessionControlServiceClient) CancelSession(ctx context.Context, req *connect.Request[v1.CancelSessionRequest]) (*connect.Response[v1.CancelSessionResponse], error) {
+	return c.cancelSession.CallUnary(ctx, req)
+}
+
+// PreviewReinstateSession calls beamers.session.v1.SessionControlService.PreviewReinstateSession.
+func (c *sessionControlServiceClient) PreviewReinstateSession(ctx context.Context, req *connect.Request[v1.PreviewReinstateSessionRequest]) (*connect.Response[v1.PreviewReinstateSessionResponse], error) {
+	return c.previewReinstateSession.CallUnary(ctx, req)
+}
+
+// ReinstateSession calls beamers.session.v1.SessionControlService.ReinstateSession.
+func (c *sessionControlServiceClient) ReinstateSession(ctx context.Context, req *connect.Request[v1.ReinstateSessionRequest]) (*connect.Response[v1.ReinstateSessionResponse], error) {
+	return c.reinstateSession.CallUnary(ctx, req)
 }
 
 // PreviewAdjustTarget calls beamers.session.v1.SessionControlService.PreviewAdjustTarget.
@@ -190,6 +238,9 @@ func (c *sessionControlServiceClient) GetSessionHistory(ctx context.Context, req
 type SessionControlServiceHandler interface {
 	StartSession(context.Context, *connect.Request[v1.StartSessionRequest]) (*connect.Response[v1.StartSessionResponse], error)
 	EndSession(context.Context, *connect.Request[v1.EndSessionRequest]) (*connect.Response[v1.EndSessionResponse], error)
+	CancelSession(context.Context, *connect.Request[v1.CancelSessionRequest]) (*connect.Response[v1.CancelSessionResponse], error)
+	PreviewReinstateSession(context.Context, *connect.Request[v1.PreviewReinstateSessionRequest]) (*connect.Response[v1.PreviewReinstateSessionResponse], error)
+	ReinstateSession(context.Context, *connect.Request[v1.ReinstateSessionRequest]) (*connect.Response[v1.ReinstateSessionResponse], error)
 	PreviewAdjustTarget(context.Context, *connect.Request[v1.PreviewAdjustTargetRequest]) (*connect.Response[v1.PreviewAdjustTargetResponse], error)
 	AdjustTarget(context.Context, *connect.Request[v1.AdjustTargetRequest]) (*connect.Response[v1.AdjustTargetResponse], error)
 	PreviewPullForward(context.Context, *connect.Request[v1.PreviewPullForwardRequest]) (*connect.Response[v1.PreviewPullForwardResponse], error)
@@ -215,6 +266,24 @@ func NewSessionControlServiceHandler(svc SessionControlServiceHandler, opts ...c
 		SessionControlServiceEndSessionProcedure,
 		svc.EndSession,
 		connect.WithSchema(sessionControlServiceMethods.ByName("EndSession")),
+		connect.WithHandlerOptions(opts...),
+	)
+	sessionControlServiceCancelSessionHandler := connect.NewUnaryHandler(
+		SessionControlServiceCancelSessionProcedure,
+		svc.CancelSession,
+		connect.WithSchema(sessionControlServiceMethods.ByName("CancelSession")),
+		connect.WithHandlerOptions(opts...),
+	)
+	sessionControlServicePreviewReinstateSessionHandler := connect.NewUnaryHandler(
+		SessionControlServicePreviewReinstateSessionProcedure,
+		svc.PreviewReinstateSession,
+		connect.WithSchema(sessionControlServiceMethods.ByName("PreviewReinstateSession")),
+		connect.WithHandlerOptions(opts...),
+	)
+	sessionControlServiceReinstateSessionHandler := connect.NewUnaryHandler(
+		SessionControlServiceReinstateSessionProcedure,
+		svc.ReinstateSession,
+		connect.WithSchema(sessionControlServiceMethods.ByName("ReinstateSession")),
 		connect.WithHandlerOptions(opts...),
 	)
 	sessionControlServicePreviewAdjustTargetHandler := connect.NewUnaryHandler(
@@ -259,6 +328,12 @@ func NewSessionControlServiceHandler(svc SessionControlServiceHandler, opts ...c
 			sessionControlServiceStartSessionHandler.ServeHTTP(w, r)
 		case SessionControlServiceEndSessionProcedure:
 			sessionControlServiceEndSessionHandler.ServeHTTP(w, r)
+		case SessionControlServiceCancelSessionProcedure:
+			sessionControlServiceCancelSessionHandler.ServeHTTP(w, r)
+		case SessionControlServicePreviewReinstateSessionProcedure:
+			sessionControlServicePreviewReinstateSessionHandler.ServeHTTP(w, r)
+		case SessionControlServiceReinstateSessionProcedure:
+			sessionControlServiceReinstateSessionHandler.ServeHTTP(w, r)
 		case SessionControlServicePreviewAdjustTargetProcedure:
 			sessionControlServicePreviewAdjustTargetHandler.ServeHTTP(w, r)
 		case SessionControlServiceAdjustTargetProcedure:
@@ -286,6 +361,18 @@ func (UnimplementedSessionControlServiceHandler) StartSession(context.Context, *
 
 func (UnimplementedSessionControlServiceHandler) EndSession(context.Context, *connect.Request[v1.EndSessionRequest]) (*connect.Response[v1.EndSessionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.session.v1.SessionControlService.EndSession is not implemented"))
+}
+
+func (UnimplementedSessionControlServiceHandler) CancelSession(context.Context, *connect.Request[v1.CancelSessionRequest]) (*connect.Response[v1.CancelSessionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.session.v1.SessionControlService.CancelSession is not implemented"))
+}
+
+func (UnimplementedSessionControlServiceHandler) PreviewReinstateSession(context.Context, *connect.Request[v1.PreviewReinstateSessionRequest]) (*connect.Response[v1.PreviewReinstateSessionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.session.v1.SessionControlService.PreviewReinstateSession is not implemented"))
+}
+
+func (UnimplementedSessionControlServiceHandler) ReinstateSession(context.Context, *connect.Request[v1.ReinstateSessionRequest]) (*connect.Response[v1.ReinstateSessionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.session.v1.SessionControlService.ReinstateSession is not implemented"))
 }
 
 func (UnimplementedSessionControlServiceHandler) PreviewAdjustTarget(context.Context, *connect.Request[v1.PreviewAdjustTargetRequest]) (*connect.Response[v1.PreviewAdjustTargetResponse], error) {

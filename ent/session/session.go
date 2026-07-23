@@ -26,6 +26,16 @@ const (
 	FieldForecastStart = "forecast_start"
 	// FieldForecastEnd holds the string denoting the forecast_end field in the database.
 	FieldForecastEnd = "forecast_end"
+	// FieldPreviousForecastStart holds the string denoting the previous_forecast_start field in the database.
+	FieldPreviousForecastStart = "previous_forecast_start"
+	// FieldForecastLaneIds holds the string denoting the forecast_lane_ids field in the database.
+	FieldForecastLaneIds = "forecast_lane_ids"
+	// FieldForecastLocationIds holds the string denoting the forecast_location_ids field in the database.
+	FieldForecastLocationIds = "forecast_location_ids"
+	// FieldPublicCancellationMessage holds the string denoting the public_cancellation_message field in the database.
+	FieldPublicCancellationMessage = "public_cancellation_message"
+	// FieldCancellationCrewNotes holds the string denoting the cancellation_crew_notes field in the database.
+	FieldCancellationCrewNotes = "cancellation_crew_notes"
 	// FieldCorrectedTitle holds the string denoting the corrected_title field in the database.
 	FieldCorrectedTitle = "corrected_title"
 	// FieldCorrectedSpeaker holds the string denoting the corrected_speaker field in the database.
@@ -42,6 +52,8 @@ const (
 	EdgePublishedVersions = "published_versions"
 	// EdgeRuns holds the string denoting the runs edge name in mutations.
 	EdgeRuns = "runs"
+	// EdgeCancellations holds the string denoting the cancellations edge name in mutations.
+	EdgeCancellations = "cancellations"
 	// Table holds the table name of the session in the database.
 	Table = "sessions"
 	// EventTable is the table that holds the event relation/edge.
@@ -72,6 +84,13 @@ const (
 	RunsInverseTable = "session_runs"
 	// RunsColumn is the table column denoting the runs relation/edge.
 	RunsColumn = "session_id"
+	// CancellationsTable is the table that holds the cancellations relation/edge.
+	CancellationsTable = "session_cancellations"
+	// CancellationsInverseTable is the table name for the SessionCancellation entity.
+	// It exists in this package in order to avoid circular dependency with the "sessioncancellation" package.
+	CancellationsInverseTable = "session_cancellations"
+	// CancellationsColumn is the table column denoting the cancellations relation/edge.
+	CancellationsColumn = "session_id"
 )
 
 // Columns holds all SQL columns for session fields.
@@ -82,6 +101,11 @@ var Columns = []string{
 	FieldLiveStateRevision,
 	FieldForecastStart,
 	FieldForecastEnd,
+	FieldPreviousForecastStart,
+	FieldForecastLaneIds,
+	FieldForecastLocationIds,
+	FieldPublicCancellationMessage,
+	FieldCancellationCrewNotes,
 	FieldCorrectedTitle,
 	FieldCorrectedSpeaker,
 	FieldCorrectedPublicDetails,
@@ -110,6 +134,10 @@ var (
 	DefaultLiveStateRevision int
 	// LiveStateRevisionValidator is a validator for the "live_state_revision" field. It is called by the builders before save.
 	LiveStateRevisionValidator func(int) error
+	// PublicCancellationMessageValidator is a validator for the "public_cancellation_message" field. It is called by the builders before save.
+	PublicCancellationMessageValidator func(string) error
+	// CancellationCrewNotesValidator is a validator for the "cancellation_crew_notes" field. It is called by the builders before save.
+	CancellationCrewNotesValidator func(string) error
 	// CorrectedTitleValidator is a validator for the "corrected_title" field. It is called by the builders before save.
 	CorrectedTitleValidator func(string) error
 	// CorrectedSpeakerValidator is a validator for the "corrected_speaker" field. It is called by the builders before save.
@@ -181,6 +209,21 @@ func ByForecastEnd(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldForecastEnd, opts...).ToFunc()
 }
 
+// ByPreviousForecastStart orders the results by the previous_forecast_start field.
+func ByPreviousForecastStart(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPreviousForecastStart, opts...).ToFunc()
+}
+
+// ByPublicCancellationMessage orders the results by the public_cancellation_message field.
+func ByPublicCancellationMessage(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPublicCancellationMessage, opts...).ToFunc()
+}
+
+// ByCancellationCrewNotes orders the results by the cancellation_crew_notes field.
+func ByCancellationCrewNotes(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCancellationCrewNotes, opts...).ToFunc()
+}
+
 // ByCorrectedTitle orders the results by the corrected_title field.
 func ByCorrectedTitle(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCorrectedTitle, opts...).ToFunc()
@@ -242,6 +285,20 @@ func ByRuns(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newRunsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByCancellationsCount orders the results by cancellations count.
+func ByCancellationsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCancellationsStep(), opts...)
+	}
+}
+
+// ByCancellations orders the results by cancellations terms.
+func ByCancellations(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCancellationsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newEventStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -268,5 +325,12 @@ func newRunsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(RunsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, RunsTable, RunsColumn),
+	)
+}
+func newCancellationsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CancellationsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CancellationsTable, CancellationsColumn),
 	)
 }

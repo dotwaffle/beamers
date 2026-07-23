@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/ent/sessioncancellation"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
@@ -82,6 +83,60 @@ func (_c *SessionCreate) SetForecastEnd(v time.Time) *SessionCreate {
 func (_c *SessionCreate) SetNillableForecastEnd(v *time.Time) *SessionCreate {
 	if v != nil {
 		_c.SetForecastEnd(*v)
+	}
+	return _c
+}
+
+// SetPreviousForecastStart sets the "previous_forecast_start" field.
+func (_c *SessionCreate) SetPreviousForecastStart(v time.Time) *SessionCreate {
+	_c.mutation.SetPreviousForecastStart(v)
+	return _c
+}
+
+// SetNillablePreviousForecastStart sets the "previous_forecast_start" field if the given value is not nil.
+func (_c *SessionCreate) SetNillablePreviousForecastStart(v *time.Time) *SessionCreate {
+	if v != nil {
+		_c.SetPreviousForecastStart(*v)
+	}
+	return _c
+}
+
+// SetForecastLaneIds sets the "forecast_lane_ids" field.
+func (_c *SessionCreate) SetForecastLaneIds(v []int) *SessionCreate {
+	_c.mutation.SetForecastLaneIds(v)
+	return _c
+}
+
+// SetForecastLocationIds sets the "forecast_location_ids" field.
+func (_c *SessionCreate) SetForecastLocationIds(v []int) *SessionCreate {
+	_c.mutation.SetForecastLocationIds(v)
+	return _c
+}
+
+// SetPublicCancellationMessage sets the "public_cancellation_message" field.
+func (_c *SessionCreate) SetPublicCancellationMessage(v string) *SessionCreate {
+	_c.mutation.SetPublicCancellationMessage(v)
+	return _c
+}
+
+// SetNillablePublicCancellationMessage sets the "public_cancellation_message" field if the given value is not nil.
+func (_c *SessionCreate) SetNillablePublicCancellationMessage(v *string) *SessionCreate {
+	if v != nil {
+		_c.SetPublicCancellationMessage(*v)
+	}
+	return _c
+}
+
+// SetCancellationCrewNotes sets the "cancellation_crew_notes" field.
+func (_c *SessionCreate) SetCancellationCrewNotes(v string) *SessionCreate {
+	_c.mutation.SetCancellationCrewNotes(v)
+	return _c
+}
+
+// SetNillableCancellationCrewNotes sets the "cancellation_crew_notes" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableCancellationCrewNotes(v *string) *SessionCreate {
+	if v != nil {
+		_c.SetCancellationCrewNotes(*v)
 	}
 	return _c
 }
@@ -196,6 +251,21 @@ func (_c *SessionCreate) AddRuns(v ...*SessionRun) *SessionCreate {
 	return _c.AddRunIDs(ids...)
 }
 
+// AddCancellationIDs adds the "cancellations" edge to the SessionCancellation entity by IDs.
+func (_c *SessionCreate) AddCancellationIDs(ids ...int) *SessionCreate {
+	_c.mutation.AddCancellationIDs(ids...)
+	return _c
+}
+
+// AddCancellations adds the "cancellations" edges to the SessionCancellation entity.
+func (_c *SessionCreate) AddCancellations(v ...*SessionCancellation) *SessionCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddCancellationIDs(ids...)
+}
+
 // Mutation returns the SessionMutation object of the builder.
 func (_c *SessionCreate) Mutation() *SessionMutation {
 	return _c.mutation
@@ -272,6 +342,16 @@ func (_c *SessionCreate) check() error {
 			return &ValidationError{Name: "live_state_revision", err: fmt.Errorf(`ent: validator failed for field "Session.live_state_revision": %w`, err)}
 		}
 	}
+	if v, ok := _c.mutation.PublicCancellationMessage(); ok {
+		if err := session.PublicCancellationMessageValidator(v); err != nil {
+			return &ValidationError{Name: "public_cancellation_message", err: fmt.Errorf(`ent: validator failed for field "Session.public_cancellation_message": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.CancellationCrewNotes(); ok {
+		if err := session.CancellationCrewNotesValidator(v); err != nil {
+			return &ValidationError{Name: "cancellation_crew_notes", err: fmt.Errorf(`ent: validator failed for field "Session.cancellation_crew_notes": %w`, err)}
+		}
+	}
 	if v, ok := _c.mutation.CorrectedTitle(); ok {
 		if err := session.CorrectedTitleValidator(v); err != nil {
 			return &ValidationError{Name: "corrected_title", err: fmt.Errorf(`ent: validator failed for field "Session.corrected_title": %w`, err)}
@@ -334,6 +414,26 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ForecastEnd(); ok {
 		_spec.SetField(session.FieldForecastEnd, field.TypeTime, value)
 		_node.ForecastEnd = value
+	}
+	if value, ok := _c.mutation.PreviousForecastStart(); ok {
+		_spec.SetField(session.FieldPreviousForecastStart, field.TypeTime, value)
+		_node.PreviousForecastStart = value
+	}
+	if value, ok := _c.mutation.ForecastLaneIds(); ok {
+		_spec.SetField(session.FieldForecastLaneIds, field.TypeJSON, value)
+		_node.ForecastLaneIds = value
+	}
+	if value, ok := _c.mutation.ForecastLocationIds(); ok {
+		_spec.SetField(session.FieldForecastLocationIds, field.TypeJSON, value)
+		_node.ForecastLocationIds = value
+	}
+	if value, ok := _c.mutation.PublicCancellationMessage(); ok {
+		_spec.SetField(session.FieldPublicCancellationMessage, field.TypeString, value)
+		_node.PublicCancellationMessage = value
+	}
+	if value, ok := _c.mutation.CancellationCrewNotes(); ok {
+		_spec.SetField(session.FieldCancellationCrewNotes, field.TypeString, value)
+		_node.CancellationCrewNotes = value
 	}
 	if value, ok := _c.mutation.CorrectedTitle(); ok {
 		_spec.SetField(session.FieldCorrectedTitle, field.TypeString, value)
@@ -409,6 +509,22 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(sessionrun.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.CancellationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.CancellationsTable,
+			Columns: []string{session.CancellationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sessioncancellation.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

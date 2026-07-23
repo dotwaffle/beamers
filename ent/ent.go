@@ -38,6 +38,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/ent/sessioncancellation"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
@@ -131,6 +132,7 @@ func checkColumn(t, c string) error {
 			passwordcredential.Table:       passwordcredential.ValidColumn,
 			rundown.Table:                  rundown.ValidColumn,
 			session.Table:                  session.ValidColumn,
+			sessioncancellation.Table:      sessioncancellation.ValidColumn,
 			sessiondraft.Table:             sessiondraft.ValidColumn,
 			sessionpublishedversion.Table:  sessionpublishedversion.ValidColumn,
 			sessionrun.Table:               sessionrun.ValidColumn,
