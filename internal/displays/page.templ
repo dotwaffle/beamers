@@ -1,0 +1,101 @@
+package displays
+
+templ EnrollmentPage(code string, qrCodeDataURL string) {
+	<!doctype html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta http-equiv="refresh" content="3"/>
+			<title>Enroll this Display</title>
+		</head>
+		<body>
+			<main>
+				<h1>Enroll this Display</h1>
+				<img src={ templ.SafeURL(qrCodeDataURL) } alt="QR code for Display Enrollment" width="320" height="320"/>
+				<p>Enrollment code: <strong>{ code }</strong></p>
+				<p>Scan the QR code or enter the code on an Administrator device.</p>
+			</main>
+		</body>
+	</html>
+}
+
+templ EnrollmentClaimPage(code string, commandID string) {
+	<!doctype html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>Claim Display</title>
+		</head>
+		<body>
+			<main>
+				<h1>Claim Display</h1>
+				<p>Enrollment code: <strong>{ code }</strong></p>
+				<form method="post" action="/admin/displays/enroll">
+					<input type="hidden" name="code" value={ code }/>
+					<input type="hidden" name="command_id" value={ commandID }/>
+					<label>Display name <input name="name" maxlength="200" required/></label>
+					<button type="submit">Enroll Display</button>
+				</form>
+			</main>
+		</body>
+	</html>
+}
+
+templ EnrollmentClaimedPage(display Display) {
+	<!doctype html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>Display enrolled</title>
+		</head>
+		<body>
+			<main>
+				<h1>Display enrolled</h1>
+				<p>{ display.Name } is ready and currently unassigned.</p>
+			</main>
+		</body>
+	</html>
+}
+
+templ StandbyPage(snapshot Snapshot) {
+	<!doctype html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ snapshot.Display.Name } · Standby</title>
+		</head>
+		<body>
+			<main>
+				<h1>Standby</h1>
+				<p>Display: { snapshot.Display.Name }</p>
+				if snapshot.EventName != "" {
+					<p>Active Event: { snapshot.EventName }</p>
+				}
+				<p>This Display has no Assignment for the Active Event.</p>
+			</main>
+		</body>
+	</html>
+}
+
+templ AssignedPage(snapshot Snapshot) {
+	<!doctype html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ snapshot.Display.Name } · { snapshot.EventName }</title>
+		</head>
+		<body>
+			<main>
+				<h1>{ snapshot.EventName }</h1>
+				<p>Display: { snapshot.Display.Name }</p>
+				<p>Location: { snapshot.LocationName }</p>
+				<p>View: { snapshot.ViewKey }</p>
+			</main>
+		</body>
+	</html>
+}

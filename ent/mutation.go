@@ -16,6 +16,10 @@ import (
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/display"
+	"github.com/dotwaffle/beamers/ent/displayassignment"
+	"github.com/dotwaffle/beamers/ent/displaycredential"
+	"github.com/dotwaffle/beamers/ent/displayenrollment"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftchangedependency"
 	"github.com/dotwaffle/beamers/ent/draftedit"
@@ -57,6 +61,10 @@ const (
 	TypeAuditEntry               = "AuditEntry"
 	TypeBootstrapCredential      = "BootstrapCredential"
 	TypeCommandReceipt           = "CommandReceipt"
+	TypeDisplay                  = "Display"
+	TypeDisplayAssignment        = "DisplayAssignment"
+	TypeDisplayCredential        = "DisplayCredential"
+	TypeDisplayEnrollment        = "DisplayEnrollment"
 	TypeDraftChange              = "DraftChange"
 	TypeDraftChangeDependency    = "DraftChangeDependency"
 	TypeDraftEdit                = "DraftEdit"
@@ -3851,6 +3859,2492 @@ func (m *CommandReceiptMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown CommandReceipt edge %s", name)
 }
 
+// DisplayMutation represents an operation that mutates the Display nodes in the graph.
+type DisplayMutation struct {
+	config
+	op                 Op
+	typ                string
+	id                 *int
+	name               *string
+	created_at         *time.Time
+	enrolled_at        *time.Time
+	clearedFields      map[string]struct{}
+	credentials        map[int]struct{}
+	removedcredentials map[int]struct{}
+	clearedcredentials bool
+	assignments        map[int]struct{}
+	removedassignments map[int]struct{}
+	clearedassignments bool
+	done               bool
+	oldValue           func(context.Context) (*Display, error)
+	predicates         []predicate.Display
+}
+
+var _ ent.Mutation = (*DisplayMutation)(nil)
+
+// displayOption allows management of the mutation configuration using functional options.
+type displayOption func(*DisplayMutation)
+
+// newDisplayMutation creates new mutation for the Display entity.
+func newDisplayMutation(c config, op Op, opts ...displayOption) *DisplayMutation {
+	m := &DisplayMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeDisplay,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withDisplayID sets the ID field of the mutation.
+func withDisplayID(id int) displayOption {
+	return func(m *DisplayMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Display
+		)
+		m.oldValue = func(ctx context.Context) (*Display, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Display.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withDisplay sets the old Display of the mutation.
+func withDisplay(node *Display) displayOption {
+	return func(m *DisplayMutation) {
+		m.oldValue = func(context.Context) (*Display, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m DisplayMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m DisplayMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *DisplayMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *DisplayMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Display.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetName sets the "name" field.
+func (m *DisplayMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *DisplayMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the Display entity.
+// If the Display object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *DisplayMutation) ResetName() {
+	m.name = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *DisplayMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *DisplayMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the Display entity.
+// If the Display object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *DisplayMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetEnrolledAt sets the "enrolled_at" field.
+func (m *DisplayMutation) SetEnrolledAt(t time.Time) {
+	m.enrolled_at = &t
+}
+
+// EnrolledAt returns the value of the "enrolled_at" field in the mutation.
+func (m *DisplayMutation) EnrolledAt() (r time.Time, exists bool) {
+	v := m.enrolled_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEnrolledAt returns the old "enrolled_at" field's value of the Display entity.
+// If the Display object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayMutation) OldEnrolledAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEnrolledAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEnrolledAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEnrolledAt: %w", err)
+	}
+	return oldValue.EnrolledAt, nil
+}
+
+// ResetEnrolledAt resets all changes to the "enrolled_at" field.
+func (m *DisplayMutation) ResetEnrolledAt() {
+	m.enrolled_at = nil
+}
+
+// AddCredentialIDs adds the "credentials" edge to the DisplayCredential entity by ids.
+func (m *DisplayMutation) AddCredentialIDs(ids ...int) {
+	if m.credentials == nil {
+		m.credentials = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.credentials[ids[i]] = struct{}{}
+	}
+}
+
+// ClearCredentials clears the "credentials" edge to the DisplayCredential entity.
+func (m *DisplayMutation) ClearCredentials() {
+	m.clearedcredentials = true
+}
+
+// CredentialsCleared reports if the "credentials" edge to the DisplayCredential entity was cleared.
+func (m *DisplayMutation) CredentialsCleared() bool {
+	return m.clearedcredentials
+}
+
+// RemoveCredentialIDs removes the "credentials" edge to the DisplayCredential entity by IDs.
+func (m *DisplayMutation) RemoveCredentialIDs(ids ...int) {
+	if m.removedcredentials == nil {
+		m.removedcredentials = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.credentials, ids[i])
+		m.removedcredentials[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedCredentials returns the removed IDs of the "credentials" edge to the DisplayCredential entity.
+func (m *DisplayMutation) RemovedCredentialsIDs() (ids []int) {
+	for id := range m.removedcredentials {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// CredentialsIDs returns the "credentials" edge IDs in the mutation.
+func (m *DisplayMutation) CredentialsIDs() (ids []int) {
+	for id := range m.credentials {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetCredentials resets all changes to the "credentials" edge.
+func (m *DisplayMutation) ResetCredentials() {
+	m.credentials = nil
+	m.clearedcredentials = false
+	m.removedcredentials = nil
+}
+
+// AddAssignmentIDs adds the "assignments" edge to the DisplayAssignment entity by ids.
+func (m *DisplayMutation) AddAssignmentIDs(ids ...int) {
+	if m.assignments == nil {
+		m.assignments = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.assignments[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAssignments clears the "assignments" edge to the DisplayAssignment entity.
+func (m *DisplayMutation) ClearAssignments() {
+	m.clearedassignments = true
+}
+
+// AssignmentsCleared reports if the "assignments" edge to the DisplayAssignment entity was cleared.
+func (m *DisplayMutation) AssignmentsCleared() bool {
+	return m.clearedassignments
+}
+
+// RemoveAssignmentIDs removes the "assignments" edge to the DisplayAssignment entity by IDs.
+func (m *DisplayMutation) RemoveAssignmentIDs(ids ...int) {
+	if m.removedassignments == nil {
+		m.removedassignments = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.assignments, ids[i])
+		m.removedassignments[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAssignments returns the removed IDs of the "assignments" edge to the DisplayAssignment entity.
+func (m *DisplayMutation) RemovedAssignmentsIDs() (ids []int) {
+	for id := range m.removedassignments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AssignmentsIDs returns the "assignments" edge IDs in the mutation.
+func (m *DisplayMutation) AssignmentsIDs() (ids []int) {
+	for id := range m.assignments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAssignments resets all changes to the "assignments" edge.
+func (m *DisplayMutation) ResetAssignments() {
+	m.assignments = nil
+	m.clearedassignments = false
+	m.removedassignments = nil
+}
+
+// Where appends a list predicates to the DisplayMutation builder.
+func (m *DisplayMutation) Where(ps ...predicate.Display) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the DisplayMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *DisplayMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Display, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *DisplayMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *DisplayMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Display).
+func (m *DisplayMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *DisplayMutation) Fields() []string {
+	fields := make([]string, 0, 3)
+	if m.name != nil {
+		fields = append(fields, display.FieldName)
+	}
+	if m.created_at != nil {
+		fields = append(fields, display.FieldCreatedAt)
+	}
+	if m.enrolled_at != nil {
+		fields = append(fields, display.FieldEnrolledAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *DisplayMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case display.FieldName:
+		return m.Name()
+	case display.FieldCreatedAt:
+		return m.CreatedAt()
+	case display.FieldEnrolledAt:
+		return m.EnrolledAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *DisplayMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case display.FieldName:
+		return m.OldName(ctx)
+	case display.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case display.FieldEnrolledAt:
+		return m.OldEnrolledAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown Display field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DisplayMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case display.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case display.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case display.FieldEnrolledAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEnrolledAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Display field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *DisplayMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *DisplayMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DisplayMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Display numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *DisplayMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *DisplayMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *DisplayMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown Display nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *DisplayMutation) ResetField(name string) error {
+	switch name {
+	case display.FieldName:
+		m.ResetName()
+		return nil
+	case display.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case display.FieldEnrolledAt:
+		m.ResetEnrolledAt()
+		return nil
+	}
+	return fmt.Errorf("unknown Display field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *DisplayMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.credentials != nil {
+		edges = append(edges, display.EdgeCredentials)
+	}
+	if m.assignments != nil {
+		edges = append(edges, display.EdgeAssignments)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *DisplayMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case display.EdgeCredentials:
+		ids := make([]ent.Value, 0, len(m.credentials))
+		for id := range m.credentials {
+			ids = append(ids, id)
+		}
+		return ids
+	case display.EdgeAssignments:
+		ids := make([]ent.Value, 0, len(m.assignments))
+		for id := range m.assignments {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *DisplayMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.removedcredentials != nil {
+		edges = append(edges, display.EdgeCredentials)
+	}
+	if m.removedassignments != nil {
+		edges = append(edges, display.EdgeAssignments)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *DisplayMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case display.EdgeCredentials:
+		ids := make([]ent.Value, 0, len(m.removedcredentials))
+		for id := range m.removedcredentials {
+			ids = append(ids, id)
+		}
+		return ids
+	case display.EdgeAssignments:
+		ids := make([]ent.Value, 0, len(m.removedassignments))
+		for id := range m.removedassignments {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *DisplayMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedcredentials {
+		edges = append(edges, display.EdgeCredentials)
+	}
+	if m.clearedassignments {
+		edges = append(edges, display.EdgeAssignments)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *DisplayMutation) EdgeCleared(name string) bool {
+	switch name {
+	case display.EdgeCredentials:
+		return m.clearedcredentials
+	case display.EdgeAssignments:
+		return m.clearedassignments
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *DisplayMutation) ClearEdge(name string) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Display unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *DisplayMutation) ResetEdge(name string) error {
+	switch name {
+	case display.EdgeCredentials:
+		m.ResetCredentials()
+		return nil
+	case display.EdgeAssignments:
+		m.ResetAssignments()
+		return nil
+	}
+	return fmt.Errorf("unknown Display edge %s", name)
+}
+
+// DisplayAssignmentMutation represents an operation that mutates the DisplayAssignment nodes in the graph.
+type DisplayAssignmentMutation struct {
+	config
+	op              Op
+	typ             string
+	id              *int
+	view_key        *string
+	created_at      *time.Time
+	updated_at      *time.Time
+	clearedFields   map[string]struct{}
+	display         *int
+	cleareddisplay  bool
+	event           *int
+	clearedevent    bool
+	location        *int
+	clearedlocation bool
+	done            bool
+	oldValue        func(context.Context) (*DisplayAssignment, error)
+	predicates      []predicate.DisplayAssignment
+}
+
+var _ ent.Mutation = (*DisplayAssignmentMutation)(nil)
+
+// displayassignmentOption allows management of the mutation configuration using functional options.
+type displayassignmentOption func(*DisplayAssignmentMutation)
+
+// newDisplayAssignmentMutation creates new mutation for the DisplayAssignment entity.
+func newDisplayAssignmentMutation(c config, op Op, opts ...displayassignmentOption) *DisplayAssignmentMutation {
+	m := &DisplayAssignmentMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeDisplayAssignment,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withDisplayAssignmentID sets the ID field of the mutation.
+func withDisplayAssignmentID(id int) displayassignmentOption {
+	return func(m *DisplayAssignmentMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *DisplayAssignment
+		)
+		m.oldValue = func(ctx context.Context) (*DisplayAssignment, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().DisplayAssignment.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withDisplayAssignment sets the old DisplayAssignment of the mutation.
+func withDisplayAssignment(node *DisplayAssignment) displayassignmentOption {
+	return func(m *DisplayAssignmentMutation) {
+		m.oldValue = func(context.Context) (*DisplayAssignment, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m DisplayAssignmentMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m DisplayAssignmentMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *DisplayAssignmentMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *DisplayAssignmentMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().DisplayAssignment.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetDisplayID sets the "display_id" field.
+func (m *DisplayAssignmentMutation) SetDisplayID(i int) {
+	m.display = &i
+}
+
+// DisplayID returns the value of the "display_id" field in the mutation.
+func (m *DisplayAssignmentMutation) DisplayID() (r int, exists bool) {
+	v := m.display
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDisplayID returns the old "display_id" field's value of the DisplayAssignment entity.
+// If the DisplayAssignment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayAssignmentMutation) OldDisplayID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDisplayID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDisplayID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDisplayID: %w", err)
+	}
+	return oldValue.DisplayID, nil
+}
+
+// ResetDisplayID resets all changes to the "display_id" field.
+func (m *DisplayAssignmentMutation) ResetDisplayID() {
+	m.display = nil
+}
+
+// SetEventID sets the "event_id" field.
+func (m *DisplayAssignmentMutation) SetEventID(i int) {
+	m.event = &i
+}
+
+// EventID returns the value of the "event_id" field in the mutation.
+func (m *DisplayAssignmentMutation) EventID() (r int, exists bool) {
+	v := m.event
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventID returns the old "event_id" field's value of the DisplayAssignment entity.
+// If the DisplayAssignment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayAssignmentMutation) OldEventID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventID: %w", err)
+	}
+	return oldValue.EventID, nil
+}
+
+// ResetEventID resets all changes to the "event_id" field.
+func (m *DisplayAssignmentMutation) ResetEventID() {
+	m.event = nil
+}
+
+// SetLocationID sets the "location_id" field.
+func (m *DisplayAssignmentMutation) SetLocationID(i int) {
+	m.location = &i
+}
+
+// LocationID returns the value of the "location_id" field in the mutation.
+func (m *DisplayAssignmentMutation) LocationID() (r int, exists bool) {
+	v := m.location
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLocationID returns the old "location_id" field's value of the DisplayAssignment entity.
+// If the DisplayAssignment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayAssignmentMutation) OldLocationID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLocationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLocationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLocationID: %w", err)
+	}
+	return oldValue.LocationID, nil
+}
+
+// ResetLocationID resets all changes to the "location_id" field.
+func (m *DisplayAssignmentMutation) ResetLocationID() {
+	m.location = nil
+}
+
+// SetViewKey sets the "view_key" field.
+func (m *DisplayAssignmentMutation) SetViewKey(s string) {
+	m.view_key = &s
+}
+
+// ViewKey returns the value of the "view_key" field in the mutation.
+func (m *DisplayAssignmentMutation) ViewKey() (r string, exists bool) {
+	v := m.view_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldViewKey returns the old "view_key" field's value of the DisplayAssignment entity.
+// If the DisplayAssignment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayAssignmentMutation) OldViewKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldViewKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldViewKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldViewKey: %w", err)
+	}
+	return oldValue.ViewKey, nil
+}
+
+// ResetViewKey resets all changes to the "view_key" field.
+func (m *DisplayAssignmentMutation) ResetViewKey() {
+	m.view_key = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *DisplayAssignmentMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *DisplayAssignmentMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the DisplayAssignment entity.
+// If the DisplayAssignment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayAssignmentMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *DisplayAssignmentMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *DisplayAssignmentMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *DisplayAssignmentMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the DisplayAssignment entity.
+// If the DisplayAssignment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayAssignmentMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *DisplayAssignmentMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearDisplay clears the "display" edge to the Display entity.
+func (m *DisplayAssignmentMutation) ClearDisplay() {
+	m.cleareddisplay = true
+	m.clearedFields[displayassignment.FieldDisplayID] = struct{}{}
+}
+
+// DisplayCleared reports if the "display" edge to the Display entity was cleared.
+func (m *DisplayAssignmentMutation) DisplayCleared() bool {
+	return m.cleareddisplay
+}
+
+// DisplayIDs returns the "display" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// DisplayID instead. It exists only for internal usage by the builders.
+func (m *DisplayAssignmentMutation) DisplayIDs() (ids []int) {
+	if id := m.display; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetDisplay resets all changes to the "display" edge.
+func (m *DisplayAssignmentMutation) ResetDisplay() {
+	m.display = nil
+	m.cleareddisplay = false
+}
+
+// ClearEvent clears the "event" edge to the Event entity.
+func (m *DisplayAssignmentMutation) ClearEvent() {
+	m.clearedevent = true
+	m.clearedFields[displayassignment.FieldEventID] = struct{}{}
+}
+
+// EventCleared reports if the "event" edge to the Event entity was cleared.
+func (m *DisplayAssignmentMutation) EventCleared() bool {
+	return m.clearedevent
+}
+
+// EventIDs returns the "event" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// EventID instead. It exists only for internal usage by the builders.
+func (m *DisplayAssignmentMutation) EventIDs() (ids []int) {
+	if id := m.event; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetEvent resets all changes to the "event" edge.
+func (m *DisplayAssignmentMutation) ResetEvent() {
+	m.event = nil
+	m.clearedevent = false
+}
+
+// ClearLocation clears the "location" edge to the Location entity.
+func (m *DisplayAssignmentMutation) ClearLocation() {
+	m.clearedlocation = true
+	m.clearedFields[displayassignment.FieldLocationID] = struct{}{}
+}
+
+// LocationCleared reports if the "location" edge to the Location entity was cleared.
+func (m *DisplayAssignmentMutation) LocationCleared() bool {
+	return m.clearedlocation
+}
+
+// LocationIDs returns the "location" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// LocationID instead. It exists only for internal usage by the builders.
+func (m *DisplayAssignmentMutation) LocationIDs() (ids []int) {
+	if id := m.location; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetLocation resets all changes to the "location" edge.
+func (m *DisplayAssignmentMutation) ResetLocation() {
+	m.location = nil
+	m.clearedlocation = false
+}
+
+// Where appends a list predicates to the DisplayAssignmentMutation builder.
+func (m *DisplayAssignmentMutation) Where(ps ...predicate.DisplayAssignment) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the DisplayAssignmentMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *DisplayAssignmentMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.DisplayAssignment, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *DisplayAssignmentMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *DisplayAssignmentMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (DisplayAssignment).
+func (m *DisplayAssignmentMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *DisplayAssignmentMutation) Fields() []string {
+	fields := make([]string, 0, 6)
+	if m.display != nil {
+		fields = append(fields, displayassignment.FieldDisplayID)
+	}
+	if m.event != nil {
+		fields = append(fields, displayassignment.FieldEventID)
+	}
+	if m.location != nil {
+		fields = append(fields, displayassignment.FieldLocationID)
+	}
+	if m.view_key != nil {
+		fields = append(fields, displayassignment.FieldViewKey)
+	}
+	if m.created_at != nil {
+		fields = append(fields, displayassignment.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, displayassignment.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *DisplayAssignmentMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case displayassignment.FieldDisplayID:
+		return m.DisplayID()
+	case displayassignment.FieldEventID:
+		return m.EventID()
+	case displayassignment.FieldLocationID:
+		return m.LocationID()
+	case displayassignment.FieldViewKey:
+		return m.ViewKey()
+	case displayassignment.FieldCreatedAt:
+		return m.CreatedAt()
+	case displayassignment.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *DisplayAssignmentMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case displayassignment.FieldDisplayID:
+		return m.OldDisplayID(ctx)
+	case displayassignment.FieldEventID:
+		return m.OldEventID(ctx)
+	case displayassignment.FieldLocationID:
+		return m.OldLocationID(ctx)
+	case displayassignment.FieldViewKey:
+		return m.OldViewKey(ctx)
+	case displayassignment.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case displayassignment.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown DisplayAssignment field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DisplayAssignmentMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case displayassignment.FieldDisplayID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDisplayID(v)
+		return nil
+	case displayassignment.FieldEventID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventID(v)
+		return nil
+	case displayassignment.FieldLocationID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLocationID(v)
+		return nil
+	case displayassignment.FieldViewKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetViewKey(v)
+		return nil
+	case displayassignment.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case displayassignment.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown DisplayAssignment field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *DisplayAssignmentMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *DisplayAssignmentMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DisplayAssignmentMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown DisplayAssignment numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *DisplayAssignmentMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *DisplayAssignmentMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *DisplayAssignmentMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown DisplayAssignment nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *DisplayAssignmentMutation) ResetField(name string) error {
+	switch name {
+	case displayassignment.FieldDisplayID:
+		m.ResetDisplayID()
+		return nil
+	case displayassignment.FieldEventID:
+		m.ResetEventID()
+		return nil
+	case displayassignment.FieldLocationID:
+		m.ResetLocationID()
+		return nil
+	case displayassignment.FieldViewKey:
+		m.ResetViewKey()
+		return nil
+	case displayassignment.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case displayassignment.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown DisplayAssignment field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *DisplayAssignmentMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.display != nil {
+		edges = append(edges, displayassignment.EdgeDisplay)
+	}
+	if m.event != nil {
+		edges = append(edges, displayassignment.EdgeEvent)
+	}
+	if m.location != nil {
+		edges = append(edges, displayassignment.EdgeLocation)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *DisplayAssignmentMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case displayassignment.EdgeDisplay:
+		if id := m.display; id != nil {
+			return []ent.Value{*id}
+		}
+	case displayassignment.EdgeEvent:
+		if id := m.event; id != nil {
+			return []ent.Value{*id}
+		}
+	case displayassignment.EdgeLocation:
+		if id := m.location; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *DisplayAssignmentMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *DisplayAssignmentMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *DisplayAssignmentMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.cleareddisplay {
+		edges = append(edges, displayassignment.EdgeDisplay)
+	}
+	if m.clearedevent {
+		edges = append(edges, displayassignment.EdgeEvent)
+	}
+	if m.clearedlocation {
+		edges = append(edges, displayassignment.EdgeLocation)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *DisplayAssignmentMutation) EdgeCleared(name string) bool {
+	switch name {
+	case displayassignment.EdgeDisplay:
+		return m.cleareddisplay
+	case displayassignment.EdgeEvent:
+		return m.clearedevent
+	case displayassignment.EdgeLocation:
+		return m.clearedlocation
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *DisplayAssignmentMutation) ClearEdge(name string) error {
+	switch name {
+	case displayassignment.EdgeDisplay:
+		m.ClearDisplay()
+		return nil
+	case displayassignment.EdgeEvent:
+		m.ClearEvent()
+		return nil
+	case displayassignment.EdgeLocation:
+		m.ClearLocation()
+		return nil
+	}
+	return fmt.Errorf("unknown DisplayAssignment unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *DisplayAssignmentMutation) ResetEdge(name string) error {
+	switch name {
+	case displayassignment.EdgeDisplay:
+		m.ResetDisplay()
+		return nil
+	case displayassignment.EdgeEvent:
+		m.ResetEvent()
+		return nil
+	case displayassignment.EdgeLocation:
+		m.ResetLocation()
+		return nil
+	}
+	return fmt.Errorf("unknown DisplayAssignment edge %s", name)
+}
+
+// DisplayCredentialMutation represents an operation that mutates the DisplayCredential nodes in the graph.
+type DisplayCredentialMutation struct {
+	config
+	op             Op
+	typ            string
+	id             *int
+	token_hash     *string
+	created_at     *time.Time
+	revoked_at     *time.Time
+	clearedFields  map[string]struct{}
+	display        *int
+	cleareddisplay bool
+	done           bool
+	oldValue       func(context.Context) (*DisplayCredential, error)
+	predicates     []predicate.DisplayCredential
+}
+
+var _ ent.Mutation = (*DisplayCredentialMutation)(nil)
+
+// displaycredentialOption allows management of the mutation configuration using functional options.
+type displaycredentialOption func(*DisplayCredentialMutation)
+
+// newDisplayCredentialMutation creates new mutation for the DisplayCredential entity.
+func newDisplayCredentialMutation(c config, op Op, opts ...displaycredentialOption) *DisplayCredentialMutation {
+	m := &DisplayCredentialMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeDisplayCredential,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withDisplayCredentialID sets the ID field of the mutation.
+func withDisplayCredentialID(id int) displaycredentialOption {
+	return func(m *DisplayCredentialMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *DisplayCredential
+		)
+		m.oldValue = func(ctx context.Context) (*DisplayCredential, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().DisplayCredential.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withDisplayCredential sets the old DisplayCredential of the mutation.
+func withDisplayCredential(node *DisplayCredential) displaycredentialOption {
+	return func(m *DisplayCredentialMutation) {
+		m.oldValue = func(context.Context) (*DisplayCredential, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m DisplayCredentialMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m DisplayCredentialMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *DisplayCredentialMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *DisplayCredentialMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().DisplayCredential.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetDisplayID sets the "display_id" field.
+func (m *DisplayCredentialMutation) SetDisplayID(i int) {
+	m.display = &i
+}
+
+// DisplayID returns the value of the "display_id" field in the mutation.
+func (m *DisplayCredentialMutation) DisplayID() (r int, exists bool) {
+	v := m.display
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDisplayID returns the old "display_id" field's value of the DisplayCredential entity.
+// If the DisplayCredential object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayCredentialMutation) OldDisplayID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDisplayID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDisplayID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDisplayID: %w", err)
+	}
+	return oldValue.DisplayID, nil
+}
+
+// ResetDisplayID resets all changes to the "display_id" field.
+func (m *DisplayCredentialMutation) ResetDisplayID() {
+	m.display = nil
+}
+
+// SetTokenHash sets the "token_hash" field.
+func (m *DisplayCredentialMutation) SetTokenHash(s string) {
+	m.token_hash = &s
+}
+
+// TokenHash returns the value of the "token_hash" field in the mutation.
+func (m *DisplayCredentialMutation) TokenHash() (r string, exists bool) {
+	v := m.token_hash
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTokenHash returns the old "token_hash" field's value of the DisplayCredential entity.
+// If the DisplayCredential object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayCredentialMutation) OldTokenHash(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTokenHash is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTokenHash requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTokenHash: %w", err)
+	}
+	return oldValue.TokenHash, nil
+}
+
+// ResetTokenHash resets all changes to the "token_hash" field.
+func (m *DisplayCredentialMutation) ResetTokenHash() {
+	m.token_hash = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *DisplayCredentialMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *DisplayCredentialMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the DisplayCredential entity.
+// If the DisplayCredential object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayCredentialMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *DisplayCredentialMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetRevokedAt sets the "revoked_at" field.
+func (m *DisplayCredentialMutation) SetRevokedAt(t time.Time) {
+	m.revoked_at = &t
+}
+
+// RevokedAt returns the value of the "revoked_at" field in the mutation.
+func (m *DisplayCredentialMutation) RevokedAt() (r time.Time, exists bool) {
+	v := m.revoked_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRevokedAt returns the old "revoked_at" field's value of the DisplayCredential entity.
+// If the DisplayCredential object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayCredentialMutation) OldRevokedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRevokedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRevokedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRevokedAt: %w", err)
+	}
+	return oldValue.RevokedAt, nil
+}
+
+// ClearRevokedAt clears the value of the "revoked_at" field.
+func (m *DisplayCredentialMutation) ClearRevokedAt() {
+	m.revoked_at = nil
+	m.clearedFields[displaycredential.FieldRevokedAt] = struct{}{}
+}
+
+// RevokedAtCleared returns if the "revoked_at" field was cleared in this mutation.
+func (m *DisplayCredentialMutation) RevokedAtCleared() bool {
+	_, ok := m.clearedFields[displaycredential.FieldRevokedAt]
+	return ok
+}
+
+// ResetRevokedAt resets all changes to the "revoked_at" field.
+func (m *DisplayCredentialMutation) ResetRevokedAt() {
+	m.revoked_at = nil
+	delete(m.clearedFields, displaycredential.FieldRevokedAt)
+}
+
+// ClearDisplay clears the "display" edge to the Display entity.
+func (m *DisplayCredentialMutation) ClearDisplay() {
+	m.cleareddisplay = true
+	m.clearedFields[displaycredential.FieldDisplayID] = struct{}{}
+}
+
+// DisplayCleared reports if the "display" edge to the Display entity was cleared.
+func (m *DisplayCredentialMutation) DisplayCleared() bool {
+	return m.cleareddisplay
+}
+
+// DisplayIDs returns the "display" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// DisplayID instead. It exists only for internal usage by the builders.
+func (m *DisplayCredentialMutation) DisplayIDs() (ids []int) {
+	if id := m.display; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetDisplay resets all changes to the "display" edge.
+func (m *DisplayCredentialMutation) ResetDisplay() {
+	m.display = nil
+	m.cleareddisplay = false
+}
+
+// Where appends a list predicates to the DisplayCredentialMutation builder.
+func (m *DisplayCredentialMutation) Where(ps ...predicate.DisplayCredential) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the DisplayCredentialMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *DisplayCredentialMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.DisplayCredential, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *DisplayCredentialMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *DisplayCredentialMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (DisplayCredential).
+func (m *DisplayCredentialMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *DisplayCredentialMutation) Fields() []string {
+	fields := make([]string, 0, 4)
+	if m.display != nil {
+		fields = append(fields, displaycredential.FieldDisplayID)
+	}
+	if m.token_hash != nil {
+		fields = append(fields, displaycredential.FieldTokenHash)
+	}
+	if m.created_at != nil {
+		fields = append(fields, displaycredential.FieldCreatedAt)
+	}
+	if m.revoked_at != nil {
+		fields = append(fields, displaycredential.FieldRevokedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *DisplayCredentialMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case displaycredential.FieldDisplayID:
+		return m.DisplayID()
+	case displaycredential.FieldTokenHash:
+		return m.TokenHash()
+	case displaycredential.FieldCreatedAt:
+		return m.CreatedAt()
+	case displaycredential.FieldRevokedAt:
+		return m.RevokedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *DisplayCredentialMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case displaycredential.FieldDisplayID:
+		return m.OldDisplayID(ctx)
+	case displaycredential.FieldTokenHash:
+		return m.OldTokenHash(ctx)
+	case displaycredential.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case displaycredential.FieldRevokedAt:
+		return m.OldRevokedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown DisplayCredential field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DisplayCredentialMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case displaycredential.FieldDisplayID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDisplayID(v)
+		return nil
+	case displaycredential.FieldTokenHash:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTokenHash(v)
+		return nil
+	case displaycredential.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case displaycredential.FieldRevokedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRevokedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown DisplayCredential field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *DisplayCredentialMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *DisplayCredentialMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DisplayCredentialMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown DisplayCredential numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *DisplayCredentialMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(displaycredential.FieldRevokedAt) {
+		fields = append(fields, displaycredential.FieldRevokedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *DisplayCredentialMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *DisplayCredentialMutation) ClearField(name string) error {
+	switch name {
+	case displaycredential.FieldRevokedAt:
+		m.ClearRevokedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown DisplayCredential nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *DisplayCredentialMutation) ResetField(name string) error {
+	switch name {
+	case displaycredential.FieldDisplayID:
+		m.ResetDisplayID()
+		return nil
+	case displaycredential.FieldTokenHash:
+		m.ResetTokenHash()
+		return nil
+	case displaycredential.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case displaycredential.FieldRevokedAt:
+		m.ResetRevokedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown DisplayCredential field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *DisplayCredentialMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.display != nil {
+		edges = append(edges, displaycredential.EdgeDisplay)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *DisplayCredentialMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case displaycredential.EdgeDisplay:
+		if id := m.display; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *DisplayCredentialMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *DisplayCredentialMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *DisplayCredentialMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.cleareddisplay {
+		edges = append(edges, displaycredential.EdgeDisplay)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *DisplayCredentialMutation) EdgeCleared(name string) bool {
+	switch name {
+	case displaycredential.EdgeDisplay:
+		return m.cleareddisplay
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *DisplayCredentialMutation) ClearEdge(name string) error {
+	switch name {
+	case displaycredential.EdgeDisplay:
+		m.ClearDisplay()
+		return nil
+	}
+	return fmt.Errorf("unknown DisplayCredential unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *DisplayCredentialMutation) ResetEdge(name string) error {
+	switch name {
+	case displaycredential.EdgeDisplay:
+		m.ResetDisplay()
+		return nil
+	}
+	return fmt.Errorf("unknown DisplayCredential edge %s", name)
+}
+
+// DisplayEnrollmentMutation represents an operation that mutates the DisplayEnrollment nodes in the graph.
+type DisplayEnrollmentMutation struct {
+	config
+	op              Op
+	typ             string
+	id              *int
+	code_hash       *string
+	credential_hash *string
+	created_at      *time.Time
+	expires_at      *time.Time
+	used_at         *time.Time
+	clearedFields   map[string]struct{}
+	done            bool
+	oldValue        func(context.Context) (*DisplayEnrollment, error)
+	predicates      []predicate.DisplayEnrollment
+}
+
+var _ ent.Mutation = (*DisplayEnrollmentMutation)(nil)
+
+// displayenrollmentOption allows management of the mutation configuration using functional options.
+type displayenrollmentOption func(*DisplayEnrollmentMutation)
+
+// newDisplayEnrollmentMutation creates new mutation for the DisplayEnrollment entity.
+func newDisplayEnrollmentMutation(c config, op Op, opts ...displayenrollmentOption) *DisplayEnrollmentMutation {
+	m := &DisplayEnrollmentMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeDisplayEnrollment,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withDisplayEnrollmentID sets the ID field of the mutation.
+func withDisplayEnrollmentID(id int) displayenrollmentOption {
+	return func(m *DisplayEnrollmentMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *DisplayEnrollment
+		)
+		m.oldValue = func(ctx context.Context) (*DisplayEnrollment, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().DisplayEnrollment.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withDisplayEnrollment sets the old DisplayEnrollment of the mutation.
+func withDisplayEnrollment(node *DisplayEnrollment) displayenrollmentOption {
+	return func(m *DisplayEnrollmentMutation) {
+		m.oldValue = func(context.Context) (*DisplayEnrollment, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m DisplayEnrollmentMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m DisplayEnrollmentMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *DisplayEnrollmentMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *DisplayEnrollmentMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().DisplayEnrollment.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCodeHash sets the "code_hash" field.
+func (m *DisplayEnrollmentMutation) SetCodeHash(s string) {
+	m.code_hash = &s
+}
+
+// CodeHash returns the value of the "code_hash" field in the mutation.
+func (m *DisplayEnrollmentMutation) CodeHash() (r string, exists bool) {
+	v := m.code_hash
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCodeHash returns the old "code_hash" field's value of the DisplayEnrollment entity.
+// If the DisplayEnrollment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayEnrollmentMutation) OldCodeHash(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCodeHash is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCodeHash requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCodeHash: %w", err)
+	}
+	return oldValue.CodeHash, nil
+}
+
+// ResetCodeHash resets all changes to the "code_hash" field.
+func (m *DisplayEnrollmentMutation) ResetCodeHash() {
+	m.code_hash = nil
+}
+
+// SetCredentialHash sets the "credential_hash" field.
+func (m *DisplayEnrollmentMutation) SetCredentialHash(s string) {
+	m.credential_hash = &s
+}
+
+// CredentialHash returns the value of the "credential_hash" field in the mutation.
+func (m *DisplayEnrollmentMutation) CredentialHash() (r string, exists bool) {
+	v := m.credential_hash
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCredentialHash returns the old "credential_hash" field's value of the DisplayEnrollment entity.
+// If the DisplayEnrollment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayEnrollmentMutation) OldCredentialHash(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCredentialHash is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCredentialHash requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCredentialHash: %w", err)
+	}
+	return oldValue.CredentialHash, nil
+}
+
+// ResetCredentialHash resets all changes to the "credential_hash" field.
+func (m *DisplayEnrollmentMutation) ResetCredentialHash() {
+	m.credential_hash = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *DisplayEnrollmentMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *DisplayEnrollmentMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the DisplayEnrollment entity.
+// If the DisplayEnrollment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayEnrollmentMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *DisplayEnrollmentMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (m *DisplayEnrollmentMutation) SetExpiresAt(t time.Time) {
+	m.expires_at = &t
+}
+
+// ExpiresAt returns the value of the "expires_at" field in the mutation.
+func (m *DisplayEnrollmentMutation) ExpiresAt() (r time.Time, exists bool) {
+	v := m.expires_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExpiresAt returns the old "expires_at" field's value of the DisplayEnrollment entity.
+// If the DisplayEnrollment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayEnrollmentMutation) OldExpiresAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExpiresAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExpiresAt: %w", err)
+	}
+	return oldValue.ExpiresAt, nil
+}
+
+// ResetExpiresAt resets all changes to the "expires_at" field.
+func (m *DisplayEnrollmentMutation) ResetExpiresAt() {
+	m.expires_at = nil
+}
+
+// SetUsedAt sets the "used_at" field.
+func (m *DisplayEnrollmentMutation) SetUsedAt(t time.Time) {
+	m.used_at = &t
+}
+
+// UsedAt returns the value of the "used_at" field in the mutation.
+func (m *DisplayEnrollmentMutation) UsedAt() (r time.Time, exists bool) {
+	v := m.used_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUsedAt returns the old "used_at" field's value of the DisplayEnrollment entity.
+// If the DisplayEnrollment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayEnrollmentMutation) OldUsedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUsedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUsedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUsedAt: %w", err)
+	}
+	return oldValue.UsedAt, nil
+}
+
+// ClearUsedAt clears the value of the "used_at" field.
+func (m *DisplayEnrollmentMutation) ClearUsedAt() {
+	m.used_at = nil
+	m.clearedFields[displayenrollment.FieldUsedAt] = struct{}{}
+}
+
+// UsedAtCleared returns if the "used_at" field was cleared in this mutation.
+func (m *DisplayEnrollmentMutation) UsedAtCleared() bool {
+	_, ok := m.clearedFields[displayenrollment.FieldUsedAt]
+	return ok
+}
+
+// ResetUsedAt resets all changes to the "used_at" field.
+func (m *DisplayEnrollmentMutation) ResetUsedAt() {
+	m.used_at = nil
+	delete(m.clearedFields, displayenrollment.FieldUsedAt)
+}
+
+// Where appends a list predicates to the DisplayEnrollmentMutation builder.
+func (m *DisplayEnrollmentMutation) Where(ps ...predicate.DisplayEnrollment) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the DisplayEnrollmentMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *DisplayEnrollmentMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.DisplayEnrollment, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *DisplayEnrollmentMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *DisplayEnrollmentMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (DisplayEnrollment).
+func (m *DisplayEnrollmentMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *DisplayEnrollmentMutation) Fields() []string {
+	fields := make([]string, 0, 5)
+	if m.code_hash != nil {
+		fields = append(fields, displayenrollment.FieldCodeHash)
+	}
+	if m.credential_hash != nil {
+		fields = append(fields, displayenrollment.FieldCredentialHash)
+	}
+	if m.created_at != nil {
+		fields = append(fields, displayenrollment.FieldCreatedAt)
+	}
+	if m.expires_at != nil {
+		fields = append(fields, displayenrollment.FieldExpiresAt)
+	}
+	if m.used_at != nil {
+		fields = append(fields, displayenrollment.FieldUsedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *DisplayEnrollmentMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case displayenrollment.FieldCodeHash:
+		return m.CodeHash()
+	case displayenrollment.FieldCredentialHash:
+		return m.CredentialHash()
+	case displayenrollment.FieldCreatedAt:
+		return m.CreatedAt()
+	case displayenrollment.FieldExpiresAt:
+		return m.ExpiresAt()
+	case displayenrollment.FieldUsedAt:
+		return m.UsedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *DisplayEnrollmentMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case displayenrollment.FieldCodeHash:
+		return m.OldCodeHash(ctx)
+	case displayenrollment.FieldCredentialHash:
+		return m.OldCredentialHash(ctx)
+	case displayenrollment.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case displayenrollment.FieldExpiresAt:
+		return m.OldExpiresAt(ctx)
+	case displayenrollment.FieldUsedAt:
+		return m.OldUsedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown DisplayEnrollment field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DisplayEnrollmentMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case displayenrollment.FieldCodeHash:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCodeHash(v)
+		return nil
+	case displayenrollment.FieldCredentialHash:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCredentialHash(v)
+		return nil
+	case displayenrollment.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case displayenrollment.FieldExpiresAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExpiresAt(v)
+		return nil
+	case displayenrollment.FieldUsedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUsedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown DisplayEnrollment field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *DisplayEnrollmentMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *DisplayEnrollmentMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DisplayEnrollmentMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown DisplayEnrollment numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *DisplayEnrollmentMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(displayenrollment.FieldUsedAt) {
+		fields = append(fields, displayenrollment.FieldUsedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *DisplayEnrollmentMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *DisplayEnrollmentMutation) ClearField(name string) error {
+	switch name {
+	case displayenrollment.FieldUsedAt:
+		m.ClearUsedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown DisplayEnrollment nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *DisplayEnrollmentMutation) ResetField(name string) error {
+	switch name {
+	case displayenrollment.FieldCodeHash:
+		m.ResetCodeHash()
+		return nil
+	case displayenrollment.FieldCredentialHash:
+		m.ResetCredentialHash()
+		return nil
+	case displayenrollment.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case displayenrollment.FieldExpiresAt:
+		m.ResetExpiresAt()
+		return nil
+	case displayenrollment.FieldUsedAt:
+		m.ResetUsedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown DisplayEnrollment field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *DisplayEnrollmentMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *DisplayEnrollmentMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *DisplayEnrollmentMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *DisplayEnrollmentMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *DisplayEnrollmentMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *DisplayEnrollmentMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *DisplayEnrollmentMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown DisplayEnrollment unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *DisplayEnrollmentMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown DisplayEnrollment edge %s", name)
+}
+
 // DraftChangeMutation represents an operation that mutates the DraftChange nodes in the graph.
 type DraftChangeMutation struct {
 	config
@@ -6318,49 +8812,52 @@ func (m *DraftEditMutation) ResetEdge(name string) error {
 // EventMutation represents an operation that mutates the Event nodes in the graph.
 type EventMutation struct {
 	config
-	op                       Op
-	typ                      string
-	id                       *int
-	name                     *string
-	planned_start_date       *string
-	planned_end_date         *string
-	timezone                 *string
-	event_locale             *string
-	content_language         *string
-	event_day_boundary       *string
-	revision                 *int
-	addrevision              *int
-	created_at               *time.Time
-	clearedFields            map[string]struct{}
-	grants                   map[int]struct{}
-	removedgrants            map[int]struct{}
-	clearedgrants            bool
-	rundown                  *int
-	clearedrundown           bool
-	locations                map[int]struct{}
-	removedlocations         map[int]struct{}
-	clearedlocations         bool
-	lanes                    map[int]struct{}
-	removedlanes             map[int]struct{}
-	clearedlanes             bool
-	tracks                   map[int]struct{}
-	removedtracks            map[int]struct{}
-	clearedtracks            bool
-	sessions                 map[int]struct{}
-	removedsessions          map[int]struct{}
-	clearedsessions          bool
-	draft_edits              map[int]struct{}
-	removeddraft_edits       map[int]struct{}
-	cleareddraft_edits       bool
-	draft_changes            map[int]struct{}
-	removeddraft_changes     map[int]struct{}
-	cleareddraft_changes     bool
-	import_references        map[int]struct{}
-	removedimport_references map[int]struct{}
-	clearedimport_references bool
-	done                     bool
-	oldValue                 func(context.Context) (*Event, error)
-	predicates               []predicate.Event
+	op                         Op
+	typ                        string
+	id                         *int
+	name                       *string
+	planned_start_date         *string
+	planned_end_date           *string
+	timezone                   *string
+	event_locale               *string
+	content_language           *string
+	event_day_boundary         *string
+	revision                   *int
+	addrevision                *int
+	created_at                 *time.Time
+	clearedFields              map[string]struct{}
+	grants                     map[int]struct{}
+	removedgrants              map[int]struct{}
+	clearedgrants              bool
+	rundown                    *int
+	clearedrundown             bool
+	locations                  map[int]struct{}
+	removedlocations           map[int]struct{}
+	clearedlocations           bool
+	lanes                      map[int]struct{}
+	removedlanes               map[int]struct{}
+	clearedlanes               bool
+	tracks                     map[int]struct{}
+	removedtracks              map[int]struct{}
+	clearedtracks              bool
+	sessions                   map[int]struct{}
+	removedsessions            map[int]struct{}
+	clearedsessions            bool
+	draft_edits                map[int]struct{}
+	removeddraft_edits         map[int]struct{}
+	cleareddraft_edits         bool
+	draft_changes              map[int]struct{}
+	removeddraft_changes       map[int]struct{}
+	cleareddraft_changes       bool
+	import_references          map[int]struct{}
+	removedimport_references   map[int]struct{}
+	clearedimport_references   bool
+	display_assignments        map[int]struct{}
+	removeddisplay_assignments map[int]struct{}
+	cleareddisplay_assignments bool
+	done                       bool
+	oldValue                   func(context.Context) (*Event, error)
+	predicates                 []predicate.Event
 }
 
 var _ ent.Mutation = (*EventMutation)(nil)
@@ -7289,6 +9786,60 @@ func (m *EventMutation) ResetImportReferences() {
 	m.removedimport_references = nil
 }
 
+// AddDisplayAssignmentIDs adds the "display_assignments" edge to the DisplayAssignment entity by ids.
+func (m *EventMutation) AddDisplayAssignmentIDs(ids ...int) {
+	if m.display_assignments == nil {
+		m.display_assignments = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.display_assignments[ids[i]] = struct{}{}
+	}
+}
+
+// ClearDisplayAssignments clears the "display_assignments" edge to the DisplayAssignment entity.
+func (m *EventMutation) ClearDisplayAssignments() {
+	m.cleareddisplay_assignments = true
+}
+
+// DisplayAssignmentsCleared reports if the "display_assignments" edge to the DisplayAssignment entity was cleared.
+func (m *EventMutation) DisplayAssignmentsCleared() bool {
+	return m.cleareddisplay_assignments
+}
+
+// RemoveDisplayAssignmentIDs removes the "display_assignments" edge to the DisplayAssignment entity by IDs.
+func (m *EventMutation) RemoveDisplayAssignmentIDs(ids ...int) {
+	if m.removeddisplay_assignments == nil {
+		m.removeddisplay_assignments = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.display_assignments, ids[i])
+		m.removeddisplay_assignments[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedDisplayAssignments returns the removed IDs of the "display_assignments" edge to the DisplayAssignment entity.
+func (m *EventMutation) RemovedDisplayAssignmentsIDs() (ids []int) {
+	for id := range m.removeddisplay_assignments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// DisplayAssignmentsIDs returns the "display_assignments" edge IDs in the mutation.
+func (m *EventMutation) DisplayAssignmentsIDs() (ids []int) {
+	for id := range m.display_assignments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetDisplayAssignments resets all changes to the "display_assignments" edge.
+func (m *EventMutation) ResetDisplayAssignments() {
+	m.display_assignments = nil
+	m.cleareddisplay_assignments = false
+	m.removeddisplay_assignments = nil
+}
+
 // Where appends a list predicates to the EventMutation builder.
 func (m *EventMutation) Where(ps ...predicate.Event) {
 	m.predicates = append(m.predicates, ps...)
@@ -7582,7 +10133,7 @@ func (m *EventMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *EventMutation) AddedEdges() []string {
-	edges := make([]string, 0, 9)
+	edges := make([]string, 0, 10)
 	if m.grants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -7609,6 +10160,9 @@ func (m *EventMutation) AddedEdges() []string {
 	}
 	if m.import_references != nil {
 		edges = append(edges, event.EdgeImportReferences)
+	}
+	if m.display_assignments != nil {
+		edges = append(edges, event.EdgeDisplayAssignments)
 	}
 	return edges
 }
@@ -7669,13 +10223,19 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeDisplayAssignments:
+		ids := make([]ent.Value, 0, len(m.display_assignments))
+		for id := range m.display_assignments {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *EventMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 9)
+	edges := make([]string, 0, 10)
 	if m.removedgrants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -7699,6 +10259,9 @@ func (m *EventMutation) RemovedEdges() []string {
 	}
 	if m.removedimport_references != nil {
 		edges = append(edges, event.EdgeImportReferences)
+	}
+	if m.removeddisplay_assignments != nil {
+		edges = append(edges, event.EdgeDisplayAssignments)
 	}
 	return edges
 }
@@ -7755,13 +10318,19 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeDisplayAssignments:
+		ids := make([]ent.Value, 0, len(m.removeddisplay_assignments))
+		for id := range m.removeddisplay_assignments {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *EventMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 9)
+	edges := make([]string, 0, 10)
 	if m.clearedgrants {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -7789,6 +10358,9 @@ func (m *EventMutation) ClearedEdges() []string {
 	if m.clearedimport_references {
 		edges = append(edges, event.EdgeImportReferences)
 	}
+	if m.cleareddisplay_assignments {
+		edges = append(edges, event.EdgeDisplayAssignments)
+	}
 	return edges
 }
 
@@ -7814,6 +10386,8 @@ func (m *EventMutation) EdgeCleared(name string) bool {
 		return m.cleareddraft_changes
 	case event.EdgeImportReferences:
 		return m.clearedimport_references
+	case event.EdgeDisplayAssignments:
+		return m.cleareddisplay_assignments
 	}
 	return false
 }
@@ -7859,6 +10433,9 @@ func (m *EventMutation) ResetEdge(name string) error {
 		return nil
 	case event.EdgeImportReferences:
 		m.ResetImportReferences()
+		return nil
+	case event.EdgeDisplayAssignments:
+		m.ResetDisplayAssignments()
 		return nil
 	}
 	return fmt.Errorf("unknown Event edge %s", name)
@@ -12111,6 +14688,9 @@ type LocationMutation struct {
 	session_published_versions        map[int]struct{}
 	removedsession_published_versions map[int]struct{}
 	clearedsession_published_versions bool
+	display_assignments               map[int]struct{}
+	removeddisplay_assignments        map[int]struct{}
+	cleareddisplay_assignments        bool
 	done                              bool
 	oldValue                          func(context.Context) (*Location, error)
 	predicates                        []predicate.Location
@@ -12622,6 +15202,60 @@ func (m *LocationMutation) ResetSessionPublishedVersions() {
 	m.removedsession_published_versions = nil
 }
 
+// AddDisplayAssignmentIDs adds the "display_assignments" edge to the DisplayAssignment entity by ids.
+func (m *LocationMutation) AddDisplayAssignmentIDs(ids ...int) {
+	if m.display_assignments == nil {
+		m.display_assignments = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.display_assignments[ids[i]] = struct{}{}
+	}
+}
+
+// ClearDisplayAssignments clears the "display_assignments" edge to the DisplayAssignment entity.
+func (m *LocationMutation) ClearDisplayAssignments() {
+	m.cleareddisplay_assignments = true
+}
+
+// DisplayAssignmentsCleared reports if the "display_assignments" edge to the DisplayAssignment entity was cleared.
+func (m *LocationMutation) DisplayAssignmentsCleared() bool {
+	return m.cleareddisplay_assignments
+}
+
+// RemoveDisplayAssignmentIDs removes the "display_assignments" edge to the DisplayAssignment entity by IDs.
+func (m *LocationMutation) RemoveDisplayAssignmentIDs(ids ...int) {
+	if m.removeddisplay_assignments == nil {
+		m.removeddisplay_assignments = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.display_assignments, ids[i])
+		m.removeddisplay_assignments[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedDisplayAssignments returns the removed IDs of the "display_assignments" edge to the DisplayAssignment entity.
+func (m *LocationMutation) RemovedDisplayAssignmentsIDs() (ids []int) {
+	for id := range m.removeddisplay_assignments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// DisplayAssignmentsIDs returns the "display_assignments" edge IDs in the mutation.
+func (m *LocationMutation) DisplayAssignmentsIDs() (ids []int) {
+	for id := range m.display_assignments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetDisplayAssignments resets all changes to the "display_assignments" edge.
+func (m *LocationMutation) ResetDisplayAssignments() {
+	m.display_assignments = nil
+	m.cleareddisplay_assignments = false
+	m.removeddisplay_assignments = nil
+}
+
 // Where appends a list predicates to the LocationMutation builder.
 func (m *LocationMutation) Where(ps ...predicate.Location) {
 	m.predicates = append(m.predicates, ps...)
@@ -12775,7 +15409,7 @@ func (m *LocationMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *LocationMutation) AddedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.event != nil {
 		edges = append(edges, location.EdgeEvent)
 	}
@@ -12796,6 +15430,9 @@ func (m *LocationMutation) AddedEdges() []string {
 	}
 	if m.session_published_versions != nil {
 		edges = append(edges, location.EdgeSessionPublishedVersions)
+	}
+	if m.display_assignments != nil {
+		edges = append(edges, location.EdgeDisplayAssignments)
 	}
 	return edges
 }
@@ -12842,13 +15479,19 @@ func (m *LocationMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case location.EdgeDisplayAssignments:
+		ids := make([]ent.Value, 0, len(m.display_assignments))
+		for id := range m.display_assignments {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *LocationMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.removedpublished_versions != nil {
 		edges = append(edges, location.EdgePublishedVersions)
 	}
@@ -12863,6 +15506,9 @@ func (m *LocationMutation) RemovedEdges() []string {
 	}
 	if m.removedsession_published_versions != nil {
 		edges = append(edges, location.EdgeSessionPublishedVersions)
+	}
+	if m.removeddisplay_assignments != nil {
+		edges = append(edges, location.EdgeDisplayAssignments)
 	}
 	return edges
 }
@@ -12901,13 +15547,19 @@ func (m *LocationMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case location.EdgeDisplayAssignments:
+		ids := make([]ent.Value, 0, len(m.removeddisplay_assignments))
+		for id := range m.removeddisplay_assignments {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *LocationMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.clearedevent {
 		edges = append(edges, location.EdgeEvent)
 	}
@@ -12928,6 +15580,9 @@ func (m *LocationMutation) ClearedEdges() []string {
 	}
 	if m.clearedsession_published_versions {
 		edges = append(edges, location.EdgeSessionPublishedVersions)
+	}
+	if m.cleareddisplay_assignments {
+		edges = append(edges, location.EdgeDisplayAssignments)
 	}
 	return edges
 }
@@ -12950,6 +15605,8 @@ func (m *LocationMutation) EdgeCleared(name string) bool {
 		return m.clearedsession_drafts
 	case location.EdgeSessionPublishedVersions:
 		return m.clearedsession_published_versions
+	case location.EdgeDisplayAssignments:
+		return m.cleareddisplay_assignments
 	}
 	return false
 }
@@ -12992,6 +15649,9 @@ func (m *LocationMutation) ResetEdge(name string) error {
 		return nil
 	case location.EdgeSessionPublishedVersions:
 		m.ResetSessionPublishedVersions()
+		return nil
+	case location.EdgeDisplayAssignments:
+		m.ResetDisplayAssignments()
 		return nil
 	}
 	return fmt.Errorf("unknown Location edge %s", name)

@@ -21,6 +21,18 @@ type BootstrapCredential func(*sql.Selector)
 // CommandReceipt is the predicate function for commandreceipt builders.
 type CommandReceipt func(*sql.Selector)
 
+// Display is the predicate function for display builders.
+type Display func(*sql.Selector)
+
+// DisplayAssignment is the predicate function for displayassignment builders.
+type DisplayAssignment func(*sql.Selector)
+
+// DisplayCredential is the predicate function for displaycredential builders.
+type DisplayCredential func(*sql.Selector)
+
+// DisplayEnrollment is the predicate function for displayenrollment builders.
+type DisplayEnrollment func(*sql.Selector)
+
 // DraftChange is the predicate function for draftchange builders.
 type DraftChange func(*sql.Selector)
 

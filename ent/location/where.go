@@ -286,6 +286,29 @@ func HasSessionPublishedVersionsWith(preds ...predicate.SessionPublishedVersion)
 	})
 }
 
+// HasDisplayAssignments applies the HasEdge predicate on the "display_assignments" edge.
+func HasDisplayAssignments() predicate.Location {
+	return predicate.Location(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, DisplayAssignmentsTable, DisplayAssignmentsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasDisplayAssignmentsWith applies the HasEdge predicate on the "display_assignments" edge with a given conditions (other predicates).
+func HasDisplayAssignmentsWith(preds ...predicate.DisplayAssignment) predicate.Location {
+	return predicate.Location(func(s *sql.Selector) {
+		step := newDisplayAssignmentsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Location) predicate.Location {
 	return predicate.Location(sql.AndPredicates(predicates...))

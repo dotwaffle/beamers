@@ -45,9 +45,11 @@ type LocationEdges struct {
 	SessionDrafts []*SessionDraft `json:"session_drafts,omitempty"`
 	// SessionPublishedVersions holds the value of the session_published_versions edge.
 	SessionPublishedVersions []*SessionPublishedVersion `json:"session_published_versions,omitempty"`
+	// DisplayAssignments holds the value of the display_assignments edge.
+	DisplayAssignments []*DisplayAssignment `json:"display_assignments,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [7]bool
+	loadedTypes [8]bool
 }
 
 // EventOrErr returns the Event value or an error if the edge
@@ -115,6 +117,15 @@ func (e LocationEdges) SessionPublishedVersionsOrErr() ([]*SessionPublishedVersi
 		return e.SessionPublishedVersions, nil
 	}
 	return nil, &NotLoadedError{edge: "session_published_versions"}
+}
+
+// DisplayAssignmentsOrErr returns the DisplayAssignments value or an error if the edge
+// was not loaded in eager-loading.
+func (e LocationEdges) DisplayAssignmentsOrErr() ([]*DisplayAssignment, error) {
+	if e.loadedTypes[7] {
+		return e.DisplayAssignments, nil
+	}
+	return nil, &NotLoadedError{edge: "display_assignments"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -205,6 +216,11 @@ func (_m *Location) QuerySessionDrafts() *SessionDraftQuery {
 // QuerySessionPublishedVersions queries the "session_published_versions" edge of the Location entity.
 func (_m *Location) QuerySessionPublishedVersions() *SessionPublishedVersionQuery {
 	return NewLocationClient(_m.config).QuerySessionPublishedVersions(_m)
+}
+
+// QueryDisplayAssignments queries the "display_assignments" edge of the Location entity.
+func (_m *Location) QueryDisplayAssignments() *DisplayAssignmentQuery {
+	return NewLocationClient(_m.config).QueryDisplayAssignments(_m)
 }
 
 // Update returns a builder for updating this Location.

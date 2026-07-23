@@ -12,9 +12,11 @@ import (
 	"net"
 	"net/http"
 	"net/http/cookiejar"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -113,6 +115,328 @@ func TestAdministratorBootstrapAndSessionLifecycle(t *testing.T) {
 	third.stop(t)
 
 	runBeamersFails(t, bin, "bootstrap", "--data-dir", dataDir)
+}
+
+func TestUnenrolledDisplayPresentsEnrollmentCodeAndQR(t *testing.T) {
+	_, server := startAuthenticatedAdministrator(t)
+	displayClient := authenticatedClient(t)
+
+	response := get(t, displayClient, server.address, "/display")
+	body, readErr := io.ReadAll(response.Body)
+	closeErr := response.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Display Enrollment page: %v", err)
+	}
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("GET /display = %d %q, want %d", response.StatusCode, body, http.StatusOK)
+	}
+	page := string(body)
+	for _, want := range []string{"Enroll this Display", "Enrollment code:", "data:image/png;base64,"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("Display Enrollment page does not contain %q; body: %s", want, page)
+		}
+	}
+	if response.Header.Get("Cache-Control") != "no-store" {
+		t.Errorf("Display Enrollment Cache-Control = %q", response.Header.Get("Cache-Control"))
+	}
+	displayURL, err := url.Parse("http://" + server.address + "/display")
+	if err != nil {
+		t.Fatalf("parse Display URL: %v", err)
+	}
+	cookies := displayClient.Jar.Cookies(displayURL)
+	if !slices.ContainsFunc(cookies, func(cookie *http.Cookie) bool {
+		return cookie.Name == "beamers_display" && cookie.Value != ""
+	}) {
+		t.Errorf("Display Enrollment cookies = %+v, want Display credential candidate", cookies)
+	}
+	server.stop(t)
+}
+
+func TestAdministratorClaimsDisplayEnrollmentOnceWithoutGrantingCrewAuthority(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	displayClient := authenticatedClient(t)
+
+	enrollment := get(t, displayClient, server.address, "/display")
+	body, readErr := io.ReadAll(enrollment.Body)
+	closeErr := enrollment.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Display Enrollment page: %v", err)
+	}
+	code := regexp.MustCompile(`[A-Z2-7]{4}-[A-Z2-7]{4}`).FindString(string(body))
+	if code == "" {
+		t.Fatalf("Display Enrollment page has no human-readable code: %s", body)
+	}
+	assertGETResponse(
+		t, displayClient, server.address, "/auth/session", http.StatusUnauthorized,
+		"authentication required\n",
+	)
+	claimPage := get(t, administrator, server.address, "/admin/displays/enroll?code="+url.QueryEscape(code))
+	claimBody, readErr := io.ReadAll(claimPage.Body)
+	closeErr = claimPage.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Display claim page: %v", err)
+	}
+	if claimPage.StatusCode != http.StatusOK || !strings.Contains(string(claimBody), code) {
+		t.Fatalf("Display claim page = %d %q", claimPage.StatusCode, claimBody)
+	}
+
+	claim := url.Values{"code": {code}, "name": {"Stage Left"}, "command_id": {"claim-stage-left"}}
+	claimed := postForm(t, administrator, server.address, "/admin/displays/enroll", claim)
+	claimedBody, readErr := io.ReadAll(claimed.Body)
+	closeErr = claimed.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Display claim response: %v", err)
+	}
+	if claimed.StatusCode != http.StatusCreated || !strings.Contains(string(claimedBody), "Stage Left") {
+		t.Fatalf("claim Display = %d %q", claimed.StatusCode, claimedBody)
+	}
+	reused := postForm(t, administrator, server.address, "/admin/displays/enroll", url.Values{
+		"code": {code}, "name": {"Other Name"}, "command_id": {"reuse-stage-left-code"},
+	})
+	if reused.StatusCode != http.StatusConflict {
+		t.Errorf("reused Display Enrollment code status = %d, want %d", reused.StatusCode, http.StatusConflict)
+	}
+	closeErr = reused.Body.Close()
+	if closeErr != nil {
+		t.Errorf("close reused Display Enrollment response: %v", closeErr)
+	}
+
+	standby := get(t, displayClient, server.address, "/display")
+	standbyBody, readErr := io.ReadAll(standby.Body)
+	closeErr = standby.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read enrolled Display: %v", err)
+	}
+	if standby.StatusCode != http.StatusOK || !strings.Contains(string(standbyBody), "Stage Left") ||
+		!strings.Contains(string(standbyBody), "Standby") || strings.Contains(string(standbyBody), "Enrollment code:") {
+		t.Errorf("enrolled Display = %d %q", standby.StatusCode, standbyBody)
+	}
+	assertGETResponse(
+		t, displayClient, server.address, "/auth/session", http.StatusUnauthorized,
+		"authentication required\n",
+	)
+	server.stop(t)
+}
+
+func TestDisplayListRequiresActiveEventCrewEvenWhenEmpty(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events",
+		map[string]string{
+			"name": "Future Event", "planned_start_date": "2100-09-01",
+			"planned_end_date": "2100-09-02", "timezone": "Europe/Berlin",
+			"event_locale": "en-GB", "content_language": "en-GB",
+			"event_day_boundary": "06:00", "command_id": "create-future-display-event",
+		},
+		http.StatusCreated,
+		"{\"id\":2,\"name\":\"Future Event\",\"planned_start_date\":\"2100-09-01\",\"planned_end_date\":\"2100-09-02\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"en-GB\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":1}\n",
+	)
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/accounts",
+		map[string]string{
+			"name": "Future Observer", "password": "observer correct horse battery staple",
+			"command_id": "create-future-observer",
+		},
+		http.StatusCreated, "{\"id\":2,\"name\":\"Future Observer\",\"administrator\":false}\n",
+	)
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events/2/grants",
+		map[string]any{"account_id": 2, "role": "Observer", "command_id": "grant-future-observer"},
+		http.StatusCreated, "{\"event_id\":2,\"account_id\":2,\"role\":\"Observer\"}\n",
+	)
+	observer := authenticatedClient(t)
+	assertJSONRequest(
+		t, observer, server.address, "/auth/sign-in",
+		map[string]string{
+			"name": "Future Observer", "password": "observer correct horse battery staple",
+		},
+		http.StatusNoContent, "",
+	)
+	assertGETResponse(
+		t, observer, server.address, "/admin/displays", http.StatusForbidden,
+		"Active Event crew authority required\n",
+	)
+	server.stop(t)
+}
+
+func TestDisplayAssignmentIsDurableAndNeverInheritedAcrossActiveEvents(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	displayClient := authenticatedClient(t)
+	enrollment := get(t, displayClient, server.address, "/display")
+	body, readErr := io.ReadAll(enrollment.Body)
+	closeErr := enrollment.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Display Enrollment page: %v", err)
+	}
+	code := regexp.MustCompile(`[A-Z2-7]{4}-[A-Z2-7]{4}`).FindString(string(body))
+	claimed := postForm(t, administrator, server.address, "/admin/displays/enroll", url.Values{
+		"code": {code}, "name": {"Lobby Display"}, "command_id": {"claim-lobby-display"},
+	})
+	closeErr = claimed.Body.Close()
+	if closeErr != nil {
+		t.Errorf("close Display claim response: %v", closeErr)
+	}
+	if claimed.StatusCode != http.StatusCreated {
+		t.Fatalf("claim Display status = %d", claimed.StatusCode)
+	}
+	assertGETResponse(
+		t, administrator, server.address, "/admin/displays", http.StatusOK,
+		"[{\"id\":1,\"name\":\"Lobby Display\",\"active_event_id\":1,\"standby\":true,\"event_name\":\"Revision 2099\"}]\n",
+	)
+	operator := provisionOperator(t, administrator, server)
+	assertGETResponse(
+		t, operator, server.address, "/admin/displays", http.StatusOK,
+		"[{\"id\":1,\"name\":\"Lobby Display\",\"active_event_id\":1,\"standby\":true,\"event_name\":\"Revision 2099\"}]\n",
+	)
+	activationClient := activationv1connect.NewActivationServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	preflight, err := activationClient.Preflight(t.Context(), connect.NewRequest(&activationv1.PreflightRequest{EventId: 1}))
+	if err != nil {
+		t.Fatalf("Preflight Event with unassigned Display: %v", err)
+	}
+	if !slices.ContainsFunc(preflight.Msg.GetWarnings(), func(finding *activationv1.Finding) bool {
+		return finding.GetCode() == "unassigned_display" && strings.Contains(finding.GetMessage(), "Lobby Display")
+	}) {
+		t.Errorf("Activation Preflight warnings = %+v, want unassigned Display", preflight.Msg.GetWarnings())
+	}
+	assignmentRequest := map[string]any{
+		"event_id": 1, "location_id": 1, "view_key": "event-overview",
+		"command_id": "assign-lobby-display",
+	}
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/displays/1/assign",
+		assignmentRequest,
+		http.StatusOK,
+		"{\"display_id\":1,\"event_id\":1,\"location_id\":1,\"view_key\":\"event-overview\"}\n",
+	)
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/displays/1/assign", assignmentRequest,
+		http.StatusOK,
+		"{\"display_id\":1,\"event_id\":1,\"location_id\":1,\"view_key\":\"event-overview\"}\n",
+	)
+	assignedPreflight, err := activationClient.Preflight(
+		t.Context(), connect.NewRequest(&activationv1.PreflightRequest{EventId: 1}),
+	)
+	if err != nil {
+		t.Fatalf("Preflight Event with assigned Display: %v", err)
+	}
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/displays/1/assign",
+		map[string]any{
+			"event_id": 1, "location_id": 1, "view_key": "location-signage",
+			"command_id": "reassign-lobby-display",
+		},
+		http.StatusOK,
+		"{\"display_id\":1,\"event_id\":1,\"location_id\":1,\"view_key\":\"location-signage\"}\n",
+	)
+	if _, activationErr := activationClient.Activate(t.Context(), connect.NewRequest(&activationv1.ActivateRequest{
+		EventId: 1, CommandId: "reject-stale-display-routing",
+		Confirmation: assignedPreflight.Msg.GetConfirmation(),
+	})); connect.CodeOf(activationErr) != connect.CodeAborted {
+		t.Errorf("activation after Display reassignment error = %v, want Aborted", activationErr)
+	}
+	assignmentRequest["command_id"] = "restore-lobby-display-assignment"
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/displays/1/assign", assignmentRequest,
+		http.StatusOK,
+		"{\"display_id\":1,\"event_id\":1,\"location_id\":1,\"view_key\":\"event-overview\"}\n",
+	)
+	rundownClient := rundownv1connect.NewRundownServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	currentRundown, err := rundownClient.GetCrewRundown(
+		t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
+	)
+	if err != nil {
+		t.Fatalf("Get Rundown before Draft Location rename: %v", err)
+	}
+	if _, err := rundownClient.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "rename-display-location-draft-only",
+		ExpectedDraftRevision: currentRundown.Msg.GetDraftRevision(),
+		Locations: []*rundownv1.LocationDraft{{
+			Id: 1, Name: "Unpublished Hall",
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"name"}},
+		}, {Ref: "unpublished-location", Name: "Unpublished Location"}},
+	})); err != nil {
+		t.Fatalf("rename assigned Location in Draft: %v", err)
+	}
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/displays/1/assign",
+		map[string]any{
+			"event_id": 1, "location_id": 2, "view_key": "event-overview",
+			"command_id": "reject-unpublished-display-location",
+		},
+		http.StatusUnprocessableEntity,
+		"valid Event, Location, View, and command_id are required\n",
+	)
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/displays/1/assign",
+		map[string]any{
+			"event_id": 1, "location_id": 1, "view_key": "unknown-view",
+			"command_id": "reject-unknown-display-view",
+		},
+		http.StatusUnprocessableEntity,
+		"valid Event, Location, View, and command_id are required\n",
+	)
+	assigned := get(t, displayClient, server.address, "/display")
+	assignedBody, readErr := io.ReadAll(assigned.Body)
+	closeErr = assigned.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read assigned Display: %v", err)
+	}
+	for _, want := range []string{"Lobby Display", "Revision 2099", "Main Hall", "event-overview"} {
+		if !strings.Contains(string(assignedBody), want) {
+			t.Errorf("assigned Display does not contain %q; body: %s", want, assignedBody)
+		}
+	}
+	if strings.Contains(string(assignedBody), "Unpublished Hall") {
+		t.Errorf("assigned Display leaked Draft Location name: %s", assignedBody)
+	}
+	if strings.Contains(string(assignedBody), "<h1>Standby</h1>") {
+		t.Errorf("assigned Display remains on Standby: %s", assignedBody)
+	}
+
+	dataDir, bin := server.dataDir, server.bin
+	server.stop(t)
+	restarted := startBeamers(t, bin, dataDir)
+	persisted := get(t, displayClient, restarted.address, "/display")
+	persistedBody, readErr := io.ReadAll(persisted.Body)
+	closeErr = persisted.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Display after restart: %v", err)
+	}
+	if !strings.Contains(string(persistedBody), "event-overview") {
+		t.Errorf("Display Assignment did not survive restart: %s", persistedBody)
+	}
+
+	prepareAndActivateSecondEvent(t, administrator, restarted)
+	assertJSONRequest(
+		t, administrator, restarted.address, "/admin/displays/1/assign",
+		map[string]any{
+			"event_id": 2, "location_id": 1, "view_key": "event-overview",
+			"command_id": "reject-cross-event-location",
+		},
+		http.StatusUnprocessableEntity,
+		"valid Event, Location, View, and command_id are required\n",
+	)
+	standby := get(t, displayClient, restarted.address, "/display")
+	standbyBody, readErr := io.ReadAll(standby.Body)
+	closeErr = standby.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Display after Active Event switch: %v", err)
+	}
+	if !strings.Contains(string(standbyBody), "<h1>Standby</h1>") ||
+		!strings.Contains(string(standbyBody), "Revision 2100") || strings.Contains(string(standbyBody), "Main Hall") {
+		t.Errorf("Display inherited prior Event Assignment: %s", standbyBody)
+	}
+	assertGETResponse(
+		t, administrator, restarted.address, "/admin/displays", http.StatusOK,
+		"[{\"id\":1,\"name\":\"Lobby Display\",\"active_event_id\":2,\"standby\":true,\"event_name\":\"Revision 2100\"}]\n",
+	)
+	restarted.stop(t)
 }
 
 func TestAdministratorCreatesEventWithCoreConfiguration(t *testing.T) {
@@ -558,6 +882,83 @@ func prepareActiveSchedule(t *testing.T, client *http.Client, server *runningSer
 		t.Fatalf("Activate public Schedule Event: %v", err)
 	}
 	return publicSessionID
+}
+
+func prepareAndActivateSecondEvent(t *testing.T, client *http.Client, server *runningServer) {
+	t.Helper()
+	assertJSONRequest(
+		t, client, server.address, "/admin/events",
+		map[string]string{
+			"name": "Revision 2100", "planned_start_date": "2100-09-01",
+			"planned_end_date": "2100-09-02", "timezone": "Europe/Berlin",
+			"event_locale": "en-GB", "content_language": "en-GB",
+			"event_day_boundary": "06:00", "command_id": "create-second-display-event",
+		},
+		http.StatusCreated,
+		"{\"id\":2,\"name\":\"Revision 2100\",\"planned_start_date\":\"2100-09-01\",\"planned_end_date\":\"2100-09-02\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"en-GB\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":1}\n",
+	)
+	assertJSONRequest(
+		t, client, server.address, "/admin/events/2/grants",
+		map[string]any{"account_id": 1, "role": "Producer", "command_id": "grant-second-display-event"},
+		http.StatusCreated, "{\"event_id\":2,\"account_id\":1,\"role\":\"Producer\"}\n",
+	)
+	rundownClient := rundownv1connect.NewRundownServiceClient(
+		client, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	start := time.Date(2100, 9, 1, 8, 0, 0, 0, time.UTC)
+	edited, err := rundownClient.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 2, CommandId: "edit-second-display-event", ExpectedDraftRevision: 0,
+		Locations: []*rundownv1.LocationDraft{{Ref: "annex", Name: "Annex"}},
+		Lanes: []*rundownv1.LaneDraft{{
+			Ref: "annex-lane", Name: "Annex Lane",
+			Location: &rundownv1.TargetRef{Target: &rundownv1.TargetRef_Ref{Ref: "annex"}},
+		}},
+		Sessions: []*rundownv1.SessionDraft{{
+			Ref: "annex-opening", Title: "Annex Opening",
+			Type:               rundownv1.SessionType_SESSION_TYPE_PRESENTATION,
+			AudienceVisibility: rundownv1.AudienceVisibility_AUDIENCE_VISIBILITY_PUBLIC,
+			PlannedStart:       timestamppb.New(start), PlannedEnd: timestamppb.New(start.Add(time.Hour)),
+			TimingPolicy:    rundownv1.TimingPolicy_TIMING_POLICY_FIXED_END,
+			MinimumDuration: durationpb.New(30 * time.Minute),
+			StartBoundary:   rundownv1.Boundary_BOUNDARY_SOFT, EndBoundary: rundownv1.Boundary_BOUNDARY_SOFT,
+			Locations: []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Ref{Ref: "annex"}}},
+			Lanes:     []*rundownv1.TargetRef{{Target: &rundownv1.TargetRef_Ref{Ref: "annex-lane"}}},
+		}},
+	}))
+	if err != nil {
+		t.Fatalf("Edit second Event Draft: %v", err)
+	}
+	changeIDs := make([]int64, 0, len(edited.Msg.GetChanges()))
+	for _, change := range edited.Msg.GetChanges() {
+		changeIDs = append(changeIDs, change.GetId())
+	}
+	preview, err := rundownClient.PublishPreview(t.Context(), connect.NewRequest(&rundownv1.PublishPreviewRequest{
+		EventId: 2, ChangeIds: changeIDs,
+	}))
+	if err != nil {
+		t.Fatalf("Preview second Event Publish: %v", err)
+	}
+	if _, publishErr := rundownClient.Publish(t.Context(), connect.NewRequest(&rundownv1.PublishRequest{
+		EventId: 2, CommandId: "publish-second-display-event",
+		Confirmation: &rundownv1.PublishConfirmation{
+			DraftRevision: preview.Msg.GetDraftRevision(), PublishedRevision: preview.Msg.GetPublishedRevision(),
+			ChangeIds: preview.Msg.GetChangeIds(), Fingerprint: preview.Msg.GetFingerprint(),
+		},
+	})); publishErr != nil {
+		t.Fatalf("Publish second Event: %v", publishErr)
+	}
+	activationClient := activationv1connect.NewActivationServiceClient(
+		client, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	preflight, err := activationClient.Preflight(t.Context(), connect.NewRequest(&activationv1.PreflightRequest{EventId: 2}))
+	if err != nil {
+		t.Fatalf("Preflight second Event: %v", err)
+	}
+	if _, err := activationClient.Activate(t.Context(), connect.NewRequest(&activationv1.ActivateRequest{
+		EventId: 2, CommandId: "activate-second-display-event", Confirmation: preflight.Msg.GetConfirmation(),
+	})); err != nil {
+		t.Fatalf("Activate second Event: %v", err)
+	}
 }
 
 func TestEventCreationRejectsInvalidTimezoneAndLocale(t *testing.T) {
@@ -2412,6 +2813,28 @@ func assertProbe(t *testing.T, address, path, wantBody string) {
 	t.Helper()
 	result := requestProbe(t.Context(), address, path, 5*time.Second)
 	assertProbeResult(t, path, result, http.StatusOK, wantBody)
+}
+
+func postForm(
+	t *testing.T,
+	client *http.Client,
+	address string,
+	path string,
+	values url.Values,
+) *http.Response {
+	t.Helper()
+	request, err := http.NewRequestWithContext(
+		t.Context(), http.MethodPost, "http://"+address+path, strings.NewReader(values.Encode()),
+	)
+	if err != nil {
+		t.Fatalf("create form request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	response, err := client.Do(request)
+	if err != nil {
+		t.Fatalf("send form request: %v", err)
+	}
+	return response
 }
 
 func assertRecoveryProbes(t *testing.T, address string) {

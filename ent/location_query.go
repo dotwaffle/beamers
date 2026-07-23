@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/lanedraft"
 	"github.com/dotwaffle/beamers/ent/lanepublishedversion"
@@ -38,6 +39,7 @@ type LocationQuery struct {
 	withLanePublishedVersions    *LanePublishedVersionQuery
 	withSessionDrafts            *SessionDraftQuery
 	withSessionPublishedVersions *SessionPublishedVersionQuery
+	withDisplayAssignments       *DisplayAssignmentQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -221,6 +223,28 @@ func (_q *LocationQuery) QuerySessionPublishedVersions() *SessionPublishedVersio
 			sqlgraph.From(location.Table, location.FieldID, selector),
 			sqlgraph.To(sessionpublishedversion.Table, sessionpublishedversion.FieldID),
 			sqlgraph.Edge(sqlgraph.M2M, true, location.SessionPublishedVersionsTable, location.SessionPublishedVersionsPrimaryKey...),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryDisplayAssignments chains the current query on the "display_assignments" edge.
+func (_q *LocationQuery) QueryDisplayAssignments() *DisplayAssignmentQuery {
+	query := (&DisplayAssignmentClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(location.Table, location.FieldID, selector),
+			sqlgraph.To(displayassignment.Table, displayassignment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, location.DisplayAssignmentsTable, location.DisplayAssignmentsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -427,6 +451,7 @@ func (_q *LocationQuery) Clone() *LocationQuery {
 		withLanePublishedVersions:    _q.withLanePublishedVersions.Clone(),
 		withSessionDrafts:            _q.withSessionDrafts.Clone(),
 		withSessionPublishedVersions: _q.withSessionPublishedVersions.Clone(),
+		withDisplayAssignments:       _q.withDisplayAssignments.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -507,6 +532,17 @@ func (_q *LocationQuery) WithSessionPublishedVersions(opts ...func(*SessionPubli
 		opt(query)
 	}
 	_q.withSessionPublishedVersions = query
+	return _q
+}
+
+// WithDisplayAssignments tells the query-builder to eager-load the nodes that are connected to
+// the "display_assignments" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *LocationQuery) WithDisplayAssignments(opts ...func(*DisplayAssignmentQuery)) *LocationQuery {
+	query := (&DisplayAssignmentClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withDisplayAssignments = query
 	return _q
 }
 
@@ -594,7 +630,7 @@ func (_q *LocationQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Loc
 	var (
 		nodes       = []*Location{}
 		_spec       = _q.querySpec()
-		loadedTypes = [7]bool{
+		loadedTypes = [8]bool{
 			_q.withEvent != nil,
 			_q.withDraft != nil,
 			_q.withPublishedVersions != nil,
@@ -602,6 +638,7 @@ func (_q *LocationQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Loc
 			_q.withLanePublishedVersions != nil,
 			_q.withSessionDrafts != nil,
 			_q.withSessionPublishedVersions != nil,
+			_q.withDisplayAssignments != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -671,6 +708,15 @@ func (_q *LocationQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Loc
 			func(n *Location) { n.Edges.SessionPublishedVersions = []*SessionPublishedVersion{} },
 			func(n *Location, e *SessionPublishedVersion) {
 				n.Edges.SessionPublishedVersions = append(n.Edges.SessionPublishedVersions, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withDisplayAssignments; query != nil {
+		if err := _q.loadDisplayAssignments(ctx, query, nodes,
+			func(n *Location) { n.Edges.DisplayAssignments = []*DisplayAssignment{} },
+			func(n *Location, e *DisplayAssignment) {
+				n.Edges.DisplayAssignments = append(n.Edges.DisplayAssignments, e)
 			}); err != nil {
 			return nil, err
 		}
@@ -943,6 +989,36 @@ func (_q *LocationQuery) loadSessionPublishedVersions(ctx context.Context, query
 		for kn := range nodes {
 			assign(kn, n)
 		}
+	}
+	return nil
+}
+func (_q *LocationQuery) loadDisplayAssignments(ctx context.Context, query *DisplayAssignmentQuery, nodes []*Location, init func(*Location), assign func(*Location, *DisplayAssignment)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Location)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(displayassignment.FieldLocationID)
+	}
+	query.Where(predicate.DisplayAssignment(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(location.DisplayAssignmentsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.LocationID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "location_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

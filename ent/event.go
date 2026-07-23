@@ -62,9 +62,11 @@ type EventEdges struct {
 	DraftChanges []*DraftChange `json:"draft_changes,omitempty"`
 	// ImportReferences holds the value of the import_references edge.
 	ImportReferences []*ImportReference `json:"import_references,omitempty"`
+	// DisplayAssignments holds the value of the display_assignments edge.
+	DisplayAssignments []*DisplayAssignment `json:"display_assignments,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [9]bool
+	loadedTypes [10]bool
 }
 
 // GrantsOrErr returns the Grants value or an error if the edge
@@ -148,6 +150,15 @@ func (e EventEdges) ImportReferencesOrErr() ([]*ImportReference, error) {
 		return e.ImportReferences, nil
 	}
 	return nil, &NotLoadedError{edge: "import_references"}
+}
+
+// DisplayAssignmentsOrErr returns the DisplayAssignments value or an error if the edge
+// was not loaded in eager-loading.
+func (e EventEdges) DisplayAssignmentsOrErr() ([]*DisplayAssignment, error) {
+	if e.loadedTypes[9] {
+		return e.DisplayAssignments, nil
+	}
+	return nil, &NotLoadedError{edge: "display_assignments"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -292,6 +303,11 @@ func (_m *Event) QueryDraftChanges() *DraftChangeQuery {
 // QueryImportReferences queries the "import_references" edge of the Event entity.
 func (_m *Event) QueryImportReferences() *ImportReferenceQuery {
 	return NewEventClient(_m.config).QueryImportReferences(_m)
+}
+
+// QueryDisplayAssignments queries the "display_assignments" edge of the Event entity.
+func (_m *Event) QueryDisplayAssignments() *DisplayAssignmentQuery {
+	return NewEventClient(_m.config).QueryDisplayAssignments(_m)
 }
 
 // Update returns a builder for updating this Event.

@@ -33,6 +33,8 @@ const (
 	EdgeSessionDrafts = "session_drafts"
 	// EdgeSessionPublishedVersions holds the string denoting the session_published_versions edge name in mutations.
 	EdgeSessionPublishedVersions = "session_published_versions"
+	// EdgeDisplayAssignments holds the string denoting the display_assignments edge name in mutations.
+	EdgeDisplayAssignments = "display_assignments"
 	// Table holds the table name of the location in the database.
 	Table = "locations"
 	// EventTable is the table that holds the event relation/edge.
@@ -80,6 +82,13 @@ const (
 	// SessionPublishedVersionsInverseTable is the table name for the SessionPublishedVersion entity.
 	// It exists in this package in order to avoid circular dependency with the "sessionpublishedversion" package.
 	SessionPublishedVersionsInverseTable = "session_published_versions"
+	// DisplayAssignmentsTable is the table that holds the display_assignments relation/edge.
+	DisplayAssignmentsTable = "display_assignments"
+	// DisplayAssignmentsInverseTable is the table name for the DisplayAssignment entity.
+	// It exists in this package in order to avoid circular dependency with the "displayassignment" package.
+	DisplayAssignmentsInverseTable = "display_assignments"
+	// DisplayAssignmentsColumn is the table column denoting the display_assignments relation/edge.
+	DisplayAssignmentsColumn = "location_id"
 )
 
 // Columns holds all SQL columns for location fields.
@@ -221,6 +230,20 @@ func BySessionPublishedVersions(term sql.OrderTerm, terms ...sql.OrderTerm) Orde
 		sqlgraph.OrderByNeighborTerms(s, newSessionPublishedVersionsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByDisplayAssignmentsCount orders the results by display_assignments count.
+func ByDisplayAssignmentsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newDisplayAssignmentsStep(), opts...)
+	}
+}
+
+// ByDisplayAssignments orders the results by display_assignments terms.
+func ByDisplayAssignments(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newDisplayAssignmentsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newEventStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -268,5 +291,12 @@ func newSessionPublishedVersionsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(SessionPublishedVersionsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2M, true, SessionPublishedVersionsTable, SessionPublishedVersionsPrimaryKey...),
+	)
+}
+func newDisplayAssignmentsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(DisplayAssignmentsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, DisplayAssignmentsTable, DisplayAssignmentsColumn),
 	)
 }

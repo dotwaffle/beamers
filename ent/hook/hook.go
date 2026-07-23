@@ -69,6 +69,54 @@ func (f CommandReceiptFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Val
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CommandReceiptMutation", m)
 }
 
+// The DisplayFunc type is an adapter to allow the use of ordinary
+// function as Display mutator.
+type DisplayFunc func(context.Context, *ent.DisplayMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f DisplayFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DisplayMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DisplayMutation", m)
+}
+
+// The DisplayAssignmentFunc type is an adapter to allow the use of ordinary
+// function as DisplayAssignment mutator.
+type DisplayAssignmentFunc func(context.Context, *ent.DisplayAssignmentMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f DisplayAssignmentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DisplayAssignmentMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DisplayAssignmentMutation", m)
+}
+
+// The DisplayCredentialFunc type is an adapter to allow the use of ordinary
+// function as DisplayCredential mutator.
+type DisplayCredentialFunc func(context.Context, *ent.DisplayCredentialMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f DisplayCredentialFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DisplayCredentialMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DisplayCredentialMutation", m)
+}
+
+// The DisplayEnrollmentFunc type is an adapter to allow the use of ordinary
+// function as DisplayEnrollment mutator.
+type DisplayEnrollmentFunc func(context.Context, *ent.DisplayEnrollmentMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f DisplayEnrollmentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DisplayEnrollmentMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DisplayEnrollmentMutation", m)
+}
+
 // The DraftChangeFunc type is an adapter to allow the use of ordinary
 // function as DraftChange mutator.
 type DraftChangeFunc func(context.Context, *ent.DraftChangeMutation) (ent.Value, error)

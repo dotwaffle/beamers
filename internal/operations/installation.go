@@ -7,6 +7,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/activation"
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/displays"
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/schedule"
@@ -29,6 +30,7 @@ var (
 type Installation struct {
 	storage         *store.SQLite
 	authentication  *auth.Service
+	displays        *displays.Service
 	activation      *activation.Service
 	events          *events.Service
 	rundownCommands *rundown.Commands
@@ -59,6 +61,11 @@ func OpenInstallation(ctx context.Context, dataDir string) (*Installation, error
 		return nil, errors.Join(err, storage.Close())
 	}
 	installation.authentication = authentication
+	displayService, err := displays.New(storage, displays.DefaultConfig())
+	if err != nil {
+		return nil, errors.Join(err, storage.Close())
+	}
+	installation.displays = displayService
 	activationService, err := activation.New(storage, time.Now)
 	if err != nil {
 		return nil, errors.Join(err, storage.Close())
@@ -142,6 +149,12 @@ func (installation *Installation) Authentication() *auth.Service {
 // It is nil only while the installation is restricted to recovery mode.
 func (installation *Installation) Events() *events.Service {
 	return installation.events
+}
+
+// Displays returns the Display Enrollment and Assignment service.
+// It is nil only while the installation is restricted to recovery mode.
+func (installation *Installation) Displays() *displays.Service {
+	return installation.displays
 }
 
 // RundownCommands returns the Rundown command application service.

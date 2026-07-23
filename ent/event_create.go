@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/event"
@@ -244,6 +245,21 @@ func (_c *EventCreate) AddImportReferences(v ...*ImportReference) *EventCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddImportReferenceIDs(ids...)
+}
+
+// AddDisplayAssignmentIDs adds the "display_assignments" edge to the DisplayAssignment entity by IDs.
+func (_c *EventCreate) AddDisplayAssignmentIDs(ids ...int) *EventCreate {
+	_c.mutation.AddDisplayAssignmentIDs(ids...)
+	return _c
+}
+
+// AddDisplayAssignments adds the "display_assignments" edges to the DisplayAssignment entity.
+func (_c *EventCreate) AddDisplayAssignments(v ...*DisplayAssignment) *EventCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddDisplayAssignmentIDs(ids...)
 }
 
 // Mutation returns the EventMutation object of the builder.
@@ -557,6 +573,22 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(importreference.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.DisplayAssignmentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DisplayAssignmentsTable,
+			Columns: []string{event.DisplayAssignmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(displayassignment.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

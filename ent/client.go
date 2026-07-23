@@ -20,6 +20,10 @@ import (
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/display"
+	"github.com/dotwaffle/beamers/ent/displayassignment"
+	"github.com/dotwaffle/beamers/ent/displaycredential"
+	"github.com/dotwaffle/beamers/ent/displayenrollment"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftchangedependency"
 	"github.com/dotwaffle/beamers/ent/draftedit"
@@ -61,6 +65,14 @@ type Client struct {
 	BootstrapCredential *BootstrapCredentialClient
 	// CommandReceipt is the client for interacting with the CommandReceipt builders.
 	CommandReceipt *CommandReceiptClient
+	// Display is the client for interacting with the Display builders.
+	Display *DisplayClient
+	// DisplayAssignment is the client for interacting with the DisplayAssignment builders.
+	DisplayAssignment *DisplayAssignmentClient
+	// DisplayCredential is the client for interacting with the DisplayCredential builders.
+	DisplayCredential *DisplayCredentialClient
+	// DisplayEnrollment is the client for interacting with the DisplayEnrollment builders.
+	DisplayEnrollment *DisplayEnrollmentClient
 	// DraftChange is the client for interacting with the DraftChange builders.
 	DraftChange *DraftChangeClient
 	// DraftChangeDependency is the client for interacting with the DraftChangeDependency builders.
@@ -125,6 +137,10 @@ func (c *Client) init() {
 	c.AuditEntry = NewAuditEntryClient(c.config)
 	c.BootstrapCredential = NewBootstrapCredentialClient(c.config)
 	c.CommandReceipt = NewCommandReceiptClient(c.config)
+	c.Display = NewDisplayClient(c.config)
+	c.DisplayAssignment = NewDisplayAssignmentClient(c.config)
+	c.DisplayCredential = NewDisplayCredentialClient(c.config)
+	c.DisplayEnrollment = NewDisplayEnrollmentClient(c.config)
 	c.DraftChange = NewDraftChangeClient(c.config)
 	c.DraftChangeDependency = NewDraftChangeDependencyClient(c.config)
 	c.DraftEdit = NewDraftEditClient(c.config)
@@ -246,6 +262,10 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		AuditEntry:               NewAuditEntryClient(cfg),
 		BootstrapCredential:      NewBootstrapCredentialClient(cfg),
 		CommandReceipt:           NewCommandReceiptClient(cfg),
+		Display:                  NewDisplayClient(cfg),
+		DisplayAssignment:        NewDisplayAssignmentClient(cfg),
+		DisplayCredential:        NewDisplayCredentialClient(cfg),
+		DisplayEnrollment:        NewDisplayEnrollmentClient(cfg),
 		DraftChange:              NewDraftChangeClient(cfg),
 		DraftChangeDependency:    NewDraftChangeDependencyClient(cfg),
 		DraftEdit:                NewDraftEditClient(cfg),
@@ -294,6 +314,10 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		AuditEntry:               NewAuditEntryClient(cfg),
 		BootstrapCredential:      NewBootstrapCredentialClient(cfg),
 		CommandReceipt:           NewCommandReceiptClient(cfg),
+		Display:                  NewDisplayClient(cfg),
+		DisplayAssignment:        NewDisplayAssignmentClient(cfg),
+		DisplayCredential:        NewDisplayCredentialClient(cfg),
+		DisplayEnrollment:        NewDisplayEnrollmentClient(cfg),
 		DraftChange:              NewDraftChangeClient(cfg),
 		DraftChangeDependency:    NewDraftChangeDependencyClient(cfg),
 		DraftEdit:                NewDraftEditClient(cfg),
@@ -348,8 +372,9 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.Account, c.AccountSession, c.AuditEntry, c.BootstrapCredential,
-		c.CommandReceipt, c.DraftChange, c.DraftChangeDependency, c.DraftEdit, c.Event,
-		c.EventGrant, c.ImportReference, c.Installation, c.Lane, c.LaneDraft,
+		c.CommandReceipt, c.Display, c.DisplayAssignment, c.DisplayCredential,
+		c.DisplayEnrollment, c.DraftChange, c.DraftChangeDependency, c.DraftEdit,
+		c.Event, c.EventGrant, c.ImportReference, c.Installation, c.Lane, c.LaneDraft,
 		c.LanePublishedVersion, c.Location, c.LocationDraft,
 		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Rundown,
 		c.Session, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
@@ -364,8 +389,9 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.Account, c.AccountSession, c.AuditEntry, c.BootstrapCredential,
-		c.CommandReceipt, c.DraftChange, c.DraftChangeDependency, c.DraftEdit, c.Event,
-		c.EventGrant, c.ImportReference, c.Installation, c.Lane, c.LaneDraft,
+		c.CommandReceipt, c.Display, c.DisplayAssignment, c.DisplayCredential,
+		c.DisplayEnrollment, c.DraftChange, c.DraftChangeDependency, c.DraftEdit,
+		c.Event, c.EventGrant, c.ImportReference, c.Installation, c.Lane, c.LaneDraft,
 		c.LanePublishedVersion, c.Location, c.LocationDraft,
 		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Rundown,
 		c.Session, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
@@ -388,6 +414,14 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.BootstrapCredential.mutate(ctx, m)
 	case *CommandReceiptMutation:
 		return c.CommandReceipt.mutate(ctx, m)
+	case *DisplayMutation:
+		return c.Display.mutate(ctx, m)
+	case *DisplayAssignmentMutation:
+		return c.DisplayAssignment.mutate(ctx, m)
+	case *DisplayCredentialMutation:
+		return c.DisplayCredential.mutate(ctx, m)
+	case *DisplayEnrollmentMutation:
+		return c.DisplayEnrollment.mutate(ctx, m)
 	case *DraftChangeMutation:
 		return c.DraftChange.mutate(ctx, m)
 	case *DraftChangeDependencyMutation:
@@ -1255,6 +1289,638 @@ func (c *CommandReceiptClient) mutate(ctx context.Context, m *CommandReceiptMuta
 	}
 }
 
+// DisplayClient is a client for the Display schema.
+type DisplayClient struct {
+	config
+}
+
+// NewDisplayClient returns a client for the Display from the given config.
+func NewDisplayClient(c config) *DisplayClient {
+	return &DisplayClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `display.Hooks(f(g(h())))`.
+func (c *DisplayClient) Use(hooks ...Hook) {
+	c.hooks.Display = append(c.hooks.Display, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `display.Intercept(f(g(h())))`.
+func (c *DisplayClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Display = append(c.inters.Display, interceptors...)
+}
+
+// Create returns a builder for creating a Display entity.
+func (c *DisplayClient) Create() *DisplayCreate {
+	mutation := newDisplayMutation(c.config, OpCreate)
+	return &DisplayCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Display entities.
+func (c *DisplayClient) CreateBulk(builders ...*DisplayCreate) *DisplayCreateBulk {
+	return &DisplayCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *DisplayClient) MapCreateBulk(slice any, setFunc func(*DisplayCreate, int)) *DisplayCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &DisplayCreateBulk{err: fmt.Errorf("calling to DisplayClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*DisplayCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &DisplayCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Display.
+func (c *DisplayClient) Update() *DisplayUpdate {
+	mutation := newDisplayMutation(c.config, OpUpdate)
+	return &DisplayUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *DisplayClient) UpdateOne(_m *Display) *DisplayUpdateOne {
+	mutation := newDisplayMutation(c.config, OpUpdateOne, withDisplay(_m))
+	return &DisplayUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *DisplayClient) UpdateOneID(id int) *DisplayUpdateOne {
+	mutation := newDisplayMutation(c.config, OpUpdateOne, withDisplayID(id))
+	return &DisplayUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Display.
+func (c *DisplayClient) Delete() *DisplayDelete {
+	mutation := newDisplayMutation(c.config, OpDelete)
+	return &DisplayDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *DisplayClient) DeleteOne(_m *Display) *DisplayDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *DisplayClient) DeleteOneID(id int) *DisplayDeleteOne {
+	builder := c.Delete().Where(display.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &DisplayDeleteOne{builder}
+}
+
+// Query returns a query builder for Display.
+func (c *DisplayClient) Query() *DisplayQuery {
+	return &DisplayQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeDisplay},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Display entity by its id.
+func (c *DisplayClient) Get(ctx context.Context, id int) (*Display, error) {
+	return c.Query().Where(display.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *DisplayClient) GetX(ctx context.Context, id int) *Display {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryCredentials queries the credentials edge of a Display.
+func (c *DisplayClient) QueryCredentials(_m *Display) *DisplayCredentialQuery {
+	query := (&DisplayCredentialClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(display.Table, display.FieldID, id),
+			sqlgraph.To(displaycredential.Table, displaycredential.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, display.CredentialsTable, display.CredentialsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAssignments queries the assignments edge of a Display.
+func (c *DisplayClient) QueryAssignments(_m *Display) *DisplayAssignmentQuery {
+	query := (&DisplayAssignmentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(display.Table, display.FieldID, id),
+			sqlgraph.To(displayassignment.Table, displayassignment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, display.AssignmentsTable, display.AssignmentsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *DisplayClient) Hooks() []Hook {
+	hooks := c.hooks.Display
+	return append(hooks[:len(hooks):len(hooks)], display.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *DisplayClient) Interceptors() []Interceptor {
+	return c.inters.Display
+}
+
+func (c *DisplayClient) mutate(ctx context.Context, m *DisplayMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&DisplayCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&DisplayUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&DisplayUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&DisplayDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Display mutation op: %q", m.Op())
+	}
+}
+
+// DisplayAssignmentClient is a client for the DisplayAssignment schema.
+type DisplayAssignmentClient struct {
+	config
+}
+
+// NewDisplayAssignmentClient returns a client for the DisplayAssignment from the given config.
+func NewDisplayAssignmentClient(c config) *DisplayAssignmentClient {
+	return &DisplayAssignmentClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `displayassignment.Hooks(f(g(h())))`.
+func (c *DisplayAssignmentClient) Use(hooks ...Hook) {
+	c.hooks.DisplayAssignment = append(c.hooks.DisplayAssignment, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `displayassignment.Intercept(f(g(h())))`.
+func (c *DisplayAssignmentClient) Intercept(interceptors ...Interceptor) {
+	c.inters.DisplayAssignment = append(c.inters.DisplayAssignment, interceptors...)
+}
+
+// Create returns a builder for creating a DisplayAssignment entity.
+func (c *DisplayAssignmentClient) Create() *DisplayAssignmentCreate {
+	mutation := newDisplayAssignmentMutation(c.config, OpCreate)
+	return &DisplayAssignmentCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of DisplayAssignment entities.
+func (c *DisplayAssignmentClient) CreateBulk(builders ...*DisplayAssignmentCreate) *DisplayAssignmentCreateBulk {
+	return &DisplayAssignmentCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *DisplayAssignmentClient) MapCreateBulk(slice any, setFunc func(*DisplayAssignmentCreate, int)) *DisplayAssignmentCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &DisplayAssignmentCreateBulk{err: fmt.Errorf("calling to DisplayAssignmentClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*DisplayAssignmentCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &DisplayAssignmentCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for DisplayAssignment.
+func (c *DisplayAssignmentClient) Update() *DisplayAssignmentUpdate {
+	mutation := newDisplayAssignmentMutation(c.config, OpUpdate)
+	return &DisplayAssignmentUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *DisplayAssignmentClient) UpdateOne(_m *DisplayAssignment) *DisplayAssignmentUpdateOne {
+	mutation := newDisplayAssignmentMutation(c.config, OpUpdateOne, withDisplayAssignment(_m))
+	return &DisplayAssignmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *DisplayAssignmentClient) UpdateOneID(id int) *DisplayAssignmentUpdateOne {
+	mutation := newDisplayAssignmentMutation(c.config, OpUpdateOne, withDisplayAssignmentID(id))
+	return &DisplayAssignmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for DisplayAssignment.
+func (c *DisplayAssignmentClient) Delete() *DisplayAssignmentDelete {
+	mutation := newDisplayAssignmentMutation(c.config, OpDelete)
+	return &DisplayAssignmentDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *DisplayAssignmentClient) DeleteOne(_m *DisplayAssignment) *DisplayAssignmentDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *DisplayAssignmentClient) DeleteOneID(id int) *DisplayAssignmentDeleteOne {
+	builder := c.Delete().Where(displayassignment.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &DisplayAssignmentDeleteOne{builder}
+}
+
+// Query returns a query builder for DisplayAssignment.
+func (c *DisplayAssignmentClient) Query() *DisplayAssignmentQuery {
+	return &DisplayAssignmentQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeDisplayAssignment},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a DisplayAssignment entity by its id.
+func (c *DisplayAssignmentClient) Get(ctx context.Context, id int) (*DisplayAssignment, error) {
+	return c.Query().Where(displayassignment.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *DisplayAssignmentClient) GetX(ctx context.Context, id int) *DisplayAssignment {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryDisplay queries the display edge of a DisplayAssignment.
+func (c *DisplayAssignmentClient) QueryDisplay(_m *DisplayAssignment) *DisplayQuery {
+	query := (&DisplayClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(displayassignment.Table, displayassignment.FieldID, id),
+			sqlgraph.To(display.Table, display.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, displayassignment.DisplayTable, displayassignment.DisplayColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryEvent queries the event edge of a DisplayAssignment.
+func (c *DisplayAssignmentClient) QueryEvent(_m *DisplayAssignment) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(displayassignment.Table, displayassignment.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, displayassignment.EventTable, displayassignment.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryLocation queries the location edge of a DisplayAssignment.
+func (c *DisplayAssignmentClient) QueryLocation(_m *DisplayAssignment) *LocationQuery {
+	query := (&LocationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(displayassignment.Table, displayassignment.FieldID, id),
+			sqlgraph.To(location.Table, location.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, displayassignment.LocationTable, displayassignment.LocationColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *DisplayAssignmentClient) Hooks() []Hook {
+	hooks := c.hooks.DisplayAssignment
+	return append(hooks[:len(hooks):len(hooks)], displayassignment.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *DisplayAssignmentClient) Interceptors() []Interceptor {
+	return c.inters.DisplayAssignment
+}
+
+func (c *DisplayAssignmentClient) mutate(ctx context.Context, m *DisplayAssignmentMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&DisplayAssignmentCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&DisplayAssignmentUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&DisplayAssignmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&DisplayAssignmentDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown DisplayAssignment mutation op: %q", m.Op())
+	}
+}
+
+// DisplayCredentialClient is a client for the DisplayCredential schema.
+type DisplayCredentialClient struct {
+	config
+}
+
+// NewDisplayCredentialClient returns a client for the DisplayCredential from the given config.
+func NewDisplayCredentialClient(c config) *DisplayCredentialClient {
+	return &DisplayCredentialClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `displaycredential.Hooks(f(g(h())))`.
+func (c *DisplayCredentialClient) Use(hooks ...Hook) {
+	c.hooks.DisplayCredential = append(c.hooks.DisplayCredential, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `displaycredential.Intercept(f(g(h())))`.
+func (c *DisplayCredentialClient) Intercept(interceptors ...Interceptor) {
+	c.inters.DisplayCredential = append(c.inters.DisplayCredential, interceptors...)
+}
+
+// Create returns a builder for creating a DisplayCredential entity.
+func (c *DisplayCredentialClient) Create() *DisplayCredentialCreate {
+	mutation := newDisplayCredentialMutation(c.config, OpCreate)
+	return &DisplayCredentialCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of DisplayCredential entities.
+func (c *DisplayCredentialClient) CreateBulk(builders ...*DisplayCredentialCreate) *DisplayCredentialCreateBulk {
+	return &DisplayCredentialCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *DisplayCredentialClient) MapCreateBulk(slice any, setFunc func(*DisplayCredentialCreate, int)) *DisplayCredentialCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &DisplayCredentialCreateBulk{err: fmt.Errorf("calling to DisplayCredentialClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*DisplayCredentialCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &DisplayCredentialCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for DisplayCredential.
+func (c *DisplayCredentialClient) Update() *DisplayCredentialUpdate {
+	mutation := newDisplayCredentialMutation(c.config, OpUpdate)
+	return &DisplayCredentialUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *DisplayCredentialClient) UpdateOne(_m *DisplayCredential) *DisplayCredentialUpdateOne {
+	mutation := newDisplayCredentialMutation(c.config, OpUpdateOne, withDisplayCredential(_m))
+	return &DisplayCredentialUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *DisplayCredentialClient) UpdateOneID(id int) *DisplayCredentialUpdateOne {
+	mutation := newDisplayCredentialMutation(c.config, OpUpdateOne, withDisplayCredentialID(id))
+	return &DisplayCredentialUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for DisplayCredential.
+func (c *DisplayCredentialClient) Delete() *DisplayCredentialDelete {
+	mutation := newDisplayCredentialMutation(c.config, OpDelete)
+	return &DisplayCredentialDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *DisplayCredentialClient) DeleteOne(_m *DisplayCredential) *DisplayCredentialDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *DisplayCredentialClient) DeleteOneID(id int) *DisplayCredentialDeleteOne {
+	builder := c.Delete().Where(displaycredential.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &DisplayCredentialDeleteOne{builder}
+}
+
+// Query returns a query builder for DisplayCredential.
+func (c *DisplayCredentialClient) Query() *DisplayCredentialQuery {
+	return &DisplayCredentialQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeDisplayCredential},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a DisplayCredential entity by its id.
+func (c *DisplayCredentialClient) Get(ctx context.Context, id int) (*DisplayCredential, error) {
+	return c.Query().Where(displaycredential.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *DisplayCredentialClient) GetX(ctx context.Context, id int) *DisplayCredential {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryDisplay queries the display edge of a DisplayCredential.
+func (c *DisplayCredentialClient) QueryDisplay(_m *DisplayCredential) *DisplayQuery {
+	query := (&DisplayClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(displaycredential.Table, displaycredential.FieldID, id),
+			sqlgraph.To(display.Table, display.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, displaycredential.DisplayTable, displaycredential.DisplayColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *DisplayCredentialClient) Hooks() []Hook {
+	hooks := c.hooks.DisplayCredential
+	return append(hooks[:len(hooks):len(hooks)], displaycredential.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *DisplayCredentialClient) Interceptors() []Interceptor {
+	return c.inters.DisplayCredential
+}
+
+func (c *DisplayCredentialClient) mutate(ctx context.Context, m *DisplayCredentialMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&DisplayCredentialCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&DisplayCredentialUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&DisplayCredentialUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&DisplayCredentialDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown DisplayCredential mutation op: %q", m.Op())
+	}
+}
+
+// DisplayEnrollmentClient is a client for the DisplayEnrollment schema.
+type DisplayEnrollmentClient struct {
+	config
+}
+
+// NewDisplayEnrollmentClient returns a client for the DisplayEnrollment from the given config.
+func NewDisplayEnrollmentClient(c config) *DisplayEnrollmentClient {
+	return &DisplayEnrollmentClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `displayenrollment.Hooks(f(g(h())))`.
+func (c *DisplayEnrollmentClient) Use(hooks ...Hook) {
+	c.hooks.DisplayEnrollment = append(c.hooks.DisplayEnrollment, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `displayenrollment.Intercept(f(g(h())))`.
+func (c *DisplayEnrollmentClient) Intercept(interceptors ...Interceptor) {
+	c.inters.DisplayEnrollment = append(c.inters.DisplayEnrollment, interceptors...)
+}
+
+// Create returns a builder for creating a DisplayEnrollment entity.
+func (c *DisplayEnrollmentClient) Create() *DisplayEnrollmentCreate {
+	mutation := newDisplayEnrollmentMutation(c.config, OpCreate)
+	return &DisplayEnrollmentCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of DisplayEnrollment entities.
+func (c *DisplayEnrollmentClient) CreateBulk(builders ...*DisplayEnrollmentCreate) *DisplayEnrollmentCreateBulk {
+	return &DisplayEnrollmentCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *DisplayEnrollmentClient) MapCreateBulk(slice any, setFunc func(*DisplayEnrollmentCreate, int)) *DisplayEnrollmentCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &DisplayEnrollmentCreateBulk{err: fmt.Errorf("calling to DisplayEnrollmentClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*DisplayEnrollmentCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &DisplayEnrollmentCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for DisplayEnrollment.
+func (c *DisplayEnrollmentClient) Update() *DisplayEnrollmentUpdate {
+	mutation := newDisplayEnrollmentMutation(c.config, OpUpdate)
+	return &DisplayEnrollmentUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *DisplayEnrollmentClient) UpdateOne(_m *DisplayEnrollment) *DisplayEnrollmentUpdateOne {
+	mutation := newDisplayEnrollmentMutation(c.config, OpUpdateOne, withDisplayEnrollment(_m))
+	return &DisplayEnrollmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *DisplayEnrollmentClient) UpdateOneID(id int) *DisplayEnrollmentUpdateOne {
+	mutation := newDisplayEnrollmentMutation(c.config, OpUpdateOne, withDisplayEnrollmentID(id))
+	return &DisplayEnrollmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for DisplayEnrollment.
+func (c *DisplayEnrollmentClient) Delete() *DisplayEnrollmentDelete {
+	mutation := newDisplayEnrollmentMutation(c.config, OpDelete)
+	return &DisplayEnrollmentDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *DisplayEnrollmentClient) DeleteOne(_m *DisplayEnrollment) *DisplayEnrollmentDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *DisplayEnrollmentClient) DeleteOneID(id int) *DisplayEnrollmentDeleteOne {
+	builder := c.Delete().Where(displayenrollment.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &DisplayEnrollmentDeleteOne{builder}
+}
+
+// Query returns a query builder for DisplayEnrollment.
+func (c *DisplayEnrollmentClient) Query() *DisplayEnrollmentQuery {
+	return &DisplayEnrollmentQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeDisplayEnrollment},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a DisplayEnrollment entity by its id.
+func (c *DisplayEnrollmentClient) Get(ctx context.Context, id int) (*DisplayEnrollment, error) {
+	return c.Query().Where(displayenrollment.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *DisplayEnrollmentClient) GetX(ctx context.Context, id int) *DisplayEnrollment {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *DisplayEnrollmentClient) Hooks() []Hook {
+	hooks := c.hooks.DisplayEnrollment
+	return append(hooks[:len(hooks):len(hooks)], displayenrollment.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *DisplayEnrollmentClient) Interceptors() []Interceptor {
+	return c.inters.DisplayEnrollment
+}
+
+func (c *DisplayEnrollmentClient) mutate(ctx context.Context, m *DisplayEnrollmentMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&DisplayEnrollmentCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&DisplayEnrollmentUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&DisplayEnrollmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&DisplayEnrollmentDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown DisplayEnrollment mutation op: %q", m.Op())
+	}
+}
+
 // DraftChangeClient is a client for the DraftChange schema.
 type DraftChangeClient struct {
 	config
@@ -2046,6 +2712,22 @@ func (c *EventClient) QueryImportReferences(_m *Event) *ImportReferenceQuery {
 			sqlgraph.From(event.Table, event.FieldID, id),
 			sqlgraph.To(importreference.Table, importreference.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, event.ImportReferencesTable, event.ImportReferencesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDisplayAssignments queries the display_assignments edge of a Event.
+func (c *EventClient) QueryDisplayAssignments(_m *Event) *DisplayAssignmentQuery {
+	query := (&DisplayAssignmentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(displayassignment.Table, displayassignment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.DisplayAssignmentsTable, event.DisplayAssignmentsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -3304,6 +3986,22 @@ func (c *LocationClient) QuerySessionPublishedVersions(_m *Location) *SessionPub
 			sqlgraph.From(location.Table, location.FieldID, id),
 			sqlgraph.To(sessionpublishedversion.Table, sessionpublishedversion.FieldID),
 			sqlgraph.Edge(sqlgraph.M2M, true, location.SessionPublishedVersionsTable, location.SessionPublishedVersionsPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDisplayAssignments queries the display_assignments edge of a Location.
+func (c *LocationClient) QueryDisplayAssignments(_m *Location) *DisplayAssignmentQuery {
+	query := (&DisplayAssignmentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(location.Table, location.FieldID, id),
+			sqlgraph.To(displayassignment.Table, displayassignment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, location.DisplayAssignmentsTable, location.DisplayAssignmentsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -5498,18 +6196,20 @@ func (c *TrackPublishedVersionClient) mutate(ctx context.Context, m *TrackPublis
 type (
 	hooks struct {
 		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt,
-		DraftChange, DraftChangeDependency, DraftEdit, Event, EventGrant,
-		ImportReference, Installation, Lane, LaneDraft, LanePublishedVersion, Location,
-		LocationDraft, LocationPublishedVersion, Migration, PasswordCredential,
-		Rundown, Session, SessionDraft, SessionPublishedVersion, SessionRun,
-		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion []ent.Hook
+		Display, DisplayAssignment, DisplayCredential, DisplayEnrollment, DraftChange,
+		DraftChangeDependency, DraftEdit, Event, EventGrant, ImportReference,
+		Installation, Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
+		LocationPublishedVersion, Migration, PasswordCredential, Rundown, Session,
+		SessionDraft, SessionPublishedVersion, SessionRun, SessionRunAmendment, Track,
+		TrackDraft, TrackPublishedVersion []ent.Hook
 	}
 	inters struct {
 		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt,
-		DraftChange, DraftChangeDependency, DraftEdit, Event, EventGrant,
-		ImportReference, Installation, Lane, LaneDraft, LanePublishedVersion, Location,
-		LocationDraft, LocationPublishedVersion, Migration, PasswordCredential,
-		Rundown, Session, SessionDraft, SessionPublishedVersion, SessionRun,
-		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion []ent.Interceptor
+		Display, DisplayAssignment, DisplayCredential, DisplayEnrollment, DraftChange,
+		DraftChangeDependency, DraftEdit, Event, EventGrant, ImportReference,
+		Installation, Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
+		LocationPublishedVersion, Migration, PasswordCredential, Rundown, Session,
+		SessionDraft, SessionPublishedVersion, SessionRun, SessionRunAmendment, Track,
+		TrackDraft, TrackPublishedVersion []ent.Interceptor
 	}
 )

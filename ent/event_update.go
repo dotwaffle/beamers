@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/event"
@@ -300,6 +301,21 @@ func (_u *EventUpdate) AddImportReferences(v ...*ImportReference) *EventUpdate {
 	return _u.AddImportReferenceIDs(ids...)
 }
 
+// AddDisplayAssignmentIDs adds the "display_assignments" edge to the DisplayAssignment entity by IDs.
+func (_u *EventUpdate) AddDisplayAssignmentIDs(ids ...int) *EventUpdate {
+	_u.mutation.AddDisplayAssignmentIDs(ids...)
+	return _u
+}
+
+// AddDisplayAssignments adds the "display_assignments" edges to the DisplayAssignment entity.
+func (_u *EventUpdate) AddDisplayAssignments(v ...*DisplayAssignment) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDisplayAssignmentIDs(ids...)
+}
+
 // Mutation returns the EventMutation object of the builder.
 func (_u *EventUpdate) Mutation() *EventMutation {
 	return _u.mutation
@@ -477,6 +493,27 @@ func (_u *EventUpdate) RemoveImportReferences(v ...*ImportReference) *EventUpdat
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveImportReferenceIDs(ids...)
+}
+
+// ClearDisplayAssignments clears all "display_assignments" edges to the DisplayAssignment entity.
+func (_u *EventUpdate) ClearDisplayAssignments() *EventUpdate {
+	_u.mutation.ClearDisplayAssignments()
+	return _u
+}
+
+// RemoveDisplayAssignmentIDs removes the "display_assignments" edge to DisplayAssignment entities by IDs.
+func (_u *EventUpdate) RemoveDisplayAssignmentIDs(ids ...int) *EventUpdate {
+	_u.mutation.RemoveDisplayAssignmentIDs(ids...)
+	return _u
+}
+
+// RemoveDisplayAssignments removes "display_assignments" edges to DisplayAssignment entities.
+func (_u *EventUpdate) RemoveDisplayAssignments(v ...*DisplayAssignment) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDisplayAssignmentIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -977,6 +1014,51 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.DisplayAssignmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DisplayAssignmentsTable,
+			Columns: []string{event.DisplayAssignmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(displayassignment.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDisplayAssignmentsIDs(); len(nodes) > 0 && !_u.mutation.DisplayAssignmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DisplayAssignmentsTable,
+			Columns: []string{event.DisplayAssignmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(displayassignment.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DisplayAssignmentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DisplayAssignmentsTable,
+			Columns: []string{event.DisplayAssignmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(displayassignment.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{event.Label}
@@ -1261,6 +1343,21 @@ func (_u *EventUpdateOne) AddImportReferences(v ...*ImportReference) *EventUpdat
 	return _u.AddImportReferenceIDs(ids...)
 }
 
+// AddDisplayAssignmentIDs adds the "display_assignments" edge to the DisplayAssignment entity by IDs.
+func (_u *EventUpdateOne) AddDisplayAssignmentIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.AddDisplayAssignmentIDs(ids...)
+	return _u
+}
+
+// AddDisplayAssignments adds the "display_assignments" edges to the DisplayAssignment entity.
+func (_u *EventUpdateOne) AddDisplayAssignments(v ...*DisplayAssignment) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDisplayAssignmentIDs(ids...)
+}
+
 // Mutation returns the EventMutation object of the builder.
 func (_u *EventUpdateOne) Mutation() *EventMutation {
 	return _u.mutation
@@ -1438,6 +1535,27 @@ func (_u *EventUpdateOne) RemoveImportReferences(v ...*ImportReference) *EventUp
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveImportReferenceIDs(ids...)
+}
+
+// ClearDisplayAssignments clears all "display_assignments" edges to the DisplayAssignment entity.
+func (_u *EventUpdateOne) ClearDisplayAssignments() *EventUpdateOne {
+	_u.mutation.ClearDisplayAssignments()
+	return _u
+}
+
+// RemoveDisplayAssignmentIDs removes the "display_assignments" edge to DisplayAssignment entities by IDs.
+func (_u *EventUpdateOne) RemoveDisplayAssignmentIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.RemoveDisplayAssignmentIDs(ids...)
+	return _u
+}
+
+// RemoveDisplayAssignments removes "display_assignments" edges to DisplayAssignment entities.
+func (_u *EventUpdateOne) RemoveDisplayAssignments(v ...*DisplayAssignment) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDisplayAssignmentIDs(ids...)
 }
 
 // Where appends a list predicates to the EventUpdate builder.
@@ -1961,6 +2079,51 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(importreference.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DisplayAssignmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DisplayAssignmentsTable,
+			Columns: []string{event.DisplayAssignmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(displayassignment.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDisplayAssignmentsIDs(); len(nodes) > 0 && !_u.mutation.DisplayAssignmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DisplayAssignmentsTable,
+			Columns: []string{event.DisplayAssignmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(displayassignment.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DisplayAssignmentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.DisplayAssignmentsTable,
+			Columns: []string{event.DisplayAssignmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(displayassignment.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

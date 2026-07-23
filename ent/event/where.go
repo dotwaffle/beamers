@@ -852,6 +852,29 @@ func HasImportReferencesWith(preds ...predicate.ImportReference) predicate.Event
 	})
 }
 
+// HasDisplayAssignments applies the HasEdge predicate on the "display_assignments" edge.
+func HasDisplayAssignments() predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, DisplayAssignmentsTable, DisplayAssignmentsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasDisplayAssignmentsWith applies the HasEdge predicate on the "display_assignments" edge with a given conditions (other predicates).
+func HasDisplayAssignmentsWith(preds ...predicate.DisplayAssignment) predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := newDisplayAssignmentsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Event) predicate.Event {
 	return predicate.Event(sql.AndPredicates(predicates...))

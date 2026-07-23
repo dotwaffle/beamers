@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/lanedraft"
 	"github.com/dotwaffle/beamers/ent/lanepublishedversion"
 	"github.com/dotwaffle/beamers/ent/location"
@@ -127,6 +128,21 @@ func (_u *LocationUpdate) AddSessionPublishedVersions(v ...*SessionPublishedVers
 	return _u.AddSessionPublishedVersionIDs(ids...)
 }
 
+// AddDisplayAssignmentIDs adds the "display_assignments" edge to the DisplayAssignment entity by IDs.
+func (_u *LocationUpdate) AddDisplayAssignmentIDs(ids ...int) *LocationUpdate {
+	_u.mutation.AddDisplayAssignmentIDs(ids...)
+	return _u
+}
+
+// AddDisplayAssignments adds the "display_assignments" edges to the DisplayAssignment entity.
+func (_u *LocationUpdate) AddDisplayAssignments(v ...*DisplayAssignment) *LocationUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDisplayAssignmentIDs(ids...)
+}
+
 // Mutation returns the LocationMutation object of the builder.
 func (_u *LocationUpdate) Mutation() *LocationMutation {
 	return _u.mutation
@@ -241,6 +257,27 @@ func (_u *LocationUpdate) RemoveSessionPublishedVersions(v ...*SessionPublishedV
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveSessionPublishedVersionIDs(ids...)
+}
+
+// ClearDisplayAssignments clears all "display_assignments" edges to the DisplayAssignment entity.
+func (_u *LocationUpdate) ClearDisplayAssignments() *LocationUpdate {
+	_u.mutation.ClearDisplayAssignments()
+	return _u
+}
+
+// RemoveDisplayAssignmentIDs removes the "display_assignments" edge to DisplayAssignment entities by IDs.
+func (_u *LocationUpdate) RemoveDisplayAssignmentIDs(ids ...int) *LocationUpdate {
+	_u.mutation.RemoveDisplayAssignmentIDs(ids...)
+	return _u
+}
+
+// RemoveDisplayAssignments removes "display_assignments" edges to DisplayAssignment entities.
+func (_u *LocationUpdate) RemoveDisplayAssignments(v ...*DisplayAssignment) *LocationUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDisplayAssignmentIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -544,6 +581,51 @@ func (_u *LocationUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.DisplayAssignmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   location.DisplayAssignmentsTable,
+			Columns: []string{location.DisplayAssignmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(displayassignment.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDisplayAssignmentsIDs(); len(nodes) > 0 && !_u.mutation.DisplayAssignmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   location.DisplayAssignmentsTable,
+			Columns: []string{location.DisplayAssignmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(displayassignment.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DisplayAssignmentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   location.DisplayAssignmentsTable,
+			Columns: []string{location.DisplayAssignmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(displayassignment.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{location.Label}
@@ -656,6 +738,21 @@ func (_u *LocationUpdateOne) AddSessionPublishedVersions(v ...*SessionPublishedV
 		ids[i] = v[i].ID
 	}
 	return _u.AddSessionPublishedVersionIDs(ids...)
+}
+
+// AddDisplayAssignmentIDs adds the "display_assignments" edge to the DisplayAssignment entity by IDs.
+func (_u *LocationUpdateOne) AddDisplayAssignmentIDs(ids ...int) *LocationUpdateOne {
+	_u.mutation.AddDisplayAssignmentIDs(ids...)
+	return _u
+}
+
+// AddDisplayAssignments adds the "display_assignments" edges to the DisplayAssignment entity.
+func (_u *LocationUpdateOne) AddDisplayAssignments(v ...*DisplayAssignment) *LocationUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDisplayAssignmentIDs(ids...)
 }
 
 // Mutation returns the LocationMutation object of the builder.
@@ -772,6 +869,27 @@ func (_u *LocationUpdateOne) RemoveSessionPublishedVersions(v ...*SessionPublish
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveSessionPublishedVersionIDs(ids...)
+}
+
+// ClearDisplayAssignments clears all "display_assignments" edges to the DisplayAssignment entity.
+func (_u *LocationUpdateOne) ClearDisplayAssignments() *LocationUpdateOne {
+	_u.mutation.ClearDisplayAssignments()
+	return _u
+}
+
+// RemoveDisplayAssignmentIDs removes the "display_assignments" edge to DisplayAssignment entities by IDs.
+func (_u *LocationUpdateOne) RemoveDisplayAssignmentIDs(ids ...int) *LocationUpdateOne {
+	_u.mutation.RemoveDisplayAssignmentIDs(ids...)
+	return _u
+}
+
+// RemoveDisplayAssignments removes "display_assignments" edges to DisplayAssignment entities.
+func (_u *LocationUpdateOne) RemoveDisplayAssignments(v ...*DisplayAssignment) *LocationUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDisplayAssignmentIDs(ids...)
 }
 
 // Where appends a list predicates to the LocationUpdate builder.
@@ -1098,6 +1216,51 @@ func (_u *LocationUpdateOne) sqlSave(ctx context.Context) (_node *Location, err 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(sessionpublishedversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DisplayAssignmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   location.DisplayAssignmentsTable,
+			Columns: []string{location.DisplayAssignmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(displayassignment.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDisplayAssignmentsIDs(); len(nodes) > 0 && !_u.mutation.DisplayAssignmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   location.DisplayAssignmentsTable,
+			Columns: []string{location.DisplayAssignmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(displayassignment.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DisplayAssignmentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   location.DisplayAssignmentsTable,
+			Columns: []string{location.DisplayAssignmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(displayassignment.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

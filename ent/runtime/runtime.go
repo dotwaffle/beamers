@@ -11,6 +11,10 @@ import (
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/display"
+	"github.com/dotwaffle/beamers/ent/displayassignment"
+	"github.com/dotwaffle/beamers/ent/displaycredential"
+	"github.com/dotwaffle/beamers/ent/displayenrollment"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftchangedependency"
 	"github.com/dotwaffle/beamers/ent/draftedit"
@@ -348,6 +352,160 @@ func init() {
 	commandreceiptDescCreatedAt := commandreceiptFields[7].Descriptor()
 	// commandreceipt.DefaultCreatedAt holds the default value on creation for the created_at field.
 	commandreceipt.DefaultCreatedAt = commandreceiptDescCreatedAt.Default.(func() time.Time)
+	display.Policy = privacy.NewPolicies(schema.Display{})
+	display.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := display.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	displayFields := schema.Display{}.Fields()
+	_ = displayFields
+	// displayDescName is the schema descriptor for name field.
+	displayDescName := displayFields[0].Descriptor()
+	// display.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	display.NameValidator = func() func(string) error {
+		validators := displayDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// displayDescCreatedAt is the schema descriptor for created_at field.
+	displayDescCreatedAt := displayFields[1].Descriptor()
+	// display.DefaultCreatedAt holds the default value on creation for the created_at field.
+	display.DefaultCreatedAt = displayDescCreatedAt.Default.(func() time.Time)
+	displayassignment.Policy = privacy.NewPolicies(schema.DisplayAssignment{})
+	displayassignment.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := displayassignment.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	displayassignmentFields := schema.DisplayAssignment{}.Fields()
+	_ = displayassignmentFields
+	// displayassignmentDescViewKey is the schema descriptor for view_key field.
+	displayassignmentDescViewKey := displayassignmentFields[3].Descriptor()
+	// displayassignment.ViewKeyValidator is a validator for the "view_key" field. It is called by the builders before save.
+	displayassignment.ViewKeyValidator = func() func(string) error {
+		validators := displayassignmentDescViewKey.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(view_key string) error {
+			for _, fn := range fns {
+				if err := fn(view_key); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// displayassignmentDescCreatedAt is the schema descriptor for created_at field.
+	displayassignmentDescCreatedAt := displayassignmentFields[4].Descriptor()
+	// displayassignment.DefaultCreatedAt holds the default value on creation for the created_at field.
+	displayassignment.DefaultCreatedAt = displayassignmentDescCreatedAt.Default.(func() time.Time)
+	// displayassignmentDescUpdatedAt is the schema descriptor for updated_at field.
+	displayassignmentDescUpdatedAt := displayassignmentFields[5].Descriptor()
+	// displayassignment.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	displayassignment.DefaultUpdatedAt = displayassignmentDescUpdatedAt.Default.(func() time.Time)
+	displaycredential.Policy = privacy.NewPolicies(schema.DisplayCredential{})
+	displaycredential.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := displaycredential.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	displaycredentialFields := schema.DisplayCredential{}.Fields()
+	_ = displaycredentialFields
+	// displaycredentialDescTokenHash is the schema descriptor for token_hash field.
+	displaycredentialDescTokenHash := displaycredentialFields[1].Descriptor()
+	// displaycredential.TokenHashValidator is a validator for the "token_hash" field. It is called by the builders before save.
+	displaycredential.TokenHashValidator = func() func(string) error {
+		validators := displaycredentialDescTokenHash.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(token_hash string) error {
+			for _, fn := range fns {
+				if err := fn(token_hash); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// displaycredentialDescCreatedAt is the schema descriptor for created_at field.
+	displaycredentialDescCreatedAt := displaycredentialFields[2].Descriptor()
+	// displaycredential.DefaultCreatedAt holds the default value on creation for the created_at field.
+	displaycredential.DefaultCreatedAt = displaycredentialDescCreatedAt.Default.(func() time.Time)
+	displayenrollment.Policy = privacy.NewPolicies(schema.DisplayEnrollment{})
+	displayenrollment.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := displayenrollment.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	displayenrollmentFields := schema.DisplayEnrollment{}.Fields()
+	_ = displayenrollmentFields
+	// displayenrollmentDescCodeHash is the schema descriptor for code_hash field.
+	displayenrollmentDescCodeHash := displayenrollmentFields[0].Descriptor()
+	// displayenrollment.CodeHashValidator is a validator for the "code_hash" field. It is called by the builders before save.
+	displayenrollment.CodeHashValidator = func() func(string) error {
+		validators := displayenrollmentDescCodeHash.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(code_hash string) error {
+			for _, fn := range fns {
+				if err := fn(code_hash); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// displayenrollmentDescCredentialHash is the schema descriptor for credential_hash field.
+	displayenrollmentDescCredentialHash := displayenrollmentFields[1].Descriptor()
+	// displayenrollment.CredentialHashValidator is a validator for the "credential_hash" field. It is called by the builders before save.
+	displayenrollment.CredentialHashValidator = func() func(string) error {
+		validators := displayenrollmentDescCredentialHash.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(credential_hash string) error {
+			for _, fn := range fns {
+				if err := fn(credential_hash); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// displayenrollmentDescCreatedAt is the schema descriptor for created_at field.
+	displayenrollmentDescCreatedAt := displayenrollmentFields[2].Descriptor()
+	// displayenrollment.DefaultCreatedAt holds the default value on creation for the created_at field.
+	displayenrollment.DefaultCreatedAt = displayenrollmentDescCreatedAt.Default.(func() time.Time)
 	draftchange.Policy = privacy.NewPolicies(schema.DraftChange{})
 	draftchange.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

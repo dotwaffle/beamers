@@ -17,6 +17,10 @@ import (
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/display"
+	"github.com/dotwaffle/beamers/ent/displayassignment"
+	"github.com/dotwaffle/beamers/ent/displaycredential"
+	"github.com/dotwaffle/beamers/ent/displayenrollment"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftchangedependency"
 	"github.com/dotwaffle/beamers/ent/draftedit"
@@ -106,6 +110,10 @@ func checkColumn(t, c string) error {
 			auditentry.Table:               auditentry.ValidColumn,
 			bootstrapcredential.Table:      bootstrapcredential.ValidColumn,
 			commandreceipt.Table:           commandreceipt.ValidColumn,
+			display.Table:                  display.ValidColumn,
+			displayassignment.Table:        displayassignment.ValidColumn,
+			displaycredential.Table:        displaycredential.ValidColumn,
+			displayenrollment.Table:        displayenrollment.ValidColumn,
 			draftchange.Table:              draftchange.ValidColumn,
 			draftchangedependency.Table:    draftchangedependency.ValidColumn,
 			draftedit.Table:                draftedit.ValidColumn,

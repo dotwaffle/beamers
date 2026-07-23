@@ -51,6 +51,8 @@ const (
 	EdgeDraftChanges = "draft_changes"
 	// EdgeImportReferences holds the string denoting the import_references edge name in mutations.
 	EdgeImportReferences = "import_references"
+	// EdgeDisplayAssignments holds the string denoting the display_assignments edge name in mutations.
+	EdgeDisplayAssignments = "display_assignments"
 	// Table holds the table name of the event in the database.
 	Table = "events"
 	// GrantsTable is the table that holds the grants relation/edge.
@@ -116,6 +118,13 @@ const (
 	ImportReferencesInverseTable = "import_references"
 	// ImportReferencesColumn is the table column denoting the import_references relation/edge.
 	ImportReferencesColumn = "event_id"
+	// DisplayAssignmentsTable is the table that holds the display_assignments relation/edge.
+	DisplayAssignmentsTable = "display_assignments"
+	// DisplayAssignmentsInverseTable is the table name for the DisplayAssignment entity.
+	// It exists in this package in order to avoid circular dependency with the "displayassignment" package.
+	DisplayAssignmentsInverseTable = "display_assignments"
+	// DisplayAssignmentsColumn is the table column denoting the display_assignments relation/edge.
+	DisplayAssignmentsColumn = "event_id"
 )
 
 // Columns holds all SQL columns for event fields.
@@ -341,6 +350,20 @@ func ByImportReferences(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption 
 		sqlgraph.OrderByNeighborTerms(s, newImportReferencesStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByDisplayAssignmentsCount orders the results by display_assignments count.
+func ByDisplayAssignmentsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newDisplayAssignmentsStep(), opts...)
+	}
+}
+
+// ByDisplayAssignments orders the results by display_assignments terms.
+func ByDisplayAssignments(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newDisplayAssignmentsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newGrantsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -402,5 +425,12 @@ func newImportReferencesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ImportReferencesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ImportReferencesTable, ImportReferencesColumn),
+	)
+}
+func newDisplayAssignmentsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(DisplayAssignmentsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, DisplayAssignmentsTable, DisplayAssignmentsColumn),
 	)
 }

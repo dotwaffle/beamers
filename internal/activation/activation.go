@@ -12,6 +12,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/command"
+	"github.com/dotwaffle/beamers/internal/displayviews"
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/store"
@@ -189,7 +190,7 @@ func formPreflight(state store.ActivationPreflightState, now time.Time) Prefligh
 	result.Confirmation.ActivationGeneration = state.ActivationGeneration
 	result.Blockers = structuralBlockers(state)
 	result.Warnings = operationalWarnings(state, now)
-	result.Confirmation.Fingerprint = command.PayloadHash(
+	fingerprintMaterial := []string{
 		strconv.Itoa(state.EventID),
 		strconv.Itoa(state.EventRevision),
 		strconv.Itoa(state.PublishedRundown.PublishedRevision),
@@ -197,7 +198,17 @@ func formPreflight(state store.ActivationPreflightState, now time.Time) Prefligh
 		state.PlannedStartDate,
 		state.PlannedEndDate,
 		state.Timezone,
-	)
+	}
+	for _, display := range state.UnassignedDisplays {
+		fingerprintMaterial = append(fingerprintMaterial, strconv.Itoa(display.ID), display.Name)
+	}
+	for _, assignment := range state.DisplayAssignments {
+		fingerprintMaterial = append(fingerprintMaterial,
+			strconv.Itoa(assignment.DisplayID), strconv.Itoa(assignment.EventID),
+			strconv.Itoa(assignment.LocationID), assignment.ViewKey,
+		)
+	}
+	result.Confirmation.Fingerprint = command.PayloadHash(fingerprintMaterial...)
 	return result
 }
 
@@ -215,6 +226,15 @@ func structuralBlockers(state store.ActivationPreflightState) []Finding {
 	locations := make(map[int]struct{}, len(state.PublishedRundown.Locations))
 	for _, location := range state.PublishedRundown.Locations {
 		locations[location.ID] = struct{}{}
+	}
+	for _, assignment := range state.DisplayAssignments {
+		if _, ok := locations[assignment.LocationID]; !ok || !displayviews.IsNormal(assignment.ViewKey) {
+			blockers = append(blockers, Finding{
+				Code:    "display_assignment_invalid",
+				Message: "each Display Assignment requires a Published Location and normal View",
+			})
+			break
+		}
 	}
 	lanes := make(map[int]struct{}, len(state.PublishedRundown.Lanes))
 	tracks := make(map[int]struct{}, len(state.PublishedRundown.Tracks))
@@ -290,6 +310,11 @@ func validPublishedSession(session store.PublishedSession) bool {
 
 func operationalWarnings(state store.ActivationPreflightState, now time.Time) []Finding {
 	var warnings []Finding
+	for _, display := range state.UnassignedDisplays {
+		warnings = append(warnings, Finding{
+			Code: "unassigned_display", Message: fmt.Sprintf("Display %s has no Assignment for this Event", display.Name),
+		})
+	}
 	zone, zoneErr := time.LoadLocation(state.Timezone)
 	if zoneErr == nil {
 		seenDates := make(map[string]struct{})

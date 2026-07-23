@@ -113,6 +113,104 @@ var (
 			},
 		},
 	}
+	// DisplaysColumns holds the columns for the "displays" table.
+	DisplaysColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "name", Type: field.TypeString, Size: 200},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "enrolled_at", Type: field.TypeTime},
+	}
+	// DisplaysTable holds the schema information for the "displays" table.
+	DisplaysTable = &schema.Table{
+		Name:       "displays",
+		Columns:    DisplaysColumns,
+		PrimaryKey: []*schema.Column{DisplaysColumns[0]},
+	}
+	// DisplayAssignmentsColumns holds the columns for the "display_assignments" table.
+	DisplayAssignmentsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "view_key", Type: field.TypeString, Size: 100},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "display_id", Type: field.TypeInt},
+		{Name: "event_id", Type: field.TypeInt},
+		{Name: "location_id", Type: field.TypeInt},
+	}
+	// DisplayAssignmentsTable holds the schema information for the "display_assignments" table.
+	DisplayAssignmentsTable = &schema.Table{
+		Name:       "display_assignments",
+		Columns:    DisplayAssignmentsColumns,
+		PrimaryKey: []*schema.Column{DisplayAssignmentsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "display_assignments_displays_assignments",
+				Columns:    []*schema.Column{DisplayAssignmentsColumns[4]},
+				RefColumns: []*schema.Column{DisplaysColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "display_assignments_events_display_assignments",
+				Columns:    []*schema.Column{DisplayAssignmentsColumns[5]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "display_assignments_locations_display_assignments",
+				Columns:    []*schema.Column{DisplayAssignmentsColumns[6]},
+				RefColumns: []*schema.Column{LocationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "displayassignment_display_id_event_id",
+				Unique:  true,
+				Columns: []*schema.Column{DisplayAssignmentsColumns[4], DisplayAssignmentsColumns[5]},
+			},
+			{
+				Name:    "displayassignment_event_id_location_id",
+				Unique:  false,
+				Columns: []*schema.Column{DisplayAssignmentsColumns[5], DisplayAssignmentsColumns[6]},
+			},
+		},
+	}
+	// DisplayCredentialsColumns holds the columns for the "display_credentials" table.
+	DisplayCredentialsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "token_hash", Type: field.TypeString, Unique: true, Size: 64},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "revoked_at", Type: field.TypeTime, Nullable: true},
+		{Name: "display_id", Type: field.TypeInt},
+	}
+	// DisplayCredentialsTable holds the schema information for the "display_credentials" table.
+	DisplayCredentialsTable = &schema.Table{
+		Name:       "display_credentials",
+		Columns:    DisplayCredentialsColumns,
+		PrimaryKey: []*schema.Column{DisplayCredentialsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "display_credentials_displays_credentials",
+				Columns:    []*schema.Column{DisplayCredentialsColumns[4]},
+				RefColumns: []*schema.Column{DisplaysColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
+	// DisplayEnrollmentsColumns holds the columns for the "display_enrollments" table.
+	DisplayEnrollmentsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "code_hash", Type: field.TypeString, Unique: true, Size: 64},
+		{Name: "credential_hash", Type: field.TypeString, Unique: true, Size: 64},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "used_at", Type: field.TypeTime, Nullable: true},
+	}
+	// DisplayEnrollmentsTable holds the schema information for the "display_enrollments" table.
+	DisplayEnrollmentsTable = &schema.Table{
+		Name:       "display_enrollments",
+		Columns:    DisplayEnrollmentsColumns,
+		PrimaryKey: []*schema.Column{DisplayEnrollmentsColumns[0]},
+	}
 	// DraftChangesColumns holds the columns for the "draft_changes" table.
 	DraftChangesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -949,6 +1047,10 @@ var (
 		AuditEntriesTable,
 		BootstrapCredentialsTable,
 		CommandReceiptsTable,
+		DisplaysTable,
+		DisplayAssignmentsTable,
+		DisplayCredentialsTable,
+		DisplayEnrollmentsTable,
 		DraftChangesTable,
 		DraftChangeDependenciesTable,
 		DraftEditsTable,
@@ -986,6 +1088,10 @@ func init() {
 	AccountSessionsTable.ForeignKeys[0].RefTable = AccountsTable
 	AuditEntriesTable.ForeignKeys[0].RefTable = AccountsTable
 	CommandReceiptsTable.ForeignKeys[0].RefTable = AccountsTable
+	DisplayAssignmentsTable.ForeignKeys[0].RefTable = DisplaysTable
+	DisplayAssignmentsTable.ForeignKeys[1].RefTable = EventsTable
+	DisplayAssignmentsTable.ForeignKeys[2].RefTable = LocationsTable
+	DisplayCredentialsTable.ForeignKeys[0].RefTable = DisplaysTable
 	DraftChangesTable.ForeignKeys[0].RefTable = DraftEditsTable
 	DraftChangesTable.ForeignKeys[1].RefTable = EventsTable
 	DraftChangeDependenciesTable.ForeignKeys[0].RefTable = DraftChangesTable
