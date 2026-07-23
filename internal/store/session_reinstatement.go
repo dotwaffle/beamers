@@ -134,6 +134,8 @@ func (transaction *CommandTx) ReinstateSession(
 				SetPreviousForecastStart(preview.PreviousForecastStart).
 				SetForecastLaneIds(preview.ProposedLaneIDs).
 				SetForecastLocationIds(preview.ProposedLocationIDs).
+				ClearCommunicatedStart().
+				ClearCommunicatedEnd().
 				ClearPublicCancellationMessage().
 				ClearCancellationCrewNotes()
 		} else {

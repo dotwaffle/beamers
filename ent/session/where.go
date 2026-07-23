@@ -75,6 +75,16 @@ func ForecastEnd(v time.Time) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldForecastEnd, v))
 }
 
+// CommunicatedStart applies equality check predicate on the "communicated_start" field. It's identical to CommunicatedStartEQ.
+func CommunicatedStart(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldCommunicatedStart, v))
+}
+
+// CommunicatedEnd applies equality check predicate on the "communicated_end" field. It's identical to CommunicatedEndEQ.
+func CommunicatedEnd(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldCommunicatedEnd, v))
+}
+
 // PreviousForecastStart applies equality check predicate on the "previous_forecast_start" field. It's identical to PreviousForecastStartEQ.
 func PreviousForecastStart(v time.Time) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldPreviousForecastStart, v))
@@ -288,6 +298,106 @@ func ForecastEndIsNil() predicate.Session {
 // ForecastEndNotNil applies the NotNil predicate on the "forecast_end" field.
 func ForecastEndNotNil() predicate.Session {
 	return predicate.Session(sql.FieldNotNull(FieldForecastEnd))
+}
+
+// CommunicatedStartEQ applies the EQ predicate on the "communicated_start" field.
+func CommunicatedStartEQ(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldCommunicatedStart, v))
+}
+
+// CommunicatedStartNEQ applies the NEQ predicate on the "communicated_start" field.
+func CommunicatedStartNEQ(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldCommunicatedStart, v))
+}
+
+// CommunicatedStartIn applies the In predicate on the "communicated_start" field.
+func CommunicatedStartIn(vs ...time.Time) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldCommunicatedStart, vs...))
+}
+
+// CommunicatedStartNotIn applies the NotIn predicate on the "communicated_start" field.
+func CommunicatedStartNotIn(vs ...time.Time) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldCommunicatedStart, vs...))
+}
+
+// CommunicatedStartGT applies the GT predicate on the "communicated_start" field.
+func CommunicatedStartGT(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldCommunicatedStart, v))
+}
+
+// CommunicatedStartGTE applies the GTE predicate on the "communicated_start" field.
+func CommunicatedStartGTE(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldCommunicatedStart, v))
+}
+
+// CommunicatedStartLT applies the LT predicate on the "communicated_start" field.
+func CommunicatedStartLT(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldCommunicatedStart, v))
+}
+
+// CommunicatedStartLTE applies the LTE predicate on the "communicated_start" field.
+func CommunicatedStartLTE(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldCommunicatedStart, v))
+}
+
+// CommunicatedStartIsNil applies the IsNil predicate on the "communicated_start" field.
+func CommunicatedStartIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldCommunicatedStart))
+}
+
+// CommunicatedStartNotNil applies the NotNil predicate on the "communicated_start" field.
+func CommunicatedStartNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldCommunicatedStart))
+}
+
+// CommunicatedEndEQ applies the EQ predicate on the "communicated_end" field.
+func CommunicatedEndEQ(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldCommunicatedEnd, v))
+}
+
+// CommunicatedEndNEQ applies the NEQ predicate on the "communicated_end" field.
+func CommunicatedEndNEQ(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldCommunicatedEnd, v))
+}
+
+// CommunicatedEndIn applies the In predicate on the "communicated_end" field.
+func CommunicatedEndIn(vs ...time.Time) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldCommunicatedEnd, vs...))
+}
+
+// CommunicatedEndNotIn applies the NotIn predicate on the "communicated_end" field.
+func CommunicatedEndNotIn(vs ...time.Time) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldCommunicatedEnd, vs...))
+}
+
+// CommunicatedEndGT applies the GT predicate on the "communicated_end" field.
+func CommunicatedEndGT(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldCommunicatedEnd, v))
+}
+
+// CommunicatedEndGTE applies the GTE predicate on the "communicated_end" field.
+func CommunicatedEndGTE(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldCommunicatedEnd, v))
+}
+
+// CommunicatedEndLT applies the LT predicate on the "communicated_end" field.
+func CommunicatedEndLT(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldCommunicatedEnd, v))
+}
+
+// CommunicatedEndLTE applies the LTE predicate on the "communicated_end" field.
+func CommunicatedEndLTE(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldCommunicatedEnd, v))
+}
+
+// CommunicatedEndIsNil applies the IsNil predicate on the "communicated_end" field.
+func CommunicatedEndIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldCommunicatedEnd))
+}
+
+// CommunicatedEndNotNil applies the NotNil predicate on the "communicated_end" field.
+func CommunicatedEndNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldCommunicatedEnd))
 }
 
 // PreviousForecastStartEQ applies the EQ predicate on the "previous_forecast_start" field.

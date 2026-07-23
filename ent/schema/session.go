@@ -35,6 +35,8 @@ func (Session) Fields() []ent.Field {
 		field.Int("live_state_revision").Default(0).NonNegative(),
 		field.Time("forecast_start").Optional(),
 		field.Time("forecast_end").Optional(),
+		field.Time("communicated_start").Optional(),
+		field.Time("communicated_end").Optional(),
 		field.Time("previous_forecast_start").Optional(),
 		field.JSON("forecast_lane_ids", []int{}).Optional(),
 		field.JSON("forecast_location_ids", []int{}).Optional(),

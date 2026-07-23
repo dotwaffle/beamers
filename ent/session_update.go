@@ -108,6 +108,46 @@ func (_u *SessionUpdate) ClearForecastEnd() *SessionUpdate {
 	return _u
 }
 
+// SetCommunicatedStart sets the "communicated_start" field.
+func (_u *SessionUpdate) SetCommunicatedStart(v time.Time) *SessionUpdate {
+	_u.mutation.SetCommunicatedStart(v)
+	return _u
+}
+
+// SetNillableCommunicatedStart sets the "communicated_start" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableCommunicatedStart(v *time.Time) *SessionUpdate {
+	if v != nil {
+		_u.SetCommunicatedStart(*v)
+	}
+	return _u
+}
+
+// ClearCommunicatedStart clears the value of the "communicated_start" field.
+func (_u *SessionUpdate) ClearCommunicatedStart() *SessionUpdate {
+	_u.mutation.ClearCommunicatedStart()
+	return _u
+}
+
+// SetCommunicatedEnd sets the "communicated_end" field.
+func (_u *SessionUpdate) SetCommunicatedEnd(v time.Time) *SessionUpdate {
+	_u.mutation.SetCommunicatedEnd(v)
+	return _u
+}
+
+// SetNillableCommunicatedEnd sets the "communicated_end" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableCommunicatedEnd(v *time.Time) *SessionUpdate {
+	if v != nil {
+		_u.SetCommunicatedEnd(*v)
+	}
+	return _u
+}
+
+// ClearCommunicatedEnd clears the value of the "communicated_end" field.
+func (_u *SessionUpdate) ClearCommunicatedEnd() *SessionUpdate {
+	_u.mutation.ClearCommunicatedEnd()
+	return _u
+}
+
 // SetPreviousForecastStart sets the "previous_forecast_start" field.
 func (_u *SessionUpdate) SetPreviousForecastStart(v time.Time) *SessionUpdate {
 	_u.mutation.SetPreviousForecastStart(v)
@@ -505,6 +545,18 @@ func (_u *SessionUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if _u.mutation.ForecastEndCleared() {
 		_spec.ClearField(session.FieldForecastEnd, field.TypeTime)
 	}
+	if value, ok := _u.mutation.CommunicatedStart(); ok {
+		_spec.SetField(session.FieldCommunicatedStart, field.TypeTime, value)
+	}
+	if _u.mutation.CommunicatedStartCleared() {
+		_spec.ClearField(session.FieldCommunicatedStart, field.TypeTime)
+	}
+	if value, ok := _u.mutation.CommunicatedEnd(); ok {
+		_spec.SetField(session.FieldCommunicatedEnd, field.TypeTime, value)
+	}
+	if _u.mutation.CommunicatedEndCleared() {
+		_spec.ClearField(session.FieldCommunicatedEnd, field.TypeTime)
+	}
 	if value, ok := _u.mutation.PreviousForecastStart(); ok {
 		_spec.SetField(session.FieldPreviousForecastStart, field.TypeTime, value)
 	}
@@ -819,6 +871,46 @@ func (_u *SessionUpdateOne) SetNillableForecastEnd(v *time.Time) *SessionUpdateO
 // ClearForecastEnd clears the value of the "forecast_end" field.
 func (_u *SessionUpdateOne) ClearForecastEnd() *SessionUpdateOne {
 	_u.mutation.ClearForecastEnd()
+	return _u
+}
+
+// SetCommunicatedStart sets the "communicated_start" field.
+func (_u *SessionUpdateOne) SetCommunicatedStart(v time.Time) *SessionUpdateOne {
+	_u.mutation.SetCommunicatedStart(v)
+	return _u
+}
+
+// SetNillableCommunicatedStart sets the "communicated_start" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableCommunicatedStart(v *time.Time) *SessionUpdateOne {
+	if v != nil {
+		_u.SetCommunicatedStart(*v)
+	}
+	return _u
+}
+
+// ClearCommunicatedStart clears the value of the "communicated_start" field.
+func (_u *SessionUpdateOne) ClearCommunicatedStart() *SessionUpdateOne {
+	_u.mutation.ClearCommunicatedStart()
+	return _u
+}
+
+// SetCommunicatedEnd sets the "communicated_end" field.
+func (_u *SessionUpdateOne) SetCommunicatedEnd(v time.Time) *SessionUpdateOne {
+	_u.mutation.SetCommunicatedEnd(v)
+	return _u
+}
+
+// SetNillableCommunicatedEnd sets the "communicated_end" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableCommunicatedEnd(v *time.Time) *SessionUpdateOne {
+	if v != nil {
+		_u.SetCommunicatedEnd(*v)
+	}
+	return _u
+}
+
+// ClearCommunicatedEnd clears the value of the "communicated_end" field.
+func (_u *SessionUpdateOne) ClearCommunicatedEnd() *SessionUpdateOne {
+	_u.mutation.ClearCommunicatedEnd()
 	return _u
 }
 
@@ -1248,6 +1340,18 @@ func (_u *SessionUpdateOne) sqlSave(ctx context.Context) (_node *Session, err er
 	}
 	if _u.mutation.ForecastEndCleared() {
 		_spec.ClearField(session.FieldForecastEnd, field.TypeTime)
+	}
+	if value, ok := _u.mutation.CommunicatedStart(); ok {
+		_spec.SetField(session.FieldCommunicatedStart, field.TypeTime, value)
+	}
+	if _u.mutation.CommunicatedStartCleared() {
+		_spec.ClearField(session.FieldCommunicatedStart, field.TypeTime)
+	}
+	if value, ok := _u.mutation.CommunicatedEnd(); ok {
+		_spec.SetField(session.FieldCommunicatedEnd, field.TypeTime, value)
+	}
+	if _u.mutation.CommunicatedEndCleared() {
+		_spec.ClearField(session.FieldCommunicatedEnd, field.TypeTime)
 	}
 	if value, ok := _u.mutation.PreviousForecastStart(); ok {
 		_spec.SetField(session.FieldPreviousForecastStart, field.TypeTime, value)

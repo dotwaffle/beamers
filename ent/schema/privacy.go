@@ -572,6 +572,8 @@ func allowScopedSessionLiveMutation() privacy.MutationRule {
 			"live_state_revision",
 			"forecast_start",
 			"forecast_end",
+			"communicated_start",
+			"communicated_end",
 			"previous_forecast_start",
 			"forecast_lane_ids",
 			"forecast_location_ids",

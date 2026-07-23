@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/dotwaffle/beamers/ent"
@@ -59,6 +60,9 @@ type PublicScheduleSession struct {
 	Lifecycle             string
 	ActualStart           time.Time
 	ActualEnd             *time.Time
+	CommunicatedStart     time.Time
+	CommunicatedEnd       time.Time
+	PlannedDuration       time.Duration
 	LocationIDs           []int
 	LaneIDs               []int
 	TrackIDs              []int
@@ -183,6 +187,9 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 		}
 		var actualStart time.Time
 		var actualEnd *time.Time
+		communicatedStart := identity.CommunicatedStart
+		communicatedEnd := identity.CommunicatedEnd
+		plannedDuration := version.PlannedEnd.Sub(version.PlannedStart)
 		run, queryErr := installationStore.client.SessionRun.Query().
 			Where(sessionrun.SessionIDEQ(identity.ID)).Order(ent.Desc(sessionrun.FieldID)).First(ctx)
 		if queryErr != nil && !ent.IsNotFound(queryErr) {
@@ -191,6 +198,14 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 		if queryErr == nil &&
 			(identity.Lifecycle == session.LifecycleLive ||
 				identity.Lifecycle == session.LifecycleEnded) {
+			var snapshot SessionRunSnapshot
+			if decodeErr := json.Unmarshal([]byte(run.SnapshotJSON), &snapshot); decodeErr != nil {
+				return opaqueError("decode public Schedule Run Snapshot", decodeErr)
+			}
+			plannedDuration = snapshot.PlannedEnd.Sub(snapshot.PlannedStart)
+			if communicatedStart.IsZero() {
+				communicatedStart = snapshot.PlannedStart
+			}
 			actualStart = run.ActualStart
 			if !run.ActualEnd.IsZero() {
 				ended := run.ActualEnd
@@ -213,7 +228,9 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 			ForecastStart:       forecastStart, ForecastEnd: forecastEnd,
 			PreviousForecastStart: identity.PreviousForecastStart,
 			Lifecycle:             identity.Lifecycle.String(), ActualStart: actualStart, ActualEnd: actualEnd,
-			LocationIDs: locations, LaneIDs: lanes, TrackIDs: tracks,
+			CommunicatedStart: communicatedStart, CommunicatedEnd: communicatedEnd,
+			PlannedDuration: plannedDuration,
+			LocationIDs:     locations, LaneIDs: lanes, TrackIDs: tracks,
 		})
 	}
 	return nil

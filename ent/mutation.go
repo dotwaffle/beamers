@@ -19420,6 +19420,8 @@ type SessionMutation struct {
 	addlive_state_revision      *int
 	forecast_start              *time.Time
 	forecast_end                *time.Time
+	communicated_start          *time.Time
+	communicated_end            *time.Time
 	previous_forecast_start     *time.Time
 	forecast_lane_ids           *[]int
 	appendforecast_lane_ids     []int
@@ -19772,6 +19774,104 @@ func (m *SessionMutation) ForecastEndCleared() bool {
 func (m *SessionMutation) ResetForecastEnd() {
 	m.forecast_end = nil
 	delete(m.clearedFields, session.FieldForecastEnd)
+}
+
+// SetCommunicatedStart sets the "communicated_start" field.
+func (m *SessionMutation) SetCommunicatedStart(t time.Time) {
+	m.communicated_start = &t
+}
+
+// CommunicatedStart returns the value of the "communicated_start" field in the mutation.
+func (m *SessionMutation) CommunicatedStart() (r time.Time, exists bool) {
+	v := m.communicated_start
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCommunicatedStart returns the old "communicated_start" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldCommunicatedStart(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCommunicatedStart is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCommunicatedStart requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCommunicatedStart: %w", err)
+	}
+	return oldValue.CommunicatedStart, nil
+}
+
+// ClearCommunicatedStart clears the value of the "communicated_start" field.
+func (m *SessionMutation) ClearCommunicatedStart() {
+	m.communicated_start = nil
+	m.clearedFields[session.FieldCommunicatedStart] = struct{}{}
+}
+
+// CommunicatedStartCleared returns if the "communicated_start" field was cleared in this mutation.
+func (m *SessionMutation) CommunicatedStartCleared() bool {
+	_, ok := m.clearedFields[session.FieldCommunicatedStart]
+	return ok
+}
+
+// ResetCommunicatedStart resets all changes to the "communicated_start" field.
+func (m *SessionMutation) ResetCommunicatedStart() {
+	m.communicated_start = nil
+	delete(m.clearedFields, session.FieldCommunicatedStart)
+}
+
+// SetCommunicatedEnd sets the "communicated_end" field.
+func (m *SessionMutation) SetCommunicatedEnd(t time.Time) {
+	m.communicated_end = &t
+}
+
+// CommunicatedEnd returns the value of the "communicated_end" field in the mutation.
+func (m *SessionMutation) CommunicatedEnd() (r time.Time, exists bool) {
+	v := m.communicated_end
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCommunicatedEnd returns the old "communicated_end" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldCommunicatedEnd(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCommunicatedEnd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCommunicatedEnd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCommunicatedEnd: %w", err)
+	}
+	return oldValue.CommunicatedEnd, nil
+}
+
+// ClearCommunicatedEnd clears the value of the "communicated_end" field.
+func (m *SessionMutation) ClearCommunicatedEnd() {
+	m.communicated_end = nil
+	m.clearedFields[session.FieldCommunicatedEnd] = struct{}{}
+}
+
+// CommunicatedEndCleared returns if the "communicated_end" field was cleared in this mutation.
+func (m *SessionMutation) CommunicatedEndCleared() bool {
+	_, ok := m.clearedFields[session.FieldCommunicatedEnd]
+	return ok
+}
+
+// ResetCommunicatedEnd resets all changes to the "communicated_end" field.
+func (m *SessionMutation) ResetCommunicatedEnd() {
+	m.communicated_end = nil
+	delete(m.clearedFields, session.FieldCommunicatedEnd)
 }
 
 // SetPreviousForecastStart sets the "previous_forecast_start" field.
@@ -20496,7 +20596,7 @@ func (m *SessionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SessionMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 16)
 	if m.event != nil {
 		fields = append(fields, session.FieldEventID)
 	}
@@ -20511,6 +20611,12 @@ func (m *SessionMutation) Fields() []string {
 	}
 	if m.forecast_end != nil {
 		fields = append(fields, session.FieldForecastEnd)
+	}
+	if m.communicated_start != nil {
+		fields = append(fields, session.FieldCommunicatedStart)
+	}
+	if m.communicated_end != nil {
+		fields = append(fields, session.FieldCommunicatedEnd)
 	}
 	if m.previous_forecast_start != nil {
 		fields = append(fields, session.FieldPreviousForecastStart)
@@ -20557,6 +20663,10 @@ func (m *SessionMutation) Field(name string) (ent.Value, bool) {
 		return m.ForecastStart()
 	case session.FieldForecastEnd:
 		return m.ForecastEnd()
+	case session.FieldCommunicatedStart:
+		return m.CommunicatedStart()
+	case session.FieldCommunicatedEnd:
+		return m.CommunicatedEnd()
 	case session.FieldPreviousForecastStart:
 		return m.PreviousForecastStart()
 	case session.FieldForecastLaneIds:
@@ -20594,6 +20704,10 @@ func (m *SessionMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldForecastStart(ctx)
 	case session.FieldForecastEnd:
 		return m.OldForecastEnd(ctx)
+	case session.FieldCommunicatedStart:
+		return m.OldCommunicatedStart(ctx)
+	case session.FieldCommunicatedEnd:
+		return m.OldCommunicatedEnd(ctx)
 	case session.FieldPreviousForecastStart:
 		return m.OldPreviousForecastStart(ctx)
 	case session.FieldForecastLaneIds:
@@ -20655,6 +20769,20 @@ func (m *SessionMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetForecastEnd(v)
+		return nil
+	case session.FieldCommunicatedStart:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCommunicatedStart(v)
+		return nil
+	case session.FieldCommunicatedEnd:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCommunicatedEnd(v)
 		return nil
 	case session.FieldPreviousForecastStart:
 		v, ok := value.(time.Time)
@@ -20770,6 +20898,12 @@ func (m *SessionMutation) ClearedFields() []string {
 	if m.FieldCleared(session.FieldForecastEnd) {
 		fields = append(fields, session.FieldForecastEnd)
 	}
+	if m.FieldCleared(session.FieldCommunicatedStart) {
+		fields = append(fields, session.FieldCommunicatedStart)
+	}
+	if m.FieldCleared(session.FieldCommunicatedEnd) {
+		fields = append(fields, session.FieldCommunicatedEnd)
+	}
 	if m.FieldCleared(session.FieldPreviousForecastStart) {
 		fields = append(fields, session.FieldPreviousForecastStart)
 	}
@@ -20813,6 +20947,12 @@ func (m *SessionMutation) ClearField(name string) error {
 		return nil
 	case session.FieldForecastEnd:
 		m.ClearForecastEnd()
+		return nil
+	case session.FieldCommunicatedStart:
+		m.ClearCommunicatedStart()
+		return nil
+	case session.FieldCommunicatedEnd:
+		m.ClearCommunicatedEnd()
 		return nil
 	case session.FieldPreviousForecastStart:
 		m.ClearPreviousForecastStart()
@@ -20860,6 +21000,12 @@ func (m *SessionMutation) ResetField(name string) error {
 		return nil
 	case session.FieldForecastEnd:
 		m.ResetForecastEnd()
+		return nil
+	case session.FieldCommunicatedStart:
+		m.ResetCommunicatedStart()
+		return nil
+	case session.FieldCommunicatedEnd:
+		m.ResetCommunicatedEnd()
 		return nil
 	case session.FieldPreviousForecastStart:
 		m.ResetPreviousForecastStart()

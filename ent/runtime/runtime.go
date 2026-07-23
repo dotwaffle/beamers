@@ -1198,27 +1198,27 @@ func init() {
 	// session.LiveStateRevisionValidator is a validator for the "live_state_revision" field. It is called by the builders before save.
 	session.LiveStateRevisionValidator = sessionDescLiveStateRevision.Validators[0].(func(int) error)
 	// sessionDescPublicCancellationMessage is the schema descriptor for public_cancellation_message field.
-	sessionDescPublicCancellationMessage := sessionFields[8].Descriptor()
+	sessionDescPublicCancellationMessage := sessionFields[10].Descriptor()
 	// session.PublicCancellationMessageValidator is a validator for the "public_cancellation_message" field. It is called by the builders before save.
 	session.PublicCancellationMessageValidator = sessionDescPublicCancellationMessage.Validators[0].(func(string) error)
 	// sessionDescCancellationCrewNotes is the schema descriptor for cancellation_crew_notes field.
-	sessionDescCancellationCrewNotes := sessionFields[9].Descriptor()
+	sessionDescCancellationCrewNotes := sessionFields[11].Descriptor()
 	// session.CancellationCrewNotesValidator is a validator for the "cancellation_crew_notes" field. It is called by the builders before save.
 	session.CancellationCrewNotesValidator = sessionDescCancellationCrewNotes.Validators[0].(func(string) error)
 	// sessionDescCorrectedTitle is the schema descriptor for corrected_title field.
-	sessionDescCorrectedTitle := sessionFields[10].Descriptor()
+	sessionDescCorrectedTitle := sessionFields[12].Descriptor()
 	// session.CorrectedTitleValidator is a validator for the "corrected_title" field. It is called by the builders before save.
 	session.CorrectedTitleValidator = sessionDescCorrectedTitle.Validators[0].(func(string) error)
 	// sessionDescCorrectedSpeaker is the schema descriptor for corrected_speaker field.
-	sessionDescCorrectedSpeaker := sessionFields[11].Descriptor()
+	sessionDescCorrectedSpeaker := sessionFields[13].Descriptor()
 	// session.CorrectedSpeakerValidator is a validator for the "corrected_speaker" field. It is called by the builders before save.
 	session.CorrectedSpeakerValidator = sessionDescCorrectedSpeaker.Validators[0].(func(string) error)
 	// sessionDescCorrectedPublicDetails is the schema descriptor for corrected_public_details field.
-	sessionDescCorrectedPublicDetails := sessionFields[12].Descriptor()
+	sessionDescCorrectedPublicDetails := sessionFields[14].Descriptor()
 	// session.CorrectedPublicDetailsValidator is a validator for the "corrected_public_details" field. It is called by the builders before save.
 	session.CorrectedPublicDetailsValidator = sessionDescCorrectedPublicDetails.Validators[0].(func(string) error)
 	// sessionDescCreatedAt is the schema descriptor for created_at field.
-	sessionDescCreatedAt := sessionFields[13].Descriptor()
+	sessionDescCreatedAt := sessionFields[15].Descriptor()
 	// session.DefaultCreatedAt holds the default value on creation for the created_at field.
 	session.DefaultCreatedAt = sessionDescCreatedAt.Default.(func() time.Time)
 	sessioncancellation.Policy = privacy.NewPolicies(schema.SessionCancellation{})

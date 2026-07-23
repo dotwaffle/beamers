@@ -161,6 +161,10 @@ func (transaction *CommandTx) StartSession(
 	if err != nil {
 		return LiveSessionState{}, opaqueError("encode Session Run Snapshot", err)
 	}
+	communicatedStart := identity.ForecastStart
+	if communicatedStart.IsZero() {
+		communicatedStart = snapshot.PlannedStart
+	}
 	updated, err := transaction.transaction.Session.UpdateOneID(sessionID).
 		Where(
 			session.EventIDEQ(eventID),
@@ -168,6 +172,8 @@ func (transaction *CommandTx) StartSession(
 			session.LifecycleEQ(session.LifecycleScheduled),
 		).
 		SetLifecycle(session.LifecycleLive).
+		SetCommunicatedStart(communicatedStart).
+		ClearCommunicatedEnd().
 		SetForecastStart(now).
 		SetForecastEnd(initialForecastEnd(snapshot, now)).
 		AddLiveStateRevision(1).
@@ -226,6 +232,7 @@ func (transaction *CommandTx) EndSession(
 	if identity.Lifecycle != session.LifecycleLive {
 		return LiveSessionState{}, ErrSessionLifecycleTransition
 	}
+	communicatedEnd := identity.ForecastEnd
 	run, err := transaction.transaction.SessionRun.Query().Where(
 		sessionrun.SessionIDEQ(sessionID), sessionrun.ActualEndIsNil(),
 	).Order(ent.Desc(sessionrun.FieldID)).First(ctx)
@@ -235,13 +242,17 @@ func (transaction *CommandTx) EndSession(
 	if err != nil {
 		return LiveSessionState{}, opaqueError("load Live Session Run", err)
 	}
-	updated, err := transaction.transaction.Session.UpdateOneID(sessionID).
+	update := transaction.transaction.Session.UpdateOneID(sessionID).
 		Where(
 			session.EventIDEQ(eventID),
 			session.LiveStateRevisionEQ(expectedRevision),
 			session.LifecycleEQ(session.LifecycleLive),
 		).
-		SetLifecycle(session.LifecycleEnded).
+		SetLifecycle(session.LifecycleEnded)
+	if !communicatedEnd.IsZero() {
+		update = update.SetCommunicatedEnd(communicatedEnd)
+	}
+	updated, err := update.
 		AddLiveStateRevision(1).
 		Save(ctx)
 	if ent.IsNotFound(err) {

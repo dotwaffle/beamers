@@ -1783,6 +1783,142 @@ func TestPublicScheduleSessionHidesCrewOnlyAndUnknownIdentically(t *testing.T) {
 	server.stop(t)
 }
 
+func TestPublicScheduleDeepLinkSurvivesPublishedChanges(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	sessionID := prepareActiveSchedule(t, administrator, server)
+	client := rundownv1connect.NewRundownServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	current, err := client.GetCrewRundown(
+		t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
+	)
+	if err != nil {
+		t.Fatalf("load Rundown before stable-link changes: %v", err)
+	}
+	retimedStart := time.Date(2099, 8, 21, 8, 30, 0, 0, time.UTC)
+	edited, err := client.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "rename-retime-public-session",
+		ExpectedDraftRevision: current.Msg.GetDraftRevision(),
+		Sessions: []*rundownv1.SessionDraft{{
+			Id: sessionID, Title: "Renamed Keynote",
+			PlannedStart: timestamppb.New(retimedStart),
+			PlannedEnd:   timestamppb.New(retimedStart.Add(time.Hour)),
+			UpdateMask: &fieldmaskpb.FieldMask{
+				Paths: []string{"title", "planned_start", "planned_end"},
+			},
+		}},
+	}))
+	if err != nil {
+		t.Fatalf("rename and retime public Session: %v", err)
+	}
+	publishEditedDraft(t, client, edited.Msg, "publish-renamed-retimed-session")
+	path := fmt.Sprintf("/schedule/sessions/%d", sessionID)
+	changed := get(t, authenticatedClient(t), server.address, path)
+	changedBody, readErr := io.ReadAll(changed.Body)
+	closeErr := changed.Body.Close()
+	if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
+		t.Fatalf("read changed stable deep link: %v", joinedErr)
+	}
+	if changed.StatusCode != http.StatusOK ||
+		!strings.Contains(string(changedBody), "Renamed Keynote") ||
+		!strings.Contains(string(changedBody), "2099-08-21T10:30:00+02:00") {
+		t.Errorf("changed stable deep link = %d %q", changed.StatusCode, changedBody)
+	}
+
+	current, err = client.GetCrewRundown(
+		t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
+	)
+	if err != nil {
+		t.Fatalf("load Rundown before hiding stable link: %v", err)
+	}
+	hidden, err := client.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "hide-public-session", ExpectedDraftRevision: current.Msg.GetDraftRevision(),
+		Sessions: []*rundownv1.SessionDraft{{
+			Id: sessionID, AudienceVisibility: rundownv1.AudienceVisibility_AUDIENCE_VISIBILITY_CREW_ONLY,
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"audience_visibility"}},
+		}},
+	}))
+	if err != nil {
+		t.Fatalf("hide public Session: %v", err)
+	}
+	publishEditedDraft(t, client, hidden.Msg, "publish-hidden-session")
+	private := get(t, authenticatedClient(t), server.address, path)
+	privateBody, readErr := io.ReadAll(private.Body)
+	closeErr = private.Body.Close()
+	if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
+		t.Fatalf("read hidden stable deep link: %v", joinedErr)
+	}
+	unknown := get(t, authenticatedClient(t), server.address, "/schedule/sessions/999999")
+	unknownBody, readErr := io.ReadAll(unknown.Body)
+	closeErr = unknown.Body.Close()
+	if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
+		t.Fatalf("read unknown Session beside hidden stable link: %v", joinedErr)
+	}
+	if private.StatusCode != http.StatusNotFound || unknown.StatusCode != http.StatusNotFound ||
+		!bytes.Equal(privateBody, unknownBody) {
+		t.Errorf(
+			"hidden stable link differs from unknown: %d %q; %d %q",
+			private.StatusCode, privateBody, unknown.StatusCode, unknownBody,
+		)
+	}
+	current, err = client.GetCrewRundown(
+		t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
+	)
+	if err != nil {
+		t.Fatalf("load Rundown before restoring public visibility: %v", err)
+	}
+	restored, err := client.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "restore-public-session", ExpectedDraftRevision: current.Msg.GetDraftRevision(),
+		Sessions: []*rundownv1.SessionDraft{{
+			Id: sessionID, AudienceVisibility: rundownv1.AudienceVisibility_AUDIENCE_VISIBILITY_PUBLIC,
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"audience_visibility"}},
+		}},
+	}))
+	if err != nil {
+		t.Fatalf("restore public Session visibility: %v", err)
+	}
+	publishEditedDraft(t, client, restored.Msg, "publish-restored-session")
+	publicAgain := get(t, authenticatedClient(t), server.address, path)
+	publicAgainBody, readErr := io.ReadAll(publicAgain.Body)
+	closeErr = publicAgain.Body.Close()
+	if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
+		t.Fatalf("read restored stable deep link: %v", joinedErr)
+	}
+	if publicAgain.StatusCode != http.StatusOK ||
+		!strings.Contains(string(publicAgainBody), "Renamed Keynote") {
+		t.Errorf("restored stable deep link = %d %q", publicAgain.StatusCode, publicAgainBody)
+	}
+	server.stop(t)
+}
+
+func publishEditedDraft(
+	t *testing.T,
+	client rundownv1connect.RundownServiceClient,
+	edited *rundownv1.EditDraftResponse,
+	commandID string,
+) {
+	t.Helper()
+	changeIDs := make([]int64, 0, len(edited.GetChanges()))
+	for _, change := range edited.GetChanges() {
+		changeIDs = append(changeIDs, change.GetId())
+	}
+	preview, err := client.PublishPreview(t.Context(), connect.NewRequest(
+		&rundownv1.PublishPreviewRequest{EventId: 1, ChangeIds: changeIDs},
+	))
+	if err != nil {
+		t.Fatalf("preview edited Draft Publish: %v", err)
+	}
+	if _, err := client.Publish(t.Context(), connect.NewRequest(&rundownv1.PublishRequest{
+		EventId: 1, CommandId: commandID,
+		Confirmation: &rundownv1.PublishConfirmation{
+			DraftRevision: preview.Msg.GetDraftRevision(), PublishedRevision: preview.Msg.GetPublishedRevision(),
+			ChangeIds: preview.Msg.GetChangeIds(), Fingerprint: preview.Msg.GetFingerprint(),
+		},
+	})); err != nil {
+		t.Fatalf("publish edited Draft: %v", err)
+	}
+}
+
 func TestPublicScheduleSupportsConditionalPolling(t *testing.T) {
 	client, server := startAuthenticatedAdministrator(t)
 	prepareActiveSchedule(t, client, server)
@@ -1828,6 +1964,272 @@ func TestPublicScheduleSupportsConditionalPolling(t *testing.T) {
 		)
 	}
 	server.stop(t)
+}
+
+func TestPublicScheduleEncodesFiltersAndLocalTimeInURL(t *testing.T) {
+	client, server := startAuthenticatedAdministrator(t)
+	publicSessionID := prepareActiveSchedule(t, client, server)
+	publicClient := authenticatedClient(t)
+
+	response := get(
+		t, publicClient, server.address,
+		"/schedule?day=2099-08-21&location=1&lane=1&track=1&time_zone=America%2FNew_York",
+	)
+	body, readErr := io.ReadAll(response.Body)
+	closeErr := response.Body.Close()
+	if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
+		t.Fatalf("read filtered local-time Schedule: %v", joinedErr)
+	}
+	page := string(body)
+	for _, expected := range []string{
+		`<option value="2099-08-21" selected>2099-08-21</option>`,
+		`<option value="1" selected>Main Hall</option>`,
+		`<option value="1" selected>Main Lane</option>`,
+		`<option value="1" selected>General</option>`,
+		`value="America/New_York"`,
+		"Attendee-local conversion: America/New_York. Program days remain grouped in Event time.",
+		"Event Time (CEST +02:00): Forecast Start 21 Aug 2099 10:00 CEST",
+		"Attendee-local time (EDT -04:00): Forecast Start",
+		`datetime="2099-08-21T04:00:00-04:00">21 Aug 2099 04:00 EDT`,
+		fmt.Sprintf(`/schedule/sessions/%d?time_zone=America%%2FNew_York`, publicSessionID),
+	} {
+		if !strings.Contains(page, expected) {
+			t.Errorf("filtered local-time Schedule missing %q: %s", expected, page)
+		}
+	}
+	for _, private := range []string{"Private Soundcheck", "radio channel 4"} {
+		if strings.Contains(page, private) {
+			t.Errorf("filtered local-time Schedule contains private value %q", private)
+		}
+	}
+
+	empty := get(t, publicClient, server.address, "/schedule?location=999999")
+	emptyBody, readErr := io.ReadAll(empty.Body)
+	closeErr = empty.Body.Close()
+	if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
+		t.Fatalf("read unmatched Schedule filter: %v", joinedErr)
+	}
+	if empty.StatusCode != http.StatusOK || strings.Contains(string(emptyBody), "Opening Keynote") {
+		t.Errorf("unmatched Schedule filter = %d %q", empty.StatusCode, emptyBody)
+	}
+	invalid := get(t, publicClient, server.address, "/schedule?lane=not-an-id")
+	invalidBody, readErr := io.ReadAll(invalid.Body)
+	closeErr = invalid.Body.Close()
+	if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
+		t.Fatalf("read invalid Schedule filter: %v", joinedErr)
+	}
+	if invalid.StatusCode != http.StatusBadRequest {
+		t.Errorf("invalid Schedule filter = %d %q", invalid.StatusCode, invalidBody)
+	}
+	server.stop(t)
+}
+
+func TestPublicScheduleNormalizesActualStartWithoutChangingCrewHistory(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	communicatedStart := time.Now().UTC().Add(-time.Minute).Truncate(time.Second)
+	sessionID := prepareCommunicatedTimeSchedule(t, administrator, server, communicatedStart)
+	operator := provisionOperator(t, administrator, server)
+	client := sessionv1connect.NewSessionControlServiceClient(
+		operator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	started, err := client.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "start-with-communicated-time",
+		ExpectedLiveStateRevision: proto.Int64(0),
+	}))
+	if err != nil {
+		t.Fatalf("start Session for communicated-time presentation: %v", err)
+	}
+	exactActualStart := started.Msg.GetState().GetActualStart().AsTime()
+	if exactActualStart.Equal(communicatedStart) {
+		t.Fatal("test setup did not produce distinct exact and Communicated Times")
+	}
+
+	public := get(
+		t, authenticatedClient(t), server.address,
+		fmt.Sprintf("/schedule/sessions/%d", sessionID),
+	)
+	body, readErr := io.ReadAll(public.Body)
+	closeErr := public.Body.Close()
+	if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
+		t.Fatalf("read communicated-time Session: %v", joinedErr)
+	}
+	page := string(body)
+	if public.StatusCode != http.StatusOK ||
+		!strings.Contains(page, "Status: Live") ||
+		!strings.Contains(page, `datetime="`+communicatedStart.Format(time.RFC3339)+`"`) ||
+		strings.Contains(page, exactActualStart.Format(time.RFC3339)) {
+		t.Errorf(
+			"communicated-time Session = %d %q; exact Actual Start = %s",
+			public.StatusCode, body, exactActualStart,
+		)
+	}
+	history, err := client.GetSessionHistory(t.Context(), connect.NewRequest(
+		&sessionv1.GetSessionHistoryRequest{EventId: 1, SessionId: sessionID},
+	))
+	if err != nil || len(history.Msg.GetRuns()) != 1 ||
+		!history.Msg.GetRuns()[0].GetActualStart().AsTime().Equal(exactActualStart) {
+		t.Errorf("crew Run history changed exact Actual Start: %+v, %v", history, err)
+	}
+	server.stop(t)
+}
+
+func TestPublicScheduleNormalizesActualEndWithoutChangingCrewHistory(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	communicatedEnd := time.Now().UTC().Add(time.Minute).Truncate(time.Second)
+	sessionID := prepareCommunicatedTimeSchedule(
+		t, administrator, server, communicatedEnd.Add(-30*time.Minute),
+	)
+	operator := provisionOperator(t, administrator, server)
+	client := sessionv1connect.NewSessionControlServiceClient(
+		operator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	if _, err := client.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "start-before-communicated-end",
+		ExpectedLiveStateRevision: proto.Int64(0),
+	})); err != nil {
+		t.Fatalf("start Session before communicated End: %v", err)
+	}
+	ended, err := client.EndSession(t.Context(), connect.NewRequest(&sessionv1.EndSessionRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "end-with-communicated-time",
+		ExpectedLiveStateRevision: proto.Int64(1),
+	}))
+	if err != nil {
+		t.Fatalf("end Session for communicated-time presentation: %v", err)
+	}
+	exactActualEnd := ended.Msg.GetState().GetActualEnd().AsTime()
+	if exactActualEnd.Equal(communicatedEnd) {
+		t.Fatal("test setup did not produce distinct exact End and Communicated Times")
+	}
+	public := get(
+		t, authenticatedClient(t), server.address,
+		fmt.Sprintf("/schedule/sessions/%d", sessionID),
+	)
+	body, readErr := io.ReadAll(public.Body)
+	closeErr := public.Body.Close()
+	if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
+		t.Fatalf("read communicated End Session: %v", joinedErr)
+	}
+	page := string(body)
+	if public.StatusCode != http.StatusOK ||
+		!strings.Contains(page, "Status: Ended") ||
+		!strings.Contains(
+			page,
+			`Actual End: <time datetime="`+communicatedEnd.Format(time.RFC3339)+`"`,
+		) ||
+		strings.Contains(
+			page,
+			`Actual End: <time datetime="`+exactActualEnd.Format(time.RFC3339)+`"`,
+		) {
+		t.Errorf(
+			"communicated End Session = %d %q; exact Actual End = %s",
+			public.StatusCode, body, exactActualEnd,
+		)
+	}
+	history, err := client.GetSessionHistory(t.Context(), connect.NewRequest(
+		&sessionv1.GetSessionHistoryRequest{EventId: 1, SessionId: sessionID},
+	))
+	if err != nil || len(history.Msg.GetRuns()) != 1 ||
+		!history.Msg.GetRuns()[0].GetActualEnd().AsTime().Equal(exactActualEnd) {
+		t.Errorf("crew Run history changed exact Actual End: %+v, %v", history, err)
+	}
+	server.stop(t)
+}
+
+func prepareCommunicatedTimeSchedule(
+	t *testing.T,
+	client *http.Client,
+	server *runningServer,
+	plannedStart time.Time,
+) int64 {
+	t.Helper()
+	assertJSONRequest(
+		t, client, server.address, "/admin/events",
+		map[string]string{
+			"name": "Communicated Time", "planned_start_date": plannedStart.Format(time.DateOnly),
+			"planned_end_date": plannedStart.AddDate(0, 0, 1).Format(time.DateOnly), "timezone": "UTC",
+			"event_locale": "en-GB", "content_language": "en-GB",
+			"event_day_boundary": "00:00", "command_id": "create-communicated-time-event",
+		},
+		http.StatusCreated,
+		fmt.Sprintf(
+			"{\"id\":1,\"name\":\"Communicated Time\",\"planned_start_date\":%q,\"planned_end_date\":%q,\"timezone\":\"UTC\",\"event_locale\":\"en-GB\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"00:00\",\"revision\":1}\n",
+			plannedStart.Format(time.DateOnly), plannedStart.AddDate(0, 0, 1).Format(time.DateOnly),
+		),
+	)
+	assertJSONRequest(
+		t, client, server.address, "/admin/events/1/grants",
+		map[string]any{"account_id": 1, "role": "Producer", "command_id": "grant-communicated-time-producer"},
+		http.StatusCreated, "{\"event_id\":1,\"account_id\":1,\"role\":\"Producer\"}\n",
+	)
+	rundownClient := rundownv1connect.NewRundownServiceClient(
+		client, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	edited, err := rundownClient.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "edit-communicated-time", ExpectedDraftRevision: 0,
+		Locations: []*rundownv1.LocationDraft{{Ref: "room", Name: "Room"}},
+		Lanes: []*rundownv1.LaneDraft{{
+			Ref: "lane", Name: "Lane",
+			Location: &rundownv1.TargetRef{Target: &rundownv1.TargetRef_Ref{Ref: "room"}},
+		}},
+		Sessions: []*rundownv1.SessionDraft{{
+			Ref: "session", Title: "Communicated Session",
+			Type:               rundownv1.SessionType_SESSION_TYPE_PRESENTATION,
+			AudienceVisibility: rundownv1.AudienceVisibility_AUDIENCE_VISIBILITY_PUBLIC,
+			PlannedStart:       timestamppb.New(plannedStart),
+			PlannedEnd:         timestamppb.New(plannedStart.Add(30 * time.Minute)),
+			TimingPolicy:       rundownv1.TimingPolicy_TIMING_POLICY_FIXED_END,
+			MinimumDuration:    durationpb.New(15 * time.Minute),
+			StartBoundary:      rundownv1.Boundary_BOUNDARY_HARD,
+			EndBoundary:        rundownv1.Boundary_BOUNDARY_HARD,
+			Locations: []*rundownv1.TargetRef{{
+				Target: &rundownv1.TargetRef_Ref{Ref: "room"},
+			}},
+			Lanes: []*rundownv1.TargetRef{{
+				Target: &rundownv1.TargetRef_Ref{Ref: "lane"},
+			}},
+		}},
+	}))
+	if err != nil {
+		t.Fatalf("edit communicated-time Rundown: %v", err)
+	}
+	var sessionID int64
+	changeIDs := make([]int64, 0, len(edited.Msg.GetChanges()))
+	for _, change := range edited.Msg.GetChanges() {
+		changeIDs = append(changeIDs, change.GetId())
+		if change.GetKind() == "CreateSession" {
+			sessionID = change.GetTargetId()
+		}
+	}
+	preview, err := rundownClient.PublishPreview(t.Context(), connect.NewRequest(
+		&rundownv1.PublishPreviewRequest{EventId: 1, ChangeIds: changeIDs},
+	))
+	if err != nil {
+		t.Fatalf("preview communicated-time Publish: %v", err)
+	}
+	if _, publishErr := rundownClient.Publish(t.Context(), connect.NewRequest(&rundownv1.PublishRequest{
+		EventId: 1, CommandId: "publish-communicated-time",
+		Confirmation: &rundownv1.PublishConfirmation{
+			DraftRevision: preview.Msg.GetDraftRevision(), PublishedRevision: preview.Msg.GetPublishedRevision(),
+			ChangeIds: preview.Msg.GetChangeIds(), Fingerprint: preview.Msg.GetFingerprint(),
+		},
+	})); publishErr != nil {
+		t.Fatalf("publish communicated-time Rundown: %v", publishErr)
+	}
+	activationClient := activationv1connect.NewActivationServiceClient(
+		client, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	preflight, err := activationClient.Preflight(
+		t.Context(), connect.NewRequest(&activationv1.PreflightRequest{EventId: 1}),
+	)
+	if err != nil {
+		t.Fatalf("preflight communicated-time Event: %v", err)
+	}
+	if _, err := activationClient.Activate(t.Context(), connect.NewRequest(&activationv1.ActivateRequest{
+		EventId: 1, CommandId: "activate-communicated-time", Confirmation: preflight.Msg.GetConfirmation(),
+	})); err != nil {
+		t.Fatalf("activate communicated-time Event: %v", err)
+	}
+	return sessionID
 }
 
 func prepareActiveSchedule(t *testing.T, client *http.Client, server *runningServer) int64 {

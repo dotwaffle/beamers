@@ -13,6 +13,32 @@ templ Page(snapshot Snapshot) {
 			<main>
 				<h1>{ snapshot.EventName } Schedule</h1>
 				<p>Event timezone: { snapshot.Timezone }</p>
+				if snapshot.ViewerLocal {
+					<p>Attendee-local conversion: { snapshot.ViewerTimezone }. Program days remain grouped in Event time.</p>
+				}
+				<form method="get" action="/schedule">
+					<label>
+						Program day
+						<select name="day">
+							<option value="">All days</option>
+							for _, day := range snapshot.DayOptions {
+								if day == snapshot.Filter.Day {
+									<option value={ day } selected>{ day }</option>
+								} else {
+									<option value={ day }>{ day }</option>
+								}
+							}
+						</select>
+					</label>
+					@StructuralFilter("Location", "location", snapshot.Locations)
+					@StructuralFilter("Lane", "lane", snapshot.Lanes)
+					@StructuralFilter("Track", "track", snapshot.Tracks)
+					<label>
+						Attendee timezone
+						<input name="time_zone" value={ snapshot.Filter.ViewerTimezone } placeholder="America/New_York"/>
+					</label>
+					<button type="submit">Apply filters</button>
+				</form>
 				for _, day := range snapshot.Days {
 					<section>
 						<h2>Program day { day.Date }</h2>
@@ -21,7 +47,7 @@ templ Page(snapshot Snapshot) {
 								<p class="calendar-date-rollover">Local calendar date: { session.LocalDate }</p>
 							}
 							<article>
-								<h3><a href={ session.Path() }>{ session.Title }</a></h3>
+								<h3><a href={ session.PathWithTimezone(snapshot.ViewerTimezone) }>{ session.Title }</a></h3>
 								@SessionDetails(session)
 							</article>
 						}
@@ -43,12 +69,28 @@ templ SessionPage(snapshot Snapshot, session Session) {
 		</head>
 		<body>
 			<main>
-				<a href="/schedule">Schedule</a>
+				<a href={ snapshot.SchedulePath() }>Schedule</a>
 				<h1>{ session.Title }</h1>
 				@SessionDetails(session)
 			</main>
 		</body>
 	</html>
+}
+
+templ StructuralFilter(label string, name string, options []FilterOption) {
+	<label>
+		{ label }
+		<select name={ name }>
+			<option value="">All</option>
+			for _, option := range options {
+				if option.Selected {
+					<option value={ option.Value() } selected>{ option.Name }</option>
+				} else {
+					<option value={ option.Value() }>{ option.Name }</option>
+				}
+			}
+		</select>
+	</label>
 }
 
 templ SessionDetails(session Session) {
@@ -64,15 +106,13 @@ templ SessionDetails(session Session) {
 			<p>Canceled.</p>
 		}
 	}
-	<p>Forecast Time: <time datetime={ session.ForecastStart }>{ session.DisplayForecastStart }</time>–<time datetime={ session.ForecastEnd }>{ session.DisplayForecastEnd }</time> ({ session.TimezoneLabel })</p>
-	if session.PreviousForecastStart != "" {
-		<p>Rescheduled; was <time datetime={ session.PreviousForecastStart }>{ session.DisplayPreviousForecastStart }</time></p>
-	}
-	if session.ActualStart != "" {
-		<p>Actual Start: <time datetime={ session.ActualStart }>{ session.ActualStart }</time></p>
-	}
-	if session.ActualEnd != "" {
-		<p>Actual End: <time datetime={ session.ActualEnd }>{ session.ActualEnd }</time></p>
+	@OperationalTime(session.Time)
+	if session.Previous != nil {
+		if session.Time.ViewerLocal {
+			<p>Rescheduled; was { session.Previous.Event } Event time / <time datetime={ session.Previous.Datetime }>{ session.Previous.Display }</time> attendee-local</p>
+		} else {
+			<p>Rescheduled; was <time datetime={ session.Previous.Datetime }>{ session.Previous.Display }</time></p>
+		}
 	}
 	for _, location := range session.Locations {
 		<p>Location: { location }</p>
@@ -82,5 +122,14 @@ templ SessionDetails(session Session) {
 	}
 	for _, track := range session.Tracks {
 		<p>Track: { track }</p>
+	}
+}
+
+templ OperationalTime(presentation TimePresentation) {
+	if presentation.ViewerLocal {
+		<p>Event Time ({ presentation.EventTimezoneLabel }): { presentation.Start.Label } { presentation.Start.Event } – { presentation.End.Label } { presentation.End.Event }</p>
+		<p>Attendee-local time ({ presentation.TimezoneLabel }): { presentation.Start.Label } <time datetime={ presentation.Start.Datetime }>{ presentation.Start.Display }</time> – { presentation.End.Label } <time datetime={ presentation.End.Datetime }>{ presentation.End.Display }</time></p>
+	} else {
+		<p>{ presentation.Start.Label }: <time datetime={ presentation.Start.Datetime }>{ presentation.Start.Display }</time> – { presentation.End.Label }: <time datetime={ presentation.End.Datetime }>{ presentation.End.Display }</time> ({ presentation.TimezoneLabel })</p>
 	}
 }

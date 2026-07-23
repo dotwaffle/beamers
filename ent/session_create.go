@@ -87,6 +87,34 @@ func (_c *SessionCreate) SetNillableForecastEnd(v *time.Time) *SessionCreate {
 	return _c
 }
 
+// SetCommunicatedStart sets the "communicated_start" field.
+func (_c *SessionCreate) SetCommunicatedStart(v time.Time) *SessionCreate {
+	_c.mutation.SetCommunicatedStart(v)
+	return _c
+}
+
+// SetNillableCommunicatedStart sets the "communicated_start" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableCommunicatedStart(v *time.Time) *SessionCreate {
+	if v != nil {
+		_c.SetCommunicatedStart(*v)
+	}
+	return _c
+}
+
+// SetCommunicatedEnd sets the "communicated_end" field.
+func (_c *SessionCreate) SetCommunicatedEnd(v time.Time) *SessionCreate {
+	_c.mutation.SetCommunicatedEnd(v)
+	return _c
+}
+
+// SetNillableCommunicatedEnd sets the "communicated_end" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableCommunicatedEnd(v *time.Time) *SessionCreate {
+	if v != nil {
+		_c.SetCommunicatedEnd(*v)
+	}
+	return _c
+}
+
 // SetPreviousForecastStart sets the "previous_forecast_start" field.
 func (_c *SessionCreate) SetPreviousForecastStart(v time.Time) *SessionCreate {
 	_c.mutation.SetPreviousForecastStart(v)
@@ -414,6 +442,14 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ForecastEnd(); ok {
 		_spec.SetField(session.FieldForecastEnd, field.TypeTime, value)
 		_node.ForecastEnd = value
+	}
+	if value, ok := _c.mutation.CommunicatedStart(); ok {
+		_spec.SetField(session.FieldCommunicatedStart, field.TypeTime, value)
+		_node.CommunicatedStart = value
+	}
+	if value, ok := _c.mutation.CommunicatedEnd(); ok {
+		_spec.SetField(session.FieldCommunicatedEnd, field.TypeTime, value)
+		_node.CommunicatedEnd = value
 	}
 	if value, ok := _c.mutation.PreviousForecastStart(); ok {
 		_spec.SetField(session.FieldPreviousForecastStart, field.TypeTime, value)

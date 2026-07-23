@@ -685,6 +685,8 @@ var (
 		{Name: "live_state_revision", Type: field.TypeInt, Default: 0},
 		{Name: "forecast_start", Type: field.TypeTime, Nullable: true},
 		{Name: "forecast_end", Type: field.TypeTime, Nullable: true},
+		{Name: "communicated_start", Type: field.TypeTime, Nullable: true},
+		{Name: "communicated_end", Type: field.TypeTime, Nullable: true},
 		{Name: "previous_forecast_start", Type: field.TypeTime, Nullable: true},
 		{Name: "forecast_lane_ids", Type: field.TypeJSON, Nullable: true},
 		{Name: "forecast_location_ids", Type: field.TypeJSON, Nullable: true},
@@ -704,7 +706,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "sessions_events_sessions",
-				Columns:    []*schema.Column{SessionsColumns[14]},
+				Columns:    []*schema.Column{SessionsColumns[16]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},

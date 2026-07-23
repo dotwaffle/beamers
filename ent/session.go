@@ -30,6 +30,10 @@ type Session struct {
 	ForecastStart time.Time `json:"forecast_start,omitempty"`
 	// ForecastEnd holds the value of the "forecast_end" field.
 	ForecastEnd time.Time `json:"forecast_end,omitempty"`
+	// CommunicatedStart holds the value of the "communicated_start" field.
+	CommunicatedStart time.Time `json:"communicated_start,omitempty"`
+	// CommunicatedEnd holds the value of the "communicated_end" field.
+	CommunicatedEnd time.Time `json:"communicated_end,omitempty"`
 	// PreviousForecastStart holds the value of the "previous_forecast_start" field.
 	PreviousForecastStart time.Time `json:"previous_forecast_start,omitempty"`
 	// ForecastLaneIds holds the value of the "forecast_lane_ids" field.
@@ -131,7 +135,7 @@ func (*Session) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullInt64)
 		case session.FieldLifecycle, session.FieldPublicCancellationMessage, session.FieldCancellationCrewNotes, session.FieldCorrectedTitle, session.FieldCorrectedSpeaker, session.FieldCorrectedPublicDetails:
 			values[i] = new(sql.NullString)
-		case session.FieldForecastStart, session.FieldForecastEnd, session.FieldPreviousForecastStart, session.FieldCreatedAt:
+		case session.FieldForecastStart, session.FieldForecastEnd, session.FieldCommunicatedStart, session.FieldCommunicatedEnd, session.FieldPreviousForecastStart, session.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -183,6 +187,18 @@ func (_m *Session) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field forecast_end", values[i])
 			} else if value.Valid {
 				_m.ForecastEnd = value.Time
+			}
+		case session.FieldCommunicatedStart:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field communicated_start", values[i])
+			} else if value.Valid {
+				_m.CommunicatedStart = value.Time
+			}
+		case session.FieldCommunicatedEnd:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field communicated_end", values[i])
+			} else if value.Valid {
+				_m.CommunicatedEnd = value.Time
 			}
 		case session.FieldPreviousForecastStart:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -320,6 +336,12 @@ func (_m *Session) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("forecast_end=")
 	builder.WriteString(_m.ForecastEnd.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("communicated_start=")
+	builder.WriteString(_m.CommunicatedStart.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("communicated_end=")
+	builder.WriteString(_m.CommunicatedEnd.Format(time.ANSIC))
 	builder.WriteString(", ")
 	builder.WriteString("previous_forecast_start=")
 	builder.WriteString(_m.PreviousForecastStart.Format(time.ANSIC))

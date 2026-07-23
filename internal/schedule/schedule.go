@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -16,6 +18,9 @@ import (
 	"github.com/dotwaffle/beamers/internal/store"
 )
 
+// ErrInvalidFilter means one attendee Schedule filter is malformed.
+var ErrInvalidFilter = errors.New("invalid public Schedule filter")
+
 // Service owns the attendee-safe Schedule query.
 type Service struct {
 	storage *store.SQLite
@@ -24,13 +29,41 @@ type Service struct {
 
 // Snapshot is one cacheable public Schedule page model.
 type Snapshot struct {
-	EventName string    `json:"event_name"`
-	Language  string    `json:"language"`
-	Locale    string    `json:"locale"`
-	Timezone  string    `json:"timezone"`
-	ETag      string    `json:"-"`
-	Sessions  []Session `json:"sessions"`
-	Days      []Day     `json:"days"`
+	EventName      string         `json:"event_name"`
+	Language       string         `json:"language"`
+	Locale         string         `json:"locale"`
+	Timezone       string         `json:"timezone"`
+	ViewerTimezone string         `json:"viewer_timezone,omitempty"`
+	ViewerLocal    bool           `json:"viewer_local"`
+	Filter         Filter         `json:"filter"`
+	DayOptions     []string       `json:"day_options"`
+	Locations      []FilterOption `json:"locations"`
+	Lanes          []FilterOption `json:"lanes"`
+	Tracks         []FilterOption `json:"tracks"`
+	ETag           string         `json:"-"`
+	Sessions       []Session      `json:"sessions"`
+	Days           []Day          `json:"days"`
+}
+
+// Filter is the complete shareable attendee Schedule view state.
+type Filter struct {
+	Day            string `json:"day,omitempty"`
+	LocationID     int    `json:"location_id,omitempty"`
+	LaneID         int    `json:"lane_id,omitempty"`
+	TrackID        int    `json:"track_id,omitempty"`
+	ViewerTimezone string `json:"viewer_timezone,omitempty"`
+}
+
+// FilterOption is one public structural filter choice.
+type FilterOption struct {
+	ID       int    `json:"id"`
+	Name     string `json:"name"`
+	Selected bool   `json:"selected"`
+}
+
+// Value returns the stable URL value for one structural filter.
+func (option FilterOption) Value() string {
+	return strconv.Itoa(option.ID)
 }
 
 // Day groups Sessions by Event Day Boundary in Event time.
@@ -41,27 +74,40 @@ type Day struct {
 
 // Session is one attendee-visible Schedule entry.
 type Session struct {
-	ID                           int      `json:"id"`
-	Title                        string   `json:"title"`
-	Speaker                      string   `json:"speaker,omitempty"`
-	PublicDetails                string   `json:"public_details,omitempty"`
-	CancellationMessage          string   `json:"cancellation_message,omitempty"`
-	ForecastStart                string   `json:"forecast_start"`
-	ForecastEnd                  string   `json:"forecast_end"`
-	PreviousForecastStart        string   `json:"previous_forecast_start,omitempty"`
-	Lifecycle                    string   `json:"lifecycle"`
-	ActualStart                  string   `json:"actual_start,omitempty"`
-	ActualEnd                    string   `json:"actual_end,omitempty"`
-	DisplayForecastStart         string   `json:"display_forecast_start"`
-	DisplayForecastEnd           string   `json:"display_forecast_end"`
-	DisplayPreviousForecastStart string   `json:"display_previous_forecast_start,omitempty"`
-	EventDay                     string   `json:"event_day"`
-	LocalDate                    string   `json:"local_date"`
-	CalendarDateRollover         bool     `json:"calendar_date_rollover"`
-	TimezoneLabel                string   `json:"timezone_label"`
-	Locations                    []string `json:"locations,omitempty"`
-	Lanes                        []string `json:"lanes,omitempty"`
-	Tracks                       []string `json:"tracks,omitempty"`
+	ID                   int              `json:"id"`
+	Title                string           `json:"title"`
+	Speaker              string           `json:"speaker,omitempty"`
+	PublicDetails        string           `json:"public_details,omitempty"`
+	CancellationMessage  string           `json:"cancellation_message,omitempty"`
+	Lifecycle            string           `json:"lifecycle"`
+	Previous             *TimePoint       `json:"previous,omitempty"`
+	EventDay             string           `json:"event_day"`
+	LocalDate            string           `json:"local_date"`
+	CalendarDateRollover bool             `json:"calendar_date_rollover"`
+	Time                 TimePresentation `json:"time"`
+	LocationIDs          []int            `json:"-"`
+	LaneIDs              []int            `json:"-"`
+	TrackIDs             []int            `json:"-"`
+	Locations            []string         `json:"locations,omitempty"`
+	Lanes                []string         `json:"lanes,omitempty"`
+	Tracks               []string         `json:"tracks,omitempty"`
+}
+
+// TimePoint is one labeled attendee-facing operational instant.
+type TimePoint struct {
+	Label    string `json:"label"`
+	Datetime string `json:"datetime"`
+	Display  string `json:"display"`
+	Event    string `json:"event"`
+}
+
+// TimePresentation is one lifecycle-specific public time range.
+type TimePresentation struct {
+	Start              TimePoint `json:"start"`
+	End                TimePoint `json:"end"`
+	ViewerLocal        bool      `json:"viewer_local"`
+	TimezoneLabel      string    `json:"timezone_label"`
+	EventTimezoneLabel string    `json:"event_timezone_label"`
 }
 
 // New creates a public Schedule query with explicit persistence.
@@ -76,11 +122,15 @@ func New(storage *store.SQLite, now func() time.Time) (*Service, error) {
 }
 
 // Current returns the Active Event's cacheable public Schedule snapshot.
-func (service *Service) Current(ctx context.Context) (Snapshot, error) {
-	return service.snapshot(ctx, true)
+func (service *Service) Current(ctx context.Context, filter Filter) (Snapshot, error) {
+	return service.snapshot(ctx, true, filter)
 }
 
-func (service *Service) snapshot(ctx context.Context, upcomingOnly bool) (Snapshot, error) {
+func (service *Service) snapshot(ctx context.Context, upcomingOnly bool, filter Filter) (Snapshot, error) {
+	viewerZone, err := validateFilter(filter)
+	if err != nil {
+		return Snapshot{}, err
+	}
 	state, err := service.storage.LoadPublicSchedule(ctx)
 	if err != nil {
 		return Snapshot{}, err
@@ -88,61 +138,108 @@ func (service *Service) snapshot(ctx context.Context, upcomingOnly bool) (Snapsh
 	language := scheduleLanguage(state.ContentLanguage, state.EventLocale)
 	result := Snapshot{
 		EventName: state.EventName, Language: language, Locale: state.EventLocale, Timezone: state.Timezone,
+		Filter: filter,
 	}
 	zone, err := time.LoadLocation(state.Timezone)
 	if state.EventID != 0 && err != nil {
 		return Snapshot{}, errors.New("load public Schedule timezone")
 	}
+	displayZone := zone
+	if viewerZone != nil {
+		displayZone = viewerZone
+		result.ViewerTimezone = filter.ViewerTimezone
+		result.ViewerLocal = true
+	}
+	result.Locations = projectFilterOptions(
+		state.Locations, filter.LocationID,
+		func(item store.PublicScheduleLocation) (int, string) { return item.ID, item.Name },
+	)
+	result.Lanes = projectFilterOptions(
+		state.Lanes, filter.LaneID,
+		func(item store.PublicScheduleLane) (int, string) { return item.ID, item.Name },
+	)
+	result.Tracks = projectFilterOptions(
+		state.Tracks, filter.TrackID,
+		func(item store.PublicScheduleTrack) (int, string) { return item.ID, item.Name },
+	)
 	locationNames := locationNames(state.Locations)
 	laneNames := laneNames(state.Lanes)
 	trackNames := trackNames(state.Tracks)
 	sortScheduleSessions(state.Sessions)
+	eventDays := make(map[int]string, len(state.Sessions))
+	dayOptions := make(map[string]struct{})
+	eligible := make([]store.PublicScheduleSession, 0, len(state.Sessions))
 	for _, item := range state.Sessions {
 		if upcomingOnly && (item.Lifecycle == "Ended" ||
 			(item.Lifecycle != "Live" && item.Lifecycle != "Canceled" &&
 				!item.ForecastEnd.After(service.now()))) {
 			continue
 		}
-		actualStart := ""
-		if !item.ActualStart.IsZero() {
-			actualStart = item.ActualStart.In(zone).Format(time.RFC3339)
-		}
-		actualEnd := ""
-		if item.ActualEnd != nil {
-			actualEnd = item.ActualEnd.In(zone).Format(time.RFC3339)
-		}
-		localStart := item.ForecastStart.In(zone)
-		localEnd := item.ForecastEnd.In(zone)
-		previousForecastStart := ""
-		displayPreviousForecastStart := ""
-		if !item.PreviousForecastStart.IsZero() && item.Lifecycle != "Canceled" {
-			previous := item.PreviousForecastStart.In(zone)
-			previousForecastStart = previous.Format(time.RFC3339)
-			displayPreviousForecastStart = formatEventTime(previous, state.EventLocale)
-		}
-		eventDay, dayErr := groupedEventDay(localStart, zone, state.EventDayBoundary)
+		eventDay, dayErr := groupedEventDay(item.ForecastStart.In(zone), zone, state.EventDayBoundary)
 		if dayErr != nil {
 			return Snapshot{}, dayErr
 		}
+		eventDays[item.ID] = eventDay
+		dayOptions[eventDay] = struct{}{}
+		eligible = append(eligible, item)
+	}
+	state.Sessions = filterScheduleSessions(eligible, filter, func(item store.PublicScheduleSession) string {
+		return eventDays[item.ID]
+	})
+	for _, item := range state.Sessions {
+		actualStart := TimePoint{Label: "Actual Start"}
+		if !item.ActualStart.IsZero() {
+			publicStart := publicActualTime(item.ActualStart, item.CommunicatedStart, item.PlannedDuration)
+			actualStart = projectedTimePoint("Actual Start", publicStart, displayZone, zone, state.EventLocale)
+		}
+		actualEnd := TimePoint{Label: "Actual End"}
+		if item.ActualEnd != nil {
+			publicEnd := publicActualTime(*item.ActualEnd, item.CommunicatedEnd, item.PlannedDuration)
+			actualEnd = projectedTimePoint("Actual End", publicEnd, displayZone, zone, state.EventLocale)
+		}
+		localStart := item.ForecastStart.In(zone)
+		displayStart := item.ForecastStart.In(displayZone)
+		var previous *TimePoint
+		if !item.PreviousForecastStart.IsZero() && item.Lifecycle != "Canceled" {
+			projected := projectedTimePoint(
+				"Previous Forecast Start", item.PreviousForecastStart,
+				displayZone, zone, state.EventLocale,
+			)
+			previous = &projected
+		}
+		eventDay := eventDays[item.ID]
+		forecastStart := projectedTimePoint(
+			"Forecast Start", item.ForecastStart, displayZone, zone, state.EventLocale,
+		)
+		forecastEnd := projectedTimePoint(
+			"Forecast End", item.ForecastEnd, displayZone, zone, state.EventLocale,
+		)
+		timePresentation := TimePresentation{Start: forecastStart, End: forecastEnd}
+		switch item.Lifecycle {
+		case "Live":
+			timePresentation.Start = actualStart
+		case "Ended":
+			timePresentation.Start, timePresentation.End = actualStart, actualEnd
+		case "Canceled":
+			timePresentation.Start.Label = "Last Forecast Start"
+			timePresentation.End.Label = "Last Forecast End"
+		}
+		timePresentation.ViewerLocal = result.ViewerLocal
+		timePresentation.TimezoneLabel = displayStart.Format("MST -07:00")
+		timePresentation.EventTimezoneLabel = localStart.Format("MST -07:00")
 		result.Sessions = append(result.Sessions, Session{
 			ID: item.ID, Title: item.Title, Speaker: item.Speaker, PublicDetails: item.PublicDetails,
-			CancellationMessage:          item.CancellationMessage,
-			ForecastStart:                item.ForecastStart.In(zone).Format(time.RFC3339),
-			ForecastEnd:                  item.ForecastEnd.In(zone).Format(time.RFC3339),
-			PreviousForecastStart:        previousForecastStart,
-			Lifecycle:                    item.Lifecycle,
-			ActualStart:                  actualStart,
-			ActualEnd:                    actualEnd,
-			DisplayForecastStart:         formatEventTime(localStart, state.EventLocale),
-			DisplayForecastEnd:           formatEventTime(localEnd, state.EventLocale),
-			DisplayPreviousForecastStart: displayPreviousForecastStart,
-			EventDay:                     eventDay, LocalDate: localStart.Format(time.DateOnly),
-			TimezoneLabel: localStart.Format("MST -07:00"),
-			Locations:     names(item.LocationIDs, locationNames),
-			Lanes:         names(item.LaneIDs, laneNames),
-			Tracks:        names(item.TrackIDs, trackNames),
+			CancellationMessage: item.CancellationMessage,
+			Lifecycle:           item.Lifecycle, Previous: previous,
+			EventDay: eventDay, LocalDate: localStart.Format(time.DateOnly),
+			Time:        timePresentation,
+			LocationIDs: item.LocationIDs, LaneIDs: item.LaneIDs, TrackIDs: item.TrackIDs,
+			Locations: names(item.LocationIDs, locationNames),
+			Lanes:     names(item.LaneIDs, laneNames),
+			Tracks:    names(item.TrackIDs, trackNames),
 		})
 	}
+	result.DayOptions = sortedKeys(dayOptions)
 	result.Days = groupScheduleDays(result.Sessions)
 	encoded, err := json.Marshal(result)
 	if err != nil {
@@ -211,8 +308,12 @@ func formatEventTime(value time.Time, locale string) string {
 }
 
 // Find returns one public Session by stable identity.
-func (service *Service) Find(ctx context.Context, sessionID int) (Snapshot, Session, bool, error) {
-	snapshot, err := service.snapshot(ctx, false)
+func (service *Service) Find(
+	ctx context.Context,
+	sessionID int,
+	viewerTimezone string,
+) (Snapshot, Session, bool, error) {
+	snapshot, err := service.snapshot(ctx, false, Filter{ViewerTimezone: viewerTimezone})
 	if err != nil {
 		return Snapshot{}, Session{}, false, err
 	}
@@ -227,6 +328,23 @@ func (service *Service) Find(ctx context.Context, sessionID int) (Snapshot, Sess
 // Path returns the stable public deep link for a Session identity.
 func (session Session) Path() string {
 	return "/schedule/sessions/" + strconv.Itoa(session.ID)
+}
+
+// PathWithTimezone keeps attendee-local conversion across deep-link navigation.
+func (session Session) PathWithTimezone(viewerTimezone string) string {
+	path := session.Path()
+	if viewerTimezone == "" {
+		return path
+	}
+	return path + "?time_zone=" + url.QueryEscape(viewerTimezone)
+}
+
+// SchedulePath keeps attendee-local conversion when returning from a deep link.
+func (snapshot Snapshot) SchedulePath() string {
+	if snapshot.ViewerTimezone == "" {
+		return "/schedule"
+	}
+	return "/schedule?time_zone=" + url.QueryEscape(snapshot.ViewerTimezone)
 }
 
 func locationNames(items []store.PublicScheduleLocation) map[int]string {
@@ -259,6 +377,107 @@ func names(ids []int, byID map[int]string) []string {
 		if name := byID[id]; name != "" {
 			result = append(result, name)
 		}
+	}
+	sort.Strings(result)
+	return result
+}
+
+func filterScheduleSessions(
+	sessions []store.PublicScheduleSession,
+	filter Filter,
+	eventDay func(store.PublicScheduleSession) string,
+) []store.PublicScheduleSession {
+	result := make([]store.PublicScheduleSession, 0, len(sessions))
+	for _, item := range sessions {
+		if filter.Day != "" && eventDay(item) != filter.Day ||
+			filter.LocationID != 0 && !containsID(item.LocationIDs, filter.LocationID) ||
+			filter.LaneID != 0 && !containsID(item.LaneIDs, filter.LaneID) ||
+			filter.TrackID != 0 && !containsID(item.TrackIDs, filter.TrackID) {
+			continue
+		}
+		result = append(result, item)
+	}
+	return result
+}
+
+func containsID(ids []int, selected int) bool {
+	return slices.Contains(ids, selected)
+}
+
+func publicActualTime(actual, communicated time.Time, plannedDuration time.Duration) time.Time {
+	if communicated.IsZero() || plannedDuration <= 10*time.Minute {
+		return actual
+	}
+	difference := actual.Sub(communicated)
+	if difference < 0 {
+		difference = -difference
+	}
+	if difference <= 2*time.Minute {
+		return communicated
+	}
+	return actual
+}
+
+func validateFilter(filter Filter) (*time.Location, error) {
+	if filter.LocationID < 0 || filter.LaneID < 0 || filter.TrackID < 0 {
+		return nil, fmt.Errorf("%w: structural ID", ErrInvalidFilter)
+	}
+	if filter.Day != "" {
+		if _, err := time.Parse(time.DateOnly, filter.Day); err != nil {
+			return nil, fmt.Errorf("%w: day", ErrInvalidFilter)
+		}
+	}
+	if filter.ViewerTimezone != "" {
+		zone, err := time.LoadLocation(filter.ViewerTimezone)
+		if err != nil {
+			return nil, fmt.Errorf("%w: viewer timezone", ErrInvalidFilter)
+		}
+		return zone, nil
+	}
+	return nil, nil
+}
+
+func projectedTimePoint(
+	label string,
+	value time.Time,
+	displayZone *time.Location,
+	eventZone *time.Location,
+	locale string,
+) TimePoint {
+	return TimePoint{
+		Label: label, Datetime: value.In(displayZone).Format(time.RFC3339),
+		Display: formatEventTime(value.In(displayZone), locale),
+		Event:   formatEventTime(value.In(eventZone), locale),
+	}
+}
+
+func projectFilterOptions[T any](
+	items []T,
+	selected int,
+	identity func(T) (int, string),
+) []FilterOption {
+	result := make([]FilterOption, 0, len(items))
+	for _, item := range items {
+		id, name := identity(item)
+		result = append(result, FilterOption{ID: id, Name: name, Selected: id == selected})
+	}
+	sortFilterOptions(result)
+	return result
+}
+
+func sortFilterOptions(options []FilterOption) {
+	sort.Slice(options, func(first, second int) bool {
+		if options[first].Name == options[second].Name {
+			return options[first].ID < options[second].ID
+		}
+		return options[first].Name < options[second].Name
+	})
+}
+
+func sortedKeys(values map[string]struct{}) []string {
+	result := make([]string, 0, len(values))
+	for value := range values {
+		result = append(result, value)
 	}
 	sort.Strings(result)
 	return result

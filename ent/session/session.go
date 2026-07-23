@@ -26,6 +26,10 @@ const (
 	FieldForecastStart = "forecast_start"
 	// FieldForecastEnd holds the string denoting the forecast_end field in the database.
 	FieldForecastEnd = "forecast_end"
+	// FieldCommunicatedStart holds the string denoting the communicated_start field in the database.
+	FieldCommunicatedStart = "communicated_start"
+	// FieldCommunicatedEnd holds the string denoting the communicated_end field in the database.
+	FieldCommunicatedEnd = "communicated_end"
 	// FieldPreviousForecastStart holds the string denoting the previous_forecast_start field in the database.
 	FieldPreviousForecastStart = "previous_forecast_start"
 	// FieldForecastLaneIds holds the string denoting the forecast_lane_ids field in the database.
@@ -101,6 +105,8 @@ var Columns = []string{
 	FieldLiveStateRevision,
 	FieldForecastStart,
 	FieldForecastEnd,
+	FieldCommunicatedStart,
+	FieldCommunicatedEnd,
 	FieldPreviousForecastStart,
 	FieldForecastLaneIds,
 	FieldForecastLocationIds,
@@ -207,6 +213,16 @@ func ByForecastStart(opts ...sql.OrderTermOption) OrderOption {
 // ByForecastEnd orders the results by the forecast_end field.
 func ByForecastEnd(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldForecastEnd, opts...).ToFunc()
+}
+
+// ByCommunicatedStart orders the results by the communicated_start field.
+func ByCommunicatedStart(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCommunicatedStart, opts...).ToFunc()
+}
+
+// ByCommunicatedEnd orders the results by the communicated_end field.
+func ByCommunicatedEnd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCommunicatedEnd, opts...).ToFunc()
 }
 
 // ByPreviousForecastStart orders the results by the previous_forecast_start field.

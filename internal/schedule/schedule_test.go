@@ -1,6 +1,7 @@
 package schedule
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -102,5 +103,55 @@ func TestSortScheduleSessionsUsesAbsoluteFallbackOrder(t *testing.T) {
 	sortScheduleSessions(sessions)
 	if sessions[0].ID != 1 || sessions[1].ID != 2 {
 		t.Errorf("fallback Session order = %d, %d", sessions[0].ID, sessions[1].ID)
+	}
+}
+
+func TestFilterScheduleSessionsMatchesEverySelectedDimension(t *testing.T) {
+	sessions := []store.PublicScheduleSession{
+		{
+			ID: 1, ForecastStart: time.Date(2026, 8, 21, 8, 0, 0, 0, time.UTC),
+			LocationIDs: []int{1}, LaneIDs: []int{2}, TrackIDs: []int{3},
+		},
+		{
+			ID: 2, ForecastStart: time.Date(2026, 8, 21, 9, 0, 0, 0, time.UTC),
+			LocationIDs: []int{1}, LaneIDs: []int{4}, TrackIDs: []int{3},
+		},
+	}
+	filtered := filterScheduleSessions(sessions, Filter{
+		Day: "2026-08-21", LocationID: 1, LaneID: 2, TrackID: 3,
+	}, func(item store.PublicScheduleSession) string {
+		return item.ForecastStart.Format(time.DateOnly)
+	})
+	if len(filtered) != 1 || filtered[0].ID != 1 {
+		t.Fatalf("filtered Schedule Sessions = %+v", filtered)
+	}
+}
+
+func TestPublicActualTimeUsesCommunicatedTimeWithinTolerance(t *testing.T) {
+	communicated := time.Date(2026, 8, 21, 8, 0, 0, 0, time.UTC)
+	actual := communicated.Add(90 * time.Second)
+
+	if got := publicActualTime(actual, communicated, 30*time.Minute); !got.Equal(communicated) {
+		t.Errorf("normalized public Actual Time = %s; want %s", got, communicated)
+	}
+	if got := publicActualTime(actual, communicated, 10*time.Minute); !got.Equal(actual) {
+		t.Errorf("short Session public Actual Time = %s; want exact %s", got, actual)
+	}
+	if got := publicActualTime(actual.Add(time.Minute), communicated, 30*time.Minute); !got.Equal(actual.Add(time.Minute)) {
+		t.Errorf("late public Actual Time = %s; want exact %s", got, actual.Add(time.Minute))
+	}
+}
+
+func TestValidateFilterRejectsMalformedValuesBehindServiceSeam(t *testing.T) {
+	for _, filter := range []Filter{
+		{LocationID: -1},
+		{LaneID: -1},
+		{TrackID: -1},
+		{Day: "not-a-date"},
+		{ViewerTimezone: "not/a/timezone"},
+	} {
+		if _, err := validateFilter(filter); !errors.Is(err, ErrInvalidFilter) {
+			t.Errorf("validate Filter %+v = %v; want ErrInvalidFilter", filter, err)
+		}
 	}
 }

@@ -2,8 +2,10 @@ package server
 
 import (
 	"bytes"
+	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/a-h/templ"
 
@@ -26,8 +28,17 @@ func (handlers scheduleHandlers) list(response http.ResponseWriter, request *htt
 	if !publicMethodAllowed(response, request) {
 		return
 	}
-	snapshot, err := handlers.schedule.Current(request.Context())
+	filter, err := publicScheduleFilter(request)
 	if err != nil {
+		http.Error(response, "invalid Schedule filters", http.StatusBadRequest)
+		return
+	}
+	snapshot, err := handlers.schedule.Current(request.Context(), filter)
+	if err != nil {
+		if errors.Is(err, schedule.ErrInvalidFilter) {
+			http.Error(response, "invalid Schedule filters", http.StatusBadRequest)
+			return
+		}
 		handlers.logger.ErrorContext(request.Context(), "public Schedule read failed", "error", err)
 		http.Error(response, "Schedule unavailable", http.StatusInternalServerError)
 		return
@@ -44,8 +55,14 @@ func (handlers scheduleHandlers) session(response http.ResponseWriter, request *
 		publicSessionNotFound(response)
 		return
 	}
-	snapshot, session, ok, err := handlers.schedule.Find(request.Context(), sessionID)
+	snapshot, session, ok, err := handlers.schedule.Find(
+		request.Context(), sessionID, request.URL.Query().Get("time_zone"),
+	)
 	if err != nil {
+		if errors.Is(err, schedule.ErrInvalidFilter) {
+			http.Error(response, "invalid Schedule filters", http.StatusBadRequest)
+			return
+		}
 		handlers.logger.ErrorContext(request.Context(), "public Session read failed", "error", err)
 		http.Error(response, "Schedule unavailable", http.StatusInternalServerError)
 		return
@@ -55,6 +72,38 @@ func (handlers scheduleHandlers) session(response http.ResponseWriter, request *
 		return
 	}
 	handlers.render(response, request, snapshot.ETag, schedule.SessionPage(snapshot, session), "public Session") //nolint:contextcheck // Generated templ closures receive context when rendered.
+}
+
+func publicScheduleFilter(request *http.Request) (schedule.Filter, error) {
+	locationID, err := optionalPositiveQueryID(request, "location")
+	if err != nil {
+		return schedule.Filter{}, err
+	}
+	laneID, err := optionalPositiveQueryID(request, "lane")
+	if err != nil {
+		return schedule.Filter{}, err
+	}
+	trackID, err := optionalPositiveQueryID(request, "track")
+	if err != nil {
+		return schedule.Filter{}, err
+	}
+	return schedule.Filter{
+		Day: request.URL.Query().Get("day"), LocationID: locationID,
+		LaneID: laneID, TrackID: trackID,
+		ViewerTimezone: request.URL.Query().Get("time_zone"),
+	}, nil
+}
+
+func optionalPositiveQueryID(request *http.Request, name string) (int, error) {
+	value := request.URL.Query().Get(name)
+	if value == "" {
+		return 0, nil
+	}
+	id, err := strconv.Atoi(value)
+	if err != nil || id <= 0 {
+		return 0, schedule.ErrInvalidFilter
+	}
+	return id, nil
 }
 
 func (handlers scheduleHandlers) render(
