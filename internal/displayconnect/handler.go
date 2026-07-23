@@ -117,6 +117,10 @@ func (handler *Handler) Acknowledge(
 		StageMessageRevision:          request.Msg.GetStageMessageRevision(),
 		TechnicalDifficultiesID:       request.Msg.GetTechnicalDifficultiesId(),
 		TechnicalDifficultiesRevision: request.Msg.GetTechnicalDifficultiesRevision(),
+		UrgentNoticeID:                request.Msg.GetUrgentNoticeId(),
+		UrgentNoticeRevision:          request.Msg.GetUrgentNoticeRevision(),
+		EmergencyAlertID:              request.Msg.GetEmergencyAlertId(),
+		EmergencyAlertRevision:        request.Msg.GetEmergencyAlertRevision(),
 		Standby:                       request.Msg.GetStandby(),
 		ClockOffset:                   request.Msg.GetClockOffsetMilliseconds(),
 		ClockUncertainty:              request.Msg.GetClockUncertaintyMilliseconds(),
@@ -160,6 +164,10 @@ func (handler *Handler) validateAcknowledgment(
 		StageMessageRevision:          request.GetStageMessageRevision(),
 		TechnicalDifficultiesID:       request.GetTechnicalDifficultiesId(),
 		TechnicalDifficultiesRevision: request.GetTechnicalDifficultiesRevision(),
+		UrgentNoticeID:                request.GetUrgentNoticeId(),
+		UrgentNoticeRevision:          request.GetUrgentNoticeRevision(),
+		EmergencyAlertID:              request.GetEmergencyAlertId(),
+		EmergencyAlertRevision:        request.GetEmergencyAlertRevision(),
 		Standby:                       request.GetStandby(),
 	}
 	if !handler.stream.ValidSnapshotToken(request.GetSnapshotToken(), state) {
@@ -238,6 +246,8 @@ func snapshotMessage(
 	}
 	result.StageMessage = displayOverrideMessage(found.StageMessage)
 	result.TechnicalDifficulties = displayOverrideMessage(found.TechnicalDifficulties)
+	result.UrgentNotice = displayOverrideMessage(found.UrgentNotice)
+	result.EmergencyAlert = displayOverrideMessage(found.EmergencyAlert)
 	return result
 }
 
@@ -248,6 +258,7 @@ func displayOverrideMessage(found *displays.DisplayOverride) *displayv1.DisplayO
 	result := &displayv1.DisplayOverride{
 		Id: int64(found.ID), Revision: int64(found.Revision), Kind: found.Kind,
 		Text: found.Text, Emphasis: found.Emphasis, UntilCleared: found.UntilCleared,
+		Presentation: found.Presentation,
 	}
 	if !found.ExpiresAt.IsZero() {
 		result.ExpiresAt = timestamppb.New(found.ExpiresAt)
@@ -288,6 +299,10 @@ func snapshotState(found displays.Snapshot, cursor displaystream.Cursor) display
 		StageMessageRevision:          overrideRevision(found.StageMessage),
 		TechnicalDifficultiesID:       overrideID(found.TechnicalDifficulties),
 		TechnicalDifficultiesRevision: overrideRevision(found.TechnicalDifficulties),
+		UrgentNoticeID:                overrideID(found.UrgentNotice),
+		UrgentNoticeRevision:          overrideRevision(found.UrgentNotice),
+		EmergencyAlertID:              overrideID(found.EmergencyAlert),
+		EmergencyAlertRevision:        overrideRevision(found.EmergencyAlert),
 		Standby:                       found.Standby,
 	}
 }
@@ -375,6 +390,10 @@ func acknowledgmentMessage(found displays.Acknowledgment) *displayv1.DisplayAckn
 		StageMessageRevision:          int64(found.StageMessageRevision),
 		TechnicalDifficultiesId:       int64(found.TechnicalDifficultiesID),
 		TechnicalDifficultiesRevision: int64(found.TechnicalDifficultiesRevision),
+		UrgentNoticeId:                int64(found.UrgentNoticeID),
+		UrgentNoticeRevision:          int64(found.UrgentNoticeRevision),
+		EmergencyAlertId:              int64(found.EmergencyAlertID),
+		EmergencyAlertRevision:        int64(found.EmergencyAlertRevision),
 		AppliedAt:                     timestamppb.New(found.AppliedAt),
 		Standby:                       found.Standby,
 		ClockOffsetMilliseconds:       found.ClockOffset,

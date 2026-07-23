@@ -22,8 +22,14 @@ type DisplayOverride struct {
 	EventID int `json:"event_id,omitempty"`
 	// TargetGroupKey holds the value of the "target_group_key" field.
 	TargetGroupKey string `json:"target_group_key,omitempty"`
+	// TargetType holds the value of the "target_type" field.
+	TargetType displayoverride.TargetType `json:"target_type,omitempty"`
+	// TargetID holds the value of the "target_id" field.
+	TargetID int `json:"target_id,omitempty"`
 	// Kind holds the value of the "kind" field.
 	Kind displayoverride.Kind `json:"kind,omitempty"`
+	// Presentation holds the value of the "presentation" field.
+	Presentation displayoverride.Presentation `json:"presentation,omitempty"`
 	// Text holds the value of the "text" field.
 	Text string `json:"text,omitempty"`
 	// Emphasis holds the value of the "emphasis" field.
@@ -86,9 +92,9 @@ func (*DisplayOverride) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case displayoverride.FieldUntilCleared:
 			values[i] = new(sql.NullBool)
-		case displayoverride.FieldID, displayoverride.FieldEventID, displayoverride.FieldRevision, displayoverride.FieldCreatedByAccountID:
+		case displayoverride.FieldID, displayoverride.FieldEventID, displayoverride.FieldTargetID, displayoverride.FieldRevision, displayoverride.FieldCreatedByAccountID:
 			values[i] = new(sql.NullInt64)
-		case displayoverride.FieldTargetGroupKey, displayoverride.FieldKind, displayoverride.FieldText, displayoverride.FieldEmphasis, displayoverride.FieldPresetKey:
+		case displayoverride.FieldTargetGroupKey, displayoverride.FieldTargetType, displayoverride.FieldKind, displayoverride.FieldPresentation, displayoverride.FieldText, displayoverride.FieldEmphasis, displayoverride.FieldPresetKey:
 			values[i] = new(sql.NullString)
 		case displayoverride.FieldExpiresAt, displayoverride.FieldClearedAt, displayoverride.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -125,11 +131,29 @@ func (_m *DisplayOverride) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.TargetGroupKey = value.String
 			}
+		case displayoverride.FieldTargetType:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field target_type", values[i])
+			} else if value.Valid {
+				_m.TargetType = displayoverride.TargetType(value.String)
+			}
+		case displayoverride.FieldTargetID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field target_id", values[i])
+			} else if value.Valid {
+				_m.TargetID = int(value.Int64)
+			}
 		case displayoverride.FieldKind:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field kind", values[i])
 			} else if value.Valid {
 				_m.Kind = displayoverride.Kind(value.String)
+			}
+		case displayoverride.FieldPresentation:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field presentation", values[i])
+			} else if value.Valid {
+				_m.Presentation = displayoverride.Presentation(value.String)
 			}
 		case displayoverride.FieldText:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -239,8 +263,17 @@ func (_m *DisplayOverride) String() string {
 	builder.WriteString("target_group_key=")
 	builder.WriteString(_m.TargetGroupKey)
 	builder.WriteString(", ")
+	builder.WriteString("target_type=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TargetType))
+	builder.WriteString(", ")
+	builder.WriteString("target_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TargetID))
+	builder.WriteString(", ")
 	builder.WriteString("kind=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Kind))
+	builder.WriteString(", ")
+	builder.WriteString("presentation=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Presentation))
 	builder.WriteString(", ")
 	builder.WriteString("text=")
 	builder.WriteString(_m.Text)

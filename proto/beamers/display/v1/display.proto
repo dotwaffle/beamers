@@ -44,6 +44,8 @@ message DisplaySnapshot {
   int64 program_channel_id = 23;
   DisplayOverride stage_message = 24;
   DisplayOverride technical_difficulties = 25;
+  DisplayOverride urgent_notice = 26;
+  DisplayOverride emergency_alert = 27;
 }
 
 message DisplayOverride {
@@ -54,6 +56,7 @@ message DisplayOverride {
   string emphasis = 5;
   bool until_cleared = 6;
   google.protobuf.Timestamp expires_at = 7;
+  string presentation = 8;
 }
 
 message DisplayComposition {
@@ -149,6 +152,10 @@ message AcknowledgeRequest {
   int64 stage_message_revision = 14;
   int64 technical_difficulties_id = 15;
   int64 technical_difficulties_revision = 16;
+  int64 urgent_notice_id = 17;
+  int64 urgent_notice_revision = 18;
+  int64 emergency_alert_id = 19;
+  int64 emergency_alert_revision = 20;
 }
 
 message AcknowledgeResponse {
@@ -173,4 +180,8 @@ message DisplayAcknowledgment {
   int64 stage_message_revision = 15;
   int64 technical_difficulties_id = 16;
   int64 technical_difficulties_revision = 17;
+  int64 urgent_notice_id = 18;
+  int64 urgent_notice_revision = 19;
+  int64 emergency_alert_id = 20;
+  int64 emergency_alert_revision = 21;
 }

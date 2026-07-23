@@ -65,6 +65,11 @@ func TargetGroupKey(v string) predicate.DisplayOverride {
 	return predicate.DisplayOverride(sql.FieldEQ(FieldTargetGroupKey, v))
 }
 
+// TargetID applies equality check predicate on the "target_id" field. It's identical to TargetIDEQ.
+func TargetID(v int) predicate.DisplayOverride {
+	return predicate.DisplayOverride(sql.FieldEQ(FieldTargetID, v))
+}
+
 // Text applies equality check predicate on the "text" field. It's identical to TextEQ.
 func Text(v string) predicate.DisplayOverride {
 	return predicate.DisplayOverride(sql.FieldEQ(FieldText, v))
@@ -190,6 +195,66 @@ func TargetGroupKeyContainsFold(v string) predicate.DisplayOverride {
 	return predicate.DisplayOverride(sql.FieldContainsFold(FieldTargetGroupKey, v))
 }
 
+// TargetTypeEQ applies the EQ predicate on the "target_type" field.
+func TargetTypeEQ(v TargetType) predicate.DisplayOverride {
+	return predicate.DisplayOverride(sql.FieldEQ(FieldTargetType, v))
+}
+
+// TargetTypeNEQ applies the NEQ predicate on the "target_type" field.
+func TargetTypeNEQ(v TargetType) predicate.DisplayOverride {
+	return predicate.DisplayOverride(sql.FieldNEQ(FieldTargetType, v))
+}
+
+// TargetTypeIn applies the In predicate on the "target_type" field.
+func TargetTypeIn(vs ...TargetType) predicate.DisplayOverride {
+	return predicate.DisplayOverride(sql.FieldIn(FieldTargetType, vs...))
+}
+
+// TargetTypeNotIn applies the NotIn predicate on the "target_type" field.
+func TargetTypeNotIn(vs ...TargetType) predicate.DisplayOverride {
+	return predicate.DisplayOverride(sql.FieldNotIn(FieldTargetType, vs...))
+}
+
+// TargetIDEQ applies the EQ predicate on the "target_id" field.
+func TargetIDEQ(v int) predicate.DisplayOverride {
+	return predicate.DisplayOverride(sql.FieldEQ(FieldTargetID, v))
+}
+
+// TargetIDNEQ applies the NEQ predicate on the "target_id" field.
+func TargetIDNEQ(v int) predicate.DisplayOverride {
+	return predicate.DisplayOverride(sql.FieldNEQ(FieldTargetID, v))
+}
+
+// TargetIDIn applies the In predicate on the "target_id" field.
+func TargetIDIn(vs ...int) predicate.DisplayOverride {
+	return predicate.DisplayOverride(sql.FieldIn(FieldTargetID, vs...))
+}
+
+// TargetIDNotIn applies the NotIn predicate on the "target_id" field.
+func TargetIDNotIn(vs ...int) predicate.DisplayOverride {
+	return predicate.DisplayOverride(sql.FieldNotIn(FieldTargetID, vs...))
+}
+
+// TargetIDGT applies the GT predicate on the "target_id" field.
+func TargetIDGT(v int) predicate.DisplayOverride {
+	return predicate.DisplayOverride(sql.FieldGT(FieldTargetID, v))
+}
+
+// TargetIDGTE applies the GTE predicate on the "target_id" field.
+func TargetIDGTE(v int) predicate.DisplayOverride {
+	return predicate.DisplayOverride(sql.FieldGTE(FieldTargetID, v))
+}
+
+// TargetIDLT applies the LT predicate on the "target_id" field.
+func TargetIDLT(v int) predicate.DisplayOverride {
+	return predicate.DisplayOverride(sql.FieldLT(FieldTargetID, v))
+}
+
+// TargetIDLTE applies the LTE predicate on the "target_id" field.
+func TargetIDLTE(v int) predicate.DisplayOverride {
+	return predicate.DisplayOverride(sql.FieldLTE(FieldTargetID, v))
+}
+
 // KindEQ applies the EQ predicate on the "kind" field.
 func KindEQ(v Kind) predicate.DisplayOverride {
 	return predicate.DisplayOverride(sql.FieldEQ(FieldKind, v))
@@ -208,6 +273,26 @@ func KindIn(vs ...Kind) predicate.DisplayOverride {
 // KindNotIn applies the NotIn predicate on the "kind" field.
 func KindNotIn(vs ...Kind) predicate.DisplayOverride {
 	return predicate.DisplayOverride(sql.FieldNotIn(FieldKind, vs...))
+}
+
+// PresentationEQ applies the EQ predicate on the "presentation" field.
+func PresentationEQ(v Presentation) predicate.DisplayOverride {
+	return predicate.DisplayOverride(sql.FieldEQ(FieldPresentation, v))
+}
+
+// PresentationNEQ applies the NEQ predicate on the "presentation" field.
+func PresentationNEQ(v Presentation) predicate.DisplayOverride {
+	return predicate.DisplayOverride(sql.FieldNEQ(FieldPresentation, v))
+}
+
+// PresentationIn applies the In predicate on the "presentation" field.
+func PresentationIn(vs ...Presentation) predicate.DisplayOverride {
+	return predicate.DisplayOverride(sql.FieldIn(FieldPresentation, vs...))
+}
+
+// PresentationNotIn applies the NotIn predicate on the "presentation" field.
+func PresentationNotIn(vs ...Presentation) predicate.DisplayOverride {
+	return predicate.DisplayOverride(sql.FieldNotIn(FieldPresentation, vs...))
 }
 
 // TextEQ applies the EQ predicate on the "text" field.

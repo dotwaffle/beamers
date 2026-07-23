@@ -34,9 +34,51 @@ func (_c *DisplayOverrideCreate) SetTargetGroupKey(v string) *DisplayOverrideCre
 	return _c
 }
 
+// SetTargetType sets the "target_type" field.
+func (_c *DisplayOverrideCreate) SetTargetType(v displayoverride.TargetType) *DisplayOverrideCreate {
+	_c.mutation.SetTargetType(v)
+	return _c
+}
+
+// SetNillableTargetType sets the "target_type" field if the given value is not nil.
+func (_c *DisplayOverrideCreate) SetNillableTargetType(v *displayoverride.TargetType) *DisplayOverrideCreate {
+	if v != nil {
+		_c.SetTargetType(*v)
+	}
+	return _c
+}
+
+// SetTargetID sets the "target_id" field.
+func (_c *DisplayOverrideCreate) SetTargetID(v int) *DisplayOverrideCreate {
+	_c.mutation.SetTargetID(v)
+	return _c
+}
+
+// SetNillableTargetID sets the "target_id" field if the given value is not nil.
+func (_c *DisplayOverrideCreate) SetNillableTargetID(v *int) *DisplayOverrideCreate {
+	if v != nil {
+		_c.SetTargetID(*v)
+	}
+	return _c
+}
+
 // SetKind sets the "kind" field.
 func (_c *DisplayOverrideCreate) SetKind(v displayoverride.Kind) *DisplayOverrideCreate {
 	_c.mutation.SetKind(v)
+	return _c
+}
+
+// SetPresentation sets the "presentation" field.
+func (_c *DisplayOverrideCreate) SetPresentation(v displayoverride.Presentation) *DisplayOverrideCreate {
+	_c.mutation.SetPresentation(v)
+	return _c
+}
+
+// SetNillablePresentation sets the "presentation" field if the given value is not nil.
+func (_c *DisplayOverrideCreate) SetNillablePresentation(v *displayoverride.Presentation) *DisplayOverrideCreate {
+	if v != nil {
+		_c.SetPresentation(*v)
+	}
 	return _c
 }
 
@@ -207,6 +249,18 @@ func (_c *DisplayOverrideCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *DisplayOverrideCreate) defaults() error {
+	if _, ok := _c.mutation.TargetType(); !ok {
+		v := displayoverride.DefaultTargetType
+		_c.mutation.SetTargetType(v)
+	}
+	if _, ok := _c.mutation.TargetID(); !ok {
+		v := displayoverride.DefaultTargetID
+		_c.mutation.SetTargetID(v)
+	}
+	if _, ok := _c.mutation.Presentation(); !ok {
+		v := displayoverride.DefaultPresentation
+		_c.mutation.SetPresentation(v)
+	}
 	if _, ok := _c.mutation.Emphasis(); !ok {
 		v := displayoverride.DefaultEmphasis
 		_c.mutation.SetEmphasis(v)
@@ -242,12 +296,31 @@ func (_c *DisplayOverrideCreate) check() error {
 			return &ValidationError{Name: "target_group_key", err: fmt.Errorf(`ent: validator failed for field "DisplayOverride.target_group_key": %w`, err)}
 		}
 	}
+	if _, ok := _c.mutation.TargetType(); !ok {
+		return &ValidationError{Name: "target_type", err: errors.New(`ent: missing required field "DisplayOverride.target_type"`)}
+	}
+	if v, ok := _c.mutation.TargetType(); ok {
+		if err := displayoverride.TargetTypeValidator(v); err != nil {
+			return &ValidationError{Name: "target_type", err: fmt.Errorf(`ent: validator failed for field "DisplayOverride.target_type": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.TargetID(); !ok {
+		return &ValidationError{Name: "target_id", err: errors.New(`ent: missing required field "DisplayOverride.target_id"`)}
+	}
 	if _, ok := _c.mutation.Kind(); !ok {
 		return &ValidationError{Name: "kind", err: errors.New(`ent: missing required field "DisplayOverride.kind"`)}
 	}
 	if v, ok := _c.mutation.Kind(); ok {
 		if err := displayoverride.KindValidator(v); err != nil {
 			return &ValidationError{Name: "kind", err: fmt.Errorf(`ent: validator failed for field "DisplayOverride.kind": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.Presentation(); !ok {
+		return &ValidationError{Name: "presentation", err: errors.New(`ent: missing required field "DisplayOverride.presentation"`)}
+	}
+	if v, ok := _c.mutation.Presentation(); ok {
+		if err := displayoverride.PresentationValidator(v); err != nil {
+			return &ValidationError{Name: "presentation", err: fmt.Errorf(`ent: validator failed for field "DisplayOverride.presentation": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Text(); !ok {
@@ -326,9 +399,21 @@ func (_c *DisplayOverrideCreate) createSpec() (*DisplayOverride, *sqlgraph.Creat
 		_spec.SetField(displayoverride.FieldTargetGroupKey, field.TypeString, value)
 		_node.TargetGroupKey = value
 	}
+	if value, ok := _c.mutation.TargetType(); ok {
+		_spec.SetField(displayoverride.FieldTargetType, field.TypeEnum, value)
+		_node.TargetType = value
+	}
+	if value, ok := _c.mutation.TargetID(); ok {
+		_spec.SetField(displayoverride.FieldTargetID, field.TypeInt, value)
+		_node.TargetID = value
+	}
 	if value, ok := _c.mutation.Kind(); ok {
 		_spec.SetField(displayoverride.FieldKind, field.TypeEnum, value)
 		_node.Kind = value
+	}
+	if value, ok := _c.mutation.Presentation(); ok {
+		_spec.SetField(displayoverride.FieldPresentation, field.TypeEnum, value)
+		_node.Presentation = value
 	}
 	if value, ok := _c.mutation.Text(); ok {
 		_spec.SetField(displayoverride.FieldText, field.TypeString, value)

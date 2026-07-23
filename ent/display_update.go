@@ -255,6 +255,90 @@ func (_u *DisplayUpdate) AddAppliedTechnicalDifficultiesRevision(v int) *Display
 	return _u
 }
 
+// SetAppliedUrgentNoticeID sets the "applied_urgent_notice_id" field.
+func (_u *DisplayUpdate) SetAppliedUrgentNoticeID(v int) *DisplayUpdate {
+	_u.mutation.ResetAppliedUrgentNoticeID()
+	_u.mutation.SetAppliedUrgentNoticeID(v)
+	return _u
+}
+
+// SetNillableAppliedUrgentNoticeID sets the "applied_urgent_notice_id" field if the given value is not nil.
+func (_u *DisplayUpdate) SetNillableAppliedUrgentNoticeID(v *int) *DisplayUpdate {
+	if v != nil {
+		_u.SetAppliedUrgentNoticeID(*v)
+	}
+	return _u
+}
+
+// AddAppliedUrgentNoticeID adds value to the "applied_urgent_notice_id" field.
+func (_u *DisplayUpdate) AddAppliedUrgentNoticeID(v int) *DisplayUpdate {
+	_u.mutation.AddAppliedUrgentNoticeID(v)
+	return _u
+}
+
+// SetAppliedUrgentNoticeRevision sets the "applied_urgent_notice_revision" field.
+func (_u *DisplayUpdate) SetAppliedUrgentNoticeRevision(v int) *DisplayUpdate {
+	_u.mutation.ResetAppliedUrgentNoticeRevision()
+	_u.mutation.SetAppliedUrgentNoticeRevision(v)
+	return _u
+}
+
+// SetNillableAppliedUrgentNoticeRevision sets the "applied_urgent_notice_revision" field if the given value is not nil.
+func (_u *DisplayUpdate) SetNillableAppliedUrgentNoticeRevision(v *int) *DisplayUpdate {
+	if v != nil {
+		_u.SetAppliedUrgentNoticeRevision(*v)
+	}
+	return _u
+}
+
+// AddAppliedUrgentNoticeRevision adds value to the "applied_urgent_notice_revision" field.
+func (_u *DisplayUpdate) AddAppliedUrgentNoticeRevision(v int) *DisplayUpdate {
+	_u.mutation.AddAppliedUrgentNoticeRevision(v)
+	return _u
+}
+
+// SetAppliedEmergencyAlertID sets the "applied_emergency_alert_id" field.
+func (_u *DisplayUpdate) SetAppliedEmergencyAlertID(v int) *DisplayUpdate {
+	_u.mutation.ResetAppliedEmergencyAlertID()
+	_u.mutation.SetAppliedEmergencyAlertID(v)
+	return _u
+}
+
+// SetNillableAppliedEmergencyAlertID sets the "applied_emergency_alert_id" field if the given value is not nil.
+func (_u *DisplayUpdate) SetNillableAppliedEmergencyAlertID(v *int) *DisplayUpdate {
+	if v != nil {
+		_u.SetAppliedEmergencyAlertID(*v)
+	}
+	return _u
+}
+
+// AddAppliedEmergencyAlertID adds value to the "applied_emergency_alert_id" field.
+func (_u *DisplayUpdate) AddAppliedEmergencyAlertID(v int) *DisplayUpdate {
+	_u.mutation.AddAppliedEmergencyAlertID(v)
+	return _u
+}
+
+// SetAppliedEmergencyAlertRevision sets the "applied_emergency_alert_revision" field.
+func (_u *DisplayUpdate) SetAppliedEmergencyAlertRevision(v int) *DisplayUpdate {
+	_u.mutation.ResetAppliedEmergencyAlertRevision()
+	_u.mutation.SetAppliedEmergencyAlertRevision(v)
+	return _u
+}
+
+// SetNillableAppliedEmergencyAlertRevision sets the "applied_emergency_alert_revision" field if the given value is not nil.
+func (_u *DisplayUpdate) SetNillableAppliedEmergencyAlertRevision(v *int) *DisplayUpdate {
+	if v != nil {
+		_u.SetAppliedEmergencyAlertRevision(*v)
+	}
+	return _u
+}
+
+// AddAppliedEmergencyAlertRevision adds value to the "applied_emergency_alert_revision" field.
+func (_u *DisplayUpdate) AddAppliedEmergencyAlertRevision(v int) *DisplayUpdate {
+	_u.mutation.AddAppliedEmergencyAlertRevision(v)
+	return _u
+}
+
 // SetAppliedStandby sets the "applied_standby" field.
 func (_u *DisplayUpdate) SetAppliedStandby(v bool) *DisplayUpdate {
 	_u.mutation.SetAppliedStandby(v)
@@ -566,6 +650,30 @@ func (_u *DisplayUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedAppliedTechnicalDifficultiesRevision(); ok {
 		_spec.AddField(display.FieldAppliedTechnicalDifficultiesRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedUrgentNoticeID(); ok {
+		_spec.SetField(display.FieldAppliedUrgentNoticeID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedUrgentNoticeID(); ok {
+		_spec.AddField(display.FieldAppliedUrgentNoticeID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedUrgentNoticeRevision(); ok {
+		_spec.SetField(display.FieldAppliedUrgentNoticeRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedUrgentNoticeRevision(); ok {
+		_spec.AddField(display.FieldAppliedUrgentNoticeRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedEmergencyAlertID(); ok {
+		_spec.SetField(display.FieldAppliedEmergencyAlertID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedEmergencyAlertID(); ok {
+		_spec.AddField(display.FieldAppliedEmergencyAlertID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedEmergencyAlertRevision(); ok {
+		_spec.SetField(display.FieldAppliedEmergencyAlertRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedEmergencyAlertRevision(); ok {
+		_spec.AddField(display.FieldAppliedEmergencyAlertRevision, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.AppliedStandby(); ok {
 		_spec.SetField(display.FieldAppliedStandby, field.TypeBool, value)
@@ -970,6 +1078,90 @@ func (_u *DisplayUpdateOne) AddAppliedTechnicalDifficultiesRevision(v int) *Disp
 	return _u
 }
 
+// SetAppliedUrgentNoticeID sets the "applied_urgent_notice_id" field.
+func (_u *DisplayUpdateOne) SetAppliedUrgentNoticeID(v int) *DisplayUpdateOne {
+	_u.mutation.ResetAppliedUrgentNoticeID()
+	_u.mutation.SetAppliedUrgentNoticeID(v)
+	return _u
+}
+
+// SetNillableAppliedUrgentNoticeID sets the "applied_urgent_notice_id" field if the given value is not nil.
+func (_u *DisplayUpdateOne) SetNillableAppliedUrgentNoticeID(v *int) *DisplayUpdateOne {
+	if v != nil {
+		_u.SetAppliedUrgentNoticeID(*v)
+	}
+	return _u
+}
+
+// AddAppliedUrgentNoticeID adds value to the "applied_urgent_notice_id" field.
+func (_u *DisplayUpdateOne) AddAppliedUrgentNoticeID(v int) *DisplayUpdateOne {
+	_u.mutation.AddAppliedUrgentNoticeID(v)
+	return _u
+}
+
+// SetAppliedUrgentNoticeRevision sets the "applied_urgent_notice_revision" field.
+func (_u *DisplayUpdateOne) SetAppliedUrgentNoticeRevision(v int) *DisplayUpdateOne {
+	_u.mutation.ResetAppliedUrgentNoticeRevision()
+	_u.mutation.SetAppliedUrgentNoticeRevision(v)
+	return _u
+}
+
+// SetNillableAppliedUrgentNoticeRevision sets the "applied_urgent_notice_revision" field if the given value is not nil.
+func (_u *DisplayUpdateOne) SetNillableAppliedUrgentNoticeRevision(v *int) *DisplayUpdateOne {
+	if v != nil {
+		_u.SetAppliedUrgentNoticeRevision(*v)
+	}
+	return _u
+}
+
+// AddAppliedUrgentNoticeRevision adds value to the "applied_urgent_notice_revision" field.
+func (_u *DisplayUpdateOne) AddAppliedUrgentNoticeRevision(v int) *DisplayUpdateOne {
+	_u.mutation.AddAppliedUrgentNoticeRevision(v)
+	return _u
+}
+
+// SetAppliedEmergencyAlertID sets the "applied_emergency_alert_id" field.
+func (_u *DisplayUpdateOne) SetAppliedEmergencyAlertID(v int) *DisplayUpdateOne {
+	_u.mutation.ResetAppliedEmergencyAlertID()
+	_u.mutation.SetAppliedEmergencyAlertID(v)
+	return _u
+}
+
+// SetNillableAppliedEmergencyAlertID sets the "applied_emergency_alert_id" field if the given value is not nil.
+func (_u *DisplayUpdateOne) SetNillableAppliedEmergencyAlertID(v *int) *DisplayUpdateOne {
+	if v != nil {
+		_u.SetAppliedEmergencyAlertID(*v)
+	}
+	return _u
+}
+
+// AddAppliedEmergencyAlertID adds value to the "applied_emergency_alert_id" field.
+func (_u *DisplayUpdateOne) AddAppliedEmergencyAlertID(v int) *DisplayUpdateOne {
+	_u.mutation.AddAppliedEmergencyAlertID(v)
+	return _u
+}
+
+// SetAppliedEmergencyAlertRevision sets the "applied_emergency_alert_revision" field.
+func (_u *DisplayUpdateOne) SetAppliedEmergencyAlertRevision(v int) *DisplayUpdateOne {
+	_u.mutation.ResetAppliedEmergencyAlertRevision()
+	_u.mutation.SetAppliedEmergencyAlertRevision(v)
+	return _u
+}
+
+// SetNillableAppliedEmergencyAlertRevision sets the "applied_emergency_alert_revision" field if the given value is not nil.
+func (_u *DisplayUpdateOne) SetNillableAppliedEmergencyAlertRevision(v *int) *DisplayUpdateOne {
+	if v != nil {
+		_u.SetAppliedEmergencyAlertRevision(*v)
+	}
+	return _u
+}
+
+// AddAppliedEmergencyAlertRevision adds value to the "applied_emergency_alert_revision" field.
+func (_u *DisplayUpdateOne) AddAppliedEmergencyAlertRevision(v int) *DisplayUpdateOne {
+	_u.mutation.AddAppliedEmergencyAlertRevision(v)
+	return _u
+}
+
 // SetAppliedStandby sets the "applied_standby" field.
 func (_u *DisplayUpdateOne) SetAppliedStandby(v bool) *DisplayUpdateOne {
 	_u.mutation.SetAppliedStandby(v)
@@ -1311,6 +1503,30 @@ func (_u *DisplayUpdateOne) sqlSave(ctx context.Context) (_node *Display, err er
 	}
 	if value, ok := _u.mutation.AddedAppliedTechnicalDifficultiesRevision(); ok {
 		_spec.AddField(display.FieldAppliedTechnicalDifficultiesRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedUrgentNoticeID(); ok {
+		_spec.SetField(display.FieldAppliedUrgentNoticeID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedUrgentNoticeID(); ok {
+		_spec.AddField(display.FieldAppliedUrgentNoticeID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedUrgentNoticeRevision(); ok {
+		_spec.SetField(display.FieldAppliedUrgentNoticeRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedUrgentNoticeRevision(); ok {
+		_spec.AddField(display.FieldAppliedUrgentNoticeRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedEmergencyAlertID(); ok {
+		_spec.SetField(display.FieldAppliedEmergencyAlertID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedEmergencyAlertID(); ok {
+		_spec.AddField(display.FieldAppliedEmergencyAlertID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AppliedEmergencyAlertRevision(); ok {
+		_spec.SetField(display.FieldAppliedEmergencyAlertRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAppliedEmergencyAlertRevision(); ok {
+		_spec.AddField(display.FieldAppliedEmergencyAlertRevision, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.AppliedStandby(); ok {
 		_spec.SetField(display.FieldAppliedStandby, field.TypeBool, value)

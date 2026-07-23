@@ -59,6 +59,32 @@ type Preview = store.DisplayOverridePreview
 // ActiveOverride is one active Override with live Display membership.
 type ActiveOverride = store.ActiveDisplayOverride
 
+// Target identifies one logical or fixed Override scope.
+type Target = store.DisplayOverrideTarget
+
+// TargetType is one logical or fixed Override scope discriminator.
+type TargetType = store.DisplayOverrideTargetType
+
+// PriorityInput activates an Urgent Notice or Emergency Alert.
+type PriorityInput struct {
+	EventID            int    `json:"event_id"`
+	Target             Target `json:"target"`
+	Text               string `json:"text"`
+	Presentation       string `json:"presentation"`
+	DurationSeconds    int    `json:"duration_seconds"`
+	UntilCleared       bool   `json:"until_cleared"`
+	Confirmed          bool   `json:"confirmed"`
+	ConfirmationMethod string `json:"confirmation_method"`
+	PreviewFingerprint string `json:"preview_fingerprint"`
+	CommandID          string `json:"command_id"`
+}
+
+// PriorityPreview binds normalized content to the currently resolved Displays.
+type PriorityPreview struct {
+	Preview
+	ConfirmationFingerprint string `json:"confirmation_fingerprint,omitempty"`
+}
+
 // ConfigureInput replaces Event Stage Message defaults.
 type ConfigureInput struct {
 	EventID                int      `json:"event_id"`
@@ -92,10 +118,12 @@ type TechnicalDifficultiesInput struct {
 
 // ClearInput clears one exact Override activation.
 type ClearInput struct {
-	EventID          int    `json:"event_id"`
-	OverrideID       int    `json:"override_id"`
-	ExpectedRevision int    `json:"expected_revision"`
-	CommandID        string `json:"command_id"`
+	EventID            int    `json:"event_id"`
+	OverrideID         int    `json:"override_id"`
+	ExpectedRevision   int    `json:"expected_revision"`
+	CommandID          string `json:"command_id"`
+	Confirmed          bool   `json:"confirmed"`
+	ConfirmationMethod string `json:"confirmation_method"`
 }
 
 // Service owns Override commands.
@@ -138,6 +166,51 @@ func (service *Service) PreviewTechnicalDifficulties(
 			Now:          service.now().UTC(),
 		},
 	)
+}
+
+// PreviewUrgentNotice resolves an Urgent Notice without activation.
+func (service *Service) PreviewUrgentNotice(
+	ctx context.Context,
+	actor auth.Account,
+	input PriorityInput,
+) (PriorityPreview, error) {
+	return service.previewPriority(ctx, actor, input, store.DisplayOverrideUrgentNotice)
+}
+
+// PreviewEmergencyAlert resolves and binds an Emergency Alert confirmation.
+func (service *Service) PreviewEmergencyAlert(
+	ctx context.Context,
+	actor auth.Account,
+	input PriorityInput,
+) (PriorityPreview, error) {
+	input.Presentation = string(store.DisplayOverrideReplace)
+	input.UntilCleared = true
+	input.DurationSeconds = 0
+	return service.previewPriority(ctx, actor, input, store.DisplayOverrideEmergencyAlert)
+}
+
+func (service *Service) previewPriority(
+	ctx context.Context,
+	actor auth.Account,
+	input PriorityInput,
+	kind store.DisplayOverrideKind,
+) (PriorityPreview, error) {
+	if input.EventID <= 0 || input.DurationSeconds < 0 ||
+		input.DurationSeconds > 24*60*60 {
+		return PriorityPreview{}, ErrInvalidInput
+	}
+	preview, err := service.storage.PreviewPriorityOverride(
+		actor.Context(ctx),
+		priorityParams(input, kind, service.now().UTC()),
+	)
+	if err != nil {
+		return PriorityPreview{}, err
+	}
+	result := PriorityPreview{Preview: preview}
+	if kind == store.DisplayOverrideEmergencyAlert {
+		result.ConfirmationFingerprint = store.DisplayOverridePreviewFingerprint(preview)
+	}
+	return result, nil
 }
 
 // New creates an Override service with explicit dependencies.
@@ -248,6 +321,77 @@ func (service *Service) ActivateTechnicalDifficulties(
 	)
 }
 
+// ActivateUrgentNotice activates one operational Override.
+func (service *Service) ActivateUrgentNotice(
+	ctx context.Context,
+	actor auth.Account,
+	input PriorityInput,
+) (Override, error) {
+	return service.activatePriority(ctx, actor, input, store.DisplayOverrideUrgentNotice)
+}
+
+// ActivateEmergencyAlert activates one confirmed highest-priority Override.
+func (service *Service) ActivateEmergencyAlert(
+	ctx context.Context,
+	actor auth.Account,
+	input PriorityInput,
+) (Override, error) {
+	input.Presentation = string(store.DisplayOverrideReplace)
+	input.UntilCleared = true
+	input.DurationSeconds = 0
+	if !input.Confirmed || !validEmergencyConfirmation(input.ConfirmationMethod) ||
+		input.PreviewFingerprint == "" {
+		return Override{}, ErrInvalidInput
+	}
+	return service.activatePriority(ctx, actor, input, store.DisplayOverrideEmergencyAlert)
+}
+
+func validEmergencyConfirmation(method string) bool {
+	return method == "Keyboard" || method == "TwoSecondHold"
+}
+
+func (service *Service) activatePriority(
+	ctx context.Context,
+	actor auth.Account,
+	input PriorityInput,
+	kind store.DisplayOverrideKind,
+) (Override, error) {
+	if input.EventID <= 0 || input.DurationSeconds < 0 ||
+		input.DurationSeconds > 24*60*60 {
+		return Override{}, ErrInvalidInput
+	}
+	return execute(
+		ctx, service, actor, input.EventID, input.CommandID,
+		"Activate"+string(kind), string(input.Target.Type), displayTargetID(input.Target), input,
+		func(transaction *store.CommandTx, now time.Time) (Override, error) {
+			return transaction.ActivatePriorityOverride(
+				actor.Context(ctx), priorityParams(input, kind, now),
+			)
+		},
+	)
+}
+
+func priorityParams(
+	input PriorityInput,
+	kind store.DisplayOverrideKind,
+	now time.Time,
+) store.ActivatePriorityOverrideParams {
+	return store.ActivatePriorityOverrideParams{
+		EventID: input.EventID, Target: input.Target, Kind: kind,
+		Presentation: store.DisplayOverridePresentation(input.Presentation),
+		Text:         input.Text, UntilCleared: input.UntilCleared,
+		Duration: time.Duration(input.DurationSeconds) * time.Second, Now: now,
+		ConfirmationFingerprint: input.PreviewFingerprint,
+	}
+}
+
+func displayTargetID(target Target) string {
+	if target.Key != "" {
+		return target.Key
+	}
+	return strconv.Itoa(target.ID)
+}
+
 func validTechnicalDifficultiesInput(input TechnicalDifficultiesInput) bool {
 	return input.EventID > 0 &&
 		input.DurationSeconds >= 0 &&
@@ -271,6 +415,7 @@ func (service *Service) Clear(
 			return transaction.ClearDisplayOverride(
 				actor.Context(ctx), input.EventID, input.OverrideID,
 				input.ExpectedRevision, now,
+				input.Confirmed && validEmergencyConfirmation(input.ConfirmationMethod),
 			)
 		},
 	)

@@ -668,20 +668,36 @@ func init() {
 	displayDescAppliedTechnicalDifficultiesRevision := displayFields[13].Descriptor()
 	// display.DefaultAppliedTechnicalDifficultiesRevision holds the default value on creation for the applied_technical_difficulties_revision field.
 	display.DefaultAppliedTechnicalDifficultiesRevision = displayDescAppliedTechnicalDifficultiesRevision.Default.(int)
+	// displayDescAppliedUrgentNoticeID is the schema descriptor for applied_urgent_notice_id field.
+	displayDescAppliedUrgentNoticeID := displayFields[14].Descriptor()
+	// display.DefaultAppliedUrgentNoticeID holds the default value on creation for the applied_urgent_notice_id field.
+	display.DefaultAppliedUrgentNoticeID = displayDescAppliedUrgentNoticeID.Default.(int)
+	// displayDescAppliedUrgentNoticeRevision is the schema descriptor for applied_urgent_notice_revision field.
+	displayDescAppliedUrgentNoticeRevision := displayFields[15].Descriptor()
+	// display.DefaultAppliedUrgentNoticeRevision holds the default value on creation for the applied_urgent_notice_revision field.
+	display.DefaultAppliedUrgentNoticeRevision = displayDescAppliedUrgentNoticeRevision.Default.(int)
+	// displayDescAppliedEmergencyAlertID is the schema descriptor for applied_emergency_alert_id field.
+	displayDescAppliedEmergencyAlertID := displayFields[16].Descriptor()
+	// display.DefaultAppliedEmergencyAlertID holds the default value on creation for the applied_emergency_alert_id field.
+	display.DefaultAppliedEmergencyAlertID = displayDescAppliedEmergencyAlertID.Default.(int)
+	// displayDescAppliedEmergencyAlertRevision is the schema descriptor for applied_emergency_alert_revision field.
+	displayDescAppliedEmergencyAlertRevision := displayFields[17].Descriptor()
+	// display.DefaultAppliedEmergencyAlertRevision holds the default value on creation for the applied_emergency_alert_revision field.
+	display.DefaultAppliedEmergencyAlertRevision = displayDescAppliedEmergencyAlertRevision.Default.(int)
 	// displayDescAppliedStandby is the schema descriptor for applied_standby field.
-	displayDescAppliedStandby := displayFields[14].Descriptor()
+	displayDescAppliedStandby := displayFields[18].Descriptor()
 	// display.DefaultAppliedStandby holds the default value on creation for the applied_standby field.
 	display.DefaultAppliedStandby = displayDescAppliedStandby.Default.(bool)
 	// displayDescClockOffsetMilliseconds is the schema descriptor for clock_offset_milliseconds field.
-	displayDescClockOffsetMilliseconds := displayFields[15].Descriptor()
+	displayDescClockOffsetMilliseconds := displayFields[19].Descriptor()
 	// display.DefaultClockOffsetMilliseconds holds the default value on creation for the clock_offset_milliseconds field.
 	display.DefaultClockOffsetMilliseconds = displayDescClockOffsetMilliseconds.Default.(int64)
 	// displayDescClockUncertaintyMilliseconds is the schema descriptor for clock_uncertainty_milliseconds field.
-	displayDescClockUncertaintyMilliseconds := displayFields[16].Descriptor()
+	displayDescClockUncertaintyMilliseconds := displayFields[20].Descriptor()
 	// display.DefaultClockUncertaintyMilliseconds holds the default value on creation for the clock_uncertainty_milliseconds field.
 	display.DefaultClockUncertaintyMilliseconds = displayDescClockUncertaintyMilliseconds.Default.(int64)
 	// displayDescRendererUnstable is the schema descriptor for renderer_unstable field.
-	displayDescRendererUnstable := displayFields[17].Descriptor()
+	displayDescRendererUnstable := displayFields[21].Descriptor()
 	// display.DefaultRendererUnstable holds the default value on creation for the renderer_unstable field.
 	display.DefaultRendererUnstable = displayDescRendererUnstable.Default.(bool)
 	displayassignment.Policy = privacy.NewPolicies(schema.DisplayAssignment{})
@@ -834,8 +850,12 @@ func init() {
 			return nil
 		}
 	}()
+	// displayoverrideDescTargetID is the schema descriptor for target_id field.
+	displayoverrideDescTargetID := displayoverrideFields[3].Descriptor()
+	// displayoverride.DefaultTargetID holds the default value on creation for the target_id field.
+	displayoverride.DefaultTargetID = displayoverrideDescTargetID.Default.(int)
 	// displayoverrideDescText is the schema descriptor for text field.
-	displayoverrideDescText := displayoverrideFields[3].Descriptor()
+	displayoverrideDescText := displayoverrideFields[6].Descriptor()
 	// displayoverride.TextValidator is a validator for the "text" field. It is called by the builders before save.
 	displayoverride.TextValidator = func() func(string) error {
 		validators := displayoverrideDescText.Validators
@@ -853,25 +873,25 @@ func init() {
 		}
 	}()
 	// displayoverrideDescPresetKey is the schema descriptor for preset_key field.
-	displayoverrideDescPresetKey := displayoverrideFields[5].Descriptor()
+	displayoverrideDescPresetKey := displayoverrideFields[8].Descriptor()
 	// displayoverride.PresetKeyValidator is a validator for the "preset_key" field. It is called by the builders before save.
 	displayoverride.PresetKeyValidator = displayoverrideDescPresetKey.Validators[0].(func(string) error)
 	// displayoverrideDescUntilCleared is the schema descriptor for until_cleared field.
-	displayoverrideDescUntilCleared := displayoverrideFields[6].Descriptor()
+	displayoverrideDescUntilCleared := displayoverrideFields[9].Descriptor()
 	// displayoverride.DefaultUntilCleared holds the default value on creation for the until_cleared field.
 	displayoverride.DefaultUntilCleared = displayoverrideDescUntilCleared.Default.(bool)
 	// displayoverrideDescRevision is the schema descriptor for revision field.
-	displayoverrideDescRevision := displayoverrideFields[9].Descriptor()
+	displayoverrideDescRevision := displayoverrideFields[12].Descriptor()
 	// displayoverride.DefaultRevision holds the default value on creation for the revision field.
 	displayoverride.DefaultRevision = displayoverrideDescRevision.Default.(int)
 	// displayoverride.RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
 	displayoverride.RevisionValidator = displayoverrideDescRevision.Validators[0].(func(int) error)
 	// displayoverrideDescCreatedByAccountID is the schema descriptor for created_by_account_id field.
-	displayoverrideDescCreatedByAccountID := displayoverrideFields[10].Descriptor()
+	displayoverrideDescCreatedByAccountID := displayoverrideFields[13].Descriptor()
 	// displayoverride.CreatedByAccountIDValidator is a validator for the "created_by_account_id" field. It is called by the builders before save.
 	displayoverride.CreatedByAccountIDValidator = displayoverrideDescCreatedByAccountID.Validators[0].(func(int) error)
 	// displayoverrideDescCreatedAt is the schema descriptor for created_at field.
-	displayoverrideDescCreatedAt := displayoverrideFields[11].Descriptor()
+	displayoverrideDescCreatedAt := displayoverrideFields[14].Descriptor()
 	// displayoverride.DefaultCreatedAt holds the default value on creation for the created_at field.
 	displayoverride.DefaultCreatedAt = displayoverrideDescCreatedAt.Default.(func() time.Time)
 	displayoverridestate.Policy = privacy.NewPolicies(schema.DisplayOverrideState{})

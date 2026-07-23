@@ -250,6 +250,10 @@ var (
 		{Name: "applied_stage_message_revision", Type: field.TypeInt, Default: 0},
 		{Name: "applied_technical_difficulties_id", Type: field.TypeInt, Default: 0},
 		{Name: "applied_technical_difficulties_revision", Type: field.TypeInt, Default: 0},
+		{Name: "applied_urgent_notice_id", Type: field.TypeInt, Default: 0},
+		{Name: "applied_urgent_notice_revision", Type: field.TypeInt, Default: 0},
+		{Name: "applied_emergency_alert_id", Type: field.TypeInt, Default: 0},
+		{Name: "applied_emergency_alert_revision", Type: field.TypeInt, Default: 0},
 		{Name: "applied_standby", Type: field.TypeBool, Default: true},
 		{Name: "clock_offset_milliseconds", Type: field.TypeInt64, Default: 0},
 		{Name: "clock_uncertainty_milliseconds", Type: field.TypeInt64, Default: 0},
@@ -352,7 +356,10 @@ var (
 	DisplayOverridesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "target_group_key", Type: field.TypeString, Size: 100},
-		{Name: "kind", Type: field.TypeEnum, Enums: []string{"StageMessage", "TechnicalDifficulties"}},
+		{Name: "target_type", Type: field.TypeEnum, Enums: []string{"Event", "Public", "Crew", "Location", "Lane", "ProgramChannel", "DisplayGroup", "Display"}, Default: "DisplayGroup"},
+		{Name: "target_id", Type: field.TypeInt, Default: 0},
+		{Name: "kind", Type: field.TypeEnum, Enums: []string{"StageMessage", "TechnicalDifficulties", "UrgentNotice", "EmergencyAlert"}},
+		{Name: "presentation", Type: field.TypeEnum, Enums: []string{"Overlay", "Replace"}, Default: "Overlay"},
 		{Name: "text", Type: field.TypeString, Size: 2000},
 		{Name: "emphasis", Type: field.TypeEnum, Enums: []string{"Normal", "Attention", "Urgent"}, Default: "Normal"},
 		{Name: "preset_key", Type: field.TypeString, Nullable: true, Size: 100},
@@ -372,7 +379,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "display_overrides_events_display_overrides",
-				Columns:    []*schema.Column{DisplayOverridesColumns[12]},
+				Columns:    []*schema.Column{DisplayOverridesColumns[15]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -381,12 +388,12 @@ var (
 			{
 				Name:    "displayoverride_event_id_kind_target_group_key_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{DisplayOverridesColumns[12], DisplayOverridesColumns[2], DisplayOverridesColumns[1], DisplayOverridesColumns[11]},
+				Columns: []*schema.Column{DisplayOverridesColumns[15], DisplayOverridesColumns[4], DisplayOverridesColumns[1], DisplayOverridesColumns[14]},
 			},
 			{
 				Name:    "displayoverride_event_id_cleared_at_expires_at",
 				Unique:  false,
-				Columns: []*schema.Column{DisplayOverridesColumns[12], DisplayOverridesColumns[8], DisplayOverridesColumns[7]},
+				Columns: []*schema.Column{DisplayOverridesColumns[15], DisplayOverridesColumns[11], DisplayOverridesColumns[10]},
 			},
 		},
 	}

@@ -2,10 +2,13 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,7 +42,50 @@ const (
 	DisplayOverrideStageMessage DisplayOverrideKind = "StageMessage"
 	// DisplayOverrideTechnicalDifficulties is a fullscreen Replace Override.
 	DisplayOverrideTechnicalDifficulties DisplayOverrideKind = "TechnicalDifficulties"
+	// DisplayOverrideUrgentNotice is an operational Replace or Overlay.
+	DisplayOverrideUrgentNotice DisplayOverrideKind = "UrgentNotice"
+	// DisplayOverrideEmergencyAlert is the highest-priority safety Replace.
+	DisplayOverrideEmergencyAlert DisplayOverrideKind = "EmergencyAlert"
 )
+
+// DisplayOverrideTargetType is one supported logical or fixed target scope.
+type DisplayOverrideTargetType string
+
+const (
+	// DisplayOverrideTargetEvent selects all assigned Displays for the Event.
+	DisplayOverrideTargetEvent DisplayOverrideTargetType = "Event"
+	// DisplayOverrideTargetPublic selects public Displays.
+	DisplayOverrideTargetPublic DisplayOverrideTargetType = "Public"
+	// DisplayOverrideTargetCrew selects crew Displays.
+	DisplayOverrideTargetCrew DisplayOverrideTargetType = "Crew"
+	// DisplayOverrideTargetLocation selects Displays assigned to one Location.
+	DisplayOverrideTargetLocation DisplayOverrideTargetType = "Location"
+	// DisplayOverrideTargetLane selects Displays consuming one Lane's Location.
+	DisplayOverrideTargetLane DisplayOverrideTargetType = "Lane"
+	// DisplayOverrideTargetProgramChannel selects Displays consuming one Program Channel.
+	DisplayOverrideTargetProgramChannel DisplayOverrideTargetType = "ProgramChannel"
+	// DisplayOverrideTargetDisplayGroup selects one custom Display Group.
+	DisplayOverrideTargetDisplayGroup DisplayOverrideTargetType = "DisplayGroup"
+	// DisplayOverrideTargetDisplay selects one fixed Display identity.
+	DisplayOverrideTargetDisplay DisplayOverrideTargetType = "Display"
+)
+
+// DisplayOverridePresentation controls composition with lower-priority content.
+type DisplayOverridePresentation string
+
+const (
+	// DisplayOverrideOverlay composes above the visible lower-priority content.
+	DisplayOverrideOverlay DisplayOverridePresentation = "Overlay"
+	// DisplayOverrideReplace suppresses lower-priority content.
+	DisplayOverrideReplace DisplayOverridePresentation = "Replace"
+)
+
+// DisplayOverrideTarget identifies one logical or fixed scope.
+type DisplayOverrideTarget struct {
+	Type DisplayOverrideTargetType `json:"type"`
+	ID   int                       `json:"id,omitempty"`
+	Key  string                    `json:"key,omitempty"`
+}
 
 // StageMessageEmphasis changes accessible styling without changing priority.
 type StageMessageEmphasis string
@@ -72,23 +118,25 @@ type StageMessageConfiguration struct {
 
 // DisplayOverride is one durable Override activation.
 type DisplayOverride struct {
-	ID                 int                  `json:"id"`
-	EventID            int                  `json:"event_id"`
-	TargetGroupKey     string               `json:"target_group_key"`
-	Kind               DisplayOverrideKind  `json:"kind"`
-	Text               string               `json:"text"`
-	Emphasis           StageMessageEmphasis `json:"emphasis"`
-	PresetKey          string               `json:"preset_key,omitempty"`
-	UntilCleared       bool                 `json:"until_cleared"`
-	ExpiresAt          time.Time            `json:"expires_at,omitzero"`
-	ClearedAt          time.Time            `json:"cleared_at,omitzero"`
-	Revision           int                  `json:"revision"`
-	CreatedByAccountID int                  `json:"created_by_account_id"`
-	CreatedAt          time.Time            `json:"created_at"`
+	ID                 int                         `json:"id"`
+	EventID            int                         `json:"event_id"`
+	TargetGroupKey     string                      `json:"target_group_key"`
+	Target             DisplayOverrideTarget       `json:"target"`
+	Kind               DisplayOverrideKind         `json:"kind"`
+	Presentation       DisplayOverridePresentation `json:"presentation"`
+	Text               string                      `json:"text"`
+	Emphasis           StageMessageEmphasis        `json:"emphasis"`
+	PresetKey          string                      `json:"preset_key,omitempty"`
+	UntilCleared       bool                        `json:"until_cleared"`
+	ExpiresAt          time.Time                   `json:"expires_at,omitzero"`
+	ClearedAt          time.Time                   `json:"cleared_at,omitzero"`
+	Revision           int                         `json:"revision"`
+	CreatedByAccountID int                         `json:"created_by_account_id"`
+	CreatedAt          time.Time                   `json:"created_at"`
 }
 
-// DisplayOverrideTarget is one currently resolved Display Group member.
-type DisplayOverrideTarget struct {
+// DisplayOverrideResolvedDisplay is one currently resolved target member.
+type DisplayOverrideResolvedDisplay struct {
 	ID      int    `json:"id"`
 	Name    string `json:"name"`
 	ViewKey string `json:"view_key"`
@@ -96,19 +144,21 @@ type DisplayOverrideTarget struct {
 
 // DisplayOverridePreview resolves an Override without activating it.
 type DisplayOverridePreview struct {
-	Kind           DisplayOverrideKind     `json:"kind"`
-	TargetGroupKey string                  `json:"target_group_key"`
-	Text           string                  `json:"text"`
-	Emphasis       StageMessageEmphasis    `json:"emphasis"`
-	UntilCleared   bool                    `json:"until_cleared"`
-	ExpiresAt      time.Time               `json:"expires_at,omitzero"`
-	Displays       []DisplayOverrideTarget `json:"displays"`
+	Kind           DisplayOverrideKind              `json:"kind"`
+	Target         DisplayOverrideTarget            `json:"target"`
+	TargetGroupKey string                           `json:"target_group_key"`
+	Text           string                           `json:"text"`
+	Emphasis       StageMessageEmphasis             `json:"emphasis"`
+	Presentation   DisplayOverridePresentation      `json:"presentation"`
+	UntilCleared   bool                             `json:"until_cleared"`
+	ExpiresAt      time.Time                        `json:"expires_at,omitzero"`
+	Displays       []DisplayOverrideResolvedDisplay `json:"displays"`
 }
 
 // ActiveDisplayOverride is one active Override with its currently resolved targets.
 type ActiveDisplayOverride struct {
 	DisplayOverride
-	Displays []DisplayOverrideTarget `json:"displays"`
+	Displays []DisplayOverrideResolvedDisplay `json:"displays"`
 }
 
 // ConfigureStageMessagesParams replaces Event preset defaults.
@@ -135,6 +185,19 @@ type ActivateTechnicalDifficultiesParams struct {
 	UntilCleared   bool
 	Duration       time.Duration
 	Now            time.Time
+}
+
+// ActivatePriorityOverrideParams creates an Urgent Notice or Emergency Alert.
+type ActivatePriorityOverrideParams struct {
+	EventID                 int
+	Target                  DisplayOverrideTarget
+	Kind                    DisplayOverrideKind
+	Presentation            DisplayOverridePresentation
+	Text                    string
+	UntilCleared            bool
+	Duration                time.Duration
+	Now                     time.Time
+	ConfirmationFingerprint string
 }
 
 // PreviewStageMessage resolves current Stage Message content and targets.
@@ -185,10 +248,24 @@ func (installationStore *SQLite) ListActiveDisplayOverrides(
 	}
 	result := make([]ActiveDisplayOverride, 0, len(found))
 	for _, item := range found {
-		if !canOperateDisplayGroup(ctx, eventID, item.TargetGroupKey) {
+		projected := displayOverride(item)
+		if !canOperateOverrideTarget(ctx, eventID, projected.Target) {
 			continue
 		}
 		kind := DisplayOverrideKind(item.Kind.String())
+		if kind == DisplayOverrideUrgentNotice || kind == DisplayOverrideEmergencyAlert {
+			targets, targetErr := resolveOverrideTargets(
+				systemContext(ctx), installationStore.client, eventID, projected.Target,
+			)
+			if targetErr != nil {
+				return nil, targetErr
+			}
+			result = append(result, ActiveDisplayOverride{
+				DisplayOverride: projected,
+				Displays:        targets,
+			})
+			continue
+		}
 		preview, previewErr := installationStore.previewDisplayOverride(
 			ctx, eventID, item.TargetGroupKey, kind, item.Text,
 			StageMessageEmphasis(item.Emphasis.String()), item.UntilCleared,
@@ -198,7 +275,7 @@ func (installationStore *SQLite) ListActiveDisplayOverrides(
 			return nil, previewErr
 		}
 		result = append(result, ActiveDisplayOverride{
-			DisplayOverride: displayOverride(item),
+			DisplayOverride: projected,
 			Displays:        preview.Displays,
 		})
 	}
@@ -224,6 +301,59 @@ func (installationStore *SQLite) PreviewTechnicalDifficulties(
 		ctx, params.EventID, params.TargetGroupKey, DisplayOverrideTechnicalDifficulties,
 		params.Text, StageMessageNormal, params.UntilCleared, params.Duration, params.Now, false,
 	)
+}
+
+// PreviewPriorityOverride resolves an Urgent Notice or Emergency Alert.
+func (installationStore *SQLite) PreviewPriorityOverride(
+	ctx context.Context,
+	params ActivatePriorityOverrideParams,
+) (DisplayOverridePreview, error) {
+	if _, err := installationStore.activeOverrideEvent(ctx, params.EventID); err != nil {
+		return DisplayOverridePreview{}, err
+	}
+	params, err := normalizePriorityOverride(params)
+	if err != nil {
+		return DisplayOverridePreview{}, err
+	}
+	if !canOperateOverrideTarget(ctx, params.EventID, params.Target) ||
+		params.Kind == DisplayOverrideEmergencyAlert &&
+			!hasEmergencyAlertCapability(ctx, params.EventID) {
+		return DisplayOverridePreview{}, ErrDisplayOverrideScope
+	}
+	targets, err := resolveOverrideTargets(
+		systemContext(ctx), installationStore.client, params.EventID, params.Target,
+	)
+	if err != nil {
+		return DisplayOverridePreview{}, err
+	}
+	result := priorityOverridePreview(params, targets)
+	return result, nil
+}
+
+func priorityOverridePreview(
+	params ActivatePriorityOverrideParams,
+	targets []DisplayOverrideResolvedDisplay,
+) DisplayOverridePreview {
+	result := DisplayOverridePreview{
+		Kind: params.Kind, Target: params.Target,
+		TargetGroupKey: displayOverrideTargetKey(params.Target),
+		Text:           params.Text, Emphasis: StageMessageNormal,
+		Presentation: params.Presentation, UntilCleared: params.UntilCleared,
+		Displays: targets,
+	}
+	if !params.UntilCleared {
+		result.ExpiresAt = params.Now.Add(params.Duration)
+	}
+	return result
+}
+
+// DisplayOverridePreviewFingerprint binds normalized content and resolved targets.
+func DisplayOverridePreviewFingerprint(preview DisplayOverridePreview) string {
+	encoded, err := json.Marshal(preview)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%x", sha256.Sum256(encoded))
 }
 
 func (installationStore *SQLite) activeOverrideEvent(
@@ -270,8 +400,14 @@ func (installationStore *SQLite) previewDisplayOverride(
 		return DisplayOverridePreview{}, opaqueError("resolve Display Override preview", err)
 	}
 	result := DisplayOverridePreview{
-		Kind: kind, TargetGroupKey: targetGroupKey, Text: text, Emphasis: emphasis,
-		UntilCleared: untilCleared, Displays: make([]DisplayOverrideTarget, 0, len(assignments)),
+		Kind:           kind,
+		Target:         DisplayOverrideTarget{Type: DisplayOverrideTargetDisplayGroup, Key: targetGroupKey},
+		TargetGroupKey: targetGroupKey, Text: text, Emphasis: emphasis,
+		Presentation: map[DisplayOverrideKind]DisplayOverridePresentation{
+			DisplayOverrideStageMessage:          DisplayOverrideOverlay,
+			DisplayOverrideTechnicalDifficulties: DisplayOverrideReplace,
+		}[kind],
+		UntilCleared: untilCleared, Displays: make([]DisplayOverrideResolvedDisplay, 0, len(assignments)),
 	}
 	if !untilCleared {
 		result.ExpiresAt = now.Add(duration)
@@ -285,7 +421,7 @@ func (installationStore *SQLite) previewDisplayOverride(
 		if edgeErr != nil {
 			return DisplayOverridePreview{}, opaqueError("load Display Override preview target", edgeErr)
 		}
-		result.Displays = append(result.Displays, DisplayOverrideTarget{
+		result.Displays = append(result.Displays, DisplayOverrideResolvedDisplay{
 			ID: foundDisplay.ID, Name: foundDisplay.Name, ViewKey: assignment.ViewKey,
 		})
 	}
@@ -293,6 +429,99 @@ func (installationStore *SQLite) previewDisplayOverride(
 		return result.Displays[first].ID < result.Displays[second].ID
 	})
 	return result, nil
+}
+
+func resolveOverrideTargets(
+	ctx context.Context,
+	client *ent.Client,
+	eventID int,
+	target DisplayOverrideTarget,
+) ([]DisplayOverrideResolvedDisplay, error) {
+	assignments, err := client.DisplayAssignment.Query().
+		Where(displayassignment.EventIDEQ(eventID)).
+		WithDisplay().
+		All(ctx)
+	if err != nil {
+		return nil, opaqueError("resolve Override target Assignments", err)
+	}
+	laneLocationID := 0
+	if target.Type == DisplayOverrideTargetLane {
+		published, rundownErr := loadCrewRundown(ctx, client, eventID)
+		if rundownErr != nil {
+			return nil, rundownErr
+		}
+		for _, lane := range published.Lanes {
+			if lane.ID == target.ID {
+				laneLocationID = lane.LocationID
+				break
+			}
+		}
+		if laneLocationID == 0 {
+			return nil, ErrDisplayOverrideInput
+		}
+	}
+	result := make([]DisplayOverrideResolvedDisplay, 0, len(assignments))
+	for _, assignment := range assignments {
+		matches, matchErr := overrideTargetMatchesAssignment(
+			ctx, client, eventID, assignment, target, laneLocationID,
+		)
+		if matchErr != nil {
+			return nil, matchErr
+		}
+		if !matches {
+			continue
+		}
+		foundDisplay, edgeErr := assignment.Edges.DisplayOrErr()
+		if edgeErr != nil {
+			return nil, opaqueError("load Override target Display", edgeErr)
+		}
+		result = append(result, DisplayOverrideResolvedDisplay{
+			ID: foundDisplay.ID, Name: foundDisplay.Name, ViewKey: assignment.ViewKey,
+		})
+	}
+	sort.Slice(result, func(first, second int) bool {
+		return result[first].ID < result[second].ID
+	})
+	return result, nil
+}
+
+func overrideTargetMatchesAssignment(
+	ctx context.Context,
+	client *ent.Client,
+	eventID int,
+	assignment *ent.DisplayAssignment,
+	target DisplayOverrideTarget,
+	laneLocationID int,
+) (bool, error) {
+	switch target.Type {
+	case DisplayOverrideTargetEvent:
+		return true, nil
+	case DisplayOverrideTargetPublic:
+		return assignment.ViewKey != "stage-timer", nil
+	case DisplayOverrideTargetCrew:
+		return assignment.ViewKey == "stage-timer", nil
+	case DisplayOverrideTargetLocation:
+		return assignment.LocationID == target.ID, nil
+	case DisplayOverrideTargetLane:
+		return assignment.LocationID == laneLocationID, nil
+	case DisplayOverrideTargetProgramChannel:
+		if assignment.ViewKey != "competition-output" {
+			return false, nil
+		}
+		channelID, err := competitionOutputProgramChannelID(
+			ctx, client, eventID, assignment.LocationID,
+		)
+		if err != nil {
+			return false, err
+		}
+		return channelID == target.ID, nil
+	case DisplayOverrideTargetDisplayGroup:
+		return slices.Contains(assignment.DisplayGroupKeys, target.Key), nil
+	case DisplayOverrideTargetDisplay:
+		return assignment.DisplayID == target.ID, nil
+	default:
+		return false, ErrDisplayOverrideInput
+	}
 }
 
 // ConfigureStageMessages replaces Event presets and the default expiry duration.
@@ -412,6 +641,138 @@ func (transaction *CommandTx) ActivateTechnicalDifficulties(
 	)
 }
 
+// ActivatePriorityOverride creates an Urgent Notice or Emergency Alert.
+func (transaction *CommandTx) ActivatePriorityOverride(
+	ctx context.Context,
+	params ActivatePriorityOverrideParams,
+) (DisplayOverride, error) {
+	if err := transaction.requireActiveEvent(ctx, params.EventID); err != nil {
+		return DisplayOverride{}, err
+	}
+	params, err := normalizePriorityOverride(params)
+	if err != nil {
+		return DisplayOverride{}, err
+	}
+	if !canOperateOverrideTarget(ctx, params.EventID, params.Target) ||
+		params.Kind == DisplayOverrideEmergencyAlert &&
+			!hasEmergencyAlertCapability(ctx, params.EventID) {
+		return DisplayOverride{}, ErrDisplayOverrideScope
+	}
+	targets, err := resolveOverrideTargets(
+		systemContext(ctx), transaction.transaction.Client(), params.EventID, params.Target,
+	)
+	if err != nil {
+		return DisplayOverride{}, err
+	}
+	if params.Kind == DisplayOverrideEmergencyAlert &&
+		DisplayOverridePreviewFingerprint(priorityOverridePreview(params, targets)) !=
+			params.ConfirmationFingerprint {
+		return DisplayOverride{}, ErrDisplayOverrideRevision
+	}
+	create := transaction.transaction.DisplayOverride.Create().
+		SetEventID(params.EventID).
+		SetTargetGroupKey(displayOverrideTargetKey(params.Target)).
+		SetTargetType(displayoverride.TargetType(params.Target.Type)).
+		SetTargetID(params.Target.ID).
+		SetKind(displayoverride.Kind(params.Kind)).
+		SetPresentation(displayoverride.Presentation(params.Presentation)).
+		SetText(params.Text).
+		SetEmphasis(displayoverride.EmphasisNormal).
+		SetUntilCleared(params.UntilCleared).
+		SetCreatedByAccountID(viewerAccountID(ctx)).
+		SetCreatedAt(params.Now)
+	if !params.UntilCleared {
+		create.SetExpiresAt(params.Now.Add(params.Duration))
+	}
+	created, err := create.Save(systemContext(ctx))
+	if err != nil {
+		return DisplayOverride{}, opaqueError("activate priority Display Override", err)
+	}
+	return displayOverride(created), nil
+}
+
+func normalizePriorityOverride(
+	params ActivatePriorityOverrideParams,
+) (ActivatePriorityOverrideParams, error) {
+	params.Text = strings.TrimSpace(params.Text)
+	params.Target.Key = strings.TrimSpace(params.Target.Key)
+	if params.Text == "" || len(params.Text) > 2000 ||
+		!validDisplayOverrideTarget(params.Target) {
+		return ActivatePriorityOverrideParams{}, ErrDisplayOverrideInput
+	}
+	switch params.Kind {
+	case DisplayOverrideUrgentNotice:
+		if params.Presentation != DisplayOverrideOverlay &&
+			params.Presentation != DisplayOverrideReplace ||
+			!params.UntilCleared && (params.Duration <= 0 || params.Duration > 24*time.Hour) {
+			return ActivatePriorityOverrideParams{}, ErrDisplayOverrideInput
+		}
+	case DisplayOverrideEmergencyAlert:
+		if params.Presentation != DisplayOverrideReplace ||
+			!params.UntilCleared || params.Duration != 0 {
+			return ActivatePriorityOverrideParams{}, ErrDisplayOverrideInput
+		}
+	default:
+		return ActivatePriorityOverrideParams{}, ErrDisplayOverrideInput
+	}
+	return params, nil
+}
+
+func validDisplayOverrideTarget(target DisplayOverrideTarget) bool {
+	switch target.Type {
+	case DisplayOverrideTargetEvent, DisplayOverrideTargetPublic, DisplayOverrideTargetCrew:
+		return target.ID == 0 && target.Key == ""
+	case DisplayOverrideTargetLocation, DisplayOverrideTargetLane,
+		DisplayOverrideTargetProgramChannel, DisplayOverrideTargetDisplay:
+		return target.ID > 0 && target.Key == ""
+	case DisplayOverrideTargetDisplayGroup:
+		return target.ID == 0 && validDisplayGroupKey(target.Key)
+	default:
+		return false
+	}
+}
+
+func displayOverrideTargetKey(target DisplayOverrideTarget) string {
+	switch target.Type {
+	case DisplayOverrideTargetEvent:
+		return "event"
+	case DisplayOverrideTargetPublic:
+		return "public"
+	case DisplayOverrideTargetCrew:
+		return "crew"
+	case DisplayOverrideTargetDisplayGroup:
+		return target.Key
+	case DisplayOverrideTargetLocation, DisplayOverrideTargetLane,
+		DisplayOverrideTargetProgramChannel, DisplayOverrideTargetDisplay:
+		return strings.ToLower(string(target.Type)) + ":" + strconv.Itoa(target.ID)
+	default:
+		return ""
+	}
+}
+
+func canOperateOverrideTarget(
+	ctx context.Context,
+	eventID int,
+	target DisplayOverrideTarget,
+) bool {
+	identity, ok := viewer.FromContext(ctx)
+	if !ok {
+		return false
+	}
+	if identity.CanProduceEvent(eventID) {
+		return true
+	}
+	if target.Type == DisplayOverrideTargetLane {
+		return identity.CanOperateLane(eventID, target.ID)
+	}
+	return identity.CanOperateDisplayGroup(eventID, displayOverrideTargetKey(target))
+}
+
+func hasEmergencyAlertCapability(ctx context.Context, eventID int) bool {
+	identity, ok := viewer.FromContext(ctx)
+	return ok && identity.HasCapability(eventID, viewer.EmergencyAlert)
+}
+
 func normalizeTechnicalDifficulties(
 	params ActivateTechnicalDifficultiesParams,
 ) (ActivateTechnicalDifficultiesParams, error) {
@@ -478,6 +839,10 @@ func (transaction *CommandTx) activateDisplayOverride(
 		SetEventID(eventID).
 		SetTargetGroupKey(targetGroupKey).
 		SetKind(displayoverride.Kind(kind)).
+		SetPresentation(map[DisplayOverrideKind]displayoverride.Presentation{
+			DisplayOverrideStageMessage:          displayoverride.PresentationOverlay,
+			DisplayOverrideTechnicalDifficulties: displayoverride.PresentationReplace,
+		}[kind]).
 		SetText(text).
 		SetEmphasis(displayoverride.Emphasis(emphasis)).
 		SetPresetKey(presetKey).
@@ -542,6 +907,7 @@ func (transaction *CommandTx) ClearDisplayOverride(
 	ctx context.Context,
 	eventID, overrideID, expectedRevision int,
 	now time.Time,
+	confirmedEmergency bool,
 ) (DisplayOverride, error) {
 	internalContext := systemContext(ctx)
 	found, err := transaction.transaction.DisplayOverride.Query().
@@ -556,11 +922,18 @@ func (transaction *CommandTx) ClearDisplayOverride(
 	if err != nil {
 		return DisplayOverride{}, opaqueError("load Display Override", err)
 	}
-	if !canOperateDisplayGroup(ctx, eventID, found.TargetGroupKey) {
+	projected := displayOverride(found)
+	if !canOperateOverrideTarget(ctx, eventID, projected.Target) ||
+		projected.Kind == DisplayOverrideEmergencyAlert &&
+			!hasEmergencyAlertCapability(ctx, eventID) {
 		return DisplayOverride{}, ErrDisplayOverrideScope
 	}
 	if found.Revision != expectedRevision {
 		return displayOverride(found), ErrDisplayOverrideRevision
+	}
+	if DisplayOverrideKind(found.Kind.String()) == DisplayOverrideEmergencyAlert &&
+		!confirmedEmergency {
+		return DisplayOverride{}, ErrDisplayOverrideInput
 	}
 	updated, err := found.Update().
 		SetClearedAt(now).
@@ -787,10 +1160,19 @@ func assignmentInDisplayGroupValue(assignment DisplayAssignment, key string) boo
 func displayOverride(found *ent.DisplayOverride) DisplayOverride {
 	result := DisplayOverride{
 		ID: found.ID, EventID: found.EventID, TargetGroupKey: found.TargetGroupKey,
-		Kind: DisplayOverrideKind(found.Kind.String()), Text: found.Text,
-		Emphasis: StageMessageEmphasis(found.Emphasis.String()), PresetKey: found.PresetKey,
+		Target: DisplayOverrideTarget{
+			Type: DisplayOverrideTargetType(found.TargetType.String()),
+			ID:   found.TargetID,
+		},
+		Kind:         DisplayOverrideKind(found.Kind.String()),
+		Presentation: DisplayOverridePresentation(found.Presentation.String()),
+		Text:         found.Text,
+		Emphasis:     StageMessageEmphasis(found.Emphasis.String()), PresetKey: found.PresetKey,
 		UntilCleared: found.UntilCleared, Revision: found.Revision,
 		CreatedByAccountID: found.CreatedByAccountID, CreatedAt: found.CreatedAt,
+	}
+	if result.Target.Type == DisplayOverrideTargetDisplayGroup {
+		result.Target.Key = found.TargetGroupKey
 	}
 	if found.ExpiresAt != nil {
 		result.ExpiresAt = *found.ExpiresAt

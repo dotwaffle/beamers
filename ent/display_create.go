@@ -203,6 +203,62 @@ func (_c *DisplayCreate) SetNillableAppliedTechnicalDifficultiesRevision(v *int)
 	return _c
 }
 
+// SetAppliedUrgentNoticeID sets the "applied_urgent_notice_id" field.
+func (_c *DisplayCreate) SetAppliedUrgentNoticeID(v int) *DisplayCreate {
+	_c.mutation.SetAppliedUrgentNoticeID(v)
+	return _c
+}
+
+// SetNillableAppliedUrgentNoticeID sets the "applied_urgent_notice_id" field if the given value is not nil.
+func (_c *DisplayCreate) SetNillableAppliedUrgentNoticeID(v *int) *DisplayCreate {
+	if v != nil {
+		_c.SetAppliedUrgentNoticeID(*v)
+	}
+	return _c
+}
+
+// SetAppliedUrgentNoticeRevision sets the "applied_urgent_notice_revision" field.
+func (_c *DisplayCreate) SetAppliedUrgentNoticeRevision(v int) *DisplayCreate {
+	_c.mutation.SetAppliedUrgentNoticeRevision(v)
+	return _c
+}
+
+// SetNillableAppliedUrgentNoticeRevision sets the "applied_urgent_notice_revision" field if the given value is not nil.
+func (_c *DisplayCreate) SetNillableAppliedUrgentNoticeRevision(v *int) *DisplayCreate {
+	if v != nil {
+		_c.SetAppliedUrgentNoticeRevision(*v)
+	}
+	return _c
+}
+
+// SetAppliedEmergencyAlertID sets the "applied_emergency_alert_id" field.
+func (_c *DisplayCreate) SetAppliedEmergencyAlertID(v int) *DisplayCreate {
+	_c.mutation.SetAppliedEmergencyAlertID(v)
+	return _c
+}
+
+// SetNillableAppliedEmergencyAlertID sets the "applied_emergency_alert_id" field if the given value is not nil.
+func (_c *DisplayCreate) SetNillableAppliedEmergencyAlertID(v *int) *DisplayCreate {
+	if v != nil {
+		_c.SetAppliedEmergencyAlertID(*v)
+	}
+	return _c
+}
+
+// SetAppliedEmergencyAlertRevision sets the "applied_emergency_alert_revision" field.
+func (_c *DisplayCreate) SetAppliedEmergencyAlertRevision(v int) *DisplayCreate {
+	_c.mutation.SetAppliedEmergencyAlertRevision(v)
+	return _c
+}
+
+// SetNillableAppliedEmergencyAlertRevision sets the "applied_emergency_alert_revision" field if the given value is not nil.
+func (_c *DisplayCreate) SetNillableAppliedEmergencyAlertRevision(v *int) *DisplayCreate {
+	if v != nil {
+		_c.SetAppliedEmergencyAlertRevision(*v)
+	}
+	return _c
+}
+
 // SetAppliedStandby sets the "applied_standby" field.
 func (_c *DisplayCreate) SetAppliedStandby(v bool) *DisplayCreate {
 	_c.mutation.SetAppliedStandby(v)
@@ -406,6 +462,22 @@ func (_c *DisplayCreate) defaults() error {
 		v := display.DefaultAppliedTechnicalDifficultiesRevision
 		_c.mutation.SetAppliedTechnicalDifficultiesRevision(v)
 	}
+	if _, ok := _c.mutation.AppliedUrgentNoticeID(); !ok {
+		v := display.DefaultAppliedUrgentNoticeID
+		_c.mutation.SetAppliedUrgentNoticeID(v)
+	}
+	if _, ok := _c.mutation.AppliedUrgentNoticeRevision(); !ok {
+		v := display.DefaultAppliedUrgentNoticeRevision
+		_c.mutation.SetAppliedUrgentNoticeRevision(v)
+	}
+	if _, ok := _c.mutation.AppliedEmergencyAlertID(); !ok {
+		v := display.DefaultAppliedEmergencyAlertID
+		_c.mutation.SetAppliedEmergencyAlertID(v)
+	}
+	if _, ok := _c.mutation.AppliedEmergencyAlertRevision(); !ok {
+		v := display.DefaultAppliedEmergencyAlertRevision
+		_c.mutation.SetAppliedEmergencyAlertRevision(v)
+	}
 	if _, ok := _c.mutation.AppliedStandby(); !ok {
 		v := display.DefaultAppliedStandby
 		_c.mutation.SetAppliedStandby(v)
@@ -473,6 +545,18 @@ func (_c *DisplayCreate) check() error {
 	}
 	if _, ok := _c.mutation.AppliedTechnicalDifficultiesRevision(); !ok {
 		return &ValidationError{Name: "applied_technical_difficulties_revision", err: errors.New(`ent: missing required field "Display.applied_technical_difficulties_revision"`)}
+	}
+	if _, ok := _c.mutation.AppliedUrgentNoticeID(); !ok {
+		return &ValidationError{Name: "applied_urgent_notice_id", err: errors.New(`ent: missing required field "Display.applied_urgent_notice_id"`)}
+	}
+	if _, ok := _c.mutation.AppliedUrgentNoticeRevision(); !ok {
+		return &ValidationError{Name: "applied_urgent_notice_revision", err: errors.New(`ent: missing required field "Display.applied_urgent_notice_revision"`)}
+	}
+	if _, ok := _c.mutation.AppliedEmergencyAlertID(); !ok {
+		return &ValidationError{Name: "applied_emergency_alert_id", err: errors.New(`ent: missing required field "Display.applied_emergency_alert_id"`)}
+	}
+	if _, ok := _c.mutation.AppliedEmergencyAlertRevision(); !ok {
+		return &ValidationError{Name: "applied_emergency_alert_revision", err: errors.New(`ent: missing required field "Display.applied_emergency_alert_revision"`)}
 	}
 	if _, ok := _c.mutation.AppliedStandby(); !ok {
 		return &ValidationError{Name: "applied_standby", err: errors.New(`ent: missing required field "Display.applied_standby"`)}
@@ -567,6 +651,22 @@ func (_c *DisplayCreate) createSpec() (*Display, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.AppliedTechnicalDifficultiesRevision(); ok {
 		_spec.SetField(display.FieldAppliedTechnicalDifficultiesRevision, field.TypeInt, value)
 		_node.AppliedTechnicalDifficultiesRevision = value
+	}
+	if value, ok := _c.mutation.AppliedUrgentNoticeID(); ok {
+		_spec.SetField(display.FieldAppliedUrgentNoticeID, field.TypeInt, value)
+		_node.AppliedUrgentNoticeID = value
+	}
+	if value, ok := _c.mutation.AppliedUrgentNoticeRevision(); ok {
+		_spec.SetField(display.FieldAppliedUrgentNoticeRevision, field.TypeInt, value)
+		_node.AppliedUrgentNoticeRevision = value
+	}
+	if value, ok := _c.mutation.AppliedEmergencyAlertID(); ok {
+		_spec.SetField(display.FieldAppliedEmergencyAlertID, field.TypeInt, value)
+		_node.AppliedEmergencyAlertID = value
+	}
+	if value, ok := _c.mutation.AppliedEmergencyAlertRevision(); ok {
+		_spec.SetField(display.FieldAppliedEmergencyAlertRevision, field.TypeInt, value)
+		_node.AppliedEmergencyAlertRevision = value
 	}
 	if value, ok := _c.mutation.AppliedStandby(); ok {
 		_spec.SetField(display.FieldAppliedStandby, field.TypeBool, value)

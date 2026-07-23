@@ -165,7 +165,12 @@ function scheduleHealthRefresh(snapshot) {
 function nextSnapshotRefreshMilliseconds(snapshot) {
   let delay = healthRefreshMilliseconds;
   const estimatedNow = Date.now() + clockOffsetMilliseconds;
-  for (const override of [snapshot?.stageMessage, snapshot?.technicalDifficulties]) {
+  for (const override of [
+    snapshot?.stageMessage,
+    snapshot?.technicalDifficulties,
+    snapshot?.urgentNotice,
+    snapshot?.emergencyAlert,
+  ]) {
     if (!override?.expiresAt) {
       continue;
     }
@@ -254,6 +259,8 @@ function renderSnapshot(snapshot, offset) {
     stageTimer: snapshot.stageTimer,
     stageMessage: snapshot.stageMessage,
     technicalDifficulties: snapshot.technicalDifficulties,
+    urgentNotice: snapshot.urgentNotice,
+    emergencyAlert: snapshot.emergencyAlert,
     composition,
   });
   const candidateClockReference = {
@@ -290,7 +297,25 @@ function renderSnapshot(snapshot, offset) {
     `${composition.theme.scrimColor}${alpha}`,
   );
 
-  if (snapshot.technicalDifficulties) {
+  if (snapshot.emergencyAlert) {
+    main.dataset.overrideKind = "EmergencyAlert";
+    main.className = "display-view emergency-alert display-override-replace";
+    const region = document.createElement("section");
+    region.setAttribute("role", "alert");
+    region.setAttribute("aria-live", "assertive");
+    appendHeading(region, "Emergency Alert");
+    appendParagraph(region, snapshot.emergencyAlert.text);
+    main.append(region);
+  } else if (snapshot.urgentNotice?.presentation === "Replace") {
+    main.dataset.overrideKind = "UrgentNotice";
+    main.classList.add("display-override-replace", "urgent-notice-replace");
+    const region = document.createElement("section");
+    region.setAttribute("role", "alert");
+    region.setAttribute("aria-live", "assertive");
+    appendHeading(region, "Urgent Notice");
+    appendParagraph(region, snapshot.urgentNotice.text);
+    main.append(region);
+  } else if (snapshot.technicalDifficulties) {
     main.dataset.overrideKind = "TechnicalDifficulties";
     main.classList.add("display-override-replace");
     const region = document.createElement("section");
@@ -318,11 +343,31 @@ function renderSnapshot(snapshot, offset) {
     }
   }
   replaceMain(main);
-  renderStageMessage(snapshot.stageMessage);
+  const suppressLower = snapshot.emergencyAlert ||
+    snapshot.urgentNotice?.presentation === "Replace";
+  renderStageMessage(suppressLower ? undefined : snapshot.stageMessage);
+  renderUrgentNotice(snapshot.emergencyAlert ? undefined : snapshot.urgentNotice);
   clockReference = candidateClockReference;
   clearTimeout(clockTimer);
   startClockUpdates?.();
   startRotation(main, composition.layout.rotationSeconds);
+}
+
+function renderUrgentNotice(message) {
+  document.querySelector("aside[data-urgent-notice]")?.remove();
+  if (!message || message.presentation !== "Overlay") {
+    return;
+  }
+  const aside = document.createElement("aside");
+  aside.dataset.urgentNotice = "true";
+  aside.className = "urgent-notice-overlay";
+  aside.setAttribute("role", "alert");
+  aside.setAttribute("aria-live", "assertive");
+  const label = document.createElement("strong");
+  label.textContent = "Urgent Notice:";
+  aside.append(label);
+  appendParagraph(aside, message.text);
+  document.body.append(aside);
 }
 
 function renderStageMessage(message) {
@@ -649,6 +694,10 @@ async function acknowledgeSnapshot(snapshot, rendererUnstable) {
         stageMessageRevision: snapshot.stageMessage?.revision || 0,
         technicalDifficultiesId: snapshot.technicalDifficulties?.id || 0,
         technicalDifficultiesRevision: snapshot.technicalDifficulties?.revision || 0,
+        urgentNoticeId: snapshot.urgentNotice?.id || 0,
+        urgentNoticeRevision: snapshot.urgentNotice?.revision || 0,
+        emergencyAlertId: snapshot.emergencyAlert?.id || 0,
+        emergencyAlertRevision: snapshot.emergencyAlert?.revision || 0,
         standby: snapshot.standby,
         clockOffsetMilliseconds,
         clockUncertaintyMilliseconds,

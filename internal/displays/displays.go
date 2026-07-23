@@ -120,6 +120,8 @@ type Snapshot struct {
 	ProgramOutput         *ProgramItem
 	StageMessage          *DisplayOverride
 	TechnicalDifficulties *DisplayOverride
+	UrgentNotice          *DisplayOverride
+	EmergencyAlert        *DisplayOverride
 }
 
 // DisplayOverride is one attendee-safe currently presented Override.
@@ -131,6 +133,7 @@ type DisplayOverride struct {
 	Emphasis     string
 	UntilCleared bool
 	ExpiresAt    time.Time
+	Presentation string
 }
 
 // AcknowledgmentInput reports the exact state one Display has applied.
@@ -150,6 +153,10 @@ type AcknowledgmentInput struct {
 	StageMessageRevision          int64
 	TechnicalDifficultiesID       int64
 	TechnicalDifficultiesRevision int64
+	UrgentNoticeID                int64
+	UrgentNoticeRevision          int64
+	EmergencyAlertID              int64
+	EmergencyAlertRevision        int64
 }
 
 // Acknowledgment is the latest durably recorded state one Display applied.
@@ -171,6 +178,10 @@ type Acknowledgment struct {
 	StageMessageRevision          int
 	TechnicalDifficultiesID       int
 	TechnicalDifficultiesRevision int
+	UrgentNoticeID                int
+	UrgentNoticeRevision          int
+	EmergencyAlertID              int
+	EmergencyAlertRevision        int
 }
 
 // Session is one Display-safe committed Schedule item.
@@ -259,6 +270,10 @@ type Status struct {
 	AppliedStageMessageRevision          int        `json:"applied_stage_message_revision,omitempty"`
 	AppliedTechnicalDifficultiesID       int        `json:"applied_technical_difficulties_id,omitempty"`
 	AppliedTechnicalDifficultiesRevision int        `json:"applied_technical_difficulties_revision,omitempty"`
+	AppliedUrgentNoticeID                int        `json:"applied_urgent_notice_id,omitempty"`
+	AppliedUrgentNoticeRevision          int        `json:"applied_urgent_notice_revision,omitempty"`
+	AppliedEmergencyAlertID              int        `json:"applied_emergency_alert_id,omitempty"`
+	AppliedEmergencyAlertRevision        int        `json:"applied_emergency_alert_revision,omitempty"`
 	AppliedStandby                       bool       `json:"applied_standby"`
 	AppliedAt                            *time.Time `json:"applied_at,omitempty"`
 	ClockOffset                          int64      `json:"clock_offset_milliseconds"`
@@ -309,6 +324,8 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 	}
 	result.StageMessage = displayOverride(found.StageMessage)
 	result.TechnicalDifficulties = displayOverride(found.TechnicalDifficulties)
+	result.UrgentNotice = displayOverride(found.UrgentNotice)
+	result.EmergencyAlert = displayOverride(found.EmergencyAlert)
 	if found.ProgramChannelID > 0 {
 		result.ProgramOutput = &ProgramItem{
 			Kind: string(found.ProgramOutput.Kind), EntryID: found.ProgramOutput.EntryID,
@@ -355,7 +372,7 @@ func displayOverride(found *store.DisplayOverride) *DisplayOverride {
 	return &DisplayOverride{
 		ID: found.ID, Revision: found.Revision, Kind: string(found.Kind), Text: found.Text,
 		Emphasis: string(found.Emphasis), UntilCleared: found.UntilCleared,
-		ExpiresAt: found.ExpiresAt,
+		ExpiresAt: found.ExpiresAt, Presentation: string(found.Presentation),
 	}
 }
 
@@ -453,6 +470,10 @@ func (service *Service) Acknowledge(
 		input.StageMessageRevision < 0 || input.StageMessageRevision > math.MaxInt ||
 		input.TechnicalDifficultiesID < 0 || input.TechnicalDifficultiesID > math.MaxInt ||
 		input.TechnicalDifficultiesRevision < 0 || input.TechnicalDifficultiesRevision > math.MaxInt ||
+		input.UrgentNoticeID < 0 || input.UrgentNoticeID > math.MaxInt ||
+		input.UrgentNoticeRevision < 0 || input.UrgentNoticeRevision > math.MaxInt ||
+		input.EmergencyAlertID < 0 || input.EmergencyAlertID > math.MaxInt ||
+		input.EmergencyAlertRevision < 0 || input.EmergencyAlertRevision > math.MaxInt ||
 		input.ClockOffset < -maxClockHealthMillis ||
 		input.ClockOffset > maxClockHealthMillis ||
 		input.ClockUncertainty > uint64(maxClockHealthMillis) {
@@ -468,6 +489,10 @@ func (service *Service) Acknowledge(
 		StageMessageRevision:          int(input.StageMessageRevision),
 		TechnicalDifficultiesID:       int(input.TechnicalDifficultiesID),
 		TechnicalDifficultiesRevision: int(input.TechnicalDifficultiesRevision),
+		UrgentNoticeID:                int(input.UrgentNoticeID),
+		UrgentNoticeRevision:          int(input.UrgentNoticeRevision),
+		EmergencyAlertID:              int(input.EmergencyAlertID),
+		EmergencyAlertRevision:        int(input.EmergencyAlertRevision),
 		AppliedAt:                     service.now().UTC(), AppliedStandby: input.Standby,
 		ClockOffsetMilliseconds:      input.ClockOffset,
 		ClockUncertaintyMilliseconds: int64(input.ClockUncertainty),
@@ -496,6 +521,10 @@ func (service *Service) Acknowledge(
 		StageMessageID: stored.StageMessageID, StageMessageRevision: stored.StageMessageRevision,
 		TechnicalDifficultiesID:       stored.TechnicalDifficultiesID,
 		TechnicalDifficultiesRevision: stored.TechnicalDifficultiesRevision,
+		UrgentNoticeID:                stored.UrgentNoticeID,
+		UrgentNoticeRevision:          stored.UrgentNoticeRevision,
+		EmergencyAlertID:              stored.EmergencyAlertID,
+		EmergencyAlertRevision:        stored.EmergencyAlertRevision,
 		Standby:                       stored.AppliedStandby, ClockOffset: stored.ClockOffsetMilliseconds,
 		ClockUncertainty: uint64(stored.ClockUncertaintyMilliseconds),
 		RendererUnstable: stored.RendererUnstable,
@@ -786,6 +815,10 @@ func status(found store.DisplayStatus, cursor displaystream.Cursor, now time.Tim
 		AppliedStageMessageRevision:          found.AppliedStageMessageRevision,
 		AppliedTechnicalDifficultiesID:       found.AppliedTechnicalDifficultiesID,
 		AppliedTechnicalDifficultiesRevision: found.AppliedTechnicalDifficultiesRevision,
+		AppliedUrgentNoticeID:                found.AppliedUrgentNoticeID,
+		AppliedUrgentNoticeRevision:          found.AppliedUrgentNoticeRevision,
+		AppliedEmergencyAlertID:              found.AppliedEmergencyAlertID,
+		AppliedEmergencyAlertRevision:        found.AppliedEmergencyAlertRevision,
 		AppliedStandby:                       found.AppliedStandby, AppliedAt: found.AppliedAt,
 		ClockOffset:      found.ClockOffsetMilliseconds,
 		ClockUncertainty: found.ClockUncertaintyMilliseconds,

@@ -231,6 +231,8 @@ type DisplaySnapshot struct {
 	ProgramChannelId      int64                  `protobuf:"varint,23,opt,name=program_channel_id,json=programChannelId,proto3" json:"program_channel_id,omitempty"`
 	StageMessage          *DisplayOverride       `protobuf:"bytes,24,opt,name=stage_message,json=stageMessage,proto3" json:"stage_message,omitempty"`
 	TechnicalDifficulties *DisplayOverride       `protobuf:"bytes,25,opt,name=technical_difficulties,json=technicalDifficulties,proto3" json:"technical_difficulties,omitempty"`
+	UrgentNotice          *DisplayOverride       `protobuf:"bytes,26,opt,name=urgent_notice,json=urgentNotice,proto3" json:"urgent_notice,omitempty"`
+	EmergencyAlert        *DisplayOverride       `protobuf:"bytes,27,opt,name=emergency_alert,json=emergencyAlert,proto3" json:"emergency_alert,omitempty"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
@@ -440,6 +442,20 @@ func (x *DisplaySnapshot) GetTechnicalDifficulties() *DisplayOverride {
 	return nil
 }
 
+func (x *DisplaySnapshot) GetUrgentNotice() *DisplayOverride {
+	if x != nil {
+		return x.UrgentNotice
+	}
+	return nil
+}
+
+func (x *DisplaySnapshot) GetEmergencyAlert() *DisplayOverride {
+	if x != nil {
+		return x.EmergencyAlert
+	}
+	return nil
+}
+
 type DisplayOverride struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -449,6 +465,7 @@ type DisplayOverride struct {
 	Emphasis      string                 `protobuf:"bytes,5,opt,name=emphasis,proto3" json:"emphasis,omitempty"`
 	UntilCleared  bool                   `protobuf:"varint,6,opt,name=until_cleared,json=untilCleared,proto3" json:"until_cleared,omitempty"`
 	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	Presentation  string                 `protobuf:"bytes,8,opt,name=presentation,proto3" json:"presentation,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -530,6 +547,13 @@ func (x *DisplayOverride) GetExpiresAt() *timestamppb.Timestamp {
 		return x.ExpiresAt
 	}
 	return nil
+}
+
+func (x *DisplayOverride) GetPresentation() string {
+	if x != nil {
+		return x.Presentation
+	}
+	return ""
 }
 
 type DisplayComposition struct {
@@ -1138,6 +1162,10 @@ type AcknowledgeRequest struct {
 	StageMessageRevision          int64                  `protobuf:"varint,14,opt,name=stage_message_revision,json=stageMessageRevision,proto3" json:"stage_message_revision,omitempty"`
 	TechnicalDifficultiesId       int64                  `protobuf:"varint,15,opt,name=technical_difficulties_id,json=technicalDifficultiesId,proto3" json:"technical_difficulties_id,omitempty"`
 	TechnicalDifficultiesRevision int64                  `protobuf:"varint,16,opt,name=technical_difficulties_revision,json=technicalDifficultiesRevision,proto3" json:"technical_difficulties_revision,omitempty"`
+	UrgentNoticeId                int64                  `protobuf:"varint,17,opt,name=urgent_notice_id,json=urgentNoticeId,proto3" json:"urgent_notice_id,omitempty"`
+	UrgentNoticeRevision          int64                  `protobuf:"varint,18,opt,name=urgent_notice_revision,json=urgentNoticeRevision,proto3" json:"urgent_notice_revision,omitempty"`
+	EmergencyAlertId              int64                  `protobuf:"varint,19,opt,name=emergency_alert_id,json=emergencyAlertId,proto3" json:"emergency_alert_id,omitempty"`
+	EmergencyAlertRevision        int64                  `protobuf:"varint,20,opt,name=emergency_alert_revision,json=emergencyAlertRevision,proto3" json:"emergency_alert_revision,omitempty"`
 	unknownFields                 protoimpl.UnknownFields
 	sizeCache                     protoimpl.SizeCache
 }
@@ -1284,6 +1312,34 @@ func (x *AcknowledgeRequest) GetTechnicalDifficultiesRevision() int64 {
 	return 0
 }
 
+func (x *AcknowledgeRequest) GetUrgentNoticeId() int64 {
+	if x != nil {
+		return x.UrgentNoticeId
+	}
+	return 0
+}
+
+func (x *AcknowledgeRequest) GetUrgentNoticeRevision() int64 {
+	if x != nil {
+		return x.UrgentNoticeRevision
+	}
+	return 0
+}
+
+func (x *AcknowledgeRequest) GetEmergencyAlertId() int64 {
+	if x != nil {
+		return x.EmergencyAlertId
+	}
+	return 0
+}
+
+func (x *AcknowledgeRequest) GetEmergencyAlertRevision() int64 {
+	if x != nil {
+		return x.EmergencyAlertRevision
+	}
+	return 0
+}
+
 type AcknowledgeResponse struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Acknowledgment *DisplayAcknowledgment `protobuf:"bytes,1,opt,name=acknowledgment,proto3" json:"acknowledgment,omitempty"`
@@ -1347,6 +1403,10 @@ type DisplayAcknowledgment struct {
 	StageMessageRevision          int64                  `protobuf:"varint,15,opt,name=stage_message_revision,json=stageMessageRevision,proto3" json:"stage_message_revision,omitempty"`
 	TechnicalDifficultiesId       int64                  `protobuf:"varint,16,opt,name=technical_difficulties_id,json=technicalDifficultiesId,proto3" json:"technical_difficulties_id,omitempty"`
 	TechnicalDifficultiesRevision int64                  `protobuf:"varint,17,opt,name=technical_difficulties_revision,json=technicalDifficultiesRevision,proto3" json:"technical_difficulties_revision,omitempty"`
+	UrgentNoticeId                int64                  `protobuf:"varint,18,opt,name=urgent_notice_id,json=urgentNoticeId,proto3" json:"urgent_notice_id,omitempty"`
+	UrgentNoticeRevision          int64                  `protobuf:"varint,19,opt,name=urgent_notice_revision,json=urgentNoticeRevision,proto3" json:"urgent_notice_revision,omitempty"`
+	EmergencyAlertId              int64                  `protobuf:"varint,20,opt,name=emergency_alert_id,json=emergencyAlertId,proto3" json:"emergency_alert_id,omitempty"`
+	EmergencyAlertRevision        int64                  `protobuf:"varint,21,opt,name=emergency_alert_revision,json=emergencyAlertRevision,proto3" json:"emergency_alert_revision,omitempty"`
 	unknownFields                 protoimpl.UnknownFields
 	sizeCache                     protoimpl.SizeCache
 }
@@ -1500,6 +1560,34 @@ func (x *DisplayAcknowledgment) GetTechnicalDifficultiesRevision() int64 {
 	return 0
 }
 
+func (x *DisplayAcknowledgment) GetUrgentNoticeId() int64 {
+	if x != nil {
+		return x.UrgentNoticeId
+	}
+	return 0
+}
+
+func (x *DisplayAcknowledgment) GetUrgentNoticeRevision() int64 {
+	if x != nil {
+		return x.UrgentNoticeRevision
+	}
+	return 0
+}
+
+func (x *DisplayAcknowledgment) GetEmergencyAlertId() int64 {
+	if x != nil {
+		return x.EmergencyAlertId
+	}
+	return 0
+}
+
+func (x *DisplayAcknowledgment) GetEmergencyAlertRevision() int64 {
+	if x != nil {
+		return x.EmergencyAlertRevision
+	}
+	return 0
+}
+
 var File_beamers_display_v1_display_proto protoreflect.FileDescriptor
 
 const file_beamers_display_v1_display_proto_rawDesc = "" +
@@ -1507,7 +1595,8 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	" beamers/display/v1/display.proto\x12\x12beamers.display.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a beamers/program/v1/program.proto\"\x14\n" +
 	"\x12GetSnapshotRequest\"V\n" +
 	"\x13GetSnapshotResponse\x12?\n" +
-	"\bsnapshot\x18\x01 \x01(\v2#.beamers.display.v1.DisplaySnapshotR\bsnapshot\"\xd2\t\n" +
+	"\bsnapshot\x18\x01 \x01(\v2#.beamers.display.v1.DisplaySnapshotR\bsnapshot\"\xea\n" +
+	"\n" +
 	"\x0fDisplaySnapshot\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\tR\x0fprotocolVersion\x12;\n" +
 	"\vserver_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
@@ -1539,8 +1628,10 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\x17program_output_revision\x18\x16 \x01(\x03R\x15programOutputRevision\x12,\n" +
 	"\x12program_channel_id\x18\x17 \x01(\x03R\x10programChannelId\x12H\n" +
 	"\rstage_message\x18\x18 \x01(\v2#.beamers.display.v1.DisplayOverrideR\fstageMessage\x12Z\n" +
-	"\x16technical_difficulties\x18\x19 \x01(\v2#.beamers.display.v1.DisplayOverrideR\x15technicalDifficultiesB\x12\n" +
-	"\x10_stream_position\"\xe1\x01\n" +
+	"\x16technical_difficulties\x18\x19 \x01(\v2#.beamers.display.v1.DisplayOverrideR\x15technicalDifficulties\x12H\n" +
+	"\rurgent_notice\x18\x1a \x01(\v2#.beamers.display.v1.DisplayOverrideR\furgentNotice\x12L\n" +
+	"\x0femergency_alert\x18\x1b \x01(\v2#.beamers.display.v1.DisplayOverrideR\x0eemergencyAlertB\x12\n" +
+	"\x10_stream_position\"\x85\x02\n" +
 	"\x0fDisplayOverride\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1a\n" +
 	"\brevision\x18\x02 \x01(\x03R\brevision\x12\x12\n" +
@@ -1549,7 +1640,8 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\bemphasis\x18\x05 \x01(\tR\bemphasis\x12#\n" +
 	"\runtil_cleared\x18\x06 \x01(\bR\funtilCleared\x129\n" +
 	"\n" +
-	"expires_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"\x87\x01\n" +
+	"expires_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\"\n" +
+	"\fpresentation\x18\b \x01(\tR\fpresentation\"\x87\x01\n" +
 	"\x12DisplayComposition\x129\n" +
 	"\x06layout\x18\x01 \x01(\v2!.beamers.display.v1.DisplayLayoutR\x06layout\x126\n" +
 	"\x05theme\x18\x02 \x01(\v2 .beamers.display.v1.DisplayThemeR\x05theme\"\x89\x01\n" +
@@ -1611,7 +1703,7 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"thresholds\x12=\n" +
 	"\fforecast_end\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\vforecastEnd\x12-\n" +
 	"\x12adjustment_seconds\x18\a \x01(\x12R\x11adjustmentSeconds\x12[\n" +
-	"\x1cadjustment_notice_expires_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\x19adjustmentNoticeExpiresAt\"\x8a\x06\n" +
+	"\x1cadjustment_notice_expires_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\x19adjustmentNoticeExpiresAt\"\xd2\a\n" +
 	"\x12AcknowledgeRequest\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\tR\x0fprotocolVersion\x12\x1b\n" +
 	"\tstream_id\x18\x02 \x01(\tR\bstreamId\x12'\n" +
@@ -1629,9 +1721,13 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\x10stage_message_id\x18\r \x01(\x03R\x0estageMessageId\x124\n" +
 	"\x16stage_message_revision\x18\x0e \x01(\x03R\x14stageMessageRevision\x12:\n" +
 	"\x19technical_difficulties_id\x18\x0f \x01(\x03R\x17technicalDifficultiesId\x12F\n" +
-	"\x1ftechnical_difficulties_revision\x18\x10 \x01(\x03R\x1dtechnicalDifficultiesRevision\"h\n" +
+	"\x1ftechnical_difficulties_revision\x18\x10 \x01(\x03R\x1dtechnicalDifficultiesRevision\x12(\n" +
+	"\x10urgent_notice_id\x18\x11 \x01(\x03R\x0eurgentNoticeId\x124\n" +
+	"\x16urgent_notice_revision\x18\x12 \x01(\x03R\x14urgentNoticeRevision\x12,\n" +
+	"\x12emergency_alert_id\x18\x13 \x01(\x03R\x10emergencyAlertId\x128\n" +
+	"\x18emergency_alert_revision\x18\x14 \x01(\x03R\x16emergencyAlertRevision\"h\n" +
 	"\x13AcknowledgeResponse\x12Q\n" +
-	"\x0eacknowledgment\x18\x01 \x01(\v2).beamers.display.v1.DisplayAcknowledgmentR\x0eacknowledgment\"\xc0\x06\n" +
+	"\x0eacknowledgment\x18\x01 \x01(\v2).beamers.display.v1.DisplayAcknowledgmentR\x0eacknowledgment\"\x88\b\n" +
 	"\x15DisplayAcknowledgment\x12\x1d\n" +
 	"\n" +
 	"display_id\x18\x01 \x01(\x03R\tdisplayId\x12)\n" +
@@ -1652,7 +1748,11 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\x10stage_message_id\x18\x0e \x01(\x03R\x0estageMessageId\x124\n" +
 	"\x16stage_message_revision\x18\x0f \x01(\x03R\x14stageMessageRevision\x12:\n" +
 	"\x19technical_difficulties_id\x18\x10 \x01(\x03R\x17technicalDifficultiesId\x12F\n" +
-	"\x1ftechnical_difficulties_revision\x18\x11 \x01(\x03R\x1dtechnicalDifficultiesRevision*p\n" +
+	"\x1ftechnical_difficulties_revision\x18\x11 \x01(\x03R\x1dtechnicalDifficultiesRevision\x12(\n" +
+	"\x10urgent_notice_id\x18\x12 \x01(\x03R\x0eurgentNoticeId\x124\n" +
+	"\x16urgent_notice_revision\x18\x13 \x01(\x03R\x14urgentNoticeRevision\x12,\n" +
+	"\x12emergency_alert_id\x18\x14 \x01(\x03R\x10emergencyAlertId\x128\n" +
+	"\x18emergency_alert_revision\x18\x15 \x01(\x03R\x16emergencyAlertRevision*p\n" +
 	"\x0eStageTimerMode\x12 \n" +
 	"\x1cSTAGE_TIMER_MODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aSTAGE_TIMER_MODE_COUNTDOWN\x10\x01\x12\x1c\n" +
@@ -1709,31 +1809,33 @@ var file_beamers_display_v1_display_proto_depIdxs = []int32{
 	17, // 5: beamers.display.v1.DisplaySnapshot.program_output:type_name -> beamers.program.v1.ProgramItem
 	5,  // 6: beamers.display.v1.DisplaySnapshot.stage_message:type_name -> beamers.display.v1.DisplayOverride
 	5,  // 7: beamers.display.v1.DisplaySnapshot.technical_difficulties:type_name -> beamers.display.v1.DisplayOverride
-	16, // 8: beamers.display.v1.DisplayOverride.expires_at:type_name -> google.protobuf.Timestamp
-	7,  // 9: beamers.display.v1.DisplayComposition.layout:type_name -> beamers.display.v1.DisplayLayout
-	9,  // 10: beamers.display.v1.DisplayComposition.theme:type_name -> beamers.display.v1.DisplayTheme
-	8,  // 11: beamers.display.v1.DisplayLayout.regions:type_name -> beamers.display.v1.DisplayRegion
-	16, // 12: beamers.display.v1.DisplaySession.forecast_start:type_name -> google.protobuf.Timestamp
-	16, // 13: beamers.display.v1.DisplaySession.forecast_end:type_name -> google.protobuf.Timestamp
-	16, // 14: beamers.display.v1.DisplaySession.actual_start:type_name -> google.protobuf.Timestamp
-	16, // 15: beamers.display.v1.DisplaySession.actual_end:type_name -> google.protobuf.Timestamp
-	1,  // 16: beamers.display.v1.TimerThreshold.emphasis:type_name -> beamers.display.v1.TimerEmphasis
-	0,  // 17: beamers.display.v1.StageTimer.mode:type_name -> beamers.display.v1.StageTimerMode
-	16, // 18: beamers.display.v1.StageTimer.anchor:type_name -> google.protobuf.Timestamp
-	11, // 19: beamers.display.v1.StageTimer.thresholds:type_name -> beamers.display.v1.TimerThreshold
-	16, // 20: beamers.display.v1.StageTimer.forecast_end:type_name -> google.protobuf.Timestamp
-	16, // 21: beamers.display.v1.StageTimer.adjustment_notice_expires_at:type_name -> google.protobuf.Timestamp
-	15, // 22: beamers.display.v1.AcknowledgeResponse.acknowledgment:type_name -> beamers.display.v1.DisplayAcknowledgment
-	16, // 23: beamers.display.v1.DisplayAcknowledgment.applied_at:type_name -> google.protobuf.Timestamp
-	2,  // 24: beamers.display.v1.DisplayService.GetSnapshot:input_type -> beamers.display.v1.GetSnapshotRequest
-	13, // 25: beamers.display.v1.DisplayService.Acknowledge:input_type -> beamers.display.v1.AcknowledgeRequest
-	3,  // 26: beamers.display.v1.DisplayService.GetSnapshot:output_type -> beamers.display.v1.GetSnapshotResponse
-	14, // 27: beamers.display.v1.DisplayService.Acknowledge:output_type -> beamers.display.v1.AcknowledgeResponse
-	26, // [26:28] is the sub-list for method output_type
-	24, // [24:26] is the sub-list for method input_type
-	24, // [24:24] is the sub-list for extension type_name
-	24, // [24:24] is the sub-list for extension extendee
-	0,  // [0:24] is the sub-list for field type_name
+	5,  // 8: beamers.display.v1.DisplaySnapshot.urgent_notice:type_name -> beamers.display.v1.DisplayOverride
+	5,  // 9: beamers.display.v1.DisplaySnapshot.emergency_alert:type_name -> beamers.display.v1.DisplayOverride
+	16, // 10: beamers.display.v1.DisplayOverride.expires_at:type_name -> google.protobuf.Timestamp
+	7,  // 11: beamers.display.v1.DisplayComposition.layout:type_name -> beamers.display.v1.DisplayLayout
+	9,  // 12: beamers.display.v1.DisplayComposition.theme:type_name -> beamers.display.v1.DisplayTheme
+	8,  // 13: beamers.display.v1.DisplayLayout.regions:type_name -> beamers.display.v1.DisplayRegion
+	16, // 14: beamers.display.v1.DisplaySession.forecast_start:type_name -> google.protobuf.Timestamp
+	16, // 15: beamers.display.v1.DisplaySession.forecast_end:type_name -> google.protobuf.Timestamp
+	16, // 16: beamers.display.v1.DisplaySession.actual_start:type_name -> google.protobuf.Timestamp
+	16, // 17: beamers.display.v1.DisplaySession.actual_end:type_name -> google.protobuf.Timestamp
+	1,  // 18: beamers.display.v1.TimerThreshold.emphasis:type_name -> beamers.display.v1.TimerEmphasis
+	0,  // 19: beamers.display.v1.StageTimer.mode:type_name -> beamers.display.v1.StageTimerMode
+	16, // 20: beamers.display.v1.StageTimer.anchor:type_name -> google.protobuf.Timestamp
+	11, // 21: beamers.display.v1.StageTimer.thresholds:type_name -> beamers.display.v1.TimerThreshold
+	16, // 22: beamers.display.v1.StageTimer.forecast_end:type_name -> google.protobuf.Timestamp
+	16, // 23: beamers.display.v1.StageTimer.adjustment_notice_expires_at:type_name -> google.protobuf.Timestamp
+	15, // 24: beamers.display.v1.AcknowledgeResponse.acknowledgment:type_name -> beamers.display.v1.DisplayAcknowledgment
+	16, // 25: beamers.display.v1.DisplayAcknowledgment.applied_at:type_name -> google.protobuf.Timestamp
+	2,  // 26: beamers.display.v1.DisplayService.GetSnapshot:input_type -> beamers.display.v1.GetSnapshotRequest
+	13, // 27: beamers.display.v1.DisplayService.Acknowledge:input_type -> beamers.display.v1.AcknowledgeRequest
+	3,  // 28: beamers.display.v1.DisplayService.GetSnapshot:output_type -> beamers.display.v1.GetSnapshotResponse
+	14, // 29: beamers.display.v1.DisplayService.Acknowledge:output_type -> beamers.display.v1.AcknowledgeResponse
+	28, // [28:30] is the sub-list for method output_type
+	26, // [26:28] is the sub-list for method input_type
+	26, // [26:26] is the sub-list for extension type_name
+	26, // [26:26] is the sub-list for extension extendee
+	0,  // [0:26] is the sub-list for field type_name
 }
 
 func init() { file_beamers_display_v1_display_proto_init() }

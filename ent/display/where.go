@@ -125,6 +125,26 @@ func AppliedTechnicalDifficultiesRevision(v int) predicate.Display {
 	return predicate.Display(sql.FieldEQ(FieldAppliedTechnicalDifficultiesRevision, v))
 }
 
+// AppliedUrgentNoticeID applies equality check predicate on the "applied_urgent_notice_id" field. It's identical to AppliedUrgentNoticeIDEQ.
+func AppliedUrgentNoticeID(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedUrgentNoticeID, v))
+}
+
+// AppliedUrgentNoticeRevision applies equality check predicate on the "applied_urgent_notice_revision" field. It's identical to AppliedUrgentNoticeRevisionEQ.
+func AppliedUrgentNoticeRevision(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedUrgentNoticeRevision, v))
+}
+
+// AppliedEmergencyAlertID applies equality check predicate on the "applied_emergency_alert_id" field. It's identical to AppliedEmergencyAlertIDEQ.
+func AppliedEmergencyAlertID(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedEmergencyAlertID, v))
+}
+
+// AppliedEmergencyAlertRevision applies equality check predicate on the "applied_emergency_alert_revision" field. It's identical to AppliedEmergencyAlertRevisionEQ.
+func AppliedEmergencyAlertRevision(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedEmergencyAlertRevision, v))
+}
+
 // AppliedStandby applies equality check predicate on the "applied_standby" field. It's identical to AppliedStandbyEQ.
 func AppliedStandby(v bool) predicate.Display {
 	return predicate.Display(sql.FieldEQ(FieldAppliedStandby, v))
@@ -808,6 +828,166 @@ func AppliedTechnicalDifficultiesRevisionLT(v int) predicate.Display {
 // AppliedTechnicalDifficultiesRevisionLTE applies the LTE predicate on the "applied_technical_difficulties_revision" field.
 func AppliedTechnicalDifficultiesRevisionLTE(v int) predicate.Display {
 	return predicate.Display(sql.FieldLTE(FieldAppliedTechnicalDifficultiesRevision, v))
+}
+
+// AppliedUrgentNoticeIDEQ applies the EQ predicate on the "applied_urgent_notice_id" field.
+func AppliedUrgentNoticeIDEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedUrgentNoticeID, v))
+}
+
+// AppliedUrgentNoticeIDNEQ applies the NEQ predicate on the "applied_urgent_notice_id" field.
+func AppliedUrgentNoticeIDNEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldNEQ(FieldAppliedUrgentNoticeID, v))
+}
+
+// AppliedUrgentNoticeIDIn applies the In predicate on the "applied_urgent_notice_id" field.
+func AppliedUrgentNoticeIDIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldIn(FieldAppliedUrgentNoticeID, vs...))
+}
+
+// AppliedUrgentNoticeIDNotIn applies the NotIn predicate on the "applied_urgent_notice_id" field.
+func AppliedUrgentNoticeIDNotIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldNotIn(FieldAppliedUrgentNoticeID, vs...))
+}
+
+// AppliedUrgentNoticeIDGT applies the GT predicate on the "applied_urgent_notice_id" field.
+func AppliedUrgentNoticeIDGT(v int) predicate.Display {
+	return predicate.Display(sql.FieldGT(FieldAppliedUrgentNoticeID, v))
+}
+
+// AppliedUrgentNoticeIDGTE applies the GTE predicate on the "applied_urgent_notice_id" field.
+func AppliedUrgentNoticeIDGTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldGTE(FieldAppliedUrgentNoticeID, v))
+}
+
+// AppliedUrgentNoticeIDLT applies the LT predicate on the "applied_urgent_notice_id" field.
+func AppliedUrgentNoticeIDLT(v int) predicate.Display {
+	return predicate.Display(sql.FieldLT(FieldAppliedUrgentNoticeID, v))
+}
+
+// AppliedUrgentNoticeIDLTE applies the LTE predicate on the "applied_urgent_notice_id" field.
+func AppliedUrgentNoticeIDLTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldLTE(FieldAppliedUrgentNoticeID, v))
+}
+
+// AppliedUrgentNoticeRevisionEQ applies the EQ predicate on the "applied_urgent_notice_revision" field.
+func AppliedUrgentNoticeRevisionEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedUrgentNoticeRevision, v))
+}
+
+// AppliedUrgentNoticeRevisionNEQ applies the NEQ predicate on the "applied_urgent_notice_revision" field.
+func AppliedUrgentNoticeRevisionNEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldNEQ(FieldAppliedUrgentNoticeRevision, v))
+}
+
+// AppliedUrgentNoticeRevisionIn applies the In predicate on the "applied_urgent_notice_revision" field.
+func AppliedUrgentNoticeRevisionIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldIn(FieldAppliedUrgentNoticeRevision, vs...))
+}
+
+// AppliedUrgentNoticeRevisionNotIn applies the NotIn predicate on the "applied_urgent_notice_revision" field.
+func AppliedUrgentNoticeRevisionNotIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldNotIn(FieldAppliedUrgentNoticeRevision, vs...))
+}
+
+// AppliedUrgentNoticeRevisionGT applies the GT predicate on the "applied_urgent_notice_revision" field.
+func AppliedUrgentNoticeRevisionGT(v int) predicate.Display {
+	return predicate.Display(sql.FieldGT(FieldAppliedUrgentNoticeRevision, v))
+}
+
+// AppliedUrgentNoticeRevisionGTE applies the GTE predicate on the "applied_urgent_notice_revision" field.
+func AppliedUrgentNoticeRevisionGTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldGTE(FieldAppliedUrgentNoticeRevision, v))
+}
+
+// AppliedUrgentNoticeRevisionLT applies the LT predicate on the "applied_urgent_notice_revision" field.
+func AppliedUrgentNoticeRevisionLT(v int) predicate.Display {
+	return predicate.Display(sql.FieldLT(FieldAppliedUrgentNoticeRevision, v))
+}
+
+// AppliedUrgentNoticeRevisionLTE applies the LTE predicate on the "applied_urgent_notice_revision" field.
+func AppliedUrgentNoticeRevisionLTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldLTE(FieldAppliedUrgentNoticeRevision, v))
+}
+
+// AppliedEmergencyAlertIDEQ applies the EQ predicate on the "applied_emergency_alert_id" field.
+func AppliedEmergencyAlertIDEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedEmergencyAlertID, v))
+}
+
+// AppliedEmergencyAlertIDNEQ applies the NEQ predicate on the "applied_emergency_alert_id" field.
+func AppliedEmergencyAlertIDNEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldNEQ(FieldAppliedEmergencyAlertID, v))
+}
+
+// AppliedEmergencyAlertIDIn applies the In predicate on the "applied_emergency_alert_id" field.
+func AppliedEmergencyAlertIDIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldIn(FieldAppliedEmergencyAlertID, vs...))
+}
+
+// AppliedEmergencyAlertIDNotIn applies the NotIn predicate on the "applied_emergency_alert_id" field.
+func AppliedEmergencyAlertIDNotIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldNotIn(FieldAppliedEmergencyAlertID, vs...))
+}
+
+// AppliedEmergencyAlertIDGT applies the GT predicate on the "applied_emergency_alert_id" field.
+func AppliedEmergencyAlertIDGT(v int) predicate.Display {
+	return predicate.Display(sql.FieldGT(FieldAppliedEmergencyAlertID, v))
+}
+
+// AppliedEmergencyAlertIDGTE applies the GTE predicate on the "applied_emergency_alert_id" field.
+func AppliedEmergencyAlertIDGTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldGTE(FieldAppliedEmergencyAlertID, v))
+}
+
+// AppliedEmergencyAlertIDLT applies the LT predicate on the "applied_emergency_alert_id" field.
+func AppliedEmergencyAlertIDLT(v int) predicate.Display {
+	return predicate.Display(sql.FieldLT(FieldAppliedEmergencyAlertID, v))
+}
+
+// AppliedEmergencyAlertIDLTE applies the LTE predicate on the "applied_emergency_alert_id" field.
+func AppliedEmergencyAlertIDLTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldLTE(FieldAppliedEmergencyAlertID, v))
+}
+
+// AppliedEmergencyAlertRevisionEQ applies the EQ predicate on the "applied_emergency_alert_revision" field.
+func AppliedEmergencyAlertRevisionEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldEQ(FieldAppliedEmergencyAlertRevision, v))
+}
+
+// AppliedEmergencyAlertRevisionNEQ applies the NEQ predicate on the "applied_emergency_alert_revision" field.
+func AppliedEmergencyAlertRevisionNEQ(v int) predicate.Display {
+	return predicate.Display(sql.FieldNEQ(FieldAppliedEmergencyAlertRevision, v))
+}
+
+// AppliedEmergencyAlertRevisionIn applies the In predicate on the "applied_emergency_alert_revision" field.
+func AppliedEmergencyAlertRevisionIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldIn(FieldAppliedEmergencyAlertRevision, vs...))
+}
+
+// AppliedEmergencyAlertRevisionNotIn applies the NotIn predicate on the "applied_emergency_alert_revision" field.
+func AppliedEmergencyAlertRevisionNotIn(vs ...int) predicate.Display {
+	return predicate.Display(sql.FieldNotIn(FieldAppliedEmergencyAlertRevision, vs...))
+}
+
+// AppliedEmergencyAlertRevisionGT applies the GT predicate on the "applied_emergency_alert_revision" field.
+func AppliedEmergencyAlertRevisionGT(v int) predicate.Display {
+	return predicate.Display(sql.FieldGT(FieldAppliedEmergencyAlertRevision, v))
+}
+
+// AppliedEmergencyAlertRevisionGTE applies the GTE predicate on the "applied_emergency_alert_revision" field.
+func AppliedEmergencyAlertRevisionGTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldGTE(FieldAppliedEmergencyAlertRevision, v))
+}
+
+// AppliedEmergencyAlertRevisionLT applies the LT predicate on the "applied_emergency_alert_revision" field.
+func AppliedEmergencyAlertRevisionLT(v int) predicate.Display {
+	return predicate.Display(sql.FieldLT(FieldAppliedEmergencyAlertRevision, v))
+}
+
+// AppliedEmergencyAlertRevisionLTE applies the LTE predicate on the "applied_emergency_alert_revision" field.
+func AppliedEmergencyAlertRevisionLTE(v int) predicate.Display {
+	return predicate.Display(sql.FieldLTE(FieldAppliedEmergencyAlertRevision, v))
 }
 
 // AppliedStandbyEQ applies the EQ predicate on the "applied_standby" field.

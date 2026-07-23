@@ -31,6 +31,10 @@ type DisplayAcknowledgment struct {
 	StageMessageRevision          int
 	TechnicalDifficultiesID       int
 	TechnicalDifficultiesRevision int
+	UrgentNoticeID                int
+	UrgentNoticeRevision          int
+	EmergencyAlertID              int
+	EmergencyAlertRevision        int
 	AppliedAt                     time.Time
 	AppliedStandby                bool
 	ClockOffsetMilliseconds       int64
@@ -107,6 +111,10 @@ func (installationStore *SQLite) RecordDisplayAcknowledgment(
 		SetAppliedStageMessageRevision(applied.StageMessageRevision).
 		SetAppliedTechnicalDifficultiesID(applied.TechnicalDifficultiesID).
 		SetAppliedTechnicalDifficultiesRevision(applied.TechnicalDifficultiesRevision).
+		SetAppliedUrgentNoticeID(applied.UrgentNoticeID).
+		SetAppliedUrgentNoticeRevision(applied.UrgentNoticeRevision).
+		SetAppliedEmergencyAlertID(applied.EmergencyAlertID).
+		SetAppliedEmergencyAlertRevision(applied.EmergencyAlertRevision).
 		SetAppliedStandby(applied.AppliedStandby).
 		SetClockOffsetMilliseconds(applied.ClockOffsetMilliseconds).
 		SetClockUncertaintyMilliseconds(applied.ClockUncertaintyMilliseconds).
@@ -137,6 +145,10 @@ func acknowledgment(found *ent.Display) DisplayAcknowledgment {
 		StageMessageRevision:          found.AppliedStageMessageRevision,
 		TechnicalDifficultiesID:       found.AppliedTechnicalDifficultiesID,
 		TechnicalDifficultiesRevision: found.AppliedTechnicalDifficultiesRevision,
+		UrgentNoticeID:                found.AppliedUrgentNoticeID,
+		UrgentNoticeRevision:          found.AppliedUrgentNoticeRevision,
+		EmergencyAlertID:              found.AppliedEmergencyAlertID,
+		EmergencyAlertRevision:        found.AppliedEmergencyAlertRevision,
 		AppliedStandby:                found.AppliedStandby,
 		ClockOffsetMilliseconds:       found.ClockOffsetMilliseconds,
 		ClockUncertaintyMilliseconds:  found.ClockUncertaintyMilliseconds,
@@ -161,7 +173,11 @@ func sameAppliedState(first, second DisplayAcknowledgment) bool {
 		first.StageMessageID == second.StageMessageID &&
 		first.StageMessageRevision == second.StageMessageRevision &&
 		first.TechnicalDifficultiesID == second.TechnicalDifficultiesID &&
-		first.TechnicalDifficultiesRevision == second.TechnicalDifficultiesRevision
+		first.TechnicalDifficultiesRevision == second.TechnicalDifficultiesRevision &&
+		first.UrgentNoticeID == second.UrgentNoticeID &&
+		first.UrgentNoticeRevision == second.UrgentNoticeRevision &&
+		first.EmergencyAlertID == second.EmergencyAlertID &&
+		first.EmergencyAlertRevision == second.EmergencyAlertRevision
 }
 
 func sameStateWithExpiredOverrides(first, second DisplayAcknowledgment) bool {
@@ -173,6 +189,14 @@ func sameStateWithExpiredOverrides(first, second DisplayAcknowledgment) bool {
 		overrideReferenceClearedOrEqual(
 			first.TechnicalDifficultiesID, first.TechnicalDifficultiesRevision,
 			second.TechnicalDifficultiesID, second.TechnicalDifficultiesRevision,
+		) &&
+		overrideReferenceClearedOrEqual(
+			first.UrgentNoticeID, first.UrgentNoticeRevision,
+			second.UrgentNoticeID, second.UrgentNoticeRevision,
+		) &&
+		overrideReferenceClearedOrEqual(
+			first.EmergencyAlertID, first.EmergencyAlertRevision,
+			second.EmergencyAlertID, second.EmergencyAlertRevision,
 		)
 }
 
@@ -187,7 +211,6 @@ func sameAppliedStateWithoutOverrides(first, second DisplayAcknowledgment) bool 
 	return first.ProtocolVersion == second.ProtocolVersion &&
 		first.AssetVersion == second.AssetVersion &&
 		first.StreamID == second.StreamID &&
-		first.StreamPosition == second.StreamPosition &&
 		first.ActiveEventID == second.ActiveEventID &&
 		first.ActivationGeneration == second.ActivationGeneration &&
 		first.PublishedRevision == second.PublishedRevision &&

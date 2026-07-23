@@ -430,6 +430,63 @@ test("Display refreshes and acknowledges an Override at its expiry", async () =>
   assert.equal(browser.acknowledgments.at(-1).streamPosition, initial.streamPosition);
 });
 
+test("Emergency and Urgent priority compose above lower Overrides", async () => {
+  const lower = {
+    stageMessage: {
+      id: "10", revision: "1", kind: "StageMessage",
+      text: "Stage", emphasis: "Normal", untilCleared: true,
+    },
+    technicalDifficulties: {
+      id: "11", revision: "1", kind: "TechnicalDifficulties",
+      text: "Technical", presentation: "Replace", untilCleared: true,
+    },
+  };
+  const overlay = await startBrowser({
+    snapshot: stageTimerSnapshot({
+      ...lower,
+      urgentNotice: {
+        id: "12", revision: "1", kind: "UrgentNotice",
+        text: "Urgent overlay", presentation: "Overlay", untilCleared: true,
+      },
+    }),
+  });
+  assert.equal(overlay.document.main.dataset.overrideKind, "TechnicalDifficulties");
+  assert.match(nodeText(overlay.document.aside), /Stage/);
+  assert.match(nodeText(overlay.document.urgentAside), /Urgent overlay/);
+
+  const replaced = await startBrowser({
+    snapshot: stageTimerSnapshot({
+      ...lower,
+      urgentNotice: {
+        id: "13", revision: "1", kind: "UrgentNotice",
+        text: "Urgent replace", presentation: "Replace", untilCleared: true,
+      },
+    }),
+  });
+  assert.equal(replaced.document.main.dataset.overrideKind, "UrgentNotice");
+  assert.equal(replaced.document.aside, undefined);
+  assert.equal(replaced.document.urgentAside, undefined);
+
+  const emergency = await startBrowser({
+    snapshot: stageTimerSnapshot({
+      ...lower,
+      urgentNotice: {
+        id: "13", revision: "1", kind: "UrgentNotice",
+        text: "Urgent replace", presentation: "Replace", untilCleared: true,
+      },
+      emergencyAlert: {
+        id: "14", revision: "1", kind: "EmergencyAlert",
+        text: "Evacuate", presentation: "Replace", untilCleared: true,
+      },
+    }),
+  });
+  assert.equal(emergency.document.main.dataset.overrideKind, "EmergencyAlert");
+  assert.match(nodeText(emergency.document.main), /Evacuate/);
+  assert.equal(emergency.document.aside, undefined);
+  assert.equal(emergency.document.urgentAside, undefined);
+  assert.equal(emergency.acknowledgments.at(-1).emergencyAlertId, "14");
+});
+
 test("display styles preserve content changes while reducing motion", () => {
   const template = fs.readFileSync(
     new URL("./page.templ", `file://${__filename}`),
@@ -459,6 +516,7 @@ async function startBrowser(options = {}) {
     },
     main: initialMain,
     aside: undefined,
+    urgentAside: undefined,
     body,
     createElement(tagName) {
       if (browser.failRendering) {
@@ -476,13 +534,20 @@ async function startBrowser(options = {}) {
       if (selector === "aside[data-stage-message]") {
         return document.aside;
       }
+      if (selector === "aside[data-urgent-notice]") {
+        return document.urgentAside;
+      }
       return undefined;
     },
   };
   body.append = (...children) => {
     for (const child of children) {
       if (child.tagName === "aside") {
-        document.aside = child;
+        if (child.dataset.urgentNotice) {
+          document.urgentAside = child;
+        } else {
+          document.aside = child;
+        }
       }
       body.children.push(child);
     }
@@ -751,6 +816,9 @@ class FakeNode {
   remove() {
     if (this.document?.aside === this) {
       this.document.aside = undefined;
+    }
+    if (this.document?.urgentAside === this) {
+      this.document.urgentAside = undefined;
     }
   }
 }

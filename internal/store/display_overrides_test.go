@@ -138,7 +138,7 @@ func TestStageMessageTargetsCrewAndReplacesCurrentMessage(t *testing.T) {
 	}
 	clearTx := beginCommand(t, installationStore, producerContext)
 	if _, err = clearTx.ClearDisplayOverride(
-		producerContext, event.ID, third.ID, third.Revision, now.Add(3*time.Second),
+		producerContext, event.ID, third.ID, third.Revision, now.Add(3*time.Second), false,
 	); err != nil {
 		t.Fatalf("clear replacement Stage Message: %v", err)
 	}
@@ -254,7 +254,7 @@ func TestTechnicalDifficultiesCanTargetPublicAndCrewDisplays(t *testing.T) {
 	}
 	clearTx := beginCommand(t, installationStore, producerContext)
 	if _, err = clearTx.ClearDisplayOverride(
-		producerContext, event.ID, replacement.ID, replacement.Revision, now.Add(2*time.Second),
+		producerContext, event.ID, replacement.ID, replacement.Revision, now.Add(2*time.Second), false,
 	); err != nil {
 		t.Fatalf("clear replacement Technical Difficulties: %v", err)
 	}
@@ -293,5 +293,158 @@ func TestSameCursorAcknowledgmentAllowsOnlyOverrideExpiry(t *testing.T) {
 	changed.StageMessageID = 9
 	if sameStateWithExpiredOverrides(current, changed) {
 		t.Fatal("same-cursor replacement Stage Message was accepted")
+	}
+}
+
+func TestPriorityOverridesResolveTargetsAndRequireEmergencyConfirmation(t *testing.T) {
+	client := openEntTestClient(t)
+	installationStore := &SQLite{client: client}
+	internalContext := systemContext(t.Context())
+	event := createSchemaTestEvent(t, client)
+	client.Installation.Create().SetActiveEventID(event.ID).SaveX(internalContext)
+	location := client.Location.Create().SetEventID(event.ID).SaveX(internalContext)
+	now := time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)
+	crewDisplay := client.Display.Create().SetName("Crew").SetEnrolledAt(now).SaveX(internalContext)
+	publicDisplay := client.Display.Create().SetName("Public").SetEnrolledAt(now).SaveX(internalContext)
+	for _, assignment := range []struct {
+		displayID int
+		viewKey   string
+	}{
+		{crewDisplay.ID, "stage-timer"},
+		{publicDisplay.ID, "event-overview"},
+	} {
+		client.DisplayAssignment.Create().
+			SetDisplayID(assignment.displayID).
+			SetEventID(event.ID).
+			SetLocationID(location.ID).
+			SetViewKey(assignment.viewKey).
+			SetDisplayGroupKeys([]string{"venue"}).
+			SaveX(internalContext)
+	}
+	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+		AccountID: 1, EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
+	})
+	for _, test := range []struct {
+		target DisplayOverrideTarget
+		want   int
+	}{
+		{DisplayOverrideTarget{Type: DisplayOverrideTargetEvent}, 2},
+		{DisplayOverrideTarget{Type: DisplayOverrideTargetPublic}, 1},
+		{DisplayOverrideTarget{Type: DisplayOverrideTargetCrew}, 1},
+		{DisplayOverrideTarget{Type: DisplayOverrideTargetLocation, ID: location.ID}, 2},
+		{DisplayOverrideTarget{Type: DisplayOverrideTargetDisplayGroup, Key: "venue"}, 2},
+		{DisplayOverrideTarget{Type: DisplayOverrideTargetDisplay, ID: crewDisplay.ID}, 1},
+	} {
+		preview, err := installationStore.PreviewPriorityOverride(
+			producerContext,
+			ActivatePriorityOverrideParams{
+				EventID: event.ID, Target: test.target, Kind: DisplayOverrideUrgentNotice,
+				Presentation: DisplayOverrideOverlay, Text: "Notice",
+				UntilCleared: true, Now: now,
+			},
+		)
+		if err != nil || len(preview.Displays) != test.want {
+			t.Fatalf("preview target %+v = %+v, %v; want %d Displays", test.target, preview, err, test.want)
+		}
+	}
+	urgentTx := beginCommand(t, installationStore, producerContext)
+	urgent, err := urgentTx.ActivatePriorityOverride(
+		producerContext,
+		ActivatePriorityOverrideParams{
+			EventID: event.ID, Target: DisplayOverrideTarget{Type: DisplayOverrideTargetEvent},
+			Kind: DisplayOverrideUrgentNotice, Presentation: DisplayOverrideOverlay,
+			Text: "Urgent", UntilCleared: true, Now: now,
+		},
+	)
+	if err != nil {
+		t.Fatalf("activate Urgent Notice: %v", err)
+	}
+	if err = urgentTx.Commit(); err != nil {
+		t.Fatalf("commit Urgent Notice: %v", err)
+	}
+	emergencyParams := ActivatePriorityOverrideParams{
+		EventID: event.ID, Target: DisplayOverrideTarget{Type: DisplayOverrideTargetEvent},
+		Kind: DisplayOverrideEmergencyAlert, Presentation: DisplayOverrideReplace,
+		Text: "Evacuate", UntilCleared: true, Now: now.Add(time.Second),
+	}
+	emergencyPreview, err := installationStore.PreviewPriorityOverride(
+		producerContext, emergencyParams,
+	)
+	if err != nil {
+		t.Fatalf("preview Emergency Alert: %v", err)
+	}
+	emergencyParams.ConfirmationFingerprint = DisplayOverridePreviewFingerprint(emergencyPreview)
+	addedDisplay := client.Display.Create().
+		SetName("Added after preview").
+		SetEnrolledAt(now).
+		SaveX(internalContext)
+	client.DisplayAssignment.Create().
+		SetDisplayID(addedDisplay.ID).
+		SetEventID(event.ID).
+		SetLocationID(location.ID).
+		SetViewKey("event-overview").
+		SaveX(internalContext)
+	staleTx := beginCommand(t, installationStore, producerContext)
+	if _, err = staleTx.ActivatePriorityOverride(
+		producerContext, emergencyParams,
+	); !errors.Is(err, ErrDisplayOverrideRevision) {
+		t.Fatalf("stale Emergency target confirmation error = %v", err)
+	}
+	_ = staleTx.Rollback()
+	emergencyPreview, err = installationStore.PreviewPriorityOverride(
+		producerContext, emergencyParams,
+	)
+	if err != nil {
+		t.Fatalf("refresh Emergency Alert preview: %v", err)
+	}
+	emergencyParams.ConfirmationFingerprint = DisplayOverridePreviewFingerprint(emergencyPreview)
+	emergencyTx := beginCommand(t, installationStore, producerContext)
+	emergency, err := emergencyTx.ActivatePriorityOverride(
+		producerContext,
+		emergencyParams,
+	)
+	if err != nil {
+		t.Fatalf("activate Emergency Alert: %v", err)
+	}
+	if err = emergencyTx.Commit(); err != nil {
+		t.Fatalf("commit Emergency Alert: %v", err)
+	}
+	assignment := client.DisplayAssignment.Query().Where(
+		displayassignment.DisplayIDEQ(publicDisplay.ID),
+	).OnlyX(internalContext)
+	var snapshot DisplaySnapshotState
+	if err = loadCurrentDisplayOverrides(
+		internalContext, client, assignment, now.Add(2*time.Second), &snapshot,
+	); err != nil {
+		t.Fatalf("load priority Overrides: %v", err)
+	}
+	if snapshot.UrgentNotice == nil || snapshot.UrgentNotice.ID != urgent.ID ||
+		snapshot.EmergencyAlert == nil || snapshot.EmergencyAlert.ID != emergency.ID {
+		t.Fatalf("priority Override stack = %+v", snapshot)
+	}
+	unconfirmed := beginCommand(t, installationStore, producerContext)
+	if _, err = unconfirmed.ClearDisplayOverride(
+		producerContext, event.ID, emergency.ID, emergency.Revision,
+		now.Add(3*time.Second), false,
+	); !errors.Is(err, ErrDisplayOverrideInput) {
+		t.Fatalf("unconfirmed Emergency clear error = %v", err)
+	}
+	_ = unconfirmed.Rollback()
+	confirmed := beginCommand(t, installationStore, producerContext)
+	if _, err = confirmed.ClearDisplayOverride(
+		producerContext, event.ID, emergency.ID, emergency.Revision,
+		now.Add(3*time.Second), true,
+	); err != nil {
+		t.Fatalf("confirmed Emergency clear: %v", err)
+	}
+	if err = confirmed.Commit(); err != nil {
+		t.Fatalf("commit Emergency clear: %v", err)
+	}
+	snapshot = DisplaySnapshotState{}
+	if err = loadCurrentDisplayOverrides(
+		internalContext, client, assignment, now.Add(4*time.Second), &snapshot,
+	); err != nil || snapshot.EmergencyAlert != nil ||
+		snapshot.UrgentNotice == nil || snapshot.UrgentNotice.ID != urgent.ID {
+		t.Fatalf("underlying Urgent Notice after Emergency clear = %+v, %v", snapshot, err)
 	}
 }

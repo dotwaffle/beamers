@@ -24,7 +24,15 @@ func (DisplayOverride) Fields() []ent.Field {
 	return []ent.Field{
 		field.Int("event_id").Immutable(),
 		field.String("target_group_key").NotEmpty().MaxLen(100).Immutable(),
-		field.Enum("kind").Values("StageMessage", "TechnicalDifficulties").Immutable(),
+		field.Enum("target_type").
+			Values("Event", "Public", "Crew", "Location", "Lane", "ProgramChannel", "DisplayGroup", "Display").
+			Default("DisplayGroup").
+			Immutable(),
+		field.Int("target_id").Default(0).Immutable(),
+		field.Enum("kind").
+			Values("StageMessage", "TechnicalDifficulties", "UrgentNotice", "EmergencyAlert").
+			Immutable(),
+		field.Enum("presentation").Values("Overlay", "Replace").Default("Overlay").Immutable(),
 		field.String("text").NotEmpty().MaxLen(2000).Immutable(),
 		field.Enum("emphasis").Values("Normal", "Attention", "Urgent").Default("Normal").Immutable(),
 		field.String("preset_key").Optional().MaxLen(100).Immutable(),

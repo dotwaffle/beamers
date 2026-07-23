@@ -8306,6 +8306,14 @@ type DisplayMutation struct {
 	addapplied_technical_difficulties_id       *int
 	applied_technical_difficulties_revision    *int
 	addapplied_technical_difficulties_revision *int
+	applied_urgent_notice_id                   *int
+	addapplied_urgent_notice_id                *int
+	applied_urgent_notice_revision             *int
+	addapplied_urgent_notice_revision          *int
+	applied_emergency_alert_id                 *int
+	addapplied_emergency_alert_id              *int
+	applied_emergency_alert_revision           *int
+	addapplied_emergency_alert_revision        *int
 	applied_standby                            *bool
 	clock_offset_milliseconds                  *int64
 	addclock_offset_milliseconds               *int64
@@ -9090,6 +9098,230 @@ func (m *DisplayMutation) ResetAppliedTechnicalDifficultiesRevision() {
 	m.addapplied_technical_difficulties_revision = nil
 }
 
+// SetAppliedUrgentNoticeID sets the "applied_urgent_notice_id" field.
+func (m *DisplayMutation) SetAppliedUrgentNoticeID(i int) {
+	m.applied_urgent_notice_id = &i
+	m.addapplied_urgent_notice_id = nil
+}
+
+// AppliedUrgentNoticeID returns the value of the "applied_urgent_notice_id" field in the mutation.
+func (m *DisplayMutation) AppliedUrgentNoticeID() (r int, exists bool) {
+	v := m.applied_urgent_notice_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAppliedUrgentNoticeID returns the old "applied_urgent_notice_id" field's value of the Display entity.
+// If the Display object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayMutation) OldAppliedUrgentNoticeID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAppliedUrgentNoticeID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAppliedUrgentNoticeID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAppliedUrgentNoticeID: %w", err)
+	}
+	return oldValue.AppliedUrgentNoticeID, nil
+}
+
+// AddAppliedUrgentNoticeID adds i to the "applied_urgent_notice_id" field.
+func (m *DisplayMutation) AddAppliedUrgentNoticeID(i int) {
+	if m.addapplied_urgent_notice_id != nil {
+		*m.addapplied_urgent_notice_id += i
+	} else {
+		m.addapplied_urgent_notice_id = &i
+	}
+}
+
+// AddedAppliedUrgentNoticeID returns the value that was added to the "applied_urgent_notice_id" field in this mutation.
+func (m *DisplayMutation) AddedAppliedUrgentNoticeID() (r int, exists bool) {
+	v := m.addapplied_urgent_notice_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAppliedUrgentNoticeID resets all changes to the "applied_urgent_notice_id" field.
+func (m *DisplayMutation) ResetAppliedUrgentNoticeID() {
+	m.applied_urgent_notice_id = nil
+	m.addapplied_urgent_notice_id = nil
+}
+
+// SetAppliedUrgentNoticeRevision sets the "applied_urgent_notice_revision" field.
+func (m *DisplayMutation) SetAppliedUrgentNoticeRevision(i int) {
+	m.applied_urgent_notice_revision = &i
+	m.addapplied_urgent_notice_revision = nil
+}
+
+// AppliedUrgentNoticeRevision returns the value of the "applied_urgent_notice_revision" field in the mutation.
+func (m *DisplayMutation) AppliedUrgentNoticeRevision() (r int, exists bool) {
+	v := m.applied_urgent_notice_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAppliedUrgentNoticeRevision returns the old "applied_urgent_notice_revision" field's value of the Display entity.
+// If the Display object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayMutation) OldAppliedUrgentNoticeRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAppliedUrgentNoticeRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAppliedUrgentNoticeRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAppliedUrgentNoticeRevision: %w", err)
+	}
+	return oldValue.AppliedUrgentNoticeRevision, nil
+}
+
+// AddAppliedUrgentNoticeRevision adds i to the "applied_urgent_notice_revision" field.
+func (m *DisplayMutation) AddAppliedUrgentNoticeRevision(i int) {
+	if m.addapplied_urgent_notice_revision != nil {
+		*m.addapplied_urgent_notice_revision += i
+	} else {
+		m.addapplied_urgent_notice_revision = &i
+	}
+}
+
+// AddedAppliedUrgentNoticeRevision returns the value that was added to the "applied_urgent_notice_revision" field in this mutation.
+func (m *DisplayMutation) AddedAppliedUrgentNoticeRevision() (r int, exists bool) {
+	v := m.addapplied_urgent_notice_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAppliedUrgentNoticeRevision resets all changes to the "applied_urgent_notice_revision" field.
+func (m *DisplayMutation) ResetAppliedUrgentNoticeRevision() {
+	m.applied_urgent_notice_revision = nil
+	m.addapplied_urgent_notice_revision = nil
+}
+
+// SetAppliedEmergencyAlertID sets the "applied_emergency_alert_id" field.
+func (m *DisplayMutation) SetAppliedEmergencyAlertID(i int) {
+	m.applied_emergency_alert_id = &i
+	m.addapplied_emergency_alert_id = nil
+}
+
+// AppliedEmergencyAlertID returns the value of the "applied_emergency_alert_id" field in the mutation.
+func (m *DisplayMutation) AppliedEmergencyAlertID() (r int, exists bool) {
+	v := m.applied_emergency_alert_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAppliedEmergencyAlertID returns the old "applied_emergency_alert_id" field's value of the Display entity.
+// If the Display object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayMutation) OldAppliedEmergencyAlertID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAppliedEmergencyAlertID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAppliedEmergencyAlertID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAppliedEmergencyAlertID: %w", err)
+	}
+	return oldValue.AppliedEmergencyAlertID, nil
+}
+
+// AddAppliedEmergencyAlertID adds i to the "applied_emergency_alert_id" field.
+func (m *DisplayMutation) AddAppliedEmergencyAlertID(i int) {
+	if m.addapplied_emergency_alert_id != nil {
+		*m.addapplied_emergency_alert_id += i
+	} else {
+		m.addapplied_emergency_alert_id = &i
+	}
+}
+
+// AddedAppliedEmergencyAlertID returns the value that was added to the "applied_emergency_alert_id" field in this mutation.
+func (m *DisplayMutation) AddedAppliedEmergencyAlertID() (r int, exists bool) {
+	v := m.addapplied_emergency_alert_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAppliedEmergencyAlertID resets all changes to the "applied_emergency_alert_id" field.
+func (m *DisplayMutation) ResetAppliedEmergencyAlertID() {
+	m.applied_emergency_alert_id = nil
+	m.addapplied_emergency_alert_id = nil
+}
+
+// SetAppliedEmergencyAlertRevision sets the "applied_emergency_alert_revision" field.
+func (m *DisplayMutation) SetAppliedEmergencyAlertRevision(i int) {
+	m.applied_emergency_alert_revision = &i
+	m.addapplied_emergency_alert_revision = nil
+}
+
+// AppliedEmergencyAlertRevision returns the value of the "applied_emergency_alert_revision" field in the mutation.
+func (m *DisplayMutation) AppliedEmergencyAlertRevision() (r int, exists bool) {
+	v := m.applied_emergency_alert_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAppliedEmergencyAlertRevision returns the old "applied_emergency_alert_revision" field's value of the Display entity.
+// If the Display object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayMutation) OldAppliedEmergencyAlertRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAppliedEmergencyAlertRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAppliedEmergencyAlertRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAppliedEmergencyAlertRevision: %w", err)
+	}
+	return oldValue.AppliedEmergencyAlertRevision, nil
+}
+
+// AddAppliedEmergencyAlertRevision adds i to the "applied_emergency_alert_revision" field.
+func (m *DisplayMutation) AddAppliedEmergencyAlertRevision(i int) {
+	if m.addapplied_emergency_alert_revision != nil {
+		*m.addapplied_emergency_alert_revision += i
+	} else {
+		m.addapplied_emergency_alert_revision = &i
+	}
+}
+
+// AddedAppliedEmergencyAlertRevision returns the value that was added to the "applied_emergency_alert_revision" field in this mutation.
+func (m *DisplayMutation) AddedAppliedEmergencyAlertRevision() (r int, exists bool) {
+	v := m.addapplied_emergency_alert_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAppliedEmergencyAlertRevision resets all changes to the "applied_emergency_alert_revision" field.
+func (m *DisplayMutation) ResetAppliedEmergencyAlertRevision() {
+	m.applied_emergency_alert_revision = nil
+	m.addapplied_emergency_alert_revision = nil
+}
+
 // SetAppliedStandby sets the "applied_standby" field.
 func (m *DisplayMutation) SetAppliedStandby(b bool) {
 	m.applied_standby = &b
@@ -9519,7 +9751,7 @@ func (m *DisplayMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DisplayMutation) Fields() []string {
-	fields := make([]string, 0, 19)
+	fields := make([]string, 0, 23)
 	if m.name != nil {
 		fields = append(fields, display.FieldName)
 	}
@@ -9561,6 +9793,18 @@ func (m *DisplayMutation) Fields() []string {
 	}
 	if m.applied_technical_difficulties_revision != nil {
 		fields = append(fields, display.FieldAppliedTechnicalDifficultiesRevision)
+	}
+	if m.applied_urgent_notice_id != nil {
+		fields = append(fields, display.FieldAppliedUrgentNoticeID)
+	}
+	if m.applied_urgent_notice_revision != nil {
+		fields = append(fields, display.FieldAppliedUrgentNoticeRevision)
+	}
+	if m.applied_emergency_alert_id != nil {
+		fields = append(fields, display.FieldAppliedEmergencyAlertID)
+	}
+	if m.applied_emergency_alert_revision != nil {
+		fields = append(fields, display.FieldAppliedEmergencyAlertRevision)
 	}
 	if m.applied_standby != nil {
 		fields = append(fields, display.FieldAppliedStandby)
@@ -9613,6 +9857,14 @@ func (m *DisplayMutation) Field(name string) (ent.Value, bool) {
 		return m.AppliedTechnicalDifficultiesID()
 	case display.FieldAppliedTechnicalDifficultiesRevision:
 		return m.AppliedTechnicalDifficultiesRevision()
+	case display.FieldAppliedUrgentNoticeID:
+		return m.AppliedUrgentNoticeID()
+	case display.FieldAppliedUrgentNoticeRevision:
+		return m.AppliedUrgentNoticeRevision()
+	case display.FieldAppliedEmergencyAlertID:
+		return m.AppliedEmergencyAlertID()
+	case display.FieldAppliedEmergencyAlertRevision:
+		return m.AppliedEmergencyAlertRevision()
 	case display.FieldAppliedStandby:
 		return m.AppliedStandby()
 	case display.FieldClockOffsetMilliseconds:
@@ -9660,6 +9912,14 @@ func (m *DisplayMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldAppliedTechnicalDifficultiesID(ctx)
 	case display.FieldAppliedTechnicalDifficultiesRevision:
 		return m.OldAppliedTechnicalDifficultiesRevision(ctx)
+	case display.FieldAppliedUrgentNoticeID:
+		return m.OldAppliedUrgentNoticeID(ctx)
+	case display.FieldAppliedUrgentNoticeRevision:
+		return m.OldAppliedUrgentNoticeRevision(ctx)
+	case display.FieldAppliedEmergencyAlertID:
+		return m.OldAppliedEmergencyAlertID(ctx)
+	case display.FieldAppliedEmergencyAlertRevision:
+		return m.OldAppliedEmergencyAlertRevision(ctx)
 	case display.FieldAppliedStandby:
 		return m.OldAppliedStandby(ctx)
 	case display.FieldClockOffsetMilliseconds:
@@ -9777,6 +10037,34 @@ func (m *DisplayMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetAppliedTechnicalDifficultiesRevision(v)
 		return nil
+	case display.FieldAppliedUrgentNoticeID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAppliedUrgentNoticeID(v)
+		return nil
+	case display.FieldAppliedUrgentNoticeRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAppliedUrgentNoticeRevision(v)
+		return nil
+	case display.FieldAppliedEmergencyAlertID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAppliedEmergencyAlertID(v)
+		return nil
+	case display.FieldAppliedEmergencyAlertRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAppliedEmergencyAlertRevision(v)
+		return nil
 	case display.FieldAppliedStandby:
 		v, ok := value.(bool)
 		if !ok {
@@ -9844,6 +10132,18 @@ func (m *DisplayMutation) AddedFields() []string {
 	if m.addapplied_technical_difficulties_revision != nil {
 		fields = append(fields, display.FieldAppliedTechnicalDifficultiesRevision)
 	}
+	if m.addapplied_urgent_notice_id != nil {
+		fields = append(fields, display.FieldAppliedUrgentNoticeID)
+	}
+	if m.addapplied_urgent_notice_revision != nil {
+		fields = append(fields, display.FieldAppliedUrgentNoticeRevision)
+	}
+	if m.addapplied_emergency_alert_id != nil {
+		fields = append(fields, display.FieldAppliedEmergencyAlertID)
+	}
+	if m.addapplied_emergency_alert_revision != nil {
+		fields = append(fields, display.FieldAppliedEmergencyAlertRevision)
+	}
 	if m.addclock_offset_milliseconds != nil {
 		fields = append(fields, display.FieldClockOffsetMilliseconds)
 	}
@@ -9874,6 +10174,14 @@ func (m *DisplayMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedAppliedTechnicalDifficultiesID()
 	case display.FieldAppliedTechnicalDifficultiesRevision:
 		return m.AddedAppliedTechnicalDifficultiesRevision()
+	case display.FieldAppliedUrgentNoticeID:
+		return m.AddedAppliedUrgentNoticeID()
+	case display.FieldAppliedUrgentNoticeRevision:
+		return m.AddedAppliedUrgentNoticeRevision()
+	case display.FieldAppliedEmergencyAlertID:
+		return m.AddedAppliedEmergencyAlertID()
+	case display.FieldAppliedEmergencyAlertRevision:
+		return m.AddedAppliedEmergencyAlertRevision()
 	case display.FieldClockOffsetMilliseconds:
 		return m.AddedClockOffsetMilliseconds()
 	case display.FieldClockUncertaintyMilliseconds:
@@ -9942,6 +10250,34 @@ func (m *DisplayMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddAppliedTechnicalDifficultiesRevision(v)
+		return nil
+	case display.FieldAppliedUrgentNoticeID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAppliedUrgentNoticeID(v)
+		return nil
+	case display.FieldAppliedUrgentNoticeRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAppliedUrgentNoticeRevision(v)
+		return nil
+	case display.FieldAppliedEmergencyAlertID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAppliedEmergencyAlertID(v)
+		return nil
+	case display.FieldAppliedEmergencyAlertRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAppliedEmergencyAlertRevision(v)
 		return nil
 	case display.FieldClockOffsetMilliseconds:
 		v, ok := value.(int64)
@@ -10034,6 +10370,18 @@ func (m *DisplayMutation) ResetField(name string) error {
 		return nil
 	case display.FieldAppliedTechnicalDifficultiesRevision:
 		m.ResetAppliedTechnicalDifficultiesRevision()
+		return nil
+	case display.FieldAppliedUrgentNoticeID:
+		m.ResetAppliedUrgentNoticeID()
+		return nil
+	case display.FieldAppliedUrgentNoticeRevision:
+		m.ResetAppliedUrgentNoticeRevision()
+		return nil
+	case display.FieldAppliedEmergencyAlertID:
+		m.ResetAppliedEmergencyAlertID()
+		return nil
+	case display.FieldAppliedEmergencyAlertRevision:
+		m.ResetAppliedEmergencyAlertRevision()
 		return nil
 	case display.FieldAppliedStandby:
 		m.ResetAppliedStandby()
@@ -12166,7 +12514,11 @@ type DisplayOverrideMutation struct {
 	typ                      string
 	id                       *int
 	target_group_key         *string
+	target_type              *displayoverride.TargetType
+	target_id                *int
+	addtarget_id             *int
 	kind                     *displayoverride.Kind
+	presentation             *displayoverride.Presentation
 	text                     *string
 	emphasis                 *displayoverride.Emphasis
 	preset_key               *string
@@ -12359,6 +12711,98 @@ func (m *DisplayOverrideMutation) ResetTargetGroupKey() {
 	m.target_group_key = nil
 }
 
+// SetTargetType sets the "target_type" field.
+func (m *DisplayOverrideMutation) SetTargetType(dt displayoverride.TargetType) {
+	m.target_type = &dt
+}
+
+// TargetType returns the value of the "target_type" field in the mutation.
+func (m *DisplayOverrideMutation) TargetType() (r displayoverride.TargetType, exists bool) {
+	v := m.target_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTargetType returns the old "target_type" field's value of the DisplayOverride entity.
+// If the DisplayOverride object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayOverrideMutation) OldTargetType(ctx context.Context) (v displayoverride.TargetType, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTargetType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTargetType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTargetType: %w", err)
+	}
+	return oldValue.TargetType, nil
+}
+
+// ResetTargetType resets all changes to the "target_type" field.
+func (m *DisplayOverrideMutation) ResetTargetType() {
+	m.target_type = nil
+}
+
+// SetTargetID sets the "target_id" field.
+func (m *DisplayOverrideMutation) SetTargetID(i int) {
+	m.target_id = &i
+	m.addtarget_id = nil
+}
+
+// TargetID returns the value of the "target_id" field in the mutation.
+func (m *DisplayOverrideMutation) TargetID() (r int, exists bool) {
+	v := m.target_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTargetID returns the old "target_id" field's value of the DisplayOverride entity.
+// If the DisplayOverride object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayOverrideMutation) OldTargetID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTargetID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTargetID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTargetID: %w", err)
+	}
+	return oldValue.TargetID, nil
+}
+
+// AddTargetID adds i to the "target_id" field.
+func (m *DisplayOverrideMutation) AddTargetID(i int) {
+	if m.addtarget_id != nil {
+		*m.addtarget_id += i
+	} else {
+		m.addtarget_id = &i
+	}
+}
+
+// AddedTargetID returns the value that was added to the "target_id" field in this mutation.
+func (m *DisplayOverrideMutation) AddedTargetID() (r int, exists bool) {
+	v := m.addtarget_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTargetID resets all changes to the "target_id" field.
+func (m *DisplayOverrideMutation) ResetTargetID() {
+	m.target_id = nil
+	m.addtarget_id = nil
+}
+
 // SetKind sets the "kind" field.
 func (m *DisplayOverrideMutation) SetKind(d displayoverride.Kind) {
 	m.kind = &d
@@ -12393,6 +12837,42 @@ func (m *DisplayOverrideMutation) OldKind(ctx context.Context) (v displayoverrid
 // ResetKind resets all changes to the "kind" field.
 func (m *DisplayOverrideMutation) ResetKind() {
 	m.kind = nil
+}
+
+// SetPresentation sets the "presentation" field.
+func (m *DisplayOverrideMutation) SetPresentation(d displayoverride.Presentation) {
+	m.presentation = &d
+}
+
+// Presentation returns the value of the "presentation" field in the mutation.
+func (m *DisplayOverrideMutation) Presentation() (r displayoverride.Presentation, exists bool) {
+	v := m.presentation
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPresentation returns the old "presentation" field's value of the DisplayOverride entity.
+// If the DisplayOverride object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DisplayOverrideMutation) OldPresentation(ctx context.Context) (v displayoverride.Presentation, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPresentation is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPresentation requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPresentation: %w", err)
+	}
+	return oldValue.Presentation, nil
+}
+
+// ResetPresentation resets all changes to the "presentation" field.
+func (m *DisplayOverrideMutation) ResetPresentation() {
+	m.presentation = nil
 }
 
 // SetText sets the "text" field.
@@ -12913,15 +13393,24 @@ func (m *DisplayOverrideMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DisplayOverrideMutation) Fields() []string {
-	fields := make([]string, 0, 12)
+	fields := make([]string, 0, 15)
 	if m.event != nil {
 		fields = append(fields, displayoverride.FieldEventID)
 	}
 	if m.target_group_key != nil {
 		fields = append(fields, displayoverride.FieldTargetGroupKey)
 	}
+	if m.target_type != nil {
+		fields = append(fields, displayoverride.FieldTargetType)
+	}
+	if m.target_id != nil {
+		fields = append(fields, displayoverride.FieldTargetID)
+	}
 	if m.kind != nil {
 		fields = append(fields, displayoverride.FieldKind)
+	}
+	if m.presentation != nil {
+		fields = append(fields, displayoverride.FieldPresentation)
 	}
 	if m.text != nil {
 		fields = append(fields, displayoverride.FieldText)
@@ -12962,8 +13451,14 @@ func (m *DisplayOverrideMutation) Field(name string) (ent.Value, bool) {
 		return m.EventID()
 	case displayoverride.FieldTargetGroupKey:
 		return m.TargetGroupKey()
+	case displayoverride.FieldTargetType:
+		return m.TargetType()
+	case displayoverride.FieldTargetID:
+		return m.TargetID()
 	case displayoverride.FieldKind:
 		return m.Kind()
+	case displayoverride.FieldPresentation:
+		return m.Presentation()
 	case displayoverride.FieldText:
 		return m.Text()
 	case displayoverride.FieldEmphasis:
@@ -12995,8 +13490,14 @@ func (m *DisplayOverrideMutation) OldField(ctx context.Context, name string) (en
 		return m.OldEventID(ctx)
 	case displayoverride.FieldTargetGroupKey:
 		return m.OldTargetGroupKey(ctx)
+	case displayoverride.FieldTargetType:
+		return m.OldTargetType(ctx)
+	case displayoverride.FieldTargetID:
+		return m.OldTargetID(ctx)
 	case displayoverride.FieldKind:
 		return m.OldKind(ctx)
+	case displayoverride.FieldPresentation:
+		return m.OldPresentation(ctx)
 	case displayoverride.FieldText:
 		return m.OldText(ctx)
 	case displayoverride.FieldEmphasis:
@@ -13038,12 +13539,33 @@ func (m *DisplayOverrideMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetTargetGroupKey(v)
 		return nil
+	case displayoverride.FieldTargetType:
+		v, ok := value.(displayoverride.TargetType)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTargetType(v)
+		return nil
+	case displayoverride.FieldTargetID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTargetID(v)
+		return nil
 	case displayoverride.FieldKind:
 		v, ok := value.(displayoverride.Kind)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetKind(v)
+		return nil
+	case displayoverride.FieldPresentation:
+		v, ok := value.(displayoverride.Presentation)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPresentation(v)
 		return nil
 	case displayoverride.FieldText:
 		v, ok := value.(string)
@@ -13116,6 +13638,9 @@ func (m *DisplayOverrideMutation) SetField(name string, value ent.Value) error {
 // this mutation.
 func (m *DisplayOverrideMutation) AddedFields() []string {
 	var fields []string
+	if m.addtarget_id != nil {
+		fields = append(fields, displayoverride.FieldTargetID)
+	}
 	if m.addrevision != nil {
 		fields = append(fields, displayoverride.FieldRevision)
 	}
@@ -13130,6 +13655,8 @@ func (m *DisplayOverrideMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *DisplayOverrideMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
+	case displayoverride.FieldTargetID:
+		return m.AddedTargetID()
 	case displayoverride.FieldRevision:
 		return m.AddedRevision()
 	case displayoverride.FieldCreatedByAccountID:
@@ -13143,6 +13670,13 @@ func (m *DisplayOverrideMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *DisplayOverrideMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case displayoverride.FieldTargetID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTargetID(v)
+		return nil
 	case displayoverride.FieldRevision:
 		v, ok := value.(int)
 		if !ok {
@@ -13211,8 +13745,17 @@ func (m *DisplayOverrideMutation) ResetField(name string) error {
 	case displayoverride.FieldTargetGroupKey:
 		m.ResetTargetGroupKey()
 		return nil
+	case displayoverride.FieldTargetType:
+		m.ResetTargetType()
+		return nil
+	case displayoverride.FieldTargetID:
+		m.ResetTargetID()
+		return nil
 	case displayoverride.FieldKind:
 		m.ResetKind()
+		return nil
+	case displayoverride.FieldPresentation:
+		m.ResetPresentation()
 		return nil
 	case displayoverride.FieldText:
 		m.ResetText()

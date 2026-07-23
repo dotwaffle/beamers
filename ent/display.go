@@ -45,6 +45,14 @@ type Display struct {
 	AppliedTechnicalDifficultiesID int `json:"applied_technical_difficulties_id,omitempty"`
 	// AppliedTechnicalDifficultiesRevision holds the value of the "applied_technical_difficulties_revision" field.
 	AppliedTechnicalDifficultiesRevision int `json:"applied_technical_difficulties_revision,omitempty"`
+	// AppliedUrgentNoticeID holds the value of the "applied_urgent_notice_id" field.
+	AppliedUrgentNoticeID int `json:"applied_urgent_notice_id,omitempty"`
+	// AppliedUrgentNoticeRevision holds the value of the "applied_urgent_notice_revision" field.
+	AppliedUrgentNoticeRevision int `json:"applied_urgent_notice_revision,omitempty"`
+	// AppliedEmergencyAlertID holds the value of the "applied_emergency_alert_id" field.
+	AppliedEmergencyAlertID int `json:"applied_emergency_alert_id,omitempty"`
+	// AppliedEmergencyAlertRevision holds the value of the "applied_emergency_alert_revision" field.
+	AppliedEmergencyAlertRevision int `json:"applied_emergency_alert_revision,omitempty"`
 	// AppliedStandby holds the value of the "applied_standby" field.
 	AppliedStandby bool `json:"applied_standby,omitempty"`
 	// ClockOffsetMilliseconds holds the value of the "clock_offset_milliseconds" field.
@@ -108,7 +116,7 @@ func (*Display) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case display.FieldAppliedStandby, display.FieldRendererUnstable:
 			values[i] = new(sql.NullBool)
-		case display.FieldID, display.FieldAppliedStreamPosition, display.FieldAppliedActiveEventID, display.FieldAppliedActivationGeneration, display.FieldAppliedPublishedRevision, display.FieldAppliedStageMessageID, display.FieldAppliedStageMessageRevision, display.FieldAppliedTechnicalDifficultiesID, display.FieldAppliedTechnicalDifficultiesRevision, display.FieldClockOffsetMilliseconds, display.FieldClockUncertaintyMilliseconds:
+		case display.FieldID, display.FieldAppliedStreamPosition, display.FieldAppliedActiveEventID, display.FieldAppliedActivationGeneration, display.FieldAppliedPublishedRevision, display.FieldAppliedStageMessageID, display.FieldAppliedStageMessageRevision, display.FieldAppliedTechnicalDifficultiesID, display.FieldAppliedTechnicalDifficultiesRevision, display.FieldAppliedUrgentNoticeID, display.FieldAppliedUrgentNoticeRevision, display.FieldAppliedEmergencyAlertID, display.FieldAppliedEmergencyAlertRevision, display.FieldClockOffsetMilliseconds, display.FieldClockUncertaintyMilliseconds:
 			values[i] = new(sql.NullInt64)
 		case display.FieldName, display.FieldAppliedProtocolVersion, display.FieldAppliedAssetVersion, display.FieldAppliedStreamID:
 			values[i] = new(sql.NullString)
@@ -218,6 +226,30 @@ func (_m *Display) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field applied_technical_difficulties_revision", values[i])
 			} else if value.Valid {
 				_m.AppliedTechnicalDifficultiesRevision = int(value.Int64)
+			}
+		case display.FieldAppliedUrgentNoticeID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field applied_urgent_notice_id", values[i])
+			} else if value.Valid {
+				_m.AppliedUrgentNoticeID = int(value.Int64)
+			}
+		case display.FieldAppliedUrgentNoticeRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field applied_urgent_notice_revision", values[i])
+			} else if value.Valid {
+				_m.AppliedUrgentNoticeRevision = int(value.Int64)
+			}
+		case display.FieldAppliedEmergencyAlertID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field applied_emergency_alert_id", values[i])
+			} else if value.Valid {
+				_m.AppliedEmergencyAlertID = int(value.Int64)
+			}
+		case display.FieldAppliedEmergencyAlertRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field applied_emergency_alert_revision", values[i])
+			} else if value.Valid {
+				_m.AppliedEmergencyAlertRevision = int(value.Int64)
 			}
 		case display.FieldAppliedStandby:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -342,6 +374,18 @@ func (_m *Display) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("applied_technical_difficulties_revision=")
 	builder.WriteString(fmt.Sprintf("%v", _m.AppliedTechnicalDifficultiesRevision))
+	builder.WriteString(", ")
+	builder.WriteString("applied_urgent_notice_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AppliedUrgentNoticeID))
+	builder.WriteString(", ")
+	builder.WriteString("applied_urgent_notice_revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AppliedUrgentNoticeRevision))
+	builder.WriteString(", ")
+	builder.WriteString("applied_emergency_alert_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AppliedEmergencyAlertID))
+	builder.WriteString(", ")
+	builder.WriteString("applied_emergency_alert_revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AppliedEmergencyAlertRevision))
 	builder.WriteString(", ")
 	builder.WriteString("applied_standby=")
 	builder.WriteString(fmt.Sprintf("%v", _m.AppliedStandby))

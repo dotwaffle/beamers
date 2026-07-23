@@ -1867,6 +1867,276 @@ func TestStageMessagesAndTechnicalDifficultiesOverrideCurrentDisplayView(t *test
 	server.stop(t)
 }
 
+func TestUrgentNoticesAndEmergencyAlertsTargetCurrentDisplays(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	displayClient := enrollAndAssignDisplay(
+		t, administrator, server, "Priority Display", "stage-timer",
+	)
+	competitionID, _ := addCompetitionSession(t, administrator, server)
+	assign := func(viewKey string, groups []string, commandID string) {
+		t.Helper()
+		result := requestJSON(
+			t.Context(), administrator, server.address, "/admin/displays/1/assign",
+			map[string]any{
+				"event_id": 1, "location_id": 1, "view_key": viewKey,
+				"display_group_keys": groups, "command_id": commandID,
+			},
+		)
+		if result.status != http.StatusOK {
+			t.Fatalf("assign Priority Display = %d: %s", result.status, result.body)
+		}
+	}
+	previewTarget := func(target map[string]any, wantDisplay bool) {
+		t.Helper()
+		result := requestJSON(
+			t.Context(), administrator, server.address,
+			"/crew/events/1/urgent-notices/preview",
+			map[string]any{
+				"target": target, "text": "Scope preview",
+				"presentation": "Overlay", "until_cleared": true,
+			},
+		)
+		hasDisplay := strings.Contains(result.body, `"id":1,"name":"Priority Display"`)
+		if result.status != http.StatusOK || hasDisplay != wantDisplay {
+			t.Fatalf("preview target %v = %d: %s", target, result.status, result.body)
+		}
+	}
+
+	previewTarget(map[string]any{"type": "Event"}, true)
+	previewTarget(map[string]any{"type": "Crew"}, true)
+	previewTarget(map[string]any{"type": "Public"}, false)
+	previewTarget(map[string]any{"type": "Location", "id": 1}, true)
+	previewTarget(map[string]any{"type": "Lane", "id": 1}, true)
+	previewTarget(map[string]any{"type": "Display", "id": 1}, true)
+	assign("stage-timer", []string{"ops"}, "assign-priority-custom-group")
+	previewTarget(map[string]any{"type": "DisplayGroup", "key": "ops"}, true)
+	assign("event-overview", nil, "assign-priority-public")
+	previewTarget(map[string]any{"type": "Public"}, true)
+	assign("competition-output", nil, "assign-priority-program")
+	previewTarget(map[string]any{"type": "ProgramChannel", "id": competitionID}, true)
+	assign("stage-timer", []string{"ops"}, "restore-priority-stage")
+
+	technical := requestJSON(
+		t.Context(), administrator, server.address,
+		"/crew/events/1/technical-difficulties",
+		map[string]any{
+			"target_group_key": "crew", "until_cleared": true,
+			"command_id": "priority-technical",
+		},
+	)
+	if technical.status != http.StatusOK {
+		t.Fatalf("activate underlying Technical Difficulties = %d: %s", technical.status, technical.body)
+	}
+	stage := requestJSON(
+		t.Context(), administrator, server.address,
+		"/crew/events/1/stage-messages",
+		map[string]any{
+			"text": "Stage underneath", "target_group_key": "crew",
+			"until_cleared": true, "command_id": "priority-stage-message",
+		},
+	)
+	if stage.status != http.StatusOK {
+		t.Fatalf("activate underlying Stage Message = %d: %s", stage.status, stage.body)
+	}
+	overlay := requestJSON(
+		t.Context(), administrator, server.address,
+		"/crew/events/1/urgent-notices",
+		map[string]any{
+			"target": map[string]any{"type": "DisplayGroup", "key": "ops"},
+			"text":   "Urgent overlay", "presentation": "Overlay",
+			"until_cleared": true, "command_id": "activate-urgent-overlay",
+		},
+	)
+	var overlayOverride struct {
+		ID       int `json:"id"`
+		Revision int `json:"revision"`
+	}
+	if err := json.Unmarshal([]byte(overlay.body), &overlayOverride); err != nil ||
+		overlay.status != http.StatusOK || overlayOverride.ID <= 0 {
+		t.Fatalf("activate Urgent Overlay = %d: %s (%v)", overlay.status, overlay.body, err)
+	}
+	page := readDisplayHTML(t, displayClient, server.address)
+	for _, want := range []string{"Technical Difficulties", "Stage underneath", "Urgent overlay"} {
+		if !strings.Contains(page, want) {
+			t.Fatalf("Urgent Overlay did not compose above lower content %q: %s", want, page)
+		}
+	}
+	assign("stage-timer", nil, "leave-priority-custom-group")
+	page = readDisplayHTML(t, displayClient, server.address)
+	if strings.Contains(page, "Urgent overlay") {
+		t.Fatalf("logical Urgent target did not re-resolve after leave: %s", page)
+	}
+	active := requestJSONMethod(
+		t.Context(), http.MethodGet, administrator, server.address,
+		"/crew/events/1/overrides", nil,
+	)
+	if active.status != http.StatusOK ||
+		!strings.Contains(active.body, fmt.Sprintf(`"id":%d`, overlayOverride.ID)) ||
+		!strings.Contains(active.body, `"displays":[]`) {
+		t.Fatalf("active Urgent membership after leave = %d: %s", active.status, active.body)
+	}
+
+	individual := requestJSON(
+		t.Context(), administrator, server.address,
+		"/crew/events/1/urgent-notices",
+		map[string]any{
+			"target": map[string]any{"type": "Display", "id": 1},
+			"text":   "Fixed Display notice", "presentation": "Replace",
+			"until_cleared": true, "command_id": "activate-individual-urgent",
+		},
+	)
+	var individualOverride struct {
+		ID       int `json:"id"`
+		Revision int `json:"revision"`
+	}
+	if err := json.Unmarshal([]byte(individual.body), &individualOverride); err != nil ||
+		individual.status != http.StatusOK || individualOverride.ID <= overlayOverride.ID {
+		t.Fatalf("activate individual Urgent Replace = %d: %s (%v)", individual.status, individual.body, err)
+	}
+	assign("event-overview", []string{"other"}, "move-fixed-priority-display")
+	page = readDisplayHTML(t, displayClient, server.address)
+	if !strings.Contains(page, "Fixed Display notice") ||
+		strings.Contains(page, "Technical Difficulties") ||
+		strings.Contains(page, "Stage underneath") {
+		t.Fatalf("individual Urgent Replace did not remain fixed or suppress lower content: %s", page)
+	}
+
+	emergencyPreview := requestJSON(
+		t.Context(), administrator, server.address,
+		"/crew/events/1/emergency-alerts/preview",
+		map[string]any{
+			"target": map[string]any{"type": "Event"},
+			"text":   "Evacuate using marked exits",
+		},
+	)
+	var preview struct {
+		ConfirmationFingerprint string `json:"confirmation_fingerprint"`
+	}
+	if err := json.Unmarshal([]byte(emergencyPreview.body), &preview); err != nil ||
+		emergencyPreview.status != http.StatusOK || preview.ConfirmationFingerprint == "" {
+		t.Fatalf("preview Emergency Alert = %d: %s (%v)", emergencyPreview.status, emergencyPreview.body, err)
+	}
+	confirmationPage := get(
+		t, administrator, server.address,
+		"/crew/events/1/emergency-alerts/confirmation?target_type=Event&text="+
+			url.QueryEscape("Evacuate using marked exits"),
+	)
+	confirmationBody, readErr := io.ReadAll(confirmationPage.Body)
+	closeErr := confirmationPage.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil ||
+		confirmationPage.StatusCode != http.StatusOK ||
+		!bytes.Contains(confirmationBody, []byte(`value="Keyboard"`)) ||
+		!bytes.Contains(confirmationBody, []byte("Priority Display")) {
+		t.Fatalf(
+			"keyboard Emergency confirmation page = %d: %s (%v)",
+			confirmationPage.StatusCode, confirmationBody, err,
+		)
+	}
+	unconfirmed := requestJSON(
+		t.Context(), administrator, server.address,
+		"/crew/events/1/emergency-alerts",
+		map[string]any{
+			"target": map[string]any{"type": "Event"},
+			"text":   "Evacuate using marked exits", "preview_fingerprint": preview.ConfirmationFingerprint,
+			"command_id": "reject-unconfirmed-emergency",
+		},
+	)
+	if unconfirmed.status != http.StatusUnprocessableEntity {
+		t.Fatalf("unconfirmed Emergency Alert = %d: %s", unconfirmed.status, unconfirmed.body)
+	}
+	emergency := requestJSON(
+		t.Context(), administrator, server.address,
+		"/crew/events/1/emergency-alerts",
+		map[string]any{
+			"target": map[string]any{"type": "Event"},
+			"text":   "Evacuate using marked exits", "preview_fingerprint": preview.ConfirmationFingerprint,
+			"confirmed": true, "confirmation_method": "Keyboard",
+			"command_id": "activate-confirmed-emergency",
+		},
+	)
+	var emergencyOverride struct {
+		ID       int `json:"id"`
+		Revision int `json:"revision"`
+	}
+	if err := json.Unmarshal([]byte(emergency.body), &emergencyOverride); err != nil ||
+		emergency.status != http.StatusOK || emergencyOverride.ID <= individualOverride.ID {
+		t.Fatalf("activate Emergency Alert = %d: %s (%v)", emergency.status, emergency.body, err)
+	}
+	page = readDisplayHTML(t, displayClient, server.address)
+	if !strings.Contains(page, "Emergency Alert") ||
+		!strings.Contains(page, "Evacuate using marked exits") ||
+		strings.Contains(page, "Fixed Display notice") ||
+		strings.Contains(page, "Technical Difficulties") {
+		t.Fatalf("Emergency Alert did not suppress every lower priority: %s", page)
+	}
+	applied := readDisplaySnapshot(t, displayClient, server.address)
+	if applied.EmergencyAlert.ID != strconv.Itoa(emergencyOverride.ID) {
+		t.Fatalf("Emergency Alert Display Snapshot = %+v", applied)
+	}
+	acknowledgeDisplaySnapshot(t, displayClient, server.address, applied)
+	assertDisplayListContains(
+		t, administrator, server.address,
+		fmt.Sprintf(`"applied_emergency_alert_id":%d`, emergencyOverride.ID),
+	)
+
+	dataDir, bin := server.dataDir, server.bin
+	server.stop(t)
+	server = startBeamers(t, bin, dataDir)
+	page = readDisplayHTML(t, displayClient, server.address)
+	if !strings.Contains(page, "Evacuate using marked exits") {
+		t.Fatalf("Emergency Alert did not survive restart: %s", page)
+	}
+	clearPath := fmt.Sprintf(
+		"/crew/events/1/overrides/%d/clear", emergencyOverride.ID,
+	)
+	clearConfirmation := get(
+		t, administrator, server.address,
+		fmt.Sprintf(
+			"/crew/events/1/overrides/%d/clear-confirmation",
+			emergencyOverride.ID,
+		),
+	)
+	clearConfirmationBody, readErr := io.ReadAll(clearConfirmation.Body)
+	closeErr = clearConfirmation.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil ||
+		clearConfirmation.StatusCode != http.StatusOK ||
+		!bytes.Contains(clearConfirmationBody, []byte(`value="Keyboard"`)) ||
+		!bytes.Contains(clearConfirmationBody, []byte("Clear Emergency Alert")) {
+		t.Fatalf(
+			"keyboard Emergency clear confirmation page = %d: %s (%v)",
+			clearConfirmation.StatusCode, clearConfirmationBody, err,
+		)
+	}
+	rejectedClear := requestJSON(
+		t.Context(), administrator, server.address, clearPath,
+		map[string]any{
+			"expected_revision": emergencyOverride.Revision,
+			"command_id":        "reject-unconfirmed-emergency-clear",
+		},
+	)
+	if rejectedClear.status != http.StatusUnprocessableEntity {
+		t.Fatalf("unconfirmed Emergency clear = %d: %s", rejectedClear.status, rejectedClear.body)
+	}
+	cleared := requestJSON(
+		t.Context(), administrator, server.address, clearPath,
+		map[string]any{
+			"expected_revision": emergencyOverride.Revision,
+			"confirmed":         true, "confirmation_method": "Keyboard",
+			"command_id": "clear-confirmed-emergency",
+		},
+	)
+	if cleared.status != http.StatusOK {
+		t.Fatalf("confirmed Emergency clear = %d: %s", cleared.status, cleared.body)
+	}
+	page = readDisplayHTML(t, displayClient, server.address)
+	if strings.Contains(page, "Emergency Alert") ||
+		!strings.Contains(page, "Fixed Display notice") {
+		t.Fatalf("Emergency clear did not restore current underlying Urgent Replace: %s", page)
+	}
+	server.stop(t)
+}
+
 func readDisplayHTML(t *testing.T, client *http.Client, address string) string {
 	t.Helper()
 	response := get(t, client, address, "/display")
@@ -7686,6 +7956,14 @@ type displaySnapshotState struct {
 		ID       string `json:"id"`
 		Revision string `json:"revision"`
 	} `json:"technicalDifficulties"`
+	UrgentNotice struct {
+		ID       string `json:"id"`
+		Revision string `json:"revision"`
+	} `json:"urgentNotice"`
+	EmergencyAlert struct {
+		ID       string `json:"id"`
+		Revision string `json:"revision"`
+	} `json:"emergencyAlert"`
 	Standby               bool   `json:"standby"`
 	SnapshotToken         string `json:"snapshotToken"`
 	ProgramOutputRevision string `json:"programOutputRevision"`
@@ -7797,6 +8075,12 @@ func requestDisplayAcknowledgment(
 			"technical_difficulties_id": protoJSONInteger(snapshot.TechnicalDifficulties.ID),
 			"technical_difficulties_revision": protoJSONInteger(
 				snapshot.TechnicalDifficulties.Revision,
+			),
+			"urgent_notice_id":       protoJSONInteger(snapshot.UrgentNotice.ID),
+			"urgent_notice_revision": protoJSONInteger(snapshot.UrgentNotice.Revision),
+			"emergency_alert_id":     protoJSONInteger(snapshot.EmergencyAlert.ID),
+			"emergency_alert_revision": protoJSONInteger(
+				snapshot.EmergencyAlert.Revision,
 			),
 			"standby":                        snapshot.Standby,
 			"clock_offset_milliseconds":      health.clockOffsetMilliseconds,

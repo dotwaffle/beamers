@@ -33,6 +33,8 @@ type DisplaySnapshotState struct {
 	Standby               bool
 	StageMessage          *DisplayOverride
 	TechnicalDifficulties *DisplayOverride
+	UrgentNotice          *DisplayOverride
+	EmergencyAlert        *DisplayOverride
 	Sessions              []DisplaySessionState
 	ProgramChannelID      int
 	ProgramOutputRevision int
@@ -228,6 +230,69 @@ func loadCurrentDisplayOverrides(
 			projected := displayOverride(candidate)
 			result.TechnicalDifficulties = &projected
 			break
+		}
+	}
+	if err := loadPriorityDisplayOverride(
+		ctx, client, assignment, now, DisplayOverrideUrgentNotice, &result.UrgentNotice,
+	); err != nil {
+		return err
+	}
+	if err := loadPriorityDisplayOverride(
+		ctx, client, assignment, now, DisplayOverrideEmergencyAlert, &result.EmergencyAlert,
+	); err != nil {
+		return err
+	}
+	return nil
+}
+
+func loadPriorityDisplayOverride(
+	ctx context.Context,
+	client *ent.Client,
+	assignment *ent.DisplayAssignment,
+	now time.Time,
+	kind DisplayOverrideKind,
+	result **DisplayOverride,
+) error {
+	found, err := client.DisplayOverride.Query().
+		Where(
+			displayoverride.EventIDEQ(assignment.EventID),
+			displayoverride.KindEQ(displayoverride.Kind(kind)),
+			displayoverride.ClearedAtIsNil(),
+			displayoverride.Or(
+				displayoverride.UntilClearedEQ(true),
+				displayoverride.ExpiresAtGT(now),
+			),
+		).
+		Order(ent.Desc(displayoverride.FieldCreatedAt), ent.Desc(displayoverride.FieldID)).
+		All(ctx)
+	if err != nil {
+		return opaqueError("load priority Display Overrides", err)
+	}
+	for _, candidate := range found {
+		target := displayOverride(candidate).Target
+		laneLocationID := 0
+		if target.Type == DisplayOverrideTargetLane {
+			published, rundownErr := loadCrewRundown(ctx, client, assignment.EventID)
+			if rundownErr != nil {
+				return rundownErr
+			}
+			for _, lane := range published.Lanes {
+				if lane.ID == target.ID {
+					laneLocationID = lane.LocationID
+					break
+				}
+			}
+		}
+		matches, matchErr := overrideTargetMatchesAssignment(
+			ctx, client, assignment.EventID, assignment, target, laneLocationID,
+		)
+		if matchErr != nil {
+			return matchErr
+		}
+		if matches {
+			projected := displayOverride(candidate)
+			*result = &projected
+			return nil
 		}
 	}
 	return nil

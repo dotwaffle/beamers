@@ -43,6 +43,14 @@ const (
 	FieldAppliedTechnicalDifficultiesID = "applied_technical_difficulties_id"
 	// FieldAppliedTechnicalDifficultiesRevision holds the string denoting the applied_technical_difficulties_revision field in the database.
 	FieldAppliedTechnicalDifficultiesRevision = "applied_technical_difficulties_revision"
+	// FieldAppliedUrgentNoticeID holds the string denoting the applied_urgent_notice_id field in the database.
+	FieldAppliedUrgentNoticeID = "applied_urgent_notice_id"
+	// FieldAppliedUrgentNoticeRevision holds the string denoting the applied_urgent_notice_revision field in the database.
+	FieldAppliedUrgentNoticeRevision = "applied_urgent_notice_revision"
+	// FieldAppliedEmergencyAlertID holds the string denoting the applied_emergency_alert_id field in the database.
+	FieldAppliedEmergencyAlertID = "applied_emergency_alert_id"
+	// FieldAppliedEmergencyAlertRevision holds the string denoting the applied_emergency_alert_revision field in the database.
+	FieldAppliedEmergencyAlertRevision = "applied_emergency_alert_revision"
 	// FieldAppliedStandby holds the string denoting the applied_standby field in the database.
 	FieldAppliedStandby = "applied_standby"
 	// FieldClockOffsetMilliseconds holds the string denoting the clock_offset_milliseconds field in the database.
@@ -101,6 +109,10 @@ var Columns = []string{
 	FieldAppliedStageMessageRevision,
 	FieldAppliedTechnicalDifficultiesID,
 	FieldAppliedTechnicalDifficultiesRevision,
+	FieldAppliedUrgentNoticeID,
+	FieldAppliedUrgentNoticeRevision,
+	FieldAppliedEmergencyAlertID,
+	FieldAppliedEmergencyAlertRevision,
 	FieldAppliedStandby,
 	FieldClockOffsetMilliseconds,
 	FieldClockUncertaintyMilliseconds,
@@ -152,6 +164,14 @@ var (
 	DefaultAppliedTechnicalDifficultiesID int
 	// DefaultAppliedTechnicalDifficultiesRevision holds the default value on creation for the "applied_technical_difficulties_revision" field.
 	DefaultAppliedTechnicalDifficultiesRevision int
+	// DefaultAppliedUrgentNoticeID holds the default value on creation for the "applied_urgent_notice_id" field.
+	DefaultAppliedUrgentNoticeID int
+	// DefaultAppliedUrgentNoticeRevision holds the default value on creation for the "applied_urgent_notice_revision" field.
+	DefaultAppliedUrgentNoticeRevision int
+	// DefaultAppliedEmergencyAlertID holds the default value on creation for the "applied_emergency_alert_id" field.
+	DefaultAppliedEmergencyAlertID int
+	// DefaultAppliedEmergencyAlertRevision holds the default value on creation for the "applied_emergency_alert_revision" field.
+	DefaultAppliedEmergencyAlertRevision int
 	// DefaultAppliedStandby holds the default value on creation for the "applied_standby" field.
 	DefaultAppliedStandby bool
 	// DefaultClockOffsetMilliseconds holds the default value on creation for the "clock_offset_milliseconds" field.
@@ -238,6 +258,26 @@ func ByAppliedTechnicalDifficultiesID(opts ...sql.OrderTermOption) OrderOption {
 // ByAppliedTechnicalDifficultiesRevision orders the results by the applied_technical_difficulties_revision field.
 func ByAppliedTechnicalDifficultiesRevision(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAppliedTechnicalDifficultiesRevision, opts...).ToFunc()
+}
+
+// ByAppliedUrgentNoticeID orders the results by the applied_urgent_notice_id field.
+func ByAppliedUrgentNoticeID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAppliedUrgentNoticeID, opts...).ToFunc()
+}
+
+// ByAppliedUrgentNoticeRevision orders the results by the applied_urgent_notice_revision field.
+func ByAppliedUrgentNoticeRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAppliedUrgentNoticeRevision, opts...).ToFunc()
+}
+
+// ByAppliedEmergencyAlertID orders the results by the applied_emergency_alert_id field.
+func ByAppliedEmergencyAlertID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAppliedEmergencyAlertID, opts...).ToFunc()
+}
+
+// ByAppliedEmergencyAlertRevision orders the results by the applied_emergency_alert_revision field.
+func ByAppliedEmergencyAlertRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAppliedEmergencyAlertRevision, opts...).ToFunc()
 }
 
 // ByAppliedStandby orders the results by the applied_standby field.

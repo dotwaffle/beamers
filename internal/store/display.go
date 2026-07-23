@@ -78,6 +78,10 @@ type DisplayStatus struct {
 	AppliedStageMessageRevision          int
 	AppliedTechnicalDifficultiesID       int
 	AppliedTechnicalDifficultiesRevision int
+	AppliedUrgentNoticeID                int
+	AppliedUrgentNoticeRevision          int
+	AppliedEmergencyAlertID              int
+	AppliedEmergencyAlertRevision        int
 	AppliedStandby                       bool
 	AppliedAt                            *time.Time
 	ClockOffsetMilliseconds              int64
@@ -348,6 +352,10 @@ func loadDisplayStatus(
 		AppliedStageMessageRevision:          found.AppliedStageMessageRevision,
 		AppliedTechnicalDifficultiesID:       found.AppliedTechnicalDifficultiesID,
 		AppliedTechnicalDifficultiesRevision: found.AppliedTechnicalDifficultiesRevision,
+		AppliedUrgentNoticeID:                found.AppliedUrgentNoticeID,
+		AppliedUrgentNoticeRevision:          found.AppliedUrgentNoticeRevision,
+		AppliedEmergencyAlertID:              found.AppliedEmergencyAlertID,
+		AppliedEmergencyAlertRevision:        found.AppliedEmergencyAlertRevision,
 		AppliedStandby:                       found.AppliedStandby,
 		AppliedAt:                            found.AppliedAt,
 		ClockOffsetMilliseconds:              found.ClockOffsetMilliseconds,

@@ -36,6 +36,10 @@ type SnapshotState struct {
 	StageMessageRevision          int64
 	TechnicalDifficultiesID       int64
 	TechnicalDifficultiesRevision int64
+	UrgentNoticeID                int64
+	UrgentNoticeRevision          int64
+	EmergencyAlertID              int64
+	EmergencyAlertRevision        int64
 	Standby                       bool
 }
 
@@ -123,6 +127,14 @@ func snapshotTokenPayload(state SnapshotState) []byte {
 	payload = strconv.AppendInt(payload, state.TechnicalDifficultiesID, 10)
 	payload = append(payload, 0)
 	payload = strconv.AppendInt(payload, state.TechnicalDifficultiesRevision, 10)
+	payload = append(payload, 0)
+	payload = strconv.AppendInt(payload, state.UrgentNoticeID, 10)
+	payload = append(payload, 0)
+	payload = strconv.AppendInt(payload, state.UrgentNoticeRevision, 10)
+	payload = append(payload, 0)
+	payload = strconv.AppendInt(payload, state.EmergencyAlertID, 10)
+	payload = append(payload, 0)
+	payload = strconv.AppendInt(payload, state.EmergencyAlertRevision, 10)
 	payload = append(payload, 0)
 	return strconv.AppendBool(payload, state.Standby)
 }

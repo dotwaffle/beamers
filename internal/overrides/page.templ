@@ -1,0 +1,62 @@
+package overrides
+
+import "strconv"
+
+templ EmergencyAlertConfirmationPage(preview PriorityPreview, commandID string) {
+	<!doctype html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>Confirm Emergency Alert</title>
+		</head>
+		<body>
+			<main>
+				<h1>Confirm Emergency Alert</h1>
+				<p>This supplements, and does not replace, the venue emergency system.</p>
+				<h2>Message</h2>
+				<p>{ preview.Text }</p>
+				<h2>Resolved Displays</h2>
+				<ul>
+					for _, display := range preview.Displays {
+						<li>{ display.Name } ({ display.ViewKey })</li>
+					}
+					if len(preview.Displays) == 0 {
+						<li>No Displays currently resolve to this target.</li>
+					}
+				</ul>
+				<form method="post">
+					<input type="hidden" name="target_type" value={ string(preview.Target.Type) }/>
+					<input type="hidden" name="target_id" value={ strconv.Itoa(preview.Target.ID) }/>
+					<input type="hidden" name="target_key" value={ preview.Target.Key }/>
+					<input type="hidden" name="text" value={ preview.Text }/>
+					<input type="hidden" name="preview_fingerprint" value={ preview.ConfirmationFingerprint }/>
+					<input type="hidden" name="command_id" value={ commandID }/>
+					<button type="submit" name="confirmation_method" value="Keyboard">Activate Emergency Alert</button>
+				</form>
+			</main>
+		</body>
+	</html>
+}
+
+templ EmergencyClearConfirmationPage(active ActiveOverride) {
+	<!doctype html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>Confirm Emergency Alert clear</title>
+		</head>
+		<body>
+			<main>
+				<h1>Confirm Emergency Alert clear</h1>
+				<p>{ active.Text }</p>
+				<form method="post">
+					<input type="hidden" name="expected_revision" value={ strconv.Itoa(active.Revision) }/>
+					<input type="hidden" name="command_id" value={ "clear-emergency-" + strconv.Itoa(active.ID) + "-" + strconv.Itoa(active.Revision) }/>
+					<button type="submit" name="confirmation_method" value="Keyboard">Clear Emergency Alert</button>
+				</form>
+			</main>
+		</body>
+	</html>
+}

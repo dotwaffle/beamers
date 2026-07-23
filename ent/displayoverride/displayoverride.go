@@ -20,8 +20,14 @@ const (
 	FieldEventID = "event_id"
 	// FieldTargetGroupKey holds the string denoting the target_group_key field in the database.
 	FieldTargetGroupKey = "target_group_key"
+	// FieldTargetType holds the string denoting the target_type field in the database.
+	FieldTargetType = "target_type"
+	// FieldTargetID holds the string denoting the target_id field in the database.
+	FieldTargetID = "target_id"
 	// FieldKind holds the string denoting the kind field in the database.
 	FieldKind = "kind"
+	// FieldPresentation holds the string denoting the presentation field in the database.
+	FieldPresentation = "presentation"
 	// FieldText holds the string denoting the text field in the database.
 	FieldText = "text"
 	// FieldEmphasis holds the string denoting the emphasis field in the database.
@@ -67,7 +73,10 @@ var Columns = []string{
 	FieldID,
 	FieldEventID,
 	FieldTargetGroupKey,
+	FieldTargetType,
+	FieldTargetID,
 	FieldKind,
+	FieldPresentation,
 	FieldText,
 	FieldEmphasis,
 	FieldPresetKey,
@@ -99,6 +108,8 @@ var (
 	Policy ent.Policy
 	// TargetGroupKeyValidator is a validator for the "target_group_key" field. It is called by the builders before save.
 	TargetGroupKeyValidator func(string) error
+	// DefaultTargetID holds the default value on creation for the "target_id" field.
+	DefaultTargetID int
 	// TextValidator is a validator for the "text" field. It is called by the builders before save.
 	TextValidator func(string) error
 	// PresetKeyValidator is a validator for the "preset_key" field. It is called by the builders before save.
@@ -115,6 +126,38 @@ var (
 	DefaultCreatedAt func() time.Time
 )
 
+// TargetType defines the type for the "target_type" enum field.
+type TargetType string
+
+// TargetTypeDisplayGroup is the default value of the TargetType enum.
+const DefaultTargetType = TargetTypeDisplayGroup
+
+// TargetType values.
+const (
+	TargetTypeEvent          TargetType = "Event"
+	TargetTypePublic         TargetType = "Public"
+	TargetTypeCrew           TargetType = "Crew"
+	TargetTypeLocation       TargetType = "Location"
+	TargetTypeLane           TargetType = "Lane"
+	TargetTypeProgramChannel TargetType = "ProgramChannel"
+	TargetTypeDisplayGroup   TargetType = "DisplayGroup"
+	TargetTypeDisplay        TargetType = "Display"
+)
+
+func (tt TargetType) String() string {
+	return string(tt)
+}
+
+// TargetTypeValidator is a validator for the "target_type" field enum values. It is called by the builders before save.
+func TargetTypeValidator(tt TargetType) error {
+	switch tt {
+	case TargetTypeEvent, TargetTypePublic, TargetTypeCrew, TargetTypeLocation, TargetTypeLane, TargetTypeProgramChannel, TargetTypeDisplayGroup, TargetTypeDisplay:
+		return nil
+	default:
+		return fmt.Errorf("displayoverride: invalid enum value for target_type field: %q", tt)
+	}
+}
+
 // Kind defines the type for the "kind" enum field.
 type Kind string
 
@@ -122,6 +165,8 @@ type Kind string
 const (
 	KindStageMessage          Kind = "StageMessage"
 	KindTechnicalDifficulties Kind = "TechnicalDifficulties"
+	KindUrgentNotice          Kind = "UrgentNotice"
+	KindEmergencyAlert        Kind = "EmergencyAlert"
 )
 
 func (k Kind) String() string {
@@ -131,10 +176,36 @@ func (k Kind) String() string {
 // KindValidator is a validator for the "kind" field enum values. It is called by the builders before save.
 func KindValidator(k Kind) error {
 	switch k {
-	case KindStageMessage, KindTechnicalDifficulties:
+	case KindStageMessage, KindTechnicalDifficulties, KindUrgentNotice, KindEmergencyAlert:
 		return nil
 	default:
 		return fmt.Errorf("displayoverride: invalid enum value for kind field: %q", k)
+	}
+}
+
+// Presentation defines the type for the "presentation" enum field.
+type Presentation string
+
+// PresentationOverlay is the default value of the Presentation enum.
+const DefaultPresentation = PresentationOverlay
+
+// Presentation values.
+const (
+	PresentationOverlay Presentation = "Overlay"
+	PresentationReplace Presentation = "Replace"
+)
+
+func (pr Presentation) String() string {
+	return string(pr)
+}
+
+// PresentationValidator is a validator for the "presentation" field enum values. It is called by the builders before save.
+func PresentationValidator(pr Presentation) error {
+	switch pr {
+	case PresentationOverlay, PresentationReplace:
+		return nil
+	default:
+		return fmt.Errorf("displayoverride: invalid enum value for presentation field: %q", pr)
 	}
 }
 
@@ -183,9 +254,24 @@ func ByTargetGroupKey(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTargetGroupKey, opts...).ToFunc()
 }
 
+// ByTargetType orders the results by the target_type field.
+func ByTargetType(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTargetType, opts...).ToFunc()
+}
+
+// ByTargetID orders the results by the target_id field.
+func ByTargetID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTargetID, opts...).ToFunc()
+}
+
 // ByKind orders the results by the kind field.
 func ByKind(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldKind, opts...).ToFunc()
+}
+
+// ByPresentation orders the results by the presentation field.
+func ByPresentation(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPresentation, opts...).ToFunc()
 }
 
 // ByText orders the results by the text field.
