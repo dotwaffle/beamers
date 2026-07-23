@@ -348,6 +348,7 @@ var (
 		{Name: "event_locale", Type: field.TypeString, Size: 100},
 		{Name: "content_language", Type: field.TypeString, Nullable: true, Size: 100},
 		{Name: "event_day_boundary", Type: field.TypeString, Size: 5},
+		{Name: "display_configuration", Type: field.TypeString, Size: 4096, Default: "{\"rotation_seconds\":15,\"theme\":{\"branding\":\"\",\"foreground_color\":\"#ffffff\",\"background_color\":\"#101828\",\"accent_color\":\"#1d4ed8\",\"background\":\"solid\",\"scrim_color\":\"#000000\",\"scrim_opacity\":85,\"font\":\"sans\",\"transition\":\"fade\"}}"},
 		{Name: "revision", Type: field.TypeInt, Default: 1},
 		{Name: "created_at", Type: field.TypeTime},
 	}

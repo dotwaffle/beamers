@@ -9,12 +9,14 @@ const reloadLoopWindowMilliseconds = 60000;
 let appliedSnapshot;
 let clockOffsetMilliseconds = 0;
 let clockUncertaintyMilliseconds = 0;
+let clockTimer;
 let eventSource;
 let healthTimer;
 let recoveryAttempt = 0;
 let recoveryGeneration = 0;
 let recoveryTimer;
 let rendererFailures = 0;
+let rotationTimer;
 
 async function recoverDisplay(reason = "reconnecting") {
   const generation = ++recoveryGeneration;
@@ -215,55 +217,204 @@ async function controlledReload(assetVersion) {
 }
 
 function renderSnapshot(snapshot) {
+  const composition = snapshot.composition;
+  if (!composition?.layout?.key || !Array.isArray(composition.layout.regions) ||
+      !composition.theme) {
+    throw new Error("snapshot composition is invalid");
+  }
+  const renderKey = JSON.stringify({
+    activeEventId: snapshot.activeEventId,
+    publishedRevision: snapshot.publishedRevision,
+    locationId: snapshot.locationId,
+    viewKey: snapshot.viewKey,
+    standby: snapshot.standby,
+    sessions: snapshot.sessions,
+    composition,
+  });
+  if (document.querySelector("main")?.dataset.renderKey === renderKey) {
+    return;
+  }
   const main = document.createElement("main");
-  if (snapshot.standby) {
-    appendHeading(main, "Standby");
-    appendParagraph(main, `Display: ${snapshot.displayName}`);
-    if (snapshot.eventName) {
-      appendParagraph(main, `Active Event: ${snapshot.eventName}`);
+  let startClockUpdates;
+  main.dataset.renderKey = renderKey;
+  main.dataset.layout = composition.layout.key;
+  main.className = [
+    "display-view",
+    `display-layout-${controlledToken(composition.layout.key, [
+      "standby", "event-overview", "location-signage", "stage-timer", "competition-output",
+    ])}`,
+    `display-font-${controlledToken(composition.theme.font, ["sans", "serif", "mono"])}`,
+    `display-background-${controlledToken(composition.theme.background, ["solid", "variable-media"])}`,
+    `display-transition-${controlledToken(composition.theme.transition, ["none", "fade"])}`,
+  ].join(" ");
+  main.style.setProperty("--display-foreground", composition.theme.foregroundColor);
+  main.style.setProperty("--display-background", composition.theme.backgroundColor);
+  main.style.setProperty("--display-accent", composition.theme.accentColor);
+  main.style.setProperty("--display-scrim", composition.theme.scrimColor);
+  main.style.setProperty("--display-scrim-opacity", composition.theme.scrimOpacity / 100);
+  const alpha = Math.round((composition.theme.scrimOpacity / 100) * 255)
+    .toString(16)
+    .padStart(2, "0");
+  main.style.setProperty(
+    "--display-scrim-layer",
+    `${composition.theme.scrimColor}${alpha}`,
+  );
+
+  for (const configuredRegion of composition.layout.regions) {
+    const region = document.createElement("section");
+    region.dataset.region = configuredRegion.name;
+    region.dataset.widget = configuredRegion.widget;
+    region.dataset.persistent = String(Boolean(configuredRegion.persistent));
+    region.className = "display-region";
+    const startWidgetUpdates = renderWidget(
+      region,
+      configuredRegion.widget,
+      snapshot,
+      composition.theme,
+    );
+    if (startWidgetUpdates) {
+      startClockUpdates = startWidgetUpdates;
     }
-    appendParagraph(main, "This Display has no Assignment for the Active Event.");
-    replaceMain(main);
-    return;
+    main.append(region);
   }
-  if (snapshot.viewKey === "event-overview") {
-    appendHeading(main, "Event Overview");
-    appendParagraph(main, `Location: ${snapshot.locationName}`);
-    appendParagraph(main, `View: ${snapshot.viewKey}`);
-    for (const session of snapshot.sessions ?? []) {
-      const article = document.createElement("article");
-      appendHeading(article, session.title, 2);
-      appendSessionSchedule(article, snapshot, session);
-      appendOptionalParagraph(article, session.speaker);
-      appendOptionalParagraph(article, session.publicDetails);
-      main.append(article);
-    }
-    replaceMain(main);
-    return;
-  }
-  if (snapshot.viewKey === "location-signage") {
-    appendHeading(main, "Location Signage");
-    appendParagraph(main, `Location: ${snapshot.locationName}`);
-    for (const session of snapshot.sessions ?? []) {
-      const article = document.createElement("article");
-      if (session.unavailable) {
-        appendParagraph(article, session.availabilityMessage);
-      } else {
-        appendHeading(article, session.title, 2);
-        appendSessionSchedule(article, snapshot, session);
-        appendOptionalParagraph(article, session.speaker);
-        appendOptionalParagraph(article, session.publicDetails);
-      }
-      main.append(article);
-    }
-    replaceMain(main);
-    return;
-  }
-  appendHeading(main, snapshot.eventName);
-  appendParagraph(main, `Display: ${snapshot.displayName}`);
-  appendParagraph(main, `Location: ${snapshot.locationName}`);
-  appendParagraph(main, `View: ${snapshot.viewKey}`);
   replaceMain(main);
+  clearTimeout(clockTimer);
+  startClockUpdates?.();
+  startRotation(main, composition.layout.rotationSeconds);
+}
+
+function controlledToken(value, allowed) {
+  if (!allowed.includes(value)) {
+    throw new Error("snapshot composition token is invalid");
+  }
+  return value;
+}
+
+function renderWidget(region, widget, snapshot, theme) {
+  switch (widget) {
+  case "branding":
+    if (snapshot.standby) {
+      appendParagraph(region, theme.branding || snapshot.eventName || "Beamers");
+    } else {
+      appendHeading(region, theme.branding || snapshot.eventName || "Beamers");
+      if (snapshot.viewKey === "event-overview") {
+        appendParagraph(region, "Event Overview");
+        appendParagraph(region, `Location: ${snapshot.locationName}`);
+      }
+    }
+    return;
+  case "standby":
+    appendHeading(region, "Standby");
+    appendParagraph(region, `Display: ${snapshot.displayName}`);
+    if (snapshot.eventName) {
+      appendParagraph(region, `Active Event: ${snapshot.eventName}`);
+    }
+    appendParagraph(region, "This Display has no Assignment for the Active Event.");
+    return;
+  case "location":
+    appendHeading(region, snapshot.locationName);
+    appendParagraph(region, "Location Signage");
+    return;
+  case "now-next":
+    appendHeading(region, "Now / Next", 2);
+    for (const session of (snapshot.sessions ?? [])
+      .filter((candidate) => candidate.lifecycle !== "Canceled")
+      .slice(0, 2)) {
+      const article = document.createElement("article");
+      renderSession(article, snapshot, session);
+      region.append(article);
+    }
+    return;
+  case "rotation":
+    for (const session of snapshot.sessions ?? []) {
+      const article = document.createElement("article");
+      article.dataset.rotationPage = "true";
+      article.hidden = region.children.length > 0;
+      renderSession(article, snapshot, session);
+      region.append(article);
+    }
+    if (region.children.length === 0) {
+      appendParagraph(region, "No public Event information is currently scheduled.");
+    }
+    return;
+  case "clock": {
+    const clock = document.createElement("time");
+    clock.dataset.displayClock = "true";
+    const startUpdates = prepareClock(clock, snapshot);
+    region.append(clock);
+    return startUpdates;
+  }
+  case "stage-timer":
+    appendHeading(region, "Stage Timer");
+    return;
+  case "program-output":
+    appendHeading(region, "Program Output");
+    return;
+  default:
+    throw new Error("snapshot widget is invalid");
+  }
+}
+
+function prepareClock(clock, snapshot) {
+  const snapshotTime = Date.parse(snapshot.serverTime);
+  const receivedAt = Date.now();
+  const update = () => {
+    const current = new Date(snapshotTime + (Date.now() - receivedAt));
+    clock.dateTime = current.toISOString();
+    clock.textContent = new Intl.DateTimeFormat("en", {
+      hour: "2-digit", minute: "2-digit", timeZone: snapshot.eventTimezone || "UTC",
+    }).format(current);
+    clockTimer = setTimeout(update, 60000);
+  };
+  const current = new Date(snapshotTime);
+  clock.dateTime = current.toISOString();
+  clock.textContent = new Intl.DateTimeFormat("en", {
+    hour: "2-digit", minute: "2-digit", timeZone: snapshot.eventTimezone || "UTC",
+  }).format(current);
+  return () => {
+    clockTimer = setTimeout(update, 60000);
+  };
+}
+
+function renderSession(parent, snapshot, session) {
+  if (session.unavailable) {
+    appendParagraph(parent, session.availabilityMessage);
+    return;
+  }
+  appendHeading(parent, session.title, 3);
+  appendSessionSchedule(parent, snapshot, session);
+  appendOptionalParagraph(parent, session.speaker);
+  appendOptionalParagraph(parent, session.publicDetails);
+}
+
+function startRotation(main, seconds) {
+  clearTimeout(rotationTimer);
+  const pages = findRotationPages(main);
+  if (pages.length < 2 || !Number.isInteger(seconds) || seconds < 5 || seconds > 300) {
+    return;
+  }
+  let active = 0;
+  const advance = () => {
+    pages[active].hidden = true;
+    active = (active + 1) % pages.length;
+    pages[active].hidden = false;
+    rotationTimer = setTimeout(advance, seconds * 1000);
+  };
+  rotationTimer = setTimeout(advance, seconds * 1000);
+}
+
+function findRotationPages(main) {
+  const pages = [];
+  for (const region of main.children) {
+    if (region.dataset.widget === "rotation") {
+      pages.push(
+        ...Array.from(region.children).filter(
+          (child) => child.dataset.rotationPage === "true",
+        ),
+      );
+    }
+  }
+  return pages;
 }
 
 function appendSessionSchedule(parent, snapshot, session) {

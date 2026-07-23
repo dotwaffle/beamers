@@ -90,6 +90,11 @@ func EventDayBoundary(v string) predicate.Event {
 	return predicate.Event(sql.FieldEQ(FieldEventDayBoundary, v))
 }
 
+// DisplayConfiguration applies equality check predicate on the "display_configuration" field. It's identical to DisplayConfigurationEQ.
+func DisplayConfiguration(v string) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldDisplayConfiguration, v))
+}
+
 // Revision applies equality check predicate on the "revision" field. It's identical to RevisionEQ.
 func Revision(v int) predicate.Event {
 	return predicate.Event(sql.FieldEQ(FieldRevision, v))
@@ -563,6 +568,71 @@ func EventDayBoundaryEqualFold(v string) predicate.Event {
 // EventDayBoundaryContainsFold applies the ContainsFold predicate on the "event_day_boundary" field.
 func EventDayBoundaryContainsFold(v string) predicate.Event {
 	return predicate.Event(sql.FieldContainsFold(FieldEventDayBoundary, v))
+}
+
+// DisplayConfigurationEQ applies the EQ predicate on the "display_configuration" field.
+func DisplayConfigurationEQ(v string) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldDisplayConfiguration, v))
+}
+
+// DisplayConfigurationNEQ applies the NEQ predicate on the "display_configuration" field.
+func DisplayConfigurationNEQ(v string) predicate.Event {
+	return predicate.Event(sql.FieldNEQ(FieldDisplayConfiguration, v))
+}
+
+// DisplayConfigurationIn applies the In predicate on the "display_configuration" field.
+func DisplayConfigurationIn(vs ...string) predicate.Event {
+	return predicate.Event(sql.FieldIn(FieldDisplayConfiguration, vs...))
+}
+
+// DisplayConfigurationNotIn applies the NotIn predicate on the "display_configuration" field.
+func DisplayConfigurationNotIn(vs ...string) predicate.Event {
+	return predicate.Event(sql.FieldNotIn(FieldDisplayConfiguration, vs...))
+}
+
+// DisplayConfigurationGT applies the GT predicate on the "display_configuration" field.
+func DisplayConfigurationGT(v string) predicate.Event {
+	return predicate.Event(sql.FieldGT(FieldDisplayConfiguration, v))
+}
+
+// DisplayConfigurationGTE applies the GTE predicate on the "display_configuration" field.
+func DisplayConfigurationGTE(v string) predicate.Event {
+	return predicate.Event(sql.FieldGTE(FieldDisplayConfiguration, v))
+}
+
+// DisplayConfigurationLT applies the LT predicate on the "display_configuration" field.
+func DisplayConfigurationLT(v string) predicate.Event {
+	return predicate.Event(sql.FieldLT(FieldDisplayConfiguration, v))
+}
+
+// DisplayConfigurationLTE applies the LTE predicate on the "display_configuration" field.
+func DisplayConfigurationLTE(v string) predicate.Event {
+	return predicate.Event(sql.FieldLTE(FieldDisplayConfiguration, v))
+}
+
+// DisplayConfigurationContains applies the Contains predicate on the "display_configuration" field.
+func DisplayConfigurationContains(v string) predicate.Event {
+	return predicate.Event(sql.FieldContains(FieldDisplayConfiguration, v))
+}
+
+// DisplayConfigurationHasPrefix applies the HasPrefix predicate on the "display_configuration" field.
+func DisplayConfigurationHasPrefix(v string) predicate.Event {
+	return predicate.Event(sql.FieldHasPrefix(FieldDisplayConfiguration, v))
+}
+
+// DisplayConfigurationHasSuffix applies the HasSuffix predicate on the "display_configuration" field.
+func DisplayConfigurationHasSuffix(v string) predicate.Event {
+	return predicate.Event(sql.FieldHasSuffix(FieldDisplayConfiguration, v))
+}
+
+// DisplayConfigurationEqualFold applies the EqualFold predicate on the "display_configuration" field.
+func DisplayConfigurationEqualFold(v string) predicate.Event {
+	return predicate.Event(sql.FieldEqualFold(FieldDisplayConfiguration, v))
+}
+
+// DisplayConfigurationContainsFold applies the ContainsFold predicate on the "display_configuration" field.
+func DisplayConfigurationContainsFold(v string) predicate.Event {
+	return predicate.Event(sql.FieldContainsFold(FieldDisplayConfiguration, v))
 }
 
 // RevisionEQ applies the EQ predicate on the "revision" field.

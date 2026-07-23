@@ -14,7 +14,6 @@ import (
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/displays"
 	"github.com/dotwaffle/beamers/internal/displaystream"
-	"github.com/dotwaffle/beamers/internal/displayviews"
 )
 
 const (
@@ -71,18 +70,9 @@ func (handlers displayHandlers) display(response http.ResponseWriter, request *h
 		response.Header().Set("X-Beamers-Display-Asset", snapshot.AssetVersion)
 		response.Header().Set("X-Beamers-Display-Protocol", snapshot.ProtocolVersion)
 		response.Header().Set("Content-Type", "text/html; charset=utf-8")
-		page := displays.StandbyPage(snapshot) //nolint:contextcheck // Generated templ closures receive context when rendered.
-		if !snapshot.Standby {
-			page = displays.AssignedPage(snapshot) //nolint:contextcheck // Generated templ closures receive context when rendered.
-			switch snapshot.ViewKey {
-			case displayviews.EventOverview:
-				page = displays.EventOverviewPage(snapshot) //nolint:contextcheck // Generated templ closures receive context when rendered.
-			case displayviews.LocationSignage:
-				page = displays.LocationSignagePage(snapshot) //nolint:contextcheck // Generated templ closures receive context when rendered.
-			}
-		}
+		page := displays.DisplayPage(snapshot) //nolint:contextcheck // Generated templ closures receive context when rendered.
 		if err := page.Render(request.Context(), response); err != nil {
-			handlers.logger.ErrorContext(request.Context(), "write Display Standby page", "error", err)
+			handlers.logger.ErrorContext(request.Context(), "write Display page", "error", err)
 		}
 		return
 	}

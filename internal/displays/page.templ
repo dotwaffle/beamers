@@ -80,76 +80,18 @@ templ EnrollmentClaimedPage(display Display) {
 	</html>
 }
 
-templ StandbyPage(snapshot Snapshot) {
+templ DisplayPage(snapshot Snapshot) {
 	<!doctype html>
 	<html lang="en" data-protocol-version={ snapshot.ProtocolVersion } data-asset-version={ snapshot.AssetVersion }>
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<title>{ snapshot.Display.Name } · Standby</title>
+			<title>{ displayPageTitle(snapshot) }</title>
 		</head>
 		<body>
-			<main>
-				<h1>Standby</h1>
-				<p>Display: { snapshot.Display.Name }</p>
-				if snapshot.EventName != "" {
-					<p>Active Event: { snapshot.EventName }</p>
-				}
-				<p>This Display has no Assignment for the Active Event.</p>
-			</main>
-			@displayClient()
-		</body>
-	</html>
-}
-
-templ AssignedPage(snapshot Snapshot) {
-	<!doctype html>
-	<html lang="en" data-protocol-version={ snapshot.ProtocolVersion } data-asset-version={ snapshot.AssetVersion }>
-		<head>
-			<meta charset="utf-8"/>
-			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<title>{ snapshot.Display.Name } · { snapshot.EventName }</title>
-		</head>
-		<body>
-			<main>
-				<h1>{ snapshot.EventName }</h1>
-				<p>Display: { snapshot.Display.Name }</p>
-				<p>Location: { snapshot.LocationName }</p>
-				<p>View: { snapshot.ViewKey }</p>
-			</main>
-			@displayClient()
-		</body>
-	</html>
-}
-
-templ LocationSignagePage(snapshot Snapshot) {
-	<!doctype html>
-	<html lang="en" data-protocol-version={ snapshot.ProtocolVersion } data-asset-version={ snapshot.AssetVersion }>
-		<head>
-			<meta charset="utf-8"/>
-			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<title>{ snapshot.LocationName } · Location Signage</title>
-		</head>
-		<body>
-			<main>
-				<h1>Location Signage</h1>
-				<p>Location: { snapshot.LocationName }</p>
-				for _, session := range snapshot.Sessions {
-					<article>
-						if session.Unavailable {
-							<p>{ session.AvailabilityMessage }</p>
-						} else {
-							<h2>{ session.Title }</h2>
-							<p>Status: { session.Lifecycle }</p>
-							<p>Forecast Time: <time datetime={ session.ForecastStart.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayForecastStart }</time>–<time datetime={ session.ForecastEnd.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayForecastEnd }</time></p>
-							if session.Speaker != "" {
-								<p>{ session.Speaker }</p>
-							}
-							if session.PublicDetails != "" {
-								<p>{ session.PublicDetails }</p>
-							}
-						}
-					</article>
+			<main class={ displayPageClass(snapshot) } style={ displayThemeStyle(snapshot) } data-layout={ snapshot.Composition.Layout.Key }>
+				for _, region := range snapshot.Composition.Layout.Regions {
+					@displayRegion(snapshot, region.Name, region.Widget, region.Persistent)
 				}
 			</main>
 			@displayClient()
@@ -157,40 +99,172 @@ templ LocationSignagePage(snapshot Snapshot) {
 	</html>
 }
 
-templ EventOverviewPage(snapshot Snapshot) {
-	<!doctype html>
-	<html lang="en" data-protocol-version={ snapshot.ProtocolVersion } data-asset-version={ snapshot.AssetVersion }>
-		<head>
-			<meta charset="utf-8"/>
-			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<title>{ snapshot.Display.Name } · Event Overview</title>
-		</head>
-		<body>
-			<main>
-				<h1>Event Overview</h1>
-				<p>Location: { snapshot.LocationName }</p>
-				<p>View: { snapshot.ViewKey }</p>
-				for _, session := range snapshot.Sessions {
-					<article>
-						<h2>{ session.Title }</h2>
-						<p>Status: { session.Lifecycle }</p>
-						<p>Forecast Time: <time datetime={ session.ForecastStart.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayForecastStart }</time>–<time datetime={ session.ForecastEnd.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayForecastEnd }</time></p>
-						if session.Speaker != "" {
-							<p>{ session.Speaker }</p>
-						}
-						if session.PublicDetails != "" {
-							<p>{ session.PublicDetails }</p>
-						}
-					</article>
+templ displayRegion(snapshot Snapshot, name string, widget string, persistent bool) {
+	<section class="display-region" data-region={ name } data-widget={ widget } data-persistent={ displayPersistent(persistent) }>
+		if widget == "branding" {
+			if snapshot.Standby {
+				<p>{ displayBranding(snapshot) }</p>
+			} else {
+					<h1>{ displayBranding(snapshot) }</h1>
+					<p>Location: { snapshot.LocationName }</p>
+					if snapshot.ViewKey == "event-overview" {
+						<p>Event Overview</p>
+					}
+			}
+		} else if widget == "standby" {
+			<h1>Standby</h1>
+			<p>Display: { snapshot.Display.Name }</p>
+			if snapshot.EventName != "" {
+				<p>Active Event: { snapshot.EventName }</p>
+			}
+			<p>This Display has no Assignment for the Active Event.</p>
+		} else if widget == "location" {
+			<h1>{ snapshot.LocationName }</h1>
+			<p>Location Signage</p>
+		} else if widget == "now-next" {
+			<h2>Now / Next</h2>
+			for index, session := range displayNowNext(snapshot.Sessions) {
+				if index < 2 {
+					@displaySessionRegion(snapshot, session, false)
 				}
-			</main>
-			@displayClient()
-		</body>
-	</html>
+			}
+		} else if widget == "rotation" {
+			for _, session := range snapshot.Sessions {
+				@displaySessionRegion(snapshot, session, true)
+			}
+		} else if widget == "clock" {
+			<time data-display-clock datetime={ snapshot.ServerTime.Format("2006-01-02T15:04:05Z07:00") }>{ snapshot.ServerTime.Format("15:04") }</time>
+		} else if widget == "stage-timer" {
+			<h2>Stage Timer</h2>
+		} else if widget == "program-output" {
+			<h2>Program Output</h2>
+		}
+	</section>
+}
+
+templ displaySessionRegion(snapshot Snapshot, session Session, rotationPage bool) {
+	<article data-rotation-page?={ rotationPage }>
+		if session.Unavailable {
+			<p>{ session.AvailabilityMessage }</p>
+		} else {
+			<h3>{ session.Title }</h3>
+			<p>Status: { session.Lifecycle }</p>
+			<p>Forecast Time: <time datetime={ session.ForecastStart.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayForecastStart }</time>–<time datetime={ session.ForecastEnd.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayForecastEnd }</time></p>
+			if session.Speaker != "" {
+				<p>{ session.Speaker }</p>
+			}
+			if session.PublicDetails != "" {
+				<p>{ session.PublicDetails }</p>
+			}
+		}
+	</article>
 }
 
 templ displayClient() {
 	<style>
+		html,
+		body {
+			min-height: 100%;
+			margin: 0;
+		}
+		body {
+			background: #101828;
+		}
+		.display-view {
+			box-sizing: border-box;
+			display: grid;
+			min-height: 100vh;
+			min-height: 100dvh;
+			gap: clamp(1rem, 2vw, 3rem);
+			padding: clamp(1rem, 3vw, 4rem);
+			overflow: hidden;
+			color: var(--display-foreground, #fff);
+			background: var(--display-background, #101828);
+			font-family: system-ui, sans-serif;
+			font-size: clamp(1rem, 1.45vw, 2.25rem);
+			line-height: 1.35;
+		}
+		.display-font-serif {
+			font-family: Georgia, "Times New Roman", serif;
+		}
+		.display-font-mono {
+			font-family: ui-monospace, "Cascadia Mono", monospace;
+		}
+		.display-region {
+			box-sizing: border-box;
+			min-width: 0;
+			min-height: 0;
+			padding: clamp(0.75rem, 1.5vw, 2rem);
+			border-radius: clamp(0.5rem, 1vw, 1.5rem);
+			background: var(--display-accent, #1d4ed8);
+			overflow: hidden;
+		}
+		.display-background-variable-media .display-region {
+			background:
+				linear-gradient(
+					var(--display-scrim-layer, #000000d9),
+					var(--display-scrim-layer, #000000d9)
+				),
+				var(--display-accent, #1d4ed8);
+		}
+		.display-layout-standby {
+			grid-template-rows: auto 1fr;
+		}
+		.display-layout-event-overview {
+			grid-template:
+				"header clock" auto
+				"schedule schedule" 1fr
+				/ minmax(0, 1fr) auto;
+		}
+		.display-layout-event-overview [data-region="header"] {
+			grid-area: header;
+		}
+		.display-layout-event-overview [data-region="schedule"] {
+			grid-area: schedule;
+		}
+		.display-layout-event-overview [data-region="clock"] {
+			grid-area: clock;
+		}
+		.display-layout-location-signage {
+			grid-template:
+				"event location" minmax(0, 1fr)
+				"event now-next" minmax(0, 2fr)
+				"event clock" auto
+				/ minmax(0, 7fr) minmax(18rem, 3fr);
+		}
+		.display-layout-location-signage [data-region="event-content"] {
+			grid-area: event;
+		}
+		.display-layout-location-signage [data-region="location"] {
+			grid-area: location;
+		}
+		.display-layout-location-signage [data-region="now-next"] {
+			grid-area: now-next;
+		}
+		.display-layout-location-signage [data-region="clock"] {
+			grid-area: clock;
+		}
+		.display-transition-fade [data-rotation-page]:not([hidden]) {
+			animation: display-fade 250ms ease-out;
+		}
+		@keyframes display-fade {
+			from { opacity: 0; }
+			to { opacity: 1; }
+		}
+		@media (min-aspect-ratio: 8/5) {
+			.display-view {
+				padding-inline: clamp(1.5rem, 4vw, 6rem);
+			}
+		}
+		@media (max-aspect-ratio: 8/5) {
+			.display-layout-location-signage {
+				grid-template:
+					"location clock" auto
+					"now-next now-next" minmax(0, 2fr)
+					"event event" minmax(0, 5fr)
+					/ minmax(0, 1fr) auto;
+			}
+		}
 		#display-connection {
 			position: fixed;
 			right: 1rem;
@@ -202,6 +276,12 @@ templ displayClient() {
 			background: #111;
 			color: #fff;
 		}
+		html[data-connection="disconnected"] #display-connection {
+			animation: display-connection-pulse 4s ease-in-out infinite;
+		}
+		@keyframes display-connection-pulse {
+			50% { opacity: 0.55; }
+		}
 		html[data-connection="connected"] #display-connection {
 			width: 1px;
 			height: 1px;
@@ -210,6 +290,16 @@ templ displayClient() {
 			overflow: hidden;
 			clip-path: inset(50%);
 			white-space: nowrap;
+		}
+		@media (prefers-reduced-motion: reduce) {
+			*,
+			*::before,
+			*::after {
+				animation-duration: 0.01ms !important;
+				animation-iteration-count: 1 !important;
+				transition-duration: 0.01ms !important;
+				scroll-behavior: auto !important;
+			}
 		}
 	</style>
 	<p id="display-connection" role="status" aria-live="polite" data-connection="connecting">Connecting…</p>

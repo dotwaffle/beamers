@@ -29,6 +29,8 @@ const (
 	FieldContentLanguage = "content_language"
 	// FieldEventDayBoundary holds the string denoting the event_day_boundary field in the database.
 	FieldEventDayBoundary = "event_day_boundary"
+	// FieldDisplayConfiguration holds the string denoting the display_configuration field in the database.
+	FieldDisplayConfiguration = "display_configuration"
 	// FieldRevision holds the string denoting the revision field in the database.
 	FieldRevision = "revision"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -137,6 +139,7 @@ var Columns = []string{
 	FieldEventLocale,
 	FieldContentLanguage,
 	FieldEventDayBoundary,
+	FieldDisplayConfiguration,
 	FieldRevision,
 	FieldCreatedAt,
 }
@@ -173,6 +176,10 @@ var (
 	ContentLanguageValidator func(string) error
 	// EventDayBoundaryValidator is a validator for the "event_day_boundary" field. It is called by the builders before save.
 	EventDayBoundaryValidator func(string) error
+	// DefaultDisplayConfiguration holds the default value on creation for the "display_configuration" field.
+	DefaultDisplayConfiguration string
+	// DisplayConfigurationValidator is a validator for the "display_configuration" field. It is called by the builders before save.
+	DisplayConfigurationValidator func(string) error
 	// DefaultRevision holds the default value on creation for the "revision" field.
 	DefaultRevision int
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
@@ -220,6 +227,11 @@ func ByContentLanguage(opts ...sql.OrderTermOption) OrderOption {
 // ByEventDayBoundary orders the results by the event_day_boundary field.
 func ByEventDayBoundary(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEventDayBoundary, opts...).ToFunc()
+}
+
+// ByDisplayConfiguration orders the results by the display_configuration field.
+func ByDisplayConfiguration(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDisplayConfiguration, opts...).ToFunc()
 }
 
 // ByRevision orders the results by the revision field.

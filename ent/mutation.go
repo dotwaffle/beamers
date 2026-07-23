@@ -9693,6 +9693,7 @@ type EventMutation struct {
 	event_locale               *string
 	content_language           *string
 	event_day_boundary         *string
+	display_configuration      *string
 	revision                   *int
 	addrevision                *int
 	created_at                 *time.Time
@@ -10092,6 +10093,42 @@ func (m *EventMutation) OldEventDayBoundary(ctx context.Context) (v string, err 
 // ResetEventDayBoundary resets all changes to the "event_day_boundary" field.
 func (m *EventMutation) ResetEventDayBoundary() {
 	m.event_day_boundary = nil
+}
+
+// SetDisplayConfiguration sets the "display_configuration" field.
+func (m *EventMutation) SetDisplayConfiguration(s string) {
+	m.display_configuration = &s
+}
+
+// DisplayConfiguration returns the value of the "display_configuration" field in the mutation.
+func (m *EventMutation) DisplayConfiguration() (r string, exists bool) {
+	v := m.display_configuration
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDisplayConfiguration returns the old "display_configuration" field's value of the Event entity.
+// If the Event object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventMutation) OldDisplayConfiguration(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDisplayConfiguration is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDisplayConfiguration requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDisplayConfiguration: %w", err)
+	}
+	return oldValue.DisplayConfiguration, nil
+}
+
+// ResetDisplayConfiguration resets all changes to the "display_configuration" field.
+func (m *EventMutation) ResetDisplayConfiguration() {
+	m.display_configuration = nil
 }
 
 // SetRevision sets the "revision" field.
@@ -10745,7 +10782,7 @@ func (m *EventMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *EventMutation) Fields() []string {
-	fields := make([]string, 0, 9)
+	fields := make([]string, 0, 10)
 	if m.name != nil {
 		fields = append(fields, event.FieldName)
 	}
@@ -10766,6 +10803,9 @@ func (m *EventMutation) Fields() []string {
 	}
 	if m.event_day_boundary != nil {
 		fields = append(fields, event.FieldEventDayBoundary)
+	}
+	if m.display_configuration != nil {
+		fields = append(fields, event.FieldDisplayConfiguration)
 	}
 	if m.revision != nil {
 		fields = append(fields, event.FieldRevision)
@@ -10795,6 +10835,8 @@ func (m *EventMutation) Field(name string) (ent.Value, bool) {
 		return m.ContentLanguage()
 	case event.FieldEventDayBoundary:
 		return m.EventDayBoundary()
+	case event.FieldDisplayConfiguration:
+		return m.DisplayConfiguration()
 	case event.FieldRevision:
 		return m.Revision()
 	case event.FieldCreatedAt:
@@ -10822,6 +10864,8 @@ func (m *EventMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldContentLanguage(ctx)
 	case event.FieldEventDayBoundary:
 		return m.OldEventDayBoundary(ctx)
+	case event.FieldDisplayConfiguration:
+		return m.OldDisplayConfiguration(ctx)
 	case event.FieldRevision:
 		return m.OldRevision(ctx)
 	case event.FieldCreatedAt:
@@ -10883,6 +10927,13 @@ func (m *EventMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetEventDayBoundary(v)
+		return nil
+	case event.FieldDisplayConfiguration:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDisplayConfiguration(v)
 		return nil
 	case event.FieldRevision:
 		v, ok := value.(int)
@@ -10991,6 +11042,9 @@ func (m *EventMutation) ResetField(name string) error {
 		return nil
 	case event.FieldEventDayBoundary:
 		m.ResetEventDayBoundary()
+		return nil
+	case event.FieldDisplayConfiguration:
+		m.ResetDisplayConfiguration()
 		return nil
 	case event.FieldRevision:
 		m.ResetRevision()

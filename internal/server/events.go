@@ -43,6 +43,98 @@ func registerEventRoutes(
 	mux.HandleFunc("/admin/audit", handlers.listAuditEntries)
 	mux.HandleFunc("/admin/events/{eventID}/grants", handlers.grantEventAccess)
 	mux.HandleFunc("/crew/events/{eventID}", handlers.crewEvent)
+	mux.HandleFunc(
+		"/crew/events/{eventID}/display-configuration",
+		handlers.displayConfiguration,
+	)
+}
+
+func (handlers eventHandlers) displayConfiguration(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	if request.Method == http.MethodPut {
+		handlers.updateDisplayConfiguration(response, request)
+		return
+	}
+	if !requestAllowed(response, request, http.MethodGet, handlers.allowPlaintextCrew) {
+		return
+	}
+	actor, ok := handlers.authenticate(response, request)
+	if !ok {
+		return
+	}
+	eventID, err := positivePathID(request, "eventID")
+	if err != nil {
+		http.Error(response, "Event access denied", http.StatusForbidden)
+		return
+	}
+	found, err := handlers.events.DisplayConfiguration(request.Context(), actor, eventID)
+	if errors.Is(err, events.ErrEventAccessDenied) {
+		http.Error(response, "Event access denied", http.StatusForbidden)
+		return
+	}
+	if err != nil {
+		handlers.logger.ErrorContext(request.Context(), "Display configuration read failed", "error", err)
+		http.Error(response, "Display configuration unavailable", http.StatusInternalServerError)
+		return
+	}
+	response.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(response).Encode(found); err != nil {
+		handlers.logger.ErrorContext(request.Context(), "write Display configuration", "error", err)
+	}
+}
+
+func (handlers eventHandlers) updateDisplayConfiguration(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	if !requestAllowed(response, request, http.MethodPut, handlers.allowPlaintextCrew) {
+		return
+	}
+	actor, ok := handlers.authenticate(response, request)
+	if !ok {
+		return
+	}
+	eventID, err := positivePathID(request, "eventID")
+	if err != nil {
+		http.Error(response, "Event access denied", http.StatusForbidden)
+		return
+	}
+	var input events.DisplayConfigurationInput
+	if decodeErr := decodeAuthJSON(response, request, &input); decodeErr != nil {
+		http.Error(response, "invalid request", http.StatusBadRequest)
+		return
+	}
+	updated, err := handlers.events.ConfigureDisplays(request.Context(), actor, eventID, input)
+	var validation *events.ValidationError
+	switch {
+	case errors.As(err, &validation):
+		if writeErr := writeValidationError(response, validation); writeErr != nil {
+			handlers.logger.ErrorContext(
+				request.Context(),
+				"write Display configuration validation error",
+				"error",
+				writeErr,
+			)
+		}
+		return
+	case errors.Is(err, events.ErrEventAccessDenied):
+		http.Error(response, "Event access denied", http.StatusForbidden)
+		return
+	case errors.Is(err, events.ErrRevisionConflict), errors.Is(err, events.ErrCommandConflict):
+		http.Error(response, err.Error(), http.StatusConflict)
+		return
+	case err != nil:
+		handlers.logger.ErrorContext(request.Context(), "Display configuration update failed", "error", err)
+		http.Error(response, "Display configuration unavailable", http.StatusInternalServerError)
+		return
+	}
+	response.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(response).Encode(updated); err != nil {
+		handlers.logger.ErrorContext(request.Context(), "write updated Display configuration", "error", err)
+	}
+	handlers.notifyDisplays()
 }
 
 func (handlers eventHandlers) disableAccount(response http.ResponseWriter, request *http.Request) {

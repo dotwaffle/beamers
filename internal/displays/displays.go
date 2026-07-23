@@ -111,6 +111,7 @@ type Snapshot struct {
 	LocationName         string
 	ViewKey              string
 	Standby              bool
+	Composition          displayviews.Composition
 	Sessions             []Session
 }
 
@@ -250,6 +251,14 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 		ActivationGeneration: found.ActivationGeneration,
 		PublishedRevision:    found.PublishedRevision, LocationID: found.LocationID,
 		LocationName: found.LocationName, ViewKey: found.ViewKey, Standby: found.Standby,
+	}
+	configuration, err := displayviews.ParseConfiguration(found.DisplayConfiguration)
+	if err != nil {
+		return Snapshot{}, errors.Join(errors.New("load Display configuration"), err)
+	}
+	result.Composition, err = displayviews.Compose(found.ViewKey, found.Standby, configuration)
+	if err != nil {
+		return Snapshot{}, errors.Join(errors.New("compose Display View"), err)
 	}
 	zone := time.UTC
 	if found.EventTimezone != "" {

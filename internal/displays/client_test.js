@@ -20,7 +20,7 @@ test("transport failure retains the frame and resnapshots before reconnecting", 
   await browser.runTimer((delay) => delay < 10000);
   assert.equal(browser.snapshotRequests, 2);
   assert.equal(browser.eventSources.length, 2);
-  assert.notEqual(browser.document.main, committedFrame);
+  assert.equal(browser.document.main, committedFrame);
 });
 
 test("snapshot failure retains the frame and retries with bounded backoff", async () => {
@@ -37,7 +37,12 @@ test("snapshot failure retains the frame and retries with bounded backoff", asyn
 });
 
 test("invalidation resnapshots instead of treating SSE as authority", async () => {
-  const browser = await startBrowser();
+  const browser = await startBrowser({
+    snapshots: [
+      displaySnapshot(),
+      displaySnapshot({publishedRevision: "2"}),
+    ],
+  });
   const committedFrame = browser.document.main;
 
   browser.eventSources[0].emit("invalidate", {
@@ -55,8 +60,25 @@ test("invalidation resnapshots instead of treating SSE as authority", async () =
 });
 
 test("renderer failure retains the frame and reports instability", async () => {
-  const browser = await startBrowser();
+  const clockComposition = displayComposition({
+    regions: [
+      {name: "branding", widget: "branding", persistent: true},
+      {name: "message", widget: "standby", persistent: true},
+      {name: "clock", widget: "clock", persistent: true},
+    ],
+  });
+  const browser = await startBrowser({
+    snapshots: [
+      displaySnapshot({composition: clockComposition}),
+      displaySnapshot({composition: clockComposition, publishedRevision: "2"}),
+      displaySnapshot({composition: clockComposition, publishedRevision: "2"}),
+    ],
+  });
   const committedFrame = browser.document.main;
+  const clock = committedFrame.children.find(
+    (region) => region.dataset.widget === "clock",
+  ).children[0];
+  const clockBeforeFailure = clock.textContent;
   browser.failRendering = true;
 
   browser.eventSources[0].emit("invalidate", {
@@ -69,6 +91,8 @@ test("renderer failure retains the frame and reports instability", async () => {
   await browser.runTimer((delay) => delay === 0);
   assert.equal(browser.document.main, committedFrame);
   assert.equal(browser.acknowledgments.at(-1).rendererUnstable, true);
+  await browser.runTimer((delay) => delay === 60000);
+  assert.notEqual(clock.textContent, clockBeforeFailure);
 
   browser.failRendering = false;
   await browser.runTimer((delay) => delay > 0 && delay < 10000);
@@ -87,6 +111,128 @@ test("controlled reload verifies the entry document and prevents reload loops", 
   await browser.flush();
   assert.equal(browser.reloads, 1);
   assert.equal(browser.entryRequests, 2);
+});
+
+test("rotation advances configured pages without replacing persistent regions", async () => {
+  const browser = await startBrowser({
+    snapshot: displaySnapshot({
+      standby: false,
+      viewKey: "event-overview",
+      composition: displayComposition({
+        key: "event-overview",
+        rotationSeconds: 30,
+        regions: [
+          {name: "header", widget: "branding", persistent: true},
+          {name: "schedule", widget: "rotation", persistent: false},
+          {name: "clock", widget: "clock", persistent: true},
+        ],
+      }),
+      sessions: [
+        displaySession("Opening Keynote"),
+        displaySession("Closing Keynote"),
+      ],
+    }),
+  });
+  const committedFrame = browser.document.main;
+  const header = committedFrame.children[0];
+  const rotation = committedFrame.children[1];
+  const clock = committedFrame.children[2];
+  assert.equal(rotation.children[0].hidden, false);
+  assert.equal(rotation.children[1].hidden, true);
+
+  await browser.runTimer((delay) => delay === 30000);
+  assert.equal(browser.document.main, committedFrame);
+  assert.equal(committedFrame.children[0], header);
+  assert.equal(committedFrame.children[2], clock);
+  assert.equal(rotation.children[0].hidden, true);
+  assert.equal(rotation.children[1].hidden, false);
+});
+
+test("health refresh preserves an unchanged composition and its rotation", async () => {
+  const browser = await startBrowser({
+    snapshot: displaySnapshot({
+      standby: false,
+      viewKey: "event-overview",
+      composition: displayComposition({
+        key: "event-overview",
+        rotationSeconds: 15,
+        regions: [
+          {name: "schedule", widget: "rotation", persistent: false},
+        ],
+      }),
+      sessions: [
+        displaySession("First"),
+        displaySession("Second"),
+      ],
+    }),
+  });
+  const committedFrame = browser.document.main;
+
+  await browser.runTimer((delay) => delay === 10000);
+  assert.equal(browser.document.main, committedFrame);
+  assert.ok(browser.timerDelays().includes(15000));
+});
+
+test("persistent clock advances without replacing the committed frame", async () => {
+  const browser = await startBrowser({
+    snapshot: displaySnapshot({
+      serverTime: "2099-08-21T08:00:00Z",
+      eventTimezone: "UTC",
+      composition: displayComposition({
+        regions: [
+          {name: "clock", widget: "clock", persistent: true},
+        ],
+      }),
+    }),
+  });
+  const committedFrame = browser.document.main;
+  const clock = committedFrame.children.find(
+    (region) => region.dataset.widget === "clock",
+  );
+  assert.ok(clock);
+  const time = clock.children[0];
+  const before = time.textContent;
+
+  await browser.runTimer((delay) => delay === 60000);
+  assert.equal(browser.document.main, committedFrame);
+  assert.notEqual(time.textContent, before);
+});
+
+test("Location Now Next excludes canceled Sessions without removing rotation content", async () => {
+  const browser = await startBrowser({
+    snapshot: displaySnapshot({
+      standby: false,
+      viewKey: "location-signage",
+      composition: displayComposition({
+        key: "location-signage",
+        regions: [
+          {name: "now-next", widget: "now-next", persistent: true},
+          {name: "event-content", widget: "rotation", persistent: false},
+        ],
+      }),
+      sessions: [
+        {...displaySession("Canceled Session"), lifecycle: "Canceled"},
+        displaySession("Current Session"),
+        displaySession("Next Session"),
+      ],
+    }),
+  });
+  const nowNext = browser.document.main.children[0];
+  const rotation = browser.document.main.children[1];
+  assert.doesNotMatch(nodeText(nowNext), /Canceled Session/);
+  assert.match(nodeText(nowNext), /Current Session/);
+  assert.match(nodeText(nowNext), /Next Session/);
+  assert.match(nodeText(rotation), /Canceled Session/);
+});
+
+test("display styles preserve content changes while reducing motion", () => {
+  const template = fs.readFileSync(
+    new URL("./page.templ", `file://${__filename}`),
+    "utf8",
+  );
+  assert.match(template, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.match(template, /transition-duration: 0\.01ms/);
+  assert.match(template, /@media \(min-aspect-ratio: 8\/5\)/);
 });
 
 async function startBrowser(options = {}) {
@@ -152,6 +298,7 @@ async function startBrowser(options = {}) {
     failRendering: false,
     initialMain,
     indicator,
+    now: Date.now(),
     reloads: 0,
     snapshotRequests: 0,
     timerDelays() {
@@ -167,17 +314,35 @@ async function startBrowser(options = {}) {
       assert.ok(found, "expected a matching recovery timer");
       const [id, timer] = found;
       timers.delete(id);
+      this.now += timer.delay;
       timer.callback();
       await this.flush();
     },
   };
-  const snapshot = options.snapshot ?? displaySnapshot();
+  const NativeDate = Date;
+  class BrowserDate extends NativeDate {
+    constructor(value) {
+      super(value === undefined ? browser.now : value);
+    }
+
+    static now() {
+      return browser.now;
+    }
+
+    static parse(value) {
+      return NativeDate.parse(value);
+    }
+  }
+  const snapshots = options.snapshots ?? [options.snapshot ?? displaySnapshot()];
   async function fetch(url, request = {}) {
     if (url.endsWith("/GetSnapshot")) {
       browser.snapshotRequests++;
       if (browser.snapshotRequests <= (options.snapshotFailures ?? 0)) {
         throw new Error("snapshot unavailable");
       }
+      const snapshot = snapshots[
+        Math.min(browser.snapshotRequests - 1, snapshots.length - 1)
+      ];
       return jsonResponse({snapshot});
     }
     if (url.endsWith("/Acknowledge")) {
@@ -201,7 +366,7 @@ async function startBrowser(options = {}) {
   }
   const context = {
     AbortController,
-    Date,
+    Date: BrowserDate,
     EventSource,
     Intl,
     JSON,
@@ -254,7 +419,42 @@ function displaySnapshot(overrides = {}) {
     streamPosition: "1",
     snapshotToken: "snapshot-token",
     sessions: [],
+    composition: displayComposition(),
     ...overrides,
+  };
+}
+
+function displayComposition(overrides = {}) {
+  return {
+    layout: {
+      key: "standby",
+      rotationSeconds: 15,
+      regions: [
+        {name: "branding", widget: "branding", persistent: true},
+        {name: "message", widget: "standby", persistent: true},
+      ],
+      ...overrides,
+    },
+    theme: {
+      branding: "",
+      foregroundColor: "#ffffff",
+      backgroundColor: "#101828",
+      accentColor: "#1d4ed8",
+      background: "solid",
+      scrimColor: "#000000",
+      scrimOpacity: 85,
+      font: "sans",
+      transition: "fade",
+    },
+  };
+}
+
+function displaySession(title) {
+  return {
+    title,
+    lifecycle: "Planned",
+    forecastStart: "2099-08-21T08:00:00Z",
+    forecastEnd: "2099-08-21T09:00:00Z",
   };
 }
 
@@ -267,11 +467,22 @@ function jsonResponse(body) {
   };
 }
 
+function nodeText(node) {
+  return [node.textContent, ...node.children.map(nodeText)].join(" ");
+}
+
 class FakeNode {
   constructor(tagName, document) {
     this.children = [];
     this.dataset = {};
     this.document = document;
+    this.hidden = false;
+    this.style = {
+      properties: new Map(),
+      setProperty(name, value) {
+        this.properties.set(name, value);
+      },
+    };
     this.tagName = tagName;
     this.textContent = "";
   }

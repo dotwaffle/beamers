@@ -141,6 +141,20 @@ func (_u *EventUpdate) SetNillableEventDayBoundary(v *string) *EventUpdate {
 	return _u
 }
 
+// SetDisplayConfiguration sets the "display_configuration" field.
+func (_u *EventUpdate) SetDisplayConfiguration(v string) *EventUpdate {
+	_u.mutation.SetDisplayConfiguration(v)
+	return _u
+}
+
+// SetNillableDisplayConfiguration sets the "display_configuration" field if the given value is not nil.
+func (_u *EventUpdate) SetNillableDisplayConfiguration(v *string) *EventUpdate {
+	if v != nil {
+		_u.SetDisplayConfiguration(*v)
+	}
+	return _u
+}
+
 // SetRevision sets the "revision" field.
 func (_u *EventUpdate) SetRevision(v int) *EventUpdate {
 	_u.mutation.ResetRevision()
@@ -580,6 +594,11 @@ func (_u *EventUpdate) check() error {
 			return &ValidationError{Name: "event_day_boundary", err: fmt.Errorf(`ent: validator failed for field "Event.event_day_boundary": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.DisplayConfiguration(); ok {
+		if err := event.DisplayConfigurationValidator(v); err != nil {
+			return &ValidationError{Name: "display_configuration", err: fmt.Errorf(`ent: validator failed for field "Event.display_configuration": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -618,6 +637,9 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.EventDayBoundary(); ok {
 		_spec.SetField(event.FieldEventDayBoundary, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.DisplayConfiguration(); ok {
+		_spec.SetField(event.FieldDisplayConfiguration, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Revision(); ok {
 		_spec.SetField(event.FieldRevision, field.TypeInt, value)
@@ -1183,6 +1205,20 @@ func (_u *EventUpdateOne) SetNillableEventDayBoundary(v *string) *EventUpdateOne
 	return _u
 }
 
+// SetDisplayConfiguration sets the "display_configuration" field.
+func (_u *EventUpdateOne) SetDisplayConfiguration(v string) *EventUpdateOne {
+	_u.mutation.SetDisplayConfiguration(v)
+	return _u
+}
+
+// SetNillableDisplayConfiguration sets the "display_configuration" field if the given value is not nil.
+func (_u *EventUpdateOne) SetNillableDisplayConfiguration(v *string) *EventUpdateOne {
+	if v != nil {
+		_u.SetDisplayConfiguration(*v)
+	}
+	return _u
+}
+
 // SetRevision sets the "revision" field.
 func (_u *EventUpdateOne) SetRevision(v int) *EventUpdateOne {
 	_u.mutation.ResetRevision()
@@ -1635,6 +1671,11 @@ func (_u *EventUpdateOne) check() error {
 			return &ValidationError{Name: "event_day_boundary", err: fmt.Errorf(`ent: validator failed for field "Event.event_day_boundary": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.DisplayConfiguration(); ok {
+		if err := event.DisplayConfigurationValidator(v); err != nil {
+			return &ValidationError{Name: "display_configuration", err: fmt.Errorf(`ent: validator failed for field "Event.display_configuration": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -1690,6 +1731,9 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 	}
 	if value, ok := _u.mutation.EventDayBoundary(); ok {
 		_spec.SetField(event.FieldEventDayBoundary, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.DisplayConfiguration(); ok {
+		_spec.SetField(event.FieldDisplayConfiguration, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Revision(); ok {
 		_spec.SetField(event.FieldRevision, field.TypeInt, value)

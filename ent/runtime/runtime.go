@@ -782,12 +782,32 @@ func init() {
 			return nil
 		}
 	}()
+	// eventDescDisplayConfiguration is the schema descriptor for display_configuration field.
+	eventDescDisplayConfiguration := eventFields[7].Descriptor()
+	// event.DefaultDisplayConfiguration holds the default value on creation for the display_configuration field.
+	event.DefaultDisplayConfiguration = eventDescDisplayConfiguration.Default.(string)
+	// event.DisplayConfigurationValidator is a validator for the "display_configuration" field. It is called by the builders before save.
+	event.DisplayConfigurationValidator = func() func(string) error {
+		validators := eventDescDisplayConfiguration.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(display_configuration string) error {
+			for _, fn := range fns {
+				if err := fn(display_configuration); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
 	// eventDescRevision is the schema descriptor for revision field.
-	eventDescRevision := eventFields[7].Descriptor()
+	eventDescRevision := eventFields[8].Descriptor()
 	// event.DefaultRevision holds the default value on creation for the revision field.
 	event.DefaultRevision = eventDescRevision.Default.(int)
 	// eventDescCreatedAt is the schema descriptor for created_at field.
-	eventDescCreatedAt := eventFields[8].Descriptor()
+	eventDescCreatedAt := eventFields[9].Descriptor()
 	// event.DefaultCreatedAt holds the default value on creation for the created_at field.
 	event.DefaultCreatedAt = eventDescCreatedAt.Default.(func() time.Time)
 	eventgrant.Policy = privacy.NewPolicies(schema.EventGrant{})

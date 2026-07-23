@@ -32,6 +32,8 @@ type Event struct {
 	ContentLanguage string `json:"content_language,omitempty"`
 	// EventDayBoundary holds the value of the "event_day_boundary" field.
 	EventDayBoundary string `json:"event_day_boundary,omitempty"`
+	// DisplayConfiguration holds the value of the "display_configuration" field.
+	DisplayConfiguration string `json:"display_configuration,omitempty"`
 	// Revision holds the value of the "revision" field.
 	Revision int `json:"revision,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -168,7 +170,7 @@ func (*Event) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case event.FieldID, event.FieldRevision:
 			values[i] = new(sql.NullInt64)
-		case event.FieldName, event.FieldPlannedStartDate, event.FieldPlannedEndDate, event.FieldTimezone, event.FieldEventLocale, event.FieldContentLanguage, event.FieldEventDayBoundary:
+		case event.FieldName, event.FieldPlannedStartDate, event.FieldPlannedEndDate, event.FieldTimezone, event.FieldEventLocale, event.FieldContentLanguage, event.FieldEventDayBoundary, event.FieldDisplayConfiguration:
 			values[i] = new(sql.NullString)
 		case event.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -234,6 +236,12 @@ func (_m *Event) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field event_day_boundary", values[i])
 			} else if value.Valid {
 				_m.EventDayBoundary = value.String
+			}
+		case event.FieldDisplayConfiguration:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field display_configuration", values[i])
+			} else if value.Valid {
+				_m.DisplayConfiguration = value.String
 			}
 		case event.FieldRevision:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -353,6 +361,9 @@ func (_m *Event) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("event_day_boundary=")
 	builder.WriteString(_m.EventDayBoundary)
+	builder.WriteString(", ")
+	builder.WriteString("display_configuration=")
+	builder.WriteString(_m.DisplayConfiguration)
 	builder.WriteString(", ")
 	builder.WriteString("revision=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Revision))

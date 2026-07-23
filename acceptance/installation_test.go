@@ -990,6 +990,12 @@ func TestDisplayAppliedStateRecoversAfterRestartAndActiveEventChange(t *testing.
 	if !standby.Standby || standby.ActiveEventID != "2" || standby.ActivationGeneration != "2" {
 		t.Fatalf("Display state after Active Event change = %+v, want Event 2 generation 2 Standby", standby)
 	}
+	if standby.Composition.Layout.Key != "standby" ||
+		len(standby.Composition.Layout.Regions) != 2 ||
+		standby.Composition.Layout.Regions[0].Name != "branding" ||
+		!standby.Composition.Layout.Regions[0].Persistent {
+		t.Errorf("Standby composition = %+v, want persistent branding and message Regions", standby.Composition)
+	}
 	acknowledgeDisplaySnapshot(t, displayClient, restarted.address, standby)
 	for _, want := range []string{
 		`"delivery_state":"applied"`,
@@ -1000,6 +1006,286 @@ func TestDisplayAppliedStateRecoversAfterRestartAndActiveEventChange(t *testing.
 		`"applied_standby":true`,
 	} {
 		assertDisplayListContains(t, administrator, restarted.address, want)
+	}
+	restarted.stop(t)
+}
+
+func TestProducerConfiguresAccessibleBuiltInDisplayViews(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	displayClient := enrollAndAssignDisplay(t, administrator, server, "Themed Display", "event-overview")
+
+	configureInput := map[string]any{
+		"expected_event_revision": 1,
+		"rotation_seconds":        30,
+		"theme": map[string]any{
+			"branding":         "FOSDEM",
+			"foreground_color": "#ffffff",
+			"background_color": "#101828",
+			"accent_color":     "#1d4ed8",
+			"background":       "variable-media",
+			"scrim_color":      "#000000",
+			"scrim_opacity":    85,
+			"font":             "sans",
+			"transition":       "fade",
+		},
+		"command_id": "configure-display-views",
+	}
+	configured := requestJSONMethod(
+		t.Context(),
+		http.MethodPut,
+		administrator,
+		server.address,
+		"/crew/events/1/display-configuration",
+		configureInput,
+	)
+	if configured.err != nil || configured.status != http.StatusOK {
+		t.Fatalf(
+			"configure Display Views = %d %q, %v, want %d",
+			configured.status,
+			configured.body,
+			configured.err,
+			http.StatusOK,
+		)
+	}
+	for _, want := range []string{
+		`"event_id":1`,
+		`"rotation_seconds":30`,
+		`"branding":"FOSDEM"`,
+		`"background":"variable-media"`,
+		`"scrim_opacity":85`,
+	} {
+		if !strings.Contains(configured.body, want) {
+			t.Errorf("configured Display Views missing %s: %s", want, configured.body)
+		}
+	}
+	replayed := requestJSONMethod(
+		t.Context(),
+		http.MethodPut,
+		administrator,
+		server.address,
+		"/crew/events/1/display-configuration",
+		configureInput,
+	)
+	if replayed.err != nil || replayed.status != http.StatusOK ||
+		replayed.body != configured.body {
+		t.Errorf(
+			"replayed Display configuration = %d %q, %v, want %d %q",
+			replayed.status,
+			replayed.body,
+			replayed.err,
+			http.StatusOK,
+			configured.body,
+		)
+	}
+	staleInput := maps.Clone(configureInput)
+	staleInput["command_id"] = "stale-display-configuration"
+	stale := requestJSONMethod(
+		t.Context(),
+		http.MethodPut,
+		administrator,
+		server.address,
+		"/crew/events/1/display-configuration",
+		staleInput,
+	)
+	if stale.err != nil || stale.status != http.StatusConflict {
+		t.Errorf(
+			"stale Display configuration = %d %q, %v, want %d",
+			stale.status,
+			stale.body,
+			stale.err,
+			http.StatusConflict,
+		)
+	}
+	assertJSONRequest(
+		t,
+		administrator,
+		server.address,
+		"/admin/accounts",
+		map[string]string{
+			"name":       "Olive Observer",
+			"password":   "observer correct horse battery staple",
+			"command_id": "create-display-observer",
+		},
+		http.StatusCreated,
+		"{\"id\":2,\"name\":\"Olive Observer\",\"administrator\":false}\n",
+	)
+	assertJSONRequest(
+		t,
+		administrator,
+		server.address,
+		"/admin/events/1/grants",
+		map[string]any{
+			"account_id": 2,
+			"role":       "Observer",
+			"command_id": "grant-display-observer",
+		},
+		http.StatusCreated,
+		"{\"event_id\":1,\"account_id\":2,\"role\":\"Observer\"}\n",
+	)
+	observer := authenticatedClient(t)
+	assertJSONRequest(
+		t,
+		observer,
+		server.address,
+		"/auth/sign-in",
+		map[string]string{
+			"name":     "Olive Observer",
+			"password": "observer correct horse battery staple",
+		},
+		http.StatusNoContent,
+		"",
+	)
+	observerInput := maps.Clone(configureInput)
+	observerInput["expected_event_revision"] = 2
+	observerInput["command_id"] = "observer-display-configuration"
+	observerResult := requestJSONMethod(
+		t.Context(),
+		http.MethodPut,
+		observer,
+		server.address,
+		"/crew/events/1/display-configuration",
+		observerInput,
+	)
+	if observerResult.err != nil || observerResult.status != http.StatusForbidden {
+		t.Errorf(
+			"Observer Display configuration = %d %q, %v, want %d",
+			observerResult.status,
+			observerResult.body,
+			observerResult.err,
+			http.StatusForbidden,
+		)
+	}
+
+	entry := get(t, displayClient, server.address, "/display")
+	entryBody, readErr := io.ReadAll(entry.Body)
+	closeErr := entry.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read configured Display entry: %v", err)
+	}
+	for _, want := range []string{
+		`class="display-view display-layout-event-overview`,
+		`--display-foreground:#ffffff`,
+		`--display-background:#101828`,
+		`--display-accent:#1d4ed8`,
+		`data-region="header"`,
+		`data-region="schedule"`,
+		`data-region="clock"`,
+	} {
+		if !strings.Contains(string(entryBody), want) {
+			t.Errorf("configured Display entry missing %q: %s", want, entryBody)
+		}
+	}
+
+	snapshot := requestJSON(
+		t.Context(),
+		displayClient,
+		server.address,
+		"/beamers.display.v1.DisplayService/GetSnapshot",
+		map[string]any{},
+	)
+	if snapshot.err != nil || snapshot.status != http.StatusOK {
+		t.Fatalf("Get Display Snapshot = %d %q, %v", snapshot.status, snapshot.body, snapshot.err)
+	}
+	for _, want := range []string{
+		`"composition":{`,
+		`"layout":{"key":"event-overview"`,
+		`"rotationSeconds":30`,
+		`"theme":{"branding":"FOSDEM"`,
+	} {
+		if !strings.Contains(snapshot.body, want) {
+			t.Errorf("Display Snapshot missing %s: %s", want, snapshot.body)
+		}
+	}
+	var decodedSnapshot struct {
+		Snapshot displaySnapshotState `json:"snapshot"`
+	}
+	if err := json.Unmarshal([]byte(snapshot.body), &decodedSnapshot); err != nil {
+		t.Fatalf("decode configured Display Snapshot: %v", err)
+	}
+	layout := decodedSnapshot.Snapshot.Composition.Layout
+	if layout.Key != "event-overview" || layout.RotationSeconds != 30 ||
+		len(layout.Regions) != 3 ||
+		layout.Regions[0].Name != "header" ||
+		layout.Regions[0].Widget != "branding" ||
+		!layout.Regions[0].Persistent ||
+		layout.Regions[1].Name != "schedule" ||
+		layout.Regions[1].Widget != "rotation" ||
+		layout.Regions[1].Persistent ||
+		layout.Regions[2].Name != "clock" ||
+		layout.Regions[2].Widget != "clock" ||
+		!layout.Regions[2].Persistent {
+		t.Errorf("configured Display Layout = %+v", layout)
+	}
+
+	invalid := requestJSONMethod(
+		t.Context(),
+		http.MethodPut,
+		administrator,
+		server.address,
+		"/crew/events/1/display-configuration",
+		map[string]any{
+			"expected_event_revision": 2,
+			"rotation_seconds":        30,
+			"theme": map[string]any{
+				"foreground_color": "#777777",
+				"background_color": "#ffffff",
+				"accent_color":     "#aaaaaa",
+				"background":       "solid",
+				"scrim_color":      "#000000",
+				"scrim_opacity":    85,
+				"font":             "sans",
+				"transition":       "fade",
+			},
+			"command_id": "reject-inaccessible-display-theme",
+		},
+	)
+	if invalid.err != nil {
+		t.Fatalf("send inaccessible Display Theme: %v", invalid.err)
+	}
+	if invalid.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(invalid.body, `"field":"theme.foreground_color"`) {
+		t.Errorf(
+			"inaccessible Display Theme = %d %q, want foreground contrast validation",
+			invalid.status,
+			invalid.body,
+		)
+	}
+	server.stop(t)
+
+	restarted := startBeamers(t, server.bin, server.dataDir)
+	persisted := requestJSONMethod(
+		t.Context(),
+		http.MethodGet,
+		administrator,
+		restarted.address,
+		"/crew/events/1/display-configuration",
+		nil,
+	)
+	if persisted.err != nil || persisted.status != http.StatusOK ||
+		!strings.Contains(persisted.body, `"branding":"FOSDEM"`) {
+		t.Errorf(
+			"persisted Display configuration = %d %q, %v",
+			persisted.status,
+			persisted.body,
+			persisted.err,
+		)
+	}
+	restartedSnapshot := requestJSON(
+		t.Context(),
+		displayClient,
+		restarted.address,
+		"/beamers.display.v1.DisplayService/GetSnapshot",
+		map[string]any{},
+	)
+	if restartedSnapshot.err != nil || restartedSnapshot.status != http.StatusOK ||
+		!strings.Contains(restartedSnapshot.body, `"branding":"FOSDEM"`) {
+		t.Errorf(
+			"restarted Display Snapshot = %d %q, %v",
+			restartedSnapshot.status,
+			restartedSnapshot.body,
+			restartedSnapshot.err,
+		)
 	}
 	restarted.stop(t)
 }
@@ -3787,6 +4073,17 @@ type displaySnapshotState struct {
 	PublishedRevision    string `json:"publishedRevision"`
 	Standby              bool   `json:"standby"`
 	SnapshotToken        string `json:"snapshotToken"`
+	Composition          struct {
+		Layout struct {
+			Key             string `json:"key"`
+			RotationSeconds int    `json:"rotationSeconds"`
+			Regions         []struct {
+				Name       string `json:"name"`
+				Widget     string `json:"widget"`
+				Persistent bool   `json:"persistent"`
+			} `json:"regions"`
+		} `json:"layout"`
+	} `json:"composition"`
 }
 
 type displayHealth struct {

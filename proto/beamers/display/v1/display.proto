@@ -36,6 +36,36 @@ message DisplaySnapshot {
   string event_timezone = 16;
   string snapshot_token = 17;
   string asset_version = 18;
+  DisplayComposition composition = 19;
+}
+
+message DisplayComposition {
+  DisplayLayout layout = 1;
+  DisplayTheme theme = 2;
+}
+
+message DisplayLayout {
+  string key = 1;
+  uint32 rotation_seconds = 2;
+  repeated DisplayRegion regions = 3;
+}
+
+message DisplayRegion {
+  string name = 1;
+  string widget = 2;
+  bool persistent = 3;
+}
+
+message DisplayTheme {
+  string branding = 1;
+  string foreground_color = 2;
+  string background_color = 3;
+  string accent_color = 4;
+  string background = 5;
+  string scrim_color = 6;
+  uint32 scrim_opacity = 7;
+  string font = 8;
+  string transition = 9;
 }
 
 message DisplaySession {

@@ -13,6 +13,7 @@ import (
 	"github.com/dotwaffle/beamers/gen/beamers/display/v1/displayv1connect"
 	"github.com/dotwaffle/beamers/internal/displays"
 	"github.com/dotwaffle/beamers/internal/displaystream"
+	"github.com/dotwaffle/beamers/internal/displayviews"
 )
 
 type snapshotContextKey struct{}
@@ -201,11 +202,34 @@ func snapshotMessage(
 		StreamId:             cursor.StreamID,
 		StreamPosition:       &cursor.Position,
 		SnapshotToken:        snapshotToken,
+		Composition:          compositionMessage(found.Composition),
 	}
 	for _, item := range found.Sessions {
 		result.Sessions = append(result.Sessions, sessionMessage(item))
 	}
 	return result
+}
+
+func compositionMessage(found displayviews.Composition) *displayv1.DisplayComposition {
+	layout := &displayv1.DisplayLayout{
+		Key: found.Layout.Key, RotationSeconds: uint32(found.Layout.RotationSeconds), //nolint:gosec // Validated as 5..300.
+	}
+	for _, region := range found.Layout.Regions {
+		layout.Regions = append(layout.Regions, &displayv1.DisplayRegion{
+			Name: region.Name, Widget: region.Widget, Persistent: region.Persistent,
+		})
+	}
+	theme := found.Theme
+	return &displayv1.DisplayComposition{
+		Layout: layout,
+		Theme: &displayv1.DisplayTheme{
+			Branding: theme.Branding, ForegroundColor: theme.ForegroundColor,
+			BackgroundColor: theme.BackgroundColor, AccentColor: theme.AccentColor,
+			Background: theme.Background, ScrimColor: theme.ScrimColor,
+			ScrimOpacity: uint32(theme.ScrimOpacity), //nolint:gosec // Validated as 0..100.
+			Font:         theme.Font, Transition: theme.Transition,
+		},
+	}
 }
 
 func snapshotState(found displays.Snapshot, cursor displaystream.Cursor) displaystream.SnapshotState {

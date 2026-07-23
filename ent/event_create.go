@@ -80,6 +80,20 @@ func (_c *EventCreate) SetEventDayBoundary(v string) *EventCreate {
 	return _c
 }
 
+// SetDisplayConfiguration sets the "display_configuration" field.
+func (_c *EventCreate) SetDisplayConfiguration(v string) *EventCreate {
+	_c.mutation.SetDisplayConfiguration(v)
+	return _c
+}
+
+// SetNillableDisplayConfiguration sets the "display_configuration" field if the given value is not nil.
+func (_c *EventCreate) SetNillableDisplayConfiguration(v *string) *EventCreate {
+	if v != nil {
+		_c.SetDisplayConfiguration(*v)
+	}
+	return _c
+}
+
 // SetRevision sets the "revision" field.
 func (_c *EventCreate) SetRevision(v int) *EventCreate {
 	_c.mutation.SetRevision(v)
@@ -299,6 +313,10 @@ func (_c *EventCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *EventCreate) defaults() error {
+	if _, ok := _c.mutation.DisplayConfiguration(); !ok {
+		v := event.DefaultDisplayConfiguration
+		_c.mutation.SetDisplayConfiguration(v)
+	}
 	if _, ok := _c.mutation.Revision(); !ok {
 		v := event.DefaultRevision
 		_c.mutation.SetRevision(v)
@@ -368,6 +386,14 @@ func (_c *EventCreate) check() error {
 			return &ValidationError{Name: "event_day_boundary", err: fmt.Errorf(`ent: validator failed for field "Event.event_day_boundary": %w`, err)}
 		}
 	}
+	if _, ok := _c.mutation.DisplayConfiguration(); !ok {
+		return &ValidationError{Name: "display_configuration", err: errors.New(`ent: missing required field "Event.display_configuration"`)}
+	}
+	if v, ok := _c.mutation.DisplayConfiguration(); ok {
+		if err := event.DisplayConfigurationValidator(v); err != nil {
+			return &ValidationError{Name: "display_configuration", err: fmt.Errorf(`ent: validator failed for field "Event.display_configuration": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.Revision(); !ok {
 		return &ValidationError{Name: "revision", err: errors.New(`ent: missing required field "Event.revision"`)}
 	}
@@ -427,6 +453,10 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.EventDayBoundary(); ok {
 		_spec.SetField(event.FieldEventDayBoundary, field.TypeString, value)
 		_node.EventDayBoundary = value
+	}
+	if value, ok := _c.mutation.DisplayConfiguration(); ok {
+		_spec.SetField(event.FieldDisplayConfiguration, field.TypeString, value)
+		_node.DisplayConfiguration = value
 	}
 	if value, ok := _c.mutation.Revision(); ok {
 		_spec.SetField(event.FieldRevision, field.TypeInt, value)

@@ -18,6 +18,7 @@ type DisplaySnapshotState struct {
 	ActiveEventID        int
 	EventName            string
 	EventTimezone        string
+	DisplayConfiguration string
 	ActivationGeneration int
 	PublishedRevision    int
 	LocationID           int
@@ -94,6 +95,7 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 	}
 	result.EventName = activeEvent.Name
 	result.EventTimezone = activeEvent.Timezone
+	result.DisplayConfiguration = activeEvent.DisplayConfiguration
 	published, err := loadCrewRundown(internalContext, client, result.ActiveEventID)
 	if err != nil {
 		return DisplaySnapshotState{}, err

@@ -16,6 +16,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/command"
+	"github.com/dotwaffle/beamers/internal/displayviews"
 	"github.com/dotwaffle/beamers/internal/store"
 )
 
@@ -94,6 +95,20 @@ type GrantInput struct {
 	DisplayGroupKeys []string `json:"display_group_keys,omitempty"`
 	Capabilities     []string `json:"capabilities,omitempty"`
 	CommandID        string   `json:"command_id"`
+}
+
+// DisplayConfigurationInput replaces one Event's controlled Display presentation.
+type DisplayConfigurationInput struct {
+	displayviews.Configuration
+	ExpectedEventRevision int    `json:"expected_event_revision"`
+	CommandID             string `json:"command_id"`
+}
+
+// DisplayConfiguration is one Event's committed Display presentation.
+type DisplayConfiguration struct {
+	EventID       int `json:"event_id"`
+	EventRevision int `json:"event_revision"`
+	displayviews.Configuration
 }
 
 // Service owns Event commands and authorization.
@@ -283,12 +298,111 @@ func (service *Service) Update(
 	})
 }
 
+// DisplayConfiguration returns one Event's committed Display presentation.
+func (service *Service) DisplayConfiguration(
+	ctx context.Context,
+	actor auth.Account,
+	eventID int,
+) (DisplayConfiguration, error) {
+	found, err := service.storage.FindDisplayConfiguration(actor.Context(ctx), actor.ID, eventID)
+	if err != nil {
+		return DisplayConfiguration{}, err
+	}
+	return displayConfiguration(found)
+}
+
+// ConfigureDisplays validates and replaces one Event's Display presentation.
+func (service *Service) ConfigureDisplays(
+	ctx context.Context,
+	actor auth.Account,
+	eventID int,
+	input DisplayConfigurationInput,
+) (DisplayConfiguration, error) {
+	if err := command.ValidateID(input.CommandID); err != nil {
+		return DisplayConfiguration{}, invalid("command_id", err.Error())
+	}
+	if input.ExpectedEventRevision <= 0 {
+		return DisplayConfiguration{}, invalid(
+			"expected_event_revision",
+			"must be a positive Event revision",
+		)
+	}
+	if validationErr := displayviews.ValidateConfiguration(input.Configuration); validationErr != nil {
+		var configurationValidation *displayviews.ValidationError
+		if !errors.As(validationErr, &configurationValidation) {
+			return DisplayConfiguration{}, validationErr
+		}
+		return DisplayConfiguration{}, invalid(configurationValidation.Field, configurationValidation.Message)
+	}
+	encodedConfiguration, err := json.Marshal(input.Configuration)
+	if err != nil {
+		return DisplayConfiguration{}, errors.New("encode Display configuration")
+	}
+	payloadHash := command.PayloadHash(
+		strconv.Itoa(eventID),
+		strconv.Itoa(input.ExpectedEventRevision),
+		string(encodedConfiguration),
+	)
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID,
+		CommandID:      input.CommandID,
+		PayloadHash:    payloadHash,
+		Action:         "ConfigureDisplays",
+		TargetType:     "Event",
+		TargetID:       strconv.Itoa(eventID),
+		Now:            service.now().UTC(),
+	}
+	return command.Execute(actor.Context(ctx), command.Plan[DisplayConfiguration]{
+		Storage:  service.storage,
+		Identity: identity,
+		Replay:   replayDisplayConfiguration,
+		Apply: func(transaction *store.CommandTx) (command.Execution[DisplayConfiguration], error) {
+			if !actor.CanProduceEvent(eventID) {
+				return eventRejection[DisplayConfiguration](ErrEventAccessDenied), nil
+			}
+			updated, updateErr := transaction.UpdateDisplayConfiguration(
+				actor.Context(ctx),
+				store.UpdateDisplayConfigurationParams{
+					EventID:               eventID,
+					ExpectedEventRevision: input.ExpectedEventRevision,
+					Configuration:         string(encodedConfiguration),
+				},
+			)
+			if errors.Is(updateErr, ErrRevisionConflict) {
+				return eventRejection[DisplayConfiguration](updateErr), nil
+			}
+			if updateErr != nil {
+				return command.Execution[DisplayConfiguration]{}, updateErr
+			}
+			result, decodeErr := displayConfiguration(updated)
+			if decodeErr != nil {
+				return command.Execution[DisplayConfiguration]{}, decodeErr
+			}
+			encodedOutcome, encodeErr := json.Marshal(updated)
+			if encodeErr != nil {
+				return command.Execution[DisplayConfiguration]{}, errors.New(
+					"encode Display configuration outcome",
+				)
+			}
+			return command.Success(result, string(encodedOutcome)), nil
+		},
+	})
+}
+
 func replayEvent(outcome string) (Event, error) {
 	var original store.Event
 	if err := store.DecodeCommandReceipt(outcome, &original); err != nil {
 		return Event{}, restoreRejected(err)
 	}
 	return event(original), nil
+}
+
+func replayDisplayConfiguration(outcome string) (DisplayConfiguration, error) {
+	var original store.DisplayConfigurationState
+	if err := store.DecodeCommandReceipt(outcome, &original); err != nil {
+		return DisplayConfiguration{}, restoreRejected(err)
+	}
+	return displayConfiguration(original)
 }
 
 func replayGrant(outcome string) (Grant, error) {
@@ -451,6 +565,17 @@ func grant(found store.EventGrant) Grant {
 		LaneIDs: found.LaneIDs, DisplayGroupKeys: found.DisplayGroupKeys,
 		Capabilities: found.Capabilities,
 	}
+}
+
+func displayConfiguration(found store.DisplayConfigurationState) (DisplayConfiguration, error) {
+	var configuration displayviews.Configuration
+	if err := json.Unmarshal([]byte(found.Configuration), &configuration); err != nil {
+		return DisplayConfiguration{}, errors.New("decode Display configuration")
+	}
+	return DisplayConfiguration{
+		EventID: found.EventID, EventRevision: found.EventRevision,
+		Configuration: configuration,
+	}, nil
 }
 
 func grantPayloadHash(eventID int, input GrantInput) (string, error) {
