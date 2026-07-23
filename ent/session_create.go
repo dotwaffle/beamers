@@ -392,6 +392,34 @@ func (_c *SessionCreate) SetNillableProgramOutputTakenAt(v *time.Time) *SessionC
 	return _c
 }
 
+// SetAttachmentReleasePolicyOverride sets the "attachment_release_policy_override" field.
+func (_c *SessionCreate) SetAttachmentReleasePolicyOverride(v session.AttachmentReleasePolicyOverride) *SessionCreate {
+	_c.mutation.SetAttachmentReleasePolicyOverride(v)
+	return _c
+}
+
+// SetNillableAttachmentReleasePolicyOverride sets the "attachment_release_policy_override" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableAttachmentReleasePolicyOverride(v *session.AttachmentReleasePolicyOverride) *SessionCreate {
+	if v != nil {
+		_c.SetAttachmentReleasePolicyOverride(*v)
+	}
+	return _c
+}
+
+// SetAttachmentReleaseRevision sets the "attachment_release_revision" field.
+func (_c *SessionCreate) SetAttachmentReleaseRevision(v int) *SessionCreate {
+	_c.mutation.SetAttachmentReleaseRevision(v)
+	return _c
+}
+
+// SetNillableAttachmentReleaseRevision sets the "attachment_release_revision" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableAttachmentReleaseRevision(v *int) *SessionCreate {
+	if v != nil {
+		_c.SetAttachmentReleaseRevision(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *SessionCreate) SetCreatedAt(v time.Time) *SessionCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -567,6 +595,10 @@ func (_c *SessionCreate) defaults() error {
 		v := session.DefaultProgramCursor
 		_c.mutation.SetProgramCursor(v)
 	}
+	if _, ok := _c.mutation.AttachmentReleaseRevision(); !ok {
+		v := session.DefaultAttachmentReleaseRevision
+		_c.mutation.SetAttachmentReleaseRevision(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		if session.DefaultCreatedAt == nil {
 			return fmt.Errorf("ent: uninitialized session.DefaultCreatedAt (forgotten import ent/runtime?)")
@@ -681,6 +713,19 @@ func (_c *SessionCreate) check() error {
 	}
 	if _, ok := _c.mutation.ProgramCursor(); !ok {
 		return &ValidationError{Name: "program_cursor", err: errors.New(`ent: missing required field "Session.program_cursor"`)}
+	}
+	if v, ok := _c.mutation.AttachmentReleasePolicyOverride(); ok {
+		if err := session.AttachmentReleasePolicyOverrideValidator(v); err != nil {
+			return &ValidationError{Name: "attachment_release_policy_override", err: fmt.Errorf(`ent: validator failed for field "Session.attachment_release_policy_override": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.AttachmentReleaseRevision(); !ok {
+		return &ValidationError{Name: "attachment_release_revision", err: errors.New(`ent: missing required field "Session.attachment_release_revision"`)}
+	}
+	if v, ok := _c.mutation.AttachmentReleaseRevision(); ok {
+		if err := session.AttachmentReleaseRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "attachment_release_revision", err: fmt.Errorf(`ent: validator failed for field "Session.attachment_release_revision": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Session.created_at"`)}
@@ -825,6 +870,14 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ProgramOutputTakenAt(); ok {
 		_spec.SetField(session.FieldProgramOutputTakenAt, field.TypeTime, value)
 		_node.ProgramOutputTakenAt = value
+	}
+	if value, ok := _c.mutation.AttachmentReleasePolicyOverride(); ok {
+		_spec.SetField(session.FieldAttachmentReleasePolicyOverride, field.TypeEnum, value)
+		_node.AttachmentReleasePolicyOverride = &value
+	}
+	if value, ok := _c.mutation.AttachmentReleaseRevision(); ok {
+		_spec.SetField(session.FieldAttachmentReleaseRevision, field.TypeInt, value)
+		_node.AttachmentReleaseRevision = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(session.FieldCreatedAt, field.TypeTime, value)

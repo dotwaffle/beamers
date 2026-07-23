@@ -41,6 +41,12 @@ func (Event) Fields() []ent.Field {
 		field.String("display_configuration").NotEmpty().MaxLen(4096).Default(
 			`{"rotation_seconds":15,"theme":{"branding":"","foreground_color":"#ffffff","background_color":"#101828","accent_color":"#1d4ed8","background":"solid","scrim_color":"#000000","scrim_opacity":85,"font":"sans","transition":"fade"}}`,
 		),
+		field.Enum("attachment_release_policy").
+			Values("OnLive", "OnEnded", "OnEventReleaseCue").
+			Default("OnEnded"),
+		field.Int("attachment_release_cue_session_id").Optional().Nillable().Positive(),
+		field.Time("attachment_release_cue_at").Optional(),
+		field.Int("attachment_release_revision").Default(0).NonNegative(),
 		field.Int("revision").Default(1),
 		field.Time("created_at").Default(time.Now).Immutable(),
 	}

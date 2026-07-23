@@ -76,6 +76,55 @@ func (_u *AttachmentVersionUpdate) AddReadinessRevision(v int) *AttachmentVersio
 	return _u
 }
 
+// SetReleaseEligibility sets the "release_eligibility" field.
+func (_u *AttachmentVersionUpdate) SetReleaseEligibility(v attachmentversion.ReleaseEligibility) *AttachmentVersionUpdate {
+	_u.mutation.SetReleaseEligibility(v)
+	return _u
+}
+
+// SetNillableReleaseEligibility sets the "release_eligibility" field if the given value is not nil.
+func (_u *AttachmentVersionUpdate) SetNillableReleaseEligibility(v *attachmentversion.ReleaseEligibility) *AttachmentVersionUpdate {
+	if v != nil {
+		_u.SetReleaseEligibility(*v)
+	}
+	return _u
+}
+
+// SetReleaseHold sets the "release_hold" field.
+func (_u *AttachmentVersionUpdate) SetReleaseHold(v bool) *AttachmentVersionUpdate {
+	_u.mutation.SetReleaseHold(v)
+	return _u
+}
+
+// SetNillableReleaseHold sets the "release_hold" field if the given value is not nil.
+func (_u *AttachmentVersionUpdate) SetNillableReleaseHold(v *bool) *AttachmentVersionUpdate {
+	if v != nil {
+		_u.SetReleaseHold(*v)
+	}
+	return _u
+}
+
+// SetReleaseRevision sets the "release_revision" field.
+func (_u *AttachmentVersionUpdate) SetReleaseRevision(v int) *AttachmentVersionUpdate {
+	_u.mutation.ResetReleaseRevision()
+	_u.mutation.SetReleaseRevision(v)
+	return _u
+}
+
+// SetNillableReleaseRevision sets the "release_revision" field if the given value is not nil.
+func (_u *AttachmentVersionUpdate) SetNillableReleaseRevision(v *int) *AttachmentVersionUpdate {
+	if v != nil {
+		_u.SetReleaseRevision(*v)
+	}
+	return _u
+}
+
+// AddReleaseRevision adds value to the "release_revision" field.
+func (_u *AttachmentVersionUpdate) AddReleaseRevision(v int) *AttachmentVersionUpdate {
+	_u.mutation.AddReleaseRevision(v)
+	return _u
+}
+
 // Mutation returns the AttachmentVersionMutation object of the builder.
 func (_u *AttachmentVersionUpdate) Mutation() *AttachmentVersionMutation {
 	return _u.mutation
@@ -115,6 +164,16 @@ func (_u *AttachmentVersionUpdate) check() error {
 			return &ValidationError{Name: "readiness_revision", err: fmt.Errorf(`ent: validator failed for field "AttachmentVersion.readiness_revision": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ReleaseEligibility(); ok {
+		if err := attachmentversion.ReleaseEligibilityValidator(v); err != nil {
+			return &ValidationError{Name: "release_eligibility", err: fmt.Errorf(`ent: validator failed for field "AttachmentVersion.release_eligibility": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ReleaseRevision(); ok {
+		if err := attachmentversion.ReleaseRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "release_revision", err: fmt.Errorf(`ent: validator failed for field "AttachmentVersion.release_revision": %w`, err)}
+		}
+	}
 	if _u.mutation.AttachmentCleared() && len(_u.mutation.AttachmentIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "AttachmentVersion.attachment"`)
 	}
@@ -147,6 +206,18 @@ func (_u *AttachmentVersionUpdate) sqlSave(ctx context.Context) (_node int, err 
 	}
 	if value, ok := _u.mutation.AddedReadinessRevision(); ok {
 		_spec.AddField(attachmentversion.FieldReadinessRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ReleaseEligibility(); ok {
+		_spec.SetField(attachmentversion.FieldReleaseEligibility, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.ReleaseHold(); ok {
+		_spec.SetField(attachmentversion.FieldReleaseHold, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ReleaseRevision(); ok {
+		_spec.SetField(attachmentversion.FieldReleaseRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedReleaseRevision(); ok {
+		_spec.AddField(attachmentversion.FieldReleaseRevision, field.TypeInt, value)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -217,6 +288,55 @@ func (_u *AttachmentVersionUpdateOne) AddReadinessRevision(v int) *AttachmentVer
 	return _u
 }
 
+// SetReleaseEligibility sets the "release_eligibility" field.
+func (_u *AttachmentVersionUpdateOne) SetReleaseEligibility(v attachmentversion.ReleaseEligibility) *AttachmentVersionUpdateOne {
+	_u.mutation.SetReleaseEligibility(v)
+	return _u
+}
+
+// SetNillableReleaseEligibility sets the "release_eligibility" field if the given value is not nil.
+func (_u *AttachmentVersionUpdateOne) SetNillableReleaseEligibility(v *attachmentversion.ReleaseEligibility) *AttachmentVersionUpdateOne {
+	if v != nil {
+		_u.SetReleaseEligibility(*v)
+	}
+	return _u
+}
+
+// SetReleaseHold sets the "release_hold" field.
+func (_u *AttachmentVersionUpdateOne) SetReleaseHold(v bool) *AttachmentVersionUpdateOne {
+	_u.mutation.SetReleaseHold(v)
+	return _u
+}
+
+// SetNillableReleaseHold sets the "release_hold" field if the given value is not nil.
+func (_u *AttachmentVersionUpdateOne) SetNillableReleaseHold(v *bool) *AttachmentVersionUpdateOne {
+	if v != nil {
+		_u.SetReleaseHold(*v)
+	}
+	return _u
+}
+
+// SetReleaseRevision sets the "release_revision" field.
+func (_u *AttachmentVersionUpdateOne) SetReleaseRevision(v int) *AttachmentVersionUpdateOne {
+	_u.mutation.ResetReleaseRevision()
+	_u.mutation.SetReleaseRevision(v)
+	return _u
+}
+
+// SetNillableReleaseRevision sets the "release_revision" field if the given value is not nil.
+func (_u *AttachmentVersionUpdateOne) SetNillableReleaseRevision(v *int) *AttachmentVersionUpdateOne {
+	if v != nil {
+		_u.SetReleaseRevision(*v)
+	}
+	return _u
+}
+
+// AddReleaseRevision adds value to the "release_revision" field.
+func (_u *AttachmentVersionUpdateOne) AddReleaseRevision(v int) *AttachmentVersionUpdateOne {
+	_u.mutation.AddReleaseRevision(v)
+	return _u
+}
+
 // Mutation returns the AttachmentVersionMutation object of the builder.
 func (_u *AttachmentVersionUpdateOne) Mutation() *AttachmentVersionMutation {
 	return _u.mutation
@@ -269,6 +389,16 @@ func (_u *AttachmentVersionUpdateOne) check() error {
 			return &ValidationError{Name: "readiness_revision", err: fmt.Errorf(`ent: validator failed for field "AttachmentVersion.readiness_revision": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ReleaseEligibility(); ok {
+		if err := attachmentversion.ReleaseEligibilityValidator(v); err != nil {
+			return &ValidationError{Name: "release_eligibility", err: fmt.Errorf(`ent: validator failed for field "AttachmentVersion.release_eligibility": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ReleaseRevision(); ok {
+		if err := attachmentversion.ReleaseRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "release_revision", err: fmt.Errorf(`ent: validator failed for field "AttachmentVersion.release_revision": %w`, err)}
+		}
+	}
 	if _u.mutation.AttachmentCleared() && len(_u.mutation.AttachmentIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "AttachmentVersion.attachment"`)
 	}
@@ -318,6 +448,18 @@ func (_u *AttachmentVersionUpdateOne) sqlSave(ctx context.Context) (_node *Attac
 	}
 	if value, ok := _u.mutation.AddedReadinessRevision(); ok {
 		_spec.AddField(attachmentversion.FieldReadinessRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ReleaseEligibility(); ok {
+		_spec.SetField(attachmentversion.FieldReleaseEligibility, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.ReleaseHold(); ok {
+		_spec.SetField(attachmentversion.FieldReleaseHold, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ReleaseRevision(); ok {
+		_spec.SetField(attachmentversion.FieldReleaseRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedReleaseRevision(); ok {
+		_spec.AddField(attachmentversion.FieldReleaseRevision, field.TypeInt, value)
 	}
 	_node = &AttachmentVersion{config: _u.config}
 	_spec.Assign = _node.assignValues

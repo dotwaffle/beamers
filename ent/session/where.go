@@ -165,6 +165,11 @@ func ProgramOutputTakenAt(v time.Time) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldProgramOutputTakenAt, v))
 }
 
+// AttachmentReleaseRevision applies equality check predicate on the "attachment_release_revision" field. It's identical to AttachmentReleaseRevisionEQ.
+func AttachmentReleaseRevision(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldAttachmentReleaseRevision, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldCreatedAt, v))
@@ -1333,6 +1338,76 @@ func ProgramOutputTakenAtIsNil() predicate.Session {
 // ProgramOutputTakenAtNotNil applies the NotNil predicate on the "program_output_taken_at" field.
 func ProgramOutputTakenAtNotNil() predicate.Session {
 	return predicate.Session(sql.FieldNotNull(FieldProgramOutputTakenAt))
+}
+
+// AttachmentReleasePolicyOverrideEQ applies the EQ predicate on the "attachment_release_policy_override" field.
+func AttachmentReleasePolicyOverrideEQ(v AttachmentReleasePolicyOverride) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldAttachmentReleasePolicyOverride, v))
+}
+
+// AttachmentReleasePolicyOverrideNEQ applies the NEQ predicate on the "attachment_release_policy_override" field.
+func AttachmentReleasePolicyOverrideNEQ(v AttachmentReleasePolicyOverride) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldAttachmentReleasePolicyOverride, v))
+}
+
+// AttachmentReleasePolicyOverrideIn applies the In predicate on the "attachment_release_policy_override" field.
+func AttachmentReleasePolicyOverrideIn(vs ...AttachmentReleasePolicyOverride) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldAttachmentReleasePolicyOverride, vs...))
+}
+
+// AttachmentReleasePolicyOverrideNotIn applies the NotIn predicate on the "attachment_release_policy_override" field.
+func AttachmentReleasePolicyOverrideNotIn(vs ...AttachmentReleasePolicyOverride) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldAttachmentReleasePolicyOverride, vs...))
+}
+
+// AttachmentReleasePolicyOverrideIsNil applies the IsNil predicate on the "attachment_release_policy_override" field.
+func AttachmentReleasePolicyOverrideIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldAttachmentReleasePolicyOverride))
+}
+
+// AttachmentReleasePolicyOverrideNotNil applies the NotNil predicate on the "attachment_release_policy_override" field.
+func AttachmentReleasePolicyOverrideNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldAttachmentReleasePolicyOverride))
+}
+
+// AttachmentReleaseRevisionEQ applies the EQ predicate on the "attachment_release_revision" field.
+func AttachmentReleaseRevisionEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldAttachmentReleaseRevision, v))
+}
+
+// AttachmentReleaseRevisionNEQ applies the NEQ predicate on the "attachment_release_revision" field.
+func AttachmentReleaseRevisionNEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldAttachmentReleaseRevision, v))
+}
+
+// AttachmentReleaseRevisionIn applies the In predicate on the "attachment_release_revision" field.
+func AttachmentReleaseRevisionIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldAttachmentReleaseRevision, vs...))
+}
+
+// AttachmentReleaseRevisionNotIn applies the NotIn predicate on the "attachment_release_revision" field.
+func AttachmentReleaseRevisionNotIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldAttachmentReleaseRevision, vs...))
+}
+
+// AttachmentReleaseRevisionGT applies the GT predicate on the "attachment_release_revision" field.
+func AttachmentReleaseRevisionGT(v int) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldAttachmentReleaseRevision, v))
+}
+
+// AttachmentReleaseRevisionGTE applies the GTE predicate on the "attachment_release_revision" field.
+func AttachmentReleaseRevisionGTE(v int) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldAttachmentReleaseRevision, v))
+}
+
+// AttachmentReleaseRevisionLT applies the LT predicate on the "attachment_release_revision" field.
+func AttachmentReleaseRevisionLT(v int) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldAttachmentReleaseRevision, v))
+}
+
+// AttachmentReleaseRevisionLTE applies the LTE predicate on the "attachment_release_revision" field.
+func AttachmentReleaseRevisionLTE(v int) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldAttachmentReleaseRevision, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

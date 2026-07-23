@@ -39,6 +39,16 @@ const (
 	UploadTargetEntry UploadTargetKind = "Entry"
 )
 
+// AttachmentReleaseEligibility is the uploader-selected public-release choice.
+type AttachmentReleaseEligibility string
+
+const (
+	// AttachmentReleasePublic permits policy-governed public release.
+	AttachmentReleasePublic AttachmentReleaseEligibility = "Public"
+	// AttachmentReleaseCrewOnly permanently excludes a version from public release.
+	AttachmentReleaseCrewOnly AttachmentReleaseEligibility = "CrewOnly"
+)
+
 // UploadLink is safe crew-visible Upload Link metadata without its credential.
 type UploadLink struct {
 	ID         int              `json:"id"`
@@ -77,6 +87,9 @@ type AttachmentVersion struct {
 	UploaderID                  int
 	Primary, Final              bool
 	ReadinessRevision           int
+	ReleaseEligibility          AttachmentReleaseEligibility
+	ReleaseHold                 bool
+	ReleaseRevision             int
 	CreatedAt                   time.Time
 }
 
@@ -88,6 +101,7 @@ type SaveAttachmentVersionParams struct {
 	SHA256, StorageKey                string
 	UploaderType                      string
 	UploaderID                        int
+	ReleaseEligibility                AttachmentReleaseEligibility
 	Now                               time.Time
 }
 
@@ -412,6 +426,7 @@ func (transaction *CommandTx) SaveAttachmentVersion(
 		SetStorageKey(params.StorageKey).
 		SetUploaderType(attachmentversion.UploaderType(params.UploaderType)).
 		SetUploaderID(params.UploaderID).
+		SetReleaseEligibility(attachmentversion.ReleaseEligibility(params.ReleaseEligibility)).
 		SetPrimary(primary).
 		SetCreatedAt(params.Now)
 	created, err := create.Save(internalContext)
@@ -461,8 +476,11 @@ func attachmentVersion(logical *ent.Attachment, version *ent.AttachmentVersion) 
 		SizeBytes: version.SizeBytes, SHA256: version.Sha256, StorageKey: version.StorageKey,
 		UploaderType: version.UploaderType.String(), UploaderID: version.UploaderID,
 		Primary: version.Primary, Final: version.Final,
-		ReadinessRevision: version.ReadinessRevision,
-		CreatedAt:         version.CreatedAt,
+		ReadinessRevision:  version.ReadinessRevision,
+		ReleaseEligibility: AttachmentReleaseEligibility(version.ReleaseEligibility.String()),
+		ReleaseHold:        version.ReleaseHold,
+		ReleaseRevision:    version.ReleaseRevision,
+		CreatedAt:          version.CreatedAt,
 	}
 }
 

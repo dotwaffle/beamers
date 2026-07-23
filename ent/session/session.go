@@ -74,6 +74,10 @@ const (
 	FieldProgramCursor = "program_cursor"
 	// FieldProgramOutputTakenAt holds the string denoting the program_output_taken_at field in the database.
 	FieldProgramOutputTakenAt = "program_output_taken_at"
+	// FieldAttachmentReleasePolicyOverride holds the string denoting the attachment_release_policy_override field in the database.
+	FieldAttachmentReleasePolicyOverride = "attachment_release_policy_override"
+	// FieldAttachmentReleaseRevision holds the string denoting the attachment_release_revision field in the database.
+	FieldAttachmentReleaseRevision = "attachment_release_revision"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeEvent holds the string denoting the event edge name in mutations.
@@ -166,6 +170,8 @@ var Columns = []string{
 	FieldProgramOutputRevision,
 	FieldProgramCursor,
 	FieldProgramOutputTakenAt,
+	FieldAttachmentReleasePolicyOverride,
+	FieldAttachmentReleaseRevision,
 	FieldCreatedAt,
 }
 
@@ -223,6 +229,10 @@ var (
 	ProgramOutputRevisionValidator func(int) error
 	// DefaultProgramCursor holds the default value on creation for the "program_cursor" field.
 	DefaultProgramCursor int
+	// DefaultAttachmentReleaseRevision holds the default value on creation for the "attachment_release_revision" field.
+	DefaultAttachmentReleaseRevision int
+	// AttachmentReleaseRevisionValidator is a validator for the "attachment_release_revision" field. It is called by the builders before save.
+	AttachmentReleaseRevisionValidator func(int) error
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 )
@@ -308,6 +318,30 @@ func ProgramOutputKindValidator(pok ProgramOutputKind) error {
 		return nil
 	default:
 		return fmt.Errorf("session: invalid enum value for program_output_kind field: %q", pok)
+	}
+}
+
+// AttachmentReleasePolicyOverride defines the type for the "attachment_release_policy_override" enum field.
+type AttachmentReleasePolicyOverride string
+
+// AttachmentReleasePolicyOverride values.
+const (
+	AttachmentReleasePolicyOverrideOnLive            AttachmentReleasePolicyOverride = "OnLive"
+	AttachmentReleasePolicyOverrideOnEnded           AttachmentReleasePolicyOverride = "OnEnded"
+	AttachmentReleasePolicyOverrideOnEventReleaseCue AttachmentReleasePolicyOverride = "OnEventReleaseCue"
+)
+
+func (arpo AttachmentReleasePolicyOverride) String() string {
+	return string(arpo)
+}
+
+// AttachmentReleasePolicyOverrideValidator is a validator for the "attachment_release_policy_override" field enum values. It is called by the builders before save.
+func AttachmentReleasePolicyOverrideValidator(arpo AttachmentReleasePolicyOverride) error {
+	switch arpo {
+	case AttachmentReleasePolicyOverrideOnLive, AttachmentReleasePolicyOverrideOnEnded, AttachmentReleasePolicyOverrideOnEventReleaseCue:
+		return nil
+	default:
+		return fmt.Errorf("session: invalid enum value for attachment_release_policy_override field: %q", arpo)
 	}
 }
 
@@ -442,6 +476,16 @@ func ByProgramCursor(opts ...sql.OrderTermOption) OrderOption {
 // ByProgramOutputTakenAt orders the results by the program_output_taken_at field.
 func ByProgramOutputTakenAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldProgramOutputTakenAt, opts...).ToFunc()
+}
+
+// ByAttachmentReleasePolicyOverride orders the results by the attachment_release_policy_override field.
+func ByAttachmentReleasePolicyOverride(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAttachmentReleasePolicyOverride, opts...).ToFunc()
+}
+
+// ByAttachmentReleaseRevision orders the results by the attachment_release_revision field.
+func ByAttachmentReleaseRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAttachmentReleaseRevision, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

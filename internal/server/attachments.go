@@ -41,7 +41,19 @@ func registerAttachmentRoutes(
 	mux.HandleFunc("/crew/events/{eventID}/reopen-windows/{windowID}", handlers.updateReopenWindow)
 	mux.HandleFunc("/crew/events/{eventID}/attachments", handlers.uploadForCrew)
 	mux.HandleFunc("/crew/events/{eventID}/attachment-versions/{versionID}", handlers.readVersion)
+	mux.HandleFunc("/crew/events/{eventID}/attachment-release", handlers.configureEventRelease)
+	mux.HandleFunc(
+		"/crew/events/{eventID}/competitions/{sessionID}/attachment-release",
+		handlers.configureCompetitionRelease,
+	)
+	mux.HandleFunc(
+		"/crew/events/{eventID}/attachment-versions/{versionID}/release",
+		handlers.setVersionRelease,
+	)
+	mux.HandleFunc("/crew/events/{eventID}/attachment-release-cue", handlers.fireReleaseCue)
 	mux.HandleFunc("/upload/{token}", handlers.upload)
+	mux.HandleFunc("/public/attachments", handlers.listReleasedVersions)
+	mux.HandleFunc("/public/attachments/{versionID}", handlers.readReleasedVersion)
 }
 
 func (handlers attachmentHandlers) issueUploadLink(response http.ResponseWriter, request *http.Request) {
@@ -114,6 +126,7 @@ func (handlers attachmentHandlers) upload(response http.ResponseWriter, request 
 	created, err := handlers.attachments.Upload(request.Context(), attachments.UploadInput{
 		Token: request.PathValue("token"), CommandID: request.FormValue("command_id"), Name: name,
 		OriginalFilename: filename, MediaType: mediaType, Body: body,
+		CrewOnly: request.FormValue("crew_only") == "true",
 	})
 	handlers.writeUploadResult(response, request, created, err)
 }
@@ -156,6 +169,7 @@ func (handlers attachmentHandlers) uploadForCrew(response http.ResponseWriter, r
 		EventID: eventID, TargetType: attachments.TargetKind(request.FormValue("target_type")), TargetID: targetID,
 		CommandID: request.FormValue("command_id"), Name: name,
 		OriginalFilename: filename, MediaType: mediaType, Body: body,
+		CrewOnly: request.FormValue("crew_only") == "true",
 	})
 	handlers.writeUploadResult(response, request, created, err)
 }
@@ -389,6 +403,200 @@ func (handlers attachmentHandlers) readVersion(response http.ResponseWriter, req
 	response.WriteHeader(http.StatusOK)
 	if _, err = response.Write(content); err != nil { //nolint:gosec // Verified file bytes are an attachment response, not HTML.
 		handlers.logger.ErrorContext(request.Context(), "write Attachment bytes", "error", err)
+	}
+}
+
+func (handlers attachmentHandlers) configureEventRelease(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	if !requestAllowed(response, request, http.MethodPatch, handlers.allowPlaintextCrew) {
+		return
+	}
+	actor, ok := handlers.authenticate(response, request)
+	if !ok {
+		return
+	}
+	eventID, err := positivePathID(request, "eventID")
+	if err != nil {
+		http.Error(response, "Event not found", http.StatusNotFound)
+		return
+	}
+	var input attachments.ConfigureEventReleaseInput
+	if err = decodeAuthJSON(response, request, &input); err != nil {
+		http.Error(response, "invalid request", http.StatusBadRequest)
+		return
+	}
+	input.EventID = eventID
+	result, err := handlers.attachments.ConfigureEventRelease(request.Context(), actor, input)
+	handlers.writeReleaseResult(response, request, result, err)
+}
+
+func (handlers attachmentHandlers) configureCompetitionRelease(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	if !requestAllowed(response, request, http.MethodPatch, handlers.allowPlaintextCrew) {
+		return
+	}
+	actor, ok := handlers.authenticate(response, request)
+	if !ok {
+		return
+	}
+	eventID, eventErr := positivePathID(request, "eventID")
+	sessionID, sessionErr := positivePathID(request, "sessionID")
+	if eventErr != nil || sessionErr != nil {
+		http.Error(response, "Competition not found", http.StatusNotFound)
+		return
+	}
+	var input attachments.ConfigureCompetitionReleaseInput
+	if err := decodeAuthJSON(response, request, &input); err != nil {
+		http.Error(response, "invalid request", http.StatusBadRequest)
+		return
+	}
+	input.EventID, input.SessionID = eventID, sessionID
+	result, err := handlers.attachments.ConfigureCompetitionRelease(request.Context(), actor, input)
+	handlers.writeReleaseResult(response, request, result, err)
+}
+
+func (handlers attachmentHandlers) setVersionRelease(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	if !requestAllowed(response, request, http.MethodPatch, handlers.allowPlaintextCrew) {
+		return
+	}
+	actor, ok := handlers.authenticate(response, request)
+	if !ok {
+		return
+	}
+	eventID, eventErr := positivePathID(request, "eventID")
+	versionID, versionErr := positivePathID(request, "versionID")
+	if eventErr != nil || versionErr != nil {
+		http.Error(response, "Attachment Version not found", http.StatusNotFound)
+		return
+	}
+	var input attachments.SetVersionReleaseInput
+	if err := decodeAuthJSON(response, request, &input); err != nil {
+		http.Error(response, "invalid request", http.StatusBadRequest)
+		return
+	}
+	input.EventID, input.VersionID = eventID, versionID
+	result, err := handlers.attachments.SetVersionRelease(request.Context(), actor, input)
+	handlers.writeReleaseResult(response, request, result, err)
+}
+
+func (handlers attachmentHandlers) fireReleaseCue(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	if !requestAllowed(response, request, http.MethodPost, handlers.allowPlaintextCrew) {
+		return
+	}
+	actor, ok := handlers.authenticate(response, request)
+	if !ok {
+		return
+	}
+	eventID, err := positivePathID(request, "eventID")
+	if err != nil {
+		http.Error(response, "Event not found", http.StatusNotFound)
+		return
+	}
+	var input attachments.FireReleaseCueInput
+	if err = decodeAuthJSON(response, request, &input); err != nil {
+		http.Error(response, "invalid request", http.StatusBadRequest)
+		return
+	}
+	input.EventID = eventID
+	result, err := handlers.attachments.FireReleaseCue(request.Context(), actor, input)
+	handlers.writeReleaseResult(response, request, result, err)
+}
+
+func (handlers attachmentHandlers) writeReleaseResult(
+	response http.ResponseWriter,
+	request *http.Request,
+	result any,
+	err error,
+) {
+	switch {
+	case errors.Is(err, attachments.ErrProducerRequired):
+		http.Error(response, "event access denied", http.StatusForbidden)
+	case errors.Is(err, attachments.ErrUploadTargetNotFound):
+		http.Error(response, "release target not found", http.StatusNotFound)
+	case errors.Is(err, attachments.ErrReleaseRevision),
+		errors.Is(err, attachments.ErrCommandConflict):
+		http.Error(response, "release state conflict", http.StatusConflict)
+	case errors.Is(err, attachments.ErrReleaseCueBlocked):
+		http.Error(response, "release cue blocked", http.StatusPreconditionFailed)
+	case errors.Is(err, attachments.ErrInvalidInput),
+		errors.Is(err, attachments.ErrReleasePolicy),
+		errors.Is(err, command.ErrInvalidID):
+		http.Error(response, "invalid request", http.StatusUnprocessableEntity)
+	case err != nil:
+		handlers.logger.ErrorContext(request.Context(), "Attachment release command failed", "error", err)
+		http.Error(response, "Attachment release unavailable", http.StatusInternalServerError)
+	default:
+		response.Header().Set("Content-Type", "application/json")
+		if encodeErr := json.NewEncoder(response).Encode(result); encodeErr != nil {
+			handlers.logger.ErrorContext(request.Context(), "write Attachment release result", "error", encodeErr)
+		}
+	}
+}
+
+func (handlers attachmentHandlers) listReleasedVersions(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	if request.Method != http.MethodGet {
+		response.Header().Set("Allow", http.MethodGet)
+		http.Error(response, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	versions, err := handlers.attachments.ReleasedVersions(request.Context())
+	if err != nil {
+		handlers.logger.ErrorContext(request.Context(), "list released Attachments failed", "error", err)
+		http.Error(response, "Attachments unavailable", http.StatusInternalServerError)
+		return
+	}
+	response.Header().Set("Content-Type", "application/json")
+	if err = json.NewEncoder(response).Encode(versions); err != nil {
+		handlers.logger.ErrorContext(request.Context(), "write released Attachments", "error", err)
+	}
+}
+
+func (handlers attachmentHandlers) readReleasedVersion(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	if request.Method != http.MethodGet {
+		response.Header().Set("Allow", http.MethodGet)
+		http.Error(response, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	versionID, err := positivePathID(request, "versionID")
+	if err != nil {
+		http.Error(response, "Attachment Version not found", http.StatusNotFound)
+		return
+	}
+	found, content, err := handlers.attachments.ReadReleasedVersion(request.Context(), versionID)
+	if errors.Is(err, attachments.ErrNotReleased) {
+		http.Error(response, "Attachment Version not found", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		handlers.logger.ErrorContext(request.Context(), "read released Attachment failed", "error", err)
+		http.Error(response, "Attachment Version unavailable", http.StatusInternalServerError)
+		return
+	}
+	if found.MediaType != "" {
+		response.Header().Set("Content-Type", found.MediaType)
+	}
+	response.Header().Set("Content-Disposition", mime.FormatMediaType(
+		"attachment", map[string]string{"filename": found.OriginalFilename},
+	))
+	response.WriteHeader(http.StatusOK)
+	if _, err = response.Write(content); err != nil { //nolint:gosec // Verified immutable bytes.
+		handlers.logger.ErrorContext(request.Context(), "write released Attachment bytes", "error", err)
 	}
 }
 

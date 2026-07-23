@@ -1,4 +1,4 @@
-h1:9hs2wkRa2GE7R/E9v5VGT2BkldsxgkTtpmu+A7C50No=
+h1:hGDUgN7a2ifIi60E83P8F+Vh+8+o+BuxTz2vBqaiv88=
 0001_initialize.sql h1:xwTCiCDERoBPK7+31D4g3SOs7BivkqIi3/tf+14eOlo=
 0002_bootstrap_auth.sql h1:Z4h1bvDVGzPXbmlEc3NCEn1HvMSf2V6eY56wIlxFLjA=
 0003_add_events.sql h1:6XxTAjVp9ntlWbsdacCMQkdgTAG185npJMhgxOSnAtA=
@@ -33,3 +33,4 @@ h1:9hs2wkRa2GE7R/E9v5VGT2BkldsxgkTtpmu+A7C50No=
 0032_add_competition_entry_order.sql h1:nwkxB3rCkGk3Q2Q2BILsD/fOFWJnxyuuuEERJ0BT1hQ=
 0033_add_program_output.sql h1:JN/UYKjjvx4VD6jJTC6LHB8BI+C47jCGApiv6SszpPU=
 0034_add_competition_entry_exceptions.sql h1:WAoIk0L5/169cEP+GmZ7haLmXwRq2mOg6d4QliCi3Ms=
+0035_add_attachment_release.sql h1:9VmOLmM8h50MV7z+jGpD9GMEo7gyxIgrqfKV8fKtOgo=

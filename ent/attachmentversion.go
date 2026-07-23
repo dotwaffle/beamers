@@ -42,6 +42,12 @@ type AttachmentVersion struct {
 	Primary bool `json:"primary,omitempty"`
 	// ReadinessRevision holds the value of the "readiness_revision" field.
 	ReadinessRevision int `json:"readiness_revision,omitempty"`
+	// ReleaseEligibility holds the value of the "release_eligibility" field.
+	ReleaseEligibility attachmentversion.ReleaseEligibility `json:"release_eligibility,omitempty"`
+	// ReleaseHold holds the value of the "release_hold" field.
+	ReleaseHold bool `json:"release_hold,omitempty"`
+	// ReleaseRevision holds the value of the "release_revision" field.
+	ReleaseRevision int `json:"release_revision,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -75,11 +81,11 @@ func (*AttachmentVersion) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case attachmentversion.FieldFinal, attachmentversion.FieldPrimary:
+		case attachmentversion.FieldFinal, attachmentversion.FieldPrimary, attachmentversion.FieldReleaseHold:
 			values[i] = new(sql.NullBool)
-		case attachmentversion.FieldID, attachmentversion.FieldAttachmentID, attachmentversion.FieldVersion, attachmentversion.FieldSizeBytes, attachmentversion.FieldUploaderID, attachmentversion.FieldReadinessRevision:
+		case attachmentversion.FieldID, attachmentversion.FieldAttachmentID, attachmentversion.FieldVersion, attachmentversion.FieldSizeBytes, attachmentversion.FieldUploaderID, attachmentversion.FieldReadinessRevision, attachmentversion.FieldReleaseRevision:
 			values[i] = new(sql.NullInt64)
-		case attachmentversion.FieldOriginalFilename, attachmentversion.FieldMediaType, attachmentversion.FieldSha256, attachmentversion.FieldStorageKey, attachmentversion.FieldUploaderType:
+		case attachmentversion.FieldOriginalFilename, attachmentversion.FieldMediaType, attachmentversion.FieldSha256, attachmentversion.FieldStorageKey, attachmentversion.FieldUploaderType, attachmentversion.FieldReleaseEligibility:
 			values[i] = new(sql.NullString)
 		case attachmentversion.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -176,6 +182,24 @@ func (_m *AttachmentVersion) assignValues(columns []string, values []any) error 
 			} else if value.Valid {
 				_m.ReadinessRevision = int(value.Int64)
 			}
+		case attachmentversion.FieldReleaseEligibility:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field release_eligibility", values[i])
+			} else if value.Valid {
+				_m.ReleaseEligibility = attachmentversion.ReleaseEligibility(value.String)
+			}
+		case attachmentversion.FieldReleaseHold:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field release_hold", values[i])
+			} else if value.Valid {
+				_m.ReleaseHold = value.Bool
+			}
+		case attachmentversion.FieldReleaseRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field release_revision", values[i])
+			} else if value.Valid {
+				_m.ReleaseRevision = int(value.Int64)
+			}
 		case attachmentversion.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
@@ -258,6 +282,15 @@ func (_m *AttachmentVersion) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("readiness_revision=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ReadinessRevision))
+	builder.WriteString(", ")
+	builder.WriteString("release_eligibility=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ReleaseEligibility))
+	builder.WriteString(", ")
+	builder.WriteString("release_hold=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ReleaseHold))
+	builder.WriteString(", ")
+	builder.WriteString("release_revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ReleaseRevision))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

@@ -63,6 +63,11 @@ func (Session) Fields() []ent.Field {
 		field.Int("program_output_revision").Default(0).NonNegative(),
 		field.Int("program_cursor").Default(-1),
 		field.Time("program_output_taken_at").Optional(),
+		field.Enum("attachment_release_policy_override").
+			Values("OnLive", "OnEnded", "OnEventReleaseCue").
+			Optional().
+			Nillable(),
+		field.Int("attachment_release_revision").Default(0).NonNegative(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 	}
 }

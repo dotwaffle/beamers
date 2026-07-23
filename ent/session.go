@@ -78,6 +78,10 @@ type Session struct {
 	ProgramCursor int `json:"program_cursor,omitempty"`
 	// ProgramOutputTakenAt holds the value of the "program_output_taken_at" field.
 	ProgramOutputTakenAt time.Time `json:"program_output_taken_at,omitempty"`
+	// AttachmentReleasePolicyOverride holds the value of the "attachment_release_policy_override" field.
+	AttachmentReleasePolicyOverride *session.AttachmentReleasePolicyOverride `json:"attachment_release_policy_override,omitempty"`
+	// AttachmentReleaseRevision holds the value of the "attachment_release_revision" field.
+	AttachmentReleaseRevision int `json:"attachment_release_revision,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -172,9 +176,9 @@ func (*Session) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case session.FieldRequireEntryReview, session.FieldFileDeliveryRequired:
 			values[i] = new(sql.NullBool)
-		case session.FieldID, session.FieldEventID, session.FieldLiveStateRevision, session.FieldReadinessRevision, session.FieldEntryOrderSeed, session.FieldEntryOrderRevision, session.FieldProgramOutputEntryID, session.FieldProgramOutputRevision, session.FieldProgramCursor:
+		case session.FieldID, session.FieldEventID, session.FieldLiveStateRevision, session.FieldReadinessRevision, session.FieldEntryOrderSeed, session.FieldEntryOrderRevision, session.FieldProgramOutputEntryID, session.FieldProgramOutputRevision, session.FieldProgramCursor, session.FieldAttachmentReleaseRevision:
 			values[i] = new(sql.NullInt64)
-		case session.FieldLifecycle, session.FieldPublicCancellationMessage, session.FieldCancellationCrewNotes, session.FieldCorrectedTitle, session.FieldCorrectedSpeaker, session.FieldCorrectedPublicDetails, session.FieldEntryOrderPolicy, session.FieldProgramOutputKind:
+		case session.FieldLifecycle, session.FieldPublicCancellationMessage, session.FieldCancellationCrewNotes, session.FieldCorrectedTitle, session.FieldCorrectedSpeaker, session.FieldCorrectedPublicDetails, session.FieldEntryOrderPolicy, session.FieldProgramOutputKind, session.FieldAttachmentReleasePolicyOverride:
 			values[i] = new(sql.NullString)
 		case session.FieldForecastStart, session.FieldForecastEnd, session.FieldCommunicatedStart, session.FieldCommunicatedEnd, session.FieldPreviousForecastStart, session.FieldEntryOrderLockedAt, session.FieldProgramOutputTakenAt, session.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -386,6 +390,19 @@ func (_m *Session) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.ProgramOutputTakenAt = value.Time
 			}
+		case session.FieldAttachmentReleasePolicyOverride:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field attachment_release_policy_override", values[i])
+			} else if value.Valid {
+				_m.AttachmentReleasePolicyOverride = new(session.AttachmentReleasePolicyOverride)
+				*_m.AttachmentReleasePolicyOverride = session.AttachmentReleasePolicyOverride(value.String)
+			}
+		case session.FieldAttachmentReleaseRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field attachment_release_revision", values[i])
+			} else if value.Valid {
+				_m.AttachmentReleaseRevision = int(value.Int64)
+			}
 		case session.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
@@ -554,6 +571,14 @@ func (_m *Session) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("program_output_taken_at=")
 	builder.WriteString(_m.ProgramOutputTakenAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	if v := _m.AttachmentReleasePolicyOverride; v != nil {
+		builder.WriteString("attachment_release_policy_override=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("attachment_release_revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AttachmentReleaseRevision))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

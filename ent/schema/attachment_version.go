@@ -34,6 +34,11 @@ func (AttachmentVersion) Fields() []ent.Field {
 		field.Bool("final").Default(false),
 		field.Bool("primary").Default(false),
 		field.Int("readiness_revision").Default(1).Positive(),
+		field.Enum("release_eligibility").
+			Values("Public", "CrewOnly").
+			Default("Public"),
+		field.Bool("release_hold").Default(false),
+		field.Int("release_revision").Default(0).NonNegative(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 	}
 }

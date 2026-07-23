@@ -83,6 +83,9 @@ var (
 		{Name: "final", Type: field.TypeBool, Default: false},
 		{Name: "primary", Type: field.TypeBool, Default: false},
 		{Name: "readiness_revision", Type: field.TypeInt, Default: 1},
+		{Name: "release_eligibility", Type: field.TypeEnum, Enums: []string{"Public", "CrewOnly"}, Default: "Public"},
+		{Name: "release_hold", Type: field.TypeBool, Default: false},
+		{Name: "release_revision", Type: field.TypeInt, Default: 0},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "attachment_id", Type: field.TypeInt},
 	}
@@ -94,7 +97,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "attachment_versions_attachments_versions",
-				Columns:    []*schema.Column{AttachmentVersionsColumns[13]},
+				Columns:    []*schema.Column{AttachmentVersionsColumns[16]},
 				RefColumns: []*schema.Column{AttachmentsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -103,7 +106,7 @@ var (
 			{
 				Name:    "attachmentversion_attachment_id_version",
 				Unique:  true,
-				Columns: []*schema.Column{AttachmentVersionsColumns[13], AttachmentVersionsColumns[1]},
+				Columns: []*schema.Column{AttachmentVersionsColumns[16], AttachmentVersionsColumns[1]},
 			},
 		},
 	}
@@ -468,6 +471,10 @@ var (
 		{Name: "entry_default_disposition", Type: field.TypeEnum, Enums: []string{"Pending", "Included"}, Default: "Pending"},
 		{Name: "target_adjustment_presets", Type: field.TypeString, Size: 256, Default: "[-300,300,600]"},
 		{Name: "display_configuration", Type: field.TypeString, Size: 4096, Default: "{\"rotation_seconds\":15,\"theme\":{\"branding\":\"\",\"foreground_color\":\"#ffffff\",\"background_color\":\"#101828\",\"accent_color\":\"#1d4ed8\",\"background\":\"solid\",\"scrim_color\":\"#000000\",\"scrim_opacity\":85,\"font\":\"sans\",\"transition\":\"fade\"}}"},
+		{Name: "attachment_release_policy", Type: field.TypeEnum, Enums: []string{"OnLive", "OnEnded", "OnEventReleaseCue"}, Default: "OnEnded"},
+		{Name: "attachment_release_cue_session_id", Type: field.TypeInt, Nullable: true},
+		{Name: "attachment_release_cue_at", Type: field.TypeTime, Nullable: true},
+		{Name: "attachment_release_revision", Type: field.TypeInt, Default: 0},
 		{Name: "revision", Type: field.TypeInt, Default: 1},
 		{Name: "created_at", Type: field.TypeTime},
 	}
@@ -854,6 +861,8 @@ var (
 		{Name: "program_output_revision", Type: field.TypeInt, Default: 0},
 		{Name: "program_cursor", Type: field.TypeInt, Default: -1},
 		{Name: "program_output_taken_at", Type: field.TypeTime, Nullable: true},
+		{Name: "attachment_release_policy_override", Type: field.TypeEnum, Nullable: true, Enums: []string{"OnLive", "OnEnded", "OnEventReleaseCue"}},
+		{Name: "attachment_release_revision", Type: field.TypeInt, Default: 0},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "event_id", Type: field.TypeInt},
 	}
@@ -865,7 +874,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "sessions_events_sessions",
-				Columns:    []*schema.Column{SessionsColumns[30]},
+				Columns:    []*schema.Column{SessionsColumns[32]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},

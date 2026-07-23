@@ -110,6 +110,16 @@ func ReadinessRevision(v int) predicate.AttachmentVersion {
 	return predicate.AttachmentVersion(sql.FieldEQ(FieldReadinessRevision, v))
 }
 
+// ReleaseHold applies equality check predicate on the "release_hold" field. It's identical to ReleaseHoldEQ.
+func ReleaseHold(v bool) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldEQ(FieldReleaseHold, v))
+}
+
+// ReleaseRevision applies equality check predicate on the "release_revision" field. It's identical to ReleaseRevisionEQ.
+func ReleaseRevision(v int) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldEQ(FieldReleaseRevision, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.AttachmentVersion {
 	return predicate.AttachmentVersion(sql.FieldEQ(FieldCreatedAt, v))
@@ -603,6 +613,76 @@ func ReadinessRevisionLT(v int) predicate.AttachmentVersion {
 // ReadinessRevisionLTE applies the LTE predicate on the "readiness_revision" field.
 func ReadinessRevisionLTE(v int) predicate.AttachmentVersion {
 	return predicate.AttachmentVersion(sql.FieldLTE(FieldReadinessRevision, v))
+}
+
+// ReleaseEligibilityEQ applies the EQ predicate on the "release_eligibility" field.
+func ReleaseEligibilityEQ(v ReleaseEligibility) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldEQ(FieldReleaseEligibility, v))
+}
+
+// ReleaseEligibilityNEQ applies the NEQ predicate on the "release_eligibility" field.
+func ReleaseEligibilityNEQ(v ReleaseEligibility) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldNEQ(FieldReleaseEligibility, v))
+}
+
+// ReleaseEligibilityIn applies the In predicate on the "release_eligibility" field.
+func ReleaseEligibilityIn(vs ...ReleaseEligibility) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldIn(FieldReleaseEligibility, vs...))
+}
+
+// ReleaseEligibilityNotIn applies the NotIn predicate on the "release_eligibility" field.
+func ReleaseEligibilityNotIn(vs ...ReleaseEligibility) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldNotIn(FieldReleaseEligibility, vs...))
+}
+
+// ReleaseHoldEQ applies the EQ predicate on the "release_hold" field.
+func ReleaseHoldEQ(v bool) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldEQ(FieldReleaseHold, v))
+}
+
+// ReleaseHoldNEQ applies the NEQ predicate on the "release_hold" field.
+func ReleaseHoldNEQ(v bool) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldNEQ(FieldReleaseHold, v))
+}
+
+// ReleaseRevisionEQ applies the EQ predicate on the "release_revision" field.
+func ReleaseRevisionEQ(v int) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldEQ(FieldReleaseRevision, v))
+}
+
+// ReleaseRevisionNEQ applies the NEQ predicate on the "release_revision" field.
+func ReleaseRevisionNEQ(v int) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldNEQ(FieldReleaseRevision, v))
+}
+
+// ReleaseRevisionIn applies the In predicate on the "release_revision" field.
+func ReleaseRevisionIn(vs ...int) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldIn(FieldReleaseRevision, vs...))
+}
+
+// ReleaseRevisionNotIn applies the NotIn predicate on the "release_revision" field.
+func ReleaseRevisionNotIn(vs ...int) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldNotIn(FieldReleaseRevision, vs...))
+}
+
+// ReleaseRevisionGT applies the GT predicate on the "release_revision" field.
+func ReleaseRevisionGT(v int) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldGT(FieldReleaseRevision, v))
+}
+
+// ReleaseRevisionGTE applies the GTE predicate on the "release_revision" field.
+func ReleaseRevisionGTE(v int) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldGTE(FieldReleaseRevision, v))
+}
+
+// ReleaseRevisionLT applies the LT predicate on the "release_revision" field.
+func ReleaseRevisionLT(v int) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldLT(FieldReleaseRevision, v))
+}
+
+// ReleaseRevisionLTE applies the LTE predicate on the "release_revision" field.
+func ReleaseRevisionLTE(v int) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldLTE(FieldReleaseRevision, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

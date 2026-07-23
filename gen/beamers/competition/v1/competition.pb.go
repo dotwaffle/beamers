@@ -2366,6 +2366,142 @@ func (x *PreflightEndResponse) GetRequiresConfirmation() bool {
 	return false
 }
 
+type SetEntryReleaseHoldRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	EventId          int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	SessionId        int64                  `protobuf:"varint,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	EntryId          int64                  `protobuf:"varint,3,opt,name=entry_id,json=entryId,proto3" json:"entry_id,omitempty"`
+	CommandId        string                 `protobuf:"bytes,4,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
+	ExpectedRevision int64                  `protobuf:"varint,5,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	Hold             bool                   `protobuf:"varint,6,opt,name=hold,proto3" json:"hold,omitempty"`
+	CrewReason       string                 `protobuf:"bytes,7,opt,name=crew_reason,json=crewReason,proto3" json:"crew_reason,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *SetEntryReleaseHoldRequest) Reset() {
+	*x = SetEntryReleaseHoldRequest{}
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetEntryReleaseHoldRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetEntryReleaseHoldRequest) ProtoMessage() {}
+
+func (x *SetEntryReleaseHoldRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetEntryReleaseHoldRequest.ProtoReflect.Descriptor instead.
+func (*SetEntryReleaseHoldRequest) Descriptor() ([]byte, []int) {
+	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *SetEntryReleaseHoldRequest) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+func (x *SetEntryReleaseHoldRequest) GetSessionId() int64 {
+	if x != nil {
+		return x.SessionId
+	}
+	return 0
+}
+
+func (x *SetEntryReleaseHoldRequest) GetEntryId() int64 {
+	if x != nil {
+		return x.EntryId
+	}
+	return 0
+}
+
+func (x *SetEntryReleaseHoldRequest) GetCommandId() string {
+	if x != nil {
+		return x.CommandId
+	}
+	return ""
+}
+
+func (x *SetEntryReleaseHoldRequest) GetExpectedRevision() int64 {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return 0
+}
+
+func (x *SetEntryReleaseHoldRequest) GetHold() bool {
+	if x != nil {
+		return x.Hold
+	}
+	return false
+}
+
+func (x *SetEntryReleaseHoldRequest) GetCrewReason() string {
+	if x != nil {
+		return x.CrewReason
+	}
+	return ""
+}
+
+type SetEntryReleaseHoldResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Entry         *Entry                 `protobuf:"bytes,1,opt,name=entry,proto3" json:"entry,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetEntryReleaseHoldResponse) Reset() {
+	*x = SetEntryReleaseHoldResponse{}
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetEntryReleaseHoldResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetEntryReleaseHoldResponse) ProtoMessage() {}
+
+func (x *SetEntryReleaseHoldResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetEntryReleaseHoldResponse.ProtoReflect.Descriptor instead.
+func (*SetEntryReleaseHoldResponse) Descriptor() ([]byte, []int) {
+	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *SetEntryReleaseHoldResponse) GetEntry() *Entry {
+	if x != nil {
+		return x.Entry
+	}
+	return nil
+}
+
 var File_beamers_competition_v1_competition_proto protoreflect.FileDescriptor
 
 const file_beamers_competition_v1_competition_proto_rawDesc = "" +
@@ -2574,7 +2710,20 @@ const file_beamers_competition_v1_competition_proto_rawDesc = "" +
 	"\x14PreflightEndResponse\x12H\n" +
 	"\x10deferred_entries\x18\x01 \x03(\v2\x1d.beamers.competition.v1.EntryR\x0fdeferredEntries\x12 \n" +
 	"\vfingerprint\x18\x02 \x01(\tR\vfingerprint\x123\n" +
-	"\x15requires_confirmation\x18\x03 \x01(\bR\x14requiresConfirmation*\xb2\x01\n" +
+	"\x15requires_confirmation\x18\x03 \x01(\bR\x14requiresConfirmation\"\xf2\x01\n" +
+	"\x1aSetEntryReleaseHoldRequest\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\x03R\tsessionId\x12\x19\n" +
+	"\bentry_id\x18\x03 \x01(\x03R\aentryId\x12\x1d\n" +
+	"\n" +
+	"command_id\x18\x04 \x01(\tR\tcommandId\x12+\n" +
+	"\x11expected_revision\x18\x05 \x01(\x03R\x10expectedRevision\x12\x12\n" +
+	"\x04hold\x18\x06 \x01(\bR\x04hold\x12\x1f\n" +
+	"\vcrew_reason\x18\a \x01(\tR\n" +
+	"crewReason\"R\n" +
+	"\x1bSetEntryReleaseHoldResponse\x123\n" +
+	"\x05entry\x18\x01 \x01(\v2\x1d.beamers.competition.v1.EntryR\x05entry*\xb2\x01\n" +
 	"\x10EntryOrderPolicy\x12\"\n" +
 	"\x1eENTRY_ORDER_POLICY_UNSPECIFIED\x10\x00\x12'\n" +
 	"#ENTRY_ORDER_POLICY_SUBMISSION_ORDER\x10\x01\x12#\n" +
@@ -2590,7 +2739,7 @@ const file_beamers_competition_v1_competition_proto_rawDesc = "" +
 	"$ENTRY_RESULT_DISPOSITION_UNSPECIFIED\x10\x00\x12%\n" +
 	"!ENTRY_RESULT_DISPOSITION_ELIGIBLE\x10\x01\x12)\n" +
 	"%ENTRY_RESULT_DISPOSITION_DISQUALIFIED\x10\x02\x12%\n" +
-	"!ENTRY_RESULT_DISPOSITION_WITHHELD\x10\x032\xa8\f\n" +
+	"!ENTRY_RESULT_DISPOSITION_WITHHELD\x10\x032\xa8\r\n" +
 	"\x12CompetitionService\x12o\n" +
 	"\x0eGetCompetition\x12-.beamers.competition.v1.GetCompetitionRequest\x1a..beamers.competition.v1.GetCompetitionResponse\x12{\n" +
 	"\x12ConfigureReadiness\x121.beamers.competition.v1.ConfigureReadinessRequest\x1a2.beamers.competition.v1.ConfigureReadinessResponse\x12f\n" +
@@ -2604,7 +2753,8 @@ const file_beamers_competition_v1_competition_proto_rawDesc = "" +
 	"\x11PreviewEntryOrder\x120.beamers.competition.v1.PreviewEntryOrderRequest\x1a1.beamers.competition.v1.PreviewEntryOrderResponse\x12\x87\x01\n" +
 	"\x16RecordTechnicalFailure\x125.beamers.competition.v1.RecordTechnicalFailureRequest\x1a6.beamers.competition.v1.RecordTechnicalFailureResponse\x12i\n" +
 	"\fResolveEntry\x12+.beamers.competition.v1.ResolveEntryRequest\x1a,.beamers.competition.v1.ResolveEntryResponse\x12i\n" +
-	"\fPreflightEnd\x12+.beamers.competition.v1.PreflightEndRequest\x1a,.beamers.competition.v1.PreflightEndResponseBGZEgithub.com/dotwaffle/beamers/gen/beamers/competition/v1;competitionv1b\x06proto3"
+	"\fPreflightEnd\x12+.beamers.competition.v1.PreflightEndRequest\x1a,.beamers.competition.v1.PreflightEndResponse\x12~\n" +
+	"\x13SetEntryReleaseHold\x122.beamers.competition.v1.SetEntryReleaseHoldRequest\x1a3.beamers.competition.v1.SetEntryReleaseHoldResponseBGZEgithub.com/dotwaffle/beamers/gen/beamers/competition/v1;competitionv1b\x06proto3"
 
 var (
 	file_beamers_competition_v1_competition_proto_rawDescOnce sync.Once
@@ -2619,7 +2769,7 @@ func file_beamers_competition_v1_competition_proto_rawDescGZIP() []byte {
 }
 
 var file_beamers_competition_v1_competition_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_beamers_competition_v1_competition_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
+var file_beamers_competition_v1_competition_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
 var file_beamers_competition_v1_competition_proto_goTypes = []any{
 	(EntryOrderPolicy)(0),                       // 0: beamers.competition.v1.EntryOrderPolicy
 	(EntryPresentationStatus)(0),                // 1: beamers.competition.v1.EntryPresentationStatus
@@ -2654,22 +2804,24 @@ var file_beamers_competition_v1_competition_proto_goTypes = []any{
 	(*ResolveEntryResponse)(nil),                // 30: beamers.competition.v1.ResolveEntryResponse
 	(*PreflightEndRequest)(nil),                 // 31: beamers.competition.v1.PreflightEndRequest
 	(*PreflightEndResponse)(nil),                // 32: beamers.competition.v1.PreflightEndResponse
-	(v1.EntryDisposition)(0),                    // 33: beamers.rundown.v1.EntryDisposition
-	(*timestamppb.Timestamp)(nil),               // 34: google.protobuf.Timestamp
+	(*SetEntryReleaseHoldRequest)(nil),          // 33: beamers.competition.v1.SetEntryReleaseHoldRequest
+	(*SetEntryReleaseHoldResponse)(nil),         // 34: beamers.competition.v1.SetEntryReleaseHoldResponse
+	(v1.EntryDisposition)(0),                    // 35: beamers.rundown.v1.EntryDisposition
+	(*timestamppb.Timestamp)(nil),               // 36: google.protobuf.Timestamp
 }
 var file_beamers_competition_v1_competition_proto_depIdxs = []int32{
-	33, // 0: beamers.competition.v1.Entry.disposition:type_name -> beamers.rundown.v1.EntryDisposition
-	34, // 1: beamers.competition.v1.Entry.created_at:type_name -> google.protobuf.Timestamp
+	35, // 0: beamers.competition.v1.Entry.disposition:type_name -> beamers.rundown.v1.EntryDisposition
+	36, // 1: beamers.competition.v1.Entry.created_at:type_name -> google.protobuf.Timestamp
 	1,  // 2: beamers.competition.v1.Entry.presentation_status:type_name -> beamers.competition.v1.EntryPresentationStatus
 	2,  // 3: beamers.competition.v1.Entry.result_disposition:type_name -> beamers.competition.v1.EntryResultDisposition
-	34, // 4: beamers.competition.v1.Entry.first_presented_at:type_name -> google.protobuf.Timestamp
-	34, // 5: beamers.competition.v1.GetCompetitionResponse.submission_deadline:type_name -> google.protobuf.Timestamp
-	33, // 6: beamers.competition.v1.GetCompetitionResponse.effective_default_disposition:type_name -> beamers.rundown.v1.EntryDisposition
+	36, // 4: beamers.competition.v1.Entry.first_presented_at:type_name -> google.protobuf.Timestamp
+	36, // 5: beamers.competition.v1.GetCompetitionResponse.submission_deadline:type_name -> google.protobuf.Timestamp
+	35, // 6: beamers.competition.v1.GetCompetitionResponse.effective_default_disposition:type_name -> beamers.rundown.v1.EntryDisposition
 	3,  // 7: beamers.competition.v1.GetCompetitionResponse.entries:type_name -> beamers.competition.v1.Entry
 	22, // 8: beamers.competition.v1.GetCompetitionResponse.entry_order:type_name -> beamers.competition.v1.EntryOrderState
 	3,  // 9: beamers.competition.v1.CreateEntryResponse.entry:type_name -> beamers.competition.v1.Entry
 	3,  // 10: beamers.competition.v1.UpdateEntryResponse.entry:type_name -> beamers.competition.v1.Entry
-	33, // 11: beamers.competition.v1.ChangeEntryDispositionRequest.disposition:type_name -> beamers.rundown.v1.EntryDisposition
+	35, // 11: beamers.competition.v1.ChangeEntryDispositionRequest.disposition:type_name -> beamers.rundown.v1.EntryDisposition
 	3,  // 12: beamers.competition.v1.ChangeEntryDispositionResponse.entry:type_name -> beamers.competition.v1.Entry
 	3,  // 13: beamers.competition.v1.ReviewEntryResponse.entry:type_name -> beamers.competition.v1.Entry
 	17, // 14: beamers.competition.v1.SetEntryAttachmentReadinessResponse.attachment:type_name -> beamers.competition.v1.AttachmentReadiness
@@ -2683,37 +2835,40 @@ var file_beamers_competition_v1_competition_proto_depIdxs = []int32{
 	2,  // 22: beamers.competition.v1.ResolveEntryRequest.disposition:type_name -> beamers.competition.v1.EntryResultDisposition
 	3,  // 23: beamers.competition.v1.ResolveEntryResponse.entry:type_name -> beamers.competition.v1.Entry
 	3,  // 24: beamers.competition.v1.PreflightEndResponse.deferred_entries:type_name -> beamers.competition.v1.Entry
-	4,  // 25: beamers.competition.v1.CompetitionService.GetCompetition:input_type -> beamers.competition.v1.GetCompetitionRequest
-	6,  // 26: beamers.competition.v1.CompetitionService.ConfigureReadiness:input_type -> beamers.competition.v1.ConfigureReadinessRequest
-	8,  // 27: beamers.competition.v1.CompetitionService.CreateEntry:input_type -> beamers.competition.v1.CreateEntryRequest
-	10, // 28: beamers.competition.v1.CompetitionService.UpdateEntry:input_type -> beamers.competition.v1.UpdateEntryRequest
-	12, // 29: beamers.competition.v1.CompetitionService.ChangeEntryDisposition:input_type -> beamers.competition.v1.ChangeEntryDispositionRequest
-	14, // 30: beamers.competition.v1.CompetitionService.ReviewEntry:input_type -> beamers.competition.v1.ReviewEntryRequest
-	16, // 31: beamers.competition.v1.CompetitionService.SetEntryAttachmentReadiness:input_type -> beamers.competition.v1.SetEntryAttachmentReadinessRequest
-	20, // 32: beamers.competition.v1.CompetitionService.PreflightStart:input_type -> beamers.competition.v1.PreflightStartRequest
-	23, // 33: beamers.competition.v1.CompetitionService.ConfigureEntryOrder:input_type -> beamers.competition.v1.ConfigureEntryOrderRequest
-	25, // 34: beamers.competition.v1.CompetitionService.PreviewEntryOrder:input_type -> beamers.competition.v1.PreviewEntryOrderRequest
-	27, // 35: beamers.competition.v1.CompetitionService.RecordTechnicalFailure:input_type -> beamers.competition.v1.RecordTechnicalFailureRequest
-	29, // 36: beamers.competition.v1.CompetitionService.ResolveEntry:input_type -> beamers.competition.v1.ResolveEntryRequest
-	31, // 37: beamers.competition.v1.CompetitionService.PreflightEnd:input_type -> beamers.competition.v1.PreflightEndRequest
-	5,  // 38: beamers.competition.v1.CompetitionService.GetCompetition:output_type -> beamers.competition.v1.GetCompetitionResponse
-	7,  // 39: beamers.competition.v1.CompetitionService.ConfigureReadiness:output_type -> beamers.competition.v1.ConfigureReadinessResponse
-	9,  // 40: beamers.competition.v1.CompetitionService.CreateEntry:output_type -> beamers.competition.v1.CreateEntryResponse
-	11, // 41: beamers.competition.v1.CompetitionService.UpdateEntry:output_type -> beamers.competition.v1.UpdateEntryResponse
-	13, // 42: beamers.competition.v1.CompetitionService.ChangeEntryDisposition:output_type -> beamers.competition.v1.ChangeEntryDispositionResponse
-	15, // 43: beamers.competition.v1.CompetitionService.ReviewEntry:output_type -> beamers.competition.v1.ReviewEntryResponse
-	18, // 44: beamers.competition.v1.CompetitionService.SetEntryAttachmentReadiness:output_type -> beamers.competition.v1.SetEntryAttachmentReadinessResponse
-	21, // 45: beamers.competition.v1.CompetitionService.PreflightStart:output_type -> beamers.competition.v1.PreflightStartResponse
-	24, // 46: beamers.competition.v1.CompetitionService.ConfigureEntryOrder:output_type -> beamers.competition.v1.ConfigureEntryOrderResponse
-	26, // 47: beamers.competition.v1.CompetitionService.PreviewEntryOrder:output_type -> beamers.competition.v1.PreviewEntryOrderResponse
-	28, // 48: beamers.competition.v1.CompetitionService.RecordTechnicalFailure:output_type -> beamers.competition.v1.RecordTechnicalFailureResponse
-	30, // 49: beamers.competition.v1.CompetitionService.ResolveEntry:output_type -> beamers.competition.v1.ResolveEntryResponse
-	32, // 50: beamers.competition.v1.CompetitionService.PreflightEnd:output_type -> beamers.competition.v1.PreflightEndResponse
-	38, // [38:51] is the sub-list for method output_type
-	25, // [25:38] is the sub-list for method input_type
-	25, // [25:25] is the sub-list for extension type_name
-	25, // [25:25] is the sub-list for extension extendee
-	0,  // [0:25] is the sub-list for field type_name
+	3,  // 25: beamers.competition.v1.SetEntryReleaseHoldResponse.entry:type_name -> beamers.competition.v1.Entry
+	4,  // 26: beamers.competition.v1.CompetitionService.GetCompetition:input_type -> beamers.competition.v1.GetCompetitionRequest
+	6,  // 27: beamers.competition.v1.CompetitionService.ConfigureReadiness:input_type -> beamers.competition.v1.ConfigureReadinessRequest
+	8,  // 28: beamers.competition.v1.CompetitionService.CreateEntry:input_type -> beamers.competition.v1.CreateEntryRequest
+	10, // 29: beamers.competition.v1.CompetitionService.UpdateEntry:input_type -> beamers.competition.v1.UpdateEntryRequest
+	12, // 30: beamers.competition.v1.CompetitionService.ChangeEntryDisposition:input_type -> beamers.competition.v1.ChangeEntryDispositionRequest
+	14, // 31: beamers.competition.v1.CompetitionService.ReviewEntry:input_type -> beamers.competition.v1.ReviewEntryRequest
+	16, // 32: beamers.competition.v1.CompetitionService.SetEntryAttachmentReadiness:input_type -> beamers.competition.v1.SetEntryAttachmentReadinessRequest
+	20, // 33: beamers.competition.v1.CompetitionService.PreflightStart:input_type -> beamers.competition.v1.PreflightStartRequest
+	23, // 34: beamers.competition.v1.CompetitionService.ConfigureEntryOrder:input_type -> beamers.competition.v1.ConfigureEntryOrderRequest
+	25, // 35: beamers.competition.v1.CompetitionService.PreviewEntryOrder:input_type -> beamers.competition.v1.PreviewEntryOrderRequest
+	27, // 36: beamers.competition.v1.CompetitionService.RecordTechnicalFailure:input_type -> beamers.competition.v1.RecordTechnicalFailureRequest
+	29, // 37: beamers.competition.v1.CompetitionService.ResolveEntry:input_type -> beamers.competition.v1.ResolveEntryRequest
+	31, // 38: beamers.competition.v1.CompetitionService.PreflightEnd:input_type -> beamers.competition.v1.PreflightEndRequest
+	33, // 39: beamers.competition.v1.CompetitionService.SetEntryReleaseHold:input_type -> beamers.competition.v1.SetEntryReleaseHoldRequest
+	5,  // 40: beamers.competition.v1.CompetitionService.GetCompetition:output_type -> beamers.competition.v1.GetCompetitionResponse
+	7,  // 41: beamers.competition.v1.CompetitionService.ConfigureReadiness:output_type -> beamers.competition.v1.ConfigureReadinessResponse
+	9,  // 42: beamers.competition.v1.CompetitionService.CreateEntry:output_type -> beamers.competition.v1.CreateEntryResponse
+	11, // 43: beamers.competition.v1.CompetitionService.UpdateEntry:output_type -> beamers.competition.v1.UpdateEntryResponse
+	13, // 44: beamers.competition.v1.CompetitionService.ChangeEntryDisposition:output_type -> beamers.competition.v1.ChangeEntryDispositionResponse
+	15, // 45: beamers.competition.v1.CompetitionService.ReviewEntry:output_type -> beamers.competition.v1.ReviewEntryResponse
+	18, // 46: beamers.competition.v1.CompetitionService.SetEntryAttachmentReadiness:output_type -> beamers.competition.v1.SetEntryAttachmentReadinessResponse
+	21, // 47: beamers.competition.v1.CompetitionService.PreflightStart:output_type -> beamers.competition.v1.PreflightStartResponse
+	24, // 48: beamers.competition.v1.CompetitionService.ConfigureEntryOrder:output_type -> beamers.competition.v1.ConfigureEntryOrderResponse
+	26, // 49: beamers.competition.v1.CompetitionService.PreviewEntryOrder:output_type -> beamers.competition.v1.PreviewEntryOrderResponse
+	28, // 50: beamers.competition.v1.CompetitionService.RecordTechnicalFailure:output_type -> beamers.competition.v1.RecordTechnicalFailureResponse
+	30, // 51: beamers.competition.v1.CompetitionService.ResolveEntry:output_type -> beamers.competition.v1.ResolveEntryResponse
+	32, // 52: beamers.competition.v1.CompetitionService.PreflightEnd:output_type -> beamers.competition.v1.PreflightEndResponse
+	34, // 53: beamers.competition.v1.CompetitionService.SetEntryReleaseHold:output_type -> beamers.competition.v1.SetEntryReleaseHoldResponse
+	40, // [40:54] is the sub-list for method output_type
+	26, // [26:40] is the sub-list for method input_type
+	26, // [26:26] is the sub-list for extension type_name
+	26, // [26:26] is the sub-list for extension extendee
+	0,  // [0:26] is the sub-list for field type_name
 }
 
 func init() { file_beamers_competition_v1_competition_proto_init() }
@@ -2727,7 +2882,7 @@ func file_beamers_competition_v1_competition_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_beamers_competition_v1_competition_proto_rawDesc), len(file_beamers_competition_v1_competition_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   30,
+			NumMessages:   32,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

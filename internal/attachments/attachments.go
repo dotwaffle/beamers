@@ -43,6 +43,14 @@ var (
 	ErrReopenWindowRevision = store.ErrReopenWindowRevision
 	// ErrReopenWindowExtension means a requested expiry did not extend the window.
 	ErrReopenWindowExtension = store.ErrReopenWindowExtension
+	// ErrReleaseRevision means Attachment release state changed after observation.
+	ErrReleaseRevision = store.ErrAttachmentReleaseRevision
+	// ErrReleasePolicy means an Attachment Release Policy is invalid.
+	ErrReleasePolicy = store.ErrAttachmentReleasePolicy
+	// ErrReleaseCueBlocked means unresolved Entries block the Event cue.
+	ErrReleaseCueBlocked = store.ErrAttachmentReleaseCueBlocked
+	// ErrNotReleased hides unknown and unavailable attendee files.
+	ErrNotReleased = store.ErrAttachmentNotReleased
 )
 
 const (
@@ -53,11 +61,18 @@ const (
 // TargetKind is the closed owner vocabulary for scoped attachments.
 type TargetKind = store.UploadTargetKind
 
+// ReleaseEligibility is the uploader-selected public-release choice.
+type ReleaseEligibility = store.AttachmentReleaseEligibility
+
 const (
 	// TargetPresentation scopes an upload to one Presentation.
 	TargetPresentation = store.UploadTargetPresentation
 	// TargetEntry scopes an upload to one Competition Entry.
 	TargetEntry = store.UploadTargetEntry
+	// ReleasePublic permits policy-governed public release.
+	ReleasePublic = store.AttachmentReleasePublic
+	// ReleaseCrewOnly permanently excludes a version from public release.
+	ReleaseCrewOnly = store.AttachmentReleaseCrewOnly
 )
 
 // IssueLinkInput identifies one scoped upload owner.
@@ -82,29 +97,33 @@ type UploadLink struct {
 
 // Version is one immutable uploaded file revision.
 type Version struct {
-	ID                int        `json:"id"`
-	AttachmentID      int        `json:"attachment_id"`
-	Version           int        `json:"version"`
-	EventID           int        `json:"event_id"`
-	OwnerID           int        `json:"owner_id"`
-	OwnerType         TargetKind `json:"owner_type"`
-	Name              string     `json:"name"`
-	OriginalFilename  string     `json:"original_filename"`
-	MediaType         string     `json:"media_type,omitempty"`
-	SizeBytes         int64      `json:"size_bytes"`
-	SHA256            string     `json:"sha256"`
-	UploaderType      string     `json:"uploader_type"`
-	UploaderID        int        `json:"uploader_id"`
-	Primary           bool       `json:"primary"`
-	Final             bool       `json:"final"`
-	ReadinessRevision int        `json:"readiness_revision"`
-	CreatedAt         time.Time  `json:"created_at"`
+	ID                 int                `json:"id"`
+	AttachmentID       int                `json:"attachment_id"`
+	Version            int                `json:"version"`
+	EventID            int                `json:"event_id"`
+	OwnerID            int                `json:"owner_id"`
+	OwnerType          TargetKind         `json:"owner_type"`
+	Name               string             `json:"name"`
+	OriginalFilename   string             `json:"original_filename"`
+	MediaType          string             `json:"media_type,omitempty"`
+	SizeBytes          int64              `json:"size_bytes"`
+	SHA256             string             `json:"sha256"`
+	UploaderType       string             `json:"uploader_type"`
+	UploaderID         int                `json:"uploader_id"`
+	Primary            bool               `json:"primary"`
+	Final              bool               `json:"final"`
+	ReadinessRevision  int                `json:"readiness_revision"`
+	ReleaseEligibility ReleaseEligibility `json:"release_eligibility"`
+	ReleaseHold        bool               `json:"release_hold"`
+	ReleaseRevision    int                `json:"release_revision"`
+	CreatedAt          time.Time          `json:"created_at"`
 }
 
 // UploadInput contains one bounded file stream and logical owner.
 type UploadInput struct {
 	Token, CommandID, Name, OriginalFilename, MediaType string
 	Body                                                io.Reader
+	CrewOnly                                            bool
 }
 
 // CrewUploadInput identifies an on-behalf-of upload.
@@ -113,6 +132,7 @@ type CrewUploadInput struct {
 	TargetType                                   TargetKind
 	CommandID, Name, OriginalFilename, MediaType string
 	Body                                         io.Reader
+	CrewOnly                                     bool
 }
 
 // ReopenInput creates one bounded target-specific exception.
@@ -133,6 +153,67 @@ type UpdateReopenInput struct {
 	ExpiresAt        time.Time `json:"expires_at"`
 	Close            bool      `json:"close"`
 	CommandID        string    `json:"command_id"`
+}
+
+// ReleasePolicy selects when eligible Final Versions become public.
+type ReleasePolicy = store.AttachmentReleasePolicy
+
+const (
+	// ReleaseOnLive releases after the owning Session starts.
+	ReleaseOnLive = store.AttachmentReleaseOnLive
+	// ReleaseOnEnded releases after the owning Session ends.
+	ReleaseOnEnded = store.AttachmentReleaseOnEnded
+	// ReleaseOnEventCue releases after the Producer fires the Event cue.
+	ReleaseOnEventCue = store.AttachmentReleaseOnEventCue
+)
+
+// ConfigureEventReleaseInput changes the Event default.
+type ConfigureEventReleaseInput struct {
+	EventID          int           `json:"event_id"`
+	ExpectedRevision int           `json:"expected_revision"`
+	Policy           ReleasePolicy `json:"policy"`
+	CueSessionID     int           `json:"cue_session_id"`
+	CommandID        string        `json:"command_id"`
+}
+
+// ConfigureCompetitionReleaseInput changes one optional Competition override.
+type ConfigureCompetitionReleaseInput struct {
+	EventID          int           `json:"event_id"`
+	SessionID        int           `json:"session_id"`
+	ExpectedRevision int           `json:"expected_revision"`
+	Policy           ReleasePolicy `json:"policy"`
+	Override         bool          `json:"override"`
+	CommandID        string        `json:"command_id"`
+}
+
+// SetVersionReleaseInput changes a Producer hold without changing uploader eligibility.
+type SetVersionReleaseInput struct {
+	EventID          int    `json:"event_id"`
+	VersionID        int    `json:"version_id"`
+	ExpectedRevision int    `json:"expected_revision"`
+	Hold             bool   `json:"hold"`
+	CommandID        string `json:"command_id"`
+}
+
+// FireReleaseCueInput fires one Event-wide release cue.
+type FireReleaseCueInput struct {
+	EventID          int    `json:"event_id"`
+	ExpectedRevision int    `json:"expected_revision"`
+	CommandID        string `json:"command_id"`
+}
+
+// ReleasedVersion is attendee-safe immutable file metadata.
+type ReleasedVersion struct {
+	ID               int        `json:"id"`
+	AttachmentID     int        `json:"attachment_id"`
+	Version          int        `json:"version"`
+	OwnerID          int        `json:"owner_id"`
+	OwnerType        TargetKind `json:"owner_type"`
+	Name             string     `json:"name"`
+	OriginalFilename string     `json:"original_filename"`
+	MediaType        string     `json:"media_type,omitempty"`
+	SizeBytes        int64      `json:"size_bytes"`
+	SHA256           string     `json:"sha256"`
 }
 
 // Service owns Attachment commands.
@@ -236,7 +317,7 @@ func (service *Service) Upload(ctx context.Context, input UploadInput) (Version,
 	}
 	return service.storeVersion(
 		ctx, authorization, input.CommandID, input.Name, input.OriginalFilename,
-		input.MediaType, input.Body, "UploadLink", authorization.LinkID,
+		input.MediaType, input.Body, "UploadLink", authorization.LinkID, input.CrewOnly,
 	)
 }
 
@@ -262,7 +343,7 @@ func (service *Service) UploadForCrew(
 	}
 	return service.storeVersion(
 		actor.Context(ctx), authorization, input.CommandID, input.Name, input.OriginalFilename,
-		input.MediaType, input.Body, "Crew", actor.ID,
+		input.MediaType, input.Body, "Crew", actor.ID, input.CrewOnly,
 	)
 }
 
@@ -273,6 +354,7 @@ func (service *Service) storeVersion(
 	body io.Reader,
 	uploaderType string,
 	uploaderID int,
+	crewOnly bool,
 ) (Version, error) {
 	storedFile, err := service.storeFile(body)
 	if err != nil {
@@ -286,6 +368,10 @@ func (service *Service) storeVersion(
 		SHA256: storedFile.digest, StorageKey: storedFile.key,
 		UploaderType: uploaderType, UploaderID: uploaderID, Now: now,
 	}
+	params.ReleaseEligibility = ReleasePublic
+	if crewOnly {
+		params.ReleaseEligibility = ReleaseCrewOnly
+	}
 	payload, err := json.Marshal(struct {
 		EventID      int    `json:"event_id"`
 		TargetID     int    `json:"target_id"`
@@ -298,12 +384,14 @@ func (service *Service) storeVersion(
 		SHA256       string `json:"sha256"`
 		UploaderType string `json:"uploader_type"`
 		UploaderID   int    `json:"uploader_id"`
+		CrewOnly     bool   `json:"crew_only"`
 	}{
 		EventID: authorization.EventID, TargetID: authorization.TargetID,
 		LinkID: authorization.LinkID, TargetType: string(authorization.TargetType),
 		Name: params.Name, Filename: params.OriginalFilename, MediaType: params.MediaType,
 		SizeBytes: params.SizeBytes, SHA256: params.SHA256,
 		UploaderType: params.UploaderType, UploaderID: params.UploaderID,
+		CrewOnly: crewOnly,
 	})
 	if err != nil {
 		return Version{}, errors.New("encode Attachment upload command")
@@ -433,6 +521,258 @@ func (service *Service) ReadVersion(
 		return Version{}, nil, errors.New("attachment integrity check failed")
 	}
 	return version(stored), content, nil
+}
+
+// ConfigureEventRelease changes the Event's default Attachment trigger.
+func (service *Service) ConfigureEventRelease(
+	ctx context.Context,
+	actor auth.Account,
+	input ConfigureEventReleaseInput,
+) (store.AttachmentReleaseConfiguration, error) {
+	if input.EventID <= 0 || input.ExpectedRevision < 0 || input.CueSessionID < 0 {
+		return store.AttachmentReleaseConfiguration{}, ErrInvalidInput
+	}
+	if err := command.ValidateID(input.CommandID); err != nil {
+		return store.AttachmentReleaseConfiguration{}, err
+	}
+	payload, err := json.Marshal(input)
+	if err != nil {
+		return store.AttachmentReleaseConfiguration{}, errors.New("encode Event Attachment release command")
+	}
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID, CommandID: input.CommandID,
+		PayloadHash: command.PayloadHash(string(payload)),
+		Action:      "ConfigureEventAttachmentRelease", TargetType: "Event",
+		TargetID: strconv.Itoa(input.EventID), Now: service.now().UTC(),
+	}
+	return command.Execute(actor.Context(ctx), command.Plan[store.AttachmentReleaseConfiguration]{
+		Storage: service.storage, Identity: identity,
+		Replay: decodeReleaseReceipt[store.AttachmentReleaseConfiguration],
+		Apply: func(transaction *store.CommandTx) (
+			command.Execution[store.AttachmentReleaseConfiguration], error,
+		) {
+			if !actor.CanProduceEvent(input.EventID) {
+				return command.Execution[store.AttachmentReleaseConfiguration]{}, ErrProducerRequired
+			}
+			configured, configureErr := transaction.ConfigureEventAttachmentRelease(
+				actor.Context(ctx), store.ConfigureEventAttachmentReleaseParams{
+					EventID: input.EventID, ExpectedRevision: input.ExpectedRevision,
+					Policy: input.Policy, CueSessionID: input.CueSessionID,
+				},
+			)
+			return releaseSuccess(configured, configureErr)
+		},
+	})
+}
+
+// ConfigureCompetitionRelease changes one optional Competition override.
+func (service *Service) ConfigureCompetitionRelease(
+	ctx context.Context,
+	actor auth.Account,
+	input ConfigureCompetitionReleaseInput,
+) (store.CompetitionAttachmentReleaseConfiguration, error) {
+	if input.EventID <= 0 || input.SessionID <= 0 || input.ExpectedRevision < 0 {
+		return store.CompetitionAttachmentReleaseConfiguration{}, ErrInvalidInput
+	}
+	if err := command.ValidateID(input.CommandID); err != nil {
+		return store.CompetitionAttachmentReleaseConfiguration{}, err
+	}
+	payload, err := json.Marshal(input)
+	if err != nil {
+		return store.CompetitionAttachmentReleaseConfiguration{},
+			errors.New("encode Competition Attachment release command")
+	}
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID, CommandID: input.CommandID,
+		PayloadHash: command.PayloadHash(string(payload)),
+		Action:      "ConfigureCompetitionAttachmentRelease", TargetType: "Competition",
+		TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
+	}
+	return command.Execute(
+		actor.Context(ctx),
+		command.Plan[store.CompetitionAttachmentReleaseConfiguration]{
+			Storage: service.storage, Identity: identity,
+			Replay: decodeReleaseReceipt[store.CompetitionAttachmentReleaseConfiguration],
+			Apply: func(transaction *store.CommandTx) (
+				command.Execution[store.CompetitionAttachmentReleaseConfiguration], error,
+			) {
+				if !actor.CanProduceEvent(input.EventID) {
+					return command.Execution[store.CompetitionAttachmentReleaseConfiguration]{},
+						ErrProducerRequired
+				}
+				configured, configureErr := transaction.ConfigureCompetitionAttachmentRelease(
+					actor.Context(ctx), store.ConfigureCompetitionAttachmentReleaseParams{
+						EventID: input.EventID, SessionID: input.SessionID,
+						ExpectedRevision: input.ExpectedRevision,
+						Policy:           input.Policy, Override: input.Override,
+					},
+				)
+				return releaseSuccess(configured, configureErr)
+			},
+		},
+	)
+}
+
+// SetVersionRelease changes eligibility and hold without changing Final state.
+func (service *Service) SetVersionRelease(
+	ctx context.Context,
+	actor auth.Account,
+	input SetVersionReleaseInput,
+) (Version, error) {
+	if input.EventID <= 0 || input.VersionID <= 0 || input.ExpectedRevision < 0 {
+		return Version{}, ErrInvalidInput
+	}
+	if err := command.ValidateID(input.CommandID); err != nil {
+		return Version{}, err
+	}
+	payload, err := json.Marshal(input)
+	if err != nil {
+		return Version{}, errors.New("encode Attachment Version release command")
+	}
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID, CommandID: input.CommandID,
+		PayloadHash: command.PayloadHash(string(payload)),
+		Action:      "SetAttachmentVersionRelease", TargetType: "AttachmentVersion",
+		TargetID: strconv.Itoa(input.VersionID), Now: service.now().UTC(),
+	}
+	return command.Execute(actor.Context(ctx), command.Plan[Version]{
+		Storage: service.storage, Identity: identity,
+		Replay: func(outcome string) (Version, error) {
+			var replayed Version
+			err := store.DecodeCommandReceipt(outcome, &replayed)
+			return replayed, err
+		},
+		Apply: func(transaction *store.CommandTx) (command.Execution[Version], error) {
+			if !actor.CanProduceEvent(input.EventID) {
+				return command.Execution[Version]{}, ErrProducerRequired
+			}
+			updated, updateErr := transaction.SetAttachmentVersionRelease(
+				actor.Context(ctx), store.SetAttachmentVersionReleaseParams{
+					EventID: input.EventID, VersionID: input.VersionID,
+					ExpectedRevision: input.ExpectedRevision,
+					Hold:             input.Hold,
+				},
+			)
+			if updateErr != nil {
+				return command.Execution[Version]{}, updateErr
+			}
+			result := version(updated)
+			encoded, encodeErr := json.Marshal(result)
+			if encodeErr != nil {
+				return command.Execution[Version]{}, errors.New("encode Attachment Version release outcome")
+			}
+			return command.Success(result, string(encoded)), nil
+		},
+	})
+}
+
+// FireReleaseCue releases cue-governed files without changing Results state.
+func (service *Service) FireReleaseCue(
+	ctx context.Context,
+	actor auth.Account,
+	input FireReleaseCueInput,
+) (store.AttachmentReleaseConfiguration, error) {
+	if input.EventID <= 0 || input.ExpectedRevision < 0 {
+		return store.AttachmentReleaseConfiguration{}, ErrInvalidInput
+	}
+	if err := command.ValidateID(input.CommandID); err != nil {
+		return store.AttachmentReleaseConfiguration{}, err
+	}
+	payload, err := json.Marshal(input)
+	if err != nil {
+		return store.AttachmentReleaseConfiguration{}, errors.New("encode Event Release Cue command")
+	}
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID, CommandID: input.CommandID,
+		PayloadHash: command.PayloadHash(string(payload)),
+		Action:      "FireEventAttachmentReleaseCue", TargetType: "Event",
+		TargetID: strconv.Itoa(input.EventID), Now: service.now().UTC(),
+	}
+	return command.Execute(actor.Context(ctx), command.Plan[store.AttachmentReleaseConfiguration]{
+		Storage: service.storage, Identity: identity,
+		Replay: decodeReleaseReceipt[store.AttachmentReleaseConfiguration],
+		Apply: func(transaction *store.CommandTx) (
+			command.Execution[store.AttachmentReleaseConfiguration], error,
+		) {
+			if !actor.CanProduceEvent(input.EventID) {
+				return command.Execution[store.AttachmentReleaseConfiguration]{}, ErrProducerRequired
+			}
+			fired, fireErr := transaction.FireEventAttachmentReleaseCue(
+				actor.Context(ctx), input.EventID, input.ExpectedRevision, identity.Now,
+			)
+			return releaseSuccess(fired, fireErr)
+		},
+	})
+}
+
+// ReleasedVersions lists attendee-safe Active Event files.
+func (service *Service) ReleasedVersions(ctx context.Context) ([]ReleasedVersion, error) {
+	stored, err := service.storage.LoadReleasedAttachmentVersions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]ReleasedVersion, 0, len(stored))
+	for _, found := range stored {
+		result = append(result, releasedVersion(found))
+	}
+	return result, nil
+}
+
+// ReadReleasedVersion returns verified bytes only while policy permits access.
+func (service *Service) ReadReleasedVersion(
+	ctx context.Context,
+	versionID int,
+) (ReleasedVersion, []byte, error) {
+	if versionID <= 0 {
+		return ReleasedVersion{}, nil, ErrNotReleased
+	}
+	stored, err := service.storage.LoadReleasedAttachmentVersion(ctx, versionID)
+	if err != nil {
+		return ReleasedVersion{}, nil, err
+	}
+	content, err := service.readStoredVersion(stored)
+	if err != nil {
+		return ReleasedVersion{}, nil, err
+	}
+	return releasedVersion(stored), content, nil
+}
+
+func (service *Service) readStoredVersion(stored store.AttachmentVersion) ([]byte, error) {
+	content, err := os.ReadFile(filepath.Join(service.dataDir, "attachments", stored.StorageKey))
+	if err != nil {
+		return nil, errors.New("read Attachment bytes")
+	}
+	digest := sha256.Sum256(content)
+	if fmt.Sprintf("%x", digest) != stored.SHA256 {
+		return nil, errors.New("attachment integrity check failed")
+	}
+	return content, nil
+}
+
+func decodeReleaseReceipt[T any](outcome string) (T, error) {
+	var replayed T
+	err := store.DecodeCommandReceipt(outcome, &replayed)
+	return replayed, err
+}
+
+func releaseSuccess[T any](result T, resultErr error) (command.Execution[T], error) {
+	if resultErr != nil {
+		return command.Execution[T]{}, resultErr
+	}
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		return command.Execution[T]{}, errors.New("encode Attachment release outcome")
+	}
+	return command.Success(result, string(encoded)), nil
+}
+
+func releasedVersion(stored store.AttachmentVersion) ReleasedVersion {
+	return ReleasedVersion{
+		ID: stored.ID, AttachmentID: stored.AttachmentID, Version: stored.Version,
+		OwnerID: stored.OwnerID, OwnerType: stored.OwnerType, Name: stored.Name,
+		OriginalFilename: stored.OriginalFilename, MediaType: stored.MediaType,
+		SizeBytes: stored.SizeBytes, SHA256: stored.SHA256,
+	}
 }
 
 // RevokeUploadLink immediately invalidates one credential.
@@ -628,8 +968,10 @@ func version(stored store.AttachmentVersion) Version {
 		SizeBytes: stored.SizeBytes, SHA256: stored.SHA256,
 		UploaderType: stored.UploaderType, UploaderID: stored.UploaderID,
 		Primary: stored.Primary, Final: stored.Final,
-		ReadinessRevision: stored.ReadinessRevision,
-		CreatedAt:         stored.CreatedAt,
+		ReadinessRevision:  stored.ReadinessRevision,
+		ReleaseEligibility: stored.ReleaseEligibility,
+		ReleaseHold:        stored.ReleaseHold, ReleaseRevision: stored.ReleaseRevision,
+		CreatedAt: stored.CreatedAt,
 	}
 }
 

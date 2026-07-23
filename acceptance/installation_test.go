@@ -3761,6 +3761,244 @@ func TestProducerIssuesScopedEntryUploadLink(t *testing.T) {
 	server.stop(t)
 }
 
+func TestFinalAttachmentsReleaseByPolicyAndSurviveRestart(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	competitionID, _ := addCompetitionSession(t, administrator, server)
+	competitionClient := competitionv1connect.NewCompetitionServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	created, err := competitionClient.CreateEntry(t.Context(), connect.NewRequest(
+		&competitionv1.CreateEntryRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "create-release-entry",
+			Name: "Release Project",
+		},
+	))
+	if err != nil {
+		t.Fatalf("create Entry for Attachment release: %v", err)
+	}
+	link := requestJSON(
+		t.Context(), administrator, server.address, "/crew/events/1/upload-links",
+		map[string]any{
+			"target_type": "Entry", "target_id": created.Msg.GetEntry().GetId(),
+			"command_id": "issue-release-upload-link",
+		},
+	)
+	var credential struct {
+		Token string `json:"token"`
+	}
+	if decodeErr := json.Unmarshal([]byte(link.body), &credential); decodeErr != nil ||
+		link.status != http.StatusCreated || credential.Token == "" {
+		t.Fatalf("issue release Upload Link = %d: %s (%v)", link.status, link.body, decodeErr)
+	}
+	publicVersion := decodeAttachmentVersion(t, requestMultipart(
+		t.Context(), http.DefaultClient, server.address, "/upload/"+credential.Token,
+		map[string]string{"name": "public", "command_id": "upload-public-release"},
+		"public.txt", "text/plain", []byte("public release"),
+	))
+	crewVersion := decodeAttachmentVersion(t, requestMultipart(
+		t.Context(), http.DefaultClient, server.address, "/upload/"+credential.Token,
+		map[string]string{
+			"name": "crew", "command_id": "upload-crew-release", "crew_only": "true",
+		},
+		"crew.txt", "text/plain", []byte("crew only"),
+	))
+	if publicVersion.ReleaseEligibility != "Public" ||
+		crewVersion.ReleaseEligibility != "CrewOnly" {
+		t.Fatalf(
+			"upload release eligibility = %q then %q",
+			publicVersion.ReleaseEligibility, crewVersion.ReleaseEligibility,
+		)
+	}
+	for _, version := range []attachmentVersionResponse{publicVersion, crewVersion} {
+		_, err = competitionClient.SetEntryAttachmentReadiness(t.Context(), connect.NewRequest(
+			&competitionv1.SetEntryAttachmentReadinessRequest{
+				EventId: 1, SessionId: competitionID, EntryId: created.Msg.GetEntry().GetId(),
+				AttachmentVersionId: int64(version.ID),
+				CommandId:           fmt.Sprintf("finalize-release-%d", version.ID),
+				ExpectedRevision:    int64(version.ReadinessRevision),
+				Final:               true,
+				Primary:             version.ID == publicVersion.ID,
+			},
+		))
+		if err != nil {
+			t.Fatalf("finalize Attachment Version %d: %v", version.ID, err)
+		}
+	}
+	configured := requestJSONMethod(
+		t.Context(), http.MethodPatch, administrator, server.address,
+		"/crew/events/1/attachment-release",
+		map[string]any{
+			"policy": "OnLive", "expected_revision": 0,
+			"command_id": "configure-live-attachment-release",
+		},
+	)
+	if configured.status != http.StatusOK {
+		t.Fatalf("configure Attachment Release Policy = %d: %s", configured.status, configured.body)
+	}
+	assertReleasedAttachmentIDs(t, server.address)
+
+	sessionClient := sessionv1connect.NewSessionControlServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	if _, err = sessionClient.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
+		EventId: 1, SessionId: competitionID, CommandId: "start-release-competition",
+		ExpectedLiveStateRevision: proto.Int64(0),
+	})); err != nil {
+		t.Fatalf("start Competition for Attachment release: %v", err)
+	}
+	assertReleasedAttachmentIDs(t, server.address, publicVersion.ID)
+	assertPublicAttachmentBytes(t, server.address, publicVersion.ID, http.StatusOK, "public release")
+	assertPublicAttachmentBytes(t, server.address, crewVersion.ID, http.StatusNotFound, "Attachment Version not found\n")
+
+	override := requestJSONMethod(
+		t.Context(), http.MethodPatch, administrator, server.address,
+		fmt.Sprintf("/crew/events/1/competitions/%d/attachment-release", competitionID),
+		map[string]any{
+			"policy": "OnEventReleaseCue", "override": true, "expected_revision": 0,
+			"command_id": "configure-cue-attachment-release",
+		},
+	)
+	if override.status != http.StatusOK {
+		t.Fatalf("configure Competition Attachment release = %d: %s", override.status, override.body)
+	}
+	assertReleasedAttachmentIDs(t, server.address)
+	staleOverride := requestJSONMethod(
+		t.Context(), http.MethodPatch, administrator, server.address,
+		fmt.Sprintf("/crew/events/1/competitions/%d/attachment-release", competitionID),
+		map[string]any{
+			"policy": "OnEnded", "override": true, "expected_revision": 0,
+			"command_id": "stale-competition-attachment-release",
+		},
+	)
+	if staleOverride.status != http.StatusConflict {
+		t.Fatalf("stale Competition Attachment release = %d: %s", staleOverride.status, staleOverride.body)
+	}
+	rundownClient := rundownv1connect.NewRundownServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	rundown, err := rundownClient.GetCrewRundown(t.Context(), connect.NewRequest(
+		&rundownv1.GetCrewRundownRequest{EventId: 1},
+	))
+	if err != nil {
+		t.Fatalf("load ceremony Session for Attachment Release Cue: %v", err)
+	}
+	var cueSessionID, presentationID int64
+	for _, candidate := range rundown.Msg.GetSessions() {
+		if candidate.GetType() == rundownv1.SessionType_SESSION_TYPE_CEREMONY {
+			cueSessionID = candidate.GetId()
+		}
+		if candidate.GetType() == rundownv1.SessionType_SESSION_TYPE_PRESENTATION {
+			presentationID = candidate.GetId()
+		}
+	}
+	if cueSessionID == 0 || presentationID == 0 {
+		t.Fatal("published Ceremony or Presentation missing for bound Attachment Release Cue")
+	}
+	invalidBinding := requestJSONMethod(
+		t.Context(), http.MethodPatch, administrator, server.address,
+		"/crew/events/1/attachment-release",
+		map[string]any{
+			"policy": "OnEventReleaseCue", "cue_session_id": presentationID,
+			"expected_revision": 1, "command_id": "reject-nonceremony-release-cue",
+		},
+	)
+	if invalidBinding.status != http.StatusNotFound {
+		t.Fatalf("non-Ceremony Attachment Release Cue = %d: %s", invalidBinding.status, invalidBinding.body)
+	}
+	bound := requestJSONMethod(
+		t.Context(), http.MethodPatch, administrator, server.address,
+		"/crew/events/1/attachment-release",
+		map[string]any{
+			"policy": "OnEventReleaseCue", "cue_session_id": cueSessionID,
+			"expected_revision": 1, "command_id": "bind-attachment-release-cue",
+		},
+	)
+	if bound.status != http.StatusOK {
+		t.Fatalf("bind Attachment Release Cue = %d: %s", bound.status, bound.body)
+	}
+	if _, err = sessionClient.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
+		EventId: 1, SessionId: cueSessionID, CommandId: "start-attachment-release-cue",
+		ExpectedLiveStateRevision: proto.Int64(0),
+	})); err != nil {
+		t.Fatalf("start bound Attachment Release Cue Session: %v", err)
+	}
+	assertReleasedAttachmentIDs(t, server.address, publicVersion.ID)
+	cue := requestJSON(
+		t.Context(), administrator, server.address, "/crew/events/1/attachment-release-cue",
+		map[string]any{
+			"expected_revision": 3, "command_id": "fire-attachment-release-cue",
+		},
+	)
+	if cue.status != http.StatusOK {
+		t.Fatalf("fire Attachment Release Cue = %d: %s", cue.status, cue.body)
+	}
+	assertReleasedAttachmentIDs(t, server.address, publicVersion.ID)
+
+	current, err := competitionClient.GetCompetition(t.Context(), connect.NewRequest(
+		&competitionv1.GetCompetitionRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil || len(current.Msg.GetEntries()) != 1 {
+		t.Fatalf("load Entry for Release Hold = %+v, %v", current, err)
+	}
+	entryHeld, err := competitionClient.SetEntryReleaseHold(t.Context(), connect.NewRequest(
+		&competitionv1.SetEntryReleaseHoldRequest{
+			EventId: 1, SessionId: competitionID, EntryId: created.Msg.GetEntry().GetId(),
+			CommandId:        "hold-entry-attachments",
+			ExpectedRevision: current.Msg.GetEntries()[0].GetRevision(),
+			Hold:             true,
+			CrewReason:       "review public package",
+		},
+	))
+	if err != nil || !entryHeld.Msg.GetEntry().GetReleaseHold() {
+		t.Fatalf("apply Entry Release Hold = %+v, %v", entryHeld, err)
+	}
+	assertReleasedAttachmentIDs(t, server.address)
+	entryLifted, err := competitionClient.SetEntryReleaseHold(t.Context(), connect.NewRequest(
+		&competitionv1.SetEntryReleaseHoldRequest{
+			EventId: 1, SessionId: competitionID, EntryId: created.Msg.GetEntry().GetId(),
+			CommandId:        "lift-entry-attachment-hold",
+			ExpectedRevision: entryHeld.Msg.GetEntry().GetRevision(),
+			CrewReason:       "public package reviewed",
+		},
+	))
+	if err != nil || entryLifted.Msg.GetEntry().GetReleaseHold() {
+		t.Fatalf("lift Entry Release Hold = %+v, %v", entryLifted, err)
+	}
+	assertReleasedAttachmentIDs(t, server.address, publicVersion.ID)
+
+	held := requestJSONMethod(
+		t.Context(), http.MethodPatch, administrator, server.address,
+		fmt.Sprintf("/crew/events/1/attachment-versions/%d/release", publicVersion.ID),
+		map[string]any{
+			"hold": true, "expected_revision": 0,
+			"command_id": "hold-public-attachment",
+		},
+	)
+	if held.status != http.StatusOK {
+		t.Fatalf("hold public Attachment = %d: %s", held.status, held.body)
+	}
+	assertReleasedAttachmentIDs(t, server.address)
+	lifted := requestJSONMethod(
+		t.Context(), http.MethodPatch, administrator, server.address,
+		fmt.Sprintf("/crew/events/1/attachment-versions/%d/release", publicVersion.ID),
+		map[string]any{
+			"hold": false, "expected_revision": 1,
+			"command_id": "lift-public-attachment-hold",
+		},
+	)
+	if lifted.status != http.StatusOK {
+		t.Fatalf("lift public Attachment hold = %d: %s", lifted.status, lifted.body)
+	}
+
+	dataDir, bin := server.dataDir, server.bin
+	server.stop(t)
+	restarted := startBeamers(t, bin, dataDir)
+	assertReleasedAttachmentIDs(t, restarted.address, publicVersion.ID)
+	assertPublicAttachmentBytes(t, restarted.address, publicVersion.ID, http.StatusOK, "public release")
+	restarted.stop(t)
+}
+
 func TestPresentationUploadClosesAtDeadlineOrActualStart(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	presentationID := prepareActiveSchedule(t, administrator, server)
@@ -3890,15 +4128,16 @@ func setPresentationUploadDeadline(
 }
 
 type attachmentVersionResponse struct {
-	ID                int    `json:"id"`
-	AttachmentID      int    `json:"attachment_id"`
-	Version           int    `json:"version"`
-	SHA256            string `json:"sha256"`
-	UploaderType      string `json:"uploader_type"`
-	UploaderID        int    `json:"uploader_id"`
-	Primary           bool   `json:"primary"`
-	Final             bool   `json:"final"`
-	ReadinessRevision int    `json:"readiness_revision"`
+	ID                 int    `json:"id"`
+	AttachmentID       int    `json:"attachment_id"`
+	Version            int    `json:"version"`
+	SHA256             string `json:"sha256"`
+	UploaderType       string `json:"uploader_type"`
+	UploaderID         int    `json:"uploader_id"`
+	Primary            bool   `json:"primary"`
+	Final              bool   `json:"final"`
+	ReadinessRevision  int    `json:"readiness_revision"`
+	ReleaseEligibility string `json:"release_eligibility"`
 }
 
 func decodeAttachmentVersion(t *testing.T, response jsonResponse) attachmentVersionResponse {
@@ -3927,6 +4166,53 @@ func assertAttachmentBytes(
 	}
 	if response.StatusCode != http.StatusOK || string(body) != want {
 		t.Fatalf("Attachment Version %d = %d %q, want 200 %q", versionID, response.StatusCode, body, want)
+	}
+}
+
+func assertReleasedAttachmentIDs(t *testing.T, address string, want ...int) {
+	t.Helper()
+	response := get(t, http.DefaultClient, address, "/public/attachments")
+	body, readErr := io.ReadAll(response.Body)
+	closeErr := response.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read released Attachment list: %v", err)
+	}
+	var versions []struct {
+		ID int `json:"id"`
+	}
+	if err := json.Unmarshal(body, &versions); err != nil || response.StatusCode != http.StatusOK {
+		t.Fatalf("released Attachments = %d %q (%v)", response.StatusCode, body, err)
+	}
+	got := make([]int, 0, len(versions))
+	for _, version := range versions {
+		got = append(got, version.ID)
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("released Attachment IDs = %v, want %v", got, want)
+	}
+}
+
+func assertPublicAttachmentBytes(
+	t *testing.T,
+	address string,
+	versionID, wantStatus int,
+	wantBody string,
+) {
+	t.Helper()
+	response := get(
+		t, http.DefaultClient, address,
+		fmt.Sprintf("/public/attachments/%d", versionID),
+	)
+	body, readErr := io.ReadAll(response.Body)
+	closeErr := response.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read public Attachment Version %d: %v", versionID, err)
+	}
+	if response.StatusCode != wantStatus || string(body) != wantBody {
+		t.Fatalf(
+			"public Attachment Version %d = %d %q, want %d %q",
+			versionID, response.StatusCode, body, wantStatus, wantBody,
+		)
 	}
 }
 

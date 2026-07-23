@@ -205,6 +205,9 @@ func (transaction *CommandTx) StartSession(
 	if err != nil {
 		return LiveSessionState{}, opaqueError("create Session Run", err)
 	}
+	if cueErr := transaction.fireBoundAttachmentReleaseCue(ctx, eventID, sessionID, now); cueErr != nil {
+		return LiveSessionState{}, cueErr
+	}
 	return LiveSessionState{
 		SessionID: updated.ID, SessionRunID: run.ID,
 		Lifecycle: updated.Lifecycle.String(), LiveStateRevision: updated.LiveStateRevision,

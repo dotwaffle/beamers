@@ -240,6 +240,15 @@ type ResolveEntryInput struct {
 	PublicDisqualificationMessage string
 }
 
+// SetEntryReleaseHoldInput applies or lifts a Producer hold independently.
+type SetEntryReleaseHoldInput struct {
+	EventID, SessionID, EntryID int
+	CommandID                   string
+	ExpectedRevision            int
+	Hold                        bool
+	CrewReason                  string
+}
+
 // EndPreflight is the warned deferred set bound to current revisions.
 type EndPreflight struct {
 	DeferredEntries      []Entry
@@ -679,6 +688,37 @@ func (service *Service) ResolveEntry(
 					ResultDisposition:             input.ResultDisposition,
 					CrewReason:                    input.CrewReason,
 					PublicDisqualificationMessage: input.PublicDisqualificationMessage,
+				},
+			)
+		},
+	)
+}
+
+// SetEntryReleaseHold changes only the reversible Attachment release gate.
+func (service *Service) SetEntryReleaseHold(
+	ctx context.Context,
+	actor auth.Account,
+	input SetEntryReleaseHoldInput,
+) (Entry, error) {
+	input.CrewReason = strings.TrimSpace(input.CrewReason)
+	if err := validateExceptionCommand(
+		input.EventID, input.SessionID, input.EntryID,
+		input.ExpectedRevision, input.CommandID,
+	); err != nil {
+		return Entry{}, err
+	}
+	if input.CrewReason == "" || !boundedText(input.CrewReason, 10000) {
+		return Entry{}, ErrCrewReasonRequired
+	}
+	return service.execute(
+		ctx, actor, input.EventID, input.CommandID, "SetCompetitionEntryReleaseHold",
+		strconv.Itoa(input.EntryID), input,
+		func(transaction *store.CommandTx, _ time.Time) (store.CompetitionEntry, error) {
+			return transaction.SetCompetitionEntryReleaseHold(
+				actor.Context(ctx), store.SetCompetitionEntryReleaseHoldParams{
+					EventID: input.EventID, SessionID: input.SessionID, EntryID: input.EntryID,
+					ExpectedRevision: input.ExpectedRevision, Hold: input.Hold,
+					CrewReason: input.CrewReason,
 				},
 			)
 		},

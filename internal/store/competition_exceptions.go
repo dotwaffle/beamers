@@ -52,6 +52,14 @@ type TechnicalFailureParams struct {
 	Reason                      string
 }
 
+// SetCompetitionEntryReleaseHoldParams applies or lifts a Producer hold.
+type SetCompetitionEntryReleaseHoldParams struct {
+	EventID, SessionID, EntryID int
+	ExpectedRevision            int
+	Hold                        bool
+	CrewReason                  string
+}
+
 // CompetitionEndPreflight binds warned deferred Entries to current durable revisions.
 type CompetitionEndPreflight struct {
 	DeferredEntries      []CompetitionEntry
@@ -216,6 +224,32 @@ func (transaction *CommandTx) ResolveCompetitionEntry(
 	updated, err := update.Save(ctx)
 	if err != nil {
 		return CompetitionEntry{}, opaqueError("resolve Competition Entry", err)
+	}
+	return competitionEntry(updated), nil
+}
+
+// SetCompetitionEntryReleaseHold changes only the reversible release gate.
+func (transaction *CommandTx) SetCompetitionEntryReleaseHold(
+	ctx context.Context,
+	params SetCompetitionEntryReleaseHoldParams,
+) (CompetitionEntry, error) {
+	entry, err := transaction.competitionEntry(ctx, params.EventID, params.SessionID, params.EntryID)
+	if err != nil {
+		return CompetitionEntry{}, err
+	}
+	if entry.Revision != params.ExpectedRevision {
+		return competitionEntry(entry), ErrCompetitionEntryRevision
+	}
+	if entry.Disposition != competitionentry.DispositionIncluded ||
+		strings.TrimSpace(params.CrewReason) == "" {
+		return competitionEntry(entry), ErrCompetitionResolution
+	}
+	updated, err := entry.Update().
+		SetReleaseHold(params.Hold).
+		AddRevision(1).
+		Save(ctx)
+	if err != nil {
+		return CompetitionEntry{}, opaqueError("set Competition Entry Release Hold", err)
 	}
 	return competitionEntry(updated), nil
 }

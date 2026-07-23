@@ -349,6 +349,31 @@ func (handler *Handler) ResolveEntry(
 	return connect.NewResponse(&competitionv1.ResolveEntryResponse{Entry: entry(updated)}), nil
 }
 
+// SetEntryReleaseHold applies or lifts a Producer hold independently.
+func (handler *Handler) SetEntryReleaseHold(
+	ctx context.Context,
+	request *connect.Request[competitionv1.SetEntryReleaseHoldRequest],
+) (*connect.Response[competitionv1.SetEntryReleaseHoldResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	updated, err := handler.service.SetEntryReleaseHold(
+		ctx, actor, competition.SetEntryReleaseHoldInput{
+			EventID: int(request.Msg.GetEventId()), SessionID: int(request.Msg.GetSessionId()),
+			EntryID: int(request.Msg.GetEntryId()), CommandID: request.Msg.GetCommandId(),
+			ExpectedRevision: int(request.Msg.GetExpectedRevision()),
+			Hold:             request.Msg.GetHold(), CrewReason: request.Msg.GetCrewReason(),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(
+		&competitionv1.SetEntryReleaseHoldResponse{Entry: entry(updated)},
+	), nil
+}
+
 // SetEntryAttachmentReadiness changes Final and Primary independently.
 func (handler *Handler) SetEntryAttachmentReadiness(
 	ctx context.Context,

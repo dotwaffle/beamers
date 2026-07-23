@@ -271,8 +271,18 @@ func init() {
 	attachmentversion.DefaultReadinessRevision = attachmentversionDescReadinessRevision.Default.(int)
 	// attachmentversion.ReadinessRevisionValidator is a validator for the "readiness_revision" field. It is called by the builders before save.
 	attachmentversion.ReadinessRevisionValidator = attachmentversionDescReadinessRevision.Validators[0].(func(int) error)
+	// attachmentversionDescReleaseHold is the schema descriptor for release_hold field.
+	attachmentversionDescReleaseHold := attachmentversionFields[13].Descriptor()
+	// attachmentversion.DefaultReleaseHold holds the default value on creation for the release_hold field.
+	attachmentversion.DefaultReleaseHold = attachmentversionDescReleaseHold.Default.(bool)
+	// attachmentversionDescReleaseRevision is the schema descriptor for release_revision field.
+	attachmentversionDescReleaseRevision := attachmentversionFields[14].Descriptor()
+	// attachmentversion.DefaultReleaseRevision holds the default value on creation for the release_revision field.
+	attachmentversion.DefaultReleaseRevision = attachmentversionDescReleaseRevision.Default.(int)
+	// attachmentversion.ReleaseRevisionValidator is a validator for the "release_revision" field. It is called by the builders before save.
+	attachmentversion.ReleaseRevisionValidator = attachmentversionDescReleaseRevision.Validators[0].(func(int) error)
 	// attachmentversionDescCreatedAt is the schema descriptor for created_at field.
-	attachmentversionDescCreatedAt := attachmentversionFields[12].Descriptor()
+	attachmentversionDescCreatedAt := attachmentversionFields[15].Descriptor()
 	// attachmentversion.DefaultCreatedAt holds the default value on creation for the created_at field.
 	attachmentversion.DefaultCreatedAt = attachmentversionDescCreatedAt.Default.(func() time.Time)
 	auditentry.Policy = privacy.NewPolicies(schema.AuditEntry{})
@@ -1049,12 +1059,22 @@ func init() {
 			return nil
 		}
 	}()
+	// eventDescAttachmentReleaseCueSessionID is the schema descriptor for attachment_release_cue_session_id field.
+	eventDescAttachmentReleaseCueSessionID := eventFields[11].Descriptor()
+	// event.AttachmentReleaseCueSessionIDValidator is a validator for the "attachment_release_cue_session_id" field. It is called by the builders before save.
+	event.AttachmentReleaseCueSessionIDValidator = eventDescAttachmentReleaseCueSessionID.Validators[0].(func(int) error)
+	// eventDescAttachmentReleaseRevision is the schema descriptor for attachment_release_revision field.
+	eventDescAttachmentReleaseRevision := eventFields[13].Descriptor()
+	// event.DefaultAttachmentReleaseRevision holds the default value on creation for the attachment_release_revision field.
+	event.DefaultAttachmentReleaseRevision = eventDescAttachmentReleaseRevision.Default.(int)
+	// event.AttachmentReleaseRevisionValidator is a validator for the "attachment_release_revision" field. It is called by the builders before save.
+	event.AttachmentReleaseRevisionValidator = eventDescAttachmentReleaseRevision.Validators[0].(func(int) error)
 	// eventDescRevision is the schema descriptor for revision field.
-	eventDescRevision := eventFields[10].Descriptor()
+	eventDescRevision := eventFields[14].Descriptor()
 	// event.DefaultRevision holds the default value on creation for the revision field.
 	event.DefaultRevision = eventDescRevision.Default.(int)
 	// eventDescCreatedAt is the schema descriptor for created_at field.
-	eventDescCreatedAt := eventFields[11].Descriptor()
+	eventDescCreatedAt := eventFields[15].Descriptor()
 	// event.DefaultCreatedAt holds the default value on creation for the created_at field.
 	event.DefaultCreatedAt = eventDescCreatedAt.Default.(func() time.Time)
 	eventgrant.Policy = privacy.NewPolicies(schema.EventGrant{})
@@ -1530,8 +1550,14 @@ func init() {
 	sessionDescProgramCursor := sessionFields[27].Descriptor()
 	// session.DefaultProgramCursor holds the default value on creation for the program_cursor field.
 	session.DefaultProgramCursor = sessionDescProgramCursor.Default.(int)
+	// sessionDescAttachmentReleaseRevision is the schema descriptor for attachment_release_revision field.
+	sessionDescAttachmentReleaseRevision := sessionFields[30].Descriptor()
+	// session.DefaultAttachmentReleaseRevision holds the default value on creation for the attachment_release_revision field.
+	session.DefaultAttachmentReleaseRevision = sessionDescAttachmentReleaseRevision.Default.(int)
+	// session.AttachmentReleaseRevisionValidator is a validator for the "attachment_release_revision" field. It is called by the builders before save.
+	session.AttachmentReleaseRevisionValidator = sessionDescAttachmentReleaseRevision.Validators[0].(func(int) error)
 	// sessionDescCreatedAt is the schema descriptor for created_at field.
-	sessionDescCreatedAt := sessionFields[29].Descriptor()
+	sessionDescCreatedAt := sessionFields[31].Descriptor()
 	// session.DefaultCreatedAt holds the default value on creation for the created_at field.
 	session.DefaultCreatedAt = sessionDescCreatedAt.Default.(func() time.Time)
 	sessioncancellation.Policy = privacy.NewPolicies(schema.SessionCancellation{})

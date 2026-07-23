@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -182,6 +183,88 @@ func (_u *EventUpdate) SetNillableDisplayConfiguration(v *string) *EventUpdate {
 	if v != nil {
 		_u.SetDisplayConfiguration(*v)
 	}
+	return _u
+}
+
+// SetAttachmentReleasePolicy sets the "attachment_release_policy" field.
+func (_u *EventUpdate) SetAttachmentReleasePolicy(v event.AttachmentReleasePolicy) *EventUpdate {
+	_u.mutation.SetAttachmentReleasePolicy(v)
+	return _u
+}
+
+// SetNillableAttachmentReleasePolicy sets the "attachment_release_policy" field if the given value is not nil.
+func (_u *EventUpdate) SetNillableAttachmentReleasePolicy(v *event.AttachmentReleasePolicy) *EventUpdate {
+	if v != nil {
+		_u.SetAttachmentReleasePolicy(*v)
+	}
+	return _u
+}
+
+// SetAttachmentReleaseCueSessionID sets the "attachment_release_cue_session_id" field.
+func (_u *EventUpdate) SetAttachmentReleaseCueSessionID(v int) *EventUpdate {
+	_u.mutation.ResetAttachmentReleaseCueSessionID()
+	_u.mutation.SetAttachmentReleaseCueSessionID(v)
+	return _u
+}
+
+// SetNillableAttachmentReleaseCueSessionID sets the "attachment_release_cue_session_id" field if the given value is not nil.
+func (_u *EventUpdate) SetNillableAttachmentReleaseCueSessionID(v *int) *EventUpdate {
+	if v != nil {
+		_u.SetAttachmentReleaseCueSessionID(*v)
+	}
+	return _u
+}
+
+// AddAttachmentReleaseCueSessionID adds value to the "attachment_release_cue_session_id" field.
+func (_u *EventUpdate) AddAttachmentReleaseCueSessionID(v int) *EventUpdate {
+	_u.mutation.AddAttachmentReleaseCueSessionID(v)
+	return _u
+}
+
+// ClearAttachmentReleaseCueSessionID clears the value of the "attachment_release_cue_session_id" field.
+func (_u *EventUpdate) ClearAttachmentReleaseCueSessionID() *EventUpdate {
+	_u.mutation.ClearAttachmentReleaseCueSessionID()
+	return _u
+}
+
+// SetAttachmentReleaseCueAt sets the "attachment_release_cue_at" field.
+func (_u *EventUpdate) SetAttachmentReleaseCueAt(v time.Time) *EventUpdate {
+	_u.mutation.SetAttachmentReleaseCueAt(v)
+	return _u
+}
+
+// SetNillableAttachmentReleaseCueAt sets the "attachment_release_cue_at" field if the given value is not nil.
+func (_u *EventUpdate) SetNillableAttachmentReleaseCueAt(v *time.Time) *EventUpdate {
+	if v != nil {
+		_u.SetAttachmentReleaseCueAt(*v)
+	}
+	return _u
+}
+
+// ClearAttachmentReleaseCueAt clears the value of the "attachment_release_cue_at" field.
+func (_u *EventUpdate) ClearAttachmentReleaseCueAt() *EventUpdate {
+	_u.mutation.ClearAttachmentReleaseCueAt()
+	return _u
+}
+
+// SetAttachmentReleaseRevision sets the "attachment_release_revision" field.
+func (_u *EventUpdate) SetAttachmentReleaseRevision(v int) *EventUpdate {
+	_u.mutation.ResetAttachmentReleaseRevision()
+	_u.mutation.SetAttachmentReleaseRevision(v)
+	return _u
+}
+
+// SetNillableAttachmentReleaseRevision sets the "attachment_release_revision" field if the given value is not nil.
+func (_u *EventUpdate) SetNillableAttachmentReleaseRevision(v *int) *EventUpdate {
+	if v != nil {
+		_u.SetAttachmentReleaseRevision(*v)
+	}
+	return _u
+}
+
+// AddAttachmentReleaseRevision adds value to the "attachment_release_revision" field.
+func (_u *EventUpdate) AddAttachmentReleaseRevision(v int) *EventUpdate {
+	_u.mutation.AddAttachmentReleaseRevision(v)
 	return _u
 }
 
@@ -711,6 +794,21 @@ func (_u *EventUpdate) check() error {
 			return &ValidationError{Name: "display_configuration", err: fmt.Errorf(`ent: validator failed for field "Event.display_configuration": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.AttachmentReleasePolicy(); ok {
+		if err := event.AttachmentReleasePolicyValidator(v); err != nil {
+			return &ValidationError{Name: "attachment_release_policy", err: fmt.Errorf(`ent: validator failed for field "Event.attachment_release_policy": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.AttachmentReleaseCueSessionID(); ok {
+		if err := event.AttachmentReleaseCueSessionIDValidator(v); err != nil {
+			return &ValidationError{Name: "attachment_release_cue_session_id", err: fmt.Errorf(`ent: validator failed for field "Event.attachment_release_cue_session_id": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.AttachmentReleaseRevision(); ok {
+		if err := event.AttachmentReleaseRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "attachment_release_revision", err: fmt.Errorf(`ent: validator failed for field "Event.attachment_release_revision": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -758,6 +856,30 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.DisplayConfiguration(); ok {
 		_spec.SetField(event.FieldDisplayConfiguration, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.AttachmentReleasePolicy(); ok {
+		_spec.SetField(event.FieldAttachmentReleasePolicy, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.AttachmentReleaseCueSessionID(); ok {
+		_spec.SetField(event.FieldAttachmentReleaseCueSessionID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAttachmentReleaseCueSessionID(); ok {
+		_spec.AddField(event.FieldAttachmentReleaseCueSessionID, field.TypeInt, value)
+	}
+	if _u.mutation.AttachmentReleaseCueSessionIDCleared() {
+		_spec.ClearField(event.FieldAttachmentReleaseCueSessionID, field.TypeInt)
+	}
+	if value, ok := _u.mutation.AttachmentReleaseCueAt(); ok {
+		_spec.SetField(event.FieldAttachmentReleaseCueAt, field.TypeTime, value)
+	}
+	if _u.mutation.AttachmentReleaseCueAtCleared() {
+		_spec.ClearField(event.FieldAttachmentReleaseCueAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.AttachmentReleaseRevision(); ok {
+		_spec.SetField(event.FieldAttachmentReleaseRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAttachmentReleaseRevision(); ok {
+		_spec.AddField(event.FieldAttachmentReleaseRevision, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.Revision(); ok {
 		_spec.SetField(event.FieldRevision, field.TypeInt, value)
@@ -1455,6 +1577,88 @@ func (_u *EventUpdateOne) SetNillableDisplayConfiguration(v *string) *EventUpdat
 	return _u
 }
 
+// SetAttachmentReleasePolicy sets the "attachment_release_policy" field.
+func (_u *EventUpdateOne) SetAttachmentReleasePolicy(v event.AttachmentReleasePolicy) *EventUpdateOne {
+	_u.mutation.SetAttachmentReleasePolicy(v)
+	return _u
+}
+
+// SetNillableAttachmentReleasePolicy sets the "attachment_release_policy" field if the given value is not nil.
+func (_u *EventUpdateOne) SetNillableAttachmentReleasePolicy(v *event.AttachmentReleasePolicy) *EventUpdateOne {
+	if v != nil {
+		_u.SetAttachmentReleasePolicy(*v)
+	}
+	return _u
+}
+
+// SetAttachmentReleaseCueSessionID sets the "attachment_release_cue_session_id" field.
+func (_u *EventUpdateOne) SetAttachmentReleaseCueSessionID(v int) *EventUpdateOne {
+	_u.mutation.ResetAttachmentReleaseCueSessionID()
+	_u.mutation.SetAttachmentReleaseCueSessionID(v)
+	return _u
+}
+
+// SetNillableAttachmentReleaseCueSessionID sets the "attachment_release_cue_session_id" field if the given value is not nil.
+func (_u *EventUpdateOne) SetNillableAttachmentReleaseCueSessionID(v *int) *EventUpdateOne {
+	if v != nil {
+		_u.SetAttachmentReleaseCueSessionID(*v)
+	}
+	return _u
+}
+
+// AddAttachmentReleaseCueSessionID adds value to the "attachment_release_cue_session_id" field.
+func (_u *EventUpdateOne) AddAttachmentReleaseCueSessionID(v int) *EventUpdateOne {
+	_u.mutation.AddAttachmentReleaseCueSessionID(v)
+	return _u
+}
+
+// ClearAttachmentReleaseCueSessionID clears the value of the "attachment_release_cue_session_id" field.
+func (_u *EventUpdateOne) ClearAttachmentReleaseCueSessionID() *EventUpdateOne {
+	_u.mutation.ClearAttachmentReleaseCueSessionID()
+	return _u
+}
+
+// SetAttachmentReleaseCueAt sets the "attachment_release_cue_at" field.
+func (_u *EventUpdateOne) SetAttachmentReleaseCueAt(v time.Time) *EventUpdateOne {
+	_u.mutation.SetAttachmentReleaseCueAt(v)
+	return _u
+}
+
+// SetNillableAttachmentReleaseCueAt sets the "attachment_release_cue_at" field if the given value is not nil.
+func (_u *EventUpdateOne) SetNillableAttachmentReleaseCueAt(v *time.Time) *EventUpdateOne {
+	if v != nil {
+		_u.SetAttachmentReleaseCueAt(*v)
+	}
+	return _u
+}
+
+// ClearAttachmentReleaseCueAt clears the value of the "attachment_release_cue_at" field.
+func (_u *EventUpdateOne) ClearAttachmentReleaseCueAt() *EventUpdateOne {
+	_u.mutation.ClearAttachmentReleaseCueAt()
+	return _u
+}
+
+// SetAttachmentReleaseRevision sets the "attachment_release_revision" field.
+func (_u *EventUpdateOne) SetAttachmentReleaseRevision(v int) *EventUpdateOne {
+	_u.mutation.ResetAttachmentReleaseRevision()
+	_u.mutation.SetAttachmentReleaseRevision(v)
+	return _u
+}
+
+// SetNillableAttachmentReleaseRevision sets the "attachment_release_revision" field if the given value is not nil.
+func (_u *EventUpdateOne) SetNillableAttachmentReleaseRevision(v *int) *EventUpdateOne {
+	if v != nil {
+		_u.SetAttachmentReleaseRevision(*v)
+	}
+	return _u
+}
+
+// AddAttachmentReleaseRevision adds value to the "attachment_release_revision" field.
+func (_u *EventUpdateOne) AddAttachmentReleaseRevision(v int) *EventUpdateOne {
+	_u.mutation.AddAttachmentReleaseRevision(v)
+	return _u
+}
+
 // SetRevision sets the "revision" field.
 func (_u *EventUpdateOne) SetRevision(v int) *EventUpdateOne {
 	_u.mutation.ResetRevision()
@@ -1994,6 +2198,21 @@ func (_u *EventUpdateOne) check() error {
 			return &ValidationError{Name: "display_configuration", err: fmt.Errorf(`ent: validator failed for field "Event.display_configuration": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.AttachmentReleasePolicy(); ok {
+		if err := event.AttachmentReleasePolicyValidator(v); err != nil {
+			return &ValidationError{Name: "attachment_release_policy", err: fmt.Errorf(`ent: validator failed for field "Event.attachment_release_policy": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.AttachmentReleaseCueSessionID(); ok {
+		if err := event.AttachmentReleaseCueSessionIDValidator(v); err != nil {
+			return &ValidationError{Name: "attachment_release_cue_session_id", err: fmt.Errorf(`ent: validator failed for field "Event.attachment_release_cue_session_id": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.AttachmentReleaseRevision(); ok {
+		if err := event.AttachmentReleaseRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "attachment_release_revision", err: fmt.Errorf(`ent: validator failed for field "Event.attachment_release_revision": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -2058,6 +2277,30 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 	}
 	if value, ok := _u.mutation.DisplayConfiguration(); ok {
 		_spec.SetField(event.FieldDisplayConfiguration, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.AttachmentReleasePolicy(); ok {
+		_spec.SetField(event.FieldAttachmentReleasePolicy, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.AttachmentReleaseCueSessionID(); ok {
+		_spec.SetField(event.FieldAttachmentReleaseCueSessionID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAttachmentReleaseCueSessionID(); ok {
+		_spec.AddField(event.FieldAttachmentReleaseCueSessionID, field.TypeInt, value)
+	}
+	if _u.mutation.AttachmentReleaseCueSessionIDCleared() {
+		_spec.ClearField(event.FieldAttachmentReleaseCueSessionID, field.TypeInt)
+	}
+	if value, ok := _u.mutation.AttachmentReleaseCueAt(); ok {
+		_spec.SetField(event.FieldAttachmentReleaseCueAt, field.TypeTime, value)
+	}
+	if _u.mutation.AttachmentReleaseCueAtCleared() {
+		_spec.ClearField(event.FieldAttachmentReleaseCueAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.AttachmentReleaseRevision(); ok {
+		_spec.SetField(event.FieldAttachmentReleaseRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAttachmentReleaseRevision(); ok {
+		_spec.AddField(event.FieldAttachmentReleaseRevision, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.Revision(); ok {
 		_spec.SetField(event.FieldRevision, field.TypeInt, value)

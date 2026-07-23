@@ -125,6 +125,48 @@ func (_c *AttachmentVersionCreate) SetNillableReadinessRevision(v *int) *Attachm
 	return _c
 }
 
+// SetReleaseEligibility sets the "release_eligibility" field.
+func (_c *AttachmentVersionCreate) SetReleaseEligibility(v attachmentversion.ReleaseEligibility) *AttachmentVersionCreate {
+	_c.mutation.SetReleaseEligibility(v)
+	return _c
+}
+
+// SetNillableReleaseEligibility sets the "release_eligibility" field if the given value is not nil.
+func (_c *AttachmentVersionCreate) SetNillableReleaseEligibility(v *attachmentversion.ReleaseEligibility) *AttachmentVersionCreate {
+	if v != nil {
+		_c.SetReleaseEligibility(*v)
+	}
+	return _c
+}
+
+// SetReleaseHold sets the "release_hold" field.
+func (_c *AttachmentVersionCreate) SetReleaseHold(v bool) *AttachmentVersionCreate {
+	_c.mutation.SetReleaseHold(v)
+	return _c
+}
+
+// SetNillableReleaseHold sets the "release_hold" field if the given value is not nil.
+func (_c *AttachmentVersionCreate) SetNillableReleaseHold(v *bool) *AttachmentVersionCreate {
+	if v != nil {
+		_c.SetReleaseHold(*v)
+	}
+	return _c
+}
+
+// SetReleaseRevision sets the "release_revision" field.
+func (_c *AttachmentVersionCreate) SetReleaseRevision(v int) *AttachmentVersionCreate {
+	_c.mutation.SetReleaseRevision(v)
+	return _c
+}
+
+// SetNillableReleaseRevision sets the "release_revision" field if the given value is not nil.
+func (_c *AttachmentVersionCreate) SetNillableReleaseRevision(v *int) *AttachmentVersionCreate {
+	if v != nil {
+		_c.SetReleaseRevision(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *AttachmentVersionCreate) SetCreatedAt(v time.Time) *AttachmentVersionCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -192,6 +234,18 @@ func (_c *AttachmentVersionCreate) defaults() error {
 	if _, ok := _c.mutation.ReadinessRevision(); !ok {
 		v := attachmentversion.DefaultReadinessRevision
 		_c.mutation.SetReadinessRevision(v)
+	}
+	if _, ok := _c.mutation.ReleaseEligibility(); !ok {
+		v := attachmentversion.DefaultReleaseEligibility
+		_c.mutation.SetReleaseEligibility(v)
+	}
+	if _, ok := _c.mutation.ReleaseHold(); !ok {
+		v := attachmentversion.DefaultReleaseHold
+		_c.mutation.SetReleaseHold(v)
+	}
+	if _, ok := _c.mutation.ReleaseRevision(); !ok {
+		v := attachmentversion.DefaultReleaseRevision
+		_c.mutation.SetReleaseRevision(v)
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		if attachmentversion.DefaultCreatedAt == nil {
@@ -283,6 +337,25 @@ func (_c *AttachmentVersionCreate) check() error {
 			return &ValidationError{Name: "readiness_revision", err: fmt.Errorf(`ent: validator failed for field "AttachmentVersion.readiness_revision": %w`, err)}
 		}
 	}
+	if _, ok := _c.mutation.ReleaseEligibility(); !ok {
+		return &ValidationError{Name: "release_eligibility", err: errors.New(`ent: missing required field "AttachmentVersion.release_eligibility"`)}
+	}
+	if v, ok := _c.mutation.ReleaseEligibility(); ok {
+		if err := attachmentversion.ReleaseEligibilityValidator(v); err != nil {
+			return &ValidationError{Name: "release_eligibility", err: fmt.Errorf(`ent: validator failed for field "AttachmentVersion.release_eligibility": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.ReleaseHold(); !ok {
+		return &ValidationError{Name: "release_hold", err: errors.New(`ent: missing required field "AttachmentVersion.release_hold"`)}
+	}
+	if _, ok := _c.mutation.ReleaseRevision(); !ok {
+		return &ValidationError{Name: "release_revision", err: errors.New(`ent: missing required field "AttachmentVersion.release_revision"`)}
+	}
+	if v, ok := _c.mutation.ReleaseRevision(); ok {
+		if err := attachmentversion.ReleaseRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "release_revision", err: fmt.Errorf(`ent: validator failed for field "AttachmentVersion.release_revision": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "AttachmentVersion.created_at"`)}
 	}
@@ -358,6 +431,18 @@ func (_c *AttachmentVersionCreate) createSpec() (*AttachmentVersion, *sqlgraph.C
 	if value, ok := _c.mutation.ReadinessRevision(); ok {
 		_spec.SetField(attachmentversion.FieldReadinessRevision, field.TypeInt, value)
 		_node.ReadinessRevision = value
+	}
+	if value, ok := _c.mutation.ReleaseEligibility(); ok {
+		_spec.SetField(attachmentversion.FieldReleaseEligibility, field.TypeEnum, value)
+		_node.ReleaseEligibility = value
+	}
+	if value, ok := _c.mutation.ReleaseHold(); ok {
+		_spec.SetField(attachmentversion.FieldReleaseHold, field.TypeBool, value)
+		_node.ReleaseHold = value
+	}
+	if value, ok := _c.mutation.ReleaseRevision(); ok {
+		_spec.SetField(attachmentversion.FieldReleaseRevision, field.TypeInt, value)
+		_node.ReleaseRevision = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(attachmentversion.FieldCreatedAt, field.TypeTime, value)

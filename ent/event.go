@@ -38,6 +38,14 @@ type Event struct {
 	TargetAdjustmentPresets string `json:"target_adjustment_presets,omitempty"`
 	// DisplayConfiguration holds the value of the "display_configuration" field.
 	DisplayConfiguration string `json:"display_configuration,omitempty"`
+	// AttachmentReleasePolicy holds the value of the "attachment_release_policy" field.
+	AttachmentReleasePolicy event.AttachmentReleasePolicy `json:"attachment_release_policy,omitempty"`
+	// AttachmentReleaseCueSessionID holds the value of the "attachment_release_cue_session_id" field.
+	AttachmentReleaseCueSessionID *int `json:"attachment_release_cue_session_id,omitempty"`
+	// AttachmentReleaseCueAt holds the value of the "attachment_release_cue_at" field.
+	AttachmentReleaseCueAt time.Time `json:"attachment_release_cue_at,omitempty"`
+	// AttachmentReleaseRevision holds the value of the "attachment_release_revision" field.
+	AttachmentReleaseRevision int `json:"attachment_release_revision,omitempty"`
 	// Revision holds the value of the "revision" field.
 	Revision int `json:"revision,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -194,11 +202,11 @@ func (*Event) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case event.FieldID, event.FieldRevision:
+		case event.FieldID, event.FieldAttachmentReleaseCueSessionID, event.FieldAttachmentReleaseRevision, event.FieldRevision:
 			values[i] = new(sql.NullInt64)
-		case event.FieldName, event.FieldPlannedStartDate, event.FieldPlannedEndDate, event.FieldTimezone, event.FieldEventLocale, event.FieldContentLanguage, event.FieldEventDayBoundary, event.FieldEntryDefaultDisposition, event.FieldTargetAdjustmentPresets, event.FieldDisplayConfiguration:
+		case event.FieldName, event.FieldPlannedStartDate, event.FieldPlannedEndDate, event.FieldTimezone, event.FieldEventLocale, event.FieldContentLanguage, event.FieldEventDayBoundary, event.FieldEntryDefaultDisposition, event.FieldTargetAdjustmentPresets, event.FieldDisplayConfiguration, event.FieldAttachmentReleasePolicy:
 			values[i] = new(sql.NullString)
-		case event.FieldCreatedAt:
+		case event.FieldAttachmentReleaseCueAt, event.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -280,6 +288,31 @@ func (_m *Event) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field display_configuration", values[i])
 			} else if value.Valid {
 				_m.DisplayConfiguration = value.String
+			}
+		case event.FieldAttachmentReleasePolicy:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field attachment_release_policy", values[i])
+			} else if value.Valid {
+				_m.AttachmentReleasePolicy = event.AttachmentReleasePolicy(value.String)
+			}
+		case event.FieldAttachmentReleaseCueSessionID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field attachment_release_cue_session_id", values[i])
+			} else if value.Valid {
+				_m.AttachmentReleaseCueSessionID = new(int)
+				*_m.AttachmentReleaseCueSessionID = int(value.Int64)
+			}
+		case event.FieldAttachmentReleaseCueAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field attachment_release_cue_at", values[i])
+			} else if value.Valid {
+				_m.AttachmentReleaseCueAt = value.Time
+			}
+		case event.FieldAttachmentReleaseRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field attachment_release_revision", values[i])
+			} else if value.Valid {
+				_m.AttachmentReleaseRevision = int(value.Int64)
 			}
 		case event.FieldRevision:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -418,6 +451,20 @@ func (_m *Event) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("display_configuration=")
 	builder.WriteString(_m.DisplayConfiguration)
+	builder.WriteString(", ")
+	builder.WriteString("attachment_release_policy=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AttachmentReleasePolicy))
+	builder.WriteString(", ")
+	if v := _m.AttachmentReleaseCueSessionID; v != nil {
+		builder.WriteString("attachment_release_cue_session_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("attachment_release_cue_at=")
+	builder.WriteString(_m.AttachmentReleaseCueAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("attachment_release_revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AttachmentReleaseRevision))
 	builder.WriteString(", ")
 	builder.WriteString("revision=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Revision))

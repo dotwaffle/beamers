@@ -36,6 +36,14 @@ const (
 	FieldTargetAdjustmentPresets = "target_adjustment_presets"
 	// FieldDisplayConfiguration holds the string denoting the display_configuration field in the database.
 	FieldDisplayConfiguration = "display_configuration"
+	// FieldAttachmentReleasePolicy holds the string denoting the attachment_release_policy field in the database.
+	FieldAttachmentReleasePolicy = "attachment_release_policy"
+	// FieldAttachmentReleaseCueSessionID holds the string denoting the attachment_release_cue_session_id field in the database.
+	FieldAttachmentReleaseCueSessionID = "attachment_release_cue_session_id"
+	// FieldAttachmentReleaseCueAt holds the string denoting the attachment_release_cue_at field in the database.
+	FieldAttachmentReleaseCueAt = "attachment_release_cue_at"
+	// FieldAttachmentReleaseRevision holds the string denoting the attachment_release_revision field in the database.
+	FieldAttachmentReleaseRevision = "attachment_release_revision"
 	// FieldRevision holds the string denoting the revision field in the database.
 	FieldRevision = "revision"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -165,6 +173,10 @@ var Columns = []string{
 	FieldEntryDefaultDisposition,
 	FieldTargetAdjustmentPresets,
 	FieldDisplayConfiguration,
+	FieldAttachmentReleasePolicy,
+	FieldAttachmentReleaseCueSessionID,
+	FieldAttachmentReleaseCueAt,
+	FieldAttachmentReleaseRevision,
 	FieldRevision,
 	FieldCreatedAt,
 }
@@ -209,6 +221,12 @@ var (
 	DefaultDisplayConfiguration string
 	// DisplayConfigurationValidator is a validator for the "display_configuration" field. It is called by the builders before save.
 	DisplayConfigurationValidator func(string) error
+	// AttachmentReleaseCueSessionIDValidator is a validator for the "attachment_release_cue_session_id" field. It is called by the builders before save.
+	AttachmentReleaseCueSessionIDValidator func(int) error
+	// DefaultAttachmentReleaseRevision holds the default value on creation for the "attachment_release_revision" field.
+	DefaultAttachmentReleaseRevision int
+	// AttachmentReleaseRevisionValidator is a validator for the "attachment_release_revision" field. It is called by the builders before save.
+	AttachmentReleaseRevisionValidator func(int) error
 	// DefaultRevision holds the default value on creation for the "revision" field.
 	DefaultRevision int
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
@@ -238,6 +256,33 @@ func EntryDefaultDispositionValidator(edd EntryDefaultDisposition) error {
 		return nil
 	default:
 		return fmt.Errorf("event: invalid enum value for entry_default_disposition field: %q", edd)
+	}
+}
+
+// AttachmentReleasePolicy defines the type for the "attachment_release_policy" enum field.
+type AttachmentReleasePolicy string
+
+// AttachmentReleasePolicyOnEnded is the default value of the AttachmentReleasePolicy enum.
+const DefaultAttachmentReleasePolicy = AttachmentReleasePolicyOnEnded
+
+// AttachmentReleasePolicy values.
+const (
+	AttachmentReleasePolicyOnLive            AttachmentReleasePolicy = "OnLive"
+	AttachmentReleasePolicyOnEnded           AttachmentReleasePolicy = "OnEnded"
+	AttachmentReleasePolicyOnEventReleaseCue AttachmentReleasePolicy = "OnEventReleaseCue"
+)
+
+func (arp AttachmentReleasePolicy) String() string {
+	return string(arp)
+}
+
+// AttachmentReleasePolicyValidator is a validator for the "attachment_release_policy" field enum values. It is called by the builders before save.
+func AttachmentReleasePolicyValidator(arp AttachmentReleasePolicy) error {
+	switch arp {
+	case AttachmentReleasePolicyOnLive, AttachmentReleasePolicyOnEnded, AttachmentReleasePolicyOnEventReleaseCue:
+		return nil
+	default:
+		return fmt.Errorf("event: invalid enum value for attachment_release_policy field: %q", arp)
 	}
 }
 
@@ -297,6 +342,26 @@ func ByTargetAdjustmentPresets(opts ...sql.OrderTermOption) OrderOption {
 // ByDisplayConfiguration orders the results by the display_configuration field.
 func ByDisplayConfiguration(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDisplayConfiguration, opts...).ToFunc()
+}
+
+// ByAttachmentReleasePolicy orders the results by the attachment_release_policy field.
+func ByAttachmentReleasePolicy(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAttachmentReleasePolicy, opts...).ToFunc()
+}
+
+// ByAttachmentReleaseCueSessionID orders the results by the attachment_release_cue_session_id field.
+func ByAttachmentReleaseCueSessionID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAttachmentReleaseCueSessionID, opts...).ToFunc()
+}
+
+// ByAttachmentReleaseCueAt orders the results by the attachment_release_cue_at field.
+func ByAttachmentReleaseCueAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAttachmentReleaseCueAt, opts...).ToFunc()
+}
+
+// ByAttachmentReleaseRevision orders the results by the attachment_release_revision field.
+func ByAttachmentReleaseRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAttachmentReleaseRevision, opts...).ToFunc()
 }
 
 // ByRevision orders the results by the revision field.

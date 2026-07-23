@@ -72,6 +72,9 @@ const (
 	// CompetitionServicePreflightEndProcedure is the fully-qualified name of the CompetitionService's
 	// PreflightEnd RPC.
 	CompetitionServicePreflightEndProcedure = "/beamers.competition.v1.CompetitionService/PreflightEnd"
+	// CompetitionServiceSetEntryReleaseHoldProcedure is the fully-qualified name of the
+	// CompetitionService's SetEntryReleaseHold RPC.
+	CompetitionServiceSetEntryReleaseHoldProcedure = "/beamers.competition.v1.CompetitionService/SetEntryReleaseHold"
 )
 
 // CompetitionServiceClient is a client for the beamers.competition.v1.CompetitionService service.
@@ -89,6 +92,7 @@ type CompetitionServiceClient interface {
 	RecordTechnicalFailure(context.Context, *connect.Request[v1.RecordTechnicalFailureRequest]) (*connect.Response[v1.RecordTechnicalFailureResponse], error)
 	ResolveEntry(context.Context, *connect.Request[v1.ResolveEntryRequest]) (*connect.Response[v1.ResolveEntryResponse], error)
 	PreflightEnd(context.Context, *connect.Request[v1.PreflightEndRequest]) (*connect.Response[v1.PreflightEndResponse], error)
+	SetEntryReleaseHold(context.Context, *connect.Request[v1.SetEntryReleaseHoldRequest]) (*connect.Response[v1.SetEntryReleaseHoldResponse], error)
 }
 
 // NewCompetitionServiceClient constructs a client for the beamers.competition.v1.CompetitionService
@@ -180,6 +184,12 @@ func NewCompetitionServiceClient(httpClient connect.HTTPClient, baseURL string, 
 			connect.WithSchema(competitionServiceMethods.ByName("PreflightEnd")),
 			connect.WithClientOptions(opts...),
 		),
+		setEntryReleaseHold: connect.NewClient[v1.SetEntryReleaseHoldRequest, v1.SetEntryReleaseHoldResponse](
+			httpClient,
+			baseURL+CompetitionServiceSetEntryReleaseHoldProcedure,
+			connect.WithSchema(competitionServiceMethods.ByName("SetEntryReleaseHold")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -198,6 +208,7 @@ type competitionServiceClient struct {
 	recordTechnicalFailure      *connect.Client[v1.RecordTechnicalFailureRequest, v1.RecordTechnicalFailureResponse]
 	resolveEntry                *connect.Client[v1.ResolveEntryRequest, v1.ResolveEntryResponse]
 	preflightEnd                *connect.Client[v1.PreflightEndRequest, v1.PreflightEndResponse]
+	setEntryReleaseHold         *connect.Client[v1.SetEntryReleaseHoldRequest, v1.SetEntryReleaseHoldResponse]
 }
 
 // GetCompetition calls beamers.competition.v1.CompetitionService.GetCompetition.
@@ -266,6 +277,11 @@ func (c *competitionServiceClient) PreflightEnd(ctx context.Context, req *connec
 	return c.preflightEnd.CallUnary(ctx, req)
 }
 
+// SetEntryReleaseHold calls beamers.competition.v1.CompetitionService.SetEntryReleaseHold.
+func (c *competitionServiceClient) SetEntryReleaseHold(ctx context.Context, req *connect.Request[v1.SetEntryReleaseHoldRequest]) (*connect.Response[v1.SetEntryReleaseHoldResponse], error) {
+	return c.setEntryReleaseHold.CallUnary(ctx, req)
+}
+
 // CompetitionServiceHandler is an implementation of the beamers.competition.v1.CompetitionService
 // service.
 type CompetitionServiceHandler interface {
@@ -282,6 +298,7 @@ type CompetitionServiceHandler interface {
 	RecordTechnicalFailure(context.Context, *connect.Request[v1.RecordTechnicalFailureRequest]) (*connect.Response[v1.RecordTechnicalFailureResponse], error)
 	ResolveEntry(context.Context, *connect.Request[v1.ResolveEntryRequest]) (*connect.Response[v1.ResolveEntryResponse], error)
 	PreflightEnd(context.Context, *connect.Request[v1.PreflightEndRequest]) (*connect.Response[v1.PreflightEndResponse], error)
+	SetEntryReleaseHold(context.Context, *connect.Request[v1.SetEntryReleaseHoldRequest]) (*connect.Response[v1.SetEntryReleaseHoldResponse], error)
 }
 
 // NewCompetitionServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -369,6 +386,12 @@ func NewCompetitionServiceHandler(svc CompetitionServiceHandler, opts ...connect
 		connect.WithSchema(competitionServiceMethods.ByName("PreflightEnd")),
 		connect.WithHandlerOptions(opts...),
 	)
+	competitionServiceSetEntryReleaseHoldHandler := connect.NewUnaryHandler(
+		CompetitionServiceSetEntryReleaseHoldProcedure,
+		svc.SetEntryReleaseHold,
+		connect.WithSchema(competitionServiceMethods.ByName("SetEntryReleaseHold")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/beamers.competition.v1.CompetitionService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CompetitionServiceGetCompetitionProcedure:
@@ -397,6 +420,8 @@ func NewCompetitionServiceHandler(svc CompetitionServiceHandler, opts ...connect
 			competitionServiceResolveEntryHandler.ServeHTTP(w, r)
 		case CompetitionServicePreflightEndProcedure:
 			competitionServicePreflightEndHandler.ServeHTTP(w, r)
+		case CompetitionServiceSetEntryReleaseHoldProcedure:
+			competitionServiceSetEntryReleaseHoldHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -456,4 +481,8 @@ func (UnimplementedCompetitionServiceHandler) ResolveEntry(context.Context, *con
 
 func (UnimplementedCompetitionServiceHandler) PreflightEnd(context.Context, *connect.Request[v1.PreflightEndRequest]) (*connect.Response[v1.PreflightEndResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.competition.v1.CompetitionService.PreflightEnd is not implemented"))
+}
+
+func (UnimplementedCompetitionServiceHandler) SetEntryReleaseHold(context.Context, *connect.Request[v1.SetEntryReleaseHoldRequest]) (*connect.Response[v1.SetEntryReleaseHoldResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.competition.v1.CompetitionService.SetEntryReleaseHold is not implemented"))
 }

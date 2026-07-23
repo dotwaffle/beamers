@@ -2497,6 +2497,10 @@ type AttachmentVersionMutation struct {
 	primary               *bool
 	readiness_revision    *int
 	addreadiness_revision *int
+	release_eligibility   *attachmentversion.ReleaseEligibility
+	release_hold          *bool
+	release_revision      *int
+	addrelease_revision   *int
 	created_at            *time.Time
 	clearedFields         map[string]struct{}
 	attachment            *int
@@ -3129,6 +3133,134 @@ func (m *AttachmentVersionMutation) ResetReadinessRevision() {
 	m.addreadiness_revision = nil
 }
 
+// SetReleaseEligibility sets the "release_eligibility" field.
+func (m *AttachmentVersionMutation) SetReleaseEligibility(ae attachmentversion.ReleaseEligibility) {
+	m.release_eligibility = &ae
+}
+
+// ReleaseEligibility returns the value of the "release_eligibility" field in the mutation.
+func (m *AttachmentVersionMutation) ReleaseEligibility() (r attachmentversion.ReleaseEligibility, exists bool) {
+	v := m.release_eligibility
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReleaseEligibility returns the old "release_eligibility" field's value of the AttachmentVersion entity.
+// If the AttachmentVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AttachmentVersionMutation) OldReleaseEligibility(ctx context.Context) (v attachmentversion.ReleaseEligibility, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReleaseEligibility is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReleaseEligibility requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReleaseEligibility: %w", err)
+	}
+	return oldValue.ReleaseEligibility, nil
+}
+
+// ResetReleaseEligibility resets all changes to the "release_eligibility" field.
+func (m *AttachmentVersionMutation) ResetReleaseEligibility() {
+	m.release_eligibility = nil
+}
+
+// SetReleaseHold sets the "release_hold" field.
+func (m *AttachmentVersionMutation) SetReleaseHold(b bool) {
+	m.release_hold = &b
+}
+
+// ReleaseHold returns the value of the "release_hold" field in the mutation.
+func (m *AttachmentVersionMutation) ReleaseHold() (r bool, exists bool) {
+	v := m.release_hold
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReleaseHold returns the old "release_hold" field's value of the AttachmentVersion entity.
+// If the AttachmentVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AttachmentVersionMutation) OldReleaseHold(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReleaseHold is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReleaseHold requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReleaseHold: %w", err)
+	}
+	return oldValue.ReleaseHold, nil
+}
+
+// ResetReleaseHold resets all changes to the "release_hold" field.
+func (m *AttachmentVersionMutation) ResetReleaseHold() {
+	m.release_hold = nil
+}
+
+// SetReleaseRevision sets the "release_revision" field.
+func (m *AttachmentVersionMutation) SetReleaseRevision(i int) {
+	m.release_revision = &i
+	m.addrelease_revision = nil
+}
+
+// ReleaseRevision returns the value of the "release_revision" field in the mutation.
+func (m *AttachmentVersionMutation) ReleaseRevision() (r int, exists bool) {
+	v := m.release_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReleaseRevision returns the old "release_revision" field's value of the AttachmentVersion entity.
+// If the AttachmentVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AttachmentVersionMutation) OldReleaseRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReleaseRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReleaseRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReleaseRevision: %w", err)
+	}
+	return oldValue.ReleaseRevision, nil
+}
+
+// AddReleaseRevision adds i to the "release_revision" field.
+func (m *AttachmentVersionMutation) AddReleaseRevision(i int) {
+	if m.addrelease_revision != nil {
+		*m.addrelease_revision += i
+	} else {
+		m.addrelease_revision = &i
+	}
+}
+
+// AddedReleaseRevision returns the value that was added to the "release_revision" field in this mutation.
+func (m *AttachmentVersionMutation) AddedReleaseRevision() (r int, exists bool) {
+	v := m.addrelease_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetReleaseRevision resets all changes to the "release_revision" field.
+func (m *AttachmentVersionMutation) ResetReleaseRevision() {
+	m.release_revision = nil
+	m.addrelease_revision = nil
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *AttachmentVersionMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -3226,7 +3358,7 @@ func (m *AttachmentVersionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AttachmentVersionMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 16)
 	if m.attachment != nil {
 		fields = append(fields, attachmentversion.FieldAttachmentID)
 	}
@@ -3263,6 +3395,15 @@ func (m *AttachmentVersionMutation) Fields() []string {
 	if m.readiness_revision != nil {
 		fields = append(fields, attachmentversion.FieldReadinessRevision)
 	}
+	if m.release_eligibility != nil {
+		fields = append(fields, attachmentversion.FieldReleaseEligibility)
+	}
+	if m.release_hold != nil {
+		fields = append(fields, attachmentversion.FieldReleaseHold)
+	}
+	if m.release_revision != nil {
+		fields = append(fields, attachmentversion.FieldReleaseRevision)
+	}
 	if m.created_at != nil {
 		fields = append(fields, attachmentversion.FieldCreatedAt)
 	}
@@ -3298,6 +3439,12 @@ func (m *AttachmentVersionMutation) Field(name string) (ent.Value, bool) {
 		return m.Primary()
 	case attachmentversion.FieldReadinessRevision:
 		return m.ReadinessRevision()
+	case attachmentversion.FieldReleaseEligibility:
+		return m.ReleaseEligibility()
+	case attachmentversion.FieldReleaseHold:
+		return m.ReleaseHold()
+	case attachmentversion.FieldReleaseRevision:
+		return m.ReleaseRevision()
 	case attachmentversion.FieldCreatedAt:
 		return m.CreatedAt()
 	}
@@ -3333,6 +3480,12 @@ func (m *AttachmentVersionMutation) OldField(ctx context.Context, name string) (
 		return m.OldPrimary(ctx)
 	case attachmentversion.FieldReadinessRevision:
 		return m.OldReadinessRevision(ctx)
+	case attachmentversion.FieldReleaseEligibility:
+		return m.OldReleaseEligibility(ctx)
+	case attachmentversion.FieldReleaseHold:
+		return m.OldReleaseHold(ctx)
+	case attachmentversion.FieldReleaseRevision:
+		return m.OldReleaseRevision(ctx)
 	case attachmentversion.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	}
@@ -3428,6 +3581,27 @@ func (m *AttachmentVersionMutation) SetField(name string, value ent.Value) error
 		}
 		m.SetReadinessRevision(v)
 		return nil
+	case attachmentversion.FieldReleaseEligibility:
+		v, ok := value.(attachmentversion.ReleaseEligibility)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReleaseEligibility(v)
+		return nil
+	case attachmentversion.FieldReleaseHold:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReleaseHold(v)
+		return nil
+	case attachmentversion.FieldReleaseRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReleaseRevision(v)
+		return nil
 	case attachmentversion.FieldCreatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -3455,6 +3629,9 @@ func (m *AttachmentVersionMutation) AddedFields() []string {
 	if m.addreadiness_revision != nil {
 		fields = append(fields, attachmentversion.FieldReadinessRevision)
 	}
+	if m.addrelease_revision != nil {
+		fields = append(fields, attachmentversion.FieldReleaseRevision)
+	}
 	return fields
 }
 
@@ -3471,6 +3648,8 @@ func (m *AttachmentVersionMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedUploaderID()
 	case attachmentversion.FieldReadinessRevision:
 		return m.AddedReadinessRevision()
+	case attachmentversion.FieldReleaseRevision:
+		return m.AddedReleaseRevision()
 	}
 	return nil, false
 }
@@ -3507,6 +3686,13 @@ func (m *AttachmentVersionMutation) AddField(name string, value ent.Value) error
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddReadinessRevision(v)
+		return nil
+	case attachmentversion.FieldReleaseRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddReleaseRevision(v)
 		return nil
 	}
 	return fmt.Errorf("unknown AttachmentVersion numeric field %s", name)
@@ -3579,6 +3765,15 @@ func (m *AttachmentVersionMutation) ResetField(name string) error {
 		return nil
 	case attachmentversion.FieldReadinessRevision:
 		m.ResetReadinessRevision()
+		return nil
+	case attachmentversion.FieldReleaseEligibility:
+		m.ResetReleaseEligibility()
+		return nil
+	case attachmentversion.FieldReleaseHold:
+		m.ResetReleaseHold()
+		return nil
+	case attachmentversion.FieldReleaseRevision:
+		m.ResetReleaseRevision()
 		return nil
 	case attachmentversion.FieldCreatedAt:
 		m.ResetCreatedAt()
@@ -13903,61 +14098,67 @@ func (m *DraftEditMutation) ResetEdge(name string) error {
 // EventMutation represents an operation that mutates the Event nodes in the graph.
 type EventMutation struct {
 	config
-	op                         Op
-	typ                        string
-	id                         *int
-	name                       *string
-	planned_start_date         *string
-	planned_end_date           *string
-	timezone                   *string
-	event_locale               *string
-	content_language           *string
-	event_day_boundary         *string
-	entry_default_disposition  *event.EntryDefaultDisposition
-	target_adjustment_presets  *string
-	display_configuration      *string
-	revision                   *int
-	addrevision                *int
-	created_at                 *time.Time
-	clearedFields              map[string]struct{}
-	grants                     map[int]struct{}
-	removedgrants              map[int]struct{}
-	clearedgrants              bool
-	rundown                    *int
-	clearedrundown             bool
-	locations                  map[int]struct{}
-	removedlocations           map[int]struct{}
-	clearedlocations           bool
-	lanes                      map[int]struct{}
-	removedlanes               map[int]struct{}
-	clearedlanes               bool
-	tracks                     map[int]struct{}
-	removedtracks              map[int]struct{}
-	clearedtracks              bool
-	sessions                   map[int]struct{}
-	removedsessions            map[int]struct{}
-	clearedsessions            bool
-	competition_entries        map[int]struct{}
-	removedcompetition_entries map[int]struct{}
-	clearedcompetition_entries bool
-	upload_links               map[int]struct{}
-	removedupload_links        map[int]struct{}
-	clearedupload_links        bool
-	draft_edits                map[int]struct{}
-	removeddraft_edits         map[int]struct{}
-	cleareddraft_edits         bool
-	draft_changes              map[int]struct{}
-	removeddraft_changes       map[int]struct{}
-	cleareddraft_changes       bool
-	import_references          map[int]struct{}
-	removedimport_references   map[int]struct{}
-	clearedimport_references   bool
-	display_assignments        map[int]struct{}
-	removeddisplay_assignments map[int]struct{}
-	cleareddisplay_assignments bool
-	done                       bool
-	oldValue                   func(context.Context) (*Event, error)
-	predicates                 []predicate.Event
+	op                                   Op
+	typ                                  string
+	id                                   *int
+	name                                 *string
+	planned_start_date                   *string
+	planned_end_date                     *string
+	timezone                             *string
+	event_locale                         *string
+	content_language                     *string
+	event_day_boundary                   *string
+	entry_default_disposition            *event.EntryDefaultDisposition
+	target_adjustment_presets            *string
+	display_configuration                *string
+	attachment_release_policy            *event.AttachmentReleasePolicy
+	attachment_release_cue_session_id    *int
+	addattachment_release_cue_session_id *int
+	attachment_release_cue_at            *time.Time
+	attachment_release_revision          *int
+	addattachment_release_revision       *int
+	revision                             *int
+	addrevision                          *int
+	created_at                           *time.Time
+	clearedFields                        map[string]struct{}
+	grants                               map[int]struct{}
+	removedgrants                        map[int]struct{}
+	clearedgrants                        bool
+	rundown                              *int
+	clearedrundown                       bool
+	locations                            map[int]struct{}
+	removedlocations                     map[int]struct{}
+	clearedlocations                     bool
+	lanes                                map[int]struct{}
+	removedlanes                         map[int]struct{}
+	clearedlanes                         bool
+	tracks                               map[int]struct{}
+	removedtracks                        map[int]struct{}
+	clearedtracks                        bool
+	sessions                             map[int]struct{}
+	removedsessions                      map[int]struct{}
+	clearedsessions                      bool
+	competition_entries                  map[int]struct{}
+	removedcompetition_entries           map[int]struct{}
+	clearedcompetition_entries           bool
+	upload_links                         map[int]struct{}
+	removedupload_links                  map[int]struct{}
+	clearedupload_links                  bool
+	draft_edits                          map[int]struct{}
+	removeddraft_edits                   map[int]struct{}
+	cleareddraft_edits                   bool
+	draft_changes                        map[int]struct{}
+	removeddraft_changes                 map[int]struct{}
+	cleareddraft_changes                 bool
+	import_references                    map[int]struct{}
+	removedimport_references             map[int]struct{}
+	clearedimport_references             bool
+	display_assignments                  map[int]struct{}
+	removeddisplay_assignments           map[int]struct{}
+	cleareddisplay_assignments           bool
+	done                                 bool
+	oldValue                             func(context.Context) (*Event, error)
+	predicates                           []predicate.Event
 }
 
 var _ ent.Mutation = (*EventMutation)(nil)
@@ -14429,6 +14630,217 @@ func (m *EventMutation) OldDisplayConfiguration(ctx context.Context) (v string, 
 // ResetDisplayConfiguration resets all changes to the "display_configuration" field.
 func (m *EventMutation) ResetDisplayConfiguration() {
 	m.display_configuration = nil
+}
+
+// SetAttachmentReleasePolicy sets the "attachment_release_policy" field.
+func (m *EventMutation) SetAttachmentReleasePolicy(erp event.AttachmentReleasePolicy) {
+	m.attachment_release_policy = &erp
+}
+
+// AttachmentReleasePolicy returns the value of the "attachment_release_policy" field in the mutation.
+func (m *EventMutation) AttachmentReleasePolicy() (r event.AttachmentReleasePolicy, exists bool) {
+	v := m.attachment_release_policy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAttachmentReleasePolicy returns the old "attachment_release_policy" field's value of the Event entity.
+// If the Event object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventMutation) OldAttachmentReleasePolicy(ctx context.Context) (v event.AttachmentReleasePolicy, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAttachmentReleasePolicy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAttachmentReleasePolicy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAttachmentReleasePolicy: %w", err)
+	}
+	return oldValue.AttachmentReleasePolicy, nil
+}
+
+// ResetAttachmentReleasePolicy resets all changes to the "attachment_release_policy" field.
+func (m *EventMutation) ResetAttachmentReleasePolicy() {
+	m.attachment_release_policy = nil
+}
+
+// SetAttachmentReleaseCueSessionID sets the "attachment_release_cue_session_id" field.
+func (m *EventMutation) SetAttachmentReleaseCueSessionID(i int) {
+	m.attachment_release_cue_session_id = &i
+	m.addattachment_release_cue_session_id = nil
+}
+
+// AttachmentReleaseCueSessionID returns the value of the "attachment_release_cue_session_id" field in the mutation.
+func (m *EventMutation) AttachmentReleaseCueSessionID() (r int, exists bool) {
+	v := m.attachment_release_cue_session_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAttachmentReleaseCueSessionID returns the old "attachment_release_cue_session_id" field's value of the Event entity.
+// If the Event object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventMutation) OldAttachmentReleaseCueSessionID(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAttachmentReleaseCueSessionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAttachmentReleaseCueSessionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAttachmentReleaseCueSessionID: %w", err)
+	}
+	return oldValue.AttachmentReleaseCueSessionID, nil
+}
+
+// AddAttachmentReleaseCueSessionID adds i to the "attachment_release_cue_session_id" field.
+func (m *EventMutation) AddAttachmentReleaseCueSessionID(i int) {
+	if m.addattachment_release_cue_session_id != nil {
+		*m.addattachment_release_cue_session_id += i
+	} else {
+		m.addattachment_release_cue_session_id = &i
+	}
+}
+
+// AddedAttachmentReleaseCueSessionID returns the value that was added to the "attachment_release_cue_session_id" field in this mutation.
+func (m *EventMutation) AddedAttachmentReleaseCueSessionID() (r int, exists bool) {
+	v := m.addattachment_release_cue_session_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearAttachmentReleaseCueSessionID clears the value of the "attachment_release_cue_session_id" field.
+func (m *EventMutation) ClearAttachmentReleaseCueSessionID() {
+	m.attachment_release_cue_session_id = nil
+	m.addattachment_release_cue_session_id = nil
+	m.clearedFields[event.FieldAttachmentReleaseCueSessionID] = struct{}{}
+}
+
+// AttachmentReleaseCueSessionIDCleared returns if the "attachment_release_cue_session_id" field was cleared in this mutation.
+func (m *EventMutation) AttachmentReleaseCueSessionIDCleared() bool {
+	_, ok := m.clearedFields[event.FieldAttachmentReleaseCueSessionID]
+	return ok
+}
+
+// ResetAttachmentReleaseCueSessionID resets all changes to the "attachment_release_cue_session_id" field.
+func (m *EventMutation) ResetAttachmentReleaseCueSessionID() {
+	m.attachment_release_cue_session_id = nil
+	m.addattachment_release_cue_session_id = nil
+	delete(m.clearedFields, event.FieldAttachmentReleaseCueSessionID)
+}
+
+// SetAttachmentReleaseCueAt sets the "attachment_release_cue_at" field.
+func (m *EventMutation) SetAttachmentReleaseCueAt(t time.Time) {
+	m.attachment_release_cue_at = &t
+}
+
+// AttachmentReleaseCueAt returns the value of the "attachment_release_cue_at" field in the mutation.
+func (m *EventMutation) AttachmentReleaseCueAt() (r time.Time, exists bool) {
+	v := m.attachment_release_cue_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAttachmentReleaseCueAt returns the old "attachment_release_cue_at" field's value of the Event entity.
+// If the Event object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventMutation) OldAttachmentReleaseCueAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAttachmentReleaseCueAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAttachmentReleaseCueAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAttachmentReleaseCueAt: %w", err)
+	}
+	return oldValue.AttachmentReleaseCueAt, nil
+}
+
+// ClearAttachmentReleaseCueAt clears the value of the "attachment_release_cue_at" field.
+func (m *EventMutation) ClearAttachmentReleaseCueAt() {
+	m.attachment_release_cue_at = nil
+	m.clearedFields[event.FieldAttachmentReleaseCueAt] = struct{}{}
+}
+
+// AttachmentReleaseCueAtCleared returns if the "attachment_release_cue_at" field was cleared in this mutation.
+func (m *EventMutation) AttachmentReleaseCueAtCleared() bool {
+	_, ok := m.clearedFields[event.FieldAttachmentReleaseCueAt]
+	return ok
+}
+
+// ResetAttachmentReleaseCueAt resets all changes to the "attachment_release_cue_at" field.
+func (m *EventMutation) ResetAttachmentReleaseCueAt() {
+	m.attachment_release_cue_at = nil
+	delete(m.clearedFields, event.FieldAttachmentReleaseCueAt)
+}
+
+// SetAttachmentReleaseRevision sets the "attachment_release_revision" field.
+func (m *EventMutation) SetAttachmentReleaseRevision(i int) {
+	m.attachment_release_revision = &i
+	m.addattachment_release_revision = nil
+}
+
+// AttachmentReleaseRevision returns the value of the "attachment_release_revision" field in the mutation.
+func (m *EventMutation) AttachmentReleaseRevision() (r int, exists bool) {
+	v := m.attachment_release_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAttachmentReleaseRevision returns the old "attachment_release_revision" field's value of the Event entity.
+// If the Event object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventMutation) OldAttachmentReleaseRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAttachmentReleaseRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAttachmentReleaseRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAttachmentReleaseRevision: %w", err)
+	}
+	return oldValue.AttachmentReleaseRevision, nil
+}
+
+// AddAttachmentReleaseRevision adds i to the "attachment_release_revision" field.
+func (m *EventMutation) AddAttachmentReleaseRevision(i int) {
+	if m.addattachment_release_revision != nil {
+		*m.addattachment_release_revision += i
+	} else {
+		m.addattachment_release_revision = &i
+	}
+}
+
+// AddedAttachmentReleaseRevision returns the value that was added to the "attachment_release_revision" field in this mutation.
+func (m *EventMutation) AddedAttachmentReleaseRevision() (r int, exists bool) {
+	v := m.addattachment_release_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAttachmentReleaseRevision resets all changes to the "attachment_release_revision" field.
+func (m *EventMutation) ResetAttachmentReleaseRevision() {
+	m.attachment_release_revision = nil
+	m.addattachment_release_revision = nil
 }
 
 // SetRevision sets the "revision" field.
@@ -15190,7 +15602,7 @@ func (m *EventMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *EventMutation) Fields() []string {
-	fields := make([]string, 0, 12)
+	fields := make([]string, 0, 16)
 	if m.name != nil {
 		fields = append(fields, event.FieldName)
 	}
@@ -15220,6 +15632,18 @@ func (m *EventMutation) Fields() []string {
 	}
 	if m.display_configuration != nil {
 		fields = append(fields, event.FieldDisplayConfiguration)
+	}
+	if m.attachment_release_policy != nil {
+		fields = append(fields, event.FieldAttachmentReleasePolicy)
+	}
+	if m.attachment_release_cue_session_id != nil {
+		fields = append(fields, event.FieldAttachmentReleaseCueSessionID)
+	}
+	if m.attachment_release_cue_at != nil {
+		fields = append(fields, event.FieldAttachmentReleaseCueAt)
+	}
+	if m.attachment_release_revision != nil {
+		fields = append(fields, event.FieldAttachmentReleaseRevision)
 	}
 	if m.revision != nil {
 		fields = append(fields, event.FieldRevision)
@@ -15255,6 +15679,14 @@ func (m *EventMutation) Field(name string) (ent.Value, bool) {
 		return m.TargetAdjustmentPresets()
 	case event.FieldDisplayConfiguration:
 		return m.DisplayConfiguration()
+	case event.FieldAttachmentReleasePolicy:
+		return m.AttachmentReleasePolicy()
+	case event.FieldAttachmentReleaseCueSessionID:
+		return m.AttachmentReleaseCueSessionID()
+	case event.FieldAttachmentReleaseCueAt:
+		return m.AttachmentReleaseCueAt()
+	case event.FieldAttachmentReleaseRevision:
+		return m.AttachmentReleaseRevision()
 	case event.FieldRevision:
 		return m.Revision()
 	case event.FieldCreatedAt:
@@ -15288,6 +15720,14 @@ func (m *EventMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldTargetAdjustmentPresets(ctx)
 	case event.FieldDisplayConfiguration:
 		return m.OldDisplayConfiguration(ctx)
+	case event.FieldAttachmentReleasePolicy:
+		return m.OldAttachmentReleasePolicy(ctx)
+	case event.FieldAttachmentReleaseCueSessionID:
+		return m.OldAttachmentReleaseCueSessionID(ctx)
+	case event.FieldAttachmentReleaseCueAt:
+		return m.OldAttachmentReleaseCueAt(ctx)
+	case event.FieldAttachmentReleaseRevision:
+		return m.OldAttachmentReleaseRevision(ctx)
 	case event.FieldRevision:
 		return m.OldRevision(ctx)
 	case event.FieldCreatedAt:
@@ -15371,6 +15811,34 @@ func (m *EventMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetDisplayConfiguration(v)
 		return nil
+	case event.FieldAttachmentReleasePolicy:
+		v, ok := value.(event.AttachmentReleasePolicy)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAttachmentReleasePolicy(v)
+		return nil
+	case event.FieldAttachmentReleaseCueSessionID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAttachmentReleaseCueSessionID(v)
+		return nil
+	case event.FieldAttachmentReleaseCueAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAttachmentReleaseCueAt(v)
+		return nil
+	case event.FieldAttachmentReleaseRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAttachmentReleaseRevision(v)
+		return nil
 	case event.FieldRevision:
 		v, ok := value.(int)
 		if !ok {
@@ -15393,6 +15861,12 @@ func (m *EventMutation) SetField(name string, value ent.Value) error {
 // this mutation.
 func (m *EventMutation) AddedFields() []string {
 	var fields []string
+	if m.addattachment_release_cue_session_id != nil {
+		fields = append(fields, event.FieldAttachmentReleaseCueSessionID)
+	}
+	if m.addattachment_release_revision != nil {
+		fields = append(fields, event.FieldAttachmentReleaseRevision)
+	}
 	if m.addrevision != nil {
 		fields = append(fields, event.FieldRevision)
 	}
@@ -15404,6 +15878,10 @@ func (m *EventMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *EventMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
+	case event.FieldAttachmentReleaseCueSessionID:
+		return m.AddedAttachmentReleaseCueSessionID()
+	case event.FieldAttachmentReleaseRevision:
+		return m.AddedAttachmentReleaseRevision()
 	case event.FieldRevision:
 		return m.AddedRevision()
 	}
@@ -15415,6 +15893,20 @@ func (m *EventMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *EventMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case event.FieldAttachmentReleaseCueSessionID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAttachmentReleaseCueSessionID(v)
+		return nil
+	case event.FieldAttachmentReleaseRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAttachmentReleaseRevision(v)
+		return nil
 	case event.FieldRevision:
 		v, ok := value.(int)
 		if !ok {
@@ -15433,6 +15925,12 @@ func (m *EventMutation) ClearedFields() []string {
 	if m.FieldCleared(event.FieldContentLanguage) {
 		fields = append(fields, event.FieldContentLanguage)
 	}
+	if m.FieldCleared(event.FieldAttachmentReleaseCueSessionID) {
+		fields = append(fields, event.FieldAttachmentReleaseCueSessionID)
+	}
+	if m.FieldCleared(event.FieldAttachmentReleaseCueAt) {
+		fields = append(fields, event.FieldAttachmentReleaseCueAt)
+	}
 	return fields
 }
 
@@ -15449,6 +15947,12 @@ func (m *EventMutation) ClearField(name string) error {
 	switch name {
 	case event.FieldContentLanguage:
 		m.ClearContentLanguage()
+		return nil
+	case event.FieldAttachmentReleaseCueSessionID:
+		m.ClearAttachmentReleaseCueSessionID()
+		return nil
+	case event.FieldAttachmentReleaseCueAt:
+		m.ClearAttachmentReleaseCueAt()
 		return nil
 	}
 	return fmt.Errorf("unknown Event nullable field %s", name)
@@ -15487,6 +15991,18 @@ func (m *EventMutation) ResetField(name string) error {
 		return nil
 	case event.FieldDisplayConfiguration:
 		m.ResetDisplayConfiguration()
+		return nil
+	case event.FieldAttachmentReleasePolicy:
+		m.ResetAttachmentReleasePolicy()
+		return nil
+	case event.FieldAttachmentReleaseCueSessionID:
+		m.ResetAttachmentReleaseCueSessionID()
+		return nil
+	case event.FieldAttachmentReleaseCueAt:
+		m.ResetAttachmentReleaseCueAt()
+		return nil
+	case event.FieldAttachmentReleaseRevision:
+		m.ResetAttachmentReleaseRevision()
 		return nil
 	case event.FieldRevision:
 		m.ResetRevision()
@@ -24819,69 +25335,72 @@ func (m *RundownMutation) ResetEdge(name string) error {
 // SessionMutation represents an operation that mutates the Session nodes in the graph.
 type SessionMutation struct {
 	config
-	op                           Op
-	typ                          string
-	id                           *int
-	lifecycle                    *session.Lifecycle
-	live_state_revision          *int
-	addlive_state_revision       *int
-	forecast_start               *time.Time
-	forecast_end                 *time.Time
-	communicated_start           *time.Time
-	communicated_end             *time.Time
-	previous_forecast_start      *time.Time
-	forecast_lane_ids            *[]int
-	appendforecast_lane_ids      []int
-	forecast_location_ids        *[]int
-	appendforecast_location_ids  []int
-	public_cancellation_message  *string
-	cancellation_crew_notes      *string
-	corrected_title              *string
-	corrected_speaker            *string
-	corrected_public_details     *string
-	require_entry_review         *bool
-	file_delivery_required       *bool
-	readiness_revision           *int
-	addreadiness_revision        *int
-	entry_order_policy           *session.EntryOrderPolicy
-	entry_order_seed             *int64
-	addentry_order_seed          *int64
-	entry_order_manual_ids       *[]int
-	appendentry_order_manual_ids []int
-	locked_entry_order_ids       *[]int
-	appendlocked_entry_order_ids []int
-	entry_order_locked_at        *time.Time
-	entry_order_revision         *int
-	addentry_order_revision      *int
-	program_output_kind          *session.ProgramOutputKind
-	program_output_entry_id      *int
-	addprogram_output_entry_id   *int
-	program_output_revision      *int
-	addprogram_output_revision   *int
-	program_cursor               *int
-	addprogram_cursor            *int
-	program_output_taken_at      *time.Time
-	created_at                   *time.Time
-	clearedFields                map[string]struct{}
-	event                        *int
-	clearedevent                 bool
-	draft                        *int
-	cleareddraft                 bool
-	published_versions           map[int]struct{}
-	removedpublished_versions    map[int]struct{}
-	clearedpublished_versions    bool
-	runs                         map[int]struct{}
-	removedruns                  map[int]struct{}
-	clearedruns                  bool
-	cancellations                map[int]struct{}
-	removedcancellations         map[int]struct{}
-	clearedcancellations         bool
-	competition_entries          map[int]struct{}
-	removedcompetition_entries   map[int]struct{}
-	clearedcompetition_entries   bool
-	done                         bool
-	oldValue                     func(context.Context) (*Session, error)
-	predicates                   []predicate.Session
+	op                                 Op
+	typ                                string
+	id                                 *int
+	lifecycle                          *session.Lifecycle
+	live_state_revision                *int
+	addlive_state_revision             *int
+	forecast_start                     *time.Time
+	forecast_end                       *time.Time
+	communicated_start                 *time.Time
+	communicated_end                   *time.Time
+	previous_forecast_start            *time.Time
+	forecast_lane_ids                  *[]int
+	appendforecast_lane_ids            []int
+	forecast_location_ids              *[]int
+	appendforecast_location_ids        []int
+	public_cancellation_message        *string
+	cancellation_crew_notes            *string
+	corrected_title                    *string
+	corrected_speaker                  *string
+	corrected_public_details           *string
+	require_entry_review               *bool
+	file_delivery_required             *bool
+	readiness_revision                 *int
+	addreadiness_revision              *int
+	entry_order_policy                 *session.EntryOrderPolicy
+	entry_order_seed                   *int64
+	addentry_order_seed                *int64
+	entry_order_manual_ids             *[]int
+	appendentry_order_manual_ids       []int
+	locked_entry_order_ids             *[]int
+	appendlocked_entry_order_ids       []int
+	entry_order_locked_at              *time.Time
+	entry_order_revision               *int
+	addentry_order_revision            *int
+	program_output_kind                *session.ProgramOutputKind
+	program_output_entry_id            *int
+	addprogram_output_entry_id         *int
+	program_output_revision            *int
+	addprogram_output_revision         *int
+	program_cursor                     *int
+	addprogram_cursor                  *int
+	program_output_taken_at            *time.Time
+	attachment_release_policy_override *session.AttachmentReleasePolicyOverride
+	attachment_release_revision        *int
+	addattachment_release_revision     *int
+	created_at                         *time.Time
+	clearedFields                      map[string]struct{}
+	event                              *int
+	clearedevent                       bool
+	draft                              *int
+	cleareddraft                       bool
+	published_versions                 map[int]struct{}
+	removedpublished_versions          map[int]struct{}
+	clearedpublished_versions          bool
+	runs                               map[int]struct{}
+	removedruns                        map[int]struct{}
+	clearedruns                        bool
+	cancellations                      map[int]struct{}
+	removedcancellations               map[int]struct{}
+	clearedcancellations               bool
+	competition_entries                map[int]struct{}
+	removedcompetition_entries         map[int]struct{}
+	clearedcompetition_entries         bool
+	done                               bool
+	oldValue                           func(context.Context) (*Session, error)
+	predicates                         []predicate.Session
 }
 
 var _ ent.Mutation = (*SessionMutation)(nil)
@@ -26465,6 +26984,111 @@ func (m *SessionMutation) ResetProgramOutputTakenAt() {
 	delete(m.clearedFields, session.FieldProgramOutputTakenAt)
 }
 
+// SetAttachmentReleasePolicyOverride sets the "attachment_release_policy_override" field.
+func (m *SessionMutation) SetAttachmentReleasePolicyOverride(srpo session.AttachmentReleasePolicyOverride) {
+	m.attachment_release_policy_override = &srpo
+}
+
+// AttachmentReleasePolicyOverride returns the value of the "attachment_release_policy_override" field in the mutation.
+func (m *SessionMutation) AttachmentReleasePolicyOverride() (r session.AttachmentReleasePolicyOverride, exists bool) {
+	v := m.attachment_release_policy_override
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAttachmentReleasePolicyOverride returns the old "attachment_release_policy_override" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldAttachmentReleasePolicyOverride(ctx context.Context) (v *session.AttachmentReleasePolicyOverride, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAttachmentReleasePolicyOverride is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAttachmentReleasePolicyOverride requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAttachmentReleasePolicyOverride: %w", err)
+	}
+	return oldValue.AttachmentReleasePolicyOverride, nil
+}
+
+// ClearAttachmentReleasePolicyOverride clears the value of the "attachment_release_policy_override" field.
+func (m *SessionMutation) ClearAttachmentReleasePolicyOverride() {
+	m.attachment_release_policy_override = nil
+	m.clearedFields[session.FieldAttachmentReleasePolicyOverride] = struct{}{}
+}
+
+// AttachmentReleasePolicyOverrideCleared returns if the "attachment_release_policy_override" field was cleared in this mutation.
+func (m *SessionMutation) AttachmentReleasePolicyOverrideCleared() bool {
+	_, ok := m.clearedFields[session.FieldAttachmentReleasePolicyOverride]
+	return ok
+}
+
+// ResetAttachmentReleasePolicyOverride resets all changes to the "attachment_release_policy_override" field.
+func (m *SessionMutation) ResetAttachmentReleasePolicyOverride() {
+	m.attachment_release_policy_override = nil
+	delete(m.clearedFields, session.FieldAttachmentReleasePolicyOverride)
+}
+
+// SetAttachmentReleaseRevision sets the "attachment_release_revision" field.
+func (m *SessionMutation) SetAttachmentReleaseRevision(i int) {
+	m.attachment_release_revision = &i
+	m.addattachment_release_revision = nil
+}
+
+// AttachmentReleaseRevision returns the value of the "attachment_release_revision" field in the mutation.
+func (m *SessionMutation) AttachmentReleaseRevision() (r int, exists bool) {
+	v := m.attachment_release_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAttachmentReleaseRevision returns the old "attachment_release_revision" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldAttachmentReleaseRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAttachmentReleaseRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAttachmentReleaseRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAttachmentReleaseRevision: %w", err)
+	}
+	return oldValue.AttachmentReleaseRevision, nil
+}
+
+// AddAttachmentReleaseRevision adds i to the "attachment_release_revision" field.
+func (m *SessionMutation) AddAttachmentReleaseRevision(i int) {
+	if m.addattachment_release_revision != nil {
+		*m.addattachment_release_revision += i
+	} else {
+		m.addattachment_release_revision = &i
+	}
+}
+
+// AddedAttachmentReleaseRevision returns the value that was added to the "attachment_release_revision" field in this mutation.
+func (m *SessionMutation) AddedAttachmentReleaseRevision() (r int, exists bool) {
+	v := m.addattachment_release_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAttachmentReleaseRevision resets all changes to the "attachment_release_revision" field.
+func (m *SessionMutation) ResetAttachmentReleaseRevision() {
+	m.attachment_release_revision = nil
+	m.addattachment_release_revision = nil
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *SessionMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -26817,7 +27441,7 @@ func (m *SessionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SessionMutation) Fields() []string {
-	fields := make([]string, 0, 30)
+	fields := make([]string, 0, 32)
 	if m.event != nil {
 		fields = append(fields, session.FieldEventID)
 	}
@@ -26905,6 +27529,12 @@ func (m *SessionMutation) Fields() []string {
 	if m.program_output_taken_at != nil {
 		fields = append(fields, session.FieldProgramOutputTakenAt)
 	}
+	if m.attachment_release_policy_override != nil {
+		fields = append(fields, session.FieldAttachmentReleasePolicyOverride)
+	}
+	if m.attachment_release_revision != nil {
+		fields = append(fields, session.FieldAttachmentReleaseRevision)
+	}
 	if m.created_at != nil {
 		fields = append(fields, session.FieldCreatedAt)
 	}
@@ -26974,6 +27604,10 @@ func (m *SessionMutation) Field(name string) (ent.Value, bool) {
 		return m.ProgramCursor()
 	case session.FieldProgramOutputTakenAt:
 		return m.ProgramOutputTakenAt()
+	case session.FieldAttachmentReleasePolicyOverride:
+		return m.AttachmentReleasePolicyOverride()
+	case session.FieldAttachmentReleaseRevision:
+		return m.AttachmentReleaseRevision()
 	case session.FieldCreatedAt:
 		return m.CreatedAt()
 	}
@@ -27043,6 +27677,10 @@ func (m *SessionMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldProgramCursor(ctx)
 	case session.FieldProgramOutputTakenAt:
 		return m.OldProgramOutputTakenAt(ctx)
+	case session.FieldAttachmentReleasePolicyOverride:
+		return m.OldAttachmentReleasePolicyOverride(ctx)
+	case session.FieldAttachmentReleaseRevision:
+		return m.OldAttachmentReleaseRevision(ctx)
 	case session.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	}
@@ -27257,6 +27895,20 @@ func (m *SessionMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetProgramOutputTakenAt(v)
 		return nil
+	case session.FieldAttachmentReleasePolicyOverride:
+		v, ok := value.(session.AttachmentReleasePolicyOverride)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAttachmentReleasePolicyOverride(v)
+		return nil
+	case session.FieldAttachmentReleaseRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAttachmentReleaseRevision(v)
+		return nil
 	case session.FieldCreatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -27293,6 +27945,9 @@ func (m *SessionMutation) AddedFields() []string {
 	if m.addprogram_cursor != nil {
 		fields = append(fields, session.FieldProgramCursor)
 	}
+	if m.addattachment_release_revision != nil {
+		fields = append(fields, session.FieldAttachmentReleaseRevision)
+	}
 	return fields
 }
 
@@ -27315,6 +27970,8 @@ func (m *SessionMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedProgramOutputRevision()
 	case session.FieldProgramCursor:
 		return m.AddedProgramCursor()
+	case session.FieldAttachmentReleaseRevision:
+		return m.AddedAttachmentReleaseRevision()
 	}
 	return nil, false
 }
@@ -27372,6 +28029,13 @@ func (m *SessionMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddProgramCursor(v)
+		return nil
+	case session.FieldAttachmentReleaseRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAttachmentReleaseRevision(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Session numeric field %s", name)
@@ -27434,6 +28098,9 @@ func (m *SessionMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(session.FieldProgramOutputTakenAt) {
 		fields = append(fields, session.FieldProgramOutputTakenAt)
+	}
+	if m.FieldCleared(session.FieldAttachmentReleasePolicyOverride) {
+		fields = append(fields, session.FieldAttachmentReleasePolicyOverride)
 	}
 	return fields
 }
@@ -27502,6 +28169,9 @@ func (m *SessionMutation) ClearField(name string) error {
 		return nil
 	case session.FieldProgramOutputTakenAt:
 		m.ClearProgramOutputTakenAt()
+		return nil
+	case session.FieldAttachmentReleasePolicyOverride:
+		m.ClearAttachmentReleasePolicyOverride()
 		return nil
 	}
 	return fmt.Errorf("unknown Session nullable field %s", name)
@@ -27597,6 +28267,12 @@ func (m *SessionMutation) ResetField(name string) error {
 		return nil
 	case session.FieldProgramOutputTakenAt:
 		m.ResetProgramOutputTakenAt()
+		return nil
+	case session.FieldAttachmentReleasePolicyOverride:
+		m.ResetAttachmentReleasePolicyOverride()
+		return nil
+	case session.FieldAttachmentReleaseRevision:
+		m.ResetAttachmentReleaseRevision()
 		return nil
 	case session.FieldCreatedAt:
 		m.ResetCreatedAt()

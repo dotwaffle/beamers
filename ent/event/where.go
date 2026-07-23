@@ -100,6 +100,21 @@ func DisplayConfiguration(v string) predicate.Event {
 	return predicate.Event(sql.FieldEQ(FieldDisplayConfiguration, v))
 }
 
+// AttachmentReleaseCueSessionID applies equality check predicate on the "attachment_release_cue_session_id" field. It's identical to AttachmentReleaseCueSessionIDEQ.
+func AttachmentReleaseCueSessionID(v int) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldAttachmentReleaseCueSessionID, v))
+}
+
+// AttachmentReleaseCueAt applies equality check predicate on the "attachment_release_cue_at" field. It's identical to AttachmentReleaseCueAtEQ.
+func AttachmentReleaseCueAt(v time.Time) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldAttachmentReleaseCueAt, v))
+}
+
+// AttachmentReleaseRevision applies equality check predicate on the "attachment_release_revision" field. It's identical to AttachmentReleaseRevisionEQ.
+func AttachmentReleaseRevision(v int) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldAttachmentReleaseRevision, v))
+}
+
 // Revision applies equality check predicate on the "revision" field. It's identical to RevisionEQ.
 func Revision(v int) predicate.Event {
 	return predicate.Event(sql.FieldEQ(FieldRevision, v))
@@ -723,6 +738,166 @@ func DisplayConfigurationEqualFold(v string) predicate.Event {
 // DisplayConfigurationContainsFold applies the ContainsFold predicate on the "display_configuration" field.
 func DisplayConfigurationContainsFold(v string) predicate.Event {
 	return predicate.Event(sql.FieldContainsFold(FieldDisplayConfiguration, v))
+}
+
+// AttachmentReleasePolicyEQ applies the EQ predicate on the "attachment_release_policy" field.
+func AttachmentReleasePolicyEQ(v AttachmentReleasePolicy) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldAttachmentReleasePolicy, v))
+}
+
+// AttachmentReleasePolicyNEQ applies the NEQ predicate on the "attachment_release_policy" field.
+func AttachmentReleasePolicyNEQ(v AttachmentReleasePolicy) predicate.Event {
+	return predicate.Event(sql.FieldNEQ(FieldAttachmentReleasePolicy, v))
+}
+
+// AttachmentReleasePolicyIn applies the In predicate on the "attachment_release_policy" field.
+func AttachmentReleasePolicyIn(vs ...AttachmentReleasePolicy) predicate.Event {
+	return predicate.Event(sql.FieldIn(FieldAttachmentReleasePolicy, vs...))
+}
+
+// AttachmentReleasePolicyNotIn applies the NotIn predicate on the "attachment_release_policy" field.
+func AttachmentReleasePolicyNotIn(vs ...AttachmentReleasePolicy) predicate.Event {
+	return predicate.Event(sql.FieldNotIn(FieldAttachmentReleasePolicy, vs...))
+}
+
+// AttachmentReleaseCueSessionIDEQ applies the EQ predicate on the "attachment_release_cue_session_id" field.
+func AttachmentReleaseCueSessionIDEQ(v int) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldAttachmentReleaseCueSessionID, v))
+}
+
+// AttachmentReleaseCueSessionIDNEQ applies the NEQ predicate on the "attachment_release_cue_session_id" field.
+func AttachmentReleaseCueSessionIDNEQ(v int) predicate.Event {
+	return predicate.Event(sql.FieldNEQ(FieldAttachmentReleaseCueSessionID, v))
+}
+
+// AttachmentReleaseCueSessionIDIn applies the In predicate on the "attachment_release_cue_session_id" field.
+func AttachmentReleaseCueSessionIDIn(vs ...int) predicate.Event {
+	return predicate.Event(sql.FieldIn(FieldAttachmentReleaseCueSessionID, vs...))
+}
+
+// AttachmentReleaseCueSessionIDNotIn applies the NotIn predicate on the "attachment_release_cue_session_id" field.
+func AttachmentReleaseCueSessionIDNotIn(vs ...int) predicate.Event {
+	return predicate.Event(sql.FieldNotIn(FieldAttachmentReleaseCueSessionID, vs...))
+}
+
+// AttachmentReleaseCueSessionIDGT applies the GT predicate on the "attachment_release_cue_session_id" field.
+func AttachmentReleaseCueSessionIDGT(v int) predicate.Event {
+	return predicate.Event(sql.FieldGT(FieldAttachmentReleaseCueSessionID, v))
+}
+
+// AttachmentReleaseCueSessionIDGTE applies the GTE predicate on the "attachment_release_cue_session_id" field.
+func AttachmentReleaseCueSessionIDGTE(v int) predicate.Event {
+	return predicate.Event(sql.FieldGTE(FieldAttachmentReleaseCueSessionID, v))
+}
+
+// AttachmentReleaseCueSessionIDLT applies the LT predicate on the "attachment_release_cue_session_id" field.
+func AttachmentReleaseCueSessionIDLT(v int) predicate.Event {
+	return predicate.Event(sql.FieldLT(FieldAttachmentReleaseCueSessionID, v))
+}
+
+// AttachmentReleaseCueSessionIDLTE applies the LTE predicate on the "attachment_release_cue_session_id" field.
+func AttachmentReleaseCueSessionIDLTE(v int) predicate.Event {
+	return predicate.Event(sql.FieldLTE(FieldAttachmentReleaseCueSessionID, v))
+}
+
+// AttachmentReleaseCueSessionIDIsNil applies the IsNil predicate on the "attachment_release_cue_session_id" field.
+func AttachmentReleaseCueSessionIDIsNil() predicate.Event {
+	return predicate.Event(sql.FieldIsNull(FieldAttachmentReleaseCueSessionID))
+}
+
+// AttachmentReleaseCueSessionIDNotNil applies the NotNil predicate on the "attachment_release_cue_session_id" field.
+func AttachmentReleaseCueSessionIDNotNil() predicate.Event {
+	return predicate.Event(sql.FieldNotNull(FieldAttachmentReleaseCueSessionID))
+}
+
+// AttachmentReleaseCueAtEQ applies the EQ predicate on the "attachment_release_cue_at" field.
+func AttachmentReleaseCueAtEQ(v time.Time) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldAttachmentReleaseCueAt, v))
+}
+
+// AttachmentReleaseCueAtNEQ applies the NEQ predicate on the "attachment_release_cue_at" field.
+func AttachmentReleaseCueAtNEQ(v time.Time) predicate.Event {
+	return predicate.Event(sql.FieldNEQ(FieldAttachmentReleaseCueAt, v))
+}
+
+// AttachmentReleaseCueAtIn applies the In predicate on the "attachment_release_cue_at" field.
+func AttachmentReleaseCueAtIn(vs ...time.Time) predicate.Event {
+	return predicate.Event(sql.FieldIn(FieldAttachmentReleaseCueAt, vs...))
+}
+
+// AttachmentReleaseCueAtNotIn applies the NotIn predicate on the "attachment_release_cue_at" field.
+func AttachmentReleaseCueAtNotIn(vs ...time.Time) predicate.Event {
+	return predicate.Event(sql.FieldNotIn(FieldAttachmentReleaseCueAt, vs...))
+}
+
+// AttachmentReleaseCueAtGT applies the GT predicate on the "attachment_release_cue_at" field.
+func AttachmentReleaseCueAtGT(v time.Time) predicate.Event {
+	return predicate.Event(sql.FieldGT(FieldAttachmentReleaseCueAt, v))
+}
+
+// AttachmentReleaseCueAtGTE applies the GTE predicate on the "attachment_release_cue_at" field.
+func AttachmentReleaseCueAtGTE(v time.Time) predicate.Event {
+	return predicate.Event(sql.FieldGTE(FieldAttachmentReleaseCueAt, v))
+}
+
+// AttachmentReleaseCueAtLT applies the LT predicate on the "attachment_release_cue_at" field.
+func AttachmentReleaseCueAtLT(v time.Time) predicate.Event {
+	return predicate.Event(sql.FieldLT(FieldAttachmentReleaseCueAt, v))
+}
+
+// AttachmentReleaseCueAtLTE applies the LTE predicate on the "attachment_release_cue_at" field.
+func AttachmentReleaseCueAtLTE(v time.Time) predicate.Event {
+	return predicate.Event(sql.FieldLTE(FieldAttachmentReleaseCueAt, v))
+}
+
+// AttachmentReleaseCueAtIsNil applies the IsNil predicate on the "attachment_release_cue_at" field.
+func AttachmentReleaseCueAtIsNil() predicate.Event {
+	return predicate.Event(sql.FieldIsNull(FieldAttachmentReleaseCueAt))
+}
+
+// AttachmentReleaseCueAtNotNil applies the NotNil predicate on the "attachment_release_cue_at" field.
+func AttachmentReleaseCueAtNotNil() predicate.Event {
+	return predicate.Event(sql.FieldNotNull(FieldAttachmentReleaseCueAt))
+}
+
+// AttachmentReleaseRevisionEQ applies the EQ predicate on the "attachment_release_revision" field.
+func AttachmentReleaseRevisionEQ(v int) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldAttachmentReleaseRevision, v))
+}
+
+// AttachmentReleaseRevisionNEQ applies the NEQ predicate on the "attachment_release_revision" field.
+func AttachmentReleaseRevisionNEQ(v int) predicate.Event {
+	return predicate.Event(sql.FieldNEQ(FieldAttachmentReleaseRevision, v))
+}
+
+// AttachmentReleaseRevisionIn applies the In predicate on the "attachment_release_revision" field.
+func AttachmentReleaseRevisionIn(vs ...int) predicate.Event {
+	return predicate.Event(sql.FieldIn(FieldAttachmentReleaseRevision, vs...))
+}
+
+// AttachmentReleaseRevisionNotIn applies the NotIn predicate on the "attachment_release_revision" field.
+func AttachmentReleaseRevisionNotIn(vs ...int) predicate.Event {
+	return predicate.Event(sql.FieldNotIn(FieldAttachmentReleaseRevision, vs...))
+}
+
+// AttachmentReleaseRevisionGT applies the GT predicate on the "attachment_release_revision" field.
+func AttachmentReleaseRevisionGT(v int) predicate.Event {
+	return predicate.Event(sql.FieldGT(FieldAttachmentReleaseRevision, v))
+}
+
+// AttachmentReleaseRevisionGTE applies the GTE predicate on the "attachment_release_revision" field.
+func AttachmentReleaseRevisionGTE(v int) predicate.Event {
+	return predicate.Event(sql.FieldGTE(FieldAttachmentReleaseRevision, v))
+}
+
+// AttachmentReleaseRevisionLT applies the LT predicate on the "attachment_release_revision" field.
+func AttachmentReleaseRevisionLT(v int) predicate.Event {
+	return predicate.Event(sql.FieldLT(FieldAttachmentReleaseRevision, v))
+}
+
+// AttachmentReleaseRevisionLTE applies the LTE predicate on the "attachment_release_revision" field.
+func AttachmentReleaseRevisionLTE(v int) predicate.Event {
+	return predicate.Event(sql.FieldLTE(FieldAttachmentReleaseRevision, v))
 }
 
 // RevisionEQ applies the EQ predicate on the "revision" field.

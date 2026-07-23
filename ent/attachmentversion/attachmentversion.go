@@ -40,6 +40,12 @@ const (
 	FieldPrimary = "primary"
 	// FieldReadinessRevision holds the string denoting the readiness_revision field in the database.
 	FieldReadinessRevision = "readiness_revision"
+	// FieldReleaseEligibility holds the string denoting the release_eligibility field in the database.
+	FieldReleaseEligibility = "release_eligibility"
+	// FieldReleaseHold holds the string denoting the release_hold field in the database.
+	FieldReleaseHold = "release_hold"
+	// FieldReleaseRevision holds the string denoting the release_revision field in the database.
+	FieldReleaseRevision = "release_revision"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeAttachment holds the string denoting the attachment edge name in mutations.
@@ -70,6 +76,9 @@ var Columns = []string{
 	FieldFinal,
 	FieldPrimary,
 	FieldReadinessRevision,
+	FieldReleaseEligibility,
+	FieldReleaseHold,
+	FieldReleaseRevision,
 	FieldCreatedAt,
 }
 
@@ -113,6 +122,12 @@ var (
 	DefaultReadinessRevision int
 	// ReadinessRevisionValidator is a validator for the "readiness_revision" field. It is called by the builders before save.
 	ReadinessRevisionValidator func(int) error
+	// DefaultReleaseHold holds the default value on creation for the "release_hold" field.
+	DefaultReleaseHold bool
+	// DefaultReleaseRevision holds the default value on creation for the "release_revision" field.
+	DefaultReleaseRevision int
+	// ReleaseRevisionValidator is a validator for the "release_revision" field. It is called by the builders before save.
+	ReleaseRevisionValidator func(int) error
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 )
@@ -137,6 +152,32 @@ func UploaderTypeValidator(ut UploaderType) error {
 		return nil
 	default:
 		return fmt.Errorf("attachmentversion: invalid enum value for uploader_type field: %q", ut)
+	}
+}
+
+// ReleaseEligibility defines the type for the "release_eligibility" enum field.
+type ReleaseEligibility string
+
+// ReleaseEligibilityPublic is the default value of the ReleaseEligibility enum.
+const DefaultReleaseEligibility = ReleaseEligibilityPublic
+
+// ReleaseEligibility values.
+const (
+	ReleaseEligibilityPublic   ReleaseEligibility = "Public"
+	ReleaseEligibilityCrewOnly ReleaseEligibility = "CrewOnly"
+)
+
+func (re ReleaseEligibility) String() string {
+	return string(re)
+}
+
+// ReleaseEligibilityValidator is a validator for the "release_eligibility" field enum values. It is called by the builders before save.
+func ReleaseEligibilityValidator(re ReleaseEligibility) error {
+	switch re {
+	case ReleaseEligibilityPublic, ReleaseEligibilityCrewOnly:
+		return nil
+	default:
+		return fmt.Errorf("attachmentversion: invalid enum value for release_eligibility field: %q", re)
 	}
 }
 
@@ -206,6 +247,21 @@ func ByPrimary(opts ...sql.OrderTermOption) OrderOption {
 // ByReadinessRevision orders the results by the readiness_revision field.
 func ByReadinessRevision(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldReadinessRevision, opts...).ToFunc()
+}
+
+// ByReleaseEligibility orders the results by the release_eligibility field.
+func ByReleaseEligibility(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldReleaseEligibility, opts...).ToFunc()
+}
+
+// ByReleaseHold orders the results by the release_hold field.
+func ByReleaseHold(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldReleaseHold, opts...).ToFunc()
+}
+
+// ByReleaseRevision orders the results by the release_revision field.
+func ByReleaseRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldReleaseRevision, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

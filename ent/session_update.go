@@ -575,6 +575,47 @@ func (_u *SessionUpdate) ClearProgramOutputTakenAt() *SessionUpdate {
 	return _u
 }
 
+// SetAttachmentReleasePolicyOverride sets the "attachment_release_policy_override" field.
+func (_u *SessionUpdate) SetAttachmentReleasePolicyOverride(v session.AttachmentReleasePolicyOverride) *SessionUpdate {
+	_u.mutation.SetAttachmentReleasePolicyOverride(v)
+	return _u
+}
+
+// SetNillableAttachmentReleasePolicyOverride sets the "attachment_release_policy_override" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableAttachmentReleasePolicyOverride(v *session.AttachmentReleasePolicyOverride) *SessionUpdate {
+	if v != nil {
+		_u.SetAttachmentReleasePolicyOverride(*v)
+	}
+	return _u
+}
+
+// ClearAttachmentReleasePolicyOverride clears the value of the "attachment_release_policy_override" field.
+func (_u *SessionUpdate) ClearAttachmentReleasePolicyOverride() *SessionUpdate {
+	_u.mutation.ClearAttachmentReleasePolicyOverride()
+	return _u
+}
+
+// SetAttachmentReleaseRevision sets the "attachment_release_revision" field.
+func (_u *SessionUpdate) SetAttachmentReleaseRevision(v int) *SessionUpdate {
+	_u.mutation.ResetAttachmentReleaseRevision()
+	_u.mutation.SetAttachmentReleaseRevision(v)
+	return _u
+}
+
+// SetNillableAttachmentReleaseRevision sets the "attachment_release_revision" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableAttachmentReleaseRevision(v *int) *SessionUpdate {
+	if v != nil {
+		_u.SetAttachmentReleaseRevision(*v)
+	}
+	return _u
+}
+
+// AddAttachmentReleaseRevision adds value to the "attachment_release_revision" field.
+func (_u *SessionUpdate) AddAttachmentReleaseRevision(v int) *SessionUpdate {
+	_u.mutation.AddAttachmentReleaseRevision(v)
+	return _u
+}
+
 // SetDraftID sets the "draft" edge to the SessionDraft entity by ID.
 func (_u *SessionUpdate) SetDraftID(id int) *SessionUpdate {
 	_u.mutation.SetDraftID(id)
@@ -848,6 +889,16 @@ func (_u *SessionUpdate) check() error {
 			return &ValidationError{Name: "program_output_revision", err: fmt.Errorf(`ent: validator failed for field "Session.program_output_revision": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.AttachmentReleasePolicyOverride(); ok {
+		if err := session.AttachmentReleasePolicyOverrideValidator(v); err != nil {
+			return &ValidationError{Name: "attachment_release_policy_override", err: fmt.Errorf(`ent: validator failed for field "Session.attachment_release_policy_override": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.AttachmentReleaseRevision(); ok {
+		if err := session.AttachmentReleaseRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "attachment_release_revision", err: fmt.Errorf(`ent: validator failed for field "Session.attachment_release_revision": %w`, err)}
+		}
+	}
 	if _u.mutation.EventCleared() && len(_u.mutation.EventIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Session.event"`)
 	}
@@ -1044,6 +1095,18 @@ func (_u *SessionUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.ProgramOutputTakenAtCleared() {
 		_spec.ClearField(session.FieldProgramOutputTakenAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.AttachmentReleasePolicyOverride(); ok {
+		_spec.SetField(session.FieldAttachmentReleasePolicyOverride, field.TypeEnum, value)
+	}
+	if _u.mutation.AttachmentReleasePolicyOverrideCleared() {
+		_spec.ClearField(session.FieldAttachmentReleasePolicyOverride, field.TypeEnum)
+	}
+	if value, ok := _u.mutation.AttachmentReleaseRevision(); ok {
+		_spec.SetField(session.FieldAttachmentReleaseRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAttachmentReleaseRevision(); ok {
+		_spec.AddField(session.FieldAttachmentReleaseRevision, field.TypeInt, value)
 	}
 	if _u.mutation.DraftCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1815,6 +1878,47 @@ func (_u *SessionUpdateOne) ClearProgramOutputTakenAt() *SessionUpdateOne {
 	return _u
 }
 
+// SetAttachmentReleasePolicyOverride sets the "attachment_release_policy_override" field.
+func (_u *SessionUpdateOne) SetAttachmentReleasePolicyOverride(v session.AttachmentReleasePolicyOverride) *SessionUpdateOne {
+	_u.mutation.SetAttachmentReleasePolicyOverride(v)
+	return _u
+}
+
+// SetNillableAttachmentReleasePolicyOverride sets the "attachment_release_policy_override" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableAttachmentReleasePolicyOverride(v *session.AttachmentReleasePolicyOverride) *SessionUpdateOne {
+	if v != nil {
+		_u.SetAttachmentReleasePolicyOverride(*v)
+	}
+	return _u
+}
+
+// ClearAttachmentReleasePolicyOverride clears the value of the "attachment_release_policy_override" field.
+func (_u *SessionUpdateOne) ClearAttachmentReleasePolicyOverride() *SessionUpdateOne {
+	_u.mutation.ClearAttachmentReleasePolicyOverride()
+	return _u
+}
+
+// SetAttachmentReleaseRevision sets the "attachment_release_revision" field.
+func (_u *SessionUpdateOne) SetAttachmentReleaseRevision(v int) *SessionUpdateOne {
+	_u.mutation.ResetAttachmentReleaseRevision()
+	_u.mutation.SetAttachmentReleaseRevision(v)
+	return _u
+}
+
+// SetNillableAttachmentReleaseRevision sets the "attachment_release_revision" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableAttachmentReleaseRevision(v *int) *SessionUpdateOne {
+	if v != nil {
+		_u.SetAttachmentReleaseRevision(*v)
+	}
+	return _u
+}
+
+// AddAttachmentReleaseRevision adds value to the "attachment_release_revision" field.
+func (_u *SessionUpdateOne) AddAttachmentReleaseRevision(v int) *SessionUpdateOne {
+	_u.mutation.AddAttachmentReleaseRevision(v)
+	return _u
+}
+
 // SetDraftID sets the "draft" edge to the SessionDraft entity by ID.
 func (_u *SessionUpdateOne) SetDraftID(id int) *SessionUpdateOne {
 	_u.mutation.SetDraftID(id)
@@ -2101,6 +2205,16 @@ func (_u *SessionUpdateOne) check() error {
 			return &ValidationError{Name: "program_output_revision", err: fmt.Errorf(`ent: validator failed for field "Session.program_output_revision": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.AttachmentReleasePolicyOverride(); ok {
+		if err := session.AttachmentReleasePolicyOverrideValidator(v); err != nil {
+			return &ValidationError{Name: "attachment_release_policy_override", err: fmt.Errorf(`ent: validator failed for field "Session.attachment_release_policy_override": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.AttachmentReleaseRevision(); ok {
+		if err := session.AttachmentReleaseRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "attachment_release_revision", err: fmt.Errorf(`ent: validator failed for field "Session.attachment_release_revision": %w`, err)}
+		}
+	}
 	if _u.mutation.EventCleared() && len(_u.mutation.EventIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Session.event"`)
 	}
@@ -2314,6 +2428,18 @@ func (_u *SessionUpdateOne) sqlSave(ctx context.Context) (_node *Session, err er
 	}
 	if _u.mutation.ProgramOutputTakenAtCleared() {
 		_spec.ClearField(session.FieldProgramOutputTakenAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.AttachmentReleasePolicyOverride(); ok {
+		_spec.SetField(session.FieldAttachmentReleasePolicyOverride, field.TypeEnum, value)
+	}
+	if _u.mutation.AttachmentReleasePolicyOverrideCleared() {
+		_spec.ClearField(session.FieldAttachmentReleasePolicyOverride, field.TypeEnum)
+	}
+	if value, ok := _u.mutation.AttachmentReleaseRevision(); ok {
+		_spec.SetField(session.FieldAttachmentReleaseRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAttachmentReleaseRevision(); ok {
+		_spec.AddField(session.FieldAttachmentReleaseRevision, field.TypeInt, value)
 	}
 	if _u.mutation.DraftCleared() {
 		edge := &sqlgraph.EdgeSpec{
