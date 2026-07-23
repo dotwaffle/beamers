@@ -85,6 +85,26 @@ func UploadClosedAt(v time.Time) predicate.CompetitionEntry {
 	return predicate.CompetitionEntry(sql.FieldEQ(FieldUploadClosedAt, v))
 }
 
+// ContentRevision applies equality check predicate on the "content_revision" field. It's identical to ContentRevisionEQ.
+func ContentRevision(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldContentRevision, v))
+}
+
+// ReviewedContentRevision applies equality check predicate on the "reviewed_content_revision" field. It's identical to ReviewedContentRevisionEQ.
+func ReviewedContentRevision(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldReviewedContentRevision, v))
+}
+
+// ReviewedByAccountID applies equality check predicate on the "reviewed_by_account_id" field. It's identical to ReviewedByAccountIDEQ.
+func ReviewedByAccountID(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldReviewedByAccountID, v))
+}
+
+// ReviewedAt applies equality check predicate on the "reviewed_at" field. It's identical to ReviewedAtEQ.
+func ReviewedAt(v time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldReviewedAt, v))
+}
+
 // Revision applies equality check predicate on the "revision" field. It's identical to RevisionEQ.
 func Revision(v int) predicate.CompetitionEntry {
 	return predicate.CompetitionEntry(sql.FieldEQ(FieldRevision, v))
@@ -418,6 +438,196 @@ func UploadClosedAtIsNil() predicate.CompetitionEntry {
 // UploadClosedAtNotNil applies the NotNil predicate on the "upload_closed_at" field.
 func UploadClosedAtNotNil() predicate.CompetitionEntry {
 	return predicate.CompetitionEntry(sql.FieldNotNull(FieldUploadClosedAt))
+}
+
+// ContentRevisionEQ applies the EQ predicate on the "content_revision" field.
+func ContentRevisionEQ(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldContentRevision, v))
+}
+
+// ContentRevisionNEQ applies the NEQ predicate on the "content_revision" field.
+func ContentRevisionNEQ(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNEQ(FieldContentRevision, v))
+}
+
+// ContentRevisionIn applies the In predicate on the "content_revision" field.
+func ContentRevisionIn(vs ...int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIn(FieldContentRevision, vs...))
+}
+
+// ContentRevisionNotIn applies the NotIn predicate on the "content_revision" field.
+func ContentRevisionNotIn(vs ...int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotIn(FieldContentRevision, vs...))
+}
+
+// ContentRevisionGT applies the GT predicate on the "content_revision" field.
+func ContentRevisionGT(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldGT(FieldContentRevision, v))
+}
+
+// ContentRevisionGTE applies the GTE predicate on the "content_revision" field.
+func ContentRevisionGTE(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldGTE(FieldContentRevision, v))
+}
+
+// ContentRevisionLT applies the LT predicate on the "content_revision" field.
+func ContentRevisionLT(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldLT(FieldContentRevision, v))
+}
+
+// ContentRevisionLTE applies the LTE predicate on the "content_revision" field.
+func ContentRevisionLTE(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldLTE(FieldContentRevision, v))
+}
+
+// ReviewedContentRevisionEQ applies the EQ predicate on the "reviewed_content_revision" field.
+func ReviewedContentRevisionEQ(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldReviewedContentRevision, v))
+}
+
+// ReviewedContentRevisionNEQ applies the NEQ predicate on the "reviewed_content_revision" field.
+func ReviewedContentRevisionNEQ(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNEQ(FieldReviewedContentRevision, v))
+}
+
+// ReviewedContentRevisionIn applies the In predicate on the "reviewed_content_revision" field.
+func ReviewedContentRevisionIn(vs ...int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIn(FieldReviewedContentRevision, vs...))
+}
+
+// ReviewedContentRevisionNotIn applies the NotIn predicate on the "reviewed_content_revision" field.
+func ReviewedContentRevisionNotIn(vs ...int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotIn(FieldReviewedContentRevision, vs...))
+}
+
+// ReviewedContentRevisionGT applies the GT predicate on the "reviewed_content_revision" field.
+func ReviewedContentRevisionGT(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldGT(FieldReviewedContentRevision, v))
+}
+
+// ReviewedContentRevisionGTE applies the GTE predicate on the "reviewed_content_revision" field.
+func ReviewedContentRevisionGTE(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldGTE(FieldReviewedContentRevision, v))
+}
+
+// ReviewedContentRevisionLT applies the LT predicate on the "reviewed_content_revision" field.
+func ReviewedContentRevisionLT(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldLT(FieldReviewedContentRevision, v))
+}
+
+// ReviewedContentRevisionLTE applies the LTE predicate on the "reviewed_content_revision" field.
+func ReviewedContentRevisionLTE(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldLTE(FieldReviewedContentRevision, v))
+}
+
+// ReviewedContentRevisionIsNil applies the IsNil predicate on the "reviewed_content_revision" field.
+func ReviewedContentRevisionIsNil() predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIsNull(FieldReviewedContentRevision))
+}
+
+// ReviewedContentRevisionNotNil applies the NotNil predicate on the "reviewed_content_revision" field.
+func ReviewedContentRevisionNotNil() predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotNull(FieldReviewedContentRevision))
+}
+
+// ReviewedByAccountIDEQ applies the EQ predicate on the "reviewed_by_account_id" field.
+func ReviewedByAccountIDEQ(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldReviewedByAccountID, v))
+}
+
+// ReviewedByAccountIDNEQ applies the NEQ predicate on the "reviewed_by_account_id" field.
+func ReviewedByAccountIDNEQ(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNEQ(FieldReviewedByAccountID, v))
+}
+
+// ReviewedByAccountIDIn applies the In predicate on the "reviewed_by_account_id" field.
+func ReviewedByAccountIDIn(vs ...int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIn(FieldReviewedByAccountID, vs...))
+}
+
+// ReviewedByAccountIDNotIn applies the NotIn predicate on the "reviewed_by_account_id" field.
+func ReviewedByAccountIDNotIn(vs ...int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotIn(FieldReviewedByAccountID, vs...))
+}
+
+// ReviewedByAccountIDGT applies the GT predicate on the "reviewed_by_account_id" field.
+func ReviewedByAccountIDGT(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldGT(FieldReviewedByAccountID, v))
+}
+
+// ReviewedByAccountIDGTE applies the GTE predicate on the "reviewed_by_account_id" field.
+func ReviewedByAccountIDGTE(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldGTE(FieldReviewedByAccountID, v))
+}
+
+// ReviewedByAccountIDLT applies the LT predicate on the "reviewed_by_account_id" field.
+func ReviewedByAccountIDLT(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldLT(FieldReviewedByAccountID, v))
+}
+
+// ReviewedByAccountIDLTE applies the LTE predicate on the "reviewed_by_account_id" field.
+func ReviewedByAccountIDLTE(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldLTE(FieldReviewedByAccountID, v))
+}
+
+// ReviewedByAccountIDIsNil applies the IsNil predicate on the "reviewed_by_account_id" field.
+func ReviewedByAccountIDIsNil() predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIsNull(FieldReviewedByAccountID))
+}
+
+// ReviewedByAccountIDNotNil applies the NotNil predicate on the "reviewed_by_account_id" field.
+func ReviewedByAccountIDNotNil() predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotNull(FieldReviewedByAccountID))
+}
+
+// ReviewedAtEQ applies the EQ predicate on the "reviewed_at" field.
+func ReviewedAtEQ(v time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldReviewedAt, v))
+}
+
+// ReviewedAtNEQ applies the NEQ predicate on the "reviewed_at" field.
+func ReviewedAtNEQ(v time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNEQ(FieldReviewedAt, v))
+}
+
+// ReviewedAtIn applies the In predicate on the "reviewed_at" field.
+func ReviewedAtIn(vs ...time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIn(FieldReviewedAt, vs...))
+}
+
+// ReviewedAtNotIn applies the NotIn predicate on the "reviewed_at" field.
+func ReviewedAtNotIn(vs ...time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotIn(FieldReviewedAt, vs...))
+}
+
+// ReviewedAtGT applies the GT predicate on the "reviewed_at" field.
+func ReviewedAtGT(v time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldGT(FieldReviewedAt, v))
+}
+
+// ReviewedAtGTE applies the GTE predicate on the "reviewed_at" field.
+func ReviewedAtGTE(v time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldGTE(FieldReviewedAt, v))
+}
+
+// ReviewedAtLT applies the LT predicate on the "reviewed_at" field.
+func ReviewedAtLT(v time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldLT(FieldReviewedAt, v))
+}
+
+// ReviewedAtLTE applies the LTE predicate on the "reviewed_at" field.
+func ReviewedAtLTE(v time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldLTE(FieldReviewedAt, v))
+}
+
+// ReviewedAtIsNil applies the IsNil predicate on the "reviewed_at" field.
+func ReviewedAtIsNil() predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIsNull(FieldReviewedAt))
+}
+
+// ReviewedAtNotNil applies the NotNil predicate on the "reviewed_at" field.
+func ReviewedAtNotNil() predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotNull(FieldReviewedAt))
 }
 
 // RevisionEQ applies the EQ predicate on the "revision" field.

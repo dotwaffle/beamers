@@ -2479,27 +2479,31 @@ func (m *AttachmentMutation) ResetEdge(name string) error {
 // AttachmentVersionMutation represents an operation that mutates the AttachmentVersion nodes in the graph.
 type AttachmentVersionMutation struct {
 	config
-	op                Op
-	typ               string
-	id                *int
-	version           *int
-	addversion        *int
-	original_filename *string
-	media_type        *string
-	size_bytes        *int64
-	addsize_bytes     *int64
-	sha256            *string
-	storage_key       *string
-	uploader_type     *attachmentversion.UploaderType
-	uploader_id       *int
-	adduploader_id    *int
-	created_at        *time.Time
-	clearedFields     map[string]struct{}
-	attachment        *int
-	clearedattachment bool
-	done              bool
-	oldValue          func(context.Context) (*AttachmentVersion, error)
-	predicates        []predicate.AttachmentVersion
+	op                    Op
+	typ                   string
+	id                    *int
+	version               *int
+	addversion            *int
+	original_filename     *string
+	media_type            *string
+	size_bytes            *int64
+	addsize_bytes         *int64
+	sha256                *string
+	storage_key           *string
+	uploader_type         *attachmentversion.UploaderType
+	uploader_id           *int
+	adduploader_id        *int
+	final                 *bool
+	primary               *bool
+	readiness_revision    *int
+	addreadiness_revision *int
+	created_at            *time.Time
+	clearedFields         map[string]struct{}
+	attachment            *int
+	clearedattachment     bool
+	done                  bool
+	oldValue              func(context.Context) (*AttachmentVersion, error)
+	predicates            []predicate.AttachmentVersion
 }
 
 var _ ent.Mutation = (*AttachmentVersionMutation)(nil)
@@ -2997,6 +3001,134 @@ func (m *AttachmentVersionMutation) ResetUploaderID() {
 	m.adduploader_id = nil
 }
 
+// SetFinal sets the "final" field.
+func (m *AttachmentVersionMutation) SetFinal(b bool) {
+	m.final = &b
+}
+
+// Final returns the value of the "final" field in the mutation.
+func (m *AttachmentVersionMutation) Final() (r bool, exists bool) {
+	v := m.final
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFinal returns the old "final" field's value of the AttachmentVersion entity.
+// If the AttachmentVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AttachmentVersionMutation) OldFinal(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFinal is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFinal requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFinal: %w", err)
+	}
+	return oldValue.Final, nil
+}
+
+// ResetFinal resets all changes to the "final" field.
+func (m *AttachmentVersionMutation) ResetFinal() {
+	m.final = nil
+}
+
+// SetPrimary sets the "primary" field.
+func (m *AttachmentVersionMutation) SetPrimary(b bool) {
+	m.primary = &b
+}
+
+// Primary returns the value of the "primary" field in the mutation.
+func (m *AttachmentVersionMutation) Primary() (r bool, exists bool) {
+	v := m.primary
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPrimary returns the old "primary" field's value of the AttachmentVersion entity.
+// If the AttachmentVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AttachmentVersionMutation) OldPrimary(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPrimary is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPrimary requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPrimary: %w", err)
+	}
+	return oldValue.Primary, nil
+}
+
+// ResetPrimary resets all changes to the "primary" field.
+func (m *AttachmentVersionMutation) ResetPrimary() {
+	m.primary = nil
+}
+
+// SetReadinessRevision sets the "readiness_revision" field.
+func (m *AttachmentVersionMutation) SetReadinessRevision(i int) {
+	m.readiness_revision = &i
+	m.addreadiness_revision = nil
+}
+
+// ReadinessRevision returns the value of the "readiness_revision" field in the mutation.
+func (m *AttachmentVersionMutation) ReadinessRevision() (r int, exists bool) {
+	v := m.readiness_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReadinessRevision returns the old "readiness_revision" field's value of the AttachmentVersion entity.
+// If the AttachmentVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AttachmentVersionMutation) OldReadinessRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReadinessRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReadinessRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReadinessRevision: %w", err)
+	}
+	return oldValue.ReadinessRevision, nil
+}
+
+// AddReadinessRevision adds i to the "readiness_revision" field.
+func (m *AttachmentVersionMutation) AddReadinessRevision(i int) {
+	if m.addreadiness_revision != nil {
+		*m.addreadiness_revision += i
+	} else {
+		m.addreadiness_revision = &i
+	}
+}
+
+// AddedReadinessRevision returns the value that was added to the "readiness_revision" field in this mutation.
+func (m *AttachmentVersionMutation) AddedReadinessRevision() (r int, exists bool) {
+	v := m.addreadiness_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetReadinessRevision resets all changes to the "readiness_revision" field.
+func (m *AttachmentVersionMutation) ResetReadinessRevision() {
+	m.readiness_revision = nil
+	m.addreadiness_revision = nil
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *AttachmentVersionMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -3094,7 +3226,7 @@ func (m *AttachmentVersionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AttachmentVersionMutation) Fields() []string {
-	fields := make([]string, 0, 10)
+	fields := make([]string, 0, 13)
 	if m.attachment != nil {
 		fields = append(fields, attachmentversion.FieldAttachmentID)
 	}
@@ -3121,6 +3253,15 @@ func (m *AttachmentVersionMutation) Fields() []string {
 	}
 	if m.uploader_id != nil {
 		fields = append(fields, attachmentversion.FieldUploaderID)
+	}
+	if m.final != nil {
+		fields = append(fields, attachmentversion.FieldFinal)
+	}
+	if m.primary != nil {
+		fields = append(fields, attachmentversion.FieldPrimary)
+	}
+	if m.readiness_revision != nil {
+		fields = append(fields, attachmentversion.FieldReadinessRevision)
 	}
 	if m.created_at != nil {
 		fields = append(fields, attachmentversion.FieldCreatedAt)
@@ -3151,6 +3292,12 @@ func (m *AttachmentVersionMutation) Field(name string) (ent.Value, bool) {
 		return m.UploaderType()
 	case attachmentversion.FieldUploaderID:
 		return m.UploaderID()
+	case attachmentversion.FieldFinal:
+		return m.Final()
+	case attachmentversion.FieldPrimary:
+		return m.Primary()
+	case attachmentversion.FieldReadinessRevision:
+		return m.ReadinessRevision()
 	case attachmentversion.FieldCreatedAt:
 		return m.CreatedAt()
 	}
@@ -3180,6 +3327,12 @@ func (m *AttachmentVersionMutation) OldField(ctx context.Context, name string) (
 		return m.OldUploaderType(ctx)
 	case attachmentversion.FieldUploaderID:
 		return m.OldUploaderID(ctx)
+	case attachmentversion.FieldFinal:
+		return m.OldFinal(ctx)
+	case attachmentversion.FieldPrimary:
+		return m.OldPrimary(ctx)
+	case attachmentversion.FieldReadinessRevision:
+		return m.OldReadinessRevision(ctx)
 	case attachmentversion.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	}
@@ -3254,6 +3407,27 @@ func (m *AttachmentVersionMutation) SetField(name string, value ent.Value) error
 		}
 		m.SetUploaderID(v)
 		return nil
+	case attachmentversion.FieldFinal:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFinal(v)
+		return nil
+	case attachmentversion.FieldPrimary:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPrimary(v)
+		return nil
+	case attachmentversion.FieldReadinessRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReadinessRevision(v)
+		return nil
 	case attachmentversion.FieldCreatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -3278,6 +3452,9 @@ func (m *AttachmentVersionMutation) AddedFields() []string {
 	if m.adduploader_id != nil {
 		fields = append(fields, attachmentversion.FieldUploaderID)
 	}
+	if m.addreadiness_revision != nil {
+		fields = append(fields, attachmentversion.FieldReadinessRevision)
+	}
 	return fields
 }
 
@@ -3292,6 +3469,8 @@ func (m *AttachmentVersionMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedSizeBytes()
 	case attachmentversion.FieldUploaderID:
 		return m.AddedUploaderID()
+	case attachmentversion.FieldReadinessRevision:
+		return m.AddedReadinessRevision()
 	}
 	return nil, false
 }
@@ -3321,6 +3500,13 @@ func (m *AttachmentVersionMutation) AddField(name string, value ent.Value) error
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddUploaderID(v)
+		return nil
+	case attachmentversion.FieldReadinessRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddReadinessRevision(v)
 		return nil
 	}
 	return fmt.Errorf("unknown AttachmentVersion numeric field %s", name)
@@ -3384,6 +3570,15 @@ func (m *AttachmentVersionMutation) ResetField(name string) error {
 		return nil
 	case attachmentversion.FieldUploaderID:
 		m.ResetUploaderID()
+		return nil
+	case attachmentversion.FieldFinal:
+		m.ResetFinal()
+		return nil
+	case attachmentversion.FieldPrimary:
+		m.ResetPrimary()
+		return nil
+	case attachmentversion.FieldReadinessRevision:
+		m.ResetReadinessRevision()
 		return nil
 	case attachmentversion.FieldCreatedAt:
 		m.ResetCreatedAt()
@@ -5931,25 +6126,32 @@ func (m *CommandReceiptMutation) ResetEdge(name string) error {
 // CompetitionEntryMutation represents an operation that mutates the CompetitionEntry nodes in the graph.
 type CompetitionEntryMutation struct {
 	config
-	op                 Op
-	typ                string
-	id                 *int
-	name               *string
-	public_details     *string
-	crew_notes         *string
-	disposition        *competitionentry.Disposition
-	upload_closed_at   *time.Time
-	revision           *int
-	addrevision        *int
-	created_at         *time.Time
-	clearedFields      map[string]struct{}
-	event              *int
-	clearedevent       bool
-	competition        *int
-	clearedcompetition bool
-	done               bool
-	oldValue           func(context.Context) (*CompetitionEntry, error)
-	predicates         []predicate.CompetitionEntry
+	op                           Op
+	typ                          string
+	id                           *int
+	name                         *string
+	public_details               *string
+	crew_notes                   *string
+	disposition                  *competitionentry.Disposition
+	upload_closed_at             *time.Time
+	content_revision             *int
+	addcontent_revision          *int
+	reviewed_content_revision    *int
+	addreviewed_content_revision *int
+	reviewed_by_account_id       *int
+	addreviewed_by_account_id    *int
+	reviewed_at                  *time.Time
+	revision                     *int
+	addrevision                  *int
+	created_at                   *time.Time
+	clearedFields                map[string]struct{}
+	event                        *int
+	clearedevent                 bool
+	competition                  *int
+	clearedcompetition           bool
+	done                         bool
+	oldValue                     func(context.Context) (*CompetitionEntry, error)
+	predicates                   []predicate.CompetitionEntry
 }
 
 var _ ent.Mutation = (*CompetitionEntryMutation)(nil)
@@ -6341,6 +6543,251 @@ func (m *CompetitionEntryMutation) ResetUploadClosedAt() {
 	delete(m.clearedFields, competitionentry.FieldUploadClosedAt)
 }
 
+// SetContentRevision sets the "content_revision" field.
+func (m *CompetitionEntryMutation) SetContentRevision(i int) {
+	m.content_revision = &i
+	m.addcontent_revision = nil
+}
+
+// ContentRevision returns the value of the "content_revision" field in the mutation.
+func (m *CompetitionEntryMutation) ContentRevision() (r int, exists bool) {
+	v := m.content_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldContentRevision returns the old "content_revision" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldContentRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldContentRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldContentRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldContentRevision: %w", err)
+	}
+	return oldValue.ContentRevision, nil
+}
+
+// AddContentRevision adds i to the "content_revision" field.
+func (m *CompetitionEntryMutation) AddContentRevision(i int) {
+	if m.addcontent_revision != nil {
+		*m.addcontent_revision += i
+	} else {
+		m.addcontent_revision = &i
+	}
+}
+
+// AddedContentRevision returns the value that was added to the "content_revision" field in this mutation.
+func (m *CompetitionEntryMutation) AddedContentRevision() (r int, exists bool) {
+	v := m.addcontent_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetContentRevision resets all changes to the "content_revision" field.
+func (m *CompetitionEntryMutation) ResetContentRevision() {
+	m.content_revision = nil
+	m.addcontent_revision = nil
+}
+
+// SetReviewedContentRevision sets the "reviewed_content_revision" field.
+func (m *CompetitionEntryMutation) SetReviewedContentRevision(i int) {
+	m.reviewed_content_revision = &i
+	m.addreviewed_content_revision = nil
+}
+
+// ReviewedContentRevision returns the value of the "reviewed_content_revision" field in the mutation.
+func (m *CompetitionEntryMutation) ReviewedContentRevision() (r int, exists bool) {
+	v := m.reviewed_content_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReviewedContentRevision returns the old "reviewed_content_revision" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldReviewedContentRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReviewedContentRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReviewedContentRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReviewedContentRevision: %w", err)
+	}
+	return oldValue.ReviewedContentRevision, nil
+}
+
+// AddReviewedContentRevision adds i to the "reviewed_content_revision" field.
+func (m *CompetitionEntryMutation) AddReviewedContentRevision(i int) {
+	if m.addreviewed_content_revision != nil {
+		*m.addreviewed_content_revision += i
+	} else {
+		m.addreviewed_content_revision = &i
+	}
+}
+
+// AddedReviewedContentRevision returns the value that was added to the "reviewed_content_revision" field in this mutation.
+func (m *CompetitionEntryMutation) AddedReviewedContentRevision() (r int, exists bool) {
+	v := m.addreviewed_content_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearReviewedContentRevision clears the value of the "reviewed_content_revision" field.
+func (m *CompetitionEntryMutation) ClearReviewedContentRevision() {
+	m.reviewed_content_revision = nil
+	m.addreviewed_content_revision = nil
+	m.clearedFields[competitionentry.FieldReviewedContentRevision] = struct{}{}
+}
+
+// ReviewedContentRevisionCleared returns if the "reviewed_content_revision" field was cleared in this mutation.
+func (m *CompetitionEntryMutation) ReviewedContentRevisionCleared() bool {
+	_, ok := m.clearedFields[competitionentry.FieldReviewedContentRevision]
+	return ok
+}
+
+// ResetReviewedContentRevision resets all changes to the "reviewed_content_revision" field.
+func (m *CompetitionEntryMutation) ResetReviewedContentRevision() {
+	m.reviewed_content_revision = nil
+	m.addreviewed_content_revision = nil
+	delete(m.clearedFields, competitionentry.FieldReviewedContentRevision)
+}
+
+// SetReviewedByAccountID sets the "reviewed_by_account_id" field.
+func (m *CompetitionEntryMutation) SetReviewedByAccountID(i int) {
+	m.reviewed_by_account_id = &i
+	m.addreviewed_by_account_id = nil
+}
+
+// ReviewedByAccountID returns the value of the "reviewed_by_account_id" field in the mutation.
+func (m *CompetitionEntryMutation) ReviewedByAccountID() (r int, exists bool) {
+	v := m.reviewed_by_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReviewedByAccountID returns the old "reviewed_by_account_id" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldReviewedByAccountID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReviewedByAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReviewedByAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReviewedByAccountID: %w", err)
+	}
+	return oldValue.ReviewedByAccountID, nil
+}
+
+// AddReviewedByAccountID adds i to the "reviewed_by_account_id" field.
+func (m *CompetitionEntryMutation) AddReviewedByAccountID(i int) {
+	if m.addreviewed_by_account_id != nil {
+		*m.addreviewed_by_account_id += i
+	} else {
+		m.addreviewed_by_account_id = &i
+	}
+}
+
+// AddedReviewedByAccountID returns the value that was added to the "reviewed_by_account_id" field in this mutation.
+func (m *CompetitionEntryMutation) AddedReviewedByAccountID() (r int, exists bool) {
+	v := m.addreviewed_by_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearReviewedByAccountID clears the value of the "reviewed_by_account_id" field.
+func (m *CompetitionEntryMutation) ClearReviewedByAccountID() {
+	m.reviewed_by_account_id = nil
+	m.addreviewed_by_account_id = nil
+	m.clearedFields[competitionentry.FieldReviewedByAccountID] = struct{}{}
+}
+
+// ReviewedByAccountIDCleared returns if the "reviewed_by_account_id" field was cleared in this mutation.
+func (m *CompetitionEntryMutation) ReviewedByAccountIDCleared() bool {
+	_, ok := m.clearedFields[competitionentry.FieldReviewedByAccountID]
+	return ok
+}
+
+// ResetReviewedByAccountID resets all changes to the "reviewed_by_account_id" field.
+func (m *CompetitionEntryMutation) ResetReviewedByAccountID() {
+	m.reviewed_by_account_id = nil
+	m.addreviewed_by_account_id = nil
+	delete(m.clearedFields, competitionentry.FieldReviewedByAccountID)
+}
+
+// SetReviewedAt sets the "reviewed_at" field.
+func (m *CompetitionEntryMutation) SetReviewedAt(t time.Time) {
+	m.reviewed_at = &t
+}
+
+// ReviewedAt returns the value of the "reviewed_at" field in the mutation.
+func (m *CompetitionEntryMutation) ReviewedAt() (r time.Time, exists bool) {
+	v := m.reviewed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReviewedAt returns the old "reviewed_at" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldReviewedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReviewedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReviewedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReviewedAt: %w", err)
+	}
+	return oldValue.ReviewedAt, nil
+}
+
+// ClearReviewedAt clears the value of the "reviewed_at" field.
+func (m *CompetitionEntryMutation) ClearReviewedAt() {
+	m.reviewed_at = nil
+	m.clearedFields[competitionentry.FieldReviewedAt] = struct{}{}
+}
+
+// ReviewedAtCleared returns if the "reviewed_at" field was cleared in this mutation.
+func (m *CompetitionEntryMutation) ReviewedAtCleared() bool {
+	_, ok := m.clearedFields[competitionentry.FieldReviewedAt]
+	return ok
+}
+
+// ResetReviewedAt resets all changes to the "reviewed_at" field.
+func (m *CompetitionEntryMutation) ResetReviewedAt() {
+	m.reviewed_at = nil
+	delete(m.clearedFields, competitionentry.FieldReviewedAt)
+}
+
 // SetRevision sets the "revision" field.
 func (m *CompetitionEntryMutation) SetRevision(i int) {
 	m.revision = &i
@@ -6534,7 +6981,7 @@ func (m *CompetitionEntryMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *CompetitionEntryMutation) Fields() []string {
-	fields := make([]string, 0, 9)
+	fields := make([]string, 0, 13)
 	if m.event != nil {
 		fields = append(fields, competitionentry.FieldEventID)
 	}
@@ -6555,6 +7002,18 @@ func (m *CompetitionEntryMutation) Fields() []string {
 	}
 	if m.upload_closed_at != nil {
 		fields = append(fields, competitionentry.FieldUploadClosedAt)
+	}
+	if m.content_revision != nil {
+		fields = append(fields, competitionentry.FieldContentRevision)
+	}
+	if m.reviewed_content_revision != nil {
+		fields = append(fields, competitionentry.FieldReviewedContentRevision)
+	}
+	if m.reviewed_by_account_id != nil {
+		fields = append(fields, competitionentry.FieldReviewedByAccountID)
+	}
+	if m.reviewed_at != nil {
+		fields = append(fields, competitionentry.FieldReviewedAt)
 	}
 	if m.revision != nil {
 		fields = append(fields, competitionentry.FieldRevision)
@@ -6584,6 +7043,14 @@ func (m *CompetitionEntryMutation) Field(name string) (ent.Value, bool) {
 		return m.Disposition()
 	case competitionentry.FieldUploadClosedAt:
 		return m.UploadClosedAt()
+	case competitionentry.FieldContentRevision:
+		return m.ContentRevision()
+	case competitionentry.FieldReviewedContentRevision:
+		return m.ReviewedContentRevision()
+	case competitionentry.FieldReviewedByAccountID:
+		return m.ReviewedByAccountID()
+	case competitionentry.FieldReviewedAt:
+		return m.ReviewedAt()
 	case competitionentry.FieldRevision:
 		return m.Revision()
 	case competitionentry.FieldCreatedAt:
@@ -6611,6 +7078,14 @@ func (m *CompetitionEntryMutation) OldField(ctx context.Context, name string) (e
 		return m.OldDisposition(ctx)
 	case competitionentry.FieldUploadClosedAt:
 		return m.OldUploadClosedAt(ctx)
+	case competitionentry.FieldContentRevision:
+		return m.OldContentRevision(ctx)
+	case competitionentry.FieldReviewedContentRevision:
+		return m.OldReviewedContentRevision(ctx)
+	case competitionentry.FieldReviewedByAccountID:
+		return m.OldReviewedByAccountID(ctx)
+	case competitionentry.FieldReviewedAt:
+		return m.OldReviewedAt(ctx)
 	case competitionentry.FieldRevision:
 		return m.OldRevision(ctx)
 	case competitionentry.FieldCreatedAt:
@@ -6673,6 +7148,34 @@ func (m *CompetitionEntryMutation) SetField(name string, value ent.Value) error 
 		}
 		m.SetUploadClosedAt(v)
 		return nil
+	case competitionentry.FieldContentRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetContentRevision(v)
+		return nil
+	case competitionentry.FieldReviewedContentRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReviewedContentRevision(v)
+		return nil
+	case competitionentry.FieldReviewedByAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReviewedByAccountID(v)
+		return nil
+	case competitionentry.FieldReviewedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReviewedAt(v)
+		return nil
 	case competitionentry.FieldRevision:
 		v, ok := value.(int)
 		if !ok {
@@ -6695,6 +7198,15 @@ func (m *CompetitionEntryMutation) SetField(name string, value ent.Value) error 
 // this mutation.
 func (m *CompetitionEntryMutation) AddedFields() []string {
 	var fields []string
+	if m.addcontent_revision != nil {
+		fields = append(fields, competitionentry.FieldContentRevision)
+	}
+	if m.addreviewed_content_revision != nil {
+		fields = append(fields, competitionentry.FieldReviewedContentRevision)
+	}
+	if m.addreviewed_by_account_id != nil {
+		fields = append(fields, competitionentry.FieldReviewedByAccountID)
+	}
 	if m.addrevision != nil {
 		fields = append(fields, competitionentry.FieldRevision)
 	}
@@ -6706,6 +7218,12 @@ func (m *CompetitionEntryMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *CompetitionEntryMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
+	case competitionentry.FieldContentRevision:
+		return m.AddedContentRevision()
+	case competitionentry.FieldReviewedContentRevision:
+		return m.AddedReviewedContentRevision()
+	case competitionentry.FieldReviewedByAccountID:
+		return m.AddedReviewedByAccountID()
 	case competitionentry.FieldRevision:
 		return m.AddedRevision()
 	}
@@ -6717,6 +7235,27 @@ func (m *CompetitionEntryMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *CompetitionEntryMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case competitionentry.FieldContentRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddContentRevision(v)
+		return nil
+	case competitionentry.FieldReviewedContentRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddReviewedContentRevision(v)
+		return nil
+	case competitionentry.FieldReviewedByAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddReviewedByAccountID(v)
+		return nil
 	case competitionentry.FieldRevision:
 		v, ok := value.(int)
 		if !ok {
@@ -6741,6 +7280,15 @@ func (m *CompetitionEntryMutation) ClearedFields() []string {
 	if m.FieldCleared(competitionentry.FieldUploadClosedAt) {
 		fields = append(fields, competitionentry.FieldUploadClosedAt)
 	}
+	if m.FieldCleared(competitionentry.FieldReviewedContentRevision) {
+		fields = append(fields, competitionentry.FieldReviewedContentRevision)
+	}
+	if m.FieldCleared(competitionentry.FieldReviewedByAccountID) {
+		fields = append(fields, competitionentry.FieldReviewedByAccountID)
+	}
+	if m.FieldCleared(competitionentry.FieldReviewedAt) {
+		fields = append(fields, competitionentry.FieldReviewedAt)
+	}
 	return fields
 }
 
@@ -6763,6 +7311,15 @@ func (m *CompetitionEntryMutation) ClearField(name string) error {
 		return nil
 	case competitionentry.FieldUploadClosedAt:
 		m.ClearUploadClosedAt()
+		return nil
+	case competitionentry.FieldReviewedContentRevision:
+		m.ClearReviewedContentRevision()
+		return nil
+	case competitionentry.FieldReviewedByAccountID:
+		m.ClearReviewedByAccountID()
+		return nil
+	case competitionentry.FieldReviewedAt:
+		m.ClearReviewedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown CompetitionEntry nullable field %s", name)
@@ -6792,6 +7349,18 @@ func (m *CompetitionEntryMutation) ResetField(name string) error {
 		return nil
 	case competitionentry.FieldUploadClosedAt:
 		m.ResetUploadClosedAt()
+		return nil
+	case competitionentry.FieldContentRevision:
+		m.ResetContentRevision()
+		return nil
+	case competitionentry.FieldReviewedContentRevision:
+		m.ResetReviewedContentRevision()
+		return nil
+	case competitionentry.FieldReviewedByAccountID:
+		m.ResetReviewedByAccountID()
+		return nil
+	case competitionentry.FieldReviewedAt:
+		m.ResetReviewedAt()
 		return nil
 	case competitionentry.FieldRevision:
 		m.ResetRevision()
@@ -23655,6 +24224,10 @@ type SessionMutation struct {
 	corrected_title             *string
 	corrected_speaker           *string
 	corrected_public_details    *string
+	require_entry_review        *bool
+	file_delivery_required      *bool
+	readiness_revision          *int
+	addreadiness_revision       *int
 	created_at                  *time.Time
 	clearedFields               map[string]struct{}
 	event                       *int
@@ -24524,6 +25097,147 @@ func (m *SessionMutation) ResetCorrectedPublicDetails() {
 	delete(m.clearedFields, session.FieldCorrectedPublicDetails)
 }
 
+// SetRequireEntryReview sets the "require_entry_review" field.
+func (m *SessionMutation) SetRequireEntryReview(b bool) {
+	m.require_entry_review = &b
+}
+
+// RequireEntryReview returns the value of the "require_entry_review" field in the mutation.
+func (m *SessionMutation) RequireEntryReview() (r bool, exists bool) {
+	v := m.require_entry_review
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRequireEntryReview returns the old "require_entry_review" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldRequireEntryReview(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRequireEntryReview is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRequireEntryReview requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRequireEntryReview: %w", err)
+	}
+	return oldValue.RequireEntryReview, nil
+}
+
+// ResetRequireEntryReview resets all changes to the "require_entry_review" field.
+func (m *SessionMutation) ResetRequireEntryReview() {
+	m.require_entry_review = nil
+}
+
+// SetFileDeliveryRequired sets the "file_delivery_required" field.
+func (m *SessionMutation) SetFileDeliveryRequired(b bool) {
+	m.file_delivery_required = &b
+}
+
+// FileDeliveryRequired returns the value of the "file_delivery_required" field in the mutation.
+func (m *SessionMutation) FileDeliveryRequired() (r bool, exists bool) {
+	v := m.file_delivery_required
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFileDeliveryRequired returns the old "file_delivery_required" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldFileDeliveryRequired(ctx context.Context) (v *bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFileDeliveryRequired is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFileDeliveryRequired requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFileDeliveryRequired: %w", err)
+	}
+	return oldValue.FileDeliveryRequired, nil
+}
+
+// ClearFileDeliveryRequired clears the value of the "file_delivery_required" field.
+func (m *SessionMutation) ClearFileDeliveryRequired() {
+	m.file_delivery_required = nil
+	m.clearedFields[session.FieldFileDeliveryRequired] = struct{}{}
+}
+
+// FileDeliveryRequiredCleared returns if the "file_delivery_required" field was cleared in this mutation.
+func (m *SessionMutation) FileDeliveryRequiredCleared() bool {
+	_, ok := m.clearedFields[session.FieldFileDeliveryRequired]
+	return ok
+}
+
+// ResetFileDeliveryRequired resets all changes to the "file_delivery_required" field.
+func (m *SessionMutation) ResetFileDeliveryRequired() {
+	m.file_delivery_required = nil
+	delete(m.clearedFields, session.FieldFileDeliveryRequired)
+}
+
+// SetReadinessRevision sets the "readiness_revision" field.
+func (m *SessionMutation) SetReadinessRevision(i int) {
+	m.readiness_revision = &i
+	m.addreadiness_revision = nil
+}
+
+// ReadinessRevision returns the value of the "readiness_revision" field in the mutation.
+func (m *SessionMutation) ReadinessRevision() (r int, exists bool) {
+	v := m.readiness_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReadinessRevision returns the old "readiness_revision" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldReadinessRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReadinessRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReadinessRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReadinessRevision: %w", err)
+	}
+	return oldValue.ReadinessRevision, nil
+}
+
+// AddReadinessRevision adds i to the "readiness_revision" field.
+func (m *SessionMutation) AddReadinessRevision(i int) {
+	if m.addreadiness_revision != nil {
+		*m.addreadiness_revision += i
+	} else {
+		m.addreadiness_revision = &i
+	}
+}
+
+// AddedReadinessRevision returns the value that was added to the "readiness_revision" field in this mutation.
+func (m *SessionMutation) AddedReadinessRevision() (r int, exists bool) {
+	v := m.addreadiness_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetReadinessRevision resets all changes to the "readiness_revision" field.
+func (m *SessionMutation) ResetReadinessRevision() {
+	m.readiness_revision = nil
+	m.addreadiness_revision = nil
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *SessionMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -24876,7 +25590,7 @@ func (m *SessionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SessionMutation) Fields() []string {
-	fields := make([]string, 0, 16)
+	fields := make([]string, 0, 19)
 	if m.event != nil {
 		fields = append(fields, session.FieldEventID)
 	}
@@ -24922,6 +25636,15 @@ func (m *SessionMutation) Fields() []string {
 	if m.corrected_public_details != nil {
 		fields = append(fields, session.FieldCorrectedPublicDetails)
 	}
+	if m.require_entry_review != nil {
+		fields = append(fields, session.FieldRequireEntryReview)
+	}
+	if m.file_delivery_required != nil {
+		fields = append(fields, session.FieldFileDeliveryRequired)
+	}
+	if m.readiness_revision != nil {
+		fields = append(fields, session.FieldReadinessRevision)
+	}
 	if m.created_at != nil {
 		fields = append(fields, session.FieldCreatedAt)
 	}
@@ -24963,6 +25686,12 @@ func (m *SessionMutation) Field(name string) (ent.Value, bool) {
 		return m.CorrectedSpeaker()
 	case session.FieldCorrectedPublicDetails:
 		return m.CorrectedPublicDetails()
+	case session.FieldRequireEntryReview:
+		return m.RequireEntryReview()
+	case session.FieldFileDeliveryRequired:
+		return m.FileDeliveryRequired()
+	case session.FieldReadinessRevision:
+		return m.ReadinessRevision()
 	case session.FieldCreatedAt:
 		return m.CreatedAt()
 	}
@@ -25004,6 +25733,12 @@ func (m *SessionMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldCorrectedSpeaker(ctx)
 	case session.FieldCorrectedPublicDetails:
 		return m.OldCorrectedPublicDetails(ctx)
+	case session.FieldRequireEntryReview:
+		return m.OldRequireEntryReview(ctx)
+	case session.FieldFileDeliveryRequired:
+		return m.OldFileDeliveryRequired(ctx)
+	case session.FieldReadinessRevision:
+		return m.OldReadinessRevision(ctx)
 	case session.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	}
@@ -25120,6 +25855,27 @@ func (m *SessionMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetCorrectedPublicDetails(v)
 		return nil
+	case session.FieldRequireEntryReview:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRequireEntryReview(v)
+		return nil
+	case session.FieldFileDeliveryRequired:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFileDeliveryRequired(v)
+		return nil
+	case session.FieldReadinessRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReadinessRevision(v)
+		return nil
 	case session.FieldCreatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -25138,6 +25894,9 @@ func (m *SessionMutation) AddedFields() []string {
 	if m.addlive_state_revision != nil {
 		fields = append(fields, session.FieldLiveStateRevision)
 	}
+	if m.addreadiness_revision != nil {
+		fields = append(fields, session.FieldReadinessRevision)
+	}
 	return fields
 }
 
@@ -25148,6 +25907,8 @@ func (m *SessionMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
 	case session.FieldLiveStateRevision:
 		return m.AddedLiveStateRevision()
+	case session.FieldReadinessRevision:
+		return m.AddedReadinessRevision()
 	}
 	return nil, false
 }
@@ -25163,6 +25924,13 @@ func (m *SessionMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddLiveStateRevision(v)
+		return nil
+	case session.FieldReadinessRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddReadinessRevision(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Session numeric field %s", name)
@@ -25207,6 +25975,9 @@ func (m *SessionMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(session.FieldCorrectedPublicDetails) {
 		fields = append(fields, session.FieldCorrectedPublicDetails)
+	}
+	if m.FieldCleared(session.FieldFileDeliveryRequired) {
+		fields = append(fields, session.FieldFileDeliveryRequired)
 	}
 	return fields
 }
@@ -25257,6 +26028,9 @@ func (m *SessionMutation) ClearField(name string) error {
 		return nil
 	case session.FieldCorrectedPublicDetails:
 		m.ClearCorrectedPublicDetails()
+		return nil
+	case session.FieldFileDeliveryRequired:
+		m.ClearFileDeliveryRequired()
 		return nil
 	}
 	return fmt.Errorf("unknown Session nullable field %s", name)
@@ -25310,6 +26084,15 @@ func (m *SessionMutation) ResetField(name string) error {
 		return nil
 	case session.FieldCorrectedPublicDetails:
 		m.ResetCorrectedPublicDetails()
+		return nil
+	case session.FieldRequireEntryReview:
+		m.ResetRequireEntryReview()
+		return nil
+	case session.FieldFileDeliveryRequired:
+		m.ResetFileDeliveryRequired()
+		return nil
+	case session.FieldReadinessRevision:
+		m.ResetReadinessRevision()
 		return nil
 	case session.FieldCreatedAt:
 		m.ResetCreatedAt()

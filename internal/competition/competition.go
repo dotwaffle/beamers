@@ -28,6 +28,10 @@ var (
 	ErrEntryNotFound = store.ErrCompetitionEntryNotFound
 	// ErrEntryRevisionConflict means an Entry command used a stale revision.
 	ErrEntryRevisionConflict = store.ErrCompetitionEntryRevision
+	// ErrReadinessRevisionConflict means policy configuration used stale state.
+	ErrReadinessRevisionConflict = store.ErrCompetitionReadinessRevision
+	// ErrAttachmentReadinessRevisionConflict means Attachment readiness used stale state.
+	ErrAttachmentReadinessRevisionConflict = store.ErrAttachmentReadinessRevision
 	// ErrLiveDispositionConfirmation means a live change lacked explicit confirmation.
 	ErrLiveDispositionConfirmation = store.ErrLiveDispositionConfirmation
 	// ErrCommandConflict means a Command ID was reused for different work.
@@ -57,6 +61,8 @@ type Entry struct {
 	CrewNotes            string
 	Disposition          Disposition
 	Revision             int
+	ContentRevision      int
+	ReviewCurrent        bool
 	CreatedAt            time.Time
 }
 
@@ -66,7 +72,25 @@ type State struct {
 	SessionID                   int
 	SubmissionDeadline          time.Time
 	EffectiveDefaultDisposition Disposition
+	RequireEntryReview          bool
+	FileDeliveryRequired        bool
+	ReadinessRevision           int
 	Entries                     []Entry
+}
+
+// PreflightFinding is one stable actionable Competition Start blocker.
+type PreflightFinding struct {
+	Code, Message string
+	EntryID       int
+}
+
+// Preflight is the exact current Competition Start readiness result.
+type Preflight struct {
+	EventID, SessionID   int
+	RequireEntryReview   bool
+	FileDeliveryRequired bool
+	Blockers             []PreflightFinding
+	Attachments          []AttachmentReadiness
 }
 
 // CreateEntryInput contains one proposed Competition Entry.
@@ -93,6 +117,53 @@ type ChangeDispositionInput struct {
 	ExpectedRevision            int
 	Disposition                 Disposition
 	ConfirmedLiveOverride       bool
+}
+
+// ConfigureReadinessInput changes independent Competition Start policies.
+type ConfigureReadinessInput struct {
+	EventID                   int    `json:"event_id"`
+	SessionID                 int    `json:"session_id"`
+	CommandID                 string `json:"command_id"`
+	ExpectedReadinessRevision int    `json:"expected_readiness_revision"`
+	RequireEntryReview        bool   `json:"require_entry_review"`
+	FileDeliveryRequired      bool   `json:"file_delivery_required"`
+}
+
+// Readiness is current Competition Start policy state.
+type Readiness struct {
+	RequireEntryReview   bool
+	FileDeliveryRequired bool
+	ReadinessRevision    int
+}
+
+// ReviewEntryInput confirms one exact Entry content revision.
+type ReviewEntryInput struct {
+	EventID, SessionID, EntryID int
+	CommandID                   string
+	ExpectedRevision            int
+}
+
+// SetEntryAttachmentReadinessInput changes independent Final and Primary facts.
+type SetEntryAttachmentReadinessInput struct {
+	EventID             int    `json:"event_id"`
+	SessionID           int    `json:"session_id"`
+	EntryID             int    `json:"entry_id"`
+	AttachmentVersionID int    `json:"attachment_version_id"`
+	CommandID           string `json:"command_id"`
+	ExpectedRevision    int    `json:"expected_revision"`
+	Final               bool   `json:"final"`
+	Primary             bool   `json:"primary"`
+}
+
+// AttachmentReadiness is current Final and Primary state.
+type AttachmentReadiness struct {
+	AttachmentVersionID int
+	EntryID             int
+	AttachmentVersion   int
+	LogicalName         string
+	OriginalFilename    string
+	ReadinessRevision   int
+	Final, Primary      bool
 }
 
 // Service owns Competition queries and Entry commands.
@@ -125,6 +196,95 @@ func (service *Service) Get(ctx context.Context, actor auth.Account, eventID, se
 		return State{}, err
 	}
 	return state(stored), nil
+}
+
+// PreflightStart reports blockers from the configured readiness rules.
+func (service *Service) PreflightStart(
+	ctx context.Context,
+	actor auth.Account,
+	eventID, sessionID int,
+) (Preflight, error) {
+	if eventID <= 0 || sessionID <= 0 {
+		return Preflight{}, ErrInvalidInput
+	}
+	if !actor.Administrator && actor.EventRoles[eventID] == "" {
+		return Preflight{}, ErrProducerRequired
+	}
+	stored, err := service.storage.PreflightCompetitionStart(actor.Context(ctx), eventID, sessionID)
+	if err != nil {
+		return Preflight{}, err
+	}
+	result := Preflight{
+		EventID: stored.EventID, SessionID: stored.SessionID,
+		RequireEntryReview:   stored.RequireEntryReview,
+		FileDeliveryRequired: stored.FileDeliveryRequired,
+		Blockers:             make([]PreflightFinding, 0, len(stored.Blockers)),
+		Attachments:          make([]AttachmentReadiness, 0, len(stored.Attachments)),
+	}
+	for _, blocker := range stored.Blockers {
+		result.Blockers = append(result.Blockers, PreflightFinding{
+			Code: string(blocker.Code), Message: blocker.Message, EntryID: blocker.EntryID,
+		})
+	}
+	for _, attachment := range stored.Attachments {
+		result.Attachments = append(result.Attachments, attachmentReadiness(attachment))
+	}
+	return result, nil
+}
+
+// ConfigureReadiness changes independent Competition Start policies.
+func (service *Service) ConfigureReadiness(
+	ctx context.Context,
+	actor auth.Account,
+	input ConfigureReadinessInput,
+) (Readiness, error) {
+	if err := command.ValidateID(input.CommandID); err != nil {
+		return Readiness{}, err
+	}
+	if input.EventID <= 0 || input.SessionID <= 0 || input.ExpectedReadinessRevision < 0 {
+		return Readiness{}, ErrInvalidInput
+	}
+	payload, err := json.Marshal(input)
+	if err != nil {
+		return Readiness{}, errors.New("encode Competition readiness command")
+	}
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID, CommandID: input.CommandID,
+		PayloadHash: command.PayloadHash(string(payload)),
+		Action:      "ConfigureCompetitionReadiness", TargetType: "Competition",
+		TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
+	}
+	return command.Execute(actor.Context(ctx), command.Plan[Readiness]{
+		Storage: service.storage, Identity: identity,
+		Replay: func(outcome string) (Readiness, error) {
+			var stored store.CompetitionReadiness
+			if err := store.DecodeCommandReceipt(outcome, &stored); err != nil {
+				return Readiness{}, err
+			}
+			return readiness(stored), nil
+		},
+		Apply: func(transaction *store.CommandTx) (command.Execution[Readiness], error) {
+			if !actor.CanProduceEvent(input.EventID) {
+				return command.Execution[Readiness]{}, ErrProducerRequired
+			}
+			stored, applyErr := transaction.ConfigureCompetitionReadiness(
+				actor.Context(ctx), store.ConfigureCompetitionReadinessParams{
+					EventID: input.EventID, SessionID: input.SessionID,
+					ExpectedReadinessRevision: input.ExpectedReadinessRevision,
+					RequireEntryReview:        input.RequireEntryReview,
+					FileDeliveryRequired:      input.FileDeliveryRequired,
+				},
+			)
+			if applyErr != nil {
+				return command.Execution[Readiness]{}, applyErr
+			}
+			outcome, marshalErr := json.Marshal(stored)
+			if marshalErr != nil {
+				return command.Execution[Readiness]{}, errors.New("encode Competition readiness outcome")
+			}
+			return command.Success(readiness(stored), string(outcome)), nil
+		},
+	})
 }
 
 // CreateEntry creates one retained Entry before the fixed Deadline.
@@ -188,6 +348,89 @@ func (service *Service) ChangeDisposition(
 			})
 		},
 	)
+}
+
+// ReviewEntry confirms one exact current Entry content revision.
+func (service *Service) ReviewEntry(
+	ctx context.Context,
+	actor auth.Account,
+	input ReviewEntryInput,
+) (Entry, error) {
+	if err := command.ValidateID(input.CommandID); err != nil {
+		return Entry{}, err
+	}
+	if input.EventID <= 0 || input.SessionID <= 0 || input.EntryID <= 0 ||
+		input.ExpectedRevision <= 0 {
+		return Entry{}, ErrInvalidInput
+	}
+	return service.execute(
+		ctx, actor, input.EventID, input.CommandID, "ReviewCompetitionEntry",
+		strconv.Itoa(input.EntryID), input,
+		func(transaction *store.CommandTx, now time.Time) (store.CompetitionEntry, error) {
+			return transaction.ReviewCompetitionEntry(
+				actor.Context(ctx), store.ReviewCompetitionEntryParams{
+					EventID: input.EventID, SessionID: input.SessionID, EntryID: input.EntryID,
+					ExpectedRevision: input.ExpectedRevision, ReviewerAccountID: actor.ID, Now: now,
+				},
+			)
+		},
+	)
+}
+
+// SetEntryAttachmentReadiness changes Final and Primary independently.
+func (service *Service) SetEntryAttachmentReadiness(
+	ctx context.Context,
+	actor auth.Account,
+	input SetEntryAttachmentReadinessInput,
+) (AttachmentReadiness, error) {
+	if err := command.ValidateID(input.CommandID); err != nil {
+		return AttachmentReadiness{}, err
+	}
+	if input.EventID <= 0 || input.SessionID <= 0 || input.EntryID <= 0 ||
+		input.AttachmentVersionID <= 0 || input.ExpectedRevision <= 0 {
+		return AttachmentReadiness{}, ErrInvalidInput
+	}
+	payload, err := json.Marshal(input)
+	if err != nil {
+		return AttachmentReadiness{}, errors.New("encode Attachment readiness command")
+	}
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID, CommandID: input.CommandID,
+		PayloadHash: command.PayloadHash(string(payload)),
+		Action:      "SetEntryAttachmentReadiness", TargetType: "AttachmentVersion",
+		TargetID: strconv.Itoa(input.AttachmentVersionID), Now: service.now().UTC(),
+	}
+	return command.Execute(actor.Context(ctx), command.Plan[AttachmentReadiness]{
+		Storage: service.storage, Identity: identity,
+		Replay: func(outcome string) (AttachmentReadiness, error) {
+			var stored store.AttachmentReadiness
+			if err := store.DecodeCommandReceipt(outcome, &stored); err != nil {
+				return AttachmentReadiness{}, err
+			}
+			return attachmentReadiness(stored), nil
+		},
+		Apply: func(transaction *store.CommandTx) (command.Execution[AttachmentReadiness], error) {
+			if !actor.CanProduceEvent(input.EventID) {
+				return command.Execution[AttachmentReadiness]{}, ErrProducerRequired
+			}
+			stored, applyErr := transaction.SetEntryAttachmentReadiness(
+				actor.Context(ctx), store.SetEntryAttachmentReadinessParams{
+					EventID: input.EventID, SessionID: input.SessionID, EntryID: input.EntryID,
+					AttachmentVersionID: input.AttachmentVersionID,
+					ExpectedRevision:    input.ExpectedRevision,
+					Final:               input.Final, Primary: input.Primary,
+				},
+			)
+			if applyErr != nil {
+				return command.Execution[AttachmentReadiness]{}, applyErr
+			}
+			outcome, marshalErr := json.Marshal(stored)
+			if marshalErr != nil {
+				return command.Execution[AttachmentReadiness]{}, errors.New("encode Attachment readiness outcome")
+			}
+			return command.Success(attachmentReadiness(stored), string(outcome)), nil
+		},
+	})
 }
 
 func (service *Service) execute(
@@ -274,6 +517,9 @@ func state(stored store.CompetitionState) State {
 		EventID: stored.EventID, SessionID: stored.SessionID,
 		SubmissionDeadline:          stored.SubmissionDeadline,
 		EffectiveDefaultDisposition: Disposition(stored.EffectiveDefaultDisposition),
+		RequireEntryReview:          stored.RequireEntryReview,
+		FileDeliveryRequired:        stored.FileDeliveryRequired,
+		ReadinessRevision:           stored.ReadinessRevision,
 		Entries:                     make([]Entry, 0, len(stored.Entries)),
 	}
 	for _, storedEntry := range stored.Entries {
@@ -286,6 +532,29 @@ func entry(stored store.CompetitionEntry) Entry {
 	return Entry{
 		ID: stored.ID, CompetitionSessionID: stored.CompetitionSessionID,
 		Name: stored.Name, PublicDetails: stored.PublicDetails, CrewNotes: stored.CrewNotes,
-		Disposition: Disposition(stored.Disposition), Revision: stored.Revision, CreatedAt: stored.CreatedAt,
+		Disposition: Disposition(stored.Disposition), Revision: stored.Revision,
+		ContentRevision: stored.ContentRevision, ReviewCurrent: stored.ReviewCurrent,
+		CreatedAt: stored.CreatedAt,
+	}
+}
+
+func readiness(stored store.CompetitionReadiness) Readiness {
+	return Readiness{
+		RequireEntryReview:   stored.RequireEntryReview,
+		FileDeliveryRequired: stored.FileDeliveryRequired,
+		ReadinessRevision:    stored.ReadinessRevision,
+	}
+}
+
+func attachmentReadiness(stored store.AttachmentReadiness) AttachmentReadiness {
+	return AttachmentReadiness{
+		AttachmentVersionID: stored.AttachmentVersionID,
+		EntryID:             stored.EntryID,
+		AttachmentVersion:   stored.AttachmentVersion,
+		LogicalName:         stored.LogicalName,
+		OriginalFilename:    stored.OriginalFilename,
+		ReadinessRevision:   stored.ReadinessRevision,
+		Final:               stored.Final,
+		Primary:             stored.Primary,
 	}
 }

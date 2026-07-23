@@ -2239,6 +2239,14 @@ func TestProducerCreatesIncludedCompetitionEntry(t *testing.T) {
 	if err != nil || !included.Msg.GetEntry().GetParticipating() {
 		t.Fatalf("include Entry = %+v, %v", included, err)
 	}
+	if _, err = client.ConfigureReadiness(t.Context(), connect.NewRequest(
+		&competitionv1.ConfigureReadinessRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "disable-delivery-for-disposition-test",
+			ExpectedReadinessRevision: 0, FileDeliveryRequired: false,
+		},
+	)); err != nil {
+		t.Fatalf("disable file delivery for disposition test: %v", err)
+	}
 	sessionClient := sessionv1connect.NewSessionControlServiceClient(
 		administrator, "http://"+server.address, connect.WithProtoJSON(),
 	)
@@ -2325,6 +2333,400 @@ func TestProducerCreatesIncludedCompetitionEntry(t *testing.T) {
 		t.Fatalf("Competition disposition change missing from Audit history: %s", auditBody)
 	}
 	server.stop(t)
+}
+
+func TestCompetitionStartPreflightRequiresFinalPrimaryDelivery(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	competitionID, _ := addCompetitionSession(t, administrator, server)
+	competitionClient := competitionv1connect.NewCompetitionServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	created, err := competitionClient.CreateEntry(t.Context(), connect.NewRequest(
+		&competitionv1.CreateEntryRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "create-preflight-entry",
+			Name: "Ready Project",
+		},
+	))
+	if err != nil {
+		t.Fatalf("create preflight Entry: %v", err)
+	}
+	preflight, err := competitionClient.PreflightStart(t.Context(), connect.NewRequest(
+		&competitionv1.PreflightStartRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil {
+		t.Fatalf("preflight Competition Start: %v", err)
+	}
+	if preflight.Msg.GetRequireEntryReview() || !preflight.Msg.GetFileDeliveryRequired() ||
+		len(preflight.Msg.GetBlockers()) != 1 ||
+		preflight.Msg.GetBlockers()[0].GetCode() != "missing_file_delivery" ||
+		preflight.Msg.GetBlockers()[0].GetEntryId() != created.Msg.GetEntry().GetId() {
+		t.Fatalf("default Competition Preflight = %+v", preflight.Msg)
+	}
+	sessionClient := sessionv1connect.NewSessionControlServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	_, err = sessionClient.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
+		EventId: 1, SessionId: competitionID, CommandId: "start-unready-competition",
+		ExpectedLiveStateRevision: proto.Int64(0),
+	}))
+	if connect.CodeOf(err) != connect.CodeFailedPrecondition ||
+		!strings.Contains(err.Error(), "missing_file_delivery") {
+		t.Fatalf("unready Competition Start error = %v", err)
+	}
+	link := requestJSON(
+		t.Context(), administrator, server.address, "/crew/events/1/upload-links",
+		map[string]any{
+			"target_type": "Entry", "target_id": created.Msg.GetEntry().GetId(),
+			"command_id": "issue-preflight-upload-link",
+		},
+	)
+	var credential struct {
+		Token string `json:"token"`
+	}
+	if decodeErr := json.Unmarshal([]byte(link.body), &credential); decodeErr != nil ||
+		link.status != http.StatusCreated || credential.Token == "" {
+		t.Fatalf("issue preflight Upload Link = %d: %s (%v)", link.status, link.body, decodeErr)
+	}
+	uploaded := decodeAttachmentVersion(t, requestMultipart(
+		t.Context(), http.DefaultClient, server.address, "/upload/"+credential.Token,
+		map[string]string{"name": "entry", "command_id": "upload-preflight-entry"},
+		"entry.zip", "application/zip", []byte("one complete entry"),
+	))
+	if !uploaded.Primary || uploaded.Final {
+		t.Fatalf("sole Attachment Version readiness = %+v", uploaded)
+	}
+	ready, err := competitionClient.PreflightStart(t.Context(), connect.NewRequest(
+		&competitionv1.PreflightStartRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil || len(ready.Msg.GetBlockers()) != 0 ||
+		len(ready.Msg.GetAttachments()) != 1 ||
+		!ready.Msg.GetAttachments()[0].GetPrimary() ||
+		!ready.Msg.GetAttachments()[0].GetFinal() ||
+		ready.Msg.GetAttachments()[0].GetAttachmentVersionId() != int64(uploaded.ID) ||
+		ready.Msg.GetAttachments()[0].GetRevision() <= int64(uploaded.ReadinessRevision) {
+		t.Fatalf("ready Competition Preflight = %+v, %v", ready, err)
+	}
+	if _, err = sessionClient.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
+		EventId: 1, SessionId: competitionID, CommandId: "start-ready-competition",
+		ExpectedLiveStateRevision: proto.Int64(0),
+	})); err != nil {
+		t.Fatalf("start ready Competition: %v", err)
+	}
+	server.stop(t)
+}
+
+func TestEntryReviewFinalizesSoleUploadAndContentChangeInvalidatesIt(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	competitionID, _ := addCompetitionSession(t, administrator, server)
+	client := competitionv1connect.NewCompetitionServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	configured, err := client.ConfigureReadiness(t.Context(), connect.NewRequest(
+		&competitionv1.ConfigureReadinessRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "require-entry-review",
+			ExpectedReadinessRevision: 0, RequireEntryReview: true, FileDeliveryRequired: true,
+		},
+	))
+	if err != nil || !configured.Msg.GetRequireEntryReview() ||
+		!configured.Msg.GetFileDeliveryRequired() || configured.Msg.GetReadinessRevision() != 1 {
+		t.Fatalf("configure Competition readiness = %+v, %v", configured, err)
+	}
+	created, err := client.CreateEntry(t.Context(), connect.NewRequest(
+		&competitionv1.CreateEntryRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "create-reviewed-entry",
+			Name: "Reviewed Project",
+		},
+	))
+	if err != nil {
+		t.Fatalf("create reviewed Entry: %v", err)
+	}
+	link := requestJSON(
+		t.Context(), administrator, server.address, "/crew/events/1/upload-links",
+		map[string]any{
+			"target_type": "Entry", "target_id": created.Msg.GetEntry().GetId(),
+			"command_id": "issue-reviewed-entry-link",
+		},
+	)
+	var credential struct {
+		Token string `json:"token"`
+	}
+	if decodeErr := json.Unmarshal([]byte(link.body), &credential); decodeErr != nil ||
+		link.status != http.StatusCreated {
+		t.Fatalf("issue reviewed Entry Upload Link = %d: %s (%v)", link.status, link.body, decodeErr)
+	}
+	uploaded := decodeAttachmentVersion(t, requestMultipart(
+		t.Context(), http.DefaultClient, server.address, "/upload/"+credential.Token,
+		map[string]string{"name": "entry", "command_id": "upload-reviewed-entry"},
+		"entry.zip", "application/zip", []byte("review me"),
+	))
+	if !uploaded.Primary || uploaded.Final {
+		t.Fatalf("review-gated sole upload = %+v", uploaded)
+	}
+	withoutReview, err := client.ConfigureReadiness(t.Context(), connect.NewRequest(
+		&competitionv1.ConfigureReadinessRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "disable-entry-review",
+			ExpectedReadinessRevision: 1, FileDeliveryRequired: true,
+		},
+	))
+	if err != nil || withoutReview.Msg.GetReadinessRevision() != 2 {
+		t.Fatalf("disable Entry Review = %+v, %v", withoutReview, err)
+	}
+	autoFinal, err := client.PreflightStart(t.Context(), connect.NewRequest(
+		&competitionv1.PreflightStartRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil || len(autoFinal.Msg.GetBlockers()) != 0 ||
+		len(autoFinal.Msg.GetAttachments()) != 1 || !autoFinal.Msg.GetAttachments()[0].GetFinal() {
+		t.Fatalf("review-disabled Preflight automation = %+v, %v", autoFinal, err)
+	}
+	withReview, err := client.ConfigureReadiness(t.Context(), connect.NewRequest(
+		&competitionv1.ConfigureReadinessRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "restore-entry-review",
+			ExpectedReadinessRevision: 2, RequireEntryReview: true, FileDeliveryRequired: true,
+		},
+	))
+	if err != nil || withReview.Msg.GetReadinessRevision() != 3 {
+		t.Fatalf("restore Entry Review = %+v, %v", withReview, err)
+	}
+	blocked, err := client.PreflightStart(t.Context(), connect.NewRequest(
+		&competitionv1.PreflightStartRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil || !findingCodesEqual(
+		blocked.Msg.GetBlockers(), "unresolved_entry_review", "non_final_primary_attachment",
+	) {
+		t.Fatalf("review-gated Preflight = %+v, %v", blocked, err)
+	}
+	_, staleReviewErr := client.ReviewEntry(t.Context(), connect.NewRequest(
+		&competitionv1.ReviewEntryRequest{
+			EventId: 1, SessionId: competitionID, EntryId: created.Msg.GetEntry().GetId(),
+			CommandId:        "stale-review-after-upload",
+			ExpectedRevision: created.Msg.GetEntry().GetRevision(),
+		},
+	))
+	if connect.CodeOf(staleReviewErr) != connect.CodeAborted {
+		t.Fatalf("stale review after upload error = %v, want Aborted", staleReviewErr)
+	}
+	current, err := client.GetCompetition(t.Context(), connect.NewRequest(
+		&competitionv1.GetCompetitionRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil || len(current.Msg.GetEntries()) != 1 {
+		t.Fatalf("load review-gated Entry: %+v, %v", current, err)
+	}
+	entry := current.Msg.GetEntries()[0]
+	reviewed, err := client.ReviewEntry(t.Context(), connect.NewRequest(
+		&competitionv1.ReviewEntryRequest{
+			EventId: 1, SessionId: competitionID, EntryId: entry.GetId(),
+			CommandId: "review-entry", ExpectedRevision: entry.GetRevision(),
+		},
+	))
+	if err != nil || !reviewed.Msg.GetEntry().GetReviewCurrent() {
+		t.Fatalf("review Entry = %+v, %v", reviewed, err)
+	}
+	ready, err := client.PreflightStart(t.Context(), connect.NewRequest(
+		&competitionv1.PreflightStartRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil || len(ready.Msg.GetBlockers()) != 0 {
+		t.Fatalf("reviewed Entry Preflight = %+v, %v", ready, err)
+	}
+	changed, err := client.UpdateEntry(t.Context(), connect.NewRequest(
+		&competitionv1.UpdateEntryRequest{
+			EventId: 1, SessionId: competitionID, EntryId: entry.GetId(),
+			CommandId: "change-reviewed-entry", ExpectedRevision: reviewed.Msg.GetEntry().GetRevision(),
+			Name: "Reviewed Project Revised",
+		},
+	))
+	if err != nil || changed.Msg.GetEntry().GetReviewCurrent() {
+		t.Fatalf("change reviewed Entry = %+v, %v", changed, err)
+	}
+	invalidated, err := client.PreflightStart(t.Context(), connect.NewRequest(
+		&competitionv1.PreflightStartRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil || !findingCodesEqual(
+		invalidated.Msg.GetBlockers(),
+		"unresolved_entry_review", "non_final_primary_attachment",
+	) {
+		t.Fatalf("invalidated Entry review Preflight = %+v, %v", invalidated, err)
+	}
+	server.stop(t)
+}
+
+func TestCompetitionPreflightRequiresDispositionAndUnambiguousPrimary(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	competitionID, _ := addCompetitionSession(t, administrator, server)
+	client := competitionv1connect.NewCompetitionServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	created, err := client.CreateEntry(t.Context(), connect.NewRequest(
+		&competitionv1.CreateEntryRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "create-primary-entry",
+			Name: "Primary Project",
+		},
+	))
+	if err != nil {
+		t.Fatalf("create Primary Entry: %v", err)
+	}
+	entry := created.Msg.GetEntry()
+	pending, err := client.ChangeEntryDisposition(t.Context(), connect.NewRequest(
+		&competitionv1.ChangeEntryDispositionRequest{
+			EventId: 1, SessionId: competitionID, EntryId: entry.GetId(),
+			CommandId: "make-primary-entry-pending", ExpectedRevision: entry.GetRevision(),
+			Disposition: rundownv1.EntryDisposition_ENTRY_DISPOSITION_PENDING,
+		},
+	))
+	if err != nil {
+		t.Fatalf("make Entry Pending: %v", err)
+	}
+	blocked, err := client.PreflightStart(t.Context(), connect.NewRequest(
+		&competitionv1.PreflightStartRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil || !findingCodesEqual(blocked.Msg.GetBlockers(), "pending_entry") {
+		t.Fatalf("Pending Entry Preflight = %+v, %v", blocked, err)
+	}
+	included, err := client.ChangeEntryDisposition(t.Context(), connect.NewRequest(
+		&competitionv1.ChangeEntryDispositionRequest{
+			EventId: 1, SessionId: competitionID, EntryId: entry.GetId(),
+			CommandId: "include-primary-entry", ExpectedRevision: pending.Msg.GetEntry().GetRevision(),
+			Disposition: rundownv1.EntryDisposition_ENTRY_DISPOSITION_INCLUDED,
+		},
+	))
+	if err != nil {
+		t.Fatalf("include Primary Entry: %v", err)
+	}
+	link := requestJSON(
+		t.Context(), administrator, server.address, "/crew/events/1/upload-links",
+		map[string]any{
+			"target_type": "Entry", "target_id": included.Msg.GetEntry().GetId(),
+			"command_id": "issue-primary-entry-link",
+		},
+	)
+	var credential struct {
+		Token string `json:"token"`
+	}
+	if decodeErr := json.Unmarshal([]byte(link.body), &credential); decodeErr != nil ||
+		link.status != http.StatusCreated {
+		t.Fatalf("issue Primary Entry Upload Link = %d: %s (%v)", link.status, link.body, decodeErr)
+	}
+	first := decodeAttachmentVersion(t, requestMultipart(
+		t.Context(), http.DefaultClient, server.address, "/upload/"+credential.Token,
+		map[string]string{"name": "entry", "command_id": "upload-primary-v1"},
+		"entry-v1.zip", "application/zip", []byte("first"),
+	))
+	second := decodeAttachmentVersion(t, requestMultipart(
+		t.Context(), http.DefaultClient, server.address, "/upload/"+credential.Token,
+		map[string]string{"name": "entry", "command_id": "upload-primary-v2"},
+		"entry-v2.zip", "application/zip", []byte("second"),
+	))
+	if !first.Primary || first.Final || second.Primary || second.Final {
+		t.Fatalf("two uploaded versions = %+v then %+v", first, second)
+	}
+	_, err = client.SetEntryAttachmentReadiness(t.Context(), connect.NewRequest(
+		&competitionv1.SetEntryAttachmentReadinessRequest{
+			EventId: 1, SessionId: competitionID, EntryId: entry.GetId(),
+			AttachmentVersionId: int64(first.ID), CommandId: "clear-primary-v1",
+			ExpectedRevision: int64(first.ReadinessRevision), Final: true, Primary: false,
+		},
+	))
+	if err != nil {
+		t.Fatalf("clear first Primary: %v", err)
+	}
+	autoSelected, err := client.PreflightStart(t.Context(), connect.NewRequest(
+		&competitionv1.PreflightStartRequest{EventId: 1, SessionId: competitionID},
+	))
+	firstCandidate := attachmentCandidate(autoSelected.Msg.GetAttachments(), int64(first.ID))
+	if err != nil || len(autoSelected.Msg.GetBlockers()) != 0 ||
+		firstCandidate == nil || !firstCandidate.GetPrimary() || !firstCandidate.GetFinal() {
+		t.Fatalf("sole Final candidate Preflight = %+v, %v", autoSelected, err)
+	}
+	firstReadiness, err := client.SetEntryAttachmentReadiness(t.Context(), connect.NewRequest(
+		&competitionv1.SetEntryAttachmentReadinessRequest{
+			EventId: 1, SessionId: competitionID, EntryId: entry.GetId(),
+			AttachmentVersionId: int64(first.ID), CommandId: "clear-primary-v1-again",
+			ExpectedRevision: firstCandidate.GetRevision(), Final: true, Primary: false,
+		},
+	))
+	if err != nil {
+		t.Fatalf("clear automatically selected Primary: %v", err)
+	}
+	secondFinal, err := client.SetEntryAttachmentReadiness(t.Context(), connect.NewRequest(
+		&competitionv1.SetEntryAttachmentReadinessRequest{
+			EventId: 1, SessionId: competitionID, EntryId: entry.GetId(),
+			AttachmentVersionId: int64(second.ID), CommandId: "finalize-v2",
+			ExpectedRevision: int64(second.ReadinessRevision), Final: true, Primary: false,
+		},
+	))
+	if err != nil || !secondFinal.Msg.GetAttachment().GetFinal() {
+		t.Fatalf("finalize second version = %+v, %v", secondFinal, err)
+	}
+	ambiguous, err := client.PreflightStart(t.Context(), connect.NewRequest(
+		&competitionv1.PreflightStartRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil || !findingCodesEqual(ambiguous.Msg.GetBlockers(), "ambiguous_primary_attachment") {
+		t.Fatalf("ambiguous Primary Preflight = %+v, %v", ambiguous, err)
+	}
+	primary, err := client.SetEntryAttachmentReadiness(t.Context(), connect.NewRequest(
+		&competitionv1.SetEntryAttachmentReadinessRequest{
+			EventId: 1, SessionId: competitionID, EntryId: entry.GetId(),
+			AttachmentVersionId: int64(second.ID), CommandId: "select-v2-primary",
+			ExpectedRevision: secondFinal.Msg.GetAttachment().GetRevision(), Final: true, Primary: true,
+		},
+	))
+	if err != nil || !primary.Msg.GetAttachment().GetPrimary() {
+		t.Fatalf("select second Primary = %+v, %v", primary, err)
+	}
+	ready, err := client.PreflightStart(t.Context(), connect.NewRequest(
+		&competitionv1.PreflightStartRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil || len(ready.Msg.GetBlockers()) != 0 {
+		t.Fatalf("multiple Final Versions with one Primary = %+v, %v", ready, err)
+	}
+	nonFinal, err := client.SetEntryAttachmentReadiness(t.Context(), connect.NewRequest(
+		&competitionv1.SetEntryAttachmentReadinessRequest{
+			EventId: 1, SessionId: competitionID, EntryId: entry.GetId(),
+			AttachmentVersionId: int64(second.ID), CommandId: "make-primary-non-final",
+			ExpectedRevision: primary.Msg.GetAttachment().GetRevision(), Final: false, Primary: true,
+		},
+	))
+	if err != nil || nonFinal.Msg.GetAttachment().GetFinal() {
+		t.Fatalf("make Primary non-Final = %+v, %v", nonFinal, err)
+	}
+	nonFinalBlocked, err := client.PreflightStart(t.Context(), connect.NewRequest(
+		&competitionv1.PreflightStartRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil || !findingCodesEqual(
+		nonFinalBlocked.Msg.GetBlockers(), "non_final_primary_attachment",
+	) {
+		t.Fatalf("non-Final Primary Preflight = %+v, %v", nonFinalBlocked, err)
+	}
+	if firstReadiness.Msg.GetAttachment().GetPrimary() {
+		t.Fatal("first Attachment remained Primary after explicit clear")
+	}
+	server.stop(t)
+}
+
+func findingCodesEqual(findings []*competitionv1.PreflightFinding, want ...string) bool {
+	if len(findings) != len(want) {
+		return false
+	}
+	for index, finding := range findings {
+		if finding.GetCode() != want[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func attachmentCandidate(
+	attachments []*competitionv1.AttachmentReadiness,
+	versionID int64,
+) *competitionv1.AttachmentReadiness {
+	for _, attachment := range attachments {
+		if attachment.GetAttachmentVersionId() == versionID {
+			return attachment
+		}
+	}
+	return nil
 }
 
 func TestProducerIssuesScopedEntryUploadLink(t *testing.T) {
@@ -2753,12 +3155,15 @@ func setPresentationUploadDeadline(
 }
 
 type attachmentVersionResponse struct {
-	ID           int    `json:"id"`
-	AttachmentID int    `json:"attachment_id"`
-	Version      int    `json:"version"`
-	SHA256       string `json:"sha256"`
-	UploaderType string `json:"uploader_type"`
-	UploaderID   int    `json:"uploader_id"`
+	ID                int    `json:"id"`
+	AttachmentID      int    `json:"attachment_id"`
+	Version           int    `json:"version"`
+	SHA256            string `json:"sha256"`
+	UploaderType      string `json:"uploader_type"`
+	UploaderID        int    `json:"uploader_id"`
+	Primary           bool   `json:"primary"`
+	Final             bool   `json:"final"`
+	ReadinessRevision int    `json:"readiness_revision"`
 }
 
 func decodeAttachmentVersion(t *testing.T, response jsonResponse) attachmentVersionResponse {

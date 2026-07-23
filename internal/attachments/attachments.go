@@ -82,20 +82,23 @@ type UploadLink struct {
 
 // Version is one immutable uploaded file revision.
 type Version struct {
-	ID               int        `json:"id"`
-	AttachmentID     int        `json:"attachment_id"`
-	Version          int        `json:"version"`
-	EventID          int        `json:"event_id"`
-	OwnerID          int        `json:"owner_id"`
-	OwnerType        TargetKind `json:"owner_type"`
-	Name             string     `json:"name"`
-	OriginalFilename string     `json:"original_filename"`
-	MediaType        string     `json:"media_type,omitempty"`
-	SizeBytes        int64      `json:"size_bytes"`
-	SHA256           string     `json:"sha256"`
-	UploaderType     string     `json:"uploader_type"`
-	UploaderID       int        `json:"uploader_id"`
-	CreatedAt        time.Time  `json:"created_at"`
+	ID                int        `json:"id"`
+	AttachmentID      int        `json:"attachment_id"`
+	Version           int        `json:"version"`
+	EventID           int        `json:"event_id"`
+	OwnerID           int        `json:"owner_id"`
+	OwnerType         TargetKind `json:"owner_type"`
+	Name              string     `json:"name"`
+	OriginalFilename  string     `json:"original_filename"`
+	MediaType         string     `json:"media_type,omitempty"`
+	SizeBytes         int64      `json:"size_bytes"`
+	SHA256            string     `json:"sha256"`
+	UploaderType      string     `json:"uploader_type"`
+	UploaderID        int        `json:"uploader_id"`
+	Primary           bool       `json:"primary"`
+	Final             bool       `json:"final"`
+	ReadinessRevision int        `json:"readiness_revision"`
+	CreatedAt         time.Time  `json:"created_at"`
 }
 
 // UploadInput contains one bounded file stream and logical owner.
@@ -624,7 +627,9 @@ func version(stored store.AttachmentVersion) Version {
 		Name: stored.Name, OriginalFilename: stored.OriginalFilename, MediaType: stored.MediaType,
 		SizeBytes: stored.SizeBytes, SHA256: stored.SHA256,
 		UploaderType: stored.UploaderType, UploaderID: stored.UploaderID,
-		CreatedAt: stored.CreatedAt,
+		Primary: stored.Primary, Final: stored.Final,
+		ReadinessRevision: stored.ReadinessRevision,
+		CreatedAt:         stored.CreatedAt,
 	}
 }
 

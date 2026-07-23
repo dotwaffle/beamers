@@ -116,6 +116,101 @@ func (_u *CompetitionEntryUpdate) ClearUploadClosedAt() *CompetitionEntryUpdate 
 	return _u
 }
 
+// SetContentRevision sets the "content_revision" field.
+func (_u *CompetitionEntryUpdate) SetContentRevision(v int) *CompetitionEntryUpdate {
+	_u.mutation.ResetContentRevision()
+	_u.mutation.SetContentRevision(v)
+	return _u
+}
+
+// SetNillableContentRevision sets the "content_revision" field if the given value is not nil.
+func (_u *CompetitionEntryUpdate) SetNillableContentRevision(v *int) *CompetitionEntryUpdate {
+	if v != nil {
+		_u.SetContentRevision(*v)
+	}
+	return _u
+}
+
+// AddContentRevision adds value to the "content_revision" field.
+func (_u *CompetitionEntryUpdate) AddContentRevision(v int) *CompetitionEntryUpdate {
+	_u.mutation.AddContentRevision(v)
+	return _u
+}
+
+// SetReviewedContentRevision sets the "reviewed_content_revision" field.
+func (_u *CompetitionEntryUpdate) SetReviewedContentRevision(v int) *CompetitionEntryUpdate {
+	_u.mutation.ResetReviewedContentRevision()
+	_u.mutation.SetReviewedContentRevision(v)
+	return _u
+}
+
+// SetNillableReviewedContentRevision sets the "reviewed_content_revision" field if the given value is not nil.
+func (_u *CompetitionEntryUpdate) SetNillableReviewedContentRevision(v *int) *CompetitionEntryUpdate {
+	if v != nil {
+		_u.SetReviewedContentRevision(*v)
+	}
+	return _u
+}
+
+// AddReviewedContentRevision adds value to the "reviewed_content_revision" field.
+func (_u *CompetitionEntryUpdate) AddReviewedContentRevision(v int) *CompetitionEntryUpdate {
+	_u.mutation.AddReviewedContentRevision(v)
+	return _u
+}
+
+// ClearReviewedContentRevision clears the value of the "reviewed_content_revision" field.
+func (_u *CompetitionEntryUpdate) ClearReviewedContentRevision() *CompetitionEntryUpdate {
+	_u.mutation.ClearReviewedContentRevision()
+	return _u
+}
+
+// SetReviewedByAccountID sets the "reviewed_by_account_id" field.
+func (_u *CompetitionEntryUpdate) SetReviewedByAccountID(v int) *CompetitionEntryUpdate {
+	_u.mutation.ResetReviewedByAccountID()
+	_u.mutation.SetReviewedByAccountID(v)
+	return _u
+}
+
+// SetNillableReviewedByAccountID sets the "reviewed_by_account_id" field if the given value is not nil.
+func (_u *CompetitionEntryUpdate) SetNillableReviewedByAccountID(v *int) *CompetitionEntryUpdate {
+	if v != nil {
+		_u.SetReviewedByAccountID(*v)
+	}
+	return _u
+}
+
+// AddReviewedByAccountID adds value to the "reviewed_by_account_id" field.
+func (_u *CompetitionEntryUpdate) AddReviewedByAccountID(v int) *CompetitionEntryUpdate {
+	_u.mutation.AddReviewedByAccountID(v)
+	return _u
+}
+
+// ClearReviewedByAccountID clears the value of the "reviewed_by_account_id" field.
+func (_u *CompetitionEntryUpdate) ClearReviewedByAccountID() *CompetitionEntryUpdate {
+	_u.mutation.ClearReviewedByAccountID()
+	return _u
+}
+
+// SetReviewedAt sets the "reviewed_at" field.
+func (_u *CompetitionEntryUpdate) SetReviewedAt(v time.Time) *CompetitionEntryUpdate {
+	_u.mutation.SetReviewedAt(v)
+	return _u
+}
+
+// SetNillableReviewedAt sets the "reviewed_at" field if the given value is not nil.
+func (_u *CompetitionEntryUpdate) SetNillableReviewedAt(v *time.Time) *CompetitionEntryUpdate {
+	if v != nil {
+		_u.SetReviewedAt(*v)
+	}
+	return _u
+}
+
+// ClearReviewedAt clears the value of the "reviewed_at" field.
+func (_u *CompetitionEntryUpdate) ClearReviewedAt() *CompetitionEntryUpdate {
+	_u.mutation.ClearReviewedAt()
+	return _u
+}
+
 // SetRevision sets the "revision" field.
 func (_u *CompetitionEntryUpdate) SetRevision(v int) *CompetitionEntryUpdate {
 	_u.mutation.ResetRevision()
@@ -191,6 +286,21 @@ func (_u *CompetitionEntryUpdate) check() error {
 			return &ValidationError{Name: "disposition", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.disposition": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ContentRevision(); ok {
+		if err := competitionentry.ContentRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "content_revision", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.content_revision": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ReviewedContentRevision(); ok {
+		if err := competitionentry.ReviewedContentRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "reviewed_content_revision", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.reviewed_content_revision": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ReviewedByAccountID(); ok {
+		if err := competitionentry.ReviewedByAccountIDValidator(v); err != nil {
+			return &ValidationError{Name: "reviewed_by_account_id", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.reviewed_by_account_id": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Revision(); ok {
 		if err := competitionentry.RevisionValidator(v); err != nil {
 			return &ValidationError{Name: "revision", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.revision": %w`, err)}
@@ -240,6 +350,36 @@ func (_u *CompetitionEntryUpdate) sqlSave(ctx context.Context) (_node int, err e
 	}
 	if _u.mutation.UploadClosedAtCleared() {
 		_spec.ClearField(competitionentry.FieldUploadClosedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.ContentRevision(); ok {
+		_spec.SetField(competitionentry.FieldContentRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedContentRevision(); ok {
+		_spec.AddField(competitionentry.FieldContentRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ReviewedContentRevision(); ok {
+		_spec.SetField(competitionentry.FieldReviewedContentRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedReviewedContentRevision(); ok {
+		_spec.AddField(competitionentry.FieldReviewedContentRevision, field.TypeInt, value)
+	}
+	if _u.mutation.ReviewedContentRevisionCleared() {
+		_spec.ClearField(competitionentry.FieldReviewedContentRevision, field.TypeInt)
+	}
+	if value, ok := _u.mutation.ReviewedByAccountID(); ok {
+		_spec.SetField(competitionentry.FieldReviewedByAccountID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedReviewedByAccountID(); ok {
+		_spec.AddField(competitionentry.FieldReviewedByAccountID, field.TypeInt, value)
+	}
+	if _u.mutation.ReviewedByAccountIDCleared() {
+		_spec.ClearField(competitionentry.FieldReviewedByAccountID, field.TypeInt)
+	}
+	if value, ok := _u.mutation.ReviewedAt(); ok {
+		_spec.SetField(competitionentry.FieldReviewedAt, field.TypeTime, value)
+	}
+	if _u.mutation.ReviewedAtCleared() {
+		_spec.ClearField(competitionentry.FieldReviewedAt, field.TypeTime)
 	}
 	if value, ok := _u.mutation.Revision(); ok {
 		_spec.SetField(competitionentry.FieldRevision, field.TypeInt, value)
@@ -355,6 +495,101 @@ func (_u *CompetitionEntryUpdateOne) ClearUploadClosedAt() *CompetitionEntryUpda
 	return _u
 }
 
+// SetContentRevision sets the "content_revision" field.
+func (_u *CompetitionEntryUpdateOne) SetContentRevision(v int) *CompetitionEntryUpdateOne {
+	_u.mutation.ResetContentRevision()
+	_u.mutation.SetContentRevision(v)
+	return _u
+}
+
+// SetNillableContentRevision sets the "content_revision" field if the given value is not nil.
+func (_u *CompetitionEntryUpdateOne) SetNillableContentRevision(v *int) *CompetitionEntryUpdateOne {
+	if v != nil {
+		_u.SetContentRevision(*v)
+	}
+	return _u
+}
+
+// AddContentRevision adds value to the "content_revision" field.
+func (_u *CompetitionEntryUpdateOne) AddContentRevision(v int) *CompetitionEntryUpdateOne {
+	_u.mutation.AddContentRevision(v)
+	return _u
+}
+
+// SetReviewedContentRevision sets the "reviewed_content_revision" field.
+func (_u *CompetitionEntryUpdateOne) SetReviewedContentRevision(v int) *CompetitionEntryUpdateOne {
+	_u.mutation.ResetReviewedContentRevision()
+	_u.mutation.SetReviewedContentRevision(v)
+	return _u
+}
+
+// SetNillableReviewedContentRevision sets the "reviewed_content_revision" field if the given value is not nil.
+func (_u *CompetitionEntryUpdateOne) SetNillableReviewedContentRevision(v *int) *CompetitionEntryUpdateOne {
+	if v != nil {
+		_u.SetReviewedContentRevision(*v)
+	}
+	return _u
+}
+
+// AddReviewedContentRevision adds value to the "reviewed_content_revision" field.
+func (_u *CompetitionEntryUpdateOne) AddReviewedContentRevision(v int) *CompetitionEntryUpdateOne {
+	_u.mutation.AddReviewedContentRevision(v)
+	return _u
+}
+
+// ClearReviewedContentRevision clears the value of the "reviewed_content_revision" field.
+func (_u *CompetitionEntryUpdateOne) ClearReviewedContentRevision() *CompetitionEntryUpdateOne {
+	_u.mutation.ClearReviewedContentRevision()
+	return _u
+}
+
+// SetReviewedByAccountID sets the "reviewed_by_account_id" field.
+func (_u *CompetitionEntryUpdateOne) SetReviewedByAccountID(v int) *CompetitionEntryUpdateOne {
+	_u.mutation.ResetReviewedByAccountID()
+	_u.mutation.SetReviewedByAccountID(v)
+	return _u
+}
+
+// SetNillableReviewedByAccountID sets the "reviewed_by_account_id" field if the given value is not nil.
+func (_u *CompetitionEntryUpdateOne) SetNillableReviewedByAccountID(v *int) *CompetitionEntryUpdateOne {
+	if v != nil {
+		_u.SetReviewedByAccountID(*v)
+	}
+	return _u
+}
+
+// AddReviewedByAccountID adds value to the "reviewed_by_account_id" field.
+func (_u *CompetitionEntryUpdateOne) AddReviewedByAccountID(v int) *CompetitionEntryUpdateOne {
+	_u.mutation.AddReviewedByAccountID(v)
+	return _u
+}
+
+// ClearReviewedByAccountID clears the value of the "reviewed_by_account_id" field.
+func (_u *CompetitionEntryUpdateOne) ClearReviewedByAccountID() *CompetitionEntryUpdateOne {
+	_u.mutation.ClearReviewedByAccountID()
+	return _u
+}
+
+// SetReviewedAt sets the "reviewed_at" field.
+func (_u *CompetitionEntryUpdateOne) SetReviewedAt(v time.Time) *CompetitionEntryUpdateOne {
+	_u.mutation.SetReviewedAt(v)
+	return _u
+}
+
+// SetNillableReviewedAt sets the "reviewed_at" field if the given value is not nil.
+func (_u *CompetitionEntryUpdateOne) SetNillableReviewedAt(v *time.Time) *CompetitionEntryUpdateOne {
+	if v != nil {
+		_u.SetReviewedAt(*v)
+	}
+	return _u
+}
+
+// ClearReviewedAt clears the value of the "reviewed_at" field.
+func (_u *CompetitionEntryUpdateOne) ClearReviewedAt() *CompetitionEntryUpdateOne {
+	_u.mutation.ClearReviewedAt()
+	return _u
+}
+
 // SetRevision sets the "revision" field.
 func (_u *CompetitionEntryUpdateOne) SetRevision(v int) *CompetitionEntryUpdateOne {
 	_u.mutation.ResetRevision()
@@ -443,6 +678,21 @@ func (_u *CompetitionEntryUpdateOne) check() error {
 			return &ValidationError{Name: "disposition", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.disposition": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ContentRevision(); ok {
+		if err := competitionentry.ContentRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "content_revision", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.content_revision": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ReviewedContentRevision(); ok {
+		if err := competitionentry.ReviewedContentRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "reviewed_content_revision", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.reviewed_content_revision": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ReviewedByAccountID(); ok {
+		if err := competitionentry.ReviewedByAccountIDValidator(v); err != nil {
+			return &ValidationError{Name: "reviewed_by_account_id", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.reviewed_by_account_id": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Revision(); ok {
 		if err := competitionentry.RevisionValidator(v); err != nil {
 			return &ValidationError{Name: "revision", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.revision": %w`, err)}
@@ -509,6 +759,36 @@ func (_u *CompetitionEntryUpdateOne) sqlSave(ctx context.Context) (_node *Compet
 	}
 	if _u.mutation.UploadClosedAtCleared() {
 		_spec.ClearField(competitionentry.FieldUploadClosedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.ContentRevision(); ok {
+		_spec.SetField(competitionentry.FieldContentRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedContentRevision(); ok {
+		_spec.AddField(competitionentry.FieldContentRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ReviewedContentRevision(); ok {
+		_spec.SetField(competitionentry.FieldReviewedContentRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedReviewedContentRevision(); ok {
+		_spec.AddField(competitionentry.FieldReviewedContentRevision, field.TypeInt, value)
+	}
+	if _u.mutation.ReviewedContentRevisionCleared() {
+		_spec.ClearField(competitionentry.FieldReviewedContentRevision, field.TypeInt)
+	}
+	if value, ok := _u.mutation.ReviewedByAccountID(); ok {
+		_spec.SetField(competitionentry.FieldReviewedByAccountID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedReviewedByAccountID(); ok {
+		_spec.AddField(competitionentry.FieldReviewedByAccountID, field.TypeInt, value)
+	}
+	if _u.mutation.ReviewedByAccountIDCleared() {
+		_spec.ClearField(competitionentry.FieldReviewedByAccountID, field.TypeInt)
+	}
+	if value, ok := _u.mutation.ReviewedAt(); ok {
+		_spec.SetField(competitionentry.FieldReviewedAt, field.TypeTime, value)
+	}
+	if _u.mutation.ReviewedAtCleared() {
+		_spec.ClearField(competitionentry.FieldReviewedAt, field.TypeTime)
 	}
 	if value, ok := _u.mutation.Revision(); ok {
 		_spec.SetField(competitionentry.FieldRevision, field.TypeInt, value)

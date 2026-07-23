@@ -75,6 +75,8 @@ type AttachmentVersion struct {
 	SHA256, StorageKey          string
 	UploaderType                string
 	UploaderID                  int
+	Primary, Final              bool
+	ReadinessRevision           int
 	CreatedAt                   time.Time
 }
 
@@ -389,7 +391,18 @@ func (transaction *CommandTx) SaveAttachmentVersion(
 	} else if !ent.IsNotFound(err) {
 		return AttachmentVersion{}, opaqueError("load latest Attachment Version", err)
 	}
-	created, err := transaction.transaction.AttachmentVersion.Create().
+	existingVersions, err := transaction.transaction.AttachmentVersion.Query().
+		Where(attachmentversion.HasAttachmentWith(
+			attachment.EventIDEQ(params.Authorization.EventID),
+			attachment.OwnerTypeEQ(attachment.OwnerType(params.Authorization.TargetType)),
+			attachment.OwnerIDEQ(params.Authorization.TargetID),
+		)).
+		Count(internalContext)
+	if err != nil {
+		return AttachmentVersion{}, opaqueError("count owner Attachment Versions", err)
+	}
+	primary := existingVersions == 0
+	create := transaction.transaction.AttachmentVersion.Create().
 		SetAttachmentID(logical.ID).
 		SetVersion(version).
 		SetOriginalFilename(params.OriginalFilename).
@@ -399,10 +412,19 @@ func (transaction *CommandTx) SaveAttachmentVersion(
 		SetStorageKey(params.StorageKey).
 		SetUploaderType(attachmentversion.UploaderType(params.UploaderType)).
 		SetUploaderID(params.UploaderID).
-		SetCreatedAt(params.Now).
-		Save(internalContext)
+		SetPrimary(primary).
+		SetCreatedAt(params.Now)
+	created, err := create.Save(internalContext)
 	if err != nil {
 		return AttachmentVersion{}, opaqueError("create Attachment Version", err)
+	}
+	if params.Authorization.TargetType == UploadTargetEntry {
+		if _, updateErr := transaction.transaction.CompetitionEntry.UpdateOneID(params.Authorization.TargetID).
+			AddContentRevision(1).
+			AddRevision(1).
+			Save(internalContext); updateErr != nil {
+			return AttachmentVersion{}, opaqueError("invalidate Entry review after upload", updateErr)
+		}
 	}
 	return attachmentVersion(logical, created), nil
 }
@@ -438,7 +460,9 @@ func attachmentVersion(logical *ent.Attachment, version *ent.AttachmentVersion) 
 		Name: logical.Name, OriginalFilename: version.OriginalFilename, MediaType: version.MediaType,
 		SizeBytes: version.SizeBytes, SHA256: version.Sha256, StorageKey: version.StorageKey,
 		UploaderType: version.UploaderType.String(), UploaderID: version.UploaderID,
-		CreatedAt: version.CreatedAt,
+		Primary: version.Primary, Final: version.Final,
+		ReadinessRevision: version.ReadinessRevision,
+		CreatedAt:         version.CreatedAt,
 	}
 }
 

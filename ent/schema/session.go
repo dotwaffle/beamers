@@ -45,6 +45,9 @@ func (Session) Fields() []ent.Field {
 		field.String("corrected_title").Optional().Nillable().MaxLen(200),
 		field.String("corrected_speaker").Optional().Nillable().MaxLen(200),
 		field.String("corrected_public_details").Optional().Nillable().MaxLen(10000),
+		field.Bool("require_entry_review").Default(false),
+		field.Bool("file_delivery_required").Optional().Nillable(),
+		field.Int("readiness_revision").Default(0).NonNegative(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 	}
 }

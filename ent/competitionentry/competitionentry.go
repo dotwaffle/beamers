@@ -30,6 +30,14 @@ const (
 	FieldDisposition = "disposition"
 	// FieldUploadClosedAt holds the string denoting the upload_closed_at field in the database.
 	FieldUploadClosedAt = "upload_closed_at"
+	// FieldContentRevision holds the string denoting the content_revision field in the database.
+	FieldContentRevision = "content_revision"
+	// FieldReviewedContentRevision holds the string denoting the reviewed_content_revision field in the database.
+	FieldReviewedContentRevision = "reviewed_content_revision"
+	// FieldReviewedByAccountID holds the string denoting the reviewed_by_account_id field in the database.
+	FieldReviewedByAccountID = "reviewed_by_account_id"
+	// FieldReviewedAt holds the string denoting the reviewed_at field in the database.
+	FieldReviewedAt = "reviewed_at"
 	// FieldRevision holds the string denoting the revision field in the database.
 	FieldRevision = "revision"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -66,6 +74,10 @@ var Columns = []string{
 	FieldCrewNotes,
 	FieldDisposition,
 	FieldUploadClosedAt,
+	FieldContentRevision,
+	FieldReviewedContentRevision,
+	FieldReviewedByAccountID,
+	FieldReviewedAt,
 	FieldRevision,
 	FieldCreatedAt,
 }
@@ -94,6 +106,14 @@ var (
 	PublicDetailsValidator func(string) error
 	// CrewNotesValidator is a validator for the "crew_notes" field. It is called by the builders before save.
 	CrewNotesValidator func(string) error
+	// DefaultContentRevision holds the default value on creation for the "content_revision" field.
+	DefaultContentRevision int
+	// ContentRevisionValidator is a validator for the "content_revision" field. It is called by the builders before save.
+	ContentRevisionValidator func(int) error
+	// ReviewedContentRevisionValidator is a validator for the "reviewed_content_revision" field. It is called by the builders before save.
+	ReviewedContentRevisionValidator func(int) error
+	// ReviewedByAccountIDValidator is a validator for the "reviewed_by_account_id" field. It is called by the builders before save.
+	ReviewedByAccountIDValidator func(int) error
 	// DefaultRevision holds the default value on creation for the "revision" field.
 	DefaultRevision int
 	// RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
@@ -167,6 +187,26 @@ func ByDisposition(opts ...sql.OrderTermOption) OrderOption {
 // ByUploadClosedAt orders the results by the upload_closed_at field.
 func ByUploadClosedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUploadClosedAt, opts...).ToFunc()
+}
+
+// ByContentRevision orders the results by the content_revision field.
+func ByContentRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldContentRevision, opts...).ToFunc()
+}
+
+// ByReviewedContentRevision orders the results by the reviewed_content_revision field.
+func ByReviewedContentRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldReviewedContentRevision, opts...).ToFunc()
+}
+
+// ByReviewedByAccountID orders the results by the reviewed_by_account_id field.
+func ByReviewedByAccountID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldReviewedByAccountID, opts...).ToFunc()
+}
+
+// ByReviewedAt orders the results by the reviewed_at field.
+func ByReviewedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldReviewedAt, opts...).ToFunc()
 }
 
 // ByRevision orders the results by the revision field.

@@ -95,6 +95,21 @@ func UploaderID(v int) predicate.AttachmentVersion {
 	return predicate.AttachmentVersion(sql.FieldEQ(FieldUploaderID, v))
 }
 
+// Final applies equality check predicate on the "final" field. It's identical to FinalEQ.
+func Final(v bool) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldEQ(FieldFinal, v))
+}
+
+// Primary applies equality check predicate on the "primary" field. It's identical to PrimaryEQ.
+func Primary(v bool) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldEQ(FieldPrimary, v))
+}
+
+// ReadinessRevision applies equality check predicate on the "readiness_revision" field. It's identical to ReadinessRevisionEQ.
+func ReadinessRevision(v int) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldEQ(FieldReadinessRevision, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.AttachmentVersion {
 	return predicate.AttachmentVersion(sql.FieldEQ(FieldCreatedAt, v))
@@ -528,6 +543,66 @@ func UploaderIDLT(v int) predicate.AttachmentVersion {
 // UploaderIDLTE applies the LTE predicate on the "uploader_id" field.
 func UploaderIDLTE(v int) predicate.AttachmentVersion {
 	return predicate.AttachmentVersion(sql.FieldLTE(FieldUploaderID, v))
+}
+
+// FinalEQ applies the EQ predicate on the "final" field.
+func FinalEQ(v bool) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldEQ(FieldFinal, v))
+}
+
+// FinalNEQ applies the NEQ predicate on the "final" field.
+func FinalNEQ(v bool) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldNEQ(FieldFinal, v))
+}
+
+// PrimaryEQ applies the EQ predicate on the "primary" field.
+func PrimaryEQ(v bool) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldEQ(FieldPrimary, v))
+}
+
+// PrimaryNEQ applies the NEQ predicate on the "primary" field.
+func PrimaryNEQ(v bool) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldNEQ(FieldPrimary, v))
+}
+
+// ReadinessRevisionEQ applies the EQ predicate on the "readiness_revision" field.
+func ReadinessRevisionEQ(v int) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldEQ(FieldReadinessRevision, v))
+}
+
+// ReadinessRevisionNEQ applies the NEQ predicate on the "readiness_revision" field.
+func ReadinessRevisionNEQ(v int) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldNEQ(FieldReadinessRevision, v))
+}
+
+// ReadinessRevisionIn applies the In predicate on the "readiness_revision" field.
+func ReadinessRevisionIn(vs ...int) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldIn(FieldReadinessRevision, vs...))
+}
+
+// ReadinessRevisionNotIn applies the NotIn predicate on the "readiness_revision" field.
+func ReadinessRevisionNotIn(vs ...int) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldNotIn(FieldReadinessRevision, vs...))
+}
+
+// ReadinessRevisionGT applies the GT predicate on the "readiness_revision" field.
+func ReadinessRevisionGT(v int) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldGT(FieldReadinessRevision, v))
+}
+
+// ReadinessRevisionGTE applies the GTE predicate on the "readiness_revision" field.
+func ReadinessRevisionGTE(v int) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldGTE(FieldReadinessRevision, v))
+}
+
+// ReadinessRevisionLT applies the LT predicate on the "readiness_revision" field.
+func ReadinessRevisionLT(v int) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldLT(FieldReadinessRevision, v))
+}
+
+// ReadinessRevisionLTE applies the LTE predicate on the "readiness_revision" field.
+func ReadinessRevisionLTE(v int) predicate.AttachmentVersion {
+	return predicate.AttachmentVersion(sql.FieldLTE(FieldReadinessRevision, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

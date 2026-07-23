@@ -33,6 +33,8 @@ var (
 	ErrEventNotActive = store.ErrEventNotActive
 	// ErrSessionScopeRequired means an Operator lacks one or more Session Lanes.
 	ErrSessionScopeRequired = store.ErrSessionScopeRequired
+	// ErrCompetitionPreflightBlocked means configured Entry readiness rules failed.
+	ErrCompetitionPreflightBlocked = store.ErrCompetitionPreflightBlocked
 	// ErrCommandConflict means a Command ID was reused for different work.
 	ErrCommandConflict = store.ErrCommandConflict
 	// ErrLiveDetailConfirmation means a correction was not explicitly confirmed.

@@ -33,6 +33,14 @@ type CompetitionEntry struct {
 	Disposition competitionentry.Disposition `json:"disposition,omitempty"`
 	// UploadClosedAt holds the value of the "upload_closed_at" field.
 	UploadClosedAt time.Time `json:"upload_closed_at,omitempty"`
+	// ContentRevision holds the value of the "content_revision" field.
+	ContentRevision int `json:"content_revision,omitempty"`
+	// ReviewedContentRevision holds the value of the "reviewed_content_revision" field.
+	ReviewedContentRevision int `json:"reviewed_content_revision,omitempty"`
+	// ReviewedByAccountID holds the value of the "reviewed_by_account_id" field.
+	ReviewedByAccountID int `json:"reviewed_by_account_id,omitempty"`
+	// ReviewedAt holds the value of the "reviewed_at" field.
+	ReviewedAt time.Time `json:"reviewed_at,omitempty"`
 	// Revision holds the value of the "revision" field.
 	Revision int `json:"revision,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -81,11 +89,11 @@ func (*CompetitionEntry) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case competitionentry.FieldID, competitionentry.FieldEventID, competitionentry.FieldCompetitionSessionID, competitionentry.FieldRevision:
+		case competitionentry.FieldID, competitionentry.FieldEventID, competitionentry.FieldCompetitionSessionID, competitionentry.FieldContentRevision, competitionentry.FieldReviewedContentRevision, competitionentry.FieldReviewedByAccountID, competitionentry.FieldRevision:
 			values[i] = new(sql.NullInt64)
 		case competitionentry.FieldName, competitionentry.FieldPublicDetails, competitionentry.FieldCrewNotes, competitionentry.FieldDisposition:
 			values[i] = new(sql.NullString)
-		case competitionentry.FieldUploadClosedAt, competitionentry.FieldCreatedAt:
+		case competitionentry.FieldUploadClosedAt, competitionentry.FieldReviewedAt, competitionentry.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -149,6 +157,30 @@ func (_m *CompetitionEntry) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field upload_closed_at", values[i])
 			} else if value.Valid {
 				_m.UploadClosedAt = value.Time
+			}
+		case competitionentry.FieldContentRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field content_revision", values[i])
+			} else if value.Valid {
+				_m.ContentRevision = int(value.Int64)
+			}
+		case competitionentry.FieldReviewedContentRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field reviewed_content_revision", values[i])
+			} else if value.Valid {
+				_m.ReviewedContentRevision = int(value.Int64)
+			}
+		case competitionentry.FieldReviewedByAccountID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field reviewed_by_account_id", values[i])
+			} else if value.Valid {
+				_m.ReviewedByAccountID = int(value.Int64)
+			}
+		case competitionentry.FieldReviewedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field reviewed_at", values[i])
+			} else if value.Valid {
+				_m.ReviewedAt = value.Time
 			}
 		case competitionentry.FieldRevision:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -228,6 +260,18 @@ func (_m *CompetitionEntry) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("upload_closed_at=")
 	builder.WriteString(_m.UploadClosedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("content_revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ContentRevision))
+	builder.WriteString(", ")
+	builder.WriteString("reviewed_content_revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ReviewedContentRevision))
+	builder.WriteString(", ")
+	builder.WriteString("reviewed_by_account_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ReviewedByAccountID))
+	builder.WriteString(", ")
+	builder.WriteString("reviewed_at=")
+	builder.WriteString(_m.ReviewedAt.Format(time.ANSIC))
 	builder.WriteString(", ")
 	builder.WriteString("revision=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Revision))

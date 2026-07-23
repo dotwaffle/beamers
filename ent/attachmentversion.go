@@ -36,6 +36,12 @@ type AttachmentVersion struct {
 	UploaderType attachmentversion.UploaderType `json:"uploader_type,omitempty"`
 	// UploaderID holds the value of the "uploader_id" field.
 	UploaderID int `json:"uploader_id,omitempty"`
+	// Final holds the value of the "final" field.
+	Final bool `json:"final,omitempty"`
+	// Primary holds the value of the "primary" field.
+	Primary bool `json:"primary,omitempty"`
+	// ReadinessRevision holds the value of the "readiness_revision" field.
+	ReadinessRevision int `json:"readiness_revision,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -69,7 +75,9 @@ func (*AttachmentVersion) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case attachmentversion.FieldID, attachmentversion.FieldAttachmentID, attachmentversion.FieldVersion, attachmentversion.FieldSizeBytes, attachmentversion.FieldUploaderID:
+		case attachmentversion.FieldFinal, attachmentversion.FieldPrimary:
+			values[i] = new(sql.NullBool)
+		case attachmentversion.FieldID, attachmentversion.FieldAttachmentID, attachmentversion.FieldVersion, attachmentversion.FieldSizeBytes, attachmentversion.FieldUploaderID, attachmentversion.FieldReadinessRevision:
 			values[i] = new(sql.NullInt64)
 		case attachmentversion.FieldOriginalFilename, attachmentversion.FieldMediaType, attachmentversion.FieldSha256, attachmentversion.FieldStorageKey, attachmentversion.FieldUploaderType:
 			values[i] = new(sql.NullString)
@@ -150,6 +158,24 @@ func (_m *AttachmentVersion) assignValues(columns []string, values []any) error 
 			} else if value.Valid {
 				_m.UploaderID = int(value.Int64)
 			}
+		case attachmentversion.FieldFinal:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field final", values[i])
+			} else if value.Valid {
+				_m.Final = value.Bool
+			}
+		case attachmentversion.FieldPrimary:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field primary", values[i])
+			} else if value.Valid {
+				_m.Primary = value.Bool
+			}
+		case attachmentversion.FieldReadinessRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field readiness_revision", values[i])
+			} else if value.Valid {
+				_m.ReadinessRevision = int(value.Int64)
+			}
 		case attachmentversion.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
@@ -223,6 +249,15 @@ func (_m *AttachmentVersion) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("uploader_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.UploaderID))
+	builder.WriteString(", ")
+	builder.WriteString("final=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Final))
+	builder.WriteString(", ")
+	builder.WriteString("primary=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Primary))
+	builder.WriteString(", ")
+	builder.WriteString("readiness_revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ReadinessRevision))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

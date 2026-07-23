@@ -88,6 +88,62 @@ func (_c *CompetitionEntryCreate) SetNillableUploadClosedAt(v *time.Time) *Compe
 	return _c
 }
 
+// SetContentRevision sets the "content_revision" field.
+func (_c *CompetitionEntryCreate) SetContentRevision(v int) *CompetitionEntryCreate {
+	_c.mutation.SetContentRevision(v)
+	return _c
+}
+
+// SetNillableContentRevision sets the "content_revision" field if the given value is not nil.
+func (_c *CompetitionEntryCreate) SetNillableContentRevision(v *int) *CompetitionEntryCreate {
+	if v != nil {
+		_c.SetContentRevision(*v)
+	}
+	return _c
+}
+
+// SetReviewedContentRevision sets the "reviewed_content_revision" field.
+func (_c *CompetitionEntryCreate) SetReviewedContentRevision(v int) *CompetitionEntryCreate {
+	_c.mutation.SetReviewedContentRevision(v)
+	return _c
+}
+
+// SetNillableReviewedContentRevision sets the "reviewed_content_revision" field if the given value is not nil.
+func (_c *CompetitionEntryCreate) SetNillableReviewedContentRevision(v *int) *CompetitionEntryCreate {
+	if v != nil {
+		_c.SetReviewedContentRevision(*v)
+	}
+	return _c
+}
+
+// SetReviewedByAccountID sets the "reviewed_by_account_id" field.
+func (_c *CompetitionEntryCreate) SetReviewedByAccountID(v int) *CompetitionEntryCreate {
+	_c.mutation.SetReviewedByAccountID(v)
+	return _c
+}
+
+// SetNillableReviewedByAccountID sets the "reviewed_by_account_id" field if the given value is not nil.
+func (_c *CompetitionEntryCreate) SetNillableReviewedByAccountID(v *int) *CompetitionEntryCreate {
+	if v != nil {
+		_c.SetReviewedByAccountID(*v)
+	}
+	return _c
+}
+
+// SetReviewedAt sets the "reviewed_at" field.
+func (_c *CompetitionEntryCreate) SetReviewedAt(v time.Time) *CompetitionEntryCreate {
+	_c.mutation.SetReviewedAt(v)
+	return _c
+}
+
+// SetNillableReviewedAt sets the "reviewed_at" field if the given value is not nil.
+func (_c *CompetitionEntryCreate) SetNillableReviewedAt(v *time.Time) *CompetitionEntryCreate {
+	if v != nil {
+		_c.SetReviewedAt(*v)
+	}
+	return _c
+}
+
 // SetRevision sets the "revision" field.
 func (_c *CompetitionEntryCreate) SetRevision(v int) *CompetitionEntryCreate {
 	_c.mutation.SetRevision(v)
@@ -169,6 +225,10 @@ func (_c *CompetitionEntryCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *CompetitionEntryCreate) defaults() error {
+	if _, ok := _c.mutation.ContentRevision(); !ok {
+		v := competitionentry.DefaultContentRevision
+		_c.mutation.SetContentRevision(v)
+	}
 	if _, ok := _c.mutation.Revision(); !ok {
 		v := competitionentry.DefaultRevision
 		_c.mutation.SetRevision(v)
@@ -215,6 +275,24 @@ func (_c *CompetitionEntryCreate) check() error {
 	if v, ok := _c.mutation.Disposition(); ok {
 		if err := competitionentry.DispositionValidator(v); err != nil {
 			return &ValidationError{Name: "disposition", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.disposition": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.ContentRevision(); !ok {
+		return &ValidationError{Name: "content_revision", err: errors.New(`ent: missing required field "CompetitionEntry.content_revision"`)}
+	}
+	if v, ok := _c.mutation.ContentRevision(); ok {
+		if err := competitionentry.ContentRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "content_revision", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.content_revision": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.ReviewedContentRevision(); ok {
+		if err := competitionentry.ReviewedContentRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "reviewed_content_revision", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.reviewed_content_revision": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.ReviewedByAccountID(); ok {
+		if err := competitionentry.ReviewedByAccountIDValidator(v); err != nil {
+			return &ValidationError{Name: "reviewed_by_account_id", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.reviewed_by_account_id": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Revision(); !ok {
@@ -279,6 +357,22 @@ func (_c *CompetitionEntryCreate) createSpec() (*CompetitionEntry, *sqlgraph.Cre
 	if value, ok := _c.mutation.UploadClosedAt(); ok {
 		_spec.SetField(competitionentry.FieldUploadClosedAt, field.TypeTime, value)
 		_node.UploadClosedAt = value
+	}
+	if value, ok := _c.mutation.ContentRevision(); ok {
+		_spec.SetField(competitionentry.FieldContentRevision, field.TypeInt, value)
+		_node.ContentRevision = value
+	}
+	if value, ok := _c.mutation.ReviewedContentRevision(); ok {
+		_spec.SetField(competitionentry.FieldReviewedContentRevision, field.TypeInt, value)
+		_node.ReviewedContentRevision = value
+	}
+	if value, ok := _c.mutation.ReviewedByAccountID(); ok {
+		_spec.SetField(competitionentry.FieldReviewedByAccountID, field.TypeInt, value)
+		_node.ReviewedByAccountID = value
+	}
+	if value, ok := _c.mutation.ReviewedAt(); ok {
+		_spec.SetField(competitionentry.FieldReviewedAt, field.TypeTime, value)
+		_node.ReviewedAt = value
 	}
 	if value, ok := _c.mutation.Revision(); ok {
 		_spec.SetField(competitionentry.FieldRevision, field.TypeInt, value)

@@ -31,6 +31,9 @@ func (AttachmentVersion) Fields() []ent.Field {
 		field.String("storage_key").NotEmpty().MaxLen(200).Immutable(),
 		field.Enum("uploader_type").Values("UploadLink", "Crew").Immutable(),
 		field.Int("uploader_id").Positive().Immutable(),
+		field.Bool("final").Default(false),
+		field.Bool("primary").Default(false),
+		field.Int("readiness_revision").Default(1).Positive(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 	}
 }

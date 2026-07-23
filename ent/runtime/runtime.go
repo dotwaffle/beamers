@@ -257,8 +257,22 @@ func init() {
 	attachmentversionDescUploaderID := attachmentversionFields[8].Descriptor()
 	// attachmentversion.UploaderIDValidator is a validator for the "uploader_id" field. It is called by the builders before save.
 	attachmentversion.UploaderIDValidator = attachmentversionDescUploaderID.Validators[0].(func(int) error)
+	// attachmentversionDescFinal is the schema descriptor for final field.
+	attachmentversionDescFinal := attachmentversionFields[9].Descriptor()
+	// attachmentversion.DefaultFinal holds the default value on creation for the final field.
+	attachmentversion.DefaultFinal = attachmentversionDescFinal.Default.(bool)
+	// attachmentversionDescPrimary is the schema descriptor for primary field.
+	attachmentversionDescPrimary := attachmentversionFields[10].Descriptor()
+	// attachmentversion.DefaultPrimary holds the default value on creation for the primary field.
+	attachmentversion.DefaultPrimary = attachmentversionDescPrimary.Default.(bool)
+	// attachmentversionDescReadinessRevision is the schema descriptor for readiness_revision field.
+	attachmentversionDescReadinessRevision := attachmentversionFields[11].Descriptor()
+	// attachmentversion.DefaultReadinessRevision holds the default value on creation for the readiness_revision field.
+	attachmentversion.DefaultReadinessRevision = attachmentversionDescReadinessRevision.Default.(int)
+	// attachmentversion.ReadinessRevisionValidator is a validator for the "readiness_revision" field. It is called by the builders before save.
+	attachmentversion.ReadinessRevisionValidator = attachmentversionDescReadinessRevision.Validators[0].(func(int) error)
 	// attachmentversionDescCreatedAt is the schema descriptor for created_at field.
-	attachmentversionDescCreatedAt := attachmentversionFields[9].Descriptor()
+	attachmentversionDescCreatedAt := attachmentversionFields[12].Descriptor()
 	// attachmentversion.DefaultCreatedAt holds the default value on creation for the created_at field.
 	attachmentversion.DefaultCreatedAt = attachmentversionDescCreatedAt.Default.(func() time.Time)
 	auditentry.Policy = privacy.NewPolicies(schema.AuditEntry{})
@@ -517,14 +531,28 @@ func init() {
 	competitionentryDescCrewNotes := competitionentryFields[4].Descriptor()
 	// competitionentry.CrewNotesValidator is a validator for the "crew_notes" field. It is called by the builders before save.
 	competitionentry.CrewNotesValidator = competitionentryDescCrewNotes.Validators[0].(func(string) error)
+	// competitionentryDescContentRevision is the schema descriptor for content_revision field.
+	competitionentryDescContentRevision := competitionentryFields[7].Descriptor()
+	// competitionentry.DefaultContentRevision holds the default value on creation for the content_revision field.
+	competitionentry.DefaultContentRevision = competitionentryDescContentRevision.Default.(int)
+	// competitionentry.ContentRevisionValidator is a validator for the "content_revision" field. It is called by the builders before save.
+	competitionentry.ContentRevisionValidator = competitionentryDescContentRevision.Validators[0].(func(int) error)
+	// competitionentryDescReviewedContentRevision is the schema descriptor for reviewed_content_revision field.
+	competitionentryDescReviewedContentRevision := competitionentryFields[8].Descriptor()
+	// competitionentry.ReviewedContentRevisionValidator is a validator for the "reviewed_content_revision" field. It is called by the builders before save.
+	competitionentry.ReviewedContentRevisionValidator = competitionentryDescReviewedContentRevision.Validators[0].(func(int) error)
+	// competitionentryDescReviewedByAccountID is the schema descriptor for reviewed_by_account_id field.
+	competitionentryDescReviewedByAccountID := competitionentryFields[9].Descriptor()
+	// competitionentry.ReviewedByAccountIDValidator is a validator for the "reviewed_by_account_id" field. It is called by the builders before save.
+	competitionentry.ReviewedByAccountIDValidator = competitionentryDescReviewedByAccountID.Validators[0].(func(int) error)
 	// competitionentryDescRevision is the schema descriptor for revision field.
-	competitionentryDescRevision := competitionentryFields[7].Descriptor()
+	competitionentryDescRevision := competitionentryFields[11].Descriptor()
 	// competitionentry.DefaultRevision holds the default value on creation for the revision field.
 	competitionentry.DefaultRevision = competitionentryDescRevision.Default.(int)
 	// competitionentry.RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
 	competitionentry.RevisionValidator = competitionentryDescRevision.Validators[0].(func(int) error)
 	// competitionentryDescCreatedAt is the schema descriptor for created_at field.
-	competitionentryDescCreatedAt := competitionentryFields[8].Descriptor()
+	competitionentryDescCreatedAt := competitionentryFields[12].Descriptor()
 	// competitionentry.DefaultCreatedAt holds the default value on creation for the created_at field.
 	competitionentry.DefaultCreatedAt = competitionentryDescCreatedAt.Default.(func() time.Time)
 	display.Policy = privacy.NewPolicies(schema.Display{})
@@ -1442,8 +1470,18 @@ func init() {
 	sessionDescCorrectedPublicDetails := sessionFields[14].Descriptor()
 	// session.CorrectedPublicDetailsValidator is a validator for the "corrected_public_details" field. It is called by the builders before save.
 	session.CorrectedPublicDetailsValidator = sessionDescCorrectedPublicDetails.Validators[0].(func(string) error)
+	// sessionDescRequireEntryReview is the schema descriptor for require_entry_review field.
+	sessionDescRequireEntryReview := sessionFields[15].Descriptor()
+	// session.DefaultRequireEntryReview holds the default value on creation for the require_entry_review field.
+	session.DefaultRequireEntryReview = sessionDescRequireEntryReview.Default.(bool)
+	// sessionDescReadinessRevision is the schema descriptor for readiness_revision field.
+	sessionDescReadinessRevision := sessionFields[17].Descriptor()
+	// session.DefaultReadinessRevision holds the default value on creation for the readiness_revision field.
+	session.DefaultReadinessRevision = sessionDescReadinessRevision.Default.(int)
+	// session.ReadinessRevisionValidator is a validator for the "readiness_revision" field. It is called by the builders before save.
+	session.ReadinessRevisionValidator = sessionDescReadinessRevision.Validators[0].(func(int) error)
 	// sessionDescCreatedAt is the schema descriptor for created_at field.
-	sessionDescCreatedAt := sessionFields[15].Descriptor()
+	sessionDescCreatedAt := sessionFields[18].Descriptor()
 	// session.DefaultCreatedAt holds the default value on creation for the created_at field.
 	session.DefaultCreatedAt = sessionDescCreatedAt.Default.(func() time.Time)
 	sessioncancellation.Policy = privacy.NewPolicies(schema.SessionCancellation{})

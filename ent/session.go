@@ -50,6 +50,12 @@ type Session struct {
 	CorrectedSpeaker *string `json:"corrected_speaker,omitempty"`
 	// CorrectedPublicDetails holds the value of the "corrected_public_details" field.
 	CorrectedPublicDetails *string `json:"corrected_public_details,omitempty"`
+	// RequireEntryReview holds the value of the "require_entry_review" field.
+	RequireEntryReview bool `json:"require_entry_review,omitempty"`
+	// FileDeliveryRequired holds the value of the "file_delivery_required" field.
+	FileDeliveryRequired *bool `json:"file_delivery_required,omitempty"`
+	// ReadinessRevision holds the value of the "readiness_revision" field.
+	ReadinessRevision int `json:"readiness_revision,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -142,7 +148,9 @@ func (*Session) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case session.FieldForecastLaneIds, session.FieldForecastLocationIds:
 			values[i] = new([]byte)
-		case session.FieldID, session.FieldEventID, session.FieldLiveStateRevision:
+		case session.FieldRequireEntryReview, session.FieldFileDeliveryRequired:
+			values[i] = new(sql.NullBool)
+		case session.FieldID, session.FieldEventID, session.FieldLiveStateRevision, session.FieldReadinessRevision:
 			values[i] = new(sql.NullInt64)
 		case session.FieldLifecycle, session.FieldPublicCancellationMessage, session.FieldCancellationCrewNotes, session.FieldCorrectedTitle, session.FieldCorrectedSpeaker, session.FieldCorrectedPublicDetails:
 			values[i] = new(sql.NullString)
@@ -266,6 +274,25 @@ func (_m *Session) assignValues(columns []string, values []any) error {
 				_m.CorrectedPublicDetails = new(string)
 				*_m.CorrectedPublicDetails = value.String
 			}
+		case session.FieldRequireEntryReview:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field require_entry_review", values[i])
+			} else if value.Valid {
+				_m.RequireEntryReview = value.Bool
+			}
+		case session.FieldFileDeliveryRequired:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field file_delivery_required", values[i])
+			} else if value.Valid {
+				_m.FileDeliveryRequired = new(bool)
+				*_m.FileDeliveryRequired = value.Bool
+			}
+		case session.FieldReadinessRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field readiness_revision", values[i])
+			} else if value.Valid {
+				_m.ReadinessRevision = int(value.Int64)
+			}
 		case session.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
@@ -388,6 +415,17 @@ func (_m *Session) String() string {
 		builder.WriteString("corrected_public_details=")
 		builder.WriteString(*v)
 	}
+	builder.WriteString(", ")
+	builder.WriteString("require_entry_review=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RequireEntryReview))
+	builder.WriteString(", ")
+	if v := _m.FileDeliveryRequired; v != nil {
+		builder.WriteString("file_delivery_required=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("readiness_revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ReadinessRevision))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

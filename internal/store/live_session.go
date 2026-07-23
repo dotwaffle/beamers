@@ -157,6 +157,15 @@ func (transaction *CommandTx) StartSession(
 	if identity.Lifecycle != session.LifecycleScheduled {
 		return LiveSessionState{}, ErrSessionLifecycleTransition
 	}
+	if snapshot.Type == "Competition" {
+		preflight, preflightErr := transaction.PreflightCompetitionStart(ctx, eventID, sessionID)
+		if preflightErr != nil {
+			return LiveSessionState{}, preflightErr
+		}
+		if len(preflight.Blockers) > 0 {
+			return LiveSessionState{}, &CompetitionPreflightBlockedError{Blockers: preflight.Blockers}
+		}
+	}
 	encoded, err := json.Marshal(snapshot)
 	if err != nil {
 		return LiveSessionState{}, opaqueError("encode Session Run Snapshot", err)

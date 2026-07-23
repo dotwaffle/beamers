@@ -34,6 +34,12 @@ const (
 	FieldUploaderType = "uploader_type"
 	// FieldUploaderID holds the string denoting the uploader_id field in the database.
 	FieldUploaderID = "uploader_id"
+	// FieldFinal holds the string denoting the final field in the database.
+	FieldFinal = "final"
+	// FieldPrimary holds the string denoting the primary field in the database.
+	FieldPrimary = "primary"
+	// FieldReadinessRevision holds the string denoting the readiness_revision field in the database.
+	FieldReadinessRevision = "readiness_revision"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeAttachment holds the string denoting the attachment edge name in mutations.
@@ -61,6 +67,9 @@ var Columns = []string{
 	FieldStorageKey,
 	FieldUploaderType,
 	FieldUploaderID,
+	FieldFinal,
+	FieldPrimary,
+	FieldReadinessRevision,
 	FieldCreatedAt,
 }
 
@@ -96,6 +105,14 @@ var (
 	StorageKeyValidator func(string) error
 	// UploaderIDValidator is a validator for the "uploader_id" field. It is called by the builders before save.
 	UploaderIDValidator func(int) error
+	// DefaultFinal holds the default value on creation for the "final" field.
+	DefaultFinal bool
+	// DefaultPrimary holds the default value on creation for the "primary" field.
+	DefaultPrimary bool
+	// DefaultReadinessRevision holds the default value on creation for the "readiness_revision" field.
+	DefaultReadinessRevision int
+	// ReadinessRevisionValidator is a validator for the "readiness_revision" field. It is called by the builders before save.
+	ReadinessRevisionValidator func(int) error
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 )
@@ -174,6 +191,21 @@ func ByUploaderType(opts ...sql.OrderTermOption) OrderOption {
 // ByUploaderID orders the results by the uploader_id field.
 func ByUploaderID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUploaderID, opts...).ToFunc()
+}
+
+// ByFinal orders the results by the final field.
+func ByFinal(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFinal, opts...).ToFunc()
+}
+
+// ByPrimary orders the results by the primary field.
+func ByPrimary(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPrimary, opts...).ToFunc()
+}
+
+// ByReadinessRevision orders the results by the readiness_revision field.
+func ByReadinessRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldReadinessRevision, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

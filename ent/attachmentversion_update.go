@@ -27,6 +27,55 @@ func (_u *AttachmentVersionUpdate) Where(ps ...predicate.AttachmentVersion) *Att
 	return _u
 }
 
+// SetFinal sets the "final" field.
+func (_u *AttachmentVersionUpdate) SetFinal(v bool) *AttachmentVersionUpdate {
+	_u.mutation.SetFinal(v)
+	return _u
+}
+
+// SetNillableFinal sets the "final" field if the given value is not nil.
+func (_u *AttachmentVersionUpdate) SetNillableFinal(v *bool) *AttachmentVersionUpdate {
+	if v != nil {
+		_u.SetFinal(*v)
+	}
+	return _u
+}
+
+// SetPrimary sets the "primary" field.
+func (_u *AttachmentVersionUpdate) SetPrimary(v bool) *AttachmentVersionUpdate {
+	_u.mutation.SetPrimary(v)
+	return _u
+}
+
+// SetNillablePrimary sets the "primary" field if the given value is not nil.
+func (_u *AttachmentVersionUpdate) SetNillablePrimary(v *bool) *AttachmentVersionUpdate {
+	if v != nil {
+		_u.SetPrimary(*v)
+	}
+	return _u
+}
+
+// SetReadinessRevision sets the "readiness_revision" field.
+func (_u *AttachmentVersionUpdate) SetReadinessRevision(v int) *AttachmentVersionUpdate {
+	_u.mutation.ResetReadinessRevision()
+	_u.mutation.SetReadinessRevision(v)
+	return _u
+}
+
+// SetNillableReadinessRevision sets the "readiness_revision" field if the given value is not nil.
+func (_u *AttachmentVersionUpdate) SetNillableReadinessRevision(v *int) *AttachmentVersionUpdate {
+	if v != nil {
+		_u.SetReadinessRevision(*v)
+	}
+	return _u
+}
+
+// AddReadinessRevision adds value to the "readiness_revision" field.
+func (_u *AttachmentVersionUpdate) AddReadinessRevision(v int) *AttachmentVersionUpdate {
+	_u.mutation.AddReadinessRevision(v)
+	return _u
+}
+
 // Mutation returns the AttachmentVersionMutation object of the builder.
 func (_u *AttachmentVersionUpdate) Mutation() *AttachmentVersionMutation {
 	return _u.mutation
@@ -61,6 +110,11 @@ func (_u *AttachmentVersionUpdate) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *AttachmentVersionUpdate) check() error {
+	if v, ok := _u.mutation.ReadinessRevision(); ok {
+		if err := attachmentversion.ReadinessRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "readiness_revision", err: fmt.Errorf(`ent: validator failed for field "AttachmentVersion.readiness_revision": %w`, err)}
+		}
+	}
 	if _u.mutation.AttachmentCleared() && len(_u.mutation.AttachmentIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "AttachmentVersion.attachment"`)
 	}
@@ -82,6 +136,18 @@ func (_u *AttachmentVersionUpdate) sqlSave(ctx context.Context) (_node int, err 
 	if _u.mutation.MediaTypeCleared() {
 		_spec.ClearField(attachmentversion.FieldMediaType, field.TypeString)
 	}
+	if value, ok := _u.mutation.Final(); ok {
+		_spec.SetField(attachmentversion.FieldFinal, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.Primary(); ok {
+		_spec.SetField(attachmentversion.FieldPrimary, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ReadinessRevision(); ok {
+		_spec.SetField(attachmentversion.FieldReadinessRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedReadinessRevision(); ok {
+		_spec.AddField(attachmentversion.FieldReadinessRevision, field.TypeInt, value)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{attachmentversion.Label}
@@ -100,6 +166,55 @@ type AttachmentVersionUpdateOne struct {
 	fields   []string
 	hooks    []Hook
 	mutation *AttachmentVersionMutation
+}
+
+// SetFinal sets the "final" field.
+func (_u *AttachmentVersionUpdateOne) SetFinal(v bool) *AttachmentVersionUpdateOne {
+	_u.mutation.SetFinal(v)
+	return _u
+}
+
+// SetNillableFinal sets the "final" field if the given value is not nil.
+func (_u *AttachmentVersionUpdateOne) SetNillableFinal(v *bool) *AttachmentVersionUpdateOne {
+	if v != nil {
+		_u.SetFinal(*v)
+	}
+	return _u
+}
+
+// SetPrimary sets the "primary" field.
+func (_u *AttachmentVersionUpdateOne) SetPrimary(v bool) *AttachmentVersionUpdateOne {
+	_u.mutation.SetPrimary(v)
+	return _u
+}
+
+// SetNillablePrimary sets the "primary" field if the given value is not nil.
+func (_u *AttachmentVersionUpdateOne) SetNillablePrimary(v *bool) *AttachmentVersionUpdateOne {
+	if v != nil {
+		_u.SetPrimary(*v)
+	}
+	return _u
+}
+
+// SetReadinessRevision sets the "readiness_revision" field.
+func (_u *AttachmentVersionUpdateOne) SetReadinessRevision(v int) *AttachmentVersionUpdateOne {
+	_u.mutation.ResetReadinessRevision()
+	_u.mutation.SetReadinessRevision(v)
+	return _u
+}
+
+// SetNillableReadinessRevision sets the "readiness_revision" field if the given value is not nil.
+func (_u *AttachmentVersionUpdateOne) SetNillableReadinessRevision(v *int) *AttachmentVersionUpdateOne {
+	if v != nil {
+		_u.SetReadinessRevision(*v)
+	}
+	return _u
+}
+
+// AddReadinessRevision adds value to the "readiness_revision" field.
+func (_u *AttachmentVersionUpdateOne) AddReadinessRevision(v int) *AttachmentVersionUpdateOne {
+	_u.mutation.AddReadinessRevision(v)
+	return _u
 }
 
 // Mutation returns the AttachmentVersionMutation object of the builder.
@@ -149,6 +264,11 @@ func (_u *AttachmentVersionUpdateOne) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *AttachmentVersionUpdateOne) check() error {
+	if v, ok := _u.mutation.ReadinessRevision(); ok {
+		if err := attachmentversion.ReadinessRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "readiness_revision", err: fmt.Errorf(`ent: validator failed for field "AttachmentVersion.readiness_revision": %w`, err)}
+		}
+	}
 	if _u.mutation.AttachmentCleared() && len(_u.mutation.AttachmentIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "AttachmentVersion.attachment"`)
 	}
@@ -186,6 +306,18 @@ func (_u *AttachmentVersionUpdateOne) sqlSave(ctx context.Context) (_node *Attac
 	}
 	if _u.mutation.MediaTypeCleared() {
 		_spec.ClearField(attachmentversion.FieldMediaType, field.TypeString)
+	}
+	if value, ok := _u.mutation.Final(); ok {
+		_spec.SetField(attachmentversion.FieldFinal, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.Primary(); ok {
+		_spec.SetField(attachmentversion.FieldPrimary, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ReadinessRevision(); ok {
+		_spec.SetField(attachmentversion.FieldReadinessRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedReadinessRevision(); ok {
+		_spec.AddField(attachmentversion.FieldReadinessRevision, field.TypeInt, value)
 	}
 	_node = &AttachmentVersion{config: _u.config}
 	_spec.Assign = _node.assignValues

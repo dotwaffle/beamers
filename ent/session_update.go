@@ -305,6 +305,61 @@ func (_u *SessionUpdate) ClearCorrectedPublicDetails() *SessionUpdate {
 	return _u
 }
 
+// SetRequireEntryReview sets the "require_entry_review" field.
+func (_u *SessionUpdate) SetRequireEntryReview(v bool) *SessionUpdate {
+	_u.mutation.SetRequireEntryReview(v)
+	return _u
+}
+
+// SetNillableRequireEntryReview sets the "require_entry_review" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableRequireEntryReview(v *bool) *SessionUpdate {
+	if v != nil {
+		_u.SetRequireEntryReview(*v)
+	}
+	return _u
+}
+
+// SetFileDeliveryRequired sets the "file_delivery_required" field.
+func (_u *SessionUpdate) SetFileDeliveryRequired(v bool) *SessionUpdate {
+	_u.mutation.SetFileDeliveryRequired(v)
+	return _u
+}
+
+// SetNillableFileDeliveryRequired sets the "file_delivery_required" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableFileDeliveryRequired(v *bool) *SessionUpdate {
+	if v != nil {
+		_u.SetFileDeliveryRequired(*v)
+	}
+	return _u
+}
+
+// ClearFileDeliveryRequired clears the value of the "file_delivery_required" field.
+func (_u *SessionUpdate) ClearFileDeliveryRequired() *SessionUpdate {
+	_u.mutation.ClearFileDeliveryRequired()
+	return _u
+}
+
+// SetReadinessRevision sets the "readiness_revision" field.
+func (_u *SessionUpdate) SetReadinessRevision(v int) *SessionUpdate {
+	_u.mutation.ResetReadinessRevision()
+	_u.mutation.SetReadinessRevision(v)
+	return _u
+}
+
+// SetNillableReadinessRevision sets the "readiness_revision" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableReadinessRevision(v *int) *SessionUpdate {
+	if v != nil {
+		_u.SetReadinessRevision(*v)
+	}
+	return _u
+}
+
+// AddReadinessRevision adds value to the "readiness_revision" field.
+func (_u *SessionUpdate) AddReadinessRevision(v int) *SessionUpdate {
+	_u.mutation.AddReadinessRevision(v)
+	return _u
+}
+
 // SetDraftID sets the "draft" edge to the SessionDraft entity by ID.
 func (_u *SessionUpdate) SetDraftID(id int) *SessionUpdate {
 	_u.mutation.SetDraftID(id)
@@ -543,6 +598,11 @@ func (_u *SessionUpdate) check() error {
 			return &ValidationError{Name: "corrected_public_details", err: fmt.Errorf(`ent: validator failed for field "Session.corrected_public_details": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ReadinessRevision(); ok {
+		if err := session.ReadinessRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "readiness_revision", err: fmt.Errorf(`ent: validator failed for field "Session.readiness_revision": %w`, err)}
+		}
+	}
 	if _u.mutation.EventCleared() && len(_u.mutation.EventIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Session.event"`)
 	}
@@ -651,6 +711,21 @@ func (_u *SessionUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.CorrectedPublicDetailsCleared() {
 		_spec.ClearField(session.FieldCorrectedPublicDetails, field.TypeString)
+	}
+	if value, ok := _u.mutation.RequireEntryReview(); ok {
+		_spec.SetField(session.FieldRequireEntryReview, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.FileDeliveryRequired(); ok {
+		_spec.SetField(session.FieldFileDeliveryRequired, field.TypeBool, value)
+	}
+	if _u.mutation.FileDeliveryRequiredCleared() {
+		_spec.ClearField(session.FieldFileDeliveryRequired, field.TypeBool)
+	}
+	if value, ok := _u.mutation.ReadinessRevision(); ok {
+		_spec.SetField(session.FieldReadinessRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedReadinessRevision(); ok {
+		_spec.AddField(session.FieldReadinessRevision, field.TypeInt, value)
 	}
 	if _u.mutation.DraftCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1152,6 +1227,61 @@ func (_u *SessionUpdateOne) ClearCorrectedPublicDetails() *SessionUpdateOne {
 	return _u
 }
 
+// SetRequireEntryReview sets the "require_entry_review" field.
+func (_u *SessionUpdateOne) SetRequireEntryReview(v bool) *SessionUpdateOne {
+	_u.mutation.SetRequireEntryReview(v)
+	return _u
+}
+
+// SetNillableRequireEntryReview sets the "require_entry_review" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableRequireEntryReview(v *bool) *SessionUpdateOne {
+	if v != nil {
+		_u.SetRequireEntryReview(*v)
+	}
+	return _u
+}
+
+// SetFileDeliveryRequired sets the "file_delivery_required" field.
+func (_u *SessionUpdateOne) SetFileDeliveryRequired(v bool) *SessionUpdateOne {
+	_u.mutation.SetFileDeliveryRequired(v)
+	return _u
+}
+
+// SetNillableFileDeliveryRequired sets the "file_delivery_required" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableFileDeliveryRequired(v *bool) *SessionUpdateOne {
+	if v != nil {
+		_u.SetFileDeliveryRequired(*v)
+	}
+	return _u
+}
+
+// ClearFileDeliveryRequired clears the value of the "file_delivery_required" field.
+func (_u *SessionUpdateOne) ClearFileDeliveryRequired() *SessionUpdateOne {
+	_u.mutation.ClearFileDeliveryRequired()
+	return _u
+}
+
+// SetReadinessRevision sets the "readiness_revision" field.
+func (_u *SessionUpdateOne) SetReadinessRevision(v int) *SessionUpdateOne {
+	_u.mutation.ResetReadinessRevision()
+	_u.mutation.SetReadinessRevision(v)
+	return _u
+}
+
+// SetNillableReadinessRevision sets the "readiness_revision" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableReadinessRevision(v *int) *SessionUpdateOne {
+	if v != nil {
+		_u.SetReadinessRevision(*v)
+	}
+	return _u
+}
+
+// AddReadinessRevision adds value to the "readiness_revision" field.
+func (_u *SessionUpdateOne) AddReadinessRevision(v int) *SessionUpdateOne {
+	_u.mutation.AddReadinessRevision(v)
+	return _u
+}
+
 // SetDraftID sets the "draft" edge to the SessionDraft entity by ID.
 func (_u *SessionUpdateOne) SetDraftID(id int) *SessionUpdateOne {
 	_u.mutation.SetDraftID(id)
@@ -1403,6 +1533,11 @@ func (_u *SessionUpdateOne) check() error {
 			return &ValidationError{Name: "corrected_public_details", err: fmt.Errorf(`ent: validator failed for field "Session.corrected_public_details": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ReadinessRevision(); ok {
+		if err := session.ReadinessRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "readiness_revision", err: fmt.Errorf(`ent: validator failed for field "Session.readiness_revision": %w`, err)}
+		}
+	}
 	if _u.mutation.EventCleared() && len(_u.mutation.EventIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Session.event"`)
 	}
@@ -1528,6 +1663,21 @@ func (_u *SessionUpdateOne) sqlSave(ctx context.Context) (_node *Session, err er
 	}
 	if _u.mutation.CorrectedPublicDetailsCleared() {
 		_spec.ClearField(session.FieldCorrectedPublicDetails, field.TypeString)
+	}
+	if value, ok := _u.mutation.RequireEntryReview(); ok {
+		_spec.SetField(session.FieldRequireEntryReview, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.FileDeliveryRequired(); ok {
+		_spec.SetField(session.FieldFileDeliveryRequired, field.TypeBool, value)
+	}
+	if _u.mutation.FileDeliveryRequiredCleared() {
+		_spec.ClearField(session.FieldFileDeliveryRequired, field.TypeBool)
+	}
+	if value, ok := _u.mutation.ReadinessRevision(); ok {
+		_spec.SetField(session.FieldReadinessRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedReadinessRevision(); ok {
+		_spec.AddField(session.FieldReadinessRevision, field.TypeInt, value)
 	}
 	if _u.mutation.DraftCleared() {
 		edge := &sqlgraph.EdgeSpec{

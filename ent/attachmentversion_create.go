@@ -83,6 +83,48 @@ func (_c *AttachmentVersionCreate) SetUploaderID(v int) *AttachmentVersionCreate
 	return _c
 }
 
+// SetFinal sets the "final" field.
+func (_c *AttachmentVersionCreate) SetFinal(v bool) *AttachmentVersionCreate {
+	_c.mutation.SetFinal(v)
+	return _c
+}
+
+// SetNillableFinal sets the "final" field if the given value is not nil.
+func (_c *AttachmentVersionCreate) SetNillableFinal(v *bool) *AttachmentVersionCreate {
+	if v != nil {
+		_c.SetFinal(*v)
+	}
+	return _c
+}
+
+// SetPrimary sets the "primary" field.
+func (_c *AttachmentVersionCreate) SetPrimary(v bool) *AttachmentVersionCreate {
+	_c.mutation.SetPrimary(v)
+	return _c
+}
+
+// SetNillablePrimary sets the "primary" field if the given value is not nil.
+func (_c *AttachmentVersionCreate) SetNillablePrimary(v *bool) *AttachmentVersionCreate {
+	if v != nil {
+		_c.SetPrimary(*v)
+	}
+	return _c
+}
+
+// SetReadinessRevision sets the "readiness_revision" field.
+func (_c *AttachmentVersionCreate) SetReadinessRevision(v int) *AttachmentVersionCreate {
+	_c.mutation.SetReadinessRevision(v)
+	return _c
+}
+
+// SetNillableReadinessRevision sets the "readiness_revision" field if the given value is not nil.
+func (_c *AttachmentVersionCreate) SetNillableReadinessRevision(v *int) *AttachmentVersionCreate {
+	if v != nil {
+		_c.SetReadinessRevision(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *AttachmentVersionCreate) SetCreatedAt(v time.Time) *AttachmentVersionCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -139,6 +181,18 @@ func (_c *AttachmentVersionCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *AttachmentVersionCreate) defaults() error {
+	if _, ok := _c.mutation.Final(); !ok {
+		v := attachmentversion.DefaultFinal
+		_c.mutation.SetFinal(v)
+	}
+	if _, ok := _c.mutation.Primary(); !ok {
+		v := attachmentversion.DefaultPrimary
+		_c.mutation.SetPrimary(v)
+	}
+	if _, ok := _c.mutation.ReadinessRevision(); !ok {
+		v := attachmentversion.DefaultReadinessRevision
+		_c.mutation.SetReadinessRevision(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		if attachmentversion.DefaultCreatedAt == nil {
 			return fmt.Errorf("ent: uninitialized attachmentversion.DefaultCreatedAt (forgotten import ent/runtime?)")
@@ -215,6 +269,20 @@ func (_c *AttachmentVersionCreate) check() error {
 			return &ValidationError{Name: "uploader_id", err: fmt.Errorf(`ent: validator failed for field "AttachmentVersion.uploader_id": %w`, err)}
 		}
 	}
+	if _, ok := _c.mutation.Final(); !ok {
+		return &ValidationError{Name: "final", err: errors.New(`ent: missing required field "AttachmentVersion.final"`)}
+	}
+	if _, ok := _c.mutation.Primary(); !ok {
+		return &ValidationError{Name: "primary", err: errors.New(`ent: missing required field "AttachmentVersion.primary"`)}
+	}
+	if _, ok := _c.mutation.ReadinessRevision(); !ok {
+		return &ValidationError{Name: "readiness_revision", err: errors.New(`ent: missing required field "AttachmentVersion.readiness_revision"`)}
+	}
+	if v, ok := _c.mutation.ReadinessRevision(); ok {
+		if err := attachmentversion.ReadinessRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "readiness_revision", err: fmt.Errorf(`ent: validator failed for field "AttachmentVersion.readiness_revision": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "AttachmentVersion.created_at"`)}
 	}
@@ -278,6 +346,18 @@ func (_c *AttachmentVersionCreate) createSpec() (*AttachmentVersion, *sqlgraph.C
 	if value, ok := _c.mutation.UploaderID(); ok {
 		_spec.SetField(attachmentversion.FieldUploaderID, field.TypeInt, value)
 		_node.UploaderID = value
+	}
+	if value, ok := _c.mutation.Final(); ok {
+		_spec.SetField(attachmentversion.FieldFinal, field.TypeBool, value)
+		_node.Final = value
+	}
+	if value, ok := _c.mutation.Primary(); ok {
+		_spec.SetField(attachmentversion.FieldPrimary, field.TypeBool, value)
+		_node.Primary = value
+	}
+	if value, ok := _c.mutation.ReadinessRevision(); ok {
+		_spec.SetField(attachmentversion.FieldReadinessRevision, field.TypeInt, value)
+		_node.ReadinessRevision = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(attachmentversion.FieldCreatedAt, field.TypeTime, value)

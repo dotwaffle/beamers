@@ -46,6 +46,12 @@ const (
 	FieldCorrectedSpeaker = "corrected_speaker"
 	// FieldCorrectedPublicDetails holds the string denoting the corrected_public_details field in the database.
 	FieldCorrectedPublicDetails = "corrected_public_details"
+	// FieldRequireEntryReview holds the string denoting the require_entry_review field in the database.
+	FieldRequireEntryReview = "require_entry_review"
+	// FieldFileDeliveryRequired holds the string denoting the file_delivery_required field in the database.
+	FieldFileDeliveryRequired = "file_delivery_required"
+	// FieldReadinessRevision holds the string denoting the readiness_revision field in the database.
+	FieldReadinessRevision = "readiness_revision"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeEvent holds the string denoting the event edge name in mutations.
@@ -124,6 +130,9 @@ var Columns = []string{
 	FieldCorrectedTitle,
 	FieldCorrectedSpeaker,
 	FieldCorrectedPublicDetails,
+	FieldRequireEntryReview,
+	FieldFileDeliveryRequired,
+	FieldReadinessRevision,
 	FieldCreatedAt,
 }
 
@@ -159,6 +168,12 @@ var (
 	CorrectedSpeakerValidator func(string) error
 	// CorrectedPublicDetailsValidator is a validator for the "corrected_public_details" field. It is called by the builders before save.
 	CorrectedPublicDetailsValidator func(string) error
+	// DefaultRequireEntryReview holds the default value on creation for the "require_entry_review" field.
+	DefaultRequireEntryReview bool
+	// DefaultReadinessRevision holds the default value on creation for the "readiness_revision" field.
+	DefaultReadinessRevision int
+	// ReadinessRevisionValidator is a validator for the "readiness_revision" field. It is called by the builders before save.
+	ReadinessRevisionValidator func(int) error
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 )
@@ -262,6 +277,21 @@ func ByCorrectedSpeaker(opts ...sql.OrderTermOption) OrderOption {
 // ByCorrectedPublicDetails orders the results by the corrected_public_details field.
 func ByCorrectedPublicDetails(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCorrectedPublicDetails, opts...).ToFunc()
+}
+
+// ByRequireEntryReview orders the results by the require_entry_review field.
+func ByRequireEntryReview(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRequireEntryReview, opts...).ToFunc()
+}
+
+// ByFileDeliveryRequired orders the results by the file_delivery_required field.
+func ByFileDeliveryRequired(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFileDeliveryRequired, opts...).ToFunc()
+}
+
+// ByReadinessRevision orders the results by the readiness_revision field.
+func ByReadinessRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldReadinessRevision, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

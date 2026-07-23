@@ -80,6 +80,9 @@ var (
 		{Name: "storage_key", Type: field.TypeString, Size: 200},
 		{Name: "uploader_type", Type: field.TypeEnum, Enums: []string{"UploadLink", "Crew"}},
 		{Name: "uploader_id", Type: field.TypeInt},
+		{Name: "final", Type: field.TypeBool, Default: false},
+		{Name: "primary", Type: field.TypeBool, Default: false},
+		{Name: "readiness_revision", Type: field.TypeInt, Default: 1},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "attachment_id", Type: field.TypeInt},
 	}
@@ -91,7 +94,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "attachment_versions_attachments_versions",
-				Columns:    []*schema.Column{AttachmentVersionsColumns[10]},
+				Columns:    []*schema.Column{AttachmentVersionsColumns[13]},
 				RefColumns: []*schema.Column{AttachmentsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -100,7 +103,7 @@ var (
 			{
 				Name:    "attachmentversion_attachment_id_version",
 				Unique:  true,
-				Columns: []*schema.Column{AttachmentVersionsColumns[10], AttachmentVersionsColumns[1]},
+				Columns: []*schema.Column{AttachmentVersionsColumns[13], AttachmentVersionsColumns[1]},
 			},
 		},
 	}
@@ -182,6 +185,10 @@ var (
 		{Name: "crew_notes", Type: field.TypeString, Nullable: true, Size: 10000},
 		{Name: "disposition", Type: field.TypeEnum, Enums: []string{"Pending", "Included", "Rejected"}},
 		{Name: "upload_closed_at", Type: field.TypeTime, Nullable: true},
+		{Name: "content_revision", Type: field.TypeInt, Default: 1},
+		{Name: "reviewed_content_revision", Type: field.TypeInt, Nullable: true},
+		{Name: "reviewed_by_account_id", Type: field.TypeInt, Nullable: true},
+		{Name: "reviewed_at", Type: field.TypeTime, Nullable: true},
 		{Name: "revision", Type: field.TypeInt, Default: 1},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "event_id", Type: field.TypeInt},
@@ -195,13 +202,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "competition_entries_events_competition_entries",
-				Columns:    []*schema.Column{CompetitionEntriesColumns[8]},
+				Columns:    []*schema.Column{CompetitionEntriesColumns[12]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "competition_entries_sessions_competition_entries",
-				Columns:    []*schema.Column{CompetitionEntriesColumns[9]},
+				Columns:    []*schema.Column{CompetitionEntriesColumns[13]},
 				RefColumns: []*schema.Column{SessionsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -210,7 +217,7 @@ var (
 			{
 				Name:    "competitionentry_competition_session_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{CompetitionEntriesColumns[9], CompetitionEntriesColumns[7]},
+				Columns: []*schema.Column{CompetitionEntriesColumns[13], CompetitionEntriesColumns[11]},
 			},
 		},
 	}
@@ -824,6 +831,9 @@ var (
 		{Name: "corrected_title", Type: field.TypeString, Nullable: true, Size: 200},
 		{Name: "corrected_speaker", Type: field.TypeString, Nullable: true, Size: 200},
 		{Name: "corrected_public_details", Type: field.TypeString, Nullable: true, Size: 10000},
+		{Name: "require_entry_review", Type: field.TypeBool, Default: false},
+		{Name: "file_delivery_required", Type: field.TypeBool, Nullable: true},
+		{Name: "readiness_revision", Type: field.TypeInt, Default: 0},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "event_id", Type: field.TypeInt},
 	}
@@ -835,7 +845,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "sessions_events_sessions",
-				Columns:    []*schema.Column{SessionsColumns[16]},
+				Columns:    []*schema.Column{SessionsColumns[19]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},

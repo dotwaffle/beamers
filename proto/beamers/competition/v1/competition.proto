@@ -9,9 +9,13 @@ option go_package = "github.com/dotwaffle/beamers/gen/beamers/competition/v1;com
 
 service CompetitionService {
   rpc GetCompetition(GetCompetitionRequest) returns (GetCompetitionResponse);
+  rpc ConfigureReadiness(ConfigureReadinessRequest) returns (ConfigureReadinessResponse);
   rpc CreateEntry(CreateEntryRequest) returns (CreateEntryResponse);
   rpc UpdateEntry(UpdateEntryRequest) returns (UpdateEntryResponse);
   rpc ChangeEntryDisposition(ChangeEntryDispositionRequest) returns (ChangeEntryDispositionResponse);
+  rpc ReviewEntry(ReviewEntryRequest) returns (ReviewEntryResponse);
+  rpc SetEntryAttachmentReadiness(SetEntryAttachmentReadinessRequest) returns (SetEntryAttachmentReadinessResponse);
+  rpc PreflightStart(PreflightStartRequest) returns (PreflightStartResponse);
 }
 
 message Entry {
@@ -24,6 +28,8 @@ message Entry {
   int64 revision = 7;
   google.protobuf.Timestamp created_at = 8;
   bool participating = 9;
+  int64 content_revision = 10;
+  bool review_current = 11;
 }
 
 message GetCompetitionRequest {
@@ -37,6 +43,24 @@ message GetCompetitionResponse {
   google.protobuf.Timestamp submission_deadline = 3;
   beamers.rundown.v1.EntryDisposition effective_default_disposition = 4;
   repeated Entry entries = 5;
+  bool require_entry_review = 6;
+  bool file_delivery_required = 7;
+  int64 readiness_revision = 8;
+}
+
+message ConfigureReadinessRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  string command_id = 3;
+  int64 expected_readiness_revision = 4;
+  bool require_entry_review = 5;
+  bool file_delivery_required = 6;
+}
+
+message ConfigureReadinessResponse {
+  bool require_entry_review = 1;
+  bool file_delivery_required = 2;
+  int64 readiness_revision = 3;
 }
 
 message CreateEntryRequest {
@@ -79,4 +103,62 @@ message ChangeEntryDispositionRequest {
 
 message ChangeEntryDispositionResponse {
   Entry entry = 1;
+}
+
+message ReviewEntryRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  int64 entry_id = 3;
+  string command_id = 4;
+  int64 expected_revision = 5;
+}
+
+message ReviewEntryResponse {
+  Entry entry = 1;
+}
+
+message SetEntryAttachmentReadinessRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  int64 entry_id = 3;
+  int64 attachment_version_id = 4;
+  string command_id = 5;
+  int64 expected_revision = 6;
+  bool final = 7;
+  bool primary = 8;
+}
+
+message AttachmentReadiness {
+  int64 attachment_version_id = 1;
+  int64 revision = 2;
+  bool final = 3;
+  bool primary = 4;
+  int64 entry_id = 5;
+  int64 attachment_version = 6;
+  string logical_name = 7;
+  string original_filename = 8;
+}
+
+message SetEntryAttachmentReadinessResponse {
+  AttachmentReadiness attachment = 1;
+}
+
+message PreflightFinding {
+  string code = 1;
+  string message = 2;
+  int64 entry_id = 3;
+}
+
+message PreflightStartRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+}
+
+message PreflightStartResponse {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  bool require_entry_review = 3;
+  bool file_delivery_required = 4;
+  repeated PreflightFinding blockers = 5;
+  repeated AttachmentReadiness attachments = 6;
 }

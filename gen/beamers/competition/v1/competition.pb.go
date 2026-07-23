@@ -34,6 +34,8 @@ type Entry struct {
 	Revision             int64                  `protobuf:"varint,7,opt,name=revision,proto3" json:"revision,omitempty"`
 	CreatedAt            *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	Participating        bool                   `protobuf:"varint,9,opt,name=participating,proto3" json:"participating,omitempty"`
+	ContentRevision      int64                  `protobuf:"varint,10,opt,name=content_revision,json=contentRevision,proto3" json:"content_revision,omitempty"`
+	ReviewCurrent        bool                   `protobuf:"varint,11,opt,name=review_current,json=reviewCurrent,proto3" json:"review_current,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -131,6 +133,20 @@ func (x *Entry) GetParticipating() bool {
 	return false
 }
 
+func (x *Entry) GetContentRevision() int64 {
+	if x != nil {
+		return x.ContentRevision
+	}
+	return 0
+}
+
+func (x *Entry) GetReviewCurrent() bool {
+	if x != nil {
+		return x.ReviewCurrent
+	}
+	return false
+}
+
 type GetCompetitionRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	EventId       int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
@@ -190,6 +206,9 @@ type GetCompetitionResponse struct {
 	SubmissionDeadline          *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=submission_deadline,json=submissionDeadline,proto3" json:"submission_deadline,omitempty"`
 	EffectiveDefaultDisposition v1.EntryDisposition    `protobuf:"varint,4,opt,name=effective_default_disposition,json=effectiveDefaultDisposition,proto3,enum=beamers.rundown.v1.EntryDisposition" json:"effective_default_disposition,omitempty"`
 	Entries                     []*Entry               `protobuf:"bytes,5,rep,name=entries,proto3" json:"entries,omitempty"`
+	RequireEntryReview          bool                   `protobuf:"varint,6,opt,name=require_entry_review,json=requireEntryReview,proto3" json:"require_entry_review,omitempty"`
+	FileDeliveryRequired        bool                   `protobuf:"varint,7,opt,name=file_delivery_required,json=fileDeliveryRequired,proto3" json:"file_delivery_required,omitempty"`
+	ReadinessRevision           int64                  `protobuf:"varint,8,opt,name=readiness_revision,json=readinessRevision,proto3" json:"readiness_revision,omitempty"`
 	unknownFields               protoimpl.UnknownFields
 	sizeCache                   protoimpl.SizeCache
 }
@@ -259,6 +278,171 @@ func (x *GetCompetitionResponse) GetEntries() []*Entry {
 	return nil
 }
 
+func (x *GetCompetitionResponse) GetRequireEntryReview() bool {
+	if x != nil {
+		return x.RequireEntryReview
+	}
+	return false
+}
+
+func (x *GetCompetitionResponse) GetFileDeliveryRequired() bool {
+	if x != nil {
+		return x.FileDeliveryRequired
+	}
+	return false
+}
+
+func (x *GetCompetitionResponse) GetReadinessRevision() int64 {
+	if x != nil {
+		return x.ReadinessRevision
+	}
+	return 0
+}
+
+type ConfigureReadinessRequest struct {
+	state                     protoimpl.MessageState `protogen:"open.v1"`
+	EventId                   int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	SessionId                 int64                  `protobuf:"varint,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	CommandId                 string                 `protobuf:"bytes,3,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
+	ExpectedReadinessRevision int64                  `protobuf:"varint,4,opt,name=expected_readiness_revision,json=expectedReadinessRevision,proto3" json:"expected_readiness_revision,omitempty"`
+	RequireEntryReview        bool                   `protobuf:"varint,5,opt,name=require_entry_review,json=requireEntryReview,proto3" json:"require_entry_review,omitempty"`
+	FileDeliveryRequired      bool                   `protobuf:"varint,6,opt,name=file_delivery_required,json=fileDeliveryRequired,proto3" json:"file_delivery_required,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
+}
+
+func (x *ConfigureReadinessRequest) Reset() {
+	*x = ConfigureReadinessRequest{}
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfigureReadinessRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfigureReadinessRequest) ProtoMessage() {}
+
+func (x *ConfigureReadinessRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConfigureReadinessRequest.ProtoReflect.Descriptor instead.
+func (*ConfigureReadinessRequest) Descriptor() ([]byte, []int) {
+	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ConfigureReadinessRequest) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+func (x *ConfigureReadinessRequest) GetSessionId() int64 {
+	if x != nil {
+		return x.SessionId
+	}
+	return 0
+}
+
+func (x *ConfigureReadinessRequest) GetCommandId() string {
+	if x != nil {
+		return x.CommandId
+	}
+	return ""
+}
+
+func (x *ConfigureReadinessRequest) GetExpectedReadinessRevision() int64 {
+	if x != nil {
+		return x.ExpectedReadinessRevision
+	}
+	return 0
+}
+
+func (x *ConfigureReadinessRequest) GetRequireEntryReview() bool {
+	if x != nil {
+		return x.RequireEntryReview
+	}
+	return false
+}
+
+func (x *ConfigureReadinessRequest) GetFileDeliveryRequired() bool {
+	if x != nil {
+		return x.FileDeliveryRequired
+	}
+	return false
+}
+
+type ConfigureReadinessResponse struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	RequireEntryReview   bool                   `protobuf:"varint,1,opt,name=require_entry_review,json=requireEntryReview,proto3" json:"require_entry_review,omitempty"`
+	FileDeliveryRequired bool                   `protobuf:"varint,2,opt,name=file_delivery_required,json=fileDeliveryRequired,proto3" json:"file_delivery_required,omitempty"`
+	ReadinessRevision    int64                  `protobuf:"varint,3,opt,name=readiness_revision,json=readinessRevision,proto3" json:"readiness_revision,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *ConfigureReadinessResponse) Reset() {
+	*x = ConfigureReadinessResponse{}
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfigureReadinessResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfigureReadinessResponse) ProtoMessage() {}
+
+func (x *ConfigureReadinessResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConfigureReadinessResponse.ProtoReflect.Descriptor instead.
+func (*ConfigureReadinessResponse) Descriptor() ([]byte, []int) {
+	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ConfigureReadinessResponse) GetRequireEntryReview() bool {
+	if x != nil {
+		return x.RequireEntryReview
+	}
+	return false
+}
+
+func (x *ConfigureReadinessResponse) GetFileDeliveryRequired() bool {
+	if x != nil {
+		return x.FileDeliveryRequired
+	}
+	return false
+}
+
+func (x *ConfigureReadinessResponse) GetReadinessRevision() int64 {
+	if x != nil {
+		return x.ReadinessRevision
+	}
+	return 0
+}
+
 type CreateEntryRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	EventId       int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
@@ -273,7 +457,7 @@ type CreateEntryRequest struct {
 
 func (x *CreateEntryRequest) Reset() {
 	*x = CreateEntryRequest{}
-	mi := &file_beamers_competition_v1_competition_proto_msgTypes[3]
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -285,7 +469,7 @@ func (x *CreateEntryRequest) String() string {
 func (*CreateEntryRequest) ProtoMessage() {}
 
 func (x *CreateEntryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_competition_v1_competition_proto_msgTypes[3]
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -298,7 +482,7 @@ func (x *CreateEntryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateEntryRequest.ProtoReflect.Descriptor instead.
 func (*CreateEntryRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{3}
+	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *CreateEntryRequest) GetEventId() int64 {
@@ -352,7 +536,7 @@ type CreateEntryResponse struct {
 
 func (x *CreateEntryResponse) Reset() {
 	*x = CreateEntryResponse{}
-	mi := &file_beamers_competition_v1_competition_proto_msgTypes[4]
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -364,7 +548,7 @@ func (x *CreateEntryResponse) String() string {
 func (*CreateEntryResponse) ProtoMessage() {}
 
 func (x *CreateEntryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_competition_v1_competition_proto_msgTypes[4]
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -377,7 +561,7 @@ func (x *CreateEntryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateEntryResponse.ProtoReflect.Descriptor instead.
 func (*CreateEntryResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{4}
+	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *CreateEntryResponse) GetEntry() *Entry {
@@ -403,7 +587,7 @@ type UpdateEntryRequest struct {
 
 func (x *UpdateEntryRequest) Reset() {
 	*x = UpdateEntryRequest{}
-	mi := &file_beamers_competition_v1_competition_proto_msgTypes[5]
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -415,7 +599,7 @@ func (x *UpdateEntryRequest) String() string {
 func (*UpdateEntryRequest) ProtoMessage() {}
 
 func (x *UpdateEntryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_competition_v1_competition_proto_msgTypes[5]
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -428,7 +612,7 @@ func (x *UpdateEntryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateEntryRequest.ProtoReflect.Descriptor instead.
 func (*UpdateEntryRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{5}
+	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *UpdateEntryRequest) GetEventId() int64 {
@@ -496,7 +680,7 @@ type UpdateEntryResponse struct {
 
 func (x *UpdateEntryResponse) Reset() {
 	*x = UpdateEntryResponse{}
-	mi := &file_beamers_competition_v1_competition_proto_msgTypes[6]
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -508,7 +692,7 @@ func (x *UpdateEntryResponse) String() string {
 func (*UpdateEntryResponse) ProtoMessage() {}
 
 func (x *UpdateEntryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_competition_v1_competition_proto_msgTypes[6]
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -521,7 +705,7 @@ func (x *UpdateEntryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateEntryResponse.ProtoReflect.Descriptor instead.
 func (*UpdateEntryResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{6}
+	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *UpdateEntryResponse) GetEntry() *Entry {
@@ -546,7 +730,7 @@ type ChangeEntryDispositionRequest struct {
 
 func (x *ChangeEntryDispositionRequest) Reset() {
 	*x = ChangeEntryDispositionRequest{}
-	mi := &file_beamers_competition_v1_competition_proto_msgTypes[7]
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -558,7 +742,7 @@ func (x *ChangeEntryDispositionRequest) String() string {
 func (*ChangeEntryDispositionRequest) ProtoMessage() {}
 
 func (x *ChangeEntryDispositionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_competition_v1_competition_proto_msgTypes[7]
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -571,7 +755,7 @@ func (x *ChangeEntryDispositionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangeEntryDispositionRequest.ProtoReflect.Descriptor instead.
 func (*ChangeEntryDispositionRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{7}
+	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ChangeEntryDispositionRequest) GetEventId() int64 {
@@ -632,7 +816,7 @@ type ChangeEntryDispositionResponse struct {
 
 func (x *ChangeEntryDispositionResponse) Reset() {
 	*x = ChangeEntryDispositionResponse{}
-	mi := &file_beamers_competition_v1_competition_proto_msgTypes[8]
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -644,7 +828,7 @@ func (x *ChangeEntryDispositionResponse) String() string {
 func (*ChangeEntryDispositionResponse) ProtoMessage() {}
 
 func (x *ChangeEntryDispositionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_competition_v1_competition_proto_msgTypes[8]
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -657,7 +841,7 @@ func (x *ChangeEntryDispositionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangeEntryDispositionResponse.ProtoReflect.Descriptor instead.
 func (*ChangeEntryDispositionResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{8}
+	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ChangeEntryDispositionResponse) GetEntry() *Entry {
@@ -667,11 +851,571 @@ func (x *ChangeEntryDispositionResponse) GetEntry() *Entry {
 	return nil
 }
 
+type ReviewEntryRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	EventId          int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	SessionId        int64                  `protobuf:"varint,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	EntryId          int64                  `protobuf:"varint,3,opt,name=entry_id,json=entryId,proto3" json:"entry_id,omitempty"`
+	CommandId        string                 `protobuf:"bytes,4,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
+	ExpectedRevision int64                  `protobuf:"varint,5,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *ReviewEntryRequest) Reset() {
+	*x = ReviewEntryRequest{}
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReviewEntryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReviewEntryRequest) ProtoMessage() {}
+
+func (x *ReviewEntryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReviewEntryRequest.ProtoReflect.Descriptor instead.
+func (*ReviewEntryRequest) Descriptor() ([]byte, []int) {
+	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ReviewEntryRequest) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+func (x *ReviewEntryRequest) GetSessionId() int64 {
+	if x != nil {
+		return x.SessionId
+	}
+	return 0
+}
+
+func (x *ReviewEntryRequest) GetEntryId() int64 {
+	if x != nil {
+		return x.EntryId
+	}
+	return 0
+}
+
+func (x *ReviewEntryRequest) GetCommandId() string {
+	if x != nil {
+		return x.CommandId
+	}
+	return ""
+}
+
+func (x *ReviewEntryRequest) GetExpectedRevision() int64 {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return 0
+}
+
+type ReviewEntryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Entry         *Entry                 `protobuf:"bytes,1,opt,name=entry,proto3" json:"entry,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReviewEntryResponse) Reset() {
+	*x = ReviewEntryResponse{}
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReviewEntryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReviewEntryResponse) ProtoMessage() {}
+
+func (x *ReviewEntryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReviewEntryResponse.ProtoReflect.Descriptor instead.
+func (*ReviewEntryResponse) Descriptor() ([]byte, []int) {
+	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *ReviewEntryResponse) GetEntry() *Entry {
+	if x != nil {
+		return x.Entry
+	}
+	return nil
+}
+
+type SetEntryAttachmentReadinessRequest struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	EventId             int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	SessionId           int64                  `protobuf:"varint,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	EntryId             int64                  `protobuf:"varint,3,opt,name=entry_id,json=entryId,proto3" json:"entry_id,omitempty"`
+	AttachmentVersionId int64                  `protobuf:"varint,4,opt,name=attachment_version_id,json=attachmentVersionId,proto3" json:"attachment_version_id,omitempty"`
+	CommandId           string                 `protobuf:"bytes,5,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
+	ExpectedRevision    int64                  `protobuf:"varint,6,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	Final               bool                   `protobuf:"varint,7,opt,name=final,proto3" json:"final,omitempty"`
+	Primary             bool                   `protobuf:"varint,8,opt,name=primary,proto3" json:"primary,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *SetEntryAttachmentReadinessRequest) Reset() {
+	*x = SetEntryAttachmentReadinessRequest{}
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetEntryAttachmentReadinessRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetEntryAttachmentReadinessRequest) ProtoMessage() {}
+
+func (x *SetEntryAttachmentReadinessRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetEntryAttachmentReadinessRequest.ProtoReflect.Descriptor instead.
+func (*SetEntryAttachmentReadinessRequest) Descriptor() ([]byte, []int) {
+	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *SetEntryAttachmentReadinessRequest) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+func (x *SetEntryAttachmentReadinessRequest) GetSessionId() int64 {
+	if x != nil {
+		return x.SessionId
+	}
+	return 0
+}
+
+func (x *SetEntryAttachmentReadinessRequest) GetEntryId() int64 {
+	if x != nil {
+		return x.EntryId
+	}
+	return 0
+}
+
+func (x *SetEntryAttachmentReadinessRequest) GetAttachmentVersionId() int64 {
+	if x != nil {
+		return x.AttachmentVersionId
+	}
+	return 0
+}
+
+func (x *SetEntryAttachmentReadinessRequest) GetCommandId() string {
+	if x != nil {
+		return x.CommandId
+	}
+	return ""
+}
+
+func (x *SetEntryAttachmentReadinessRequest) GetExpectedRevision() int64 {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return 0
+}
+
+func (x *SetEntryAttachmentReadinessRequest) GetFinal() bool {
+	if x != nil {
+		return x.Final
+	}
+	return false
+}
+
+func (x *SetEntryAttachmentReadinessRequest) GetPrimary() bool {
+	if x != nil {
+		return x.Primary
+	}
+	return false
+}
+
+type AttachmentReadiness struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	AttachmentVersionId int64                  `protobuf:"varint,1,opt,name=attachment_version_id,json=attachmentVersionId,proto3" json:"attachment_version_id,omitempty"`
+	Revision            int64                  `protobuf:"varint,2,opt,name=revision,proto3" json:"revision,omitempty"`
+	Final               bool                   `protobuf:"varint,3,opt,name=final,proto3" json:"final,omitempty"`
+	Primary             bool                   `protobuf:"varint,4,opt,name=primary,proto3" json:"primary,omitempty"`
+	EntryId             int64                  `protobuf:"varint,5,opt,name=entry_id,json=entryId,proto3" json:"entry_id,omitempty"`
+	AttachmentVersion   int64                  `protobuf:"varint,6,opt,name=attachment_version,json=attachmentVersion,proto3" json:"attachment_version,omitempty"`
+	LogicalName         string                 `protobuf:"bytes,7,opt,name=logical_name,json=logicalName,proto3" json:"logical_name,omitempty"`
+	OriginalFilename    string                 `protobuf:"bytes,8,opt,name=original_filename,json=originalFilename,proto3" json:"original_filename,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *AttachmentReadiness) Reset() {
+	*x = AttachmentReadiness{}
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AttachmentReadiness) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AttachmentReadiness) ProtoMessage() {}
+
+func (x *AttachmentReadiness) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AttachmentReadiness.ProtoReflect.Descriptor instead.
+func (*AttachmentReadiness) Descriptor() ([]byte, []int) {
+	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *AttachmentReadiness) GetAttachmentVersionId() int64 {
+	if x != nil {
+		return x.AttachmentVersionId
+	}
+	return 0
+}
+
+func (x *AttachmentReadiness) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+func (x *AttachmentReadiness) GetFinal() bool {
+	if x != nil {
+		return x.Final
+	}
+	return false
+}
+
+func (x *AttachmentReadiness) GetPrimary() bool {
+	if x != nil {
+		return x.Primary
+	}
+	return false
+}
+
+func (x *AttachmentReadiness) GetEntryId() int64 {
+	if x != nil {
+		return x.EntryId
+	}
+	return 0
+}
+
+func (x *AttachmentReadiness) GetAttachmentVersion() int64 {
+	if x != nil {
+		return x.AttachmentVersion
+	}
+	return 0
+}
+
+func (x *AttachmentReadiness) GetLogicalName() string {
+	if x != nil {
+		return x.LogicalName
+	}
+	return ""
+}
+
+func (x *AttachmentReadiness) GetOriginalFilename() string {
+	if x != nil {
+		return x.OriginalFilename
+	}
+	return ""
+}
+
+type SetEntryAttachmentReadinessResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Attachment    *AttachmentReadiness   `protobuf:"bytes,1,opt,name=attachment,proto3" json:"attachment,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetEntryAttachmentReadinessResponse) Reset() {
+	*x = SetEntryAttachmentReadinessResponse{}
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetEntryAttachmentReadinessResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetEntryAttachmentReadinessResponse) ProtoMessage() {}
+
+func (x *SetEntryAttachmentReadinessResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetEntryAttachmentReadinessResponse.ProtoReflect.Descriptor instead.
+func (*SetEntryAttachmentReadinessResponse) Descriptor() ([]byte, []int) {
+	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *SetEntryAttachmentReadinessResponse) GetAttachment() *AttachmentReadiness {
+	if x != nil {
+		return x.Attachment
+	}
+	return nil
+}
+
+type PreflightFinding struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	EntryId       int64                  `protobuf:"varint,3,opt,name=entry_id,json=entryId,proto3" json:"entry_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PreflightFinding) Reset() {
+	*x = PreflightFinding{}
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PreflightFinding) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PreflightFinding) ProtoMessage() {}
+
+func (x *PreflightFinding) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PreflightFinding.ProtoReflect.Descriptor instead.
+func (*PreflightFinding) Descriptor() ([]byte, []int) {
+	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *PreflightFinding) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *PreflightFinding) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *PreflightFinding) GetEntryId() int64 {
+	if x != nil {
+		return x.EntryId
+	}
+	return 0
+}
+
+type PreflightStartRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	EventId       int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	SessionId     int64                  `protobuf:"varint,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PreflightStartRequest) Reset() {
+	*x = PreflightStartRequest{}
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PreflightStartRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PreflightStartRequest) ProtoMessage() {}
+
+func (x *PreflightStartRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PreflightStartRequest.ProtoReflect.Descriptor instead.
+func (*PreflightStartRequest) Descriptor() ([]byte, []int) {
+	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *PreflightStartRequest) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+func (x *PreflightStartRequest) GetSessionId() int64 {
+	if x != nil {
+		return x.SessionId
+	}
+	return 0
+}
+
+type PreflightStartResponse struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	EventId              int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	SessionId            int64                  `protobuf:"varint,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	RequireEntryReview   bool                   `protobuf:"varint,3,opt,name=require_entry_review,json=requireEntryReview,proto3" json:"require_entry_review,omitempty"`
+	FileDeliveryRequired bool                   `protobuf:"varint,4,opt,name=file_delivery_required,json=fileDeliveryRequired,proto3" json:"file_delivery_required,omitempty"`
+	Blockers             []*PreflightFinding    `protobuf:"bytes,5,rep,name=blockers,proto3" json:"blockers,omitempty"`
+	Attachments          []*AttachmentReadiness `protobuf:"bytes,6,rep,name=attachments,proto3" json:"attachments,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *PreflightStartResponse) Reset() {
+	*x = PreflightStartResponse{}
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PreflightStartResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PreflightStartResponse) ProtoMessage() {}
+
+func (x *PreflightStartResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_competition_v1_competition_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PreflightStartResponse.ProtoReflect.Descriptor instead.
+func (*PreflightStartResponse) Descriptor() ([]byte, []int) {
+	return file_beamers_competition_v1_competition_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *PreflightStartResponse) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+func (x *PreflightStartResponse) GetSessionId() int64 {
+	if x != nil {
+		return x.SessionId
+	}
+	return 0
+}
+
+func (x *PreflightStartResponse) GetRequireEntryReview() bool {
+	if x != nil {
+		return x.RequireEntryReview
+	}
+	return false
+}
+
+func (x *PreflightStartResponse) GetFileDeliveryRequired() bool {
+	if x != nil {
+		return x.FileDeliveryRequired
+	}
+	return false
+}
+
+func (x *PreflightStartResponse) GetBlockers() []*PreflightFinding {
+	if x != nil {
+		return x.Blockers
+	}
+	return nil
+}
+
+func (x *PreflightStartResponse) GetAttachments() []*AttachmentReadiness {
+	if x != nil {
+		return x.Attachments
+	}
+	return nil
+}
+
 var File_beamers_competition_v1_competition_proto protoreflect.FileDescriptor
 
 const file_beamers_competition_v1_competition_proto_rawDesc = "" +
 	"\n" +
-	"(beamers/competition/v1/competition.proto\x12\x16beamers.competition.v1\x1a beamers/rundown/v1/rundown.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xec\x02\n" +
+	"(beamers/competition/v1/competition.proto\x12\x16beamers.competition.v1\x1a beamers/rundown/v1/rundown.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbe\x03\n" +
 	"\x05Entry\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x124\n" +
 	"\x16competition_session_id\x18\x02 \x01(\x03R\x14competitionSessionId\x12\x12\n" +
@@ -683,18 +1427,37 @@ const file_beamers_competition_v1_competition_proto_rawDesc = "" +
 	"\brevision\x18\a \x01(\x03R\brevision\x129\n" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12$\n" +
-	"\rparticipating\x18\t \x01(\bR\rparticipating\"Q\n" +
+	"\rparticipating\x18\t \x01(\bR\rparticipating\x12)\n" +
+	"\x10content_revision\x18\n" +
+	" \x01(\x03R\x0fcontentRevision\x12%\n" +
+	"\x0ereview_current\x18\v \x01(\bR\rreviewCurrent\"Q\n" +
 	"\x15GetCompetitionRequest\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x02 \x01(\x03R\tsessionId\"\xc2\x02\n" +
+	"session_id\x18\x02 \x01(\x03R\tsessionId\"\xd9\x03\n" +
 	"\x16GetCompetitionResponse\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x02 \x01(\x03R\tsessionId\x12K\n" +
 	"\x13submission_deadline\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x12submissionDeadline\x12h\n" +
 	"\x1deffective_default_disposition\x18\x04 \x01(\x0e2$.beamers.rundown.v1.EntryDispositionR\x1beffectiveDefaultDisposition\x127\n" +
-	"\aentries\x18\x05 \x03(\v2\x1d.beamers.competition.v1.EntryR\aentries\"\xc7\x01\n" +
+	"\aentries\x18\x05 \x03(\v2\x1d.beamers.competition.v1.EntryR\aentries\x120\n" +
+	"\x14require_entry_review\x18\x06 \x01(\bR\x12requireEntryReview\x124\n" +
+	"\x16file_delivery_required\x18\a \x01(\bR\x14fileDeliveryRequired\x12-\n" +
+	"\x12readiness_revision\x18\b \x01(\x03R\x11readinessRevision\"\x9c\x02\n" +
+	"\x19ConfigureReadinessRequest\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\x03R\tsessionId\x12\x1d\n" +
+	"\n" +
+	"command_id\x18\x03 \x01(\tR\tcommandId\x12>\n" +
+	"\x1bexpected_readiness_revision\x18\x04 \x01(\x03R\x19expectedReadinessRevision\x120\n" +
+	"\x14require_entry_review\x18\x05 \x01(\bR\x12requireEntryReview\x124\n" +
+	"\x16file_delivery_required\x18\x06 \x01(\bR\x14fileDeliveryRequired\"\xb3\x01\n" +
+	"\x1aConfigureReadinessResponse\x120\n" +
+	"\x14require_entry_review\x18\x01 \x01(\bR\x12requireEntryReview\x124\n" +
+	"\x16file_delivery_required\x18\x02 \x01(\bR\x14fileDeliveryRequired\x12-\n" +
+	"\x12readiness_revision\x18\x03 \x01(\x03R\x11readinessRevision\"\xc7\x01\n" +
 	"\x12CreateEntryRequest\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
 	"\n" +
@@ -732,12 +1495,66 @@ const file_beamers_competition_v1_competition_proto_rawDesc = "" +
 	"\vdisposition\x18\x06 \x01(\x0e2$.beamers.rundown.v1.EntryDispositionR\vdisposition\x126\n" +
 	"\x17confirmed_live_override\x18\a \x01(\bR\x15confirmedLiveOverride\"U\n" +
 	"\x1eChangeEntryDispositionResponse\x123\n" +
-	"\x05entry\x18\x01 \x01(\v2\x1d.beamers.competition.v1.EntryR\x05entry2\xdf\x03\n" +
+	"\x05entry\x18\x01 \x01(\v2\x1d.beamers.competition.v1.EntryR\x05entry\"\xb5\x01\n" +
+	"\x12ReviewEntryRequest\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\x03R\tsessionId\x12\x19\n" +
+	"\bentry_id\x18\x03 \x01(\x03R\aentryId\x12\x1d\n" +
+	"\n" +
+	"command_id\x18\x04 \x01(\tR\tcommandId\x12+\n" +
+	"\x11expected_revision\x18\x05 \x01(\x03R\x10expectedRevision\"J\n" +
+	"\x13ReviewEntryResponse\x123\n" +
+	"\x05entry\x18\x01 \x01(\v2\x1d.beamers.competition.v1.EntryR\x05entry\"\xa9\x02\n" +
+	"\"SetEntryAttachmentReadinessRequest\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\x03R\tsessionId\x12\x19\n" +
+	"\bentry_id\x18\x03 \x01(\x03R\aentryId\x122\n" +
+	"\x15attachment_version_id\x18\x04 \x01(\x03R\x13attachmentVersionId\x12\x1d\n" +
+	"\n" +
+	"command_id\x18\x05 \x01(\tR\tcommandId\x12+\n" +
+	"\x11expected_revision\x18\x06 \x01(\x03R\x10expectedRevision\x12\x14\n" +
+	"\x05final\x18\a \x01(\bR\x05final\x12\x18\n" +
+	"\aprimary\x18\b \x01(\bR\aprimary\"\xaf\x02\n" +
+	"\x13AttachmentReadiness\x122\n" +
+	"\x15attachment_version_id\x18\x01 \x01(\x03R\x13attachmentVersionId\x12\x1a\n" +
+	"\brevision\x18\x02 \x01(\x03R\brevision\x12\x14\n" +
+	"\x05final\x18\x03 \x01(\bR\x05final\x12\x18\n" +
+	"\aprimary\x18\x04 \x01(\bR\aprimary\x12\x19\n" +
+	"\bentry_id\x18\x05 \x01(\x03R\aentryId\x12-\n" +
+	"\x12attachment_version\x18\x06 \x01(\x03R\x11attachmentVersion\x12!\n" +
+	"\flogical_name\x18\a \x01(\tR\vlogicalName\x12+\n" +
+	"\x11original_filename\x18\b \x01(\tR\x10originalFilename\"r\n" +
+	"#SetEntryAttachmentReadinessResponse\x12K\n" +
+	"\n" +
+	"attachment\x18\x01 \x01(\v2+.beamers.competition.v1.AttachmentReadinessR\n" +
+	"attachment\"[\n" +
+	"\x10PreflightFinding\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12\x19\n" +
+	"\bentry_id\x18\x03 \x01(\x03R\aentryId\"Q\n" +
+	"\x15PreflightStartRequest\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\x03R\tsessionId\"\xcf\x02\n" +
+	"\x16PreflightStartResponse\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\x03R\tsessionId\x120\n" +
+	"\x14require_entry_review\x18\x03 \x01(\bR\x12requireEntryReview\x124\n" +
+	"\x16file_delivery_required\x18\x04 \x01(\bR\x14fileDeliveryRequired\x12D\n" +
+	"\bblockers\x18\x05 \x03(\v2(.beamers.competition.v1.PreflightFindingR\bblockers\x12M\n" +
+	"\vattachments\x18\x06 \x03(\v2+.beamers.competition.v1.AttachmentReadinessR\vattachments2\xce\a\n" +
 	"\x12CompetitionService\x12o\n" +
-	"\x0eGetCompetition\x12-.beamers.competition.v1.GetCompetitionRequest\x1a..beamers.competition.v1.GetCompetitionResponse\x12f\n" +
+	"\x0eGetCompetition\x12-.beamers.competition.v1.GetCompetitionRequest\x1a..beamers.competition.v1.GetCompetitionResponse\x12{\n" +
+	"\x12ConfigureReadiness\x121.beamers.competition.v1.ConfigureReadinessRequest\x1a2.beamers.competition.v1.ConfigureReadinessResponse\x12f\n" +
 	"\vCreateEntry\x12*.beamers.competition.v1.CreateEntryRequest\x1a+.beamers.competition.v1.CreateEntryResponse\x12f\n" +
 	"\vUpdateEntry\x12*.beamers.competition.v1.UpdateEntryRequest\x1a+.beamers.competition.v1.UpdateEntryResponse\x12\x87\x01\n" +
-	"\x16ChangeEntryDisposition\x125.beamers.competition.v1.ChangeEntryDispositionRequest\x1a6.beamers.competition.v1.ChangeEntryDispositionResponseBGZEgithub.com/dotwaffle/beamers/gen/beamers/competition/v1;competitionv1b\x06proto3"
+	"\x16ChangeEntryDisposition\x125.beamers.competition.v1.ChangeEntryDispositionRequest\x1a6.beamers.competition.v1.ChangeEntryDispositionResponse\x12f\n" +
+	"\vReviewEntry\x12*.beamers.competition.v1.ReviewEntryRequest\x1a+.beamers.competition.v1.ReviewEntryResponse\x12\x96\x01\n" +
+	"\x1bSetEntryAttachmentReadiness\x12:.beamers.competition.v1.SetEntryAttachmentReadinessRequest\x1a;.beamers.competition.v1.SetEntryAttachmentReadinessResponse\x12o\n" +
+	"\x0ePreflightStart\x12-.beamers.competition.v1.PreflightStartRequest\x1a..beamers.competition.v1.PreflightStartResponseBGZEgithub.com/dotwaffle/beamers/gen/beamers/competition/v1;competitionv1b\x06proto3"
 
 var (
 	file_beamers_competition_v1_competition_proto_rawDescOnce sync.Once
@@ -751,43 +1568,65 @@ func file_beamers_competition_v1_competition_proto_rawDescGZIP() []byte {
 	return file_beamers_competition_v1_competition_proto_rawDescData
 }
 
-var file_beamers_competition_v1_competition_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_beamers_competition_v1_competition_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_beamers_competition_v1_competition_proto_goTypes = []any{
-	(*Entry)(nil),                          // 0: beamers.competition.v1.Entry
-	(*GetCompetitionRequest)(nil),          // 1: beamers.competition.v1.GetCompetitionRequest
-	(*GetCompetitionResponse)(nil),         // 2: beamers.competition.v1.GetCompetitionResponse
-	(*CreateEntryRequest)(nil),             // 3: beamers.competition.v1.CreateEntryRequest
-	(*CreateEntryResponse)(nil),            // 4: beamers.competition.v1.CreateEntryResponse
-	(*UpdateEntryRequest)(nil),             // 5: beamers.competition.v1.UpdateEntryRequest
-	(*UpdateEntryResponse)(nil),            // 6: beamers.competition.v1.UpdateEntryResponse
-	(*ChangeEntryDispositionRequest)(nil),  // 7: beamers.competition.v1.ChangeEntryDispositionRequest
-	(*ChangeEntryDispositionResponse)(nil), // 8: beamers.competition.v1.ChangeEntryDispositionResponse
-	(v1.EntryDisposition)(0),               // 9: beamers.rundown.v1.EntryDisposition
-	(*timestamppb.Timestamp)(nil),          // 10: google.protobuf.Timestamp
+	(*Entry)(nil),                               // 0: beamers.competition.v1.Entry
+	(*GetCompetitionRequest)(nil),               // 1: beamers.competition.v1.GetCompetitionRequest
+	(*GetCompetitionResponse)(nil),              // 2: beamers.competition.v1.GetCompetitionResponse
+	(*ConfigureReadinessRequest)(nil),           // 3: beamers.competition.v1.ConfigureReadinessRequest
+	(*ConfigureReadinessResponse)(nil),          // 4: beamers.competition.v1.ConfigureReadinessResponse
+	(*CreateEntryRequest)(nil),                  // 5: beamers.competition.v1.CreateEntryRequest
+	(*CreateEntryResponse)(nil),                 // 6: beamers.competition.v1.CreateEntryResponse
+	(*UpdateEntryRequest)(nil),                  // 7: beamers.competition.v1.UpdateEntryRequest
+	(*UpdateEntryResponse)(nil),                 // 8: beamers.competition.v1.UpdateEntryResponse
+	(*ChangeEntryDispositionRequest)(nil),       // 9: beamers.competition.v1.ChangeEntryDispositionRequest
+	(*ChangeEntryDispositionResponse)(nil),      // 10: beamers.competition.v1.ChangeEntryDispositionResponse
+	(*ReviewEntryRequest)(nil),                  // 11: beamers.competition.v1.ReviewEntryRequest
+	(*ReviewEntryResponse)(nil),                 // 12: beamers.competition.v1.ReviewEntryResponse
+	(*SetEntryAttachmentReadinessRequest)(nil),  // 13: beamers.competition.v1.SetEntryAttachmentReadinessRequest
+	(*AttachmentReadiness)(nil),                 // 14: beamers.competition.v1.AttachmentReadiness
+	(*SetEntryAttachmentReadinessResponse)(nil), // 15: beamers.competition.v1.SetEntryAttachmentReadinessResponse
+	(*PreflightFinding)(nil),                    // 16: beamers.competition.v1.PreflightFinding
+	(*PreflightStartRequest)(nil),               // 17: beamers.competition.v1.PreflightStartRequest
+	(*PreflightStartResponse)(nil),              // 18: beamers.competition.v1.PreflightStartResponse
+	(v1.EntryDisposition)(0),                    // 19: beamers.rundown.v1.EntryDisposition
+	(*timestamppb.Timestamp)(nil),               // 20: google.protobuf.Timestamp
 }
 var file_beamers_competition_v1_competition_proto_depIdxs = []int32{
-	9,  // 0: beamers.competition.v1.Entry.disposition:type_name -> beamers.rundown.v1.EntryDisposition
-	10, // 1: beamers.competition.v1.Entry.created_at:type_name -> google.protobuf.Timestamp
-	10, // 2: beamers.competition.v1.GetCompetitionResponse.submission_deadline:type_name -> google.protobuf.Timestamp
-	9,  // 3: beamers.competition.v1.GetCompetitionResponse.effective_default_disposition:type_name -> beamers.rundown.v1.EntryDisposition
+	19, // 0: beamers.competition.v1.Entry.disposition:type_name -> beamers.rundown.v1.EntryDisposition
+	20, // 1: beamers.competition.v1.Entry.created_at:type_name -> google.protobuf.Timestamp
+	20, // 2: beamers.competition.v1.GetCompetitionResponse.submission_deadline:type_name -> google.protobuf.Timestamp
+	19, // 3: beamers.competition.v1.GetCompetitionResponse.effective_default_disposition:type_name -> beamers.rundown.v1.EntryDisposition
 	0,  // 4: beamers.competition.v1.GetCompetitionResponse.entries:type_name -> beamers.competition.v1.Entry
 	0,  // 5: beamers.competition.v1.CreateEntryResponse.entry:type_name -> beamers.competition.v1.Entry
 	0,  // 6: beamers.competition.v1.UpdateEntryResponse.entry:type_name -> beamers.competition.v1.Entry
-	9,  // 7: beamers.competition.v1.ChangeEntryDispositionRequest.disposition:type_name -> beamers.rundown.v1.EntryDisposition
+	19, // 7: beamers.competition.v1.ChangeEntryDispositionRequest.disposition:type_name -> beamers.rundown.v1.EntryDisposition
 	0,  // 8: beamers.competition.v1.ChangeEntryDispositionResponse.entry:type_name -> beamers.competition.v1.Entry
-	1,  // 9: beamers.competition.v1.CompetitionService.GetCompetition:input_type -> beamers.competition.v1.GetCompetitionRequest
-	3,  // 10: beamers.competition.v1.CompetitionService.CreateEntry:input_type -> beamers.competition.v1.CreateEntryRequest
-	5,  // 11: beamers.competition.v1.CompetitionService.UpdateEntry:input_type -> beamers.competition.v1.UpdateEntryRequest
-	7,  // 12: beamers.competition.v1.CompetitionService.ChangeEntryDisposition:input_type -> beamers.competition.v1.ChangeEntryDispositionRequest
-	2,  // 13: beamers.competition.v1.CompetitionService.GetCompetition:output_type -> beamers.competition.v1.GetCompetitionResponse
-	4,  // 14: beamers.competition.v1.CompetitionService.CreateEntry:output_type -> beamers.competition.v1.CreateEntryResponse
-	6,  // 15: beamers.competition.v1.CompetitionService.UpdateEntry:output_type -> beamers.competition.v1.UpdateEntryResponse
-	8,  // 16: beamers.competition.v1.CompetitionService.ChangeEntryDisposition:output_type -> beamers.competition.v1.ChangeEntryDispositionResponse
-	13, // [13:17] is the sub-list for method output_type
-	9,  // [9:13] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	0,  // 9: beamers.competition.v1.ReviewEntryResponse.entry:type_name -> beamers.competition.v1.Entry
+	14, // 10: beamers.competition.v1.SetEntryAttachmentReadinessResponse.attachment:type_name -> beamers.competition.v1.AttachmentReadiness
+	16, // 11: beamers.competition.v1.PreflightStartResponse.blockers:type_name -> beamers.competition.v1.PreflightFinding
+	14, // 12: beamers.competition.v1.PreflightStartResponse.attachments:type_name -> beamers.competition.v1.AttachmentReadiness
+	1,  // 13: beamers.competition.v1.CompetitionService.GetCompetition:input_type -> beamers.competition.v1.GetCompetitionRequest
+	3,  // 14: beamers.competition.v1.CompetitionService.ConfigureReadiness:input_type -> beamers.competition.v1.ConfigureReadinessRequest
+	5,  // 15: beamers.competition.v1.CompetitionService.CreateEntry:input_type -> beamers.competition.v1.CreateEntryRequest
+	7,  // 16: beamers.competition.v1.CompetitionService.UpdateEntry:input_type -> beamers.competition.v1.UpdateEntryRequest
+	9,  // 17: beamers.competition.v1.CompetitionService.ChangeEntryDisposition:input_type -> beamers.competition.v1.ChangeEntryDispositionRequest
+	11, // 18: beamers.competition.v1.CompetitionService.ReviewEntry:input_type -> beamers.competition.v1.ReviewEntryRequest
+	13, // 19: beamers.competition.v1.CompetitionService.SetEntryAttachmentReadiness:input_type -> beamers.competition.v1.SetEntryAttachmentReadinessRequest
+	17, // 20: beamers.competition.v1.CompetitionService.PreflightStart:input_type -> beamers.competition.v1.PreflightStartRequest
+	2,  // 21: beamers.competition.v1.CompetitionService.GetCompetition:output_type -> beamers.competition.v1.GetCompetitionResponse
+	4,  // 22: beamers.competition.v1.CompetitionService.ConfigureReadiness:output_type -> beamers.competition.v1.ConfigureReadinessResponse
+	6,  // 23: beamers.competition.v1.CompetitionService.CreateEntry:output_type -> beamers.competition.v1.CreateEntryResponse
+	8,  // 24: beamers.competition.v1.CompetitionService.UpdateEntry:output_type -> beamers.competition.v1.UpdateEntryResponse
+	10, // 25: beamers.competition.v1.CompetitionService.ChangeEntryDisposition:output_type -> beamers.competition.v1.ChangeEntryDispositionResponse
+	12, // 26: beamers.competition.v1.CompetitionService.ReviewEntry:output_type -> beamers.competition.v1.ReviewEntryResponse
+	15, // 27: beamers.competition.v1.CompetitionService.SetEntryAttachmentReadiness:output_type -> beamers.competition.v1.SetEntryAttachmentReadinessResponse
+	18, // 28: beamers.competition.v1.CompetitionService.PreflightStart:output_type -> beamers.competition.v1.PreflightStartResponse
+	21, // [21:29] is the sub-list for method output_type
+	13, // [13:21] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_beamers_competition_v1_competition_proto_init() }
@@ -801,7 +1640,7 @@ func file_beamers_competition_v1_competition_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_beamers_competition_v1_competition_proto_rawDesc), len(file_beamers_competition_v1_competition_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

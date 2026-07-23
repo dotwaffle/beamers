@@ -115,6 +115,21 @@ func CorrectedPublicDetails(v string) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldCorrectedPublicDetails, v))
 }
 
+// RequireEntryReview applies equality check predicate on the "require_entry_review" field. It's identical to RequireEntryReviewEQ.
+func RequireEntryReview(v bool) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldRequireEntryReview, v))
+}
+
+// FileDeliveryRequired applies equality check predicate on the "file_delivery_required" field. It's identical to FileDeliveryRequiredEQ.
+func FileDeliveryRequired(v bool) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldFileDeliveryRequired, v))
+}
+
+// ReadinessRevision applies equality check predicate on the "readiness_revision" field. It's identical to ReadinessRevisionEQ.
+func ReadinessRevision(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldReadinessRevision, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldCreatedAt, v))
@@ -843,6 +858,76 @@ func CorrectedPublicDetailsEqualFold(v string) predicate.Session {
 // CorrectedPublicDetailsContainsFold applies the ContainsFold predicate on the "corrected_public_details" field.
 func CorrectedPublicDetailsContainsFold(v string) predicate.Session {
 	return predicate.Session(sql.FieldContainsFold(FieldCorrectedPublicDetails, v))
+}
+
+// RequireEntryReviewEQ applies the EQ predicate on the "require_entry_review" field.
+func RequireEntryReviewEQ(v bool) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldRequireEntryReview, v))
+}
+
+// RequireEntryReviewNEQ applies the NEQ predicate on the "require_entry_review" field.
+func RequireEntryReviewNEQ(v bool) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldRequireEntryReview, v))
+}
+
+// FileDeliveryRequiredEQ applies the EQ predicate on the "file_delivery_required" field.
+func FileDeliveryRequiredEQ(v bool) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldFileDeliveryRequired, v))
+}
+
+// FileDeliveryRequiredNEQ applies the NEQ predicate on the "file_delivery_required" field.
+func FileDeliveryRequiredNEQ(v bool) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldFileDeliveryRequired, v))
+}
+
+// FileDeliveryRequiredIsNil applies the IsNil predicate on the "file_delivery_required" field.
+func FileDeliveryRequiredIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldFileDeliveryRequired))
+}
+
+// FileDeliveryRequiredNotNil applies the NotNil predicate on the "file_delivery_required" field.
+func FileDeliveryRequiredNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldFileDeliveryRequired))
+}
+
+// ReadinessRevisionEQ applies the EQ predicate on the "readiness_revision" field.
+func ReadinessRevisionEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldReadinessRevision, v))
+}
+
+// ReadinessRevisionNEQ applies the NEQ predicate on the "readiness_revision" field.
+func ReadinessRevisionNEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldReadinessRevision, v))
+}
+
+// ReadinessRevisionIn applies the In predicate on the "readiness_revision" field.
+func ReadinessRevisionIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldReadinessRevision, vs...))
+}
+
+// ReadinessRevisionNotIn applies the NotIn predicate on the "readiness_revision" field.
+func ReadinessRevisionNotIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldReadinessRevision, vs...))
+}
+
+// ReadinessRevisionGT applies the GT predicate on the "readiness_revision" field.
+func ReadinessRevisionGT(v int) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldReadinessRevision, v))
+}
+
+// ReadinessRevisionGTE applies the GTE predicate on the "readiness_revision" field.
+func ReadinessRevisionGTE(v int) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldReadinessRevision, v))
+}
+
+// ReadinessRevisionLT applies the LT predicate on the "readiness_revision" field.
+func ReadinessRevisionLT(v int) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldReadinessRevision, v))
+}
+
+// ReadinessRevisionLTE applies the LTE predicate on the "readiness_revision" field.
+func ReadinessRevisionLTE(v int) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldReadinessRevision, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

@@ -761,6 +761,8 @@ func connectError(err error) error {
 		return connectErr
 	case errors.Is(err, sessioncontrol.ErrSessionLifecycleTransition):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
+	case errors.Is(err, sessioncontrol.ErrCompetitionPreflightBlocked):
+		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, sessioncontrol.ErrLiveDetailConfirmation):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, sessioncontrol.ErrLiveDetailFields):

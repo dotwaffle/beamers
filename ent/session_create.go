@@ -212,6 +212,48 @@ func (_c *SessionCreate) SetNillableCorrectedPublicDetails(v *string) *SessionCr
 	return _c
 }
 
+// SetRequireEntryReview sets the "require_entry_review" field.
+func (_c *SessionCreate) SetRequireEntryReview(v bool) *SessionCreate {
+	_c.mutation.SetRequireEntryReview(v)
+	return _c
+}
+
+// SetNillableRequireEntryReview sets the "require_entry_review" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableRequireEntryReview(v *bool) *SessionCreate {
+	if v != nil {
+		_c.SetRequireEntryReview(*v)
+	}
+	return _c
+}
+
+// SetFileDeliveryRequired sets the "file_delivery_required" field.
+func (_c *SessionCreate) SetFileDeliveryRequired(v bool) *SessionCreate {
+	_c.mutation.SetFileDeliveryRequired(v)
+	return _c
+}
+
+// SetNillableFileDeliveryRequired sets the "file_delivery_required" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableFileDeliveryRequired(v *bool) *SessionCreate {
+	if v != nil {
+		_c.SetFileDeliveryRequired(*v)
+	}
+	return _c
+}
+
+// SetReadinessRevision sets the "readiness_revision" field.
+func (_c *SessionCreate) SetReadinessRevision(v int) *SessionCreate {
+	_c.mutation.SetReadinessRevision(v)
+	return _c
+}
+
+// SetNillableReadinessRevision sets the "readiness_revision" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableReadinessRevision(v *int) *SessionCreate {
+	if v != nil {
+		_c.SetReadinessRevision(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *SessionCreate) SetCreatedAt(v time.Time) *SessionCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -355,6 +397,14 @@ func (_c *SessionCreate) defaults() error {
 		v := session.DefaultLiveStateRevision
 		_c.mutation.SetLiveStateRevision(v)
 	}
+	if _, ok := _c.mutation.RequireEntryReview(); !ok {
+		v := session.DefaultRequireEntryReview
+		_c.mutation.SetRequireEntryReview(v)
+	}
+	if _, ok := _c.mutation.ReadinessRevision(); !ok {
+		v := session.DefaultReadinessRevision
+		_c.mutation.SetReadinessRevision(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		if session.DefaultCreatedAt == nil {
 			return fmt.Errorf("ent: uninitialized session.DefaultCreatedAt (forgotten import ent/runtime?)")
@@ -409,6 +459,17 @@ func (_c *SessionCreate) check() error {
 	if v, ok := _c.mutation.CorrectedPublicDetails(); ok {
 		if err := session.CorrectedPublicDetailsValidator(v); err != nil {
 			return &ValidationError{Name: "corrected_public_details", err: fmt.Errorf(`ent: validator failed for field "Session.corrected_public_details": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.RequireEntryReview(); !ok {
+		return &ValidationError{Name: "require_entry_review", err: errors.New(`ent: missing required field "Session.require_entry_review"`)}
+	}
+	if _, ok := _c.mutation.ReadinessRevision(); !ok {
+		return &ValidationError{Name: "readiness_revision", err: errors.New(`ent: missing required field "Session.readiness_revision"`)}
+	}
+	if v, ok := _c.mutation.ReadinessRevision(); ok {
+		if err := session.ReadinessRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "readiness_revision", err: fmt.Errorf(`ent: validator failed for field "Session.readiness_revision": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
@@ -498,6 +559,18 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.CorrectedPublicDetails(); ok {
 		_spec.SetField(session.FieldCorrectedPublicDetails, field.TypeString, value)
 		_node.CorrectedPublicDetails = &value
+	}
+	if value, ok := _c.mutation.RequireEntryReview(); ok {
+		_spec.SetField(session.FieldRequireEntryReview, field.TypeBool, value)
+		_node.RequireEntryReview = value
+	}
+	if value, ok := _c.mutation.FileDeliveryRequired(); ok {
+		_spec.SetField(session.FieldFileDeliveryRequired, field.TypeBool, value)
+		_node.FileDeliveryRequired = &value
+	}
+	if value, ok := _c.mutation.ReadinessRevision(); ok {
+		_spec.SetField(session.FieldReadinessRevision, field.TypeInt, value)
+		_node.ReadinessRevision = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(session.FieldCreatedAt, field.TypeTime, value)
