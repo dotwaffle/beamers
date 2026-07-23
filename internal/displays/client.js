@@ -7,6 +7,10 @@ const maximumBackoffMilliseconds = 15000;
 const reloadLoopWindowMilliseconds = 60000;
 
 let appliedSnapshot;
+let clockReference = {
+  serverMilliseconds: Date.now(),
+  monotonicMilliseconds: performance.now(),
+};
 let clockOffsetMilliseconds = 0;
 let clockUncertaintyMilliseconds = 0;
 let clockTimer;
@@ -35,7 +39,7 @@ async function recoverDisplay(reason = "reconnecting") {
       return;
     }
     try {
-      renderSnapshot(snapshot);
+      renderSnapshot(snapshot, offset);
       rendererFailures = 0;
     } catch {
       rendererFailures++;
@@ -167,7 +171,7 @@ async function refreshHealth() {
       return;
     }
     try {
-      renderSnapshot(snapshot);
+      renderSnapshot(snapshot, offset);
       rendererFailures = 0;
     } catch {
       rendererFailures++;
@@ -216,7 +220,7 @@ async function controlledReload(assetVersion) {
   }
 }
 
-function renderSnapshot(snapshot) {
+function renderSnapshot(snapshot, offset) {
   const composition = snapshot.composition;
   if (!composition?.layout?.key || !Array.isArray(composition.layout.regions) ||
       !composition.theme) {
@@ -229,9 +233,15 @@ function renderSnapshot(snapshot) {
     viewKey: snapshot.viewKey,
     standby: snapshot.standby,
     sessions: snapshot.sessions,
+    stageTimer: snapshot.stageTimer,
     composition,
   });
+  const candidateClockReference = {
+    serverMilliseconds: Date.now() + offset,
+    monotonicMilliseconds: performance.now(),
+  };
   if (document.querySelector("main")?.dataset.renderKey === renderKey) {
+    clockReference = candidateClockReference;
     return;
   }
   const main = document.createElement("main");
@@ -271,6 +281,7 @@ function renderSnapshot(snapshot) {
       configuredRegion.widget,
       snapshot,
       composition.theme,
+      candidateClockReference,
     );
     if (startWidgetUpdates) {
       startClockUpdates = startWidgetUpdates;
@@ -278,6 +289,7 @@ function renderSnapshot(snapshot) {
     main.append(region);
   }
   replaceMain(main);
+  clockReference = candidateClockReference;
   clearTimeout(clockTimer);
   startClockUpdates?.();
   startRotation(main, composition.layout.rotationSeconds);
@@ -290,7 +302,7 @@ function controlledToken(value, allowed) {
   return value;
 }
 
-function renderWidget(region, widget, snapshot, theme) {
+function renderWidget(region, widget, snapshot, theme, candidateClockReference) {
   switch (widget) {
   case "branding":
     if (snapshot.standby) {
@@ -340,13 +352,12 @@ function renderWidget(region, widget, snapshot, theme) {
   case "clock": {
     const clock = document.createElement("time");
     clock.dataset.displayClock = "true";
-    const startUpdates = prepareClock(clock, snapshot);
+    const startUpdates = prepareClock(clock, snapshot, candidateClockReference);
     region.append(clock);
     return startUpdates;
   }
   case "stage-timer":
-    appendHeading(region, "Stage Timer");
-    return;
+    return prepareStageTimer(region, snapshot, candidateClockReference);
   case "program-output":
     appendHeading(region, "Program Output");
     return;
@@ -355,18 +366,16 @@ function renderWidget(region, widget, snapshot, theme) {
   }
 }
 
-function prepareClock(clock, snapshot) {
-  const snapshotTime = Date.parse(snapshot.serverTime);
-  const receivedAt = Date.now();
+function prepareClock(clock, snapshot, reference) {
   const update = () => {
-    const current = new Date(snapshotTime + (Date.now() - receivedAt));
+    const current = new Date(estimatedServerNow());
     clock.dateTime = current.toISOString();
     clock.textContent = new Intl.DateTimeFormat("en", {
       hour: "2-digit", minute: "2-digit", timeZone: snapshot.eventTimezone || "UTC",
     }).format(current);
     clockTimer = setTimeout(update, 60000);
   };
-  const current = new Date(snapshotTime);
+  const current = new Date(estimatedServerNow(reference));
   clock.dateTime = current.toISOString();
   clock.textContent = new Intl.DateTimeFormat("en", {
     hour: "2-digit", minute: "2-digit", timeZone: snapshot.eventTimezone || "UTC",
@@ -374,6 +383,105 @@ function prepareClock(clock, snapshot) {
   return () => {
     clockTimer = setTimeout(update, 60000);
   };
+}
+
+function prepareStageTimer(region, snapshot, reference) {
+  const timer = snapshot.stageTimer;
+  if (!timer) {
+    appendHeading(region, "Stage Timer");
+    appendParagraph(region, "No Session is live at this Location.");
+    return;
+  }
+  appendHeading(region, timer.title || "Live Session");
+  const direction = document.createElement("p");
+  const clock = document.createElement("time");
+  const emphasis = document.createElement("p");
+  clock.dataset.stageTimerClock = "true";
+  emphasis.dataset.timerEmphasisLabel = "true";
+  region.append(direction, clock, emphasis);
+  if (timer.mode === "STAGE_TIMER_MODE_ELAPSED" && timer.forecastEnd) {
+    const forecastEnd = new Date(timer.forecastEnd);
+    if (!Number.isFinite(forecastEnd.getTime())) {
+      throw new Error("Stage Timer Forecast End is invalid");
+    }
+    appendParagraph(region, `Forecast End: ${new Intl.DateTimeFormat("en", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: snapshot.eventTimezone || "UTC",
+    }).format(forecastEnd)}`);
+  }
+
+  const update = (currentReference) => {
+    const now = estimatedServerNow(currentReference);
+    const anchor = Date.parse(timer.anchor);
+    if (!Number.isFinite(anchor)) {
+      throw new Error("Stage Timer anchor is invalid");
+    }
+    const countdown = timer.mode === "STAGE_TIMER_MODE_COUNTDOWN";
+    const elapsed = timer.mode === "STAGE_TIMER_MODE_ELAPSED";
+    if (!countdown && !elapsed) {
+      throw new Error("Stage Timer mode is invalid");
+    }
+    const delta = countdown ? anchor - now : now - anchor;
+    const overtime = countdown && delta < 0;
+    const duration = Math.max(Math.abs(delta), 0);
+    clock.dateTime = new Date(anchor).toISOString();
+    clock.textContent = `${overtime ? "+" : ""}${formatTimerDuration(
+      duration,
+      countdown && !overtime,
+    )}`;
+    direction.textContent = overtime ? "Overtime" : (elapsed ? "Elapsed" : "Remaining");
+    const level = timerEmphasis(timer.thresholds ?? [], countdown ? delta : Infinity);
+    region.dataset.timerEmphasis = level;
+    region.dataset.timerOvertime = String(overtime);
+    emphasis.textContent = level === "normal"
+      ? ""
+      : level[0].toUpperCase() + level.slice(1);
+  };
+  update(reference);
+  return () => {
+    const tick = () => {
+      update();
+      clockTimer = setTimeout(tick, 250);
+    };
+    clockTimer = setTimeout(tick, 250);
+  };
+}
+
+function estimatedServerNow(reference = clockReference) {
+  return reference.serverMilliseconds +
+    (performance.now() - reference.monotonicMilliseconds);
+}
+
+function formatTimerDuration(milliseconds, roundUp) {
+  const seconds = roundUp
+    ? Math.ceil(milliseconds / 1000)
+    : Math.floor(milliseconds / 1000);
+  return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:` +
+    String(seconds % 60).padStart(2, "0");
+}
+
+function timerEmphasis(thresholds, remainingMilliseconds) {
+  let result = "normal";
+  for (const threshold of thresholds) {
+    const remainingSeconds = Number(threshold.remainingSeconds);
+    if (!Number.isFinite(remainingSeconds) || remainingSeconds <= 0) {
+      throw new Error("Stage Timer threshold is invalid");
+    }
+    if (remainingMilliseconds <= remainingSeconds * 1000) {
+      switch (threshold.emphasis) {
+      case "TIMER_EMPHASIS_ATTENTION":
+        result = "attention";
+        break;
+      case "TIMER_EMPHASIS_URGENT":
+        result = "urgent";
+        break;
+      default:
+        throw new Error("Stage Timer emphasis is invalid");
+      }
+    }
+  }
+  return result;
 }
 
 function renderSession(parent, snapshot, session) {

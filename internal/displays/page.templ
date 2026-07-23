@@ -135,7 +135,20 @@ templ displayRegion(snapshot Snapshot, name string, widget string, persistent bo
 		} else if widget == "clock" {
 			<time data-display-clock datetime={ snapshot.ServerTime.Format("2006-01-02T15:04:05Z07:00") }>{ snapshot.ServerTime.Format("15:04") }</time>
 		} else if widget == "stage-timer" {
-			<h2>Stage Timer</h2>
+			if timer, ok := displayStageTimer(snapshot); ok {
+				<div data-timer-emphasis={ timer.Emphasis } data-timer-overtime={ displayPersistent(timer.Overtime) }>
+					<h2>{ timer.Title }</h2>
+					<p>{ timer.Direction }</p>
+					<time data-stage-timer-clock datetime={ timer.Anchor.Format("2006-01-02T15:04:05Z07:00") }>{ timer.Text }</time>
+					<p data-timer-emphasis-label>{ timer.EmphasisLabel }</p>
+					if !timer.ForecastEnd.IsZero() {
+						<p>Forecast End: <time datetime={ timer.ForecastEnd.Format("2006-01-02T15:04:05Z07:00") }>{ timer.DisplayForecastEnd }</time></p>
+					}
+				</div>
+			} else {
+				<h2>Stage Timer</h2>
+				<p>No Session is live at this Location.</p>
+			}
 		} else if widget == "program-output" {
 			<h2>Program Output</h2>
 		}
@@ -243,6 +256,34 @@ templ displayClient() {
 		}
 		.display-layout-location-signage [data-region="clock"] {
 			grid-area: clock;
+		}
+		.display-layout-stage-timer {
+			grid-template-rows: auto minmax(0, 1fr);
+		}
+		.display-layout-stage-timer [data-widget="stage-timer"] {
+			display: grid;
+			place-items: center;
+			text-align: center;
+		}
+		[data-stage-timer-clock] {
+			display: block;
+			font-family: ui-monospace, "Cascadia Mono", monospace;
+			font-size: clamp(5rem, 25vw, 28rem);
+			font-variant-numeric: tabular-nums;
+			font-weight: 700;
+			line-height: 1;
+		}
+		[data-timer-emphasis="attention"] {
+			outline: 0.4rem solid currentcolor;
+			outline-offset: 0.5rem;
+		}
+		[data-timer-emphasis="urgent"] {
+			border: 0.6rem double currentcolor;
+			padding: clamp(0.5rem, 2vw, 2rem);
+		}
+		[data-timer-overtime="true"] [data-stage-timer-clock] {
+			text-decoration: underline;
+			text-decoration-thickness: 0.08em;
 		}
 		.display-transition-fade [data-rotation-page]:not([hidden]) {
 			animation: display-fade 250ms ease-out;

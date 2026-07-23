@@ -620,17 +620,151 @@ func displayRegion(snapshot Snapshot, name string, widget string, persistent boo
 				return templ_7745c5c3_Err
 			}
 		} else if widget == "stage-timer" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "<h2>Stage Timer</h2>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
+			if timer, ok := displayStageTimer(snapshot); ok {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "<div data-timer-emphasis=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var35 string
+				templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(timer.Emphasis)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 139, Col: 45}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "\" data-timer-overtime=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var36 string
+				templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(displayPersistent(timer.Overtime))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 139, Col: 103}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "\"><h2>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var37 string
+				templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(timer.Title)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 140, Col: 22}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "</h2><p>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var38 string
+				templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(timer.Direction)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 141, Col: 25}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "</p><time data-stage-timer-clock datetime=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var39 string
+				templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(timer.Anchor.Format("2006-01-02T15:04:05Z07:00"))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 142, Col: 93}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var40 string
+				templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(timer.Text)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 142, Col: 108}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "</time><p data-timer-emphasis-label>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var41 string
+				templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(timer.EmphasisLabel)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 143, Col: 55}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "</p>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if !timer.ForecastEnd.IsZero() {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "<p>Forecast End: <time datetime=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var42 string
+					templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(timer.ForecastEnd.Format("2006-01-02T15:04:05Z07:00"))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 145, Col: 93}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var43 string
+					templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(timer.DisplayForecastEnd)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 145, Col: 122}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "</time></p>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "</div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			} else {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "<h2>Stage Timer</h2><p>No Session is live at this Location.</p>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
 			}
 		} else if widget == "program-output" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "<h2>Program Output</h2>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "<h2>Program Output</h2>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "</section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "</section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -654,170 +788,170 @@ func displaySessionRegion(snapshot Snapshot, session Session, rotationPage bool)
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var35 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var35 == nil {
-			templ_7745c5c3_Var35 = templ.NopComponent
+		templ_7745c5c3_Var44 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var44 == nil {
+			templ_7745c5c3_Var44 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "<article")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "<article")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if rotationPage {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, " data-rotation-page")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, " data-rotation-page")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, ">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, ">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if session.Unavailable {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "<p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "<p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var36 string
-			templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(session.AvailabilityMessage)
+			var templ_7745c5c3_Var45 string
+			templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(session.AvailabilityMessage)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 148, Col: 35}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 161, Col: 35}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "<h3>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "<h3>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var37 string
-			templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(session.Title)
+			var templ_7745c5c3_Var46 string
+			templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(session.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 150, Col: 22}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 163, Col: 22}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "</h3><p>Status: ")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var38 string
-			templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(session.Lifecycle)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 151, Col: 33}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "</h3><p>Status: ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "</p><p>Forecast Time: <time datetime=\"")
+			var templ_7745c5c3_Var47 string
+			templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(session.Lifecycle)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 164, Col: 33}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var39 string
-			templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(session.ForecastStart.Format("2006-01-02T15:04:05Z07:00"))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 152, Col: 95}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "</p><p>Forecast Time: <time datetime=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "\">")
+			var templ_7745c5c3_Var48 string
+			templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(session.ForecastStart.Format("2006-01-02T15:04:05Z07:00"))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 165, Col: 95}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var40 string
-			templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(session.DisplayForecastStart)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 152, Col: 128}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "</time>–<time datetime=\"")
+			var templ_7745c5c3_Var49 string
+			templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(session.DisplayForecastStart)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 165, Col: 128}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var41 string
-			templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(session.ForecastEnd.Format("2006-01-02T15:04:05Z07:00"))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 152, Col: 212}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "</time>–<time datetime=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "\">")
+			var templ_7745c5c3_Var50 string
+			templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(session.ForecastEnd.Format("2006-01-02T15:04:05Z07:00"))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 165, Col: 212}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var42 string
-			templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(session.DisplayForecastEnd)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 152, Col: 243}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "</time></p>")
+			var templ_7745c5c3_Var51 string
+			templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(session.DisplayForecastEnd)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 165, Col: 243}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "</time></p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if session.Speaker != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "<p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "<p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var43 string
-				templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(session.Speaker)
+				var templ_7745c5c3_Var52 string
+				templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(session.Speaker)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 154, Col: 24}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 167, Col: 24}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if session.PublicDetails != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "<p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "<p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var44 string
-				templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(session.PublicDetails)
+				var templ_7745c5c3_Var53 string
+				templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(session.PublicDetails)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 157, Col: 30}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 170, Col: 30}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "</article>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "</article>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -841,25 +975,25 @@ func displayClient() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var45 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var45 == nil {
-			templ_7745c5c3_Var45 = templ.NopComponent
+		templ_7745c5c3_Var54 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var54 == nil {
+			templ_7745c5c3_Var54 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "<style>\n\t\thtml,\n\t\tbody {\n\t\t\tmin-height: 100%;\n\t\t\tmargin: 0;\n\t\t}\n\t\tbody {\n\t\t\tbackground: #101828;\n\t\t}\n\t\t.display-view {\n\t\t\tbox-sizing: border-box;\n\t\t\tdisplay: grid;\n\t\t\tmin-height: 100vh;\n\t\t\tmin-height: 100dvh;\n\t\t\tgap: clamp(1rem, 2vw, 3rem);\n\t\t\tpadding: clamp(1rem, 3vw, 4rem);\n\t\t\toverflow: hidden;\n\t\t\tcolor: var(--display-foreground, #fff);\n\t\t\tbackground: var(--display-background, #101828);\n\t\t\tfont-family: system-ui, sans-serif;\n\t\t\tfont-size: clamp(1rem, 1.45vw, 2.25rem);\n\t\t\tline-height: 1.35;\n\t\t}\n\t\t.display-font-serif {\n\t\t\tfont-family: Georgia, \"Times New Roman\", serif;\n\t\t}\n\t\t.display-font-mono {\n\t\t\tfont-family: ui-monospace, \"Cascadia Mono\", monospace;\n\t\t}\n\t\t.display-region {\n\t\t\tbox-sizing: border-box;\n\t\t\tmin-width: 0;\n\t\t\tmin-height: 0;\n\t\t\tpadding: clamp(0.75rem, 1.5vw, 2rem);\n\t\t\tborder-radius: clamp(0.5rem, 1vw, 1.5rem);\n\t\t\tbackground: var(--display-accent, #1d4ed8);\n\t\t\toverflow: hidden;\n\t\t}\n\t\t.display-background-variable-media .display-region {\n\t\t\tbackground:\n\t\t\t\tlinear-gradient(\n\t\t\t\t\tvar(--display-scrim-layer, #000000d9),\n\t\t\t\t\tvar(--display-scrim-layer, #000000d9)\n\t\t\t\t),\n\t\t\t\tvar(--display-accent, #1d4ed8);\n\t\t}\n\t\t.display-layout-standby {\n\t\t\tgrid-template-rows: auto 1fr;\n\t\t}\n\t\t.display-layout-event-overview {\n\t\t\tgrid-template:\n\t\t\t\t\"header clock\" auto\n\t\t\t\t\"schedule schedule\" 1fr\n\t\t\t\t/ minmax(0, 1fr) auto;\n\t\t}\n\t\t.display-layout-event-overview [data-region=\"header\"] {\n\t\t\tgrid-area: header;\n\t\t}\n\t\t.display-layout-event-overview [data-region=\"schedule\"] {\n\t\t\tgrid-area: schedule;\n\t\t}\n\t\t.display-layout-event-overview [data-region=\"clock\"] {\n\t\t\tgrid-area: clock;\n\t\t}\n\t\t.display-layout-location-signage {\n\t\t\tgrid-template:\n\t\t\t\t\"event location\" minmax(0, 1fr)\n\t\t\t\t\"event now-next\" minmax(0, 2fr)\n\t\t\t\t\"event clock\" auto\n\t\t\t\t/ minmax(0, 7fr) minmax(18rem, 3fr);\n\t\t}\n\t\t.display-layout-location-signage [data-region=\"event-content\"] {\n\t\t\tgrid-area: event;\n\t\t}\n\t\t.display-layout-location-signage [data-region=\"location\"] {\n\t\t\tgrid-area: location;\n\t\t}\n\t\t.display-layout-location-signage [data-region=\"now-next\"] {\n\t\t\tgrid-area: now-next;\n\t\t}\n\t\t.display-layout-location-signage [data-region=\"clock\"] {\n\t\t\tgrid-area: clock;\n\t\t}\n\t\t.display-transition-fade [data-rotation-page]:not([hidden]) {\n\t\t\tanimation: display-fade 250ms ease-out;\n\t\t}\n\t\t@keyframes display-fade {\n\t\t\tfrom { opacity: 0; }\n\t\t\tto { opacity: 1; }\n\t\t}\n\t\t@media (min-aspect-ratio: 8/5) {\n\t\t\t.display-view {\n\t\t\t\tpadding-inline: clamp(1.5rem, 4vw, 6rem);\n\t\t\t}\n\t\t}\n\t\t@media (max-aspect-ratio: 8/5) {\n\t\t\t.display-layout-location-signage {\n\t\t\t\tgrid-template:\n\t\t\t\t\t\"location clock\" auto\n\t\t\t\t\t\"now-next now-next\" minmax(0, 2fr)\n\t\t\t\t\t\"event event\" minmax(0, 5fr)\n\t\t\t\t\t/ minmax(0, 1fr) auto;\n\t\t\t}\n\t\t}\n\t\t#display-connection {\n\t\t\tposition: fixed;\n\t\t\tright: 1rem;\n\t\t\tbottom: 1rem;\n\t\t\tz-index: 1000;\n\t\t\tmargin: 0;\n\t\t\tpadding: 0.5rem 0.75rem;\n\t\t\tborder-radius: 0.25rem;\n\t\t\tbackground: #111;\n\t\t\tcolor: #fff;\n\t\t}\n\t\thtml[data-connection=\"disconnected\"] #display-connection {\n\t\t\tanimation: display-connection-pulse 4s ease-in-out infinite;\n\t\t}\n\t\t@keyframes display-connection-pulse {\n\t\t\t50% { opacity: 0.55; }\n\t\t}\n\t\thtml[data-connection=\"connected\"] #display-connection {\n\t\t\twidth: 1px;\n\t\t\theight: 1px;\n\t\t\tpadding: 0;\n\t\t\tmargin: -1px;\n\t\t\toverflow: hidden;\n\t\t\tclip-path: inset(50%);\n\t\t\twhite-space: nowrap;\n\t\t}\n\t\t@media (prefers-reduced-motion: reduce) {\n\t\t\t*,\n\t\t\t*::before,\n\t\t\t*::after {\n\t\t\t\tanimation-duration: 0.01ms !important;\n\t\t\t\tanimation-iteration-count: 1 !important;\n\t\t\t\ttransition-duration: 0.01ms !important;\n\t\t\t\tscroll-behavior: auto !important;\n\t\t\t}\n\t\t}\n\t</style><p id=\"display-connection\" role=\"status\" aria-live=\"polite\" data-connection=\"connecting\">Connecting…</p><script src=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "<style>\n\t\thtml,\n\t\tbody {\n\t\t\tmin-height: 100%;\n\t\t\tmargin: 0;\n\t\t}\n\t\tbody {\n\t\t\tbackground: #101828;\n\t\t}\n\t\t.display-view {\n\t\t\tbox-sizing: border-box;\n\t\t\tdisplay: grid;\n\t\t\tmin-height: 100vh;\n\t\t\tmin-height: 100dvh;\n\t\t\tgap: clamp(1rem, 2vw, 3rem);\n\t\t\tpadding: clamp(1rem, 3vw, 4rem);\n\t\t\toverflow: hidden;\n\t\t\tcolor: var(--display-foreground, #fff);\n\t\t\tbackground: var(--display-background, #101828);\n\t\t\tfont-family: system-ui, sans-serif;\n\t\t\tfont-size: clamp(1rem, 1.45vw, 2.25rem);\n\t\t\tline-height: 1.35;\n\t\t}\n\t\t.display-font-serif {\n\t\t\tfont-family: Georgia, \"Times New Roman\", serif;\n\t\t}\n\t\t.display-font-mono {\n\t\t\tfont-family: ui-monospace, \"Cascadia Mono\", monospace;\n\t\t}\n\t\t.display-region {\n\t\t\tbox-sizing: border-box;\n\t\t\tmin-width: 0;\n\t\t\tmin-height: 0;\n\t\t\tpadding: clamp(0.75rem, 1.5vw, 2rem);\n\t\t\tborder-radius: clamp(0.5rem, 1vw, 1.5rem);\n\t\t\tbackground: var(--display-accent, #1d4ed8);\n\t\t\toverflow: hidden;\n\t\t}\n\t\t.display-background-variable-media .display-region {\n\t\t\tbackground:\n\t\t\t\tlinear-gradient(\n\t\t\t\t\tvar(--display-scrim-layer, #000000d9),\n\t\t\t\t\tvar(--display-scrim-layer, #000000d9)\n\t\t\t\t),\n\t\t\t\tvar(--display-accent, #1d4ed8);\n\t\t}\n\t\t.display-layout-standby {\n\t\t\tgrid-template-rows: auto 1fr;\n\t\t}\n\t\t.display-layout-event-overview {\n\t\t\tgrid-template:\n\t\t\t\t\"header clock\" auto\n\t\t\t\t\"schedule schedule\" 1fr\n\t\t\t\t/ minmax(0, 1fr) auto;\n\t\t}\n\t\t.display-layout-event-overview [data-region=\"header\"] {\n\t\t\tgrid-area: header;\n\t\t}\n\t\t.display-layout-event-overview [data-region=\"schedule\"] {\n\t\t\tgrid-area: schedule;\n\t\t}\n\t\t.display-layout-event-overview [data-region=\"clock\"] {\n\t\t\tgrid-area: clock;\n\t\t}\n\t\t.display-layout-location-signage {\n\t\t\tgrid-template:\n\t\t\t\t\"event location\" minmax(0, 1fr)\n\t\t\t\t\"event now-next\" minmax(0, 2fr)\n\t\t\t\t\"event clock\" auto\n\t\t\t\t/ minmax(0, 7fr) minmax(18rem, 3fr);\n\t\t}\n\t\t.display-layout-location-signage [data-region=\"event-content\"] {\n\t\t\tgrid-area: event;\n\t\t}\n\t\t.display-layout-location-signage [data-region=\"location\"] {\n\t\t\tgrid-area: location;\n\t\t}\n\t\t.display-layout-location-signage [data-region=\"now-next\"] {\n\t\t\tgrid-area: now-next;\n\t\t}\n\t\t.display-layout-location-signage [data-region=\"clock\"] {\n\t\t\tgrid-area: clock;\n\t\t}\n\t\t.display-layout-stage-timer {\n\t\t\tgrid-template-rows: auto minmax(0, 1fr);\n\t\t}\n\t\t.display-layout-stage-timer [data-widget=\"stage-timer\"] {\n\t\t\tdisplay: grid;\n\t\t\tplace-items: center;\n\t\t\ttext-align: center;\n\t\t}\n\t\t[data-stage-timer-clock] {\n\t\t\tdisplay: block;\n\t\t\tfont-family: ui-monospace, \"Cascadia Mono\", monospace;\n\t\t\tfont-size: clamp(5rem, 25vw, 28rem);\n\t\t\tfont-variant-numeric: tabular-nums;\n\t\t\tfont-weight: 700;\n\t\t\tline-height: 1;\n\t\t}\n\t\t[data-timer-emphasis=\"attention\"] {\n\t\t\toutline: 0.4rem solid currentcolor;\n\t\t\toutline-offset: 0.5rem;\n\t\t}\n\t\t[data-timer-emphasis=\"urgent\"] {\n\t\t\tborder: 0.6rem double currentcolor;\n\t\t\tpadding: clamp(0.5rem, 2vw, 2rem);\n\t\t}\n\t\t[data-timer-overtime=\"true\"] [data-stage-timer-clock] {\n\t\t\ttext-decoration: underline;\n\t\t\ttext-decoration-thickness: 0.08em;\n\t\t}\n\t\t.display-transition-fade [data-rotation-page]:not([hidden]) {\n\t\t\tanimation: display-fade 250ms ease-out;\n\t\t}\n\t\t@keyframes display-fade {\n\t\t\tfrom { opacity: 0; }\n\t\t\tto { opacity: 1; }\n\t\t}\n\t\t@media (min-aspect-ratio: 8/5) {\n\t\t\t.display-view {\n\t\t\t\tpadding-inline: clamp(1.5rem, 4vw, 6rem);\n\t\t\t}\n\t\t}\n\t\t@media (max-aspect-ratio: 8/5) {\n\t\t\t.display-layout-location-signage {\n\t\t\t\tgrid-template:\n\t\t\t\t\t\"location clock\" auto\n\t\t\t\t\t\"now-next now-next\" minmax(0, 2fr)\n\t\t\t\t\t\"event event\" minmax(0, 5fr)\n\t\t\t\t\t/ minmax(0, 1fr) auto;\n\t\t\t}\n\t\t}\n\t\t#display-connection {\n\t\t\tposition: fixed;\n\t\t\tright: 1rem;\n\t\t\tbottom: 1rem;\n\t\t\tz-index: 1000;\n\t\t\tmargin: 0;\n\t\t\tpadding: 0.5rem 0.75rem;\n\t\t\tborder-radius: 0.25rem;\n\t\t\tbackground: #111;\n\t\t\tcolor: #fff;\n\t\t}\n\t\thtml[data-connection=\"disconnected\"] #display-connection {\n\t\t\tanimation: display-connection-pulse 4s ease-in-out infinite;\n\t\t}\n\t\t@keyframes display-connection-pulse {\n\t\t\t50% { opacity: 0.55; }\n\t\t}\n\t\thtml[data-connection=\"connected\"] #display-connection {\n\t\t\twidth: 1px;\n\t\t\theight: 1px;\n\t\t\tpadding: 0;\n\t\t\tmargin: -1px;\n\t\t\toverflow: hidden;\n\t\t\tclip-path: inset(50%);\n\t\t\twhite-space: nowrap;\n\t\t}\n\t\t@media (prefers-reduced-motion: reduce) {\n\t\t\t*,\n\t\t\t*::before,\n\t\t\t*::after {\n\t\t\t\tanimation-duration: 0.01ms !important;\n\t\t\t\tanimation-iteration-count: 1 !important;\n\t\t\t\ttransition-duration: 0.01ms !important;\n\t\t\t\tscroll-behavior: auto !important;\n\t\t\t}\n\t\t}\n\t</style><p id=\"display-connection\" role=\"status\" aria-live=\"polite\" data-connection=\"connecting\">Connecting…</p><script src=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var46 string
-		templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(ClientJavaScriptPath())
+		var templ_7745c5c3_Var55 string
+		templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(ClientJavaScriptPath())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 306, Col: 37}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 347, Col: 37}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "\" defer></script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "\" defer></script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

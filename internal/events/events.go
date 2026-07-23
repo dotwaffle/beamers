@@ -318,6 +318,7 @@ func (service *Service) ConfigureDisplays(
 	eventID int,
 	input DisplayConfigurationInput,
 ) (DisplayConfiguration, error) {
+	input.Configuration = displayviews.NormalizeConfiguration(input.Configuration)
 	if err := command.ValidateID(input.CommandID); err != nil {
 		return DisplayConfiguration{}, invalid("command_id", err.Error())
 	}

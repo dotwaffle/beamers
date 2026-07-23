@@ -198,6 +198,91 @@ test("persistent clock advances without replacing the committed frame", async ()
   assert.notEqual(time.textContent, before);
 });
 
+test("Stage Timer advances from the synchronized monotonic clock into overtime", async () => {
+  const browser = await startBrowser({
+    snapshot: stageTimerSnapshot({
+      serverTime: "2099-08-21T08:00:00Z",
+      stageTimer: {
+        sessionId: "42",
+        title: "Closing Keynote",
+        mode: "STAGE_TIMER_MODE_COUNTDOWN",
+        anchor: "2099-08-21T08:00:02Z",
+        thresholds: [],
+      },
+    }),
+  });
+  const region = browser.document.main.children[1];
+  assert.match(nodeText(region), /Closing Keynote/);
+  assert.match(nodeText(region), /00:02/);
+
+  for (let tick = 0; tick < 12; tick++) {
+    await browser.runTimer((delay) => delay === 250);
+  }
+  assert.match(nodeText(region), /\+00:01/);
+  assert.equal(browser.document.main.children[1], region);
+});
+
+test("Stage Timer shows manual elapsed time and accessible threshold emphasis", async () => {
+  const browser = await startBrowser({
+    snapshot: stageTimerSnapshot({
+      serverTime: "2099-08-21T08:01:05Z",
+      stageTimer: {
+        sessionId: "42",
+        title: "Closing Keynote",
+        mode: "STAGE_TIMER_MODE_ELAPSED",
+        anchor: "2099-08-21T08:00:00Z",
+        forecastEnd: "2099-08-21T09:00:00Z",
+        thresholds: [],
+      },
+    }),
+  });
+  const elapsedRegion = browser.document.main.children[1];
+  assert.match(nodeText(elapsedRegion), /Elapsed/);
+  assert.match(nodeText(elapsedRegion), /01:05/);
+  assert.match(nodeText(elapsedRegion), /Forecast End/);
+  assert.match(nodeText(elapsedRegion), /09:00/);
+
+  const urgent = await startBrowser({
+    snapshot: stageTimerSnapshot({
+      serverTime: "2099-08-21T08:00:30Z",
+      stageTimer: {
+        sessionId: "42",
+        title: "Closing Keynote",
+        mode: "STAGE_TIMER_MODE_COUNTDOWN",
+        anchor: "2099-08-21T08:01:00Z",
+        thresholds: [{
+          remainingSeconds: "60",
+          emphasis: "TIMER_EMPHASIS_URGENT",
+        }],
+      },
+    }),
+  });
+  const urgentRegion = urgent.document.main.children[1];
+  assert.equal(urgentRegion.dataset.timerEmphasis, "urgent");
+  assert.match(nodeText(urgentRegion), /Urgent/);
+});
+
+test("Stage Timer ignores browser wall-clock jumps after synchronization", async () => {
+  const browser = await startBrowser({
+    snapshot: stageTimerSnapshot({
+      serverTime: "2099-08-21T08:00:00Z",
+      stageTimer: {
+        sessionId: "42",
+        title: "Closing Keynote",
+        mode: "STAGE_TIMER_MODE_COUNTDOWN",
+        anchor: "2099-08-21T08:01:00Z",
+        thresholds: [],
+      },
+    }),
+  });
+  const region = browser.document.main.children[1];
+  assert.match(nodeText(region), /01:00/);
+  browser.now += 60 * 60 * 1000;
+
+  await browser.runTimer((delay) => delay === 250);
+  assert.match(nodeText(region), /01:00/);
+});
+
 test("Location Now Next excludes canceled Sessions without removing rotation content", async () => {
   const browser = await startBrowser({
     snapshot: displaySnapshot({
@@ -299,6 +384,7 @@ async function startBrowser(options = {}) {
     initialMain,
     indicator,
     now: Date.now(),
+    monotonicNow: 0,
     reloads: 0,
     snapshotRequests: 0,
     timerDelays() {
@@ -315,6 +401,7 @@ async function startBrowser(options = {}) {
       const [id, timer] = found;
       timers.delete(id);
       this.now += timer.delay;
+      this.monotonicNow += timer.delay;
       timer.callback();
       await this.flush();
     },
@@ -372,6 +459,11 @@ async function startBrowser(options = {}) {
     JSON,
     Math,
     Number,
+    performance: {
+      now() {
+        return browser.monotonicNow;
+      },
+    },
     URLSearchParams,
     clearTimeout(id) {
       timers.delete(id);
@@ -447,6 +539,21 @@ function displayComposition(overrides = {}) {
       transition: "fade",
     },
   };
+}
+
+function stageTimerSnapshot(overrides = {}) {
+  return displaySnapshot({
+    standby: false,
+    viewKey: "stage-timer",
+    composition: displayComposition({
+      key: "stage-timer",
+      regions: [
+        {name: "header", widget: "branding", persistent: true},
+        {name: "timer", widget: "stage-timer", persistent: true},
+      ],
+    }),
+    ...overrides,
+  });
 }
 
 function displaySession(title) {

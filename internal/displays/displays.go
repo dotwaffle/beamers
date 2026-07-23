@@ -24,6 +24,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/displayviews"
+	"github.com/dotwaffle/beamers/internal/stagetimer"
 	"github.com/dotwaffle/beamers/internal/store"
 )
 
@@ -113,6 +114,7 @@ type Snapshot struct {
 	Standby              bool
 	Composition          displayviews.Composition
 	Sessions             []Session
+	StageTimer           *StageTimer
 }
 
 // AcknowledgmentInput reports the exact state one Display has applied.
@@ -167,6 +169,16 @@ type Session struct {
 	DisplayForecastStart string
 	DisplayForecastEnd   string
 	orderAt              time.Time
+}
+
+// StageTimer is one authoritative live Session clock for a Display.
+type StageTimer struct {
+	SessionID   int
+	Title       string
+	Mode        stagetimer.Mode
+	Anchor      time.Time
+	ForecastEnd time.Time
+	Thresholds  []stagetimer.Threshold
 }
 
 // ClaimInput confirms one Display Enrollment code.
@@ -260,6 +272,13 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 	if err != nil {
 		return Snapshot{}, errors.Join(errors.New("compose Display View"), err)
 	}
+	timer, ok, err := projectStageTimer(found, configuration)
+	if err != nil {
+		return Snapshot{}, errors.Join(errors.New("project Stage Timer"), err)
+	}
+	if ok {
+		result.StageTimer = &timer
+	}
 	zone := time.UTC
 	if found.EventTimezone != "" {
 		zone, err = time.LoadLocation(found.EventTimezone)
@@ -276,6 +295,76 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 		return result.Sessions[first].orderAt.Before(result.Sessions[second].orderAt)
 	})
 	return result, nil
+}
+
+func projectStageTimer(
+	found store.DisplaySnapshotState,
+	configuration displayviews.Configuration,
+) (StageTimer, bool, error) {
+	if found.Standby || found.ViewKey != displayviews.StageTimer {
+		return StageTimer{}, false, nil
+	}
+	eventThresholds := timerThresholds(configuration.TimerThresholds)
+	typeThresholds := make(map[string][]stagetimer.Threshold, len(configuration.SessionTypeTimerThresholds))
+	for sessionType, thresholds := range configuration.SessionTypeTimerThresholds {
+		typeThresholds[sessionType] = timerThresholds(thresholds)
+	}
+	sessionThresholds := make(map[int][]stagetimer.Threshold, len(configuration.SessionTimerThresholds))
+	for sessionID, thresholds := range configuration.SessionTimerThresholds {
+		sessionThresholds[sessionID] = timerThresholds(thresholds)
+	}
+	var selected *store.DisplaySessionState
+	for index := range found.Sessions {
+		session := &found.Sessions[index]
+		if session.Lifecycle != "Live" || !containsID(session.LocationIDs, found.LocationID) {
+			continue
+		}
+		if selected == nil ||
+			session.ActualStart.After(selected.ActualStart) ||
+			session.ActualStart.Equal(selected.ActualStart) && session.ID < selected.ID {
+			selected = session
+		}
+	}
+	if selected == nil {
+		return StageTimer{}, false, nil
+	}
+	resolved := stagetimer.ResolveThresholds(
+		eventThresholds,
+		typeThresholds,
+		sessionThresholds,
+		selected.Type,
+		selected.ID,
+	)
+	timer, err := stagetimer.New(stagetimer.Spec{
+		SessionID:    selected.ID,
+		Policy:       stagetimer.Policy(selected.TimingPolicy),
+		ActualStart:  selected.ActualStart,
+		PlannedStart: selected.RunPlannedStart,
+		PlannedEnd:   selected.RunPlannedEnd,
+		Thresholds:   resolved,
+	})
+	if err != nil {
+		return StageTimer{}, false, err
+	}
+	return StageTimer{
+		SessionID:   timer.SessionID,
+		Title:       selected.TimerTitle,
+		Mode:        timer.Mode,
+		Anchor:      timer.Anchor,
+		ForecastEnd: selected.ForecastEnd,
+		Thresholds:  timer.Thresholds,
+	}, true, nil
+}
+
+func timerThresholds(found []displayviews.TimerThreshold) []stagetimer.Threshold {
+	result := make([]stagetimer.Threshold, 0, len(found))
+	for _, threshold := range found {
+		result = append(result, stagetimer.Threshold{
+			Remaining: time.Duration(threshold.RemainingSeconds) * time.Second,
+			Emphasis:  stagetimer.Emphasis(threshold.Emphasis),
+		})
+	}
+	return result
 }
 
 // Acknowledge independently records state already applied by one Display.

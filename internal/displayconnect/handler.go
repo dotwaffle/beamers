@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -14,6 +15,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/displays"
 	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/displayviews"
+	"github.com/dotwaffle/beamers/internal/stagetimer"
 )
 
 type snapshotContextKey struct{}
@@ -207,6 +209,9 @@ func snapshotMessage(
 	for _, item := range found.Sessions {
 		result.Sessions = append(result.Sessions, sessionMessage(item))
 	}
+	if found.StageTimer != nil {
+		result.StageTimer = stageTimerMessage(*found.StageTimer)
+	}
 	return result
 }
 
@@ -265,6 +270,49 @@ func sessionMessage(found displays.Session) *displayv1.DisplaySession {
 		result.ActualEnd = timestamppb.New(*found.ActualEnd)
 	}
 	return result
+}
+
+func stageTimerMessage(found displays.StageTimer) *displayv1.StageTimer {
+	result := &displayv1.StageTimer{
+		SessionId: int64(found.SessionID),
+		Title:     found.Title,
+		Mode:      stageTimerMode(found.Mode),
+		Anchor:    timestamppb.New(found.Anchor),
+	}
+	if !found.ForecastEnd.IsZero() {
+		result.ForecastEnd = timestamppb.New(found.ForecastEnd)
+	}
+	for _, threshold := range found.Thresholds {
+		result.Thresholds = append(result.Thresholds, &displayv1.TimerThreshold{
+			RemainingSeconds: int64(threshold.Remaining / time.Second),
+			Emphasis:         timerEmphasis(threshold.Emphasis),
+		})
+	}
+	return result
+}
+
+func stageTimerMode(found stagetimer.Mode) displayv1.StageTimerMode {
+	switch found {
+	case stagetimer.Countdown:
+		return displayv1.StageTimerMode_STAGE_TIMER_MODE_COUNTDOWN
+	case stagetimer.Elapsed:
+		return displayv1.StageTimerMode_STAGE_TIMER_MODE_ELAPSED
+	default:
+		return displayv1.StageTimerMode_STAGE_TIMER_MODE_UNSPECIFIED
+	}
+}
+
+func timerEmphasis(found stagetimer.Emphasis) displayv1.TimerEmphasis {
+	switch found {
+	case stagetimer.Normal:
+		return displayv1.TimerEmphasis_TIMER_EMPHASIS_NORMAL
+	case stagetimer.Attention:
+		return displayv1.TimerEmphasis_TIMER_EMPHASIS_ATTENTION
+	case stagetimer.Urgent:
+		return displayv1.TimerEmphasis_TIMER_EMPHASIS_URGENT
+	default:
+		return displayv1.TimerEmphasis_TIMER_EMPHASIS_UNSPECIFIED
+	}
 }
 
 func acknowledgmentMessage(found displays.Acknowledgment) *displayv1.DisplayAcknowledgment {

@@ -37,6 +37,7 @@ message DisplaySnapshot {
   string snapshot_token = 17;
   string asset_version = 18;
   DisplayComposition composition = 19;
+  StageTimer stage_timer = 20;
 }
 
 message DisplayComposition {
@@ -84,6 +85,33 @@ message DisplaySession {
   repeated int64 track_ids = 13;
   bool unavailable = 14;
   string availability_message = 15;
+}
+
+enum StageTimerMode {
+  STAGE_TIMER_MODE_UNSPECIFIED = 0;
+  STAGE_TIMER_MODE_COUNTDOWN = 1;
+  STAGE_TIMER_MODE_ELAPSED = 2;
+}
+
+enum TimerEmphasis {
+  TIMER_EMPHASIS_UNSPECIFIED = 0;
+  TIMER_EMPHASIS_NORMAL = 1;
+  TIMER_EMPHASIS_ATTENTION = 2;
+  TIMER_EMPHASIS_URGENT = 3;
+}
+
+message TimerThreshold {
+  int64 remaining_seconds = 1;
+  TimerEmphasis emphasis = 2;
+}
+
+message StageTimer {
+  int64 session_id = 1;
+  string title = 2;
+  StageTimerMode mode = 3;
+  google.protobuf.Timestamp anchor = 4;
+  repeated TimerThreshold thresholds = 5;
+  google.protobuf.Timestamp forecast_end = 6;
 }
 
 message AcknowledgeRequest {

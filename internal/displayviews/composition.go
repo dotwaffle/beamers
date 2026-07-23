@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"slices"
 	"strconv"
 )
 
@@ -44,6 +45,14 @@ const (
 )
 
 const minimumTextContrast = 4.5
+const maximumTimerThresholdSeconds = 24 * 60 * 60
+
+const (
+	// EmphasisAttention identifies an approaching timer target.
+	EmphasisAttention = "attention"
+	// EmphasisUrgent identifies an imminent or exceeded timer target.
+	EmphasisUrgent = "urgent"
+)
 
 // ValidationError identifies one invalid Display configuration field.
 type ValidationError struct {
@@ -69,10 +78,19 @@ type Theme struct {
 	Transition      string `json:"transition"`
 }
 
+// TimerThreshold changes Stage Timer emphasis at one remaining duration.
+type TimerThreshold struct {
+	RemainingSeconds int    `json:"remaining_seconds"`
+	Emphasis         string `json:"emphasis"`
+}
+
 // Configuration controls the shared appearance and autonomous rotation interval.
 type Configuration struct {
-	RotationSeconds int   `json:"rotation_seconds"`
-	Theme           Theme `json:"theme"`
+	RotationSeconds            int                         `json:"rotation_seconds"`
+	Theme                      Theme                       `json:"theme"`
+	TimerThresholds            []TimerThreshold            `json:"timer_thresholds"`
+	SessionTypeTimerThresholds map[string][]TimerThreshold `json:"session_type_timer_thresholds,omitempty"`
+	SessionTimerThresholds     map[int][]TimerThreshold    `json:"session_timer_thresholds,omitempty"`
 }
 
 // Region binds one named Layout region to a built-in Widget.
@@ -99,6 +117,10 @@ type Composition struct {
 func DefaultConfiguration() Configuration {
 	return Configuration{
 		RotationSeconds: 15,
+		TimerThresholds: []TimerThreshold{
+			{RemainingSeconds: 5 * 60, Emphasis: EmphasisAttention},
+			{RemainingSeconds: 60, Emphasis: EmphasisUrgent},
+		},
 		Theme: Theme{
 			ForegroundColor: "#ffffff",
 			BackgroundColor: "#101828",
@@ -112,15 +134,24 @@ func DefaultConfiguration() Configuration {
 	}
 }
 
+// NormalizeConfiguration applies safe defaults to omitted optional fields.
+func NormalizeConfiguration(configuration Configuration) Configuration {
+	if configuration.TimerThresholds == nil {
+		configuration.TimerThresholds = slices.Clone(DefaultConfiguration().TimerThresholds)
+	}
+	return configuration
+}
+
 // ParseConfiguration decodes and validates one durable Event configuration.
 func ParseConfiguration(encoded string) (Configuration, error) {
 	if encoded == "" {
 		return DefaultConfiguration(), nil
 	}
-	var configuration Configuration
+	configuration := DefaultConfiguration()
 	if err := json.Unmarshal([]byte(encoded), &configuration); err != nil {
 		return Configuration{}, errors.New("decode Display configuration")
 	}
+	configuration = NormalizeConfiguration(configuration)
 	if err := ValidateConfiguration(configuration); err != nil {
 		return Configuration{}, err
 	}
@@ -190,7 +221,56 @@ func ValidateConfiguration(configuration Configuration) error {
 	default:
 		return invalid("theme.transition", "must be none or fade")
 	}
+	if err := validateTimerThresholds("timer_thresholds", configuration.TimerThresholds); err != nil {
+		return err
+	}
+	for sessionType, thresholds := range configuration.SessionTypeTimerThresholds {
+		if !validSessionType(sessionType) {
+			return invalid("session_type_timer_thresholds", "keys must identify a supported Session type")
+		}
+		if err := validateTimerThresholds("session_type_timer_thresholds", thresholds); err != nil {
+			return err
+		}
+	}
+	for sessionID, thresholds := range configuration.SessionTimerThresholds {
+		if sessionID <= 0 {
+			return invalid("session_timer_thresholds", "keys must be positive Session IDs")
+		}
+		if err := validateTimerThresholds("session_timer_thresholds", thresholds); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func validateTimerThresholds(field string, thresholds []TimerThreshold) error {
+	if len(thresholds) > 16 {
+		return invalid(field, "must contain at most 16 thresholds")
+	}
+	remaining := make(map[int]struct{}, len(thresholds))
+	for _, threshold := range thresholds {
+		if threshold.RemainingSeconds <= 0 ||
+			threshold.RemainingSeconds > maximumTimerThresholdSeconds {
+			return invalid(field, "remaining seconds must be between 1 and 86400")
+		}
+		if threshold.Emphasis != EmphasisAttention && threshold.Emphasis != EmphasisUrgent {
+			return invalid(field, "emphasis must be attention or urgent")
+		}
+		if _, duplicate := remaining[threshold.RemainingSeconds]; duplicate {
+			return invalid(field, "must not repeat remaining seconds")
+		}
+		remaining[threshold.RemainingSeconds] = struct{}{}
+	}
+	return nil
+}
+
+func validSessionType(value string) bool {
+	switch value {
+	case "Presentation", "Competition", "Break", "Activity", "Ceremony", "Performance", "Hold":
+		return true
+	default:
+		return false
+	}
 }
 
 func builtInLayout(viewKey string, standby bool) (Layout, bool) {

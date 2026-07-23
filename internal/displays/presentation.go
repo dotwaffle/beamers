@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/a-h/templ"
+
+	"github.com/dotwaffle/beamers/internal/stagetimer"
 )
 
 func displayPageClass(snapshot Snapshot) string {
@@ -54,6 +57,60 @@ func displayNowNext(sessions []Session) []Session {
 		}
 	}
 	return result
+}
+
+type stageTimerPresentation struct {
+	Title              string
+	Direction          string
+	Text               string
+	Emphasis           string
+	EmphasisLabel      string
+	Anchor             time.Time
+	ForecastEnd        time.Time
+	DisplayForecastEnd string
+	Overtime           bool
+}
+
+func displayStageTimer(snapshot Snapshot) (stageTimerPresentation, bool) {
+	if snapshot.StageTimer == nil {
+		return stageTimerPresentation{}, false
+	}
+	frame := stagetimer.FrameAt(stagetimer.Timer{
+		SessionID:  snapshot.StageTimer.SessionID,
+		Mode:       snapshot.StageTimer.Mode,
+		Anchor:     snapshot.StageTimer.Anchor,
+		Thresholds: snapshot.StageTimer.Thresholds,
+	}, snapshot.ServerTime)
+	direction := "Remaining"
+	if snapshot.StageTimer.Mode == stagetimer.Elapsed {
+		direction = "Elapsed"
+	} else if frame.Overtime {
+		direction = "Overtime"
+	}
+	emphasis := string(frame.Emphasis)
+	label := ""
+	if emphasis != string(stagetimer.Normal) {
+		label = strings.ToUpper(emphasis[:1]) + emphasis[1:]
+	}
+	var forecastEnd time.Time
+	var displayForecastEnd string
+	if snapshot.StageTimer.Mode == stagetimer.Elapsed && !snapshot.StageTimer.ForecastEnd.IsZero() {
+		forecastEnd = snapshot.StageTimer.ForecastEnd
+		zone := time.UTC
+		if snapshot.EventTimezone != "" {
+			if found, err := time.LoadLocation(snapshot.EventTimezone); err == nil {
+				zone = found
+			}
+		}
+		displayForecastEnd = forecastEnd.In(zone).Format("15:04")
+	}
+	return stageTimerPresentation{
+		Title: snapshot.StageTimer.Title, Direction: direction,
+		Text: frame.Text, Emphasis: emphasis, EmphasisLabel: label,
+		Anchor: snapshot.StageTimer.Anchor, ForecastEnd: forecastEnd,
+		DisplayForecastEnd: displayForecastEnd,
+		Overtime:           frame.Overtime,
+	}, true
 }
 
 func displayThemeStyle(snapshot Snapshot) templ.SafeCSS {

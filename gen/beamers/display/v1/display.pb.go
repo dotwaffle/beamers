@@ -22,6 +22,107 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type StageTimerMode int32
+
+const (
+	StageTimerMode_STAGE_TIMER_MODE_UNSPECIFIED StageTimerMode = 0
+	StageTimerMode_STAGE_TIMER_MODE_COUNTDOWN   StageTimerMode = 1
+	StageTimerMode_STAGE_TIMER_MODE_ELAPSED     StageTimerMode = 2
+)
+
+// Enum value maps for StageTimerMode.
+var (
+	StageTimerMode_name = map[int32]string{
+		0: "STAGE_TIMER_MODE_UNSPECIFIED",
+		1: "STAGE_TIMER_MODE_COUNTDOWN",
+		2: "STAGE_TIMER_MODE_ELAPSED",
+	}
+	StageTimerMode_value = map[string]int32{
+		"STAGE_TIMER_MODE_UNSPECIFIED": 0,
+		"STAGE_TIMER_MODE_COUNTDOWN":   1,
+		"STAGE_TIMER_MODE_ELAPSED":     2,
+	}
+)
+
+func (x StageTimerMode) Enum() *StageTimerMode {
+	p := new(StageTimerMode)
+	*p = x
+	return p
+}
+
+func (x StageTimerMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (StageTimerMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_beamers_display_v1_display_proto_enumTypes[0].Descriptor()
+}
+
+func (StageTimerMode) Type() protoreflect.EnumType {
+	return &file_beamers_display_v1_display_proto_enumTypes[0]
+}
+
+func (x StageTimerMode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use StageTimerMode.Descriptor instead.
+func (StageTimerMode) EnumDescriptor() ([]byte, []int) {
+	return file_beamers_display_v1_display_proto_rawDescGZIP(), []int{0}
+}
+
+type TimerEmphasis int32
+
+const (
+	TimerEmphasis_TIMER_EMPHASIS_UNSPECIFIED TimerEmphasis = 0
+	TimerEmphasis_TIMER_EMPHASIS_NORMAL      TimerEmphasis = 1
+	TimerEmphasis_TIMER_EMPHASIS_ATTENTION   TimerEmphasis = 2
+	TimerEmphasis_TIMER_EMPHASIS_URGENT      TimerEmphasis = 3
+)
+
+// Enum value maps for TimerEmphasis.
+var (
+	TimerEmphasis_name = map[int32]string{
+		0: "TIMER_EMPHASIS_UNSPECIFIED",
+		1: "TIMER_EMPHASIS_NORMAL",
+		2: "TIMER_EMPHASIS_ATTENTION",
+		3: "TIMER_EMPHASIS_URGENT",
+	}
+	TimerEmphasis_value = map[string]int32{
+		"TIMER_EMPHASIS_UNSPECIFIED": 0,
+		"TIMER_EMPHASIS_NORMAL":      1,
+		"TIMER_EMPHASIS_ATTENTION":   2,
+		"TIMER_EMPHASIS_URGENT":      3,
+	}
+)
+
+func (x TimerEmphasis) Enum() *TimerEmphasis {
+	p := new(TimerEmphasis)
+	*p = x
+	return p
+}
+
+func (x TimerEmphasis) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (TimerEmphasis) Descriptor() protoreflect.EnumDescriptor {
+	return file_beamers_display_v1_display_proto_enumTypes[1].Descriptor()
+}
+
+func (TimerEmphasis) Type() protoreflect.EnumType {
+	return &file_beamers_display_v1_display_proto_enumTypes[1]
+}
+
+func (x TimerEmphasis) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use TimerEmphasis.Descriptor instead.
+func (TimerEmphasis) EnumDescriptor() ([]byte, []int) {
+	return file_beamers_display_v1_display_proto_rawDescGZIP(), []int{1}
+}
+
 type GetSnapshotRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -123,6 +224,7 @@ type DisplaySnapshot struct {
 	SnapshotToken        string                 `protobuf:"bytes,17,opt,name=snapshot_token,json=snapshotToken,proto3" json:"snapshot_token,omitempty"`
 	AssetVersion         string                 `protobuf:"bytes,18,opt,name=asset_version,json=assetVersion,proto3" json:"asset_version,omitempty"`
 	Composition          *DisplayComposition    `protobuf:"bytes,19,opt,name=composition,proto3" json:"composition,omitempty"`
+	StageTimer           *StageTimer            `protobuf:"bytes,20,opt,name=stage_timer,json=stageTimer,proto3" json:"stage_timer,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -286,6 +388,13 @@ func (x *DisplaySnapshot) GetAssetVersion() string {
 func (x *DisplaySnapshot) GetComposition() *DisplayComposition {
 	if x != nil {
 		return x.Composition
+	}
+	return nil
+}
+
+func (x *DisplaySnapshot) GetStageTimer() *StageTimer {
+	if x != nil {
+		return x.StageTimer
 	}
 	return nil
 }
@@ -726,6 +835,142 @@ func (x *DisplaySession) GetAvailabilityMessage() string {
 	return ""
 }
 
+type TimerThreshold struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	RemainingSeconds int64                  `protobuf:"varint,1,opt,name=remaining_seconds,json=remainingSeconds,proto3" json:"remaining_seconds,omitempty"`
+	Emphasis         TimerEmphasis          `protobuf:"varint,2,opt,name=emphasis,proto3,enum=beamers.display.v1.TimerEmphasis" json:"emphasis,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *TimerThreshold) Reset() {
+	*x = TimerThreshold{}
+	mi := &file_beamers_display_v1_display_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TimerThreshold) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TimerThreshold) ProtoMessage() {}
+
+func (x *TimerThreshold) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_display_v1_display_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TimerThreshold.ProtoReflect.Descriptor instead.
+func (*TimerThreshold) Descriptor() ([]byte, []int) {
+	return file_beamers_display_v1_display_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *TimerThreshold) GetRemainingSeconds() int64 {
+	if x != nil {
+		return x.RemainingSeconds
+	}
+	return 0
+}
+
+func (x *TimerThreshold) GetEmphasis() TimerEmphasis {
+	if x != nil {
+		return x.Emphasis
+	}
+	return TimerEmphasis_TIMER_EMPHASIS_UNSPECIFIED
+}
+
+type StageTimer struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     int64                  `protobuf:"varint,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Mode          StageTimerMode         `protobuf:"varint,3,opt,name=mode,proto3,enum=beamers.display.v1.StageTimerMode" json:"mode,omitempty"`
+	Anchor        *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=anchor,proto3" json:"anchor,omitempty"`
+	Thresholds    []*TimerThreshold      `protobuf:"bytes,5,rep,name=thresholds,proto3" json:"thresholds,omitempty"`
+	ForecastEnd   *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=forecast_end,json=forecastEnd,proto3" json:"forecast_end,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StageTimer) Reset() {
+	*x = StageTimer{}
+	mi := &file_beamers_display_v1_display_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StageTimer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StageTimer) ProtoMessage() {}
+
+func (x *StageTimer) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_display_v1_display_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StageTimer.ProtoReflect.Descriptor instead.
+func (*StageTimer) Descriptor() ([]byte, []int) {
+	return file_beamers_display_v1_display_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *StageTimer) GetSessionId() int64 {
+	if x != nil {
+		return x.SessionId
+	}
+	return 0
+}
+
+func (x *StageTimer) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *StageTimer) GetMode() StageTimerMode {
+	if x != nil {
+		return x.Mode
+	}
+	return StageTimerMode_STAGE_TIMER_MODE_UNSPECIFIED
+}
+
+func (x *StageTimer) GetAnchor() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Anchor
+	}
+	return nil
+}
+
+func (x *StageTimer) GetThresholds() []*TimerThreshold {
+	if x != nil {
+		return x.Thresholds
+	}
+	return nil
+}
+
+func (x *StageTimer) GetForecastEnd() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ForecastEnd
+	}
+	return nil
+}
+
 type AcknowledgeRequest struct {
 	state                        protoimpl.MessageState `protogen:"open.v1"`
 	ProtocolVersion              string                 `protobuf:"bytes,1,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
@@ -746,7 +991,7 @@ type AcknowledgeRequest struct {
 
 func (x *AcknowledgeRequest) Reset() {
 	*x = AcknowledgeRequest{}
-	mi := &file_beamers_display_v1_display_proto_msgTypes[8]
+	mi := &file_beamers_display_v1_display_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -758,7 +1003,7 @@ func (x *AcknowledgeRequest) String() string {
 func (*AcknowledgeRequest) ProtoMessage() {}
 
 func (x *AcknowledgeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_display_v1_display_proto_msgTypes[8]
+	mi := &file_beamers_display_v1_display_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -771,7 +1016,7 @@ func (x *AcknowledgeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcknowledgeRequest.ProtoReflect.Descriptor instead.
 func (*AcknowledgeRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_display_v1_display_proto_rawDescGZIP(), []int{8}
+	return file_beamers_display_v1_display_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *AcknowledgeRequest) GetProtocolVersion() string {
@@ -867,7 +1112,7 @@ type AcknowledgeResponse struct {
 
 func (x *AcknowledgeResponse) Reset() {
 	*x = AcknowledgeResponse{}
-	mi := &file_beamers_display_v1_display_proto_msgTypes[9]
+	mi := &file_beamers_display_v1_display_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -879,7 +1124,7 @@ func (x *AcknowledgeResponse) String() string {
 func (*AcknowledgeResponse) ProtoMessage() {}
 
 func (x *AcknowledgeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_display_v1_display_proto_msgTypes[9]
+	mi := &file_beamers_display_v1_display_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -892,7 +1137,7 @@ func (x *AcknowledgeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcknowledgeResponse.ProtoReflect.Descriptor instead.
 func (*AcknowledgeResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_display_v1_display_proto_rawDescGZIP(), []int{9}
+	return file_beamers_display_v1_display_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *AcknowledgeResponse) GetAcknowledgment() *DisplayAcknowledgment {
@@ -923,7 +1168,7 @@ type DisplayAcknowledgment struct {
 
 func (x *DisplayAcknowledgment) Reset() {
 	*x = DisplayAcknowledgment{}
-	mi := &file_beamers_display_v1_display_proto_msgTypes[10]
+	mi := &file_beamers_display_v1_display_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -935,7 +1180,7 @@ func (x *DisplayAcknowledgment) String() string {
 func (*DisplayAcknowledgment) ProtoMessage() {}
 
 func (x *DisplayAcknowledgment) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_display_v1_display_proto_msgTypes[10]
+	mi := &file_beamers_display_v1_display_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -948,7 +1193,7 @@ func (x *DisplayAcknowledgment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisplayAcknowledgment.ProtoReflect.Descriptor instead.
 func (*DisplayAcknowledgment) Descriptor() ([]byte, []int) {
-	return file_beamers_display_v1_display_proto_rawDescGZIP(), []int{10}
+	return file_beamers_display_v1_display_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *DisplayAcknowledgment) GetDisplayId() int64 {
@@ -1049,7 +1294,7 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	" beamers/display/v1/display.proto\x12\x12beamers.display.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x14\n" +
 	"\x12GetSnapshotRequest\"V\n" +
 	"\x13GetSnapshotResponse\x12?\n" +
-	"\bsnapshot\x18\x01 \x01(\v2#.beamers.display.v1.DisplaySnapshotR\bsnapshot\"\xbd\x06\n" +
+	"\bsnapshot\x18\x01 \x01(\v2#.beamers.display.v1.DisplaySnapshotR\bsnapshot\"\xfe\x06\n" +
 	"\x0fDisplaySnapshot\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\tR\x0fprotocolVersion\x12;\n" +
 	"\vserver_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
@@ -1074,7 +1319,9 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\x0eevent_timezone\x18\x10 \x01(\tR\reventTimezone\x12%\n" +
 	"\x0esnapshot_token\x18\x11 \x01(\tR\rsnapshotToken\x12#\n" +
 	"\rasset_version\x18\x12 \x01(\tR\fassetVersion\x12H\n" +
-	"\vcomposition\x18\x13 \x01(\v2&.beamers.display.v1.DisplayCompositionR\vcompositionB\x12\n" +
+	"\vcomposition\x18\x13 \x01(\v2&.beamers.display.v1.DisplayCompositionR\vcomposition\x12?\n" +
+	"\vstage_timer\x18\x14 \x01(\v2\x1e.beamers.display.v1.StageTimerR\n" +
+	"stageTimerB\x12\n" +
 	"\x10_stream_position\"\x87\x01\n" +
 	"\x12DisplayComposition\x129\n" +
 	"\x06layout\x18\x01 \x01(\v2!.beamers.display.v1.DisplayLayoutR\x06layout\x126\n" +
@@ -1121,7 +1368,21 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\blane_ids\x18\f \x03(\x03R\alaneIds\x12\x1b\n" +
 	"\ttrack_ids\x18\r \x03(\x03R\btrackIds\x12 \n" +
 	"\vunavailable\x18\x0e \x01(\bR\vunavailable\x121\n" +
-	"\x14availability_message\x18\x0f \x01(\tR\x13availabilityMessage\"\xa6\x04\n" +
+	"\x14availability_message\x18\x0f \x01(\tR\x13availabilityMessage\"|\n" +
+	"\x0eTimerThreshold\x12+\n" +
+	"\x11remaining_seconds\x18\x01 \x01(\x03R\x10remainingSeconds\x12=\n" +
+	"\bemphasis\x18\x02 \x01(\x0e2!.beamers.display.v1.TimerEmphasisR\bemphasis\"\xb0\x02\n" +
+	"\n" +
+	"StageTimer\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\x03R\tsessionId\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x126\n" +
+	"\x04mode\x18\x03 \x01(\x0e2\".beamers.display.v1.StageTimerModeR\x04mode\x122\n" +
+	"\x06anchor\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x06anchor\x12B\n" +
+	"\n" +
+	"thresholds\x18\x05 \x03(\v2\".beamers.display.v1.TimerThresholdR\n" +
+	"thresholds\x12=\n" +
+	"\fforecast_end\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\vforecastEnd\"\xa6\x04\n" +
 	"\x12AcknowledgeRequest\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\tR\x0fprotocolVersion\x12\x1b\n" +
 	"\tstream_id\x18\x02 \x01(\tR\bstreamId\x12'\n" +
@@ -1154,7 +1415,16 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	" \x01(\x12R\x17clockOffsetMilliseconds\x12D\n" +
 	"\x1eclock_uncertainty_milliseconds\x18\v \x01(\x04R\x1cclockUncertaintyMilliseconds\x12+\n" +
 	"\x11renderer_unstable\x18\f \x01(\bR\x10rendererUnstable\x12#\n" +
-	"\rasset_version\x18\r \x01(\tR\fassetVersion2\xd0\x01\n" +
+	"\rasset_version\x18\r \x01(\tR\fassetVersion*p\n" +
+	"\x0eStageTimerMode\x12 \n" +
+	"\x1cSTAGE_TIMER_MODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
+	"\x1aSTAGE_TIMER_MODE_COUNTDOWN\x10\x01\x12\x1c\n" +
+	"\x18STAGE_TIMER_MODE_ELAPSED\x10\x02*\x83\x01\n" +
+	"\rTimerEmphasis\x12\x1e\n" +
+	"\x1aTIMER_EMPHASIS_UNSPECIFIED\x10\x00\x12\x19\n" +
+	"\x15TIMER_EMPHASIS_NORMAL\x10\x01\x12\x1c\n" +
+	"\x18TIMER_EMPHASIS_ATTENTION\x10\x02\x12\x19\n" +
+	"\x15TIMER_EMPHASIS_URGENT\x10\x032\xd0\x01\n" +
 	"\x0eDisplayService\x12^\n" +
 	"\vGetSnapshot\x12&.beamers.display.v1.GetSnapshotRequest\x1a'.beamers.display.v1.GetSnapshotResponse\x12^\n" +
 	"\vAcknowledge\x12&.beamers.display.v1.AcknowledgeRequest\x1a'.beamers.display.v1.AcknowledgeResponseB?Z=github.com/dotwaffle/beamers/gen/beamers/display/v1;displayv1b\x06proto3"
@@ -1171,44 +1441,55 @@ func file_beamers_display_v1_display_proto_rawDescGZIP() []byte {
 	return file_beamers_display_v1_display_proto_rawDescData
 }
 
-var file_beamers_display_v1_display_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_beamers_display_v1_display_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_beamers_display_v1_display_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_beamers_display_v1_display_proto_goTypes = []any{
-	(*GetSnapshotRequest)(nil),    // 0: beamers.display.v1.GetSnapshotRequest
-	(*GetSnapshotResponse)(nil),   // 1: beamers.display.v1.GetSnapshotResponse
-	(*DisplaySnapshot)(nil),       // 2: beamers.display.v1.DisplaySnapshot
-	(*DisplayComposition)(nil),    // 3: beamers.display.v1.DisplayComposition
-	(*DisplayLayout)(nil),         // 4: beamers.display.v1.DisplayLayout
-	(*DisplayRegion)(nil),         // 5: beamers.display.v1.DisplayRegion
-	(*DisplayTheme)(nil),          // 6: beamers.display.v1.DisplayTheme
-	(*DisplaySession)(nil),        // 7: beamers.display.v1.DisplaySession
-	(*AcknowledgeRequest)(nil),    // 8: beamers.display.v1.AcknowledgeRequest
-	(*AcknowledgeResponse)(nil),   // 9: beamers.display.v1.AcknowledgeResponse
-	(*DisplayAcknowledgment)(nil), // 10: beamers.display.v1.DisplayAcknowledgment
-	(*timestamppb.Timestamp)(nil), // 11: google.protobuf.Timestamp
+	(StageTimerMode)(0),           // 0: beamers.display.v1.StageTimerMode
+	(TimerEmphasis)(0),            // 1: beamers.display.v1.TimerEmphasis
+	(*GetSnapshotRequest)(nil),    // 2: beamers.display.v1.GetSnapshotRequest
+	(*GetSnapshotResponse)(nil),   // 3: beamers.display.v1.GetSnapshotResponse
+	(*DisplaySnapshot)(nil),       // 4: beamers.display.v1.DisplaySnapshot
+	(*DisplayComposition)(nil),    // 5: beamers.display.v1.DisplayComposition
+	(*DisplayLayout)(nil),         // 6: beamers.display.v1.DisplayLayout
+	(*DisplayRegion)(nil),         // 7: beamers.display.v1.DisplayRegion
+	(*DisplayTheme)(nil),          // 8: beamers.display.v1.DisplayTheme
+	(*DisplaySession)(nil),        // 9: beamers.display.v1.DisplaySession
+	(*TimerThreshold)(nil),        // 10: beamers.display.v1.TimerThreshold
+	(*StageTimer)(nil),            // 11: beamers.display.v1.StageTimer
+	(*AcknowledgeRequest)(nil),    // 12: beamers.display.v1.AcknowledgeRequest
+	(*AcknowledgeResponse)(nil),   // 13: beamers.display.v1.AcknowledgeResponse
+	(*DisplayAcknowledgment)(nil), // 14: beamers.display.v1.DisplayAcknowledgment
+	(*timestamppb.Timestamp)(nil), // 15: google.protobuf.Timestamp
 }
 var file_beamers_display_v1_display_proto_depIdxs = []int32{
-	2,  // 0: beamers.display.v1.GetSnapshotResponse.snapshot:type_name -> beamers.display.v1.DisplaySnapshot
-	11, // 1: beamers.display.v1.DisplaySnapshot.server_time:type_name -> google.protobuf.Timestamp
-	7,  // 2: beamers.display.v1.DisplaySnapshot.sessions:type_name -> beamers.display.v1.DisplaySession
-	3,  // 3: beamers.display.v1.DisplaySnapshot.composition:type_name -> beamers.display.v1.DisplayComposition
-	4,  // 4: beamers.display.v1.DisplayComposition.layout:type_name -> beamers.display.v1.DisplayLayout
-	6,  // 5: beamers.display.v1.DisplayComposition.theme:type_name -> beamers.display.v1.DisplayTheme
-	5,  // 6: beamers.display.v1.DisplayLayout.regions:type_name -> beamers.display.v1.DisplayRegion
-	11, // 7: beamers.display.v1.DisplaySession.forecast_start:type_name -> google.protobuf.Timestamp
-	11, // 8: beamers.display.v1.DisplaySession.forecast_end:type_name -> google.protobuf.Timestamp
-	11, // 9: beamers.display.v1.DisplaySession.actual_start:type_name -> google.protobuf.Timestamp
-	11, // 10: beamers.display.v1.DisplaySession.actual_end:type_name -> google.protobuf.Timestamp
-	10, // 11: beamers.display.v1.AcknowledgeResponse.acknowledgment:type_name -> beamers.display.v1.DisplayAcknowledgment
-	11, // 12: beamers.display.v1.DisplayAcknowledgment.applied_at:type_name -> google.protobuf.Timestamp
-	0,  // 13: beamers.display.v1.DisplayService.GetSnapshot:input_type -> beamers.display.v1.GetSnapshotRequest
-	8,  // 14: beamers.display.v1.DisplayService.Acknowledge:input_type -> beamers.display.v1.AcknowledgeRequest
-	1,  // 15: beamers.display.v1.DisplayService.GetSnapshot:output_type -> beamers.display.v1.GetSnapshotResponse
-	9,  // 16: beamers.display.v1.DisplayService.Acknowledge:output_type -> beamers.display.v1.AcknowledgeResponse
-	15, // [15:17] is the sub-list for method output_type
-	13, // [13:15] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	4,  // 0: beamers.display.v1.GetSnapshotResponse.snapshot:type_name -> beamers.display.v1.DisplaySnapshot
+	15, // 1: beamers.display.v1.DisplaySnapshot.server_time:type_name -> google.protobuf.Timestamp
+	9,  // 2: beamers.display.v1.DisplaySnapshot.sessions:type_name -> beamers.display.v1.DisplaySession
+	5,  // 3: beamers.display.v1.DisplaySnapshot.composition:type_name -> beamers.display.v1.DisplayComposition
+	11, // 4: beamers.display.v1.DisplaySnapshot.stage_timer:type_name -> beamers.display.v1.StageTimer
+	6,  // 5: beamers.display.v1.DisplayComposition.layout:type_name -> beamers.display.v1.DisplayLayout
+	8,  // 6: beamers.display.v1.DisplayComposition.theme:type_name -> beamers.display.v1.DisplayTheme
+	7,  // 7: beamers.display.v1.DisplayLayout.regions:type_name -> beamers.display.v1.DisplayRegion
+	15, // 8: beamers.display.v1.DisplaySession.forecast_start:type_name -> google.protobuf.Timestamp
+	15, // 9: beamers.display.v1.DisplaySession.forecast_end:type_name -> google.protobuf.Timestamp
+	15, // 10: beamers.display.v1.DisplaySession.actual_start:type_name -> google.protobuf.Timestamp
+	15, // 11: beamers.display.v1.DisplaySession.actual_end:type_name -> google.protobuf.Timestamp
+	1,  // 12: beamers.display.v1.TimerThreshold.emphasis:type_name -> beamers.display.v1.TimerEmphasis
+	0,  // 13: beamers.display.v1.StageTimer.mode:type_name -> beamers.display.v1.StageTimerMode
+	15, // 14: beamers.display.v1.StageTimer.anchor:type_name -> google.protobuf.Timestamp
+	10, // 15: beamers.display.v1.StageTimer.thresholds:type_name -> beamers.display.v1.TimerThreshold
+	15, // 16: beamers.display.v1.StageTimer.forecast_end:type_name -> google.protobuf.Timestamp
+	14, // 17: beamers.display.v1.AcknowledgeResponse.acknowledgment:type_name -> beamers.display.v1.DisplayAcknowledgment
+	15, // 18: beamers.display.v1.DisplayAcknowledgment.applied_at:type_name -> google.protobuf.Timestamp
+	2,  // 19: beamers.display.v1.DisplayService.GetSnapshot:input_type -> beamers.display.v1.GetSnapshotRequest
+	12, // 20: beamers.display.v1.DisplayService.Acknowledge:input_type -> beamers.display.v1.AcknowledgeRequest
+	3,  // 21: beamers.display.v1.DisplayService.GetSnapshot:output_type -> beamers.display.v1.GetSnapshotResponse
+	13, // 22: beamers.display.v1.DisplayService.Acknowledge:output_type -> beamers.display.v1.AcknowledgeResponse
+	21, // [21:23] is the sub-list for method output_type
+	19, // [19:21] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_beamers_display_v1_display_proto_init() }
@@ -1222,13 +1503,14 @@ func file_beamers_display_v1_display_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_beamers_display_v1_display_proto_rawDesc), len(file_beamers_display_v1_display_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   11,
+			NumEnums:      2,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_beamers_display_v1_display_proto_goTypes,
 		DependencyIndexes: file_beamers_display_v1_display_proto_depIdxs,
+		EnumInfos:         file_beamers_display_v1_display_proto_enumTypes,
 		MessageInfos:      file_beamers_display_v1_display_proto_msgTypes,
 	}.Build()
 	File_beamers_display_v1_display_proto = out.File

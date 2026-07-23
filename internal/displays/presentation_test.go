@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/displayviews"
+	"github.com/dotwaffle/beamers/internal/stagetimer"
 )
 
 func TestDisplayPageRendersEveryConfiguredBuiltInRegion(t *testing.T) {
@@ -80,5 +81,52 @@ func TestDisplayNowNextExcludesCanceledSessions(t *testing.T) {
 	}
 	if len(sessions) != 3 {
 		t.Errorf("Now/Next filtering changed the full Display rotation: %+v", sessions)
+	}
+}
+
+func TestDisplayPageServerRendersStageTimerState(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2099, 8, 21, 8, 0, 30, 0, time.UTC)
+	composition, err := displayviews.Compose(
+		displayviews.StageTimer,
+		false,
+		displayviews.DefaultConfiguration(),
+	)
+	if err != nil {
+		t.Fatalf("compose Stage Timer: %v", err)
+	}
+	snapshot := Snapshot{
+		ProtocolVersion: "beamers.display.v1",
+		AssetVersion:    "test-asset",
+		ServerTime:      now,
+		Display:         Display{Name: "Stage Right"},
+		EventName:       "Test Event",
+		ViewKey:         displayviews.StageTimer,
+		Composition:     composition,
+		StageTimer: &StageTimer{
+			SessionID: 42,
+			Title:     "Closing Keynote",
+			Mode:      stagetimer.Countdown,
+			Anchor:    now.Add(30 * time.Second),
+			Thresholds: []stagetimer.Threshold{
+				{Remaining: time.Minute, Emphasis: stagetimer.Urgent},
+			},
+		},
+	}
+	var rendered strings.Builder
+	if err := DisplayPage(snapshot).Render(context.Background(), &rendered); err != nil {
+		t.Fatalf("render Stage Timer page: %v", err)
+	}
+	for _, want := range []string{
+		"Closing Keynote",
+		"Remaining",
+		"00:30",
+		`data-timer-emphasis="urgent"`,
+		"Urgent",
+	} {
+		if !strings.Contains(rendered.String(), want) {
+			t.Errorf("Stage Timer page missing %q: %s", want, rendered.String())
+		}
 	}
 }

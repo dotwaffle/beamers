@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -35,12 +36,17 @@ type DisplaySessionState struct {
 	Speaker            string
 	PublicDetails      string
 	AudienceVisibility string
+	TimerTitle         string
 	ForecastStart      time.Time
 	ForecastEnd        time.Time
 	Lifecycle          string
 	LiveStateRevision  int
 	ActualStart        time.Time
 	ActualEnd          *time.Time
+	Type               string
+	TimingPolicy       string
+	RunPlannedStart    time.Time
+	RunPlannedEnd      time.Time
 	LocationIDs        []int
 	LaneIDs            []int
 	TrackIDs           []int
@@ -143,7 +149,10 @@ func loadDisplaySession(
 	}
 	result := DisplaySessionState{
 		ID: published.ID, AudienceVisibility: published.AudienceVisibility,
+		TimerTitle:    published.Title,
 		ForecastStart: published.PlannedStart, ForecastEnd: published.PlannedEnd,
+		Type: published.Type, TimingPolicy: published.TimingPolicy,
+		RunPlannedStart: published.PlannedStart, RunPlannedEnd: published.PlannedEnd,
 		Lifecycle: identity.Lifecycle.String(), LiveStateRevision: identity.LiveStateRevision,
 		LocationIDs: published.LocationIDs, LaneIDs: published.LaneIDs, TrackIDs: published.TrackIDs,
 	}
@@ -159,7 +168,15 @@ func loadDisplaySession(
 		return DisplaySessionState{}, opaqueError("load Display Session Run", err)
 	}
 	if err == nil {
+		var snapshot SessionRunSnapshot
+		if decodeErr := json.Unmarshal([]byte(run.SnapshotJSON), &snapshot); decodeErr != nil {
+			return DisplaySessionState{}, opaqueError("decode Display Session Run Snapshot", decodeErr)
+		}
 		result.ActualStart = run.ActualStart
+		result.Type = snapshot.Type
+		result.TimingPolicy = snapshot.TimingPolicy
+		result.RunPlannedStart = snapshot.PlannedStart
+		result.RunPlannedEnd = snapshot.PlannedEnd
 		if !run.ActualEnd.IsZero() {
 			actualEnd := run.ActualEnd
 			result.ActualEnd = &actualEnd

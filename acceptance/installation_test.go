@@ -1054,6 +1054,7 @@ func TestProducerConfiguresAccessibleBuiltInDisplayViews(t *testing.T) {
 		`"branding":"FOSDEM"`,
 		`"background":"variable-media"`,
 		`"scrim_opacity":85`,
+		`"timer_thresholds":[{"remaining_seconds":300,"emphasis":"attention"},{"remaining_seconds":60,"emphasis":"urgent"}]`,
 	} {
 		if !strings.Contains(configured.body, want) {
 			t.Errorf("configured Display Views missing %s: %s", want, configured.body)
@@ -1374,7 +1375,7 @@ func TestEventOverviewRendersCommittedPublicSchedule(t *testing.T) {
 	}
 	for _, want := range []string{
 		"GetSnapshot",
-		"renderSnapshot(snapshot)",
+		"renderSnapshot(snapshot, offset)",
 		"Acknowledge",
 		"new EventSource",
 		"controlledReload",
