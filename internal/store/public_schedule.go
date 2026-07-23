@@ -16,14 +16,16 @@ import (
 
 // PublicScheduleState contains only attendee-safe current Published data.
 type PublicScheduleState struct {
-	EventID         int
-	EventName       string
-	Timezone        string
-	ContentLanguage string
-	Locations       []PublicScheduleLocation
-	Lanes           []PublicScheduleLane
-	Tracks          []PublicScheduleTrack
-	Sessions        []PublicScheduleSession
+	EventID          int
+	EventName        string
+	Timezone         string
+	EventLocale      string
+	ContentLanguage  string
+	EventDayBoundary string
+	Locations        []PublicScheduleLocation
+	Lanes            []PublicScheduleLane
+	Tracks           []PublicScheduleTrack
+	Sessions         []PublicScheduleSession
 }
 
 // PublicScheduleLocation identifies one attendee-visible Location.
@@ -78,7 +80,8 @@ func (installationStore *SQLite) LoadPublicSchedule(ctx context.Context) (Public
 	}
 	result := PublicScheduleState{
 		EventID: activeEvent.ID, EventName: activeEvent.Name,
-		Timezone: activeEvent.Timezone, ContentLanguage: activeEvent.ContentLanguage,
+		Timezone: activeEvent.Timezone, EventLocale: activeEvent.EventLocale,
+		ContentLanguage: activeEvent.ContentLanguage, EventDayBoundary: activeEvent.EventDayBoundary,
 	}
 	if err := installationStore.loadPublicScheduleNames(internalContext, &result); err != nil {
 		return PublicScheduleState{}, err

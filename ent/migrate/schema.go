@@ -288,7 +288,7 @@ var (
 	// ImportReferencesColumns holds the columns for the "import_references" table.
 	ImportReferencesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
-		{Name: "source_format", Type: field.TypeEnum, Enums: []string{"CSV"}},
+		{Name: "source_format", Type: field.TypeEnum, Enums: []string{"CSV", "ICalendar"}},
 		{Name: "record_type", Type: field.TypeEnum, Enums: []string{"Session", "CompetitionEntry"}},
 		{Name: "external_key", Type: field.TypeString, Size: 500},
 		{Name: "target_type", Type: field.TypeString, Size: 100},

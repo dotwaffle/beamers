@@ -166,6 +166,26 @@ func TestActivationPreflightUsesEventLocalDateForDateWarnings(t *testing.T) {
 	}
 }
 
+func TestActivationPreflightShowsResolvedEventDayBoundary(t *testing.T) {
+	storage, administrator, eventID := openActivationTest(t)
+	publishMinimalRundown(t, storage, administrator, eventID, "boundary")
+	service := newActivationService(t, storage)
+
+	preflight, err := service.Preflight(t.Context(), administrator, eventID)
+	if err != nil {
+		t.Fatalf("Activation Preflight: %v", err)
+	}
+	for _, warning := range preflight.Warnings {
+		if warning.Code == "event_day_boundary_resolved" {
+			if warning.Message != "Event Day Boundary for 2026-08-21 resolves to 2026-08-21T06:00:00+02:00" {
+				t.Errorf("Event Day Boundary warning = %q", warning.Message)
+			}
+			return
+		}
+	}
+	t.Errorf("Activation Preflight warnings = %+v, want Event Day Boundary resolution", preflight.Warnings)
+}
+
 func TestActivationRequiresAdministratorAndRejectsStalePreflight(t *testing.T) {
 	storage, administrator, eventID := openActivationTest(t)
 	publishMinimalRundown(t, storage, administrator, eventID, "main")

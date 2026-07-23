@@ -23,7 +23,7 @@ func (ImportReference) Policy() ent.Policy {
 func (ImportReference) Fields() []ent.Field {
 	return []ent.Field{
 		field.Int("event_id").Immutable(),
-		field.Enum("source_format").Values("CSV").Immutable(),
+		field.Enum("source_format").Values("CSV", "ICalendar").Immutable(),
 		field.Enum("record_type").Values("Session", "CompetitionEntry").Immutable(),
 		field.String("external_key").NotEmpty().MaxLen(500).Immutable(),
 		field.String("target_type").NotEmpty().MaxLen(100).Immutable(),

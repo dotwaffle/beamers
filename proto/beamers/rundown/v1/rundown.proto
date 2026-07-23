@@ -18,6 +18,45 @@ service RundownService {
   rpc GetCrewRundown(GetCrewRundownRequest) returns (GetCrewRundownResponse);
   rpc PreviewCSVImport(PreviewCSVImportRequest) returns (PreviewCSVImportResponse);
   rpc ImportCSV(ImportCSVRequest) returns (ImportCSVResponse);
+  rpc PreviewICalendarImport(PreviewICalendarImportRequest) returns (PreviewICalendarImportResponse);
+  rpc ImportICalendar(ImportICalendarRequest) returns (ImportICalendarResponse);
+}
+
+message ICalendarOccurrenceChoice {
+  string uid = 1;
+  string occurrence = 2;
+  string property = 3;
+}
+
+message PreviewICalendarImportRequest {
+  int64 event_id = 1;
+  bytes icalendar_data = 2;
+  repeated ICalendarOccurrenceChoice choices = 3;
+}
+
+message PreviewICalendarImportResponse {
+  int64 draft_revision = 1;
+  string fingerprint = 2;
+  repeated CSVImportProposal proposals = 3;
+  repeated string warnings = 4;
+  repeated string unsupported_fields = 5;
+  repeated string applied_defaults = 6;
+  repeated string validation_failures = 7;
+}
+
+message ImportICalendarRequest {
+  int64 event_id = 1;
+  string command_id = 2;
+  int64 expected_draft_revision = 3;
+  bytes icalendar_data = 4;
+  repeated ICalendarOccurrenceChoice choices = 5;
+  string fingerprint = 6;
+  repeated string proposal_ids = 7;
+}
+
+message ImportICalendarResponse {
+  int64 draft_revision = 1;
+  repeated DraftChange changes = 2;
 }
 
 message CSVFieldMapping {

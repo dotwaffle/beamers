@@ -12,6 +12,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/command"
+	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -289,6 +290,25 @@ func validPublishedSession(session store.PublishedSession) bool {
 
 func operationalWarnings(state store.ActivationPreflightState, now time.Time) []Finding {
 	var warnings []Finding
+	zone, zoneErr := time.LoadLocation(state.Timezone)
+	if zoneErr == nil {
+		seenDates := make(map[string]struct{})
+		for _, session := range state.PublishedRundown.Sessions {
+			local := session.PlannedStart.In(zone)
+			date := local.Format(time.DateOnly)
+			if _, exists := seenDates[date]; exists {
+				continue
+			}
+			seenDates[date] = struct{}{}
+			resolved, boundaryErr := events.ResolveDayBoundary(local, zone, state.EventDayBoundary)
+			if boundaryErr == nil {
+				warnings = append(warnings, Finding{
+					Code:    "event_day_boundary_resolved",
+					Message: fmt.Sprintf("Event Day Boundary for %s resolves to %s", date, resolved.In(zone).Format(time.RFC3339)),
+				})
+			}
+		}
+	}
 	sessionsByLane := make(map[int]int)
 	for _, session := range state.PublishedRundown.Sessions {
 		for _, laneID := range session.LaneIDs {

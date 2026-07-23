@@ -88,7 +88,8 @@ type SourceFormat string
 
 // SourceFormat values.
 const (
-	SourceFormatCSV SourceFormat = "CSV"
+	SourceFormatCSV       SourceFormat = "CSV"
+	SourceFormatICalendar SourceFormat = "ICalendar"
 )
 
 func (sf SourceFormat) String() string {
@@ -98,7 +99,7 @@ func (sf SourceFormat) String() string {
 // SourceFormatValidator is a validator for the "source_format" field enum values. It is called by the builders before save.
 func SourceFormatValidator(sf SourceFormat) error {
 	switch sf {
-	case SourceFormatCSV:
+	case SourceFormatCSV, SourceFormatICalendar:
 		return nil
 	default:
 		return fmt.Errorf("importreference: invalid enum value for source_format field: %q", sf)

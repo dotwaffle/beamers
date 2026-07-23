@@ -302,7 +302,9 @@ func TestPublicScheduleListsOnlyPublicSessions(t *testing.T) {
 	}
 	page := string(body)
 	for _, want := range []string{
-		`<html lang="en-GB">`,
+		`<html lang="en-GB" data-locale="en-GB">`,
+		"Program day 2099-08-21",
+		"Event timezone: Europe/Berlin",
 		"Opening Keynote",
 		"2099-08-21T10:00:00+02:00",
 		"Main Hall",
@@ -1396,6 +1398,92 @@ func TestProducerImportsCSVAsReviewedDraftProposals(t *testing.T) {
 	}))
 	if connect.CodeOf(malformedErr) != connect.CodeInvalidArgument {
 		t.Errorf("malformed CSV error = %v, want InvalidArgument", malformedErr)
+	}
+	server.stop(t)
+}
+
+func TestProducerImportsICalendarWithEventTimeReview(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	client := rundownv1connect.NewRundownServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	calendar := []byte("BEGIN:VCALENDAR\r\n" +
+		"VERSION:2.0\r\n" +
+		"X-WR-TIMEZONE:Europe/Berlin\r\n" +
+		"BEGIN:VEVENT\r\n" +
+		"UID:fosdem-style-1\r\n" +
+		"DTSTART;TZID=Europe/Berlin:20990821T140000\r\n" +
+		"DTEND;TZID=Europe/Berlin:20990821T150000\r\n" +
+		"SUMMARY:Imported Café & λ\r\n" +
+		"DESCRIPTION:Line one\\nline two\r\n" +
+		"LOCATION:Main Lane\r\n" +
+		"CATEGORIES:General\r\n" +
+		"URL:https://fosdem.org/example\r\n" +
+		"END:VEVENT\r\n" +
+		"END:VCALENDAR\r\n")
+	preview, err := client.PreviewICalendarImport(t.Context(), connect.NewRequest(&rundownv1.PreviewICalendarImportRequest{
+		EventId: 1, IcalendarData: calendar,
+	}))
+	if err != nil || len(preview.Msg.GetProposals()) != 1 ||
+		preview.Msg.GetProposals()[0].GetClassification() != "Addition" ||
+		!slices.Contains(preview.Msg.GetUnsupportedFields(), "URL") || len(preview.Msg.GetAppliedDefaults()) == 0 {
+		t.Fatalf("Preview iCalendar Import = %+v, %v", preview, err)
+	}
+	request := &rundownv1.ImportICalendarRequest{
+		EventId: 1, CommandId: "import-icalendar-session",
+		ExpectedDraftRevision: preview.Msg.GetDraftRevision(), IcalendarData: calendar,
+		Fingerprint: preview.Msg.GetFingerprint(), ProposalIds: []string{preview.Msg.GetProposals()[0].GetId()},
+	}
+	imported, err := client.ImportICalendar(t.Context(), connect.NewRequest(request))
+	if err != nil || len(imported.Msg.GetChanges()) != 1 || imported.Msg.GetChanges()[0].GetKind() != "CreateSession" {
+		t.Fatalf("Import iCalendar = %+v, %v", imported, err)
+	}
+	retried, err := client.ImportICalendar(t.Context(), connect.NewRequest(request))
+	if err != nil || retried.Msg.GetDraftRevision() != imported.Msg.GetDraftRevision() {
+		t.Fatalf("exact iCalendar Import retry = %+v, %v", retried, err)
+	}
+	published, err := client.GetCrewRundown(t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}))
+	if err != nil {
+		t.Fatalf("Get Published Rundown after iCalendar Import: %v", err)
+	}
+	for _, session := range published.Msg.GetSessions() {
+		if session.GetTitle() == "Imported Café & λ" {
+			t.Error("iCalendar Import mutated Published state")
+		}
+	}
+
+	ambiguous := []byte("BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:ambiguous\n" +
+		"DTSTART;TZID=Europe/Berlin:20261025T023000\nDTEND;TZID=Europe/Berlin:20261025T034500\n" +
+		"SUMMARY:Repeated hour\nLOCATION:Main Lane\nEND:VEVENT\nEND:VCALENDAR\n")
+	unresolved, err := client.PreviewICalendarImport(t.Context(), connect.NewRequest(&rundownv1.PreviewICalendarImportRequest{
+		EventId: 1, IcalendarData: ambiguous,
+	}))
+	if err != nil || len(unresolved.Msg.GetProposals()) != 1 ||
+		unresolved.Msg.GetProposals()[0].GetClassification() != "Unresolved" ||
+		!strings.Contains(unresolved.Msg.GetProposals()[0].GetMessage(), "choose Earlier or Later") {
+		t.Fatalf("ambiguous iCalendar preview = %+v, %v", unresolved, err)
+	}
+	resolved, err := client.PreviewICalendarImport(t.Context(), connect.NewRequest(&rundownv1.PreviewICalendarImportRequest{
+		EventId: 1, IcalendarData: ambiguous,
+		Choices: []*rundownv1.ICalendarOccurrenceChoice{{
+			Uid: "ambiguous", Property: "DTSTART", Occurrence: "Later",
+		}},
+	}))
+	if err != nil || len(resolved.Msg.GetProposals()) != 1 || resolved.Msg.GetProposals()[0].GetClassification() != "Addition" {
+		t.Fatalf("resolved repeated-hour preview = %+v, %v", resolved, err)
+	}
+
+	nonexistent := []byte("BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:nonexistent\n" +
+		"DTSTART;TZID=Europe/Berlin:20260329T023000\nDTEND;TZID=Europe/Berlin:20260329T034500\n" +
+		"SUMMARY:Missing hour\nLOCATION:Main Lane\nEND:VEVENT\nEND:VCALENDAR\n")
+	blocked, err := client.PreviewICalendarImport(t.Context(), connect.NewRequest(&rundownv1.PreviewICalendarImportRequest{
+		EventId: 1, IcalendarData: nonexistent,
+	}))
+	if err != nil || len(blocked.Msg.GetProposals()) != 1 ||
+		blocked.Msg.GetProposals()[0].GetClassification() != "Unresolved" ||
+		!strings.Contains(blocked.Msg.GetProposals()[0].GetMessage(), "does not exist") {
+		t.Fatalf("nonexistent-time iCalendar preview = %+v, %v", blocked, err)
 	}
 	server.stop(t)
 }

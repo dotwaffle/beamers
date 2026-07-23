@@ -23,6 +23,7 @@ type ActivationPreflightState struct {
 	PlannedStartDate     string
 	PlannedEndDate       string
 	Timezone             string
+	EventDayBoundary     string
 	PublishedRundown     CrewRundownState
 }
 
@@ -73,7 +74,7 @@ func loadActivationPreflight(
 		EventID: eventID, EventRevision: found.Revision,
 		ActivationGeneration: routing.ActivationGeneration,
 		PlannedStartDate:     found.PlannedStartDate, PlannedEndDate: found.PlannedEndDate,
-		Timezone: found.Timezone, PublishedRundown: published,
+		Timezone: found.Timezone, EventDayBoundary: found.EventDayBoundary, PublishedRundown: published,
 	}, nil
 }
 

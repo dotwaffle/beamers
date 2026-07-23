@@ -151,6 +151,15 @@ func validateTransportRequest(message any) error {
 		}
 		_, err := nonnegativeInt64("expected_draft_revision", typed.GetExpectedDraftRevision())
 		return err
+	case *rundownv1.PreviewICalendarImportRequest:
+		_, err := positiveInt64("event_id", typed.GetEventId())
+		return err
+	case *rundownv1.ImportICalendarRequest:
+		if _, err := positiveInt64("event_id", typed.GetEventId()); err != nil {
+			return err
+		}
+		_, err := nonnegativeInt64("expected_draft_revision", typed.GetExpectedDraftRevision())
+		return err
 	default:
 		return errors.New("unsupported Rundown request")
 	}
@@ -180,14 +189,93 @@ func (handler *Handler) PreviewCSVImport(
 		IgnoredFields: preview.IgnoredFields, ValidationFailures: preview.ValidationFailures,
 	}
 	for _, proposal := range preview.Proposals {
-		response.Proposals = append(response.Proposals, &rundownv1.CSVImportProposal{
-			Id: proposal.ID, RowNumber: int64(proposal.RowNumber), RecordType: proposal.RecordType,
-			ExternalKey: proposal.ExternalKey, Classification: proposal.Classification,
-			SessionId: int64(proposal.SessionID), Field: proposal.Field,
-			CurrentValue: proposal.CurrentValue, ProposedValue: proposal.ProposedValue, Message: proposal.Message,
-		})
+		response.Proposals = append(response.Proposals, importProposal(proposal))
 	}
 	return connect.NewResponse(response), nil
+}
+
+// PreviewICalendarImport maps supported iCalendar facts into Draft proposals.
+func (handler *Handler) PreviewICalendarImport(
+	ctx context.Context,
+	request *connect.Request[rundownv1.PreviewICalendarImportRequest],
+) (*connect.Response[rundownv1.PreviewICalendarImportResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	eventID, err := positiveInt64("event_id", request.Msg.GetEventId())
+	if err != nil {
+		return nil, invalidArgument(err)
+	}
+	preview, err := handler.queries.PreviewICalendarImport(ctx, actor, rundown.ICalendarImportPreviewInput{
+		EventID: eventID, Data: string(request.Msg.GetIcalendarData()),
+		Choices: icalendarChoices(request.Msg.GetChoices()),
+	})
+	if err != nil {
+		return nil, err
+	}
+	response := &rundownv1.PreviewICalendarImportResponse{
+		DraftRevision: int64(preview.DraftRevision), Fingerprint: preview.Fingerprint,
+		Warnings: preview.Warnings, UnsupportedFields: preview.UnsupportedFields,
+		AppliedDefaults: preview.AppliedDefaults, ValidationFailures: preview.ValidationFailures,
+	}
+	for _, proposal := range preview.Proposals {
+		response.Proposals = append(response.Proposals, importProposal(proposal))
+	}
+	return connect.NewResponse(response), nil
+}
+
+// ImportICalendar applies selected iCalendar proposals to shared Draft state.
+func (handler *Handler) ImportICalendar(
+	ctx context.Context,
+	request *connect.Request[rundownv1.ImportICalendarRequest],
+) (*connect.Response[rundownv1.ImportICalendarResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	eventID, err := positiveInt64("event_id", request.Msg.GetEventId())
+	if err != nil {
+		return nil, invalidArgument(err)
+	}
+	revision, err := nonnegativeInt64("expected_draft_revision", request.Msg.GetExpectedDraftRevision())
+	if err != nil {
+		return nil, invalidArgument(err)
+	}
+	result, err := handler.commands.ImportICalendar(ctx, actor, rundown.ICalendarImportInput{
+		EventID: eventID, CommandID: request.Msg.GetCommandId(), ExpectedDraftRevision: revision,
+		Data: string(request.Msg.GetIcalendarData()), Choices: icalendarChoices(request.Msg.GetChoices()),
+		Fingerprint: request.Msg.GetFingerprint(), ProposalIDs: request.Msg.GetProposalIds(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	response := &rundownv1.ImportICalendarResponse{DraftRevision: int64(result.DraftRevision)}
+	for _, change := range result.Changes {
+		response.Changes = append(response.Changes, draftChange(change))
+	}
+	return connect.NewResponse(response), nil
+}
+
+func icalendarChoices(values []*rundownv1.ICalendarOccurrenceChoice) []rundown.ICalendarOccurrenceChoice {
+	result := make([]rundown.ICalendarOccurrenceChoice, 0, len(values))
+	for _, value := range values {
+		if value != nil {
+			result = append(result, rundown.ICalendarOccurrenceChoice{
+				UID: value.GetUid(), Occurrence: value.GetOccurrence(), Property: value.GetProperty(),
+			})
+		}
+	}
+	return result
+}
+
+func importProposal(proposal rundown.CSVImportProposal) *rundownv1.CSVImportProposal {
+	return &rundownv1.CSVImportProposal{
+		Id: proposal.ID, RowNumber: int64(proposal.RowNumber), RecordType: proposal.RecordType,
+		ExternalKey: proposal.ExternalKey, Classification: proposal.Classification,
+		SessionId: int64(proposal.SessionID), Field: proposal.Field,
+		CurrentValue: proposal.CurrentValue, ProposedValue: proposal.ProposedValue, Message: proposal.Message,
+	}
 }
 
 // ImportCSV applies selected proposals to shared Draft state.

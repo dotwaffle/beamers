@@ -59,6 +59,12 @@ const (
 	// RundownServiceImportCSVProcedure is the fully-qualified name of the RundownService's ImportCSV
 	// RPC.
 	RundownServiceImportCSVProcedure = "/beamers.rundown.v1.RundownService/ImportCSV"
+	// RundownServicePreviewICalendarImportProcedure is the fully-qualified name of the RundownService's
+	// PreviewICalendarImport RPC.
+	RundownServicePreviewICalendarImportProcedure = "/beamers.rundown.v1.RundownService/PreviewICalendarImport"
+	// RundownServiceImportICalendarProcedure is the fully-qualified name of the RundownService's
+	// ImportICalendar RPC.
+	RundownServiceImportICalendarProcedure = "/beamers.rundown.v1.RundownService/ImportICalendar"
 )
 
 // RundownServiceClient is a client for the beamers.rundown.v1.RundownService service.
@@ -72,6 +78,8 @@ type RundownServiceClient interface {
 	GetCrewRundown(context.Context, *connect.Request[v1.GetCrewRundownRequest]) (*connect.Response[v1.GetCrewRundownResponse], error)
 	PreviewCSVImport(context.Context, *connect.Request[v1.PreviewCSVImportRequest]) (*connect.Response[v1.PreviewCSVImportResponse], error)
 	ImportCSV(context.Context, *connect.Request[v1.ImportCSVRequest]) (*connect.Response[v1.ImportCSVResponse], error)
+	PreviewICalendarImport(context.Context, *connect.Request[v1.PreviewICalendarImportRequest]) (*connect.Response[v1.PreviewICalendarImportResponse], error)
+	ImportICalendar(context.Context, *connect.Request[v1.ImportICalendarRequest]) (*connect.Response[v1.ImportICalendarResponse], error)
 }
 
 // NewRundownServiceClient constructs a client for the beamers.rundown.v1.RundownService service. By
@@ -139,20 +147,34 @@ func NewRundownServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(rundownServiceMethods.ByName("ImportCSV")),
 			connect.WithClientOptions(opts...),
 		),
+		previewICalendarImport: connect.NewClient[v1.PreviewICalendarImportRequest, v1.PreviewICalendarImportResponse](
+			httpClient,
+			baseURL+RundownServicePreviewICalendarImportProcedure,
+			connect.WithSchema(rundownServiceMethods.ByName("PreviewICalendarImport")),
+			connect.WithClientOptions(opts...),
+		),
+		importICalendar: connect.NewClient[v1.ImportICalendarRequest, v1.ImportICalendarResponse](
+			httpClient,
+			baseURL+RundownServiceImportICalendarProcedure,
+			connect.WithSchema(rundownServiceMethods.ByName("ImportICalendar")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // rundownServiceClient implements RundownServiceClient.
 type rundownServiceClient struct {
-	editDraft           *connect.Client[v1.EditDraftRequest, v1.EditDraftResponse]
-	deleteDraftSession  *connect.Client[v1.DeleteDraftSessionRequest, v1.DeleteDraftSessionResponse]
-	discardDraftChanges *connect.Client[v1.DiscardDraftChangesRequest, v1.DiscardDraftChangesResponse]
-	revertDraftChange   *connect.Client[v1.RevertDraftChangeRequest, v1.RevertDraftChangeResponse]
-	publishPreview      *connect.Client[v1.PublishPreviewRequest, v1.PublishPreviewResponse]
-	publish             *connect.Client[v1.PublishRequest, v1.PublishResponse]
-	getCrewRundown      *connect.Client[v1.GetCrewRundownRequest, v1.GetCrewRundownResponse]
-	previewCSVImport    *connect.Client[v1.PreviewCSVImportRequest, v1.PreviewCSVImportResponse]
-	importCSV           *connect.Client[v1.ImportCSVRequest, v1.ImportCSVResponse]
+	editDraft              *connect.Client[v1.EditDraftRequest, v1.EditDraftResponse]
+	deleteDraftSession     *connect.Client[v1.DeleteDraftSessionRequest, v1.DeleteDraftSessionResponse]
+	discardDraftChanges    *connect.Client[v1.DiscardDraftChangesRequest, v1.DiscardDraftChangesResponse]
+	revertDraftChange      *connect.Client[v1.RevertDraftChangeRequest, v1.RevertDraftChangeResponse]
+	publishPreview         *connect.Client[v1.PublishPreviewRequest, v1.PublishPreviewResponse]
+	publish                *connect.Client[v1.PublishRequest, v1.PublishResponse]
+	getCrewRundown         *connect.Client[v1.GetCrewRundownRequest, v1.GetCrewRundownResponse]
+	previewCSVImport       *connect.Client[v1.PreviewCSVImportRequest, v1.PreviewCSVImportResponse]
+	importCSV              *connect.Client[v1.ImportCSVRequest, v1.ImportCSVResponse]
+	previewICalendarImport *connect.Client[v1.PreviewICalendarImportRequest, v1.PreviewICalendarImportResponse]
+	importICalendar        *connect.Client[v1.ImportICalendarRequest, v1.ImportICalendarResponse]
 }
 
 // EditDraft calls beamers.rundown.v1.RundownService.EditDraft.
@@ -200,6 +222,16 @@ func (c *rundownServiceClient) ImportCSV(ctx context.Context, req *connect.Reque
 	return c.importCSV.CallUnary(ctx, req)
 }
 
+// PreviewICalendarImport calls beamers.rundown.v1.RundownService.PreviewICalendarImport.
+func (c *rundownServiceClient) PreviewICalendarImport(ctx context.Context, req *connect.Request[v1.PreviewICalendarImportRequest]) (*connect.Response[v1.PreviewICalendarImportResponse], error) {
+	return c.previewICalendarImport.CallUnary(ctx, req)
+}
+
+// ImportICalendar calls beamers.rundown.v1.RundownService.ImportICalendar.
+func (c *rundownServiceClient) ImportICalendar(ctx context.Context, req *connect.Request[v1.ImportICalendarRequest]) (*connect.Response[v1.ImportICalendarResponse], error) {
+	return c.importICalendar.CallUnary(ctx, req)
+}
+
 // RundownServiceHandler is an implementation of the beamers.rundown.v1.RundownService service.
 type RundownServiceHandler interface {
 	EditDraft(context.Context, *connect.Request[v1.EditDraftRequest]) (*connect.Response[v1.EditDraftResponse], error)
@@ -211,6 +243,8 @@ type RundownServiceHandler interface {
 	GetCrewRundown(context.Context, *connect.Request[v1.GetCrewRundownRequest]) (*connect.Response[v1.GetCrewRundownResponse], error)
 	PreviewCSVImport(context.Context, *connect.Request[v1.PreviewCSVImportRequest]) (*connect.Response[v1.PreviewCSVImportResponse], error)
 	ImportCSV(context.Context, *connect.Request[v1.ImportCSVRequest]) (*connect.Response[v1.ImportCSVResponse], error)
+	PreviewICalendarImport(context.Context, *connect.Request[v1.PreviewICalendarImportRequest]) (*connect.Response[v1.PreviewICalendarImportResponse], error)
+	ImportICalendar(context.Context, *connect.Request[v1.ImportICalendarRequest]) (*connect.Response[v1.ImportICalendarResponse], error)
 }
 
 // NewRundownServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -274,6 +308,18 @@ func NewRundownServiceHandler(svc RundownServiceHandler, opts ...connect.Handler
 		connect.WithSchema(rundownServiceMethods.ByName("ImportCSV")),
 		connect.WithHandlerOptions(opts...),
 	)
+	rundownServicePreviewICalendarImportHandler := connect.NewUnaryHandler(
+		RundownServicePreviewICalendarImportProcedure,
+		svc.PreviewICalendarImport,
+		connect.WithSchema(rundownServiceMethods.ByName("PreviewICalendarImport")),
+		connect.WithHandlerOptions(opts...),
+	)
+	rundownServiceImportICalendarHandler := connect.NewUnaryHandler(
+		RundownServiceImportICalendarProcedure,
+		svc.ImportICalendar,
+		connect.WithSchema(rundownServiceMethods.ByName("ImportICalendar")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/beamers.rundown.v1.RundownService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case RundownServiceEditDraftProcedure:
@@ -294,6 +340,10 @@ func NewRundownServiceHandler(svc RundownServiceHandler, opts ...connect.Handler
 			rundownServicePreviewCSVImportHandler.ServeHTTP(w, r)
 		case RundownServiceImportCSVProcedure:
 			rundownServiceImportCSVHandler.ServeHTTP(w, r)
+		case RundownServicePreviewICalendarImportProcedure:
+			rundownServicePreviewICalendarImportHandler.ServeHTTP(w, r)
+		case RundownServiceImportICalendarProcedure:
+			rundownServiceImportICalendarHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -337,4 +387,12 @@ func (UnimplementedRundownServiceHandler) PreviewCSVImport(context.Context, *con
 
 func (UnimplementedRundownServiceHandler) ImportCSV(context.Context, *connect.Request[v1.ImportCSVRequest]) (*connect.Response[v1.ImportCSVResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.rundown.v1.RundownService.ImportCSV is not implemented"))
+}
+
+func (UnimplementedRundownServiceHandler) PreviewICalendarImport(context.Context, *connect.Request[v1.PreviewICalendarImportRequest]) (*connect.Response[v1.PreviewICalendarImportResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.rundown.v1.RundownService.PreviewICalendarImport is not implemented"))
+}
+
+func (UnimplementedRundownServiceHandler) ImportICalendar(context.Context, *connect.Request[v1.ImportICalendarRequest]) (*connect.Response[v1.ImportICalendarResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.rundown.v1.RundownService.ImportICalendar is not implemented"))
 }

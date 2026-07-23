@@ -2,7 +2,7 @@ package schedule
 
 templ Page(snapshot Snapshot) {
 	<!doctype html>
-	<html lang={ snapshot.Language }>
+	<html lang={ snapshot.Language } data-locale={ snapshot.Locale }>
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -12,11 +12,20 @@ templ Page(snapshot Snapshot) {
 		<body>
 			<main>
 				<h1>{ snapshot.EventName } Schedule</h1>
-				for _, session := range snapshot.Sessions {
-					<article>
-						<h2><a href={ session.Path() }>{ session.Title }</a></h2>
-						@SessionDetails(session)
-					</article>
+				<p>Event timezone: { snapshot.Timezone }</p>
+				for _, day := range snapshot.Days {
+					<section>
+						<h2>Program day { day.Date }</h2>
+						for _, session := range day.Sessions {
+							if session.CalendarDateRollover {
+								<p class="calendar-date-rollover">Local calendar date: { session.LocalDate }</p>
+							}
+							<article>
+								<h3><a href={ session.Path() }>{ session.Title }</a></h3>
+								@SessionDetails(session)
+							</article>
+						}
+					</section>
 				}
 			</main>
 		</body>
@@ -25,7 +34,7 @@ templ Page(snapshot Snapshot) {
 
 templ SessionPage(snapshot Snapshot, session Session) {
 	<!doctype html>
-	<html lang={ snapshot.Language }>
+	<html lang={ snapshot.Language } data-locale={ snapshot.Locale }>
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -48,7 +57,7 @@ templ SessionDetails(session Session) {
 	}
 	<p>{ session.PublicDetails }</p>
 	<p>Status: { session.Lifecycle }</p>
-	<p>Forecast Time: <time datetime={ session.ForecastStart }>{ session.ForecastStart }</time>–<time datetime={ session.ForecastEnd }>{ session.ForecastEnd }</time></p>
+	<p>Forecast Time: <time datetime={ session.ForecastStart }>{ session.DisplayForecastStart }</time>–<time datetime={ session.ForecastEnd }>{ session.DisplayForecastEnd }</time> ({ session.TimezoneLabel })</p>
 	if session.ActualStart != "" {
 		<p>Actual Start: <time datetime={ session.ActualStart }>{ session.ActualStart }</time></p>
 	}
