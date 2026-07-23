@@ -659,6 +659,7 @@ func allowScopedSessionRunMutation() privacy.MutationRule {
 			"outcome",
 			"target_adjustment_seconds",
 			"target_adjusted_at",
+			"locked_entry_order_ids",
 		) {
 			return privacy.Skip
 		}

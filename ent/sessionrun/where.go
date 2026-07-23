@@ -385,6 +385,16 @@ func SnapshotJSONContainsFold(v string) predicate.SessionRun {
 	return predicate.SessionRun(sql.FieldContainsFold(FieldSnapshotJSON, v))
 }
 
+// LockedEntryOrderIdsIsNil applies the IsNil predicate on the "locked_entry_order_ids" field.
+func LockedEntryOrderIdsIsNil() predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldIsNull(FieldLockedEntryOrderIds))
+}
+
+// LockedEntryOrderIdsNotNil applies the NotNil predicate on the "locked_entry_order_ids" field.
+func LockedEntryOrderIdsNotNil() predicate.SessionRun {
+	return predicate.SessionRun(sql.FieldNotNull(FieldLockedEntryOrderIds))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.SessionRun {
 	return predicate.SessionRun(sql.FieldEQ(FieldCreatedAt, v))

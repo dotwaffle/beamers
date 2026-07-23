@@ -211,6 +211,26 @@ func (_u *CompetitionEntryUpdate) ClearReviewedAt() *CompetitionEntryUpdate {
 	return _u
 }
 
+// SetFirstPresentedAt sets the "first_presented_at" field.
+func (_u *CompetitionEntryUpdate) SetFirstPresentedAt(v time.Time) *CompetitionEntryUpdate {
+	_u.mutation.SetFirstPresentedAt(v)
+	return _u
+}
+
+// SetNillableFirstPresentedAt sets the "first_presented_at" field if the given value is not nil.
+func (_u *CompetitionEntryUpdate) SetNillableFirstPresentedAt(v *time.Time) *CompetitionEntryUpdate {
+	if v != nil {
+		_u.SetFirstPresentedAt(*v)
+	}
+	return _u
+}
+
+// ClearFirstPresentedAt clears the value of the "first_presented_at" field.
+func (_u *CompetitionEntryUpdate) ClearFirstPresentedAt() *CompetitionEntryUpdate {
+	_u.mutation.ClearFirstPresentedAt()
+	return _u
+}
+
 // SetRevision sets the "revision" field.
 func (_u *CompetitionEntryUpdate) SetRevision(v int) *CompetitionEntryUpdate {
 	_u.mutation.ResetRevision()
@@ -380,6 +400,12 @@ func (_u *CompetitionEntryUpdate) sqlSave(ctx context.Context) (_node int, err e
 	}
 	if _u.mutation.ReviewedAtCleared() {
 		_spec.ClearField(competitionentry.FieldReviewedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.FirstPresentedAt(); ok {
+		_spec.SetField(competitionentry.FieldFirstPresentedAt, field.TypeTime, value)
+	}
+	if _u.mutation.FirstPresentedAtCleared() {
+		_spec.ClearField(competitionentry.FieldFirstPresentedAt, field.TypeTime)
 	}
 	if value, ok := _u.mutation.Revision(); ok {
 		_spec.SetField(competitionentry.FieldRevision, field.TypeInt, value)
@@ -590,6 +616,26 @@ func (_u *CompetitionEntryUpdateOne) ClearReviewedAt() *CompetitionEntryUpdateOn
 	return _u
 }
 
+// SetFirstPresentedAt sets the "first_presented_at" field.
+func (_u *CompetitionEntryUpdateOne) SetFirstPresentedAt(v time.Time) *CompetitionEntryUpdateOne {
+	_u.mutation.SetFirstPresentedAt(v)
+	return _u
+}
+
+// SetNillableFirstPresentedAt sets the "first_presented_at" field if the given value is not nil.
+func (_u *CompetitionEntryUpdateOne) SetNillableFirstPresentedAt(v *time.Time) *CompetitionEntryUpdateOne {
+	if v != nil {
+		_u.SetFirstPresentedAt(*v)
+	}
+	return _u
+}
+
+// ClearFirstPresentedAt clears the value of the "first_presented_at" field.
+func (_u *CompetitionEntryUpdateOne) ClearFirstPresentedAt() *CompetitionEntryUpdateOne {
+	_u.mutation.ClearFirstPresentedAt()
+	return _u
+}
+
 // SetRevision sets the "revision" field.
 func (_u *CompetitionEntryUpdateOne) SetRevision(v int) *CompetitionEntryUpdateOne {
 	_u.mutation.ResetRevision()
@@ -789,6 +835,12 @@ func (_u *CompetitionEntryUpdateOne) sqlSave(ctx context.Context) (_node *Compet
 	}
 	if _u.mutation.ReviewedAtCleared() {
 		_spec.ClearField(competitionentry.FieldReviewedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.FirstPresentedAt(); ok {
+		_spec.SetField(competitionentry.FieldFirstPresentedAt, field.TypeTime, value)
+	}
+	if _u.mutation.FirstPresentedAtCleared() {
+		_spec.ClearField(competitionentry.FieldFirstPresentedAt, field.TypeTime)
 	}
 	if value, ok := _u.mutation.Revision(); ok {
 		_spec.SetField(competitionentry.FieldRevision, field.TypeInt, value)

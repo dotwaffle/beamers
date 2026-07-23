@@ -2705,6 +2705,195 @@ func TestCompetitionPreflightRequiresDispositionAndUnambiguousPrimary(t *testing
 	server.stop(t)
 }
 
+func TestCompetitionEntryOrderPreviewIsDeterministicByDefault(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	competitionID, _ := addCompetitionSession(t, administrator, server)
+	client := competitionv1connect.NewCompetitionServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	var entryIDs []int64
+	for index, name := range []string{"Alpha", "Bravo", "Charlie"} {
+		created, err := client.CreateEntry(t.Context(), connect.NewRequest(
+			&competitionv1.CreateEntryRequest{
+				EventId: 1, SessionId: competitionID,
+				CommandId: fmt.Sprintf("create-ordered-entry-%d", index), Name: name,
+			},
+		))
+		if err != nil {
+			t.Fatalf("create ordered Entry %q: %v", name, err)
+		}
+		entryIDs = append(entryIDs, created.Msg.GetEntry().GetId())
+	}
+	first, err := client.PreviewEntryOrder(t.Context(), connect.NewRequest(
+		&competitionv1.PreviewEntryOrderRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil {
+		t.Fatalf("preview default Entry Order: %v", err)
+	}
+	second, err := client.PreviewEntryOrder(t.Context(), connect.NewRequest(
+		&competitionv1.PreviewEntryOrderRequest{EventId: 1, SessionId: competitionID},
+	))
+	order := first.Msg.GetEntryOrder()
+	if err != nil ||
+		order.GetPolicy() != competitionv1.EntryOrderPolicy_ENTRY_ORDER_POLICY_DETERMINISTIC_SHUFFLE ||
+		order.GetSeed() <= 0 || order.GetRevision() != 0 || order.GetLocked() ||
+		!sameInt64Set(order.GetEntryIds(), entryIDs) ||
+		!slices.Equal(order.GetEntryIds(), second.Msg.GetEntryOrder().GetEntryIds()) ||
+		first.Msg.GetFingerprint() == "" ||
+		first.Msg.GetFingerprint() != second.Msg.GetFingerprint() {
+		t.Fatalf("default deterministic Entry Order = %+v then %+v, %v", first, second, err)
+	}
+	configured, err := client.GetCompetition(t.Context(), connect.NewRequest(
+		&competitionv1.GetCompetitionRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil || configured.Msg.GetEntryOrder().GetSeed() != order.GetSeed() ||
+		configured.Msg.GetEntryOrder().GetPolicy() != order.GetPolicy() {
+		t.Fatalf("stored default Entry Order = %+v, %v", configured, err)
+	}
+	server.stop(t)
+}
+
+func TestCrewConfiguresCompetitionEntryOrder(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	competitionID, _ := addCompetitionSession(t, administrator, server)
+	client := competitionv1connect.NewCompetitionServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	var entries []*competitionv1.Entry
+	for index, name := range []string{"Alpha", "Bravo", "Charlie"} {
+		created, err := client.CreateEntry(t.Context(), connect.NewRequest(
+			&competitionv1.CreateEntryRequest{
+				EventId: 1, SessionId: competitionID,
+				CommandId: fmt.Sprintf("create-configured-order-entry-%d", index), Name: name,
+			},
+		))
+		if err != nil {
+			t.Fatalf("create configured-order Entry %q: %v", name, err)
+		}
+		entries = append(entries, created.Msg.GetEntry())
+	}
+	submissionIDs := []int64{entries[0].GetId(), entries[1].GetId(), entries[2].GetId()}
+	submission, err := client.ConfigureEntryOrder(t.Context(), connect.NewRequest(
+		&competitionv1.ConfigureEntryOrderRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "use-submission-order",
+			ExpectedRevision: 0,
+			Policy:           competitionv1.EntryOrderPolicy_ENTRY_ORDER_POLICY_SUBMISSION_ORDER,
+		},
+	))
+	if err != nil || submission.Msg.GetEntryOrder().GetRevision() != 1 ||
+		!slices.Equal(submission.Msg.GetEntryOrder().GetEntryIds(), submissionIDs) {
+		t.Fatalf("configure Submission Order = %+v, %v", submission, err)
+	}
+	manualIDs := []int64{entries[2].GetId(), entries[0].GetId(), entries[1].GetId()}
+	manual, err := client.ConfigureEntryOrder(t.Context(), connect.NewRequest(
+		&competitionv1.ConfigureEntryOrderRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "use-manual-order",
+			ExpectedRevision: 1,
+			Policy:           competitionv1.EntryOrderPolicy_ENTRY_ORDER_POLICY_MANUAL_ORDER,
+			ManualEntryIds:   manualIDs,
+		},
+	))
+	if err != nil || manual.Msg.GetEntryOrder().GetRevision() != 2 ||
+		!slices.Equal(manual.Msg.GetEntryOrder().GetEntryIds(), manualIDs) {
+		t.Fatalf("configure Manual Order = %+v, %v", manual, err)
+	}
+	shuffled, err := client.ConfigureEntryOrder(t.Context(), connect.NewRequest(
+		&competitionv1.ConfigureEntryOrderRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "use-seeded-order",
+			ExpectedRevision: 2,
+			Policy:           competitionv1.EntryOrderPolicy_ENTRY_ORDER_POLICY_DETERMINISTIC_SHUFFLE,
+			Seed:             4242,
+		},
+	))
+	if err != nil || shuffled.Msg.GetEntryOrder().GetRevision() != 3 ||
+		shuffled.Msg.GetEntryOrder().GetSeed() != 4242 ||
+		!sameInt64Set(shuffled.Msg.GetEntryOrder().GetEntryIds(), submissionIDs) {
+		t.Fatalf("configure Deterministic Shuffle = %+v, %v", shuffled, err)
+	}
+	_, err = client.ConfigureEntryOrder(t.Context(), connect.NewRequest(
+		&competitionv1.ConfigureEntryOrderRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "restore-manual-order",
+			ExpectedRevision: 3,
+			Policy:           competitionv1.EntryOrderPolicy_ENTRY_ORDER_POLICY_MANUAL_ORDER,
+			ManualEntryIds:   manualIDs,
+		},
+	))
+	if err != nil {
+		t.Fatalf("restore Manual Order: %v", err)
+	}
+	preview, err := client.PreviewEntryOrder(t.Context(), connect.NewRequest(
+		&competitionv1.PreviewEntryOrderRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil || !slices.Equal(preview.Msg.GetEntryOrder().GetEntryIds(), manualIDs) {
+		t.Fatalf("preview Manual Order = %+v, %v", preview, err)
+	}
+	if _, err = client.ConfigureReadiness(t.Context(), connect.NewRequest(
+		&competitionv1.ConfigureReadinessRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "disable-order-test-delivery",
+			ExpectedReadinessRevision: 0,
+		},
+	)); err != nil {
+		t.Fatalf("disable file delivery for Entry Order test: %v", err)
+	}
+	sessionClient := sessionv1connect.NewSessionControlServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	if _, err = sessionClient.StartSession(t.Context(), connect.NewRequest(
+		&sessionv1.StartSessionRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "start-ordered-competition",
+			ExpectedLiveStateRevision: proto.Int64(0),
+		},
+	)); err != nil {
+		t.Fatalf("start ordered Competition: %v", err)
+	}
+	_, liveConfigureErr := client.ConfigureEntryOrder(t.Context(), connect.NewRequest(
+		&competitionv1.ConfigureEntryOrderRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "rewrite-live-order",
+			ExpectedRevision: 4,
+			Policy:           competitionv1.EntryOrderPolicy_ENTRY_ORDER_POLICY_SUBMISSION_ORDER,
+		},
+	))
+	if connect.CodeOf(liveConfigureErr) != connect.CodeFailedPrecondition {
+		t.Fatalf("live Entry Order configuration error = %v, want FailedPrecondition", liveConfigureErr)
+	}
+	dataDir, bin := server.dataDir, server.bin
+	server.stop(t)
+	restarted := startBeamers(t, bin, dataDir)
+	client = competitionv1connect.NewCompetitionServiceClient(
+		administrator, "http://"+restarted.address, connect.WithProtoJSON(),
+	)
+	restored, err := client.PreviewEntryOrder(t.Context(), connect.NewRequest(
+		&competitionv1.PreviewEntryOrderRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil || restored.Msg.GetEntryOrder().GetLocked() ||
+		!slices.Equal(restored.Msg.GetEntryOrder().GetEntryIds(), manualIDs) {
+		t.Fatalf("restored Entry Order = %+v, %v", restored, err)
+	}
+	audit := get(t, administrator, restarted.address, "/admin/audit")
+	auditBody, readErr := io.ReadAll(audit.Body)
+	closeErr := audit.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Entry Order Audit history: %v", err)
+	}
+	if !bytes.Contains(auditBody, []byte("ConfigureCompetitionEntryOrder")) {
+		t.Fatalf("Entry Order commands missing from Audit history: %s", auditBody)
+	}
+	restarted.stop(t)
+}
+
+func sameInt64Set(left, right []int64) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	left = slices.Clone(left)
+	right = slices.Clone(right)
+	slices.Sort(left)
+	slices.Sort(right)
+	return slices.Equal(left, right)
+}
+
 func findingCodesEqual(findings []*competitionv1.PreflightFinding, want ...string) bool {
 	if len(findings) != len(want) {
 		return false

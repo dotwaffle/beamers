@@ -41,6 +41,7 @@ func (CompetitionEntry) Fields() []ent.Field {
 		field.Int("reviewed_content_revision").Optional().Positive(),
 		field.Int("reviewed_by_account_id").Optional().Positive(),
 		field.Time("reviewed_at").Optional(),
+		field.Time("first_presented_at").Optional(),
 		field.Int("revision").Default(1).Positive(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 	}

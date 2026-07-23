@@ -130,6 +130,21 @@ func ReadinessRevision(v int) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldReadinessRevision, v))
 }
 
+// EntryOrderSeed applies equality check predicate on the "entry_order_seed" field. It's identical to EntryOrderSeedEQ.
+func EntryOrderSeed(v int64) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldEntryOrderSeed, v))
+}
+
+// EntryOrderLockedAt applies equality check predicate on the "entry_order_locked_at" field. It's identical to EntryOrderLockedAtEQ.
+func EntryOrderLockedAt(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldEntryOrderLockedAt, v))
+}
+
+// EntryOrderRevision applies equality check predicate on the "entry_order_revision" field. It's identical to EntryOrderRevisionEQ.
+func EntryOrderRevision(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldEntryOrderRevision, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldCreatedAt, v))
@@ -928,6 +943,176 @@ func ReadinessRevisionLT(v int) predicate.Session {
 // ReadinessRevisionLTE applies the LTE predicate on the "readiness_revision" field.
 func ReadinessRevisionLTE(v int) predicate.Session {
 	return predicate.Session(sql.FieldLTE(FieldReadinessRevision, v))
+}
+
+// EntryOrderPolicyEQ applies the EQ predicate on the "entry_order_policy" field.
+func EntryOrderPolicyEQ(v EntryOrderPolicy) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldEntryOrderPolicy, v))
+}
+
+// EntryOrderPolicyNEQ applies the NEQ predicate on the "entry_order_policy" field.
+func EntryOrderPolicyNEQ(v EntryOrderPolicy) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldEntryOrderPolicy, v))
+}
+
+// EntryOrderPolicyIn applies the In predicate on the "entry_order_policy" field.
+func EntryOrderPolicyIn(vs ...EntryOrderPolicy) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldEntryOrderPolicy, vs...))
+}
+
+// EntryOrderPolicyNotIn applies the NotIn predicate on the "entry_order_policy" field.
+func EntryOrderPolicyNotIn(vs ...EntryOrderPolicy) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldEntryOrderPolicy, vs...))
+}
+
+// EntryOrderSeedEQ applies the EQ predicate on the "entry_order_seed" field.
+func EntryOrderSeedEQ(v int64) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldEntryOrderSeed, v))
+}
+
+// EntryOrderSeedNEQ applies the NEQ predicate on the "entry_order_seed" field.
+func EntryOrderSeedNEQ(v int64) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldEntryOrderSeed, v))
+}
+
+// EntryOrderSeedIn applies the In predicate on the "entry_order_seed" field.
+func EntryOrderSeedIn(vs ...int64) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldEntryOrderSeed, vs...))
+}
+
+// EntryOrderSeedNotIn applies the NotIn predicate on the "entry_order_seed" field.
+func EntryOrderSeedNotIn(vs ...int64) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldEntryOrderSeed, vs...))
+}
+
+// EntryOrderSeedGT applies the GT predicate on the "entry_order_seed" field.
+func EntryOrderSeedGT(v int64) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldEntryOrderSeed, v))
+}
+
+// EntryOrderSeedGTE applies the GTE predicate on the "entry_order_seed" field.
+func EntryOrderSeedGTE(v int64) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldEntryOrderSeed, v))
+}
+
+// EntryOrderSeedLT applies the LT predicate on the "entry_order_seed" field.
+func EntryOrderSeedLT(v int64) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldEntryOrderSeed, v))
+}
+
+// EntryOrderSeedLTE applies the LTE predicate on the "entry_order_seed" field.
+func EntryOrderSeedLTE(v int64) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldEntryOrderSeed, v))
+}
+
+// EntryOrderManualIdsIsNil applies the IsNil predicate on the "entry_order_manual_ids" field.
+func EntryOrderManualIdsIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldEntryOrderManualIds))
+}
+
+// EntryOrderManualIdsNotNil applies the NotNil predicate on the "entry_order_manual_ids" field.
+func EntryOrderManualIdsNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldEntryOrderManualIds))
+}
+
+// LockedEntryOrderIdsIsNil applies the IsNil predicate on the "locked_entry_order_ids" field.
+func LockedEntryOrderIdsIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldLockedEntryOrderIds))
+}
+
+// LockedEntryOrderIdsNotNil applies the NotNil predicate on the "locked_entry_order_ids" field.
+func LockedEntryOrderIdsNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldLockedEntryOrderIds))
+}
+
+// EntryOrderLockedAtEQ applies the EQ predicate on the "entry_order_locked_at" field.
+func EntryOrderLockedAtEQ(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldEntryOrderLockedAt, v))
+}
+
+// EntryOrderLockedAtNEQ applies the NEQ predicate on the "entry_order_locked_at" field.
+func EntryOrderLockedAtNEQ(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldEntryOrderLockedAt, v))
+}
+
+// EntryOrderLockedAtIn applies the In predicate on the "entry_order_locked_at" field.
+func EntryOrderLockedAtIn(vs ...time.Time) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldEntryOrderLockedAt, vs...))
+}
+
+// EntryOrderLockedAtNotIn applies the NotIn predicate on the "entry_order_locked_at" field.
+func EntryOrderLockedAtNotIn(vs ...time.Time) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldEntryOrderLockedAt, vs...))
+}
+
+// EntryOrderLockedAtGT applies the GT predicate on the "entry_order_locked_at" field.
+func EntryOrderLockedAtGT(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldEntryOrderLockedAt, v))
+}
+
+// EntryOrderLockedAtGTE applies the GTE predicate on the "entry_order_locked_at" field.
+func EntryOrderLockedAtGTE(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldEntryOrderLockedAt, v))
+}
+
+// EntryOrderLockedAtLT applies the LT predicate on the "entry_order_locked_at" field.
+func EntryOrderLockedAtLT(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldEntryOrderLockedAt, v))
+}
+
+// EntryOrderLockedAtLTE applies the LTE predicate on the "entry_order_locked_at" field.
+func EntryOrderLockedAtLTE(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldEntryOrderLockedAt, v))
+}
+
+// EntryOrderLockedAtIsNil applies the IsNil predicate on the "entry_order_locked_at" field.
+func EntryOrderLockedAtIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldEntryOrderLockedAt))
+}
+
+// EntryOrderLockedAtNotNil applies the NotNil predicate on the "entry_order_locked_at" field.
+func EntryOrderLockedAtNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldEntryOrderLockedAt))
+}
+
+// EntryOrderRevisionEQ applies the EQ predicate on the "entry_order_revision" field.
+func EntryOrderRevisionEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldEntryOrderRevision, v))
+}
+
+// EntryOrderRevisionNEQ applies the NEQ predicate on the "entry_order_revision" field.
+func EntryOrderRevisionNEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldEntryOrderRevision, v))
+}
+
+// EntryOrderRevisionIn applies the In predicate on the "entry_order_revision" field.
+func EntryOrderRevisionIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldEntryOrderRevision, vs...))
+}
+
+// EntryOrderRevisionNotIn applies the NotIn predicate on the "entry_order_revision" field.
+func EntryOrderRevisionNotIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldEntryOrderRevision, vs...))
+}
+
+// EntryOrderRevisionGT applies the GT predicate on the "entry_order_revision" field.
+func EntryOrderRevisionGT(v int) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldEntryOrderRevision, v))
+}
+
+// EntryOrderRevisionGTE applies the GTE predicate on the "entry_order_revision" field.
+func EntryOrderRevisionGTE(v int) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldEntryOrderRevision, v))
+}
+
+// EntryOrderRevisionLT applies the LT predicate on the "entry_order_revision" field.
+func EntryOrderRevisionLT(v int) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldEntryOrderRevision, v))
+}
+
+// EntryOrderRevisionLTE applies the LTE predicate on the "entry_order_revision" field.
+func EntryOrderRevisionLTE(v int) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldEntryOrderRevision, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

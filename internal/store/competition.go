@@ -57,6 +57,7 @@ type CompetitionState struct {
 	RequireEntryReview          bool
 	FileDeliveryRequired        bool
 	ReadinessRevision           int
+	EntryOrder                  EntryOrderState
 	Entries                     []CompetitionEntry
 }
 
@@ -177,7 +178,7 @@ type AttachmentReadiness struct {
 
 // LoadCompetition returns current published Competition configuration and Entries.
 func (installation *SQLite) LoadCompetition(ctx context.Context, eventID, sessionID int) (CompetitionState, error) {
-	state, _, err := loadCompetitionConfiguration(
+	state, found, err := loadCompetitionConfiguration(
 		ctx, installation.client.Session, installation.client.Event, eventID, sessionID,
 	)
 	if err != nil {
@@ -192,6 +193,16 @@ func (installation *SQLite) LoadCompetition(ctx context.Context, eventID, sessio
 	}
 	for _, entry := range entries {
 		state.Entries = append(state.Entries, competitionEntry(entry))
+	}
+	included := make([]*ent.CompetitionEntry, 0, len(entries))
+	for _, entry := range entries {
+		if entry.Disposition == competitionentry.DispositionIncluded {
+			included = append(included, entry)
+		}
+	}
+	state.EntryOrder, _, err = competitionEntryOrder(found, included)
+	if err != nil {
+		return CompetitionState{}, err
 	}
 	return state, nil
 }
@@ -383,6 +394,9 @@ func (transaction *CommandTx) UpdateCompetitionEntry(ctx context.Context, params
 	if err != nil {
 		return CompetitionEntry{}, err
 	}
+	if !entry.FirstPresentedAt.IsZero() {
+		return competitionEntry(entry), ErrPresentedEntryDisposition
+	}
 	if entry.Revision != params.ExpectedRevision {
 		return competitionEntry(entry), ErrCompetitionEntryRevision
 	}
@@ -569,6 +583,9 @@ func (transaction *CommandTx) ChangeCompetitionEntryDisposition(
 	entry, err := transaction.competitionEntry(ctx, params.EventID, params.SessionID, params.EntryID)
 	if err != nil {
 		return CompetitionEntry{}, err
+	}
+	if !entry.FirstPresentedAt.IsZero() {
+		return competitionEntry(entry), ErrPresentedEntryDisposition
 	}
 	if entry.Revision != params.ExpectedRevision {
 		return competitionEntry(entry), ErrCompetitionEntryRevision

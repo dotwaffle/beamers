@@ -189,6 +189,7 @@ var (
 		{Name: "reviewed_content_revision", Type: field.TypeInt, Nullable: true},
 		{Name: "reviewed_by_account_id", Type: field.TypeInt, Nullable: true},
 		{Name: "reviewed_at", Type: field.TypeTime, Nullable: true},
+		{Name: "first_presented_at", Type: field.TypeTime, Nullable: true},
 		{Name: "revision", Type: field.TypeInt, Default: 1},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "event_id", Type: field.TypeInt},
@@ -202,13 +203,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "competition_entries_events_competition_entries",
-				Columns:    []*schema.Column{CompetitionEntriesColumns[12]},
+				Columns:    []*schema.Column{CompetitionEntriesColumns[13]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "competition_entries_sessions_competition_entries",
-				Columns:    []*schema.Column{CompetitionEntriesColumns[13]},
+				Columns:    []*schema.Column{CompetitionEntriesColumns[14]},
 				RefColumns: []*schema.Column{SessionsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -217,7 +218,7 @@ var (
 			{
 				Name:    "competitionentry_competition_session_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{CompetitionEntriesColumns[13], CompetitionEntriesColumns[11]},
+				Columns: []*schema.Column{CompetitionEntriesColumns[14], CompetitionEntriesColumns[12]},
 			},
 		},
 	}
@@ -834,6 +835,12 @@ var (
 		{Name: "require_entry_review", Type: field.TypeBool, Default: false},
 		{Name: "file_delivery_required", Type: field.TypeBool, Nullable: true},
 		{Name: "readiness_revision", Type: field.TypeInt, Default: 0},
+		{Name: "entry_order_policy", Type: field.TypeEnum, Enums: []string{"SubmissionOrder", "ManualOrder", "DeterministicShuffle"}, Default: "DeterministicShuffle"},
+		{Name: "entry_order_seed", Type: field.TypeInt64, Default: 0},
+		{Name: "entry_order_manual_ids", Type: field.TypeJSON, Nullable: true},
+		{Name: "locked_entry_order_ids", Type: field.TypeJSON, Nullable: true},
+		{Name: "entry_order_locked_at", Type: field.TypeTime, Nullable: true},
+		{Name: "entry_order_revision", Type: field.TypeInt, Default: 0},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "event_id", Type: field.TypeInt},
 	}
@@ -845,7 +852,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "sessions_events_sessions",
-				Columns:    []*schema.Column{SessionsColumns[19]},
+				Columns:    []*schema.Column{SessionsColumns[25]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -968,6 +975,7 @@ var (
 		{Name: "target_adjustment_seconds", Type: field.TypeInt, Default: 0},
 		{Name: "target_adjusted_at", Type: field.TypeTime, Nullable: true},
 		{Name: "snapshot_json", Type: field.TypeString, Size: 2147483647},
+		{Name: "locked_entry_order_ids", Type: field.TypeJSON, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "session_id", Type: field.TypeInt},
 	}
@@ -979,7 +987,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "session_runs_sessions_runs",
-				Columns:    []*schema.Column{SessionRunsColumns[8]},
+				Columns:    []*schema.Column{SessionRunsColumns[9]},
 				RefColumns: []*schema.Column{SessionsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -988,7 +996,7 @@ var (
 			{
 				Name:    "sessionrun_session_id_actual_end",
 				Unique:  false,
-				Columns: []*schema.Column{SessionRunsColumns[8], SessionRunsColumns[2]},
+				Columns: []*schema.Column{SessionRunsColumns[9], SessionRunsColumns[2]},
 			},
 		},
 	}

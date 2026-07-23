@@ -360,6 +360,118 @@ func (_u *SessionUpdate) AddReadinessRevision(v int) *SessionUpdate {
 	return _u
 }
 
+// SetEntryOrderPolicy sets the "entry_order_policy" field.
+func (_u *SessionUpdate) SetEntryOrderPolicy(v session.EntryOrderPolicy) *SessionUpdate {
+	_u.mutation.SetEntryOrderPolicy(v)
+	return _u
+}
+
+// SetNillableEntryOrderPolicy sets the "entry_order_policy" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableEntryOrderPolicy(v *session.EntryOrderPolicy) *SessionUpdate {
+	if v != nil {
+		_u.SetEntryOrderPolicy(*v)
+	}
+	return _u
+}
+
+// SetEntryOrderSeed sets the "entry_order_seed" field.
+func (_u *SessionUpdate) SetEntryOrderSeed(v int64) *SessionUpdate {
+	_u.mutation.ResetEntryOrderSeed()
+	_u.mutation.SetEntryOrderSeed(v)
+	return _u
+}
+
+// SetNillableEntryOrderSeed sets the "entry_order_seed" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableEntryOrderSeed(v *int64) *SessionUpdate {
+	if v != nil {
+		_u.SetEntryOrderSeed(*v)
+	}
+	return _u
+}
+
+// AddEntryOrderSeed adds value to the "entry_order_seed" field.
+func (_u *SessionUpdate) AddEntryOrderSeed(v int64) *SessionUpdate {
+	_u.mutation.AddEntryOrderSeed(v)
+	return _u
+}
+
+// SetEntryOrderManualIds sets the "entry_order_manual_ids" field.
+func (_u *SessionUpdate) SetEntryOrderManualIds(v []int) *SessionUpdate {
+	_u.mutation.SetEntryOrderManualIds(v)
+	return _u
+}
+
+// AppendEntryOrderManualIds appends value to the "entry_order_manual_ids" field.
+func (_u *SessionUpdate) AppendEntryOrderManualIds(v []int) *SessionUpdate {
+	_u.mutation.AppendEntryOrderManualIds(v)
+	return _u
+}
+
+// ClearEntryOrderManualIds clears the value of the "entry_order_manual_ids" field.
+func (_u *SessionUpdate) ClearEntryOrderManualIds() *SessionUpdate {
+	_u.mutation.ClearEntryOrderManualIds()
+	return _u
+}
+
+// SetLockedEntryOrderIds sets the "locked_entry_order_ids" field.
+func (_u *SessionUpdate) SetLockedEntryOrderIds(v []int) *SessionUpdate {
+	_u.mutation.SetLockedEntryOrderIds(v)
+	return _u
+}
+
+// AppendLockedEntryOrderIds appends value to the "locked_entry_order_ids" field.
+func (_u *SessionUpdate) AppendLockedEntryOrderIds(v []int) *SessionUpdate {
+	_u.mutation.AppendLockedEntryOrderIds(v)
+	return _u
+}
+
+// ClearLockedEntryOrderIds clears the value of the "locked_entry_order_ids" field.
+func (_u *SessionUpdate) ClearLockedEntryOrderIds() *SessionUpdate {
+	_u.mutation.ClearLockedEntryOrderIds()
+	return _u
+}
+
+// SetEntryOrderLockedAt sets the "entry_order_locked_at" field.
+func (_u *SessionUpdate) SetEntryOrderLockedAt(v time.Time) *SessionUpdate {
+	_u.mutation.SetEntryOrderLockedAt(v)
+	return _u
+}
+
+// SetNillableEntryOrderLockedAt sets the "entry_order_locked_at" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableEntryOrderLockedAt(v *time.Time) *SessionUpdate {
+	if v != nil {
+		_u.SetEntryOrderLockedAt(*v)
+	}
+	return _u
+}
+
+// ClearEntryOrderLockedAt clears the value of the "entry_order_locked_at" field.
+func (_u *SessionUpdate) ClearEntryOrderLockedAt() *SessionUpdate {
+	_u.mutation.ClearEntryOrderLockedAt()
+	return _u
+}
+
+// SetEntryOrderRevision sets the "entry_order_revision" field.
+func (_u *SessionUpdate) SetEntryOrderRevision(v int) *SessionUpdate {
+	_u.mutation.ResetEntryOrderRevision()
+	_u.mutation.SetEntryOrderRevision(v)
+	return _u
+}
+
+// SetNillableEntryOrderRevision sets the "entry_order_revision" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableEntryOrderRevision(v *int) *SessionUpdate {
+	if v != nil {
+		_u.SetEntryOrderRevision(*v)
+	}
+	return _u
+}
+
+// AddEntryOrderRevision adds value to the "entry_order_revision" field.
+func (_u *SessionUpdate) AddEntryOrderRevision(v int) *SessionUpdate {
+	_u.mutation.AddEntryOrderRevision(v)
+	return _u
+}
+
 // SetDraftID sets the "draft" edge to the SessionDraft entity by ID.
 func (_u *SessionUpdate) SetDraftID(id int) *SessionUpdate {
 	_u.mutation.SetDraftID(id)
@@ -603,6 +715,21 @@ func (_u *SessionUpdate) check() error {
 			return &ValidationError{Name: "readiness_revision", err: fmt.Errorf(`ent: validator failed for field "Session.readiness_revision": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.EntryOrderPolicy(); ok {
+		if err := session.EntryOrderPolicyValidator(v); err != nil {
+			return &ValidationError{Name: "entry_order_policy", err: fmt.Errorf(`ent: validator failed for field "Session.entry_order_policy": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.EntryOrderSeed(); ok {
+		if err := session.EntryOrderSeedValidator(v); err != nil {
+			return &ValidationError{Name: "entry_order_seed", err: fmt.Errorf(`ent: validator failed for field "Session.entry_order_seed": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.EntryOrderRevision(); ok {
+		if err := session.EntryOrderRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "entry_order_revision", err: fmt.Errorf(`ent: validator failed for field "Session.entry_order_revision": %w`, err)}
+		}
+	}
 	if _u.mutation.EventCleared() && len(_u.mutation.EventIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Session.event"`)
 	}
@@ -726,6 +853,49 @@ func (_u *SessionUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedReadinessRevision(); ok {
 		_spec.AddField(session.FieldReadinessRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.EntryOrderPolicy(); ok {
+		_spec.SetField(session.FieldEntryOrderPolicy, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.EntryOrderSeed(); ok {
+		_spec.SetField(session.FieldEntryOrderSeed, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedEntryOrderSeed(); ok {
+		_spec.AddField(session.FieldEntryOrderSeed, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.EntryOrderManualIds(); ok {
+		_spec.SetField(session.FieldEntryOrderManualIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedEntryOrderManualIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, session.FieldEntryOrderManualIds, value)
+		})
+	}
+	if _u.mutation.EntryOrderManualIdsCleared() {
+		_spec.ClearField(session.FieldEntryOrderManualIds, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.LockedEntryOrderIds(); ok {
+		_spec.SetField(session.FieldLockedEntryOrderIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedLockedEntryOrderIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, session.FieldLockedEntryOrderIds, value)
+		})
+	}
+	if _u.mutation.LockedEntryOrderIdsCleared() {
+		_spec.ClearField(session.FieldLockedEntryOrderIds, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.EntryOrderLockedAt(); ok {
+		_spec.SetField(session.FieldEntryOrderLockedAt, field.TypeTime, value)
+	}
+	if _u.mutation.EntryOrderLockedAtCleared() {
+		_spec.ClearField(session.FieldEntryOrderLockedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.EntryOrderRevision(); ok {
+		_spec.SetField(session.FieldEntryOrderRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedEntryOrderRevision(); ok {
+		_spec.AddField(session.FieldEntryOrderRevision, field.TypeInt, value)
 	}
 	if _u.mutation.DraftCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1282,6 +1452,118 @@ func (_u *SessionUpdateOne) AddReadinessRevision(v int) *SessionUpdateOne {
 	return _u
 }
 
+// SetEntryOrderPolicy sets the "entry_order_policy" field.
+func (_u *SessionUpdateOne) SetEntryOrderPolicy(v session.EntryOrderPolicy) *SessionUpdateOne {
+	_u.mutation.SetEntryOrderPolicy(v)
+	return _u
+}
+
+// SetNillableEntryOrderPolicy sets the "entry_order_policy" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableEntryOrderPolicy(v *session.EntryOrderPolicy) *SessionUpdateOne {
+	if v != nil {
+		_u.SetEntryOrderPolicy(*v)
+	}
+	return _u
+}
+
+// SetEntryOrderSeed sets the "entry_order_seed" field.
+func (_u *SessionUpdateOne) SetEntryOrderSeed(v int64) *SessionUpdateOne {
+	_u.mutation.ResetEntryOrderSeed()
+	_u.mutation.SetEntryOrderSeed(v)
+	return _u
+}
+
+// SetNillableEntryOrderSeed sets the "entry_order_seed" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableEntryOrderSeed(v *int64) *SessionUpdateOne {
+	if v != nil {
+		_u.SetEntryOrderSeed(*v)
+	}
+	return _u
+}
+
+// AddEntryOrderSeed adds value to the "entry_order_seed" field.
+func (_u *SessionUpdateOne) AddEntryOrderSeed(v int64) *SessionUpdateOne {
+	_u.mutation.AddEntryOrderSeed(v)
+	return _u
+}
+
+// SetEntryOrderManualIds sets the "entry_order_manual_ids" field.
+func (_u *SessionUpdateOne) SetEntryOrderManualIds(v []int) *SessionUpdateOne {
+	_u.mutation.SetEntryOrderManualIds(v)
+	return _u
+}
+
+// AppendEntryOrderManualIds appends value to the "entry_order_manual_ids" field.
+func (_u *SessionUpdateOne) AppendEntryOrderManualIds(v []int) *SessionUpdateOne {
+	_u.mutation.AppendEntryOrderManualIds(v)
+	return _u
+}
+
+// ClearEntryOrderManualIds clears the value of the "entry_order_manual_ids" field.
+func (_u *SessionUpdateOne) ClearEntryOrderManualIds() *SessionUpdateOne {
+	_u.mutation.ClearEntryOrderManualIds()
+	return _u
+}
+
+// SetLockedEntryOrderIds sets the "locked_entry_order_ids" field.
+func (_u *SessionUpdateOne) SetLockedEntryOrderIds(v []int) *SessionUpdateOne {
+	_u.mutation.SetLockedEntryOrderIds(v)
+	return _u
+}
+
+// AppendLockedEntryOrderIds appends value to the "locked_entry_order_ids" field.
+func (_u *SessionUpdateOne) AppendLockedEntryOrderIds(v []int) *SessionUpdateOne {
+	_u.mutation.AppendLockedEntryOrderIds(v)
+	return _u
+}
+
+// ClearLockedEntryOrderIds clears the value of the "locked_entry_order_ids" field.
+func (_u *SessionUpdateOne) ClearLockedEntryOrderIds() *SessionUpdateOne {
+	_u.mutation.ClearLockedEntryOrderIds()
+	return _u
+}
+
+// SetEntryOrderLockedAt sets the "entry_order_locked_at" field.
+func (_u *SessionUpdateOne) SetEntryOrderLockedAt(v time.Time) *SessionUpdateOne {
+	_u.mutation.SetEntryOrderLockedAt(v)
+	return _u
+}
+
+// SetNillableEntryOrderLockedAt sets the "entry_order_locked_at" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableEntryOrderLockedAt(v *time.Time) *SessionUpdateOne {
+	if v != nil {
+		_u.SetEntryOrderLockedAt(*v)
+	}
+	return _u
+}
+
+// ClearEntryOrderLockedAt clears the value of the "entry_order_locked_at" field.
+func (_u *SessionUpdateOne) ClearEntryOrderLockedAt() *SessionUpdateOne {
+	_u.mutation.ClearEntryOrderLockedAt()
+	return _u
+}
+
+// SetEntryOrderRevision sets the "entry_order_revision" field.
+func (_u *SessionUpdateOne) SetEntryOrderRevision(v int) *SessionUpdateOne {
+	_u.mutation.ResetEntryOrderRevision()
+	_u.mutation.SetEntryOrderRevision(v)
+	return _u
+}
+
+// SetNillableEntryOrderRevision sets the "entry_order_revision" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableEntryOrderRevision(v *int) *SessionUpdateOne {
+	if v != nil {
+		_u.SetEntryOrderRevision(*v)
+	}
+	return _u
+}
+
+// AddEntryOrderRevision adds value to the "entry_order_revision" field.
+func (_u *SessionUpdateOne) AddEntryOrderRevision(v int) *SessionUpdateOne {
+	_u.mutation.AddEntryOrderRevision(v)
+	return _u
+}
+
 // SetDraftID sets the "draft" edge to the SessionDraft entity by ID.
 func (_u *SessionUpdateOne) SetDraftID(id int) *SessionUpdateOne {
 	_u.mutation.SetDraftID(id)
@@ -1538,6 +1820,21 @@ func (_u *SessionUpdateOne) check() error {
 			return &ValidationError{Name: "readiness_revision", err: fmt.Errorf(`ent: validator failed for field "Session.readiness_revision": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.EntryOrderPolicy(); ok {
+		if err := session.EntryOrderPolicyValidator(v); err != nil {
+			return &ValidationError{Name: "entry_order_policy", err: fmt.Errorf(`ent: validator failed for field "Session.entry_order_policy": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.EntryOrderSeed(); ok {
+		if err := session.EntryOrderSeedValidator(v); err != nil {
+			return &ValidationError{Name: "entry_order_seed", err: fmt.Errorf(`ent: validator failed for field "Session.entry_order_seed": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.EntryOrderRevision(); ok {
+		if err := session.EntryOrderRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "entry_order_revision", err: fmt.Errorf(`ent: validator failed for field "Session.entry_order_revision": %w`, err)}
+		}
+	}
 	if _u.mutation.EventCleared() && len(_u.mutation.EventIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Session.event"`)
 	}
@@ -1678,6 +1975,49 @@ func (_u *SessionUpdateOne) sqlSave(ctx context.Context) (_node *Session, err er
 	}
 	if value, ok := _u.mutation.AddedReadinessRevision(); ok {
 		_spec.AddField(session.FieldReadinessRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.EntryOrderPolicy(); ok {
+		_spec.SetField(session.FieldEntryOrderPolicy, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.EntryOrderSeed(); ok {
+		_spec.SetField(session.FieldEntryOrderSeed, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedEntryOrderSeed(); ok {
+		_spec.AddField(session.FieldEntryOrderSeed, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.EntryOrderManualIds(); ok {
+		_spec.SetField(session.FieldEntryOrderManualIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedEntryOrderManualIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, session.FieldEntryOrderManualIds, value)
+		})
+	}
+	if _u.mutation.EntryOrderManualIdsCleared() {
+		_spec.ClearField(session.FieldEntryOrderManualIds, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.LockedEntryOrderIds(); ok {
+		_spec.SetField(session.FieldLockedEntryOrderIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedLockedEntryOrderIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, session.FieldLockedEntryOrderIds, value)
+		})
+	}
+	if _u.mutation.LockedEntryOrderIdsCleared() {
+		_spec.ClearField(session.FieldLockedEntryOrderIds, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.EntryOrderLockedAt(); ok {
+		_spec.SetField(session.FieldEntryOrderLockedAt, field.TypeTime, value)
+	}
+	if _u.mutation.EntryOrderLockedAtCleared() {
+		_spec.ClearField(session.FieldEntryOrderLockedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.EntryOrderRevision(); ok {
+		_spec.SetField(session.FieldEntryOrderRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedEntryOrderRevision(); ok {
+		_spec.AddField(session.FieldEntryOrderRevision, field.TypeInt, value)
 	}
 	if _u.mutation.DraftCleared() {
 		edge := &sqlgraph.EdgeSpec{

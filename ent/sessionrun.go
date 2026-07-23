@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -32,6 +33,8 @@ type SessionRun struct {
 	TargetAdjustedAt time.Time `json:"target_adjusted_at,omitempty"`
 	// SnapshotJSON holds the value of the "snapshot_json" field.
 	SnapshotJSON string `json:"snapshot_json,omitempty"`
+	// Set once by the first Competition Entry Slide Take.
+	LockedEntryOrderIds []int `json:"locked_entry_order_ids,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -76,6 +79,8 @@ func (*SessionRun) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case sessionrun.FieldLockedEntryOrderIds:
+			values[i] = new([]byte)
 		case sessionrun.FieldID, sessionrun.FieldSessionID, sessionrun.FieldTargetAdjustmentSeconds:
 			values[i] = new(sql.NullInt64)
 		case sessionrun.FieldOutcome, sessionrun.FieldSnapshotJSON:
@@ -144,6 +149,14 @@ func (_m *SessionRun) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field snapshot_json", values[i])
 			} else if value.Valid {
 				_m.SnapshotJSON = value.String
+			}
+		case sessionrun.FieldLockedEntryOrderIds:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field locked_entry_order_ids", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.LockedEntryOrderIds); err != nil {
+					return fmt.Errorf("unmarshal field locked_entry_order_ids: %w", err)
+				}
 			}
 		case sessionrun.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -217,6 +230,9 @@ func (_m *SessionRun) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("snapshot_json=")
 	builder.WriteString(_m.SnapshotJSON)
+	builder.WriteString(", ")
+	builder.WriteString("locked_entry_order_ids=")
+	builder.WriteString(fmt.Sprintf("%v", _m.LockedEntryOrderIds))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

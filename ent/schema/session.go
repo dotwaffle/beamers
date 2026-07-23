@@ -48,6 +48,14 @@ func (Session) Fields() []ent.Field {
 		field.Bool("require_entry_review").Default(false),
 		field.Bool("file_delivery_required").Optional().Nillable(),
 		field.Int("readiness_revision").Default(0).NonNegative(),
+		field.Enum("entry_order_policy").
+			Values("SubmissionOrder", "ManualOrder", "DeterministicShuffle").
+			Default("DeterministicShuffle"),
+		field.Int64("entry_order_seed").Default(0).NonNegative(),
+		field.JSON("entry_order_manual_ids", []int{}).Optional(),
+		field.JSON("locked_entry_order_ids", []int{}).Optional(),
+		field.Time("entry_order_locked_at").Optional(),
+		field.Int("entry_order_revision").Default(0).NonNegative(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 	}
 }

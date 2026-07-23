@@ -30,6 +30,8 @@ const (
 	FieldTargetAdjustedAt = "target_adjusted_at"
 	// FieldSnapshotJSON holds the string denoting the snapshot_json field in the database.
 	FieldSnapshotJSON = "snapshot_json"
+	// FieldLockedEntryOrderIds holds the string denoting the locked_entry_order_ids field in the database.
+	FieldLockedEntryOrderIds = "locked_entry_order_ids"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeSession holds the string denoting the session edge name in mutations.
@@ -64,6 +66,7 @@ var Columns = []string{
 	FieldTargetAdjustmentSeconds,
 	FieldTargetAdjustedAt,
 	FieldSnapshotJSON,
+	FieldLockedEntryOrderIds,
 	FieldCreatedAt,
 }
 

@@ -96,6 +96,12 @@ func (_c *SessionRunCreate) SetSnapshotJSON(v string) *SessionRunCreate {
 	return _c
 }
 
+// SetLockedEntryOrderIds sets the "locked_entry_order_ids" field.
+func (_c *SessionRunCreate) SetLockedEntryOrderIds(v []int) *SessionRunCreate {
+	_c.mutation.SetLockedEntryOrderIds(v)
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *SessionRunCreate) SetCreatedAt(v time.Time) *SessionRunCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -260,6 +266,10 @@ func (_c *SessionRunCreate) createSpec() (*SessionRun, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.SnapshotJSON(); ok {
 		_spec.SetField(sessionrun.FieldSnapshotJSON, field.TypeString, value)
 		_node.SnapshotJSON = value
+	}
+	if value, ok := _c.mutation.LockedEntryOrderIds(); ok {
+		_spec.SetField(sessionrun.FieldLockedEntryOrderIds, field.TypeJSON, value)
+		_node.LockedEntryOrderIds = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(sessionrun.FieldCreatedAt, field.TypeTime, value)

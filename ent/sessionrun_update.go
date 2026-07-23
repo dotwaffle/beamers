@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
@@ -107,6 +108,24 @@ func (_u *SessionRunUpdate) SetNillableTargetAdjustedAt(v *time.Time) *SessionRu
 // ClearTargetAdjustedAt clears the value of the "target_adjusted_at" field.
 func (_u *SessionRunUpdate) ClearTargetAdjustedAt() *SessionRunUpdate {
 	_u.mutation.ClearTargetAdjustedAt()
+	return _u
+}
+
+// SetLockedEntryOrderIds sets the "locked_entry_order_ids" field.
+func (_u *SessionRunUpdate) SetLockedEntryOrderIds(v []int) *SessionRunUpdate {
+	_u.mutation.SetLockedEntryOrderIds(v)
+	return _u
+}
+
+// AppendLockedEntryOrderIds appends value to the "locked_entry_order_ids" field.
+func (_u *SessionRunUpdate) AppendLockedEntryOrderIds(v []int) *SessionRunUpdate {
+	_u.mutation.AppendLockedEntryOrderIds(v)
+	return _u
+}
+
+// ClearLockedEntryOrderIds clears the value of the "locked_entry_order_ids" field.
+func (_u *SessionRunUpdate) ClearLockedEntryOrderIds() *SessionRunUpdate {
+	_u.mutation.ClearLockedEntryOrderIds()
 	return _u
 }
 
@@ -226,6 +245,17 @@ func (_u *SessionRunUpdate) sqlSave(ctx context.Context) (_node int, err error) 
 	}
 	if _u.mutation.TargetAdjustedAtCleared() {
 		_spec.ClearField(sessionrun.FieldTargetAdjustedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.LockedEntryOrderIds(); ok {
+		_spec.SetField(sessionrun.FieldLockedEntryOrderIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedLockedEntryOrderIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, sessionrun.FieldLockedEntryOrderIds, value)
+		})
+	}
+	if _u.mutation.LockedEntryOrderIdsCleared() {
+		_spec.ClearField(sessionrun.FieldLockedEntryOrderIds, field.TypeJSON)
 	}
 	if _u.mutation.AmendmentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -370,6 +400,24 @@ func (_u *SessionRunUpdateOne) SetNillableTargetAdjustedAt(v *time.Time) *Sessio
 // ClearTargetAdjustedAt clears the value of the "target_adjusted_at" field.
 func (_u *SessionRunUpdateOne) ClearTargetAdjustedAt() *SessionRunUpdateOne {
 	_u.mutation.ClearTargetAdjustedAt()
+	return _u
+}
+
+// SetLockedEntryOrderIds sets the "locked_entry_order_ids" field.
+func (_u *SessionRunUpdateOne) SetLockedEntryOrderIds(v []int) *SessionRunUpdateOne {
+	_u.mutation.SetLockedEntryOrderIds(v)
+	return _u
+}
+
+// AppendLockedEntryOrderIds appends value to the "locked_entry_order_ids" field.
+func (_u *SessionRunUpdateOne) AppendLockedEntryOrderIds(v []int) *SessionRunUpdateOne {
+	_u.mutation.AppendLockedEntryOrderIds(v)
+	return _u
+}
+
+// ClearLockedEntryOrderIds clears the value of the "locked_entry_order_ids" field.
+func (_u *SessionRunUpdateOne) ClearLockedEntryOrderIds() *SessionRunUpdateOne {
+	_u.mutation.ClearLockedEntryOrderIds()
 	return _u
 }
 
@@ -519,6 +567,17 @@ func (_u *SessionRunUpdateOne) sqlSave(ctx context.Context) (_node *SessionRun, 
 	}
 	if _u.mutation.TargetAdjustedAtCleared() {
 		_spec.ClearField(sessionrun.FieldTargetAdjustedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.LockedEntryOrderIds(); ok {
+		_spec.SetField(sessionrun.FieldLockedEntryOrderIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedLockedEntryOrderIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, sessionrun.FieldLockedEntryOrderIds, value)
+		})
+	}
+	if _u.mutation.LockedEntryOrderIdsCleared() {
+		_spec.ClearField(sessionrun.FieldLockedEntryOrderIds, field.TypeJSON)
 	}
 	if _u.mutation.AmendmentsCleared() {
 		edge := &sqlgraph.EdgeSpec{

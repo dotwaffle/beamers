@@ -38,6 +38,8 @@ const (
 	FieldReviewedByAccountID = "reviewed_by_account_id"
 	// FieldReviewedAt holds the string denoting the reviewed_at field in the database.
 	FieldReviewedAt = "reviewed_at"
+	// FieldFirstPresentedAt holds the string denoting the first_presented_at field in the database.
+	FieldFirstPresentedAt = "first_presented_at"
 	// FieldRevision holds the string denoting the revision field in the database.
 	FieldRevision = "revision"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -78,6 +80,7 @@ var Columns = []string{
 	FieldReviewedContentRevision,
 	FieldReviewedByAccountID,
 	FieldReviewedAt,
+	FieldFirstPresentedAt,
 	FieldRevision,
 	FieldCreatedAt,
 }
@@ -207,6 +210,11 @@ func ByReviewedByAccountID(opts ...sql.OrderTermOption) OrderOption {
 // ByReviewedAt orders the results by the reviewed_at field.
 func ByReviewedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldReviewedAt, opts...).ToFunc()
+}
+
+// ByFirstPresentedAt orders the results by the first_presented_at field.
+func ByFirstPresentedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFirstPresentedAt, opts...).ToFunc()
 }
 
 // ByRevision orders the results by the revision field.

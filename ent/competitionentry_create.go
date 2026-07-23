@@ -144,6 +144,20 @@ func (_c *CompetitionEntryCreate) SetNillableReviewedAt(v *time.Time) *Competiti
 	return _c
 }
 
+// SetFirstPresentedAt sets the "first_presented_at" field.
+func (_c *CompetitionEntryCreate) SetFirstPresentedAt(v time.Time) *CompetitionEntryCreate {
+	_c.mutation.SetFirstPresentedAt(v)
+	return _c
+}
+
+// SetNillableFirstPresentedAt sets the "first_presented_at" field if the given value is not nil.
+func (_c *CompetitionEntryCreate) SetNillableFirstPresentedAt(v *time.Time) *CompetitionEntryCreate {
+	if v != nil {
+		_c.SetFirstPresentedAt(*v)
+	}
+	return _c
+}
+
 // SetRevision sets the "revision" field.
 func (_c *CompetitionEntryCreate) SetRevision(v int) *CompetitionEntryCreate {
 	_c.mutation.SetRevision(v)
@@ -373,6 +387,10 @@ func (_c *CompetitionEntryCreate) createSpec() (*CompetitionEntry, *sqlgraph.Cre
 	if value, ok := _c.mutation.ReviewedAt(); ok {
 		_spec.SetField(competitionentry.FieldReviewedAt, field.TypeTime, value)
 		_node.ReviewedAt = value
+	}
+	if value, ok := _c.mutation.FirstPresentedAt(); ok {
+		_spec.SetField(competitionentry.FieldFirstPresentedAt, field.TypeTime, value)
+		_node.FirstPresentedAt = value
 	}
 	if value, ok := _c.mutation.Revision(); ok {
 		_spec.SetField(competitionentry.FieldRevision, field.TypeInt, value)

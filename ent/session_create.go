@@ -254,6 +254,74 @@ func (_c *SessionCreate) SetNillableReadinessRevision(v *int) *SessionCreate {
 	return _c
 }
 
+// SetEntryOrderPolicy sets the "entry_order_policy" field.
+func (_c *SessionCreate) SetEntryOrderPolicy(v session.EntryOrderPolicy) *SessionCreate {
+	_c.mutation.SetEntryOrderPolicy(v)
+	return _c
+}
+
+// SetNillableEntryOrderPolicy sets the "entry_order_policy" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableEntryOrderPolicy(v *session.EntryOrderPolicy) *SessionCreate {
+	if v != nil {
+		_c.SetEntryOrderPolicy(*v)
+	}
+	return _c
+}
+
+// SetEntryOrderSeed sets the "entry_order_seed" field.
+func (_c *SessionCreate) SetEntryOrderSeed(v int64) *SessionCreate {
+	_c.mutation.SetEntryOrderSeed(v)
+	return _c
+}
+
+// SetNillableEntryOrderSeed sets the "entry_order_seed" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableEntryOrderSeed(v *int64) *SessionCreate {
+	if v != nil {
+		_c.SetEntryOrderSeed(*v)
+	}
+	return _c
+}
+
+// SetEntryOrderManualIds sets the "entry_order_manual_ids" field.
+func (_c *SessionCreate) SetEntryOrderManualIds(v []int) *SessionCreate {
+	_c.mutation.SetEntryOrderManualIds(v)
+	return _c
+}
+
+// SetLockedEntryOrderIds sets the "locked_entry_order_ids" field.
+func (_c *SessionCreate) SetLockedEntryOrderIds(v []int) *SessionCreate {
+	_c.mutation.SetLockedEntryOrderIds(v)
+	return _c
+}
+
+// SetEntryOrderLockedAt sets the "entry_order_locked_at" field.
+func (_c *SessionCreate) SetEntryOrderLockedAt(v time.Time) *SessionCreate {
+	_c.mutation.SetEntryOrderLockedAt(v)
+	return _c
+}
+
+// SetNillableEntryOrderLockedAt sets the "entry_order_locked_at" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableEntryOrderLockedAt(v *time.Time) *SessionCreate {
+	if v != nil {
+		_c.SetEntryOrderLockedAt(*v)
+	}
+	return _c
+}
+
+// SetEntryOrderRevision sets the "entry_order_revision" field.
+func (_c *SessionCreate) SetEntryOrderRevision(v int) *SessionCreate {
+	_c.mutation.SetEntryOrderRevision(v)
+	return _c
+}
+
+// SetNillableEntryOrderRevision sets the "entry_order_revision" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableEntryOrderRevision(v *int) *SessionCreate {
+	if v != nil {
+		_c.SetEntryOrderRevision(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *SessionCreate) SetCreatedAt(v time.Time) *SessionCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -405,6 +473,18 @@ func (_c *SessionCreate) defaults() error {
 		v := session.DefaultReadinessRevision
 		_c.mutation.SetReadinessRevision(v)
 	}
+	if _, ok := _c.mutation.EntryOrderPolicy(); !ok {
+		v := session.DefaultEntryOrderPolicy
+		_c.mutation.SetEntryOrderPolicy(v)
+	}
+	if _, ok := _c.mutation.EntryOrderSeed(); !ok {
+		v := session.DefaultEntryOrderSeed
+		_c.mutation.SetEntryOrderSeed(v)
+	}
+	if _, ok := _c.mutation.EntryOrderRevision(); !ok {
+		v := session.DefaultEntryOrderRevision
+		_c.mutation.SetEntryOrderRevision(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		if session.DefaultCreatedAt == nil {
 			return fmt.Errorf("ent: uninitialized session.DefaultCreatedAt (forgotten import ent/runtime?)")
@@ -470,6 +550,30 @@ func (_c *SessionCreate) check() error {
 	if v, ok := _c.mutation.ReadinessRevision(); ok {
 		if err := session.ReadinessRevisionValidator(v); err != nil {
 			return &ValidationError{Name: "readiness_revision", err: fmt.Errorf(`ent: validator failed for field "Session.readiness_revision": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.EntryOrderPolicy(); !ok {
+		return &ValidationError{Name: "entry_order_policy", err: errors.New(`ent: missing required field "Session.entry_order_policy"`)}
+	}
+	if v, ok := _c.mutation.EntryOrderPolicy(); ok {
+		if err := session.EntryOrderPolicyValidator(v); err != nil {
+			return &ValidationError{Name: "entry_order_policy", err: fmt.Errorf(`ent: validator failed for field "Session.entry_order_policy": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.EntryOrderSeed(); !ok {
+		return &ValidationError{Name: "entry_order_seed", err: errors.New(`ent: missing required field "Session.entry_order_seed"`)}
+	}
+	if v, ok := _c.mutation.EntryOrderSeed(); ok {
+		if err := session.EntryOrderSeedValidator(v); err != nil {
+			return &ValidationError{Name: "entry_order_seed", err: fmt.Errorf(`ent: validator failed for field "Session.entry_order_seed": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.EntryOrderRevision(); !ok {
+		return &ValidationError{Name: "entry_order_revision", err: errors.New(`ent: missing required field "Session.entry_order_revision"`)}
+	}
+	if v, ok := _c.mutation.EntryOrderRevision(); ok {
+		if err := session.EntryOrderRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "entry_order_revision", err: fmt.Errorf(`ent: validator failed for field "Session.entry_order_revision": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
@@ -571,6 +675,30 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ReadinessRevision(); ok {
 		_spec.SetField(session.FieldReadinessRevision, field.TypeInt, value)
 		_node.ReadinessRevision = value
+	}
+	if value, ok := _c.mutation.EntryOrderPolicy(); ok {
+		_spec.SetField(session.FieldEntryOrderPolicy, field.TypeEnum, value)
+		_node.EntryOrderPolicy = value
+	}
+	if value, ok := _c.mutation.EntryOrderSeed(); ok {
+		_spec.SetField(session.FieldEntryOrderSeed, field.TypeInt64, value)
+		_node.EntryOrderSeed = value
+	}
+	if value, ok := _c.mutation.EntryOrderManualIds(); ok {
+		_spec.SetField(session.FieldEntryOrderManualIds, field.TypeJSON, value)
+		_node.EntryOrderManualIds = value
+	}
+	if value, ok := _c.mutation.LockedEntryOrderIds(); ok {
+		_spec.SetField(session.FieldLockedEntryOrderIds, field.TypeJSON, value)
+		_node.LockedEntryOrderIds = value
+	}
+	if value, ok := _c.mutation.EntryOrderLockedAt(); ok {
+		_spec.SetField(session.FieldEntryOrderLockedAt, field.TypeTime, value)
+		_node.EntryOrderLockedAt = value
+	}
+	if value, ok := _c.mutation.EntryOrderRevision(); ok {
+		_spec.SetField(session.FieldEntryOrderRevision, field.TypeInt, value)
+		_node.EntryOrderRevision = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(session.FieldCreatedAt, field.TypeTime, value)

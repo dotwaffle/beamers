@@ -16,6 +16,15 @@ service CompetitionService {
   rpc ReviewEntry(ReviewEntryRequest) returns (ReviewEntryResponse);
   rpc SetEntryAttachmentReadiness(SetEntryAttachmentReadinessRequest) returns (SetEntryAttachmentReadinessResponse);
   rpc PreflightStart(PreflightStartRequest) returns (PreflightStartResponse);
+  rpc ConfigureEntryOrder(ConfigureEntryOrderRequest) returns (ConfigureEntryOrderResponse);
+  rpc PreviewEntryOrder(PreviewEntryOrderRequest) returns (PreviewEntryOrderResponse);
+}
+
+enum EntryOrderPolicy {
+  ENTRY_ORDER_POLICY_UNSPECIFIED = 0;
+  ENTRY_ORDER_POLICY_SUBMISSION_ORDER = 1;
+  ENTRY_ORDER_POLICY_MANUAL_ORDER = 2;
+  ENTRY_ORDER_POLICY_DETERMINISTIC_SHUFFLE = 3;
 }
 
 message Entry {
@@ -46,6 +55,7 @@ message GetCompetitionResponse {
   bool require_entry_review = 6;
   bool file_delivery_required = 7;
   int64 readiness_revision = 8;
+  EntryOrderState entry_order = 9;
 }
 
 message ConfigureReadinessRequest {
@@ -161,4 +171,36 @@ message PreflightStartResponse {
   bool file_delivery_required = 4;
   repeated PreflightFinding blockers = 5;
   repeated AttachmentReadiness attachments = 6;
+}
+
+message EntryOrderState {
+  EntryOrderPolicy policy = 1;
+  int64 seed = 2;
+  int64 revision = 3;
+  repeated int64 entry_ids = 4;
+  bool locked = 5;
+}
+
+message ConfigureEntryOrderRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  string command_id = 3;
+  int64 expected_revision = 4;
+  EntryOrderPolicy policy = 5;
+  int64 seed = 6;
+  repeated int64 manual_entry_ids = 7;
+}
+
+message ConfigureEntryOrderResponse {
+  EntryOrderState entry_order = 1;
+}
+
+message PreviewEntryOrderRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+}
+
+message PreviewEntryOrderResponse {
+  EntryOrderState entry_order = 1;
+  string fingerprint = 2;
 }

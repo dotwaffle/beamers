@@ -77,11 +77,58 @@ func (handler *Handler) GetCompetition(
 		RequireEntryReview:          found.RequireEntryReview,
 		FileDeliveryRequired:        found.FileDeliveryRequired,
 		ReadinessRevision:           int64(found.ReadinessRevision),
+		EntryOrder:                  entryOrder(found.EntryOrder),
 	}
 	for _, foundEntry := range found.Entries {
 		response.Entries = append(response.Entries, entry(foundEntry))
 	}
 	return connect.NewResponse(response), nil
+}
+
+// PreviewEntryOrder returns the reproducible current Included Entry sequence.
+func (handler *Handler) PreviewEntryOrder(
+	ctx context.Context,
+	request *connect.Request[competitionv1.PreviewEntryOrderRequest],
+) (*connect.Response[competitionv1.PreviewEntryOrderResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	preview, err := handler.service.PreviewEntryOrder(
+		ctx, actor, int(request.Msg.GetEventId()), int(request.Msg.GetSessionId()),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&competitionv1.PreviewEntryOrderResponse{
+		EntryOrder: entryOrder(preview.EntryOrder), Fingerprint: preview.Fingerprint,
+	}), nil
+}
+
+// ConfigureEntryOrder changes the pre-live order policy.
+func (handler *Handler) ConfigureEntryOrder(
+	ctx context.Context,
+	request *connect.Request[competitionv1.ConfigureEntryOrderRequest],
+) (*connect.Response[competitionv1.ConfigureEntryOrderResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	configured, err := handler.service.ConfigureEntryOrder(
+		ctx, actor, competition.ConfigureEntryOrderInput{
+			EventID: int(request.Msg.GetEventId()), SessionID: int(request.Msg.GetSessionId()),
+			CommandID:        request.Msg.GetCommandId(),
+			ExpectedRevision: int(request.Msg.GetExpectedRevision()),
+			Policy:           entryOrderPolicyFromProto(request.Msg.GetPolicy()),
+			Seed:             request.Msg.GetSeed(), ManualEntryIDs: orderInts(request.Msg.GetManualEntryIds()),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&competitionv1.ConfigureEntryOrderResponse{
+		EntryOrder: entryOrder(configured),
+	}), nil
 }
 
 // ConfigureReadiness changes independent Competition Start policies.
@@ -266,6 +313,45 @@ func attachmentReadiness(found competition.AttachmentReadiness) *competitionv1.A
 	}
 }
 
+func entryOrder(found competition.EntryOrder) *competitionv1.EntryOrderState {
+	return &competitionv1.EntryOrderState{
+		Policy: entryOrderPolicy(found.Policy), Seed: found.Seed,
+		Revision: int64(found.Revision), EntryIds: orderInt64s(found.EntryIDs), Locked: found.Locked,
+	}
+}
+
+func entryOrderPolicy(value competition.EntryOrderPolicy) competitionv1.EntryOrderPolicy {
+	return map[competition.EntryOrderPolicy]competitionv1.EntryOrderPolicy{
+		competition.EntryOrderSubmission:           competitionv1.EntryOrderPolicy_ENTRY_ORDER_POLICY_SUBMISSION_ORDER,
+		competition.EntryOrderManual:               competitionv1.EntryOrderPolicy_ENTRY_ORDER_POLICY_MANUAL_ORDER,
+		competition.EntryOrderDeterministicShuffle: competitionv1.EntryOrderPolicy_ENTRY_ORDER_POLICY_DETERMINISTIC_SHUFFLE,
+	}[value]
+}
+
+func entryOrderPolicyFromProto(value competitionv1.EntryOrderPolicy) competition.EntryOrderPolicy {
+	return map[competitionv1.EntryOrderPolicy]competition.EntryOrderPolicy{
+		competitionv1.EntryOrderPolicy_ENTRY_ORDER_POLICY_SUBMISSION_ORDER:      competition.EntryOrderSubmission,
+		competitionv1.EntryOrderPolicy_ENTRY_ORDER_POLICY_MANUAL_ORDER:          competition.EntryOrderManual,
+		competitionv1.EntryOrderPolicy_ENTRY_ORDER_POLICY_DETERMINISTIC_SHUFFLE: competition.EntryOrderDeterministicShuffle,
+	}[value]
+}
+
+func orderInt64s(values []int) []int64 {
+	result := make([]int64, len(values))
+	for index, value := range values {
+		result[index] = int64(value)
+	}
+	return result
+}
+
+func orderInts(values []int64) []int {
+	result := make([]int, len(values))
+	for index, value := range values {
+		result[index] = int(value)
+	}
+	return result
+}
+
 func entry(found competition.Entry) *competitionv1.Entry {
 	return &competitionv1.Entry{
 		Id: int64(found.ID), CompetitionSessionId: int64(found.CompetitionSessionID),
@@ -302,12 +388,18 @@ func connectError(err error) error {
 		return connect.NewError(connect.CodeNotFound, err)
 	case errors.Is(err, competition.ErrSubmissionClosed), errors.Is(err, competition.ErrLiveDispositionConfirmation):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
+	case errors.Is(err, competition.ErrEntryOrderLocked),
+		errors.Is(err, competition.ErrPresentedEntryDisposition):
+		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, competition.ErrEntryRevisionConflict),
 		errors.Is(err, competition.ErrReadinessRevisionConflict),
 		errors.Is(err, competition.ErrAttachmentReadinessRevisionConflict),
+		errors.Is(err, competition.ErrEntryOrderRevisionConflict),
+		errors.Is(err, competition.ErrEntryOrderPreviewStale),
 		errors.Is(err, competition.ErrCommandConflict):
 		return connect.NewError(connect.CodeAborted, err)
-	case errors.Is(err, command.ErrInvalidID), errors.Is(err, competition.ErrInvalidInput):
+	case errors.Is(err, command.ErrInvalidID), errors.Is(err, competition.ErrInvalidInput),
+		errors.Is(err, competition.ErrEntryOrderInvalid):
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	default:
 		return connect.NewError(connect.CodeInternal, errors.New("competition request failed"))

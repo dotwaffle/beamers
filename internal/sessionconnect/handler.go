@@ -630,7 +630,7 @@ func runSnapshot(snapshot sessioncontrol.RunSnapshot) *sessionv1.RunSnapshot {
 		MinimumDuration: durationpb.New(time.Duration(snapshot.MinimumDurationSeconds) * time.Second),
 		StartBoundary:   boundary(snapshot.StartBoundary), EndBoundary: boundary(snapshot.EndBoundary),
 		LaneIds: int64s(snapshot.LaneIDs), LocationIds: int64s(snapshot.LocationIDs),
-		TrackIds: int64s(snapshot.TrackIDs),
+		TrackIds: int64s(snapshot.TrackIDs), LockedEntryOrderIds: int64s(snapshot.LockedEntryOrderIDs),
 	}
 }
 

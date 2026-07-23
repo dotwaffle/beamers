@@ -965,6 +965,12 @@ func (transaction *CommandTx) updateSessionDraft(
 	if _, err = update.Save(ctx); err != nil {
 		return nil, opaqueError("update Session Draft state", err)
 	}
+	if containsString(input.UpdateFields, "type") &&
+		input.Type == "Competition" && identity.EntryOrderSeed <= 0 {
+		if _, err = identity.Update().SetEntryOrderSeed(int64(identity.ID)).Save(ctx); err != nil {
+			return nil, opaqueError("seed Competition Entry Order", err)
+		}
+	}
 	return results, nil
 }
 
@@ -1112,6 +1118,12 @@ func (transaction *CommandTx) createSessionDraft(
 		Save(ctx)
 	if err != nil {
 		return createdSessionDraft{}, opaqueError("create Draft Session identity", err)
+	}
+	if input.Type == "Competition" {
+		created, err = created.Update().SetEntryOrderSeed(int64(created.ID)).Save(ctx)
+		if err != nil {
+			return createdSessionDraft{}, opaqueError("seed Competition Entry Order", err)
+		}
 	}
 	create := transaction.transaction.SessionDraft.Create().
 		SetSessionID(created.ID).

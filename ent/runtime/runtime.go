@@ -546,13 +546,13 @@ func init() {
 	// competitionentry.ReviewedByAccountIDValidator is a validator for the "reviewed_by_account_id" field. It is called by the builders before save.
 	competitionentry.ReviewedByAccountIDValidator = competitionentryDescReviewedByAccountID.Validators[0].(func(int) error)
 	// competitionentryDescRevision is the schema descriptor for revision field.
-	competitionentryDescRevision := competitionentryFields[11].Descriptor()
+	competitionentryDescRevision := competitionentryFields[12].Descriptor()
 	// competitionentry.DefaultRevision holds the default value on creation for the revision field.
 	competitionentry.DefaultRevision = competitionentryDescRevision.Default.(int)
 	// competitionentry.RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
 	competitionentry.RevisionValidator = competitionentryDescRevision.Validators[0].(func(int) error)
 	// competitionentryDescCreatedAt is the schema descriptor for created_at field.
-	competitionentryDescCreatedAt := competitionentryFields[12].Descriptor()
+	competitionentryDescCreatedAt := competitionentryFields[13].Descriptor()
 	// competitionentry.DefaultCreatedAt holds the default value on creation for the created_at field.
 	competitionentry.DefaultCreatedAt = competitionentryDescCreatedAt.Default.(func() time.Time)
 	display.Policy = privacy.NewPolicies(schema.Display{})
@@ -1480,8 +1480,20 @@ func init() {
 	session.DefaultReadinessRevision = sessionDescReadinessRevision.Default.(int)
 	// session.ReadinessRevisionValidator is a validator for the "readiness_revision" field. It is called by the builders before save.
 	session.ReadinessRevisionValidator = sessionDescReadinessRevision.Validators[0].(func(int) error)
+	// sessionDescEntryOrderSeed is the schema descriptor for entry_order_seed field.
+	sessionDescEntryOrderSeed := sessionFields[19].Descriptor()
+	// session.DefaultEntryOrderSeed holds the default value on creation for the entry_order_seed field.
+	session.DefaultEntryOrderSeed = sessionDescEntryOrderSeed.Default.(int64)
+	// session.EntryOrderSeedValidator is a validator for the "entry_order_seed" field. It is called by the builders before save.
+	session.EntryOrderSeedValidator = sessionDescEntryOrderSeed.Validators[0].(func(int64) error)
+	// sessionDescEntryOrderRevision is the schema descriptor for entry_order_revision field.
+	sessionDescEntryOrderRevision := sessionFields[23].Descriptor()
+	// session.DefaultEntryOrderRevision holds the default value on creation for the entry_order_revision field.
+	session.DefaultEntryOrderRevision = sessionDescEntryOrderRevision.Default.(int)
+	// session.EntryOrderRevisionValidator is a validator for the "entry_order_revision" field. It is called by the builders before save.
+	session.EntryOrderRevisionValidator = sessionDescEntryOrderRevision.Validators[0].(func(int) error)
 	// sessionDescCreatedAt is the schema descriptor for created_at field.
-	sessionDescCreatedAt := sessionFields[18].Descriptor()
+	sessionDescCreatedAt := sessionFields[24].Descriptor()
 	// session.DefaultCreatedAt holds the default value on creation for the created_at field.
 	session.DefaultCreatedAt = sessionDescCreatedAt.Default.(func() time.Time)
 	sessioncancellation.Policy = privacy.NewPolicies(schema.SessionCancellation{})
@@ -1631,7 +1643,7 @@ func init() {
 	// sessionrun.SnapshotJSONValidator is a validator for the "snapshot_json" field. It is called by the builders before save.
 	sessionrun.SnapshotJSONValidator = sessionrunDescSnapshotJSON.Validators[0].(func(string) error)
 	// sessionrunDescCreatedAt is the schema descriptor for created_at field.
-	sessionrunDescCreatedAt := sessionrunFields[7].Descriptor()
+	sessionrunDescCreatedAt := sessionrunFields[8].Descriptor()
 	// sessionrun.DefaultCreatedAt holds the default value on creation for the created_at field.
 	sessionrun.DefaultCreatedAt = sessionrunDescCreatedAt.Default.(func() time.Time)
 	sessionrunamendment.Policy = privacy.NewPolicies(schema.SessionRunAmendment{})

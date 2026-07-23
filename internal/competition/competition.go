@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -32,6 +33,16 @@ var (
 	ErrReadinessRevisionConflict = store.ErrCompetitionReadinessRevision
 	// ErrAttachmentReadinessRevisionConflict means Attachment readiness used stale state.
 	ErrAttachmentReadinessRevisionConflict = store.ErrAttachmentReadinessRevision
+	// ErrEntryOrderRevisionConflict means an order command used stale state.
+	ErrEntryOrderRevisionConflict = store.ErrEntryOrderRevision
+	// ErrEntryOrderLocked means live presentation froze the sequence.
+	ErrEntryOrderLocked = store.ErrEntryOrderLocked
+	// ErrEntryOrderPreviewStale means ordering inputs changed after preview.
+	ErrEntryOrderPreviewStale = store.ErrEntryOrderPreviewStale
+	// ErrPresentedEntryDisposition means an Entry already began presentation.
+	ErrPresentedEntryDisposition = store.ErrPresentedEntryDisposition
+	// ErrEntryOrderInvalid means policy, seed, or manual sequence is invalid.
+	ErrEntryOrderInvalid = store.ErrEntryOrderInvalid
 	// ErrLiveDispositionConfirmation means a live change lacked explicit confirmation.
 	ErrLiveDispositionConfirmation = store.ErrLiveDispositionConfirmation
 	// ErrCommandConflict means a Command ID was reused for different work.
@@ -75,7 +86,46 @@ type State struct {
 	RequireEntryReview          bool
 	FileDeliveryRequired        bool
 	ReadinessRevision           int
+	EntryOrder                  EntryOrder
 	Entries                     []Entry
+}
+
+// EntryOrderPolicy selects the canonical Included Entry sequence.
+type EntryOrderPolicy string
+
+const (
+	// EntryOrderSubmission preserves Entry creation order.
+	EntryOrderSubmission EntryOrderPolicy = "SubmissionOrder"
+	// EntryOrderManual uses the crew-selected Entry sequence.
+	EntryOrderManual EntryOrderPolicy = "ManualOrder"
+	// EntryOrderDeterministicShuffle derives a reproducible seeded sequence.
+	EntryOrderDeterministicShuffle EntryOrderPolicy = "DeterministicShuffle"
+)
+
+// EntryOrder is the current canonical or locked Included Entry sequence.
+type EntryOrder struct {
+	Policy   EntryOrderPolicy
+	Seed     int64
+	Revision int
+	EntryIDs []int
+	Locked   bool
+}
+
+// EntryOrderPreview binds a visible order to current durable state.
+type EntryOrderPreview struct {
+	EntryOrder
+	Fingerprint string
+}
+
+// ConfigureEntryOrderInput changes the pre-live order policy.
+type ConfigureEntryOrderInput struct {
+	EventID          int              `json:"event_id"`
+	SessionID        int              `json:"session_id"`
+	CommandID        string           `json:"command_id"`
+	ExpectedRevision int              `json:"expected_revision"`
+	Policy           EntryOrderPolicy `json:"policy"`
+	Seed             int64            `json:"seed"`
+	ManualEntryIDs   []int            `json:"manual_entry_ids,omitempty"`
 }
 
 // PreflightFinding is one stable actionable Competition Start blocker.
@@ -230,6 +280,111 @@ func (service *Service) PreflightStart(
 		result.Attachments = append(result.Attachments, attachmentReadiness(attachment))
 	}
 	return result, nil
+}
+
+// PreviewEntryOrder returns the reproducible current Included Entry sequence.
+func (service *Service) PreviewEntryOrder(
+	ctx context.Context,
+	actor auth.Account,
+	eventID, sessionID int,
+) (EntryOrderPreview, error) {
+	if eventID <= 0 || sessionID <= 0 {
+		return EntryOrderPreview{}, ErrInvalidInput
+	}
+	if !actor.Administrator && actor.EventRoles[eventID] == "" {
+		return EntryOrderPreview{}, ErrProducerRequired
+	}
+	stored, fingerprint, err := service.storage.LoadCompetitionEntryOrder(
+		actor.Context(ctx), eventID, sessionID,
+	)
+	if err != nil {
+		return EntryOrderPreview{}, err
+	}
+	return EntryOrderPreview{
+		EntryOrder:  entryOrder(stored),
+		Fingerprint: fingerprint,
+	}, nil
+}
+
+// ConfigureEntryOrder changes the pre-live order policy.
+func (service *Service) ConfigureEntryOrder(
+	ctx context.Context,
+	actor auth.Account,
+	input ConfigureEntryOrderInput,
+) (EntryOrder, error) {
+	if input.ExpectedRevision < 0 || !validEntryOrderPolicy(input.Policy) {
+		return EntryOrder{}, ErrInvalidInput
+	}
+	return service.executeEntryOrderCommand(
+		ctx, actor, input.EventID, input.SessionID, input.CommandID,
+		"ConfigureCompetitionEntryOrder", input,
+		func(transaction *store.CommandTx, _ time.Time) (store.EntryOrderState, error) {
+			return transaction.ConfigureCompetitionEntryOrder(
+				actor.Context(ctx), store.ConfigureEntryOrderParams{
+					EventID: input.EventID, SessionID: input.SessionID,
+					ExpectedRevision: input.ExpectedRevision,
+					Policy:           store.EntryOrderPolicy(input.Policy), Seed: input.Seed,
+					ManualEntryIDs: slices.Clone(input.ManualEntryIDs),
+				},
+			)
+		},
+	)
+}
+
+func (service *Service) executeEntryOrderCommand(
+	ctx context.Context,
+	actor auth.Account,
+	eventID, sessionID int,
+	commandID, action string,
+	payload any,
+	apply func(*store.CommandTx, time.Time) (store.EntryOrderState, error),
+) (EntryOrder, error) {
+	if err := command.ValidateID(commandID); err != nil {
+		return EntryOrder{}, err
+	}
+	if eventID <= 0 || sessionID <= 0 {
+		return EntryOrder{}, ErrInvalidInput
+	}
+	encodedPayload, err := json.Marshal(payload)
+	if err != nil {
+		return EntryOrder{}, errors.New("encode Competition Entry Order command")
+	}
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID, CommandID: commandID,
+		PayloadHash: command.PayloadHash(string(encodedPayload)),
+		Action:      action, TargetType: "Competition", TargetID: strconv.Itoa(sessionID),
+		Now: service.now().UTC(),
+	}
+	return command.Execute(actor.Context(ctx), command.Plan[EntryOrder]{
+		Storage: service.storage, Identity: identity,
+		Replay: func(outcome string) (EntryOrder, error) {
+			var stored store.EntryOrderState
+			if err := store.DecodeCommandReceipt(outcome, &stored); err != nil {
+				return EntryOrder{}, err
+			}
+			return entryOrder(stored), nil
+		},
+		Apply: func(transaction *store.CommandTx) (command.Execution[EntryOrder], error) {
+			if !actor.CanProduceEvent(eventID) {
+				return command.Execution[EntryOrder]{}, ErrProducerRequired
+			}
+			stored, applyErr := apply(transaction, identity.Now)
+			if applyErr != nil {
+				return command.Execution[EntryOrder]{}, applyErr
+			}
+			outcome, marshalErr := json.Marshal(stored)
+			if marshalErr != nil {
+				return command.Execution[EntryOrder]{}, errors.New("encode Competition Entry Order outcome")
+			}
+			return command.Success(entryOrder(stored), string(outcome)), nil
+		},
+	})
+}
+
+func validEntryOrderPolicy(policy EntryOrderPolicy) bool {
+	return policy == EntryOrderSubmission ||
+		policy == EntryOrderManual ||
+		policy == EntryOrderDeterministicShuffle
 }
 
 // ConfigureReadiness changes independent Competition Start policies.
@@ -520,12 +675,20 @@ func state(stored store.CompetitionState) State {
 		RequireEntryReview:          stored.RequireEntryReview,
 		FileDeliveryRequired:        stored.FileDeliveryRequired,
 		ReadinessRevision:           stored.ReadinessRevision,
+		EntryOrder:                  entryOrder(stored.EntryOrder),
 		Entries:                     make([]Entry, 0, len(stored.Entries)),
 	}
 	for _, storedEntry := range stored.Entries {
 		result.Entries = append(result.Entries, entry(storedEntry))
 	}
 	return result
+}
+
+func entryOrder(stored store.EntryOrderState) EntryOrder {
+	return EntryOrder{
+		Policy: EntryOrderPolicy(stored.Policy), Seed: stored.Seed,
+		Revision: stored.Revision, EntryIDs: slices.Clone(stored.EntryIDs), Locked: stored.Locked,
+	}
 }
 
 func entry(stored store.CompetitionEntry) Entry {

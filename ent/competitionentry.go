@@ -41,6 +41,8 @@ type CompetitionEntry struct {
 	ReviewedByAccountID int `json:"reviewed_by_account_id,omitempty"`
 	// ReviewedAt holds the value of the "reviewed_at" field.
 	ReviewedAt time.Time `json:"reviewed_at,omitempty"`
+	// FirstPresentedAt holds the value of the "first_presented_at" field.
+	FirstPresentedAt time.Time `json:"first_presented_at,omitempty"`
 	// Revision holds the value of the "revision" field.
 	Revision int `json:"revision,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -93,7 +95,7 @@ func (*CompetitionEntry) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullInt64)
 		case competitionentry.FieldName, competitionentry.FieldPublicDetails, competitionentry.FieldCrewNotes, competitionentry.FieldDisposition:
 			values[i] = new(sql.NullString)
-		case competitionentry.FieldUploadClosedAt, competitionentry.FieldReviewedAt, competitionentry.FieldCreatedAt:
+		case competitionentry.FieldUploadClosedAt, competitionentry.FieldReviewedAt, competitionentry.FieldFirstPresentedAt, competitionentry.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -181,6 +183,12 @@ func (_m *CompetitionEntry) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field reviewed_at", values[i])
 			} else if value.Valid {
 				_m.ReviewedAt = value.Time
+			}
+		case competitionentry.FieldFirstPresentedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field first_presented_at", values[i])
+			} else if value.Valid {
+				_m.FirstPresentedAt = value.Time
 			}
 		case competitionentry.FieldRevision:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -272,6 +280,9 @@ func (_m *CompetitionEntry) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("reviewed_at=")
 	builder.WriteString(_m.ReviewedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("first_presented_at=")
+	builder.WriteString(_m.FirstPresentedAt.Format(time.ANSIC))
 	builder.WriteString(", ")
 	builder.WriteString("revision=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Revision))

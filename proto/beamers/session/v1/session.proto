@@ -267,6 +267,7 @@ message RunSnapshot {
   repeated int64 lane_ids = 12;
   repeated int64 location_ids = 13;
   repeated int64 track_ids = 14;
+  repeated int64 locked_entry_order_ids = 15;
 }
 
 message SessionState {

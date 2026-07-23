@@ -56,6 +56,18 @@ type Session struct {
 	FileDeliveryRequired *bool `json:"file_delivery_required,omitempty"`
 	// ReadinessRevision holds the value of the "readiness_revision" field.
 	ReadinessRevision int `json:"readiness_revision,omitempty"`
+	// EntryOrderPolicy holds the value of the "entry_order_policy" field.
+	EntryOrderPolicy session.EntryOrderPolicy `json:"entry_order_policy,omitempty"`
+	// EntryOrderSeed holds the value of the "entry_order_seed" field.
+	EntryOrderSeed int64 `json:"entry_order_seed,omitempty"`
+	// EntryOrderManualIds holds the value of the "entry_order_manual_ids" field.
+	EntryOrderManualIds []int `json:"entry_order_manual_ids,omitempty"`
+	// LockedEntryOrderIds holds the value of the "locked_entry_order_ids" field.
+	LockedEntryOrderIds []int `json:"locked_entry_order_ids,omitempty"`
+	// EntryOrderLockedAt holds the value of the "entry_order_locked_at" field.
+	EntryOrderLockedAt time.Time `json:"entry_order_locked_at,omitempty"`
+	// EntryOrderRevision holds the value of the "entry_order_revision" field.
+	EntryOrderRevision int `json:"entry_order_revision,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -146,15 +158,15 @@ func (*Session) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case session.FieldForecastLaneIds, session.FieldForecastLocationIds:
+		case session.FieldForecastLaneIds, session.FieldForecastLocationIds, session.FieldEntryOrderManualIds, session.FieldLockedEntryOrderIds:
 			values[i] = new([]byte)
 		case session.FieldRequireEntryReview, session.FieldFileDeliveryRequired:
 			values[i] = new(sql.NullBool)
-		case session.FieldID, session.FieldEventID, session.FieldLiveStateRevision, session.FieldReadinessRevision:
+		case session.FieldID, session.FieldEventID, session.FieldLiveStateRevision, session.FieldReadinessRevision, session.FieldEntryOrderSeed, session.FieldEntryOrderRevision:
 			values[i] = new(sql.NullInt64)
-		case session.FieldLifecycle, session.FieldPublicCancellationMessage, session.FieldCancellationCrewNotes, session.FieldCorrectedTitle, session.FieldCorrectedSpeaker, session.FieldCorrectedPublicDetails:
+		case session.FieldLifecycle, session.FieldPublicCancellationMessage, session.FieldCancellationCrewNotes, session.FieldCorrectedTitle, session.FieldCorrectedSpeaker, session.FieldCorrectedPublicDetails, session.FieldEntryOrderPolicy:
 			values[i] = new(sql.NullString)
-		case session.FieldForecastStart, session.FieldForecastEnd, session.FieldCommunicatedStart, session.FieldCommunicatedEnd, session.FieldPreviousForecastStart, session.FieldCreatedAt:
+		case session.FieldForecastStart, session.FieldForecastEnd, session.FieldCommunicatedStart, session.FieldCommunicatedEnd, session.FieldPreviousForecastStart, session.FieldEntryOrderLockedAt, session.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -293,6 +305,46 @@ func (_m *Session) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.ReadinessRevision = int(value.Int64)
 			}
+		case session.FieldEntryOrderPolicy:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field entry_order_policy", values[i])
+			} else if value.Valid {
+				_m.EntryOrderPolicy = session.EntryOrderPolicy(value.String)
+			}
+		case session.FieldEntryOrderSeed:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field entry_order_seed", values[i])
+			} else if value.Valid {
+				_m.EntryOrderSeed = value.Int64
+			}
+		case session.FieldEntryOrderManualIds:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field entry_order_manual_ids", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.EntryOrderManualIds); err != nil {
+					return fmt.Errorf("unmarshal field entry_order_manual_ids: %w", err)
+				}
+			}
+		case session.FieldLockedEntryOrderIds:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field locked_entry_order_ids", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.LockedEntryOrderIds); err != nil {
+					return fmt.Errorf("unmarshal field locked_entry_order_ids: %w", err)
+				}
+			}
+		case session.FieldEntryOrderLockedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field entry_order_locked_at", values[i])
+			} else if value.Valid {
+				_m.EntryOrderLockedAt = value.Time
+			}
+		case session.FieldEntryOrderRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field entry_order_revision", values[i])
+			} else if value.Valid {
+				_m.EntryOrderRevision = int(value.Int64)
+			}
 		case session.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
@@ -426,6 +478,24 @@ func (_m *Session) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("readiness_revision=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ReadinessRevision))
+	builder.WriteString(", ")
+	builder.WriteString("entry_order_policy=")
+	builder.WriteString(fmt.Sprintf("%v", _m.EntryOrderPolicy))
+	builder.WriteString(", ")
+	builder.WriteString("entry_order_seed=")
+	builder.WriteString(fmt.Sprintf("%v", _m.EntryOrderSeed))
+	builder.WriteString(", ")
+	builder.WriteString("entry_order_manual_ids=")
+	builder.WriteString(fmt.Sprintf("%v", _m.EntryOrderManualIds))
+	builder.WriteString(", ")
+	builder.WriteString("locked_entry_order_ids=")
+	builder.WriteString(fmt.Sprintf("%v", _m.LockedEntryOrderIds))
+	builder.WriteString(", ")
+	builder.WriteString("entry_order_locked_at=")
+	builder.WriteString(_m.EntryOrderLockedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("entry_order_revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.EntryOrderRevision))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

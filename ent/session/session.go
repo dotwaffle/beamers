@@ -52,6 +52,18 @@ const (
 	FieldFileDeliveryRequired = "file_delivery_required"
 	// FieldReadinessRevision holds the string denoting the readiness_revision field in the database.
 	FieldReadinessRevision = "readiness_revision"
+	// FieldEntryOrderPolicy holds the string denoting the entry_order_policy field in the database.
+	FieldEntryOrderPolicy = "entry_order_policy"
+	// FieldEntryOrderSeed holds the string denoting the entry_order_seed field in the database.
+	FieldEntryOrderSeed = "entry_order_seed"
+	// FieldEntryOrderManualIds holds the string denoting the entry_order_manual_ids field in the database.
+	FieldEntryOrderManualIds = "entry_order_manual_ids"
+	// FieldLockedEntryOrderIds holds the string denoting the locked_entry_order_ids field in the database.
+	FieldLockedEntryOrderIds = "locked_entry_order_ids"
+	// FieldEntryOrderLockedAt holds the string denoting the entry_order_locked_at field in the database.
+	FieldEntryOrderLockedAt = "entry_order_locked_at"
+	// FieldEntryOrderRevision holds the string denoting the entry_order_revision field in the database.
+	FieldEntryOrderRevision = "entry_order_revision"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeEvent holds the string denoting the event edge name in mutations.
@@ -133,6 +145,12 @@ var Columns = []string{
 	FieldRequireEntryReview,
 	FieldFileDeliveryRequired,
 	FieldReadinessRevision,
+	FieldEntryOrderPolicy,
+	FieldEntryOrderSeed,
+	FieldEntryOrderManualIds,
+	FieldLockedEntryOrderIds,
+	FieldEntryOrderLockedAt,
+	FieldEntryOrderRevision,
 	FieldCreatedAt,
 }
 
@@ -174,6 +192,14 @@ var (
 	DefaultReadinessRevision int
 	// ReadinessRevisionValidator is a validator for the "readiness_revision" field. It is called by the builders before save.
 	ReadinessRevisionValidator func(int) error
+	// DefaultEntryOrderSeed holds the default value on creation for the "entry_order_seed" field.
+	DefaultEntryOrderSeed int64
+	// EntryOrderSeedValidator is a validator for the "entry_order_seed" field. It is called by the builders before save.
+	EntryOrderSeedValidator func(int64) error
+	// DefaultEntryOrderRevision holds the default value on creation for the "entry_order_revision" field.
+	DefaultEntryOrderRevision int
+	// EntryOrderRevisionValidator is a validator for the "entry_order_revision" field. It is called by the builders before save.
+	EntryOrderRevisionValidator func(int) error
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 )
@@ -203,6 +229,33 @@ func LifecycleValidator(l Lifecycle) error {
 		return nil
 	default:
 		return fmt.Errorf("session: invalid enum value for lifecycle field: %q", l)
+	}
+}
+
+// EntryOrderPolicy defines the type for the "entry_order_policy" enum field.
+type EntryOrderPolicy string
+
+// EntryOrderPolicyDeterministicShuffle is the default value of the EntryOrderPolicy enum.
+const DefaultEntryOrderPolicy = EntryOrderPolicyDeterministicShuffle
+
+// EntryOrderPolicy values.
+const (
+	EntryOrderPolicySubmissionOrder      EntryOrderPolicy = "SubmissionOrder"
+	EntryOrderPolicyManualOrder          EntryOrderPolicy = "ManualOrder"
+	EntryOrderPolicyDeterministicShuffle EntryOrderPolicy = "DeterministicShuffle"
+)
+
+func (eop EntryOrderPolicy) String() string {
+	return string(eop)
+}
+
+// EntryOrderPolicyValidator is a validator for the "entry_order_policy" field enum values. It is called by the builders before save.
+func EntryOrderPolicyValidator(eop EntryOrderPolicy) error {
+	switch eop {
+	case EntryOrderPolicySubmissionOrder, EntryOrderPolicyManualOrder, EntryOrderPolicyDeterministicShuffle:
+		return nil
+	default:
+		return fmt.Errorf("session: invalid enum value for entry_order_policy field: %q", eop)
 	}
 }
 
@@ -292,6 +345,26 @@ func ByFileDeliveryRequired(opts ...sql.OrderTermOption) OrderOption {
 // ByReadinessRevision orders the results by the readiness_revision field.
 func ByReadinessRevision(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldReadinessRevision, opts...).ToFunc()
+}
+
+// ByEntryOrderPolicy orders the results by the entry_order_policy field.
+func ByEntryOrderPolicy(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEntryOrderPolicy, opts...).ToFunc()
+}
+
+// ByEntryOrderSeed orders the results by the entry_order_seed field.
+func ByEntryOrderSeed(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEntryOrderSeed, opts...).ToFunc()
+}
+
+// ByEntryOrderLockedAt orders the results by the entry_order_locked_at field.
+func ByEntryOrderLockedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEntryOrderLockedAt, opts...).ToFunc()
+}
+
+// ByEntryOrderRevision orders the results by the entry_order_revision field.
+func ByEntryOrderRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEntryOrderRevision, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

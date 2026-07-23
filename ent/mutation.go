@@ -6141,6 +6141,7 @@ type CompetitionEntryMutation struct {
 	reviewed_by_account_id       *int
 	addreviewed_by_account_id    *int
 	reviewed_at                  *time.Time
+	first_presented_at           *time.Time
 	revision                     *int
 	addrevision                  *int
 	created_at                   *time.Time
@@ -6788,6 +6789,55 @@ func (m *CompetitionEntryMutation) ResetReviewedAt() {
 	delete(m.clearedFields, competitionentry.FieldReviewedAt)
 }
 
+// SetFirstPresentedAt sets the "first_presented_at" field.
+func (m *CompetitionEntryMutation) SetFirstPresentedAt(t time.Time) {
+	m.first_presented_at = &t
+}
+
+// FirstPresentedAt returns the value of the "first_presented_at" field in the mutation.
+func (m *CompetitionEntryMutation) FirstPresentedAt() (r time.Time, exists bool) {
+	v := m.first_presented_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFirstPresentedAt returns the old "first_presented_at" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldFirstPresentedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFirstPresentedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFirstPresentedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFirstPresentedAt: %w", err)
+	}
+	return oldValue.FirstPresentedAt, nil
+}
+
+// ClearFirstPresentedAt clears the value of the "first_presented_at" field.
+func (m *CompetitionEntryMutation) ClearFirstPresentedAt() {
+	m.first_presented_at = nil
+	m.clearedFields[competitionentry.FieldFirstPresentedAt] = struct{}{}
+}
+
+// FirstPresentedAtCleared returns if the "first_presented_at" field was cleared in this mutation.
+func (m *CompetitionEntryMutation) FirstPresentedAtCleared() bool {
+	_, ok := m.clearedFields[competitionentry.FieldFirstPresentedAt]
+	return ok
+}
+
+// ResetFirstPresentedAt resets all changes to the "first_presented_at" field.
+func (m *CompetitionEntryMutation) ResetFirstPresentedAt() {
+	m.first_presented_at = nil
+	delete(m.clearedFields, competitionentry.FieldFirstPresentedAt)
+}
+
 // SetRevision sets the "revision" field.
 func (m *CompetitionEntryMutation) SetRevision(i int) {
 	m.revision = &i
@@ -6981,7 +7031,7 @@ func (m *CompetitionEntryMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *CompetitionEntryMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 14)
 	if m.event != nil {
 		fields = append(fields, competitionentry.FieldEventID)
 	}
@@ -7014,6 +7064,9 @@ func (m *CompetitionEntryMutation) Fields() []string {
 	}
 	if m.reviewed_at != nil {
 		fields = append(fields, competitionentry.FieldReviewedAt)
+	}
+	if m.first_presented_at != nil {
+		fields = append(fields, competitionentry.FieldFirstPresentedAt)
 	}
 	if m.revision != nil {
 		fields = append(fields, competitionentry.FieldRevision)
@@ -7051,6 +7104,8 @@ func (m *CompetitionEntryMutation) Field(name string) (ent.Value, bool) {
 		return m.ReviewedByAccountID()
 	case competitionentry.FieldReviewedAt:
 		return m.ReviewedAt()
+	case competitionentry.FieldFirstPresentedAt:
+		return m.FirstPresentedAt()
 	case competitionentry.FieldRevision:
 		return m.Revision()
 	case competitionentry.FieldCreatedAt:
@@ -7086,6 +7141,8 @@ func (m *CompetitionEntryMutation) OldField(ctx context.Context, name string) (e
 		return m.OldReviewedByAccountID(ctx)
 	case competitionentry.FieldReviewedAt:
 		return m.OldReviewedAt(ctx)
+	case competitionentry.FieldFirstPresentedAt:
+		return m.OldFirstPresentedAt(ctx)
 	case competitionentry.FieldRevision:
 		return m.OldRevision(ctx)
 	case competitionentry.FieldCreatedAt:
@@ -7175,6 +7232,13 @@ func (m *CompetitionEntryMutation) SetField(name string, value ent.Value) error 
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetReviewedAt(v)
+		return nil
+	case competitionentry.FieldFirstPresentedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFirstPresentedAt(v)
 		return nil
 	case competitionentry.FieldRevision:
 		v, ok := value.(int)
@@ -7289,6 +7353,9 @@ func (m *CompetitionEntryMutation) ClearedFields() []string {
 	if m.FieldCleared(competitionentry.FieldReviewedAt) {
 		fields = append(fields, competitionentry.FieldReviewedAt)
 	}
+	if m.FieldCleared(competitionentry.FieldFirstPresentedAt) {
+		fields = append(fields, competitionentry.FieldFirstPresentedAt)
+	}
 	return fields
 }
 
@@ -7320,6 +7387,9 @@ func (m *CompetitionEntryMutation) ClearField(name string) error {
 		return nil
 	case competitionentry.FieldReviewedAt:
 		m.ClearReviewedAt()
+		return nil
+	case competitionentry.FieldFirstPresentedAt:
+		m.ClearFirstPresentedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown CompetitionEntry nullable field %s", name)
@@ -7361,6 +7431,9 @@ func (m *CompetitionEntryMutation) ResetField(name string) error {
 		return nil
 	case competitionentry.FieldReviewedAt:
 		m.ResetReviewedAt()
+		return nil
+	case competitionentry.FieldFirstPresentedAt:
+		m.ResetFirstPresentedAt()
 		return nil
 	case competitionentry.FieldRevision:
 		m.ResetRevision()
@@ -24204,51 +24277,61 @@ func (m *RundownMutation) ResetEdge(name string) error {
 // SessionMutation represents an operation that mutates the Session nodes in the graph.
 type SessionMutation struct {
 	config
-	op                          Op
-	typ                         string
-	id                          *int
-	lifecycle                   *session.Lifecycle
-	live_state_revision         *int
-	addlive_state_revision      *int
-	forecast_start              *time.Time
-	forecast_end                *time.Time
-	communicated_start          *time.Time
-	communicated_end            *time.Time
-	previous_forecast_start     *time.Time
-	forecast_lane_ids           *[]int
-	appendforecast_lane_ids     []int
-	forecast_location_ids       *[]int
-	appendforecast_location_ids []int
-	public_cancellation_message *string
-	cancellation_crew_notes     *string
-	corrected_title             *string
-	corrected_speaker           *string
-	corrected_public_details    *string
-	require_entry_review        *bool
-	file_delivery_required      *bool
-	readiness_revision          *int
-	addreadiness_revision       *int
-	created_at                  *time.Time
-	clearedFields               map[string]struct{}
-	event                       *int
-	clearedevent                bool
-	draft                       *int
-	cleareddraft                bool
-	published_versions          map[int]struct{}
-	removedpublished_versions   map[int]struct{}
-	clearedpublished_versions   bool
-	runs                        map[int]struct{}
-	removedruns                 map[int]struct{}
-	clearedruns                 bool
-	cancellations               map[int]struct{}
-	removedcancellations        map[int]struct{}
-	clearedcancellations        bool
-	competition_entries         map[int]struct{}
-	removedcompetition_entries  map[int]struct{}
-	clearedcompetition_entries  bool
-	done                        bool
-	oldValue                    func(context.Context) (*Session, error)
-	predicates                  []predicate.Session
+	op                           Op
+	typ                          string
+	id                           *int
+	lifecycle                    *session.Lifecycle
+	live_state_revision          *int
+	addlive_state_revision       *int
+	forecast_start               *time.Time
+	forecast_end                 *time.Time
+	communicated_start           *time.Time
+	communicated_end             *time.Time
+	previous_forecast_start      *time.Time
+	forecast_lane_ids            *[]int
+	appendforecast_lane_ids      []int
+	forecast_location_ids        *[]int
+	appendforecast_location_ids  []int
+	public_cancellation_message  *string
+	cancellation_crew_notes      *string
+	corrected_title              *string
+	corrected_speaker            *string
+	corrected_public_details     *string
+	require_entry_review         *bool
+	file_delivery_required       *bool
+	readiness_revision           *int
+	addreadiness_revision        *int
+	entry_order_policy           *session.EntryOrderPolicy
+	entry_order_seed             *int64
+	addentry_order_seed          *int64
+	entry_order_manual_ids       *[]int
+	appendentry_order_manual_ids []int
+	locked_entry_order_ids       *[]int
+	appendlocked_entry_order_ids []int
+	entry_order_locked_at        *time.Time
+	entry_order_revision         *int
+	addentry_order_revision      *int
+	created_at                   *time.Time
+	clearedFields                map[string]struct{}
+	event                        *int
+	clearedevent                 bool
+	draft                        *int
+	cleareddraft                 bool
+	published_versions           map[int]struct{}
+	removedpublished_versions    map[int]struct{}
+	clearedpublished_versions    bool
+	runs                         map[int]struct{}
+	removedruns                  map[int]struct{}
+	clearedruns                  bool
+	cancellations                map[int]struct{}
+	removedcancellations         map[int]struct{}
+	clearedcancellations         bool
+	competition_entries          map[int]struct{}
+	removedcompetition_entries   map[int]struct{}
+	clearedcompetition_entries   bool
+	done                         bool
+	oldValue                     func(context.Context) (*Session, error)
+	predicates                   []predicate.Session
 }
 
 var _ ent.Mutation = (*SessionMutation)(nil)
@@ -25238,6 +25321,333 @@ func (m *SessionMutation) ResetReadinessRevision() {
 	m.addreadiness_revision = nil
 }
 
+// SetEntryOrderPolicy sets the "entry_order_policy" field.
+func (m *SessionMutation) SetEntryOrderPolicy(sop session.EntryOrderPolicy) {
+	m.entry_order_policy = &sop
+}
+
+// EntryOrderPolicy returns the value of the "entry_order_policy" field in the mutation.
+func (m *SessionMutation) EntryOrderPolicy() (r session.EntryOrderPolicy, exists bool) {
+	v := m.entry_order_policy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEntryOrderPolicy returns the old "entry_order_policy" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldEntryOrderPolicy(ctx context.Context) (v session.EntryOrderPolicy, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEntryOrderPolicy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEntryOrderPolicy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEntryOrderPolicy: %w", err)
+	}
+	return oldValue.EntryOrderPolicy, nil
+}
+
+// ResetEntryOrderPolicy resets all changes to the "entry_order_policy" field.
+func (m *SessionMutation) ResetEntryOrderPolicy() {
+	m.entry_order_policy = nil
+}
+
+// SetEntryOrderSeed sets the "entry_order_seed" field.
+func (m *SessionMutation) SetEntryOrderSeed(i int64) {
+	m.entry_order_seed = &i
+	m.addentry_order_seed = nil
+}
+
+// EntryOrderSeed returns the value of the "entry_order_seed" field in the mutation.
+func (m *SessionMutation) EntryOrderSeed() (r int64, exists bool) {
+	v := m.entry_order_seed
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEntryOrderSeed returns the old "entry_order_seed" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldEntryOrderSeed(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEntryOrderSeed is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEntryOrderSeed requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEntryOrderSeed: %w", err)
+	}
+	return oldValue.EntryOrderSeed, nil
+}
+
+// AddEntryOrderSeed adds i to the "entry_order_seed" field.
+func (m *SessionMutation) AddEntryOrderSeed(i int64) {
+	if m.addentry_order_seed != nil {
+		*m.addentry_order_seed += i
+	} else {
+		m.addentry_order_seed = &i
+	}
+}
+
+// AddedEntryOrderSeed returns the value that was added to the "entry_order_seed" field in this mutation.
+func (m *SessionMutation) AddedEntryOrderSeed() (r int64, exists bool) {
+	v := m.addentry_order_seed
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetEntryOrderSeed resets all changes to the "entry_order_seed" field.
+func (m *SessionMutation) ResetEntryOrderSeed() {
+	m.entry_order_seed = nil
+	m.addentry_order_seed = nil
+}
+
+// SetEntryOrderManualIds sets the "entry_order_manual_ids" field.
+func (m *SessionMutation) SetEntryOrderManualIds(i []int) {
+	m.entry_order_manual_ids = &i
+	m.appendentry_order_manual_ids = nil
+}
+
+// EntryOrderManualIds returns the value of the "entry_order_manual_ids" field in the mutation.
+func (m *SessionMutation) EntryOrderManualIds() (r []int, exists bool) {
+	v := m.entry_order_manual_ids
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEntryOrderManualIds returns the old "entry_order_manual_ids" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldEntryOrderManualIds(ctx context.Context) (v []int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEntryOrderManualIds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEntryOrderManualIds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEntryOrderManualIds: %w", err)
+	}
+	return oldValue.EntryOrderManualIds, nil
+}
+
+// AppendEntryOrderManualIds adds i to the "entry_order_manual_ids" field.
+func (m *SessionMutation) AppendEntryOrderManualIds(i []int) {
+	m.appendentry_order_manual_ids = append(m.appendentry_order_manual_ids, i...)
+}
+
+// AppendedEntryOrderManualIds returns the list of values that were appended to the "entry_order_manual_ids" field in this mutation.
+func (m *SessionMutation) AppendedEntryOrderManualIds() ([]int, bool) {
+	if len(m.appendentry_order_manual_ids) == 0 {
+		return nil, false
+	}
+	return m.appendentry_order_manual_ids, true
+}
+
+// ClearEntryOrderManualIds clears the value of the "entry_order_manual_ids" field.
+func (m *SessionMutation) ClearEntryOrderManualIds() {
+	m.entry_order_manual_ids = nil
+	m.appendentry_order_manual_ids = nil
+	m.clearedFields[session.FieldEntryOrderManualIds] = struct{}{}
+}
+
+// EntryOrderManualIdsCleared returns if the "entry_order_manual_ids" field was cleared in this mutation.
+func (m *SessionMutation) EntryOrderManualIdsCleared() bool {
+	_, ok := m.clearedFields[session.FieldEntryOrderManualIds]
+	return ok
+}
+
+// ResetEntryOrderManualIds resets all changes to the "entry_order_manual_ids" field.
+func (m *SessionMutation) ResetEntryOrderManualIds() {
+	m.entry_order_manual_ids = nil
+	m.appendentry_order_manual_ids = nil
+	delete(m.clearedFields, session.FieldEntryOrderManualIds)
+}
+
+// SetLockedEntryOrderIds sets the "locked_entry_order_ids" field.
+func (m *SessionMutation) SetLockedEntryOrderIds(i []int) {
+	m.locked_entry_order_ids = &i
+	m.appendlocked_entry_order_ids = nil
+}
+
+// LockedEntryOrderIds returns the value of the "locked_entry_order_ids" field in the mutation.
+func (m *SessionMutation) LockedEntryOrderIds() (r []int, exists bool) {
+	v := m.locked_entry_order_ids
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLockedEntryOrderIds returns the old "locked_entry_order_ids" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldLockedEntryOrderIds(ctx context.Context) (v []int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLockedEntryOrderIds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLockedEntryOrderIds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLockedEntryOrderIds: %w", err)
+	}
+	return oldValue.LockedEntryOrderIds, nil
+}
+
+// AppendLockedEntryOrderIds adds i to the "locked_entry_order_ids" field.
+func (m *SessionMutation) AppendLockedEntryOrderIds(i []int) {
+	m.appendlocked_entry_order_ids = append(m.appendlocked_entry_order_ids, i...)
+}
+
+// AppendedLockedEntryOrderIds returns the list of values that were appended to the "locked_entry_order_ids" field in this mutation.
+func (m *SessionMutation) AppendedLockedEntryOrderIds() ([]int, bool) {
+	if len(m.appendlocked_entry_order_ids) == 0 {
+		return nil, false
+	}
+	return m.appendlocked_entry_order_ids, true
+}
+
+// ClearLockedEntryOrderIds clears the value of the "locked_entry_order_ids" field.
+func (m *SessionMutation) ClearLockedEntryOrderIds() {
+	m.locked_entry_order_ids = nil
+	m.appendlocked_entry_order_ids = nil
+	m.clearedFields[session.FieldLockedEntryOrderIds] = struct{}{}
+}
+
+// LockedEntryOrderIdsCleared returns if the "locked_entry_order_ids" field was cleared in this mutation.
+func (m *SessionMutation) LockedEntryOrderIdsCleared() bool {
+	_, ok := m.clearedFields[session.FieldLockedEntryOrderIds]
+	return ok
+}
+
+// ResetLockedEntryOrderIds resets all changes to the "locked_entry_order_ids" field.
+func (m *SessionMutation) ResetLockedEntryOrderIds() {
+	m.locked_entry_order_ids = nil
+	m.appendlocked_entry_order_ids = nil
+	delete(m.clearedFields, session.FieldLockedEntryOrderIds)
+}
+
+// SetEntryOrderLockedAt sets the "entry_order_locked_at" field.
+func (m *SessionMutation) SetEntryOrderLockedAt(t time.Time) {
+	m.entry_order_locked_at = &t
+}
+
+// EntryOrderLockedAt returns the value of the "entry_order_locked_at" field in the mutation.
+func (m *SessionMutation) EntryOrderLockedAt() (r time.Time, exists bool) {
+	v := m.entry_order_locked_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEntryOrderLockedAt returns the old "entry_order_locked_at" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldEntryOrderLockedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEntryOrderLockedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEntryOrderLockedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEntryOrderLockedAt: %w", err)
+	}
+	return oldValue.EntryOrderLockedAt, nil
+}
+
+// ClearEntryOrderLockedAt clears the value of the "entry_order_locked_at" field.
+func (m *SessionMutation) ClearEntryOrderLockedAt() {
+	m.entry_order_locked_at = nil
+	m.clearedFields[session.FieldEntryOrderLockedAt] = struct{}{}
+}
+
+// EntryOrderLockedAtCleared returns if the "entry_order_locked_at" field was cleared in this mutation.
+func (m *SessionMutation) EntryOrderLockedAtCleared() bool {
+	_, ok := m.clearedFields[session.FieldEntryOrderLockedAt]
+	return ok
+}
+
+// ResetEntryOrderLockedAt resets all changes to the "entry_order_locked_at" field.
+func (m *SessionMutation) ResetEntryOrderLockedAt() {
+	m.entry_order_locked_at = nil
+	delete(m.clearedFields, session.FieldEntryOrderLockedAt)
+}
+
+// SetEntryOrderRevision sets the "entry_order_revision" field.
+func (m *SessionMutation) SetEntryOrderRevision(i int) {
+	m.entry_order_revision = &i
+	m.addentry_order_revision = nil
+}
+
+// EntryOrderRevision returns the value of the "entry_order_revision" field in the mutation.
+func (m *SessionMutation) EntryOrderRevision() (r int, exists bool) {
+	v := m.entry_order_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEntryOrderRevision returns the old "entry_order_revision" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldEntryOrderRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEntryOrderRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEntryOrderRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEntryOrderRevision: %w", err)
+	}
+	return oldValue.EntryOrderRevision, nil
+}
+
+// AddEntryOrderRevision adds i to the "entry_order_revision" field.
+func (m *SessionMutation) AddEntryOrderRevision(i int) {
+	if m.addentry_order_revision != nil {
+		*m.addentry_order_revision += i
+	} else {
+		m.addentry_order_revision = &i
+	}
+}
+
+// AddedEntryOrderRevision returns the value that was added to the "entry_order_revision" field in this mutation.
+func (m *SessionMutation) AddedEntryOrderRevision() (r int, exists bool) {
+	v := m.addentry_order_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetEntryOrderRevision resets all changes to the "entry_order_revision" field.
+func (m *SessionMutation) ResetEntryOrderRevision() {
+	m.entry_order_revision = nil
+	m.addentry_order_revision = nil
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *SessionMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -25590,7 +26000,7 @@ func (m *SessionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SessionMutation) Fields() []string {
-	fields := make([]string, 0, 19)
+	fields := make([]string, 0, 25)
 	if m.event != nil {
 		fields = append(fields, session.FieldEventID)
 	}
@@ -25645,6 +26055,24 @@ func (m *SessionMutation) Fields() []string {
 	if m.readiness_revision != nil {
 		fields = append(fields, session.FieldReadinessRevision)
 	}
+	if m.entry_order_policy != nil {
+		fields = append(fields, session.FieldEntryOrderPolicy)
+	}
+	if m.entry_order_seed != nil {
+		fields = append(fields, session.FieldEntryOrderSeed)
+	}
+	if m.entry_order_manual_ids != nil {
+		fields = append(fields, session.FieldEntryOrderManualIds)
+	}
+	if m.locked_entry_order_ids != nil {
+		fields = append(fields, session.FieldLockedEntryOrderIds)
+	}
+	if m.entry_order_locked_at != nil {
+		fields = append(fields, session.FieldEntryOrderLockedAt)
+	}
+	if m.entry_order_revision != nil {
+		fields = append(fields, session.FieldEntryOrderRevision)
+	}
 	if m.created_at != nil {
 		fields = append(fields, session.FieldCreatedAt)
 	}
@@ -25692,6 +26120,18 @@ func (m *SessionMutation) Field(name string) (ent.Value, bool) {
 		return m.FileDeliveryRequired()
 	case session.FieldReadinessRevision:
 		return m.ReadinessRevision()
+	case session.FieldEntryOrderPolicy:
+		return m.EntryOrderPolicy()
+	case session.FieldEntryOrderSeed:
+		return m.EntryOrderSeed()
+	case session.FieldEntryOrderManualIds:
+		return m.EntryOrderManualIds()
+	case session.FieldLockedEntryOrderIds:
+		return m.LockedEntryOrderIds()
+	case session.FieldEntryOrderLockedAt:
+		return m.EntryOrderLockedAt()
+	case session.FieldEntryOrderRevision:
+		return m.EntryOrderRevision()
 	case session.FieldCreatedAt:
 		return m.CreatedAt()
 	}
@@ -25739,6 +26179,18 @@ func (m *SessionMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldFileDeliveryRequired(ctx)
 	case session.FieldReadinessRevision:
 		return m.OldReadinessRevision(ctx)
+	case session.FieldEntryOrderPolicy:
+		return m.OldEntryOrderPolicy(ctx)
+	case session.FieldEntryOrderSeed:
+		return m.OldEntryOrderSeed(ctx)
+	case session.FieldEntryOrderManualIds:
+		return m.OldEntryOrderManualIds(ctx)
+	case session.FieldLockedEntryOrderIds:
+		return m.OldLockedEntryOrderIds(ctx)
+	case session.FieldEntryOrderLockedAt:
+		return m.OldEntryOrderLockedAt(ctx)
+	case session.FieldEntryOrderRevision:
+		return m.OldEntryOrderRevision(ctx)
 	case session.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	}
@@ -25876,6 +26328,48 @@ func (m *SessionMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetReadinessRevision(v)
 		return nil
+	case session.FieldEntryOrderPolicy:
+		v, ok := value.(session.EntryOrderPolicy)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEntryOrderPolicy(v)
+		return nil
+	case session.FieldEntryOrderSeed:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEntryOrderSeed(v)
+		return nil
+	case session.FieldEntryOrderManualIds:
+		v, ok := value.([]int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEntryOrderManualIds(v)
+		return nil
+	case session.FieldLockedEntryOrderIds:
+		v, ok := value.([]int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLockedEntryOrderIds(v)
+		return nil
+	case session.FieldEntryOrderLockedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEntryOrderLockedAt(v)
+		return nil
+	case session.FieldEntryOrderRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEntryOrderRevision(v)
+		return nil
 	case session.FieldCreatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -25897,6 +26391,12 @@ func (m *SessionMutation) AddedFields() []string {
 	if m.addreadiness_revision != nil {
 		fields = append(fields, session.FieldReadinessRevision)
 	}
+	if m.addentry_order_seed != nil {
+		fields = append(fields, session.FieldEntryOrderSeed)
+	}
+	if m.addentry_order_revision != nil {
+		fields = append(fields, session.FieldEntryOrderRevision)
+	}
 	return fields
 }
 
@@ -25909,6 +26409,10 @@ func (m *SessionMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedLiveStateRevision()
 	case session.FieldReadinessRevision:
 		return m.AddedReadinessRevision()
+	case session.FieldEntryOrderSeed:
+		return m.AddedEntryOrderSeed()
+	case session.FieldEntryOrderRevision:
+		return m.AddedEntryOrderRevision()
 	}
 	return nil, false
 }
@@ -25931,6 +26435,20 @@ func (m *SessionMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddReadinessRevision(v)
+		return nil
+	case session.FieldEntryOrderSeed:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddEntryOrderSeed(v)
+		return nil
+	case session.FieldEntryOrderRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddEntryOrderRevision(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Session numeric field %s", name)
@@ -25978,6 +26496,15 @@ func (m *SessionMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(session.FieldFileDeliveryRequired) {
 		fields = append(fields, session.FieldFileDeliveryRequired)
+	}
+	if m.FieldCleared(session.FieldEntryOrderManualIds) {
+		fields = append(fields, session.FieldEntryOrderManualIds)
+	}
+	if m.FieldCleared(session.FieldLockedEntryOrderIds) {
+		fields = append(fields, session.FieldLockedEntryOrderIds)
+	}
+	if m.FieldCleared(session.FieldEntryOrderLockedAt) {
+		fields = append(fields, session.FieldEntryOrderLockedAt)
 	}
 	return fields
 }
@@ -26031,6 +26558,15 @@ func (m *SessionMutation) ClearField(name string) error {
 		return nil
 	case session.FieldFileDeliveryRequired:
 		m.ClearFileDeliveryRequired()
+		return nil
+	case session.FieldEntryOrderManualIds:
+		m.ClearEntryOrderManualIds()
+		return nil
+	case session.FieldLockedEntryOrderIds:
+		m.ClearLockedEntryOrderIds()
+		return nil
+	case session.FieldEntryOrderLockedAt:
+		m.ClearEntryOrderLockedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown Session nullable field %s", name)
@@ -26093,6 +26629,24 @@ func (m *SessionMutation) ResetField(name string) error {
 		return nil
 	case session.FieldReadinessRevision:
 		m.ResetReadinessRevision()
+		return nil
+	case session.FieldEntryOrderPolicy:
+		m.ResetEntryOrderPolicy()
+		return nil
+	case session.FieldEntryOrderSeed:
+		m.ResetEntryOrderSeed()
+		return nil
+	case session.FieldEntryOrderManualIds:
+		m.ResetEntryOrderManualIds()
+		return nil
+	case session.FieldLockedEntryOrderIds:
+		m.ResetLockedEntryOrderIds()
+		return nil
+	case session.FieldEntryOrderLockedAt:
+		m.ResetEntryOrderLockedAt()
+		return nil
+	case session.FieldEntryOrderRevision:
+		m.ResetEntryOrderRevision()
 		return nil
 	case session.FieldCreatedAt:
 		m.ResetCreatedAt()
@@ -30388,6 +30942,8 @@ type SessionRunMutation struct {
 	addtarget_adjustment_seconds *int
 	target_adjusted_at           *time.Time
 	snapshot_json                *string
+	locked_entry_order_ids       *[]int
+	appendlocked_entry_order_ids []int
 	created_at                   *time.Time
 	clearedFields                map[string]struct{}
 	session                      *int
@@ -30809,6 +31365,71 @@ func (m *SessionRunMutation) ResetSnapshotJSON() {
 	m.snapshot_json = nil
 }
 
+// SetLockedEntryOrderIds sets the "locked_entry_order_ids" field.
+func (m *SessionRunMutation) SetLockedEntryOrderIds(i []int) {
+	m.locked_entry_order_ids = &i
+	m.appendlocked_entry_order_ids = nil
+}
+
+// LockedEntryOrderIds returns the value of the "locked_entry_order_ids" field in the mutation.
+func (m *SessionRunMutation) LockedEntryOrderIds() (r []int, exists bool) {
+	v := m.locked_entry_order_ids
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLockedEntryOrderIds returns the old "locked_entry_order_ids" field's value of the SessionRun entity.
+// If the SessionRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionRunMutation) OldLockedEntryOrderIds(ctx context.Context) (v []int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLockedEntryOrderIds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLockedEntryOrderIds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLockedEntryOrderIds: %w", err)
+	}
+	return oldValue.LockedEntryOrderIds, nil
+}
+
+// AppendLockedEntryOrderIds adds i to the "locked_entry_order_ids" field.
+func (m *SessionRunMutation) AppendLockedEntryOrderIds(i []int) {
+	m.appendlocked_entry_order_ids = append(m.appendlocked_entry_order_ids, i...)
+}
+
+// AppendedLockedEntryOrderIds returns the list of values that were appended to the "locked_entry_order_ids" field in this mutation.
+func (m *SessionRunMutation) AppendedLockedEntryOrderIds() ([]int, bool) {
+	if len(m.appendlocked_entry_order_ids) == 0 {
+		return nil, false
+	}
+	return m.appendlocked_entry_order_ids, true
+}
+
+// ClearLockedEntryOrderIds clears the value of the "locked_entry_order_ids" field.
+func (m *SessionRunMutation) ClearLockedEntryOrderIds() {
+	m.locked_entry_order_ids = nil
+	m.appendlocked_entry_order_ids = nil
+	m.clearedFields[sessionrun.FieldLockedEntryOrderIds] = struct{}{}
+}
+
+// LockedEntryOrderIdsCleared returns if the "locked_entry_order_ids" field was cleared in this mutation.
+func (m *SessionRunMutation) LockedEntryOrderIdsCleared() bool {
+	_, ok := m.clearedFields[sessionrun.FieldLockedEntryOrderIds]
+	return ok
+}
+
+// ResetLockedEntryOrderIds resets all changes to the "locked_entry_order_ids" field.
+func (m *SessionRunMutation) ResetLockedEntryOrderIds() {
+	m.locked_entry_order_ids = nil
+	m.appendlocked_entry_order_ids = nil
+	delete(m.clearedFields, sessionrun.FieldLockedEntryOrderIds)
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *SessionRunMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -30960,7 +31581,7 @@ func (m *SessionRunMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SessionRunMutation) Fields() []string {
-	fields := make([]string, 0, 8)
+	fields := make([]string, 0, 9)
 	if m.session != nil {
 		fields = append(fields, sessionrun.FieldSessionID)
 	}
@@ -30981,6 +31602,9 @@ func (m *SessionRunMutation) Fields() []string {
 	}
 	if m.snapshot_json != nil {
 		fields = append(fields, sessionrun.FieldSnapshotJSON)
+	}
+	if m.locked_entry_order_ids != nil {
+		fields = append(fields, sessionrun.FieldLockedEntryOrderIds)
 	}
 	if m.created_at != nil {
 		fields = append(fields, sessionrun.FieldCreatedAt)
@@ -31007,6 +31631,8 @@ func (m *SessionRunMutation) Field(name string) (ent.Value, bool) {
 		return m.TargetAdjustedAt()
 	case sessionrun.FieldSnapshotJSON:
 		return m.SnapshotJSON()
+	case sessionrun.FieldLockedEntryOrderIds:
+		return m.LockedEntryOrderIds()
 	case sessionrun.FieldCreatedAt:
 		return m.CreatedAt()
 	}
@@ -31032,6 +31658,8 @@ func (m *SessionRunMutation) OldField(ctx context.Context, name string) (ent.Val
 		return m.OldTargetAdjustedAt(ctx)
 	case sessionrun.FieldSnapshotJSON:
 		return m.OldSnapshotJSON(ctx)
+	case sessionrun.FieldLockedEntryOrderIds:
+		return m.OldLockedEntryOrderIds(ctx)
 	case sessionrun.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	}
@@ -31091,6 +31719,13 @@ func (m *SessionRunMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetSnapshotJSON(v)
+		return nil
+	case sessionrun.FieldLockedEntryOrderIds:
+		v, ok := value.([]int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLockedEntryOrderIds(v)
 		return nil
 	case sessionrun.FieldCreatedAt:
 		v, ok := value.(time.Time)
@@ -31153,6 +31788,9 @@ func (m *SessionRunMutation) ClearedFields() []string {
 	if m.FieldCleared(sessionrun.FieldTargetAdjustedAt) {
 		fields = append(fields, sessionrun.FieldTargetAdjustedAt)
 	}
+	if m.FieldCleared(sessionrun.FieldLockedEntryOrderIds) {
+		fields = append(fields, sessionrun.FieldLockedEntryOrderIds)
+	}
 	return fields
 }
 
@@ -31175,6 +31813,9 @@ func (m *SessionRunMutation) ClearField(name string) error {
 		return nil
 	case sessionrun.FieldTargetAdjustedAt:
 		m.ClearTargetAdjustedAt()
+		return nil
+	case sessionrun.FieldLockedEntryOrderIds:
+		m.ClearLockedEntryOrderIds()
 		return nil
 	}
 	return fmt.Errorf("unknown SessionRun nullable field %s", name)
@@ -31204,6 +31845,9 @@ func (m *SessionRunMutation) ResetField(name string) error {
 		return nil
 	case sessionrun.FieldSnapshotJSON:
 		m.ResetSnapshotJSON()
+		return nil
+	case sessionrun.FieldLockedEntryOrderIds:
+		m.ResetLockedEntryOrderIds()
 		return nil
 	case sessionrun.FieldCreatedAt:
 		m.ResetCreatedAt()

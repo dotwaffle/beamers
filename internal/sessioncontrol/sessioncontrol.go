@@ -281,6 +281,7 @@ type RunSnapshot struct {
 	LaneIDs                []int
 	LocationIDs            []int
 	TrackIDs               []int
+	LockedEntryOrderIDs    []int
 }
 
 // RunHistory exposes one immutable Run Snapshot with later amendments.
@@ -785,7 +786,7 @@ func (service *Service) History(
 				MinimumDurationSeconds: run.Snapshot.MinimumDurationSeconds,
 				StartBoundary:          run.Snapshot.StartBoundary, EndBoundary: run.Snapshot.EndBoundary,
 				LaneIDs: run.Snapshot.LaneIDs, LocationIDs: run.Snapshot.LocationIDs,
-				TrackIDs: run.Snapshot.TrackIDs,
+				TrackIDs: run.Snapshot.TrackIDs, LockedEntryOrderIDs: run.Snapshot.LockedEntryOrderIDs,
 			},
 		}
 		for _, amendment := range run.Amendments {

@@ -57,6 +57,12 @@ const (
 	// CompetitionServicePreflightStartProcedure is the fully-qualified name of the CompetitionService's
 	// PreflightStart RPC.
 	CompetitionServicePreflightStartProcedure = "/beamers.competition.v1.CompetitionService/PreflightStart"
+	// CompetitionServiceConfigureEntryOrderProcedure is the fully-qualified name of the
+	// CompetitionService's ConfigureEntryOrder RPC.
+	CompetitionServiceConfigureEntryOrderProcedure = "/beamers.competition.v1.CompetitionService/ConfigureEntryOrder"
+	// CompetitionServicePreviewEntryOrderProcedure is the fully-qualified name of the
+	// CompetitionService's PreviewEntryOrder RPC.
+	CompetitionServicePreviewEntryOrderProcedure = "/beamers.competition.v1.CompetitionService/PreviewEntryOrder"
 )
 
 // CompetitionServiceClient is a client for the beamers.competition.v1.CompetitionService service.
@@ -69,6 +75,8 @@ type CompetitionServiceClient interface {
 	ReviewEntry(context.Context, *connect.Request[v1.ReviewEntryRequest]) (*connect.Response[v1.ReviewEntryResponse], error)
 	SetEntryAttachmentReadiness(context.Context, *connect.Request[v1.SetEntryAttachmentReadinessRequest]) (*connect.Response[v1.SetEntryAttachmentReadinessResponse], error)
 	PreflightStart(context.Context, *connect.Request[v1.PreflightStartRequest]) (*connect.Response[v1.PreflightStartResponse], error)
+	ConfigureEntryOrder(context.Context, *connect.Request[v1.ConfigureEntryOrderRequest]) (*connect.Response[v1.ConfigureEntryOrderResponse], error)
+	PreviewEntryOrder(context.Context, *connect.Request[v1.PreviewEntryOrderRequest]) (*connect.Response[v1.PreviewEntryOrderResponse], error)
 }
 
 // NewCompetitionServiceClient constructs a client for the beamers.competition.v1.CompetitionService
@@ -130,6 +138,18 @@ func NewCompetitionServiceClient(httpClient connect.HTTPClient, baseURL string, 
 			connect.WithSchema(competitionServiceMethods.ByName("PreflightStart")),
 			connect.WithClientOptions(opts...),
 		),
+		configureEntryOrder: connect.NewClient[v1.ConfigureEntryOrderRequest, v1.ConfigureEntryOrderResponse](
+			httpClient,
+			baseURL+CompetitionServiceConfigureEntryOrderProcedure,
+			connect.WithSchema(competitionServiceMethods.ByName("ConfigureEntryOrder")),
+			connect.WithClientOptions(opts...),
+		),
+		previewEntryOrder: connect.NewClient[v1.PreviewEntryOrderRequest, v1.PreviewEntryOrderResponse](
+			httpClient,
+			baseURL+CompetitionServicePreviewEntryOrderProcedure,
+			connect.WithSchema(competitionServiceMethods.ByName("PreviewEntryOrder")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -143,6 +163,8 @@ type competitionServiceClient struct {
 	reviewEntry                 *connect.Client[v1.ReviewEntryRequest, v1.ReviewEntryResponse]
 	setEntryAttachmentReadiness *connect.Client[v1.SetEntryAttachmentReadinessRequest, v1.SetEntryAttachmentReadinessResponse]
 	preflightStart              *connect.Client[v1.PreflightStartRequest, v1.PreflightStartResponse]
+	configureEntryOrder         *connect.Client[v1.ConfigureEntryOrderRequest, v1.ConfigureEntryOrderResponse]
+	previewEntryOrder           *connect.Client[v1.PreviewEntryOrderRequest, v1.PreviewEntryOrderResponse]
 }
 
 // GetCompetition calls beamers.competition.v1.CompetitionService.GetCompetition.
@@ -186,6 +208,16 @@ func (c *competitionServiceClient) PreflightStart(ctx context.Context, req *conn
 	return c.preflightStart.CallUnary(ctx, req)
 }
 
+// ConfigureEntryOrder calls beamers.competition.v1.CompetitionService.ConfigureEntryOrder.
+func (c *competitionServiceClient) ConfigureEntryOrder(ctx context.Context, req *connect.Request[v1.ConfigureEntryOrderRequest]) (*connect.Response[v1.ConfigureEntryOrderResponse], error) {
+	return c.configureEntryOrder.CallUnary(ctx, req)
+}
+
+// PreviewEntryOrder calls beamers.competition.v1.CompetitionService.PreviewEntryOrder.
+func (c *competitionServiceClient) PreviewEntryOrder(ctx context.Context, req *connect.Request[v1.PreviewEntryOrderRequest]) (*connect.Response[v1.PreviewEntryOrderResponse], error) {
+	return c.previewEntryOrder.CallUnary(ctx, req)
+}
+
 // CompetitionServiceHandler is an implementation of the beamers.competition.v1.CompetitionService
 // service.
 type CompetitionServiceHandler interface {
@@ -197,6 +229,8 @@ type CompetitionServiceHandler interface {
 	ReviewEntry(context.Context, *connect.Request[v1.ReviewEntryRequest]) (*connect.Response[v1.ReviewEntryResponse], error)
 	SetEntryAttachmentReadiness(context.Context, *connect.Request[v1.SetEntryAttachmentReadinessRequest]) (*connect.Response[v1.SetEntryAttachmentReadinessResponse], error)
 	PreflightStart(context.Context, *connect.Request[v1.PreflightStartRequest]) (*connect.Response[v1.PreflightStartResponse], error)
+	ConfigureEntryOrder(context.Context, *connect.Request[v1.ConfigureEntryOrderRequest]) (*connect.Response[v1.ConfigureEntryOrderResponse], error)
+	PreviewEntryOrder(context.Context, *connect.Request[v1.PreviewEntryOrderRequest]) (*connect.Response[v1.PreviewEntryOrderResponse], error)
 }
 
 // NewCompetitionServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -254,6 +288,18 @@ func NewCompetitionServiceHandler(svc CompetitionServiceHandler, opts ...connect
 		connect.WithSchema(competitionServiceMethods.ByName("PreflightStart")),
 		connect.WithHandlerOptions(opts...),
 	)
+	competitionServiceConfigureEntryOrderHandler := connect.NewUnaryHandler(
+		CompetitionServiceConfigureEntryOrderProcedure,
+		svc.ConfigureEntryOrder,
+		connect.WithSchema(competitionServiceMethods.ByName("ConfigureEntryOrder")),
+		connect.WithHandlerOptions(opts...),
+	)
+	competitionServicePreviewEntryOrderHandler := connect.NewUnaryHandler(
+		CompetitionServicePreviewEntryOrderProcedure,
+		svc.PreviewEntryOrder,
+		connect.WithSchema(competitionServiceMethods.ByName("PreviewEntryOrder")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/beamers.competition.v1.CompetitionService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CompetitionServiceGetCompetitionProcedure:
@@ -272,6 +318,10 @@ func NewCompetitionServiceHandler(svc CompetitionServiceHandler, opts ...connect
 			competitionServiceSetEntryAttachmentReadinessHandler.ServeHTTP(w, r)
 		case CompetitionServicePreflightStartProcedure:
 			competitionServicePreflightStartHandler.ServeHTTP(w, r)
+		case CompetitionServiceConfigureEntryOrderProcedure:
+			competitionServiceConfigureEntryOrderHandler.ServeHTTP(w, r)
+		case CompetitionServicePreviewEntryOrderProcedure:
+			competitionServicePreviewEntryOrderHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -311,4 +361,12 @@ func (UnimplementedCompetitionServiceHandler) SetEntryAttachmentReadiness(contex
 
 func (UnimplementedCompetitionServiceHandler) PreflightStart(context.Context, *connect.Request[v1.PreflightStartRequest]) (*connect.Response[v1.PreflightStartResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.competition.v1.CompetitionService.PreflightStart is not implemented"))
+}
+
+func (UnimplementedCompetitionServiceHandler) ConfigureEntryOrder(context.Context, *connect.Request[v1.ConfigureEntryOrderRequest]) (*connect.Response[v1.ConfigureEntryOrderResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.competition.v1.CompetitionService.ConfigureEntryOrder is not implemented"))
+}
+
+func (UnimplementedCompetitionServiceHandler) PreviewEntryOrder(context.Context, *connect.Request[v1.PreviewEntryOrderRequest]) (*connect.Response[v1.PreviewEntryOrderResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.competition.v1.CompetitionService.PreviewEntryOrder is not implemented"))
 }

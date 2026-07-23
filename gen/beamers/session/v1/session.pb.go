@@ -2214,23 +2214,24 @@ func (x *SessionCancellationHistory) GetCanceledAt() *timestamppb.Timestamp {
 }
 
 type RunSnapshot struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	PublishedRevision int64                  `protobuf:"varint,1,opt,name=published_revision,json=publishedRevision,proto3" json:"published_revision,omitempty"`
-	Title             string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	Speaker           string                 `protobuf:"bytes,3,opt,name=speaker,proto3" json:"speaker,omitempty"`
-	Type              v1.SessionType         `protobuf:"varint,4,opt,name=type,proto3,enum=beamers.rundown.v1.SessionType" json:"type,omitempty"`
-	PublicDetails     string                 `protobuf:"bytes,5,opt,name=public_details,json=publicDetails,proto3" json:"public_details,omitempty"`
-	PlannedStart      *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=planned_start,json=plannedStart,proto3" json:"planned_start,omitempty"`
-	PlannedEnd        *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=planned_end,json=plannedEnd,proto3" json:"planned_end,omitempty"`
-	TimingPolicy      v1.TimingPolicy        `protobuf:"varint,8,opt,name=timing_policy,json=timingPolicy,proto3,enum=beamers.rundown.v1.TimingPolicy" json:"timing_policy,omitempty"`
-	MinimumDuration   *durationpb.Duration   `protobuf:"bytes,9,opt,name=minimum_duration,json=minimumDuration,proto3" json:"minimum_duration,omitempty"`
-	StartBoundary     v1.Boundary            `protobuf:"varint,10,opt,name=start_boundary,json=startBoundary,proto3,enum=beamers.rundown.v1.Boundary" json:"start_boundary,omitempty"`
-	EndBoundary       v1.Boundary            `protobuf:"varint,11,opt,name=end_boundary,json=endBoundary,proto3,enum=beamers.rundown.v1.Boundary" json:"end_boundary,omitempty"`
-	LaneIds           []int64                `protobuf:"varint,12,rep,packed,name=lane_ids,json=laneIds,proto3" json:"lane_ids,omitempty"`
-	LocationIds       []int64                `protobuf:"varint,13,rep,packed,name=location_ids,json=locationIds,proto3" json:"location_ids,omitempty"`
-	TrackIds          []int64                `protobuf:"varint,14,rep,packed,name=track_ids,json=trackIds,proto3" json:"track_ids,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	PublishedRevision   int64                  `protobuf:"varint,1,opt,name=published_revision,json=publishedRevision,proto3" json:"published_revision,omitempty"`
+	Title               string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Speaker             string                 `protobuf:"bytes,3,opt,name=speaker,proto3" json:"speaker,omitempty"`
+	Type                v1.SessionType         `protobuf:"varint,4,opt,name=type,proto3,enum=beamers.rundown.v1.SessionType" json:"type,omitempty"`
+	PublicDetails       string                 `protobuf:"bytes,5,opt,name=public_details,json=publicDetails,proto3" json:"public_details,omitempty"`
+	PlannedStart        *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=planned_start,json=plannedStart,proto3" json:"planned_start,omitempty"`
+	PlannedEnd          *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=planned_end,json=plannedEnd,proto3" json:"planned_end,omitempty"`
+	TimingPolicy        v1.TimingPolicy        `protobuf:"varint,8,opt,name=timing_policy,json=timingPolicy,proto3,enum=beamers.rundown.v1.TimingPolicy" json:"timing_policy,omitempty"`
+	MinimumDuration     *durationpb.Duration   `protobuf:"bytes,9,opt,name=minimum_duration,json=minimumDuration,proto3" json:"minimum_duration,omitempty"`
+	StartBoundary       v1.Boundary            `protobuf:"varint,10,opt,name=start_boundary,json=startBoundary,proto3,enum=beamers.rundown.v1.Boundary" json:"start_boundary,omitempty"`
+	EndBoundary         v1.Boundary            `protobuf:"varint,11,opt,name=end_boundary,json=endBoundary,proto3,enum=beamers.rundown.v1.Boundary" json:"end_boundary,omitempty"`
+	LaneIds             []int64                `protobuf:"varint,12,rep,packed,name=lane_ids,json=laneIds,proto3" json:"lane_ids,omitempty"`
+	LocationIds         []int64                `protobuf:"varint,13,rep,packed,name=location_ids,json=locationIds,proto3" json:"location_ids,omitempty"`
+	TrackIds            []int64                `protobuf:"varint,14,rep,packed,name=track_ids,json=trackIds,proto3" json:"track_ids,omitempty"`
+	LockedEntryOrderIds []int64                `protobuf:"varint,15,rep,packed,name=locked_entry_order_ids,json=lockedEntryOrderIds,proto3" json:"locked_entry_order_ids,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *RunSnapshot) Reset() {
@@ -2357,6 +2358,13 @@ func (x *RunSnapshot) GetLocationIds() []int64 {
 func (x *RunSnapshot) GetTrackIds() []int64 {
 	if x != nil {
 		return x.TrackIds
+	}
+	return nil
+}
+
+func (x *RunSnapshot) GetLockedEntryOrderIds() []int64 {
+	if x != nil {
+		return x.LockedEntryOrderIds
 	}
 	return nil
 }
@@ -2650,7 +2658,7 @@ const file_beamers_session_v1_session_proto_rawDesc = "" +
 	"\x0eforecast_start\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\rforecastStart\x12;\n" +
 	"\vcanceled_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"canceledAtB\x11\n" +
-	"\x0f_session_run_id\"\xb4\x05\n" +
+	"\x0f_session_run_id\"\xe9\x05\n" +
 	"\vRunSnapshot\x12-\n" +
 	"\x12published_revision\x18\x01 \x01(\x03R\x11publishedRevision\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x18\n" +
@@ -2667,7 +2675,8 @@ const file_beamers_session_v1_session_proto_rawDesc = "" +
 	"\fend_boundary\x18\v \x01(\x0e2\x1c.beamers.rundown.v1.BoundaryR\vendBoundary\x12\x19\n" +
 	"\blane_ids\x18\f \x03(\x03R\alaneIds\x12!\n" +
 	"\flocation_ids\x18\r \x03(\x03R\vlocationIds\x12\x1b\n" +
-	"\ttrack_ids\x18\x0e \x03(\x03R\btrackIds\"\xc1\x02\n" +
+	"\ttrack_ids\x18\x0e \x03(\x03R\btrackIds\x123\n" +
+	"\x16locked_entry_order_ids\x18\x0f \x03(\x03R\x13lockedEntryOrderIds\"\xc1\x02\n" +
 	"\fSessionState\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\x03R\tsessionId\x12$\n" +

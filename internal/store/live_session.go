@@ -34,7 +34,8 @@ var (
 	ErrSessionScopeRequired = errors.New("session Lane scope required")
 )
 
-// SessionRunSnapshot is the immutable Published context captured by Start.
+// SessionRunSnapshot contains immutable Published context captured by Start and
+// the exact Competition Entry order completed once by the first Entry Slide Take.
 type SessionRunSnapshot struct {
 	PublishedRevision      int       `json:"published_revision"`
 	Title                  string    `json:"title"`
@@ -50,6 +51,7 @@ type SessionRunSnapshot struct {
 	LaneIDs                []int     `json:"lane_ids"`
 	LocationIDs            []int     `json:"location_ids"`
 	TrackIDs               []int     `json:"track_ids,omitempty"`
+	LockedEntryOrderIDs    []int     `json:"locked_entry_order_ids,omitempty"`
 }
 
 // SessionDetails are the correctable descriptive facts for one Session.
@@ -496,7 +498,9 @@ func (transaction *CommandTx) rebaseDraftAfterLiveCorrection(
 	return nil
 }
 
-// LoadSessionHistory returns immutable Run Snapshots and amendments for authorized crew.
+// LoadSessionHistory returns Run Snapshots and amendments for authorized crew.
+// Published facts are immutable from Start; Competition Entry order is populated
+// once by the first Entry Slide Take and is immutable thereafter.
 func (installationStore *SQLite) LoadSessionHistory(
 	ctx context.Context,
 	eventID int,
@@ -521,6 +525,7 @@ func (installationStore *SQLite) LoadSessionHistory(
 		if decodeErr := json.Unmarshal([]byte(run.SnapshotJSON), &snapshot); decodeErr != nil {
 			return SessionHistory{}, opaqueError("decode Session Run Snapshot", decodeErr)
 		}
+		snapshot.LockedEntryOrderIDs = slices.Clone(run.LockedEntryOrderIds)
 		found := SessionRunHistory{
 			ID: run.ID, ActualStart: run.ActualStart, Snapshot: snapshot,
 			Outcome: run.Outcome.String(),
@@ -649,14 +654,15 @@ func sessionRunSnapshot(ctx context.Context, identity *ent.Session) (SessionRunS
 	if len(identity.ForecastLocationIds) > 0 {
 		locations = slices.Clone(identity.ForecastLocationIds)
 	}
-	return SessionRunSnapshot{
+	snapshot := SessionRunSnapshot{
 		PublishedRevision: version.PublishedRevision,
 		Title:             details.Title, Speaker: details.Speaker, Type: version.Type.String(), PublicDetails: details.PublicDetails,
 		PlannedStart: version.PlannedStart, PlannedEnd: version.PlannedEnd,
 		TimingPolicy: version.TimingPolicy.String(), MinimumDurationSeconds: version.MinimumDurationSeconds,
 		StartBoundary: version.StartBoundary.String(), EndBoundary: version.EndBoundary.String(),
 		LaneIDs: lanes, LocationIDs: locations, TrackIDs: tracks,
-	}, nil
+	}
+	return snapshot, nil
 }
 
 func liveSessionState(

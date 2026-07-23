@@ -105,6 +105,11 @@ func ReviewedAt(v time.Time) predicate.CompetitionEntry {
 	return predicate.CompetitionEntry(sql.FieldEQ(FieldReviewedAt, v))
 }
 
+// FirstPresentedAt applies equality check predicate on the "first_presented_at" field. It's identical to FirstPresentedAtEQ.
+func FirstPresentedAt(v time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldFirstPresentedAt, v))
+}
+
 // Revision applies equality check predicate on the "revision" field. It's identical to RevisionEQ.
 func Revision(v int) predicate.CompetitionEntry {
 	return predicate.CompetitionEntry(sql.FieldEQ(FieldRevision, v))
@@ -628,6 +633,56 @@ func ReviewedAtIsNil() predicate.CompetitionEntry {
 // ReviewedAtNotNil applies the NotNil predicate on the "reviewed_at" field.
 func ReviewedAtNotNil() predicate.CompetitionEntry {
 	return predicate.CompetitionEntry(sql.FieldNotNull(FieldReviewedAt))
+}
+
+// FirstPresentedAtEQ applies the EQ predicate on the "first_presented_at" field.
+func FirstPresentedAtEQ(v time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldFirstPresentedAt, v))
+}
+
+// FirstPresentedAtNEQ applies the NEQ predicate on the "first_presented_at" field.
+func FirstPresentedAtNEQ(v time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNEQ(FieldFirstPresentedAt, v))
+}
+
+// FirstPresentedAtIn applies the In predicate on the "first_presented_at" field.
+func FirstPresentedAtIn(vs ...time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIn(FieldFirstPresentedAt, vs...))
+}
+
+// FirstPresentedAtNotIn applies the NotIn predicate on the "first_presented_at" field.
+func FirstPresentedAtNotIn(vs ...time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotIn(FieldFirstPresentedAt, vs...))
+}
+
+// FirstPresentedAtGT applies the GT predicate on the "first_presented_at" field.
+func FirstPresentedAtGT(v time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldGT(FieldFirstPresentedAt, v))
+}
+
+// FirstPresentedAtGTE applies the GTE predicate on the "first_presented_at" field.
+func FirstPresentedAtGTE(v time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldGTE(FieldFirstPresentedAt, v))
+}
+
+// FirstPresentedAtLT applies the LT predicate on the "first_presented_at" field.
+func FirstPresentedAtLT(v time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldLT(FieldFirstPresentedAt, v))
+}
+
+// FirstPresentedAtLTE applies the LTE predicate on the "first_presented_at" field.
+func FirstPresentedAtLTE(v time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldLTE(FieldFirstPresentedAt, v))
+}
+
+// FirstPresentedAtIsNil applies the IsNil predicate on the "first_presented_at" field.
+func FirstPresentedAtIsNil() predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIsNull(FieldFirstPresentedAt))
+}
+
+// FirstPresentedAtNotNil applies the NotNil predicate on the "first_presented_at" field.
+func FirstPresentedAtNotNil() predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotNull(FieldFirstPresentedAt))
 }
 
 // RevisionEQ applies the EQ predicate on the "revision" field.

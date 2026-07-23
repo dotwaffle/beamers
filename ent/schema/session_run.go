@@ -10,7 +10,8 @@ import (
 	"entgo.io/ent/schema/index"
 )
 
-// SessionRun preserves one execution attempt and its immutable Published snapshot.
+// SessionRun preserves one execution attempt, its immutable Published snapshot,
+// and the exact Competition Entry order fixed by the first Take.
 type SessionRun struct {
 	ent.Schema
 }
@@ -37,6 +38,9 @@ func (SessionRun) Fields() []ent.Field {
 		field.Int("target_adjustment_seconds").Default(0),
 		field.Time("target_adjusted_at").Optional(),
 		field.Text("snapshot_json").NotEmpty().Immutable(),
+		field.JSON("locked_entry_order_ids", []int{}).
+			Comment("Set once by the first Competition Entry Slide Take.").
+			Optional(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 	}
 }
