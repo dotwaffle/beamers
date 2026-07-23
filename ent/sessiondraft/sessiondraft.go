@@ -41,6 +41,8 @@ const (
 	FieldStartBoundary = "start_boundary"
 	// FieldEndBoundary holds the string denoting the end_boundary field in the database.
 	FieldEndBoundary = "end_boundary"
+	// FieldUploadDeadline holds the string denoting the upload_deadline field in the database.
+	FieldUploadDeadline = "upload_deadline"
 	// FieldSubmissionDeadline holds the string denoting the submission_deadline field in the database.
 	FieldSubmissionDeadline = "submission_deadline"
 	// FieldEntryDefaultDisposition holds the string denoting the entry_default_disposition field in the database.
@@ -95,6 +97,7 @@ var Columns = []string{
 	FieldMinimumDurationSeconds,
 	FieldStartBoundary,
 	FieldEndBoundary,
+	FieldUploadDeadline,
 	FieldSubmissionDeadline,
 	FieldEntryDefaultDisposition,
 }
@@ -356,6 +359,11 @@ func ByStartBoundary(opts ...sql.OrderTermOption) OrderOption {
 // ByEndBoundary orders the results by the end_boundary field.
 func ByEndBoundary(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEndBoundary, opts...).ToFunc()
+}
+
+// ByUploadDeadline orders the results by the upload_deadline field.
+func ByUploadDeadline(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUploadDeadline, opts...).ToFunc()
 }
 
 // BySubmissionDeadline orders the results by the submission_deadline field.

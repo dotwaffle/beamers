@@ -29,7 +29,9 @@ func (AuditEntry) Policy() ent.Policy {
 // Fields defines Audit Entry persistence.
 func (AuditEntry) Fields() []ent.Field {
 	return []ent.Field{
-		field.Int("actor_account_id").Immutable(),
+		field.Int("actor_account_id").Optional().Immutable(),
+		field.Enum("actor_kind").Values("Account", "UploadLink").Default("Account").Immutable(),
+		field.Int("actor_upload_link_id").Optional().Immutable(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 		field.String("action").NotEmpty().MaxLen(100).Immutable(),
 		field.String("target_type").NotEmpty().MaxLen(100).Immutable(),
@@ -47,7 +49,6 @@ func (AuditEntry) Edges() []ent.Edge {
 			Ref("audit_entries").
 			Field("actor_account_id").
 			Unique().
-			Immutable().
-			Required(),
+			Immutable(),
 	}
 }

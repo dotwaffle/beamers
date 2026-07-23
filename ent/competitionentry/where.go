@@ -80,6 +80,11 @@ func CrewNotes(v string) predicate.CompetitionEntry {
 	return predicate.CompetitionEntry(sql.FieldEQ(FieldCrewNotes, v))
 }
 
+// UploadClosedAt applies equality check predicate on the "upload_closed_at" field. It's identical to UploadClosedAtEQ.
+func UploadClosedAt(v time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldUploadClosedAt, v))
+}
+
 // Revision applies equality check predicate on the "revision" field. It's identical to RevisionEQ.
 func Revision(v int) predicate.CompetitionEntry {
 	return predicate.CompetitionEntry(sql.FieldEQ(FieldRevision, v))
@@ -363,6 +368,56 @@ func DispositionIn(vs ...Disposition) predicate.CompetitionEntry {
 // DispositionNotIn applies the NotIn predicate on the "disposition" field.
 func DispositionNotIn(vs ...Disposition) predicate.CompetitionEntry {
 	return predicate.CompetitionEntry(sql.FieldNotIn(FieldDisposition, vs...))
+}
+
+// UploadClosedAtEQ applies the EQ predicate on the "upload_closed_at" field.
+func UploadClosedAtEQ(v time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldUploadClosedAt, v))
+}
+
+// UploadClosedAtNEQ applies the NEQ predicate on the "upload_closed_at" field.
+func UploadClosedAtNEQ(v time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNEQ(FieldUploadClosedAt, v))
+}
+
+// UploadClosedAtIn applies the In predicate on the "upload_closed_at" field.
+func UploadClosedAtIn(vs ...time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIn(FieldUploadClosedAt, vs...))
+}
+
+// UploadClosedAtNotIn applies the NotIn predicate on the "upload_closed_at" field.
+func UploadClosedAtNotIn(vs ...time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotIn(FieldUploadClosedAt, vs...))
+}
+
+// UploadClosedAtGT applies the GT predicate on the "upload_closed_at" field.
+func UploadClosedAtGT(v time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldGT(FieldUploadClosedAt, v))
+}
+
+// UploadClosedAtGTE applies the GTE predicate on the "upload_closed_at" field.
+func UploadClosedAtGTE(v time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldGTE(FieldUploadClosedAt, v))
+}
+
+// UploadClosedAtLT applies the LT predicate on the "upload_closed_at" field.
+func UploadClosedAtLT(v time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldLT(FieldUploadClosedAt, v))
+}
+
+// UploadClosedAtLTE applies the LTE predicate on the "upload_closed_at" field.
+func UploadClosedAtLTE(v time.Time) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldLTE(FieldUploadClosedAt, v))
+}
+
+// UploadClosedAtIsNil applies the IsNil predicate on the "upload_closed_at" field.
+func UploadClosedAtIsNil() predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIsNull(FieldUploadClosedAt))
+}
+
+// UploadClosedAtNotNil applies the NotNil predicate on the "upload_closed_at" field.
+func UploadClosedAtNotNil() predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotNull(FieldUploadClosedAt))
 }
 
 // RevisionEQ applies the EQ predicate on the "revision" field.

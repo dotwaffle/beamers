@@ -23,6 +23,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/track"
+	"github.com/dotwaffle/beamers/ent/uploadlink"
 )
 
 // EventUpdate is the builder for updating Event entities.
@@ -314,6 +315,21 @@ func (_u *EventUpdate) AddCompetitionEntries(v ...*CompetitionEntry) *EventUpdat
 	return _u.AddCompetitionEntryIDs(ids...)
 }
 
+// AddUploadLinkIDs adds the "upload_links" edge to the UploadLink entity by IDs.
+func (_u *EventUpdate) AddUploadLinkIDs(ids ...int) *EventUpdate {
+	_u.mutation.AddUploadLinkIDs(ids...)
+	return _u
+}
+
+// AddUploadLinks adds the "upload_links" edges to the UploadLink entity.
+func (_u *EventUpdate) AddUploadLinks(v ...*UploadLink) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddUploadLinkIDs(ids...)
+}
+
 // AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by IDs.
 func (_u *EventUpdate) AddDraftEditIDs(ids ...int) *EventUpdate {
 	_u.mutation.AddDraftEditIDs(ids...)
@@ -509,6 +525,27 @@ func (_u *EventUpdate) RemoveCompetitionEntries(v ...*CompetitionEntry) *EventUp
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveCompetitionEntryIDs(ids...)
+}
+
+// ClearUploadLinks clears all "upload_links" edges to the UploadLink entity.
+func (_u *EventUpdate) ClearUploadLinks() *EventUpdate {
+	_u.mutation.ClearUploadLinks()
+	return _u
+}
+
+// RemoveUploadLinkIDs removes the "upload_links" edge to UploadLink entities by IDs.
+func (_u *EventUpdate) RemoveUploadLinkIDs(ids ...int) *EventUpdate {
+	_u.mutation.RemoveUploadLinkIDs(ids...)
+	return _u
+}
+
+// RemoveUploadLinks removes "upload_links" edges to UploadLink entities.
+func (_u *EventUpdate) RemoveUploadLinks(v ...*UploadLink) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveUploadLinkIDs(ids...)
 }
 
 // ClearDraftEdits clears all "draft_edits" edges to the DraftEdit entity.
@@ -1027,6 +1064,51 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.UploadLinksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.UploadLinksTable,
+			Columns: []string{event.UploadLinksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(uploadlink.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedUploadLinksIDs(); len(nodes) > 0 && !_u.mutation.UploadLinksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.UploadLinksTable,
+			Columns: []string{event.UploadLinksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(uploadlink.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.UploadLinksIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.UploadLinksTable,
+			Columns: []string{event.UploadLinksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(uploadlink.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.DraftEditsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -1503,6 +1585,21 @@ func (_u *EventUpdateOne) AddCompetitionEntries(v ...*CompetitionEntry) *EventUp
 	return _u.AddCompetitionEntryIDs(ids...)
 }
 
+// AddUploadLinkIDs adds the "upload_links" edge to the UploadLink entity by IDs.
+func (_u *EventUpdateOne) AddUploadLinkIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.AddUploadLinkIDs(ids...)
+	return _u
+}
+
+// AddUploadLinks adds the "upload_links" edges to the UploadLink entity.
+func (_u *EventUpdateOne) AddUploadLinks(v ...*UploadLink) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddUploadLinkIDs(ids...)
+}
+
 // AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by IDs.
 func (_u *EventUpdateOne) AddDraftEditIDs(ids ...int) *EventUpdateOne {
 	_u.mutation.AddDraftEditIDs(ids...)
@@ -1698,6 +1795,27 @@ func (_u *EventUpdateOne) RemoveCompetitionEntries(v ...*CompetitionEntry) *Even
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveCompetitionEntryIDs(ids...)
+}
+
+// ClearUploadLinks clears all "upload_links" edges to the UploadLink entity.
+func (_u *EventUpdateOne) ClearUploadLinks() *EventUpdateOne {
+	_u.mutation.ClearUploadLinks()
+	return _u
+}
+
+// RemoveUploadLinkIDs removes the "upload_links" edge to UploadLink entities by IDs.
+func (_u *EventUpdateOne) RemoveUploadLinkIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.RemoveUploadLinkIDs(ids...)
+	return _u
+}
+
+// RemoveUploadLinks removes "upload_links" edges to UploadLink entities.
+func (_u *EventUpdateOne) RemoveUploadLinks(v ...*UploadLink) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveUploadLinkIDs(ids...)
 }
 
 // ClearDraftEdits clears all "draft_edits" edges to the DraftEdit entity.
@@ -2239,6 +2357,51 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.UploadLinksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.UploadLinksTable,
+			Columns: []string{event.UploadLinksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(uploadlink.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedUploadLinksIDs(); len(nodes) > 0 && !_u.mutation.UploadLinksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.UploadLinksTable,
+			Columns: []string{event.UploadLinksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(uploadlink.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.UploadLinksIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.UploadLinksTable,
+			Columns: []string{event.UploadLinksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(uploadlink.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

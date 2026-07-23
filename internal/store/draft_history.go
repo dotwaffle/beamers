@@ -548,6 +548,10 @@ func (transaction *CommandTx) applySessionDraftFact(ctx context.Context, targetI
 		var value string
 		err = json.Unmarshal(encoded, &value)
 		update.SetEndBoundary(sessiondraft.EndBoundary(value))
+	case "upload_deadline":
+		var value time.Time
+		err = json.Unmarshal(encoded, &value)
+		update.SetUploadDeadline(value)
 	case "submission_deadline":
 		var value time.Time
 		err = json.Unmarshal(encoded, &value)

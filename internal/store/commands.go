@@ -44,14 +44,16 @@ type commandOutcome struct {
 }
 
 type commandReceiptParams struct {
-	ActorAccountID int
-	CommandID      string
-	PayloadHash    string
-	Action         string
-	TargetType     string
-	TargetID       string
-	OutcomeJSON    string
-	Now            time.Time
+	ActorKind         string
+	ActorAccountID    int
+	ActorUploadLinkID int
+	CommandID         string
+	PayloadHash       string
+	Action            string
+	TargetType        string
+	TargetID          string
+	OutcomeJSON       string
+	Now               time.Time
 }
 
 func findCommandReceipt(
@@ -68,7 +70,9 @@ func findCommandReceipt(
 	if err != nil {
 		return "", false, opaqueError("read Command Receipt", err)
 	}
-	if found.ActorAccountID != params.ActorAccountID ||
+	if found.ActorKind.String() != commandActorKind(params.ActorKind) ||
+		found.ActorAccountID != params.ActorAccountID ||
+		found.ActorUploadLinkID != params.ActorUploadLinkID ||
 		found.PayloadHash != params.PayloadHash || found.Action != params.Action {
 		return "", false, ErrCommandConflict
 	}
@@ -80,17 +84,30 @@ func createCommandReceipt(
 	transaction *ent.Tx,
 	params commandReceiptParams,
 ) error {
-	_, err := transaction.CommandReceipt.Create().
-		SetActorAccountID(params.ActorAccountID).
+	create := transaction.CommandReceipt.Create().
 		SetCommandID(params.CommandID).
 		SetPayloadHash(params.PayloadHash).
 		SetAction(params.Action).
 		SetTargetType(params.TargetType).
 		SetTargetID(params.TargetID).
 		SetOutcomeJSON(params.OutcomeJSON).
-		SetCreatedAt(params.Now).
-		Save(systemContext(ctx))
+		SetCreatedAt(params.Now)
+	if params.ActorKind == "UploadLink" {
+		create.SetActorKind(commandreceipt.ActorKindUploadLink).
+			SetActorUploadLinkID(params.ActorUploadLinkID)
+	} else {
+		create.SetActorKind(commandreceipt.ActorKindAccount).
+			SetActorAccountID(params.ActorAccountID)
+	}
+	_, err := create.Save(systemContext(ctx))
 	return err
+}
+
+func commandActorKind(kind string) string {
+	if kind == "UploadLink" {
+		return kind
+	}
+	return "Account"
 }
 
 func decodeCommandReceipt(outcome string, target any, description string) error {
@@ -112,20 +129,22 @@ func DecodeCommandReceipt(outcome string, target any) error {
 func auditRejectedCommand(
 	ctx context.Context,
 	audits *ent.AuditEntryClient,
-	actorAccountID int,
-	action string,
-	targetType string,
-	targetID string,
-	now time.Time,
+	identity CommandIdentity,
 ) error {
-	_, err := audits.Create().
-		SetActorAccountID(actorAccountID).
-		SetCreatedAt(now).
-		SetAction(action).
-		SetTargetType(targetType).
-		SetTargetID(targetID).
+	create := audits.Create().
+		SetCreatedAt(identity.Now).
+		SetAction(identity.Action).
+		SetTargetType("Command").
+		SetTargetID(identity.CommandID).
 		SetResult(auditentry.ResultRejected).
-		SetReason("command_id_conflict").
-		Save(ctx)
+		SetReason("command_id_conflict")
+	if identity.ActorKind == "UploadLink" {
+		create.SetActorKind(auditentry.ActorKindUploadLink).
+			SetActorUploadLinkID(identity.ActorUploadLinkID)
+	} else {
+		create.SetActorKind(auditentry.ActorKindAccount).
+			SetActorAccountID(identity.ActorAccountID)
+	}
+	_, err := create.Save(ctx)
 	return err
 }

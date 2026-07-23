@@ -211,6 +211,7 @@ message SessionDraft {
   string speaker = 24;
   google.protobuf.Timestamp submission_deadline = 25;
   EntryDisposition entry_default_disposition = 26;
+  google.protobuf.Timestamp upload_deadline = 27;
 }
 
 message EditDraftRequest {

@@ -60,6 +60,11 @@ func ActorAccountID(v int) predicate.CommandReceipt {
 	return predicate.CommandReceipt(sql.FieldEQ(FieldActorAccountID, v))
 }
 
+// ActorUploadLinkID applies equality check predicate on the "actor_upload_link_id" field. It's identical to ActorUploadLinkIDEQ.
+func ActorUploadLinkID(v int) predicate.CommandReceipt {
+	return predicate.CommandReceipt(sql.FieldEQ(FieldActorUploadLinkID, v))
+}
+
 // CommandID applies equality check predicate on the "command_id" field. It's identical to CommandIDEQ.
 func CommandID(v string) predicate.CommandReceipt {
 	return predicate.CommandReceipt(sql.FieldEQ(FieldCommandID, v))
@@ -113,6 +118,86 @@ func ActorAccountIDIn(vs ...int) predicate.CommandReceipt {
 // ActorAccountIDNotIn applies the NotIn predicate on the "actor_account_id" field.
 func ActorAccountIDNotIn(vs ...int) predicate.CommandReceipt {
 	return predicate.CommandReceipt(sql.FieldNotIn(FieldActorAccountID, vs...))
+}
+
+// ActorAccountIDIsNil applies the IsNil predicate on the "actor_account_id" field.
+func ActorAccountIDIsNil() predicate.CommandReceipt {
+	return predicate.CommandReceipt(sql.FieldIsNull(FieldActorAccountID))
+}
+
+// ActorAccountIDNotNil applies the NotNil predicate on the "actor_account_id" field.
+func ActorAccountIDNotNil() predicate.CommandReceipt {
+	return predicate.CommandReceipt(sql.FieldNotNull(FieldActorAccountID))
+}
+
+// ActorKindEQ applies the EQ predicate on the "actor_kind" field.
+func ActorKindEQ(v ActorKind) predicate.CommandReceipt {
+	return predicate.CommandReceipt(sql.FieldEQ(FieldActorKind, v))
+}
+
+// ActorKindNEQ applies the NEQ predicate on the "actor_kind" field.
+func ActorKindNEQ(v ActorKind) predicate.CommandReceipt {
+	return predicate.CommandReceipt(sql.FieldNEQ(FieldActorKind, v))
+}
+
+// ActorKindIn applies the In predicate on the "actor_kind" field.
+func ActorKindIn(vs ...ActorKind) predicate.CommandReceipt {
+	return predicate.CommandReceipt(sql.FieldIn(FieldActorKind, vs...))
+}
+
+// ActorKindNotIn applies the NotIn predicate on the "actor_kind" field.
+func ActorKindNotIn(vs ...ActorKind) predicate.CommandReceipt {
+	return predicate.CommandReceipt(sql.FieldNotIn(FieldActorKind, vs...))
+}
+
+// ActorUploadLinkIDEQ applies the EQ predicate on the "actor_upload_link_id" field.
+func ActorUploadLinkIDEQ(v int) predicate.CommandReceipt {
+	return predicate.CommandReceipt(sql.FieldEQ(FieldActorUploadLinkID, v))
+}
+
+// ActorUploadLinkIDNEQ applies the NEQ predicate on the "actor_upload_link_id" field.
+func ActorUploadLinkIDNEQ(v int) predicate.CommandReceipt {
+	return predicate.CommandReceipt(sql.FieldNEQ(FieldActorUploadLinkID, v))
+}
+
+// ActorUploadLinkIDIn applies the In predicate on the "actor_upload_link_id" field.
+func ActorUploadLinkIDIn(vs ...int) predicate.CommandReceipt {
+	return predicate.CommandReceipt(sql.FieldIn(FieldActorUploadLinkID, vs...))
+}
+
+// ActorUploadLinkIDNotIn applies the NotIn predicate on the "actor_upload_link_id" field.
+func ActorUploadLinkIDNotIn(vs ...int) predicate.CommandReceipt {
+	return predicate.CommandReceipt(sql.FieldNotIn(FieldActorUploadLinkID, vs...))
+}
+
+// ActorUploadLinkIDGT applies the GT predicate on the "actor_upload_link_id" field.
+func ActorUploadLinkIDGT(v int) predicate.CommandReceipt {
+	return predicate.CommandReceipt(sql.FieldGT(FieldActorUploadLinkID, v))
+}
+
+// ActorUploadLinkIDGTE applies the GTE predicate on the "actor_upload_link_id" field.
+func ActorUploadLinkIDGTE(v int) predicate.CommandReceipt {
+	return predicate.CommandReceipt(sql.FieldGTE(FieldActorUploadLinkID, v))
+}
+
+// ActorUploadLinkIDLT applies the LT predicate on the "actor_upload_link_id" field.
+func ActorUploadLinkIDLT(v int) predicate.CommandReceipt {
+	return predicate.CommandReceipt(sql.FieldLT(FieldActorUploadLinkID, v))
+}
+
+// ActorUploadLinkIDLTE applies the LTE predicate on the "actor_upload_link_id" field.
+func ActorUploadLinkIDLTE(v int) predicate.CommandReceipt {
+	return predicate.CommandReceipt(sql.FieldLTE(FieldActorUploadLinkID, v))
+}
+
+// ActorUploadLinkIDIsNil applies the IsNil predicate on the "actor_upload_link_id" field.
+func ActorUploadLinkIDIsNil() predicate.CommandReceipt {
+	return predicate.CommandReceipt(sql.FieldIsNull(FieldActorUploadLinkID))
+}
+
+// ActorUploadLinkIDNotNil applies the NotNil predicate on the "actor_upload_link_id" field.
+func ActorUploadLinkIDNotNil() predicate.CommandReceipt {
+	return predicate.CommandReceipt(sql.FieldNotNull(FieldActorUploadLinkID))
 }
 
 // CommandIDEQ applies the EQ predicate on the "command_id" field.

@@ -20,6 +20,10 @@ type AuditEntry struct {
 	ID int `json:"id,omitempty"`
 	// ActorAccountID holds the value of the "actor_account_id" field.
 	ActorAccountID int `json:"actor_account_id,omitempty"`
+	// ActorKind holds the value of the "actor_kind" field.
+	ActorKind auditentry.ActorKind `json:"actor_kind,omitempty"`
+	// ActorUploadLinkID holds the value of the "actor_upload_link_id" field.
+	ActorUploadLinkID int `json:"actor_upload_link_id,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Action holds the value of the "action" field.
@@ -65,9 +69,9 @@ func (*AuditEntry) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case auditentry.FieldID, auditentry.FieldActorAccountID:
+		case auditentry.FieldID, auditentry.FieldActorAccountID, auditentry.FieldActorUploadLinkID:
 			values[i] = new(sql.NullInt64)
-		case auditentry.FieldAction, auditentry.FieldTargetType, auditentry.FieldTargetID, auditentry.FieldResult, auditentry.FieldReason, auditentry.FieldNote:
+		case auditentry.FieldActorKind, auditentry.FieldAction, auditentry.FieldTargetType, auditentry.FieldTargetID, auditentry.FieldResult, auditentry.FieldReason, auditentry.FieldNote:
 			values[i] = new(sql.NullString)
 		case auditentry.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -97,6 +101,18 @@ func (_m *AuditEntry) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field actor_account_id", values[i])
 			} else if value.Valid {
 				_m.ActorAccountID = int(value.Int64)
+			}
+		case auditentry.FieldActorKind:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field actor_kind", values[i])
+			} else if value.Valid {
+				_m.ActorKind = auditentry.ActorKind(value.String)
+			}
+		case auditentry.FieldActorUploadLinkID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field actor_upload_link_id", values[i])
+			} else if value.Valid {
+				_m.ActorUploadLinkID = int(value.Int64)
 			}
 		case auditentry.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -183,6 +199,12 @@ func (_m *AuditEntry) String() string {
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
 	builder.WriteString("actor_account_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ActorAccountID))
+	builder.WriteString(", ")
+	builder.WriteString("actor_kind=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ActorKind))
+	builder.WriteString(", ")
+	builder.WriteString("actor_upload_link_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ActorUploadLinkID))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

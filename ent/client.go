@@ -17,6 +17,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/accountsession"
+	"github.com/dotwaffle/beamers/ent/attachment"
+	"github.com/dotwaffle/beamers/ent/attachmentversion"
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
@@ -40,6 +42,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
 	"github.com/dotwaffle/beamers/ent/migration"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
+	"github.com/dotwaffle/beamers/ent/reopenwindow"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessioncancellation"
@@ -50,6 +53,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
+	"github.com/dotwaffle/beamers/ent/uploadlink"
 )
 
 // Client is the client that holds all ent builders.
@@ -61,6 +65,10 @@ type Client struct {
 	Account *AccountClient
 	// AccountSession is the client for interacting with the AccountSession builders.
 	AccountSession *AccountSessionClient
+	// Attachment is the client for interacting with the Attachment builders.
+	Attachment *AttachmentClient
+	// AttachmentVersion is the client for interacting with the AttachmentVersion builders.
+	AttachmentVersion *AttachmentVersionClient
 	// AuditEntry is the client for interacting with the AuditEntry builders.
 	AuditEntry *AuditEntryClient
 	// BootstrapCredential is the client for interacting with the BootstrapCredential builders.
@@ -107,6 +115,8 @@ type Client struct {
 	Migration *MigrationClient
 	// PasswordCredential is the client for interacting with the PasswordCredential builders.
 	PasswordCredential *PasswordCredentialClient
+	// ReopenWindow is the client for interacting with the ReopenWindow builders.
+	ReopenWindow *ReopenWindowClient
 	// Rundown is the client for interacting with the Rundown builders.
 	Rundown *RundownClient
 	// Session is the client for interacting with the Session builders.
@@ -127,6 +137,8 @@ type Client struct {
 	TrackDraft *TrackDraftClient
 	// TrackPublishedVersion is the client for interacting with the TrackPublishedVersion builders.
 	TrackPublishedVersion *TrackPublishedVersionClient
+	// UploadLink is the client for interacting with the UploadLink builders.
+	UploadLink *UploadLinkClient
 }
 
 // NewClient creates a new client configured with the given options.
@@ -140,6 +152,8 @@ func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
 	c.Account = NewAccountClient(c.config)
 	c.AccountSession = NewAccountSessionClient(c.config)
+	c.Attachment = NewAttachmentClient(c.config)
+	c.AttachmentVersion = NewAttachmentVersionClient(c.config)
 	c.AuditEntry = NewAuditEntryClient(c.config)
 	c.BootstrapCredential = NewBootstrapCredentialClient(c.config)
 	c.CommandReceipt = NewCommandReceiptClient(c.config)
@@ -163,6 +177,7 @@ func (c *Client) init() {
 	c.LocationPublishedVersion = NewLocationPublishedVersionClient(c.config)
 	c.Migration = NewMigrationClient(c.config)
 	c.PasswordCredential = NewPasswordCredentialClient(c.config)
+	c.ReopenWindow = NewReopenWindowClient(c.config)
 	c.Rundown = NewRundownClient(c.config)
 	c.Session = NewSessionClient(c.config)
 	c.SessionCancellation = NewSessionCancellationClient(c.config)
@@ -173,6 +188,7 @@ func (c *Client) init() {
 	c.Track = NewTrackClient(c.config)
 	c.TrackDraft = NewTrackDraftClient(c.config)
 	c.TrackPublishedVersion = NewTrackPublishedVersionClient(c.config)
+	c.UploadLink = NewUploadLinkClient(c.config)
 }
 
 type (
@@ -267,6 +283,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		config:                   cfg,
 		Account:                  NewAccountClient(cfg),
 		AccountSession:           NewAccountSessionClient(cfg),
+		Attachment:               NewAttachmentClient(cfg),
+		AttachmentVersion:        NewAttachmentVersionClient(cfg),
 		AuditEntry:               NewAuditEntryClient(cfg),
 		BootstrapCredential:      NewBootstrapCredentialClient(cfg),
 		CommandReceipt:           NewCommandReceiptClient(cfg),
@@ -290,6 +308,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		LocationPublishedVersion: NewLocationPublishedVersionClient(cfg),
 		Migration:                NewMigrationClient(cfg),
 		PasswordCredential:       NewPasswordCredentialClient(cfg),
+		ReopenWindow:             NewReopenWindowClient(cfg),
 		Rundown:                  NewRundownClient(cfg),
 		Session:                  NewSessionClient(cfg),
 		SessionCancellation:      NewSessionCancellationClient(cfg),
@@ -300,6 +319,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Track:                    NewTrackClient(cfg),
 		TrackDraft:               NewTrackDraftClient(cfg),
 		TrackPublishedVersion:    NewTrackPublishedVersionClient(cfg),
+		UploadLink:               NewUploadLinkClient(cfg),
 	}, nil
 }
 
@@ -321,6 +341,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		config:                   cfg,
 		Account:                  NewAccountClient(cfg),
 		AccountSession:           NewAccountSessionClient(cfg),
+		Attachment:               NewAttachmentClient(cfg),
+		AttachmentVersion:        NewAttachmentVersionClient(cfg),
 		AuditEntry:               NewAuditEntryClient(cfg),
 		BootstrapCredential:      NewBootstrapCredentialClient(cfg),
 		CommandReceipt:           NewCommandReceiptClient(cfg),
@@ -344,6 +366,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		LocationPublishedVersion: NewLocationPublishedVersionClient(cfg),
 		Migration:                NewMigrationClient(cfg),
 		PasswordCredential:       NewPasswordCredentialClient(cfg),
+		ReopenWindow:             NewReopenWindowClient(cfg),
 		Rundown:                  NewRundownClient(cfg),
 		Session:                  NewSessionClient(cfg),
 		SessionCancellation:      NewSessionCancellationClient(cfg),
@@ -354,6 +377,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Track:                    NewTrackClient(cfg),
 		TrackDraft:               NewTrackDraftClient(cfg),
 		TrackPublishedVersion:    NewTrackPublishedVersionClient(cfg),
+		UploadLink:               NewUploadLinkClient(cfg),
 	}, nil
 }
 
@@ -383,15 +407,15 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.Account, c.AccountSession, c.AuditEntry, c.BootstrapCredential,
-		c.CommandReceipt, c.CompetitionEntry, c.Display, c.DisplayAssignment,
-		c.DisplayCredential, c.DisplayEnrollment, c.DraftChange,
+		c.Account, c.AccountSession, c.Attachment, c.AttachmentVersion, c.AuditEntry,
+		c.BootstrapCredential, c.CommandReceipt, c.CompetitionEntry, c.Display,
+		c.DisplayAssignment, c.DisplayCredential, c.DisplayEnrollment, c.DraftChange,
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventGrant, c.ImportReference,
 		c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion, c.Location,
 		c.LocationDraft, c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
-		c.Rundown, c.Session, c.SessionCancellation, c.SessionDraft,
+		c.ReopenWindow, c.Rundown, c.Session, c.SessionCancellation, c.SessionDraft,
 		c.SessionPublishedVersion, c.SessionRun, c.SessionRunAmendment, c.Track,
-		c.TrackDraft, c.TrackPublishedVersion,
+		c.TrackDraft, c.TrackPublishedVersion, c.UploadLink,
 	} {
 		n.Use(hooks...)
 	}
@@ -401,15 +425,15 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.Account, c.AccountSession, c.AuditEntry, c.BootstrapCredential,
-		c.CommandReceipt, c.CompetitionEntry, c.Display, c.DisplayAssignment,
-		c.DisplayCredential, c.DisplayEnrollment, c.DraftChange,
+		c.Account, c.AccountSession, c.Attachment, c.AttachmentVersion, c.AuditEntry,
+		c.BootstrapCredential, c.CommandReceipt, c.CompetitionEntry, c.Display,
+		c.DisplayAssignment, c.DisplayCredential, c.DisplayEnrollment, c.DraftChange,
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventGrant, c.ImportReference,
 		c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion, c.Location,
 		c.LocationDraft, c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
-		c.Rundown, c.Session, c.SessionCancellation, c.SessionDraft,
+		c.ReopenWindow, c.Rundown, c.Session, c.SessionCancellation, c.SessionDraft,
 		c.SessionPublishedVersion, c.SessionRun, c.SessionRunAmendment, c.Track,
-		c.TrackDraft, c.TrackPublishedVersion,
+		c.TrackDraft, c.TrackPublishedVersion, c.UploadLink,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -422,6 +446,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Account.mutate(ctx, m)
 	case *AccountSessionMutation:
 		return c.AccountSession.mutate(ctx, m)
+	case *AttachmentMutation:
+		return c.Attachment.mutate(ctx, m)
+	case *AttachmentVersionMutation:
+		return c.AttachmentVersion.mutate(ctx, m)
 	case *AuditEntryMutation:
 		return c.AuditEntry.mutate(ctx, m)
 	case *BootstrapCredentialMutation:
@@ -468,6 +496,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Migration.mutate(ctx, m)
 	case *PasswordCredentialMutation:
 		return c.PasswordCredential.mutate(ctx, m)
+	case *ReopenWindowMutation:
+		return c.ReopenWindow.mutate(ctx, m)
 	case *RundownMutation:
 		return c.Rundown.mutate(ctx, m)
 	case *SessionMutation:
@@ -488,6 +518,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.TrackDraft.mutate(ctx, m)
 	case *TrackPublishedVersionMutation:
 		return c.TrackPublishedVersion.mutate(ctx, m)
+	case *UploadLinkMutation:
+		return c.UploadLink.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
 	}
@@ -870,6 +902,306 @@ func (c *AccountSessionClient) mutate(ctx context.Context, m *AccountSessionMuta
 		return (&AccountSessionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown AccountSession mutation op: %q", m.Op())
+	}
+}
+
+// AttachmentClient is a client for the Attachment schema.
+type AttachmentClient struct {
+	config
+}
+
+// NewAttachmentClient returns a client for the Attachment from the given config.
+func NewAttachmentClient(c config) *AttachmentClient {
+	return &AttachmentClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `attachment.Hooks(f(g(h())))`.
+func (c *AttachmentClient) Use(hooks ...Hook) {
+	c.hooks.Attachment = append(c.hooks.Attachment, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `attachment.Intercept(f(g(h())))`.
+func (c *AttachmentClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Attachment = append(c.inters.Attachment, interceptors...)
+}
+
+// Create returns a builder for creating a Attachment entity.
+func (c *AttachmentClient) Create() *AttachmentCreate {
+	mutation := newAttachmentMutation(c.config, OpCreate)
+	return &AttachmentCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Attachment entities.
+func (c *AttachmentClient) CreateBulk(builders ...*AttachmentCreate) *AttachmentCreateBulk {
+	return &AttachmentCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *AttachmentClient) MapCreateBulk(slice any, setFunc func(*AttachmentCreate, int)) *AttachmentCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &AttachmentCreateBulk{err: fmt.Errorf("calling to AttachmentClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*AttachmentCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &AttachmentCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Attachment.
+func (c *AttachmentClient) Update() *AttachmentUpdate {
+	mutation := newAttachmentMutation(c.config, OpUpdate)
+	return &AttachmentUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *AttachmentClient) UpdateOne(_m *Attachment) *AttachmentUpdateOne {
+	mutation := newAttachmentMutation(c.config, OpUpdateOne, withAttachment(_m))
+	return &AttachmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *AttachmentClient) UpdateOneID(id int) *AttachmentUpdateOne {
+	mutation := newAttachmentMutation(c.config, OpUpdateOne, withAttachmentID(id))
+	return &AttachmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Attachment.
+func (c *AttachmentClient) Delete() *AttachmentDelete {
+	mutation := newAttachmentMutation(c.config, OpDelete)
+	return &AttachmentDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *AttachmentClient) DeleteOne(_m *Attachment) *AttachmentDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *AttachmentClient) DeleteOneID(id int) *AttachmentDeleteOne {
+	builder := c.Delete().Where(attachment.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &AttachmentDeleteOne{builder}
+}
+
+// Query returns a query builder for Attachment.
+func (c *AttachmentClient) Query() *AttachmentQuery {
+	return &AttachmentQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAttachment},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Attachment entity by its id.
+func (c *AttachmentClient) Get(ctx context.Context, id int) (*Attachment, error) {
+	return c.Query().Where(attachment.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *AttachmentClient) GetX(ctx context.Context, id int) *Attachment {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryVersions queries the versions edge of a Attachment.
+func (c *AttachmentClient) QueryVersions(_m *Attachment) *AttachmentVersionQuery {
+	query := (&AttachmentVersionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(attachment.Table, attachment.FieldID, id),
+			sqlgraph.To(attachmentversion.Table, attachmentversion.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, attachment.VersionsTable, attachment.VersionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *AttachmentClient) Hooks() []Hook {
+	hooks := c.hooks.Attachment
+	return append(hooks[:len(hooks):len(hooks)], attachment.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *AttachmentClient) Interceptors() []Interceptor {
+	return c.inters.Attachment
+}
+
+func (c *AttachmentClient) mutate(ctx context.Context, m *AttachmentMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&AttachmentCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&AttachmentUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&AttachmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&AttachmentDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Attachment mutation op: %q", m.Op())
+	}
+}
+
+// AttachmentVersionClient is a client for the AttachmentVersion schema.
+type AttachmentVersionClient struct {
+	config
+}
+
+// NewAttachmentVersionClient returns a client for the AttachmentVersion from the given config.
+func NewAttachmentVersionClient(c config) *AttachmentVersionClient {
+	return &AttachmentVersionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `attachmentversion.Hooks(f(g(h())))`.
+func (c *AttachmentVersionClient) Use(hooks ...Hook) {
+	c.hooks.AttachmentVersion = append(c.hooks.AttachmentVersion, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `attachmentversion.Intercept(f(g(h())))`.
+func (c *AttachmentVersionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.AttachmentVersion = append(c.inters.AttachmentVersion, interceptors...)
+}
+
+// Create returns a builder for creating a AttachmentVersion entity.
+func (c *AttachmentVersionClient) Create() *AttachmentVersionCreate {
+	mutation := newAttachmentVersionMutation(c.config, OpCreate)
+	return &AttachmentVersionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of AttachmentVersion entities.
+func (c *AttachmentVersionClient) CreateBulk(builders ...*AttachmentVersionCreate) *AttachmentVersionCreateBulk {
+	return &AttachmentVersionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *AttachmentVersionClient) MapCreateBulk(slice any, setFunc func(*AttachmentVersionCreate, int)) *AttachmentVersionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &AttachmentVersionCreateBulk{err: fmt.Errorf("calling to AttachmentVersionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*AttachmentVersionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &AttachmentVersionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for AttachmentVersion.
+func (c *AttachmentVersionClient) Update() *AttachmentVersionUpdate {
+	mutation := newAttachmentVersionMutation(c.config, OpUpdate)
+	return &AttachmentVersionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *AttachmentVersionClient) UpdateOne(_m *AttachmentVersion) *AttachmentVersionUpdateOne {
+	mutation := newAttachmentVersionMutation(c.config, OpUpdateOne, withAttachmentVersion(_m))
+	return &AttachmentVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *AttachmentVersionClient) UpdateOneID(id int) *AttachmentVersionUpdateOne {
+	mutation := newAttachmentVersionMutation(c.config, OpUpdateOne, withAttachmentVersionID(id))
+	return &AttachmentVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for AttachmentVersion.
+func (c *AttachmentVersionClient) Delete() *AttachmentVersionDelete {
+	mutation := newAttachmentVersionMutation(c.config, OpDelete)
+	return &AttachmentVersionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *AttachmentVersionClient) DeleteOne(_m *AttachmentVersion) *AttachmentVersionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *AttachmentVersionClient) DeleteOneID(id int) *AttachmentVersionDeleteOne {
+	builder := c.Delete().Where(attachmentversion.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &AttachmentVersionDeleteOne{builder}
+}
+
+// Query returns a query builder for AttachmentVersion.
+func (c *AttachmentVersionClient) Query() *AttachmentVersionQuery {
+	return &AttachmentVersionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAttachmentVersion},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a AttachmentVersion entity by its id.
+func (c *AttachmentVersionClient) Get(ctx context.Context, id int) (*AttachmentVersion, error) {
+	return c.Query().Where(attachmentversion.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *AttachmentVersionClient) GetX(ctx context.Context, id int) *AttachmentVersion {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryAttachment queries the attachment edge of a AttachmentVersion.
+func (c *AttachmentVersionClient) QueryAttachment(_m *AttachmentVersion) *AttachmentQuery {
+	query := (&AttachmentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(attachmentversion.Table, attachmentversion.FieldID, id),
+			sqlgraph.To(attachment.Table, attachment.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, attachmentversion.AttachmentTable, attachmentversion.AttachmentColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *AttachmentVersionClient) Hooks() []Hook {
+	hooks := c.hooks.AttachmentVersion
+	return append(hooks[:len(hooks):len(hooks)], attachmentversion.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *AttachmentVersionClient) Interceptors() []Interceptor {
+	return c.inters.AttachmentVersion
+}
+
+func (c *AttachmentVersionClient) mutate(ctx context.Context, m *AttachmentVersionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&AttachmentVersionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&AttachmentVersionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&AttachmentVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&AttachmentVersionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown AttachmentVersion mutation op: %q", m.Op())
 	}
 }
 
@@ -2871,6 +3203,22 @@ func (c *EventClient) QueryCompetitionEntries(_m *Event) *CompetitionEntryQuery 
 	return query
 }
 
+// QueryUploadLinks queries the upload_links edge of a Event.
+func (c *EventClient) QueryUploadLinks(_m *Event) *UploadLinkQuery {
+	query := (&UploadLinkClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(uploadlink.Table, uploadlink.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.UploadLinksTable, event.UploadLinksColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryDraftEdits queries the draft_edits edge of a Event.
 func (c *EventClient) QueryDraftEdits(_m *Event) *DraftEditQuery {
 	query := (&DraftEditClient{config: c.config}).Query()
@@ -4818,6 +5166,140 @@ func (c *PasswordCredentialClient) mutate(ctx context.Context, m *PasswordCreden
 	}
 }
 
+// ReopenWindowClient is a client for the ReopenWindow schema.
+type ReopenWindowClient struct {
+	config
+}
+
+// NewReopenWindowClient returns a client for the ReopenWindow from the given config.
+func NewReopenWindowClient(c config) *ReopenWindowClient {
+	return &ReopenWindowClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `reopenwindow.Hooks(f(g(h())))`.
+func (c *ReopenWindowClient) Use(hooks ...Hook) {
+	c.hooks.ReopenWindow = append(c.hooks.ReopenWindow, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `reopenwindow.Intercept(f(g(h())))`.
+func (c *ReopenWindowClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ReopenWindow = append(c.inters.ReopenWindow, interceptors...)
+}
+
+// Create returns a builder for creating a ReopenWindow entity.
+func (c *ReopenWindowClient) Create() *ReopenWindowCreate {
+	mutation := newReopenWindowMutation(c.config, OpCreate)
+	return &ReopenWindowCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ReopenWindow entities.
+func (c *ReopenWindowClient) CreateBulk(builders ...*ReopenWindowCreate) *ReopenWindowCreateBulk {
+	return &ReopenWindowCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ReopenWindowClient) MapCreateBulk(slice any, setFunc func(*ReopenWindowCreate, int)) *ReopenWindowCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ReopenWindowCreateBulk{err: fmt.Errorf("calling to ReopenWindowClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ReopenWindowCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ReopenWindowCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ReopenWindow.
+func (c *ReopenWindowClient) Update() *ReopenWindowUpdate {
+	mutation := newReopenWindowMutation(c.config, OpUpdate)
+	return &ReopenWindowUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ReopenWindowClient) UpdateOne(_m *ReopenWindow) *ReopenWindowUpdateOne {
+	mutation := newReopenWindowMutation(c.config, OpUpdateOne, withReopenWindow(_m))
+	return &ReopenWindowUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ReopenWindowClient) UpdateOneID(id int) *ReopenWindowUpdateOne {
+	mutation := newReopenWindowMutation(c.config, OpUpdateOne, withReopenWindowID(id))
+	return &ReopenWindowUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ReopenWindow.
+func (c *ReopenWindowClient) Delete() *ReopenWindowDelete {
+	mutation := newReopenWindowMutation(c.config, OpDelete)
+	return &ReopenWindowDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ReopenWindowClient) DeleteOne(_m *ReopenWindow) *ReopenWindowDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ReopenWindowClient) DeleteOneID(id int) *ReopenWindowDeleteOne {
+	builder := c.Delete().Where(reopenwindow.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ReopenWindowDeleteOne{builder}
+}
+
+// Query returns a query builder for ReopenWindow.
+func (c *ReopenWindowClient) Query() *ReopenWindowQuery {
+	return &ReopenWindowQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeReopenWindow},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ReopenWindow entity by its id.
+func (c *ReopenWindowClient) Get(ctx context.Context, id int) (*ReopenWindow, error) {
+	return c.Query().Where(reopenwindow.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ReopenWindowClient) GetX(ctx context.Context, id int) *ReopenWindow {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ReopenWindowClient) Hooks() []Hook {
+	hooks := c.hooks.ReopenWindow
+	return append(hooks[:len(hooks):len(hooks)], reopenwindow.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *ReopenWindowClient) Interceptors() []Interceptor {
+	return c.inters.ReopenWindow
+}
+
+func (c *ReopenWindowClient) mutate(ctx context.Context, m *ReopenWindowMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ReopenWindowCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ReopenWindowUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ReopenWindowUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ReopenWindowDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ReopenWindow mutation op: %q", m.Op())
+	}
+}
+
 // RundownClient is a client for the Rundown schema.
 type RundownClient struct {
 	config
@@ -6574,26 +7056,178 @@ func (c *TrackPublishedVersionClient) mutate(ctx context.Context, m *TrackPublis
 	}
 }
 
+// UploadLinkClient is a client for the UploadLink schema.
+type UploadLinkClient struct {
+	config
+}
+
+// NewUploadLinkClient returns a client for the UploadLink from the given config.
+func NewUploadLinkClient(c config) *UploadLinkClient {
+	return &UploadLinkClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `uploadlink.Hooks(f(g(h())))`.
+func (c *UploadLinkClient) Use(hooks ...Hook) {
+	c.hooks.UploadLink = append(c.hooks.UploadLink, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `uploadlink.Intercept(f(g(h())))`.
+func (c *UploadLinkClient) Intercept(interceptors ...Interceptor) {
+	c.inters.UploadLink = append(c.inters.UploadLink, interceptors...)
+}
+
+// Create returns a builder for creating a UploadLink entity.
+func (c *UploadLinkClient) Create() *UploadLinkCreate {
+	mutation := newUploadLinkMutation(c.config, OpCreate)
+	return &UploadLinkCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of UploadLink entities.
+func (c *UploadLinkClient) CreateBulk(builders ...*UploadLinkCreate) *UploadLinkCreateBulk {
+	return &UploadLinkCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *UploadLinkClient) MapCreateBulk(slice any, setFunc func(*UploadLinkCreate, int)) *UploadLinkCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &UploadLinkCreateBulk{err: fmt.Errorf("calling to UploadLinkClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*UploadLinkCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &UploadLinkCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for UploadLink.
+func (c *UploadLinkClient) Update() *UploadLinkUpdate {
+	mutation := newUploadLinkMutation(c.config, OpUpdate)
+	return &UploadLinkUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *UploadLinkClient) UpdateOne(_m *UploadLink) *UploadLinkUpdateOne {
+	mutation := newUploadLinkMutation(c.config, OpUpdateOne, withUploadLink(_m))
+	return &UploadLinkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *UploadLinkClient) UpdateOneID(id int) *UploadLinkUpdateOne {
+	mutation := newUploadLinkMutation(c.config, OpUpdateOne, withUploadLinkID(id))
+	return &UploadLinkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for UploadLink.
+func (c *UploadLinkClient) Delete() *UploadLinkDelete {
+	mutation := newUploadLinkMutation(c.config, OpDelete)
+	return &UploadLinkDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *UploadLinkClient) DeleteOne(_m *UploadLink) *UploadLinkDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *UploadLinkClient) DeleteOneID(id int) *UploadLinkDeleteOne {
+	builder := c.Delete().Where(uploadlink.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &UploadLinkDeleteOne{builder}
+}
+
+// Query returns a query builder for UploadLink.
+func (c *UploadLinkClient) Query() *UploadLinkQuery {
+	return &UploadLinkQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeUploadLink},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a UploadLink entity by its id.
+func (c *UploadLinkClient) Get(ctx context.Context, id int) (*UploadLink, error) {
+	return c.Query().Where(uploadlink.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *UploadLinkClient) GetX(ctx context.Context, id int) *UploadLink {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a UploadLink.
+func (c *UploadLinkClient) QueryEvent(_m *UploadLink) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(uploadlink.Table, uploadlink.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, uploadlink.EventTable, uploadlink.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *UploadLinkClient) Hooks() []Hook {
+	hooks := c.hooks.UploadLink
+	return append(hooks[:len(hooks):len(hooks)], uploadlink.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *UploadLinkClient) Interceptors() []Interceptor {
+	return c.inters.UploadLink
+}
+
+func (c *UploadLinkClient) mutate(ctx context.Context, m *UploadLinkMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&UploadLinkCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&UploadLinkUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&UploadLinkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&UploadLinkDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown UploadLink mutation op: %q", m.Op())
+	}
+}
+
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt,
-		CompetitionEntry, Display, DisplayAssignment, DisplayCredential,
-		DisplayEnrollment, DraftChange, DraftChangeDependency, DraftEdit, Event,
-		EventGrant, ImportReference, Installation, Lane, LaneDraft,
-		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
-		Migration, PasswordCredential, Rundown, Session, SessionCancellation,
-		SessionDraft, SessionPublishedVersion, SessionRun, SessionRunAmendment, Track,
-		TrackDraft, TrackPublishedVersion []ent.Hook
+		Account, AccountSession, Attachment, AttachmentVersion, AuditEntry,
+		BootstrapCredential, CommandReceipt, CompetitionEntry, Display,
+		DisplayAssignment, DisplayCredential, DisplayEnrollment, DraftChange,
+		DraftChangeDependency, DraftEdit, Event, EventGrant, ImportReference,
+		Installation, Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
+		LocationPublishedVersion, Migration, PasswordCredential, ReopenWindow, Rundown,
+		Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
+		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
+		UploadLink []ent.Hook
 	}
 	inters struct {
-		Account, AccountSession, AuditEntry, BootstrapCredential, CommandReceipt,
-		CompetitionEntry, Display, DisplayAssignment, DisplayCredential,
-		DisplayEnrollment, DraftChange, DraftChangeDependency, DraftEdit, Event,
-		EventGrant, ImportReference, Installation, Lane, LaneDraft,
-		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
-		Migration, PasswordCredential, Rundown, Session, SessionCancellation,
-		SessionDraft, SessionPublishedVersion, SessionRun, SessionRunAmendment, Track,
-		TrackDraft, TrackPublishedVersion []ent.Interceptor
+		Account, AccountSession, Attachment, AttachmentVersion, AuditEntry,
+		BootstrapCredential, CommandReceipt, CompetitionEntry, Display,
+		DisplayAssignment, DisplayCredential, DisplayEnrollment, DraftChange,
+		DraftChangeDependency, DraftEdit, Event, EventGrant, ImportReference,
+		Installation, Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
+		LocationPublishedVersion, Migration, PasswordCredential, ReopenWindow, Rundown,
+		Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
+		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
+		UploadLink []ent.Interceptor
 	}
 )

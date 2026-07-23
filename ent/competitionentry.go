@@ -31,6 +31,8 @@ type CompetitionEntry struct {
 	CrewNotes string `json:"crew_notes,omitempty"`
 	// Disposition holds the value of the "disposition" field.
 	Disposition competitionentry.Disposition `json:"disposition,omitempty"`
+	// UploadClosedAt holds the value of the "upload_closed_at" field.
+	UploadClosedAt time.Time `json:"upload_closed_at,omitempty"`
 	// Revision holds the value of the "revision" field.
 	Revision int `json:"revision,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -83,7 +85,7 @@ func (*CompetitionEntry) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullInt64)
 		case competitionentry.FieldName, competitionentry.FieldPublicDetails, competitionentry.FieldCrewNotes, competitionentry.FieldDisposition:
 			values[i] = new(sql.NullString)
-		case competitionentry.FieldCreatedAt:
+		case competitionentry.FieldUploadClosedAt, competitionentry.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -141,6 +143,12 @@ func (_m *CompetitionEntry) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field disposition", values[i])
 			} else if value.Valid {
 				_m.Disposition = competitionentry.Disposition(value.String)
+			}
+		case competitionentry.FieldUploadClosedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field upload_closed_at", values[i])
+			} else if value.Valid {
+				_m.UploadClosedAt = value.Time
 			}
 		case competitionentry.FieldRevision:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -217,6 +225,9 @@ func (_m *CompetitionEntry) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("disposition=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Disposition))
+	builder.WriteString(", ")
+	builder.WriteString("upload_closed_at=")
+	builder.WriteString(_m.UploadClosedAt.Format(time.ANSIC))
 	builder.WriteString(", ")
 	builder.WriteString("revision=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Revision))

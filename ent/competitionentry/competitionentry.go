@@ -28,6 +28,8 @@ const (
 	FieldCrewNotes = "crew_notes"
 	// FieldDisposition holds the string denoting the disposition field in the database.
 	FieldDisposition = "disposition"
+	// FieldUploadClosedAt holds the string denoting the upload_closed_at field in the database.
+	FieldUploadClosedAt = "upload_closed_at"
 	// FieldRevision holds the string denoting the revision field in the database.
 	FieldRevision = "revision"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -63,6 +65,7 @@ var Columns = []string{
 	FieldPublicDetails,
 	FieldCrewNotes,
 	FieldDisposition,
+	FieldUploadClosedAt,
 	FieldRevision,
 	FieldCreatedAt,
 }
@@ -159,6 +162,11 @@ func ByCrewNotes(opts ...sql.OrderTermOption) OrderOption {
 // ByDisposition orders the results by the disposition field.
 func ByDisposition(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDisposition, opts...).ToFunc()
+}
+
+// ByUploadClosedAt orders the results by the upload_closed_at field.
+func ByUploadClosedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUploadClosedAt, opts...).ToFunc()
 }
 
 // ByRevision orders the results by the revision field.

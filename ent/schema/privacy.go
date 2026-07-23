@@ -26,6 +26,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
+	"github.com/dotwaffle/beamers/ent/uploadlink"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -106,6 +107,24 @@ func filterGrantedCompetitionEntries() privacy.QueryRule {
 			return privacy.Denyf("unexpected Competition Entry query %T", query)
 		}
 		filter.Where(competitionentry.EventIDIn(ids...))
+		return privacy.Skip
+	})
+}
+
+func filterGrantedUploadLinks() privacy.QueryRule {
+	type selectorFilter interface {
+		Where(...predicate.UploadLink) *beamersent.UploadLinkQuery
+	}
+	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
+		ids, err := grantedEventIDs(ctx)
+		if err != nil {
+			return err
+		}
+		filter, ok := query.(selectorFilter)
+		if !ok {
+			return privacy.Denyf("unexpected Upload Link query %T", query)
+		}
+		filter.Where(uploadlink.EventIDIn(ids...))
 		return privacy.Skip
 	})
 }

@@ -170,10 +170,13 @@ func (transaction *CommandTx) ChangeCompetitionEntryDisposition(
 	if entry.Revision != params.ExpectedRevision {
 		return competitionEntry(entry), ErrCompetitionEntryRevision
 	}
-	updated, err := transaction.transaction.CompetitionEntry.UpdateOne(entry).
+	update := transaction.transaction.CompetitionEntry.UpdateOne(entry).
 		SetDisposition(competitionentry.Disposition(params.Disposition)).
-		AddRevision(1).
-		Save(ctx)
+		AddRevision(1)
+	if params.Disposition == "Rejected" {
+		update.SetUploadClosedAt(params.Now)
+	}
+	updated, err := update.Save(ctx)
 	if err != nil {
 		return CompetitionEntry{}, opaqueError("change Competition Entry disposition", err)
 	}

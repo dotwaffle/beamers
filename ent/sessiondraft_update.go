@@ -224,6 +224,26 @@ func (_u *SessionDraftUpdate) SetNillableEndBoundary(v *sessiondraft.EndBoundary
 	return _u
 }
 
+// SetUploadDeadline sets the "upload_deadline" field.
+func (_u *SessionDraftUpdate) SetUploadDeadline(v time.Time) *SessionDraftUpdate {
+	_u.mutation.SetUploadDeadline(v)
+	return _u
+}
+
+// SetNillableUploadDeadline sets the "upload_deadline" field if the given value is not nil.
+func (_u *SessionDraftUpdate) SetNillableUploadDeadline(v *time.Time) *SessionDraftUpdate {
+	if v != nil {
+		_u.SetUploadDeadline(*v)
+	}
+	return _u
+}
+
+// ClearUploadDeadline clears the value of the "upload_deadline" field.
+func (_u *SessionDraftUpdate) ClearUploadDeadline() *SessionDraftUpdate {
+	_u.mutation.ClearUploadDeadline()
+	return _u
+}
+
 // SetSubmissionDeadline sets the "submission_deadline" field.
 func (_u *SessionDraftUpdate) SetSubmissionDeadline(v time.Time) *SessionDraftUpdate {
 	_u.mutation.SetSubmissionDeadline(v)
@@ -526,6 +546,12 @@ func (_u *SessionDraftUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if value, ok := _u.mutation.EndBoundary(); ok {
 		_spec.SetField(sessiondraft.FieldEndBoundary, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.UploadDeadline(); ok {
+		_spec.SetField(sessiondraft.FieldUploadDeadline, field.TypeTime, value)
+	}
+	if _u.mutation.UploadDeadlineCleared() {
+		_spec.ClearField(sessiondraft.FieldUploadDeadline, field.TypeTime)
 	}
 	if value, ok := _u.mutation.SubmissionDeadline(); ok {
 		_spec.SetField(sessiondraft.FieldSubmissionDeadline, field.TypeTime, value)
@@ -887,6 +913,26 @@ func (_u *SessionDraftUpdateOne) SetNillableEndBoundary(v *sessiondraft.EndBound
 	return _u
 }
 
+// SetUploadDeadline sets the "upload_deadline" field.
+func (_u *SessionDraftUpdateOne) SetUploadDeadline(v time.Time) *SessionDraftUpdateOne {
+	_u.mutation.SetUploadDeadline(v)
+	return _u
+}
+
+// SetNillableUploadDeadline sets the "upload_deadline" field if the given value is not nil.
+func (_u *SessionDraftUpdateOne) SetNillableUploadDeadline(v *time.Time) *SessionDraftUpdateOne {
+	if v != nil {
+		_u.SetUploadDeadline(*v)
+	}
+	return _u
+}
+
+// ClearUploadDeadline clears the value of the "upload_deadline" field.
+func (_u *SessionDraftUpdateOne) ClearUploadDeadline() *SessionDraftUpdateOne {
+	_u.mutation.ClearUploadDeadline()
+	return _u
+}
+
 // SetSubmissionDeadline sets the "submission_deadline" field.
 func (_u *SessionDraftUpdateOne) SetSubmissionDeadline(v time.Time) *SessionDraftUpdateOne {
 	_u.mutation.SetSubmissionDeadline(v)
@@ -1219,6 +1265,12 @@ func (_u *SessionDraftUpdateOne) sqlSave(ctx context.Context) (_node *SessionDra
 	}
 	if value, ok := _u.mutation.EndBoundary(); ok {
 		_spec.SetField(sessiondraft.FieldEndBoundary, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.UploadDeadline(); ok {
+		_spec.SetField(sessiondraft.FieldUploadDeadline, field.TypeTime, value)
+	}
+	if _u.mutation.UploadDeadlineCleared() {
+		_spec.ClearField(sessiondraft.FieldUploadDeadline, field.TypeTime)
 	}
 	if value, ok := _u.mutation.SubmissionDeadline(); ok {
 		_spec.SetField(sessiondraft.FieldSubmissionDeadline, field.TypeTime, value)

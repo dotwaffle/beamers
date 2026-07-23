@@ -26,6 +26,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/track"
+	"github.com/dotwaffle/beamers/ent/uploadlink"
 )
 
 // EventQuery is the builder for querying Event entities.
@@ -42,6 +43,7 @@ type EventQuery struct {
 	withTracks             *TrackQuery
 	withSessions           *SessionQuery
 	withCompetitionEntries *CompetitionEntryQuery
+	withUploadLinks        *UploadLinkQuery
 	withDraftEdits         *DraftEditQuery
 	withDraftChanges       *DraftChangeQuery
 	withImportReferences   *ImportReferenceQuery
@@ -229,6 +231,28 @@ func (_q *EventQuery) QueryCompetitionEntries() *CompetitionEntryQuery {
 			sqlgraph.From(event.Table, event.FieldID, selector),
 			sqlgraph.To(competitionentry.Table, competitionentry.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, event.CompetitionEntriesTable, event.CompetitionEntriesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryUploadLinks chains the current query on the "upload_links" edge.
+func (_q *EventQuery) QueryUploadLinks() *UploadLinkQuery {
+	query := (&UploadLinkClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, selector),
+			sqlgraph.To(uploadlink.Table, uploadlink.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.UploadLinksTable, event.UploadLinksColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -523,6 +547,7 @@ func (_q *EventQuery) Clone() *EventQuery {
 		withTracks:             _q.withTracks.Clone(),
 		withSessions:           _q.withSessions.Clone(),
 		withCompetitionEntries: _q.withCompetitionEntries.Clone(),
+		withUploadLinks:        _q.withUploadLinks.Clone(),
 		withDraftEdits:         _q.withDraftEdits.Clone(),
 		withDraftChanges:       _q.withDraftChanges.Clone(),
 		withImportReferences:   _q.withImportReferences.Clone(),
@@ -607,6 +632,17 @@ func (_q *EventQuery) WithCompetitionEntries(opts ...func(*CompetitionEntryQuery
 		opt(query)
 	}
 	_q.withCompetitionEntries = query
+	return _q
+}
+
+// WithUploadLinks tells the query-builder to eager-load the nodes that are connected to
+// the "upload_links" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *EventQuery) WithUploadLinks(opts ...func(*UploadLinkQuery)) *EventQuery {
+	query := (&UploadLinkClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withUploadLinks = query
 	return _q
 }
 
@@ -738,7 +774,7 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 	var (
 		nodes       = []*Event{}
 		_spec       = _q.querySpec()
-		loadedTypes = [11]bool{
+		loadedTypes = [12]bool{
 			_q.withGrants != nil,
 			_q.withRundown != nil,
 			_q.withLocations != nil,
@@ -746,6 +782,7 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 			_q.withTracks != nil,
 			_q.withSessions != nil,
 			_q.withCompetitionEntries != nil,
+			_q.withUploadLinks != nil,
 			_q.withDraftEdits != nil,
 			_q.withDraftChanges != nil,
 			_q.withImportReferences != nil,
@@ -817,6 +854,13 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 			func(n *Event, e *CompetitionEntry) {
 				n.Edges.CompetitionEntries = append(n.Edges.CompetitionEntries, e)
 			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withUploadLinks; query != nil {
+		if err := _q.loadUploadLinks(ctx, query, nodes,
+			func(n *Event) { n.Edges.UploadLinks = []*UploadLink{} },
+			func(n *Event, e *UploadLink) { n.Edges.UploadLinks = append(n.Edges.UploadLinks, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -1045,6 +1089,36 @@ func (_q *EventQuery) loadCompetitionEntries(ctx context.Context, query *Competi
 	}
 	query.Where(predicate.CompetitionEntry(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(event.CompetitionEntriesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.EventID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "event_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *EventQuery) loadUploadLinks(ctx context.Context, query *UploadLinkQuery, nodes []*Event, init func(*Event), assign func(*Event, *UploadLink)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Event)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(uploadlink.FieldEventID)
+	}
+	query.Where(predicate.UploadLink(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(event.UploadLinksColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

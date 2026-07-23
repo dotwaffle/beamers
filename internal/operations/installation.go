@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/activation"
+	"github.com/dotwaffle/beamers/internal/attachments"
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/competition"
 	"github.com/dotwaffle/beamers/internal/displays"
@@ -33,6 +34,7 @@ type Installation struct {
 	authentication  *auth.Service
 	displays        *displays.Service
 	activation      *activation.Service
+	attachments     *attachments.Service
 	competition     *competition.Service
 	events          *events.Service
 	rundownCommands *rundown.Commands
@@ -73,6 +75,11 @@ func OpenInstallation(ctx context.Context, dataDir string) (*Installation, error
 		return nil, errors.Join(err, storage.Close())
 	}
 	installation.activation = activationService
+	attachmentService, err := attachments.New(storage, dataDir, time.Now)
+	if err != nil {
+		return nil, errors.Join(err, storage.Close())
+	}
+	installation.attachments = attachmentService
 	eventService, err := events.New(storage, time.Now)
 	if err != nil {
 		return nil, errors.Join(err, storage.Close())
@@ -110,6 +117,12 @@ func OpenInstallation(ctx context.Context, dataDir string) (*Installation, error
 // It is nil only while the installation is restricted to recovery mode.
 func (installation *Installation) Activation() *activation.Service {
 	return installation.activation
+}
+
+// Attachments returns the scoped upload application service.
+// It is nil only while the installation is restricted to recovery mode.
+func (installation *Installation) Attachments() *attachments.Service {
+	return installation.attachments
 }
 
 // IssueAdministratorBootstrap creates a short-lived credential while holding

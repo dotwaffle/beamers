@@ -409,6 +409,7 @@ func (transaction *CommandTx) publishCreatedSession(ctx context.Context, change 
 		SetTimingPolicy(sessionpublishedversion.TimingPolicy(input.TimingPolicy)).SetMinimumDurationSeconds(input.MinimumDurationSeconds).
 		SetStartBoundary(sessionpublishedversion.StartBoundary(input.StartBoundary)).SetEndBoundary(sessionpublishedversion.EndBoundary(input.EndBoundary)).
 		SetCreatedAt(now).AddLaneIDs(laneIDs...).AddLocationIDs(locationIDs...).AddTrackIDs(trackIDs...)
+	setPresentationPublishedFields(create, input.UploadDeadline)
 	setCompetitionPublishedFields(create, input.SubmissionDeadline, input.EntryDefaultDisposition)
 	if _, err := create.Save(ctx); err != nil {
 		return opaqueError("publish Session creation", err)
@@ -543,6 +544,10 @@ func (transaction *CommandTx) publishCreatedSessionFacts(ctx context.Context, cr
 			if err := changeAfter(fact, &input.EndBoundary); err != nil {
 				return err
 			}
+		case "upload_deadline":
+			if err := changeAfter(fact, &input.UploadDeadline); err != nil {
+				return err
+			}
 		case "submission_deadline":
 			if err := changeAfter(fact, &input.SubmissionDeadline); err != nil {
 				return err
@@ -573,6 +578,7 @@ func (transaction *CommandTx) publishCreatedSessionFacts(ctx context.Context, cr
 		SetTimingPolicy(sessionpublishedversion.TimingPolicy(input.TimingPolicy)).SetMinimumDurationSeconds(input.MinimumDurationSeconds).
 		SetStartBoundary(sessionpublishedversion.StartBoundary(input.StartBoundary)).SetEndBoundary(sessionpublishedversion.EndBoundary(input.EndBoundary)).
 		SetCreatedAt(now).AddLaneIDs(laneIDs...).AddLocationIDs(locationIDs...).AddTrackIDs(trackIDs...)
+	setPresentationPublishedFields(create, input.UploadDeadline)
 	setCompetitionPublishedFields(create, input.SubmissionDeadline, input.EntryDefaultDisposition)
 	_, err := create.Save(ctx)
 	return err
@@ -734,6 +740,7 @@ func (transaction *CommandTx) publishSessionFacts(ctx context.Context, id int, c
 	plannedStart, plannedEnd := baseline.PlannedStart, baseline.PlannedEnd
 	timingPolicy, minimumDuration := string(baseline.TimingPolicy), baseline.MinimumDurationSeconds
 	startBoundary, endBoundary := string(baseline.StartBoundary), string(baseline.EndBoundary)
+	uploadDeadline := baseline.UploadDeadline
 	submissionDeadline, entryDefaultDisposition := baseline.SubmissionDeadline, string(baseline.EntryDefaultDisposition)
 	for _, change := range changes {
 		handled, membershipErr := applyMembershipAfter(change, &laneIDs, &locationIDs, &trackIDs)
@@ -768,6 +775,8 @@ func (transaction *CommandTx) publishSessionFacts(ctx context.Context, id int, c
 			err = changeAfter(change, &startBoundary)
 		case "end_boundary":
 			err = changeAfter(change, &endBoundary)
+		case "upload_deadline":
+			err = changeAfter(change, &uploadDeadline)
 		case "submission_deadline":
 			err = changeAfter(change, &submissionDeadline)
 		case "entry_default_disposition":
@@ -795,6 +804,7 @@ func (transaction *CommandTx) publishSessionFacts(ctx context.Context, id int, c
 		SetStartBoundary(sessionpublishedversion.StartBoundary(startBoundary)).
 		SetEndBoundary(sessionpublishedversion.EndBoundary(endBoundary)).SetCreatedAt(now).
 		AddLaneIDs(laneIDs...).AddLocationIDs(locationIDs...).AddTrackIDs(trackIDs...)
+	setPresentationPublishedFields(create, uploadDeadline)
 	setCompetitionPublishedFields(create, submissionDeadline, entryDefaultDisposition)
 	if _, err = create.Save(ctx); err != nil {
 		return opaqueError("publish Session fact version", err)
@@ -832,6 +842,12 @@ func setCompetitionPublishedFields(
 	}
 	if defaultDisposition != "" {
 		create.SetEntryDefaultDisposition(sessionpublishedversion.EntryDefaultDisposition(defaultDisposition))
+	}
+}
+
+func setPresentationPublishedFields(create *ent.SessionPublishedVersionCreate, deadline time.Time) {
+	if !deadline.IsZero() {
+		create.SetUploadDeadline(deadline)
 	}
 }
 
@@ -882,6 +898,7 @@ type PublishedSession struct {
 	MinimumDurationSeconds  int
 	StartBoundary           string
 	EndBoundary             string
+	UploadDeadline          time.Time
 	SubmissionDeadline      time.Time
 	EntryDefaultDisposition string
 	LaneIDs                 []int
@@ -1004,6 +1021,7 @@ func loadCrewRundown(ctx context.Context, client *ent.Client, eventID int) (Crew
 			TimingPolicy:           version.TimingPolicy.String(),
 			MinimumDurationSeconds: version.MinimumDurationSeconds,
 			StartBoundary:          version.StartBoundary.String(), EndBoundary: version.EndBoundary.String(),
+			UploadDeadline:          version.UploadDeadline,
 			SubmissionDeadline:      version.SubmissionDeadline,
 			EntryDefaultDisposition: string(version.EntryDefaultDisposition),
 			LaneIDs:                 laneIDs, LocationIDs: locationIDs, TrackIDs: trackIDs,

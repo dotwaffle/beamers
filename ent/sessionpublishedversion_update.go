@@ -199,6 +199,9 @@ func (_u *SessionPublishedVersionUpdate) sqlSave(ctx context.Context) (_node int
 	if _u.mutation.CrewNotesCleared() {
 		_spec.ClearField(sessionpublishedversion.FieldCrewNotes, field.TypeString)
 	}
+	if _u.mutation.UploadDeadlineCleared() {
+		_spec.ClearField(sessionpublishedversion.FieldUploadDeadline, field.TypeTime)
+	}
 	if _u.mutation.SubmissionDeadlineCleared() {
 		_spec.ClearField(sessionpublishedversion.FieldSubmissionDeadline, field.TypeTime)
 	}
@@ -558,6 +561,9 @@ func (_u *SessionPublishedVersionUpdateOne) sqlSave(ctx context.Context) (_node 
 	}
 	if _u.mutation.CrewNotesCleared() {
 		_spec.ClearField(sessionpublishedversion.FieldCrewNotes, field.TypeString)
+	}
+	if _u.mutation.UploadDeadlineCleared() {
+		_spec.ClearField(sessionpublishedversion.FieldUploadDeadline, field.TypeTime)
 	}
 	if _u.mutation.SubmissionDeadlineCleared() {
 		_spec.ClearField(sessionpublishedversion.FieldSubmissionDeadline, field.TypeTime)

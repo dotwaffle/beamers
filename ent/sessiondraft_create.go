@@ -126,6 +126,20 @@ func (_c *SessionDraftCreate) SetEndBoundary(v sessiondraft.EndBoundary) *Sessio
 	return _c
 }
 
+// SetUploadDeadline sets the "upload_deadline" field.
+func (_c *SessionDraftCreate) SetUploadDeadline(v time.Time) *SessionDraftCreate {
+	_c.mutation.SetUploadDeadline(v)
+	return _c
+}
+
+// SetNillableUploadDeadline sets the "upload_deadline" field if the given value is not nil.
+func (_c *SessionDraftCreate) SetNillableUploadDeadline(v *time.Time) *SessionDraftCreate {
+	if v != nil {
+		_c.SetUploadDeadline(*v)
+	}
+	return _c
+}
+
 // SetSubmissionDeadline sets the "submission_deadline" field.
 func (_c *SessionDraftCreate) SetSubmissionDeadline(v time.Time) *SessionDraftCreate {
 	_c.mutation.SetSubmissionDeadline(v)
@@ -399,6 +413,10 @@ func (_c *SessionDraftCreate) createSpec() (*SessionDraft, *sqlgraph.CreateSpec)
 	if value, ok := _c.mutation.EndBoundary(); ok {
 		_spec.SetField(sessiondraft.FieldEndBoundary, field.TypeEnum, value)
 		_node.EndBoundary = value
+	}
+	if value, ok := _c.mutation.UploadDeadline(); ok {
+		_spec.SetField(sessiondraft.FieldUploadDeadline, field.TypeTime, value)
+		_node.UploadDeadline = value
 	}
 	if value, ok := _c.mutation.SubmissionDeadline(); ok {
 		_spec.SetField(sessiondraft.FieldSubmissionDeadline, field.TypeTime, value)

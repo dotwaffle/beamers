@@ -33,6 +33,30 @@ func (f AccountSessionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Val
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AccountSessionMutation", m)
 }
 
+// The AttachmentFunc type is an adapter to allow the use of ordinary
+// function as Attachment mutator.
+type AttachmentFunc func(context.Context, *ent.AttachmentMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AttachmentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AttachmentMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AttachmentMutation", m)
+}
+
+// The AttachmentVersionFunc type is an adapter to allow the use of ordinary
+// function as AttachmentVersion mutator.
+type AttachmentVersionFunc func(context.Context, *ent.AttachmentVersionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AttachmentVersionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AttachmentVersionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AttachmentVersionMutation", m)
+}
+
 // The AuditEntryFunc type is an adapter to allow the use of ordinary
 // function as AuditEntry mutator.
 type AuditEntryFunc func(context.Context, *ent.AuditEntryMutation) (ent.Value, error)
@@ -309,6 +333,18 @@ func (f PasswordCredentialFunc) Mutate(ctx context.Context, m ent.Mutation) (ent
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PasswordCredentialMutation", m)
 }
 
+// The ReopenWindowFunc type is an adapter to allow the use of ordinary
+// function as ReopenWindow mutator.
+type ReopenWindowFunc func(context.Context, *ent.ReopenWindowMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ReopenWindowFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ReopenWindowMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ReopenWindowMutation", m)
+}
+
 // The RundownFunc type is an adapter to allow the use of ordinary
 // function as Rundown mutator.
 type RundownFunc func(context.Context, *ent.RundownMutation) (ent.Value, error)
@@ -427,6 +463,18 @@ func (f TrackPublishedVersionFunc) Mutate(ctx context.Context, m ent.Mutation) (
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.TrackPublishedVersionMutation", m)
+}
+
+// The UploadLinkFunc type is an adapter to allow the use of ordinary
+// function as UploadLink mutator.
+type UploadLinkFunc func(context.Context, *ent.UploadLinkMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f UploadLinkFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.UploadLinkMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UploadLinkMutation", m)
 }
 
 // Condition is a hook condition function.

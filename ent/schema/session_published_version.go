@@ -51,6 +51,7 @@ func (SessionPublishedVersion) Fields() []ent.Field {
 		field.Int("minimum_duration_seconds").NonNegative().Immutable(),
 		field.Enum("start_boundary").Values("Hard", "Soft").Immutable(),
 		field.Enum("end_boundary").Values("Hard", "Soft").Immutable(),
+		field.Time("upload_deadline").Optional().Immutable(),
 		field.Time("submission_deadline").Optional().Immutable(),
 		field.Enum("entry_default_disposition").Values("Pending", "Included").Optional().Immutable(),
 		field.Time("created_at").Default(time.Now).Immutable(),

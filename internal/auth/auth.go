@@ -77,6 +77,7 @@ type Account struct {
 // AuditEntry is one Administrator-readable authenticated action.
 type AuditEntry struct {
 	ID             int       `json:"id"`
+	ActorKind      string    `json:"actor_kind,omitempty"`
 	ActorAccountID int       `json:"actor_account_id"`
 	ActorName      string    `json:"actor_name"`
 	ServerTime     time.Time `json:"server_time"`
@@ -474,8 +475,13 @@ func (service *Service) ListAuditEntries(
 	}
 	entries := make([]AuditEntry, 0, len(found))
 	for _, item := range found {
+		actorKind := ""
+		if item.ActorKind != "Account" {
+			actorKind = item.ActorKind
+		}
 		entries = append(entries, AuditEntry{
-			ID: item.ID, ActorAccountID: item.ActorAccountID, ActorName: item.ActorName,
+			ID: item.ID, ActorKind: actorKind,
+			ActorAccountID: item.ActorAccountID, ActorName: item.ActorName,
 			ServerTime: item.ServerTime, Action: item.Action,
 			TargetType: item.TargetType, TargetID: item.TargetID,
 			Outcome: item.Outcome, Reason: item.Reason, Note: item.Note,

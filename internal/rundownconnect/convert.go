@@ -101,6 +101,13 @@ func sessionDraft(message *rundownv1.SessionDraft) (rundown.SessionDraftInput, e
 			return rundown.SessionDraftInput{}, err
 		}
 	}
+	var uploadDeadline time.Time
+	if message.GetUploadDeadline() != nil {
+		uploadDeadline, err = timestamp("sessions.upload_deadline", message.GetUploadDeadline())
+		if err != nil {
+			return rundown.SessionDraftInput{}, err
+		}
+	}
 	return rundown.SessionDraftInput{
 		ID: int(message.GetId()), Ref: message.GetRef(), Title: message.GetTitle(), Speaker: message.GetSpeaker(), Type: sessionType(message.GetType()),
 		AudienceVisibility: audienceVisibility(message.GetAudienceVisibility()),
@@ -108,8 +115,9 @@ func sessionDraft(message *rundownv1.SessionDraft) (rundown.SessionDraftInput, e
 		PlannedStart: plannedStart, PlannedEnd: plannedEnd,
 		TimingPolicy: timingPolicy(message.GetTimingPolicy()), MinimumDuration: minimumDuration,
 		StartBoundary: boundary(message.GetStartBoundary()), EndBoundary: boundary(message.GetEndBoundary()),
-		SubmissionDeadline: submissionDeadline, EntryDefault: entryDisposition(message.GetEntryDefaultDisposition()),
-		Lanes: lanes, Locations: locations, Tracks: tracks,
+		UploadDeadline: uploadDeadline, SubmissionDeadline: submissionDeadline,
+		EntryDefault: entryDisposition(message.GetEntryDefaultDisposition()),
+		Lanes:        lanes, Locations: locations, Tracks: tracks,
 	}, nil
 }
 
@@ -148,6 +156,14 @@ func sessionDraftUpdate(message *rundownv1.SessionDraft, fields []string) (rundo
 	if selected["submission_deadline"] {
 		if message.GetSubmissionDeadline() != nil {
 			input.SubmissionDeadline, err = timestamp("sessions.submission_deadline", message.GetSubmissionDeadline())
+			if err != nil {
+				return rundown.SessionDraftInput{}, err
+			}
+		}
+	}
+	if selected["upload_deadline"] {
+		if message.GetUploadDeadline() != nil {
+			input.UploadDeadline, err = timestamp("sessions.upload_deadline", message.GetUploadDeadline())
 			if err != nil {
 				return rundown.SessionDraftInput{}, err
 			}

@@ -16,6 +16,10 @@ type Tx struct {
 	Account *AccountClient
 	// AccountSession is the client for interacting with the AccountSession builders.
 	AccountSession *AccountSessionClient
+	// Attachment is the client for interacting with the Attachment builders.
+	Attachment *AttachmentClient
+	// AttachmentVersion is the client for interacting with the AttachmentVersion builders.
+	AttachmentVersion *AttachmentVersionClient
 	// AuditEntry is the client for interacting with the AuditEntry builders.
 	AuditEntry *AuditEntryClient
 	// BootstrapCredential is the client for interacting with the BootstrapCredential builders.
@@ -62,6 +66,8 @@ type Tx struct {
 	Migration *MigrationClient
 	// PasswordCredential is the client for interacting with the PasswordCredential builders.
 	PasswordCredential *PasswordCredentialClient
+	// ReopenWindow is the client for interacting with the ReopenWindow builders.
+	ReopenWindow *ReopenWindowClient
 	// Rundown is the client for interacting with the Rundown builders.
 	Rundown *RundownClient
 	// Session is the client for interacting with the Session builders.
@@ -82,6 +88,8 @@ type Tx struct {
 	TrackDraft *TrackDraftClient
 	// TrackPublishedVersion is the client for interacting with the TrackPublishedVersion builders.
 	TrackPublishedVersion *TrackPublishedVersionClient
+	// UploadLink is the client for interacting with the UploadLink builders.
+	UploadLink *UploadLinkClient
 
 	// lazily loaded.
 	client     *Client
@@ -215,6 +223,8 @@ func (tx *Tx) Client() *Client {
 func (tx *Tx) init() {
 	tx.Account = NewAccountClient(tx.config)
 	tx.AccountSession = NewAccountSessionClient(tx.config)
+	tx.Attachment = NewAttachmentClient(tx.config)
+	tx.AttachmentVersion = NewAttachmentVersionClient(tx.config)
 	tx.AuditEntry = NewAuditEntryClient(tx.config)
 	tx.BootstrapCredential = NewBootstrapCredentialClient(tx.config)
 	tx.CommandReceipt = NewCommandReceiptClient(tx.config)
@@ -238,6 +248,7 @@ func (tx *Tx) init() {
 	tx.LocationPublishedVersion = NewLocationPublishedVersionClient(tx.config)
 	tx.Migration = NewMigrationClient(tx.config)
 	tx.PasswordCredential = NewPasswordCredentialClient(tx.config)
+	tx.ReopenWindow = NewReopenWindowClient(tx.config)
 	tx.Rundown = NewRundownClient(tx.config)
 	tx.Session = NewSessionClient(tx.config)
 	tx.SessionCancellation = NewSessionCancellationClient(tx.config)
@@ -248,6 +259,7 @@ func (tx *Tx) init() {
 	tx.Track = NewTrackClient(tx.config)
 	tx.TrackDraft = NewTrackDraftClient(tx.config)
 	tx.TrackPublishedVersion = NewTrackPublishedVersionClient(tx.config)
+	tx.UploadLink = NewUploadLinkClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

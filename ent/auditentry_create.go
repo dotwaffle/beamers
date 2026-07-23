@@ -27,6 +27,42 @@ func (_c *AuditEntryCreate) SetActorAccountID(v int) *AuditEntryCreate {
 	return _c
 }
 
+// SetNillableActorAccountID sets the "actor_account_id" field if the given value is not nil.
+func (_c *AuditEntryCreate) SetNillableActorAccountID(v *int) *AuditEntryCreate {
+	if v != nil {
+		_c.SetActorAccountID(*v)
+	}
+	return _c
+}
+
+// SetActorKind sets the "actor_kind" field.
+func (_c *AuditEntryCreate) SetActorKind(v auditentry.ActorKind) *AuditEntryCreate {
+	_c.mutation.SetActorKind(v)
+	return _c
+}
+
+// SetNillableActorKind sets the "actor_kind" field if the given value is not nil.
+func (_c *AuditEntryCreate) SetNillableActorKind(v *auditentry.ActorKind) *AuditEntryCreate {
+	if v != nil {
+		_c.SetActorKind(*v)
+	}
+	return _c
+}
+
+// SetActorUploadLinkID sets the "actor_upload_link_id" field.
+func (_c *AuditEntryCreate) SetActorUploadLinkID(v int) *AuditEntryCreate {
+	_c.mutation.SetActorUploadLinkID(v)
+	return _c
+}
+
+// SetNillableActorUploadLinkID sets the "actor_upload_link_id" field if the given value is not nil.
+func (_c *AuditEntryCreate) SetNillableActorUploadLinkID(v *int) *AuditEntryCreate {
+	if v != nil {
+		_c.SetActorUploadLinkID(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *AuditEntryCreate) SetCreatedAt(v time.Time) *AuditEntryCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -99,6 +135,14 @@ func (_c *AuditEntryCreate) SetActorID(id int) *AuditEntryCreate {
 	return _c
 }
 
+// SetNillableActorID sets the "actor" edge to the Account entity by ID if the given value is not nil.
+func (_c *AuditEntryCreate) SetNillableActorID(id *int) *AuditEntryCreate {
+	if id != nil {
+		_c = _c.SetActorID(*id)
+	}
+	return _c
+}
+
 // SetActor sets the "actor" edge to the Account entity.
 func (_c *AuditEntryCreate) SetActor(v *Account) *AuditEntryCreate {
 	return _c.SetActorID(v.ID)
@@ -141,6 +185,10 @@ func (_c *AuditEntryCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *AuditEntryCreate) defaults() error {
+	if _, ok := _c.mutation.ActorKind(); !ok {
+		v := auditentry.DefaultActorKind
+		_c.mutation.SetActorKind(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		if auditentry.DefaultCreatedAt == nil {
 			return fmt.Errorf("ent: uninitialized auditentry.DefaultCreatedAt (forgotten import ent/runtime?)")
@@ -153,8 +201,13 @@ func (_c *AuditEntryCreate) defaults() error {
 
 // check runs all checks and user-defined validators on the builder.
 func (_c *AuditEntryCreate) check() error {
-	if _, ok := _c.mutation.ActorAccountID(); !ok {
-		return &ValidationError{Name: "actor_account_id", err: errors.New(`ent: missing required field "AuditEntry.actor_account_id"`)}
+	if _, ok := _c.mutation.ActorKind(); !ok {
+		return &ValidationError{Name: "actor_kind", err: errors.New(`ent: missing required field "AuditEntry.actor_kind"`)}
+	}
+	if v, ok := _c.mutation.ActorKind(); ok {
+		if err := auditentry.ActorKindValidator(v); err != nil {
+			return &ValidationError{Name: "actor_kind", err: fmt.Errorf(`ent: validator failed for field "AuditEntry.actor_kind": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "AuditEntry.created_at"`)}
@@ -201,9 +254,6 @@ func (_c *AuditEntryCreate) check() error {
 			return &ValidationError{Name: "note", err: fmt.Errorf(`ent: validator failed for field "AuditEntry.note": %w`, err)}
 		}
 	}
-	if len(_c.mutation.ActorIDs()) == 0 {
-		return &ValidationError{Name: "actor", err: errors.New(`ent: missing required edge "AuditEntry.actor"`)}
-	}
 	return nil
 }
 
@@ -230,6 +280,14 @@ func (_c *AuditEntryCreate) createSpec() (*AuditEntry, *sqlgraph.CreateSpec) {
 		_node = &AuditEntry{config: _c.config}
 		_spec = sqlgraph.NewCreateSpec(auditentry.Table, sqlgraph.NewFieldSpec(auditentry.FieldID, field.TypeInt))
 	)
+	if value, ok := _c.mutation.ActorKind(); ok {
+		_spec.SetField(auditentry.FieldActorKind, field.TypeEnum, value)
+		_node.ActorKind = value
+	}
+	if value, ok := _c.mutation.ActorUploadLinkID(); ok {
+		_spec.SetField(auditentry.FieldActorUploadLinkID, field.TypeInt, value)
+		_node.ActorUploadLinkID = value
+	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(auditentry.FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value

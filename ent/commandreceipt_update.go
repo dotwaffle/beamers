@@ -59,18 +59,7 @@ func (_u *CommandReceiptUpdate) ExecX(ctx context.Context) {
 	}
 }
 
-// check runs all checks and user-defined validators on the builder.
-func (_u *CommandReceiptUpdate) check() error {
-	if _u.mutation.ActorCleared() && len(_u.mutation.ActorIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "CommandReceipt.actor"`)
-	}
-	return nil
-}
-
 func (_u *CommandReceiptUpdate) sqlSave(ctx context.Context) (_node int, err error) {
-	if err := _u.check(); err != nil {
-		return _node, err
-	}
 	_spec := sqlgraph.NewUpdateSpec(commandreceipt.Table, commandreceipt.Columns, sqlgraph.NewFieldSpec(commandreceipt.FieldID, field.TypeInt))
 	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
@@ -78,6 +67,9 @@ func (_u *CommandReceiptUpdate) sqlSave(ctx context.Context) (_node int, err err
 				ps[i](selector)
 			}
 		}
+	}
+	if _u.mutation.ActorUploadLinkIDCleared() {
+		_spec.ClearField(commandreceipt.FieldActorUploadLinkID, field.TypeInt)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -144,18 +136,7 @@ func (_u *CommandReceiptUpdateOne) ExecX(ctx context.Context) {
 	}
 }
 
-// check runs all checks and user-defined validators on the builder.
-func (_u *CommandReceiptUpdateOne) check() error {
-	if _u.mutation.ActorCleared() && len(_u.mutation.ActorIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "CommandReceipt.actor"`)
-	}
-	return nil
-}
-
 func (_u *CommandReceiptUpdateOne) sqlSave(ctx context.Context) (_node *CommandReceipt, err error) {
-	if err := _u.check(); err != nil {
-		return _node, err
-	}
 	_spec := sqlgraph.NewUpdateSpec(commandreceipt.Table, commandreceipt.Columns, sqlgraph.NewFieldSpec(commandreceipt.FieldID, field.TypeInt))
 	id, ok := _u.mutation.ID()
 	if !ok {
@@ -180,6 +161,9 @@ func (_u *CommandReceiptUpdateOne) sqlSave(ctx context.Context) (_node *CommandR
 				ps[i](selector)
 			}
 		}
+	}
+	if _u.mutation.ActorUploadLinkIDCleared() {
+		_spec.ClearField(commandreceipt.FieldActorUploadLinkID, field.TypeInt)
 	}
 	_node = &CommandReceipt{config: _u.config}
 	_spec.Assign = _node.assignValues

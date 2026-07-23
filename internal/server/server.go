@@ -86,6 +86,13 @@ func Run(ctx context.Context, config Config) error {
 			config.Logger,
 			listener.Addr(),
 		)
+		registerAttachmentRoutes(
+			mux,
+			installation.Authentication(),
+			installation.Attachments(),
+			config.Logger,
+			listener.Addr(),
+		)
 		registerScheduleRoutes(mux, installation.Schedule(), config.Logger)
 		registerDisplayRoutes(
 			mux,

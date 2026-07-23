@@ -18,6 +18,10 @@ const (
 	FieldID = "id"
 	// FieldActorAccountID holds the string denoting the actor_account_id field in the database.
 	FieldActorAccountID = "actor_account_id"
+	// FieldActorKind holds the string denoting the actor_kind field in the database.
+	FieldActorKind = "actor_kind"
+	// FieldActorUploadLinkID holds the string denoting the actor_upload_link_id field in the database.
+	FieldActorUploadLinkID = "actor_upload_link_id"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// FieldAction holds the string denoting the action field in the database.
@@ -49,6 +53,8 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldActorAccountID,
+	FieldActorKind,
+	FieldActorUploadLinkID,
 	FieldCreatedAt,
 	FieldAction,
 	FieldTargetType,
@@ -90,6 +96,32 @@ var (
 	NoteValidator func(string) error
 )
 
+// ActorKind defines the type for the "actor_kind" enum field.
+type ActorKind string
+
+// ActorKindAccount is the default value of the ActorKind enum.
+const DefaultActorKind = ActorKindAccount
+
+// ActorKind values.
+const (
+	ActorKindAccount    ActorKind = "Account"
+	ActorKindUploadLink ActorKind = "UploadLink"
+)
+
+func (ak ActorKind) String() string {
+	return string(ak)
+}
+
+// ActorKindValidator is a validator for the "actor_kind" field enum values. It is called by the builders before save.
+func ActorKindValidator(ak ActorKind) error {
+	switch ak {
+	case ActorKindAccount, ActorKindUploadLink:
+		return nil
+	default:
+		return fmt.Errorf("auditentry: invalid enum value for actor_kind field: %q", ak)
+	}
+}
+
 // Result defines the type for the "result" enum field.
 type Result string
 
@@ -124,6 +156,16 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 // ByActorAccountID orders the results by the actor_account_id field.
 func ByActorAccountID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldActorAccountID, opts...).ToFunc()
+}
+
+// ByActorKind orders the results by the actor_kind field.
+func ByActorKind(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldActorKind, opts...).ToFunc()
+}
+
+// ByActorUploadLinkID orders the results by the actor_upload_link_id field.
+func ByActorUploadLinkID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldActorUploadLinkID, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

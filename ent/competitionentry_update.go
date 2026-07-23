@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -92,6 +93,26 @@ func (_u *CompetitionEntryUpdate) SetNillableDisposition(v *competitionentry.Dis
 	if v != nil {
 		_u.SetDisposition(*v)
 	}
+	return _u
+}
+
+// SetUploadClosedAt sets the "upload_closed_at" field.
+func (_u *CompetitionEntryUpdate) SetUploadClosedAt(v time.Time) *CompetitionEntryUpdate {
+	_u.mutation.SetUploadClosedAt(v)
+	return _u
+}
+
+// SetNillableUploadClosedAt sets the "upload_closed_at" field if the given value is not nil.
+func (_u *CompetitionEntryUpdate) SetNillableUploadClosedAt(v *time.Time) *CompetitionEntryUpdate {
+	if v != nil {
+		_u.SetUploadClosedAt(*v)
+	}
+	return _u
+}
+
+// ClearUploadClosedAt clears the value of the "upload_closed_at" field.
+func (_u *CompetitionEntryUpdate) ClearUploadClosedAt() *CompetitionEntryUpdate {
+	_u.mutation.ClearUploadClosedAt()
 	return _u
 }
 
@@ -214,6 +235,12 @@ func (_u *CompetitionEntryUpdate) sqlSave(ctx context.Context) (_node int, err e
 	if value, ok := _u.mutation.Disposition(); ok {
 		_spec.SetField(competitionentry.FieldDisposition, field.TypeEnum, value)
 	}
+	if value, ok := _u.mutation.UploadClosedAt(); ok {
+		_spec.SetField(competitionentry.FieldUploadClosedAt, field.TypeTime, value)
+	}
+	if _u.mutation.UploadClosedAtCleared() {
+		_spec.ClearField(competitionentry.FieldUploadClosedAt, field.TypeTime)
+	}
 	if value, ok := _u.mutation.Revision(); ok {
 		_spec.SetField(competitionentry.FieldRevision, field.TypeInt, value)
 	}
@@ -305,6 +332,26 @@ func (_u *CompetitionEntryUpdateOne) SetNillableDisposition(v *competitionentry.
 	if v != nil {
 		_u.SetDisposition(*v)
 	}
+	return _u
+}
+
+// SetUploadClosedAt sets the "upload_closed_at" field.
+func (_u *CompetitionEntryUpdateOne) SetUploadClosedAt(v time.Time) *CompetitionEntryUpdateOne {
+	_u.mutation.SetUploadClosedAt(v)
+	return _u
+}
+
+// SetNillableUploadClosedAt sets the "upload_closed_at" field if the given value is not nil.
+func (_u *CompetitionEntryUpdateOne) SetNillableUploadClosedAt(v *time.Time) *CompetitionEntryUpdateOne {
+	if v != nil {
+		_u.SetUploadClosedAt(*v)
+	}
+	return _u
+}
+
+// ClearUploadClosedAt clears the value of the "upload_closed_at" field.
+func (_u *CompetitionEntryUpdateOne) ClearUploadClosedAt() *CompetitionEntryUpdateOne {
+	_u.mutation.ClearUploadClosedAt()
 	return _u
 }
 
@@ -456,6 +503,12 @@ func (_u *CompetitionEntryUpdateOne) sqlSave(ctx context.Context) (_node *Compet
 	}
 	if value, ok := _u.mutation.Disposition(); ok {
 		_spec.SetField(competitionentry.FieldDisposition, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.UploadClosedAt(); ok {
+		_spec.SetField(competitionentry.FieldUploadClosedAt, field.TypeTime, value)
+	}
+	if _u.mutation.UploadClosedAtCleared() {
+		_spec.ClearField(competitionentry.FieldUploadClosedAt, field.TypeTime)
 	}
 	if value, ok := _u.mutation.Revision(); ok {
 		_spec.SetField(competitionentry.FieldRevision, field.TypeInt, value)

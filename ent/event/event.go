@@ -54,6 +54,8 @@ const (
 	EdgeSessions = "sessions"
 	// EdgeCompetitionEntries holds the string denoting the competition_entries edge name in mutations.
 	EdgeCompetitionEntries = "competition_entries"
+	// EdgeUploadLinks holds the string denoting the upload_links edge name in mutations.
+	EdgeUploadLinks = "upload_links"
 	// EdgeDraftEdits holds the string denoting the draft_edits edge name in mutations.
 	EdgeDraftEdits = "draft_edits"
 	// EdgeDraftChanges holds the string denoting the draft_changes edge name in mutations.
@@ -113,6 +115,13 @@ const (
 	CompetitionEntriesInverseTable = "competition_entries"
 	// CompetitionEntriesColumn is the table column denoting the competition_entries relation/edge.
 	CompetitionEntriesColumn = "event_id"
+	// UploadLinksTable is the table that holds the upload_links relation/edge.
+	UploadLinksTable = "upload_links"
+	// UploadLinksInverseTable is the table name for the UploadLink entity.
+	// It exists in this package in order to avoid circular dependency with the "uploadlink" package.
+	UploadLinksInverseTable = "upload_links"
+	// UploadLinksColumn is the table column denoting the upload_links relation/edge.
+	UploadLinksColumn = "event_id"
 	// DraftEditsTable is the table that holds the draft_edits relation/edge.
 	DraftEditsTable = "draft_edits"
 	// DraftEditsInverseTable is the table name for the DraftEdit entity.
@@ -391,6 +400,20 @@ func ByCompetitionEntries(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOptio
 	}
 }
 
+// ByUploadLinksCount orders the results by upload_links count.
+func ByUploadLinksCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newUploadLinksStep(), opts...)
+	}
+}
+
+// ByUploadLinks orders the results by upload_links terms.
+func ByUploadLinks(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newUploadLinksStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByDraftEditsCount orders the results by draft_edits count.
 func ByDraftEditsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -493,6 +516,13 @@ func newCompetitionEntriesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(CompetitionEntriesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, CompetitionEntriesTable, CompetitionEntriesColumn),
+	)
+}
+func newUploadLinksStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(UploadLinksInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, UploadLinksTable, UploadLinksColumn),
 	)
 }
 func newDraftEditsStep() *sqlgraph.Step {

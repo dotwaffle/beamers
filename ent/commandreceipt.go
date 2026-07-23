@@ -20,6 +20,10 @@ type CommandReceipt struct {
 	ID int `json:"id,omitempty"`
 	// ActorAccountID holds the value of the "actor_account_id" field.
 	ActorAccountID int `json:"actor_account_id,omitempty"`
+	// ActorKind holds the value of the "actor_kind" field.
+	ActorKind commandreceipt.ActorKind `json:"actor_kind,omitempty"`
+	// ActorUploadLinkID holds the value of the "actor_upload_link_id" field.
+	ActorUploadLinkID int `json:"actor_upload_link_id,omitempty"`
 	// CommandID holds the value of the "command_id" field.
 	CommandID string `json:"command_id,omitempty"`
 	// PayloadHash holds the value of the "payload_hash" field.
@@ -65,9 +69,9 @@ func (*CommandReceipt) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case commandreceipt.FieldID, commandreceipt.FieldActorAccountID:
+		case commandreceipt.FieldID, commandreceipt.FieldActorAccountID, commandreceipt.FieldActorUploadLinkID:
 			values[i] = new(sql.NullInt64)
-		case commandreceipt.FieldCommandID, commandreceipt.FieldPayloadHash, commandreceipt.FieldAction, commandreceipt.FieldTargetType, commandreceipt.FieldTargetID, commandreceipt.FieldOutcomeJSON:
+		case commandreceipt.FieldActorKind, commandreceipt.FieldCommandID, commandreceipt.FieldPayloadHash, commandreceipt.FieldAction, commandreceipt.FieldTargetType, commandreceipt.FieldTargetID, commandreceipt.FieldOutcomeJSON:
 			values[i] = new(sql.NullString)
 		case commandreceipt.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -97,6 +101,18 @@ func (_m *CommandReceipt) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field actor_account_id", values[i])
 			} else if value.Valid {
 				_m.ActorAccountID = int(value.Int64)
+			}
+		case commandreceipt.FieldActorKind:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field actor_kind", values[i])
+			} else if value.Valid {
+				_m.ActorKind = commandreceipt.ActorKind(value.String)
+			}
+		case commandreceipt.FieldActorUploadLinkID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field actor_upload_link_id", values[i])
+			} else if value.Valid {
+				_m.ActorUploadLinkID = int(value.Int64)
 			}
 		case commandreceipt.FieldCommandID:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -183,6 +199,12 @@ func (_m *CommandReceipt) String() string {
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
 	builder.WriteString("actor_account_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ActorAccountID))
+	builder.WriteString(", ")
+	builder.WriteString("actor_kind=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ActorKind))
+	builder.WriteString(", ")
+	builder.WriteString("actor_upload_link_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ActorUploadLinkID))
 	builder.WriteString(", ")
 	builder.WriteString("command_id=")
 	builder.WriteString(_m.CommandID)

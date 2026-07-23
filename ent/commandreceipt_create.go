@@ -27,6 +27,42 @@ func (_c *CommandReceiptCreate) SetActorAccountID(v int) *CommandReceiptCreate {
 	return _c
 }
 
+// SetNillableActorAccountID sets the "actor_account_id" field if the given value is not nil.
+func (_c *CommandReceiptCreate) SetNillableActorAccountID(v *int) *CommandReceiptCreate {
+	if v != nil {
+		_c.SetActorAccountID(*v)
+	}
+	return _c
+}
+
+// SetActorKind sets the "actor_kind" field.
+func (_c *CommandReceiptCreate) SetActorKind(v commandreceipt.ActorKind) *CommandReceiptCreate {
+	_c.mutation.SetActorKind(v)
+	return _c
+}
+
+// SetNillableActorKind sets the "actor_kind" field if the given value is not nil.
+func (_c *CommandReceiptCreate) SetNillableActorKind(v *commandreceipt.ActorKind) *CommandReceiptCreate {
+	if v != nil {
+		_c.SetActorKind(*v)
+	}
+	return _c
+}
+
+// SetActorUploadLinkID sets the "actor_upload_link_id" field.
+func (_c *CommandReceiptCreate) SetActorUploadLinkID(v int) *CommandReceiptCreate {
+	_c.mutation.SetActorUploadLinkID(v)
+	return _c
+}
+
+// SetNillableActorUploadLinkID sets the "actor_upload_link_id" field if the given value is not nil.
+func (_c *CommandReceiptCreate) SetNillableActorUploadLinkID(v *int) *CommandReceiptCreate {
+	if v != nil {
+		_c.SetActorUploadLinkID(*v)
+	}
+	return _c
+}
+
 // SetCommandID sets the "command_id" field.
 func (_c *CommandReceiptCreate) SetCommandID(v string) *CommandReceiptCreate {
 	_c.mutation.SetCommandID(v)
@@ -83,6 +119,14 @@ func (_c *CommandReceiptCreate) SetActorID(id int) *CommandReceiptCreate {
 	return _c
 }
 
+// SetNillableActorID sets the "actor" edge to the Account entity by ID if the given value is not nil.
+func (_c *CommandReceiptCreate) SetNillableActorID(id *int) *CommandReceiptCreate {
+	if id != nil {
+		_c = _c.SetActorID(*id)
+	}
+	return _c
+}
+
 // SetActor sets the "actor" edge to the Account entity.
 func (_c *CommandReceiptCreate) SetActor(v *Account) *CommandReceiptCreate {
 	return _c.SetActorID(v.ID)
@@ -125,6 +169,10 @@ func (_c *CommandReceiptCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *CommandReceiptCreate) defaults() error {
+	if _, ok := _c.mutation.ActorKind(); !ok {
+		v := commandreceipt.DefaultActorKind
+		_c.mutation.SetActorKind(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		if commandreceipt.DefaultCreatedAt == nil {
 			return fmt.Errorf("ent: uninitialized commandreceipt.DefaultCreatedAt (forgotten import ent/runtime?)")
@@ -137,8 +185,13 @@ func (_c *CommandReceiptCreate) defaults() error {
 
 // check runs all checks and user-defined validators on the builder.
 func (_c *CommandReceiptCreate) check() error {
-	if _, ok := _c.mutation.ActorAccountID(); !ok {
-		return &ValidationError{Name: "actor_account_id", err: errors.New(`ent: missing required field "CommandReceipt.actor_account_id"`)}
+	if _, ok := _c.mutation.ActorKind(); !ok {
+		return &ValidationError{Name: "actor_kind", err: errors.New(`ent: missing required field "CommandReceipt.actor_kind"`)}
+	}
+	if v, ok := _c.mutation.ActorKind(); ok {
+		if err := commandreceipt.ActorKindValidator(v); err != nil {
+			return &ValidationError{Name: "actor_kind", err: fmt.Errorf(`ent: validator failed for field "CommandReceipt.actor_kind": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.CommandID(); !ok {
 		return &ValidationError{Name: "command_id", err: errors.New(`ent: missing required field "CommandReceipt.command_id"`)}
@@ -191,9 +244,6 @@ func (_c *CommandReceiptCreate) check() error {
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "CommandReceipt.created_at"`)}
 	}
-	if len(_c.mutation.ActorIDs()) == 0 {
-		return &ValidationError{Name: "actor", err: errors.New(`ent: missing required edge "CommandReceipt.actor"`)}
-	}
 	return nil
 }
 
@@ -220,6 +270,14 @@ func (_c *CommandReceiptCreate) createSpec() (*CommandReceipt, *sqlgraph.CreateS
 		_node = &CommandReceipt{config: _c.config}
 		_spec = sqlgraph.NewCreateSpec(commandreceipt.Table, sqlgraph.NewFieldSpec(commandreceipt.FieldID, field.TypeInt))
 	)
+	if value, ok := _c.mutation.ActorKind(); ok {
+		_spec.SetField(commandreceipt.FieldActorKind, field.TypeEnum, value)
+		_node.ActorKind = value
+	}
+	if value, ok := _c.mutation.ActorUploadLinkID(); ok {
+		_spec.SetField(commandreceipt.FieldActorUploadLinkID, field.TypeInt, value)
+		_node.ActorUploadLinkID = value
+	}
 	if value, ok := _c.mutation.CommandID(); ok {
 		_spec.SetField(commandreceipt.FieldCommandID, field.TypeString, value)
 		_node.CommandID = value

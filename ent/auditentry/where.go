@@ -60,6 +60,11 @@ func ActorAccountID(v int) predicate.AuditEntry {
 	return predicate.AuditEntry(sql.FieldEQ(FieldActorAccountID, v))
 }
 
+// ActorUploadLinkID applies equality check predicate on the "actor_upload_link_id" field. It's identical to ActorUploadLinkIDEQ.
+func ActorUploadLinkID(v int) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldEQ(FieldActorUploadLinkID, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.AuditEntry {
 	return predicate.AuditEntry(sql.FieldEQ(FieldCreatedAt, v))
@@ -108,6 +113,86 @@ func ActorAccountIDIn(vs ...int) predicate.AuditEntry {
 // ActorAccountIDNotIn applies the NotIn predicate on the "actor_account_id" field.
 func ActorAccountIDNotIn(vs ...int) predicate.AuditEntry {
 	return predicate.AuditEntry(sql.FieldNotIn(FieldActorAccountID, vs...))
+}
+
+// ActorAccountIDIsNil applies the IsNil predicate on the "actor_account_id" field.
+func ActorAccountIDIsNil() predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldIsNull(FieldActorAccountID))
+}
+
+// ActorAccountIDNotNil applies the NotNil predicate on the "actor_account_id" field.
+func ActorAccountIDNotNil() predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldNotNull(FieldActorAccountID))
+}
+
+// ActorKindEQ applies the EQ predicate on the "actor_kind" field.
+func ActorKindEQ(v ActorKind) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldEQ(FieldActorKind, v))
+}
+
+// ActorKindNEQ applies the NEQ predicate on the "actor_kind" field.
+func ActorKindNEQ(v ActorKind) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldNEQ(FieldActorKind, v))
+}
+
+// ActorKindIn applies the In predicate on the "actor_kind" field.
+func ActorKindIn(vs ...ActorKind) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldIn(FieldActorKind, vs...))
+}
+
+// ActorKindNotIn applies the NotIn predicate on the "actor_kind" field.
+func ActorKindNotIn(vs ...ActorKind) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldNotIn(FieldActorKind, vs...))
+}
+
+// ActorUploadLinkIDEQ applies the EQ predicate on the "actor_upload_link_id" field.
+func ActorUploadLinkIDEQ(v int) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldEQ(FieldActorUploadLinkID, v))
+}
+
+// ActorUploadLinkIDNEQ applies the NEQ predicate on the "actor_upload_link_id" field.
+func ActorUploadLinkIDNEQ(v int) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldNEQ(FieldActorUploadLinkID, v))
+}
+
+// ActorUploadLinkIDIn applies the In predicate on the "actor_upload_link_id" field.
+func ActorUploadLinkIDIn(vs ...int) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldIn(FieldActorUploadLinkID, vs...))
+}
+
+// ActorUploadLinkIDNotIn applies the NotIn predicate on the "actor_upload_link_id" field.
+func ActorUploadLinkIDNotIn(vs ...int) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldNotIn(FieldActorUploadLinkID, vs...))
+}
+
+// ActorUploadLinkIDGT applies the GT predicate on the "actor_upload_link_id" field.
+func ActorUploadLinkIDGT(v int) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldGT(FieldActorUploadLinkID, v))
+}
+
+// ActorUploadLinkIDGTE applies the GTE predicate on the "actor_upload_link_id" field.
+func ActorUploadLinkIDGTE(v int) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldGTE(FieldActorUploadLinkID, v))
+}
+
+// ActorUploadLinkIDLT applies the LT predicate on the "actor_upload_link_id" field.
+func ActorUploadLinkIDLT(v int) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldLT(FieldActorUploadLinkID, v))
+}
+
+// ActorUploadLinkIDLTE applies the LTE predicate on the "actor_upload_link_id" field.
+func ActorUploadLinkIDLTE(v int) predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldLTE(FieldActorUploadLinkID, v))
+}
+
+// ActorUploadLinkIDIsNil applies the IsNil predicate on the "actor_upload_link_id" field.
+func ActorUploadLinkIDIsNil() predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldIsNull(FieldActorUploadLinkID))
+}
+
+// ActorUploadLinkIDNotNil applies the NotNil predicate on the "actor_upload_link_id" field.
+func ActorUploadLinkIDNotNil() predicate.AuditEntry {
+	return predicate.AuditEntry(sql.FieldNotNull(FieldActorUploadLinkID))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

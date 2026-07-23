@@ -46,6 +46,8 @@ type SessionPublishedVersion struct {
 	StartBoundary sessionpublishedversion.StartBoundary `json:"start_boundary,omitempty"`
 	// EndBoundary holds the value of the "end_boundary" field.
 	EndBoundary sessionpublishedversion.EndBoundary `json:"end_boundary,omitempty"`
+	// UploadDeadline holds the value of the "upload_deadline" field.
+	UploadDeadline time.Time `json:"upload_deadline,omitempty"`
 	// SubmissionDeadline holds the value of the "submission_deadline" field.
 	SubmissionDeadline time.Time `json:"submission_deadline,omitempty"`
 	// EntryDefaultDisposition holds the value of the "entry_default_disposition" field.
@@ -120,7 +122,7 @@ func (*SessionPublishedVersion) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullInt64)
 		case sessionpublishedversion.FieldTitle, sessionpublishedversion.FieldSpeaker, sessionpublishedversion.FieldType, sessionpublishedversion.FieldAudienceVisibility, sessionpublishedversion.FieldPublicDetails, sessionpublishedversion.FieldCrewNotes, sessionpublishedversion.FieldTimingPolicy, sessionpublishedversion.FieldStartBoundary, sessionpublishedversion.FieldEndBoundary, sessionpublishedversion.FieldEntryDefaultDisposition:
 			values[i] = new(sql.NullString)
-		case sessionpublishedversion.FieldPlannedStart, sessionpublishedversion.FieldPlannedEnd, sessionpublishedversion.FieldSubmissionDeadline, sessionpublishedversion.FieldCreatedAt:
+		case sessionpublishedversion.FieldPlannedStart, sessionpublishedversion.FieldPlannedEnd, sessionpublishedversion.FieldUploadDeadline, sessionpublishedversion.FieldSubmissionDeadline, sessionpublishedversion.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -226,6 +228,12 @@ func (_m *SessionPublishedVersion) assignValues(columns []string, values []any) 
 				return fmt.Errorf("unexpected type %T for field end_boundary", values[i])
 			} else if value.Valid {
 				_m.EndBoundary = sessionpublishedversion.EndBoundary(value.String)
+			}
+		case sessionpublishedversion.FieldUploadDeadline:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field upload_deadline", values[i])
+			} else if value.Valid {
+				_m.UploadDeadline = value.Time
 			}
 		case sessionpublishedversion.FieldSubmissionDeadline:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -342,6 +350,9 @@ func (_m *SessionPublishedVersion) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("end_boundary=")
 	builder.WriteString(fmt.Sprintf("%v", _m.EndBoundary))
+	builder.WriteString(", ")
+	builder.WriteString("upload_deadline=")
+	builder.WriteString(_m.UploadDeadline.Format(time.ANSIC))
 	builder.WriteString(", ")
 	builder.WriteString("submission_deadline=")
 	builder.WriteString(_m.SubmissionDeadline.Format(time.ANSIC))

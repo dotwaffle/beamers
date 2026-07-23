@@ -29,7 +29,9 @@ func (CommandReceipt) Policy() ent.Policy {
 // Fields defines Command Receipt persistence.
 func (CommandReceipt) Fields() []ent.Field {
 	return []ent.Field{
-		field.Int("actor_account_id").Immutable(),
+		field.Int("actor_account_id").Optional().Immutable(),
+		field.Enum("actor_kind").Values("Account", "UploadLink").Default("Account").Immutable(),
+		field.Int("actor_upload_link_id").Optional().Immutable(),
 		field.String("command_id").NotEmpty().MaxLen(200).Unique().Immutable(),
 		field.String("payload_hash").NotEmpty().MaxLen(64).Immutable(),
 		field.String("action").NotEmpty().MaxLen(100).Immutable(),
@@ -47,7 +49,6 @@ func (CommandReceipt) Edges() []ent.Edge {
 			Ref("command_receipts").
 			Field("actor_account_id").
 			Unique().
-			Immutable().
-			Required(),
+			Immutable(),
 	}
 }

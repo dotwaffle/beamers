@@ -132,6 +132,20 @@ func (_c *SessionPublishedVersionCreate) SetEndBoundary(v sessionpublishedversio
 	return _c
 }
 
+// SetUploadDeadline sets the "upload_deadline" field.
+func (_c *SessionPublishedVersionCreate) SetUploadDeadline(v time.Time) *SessionPublishedVersionCreate {
+	_c.mutation.SetUploadDeadline(v)
+	return _c
+}
+
+// SetNillableUploadDeadline sets the "upload_deadline" field if the given value is not nil.
+func (_c *SessionPublishedVersionCreate) SetNillableUploadDeadline(v *time.Time) *SessionPublishedVersionCreate {
+	if v != nil {
+		_c.SetUploadDeadline(*v)
+	}
+	return _c
+}
+
 // SetSubmissionDeadline sets the "submission_deadline" field.
 func (_c *SessionPublishedVersionCreate) SetSubmissionDeadline(v time.Time) *SessionPublishedVersionCreate {
 	_c.mutation.SetSubmissionDeadline(v)
@@ -449,6 +463,10 @@ func (_c *SessionPublishedVersionCreate) createSpec() (*SessionPublishedVersion,
 	if value, ok := _c.mutation.EndBoundary(); ok {
 		_spec.SetField(sessionpublishedversion.FieldEndBoundary, field.TypeEnum, value)
 		_node.EndBoundary = value
+	}
+	if value, ok := _c.mutation.UploadDeadline(); ok {
+		_spec.SetField(sessionpublishedversion.FieldUploadDeadline, field.TypeTime, value)
+		_node.UploadDeadline = value
 	}
 	if value, ok := _c.mutation.SubmissionDeadline(); ok {
 		_spec.SetField(sessionpublishedversion.FieldSubmissionDeadline, field.TypeTime, value)

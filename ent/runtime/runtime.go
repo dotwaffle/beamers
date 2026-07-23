@@ -8,6 +8,8 @@ import (
 
 	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/accountsession"
+	"github.com/dotwaffle/beamers/ent/attachment"
+	"github.com/dotwaffle/beamers/ent/attachmentversion"
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
@@ -31,6 +33,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
 	"github.com/dotwaffle/beamers/ent/migration"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
+	"github.com/dotwaffle/beamers/ent/reopenwindow"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/schema"
 	"github.com/dotwaffle/beamers/ent/session"
@@ -42,6 +45,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
+	"github.com/dotwaffle/beamers/ent/uploadlink"
 
 	"entgo.io/ent"
 	"entgo.io/ent/privacy"
@@ -135,6 +139,128 @@ func init() {
 	accountsessionDescCreatedAt := accountsessionFields[2].Descriptor()
 	// accountsession.DefaultCreatedAt holds the default value on creation for the created_at field.
 	accountsession.DefaultCreatedAt = accountsessionDescCreatedAt.Default.(func() time.Time)
+	attachment.Policy = privacy.NewPolicies(schema.Attachment{})
+	attachment.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := attachment.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	attachmentFields := schema.Attachment{}.Fields()
+	_ = attachmentFields
+	// attachmentDescOwnerID is the schema descriptor for owner_id field.
+	attachmentDescOwnerID := attachmentFields[2].Descriptor()
+	// attachment.OwnerIDValidator is a validator for the "owner_id" field. It is called by the builders before save.
+	attachment.OwnerIDValidator = attachmentDescOwnerID.Validators[0].(func(int) error)
+	// attachmentDescName is the schema descriptor for name field.
+	attachmentDescName := attachmentFields[3].Descriptor()
+	// attachment.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	attachment.NameValidator = func() func(string) error {
+		validators := attachmentDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// attachmentDescCreatedAt is the schema descriptor for created_at field.
+	attachmentDescCreatedAt := attachmentFields[4].Descriptor()
+	// attachment.DefaultCreatedAt holds the default value on creation for the created_at field.
+	attachment.DefaultCreatedAt = attachmentDescCreatedAt.Default.(func() time.Time)
+	attachmentversion.Policy = privacy.NewPolicies(schema.AttachmentVersion{})
+	attachmentversion.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := attachmentversion.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	attachmentversionFields := schema.AttachmentVersion{}.Fields()
+	_ = attachmentversionFields
+	// attachmentversionDescVersion is the schema descriptor for version field.
+	attachmentversionDescVersion := attachmentversionFields[1].Descriptor()
+	// attachmentversion.VersionValidator is a validator for the "version" field. It is called by the builders before save.
+	attachmentversion.VersionValidator = attachmentversionDescVersion.Validators[0].(func(int) error)
+	// attachmentversionDescOriginalFilename is the schema descriptor for original_filename field.
+	attachmentversionDescOriginalFilename := attachmentversionFields[2].Descriptor()
+	// attachmentversion.OriginalFilenameValidator is a validator for the "original_filename" field. It is called by the builders before save.
+	attachmentversion.OriginalFilenameValidator = func() func(string) error {
+		validators := attachmentversionDescOriginalFilename.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(original_filename string) error {
+			for _, fn := range fns {
+				if err := fn(original_filename); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// attachmentversionDescMediaType is the schema descriptor for media_type field.
+	attachmentversionDescMediaType := attachmentversionFields[3].Descriptor()
+	// attachmentversion.MediaTypeValidator is a validator for the "media_type" field. It is called by the builders before save.
+	attachmentversion.MediaTypeValidator = attachmentversionDescMediaType.Validators[0].(func(string) error)
+	// attachmentversionDescSizeBytes is the schema descriptor for size_bytes field.
+	attachmentversionDescSizeBytes := attachmentversionFields[4].Descriptor()
+	// attachmentversion.SizeBytesValidator is a validator for the "size_bytes" field. It is called by the builders before save.
+	attachmentversion.SizeBytesValidator = attachmentversionDescSizeBytes.Validators[0].(func(int64) error)
+	// attachmentversionDescSha256 is the schema descriptor for sha256 field.
+	attachmentversionDescSha256 := attachmentversionFields[5].Descriptor()
+	// attachmentversion.Sha256Validator is a validator for the "sha256" field. It is called by the builders before save.
+	attachmentversion.Sha256Validator = func() func(string) error {
+		validators := attachmentversionDescSha256.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(sha256 string) error {
+			for _, fn := range fns {
+				if err := fn(sha256); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// attachmentversionDescStorageKey is the schema descriptor for storage_key field.
+	attachmentversionDescStorageKey := attachmentversionFields[6].Descriptor()
+	// attachmentversion.StorageKeyValidator is a validator for the "storage_key" field. It is called by the builders before save.
+	attachmentversion.StorageKeyValidator = func() func(string) error {
+		validators := attachmentversionDescStorageKey.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(storage_key string) error {
+			for _, fn := range fns {
+				if err := fn(storage_key); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// attachmentversionDescUploaderID is the schema descriptor for uploader_id field.
+	attachmentversionDescUploaderID := attachmentversionFields[8].Descriptor()
+	// attachmentversion.UploaderIDValidator is a validator for the "uploader_id" field. It is called by the builders before save.
+	attachmentversion.UploaderIDValidator = attachmentversionDescUploaderID.Validators[0].(func(int) error)
+	// attachmentversionDescCreatedAt is the schema descriptor for created_at field.
+	attachmentversionDescCreatedAt := attachmentversionFields[9].Descriptor()
+	// attachmentversion.DefaultCreatedAt holds the default value on creation for the created_at field.
+	attachmentversion.DefaultCreatedAt = attachmentversionDescCreatedAt.Default.(func() time.Time)
 	auditentry.Policy = privacy.NewPolicies(schema.AuditEntry{})
 	auditentry.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
@@ -147,11 +273,11 @@ func init() {
 	auditentryFields := schema.AuditEntry{}.Fields()
 	_ = auditentryFields
 	// auditentryDescCreatedAt is the schema descriptor for created_at field.
-	auditentryDescCreatedAt := auditentryFields[1].Descriptor()
+	auditentryDescCreatedAt := auditentryFields[3].Descriptor()
 	// auditentry.DefaultCreatedAt holds the default value on creation for the created_at field.
 	auditentry.DefaultCreatedAt = auditentryDescCreatedAt.Default.(func() time.Time)
 	// auditentryDescAction is the schema descriptor for action field.
-	auditentryDescAction := auditentryFields[2].Descriptor()
+	auditentryDescAction := auditentryFields[4].Descriptor()
 	// auditentry.ActionValidator is a validator for the "action" field. It is called by the builders before save.
 	auditentry.ActionValidator = func() func(string) error {
 		validators := auditentryDescAction.Validators
@@ -169,7 +295,7 @@ func init() {
 		}
 	}()
 	// auditentryDescTargetType is the schema descriptor for target_type field.
-	auditentryDescTargetType := auditentryFields[3].Descriptor()
+	auditentryDescTargetType := auditentryFields[5].Descriptor()
 	// auditentry.TargetTypeValidator is a validator for the "target_type" field. It is called by the builders before save.
 	auditentry.TargetTypeValidator = func() func(string) error {
 		validators := auditentryDescTargetType.Validators
@@ -187,7 +313,7 @@ func init() {
 		}
 	}()
 	// auditentryDescTargetID is the schema descriptor for target_id field.
-	auditentryDescTargetID := auditentryFields[4].Descriptor()
+	auditentryDescTargetID := auditentryFields[6].Descriptor()
 	// auditentry.TargetIDValidator is a validator for the "target_id" field. It is called by the builders before save.
 	auditentry.TargetIDValidator = func() func(string) error {
 		validators := auditentryDescTargetID.Validators
@@ -205,11 +331,11 @@ func init() {
 		}
 	}()
 	// auditentryDescReason is the schema descriptor for reason field.
-	auditentryDescReason := auditentryFields[6].Descriptor()
+	auditentryDescReason := auditentryFields[8].Descriptor()
 	// auditentry.ReasonValidator is a validator for the "reason" field. It is called by the builders before save.
 	auditentry.ReasonValidator = auditentryDescReason.Validators[0].(func(string) error)
 	// auditentryDescNote is the schema descriptor for note field.
-	auditentryDescNote := auditentryFields[7].Descriptor()
+	auditentryDescNote := auditentryFields[9].Descriptor()
 	// auditentry.NoteValidator is a validator for the "note" field. It is called by the builders before save.
 	auditentry.NoteValidator = auditentryDescNote.Validators[0].(func(string) error)
 	bootstrapcredential.Policy = privacy.NewPolicies(schema.BootstrapCredential{})
@@ -257,7 +383,7 @@ func init() {
 	commandreceiptFields := schema.CommandReceipt{}.Fields()
 	_ = commandreceiptFields
 	// commandreceiptDescCommandID is the schema descriptor for command_id field.
-	commandreceiptDescCommandID := commandreceiptFields[1].Descriptor()
+	commandreceiptDescCommandID := commandreceiptFields[3].Descriptor()
 	// commandreceipt.CommandIDValidator is a validator for the "command_id" field. It is called by the builders before save.
 	commandreceipt.CommandIDValidator = func() func(string) error {
 		validators := commandreceiptDescCommandID.Validators
@@ -275,7 +401,7 @@ func init() {
 		}
 	}()
 	// commandreceiptDescPayloadHash is the schema descriptor for payload_hash field.
-	commandreceiptDescPayloadHash := commandreceiptFields[2].Descriptor()
+	commandreceiptDescPayloadHash := commandreceiptFields[4].Descriptor()
 	// commandreceipt.PayloadHashValidator is a validator for the "payload_hash" field. It is called by the builders before save.
 	commandreceipt.PayloadHashValidator = func() func(string) error {
 		validators := commandreceiptDescPayloadHash.Validators
@@ -293,7 +419,7 @@ func init() {
 		}
 	}()
 	// commandreceiptDescAction is the schema descriptor for action field.
-	commandreceiptDescAction := commandreceiptFields[3].Descriptor()
+	commandreceiptDescAction := commandreceiptFields[5].Descriptor()
 	// commandreceipt.ActionValidator is a validator for the "action" field. It is called by the builders before save.
 	commandreceipt.ActionValidator = func() func(string) error {
 		validators := commandreceiptDescAction.Validators
@@ -311,7 +437,7 @@ func init() {
 		}
 	}()
 	// commandreceiptDescTargetType is the schema descriptor for target_type field.
-	commandreceiptDescTargetType := commandreceiptFields[4].Descriptor()
+	commandreceiptDescTargetType := commandreceiptFields[6].Descriptor()
 	// commandreceipt.TargetTypeValidator is a validator for the "target_type" field. It is called by the builders before save.
 	commandreceipt.TargetTypeValidator = func() func(string) error {
 		validators := commandreceiptDescTargetType.Validators
@@ -329,7 +455,7 @@ func init() {
 		}
 	}()
 	// commandreceiptDescTargetID is the schema descriptor for target_id field.
-	commandreceiptDescTargetID := commandreceiptFields[5].Descriptor()
+	commandreceiptDescTargetID := commandreceiptFields[7].Descriptor()
 	// commandreceipt.TargetIDValidator is a validator for the "target_id" field. It is called by the builders before save.
 	commandreceipt.TargetIDValidator = func() func(string) error {
 		validators := commandreceiptDescTargetID.Validators
@@ -347,11 +473,11 @@ func init() {
 		}
 	}()
 	// commandreceiptDescOutcomeJSON is the schema descriptor for outcome_json field.
-	commandreceiptDescOutcomeJSON := commandreceiptFields[6].Descriptor()
+	commandreceiptDescOutcomeJSON := commandreceiptFields[8].Descriptor()
 	// commandreceipt.OutcomeJSONValidator is a validator for the "outcome_json" field. It is called by the builders before save.
 	commandreceipt.OutcomeJSONValidator = commandreceiptDescOutcomeJSON.Validators[0].(func(string) error)
 	// commandreceiptDescCreatedAt is the schema descriptor for created_at field.
-	commandreceiptDescCreatedAt := commandreceiptFields[7].Descriptor()
+	commandreceiptDescCreatedAt := commandreceiptFields[9].Descriptor()
 	// commandreceipt.DefaultCreatedAt holds the default value on creation for the created_at field.
 	commandreceipt.DefaultCreatedAt = commandreceiptDescCreatedAt.Default.(func() time.Time)
 	competitionentry.Policy = privacy.NewPolicies(schema.CompetitionEntry{})
@@ -392,13 +518,13 @@ func init() {
 	// competitionentry.CrewNotesValidator is a validator for the "crew_notes" field. It is called by the builders before save.
 	competitionentry.CrewNotesValidator = competitionentryDescCrewNotes.Validators[0].(func(string) error)
 	// competitionentryDescRevision is the schema descriptor for revision field.
-	competitionentryDescRevision := competitionentryFields[6].Descriptor()
+	competitionentryDescRevision := competitionentryFields[7].Descriptor()
 	// competitionentry.DefaultRevision holds the default value on creation for the revision field.
 	competitionentry.DefaultRevision = competitionentryDescRevision.Default.(int)
 	// competitionentry.RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
 	competitionentry.RevisionValidator = competitionentryDescRevision.Validators[0].(func(int) error)
 	// competitionentryDescCreatedAt is the schema descriptor for created_at field.
-	competitionentryDescCreatedAt := competitionentryFields[7].Descriptor()
+	competitionentryDescCreatedAt := competitionentryFields[8].Descriptor()
 	// competitionentry.DefaultCreatedAt holds the default value on creation for the created_at field.
 	competitionentry.DefaultCreatedAt = competitionentryDescCreatedAt.Default.(func() time.Time)
 	display.Policy = privacy.NewPolicies(schema.Display{})
@@ -1205,6 +1331,57 @@ func init() {
 	passwordcredentialDescCreatedAt := passwordcredentialFields[2].Descriptor()
 	// passwordcredential.DefaultCreatedAt holds the default value on creation for the created_at field.
 	passwordcredential.DefaultCreatedAt = passwordcredentialDescCreatedAt.Default.(func() time.Time)
+	reopenwindow.Policy = privacy.NewPolicies(schema.ReopenWindow{})
+	reopenwindow.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := reopenwindow.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	reopenwindowFields := schema.ReopenWindow{}.Fields()
+	_ = reopenwindowFields
+	// reopenwindowDescTargetID is the schema descriptor for target_id field.
+	reopenwindowDescTargetID := reopenwindowFields[2].Descriptor()
+	// reopenwindow.TargetIDValidator is a validator for the "target_id" field. It is called by the builders before save.
+	reopenwindow.TargetIDValidator = reopenwindowDescTargetID.Validators[0].(func(int) error)
+	// reopenwindowDescReason is the schema descriptor for reason field.
+	reopenwindowDescReason := reopenwindowFields[3].Descriptor()
+	// reopenwindow.ReasonValidator is a validator for the "reason" field. It is called by the builders before save.
+	reopenwindow.ReasonValidator = func() func(string) error {
+		validators := reopenwindowDescReason.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(reason string) error {
+			for _, fn := range fns {
+				if err := fn(reason); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// reopenwindowDescCreatedByAccountID is the schema descriptor for created_by_account_id field.
+	reopenwindowDescCreatedByAccountID := reopenwindowFields[6].Descriptor()
+	// reopenwindow.CreatedByAccountIDValidator is a validator for the "created_by_account_id" field. It is called by the builders before save.
+	reopenwindow.CreatedByAccountIDValidator = reopenwindowDescCreatedByAccountID.Validators[0].(func(int) error)
+	// reopenwindowDescRevision is the schema descriptor for revision field.
+	reopenwindowDescRevision := reopenwindowFields[7].Descriptor()
+	// reopenwindow.DefaultRevision holds the default value on creation for the revision field.
+	reopenwindow.DefaultRevision = reopenwindowDescRevision.Default.(int)
+	// reopenwindow.RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
+	reopenwindow.RevisionValidator = reopenwindowDescRevision.Validators[0].(func(int) error)
+	// reopenwindowDescCreatedAt is the schema descriptor for created_at field.
+	reopenwindowDescCreatedAt := reopenwindowFields[8].Descriptor()
+	// reopenwindow.DefaultCreatedAt holds the default value on creation for the created_at field.
+	reopenwindow.DefaultCreatedAt = reopenwindowDescCreatedAt.Default.(func() time.Time)
+	// reopenwindowDescUpdatedAt is the schema descriptor for updated_at field.
+	reopenwindowDescUpdatedAt := reopenwindowFields[9].Descriptor()
+	// reopenwindow.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	reopenwindow.DefaultUpdatedAt = reopenwindowDescUpdatedAt.Default.(func() time.Time)
 	rundown.Policy = privacy.NewPolicies(schema.Rundown{})
 	rundown.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
@@ -1393,7 +1570,7 @@ func init() {
 	// sessionpublishedversion.MinimumDurationSecondsValidator is a validator for the "minimum_duration_seconds" field. It is called by the builders before save.
 	sessionpublishedversion.MinimumDurationSecondsValidator = sessionpublishedversionDescMinimumDurationSeconds.Validators[0].(func(int) error)
 	// sessionpublishedversionDescCreatedAt is the schema descriptor for created_at field.
-	sessionpublishedversionDescCreatedAt := sessionpublishedversionFields[16].Descriptor()
+	sessionpublishedversionDescCreatedAt := sessionpublishedversionFields[17].Descriptor()
 	// sessionpublishedversion.DefaultCreatedAt holds the default value on creation for the created_at field.
 	sessionpublishedversion.DefaultCreatedAt = sessionpublishedversionDescCreatedAt.Default.(func() time.Time)
 	sessionrun.Policy = privacy.NewPolicies(schema.SessionRun{})
@@ -1531,6 +1708,43 @@ func init() {
 	trackpublishedversionDescCreatedAt := trackpublishedversionFields[4].Descriptor()
 	// trackpublishedversion.DefaultCreatedAt holds the default value on creation for the created_at field.
 	trackpublishedversion.DefaultCreatedAt = trackpublishedversionDescCreatedAt.Default.(func() time.Time)
+	uploadlink.Policy = privacy.NewPolicies(schema.UploadLink{})
+	uploadlink.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := uploadlink.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	uploadlinkFields := schema.UploadLink{}.Fields()
+	_ = uploadlinkFields
+	// uploadlinkDescTargetID is the schema descriptor for target_id field.
+	uploadlinkDescTargetID := uploadlinkFields[2].Descriptor()
+	// uploadlink.TargetIDValidator is a validator for the "target_id" field. It is called by the builders before save.
+	uploadlink.TargetIDValidator = uploadlinkDescTargetID.Validators[0].(func(int) error)
+	// uploadlinkDescTokenHash is the schema descriptor for token_hash field.
+	uploadlinkDescTokenHash := uploadlinkFields[3].Descriptor()
+	// uploadlink.TokenHashValidator is a validator for the "token_hash" field. It is called by the builders before save.
+	uploadlink.TokenHashValidator = func() func(string) error {
+		validators := uploadlinkDescTokenHash.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(token_hash string) error {
+			for _, fn := range fns {
+				if err := fn(token_hash); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// uploadlinkDescCreatedAt is the schema descriptor for created_at field.
+	uploadlinkDescCreatedAt := uploadlinkFields[5].Descriptor()
+	// uploadlink.DefaultCreatedAt holds the default value on creation for the created_at field.
+	uploadlink.DefaultCreatedAt = uploadlinkDescCreatedAt.Default.(func() time.Time)
 }
 
 const (

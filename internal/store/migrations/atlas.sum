@@ -1,4 +1,4 @@
-h1:LH9BSumQVkErbkXsZ98FYEnuueZP8uZAAvj4X+xfPeU=
+h1:96rGHRTL4P3E8LO5AzoquWdTs5oySwOL5P/naHBYkss=
 0001_initialize.sql h1:xwTCiCDERoBPK7+31D4g3SOs7BivkqIi3/tf+14eOlo=
 0002_bootstrap_auth.sql h1:Z4h1bvDVGzPXbmlEc3NCEn1HvMSf2V6eY56wIlxFLjA=
 0003_add_events.sql h1:6XxTAjVp9ntlWbsdacCMQkdgTAG185npJMhgxOSnAtA=
@@ -24,3 +24,8 @@ h1:LH9BSumQVkErbkXsZ98FYEnuueZP8uZAAvj4X+xfPeU=
 0023_preserve_session_cancellation_history.sql h1:0SXr4I4euAkUjxx6qLDmpPbYK35Z4lJeamUgbvR0NxM=
 0024_add_session_communicated_times.sql h1:eDVmTROBa84KPUUvz+BMkgOWy3D/XWd3UOROGvBF/kw=
 0025_add_competitions_and_entries.sql h1:1vCFJUDtHLjbG1NorT1b/SejgANuEqcbMexrGW/UOPc=
+0026_add_upload_links.sql h1:IbQRNi1QrEBG2Ke4r2mtGbAB7oVVa51XvwHk782Vy7I=
+0027_add_attachment_versions_and_reopen_windows.sql h1:+DgKeEqXvzlvJYp7Raf66dwGWB0YDdfMoyOlMFtMPXE=
+0028_add_presentation_upload_deadline.sql h1:F22a0auPyLqFw4sAiRqEaFE3Cb1Q+lgh6Mip2HjlT5E=
+0029_add_upload_link_command_actors.sql h1:JBR17A1hAxB5HG7ZMEx82D36eNVttbjKz5Vli77kGaI=
+0030_preserve_rejected_entry_upload_closure.sql h1:Uea/WfzDmZmcyxY7uH0S4bBD1GuZYPrsBW7gSNmZBHw=

@@ -59,18 +59,7 @@ func (_u *AuditEntryUpdate) ExecX(ctx context.Context) {
 	}
 }
 
-// check runs all checks and user-defined validators on the builder.
-func (_u *AuditEntryUpdate) check() error {
-	if _u.mutation.ActorCleared() && len(_u.mutation.ActorIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "AuditEntry.actor"`)
-	}
-	return nil
-}
-
 func (_u *AuditEntryUpdate) sqlSave(ctx context.Context) (_node int, err error) {
-	if err := _u.check(); err != nil {
-		return _node, err
-	}
 	_spec := sqlgraph.NewUpdateSpec(auditentry.Table, auditentry.Columns, sqlgraph.NewFieldSpec(auditentry.FieldID, field.TypeInt))
 	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
@@ -78,6 +67,9 @@ func (_u *AuditEntryUpdate) sqlSave(ctx context.Context) (_node int, err error) 
 				ps[i](selector)
 			}
 		}
+	}
+	if _u.mutation.ActorUploadLinkIDCleared() {
+		_spec.ClearField(auditentry.FieldActorUploadLinkID, field.TypeInt)
 	}
 	if _u.mutation.ReasonCleared() {
 		_spec.ClearField(auditentry.FieldReason, field.TypeString)
@@ -150,18 +142,7 @@ func (_u *AuditEntryUpdateOne) ExecX(ctx context.Context) {
 	}
 }
 
-// check runs all checks and user-defined validators on the builder.
-func (_u *AuditEntryUpdateOne) check() error {
-	if _u.mutation.ActorCleared() && len(_u.mutation.ActorIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "AuditEntry.actor"`)
-	}
-	return nil
-}
-
 func (_u *AuditEntryUpdateOne) sqlSave(ctx context.Context) (_node *AuditEntry, err error) {
-	if err := _u.check(); err != nil {
-		return _node, err
-	}
 	_spec := sqlgraph.NewUpdateSpec(auditentry.Table, auditentry.Columns, sqlgraph.NewFieldSpec(auditentry.FieldID, field.TypeInt))
 	id, ok := _u.mutation.ID()
 	if !ok {
@@ -186,6 +167,9 @@ func (_u *AuditEntryUpdateOne) sqlSave(ctx context.Context) (_node *AuditEntry, 
 				ps[i](selector)
 			}
 		}
+	}
+	if _u.mutation.ActorUploadLinkIDCleared() {
+		_spec.ClearField(auditentry.FieldActorUploadLinkID, field.TypeInt)
 	}
 	if _u.mutation.ReasonCleared() {
 		_spec.ClearField(auditentry.FieldReason, field.TypeString)

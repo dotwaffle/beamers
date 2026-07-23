@@ -44,6 +44,8 @@ type SessionDraft struct {
 	StartBoundary sessiondraft.StartBoundary `json:"start_boundary,omitempty"`
 	// EndBoundary holds the value of the "end_boundary" field.
 	EndBoundary sessiondraft.EndBoundary `json:"end_boundary,omitempty"`
+	// UploadDeadline holds the value of the "upload_deadline" field.
+	UploadDeadline time.Time `json:"upload_deadline,omitempty"`
 	// SubmissionDeadline holds the value of the "submission_deadline" field.
 	SubmissionDeadline time.Time `json:"submission_deadline,omitempty"`
 	// EntryDefaultDisposition holds the value of the "entry_default_disposition" field.
@@ -116,7 +118,7 @@ func (*SessionDraft) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullInt64)
 		case sessiondraft.FieldTitle, sessiondraft.FieldSpeaker, sessiondraft.FieldType, sessiondraft.FieldAudienceVisibility, sessiondraft.FieldPublicDetails, sessiondraft.FieldCrewNotes, sessiondraft.FieldTimingPolicy, sessiondraft.FieldStartBoundary, sessiondraft.FieldEndBoundary, sessiondraft.FieldEntryDefaultDisposition:
 			values[i] = new(sql.NullString)
-		case sessiondraft.FieldPlannedStart, sessiondraft.FieldPlannedEnd, sessiondraft.FieldSubmissionDeadline:
+		case sessiondraft.FieldPlannedStart, sessiondraft.FieldPlannedEnd, sessiondraft.FieldUploadDeadline, sessiondraft.FieldSubmissionDeadline:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -216,6 +218,12 @@ func (_m *SessionDraft) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field end_boundary", values[i])
 			} else if value.Valid {
 				_m.EndBoundary = sessiondraft.EndBoundary(value.String)
+			}
+		case sessiondraft.FieldUploadDeadline:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field upload_deadline", values[i])
+			} else if value.Valid {
+				_m.UploadDeadline = value.Time
 			}
 		case sessiondraft.FieldSubmissionDeadline:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -323,6 +331,9 @@ func (_m *SessionDraft) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("end_boundary=")
 	builder.WriteString(fmt.Sprintf("%v", _m.EndBoundary))
+	builder.WriteString(", ")
+	builder.WriteString("upload_deadline=")
+	builder.WriteString(_m.UploadDeadline.Format(time.ANSIC))
 	builder.WriteString(", ")
 	builder.WriteString("submission_deadline=")
 	builder.WriteString(_m.SubmissionDeadline.Format(time.ANSIC))

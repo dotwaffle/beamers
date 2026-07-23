@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/dotwaffle/beamers/ent"
@@ -10,6 +11,7 @@ import (
 // AuditEntry is the Administrator-readable projection of one durable action.
 type AuditEntry struct {
 	ID             int
+	ActorKind      string
 	ActorAccountID int
 	ActorName      string
 	ServerTime     time.Time
@@ -32,12 +34,21 @@ func (installation *SQLite) ListAuditEntries(ctx context.Context) ([]AuditEntry,
 	}
 	entries := make([]AuditEntry, 0, len(found))
 	for _, item := range found {
-		actor, err := item.Edges.ActorOrErr()
-		if err != nil {
-			return nil, opaqueError("load Audit Entry actor", err)
+		actorAccountID := 0
+		actorName := "Upload Link"
+		if item.ActorKind == "Account" {
+			actor, actorErr := item.Edges.ActorOrErr()
+			if actorErr != nil {
+				return nil, opaqueError("load Audit Entry actor", actorErr)
+			}
+			actorName = actor.Name
+			actorAccountID = item.ActorAccountID
+		} else if item.ActorUploadLinkID != 0 {
+			actorName = "Upload Link #" + strconv.Itoa(item.ActorUploadLinkID)
 		}
 		entries = append(entries, AuditEntry{
-			ID: item.ID, ActorAccountID: item.ActorAccountID, ActorName: actor.Name,
+			ID: item.ID, ActorKind: item.ActorKind.String(),
+			ActorAccountID: actorAccountID, ActorName: actorName,
 			ServerTime: item.CreatedAt, Action: item.Action,
 			TargetType: item.TargetType, TargetID: item.TargetID,
 			Outcome: item.Result.String(), Reason: item.Reason, Note: item.Note,

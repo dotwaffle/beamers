@@ -14,6 +14,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/accountsession"
+	"github.com/dotwaffle/beamers/ent/attachment"
+	"github.com/dotwaffle/beamers/ent/attachmentversion"
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
@@ -37,6 +39,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
 	"github.com/dotwaffle/beamers/ent/migration"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
+	"github.com/dotwaffle/beamers/ent/reopenwindow"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessioncancellation"
@@ -47,6 +50,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
+	"github.com/dotwaffle/beamers/ent/uploadlink"
 )
 
 // ent aliases to avoid import conflicts in user's code.
@@ -109,6 +113,8 @@ func checkColumn(t, c string) error {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			account.Table:                  account.ValidColumn,
 			accountsession.Table:           accountsession.ValidColumn,
+			attachment.Table:               attachment.ValidColumn,
+			attachmentversion.Table:        attachmentversion.ValidColumn,
 			auditentry.Table:               auditentry.ValidColumn,
 			bootstrapcredential.Table:      bootstrapcredential.ValidColumn,
 			commandreceipt.Table:           commandreceipt.ValidColumn,
@@ -132,6 +138,7 @@ func checkColumn(t, c string) error {
 			locationpublishedversion.Table: locationpublishedversion.ValidColumn,
 			migration.Table:                migration.ValidColumn,
 			passwordcredential.Table:       passwordcredential.ValidColumn,
+			reopenwindow.Table:             reopenwindow.ValidColumn,
 			rundown.Table:                  rundown.ValidColumn,
 			session.Table:                  session.ValidColumn,
 			sessioncancellation.Table:      sessioncancellation.ValidColumn,
@@ -142,6 +149,7 @@ func checkColumn(t, c string) error {
 			track.Table:                    track.ValidColumn,
 			trackdraft.Table:               trackdraft.ValidColumn,
 			trackpublishedversion.Table:    trackpublishedversion.ValidColumn,
+			uploadlink.Table:               uploadlink.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

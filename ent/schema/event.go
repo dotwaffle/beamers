@@ -56,6 +56,7 @@ func (Event) Edges() []ent.Edge {
 		edge.To("tracks", Track.Type),
 		edge.To("sessions", Session.Type),
 		edge.To("competition_entries", CompetitionEntry.Type),
+		edge.To("upload_links", UploadLink.Type),
 		edge.To("draft_edits", DraftEdit.Type),
 		edge.To("draft_changes", DraftChange.Type),
 		edge.To("import_references", ImportReference.Type),

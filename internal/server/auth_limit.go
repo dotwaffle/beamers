@@ -111,6 +111,15 @@ func bootstrapFailureKeys(request *http.Request) (authFailureKey, authFailureKey
 		authFailureKey{value: "bootstrap|" + client, limit: principalFailureLimit}
 }
 
+func uploadLimitKeys(request *http.Request, token string) (authFailureKey, authFailureKey) {
+	client := authClientAddress(request)
+	return authFailureKey{value: "upload-client|" + client, limit: 60},
+		authFailureKey{
+			value: "upload-link|" + client + "|" + authFingerprint(token),
+			limit: 20,
+		}
+}
+
 func authClientAddress(request *http.Request) string {
 	host, _, err := net.SplitHostPort(request.RemoteAddr)
 	if err == nil {

@@ -40,13 +40,15 @@ func (conflict *DraftRevisionConflictError) Unwrap() error { return ErrDraftRevi
 
 // CommandIdentity contains one command's durable replay identity.
 type CommandIdentity struct {
-	ActorAccountID int
-	CommandID      string
-	PayloadHash    string
-	Action         string
-	TargetType     string
-	TargetID       string
-	Now            time.Time
+	ActorKind         string
+	ActorAccountID    int
+	ActorUploadLinkID int
+	CommandID         string
+	PayloadHash       string
+	Action            string
+	TargetType        string
+	TargetID          string
+	Now               time.Time
 }
 
 // CommandTx owns one command's persistence transaction.
@@ -76,10 +78,9 @@ func (transaction *CommandTx) LookupReceipt(
 	identity CommandIdentity,
 ) (string, bool, error) {
 	return findCommandReceipt(ctx, transaction.transaction, commandReceiptParams{
-		ActorAccountID: identity.ActorAccountID,
-		CommandID:      identity.CommandID,
-		PayloadHash:    identity.PayloadHash,
-		Action:         identity.Action,
+		ActorKind: identity.ActorKind, ActorAccountID: identity.ActorAccountID,
+		ActorUploadLinkID: identity.ActorUploadLinkID, CommandID: identity.CommandID,
+		PayloadHash: identity.PayloadHash, Action: identity.Action,
 	})
 }
 
@@ -106,27 +107,30 @@ func (transaction *CommandTx) RecordOutcomeWithAudit(
 		result = auditentry.ResultRejected
 	}
 	if err := createCommandReceipt(ctx, transaction.transaction, commandReceiptParams{
-		ActorAccountID: identity.ActorAccountID,
-		CommandID:      identity.CommandID,
-		PayloadHash:    identity.PayloadHash,
-		Action:         identity.Action,
-		TargetType:     identity.TargetType,
-		TargetID:       identity.TargetID,
-		OutcomeJSON:    outcomeJSON,
-		Now:            identity.Now,
+		ActorKind: identity.ActorKind, ActorAccountID: identity.ActorAccountID,
+		ActorUploadLinkID: identity.ActorUploadLinkID, CommandID: identity.CommandID,
+		PayloadHash: identity.PayloadHash, Action: identity.Action,
+		TargetType: identity.TargetType, TargetID: identity.TargetID,
+		OutcomeJSON: outcomeJSON, Now: identity.Now,
 	}); err != nil {
 		return opaqueError("record Command Receipt", err)
 	}
-	if _, err := transaction.transaction.AuditEntry.Create().
-		SetActorAccountID(identity.ActorAccountID).
+	audit := transaction.transaction.AuditEntry.Create().
 		SetCreatedAt(identity.Now).
 		SetAction(identity.Action).
 		SetTargetType(identity.TargetType).
 		SetTargetID(identity.TargetID).
 		SetResult(result).
 		SetReason(auditReason(outcomeJSON, rejected, details.Reason)).
-		SetNote(details.Note).
-		Save(ctx); err != nil {
+		SetNote(details.Note)
+	if identity.ActorKind == "UploadLink" {
+		audit.SetActorKind(auditentry.ActorKindUploadLink).
+			SetActorUploadLinkID(identity.ActorUploadLinkID)
+	} else {
+		audit.SetActorKind(auditentry.ActorKindAccount).
+			SetActorAccountID(identity.ActorAccountID)
+	}
+	if _, err := audit.Save(systemContext(ctx)); err != nil {
 		return opaqueError("record command Audit Entry", err)
 	}
 	return nil
@@ -162,13 +166,9 @@ func (transaction *CommandTx) RecordRejection(
 // CommitConflict records one conflicting Command ID reuse without altering its receipt.
 func (transaction *CommandTx) CommitConflict(ctx context.Context, identity CommandIdentity) error {
 	if err := auditRejectedCommand(
-		ctx,
+		systemContext(ctx),
 		transaction.transaction.AuditEntry,
-		identity.ActorAccountID,
-		identity.Action,
-		"Command",
-		identity.CommandID,
-		identity.Now,
+		identity,
 	); err != nil {
 		return opaqueError("audit conflicting Command ID", err)
 	}
@@ -239,6 +239,7 @@ type SessionDraftCreate struct {
 	MinimumDurationSeconds  int
 	StartBoundary           string
 	EndBoundary             string
+	UploadDeadline          time.Time
 	SubmissionDeadline      time.Time
 	EntryDefaultDisposition string
 	Lanes                   []DraftTarget
@@ -508,24 +509,35 @@ func (transaction *CommandTx) validateSessionDraftConfigurations(
 			return opaqueError("validate Session Draft configuration", err)
 		}
 		prospectiveType := string(state.Type)
+		prospectiveUploadDeadline := state.UploadDeadline
 		prospectiveDeadline := state.SubmissionDeadline
 		prospectiveDefault := string(state.EntryDefaultDisposition)
 		for _, selected := range input.UpdateFields {
 			switch selected {
 			case "type":
 				prospectiveType = input.Type
+			case "upload_deadline":
+				prospectiveUploadDeadline = input.UploadDeadline
 			case "submission_deadline":
 				prospectiveDeadline = input.SubmissionDeadline
 			case "entry_default_disposition":
 				prospectiveDefault = input.EntryDefaultDisposition
 			}
 		}
+		if prospectiveType == "Presentation" {
+			if !prospectiveDeadline.IsZero() || prospectiveDefault != "" {
+				return ErrDraftReference
+			}
+		} else if !prospectiveUploadDeadline.IsZero() {
+			return ErrDraftReference
+		}
 		if prospectiveType == "Competition" {
 			if prospectiveDeadline.IsZero() ||
 				(prospectiveDefault != "" && prospectiveDefault != "Pending" && prospectiveDefault != "Included") {
 				return ErrDraftReference
 			}
-		} else if !prospectiveDeadline.IsZero() || prospectiveDefault != "" {
+		} else if prospectiveType != "Presentation" &&
+			(!prospectiveDeadline.IsZero() || prospectiveDefault != "") {
 			return ErrDraftReference
 		}
 	}
@@ -909,6 +921,13 @@ func (transaction *CommandTx) updateSessionDraft(
 		case "end_boundary":
 			before, after = string(state.EndBoundary), input.EndBoundary
 			update.SetEndBoundary(sessiondraft.EndBoundary(input.EndBoundary))
+		case "upload_deadline":
+			before, after = state.UploadDeadline, input.UploadDeadline
+			if input.UploadDeadline.IsZero() {
+				update.ClearUploadDeadline()
+			} else {
+				update.SetUploadDeadline(input.UploadDeadline)
+			}
 		case "submission_deadline":
 			before, after = state.SubmissionDeadline, input.SubmissionDeadline
 			if input.SubmissionDeadline.IsZero() {
@@ -1114,6 +1133,9 @@ func (transaction *CommandTx) createSessionDraft(
 	}
 	if input.CrewNotes != "" {
 		create.SetCrewNotes(input.CrewNotes)
+	}
+	if !input.UploadDeadline.IsZero() {
+		create.SetUploadDeadline(input.UploadDeadline)
 	}
 	if !input.SubmissionDeadline.IsZero() {
 		create.SetSubmissionDeadline(input.SubmissionDeadline)

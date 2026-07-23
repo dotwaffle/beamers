@@ -74,6 +74,20 @@ func (_c *CompetitionEntryCreate) SetDisposition(v competitionentry.Disposition)
 	return _c
 }
 
+// SetUploadClosedAt sets the "upload_closed_at" field.
+func (_c *CompetitionEntryCreate) SetUploadClosedAt(v time.Time) *CompetitionEntryCreate {
+	_c.mutation.SetUploadClosedAt(v)
+	return _c
+}
+
+// SetNillableUploadClosedAt sets the "upload_closed_at" field if the given value is not nil.
+func (_c *CompetitionEntryCreate) SetNillableUploadClosedAt(v *time.Time) *CompetitionEntryCreate {
+	if v != nil {
+		_c.SetUploadClosedAt(*v)
+	}
+	return _c
+}
+
 // SetRevision sets the "revision" field.
 func (_c *CompetitionEntryCreate) SetRevision(v int) *CompetitionEntryCreate {
 	_c.mutation.SetRevision(v)
@@ -261,6 +275,10 @@ func (_c *CompetitionEntryCreate) createSpec() (*CompetitionEntry, *sqlgraph.Cre
 	if value, ok := _c.mutation.Disposition(); ok {
 		_spec.SetField(competitionentry.FieldDisposition, field.TypeEnum, value)
 		_node.Disposition = value
+	}
+	if value, ok := _c.mutation.UploadClosedAt(); ok {
+		_spec.SetField(competitionentry.FieldUploadClosedAt, field.TypeTime, value)
+		_node.UploadClosedAt = value
 	}
 	if value, ok := _c.mutation.Revision(); ok {
 		_spec.SetField(competitionentry.FieldRevision, field.TypeInt, value)

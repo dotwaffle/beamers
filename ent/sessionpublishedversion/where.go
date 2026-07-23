@@ -100,6 +100,11 @@ func MinimumDurationSeconds(v int) predicate.SessionPublishedVersion {
 	return predicate.SessionPublishedVersion(sql.FieldEQ(FieldMinimumDurationSeconds, v))
 }
 
+// UploadDeadline applies equality check predicate on the "upload_deadline" field. It's identical to UploadDeadlineEQ.
+func UploadDeadline(v time.Time) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldEQ(FieldUploadDeadline, v))
+}
+
 // SubmissionDeadline applies equality check predicate on the "submission_deadline" field. It's identical to SubmissionDeadlineEQ.
 func SubmissionDeadline(v time.Time) predicate.SessionPublishedVersion {
 	return predicate.SessionPublishedVersion(sql.FieldEQ(FieldSubmissionDeadline, v))
@@ -678,6 +683,56 @@ func EndBoundaryIn(vs ...EndBoundary) predicate.SessionPublishedVersion {
 // EndBoundaryNotIn applies the NotIn predicate on the "end_boundary" field.
 func EndBoundaryNotIn(vs ...EndBoundary) predicate.SessionPublishedVersion {
 	return predicate.SessionPublishedVersion(sql.FieldNotIn(FieldEndBoundary, vs...))
+}
+
+// UploadDeadlineEQ applies the EQ predicate on the "upload_deadline" field.
+func UploadDeadlineEQ(v time.Time) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldEQ(FieldUploadDeadline, v))
+}
+
+// UploadDeadlineNEQ applies the NEQ predicate on the "upload_deadline" field.
+func UploadDeadlineNEQ(v time.Time) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldNEQ(FieldUploadDeadline, v))
+}
+
+// UploadDeadlineIn applies the In predicate on the "upload_deadline" field.
+func UploadDeadlineIn(vs ...time.Time) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldIn(FieldUploadDeadline, vs...))
+}
+
+// UploadDeadlineNotIn applies the NotIn predicate on the "upload_deadline" field.
+func UploadDeadlineNotIn(vs ...time.Time) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldNotIn(FieldUploadDeadline, vs...))
+}
+
+// UploadDeadlineGT applies the GT predicate on the "upload_deadline" field.
+func UploadDeadlineGT(v time.Time) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldGT(FieldUploadDeadline, v))
+}
+
+// UploadDeadlineGTE applies the GTE predicate on the "upload_deadline" field.
+func UploadDeadlineGTE(v time.Time) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldGTE(FieldUploadDeadline, v))
+}
+
+// UploadDeadlineLT applies the LT predicate on the "upload_deadline" field.
+func UploadDeadlineLT(v time.Time) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldLT(FieldUploadDeadline, v))
+}
+
+// UploadDeadlineLTE applies the LTE predicate on the "upload_deadline" field.
+func UploadDeadlineLTE(v time.Time) predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldLTE(FieldUploadDeadline, v))
+}
+
+// UploadDeadlineIsNil applies the IsNil predicate on the "upload_deadline" field.
+func UploadDeadlineIsNil() predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldIsNull(FieldUploadDeadline))
+}
+
+// UploadDeadlineNotNil applies the NotNil predicate on the "upload_deadline" field.
+func UploadDeadlineNotNil() predicate.SessionPublishedVersion {
+	return predicate.SessionPublishedVersion(sql.FieldNotNull(FieldUploadDeadline))
 }
 
 // SubmissionDeadlineEQ applies the EQ predicate on the "submission_deadline" field.

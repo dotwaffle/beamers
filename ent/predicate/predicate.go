@@ -12,6 +12,12 @@ type Account func(*sql.Selector)
 // AccountSession is the predicate function for accountsession builders.
 type AccountSession func(*sql.Selector)
 
+// Attachment is the predicate function for attachment builders.
+type Attachment func(*sql.Selector)
+
+// AttachmentVersion is the predicate function for attachmentversion builders.
+type AttachmentVersion func(*sql.Selector)
+
 // AuditEntry is the predicate function for auditentry builders.
 type AuditEntry func(*sql.Selector)
 
@@ -81,6 +87,9 @@ type Migration func(*sql.Selector)
 // PasswordCredential is the predicate function for passwordcredential builders.
 type PasswordCredential func(*sql.Selector)
 
+// ReopenWindow is the predicate function for reopenwindow builders.
+type ReopenWindow func(*sql.Selector)
+
 // Rundown is the predicate function for rundown builders.
 type Rundown func(*sql.Selector)
 
@@ -110,3 +119,6 @@ type TrackDraft func(*sql.Selector)
 
 // TrackPublishedVersion is the predicate function for trackpublishedversion builders.
 type TrackPublishedVersion func(*sql.Selector)
+
+// UploadLink is the predicate function for uploadlink builders.
+type UploadLink func(*sql.Selector)

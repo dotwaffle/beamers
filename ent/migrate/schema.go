@@ -47,9 +47,68 @@ var (
 			},
 		},
 	}
+	// AttachmentsColumns holds the columns for the "attachments" table.
+	AttachmentsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "event_id", Type: field.TypeInt},
+		{Name: "owner_type", Type: field.TypeEnum, Enums: []string{"Presentation", "Entry"}},
+		{Name: "owner_id", Type: field.TypeInt},
+		{Name: "name", Type: field.TypeString, Size: 200},
+		{Name: "created_at", Type: field.TypeTime},
+	}
+	// AttachmentsTable holds the schema information for the "attachments" table.
+	AttachmentsTable = &schema.Table{
+		Name:       "attachments",
+		Columns:    AttachmentsColumns,
+		PrimaryKey: []*schema.Column{AttachmentsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "attachment_event_id_owner_type_owner_id_name",
+				Unique:  true,
+				Columns: []*schema.Column{AttachmentsColumns[1], AttachmentsColumns[2], AttachmentsColumns[3], AttachmentsColumns[4]},
+			},
+		},
+	}
+	// AttachmentVersionsColumns holds the columns for the "attachment_versions" table.
+	AttachmentVersionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "version", Type: field.TypeInt},
+		{Name: "original_filename", Type: field.TypeString, Size: 255},
+		{Name: "media_type", Type: field.TypeString, Nullable: true, Size: 255},
+		{Name: "size_bytes", Type: field.TypeInt64},
+		{Name: "sha256", Type: field.TypeString, Size: 64},
+		{Name: "storage_key", Type: field.TypeString, Size: 200},
+		{Name: "uploader_type", Type: field.TypeEnum, Enums: []string{"UploadLink", "Crew"}},
+		{Name: "uploader_id", Type: field.TypeInt},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "attachment_id", Type: field.TypeInt},
+	}
+	// AttachmentVersionsTable holds the schema information for the "attachment_versions" table.
+	AttachmentVersionsTable = &schema.Table{
+		Name:       "attachment_versions",
+		Columns:    AttachmentVersionsColumns,
+		PrimaryKey: []*schema.Column{AttachmentVersionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "attachment_versions_attachments_versions",
+				Columns:    []*schema.Column{AttachmentVersionsColumns[10]},
+				RefColumns: []*schema.Column{AttachmentsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "attachmentversion_attachment_id_version",
+				Unique:  true,
+				Columns: []*schema.Column{AttachmentVersionsColumns[10], AttachmentVersionsColumns[1]},
+			},
+		},
+	}
 	// AuditEntriesColumns holds the columns for the "audit_entries" table.
 	AuditEntriesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "actor_kind", Type: field.TypeEnum, Enums: []string{"Account", "UploadLink"}, Default: "Account"},
+		{Name: "actor_upload_link_id", Type: field.TypeInt, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "action", Type: field.TypeString, Size: 100},
 		{Name: "target_type", Type: field.TypeString, Size: 100},
@@ -57,7 +116,7 @@ var (
 		{Name: "result", Type: field.TypeEnum, Enums: []string{"Succeeded", "Rejected"}},
 		{Name: "reason", Type: field.TypeString, Nullable: true, Size: 1000},
 		{Name: "note", Type: field.TypeString, Nullable: true, Size: 1000},
-		{Name: "actor_account_id", Type: field.TypeInt},
+		{Name: "actor_account_id", Type: field.TypeInt, Nullable: true},
 	}
 	// AuditEntriesTable holds the schema information for the "audit_entries" table.
 	AuditEntriesTable = &schema.Table{
@@ -67,9 +126,9 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "audit_entries_accounts_audit_entries",
-				Columns:    []*schema.Column{AuditEntriesColumns[8]},
+				Columns:    []*schema.Column{AuditEntriesColumns[10]},
 				RefColumns: []*schema.Column{AccountsColumns[0]},
-				OnDelete:   schema.NoAction,
+				OnDelete:   schema.SetNull,
 			},
 		},
 	}
@@ -90,6 +149,8 @@ var (
 	// CommandReceiptsColumns holds the columns for the "command_receipts" table.
 	CommandReceiptsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "actor_kind", Type: field.TypeEnum, Enums: []string{"Account", "UploadLink"}, Default: "Account"},
+		{Name: "actor_upload_link_id", Type: field.TypeInt, Nullable: true},
 		{Name: "command_id", Type: field.TypeString, Unique: true, Size: 200},
 		{Name: "payload_hash", Type: field.TypeString, Size: 64},
 		{Name: "action", Type: field.TypeString, Size: 100},
@@ -97,7 +158,7 @@ var (
 		{Name: "target_id", Type: field.TypeString, Size: 100},
 		{Name: "outcome_json", Type: field.TypeString},
 		{Name: "created_at", Type: field.TypeTime},
-		{Name: "actor_account_id", Type: field.TypeInt},
+		{Name: "actor_account_id", Type: field.TypeInt, Nullable: true},
 	}
 	// CommandReceiptsTable holds the schema information for the "command_receipts" table.
 	CommandReceiptsTable = &schema.Table{
@@ -107,9 +168,9 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "command_receipts_accounts_command_receipts",
-				Columns:    []*schema.Column{CommandReceiptsColumns[8]},
+				Columns:    []*schema.Column{CommandReceiptsColumns[10]},
 				RefColumns: []*schema.Column{AccountsColumns[0]},
-				OnDelete:   schema.NoAction,
+				OnDelete:   schema.SetNull,
 			},
 		},
 	}
@@ -120,6 +181,7 @@ var (
 		{Name: "public_details", Type: field.TypeString, Nullable: true, Size: 10000},
 		{Name: "crew_notes", Type: field.TypeString, Nullable: true, Size: 10000},
 		{Name: "disposition", Type: field.TypeEnum, Enums: []string{"Pending", "Included", "Rejected"}},
+		{Name: "upload_closed_at", Type: field.TypeTime, Nullable: true},
 		{Name: "revision", Type: field.TypeInt, Default: 1},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "event_id", Type: field.TypeInt},
@@ -133,13 +195,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "competition_entries_events_competition_entries",
-				Columns:    []*schema.Column{CompetitionEntriesColumns[7]},
+				Columns:    []*schema.Column{CompetitionEntriesColumns[8]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "competition_entries_sessions_competition_entries",
-				Columns:    []*schema.Column{CompetitionEntriesColumns[8]},
+				Columns:    []*schema.Column{CompetitionEntriesColumns[9]},
 				RefColumns: []*schema.Column{SessionsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -148,7 +210,7 @@ var (
 			{
 				Name:    "competitionentry_competition_session_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{CompetitionEntriesColumns[8], CompetitionEntriesColumns[6]},
+				Columns: []*schema.Column{CompetitionEntriesColumns[9], CompetitionEntriesColumns[7]},
 			},
 		},
 	}
@@ -697,6 +759,33 @@ var (
 			},
 		},
 	}
+	// ReopenWindowsColumns holds the columns for the "reopen_windows" table.
+	ReopenWindowsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "event_id", Type: field.TypeInt},
+		{Name: "target_type", Type: field.TypeEnum, Enums: []string{"Presentation", "Entry"}},
+		{Name: "target_id", Type: field.TypeInt},
+		{Name: "reason", Type: field.TypeString, Size: 1000},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "closed_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_by_account_id", Type: field.TypeInt},
+		{Name: "revision", Type: field.TypeInt, Default: 1},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// ReopenWindowsTable holds the schema information for the "reopen_windows" table.
+	ReopenWindowsTable = &schema.Table{
+		Name:       "reopen_windows",
+		Columns:    ReopenWindowsColumns,
+		PrimaryKey: []*schema.Column{ReopenWindowsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "reopenwindow_event_id_target_type_target_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{ReopenWindowsColumns[1], ReopenWindowsColumns[2], ReopenWindowsColumns[3], ReopenWindowsColumns[9]},
+			},
+		},
+	}
 	// RundownsColumns holds the columns for the "rundowns" table.
 	RundownsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -798,6 +887,7 @@ var (
 		{Name: "minimum_duration_seconds", Type: field.TypeInt},
 		{Name: "start_boundary", Type: field.TypeEnum, Enums: []string{"Hard", "Soft"}},
 		{Name: "end_boundary", Type: field.TypeEnum, Enums: []string{"Hard", "Soft"}},
+		{Name: "upload_deadline", Type: field.TypeTime, Nullable: true},
 		{Name: "submission_deadline", Type: field.TypeTime, Nullable: true},
 		{Name: "entry_default_disposition", Type: field.TypeEnum, Nullable: true, Enums: []string{"Pending", "Included"}},
 		{Name: "session_id", Type: field.TypeInt, Unique: true},
@@ -810,7 +900,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "session_drafts_sessions_draft",
-				Columns:    []*schema.Column{SessionDraftsColumns[15]},
+				Columns:    []*schema.Column{SessionDraftsColumns[16]},
 				RefColumns: []*schema.Column{SessionsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -832,6 +922,7 @@ var (
 		{Name: "minimum_duration_seconds", Type: field.TypeInt},
 		{Name: "start_boundary", Type: field.TypeEnum, Enums: []string{"Hard", "Soft"}},
 		{Name: "end_boundary", Type: field.TypeEnum, Enums: []string{"Hard", "Soft"}},
+		{Name: "upload_deadline", Type: field.TypeTime, Nullable: true},
 		{Name: "submission_deadline", Type: field.TypeTime, Nullable: true},
 		{Name: "entry_default_disposition", Type: field.TypeEnum, Nullable: true, Enums: []string{"Pending", "Included"}},
 		{Name: "created_at", Type: field.TypeTime},
@@ -845,7 +936,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "session_published_versions_sessions_published_versions",
-				Columns:    []*schema.Column{SessionPublishedVersionsColumns[17]},
+				Columns:    []*schema.Column{SessionPublishedVersionsColumns[18]},
 				RefColumns: []*schema.Column{SessionsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -854,7 +945,7 @@ var (
 			{
 				Name:    "sessionpublishedversion_session_id_published_revision",
 				Unique:  true,
-				Columns: []*schema.Column{SessionPublishedVersionsColumns[17], SessionPublishedVersionsColumns[1]},
+				Columns: []*schema.Column{SessionPublishedVersionsColumns[18], SessionPublishedVersionsColumns[1]},
 			},
 		},
 	}
@@ -988,6 +1079,37 @@ var (
 				Name:    "trackpublishedversion_track_id_published_revision",
 				Unique:  true,
 				Columns: []*schema.Column{TrackPublishedVersionsColumns[5], TrackPublishedVersionsColumns[1]},
+			},
+		},
+	}
+	// UploadLinksColumns holds the columns for the "upload_links" table.
+	UploadLinksColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "target_type", Type: field.TypeEnum, Enums: []string{"Presentation", "Entry"}},
+		{Name: "target_id", Type: field.TypeInt},
+		{Name: "token_hash", Type: field.TypeString, Unique: true, Size: 64},
+		{Name: "revoked_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "event_id", Type: field.TypeInt},
+	}
+	// UploadLinksTable holds the schema information for the "upload_links" table.
+	UploadLinksTable = &schema.Table{
+		Name:       "upload_links",
+		Columns:    UploadLinksColumns,
+		PrimaryKey: []*schema.Column{UploadLinksColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "upload_links_events_upload_links",
+				Columns:    []*schema.Column{UploadLinksColumns[6]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "uploadlink_event_id_target_type_target_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{UploadLinksColumns[6], UploadLinksColumns[1], UploadLinksColumns[2], UploadLinksColumns[5]},
 			},
 		},
 	}
@@ -1145,6 +1267,8 @@ var (
 	Tables = []*schema.Table{
 		AccountsTable,
 		AccountSessionsTable,
+		AttachmentsTable,
+		AttachmentVersionsTable,
 		AuditEntriesTable,
 		BootstrapCredentialsTable,
 		CommandReceiptsTable,
@@ -1168,6 +1292,7 @@ var (
 		LocationPublishedVersionsTable,
 		BeamersSchemaMigrationsTable,
 		PasswordCredentialsTable,
+		ReopenWindowsTable,
 		RundownsTable,
 		SessionsTable,
 		SessionCancellationsTable,
@@ -1178,6 +1303,7 @@ var (
 		TracksTable,
 		TrackDraftsTable,
 		TrackPublishedVersionsTable,
+		UploadLinksTable,
 		SessionDraftLanesTable,
 		SessionDraftLocationsTable,
 		SessionDraftTracksTable,
@@ -1189,6 +1315,7 @@ var (
 
 func init() {
 	AccountSessionsTable.ForeignKeys[0].RefTable = AccountsTable
+	AttachmentVersionsTable.ForeignKeys[0].RefTable = AttachmentsTable
 	AuditEntriesTable.ForeignKeys[0].RefTable = AccountsTable
 	CommandReceiptsTable.ForeignKeys[0].RefTable = AccountsTable
 	CompetitionEntriesTable.ForeignKeys[0].RefTable = EventsTable
@@ -1232,6 +1359,7 @@ func init() {
 	TracksTable.ForeignKeys[0].RefTable = EventsTable
 	TrackDraftsTable.ForeignKeys[0].RefTable = TracksTable
 	TrackPublishedVersionsTable.ForeignKeys[0].RefTable = TracksTable
+	UploadLinksTable.ForeignKeys[0].RefTable = EventsTable
 	SessionDraftLanesTable.ForeignKeys[0].RefTable = SessionDraftsTable
 	SessionDraftLanesTable.ForeignKeys[1].RefTable = LanesTable
 	SessionDraftLocationsTable.ForeignKeys[0].RefTable = SessionDraftsTable

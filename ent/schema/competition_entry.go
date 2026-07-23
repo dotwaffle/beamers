@@ -36,6 +36,7 @@ func (CompetitionEntry) Fields() []ent.Field {
 		field.String("public_details").Optional().MaxLen(10000),
 		field.String("crew_notes").Optional().MaxLen(10000),
 		field.Enum("disposition").Values("Pending", "Included", "Rejected"),
+		field.Time("upload_closed_at").Optional(),
 		field.Int("revision").Default(1).Positive(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 	}

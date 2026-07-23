@@ -151,6 +151,7 @@ type SessionDraftInput struct {
 	MinimumDuration    time.Duration      `json:"minimum_duration"`
 	StartBoundary      Boundary           `json:"start_boundary"`
 	EndBoundary        Boundary           `json:"end_boundary"`
+	UploadDeadline     time.Time          `json:"upload_deadline,omitzero"`
 	SubmissionDeadline time.Time          `json:"submission_deadline,omitzero"`
 	EntryDefault       EntryDisposition   `json:"entry_default_disposition,omitempty"`
 	Lanes              []TargetRef        `json:"lanes"`
@@ -528,6 +529,13 @@ func ValidateSessionScalars(item SessionDraftInput) error {
 	if !validBoundary(item.StartBoundary) || !validBoundary(item.EndBoundary) {
 		return invalid("sessions.boundary", "must be Hard or Soft")
 	}
+	if item.Type == SessionPresentation {
+		if !item.SubmissionDeadline.IsZero() || item.EntryDefault != "" {
+			return invalid("sessions.submission_deadline", "is only valid for a Competition")
+		}
+	} else if !item.UploadDeadline.IsZero() {
+		return invalid("sessions.upload_deadline", "is only valid for a Presentation")
+	}
 	if item.Type == SessionCompetition {
 		if item.SubmissionDeadline.IsZero() {
 			return invalid("sessions.submission_deadline", "is required for a Competition")
@@ -535,7 +543,8 @@ func ValidateSessionScalars(item SessionDraftInput) error {
 		if item.EntryDefault != "" && !validEntryDefault(item.EntryDefault) {
 			return invalid("sessions.entry_default_disposition", "must be Pending or Included")
 		}
-	} else if !item.SubmissionDeadline.IsZero() || item.EntryDefault != "" {
+	} else if item.Type != SessionPresentation &&
+		(!item.SubmissionDeadline.IsZero() || item.EntryDefault != "") {
 		return invalid("sessions.submission_deadline", "is only valid for a Competition")
 	}
 	return nil
@@ -676,8 +685,9 @@ func editDraftParams(actorID int, input EditDraftInput, now time.Time) store.Edi
 			TimingPolicy:           string(item.TimingPolicy),
 			MinimumDurationSeconds: int(item.MinimumDuration / time.Second),
 			StartBoundary:          string(item.StartBoundary), EndBoundary: string(item.EndBoundary),
-			SubmissionDeadline: item.SubmissionDeadline, EntryDefaultDisposition: string(item.EntryDefault),
-			UpdateFields: item.UpdateFields,
+			UploadDeadline: item.UploadDeadline, SubmissionDeadline: item.SubmissionDeadline,
+			EntryDefaultDisposition: string(item.EntryDefault),
+			UpdateFields:            item.UpdateFields,
 		}
 		for _, target := range item.Lanes {
 			created.Lanes = append(created.Lanes, draftTarget(target))
