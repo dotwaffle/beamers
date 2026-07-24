@@ -40,12 +40,14 @@ const (
 
 // Manifest is the independently verifiable archive contract.
 type Manifest struct {
-	FormatVersion  int          `json:"format_version"`
-	Mode           Mode         `json:"mode"`
-	SchemaVersion  int          `json:"schema_version"`
-	CreatedAt      time.Time    `json:"created_at"`
-	DatabaseSHA256 string       `json:"database_sha256"`
-	Attachments    []Attachment `json:"attachments"`
+	FormatVersion              int          `json:"format_version"`
+	Mode                       Mode         `json:"mode"`
+	SchemaVersion              int          `json:"schema_version"`
+	MinimumReaderSchemaVersion int          `json:"minimum_reader_schema_version"`
+	MinimumWriterSchemaVersion int          `json:"minimum_writer_schema_version"`
+	CreatedAt                  time.Time    `json:"created_at"`
+	DatabaseSHA256             string       `json:"database_sha256"`
+	Attachments                []Attachment `json:"attachments"`
 }
 
 // Attachment identifies one immutable Attachment Store object.
@@ -64,11 +66,12 @@ type CreateInput struct {
 	Now            time.Time
 }
 
-// RestoreInput selects one verified Backup and unused local destination.
+// RestoreInput selects one verified Backup and local destination.
 type RestoreInput struct {
 	InputPath      string
 	DataDir        string
 	AttachmentsDir string
+	Replace        bool
 }
 
 // Create writes and verifies one installation Backup.
@@ -157,12 +160,14 @@ func CreateWithStorage(
 		attachments = append(attachments, attachment)
 	}
 	manifest := Manifest{
-		FormatVersion:  formatVersion,
-		Mode:           input.Mode,
-		SchemaVersion:  schemaVersion,
-		CreatedAt:      input.Now.UTC(),
-		DatabaseSHA256: databaseHash,
-		Attachments:    attachments,
+		FormatVersion:              formatVersion,
+		Mode:                       input.Mode,
+		SchemaVersion:              schemaVersion,
+		MinimumReaderSchemaVersion: schemaVersion,
+		MinimumWriterSchemaVersion: schemaVersion,
+		CreatedAt:                  input.Now.UTC(),
+		DatabaseSHA256:             databaseHash,
+		Attachments:                attachments,
 	}
 	stagedArchive := filepath.Join(workDir, "archive")
 	if writeErr := writeArchive(
@@ -226,6 +231,10 @@ func Verify(archivePath string) (Manifest, error) {
 	if manifest.FormatVersion != formatVersion ||
 		manifest.Mode != Sanitized && manifest.Mode != FullFidelity ||
 		manifest.SchemaVersion <= 0 ||
+		manifest.MinimumReaderSchemaVersion <= 0 ||
+		manifest.MinimumReaderSchemaVersion > manifest.SchemaVersion ||
+		manifest.MinimumWriterSchemaVersion <= 0 ||
+		manifest.MinimumWriterSchemaVersion > manifest.SchemaVersion ||
 		database == nil ||
 		!manifestFound {
 		return Manifest{}, errors.New("backup manifest is invalid")
@@ -266,116 +275,13 @@ func Verify(archivePath string) (Manifest, error) {
 	return manifest, nil
 }
 
-// Restore installs one verified Backup into unused local roots.
-func Restore(ctx context.Context, input RestoreInput) (manifest Manifest, returnErr error) {
-	if input.InputPath == "" || input.DataDir == "" {
-		return Manifest{}, errors.New("Restore input and data directory are required")
-	}
-	defaultAttachments := filepath.Join(input.DataDir, "attachments")
-	if input.AttachmentsDir == "" {
-		input.AttachmentsDir = defaultAttachments
-	}
-	externalAttachments := filepath.Clean(input.AttachmentsDir) != filepath.Clean(defaultAttachments)
-	if err := requireAbsent(input.DataDir, "Restore data directory"); err != nil {
-		return Manifest{}, err
-	}
-	if externalAttachments {
-		if err := requireAbsent(input.AttachmentsDir, "Restore Attachment Store"); err != nil {
-			return Manifest{}, err
-		}
-	}
-
-	workDir, err := os.MkdirTemp(filepath.Dir(input.DataDir), ".beamers-restore-*")
-	if err != nil {
-		return Manifest{}, fmt.Errorf("create Restore staging directory: %w", err)
-	}
-	defer func() {
-		returnErr = errors.Join(returnErr, os.RemoveAll(workDir))
-	}()
-	stagedArchive := filepath.Join(workDir, "archive")
-	if copyErr := copyFileExclusive(input.InputPath, stagedArchive); copyErr != nil {
-		return Manifest{}, copyErr
-	}
-	manifest, err = Verify(stagedArchive)
+// Restore prepares and applies one verified Backup without replacing existing state.
+func Restore(ctx context.Context, input RestoreInput) (Manifest, error) {
+	plan, err := PrepareRestore(ctx, input)
 	if err != nil {
 		return Manifest{}, err
 	}
-
-	stagedData := filepath.Join(workDir, "data")
-	if err = os.Mkdir(stagedData, 0o700); err != nil {
-		return Manifest{}, errors.New("create Restore data staging")
-	}
-	stagedAttachments := filepath.Join(stagedData, "attachments")
-	var externalStaging string
-	if externalAttachments {
-		externalStaging, err = os.MkdirTemp(
-			filepath.Dir(input.AttachmentsDir),
-			".beamers-restore-attachments-*",
-		)
-		if err != nil {
-			return Manifest{}, fmt.Errorf("create Restore Attachment staging: %w", err)
-		}
-		defer func() {
-			returnErr = errors.Join(returnErr, os.RemoveAll(externalStaging))
-		}()
-		stagedAttachments = externalStaging
-	}
-	if extractErr := extractRestore(
-		stagedArchive,
-		stagedData,
-		stagedAttachments,
-		manifest,
-	); extractErr != nil {
-		return Manifest{}, extractErr
-	}
-	if validateErr := store.ValidateSnapshot(
-		ctx,
-		filepath.Join(stagedData, "beamers.db"),
-	); validateErr != nil {
-		return Manifest{}, validateErr
-	}
-
-	externalInstalled := false
-	if externalAttachments {
-		if installErr := installTree(
-			stagedAttachments,
-			input.AttachmentsDir,
-			false,
-		); installErr != nil {
-			return Manifest{}, installErr
-		}
-		externalInstalled = true
-	}
-	if err = installTree(stagedData, input.DataDir, true); err != nil {
-		if externalInstalled {
-			return Manifest{}, errors.Join(err, os.RemoveAll(input.AttachmentsDir))
-		}
-		return Manifest{}, err
-	}
-	installed := true
-	defer func() {
-		if returnErr != nil && installed {
-			returnErr = errors.Join(returnErr, os.RemoveAll(input.DataDir))
-			if externalInstalled {
-				returnErr = errors.Join(returnErr, os.RemoveAll(input.AttachmentsDir))
-			}
-		}
-	}()
-	installation, err := store.Open(ctx, input.DataDir)
-	if err != nil {
-		return Manifest{}, err
-	}
-	if startupErr := installation.StartupError(); startupErr != nil {
-		return Manifest{}, errors.Join(startupErr, installation.Close())
-	}
-	if err = installation.Ready(ctx); err != nil {
-		return Manifest{}, errors.Join(err, installation.Close())
-	}
-	if closeErr := installation.Close(); closeErr != nil {
-		return Manifest{}, closeErr
-	}
-	installed = false
-	return manifest, nil
+	return ApplyRestore(ctx, plan.JournalPath)
 }
 
 func extractRestore(
@@ -454,59 +360,6 @@ func extractFile(file *zip.File, destination string) error {
 	if err = output.Close(); err != nil {
 		return errors.New("close Restore entry")
 	}
-	return nil
-}
-
-func installTree(source, destination string, marker bool) (returnErr error) {
-	if err := requireAbsent(destination, "Restore destination"); err != nil {
-		return err
-	}
-	if err := os.Mkdir(destination, 0o700); err != nil {
-		if errors.Is(err, os.ErrExist) {
-			return errors.New("Restore destination already exists")
-		}
-		return errors.New("create Restore destination")
-	}
-	installed := true
-	defer func() {
-		if returnErr != nil && installed {
-			returnErr = errors.Join(returnErr, os.RemoveAll(destination))
-		}
-	}()
-	err := filepath.WalkDir(source, func(foundPath string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		relative, relativeErr := filepath.Rel(source, foundPath)
-		if relativeErr != nil || relative == "." {
-			return relativeErr
-		}
-		target := filepath.Join(destination, relative)
-		if entry.IsDir() {
-			return os.Mkdir(target, 0o700)
-		}
-		if !entry.Type().IsRegular() {
-			return errors.New("Restore staging contains a non-regular file")
-		}
-		return os.Link(foundPath, target) //nolint:gosec // Private process-owned staging root.
-	})
-	if err != nil {
-		return fmt.Errorf("install Restore files: %w", err)
-	}
-	if marker {
-		lock, createErr := os.OpenFile( //nolint:gosec // Newly created unused destination root.
-			filepath.Join(destination, ".beamers.lock"),
-			os.O_CREATE|os.O_EXCL|os.O_WRONLY,
-			0o600,
-		)
-		if createErr != nil {
-			return errors.New("create restored installation marker")
-		}
-		if closeErr := lock.Close(); closeErr != nil {
-			return errors.New("close restored installation marker")
-		}
-	}
-	installed = false
 	return nil
 }
 

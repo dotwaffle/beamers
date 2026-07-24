@@ -365,6 +365,18 @@ func (installation *SQLite) SchemaVersion() int {
 	return installation.migrations[len(installation.migrations)-1].version
 }
 
+// CurrentSchemaVersion returns the latest committed schema understood by this binary.
+func CurrentSchemaVersion() (int, error) {
+	migrations, err := loadMigrations()
+	if err != nil {
+		return 0, fmt.Errorf("load committed migrations: %w", err)
+	}
+	if len(migrations) == 0 {
+		return 0, ErrUnsupportedSchema
+	}
+	return migrations[len(migrations)-1].version, nil
+}
+
 // Close closes storage and releases the installation's process lock.
 func (installation *SQLite) Close() error {
 	if installation == nil {

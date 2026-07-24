@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -160,6 +161,151 @@ func TestVerifyRejectsTamperedAttachment(t *testing.T) {
 	rewriteZIPEntry(t, archivePath, tamperedPath, attachmentArchivePath(t, storageKey), []byte("tampered"))
 	if _, err := Verify(tamperedPath); err == nil {
 		t.Fatal("tampered Attachment unexpectedly verified")
+	}
+}
+
+func TestRestoreReplacesExistingInstallationThroughDurableJournal(t *testing.T) {
+	ctx := t.Context()
+	sourceDataDir := filepath.Join(t.TempDir(), "source")
+	if err := store.Initialize(ctx, sourceDataDir); err != nil {
+		t.Fatalf("initialize source installation: %v", err)
+	}
+	archivePath := filepath.Join(t.TempDir(), "backup.zip")
+	if _, err := Create(ctx, CreateInput{
+		DataDir: sourceDataDir, OutputPath: archivePath, Mode: Sanitized,
+	}); err != nil {
+		t.Fatalf("create Backup: %v", err)
+	}
+
+	targetDataDir := filepath.Join(t.TempDir(), "target")
+	if err := store.Initialize(ctx, targetDataDir); err != nil {
+		t.Fatalf("initialize target installation: %v", err)
+	}
+	oldMarker := filepath.Join(targetDataDir, "old-generation")
+	if err := os.WriteFile(oldMarker, []byte("old"), 0o600); err != nil {
+		t.Fatalf("write old-generation marker: %v", err)
+	}
+
+	plan, err := PrepareRestore(ctx, RestoreInput{
+		InputPath: archivePath,
+		DataDir:   targetDataDir,
+		Replace:   true,
+	})
+	if err != nil {
+		t.Fatalf("prepare Restore: %v", err)
+	}
+	if plan.JournalPath == "" || plan.DataQuarantine == "" {
+		t.Fatalf("Restore plan lacks exact durable paths: %+v", plan)
+	}
+	if _, err = os.Stat(oldMarker); err != nil {
+		t.Fatalf("Restore preview changed current installation: %v", err)
+	}
+
+	if _, err = ApplyRestore(ctx, plan.JournalPath); err != nil {
+		t.Fatalf("apply Restore: %v", err)
+	}
+	if _, err = os.Stat(oldMarker); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("old marker remains in restored installation: %v", err)
+	}
+	if content, readErr := os.ReadFile(
+		filepath.Join(plan.DataQuarantine, "old-generation"),
+	); readErr != nil || string(content) != "old" {
+		t.Fatalf("quarantined old generation = %q, %v", content, readErr)
+	}
+	if _, err = os.Stat(plan.JournalPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("completed Restore journal remains: %v", err)
+	}
+	restored, err := store.Open(ctx, targetDataDir)
+	if err != nil {
+		t.Fatalf("open restored installation: %v", err)
+	}
+	if err = errors.Join(restored.Ready(ctx), restored.Close()); err != nil {
+		t.Fatalf("restored installation readiness: %v", err)
+	}
+}
+
+func TestRestoreRecoversInterruptedCrossFilesystemCutover(t *testing.T) {
+	ctx := t.Context()
+	sourceDataDir := filepath.Join(t.TempDir(), "source")
+	if err := store.Initialize(ctx, sourceDataDir); err != nil {
+		t.Fatalf("initialize source installation: %v", err)
+	}
+	sourceAttachmentsDir := filepath.Join(t.TempDir(), "source-attachments")
+	content := []byte("new attachment")
+	digest := fmt.Sprintf("%x", sha256.Sum256(content))
+	storageKey := filepath.Join("sha256", digest[:2], digest)
+	sourceAttachment := filepath.Join(sourceAttachmentsDir, storageKey)
+	if err := os.MkdirAll(filepath.Dir(sourceAttachment), 0o700); err != nil {
+		t.Fatalf("prepare source Attachment directory: %v", err)
+	}
+	if err := os.WriteFile(sourceAttachment, content, 0o600); err != nil {
+		t.Fatalf("write source Attachment: %v", err)
+	}
+	seedBackupState(t, ctx, sourceDataDir, storageKey, digest, int64(len(content)))
+	archivePath := filepath.Join(t.TempDir(), "backup.zip")
+	if _, err := Create(ctx, CreateInput{
+		DataDir:        sourceDataDir,
+		AttachmentsDir: sourceAttachmentsDir,
+		OutputPath:     archivePath,
+		Mode:           Sanitized,
+	}); err != nil {
+		t.Fatalf("create Backup: %v", err)
+	}
+
+	targetDataDir := filepath.Join(t.TempDir(), "target")
+	if err := store.Initialize(ctx, targetDataDir); err != nil {
+		t.Fatalf("initialize target installation: %v", err)
+	}
+	targetAttachmentsDir := filepath.Join(t.TempDir(), "target-attachments")
+	if err := os.Mkdir(targetAttachmentsDir, 0o700); err != nil {
+		t.Fatalf("create target Attachment Store: %v", err)
+	}
+	oldAttachment := filepath.Join(targetAttachmentsDir, "old")
+	if err := os.WriteFile(oldAttachment, []byte("old attachment"), 0o600); err != nil {
+		t.Fatalf("write old Attachment: %v", err)
+	}
+
+	plan, err := PrepareRestore(ctx, RestoreInput{
+		InputPath:      archivePath,
+		DataDir:        targetDataDir,
+		AttachmentsDir: targetAttachmentsDir,
+		Replace:        true,
+	})
+	if err != nil {
+		t.Fatalf("prepare Restore: %v", err)
+	}
+	interrupted := errors.New("simulated interruption")
+	if _, err = applyRestore(ctx, plan.JournalPath, func(phase restorePhase) error {
+		if phase == restoreAttachmentsInstalled {
+			return interrupted
+		}
+		return nil
+	}); !errors.Is(err, interrupted) {
+		t.Fatalf("interrupted Restore error = %v", err)
+	}
+
+	if err = RecoverRestore(targetDataDir); err != nil {
+		t.Fatalf("recover interrupted Restore: %v", err)
+	}
+	if content, err = os.ReadFile(oldAttachment); err != nil ||
+		string(content) != "old attachment" {
+		t.Fatalf("recovered Attachment = %q, %v", content, err)
+	}
+	if _, err = os.Stat(filepath.Join(targetAttachmentsDir, storageKey)); !errors.Is(
+		err,
+		os.ErrNotExist,
+	) {
+		t.Fatalf("mixed-generation Attachment remains: %v", err)
+	}
+	recovered, err := store.Open(ctx, targetDataDir)
+	if err != nil {
+		t.Fatalf("open recovered installation: %v", err)
+	}
+	if err = errors.Join(recovered.Ready(ctx), recovered.Close()); err != nil {
+		t.Fatalf("recovered installation readiness: %v", err)
+	}
+	if _, err = os.Stat(archivePath); err != nil {
+		t.Fatalf("Restore recovery removed input Backup: %v", err)
 	}
 }
 

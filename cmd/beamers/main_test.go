@@ -2,12 +2,14 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/backup"
 	"github.com/dotwaffle/beamers/internal/operations"
 )
 
@@ -154,5 +156,55 @@ func TestBackupCommandCreatesAndVerifiesSanitizedArchive(t *testing.T) {
 		&stderr,
 	); code == 0 {
 		t.Fatal("second Restore unexpectedly replaced its target")
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if code := run(
+		t.Context(),
+		[]string{
+			"restore", "preview",
+			"--input", archivePath,
+			"--data-dir", restoredDataDir,
+		},
+		&stdout,
+		&stderr,
+	); code != 0 {
+		t.Fatalf("preview replacement exit = %d, stderr = %s", code, stderr.String())
+	}
+	var plan backup.RestorePlan
+	if err = json.Unmarshal(stdout.Bytes(), &plan); err != nil {
+		t.Fatalf("decode replacement plan: %v", err)
+	}
+	if plan.JournalPath == "" || plan.DataQuarantine == "" {
+		t.Fatalf("replacement plan = %+v", plan)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if code := run(
+		t.Context(),
+		[]string{"restore", "apply", "--journal", plan.JournalPath},
+		&stdout,
+		&stderr,
+	); code == 0 {
+		t.Fatal("unacknowledged replacement unexpectedly applied")
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if code := run(
+		t.Context(),
+		[]string{
+			"restore", "apply",
+			"--journal", plan.JournalPath,
+			"--acknowledge-replacement",
+		},
+		&stdout,
+		&stderr,
+	); code != 0 {
+		t.Fatalf("apply replacement exit = %d, stderr = %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "restored Sanitized Backup") {
+		t.Fatalf("replacement output = %q", stdout.String())
 	}
 }

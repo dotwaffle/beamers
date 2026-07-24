@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -67,6 +68,14 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 }
 
 func runRestore(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	if len(args) > 0 {
+		switch args[0] {
+		case "preview":
+			return runRestorePreview(ctx, args[1:], stdout, stderr)
+		case "apply":
+			return runRestoreApply(ctx, args[1:], stdout, stderr)
+		}
+	}
 	flags := flag.NewFlagSet("restore", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	input := flags.String("input", "", "Backup archive path")
@@ -91,6 +100,60 @@ func runRestore(ctx context.Context, args []string, stdout, stderr io.Writer) er
 		return err
 	}
 	_, err = fmt.Fprintf(stdout, "restored %s Backup into %s\n", manifest.Mode, *dataDir)
+	return err
+}
+
+func runRestorePreview(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	flags := flag.NewFlagSet("restore preview", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	input := flags.String("input", "", "Backup archive path")
+	dataDir := flags.String("data-dir", "", "installation data directory to replace")
+	attachmentsDir := flags.String(
+		"attachments-dir",
+		"",
+		"Attachment Store root (default: DATA-DIR/attachments)",
+	)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 {
+		return errors.New("restore preview accepts no positional arguments")
+	}
+	plan, err := operations.PrepareRestore(ctx, backup.RestoreInput{
+		InputPath:      *input,
+		DataDir:        *dataDir,
+		AttachmentsDir: *attachmentsDir,
+		Replace:        true,
+	})
+	if err != nil {
+		return err
+	}
+	return json.NewEncoder(stdout).Encode(plan)
+}
+
+func runRestoreApply(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	flags := flag.NewFlagSet("restore apply", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	journal := flags.String("journal", "", "prepared Restore journal path")
+	acknowledge := flags.Bool(
+		"acknowledge-replacement",
+		false,
+		"acknowledge that current installation state will move to quarantine",
+	)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 {
+		return errors.New("restore apply accepts no positional arguments")
+	}
+	if !*acknowledge {
+		return errors.New("restore replacement acknowledgment is required")
+	}
+	manifest, err := operations.ApplyRestore(ctx, *journal)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(stdout, "restored %s Backup from prepared journal\n", manifest.Mode)
 	return err
 }
 

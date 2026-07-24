@@ -3,6 +3,7 @@ package operations
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"time"
 
@@ -42,6 +43,19 @@ func RestoreBackup(
 	input backup.RestoreInput,
 ) (backup.Manifest, error) {
 	return backup.Restore(ctx, input)
+}
+
+// PrepareRestore verifies, stages, and persists an exact replacement plan.
+func PrepareRestore(
+	ctx context.Context,
+	input backup.RestoreInput,
+) (backup.RestorePlan, error) {
+	return backup.PrepareRestore(ctx, input)
+}
+
+// ApplyRestore executes one acknowledged replacement plan.
+func ApplyRestore(ctx context.Context, journalPath string) (backup.Manifest, error) {
+	return backup.ApplyRestore(ctx, journalPath)
 }
 
 var (
@@ -98,6 +112,11 @@ func OpenInstallationWithConfig(
 ) (*Installation, error) {
 	if config.AttachmentsDir == "" {
 		config.AttachmentsDir = filepath.Join(config.DataDir, "attachments")
+	}
+	if config.DataDir != "" {
+		if err := backup.RecoverRestore(config.DataDir); err != nil {
+			return nil, fmt.Errorf("recover interrupted Restore: %w", err)
+		}
 	}
 	storage, err := store.Open(ctx, config.DataDir)
 	if err != nil {
