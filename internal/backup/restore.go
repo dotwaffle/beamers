@@ -328,8 +328,8 @@ func applyRestoreWithOptions(
 			"forced unsupported Restore requires repeated acknowledgment that it makes no safety claim",
 		)
 	}
-	if err = validatePreparedRestore(ctx, journal); err != nil {
-		return Manifest{}, err
+	if preparedErr := validatePreparedRestore(ctx, journal); preparedErr != nil {
+		return Manifest{}, preparedErr
 	}
 	if journal.Plan.ReplacesData {
 		current, openErr := store.Open(ctx, journal.Plan.DataDir)
@@ -435,8 +435,11 @@ func validatePreparedRestore(ctx context.Context, journal restoreJournal) error 
 	if err != nil || databaseHash != manifest.DatabaseSHA256 {
 		return errors.Join(err, errors.New("staged Restore database integrity check failed"))
 	}
-	if err = validateStagedAttachments(journal.StagedAttachments, manifest.Attachments); err != nil {
-		return err
+	if attachmentsErr := validateStagedAttachments(
+		journal.StagedAttachments,
+		manifest.Attachments,
+	); attachmentsErr != nil {
+		return attachmentsErr
 	}
 	if journal.Plan.ForcedUnsupported {
 		inspection, inspectErr := store.InspectUnsupportedSnapshot(ctx, databasePath)
