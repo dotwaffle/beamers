@@ -465,23 +465,92 @@ func (service *Service) reconcileProgressivePublication(
 	now time.Time,
 ) error {
 	for range 2 {
-		transaction, err := service.storage.BeginCommand(actor.Context(ctx))
+		channel, err := service.storage.LoadProgramChannelAt(
+			actor.Context(ctx), eventID, sessionID, now,
+		)
 		if err != nil {
 			return err
 		}
-		channel, err := transaction.LoadProgramChannelAt(
-			actor.Context(ctx), eventID, sessionID, now,
+		states := channelResultStates(channel.Items)
+		if len(states) == 0 {
+			return nil
+		}
+		plan, err := service.storage.LoadPrizegivingPlan(
+			actor.Context(ctx), eventID, sessionID,
 		)
-		if err == nil && hasResultItems(channel.Items) {
-			err = advanceProgressivePublication(
-				ctx, actor, eventID, sessionID, now, transaction, channel,
-			)
+		if err != nil {
+			return err
 		}
-		if err == nil {
-			err = transaction.Commit()
-		} else {
-			_ = transaction.Rollback()
+		if !plan.Locked ||
+			plan.ReleasePolicy != prizegivingvalue.ReleaseProgressiveOnReveal {
+			return nil
 		}
+		current, err := service.storage.LoadResultsPublication(
+			actor.Context(ctx),
+			eventID,
+			store.ResultsPublicationPrizegiving,
+			sessionID,
+		)
+		if err != nil {
+			return err
+		}
+		if !progressivePublicationNeeded(channel.Items, current) {
+			return nil
+		}
+		payload, err := json.Marshal(states)
+		if err != nil {
+			return errors.New("encode Progressive Results reconciliation")
+		}
+		digest := command.PayloadHash(string(payload))
+		identity := store.CommandIdentity{
+			ActorAccountID: actor.ID,
+			CommandID:      "reconcile-progressive-results-" + digest,
+			PayloadHash:    digest,
+			Action:         "ReconcileProgressiveResultsPublication",
+			TargetType:     "Session",
+			TargetID:       strconv.Itoa(sessionID),
+			Now:            now,
+		}
+		_, err = command.Execute(
+			actor.Context(ctx),
+			command.Plan[results.Publication]{
+				Storage: service.storage, Identity: identity,
+				Replay: func(outcome string) (results.Publication, error) {
+					var publication results.Publication
+					if decodeErr := store.DecodeCommandReceipt(
+						outcome,
+						&publication,
+					); decodeErr != nil {
+						return results.Publication{}, decodeErr
+					}
+					return publication, nil
+				},
+				Apply: func(
+					transaction *store.CommandTx,
+				) (command.Execution[results.Publication], error) {
+					updated, _, advanceErr := results.AdvancePrizegivingPublication(
+						actor.Context(ctx),
+						actor,
+						transaction,
+						eventID,
+						sessionID,
+						now,
+						channel,
+						results.PrizegivingPublicationTrigger{},
+					)
+					if advanceErr != nil {
+						return command.Execution[results.Publication]{}, advanceErr
+					}
+					encoded, encodeErr := json.Marshal(updated)
+					if encodeErr != nil {
+						return command.Execution[results.Publication]{}, errors.New(
+							"encode Progressive Results reconciliation outcome",
+						)
+					}
+					return command.Success(updated, string(encoded)), nil
+				},
+			},
+		)
 		if !errors.Is(err, store.ErrResultsPublicationRevision) {
 			return err
 		}
@@ -489,13 +558,47 @@ func (service *Service) reconcileProgressivePublication(
 	return store.ErrResultsPublicationRevision
 }
 
-func hasResultItems(items []store.ProgramItem) bool {
+func progressivePublicationNeeded(
+	items []store.ProgramItem,
+	current store.ResultsPublication,
+) bool {
+	released := make(
+		map[store.PrizegivingResultItemRef]struct{},
+		len(current.Items),
+	)
+	for _, item := range current.Items {
+		released[item] = struct{}{}
+	}
 	for _, item := range items {
-		if item.Result != nil {
+		if item.Result == nil ||
+			item.Result.Release != prizegivingvalue.ReleaseReady {
+			continue
+		}
+		if _, ok := released[item.Result.Ref]; !ok {
 			return true
 		}
 	}
 	return false
+}
+
+func channelResultStates(items []store.ProgramItem) []store.PrizegivingStageState {
+	states := make([]store.PrizegivingStageState, 0, len(items))
+	for _, item := range items {
+		if item.Result == nil {
+			continue
+		}
+		states = append(states, store.PrizegivingStageState{
+			Ref:               item.Result.Ref,
+			Status:            item.Result.Status,
+			Release:           item.Result.Release,
+			TakenAt:           item.Result.TakenAt,
+			RevealStartedAt:   item.Result.RevealStartedAt,
+			RevealDuration:    item.Result.RevealDuration,
+			RevealCompletedAt: item.Result.RevealCompletedAt,
+			SkippedAt:         item.Result.SkippedAt,
+		})
+	}
+	return states
 }
 
 // Control applies one explicit process-local ownership transition.
@@ -1101,96 +1204,17 @@ func advanceProgressivePublication(
 	transaction *store.CommandTx,
 	channel store.ProgramChannelState,
 ) error {
-	plan, err := transaction.LoadPrizegivingPlan(
+	_, _, err := results.AdvancePrizegivingPublication(
 		actor.Context(ctx),
+		actor,
+		transaction,
 		eventID,
 		sessionID,
-	)
-	if err != nil {
-		return err
-	}
-	if !plan.Locked ||
-		plan.ReleasePolicy != prizegivingvalue.ReleaseProgressiveOnReveal {
-		return nil
-	}
-	current, err := transaction.LoadResultsPublication(
-		actor.Context(ctx),
-		eventID,
-		store.ResultsPublicationPrizegiving,
-		sessionID,
-	)
-	if err != nil {
-		return err
-	}
-	next, changed, err := results.AdvancePublication(results.PublicationInput{
-		Policy:  plan.ReleasePolicy,
-		Order:   publicationOrder(plan.Lock.PublicationOrder),
-		States:  publicationStates(channel.Items),
-		Current: publicationState(current),
-	})
-	if err != nil || !changed {
-		return err
-	}
-	_, err = transaction.AppendResultsPublication(
-		actor.Context(ctx),
-		store.AppendResultsPublicationParams{
-			EventID: eventID, Scope: store.ResultsPublicationPrizegiving,
-			ScopeSessionID: sessionID, ExpectedRevision: current.Revision,
-			Policy: plan.ReleasePolicy,
-			Status: store.ResultsPublicationStatus(next.Status),
-			Items:  publicationItems(next.Items),
-			Lock:   plan.Lock, CreatedByAccountID: actor.ID, Now: now,
-		},
+		now,
+		channel,
+		results.PrizegivingPublicationTrigger{},
 	)
 	return err
-}
-
-func publicationOrder(
-	values []store.PrizegivingResultItemRef,
-) []results.ResultItemRef {
-	result := make([]results.ResultItemRef, 0, len(values))
-	for _, value := range values {
-		result = append(result, results.ResultItemRef{
-			Kind:                 results.ResultItemKind(value.Kind),
-			CompetitionSessionID: value.CompetitionSessionID,
-			AwardKey:             value.AwardKey, DisplayOrder: value.DisplayOrder,
-		})
-	}
-	return result
-}
-
-func publicationStates(
-	items []store.ProgramItem,
-) []results.ResultItemStageState {
-	states := make([]results.ResultItemStageState, 0, len(items))
-	for _, item := range items {
-		if item.Result != nil {
-			states = append(states, resultItemStageState(item))
-		}
-	}
-	return states
-}
-
-func publicationState(value store.ResultsPublication) results.Publication {
-	return results.Publication{
-		Revision: value.Revision,
-		Status:   results.PublicationStatus(value.Status),
-		Items:    publicationOrder(value.Items),
-	}
-}
-
-func publicationItems(
-	values []results.ResultItemRef,
-) []store.PrizegivingResultItemRef {
-	result := make([]store.PrizegivingResultItemRef, 0, len(values))
-	for _, value := range values {
-		result = append(result, store.PrizegivingResultItemRef{
-			Kind:                 prizegivingvalue.ItemKind(value.Kind),
-			CompetitionSessionID: value.CompetitionSessionID,
-			AwardKey:             value.AwardKey, DisplayOrder: value.DisplayOrder,
-		})
-	}
-	return result
 }
 
 func validateResultAction(

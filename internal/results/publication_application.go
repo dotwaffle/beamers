@@ -153,7 +153,7 @@ func (service *Service) ReleaseStandaloneResults(
 			if current.Status == store.ResultsPublicationFinal {
 				return publicationExecution(publicationFromStore(current))
 			}
-			draft, loadErr := transaction.LoadStandaloneResultsReleaseState(
+			state, loadErr := transaction.LoadStandaloneResultsReleaseState(
 				actor.Context(ctx),
 				input.EventID,
 				input.CompetitionSessionID,
@@ -161,12 +161,20 @@ func (service *Service) ReleaseStandaloneResults(
 			if loadErr != nil {
 				return command.Execution[Publication]{}, loadErr
 			}
-			if draft.Revision == 0 || draft.Disposition == string(Pending) || !draft.Ready {
+			draft := state.Draft
+			if draft.Revision == 0 || state.ResolutionRequired {
 				return command.Execution[Publication]{}, ErrResultsPublicationRequired
 			}
 			kind := ResultItemCompetition
-			if draft.Disposition == string(NoPublicResults) {
+			switch Disposition(draft.Disposition) {
+			case Publish:
+				if !draft.Ready {
+					return command.Execution[Publication]{}, ErrResultsPublicationRequired
+				}
+			case NoPublicResults:
 				kind = ResultItemNoPublicResults
+			default:
+				return command.Execution[Publication]{}, ErrResultsPublicationRequired
 			}
 			ref := ResultItemRef{
 				Kind:                 kind,

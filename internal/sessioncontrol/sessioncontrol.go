@@ -416,6 +416,15 @@ func (service *Service) End(
 			if endErr != nil {
 				return ended, endErr
 			}
+			if _, planErr := transaction.LoadPrizegivingPlan(
+				actor.Context(ctx),
+				input.EventID,
+				input.SessionID,
+			); errors.Is(planErr, store.ErrPrizegivingSession) {
+				return ended, nil
+			} else if planErr != nil {
+				return store.LiveSessionState{}, planErr
+			}
 			channel, loadErr := transaction.LoadProgramChannelAt(
 				actor.Context(ctx),
 				input.EventID,

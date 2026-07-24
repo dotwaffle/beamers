@@ -335,6 +335,47 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 	}
 }
 
+func TestStandaloneNoPublicResultsReleaseDoesNotRequireReadyReview(t *testing.T) {
+	storage, actor, eventID, _, _ := openPrizegivingApplicationTest(t)
+	now := func() time.Time {
+		return time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
+	}
+	_, competitionID := publishPrizegivingSessions(
+		t,
+		storage,
+		actor,
+		eventID,
+		now,
+	)
+	service, err := results.New(storage, now)
+	if err != nil {
+		t.Fatalf("create Results service: %v", err)
+	}
+	if _, err = service.Save(t.Context(), actor, results.SaveInput{
+		EventID: eventID, SessionID: competitionID,
+		CommandID:      "save-standalone-no-public-results",
+		Disposition:    results.NoPublicResults,
+		NoPublicReason: "organizer decision",
+		Score:          results.ScorePolicy{Type: results.None},
+	}); err != nil {
+		t.Fatalf("save standalone No Public Results: %v", err)
+	}
+	released, err := service.ReleaseStandaloneResults(
+		t.Context(),
+		actor,
+		results.ReleaseStandaloneResultsInput{
+			EventID: eventID, CompetitionSessionID: competitionID,
+			CommandID: "release-standalone-no-public-results",
+		},
+	)
+	if err != nil ||
+		released.Status != results.ResultsPublicationFinal ||
+		len(released.Items) != 1 ||
+		released.Items[0].Kind != results.ResultItemNoPublicResults {
+		t.Fatalf("release standalone No Public Results = %+v, %v", released, err)
+	}
+}
+
 func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 	storage, actor, eventID, authentication, sessionToken :=
 		openPrizegivingApplicationTest(t)
@@ -617,6 +658,40 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 		len(progressive.Items) != 1 ||
 		progressive.Items[0].Kind != "CompetitionResults" {
 		t.Fatalf("Progressive Publication after Reveal = %+v, %v", progressive, err)
+	}
+	audits, err := storage.ListAuditEntries(actor.Context(t.Context()))
+	if err != nil {
+		t.Fatalf("list Progressive Publication Audit Entries: %v", err)
+	}
+	reconciliations := 0
+	for _, audit := range audits {
+		if audit.Action == "ReconcileProgressiveResultsPublication" {
+			reconciliations++
+		}
+	}
+	if reconciliations != 1 {
+		t.Fatalf("Progressive Publication Audit Entries = %d, want 1", reconciliations)
+	}
+	if _, err = programService.Current(
+		t.Context(),
+		actor,
+		eventID,
+		ceremonyID,
+	); err != nil {
+		t.Fatalf("repeat current Program state: %v", err)
+	}
+	audits, err = storage.ListAuditEntries(actor.Context(t.Context()))
+	if err != nil {
+		t.Fatalf("relist Progressive Publication Audit Entries: %v", err)
+	}
+	reconciliations = 0
+	for _, audit := range audits {
+		if audit.Action == "ReconcileProgressiveResultsPublication" {
+			reconciliations++
+		}
+	}
+	if reconciliations != 1 {
+		t.Fatalf("replayed Progressive Publication Audit Entries = %d, want 1", reconciliations)
 	}
 	replayed, err := programService.ActOnResult(
 		t.Context(),

@@ -151,7 +151,7 @@ type PrizegivingDefaultOrderState struct {
 func (transaction *CommandTx) LoadStandaloneResultsReleaseState(
 	ctx context.Context,
 	eventID, competitionSessionID int,
-) (CompetitionResultsDraft, error) {
+) (PrizegivingCompetitionPreflightState, error) {
 	found, err := transaction.transaction.Session.Query().
 		Where(
 			session.IDEQ(competitionSessionID),
@@ -159,13 +159,13 @@ func (transaction *CommandTx) LoadStandaloneResultsReleaseState(
 		).
 		Only(systemContext(ctx))
 	if err != nil {
-		return CompetitionResultsDraft{}, ErrCompetitionPrizegivingAssignment
+		return PrizegivingCompetitionPreflightState{}, ErrCompetitionPrizegivingAssignment
 	}
 	version, err := found.QueryPublishedVersions().
 		Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).
 		First(systemContext(ctx))
 	if err != nil || version.Type != sessionpublishedversion.TypeCompetition {
-		return CompetitionResultsDraft{}, ErrCompetitionPrizegivingAssignment
+		return PrizegivingCompetitionPreflightState{}, ErrCompetitionPrizegivingAssignment
 	}
 	assigned, err := transaction.transaction.PrizegivingCompetition.Query().
 		Where(
@@ -173,19 +173,38 @@ func (transaction *CommandTx) LoadStandaloneResultsReleaseState(
 		).
 		Exist(systemContext(ctx))
 	if err != nil {
-		return CompetitionResultsDraft{}, opaqueError(
+		return PrizegivingCompetitionPreflightState{}, opaqueError(
 			"check standalone Competition assignment",
 			err,
 		)
 	}
 	if assigned {
-		return CompetitionResultsDraft{}, ErrCompetitionPrizegivingAssignment
+		return PrizegivingCompetitionPreflightState{}, ErrCompetitionPrizegivingAssignment
 	}
-	return transaction.LoadCompetitionResultsDraft(
+	draft, err := transaction.LoadCompetitionResultsDraft(
 		ctx,
 		eventID,
 		competitionSessionID,
 	)
+	if err != nil {
+		return PrizegivingCompetitionPreflightState{}, err
+	}
+	resolutionRequired, err := transaction.transaction.CompetitionEntry.Query().
+		Where(
+			competitionentry.EventIDEQ(eventID),
+			competitionentry.CompetitionSessionIDEQ(competitionSessionID),
+			competitionentry.ResolutionRequiredEQ(true),
+		).
+		Exist(systemContext(ctx))
+	if err != nil {
+		return PrizegivingCompetitionPreflightState{}, opaqueError(
+			"load standalone Results required resolutions",
+			err,
+		)
+	}
+	return PrizegivingCompetitionPreflightState{
+		Draft: draft, ResolutionRequired: resolutionRequired,
+	}, nil
 }
 
 // LoadPrizegivingPlan returns one designated Prizegiving's current plan.
@@ -273,6 +292,7 @@ func (transaction *CommandTx) LoadPrizegivingPlan(
 	ctx context.Context,
 	eventID, ceremonySessionID int,
 ) (PrizegivingPlan, error) {
+	ctx = systemContext(ctx)
 	found, err := transaction.transaction.Prizegiving.Query().
 		Where(
 			prizegiving.EventIDEQ(eventID),

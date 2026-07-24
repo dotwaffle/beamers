@@ -4,6 +4,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/dotwaffle/beamers/ent/competitionentry"
 )
 
 func TestResultsPublicationAppendIsImmutableAndRevisionChecked(t *testing.T) {
@@ -83,5 +85,42 @@ func TestResultsPublicationAppendIsImmutableAndRevisionChecked(t *testing.T) {
 	}
 	if rollbackErr := stale.Rollback(); rollbackErr != nil {
 		t.Fatalf("roll back stale Results Publication: %v", rollbackErr)
+	}
+}
+
+func TestStandaloneResultsReleaseStateIncludesRequiredEntryResolution(t *testing.T) {
+	client := openEntTestClient(t)
+	installation := &SQLite{client: client}
+	event := createSchemaTestEvent(t, client)
+	competition := createPublishedResultsSession(
+		t,
+		client,
+		event.ID,
+		"Competition",
+		"Final",
+	)
+	ctx := systemContext(t.Context())
+	client.CompetitionEntry.Create().
+		SetEventID(event.ID).
+		SetCompetitionSessionID(competition.ID).
+		SetName("Unresolved").
+		SetDisposition(competitionentry.DispositionIncluded).
+		SetPresentationStatus(competitionentry.PresentationStatusNotPresented).
+		SetResolutionRequired(true).
+		SaveX(ctx)
+	transaction := beginCommand(t, installation, ctx)
+	state, err := transaction.LoadStandaloneResultsReleaseState(
+		ctx,
+		event.ID,
+		competition.ID,
+	)
+	if err != nil {
+		t.Fatalf("load standalone Results release state: %v", err)
+	}
+	if !state.ResolutionRequired {
+		t.Fatalf("standalone Results state = %+v, want required resolution", state)
+	}
+	if err = transaction.Rollback(); err != nil {
+		t.Fatalf("roll back standalone Results state query: %v", err)
 	}
 }
