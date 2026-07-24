@@ -279,7 +279,7 @@ func AdvancePrizegivingPublication(
 	next, changed, err := AdvancePublication(PublicationInput{
 		Policy:        plan.ReleasePolicy,
 		Order:         prizegivingItemRefs(plan.Lock.PublicationOrder),
-		States:        publicationStageStates(channel.Items),
+		States:        PrizegivingPublicationStates(channel.Items),
 		Current:       publicationFromStore(current),
 		CueFired:      trigger.CueFired,
 		CeremonyEnded: trigger.CeremonyEnded,
@@ -308,7 +308,8 @@ func AdvancePrizegivingPublication(
 	return publicationFromStore(stored), true, nil
 }
 
-func publicationStageStates(items []store.ProgramItem) []ResultItemStageState {
+// PrizegivingPublicationStates projects canonical release state for publication.
+func PrizegivingPublicationStates(items []store.ProgramItem) []ResultItemStageState {
 	states := make([]ResultItemStageState, 0, len(items))
 	for _, item := range items {
 		if item.Result == nil {

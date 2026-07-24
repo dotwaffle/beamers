@@ -44,14 +44,14 @@ const (
 
 // ResultItemStageState is one durable Result Item presentation state.
 type ResultItemStageState struct {
-	Ref               ResultItemRef
-	Status            ResultItemStageStatus
-	Release           ResultReleaseState
-	TakenAt           time.Time
-	RevealStartedAt   time.Time
-	RevealDuration    time.Duration
-	RevealCompletedAt time.Time
-	SkippedAt         time.Time
+	Ref               ResultItemRef         `json:"ref"`
+	Status            ResultItemStageStatus `json:"status"`
+	Release           ResultReleaseState    `json:"release"`
+	TakenAt           time.Time             `json:"taken_at,omitzero"`
+	RevealStartedAt   time.Time             `json:"reveal_started_at,omitzero"`
+	RevealDuration    time.Duration         `json:"reveal_duration,omitempty"`
+	RevealCompletedAt time.Time             `json:"reveal_completed_at,omitzero"`
+	SkippedAt         time.Time             `json:"skipped_at,omitzero"`
 }
 
 // ResultPresentation describes one deterministic Reveal run.

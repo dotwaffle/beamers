@@ -471,7 +471,7 @@ func (service *Service) reconcileProgressivePublication(
 		if err != nil {
 			return err
 		}
-		states := channelResultStates(channel.Items)
+		states := results.PrizegivingPublicationStates(channel.Items)
 		if len(states) == 0 {
 			return nil
 		}
@@ -497,11 +497,16 @@ func (service *Service) reconcileProgressivePublication(
 		if !progressivePublicationNeeded(channel.Items, current) {
 			return nil
 		}
-		payload, err := json.Marshal(states)
+		payload, err := progressiveReconciliationPayload(
+			eventID,
+			sessionID,
+			actor.ID,
+			states,
+		)
 		if err != nil {
 			return errors.New("encode Progressive Results reconciliation")
 		}
-		digest := command.PayloadHash(string(payload))
+		digest := command.PayloadHash(payload)
 		identity := store.CommandIdentity{
 			ActorAccountID: actor.ID,
 			CommandID:      "reconcile-progressive-results-" + digest,
@@ -558,6 +563,24 @@ func (service *Service) reconcileProgressivePublication(
 	return store.ErrResultsPublicationRevision
 }
 
+func progressiveReconciliationPayload(
+	eventID, sessionID, actorAccountID int,
+	states []results.ResultItemStageState,
+) (string, error) {
+	payload, err := json.Marshal(progressiveReconciliationIdentity{
+		EventID: eventID, SessionID: sessionID,
+		ActorAccountID: actorAccountID, States: states,
+	})
+	return string(payload), err
+}
+
+type progressiveReconciliationIdentity struct {
+	EventID        int                            `json:"event_id"`
+	SessionID      int                            `json:"session_id"`
+	ActorAccountID int                            `json:"actor_account_id"`
+	States         []results.ResultItemStageState `json:"states"`
+}
+
 func progressivePublicationNeeded(
 	items []store.ProgramItem,
 	current store.ResultsPublication,
@@ -579,26 +602,6 @@ func progressivePublicationNeeded(
 		}
 	}
 	return false
-}
-
-func channelResultStates(items []store.ProgramItem) []store.PrizegivingStageState {
-	states := make([]store.PrizegivingStageState, 0, len(items))
-	for _, item := range items {
-		if item.Result == nil {
-			continue
-		}
-		states = append(states, store.PrizegivingStageState{
-			Ref:               item.Result.Ref,
-			Status:            item.Result.Status,
-			Release:           item.Result.Release,
-			TakenAt:           item.Result.TakenAt,
-			RevealStartedAt:   item.Result.RevealStartedAt,
-			RevealDuration:    item.Result.RevealDuration,
-			RevealCompletedAt: item.Result.RevealCompletedAt,
-			SkippedAt:         item.Result.SkippedAt,
-		})
-	}
-	return states
 }
 
 // Control applies one explicit process-local ownership transition.
