@@ -32,9 +32,9 @@ const (
 
 // Publication is one immutable release-manifest revision.
 type Publication struct {
-	Revision int
-	Status   PublicationStatus
-	Items    []ResultItemRef
+	Revision int               `json:"revision"`
+	Status   PublicationStatus `json:"status,omitempty"`
+	Items    []ResultItemRef   `json:"items,omitempty"`
 }
 
 // PublicationInput is the complete durable truth for one release step.

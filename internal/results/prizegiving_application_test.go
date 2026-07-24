@@ -175,6 +175,40 @@ func TestPrizegivingPublicCommandsPreflightAndPreview(t *testing.T) {
 		locked.Plan.Lock.ReleasePolicy != results.ResultsAllAtCue {
 		t.Fatalf("lock Prizegiving = %+v, %v", locked, err)
 	}
+	beforeCue, err := storage.LoadResultsPublication(
+		t.Context(),
+		eventID,
+		store.ResultsPublicationPrizegiving,
+		ceremonyID,
+	)
+	if err != nil || beforeCue.Revision != 0 {
+		t.Fatalf("Results Publication before cue = %+v, %v", beforeCue, err)
+	}
+	released, err := service.FirePrizegivingResultsCue(
+		t.Context(),
+		actor,
+		results.FirePrizegivingResultsCueInput{
+			EventID: eventID, CeremonySessionID: ceremonyID,
+			CommandID: "release-results-cue",
+		},
+	)
+	if err != nil ||
+		released.Revision != 1 ||
+		released.Status != results.ResultsPublicationFinal ||
+		len(released.Items) != len(locked.Plan.PublicationOrder) {
+		t.Fatalf("fire Results release cue = %+v, %v", released, err)
+	}
+	replayedRelease, err := service.FirePrizegivingResultsCue(
+		t.Context(),
+		actor,
+		results.FirePrizegivingResultsCueInput{
+			EventID: eventID, CeremonySessionID: ceremonyID,
+			CommandID: "release-results-cue",
+		},
+	)
+	if err != nil || replayedRelease.Revision != released.Revision {
+		t.Fatalf("replay Results release cue = %+v, %v", replayedRelease, err)
+	}
 	if _, err = service.Save(t.Context(), actor, results.SaveInput{
 		EventID: eventID, SessionID: competitionID,
 		CommandID: "save-later-results", ExpectedRevision: draft.Revision,
