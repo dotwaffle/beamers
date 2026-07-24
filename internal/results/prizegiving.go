@@ -99,6 +99,7 @@ type PrizegivingPreflightInput struct {
 	CompetitionSessionIDs []int
 	Sequence              []ResultItem
 	PublicationOrder      []ResultItemRef
+	ReleasePolicy         ReleasePolicy
 	Template              TextTemplate
 	Competitions          []PrizegivingCompetitionSource
 	EventAwards           PrizegivingEventAwardsSource
@@ -142,6 +143,7 @@ type PrizegivingPreflightLock struct {
 	EventID                  int                          `json:"event_id"`
 	CeremonySessionID        int                          `json:"ceremony_session_id"`
 	PlanRevision             int                          `json:"plan_revision"`
+	ReleasePolicy            ReleasePolicy                `json:"release_policy"`
 	CompetitionSources       []PrizegivingCompetitionLock `json:"competition_sources"`
 	EventAwardsDraftRevision int                          `json:"event_awards_draft_revision"`
 	EventAwardsPathRevision  int                          `json:"event_awards_path_revision"`
@@ -160,9 +162,14 @@ func BuildPrizegivingPreflight(
 	if len(findings) != 0 {
 		return PrizegivingPreflightLock{}, findings
 	}
+	releasePolicy := input.ReleasePolicy
+	if releasePolicy == "" {
+		releasePolicy = ResultsProgressiveOnReveal
+	}
 	locked := PrizegivingPreflightLock{
 		EventID: input.EventID, CeremonySessionID: input.CeremonySessionID,
 		PlanRevision:             input.PlanRevision,
+		ReleasePolicy:            releasePolicy,
 		EventAwardsDraftRevision: input.EventAwards.DraftRevision,
 		EventAwardsPathRevision:  input.EventAwards.PathRevision,
 		PublicationOrder:         append([]ResultItemRef(nil), input.PublicationOrder...),

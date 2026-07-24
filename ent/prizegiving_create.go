@@ -68,6 +68,20 @@ func (_c *PrizegivingCreate) SetPublicationOrder(v []prizegivingvalue.ItemRef) *
 	return _c
 }
 
+// SetReleasePolicy sets the "release_policy" field.
+func (_c *PrizegivingCreate) SetReleasePolicy(v prizegiving.ReleasePolicy) *PrizegivingCreate {
+	_c.mutation.SetReleasePolicy(v)
+	return _c
+}
+
+// SetNillableReleasePolicy sets the "release_policy" field if the given value is not nil.
+func (_c *PrizegivingCreate) SetNillableReleasePolicy(v *prizegiving.ReleasePolicy) *PrizegivingCreate {
+	if v != nil {
+		_c.SetReleasePolicy(*v)
+	}
+	return _c
+}
+
 // SetResultsTextTemplate sets the "results_text_template" field.
 func (_c *PrizegivingCreate) SetResultsTextTemplate(v prizegivingvalue.Template) *PrizegivingCreate {
 	_c.mutation.SetResultsTextTemplate(v)
@@ -250,6 +264,10 @@ func (_c *PrizegivingCreate) defaults() error {
 		v := prizegiving.DefaultRevision
 		_c.mutation.SetRevision(v)
 	}
+	if _, ok := _c.mutation.ReleasePolicy(); !ok {
+		v := prizegiving.DefaultReleasePolicy
+		_c.mutation.SetReleasePolicy(v)
+	}
 	if _, ok := _c.mutation.Locked(); !ok {
 		v := prizegiving.DefaultLocked
 		_c.mutation.SetLocked(v)
@@ -282,6 +300,14 @@ func (_c *PrizegivingCreate) check() error {
 	if v, ok := _c.mutation.Revision(); ok {
 		if err := prizegiving.RevisionValidator(v); err != nil {
 			return &ValidationError{Name: "revision", err: fmt.Errorf(`ent: validator failed for field "Prizegiving.revision": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.ReleasePolicy(); !ok {
+		return &ValidationError{Name: "release_policy", err: errors.New(`ent: missing required field "Prizegiving.release_policy"`)}
+	}
+	if v, ok := _c.mutation.ReleasePolicy(); ok {
+		if err := prizegiving.ReleasePolicyValidator(v); err != nil {
+			return &ValidationError{Name: "release_policy", err: fmt.Errorf(`ent: validator failed for field "Prizegiving.release_policy": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Locked(); !ok {
@@ -358,6 +384,10 @@ func (_c *PrizegivingCreate) createSpec() (*Prizegiving, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.PublicationOrder(); ok {
 		_spec.SetField(prizegiving.FieldPublicationOrder, field.TypeJSON, value)
 		_node.PublicationOrder = value
+	}
+	if value, ok := _c.mutation.ReleasePolicy(); ok {
+		_spec.SetField(prizegiving.FieldReleasePolicy, field.TypeEnum, value)
+		_node.ReleasePolicy = value
 	}
 	if value, ok := _c.mutation.ResultsTextTemplate(); ok {
 		_spec.SetField(prizegiving.FieldResultsTextTemplate, field.TypeJSON, value)

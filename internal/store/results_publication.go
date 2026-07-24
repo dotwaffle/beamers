@@ -29,17 +29,17 @@ const (
 )
 
 // ResultsPublicationPolicy selects the release trigger for one scope.
-type ResultsPublicationPolicy string
+type ResultsPublicationPolicy = prizegivingvalue.ReleasePolicy
 
 const (
 	// ResultsPublicationAllAtCue releases a locked set atomically at its cue.
-	ResultsPublicationAllAtCue ResultsPublicationPolicy = "AllAtCue"
+	ResultsPublicationAllAtCue = prizegivingvalue.ReleaseAllAtCue
 	// ResultsPublicationProgressive releases completed Result Items.
-	ResultsPublicationProgressive ResultsPublicationPolicy = "ProgressiveOnReveal"
+	ResultsPublicationProgressive = prizegivingvalue.ReleaseProgressiveOnReveal
 	// ResultsPublicationAtCeremonyEnd releases a resolved set at completion.
-	ResultsPublicationAtCeremonyEnd ResultsPublicationPolicy = "AtCeremonyEnd"
+	ResultsPublicationAtCeremonyEnd = prizegivingvalue.ReleaseAtCeremonyEnd
 	// ResultsPublicationStandalonePolicy releases one unassigned Competition.
-	ResultsPublicationStandalonePolicy ResultsPublicationPolicy = "Standalone"
+	ResultsPublicationStandalonePolicy = prizegivingvalue.ReleaseStandalone
 )
 
 // ResultsPublicationStatus describes a scope's current public state.

@@ -152,6 +152,7 @@ func TestPrizegivingPublicCommandsPreflightAndPreview(t *testing.T) {
 			EventID: eventID, CeremonySessionID: ceremonyID,
 			CommandID: "save-valid-plan", ExpectedRevision: invalidPlan.Revision,
 			CompetitionSessionIDs: []int{competitionID},
+			ReleasePolicy:         results.ResultsAllAtCue,
 			Template: results.TextTemplate{
 				Revision: 2, Source: "{{.EventTitle}}\n",
 			},
@@ -168,7 +169,10 @@ func TestPrizegivingPublicCommandsPreflightAndPreview(t *testing.T) {
 			CommandID: "lock-preflight", ExpectedRevision: validPlan.Revision,
 		},
 	)
-	if err != nil || !locked.Plan.Locked {
+	if err != nil ||
+		!locked.Plan.Locked ||
+		locked.Plan.ReleasePolicy != results.ResultsAllAtCue ||
+		locked.Plan.Lock.ReleasePolicy != results.ResultsAllAtCue {
 		t.Fatalf("lock Prizegiving = %+v, %v", locked, err)
 	}
 	if _, err = service.Save(t.Context(), actor, results.SaveInput{

@@ -66,6 +66,7 @@ type PrizegivingLockedResultItem struct {
 // PrizegivingPreflightLock is one immutable successful Preflight snapshot.
 type PrizegivingPreflightLock struct {
 	PlanRevision             int                            `json:"plan_revision"`
+	ReleasePolicy            prizegivingvalue.ReleasePolicy `json:"release_policy"`
 	CompetitionSources       []PrizegivingCompetitionLock   `json:"competition_sources"`
 	EventAwardsDraftRevision int                            `json:"event_awards_draft_revision"`
 	EventAwardsPathRevision  int                            `json:"event_awards_path_revision"`
@@ -83,6 +84,7 @@ type PrizegivingPlan struct {
 	CompetitionSessionIDs []int                          `json:"competition_session_ids"`
 	Sequence              []PrizegivingResultItem        `json:"sequence"`
 	PublicationOrder      []PrizegivingResultItemRef     `json:"publication_order"`
+	ReleasePolicy         prizegivingvalue.ReleasePolicy `json:"release_policy"`
 	Template              PrizegivingResultsTextTemplate `json:"template"`
 	Locked                bool                           `json:"locked"`
 	Lock                  PrizegivingPreflightLock       `json:"lock"`
@@ -99,6 +101,7 @@ type SavePrizegivingPlanParams struct {
 	CompetitionSessionIDs      []int
 	Sequence                   []PrizegivingResultItem
 	PublicationOrder           []PrizegivingResultItemRef
+	ReleasePolicy              prizegivingvalue.ReleasePolicy
 	Template                   PrizegivingResultsTextTemplate
 }
 
@@ -372,6 +375,9 @@ func (transaction *CommandTx) SavePrizegivingPlan(
 	ctx context.Context,
 	params SavePrizegivingPlanParams,
 ) (PrizegivingPlan, error) {
+	if params.ReleasePolicy == "" {
+		params.ReleasePolicy = prizegivingvalue.ReleaseProgressiveOnReveal
+	}
 	found, err := transaction.transaction.Prizegiving.Query().
 		Where(
 			prizegiving.EventIDEQ(params.EventID),
@@ -434,6 +440,7 @@ func (transaction *CommandTx) SavePrizegivingPlan(
 		SetCompetitionSessionIds(slices.Clone(params.CompetitionSessionIDs)).
 		SetSequence(prizegivingItemValues(params.Sequence)).
 		SetPublicationOrder(prizegivingItemRefValues(params.PublicationOrder)).
+		SetReleasePolicy(prizegiving.ReleasePolicy(params.ReleasePolicy)).
 		SetResultsTextTemplate(prizegivingTemplateValue(params.Template)).
 		Save(ctx)
 	if ent.IsNotFound(err) {
@@ -550,6 +557,7 @@ func storedPrizegivingPlan(found *ent.Prizegiving) PrizegivingPlan {
 		CompetitionSessionIDs: slices.Clone(found.CompetitionSessionIds),
 		Sequence:              prizegivingItems(found.Sequence),
 		PublicationOrder:      prizegivingItemRefs(found.PublicationOrder),
+		ReleasePolicy:         prizegivingvalue.ReleasePolicy(found.ReleasePolicy),
 		Template:              prizegivingTemplate(found.ResultsTextTemplate),
 		Locked:                found.Locked,
 		Lock:                  prizegivingLock(found.PreflightLock),
@@ -632,6 +640,7 @@ func prizegivingTemplate(
 func prizegivingLockValue(value PrizegivingPreflightLock) prizegivingvalue.Lock {
 	result := prizegivingvalue.Lock{
 		PlanRevision:             value.PlanRevision,
+		ReleasePolicy:            value.ReleasePolicy,
 		EventAwardsDraftRevision: value.EventAwardsDraftRevision,
 		EventAwardsPathRevision:  value.EventAwardsPathRevision,
 		PublicationOrder:         prizegivingItemRefValues(value.PublicationOrder),
@@ -658,6 +667,7 @@ func prizegivingLockValue(value PrizegivingPreflightLock) prizegivingvalue.Lock 
 func prizegivingLock(value prizegivingvalue.Lock) PrizegivingPreflightLock {
 	result := PrizegivingPreflightLock{
 		PlanRevision:             value.PlanRevision,
+		ReleasePolicy:            value.ReleasePolicy,
 		EventAwardsDraftRevision: value.EventAwardsDraftRevision,
 		EventAwardsPathRevision:  value.EventAwardsPathRevision,
 		PublicationOrder:         prizegivingItemRefs(value.PublicationOrder),

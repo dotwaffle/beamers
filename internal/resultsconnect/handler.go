@@ -311,6 +311,9 @@ func (handler *Handler) SavePrizegivingPlan(
 			ExpectedRevision:      int(request.Msg.GetExpectedRevision()),
 			CompetitionSessionIDs: int64sToInts(request.Msg.GetCompetitionSessionIds()),
 			Sequence:              sequence, PublicationOrder: publicationOrder,
+			ReleasePolicy: resultsReleasePolicyFromProto(
+				request.Msg.GetReleasePolicy(),
+			),
 			Template: resultsTextTemplateFromProto(
 				request.Msg.GetResultsTextTemplate(),
 			),
@@ -709,6 +712,7 @@ func prizegivingPlan(value results.PrizegivingPlan) *resultsv1.PrizegivingPlan {
 		CompetitionSessionIds: competitionSessionIDs,
 		Sequence:              resultItems(value.Sequence),
 		PublicationOrder:      resultItemRefs(value.PublicationOrder),
+		ReleasePolicy:         resultsReleasePolicy(value.ReleasePolicy),
 		ResultsTextTemplate:   resultsTextTemplate(value.Template),
 		Locked:                value.Locked,
 		LockedByAccountId:     int64(value.LockedByAccountID),
@@ -798,8 +802,29 @@ func prizegivingPreflightLock(
 		EventAwardsDraftRevision: int64(value.EventAwardsDraftRevision),
 		EventAwardsPathRevision:  int64(value.EventAwardsPathRevision),
 		Sequence:                 sequence, PublicationOrder: resultItemRefs(value.PublicationOrder),
+		ReleasePolicy:       resultsReleasePolicy(value.ReleasePolicy),
 		ResultsTextTemplate: resultsTextTemplate(value.Template),
 	}
+}
+
+func resultsReleasePolicy(
+	value results.ReleasePolicy,
+) resultsv1.ResultsReleasePolicy {
+	return map[results.ReleasePolicy]resultsv1.ResultsReleasePolicy{
+		results.ResultsAllAtCue:            resultsv1.ResultsReleasePolicy_RESULTS_RELEASE_POLICY_ALL_AT_CUE,
+		results.ResultsProgressiveOnReveal: resultsv1.ResultsReleasePolicy_RESULTS_RELEASE_POLICY_PROGRESSIVE_ON_REVEAL,
+		results.ResultsAtCeremonyEnd:       resultsv1.ResultsReleasePolicy_RESULTS_RELEASE_POLICY_AT_CEREMONY_END,
+	}[value]
+}
+
+func resultsReleasePolicyFromProto(
+	value resultsv1.ResultsReleasePolicy,
+) results.ReleasePolicy {
+	return map[resultsv1.ResultsReleasePolicy]results.ReleasePolicy{
+		resultsv1.ResultsReleasePolicy_RESULTS_RELEASE_POLICY_ALL_AT_CUE:            results.ResultsAllAtCue,
+		resultsv1.ResultsReleasePolicy_RESULTS_RELEASE_POLICY_PROGRESSIVE_ON_REVEAL: results.ResultsProgressiveOnReveal,
+		resultsv1.ResultsReleasePolicy_RESULTS_RELEASE_POLICY_AT_CEREMONY_END:       results.ResultsAtCeremonyEnd,
+	}[value]
 }
 
 func resultItemKind(value results.ResultItemKind) resultsv1.ResultItemKind {

@@ -106,6 +106,20 @@ func (_u *PrizegivingUpdate) ClearPublicationOrder() *PrizegivingUpdate {
 	return _u
 }
 
+// SetReleasePolicy sets the "release_policy" field.
+func (_u *PrizegivingUpdate) SetReleasePolicy(v prizegiving.ReleasePolicy) *PrizegivingUpdate {
+	_u.mutation.SetReleasePolicy(v)
+	return _u
+}
+
+// SetNillableReleasePolicy sets the "release_policy" field if the given value is not nil.
+func (_u *PrizegivingUpdate) SetNillableReleasePolicy(v *prizegiving.ReleasePolicy) *PrizegivingUpdate {
+	if v != nil {
+		_u.SetReleasePolicy(*v)
+	}
+	return _u
+}
+
 // SetResultsTextTemplate sets the "results_text_template" field.
 func (_u *PrizegivingUpdate) SetResultsTextTemplate(v prizegivingvalue.Template) *PrizegivingUpdate {
 	_u.mutation.SetResultsTextTemplate(v)
@@ -321,6 +335,11 @@ func (_u *PrizegivingUpdate) check() error {
 			return &ValidationError{Name: "revision", err: fmt.Errorf(`ent: validator failed for field "Prizegiving.revision": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ReleasePolicy(); ok {
+		if err := prizegiving.ReleasePolicyValidator(v); err != nil {
+			return &ValidationError{Name: "release_policy", err: fmt.Errorf(`ent: validator failed for field "Prizegiving.release_policy": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.OperationRevision(); ok {
 		if err := prizegiving.OperationRevisionValidator(v); err != nil {
 			return &ValidationError{Name: "operation_revision", err: fmt.Errorf(`ent: validator failed for field "Prizegiving.operation_revision": %w`, err)}
@@ -390,6 +409,9 @@ func (_u *PrizegivingUpdate) sqlSave(ctx context.Context) (_node int, err error)
 	}
 	if _u.mutation.PublicationOrderCleared() {
 		_spec.ClearField(prizegiving.FieldPublicationOrder, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.ReleasePolicy(); ok {
+		_spec.SetField(prizegiving.FieldReleasePolicy, field.TypeEnum, value)
 	}
 	if value, ok := _u.mutation.ResultsTextTemplate(); ok {
 		_spec.SetField(prizegiving.FieldResultsTextTemplate, field.TypeJSON, value)
@@ -575,6 +597,20 @@ func (_u *PrizegivingUpdateOne) AppendPublicationOrder(v []prizegivingvalue.Item
 // ClearPublicationOrder clears the value of the "publication_order" field.
 func (_u *PrizegivingUpdateOne) ClearPublicationOrder() *PrizegivingUpdateOne {
 	_u.mutation.ClearPublicationOrder()
+	return _u
+}
+
+// SetReleasePolicy sets the "release_policy" field.
+func (_u *PrizegivingUpdateOne) SetReleasePolicy(v prizegiving.ReleasePolicy) *PrizegivingUpdateOne {
+	_u.mutation.SetReleasePolicy(v)
+	return _u
+}
+
+// SetNillableReleasePolicy sets the "release_policy" field if the given value is not nil.
+func (_u *PrizegivingUpdateOne) SetNillableReleasePolicy(v *prizegiving.ReleasePolicy) *PrizegivingUpdateOne {
+	if v != nil {
+		_u.SetReleasePolicy(*v)
+	}
 	return _u
 }
 
@@ -806,6 +842,11 @@ func (_u *PrizegivingUpdateOne) check() error {
 			return &ValidationError{Name: "revision", err: fmt.Errorf(`ent: validator failed for field "Prizegiving.revision": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ReleasePolicy(); ok {
+		if err := prizegiving.ReleasePolicyValidator(v); err != nil {
+			return &ValidationError{Name: "release_policy", err: fmt.Errorf(`ent: validator failed for field "Prizegiving.release_policy": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.OperationRevision(); ok {
 		if err := prizegiving.OperationRevisionValidator(v); err != nil {
 			return &ValidationError{Name: "operation_revision", err: fmt.Errorf(`ent: validator failed for field "Prizegiving.operation_revision": %w`, err)}
@@ -892,6 +933,9 @@ func (_u *PrizegivingUpdateOne) sqlSave(ctx context.Context) (_node *Prizegiving
 	}
 	if _u.mutation.PublicationOrderCleared() {
 		_spec.ClearField(prizegiving.FieldPublicationOrder, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.ReleasePolicy(); ok {
+		_spec.SetField(prizegiving.FieldReleasePolicy, field.TypeEnum, value)
 	}
 	if value, ok := _u.mutation.ResultsTextTemplate(); ok {
 		_spec.SetField(prizegiving.FieldResultsTextTemplate, field.TypeJSON, value)

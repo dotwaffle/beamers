@@ -33,6 +33,8 @@ type Prizegiving struct {
 	Sequence []prizegivingvalue.Item `json:"sequence,omitempty"`
 	// PublicationOrder holds the value of the "publication_order" field.
 	PublicationOrder []prizegivingvalue.ItemRef `json:"publication_order,omitempty"`
+	// ReleasePolicy holds the value of the "release_policy" field.
+	ReleasePolicy prizegiving.ReleasePolicy `json:"release_policy,omitempty"`
 	// ResultsTextTemplate holds the value of the "results_text_template" field.
 	ResultsTextTemplate prizegivingvalue.Template `json:"results_text_template,omitempty"`
 	// Locked holds the value of the "locked" field.
@@ -112,6 +114,8 @@ func (*Prizegiving) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case prizegiving.FieldID, prizegiving.FieldEventID, prizegiving.FieldCeremonySessionID, prizegiving.FieldRevision, prizegiving.FieldOperationRevision, prizegiving.FieldLockedByAccountID, prizegiving.FieldCreatedByAccountID:
 			values[i] = new(sql.NullInt64)
+		case prizegiving.FieldReleasePolicy:
+			values[i] = new(sql.NullString)
 		case prizegiving.FieldLockedAt, prizegiving.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		default:
@@ -176,6 +180,12 @@ func (_m *Prizegiving) assignValues(columns []string, values []any) error {
 				if err := json.Unmarshal(*value, &_m.PublicationOrder); err != nil {
 					return fmt.Errorf("unmarshal field publication_order: %w", err)
 				}
+			}
+		case prizegiving.FieldReleasePolicy:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field release_policy", values[i])
+			} else if value.Valid {
+				_m.ReleasePolicy = prizegiving.ReleasePolicy(value.String)
 			}
 		case prizegiving.FieldResultsTextTemplate:
 			if value, ok := values[i].(*[]byte); !ok {
@@ -307,6 +317,9 @@ func (_m *Prizegiving) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("publication_order=")
 	builder.WriteString(fmt.Sprintf("%v", _m.PublicationOrder))
+	builder.WriteString(", ")
+	builder.WriteString("release_policy=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ReleasePolicy))
 	builder.WriteString(", ")
 	builder.WriteString("results_text_template=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ResultsTextTemplate))

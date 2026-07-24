@@ -210,6 +210,26 @@ func PublicationOrderNotNil() predicate.Prizegiving {
 	return predicate.Prizegiving(sql.FieldNotNull(FieldPublicationOrder))
 }
 
+// ReleasePolicyEQ applies the EQ predicate on the "release_policy" field.
+func ReleasePolicyEQ(v ReleasePolicy) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldEQ(FieldReleasePolicy, v))
+}
+
+// ReleasePolicyNEQ applies the NEQ predicate on the "release_policy" field.
+func ReleasePolicyNEQ(v ReleasePolicy) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldNEQ(FieldReleasePolicy, v))
+}
+
+// ReleasePolicyIn applies the In predicate on the "release_policy" field.
+func ReleasePolicyIn(vs ...ReleasePolicy) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldIn(FieldReleasePolicy, vs...))
+}
+
+// ReleasePolicyNotIn applies the NotIn predicate on the "release_policy" field.
+func ReleasePolicyNotIn(vs ...ReleasePolicy) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldNotIn(FieldReleasePolicy, vs...))
+}
+
 // ResultsTextTemplateIsNil applies the IsNil predicate on the "results_text_template" field.
 func ResultsTextTemplateIsNil() predicate.Prizegiving {
 	return predicate.Prizegiving(sql.FieldIsNull(FieldResultsTextTemplate))

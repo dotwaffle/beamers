@@ -31407,6 +31407,7 @@ type PrizegivingMutation struct {
 	appendsequence                []prizegivingvalue.Item
 	publication_order             *[]prizegivingvalue.ItemRef
 	appendpublication_order       []prizegivingvalue.ItemRef
+	release_policy                *prizegiving.ReleasePolicy
 	results_text_template         *prizegivingvalue.Template
 	locked                        *bool
 	preflight_lock                *prizegivingvalue.Lock
@@ -31852,6 +31853,42 @@ func (m *PrizegivingMutation) ResetPublicationOrder() {
 	m.publication_order = nil
 	m.appendpublication_order = nil
 	delete(m.clearedFields, prizegiving.FieldPublicationOrder)
+}
+
+// SetReleasePolicy sets the "release_policy" field.
+func (m *PrizegivingMutation) SetReleasePolicy(pp prizegiving.ReleasePolicy) {
+	m.release_policy = &pp
+}
+
+// ReleasePolicy returns the value of the "release_policy" field in the mutation.
+func (m *PrizegivingMutation) ReleasePolicy() (r prizegiving.ReleasePolicy, exists bool) {
+	v := m.release_policy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReleasePolicy returns the old "release_policy" field's value of the Prizegiving entity.
+// If the Prizegiving object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PrizegivingMutation) OldReleasePolicy(ctx context.Context) (v prizegiving.ReleasePolicy, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReleasePolicy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReleasePolicy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReleasePolicy: %w", err)
+	}
+	return oldValue.ReleasePolicy, nil
+}
+
+// ResetReleasePolicy resets all changes to the "release_policy" field.
+func (m *PrizegivingMutation) ResetReleasePolicy() {
+	m.release_policy = nil
 }
 
 // SetResultsTextTemplate sets the "results_text_template" field.
@@ -32475,7 +32512,7 @@ func (m *PrizegivingMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *PrizegivingMutation) Fields() []string {
-	fields := make([]string, 0, 15)
+	fields := make([]string, 0, 16)
 	if m.event != nil {
 		fields = append(fields, prizegiving.FieldEventID)
 	}
@@ -32493,6 +32530,9 @@ func (m *PrizegivingMutation) Fields() []string {
 	}
 	if m.publication_order != nil {
 		fields = append(fields, prizegiving.FieldPublicationOrder)
+	}
+	if m.release_policy != nil {
+		fields = append(fields, prizegiving.FieldReleasePolicy)
 	}
 	if m.results_text_template != nil {
 		fields = append(fields, prizegiving.FieldResultsTextTemplate)
@@ -32541,6 +32581,8 @@ func (m *PrizegivingMutation) Field(name string) (ent.Value, bool) {
 		return m.Sequence()
 	case prizegiving.FieldPublicationOrder:
 		return m.PublicationOrder()
+	case prizegiving.FieldReleasePolicy:
+		return m.ReleasePolicy()
 	case prizegiving.FieldResultsTextTemplate:
 		return m.ResultsTextTemplate()
 	case prizegiving.FieldLocked:
@@ -32580,6 +32622,8 @@ func (m *PrizegivingMutation) OldField(ctx context.Context, name string) (ent.Va
 		return m.OldSequence(ctx)
 	case prizegiving.FieldPublicationOrder:
 		return m.OldPublicationOrder(ctx)
+	case prizegiving.FieldReleasePolicy:
+		return m.OldReleasePolicy(ctx)
 	case prizegiving.FieldResultsTextTemplate:
 		return m.OldResultsTextTemplate(ctx)
 	case prizegiving.FieldLocked:
@@ -32648,6 +32692,13 @@ func (m *PrizegivingMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetPublicationOrder(v)
+		return nil
+	case prizegiving.FieldReleasePolicy:
+		v, ok := value.(prizegiving.ReleasePolicy)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReleasePolicy(v)
 		return nil
 	case prizegiving.FieldResultsTextTemplate:
 		v, ok := value.(prizegivingvalue.Template)
@@ -32880,6 +32931,9 @@ func (m *PrizegivingMutation) ResetField(name string) error {
 		return nil
 	case prizegiving.FieldPublicationOrder:
 		m.ResetPublicationOrder()
+		return nil
+	case prizegiving.FieldReleasePolicy:
+		m.ResetReleasePolicy()
 		return nil
 	case prizegiving.FieldResultsTextTemplate:
 		m.ResetResultsTextTemplate()

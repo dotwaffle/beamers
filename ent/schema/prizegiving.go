@@ -38,6 +38,9 @@ func (Prizegiving) Fields() []ent.Field {
 		field.JSON("competition_session_ids", []int{}).Optional(),
 		field.JSON("sequence", []prizegivingvalue.Item{}).Optional(),
 		field.JSON("publication_order", []prizegivingvalue.ItemRef{}).Optional(),
+		field.Enum("release_policy").
+			Values("AllAtCue", "ProgressiveOnReveal", "AtCeremonyEnd").
+			Default("ProgressiveOnReveal"),
 		field.JSON("results_text_template", prizegivingvalue.Template{}).Optional(),
 		field.Bool("locked").Default(false),
 		field.JSON("preflight_lock", prizegivingvalue.Lock{}).Optional(),

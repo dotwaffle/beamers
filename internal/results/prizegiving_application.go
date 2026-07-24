@@ -39,6 +39,7 @@ type PrizegivingPlan struct {
 	CompetitionSessionIDs []int                    `json:"competition_session_ids"`
 	Sequence              []ResultItem             `json:"sequence"`
 	PublicationOrder      []ResultItemRef          `json:"publication_order"`
+	ReleasePolicy         ReleasePolicy            `json:"release_policy"`
 	Template              TextTemplate             `json:"template"`
 	Locked                bool                     `json:"locked"`
 	Lock                  PrizegivingPreflightLock `json:"lock"`
@@ -55,6 +56,7 @@ type SavePrizegivingPlanInput struct {
 	CompetitionSessionIDs []int           `json:"competition_session_ids"`
 	Sequence              []ResultItem    `json:"sequence"`
 	PublicationOrder      []ResultItemRef `json:"publication_order"`
+	ReleasePolicy         ReleasePolicy   `json:"release_policy"`
 	Template              TextTemplate    `json:"template"`
 }
 
@@ -120,6 +122,9 @@ func (service *Service) SavePrizegivingPlan(
 	actor auth.Account,
 	input SavePrizegivingPlanInput,
 ) (PrizegivingPlan, error) {
+	if input.ReleasePolicy == "" {
+		input.ReleasePolicy = ResultsProgressiveOnReveal
+	}
 	if err := validateSavePrizegivingPlanInput(input); err != nil {
 		return PrizegivingPlan{}, err
 	}
@@ -173,6 +178,7 @@ func (service *Service) SavePrizegivingPlan(
 					),
 					Sequence:         prizegivingItemInputs(sequence),
 					PublicationOrder: prizegivingItemRefInputs(publicationOrder),
+					ReleasePolicy:    input.ReleasePolicy,
 					Template:         prizegivingTemplateInput(input.Template),
 				},
 			)
@@ -398,6 +404,7 @@ func validateSavePrizegivingPlanInput(input SavePrizegivingPlanInput) error {
 		len(input.CompetitionSessionIDs) > 1000 ||
 		len(input.Sequence) > 3000 ||
 		len(input.PublicationOrder) > 3000 ||
+		!validPrizegivingReleasePolicy(input.ReleasePolicy) ||
 		!boundedResultsTextTemplate(input.Template) {
 		return ErrInvalidInput
 	}
@@ -430,6 +437,12 @@ func validateSavePrizegivingPlanInput(input SavePrizegivingPlanInput) error {
 	return nil
 }
 
+func validPrizegivingReleasePolicy(policy ReleasePolicy) bool {
+	return policy == ResultsAllAtCue ||
+		policy == ResultsProgressiveOnReveal ||
+		policy == ResultsAtCeremonyEnd
+}
+
 func validateRunPrizegivingPreflightInput(
 	input RunPrizegivingPreflightInput,
 ) error {
@@ -451,6 +464,7 @@ func prizegivingPlan(value store.PrizegivingPlan) PrizegivingPlan {
 		CompetitionSessionIDs: append([]int(nil), value.CompetitionSessionIDs...),
 		Sequence:              prizegivingItems(value.Sequence),
 		PublicationOrder:      prizegivingItemRefs(value.PublicationOrder),
+		ReleasePolicy:         value.ReleasePolicy,
 		Template:              prizegivingTemplate(value.Template),
 		Locked:                value.Locked,
 		Lock:                  prizegivingLock(value.Lock),
@@ -491,6 +505,7 @@ func prizegivingPreflightInput(
 	result := PrizegivingPreflightInput{
 		EventID: value.Plan.EventID, CeremonySessionID: value.Plan.CeremonySessionID,
 		PlanRevision:          value.Plan.Revision,
+		ReleasePolicy:         value.Plan.ReleasePolicy,
 		CompetitionSessionIDs: append([]int(nil), value.Plan.CompetitionSessionIDs...),
 		Sequence:              prizegivingItems(value.Plan.Sequence),
 		PublicationOrder:      prizegivingItemRefs(value.Plan.PublicationOrder),
@@ -592,6 +607,7 @@ func prizegivingLockInput(
 ) store.PrizegivingPreflightLock {
 	result := store.PrizegivingPreflightLock{
 		PlanRevision:             value.PlanRevision,
+		ReleasePolicy:            value.ReleasePolicy,
 		EventAwardsDraftRevision: value.EventAwardsDraftRevision,
 		EventAwardsPathRevision:  value.EventAwardsPathRevision,
 		PublicationOrder:         prizegivingItemRefInputs(value.PublicationOrder),
@@ -621,6 +637,7 @@ func prizegivingLock(
 ) PrizegivingPreflightLock {
 	result := PrizegivingPreflightLock{
 		PlanRevision:             value.PlanRevision,
+		ReleasePolicy:            value.ReleasePolicy,
 		EventAwardsDraftRevision: value.EventAwardsDraftRevision,
 		EventAwardsPathRevision:  value.EventAwardsPathRevision,
 		PublicationOrder:         prizegivingItemRefs(value.PublicationOrder),

@@ -1670,25 +1670,25 @@ func init() {
 	// prizegiving.RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
 	prizegiving.RevisionValidator = prizegivingDescRevision.Validators[0].(func(int) error)
 	// prizegivingDescLocked is the schema descriptor for locked field.
-	prizegivingDescLocked := prizegivingFields[7].Descriptor()
+	prizegivingDescLocked := prizegivingFields[8].Descriptor()
 	// prizegiving.DefaultLocked holds the default value on creation for the locked field.
 	prizegiving.DefaultLocked = prizegivingDescLocked.Default.(bool)
 	// prizegivingDescOperationRevision is the schema descriptor for operation_revision field.
-	prizegivingDescOperationRevision := prizegivingFields[9].Descriptor()
+	prizegivingDescOperationRevision := prizegivingFields[10].Descriptor()
 	// prizegiving.DefaultOperationRevision holds the default value on creation for the operation_revision field.
 	prizegiving.DefaultOperationRevision = prizegivingDescOperationRevision.Default.(int)
 	// prizegiving.OperationRevisionValidator is a validator for the "operation_revision" field. It is called by the builders before save.
 	prizegiving.OperationRevisionValidator = prizegivingDescOperationRevision.Validators[0].(func(int) error)
 	// prizegivingDescLockedByAccountID is the schema descriptor for locked_by_account_id field.
-	prizegivingDescLockedByAccountID := prizegivingFields[11].Descriptor()
+	prizegivingDescLockedByAccountID := prizegivingFields[12].Descriptor()
 	// prizegiving.LockedByAccountIDValidator is a validator for the "locked_by_account_id" field. It is called by the builders before save.
 	prizegiving.LockedByAccountIDValidator = prizegivingDescLockedByAccountID.Validators[0].(func(int) error)
 	// prizegivingDescCreatedByAccountID is the schema descriptor for created_by_account_id field.
-	prizegivingDescCreatedByAccountID := prizegivingFields[13].Descriptor()
+	prizegivingDescCreatedByAccountID := prizegivingFields[14].Descriptor()
 	// prizegiving.CreatedByAccountIDValidator is a validator for the "created_by_account_id" field. It is called by the builders before save.
 	prizegiving.CreatedByAccountIDValidator = prizegivingDescCreatedByAccountID.Validators[0].(func(int) error)
 	// prizegivingDescCreatedAt is the schema descriptor for created_at field.
-	prizegivingDescCreatedAt := prizegivingFields[14].Descriptor()
+	prizegivingDescCreatedAt := prizegivingFields[15].Descriptor()
 	// prizegiving.DefaultCreatedAt holds the default value on creation for the created_at field.
 	prizegiving.DefaultCreatedAt = prizegivingDescCreatedAt.Default.(func() time.Time)
 	prizegivingcompetition.Policy = privacy.NewPolicies(schema.PrizegivingCompetition{})

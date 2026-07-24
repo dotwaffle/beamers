@@ -1034,6 +1034,7 @@ var (
 		{Name: "competition_session_ids", Type: field.TypeJSON, Nullable: true},
 		{Name: "sequence", Type: field.TypeJSON, Nullable: true},
 		{Name: "publication_order", Type: field.TypeJSON, Nullable: true},
+		{Name: "release_policy", Type: field.TypeEnum, Enums: []string{"AllAtCue", "ProgressiveOnReveal", "AtCeremonyEnd"}, Default: "ProgressiveOnReveal"},
 		{Name: "results_text_template", Type: field.TypeJSON, Nullable: true},
 		{Name: "locked", Type: field.TypeBool, Default: false},
 		{Name: "preflight_lock", Type: field.TypeJSON, Nullable: true},
@@ -1054,13 +1055,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "prizegivings_events_prizegivings",
-				Columns:    []*schema.Column{PrizegivingsColumns[14]},
+				Columns:    []*schema.Column{PrizegivingsColumns[15]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "prizegivings_sessions_prizegiving",
-				Columns:    []*schema.Column{PrizegivingsColumns[15]},
+				Columns:    []*schema.Column{PrizegivingsColumns[16]},
 				RefColumns: []*schema.Column{SessionsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -1069,7 +1070,7 @@ var (
 			{
 				Name:    "prizegiving_event_id_ceremony_session_id",
 				Unique:  true,
-				Columns: []*schema.Column{PrizegivingsColumns[14], PrizegivingsColumns[15]},
+				Columns: []*schema.Column{PrizegivingsColumns[15], PrizegivingsColumns[16]},
 			},
 		},
 	}

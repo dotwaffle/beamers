@@ -29,6 +29,13 @@ enum ResultsDisposition {
   RESULTS_DISPOSITION_NO_PUBLIC_RESULTS = 3;
 }
 
+enum ResultsReleasePolicy {
+  RESULTS_RELEASE_POLICY_UNSPECIFIED = 0;
+  RESULTS_RELEASE_POLICY_ALL_AT_CUE = 1;
+  RESULTS_RELEASE_POLICY_PROGRESSIVE_ON_REVEAL = 2;
+  RESULTS_RELEASE_POLICY_AT_CEREMONY_END = 3;
+}
+
 enum ResultStanding {
   RESULT_STANDING_UNSPECIFIED = 0;
   RESULT_STANDING_PLACED = 1;
@@ -313,6 +320,7 @@ message PrizegivingPreflightLock {
   repeated LockedResultItem sequence = 5;
   repeated ResultItemRef publication_order = 6;
   ResultsTextTemplate results_text_template = 7;
+  ResultsReleasePolicy release_policy = 8;
 }
 
 message PrizegivingPlan {
@@ -328,6 +336,7 @@ message PrizegivingPlan {
   PrizegivingPreflightLock preflight_lock = 10;
   int64 locked_by_account_id = 11;
   google.protobuf.Timestamp locked_at = 12;
+  ResultsReleasePolicy release_policy = 13;
 }
 
 message GetPrizegivingPlanRequest {
@@ -348,6 +357,7 @@ message SavePrizegivingPlanRequest {
   repeated ResultItem sequence = 6;
   repeated ResultItemRef publication_order = 7;
   ResultsTextTemplate results_text_template = 8;
+  ResultsReleasePolicy release_policy = 9;
 }
 
 message SavePrizegivingPlanResponse {

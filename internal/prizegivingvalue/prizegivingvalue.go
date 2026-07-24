@@ -3,6 +3,17 @@ package prizegivingvalue
 
 import "time"
 
+// ReleasePolicy selects when locked Result Items become public.
+type ReleasePolicy string
+
+// Results release policies.
+const (
+	ReleaseAllAtCue            ReleasePolicy = "AllAtCue"
+	ReleaseProgressiveOnReveal ReleasePolicy = "ProgressiveOnReveal"
+	ReleaseAtCeremonyEnd       ReleasePolicy = "AtCeremonyEnd"
+	ReleaseStandalone          ReleasePolicy = "Standalone"
+)
+
 // ItemKind identifies one persisted Result Item source.
 type ItemKind string
 
@@ -83,6 +94,7 @@ type LockedItem struct {
 // Lock is one complete successful Prizegiving Preflight snapshot.
 type Lock struct {
 	PlanRevision             int               `json:"plan_revision"`
+	ReleasePolicy            ReleasePolicy     `json:"release_policy"`
 	CompetitionSources       []CompetitionLock `json:"competition_sources"`
 	EventAwardsDraftRevision int               `json:"event_awards_draft_revision"`
 	EventAwardsPathRevision  int               `json:"event_awards_path_revision"`

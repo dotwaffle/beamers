@@ -1,19 +1,23 @@
 package results
 
-import "slices"
+import (
+	"slices"
+
+	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
+)
 
 // ReleasePolicy selects when locked Result Items become public.
-type ReleasePolicy string
+type ReleasePolicy = prizegivingvalue.ReleasePolicy
 
 const (
 	// ResultsAllAtCue releases one complete locked set at an explicit cue.
-	ResultsAllAtCue ReleasePolicy = "AllAtCue"
+	ResultsAllAtCue = prizegivingvalue.ReleaseAllAtCue
 	// ResultsProgressiveOnReveal releases each completed Reveal independently.
-	ResultsProgressiveOnReveal ReleasePolicy = "ProgressiveOnReveal"
+	ResultsProgressiveOnReveal = prizegivingvalue.ReleaseProgressiveOnReveal
 	// ResultsAtCeremonyEnd releases one complete resolved set at completion.
-	ResultsAtCeremonyEnd ReleasePolicy = "AtCeremonyEnd"
+	ResultsAtCeremonyEnd = prizegivingvalue.ReleaseAtCeremonyEnd
 	// ResultsStandalone releases one unassigned Competition explicitly.
-	ResultsStandalone ReleasePolicy = "Standalone"
+	ResultsStandalone = prizegivingvalue.ReleaseStandalone
 )
 
 // PublicationStatus describes a scope's monotonic public state.

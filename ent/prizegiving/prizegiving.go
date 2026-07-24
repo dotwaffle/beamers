@@ -3,6 +3,7 @@
 package prizegiving
 
 import (
+	"fmt"
 	"time"
 
 	"entgo.io/ent"
@@ -27,6 +28,8 @@ const (
 	FieldSequence = "sequence"
 	// FieldPublicationOrder holds the string denoting the publication_order field in the database.
 	FieldPublicationOrder = "publication_order"
+	// FieldReleasePolicy holds the string denoting the release_policy field in the database.
+	FieldReleasePolicy = "release_policy"
 	// FieldResultsTextTemplate holds the string denoting the results_text_template field in the database.
 	FieldResultsTextTemplate = "results_text_template"
 	// FieldLocked holds the string denoting the locked field in the database.
@@ -85,6 +88,7 @@ var Columns = []string{
 	FieldCompetitionSessionIds,
 	FieldSequence,
 	FieldPublicationOrder,
+	FieldReleasePolicy,
 	FieldResultsTextTemplate,
 	FieldLocked,
 	FieldPreflightLock,
@@ -132,6 +136,33 @@ var (
 	DefaultCreatedAt func() time.Time
 )
 
+// ReleasePolicy defines the type for the "release_policy" enum field.
+type ReleasePolicy string
+
+// ReleasePolicyProgressiveOnReveal is the default value of the ReleasePolicy enum.
+const DefaultReleasePolicy = ReleasePolicyProgressiveOnReveal
+
+// ReleasePolicy values.
+const (
+	ReleasePolicyAllAtCue            ReleasePolicy = "AllAtCue"
+	ReleasePolicyProgressiveOnReveal ReleasePolicy = "ProgressiveOnReveal"
+	ReleasePolicyAtCeremonyEnd       ReleasePolicy = "AtCeremonyEnd"
+)
+
+func (rp ReleasePolicy) String() string {
+	return string(rp)
+}
+
+// ReleasePolicyValidator is a validator for the "release_policy" field enum values. It is called by the builders before save.
+func ReleasePolicyValidator(rp ReleasePolicy) error {
+	switch rp {
+	case ReleasePolicyAllAtCue, ReleasePolicyProgressiveOnReveal, ReleasePolicyAtCeremonyEnd:
+		return nil
+	default:
+		return fmt.Errorf("prizegiving: invalid enum value for release_policy field: %q", rp)
+	}
+}
+
 // OrderOption defines the ordering options for the Prizegiving queries.
 type OrderOption func(*sql.Selector)
 
@@ -153,6 +184,11 @@ func ByCeremonySessionID(opts ...sql.OrderTermOption) OrderOption {
 // ByRevision orders the results by the revision field.
 func ByRevision(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRevision, opts...).ToFunc()
+}
+
+// ByReleasePolicy orders the results by the release_policy field.
+func ByReleasePolicy(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldReleasePolicy, opts...).ToFunc()
 }
 
 // ByLocked orders the results by the locked field.
