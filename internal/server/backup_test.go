@@ -48,7 +48,9 @@ func TestAdministratorDownloadsFullFidelityBackupAfterReauthentication(t *testin
 	registerBackupRoutes(
 		mux,
 		installation,
+		dataDir,
 		filepath.Join(dataDir, "attachments"),
+		nil,
 		slog.New(slog.NewTextHandler(os.Stderr, nil)),
 		&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8080},
 	)

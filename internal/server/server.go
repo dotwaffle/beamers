@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
-	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/otel/metric"
@@ -78,163 +77,19 @@ func Run(ctx context.Context, config Config) error {
 		return errors.Join(err, listener.Close(), installation.Close())
 	}
 
-	var accepting atomic.Bool
-	accepting.Store(startupErr == nil)
-	mux := http.NewServeMux()
-	mux.HandleFunc("/livez", liveness)
-	mux.HandleFunc(
-		"/readyz",
-		readiness(&accepting, installation, displayStream.Notify, config.Logger),
-	)
-	if startupErr == nil {
-		registerAuthenticationRoutes(
-			mux,
-			installation.Authentication(),
-			config.Logger,
-			listener.Addr(),
-		)
-		registerBackupRoutes(
-			mux,
-			installation,
-			attachmentsDir,
-			config.Logger,
-			listener.Addr(),
-		)
-		registerEventRoutes(
-			mux,
-			installation.Authentication(),
-			installation.Events(),
-			displayStream.Notify,
-			config.Logger,
-			listener.Addr(),
-		)
-		registerAttachmentRoutes(
-			mux,
-			installation.Authentication(),
-			installation.Attachments(),
-			config.Logger,
-			listener.Addr(),
-		)
-		registerOverrideRoutes(
-			mux,
-			installation.Authentication(),
-			installation.Overrides(),
-			displayStream.Notify,
-			config.Logger,
-			listener.Addr(),
-		)
-		registerScheduleRoutes(mux, installation.Schedule(), config.Logger)
-		registerDisplayRoutes(
-			mux,
-			installation.Authentication(),
-			installation.Displays(),
-			displayStream,
-			config.BuildVersion,
-			config.Logger,
-			listener.Addr(),
-		)
-		if err := registerDisplayConnectRoutes(
-			mux,
-			installation.Displays(),
-			displayStream,
-			listener.Addr(),
-			config.TracerProvider,
-			config.MeterProvider,
-			config.Propagator,
-		); err != nil {
-			return errors.Join(err, listener.Close(), installation.Close())
-		}
-		if err := registerRundownRoutes(
-			mux,
-			installation.Authentication(),
-			installation.RundownCommands(),
-			installation.RundownQueries(),
-			displayStream.Notify,
-			listener.Addr(),
-			config.TracerProvider,
-			config.MeterProvider,
-			config.Propagator,
-		); err != nil {
-			return errors.Join(err, listener.Close(), installation.Close())
-		}
-		if err := registerCompetitionRoutes(
-			mux,
-			installation.Authentication(),
-			installation.Competition(),
-			listener.Addr(),
-			config.TracerProvider,
-			config.MeterProvider,
-			config.Propagator,
-		); err != nil {
-			return errors.Join(err, listener.Close(), installation.Close())
-		}
-		if err := registerResultsRoutes(
-			mux,
-			installation.Authentication(),
-			installation.Results(),
-			listener.Addr(),
-			config.TracerProvider,
-			config.MeterProvider,
-			config.Propagator,
-		); err != nil {
-			return errors.Join(err, listener.Close(), installation.Close())
-		}
-		if err := registerProgramControlRoutes(
-			mux,
-			installation.Authentication(),
-			installation.ProgramControl(),
-			installation.Displays(),
-			displayStream,
-			programStream,
-			listener.Addr(),
-			config.TracerProvider,
-			config.MeterProvider,
-			config.Propagator,
-			config.BuildVersion,
-			config.Logger,
-		); err != nil {
-			return errors.Join(err, listener.Close(), installation.Close())
-		}
-		if err := registerActivationRoutes(
-			mux,
-			installation.Authentication(),
-			installation.Activation(),
-			displayStream.Notify,
-			listener.Addr(),
-			config.TracerProvider,
-			config.MeterProvider,
-			config.Propagator,
-		); err != nil {
-			return errors.Join(err, listener.Close(), installation.Close())
-		}
-		if err := registerScheduleBaselineRoutes(
-			mux,
-			installation.Authentication(),
-			installation.ScheduleBaselineCommands(),
-			installation.ScheduleBaselineQueries(),
-			listener.Addr(),
-			config.TracerProvider,
-			config.MeterProvider,
-			config.Propagator,
-		); err != nil {
-			return errors.Join(err, listener.Close(), installation.Close())
-		}
-		if err := registerSessionControlRoutes(
-			mux,
-			installation.Authentication(),
-			installation.SessionControl(),
-			displayStream.Notify,
-			listener.Addr(),
-			config.TracerProvider,
-			config.MeterProvider,
-			config.Propagator,
-		); err != nil {
-			return errors.Join(err, listener.Close(), installation.Close())
-		}
+	application, err := newApplication(applicationConfig{
+		Config:          config,
+		Installation:    installation,
+		ListenerAddress: listener.Addr(),
+		DisplayStream:   displayStream,
+		ProgramStream:   programStream,
+	})
+	if err != nil {
+		return errors.Join(err, listener.Close(), installation.Close())
 	}
 
 	httpServer := &http.Server{
-		Handler:           requireCompatibleClientBuild(config.BuildVersion, mux),
+		Handler:           application,
 		ReadTimeout:       10 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,
 		WriteTimeout:      10 * time.Second,
@@ -253,9 +108,8 @@ func Run(ctx context.Context, config Config) error {
 
 	select {
 	case err := <-serveResult:
-		return errors.Join(normalizeServeError(err), installation.Close())
+		return errors.Join(normalizeServeError(err), application.Close())
 	case <-ctx.Done():
-		accepting.Store(false)
 		shutdownContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), config.ShutdownTimeout)
 		defer cancel()
 
@@ -266,7 +120,7 @@ func Run(ctx context.Context, config Config) error {
 			shutdownResults <- httpServer.Shutdown(shutdownContext)
 		}()
 		go func() {
-			shutdownResults <- installation.Close()
+			shutdownResults <- application.Close()
 		}()
 		shutdownErr := errors.Join(<-shutdownResults, <-shutdownResults)
 		serveErr := normalizeServeError(<-serveResult)
@@ -289,59 +143,6 @@ func liveness(response http.ResponseWriter, request *http.Request) {
 	setProbeHeaders(response)
 	response.WriteHeader(http.StatusOK)
 	_, _ = response.Write([]byte("live\n"))
-}
-
-func readiness(
-	accepting *atomic.Bool,
-	installation *operations.Installation,
-	notifyDisplays func(),
-	logger *slog.Logger,
-) http.HandlerFunc {
-	return func(response http.ResponseWriter, request *http.Request) {
-		if !probeMethodAllowed(response, request) {
-			return
-		}
-		setProbeHeaders(response)
-		if !accepting.Load() {
-			http.Error(response, "not ready", http.StatusServiceUnavailable)
-			return
-		}
-		probeContext, cancel := context.WithTimeout(request.Context(), 2*time.Second)
-		defer cancel()
-		if err := installation.Ready(probeContext); err != nil {
-			logger.LogAttrs(
-				request.Context(),
-				slog.LevelError,
-				"readiness storage probe failed",
-				slog.String("component", "storage"),
-				slog.Any("error", err),
-			)
-			http.Error(response, "not ready", http.StatusServiceUnavailable)
-			return
-		}
-		recovered, err := installation.Recover(probeContext)
-		if err != nil {
-			logger.LogAttrs(
-				request.Context(),
-				slog.LevelError,
-				"storage recovery flush failed",
-				slog.String("component", "storage"),
-				slog.Any("error", err),
-			)
-			http.Error(response, "not ready", http.StatusServiceUnavailable)
-			return
-		}
-		if recovered {
-			logger.InfoContext(
-				request.Context(),
-				"persisted degraded Emergency Alert evidence",
-				"component", "storage",
-			)
-			notifyDisplays()
-		}
-		response.WriteHeader(http.StatusOK)
-		_, _ = response.Write([]byte("ready\n"))
-	}
 }
 
 func probeMethodAllowed(response http.ResponseWriter, request *http.Request) bool {
