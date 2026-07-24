@@ -48,6 +48,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		err = runBootstrap(ctx, args[1:], stdout, stderr)
 	case "backup":
 		err = runBackup(ctx, args[1:], stdout, stderr)
+	case "restore":
+		err = runRestore(ctx, args[1:], stdout, stderr)
 	case "serve":
 		err = runServe(ctx, args[1:], stderr, logger)
 	case "help", "-h", "--help":
@@ -62,6 +64,34 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	logger.Error("command failed", "command", args[0], "error", err)
 	return 1
+}
+
+func runRestore(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	flags := flag.NewFlagSet("restore", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	input := flags.String("input", "", "Backup archive path")
+	dataDir := flags.String("data-dir", "", "unused installation data directory")
+	attachmentsDir := flags.String(
+		"attachments-dir",
+		"",
+		"unused Attachment Store root (default: DATA-DIR/attachments)",
+	)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 {
+		return errors.New("restore accepts no positional arguments")
+	}
+	manifest, err := operations.RestoreBackup(ctx, backup.RestoreInput{
+		InputPath:      *input,
+		DataDir:        *dataDir,
+		AttachmentsDir: *attachmentsDir,
+	})
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(stdout, "restored %s Backup into %s\n", manifest.Mode, *dataDir)
+	return err
 }
 
 func runBackup(ctx context.Context, args []string, stdout, stderr io.Writer) error {
@@ -188,5 +218,5 @@ func runServe(ctx context.Context, args []string, stderr io.Writer, logger *slog
 }
 
 func printUsage(output io.Writer) {
-	_, _ = fmt.Fprintln(output, "usage: beamers <init|bootstrap|backup|serve> [options]")
+	_, _ = fmt.Fprintln(output, "usage: beamers <init|bootstrap|backup|restore|serve> [options]")
 }

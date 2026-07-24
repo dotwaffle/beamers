@@ -36,6 +36,14 @@ func VerifyBackup(path string) (backup.Manifest, error) {
 	return backup.Verify(path)
 }
 
+// RestoreBackup installs one verified archive into unused local roots.
+func RestoreBackup(
+	ctx context.Context,
+	input backup.RestoreInput,
+) (backup.Manifest, error) {
+	return backup.Restore(ctx, input)
+}
+
 var (
 	// ErrAlreadyInitialized means initialization found existing installation data.
 	ErrAlreadyInitialized = store.ErrAlreadyInitialized

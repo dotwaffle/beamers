@@ -154,8 +154,8 @@ func (transaction *CommandTx) CreateAccount(
 	return accountCredential(created, params.PasswordHash), nil
 }
 
-// IssueBootstrap records one active credential when no Account or unexpired
-// bootstrap credential exists.
+// IssueBootstrap records one active credential for a new or fully sanitized
+// installation when no unexpired bootstrap credential exists.
 func (installation *SQLite) IssueBootstrap(
 	ctx context.Context,
 	tokenHash string,
@@ -171,11 +171,11 @@ func (installation *SQLite) IssueBootstrap(
 		_ = transaction.Rollback()
 	}()
 
-	accountCount, err := transaction.Account.Query().Count(ctx)
+	credentialCount, err := transaction.PasswordCredential.Query().Count(ctx)
 	if err != nil {
-		return opaqueError("count Accounts before bootstrap", err)
+		return opaqueError("count Account credentials before bootstrap", err)
 	}
-	if accountCount != 0 {
+	if credentialCount != 0 {
 		return ErrBootstrapUnavailable
 	}
 	activeCount, err := transaction.BootstrapCredential.Query().
@@ -203,8 +203,8 @@ func (installation *SQLite) IssueBootstrap(
 	return nil
 }
 
-// BootstrapAdministrator consumes a bootstrap credential and commits the
-// first Administrator and initial session in one transaction.
+// BootstrapAdministrator consumes a bootstrap credential and either commits
+// the first Administrator or re-credentials one preserved Administrator.
 func (installation *SQLite) BootstrapAdministrator(
 	ctx context.Context,
 	params BootstrapAdministratorParams,
@@ -218,13 +218,6 @@ func (installation *SQLite) BootstrapAdministrator(
 		_ = transaction.Rollback()
 	}()
 
-	accountCount, err := transaction.Account.Query().Count(ctx)
-	if err != nil {
-		return AccountCredential{}, opaqueError("count Accounts during bootstrap", err)
-	}
-	if accountCount != 0 {
-		return AccountCredential{}, ErrInvalidBootstrap
-	}
 	credential, err := transaction.BootstrapCredential.Query().
 		Where(
 			bootstrapcredential.TokenHashEQ(params.BootstrapHash),
@@ -239,17 +232,44 @@ func (installation *SQLite) BootstrapAdministrator(
 		return AccountCredential{}, opaqueError("read bootstrap credential", err)
 	}
 
-	created, err := transaction.Account.Create().
-		SetName(params.Name).
-		SetNormalizedName(params.NormalizedName).
-		SetAdministrator(true).
-		SetCreatedAt(params.Now).
-		Save(ctx)
+	credentialCount, err := transaction.PasswordCredential.Query().Count(ctx)
 	if err != nil {
-		return AccountCredential{}, opaqueError("create first Administrator", err)
+		return AccountCredential{}, opaqueError("count Account credentials during bootstrap", err)
+	}
+	if credentialCount != 0 {
+		return AccountCredential{}, ErrInvalidBootstrap
+	}
+	accounts, err := transaction.Account.Query().All(ctx)
+	if err != nil {
+		return AccountCredential{}, opaqueError("read Accounts during bootstrap", err)
+	}
+	var administrator *ent.Account
+	switch len(accounts) {
+	case 0:
+		administrator, err = transaction.Account.Create().
+			SetName(params.Name).
+			SetNormalizedName(params.NormalizedName).
+			SetAdministrator(true).
+			SetCreatedAt(params.Now).
+			Save(ctx)
+		if err != nil {
+			return AccountCredential{}, opaqueError("create first Administrator", err)
+		}
+	default:
+		for _, candidate := range accounts {
+			if candidate.NormalizedName == params.NormalizedName &&
+				candidate.Administrator &&
+				candidate.DisabledAt == nil {
+				administrator = candidate
+				break
+			}
+		}
+		if administrator == nil {
+			return AccountCredential{}, ErrInvalidBootstrap
+		}
 	}
 	_, credentialCreateErr := transaction.PasswordCredential.Create().
-		SetAccountID(created.ID).
+		SetAccountID(administrator.ID).
 		SetPasswordHash(params.PasswordHash).
 		SetCreatedAt(params.Now).
 		Save(ctx)
@@ -273,7 +293,7 @@ func (installation *SQLite) BootstrapAdministrator(
 	if err := createAccountSession(
 		ctx,
 		transaction.AccountSession,
-		created.ID,
+		administrator.ID,
 		params.SessionHash,
 		params.Now,
 		params.SessionExpiry,
@@ -283,7 +303,7 @@ func (installation *SQLite) BootstrapAdministrator(
 	if err := transaction.Commit(); err != nil {
 		return AccountCredential{}, opaqueError("commit first Administrator", err)
 	}
-	return accountCredential(created, params.PasswordHash), nil
+	return accountCredential(administrator, params.PasswordHash), nil
 }
 
 // FindAccountCredential returns the enabled Account matching a normalized name.

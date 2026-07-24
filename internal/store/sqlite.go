@@ -297,6 +297,22 @@ func SanitizeSnapshot(ctx context.Context, path string) (returnErr error) {
 	return syncFile(path)
 }
 
+// ValidateSnapshot proves that a closed database matches the committed schema.
+func ValidateSnapshot(ctx context.Context, path string) (returnErr error) {
+	migrations, err := loadMigrations()
+	if err != nil {
+		return fmt.Errorf("load committed migrations: %w", err)
+	}
+	database, err := openValidationDatabase(ctx, path)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, database.Close())
+	}()
+	return validateStorage(ctx, database, migrations)
+}
+
 // BackupAttachments lists the distinct immutable files referenced by state.
 func (installation *SQLite) BackupAttachments(
 	ctx context.Context,
@@ -316,7 +332,7 @@ func (installation *SQLite) BackupAttachments(
 			SizeBytes:  version.SizeBytes,
 		}
 		if prior, exists := byKey[found.StorageKey]; exists && prior != found {
-			return nil, errors.New("Attachment storage key has conflicting metadata")
+			return nil, errors.New("attachment storage key has conflicting metadata")
 		}
 		byKey[found.StorageKey] = found
 	}

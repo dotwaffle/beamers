@@ -2,6 +2,7 @@ package backup
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -58,7 +59,11 @@ func TestSanitizedBackupIncludesConfiguredAttachmentsAndRemovesCredentials(t *te
 	if err != nil {
 		t.Fatalf("open Backup: %v", err)
 	}
-	defer archive.Close()
+	t.Cleanup(func() {
+		if closeErr := archive.Close(); closeErr != nil {
+			t.Errorf("close Backup: %v", closeErr)
+		}
+	})
 	attachmentName, err := attachmentArchiveName(storageKey)
 	if err != nil {
 		t.Fatalf("name Attachment entry: %v", err)
@@ -70,7 +75,11 @@ func TestSanitizedBackupIncludesConfiguredAttachmentsAndRemovesCredentials(t *te
 	if err != nil {
 		t.Fatalf("open sanitized database: %v", err)
 	}
-	defer database.Close()
+	t.Cleanup(func() {
+		if closeErr := database.Close(); closeErr != nil {
+			t.Errorf("close sanitized database: %v", closeErr)
+		}
+	})
 	for _, table := range []string{
 		"password_credentials",
 		"account_sessions",
@@ -93,6 +102,33 @@ func TestSanitizedBackupIncludesConfiguredAttachmentsAndRemovesCredentials(t *te
 	}
 	if accounts != 1 {
 		t.Fatalf("Account identities = %d, want 1", accounts)
+	}
+
+	restoredDataDir := filepath.Join(t.TempDir(), "restored")
+	restoredAttachmentsDir := filepath.Join(t.TempDir(), "restored-attachments")
+	restoredManifest, err := Restore(ctx, RestoreInput{
+		InputPath:      archivePath,
+		DataDir:        restoredDataDir,
+		AttachmentsDir: restoredAttachmentsDir,
+	})
+	if err != nil {
+		t.Fatalf("Restore Backup: %v", err)
+	}
+	if restoredManifest.Mode != Sanitized {
+		t.Fatalf("restored mode = %q, want %q", restoredManifest.Mode, Sanitized)
+	}
+	restoredContent, err := os.ReadFile(filepath.Join(restoredAttachmentsDir, storageKey))
+	if err != nil {
+		t.Fatalf("read restored Attachment: %v", err)
+	}
+	if !bytes.Equal(restoredContent, content) {
+		t.Fatalf("restored Attachment = %q, want %q", restoredContent, content)
+	}
+	if err = store.ValidateSnapshot(
+		ctx,
+		filepath.Join(restoredDataDir, "beamers.db"),
+	); err != nil {
+		t.Fatalf("validate restored database: %v", err)
 	}
 }
 
@@ -138,7 +174,11 @@ func seedBackupState(
 	if err != nil {
 		t.Fatalf("open installation database: %v", err)
 	}
-	defer database.Close()
+	t.Cleanup(func() {
+		if closeErr := database.Close(); closeErr != nil {
+			t.Errorf("close installation database: %v", closeErr)
+		}
+	})
 	now := time.Date(2026, 7, 24, 12, 0, 0, 0, time.UTC)
 	statements := []struct {
 		query string
@@ -187,7 +227,7 @@ func assertZIPContent(t *testing.T, files []*zip.File, name string, want []byte)
 		if err != nil {
 			t.Fatalf("read %s: %v", name, err)
 		}
-		if string(found) != string(want) {
+		if !bytes.Equal(found, want) {
 			t.Fatalf("%s content = %q, want %q", name, found, want)
 		}
 		return
@@ -236,7 +276,11 @@ func rewriteZIPEntry(t *testing.T, source, destination, name string, replacement
 	if err != nil {
 		t.Fatalf("open source Backup: %v", err)
 	}
-	defer input.Close()
+	t.Cleanup(func() {
+		if closeErr := input.Close(); closeErr != nil {
+			t.Errorf("close source Backup: %v", closeErr)
+		}
+	})
 	output, err := os.OpenFile(destination, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		t.Fatalf("create rewritten Backup: %v", err)
