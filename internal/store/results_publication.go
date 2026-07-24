@@ -61,7 +61,7 @@ type ResultsPublication struct {
 	Policy             ResultsPublicationPolicy
 	Status             ResultsPublicationStatus
 	Items              []PrizegivingResultItemRef
-	Lock               prizegivingvalue.Lock
+	Lock               PrizegivingPreflightLock
 	CreatedByAccountID int
 	CreatedAt          time.Time
 }
@@ -75,7 +75,7 @@ type AppendResultsPublicationParams struct {
 	Policy             ResultsPublicationPolicy
 	Status             ResultsPublicationStatus
 	Items              []PrizegivingResultItemRef
-	Lock               prizegivingvalue.Lock
+	Lock               PrizegivingPreflightLock
 	CreatedByAccountID int
 	Now                time.Time
 }
@@ -110,7 +110,7 @@ func (transaction *CommandTx) AppendResultsPublication(
 		SetReleasePolicy(resultspublication.ReleasePolicy(params.Policy)).
 		SetStatus(resultspublication.Status(params.Status)).
 		SetItems(prizegivingItemRefValues(params.Items)).
-		SetPrizegivingLock(params.Lock).
+		SetPrizegivingLock(prizegivingLockValue(params.Lock)).
 		SetCreatedAt(params.Now)
 	if params.CreatedByAccountID > 0 {
 		create.SetCreatedByAccountID(params.CreatedByAccountID)
@@ -135,6 +135,23 @@ func (installation *SQLite) LoadResultsPublication(
 	found, _, err := loadResultsPublication(
 		systemContext(ctx),
 		installation.client,
+		eventID,
+		scope,
+		scopeSessionID,
+	)
+	return found, err
+}
+
+// LoadResultsPublication returns the latest manifest inside a command transaction.
+func (transaction *CommandTx) LoadResultsPublication(
+	ctx context.Context,
+	eventID int,
+	scope ResultsPublicationScope,
+	scopeSessionID int,
+) (ResultsPublication, error) {
+	found, _, err := loadResultsPublication(
+		systemContext(ctx),
+		transaction.transaction.Client(),
 		eventID,
 		scope,
 		scopeSessionID,
@@ -196,7 +213,7 @@ func resultsPublication(found *ent.ResultsPublication) ResultsPublication {
 		Policy:         ResultsPublicationPolicy(found.ReleasePolicy),
 		Status:         ResultsPublicationStatus(found.Status),
 		Items:          prizegivingItemRefs(found.Items),
-		Lock:           found.PrizegivingLock,
+		Lock:           prizegivingLock(found.PrizegivingLock),
 		CreatedAt:      found.CreatedAt,
 	}
 	if found.CreatedByAccountID != nil {

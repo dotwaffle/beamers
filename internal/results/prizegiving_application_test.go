@@ -446,6 +446,15 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 			programStream.Cursor().Position,
 		)
 	}
+	beforeElapsed, err := storage.LoadResultsPublication(
+		t.Context(),
+		eventID,
+		store.ResultsPublicationPrizegiving,
+		ceremonyID,
+	)
+	if err != nil || beforeElapsed.Revision != 0 {
+		t.Fatalf("Publication before elapsed Reveal = %+v, %v", beforeElapsed, err)
+	}
 	nowValue = nowValue.Add(3 * time.Second)
 	revealed, err := programService.Current(
 		t.Context(),
@@ -460,6 +469,19 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 		revealed.Channel.Output.Result.Release != "Ready" ||
 		revealed.Channel.Output.Result.CompetitionResults.ID != draft.ID {
 		t.Fatalf("restored Program Result = %+v", revealed)
+	}
+	progressive, err := storage.LoadResultsPublication(
+		t.Context(),
+		eventID,
+		store.ResultsPublicationPrizegiving,
+		ceremonyID,
+	)
+	if err != nil ||
+		progressive.Revision != 1 ||
+		progressive.Status != store.ResultsPublicationPartial ||
+		len(progressive.Items) != 1 ||
+		progressive.Items[0].Kind != "CompetitionResults" {
+		t.Fatalf("Progressive Publication after Reveal = %+v, %v", progressive, err)
 	}
 	replayed, err := programService.ActOnResult(
 		t.Context(),
@@ -497,6 +519,34 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 		secondTaken.State.Channel.Output.Result == nil ||
 		secondTaken.State.Channel.Output.Result.Ref.AwardKey != "jury" {
 		t.Fatalf("Take second Result after resolution = %+v, %v", secondTaken, err)
+	}
+	secondRevealed, err := programService.ActOnResult(
+		t.Context(),
+		actor,
+		programcontrol.ResultActionInput{
+			EventID: eventID, SessionID: ceremonyID,
+			CommandID:               "reveal-second-public-program-result",
+			Action:                  programcontrol.ResultReveal,
+			Item:                    secondTaken.State.Channel.Output,
+			ExpectedProgramRevision: secondTaken.State.Channel.Revision,
+			ExpectedControlRevision: secondTaken.State.ControlRevision,
+		},
+	)
+	if err != nil ||
+		secondRevealed.State.Channel.Output.Result.Status != "Revealed" {
+		t.Fatalf("Reveal second static Result = %+v, %v", secondRevealed, err)
+	}
+	progressive, err = storage.LoadResultsPublication(
+		t.Context(),
+		eventID,
+		store.ResultsPublicationPrizegiving,
+		ceremonyID,
+	)
+	if err != nil ||
+		progressive.Revision != 2 ||
+		progressive.Status != store.ResultsPublicationPartial ||
+		len(progressive.Items) != 2 {
+		t.Fatalf("Progressive Publication after static Reveal = %+v, %v", progressive, err)
 	}
 }
 

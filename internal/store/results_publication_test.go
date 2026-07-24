@@ -4,8 +4,6 @@ import (
 	"errors"
 	"testing"
 	"time"
-
-	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 )
 
 func TestResultsPublicationAppendIsImmutableAndRevisionChecked(t *testing.T) {
@@ -24,12 +22,12 @@ func TestResultsPublicationAppendIsImmutableAndRevisionChecked(t *testing.T) {
 	ref := PrizegivingResultItemRef{
 		Kind: "CompetitionResults", CompetitionSessionID: 17, DisplayOrder: 1,
 	}
-	lock := prizegivingvalue.Lock{
+	lock := PrizegivingPreflightLock{
 		PlanRevision: 3,
-		PublicationOrder: []prizegivingvalue.ItemRef{{
+		PublicationOrder: []PrizegivingResultItemRef{{
 			Kind: "CompetitionResults", CompetitionSessionID: 17, DisplayOrder: 1,
 		}},
-		CompetitionSources: []prizegivingvalue.CompetitionLock{{
+		CompetitionSources: []PrizegivingCompetitionLock{{
 			SessionID: 17, DraftID: 23, DraftRevision: 2, Disposition: "Publish",
 		}},
 	}
