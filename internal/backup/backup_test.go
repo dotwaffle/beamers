@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -195,6 +196,70 @@ func TestVerifyRejectsTamperedManifest(t *testing.T) {
 	)
 	if _, err := Verify(tamperedPath); err == nil {
 		t.Fatal("tampered manifest unexpectedly verified")
+	}
+}
+
+func TestRestoreRejectsFullFidelityBackupRelabeledSanitized(t *testing.T) {
+	ctx := t.Context()
+	dataDir := filepath.Join(t.TempDir(), "installation")
+	if err := store.Initialize(ctx, dataDir); err != nil {
+		t.Fatalf("initialize installation: %v", err)
+	}
+	storage, err := store.Open(ctx, dataDir)
+	if err != nil {
+		t.Fatalf("open installation: %v", err)
+	}
+	now := time.Date(2026, 7, 24, 12, 0, 0, 0, time.UTC)
+	bootstrapHash := strings.Repeat("b", 64)
+	if err = storage.IssueBootstrap(ctx, bootstrapHash, now, now.Add(time.Hour)); err != nil {
+		_ = storage.Close()
+		t.Fatalf("issue bootstrap: %v", err)
+	}
+	if _, err = storage.BootstrapAdministrator(ctx, store.BootstrapAdministratorParams{
+		BootstrapHash: bootstrapHash, Name: "Administrator", NormalizedName: "administrator",
+		PasswordHash: "secret-password-hash", SessionHash: strings.Repeat("s", 64),
+		Now: now, SessionExpiry: now.Add(time.Hour),
+	}); err != nil {
+		_ = storage.Close()
+		t.Fatalf("bootstrap Administrator: %v", err)
+	}
+	if err = storage.Close(); err != nil {
+		t.Fatalf("close installation: %v", err)
+	}
+	archivePath := filepath.Join(t.TempDir(), "full-fidelity.zip")
+	if _, err = Create(ctx, CreateInput{
+		DataDir: dataDir, OutputPath: archivePath, Mode: FullFidelity,
+	}); err != nil {
+		t.Fatalf("create Full-Fidelity Backup: %v", err)
+	}
+	archive, err := zip.OpenReader(archivePath)
+	if err != nil {
+		t.Fatalf("open Full-Fidelity Backup: %v", err)
+	}
+	var manifest Manifest
+	for _, file := range archive.File {
+		if file.Name == manifestName {
+			if err = decodeZIPJSON(file, &manifest); err != nil {
+				_ = archive.Close()
+				t.Fatalf("decode manifest: %v", err)
+			}
+		}
+	}
+	if err = archive.Close(); err != nil {
+		t.Fatalf("close Full-Fidelity Backup: %v", err)
+	}
+	manifest.Mode = Sanitized
+	replacement, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatalf("encode relabeled manifest: %v", err)
+	}
+	tamperedPath := filepath.Join(t.TempDir(), "relabeled.zip")
+	rewriteZIPEntry(t, archivePath, tamperedPath, manifestName, replacement)
+	if _, err = PrepareRestore(ctx, RestoreInput{
+		InputPath: tamperedPath,
+		DataDir:   filepath.Join(t.TempDir(), "restored"),
+	}); err == nil {
+		t.Fatal("Full-Fidelity Backup relabeled Sanitized unexpectedly prepared")
 	}
 }
 

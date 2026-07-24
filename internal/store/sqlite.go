@@ -320,6 +320,35 @@ func ValidateSnapshot(ctx context.Context, path string) (returnErr error) {
 	return validateStorage(ctx, database, migrations)
 }
 
+// ValidateSanitizedSnapshot proves that a closed snapshot contains no authentication material.
+func ValidateSanitizedSnapshot(ctx context.Context, path string) (returnErr error) {
+	database, err := openValidationDatabase(ctx, path)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, database.Close())
+	}()
+	for _, query := range []string{
+		"SELECT EXISTS(SELECT 1 FROM account_sessions)",
+		"SELECT EXISTS(SELECT 1 FROM bootstrap_credentials)",
+		"SELECT EXISTS(SELECT 1 FROM password_credentials)",
+		"SELECT EXISTS(SELECT 1 FROM display_credentials)",
+		"SELECT EXISTS(SELECT 1 FROM display_enrollments)",
+		"SELECT EXISTS(SELECT 1 FROM upload_links)",
+		"SELECT EXISTS(SELECT 1 FROM command_receipts WHERE action = 'CreateAccount')",
+	} {
+		var found bool
+		if err = database.QueryRowContext(ctx, query).Scan(&found); err != nil {
+			return fmt.Errorf("inspect sanitized Backup: %w", err)
+		}
+		if found {
+			return errors.New("sanitized Backup contains authentication material")
+		}
+	}
+	return nil
+}
+
 // InspectUnsupportedSnapshot checks integrity and reports schema elements not
 // understood by this executable without mutating the supplied copy.
 func InspectUnsupportedSnapshot(

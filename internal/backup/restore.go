@@ -185,6 +185,15 @@ func PrepareRestore(
 		ctx,
 		filepath.Join(stagedData, "beamers.db"),
 	)
+	if manifest.Mode == Sanitized {
+		validationErr = errors.Join(
+			validationErr,
+			store.ValidateSanitizedSnapshot(
+				ctx,
+				filepath.Join(stagedData, "beamers.db"),
+			),
+		)
+	}
 	var unsupported store.UnsupportedSnapshotInspection
 	switch {
 	case compatibilityErr == nil && validationErr == nil:
@@ -440,6 +449,14 @@ func validatePreparedRestore(ctx context.Context, journal restoreJournal) error 
 		manifest.Attachments,
 	); attachmentsErr != nil {
 		return attachmentsErr
+	}
+	if manifest.Mode == Sanitized {
+		if sanitizedErr := store.ValidateSanitizedSnapshot(
+			ctx,
+			databasePath,
+		); sanitizedErr != nil {
+			return sanitizedErr
+		}
 	}
 	if journal.Plan.ForcedUnsupported {
 		inspection, inspectErr := store.InspectUnsupportedSnapshot(ctx, databasePath)
