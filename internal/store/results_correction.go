@@ -131,6 +131,31 @@ func (installation *SQLite) LoadResultsCorrection(
 	return found, err
 }
 
+// ListResultsCorrectionHistory returns every immutable lifecycle revision.
+func (installation *SQLite) ListResultsCorrectionHistory(
+	ctx context.Context,
+	eventID int,
+	scope ResultsPublicationScope,
+	scopeSessionID int,
+) ([]ResultsCorrection, error) {
+	found, err := installation.client.ResultsCorrection.Query().
+		Where(
+			resultscorrection.EventIDEQ(eventID),
+			resultscorrection.ScopeEQ(resultscorrection.Scope(scope)),
+			resultscorrection.ScopeSessionIDEQ(scopeSessionID),
+		).
+		Order(ent.Asc(resultscorrection.FieldRevision)).
+		All(systemContext(ctx))
+	if err != nil {
+		return nil, opaqueError("list Results Correction history", err)
+	}
+	result := make([]ResultsCorrection, 0, len(found))
+	for _, correction := range found {
+		result = append(result, resultsCorrection(correction))
+	}
+	return result, nil
+}
+
 // LoadResultsCorrection returns the latest correction inside a command transaction.
 func (transaction *CommandTx) LoadResultsCorrection(
 	ctx context.Context,

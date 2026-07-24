@@ -412,24 +412,40 @@ func renderResultsPublication(
 			len(frozen.Items) != len(current.Items) {
 			return RenderedPublicResults{}, ErrResultsRendering
 		}
-		frozenByRef := make(map[ResultItemRef]PublicResultsItem, len(current.Items))
-		for index, ref := range publicationFromStore(current).Items {
-			frozenByRef[ref] = frozen.Items[index]
-		}
-		model.Event = frozen.Event
-		model.EventTitle = frozen.Event.Name
-		model.Correction = frozen.Correction
-		for index, ref := range next.Items {
-			if item, ok := frozenByRef[ref]; ok {
-				model.Items[index] = item
-			}
-		}
+		preservePublishedResults(
+			&model,
+			frozen,
+			publicationFromStore(current).Items,
+			next.Items,
+		)
 	}
 	template := TextTemplate{
 		Revision: lock.Template.Revision,
 		Source:   lock.Template.Source,
 	}
 	return RenderPublicResults(model, template)
+}
+
+func preservePublishedResults(
+	model *PublicResultsPublication,
+	frozen PublicResultsPublication,
+	currentItems, nextItems []ResultItemRef,
+) {
+	frozenByIdentity := make(
+		map[resultItemIdentity]PublicResultsItem,
+		len(currentItems),
+	)
+	for index, ref := range currentItems {
+		frozenByIdentity[resultItemIdentityFromRef(ref)] = frozen.Items[index]
+	}
+	model.Event = frozen.Event
+	model.EventTitle = frozen.Event.Name
+	model.Correction = frozen.Correction
+	for index, ref := range nextItems {
+		if item, ok := frozenByIdentity[resultItemIdentityFromRef(ref)]; ok {
+			model.Items[index] = item
+		}
+	}
 }
 
 func publicResultsSource(
@@ -524,7 +540,8 @@ func publicCompetitionSourceItem(
 			continue
 		}
 		publicEntry := PublicResultsSourceEntry{
-			Name: entry.Name, ResultDisposition: entry.ResultDisposition,
+			EntryID: entry.ID, Name: entry.Name,
+			ResultDisposition:             entry.ResultDisposition,
 			PublicDisqualificationMessage: entry.PublicDisqualificationMessage,
 			LockedOrder:                   index + 1,
 		}
@@ -545,6 +562,7 @@ func publicCompetitionSourceItem(
 			continue
 		}
 		item.Awards = append(item.Awards, publicResultsAwardSource(
+			award.Key,
 			award.Name,
 			award.Recipients,
 			entryNames,
@@ -560,7 +578,12 @@ func findPublicCompetitionAward(
 ) (PublicResultsSourceAward, bool) {
 	for _, award := range awards {
 		if award.Key == key && award.Promoted {
-			return publicResultsAwardSource(award.Name, award.Recipients, entryNames), true
+			return publicResultsAwardSource(
+				award.Key,
+				award.Name,
+				award.Recipients,
+				entryNames,
+			), true
 		}
 	}
 	return PublicResultsSourceAward{}, false
@@ -576,19 +599,25 @@ func findPublicEventAward(
 		if award.Key == key &&
 			award.ReleasePath.Kind == "Prizegiving" &&
 			award.ReleasePath.PrizegivingSessionID == scopeSessionID {
-			return publicResultsAwardSource(award.Name, award.Recipients, entryNames), true
+			return publicResultsAwardSource(
+				award.Key,
+				award.Name,
+				award.Recipients,
+				entryNames,
+			), true
 		}
 	}
 	return PublicResultsSourceAward{}, false
 }
 
 func publicResultsAwardSource(
+	key string,
 	name string,
 	recipients []store.AwardRecipientInput,
 	entryNames map[int]string,
 ) PublicResultsSourceAward {
 	result := PublicResultsSourceAward{
-		Name: name, Recipients: make([]string, 0, len(recipients)),
+		Key: key, Name: name, Recipients: make([]string, 0, len(recipients)),
 	}
 	for _, recipient := range recipients {
 		displayName := recipient.DisplayName

@@ -353,6 +353,31 @@ func (installation *SQLite) LoadResultsPublicationRevision(
 	return resultsPublication(found), nil
 }
 
+// ListResultsPublicationHistory returns every immutable scope revision.
+func (installation *SQLite) ListResultsPublicationHistory(
+	ctx context.Context,
+	eventID int,
+	scope ResultsPublicationScope,
+	scopeSessionID int,
+) ([]ResultsPublication, error) {
+	found, err := installation.client.ResultsPublication.Query().
+		Where(
+			resultspublication.EventIDEQ(eventID),
+			resultspublication.ScopeEQ(resultspublication.Scope(scope)),
+			resultspublication.ScopeSessionIDEQ(scopeSessionID),
+		).
+		Order(ent.Asc(resultspublication.FieldRevision)).
+		All(systemContext(ctx))
+	if err != nil {
+		return nil, opaqueError("list Results Publication history", err)
+	}
+	result := make([]ResultsPublication, 0, len(found))
+	for _, publication := range found {
+		result = append(result, resultsPublication(publication))
+	}
+	return result, nil
+}
+
 // LoadResultsPublication returns the latest manifest inside a command transaction.
 func (transaction *CommandTx) LoadResultsPublication(
 	ctx context.Context,
@@ -428,8 +453,41 @@ func validResultsCorrectionPublicationAppend(
 		len(current.Lock.RenderSource) == 0 ||
 		!reflect.DeepEqual(current.Lock.RenderSource, params.Lock.RenderSource) ||
 		!samePrizegivingItemIdentitySet(current.Items, params.Items) ||
-		!reflect.DeepEqual(params.Items, params.Lock.PublicationOrder) {
+		!samePrizegivingItemIdentitySet(
+			current.Lock.PublicationOrder,
+			params.Lock.PublicationOrder,
+		) ||
+		!resultsPublicationItemsWithinLock(
+			params.Items,
+			params.Lock.PublicationOrder,
+		) {
 		return false
+	}
+	return true
+}
+
+func resultsPublicationItemsWithinLock(
+	items, locked []PrizegivingResultItemRef,
+) bool {
+	type identity struct {
+		Kind                 prizegivingvalue.ItemKind
+		CompetitionSessionID int
+		AwardKey             string
+	}
+	lockedIdentities := make(map[identity]struct{}, len(locked))
+	for _, ref := range locked {
+		lockedIdentities[identity{
+			Kind: ref.Kind, CompetitionSessionID: ref.CompetitionSessionID,
+			AwardKey: ref.AwardKey,
+		}] = struct{}{}
+	}
+	for _, ref := range items {
+		if _, ok := lockedIdentities[identity{
+			Kind: ref.Kind, CompetitionSessionID: ref.CompetitionSessionID,
+			AwardKey: ref.AwardKey,
+		}]; !ok {
+			return false
+		}
 	}
 	return true
 }

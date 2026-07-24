@@ -22,6 +22,7 @@ type PublicResultsEvent struct {
 
 // PublicResultEntry is one public placement, unplaced, or disqualified Entry.
 type PublicResultEntry struct {
+	EntryID   int    `json:"entry_id,omitempty"`
 	Name      string `json:"name"`
 	Placement int    `json:"placement,omitempty"`
 	Score     string `json:"score,omitempty"`
@@ -30,6 +31,7 @@ type PublicResultEntry struct {
 
 // PublicResultsAward is one public Award and its resolved recipient names.
 type PublicResultsAward struct {
+	Key        string   `json:"key,omitempty"`
 	Name       string   `json:"name"`
 	Recipients []string `json:"recipients"`
 }
@@ -88,8 +90,6 @@ type RenderedPublicResults struct {
 }
 
 const defaultResultsTextSource = `{{ .Event.Name }} Results
-{{ with .Correction }}Corrected{{ with .Note }} — {{ . }}{{ end }}
-{{ end }}
 {{ range .Items }}{{ with .Competition }}
 {{ .Title }}
 {{ range .Placed }}{{ .Placement }}. {{ .Name }}{{ with .Score }} — {{ . }}{{ end }}
@@ -145,13 +145,21 @@ func RenderPublicResults(
 	if err = parsedText.Execute(&textOutput, publication); err != nil {
 		return RenderedPublicResults{}, ErrResultsRendering
 	}
+	text := textOutput.String()
+	if publication.Correction != nil {
+		notice := "Corrected"
+		if publication.Correction.Note != "" {
+			notice += " — " + publication.Correction.Note
+		}
+		text = notice + "\n" + text
+	}
 	jsonOutput, err := json.MarshalIndent(publication, "", "  ")
 	if err != nil {
 		return RenderedPublicResults{}, ErrResultsRendering
 	}
 	return RenderedPublicResults{
 		Model: publication, Template: textTemplate,
-		HTML: htmlOutput.String(), Text: textOutput.String(),
+		HTML: htmlOutput.String(), Text: text,
 		JSON: string(jsonOutput),
 	}, nil
 }

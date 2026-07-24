@@ -22,6 +22,11 @@ service ResultsService {
   rpc PreviewPrizegiving(PreviewPrizegivingRequest) returns (PreviewPrizegivingResponse);
   rpc FirePrizegivingResultsCue(FirePrizegivingResultsCueRequest) returns (FirePrizegivingResultsCueResponse);
   rpc ReleaseStandaloneResults(ReleaseStandaloneResultsRequest) returns (ReleaseStandaloneResultsResponse);
+  rpc GetResultsCorrection(GetResultsCorrectionRequest) returns (GetResultsCorrectionResponse);
+  rpc SaveResultsCorrection(SaveResultsCorrectionRequest) returns (SaveResultsCorrectionResponse);
+  rpc ReviewResultsCorrection(ReviewResultsCorrectionRequest) returns (ReviewResultsCorrectionResponse);
+  rpc PublishResultsCorrection(PublishResultsCorrectionRequest) returns (PublishResultsCorrectionResponse);
+  rpc GetResultsCorrectionHistory(GetResultsCorrectionHistoryRequest) returns (GetResultsCorrectionHistoryResponse);
 }
 
 enum ResultsDisposition {
@@ -43,6 +48,19 @@ enum ResultsPublicationStatus {
   RESULTS_PUBLICATION_STATUS_UNSPECIFIED = 0;
   RESULTS_PUBLICATION_STATUS_PARTIAL = 1;
   RESULTS_PUBLICATION_STATUS_FINAL = 2;
+}
+
+enum ResultsPublicationScope {
+  RESULTS_PUBLICATION_SCOPE_UNSPECIFIED = 0;
+  RESULTS_PUBLICATION_SCOPE_PRIZEGIVING = 1;
+  RESULTS_PUBLICATION_SCOPE_STANDALONE = 2;
+}
+
+enum ResultsCorrectionStatus {
+  RESULTS_CORRECTION_STATUS_UNSPECIFIED = 0;
+  RESULTS_CORRECTION_STATUS_DRAFT = 1;
+  RESULTS_CORRECTION_STATUS_READY = 2;
+  RESULTS_CORRECTION_STATUS_PUBLISHED = 3;
 }
 
 enum ResultStanding {
@@ -432,4 +450,139 @@ message ReleaseStandaloneResultsRequest {
 
 message ReleaseStandaloneResultsResponse {
   ResultsPublication publication = 1;
+}
+
+message ResultsCorrectionProposal {
+  repeated ResultItemRef publication_order = 1;
+  repeated PublicResultsItem items = 2;
+  ResultsTextTemplate results_text_template = 3;
+  string crew_reason = 4;
+  string public_note = 5;
+}
+
+message PublicResultEntry {
+  int64 entry_id = 1;
+  string name = 2;
+  int64 placement = 3;
+  string score = 4;
+  string message = 5;
+}
+
+message PublicResultsAward {
+  string key = 1;
+  string name = 2;
+  repeated string recipients = 3;
+}
+
+message PublicCompetitionResults {
+  int64 session_id = 1;
+  string title = 2;
+  repeated PublicResultEntry placed = 3;
+  repeated PublicResultEntry unplaced = 4;
+  repeated PublicResultEntry disqualified = 5;
+  repeated PublicResultsAward awards = 6;
+}
+
+message PublicNoResults {
+  int64 session_id = 1;
+  string title = 2;
+  string explanation = 3;
+}
+
+message PublicResultsItem {
+  ResultItemKind kind = 1;
+  oneof item {
+    PublicCompetitionResults competition = 2;
+    PublicNoResults no_public_results = 3;
+    PublicResultsAward award = 4;
+  }
+}
+
+message ResultsCorrection {
+  int64 event_id = 1;
+  ResultsPublicationScope scope = 2;
+  int64 scope_session_id = 3;
+  int64 revision = 4;
+  int64 base_publication_revision = 5;
+  ResultsCorrectionStatus status = 6;
+  ResultsCorrectionProposal proposal = 7;
+  int64 published_results_revision = 8;
+  int64 created_by_account_id = 9;
+  google.protobuf.Timestamp created_at = 10;
+}
+
+message GetResultsCorrectionRequest {
+  int64 event_id = 1;
+  ResultsPublicationScope scope = 2;
+  int64 scope_session_id = 3;
+}
+
+message GetResultsCorrectionResponse {
+  ResultsCorrection correction = 1;
+}
+
+message SaveResultsCorrectionRequest {
+  int64 event_id = 1;
+  ResultsPublicationScope scope = 2;
+  int64 scope_session_id = 3;
+  string command_id = 4;
+  int64 expected_revision = 5;
+  int64 base_publication_revision = 6;
+  ResultsCorrectionProposal proposal = 7;
+}
+
+message SaveResultsCorrectionResponse {
+  ResultsCorrection correction = 1;
+}
+
+message ReviewResultsCorrectionRequest {
+  int64 event_id = 1;
+  ResultsPublicationScope scope = 2;
+  int64 scope_session_id = 3;
+  string command_id = 4;
+  int64 expected_revision = 5;
+}
+
+message ReviewResultsCorrectionResponse {
+  ResultsCorrection correction = 1;
+}
+
+message PublishResultsCorrectionRequest {
+  int64 event_id = 1;
+  ResultsPublicationScope scope = 2;
+  int64 scope_session_id = 3;
+  string command_id = 4;
+  int64 expected_revision = 5;
+}
+
+message PublishResultsCorrectionResponse {
+  ResultsCorrection correction = 1;
+  ResultsPublication publication = 2;
+}
+
+message ResultsPublicationHistoryRevision {
+  int64 revision = 1;
+  ResultsPublicationStatus status = 2;
+  repeated ResultItemRef publication_order = 3;
+  ResultsTextTemplate results_text_template = 4;
+  string rendered_html = 5;
+  string rendered_text = 6;
+  string rendered_json = 7;
+  int64 results_correction_revision = 8;
+  google.protobuf.Timestamp created_at = 9;
+}
+
+message ResultsCorrectionHistory {
+  repeated ResultsCorrection corrections = 1;
+  repeated ResultsPublicationHistoryRevision publications = 2;
+}
+
+message GetResultsCorrectionHistoryRequest {
+  int64 event_id = 1;
+  ResultsPublicationScope scope = 2;
+  int64 scope_session_id = 3;
+}
+
+message GetResultsCorrectionHistoryResponse {
+  ResultsCorrectionHistory history = 1;
 }

@@ -19,6 +19,7 @@ import (
 	programv1 "github.com/dotwaffle/beamers/gen/beamers/program/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/program/v1/programv1connect"
 	resultsv1 "github.com/dotwaffle/beamers/gen/beamers/results/v1"
+	"github.com/dotwaffle/beamers/gen/beamers/results/v1/resultsv1connect"
 	"github.com/dotwaffle/beamers/internal/activation"
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/connectapi"
@@ -28,6 +29,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/programconnect"
 	"github.com/dotwaffle/beamers/internal/programcontrol"
 	"github.com/dotwaffle/beamers/internal/results"
+	"github.com/dotwaffle/beamers/internal/resultsconnect"
 	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/sessioncontrol"
 	"github.com/dotwaffle/beamers/internal/store"
@@ -334,7 +336,7 @@ func TestPrizegivingReleaseBlocksOnTemplateRenderFailure(t *testing.T) {
 }
 
 func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T) {
-	storage, actor, eventID, _, _ := openPrizegivingApplicationTest(t)
+	storage, actor, eventID, authentication, sessionToken := openPrizegivingApplicationTest(t)
 	now := func() time.Time {
 		return time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
 	}
@@ -409,77 +411,103 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 		t.Fatalf("decode released Results model: %v", err)
 	}
 	releasedModel.Items[0].Competition.Title = "Corrected Final"
-	correction, err := service.SaveCorrection(
-		t.Context(),
-		actor,
-		results.SaveCorrectionInput{
-			EventID: eventID, Scope: results.PublicationScopeStandalone,
-			ScopeSessionID:          competitionID,
-			CommandID:               "save-standalone-results-correction",
-			BasePublicationRevision: stored.Revision,
-			PublicationOrder:        released.Items,
-			Items:                   releasedModel.Items,
-			Template:                results.DefaultResultsTextTemplate(),
-			CrewReason:              "The public title was incomplete.",
-			PublicNote:              "Competition title corrected.",
-		},
+	client := newResultsRPCClient(
+		t,
+		service,
+		authentication,
 	)
-	if err != nil || correction.Status != results.CorrectionDraft {
-		t.Fatalf("save Results Correction = %+v, %v", correction, err)
+	defaultTemplate := results.DefaultResultsTextTemplate()
+	saveRequest := connect.NewRequest(&resultsv1.SaveResultsCorrectionRequest{
+		EventId:                 int64(eventID),
+		Scope:                   resultsv1.ResultsPublicationScope_RESULTS_PUBLICATION_SCOPE_STANDALONE,
+		ScopeSessionId:          int64(competitionID),
+		CommandId:               "save-standalone-results-correction",
+		BasePublicationRevision: int64(stored.Revision),
+		Proposal: &resultsv1.ResultsCorrectionProposal{
+			PublicationOrder: []*resultsv1.ResultItemRef{{
+				Kind:                 resultsv1.ResultItemKind_RESULT_ITEM_KIND_COMPETITION_RESULTS,
+				CompetitionSessionId: int64(competitionID),
+				DisplayOrder:         1,
+			}},
+			Items: []*resultsv1.PublicResultsItem{{
+				Kind: resultsv1.ResultItemKind_RESULT_ITEM_KIND_COMPETITION_RESULTS,
+				Item: &resultsv1.PublicResultsItem_Competition{
+					Competition: &resultsv1.PublicCompetitionResults{
+						SessionId: int64(
+							releasedModel.Items[0].Competition.SessionID,
+						),
+						Title: releasedModel.Items[0].Competition.Title,
+					},
+				},
+			}},
+			ResultsTextTemplate: &resultsv1.ResultsTextTemplate{
+				Revision: int64(defaultTemplate.Revision),
+				Source:   defaultTemplate.Source,
+			},
+			CrewReason: "The public title was incomplete.",
+			PublicNote: "Competition title corrected.",
+		},
+	})
+	setResultsSessionCookie(saveRequest.Header(), sessionToken)
+	saved, err := client.SaveResultsCorrection(t.Context(), saveRequest)
+	if err != nil ||
+		saved.Msg.GetCorrection().GetStatus() !=
+			resultsv1.ResultsCorrectionStatus_RESULTS_CORRECTION_STATUS_DRAFT {
+		t.Fatalf("save Results Correction RPC = %+v, %v", saved, err)
 	}
-	loadedCorrection, err := service.GetCorrection(
+	getRequest := connect.NewRequest(&resultsv1.GetResultsCorrectionRequest{
+		EventId:        int64(eventID),
+		Scope:          resultsv1.ResultsPublicationScope_RESULTS_PUBLICATION_SCOPE_STANDALONE,
+		ScopeSessionId: int64(competitionID),
+	})
+	setResultsSessionCookie(getRequest.Header(), sessionToken)
+	loaded, err := client.GetResultsCorrection(t.Context(), getRequest)
+	if err != nil ||
+		loaded.Msg.GetCorrection().GetRevision() !=
+			saved.Msg.GetCorrection().GetRevision() ||
+		loaded.Msg.GetCorrection().GetProposal().GetPublicNote() !=
+			saved.Msg.GetCorrection().GetProposal().GetPublicNote() {
+		t.Fatalf("get Results Correction RPC = %+v, %v", loaded, err)
+	}
+	reviewRequest := connect.NewRequest(&resultsv1.ReviewResultsCorrectionRequest{
+		EventId:          int64(eventID),
+		Scope:            resultsv1.ResultsPublicationScope_RESULTS_PUBLICATION_SCOPE_STANDALONE,
+		ScopeSessionId:   int64(competitionID),
+		CommandId:        "review-standalone-results-correction",
+		ExpectedRevision: saved.Msg.GetCorrection().GetRevision(),
+	})
+	setResultsSessionCookie(reviewRequest.Header(), sessionToken)
+	reviewed, err := client.ReviewResultsCorrection(t.Context(), reviewRequest)
+	if err != nil ||
+		reviewed.Msg.GetCorrection().GetStatus() !=
+			resultsv1.ResultsCorrectionStatus_RESULTS_CORRECTION_STATUS_READY {
+		t.Fatalf("review Results Correction RPC = %+v, %v", reviewed, err)
+	}
+	publishRequest := connect.NewRequest(&resultsv1.PublishResultsCorrectionRequest{
+		EventId:          int64(eventID),
+		Scope:            resultsv1.ResultsPublicationScope_RESULTS_PUBLICATION_SCOPE_STANDALONE,
+		ScopeSessionId:   int64(competitionID),
+		CommandId:        "publish-standalone-results-correction",
+		ExpectedRevision: reviewed.Msg.GetCorrection().GetRevision(),
+	})
+	setResultsSessionCookie(publishRequest.Header(), sessionToken)
+	corrected, err := client.PublishResultsCorrection(t.Context(), publishRequest)
+	if err != nil ||
+		corrected.Msg.GetCorrection().GetStatus() !=
+			resultsv1.ResultsCorrectionStatus_RESULTS_CORRECTION_STATUS_PUBLISHED ||
+		corrected.Msg.GetPublication().GetRevision() != int64(stored.Revision+1) {
+		t.Fatalf("publish Results Correction RPC = %+v, %v", corrected, err)
+	}
+	replayRequest := connect.NewRequest(publishRequest.Msg)
+	setResultsSessionCookie(replayRequest.Header(), sessionToken)
+	replayedCorrection, err := client.PublishResultsCorrection(
 		t.Context(),
-		actor,
-		eventID,
-		results.PublicationScopeStandalone,
-		competitionID,
+		replayRequest,
 	)
 	if err != nil ||
-		loadedCorrection.Revision != correction.Revision ||
-		loadedCorrection.Proposal.PublicNote != correction.Proposal.PublicNote {
-		t.Fatalf("get Results Correction = %+v, %v", loadedCorrection, err)
-	}
-	correction, err = service.ReviewCorrection(
-		t.Context(),
-		actor,
-		results.ReviewCorrectionInput{
-			EventID: eventID, Scope: results.PublicationScopeStandalone,
-			ScopeSessionID:   competitionID,
-			CommandID:        "review-standalone-results-correction",
-			ExpectedRevision: correction.Revision,
-		},
-	)
-	if err != nil || correction.Status != results.CorrectionReady {
-		t.Fatalf("review Results Correction = %+v, %v", correction, err)
-	}
-	corrected, err := service.PublishCorrection(
-		t.Context(),
-		actor,
-		results.ReviewCorrectionInput{
-			EventID: eventID, Scope: results.PublicationScopeStandalone,
-			ScopeSessionID:   competitionID,
-			CommandID:        "publish-standalone-results-correction",
-			ExpectedRevision: correction.Revision,
-		},
-	)
-	if err != nil ||
-		corrected.Correction.Status != results.CorrectionPublished ||
-		corrected.Publication.Revision != stored.Revision+1 {
-		t.Fatalf("publish Results Correction = %+v, %v", corrected, err)
-	}
-	replayedCorrection, err := service.PublishCorrection(
-		t.Context(),
-		actor,
-		results.ReviewCorrectionInput{
-			EventID: eventID, Scope: results.PublicationScopeStandalone,
-			ScopeSessionID:   competitionID,
-			CommandID:        "publish-standalone-results-correction",
-			ExpectedRevision: correction.Revision,
-		},
-	)
-	if err != nil ||
-		replayedCorrection.Publication.Revision != corrected.Publication.Revision {
-		t.Fatalf("replay Results Correction = %+v, %v", replayedCorrection, err)
+		replayedCorrection.Msg.GetPublication().GetRevision() !=
+			corrected.Msg.GetPublication().GetRevision() {
+		t.Fatalf("replay Results Correction RPC = %+v, %v", replayedCorrection, err)
 	}
 	latest, err := storage.LoadResultsPublication(
 		t.Context(),
@@ -488,7 +516,8 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 		competitionID,
 	)
 	if err != nil ||
-		latest.ResultsCorrectionRevision != corrected.Correction.Revision ||
+		latest.ResultsCorrectionRevision !=
+			int(corrected.Msg.GetCorrection().GetRevision()) ||
 		!strings.Contains(latest.RenderedHTML, "Corrected Final") ||
 		!strings.Contains(latest.RenderedText, "Competition title corrected.") ||
 		!strings.Contains(latest.RenderedJSON, `"previous_revision": 1`) {
@@ -505,14 +534,50 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 		strings.Contains(original.RenderedJSON, "Competition title corrected.") {
 		t.Fatalf("original Results Publication = %+v, %v", original, err)
 	}
+	historyRequest := connect.NewRequest(
+		&resultsv1.GetResultsCorrectionHistoryRequest{
+			EventId:        int64(eventID),
+			Scope:          resultsv1.ResultsPublicationScope_RESULTS_PUBLICATION_SCOPE_STANDALONE,
+			ScopeSessionId: int64(competitionID),
+		},
+	)
+	setResultsSessionCookie(historyRequest.Header(), sessionToken)
+	history, err := client.GetResultsCorrectionHistory(
+		t.Context(),
+		historyRequest,
+	)
+	if err != nil ||
+		len(history.Msg.GetHistory().GetCorrections()) != 3 ||
+		len(history.Msg.GetHistory().GetPublications()) != 2 ||
+		strings.Contains(
+			history.Msg.GetHistory().GetPublications()[0].GetRenderedJson(),
+			"Competition title corrected.",
+		) ||
+		!strings.Contains(
+			history.Msg.GetHistory().GetPublications()[1].GetRenderedJson(),
+			"Competition title corrected.",
+		) {
+		t.Fatalf("Results Correction history RPC = %+v, %v", history, err)
+	}
 	audits, err := storage.ListAuditEntries(actor.Context(t.Context()))
 	if err != nil {
 		t.Fatalf("list Results Correction Audit Entries: %v", err)
 	}
+	correctionAudits := 0
 	for _, audit := range audits {
 		if strings.Contains(audit.Action, "Attachment") {
 			t.Fatalf("Results Correction retriggered Attachment action: %+v", audit)
 		}
+		if strings.Contains(audit.Action, "ResultsCorrection") {
+			correctionAudits++
+			if audit.Reason != "The public title was incomplete." ||
+				audit.Note != "Competition title corrected." {
+				t.Fatalf("Results Correction Audit evidence = %+v", audit)
+			}
+		}
+	}
+	if correctionAudits != 3 {
+		t.Fatalf("Results Correction Audit count = %d, want 3", correctionAudits)
 	}
 	if _, err = service.DesignatePrizegiving(
 		t.Context(),
@@ -1072,6 +1137,45 @@ func newResultRPCInvoker(
 		}
 		return response.Msg, nil
 	}, displayStream, programStream
+}
+
+func newResultsRPCClient(
+	t *testing.T,
+	service *results.Service,
+	authentication *auth.Service,
+) resultsv1connect.ResultsServiceClient {
+	t.Helper()
+	handler, err := resultsconnect.NewHandler(service)
+	if err != nil {
+		t.Fatalf("create Results Connect handler: %v", err)
+	}
+	authenticationInterceptor, err := connectapi.AuthenticationInterceptor(
+		authentication,
+	)
+	if err != nil {
+		t.Fatalf("create Authentication interceptor: %v", err)
+	}
+	path, serviceHandler := resultsv1connect.NewResultsServiceHandler(
+		handler,
+		connect.WithInterceptors(
+			connectapi.RequestIDInterceptor(),
+			resultsconnect.ErrorInterceptor(),
+			authenticationInterceptor,
+		),
+	)
+	mux := http.NewServeMux()
+	mux.Handle(path, serviceHandler)
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	return resultsv1connect.NewResultsServiceClient(
+		server.Client(),
+		server.URL,
+		connect.WithProtoJSON(),
+	)
+}
+
+func setResultsSessionCookie(header http.Header, token string) {
+	header.Set("Cookie", "beamers_session="+token)
 }
 
 func openPrizegivingApplicationTest(

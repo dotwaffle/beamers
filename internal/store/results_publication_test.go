@@ -137,6 +137,101 @@ func TestResultsPublicationAppendIsImmutableAndRevisionChecked(t *testing.T) {
 	}
 }
 
+func TestPartialResultsCorrectionPreservesLockedUnreleasedItems(t *testing.T) {
+	client := openEntTestClient(t)
+	installation := &SQLite{client: client}
+	event := createSchemaTestEvent(t, client)
+	ceremony := createPublishedResultsSession(
+		t,
+		client,
+		event.ID,
+		"Ceremony",
+		"Prizegiving",
+	)
+	ctx := systemContext(t.Context())
+	now := time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
+	released := PrizegivingResultItemRef{
+		Kind: "CompetitionResults", CompetitionSessionID: 17, DisplayOrder: 1,
+	}
+	unreleased := PrizegivingResultItemRef{
+		Kind: "EventAward", AwardKey: "community", DisplayOrder: 2,
+	}
+	lock := PrizegivingPreflightLock{
+		PlanRevision: 3,
+		PublicationOrder: []PrizegivingResultItemRef{
+			released,
+			unreleased,
+		},
+		RenderSource: []byte(`{"event_name":"frozen"}`),
+	}
+	firstTransaction := beginCommand(t, installation, ctx)
+	first, err := firstTransaction.AppendResultsPublication(
+		ctx,
+		AppendResultsPublicationParams{
+			EventID: event.ID, Scope: ResultsPublicationPrizegiving,
+			ScopeSessionID: ceremony.ID, ExpectedRevision: 0,
+			Policy: ResultsPublicationProgressive,
+			Status: ResultsPublicationPartial,
+			Items:  []PrizegivingResultItemRef{released},
+			Lock:   lock, CreatedByAccountID: 7, Now: now,
+		},
+	)
+	if err != nil {
+		t.Fatalf("append Partial Results Publication: %v", err)
+	}
+	if err = firstTransaction.Commit(); err != nil {
+		t.Fatalf("commit Partial Results Publication: %v", err)
+	}
+	correctionTransaction := beginCommand(t, installation, ctx)
+	corrected, err := correctionTransaction.AppendResultsPublication(
+		ctx,
+		AppendResultsPublicationParams{
+			EventID: event.ID, Scope: ResultsPublicationPrizegiving,
+			ScopeSessionID: ceremony.ID, ExpectedRevision: first.Revision,
+			Policy: ResultsPublicationProgressive,
+			Status: ResultsPublicationPartial,
+			Items:  []PrizegivingResultItemRef{released},
+			Lock:   lock, ResultsCorrectionRevision: 1,
+			RenderedHTML: "<p>corrected</p>", RenderedText: "corrected",
+			RenderedJSON: `{"revision":2}`, CreatedByAccountID: 7,
+			Now: now.Add(time.Second),
+		},
+	)
+	if err != nil {
+		t.Fatalf("append corrected Partial Results Publication: %v", err)
+	}
+	if err = correctionTransaction.Commit(); err != nil {
+		t.Fatalf("commit corrected Partial Results Publication: %v", err)
+	}
+	if corrected.Revision != 2 ||
+		len(corrected.Items) != 1 ||
+		len(corrected.Lock.PublicationOrder) != 2 {
+		t.Fatalf("corrected Partial Results Publication = %+v", corrected)
+	}
+	continuationTransaction := beginCommand(t, installation, ctx)
+	continued, err := continuationTransaction.AppendResultsPublication(
+		ctx,
+		AppendResultsPublicationParams{
+			EventID: event.ID, Scope: ResultsPublicationPrizegiving,
+			ScopeSessionID: ceremony.ID, ExpectedRevision: corrected.Revision,
+			Policy: ResultsPublicationProgressive,
+			Status: ResultsPublicationFinal,
+			Items:  []PrizegivingResultItemRef{released, unreleased},
+			Lock:   lock, CreatedByAccountID: 7, Now: now.Add(2 * time.Second),
+		},
+	)
+	if err != nil {
+		t.Fatalf("continue corrected Partial Results Publication: %v", err)
+	}
+	if err = continuationTransaction.Commit(); err != nil {
+		t.Fatalf("commit continued Results Publication: %v", err)
+	}
+	if continued.Status != ResultsPublicationFinal ||
+		len(continued.Items) != 2 {
+		t.Fatalf("continued Results Publication = %+v", continued)
+	}
+}
+
 func TestStandaloneResultsReleaseStateIncludesRequiredEntryResolution(t *testing.T) {
 	client := openEntTestClient(t)
 	installation := &SQLite{client: client}

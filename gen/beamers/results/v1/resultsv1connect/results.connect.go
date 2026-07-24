@@ -75,6 +75,21 @@ const (
 	// ResultsServiceReleaseStandaloneResultsProcedure is the fully-qualified name of the
 	// ResultsService's ReleaseStandaloneResults RPC.
 	ResultsServiceReleaseStandaloneResultsProcedure = "/beamers.results.v1.ResultsService/ReleaseStandaloneResults"
+	// ResultsServiceGetResultsCorrectionProcedure is the fully-qualified name of the ResultsService's
+	// GetResultsCorrection RPC.
+	ResultsServiceGetResultsCorrectionProcedure = "/beamers.results.v1.ResultsService/GetResultsCorrection"
+	// ResultsServiceSaveResultsCorrectionProcedure is the fully-qualified name of the ResultsService's
+	// SaveResultsCorrection RPC.
+	ResultsServiceSaveResultsCorrectionProcedure = "/beamers.results.v1.ResultsService/SaveResultsCorrection"
+	// ResultsServiceReviewResultsCorrectionProcedure is the fully-qualified name of the
+	// ResultsService's ReviewResultsCorrection RPC.
+	ResultsServiceReviewResultsCorrectionProcedure = "/beamers.results.v1.ResultsService/ReviewResultsCorrection"
+	// ResultsServicePublishResultsCorrectionProcedure is the fully-qualified name of the
+	// ResultsService's PublishResultsCorrection RPC.
+	ResultsServicePublishResultsCorrectionProcedure = "/beamers.results.v1.ResultsService/PublishResultsCorrection"
+	// ResultsServiceGetResultsCorrectionHistoryProcedure is the fully-qualified name of the
+	// ResultsService's GetResultsCorrectionHistory RPC.
+	ResultsServiceGetResultsCorrectionHistoryProcedure = "/beamers.results.v1.ResultsService/GetResultsCorrectionHistory"
 )
 
 // ResultsServiceClient is a client for the beamers.results.v1.ResultsService service.
@@ -93,6 +108,11 @@ type ResultsServiceClient interface {
 	PreviewPrizegiving(context.Context, *connect.Request[v1.PreviewPrizegivingRequest]) (*connect.Response[v1.PreviewPrizegivingResponse], error)
 	FirePrizegivingResultsCue(context.Context, *connect.Request[v1.FirePrizegivingResultsCueRequest]) (*connect.Response[v1.FirePrizegivingResultsCueResponse], error)
 	ReleaseStandaloneResults(context.Context, *connect.Request[v1.ReleaseStandaloneResultsRequest]) (*connect.Response[v1.ReleaseStandaloneResultsResponse], error)
+	GetResultsCorrection(context.Context, *connect.Request[v1.GetResultsCorrectionRequest]) (*connect.Response[v1.GetResultsCorrectionResponse], error)
+	SaveResultsCorrection(context.Context, *connect.Request[v1.SaveResultsCorrectionRequest]) (*connect.Response[v1.SaveResultsCorrectionResponse], error)
+	ReviewResultsCorrection(context.Context, *connect.Request[v1.ReviewResultsCorrectionRequest]) (*connect.Response[v1.ReviewResultsCorrectionResponse], error)
+	PublishResultsCorrection(context.Context, *connect.Request[v1.PublishResultsCorrectionRequest]) (*connect.Response[v1.PublishResultsCorrectionResponse], error)
+	GetResultsCorrectionHistory(context.Context, *connect.Request[v1.GetResultsCorrectionHistoryRequest]) (*connect.Response[v1.GetResultsCorrectionHistoryResponse], error)
 }
 
 // NewResultsServiceClient constructs a client for the beamers.results.v1.ResultsService service. By
@@ -190,6 +210,36 @@ func NewResultsServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(resultsServiceMethods.ByName("ReleaseStandaloneResults")),
 			connect.WithClientOptions(opts...),
 		),
+		getResultsCorrection: connect.NewClient[v1.GetResultsCorrectionRequest, v1.GetResultsCorrectionResponse](
+			httpClient,
+			baseURL+ResultsServiceGetResultsCorrectionProcedure,
+			connect.WithSchema(resultsServiceMethods.ByName("GetResultsCorrection")),
+			connect.WithClientOptions(opts...),
+		),
+		saveResultsCorrection: connect.NewClient[v1.SaveResultsCorrectionRequest, v1.SaveResultsCorrectionResponse](
+			httpClient,
+			baseURL+ResultsServiceSaveResultsCorrectionProcedure,
+			connect.WithSchema(resultsServiceMethods.ByName("SaveResultsCorrection")),
+			connect.WithClientOptions(opts...),
+		),
+		reviewResultsCorrection: connect.NewClient[v1.ReviewResultsCorrectionRequest, v1.ReviewResultsCorrectionResponse](
+			httpClient,
+			baseURL+ResultsServiceReviewResultsCorrectionProcedure,
+			connect.WithSchema(resultsServiceMethods.ByName("ReviewResultsCorrection")),
+			connect.WithClientOptions(opts...),
+		),
+		publishResultsCorrection: connect.NewClient[v1.PublishResultsCorrectionRequest, v1.PublishResultsCorrectionResponse](
+			httpClient,
+			baseURL+ResultsServicePublishResultsCorrectionProcedure,
+			connect.WithSchema(resultsServiceMethods.ByName("PublishResultsCorrection")),
+			connect.WithClientOptions(opts...),
+		),
+		getResultsCorrectionHistory: connect.NewClient[v1.GetResultsCorrectionHistoryRequest, v1.GetResultsCorrectionHistoryResponse](
+			httpClient,
+			baseURL+ResultsServiceGetResultsCorrectionHistoryProcedure,
+			connect.WithSchema(resultsServiceMethods.ByName("GetResultsCorrectionHistory")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -209,6 +259,11 @@ type resultsServiceClient struct {
 	previewPrizegiving          *connect.Client[v1.PreviewPrizegivingRequest, v1.PreviewPrizegivingResponse]
 	firePrizegivingResultsCue   *connect.Client[v1.FirePrizegivingResultsCueRequest, v1.FirePrizegivingResultsCueResponse]
 	releaseStandaloneResults    *connect.Client[v1.ReleaseStandaloneResultsRequest, v1.ReleaseStandaloneResultsResponse]
+	getResultsCorrection        *connect.Client[v1.GetResultsCorrectionRequest, v1.GetResultsCorrectionResponse]
+	saveResultsCorrection       *connect.Client[v1.SaveResultsCorrectionRequest, v1.SaveResultsCorrectionResponse]
+	reviewResultsCorrection     *connect.Client[v1.ReviewResultsCorrectionRequest, v1.ReviewResultsCorrectionResponse]
+	publishResultsCorrection    *connect.Client[v1.PublishResultsCorrectionRequest, v1.PublishResultsCorrectionResponse]
+	getResultsCorrectionHistory *connect.Client[v1.GetResultsCorrectionHistoryRequest, v1.GetResultsCorrectionHistoryResponse]
 }
 
 // GetCompetitionResultsDraft calls beamers.results.v1.ResultsService.GetCompetitionResultsDraft.
@@ -281,6 +336,31 @@ func (c *resultsServiceClient) ReleaseStandaloneResults(ctx context.Context, req
 	return c.releaseStandaloneResults.CallUnary(ctx, req)
 }
 
+// GetResultsCorrection calls beamers.results.v1.ResultsService.GetResultsCorrection.
+func (c *resultsServiceClient) GetResultsCorrection(ctx context.Context, req *connect.Request[v1.GetResultsCorrectionRequest]) (*connect.Response[v1.GetResultsCorrectionResponse], error) {
+	return c.getResultsCorrection.CallUnary(ctx, req)
+}
+
+// SaveResultsCorrection calls beamers.results.v1.ResultsService.SaveResultsCorrection.
+func (c *resultsServiceClient) SaveResultsCorrection(ctx context.Context, req *connect.Request[v1.SaveResultsCorrectionRequest]) (*connect.Response[v1.SaveResultsCorrectionResponse], error) {
+	return c.saveResultsCorrection.CallUnary(ctx, req)
+}
+
+// ReviewResultsCorrection calls beamers.results.v1.ResultsService.ReviewResultsCorrection.
+func (c *resultsServiceClient) ReviewResultsCorrection(ctx context.Context, req *connect.Request[v1.ReviewResultsCorrectionRequest]) (*connect.Response[v1.ReviewResultsCorrectionResponse], error) {
+	return c.reviewResultsCorrection.CallUnary(ctx, req)
+}
+
+// PublishResultsCorrection calls beamers.results.v1.ResultsService.PublishResultsCorrection.
+func (c *resultsServiceClient) PublishResultsCorrection(ctx context.Context, req *connect.Request[v1.PublishResultsCorrectionRequest]) (*connect.Response[v1.PublishResultsCorrectionResponse], error) {
+	return c.publishResultsCorrection.CallUnary(ctx, req)
+}
+
+// GetResultsCorrectionHistory calls beamers.results.v1.ResultsService.GetResultsCorrectionHistory.
+func (c *resultsServiceClient) GetResultsCorrectionHistory(ctx context.Context, req *connect.Request[v1.GetResultsCorrectionHistoryRequest]) (*connect.Response[v1.GetResultsCorrectionHistoryResponse], error) {
+	return c.getResultsCorrectionHistory.CallUnary(ctx, req)
+}
+
 // ResultsServiceHandler is an implementation of the beamers.results.v1.ResultsService service.
 type ResultsServiceHandler interface {
 	GetCompetitionResultsDraft(context.Context, *connect.Request[v1.GetCompetitionResultsDraftRequest]) (*connect.Response[v1.GetCompetitionResultsDraftResponse], error)
@@ -297,6 +377,11 @@ type ResultsServiceHandler interface {
 	PreviewPrizegiving(context.Context, *connect.Request[v1.PreviewPrizegivingRequest]) (*connect.Response[v1.PreviewPrizegivingResponse], error)
 	FirePrizegivingResultsCue(context.Context, *connect.Request[v1.FirePrizegivingResultsCueRequest]) (*connect.Response[v1.FirePrizegivingResultsCueResponse], error)
 	ReleaseStandaloneResults(context.Context, *connect.Request[v1.ReleaseStandaloneResultsRequest]) (*connect.Response[v1.ReleaseStandaloneResultsResponse], error)
+	GetResultsCorrection(context.Context, *connect.Request[v1.GetResultsCorrectionRequest]) (*connect.Response[v1.GetResultsCorrectionResponse], error)
+	SaveResultsCorrection(context.Context, *connect.Request[v1.SaveResultsCorrectionRequest]) (*connect.Response[v1.SaveResultsCorrectionResponse], error)
+	ReviewResultsCorrection(context.Context, *connect.Request[v1.ReviewResultsCorrectionRequest]) (*connect.Response[v1.ReviewResultsCorrectionResponse], error)
+	PublishResultsCorrection(context.Context, *connect.Request[v1.PublishResultsCorrectionRequest]) (*connect.Response[v1.PublishResultsCorrectionResponse], error)
+	GetResultsCorrectionHistory(context.Context, *connect.Request[v1.GetResultsCorrectionHistoryRequest]) (*connect.Response[v1.GetResultsCorrectionHistoryResponse], error)
 }
 
 // NewResultsServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -390,6 +475,36 @@ func NewResultsServiceHandler(svc ResultsServiceHandler, opts ...connect.Handler
 		connect.WithSchema(resultsServiceMethods.ByName("ReleaseStandaloneResults")),
 		connect.WithHandlerOptions(opts...),
 	)
+	resultsServiceGetResultsCorrectionHandler := connect.NewUnaryHandler(
+		ResultsServiceGetResultsCorrectionProcedure,
+		svc.GetResultsCorrection,
+		connect.WithSchema(resultsServiceMethods.ByName("GetResultsCorrection")),
+		connect.WithHandlerOptions(opts...),
+	)
+	resultsServiceSaveResultsCorrectionHandler := connect.NewUnaryHandler(
+		ResultsServiceSaveResultsCorrectionProcedure,
+		svc.SaveResultsCorrection,
+		connect.WithSchema(resultsServiceMethods.ByName("SaveResultsCorrection")),
+		connect.WithHandlerOptions(opts...),
+	)
+	resultsServiceReviewResultsCorrectionHandler := connect.NewUnaryHandler(
+		ResultsServiceReviewResultsCorrectionProcedure,
+		svc.ReviewResultsCorrection,
+		connect.WithSchema(resultsServiceMethods.ByName("ReviewResultsCorrection")),
+		connect.WithHandlerOptions(opts...),
+	)
+	resultsServicePublishResultsCorrectionHandler := connect.NewUnaryHandler(
+		ResultsServicePublishResultsCorrectionProcedure,
+		svc.PublishResultsCorrection,
+		connect.WithSchema(resultsServiceMethods.ByName("PublishResultsCorrection")),
+		connect.WithHandlerOptions(opts...),
+	)
+	resultsServiceGetResultsCorrectionHistoryHandler := connect.NewUnaryHandler(
+		ResultsServiceGetResultsCorrectionHistoryProcedure,
+		svc.GetResultsCorrectionHistory,
+		connect.WithSchema(resultsServiceMethods.ByName("GetResultsCorrectionHistory")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/beamers.results.v1.ResultsService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ResultsServiceGetCompetitionResultsDraftProcedure:
@@ -420,6 +535,16 @@ func NewResultsServiceHandler(svc ResultsServiceHandler, opts ...connect.Handler
 			resultsServiceFirePrizegivingResultsCueHandler.ServeHTTP(w, r)
 		case ResultsServiceReleaseStandaloneResultsProcedure:
 			resultsServiceReleaseStandaloneResultsHandler.ServeHTTP(w, r)
+		case ResultsServiceGetResultsCorrectionProcedure:
+			resultsServiceGetResultsCorrectionHandler.ServeHTTP(w, r)
+		case ResultsServiceSaveResultsCorrectionProcedure:
+			resultsServiceSaveResultsCorrectionHandler.ServeHTTP(w, r)
+		case ResultsServiceReviewResultsCorrectionProcedure:
+			resultsServiceReviewResultsCorrectionHandler.ServeHTTP(w, r)
+		case ResultsServicePublishResultsCorrectionProcedure:
+			resultsServicePublishResultsCorrectionHandler.ServeHTTP(w, r)
+		case ResultsServiceGetResultsCorrectionHistoryProcedure:
+			resultsServiceGetResultsCorrectionHistoryHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -483,4 +608,24 @@ func (UnimplementedResultsServiceHandler) FirePrizegivingResultsCue(context.Cont
 
 func (UnimplementedResultsServiceHandler) ReleaseStandaloneResults(context.Context, *connect.Request[v1.ReleaseStandaloneResultsRequest]) (*connect.Response[v1.ReleaseStandaloneResultsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.ReleaseStandaloneResults is not implemented"))
+}
+
+func (UnimplementedResultsServiceHandler) GetResultsCorrection(context.Context, *connect.Request[v1.GetResultsCorrectionRequest]) (*connect.Response[v1.GetResultsCorrectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.GetResultsCorrection is not implemented"))
+}
+
+func (UnimplementedResultsServiceHandler) SaveResultsCorrection(context.Context, *connect.Request[v1.SaveResultsCorrectionRequest]) (*connect.Response[v1.SaveResultsCorrectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.SaveResultsCorrection is not implemented"))
+}
+
+func (UnimplementedResultsServiceHandler) ReviewResultsCorrection(context.Context, *connect.Request[v1.ReviewResultsCorrectionRequest]) (*connect.Response[v1.ReviewResultsCorrectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.ReviewResultsCorrection is not implemented"))
+}
+
+func (UnimplementedResultsServiceHandler) PublishResultsCorrection(context.Context, *connect.Request[v1.PublishResultsCorrectionRequest]) (*connect.Response[v1.PublishResultsCorrectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.PublishResultsCorrection is not implemented"))
+}
+
+func (UnimplementedResultsServiceHandler) GetResultsCorrectionHistory(context.Context, *connect.Request[v1.GetResultsCorrectionHistoryRequest]) (*connect.Response[v1.GetResultsCorrectionHistoryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.GetResultsCorrectionHistory is not implemented"))
 }

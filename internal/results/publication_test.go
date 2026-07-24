@@ -160,3 +160,47 @@ func TestResultsPublicationNeverRetractsPreviouslyReleasedItems(t *testing.T) {
 		t.Fatalf("regressed Results Publication = %+v, changed %t", next, changed)
 	}
 }
+
+func TestProgressiveContinuationMatchesCorrectedItemsByIdentity(t *testing.T) {
+	correctedAward := ResultItemRef{
+		Kind: ResultItemEventAward, AwardKey: "community", DisplayOrder: 1,
+	}
+	unreleased := ResultItemRef{
+		Kind: ResultItemCompetitionAward, CompetitionSessionID: 11,
+		AwardKey: "jury", DisplayOrder: 2,
+	}
+	correctedCompetition := ResultItemRef{
+		Kind: ResultItemCompetition, CompetitionSessionID: 11, DisplayOrder: 3,
+	}
+	next, changed, err := AdvancePublication(PublicationInput{
+		Policy: ResultsProgressiveOnReveal,
+		Order: []ResultItemRef{
+			correctedAward,
+			unreleased,
+			correctedCompetition,
+		},
+		States: []ResultItemStageState{{
+			Ref: unreleased, Status: ResultItemRevealed, Release: ResultReleaseReady,
+		}},
+		Current: Publication{
+			Revision: 2, Status: ResultsPublicationPartial,
+			Items: []ResultItemRef{
+				correctedAward,
+				{
+					Kind:                 ResultItemCompetition,
+					CompetitionSessionID: 11,
+					DisplayOrder:         2,
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("continue corrected progressive Results: %v", err)
+	}
+	if !changed ||
+		next.Revision != 3 ||
+		len(next.Items) != 3 ||
+		next.Items[2] != correctedCompetition {
+		t.Fatalf("continued corrected progressive Results = %+v", next)
+	}
+}

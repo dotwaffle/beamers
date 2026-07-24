@@ -55,9 +55,12 @@ func AdvancePublication(
 	if input.Current.Status == ResultsPublicationFinal {
 		return cloneResultsPublication(input.Current), false, nil
 	}
-	releaseByRef := make(map[ResultItemRef]ResultReleaseState, len(input.States))
+	releaseByIdentity := make(
+		map[resultItemIdentity]ResultReleaseState,
+		len(input.States),
+	)
 	for _, state := range input.States {
-		releaseByRef[state.Ref] = state.Release
+		releaseByIdentity[resultItemIdentityFromRef(state.Ref)] = state.Release
 	}
 	items := make([]ResultItemRef, 0, len(input.Order))
 	status := ResultsPublicationFinal
@@ -65,15 +68,16 @@ func AdvancePublication(
 	case ResultsProgressiveOnReveal:
 		status = ResultsPublicationPartial
 		alreadyReleased := make(
-			map[ResultItemRef]struct{},
+			map[resultItemIdentity]struct{},
 			len(input.Current.Items),
 		)
 		for _, ref := range input.Current.Items {
-			alreadyReleased[ref] = struct{}{}
+			alreadyReleased[resultItemIdentityFromRef(ref)] = struct{}{}
 		}
 		for _, ref := range input.Order {
-			release := releaseByRef[ref]
-			_, wasReleased := alreadyReleased[ref]
+			identity := resultItemIdentityFromRef(ref)
+			release := releaseByIdentity[identity]
+			_, wasReleased := alreadyReleased[identity]
 			if wasReleased ||
 				release == ResultReleaseReady ||
 				input.CeremonyEnded && release == ResultReleaseCeremonyEnd {
@@ -88,12 +92,13 @@ func AdvancePublication(
 			items = slices.Clone(input.Order)
 		}
 	case ResultsAtCeremonyEnd:
-		if input.CeremonyEnded && allResultsResolved(input.Order, releaseByRef) {
+		if input.CeremonyEnded &&
+			allResultsResolved(input.Order, releaseByIdentity) {
 			items = slices.Clone(input.Order)
 		}
 	case ResultsStandalone:
 		if input.StandaloneRelease &&
-			allResultsReady(input.Order, releaseByRef) {
+			allResultsReady(input.Order, releaseByIdentity) {
 			items = slices.Clone(input.Order)
 		}
 	}
@@ -111,11 +116,12 @@ func AdvancePublication(
 
 func allResultsResolved(
 	order []ResultItemRef,
-	releases map[ResultItemRef]ResultReleaseState,
+	releases map[resultItemIdentity]ResultReleaseState,
 ) bool {
 	for _, ref := range order {
-		if releases[ref] != ResultReleaseReady &&
-			releases[ref] != ResultReleaseCeremonyEnd {
+		release := releases[resultItemIdentityFromRef(ref)]
+		if release != ResultReleaseReady &&
+			release != ResultReleaseCeremonyEnd {
 			return false
 		}
 	}
@@ -124,10 +130,10 @@ func allResultsResolved(
 
 func allResultsReady(
 	order []ResultItemRef,
-	releases map[ResultItemRef]ResultReleaseState,
+	releases map[resultItemIdentity]ResultReleaseState,
 ) bool {
 	for _, ref := range order {
-		if releases[ref] != ResultReleaseReady {
+		if releases[resultItemIdentityFromRef(ref)] != ResultReleaseReady {
 			return false
 		}
 	}

@@ -30,6 +30,7 @@ type PublicResultsSourceItem struct {
 
 // PublicResultsSourceEntry contains public identity and locked result facts.
 type PublicResultsSourceEntry struct {
+	EntryID                       int
 	Name                          string
 	ResultDisposition             string
 	PublicDisqualificationMessage string
@@ -43,6 +44,7 @@ type PublicResultsSourceEntry struct {
 
 // PublicResultsSourceAward contains one resolved Award snapshot.
 type PublicResultsSourceAward struct {
+	Key        string
 	Name       string
 	Recipients []string
 }
@@ -140,7 +142,7 @@ func buildPublicCompetitionResults(
 		if strings.TrimSpace(entry.Name) == "" {
 			return nil, ErrResultsRendering
 		}
-		publicEntry := PublicResultEntry{Name: entry.Name}
+		publicEntry := PublicResultEntry{EntryID: entry.EntryID, Name: entry.Name}
 		switch entry.ResultDisposition {
 		case "Withheld":
 			continue
@@ -198,7 +200,8 @@ func publicResultsAward(
 		}
 	}
 	return PublicResultsAward{
-		Name: source.Name, Recipients: slices.Clone(source.Recipients),
+		Key: source.Key, Name: source.Name,
+		Recipients: slices.Clone(source.Recipients),
 	}, nil
 }
 

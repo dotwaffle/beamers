@@ -446,6 +446,145 @@ func (handler *Handler) ReleaseStandaloneResults(
 	}), nil
 }
 
+// GetResultsCorrection returns the latest crew-visible correction revision.
+func (handler *Handler) GetResultsCorrection(
+	ctx context.Context,
+	request *connect.Request[resultsv1.GetResultsCorrectionRequest],
+) (*connect.Response[resultsv1.GetResultsCorrectionResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	found, err := handler.service.GetCorrection(
+		ctx,
+		actor,
+		int(request.Msg.GetEventId()),
+		publicationScopeFromProto(request.Msg.GetScope()),
+		int(request.Msg.GetScopeSessionId()),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&resultsv1.GetResultsCorrectionResponse{
+		Correction: resultsCorrection(found),
+	}), nil
+}
+
+// SaveResultsCorrection appends one complete Draft correction proposal.
+func (handler *Handler) SaveResultsCorrection(
+	ctx context.Context,
+	request *connect.Request[resultsv1.SaveResultsCorrectionRequest],
+) (*connect.Response[resultsv1.SaveResultsCorrectionResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	proposal, err := correctionProposalFromProto(request.Msg.GetProposal())
+	if err != nil {
+		return nil, err
+	}
+	saved, err := handler.service.SaveCorrection(ctx, actor, results.SaveCorrectionInput{
+		EventID:                 int(request.Msg.GetEventId()),
+		Scope:                   publicationScopeFromProto(request.Msg.GetScope()),
+		ScopeSessionID:          int(request.Msg.GetScopeSessionId()),
+		CommandID:               request.Msg.GetCommandId(),
+		ExpectedRevision:        int(request.Msg.GetExpectedRevision()),
+		BasePublicationRevision: int(request.Msg.GetBasePublicationRevision()),
+		PublicationOrder:        proposal.PublicationOrder,
+		Items:                   proposal.Items,
+		Template:                proposal.Template,
+		CrewReason:              proposal.CrewReason,
+		PublicNote:              proposal.PublicNote,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&resultsv1.SaveResultsCorrectionResponse{
+		Correction: resultsCorrection(saved),
+	}), nil
+}
+
+// ReviewResultsCorrection marks one exact Draft correction Ready.
+func (handler *Handler) ReviewResultsCorrection(
+	ctx context.Context,
+	request *connect.Request[resultsv1.ReviewResultsCorrectionRequest],
+) (*connect.Response[resultsv1.ReviewResultsCorrectionResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	reviewed, err := handler.service.ReviewCorrection(
+		ctx,
+		actor,
+		correctionReviewInput(
+			request.Msg.GetEventId(),
+			request.Msg.GetScope(),
+			request.Msg.GetScopeSessionId(),
+			request.Msg.GetCommandId(),
+			request.Msg.GetExpectedRevision(),
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&resultsv1.ReviewResultsCorrectionResponse{
+		Correction: resultsCorrection(reviewed),
+	}), nil
+}
+
+// PublishResultsCorrection atomically publishes one exact Ready correction.
+func (handler *Handler) PublishResultsCorrection(
+	ctx context.Context,
+	request *connect.Request[resultsv1.PublishResultsCorrectionRequest],
+) (*connect.Response[resultsv1.PublishResultsCorrectionResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	published, err := handler.service.PublishCorrection(
+		ctx,
+		actor,
+		correctionReviewInput(
+			request.Msg.GetEventId(),
+			request.Msg.GetScope(),
+			request.Msg.GetScopeSessionId(),
+			request.Msg.GetCommandId(),
+			request.Msg.GetExpectedRevision(),
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&resultsv1.PublishResultsCorrectionResponse{
+		Correction:  resultsCorrection(published.Correction),
+		Publication: resultsPublication(published.Publication),
+	}), nil
+}
+
+// GetResultsCorrectionHistory returns immutable correction and artifact history.
+func (handler *Handler) GetResultsCorrectionHistory(
+	ctx context.Context,
+	request *connect.Request[resultsv1.GetResultsCorrectionHistoryRequest],
+) (*connect.Response[resultsv1.GetResultsCorrectionHistoryResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	found, err := handler.service.GetCorrectionHistory(
+		ctx,
+		actor,
+		int(request.Msg.GetEventId()),
+		publicationScopeFromProto(request.Msg.GetScope()),
+		int(request.Msg.GetScopeSessionId()),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&resultsv1.GetResultsCorrectionHistoryResponse{
+		History: resultsCorrectionHistory(found),
+	}), nil
+}
+
 func standingsFromProto(
 	values []*resultsv1.CompetitionResultStanding,
 ) ([]results.Standing, error) {
@@ -881,14 +1020,350 @@ func resultsReleasePolicyFromProto(
 	}[value]
 }
 
-func resultsPublication(value results.Publication) *resultsv1.ResultsPublication {
-	status := map[results.PublicationStatus]resultsv1.ResultsPublicationStatus{
+func correctionReviewInput(
+	eventID int64,
+	scope resultsv1.ResultsPublicationScope,
+	scopeSessionID int64,
+	commandID string,
+	expectedRevision int64,
+) results.ReviewCorrectionInput {
+	return results.ReviewCorrectionInput{
+		EventID: int(eventID), Scope: publicationScopeFromProto(scope),
+		ScopeSessionID: int(scopeSessionID), CommandID: commandID,
+		ExpectedRevision: int(expectedRevision),
+	}
+}
+
+func correctionProposalFromProto(
+	value *resultsv1.ResultsCorrectionProposal,
+) (results.CorrectionProposal, error) {
+	if value == nil {
+		return results.CorrectionProposal{}, results.ErrInvalidInput
+	}
+	order, err := resultItemRefsFromProto(value.GetPublicationOrder())
+	if err != nil {
+		return results.CorrectionProposal{}, err
+	}
+	items, err := publicResultsItemsFromProto(value.GetItems())
+	if err != nil {
+		return results.CorrectionProposal{}, err
+	}
+	return results.CorrectionProposal{
+		PublicationOrder: order,
+		Items:            items,
+		Template: resultsTextTemplateFromProto(
+			value.GetResultsTextTemplate(),
+		),
+		CrewReason: value.GetCrewReason(),
+		PublicNote: value.GetPublicNote(),
+	}, nil
+}
+
+func resultsCorrection(
+	value results.Correction,
+) *resultsv1.ResultsCorrection {
+	projected := &resultsv1.ResultsCorrection{
+		EventId: int64(value.EventID), Scope: publicationScope(value.Scope),
+		ScopeSessionId:          int64(value.ScopeSessionID),
+		Revision:                int64(value.Revision),
+		BasePublicationRevision: int64(value.BasePublicationRevision),
+		Status:                  correctionStatus(value.Status),
+		Proposal: &resultsv1.ResultsCorrectionProposal{
+			PublicationOrder: resultItemRefs(value.Proposal.PublicationOrder),
+			Items:            publicResultsItems(value.Proposal.Items),
+			ResultsTextTemplate: resultsTextTemplate(
+				value.Proposal.Template,
+			),
+			CrewReason: value.Proposal.CrewReason,
+			PublicNote: value.Proposal.PublicNote,
+		},
+		PublishedResultsRevision: int64(value.PublishedResultsRevision),
+		CreatedByAccountId:       int64(value.CreatedByAccountID),
+	}
+	if !value.CreatedAt.IsZero() {
+		projected.CreatedAt = timestamppb.New(value.CreatedAt)
+	}
+	return projected
+}
+
+func publicResultsItemsFromProto(
+	values []*resultsv1.PublicResultsItem,
+) ([]results.PublicResultsItem, error) {
+	items := make([]results.PublicResultsItem, 0, len(values))
+	for _, value := range values {
+		if value == nil {
+			return nil, results.ErrInvalidInput
+		}
+		item := results.PublicResultsItem{
+			Kind: resultItemKindFromProto(value.GetKind()),
+		}
+		switch concrete := value.GetItem().(type) {
+		case *resultsv1.PublicResultsItem_Competition:
+			item.Competition = publicCompetitionResultsFromProto(
+				concrete.Competition,
+			)
+		case *resultsv1.PublicResultsItem_NoPublicResults:
+			item.NoPublicResults = publicNoResultsFromProto(
+				concrete.NoPublicResults,
+			)
+		case *resultsv1.PublicResultsItem_Award:
+			item.Award = publicResultsAwardFromProto(concrete.Award)
+		default:
+			return nil, results.ErrInvalidInput
+		}
+		if item.Kind == "" {
+			return nil, results.ErrInvalidInput
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+func publicCompetitionResultsFromProto(
+	value *resultsv1.PublicCompetitionResults,
+) *results.PublicCompetitionResults {
+	if value == nil {
+		return nil
+	}
+	return &results.PublicCompetitionResults{
+		SessionID:    int(value.GetSessionId()),
+		Title:        value.GetTitle(),
+		Placed:       publicResultEntriesFromProto(value.GetPlaced()),
+		Unplaced:     publicResultEntriesFromProto(value.GetUnplaced()),
+		Disqualified: publicResultEntriesFromProto(value.GetDisqualified()),
+		Awards:       publicResultsAwardsFromProto(value.GetAwards()),
+	}
+}
+
+func publicNoResultsFromProto(
+	value *resultsv1.PublicNoResults,
+) *results.PublicNoResults {
+	if value == nil {
+		return nil
+	}
+	return &results.PublicNoResults{
+		SessionID:   int(value.GetSessionId()),
+		Title:       value.GetTitle(),
+		Explanation: value.GetExplanation(),
+	}
+}
+
+func publicResultEntriesFromProto(
+	values []*resultsv1.PublicResultEntry,
+) []results.PublicResultEntry {
+	entries := make([]results.PublicResultEntry, 0, len(values))
+	for _, value := range values {
+		if value == nil {
+			entries = append(entries, results.PublicResultEntry{})
+			continue
+		}
+		entries = append(entries, results.PublicResultEntry{
+			EntryID: int(value.GetEntryId()), Name: value.GetName(),
+			Placement: int(value.GetPlacement()), Score: value.GetScore(),
+			Message: value.GetMessage(),
+		})
+	}
+	return entries
+}
+
+func publicResultsAwardsFromProto(
+	values []*resultsv1.PublicResultsAward,
+) []results.PublicResultsAward {
+	awards := make([]results.PublicResultsAward, 0, len(values))
+	for _, value := range values {
+		award := publicResultsAwardFromProto(value)
+		if award == nil {
+			awards = append(awards, results.PublicResultsAward{})
+			continue
+		}
+		awards = append(awards, *award)
+	}
+	return awards
+}
+
+func publicResultsAwardFromProto(
+	value *resultsv1.PublicResultsAward,
+) *results.PublicResultsAward {
+	if value == nil {
+		return nil
+	}
+	return &results.PublicResultsAward{
+		Key: value.GetKey(), Name: value.GetName(),
+		Recipients: append([]string(nil), value.GetRecipients()...),
+	}
+}
+
+func publicResultsItems(
+	values []results.PublicResultsItem,
+) []*resultsv1.PublicResultsItem {
+	items := make([]*resultsv1.PublicResultsItem, 0, len(values))
+	for _, value := range values {
+		item := &resultsv1.PublicResultsItem{Kind: resultItemKind(value.Kind)}
+		switch {
+		case value.Competition != nil:
+			item.Item = &resultsv1.PublicResultsItem_Competition{
+				Competition: publicCompetitionResults(value.Competition),
+			}
+		case value.NoPublicResults != nil:
+			item.Item = &resultsv1.PublicResultsItem_NoPublicResults{
+				NoPublicResults: publicNoResults(value.NoPublicResults),
+			}
+		case value.Award != nil:
+			item.Item = &resultsv1.PublicResultsItem_Award{
+				Award: publicResultsAward(value.Award),
+			}
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+func publicCompetitionResults(
+	value *results.PublicCompetitionResults,
+) *resultsv1.PublicCompetitionResults {
+	if value == nil {
+		return nil
+	}
+	return &resultsv1.PublicCompetitionResults{
+		SessionId: int64(value.SessionID), Title: value.Title,
+		Placed:       publicResultEntries(value.Placed),
+		Unplaced:     publicResultEntries(value.Unplaced),
+		Disqualified: publicResultEntries(value.Disqualified),
+		Awards:       publicResultsAwards(value.Awards),
+	}
+}
+
+func publicNoResults(
+	value *results.PublicNoResults,
+) *resultsv1.PublicNoResults {
+	if value == nil {
+		return nil
+	}
+	return &resultsv1.PublicNoResults{
+		SessionId: int64(value.SessionID), Title: value.Title,
+		Explanation: value.Explanation,
+	}
+}
+
+func publicResultEntries(
+	values []results.PublicResultEntry,
+) []*resultsv1.PublicResultEntry {
+	entries := make([]*resultsv1.PublicResultEntry, 0, len(values))
+	for _, value := range values {
+		entries = append(entries, &resultsv1.PublicResultEntry{
+			EntryId: int64(value.EntryID), Name: value.Name,
+			Placement: int64(value.Placement), Score: value.Score,
+			Message: value.Message,
+		})
+	}
+	return entries
+}
+
+func publicResultsAwards(
+	values []results.PublicResultsAward,
+) []*resultsv1.PublicResultsAward {
+	awards := make([]*resultsv1.PublicResultsAward, 0, len(values))
+	for index := range values {
+		awards = append(awards, publicResultsAward(&values[index]))
+	}
+	return awards
+}
+
+func publicResultsAward(
+	value *results.PublicResultsAward,
+) *resultsv1.PublicResultsAward {
+	if value == nil {
+		return nil
+	}
+	return &resultsv1.PublicResultsAward{
+		Key: value.Key, Name: value.Name,
+		Recipients: append([]string(nil), value.Recipients...),
+	}
+}
+
+func resultsCorrectionHistory(
+	value results.CorrectionHistory,
+) *resultsv1.ResultsCorrectionHistory {
+	projected := &resultsv1.ResultsCorrectionHistory{
+		Corrections: make(
+			[]*resultsv1.ResultsCorrection,
+			0,
+			len(value.Corrections),
+		),
+		Publications: make(
+			[]*resultsv1.ResultsPublicationHistoryRevision,
+			0,
+			len(value.Publications),
+		),
+	}
+	for _, correction := range value.Corrections {
+		projected.Corrections = append(
+			projected.Corrections,
+			resultsCorrection(correction),
+		)
+	}
+	for _, publication := range value.Publications {
+		item := &resultsv1.ResultsPublicationHistoryRevision{
+			Revision:            int64(publication.Revision),
+			Status:              resultsPublicationStatus(publication.Status),
+			PublicationOrder:    resultItemRefs(publication.PublicationOrder),
+			ResultsTextTemplate: resultsTextTemplate(publication.Template),
+			RenderedHtml:        publication.HTML,
+			RenderedText:        publication.Text,
+			RenderedJson:        publication.JSON,
+			ResultsCorrectionRevision: int64(
+				publication.ResultsCorrectionRevision,
+			),
+		}
+		if !publication.CreatedAt.IsZero() {
+			item.CreatedAt = timestamppb.New(publication.CreatedAt)
+		}
+		projected.Publications = append(projected.Publications, item)
+	}
+	return projected
+}
+
+func publicationScope(
+	value results.PublicationScope,
+) resultsv1.ResultsPublicationScope {
+	return map[results.PublicationScope]resultsv1.ResultsPublicationScope{
+		results.PublicationScopePrizegiving: resultsv1.ResultsPublicationScope_RESULTS_PUBLICATION_SCOPE_PRIZEGIVING,
+		results.PublicationScopeStandalone:  resultsv1.ResultsPublicationScope_RESULTS_PUBLICATION_SCOPE_STANDALONE,
+	}[value]
+}
+
+func publicationScopeFromProto(
+	value resultsv1.ResultsPublicationScope,
+) results.PublicationScope {
+	return map[resultsv1.ResultsPublicationScope]results.PublicationScope{
+		resultsv1.ResultsPublicationScope_RESULTS_PUBLICATION_SCOPE_PRIZEGIVING: results.PublicationScopePrizegiving,
+		resultsv1.ResultsPublicationScope_RESULTS_PUBLICATION_SCOPE_STANDALONE:  results.PublicationScopeStandalone,
+	}[value]
+}
+
+func correctionStatus(
+	value results.CorrectionStatus,
+) resultsv1.ResultsCorrectionStatus {
+	return map[results.CorrectionStatus]resultsv1.ResultsCorrectionStatus{
+		results.CorrectionDraft:     resultsv1.ResultsCorrectionStatus_RESULTS_CORRECTION_STATUS_DRAFT,
+		results.CorrectionReady:     resultsv1.ResultsCorrectionStatus_RESULTS_CORRECTION_STATUS_READY,
+		results.CorrectionPublished: resultsv1.ResultsCorrectionStatus_RESULTS_CORRECTION_STATUS_PUBLISHED,
+	}[value]
+}
+
+func resultsPublicationStatus(
+	value results.PublicationStatus,
+) resultsv1.ResultsPublicationStatus {
+	return map[results.PublicationStatus]resultsv1.ResultsPublicationStatus{
 		results.ResultsPublicationPartial: resultsv1.ResultsPublicationStatus_RESULTS_PUBLICATION_STATUS_PARTIAL,
 		results.ResultsPublicationFinal:   resultsv1.ResultsPublicationStatus_RESULTS_PUBLICATION_STATUS_FINAL,
-	}[value.Status]
+	}[value]
+}
+
+func resultsPublication(value results.Publication) *resultsv1.ResultsPublication {
 	return &resultsv1.ResultsPublication{
 		Revision: int64(value.Revision),
-		Status:   status,
+		Status:   resultsPublicationStatus(value.Status),
 		Items:    resultItemRefs(value.Items),
 	}
 }
@@ -1098,6 +1573,7 @@ func connectError(err error) error {
 	case errors.Is(err, results.ErrRevisionConflict),
 		errors.Is(err, results.ErrEventAwardsRevision),
 		errors.Is(err, results.ErrPrizegivingPlanRevision),
+		errors.Is(err, results.ErrCorrectionRevision),
 		errors.Is(err, results.ErrCommandConflict):
 		return connect.NewError(connect.CodeAborted, err)
 	case errors.Is(err, results.ErrIncomplete),
@@ -1110,7 +1586,9 @@ func connectError(err error) error {
 		errors.Is(err, results.ErrPrizegivingPreflightBlocked),
 		errors.Is(err, results.ErrPrizegivingPreflightRequired),
 		errors.Is(err, results.ErrResultsReleasePolicy),
-		errors.Is(err, results.ErrResultsPublicationRequired):
+		errors.Is(err, results.ErrResultsPublicationRequired),
+		errors.Is(err, results.ErrCorrectionTransition),
+		errors.Is(err, results.ErrCorrectionBase):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, command.ErrInvalidID),
 		errors.Is(err, results.ErrInvalidInput),
@@ -1120,7 +1598,8 @@ func connectError(err error) error {
 		errors.Is(err, results.ErrPrizegivingSession),
 		errors.Is(err, results.ErrCrewReasonRequired),
 		errors.Is(err, results.ErrInvalidScore),
-		errors.Is(err, results.ErrInvalidAward):
+		errors.Is(err, results.ErrInvalidAward),
+		errors.Is(err, results.ErrResultsCorrection):
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	default:
 		return connect.NewError(connect.CodeInternal, errors.New("results request failed"))
