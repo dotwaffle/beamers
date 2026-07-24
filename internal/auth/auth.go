@@ -313,6 +313,36 @@ func (service *Service) SignIn(ctx context.Context, name, password string) (Sess
 	return session, nil
 }
 
+// Reauthenticate verifies the current Administrator without issuing a session.
+func (service *Service) Reauthenticate(
+	ctx context.Context,
+	actor Account,
+	password string,
+) error {
+	if !actor.Administrator {
+		return ErrAdministratorRequired
+	}
+	normalizedName, _, err := normalizeAccountName(actor.Name)
+	if err != nil {
+		return ErrAuthenticationFailed
+	}
+	credential, found, err := service.storage.FindAccountCredential(ctx, normalizedName)
+	if err != nil {
+		return err
+	}
+	if !found || credential.ID != actor.ID {
+		return ErrAuthenticationFailed
+	}
+	matches, err := service.comparePassword(credential.PasswordHash, password)
+	if err != nil {
+		return err
+	}
+	if !matches {
+		return ErrAuthenticationFailed
+	}
+	return nil
+}
+
 // CreateAccount creates an individual non-Administrator Account.
 func (service *Service) CreateAccount(
 	ctx context.Context,

@@ -203,6 +203,14 @@ func (installation *Installation) Attachments() *attachments.Service {
 	return installation.attachments
 }
 
+// CreateBackup writes a verified archive through this live installation.
+func (installation *Installation) CreateBackup(
+	ctx context.Context,
+	input backup.CreateInput,
+) (backup.Manifest, error) {
+	return backup.CreateWithStorage(ctx, installation.storage, input)
+}
+
 // IssueAdministratorBootstrap creates a short-lived credential while holding
 // exclusive host access to an initialized installation.
 func IssueAdministratorBootstrap(

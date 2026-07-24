@@ -313,36 +313,47 @@ func ValidateSnapshot(ctx context.Context, path string) (returnErr error) {
 	return validateStorage(ctx, database, migrations)
 }
 
-// BackupAttachments lists the distinct immutable files referenced by state.
-func (installation *SQLite) BackupAttachments(
+// BackupAttachmentsFromSnapshot lists immutable files referenced by a snapshot.
+func BackupAttachmentsFromSnapshot(
 	ctx context.Context,
-) ([]BackupAttachment, error) {
-	if installation == nil || installation.client == nil {
-		return nil, ErrUninitialized
+	path string,
+) (_ []BackupAttachment, returnErr error) {
+	database, err := openValidationDatabase(ctx, path)
+	if err != nil {
+		return nil, err
 	}
-	versions, err := installation.client.AttachmentVersion.Query().All(systemContext(ctx))
+	defer func() {
+		returnErr = errors.Join(returnErr, database.Close())
+	}()
+	rows, err := database.QueryContext(
+		ctx,
+		"SELECT storage_key, sha256, size_bytes "+
+			"FROM attachment_versions ORDER BY storage_key, id",
+	)
 	if err != nil {
 		return nil, fmt.Errorf("list Backup Attachments: %w", err)
 	}
-	byKey := make(map[string]BackupAttachment, len(versions))
-	for _, version := range versions {
-		found := BackupAttachment{
-			StorageKey: version.StorageKey,
-			SHA256:     version.Sha256,
-			SizeBytes:  version.SizeBytes,
+	defer func() {
+		returnErr = errors.Join(returnErr, rows.Close())
+	}()
+	attachments := make([]BackupAttachment, 0)
+	for rows.Next() {
+		var found BackupAttachment
+		if err = rows.Scan(&found.StorageKey, &found.SHA256, &found.SizeBytes); err != nil {
+			return nil, fmt.Errorf("read Backup Attachment inventory: %w", err)
 		}
-		if prior, exists := byKey[found.StorageKey]; exists && prior != found {
-			return nil, errors.New("attachment storage key has conflicting metadata")
+		if len(attachments) != 0 &&
+			attachments[len(attachments)-1].StorageKey == found.StorageKey {
+			if attachments[len(attachments)-1] != found {
+				return nil, errors.New("attachment storage key has conflicting metadata")
+			}
+			continue
 		}
-		byKey[found.StorageKey] = found
-	}
-	attachments := make([]BackupAttachment, 0, len(byKey))
-	for _, found := range byKey {
 		attachments = append(attachments, found)
 	}
-	sort.Slice(attachments, func(left, right int) bool {
-		return attachments[left].StorageKey < attachments[right].StorageKey
-	})
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("read Backup Attachment inventory: %w", err)
+	}
 	return attachments, nil
 }
 

@@ -72,9 +72,31 @@ type RestoreInput struct {
 }
 
 // Create writes and verifies one installation Backup.
-func Create(ctx context.Context, input CreateInput) (Manifest, error) {
-	if input.DataDir == "" || input.OutputPath == "" {
-		return Manifest{}, errors.New("backup data directory and output are required")
+func Create(ctx context.Context, input CreateInput) (manifest Manifest, returnErr error) {
+	if input.DataDir == "" {
+		return Manifest{}, errors.New("backup data directory is required")
+	}
+	installation, err := store.Open(ctx, input.DataDir)
+	if err != nil {
+		return Manifest{}, err
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, installation.Close())
+	}()
+	if startupErr := installation.StartupError(); startupErr != nil {
+		return Manifest{}, startupErr
+	}
+	return CreateWithStorage(ctx, installation, input)
+}
+
+// CreateWithStorage writes a Backup through an already open installation.
+func CreateWithStorage(
+	ctx context.Context,
+	installation *store.SQLite,
+	input CreateInput,
+) (Manifest, error) {
+	if installation == nil || input.OutputPath == "" {
+		return Manifest{}, errors.New("backup storage and output are required")
 	}
 	if input.Mode == "" {
 		input.Mode = Sanitized
@@ -86,6 +108,9 @@ func Create(ctx context.Context, input CreateInput) (Manifest, error) {
 		input.Now = time.Now().UTC()
 	}
 	if input.AttachmentsDir == "" {
+		if input.DataDir == "" {
+			return Manifest{}, errors.New("backup Attachment Store root is required")
+		}
 		input.AttachmentsDir = filepath.Join(input.DataDir, "attachments")
 	}
 	if _, err := os.Stat(input.OutputPath); err == nil {
@@ -102,23 +127,13 @@ func Create(ctx context.Context, input CreateInput) (Manifest, error) {
 		_ = os.RemoveAll(workDir)
 	}()
 	snapshotPath := filepath.Join(workDir, "beamers.db")
-	installation, err := store.Open(ctx, input.DataDir)
+	schemaVersion := installation.SchemaVersion()
+	if snapshotErr := installation.Snapshot(ctx, snapshotPath); snapshotErr != nil {
+		return Manifest{}, snapshotErr
+	}
+	storedAttachments, err := store.BackupAttachmentsFromSnapshot(ctx, snapshotPath)
 	if err != nil {
 		return Manifest{}, err
-	}
-	if startupErr := installation.StartupError(); startupErr != nil {
-		return Manifest{}, errors.Join(startupErr, installation.Close())
-	}
-	schemaVersion := installation.SchemaVersion()
-	storedAttachments, err := installation.BackupAttachments(ctx)
-	if err != nil {
-		return Manifest{}, errors.Join(err, installation.Close())
-	}
-	if err = installation.Snapshot(ctx, snapshotPath); err != nil {
-		return Manifest{}, errors.Join(err, installation.Close())
-	}
-	if closeErr := installation.Close(); closeErr != nil {
-		return Manifest{}, closeErr
 	}
 	if input.Mode == Sanitized {
 		if sanitizeErr := store.SanitizeSnapshot(ctx, snapshotPath); sanitizeErr != nil {

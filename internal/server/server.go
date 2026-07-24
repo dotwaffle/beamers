@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"path/filepath"
 	"sync/atomic"
 	"time"
 
@@ -39,8 +40,12 @@ func Run(ctx context.Context, config Config) error {
 	if config.BuildVersion == "" {
 		return errors.New("server build version is required")
 	}
+	attachmentsDir := config.AttachmentsDir
+	if attachmentsDir == "" {
+		attachmentsDir = filepath.Join(config.DataDir, "attachments")
+	}
 	installation, err := operations.OpenInstallationWithConfig(ctx, operations.OpenConfig{
-		DataDir: config.DataDir, AttachmentsDir: config.AttachmentsDir,
+		DataDir: config.DataDir, AttachmentsDir: attachmentsDir,
 	})
 	if err != nil {
 		return err
@@ -85,6 +90,13 @@ func Run(ctx context.Context, config Config) error {
 		registerAuthenticationRoutes(
 			mux,
 			installation.Authentication(),
+			config.Logger,
+			listener.Addr(),
+		)
+		registerBackupRoutes(
+			mux,
+			installation,
+			attachmentsDir,
 			config.Logger,
 			listener.Addr(),
 		)
