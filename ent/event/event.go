@@ -74,6 +74,8 @@ const (
 	EdgeCompetitionResultStandings = "competition_result_standings"
 	// EdgeEventAwardsDrafts holds the string denoting the event_awards_drafts edge name in mutations.
 	EdgeEventAwardsDrafts = "event_awards_drafts"
+	// EdgePrizegivings holds the string denoting the prizegivings edge name in mutations.
+	EdgePrizegivings = "prizegivings"
 	// EdgeUploadLinks holds the string denoting the upload_links edge name in mutations.
 	EdgeUploadLinks = "upload_links"
 	// EdgeDraftEdits holds the string denoting the draft_edits edge name in mutations.
@@ -160,6 +162,13 @@ const (
 	EventAwardsDraftsInverseTable = "event_awards_drafts"
 	// EventAwardsDraftsColumn is the table column denoting the event_awards_drafts relation/edge.
 	EventAwardsDraftsColumn = "event_id"
+	// PrizegivingsTable is the table that holds the prizegivings relation/edge.
+	PrizegivingsTable = "prizegivings"
+	// PrizegivingsInverseTable is the table name for the Prizegiving entity.
+	// It exists in this package in order to avoid circular dependency with the "prizegiving" package.
+	PrizegivingsInverseTable = "prizegivings"
+	// PrizegivingsColumn is the table column denoting the prizegivings relation/edge.
+	PrizegivingsColumn = "event_id"
 	// UploadLinksTable is the table that holds the upload_links relation/edge.
 	UploadLinksTable = "upload_links"
 	// UploadLinksInverseTable is the table name for the UploadLink entity.
@@ -588,6 +597,20 @@ func ByEventAwardsDrafts(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption
 	}
 }
 
+// ByPrizegivingsCount orders the results by prizegivings count.
+func ByPrizegivingsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newPrizegivingsStep(), opts...)
+	}
+}
+
+// ByPrizegivings orders the results by prizegivings terms.
+func ByPrizegivings(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newPrizegivingsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByUploadLinksCount orders the results by upload_links count.
 func ByUploadLinksCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -746,6 +769,13 @@ func newEventAwardsDraftsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(EventAwardsDraftsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, EventAwardsDraftsTable, EventAwardsDraftsColumn),
+	)
+}
+func newPrizegivingsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(PrizegivingsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, PrizegivingsTable, PrizegivingsColumn),
 	)
 }
 func newUploadLinksStep() *sqlgraph.Step {

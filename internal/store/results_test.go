@@ -311,6 +311,9 @@ func TestEventAwardsDraftKeepsReadinessPerReleasePath(t *testing.T) {
 	ceremony := createPublishedResultsSession(
 		t, client, event.ID, sessionpublishedversion.TypeCeremony, "Prizegiving",
 	)
+	competition := createPublishedResultsSession(
+		t, client, event.ID, sessionpublishedversion.TypeCompetition, "Not a Prizegiving",
+	)
 	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
 		AccountID:  7,
 		EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
@@ -319,6 +322,22 @@ func TestEventAwardsDraftKeepsReadinessPerReleasePath(t *testing.T) {
 	standalone := AwardReleasePath{Kind: "Standalone"}
 	prizegiving := AwardReleasePath{
 		Kind: "Prizegiving", PrizegivingSessionID: ceremony.ID,
+	}
+	invalidDesignation, err := installation.BeginCommand(producerContext)
+	if err != nil {
+		t.Fatalf("begin invalid Prizegiving designation: %v", err)
+	}
+	if _, err = invalidDesignation.DesignatePrizegiving(
+		producerContext,
+		DesignatePrizegivingParams{
+			EventID: event.ID, CeremonySessionID: competition.ID,
+			CreatedByAccountID: 7, Now: now,
+		},
+	); !errors.Is(err, ErrPrizegivingSession) {
+		t.Fatalf("non-Ceremony Prizegiving designation error = %v", err)
+	}
+	if err = invalidDesignation.Rollback(); err != nil {
+		t.Fatalf("roll back invalid Prizegiving designation: %v", err)
 	}
 	firstAwards := []EventAwardInput{
 		{
@@ -331,6 +350,42 @@ func TestEventAwardsDraftKeepsReadinessPerReleasePath(t *testing.T) {
 			Recipients:  []AwardRecipientInput{{DisplayName: "Finalists"}},
 			ReleasePath: prizegiving,
 		},
+	}
+	undesignatedTransaction, err := installation.BeginCommand(producerContext)
+	if err != nil {
+		t.Fatalf("begin undesignated Event Awards Draft: %v", err)
+	}
+	if _, err = undesignatedTransaction.SaveEventAwardsDraft(
+		producerContext,
+		SaveEventAwardsDraftParams{
+			EventID: event.ID, ExpectedRevision: 0, CreatedByAccountID: 7,
+			Now: now, Awards: firstAwards,
+		},
+	); !errors.Is(err, ErrEventAwardPath) {
+		t.Fatalf("undesignated Prizegiving Award path error = %v", err)
+	}
+	if err = undesignatedTransaction.Rollback(); err != nil {
+		t.Fatalf("roll back undesignated Event Awards: %v", err)
+	}
+	designationTransaction, err := installation.BeginCommand(producerContext)
+	if err != nil {
+		t.Fatalf("begin Prizegiving designation: %v", err)
+	}
+	designated, err := designationTransaction.DesignatePrizegiving(
+		producerContext,
+		DesignatePrizegivingParams{
+			EventID: event.ID, CeremonySessionID: ceremony.ID,
+			CreatedByAccountID: 7, Now: now,
+		},
+	)
+	if err != nil {
+		t.Fatalf("designate Prizegiving: %v", err)
+	}
+	if err = designationTransaction.Commit(); err != nil {
+		t.Fatalf("commit Prizegiving designation: %v", err)
+	}
+	if designated.CeremonySessionID != ceremony.ID {
+		t.Fatalf("Prizegiving designation = %+v", designated)
 	}
 	saveTransaction, err := installation.BeginCommand(producerContext)
 	if err != nil {
@@ -428,6 +483,121 @@ func TestEventAwardsDraftKeepsReadinessPerReleasePath(t *testing.T) {
 	}
 	if _, err = installation.LoadEventAwardsDraft(t.Context(), event.ID); err == nil {
 		t.Fatal("missing viewer read Event Awards")
+	}
+
+	manageContext := viewer.NewContext(t.Context(), viewer.Identity{
+		AccountID:  10,
+		EventRoles: map[int]viewer.Role{event.ID: viewer.Operator},
+		EventScopes: map[int]viewer.EventScope{
+			event.ID: {
+				Capabilities: map[viewer.Capability]struct{}{viewer.ManageResults: {}},
+			},
+		},
+	})
+	otherCeremony := createPublishedResultsSession(
+		t, client, event.ID, sessionpublishedversion.TypeCeremony, "Closing Ceremony",
+	)
+	deniedDesignation, err := installation.BeginCommand(manageContext)
+	if err != nil {
+		t.Fatalf("begin unauthorized Prizegiving designation: %v", err)
+	}
+	if _, err = deniedDesignation.DesignatePrizegiving(
+		manageContext,
+		DesignatePrizegivingParams{
+			EventID: event.ID, CeremonySessionID: otherCeremony.ID,
+			CreatedByAccountID: 10, Now: now.Add(4 * time.Minute),
+		},
+	); err == nil {
+		t.Fatal("Manage Results without Producer authority designated a Prizegiving")
+	}
+	if err = deniedDesignation.Rollback(); err != nil {
+		t.Fatalf("roll back unauthorized Prizegiving designation: %v", err)
+	}
+	reviewTransaction, err := installation.BeginCommand(manageContext)
+	if err != nil {
+		t.Fatalf("begin unauthorized Event Awards review: %v", err)
+	}
+	if _, err = reviewTransaction.MarkEventAwardsReady(
+		manageContext,
+		MarkEventAwardsReadyParams{
+			EventID: event.ID, ExpectedRevision: 2, ReleasePath: standalone,
+			ExpectedPathRevision: 2, ReviewedByAccountID: 10, Now: now.Add(4 * time.Minute),
+		},
+	); err == nil {
+		t.Fatal("Manage Results without Producer authority marked Event Awards Ready")
+	}
+	if err = reviewTransaction.Rollback(); err != nil {
+		t.Fatalf("roll back unauthorized Event Awards review: %v", err)
+	}
+
+	manageTransaction, err := installation.BeginCommand(manageContext)
+	if err != nil {
+		t.Fatalf("begin managed Event Awards Draft: %v", err)
+	}
+	managed, err := manageTransaction.SaveEventAwardsDraft(
+		manageContext,
+		SaveEventAwardsDraftParams{
+			EventID: event.ID, ExpectedRevision: 2, CreatedByAccountID: 10,
+			Now: now.Add(5 * time.Minute), Awards: secondAwards,
+		},
+	)
+	if err != nil {
+		t.Fatalf("Manage Results save Event Awards: %v", err)
+	}
+	if err = manageTransaction.Commit(); err != nil {
+		t.Fatalf("commit managed Event Awards: %v", err)
+	}
+	if managed.Revision != 3 || !managed.PathStates[1].Ready {
+		t.Fatalf("managed Event Awards = %+v", managed)
+	}
+
+	otherEvent := createSchemaTestEvent(t, client)
+	otherProducerContext := viewer.NewContext(t.Context(), viewer.Identity{
+		AccountID:  11,
+		EventRoles: map[int]viewer.Role{otherEvent.ID: viewer.Producer},
+	})
+	otherTransaction, err := installation.BeginCommand(otherProducerContext)
+	if err != nil {
+		t.Fatalf("begin other Event Awards Draft: %v", err)
+	}
+	if _, err = otherTransaction.SaveEventAwardsDraft(
+		otherProducerContext,
+		SaveEventAwardsDraftParams{
+			EventID: otherEvent.ID, ExpectedRevision: 0, CreatedByAccountID: 11, Now: now,
+			Awards: []EventAwardInput{{
+				Key: "other", Name: "Other", DisplayOrder: 1,
+				Recipients:  []AwardRecipientInput{{DisplayName: "Other recipient"}},
+				ReleasePath: standalone,
+			}},
+		},
+	); err != nil {
+		t.Fatalf("save other Event Awards: %v", err)
+	}
+	if err = otherTransaction.Commit(); err != nil {
+		t.Fatalf("commit other Event Awards: %v", err)
+	}
+	otherVisible, otherVisibleErr := installation.LoadEventAwardsDraft(
+		viewContext,
+		otherEvent.ID,
+	)
+	if otherVisibleErr == nil && otherVisible.Revision != 0 {
+		t.Fatalf("View Results leaked other Event Awards = %+v", otherVisible)
+	}
+	crossTransaction, err := installation.BeginCommand(manageContext)
+	if err != nil {
+		t.Fatalf("begin cross-Event Awards mutation: %v", err)
+	}
+	if _, err = crossTransaction.SaveEventAwardsDraft(
+		manageContext,
+		SaveEventAwardsDraftParams{
+			EventID: otherEvent.ID, ExpectedRevision: 1, CreatedByAccountID: 10,
+			Now: now.Add(6 * time.Minute),
+		},
+	); err == nil {
+		t.Fatal("Manage Results mutated another Event Awards Draft")
+	}
+	if err = crossTransaction.Rollback(); err != nil {
+		t.Fatalf("roll back cross-Event Awards mutation: %v", err)
 	}
 }
 

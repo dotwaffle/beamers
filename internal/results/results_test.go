@@ -242,3 +242,23 @@ func TestCompetitionAwardSaveClonesPlacementAndScore(t *testing.T) {
 		t.Fatalf("cloned Score policy = %+v", params)
 	}
 }
+
+func TestCompetitionAwardPromotionChangeRequiresAuthority(t *testing.T) {
+	current := []store.CompetitionAward{{
+		Key: "judges-choice", Name: "Judges' Choice", DisplayOrder: 1,
+		Recipients: []store.AwardRecipientInput{{EntryID: 41}},
+	}}
+	next := []Award{{
+		Key: "judges-choice", Name: "Judges' Choice", DisplayOrder: 1,
+		Recipients: []AwardRecipient{{EntryID: 41}},
+		Promoted:   true,
+	}}
+	if !competitionAwardPromotionChanged(current, next) {
+		t.Fatal("promotion change was not detected")
+	}
+	next[0].Promoted = false
+	next[0].Name = "Renamed Award"
+	if competitionAwardPromotionChanged(current, next) {
+		t.Fatal("Award content edit was treated as promotion")
+	}
+}

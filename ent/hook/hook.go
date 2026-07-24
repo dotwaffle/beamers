@@ -393,6 +393,18 @@ func (f PasswordCredentialFunc) Mutate(ctx context.Context, m ent.Mutation) (ent
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PasswordCredentialMutation", m)
 }
 
+// The PrizegivingFunc type is an adapter to allow the use of ordinary
+// function as Prizegiving mutator.
+type PrizegivingFunc func(context.Context, *ent.PrizegivingMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f PrizegivingFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.PrizegivingMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PrizegivingMutation", m)
+}
+
 // The PublicScheduleBaselineFunc type is an adapter to allow the use of ordinary
 // function as PublicScheduleBaseline mutator.
 type PublicScheduleBaselineFunc func(context.Context, *ent.PublicScheduleBaselineMutation) (ent.Value, error)

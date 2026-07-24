@@ -47,6 +47,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
 	"github.com/dotwaffle/beamers/ent/migration"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
+	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
@@ -134,6 +135,8 @@ type Client struct {
 	Migration *MigrationClient
 	// PasswordCredential is the client for interacting with the PasswordCredential builders.
 	PasswordCredential *PasswordCredentialClient
+	// Prizegiving is the client for interacting with the Prizegiving builders.
+	Prizegiving *PrizegivingClient
 	// PublicScheduleBaseline is the client for interacting with the PublicScheduleBaseline builders.
 	PublicScheduleBaseline *PublicScheduleBaselineClient
 	// PublicScheduleBaselineEntry is the client for interacting with the PublicScheduleBaselineEntry builders.
@@ -205,6 +208,7 @@ func (c *Client) init() {
 	c.LocationPublishedVersion = NewLocationPublishedVersionClient(c.config)
 	c.Migration = NewMigrationClient(c.config)
 	c.PasswordCredential = NewPasswordCredentialClient(c.config)
+	c.Prizegiving = NewPrizegivingClient(c.config)
 	c.PublicScheduleBaseline = NewPublicScheduleBaselineClient(c.config)
 	c.PublicScheduleBaselineEntry = NewPublicScheduleBaselineEntryClient(c.config)
 	c.ReopenWindow = NewReopenWindowClient(c.config)
@@ -343,6 +347,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		LocationPublishedVersion:    NewLocationPublishedVersionClient(cfg),
 		Migration:                   NewMigrationClient(cfg),
 		PasswordCredential:          NewPasswordCredentialClient(cfg),
+		Prizegiving:                 NewPrizegivingClient(cfg),
 		PublicScheduleBaseline:      NewPublicScheduleBaselineClient(cfg),
 		PublicScheduleBaselineEntry: NewPublicScheduleBaselineEntryClient(cfg),
 		ReopenWindow:                NewReopenWindowClient(cfg),
@@ -408,6 +413,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		LocationPublishedVersion:    NewLocationPublishedVersionClient(cfg),
 		Migration:                   NewMigrationClient(cfg),
 		PasswordCredential:          NewPasswordCredentialClient(cfg),
+		Prizegiving:                 NewPrizegivingClient(cfg),
 		PublicScheduleBaseline:      NewPublicScheduleBaselineClient(cfg),
 		PublicScheduleBaselineEntry: NewPublicScheduleBaselineEntryClient(cfg),
 		ReopenWindow:                NewReopenWindowClient(cfg),
@@ -459,7 +465,7 @@ func (c *Client) Use(hooks ...Hook) {
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventAwardsDraft,
 		c.EventGrant, c.ImportReference, c.Installation, c.Lane, c.LaneDraft,
 		c.LanePublishedVersion, c.Location, c.LocationDraft,
-		c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
+		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Prizegiving,
 		c.PublicScheduleBaseline, c.PublicScheduleBaselineEntry, c.ReopenWindow,
 		c.Rundown, c.Session, c.SessionCancellation, c.SessionDraft,
 		c.SessionPublishedVersion, c.SessionRun, c.SessionRunAmendment, c.Track,
@@ -481,7 +487,7 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventAwardsDraft,
 		c.EventGrant, c.ImportReference, c.Installation, c.Lane, c.LaneDraft,
 		c.LanePublishedVersion, c.Location, c.LocationDraft,
-		c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
+		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Prizegiving,
 		c.PublicScheduleBaseline, c.PublicScheduleBaselineEntry, c.ReopenWindow,
 		c.Rundown, c.Session, c.SessionCancellation, c.SessionDraft,
 		c.SessionPublishedVersion, c.SessionRun, c.SessionRunAmendment, c.Track,
@@ -558,6 +564,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Migration.mutate(ctx, m)
 	case *PasswordCredentialMutation:
 		return c.PasswordCredential.mutate(ctx, m)
+	case *PrizegivingMutation:
+		return c.Prizegiving.mutate(ctx, m)
 	case *PublicScheduleBaselineMutation:
 		return c.PublicScheduleBaseline.mutate(ctx, m)
 	case *PublicScheduleBaselineEntryMutation:
@@ -4061,6 +4069,22 @@ func (c *EventClient) QueryEventAwardsDrafts(_m *Event) *EventAwardsDraftQuery {
 	return query
 }
 
+// QueryPrizegivings queries the prizegivings edge of a Event.
+func (c *EventClient) QueryPrizegivings(_m *Event) *PrizegivingQuery {
+	query := (&PrizegivingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(prizegiving.Table, prizegiving.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.PrizegivingsTable, event.PrizegivingsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryUploadLinks queries the upload_links edge of a Event.
 func (c *EventClient) QueryUploadLinks(_m *Event) *UploadLinkQuery {
 	query := (&UploadLinkClient{config: c.config}).Query()
@@ -6206,6 +6230,172 @@ func (c *PasswordCredentialClient) mutate(ctx context.Context, m *PasswordCreden
 	}
 }
 
+// PrizegivingClient is a client for the Prizegiving schema.
+type PrizegivingClient struct {
+	config
+}
+
+// NewPrizegivingClient returns a client for the Prizegiving from the given config.
+func NewPrizegivingClient(c config) *PrizegivingClient {
+	return &PrizegivingClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `prizegiving.Hooks(f(g(h())))`.
+func (c *PrizegivingClient) Use(hooks ...Hook) {
+	c.hooks.Prizegiving = append(c.hooks.Prizegiving, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `prizegiving.Intercept(f(g(h())))`.
+func (c *PrizegivingClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Prizegiving = append(c.inters.Prizegiving, interceptors...)
+}
+
+// Create returns a builder for creating a Prizegiving entity.
+func (c *PrizegivingClient) Create() *PrizegivingCreate {
+	mutation := newPrizegivingMutation(c.config, OpCreate)
+	return &PrizegivingCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Prizegiving entities.
+func (c *PrizegivingClient) CreateBulk(builders ...*PrizegivingCreate) *PrizegivingCreateBulk {
+	return &PrizegivingCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *PrizegivingClient) MapCreateBulk(slice any, setFunc func(*PrizegivingCreate, int)) *PrizegivingCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &PrizegivingCreateBulk{err: fmt.Errorf("calling to PrizegivingClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*PrizegivingCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &PrizegivingCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Prizegiving.
+func (c *PrizegivingClient) Update() *PrizegivingUpdate {
+	mutation := newPrizegivingMutation(c.config, OpUpdate)
+	return &PrizegivingUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *PrizegivingClient) UpdateOne(_m *Prizegiving) *PrizegivingUpdateOne {
+	mutation := newPrizegivingMutation(c.config, OpUpdateOne, withPrizegiving(_m))
+	return &PrizegivingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *PrizegivingClient) UpdateOneID(id int) *PrizegivingUpdateOne {
+	mutation := newPrizegivingMutation(c.config, OpUpdateOne, withPrizegivingID(id))
+	return &PrizegivingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Prizegiving.
+func (c *PrizegivingClient) Delete() *PrizegivingDelete {
+	mutation := newPrizegivingMutation(c.config, OpDelete)
+	return &PrizegivingDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *PrizegivingClient) DeleteOne(_m *Prizegiving) *PrizegivingDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *PrizegivingClient) DeleteOneID(id int) *PrizegivingDeleteOne {
+	builder := c.Delete().Where(prizegiving.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &PrizegivingDeleteOne{builder}
+}
+
+// Query returns a query builder for Prizegiving.
+func (c *PrizegivingClient) Query() *PrizegivingQuery {
+	return &PrizegivingQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypePrizegiving},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Prizegiving entity by its id.
+func (c *PrizegivingClient) Get(ctx context.Context, id int) (*Prizegiving, error) {
+	return c.Query().Where(prizegiving.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *PrizegivingClient) GetX(ctx context.Context, id int) *Prizegiving {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a Prizegiving.
+func (c *PrizegivingClient) QueryEvent(_m *Prizegiving) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(prizegiving.Table, prizegiving.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, prizegiving.EventTable, prizegiving.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCeremony queries the ceremony edge of a Prizegiving.
+func (c *PrizegivingClient) QueryCeremony(_m *Prizegiving) *SessionQuery {
+	query := (&SessionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(prizegiving.Table, prizegiving.FieldID, id),
+			sqlgraph.To(session.Table, session.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, prizegiving.CeremonyTable, prizegiving.CeremonyColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *PrizegivingClient) Hooks() []Hook {
+	hooks := c.hooks.Prizegiving
+	return append(hooks[:len(hooks):len(hooks)], prizegiving.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *PrizegivingClient) Interceptors() []Interceptor {
+	return c.inters.Prizegiving
+}
+
+func (c *PrizegivingClient) mutate(ctx context.Context, m *PrizegivingMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&PrizegivingCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&PrizegivingUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&PrizegivingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&PrizegivingDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Prizegiving mutation op: %q", m.Op())
+	}
+}
+
 // PublicScheduleBaselineClient is a client for the PublicScheduleBaseline schema.
 type PublicScheduleBaselineClient struct {
 	config
@@ -7067,6 +7257,22 @@ func (c *SessionClient) QueryCompetitionResultStandings(_m *Session) *Competitio
 			sqlgraph.From(session.Table, session.FieldID, id),
 			sqlgraph.To(competitionresultstanding.Table, competitionresultstanding.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, session.CompetitionResultStandingsTable, session.CompetitionResultStandingsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryPrizegiving queries the prizegiving edge of a Session.
+func (c *SessionClient) QueryPrizegiving(_m *Session) *PrizegivingQuery {
+	query := (&PrizegivingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(session.Table, session.FieldID, id),
+			sqlgraph.To(prizegiving.Table, prizegiving.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, session.PrizegivingTable, session.PrizegivingColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -8636,7 +8842,7 @@ type (
 		DraftChange, DraftChangeDependency, DraftEdit, Event, EventAwardsDraft,
 		EventGrant, ImportReference, Installation, Lane, LaneDraft,
 		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
-		Migration, PasswordCredential, PublicScheduleBaseline,
+		Migration, PasswordCredential, Prizegiving, PublicScheduleBaseline,
 		PublicScheduleBaselineEntry, ReopenWindow, Rundown, Session,
 		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
 		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
@@ -8650,7 +8856,7 @@ type (
 		DraftChange, DraftChangeDependency, DraftEdit, Event, EventAwardsDraft,
 		EventGrant, ImportReference, Installation, Lane, LaneDraft,
 		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
-		Migration, PasswordCredential, PublicScheduleBaseline,
+		Migration, PasswordCredential, Prizegiving, PublicScheduleBaseline,
 		PublicScheduleBaselineEntry, ReopenWindow, Rundown, Session,
 		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
 		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,

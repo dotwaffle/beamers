@@ -22,6 +22,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/locationdraft"
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
 	"github.com/dotwaffle/beamers/ent/predicate"
+	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
@@ -655,6 +656,24 @@ func filterViewableEventAwardsDrafts() privacy.QueryRule {
 	})
 }
 
+func filterViewablePrizegivings() privacy.QueryRule {
+	type selectorFilter interface {
+		Where(...predicate.Prizegiving) *beamersent.PrizegivingQuery
+	}
+	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
+		eventIDs, err := resultsEventIDs(ctx, viewer.ViewResults)
+		if err != nil {
+			return err
+		}
+		filter, ok := query.(selectorFilter)
+		if !ok {
+			return privacy.Denyf("unexpected Prizegiving query %T", query)
+		}
+		filter.Where(prizegiving.EventIDIn(eventIDs...))
+		return privacy.Skip
+	})
+}
+
 func allowManageResultsMutation() privacy.MutationRule {
 	type eventOwnedMutation interface {
 		EventID() (int, bool)
@@ -675,6 +694,64 @@ func allowManageResultsMutation() privacy.MutationRule {
 		}
 		identity, _ := viewer.FromContext(ctx)
 		if identity.HasCapability(eventID, viewer.ManageResults) {
+			return privacy.Allow
+		}
+		return privacy.Skip
+	})
+}
+
+func allowEventAwardsMutation() privacy.MutationRule {
+	type eventOwnedMutation interface {
+		EventID() (int, bool)
+		OldEventID(context.Context) (int, error)
+	}
+	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
+		owned, ok := mutation.(eventOwnedMutation)
+		if !ok {
+			return privacy.Skip
+		}
+		eventID, exists := owned.EventID()
+		if !exists {
+			var err error
+			eventID, err = owned.OldEventID(ctx)
+			if err != nil {
+				return privacy.Denyf("read Event Awards mutation ownership: %v", err)
+			}
+		}
+		identity, _ := viewer.FromContext(ctx)
+		if onlyFields(mutation, "path_states") {
+			if identity.CanProduceEvent(eventID) {
+				return privacy.Allow
+			}
+			return privacy.Denyf("Producer authority is required for Event Awards review")
+		}
+		if identity.HasCapability(eventID, viewer.ManageResults) {
+			return privacy.Allow
+		}
+		return privacy.Skip
+	})
+}
+
+func allowProducerResultsMutation() privacy.MutationRule {
+	type eventOwnedMutation interface {
+		EventID() (int, bool)
+		OldEventID(context.Context) (int, error)
+	}
+	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
+		owned, ok := mutation.(eventOwnedMutation)
+		if !ok {
+			return privacy.Skip
+		}
+		eventID, exists := owned.EventID()
+		if !exists {
+			var err error
+			eventID, err = owned.OldEventID(ctx)
+			if err != nil {
+				return privacy.Denyf("read Results mutation Event ownership: %v", err)
+			}
+		}
+		identity, _ := viewer.FromContext(ctx)
+		if identity.CanProduceEvent(eventID) {
 			return privacy.Allow
 		}
 		return privacy.Skip

@@ -25,6 +25,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/predicate"
+	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
@@ -504,6 +505,21 @@ func (_u *EventUpdate) AddEventAwardsDrafts(v ...*EventAwardsDraft) *EventUpdate
 	return _u.AddEventAwardsDraftIDs(ids...)
 }
 
+// AddPrizegivingIDs adds the "prizegivings" edge to the Prizegiving entity by IDs.
+func (_u *EventUpdate) AddPrizegivingIDs(ids ...int) *EventUpdate {
+	_u.mutation.AddPrizegivingIDs(ids...)
+	return _u
+}
+
+// AddPrizegivings adds the "prizegivings" edges to the Prizegiving entity.
+func (_u *EventUpdate) AddPrizegivings(v ...*Prizegiving) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddPrizegivingIDs(ids...)
+}
+
 // AddUploadLinkIDs adds the "upload_links" edge to the UploadLink entity by IDs.
 func (_u *EventUpdate) AddUploadLinkIDs(ids ...int) *EventUpdate {
 	_u.mutation.AddUploadLinkIDs(ids...)
@@ -811,6 +827,27 @@ func (_u *EventUpdate) RemoveEventAwardsDrafts(v ...*EventAwardsDraft) *EventUpd
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveEventAwardsDraftIDs(ids...)
+}
+
+// ClearPrizegivings clears all "prizegivings" edges to the Prizegiving entity.
+func (_u *EventUpdate) ClearPrizegivings() *EventUpdate {
+	_u.mutation.ClearPrizegivings()
+	return _u
+}
+
+// RemovePrizegivingIDs removes the "prizegivings" edge to Prizegiving entities by IDs.
+func (_u *EventUpdate) RemovePrizegivingIDs(ids ...int) *EventUpdate {
+	_u.mutation.RemovePrizegivingIDs(ids...)
+	return _u
+}
+
+// RemovePrizegivings removes "prizegivings" edges to Prizegiving entities.
+func (_u *EventUpdate) RemovePrizegivings(v ...*Prizegiving) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemovePrizegivingIDs(ids...)
 }
 
 // ClearUploadLinks clears all "upload_links" edges to the UploadLink entity.
@@ -1574,6 +1611,51 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(eventawardsdraft.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.PrizegivingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.PrizegivingsTable,
+			Columns: []string{event.PrizegivingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(prizegiving.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedPrizegivingsIDs(); len(nodes) > 0 && !_u.mutation.PrizegivingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.PrizegivingsTable,
+			Columns: []string{event.PrizegivingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(prizegiving.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PrizegivingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.PrizegivingsTable,
+			Columns: []string{event.PrizegivingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(prizegiving.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -2359,6 +2441,21 @@ func (_u *EventUpdateOne) AddEventAwardsDrafts(v ...*EventAwardsDraft) *EventUpd
 	return _u.AddEventAwardsDraftIDs(ids...)
 }
 
+// AddPrizegivingIDs adds the "prizegivings" edge to the Prizegiving entity by IDs.
+func (_u *EventUpdateOne) AddPrizegivingIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.AddPrizegivingIDs(ids...)
+	return _u
+}
+
+// AddPrizegivings adds the "prizegivings" edges to the Prizegiving entity.
+func (_u *EventUpdateOne) AddPrizegivings(v ...*Prizegiving) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddPrizegivingIDs(ids...)
+}
+
 // AddUploadLinkIDs adds the "upload_links" edge to the UploadLink entity by IDs.
 func (_u *EventUpdateOne) AddUploadLinkIDs(ids ...int) *EventUpdateOne {
 	_u.mutation.AddUploadLinkIDs(ids...)
@@ -2666,6 +2763,27 @@ func (_u *EventUpdateOne) RemoveEventAwardsDrafts(v ...*EventAwardsDraft) *Event
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveEventAwardsDraftIDs(ids...)
+}
+
+// ClearPrizegivings clears all "prizegivings" edges to the Prizegiving entity.
+func (_u *EventUpdateOne) ClearPrizegivings() *EventUpdateOne {
+	_u.mutation.ClearPrizegivings()
+	return _u
+}
+
+// RemovePrizegivingIDs removes the "prizegivings" edge to Prizegiving entities by IDs.
+func (_u *EventUpdateOne) RemovePrizegivingIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.RemovePrizegivingIDs(ids...)
+	return _u
+}
+
+// RemovePrizegivings removes "prizegivings" edges to Prizegiving entities.
+func (_u *EventUpdateOne) RemovePrizegivings(v ...*Prizegiving) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemovePrizegivingIDs(ids...)
 }
 
 // ClearUploadLinks clears all "upload_links" edges to the UploadLink entity.
@@ -3459,6 +3577,51 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(eventawardsdraft.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.PrizegivingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.PrizegivingsTable,
+			Columns: []string{event.PrizegivingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(prizegiving.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedPrizegivingsIDs(); len(nodes) > 0 && !_u.mutation.PrizegivingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.PrizegivingsTable,
+			Columns: []string{event.PrizegivingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(prizegiving.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PrizegivingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.PrizegivingsTable,
+			Columns: []string{event.PrizegivingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(prizegiving.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

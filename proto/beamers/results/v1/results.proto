@@ -12,6 +12,7 @@ service ResultsService {
   rpc SaveCompetitionResultsDraft(SaveCompetitionResultsDraftRequest) returns (SaveCompetitionResultsDraftResponse);
   rpc SaveCompetitionAwards(SaveCompetitionAwardsRequest) returns (SaveCompetitionAwardsResponse);
   rpc MarkCompetitionResultsReady(MarkCompetitionResultsReadyRequest) returns (MarkCompetitionResultsReadyResponse);
+  rpc DesignatePrizegiving(DesignatePrizegivingRequest) returns (DesignatePrizegivingResponse);
   rpc GetEventAwardsDraft(GetEventAwardsDraftRequest) returns (GetEventAwardsDraftResponse);
   rpc SaveEventAwardsDraft(SaveEventAwardsDraftRequest) returns (SaveEventAwardsDraftResponse);
   rpc MarkEventAwardsReady(MarkEventAwardsReadyRequest) returns (MarkEventAwardsReadyResponse);
@@ -186,6 +187,24 @@ message MarkCompetitionResultsReadyRequest {
 
 message MarkCompetitionResultsReadyResponse {
   CompetitionResultsDraft draft = 1;
+}
+
+message Prizegiving {
+  int64 id = 1;
+  int64 event_id = 2;
+  int64 ceremony_session_id = 3;
+  int64 created_by_account_id = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message DesignatePrizegivingRequest {
+  int64 event_id = 1;
+  int64 ceremony_session_id = 2;
+  string command_id = 3;
+}
+
+message DesignatePrizegivingResponse {
+  Prizegiving prizegiving = 1;
 }
 
 message EventAwardsDraft {

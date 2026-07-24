@@ -98,6 +98,8 @@ const (
 	EdgeCompetitionResultsDrafts = "competition_results_drafts"
 	// EdgeCompetitionResultStandings holds the string denoting the competition_result_standings edge name in mutations.
 	EdgeCompetitionResultStandings = "competition_result_standings"
+	// EdgePrizegiving holds the string denoting the prizegiving edge name in mutations.
+	EdgePrizegiving = "prizegiving"
 	// Table holds the table name of the session in the database.
 	Table = "sessions"
 	// EventTable is the table that holds the event relation/edge.
@@ -163,6 +165,13 @@ const (
 	CompetitionResultStandingsInverseTable = "competition_result_standings"
 	// CompetitionResultStandingsColumn is the table column denoting the competition_result_standings relation/edge.
 	CompetitionResultStandingsColumn = "competition_session_id"
+	// PrizegivingTable is the table that holds the prizegiving relation/edge.
+	PrizegivingTable = "prizegivings"
+	// PrizegivingInverseTable is the table name for the Prizegiving entity.
+	// It exists in this package in order to avoid circular dependency with the "prizegiving" package.
+	PrizegivingInverseTable = "prizegivings"
+	// PrizegivingColumn is the table column denoting the prizegiving relation/edge.
+	PrizegivingColumn = "ceremony_session_id"
 )
 
 // Columns holds all SQL columns for session fields.
@@ -624,6 +633,13 @@ func ByCompetitionResultStandings(term sql.OrderTerm, terms ...sql.OrderTerm) Or
 		sqlgraph.OrderByNeighborTerms(s, newCompetitionResultStandingsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByPrizegivingField orders the results by prizegiving field.
+func ByPrizegivingField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newPrizegivingStep(), sql.OrderByField(field, opts...))
+	}
+}
 func newEventStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -685,5 +701,12 @@ func newCompetitionResultStandingsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(CompetitionResultStandingsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, CompetitionResultStandingsTable, CompetitionResultStandingsColumn),
+	)
+}
+func newPrizegivingStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(PrizegivingInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2O, false, PrizegivingTable, PrizegivingColumn),
 	)
 }

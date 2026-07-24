@@ -1657,6 +1657,29 @@ func HasCompetitionResultStandingsWith(preds ...predicate.CompetitionResultStand
 	})
 }
 
+// HasPrizegiving applies the HasEdge predicate on the "prizegiving" edge.
+func HasPrizegiving() predicate.Session {
+	return predicate.Session(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, PrizegivingTable, PrizegivingColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasPrizegivingWith applies the HasEdge predicate on the "prizegiving" edge with a given conditions (other predicates).
+func HasPrizegivingWith(preds ...predicate.Prizegiving) predicate.Session {
+	return predicate.Session(func(s *sql.Selector) {
+		step := newPrizegivingStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Session) predicate.Session {
 	return predicate.Session(sql.AndPredicates(predicates...))

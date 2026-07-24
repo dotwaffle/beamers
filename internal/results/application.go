@@ -32,6 +32,8 @@ var (
 	ErrEventAwardsRevision = store.ErrEventAwardsRevision
 	// ErrEventAwardPath means an Event Award targets an invalid release path.
 	ErrEventAwardPath = store.ErrEventAwardPath
+	// ErrPrizegivingSession means a designation does not target an Event Ceremony.
+	ErrPrizegivingSession = store.ErrPrizegivingSession
 	// ErrCompetitionNotFound means no Competition matched the stable IDs.
 	ErrCompetitionNotFound = store.ErrCompetitionNotFound
 	// ErrEventNotFound means no Event matched the stable ID.
@@ -90,6 +92,22 @@ type EventAwardsDraft struct {
 	PathStates         []EventAwardPathState
 	CreatedByAccountID int
 	CreatedAt          time.Time
+}
+
+// Prizegiving is one explicitly designated Ceremony Session.
+type Prizegiving struct {
+	ID                 int
+	EventID            int
+	CeremonySessionID  int
+	CreatedByAccountID int
+	CreatedAt          time.Time
+}
+
+// DesignatePrizegivingInput identifies one Ceremony Session for Results release.
+type DesignatePrizegivingInput struct {
+	EventID           int    `json:"event_id"`
+	CeremonySessionID int    `json:"ceremony_session_id"`
+	CommandID         string `json:"command_id"`
 }
 
 // SaveEventAwardsInput replaces one Event's complete Award assignment snapshot.
@@ -248,6 +266,10 @@ func (service *Service) SaveCompetitionAwards(
 			if loadErr != nil {
 				return command.Execution[Draft]{}, loadErr
 			}
+			if competitionAwardPromotionChanged(current.Awards, input.Awards) &&
+				!actor.CanProduceEvent(input.EventID) {
+				return command.Execution[Draft]{}, ErrProducerRequired
+			}
 			params := cloneCompetitionResultsParams(
 				current, actor.ID, identity.Now, competitionAwardInputs(input.Awards),
 			)
@@ -263,6 +285,63 @@ func (service *Service) SaveCompetitionAwards(
 				return command.Execution[Draft]{}, errors.New("encode Competition Awards outcome")
 			}
 			return command.Success(draft(stored), string(outcome)), nil
+		},
+	})
+}
+
+// DesignatePrizegiving records one Producer-selected Ceremony release path.
+func (service *Service) DesignatePrizegiving(
+	ctx context.Context,
+	actor auth.Account,
+	input DesignatePrizegivingInput,
+) (Prizegiving, error) {
+	if err := command.ValidateID(input.CommandID); err != nil {
+		return Prizegiving{}, err
+	}
+	if input.EventID <= 0 || input.CeremonySessionID <= 0 {
+		return Prizegiving{}, ErrInvalidInput
+	}
+	if !actor.CanProduceEvent(input.EventID) {
+		return Prizegiving{}, ErrProducerRequired
+	}
+	payload, err := json.Marshal(input)
+	if err != nil {
+		return Prizegiving{}, errors.New("encode Prizegiving designation command")
+	}
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID,
+		CommandID:      input.CommandID,
+		PayloadHash:    command.PayloadHash(string(payload)),
+		Action:         "DesignatePrizegiving",
+		TargetType:     "Session",
+		TargetID:       strconv.Itoa(input.CeremonySessionID),
+		Now:            service.now().UTC(),
+	}
+	return command.Execute(actor.Context(ctx), command.Plan[Prizegiving]{
+		Storage: service.storage, Identity: identity,
+		Replay: func(outcome string) (Prizegiving, error) {
+			var stored store.Prizegiving
+			if err := store.DecodeCommandReceipt(outcome, &stored); err != nil {
+				return Prizegiving{}, err
+			}
+			return prizegiving(stored), nil
+		},
+		Apply: func(transaction *store.CommandTx) (command.Execution[Prizegiving], error) {
+			stored, designateErr := transaction.DesignatePrizegiving(
+				actor.Context(ctx),
+				store.DesignatePrizegivingParams{
+					EventID: input.EventID, CeremonySessionID: input.CeremonySessionID,
+					CreatedByAccountID: actor.ID, Now: identity.Now,
+				},
+			)
+			if designateErr != nil {
+				return command.Execution[Prizegiving]{}, designateErr
+			}
+			outcome, marshalErr := json.Marshal(stored)
+			if marshalErr != nil {
+				return command.Execution[Prizegiving]{}, errors.New("encode Prizegiving designation outcome")
+			}
+			return command.Success(prizegiving(stored), string(outcome)), nil
 		},
 	})
 }
@@ -661,6 +740,28 @@ func awards(values []store.CompetitionAward) []Award {
 	return result
 }
 
+func competitionAwardPromotionChanged(
+	current []store.CompetitionAward,
+	next []Award,
+) bool {
+	promoted := make(map[string]bool, len(current))
+	for _, award := range current {
+		promoted[award.Key] = award.Promoted
+	}
+	for _, award := range next {
+		if award.Promoted != promoted[award.Key] {
+			return true
+		}
+		delete(promoted, award.Key)
+	}
+	for _, value := range promoted {
+		if value {
+			return true
+		}
+	}
+	return false
+}
+
 func eventAwardInputs(values []EventAward) []store.EventAwardInput {
 	awards := make([]store.EventAwardInput, 0, len(values))
 	for _, value := range values {
@@ -730,4 +831,12 @@ func eventAwardsDraft(stored store.EventAwardsDraft) EventAwardsDraft {
 		})
 	}
 	return result
+}
+
+func prizegiving(stored store.Prizegiving) Prizegiving {
+	return Prizegiving{
+		ID: stored.ID, EventID: stored.EventID,
+		CeremonySessionID:  stored.CeremonySessionID,
+		CreatedByAccountID: stored.CreatedByAccountID, CreatedAt: stored.CreatedAt,
+	}
 }

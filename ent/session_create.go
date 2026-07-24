@@ -14,6 +14,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/competitionresultsdraft"
 	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
 	"github.com/dotwaffle/beamers/ent/event"
+	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessioncancellation"
@@ -570,6 +571,25 @@ func (_c *SessionCreate) AddCompetitionResultStandings(v ...*CompetitionResultSt
 	return _c.AddCompetitionResultStandingIDs(ids...)
 }
 
+// SetPrizegivingID sets the "prizegiving" edge to the Prizegiving entity by ID.
+func (_c *SessionCreate) SetPrizegivingID(id int) *SessionCreate {
+	_c.mutation.SetPrizegivingID(id)
+	return _c
+}
+
+// SetNillablePrizegivingID sets the "prizegiving" edge to the Prizegiving entity by ID if the given value is not nil.
+func (_c *SessionCreate) SetNillablePrizegivingID(id *int) *SessionCreate {
+	if id != nil {
+		_c = _c.SetPrizegivingID(*id)
+	}
+	return _c
+}
+
+// SetPrizegiving sets the "prizegiving" edge to the Prizegiving entity.
+func (_c *SessionCreate) SetPrizegiving(v *Prizegiving) *SessionCreate {
+	return _c.SetPrizegivingID(v.ID)
+}
+
 // Mutation returns the SessionMutation object of the builder.
 func (_c *SessionCreate) Mutation() *SessionMutation {
 	return _c.mutation
@@ -1073,6 +1093,22 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(competitionresultstanding.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.PrizegivingIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   session.PrizegivingTable,
+			Columns: []string{session.PrizegivingColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(prizegiving.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

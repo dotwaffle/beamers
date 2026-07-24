@@ -16,6 +16,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/competitionresultsdraft"
 	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
 	"github.com/dotwaffle/beamers/ent/predicate"
+	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessioncancellation"
@@ -747,6 +748,25 @@ func (_u *SessionUpdate) AddCompetitionResultStandings(v ...*CompetitionResultSt
 	return _u.AddCompetitionResultStandingIDs(ids...)
 }
 
+// SetPrizegivingID sets the "prizegiving" edge to the Prizegiving entity by ID.
+func (_u *SessionUpdate) SetPrizegivingID(id int) *SessionUpdate {
+	_u.mutation.SetPrizegivingID(id)
+	return _u
+}
+
+// SetNillablePrizegivingID sets the "prizegiving" edge to the Prizegiving entity by ID if the given value is not nil.
+func (_u *SessionUpdate) SetNillablePrizegivingID(id *int) *SessionUpdate {
+	if id != nil {
+		_u = _u.SetPrizegivingID(*id)
+	}
+	return _u
+}
+
+// SetPrizegiving sets the "prizegiving" edge to the Prizegiving entity.
+func (_u *SessionUpdate) SetPrizegiving(v *Prizegiving) *SessionUpdate {
+	return _u.SetPrizegivingID(v.ID)
+}
+
 // Mutation returns the SessionMutation object of the builder.
 func (_u *SessionUpdate) Mutation() *SessionMutation {
 	return _u.mutation
@@ -888,6 +908,12 @@ func (_u *SessionUpdate) RemoveCompetitionResultStandings(v ...*CompetitionResul
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveCompetitionResultStandingIDs(ids...)
+}
+
+// ClearPrizegiving clears the "prizegiving" edge to the Prizegiving entity.
+func (_u *SessionUpdate) ClearPrizegiving() *SessionUpdate {
+	_u.mutation.ClearPrizegiving()
+	return _u
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -1529,6 +1555,35 @@ func (_u *SessionUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(competitionresultstanding.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.PrizegivingCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   session.PrizegivingTable,
+			Columns: []string{session.PrizegivingColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(prizegiving.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PrizegivingIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   session.PrizegivingTable,
+			Columns: []string{session.PrizegivingColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(prizegiving.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -2266,6 +2321,25 @@ func (_u *SessionUpdateOne) AddCompetitionResultStandings(v ...*CompetitionResul
 	return _u.AddCompetitionResultStandingIDs(ids...)
 }
 
+// SetPrizegivingID sets the "prizegiving" edge to the Prizegiving entity by ID.
+func (_u *SessionUpdateOne) SetPrizegivingID(id int) *SessionUpdateOne {
+	_u.mutation.SetPrizegivingID(id)
+	return _u
+}
+
+// SetNillablePrizegivingID sets the "prizegiving" edge to the Prizegiving entity by ID if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillablePrizegivingID(id *int) *SessionUpdateOne {
+	if id != nil {
+		_u = _u.SetPrizegivingID(*id)
+	}
+	return _u
+}
+
+// SetPrizegiving sets the "prizegiving" edge to the Prizegiving entity.
+func (_u *SessionUpdateOne) SetPrizegiving(v *Prizegiving) *SessionUpdateOne {
+	return _u.SetPrizegivingID(v.ID)
+}
+
 // Mutation returns the SessionMutation object of the builder.
 func (_u *SessionUpdateOne) Mutation() *SessionMutation {
 	return _u.mutation
@@ -2407,6 +2481,12 @@ func (_u *SessionUpdateOne) RemoveCompetitionResultStandings(v ...*CompetitionRe
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveCompetitionResultStandingIDs(ids...)
+}
+
+// ClearPrizegiving clears the "prizegiving" edge to the Prizegiving entity.
+func (_u *SessionUpdateOne) ClearPrizegiving() *SessionUpdateOne {
+	_u.mutation.ClearPrizegiving()
+	return _u
 }
 
 // Where appends a list predicates to the SessionUpdate builder.
@@ -3078,6 +3158,35 @@ func (_u *SessionUpdateOne) sqlSave(ctx context.Context) (_node *Session, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(competitionresultstanding.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.PrizegivingCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   session.PrizegivingTable,
+			Columns: []string{session.PrizegivingColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(prizegiving.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PrizegivingIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   session.PrizegivingTable,
+			Columns: []string{session.PrizegivingColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(prizegiving.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

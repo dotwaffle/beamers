@@ -85,6 +85,8 @@ type EventEdges struct {
 	CompetitionResultStandings []*CompetitionResultStanding `json:"competition_result_standings,omitempty"`
 	// EventAwardsDrafts holds the value of the event_awards_drafts edge.
 	EventAwardsDrafts []*EventAwardsDraft `json:"event_awards_drafts,omitempty"`
+	// Prizegivings holds the value of the prizegivings edge.
+	Prizegivings []*Prizegiving `json:"prizegivings,omitempty"`
 	// UploadLinks holds the value of the upload_links edge.
 	UploadLinks []*UploadLink `json:"upload_links,omitempty"`
 	// DraftEdits holds the value of the draft_edits edge.
@@ -101,7 +103,7 @@ type EventEdges struct {
 	DisplayOverrides []*DisplayOverride `json:"display_overrides,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [17]bool
+	loadedTypes [18]bool
 }
 
 // GrantsOrErr returns the Grants value or an error if the edge
@@ -196,10 +198,19 @@ func (e EventEdges) EventAwardsDraftsOrErr() ([]*EventAwardsDraft, error) {
 	return nil, &NotLoadedError{edge: "event_awards_drafts"}
 }
 
+// PrizegivingsOrErr returns the Prizegivings value or an error if the edge
+// was not loaded in eager-loading.
+func (e EventEdges) PrizegivingsOrErr() ([]*Prizegiving, error) {
+	if e.loadedTypes[10] {
+		return e.Prizegivings, nil
+	}
+	return nil, &NotLoadedError{edge: "prizegivings"}
+}
+
 // UploadLinksOrErr returns the UploadLinks value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) UploadLinksOrErr() ([]*UploadLink, error) {
-	if e.loadedTypes[10] {
+	if e.loadedTypes[11] {
 		return e.UploadLinks, nil
 	}
 	return nil, &NotLoadedError{edge: "upload_links"}
@@ -208,7 +219,7 @@ func (e EventEdges) UploadLinksOrErr() ([]*UploadLink, error) {
 // DraftEditsOrErr returns the DraftEdits value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) DraftEditsOrErr() ([]*DraftEdit, error) {
-	if e.loadedTypes[11] {
+	if e.loadedTypes[12] {
 		return e.DraftEdits, nil
 	}
 	return nil, &NotLoadedError{edge: "draft_edits"}
@@ -217,7 +228,7 @@ func (e EventEdges) DraftEditsOrErr() ([]*DraftEdit, error) {
 // DraftChangesOrErr returns the DraftChanges value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) DraftChangesOrErr() ([]*DraftChange, error) {
-	if e.loadedTypes[12] {
+	if e.loadedTypes[13] {
 		return e.DraftChanges, nil
 	}
 	return nil, &NotLoadedError{edge: "draft_changes"}
@@ -226,7 +237,7 @@ func (e EventEdges) DraftChangesOrErr() ([]*DraftChange, error) {
 // ImportReferencesOrErr returns the ImportReferences value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) ImportReferencesOrErr() ([]*ImportReference, error) {
-	if e.loadedTypes[13] {
+	if e.loadedTypes[14] {
 		return e.ImportReferences, nil
 	}
 	return nil, &NotLoadedError{edge: "import_references"}
@@ -237,7 +248,7 @@ func (e EventEdges) ImportReferencesOrErr() ([]*ImportReference, error) {
 func (e EventEdges) PublicScheduleBaselineOrErr() (*PublicScheduleBaseline, error) {
 	if e.PublicScheduleBaseline != nil {
 		return e.PublicScheduleBaseline, nil
-	} else if e.loadedTypes[14] {
+	} else if e.loadedTypes[15] {
 		return nil, &NotFoundError{label: publicschedulebaseline.Label}
 	}
 	return nil, &NotLoadedError{edge: "public_schedule_baseline"}
@@ -246,7 +257,7 @@ func (e EventEdges) PublicScheduleBaselineOrErr() (*PublicScheduleBaseline, erro
 // DisplayAssignmentsOrErr returns the DisplayAssignments value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) DisplayAssignmentsOrErr() ([]*DisplayAssignment, error) {
-	if e.loadedTypes[15] {
+	if e.loadedTypes[16] {
 		return e.DisplayAssignments, nil
 	}
 	return nil, &NotLoadedError{edge: "display_assignments"}
@@ -255,7 +266,7 @@ func (e EventEdges) DisplayAssignmentsOrErr() ([]*DisplayAssignment, error) {
 // DisplayOverridesOrErr returns the DisplayOverrides value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) DisplayOverridesOrErr() ([]*DisplayOverride, error) {
-	if e.loadedTypes[16] {
+	if e.loadedTypes[17] {
 		return e.DisplayOverrides, nil
 	}
 	return nil, &NotLoadedError{edge: "display_overrides"}
@@ -469,6 +480,11 @@ func (_m *Event) QueryCompetitionResultStandings() *CompetitionResultStandingQue
 // QueryEventAwardsDrafts queries the "event_awards_drafts" edge of the Event entity.
 func (_m *Event) QueryEventAwardsDrafts() *EventAwardsDraftQuery {
 	return NewEventClient(_m.config).QueryEventAwardsDrafts(_m)
+}
+
+// QueryPrizegivings queries the "prizegivings" edge of the Event entity.
+func (_m *Event) QueryPrizegivings() *PrizegivingQuery {
+	return NewEventClient(_m.config).QueryPrizegivings(_m)
 }
 
 // QueryUploadLinks queries the "upload_links" edge of the Event entity.

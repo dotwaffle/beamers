@@ -38,6 +38,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
 	"github.com/dotwaffle/beamers/ent/migration"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
+	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
@@ -1649,6 +1650,25 @@ func init() {
 	passwordcredentialDescCreatedAt := passwordcredentialFields[2].Descriptor()
 	// passwordcredential.DefaultCreatedAt holds the default value on creation for the created_at field.
 	passwordcredential.DefaultCreatedAt = passwordcredentialDescCreatedAt.Default.(func() time.Time)
+	prizegiving.Policy = privacy.NewPolicies(schema.Prizegiving{})
+	prizegiving.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := prizegiving.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	prizegivingFields := schema.Prizegiving{}.Fields()
+	_ = prizegivingFields
+	// prizegivingDescCreatedByAccountID is the schema descriptor for created_by_account_id field.
+	prizegivingDescCreatedByAccountID := prizegivingFields[2].Descriptor()
+	// prizegiving.CreatedByAccountIDValidator is a validator for the "created_by_account_id" field. It is called by the builders before save.
+	prizegiving.CreatedByAccountIDValidator = prizegivingDescCreatedByAccountID.Validators[0].(func(int) error)
+	// prizegivingDescCreatedAt is the schema descriptor for created_at field.
+	prizegivingDescCreatedAt := prizegivingFields[3].Descriptor()
+	// prizegiving.DefaultCreatedAt holds the default value on creation for the created_at field.
+	prizegiving.DefaultCreatedAt = prizegivingDescCreatedAt.Default.(func() time.Time)
 	publicschedulebaseline.Policy = privacy.NewPolicies(schema.PublicScheduleBaseline{})
 	publicschedulebaseline.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

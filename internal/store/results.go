@@ -13,6 +13,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
+	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/internal/awardvalue"
@@ -30,6 +31,8 @@ var (
 	ErrEventAwardsRevision = errors.New("event awards revision conflict")
 	// ErrEventAwardPath means an Event Award references an invalid release path.
 	ErrEventAwardPath = errors.New("event award release path is invalid")
+	// ErrPrizegivingSession means a designation does not target an Event Ceremony.
+	ErrPrizegivingSession = errors.New("prizegiving must designate an Event Ceremony")
 )
 
 // AwardRecipientInput identifies one Entry or explicit display-name recipient.
@@ -86,6 +89,15 @@ type EventAwardsDraft struct {
 	PathStates         []EventAwardPathState `json:"path_states"`
 	CreatedByAccountID int                   `json:"created_by_account_id"`
 	CreatedAt          time.Time             `json:"created_at"`
+}
+
+// Prizegiving is one Ceremony Session explicitly designated for Results release.
+type Prizegiving struct {
+	ID                 int       `json:"id"`
+	EventID            int       `json:"event_id"`
+	CeremonySessionID  int       `json:"ceremony_session_id"`
+	CreatedByAccountID int       `json:"created_by_account_id"`
+	CreatedAt          time.Time `json:"created_at"`
 }
 
 // CompetitionResultStandingInput is one Entry result in a proposed Draft.
@@ -168,6 +180,13 @@ type MarkEventAwardsReadyParams struct {
 	ExpectedPathRevision int
 	ReviewedByAccountID  int
 	Now                  time.Time
+}
+
+// DesignatePrizegivingParams identifies one Ceremony Session.
+type DesignatePrizegivingParams struct {
+	EventID, CeremonySessionID int
+	CreatedByAccountID         int
+	Now                        time.Time
 }
 
 // MarkCompetitionResultsReadyParams confirms one exact current revision.
@@ -277,6 +296,52 @@ func (transaction *CommandTx) LoadEventAwardsDraft(
 		return EventAwardsDraft{}, opaqueError("load Event Awards Draft", err)
 	}
 	return eventAwardsDraft(found), nil
+}
+
+// DesignatePrizegiving records one Ceremony Session as a Results release path.
+func (transaction *CommandTx) DesignatePrizegiving(
+	ctx context.Context,
+	params DesignatePrizegivingParams,
+) (Prizegiving, error) {
+	client := transaction.transaction.Client()
+	internalContext := systemContext(ctx)
+	ceremony, err := client.Session.Query().
+		Where(
+			session.IDEQ(params.CeremonySessionID),
+			session.EventIDEQ(params.EventID),
+		).
+		Only(internalContext)
+	if ent.IsNotFound(err) {
+		return Prizegiving{}, ErrPrizegivingSession
+	}
+	if err != nil {
+		return Prizegiving{}, opaqueError("load Prizegiving Ceremony", err)
+	}
+	published, err := ceremony.QueryPublishedVersions().
+		Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).
+		First(internalContext)
+	if err != nil || published.Type != sessionpublishedversion.TypeCeremony {
+		return Prizegiving{}, ErrPrizegivingSession
+	}
+	existing, err := client.Prizegiving.Query().
+		Where(prizegiving.CeremonySessionIDEQ(params.CeremonySessionID)).
+		Only(internalContext)
+	if err == nil {
+		return storedPrizegiving(existing), nil
+	}
+	if !ent.IsNotFound(err) {
+		return Prizegiving{}, opaqueError("load Prizegiving designation", err)
+	}
+	created, err := client.Prizegiving.Create().
+		SetEventID(params.EventID).
+		SetCeremonySessionID(params.CeremonySessionID).
+		SetCreatedByAccountID(params.CreatedByAccountID).
+		SetCreatedAt(params.Now.UTC()).
+		Save(ctx)
+	if err != nil {
+		return Prizegiving{}, opaqueError("designate Prizegiving", err)
+	}
+	return storedPrizegiving(created), nil
 }
 
 // SaveEventAwardsDraft appends one whole Event Awards revision.
@@ -798,14 +863,23 @@ func validateEventAwardPrizegivings(
 	if len(ids) == 0 {
 		return nil
 	}
+	count, err := client.Prizegiving.Query().
+		Where(
+			prizegiving.CeremonySessionIDIn(ids...),
+			prizegiving.EventIDEQ(eventID),
+		).
+		Count(ctx)
+	if err != nil {
+		return opaqueError("validate Event Award Prizegivings", err)
+	}
+	if count != len(ids) {
+		return ErrEventAwardPath
+	}
 	found, err := client.Session.Query().
 		Where(session.IDIn(ids...), session.EventIDEQ(eventID)).
 		All(ctx)
 	if err != nil {
-		return opaqueError("validate Event Award Prizegivings", err)
-	}
-	if len(found) != len(ids) {
-		return ErrEventAwardPath
+		return opaqueError("validate Prizegiving Ceremonies", err)
 	}
 	for _, ceremony := range found {
 		published, queryErr := ceremony.QueryPublishedVersions().
@@ -961,6 +1035,14 @@ func eventAwardsDraft(found *ent.EventAwardsDraft) EventAwardsDraft {
 	return EventAwardsDraft{
 		ID: found.ID, EventID: found.EventID, Revision: found.Revision,
 		Awards: eventAwards(found.Awards), PathStates: eventAwardPathStates(found.PathStates),
+		CreatedByAccountID: found.CreatedByAccountID, CreatedAt: found.CreatedAt,
+	}
+}
+
+func storedPrizegiving(found *ent.Prizegiving) Prizegiving {
+	return Prizegiving{
+		ID: found.ID, EventID: found.EventID,
+		CeremonySessionID:  found.CeremonySessionID,
 		CreatedByAccountID: found.CreatedByAccountID, CreatedAt: found.CreatedAt,
 	}
 }

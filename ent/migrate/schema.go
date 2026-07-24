@@ -1027,6 +1027,41 @@ var (
 			},
 		},
 	}
+	// PrizegivingsColumns holds the columns for the "prizegivings" table.
+	PrizegivingsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_by_account_id", Type: field.TypeInt},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "event_id", Type: field.TypeInt},
+		{Name: "ceremony_session_id", Type: field.TypeInt, Unique: true},
+	}
+	// PrizegivingsTable holds the schema information for the "prizegivings" table.
+	PrizegivingsTable = &schema.Table{
+		Name:       "prizegivings",
+		Columns:    PrizegivingsColumns,
+		PrimaryKey: []*schema.Column{PrizegivingsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "prizegivings_events_prizegivings",
+				Columns:    []*schema.Column{PrizegivingsColumns[3]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "prizegivings_sessions_prizegiving",
+				Columns:    []*schema.Column{PrizegivingsColumns[4]},
+				RefColumns: []*schema.Column{SessionsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "prizegiving_event_id_ceremony_session_id",
+				Unique:  true,
+				Columns: []*schema.Column{PrizegivingsColumns[3], PrizegivingsColumns[4]},
+			},
+		},
+	}
 	// PublicScheduleBaselinesColumns holds the columns for the "public_schedule_baselines" table.
 	PublicScheduleBaselinesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -1632,6 +1667,7 @@ var (
 		LocationPublishedVersionsTable,
 		BeamersSchemaMigrationsTable,
 		PasswordCredentialsTable,
+		PrizegivingsTable,
 		PublicScheduleBaselinesTable,
 		PublicScheduleBaselineEntriesTable,
 		ReopenWindowsTable,
@@ -1701,6 +1737,8 @@ func init() {
 		"schema_migrations_checksum_length": "length(checksum) = 64",
 	}
 	PasswordCredentialsTable.ForeignKeys[0].RefTable = AccountsTable
+	PrizegivingsTable.ForeignKeys[0].RefTable = EventsTable
+	PrizegivingsTable.ForeignKeys[1].RefTable = SessionsTable
 	PublicScheduleBaselinesTable.ForeignKeys[0].RefTable = EventsTable
 	PublicScheduleBaselineEntriesTable.ForeignKeys[0].RefTable = PublicScheduleBaselinesTable
 	PublicScheduleBaselineEntriesTable.ForeignKeys[1].RefTable = SessionsTable

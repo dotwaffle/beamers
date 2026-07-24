@@ -160,6 +160,32 @@ func (handler *Handler) MarkCompetitionResultsReady(
 	}), nil
 }
 
+// DesignatePrizegiving records one Producer-selected Ceremony release path.
+func (handler *Handler) DesignatePrizegiving(
+	ctx context.Context,
+	request *connect.Request[resultsv1.DesignatePrizegivingRequest],
+) (*connect.Response[resultsv1.DesignatePrizegivingResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	designated, err := handler.service.DesignatePrizegiving(
+		ctx,
+		actor,
+		results.DesignatePrizegivingInput{
+			EventID:           int(request.Msg.GetEventId()),
+			CeremonySessionID: int(request.Msg.GetCeremonySessionId()),
+			CommandID:         request.Msg.GetCommandId(),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&resultsv1.DesignatePrizegivingResponse{
+		Prizegiving: prizegiving(designated),
+	}), nil
+}
+
 // GetEventAwardsDraft returns the current unreleased Event Awards Draft.
 func (handler *Handler) GetEventAwardsDraft(
 	ctx context.Context,
@@ -470,6 +496,18 @@ func eventAwardsDraft(value results.EventAwardsDraft) *resultsv1.EventAwardsDraf
 	return result
 }
 
+func prizegiving(value results.Prizegiving) *resultsv1.Prizegiving {
+	result := &resultsv1.Prizegiving{
+		Id: int64(value.ID), EventId: int64(value.EventID),
+		CeremonySessionId:  int64(value.CeremonySessionID),
+		CreatedByAccountId: int64(value.CreatedByAccountID),
+	}
+	if !value.CreatedAt.IsZero() {
+		result.CreatedAt = timestamppb.New(value.CreatedAt)
+	}
+	return result
+}
+
 func scoreValue(value results.ScoreValue) *resultsv1.ScoreValue {
 	switch {
 	case value.Decimal != nil:
@@ -624,6 +662,7 @@ func connectError(err error) error {
 		errors.Is(err, results.ErrEntryOutsideCompetition),
 		errors.Is(err, results.ErrAwardEntryOutsideScope),
 		errors.Is(err, results.ErrEventAwardPath),
+		errors.Is(err, results.ErrPrizegivingSession),
 		errors.Is(err, results.ErrCrewReasonRequired),
 		errors.Is(err, results.ErrInvalidScore),
 		errors.Is(err, results.ErrInvalidAward):

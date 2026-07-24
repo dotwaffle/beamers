@@ -25,7 +25,7 @@ func (EventAwardsDraft) Policy() ent.Policy {
 			privacy.AlwaysAllowRule(),
 		},
 		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowManageResultsMutation(), privacy.AlwaysDenyRule(),
+			denyMissingViewer(), allowEventAwardsMutation(), privacy.AlwaysDenyRule(),
 		},
 	}
 }

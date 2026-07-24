@@ -78,6 +78,8 @@ type Tx struct {
 	Migration *MigrationClient
 	// PasswordCredential is the client for interacting with the PasswordCredential builders.
 	PasswordCredential *PasswordCredentialClient
+	// Prizegiving is the client for interacting with the Prizegiving builders.
+	Prizegiving *PrizegivingClient
 	// PublicScheduleBaseline is the client for interacting with the PublicScheduleBaseline builders.
 	PublicScheduleBaseline *PublicScheduleBaselineClient
 	// PublicScheduleBaselineEntry is the client for interacting with the PublicScheduleBaselineEntry builders.
@@ -269,6 +271,7 @@ func (tx *Tx) init() {
 	tx.LocationPublishedVersion = NewLocationPublishedVersionClient(tx.config)
 	tx.Migration = NewMigrationClient(tx.config)
 	tx.PasswordCredential = NewPasswordCredentialClient(tx.config)
+	tx.Prizegiving = NewPrizegivingClient(tx.config)
 	tx.PublicScheduleBaseline = NewPublicScheduleBaselineClient(tx.config)
 	tx.PublicScheduleBaselineEntry = NewPublicScheduleBaselineEntryClient(tx.config)
 	tx.ReopenWindow = NewReopenWindowClient(tx.config)

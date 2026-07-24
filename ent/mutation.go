@@ -44,6 +44,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/migration"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/predicate"
+	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
@@ -102,6 +103,7 @@ const (
 	TypeLocationPublishedVersion    = "LocationPublishedVersion"
 	TypeMigration                   = "Migration"
 	TypePasswordCredential          = "PasswordCredential"
+	TypePrizegiving                 = "Prizegiving"
 	TypePublicScheduleBaseline      = "PublicScheduleBaseline"
 	TypePublicScheduleBaselineEntry = "PublicScheduleBaselineEntry"
 	TypeReopenWindow                = "ReopenWindow"
@@ -20073,6 +20075,9 @@ type EventMutation struct {
 	event_awards_drafts                       map[int]struct{}
 	removedevent_awards_drafts                map[int]struct{}
 	clearedevent_awards_drafts                bool
+	prizegivings                              map[int]struct{}
+	removedprizegivings                       map[int]struct{}
+	clearedprizegivings                       bool
 	upload_links                              map[int]struct{}
 	removedupload_links                       map[int]struct{}
 	clearedupload_links                       bool
@@ -21545,6 +21550,60 @@ func (m *EventMutation) ResetEventAwardsDrafts() {
 	m.removedevent_awards_drafts = nil
 }
 
+// AddPrizegivingIDs adds the "prizegivings" edge to the Prizegiving entity by ids.
+func (m *EventMutation) AddPrizegivingIDs(ids ...int) {
+	if m.prizegivings == nil {
+		m.prizegivings = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.prizegivings[ids[i]] = struct{}{}
+	}
+}
+
+// ClearPrizegivings clears the "prizegivings" edge to the Prizegiving entity.
+func (m *EventMutation) ClearPrizegivings() {
+	m.clearedprizegivings = true
+}
+
+// PrizegivingsCleared reports if the "prizegivings" edge to the Prizegiving entity was cleared.
+func (m *EventMutation) PrizegivingsCleared() bool {
+	return m.clearedprizegivings
+}
+
+// RemovePrizegivingIDs removes the "prizegivings" edge to the Prizegiving entity by IDs.
+func (m *EventMutation) RemovePrizegivingIDs(ids ...int) {
+	if m.removedprizegivings == nil {
+		m.removedprizegivings = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.prizegivings, ids[i])
+		m.removedprizegivings[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedPrizegivings returns the removed IDs of the "prizegivings" edge to the Prizegiving entity.
+func (m *EventMutation) RemovedPrizegivingsIDs() (ids []int) {
+	for id := range m.removedprizegivings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// PrizegivingsIDs returns the "prizegivings" edge IDs in the mutation.
+func (m *EventMutation) PrizegivingsIDs() (ids []int) {
+	for id := range m.prizegivings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetPrizegivings resets all changes to the "prizegivings" edge.
+func (m *EventMutation) ResetPrizegivings() {
+	m.prizegivings = nil
+	m.clearedprizegivings = false
+	m.removedprizegivings = nil
+}
+
 // AddUploadLinkIDs adds the "upload_links" edge to the UploadLink entity by ids.
 func (m *EventMutation) AddUploadLinkIDs(ids ...int) {
 	if m.upload_links == nil {
@@ -22431,7 +22490,7 @@ func (m *EventMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *EventMutation) AddedEdges() []string {
-	edges := make([]string, 0, 17)
+	edges := make([]string, 0, 18)
 	if m.grants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -22461,6 +22520,9 @@ func (m *EventMutation) AddedEdges() []string {
 	}
 	if m.event_awards_drafts != nil {
 		edges = append(edges, event.EdgeEventAwardsDrafts)
+	}
+	if m.prizegivings != nil {
+		edges = append(edges, event.EdgePrizegivings)
 	}
 	if m.upload_links != nil {
 		edges = append(edges, event.EdgeUploadLinks)
@@ -22548,6 +22610,12 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgePrizegivings:
+		ids := make([]ent.Value, 0, len(m.prizegivings))
+		for id := range m.prizegivings {
+			ids = append(ids, id)
+		}
+		return ids
 	case event.EdgeUploadLinks:
 		ids := make([]ent.Value, 0, len(m.upload_links))
 		for id := range m.upload_links {
@@ -22594,7 +22662,7 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *EventMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 17)
+	edges := make([]string, 0, 18)
 	if m.removedgrants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -22621,6 +22689,9 @@ func (m *EventMutation) RemovedEdges() []string {
 	}
 	if m.removedevent_awards_drafts != nil {
 		edges = append(edges, event.EdgeEventAwardsDrafts)
+	}
+	if m.removedprizegivings != nil {
+		edges = append(edges, event.EdgePrizegivings)
 	}
 	if m.removedupload_links != nil {
 		edges = append(edges, event.EdgeUploadLinks)
@@ -22701,6 +22772,12 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgePrizegivings:
+		ids := make([]ent.Value, 0, len(m.removedprizegivings))
+		for id := range m.removedprizegivings {
+			ids = append(ids, id)
+		}
+		return ids
 	case event.EdgeUploadLinks:
 		ids := make([]ent.Value, 0, len(m.removedupload_links))
 		for id := range m.removedupload_links {
@@ -22743,7 +22820,7 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *EventMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 17)
+	edges := make([]string, 0, 18)
 	if m.clearedgrants {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -22773,6 +22850,9 @@ func (m *EventMutation) ClearedEdges() []string {
 	}
 	if m.clearedevent_awards_drafts {
 		edges = append(edges, event.EdgeEventAwardsDrafts)
+	}
+	if m.clearedprizegivings {
+		edges = append(edges, event.EdgePrizegivings)
 	}
 	if m.clearedupload_links {
 		edges = append(edges, event.EdgeUploadLinks)
@@ -22822,6 +22902,8 @@ func (m *EventMutation) EdgeCleared(name string) bool {
 		return m.clearedcompetition_result_standings
 	case event.EdgeEventAwardsDrafts:
 		return m.clearedevent_awards_drafts
+	case event.EdgePrizegivings:
+		return m.clearedprizegivings
 	case event.EdgeUploadLinks:
 		return m.clearedupload_links
 	case event.EdgeDraftEdits:
@@ -22887,6 +22969,9 @@ func (m *EventMutation) ResetEdge(name string) error {
 		return nil
 	case event.EdgeEventAwardsDrafts:
 		m.ResetEventAwardsDrafts()
+		return nil
+	case event.EdgePrizegivings:
+		m.ResetPrizegivings()
 		return nil
 	case event.EdgeUploadLinks:
 		m.ResetUploadLinks()
@@ -31137,6 +31222,643 @@ func (m *PasswordCredentialMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown PasswordCredential edge %s", name)
 }
 
+// PrizegivingMutation represents an operation that mutates the Prizegiving nodes in the graph.
+type PrizegivingMutation struct {
+	config
+	op                       Op
+	typ                      string
+	id                       *int
+	created_by_account_id    *int
+	addcreated_by_account_id *int
+	created_at               *time.Time
+	clearedFields            map[string]struct{}
+	event                    *int
+	clearedevent             bool
+	ceremony                 *int
+	clearedceremony          bool
+	done                     bool
+	oldValue                 func(context.Context) (*Prizegiving, error)
+	predicates               []predicate.Prizegiving
+}
+
+var _ ent.Mutation = (*PrizegivingMutation)(nil)
+
+// prizegivingOption allows management of the mutation configuration using functional options.
+type prizegivingOption func(*PrizegivingMutation)
+
+// newPrizegivingMutation creates new mutation for the Prizegiving entity.
+func newPrizegivingMutation(c config, op Op, opts ...prizegivingOption) *PrizegivingMutation {
+	m := &PrizegivingMutation{
+		config:        c,
+		op:            op,
+		typ:           TypePrizegiving,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withPrizegivingID sets the ID field of the mutation.
+func withPrizegivingID(id int) prizegivingOption {
+	return func(m *PrizegivingMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Prizegiving
+		)
+		m.oldValue = func(ctx context.Context) (*Prizegiving, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Prizegiving.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withPrizegiving sets the old Prizegiving of the mutation.
+func withPrizegiving(node *Prizegiving) prizegivingOption {
+	return func(m *PrizegivingMutation) {
+		m.oldValue = func(context.Context) (*Prizegiving, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m PrizegivingMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m PrizegivingMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *PrizegivingMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *PrizegivingMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Prizegiving.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetEventID sets the "event_id" field.
+func (m *PrizegivingMutation) SetEventID(i int) {
+	m.event = &i
+}
+
+// EventID returns the value of the "event_id" field in the mutation.
+func (m *PrizegivingMutation) EventID() (r int, exists bool) {
+	v := m.event
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventID returns the old "event_id" field's value of the Prizegiving entity.
+// If the Prizegiving object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PrizegivingMutation) OldEventID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventID: %w", err)
+	}
+	return oldValue.EventID, nil
+}
+
+// ResetEventID resets all changes to the "event_id" field.
+func (m *PrizegivingMutation) ResetEventID() {
+	m.event = nil
+}
+
+// SetCeremonySessionID sets the "ceremony_session_id" field.
+func (m *PrizegivingMutation) SetCeremonySessionID(i int) {
+	m.ceremony = &i
+}
+
+// CeremonySessionID returns the value of the "ceremony_session_id" field in the mutation.
+func (m *PrizegivingMutation) CeremonySessionID() (r int, exists bool) {
+	v := m.ceremony
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCeremonySessionID returns the old "ceremony_session_id" field's value of the Prizegiving entity.
+// If the Prizegiving object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PrizegivingMutation) OldCeremonySessionID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCeremonySessionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCeremonySessionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCeremonySessionID: %w", err)
+	}
+	return oldValue.CeremonySessionID, nil
+}
+
+// ResetCeremonySessionID resets all changes to the "ceremony_session_id" field.
+func (m *PrizegivingMutation) ResetCeremonySessionID() {
+	m.ceremony = nil
+}
+
+// SetCreatedByAccountID sets the "created_by_account_id" field.
+func (m *PrizegivingMutation) SetCreatedByAccountID(i int) {
+	m.created_by_account_id = &i
+	m.addcreated_by_account_id = nil
+}
+
+// CreatedByAccountID returns the value of the "created_by_account_id" field in the mutation.
+func (m *PrizegivingMutation) CreatedByAccountID() (r int, exists bool) {
+	v := m.created_by_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedByAccountID returns the old "created_by_account_id" field's value of the Prizegiving entity.
+// If the Prizegiving object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PrizegivingMutation) OldCreatedByAccountID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedByAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedByAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedByAccountID: %w", err)
+	}
+	return oldValue.CreatedByAccountID, nil
+}
+
+// AddCreatedByAccountID adds i to the "created_by_account_id" field.
+func (m *PrizegivingMutation) AddCreatedByAccountID(i int) {
+	if m.addcreated_by_account_id != nil {
+		*m.addcreated_by_account_id += i
+	} else {
+		m.addcreated_by_account_id = &i
+	}
+}
+
+// AddedCreatedByAccountID returns the value that was added to the "created_by_account_id" field in this mutation.
+func (m *PrizegivingMutation) AddedCreatedByAccountID() (r int, exists bool) {
+	v := m.addcreated_by_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCreatedByAccountID resets all changes to the "created_by_account_id" field.
+func (m *PrizegivingMutation) ResetCreatedByAccountID() {
+	m.created_by_account_id = nil
+	m.addcreated_by_account_id = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *PrizegivingMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *PrizegivingMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the Prizegiving entity.
+// If the Prizegiving object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PrizegivingMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *PrizegivingMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearEvent clears the "event" edge to the Event entity.
+func (m *PrizegivingMutation) ClearEvent() {
+	m.clearedevent = true
+	m.clearedFields[prizegiving.FieldEventID] = struct{}{}
+}
+
+// EventCleared reports if the "event" edge to the Event entity was cleared.
+func (m *PrizegivingMutation) EventCleared() bool {
+	return m.clearedevent
+}
+
+// EventIDs returns the "event" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// EventID instead. It exists only for internal usage by the builders.
+func (m *PrizegivingMutation) EventIDs() (ids []int) {
+	if id := m.event; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetEvent resets all changes to the "event" edge.
+func (m *PrizegivingMutation) ResetEvent() {
+	m.event = nil
+	m.clearedevent = false
+}
+
+// SetCeremonyID sets the "ceremony" edge to the Session entity by id.
+func (m *PrizegivingMutation) SetCeremonyID(id int) {
+	m.ceremony = &id
+}
+
+// ClearCeremony clears the "ceremony" edge to the Session entity.
+func (m *PrizegivingMutation) ClearCeremony() {
+	m.clearedceremony = true
+	m.clearedFields[prizegiving.FieldCeremonySessionID] = struct{}{}
+}
+
+// CeremonyCleared reports if the "ceremony" edge to the Session entity was cleared.
+func (m *PrizegivingMutation) CeremonyCleared() bool {
+	return m.clearedceremony
+}
+
+// CeremonyID returns the "ceremony" edge ID in the mutation.
+func (m *PrizegivingMutation) CeremonyID() (id int, exists bool) {
+	if m.ceremony != nil {
+		return *m.ceremony, true
+	}
+	return
+}
+
+// CeremonyIDs returns the "ceremony" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// CeremonyID instead. It exists only for internal usage by the builders.
+func (m *PrizegivingMutation) CeremonyIDs() (ids []int) {
+	if id := m.ceremony; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetCeremony resets all changes to the "ceremony" edge.
+func (m *PrizegivingMutation) ResetCeremony() {
+	m.ceremony = nil
+	m.clearedceremony = false
+}
+
+// Where appends a list predicates to the PrizegivingMutation builder.
+func (m *PrizegivingMutation) Where(ps ...predicate.Prizegiving) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the PrizegivingMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *PrizegivingMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Prizegiving, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *PrizegivingMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *PrizegivingMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Prizegiving).
+func (m *PrizegivingMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *PrizegivingMutation) Fields() []string {
+	fields := make([]string, 0, 4)
+	if m.event != nil {
+		fields = append(fields, prizegiving.FieldEventID)
+	}
+	if m.ceremony != nil {
+		fields = append(fields, prizegiving.FieldCeremonySessionID)
+	}
+	if m.created_by_account_id != nil {
+		fields = append(fields, prizegiving.FieldCreatedByAccountID)
+	}
+	if m.created_at != nil {
+		fields = append(fields, prizegiving.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *PrizegivingMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case prizegiving.FieldEventID:
+		return m.EventID()
+	case prizegiving.FieldCeremonySessionID:
+		return m.CeremonySessionID()
+	case prizegiving.FieldCreatedByAccountID:
+		return m.CreatedByAccountID()
+	case prizegiving.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *PrizegivingMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case prizegiving.FieldEventID:
+		return m.OldEventID(ctx)
+	case prizegiving.FieldCeremonySessionID:
+		return m.OldCeremonySessionID(ctx)
+	case prizegiving.FieldCreatedByAccountID:
+		return m.OldCreatedByAccountID(ctx)
+	case prizegiving.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown Prizegiving field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *PrizegivingMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case prizegiving.FieldEventID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventID(v)
+		return nil
+	case prizegiving.FieldCeremonySessionID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCeremonySessionID(v)
+		return nil
+	case prizegiving.FieldCreatedByAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedByAccountID(v)
+		return nil
+	case prizegiving.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Prizegiving field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *PrizegivingMutation) AddedFields() []string {
+	var fields []string
+	if m.addcreated_by_account_id != nil {
+		fields = append(fields, prizegiving.FieldCreatedByAccountID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *PrizegivingMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case prizegiving.FieldCreatedByAccountID:
+		return m.AddedCreatedByAccountID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *PrizegivingMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case prizegiving.FieldCreatedByAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCreatedByAccountID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Prizegiving numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *PrizegivingMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *PrizegivingMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *PrizegivingMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown Prizegiving nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *PrizegivingMutation) ResetField(name string) error {
+	switch name {
+	case prizegiving.FieldEventID:
+		m.ResetEventID()
+		return nil
+	case prizegiving.FieldCeremonySessionID:
+		m.ResetCeremonySessionID()
+		return nil
+	case prizegiving.FieldCreatedByAccountID:
+		m.ResetCreatedByAccountID()
+		return nil
+	case prizegiving.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown Prizegiving field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *PrizegivingMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.event != nil {
+		edges = append(edges, prizegiving.EdgeEvent)
+	}
+	if m.ceremony != nil {
+		edges = append(edges, prizegiving.EdgeCeremony)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *PrizegivingMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case prizegiving.EdgeEvent:
+		if id := m.event; id != nil {
+			return []ent.Value{*id}
+		}
+	case prizegiving.EdgeCeremony:
+		if id := m.ceremony; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *PrizegivingMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *PrizegivingMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *PrizegivingMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedevent {
+		edges = append(edges, prizegiving.EdgeEvent)
+	}
+	if m.clearedceremony {
+		edges = append(edges, prizegiving.EdgeCeremony)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *PrizegivingMutation) EdgeCleared(name string) bool {
+	switch name {
+	case prizegiving.EdgeEvent:
+		return m.clearedevent
+	case prizegiving.EdgeCeremony:
+		return m.clearedceremony
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *PrizegivingMutation) ClearEdge(name string) error {
+	switch name {
+	case prizegiving.EdgeEvent:
+		m.ClearEvent()
+		return nil
+	case prizegiving.EdgeCeremony:
+		m.ClearCeremony()
+		return nil
+	}
+	return fmt.Errorf("unknown Prizegiving unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *PrizegivingMutation) ResetEdge(name string) error {
+	switch name {
+	case prizegiving.EdgeEvent:
+		m.ResetEvent()
+		return nil
+	case prizegiving.EdgeCeremony:
+		m.ResetCeremony()
+		return nil
+	}
+	return fmt.Errorf("unknown Prizegiving edge %s", name)
+}
+
 // PublicScheduleBaselineMutation represents an operation that mutates the PublicScheduleBaseline nodes in the graph.
 type PublicScheduleBaselineMutation struct {
 	config
@@ -34024,6 +34746,8 @@ type SessionMutation struct {
 	competition_result_standings          map[int]struct{}
 	removedcompetition_result_standings   map[int]struct{}
 	clearedcompetition_result_standings   bool
+	prizegiving                           *int
+	clearedprizegiving                    bool
 	done                                  bool
 	oldValue                              func(context.Context) (*Session, error)
 	predicates                            []predicate.Session
@@ -36180,6 +36904,45 @@ func (m *SessionMutation) ResetCompetitionResultStandings() {
 	m.removedcompetition_result_standings = nil
 }
 
+// SetPrizegivingID sets the "prizegiving" edge to the Prizegiving entity by id.
+func (m *SessionMutation) SetPrizegivingID(id int) {
+	m.prizegiving = &id
+}
+
+// ClearPrizegiving clears the "prizegiving" edge to the Prizegiving entity.
+func (m *SessionMutation) ClearPrizegiving() {
+	m.clearedprizegiving = true
+}
+
+// PrizegivingCleared reports if the "prizegiving" edge to the Prizegiving entity was cleared.
+func (m *SessionMutation) PrizegivingCleared() bool {
+	return m.clearedprizegiving
+}
+
+// PrizegivingID returns the "prizegiving" edge ID in the mutation.
+func (m *SessionMutation) PrizegivingID() (id int, exists bool) {
+	if m.prizegiving != nil {
+		return *m.prizegiving, true
+	}
+	return
+}
+
+// PrizegivingIDs returns the "prizegiving" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// PrizegivingID instead. It exists only for internal usage by the builders.
+func (m *SessionMutation) PrizegivingIDs() (ids []int) {
+	if id := m.prizegiving; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetPrizegiving resets all changes to the "prizegiving" edge.
+func (m *SessionMutation) ResetPrizegiving() {
+	m.prizegiving = nil
+	m.clearedprizegiving = false
+}
+
 // Where appends a list predicates to the SessionMutation builder.
 func (m *SessionMutation) Where(ps ...predicate.Session) {
 	m.predicates = append(m.predicates, ps...)
@@ -37056,7 +37819,7 @@ func (m *SessionMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *SessionMutation) AddedEdges() []string {
-	edges := make([]string, 0, 9)
+	edges := make([]string, 0, 10)
 	if m.event != nil {
 		edges = append(edges, session.EdgeEvent)
 	}
@@ -37083,6 +37846,9 @@ func (m *SessionMutation) AddedEdges() []string {
 	}
 	if m.competition_result_standings != nil {
 		edges = append(edges, session.EdgeCompetitionResultStandings)
+	}
+	if m.prizegiving != nil {
+		edges = append(edges, session.EdgePrizegiving)
 	}
 	return edges
 }
@@ -37139,13 +37905,17 @@ func (m *SessionMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case session.EdgePrizegiving:
+		if id := m.prizegiving; id != nil {
+			return []ent.Value{*id}
+		}
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *SessionMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 9)
+	edges := make([]string, 0, 10)
 	if m.removedpublished_versions != nil {
 		edges = append(edges, session.EdgePublishedVersions)
 	}
@@ -37213,7 +37983,7 @@ func (m *SessionMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *SessionMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 9)
+	edges := make([]string, 0, 10)
 	if m.clearedevent {
 		edges = append(edges, session.EdgeEvent)
 	}
@@ -37241,6 +38011,9 @@ func (m *SessionMutation) ClearedEdges() []string {
 	if m.clearedcompetition_result_standings {
 		edges = append(edges, session.EdgeCompetitionResultStandings)
 	}
+	if m.clearedprizegiving {
+		edges = append(edges, session.EdgePrizegiving)
+	}
 	return edges
 }
 
@@ -37266,6 +38039,8 @@ func (m *SessionMutation) EdgeCleared(name string) bool {
 		return m.clearedcompetition_results_drafts
 	case session.EdgeCompetitionResultStandings:
 		return m.clearedcompetition_result_standings
+	case session.EdgePrizegiving:
+		return m.clearedprizegiving
 	}
 	return false
 }
@@ -37282,6 +38057,9 @@ func (m *SessionMutation) ClearEdge(name string) error {
 		return nil
 	case session.EdgePublicScheduleBaselineEntry:
 		m.ClearPublicScheduleBaselineEntry()
+		return nil
+	case session.EdgePrizegiving:
+		m.ClearPrizegiving()
 		return nil
 	}
 	return fmt.Errorf("unknown Session unique edge %s", name)
@@ -37317,6 +38095,9 @@ func (m *SessionMutation) ResetEdge(name string) error {
 		return nil
 	case session.EdgeCompetitionResultStandings:
 		m.ResetCompetitionResultStandings()
+		return nil
+	case session.EdgePrizegiving:
+		m.ResetPrizegiving()
 		return nil
 	}
 	return fmt.Errorf("unknown Session edge %s", name)

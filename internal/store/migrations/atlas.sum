@@ -1,4 +1,4 @@
-h1:gyHG9BlMjuOlTRyKMNLb9fw7P7h9vlJ5jNwqXbm3Lqg=
+h1:Reybxd+b6PwkIJ1rE5l5i3m9IJHfmNSaG1fQRiZEpGM=
 0001_initialize.sql h1:xwTCiCDERoBPK7+31D4g3SOs7BivkqIi3/tf+14eOlo=
 0002_bootstrap_auth.sql h1:Z4h1bvDVGzPXbmlEc3NCEn1HvMSf2V6eY56wIlxFLjA=
 0003_add_events.sql h1:6XxTAjVp9ntlWbsdacCMQkdgTAG185npJMhgxOSnAtA=
@@ -39,3 +39,4 @@ h1:gyHG9BlMjuOlTRyKMNLb9fw7P7h9vlJ5jNwqXbm3Lqg=
 0038_add_public_schedule_baseline.sql h1:q59SJLLPTFSRRwczWrtUAH/BblfruulZK82DubStSxE=
 0039_add_competition_results.sql h1:7wJjUnaIpaNPV/gl9AKgI7iPPKNouU3Km6+VfE8Cf9I=
 0040_stage_awards.sql h1:D91JgHrAEnyTkmvAQNasT+Wra1wwrII7QjWwI28H5L8=
+0041_designate_prizegivings.sql h1:dyIF6n284wQXlvMttsU+DAmTo/TMh5NvO99I8EM06qM=

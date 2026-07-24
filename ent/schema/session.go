@@ -89,5 +89,6 @@ func (Session) Edges() []ent.Edge {
 		edge.To("competition_entries", CompetitionEntry.Type),
 		edge.To("competition_results_drafts", CompetitionResultsDraft.Type),
 		edge.To("competition_result_standings", CompetitionResultStanding.Type),
+		edge.To("prizegiving", Prizegiving.Type).Unique(),
 	}
 }
