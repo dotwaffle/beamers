@@ -747,37 +747,19 @@ func allowCompetitionResultsMutation() privacy.MutationRule {
 		if err != nil && !beamersent.IsNotFound(err) {
 			return privacy.Denyf("read current Competition Award promotion: %v", err)
 		}
-		if competitionAwardPromotionChanged(current, next) &&
+		var currentPromotions []awardvalue.Promotion
+		if current != nil {
+			currentPromotions = awardvalue.Promotions(current.Awards)
+		}
+		if awardvalue.PromotionChanged(
+			currentPromotions,
+			awardvalue.Promotions(next),
+		) &&
 			!identity.CanProduceEvent(eventID) {
 			return privacy.Denyf("Producer authority is required for Competition Award promotion")
 		}
 		return privacy.Allow
 	})
-}
-
-func competitionAwardPromotionChanged(
-	current *beamersent.CompetitionResultsDraft,
-	next []awardvalue.Competition,
-) bool {
-	promoted := make(map[string]bool)
-	if current != nil {
-		promoted = make(map[string]bool, len(current.Awards))
-		for _, award := range current.Awards {
-			promoted[award.Key] = award.Promoted
-		}
-	}
-	for _, award := range next {
-		if award.Promoted != promoted[award.Key] {
-			return true
-		}
-		delete(promoted, award.Key)
-	}
-	for _, value := range promoted {
-		if value {
-			return true
-		}
-	}
-	return false
 }
 
 func allowEventAwardsMutation() privacy.MutationRule {

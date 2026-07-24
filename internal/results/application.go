@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/awardvalue"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 	"github.com/dotwaffle/beamers/internal/viewer"
@@ -744,22 +745,19 @@ func competitionAwardPromotionChanged(
 	current []store.CompetitionAward,
 	next []Award,
 ) bool {
-	promoted := make(map[string]bool, len(current))
+	currentPromotions := make([]awardvalue.Promotion, 0, len(current))
 	for _, award := range current {
-		promoted[award.Key] = award.Promoted
+		currentPromotions = append(currentPromotions, awardvalue.Promotion{
+			Key: award.Key, Promoted: award.Promoted,
+		})
 	}
+	nextPromotions := make([]awardvalue.Promotion, 0, len(next))
 	for _, award := range next {
-		if award.Promoted != promoted[award.Key] {
-			return true
-		}
-		delete(promoted, award.Key)
+		nextPromotions = append(nextPromotions, awardvalue.Promotion{
+			Key: award.Key, Promoted: award.Promoted,
+		})
 	}
-	for _, value := range promoted {
-		if value {
-			return true
-		}
-	}
-	return false
+	return awardvalue.PromotionChanged(currentPromotions, nextPromotions)
 }
 
 func eventAwardInputs(values []EventAward) []store.EventAwardInput {

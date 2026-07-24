@@ -18,6 +18,41 @@ type Competition struct {
 	DisplayOrder int         `json:"display_order"`
 }
 
+// Promotion identifies one Award's independent Result Item state.
+type Promotion struct {
+	Key      string
+	Promoted bool
+}
+
+// Promotions returns the promotion projection of Competition Awards.
+func Promotions(values []Competition) []Promotion {
+	result := make([]Promotion, 0, len(values))
+	for _, value := range values {
+		result = append(result, Promotion{Key: value.Key, Promoted: value.Promoted})
+	}
+	return result
+}
+
+// PromotionChanged reports whether any Award entered or left promoted state.
+func PromotionChanged(current, next []Promotion) bool {
+	promoted := make(map[string]bool, len(current))
+	for _, award := range current {
+		promoted[award.Key] = award.Promoted
+	}
+	for _, award := range next {
+		if award.Promoted != promoted[award.Key] {
+			return true
+		}
+		delete(promoted, award.Key)
+	}
+	for _, value := range promoted {
+		if value {
+			return true
+		}
+	}
+	return false
+}
+
 // ReleasePath persists one Event Award release path.
 type ReleasePath struct {
 	Kind                 string `json:"kind"`
