@@ -381,6 +381,8 @@ message PrizegivingPreview {
   PrizegivingPreviewMode mode = 1;
   string watermark = 2;
   PrizegivingPlan plan = 3;
+  repeated CompetitionResultsDraft competition_results = 4;
+  repeated EventAward event_awards = 5;
 }
 
 message PreviewPrizegivingResponse {

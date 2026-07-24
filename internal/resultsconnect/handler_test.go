@@ -21,12 +21,12 @@ func TestScoreValueFromProtoRejectsDurationOutsideExactStorageRange(t *testing.T
 	}
 }
 
-func TestPrizegivingPlanFromProtoRejectsUnspecifiedEnums(t *testing.T) {
-	_, err := resultItemsFromProto([]*resultsv1.ResultItem{{
+func TestPrizegivingPlanFromProtoPreservesInvalidRevealForPreflight(t *testing.T) {
+	items, err := resultItemsFromProto([]*resultsv1.ResultItem{{
 		Kind: resultsv1.ResultItemKind_RESULT_ITEM_KIND_COMPETITION_RESULTS,
 	}})
-	if !errors.Is(err, results.ErrInvalidInput) {
-		t.Fatalf("unspecified Reveal Method error = %v", err)
+	if err != nil || len(items) != 1 || items[0].RevealMethod == "" {
+		t.Fatalf("unspecified Reveal Method = %+v, %v", items, err)
 	}
 
 	if mode := prizegivingPreviewModeFromProto(

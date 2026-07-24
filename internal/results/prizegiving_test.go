@@ -277,12 +277,29 @@ func TestPrizegivingPreviewAndRehearsalAreWatermarkedAndSideEffectFree(t *testin
 	}
 	before := plan
 
-	preview, err := projectPrizegivingPreview(plan, PrizegivingPreviewModePreview)
+	sourceDraft := Draft{
+		ID: 31, SessionID: 11,
+		Standings: []Standing{{EntryID: 41, Placement: 1}},
+	}
+	sourceAwards := []EventAward{{
+		Award: Award{
+			Key:        "community",
+			Recipients: []AwardRecipient{{DisplayName: "Volunteers"}},
+		},
+	}}
+	preview, err := projectPrizegivingPreview(
+		plan,
+		[]Draft{sourceDraft},
+		sourceAwards,
+		PrizegivingPreviewModePreview,
+	)
 	if err != nil {
 		t.Fatalf("project Results Preview: %v", err)
 	}
 	rehearsal, err := projectPrizegivingPreview(
 		plan,
+		[]Draft{sourceDraft},
+		sourceAwards,
 		PrizegivingPreviewModeRehearsal,
 	)
 	if err != nil {
@@ -292,10 +309,44 @@ func TestPrizegivingPreviewAndRehearsalAreWatermarkedAndSideEffectFree(t *testin
 	if preview.Watermark != prizegivingPreviewWatermark ||
 		rehearsal.Watermark != prizegivingPreviewWatermark ||
 		preview.Plan.Lock.Sequence[0].RevealSeed !=
-			rehearsal.Plan.Lock.Sequence[0].RevealSeed {
+			rehearsal.Plan.Lock.Sequence[0].RevealSeed ||
+		preview.CompetitionResults[0].Standings[0].Placement != 1 ||
+		preview.EventAwards[0].Recipients[0].DisplayName != "Volunteers" {
 		t.Fatalf("Preview=%+v rehearsal=%+v", preview, rehearsal)
+	}
+	preview.CompetitionResults[0].Standings[0].Placement = 2
+	preview.EventAwards[0].Recipients[0].DisplayName = "Changed"
+	if sourceDraft.Standings[0].Placement != 1 ||
+		sourceAwards[0].Recipients[0].DisplayName != "Volunteers" {
+		t.Fatal("Preview retained mutable source aliases")
 	}
 	if !reflect.DeepEqual(plan, before) {
 		t.Fatalf("Preview mutated Prizegiving plan: before=%+v after=%+v", before, plan)
+	}
+}
+
+func TestPrizegivingPreflightDoesNotRequireScoresForNoPublicResults(t *testing.T) {
+	item := ResultItem{
+		Kind: ResultItemNoPublicResults, CompetitionSessionID: 11,
+		DisplayOrder: 1, RevealMethod: RevealStatic,
+	}
+	_, findings := BuildPrizegivingPreflight(PrizegivingPreflightInput{
+		EventID: 3, CeremonySessionID: 7, PlanRevision: 1,
+		CompetitionSessionIDs: []int{11},
+		Sequence:              []ResultItem{item},
+		PublicationOrder:      []ResultItemRef{item.Ref(1)},
+		Template:              TextTemplate{Revision: 1, Source: "{{.EventTitle}}\n"},
+		Competitions: []PrizegivingCompetitionSource{{Draft: Draft{
+			ID: 31, EventID: 3, SessionID: 11, Revision: 2,
+			Disposition: NoPublicResults,
+			Score: ScorePolicy{
+				Type: Decimal, Requirement: ScoreRequired,
+			},
+		}}},
+	}, "no-public")
+	for _, finding := range findings {
+		if finding.Code == "required_score_missing" {
+			t.Fatalf("No Public Results findings = %+v", findings)
+		}
 	}
 }

@@ -382,9 +382,11 @@ func (handler *Handler) PreviewPrizegiving(
 	}
 	return connect.NewResponse(&resultsv1.PreviewPrizegivingResponse{
 		Preview: &resultsv1.PrizegivingPreview{
-			Mode:      prizegivingPreviewMode(preview.Mode),
-			Watermark: preview.Watermark,
-			Plan:      prizegivingPlan(preview.Plan),
+			Mode:               prizegivingPreviewMode(preview.Mode),
+			Watermark:          preview.Watermark,
+			Plan:               prizegivingPlan(preview.Plan),
+			CompetitionResults: competitionResultsDrafts(preview.CompetitionResults),
+			EventAwards:        eventAwards(preview.EventAwards),
 		},
 	}), nil
 }
@@ -582,6 +584,16 @@ func draft(value results.Draft) *resultsv1.CompetitionResultsDraft {
 	return result
 }
 
+func competitionResultsDrafts(
+	values []results.Draft,
+) []*resultsv1.CompetitionResultsDraft {
+	drafts := make([]*resultsv1.CompetitionResultsDraft, 0, len(values))
+	for _, value := range values {
+		drafts = append(drafts, draft(value))
+	}
+	return drafts
+}
+
 func competitionAwards(values []results.Award) []*resultsv1.CompetitionAward {
 	awards := make([]*resultsv1.CompetitionAward, 0, len(values))
 	for _, value := range values {
@@ -639,14 +651,6 @@ func awardReleasePath(value results.AwardReleasePath) *resultsv1.AwardReleasePat
 }
 
 func eventAwardsDraft(value results.EventAwardsDraft) *resultsv1.EventAwardsDraft {
-	awards := make([]*resultsv1.EventAward, 0, len(value.Awards))
-	for _, award := range value.Awards {
-		awards = append(awards, &resultsv1.EventAward{
-			Key: award.Key, Name: award.Name, Recipients: awardRecipients(award.Recipients),
-			DisplayOrder: int32(award.DisplayOrder), //nolint:gosec // Award count is limited to 1000.
-			ReleasePath:  awardReleasePath(award.ReleasePath),
-		})
-	}
 	states := make([]*resultsv1.EventAwardPathState, 0, len(value.PathStates))
 	for _, state := range value.PathStates {
 		found := &resultsv1.EventAwardPathState{
@@ -660,12 +664,25 @@ func eventAwardsDraft(value results.EventAwardsDraft) *resultsv1.EventAwardsDraf
 	}
 	result := &resultsv1.EventAwardsDraft{
 		Id: int64(value.ID), EventId: int64(value.EventID), Revision: int64(value.Revision),
-		Awards: awards, PathStates: states, CreatedByAccountId: int64(value.CreatedByAccountID),
+		Awards: eventAwards(value.Awards), PathStates: states,
+		CreatedByAccountId: int64(value.CreatedByAccountID),
 	}
 	if !value.CreatedAt.IsZero() {
 		result.CreatedAt = timestamppb.New(value.CreatedAt)
 	}
 	return result
+}
+
+func eventAwards(values []results.EventAward) []*resultsv1.EventAward {
+	awards := make([]*resultsv1.EventAward, 0, len(values))
+	for _, award := range values {
+		awards = append(awards, &resultsv1.EventAward{
+			Key: award.Key, Name: award.Name, Recipients: awardRecipients(award.Recipients),
+			DisplayOrder: int32(award.DisplayOrder), //nolint:gosec // Award count is limited to 1000.
+			ReleasePath:  awardReleasePath(award.ReleasePath),
+		})
+	}
+	return awards
 }
 
 func prizegiving(value results.Prizegiving) *resultsv1.Prizegiving {
@@ -812,11 +829,14 @@ func revealMethod(value results.RevealMethod) resultsv1.RevealMethod {
 }
 
 func revealMethodFromProto(value resultsv1.RevealMethod) results.RevealMethod {
-	return map[resultsv1.RevealMethod]results.RevealMethod{
+	if method := map[resultsv1.RevealMethod]results.RevealMethod{
 		resultsv1.RevealMethod_REVEAL_METHOD_STATIC_RESULT:       results.RevealStatic,
 		resultsv1.RevealMethod_REVEAL_METHOD_SEQUENTIAL_PODIUM:   results.RevealSequentialPodium,
 		resultsv1.RevealMethod_REVEAL_METHOD_ANIMATED_SCORE_BARS: results.RevealAnimatedScoreBars,
-	}[value]
+	}[value]; method != "" {
+		return method
+	}
+	return results.RevealMethod("Invalid")
 }
 
 func prizegivingPreviewMode(

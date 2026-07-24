@@ -6,8 +6,10 @@ import (
 	"maps"
 	"slices"
 	"strconv"
+	"strings"
 	"text/template"
 	"text/template/parse"
+	"unicode/utf8"
 )
 
 // ResultItemKind identifies one presentable Prizegiving unit.
@@ -201,7 +203,8 @@ func prizegivingReleaseFindings(
 				"Competition "+strconv.Itoa(source.Draft.SessionID)+" has unresolved Entries",
 			))
 		}
-		if source.Draft.Score.Requirement == ScoreRequired &&
+		if source.Draft.Disposition == Publish &&
+			source.Draft.Score.Requirement == ScoreRequired &&
 			prizegivingMissingRequiredScore(source.Draft.Standings) {
 			findings = append(findings, prizegivingFinding(
 				"required_score_missing",
@@ -394,7 +397,7 @@ func resultItemCount(items map[resultItemIdentity]int) int {
 }
 
 func safeResultsTextTemplate(value TextTemplate) bool {
-	if value.Revision <= 0 || value.Source == "" || len(value.Source) > 100_000 {
+	if !boundedResultsTextTemplate(value) {
 		return false
 	}
 	parsed, err := template.New("results").
@@ -409,6 +412,14 @@ func safeResultsTextTemplate(value TextTemplate) bool {
 		}
 	}
 	return true
+}
+
+func boundedResultsTextTemplate(value TextTemplate) bool {
+	return value.Revision > 0 &&
+		value.Source != "" &&
+		len(value.Source) <= 100_000 &&
+		utf8.ValidString(value.Source) &&
+		!strings.ContainsRune(value.Source, '\x00')
 }
 
 func unsafeTemplateNode(node parse.Node) bool {

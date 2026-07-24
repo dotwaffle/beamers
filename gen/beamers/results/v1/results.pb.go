@@ -3376,12 +3376,14 @@ func (x *PreviewPrizegivingRequest) GetMode() PrizegivingPreviewMode {
 }
 
 type PrizegivingPreview struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Mode          PrizegivingPreviewMode `protobuf:"varint,1,opt,name=mode,proto3,enum=beamers.results.v1.PrizegivingPreviewMode" json:"mode,omitempty"`
-	Watermark     string                 `protobuf:"bytes,2,opt,name=watermark,proto3" json:"watermark,omitempty"`
-	Plan          *PrizegivingPlan       `protobuf:"bytes,3,opt,name=plan,proto3" json:"plan,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state              protoimpl.MessageState     `protogen:"open.v1"`
+	Mode               PrizegivingPreviewMode     `protobuf:"varint,1,opt,name=mode,proto3,enum=beamers.results.v1.PrizegivingPreviewMode" json:"mode,omitempty"`
+	Watermark          string                     `protobuf:"bytes,2,opt,name=watermark,proto3" json:"watermark,omitempty"`
+	Plan               *PrizegivingPlan           `protobuf:"bytes,3,opt,name=plan,proto3" json:"plan,omitempty"`
+	CompetitionResults []*CompetitionResultsDraft `protobuf:"bytes,4,rep,name=competition_results,json=competitionResults,proto3" json:"competition_results,omitempty"`
+	EventAwards        []*EventAward              `protobuf:"bytes,5,rep,name=event_awards,json=eventAwards,proto3" json:"event_awards,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *PrizegivingPreview) Reset() {
@@ -3431,6 +3433,20 @@ func (x *PrizegivingPreview) GetWatermark() string {
 func (x *PrizegivingPreview) GetPlan() *PrizegivingPlan {
 	if x != nil {
 		return x.Plan
+	}
+	return nil
+}
+
+func (x *PrizegivingPreview) GetCompetitionResults() []*CompetitionResultsDraft {
+	if x != nil {
+		return x.CompetitionResults
+	}
+	return nil
+}
+
+func (x *PrizegivingPreview) GetEventAwards() []*EventAward {
+	if x != nil {
+		return x.EventAwards
 	}
 	return nil
 }
@@ -3718,11 +3734,13 @@ const file_beamers_results_v1_results_proto_rawDesc = "" +
 	"\x19PreviewPrizegivingRequest\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12.\n" +
 	"\x13ceremony_session_id\x18\x02 \x01(\x03R\x11ceremonySessionId\x12>\n" +
-	"\x04mode\x18\x03 \x01(\x0e2*.beamers.results.v1.PrizegivingPreviewModeR\x04mode\"\xab\x01\n" +
+	"\x04mode\x18\x03 \x01(\x0e2*.beamers.results.v1.PrizegivingPreviewModeR\x04mode\"\xcc\x02\n" +
 	"\x12PrizegivingPreview\x12>\n" +
 	"\x04mode\x18\x01 \x01(\x0e2*.beamers.results.v1.PrizegivingPreviewModeR\x04mode\x12\x1c\n" +
 	"\twatermark\x18\x02 \x01(\tR\twatermark\x127\n" +
-	"\x04plan\x18\x03 \x01(\v2#.beamers.results.v1.PrizegivingPlanR\x04plan\"^\n" +
+	"\x04plan\x18\x03 \x01(\v2#.beamers.results.v1.PrizegivingPlanR\x04plan\x12\\\n" +
+	"\x13competition_results\x18\x04 \x03(\v2+.beamers.results.v1.CompetitionResultsDraftR\x12competitionResults\x12A\n" +
+	"\fevent_awards\x18\x05 \x03(\v2\x1e.beamers.results.v1.EventAwardR\veventAwards\"^\n" +
 	"\x1aPreviewPrizegivingResponse\x12@\n" +
 	"\apreview\x18\x01 \x01(\v2&.beamers.results.v1.PrizegivingPreviewR\apreview*\xa6\x01\n" +
 	"\x12ResultsDisposition\x12#\n" +
@@ -3919,36 +3937,38 @@ var file_beamers_results_v1_results_proto_depIdxs = []int32{
 	9,  // 58: beamers.results.v1.PreviewPrizegivingRequest.mode:type_name -> beamers.results.v1.PrizegivingPreviewMode
 	9,  // 59: beamers.results.v1.PrizegivingPreview.mode:type_name -> beamers.results.v1.PrizegivingPreviewMode
 	43, // 60: beamers.results.v1.PrizegivingPreview.plan:type_name -> beamers.results.v1.PrizegivingPlan
-	52, // 61: beamers.results.v1.PreviewPrizegivingResponse.preview:type_name -> beamers.results.v1.PrizegivingPreview
-	19, // 62: beamers.results.v1.ResultsService.GetCompetitionResultsDraft:input_type -> beamers.results.v1.GetCompetitionResultsDraftRequest
-	21, // 63: beamers.results.v1.ResultsService.SaveCompetitionResultsDraft:input_type -> beamers.results.v1.SaveCompetitionResultsDraftRequest
-	23, // 64: beamers.results.v1.ResultsService.SaveCompetitionAwards:input_type -> beamers.results.v1.SaveCompetitionAwardsRequest
-	25, // 65: beamers.results.v1.ResultsService.MarkCompetitionResultsReady:input_type -> beamers.results.v1.MarkCompetitionResultsReadyRequest
-	28, // 66: beamers.results.v1.ResultsService.DesignatePrizegiving:input_type -> beamers.results.v1.DesignatePrizegivingRequest
-	31, // 67: beamers.results.v1.ResultsService.GetEventAwardsDraft:input_type -> beamers.results.v1.GetEventAwardsDraftRequest
-	33, // 68: beamers.results.v1.ResultsService.SaveEventAwardsDraft:input_type -> beamers.results.v1.SaveEventAwardsDraftRequest
-	35, // 69: beamers.results.v1.ResultsService.MarkEventAwardsReady:input_type -> beamers.results.v1.MarkEventAwardsReadyRequest
-	44, // 70: beamers.results.v1.ResultsService.GetPrizegivingPlan:input_type -> beamers.results.v1.GetPrizegivingPlanRequest
-	46, // 71: beamers.results.v1.ResultsService.SavePrizegivingPlan:input_type -> beamers.results.v1.SavePrizegivingPlanRequest
-	49, // 72: beamers.results.v1.ResultsService.RunPrizegivingPreflight:input_type -> beamers.results.v1.RunPrizegivingPreflightRequest
-	51, // 73: beamers.results.v1.ResultsService.PreviewPrizegiving:input_type -> beamers.results.v1.PreviewPrizegivingRequest
-	20, // 74: beamers.results.v1.ResultsService.GetCompetitionResultsDraft:output_type -> beamers.results.v1.GetCompetitionResultsDraftResponse
-	22, // 75: beamers.results.v1.ResultsService.SaveCompetitionResultsDraft:output_type -> beamers.results.v1.SaveCompetitionResultsDraftResponse
-	24, // 76: beamers.results.v1.ResultsService.SaveCompetitionAwards:output_type -> beamers.results.v1.SaveCompetitionAwardsResponse
-	26, // 77: beamers.results.v1.ResultsService.MarkCompetitionResultsReady:output_type -> beamers.results.v1.MarkCompetitionResultsReadyResponse
-	29, // 78: beamers.results.v1.ResultsService.DesignatePrizegiving:output_type -> beamers.results.v1.DesignatePrizegivingResponse
-	32, // 79: beamers.results.v1.ResultsService.GetEventAwardsDraft:output_type -> beamers.results.v1.GetEventAwardsDraftResponse
-	34, // 80: beamers.results.v1.ResultsService.SaveEventAwardsDraft:output_type -> beamers.results.v1.SaveEventAwardsDraftResponse
-	36, // 81: beamers.results.v1.ResultsService.MarkEventAwardsReady:output_type -> beamers.results.v1.MarkEventAwardsReadyResponse
-	45, // 82: beamers.results.v1.ResultsService.GetPrizegivingPlan:output_type -> beamers.results.v1.GetPrizegivingPlanResponse
-	47, // 83: beamers.results.v1.ResultsService.SavePrizegivingPlan:output_type -> beamers.results.v1.SavePrizegivingPlanResponse
-	50, // 84: beamers.results.v1.ResultsService.RunPrizegivingPreflight:output_type -> beamers.results.v1.RunPrizegivingPreflightResponse
-	53, // 85: beamers.results.v1.ResultsService.PreviewPrizegiving:output_type -> beamers.results.v1.PreviewPrizegivingResponse
-	74, // [74:86] is the sub-list for method output_type
-	62, // [62:74] is the sub-list for method input_type
-	62, // [62:62] is the sub-list for extension type_name
-	62, // [62:62] is the sub-list for extension extendee
-	0,  // [0:62] is the sub-list for field type_name
+	18, // 61: beamers.results.v1.PrizegivingPreview.competition_results:type_name -> beamers.results.v1.CompetitionResultsDraft
+	16, // 62: beamers.results.v1.PrizegivingPreview.event_awards:type_name -> beamers.results.v1.EventAward
+	52, // 63: beamers.results.v1.PreviewPrizegivingResponse.preview:type_name -> beamers.results.v1.PrizegivingPreview
+	19, // 64: beamers.results.v1.ResultsService.GetCompetitionResultsDraft:input_type -> beamers.results.v1.GetCompetitionResultsDraftRequest
+	21, // 65: beamers.results.v1.ResultsService.SaveCompetitionResultsDraft:input_type -> beamers.results.v1.SaveCompetitionResultsDraftRequest
+	23, // 66: beamers.results.v1.ResultsService.SaveCompetitionAwards:input_type -> beamers.results.v1.SaveCompetitionAwardsRequest
+	25, // 67: beamers.results.v1.ResultsService.MarkCompetitionResultsReady:input_type -> beamers.results.v1.MarkCompetitionResultsReadyRequest
+	28, // 68: beamers.results.v1.ResultsService.DesignatePrizegiving:input_type -> beamers.results.v1.DesignatePrizegivingRequest
+	31, // 69: beamers.results.v1.ResultsService.GetEventAwardsDraft:input_type -> beamers.results.v1.GetEventAwardsDraftRequest
+	33, // 70: beamers.results.v1.ResultsService.SaveEventAwardsDraft:input_type -> beamers.results.v1.SaveEventAwardsDraftRequest
+	35, // 71: beamers.results.v1.ResultsService.MarkEventAwardsReady:input_type -> beamers.results.v1.MarkEventAwardsReadyRequest
+	44, // 72: beamers.results.v1.ResultsService.GetPrizegivingPlan:input_type -> beamers.results.v1.GetPrizegivingPlanRequest
+	46, // 73: beamers.results.v1.ResultsService.SavePrizegivingPlan:input_type -> beamers.results.v1.SavePrizegivingPlanRequest
+	49, // 74: beamers.results.v1.ResultsService.RunPrizegivingPreflight:input_type -> beamers.results.v1.RunPrizegivingPreflightRequest
+	51, // 75: beamers.results.v1.ResultsService.PreviewPrizegiving:input_type -> beamers.results.v1.PreviewPrizegivingRequest
+	20, // 76: beamers.results.v1.ResultsService.GetCompetitionResultsDraft:output_type -> beamers.results.v1.GetCompetitionResultsDraftResponse
+	22, // 77: beamers.results.v1.ResultsService.SaveCompetitionResultsDraft:output_type -> beamers.results.v1.SaveCompetitionResultsDraftResponse
+	24, // 78: beamers.results.v1.ResultsService.SaveCompetitionAwards:output_type -> beamers.results.v1.SaveCompetitionAwardsResponse
+	26, // 79: beamers.results.v1.ResultsService.MarkCompetitionResultsReady:output_type -> beamers.results.v1.MarkCompetitionResultsReadyResponse
+	29, // 80: beamers.results.v1.ResultsService.DesignatePrizegiving:output_type -> beamers.results.v1.DesignatePrizegivingResponse
+	32, // 81: beamers.results.v1.ResultsService.GetEventAwardsDraft:output_type -> beamers.results.v1.GetEventAwardsDraftResponse
+	34, // 82: beamers.results.v1.ResultsService.SaveEventAwardsDraft:output_type -> beamers.results.v1.SaveEventAwardsDraftResponse
+	36, // 83: beamers.results.v1.ResultsService.MarkEventAwardsReady:output_type -> beamers.results.v1.MarkEventAwardsReadyResponse
+	45, // 84: beamers.results.v1.ResultsService.GetPrizegivingPlan:output_type -> beamers.results.v1.GetPrizegivingPlanResponse
+	47, // 85: beamers.results.v1.ResultsService.SavePrizegivingPlan:output_type -> beamers.results.v1.SavePrizegivingPlanResponse
+	50, // 86: beamers.results.v1.ResultsService.RunPrizegivingPreflight:output_type -> beamers.results.v1.RunPrizegivingPreflightResponse
+	53, // 87: beamers.results.v1.ResultsService.PreviewPrizegiving:output_type -> beamers.results.v1.PreviewPrizegivingResponse
+	76, // [76:88] is the sub-list for method output_type
+	64, // [64:76] is the sub-list for method input_type
+	64, // [64:64] is the sub-list for extension type_name
+	64, // [64:64] is the sub-list for extension extendee
+	0,  // [0:64] is the sub-list for field type_name
 }
 
 func init() { file_beamers_results_v1_results_proto_init() }

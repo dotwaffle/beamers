@@ -1,6 +1,7 @@
 package store
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"slices"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
+	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
 	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
 	"github.com/dotwaffle/beamers/ent/session"
@@ -122,6 +124,13 @@ type PrizegivingPreflightState struct {
 	EventAwards  PrizegivingEventAwardsPreflightState
 }
 
+// PrizegivingPreviewState contains the exact immutable sources locked by Preflight.
+type PrizegivingPreviewState struct {
+	Plan               PrizegivingPlan
+	CompetitionResults []CompetitionResultsDraft
+	EventAwards        []EventAward
+}
+
 // LoadPrizegivingPlan returns one designated Prizegiving's current plan.
 func (installation *SQLite) LoadPrizegivingPlan(
 	ctx context.Context,
@@ -140,6 +149,66 @@ func (installation *SQLite) LoadPrizegivingPlan(
 		return PrizegivingPlan{}, opaqueError("load Prizegiving plan", err)
 	}
 	return storedPrizegivingPlan(found), nil
+}
+
+// LoadPrizegivingPreview returns the exact immutable sources locked by Preflight.
+func (installation *SQLite) LoadPrizegivingPreview(
+	ctx context.Context,
+	eventID, ceremonySessionID int,
+) (PrizegivingPreviewState, error) {
+	plan, err := installation.LoadPrizegivingPlan(ctx, eventID, ceremonySessionID)
+	if err != nil {
+		return PrizegivingPreviewState{}, err
+	}
+	state := PrizegivingPreviewState{Plan: plan}
+	if !plan.Locked {
+		return state, nil
+	}
+	state.CompetitionResults = make(
+		[]CompetitionResultsDraft,
+		0,
+		len(plan.Lock.CompetitionSources),
+	)
+	for _, source := range plan.Lock.CompetitionSources {
+		draft, loadErr := loadCompetitionResultsDraftByID(
+			ctx,
+			installation.client,
+			source.DraftID,
+		)
+		if loadErr != nil {
+			return PrizegivingPreviewState{}, loadErr
+		}
+		if draft.EventID != eventID ||
+			draft.SessionID != source.SessionID ||
+			draft.Revision != source.DraftRevision {
+			return PrizegivingPreviewState{}, errors.New(
+				"locked Competition Results source does not match Prizegiving",
+			)
+		}
+		state.CompetitionResults = append(state.CompetitionResults, draft)
+	}
+	if plan.Lock.EventAwardsDraftRevision == 0 {
+		return state, nil
+	}
+	awardsDraft, err := installation.client.EventAwardsDraft.Query().
+		Where(
+			eventawardsdraft.EventIDEQ(eventID),
+			eventawardsdraft.RevisionEQ(plan.Lock.EventAwardsDraftRevision),
+		).
+		Only(ctx)
+	if err != nil {
+		return PrizegivingPreviewState{}, opaqueError(
+			"load locked Event Awards Draft",
+			err,
+		)
+	}
+	state.EventAwards = eventAwardsForPath(
+		eventAwardsDraft(awardsDraft).Awards,
+		AwardReleasePath{
+			Kind: "Prizegiving", PrizegivingSessionID: ceremonySessionID,
+		},
+	)
+	return state, nil
 }
 
 // LoadPrizegivingPlan returns the current plan inside a command transaction.
@@ -267,6 +336,13 @@ func (transaction *CommandTx) SavePrizegivingPlan(
 	); assignmentErr != nil {
 		return PrizegivingPlan{}, assignmentErr
 	}
+	if len(params.Sequence) == 0 && len(params.PublicationOrder) == 0 {
+		params.Sequence, params.PublicationOrder, err =
+			transaction.defaultPrizegivingOrder(ctx, params)
+		if err != nil {
+			return PrizegivingPlan{}, err
+		}
+	}
 	currentAssignments, err := transaction.transaction.PrizegivingCompetition.Query().
 		Where(prizegivingcompetition.PrizegivingIDEQ(found.ID)).
 		All(ctx)
@@ -313,6 +389,92 @@ func (transaction *CommandTx) SavePrizegivingPlan(
 		return PrizegivingPlan{}, opaqueError("save Prizegiving plan", err)
 	}
 	return storedPrizegivingPlan(updated), nil
+}
+
+type prizegivingCompetitionOrder struct {
+	sessionID    int
+	plannedStart time.Time
+	draft        CompetitionResultsDraft
+}
+
+func (transaction *CommandTx) defaultPrizegivingOrder(
+	ctx context.Context,
+	params SavePrizegivingPlanParams,
+) ([]PrizegivingResultItem, []PrizegivingResultItemRef, error) {
+	competitions := make(
+		[]prizegivingCompetitionOrder,
+		0,
+		len(params.CompetitionSessionIDs),
+	)
+	for _, sessionID := range params.CompetitionSessionIDs {
+		version, err := transaction.transaction.SessionPublishedVersion.Query().
+			Where(sessionpublishedversion.SessionIDEQ(sessionID)).
+			Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).
+			First(ctx)
+		if err != nil {
+			return nil, nil, opaqueError(
+				"load Competition order for Prizegiving",
+				err,
+			)
+		}
+		draft, err := transaction.LoadCompetitionResultsDraft(
+			ctx,
+			params.EventID,
+			sessionID,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+		competitions = append(competitions, prizegivingCompetitionOrder{
+			sessionID: sessionID, plannedStart: version.PlannedStart, draft: draft,
+		})
+	}
+	slices.SortFunc(
+		competitions,
+		func(first, second prizegivingCompetitionOrder) int {
+			if order := first.plannedStart.Compare(second.plannedStart); order != 0 {
+				return order
+			}
+			return cmp.Compare(first.sessionID, second.sessionID)
+		},
+	)
+	items := make([]PrizegivingResultItem, 0, len(competitions))
+	appendItem := func(kind string, sessionID int, awardKey string) {
+		displayOrder := len(items) + 1
+		items = append(items, PrizegivingResultItem{
+			Kind: kind, CompetitionSessionID: sessionID, AwardKey: awardKey,
+			DisplayOrder: displayOrder, RevealMethod: "StaticResult",
+		})
+	}
+	for _, competition := range competitions {
+		kind := "CompetitionResults"
+		if competition.draft.Disposition == "NoPublicResults" {
+			kind = "NoPublicResults"
+		}
+		appendItem(kind, competition.sessionID, "")
+		for _, award := range competition.draft.Awards {
+			if award.Promoted {
+				appendItem("CompetitionAward", competition.sessionID, award.Key)
+			}
+		}
+	}
+	eventAwards, err := transaction.LoadEventAwardsDraft(ctx, params.EventID)
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, award := range eventAwardsForPath(eventAwards.Awards, AwardReleasePath{
+		Kind: "Prizegiving", PrizegivingSessionID: params.CeremonySessionID,
+	}) {
+		appendItem("EventAward", 0, award.Key)
+	}
+	publicationOrder := make([]PrizegivingResultItemRef, 0, len(items))
+	for _, item := range items {
+		publicationOrder = append(publicationOrder, PrizegivingResultItemRef{
+			Kind: item.Kind, CompetitionSessionID: item.CompetitionSessionID,
+			AwardKey: item.AwardKey, DisplayOrder: item.DisplayOrder,
+		})
+	}
+	return items, publicationOrder, nil
 }
 
 func (transaction *CommandTx) validatePrizegivingCompetitionAssignments(

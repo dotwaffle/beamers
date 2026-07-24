@@ -83,9 +83,11 @@ const (
 
 // PrizegivingPreview is a watermarked, side-effect-free locked projection.
 type PrizegivingPreview struct {
-	Mode      PrizegivingPreviewMode `json:"mode"`
-	Watermark string                 `json:"watermark"`
-	Plan      PrizegivingPlan        `json:"plan"`
+	Mode               PrizegivingPreviewMode `json:"mode"`
+	Watermark          string                 `json:"watermark"`
+	Plan               PrizegivingPlan        `json:"plan"`
+	CompetitionResults []Draft                `json:"competition_results"`
+	EventAwards        []EventAward           `json:"event_awards"`
 }
 
 // GetPrizegivingPlan returns one designated plan to Results viewers.
@@ -278,7 +280,7 @@ func (service *Service) PreviewPrizegiving(
 	if !actor.HasCapability(eventID, viewer.ViewResults) {
 		return PrizegivingPreview{}, ErrViewRequired
 	}
-	found, err := service.storage.LoadPrizegivingPlan(
+	found, err := service.storage.LoadPrizegivingPreview(
 		actor.Context(ctx),
 		eventID,
 		ceremonySessionID,
@@ -286,14 +288,28 @@ func (service *Service) PreviewPrizegiving(
 	if err != nil {
 		return PrizegivingPreview{}, err
 	}
-	if !found.Locked {
+	if !found.Plan.Locked {
 		return PrizegivingPreview{}, ErrPrizegivingPreflightRequired
 	}
-	return projectPrizegivingPreview(prizegivingPlan(found), mode)
+	competitionResults := make([]Draft, 0, len(found.CompetitionResults))
+	for _, stored := range found.CompetitionResults {
+		competitionResults = append(competitionResults, draft(stored))
+	}
+	eventAwards := eventAwardsDraft(store.EventAwardsDraft{
+		Awards: found.EventAwards,
+	}).Awards
+	return projectPrizegivingPreview(
+		prizegivingPlan(found.Plan),
+		competitionResults,
+		eventAwards,
+		mode,
+	)
 }
 
 func projectPrizegivingPreview(
 	plan PrizegivingPlan,
+	competitionResults []Draft,
+	eventAwards []EventAward,
 	mode PrizegivingPreviewMode,
 ) (PrizegivingPreview, error) {
 	if !plan.Locked {
@@ -305,7 +321,9 @@ func projectPrizegivingPreview(
 	}
 	return PrizegivingPreview{
 		Mode: mode, Watermark: prizegivingPreviewWatermark,
-		Plan: clonePrizegivingPlan(plan),
+		Plan:               clonePrizegivingPlan(plan),
+		CompetitionResults: cloneDrafts(competitionResults),
+		EventAwards:        cloneEventAwards(eventAwards),
 	}, nil
 }
 
@@ -325,6 +343,34 @@ func clonePrizegivingPlan(value PrizegivingPlan) PrizegivingPlan {
 	return value
 }
 
+func cloneDrafts(values []Draft) []Draft {
+	result := make([]Draft, 0, len(values))
+	for _, value := range values {
+		value.Standings = append([]Standing(nil), value.Standings...)
+		value.Awards = cloneAwards(value.Awards)
+		result = append(result, value)
+	}
+	return result
+}
+
+func cloneEventAwards(values []EventAward) []EventAward {
+	result := make([]EventAward, 0, len(values))
+	for _, value := range values {
+		value.Recipients = append([]AwardRecipient(nil), value.Recipients...)
+		result = append(result, value)
+	}
+	return result
+}
+
+func cloneAwards(values []Award) []Award {
+	result := make([]Award, 0, len(values))
+	for _, value := range values {
+		value.Recipients = append([]AwardRecipient(nil), value.Recipients...)
+		result = append(result, value)
+	}
+	return result
+}
+
 func validateSavePrizegivingPlanInput(input SavePrizegivingPlanInput) error {
 	if err := command.ValidateID(input.CommandID); err != nil {
 		return err
@@ -335,7 +381,7 @@ func validateSavePrizegivingPlanInput(input SavePrizegivingPlanInput) error {
 		len(input.CompetitionSessionIDs) > 1000 ||
 		len(input.Sequence) > 3000 ||
 		len(input.PublicationOrder) > 3000 ||
-		!safeResultsTextTemplate(input.Template) {
+		!boundedResultsTextTemplate(input.Template) {
 		return ErrInvalidInput
 	}
 	seenCompetitions := make(map[int]struct{}, len(input.CompetitionSessionIDs))
@@ -352,7 +398,8 @@ func validateSavePrizegivingPlanInput(input SavePrizegivingPlanInput) error {
 	for index, item := range input.Sequence {
 		if item.DisplayOrder != index+1 ||
 			!validResultItemRef(item.Ref(item.DisplayOrder)) ||
-			!validRevealMethod(item.RevealMethod) {
+			item.RevealMethod == "" ||
+			len(item.RevealMethod) > 100 {
 			return ErrInvalidInput
 		}
 		sequenceItems[resultItemIdentity{
