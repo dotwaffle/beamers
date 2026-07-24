@@ -67,16 +67,18 @@ func OpenInstallation(ctx context.Context, dataDir string) (*Installation, error
 		// Startup storage failures deliberately produce a recovery-mode handle.
 		return installation, nil //nolint:nilerr // The caller reads StartupError to select recovery mode.
 	}
-	authentication, err := auth.New(storage, auth.DefaultConfig())
+	overrideService, err := overrides.New(ctx, storage, time.Now)
+	if err != nil {
+		return nil, errors.Join(err, storage.Close())
+	}
+	installation.overrides = overrideService
+	authConfig := auth.DefaultConfig()
+	authConfig.StorageState = overrideService
+	authentication, err := auth.New(storage, authConfig)
 	if err != nil {
 		return nil, errors.Join(err, storage.Close())
 	}
 	installation.authentication = authentication
-	displayService, err := displays.New(storage, displays.DefaultConfig())
-	if err != nil {
-		return nil, errors.Join(err, storage.Close())
-	}
-	installation.displays = displayService
 	activationService, err := activation.New(storage, time.Now)
 	if err != nil {
 		return nil, errors.Join(err, storage.Close())
@@ -92,11 +94,13 @@ func OpenInstallation(ctx context.Context, dataDir string) (*Installation, error
 		return nil, errors.Join(err, storage.Close())
 	}
 	installation.events = eventService
-	overrideService, err := overrides.New(storage, time.Now)
+	displayConfig := displays.DefaultConfig()
+	displayConfig.Emergency = overrideService
+	displayService, err := displays.New(storage, displayConfig)
 	if err != nil {
 		return nil, errors.Join(err, storage.Close())
 	}
-	installation.overrides = overrideService
+	installation.displays = displayService
 	competitionService, err := competition.New(storage, time.Now)
 	if err != nil {
 		return nil, errors.Join(err, storage.Close())
@@ -184,6 +188,14 @@ func (installation *Installation) StartupError() error {
 // Ready reports whether storage is usable and on the supported schema.
 func (installation *Installation) Ready(ctx context.Context) error {
 	return installation.storage.Ready(ctx)
+}
+
+// Recover persists process-owned degraded state after storage becomes writable.
+func (installation *Installation) Recover(ctx context.Context) (bool, error) {
+	if installation.overrides == nil {
+		return false, nil
+	}
+	return installation.overrides.Recover(ctx)
 }
 
 // Authentication returns the Account authentication application service.

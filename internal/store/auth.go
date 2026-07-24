@@ -31,12 +31,13 @@ var (
 
 // AccountCredential is the authentication projection of an Account.
 type AccountCredential struct {
-	ID            int                       `json:"id"`
-	Name          string                    `json:"name"`
-	PasswordHash  string                    `json:"-"`
-	Administrator bool                      `json:"administrator"`
-	EventRoles    map[int]viewer.Role       `json:"-"`
-	EventScopes   map[int]viewer.EventScope `json:"-"`
+	ID               int                       `json:"id"`
+	Name             string                    `json:"name"`
+	PasswordHash     string                    `json:"-"`
+	Administrator    bool                      `json:"administrator"`
+	EventRoles       map[int]viewer.Role       `json:"-"`
+	EventScopes      map[int]viewer.EventScope `json:"-"`
+	SessionExpiresAt time.Time                 `json:"-"`
 }
 
 // BootstrapAdministratorParams contains the values committed atomically when
@@ -383,6 +384,7 @@ func (installation *SQLite) FindAccountSession(
 	if err != nil {
 		return AccountCredential{}, err
 	}
+	credential.SessionExpiresAt = session.ExpiresAt
 	return credential, nil
 }
 

@@ -14,6 +14,9 @@ templ EmergencyAlertConfirmationPage(preview PriorityPreview, commandID string) 
 			<main>
 				<h1>Confirm Emergency Alert</h1>
 				<p>This supplements, and does not replace, the venue emergency system.</p>
+				if preview.Nondurable {
+					<p role="alert"><strong>Severely degraded:</strong> storage is unavailable. This Emergency Alert is nondurable and may disappear if Beamers restarts.</p>
+				}
 				<h2>Message</h2>
 				<p>{ preview.Text }</p>
 				<h2>Resolved Displays</h2>
@@ -50,6 +53,9 @@ templ EmergencyClearConfirmationPage(active ActiveOverride) {
 		<body>
 			<main>
 				<h1>Confirm Emergency Alert clear</h1>
+				if active.Nondurable {
+					<p role="alert"><strong>Severely degraded:</strong> storage is unavailable. This clear is nondurable and may be lost if Beamers restarts.</p>
+				}
 				<p>{ active.Text }</p>
 				<form method="post">
 					<input type="hidden" name="expected_revision" value={ strconv.Itoa(active.Revision) }/>

@@ -74,7 +74,10 @@ func Run(ctx context.Context, config Config) error {
 	accepting.Store(startupErr == nil)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/livez", liveness)
-	mux.HandleFunc("/readyz", readiness(&accepting, installation, config.Logger))
+	mux.HandleFunc(
+		"/readyz",
+		readiness(&accepting, installation, displayStream.Notify, config.Logger),
+	)
 	if startupErr == nil {
 		registerAuthenticationRoutes(
 			mux,
@@ -265,6 +268,7 @@ func liveness(response http.ResponseWriter, request *http.Request) {
 func readiness(
 	accepting *atomic.Bool,
 	installation *operations.Installation,
+	notifyDisplays func(),
 	logger *slog.Logger,
 ) http.HandlerFunc {
 	return func(response http.ResponseWriter, request *http.Request) {
@@ -288,6 +292,26 @@ func readiness(
 			)
 			http.Error(response, "not ready", http.StatusServiceUnavailable)
 			return
+		}
+		recovered, err := installation.Recover(probeContext)
+		if err != nil {
+			logger.LogAttrs(
+				request.Context(),
+				slog.LevelError,
+				"storage recovery flush failed",
+				slog.String("component", "storage"),
+				slog.Any("error", err),
+			)
+			http.Error(response, "not ready", http.StatusServiceUnavailable)
+			return
+		}
+		if recovered {
+			logger.InfoContext(
+				request.Context(),
+				"persisted degraded Emergency Alert evidence",
+				"component", "storage",
+			)
+			notifyDisplays()
 		}
 		response.WriteHeader(http.StatusOK)
 		_, _ = response.Write([]byte("ready\n"))

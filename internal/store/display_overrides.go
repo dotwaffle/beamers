@@ -48,6 +48,8 @@ const (
 	DisplayOverrideEmergencyAlert DisplayOverrideKind = "EmergencyAlert"
 )
 
+const degradedEmergencyIDFloor = 1_000_000_000
+
 // DisplayOverrideTargetType is one supported logical or fixed target scope.
 type DisplayOverrideTargetType string
 
@@ -85,6 +87,21 @@ type DisplayOverrideTarget struct {
 	Type DisplayOverrideTargetType `json:"type"`
 	ID   int                       `json:"id,omitempty"`
 	Key  string                    `json:"key,omitempty"`
+}
+
+// DegradedEmergencyIDFloor returns a process-local ID starting point above all
+// durable Display Overrides from earlier incidents.
+func (installationStore *SQLite) DegradedEmergencyIDFloor(ctx context.Context) (int, error) {
+	found, err := installationStore.client.DisplayOverride.Query().
+		Order(ent.Desc(displayoverride.FieldID)).
+		First(systemContext(ctx))
+	if ent.IsNotFound(err) {
+		return degradedEmergencyIDFloor, nil
+	}
+	if err != nil {
+		return 0, opaqueError("load degraded Emergency Alert identity floor", err)
+	}
+	return max(degradedEmergencyIDFloor, found.ID), nil
 }
 
 // StageMessageEmphasis changes accessible styling without changing priority.
@@ -133,6 +150,7 @@ type DisplayOverride struct {
 	Revision           int                         `json:"revision"`
 	CreatedByAccountID int                         `json:"created_by_account_id"`
 	CreatedAt          time.Time                   `json:"created_at"`
+	Nondurable         bool                        `json:"nondurable,omitempty"`
 }
 
 // DisplayOverrideResolvedDisplay is one currently resolved target member.
@@ -950,6 +968,95 @@ func (transaction *CommandTx) ClearDisplayOverride(
 		}
 	}
 	return displayOverride(updated), nil
+}
+
+// PersistDegradedEmergencyAlert installs one previously accepted process-owned
+// Emergency Alert transition without re-resolving authority or target
+// membership after storage recovery.
+func (transaction *CommandTx) PersistDegradedEmergencyAlert(
+	ctx context.Context,
+	outcome DisplayOverride,
+) (DisplayOverride, error) {
+	if !outcome.Nondurable ||
+		outcome.ID <= 0 ||
+		outcome.EventID <= 0 ||
+		outcome.CreatedByAccountID <= 0 ||
+		outcome.CreatedAt.IsZero() ||
+		outcome.Kind != DisplayOverrideEmergencyAlert ||
+		outcome.Presentation != DisplayOverrideReplace ||
+		!outcome.UntilCleared ||
+		outcome.TargetGroupKey != displayOverrideTargetKey(outcome.Target) {
+		return DisplayOverride{}, ErrDisplayOverrideInput
+	}
+	if outcome.ClearedAt.IsZero() {
+		if outcome.Revision != 1 {
+			return DisplayOverride{}, ErrDisplayOverrideRevision
+		}
+		return transaction.insertDegradedEmergencyAlert(ctx, outcome)
+	}
+	internalContext := systemContext(ctx)
+	found, err := transaction.transaction.DisplayOverride.Get(internalContext, outcome.ID)
+	if ent.IsNotFound(err) {
+		return DisplayOverride{}, ErrDisplayOverrideNotFound
+	}
+	if err != nil {
+		return DisplayOverride{}, opaqueError("load degraded Emergency Alert", err)
+	}
+	if found.EventID != outcome.EventID ||
+		DisplayOverrideKind(found.Kind.String()) != DisplayOverrideEmergencyAlert ||
+		found.Revision+1 != outcome.Revision ||
+		found.ClearedAt != nil {
+		return displayOverride(found), ErrDisplayOverrideRevision
+	}
+	updated, err := found.Update().
+		SetClearedAt(outcome.ClearedAt).
+		SetRevision(outcome.Revision).
+		Save(internalContext)
+	if err != nil {
+		return DisplayOverride{}, opaqueError("persist degraded Emergency clear", err)
+	}
+	return displayOverride(updated), nil
+}
+
+func (transaction *CommandTx) insertDegradedEmergencyAlert(
+	ctx context.Context,
+	outcome DisplayOverride,
+) (DisplayOverride, error) {
+	internalContext := systemContext(ctx)
+	const insert = `
+INSERT INTO display_overrides (
+	id, target_group_key, kind, text, emphasis, preset_key,
+	until_cleared, expires_at, cleared_at, revision,
+	created_by_account_id, created_at, event_id,
+	target_type, target_id, presentation
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	if _, err := transaction.transaction.ExecContext(
+		internalContext,
+		insert,
+		outcome.ID,
+		outcome.TargetGroupKey,
+		string(outcome.Kind),
+		outcome.Text,
+		string(outcome.Emphasis),
+		nil,
+		outcome.UntilCleared,
+		nil,
+		nil,
+		outcome.Revision,
+		outcome.CreatedByAccountID,
+		outcome.CreatedAt,
+		outcome.EventID,
+		string(outcome.Target.Type),
+		outcome.Target.ID,
+		string(outcome.Presentation),
+	); err != nil {
+		return DisplayOverride{}, opaqueError("persist degraded Emergency activation", err)
+	}
+	found, err := transaction.transaction.DisplayOverride.Get(internalContext, outcome.ID)
+	if err != nil {
+		return DisplayOverride{}, opaqueError("load persisted degraded Emergency Alert", err)
+	}
+	return displayOverride(found), nil
 }
 
 func (transaction *CommandTx) syncDisplayOverridesForAssignment(

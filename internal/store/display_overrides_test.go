@@ -274,6 +274,88 @@ func TestTechnicalDifficultiesCanTargetPublicAndCrewDisplays(t *testing.T) {
 	}
 }
 
+func TestCommandEvidenceProbeRollsBackAllRows(t *testing.T) {
+	client := openEntTestClient(t)
+	installationStore := &SQLite{client: client}
+	internalContext := systemContext(t.Context())
+	if err := installationStore.ProbeCommandEvidence(
+		t.Context(),
+		time.Date(2026, time.July, 24, 12, 0, 0, 0, time.UTC),
+	); err != nil {
+		t.Fatalf("probe command evidence: %v", err)
+	}
+	if receipts := client.CommandReceipt.Query().CountX(internalContext); receipts != 0 {
+		t.Fatalf("probe Command Receipts = %d, want 0", receipts)
+	}
+	if audits := client.AuditEntry.Query().CountX(internalContext); audits != 0 {
+		t.Fatalf("probe Audit Entries = %d, want 0", audits)
+	}
+}
+
+func TestPersistDegradedEmergencyAlertKeepsProcessIdentityAndClearOrder(t *testing.T) {
+	client := openEntTestClient(t)
+	installationStore := &SQLite{client: client}
+	internalContext := systemContext(t.Context())
+	event := createSchemaTestEvent(t, client)
+	account := client.Account.Create().
+		SetName("Ada Admin").
+		SetNormalizedName("ada admin").
+		SetAdministrator(true).
+		SaveX(internalContext)
+	now := time.Date(2026, time.July, 24, 12, 0, 0, 0, time.UTC)
+	activated := DisplayOverride{
+		ID: 1_000_000_001, EventID: event.ID,
+		TargetGroupKey:     "event",
+		Target:             DisplayOverrideTarget{Type: DisplayOverrideTargetEvent},
+		Kind:               DisplayOverrideEmergencyAlert,
+		Presentation:       DisplayOverrideReplace,
+		Text:               "Evacuate using marked exits",
+		Emphasis:           StageMessageNormal,
+		UntilCleared:       true,
+		Revision:           1,
+		CreatedByAccountID: account.ID,
+		CreatedAt:          now,
+		Nondurable:         true,
+	}
+	activateTx := beginCommand(t, installationStore, internalContext)
+	persisted, err := activateTx.PersistDegradedEmergencyAlert(
+		internalContext,
+		activated,
+	)
+	if err != nil {
+		t.Fatalf("persist degraded Emergency activation: %v", err)
+	}
+	if commitErr := activateTx.Commit(); commitErr != nil {
+		t.Fatalf("commit degraded Emergency activation: %v", commitErr)
+	}
+	if persisted.ID != activated.ID || persisted.Revision != activated.Revision ||
+		persisted.Nondurable {
+		t.Fatalf("persisted degraded Emergency activation = %+v", persisted)
+	}
+
+	cleared := activated
+	cleared.Revision = 2
+	cleared.ClearedAt = now.Add(time.Minute)
+	clearTx := beginCommand(t, installationStore, internalContext)
+	persisted, err = clearTx.PersistDegradedEmergencyAlert(
+		internalContext,
+		cleared,
+	)
+	if err != nil {
+		t.Fatalf("persist degraded Emergency clear: %v", err)
+	}
+	if err := clearTx.Commit(); err != nil {
+		t.Fatalf("commit degraded Emergency clear: %v", err)
+	}
+	if persisted.ID != activated.ID || persisted.Revision != 2 ||
+		!persisted.ClearedAt.Equal(cleared.ClearedAt) || persisted.Nondurable {
+		t.Fatalf("persisted degraded Emergency clear = %+v", persisted)
+	}
+	if count := client.DisplayOverride.Query().CountX(internalContext); count != 1 {
+		t.Fatalf("persisted degraded Emergency rows = %d, want 1", count)
+	}
+}
+
 func TestSameCursorAcknowledgmentAllowsOnlyOverrideExpiry(t *testing.T) {
 	current := DisplayAcknowledgment{
 		ProtocolVersion: "v1", AssetVersion: "asset", StreamID: "stream",

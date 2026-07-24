@@ -2137,6 +2137,270 @@ func TestUrgentNoticesAndEmergencyAlertsTargetCurrentDisplays(t *testing.T) {
 	server.stop(t)
 }
 
+func TestEmergencyAlertSurvivesPartialStorageFailureAndRecoversEvidence(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	displayClient := enrollAndAssignDisplay(
+		t, administrator, server, "Degraded Display", "event-overview",
+	)
+	beforeFailure := readDisplaySnapshot(t, displayClient, server.address)
+	if beforeFailure.EmergencyAlert.ID != "" {
+		t.Fatalf("initial Display Snapshot has Emergency Alert: %+v", beforeFailure)
+	}
+
+	healthyPreviewResult := requestJSON(
+		t.Context(), administrator, server.address,
+		"/crew/events/1/emergency-alerts/preview",
+		map[string]any{
+			"target": map[string]any{"type": "Event"},
+			"text":   "Evacuate through the north exit",
+		},
+	)
+	var healthyPreview struct {
+		ConfirmationFingerprint string `json:"confirmation_fingerprint"`
+		Nondurable              bool   `json:"nondurable"`
+	}
+	if err := json.Unmarshal([]byte(healthyPreviewResult.body), &healthyPreview); err != nil ||
+		healthyPreviewResult.status != http.StatusOK ||
+		healthyPreview.ConfirmationFingerprint == "" || healthyPreview.Nondurable {
+		t.Fatalf(
+			"preview durable Emergency Alert = %d: %s (%v)",
+			healthyPreviewResult.status, healthyPreviewResult.body, err,
+		)
+	}
+
+	databasePath := filepath.Join(server.dataDir, "beamers.db")
+	if err := storetest.FailCommandEvidence(t.Context(), databasePath); err != nil {
+		t.Fatalf("fail durable command evidence: %v", err)
+	}
+	ordinary := requestJSON(
+		t.Context(), administrator, server.address,
+		"/crew/events/1/stage-messages",
+		map[string]any{
+			"text": "must roll back", "target_group_key": "crew",
+			"until_cleared": true, "command_id": "reject-degraded-stage-message",
+		},
+	)
+	if ordinary.status != http.StatusInternalServerError {
+		t.Fatalf("ordinary mutation during failure = %d: %s", ordinary.status, ordinary.body)
+	}
+	if page := readDisplayHTML(t, displayClient, server.address); strings.Contains(page, "must roll back") {
+		t.Fatalf("failed ordinary mutation reached Display: %s", page)
+	}
+	newSignIn := requestJSON(
+		t.Context(), authenticatedClient(t), server.address, "/auth/sign-in",
+		map[string]string{
+			"name": "Ada Admin", "password": "correct horse battery staple",
+		},
+	)
+	if newSignIn.status != http.StatusInternalServerError {
+		t.Fatalf(
+			"new sign-in before degraded Emergency detection = %d: %s",
+			newSignIn.status, newSignIn.body,
+		)
+	}
+
+	rejectedDurableConfirmation := requestJSON(
+		t.Context(), administrator, server.address,
+		"/crew/events/1/emergency-alerts",
+		map[string]any{
+			"target":              map[string]any{"type": "Event"},
+			"text":                "Evacuate through the north exit",
+			"preview_fingerprint": healthyPreview.ConfirmationFingerprint,
+			"confirmed":           true,
+			"confirmation_method": "Keyboard",
+			"command_id":          "reject-durable-confirmation-after-failure",
+		},
+	)
+	if rejectedDurableConfirmation.status != http.StatusConflict {
+		t.Fatalf(
+			"durable confirmation after storage failure = %d: %s",
+			rejectedDurableConfirmation.status, rejectedDurableConfirmation.body,
+		)
+	}
+	if snapshot := readDisplaySnapshot(t, displayClient, server.address); snapshot.EmergencyAlert.ID != "" {
+		t.Fatalf("rejected durable confirmation reached Display: %+v", snapshot)
+	}
+
+	emergencyPreview := requestJSON(
+		t.Context(), administrator, server.address,
+		"/crew/events/1/emergency-alerts/preview",
+		map[string]any{
+			"target": map[string]any{"type": "Event"},
+			"text":   "Evacuate through the north exit",
+		},
+	)
+	var preview struct {
+		ConfirmationFingerprint string `json:"confirmation_fingerprint"`
+		Nondurable              bool   `json:"nondurable"`
+	}
+	if err := json.Unmarshal([]byte(emergencyPreview.body), &preview); err != nil ||
+		emergencyPreview.status != http.StatusOK || preview.ConfirmationFingerprint == "" ||
+		!preview.Nondurable {
+		t.Fatalf(
+			"preview degraded Emergency Alert = %d: %s (%v)",
+			emergencyPreview.status, emergencyPreview.body, err,
+		)
+	}
+	confirmation := get(
+		t, administrator, server.address,
+		"/crew/events/1/emergency-alerts/confirmation?target_type=Event&text="+
+			url.QueryEscape("Evacuate through the north exit"),
+	)
+	confirmationBody, readErr := io.ReadAll(confirmation.Body)
+	closeErr := confirmation.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil ||
+		confirmation.StatusCode != http.StatusOK ||
+		!bytes.Contains(confirmationBody, []byte("Severely degraded")) ||
+		!bytes.Contains(confirmationBody, []byte("nondurable")) {
+		t.Fatalf(
+			"degraded Emergency confirmation before activation = %d: %s (%v)",
+			confirmation.StatusCode, confirmationBody, err,
+		)
+	}
+	activation := map[string]any{
+		"target": map[string]any{"type": "Event"},
+		"text":   "Evacuate through the north exit", "preview_fingerprint": preview.ConfirmationFingerprint,
+		"confirmed": true, "confirmation_method": "Keyboard",
+		"command_id": "activate-degraded-emergency",
+	}
+	activated := requestJSON(
+		t.Context(), administrator, server.address,
+		"/crew/events/1/emergency-alerts", activation,
+	)
+	var emergency struct {
+		ID         int  `json:"id"`
+		Revision   int  `json:"revision"`
+		Nondurable bool `json:"nondurable"`
+	}
+	if err := json.Unmarshal([]byte(activated.body), &emergency); err != nil ||
+		activated.status != http.StatusOK || emergency.ID <= 0 ||
+		emergency.Revision != 1 || !emergency.Nondurable {
+		t.Fatalf(
+			"activate degraded Emergency Alert = %d: %s (%v)",
+			activated.status, activated.body, err,
+		)
+	}
+	replayed := requestJSON(
+		t.Context(), administrator, server.address,
+		"/crew/events/1/emergency-alerts", activation,
+	)
+	if replayed.status != http.StatusOK || replayed.body != activated.body {
+		t.Fatalf(
+			"retry degraded Emergency Alert = %d: %s, want %d: %s",
+			replayed.status, replayed.body, activated.status, activated.body,
+		)
+	}
+
+	applied := readDisplaySnapshot(t, displayClient, server.address)
+	if applied.EmergencyAlert.ID != strconv.Itoa(emergency.ID) ||
+		!strings.Contains(readDisplayHTML(t, displayClient, server.address), "Evacuate through the north exit") {
+		t.Fatalf("degraded Emergency Alert Display Snapshot = %+v", applied)
+	}
+
+	clearPath := fmt.Sprintf("/crew/events/1/overrides/%d/clear", emergency.ID)
+	clearConfirmation := get(
+		t, administrator, server.address,
+		fmt.Sprintf("/crew/events/1/overrides/%d/clear-confirmation", emergency.ID),
+	)
+	clearConfirmationBody, readErr := io.ReadAll(clearConfirmation.Body)
+	closeErr = clearConfirmation.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil ||
+		clearConfirmation.StatusCode != http.StatusOK ||
+		!bytes.Contains(clearConfirmationBody, []byte("Severely degraded")) ||
+		!bytes.Contains(clearConfirmationBody, []byte("nondurable")) {
+		t.Fatalf(
+			"degraded Emergency clear confirmation = %d: %s (%v)",
+			clearConfirmation.StatusCode, clearConfirmationBody, err,
+		)
+	}
+	cleared := requestJSON(
+		t.Context(), administrator, server.address, clearPath,
+		map[string]any{
+			"expected_revision": emergency.Revision,
+			"confirmed":         true, "confirmation_method": "Keyboard",
+			"command_id": "clear-degraded-emergency",
+		},
+	)
+	var clearedEmergency struct {
+		Revision   int  `json:"revision"`
+		Nondurable bool `json:"nondurable"`
+	}
+	if err := json.Unmarshal([]byte(cleared.body), &clearedEmergency); err != nil ||
+		cleared.status != http.StatusOK || clearedEmergency.Revision != 2 ||
+		!clearedEmergency.Nondurable {
+		t.Fatalf(
+			"clear degraded Emergency Alert = %d: %s (%v)",
+			cleared.status, cleared.body, err,
+		)
+	}
+	if snapshot := readDisplaySnapshot(t, displayClient, server.address); snapshot.EmergencyAlert.ID != "" {
+		t.Fatalf("cleared degraded Emergency Alert remained in snapshot: %+v", snapshot)
+	}
+
+	readiness := requestProbe(t.Context(), server.address, "/readyz", 5*time.Second)
+	assertProbeResult(t, "/readyz", readiness, http.StatusServiceUnavailable, "not ready\n")
+	if err := storetest.AllowCommandEvidence(t.Context(), databasePath); err != nil {
+		t.Fatalf("restore durable command evidence: %v", err)
+	}
+	beforeRecovery := requestJSON(
+		t.Context(), administrator, server.address,
+		"/crew/events/1/stage-messages",
+		map[string]any{
+			"text": "wait for evidence recovery", "target_group_key": "crew",
+			"until_cleared": true, "command_id": "wait-for-emergency-recovery",
+		},
+	)
+	if beforeRecovery.status != http.StatusInternalServerError {
+		t.Fatalf(
+			"ordinary mutation before evidence recovery = %d: %s",
+			beforeRecovery.status, beforeRecovery.body,
+		)
+	}
+	assertProbe(t, server.address, "/readyz", "ready\n")
+	afterRecovery := requestJSON(
+		t.Context(), administrator, server.address,
+		"/crew/events/1/stage-messages",
+		map[string]any{
+			"text": "recovered", "target_group_key": "crew",
+			"until_cleared": true, "command_id": "resume-after-emergency-recovery",
+		},
+	)
+	if afterRecovery.status != http.StatusOK {
+		t.Fatalf(
+			"ordinary mutation after evidence recovery = %d: %s",
+			afterRecovery.status, afterRecovery.body,
+		)
+	}
+	entries, _ := readAuditHistory(t, administrator, server.address)
+	actionCounts := map[string]int{}
+	for _, entry := range entries {
+		actionCounts[entry.Action]++
+	}
+	if actionCounts["ActivateEmergencyAlert"] != 1 ||
+		actionCounts["ClearDisplayOverride"] != 1 {
+		t.Fatalf("recovered Emergency audit counts = %v", actionCounts)
+	}
+	assertProbe(t, server.address, "/readyz", "ready\n")
+	entries, _ = readAuditHistory(t, administrator, server.address)
+	actionCounts = map[string]int{}
+	for _, entry := range entries {
+		actionCounts[entry.Action]++
+	}
+	if actionCounts["ActivateEmergencyAlert"] != 1 ||
+		actionCounts["ClearDisplayOverride"] != 1 {
+		t.Fatalf("repeated recovery Emergency audit counts = %v", actionCounts)
+	}
+
+	dataDir, bin := server.dataDir, server.bin
+	server.stop(t)
+	server = startBeamers(t, bin, dataDir)
+	if snapshot := readDisplaySnapshot(t, displayClient, server.address); snapshot.EmergencyAlert.ID != "" {
+		t.Fatalf("cleared Emergency Alert returned after restart: %+v", snapshot)
+	}
+	server.stop(t)
+}
+
 func readDisplayHTML(t *testing.T, client *http.Client, address string) string {
 	t.Helper()
 	response := get(t, client, address, "/display")

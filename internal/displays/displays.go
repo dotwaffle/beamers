@@ -68,6 +68,17 @@ type Config struct {
 	Now           func() time.Time
 	Random        io.Reader
 	EnrollmentTTL time.Duration
+	Emergency     EmergencySnapshotProjector
+}
+
+// EmergencySnapshotProjector preserves connected Display snapshots and applies
+// the narrow process-owned Emergency Alert during runtime storage failure.
+type EmergencySnapshotProjector interface {
+	ProjectDisplaySnapshot(
+		credentialHash string,
+		current store.DisplaySnapshotState,
+		loadErr error,
+	) (store.DisplaySnapshotState, error)
 }
 
 // DefaultConfig returns production Display Enrollment dependencies.
@@ -81,6 +92,7 @@ type Service struct {
 	now           func() time.Time
 	random        io.Reader
 	enrollmentTTL time.Duration
+	emergency     EmergencySnapshotProjector
 }
 
 // Enrollment is browser-held material for one pending Display claim.
@@ -301,6 +313,7 @@ func New(storage *store.SQLite, config Config) (*Service, error) {
 	}
 	return &Service{
 		storage: storage, now: config.Now, random: config.Random, enrollmentTTL: config.EnrollmentTTL,
+		emergency: config.Emergency,
 	}, nil
 }
 
@@ -310,7 +323,11 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 		return Snapshot{}, ErrDisplayAuthentication
 	}
 	now := service.now().UTC()
-	found, err := service.storage.LoadDisplaySnapshot(ctx, digest(credential), now)
+	credentialHash := digest(credential)
+	found, err := service.storage.LoadDisplaySnapshot(ctx, credentialHash, now)
+	if service.emergency != nil {
+		found, err = service.emergency.ProjectDisplaySnapshot(credentialHash, found, err)
+	}
 	if errors.Is(err, store.ErrDisplayCredential) {
 		return Snapshot{}, ErrDisplayAuthentication
 	}

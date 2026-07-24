@@ -31,6 +31,7 @@ type DisplaySnapshotState struct {
 	LocationName          string
 	ViewKey               string
 	DisplayGroupKeys      []string
+	TargetLaneIDs         []int
 	Standby               bool
 	StageMessage          *DisplayOverride
 	TechnicalDifficulties *DisplayOverride
@@ -141,6 +142,11 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 	}
 	result.ViewKey = assignment.ViewKey
 	result.DisplayGroupKeys = slices.Clone(assignment.DisplayGroupKeys)
+	for _, lane := range published.Lanes {
+		if lane.LocationID == assignment.LocationID {
+			result.TargetLaneIDs = append(result.TargetLaneIDs, lane.ID)
+		}
+	}
 	result.Standby = false
 	if overrideErr := loadCurrentDisplayOverrides(
 		internalContext, client, assignment, now, &result,

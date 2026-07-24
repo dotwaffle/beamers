@@ -5,12 +5,19 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
+	"math"
+	"slices"
+	"sort"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 var (
@@ -83,6 +90,7 @@ type PriorityInput struct {
 type PriorityPreview struct {
 	Preview
 	ConfirmationFingerprint string `json:"confirmation_fingerprint,omitempty"`
+	Nondurable              bool   `json:"nondurable,omitempty"`
 }
 
 // ConfigureInput replaces Event Stage Message defaults.
@@ -130,6 +138,41 @@ type ClearInput struct {
 type Service struct {
 	storage *store.SQLite
 	now     func() time.Time
+
+	recoveryMu       sync.Mutex
+	degradedMu       sync.Mutex
+	displaySnapshots map[string]store.DisplaySnapshotState
+	degraded         bool
+	degradedCause    error
+	degradedCurrent  *store.DisplayOverride
+	degradedReceipts map[degradedReceiptKey]degradedReceipt
+	degradedPending  []degradedCommand
+	nextDegradedID   int
+}
+
+type degradedReceiptKey struct {
+	actorID   int
+	commandID string
+}
+
+type degradedReceipt struct {
+	action      string
+	payloadHash string
+	outcome     store.DisplayOverride
+}
+
+type degradedCommandKind uint8
+
+const (
+	degradedActivate degradedCommandKind = iota + 1
+	degradedClear
+)
+
+type degradedCommand struct {
+	kind     degradedCommandKind
+	actor    auth.Account
+	identity store.CommandIdentity
+	outcome  store.DisplayOverride
 }
 
 // PreviewStageMessage resolves content and Displays without activation.
@@ -186,7 +229,19 @@ func (service *Service) PreviewEmergencyAlert(
 	input.Presentation = string(store.DisplayOverrideReplace)
 	input.UntilCleared = true
 	input.DurationSeconds = 0
-	return service.previewPriority(ctx, actor, input, store.DisplayOverrideEmergencyAlert)
+	if service.isDegraded() {
+		return service.previewDegradedEmergency(actor, input, nil)
+	}
+	preview, err := service.previewPriority(
+		ctx,
+		actor,
+		input,
+		store.DisplayOverrideEmergencyAlert,
+	)
+	if err == nil || knownOverrideError(err) {
+		return preview, err
+	}
+	return service.previewDegradedEmergency(actor, input, err)
 }
 
 func (service *Service) previewPriority(
@@ -214,14 +269,27 @@ func (service *Service) previewPriority(
 }
 
 // New creates an Override service with explicit dependencies.
-func New(storage *store.SQLite, now func() time.Time) (*Service, error) {
+func New(ctx context.Context, storage *store.SQLite, now func() time.Time) (*Service, error) {
 	if storage == nil {
 		return nil, errors.New("override storage is required")
 	}
 	if now == nil {
 		return nil, errors.New("override clock is required")
 	}
-	return &Service{storage: storage, now: now}, nil
+	nextDegradedID, err := storage.DegradedEmergencyIDFloor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if nextDegradedID == math.MaxInt {
+		return nil, errors.New("degraded Emergency Alert identity space is exhausted")
+	}
+	return &Service{
+		storage:          storage,
+		now:              now,
+		displaySnapshots: make(map[string]store.DisplaySnapshotState),
+		degradedReceipts: make(map[degradedReceiptKey]degradedReceipt),
+		nextDegradedID:   nextDegradedID,
+	}, nil
 }
 
 // ListActive returns current Overrides with continuously resolved Displays.
@@ -233,9 +301,16 @@ func (service *Service) ListActive(
 	if eventID <= 0 {
 		return nil, ErrInvalidInput
 	}
-	return service.storage.ListActiveDisplayOverrides(
+	if service.isDegraded() {
+		return service.listDegradedEmergency(actor, eventID, nil)
+	}
+	active, err := service.storage.ListActiveDisplayOverrides(
 		actor.Context(ctx), eventID, service.now().UTC(),
 	)
+	if err == nil || knownOverrideError(err) {
+		return active, err
+	}
+	return service.listDegradedEmergency(actor, eventID, err)
 }
 
 // ConfigureStageMessages replaces Event presets and default duration.
@@ -279,21 +354,23 @@ func (service *Service) SendStageMessage(
 	if targetID == "" {
 		targetID = "preset:" + input.PresetKey
 	}
-	return execute(
-		ctx, service, actor, input.EventID, input.CommandID,
-		"SendStageMessage", "DisplayGroup", targetID, input,
-		func(transaction *store.CommandTx, now time.Time) (Override, error) {
-			return transaction.ActivateStageMessage(
-				actor.Context(ctx),
-				store.ActivateStageMessageParams{
-					EventID: input.EventID, PresetKey: input.PresetKey, Text: input.Text,
-					TargetGroupKey:  input.TargetGroupKey,
-					DurationSeconds: input.DurationSeconds, Emphasis: input.Emphasis,
-					UntilCleared: input.UntilCleared, Now: now,
-				},
-			)
-		},
-	)
+	return service.activateDurably(func() (Override, error) {
+		return execute(
+			ctx, service, actor, input.EventID, input.CommandID,
+			"SendStageMessage", "DisplayGroup", targetID, input,
+			func(transaction *store.CommandTx, now time.Time) (Override, error) {
+				return transaction.ActivateStageMessage(
+					actor.Context(ctx),
+					store.ActivateStageMessageParams{
+						EventID: input.EventID, PresetKey: input.PresetKey, Text: input.Text,
+						TargetGroupKey:  input.TargetGroupKey,
+						DurationSeconds: input.DurationSeconds, Emphasis: input.Emphasis,
+						UntilCleared: input.UntilCleared, Now: now,
+					},
+				)
+			},
+		)
+	})
 }
 
 // ActivateTechnicalDifficulties activates one Replace Override.
@@ -305,20 +382,22 @@ func (service *Service) ActivateTechnicalDifficulties(
 	if !validTechnicalDifficultiesInput(input) {
 		return Override{}, ErrInvalidInput
 	}
-	return execute(
-		ctx, service, actor, input.EventID, input.CommandID,
-		"ActivateTechnicalDifficulties", "DisplayGroup", input.TargetGroupKey, input,
-		func(transaction *store.CommandTx, now time.Time) (Override, error) {
-			return transaction.ActivateTechnicalDifficulties(
-				actor.Context(ctx),
-				store.ActivateTechnicalDifficultiesParams{
-					EventID: input.EventID, TargetGroupKey: input.TargetGroupKey,
-					Text: input.Text, UntilCleared: input.UntilCleared,
-					Duration: time.Duration(input.DurationSeconds) * time.Second, Now: now,
-				},
-			)
-		},
-	)
+	return service.activateDurably(func() (Override, error) {
+		return execute(
+			ctx, service, actor, input.EventID, input.CommandID,
+			"ActivateTechnicalDifficulties", "DisplayGroup", input.TargetGroupKey, input,
+			func(transaction *store.CommandTx, now time.Time) (Override, error) {
+				return transaction.ActivateTechnicalDifficulties(
+					actor.Context(ctx),
+					store.ActivateTechnicalDifficultiesParams{
+						EventID: input.EventID, TargetGroupKey: input.TargetGroupKey,
+						Text: input.Text, UntilCleared: input.UntilCleared,
+						Duration: time.Duration(input.DurationSeconds) * time.Second, Now: now,
+					},
+				)
+			},
+		)
+	})
 }
 
 // ActivateUrgentNotice activates one operational Override.
@@ -343,7 +422,20 @@ func (service *Service) ActivateEmergencyAlert(
 		input.PreviewFingerprint == "" {
 		return Override{}, ErrInvalidInput
 	}
-	return service.activatePriority(ctx, actor, input, store.DisplayOverrideEmergencyAlert)
+	if service.isDegraded() {
+		return service.activateDegradedEmergency(actor, input)
+	}
+	activated, err := service.activatePriority(
+		ctx,
+		actor,
+		input,
+		store.DisplayOverrideEmergencyAlert,
+	)
+	if err == nil || knownOverrideError(err) {
+		return activated, err
+	}
+	service.markDegraded(err)
+	return Override{}, ErrRevision
 }
 
 func validEmergencyConfirmation(method string) bool {
@@ -360,15 +452,17 @@ func (service *Service) activatePriority(
 		input.DurationSeconds > 24*60*60 {
 		return Override{}, ErrInvalidInput
 	}
-	return execute(
-		ctx, service, actor, input.EventID, input.CommandID,
-		"Activate"+string(kind), string(input.Target.Type), displayTargetID(input.Target), input,
-		func(transaction *store.CommandTx, now time.Time) (Override, error) {
-			return transaction.ActivatePriorityOverride(
-				actor.Context(ctx), priorityParams(input, kind, now),
-			)
-		},
-	)
+	return service.activateDurably(func() (Override, error) {
+		return execute(
+			ctx, service, actor, input.EventID, input.CommandID,
+			"Activate"+string(kind), string(input.Target.Type), displayTargetID(input.Target), input,
+			func(transaction *store.CommandTx, now time.Time) (Override, error) {
+				return transaction.ActivatePriorityOverride(
+					actor.Context(ctx), priorityParams(input, kind, now),
+				)
+			},
+		)
+	})
 }
 
 func priorityParams(
@@ -408,7 +502,10 @@ func (service *Service) Clear(
 	if input.EventID <= 0 || input.OverrideID <= 0 || input.ExpectedRevision <= 0 {
 		return Override{}, ErrInvalidInput
 	}
-	return execute(
+	if service.isDegraded() {
+		return service.clearDegradedEmergency(actor, input)
+	}
+	cleared, err := execute(
 		ctx, service, actor, input.EventID, input.CommandID,
 		"ClearDisplayOverride", "DisplayOverride", strconv.Itoa(input.OverrideID), input,
 		func(transaction *store.CommandTx, now time.Time) (Override, error) {
@@ -419,6 +516,645 @@ func (service *Service) Clear(
 			)
 		},
 	)
+	if err == nil || knownOverrideError(err) {
+		return cleared, err
+	}
+	service.markDegraded(err)
+	return Override{}, ErrRevision
+}
+
+// PrepareEmergencyStorage detects loss of the command evidence boundary before
+// authentication or confirmation can expand degraded authority.
+func (service *Service) PrepareEmergencyStorage(ctx context.Context) error {
+	service.degradedMu.Lock()
+	if service.degraded {
+		cause := service.degradedCause
+		service.degradedMu.Unlock()
+		return cause
+	}
+	service.degradedMu.Unlock()
+
+	err := service.storage.ProbeCommandEvidence(ctx, service.now().UTC())
+	if err != nil &&
+		!errors.Is(err, context.Canceled) &&
+		!errors.Is(err, context.DeadlineExceeded) {
+		service.markDegraded(err)
+	}
+	return err
+}
+
+// DegradedCause returns the storage failure that opened degraded operation.
+func (service *Service) DegradedCause() error {
+	service.degradedMu.Lock()
+	defer service.degradedMu.Unlock()
+	return service.degradedCause
+}
+
+// ProjectDisplaySnapshot retains healthy Display routing and overlays the
+// process-owned Emergency Alert while authoritative storage is unavailable.
+func (service *Service) ProjectDisplaySnapshot(
+	credentialHash string,
+	current store.DisplaySnapshotState,
+	loadErr error,
+) (store.DisplaySnapshotState, error) {
+	if credentialHash == "" {
+		return store.DisplaySnapshotState{}, errors.New("display credential hash is required")
+	}
+	service.degradedMu.Lock()
+	defer service.degradedMu.Unlock()
+
+	if loadErr == nil && !service.degraded {
+		service.displaySnapshots[credentialHash] = cloneDisplaySnapshot(current)
+	} else {
+		if !service.degraded {
+			return store.DisplaySnapshotState{}, loadErr
+		}
+		cached, ok := service.displaySnapshots[credentialHash]
+		if !ok {
+			if loadErr == nil {
+				loadErr = errors.New("display snapshot was not validated before storage degraded")
+			}
+			return store.DisplaySnapshotState{}, loadErr
+		}
+		current = cloneDisplaySnapshot(cached)
+	}
+	if service.degradedCurrent == nil {
+		return current, nil
+	}
+	emergency := *service.degradedCurrent
+	if !emergency.ClearedAt.IsZero() {
+		if current.EmergencyAlert != nil && current.EmergencyAlert.ID == emergency.ID {
+			current.EmergencyAlert = nil
+		}
+		return current, nil
+	}
+	if degradedTargetMatches(current, emergency.EventID, emergency.Target) {
+		current.EmergencyAlert = &emergency
+	}
+	return current, nil
+}
+
+// Recover persists process-owned Emergency Alert state and evidence in original
+// command order after authoritative storage becomes writable again.
+func (service *Service) Recover(ctx context.Context) (bool, error) {
+	service.recoveryMu.Lock()
+	defer service.recoveryMu.Unlock()
+
+	if service.isDegraded() {
+		if err := service.storage.ProbeCommandEvidence(ctx, service.now().UTC()); err != nil {
+			return false, err
+		}
+	}
+
+	recovered := false
+	for {
+		service.degradedMu.Lock()
+		if len(service.degradedPending) == 0 {
+			if recovered {
+				service.degraded = false
+				service.degradedCause = nil
+				service.degradedCurrent = nil
+				clear(service.degradedReceipts)
+			} else if service.degradedCurrent == nil && len(service.degradedReceipts) == 0 {
+				service.degraded = false
+				service.degradedCause = nil
+			}
+			service.degradedMu.Unlock()
+			return recovered, nil
+		}
+		pending := service.degradedPending[0]
+		service.degradedMu.Unlock()
+
+		if err := service.persistDegradedCommand(ctx, pending); err != nil {
+			return recovered, err
+		}
+		service.degradedMu.Lock()
+		service.degradedPending = service.degradedPending[1:]
+		service.degradedMu.Unlock()
+		recovered = true
+	}
+}
+
+func (service *Service) persistDegradedCommand(
+	ctx context.Context,
+	pending degradedCommand,
+) error {
+	_, err := command.Execute(
+		pending.actor.Context(ctx),
+		command.Plan[store.DisplayOverride]{
+			Storage:  service.storage,
+			Identity: pending.identity,
+			Replay: func(outcome string) (store.DisplayOverride, error) {
+				var replayed store.DisplayOverride
+				err := store.DecodeCommandReceipt(outcome, &replayed)
+				return replayed, err
+			},
+			Apply: func(
+				transaction *store.CommandTx,
+			) (command.Execution[store.DisplayOverride], error) {
+				if _, persistErr := transaction.PersistDegradedEmergencyAlert(
+					pending.actor.Context(ctx),
+					pending.outcome,
+				); persistErr != nil {
+					return command.Execution[store.DisplayOverride]{}, persistErr
+				}
+				encoded, encodeErr := json.Marshal(pending.outcome)
+				if encodeErr != nil {
+					return command.Execution[store.DisplayOverride]{},
+						errors.New("encode recovered Emergency outcome")
+				}
+				return command.Success(pending.outcome, string(encoded)), nil
+			},
+		},
+	)
+	return err
+}
+
+func (service *Service) previewDegradedEmergency(
+	actor auth.Account,
+	input PriorityInput,
+	storageErr error,
+) (PriorityPreview, error) {
+	service.degradedMu.Lock()
+	defer service.degradedMu.Unlock()
+	preview, err := service.degradedEmergencyPreviewLocked(actor, input)
+	if err != nil {
+		if errors.Is(err, ErrEventNotActive) && storageErr != nil {
+			return PriorityPreview{}, storageErr
+		}
+		return PriorityPreview{}, err
+	}
+	service.degraded = true
+	if storageErr != nil && service.degradedCause == nil {
+		service.degradedCause = storageErr
+	}
+	return preview, nil
+}
+
+func (service *Service) degradedEmergencyPreviewLocked(
+	actor auth.Account,
+	input PriorityInput,
+) (PriorityPreview, error) {
+	input.Text = strings.TrimSpace(input.Text)
+	if input.EventID <= 0 || input.Text == "" || len(input.Text) > 2000 ||
+		!validPriorityTarget(input.Target) {
+		return PriorityPreview{}, ErrInvalidInput
+	}
+	if !canOperateDegradedEmergency(actor, input.EventID, input.Target) {
+		return PriorityPreview{}, ErrScopeDenied
+	}
+	displays, foundEvent := service.resolveDegradedDisplaysLocked(
+		input.EventID,
+		input.Target,
+	)
+	if !foundEvent {
+		return PriorityPreview{}, ErrEventNotActive
+	}
+	preview := store.DisplayOverridePreview{
+		Kind:           store.DisplayOverrideEmergencyAlert,
+		Target:         input.Target,
+		TargetGroupKey: degradedTargetKey(input.Target),
+		Text:           input.Text,
+		Emphasis:       store.StageMessageNormal,
+		Presentation:   store.DisplayOverrideReplace,
+		UntilCleared:   true,
+		Displays:       displays,
+	}
+	return PriorityPreview{
+		Preview: preview,
+		ConfirmationFingerprint: command.PayloadHash(
+			"nondurable",
+			store.DisplayOverridePreviewFingerprint(preview),
+		),
+		Nondurable: true,
+	}, nil
+}
+
+func (service *Service) resolveDegradedDisplaysLocked(
+	eventID int,
+	target Target,
+) ([]store.DisplayOverrideResolvedDisplay, bool) {
+	byID := make(map[int]store.DisplayOverrideResolvedDisplay)
+	foundEvent := false
+	for _, snapshot := range service.displaySnapshots {
+		if snapshot.ActiveEventID != eventID {
+			continue
+		}
+		foundEvent = true
+		if !degradedTargetMatches(snapshot, eventID, target) {
+			continue
+		}
+		byID[snapshot.Display.ID] = store.DisplayOverrideResolvedDisplay{
+			ID: snapshot.Display.ID, Name: snapshot.Display.Name, ViewKey: snapshot.ViewKey,
+		}
+	}
+	result := make([]store.DisplayOverrideResolvedDisplay, 0, len(byID))
+	for _, display := range byID {
+		result = append(result, display)
+	}
+	sort.Slice(result, func(first, second int) bool {
+		return result[first].ID < result[second].ID
+	})
+	return result, foundEvent
+}
+
+func (service *Service) activateDegradedEmergency(
+	actor auth.Account,
+	input PriorityInput,
+) (Override, error) {
+	if input.EventID <= 0 || input.DurationSeconds != 0 ||
+		input.Presentation != string(store.DisplayOverrideReplace) ||
+		!input.UntilCleared || !input.Confirmed ||
+		!validEmergencyConfirmation(input.ConfirmationMethod) ||
+		input.PreviewFingerprint == "" {
+		return Override{}, ErrInvalidInput
+	}
+	identity, err := service.degradedCommandIdentity(
+		actor,
+		input.CommandID,
+		"ActivateEmergencyAlert",
+		string(input.Target.Type),
+		displayTargetID(input.Target),
+		input,
+	)
+	if err != nil {
+		return Override{}, err
+	}
+	key := degradedReceiptKey{actorID: actor.ID, commandID: input.CommandID}
+
+	service.degradedMu.Lock()
+	defer service.degradedMu.Unlock()
+	if replayed, ok, replayErr := service.degradedReplayLocked(key, identity); ok {
+		return replayed, replayErr
+	}
+	preview, err := service.degradedEmergencyPreviewLocked(actor, input)
+	if err != nil {
+		return Override{}, err
+	}
+	if preview.ConfirmationFingerprint != input.PreviewFingerprint {
+		return Override{}, ErrRevision
+	}
+	if service.degradedCurrent != nil && service.degradedCurrent.ClearedAt.IsZero() {
+		return Override{}, ErrRevision
+	}
+	if service.nextDegradedID == math.MaxInt {
+		return Override{}, errors.New("degraded Emergency Alert identity space is exhausted")
+	}
+	service.nextDegradedID++
+	activated := store.DisplayOverride{
+		ID: service.nextDegradedID, EventID: input.EventID,
+		TargetGroupKey: degradedTargetKey(input.Target), Target: input.Target,
+		Kind: store.DisplayOverrideEmergencyAlert, Presentation: store.DisplayOverrideReplace,
+		Text: input.Text, Emphasis: store.StageMessageNormal, UntilCleared: true,
+		Revision: 1, CreatedByAccountID: actor.ID, CreatedAt: identity.Now,
+		Nondurable: true,
+	}
+	service.degraded = true
+	service.degradedCurrent = cloneDisplayOverride(&activated)
+	service.degradedReceipts[key] = degradedReceipt{
+		action: identity.Action, payloadHash: identity.PayloadHash, outcome: activated,
+	}
+	service.degradedPending = append(service.degradedPending, degradedCommand{
+		kind: degradedActivate, actor: cloneActor(actor), identity: identity, outcome: activated,
+	})
+	return activated, nil
+}
+
+func (service *Service) clearDegradedEmergency(
+	actor auth.Account,
+	input ClearInput,
+) (Override, error) {
+	if input.EventID <= 0 || input.OverrideID <= 0 || input.ExpectedRevision <= 0 ||
+		!input.Confirmed || !validEmergencyConfirmation(input.ConfirmationMethod) {
+		return Override{}, ErrInvalidInput
+	}
+	identity, err := service.degradedCommandIdentity(
+		actor,
+		input.CommandID,
+		"ClearDisplayOverride",
+		"DisplayOverride",
+		strconv.Itoa(input.OverrideID),
+		input,
+	)
+	if err != nil {
+		return Override{}, err
+	}
+	key := degradedReceiptKey{actorID: actor.ID, commandID: input.CommandID}
+
+	service.degradedMu.Lock()
+	defer service.degradedMu.Unlock()
+	if replayed, ok, replayErr := service.degradedReplayLocked(key, identity); ok {
+		return replayed, replayErr
+	}
+	current := service.degradedCurrent
+	if current == nil || current.ID != input.OverrideID {
+		current = service.cachedEmergencyLocked(input.EventID, input.OverrideID)
+	}
+	if current == nil || current.EventID != input.EventID {
+		return Override{}, ErrNotFound
+	}
+	if !current.ClearedAt.IsZero() || current.Revision != input.ExpectedRevision {
+		return *current, ErrRevision
+	}
+	if !canOperateDegradedEmergency(actor, input.EventID, current.Target) {
+		return Override{}, ErrScopeDenied
+	}
+	cleared := *current
+	cleared.Revision++
+	cleared.ClearedAt = identity.Now
+	cleared.Nondurable = true
+	service.degraded = true
+	service.degradedCurrent = cloneDisplayOverride(&cleared)
+	service.degradedReceipts[key] = degradedReceipt{
+		action: identity.Action, payloadHash: identity.PayloadHash, outcome: cleared,
+	}
+	service.degradedPending = append(service.degradedPending, degradedCommand{
+		kind: degradedClear, actor: cloneActor(actor), identity: identity, outcome: cleared,
+	})
+	return cleared, nil
+}
+
+func (service *Service) cachedEmergencyLocked(
+	eventID int,
+	overrideID int,
+) *store.DisplayOverride {
+	for _, snapshot := range service.displaySnapshots {
+		if snapshot.ActiveEventID == eventID && snapshot.EmergencyAlert != nil &&
+			snapshot.EmergencyAlert.ID == overrideID {
+			return cloneDisplayOverride(snapshot.EmergencyAlert)
+		}
+	}
+	return nil
+}
+
+func (service *Service) listDegradedEmergency(
+	actor auth.Account,
+	eventID int,
+	storageErr error,
+) ([]ActiveOverride, error) {
+	service.degradedMu.Lock()
+	defer service.degradedMu.Unlock()
+	current := service.degradedCurrent
+	if current == nil {
+		for _, snapshot := range service.displaySnapshots {
+			if snapshot.ActiveEventID != eventID || snapshot.EmergencyAlert == nil {
+				continue
+			}
+			if current == nil ||
+				snapshot.EmergencyAlert.CreatedAt.After(current.CreatedAt) ||
+				snapshot.EmergencyAlert.CreatedAt.Equal(current.CreatedAt) &&
+					snapshot.EmergencyAlert.ID > current.ID {
+				current = snapshot.EmergencyAlert
+			}
+		}
+	}
+	if current == nil {
+		if storageErr != nil {
+			return nil, storageErr
+		}
+		return []ActiveOverride{}, nil
+	}
+	if !canOperateDegradedEmergency(actor, eventID, current.Target) {
+		return nil, ErrScopeDenied
+	}
+	service.degraded = true
+	if storageErr != nil && service.degradedCause == nil {
+		service.degradedCause = storageErr
+	}
+	if !current.ClearedAt.IsZero() {
+		return []ActiveOverride{}, nil
+	}
+	displays, _ := service.resolveDegradedDisplaysLocked(eventID, current.Target)
+	projected := *current
+	projected.Nondurable = true
+	return []ActiveOverride{{
+		DisplayOverride: projected,
+		Displays:        displays,
+	}}, nil
+}
+
+func (service *Service) degradedReplayLocked(
+	key degradedReceiptKey,
+	identity store.CommandIdentity,
+) (store.DisplayOverride, bool, error) {
+	receipt, ok := service.degradedReceipts[key]
+	if !ok {
+		return store.DisplayOverride{}, false, nil
+	}
+	if receipt.action != identity.Action || receipt.payloadHash != identity.PayloadHash {
+		return store.DisplayOverride{}, true, ErrCommandConflict
+	}
+	return receipt.outcome, true, nil
+}
+
+func (service *Service) degradedCommandIdentity(
+	actor auth.Account,
+	commandID string,
+	action string,
+	targetType string,
+	targetID string,
+	payload any,
+) (store.CommandIdentity, error) {
+	if err := command.ValidateID(commandID); err != nil {
+		return store.CommandIdentity{}, err
+	}
+	encodedPayload, err := json.Marshal(payload)
+	if err != nil {
+		return store.CommandIdentity{}, errors.New("encode degraded Emergency command")
+	}
+	return store.CommandIdentity{
+		ActorAccountID: actor.ID, CommandID: commandID,
+		PayloadHash: command.PayloadHash(string(encodedPayload)), Action: action,
+		TargetType: targetType, TargetID: targetID, Now: service.now().UTC(),
+	}, nil
+}
+
+func (service *Service) isDegraded() bool {
+	service.degradedMu.Lock()
+	defer service.degradedMu.Unlock()
+	return service.degraded
+}
+
+func (service *Service) markDegraded(cause error) {
+	service.degradedMu.Lock()
+	defer service.degradedMu.Unlock()
+	service.degraded = true
+	if cause != nil && service.degradedCause == nil {
+		service.degradedCause = cause
+	}
+}
+
+func (service *Service) activateDurably(
+	activate func() (Override, error),
+) (Override, error) {
+	service.degradedMu.Lock()
+	defer service.degradedMu.Unlock()
+	if service.degraded {
+		if service.degradedCause != nil {
+			return Override{}, service.degradedCause
+		}
+		return Override{}, auth.ErrStorageDegraded
+	}
+	activated, err := activate()
+	if err == nil && activated.ID > 0 {
+		service.nextDegradedID = max(service.nextDegradedID, activated.ID)
+	}
+	return activated, err
+}
+
+// Degraded reports whether Emergency Alert commands are being retained in
+// process memory while durable command evidence is unavailable.
+func (service *Service) Degraded() bool {
+	return service.isDegraded()
+}
+
+func knownOverrideError(err error) bool {
+	return errors.Is(err, ErrProducerRequired) ||
+		errors.Is(err, ErrScopeDenied) ||
+		errors.Is(err, ErrInvalidInput) ||
+		errors.Is(err, ErrNotFound) ||
+		errors.Is(err, ErrRevision) ||
+		errors.Is(err, ErrConfigurationRevision) ||
+		errors.Is(err, ErrCommandConflict) ||
+		errors.Is(err, ErrEventNotActive) ||
+		errors.Is(err, command.ErrInvalidID) ||
+		errors.Is(err, context.Canceled) ||
+		errors.Is(err, context.DeadlineExceeded)
+}
+
+func validPriorityTarget(target Target) bool {
+	switch target.Type {
+	case store.DisplayOverrideTargetEvent,
+		store.DisplayOverrideTargetPublic,
+		store.DisplayOverrideTargetCrew:
+		return target.ID == 0 && target.Key == ""
+	case store.DisplayOverrideTargetLocation,
+		store.DisplayOverrideTargetLane,
+		store.DisplayOverrideTargetProgramChannel,
+		store.DisplayOverrideTargetDisplay:
+		return target.ID > 0 && target.Key == ""
+	case store.DisplayOverrideTargetDisplayGroup:
+		return target.ID == 0 && strings.TrimSpace(target.Key) != ""
+	default:
+		return false
+	}
+}
+
+func canOperateDegradedEmergency(
+	actor auth.Account,
+	eventID int,
+	target Target,
+) bool {
+	identity := viewer.Identity{
+		AccountID: actor.ID, Administrator: actor.Administrator,
+		EventRoles: actor.EventRoles, EventScopes: actor.EventScopes,
+	}
+	if !identity.HasCapability(eventID, viewer.EmergencyAlert) {
+		return false
+	}
+	if identity.CanProduceEvent(eventID) {
+		return true
+	}
+	if target.Type == store.DisplayOverrideTargetLane {
+		return identity.CanOperateLane(eventID, target.ID)
+	}
+	return identity.CanOperateDisplayGroup(eventID, degradedTargetKey(target))
+}
+
+func degradedTargetKey(target Target) string {
+	switch target.Type {
+	case store.DisplayOverrideTargetEvent:
+		return "event"
+	case store.DisplayOverrideTargetPublic:
+		return "public"
+	case store.DisplayOverrideTargetCrew:
+		return "crew"
+	case store.DisplayOverrideTargetDisplayGroup:
+		return target.Key
+	case store.DisplayOverrideTargetLocation,
+		store.DisplayOverrideTargetLane,
+		store.DisplayOverrideTargetProgramChannel,
+		store.DisplayOverrideTargetDisplay:
+		return strings.ToLower(string(target.Type)) + ":" + strconv.Itoa(target.ID)
+	default:
+		return ""
+	}
+}
+
+func degradedTargetMatches(
+	snapshot store.DisplaySnapshotState,
+	eventID int,
+	target Target,
+) bool {
+	if snapshot.ActiveEventID != eventID || snapshot.Standby || snapshot.LocationID <= 0 {
+		return false
+	}
+	switch target.Type {
+	case store.DisplayOverrideTargetEvent:
+		return true
+	case store.DisplayOverrideTargetPublic:
+		return snapshot.ViewKey != "stage-timer"
+	case store.DisplayOverrideTargetCrew:
+		return snapshot.ViewKey == "stage-timer"
+	case store.DisplayOverrideTargetLocation:
+		return snapshot.LocationID == target.ID
+	case store.DisplayOverrideTargetLane:
+		return slices.Contains(snapshot.TargetLaneIDs, target.ID)
+	case store.DisplayOverrideTargetProgramChannel:
+		return snapshot.ViewKey == "competition-output" &&
+			snapshot.ProgramChannelID == target.ID
+	case store.DisplayOverrideTargetDisplayGroup:
+		return slices.Contains(snapshot.DisplayGroupKeys, target.Key)
+	case store.DisplayOverrideTargetDisplay:
+		return snapshot.Display.ID == target.ID
+	default:
+		return false
+	}
+}
+
+func cloneDisplaySnapshot(source store.DisplaySnapshotState) store.DisplaySnapshotState {
+	cloned := source
+	cloned.DisplayGroupKeys = slices.Clone(source.DisplayGroupKeys)
+	cloned.TargetLaneIDs = slices.Clone(source.TargetLaneIDs)
+	cloned.Sessions = slices.Clone(source.Sessions)
+	cloned.StageMessage = cloneDisplayOverride(source.StageMessage)
+	cloned.TechnicalDifficulties = cloneDisplayOverride(source.TechnicalDifficulties)
+	cloned.UrgentNotice = cloneDisplayOverride(source.UrgentNotice)
+	cloned.EmergencyAlert = cloneDisplayOverride(source.EmergencyAlert)
+	return cloned
+}
+
+func cloneDisplayOverride(source *store.DisplayOverride) *store.DisplayOverride {
+	if source == nil {
+		return nil
+	}
+	cloned := *source
+	return &cloned
+}
+
+func cloneActor(source auth.Account) auth.Account {
+	cloned := source
+	cloned.EventRoles = make(map[int]viewer.Role, len(source.EventRoles))
+	maps.Copy(cloned.EventRoles, source.EventRoles)
+	cloned.EventScopes = make(map[int]viewer.EventScope, len(source.EventScopes))
+	for eventID, scope := range source.EventScopes {
+		clonedScope := viewer.EventScope{
+			LaneIDs:          make(map[int]struct{}, len(scope.LaneIDs)),
+			DisplayGroupKeys: make(map[string]struct{}, len(scope.DisplayGroupKeys)),
+			Capabilities:     make(map[viewer.Capability]struct{}, len(scope.Capabilities)),
+		}
+		for laneID := range scope.LaneIDs {
+			clonedScope.LaneIDs[laneID] = struct{}{}
+		}
+		for key := range scope.DisplayGroupKeys {
+			clonedScope.DisplayGroupKeys[key] = struct{}{}
+		}
+		for capability := range scope.Capabilities {
+			clonedScope.Capabilities[capability] = struct{}{}
+		}
+		cloned.EventScopes[eventID] = clonedScope
+	}
+	return cloned
 }
 
 func execute[T any](

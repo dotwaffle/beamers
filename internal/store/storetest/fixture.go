@@ -90,6 +90,32 @@ func AllowSessionRunUpdates(ctx context.Context, path string) error {
 	})
 }
 
+// FailCommandEvidence installs a test-only trigger that makes every durable
+// command transaction fail when it reaches its Command Receipt.
+func FailCommandEvidence(ctx context.Context, path string) error {
+	return mutateSchema(path, func(database *sql.DB) error {
+		const statement = `CREATE TRIGGER fail_command_evidence
+BEFORE INSERT ON command_receipts
+BEGIN
+	SELECT RAISE(FAIL, 'forced Command Receipt failure');
+END`
+		if _, err := database.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("install Command Receipt failure trigger: %w", err)
+		}
+		return nil
+	})
+}
+
+// AllowCommandEvidence removes the test-only Command Receipt failure trigger.
+func AllowCommandEvidence(ctx context.Context, path string) error {
+	return mutateSchema(path, func(database *sql.DB) error {
+		if _, err := database.ExecContext(ctx, "DROP TRIGGER fail_command_evidence"); err != nil {
+			return fmt.Errorf("remove Command Receipt failure trigger: %w", err)
+		}
+		return nil
+	})
+}
+
 // FailSessionForecastUpdate installs a test-only trigger for one Session.
 func FailSessionForecastUpdate(ctx context.Context, path string, sessionID int64) error {
 	if sessionID <= 0 {

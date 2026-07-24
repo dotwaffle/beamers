@@ -72,6 +72,62 @@ func (installation *SQLite) BeginCommand(ctx context.Context) (*CommandTx, error
 	return &CommandTx{transaction: transaction}, nil
 }
 
+// ProbeCommandEvidence verifies that both durable command evidence tables are
+// writable without retaining probe rows.
+func (installation *SQLite) ProbeCommandEvidence(
+	ctx context.Context,
+	now time.Time,
+) (returnErr error) {
+	transaction, err := installation.client.Tx(ctx)
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+		return opaqueError("begin command evidence probe", err)
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, transaction.Rollback())
+	}()
+	internalContext := systemContext(ctx)
+	const receiptInsert = `
+INSERT INTO command_receipts (
+	actor_kind, command_id, payload_hash, action, target_type, target_id,
+	outcome_json, created_at
+) VALUES ('Account', 'emergency-alert-storage-probe', ?, ?, ?, ?, '{}', ?)`
+	if _, err = transaction.ExecContext(
+		internalContext,
+		receiptInsert,
+		strings.Repeat("0", 64),
+		"ProbeEmergencyAlertStorage",
+		"Installation",
+		"1",
+		now.UTC(),
+	); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+		return opaqueError("probe Command Receipt storage", err)
+	}
+	const auditInsert = `
+INSERT INTO audit_entries (
+	actor_kind, created_at, action, target_type, target_id, result
+) VALUES ('Account', ?, ?, ?, ?, 'Succeeded')`
+	if _, err = transaction.ExecContext(
+		internalContext,
+		auditInsert,
+		now.UTC(),
+		"ProbeEmergencyAlertStorage",
+		"Installation",
+		"1",
+	); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+		return opaqueError("probe Audit Entry storage", err)
+	}
+	return nil
+}
+
 // LookupReceipt returns the original outcome for an exact retry.
 func (transaction *CommandTx) LookupReceipt(
 	ctx context.Context,

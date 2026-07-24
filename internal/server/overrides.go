@@ -85,7 +85,7 @@ func (handlers overrideHandlers) emergencyAlertConfirmation(
 	if !requestAllowed(response, request, request.Method, handlers.allowPlaintextCrew) {
 		return
 	}
-	actor, eventID, ok := handlers.commandContext(response, request)
+	actor, eventID, ok := handlers.commandContext(response, request, true)
 	if !ok {
 		return
 	}
@@ -97,6 +97,23 @@ func (handlers overrideHandlers) emergencyAlertConfirmation(
 		input := priorityFormInput(eventID, request)
 		input.Confirmed = true
 		result, err := handlers.service.ActivateEmergencyAlert(request.Context(), actor, input)
+		if result.Nondurable {
+			handlers.logDegradedEmergency(
+				request.Context(),
+				"storage unavailable; activated nondurable Emergency Alert",
+				eventID,
+				actor.ID,
+				input.CommandID,
+			)
+		} else if err != nil && handlers.service.DegradedCause() != nil {
+			handlers.logDegradedEmergency(
+				request.Context(),
+				"storage unavailable; Emergency activation requires degraded reconfirmation",
+				eventID,
+				actor.ID,
+				input.CommandID,
+			)
+		}
 		handlers.writeResult(response, request, result, err)
 		return
 	}
@@ -105,6 +122,15 @@ func (handlers overrideHandlers) emergencyAlertConfirmation(
 	if err != nil {
 		handlers.writePriorityPreview(response, request, nil, err)
 		return
+	}
+	if preview.Nondurable {
+		handlers.logDegradedEmergency(
+			request.Context(),
+			"storage unavailable; previewing nondurable Emergency Alert",
+			eventID,
+			actor.ID,
+			"",
+		)
 	}
 	commandID, err := confirmationCommandID("emergency")
 	if err != nil {
@@ -139,7 +165,7 @@ func (handlers overrideHandlers) emergencyClearConfirmation(
 	if !requestAllowed(response, request, request.Method, handlers.allowPlaintextCrew) {
 		return
 	}
-	actor, eventID, ok := handlers.commandContext(response, request)
+	actor, eventID, ok := handlers.commandContext(response, request, true)
 	if !ok {
 		return
 	}
@@ -163,6 +189,23 @@ func (handlers overrideHandlers) emergencyClearConfirmation(
 			CommandID: request.FormValue("command_id"), Confirmed: true,
 			ConfirmationMethod: request.FormValue("confirmation_method"),
 		})
+		if result.Nondurable {
+			handlers.logDegradedEmergency(
+				request.Context(),
+				"storage unavailable; cleared nondurable Emergency Alert",
+				eventID,
+				actor.ID,
+				request.FormValue("command_id"),
+			)
+		} else if clearErr != nil && handlers.service.DegradedCause() != nil {
+			handlers.logDegradedEmergency(
+				request.Context(),
+				"storage unavailable; Emergency clear requires degraded reconfirmation",
+				eventID,
+				actor.ID,
+				request.FormValue("command_id"),
+			)
+		}
 		handlers.writeResult(response, request, result, clearErr)
 		return
 	}
@@ -214,7 +257,7 @@ func (handlers overrideHandlers) previewUrgentNotice(
 	response http.ResponseWriter,
 	request *http.Request,
 ) {
-	handlers.priorityRequest(response, request, true, func(
+	handlers.priorityRequest(response, request, true, false, func(
 		ctx context.Context, actor auth.Account, input overrides.PriorityInput,
 	) (any, error) {
 		return handlers.service.PreviewUrgentNotice(ctx, actor, input)
@@ -225,7 +268,7 @@ func (handlers overrideHandlers) activateUrgentNotice(
 	response http.ResponseWriter,
 	request *http.Request,
 ) {
-	handlers.priorityRequest(response, request, false, func(
+	handlers.priorityRequest(response, request, false, false, func(
 		ctx context.Context, actor auth.Account, input overrides.PriorityInput,
 	) (any, error) {
 		return handlers.service.ActivateUrgentNotice(ctx, actor, input)
@@ -236,10 +279,20 @@ func (handlers overrideHandlers) previewEmergencyAlert(
 	response http.ResponseWriter,
 	request *http.Request,
 ) {
-	handlers.priorityRequest(response, request, true, func(
+	handlers.priorityRequest(response, request, true, true, func(
 		ctx context.Context, actor auth.Account, input overrides.PriorityInput,
 	) (any, error) {
-		return handlers.service.PreviewEmergencyAlert(ctx, actor, input)
+		preview, err := handlers.service.PreviewEmergencyAlert(ctx, actor, input)
+		if err == nil && preview.Nondurable {
+			handlers.logDegradedEmergency(
+				ctx,
+				"storage unavailable; previewing nondurable Emergency Alert",
+				input.EventID,
+				actor.ID,
+				"",
+			)
+		}
+		return preview, err
 	})
 }
 
@@ -247,10 +300,28 @@ func (handlers overrideHandlers) activateEmergencyAlert(
 	response http.ResponseWriter,
 	request *http.Request,
 ) {
-	handlers.priorityRequest(response, request, false, func(
+	handlers.priorityRequest(response, request, false, true, func(
 		ctx context.Context, actor auth.Account, input overrides.PriorityInput,
 	) (any, error) {
-		return handlers.service.ActivateEmergencyAlert(ctx, actor, input)
+		activated, err := handlers.service.ActivateEmergencyAlert(ctx, actor, input)
+		if err == nil && activated.Nondurable {
+			handlers.logDegradedEmergency(
+				ctx,
+				"storage unavailable; activated nondurable Emergency Alert",
+				input.EventID,
+				actor.ID,
+				input.CommandID,
+			)
+		} else if err != nil && handlers.service.DegradedCause() != nil {
+			handlers.logDegradedEmergency(
+				ctx,
+				"storage unavailable; Emergency activation requires degraded reconfirmation",
+				input.EventID,
+				actor.ID,
+				input.CommandID,
+			)
+		}
+		return activated, err
 	})
 }
 
@@ -258,12 +329,13 @@ func (handlers overrideHandlers) priorityRequest(
 	response http.ResponseWriter,
 	request *http.Request,
 	preview bool,
+	allowDegraded bool,
 	apply func(context.Context, auth.Account, overrides.PriorityInput) (any, error),
 ) {
 	if !requestAllowed(response, request, http.MethodPost, handlers.allowPlaintextCrew) {
 		return
 	}
-	actor, eventID, ok := handlers.commandContext(response, request)
+	actor, eventID, ok := handlers.commandContext(response, request, allowDegraded)
 	if !ok {
 		return
 	}
@@ -315,7 +387,7 @@ func (handlers overrideHandlers) listActiveOverrides(
 	if !requestAllowed(response, request, http.MethodGet, handlers.allowPlaintextCrew) {
 		return
 	}
-	actor, eventID, ok := handlers.commandContext(response, request)
+	actor, eventID, ok := handlers.commandContext(response, request, true)
 	if !ok {
 		return
 	}
@@ -330,7 +402,7 @@ func (handlers overrideHandlers) previewStageMessage(
 	if !requestAllowed(response, request, http.MethodPost, handlers.allowPlaintextCrew) {
 		return
 	}
-	actor, eventID, ok := handlers.commandContext(response, request)
+	actor, eventID, ok := handlers.commandContext(response, request, false)
 	if !ok {
 		return
 	}
@@ -351,7 +423,7 @@ func (handlers overrideHandlers) configureStageMessages(
 	if !requestAllowed(response, request, http.MethodPatch, handlers.allowPlaintextCrew) {
 		return
 	}
-	actor, eventID, ok := handlers.commandContext(response, request)
+	actor, eventID, ok := handlers.commandContext(response, request, false)
 	if !ok {
 		return
 	}
@@ -372,7 +444,7 @@ func (handlers overrideHandlers) previewTechnicalDifficulties(
 	if !requestAllowed(response, request, http.MethodPost, handlers.allowPlaintextCrew) {
 		return
 	}
-	actor, eventID, ok := handlers.commandContext(response, request)
+	actor, eventID, ok := handlers.commandContext(response, request, false)
 	if !ok {
 		return
 	}
@@ -393,7 +465,7 @@ func (handlers overrideHandlers) sendStageMessage(
 	if !requestAllowed(response, request, http.MethodPost, handlers.allowPlaintextCrew) {
 		return
 	}
-	actor, eventID, ok := handlers.commandContext(response, request)
+	actor, eventID, ok := handlers.commandContext(response, request, false)
 	if !ok {
 		return
 	}
@@ -414,7 +486,7 @@ func (handlers overrideHandlers) activateTechnicalDifficulties(
 	if !requestAllowed(response, request, http.MethodPost, handlers.allowPlaintextCrew) {
 		return
 	}
-	actor, eventID, ok := handlers.commandContext(response, request)
+	actor, eventID, ok := handlers.commandContext(response, request, false)
 	if !ok {
 		return
 	}
@@ -435,7 +507,7 @@ func (handlers overrideHandlers) clearOverride(
 	if !requestAllowed(response, request, http.MethodPost, handlers.allowPlaintextCrew) {
 		return
 	}
-	actor, eventID, ok := handlers.commandContext(response, request)
+	actor, eventID, ok := handlers.commandContext(response, request, true)
 	if !ok {
 		return
 	}
@@ -451,19 +523,54 @@ func (handlers overrideHandlers) clearOverride(
 	}
 	input.EventID, input.OverrideID = eventID, overrideID
 	result, err := handlers.service.Clear(request.Context(), actor, input)
+	if err == nil && result.Nondurable {
+		handlers.logDegradedEmergency(
+			request.Context(),
+			"storage unavailable; cleared nondurable Emergency Alert",
+			input.EventID,
+			actor.ID,
+			input.CommandID,
+		)
+	} else if err != nil && handlers.service.DegradedCause() != nil {
+		handlers.logDegradedEmergency(
+			request.Context(),
+			"storage unavailable; Emergency clear requires degraded reconfirmation",
+			input.EventID,
+			actor.ID,
+			input.CommandID,
+		)
+	}
 	handlers.writeResult(response, request, result, err)
 }
 
 func (handlers overrideHandlers) commandContext(
 	response http.ResponseWriter,
 	request *http.Request,
+	allowDegraded bool,
 ) (auth.Account, int, bool) {
 	cookie, err := request.Cookie(sessionCookieName)
 	if err != nil {
 		http.Error(response, "authentication required", http.StatusUnauthorized)
 		return auth.Account{}, 0, false
 	}
-	actor, err := handlers.authentication.Authenticate(request.Context(), cookie.Value)
+	var actor auth.Account
+	if allowDegraded {
+		actor, err = handlers.authentication.AuthenticatePreviouslyValidated(
+			request.Context(),
+			cookie.Value,
+		)
+	} else {
+		actor, err = handlers.authentication.Authenticate(request.Context(), cookie.Value)
+	}
+	if allowDegraded && handlers.service.DegradedCause() != nil {
+		handlers.logDegradedEmergency(
+			request.Context(),
+			"storage unavailable; Emergency control requires prevalidated authority",
+			0,
+			actor.ID,
+			"",
+		)
+	}
 	if errors.Is(err, auth.ErrInvalidSession) {
 		http.Error(response, "authentication required", http.StatusUnauthorized)
 		return auth.Account{}, 0, false
@@ -479,6 +586,29 @@ func (handlers overrideHandlers) commandContext(
 		return auth.Account{}, 0, false
 	}
 	return actor, eventID, true
+}
+
+func (handlers overrideHandlers) logDegradedEmergency(
+	ctx context.Context,
+	message string,
+	eventID int,
+	actorID int,
+	commandID string,
+) {
+	attributes := []any{"component", "storage"}
+	if eventID > 0 {
+		attributes = append(attributes, "event_id", eventID)
+	}
+	if actorID > 0 {
+		attributes = append(attributes, "actor_account_id", actorID)
+	}
+	if commandID != "" {
+		attributes = append(attributes, "command_id", commandID)
+	}
+	if cause := handlers.service.DegradedCause(); cause != nil {
+		attributes = append(attributes, "error", cause)
+	}
+	handlers.logger.ErrorContext(ctx, message, attributes...)
 }
 
 func (handlers overrideHandlers) writeResult(

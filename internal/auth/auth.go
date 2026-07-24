@@ -11,8 +11,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -63,6 +65,9 @@ var (
 	ErrDisableReasonRequired = errors.New("disable reason is required")
 	// ErrCommandConflict means a Command ID was reused for different Account work.
 	ErrCommandConflict = store.ErrCommandConflict
+	// ErrStorageDegraded means only previously validated sessions may continue
+	// to the nondurable Emergency Alert path.
+	ErrStorageDegraded = errors.New("storage is degraded")
 )
 
 // Account is the authenticated identity exposed above the persistence boundary.
@@ -103,6 +108,13 @@ type Config struct {
 	Random       io.Reader
 	BootstrapTTL time.Duration
 	SessionTTL   time.Duration
+	StorageState StorageState
+}
+
+// StorageState reports whether runtime storage has entered degraded operation.
+type StorageState interface {
+	Degraded() bool
+	PrepareEmergencyStorage(context.Context) error
 }
 
 // DefaultConfig returns production authentication dependencies and lifetimes.
@@ -124,6 +136,14 @@ type Service struct {
 	sessionTTL   time.Duration
 	dummyHash    string
 	passwordWork chan struct{}
+	sessionMu    sync.RWMutex
+	sessions     map[string]validatedSession
+	storageState StorageState
+}
+
+type validatedSession struct {
+	account   Account
+	expiresAt time.Time
 }
 
 // New creates an authentication Service with explicit dependencies.
@@ -160,11 +180,16 @@ func New(storage *store.SQLite, config Config) (*Service, error) {
 		sessionTTL:   config.SessionTTL,
 		dummyHash:    dummyHash,
 		passwordWork: make(chan struct{}, passwordConcurrency),
+		sessions:     make(map[string]validatedSession),
+		storageState: config.StorageState,
 	}, nil
 }
 
 // IssueBootstrap creates a host-authorized short-lived first-Administrator credential.
 func (service *Service) IssueBootstrap(ctx context.Context) (string, error) {
+	if service.storageDegraded() {
+		return "", ErrStorageDegraded
+	}
 	token, err := service.newToken()
 	if err != nil {
 		return "", err
@@ -189,6 +214,9 @@ func (service *Service) BootstrapAdministrator(
 	name string,
 	password string,
 ) (Session, error) {
+	if service.storageDegraded() {
+		return Session{}, ErrStorageDegraded
+	}
 	normalizedName, displayName, err := normalizeAccountName(name)
 	if err != nil || !validPassword(password) || !validToken(bootstrapToken) {
 		return Session{}, ErrInvalidAccountDetails
@@ -221,12 +249,17 @@ func (service *Service) BootstrapAdministrator(
 	if err != nil {
 		return Session{}, err
 	}
-	return newSession(sessionToken, expiresAt, created), nil
+	session := newSession(sessionToken, expiresAt, created)
+	service.rememberSession(sessionToken, session.Account, expiresAt)
+	return session, nil
 }
 
 // SignIn verifies an Account credential without distinguishing unknown,
 // disabled, and incorrect credentials.
 func (service *Service) SignIn(ctx context.Context, name, password string) (Session, error) {
+	if service.storageDegraded() {
+		return Session{}, ErrStorageDegraded
+	}
 	normalizedName, _, nameErr := normalizeAccountName(name)
 	credential, found, err := service.storage.FindAccountCredential(ctx, normalizedName)
 	if err != nil {
@@ -246,6 +279,19 @@ func (service *Service) SignIn(ctx context.Context, name, password string) (Sess
 	if nameErr != nil || !found || !matches {
 		return Session{}, ErrAuthenticationFailed
 	}
+	if service.storageState != nil {
+		prepareErr := service.storageState.PrepareEmergencyStorage(ctx)
+		if prepareErr != nil {
+			if errors.Is(prepareErr, context.Canceled) ||
+				errors.Is(prepareErr, context.DeadlineExceeded) {
+				return Session{}, prepareErr
+			}
+			return Session{}, ErrStorageDegraded
+		}
+		if service.storageDegraded() {
+			return Session{}, ErrStorageDegraded
+		}
+	}
 
 	token, err := service.newToken()
 	if err != nil {
@@ -262,7 +308,9 @@ func (service *Service) SignIn(ctx context.Context, name, password string) (Sess
 	); err != nil {
 		return Session{}, err
 	}
-	return newSession(token, expiresAt, credential), nil
+	session := newSession(token, expiresAt, credential)
+	service.rememberSession(token, session.Account, expiresAt)
+	return session, nil
 }
 
 // CreateAccount creates an individual non-Administrator Account.
@@ -273,6 +321,9 @@ func (service *Service) CreateAccount(
 	password string,
 	commandID string,
 ) (Account, error) {
+	if service.storageDegraded() {
+		return Account{}, ErrStorageDegraded
+	}
 	payloadHash := command.PayloadHash(name, password)
 	if err := command.ValidateID(commandID); err != nil {
 		return Account{}, ErrInvalidAccountDetails
@@ -336,6 +387,9 @@ func (service *Service) DisableAccount(
 	commandID string,
 	reason string,
 ) error {
+	if service.storageDegraded() {
+		return ErrStorageDegraded
+	}
 	if err := command.ValidateID(commandID); err != nil {
 		return ErrInvalidAccountDetails
 	}
@@ -492,17 +546,90 @@ func (service *Service) ListAuditEntries(
 
 // Authenticate returns the Account for an active durable session.
 func (service *Service) Authenticate(ctx context.Context, token string) (Account, error) {
+	return service.authenticate(ctx, token)
+}
+
+// AuthenticatePreviouslyValidated returns only a pre-failure Account snapshot
+// while storage is degraded. It exists solely for the Emergency Alert path.
+func (service *Service) AuthenticatePreviouslyValidated(
+	ctx context.Context,
+	token string,
+) (Account, error) {
 	if !validToken(token) {
 		return Account{}, ErrInvalidSession
 	}
-	found, err := service.storage.FindAccountSession(ctx, tokenDigest(token), service.now().UTC())
+	now := service.now().UTC()
+	tokenHash := tokenDigest(token)
+	cached, previouslyValidated := service.validatedSession(tokenHash, now)
+	if service.storageDegraded() {
+		if previouslyValidated {
+			return cached, nil
+		}
+		return Account{}, ErrStorageDegraded
+	}
+	found, err := service.storage.FindAccountSession(ctx, tokenHash, now)
 	if errors.Is(err, store.ErrInvalidSession) {
+		service.forgetSession(tokenHash)
+		return Account{}, ErrInvalidSession
+	}
+	if err != nil {
+		if previouslyValidated {
+			if service.storageState != nil {
+				_ = service.storageState.PrepareEmergencyStorage(ctx)
+				if !service.storageDegraded() {
+					return Account{}, err
+				}
+			}
+			return cached, nil
+		}
+		return Account{}, err
+	}
+	authenticated := account(found)
+	if service.storageState != nil {
+		probeErr := service.storageState.PrepareEmergencyStorage(ctx)
+		if probeErr != nil || service.storageDegraded() {
+			if errors.Is(probeErr, context.Canceled) ||
+				errors.Is(probeErr, context.DeadlineExceeded) {
+				return Account{}, probeErr
+			}
+			if previouslyValidated {
+				return cached, nil
+			}
+			return Account{}, ErrStorageDegraded
+		}
+	}
+	service.rememberSessionHash(
+		tokenHash,
+		authenticated,
+		found.SessionExpiresAt,
+	)
+	return cloneAccount(authenticated), nil
+}
+
+func (service *Service) authenticate(ctx context.Context, token string) (Account, error) {
+	if !validToken(token) {
+		return Account{}, ErrInvalidSession
+	}
+	now := service.now().UTC()
+	tokenHash := tokenDigest(token)
+	if service.storageDegraded() {
+		return Account{}, ErrStorageDegraded
+	}
+	found, err := service.storage.FindAccountSession(ctx, tokenHash, now)
+	if errors.Is(err, store.ErrInvalidSession) {
+		service.forgetSession(tokenHash)
 		return Account{}, ErrInvalidSession
 	}
 	if err != nil {
 		return Account{}, err
 	}
-	return account(found), nil
+	authenticated := account(found)
+	service.rememberSessionHash(
+		tokenHash,
+		authenticated,
+		found.SessionExpiresAt,
+	)
+	return cloneAccount(authenticated), nil
 }
 
 // SignOut durably revokes a session. Invalid tokens have the same successful result.
@@ -510,7 +637,84 @@ func (service *Service) SignOut(ctx context.Context, token string) error {
 	if !validToken(token) {
 		return nil
 	}
-	return service.storage.RevokeAccountSession(ctx, tokenDigest(token), service.now().UTC())
+	if service.storageDegraded() {
+		return ErrStorageDegraded
+	}
+	tokenHash := tokenDigest(token)
+	if err := service.storage.RevokeAccountSession(ctx, tokenHash, service.now().UTC()); err != nil {
+		return err
+	}
+	service.forgetSession(tokenHash)
+	return nil
+}
+
+func (service *Service) storageDegraded() bool {
+	return service.storageState != nil && service.storageState.Degraded()
+}
+
+func (service *Service) rememberSession(token string, account Account, expiresAt time.Time) {
+	service.rememberSessionHash(tokenDigest(token), account, expiresAt)
+}
+
+func (service *Service) rememberSessionHash(
+	tokenHash string,
+	account Account,
+	expiresAt time.Time,
+) {
+	service.sessionMu.Lock()
+	defer service.sessionMu.Unlock()
+	service.sessions[tokenHash] = validatedSession{
+		account: cloneAccount(account), expiresAt: expiresAt,
+	}
+}
+
+func (service *Service) validatedSession(
+	tokenHash string,
+	now time.Time,
+) (Account, bool) {
+	service.sessionMu.RLock()
+	cached, ok := service.sessions[tokenHash]
+	service.sessionMu.RUnlock()
+	if !ok || !cached.expiresAt.After(now) {
+		if ok {
+			service.forgetSession(tokenHash)
+		}
+		return Account{}, false
+	}
+	return cloneAccount(cached.account), true
+}
+
+func (service *Service) forgetSession(tokenHash string) {
+	service.sessionMu.Lock()
+	defer service.sessionMu.Unlock()
+	delete(service.sessions, tokenHash)
+}
+
+func cloneAccount(source Account) Account {
+	cloned := Account{
+		ID: source.ID, Name: source.Name, Administrator: source.Administrator,
+		EventRoles:  make(map[int]viewer.Role, len(source.EventRoles)),
+		EventScopes: make(map[int]viewer.EventScope, len(source.EventScopes)),
+	}
+	maps.Copy(cloned.EventRoles, source.EventRoles)
+	for eventID, scope := range source.EventScopes {
+		clonedScope := viewer.EventScope{
+			LaneIDs:          make(map[int]struct{}, len(scope.LaneIDs)),
+			DisplayGroupKeys: make(map[string]struct{}, len(scope.DisplayGroupKeys)),
+			Capabilities:     make(map[viewer.Capability]struct{}, len(scope.Capabilities)),
+		}
+		for laneID := range scope.LaneIDs {
+			clonedScope.LaneIDs[laneID] = struct{}{}
+		}
+		for key := range scope.DisplayGroupKeys {
+			clonedScope.DisplayGroupKeys[key] = struct{}{}
+		}
+		for capability := range scope.Capabilities {
+			clonedScope.Capabilities[capability] = struct{}{}
+		}
+		cloned.EventScopes[eventID] = clonedScope
+	}
+	return cloned
 }
 
 func (service *Service) newToken() (string, error) {
