@@ -20,7 +20,7 @@ templ EnrollmentPage(code string, qrCodeDataURL string) {
 	</html>
 }
 
-templ EnrollmentClaimPage(code string, commandID string, buildVersion string, initialName string) {
+templ EnrollmentClaimPage(code string, commandID string, buildVersion string, initialName string, displayID string) {
 	<!doctype html>
 	<html lang="en">
 		<head>
@@ -37,6 +37,7 @@ templ EnrollmentClaimPage(code string, commandID string, buildVersion string, in
 					<input type="hidden" name="command_id" value={ commandID }/>
 					<input type="hidden" name="build_version" value={ buildVersion }/>
 					<label>Display name <input name="name" value={ initialName } maxlength="200" required/></label>
+					<label>Existing Display ID after Sanitized Restore <input type="number" name="display_id" value={ displayID } min="1"/></label>
 					<button type="submit">Enroll Display</button>
 				</form>
 			</main>
@@ -74,7 +75,7 @@ templ EnrollmentClaimedPage(display Display) {
 		<body>
 			<main>
 				<h1>Display enrolled</h1>
-				<p>{ display.Name } is ready and currently unassigned.</p>
+				<p>{ display.Name } is ready.</p>
 			</main>
 		</body>
 	</html>

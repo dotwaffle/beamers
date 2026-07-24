@@ -57,6 +57,8 @@ var (
 	ErrAcknowledgmentConflict = errors.New("Display acknowledgment conflicts")
 	// ErrDisplayNotFound means Assignment targeted no enrolled Display.
 	ErrDisplayNotFound = errors.New("Display not found")
+	// ErrDisplayAlreadyEnrolled means re-Enrollment targeted an active Display credential.
+	ErrDisplayAlreadyEnrolled = errors.New("Display already has an active credential")
 	// ErrAssignmentReference means Event, Location, or View routing is invalid.
 	ErrAssignmentReference = errors.New("invalid Display Assignment reference")
 	// ErrCommandConflict means a Command ID was reused for different Display work.
@@ -247,6 +249,7 @@ type ProgramItem struct {
 type ClaimInput struct {
 	Code      string `json:"code"`
 	Name      string `json:"name"`
+	DisplayID int    `json:"display_id,omitempty"`
 	CommandID string `json:"command_id"`
 }
 
@@ -650,10 +653,15 @@ func (service *Service) ClaimEnrollment(
 	if err := command.ValidateID(input.CommandID); err != nil {
 		return Display{}, ErrInvalidDisplay
 	}
+	targetID := "unidentified"
+	if input.DisplayID > 0 {
+		targetID = store.DisplayTargetID(input.DisplayID)
+	}
 	identity := store.CommandIdentity{
 		ActorAccountID: actor.ID, CommandID: input.CommandID,
-		PayloadHash: command.PayloadHash(code, name), Action: "EnrollDisplay",
-		TargetType: "Display", TargetID: "unidentified", Now: service.now().UTC(),
+		PayloadHash: command.PayloadHash(code, name, strconv.Itoa(input.DisplayID)),
+		Action:      "EnrollDisplay",
+		TargetType:  "Display", TargetID: targetID, Now: service.now().UTC(),
 	}
 	result, err := command.Execute(actor.Context(ctx), command.Plan[Display]{
 		Storage: service.storage, Identity: identity, Replay: replayDisplay,
@@ -661,14 +669,21 @@ func (service *Service) ClaimEnrollment(
 			if !actor.Administrator {
 				return displayRejection(ErrAdministratorRequired), nil
 			}
-			if !validEnrollmentCode(code) || !validDisplayName(name) {
+			if !validEnrollmentCode(code) ||
+				input.DisplayID < 0 ||
+				input.DisplayID == 0 && !validDisplayName(name) {
 				return displayRejection(ErrInvalidDisplay), nil
 			}
 			created, createErr := transaction.ClaimDisplayEnrollment(
-				actor.Context(ctx), digest(code), name, identity.Now,
+				actor.Context(ctx), digest(code), name, input.DisplayID, identity.Now,
 			)
-			if errors.Is(createErr, store.ErrDisplayEnrollmentUnavailable) {
+			switch {
+			case errors.Is(createErr, store.ErrDisplayEnrollmentUnavailable):
 				return displayRejection(ErrEnrollmentUnavailable), nil
+			case errors.Is(createErr, store.ErrDisplayNotFound):
+				return displayRejection(ErrDisplayNotFound), nil
+			case errors.Is(createErr, store.ErrDisplayAlreadyEnrolled):
+				return displayRejection(ErrDisplayAlreadyEnrolled), nil
 			}
 			if createErr != nil {
 				return command.Execution[Display]{}, createErr
@@ -951,6 +966,8 @@ func displayCommandRejection(reason error) store.CommandRejection {
 		code = "enrollment_unavailable"
 	case errors.Is(reason, ErrDisplayNotFound):
 		code = "display_not_found"
+	case errors.Is(reason, ErrDisplayAlreadyEnrolled):
+		code = "display_already_enrolled"
 	case errors.Is(reason, ErrAssignmentReference):
 		code = "assignment_reference"
 	}
@@ -987,6 +1004,8 @@ func restoreDisplayRejection(err error) error {
 		return ErrInvalidDisplay
 	case "display_not_found":
 		return ErrDisplayNotFound
+	case "display_already_enrolled":
+		return ErrDisplayAlreadyEnrolled
 	case "assignment_reference":
 		return ErrAssignmentReference
 	default:

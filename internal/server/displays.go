@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -230,7 +231,17 @@ func (handlers displayHandlers) enrollmentClaimPage(response http.ResponseWriter
 	commandID := "enroll-display-" + strings.ToLower(strings.ReplaceAll(code, "-", ""))
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	initialName := displayClaimRecoveryName(request, code)
-	page := displays.EnrollmentClaimPage(code, commandID, handlers.buildVersion, initialName)
+	displayID := request.URL.Query().Get("display_id")
+	if len(displayID) > 20 {
+		displayID = ""
+	}
+	page := displays.EnrollmentClaimPage(
+		code,
+		commandID,
+		handlers.buildVersion,
+		initialName,
+		displayID,
+	)
 	if err := page.Render(request.Context(), response); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write Display claim page", "error", err)
 	}
@@ -271,9 +282,18 @@ func (handlers displayHandlers) claimEnrollment(response http.ResponseWriter, re
 		}
 		return
 	}
+	displayID := 0
+	if value := request.PostForm.Get("display_id"); value != "" {
+		parsed, parseErr := strconv.Atoi(value)
+		if parseErr != nil || parsed <= 0 {
+			http.Error(response, "valid existing Display ID required", http.StatusUnprocessableEntity)
+			return
+		}
+		displayID = parsed
+	}
 	created, err := handlers.service.ClaimEnrollment(request.Context(), actor, displays.ClaimInput{
 		Code: request.PostForm.Get("code"), Name: request.PostForm.Get("name"),
-		CommandID: request.PostForm.Get("command_id"),
+		DisplayID: displayID, CommandID: request.PostForm.Get("command_id"),
 	})
 	switch {
 	case errors.Is(err, displays.ErrAdministratorRequired):
@@ -284,6 +304,12 @@ func (handlers displayHandlers) claimEnrollment(response http.ResponseWriter, re
 		return
 	case errors.Is(err, displays.ErrEnrollmentUnavailable):
 		http.Error(response, "Display Enrollment is unavailable", http.StatusConflict)
+		return
+	case errors.Is(err, displays.ErrDisplayNotFound):
+		http.Error(response, "Display not found", http.StatusNotFound)
+		return
+	case errors.Is(err, displays.ErrDisplayAlreadyEnrolled):
+		http.Error(response, err.Error(), http.StatusConflict)
 		return
 	case errors.Is(err, displays.ErrCommandConflict):
 		http.Error(response, err.Error(), http.StatusConflict)

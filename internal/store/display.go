@@ -26,6 +26,8 @@ var (
 	ErrDisplayCredential = errors.New("Display authentication required")
 	// ErrDisplayNotFound means Assignment targeted no enrolled Display.
 	ErrDisplayNotFound = errors.New("Display not found")
+	// ErrDisplayAlreadyEnrolled means recovery targeted a Display with a live credential.
+	ErrDisplayAlreadyEnrolled = errors.New("Display already has an active credential")
 	// ErrDisplayAssignmentReference means Event or Location routing is invalid.
 	ErrDisplayAssignmentReference = errors.New("invalid Display Assignment reference")
 )
@@ -114,6 +116,7 @@ func (transaction *CommandTx) ClaimDisplayEnrollment(
 	ctx context.Context,
 	codeHash string,
 	name string,
+	displayID int,
 	now time.Time,
 ) (Display, error) {
 	internalContext := systemContext(ctx)
@@ -128,16 +131,37 @@ func (transaction *CommandTx) ClaimDisplayEnrollment(
 	if err != nil {
 		return Display{}, opaqueError("load Display Enrollment claim", err)
 	}
-	created, err := transaction.transaction.Display.Create().
-		SetName(name).
-		SetCreatedAt(now).
-		SetEnrolledAt(now).
-		Save(internalContext)
-	if err != nil {
-		return Display{}, opaqueError("create enrolled Display", err)
+	var claimed *ent.Display
+	if displayID == 0 {
+		claimed, err = transaction.transaction.Display.Create().
+			SetName(name).
+			SetCreatedAt(now).
+			SetEnrolledAt(now).
+			Save(internalContext)
+		if err != nil {
+			return Display{}, opaqueError("create enrolled Display", err)
+		}
+	} else {
+		claimed, err = transaction.transaction.Display.Get(internalContext, displayID)
+		if ent.IsNotFound(err) {
+			return Display{}, ErrDisplayNotFound
+		}
+		if err != nil {
+			return Display{}, opaqueError("load Display for re-Enrollment", err)
+		}
+		active, credentialErr := transaction.transaction.DisplayCredential.Query().Where(
+			displaycredential.DisplayIDEQ(displayID),
+			displaycredential.RevokedAtIsNil(),
+		).Exist(internalContext)
+		if credentialErr != nil {
+			return Display{}, opaqueError("inspect Display credentials", credentialErr)
+		}
+		if active {
+			return Display{}, ErrDisplayAlreadyEnrolled
+		}
 	}
 	if _, credentialErr := transaction.transaction.DisplayCredential.Create().
-		SetDisplayID(created.ID).
+		SetDisplayID(claimed.ID).
 		SetTokenHash(enrollment.CredentialHash).
 		SetCreatedAt(now).
 		Save(internalContext); credentialErr != nil {
@@ -153,7 +177,7 @@ func (transaction *CommandTx) ClaimDisplayEnrollment(
 	if updated != 1 {
 		return Display{}, ErrDisplayEnrollmentUnavailable
 	}
-	return Display{ID: created.ID, Name: created.Name, EnrolledAt: created.EnrolledAt}, nil
+	return Display{ID: claimed.ID, Name: claimed.Name, EnrolledAt: claimed.EnrolledAt}, nil
 }
 
 // FindDisplayByCredential authenticates one persistent Display token hash.

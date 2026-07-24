@@ -2,9 +2,11 @@ package displays
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/base64"
 	"errors"
 	"image/png"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -193,6 +195,104 @@ func TestDisplayEnrollmentExpiresAndClaimIsSingleUse(t *testing.T) {
 	current, err := service.Current(t.Context(), issued.Credential)
 	if err != nil || current.Display != claimed || !current.Standby {
 		t.Errorf("claimed Display current state = %+v, %v", current, err)
+	}
+}
+
+func TestDisplayReenrollmentPreservesExistingIdentity(t *testing.T) {
+	ctx := t.Context()
+	dataDir := t.TempDir()
+	if err := store.Initialize(ctx, dataDir); err != nil {
+		t.Fatalf("initialize storage: %v", err)
+	}
+	storage, err := store.Open(ctx, dataDir)
+	if err != nil {
+		t.Fatalf("open storage: %v", err)
+	}
+	now := time.Date(2026, 7, 24, 12, 0, 0, 0, time.UTC)
+	bootstrapHash := strings.Repeat("b", 64)
+	if err = storage.IssueBootstrap(ctx, bootstrapHash, now, now.Add(time.Hour)); err != nil {
+		t.Fatalf("issue bootstrap: %v", err)
+	}
+	account, err := storage.BootstrapAdministrator(ctx, store.BootstrapAdministratorParams{
+		BootstrapHash: bootstrapHash, Name: "Administrator", NormalizedName: "administrator",
+		PasswordHash: "test-password-hash", SessionHash: strings.Repeat("s", 64),
+		Now: now, SessionExpiry: now.Add(time.Hour),
+	})
+	if err != nil {
+		t.Fatalf("bootstrap Administrator: %v", err)
+	}
+	administrator := auth.Account{ID: account.ID, Name: account.Name, Administrator: true}
+	service, err := New(storage, Config{
+		Now: func() time.Time { return now },
+		Random: bytes.NewReader(bytes.Repeat(
+			[]byte{1},
+			enrollmentCodeBytes+displayTokenBytes,
+		)),
+		EnrollmentTTL: 10 * time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("create Display service: %v", err)
+	}
+	first, err := service.EnrollmentForBrowser(ctx, "", "")
+	if err != nil {
+		t.Fatalf("issue first Enrollment: %v", err)
+	}
+	original, err := service.ClaimEnrollment(ctx, administrator, ClaimInput{
+		Code: first.Code, Name: "Stage", CommandID: "claim-stage",
+	})
+	if err != nil {
+		t.Fatalf("claim original Display: %v", err)
+	}
+	if err = storage.Close(); err != nil {
+		t.Fatalf("close storage: %v", err)
+	}
+	database, err := sql.Open("sqlite", filepath.Join(dataDir, "beamers.db"))
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	if _, err = database.ExecContext(ctx, "DELETE FROM display_credentials"); err != nil {
+		_ = database.Close()
+		t.Fatalf("strip Display credentials: %v", err)
+	}
+	if err = database.Close(); err != nil {
+		t.Fatalf("close database: %v", err)
+	}
+	storage, err = store.Open(ctx, dataDir)
+	if err != nil {
+		t.Fatalf("reopen storage: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := storage.Close(); closeErr != nil {
+			t.Errorf("close restored storage: %v", closeErr)
+		}
+	})
+	service, err = New(storage, Config{
+		Now: func() time.Time { return now.Add(time.Minute) },
+		Random: bytes.NewReader(bytes.Repeat(
+			[]byte{2},
+			enrollmentCodeBytes+displayTokenBytes,
+		)),
+		EnrollmentTTL: 10 * time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("create restored Display service: %v", err)
+	}
+	recovery, err := service.EnrollmentForBrowser(ctx, "", "")
+	if err != nil {
+		t.Fatalf("issue recovery Enrollment: %v", err)
+	}
+	reenrolled, err := service.ClaimEnrollment(ctx, administrator, ClaimInput{
+		Code: recovery.Code, DisplayID: original.ID, CommandID: "reenroll-stage",
+	})
+	if err != nil {
+		t.Fatalf("re-Enroll Display: %v", err)
+	}
+	if reenrolled != original {
+		t.Fatalf("re-Enrolled Display = %+v, want preserved %+v", reenrolled, original)
+	}
+	current, err := service.Current(ctx, recovery.Credential)
+	if err != nil || current.Display != original {
+		t.Fatalf("re-Enrolled current Display = %+v, %v", current.Display, err)
 	}
 }
 
