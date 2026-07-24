@@ -1190,6 +1190,46 @@ var (
 			},
 		},
 	}
+	// ResultsPublicationsColumns holds the columns for the "results_publications" table.
+	ResultsPublicationsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "scope", Type: field.TypeEnum, Enums: []string{"Prizegiving", "Standalone"}},
+		{Name: "scope_session_id", Type: field.TypeInt},
+		{Name: "revision", Type: field.TypeInt},
+		{Name: "release_policy", Type: field.TypeEnum, Enums: []string{"AllAtCue", "ProgressiveOnReveal", "AtCeremonyEnd", "Standalone"}},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"Partial", "Final"}},
+		{Name: "items", Type: field.TypeJSON},
+		{Name: "prizegiving_lock", Type: field.TypeJSON, Nullable: true},
+		{Name: "created_by_account_id", Type: field.TypeInt, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "event_id", Type: field.TypeInt},
+	}
+	// ResultsPublicationsTable holds the schema information for the "results_publications" table.
+	ResultsPublicationsTable = &schema.Table{
+		Name:       "results_publications",
+		Columns:    ResultsPublicationsColumns,
+		PrimaryKey: []*schema.Column{ResultsPublicationsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "results_publications_events_results_publications",
+				Columns:    []*schema.Column{ResultsPublicationsColumns[10]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "resultspublication_event_id_scope_scope_session_id_revision",
+				Unique:  true,
+				Columns: []*schema.Column{ResultsPublicationsColumns[10], ResultsPublicationsColumns[1], ResultsPublicationsColumns[2], ResultsPublicationsColumns[3]},
+			},
+			{
+				Name:    "resultspublication_event_id_scope_scope_session_id",
+				Unique:  false,
+				Columns: []*schema.Column{ResultsPublicationsColumns[10], ResultsPublicationsColumns[1], ResultsPublicationsColumns[2]},
+			},
+		},
+	}
 	// RundownsColumns holds the columns for the "rundowns" table.
 	RundownsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -1724,6 +1764,7 @@ var (
 		PublicScheduleBaselinesTable,
 		PublicScheduleBaselineEntriesTable,
 		ReopenWindowsTable,
+		ResultsPublicationsTable,
 		RundownsTable,
 		SessionsTable,
 		SessionCancellationsTable,
@@ -1798,6 +1839,7 @@ func init() {
 	PublicScheduleBaselinesTable.ForeignKeys[0].RefTable = EventsTable
 	PublicScheduleBaselineEntriesTable.ForeignKeys[0].RefTable = PublicScheduleBaselinesTable
 	PublicScheduleBaselineEntriesTable.ForeignKeys[1].RefTable = SessionsTable
+	ResultsPublicationsTable.ForeignKeys[0].RefTable = EventsTable
 	RundownsTable.ForeignKeys[0].RefTable = EventsTable
 	SessionsTable.ForeignKeys[0].RefTable = EventsTable
 	SessionCancellationsTable.ForeignKeys[0].RefTable = SessionsTable

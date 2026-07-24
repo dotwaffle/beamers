@@ -49,6 +49,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
+	"github.com/dotwaffle/beamers/ent/resultspublication"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessioncancellation"
@@ -157,6 +158,7 @@ func checkColumn(t, c string) error {
 			publicschedulebaseline.Table:      publicschedulebaseline.ValidColumn,
 			publicschedulebaselineentry.Table: publicschedulebaselineentry.ValidColumn,
 			reopenwindow.Table:                reopenwindow.ValidColumn,
+			resultspublication.Table:          resultspublication.ValidColumn,
 			rundown.Table:                     rundown.ValidColumn,
 			session.Table:                     session.ValidColumn,
 			sessioncancellation.Table:         sessioncancellation.ValidColumn,

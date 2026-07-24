@@ -70,6 +70,7 @@ func (Event) Edges() []ent.Edge {
 		edge.To("event_awards_drafts", EventAwardsDraft.Type),
 		edge.To("prizegivings", Prizegiving.Type),
 		edge.To("prizegiving_competitions", PrizegivingCompetition.Type),
+		edge.To("results_publications", ResultsPublication.Type),
 		edge.To("upload_links", UploadLink.Type),
 		edge.To("draft_edits", DraftEdit.Type),
 		edge.To("draft_changes", DraftChange.Type),

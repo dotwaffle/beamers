@@ -30,6 +30,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
+	"github.com/dotwaffle/beamers/ent/resultspublication"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/track"
@@ -55,6 +56,7 @@ type EventQuery struct {
 	withEventAwardsDrafts          *EventAwardsDraftQuery
 	withPrizegivings               *PrizegivingQuery
 	withPrizegivingCompetitions    *PrizegivingCompetitionQuery
+	withResultsPublications        *ResultsPublicationQuery
 	withUploadLinks                *UploadLinkQuery
 	withDraftEdits                 *DraftEditQuery
 	withDraftChanges               *DraftChangeQuery
@@ -355,6 +357,28 @@ func (_q *EventQuery) QueryPrizegivingCompetitions() *PrizegivingCompetitionQuer
 			sqlgraph.From(event.Table, event.FieldID, selector),
 			sqlgraph.To(prizegivingcompetition.Table, prizegivingcompetition.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, event.PrizegivingCompetitionsTable, event.PrizegivingCompetitionsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryResultsPublications chains the current query on the "results_publications" edge.
+func (_q *EventQuery) QueryResultsPublications() *ResultsPublicationQuery {
+	query := (&ResultsPublicationClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, selector),
+			sqlgraph.To(resultspublication.Table, resultspublication.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.ResultsPublicationsTable, event.ResultsPublicationsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -720,6 +744,7 @@ func (_q *EventQuery) Clone() *EventQuery {
 		withEventAwardsDrafts:          _q.withEventAwardsDrafts.Clone(),
 		withPrizegivings:               _q.withPrizegivings.Clone(),
 		withPrizegivingCompetitions:    _q.withPrizegivingCompetitions.Clone(),
+		withResultsPublications:        _q.withResultsPublications.Clone(),
 		withUploadLinks:                _q.withUploadLinks.Clone(),
 		withDraftEdits:                 _q.withDraftEdits.Clone(),
 		withDraftChanges:               _q.withDraftChanges.Clone(),
@@ -862,6 +887,17 @@ func (_q *EventQuery) WithPrizegivingCompetitions(opts ...func(*PrizegivingCompe
 		opt(query)
 	}
 	_q.withPrizegivingCompetitions = query
+	return _q
+}
+
+// WithResultsPublications tells the query-builder to eager-load the nodes that are connected to
+// the "results_publications" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *EventQuery) WithResultsPublications(opts ...func(*ResultsPublicationQuery)) *EventQuery {
+	query := (&ResultsPublicationClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withResultsPublications = query
 	return _q
 }
 
@@ -1026,7 +1062,7 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 	var (
 		nodes       = []*Event{}
 		_spec       = _q.querySpec()
-		loadedTypes = [19]bool{
+		loadedTypes = [20]bool{
 			_q.withGrants != nil,
 			_q.withRundown != nil,
 			_q.withLocations != nil,
@@ -1039,6 +1075,7 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 			_q.withEventAwardsDrafts != nil,
 			_q.withPrizegivings != nil,
 			_q.withPrizegivingCompetitions != nil,
+			_q.withResultsPublications != nil,
 			_q.withUploadLinks != nil,
 			_q.withDraftEdits != nil,
 			_q.withDraftChanges != nil,
@@ -1153,6 +1190,15 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 			func(n *Event) { n.Edges.PrizegivingCompetitions = []*PrizegivingCompetition{} },
 			func(n *Event, e *PrizegivingCompetition) {
 				n.Edges.PrizegivingCompetitions = append(n.Edges.PrizegivingCompetitions, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withResultsPublications; query != nil {
+		if err := _q.loadResultsPublications(ctx, query, nodes,
+			func(n *Event) { n.Edges.ResultsPublications = []*ResultsPublication{} },
+			func(n *Event, e *ResultsPublication) {
+				n.Edges.ResultsPublications = append(n.Edges.ResultsPublications, e)
 			}); err != nil {
 			return nil, err
 		}
@@ -1552,6 +1598,36 @@ func (_q *EventQuery) loadPrizegivingCompetitions(ctx context.Context, query *Pr
 	}
 	query.Where(predicate.PrizegivingCompetition(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(event.PrizegivingCompetitionsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.EventID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "event_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *EventQuery) loadResultsPublications(ctx context.Context, query *ResultsPublicationQuery, nodes []*Event, init func(*Event), assign func(*Event, *ResultsPublication)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Event)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(resultspublication.FieldEventID)
+	}
+	query.Where(predicate.ResultsPublication(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(event.ResultsPublicationsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

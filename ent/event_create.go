@@ -26,6 +26,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
+	"github.com/dotwaffle/beamers/ent/resultspublication"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/track"
@@ -439,6 +440,21 @@ func (_c *EventCreate) AddPrizegivingCompetitions(v ...*PrizegivingCompetition) 
 		ids[i] = v[i].ID
 	}
 	return _c.AddPrizegivingCompetitionIDs(ids...)
+}
+
+// AddResultsPublicationIDs adds the "results_publications" edge to the ResultsPublication entity by IDs.
+func (_c *EventCreate) AddResultsPublicationIDs(ids ...int) *EventCreate {
+	_c.mutation.AddResultsPublicationIDs(ids...)
+	return _c
+}
+
+// AddResultsPublications adds the "results_publications" edges to the ResultsPublication entity.
+func (_c *EventCreate) AddResultsPublications(v ...*ResultsPublication) *EventCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddResultsPublicationIDs(ids...)
 }
 
 // AddUploadLinkIDs adds the "upload_links" edge to the UploadLink entity by IDs.
@@ -1050,6 +1066,22 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(prizegivingcompetition.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.ResultsPublicationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.ResultsPublicationsTable,
+			Columns: []string{event.ResultsPublicationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(resultspublication.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

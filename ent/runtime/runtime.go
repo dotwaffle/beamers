@@ -43,6 +43,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
+	"github.com/dotwaffle/beamers/ent/resultspublication"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/schema"
 	"github.com/dotwaffle/beamers/ent/session"
@@ -1798,6 +1799,33 @@ func init() {
 	reopenwindowDescUpdatedAt := reopenwindowFields[9].Descriptor()
 	// reopenwindow.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	reopenwindow.DefaultUpdatedAt = reopenwindowDescUpdatedAt.Default.(func() time.Time)
+	resultspublication.Policy = privacy.NewPolicies(schema.ResultsPublication{})
+	resultspublication.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := resultspublication.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	resultspublicationFields := schema.ResultsPublication{}.Fields()
+	_ = resultspublicationFields
+	// resultspublicationDescScopeSessionID is the schema descriptor for scope_session_id field.
+	resultspublicationDescScopeSessionID := resultspublicationFields[2].Descriptor()
+	// resultspublication.ScopeSessionIDValidator is a validator for the "scope_session_id" field. It is called by the builders before save.
+	resultspublication.ScopeSessionIDValidator = resultspublicationDescScopeSessionID.Validators[0].(func(int) error)
+	// resultspublicationDescRevision is the schema descriptor for revision field.
+	resultspublicationDescRevision := resultspublicationFields[3].Descriptor()
+	// resultspublication.RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
+	resultspublication.RevisionValidator = resultspublicationDescRevision.Validators[0].(func(int) error)
+	// resultspublicationDescCreatedByAccountID is the schema descriptor for created_by_account_id field.
+	resultspublicationDescCreatedByAccountID := resultspublicationFields[8].Descriptor()
+	// resultspublication.CreatedByAccountIDValidator is a validator for the "created_by_account_id" field. It is called by the builders before save.
+	resultspublication.CreatedByAccountIDValidator = resultspublicationDescCreatedByAccountID.Validators[0].(func(int) error)
+	// resultspublicationDescCreatedAt is the schema descriptor for created_at field.
+	resultspublicationDescCreatedAt := resultspublicationFields[9].Descriptor()
+	// resultspublication.DefaultCreatedAt holds the default value on creation for the created_at field.
+	resultspublication.DefaultCreatedAt = resultspublicationDescCreatedAt.Default.(func() time.Time)
 	rundown.Policy = privacy.NewPolicies(schema.Rundown{})
 	rundown.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

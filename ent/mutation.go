@@ -49,6 +49,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
+	"github.com/dotwaffle/beamers/ent/resultspublication"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessioncancellation"
@@ -110,6 +111,7 @@ const (
 	TypePublicScheduleBaseline      = "PublicScheduleBaseline"
 	TypePublicScheduleBaselineEntry = "PublicScheduleBaselineEntry"
 	TypeReopenWindow                = "ReopenWindow"
+	TypeResultsPublication          = "ResultsPublication"
 	TypeRundown                     = "Rundown"
 	TypeSession                     = "Session"
 	TypeSessionCancellation         = "SessionCancellation"
@@ -20084,6 +20086,9 @@ type EventMutation struct {
 	prizegiving_competitions                  map[int]struct{}
 	removedprizegiving_competitions           map[int]struct{}
 	clearedprizegiving_competitions           bool
+	results_publications                      map[int]struct{}
+	removedresults_publications               map[int]struct{}
+	clearedresults_publications               bool
 	upload_links                              map[int]struct{}
 	removedupload_links                       map[int]struct{}
 	clearedupload_links                       bool
@@ -21664,6 +21669,60 @@ func (m *EventMutation) ResetPrizegivingCompetitions() {
 	m.removedprizegiving_competitions = nil
 }
 
+// AddResultsPublicationIDs adds the "results_publications" edge to the ResultsPublication entity by ids.
+func (m *EventMutation) AddResultsPublicationIDs(ids ...int) {
+	if m.results_publications == nil {
+		m.results_publications = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.results_publications[ids[i]] = struct{}{}
+	}
+}
+
+// ClearResultsPublications clears the "results_publications" edge to the ResultsPublication entity.
+func (m *EventMutation) ClearResultsPublications() {
+	m.clearedresults_publications = true
+}
+
+// ResultsPublicationsCleared reports if the "results_publications" edge to the ResultsPublication entity was cleared.
+func (m *EventMutation) ResultsPublicationsCleared() bool {
+	return m.clearedresults_publications
+}
+
+// RemoveResultsPublicationIDs removes the "results_publications" edge to the ResultsPublication entity by IDs.
+func (m *EventMutation) RemoveResultsPublicationIDs(ids ...int) {
+	if m.removedresults_publications == nil {
+		m.removedresults_publications = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.results_publications, ids[i])
+		m.removedresults_publications[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedResultsPublications returns the removed IDs of the "results_publications" edge to the ResultsPublication entity.
+func (m *EventMutation) RemovedResultsPublicationsIDs() (ids []int) {
+	for id := range m.removedresults_publications {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResultsPublicationsIDs returns the "results_publications" edge IDs in the mutation.
+func (m *EventMutation) ResultsPublicationsIDs() (ids []int) {
+	for id := range m.results_publications {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetResultsPublications resets all changes to the "results_publications" edge.
+func (m *EventMutation) ResetResultsPublications() {
+	m.results_publications = nil
+	m.clearedresults_publications = false
+	m.removedresults_publications = nil
+}
+
 // AddUploadLinkIDs adds the "upload_links" edge to the UploadLink entity by ids.
 func (m *EventMutation) AddUploadLinkIDs(ids ...int) {
 	if m.upload_links == nil {
@@ -22550,7 +22609,7 @@ func (m *EventMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *EventMutation) AddedEdges() []string {
-	edges := make([]string, 0, 19)
+	edges := make([]string, 0, 20)
 	if m.grants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -22586,6 +22645,9 @@ func (m *EventMutation) AddedEdges() []string {
 	}
 	if m.prizegiving_competitions != nil {
 		edges = append(edges, event.EdgePrizegivingCompetitions)
+	}
+	if m.results_publications != nil {
+		edges = append(edges, event.EdgeResultsPublications)
 	}
 	if m.upload_links != nil {
 		edges = append(edges, event.EdgeUploadLinks)
@@ -22685,6 +22747,12 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeResultsPublications:
+		ids := make([]ent.Value, 0, len(m.results_publications))
+		for id := range m.results_publications {
+			ids = append(ids, id)
+		}
+		return ids
 	case event.EdgeUploadLinks:
 		ids := make([]ent.Value, 0, len(m.upload_links))
 		for id := range m.upload_links {
@@ -22731,7 +22799,7 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *EventMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 19)
+	edges := make([]string, 0, 20)
 	if m.removedgrants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -22764,6 +22832,9 @@ func (m *EventMutation) RemovedEdges() []string {
 	}
 	if m.removedprizegiving_competitions != nil {
 		edges = append(edges, event.EdgePrizegivingCompetitions)
+	}
+	if m.removedresults_publications != nil {
+		edges = append(edges, event.EdgeResultsPublications)
 	}
 	if m.removedupload_links != nil {
 		edges = append(edges, event.EdgeUploadLinks)
@@ -22856,6 +22927,12 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeResultsPublications:
+		ids := make([]ent.Value, 0, len(m.removedresults_publications))
+		for id := range m.removedresults_publications {
+			ids = append(ids, id)
+		}
+		return ids
 	case event.EdgeUploadLinks:
 		ids := make([]ent.Value, 0, len(m.removedupload_links))
 		for id := range m.removedupload_links {
@@ -22898,7 +22975,7 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *EventMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 19)
+	edges := make([]string, 0, 20)
 	if m.clearedgrants {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -22934,6 +23011,9 @@ func (m *EventMutation) ClearedEdges() []string {
 	}
 	if m.clearedprizegiving_competitions {
 		edges = append(edges, event.EdgePrizegivingCompetitions)
+	}
+	if m.clearedresults_publications {
+		edges = append(edges, event.EdgeResultsPublications)
 	}
 	if m.clearedupload_links {
 		edges = append(edges, event.EdgeUploadLinks)
@@ -22987,6 +23067,8 @@ func (m *EventMutation) EdgeCleared(name string) bool {
 		return m.clearedprizegivings
 	case event.EdgePrizegivingCompetitions:
 		return m.clearedprizegiving_competitions
+	case event.EdgeResultsPublications:
+		return m.clearedresults_publications
 	case event.EdgeUploadLinks:
 		return m.clearedupload_links
 	case event.EdgeDraftEdits:
@@ -23058,6 +23140,9 @@ func (m *EventMutation) ResetEdge(name string) error {
 		return nil
 	case event.EdgePrizegivingCompetitions:
 		m.ResetPrizegivingCompetitions()
+		return nil
+	case event.EdgeResultsPublications:
+		m.ResetResultsPublications()
 		return nil
 	case event.EdgeUploadLinks:
 		m.ResetUploadLinks()
@@ -35797,6 +35882,1032 @@ func (m *ReopenWindowMutation) ClearEdge(name string) error {
 // It returns an error if the edge is not defined in the schema.
 func (m *ReopenWindowMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown ReopenWindow edge %s", name)
+}
+
+// ResultsPublicationMutation represents an operation that mutates the ResultsPublication nodes in the graph.
+type ResultsPublicationMutation struct {
+	config
+	op                       Op
+	typ                      string
+	id                       *int
+	scope                    *resultspublication.Scope
+	scope_session_id         *int
+	addscope_session_id      *int
+	revision                 *int
+	addrevision              *int
+	release_policy           *resultspublication.ReleasePolicy
+	status                   *resultspublication.Status
+	items                    *[]prizegivingvalue.ItemRef
+	appenditems              []prizegivingvalue.ItemRef
+	prizegiving_lock         *prizegivingvalue.Lock
+	created_by_account_id    *int
+	addcreated_by_account_id *int
+	created_at               *time.Time
+	clearedFields            map[string]struct{}
+	event                    *int
+	clearedevent             bool
+	done                     bool
+	oldValue                 func(context.Context) (*ResultsPublication, error)
+	predicates               []predicate.ResultsPublication
+}
+
+var _ ent.Mutation = (*ResultsPublicationMutation)(nil)
+
+// resultspublicationOption allows management of the mutation configuration using functional options.
+type resultspublicationOption func(*ResultsPublicationMutation)
+
+// newResultsPublicationMutation creates new mutation for the ResultsPublication entity.
+func newResultsPublicationMutation(c config, op Op, opts ...resultspublicationOption) *ResultsPublicationMutation {
+	m := &ResultsPublicationMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeResultsPublication,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withResultsPublicationID sets the ID field of the mutation.
+func withResultsPublicationID(id int) resultspublicationOption {
+	return func(m *ResultsPublicationMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ResultsPublication
+		)
+		m.oldValue = func(ctx context.Context) (*ResultsPublication, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ResultsPublication.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withResultsPublication sets the old ResultsPublication of the mutation.
+func withResultsPublication(node *ResultsPublication) resultspublicationOption {
+	return func(m *ResultsPublicationMutation) {
+		m.oldValue = func(context.Context) (*ResultsPublication, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ResultsPublicationMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ResultsPublicationMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ResultsPublicationMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ResultsPublicationMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ResultsPublication.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetEventID sets the "event_id" field.
+func (m *ResultsPublicationMutation) SetEventID(i int) {
+	m.event = &i
+}
+
+// EventID returns the value of the "event_id" field in the mutation.
+func (m *ResultsPublicationMutation) EventID() (r int, exists bool) {
+	v := m.event
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventID returns the old "event_id" field's value of the ResultsPublication entity.
+// If the ResultsPublication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsPublicationMutation) OldEventID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventID: %w", err)
+	}
+	return oldValue.EventID, nil
+}
+
+// ResetEventID resets all changes to the "event_id" field.
+func (m *ResultsPublicationMutation) ResetEventID() {
+	m.event = nil
+}
+
+// SetScope sets the "scope" field.
+func (m *ResultsPublicationMutation) SetScope(r resultspublication.Scope) {
+	m.scope = &r
+}
+
+// Scope returns the value of the "scope" field in the mutation.
+func (m *ResultsPublicationMutation) Scope() (r resultspublication.Scope, exists bool) {
+	v := m.scope
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldScope returns the old "scope" field's value of the ResultsPublication entity.
+// If the ResultsPublication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsPublicationMutation) OldScope(ctx context.Context) (v resultspublication.Scope, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldScope is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldScope requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldScope: %w", err)
+	}
+	return oldValue.Scope, nil
+}
+
+// ResetScope resets all changes to the "scope" field.
+func (m *ResultsPublicationMutation) ResetScope() {
+	m.scope = nil
+}
+
+// SetScopeSessionID sets the "scope_session_id" field.
+func (m *ResultsPublicationMutation) SetScopeSessionID(i int) {
+	m.scope_session_id = &i
+	m.addscope_session_id = nil
+}
+
+// ScopeSessionID returns the value of the "scope_session_id" field in the mutation.
+func (m *ResultsPublicationMutation) ScopeSessionID() (r int, exists bool) {
+	v := m.scope_session_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldScopeSessionID returns the old "scope_session_id" field's value of the ResultsPublication entity.
+// If the ResultsPublication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsPublicationMutation) OldScopeSessionID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldScopeSessionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldScopeSessionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldScopeSessionID: %w", err)
+	}
+	return oldValue.ScopeSessionID, nil
+}
+
+// AddScopeSessionID adds i to the "scope_session_id" field.
+func (m *ResultsPublicationMutation) AddScopeSessionID(i int) {
+	if m.addscope_session_id != nil {
+		*m.addscope_session_id += i
+	} else {
+		m.addscope_session_id = &i
+	}
+}
+
+// AddedScopeSessionID returns the value that was added to the "scope_session_id" field in this mutation.
+func (m *ResultsPublicationMutation) AddedScopeSessionID() (r int, exists bool) {
+	v := m.addscope_session_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetScopeSessionID resets all changes to the "scope_session_id" field.
+func (m *ResultsPublicationMutation) ResetScopeSessionID() {
+	m.scope_session_id = nil
+	m.addscope_session_id = nil
+}
+
+// SetRevision sets the "revision" field.
+func (m *ResultsPublicationMutation) SetRevision(i int) {
+	m.revision = &i
+	m.addrevision = nil
+}
+
+// Revision returns the value of the "revision" field in the mutation.
+func (m *ResultsPublicationMutation) Revision() (r int, exists bool) {
+	v := m.revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRevision returns the old "revision" field's value of the ResultsPublication entity.
+// If the ResultsPublication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsPublicationMutation) OldRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRevision: %w", err)
+	}
+	return oldValue.Revision, nil
+}
+
+// AddRevision adds i to the "revision" field.
+func (m *ResultsPublicationMutation) AddRevision(i int) {
+	if m.addrevision != nil {
+		*m.addrevision += i
+	} else {
+		m.addrevision = &i
+	}
+}
+
+// AddedRevision returns the value that was added to the "revision" field in this mutation.
+func (m *ResultsPublicationMutation) AddedRevision() (r int, exists bool) {
+	v := m.addrevision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRevision resets all changes to the "revision" field.
+func (m *ResultsPublicationMutation) ResetRevision() {
+	m.revision = nil
+	m.addrevision = nil
+}
+
+// SetReleasePolicy sets the "release_policy" field.
+func (m *ResultsPublicationMutation) SetReleasePolicy(rp resultspublication.ReleasePolicy) {
+	m.release_policy = &rp
+}
+
+// ReleasePolicy returns the value of the "release_policy" field in the mutation.
+func (m *ResultsPublicationMutation) ReleasePolicy() (r resultspublication.ReleasePolicy, exists bool) {
+	v := m.release_policy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReleasePolicy returns the old "release_policy" field's value of the ResultsPublication entity.
+// If the ResultsPublication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsPublicationMutation) OldReleasePolicy(ctx context.Context) (v resultspublication.ReleasePolicy, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReleasePolicy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReleasePolicy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReleasePolicy: %w", err)
+	}
+	return oldValue.ReleasePolicy, nil
+}
+
+// ResetReleasePolicy resets all changes to the "release_policy" field.
+func (m *ResultsPublicationMutation) ResetReleasePolicy() {
+	m.release_policy = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *ResultsPublicationMutation) SetStatus(r resultspublication.Status) {
+	m.status = &r
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *ResultsPublicationMutation) Status() (r resultspublication.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the ResultsPublication entity.
+// If the ResultsPublication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsPublicationMutation) OldStatus(ctx context.Context) (v resultspublication.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *ResultsPublicationMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetItems sets the "items" field.
+func (m *ResultsPublicationMutation) SetItems(pr []prizegivingvalue.ItemRef) {
+	m.items = &pr
+	m.appenditems = nil
+}
+
+// Items returns the value of the "items" field in the mutation.
+func (m *ResultsPublicationMutation) Items() (r []prizegivingvalue.ItemRef, exists bool) {
+	v := m.items
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldItems returns the old "items" field's value of the ResultsPublication entity.
+// If the ResultsPublication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsPublicationMutation) OldItems(ctx context.Context) (v []prizegivingvalue.ItemRef, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldItems is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldItems requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldItems: %w", err)
+	}
+	return oldValue.Items, nil
+}
+
+// AppendItems adds pr to the "items" field.
+func (m *ResultsPublicationMutation) AppendItems(pr []prizegivingvalue.ItemRef) {
+	m.appenditems = append(m.appenditems, pr...)
+}
+
+// AppendedItems returns the list of values that were appended to the "items" field in this mutation.
+func (m *ResultsPublicationMutation) AppendedItems() ([]prizegivingvalue.ItemRef, bool) {
+	if len(m.appenditems) == 0 {
+		return nil, false
+	}
+	return m.appenditems, true
+}
+
+// ResetItems resets all changes to the "items" field.
+func (m *ResultsPublicationMutation) ResetItems() {
+	m.items = nil
+	m.appenditems = nil
+}
+
+// SetPrizegivingLock sets the "prizegiving_lock" field.
+func (m *ResultsPublicationMutation) SetPrizegivingLock(pr prizegivingvalue.Lock) {
+	m.prizegiving_lock = &pr
+}
+
+// PrizegivingLock returns the value of the "prizegiving_lock" field in the mutation.
+func (m *ResultsPublicationMutation) PrizegivingLock() (r prizegivingvalue.Lock, exists bool) {
+	v := m.prizegiving_lock
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPrizegivingLock returns the old "prizegiving_lock" field's value of the ResultsPublication entity.
+// If the ResultsPublication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsPublicationMutation) OldPrizegivingLock(ctx context.Context) (v prizegivingvalue.Lock, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPrizegivingLock is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPrizegivingLock requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPrizegivingLock: %w", err)
+	}
+	return oldValue.PrizegivingLock, nil
+}
+
+// ClearPrizegivingLock clears the value of the "prizegiving_lock" field.
+func (m *ResultsPublicationMutation) ClearPrizegivingLock() {
+	m.prizegiving_lock = nil
+	m.clearedFields[resultspublication.FieldPrizegivingLock] = struct{}{}
+}
+
+// PrizegivingLockCleared returns if the "prizegiving_lock" field was cleared in this mutation.
+func (m *ResultsPublicationMutation) PrizegivingLockCleared() bool {
+	_, ok := m.clearedFields[resultspublication.FieldPrizegivingLock]
+	return ok
+}
+
+// ResetPrizegivingLock resets all changes to the "prizegiving_lock" field.
+func (m *ResultsPublicationMutation) ResetPrizegivingLock() {
+	m.prizegiving_lock = nil
+	delete(m.clearedFields, resultspublication.FieldPrizegivingLock)
+}
+
+// SetCreatedByAccountID sets the "created_by_account_id" field.
+func (m *ResultsPublicationMutation) SetCreatedByAccountID(i int) {
+	m.created_by_account_id = &i
+	m.addcreated_by_account_id = nil
+}
+
+// CreatedByAccountID returns the value of the "created_by_account_id" field in the mutation.
+func (m *ResultsPublicationMutation) CreatedByAccountID() (r int, exists bool) {
+	v := m.created_by_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedByAccountID returns the old "created_by_account_id" field's value of the ResultsPublication entity.
+// If the ResultsPublication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsPublicationMutation) OldCreatedByAccountID(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedByAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedByAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedByAccountID: %w", err)
+	}
+	return oldValue.CreatedByAccountID, nil
+}
+
+// AddCreatedByAccountID adds i to the "created_by_account_id" field.
+func (m *ResultsPublicationMutation) AddCreatedByAccountID(i int) {
+	if m.addcreated_by_account_id != nil {
+		*m.addcreated_by_account_id += i
+	} else {
+		m.addcreated_by_account_id = &i
+	}
+}
+
+// AddedCreatedByAccountID returns the value that was added to the "created_by_account_id" field in this mutation.
+func (m *ResultsPublicationMutation) AddedCreatedByAccountID() (r int, exists bool) {
+	v := m.addcreated_by_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearCreatedByAccountID clears the value of the "created_by_account_id" field.
+func (m *ResultsPublicationMutation) ClearCreatedByAccountID() {
+	m.created_by_account_id = nil
+	m.addcreated_by_account_id = nil
+	m.clearedFields[resultspublication.FieldCreatedByAccountID] = struct{}{}
+}
+
+// CreatedByAccountIDCleared returns if the "created_by_account_id" field was cleared in this mutation.
+func (m *ResultsPublicationMutation) CreatedByAccountIDCleared() bool {
+	_, ok := m.clearedFields[resultspublication.FieldCreatedByAccountID]
+	return ok
+}
+
+// ResetCreatedByAccountID resets all changes to the "created_by_account_id" field.
+func (m *ResultsPublicationMutation) ResetCreatedByAccountID() {
+	m.created_by_account_id = nil
+	m.addcreated_by_account_id = nil
+	delete(m.clearedFields, resultspublication.FieldCreatedByAccountID)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ResultsPublicationMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ResultsPublicationMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ResultsPublication entity.
+// If the ResultsPublication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsPublicationMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ResultsPublicationMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearEvent clears the "event" edge to the Event entity.
+func (m *ResultsPublicationMutation) ClearEvent() {
+	m.clearedevent = true
+	m.clearedFields[resultspublication.FieldEventID] = struct{}{}
+}
+
+// EventCleared reports if the "event" edge to the Event entity was cleared.
+func (m *ResultsPublicationMutation) EventCleared() bool {
+	return m.clearedevent
+}
+
+// EventIDs returns the "event" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// EventID instead. It exists only for internal usage by the builders.
+func (m *ResultsPublicationMutation) EventIDs() (ids []int) {
+	if id := m.event; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetEvent resets all changes to the "event" edge.
+func (m *ResultsPublicationMutation) ResetEvent() {
+	m.event = nil
+	m.clearedevent = false
+}
+
+// Where appends a list predicates to the ResultsPublicationMutation builder.
+func (m *ResultsPublicationMutation) Where(ps ...predicate.ResultsPublication) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ResultsPublicationMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ResultsPublicationMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ResultsPublication, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ResultsPublicationMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ResultsPublicationMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ResultsPublication).
+func (m *ResultsPublicationMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ResultsPublicationMutation) Fields() []string {
+	fields := make([]string, 0, 10)
+	if m.event != nil {
+		fields = append(fields, resultspublication.FieldEventID)
+	}
+	if m.scope != nil {
+		fields = append(fields, resultspublication.FieldScope)
+	}
+	if m.scope_session_id != nil {
+		fields = append(fields, resultspublication.FieldScopeSessionID)
+	}
+	if m.revision != nil {
+		fields = append(fields, resultspublication.FieldRevision)
+	}
+	if m.release_policy != nil {
+		fields = append(fields, resultspublication.FieldReleasePolicy)
+	}
+	if m.status != nil {
+		fields = append(fields, resultspublication.FieldStatus)
+	}
+	if m.items != nil {
+		fields = append(fields, resultspublication.FieldItems)
+	}
+	if m.prizegiving_lock != nil {
+		fields = append(fields, resultspublication.FieldPrizegivingLock)
+	}
+	if m.created_by_account_id != nil {
+		fields = append(fields, resultspublication.FieldCreatedByAccountID)
+	}
+	if m.created_at != nil {
+		fields = append(fields, resultspublication.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ResultsPublicationMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case resultspublication.FieldEventID:
+		return m.EventID()
+	case resultspublication.FieldScope:
+		return m.Scope()
+	case resultspublication.FieldScopeSessionID:
+		return m.ScopeSessionID()
+	case resultspublication.FieldRevision:
+		return m.Revision()
+	case resultspublication.FieldReleasePolicy:
+		return m.ReleasePolicy()
+	case resultspublication.FieldStatus:
+		return m.Status()
+	case resultspublication.FieldItems:
+		return m.Items()
+	case resultspublication.FieldPrizegivingLock:
+		return m.PrizegivingLock()
+	case resultspublication.FieldCreatedByAccountID:
+		return m.CreatedByAccountID()
+	case resultspublication.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ResultsPublicationMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case resultspublication.FieldEventID:
+		return m.OldEventID(ctx)
+	case resultspublication.FieldScope:
+		return m.OldScope(ctx)
+	case resultspublication.FieldScopeSessionID:
+		return m.OldScopeSessionID(ctx)
+	case resultspublication.FieldRevision:
+		return m.OldRevision(ctx)
+	case resultspublication.FieldReleasePolicy:
+		return m.OldReleasePolicy(ctx)
+	case resultspublication.FieldStatus:
+		return m.OldStatus(ctx)
+	case resultspublication.FieldItems:
+		return m.OldItems(ctx)
+	case resultspublication.FieldPrizegivingLock:
+		return m.OldPrizegivingLock(ctx)
+	case resultspublication.FieldCreatedByAccountID:
+		return m.OldCreatedByAccountID(ctx)
+	case resultspublication.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ResultsPublication field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ResultsPublicationMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case resultspublication.FieldEventID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventID(v)
+		return nil
+	case resultspublication.FieldScope:
+		v, ok := value.(resultspublication.Scope)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetScope(v)
+		return nil
+	case resultspublication.FieldScopeSessionID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetScopeSessionID(v)
+		return nil
+	case resultspublication.FieldRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRevision(v)
+		return nil
+	case resultspublication.FieldReleasePolicy:
+		v, ok := value.(resultspublication.ReleasePolicy)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReleasePolicy(v)
+		return nil
+	case resultspublication.FieldStatus:
+		v, ok := value.(resultspublication.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case resultspublication.FieldItems:
+		v, ok := value.([]prizegivingvalue.ItemRef)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetItems(v)
+		return nil
+	case resultspublication.FieldPrizegivingLock:
+		v, ok := value.(prizegivingvalue.Lock)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPrizegivingLock(v)
+		return nil
+	case resultspublication.FieldCreatedByAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedByAccountID(v)
+		return nil
+	case resultspublication.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ResultsPublication field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ResultsPublicationMutation) AddedFields() []string {
+	var fields []string
+	if m.addscope_session_id != nil {
+		fields = append(fields, resultspublication.FieldScopeSessionID)
+	}
+	if m.addrevision != nil {
+		fields = append(fields, resultspublication.FieldRevision)
+	}
+	if m.addcreated_by_account_id != nil {
+		fields = append(fields, resultspublication.FieldCreatedByAccountID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ResultsPublicationMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case resultspublication.FieldScopeSessionID:
+		return m.AddedScopeSessionID()
+	case resultspublication.FieldRevision:
+		return m.AddedRevision()
+	case resultspublication.FieldCreatedByAccountID:
+		return m.AddedCreatedByAccountID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ResultsPublicationMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case resultspublication.FieldScopeSessionID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddScopeSessionID(v)
+		return nil
+	case resultspublication.FieldRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRevision(v)
+		return nil
+	case resultspublication.FieldCreatedByAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCreatedByAccountID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ResultsPublication numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ResultsPublicationMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(resultspublication.FieldPrizegivingLock) {
+		fields = append(fields, resultspublication.FieldPrizegivingLock)
+	}
+	if m.FieldCleared(resultspublication.FieldCreatedByAccountID) {
+		fields = append(fields, resultspublication.FieldCreatedByAccountID)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ResultsPublicationMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ResultsPublicationMutation) ClearField(name string) error {
+	switch name {
+	case resultspublication.FieldPrizegivingLock:
+		m.ClearPrizegivingLock()
+		return nil
+	case resultspublication.FieldCreatedByAccountID:
+		m.ClearCreatedByAccountID()
+		return nil
+	}
+	return fmt.Errorf("unknown ResultsPublication nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ResultsPublicationMutation) ResetField(name string) error {
+	switch name {
+	case resultspublication.FieldEventID:
+		m.ResetEventID()
+		return nil
+	case resultspublication.FieldScope:
+		m.ResetScope()
+		return nil
+	case resultspublication.FieldScopeSessionID:
+		m.ResetScopeSessionID()
+		return nil
+	case resultspublication.FieldRevision:
+		m.ResetRevision()
+		return nil
+	case resultspublication.FieldReleasePolicy:
+		m.ResetReleasePolicy()
+		return nil
+	case resultspublication.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case resultspublication.FieldItems:
+		m.ResetItems()
+		return nil
+	case resultspublication.FieldPrizegivingLock:
+		m.ResetPrizegivingLock()
+		return nil
+	case resultspublication.FieldCreatedByAccountID:
+		m.ResetCreatedByAccountID()
+		return nil
+	case resultspublication.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ResultsPublication field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ResultsPublicationMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.event != nil {
+		edges = append(edges, resultspublication.EdgeEvent)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ResultsPublicationMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case resultspublication.EdgeEvent:
+		if id := m.event; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ResultsPublicationMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ResultsPublicationMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ResultsPublicationMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedevent {
+		edges = append(edges, resultspublication.EdgeEvent)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ResultsPublicationMutation) EdgeCleared(name string) bool {
+	switch name {
+	case resultspublication.EdgeEvent:
+		return m.clearedevent
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ResultsPublicationMutation) ClearEdge(name string) error {
+	switch name {
+	case resultspublication.EdgeEvent:
+		m.ClearEvent()
+		return nil
+	}
+	return fmt.Errorf("unknown ResultsPublication unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ResultsPublicationMutation) ResetEdge(name string) error {
+	switch name {
+	case resultspublication.EdgeEvent:
+		m.ResetEvent()
+		return nil
+	}
+	return fmt.Errorf("unknown ResultsPublication edge %s", name)
 }
 
 // RundownMutation represents an operation that mutates the Rundown nodes in the graph.

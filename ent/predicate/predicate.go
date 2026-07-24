@@ -117,6 +117,9 @@ type PublicScheduleBaselineEntry func(*sql.Selector)
 // ReopenWindow is the predicate function for reopenwindow builders.
 type ReopenWindow func(*sql.Selector)
 
+// ResultsPublication is the predicate function for resultspublication builders.
+type ResultsPublication func(*sql.Selector)
+
 // Rundown is the predicate function for rundown builders.
 type Rundown func(*sql.Selector)
 

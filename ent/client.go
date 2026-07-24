@@ -52,6 +52,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
+	"github.com/dotwaffle/beamers/ent/resultspublication"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessioncancellation"
@@ -146,6 +147,8 @@ type Client struct {
 	PublicScheduleBaselineEntry *PublicScheduleBaselineEntryClient
 	// ReopenWindow is the client for interacting with the ReopenWindow builders.
 	ReopenWindow *ReopenWindowClient
+	// ResultsPublication is the client for interacting with the ResultsPublication builders.
+	ResultsPublication *ResultsPublicationClient
 	// Rundown is the client for interacting with the Rundown builders.
 	Rundown *RundownClient
 	// Session is the client for interacting with the Session builders.
@@ -216,6 +219,7 @@ func (c *Client) init() {
 	c.PublicScheduleBaseline = NewPublicScheduleBaselineClient(c.config)
 	c.PublicScheduleBaselineEntry = NewPublicScheduleBaselineEntryClient(c.config)
 	c.ReopenWindow = NewReopenWindowClient(c.config)
+	c.ResultsPublication = NewResultsPublicationClient(c.config)
 	c.Rundown = NewRundownClient(c.config)
 	c.Session = NewSessionClient(c.config)
 	c.SessionCancellation = NewSessionCancellationClient(c.config)
@@ -356,6 +360,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		PublicScheduleBaseline:      NewPublicScheduleBaselineClient(cfg),
 		PublicScheduleBaselineEntry: NewPublicScheduleBaselineEntryClient(cfg),
 		ReopenWindow:                NewReopenWindowClient(cfg),
+		ResultsPublication:          NewResultsPublicationClient(cfg),
 		Rundown:                     NewRundownClient(cfg),
 		Session:                     NewSessionClient(cfg),
 		SessionCancellation:         NewSessionCancellationClient(cfg),
@@ -423,6 +428,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		PublicScheduleBaseline:      NewPublicScheduleBaselineClient(cfg),
 		PublicScheduleBaselineEntry: NewPublicScheduleBaselineEntryClient(cfg),
 		ReopenWindow:                NewReopenWindowClient(cfg),
+		ResultsPublication:          NewResultsPublicationClient(cfg),
 		Rundown:                     NewRundownClient(cfg),
 		Session:                     NewSessionClient(cfg),
 		SessionCancellation:         NewSessionCancellationClient(cfg),
@@ -473,10 +479,10 @@ func (c *Client) Use(hooks ...Hook) {
 		c.LanePublishedVersion, c.Location, c.LocationDraft,
 		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Prizegiving,
 		c.PrizegivingCompetition, c.PublicScheduleBaseline,
-		c.PublicScheduleBaselineEntry, c.ReopenWindow, c.Rundown, c.Session,
-		c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
-		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion,
-		c.UploadLink,
+		c.PublicScheduleBaselineEntry, c.ReopenWindow, c.ResultsPublication, c.Rundown,
+		c.Session, c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion,
+		c.SessionRun, c.SessionRunAmendment, c.Track, c.TrackDraft,
+		c.TrackPublishedVersion, c.UploadLink,
 	} {
 		n.Use(hooks...)
 	}
@@ -496,10 +502,10 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.LanePublishedVersion, c.Location, c.LocationDraft,
 		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Prizegiving,
 		c.PrizegivingCompetition, c.PublicScheduleBaseline,
-		c.PublicScheduleBaselineEntry, c.ReopenWindow, c.Rundown, c.Session,
-		c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
-		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion,
-		c.UploadLink,
+		c.PublicScheduleBaselineEntry, c.ReopenWindow, c.ResultsPublication, c.Rundown,
+		c.Session, c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion,
+		c.SessionRun, c.SessionRunAmendment, c.Track, c.TrackDraft,
+		c.TrackPublishedVersion, c.UploadLink,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -582,6 +588,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.PublicScheduleBaselineEntry.mutate(ctx, m)
 	case *ReopenWindowMutation:
 		return c.ReopenWindow.mutate(ctx, m)
+	case *ResultsPublicationMutation:
+		return c.ResultsPublication.mutate(ctx, m)
 	case *RundownMutation:
 		return c.Rundown.mutate(ctx, m)
 	case *SessionMutation:
@@ -4111,6 +4119,22 @@ func (c *EventClient) QueryPrizegivingCompetitions(_m *Event) *PrizegivingCompet
 	return query
 }
 
+// QueryResultsPublications queries the results_publications edge of a Event.
+func (c *EventClient) QueryResultsPublications(_m *Event) *ResultsPublicationQuery {
+	query := (&ResultsPublicationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(resultspublication.Table, resultspublication.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.ResultsPublicationsTable, event.ResultsPublicationsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryUploadLinks queries the upload_links edge of a Event.
 func (c *EventClient) QueryUploadLinks(_m *Event) *UploadLinkQuery {
 	query := (&UploadLinkClient{config: c.config}).Query()
@@ -7086,6 +7110,156 @@ func (c *ReopenWindowClient) mutate(ctx context.Context, m *ReopenWindowMutation
 	}
 }
 
+// ResultsPublicationClient is a client for the ResultsPublication schema.
+type ResultsPublicationClient struct {
+	config
+}
+
+// NewResultsPublicationClient returns a client for the ResultsPublication from the given config.
+func NewResultsPublicationClient(c config) *ResultsPublicationClient {
+	return &ResultsPublicationClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `resultspublication.Hooks(f(g(h())))`.
+func (c *ResultsPublicationClient) Use(hooks ...Hook) {
+	c.hooks.ResultsPublication = append(c.hooks.ResultsPublication, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `resultspublication.Intercept(f(g(h())))`.
+func (c *ResultsPublicationClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ResultsPublication = append(c.inters.ResultsPublication, interceptors...)
+}
+
+// Create returns a builder for creating a ResultsPublication entity.
+func (c *ResultsPublicationClient) Create() *ResultsPublicationCreate {
+	mutation := newResultsPublicationMutation(c.config, OpCreate)
+	return &ResultsPublicationCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ResultsPublication entities.
+func (c *ResultsPublicationClient) CreateBulk(builders ...*ResultsPublicationCreate) *ResultsPublicationCreateBulk {
+	return &ResultsPublicationCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ResultsPublicationClient) MapCreateBulk(slice any, setFunc func(*ResultsPublicationCreate, int)) *ResultsPublicationCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ResultsPublicationCreateBulk{err: fmt.Errorf("calling to ResultsPublicationClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ResultsPublicationCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ResultsPublicationCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ResultsPublication.
+func (c *ResultsPublicationClient) Update() *ResultsPublicationUpdate {
+	mutation := newResultsPublicationMutation(c.config, OpUpdate)
+	return &ResultsPublicationUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ResultsPublicationClient) UpdateOne(_m *ResultsPublication) *ResultsPublicationUpdateOne {
+	mutation := newResultsPublicationMutation(c.config, OpUpdateOne, withResultsPublication(_m))
+	return &ResultsPublicationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ResultsPublicationClient) UpdateOneID(id int) *ResultsPublicationUpdateOne {
+	mutation := newResultsPublicationMutation(c.config, OpUpdateOne, withResultsPublicationID(id))
+	return &ResultsPublicationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ResultsPublication.
+func (c *ResultsPublicationClient) Delete() *ResultsPublicationDelete {
+	mutation := newResultsPublicationMutation(c.config, OpDelete)
+	return &ResultsPublicationDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ResultsPublicationClient) DeleteOne(_m *ResultsPublication) *ResultsPublicationDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ResultsPublicationClient) DeleteOneID(id int) *ResultsPublicationDeleteOne {
+	builder := c.Delete().Where(resultspublication.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ResultsPublicationDeleteOne{builder}
+}
+
+// Query returns a query builder for ResultsPublication.
+func (c *ResultsPublicationClient) Query() *ResultsPublicationQuery {
+	return &ResultsPublicationQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeResultsPublication},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ResultsPublication entity by its id.
+func (c *ResultsPublicationClient) Get(ctx context.Context, id int) (*ResultsPublication, error) {
+	return c.Query().Where(resultspublication.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ResultsPublicationClient) GetX(ctx context.Context, id int) *ResultsPublication {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a ResultsPublication.
+func (c *ResultsPublicationClient) QueryEvent(_m *ResultsPublication) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(resultspublication.Table, resultspublication.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, resultspublication.EventTable, resultspublication.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ResultsPublicationClient) Hooks() []Hook {
+	hooks := c.hooks.ResultsPublication
+	return append(hooks[:len(hooks):len(hooks)], resultspublication.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *ResultsPublicationClient) Interceptors() []Interceptor {
+	return c.inters.ResultsPublication
+}
+
+func (c *ResultsPublicationClient) mutate(ctx context.Context, m *ResultsPublicationMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ResultsPublicationCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ResultsPublicationUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ResultsPublicationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ResultsPublicationDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ResultsPublication mutation op: %q", m.Op())
+	}
+}
+
 // RundownClient is a client for the Rundown schema.
 type RundownClient struct {
 	config
@@ -9083,10 +9257,10 @@ type (
 		EventGrant, ImportReference, Installation, Lane, LaneDraft,
 		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
 		Migration, PasswordCredential, Prizegiving, PrizegivingCompetition,
-		PublicScheduleBaseline, PublicScheduleBaselineEntry, ReopenWindow, Rundown,
-		Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
-		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
-		UploadLink []ent.Hook
+		PublicScheduleBaseline, PublicScheduleBaselineEntry, ReopenWindow,
+		ResultsPublication, Rundown, Session, SessionCancellation, SessionDraft,
+		SessionPublishedVersion, SessionRun, SessionRunAmendment, Track, TrackDraft,
+		TrackPublishedVersion, UploadLink []ent.Hook
 	}
 	inters struct {
 		Account, AccountSession, Attachment, AttachmentVersion, AuditEntry,
@@ -9097,10 +9271,10 @@ type (
 		EventGrant, ImportReference, Installation, Lane, LaneDraft,
 		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
 		Migration, PasswordCredential, Prizegiving, PrizegivingCompetition,
-		PublicScheduleBaseline, PublicScheduleBaselineEntry, ReopenWindow, Rundown,
-		Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
-		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
-		UploadLink []ent.Interceptor
+		PublicScheduleBaseline, PublicScheduleBaselineEntry, ReopenWindow,
+		ResultsPublication, Rundown, Session, SessionCancellation, SessionDraft,
+		SessionPublishedVersion, SessionRun, SessionRunAmendment, Track, TrackDraft,
+		TrackPublishedVersion, UploadLink []ent.Interceptor
 	}
 )
 

@@ -78,6 +78,8 @@ const (
 	EdgePrizegivings = "prizegivings"
 	// EdgePrizegivingCompetitions holds the string denoting the prizegiving_competitions edge name in mutations.
 	EdgePrizegivingCompetitions = "prizegiving_competitions"
+	// EdgeResultsPublications holds the string denoting the results_publications edge name in mutations.
+	EdgeResultsPublications = "results_publications"
 	// EdgeUploadLinks holds the string denoting the upload_links edge name in mutations.
 	EdgeUploadLinks = "upload_links"
 	// EdgeDraftEdits holds the string denoting the draft_edits edge name in mutations.
@@ -178,6 +180,13 @@ const (
 	PrizegivingCompetitionsInverseTable = "prizegiving_competitions"
 	// PrizegivingCompetitionsColumn is the table column denoting the prizegiving_competitions relation/edge.
 	PrizegivingCompetitionsColumn = "event_id"
+	// ResultsPublicationsTable is the table that holds the results_publications relation/edge.
+	ResultsPublicationsTable = "results_publications"
+	// ResultsPublicationsInverseTable is the table name for the ResultsPublication entity.
+	// It exists in this package in order to avoid circular dependency with the "resultspublication" package.
+	ResultsPublicationsInverseTable = "results_publications"
+	// ResultsPublicationsColumn is the table column denoting the results_publications relation/edge.
+	ResultsPublicationsColumn = "event_id"
 	// UploadLinksTable is the table that holds the upload_links relation/edge.
 	UploadLinksTable = "upload_links"
 	// UploadLinksInverseTable is the table name for the UploadLink entity.
@@ -634,6 +643,20 @@ func ByPrizegivingCompetitions(term sql.OrderTerm, terms ...sql.OrderTerm) Order
 	}
 }
 
+// ByResultsPublicationsCount orders the results by results_publications count.
+func ByResultsPublicationsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newResultsPublicationsStep(), opts...)
+	}
+}
+
+// ByResultsPublications orders the results by results_publications terms.
+func ByResultsPublications(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newResultsPublicationsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByUploadLinksCount orders the results by upload_links count.
 func ByUploadLinksCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -806,6 +829,13 @@ func newPrizegivingCompetitionsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(PrizegivingCompetitionsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, PrizegivingCompetitionsTable, PrizegivingCompetitionsColumn),
+	)
+}
+func newResultsPublicationsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ResultsPublicationsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ResultsPublicationsTable, ResultsPublicationsColumn),
 	)
 }
 func newUploadLinksStep() *sqlgraph.Step {

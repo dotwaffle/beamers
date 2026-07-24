@@ -453,6 +453,18 @@ func (f ReopenWindowFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ReopenWindowMutation", m)
 }
 
+// The ResultsPublicationFunc type is an adapter to allow the use of ordinary
+// function as ResultsPublication mutator.
+type ResultsPublicationFunc func(context.Context, *ent.ResultsPublicationMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ResultsPublicationFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ResultsPublicationMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ResultsPublicationMutation", m)
+}
+
 // The RundownFunc type is an adapter to allow the use of ordinary
 // function as Rundown mutator.
 type RundownFunc func(context.Context, *ent.RundownMutation) (ent.Value, error)
