@@ -8,7 +8,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"text/template"
 	"text/template/parse"
 	"time"
 	"unicode/utf8"
@@ -470,21 +469,8 @@ func resultItemCount(items map[resultItemIdentity]int) int {
 }
 
 func safeResultsTextTemplate(value TextTemplate) bool {
-	if !boundedResultsTextTemplate(value) {
-		return false
-	}
-	parsed, err := template.New("results").
-		Option("missingkey=error").
-		Parse(value.Source)
-	if err != nil {
-		return false
-	}
-	for _, defined := range parsed.Templates() {
-		if unsafeTemplateNode(defined.Root) {
-			return false
-		}
-	}
-	return true
+	_, err := parseResultsTextTemplate(value)
+	return err == nil
 }
 
 func boundedResultsTextTemplate(value TextTemplate) bool {
@@ -500,32 +486,59 @@ func unsafeTemplateNode(node parse.Node) bool {
 	case nil:
 		return false
 	case *parse.ListNode:
+		if value == nil {
+			return false
+		}
 		return slices.ContainsFunc(value.Nodes, unsafeTemplateNode)
 	case *parse.ActionNode:
+		if value == nil {
+			return false
+		}
 		return unsafeTemplateNode(value.Pipe)
 	case *parse.IfNode:
+		if value == nil {
+			return false
+		}
 		return unsafeTemplateNode(value.Pipe) ||
 			unsafeTemplateNode(value.List) ||
 			unsafeTemplateNode(value.ElseList)
 	case *parse.RangeNode:
+		if value == nil {
+			return false
+		}
 		return unsafeTemplateNode(value.Pipe) ||
 			unsafeTemplateNode(value.List) ||
 			unsafeTemplateNode(value.ElseList)
 	case *parse.WithNode:
+		if value == nil {
+			return false
+		}
 		return unsafeTemplateNode(value.Pipe) ||
 			unsafeTemplateNode(value.List) ||
 			unsafeTemplateNode(value.ElseList)
 	case *parse.TemplateNode:
+		if value == nil {
+			return false
+		}
 		return unsafeTemplateNode(value.Pipe)
 	case *parse.PipeNode:
+		if value == nil {
+			return false
+		}
 		for _, command := range value.Cmds {
 			if unsafeTemplateNode(command) {
 				return true
 			}
 		}
 	case *parse.CommandNode:
+		if value == nil {
+			return false
+		}
 		return slices.ContainsFunc(value.Args, unsafeTemplateNode)
 	case *parse.IdentifierNode:
+		if value == nil {
+			return false
+		}
 		return value.Ident == "call"
 	}
 	return false
