@@ -66,6 +66,9 @@ type DraftEdit func(*sql.Selector)
 // Event is the predicate function for event builders.
 type Event func(*sql.Selector)
 
+// EventAwardsDraft is the predicate function for eventawardsdraft builders.
+type EventAwardsDraft func(*sql.Selector)
+
 // EventGrant is the predicate function for eventgrant builders.
 type EventGrant func(*sql.Selector)
 

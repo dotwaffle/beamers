@@ -26,6 +26,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/draftchangedependency"
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/event"
+	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/installation"
@@ -656,15 +657,15 @@ func init() {
 	// competitionresultsdraft.ScorePrecisionValidator is a validator for the "score_precision" field. It is called by the builders before save.
 	competitionresultsdraft.ScorePrecisionValidator = competitionresultsdraftDescScorePrecision.Validators[0].(func(int) error)
 	// competitionresultsdraftDescReadyByAccountID is the schema descriptor for ready_by_account_id field.
-	competitionresultsdraftDescReadyByAccountID := competitionresultsdraftFields[12].Descriptor()
+	competitionresultsdraftDescReadyByAccountID := competitionresultsdraftFields[13].Descriptor()
 	// competitionresultsdraft.ReadyByAccountIDValidator is a validator for the "ready_by_account_id" field. It is called by the builders before save.
 	competitionresultsdraft.ReadyByAccountIDValidator = competitionresultsdraftDescReadyByAccountID.Validators[0].(func(int) error)
 	// competitionresultsdraftDescCreatedByAccountID is the schema descriptor for created_by_account_id field.
-	competitionresultsdraftDescCreatedByAccountID := competitionresultsdraftFields[14].Descriptor()
+	competitionresultsdraftDescCreatedByAccountID := competitionresultsdraftFields[15].Descriptor()
 	// competitionresultsdraft.CreatedByAccountIDValidator is a validator for the "created_by_account_id" field. It is called by the builders before save.
 	competitionresultsdraft.CreatedByAccountIDValidator = competitionresultsdraftDescCreatedByAccountID.Validators[0].(func(int) error)
 	// competitionresultsdraftDescCreatedAt is the schema descriptor for created_at field.
-	competitionresultsdraftDescCreatedAt := competitionresultsdraftFields[15].Descriptor()
+	competitionresultsdraftDescCreatedAt := competitionresultsdraftFields[16].Descriptor()
 	// competitionresultsdraft.DefaultCreatedAt holds the default value on creation for the created_at field.
 	competitionresultsdraft.DefaultCreatedAt = competitionresultsdraftDescCreatedAt.Default.(func() time.Time)
 	display.Policy = privacy.NewPolicies(schema.Display{})
@@ -1299,6 +1300,29 @@ func init() {
 	eventDescCreatedAt := eventFields[18].Descriptor()
 	// event.DefaultCreatedAt holds the default value on creation for the created_at field.
 	event.DefaultCreatedAt = eventDescCreatedAt.Default.(func() time.Time)
+	eventawardsdraft.Policy = privacy.NewPolicies(schema.EventAwardsDraft{})
+	eventawardsdraft.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := eventawardsdraft.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	eventawardsdraftFields := schema.EventAwardsDraft{}.Fields()
+	_ = eventawardsdraftFields
+	// eventawardsdraftDescRevision is the schema descriptor for revision field.
+	eventawardsdraftDescRevision := eventawardsdraftFields[1].Descriptor()
+	// eventawardsdraft.RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
+	eventawardsdraft.RevisionValidator = eventawardsdraftDescRevision.Validators[0].(func(int) error)
+	// eventawardsdraftDescCreatedByAccountID is the schema descriptor for created_by_account_id field.
+	eventawardsdraftDescCreatedByAccountID := eventawardsdraftFields[4].Descriptor()
+	// eventawardsdraft.CreatedByAccountIDValidator is a validator for the "created_by_account_id" field. It is called by the builders before save.
+	eventawardsdraft.CreatedByAccountIDValidator = eventawardsdraftDescCreatedByAccountID.Validators[0].(func(int) error)
+	// eventawardsdraftDescCreatedAt is the schema descriptor for created_at field.
+	eventawardsdraftDescCreatedAt := eventawardsdraftFields[5].Descriptor()
+	// eventawardsdraft.DefaultCreatedAt holds the default value on creation for the created_at field.
+	eventawardsdraft.DefaultCreatedAt = eventawardsdraftDescCreatedAt.Default.(func() time.Time)
 	eventgrant.Policy = privacy.NewPolicies(schema.EventGrant{})
 	eventgrant.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

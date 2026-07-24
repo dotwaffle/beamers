@@ -39,16 +39,32 @@ const (
 	// ResultsServiceSaveCompetitionResultsDraftProcedure is the fully-qualified name of the
 	// ResultsService's SaveCompetitionResultsDraft RPC.
 	ResultsServiceSaveCompetitionResultsDraftProcedure = "/beamers.results.v1.ResultsService/SaveCompetitionResultsDraft"
+	// ResultsServiceSaveCompetitionAwardsProcedure is the fully-qualified name of the ResultsService's
+	// SaveCompetitionAwards RPC.
+	ResultsServiceSaveCompetitionAwardsProcedure = "/beamers.results.v1.ResultsService/SaveCompetitionAwards"
 	// ResultsServiceMarkCompetitionResultsReadyProcedure is the fully-qualified name of the
 	// ResultsService's MarkCompetitionResultsReady RPC.
 	ResultsServiceMarkCompetitionResultsReadyProcedure = "/beamers.results.v1.ResultsService/MarkCompetitionResultsReady"
+	// ResultsServiceGetEventAwardsDraftProcedure is the fully-qualified name of the ResultsService's
+	// GetEventAwardsDraft RPC.
+	ResultsServiceGetEventAwardsDraftProcedure = "/beamers.results.v1.ResultsService/GetEventAwardsDraft"
+	// ResultsServiceSaveEventAwardsDraftProcedure is the fully-qualified name of the ResultsService's
+	// SaveEventAwardsDraft RPC.
+	ResultsServiceSaveEventAwardsDraftProcedure = "/beamers.results.v1.ResultsService/SaveEventAwardsDraft"
+	// ResultsServiceMarkEventAwardsReadyProcedure is the fully-qualified name of the ResultsService's
+	// MarkEventAwardsReady RPC.
+	ResultsServiceMarkEventAwardsReadyProcedure = "/beamers.results.v1.ResultsService/MarkEventAwardsReady"
 )
 
 // ResultsServiceClient is a client for the beamers.results.v1.ResultsService service.
 type ResultsServiceClient interface {
 	GetCompetitionResultsDraft(context.Context, *connect.Request[v1.GetCompetitionResultsDraftRequest]) (*connect.Response[v1.GetCompetitionResultsDraftResponse], error)
 	SaveCompetitionResultsDraft(context.Context, *connect.Request[v1.SaveCompetitionResultsDraftRequest]) (*connect.Response[v1.SaveCompetitionResultsDraftResponse], error)
+	SaveCompetitionAwards(context.Context, *connect.Request[v1.SaveCompetitionAwardsRequest]) (*connect.Response[v1.SaveCompetitionAwardsResponse], error)
 	MarkCompetitionResultsReady(context.Context, *connect.Request[v1.MarkCompetitionResultsReadyRequest]) (*connect.Response[v1.MarkCompetitionResultsReadyResponse], error)
+	GetEventAwardsDraft(context.Context, *connect.Request[v1.GetEventAwardsDraftRequest]) (*connect.Response[v1.GetEventAwardsDraftResponse], error)
+	SaveEventAwardsDraft(context.Context, *connect.Request[v1.SaveEventAwardsDraftRequest]) (*connect.Response[v1.SaveEventAwardsDraftResponse], error)
+	MarkEventAwardsReady(context.Context, *connect.Request[v1.MarkEventAwardsReadyRequest]) (*connect.Response[v1.MarkEventAwardsReadyResponse], error)
 }
 
 // NewResultsServiceClient constructs a client for the beamers.results.v1.ResultsService service. By
@@ -74,10 +90,34 @@ func NewResultsServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(resultsServiceMethods.ByName("SaveCompetitionResultsDraft")),
 			connect.WithClientOptions(opts...),
 		),
+		saveCompetitionAwards: connect.NewClient[v1.SaveCompetitionAwardsRequest, v1.SaveCompetitionAwardsResponse](
+			httpClient,
+			baseURL+ResultsServiceSaveCompetitionAwardsProcedure,
+			connect.WithSchema(resultsServiceMethods.ByName("SaveCompetitionAwards")),
+			connect.WithClientOptions(opts...),
+		),
 		markCompetitionResultsReady: connect.NewClient[v1.MarkCompetitionResultsReadyRequest, v1.MarkCompetitionResultsReadyResponse](
 			httpClient,
 			baseURL+ResultsServiceMarkCompetitionResultsReadyProcedure,
 			connect.WithSchema(resultsServiceMethods.ByName("MarkCompetitionResultsReady")),
+			connect.WithClientOptions(opts...),
+		),
+		getEventAwardsDraft: connect.NewClient[v1.GetEventAwardsDraftRequest, v1.GetEventAwardsDraftResponse](
+			httpClient,
+			baseURL+ResultsServiceGetEventAwardsDraftProcedure,
+			connect.WithSchema(resultsServiceMethods.ByName("GetEventAwardsDraft")),
+			connect.WithClientOptions(opts...),
+		),
+		saveEventAwardsDraft: connect.NewClient[v1.SaveEventAwardsDraftRequest, v1.SaveEventAwardsDraftResponse](
+			httpClient,
+			baseURL+ResultsServiceSaveEventAwardsDraftProcedure,
+			connect.WithSchema(resultsServiceMethods.ByName("SaveEventAwardsDraft")),
+			connect.WithClientOptions(opts...),
+		),
+		markEventAwardsReady: connect.NewClient[v1.MarkEventAwardsReadyRequest, v1.MarkEventAwardsReadyResponse](
+			httpClient,
+			baseURL+ResultsServiceMarkEventAwardsReadyProcedure,
+			connect.WithSchema(resultsServiceMethods.ByName("MarkEventAwardsReady")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -87,7 +127,11 @@ func NewResultsServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 type resultsServiceClient struct {
 	getCompetitionResultsDraft  *connect.Client[v1.GetCompetitionResultsDraftRequest, v1.GetCompetitionResultsDraftResponse]
 	saveCompetitionResultsDraft *connect.Client[v1.SaveCompetitionResultsDraftRequest, v1.SaveCompetitionResultsDraftResponse]
+	saveCompetitionAwards       *connect.Client[v1.SaveCompetitionAwardsRequest, v1.SaveCompetitionAwardsResponse]
 	markCompetitionResultsReady *connect.Client[v1.MarkCompetitionResultsReadyRequest, v1.MarkCompetitionResultsReadyResponse]
+	getEventAwardsDraft         *connect.Client[v1.GetEventAwardsDraftRequest, v1.GetEventAwardsDraftResponse]
+	saveEventAwardsDraft        *connect.Client[v1.SaveEventAwardsDraftRequest, v1.SaveEventAwardsDraftResponse]
+	markEventAwardsReady        *connect.Client[v1.MarkEventAwardsReadyRequest, v1.MarkEventAwardsReadyResponse]
 }
 
 // GetCompetitionResultsDraft calls beamers.results.v1.ResultsService.GetCompetitionResultsDraft.
@@ -100,16 +144,40 @@ func (c *resultsServiceClient) SaveCompetitionResultsDraft(ctx context.Context, 
 	return c.saveCompetitionResultsDraft.CallUnary(ctx, req)
 }
 
+// SaveCompetitionAwards calls beamers.results.v1.ResultsService.SaveCompetitionAwards.
+func (c *resultsServiceClient) SaveCompetitionAwards(ctx context.Context, req *connect.Request[v1.SaveCompetitionAwardsRequest]) (*connect.Response[v1.SaveCompetitionAwardsResponse], error) {
+	return c.saveCompetitionAwards.CallUnary(ctx, req)
+}
+
 // MarkCompetitionResultsReady calls beamers.results.v1.ResultsService.MarkCompetitionResultsReady.
 func (c *resultsServiceClient) MarkCompetitionResultsReady(ctx context.Context, req *connect.Request[v1.MarkCompetitionResultsReadyRequest]) (*connect.Response[v1.MarkCompetitionResultsReadyResponse], error) {
 	return c.markCompetitionResultsReady.CallUnary(ctx, req)
+}
+
+// GetEventAwardsDraft calls beamers.results.v1.ResultsService.GetEventAwardsDraft.
+func (c *resultsServiceClient) GetEventAwardsDraft(ctx context.Context, req *connect.Request[v1.GetEventAwardsDraftRequest]) (*connect.Response[v1.GetEventAwardsDraftResponse], error) {
+	return c.getEventAwardsDraft.CallUnary(ctx, req)
+}
+
+// SaveEventAwardsDraft calls beamers.results.v1.ResultsService.SaveEventAwardsDraft.
+func (c *resultsServiceClient) SaveEventAwardsDraft(ctx context.Context, req *connect.Request[v1.SaveEventAwardsDraftRequest]) (*connect.Response[v1.SaveEventAwardsDraftResponse], error) {
+	return c.saveEventAwardsDraft.CallUnary(ctx, req)
+}
+
+// MarkEventAwardsReady calls beamers.results.v1.ResultsService.MarkEventAwardsReady.
+func (c *resultsServiceClient) MarkEventAwardsReady(ctx context.Context, req *connect.Request[v1.MarkEventAwardsReadyRequest]) (*connect.Response[v1.MarkEventAwardsReadyResponse], error) {
+	return c.markEventAwardsReady.CallUnary(ctx, req)
 }
 
 // ResultsServiceHandler is an implementation of the beamers.results.v1.ResultsService service.
 type ResultsServiceHandler interface {
 	GetCompetitionResultsDraft(context.Context, *connect.Request[v1.GetCompetitionResultsDraftRequest]) (*connect.Response[v1.GetCompetitionResultsDraftResponse], error)
 	SaveCompetitionResultsDraft(context.Context, *connect.Request[v1.SaveCompetitionResultsDraftRequest]) (*connect.Response[v1.SaveCompetitionResultsDraftResponse], error)
+	SaveCompetitionAwards(context.Context, *connect.Request[v1.SaveCompetitionAwardsRequest]) (*connect.Response[v1.SaveCompetitionAwardsResponse], error)
 	MarkCompetitionResultsReady(context.Context, *connect.Request[v1.MarkCompetitionResultsReadyRequest]) (*connect.Response[v1.MarkCompetitionResultsReadyResponse], error)
+	GetEventAwardsDraft(context.Context, *connect.Request[v1.GetEventAwardsDraftRequest]) (*connect.Response[v1.GetEventAwardsDraftResponse], error)
+	SaveEventAwardsDraft(context.Context, *connect.Request[v1.SaveEventAwardsDraftRequest]) (*connect.Response[v1.SaveEventAwardsDraftResponse], error)
+	MarkEventAwardsReady(context.Context, *connect.Request[v1.MarkEventAwardsReadyRequest]) (*connect.Response[v1.MarkEventAwardsReadyResponse], error)
 }
 
 // NewResultsServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -131,10 +199,34 @@ func NewResultsServiceHandler(svc ResultsServiceHandler, opts ...connect.Handler
 		connect.WithSchema(resultsServiceMethods.ByName("SaveCompetitionResultsDraft")),
 		connect.WithHandlerOptions(opts...),
 	)
+	resultsServiceSaveCompetitionAwardsHandler := connect.NewUnaryHandler(
+		ResultsServiceSaveCompetitionAwardsProcedure,
+		svc.SaveCompetitionAwards,
+		connect.WithSchema(resultsServiceMethods.ByName("SaveCompetitionAwards")),
+		connect.WithHandlerOptions(opts...),
+	)
 	resultsServiceMarkCompetitionResultsReadyHandler := connect.NewUnaryHandler(
 		ResultsServiceMarkCompetitionResultsReadyProcedure,
 		svc.MarkCompetitionResultsReady,
 		connect.WithSchema(resultsServiceMethods.ByName("MarkCompetitionResultsReady")),
+		connect.WithHandlerOptions(opts...),
+	)
+	resultsServiceGetEventAwardsDraftHandler := connect.NewUnaryHandler(
+		ResultsServiceGetEventAwardsDraftProcedure,
+		svc.GetEventAwardsDraft,
+		connect.WithSchema(resultsServiceMethods.ByName("GetEventAwardsDraft")),
+		connect.WithHandlerOptions(opts...),
+	)
+	resultsServiceSaveEventAwardsDraftHandler := connect.NewUnaryHandler(
+		ResultsServiceSaveEventAwardsDraftProcedure,
+		svc.SaveEventAwardsDraft,
+		connect.WithSchema(resultsServiceMethods.ByName("SaveEventAwardsDraft")),
+		connect.WithHandlerOptions(opts...),
+	)
+	resultsServiceMarkEventAwardsReadyHandler := connect.NewUnaryHandler(
+		ResultsServiceMarkEventAwardsReadyProcedure,
+		svc.MarkEventAwardsReady,
+		connect.WithSchema(resultsServiceMethods.ByName("MarkEventAwardsReady")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/beamers.results.v1.ResultsService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -143,8 +235,16 @@ func NewResultsServiceHandler(svc ResultsServiceHandler, opts ...connect.Handler
 			resultsServiceGetCompetitionResultsDraftHandler.ServeHTTP(w, r)
 		case ResultsServiceSaveCompetitionResultsDraftProcedure:
 			resultsServiceSaveCompetitionResultsDraftHandler.ServeHTTP(w, r)
+		case ResultsServiceSaveCompetitionAwardsProcedure:
+			resultsServiceSaveCompetitionAwardsHandler.ServeHTTP(w, r)
 		case ResultsServiceMarkCompetitionResultsReadyProcedure:
 			resultsServiceMarkCompetitionResultsReadyHandler.ServeHTTP(w, r)
+		case ResultsServiceGetEventAwardsDraftProcedure:
+			resultsServiceGetEventAwardsDraftHandler.ServeHTTP(w, r)
+		case ResultsServiceSaveEventAwardsDraftProcedure:
+			resultsServiceSaveEventAwardsDraftHandler.ServeHTTP(w, r)
+		case ResultsServiceMarkEventAwardsReadyProcedure:
+			resultsServiceMarkEventAwardsReadyHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -162,6 +262,22 @@ func (UnimplementedResultsServiceHandler) SaveCompetitionResultsDraft(context.Co
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.SaveCompetitionResultsDraft is not implemented"))
 }
 
+func (UnimplementedResultsServiceHandler) SaveCompetitionAwards(context.Context, *connect.Request[v1.SaveCompetitionAwardsRequest]) (*connect.Response[v1.SaveCompetitionAwardsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.SaveCompetitionAwards is not implemented"))
+}
+
 func (UnimplementedResultsServiceHandler) MarkCompetitionResultsReady(context.Context, *connect.Request[v1.MarkCompetitionResultsReadyRequest]) (*connect.Response[v1.MarkCompetitionResultsReadyResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.MarkCompetitionResultsReady is not implemented"))
+}
+
+func (UnimplementedResultsServiceHandler) GetEventAwardsDraft(context.Context, *connect.Request[v1.GetEventAwardsDraftRequest]) (*connect.Response[v1.GetEventAwardsDraftResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.GetEventAwardsDraft is not implemented"))
+}
+
+func (UnimplementedResultsServiceHandler) SaveEventAwardsDraft(context.Context, *connect.Request[v1.SaveEventAwardsDraftRequest]) (*connect.Response[v1.SaveEventAwardsDraftResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.SaveEventAwardsDraft is not implemented"))
+}
+
+func (UnimplementedResultsServiceHandler) MarkEventAwardsReady(context.Context, *connect.Request[v1.MarkEventAwardsReadyRequest]) (*connect.Response[v1.MarkEventAwardsReadyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.MarkEventAwardsReady is not implemented"))
 }

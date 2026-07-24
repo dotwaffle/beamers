@@ -249,6 +249,18 @@ func (f EventFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.EventMutation", m)
 }
 
+// The EventAwardsDraftFunc type is an adapter to allow the use of ordinary
+// function as EventAwardsDraft mutator.
+type EventAwardsDraftFunc func(context.Context, *ent.EventAwardsDraftMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f EventAwardsDraftFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.EventAwardsDraftMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.EventAwardsDraftMutation", m)
+}
+
 // The EventGrantFunc type is an adapter to allow the use of ordinary
 // function as EventGrant mutator.
 type EventGrantFunc func(context.Context, *ent.EventGrantMutation) (ent.Value, error)

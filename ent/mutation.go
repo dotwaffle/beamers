@@ -31,6 +31,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/draftchangedependency"
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/event"
+	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/installation"
@@ -57,6 +58,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
 	"github.com/dotwaffle/beamers/ent/uploadlink"
+	"github.com/dotwaffle/beamers/internal/awardvalue"
 )
 
 const (
@@ -88,6 +90,7 @@ const (
 	TypeDraftChangeDependency       = "DraftChangeDependency"
 	TypeDraftEdit                   = "DraftEdit"
 	TypeEvent                       = "Event"
+	TypeEventAwardsDraft            = "EventAwardsDraft"
 	TypeEventGrant                  = "EventGrant"
 	TypeImportReference             = "ImportReference"
 	TypeInstallation                = "Installation"
@@ -9529,6 +9532,8 @@ type CompetitionResultsDraftMutation struct {
 	addscore_precision       *int
 	score_requirement        *competitionresultsdraft.ScoreRequirement
 	score_interpretation     *competitionresultsdraft.ScoreInterpretation
+	awards                   *[]awardvalue.Competition
+	appendawards             []awardvalue.Competition
 	ready_by_account_id      *int
 	addready_by_account_id   *int
 	ready_at                 *time.Time
@@ -10157,6 +10162,71 @@ func (m *CompetitionResultsDraftMutation) ResetScoreInterpretation() {
 	m.score_interpretation = nil
 }
 
+// SetAwards sets the "awards" field.
+func (m *CompetitionResultsDraftMutation) SetAwards(a []awardvalue.Competition) {
+	m.awards = &a
+	m.appendawards = nil
+}
+
+// Awards returns the value of the "awards" field in the mutation.
+func (m *CompetitionResultsDraftMutation) Awards() (r []awardvalue.Competition, exists bool) {
+	v := m.awards
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAwards returns the old "awards" field's value of the CompetitionResultsDraft entity.
+// If the CompetitionResultsDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionResultsDraftMutation) OldAwards(ctx context.Context) (v []awardvalue.Competition, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAwards is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAwards requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAwards: %w", err)
+	}
+	return oldValue.Awards, nil
+}
+
+// AppendAwards adds a to the "awards" field.
+func (m *CompetitionResultsDraftMutation) AppendAwards(a []awardvalue.Competition) {
+	m.appendawards = append(m.appendawards, a...)
+}
+
+// AppendedAwards returns the list of values that were appended to the "awards" field in this mutation.
+func (m *CompetitionResultsDraftMutation) AppendedAwards() ([]awardvalue.Competition, bool) {
+	if len(m.appendawards) == 0 {
+		return nil, false
+	}
+	return m.appendawards, true
+}
+
+// ClearAwards clears the value of the "awards" field.
+func (m *CompetitionResultsDraftMutation) ClearAwards() {
+	m.awards = nil
+	m.appendawards = nil
+	m.clearedFields[competitionresultsdraft.FieldAwards] = struct{}{}
+}
+
+// AwardsCleared returns if the "awards" field was cleared in this mutation.
+func (m *CompetitionResultsDraftMutation) AwardsCleared() bool {
+	_, ok := m.clearedFields[competitionresultsdraft.FieldAwards]
+	return ok
+}
+
+// ResetAwards resets all changes to the "awards" field.
+func (m *CompetitionResultsDraftMutation) ResetAwards() {
+	m.awards = nil
+	m.appendawards = nil
+	delete(m.clearedFields, competitionresultsdraft.FieldAwards)
+}
+
 // SetReadyByAccountID sets the "ready_by_account_id" field.
 func (m *CompetitionResultsDraftMutation) SetReadyByAccountID(i int) {
 	m.ready_by_account_id = &i
@@ -10523,7 +10593,7 @@ func (m *CompetitionResultsDraftMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *CompetitionResultsDraftMutation) Fields() []string {
-	fields := make([]string, 0, 16)
+	fields := make([]string, 0, 17)
 	if m.event != nil {
 		fields = append(fields, competitionresultsdraft.FieldEventID)
 	}
@@ -10559,6 +10629,9 @@ func (m *CompetitionResultsDraftMutation) Fields() []string {
 	}
 	if m.score_interpretation != nil {
 		fields = append(fields, competitionresultsdraft.FieldScoreInterpretation)
+	}
+	if m.awards != nil {
+		fields = append(fields, competitionresultsdraft.FieldAwards)
 	}
 	if m.ready_by_account_id != nil {
 		fields = append(fields, competitionresultsdraft.FieldReadyByAccountID)
@@ -10604,6 +10677,8 @@ func (m *CompetitionResultsDraftMutation) Field(name string) (ent.Value, bool) {
 		return m.ScoreRequirement()
 	case competitionresultsdraft.FieldScoreInterpretation:
 		return m.ScoreInterpretation()
+	case competitionresultsdraft.FieldAwards:
+		return m.Awards()
 	case competitionresultsdraft.FieldReadyByAccountID:
 		return m.ReadyByAccountID()
 	case competitionresultsdraft.FieldReadyAt:
@@ -10645,6 +10720,8 @@ func (m *CompetitionResultsDraftMutation) OldField(ctx context.Context, name str
 		return m.OldScoreRequirement(ctx)
 	case competitionresultsdraft.FieldScoreInterpretation:
 		return m.OldScoreInterpretation(ctx)
+	case competitionresultsdraft.FieldAwards:
+		return m.OldAwards(ctx)
 	case competitionresultsdraft.FieldReadyByAccountID:
 		return m.OldReadyByAccountID(ctx)
 	case competitionresultsdraft.FieldReadyAt:
@@ -10745,6 +10822,13 @@ func (m *CompetitionResultsDraftMutation) SetField(name string, value ent.Value)
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetScoreInterpretation(v)
+		return nil
+	case competitionresultsdraft.FieldAwards:
+		v, ok := value.([]awardvalue.Competition)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAwards(v)
 		return nil
 	case competitionresultsdraft.FieldReadyByAccountID:
 		v, ok := value.(int)
@@ -10864,6 +10948,9 @@ func (m *CompetitionResultsDraftMutation) ClearedFields() []string {
 	if m.FieldCleared(competitionresultsdraft.FieldScoreUnit) {
 		fields = append(fields, competitionresultsdraft.FieldScoreUnit)
 	}
+	if m.FieldCleared(competitionresultsdraft.FieldAwards) {
+		fields = append(fields, competitionresultsdraft.FieldAwards)
+	}
 	if m.FieldCleared(competitionresultsdraft.FieldReadyByAccountID) {
 		fields = append(fields, competitionresultsdraft.FieldReadyByAccountID)
 	}
@@ -10892,6 +10979,9 @@ func (m *CompetitionResultsDraftMutation) ClearField(name string) error {
 		return nil
 	case competitionresultsdraft.FieldScoreUnit:
 		m.ClearScoreUnit()
+		return nil
+	case competitionresultsdraft.FieldAwards:
+		m.ClearAwards()
 		return nil
 	case competitionresultsdraft.FieldReadyByAccountID:
 		m.ClearReadyByAccountID()
@@ -10942,6 +11032,9 @@ func (m *CompetitionResultsDraftMutation) ResetField(name string) error {
 		return nil
 	case competitionresultsdraft.FieldScoreInterpretation:
 		m.ResetScoreInterpretation()
+		return nil
+	case competitionresultsdraft.FieldAwards:
+		m.ResetAwards()
 		return nil
 	case competitionresultsdraft.FieldReadyByAccountID:
 		m.ResetReadyByAccountID()
@@ -19977,6 +20070,9 @@ type EventMutation struct {
 	competition_result_standings              map[int]struct{}
 	removedcompetition_result_standings       map[int]struct{}
 	clearedcompetition_result_standings       bool
+	event_awards_drafts                       map[int]struct{}
+	removedevent_awards_drafts                map[int]struct{}
+	clearedevent_awards_drafts                bool
 	upload_links                              map[int]struct{}
 	removedupload_links                       map[int]struct{}
 	clearedupload_links                       bool
@@ -21395,6 +21491,60 @@ func (m *EventMutation) ResetCompetitionResultStandings() {
 	m.removedcompetition_result_standings = nil
 }
 
+// AddEventAwardsDraftIDs adds the "event_awards_drafts" edge to the EventAwardsDraft entity by ids.
+func (m *EventMutation) AddEventAwardsDraftIDs(ids ...int) {
+	if m.event_awards_drafts == nil {
+		m.event_awards_drafts = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.event_awards_drafts[ids[i]] = struct{}{}
+	}
+}
+
+// ClearEventAwardsDrafts clears the "event_awards_drafts" edge to the EventAwardsDraft entity.
+func (m *EventMutation) ClearEventAwardsDrafts() {
+	m.clearedevent_awards_drafts = true
+}
+
+// EventAwardsDraftsCleared reports if the "event_awards_drafts" edge to the EventAwardsDraft entity was cleared.
+func (m *EventMutation) EventAwardsDraftsCleared() bool {
+	return m.clearedevent_awards_drafts
+}
+
+// RemoveEventAwardsDraftIDs removes the "event_awards_drafts" edge to the EventAwardsDraft entity by IDs.
+func (m *EventMutation) RemoveEventAwardsDraftIDs(ids ...int) {
+	if m.removedevent_awards_drafts == nil {
+		m.removedevent_awards_drafts = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.event_awards_drafts, ids[i])
+		m.removedevent_awards_drafts[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedEventAwardsDrafts returns the removed IDs of the "event_awards_drafts" edge to the EventAwardsDraft entity.
+func (m *EventMutation) RemovedEventAwardsDraftsIDs() (ids []int) {
+	for id := range m.removedevent_awards_drafts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// EventAwardsDraftsIDs returns the "event_awards_drafts" edge IDs in the mutation.
+func (m *EventMutation) EventAwardsDraftsIDs() (ids []int) {
+	for id := range m.event_awards_drafts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetEventAwardsDrafts resets all changes to the "event_awards_drafts" edge.
+func (m *EventMutation) ResetEventAwardsDrafts() {
+	m.event_awards_drafts = nil
+	m.clearedevent_awards_drafts = false
+	m.removedevent_awards_drafts = nil
+}
+
 // AddUploadLinkIDs adds the "upload_links" edge to the UploadLink entity by ids.
 func (m *EventMutation) AddUploadLinkIDs(ids ...int) {
 	if m.upload_links == nil {
@@ -22281,7 +22431,7 @@ func (m *EventMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *EventMutation) AddedEdges() []string {
-	edges := make([]string, 0, 16)
+	edges := make([]string, 0, 17)
 	if m.grants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -22308,6 +22458,9 @@ func (m *EventMutation) AddedEdges() []string {
 	}
 	if m.competition_result_standings != nil {
 		edges = append(edges, event.EdgeCompetitionResultStandings)
+	}
+	if m.event_awards_drafts != nil {
+		edges = append(edges, event.EdgeEventAwardsDrafts)
 	}
 	if m.upload_links != nil {
 		edges = append(edges, event.EdgeUploadLinks)
@@ -22389,6 +22542,12 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeEventAwardsDrafts:
+		ids := make([]ent.Value, 0, len(m.event_awards_drafts))
+		for id := range m.event_awards_drafts {
+			ids = append(ids, id)
+		}
+		return ids
 	case event.EdgeUploadLinks:
 		ids := make([]ent.Value, 0, len(m.upload_links))
 		for id := range m.upload_links {
@@ -22435,7 +22594,7 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *EventMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 16)
+	edges := make([]string, 0, 17)
 	if m.removedgrants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -22459,6 +22618,9 @@ func (m *EventMutation) RemovedEdges() []string {
 	}
 	if m.removedcompetition_result_standings != nil {
 		edges = append(edges, event.EdgeCompetitionResultStandings)
+	}
+	if m.removedevent_awards_drafts != nil {
+		edges = append(edges, event.EdgeEventAwardsDrafts)
 	}
 	if m.removedupload_links != nil {
 		edges = append(edges, event.EdgeUploadLinks)
@@ -22533,6 +22695,12 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeEventAwardsDrafts:
+		ids := make([]ent.Value, 0, len(m.removedevent_awards_drafts))
+		for id := range m.removedevent_awards_drafts {
+			ids = append(ids, id)
+		}
+		return ids
 	case event.EdgeUploadLinks:
 		ids := make([]ent.Value, 0, len(m.removedupload_links))
 		for id := range m.removedupload_links {
@@ -22575,7 +22743,7 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *EventMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 16)
+	edges := make([]string, 0, 17)
 	if m.clearedgrants {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -22602,6 +22770,9 @@ func (m *EventMutation) ClearedEdges() []string {
 	}
 	if m.clearedcompetition_result_standings {
 		edges = append(edges, event.EdgeCompetitionResultStandings)
+	}
+	if m.clearedevent_awards_drafts {
+		edges = append(edges, event.EdgeEventAwardsDrafts)
 	}
 	if m.clearedupload_links {
 		edges = append(edges, event.EdgeUploadLinks)
@@ -22649,6 +22820,8 @@ func (m *EventMutation) EdgeCleared(name string) bool {
 		return m.clearedcompetition_results_drafts
 	case event.EdgeCompetitionResultStandings:
 		return m.clearedcompetition_result_standings
+	case event.EdgeEventAwardsDrafts:
+		return m.clearedevent_awards_drafts
 	case event.EdgeUploadLinks:
 		return m.clearedupload_links
 	case event.EdgeDraftEdits:
@@ -22712,6 +22885,9 @@ func (m *EventMutation) ResetEdge(name string) error {
 	case event.EdgeCompetitionResultStandings:
 		m.ResetCompetitionResultStandings()
 		return nil
+	case event.EdgeEventAwardsDrafts:
+		m.ResetEventAwardsDrafts()
+		return nil
 	case event.EdgeUploadLinks:
 		m.ResetUploadLinks()
 		return nil
@@ -22735,6 +22911,800 @@ func (m *EventMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown Event edge %s", name)
+}
+
+// EventAwardsDraftMutation represents an operation that mutates the EventAwardsDraft nodes in the graph.
+type EventAwardsDraftMutation struct {
+	config
+	op                       Op
+	typ                      string
+	id                       *int
+	revision                 *int
+	addrevision              *int
+	awards                   *[]awardvalue.Event
+	appendawards             []awardvalue.Event
+	path_states              *[]awardvalue.PathState
+	appendpath_states        []awardvalue.PathState
+	created_by_account_id    *int
+	addcreated_by_account_id *int
+	created_at               *time.Time
+	clearedFields            map[string]struct{}
+	event                    *int
+	clearedevent             bool
+	done                     bool
+	oldValue                 func(context.Context) (*EventAwardsDraft, error)
+	predicates               []predicate.EventAwardsDraft
+}
+
+var _ ent.Mutation = (*EventAwardsDraftMutation)(nil)
+
+// eventawardsdraftOption allows management of the mutation configuration using functional options.
+type eventawardsdraftOption func(*EventAwardsDraftMutation)
+
+// newEventAwardsDraftMutation creates new mutation for the EventAwardsDraft entity.
+func newEventAwardsDraftMutation(c config, op Op, opts ...eventawardsdraftOption) *EventAwardsDraftMutation {
+	m := &EventAwardsDraftMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeEventAwardsDraft,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withEventAwardsDraftID sets the ID field of the mutation.
+func withEventAwardsDraftID(id int) eventawardsdraftOption {
+	return func(m *EventAwardsDraftMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *EventAwardsDraft
+		)
+		m.oldValue = func(ctx context.Context) (*EventAwardsDraft, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().EventAwardsDraft.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withEventAwardsDraft sets the old EventAwardsDraft of the mutation.
+func withEventAwardsDraft(node *EventAwardsDraft) eventawardsdraftOption {
+	return func(m *EventAwardsDraftMutation) {
+		m.oldValue = func(context.Context) (*EventAwardsDraft, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m EventAwardsDraftMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m EventAwardsDraftMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *EventAwardsDraftMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *EventAwardsDraftMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().EventAwardsDraft.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetEventID sets the "event_id" field.
+func (m *EventAwardsDraftMutation) SetEventID(i int) {
+	m.event = &i
+}
+
+// EventID returns the value of the "event_id" field in the mutation.
+func (m *EventAwardsDraftMutation) EventID() (r int, exists bool) {
+	v := m.event
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventID returns the old "event_id" field's value of the EventAwardsDraft entity.
+// If the EventAwardsDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventAwardsDraftMutation) OldEventID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventID: %w", err)
+	}
+	return oldValue.EventID, nil
+}
+
+// ResetEventID resets all changes to the "event_id" field.
+func (m *EventAwardsDraftMutation) ResetEventID() {
+	m.event = nil
+}
+
+// SetRevision sets the "revision" field.
+func (m *EventAwardsDraftMutation) SetRevision(i int) {
+	m.revision = &i
+	m.addrevision = nil
+}
+
+// Revision returns the value of the "revision" field in the mutation.
+func (m *EventAwardsDraftMutation) Revision() (r int, exists bool) {
+	v := m.revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRevision returns the old "revision" field's value of the EventAwardsDraft entity.
+// If the EventAwardsDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventAwardsDraftMutation) OldRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRevision: %w", err)
+	}
+	return oldValue.Revision, nil
+}
+
+// AddRevision adds i to the "revision" field.
+func (m *EventAwardsDraftMutation) AddRevision(i int) {
+	if m.addrevision != nil {
+		*m.addrevision += i
+	} else {
+		m.addrevision = &i
+	}
+}
+
+// AddedRevision returns the value that was added to the "revision" field in this mutation.
+func (m *EventAwardsDraftMutation) AddedRevision() (r int, exists bool) {
+	v := m.addrevision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRevision resets all changes to the "revision" field.
+func (m *EventAwardsDraftMutation) ResetRevision() {
+	m.revision = nil
+	m.addrevision = nil
+}
+
+// SetAwards sets the "awards" field.
+func (m *EventAwardsDraftMutation) SetAwards(a []awardvalue.Event) {
+	m.awards = &a
+	m.appendawards = nil
+}
+
+// Awards returns the value of the "awards" field in the mutation.
+func (m *EventAwardsDraftMutation) Awards() (r []awardvalue.Event, exists bool) {
+	v := m.awards
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAwards returns the old "awards" field's value of the EventAwardsDraft entity.
+// If the EventAwardsDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventAwardsDraftMutation) OldAwards(ctx context.Context) (v []awardvalue.Event, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAwards is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAwards requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAwards: %w", err)
+	}
+	return oldValue.Awards, nil
+}
+
+// AppendAwards adds a to the "awards" field.
+func (m *EventAwardsDraftMutation) AppendAwards(a []awardvalue.Event) {
+	m.appendawards = append(m.appendawards, a...)
+}
+
+// AppendedAwards returns the list of values that were appended to the "awards" field in this mutation.
+func (m *EventAwardsDraftMutation) AppendedAwards() ([]awardvalue.Event, bool) {
+	if len(m.appendawards) == 0 {
+		return nil, false
+	}
+	return m.appendawards, true
+}
+
+// ClearAwards clears the value of the "awards" field.
+func (m *EventAwardsDraftMutation) ClearAwards() {
+	m.awards = nil
+	m.appendawards = nil
+	m.clearedFields[eventawardsdraft.FieldAwards] = struct{}{}
+}
+
+// AwardsCleared returns if the "awards" field was cleared in this mutation.
+func (m *EventAwardsDraftMutation) AwardsCleared() bool {
+	_, ok := m.clearedFields[eventawardsdraft.FieldAwards]
+	return ok
+}
+
+// ResetAwards resets all changes to the "awards" field.
+func (m *EventAwardsDraftMutation) ResetAwards() {
+	m.awards = nil
+	m.appendawards = nil
+	delete(m.clearedFields, eventawardsdraft.FieldAwards)
+}
+
+// SetPathStates sets the "path_states" field.
+func (m *EventAwardsDraftMutation) SetPathStates(as []awardvalue.PathState) {
+	m.path_states = &as
+	m.appendpath_states = nil
+}
+
+// PathStates returns the value of the "path_states" field in the mutation.
+func (m *EventAwardsDraftMutation) PathStates() (r []awardvalue.PathState, exists bool) {
+	v := m.path_states
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPathStates returns the old "path_states" field's value of the EventAwardsDraft entity.
+// If the EventAwardsDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventAwardsDraftMutation) OldPathStates(ctx context.Context) (v []awardvalue.PathState, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPathStates is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPathStates requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPathStates: %w", err)
+	}
+	return oldValue.PathStates, nil
+}
+
+// AppendPathStates adds as to the "path_states" field.
+func (m *EventAwardsDraftMutation) AppendPathStates(as []awardvalue.PathState) {
+	m.appendpath_states = append(m.appendpath_states, as...)
+}
+
+// AppendedPathStates returns the list of values that were appended to the "path_states" field in this mutation.
+func (m *EventAwardsDraftMutation) AppendedPathStates() ([]awardvalue.PathState, bool) {
+	if len(m.appendpath_states) == 0 {
+		return nil, false
+	}
+	return m.appendpath_states, true
+}
+
+// ClearPathStates clears the value of the "path_states" field.
+func (m *EventAwardsDraftMutation) ClearPathStates() {
+	m.path_states = nil
+	m.appendpath_states = nil
+	m.clearedFields[eventawardsdraft.FieldPathStates] = struct{}{}
+}
+
+// PathStatesCleared returns if the "path_states" field was cleared in this mutation.
+func (m *EventAwardsDraftMutation) PathStatesCleared() bool {
+	_, ok := m.clearedFields[eventawardsdraft.FieldPathStates]
+	return ok
+}
+
+// ResetPathStates resets all changes to the "path_states" field.
+func (m *EventAwardsDraftMutation) ResetPathStates() {
+	m.path_states = nil
+	m.appendpath_states = nil
+	delete(m.clearedFields, eventawardsdraft.FieldPathStates)
+}
+
+// SetCreatedByAccountID sets the "created_by_account_id" field.
+func (m *EventAwardsDraftMutation) SetCreatedByAccountID(i int) {
+	m.created_by_account_id = &i
+	m.addcreated_by_account_id = nil
+}
+
+// CreatedByAccountID returns the value of the "created_by_account_id" field in the mutation.
+func (m *EventAwardsDraftMutation) CreatedByAccountID() (r int, exists bool) {
+	v := m.created_by_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedByAccountID returns the old "created_by_account_id" field's value of the EventAwardsDraft entity.
+// If the EventAwardsDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventAwardsDraftMutation) OldCreatedByAccountID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedByAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedByAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedByAccountID: %w", err)
+	}
+	return oldValue.CreatedByAccountID, nil
+}
+
+// AddCreatedByAccountID adds i to the "created_by_account_id" field.
+func (m *EventAwardsDraftMutation) AddCreatedByAccountID(i int) {
+	if m.addcreated_by_account_id != nil {
+		*m.addcreated_by_account_id += i
+	} else {
+		m.addcreated_by_account_id = &i
+	}
+}
+
+// AddedCreatedByAccountID returns the value that was added to the "created_by_account_id" field in this mutation.
+func (m *EventAwardsDraftMutation) AddedCreatedByAccountID() (r int, exists bool) {
+	v := m.addcreated_by_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCreatedByAccountID resets all changes to the "created_by_account_id" field.
+func (m *EventAwardsDraftMutation) ResetCreatedByAccountID() {
+	m.created_by_account_id = nil
+	m.addcreated_by_account_id = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *EventAwardsDraftMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *EventAwardsDraftMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the EventAwardsDraft entity.
+// If the EventAwardsDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventAwardsDraftMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *EventAwardsDraftMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearEvent clears the "event" edge to the Event entity.
+func (m *EventAwardsDraftMutation) ClearEvent() {
+	m.clearedevent = true
+	m.clearedFields[eventawardsdraft.FieldEventID] = struct{}{}
+}
+
+// EventCleared reports if the "event" edge to the Event entity was cleared.
+func (m *EventAwardsDraftMutation) EventCleared() bool {
+	return m.clearedevent
+}
+
+// EventIDs returns the "event" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// EventID instead. It exists only for internal usage by the builders.
+func (m *EventAwardsDraftMutation) EventIDs() (ids []int) {
+	if id := m.event; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetEvent resets all changes to the "event" edge.
+func (m *EventAwardsDraftMutation) ResetEvent() {
+	m.event = nil
+	m.clearedevent = false
+}
+
+// Where appends a list predicates to the EventAwardsDraftMutation builder.
+func (m *EventAwardsDraftMutation) Where(ps ...predicate.EventAwardsDraft) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the EventAwardsDraftMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *EventAwardsDraftMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.EventAwardsDraft, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *EventAwardsDraftMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *EventAwardsDraftMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (EventAwardsDraft).
+func (m *EventAwardsDraftMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *EventAwardsDraftMutation) Fields() []string {
+	fields := make([]string, 0, 6)
+	if m.event != nil {
+		fields = append(fields, eventawardsdraft.FieldEventID)
+	}
+	if m.revision != nil {
+		fields = append(fields, eventawardsdraft.FieldRevision)
+	}
+	if m.awards != nil {
+		fields = append(fields, eventawardsdraft.FieldAwards)
+	}
+	if m.path_states != nil {
+		fields = append(fields, eventawardsdraft.FieldPathStates)
+	}
+	if m.created_by_account_id != nil {
+		fields = append(fields, eventawardsdraft.FieldCreatedByAccountID)
+	}
+	if m.created_at != nil {
+		fields = append(fields, eventawardsdraft.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *EventAwardsDraftMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case eventawardsdraft.FieldEventID:
+		return m.EventID()
+	case eventawardsdraft.FieldRevision:
+		return m.Revision()
+	case eventawardsdraft.FieldAwards:
+		return m.Awards()
+	case eventawardsdraft.FieldPathStates:
+		return m.PathStates()
+	case eventawardsdraft.FieldCreatedByAccountID:
+		return m.CreatedByAccountID()
+	case eventawardsdraft.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *EventAwardsDraftMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case eventawardsdraft.FieldEventID:
+		return m.OldEventID(ctx)
+	case eventawardsdraft.FieldRevision:
+		return m.OldRevision(ctx)
+	case eventawardsdraft.FieldAwards:
+		return m.OldAwards(ctx)
+	case eventawardsdraft.FieldPathStates:
+		return m.OldPathStates(ctx)
+	case eventawardsdraft.FieldCreatedByAccountID:
+		return m.OldCreatedByAccountID(ctx)
+	case eventawardsdraft.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown EventAwardsDraft field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *EventAwardsDraftMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case eventawardsdraft.FieldEventID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventID(v)
+		return nil
+	case eventawardsdraft.FieldRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRevision(v)
+		return nil
+	case eventawardsdraft.FieldAwards:
+		v, ok := value.([]awardvalue.Event)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAwards(v)
+		return nil
+	case eventawardsdraft.FieldPathStates:
+		v, ok := value.([]awardvalue.PathState)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPathStates(v)
+		return nil
+	case eventawardsdraft.FieldCreatedByAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedByAccountID(v)
+		return nil
+	case eventawardsdraft.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown EventAwardsDraft field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *EventAwardsDraftMutation) AddedFields() []string {
+	var fields []string
+	if m.addrevision != nil {
+		fields = append(fields, eventawardsdraft.FieldRevision)
+	}
+	if m.addcreated_by_account_id != nil {
+		fields = append(fields, eventawardsdraft.FieldCreatedByAccountID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *EventAwardsDraftMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case eventawardsdraft.FieldRevision:
+		return m.AddedRevision()
+	case eventawardsdraft.FieldCreatedByAccountID:
+		return m.AddedCreatedByAccountID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *EventAwardsDraftMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case eventawardsdraft.FieldRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRevision(v)
+		return nil
+	case eventawardsdraft.FieldCreatedByAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCreatedByAccountID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown EventAwardsDraft numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *EventAwardsDraftMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(eventawardsdraft.FieldAwards) {
+		fields = append(fields, eventawardsdraft.FieldAwards)
+	}
+	if m.FieldCleared(eventawardsdraft.FieldPathStates) {
+		fields = append(fields, eventawardsdraft.FieldPathStates)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *EventAwardsDraftMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *EventAwardsDraftMutation) ClearField(name string) error {
+	switch name {
+	case eventawardsdraft.FieldAwards:
+		m.ClearAwards()
+		return nil
+	case eventawardsdraft.FieldPathStates:
+		m.ClearPathStates()
+		return nil
+	}
+	return fmt.Errorf("unknown EventAwardsDraft nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *EventAwardsDraftMutation) ResetField(name string) error {
+	switch name {
+	case eventawardsdraft.FieldEventID:
+		m.ResetEventID()
+		return nil
+	case eventawardsdraft.FieldRevision:
+		m.ResetRevision()
+		return nil
+	case eventawardsdraft.FieldAwards:
+		m.ResetAwards()
+		return nil
+	case eventawardsdraft.FieldPathStates:
+		m.ResetPathStates()
+		return nil
+	case eventawardsdraft.FieldCreatedByAccountID:
+		m.ResetCreatedByAccountID()
+		return nil
+	case eventawardsdraft.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown EventAwardsDraft field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *EventAwardsDraftMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.event != nil {
+		edges = append(edges, eventawardsdraft.EdgeEvent)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *EventAwardsDraftMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case eventawardsdraft.EdgeEvent:
+		if id := m.event; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *EventAwardsDraftMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *EventAwardsDraftMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *EventAwardsDraftMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedevent {
+		edges = append(edges, eventawardsdraft.EdgeEvent)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *EventAwardsDraftMutation) EdgeCleared(name string) bool {
+	switch name {
+	case eventawardsdraft.EdgeEvent:
+		return m.clearedevent
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *EventAwardsDraftMutation) ClearEdge(name string) error {
+	switch name {
+	case eventawardsdraft.EdgeEvent:
+		m.ClearEvent()
+		return nil
+	}
+	return fmt.Errorf("unknown EventAwardsDraft unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *EventAwardsDraftMutation) ResetEdge(name string) error {
+	switch name {
+	case eventawardsdraft.EdgeEvent:
+		m.ResetEvent()
+		return nil
+	}
+	return fmt.Errorf("unknown EventAwardsDraft edge %s", name)
 }
 
 // EventGrantMutation represents an operation that mutates the EventGrant nodes in the graph.

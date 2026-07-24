@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/dotwaffle/beamers/internal/store"
 )
 
 func TestReviewAcceptsCompetitionRankingAndExplicitUnplacedOrder(t *testing.T) {
@@ -136,5 +138,107 @@ func TestValidateDraftRejectsScoresBeyondStorageBounds(t *testing.T) {
 	}
 	if err := ValidateDraft(draft); !errors.Is(err, ErrInvalidScore) {
 		t.Fatalf("oversized Score policy error = %v", err)
+	}
+}
+
+func TestValidateAwardsRequiresNamedRecipientsWithoutDuplicateKeys(t *testing.T) {
+	valid := []Award{{
+		Key: "judges-choice", Name: "Judges' Choice", DisplayOrder: 1,
+		Recipients: []AwardRecipient{
+			{EntryID: 41},
+			{DisplayName: "Community volunteers"},
+		},
+	}}
+	if err := ValidateAwards(valid); err != nil {
+		t.Fatalf("validate Award: %v", err)
+	}
+
+	cases := []struct {
+		name   string
+		awards []Award
+	}{
+		{
+			name: "missing name",
+			awards: []Award{{
+				Key: "judges-choice", DisplayOrder: 1,
+				Recipients: []AwardRecipient{{EntryID: 41}},
+			}},
+		},
+		{
+			name: "missing recipients",
+			awards: []Award{{
+				Key: "judges-choice", Name: "Judges' Choice", DisplayOrder: 1,
+			}},
+		},
+		{
+			name: "synthetic entry",
+			awards: []Award{{
+				Key: "judges-choice", Name: "Judges' Choice", DisplayOrder: 1,
+				Recipients: []AwardRecipient{{EntryID: 41, DisplayName: "Fake Entry"}},
+			}},
+		},
+		{
+			name: "duplicate key",
+			awards: []Award{
+				{
+					Key: "judges-choice", Name: "Judges' Choice", DisplayOrder: 1,
+					Recipients: []AwardRecipient{{EntryID: 41}},
+				},
+				{
+					Key: "judges-choice", Name: "Spirit", DisplayOrder: 2,
+					Recipients: []AwardRecipient{{DisplayName: "Volunteers"}},
+				},
+			},
+		},
+		{
+			name: "noncontiguous order",
+			awards: []Award{{
+				Key: "judges-choice", Name: "Judges' Choice", DisplayOrder: 2,
+				Recipients: []AwardRecipient{{EntryID: 41}},
+			}},
+		},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if err := ValidateAwards(test.awards); !errors.Is(err, ErrInvalidAward) {
+				t.Fatalf("ValidateAwards error = %v", err)
+			}
+		})
+	}
+}
+
+func TestCompetitionAwardSaveClonesPlacementAndScore(t *testing.T) {
+	score := "9.75"
+	current := store.CompetitionResultsDraft{
+		EventID: 3, SessionID: 7, Revision: 4, Disposition: "Publish",
+		ScoreType: "Decimal", ScoreVisibility: "CrewOnly", ScoreUnit: "points",
+		ScorePrecision: 2, ScoreRequirement: "Required",
+		ScoreInterpretation: "HigherWins",
+		Standings: []store.CompetitionResultStanding{{
+			EntryID: 41, Standing: "Placed", Placement: 1, DisplayOrder: 1,
+			DecimalScore: &score,
+		}},
+	}
+	params := cloneCompetitionResultsParams(
+		current,
+		9,
+		time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC),
+		[]store.CompetitionAwardInput{{
+			Key: "judges-choice", Name: "Judges' Choice", DisplayOrder: 1,
+			Recipients: []store.AwardRecipientInput{{EntryID: 41}},
+		}},
+	)
+
+	if len(params.Standings) != 1 ||
+		params.Standings[0].EntryID != 41 ||
+		params.Standings[0].Placement != 1 ||
+		params.Standings[0].DecimalScore == nil ||
+		*params.Standings[0].DecimalScore != score {
+		t.Fatalf("cloned standings = %+v", params.Standings)
+	}
+	if params.ScoreType != "Decimal" ||
+		params.ScoreVisibility != "CrewOnly" ||
+		params.ScoreInterpretation != "HigherWins" {
+		t.Fatalf("cloned Score policy = %+v", params)
 	}
 }

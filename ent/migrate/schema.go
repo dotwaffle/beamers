@@ -308,6 +308,7 @@ var (
 		{Name: "score_precision", Type: field.TypeInt, Default: 0},
 		{Name: "score_requirement", Type: field.TypeEnum, Enums: []string{"Optional", "Required"}, Default: "Optional"},
 		{Name: "score_interpretation", Type: field.TypeEnum, Enums: []string{"HigherWins", "LowerWins", "Informational"}, Default: "Informational"},
+		{Name: "awards", Type: field.TypeJSON, Nullable: true},
 		{Name: "ready_by_account_id", Type: field.TypeInt, Nullable: true},
 		{Name: "ready_at", Type: field.TypeTime, Nullable: true},
 		{Name: "created_by_account_id", Type: field.TypeInt},
@@ -323,13 +324,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "competition_results_drafts_events_competition_results_drafts",
-				Columns:    []*schema.Column{CompetitionResultsDraftsColumns[15]},
+				Columns:    []*schema.Column{CompetitionResultsDraftsColumns[16]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "competition_results_drafts_sessions_competition_results_drafts",
-				Columns:    []*schema.Column{CompetitionResultsDraftsColumns[16]},
+				Columns:    []*schema.Column{CompetitionResultsDraftsColumns[17]},
 				RefColumns: []*schema.Column{SessionsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -338,12 +339,12 @@ var (
 			{
 				Name:    "competitionresultsdraft_competition_session_id_revision",
 				Unique:  true,
-				Columns: []*schema.Column{CompetitionResultsDraftsColumns[16], CompetitionResultsDraftsColumns[1]},
+				Columns: []*schema.Column{CompetitionResultsDraftsColumns[17], CompetitionResultsDraftsColumns[1]},
 			},
 			{
 				Name:    "competitionresultsdraft_event_id_competition_session_id_revision",
 				Unique:  false,
-				Columns: []*schema.Column{CompetitionResultsDraftsColumns[15], CompetitionResultsDraftsColumns[16], CompetitionResultsDraftsColumns[1]},
+				Columns: []*schema.Column{CompetitionResultsDraftsColumns[16], CompetitionResultsDraftsColumns[17], CompetitionResultsDraftsColumns[1]},
 			},
 		},
 	}
@@ -696,6 +697,37 @@ var (
 		Name:       "events",
 		Columns:    EventsColumns,
 		PrimaryKey: []*schema.Column{EventsColumns[0]},
+	}
+	// EventAwardsDraftsColumns holds the columns for the "event_awards_drafts" table.
+	EventAwardsDraftsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "revision", Type: field.TypeInt},
+		{Name: "awards", Type: field.TypeJSON, Nullable: true},
+		{Name: "path_states", Type: field.TypeJSON, Nullable: true},
+		{Name: "created_by_account_id", Type: field.TypeInt},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "event_id", Type: field.TypeInt},
+	}
+	// EventAwardsDraftsTable holds the schema information for the "event_awards_drafts" table.
+	EventAwardsDraftsTable = &schema.Table{
+		Name:       "event_awards_drafts",
+		Columns:    EventAwardsDraftsColumns,
+		PrimaryKey: []*schema.Column{EventAwardsDraftsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "event_awards_drafts_events_event_awards_drafts",
+				Columns:    []*schema.Column{EventAwardsDraftsColumns[6]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "eventawardsdraft_event_id_revision",
+				Unique:  true,
+				Columns: []*schema.Column{EventAwardsDraftsColumns[6], EventAwardsDraftsColumns[1]},
+			},
+		},
 	}
 	// EventGrantsColumns holds the columns for the "event_grants" table.
 	EventGrantsColumns = []*schema.Column{
@@ -1588,6 +1620,7 @@ var (
 		DraftChangeDependenciesTable,
 		DraftEditsTable,
 		EventsTable,
+		EventAwardsDraftsTable,
 		EventGrantsTable,
 		ImportReferencesTable,
 		InstallationsTable,
@@ -1648,6 +1681,7 @@ func init() {
 	DraftChangeDependenciesTable.ForeignKeys[1].RefTable = DraftChangesTable
 	DraftEditsTable.ForeignKeys[0].RefTable = AccountsTable
 	DraftEditsTable.ForeignKeys[1].RefTable = EventsTable
+	EventAwardsDraftsTable.ForeignKeys[0].RefTable = EventsTable
 	EventGrantsTable.ForeignKeys[0].RefTable = AccountsTable
 	EventGrantsTable.ForeignKeys[1].RefTable = EventsTable
 	ImportReferencesTable.ForeignKeys[0].RefTable = EventsTable

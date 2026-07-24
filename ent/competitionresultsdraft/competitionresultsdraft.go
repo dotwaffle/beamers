@@ -40,6 +40,8 @@ const (
 	FieldScoreRequirement = "score_requirement"
 	// FieldScoreInterpretation holds the string denoting the score_interpretation field in the database.
 	FieldScoreInterpretation = "score_interpretation"
+	// FieldAwards holds the string denoting the awards field in the database.
+	FieldAwards = "awards"
 	// FieldReadyByAccountID holds the string denoting the ready_by_account_id field in the database.
 	FieldReadyByAccountID = "ready_by_account_id"
 	// FieldReadyAt holds the string denoting the ready_at field in the database.
@@ -94,6 +96,7 @@ var Columns = []string{
 	FieldScorePrecision,
 	FieldScoreRequirement,
 	FieldScoreInterpretation,
+	FieldAwards,
 	FieldReadyByAccountID,
 	FieldReadyAt,
 	FieldCreatedByAccountID,

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
@@ -301,4 +302,160 @@ func TestCompetitionResultsDraftRevisionsClearReady(t *testing.T) {
 	if err = crossStanding.Rollback(); err != nil {
 		t.Fatalf("roll back cross-Event Standing mutation: %v", err)
 	}
+}
+
+func TestEventAwardsDraftKeepsReadinessPerReleasePath(t *testing.T) {
+	client := openEntTestClient(t)
+	installation := &SQLite{client: client}
+	event := createSchemaTestEvent(t, client)
+	ceremony := createPublishedResultsSession(
+		t, client, event.ID, sessionpublishedversion.TypeCeremony, "Prizegiving",
+	)
+	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+		AccountID:  7,
+		EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
+	})
+	now := time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
+	standalone := AwardReleasePath{Kind: "Standalone"}
+	prizegiving := AwardReleasePath{
+		Kind: "Prizegiving", PrizegivingSessionID: ceremony.ID,
+	}
+	firstAwards := []EventAwardInput{
+		{
+			Key: "community", Name: "Community", DisplayOrder: 1,
+			Recipients:  []AwardRecipientInput{{DisplayName: "Volunteers"}},
+			ReleasePath: standalone,
+		},
+		{
+			Key: "best", Name: "Best in Show", DisplayOrder: 1,
+			Recipients:  []AwardRecipientInput{{DisplayName: "Finalists"}},
+			ReleasePath: prizegiving,
+		},
+	}
+	saveTransaction, err := installation.BeginCommand(producerContext)
+	if err != nil {
+		t.Fatalf("begin Event Awards Draft: %v", err)
+	}
+	first, err := saveTransaction.SaveEventAwardsDraft(
+		producerContext,
+		SaveEventAwardsDraftParams{
+			EventID: event.ID, ExpectedRevision: 0, CreatedByAccountID: 7, Now: now,
+			Awards: firstAwards,
+		},
+	)
+	if err != nil {
+		t.Fatalf("save Event Awards Draft: %v", err)
+	}
+	if err = saveTransaction.Commit(); err != nil {
+		t.Fatalf("commit Event Awards Draft: %v", err)
+	}
+	if first.Revision != 1 || len(first.PathStates) != 2 {
+		t.Fatalf("first Event Awards Draft = %+v", first)
+	}
+
+	for index, path := range []AwardReleasePath{standalone, prizegiving} {
+		transaction, beginErr := installation.BeginCommand(producerContext)
+		if beginErr != nil {
+			t.Fatalf("begin Event Awards review: %v", beginErr)
+		}
+		ready, markErr := transaction.MarkEventAwardsReady(
+			producerContext,
+			MarkEventAwardsReadyParams{
+				EventID: event.ID, ExpectedRevision: 1, ReleasePath: path,
+				ExpectedPathRevision: 1, ReviewedByAccountID: 7,
+				Now: now.Add(time.Duration(index+1) * time.Minute),
+			},
+		)
+		if markErr != nil {
+			t.Fatalf("mark Event Awards path Ready: %v", markErr)
+		}
+		if commitErr := transaction.Commit(); commitErr != nil {
+			t.Fatalf("commit Event Awards review: %v", commitErr)
+		}
+		if ready.Revision != 1 {
+			t.Fatalf("Ready Event Awards revision = %d", ready.Revision)
+		}
+	}
+
+	secondAwards := []EventAwardInput{firstAwards[0], firstAwards[1]}
+	secondAwards[0].Name = "Community Award"
+	secondTransaction, err := installation.BeginCommand(producerContext)
+	if err != nil {
+		t.Fatalf("begin revised Event Awards Draft: %v", err)
+	}
+	second, err := secondTransaction.SaveEventAwardsDraft(
+		producerContext,
+		SaveEventAwardsDraftParams{
+			EventID: event.ID, ExpectedRevision: 1, CreatedByAccountID: 7,
+			Now: now.Add(3 * time.Minute), Awards: secondAwards,
+		},
+	)
+	if err != nil {
+		t.Fatalf("save revised Event Awards Draft: %v", err)
+	}
+	if err = secondTransaction.Commit(); err != nil {
+		t.Fatalf("commit revised Event Awards Draft: %v", err)
+	}
+	if second.PathStates[0].Ready || second.PathStates[0].Revision != 2 {
+		t.Fatalf("changed Standalone path state = %+v", second.PathStates[0])
+	}
+	if !second.PathStates[1].Ready || second.PathStates[1].Revision != 1 {
+		t.Fatalf("unchanged Prizegiving path state = %+v", second.PathStates[1])
+	}
+
+	observerContext := viewer.NewContext(t.Context(), viewer.Identity{
+		AccountID:  8,
+		EventRoles: map[int]viewer.Role{event.ID: viewer.Observer},
+	})
+	if _, err = installation.LoadEventAwardsDraft(
+		observerContext,
+		event.ID,
+	); err == nil {
+		t.Fatal("Observer without Results Access read Event Awards")
+	}
+	viewContext := viewer.NewContext(t.Context(), viewer.Identity{
+		AccountID:  9,
+		EventRoles: map[int]viewer.Role{event.ID: viewer.Observer},
+		EventScopes: map[int]viewer.EventScope{
+			event.ID: {
+				Capabilities: map[viewer.Capability]struct{}{viewer.ViewResults: {}},
+			},
+		},
+	})
+	visible, err := installation.LoadEventAwardsDraft(viewContext, event.ID)
+	if err != nil || visible.Revision != 2 {
+		t.Fatalf("View Event Awards = %+v, %v", visible, err)
+	}
+	if _, err = installation.LoadEventAwardsDraft(t.Context(), event.ID); err == nil {
+		t.Fatal("missing viewer read Event Awards")
+	}
+}
+
+func createPublishedResultsSession(
+	t *testing.T,
+	client *ent.Client,
+	eventID int,
+	sessionType sessionpublishedversion.Type,
+	title string,
+) *ent.Session {
+	t.Helper()
+	ctx := systemContext(t.Context())
+	found := client.Session.Create().
+		SetEventID(eventID).
+		SetLifecycle(session.LifecycleEnded).
+		SaveX(ctx)
+	client.SessionPublishedVersion.Create().
+		SetSessionID(found.ID).
+		SetPublishedRevision(1).
+		SetTitle(title).
+		SetType(sessionType).
+		SetAudienceVisibility(sessionpublishedversion.AudienceVisibilityPublic).
+		SetPlannedStart(time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)).
+		SetPlannedEnd(time.Date(2026, 8, 21, 13, 0, 0, 0, time.UTC)).
+		SetTimingPolicy(sessionpublishedversion.TimingPolicyFixedEnd).
+		SetMinimumDurationSeconds(1800).
+		SetStartBoundary(sessionpublishedversion.StartBoundaryHard).
+		SetEndBoundary(sessionpublishedversion.EndBoundaryHard).
+		SaveX(ctx)
+	return found
 }

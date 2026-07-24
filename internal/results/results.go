@@ -25,6 +25,8 @@ var (
 	ErrScoreRequired = errors.New("required result score is missing")
 	// ErrInvalidScore means a Score does not match the configured exact representation.
 	ErrInvalidScore = errors.New("result score is invalid")
+	// ErrInvalidAward means an Award name, key, recipient, path, or order is invalid.
+	ErrInvalidAward = errors.New("result award is invalid")
 )
 
 // Disposition controls whether a Competition will publish Results.
@@ -118,6 +120,43 @@ type Standing struct {
 	Score        ScoreValue     `json:"score"`
 }
 
+// AwardRecipient names one real Entry or an explicit display-name recipient.
+type AwardRecipient struct {
+	EntryID     int    `json:"entry_id,omitempty"`
+	DisplayName string `json:"display_name,omitempty"`
+}
+
+// Award is one named recognition independent of Placement and Score.
+type Award struct {
+	Key          string           `json:"key"`
+	Name         string           `json:"name"`
+	Recipients   []AwardRecipient `json:"recipients"`
+	Promoted     bool             `json:"promoted,omitempty"`
+	DisplayOrder int              `json:"display_order"`
+}
+
+// AwardReleasePathKind identifies one Event Award review and release path.
+type AwardReleasePathKind string
+
+const (
+	// StandaloneRelease publishes Event Awards outside a Prizegiving.
+	StandaloneRelease AwardReleasePathKind = "Standalone"
+	// PrizegivingRelease publishes Event Awards in one Ceremony Session.
+	PrizegivingRelease AwardReleasePathKind = "Prizegiving"
+)
+
+// AwardReleasePath identifies one independently reviewed Event Award source.
+type AwardReleasePath struct {
+	Kind                 AwardReleasePathKind `json:"kind"`
+	PrizegivingSessionID int                  `json:"prizegiving_session_id,omitempty"`
+}
+
+// EventAward assigns one Award to exactly one release path.
+type EventAward struct {
+	Award
+	ReleasePath AwardReleasePath `json:"release_path"`
+}
+
 // Draft is one complete immutable Competition Results proposal.
 type Draft struct {
 	ID                 int
@@ -129,11 +168,114 @@ type Draft struct {
 	PublicExplanation  string
 	Score              ScorePolicy
 	Standings          []Standing
+	Awards             []Award
 	Ready              bool
 	ReadyByAccountID   int
 	ReadyAt            time.Time
 	CreatedByAccountID int
 	CreatedAt          time.Time
+}
+
+// ValidateAwards validates ordered Award content without resolving Entry ownership.
+func ValidateAwards(awards []Award) error {
+	if len(awards) > 1000 {
+		return ErrInvalidAward
+	}
+	ordered := slices.Clone(awards)
+	sort.Slice(ordered, func(first, second int) bool {
+		return ordered[first].DisplayOrder < ordered[second].DisplayOrder
+	})
+	keys := make(map[string]struct{}, len(ordered))
+	totalRecipients := 0
+	for index, award := range ordered {
+		if !validAwardKey(award.Key) ||
+			!boundedAwardText(award.Name, 200) ||
+			award.DisplayOrder != index+1 ||
+			len(award.Recipients) == 0 ||
+			len(award.Recipients) > 1000 {
+			return ErrInvalidAward
+		}
+		totalRecipients += len(award.Recipients)
+		if totalRecipients > 10000 {
+			return ErrInvalidAward
+		}
+		if _, duplicate := keys[award.Key]; duplicate {
+			return ErrInvalidAward
+		}
+		keys[award.Key] = struct{}{}
+		recipients := make(map[AwardRecipient]struct{}, len(award.Recipients))
+		for _, recipient := range award.Recipients {
+			entryRecipient := recipient.EntryID > 0
+			displayRecipient := strings.TrimSpace(recipient.DisplayName) != ""
+			if entryRecipient == displayRecipient ||
+				(displayRecipient && !boundedAwardText(recipient.DisplayName, 200)) {
+				return ErrInvalidAward
+			}
+			if _, duplicate := recipients[recipient]; duplicate {
+				return ErrInvalidAward
+			}
+			recipients[recipient] = struct{}{}
+		}
+	}
+	return nil
+}
+
+// ValidateEventAwards validates Award content and path-local display order.
+func ValidateEventAwards(awards []EventAward) error {
+	if len(awards) > 1000 {
+		return ErrInvalidAward
+	}
+	byPath := make(map[AwardReleasePath][]Award)
+	keys := make(map[string]struct{}, len(awards))
+	totalRecipients := 0
+	for _, award := range awards {
+		if !validAwardPath(award.ReleasePath) || award.Promoted {
+			return ErrInvalidAward
+		}
+		if _, duplicate := keys[award.Key]; duplicate {
+			return ErrInvalidAward
+		}
+		keys[award.Key] = struct{}{}
+		totalRecipients += len(award.Recipients)
+		if totalRecipients > 10000 {
+			return ErrInvalidAward
+		}
+		byPath[award.ReleasePath] = append(byPath[award.ReleasePath], award.Award)
+	}
+	for _, pathAwards := range byPath {
+		if err := ValidateAwards(pathAwards); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validAwardPath(path AwardReleasePath) bool {
+	return path.Kind == StandaloneRelease && path.PrizegivingSessionID == 0 ||
+		path.Kind == PrizegivingRelease && path.PrizegivingSessionID > 0
+}
+
+func validAwardKey(value string) bool {
+	if value == "" || len(value) > 100 {
+		return false
+	}
+	for index, character := range value {
+		if character >= 'a' && character <= 'z' ||
+			character >= 'A' && character <= 'Z' ||
+			character >= '0' && character <= '9' && index > 0 ||
+			(character == '-' || character == '_') && index > 0 {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func boundedAwardText(value string, maximum int) bool {
+	return strings.TrimSpace(value) != "" &&
+		utf8.ValidString(value) &&
+		utf8.RuneCountInString(value) <= maximum &&
+		!strings.ContainsRune(value, '\x00')
 }
 
 // EligibleEntry is one Included Entry that requires an explicit Standing.
@@ -145,6 +287,9 @@ type EligibleEntry struct {
 // ValidateDraft validates one editable Results Draft without requiring complete
 // eligible Entry coverage.
 func ValidateDraft(draft Draft) error {
+	if err := ValidateAwards(draft.Awards); err != nil {
+		return err
+	}
 	if err := validateScorePolicy(draft.Score); err != nil {
 		return err
 	}

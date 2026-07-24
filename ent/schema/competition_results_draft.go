@@ -8,6 +8,8 @@ import (
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
+
+	"github.com/dotwaffle/beamers/internal/awardvalue"
 )
 
 // CompetitionResultsDraft is one immutable Competition Results revision.
@@ -48,6 +50,7 @@ func (CompetitionResultsDraft) Fields() []ent.Field {
 			Values("HigherWins", "LowerWins", "Informational").
 			Default("Informational").
 			Immutable(),
+		field.JSON("awards", []awardvalue.Competition{}).Optional().Immutable(),
 		field.Int("ready_by_account_id").Optional().Nillable().Positive(),
 		field.Time("ready_at").Optional().Nillable(),
 		field.Int("created_by_account_id").Positive().Immutable(),

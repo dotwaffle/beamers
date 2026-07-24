@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/competitionresultsdraft"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/internal/awardvalue"
 )
 
 // CompetitionResultsDraft is the model entity for the CompetitionResultsDraft schema.
@@ -43,6 +45,8 @@ type CompetitionResultsDraft struct {
 	ScoreRequirement competitionresultsdraft.ScoreRequirement `json:"score_requirement,omitempty"`
 	// ScoreInterpretation holds the value of the "score_interpretation" field.
 	ScoreInterpretation competitionresultsdraft.ScoreInterpretation `json:"score_interpretation,omitempty"`
+	// Awards holds the value of the "awards" field.
+	Awards []awardvalue.Competition `json:"awards,omitempty"`
 	// ReadyByAccountID holds the value of the "ready_by_account_id" field.
 	ReadyByAccountID *int `json:"ready_by_account_id,omitempty"`
 	// ReadyAt holds the value of the "ready_at" field.
@@ -106,6 +110,8 @@ func (*CompetitionResultsDraft) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case competitionresultsdraft.FieldAwards:
+			values[i] = new([]byte)
 		case competitionresultsdraft.FieldID, competitionresultsdraft.FieldEventID, competitionresultsdraft.FieldCompetitionSessionID, competitionresultsdraft.FieldRevision, competitionresultsdraft.FieldScorePrecision, competitionresultsdraft.FieldReadyByAccountID, competitionresultsdraft.FieldCreatedByAccountID:
 			values[i] = new(sql.NullInt64)
 		case competitionresultsdraft.FieldDisposition, competitionresultsdraft.FieldNoPublicCrewReason, competitionresultsdraft.FieldPublicExplanation, competitionresultsdraft.FieldScoreType, competitionresultsdraft.FieldScoreVisibility, competitionresultsdraft.FieldScoreUnit, competitionresultsdraft.FieldScoreRequirement, competitionresultsdraft.FieldScoreInterpretation:
@@ -204,6 +210,14 @@ func (_m *CompetitionResultsDraft) assignValues(columns []string, values []any) 
 				return fmt.Errorf("unexpected type %T for field score_interpretation", values[i])
 			} else if value.Valid {
 				_m.ScoreInterpretation = competitionresultsdraft.ScoreInterpretation(value.String)
+			}
+		case competitionresultsdraft.FieldAwards:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field awards", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Awards); err != nil {
+					return fmt.Errorf("unmarshal field awards: %w", err)
+				}
 			}
 		case competitionresultsdraft.FieldReadyByAccountID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -317,6 +331,9 @@ func (_m *CompetitionResultsDraft) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("score_interpretation=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ScoreInterpretation))
+	builder.WriteString(", ")
+	builder.WriteString("awards=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Awards))
 	builder.WriteString(", ")
 	if v := _m.ReadyByAccountID; v != nil {
 		builder.WriteString("ready_by_account_id=")

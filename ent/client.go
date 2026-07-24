@@ -35,6 +35,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/draftchangedependency"
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/event"
+	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/installation"
@@ -109,6 +110,8 @@ type Client struct {
 	DraftEdit *DraftEditClient
 	// Event is the client for interacting with the Event builders.
 	Event *EventClient
+	// EventAwardsDraft is the client for interacting with the EventAwardsDraft builders.
+	EventAwardsDraft *EventAwardsDraftClient
 	// EventGrant is the client for interacting with the EventGrant builders.
 	EventGrant *EventGrantClient
 	// ImportReference is the client for interacting with the ImportReference builders.
@@ -190,6 +193,7 @@ func (c *Client) init() {
 	c.DraftChangeDependency = NewDraftChangeDependencyClient(c.config)
 	c.DraftEdit = NewDraftEditClient(c.config)
 	c.Event = NewEventClient(c.config)
+	c.EventAwardsDraft = NewEventAwardsDraftClient(c.config)
 	c.EventGrant = NewEventGrantClient(c.config)
 	c.ImportReference = NewImportReferenceClient(c.config)
 	c.Installation = NewInstallationClient(c.config)
@@ -327,6 +331,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		DraftChangeDependency:       NewDraftChangeDependencyClient(cfg),
 		DraftEdit:                   NewDraftEditClient(cfg),
 		Event:                       NewEventClient(cfg),
+		EventAwardsDraft:            NewEventAwardsDraftClient(cfg),
 		EventGrant:                  NewEventGrantClient(cfg),
 		ImportReference:             NewImportReferenceClient(cfg),
 		Installation:                NewInstallationClient(cfg),
@@ -391,6 +396,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		DraftChangeDependency:       NewDraftChangeDependencyClient(cfg),
 		DraftEdit:                   NewDraftEditClient(cfg),
 		Event:                       NewEventClient(cfg),
+		EventAwardsDraft:            NewEventAwardsDraftClient(cfg),
 		EventGrant:                  NewEventGrantClient(cfg),
 		ImportReference:             NewImportReferenceClient(cfg),
 		Installation:                NewInstallationClient(cfg),
@@ -450,9 +456,10 @@ func (c *Client) Use(hooks ...Hook) {
 		c.CompetitionResultStanding, c.CompetitionResultsDraft, c.Display,
 		c.DisplayAssignment, c.DisplayCredential, c.DisplayEnrollment,
 		c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
-		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventGrant, c.ImportReference,
-		c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion, c.Location,
-		c.LocationDraft, c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
+		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventAwardsDraft,
+		c.EventGrant, c.ImportReference, c.Installation, c.Lane, c.LaneDraft,
+		c.LanePublishedVersion, c.Location, c.LocationDraft,
+		c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
 		c.PublicScheduleBaseline, c.PublicScheduleBaselineEntry, c.ReopenWindow,
 		c.Rundown, c.Session, c.SessionCancellation, c.SessionDraft,
 		c.SessionPublishedVersion, c.SessionRun, c.SessionRunAmendment, c.Track,
@@ -471,9 +478,10 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.CompetitionResultStanding, c.CompetitionResultsDraft, c.Display,
 		c.DisplayAssignment, c.DisplayCredential, c.DisplayEnrollment,
 		c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
-		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventGrant, c.ImportReference,
-		c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion, c.Location,
-		c.LocationDraft, c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
+		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventAwardsDraft,
+		c.EventGrant, c.ImportReference, c.Installation, c.Lane, c.LaneDraft,
+		c.LanePublishedVersion, c.Location, c.LocationDraft,
+		c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
 		c.PublicScheduleBaseline, c.PublicScheduleBaselineEntry, c.ReopenWindow,
 		c.Rundown, c.Session, c.SessionCancellation, c.SessionDraft,
 		c.SessionPublishedVersion, c.SessionRun, c.SessionRunAmendment, c.Track,
@@ -526,6 +534,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.DraftEdit.mutate(ctx, m)
 	case *EventMutation:
 		return c.Event.mutate(ctx, m)
+	case *EventAwardsDraftMutation:
+		return c.EventAwardsDraft.mutate(ctx, m)
 	case *EventGrantMutation:
 		return c.EventGrant.mutate(ctx, m)
 	case *ImportReferenceMutation:
@@ -4035,6 +4045,22 @@ func (c *EventClient) QueryCompetitionResultStandings(_m *Event) *CompetitionRes
 	return query
 }
 
+// QueryEventAwardsDrafts queries the event_awards_drafts edge of a Event.
+func (c *EventClient) QueryEventAwardsDrafts(_m *Event) *EventAwardsDraftQuery {
+	query := (&EventAwardsDraftClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(eventawardsdraft.Table, eventawardsdraft.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.EventAwardsDraftsTable, event.EventAwardsDraftsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryUploadLinks queries the upload_links edge of a Event.
 func (c *EventClient) QueryUploadLinks(_m *Event) *UploadLinkQuery {
 	query := (&UploadLinkClient{config: c.config}).Query()
@@ -4170,6 +4196,156 @@ func (c *EventClient) mutate(ctx context.Context, m *EventMutation) (Value, erro
 		return (&EventDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Event mutation op: %q", m.Op())
+	}
+}
+
+// EventAwardsDraftClient is a client for the EventAwardsDraft schema.
+type EventAwardsDraftClient struct {
+	config
+}
+
+// NewEventAwardsDraftClient returns a client for the EventAwardsDraft from the given config.
+func NewEventAwardsDraftClient(c config) *EventAwardsDraftClient {
+	return &EventAwardsDraftClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `eventawardsdraft.Hooks(f(g(h())))`.
+func (c *EventAwardsDraftClient) Use(hooks ...Hook) {
+	c.hooks.EventAwardsDraft = append(c.hooks.EventAwardsDraft, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `eventawardsdraft.Intercept(f(g(h())))`.
+func (c *EventAwardsDraftClient) Intercept(interceptors ...Interceptor) {
+	c.inters.EventAwardsDraft = append(c.inters.EventAwardsDraft, interceptors...)
+}
+
+// Create returns a builder for creating a EventAwardsDraft entity.
+func (c *EventAwardsDraftClient) Create() *EventAwardsDraftCreate {
+	mutation := newEventAwardsDraftMutation(c.config, OpCreate)
+	return &EventAwardsDraftCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of EventAwardsDraft entities.
+func (c *EventAwardsDraftClient) CreateBulk(builders ...*EventAwardsDraftCreate) *EventAwardsDraftCreateBulk {
+	return &EventAwardsDraftCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *EventAwardsDraftClient) MapCreateBulk(slice any, setFunc func(*EventAwardsDraftCreate, int)) *EventAwardsDraftCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &EventAwardsDraftCreateBulk{err: fmt.Errorf("calling to EventAwardsDraftClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*EventAwardsDraftCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &EventAwardsDraftCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for EventAwardsDraft.
+func (c *EventAwardsDraftClient) Update() *EventAwardsDraftUpdate {
+	mutation := newEventAwardsDraftMutation(c.config, OpUpdate)
+	return &EventAwardsDraftUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *EventAwardsDraftClient) UpdateOne(_m *EventAwardsDraft) *EventAwardsDraftUpdateOne {
+	mutation := newEventAwardsDraftMutation(c.config, OpUpdateOne, withEventAwardsDraft(_m))
+	return &EventAwardsDraftUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *EventAwardsDraftClient) UpdateOneID(id int) *EventAwardsDraftUpdateOne {
+	mutation := newEventAwardsDraftMutation(c.config, OpUpdateOne, withEventAwardsDraftID(id))
+	return &EventAwardsDraftUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for EventAwardsDraft.
+func (c *EventAwardsDraftClient) Delete() *EventAwardsDraftDelete {
+	mutation := newEventAwardsDraftMutation(c.config, OpDelete)
+	return &EventAwardsDraftDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *EventAwardsDraftClient) DeleteOne(_m *EventAwardsDraft) *EventAwardsDraftDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *EventAwardsDraftClient) DeleteOneID(id int) *EventAwardsDraftDeleteOne {
+	builder := c.Delete().Where(eventawardsdraft.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &EventAwardsDraftDeleteOne{builder}
+}
+
+// Query returns a query builder for EventAwardsDraft.
+func (c *EventAwardsDraftClient) Query() *EventAwardsDraftQuery {
+	return &EventAwardsDraftQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeEventAwardsDraft},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a EventAwardsDraft entity by its id.
+func (c *EventAwardsDraftClient) Get(ctx context.Context, id int) (*EventAwardsDraft, error) {
+	return c.Query().Where(eventawardsdraft.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *EventAwardsDraftClient) GetX(ctx context.Context, id int) *EventAwardsDraft {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a EventAwardsDraft.
+func (c *EventAwardsDraftClient) QueryEvent(_m *EventAwardsDraft) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(eventawardsdraft.Table, eventawardsdraft.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, eventawardsdraft.EventTable, eventawardsdraft.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *EventAwardsDraftClient) Hooks() []Hook {
+	hooks := c.hooks.EventAwardsDraft
+	return append(hooks[:len(hooks):len(hooks)], eventawardsdraft.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *EventAwardsDraftClient) Interceptors() []Interceptor {
+	return c.inters.EventAwardsDraft
+}
+
+func (c *EventAwardsDraftClient) mutate(ctx context.Context, m *EventAwardsDraftMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&EventAwardsDraftCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&EventAwardsDraftUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&EventAwardsDraftUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&EventAwardsDraftDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown EventAwardsDraft mutation op: %q", m.Op())
 	}
 }
 
@@ -8457,12 +8633,13 @@ type (
 		BootstrapCredential, CommandReceipt, CompetitionEntry,
 		CompetitionResultStanding, CompetitionResultsDraft, Display, DisplayAssignment,
 		DisplayCredential, DisplayEnrollment, DisplayOverride, DisplayOverrideState,
-		DraftChange, DraftChangeDependency, DraftEdit, Event, EventGrant,
-		ImportReference, Installation, Lane, LaneDraft, LanePublishedVersion, Location,
-		LocationDraft, LocationPublishedVersion, Migration, PasswordCredential,
-		PublicScheduleBaseline, PublicScheduleBaselineEntry, ReopenWindow, Rundown,
-		Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
-		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
+		DraftChange, DraftChangeDependency, DraftEdit, Event, EventAwardsDraft,
+		EventGrant, ImportReference, Installation, Lane, LaneDraft,
+		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
+		Migration, PasswordCredential, PublicScheduleBaseline,
+		PublicScheduleBaselineEntry, ReopenWindow, Rundown, Session,
+		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
+		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
 		UploadLink []ent.Hook
 	}
 	inters struct {
@@ -8470,12 +8647,13 @@ type (
 		BootstrapCredential, CommandReceipt, CompetitionEntry,
 		CompetitionResultStanding, CompetitionResultsDraft, Display, DisplayAssignment,
 		DisplayCredential, DisplayEnrollment, DisplayOverride, DisplayOverrideState,
-		DraftChange, DraftChangeDependency, DraftEdit, Event, EventGrant,
-		ImportReference, Installation, Lane, LaneDraft, LanePublishedVersion, Location,
-		LocationDraft, LocationPublishedVersion, Migration, PasswordCredential,
-		PublicScheduleBaseline, PublicScheduleBaselineEntry, ReopenWindow, Rundown,
-		Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
-		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
+		DraftChange, DraftChangeDependency, DraftEdit, Event, EventAwardsDraft,
+		EventGrant, ImportReference, Installation, Lane, LaneDraft,
+		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
+		Migration, PasswordCredential, PublicScheduleBaseline,
+		PublicScheduleBaselineEntry, ReopenWindow, Rundown, Session,
+		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
+		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
 		UploadLink []ent.Interceptor
 	}
 )

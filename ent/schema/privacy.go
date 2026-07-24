@@ -13,6 +13,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftchangedependency"
+	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/lanedraft"
@@ -632,6 +633,24 @@ func filterViewableCompetitionResultStandings() privacy.QueryRule {
 			return privacy.Denyf("unexpected Competition Result Standing query %T", query)
 		}
 		filter.Where(competitionresultstanding.EventIDIn(eventIDs...))
+		return privacy.Skip
+	})
+}
+
+func filterViewableEventAwardsDrafts() privacy.QueryRule {
+	type selectorFilter interface {
+		Where(...predicate.EventAwardsDraft) *beamersent.EventAwardsDraftQuery
+	}
+	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
+		eventIDs, err := resultsEventIDs(ctx, viewer.ViewResults)
+		if err != nil {
+			return err
+		}
+		filter, ok := query.(selectorFilter)
+		if !ok {
+			return privacy.Denyf("unexpected Event Awards Draft query %T", query)
+		}
+		filter.Where(eventawardsdraft.EventIDIn(eventIDs...))
 		return privacy.Skip
 	})
 }

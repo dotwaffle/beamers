@@ -10,7 +10,11 @@ option go_package = "github.com/dotwaffle/beamers/gen/beamers/results/v1;results
 service ResultsService {
   rpc GetCompetitionResultsDraft(GetCompetitionResultsDraftRequest) returns (GetCompetitionResultsDraftResponse);
   rpc SaveCompetitionResultsDraft(SaveCompetitionResultsDraftRequest) returns (SaveCompetitionResultsDraftResponse);
+  rpc SaveCompetitionAwards(SaveCompetitionAwardsRequest) returns (SaveCompetitionAwardsResponse);
   rpc MarkCompetitionResultsReady(MarkCompetitionResultsReadyRequest) returns (MarkCompetitionResultsReadyResponse);
+  rpc GetEventAwardsDraft(GetEventAwardsDraftRequest) returns (GetEventAwardsDraftResponse);
+  rpc SaveEventAwardsDraft(SaveEventAwardsDraftRequest) returns (SaveEventAwardsDraftResponse);
+  rpc MarkEventAwardsReady(MarkEventAwardsReadyRequest) returns (MarkEventAwardsReadyResponse);
 }
 
 enum ResultsDisposition {
@@ -52,6 +56,12 @@ enum ScoreInterpretation {
   SCORE_INTERPRETATION_INFORMATIONAL = 3;
 }
 
+enum AwardReleasePathKind {
+  AWARD_RELEASE_PATH_KIND_UNSPECIFIED = 0;
+  AWARD_RELEASE_PATH_KIND_STANDALONE = 1;
+  AWARD_RELEASE_PATH_KIND_PRIZEGIVING = 2;
+}
+
 message ScorePolicy {
   ScoreType type = 1;
   ScoreVisibility visibility = 2;
@@ -76,6 +86,42 @@ message CompetitionResultStanding {
   ScoreValue score = 5;
 }
 
+message AwardRecipient {
+  oneof recipient {
+    int64 entry_id = 1;
+    string display_name = 2;
+  }
+}
+
+message CompetitionAward {
+  string key = 1;
+  string name = 2;
+  repeated AwardRecipient recipients = 3;
+  bool promoted = 4;
+  int32 display_order = 5;
+}
+
+message AwardReleasePath {
+  AwardReleasePathKind kind = 1;
+  int64 prizegiving_session_id = 2;
+}
+
+message EventAward {
+  string key = 1;
+  string name = 2;
+  repeated AwardRecipient recipients = 3;
+  int32 display_order = 4;
+  AwardReleasePath release_path = 5;
+}
+
+message EventAwardPathState {
+  AwardReleasePath release_path = 1;
+  int64 revision = 2;
+  bool ready = 3;
+  int64 ready_by_account_id = 4;
+  google.protobuf.Timestamp ready_at = 5;
+}
+
 message CompetitionResultsDraft {
   int64 id = 1;
   int64 event_id = 2;
@@ -91,6 +137,7 @@ message CompetitionResultsDraft {
   google.protobuf.Timestamp ready_at = 12;
   int64 created_by_account_id = 13;
   google.protobuf.Timestamp created_at = 14;
+  repeated CompetitionAward awards = 15;
 }
 
 message GetCompetitionResultsDraftRequest {
@@ -118,6 +165,18 @@ message SaveCompetitionResultsDraftResponse {
   CompetitionResultsDraft draft = 1;
 }
 
+message SaveCompetitionAwardsRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  string command_id = 3;
+  int64 expected_revision = 4;
+  repeated CompetitionAward awards = 5;
+}
+
+message SaveCompetitionAwardsResponse {
+  CompetitionResultsDraft draft = 1;
+}
+
 message MarkCompetitionResultsReadyRequest {
   int64 event_id = 1;
   int64 session_id = 2;
@@ -127,4 +186,45 @@ message MarkCompetitionResultsReadyRequest {
 
 message MarkCompetitionResultsReadyResponse {
   CompetitionResultsDraft draft = 1;
+}
+
+message EventAwardsDraft {
+  int64 id = 1;
+  int64 event_id = 2;
+  int64 revision = 3;
+  repeated EventAward awards = 4;
+  repeated EventAwardPathState path_states = 5;
+  int64 created_by_account_id = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message GetEventAwardsDraftRequest {
+  int64 event_id = 1;
+}
+
+message GetEventAwardsDraftResponse {
+  EventAwardsDraft draft = 1;
+}
+
+message SaveEventAwardsDraftRequest {
+  int64 event_id = 1;
+  string command_id = 2;
+  int64 expected_revision = 3;
+  repeated EventAward awards = 4;
+}
+
+message SaveEventAwardsDraftResponse {
+  EventAwardsDraft draft = 1;
+}
+
+message MarkEventAwardsReadyRequest {
+  int64 event_id = 1;
+  string command_id = 2;
+  int64 expected_revision = 3;
+  AwardReleasePath release_path = 4;
+  int64 expected_path_revision = 5;
+}
+
+message MarkEventAwardsReadyResponse {
+  EventAwardsDraft draft = 1;
 }

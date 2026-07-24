@@ -108,6 +108,36 @@ func (handler *Handler) SaveCompetitionResultsDraft(
 	}), nil
 }
 
+// SaveCompetitionAwards replaces Awards without changing Placement or Score.
+func (handler *Handler) SaveCompetitionAwards(
+	ctx context.Context,
+	request *connect.Request[resultsv1.SaveCompetitionAwardsRequest],
+) (*connect.Response[resultsv1.SaveCompetitionAwardsResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	awards, err := competitionAwardsFromProto(request.Msg.GetAwards())
+	if err != nil {
+		return nil, err
+	}
+	saved, err := handler.service.SaveCompetitionAwards(
+		ctx,
+		actor,
+		results.SaveCompetitionAwardsInput{
+			EventID: int(request.Msg.GetEventId()), SessionID: int(request.Msg.GetSessionId()),
+			CommandID:        request.Msg.GetCommandId(),
+			ExpectedRevision: int(request.Msg.GetExpectedRevision()), Awards: awards,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&resultsv1.SaveCompetitionAwardsResponse{
+		Draft: draft(saved),
+	}), nil
+}
+
 // MarkCompetitionResultsReady records Producer review of one exact revision.
 func (handler *Handler) MarkCompetitionResultsReady(
 	ctx context.Context,
@@ -127,6 +157,79 @@ func (handler *Handler) MarkCompetitionResultsReady(
 	}
 	return connect.NewResponse(&resultsv1.MarkCompetitionResultsReadyResponse{
 		Draft: draft(ready),
+	}), nil
+}
+
+// GetEventAwardsDraft returns the current unreleased Event Awards Draft.
+func (handler *Handler) GetEventAwardsDraft(
+	ctx context.Context,
+	request *connect.Request[resultsv1.GetEventAwardsDraftRequest],
+) (*connect.Response[resultsv1.GetEventAwardsDraftResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	found, err := handler.service.GetEventAwards(ctx, actor, int(request.Msg.GetEventId()))
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&resultsv1.GetEventAwardsDraftResponse{
+		Draft: eventAwardsDraft(found),
+	}), nil
+}
+
+// SaveEventAwardsDraft appends one complete Event Awards snapshot.
+func (handler *Handler) SaveEventAwardsDraft(
+	ctx context.Context,
+	request *connect.Request[resultsv1.SaveEventAwardsDraftRequest],
+) (*connect.Response[resultsv1.SaveEventAwardsDraftResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	awards, err := eventAwardsFromProto(request.Msg.GetAwards())
+	if err != nil {
+		return nil, err
+	}
+	saved, err := handler.service.SaveEventAwards(ctx, actor, results.SaveEventAwardsInput{
+		EventID: int(request.Msg.GetEventId()), CommandID: request.Msg.GetCommandId(),
+		ExpectedRevision: int(request.Msg.GetExpectedRevision()), Awards: awards,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&resultsv1.SaveEventAwardsDraftResponse{
+		Draft: eventAwardsDraft(saved),
+	}), nil
+}
+
+// MarkEventAwardsReady records Producer review of one exact release path.
+func (handler *Handler) MarkEventAwardsReady(
+	ctx context.Context,
+	request *connect.Request[resultsv1.MarkEventAwardsReadyRequest],
+) (*connect.Response[resultsv1.MarkEventAwardsReadyResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	path, err := awardReleasePathFromProto(request.Msg.GetReleasePath())
+	if err != nil {
+		return nil, err
+	}
+	ready, err := handler.service.MarkEventAwardsReady(
+		ctx,
+		actor,
+		results.MarkEventAwardsReadyInput{
+			EventID: int(request.Msg.GetEventId()), CommandID: request.Msg.GetCommandId(),
+			ExpectedRevision: int(request.Msg.GetExpectedRevision()), ReleasePath: path,
+			ExpectedPathRevision: int(request.Msg.GetExpectedPathRevision()),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&resultsv1.MarkEventAwardsReadyResponse{
+		Draft: eventAwardsDraft(ready),
 	}), nil
 }
 
@@ -151,6 +254,77 @@ func standingsFromProto(
 		})
 	}
 	return standings, nil
+}
+
+func competitionAwardsFromProto(
+	values []*resultsv1.CompetitionAward,
+) ([]results.Award, error) {
+	awards := make([]results.Award, 0, len(values))
+	for _, value := range values {
+		if value == nil {
+			return nil, results.ErrInvalidAward
+		}
+		recipients, err := awardRecipientsFromProto(value.GetRecipients())
+		if err != nil {
+			return nil, err
+		}
+		awards = append(awards, results.Award{
+			Key: value.GetKey(), Name: value.GetName(), Recipients: recipients,
+			Promoted: value.GetPromoted(), DisplayOrder: int(value.GetDisplayOrder()),
+		})
+	}
+	return awards, nil
+}
+
+func eventAwardsFromProto(
+	values []*resultsv1.EventAward,
+) ([]results.EventAward, error) {
+	awards := make([]results.EventAward, 0, len(values))
+	for _, value := range values {
+		if value == nil {
+			return nil, results.ErrInvalidAward
+		}
+		recipients, err := awardRecipientsFromProto(value.GetRecipients())
+		if err != nil {
+			return nil, err
+		}
+		path, err := awardReleasePathFromProto(value.GetReleasePath())
+		if err != nil {
+			return nil, err
+		}
+		awards = append(awards, results.EventAward{
+			Award: results.Award{
+				Key: value.GetKey(), Name: value.GetName(), Recipients: recipients,
+				DisplayOrder: int(value.GetDisplayOrder()),
+			},
+			ReleasePath: path,
+		})
+	}
+	return awards, nil
+}
+
+func awardRecipientsFromProto(
+	values []*resultsv1.AwardRecipient,
+) ([]results.AwardRecipient, error) {
+	recipients := make([]results.AwardRecipient, 0, len(values))
+	for _, value := range values {
+		if value == nil {
+			return nil, results.ErrInvalidAward
+		}
+		switch recipient := value.GetRecipient().(type) {
+		case *resultsv1.AwardRecipient_EntryId:
+			recipients = append(recipients, results.AwardRecipient{
+				EntryID: int(recipient.EntryId),
+			})
+		case *resultsv1.AwardRecipient_DisplayName:
+			recipients = append(recipients, results.AwardRecipient{
+				DisplayName: recipient.DisplayName,
+			})
+		default:
+			return nil, results.ErrInvalidAward
+		}
+	}
+	return recipients, nil
 }
 
 func scoreValueFromProto(value *resultsv1.ScoreValue) (results.ScoreValue, error) {
@@ -199,9 +373,96 @@ func draft(value results.Draft) *resultsv1.CompetitionResultsDraft {
 		Score: scorePolicy(value.Score), Standings: standings, Ready: value.Ready,
 		ReadyByAccountId:   int64(value.ReadyByAccountID),
 		CreatedByAccountId: int64(value.CreatedByAccountID),
+		Awards:             competitionAwards(value.Awards),
 	}
 	if !value.ReadyAt.IsZero() {
 		result.ReadyAt = timestamppb.New(value.ReadyAt)
+	}
+	if !value.CreatedAt.IsZero() {
+		result.CreatedAt = timestamppb.New(value.CreatedAt)
+	}
+	return result
+}
+
+func competitionAwards(values []results.Award) []*resultsv1.CompetitionAward {
+	awards := make([]*resultsv1.CompetitionAward, 0, len(values))
+	for _, value := range values {
+		awards = append(awards, &resultsv1.CompetitionAward{
+			Key: value.Key, Name: value.Name, Recipients: awardRecipients(value.Recipients),
+			Promoted:     value.Promoted,
+			DisplayOrder: int32(value.DisplayOrder), //nolint:gosec // Award count is limited to 1000.
+		})
+	}
+	return awards
+}
+
+func awardRecipients(values []results.AwardRecipient) []*resultsv1.AwardRecipient {
+	recipients := make([]*resultsv1.AwardRecipient, 0, len(values))
+	for _, value := range values {
+		found := &resultsv1.AwardRecipient{}
+		if value.EntryID > 0 {
+			found.Recipient = &resultsv1.AwardRecipient_EntryId{EntryId: int64(value.EntryID)}
+		} else {
+			found.Recipient = &resultsv1.AwardRecipient_DisplayName{
+				DisplayName: value.DisplayName,
+			}
+		}
+		recipients = append(recipients, found)
+	}
+	return recipients
+}
+
+func awardReleasePathFromProto(
+	value *resultsv1.AwardReleasePath,
+) (results.AwardReleasePath, error) {
+	if value == nil {
+		return results.AwardReleasePath{}, results.ErrInvalidAward
+	}
+	kind := map[resultsv1.AwardReleasePathKind]results.AwardReleasePathKind{
+		resultsv1.AwardReleasePathKind_AWARD_RELEASE_PATH_KIND_STANDALONE:  results.StandaloneRelease,
+		resultsv1.AwardReleasePathKind_AWARD_RELEASE_PATH_KIND_PRIZEGIVING: results.PrizegivingRelease,
+	}[value.GetKind()]
+	if kind == "" {
+		return results.AwardReleasePath{}, results.ErrInvalidAward
+	}
+	return results.AwardReleasePath{
+		Kind: kind, PrizegivingSessionID: int(value.GetPrizegivingSessionId()),
+	}, nil
+}
+
+func awardReleasePath(value results.AwardReleasePath) *resultsv1.AwardReleasePath {
+	return &resultsv1.AwardReleasePath{
+		Kind: map[results.AwardReleasePathKind]resultsv1.AwardReleasePathKind{
+			results.StandaloneRelease:  resultsv1.AwardReleasePathKind_AWARD_RELEASE_PATH_KIND_STANDALONE,
+			results.PrizegivingRelease: resultsv1.AwardReleasePathKind_AWARD_RELEASE_PATH_KIND_PRIZEGIVING,
+		}[value.Kind],
+		PrizegivingSessionId: int64(value.PrizegivingSessionID),
+	}
+}
+
+func eventAwardsDraft(value results.EventAwardsDraft) *resultsv1.EventAwardsDraft {
+	awards := make([]*resultsv1.EventAward, 0, len(value.Awards))
+	for _, award := range value.Awards {
+		awards = append(awards, &resultsv1.EventAward{
+			Key: award.Key, Name: award.Name, Recipients: awardRecipients(award.Recipients),
+			DisplayOrder: int32(award.DisplayOrder), //nolint:gosec // Award count is limited to 1000.
+			ReleasePath:  awardReleasePath(award.ReleasePath),
+		})
+	}
+	states := make([]*resultsv1.EventAwardPathState, 0, len(value.PathStates))
+	for _, state := range value.PathStates {
+		found := &resultsv1.EventAwardPathState{
+			ReleasePath: awardReleasePath(state.ReleasePath), Revision: int64(state.Revision),
+			Ready: state.Ready, ReadyByAccountId: int64(state.ReadyByAccountID),
+		}
+		if !state.ReadyAt.IsZero() {
+			found.ReadyAt = timestamppb.New(state.ReadyAt)
+		}
+		states = append(states, found)
+	}
+	result := &resultsv1.EventAwardsDraft{
+		Id: int64(value.ID), EventId: int64(value.EventID), Revision: int64(value.Revision),
+		Awards: awards, PathStates: states, CreatedByAccountId: int64(value.CreatedByAccountID),
 	}
 	if !value.CreatedAt.IsZero() {
 		result.CreatedAt = timestamppb.New(value.CreatedAt)
@@ -345,9 +606,11 @@ func connectError(err error) error {
 		errors.Is(err, results.ErrManageRequired),
 		errors.Is(err, results.ErrProducerRequired):
 		return connect.NewError(connect.CodePermissionDenied, err)
-	case errors.Is(err, results.ErrCompetitionNotFound):
+	case errors.Is(err, results.ErrCompetitionNotFound),
+		errors.Is(err, results.ErrEventNotFound):
 		return connect.NewError(connect.CodeNotFound, err)
 	case errors.Is(err, results.ErrRevisionConflict),
+		errors.Is(err, results.ErrEventAwardsRevision),
 		errors.Is(err, results.ErrCommandConflict):
 		return connect.NewError(connect.CodeAborted, err)
 	case errors.Is(err, results.ErrIncomplete),
@@ -359,8 +622,11 @@ func connectError(err error) error {
 	case errors.Is(err, command.ErrInvalidID),
 		errors.Is(err, results.ErrInvalidInput),
 		errors.Is(err, results.ErrEntryOutsideCompetition),
+		errors.Is(err, results.ErrAwardEntryOutsideScope),
+		errors.Is(err, results.ErrEventAwardPath),
 		errors.Is(err, results.ErrCrewReasonRequired),
-		errors.Is(err, results.ErrInvalidScore):
+		errors.Is(err, results.ErrInvalidScore),
+		errors.Is(err, results.ErrInvalidAward):
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	default:
 		return connect.NewError(connect.CodeInternal, errors.New("results request failed"))

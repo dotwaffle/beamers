@@ -54,6 +54,8 @@ type Tx struct {
 	DraftEdit *DraftEditClient
 	// Event is the client for interacting with the Event builders.
 	Event *EventClient
+	// EventAwardsDraft is the client for interacting with the EventAwardsDraft builders.
+	EventAwardsDraft *EventAwardsDraftClient
 	// EventGrant is the client for interacting with the EventGrant builders.
 	EventGrant *EventGrantClient
 	// ImportReference is the client for interacting with the ImportReference builders.
@@ -255,6 +257,7 @@ func (tx *Tx) init() {
 	tx.DraftChangeDependency = NewDraftChangeDependencyClient(tx.config)
 	tx.DraftEdit = NewDraftEditClient(tx.config)
 	tx.Event = NewEventClient(tx.config)
+	tx.EventAwardsDraft = NewEventAwardsDraftClient(tx.config)
 	tx.EventGrant = NewEventGrantClient(tx.config)
 	tx.ImportReference = NewImportReferenceClient(tx.config)
 	tx.Installation = NewInstallationClient(tx.config)

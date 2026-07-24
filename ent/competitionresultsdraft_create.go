@@ -14,6 +14,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/internal/awardvalue"
 )
 
 // CompetitionResultsDraftCreate is the builder for creating a CompetitionResultsDraft entity.
@@ -148,6 +149,12 @@ func (_c *CompetitionResultsDraftCreate) SetNillableScoreInterpretation(v *compe
 	if v != nil {
 		_c.SetScoreInterpretation(*v)
 	}
+	return _c
+}
+
+// SetAwards sets the "awards" field.
+func (_c *CompetitionResultsDraftCreate) SetAwards(v []awardvalue.Competition) *CompetitionResultsDraftCreate {
+	_c.mutation.SetAwards(v)
 	return _c
 }
 
@@ -459,6 +466,10 @@ func (_c *CompetitionResultsDraftCreate) createSpec() (*CompetitionResultsDraft,
 	if value, ok := _c.mutation.ScoreInterpretation(); ok {
 		_spec.SetField(competitionresultsdraft.FieldScoreInterpretation, field.TypeEnum, value)
 		_node.ScoreInterpretation = value
+	}
+	if value, ok := _c.mutation.Awards(); ok {
+		_spec.SetField(competitionresultsdraft.FieldAwards, field.TypeJSON, value)
+		_node.Awards = value
 	}
 	if value, ok := _c.mutation.ReadyByAccountID(); ok {
 		_spec.SetField(competitionresultsdraft.FieldReadyByAccountID, field.TypeInt, value)

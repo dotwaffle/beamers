@@ -72,6 +72,8 @@ const (
 	EdgeCompetitionResultsDrafts = "competition_results_drafts"
 	// EdgeCompetitionResultStandings holds the string denoting the competition_result_standings edge name in mutations.
 	EdgeCompetitionResultStandings = "competition_result_standings"
+	// EdgeEventAwardsDrafts holds the string denoting the event_awards_drafts edge name in mutations.
+	EdgeEventAwardsDrafts = "event_awards_drafts"
 	// EdgeUploadLinks holds the string denoting the upload_links edge name in mutations.
 	EdgeUploadLinks = "upload_links"
 	// EdgeDraftEdits holds the string denoting the draft_edits edge name in mutations.
@@ -151,6 +153,13 @@ const (
 	CompetitionResultStandingsInverseTable = "competition_result_standings"
 	// CompetitionResultStandingsColumn is the table column denoting the competition_result_standings relation/edge.
 	CompetitionResultStandingsColumn = "event_id"
+	// EventAwardsDraftsTable is the table that holds the event_awards_drafts relation/edge.
+	EventAwardsDraftsTable = "event_awards_drafts"
+	// EventAwardsDraftsInverseTable is the table name for the EventAwardsDraft entity.
+	// It exists in this package in order to avoid circular dependency with the "eventawardsdraft" package.
+	EventAwardsDraftsInverseTable = "event_awards_drafts"
+	// EventAwardsDraftsColumn is the table column denoting the event_awards_drafts relation/edge.
+	EventAwardsDraftsColumn = "event_id"
 	// UploadLinksTable is the table that holds the upload_links relation/edge.
 	UploadLinksTable = "upload_links"
 	// UploadLinksInverseTable is the table name for the UploadLink entity.
@@ -565,6 +574,20 @@ func ByCompetitionResultStandings(term sql.OrderTerm, terms ...sql.OrderTerm) Or
 	}
 }
 
+// ByEventAwardsDraftsCount orders the results by event_awards_drafts count.
+func ByEventAwardsDraftsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newEventAwardsDraftsStep(), opts...)
+	}
+}
+
+// ByEventAwardsDrafts orders the results by event_awards_drafts terms.
+func ByEventAwardsDrafts(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newEventAwardsDraftsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByUploadLinksCount orders the results by upload_links count.
 func ByUploadLinksCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -716,6 +739,13 @@ func newCompetitionResultStandingsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(CompetitionResultStandingsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, CompetitionResultStandingsTable, CompetitionResultStandingsColumn),
+	)
+}
+func newEventAwardsDraftsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(EventAwardsDraftsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, EventAwardsDraftsTable, EventAwardsDraftsColumn),
 	)
 }
 func newUploadLinksStep() *sqlgraph.Step {

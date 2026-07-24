@@ -555,6 +555,16 @@ func ScoreInterpretationNotIn(vs ...ScoreInterpretation) predicate.CompetitionRe
 	return predicate.CompetitionResultsDraft(sql.FieldNotIn(FieldScoreInterpretation, vs...))
 }
 
+// AwardsIsNil applies the IsNil predicate on the "awards" field.
+func AwardsIsNil() predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldIsNull(FieldAwards))
+}
+
+// AwardsNotNil applies the NotNil predicate on the "awards" field.
+func AwardsNotNil() predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldNotNull(FieldAwards))
+}
+
 // ReadyByAccountIDEQ applies the EQ predicate on the "ready_by_account_id" field.
 func ReadyByAccountIDEQ(v int) predicate.CompetitionResultsDraft {
 	return predicate.CompetitionResultsDraft(sql.FieldEQ(FieldReadyByAccountID, v))
