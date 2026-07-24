@@ -15,11 +15,11 @@ var (
 
 // CorrectionProposal is one exact reviewed replacement presentation.
 type CorrectionProposal struct {
-	PublicationOrder []ResultItemRef
-	Items            []PublicResultsItem
-	Template         TextTemplate
-	CrewReason       string
-	PublicNote       string
+	PublicationOrder []ResultItemRef     `json:"publication_order"`
+	Items            []PublicResultsItem `json:"items"`
+	Template         TextTemplate        `json:"template"`
+	CrewReason       string              `json:"crew_reason"`
+	PublicNote       string              `json:"public_note,omitempty"`
 }
 
 // BuildCorrectedResultsPublication validates a monotonic correction.

@@ -329,6 +329,30 @@ func (installation *SQLite) LoadResultsPublication(
 	return found, err
 }
 
+// LoadResultsPublicationRevision returns one immutable historical publication.
+func (installation *SQLite) LoadResultsPublicationRevision(
+	ctx context.Context,
+	eventID int,
+	scope ResultsPublicationScope,
+	scopeSessionID, revision int,
+) (ResultsPublication, error) {
+	found, err := installation.client.ResultsPublication.Query().
+		Where(
+			resultspublication.EventIDEQ(eventID),
+			resultspublication.ScopeEQ(resultspublication.Scope(scope)),
+			resultspublication.ScopeSessionIDEQ(scopeSessionID),
+			resultspublication.RevisionEQ(revision),
+		).
+		Only(systemContext(ctx))
+	if err != nil {
+		return ResultsPublication{}, opaqueError(
+			"load Results Publication revision",
+			err,
+		)
+	}
+	return resultsPublication(found), nil
+}
+
 // LoadResultsPublication returns the latest manifest inside a command transaction.
 func (transaction *CommandTx) LoadResultsPublication(
 	ctx context.Context,

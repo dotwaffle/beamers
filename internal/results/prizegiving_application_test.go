@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -402,6 +403,116 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 		!strings.Contains(stored.RenderedText, "Final") ||
 		!strings.Contains(stored.RenderedJSON, `"schema_version": "1"`) {
 		t.Fatalf("stored standalone Results Publication = %+v, %v", stored, err)
+	}
+	var releasedModel results.PublicResultsPublication
+	if err = json.Unmarshal([]byte(stored.RenderedJSON), &releasedModel); err != nil {
+		t.Fatalf("decode released Results model: %v", err)
+	}
+	releasedModel.Items[0].Competition.Title = "Corrected Final"
+	correction, err := service.SaveCorrection(
+		t.Context(),
+		actor,
+		results.SaveCorrectionInput{
+			EventID: eventID, Scope: results.PublicationScopeStandalone,
+			ScopeSessionID:          competitionID,
+			CommandID:               "save-standalone-results-correction",
+			BasePublicationRevision: stored.Revision,
+			PublicationOrder:        released.Items,
+			Items:                   releasedModel.Items,
+			Template:                results.DefaultResultsTextTemplate(),
+			CrewReason:              "The public title was incomplete.",
+			PublicNote:              "Competition title corrected.",
+		},
+	)
+	if err != nil || correction.Status != results.CorrectionDraft {
+		t.Fatalf("save Results Correction = %+v, %v", correction, err)
+	}
+	loadedCorrection, err := service.GetCorrection(
+		t.Context(),
+		actor,
+		eventID,
+		results.PublicationScopeStandalone,
+		competitionID,
+	)
+	if err != nil ||
+		loadedCorrection.Revision != correction.Revision ||
+		loadedCorrection.Proposal.PublicNote != correction.Proposal.PublicNote {
+		t.Fatalf("get Results Correction = %+v, %v", loadedCorrection, err)
+	}
+	correction, err = service.ReviewCorrection(
+		t.Context(),
+		actor,
+		results.ReviewCorrectionInput{
+			EventID: eventID, Scope: results.PublicationScopeStandalone,
+			ScopeSessionID:   competitionID,
+			CommandID:        "review-standalone-results-correction",
+			ExpectedRevision: correction.Revision,
+		},
+	)
+	if err != nil || correction.Status != results.CorrectionReady {
+		t.Fatalf("review Results Correction = %+v, %v", correction, err)
+	}
+	corrected, err := service.PublishCorrection(
+		t.Context(),
+		actor,
+		results.ReviewCorrectionInput{
+			EventID: eventID, Scope: results.PublicationScopeStandalone,
+			ScopeSessionID:   competitionID,
+			CommandID:        "publish-standalone-results-correction",
+			ExpectedRevision: correction.Revision,
+		},
+	)
+	if err != nil ||
+		corrected.Correction.Status != results.CorrectionPublished ||
+		corrected.Publication.Revision != stored.Revision+1 {
+		t.Fatalf("publish Results Correction = %+v, %v", corrected, err)
+	}
+	replayedCorrection, err := service.PublishCorrection(
+		t.Context(),
+		actor,
+		results.ReviewCorrectionInput{
+			EventID: eventID, Scope: results.PublicationScopeStandalone,
+			ScopeSessionID:   competitionID,
+			CommandID:        "publish-standalone-results-correction",
+			ExpectedRevision: correction.Revision,
+		},
+	)
+	if err != nil ||
+		replayedCorrection.Publication.Revision != corrected.Publication.Revision {
+		t.Fatalf("replay Results Correction = %+v, %v", replayedCorrection, err)
+	}
+	latest, err := storage.LoadResultsPublication(
+		t.Context(),
+		eventID,
+		store.ResultsPublicationStandalone,
+		competitionID,
+	)
+	if err != nil ||
+		latest.ResultsCorrectionRevision != corrected.Correction.Revision ||
+		!strings.Contains(latest.RenderedHTML, "Corrected Final") ||
+		!strings.Contains(latest.RenderedText, "Competition title corrected.") ||
+		!strings.Contains(latest.RenderedJSON, `"previous_revision": 1`) {
+		t.Fatalf("corrected Results Publication = %+v, %v", latest, err)
+	}
+	original, err := storage.LoadResultsPublicationRevision(
+		t.Context(),
+		eventID,
+		store.ResultsPublicationStandalone,
+		competitionID,
+		1,
+	)
+	if err != nil ||
+		strings.Contains(original.RenderedJSON, "Competition title corrected.") {
+		t.Fatalf("original Results Publication = %+v, %v", original, err)
+	}
+	audits, err := storage.ListAuditEntries(actor.Context(t.Context()))
+	if err != nil {
+		t.Fatalf("list Results Correction Audit Entries: %v", err)
+	}
+	for _, audit := range audits {
+		if strings.Contains(audit.Action, "Attachment") {
+			t.Fatalf("Results Correction retriggered Attachment action: %+v", audit)
+		}
 	}
 	if _, err = service.DesignatePrizegiving(
 		t.Context(),

@@ -304,9 +304,13 @@ func AdvancePrizegivingPublication(
 	if err != nil {
 		return Publication{}, false, err
 	}
+	publicationOrder := plan.Lock.PublicationOrder
+	if current.Revision > 0 {
+		publicationOrder = current.Lock.PublicationOrder
+	}
 	next, changed, err := AdvancePublication(PublicationInput{
 		Policy:        plan.ReleasePolicy,
-		Order:         prizegivingItemRefs(plan.Lock.PublicationOrder),
+		Order:         prizegivingItemRefs(publicationOrder),
 		States:        PrizegivingPublicationStates(channel.Items),
 		Current:       publicationFromStore(current),
 		CueFired:      trigger.CueFired,
@@ -316,8 +320,8 @@ func AdvancePrizegivingPublication(
 		return next, changed, err
 	}
 	releaseLock := plan.Lock
-	if len(current.Lock.RenderSource) != 0 {
-		releaseLock.RenderSource = current.Lock.RenderSource
+	if current.Revision > 0 {
+		releaseLock = current.Lock
 	}
 	releaseLock, err = freezeResultsRenderSource(ctx, transaction, eventID, releaseLock)
 	if err != nil {
@@ -414,6 +418,7 @@ func renderResultsPublication(
 		}
 		model.Event = frozen.Event
 		model.EventTitle = frozen.Event.Name
+		model.Correction = frozen.Correction
 		for index, ref := range next.Items {
 			if item, ok := frozenByRef[ref]; ok {
 				model.Items[index] = item
