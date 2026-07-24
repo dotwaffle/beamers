@@ -7,6 +7,7 @@ import (
 
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
+	prizegivingent "github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/internal/viewer"
@@ -302,6 +303,49 @@ func TestCompetitionResultsDraftRevisionsClearReady(t *testing.T) {
 	if err = crossStanding.Rollback(); err != nil {
 		t.Fatalf("roll back cross-Event Standing mutation: %v", err)
 	}
+
+	promotedAward := []CompetitionAwardInput{{
+		Key: "judges-choice", Name: "Judges' Choice", Promoted: true, DisplayOrder: 1,
+		Recipients: []AwardRecipientInput{{EntryID: first.ID}},
+	}}
+	deniedPromotion, err := installation.BeginCommand(manageContext)
+	if err != nil {
+		t.Fatalf("begin unauthorized Competition Award promotion: %v", err)
+	}
+	if _, err = deniedPromotion.SaveCompetitionResultsDraft(
+		manageContext,
+		SaveCompetitionResultsDraftParams{
+			EventID: event.ID, SessionID: competition.ID, ExpectedRevision: 3,
+			Disposition: "Pending", ScoreType: "None",
+			CreatedByAccountID: 10, Now: now.Add(7 * time.Minute), Awards: promotedAward,
+		},
+	); err == nil {
+		t.Fatal("Manage Results without Producer authority promoted a Competition Award")
+	}
+	if err = deniedPromotion.Rollback(); err != nil {
+		t.Fatalf("roll back unauthorized Competition Award promotion: %v", err)
+	}
+	producerPromotion, err := installation.BeginCommand(producerContext)
+	if err != nil {
+		t.Fatalf("begin Producer Competition Award promotion: %v", err)
+	}
+	promoted, err := producerPromotion.SaveCompetitionResultsDraft(
+		producerContext,
+		SaveCompetitionResultsDraftParams{
+			EventID: event.ID, SessionID: competition.ID, ExpectedRevision: 3,
+			Disposition: "Pending", ScoreType: "None",
+			CreatedByAccountID: 7, Now: now.Add(8 * time.Minute), Awards: promotedAward,
+		},
+	)
+	if err != nil {
+		t.Fatalf("Producer promote Competition Award: %v", err)
+	}
+	if err = producerPromotion.Commit(); err != nil {
+		t.Fatalf("commit Competition Award promotion: %v", err)
+	}
+	if promoted.Revision != 4 || len(promoted.Awards) != 1 || !promoted.Awards[0].Promoted {
+		t.Fatalf("promoted Competition Award Draft = %+v", promoted)
+	}
 }
 
 func TestEventAwardsDraftKeepsReadinessPerReleasePath(t *testing.T) {
@@ -481,6 +525,15 @@ func TestEventAwardsDraftKeepsReadinessPerReleasePath(t *testing.T) {
 	if err != nil || visible.Revision != 2 {
 		t.Fatalf("View Event Awards = %+v, %v", visible, err)
 	}
+	visiblePrizegiving, err := client.Prizegiving.Query().
+		Where(prizegivingent.CeremonySessionIDEQ(ceremony.ID)).
+		Only(viewContext)
+	if err != nil || visiblePrizegiving.CeremonySessionID != ceremony.ID {
+		t.Fatalf("View Prizegiving = %+v, %v", visiblePrizegiving, err)
+	}
+	if _, err = client.Prizegiving.Query().Only(t.Context()); err == nil {
+		t.Fatal("missing viewer read Prizegiving designation")
+	}
 	if _, err = installation.LoadEventAwardsDraft(t.Context(), event.ID); err == nil {
 		t.Fatal("missing viewer read Event Awards")
 	}
@@ -552,10 +605,29 @@ func TestEventAwardsDraftKeepsReadinessPerReleasePath(t *testing.T) {
 	}
 
 	otherEvent := createSchemaTestEvent(t, client)
+	otherEventCeremony := createPublishedResultsSession(
+		t, client, otherEvent.ID, sessionpublishedversion.TypeCeremony, "Other Prizegiving",
+	)
 	otherProducerContext := viewer.NewContext(t.Context(), viewer.Identity{
 		AccountID:  11,
 		EventRoles: map[int]viewer.Role{otherEvent.ID: viewer.Producer},
 	})
+	otherDesignation, err := installation.BeginCommand(otherProducerContext)
+	if err != nil {
+		t.Fatalf("begin other Prizegiving designation: %v", err)
+	}
+	if _, err = otherDesignation.DesignatePrizegiving(
+		otherProducerContext,
+		DesignatePrizegivingParams{
+			EventID: otherEvent.ID, CeremonySessionID: otherEventCeremony.ID,
+			CreatedByAccountID: 11, Now: now,
+		},
+	); err != nil {
+		t.Fatalf("designate other Prizegiving: %v", err)
+	}
+	if err = otherDesignation.Commit(); err != nil {
+		t.Fatalf("commit other Prizegiving designation: %v", err)
+	}
 	otherTransaction, err := installation.BeginCommand(otherProducerContext)
 	if err != nil {
 		t.Fatalf("begin other Event Awards Draft: %v", err)
@@ -582,6 +654,12 @@ func TestEventAwardsDraftKeepsReadinessPerReleasePath(t *testing.T) {
 	)
 	if otherVisibleErr == nil && otherVisible.Revision != 0 {
 		t.Fatalf("View Results leaked other Event Awards = %+v", otherVisible)
+	}
+	leakedPrizegiving, leakedPrizegivingErr := client.Prizegiving.Query().
+		Where(prizegivingent.EventIDEQ(otherEvent.ID)).
+		Exist(viewContext)
+	if leakedPrizegivingErr == nil && leakedPrizegiving {
+		t.Fatal("View Results leaked another Event Prizegiving")
 	}
 	crossTransaction, err := installation.BeginCommand(manageContext)
 	if err != nil {

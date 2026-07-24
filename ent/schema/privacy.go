@@ -31,6 +31,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
 	"github.com/dotwaffle/beamers/ent/uploadlink"
+	"github.com/dotwaffle/beamers/internal/awardvalue"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -698,6 +699,85 @@ func allowManageResultsMutation() privacy.MutationRule {
 		}
 		return privacy.Skip
 	})
+}
+
+func allowCompetitionResultsMutation() privacy.MutationRule {
+	type resultsMutation interface {
+		EventID() (int, bool)
+		OldEventID(context.Context) (int, error)
+		CompetitionSessionID() (int, bool)
+		Awards() ([]awardvalue.Competition, bool)
+		Client() *beamersent.Client
+	}
+	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
+		owned, ok := mutation.(resultsMutation)
+		if !ok {
+			return privacy.Skip
+		}
+		eventID, exists := owned.EventID()
+		if !exists {
+			var err error
+			eventID, err = owned.OldEventID(ctx)
+			if err != nil {
+				return privacy.Denyf("read Competition Results mutation ownership: %v", err)
+			}
+		}
+		identity, _ := viewer.FromContext(ctx)
+		if onlyFields(mutation, "ready_by_account_id", "ready_at") {
+			if identity.CanProduceEvent(eventID) {
+				return privacy.Allow
+			}
+			return privacy.Denyf("Producer authority is required for Competition Results review")
+		}
+		if !identity.HasCapability(eventID, viewer.ManageResults) {
+			return privacy.Skip
+		}
+		if !mutation.Op().Is(ent.OpCreate) {
+			return privacy.Allow
+		}
+		sessionID, sessionExists := owned.CompetitionSessionID()
+		next, awardsExist := owned.Awards()
+		if !sessionExists || !awardsExist {
+			return privacy.Denyf("Competition Results snapshot is incomplete")
+		}
+		current, err := owned.Client().CompetitionResultsDraft.Query().
+			Where(competitionresultsdraft.CompetitionSessionIDEQ(sessionID)).
+			Order(beamersent.Desc(competitionresultsdraft.FieldRevision)).
+			First(privacy.DecisionContext(ctx, privacy.Allow))
+		if err != nil && !beamersent.IsNotFound(err) {
+			return privacy.Denyf("read current Competition Award promotion: %v", err)
+		}
+		if competitionAwardPromotionChanged(current, next) &&
+			!identity.CanProduceEvent(eventID) {
+			return privacy.Denyf("Producer authority is required for Competition Award promotion")
+		}
+		return privacy.Allow
+	})
+}
+
+func competitionAwardPromotionChanged(
+	current *beamersent.CompetitionResultsDraft,
+	next []awardvalue.Competition,
+) bool {
+	promoted := make(map[string]bool)
+	if current != nil {
+		promoted = make(map[string]bool, len(current.Awards))
+		for _, award := range current.Awards {
+			promoted[award.Key] = award.Promoted
+		}
+	}
+	for _, award := range next {
+		if award.Promoted != promoted[award.Key] {
+			return true
+		}
+		delete(promoted, award.Key)
+	}
+	for _, value := range promoted {
+		if value {
+			return true
+		}
+	}
+	return false
 }
 
 func allowEventAwardsMutation() privacy.MutationRule {
