@@ -3,7 +3,52 @@ package results
 import (
 	"reflect"
 	"testing"
+	"time"
 )
+
+func TestDefaultPrizegivingOrderUsesPlannedTimeAndAwardsLast(t *testing.T) {
+	early := PrizegivingCompetitionOrderSource{
+		SessionID: 12, PlannedStart: time.Date(2026, 8, 21, 10, 0, 0, 0, time.UTC),
+		Draft: Draft{
+			SessionID: 12, Disposition: Publish,
+			Awards: []Award{{
+				Key: "judges-choice", Promoted: true, DisplayOrder: 1,
+			}},
+		},
+	}
+	late := PrizegivingCompetitionOrderSource{
+		SessionID: 11, PlannedStart: time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC),
+		Draft: Draft{SessionID: 11, Disposition: NoPublicResults},
+	}
+	sequence, publicationOrder := BuildDefaultPrizegivingOrder(
+		PrizegivingDefaultOrderInput{
+			Competitions: []PrizegivingCompetitionOrderSource{late, early},
+			EventAwards: []EventAward{{
+				Award: Award{Key: "community", DisplayOrder: 1},
+			}},
+		},
+	)
+	if len(sequence) != 4 ||
+		sequence[0].CompetitionSessionID != early.SessionID ||
+		sequence[1].Kind != ResultItemCompetitionAward ||
+		sequence[2].Kind != ResultItemNoPublicResults ||
+		sequence[3].Kind != ResultItemEventAward ||
+		!reflect.DeepEqual(
+			publicationOrder,
+			[]ResultItemRef{
+				sequence[0].Ref(1),
+				sequence[1].Ref(2),
+				sequence[2].Ref(3),
+				sequence[3].Ref(4),
+			},
+		) {
+		t.Fatalf(
+			"default sequence=%+v publication=%+v",
+			sequence,
+			publicationOrder,
+		)
+	}
+}
 
 func TestPrizegivingPreflightLocksExactReviewedSources(t *testing.T) {
 	competitionItem := ResultItem{

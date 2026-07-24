@@ -1,7 +1,6 @@
 package store
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"slices"
@@ -129,6 +128,19 @@ type PrizegivingPreviewState struct {
 	Plan               PrizegivingPlan
 	CompetitionResults []CompetitionResultsDraft
 	EventAwards        []EventAward
+}
+
+// PrizegivingCompetitionOrderState is source state for one default item group.
+type PrizegivingCompetitionOrderState struct {
+	SessionID    int
+	PlannedStart time.Time
+	Draft        CompetitionResultsDraft
+}
+
+// PrizegivingDefaultOrderState contains source state for initial ordering.
+type PrizegivingDefaultOrderState struct {
+	Competitions []PrizegivingCompetitionOrderState
+	EventAwards  []EventAward
 }
 
 // LoadPrizegivingPlan returns one designated Prizegiving's current plan.
@@ -306,6 +318,55 @@ func (transaction *CommandTx) LoadPrizegivingPreflightState(
 	return state, nil
 }
 
+// LoadPrizegivingDefaultOrderState loads explicit source state for the command layer.
+func (transaction *CommandTx) LoadPrizegivingDefaultOrderState(
+	ctx context.Context,
+	eventID, ceremonySessionID int,
+	competitionSessionIDs []int,
+) (PrizegivingDefaultOrderState, error) {
+	state := PrizegivingDefaultOrderState{
+		Competitions: make(
+			[]PrizegivingCompetitionOrderState,
+			0,
+			len(competitionSessionIDs),
+		),
+	}
+	for _, sessionID := range competitionSessionIDs {
+		version, err := transaction.transaction.SessionPublishedVersion.Query().
+			Where(sessionpublishedversion.SessionIDEQ(sessionID)).
+			Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).
+			First(ctx)
+		if err != nil {
+			return PrizegivingDefaultOrderState{}, opaqueError(
+				"load Competition order for Prizegiving",
+				err,
+			)
+		}
+		draft, err := transaction.LoadCompetitionResultsDraft(
+			ctx,
+			eventID,
+			sessionID,
+		)
+		if err != nil {
+			return PrizegivingDefaultOrderState{}, err
+		}
+		state.Competitions = append(
+			state.Competitions,
+			PrizegivingCompetitionOrderState{
+				SessionID: sessionID, PlannedStart: version.PlannedStart, Draft: draft,
+			},
+		)
+	}
+	eventAwards, err := transaction.LoadEventAwardsDraft(ctx, eventID)
+	if err != nil {
+		return PrizegivingDefaultOrderState{}, err
+	}
+	state.EventAwards = eventAwardsForPath(eventAwards.Awards, AwardReleasePath{
+		Kind: "Prizegiving", PrizegivingSessionID: ceremonySessionID,
+	})
+	return state, nil
+}
+
 // SavePrizegivingPlan atomically replaces assignments and editable ordering.
 func (transaction *CommandTx) SavePrizegivingPlan(
 	ctx context.Context,
@@ -335,13 +396,6 @@ func (transaction *CommandTx) SavePrizegivingPlan(
 		params.CompetitionSessionIDs,
 	); assignmentErr != nil {
 		return PrizegivingPlan{}, assignmentErr
-	}
-	if len(params.Sequence) == 0 && len(params.PublicationOrder) == 0 {
-		params.Sequence, params.PublicationOrder, err =
-			transaction.defaultPrizegivingOrder(ctx, params)
-		if err != nil {
-			return PrizegivingPlan{}, err
-		}
 	}
 	currentAssignments, err := transaction.transaction.PrizegivingCompetition.Query().
 		Where(prizegivingcompetition.PrizegivingIDEQ(found.ID)).
@@ -389,92 +443,6 @@ func (transaction *CommandTx) SavePrizegivingPlan(
 		return PrizegivingPlan{}, opaqueError("save Prizegiving plan", err)
 	}
 	return storedPrizegivingPlan(updated), nil
-}
-
-type prizegivingCompetitionOrder struct {
-	sessionID    int
-	plannedStart time.Time
-	draft        CompetitionResultsDraft
-}
-
-func (transaction *CommandTx) defaultPrizegivingOrder(
-	ctx context.Context,
-	params SavePrizegivingPlanParams,
-) ([]PrizegivingResultItem, []PrizegivingResultItemRef, error) {
-	competitions := make(
-		[]prizegivingCompetitionOrder,
-		0,
-		len(params.CompetitionSessionIDs),
-	)
-	for _, sessionID := range params.CompetitionSessionIDs {
-		version, err := transaction.transaction.SessionPublishedVersion.Query().
-			Where(sessionpublishedversion.SessionIDEQ(sessionID)).
-			Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).
-			First(ctx)
-		if err != nil {
-			return nil, nil, opaqueError(
-				"load Competition order for Prizegiving",
-				err,
-			)
-		}
-		draft, err := transaction.LoadCompetitionResultsDraft(
-			ctx,
-			params.EventID,
-			sessionID,
-		)
-		if err != nil {
-			return nil, nil, err
-		}
-		competitions = append(competitions, prizegivingCompetitionOrder{
-			sessionID: sessionID, plannedStart: version.PlannedStart, draft: draft,
-		})
-	}
-	slices.SortFunc(
-		competitions,
-		func(first, second prizegivingCompetitionOrder) int {
-			if order := first.plannedStart.Compare(second.plannedStart); order != 0 {
-				return order
-			}
-			return cmp.Compare(first.sessionID, second.sessionID)
-		},
-	)
-	items := make([]PrizegivingResultItem, 0, len(competitions))
-	appendItem := func(kind string, sessionID int, awardKey string) {
-		displayOrder := len(items) + 1
-		items = append(items, PrizegivingResultItem{
-			Kind: kind, CompetitionSessionID: sessionID, AwardKey: awardKey,
-			DisplayOrder: displayOrder, RevealMethod: "StaticResult",
-		})
-	}
-	for _, competition := range competitions {
-		kind := "CompetitionResults"
-		if competition.draft.Disposition == "NoPublicResults" {
-			kind = "NoPublicResults"
-		}
-		appendItem(kind, competition.sessionID, "")
-		for _, award := range competition.draft.Awards {
-			if award.Promoted {
-				appendItem("CompetitionAward", competition.sessionID, award.Key)
-			}
-		}
-	}
-	eventAwards, err := transaction.LoadEventAwardsDraft(ctx, params.EventID)
-	if err != nil {
-		return nil, nil, err
-	}
-	for _, award := range eventAwardsForPath(eventAwards.Awards, AwardReleasePath{
-		Kind: "Prizegiving", PrizegivingSessionID: params.CeremonySessionID,
-	}) {
-		appendItem("EventAward", 0, award.Key)
-	}
-	publicationOrder := make([]PrizegivingResultItemRef, 0, len(items))
-	for _, item := range items {
-		publicationOrder = append(publicationOrder, PrizegivingResultItemRef{
-			Kind: item.Kind, CompetitionSessionID: item.CompetitionSessionID,
-			AwardKey: item.AwardKey, DisplayOrder: item.DisplayOrder,
-		})
-	}
-	return items, publicationOrder, nil
 }
 
 func (transaction *CommandTx) validatePrizegivingCompetitionAssignments(

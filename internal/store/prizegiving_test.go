@@ -325,6 +325,40 @@ func TestPrizegivingDefaultsOrderAndPreviewUsesLockedSources(t *testing.T) {
 	plan, err := planTransaction.SavePrizegivingPlan(ctx, SavePrizegivingPlanParams{
 		EventID: event.ID, CeremonySessionID: ceremony.ID,
 		CompetitionSessionIDs: []int{late.ID, early.ID},
+		Sequence: []PrizegivingResultItem{
+			{
+				Kind: "CompetitionResults", CompetitionSessionID: early.ID,
+				DisplayOrder: 1, RevealMethod: "StaticResult",
+			},
+			{
+				Kind: "CompetitionAward", CompetitionSessionID: early.ID,
+				AwardKey: "judges-choice", DisplayOrder: 2,
+				RevealMethod: "StaticResult",
+			},
+			{
+				Kind: "CompetitionResults", CompetitionSessionID: late.ID,
+				DisplayOrder: 3, RevealMethod: "StaticResult",
+			},
+			{
+				Kind: "EventAward", AwardKey: "community",
+				DisplayOrder: 4, RevealMethod: "StaticResult",
+			},
+		},
+		PublicationOrder: []PrizegivingResultItemRef{
+			{
+				Kind: "CompetitionResults", CompetitionSessionID: early.ID,
+				DisplayOrder: 1,
+			},
+			{
+				Kind: "CompetitionAward", CompetitionSessionID: early.ID,
+				AwardKey: "judges-choice", DisplayOrder: 2,
+			},
+			{
+				Kind: "CompetitionResults", CompetitionSessionID: late.ID,
+				DisplayOrder: 3,
+			},
+			{Kind: "EventAward", AwardKey: "community", DisplayOrder: 4},
+		},
 		Template: PrizegivingResultsTextTemplate{
 			Revision: 1, Source: "{{.EventTitle}}\n",
 		},

@@ -127,7 +127,6 @@ func TestPrizegivingPublicCommandsPreflightAndPreview(t *testing.T) {
 		t.Fatalf("blocked Preflight findings = %+v", blocked.Findings)
 	}
 
-	item.RevealMethod = results.RevealStatic
 	validPlan, err := service.SavePrizegivingPlan(
 		t.Context(),
 		actor,
@@ -135,8 +134,6 @@ func TestPrizegivingPublicCommandsPreflightAndPreview(t *testing.T) {
 			EventID: eventID, CeremonySessionID: ceremonyID,
 			CommandID: "save-valid-plan", ExpectedRevision: invalidPlan.Revision,
 			CompetitionSessionIDs: []int{competitionID},
-			Sequence:              []results.ResultItem{item},
-			PublicationOrder:      []results.ResultItemRef{item.Ref(1)},
 			Template: results.TextTemplate{
 				Revision: 2, Source: "{{.EventTitle}}\n",
 			},

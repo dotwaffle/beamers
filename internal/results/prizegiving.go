@@ -1,6 +1,7 @@
 package results
 
 import (
+	"cmp"
 	"crypto/sha256"
 	"encoding/binary"
 	"maps"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"text/template"
 	"text/template/parse"
+	"time"
 	"unicode/utf8"
 )
 
@@ -102,6 +104,19 @@ type PrizegivingPreflightInput struct {
 	EventAwards           PrizegivingEventAwardsSource
 }
 
+// PrizegivingCompetitionOrderSource contains explicit state for one default group.
+type PrizegivingCompetitionOrderSource struct {
+	SessionID    int
+	PlannedStart time.Time
+	Draft        Draft
+}
+
+// PrizegivingDefaultOrderInput contains explicit state for initial ordering.
+type PrizegivingDefaultOrderInput struct {
+	Competitions []PrizegivingCompetitionOrderSource
+	EventAwards  []EventAward
+}
+
 // PrizegivingPreflightFinding is one stable blocking result.
 type PrizegivingPreflightFinding struct {
 	Code    string `json:"code"`
@@ -170,6 +185,57 @@ func BuildPrizegivingPreflight(
 		})
 	}
 	return locked, nil
+}
+
+// BuildDefaultPrizegivingOrder orders Competitions by Planned Time and Event
+// Awards last, with Static Result as the editable presentation default.
+func BuildDefaultPrizegivingOrder(
+	input PrizegivingDefaultOrderInput,
+) ([]ResultItem, []ResultItemRef) {
+	competitions := slices.Clone(input.Competitions)
+	slices.SortFunc(
+		competitions,
+		func(first, second PrizegivingCompetitionOrderSource) int {
+			if order := first.PlannedStart.Compare(second.PlannedStart); order != 0 {
+				return order
+			}
+			return cmp.Compare(first.SessionID, second.SessionID)
+		},
+	)
+	items := make([]ResultItem, 0, len(competitions))
+	appendItem := func(kind ResultItemKind, sessionID int, awardKey string) {
+		items = append(items, ResultItem{
+			Kind: kind, CompetitionSessionID: sessionID, AwardKey: awardKey,
+			DisplayOrder: len(items) + 1, RevealMethod: RevealStatic,
+		})
+	}
+	for _, competition := range competitions {
+		kind := ResultItemCompetition
+		if competition.Draft.Disposition == NoPublicResults {
+			kind = ResultItemNoPublicResults
+		}
+		appendItem(kind, competition.SessionID, "")
+		for _, award := range competition.Draft.Awards {
+			if award.Promoted {
+				appendItem(
+					ResultItemCompetitionAward,
+					competition.SessionID,
+					award.Key,
+				)
+			}
+		}
+	}
+	for _, award := range input.EventAwards {
+		appendItem(ResultItemEventAward, 0, award.Key)
+	}
+	publicationOrder := make([]ResultItemRef, 0, len(items))
+	for _, item := range items {
+		publicationOrder = append(
+			publicationOrder,
+			item.Ref(item.DisplayOrder),
+		)
+	}
+	return items, publicationOrder
 }
 
 func prizegivingReleaseFindings(

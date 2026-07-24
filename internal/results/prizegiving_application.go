@@ -145,6 +145,22 @@ func (service *Service) SavePrizegivingPlan(
 			return prizegivingPlan(stored), nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[PrizegivingPlan], error) {
+			sequence := input.Sequence
+			publicationOrder := input.PublicationOrder
+			if len(sequence) == 0 && len(publicationOrder) == 0 {
+				state, loadErr := transaction.LoadPrizegivingDefaultOrderState(
+					actor.Context(ctx),
+					input.EventID,
+					input.CeremonySessionID,
+					input.CompetitionSessionIDs,
+				)
+				if loadErr != nil {
+					return command.Execution[PrizegivingPlan]{}, loadErr
+				}
+				sequence, publicationOrder = BuildDefaultPrizegivingOrder(
+					prizegivingDefaultOrderInput(state),
+				)
+			}
 			stored, saveErr := transaction.SavePrizegivingPlan(
 				actor.Context(ctx),
 				store.SavePrizegivingPlanParams{
@@ -154,8 +170,8 @@ func (service *Service) SavePrizegivingPlan(
 						[]int(nil),
 						input.CompetitionSessionIDs...,
 					),
-					Sequence:         prizegivingItemInputs(input.Sequence),
-					PublicationOrder: prizegivingItemRefInputs(input.PublicationOrder),
+					Sequence:         prizegivingItemInputs(sequence),
+					PublicationOrder: prizegivingItemRefInputs(publicationOrder),
 					Template:         prizegivingTemplateInput(input.Template),
 				},
 			)
@@ -440,6 +456,32 @@ func prizegivingPlan(value store.PrizegivingPlan) PrizegivingPlan {
 		LockedByAccountID:     value.LockedByAccountID,
 		LockedAt:              value.LockedAt,
 	}
+}
+
+func prizegivingDefaultOrderInput(
+	value store.PrizegivingDefaultOrderState,
+) PrizegivingDefaultOrderInput {
+	result := PrizegivingDefaultOrderInput{
+		Competitions: make(
+			[]PrizegivingCompetitionOrderSource,
+			0,
+			len(value.Competitions),
+		),
+		EventAwards: eventAwardsDraft(store.EventAwardsDraft{
+			Awards: value.EventAwards,
+		}).Awards,
+	}
+	for _, competition := range value.Competitions {
+		result.Competitions = append(
+			result.Competitions,
+			PrizegivingCompetitionOrderSource{
+				SessionID:    competition.SessionID,
+				PlannedStart: competition.PlannedStart,
+				Draft:        draft(competition.Draft),
+			},
+		)
+	}
+	return result
 }
 
 func prizegivingPreflightInput(
