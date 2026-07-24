@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 )
 
 // Prizegiving is the model entity for the Prizegiving schema.
@@ -23,6 +25,24 @@ type Prizegiving struct {
 	EventID int `json:"event_id,omitempty"`
 	// CeremonySessionID holds the value of the "ceremony_session_id" field.
 	CeremonySessionID int `json:"ceremony_session_id,omitempty"`
+	// Revision holds the value of the "revision" field.
+	Revision int `json:"revision,omitempty"`
+	// CompetitionSessionIds holds the value of the "competition_session_ids" field.
+	CompetitionSessionIds []int `json:"competition_session_ids,omitempty"`
+	// Sequence holds the value of the "sequence" field.
+	Sequence []prizegivingvalue.Item `json:"sequence,omitempty"`
+	// PublicationOrder holds the value of the "publication_order" field.
+	PublicationOrder []prizegivingvalue.ItemRef `json:"publication_order,omitempty"`
+	// ResultsTextTemplate holds the value of the "results_text_template" field.
+	ResultsTextTemplate prizegivingvalue.Template `json:"results_text_template,omitempty"`
+	// Locked holds the value of the "locked" field.
+	Locked bool `json:"locked,omitempty"`
+	// PreflightLock holds the value of the "preflight_lock" field.
+	PreflightLock prizegivingvalue.Lock `json:"preflight_lock,omitempty"`
+	// LockedByAccountID holds the value of the "locked_by_account_id" field.
+	LockedByAccountID *int `json:"locked_by_account_id,omitempty"`
+	// LockedAt holds the value of the "locked_at" field.
+	LockedAt *time.Time `json:"locked_at,omitempty"`
 	// CreatedByAccountID holds the value of the "created_by_account_id" field.
 	CreatedByAccountID int `json:"created_by_account_id,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -39,9 +59,11 @@ type PrizegivingEdges struct {
 	Event *Event `json:"event,omitempty"`
 	// Ceremony holds the value of the ceremony edge.
 	Ceremony *Session `json:"ceremony,omitempty"`
+	// Competitions holds the value of the competitions edge.
+	Competitions []*PrizegivingCompetition `json:"competitions,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [3]bool
 }
 
 // EventOrErr returns the Event value or an error if the edge
@@ -66,14 +88,27 @@ func (e PrizegivingEdges) CeremonyOrErr() (*Session, error) {
 	return nil, &NotLoadedError{edge: "ceremony"}
 }
 
+// CompetitionsOrErr returns the Competitions value or an error if the edge
+// was not loaded in eager-loading.
+func (e PrizegivingEdges) CompetitionsOrErr() ([]*PrizegivingCompetition, error) {
+	if e.loadedTypes[2] {
+		return e.Competitions, nil
+	}
+	return nil, &NotLoadedError{edge: "competitions"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Prizegiving) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case prizegiving.FieldID, prizegiving.FieldEventID, prizegiving.FieldCeremonySessionID, prizegiving.FieldCreatedByAccountID:
+		case prizegiving.FieldCompetitionSessionIds, prizegiving.FieldSequence, prizegiving.FieldPublicationOrder, prizegiving.FieldResultsTextTemplate, prizegiving.FieldPreflightLock:
+			values[i] = new([]byte)
+		case prizegiving.FieldLocked:
+			values[i] = new(sql.NullBool)
+		case prizegiving.FieldID, prizegiving.FieldEventID, prizegiving.FieldCeremonySessionID, prizegiving.FieldRevision, prizegiving.FieldLockedByAccountID, prizegiving.FieldCreatedByAccountID:
 			values[i] = new(sql.NullInt64)
-		case prizegiving.FieldCreatedAt:
+		case prizegiving.FieldLockedAt, prizegiving.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -107,6 +142,72 @@ func (_m *Prizegiving) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field ceremony_session_id", values[i])
 			} else if value.Valid {
 				_m.CeremonySessionID = int(value.Int64)
+			}
+		case prizegiving.FieldRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field revision", values[i])
+			} else if value.Valid {
+				_m.Revision = int(value.Int64)
+			}
+		case prizegiving.FieldCompetitionSessionIds:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field competition_session_ids", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.CompetitionSessionIds); err != nil {
+					return fmt.Errorf("unmarshal field competition_session_ids: %w", err)
+				}
+			}
+		case prizegiving.FieldSequence:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field sequence", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Sequence); err != nil {
+					return fmt.Errorf("unmarshal field sequence: %w", err)
+				}
+			}
+		case prizegiving.FieldPublicationOrder:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field publication_order", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.PublicationOrder); err != nil {
+					return fmt.Errorf("unmarshal field publication_order: %w", err)
+				}
+			}
+		case prizegiving.FieldResultsTextTemplate:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field results_text_template", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.ResultsTextTemplate); err != nil {
+					return fmt.Errorf("unmarshal field results_text_template: %w", err)
+				}
+			}
+		case prizegiving.FieldLocked:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field locked", values[i])
+			} else if value.Valid {
+				_m.Locked = value.Bool
+			}
+		case prizegiving.FieldPreflightLock:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field preflight_lock", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.PreflightLock); err != nil {
+					return fmt.Errorf("unmarshal field preflight_lock: %w", err)
+				}
+			}
+		case prizegiving.FieldLockedByAccountID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field locked_by_account_id", values[i])
+			} else if value.Valid {
+				_m.LockedByAccountID = new(int)
+				*_m.LockedByAccountID = int(value.Int64)
+			}
+		case prizegiving.FieldLockedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field locked_at", values[i])
+			} else if value.Valid {
+				_m.LockedAt = new(time.Time)
+				*_m.LockedAt = value.Time
 			}
 		case prizegiving.FieldCreatedByAccountID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -143,6 +244,11 @@ func (_m *Prizegiving) QueryCeremony() *SessionQuery {
 	return NewPrizegivingClient(_m.config).QueryCeremony(_m)
 }
 
+// QueryCompetitions queries the "competitions" edge of the Prizegiving entity.
+func (_m *Prizegiving) QueryCompetitions() *PrizegivingCompetitionQuery {
+	return NewPrizegivingClient(_m.config).QueryCompetitions(_m)
+}
+
 // Update returns a builder for updating this Prizegiving.
 // Note that you need to call Prizegiving.Unwrap() before calling this method if this Prizegiving
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -171,6 +277,37 @@ func (_m *Prizegiving) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("ceremony_session_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.CeremonySessionID))
+	builder.WriteString(", ")
+	builder.WriteString("revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Revision))
+	builder.WriteString(", ")
+	builder.WriteString("competition_session_ids=")
+	builder.WriteString(fmt.Sprintf("%v", _m.CompetitionSessionIds))
+	builder.WriteString(", ")
+	builder.WriteString("sequence=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Sequence))
+	builder.WriteString(", ")
+	builder.WriteString("publication_order=")
+	builder.WriteString(fmt.Sprintf("%v", _m.PublicationOrder))
+	builder.WriteString(", ")
+	builder.WriteString("results_text_template=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ResultsTextTemplate))
+	builder.WriteString(", ")
+	builder.WriteString("locked=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Locked))
+	builder.WriteString(", ")
+	builder.WriteString("preflight_lock=")
+	builder.WriteString(fmt.Sprintf("%v", _m.PreflightLock))
+	builder.WriteString(", ")
+	if v := _m.LockedByAccountID; v != nil {
+		builder.WriteString("locked_by_account_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.LockedAt; v != nil {
+		builder.WriteString("locked_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("created_by_account_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.CreatedByAccountID))

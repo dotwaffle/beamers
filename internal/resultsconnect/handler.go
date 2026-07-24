@@ -259,6 +259,136 @@ func (handler *Handler) MarkEventAwardsReady(
 	}), nil
 }
 
+// GetPrizegivingPlan returns one designated Prizegiving's editable plan.
+func (handler *Handler) GetPrizegivingPlan(
+	ctx context.Context,
+	request *connect.Request[resultsv1.GetPrizegivingPlanRequest],
+) (*connect.Response[resultsv1.GetPrizegivingPlanResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	found, err := handler.service.GetPrizegivingPlan(
+		ctx,
+		actor,
+		int(request.Msg.GetEventId()),
+		int(request.Msg.GetCeremonySessionId()),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&resultsv1.GetPrizegivingPlanResponse{
+		Plan: prizegivingPlan(found),
+	}), nil
+}
+
+// SavePrizegivingPlan replaces assignments and both explicit orders.
+func (handler *Handler) SavePrizegivingPlan(
+	ctx context.Context,
+	request *connect.Request[resultsv1.SavePrizegivingPlanRequest],
+) (*connect.Response[resultsv1.SavePrizegivingPlanResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	sequence, err := resultItemsFromProto(request.Msg.GetSequence())
+	if err != nil {
+		return nil, err
+	}
+	publicationOrder, err := resultItemRefsFromProto(
+		request.Msg.GetPublicationOrder(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	saved, err := handler.service.SavePrizegivingPlan(
+		ctx,
+		actor,
+		results.SavePrizegivingPlanInput{
+			EventID:               int(request.Msg.GetEventId()),
+			CeremonySessionID:     int(request.Msg.GetCeremonySessionId()),
+			CommandID:             request.Msg.GetCommandId(),
+			ExpectedRevision:      int(request.Msg.GetExpectedRevision()),
+			CompetitionSessionIDs: int64sToInts(request.Msg.GetCompetitionSessionIds()),
+			Sequence:              sequence, PublicationOrder: publicationOrder,
+			Template: resultsTextTemplateFromProto(
+				request.Msg.GetResultsTextTemplate(),
+			),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&resultsv1.SavePrizegivingPlanResponse{
+		Plan: prizegivingPlan(saved),
+	}), nil
+}
+
+// RunPrizegivingPreflight reports blockers or locks the exact plan.
+func (handler *Handler) RunPrizegivingPreflight(
+	ctx context.Context,
+	request *connect.Request[resultsv1.RunPrizegivingPreflightRequest],
+) (*connect.Response[resultsv1.RunPrizegivingPreflightResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	preflight, err := handler.service.RunPrizegivingPreflight(
+		ctx,
+		actor,
+		results.RunPrizegivingPreflightInput{
+			EventID:           int(request.Msg.GetEventId()),
+			CeremonySessionID: int(request.Msg.GetCeremonySessionId()),
+			CommandID:         request.Msg.GetCommandId(),
+			ExpectedRevision:  int(request.Msg.GetExpectedRevision()),
+		},
+	)
+	if err != nil && !errors.Is(err, results.ErrPrizegivingPreflightBlocked) {
+		return nil, err
+	}
+	findings := make(
+		[]*resultsv1.PrizegivingPreflightFinding,
+		0,
+		len(preflight.Findings),
+	)
+	for _, finding := range preflight.Findings {
+		findings = append(findings, &resultsv1.PrizegivingPreflightFinding{
+			Code: finding.Code, Message: finding.Message,
+		})
+	}
+	return connect.NewResponse(&resultsv1.RunPrizegivingPreflightResponse{
+		Plan: prizegivingPlan(preflight.Plan), Findings: findings,
+	}), nil
+}
+
+// PreviewPrizegiving returns a side-effect-free Preview or rehearsal snapshot.
+func (handler *Handler) PreviewPrizegiving(
+	ctx context.Context,
+	request *connect.Request[resultsv1.PreviewPrizegivingRequest],
+) (*connect.Response[resultsv1.PreviewPrizegivingResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	preview, err := handler.service.PreviewPrizegiving(
+		ctx,
+		actor,
+		int(request.Msg.GetEventId()),
+		int(request.Msg.GetCeremonySessionId()),
+		prizegivingPreviewModeFromProto(request.Msg.GetMode()),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&resultsv1.PreviewPrizegivingResponse{
+		Preview: &resultsv1.PrizegivingPreview{
+			Mode:      prizegivingPreviewMode(preview.Mode),
+			Watermark: preview.Watermark,
+			Plan:      prizegivingPlan(preview.Plan),
+		},
+	}), nil
+}
+
 func standingsFromProto(
 	values []*resultsv1.CompetitionResultStanding,
 ) ([]results.Standing, error) {
@@ -280,6 +410,48 @@ func standingsFromProto(
 		})
 	}
 	return standings, nil
+}
+
+func resultItemsFromProto(
+	values []*resultsv1.ResultItem,
+) ([]results.ResultItem, error) {
+	items := make([]results.ResultItem, 0, len(values))
+	for _, value := range values {
+		if value == nil {
+			return nil, results.ErrInvalidInput
+		}
+		kind := resultItemKindFromProto(value.GetKind())
+		method := revealMethodFromProto(value.GetRevealMethod())
+		if kind == "" || method == "" {
+			return nil, results.ErrInvalidInput
+		}
+		items = append(items, results.ResultItem{
+			Kind: kind, CompetitionSessionID: int(value.GetCompetitionSessionId()),
+			AwardKey: value.GetAwardKey(), DisplayOrder: int(value.GetDisplayOrder()),
+			RevealMethod: method,
+		})
+	}
+	return items, nil
+}
+
+func resultItemRefsFromProto(
+	values []*resultsv1.ResultItemRef,
+) ([]results.ResultItemRef, error) {
+	items := make([]results.ResultItemRef, 0, len(values))
+	for _, value := range values {
+		if value == nil {
+			return nil, results.ErrInvalidInput
+		}
+		kind := resultItemKindFromProto(value.GetKind())
+		if kind == "" {
+			return nil, results.ErrInvalidInput
+		}
+		items = append(items, results.ResultItemRef{
+			Kind: kind, CompetitionSessionID: int(value.GetCompetitionSessionId()),
+			AwardKey: value.GetAwardKey(), DisplayOrder: int(value.GetDisplayOrder()),
+		})
+	}
+	return items, nil
 }
 
 func competitionAwardsFromProto(
@@ -508,6 +680,171 @@ func prizegiving(value results.Prizegiving) *resultsv1.Prizegiving {
 	return result
 }
 
+func prizegivingPlan(value results.PrizegivingPlan) *resultsv1.PrizegivingPlan {
+	competitionSessionIDs := make([]int64, 0, len(value.CompetitionSessionIDs))
+	for _, competitionSessionID := range value.CompetitionSessionIDs {
+		competitionSessionIDs = append(competitionSessionIDs, int64(competitionSessionID))
+	}
+	result := &resultsv1.PrizegivingPlan{
+		Id: int64(value.ID), EventId: int64(value.EventID),
+		CeremonySessionId:     int64(value.CeremonySessionID),
+		Revision:              int64(value.Revision),
+		CompetitionSessionIds: competitionSessionIDs,
+		Sequence:              resultItems(value.Sequence),
+		PublicationOrder:      resultItemRefs(value.PublicationOrder),
+		ResultsTextTemplate:   resultsTextTemplate(value.Template),
+		Locked:                value.Locked,
+		LockedByAccountId:     int64(value.LockedByAccountID),
+	}
+	if value.Locked {
+		result.PreflightLock = prizegivingPreflightLock(value.Lock)
+	}
+	if !value.LockedAt.IsZero() {
+		result.LockedAt = timestamppb.New(value.LockedAt)
+	}
+	return result
+}
+
+func resultItems(values []results.ResultItem) []*resultsv1.ResultItem {
+	items := make([]*resultsv1.ResultItem, 0, len(values))
+	for _, value := range values {
+		items = append(items, &resultsv1.ResultItem{
+			Kind:                 resultItemKind(value.Kind),
+			CompetitionSessionId: int64(value.CompetitionSessionID),
+			AwardKey:             value.AwardKey,
+			DisplayOrder:         int32(value.DisplayOrder), //nolint:gosec // Result Items are bounded to 3000.
+			RevealMethod:         revealMethod(value.RevealMethod),
+		})
+	}
+	return items
+}
+
+func resultItemRefs(values []results.ResultItemRef) []*resultsv1.ResultItemRef {
+	items := make([]*resultsv1.ResultItemRef, 0, len(values))
+	for _, value := range values {
+		items = append(items, &resultsv1.ResultItemRef{
+			Kind:                 resultItemKind(value.Kind),
+			CompetitionSessionId: int64(value.CompetitionSessionID),
+			AwardKey:             value.AwardKey,
+			DisplayOrder:         int32(value.DisplayOrder), //nolint:gosec // Result Items are bounded to 3000.
+		})
+	}
+	return items
+}
+
+func resultsTextTemplate(
+	value results.TextTemplate,
+) *resultsv1.ResultsTextTemplate {
+	return &resultsv1.ResultsTextTemplate{
+		Revision: int64(value.Revision),
+		Source:   value.Source,
+	}
+}
+
+func resultsTextTemplateFromProto(
+	value *resultsv1.ResultsTextTemplate,
+) results.TextTemplate {
+	if value == nil {
+		return results.TextTemplate{}
+	}
+	return results.TextTemplate{
+		Revision: int(value.GetRevision()),
+		Source:   value.GetSource(),
+	}
+}
+
+func prizegivingPreflightLock(
+	value results.PrizegivingPreflightLock,
+) *resultsv1.PrizegivingPreflightLock {
+	sources := make(
+		[]*resultsv1.PrizegivingCompetitionLock,
+		0,
+		len(value.CompetitionSources),
+	)
+	for _, source := range value.CompetitionSources {
+		sources = append(sources, &resultsv1.PrizegivingCompetitionLock{
+			SessionId: int64(source.SessionID), DraftId: int64(source.DraftID),
+			DraftRevision: int64(source.DraftRevision),
+			Disposition:   resultsDisposition(source.Disposition),
+		})
+	}
+	sequence := make([]*resultsv1.LockedResultItem, 0, len(value.Sequence))
+	for _, item := range value.Sequence {
+		sequence = append(sequence, &resultsv1.LockedResultItem{
+			Item:       resultItems([]results.ResultItem{item.ResultItem})[0],
+			RevealSeed: item.RevealSeed,
+		})
+	}
+	return &resultsv1.PrizegivingPreflightLock{
+		PlanRevision:             int64(value.PlanRevision),
+		CompetitionSources:       sources,
+		EventAwardsDraftRevision: int64(value.EventAwardsDraftRevision),
+		EventAwardsPathRevision:  int64(value.EventAwardsPathRevision),
+		Sequence:                 sequence, PublicationOrder: resultItemRefs(value.PublicationOrder),
+		ResultsTextTemplate: resultsTextTemplate(value.Template),
+	}
+}
+
+func resultItemKind(value results.ResultItemKind) resultsv1.ResultItemKind {
+	return map[results.ResultItemKind]resultsv1.ResultItemKind{
+		results.ResultItemCompetition:      resultsv1.ResultItemKind_RESULT_ITEM_KIND_COMPETITION_RESULTS,
+		results.ResultItemNoPublicResults:  resultsv1.ResultItemKind_RESULT_ITEM_KIND_NO_PUBLIC_RESULTS,
+		results.ResultItemCompetitionAward: resultsv1.ResultItemKind_RESULT_ITEM_KIND_COMPETITION_AWARD,
+		results.ResultItemEventAward:       resultsv1.ResultItemKind_RESULT_ITEM_KIND_EVENT_AWARD,
+	}[value]
+}
+
+func resultItemKindFromProto(value resultsv1.ResultItemKind) results.ResultItemKind {
+	return map[resultsv1.ResultItemKind]results.ResultItemKind{
+		resultsv1.ResultItemKind_RESULT_ITEM_KIND_COMPETITION_RESULTS: results.ResultItemCompetition,
+		resultsv1.ResultItemKind_RESULT_ITEM_KIND_NO_PUBLIC_RESULTS:   results.ResultItemNoPublicResults,
+		resultsv1.ResultItemKind_RESULT_ITEM_KIND_COMPETITION_AWARD:   results.ResultItemCompetitionAward,
+		resultsv1.ResultItemKind_RESULT_ITEM_KIND_EVENT_AWARD:         results.ResultItemEventAward,
+	}[value]
+}
+
+func revealMethod(value results.RevealMethod) resultsv1.RevealMethod {
+	return map[results.RevealMethod]resultsv1.RevealMethod{
+		results.RevealStatic:            resultsv1.RevealMethod_REVEAL_METHOD_STATIC_RESULT,
+		results.RevealSequentialPodium:  resultsv1.RevealMethod_REVEAL_METHOD_SEQUENTIAL_PODIUM,
+		results.RevealAnimatedScoreBars: resultsv1.RevealMethod_REVEAL_METHOD_ANIMATED_SCORE_BARS,
+	}[value]
+}
+
+func revealMethodFromProto(value resultsv1.RevealMethod) results.RevealMethod {
+	return map[resultsv1.RevealMethod]results.RevealMethod{
+		resultsv1.RevealMethod_REVEAL_METHOD_STATIC_RESULT:       results.RevealStatic,
+		resultsv1.RevealMethod_REVEAL_METHOD_SEQUENTIAL_PODIUM:   results.RevealSequentialPodium,
+		resultsv1.RevealMethod_REVEAL_METHOD_ANIMATED_SCORE_BARS: results.RevealAnimatedScoreBars,
+	}[value]
+}
+
+func prizegivingPreviewMode(
+	value results.PrizegivingPreviewMode,
+) resultsv1.PrizegivingPreviewMode {
+	return map[results.PrizegivingPreviewMode]resultsv1.PrizegivingPreviewMode{
+		results.PrizegivingPreviewModePreview:   resultsv1.PrizegivingPreviewMode_PRIZEGIVING_PREVIEW_MODE_PREVIEW,
+		results.PrizegivingPreviewModeRehearsal: resultsv1.PrizegivingPreviewMode_PRIZEGIVING_PREVIEW_MODE_REHEARSAL,
+	}[value]
+}
+
+func prizegivingPreviewModeFromProto(
+	value resultsv1.PrizegivingPreviewMode,
+) results.PrizegivingPreviewMode {
+	return map[resultsv1.PrizegivingPreviewMode]results.PrizegivingPreviewMode{
+		resultsv1.PrizegivingPreviewMode_PRIZEGIVING_PREVIEW_MODE_PREVIEW:   results.PrizegivingPreviewModePreview,
+		resultsv1.PrizegivingPreviewMode_PRIZEGIVING_PREVIEW_MODE_REHEARSAL: results.PrizegivingPreviewModeRehearsal,
+	}[value]
+}
+
+func int64sToInts(values []int64) []int {
+	result := make([]int, 0, len(values))
+	for _, value := range values {
+		result = append(result, int(value))
+	}
+	return result
+}
+
 func scoreValue(value results.ScoreValue) *resultsv1.ScoreValue {
 	switch {
 	case value.Decimal != nil:
@@ -649,13 +986,18 @@ func connectError(err error) error {
 		return connect.NewError(connect.CodeNotFound, err)
 	case errors.Is(err, results.ErrRevisionConflict),
 		errors.Is(err, results.ErrEventAwardsRevision),
+		errors.Is(err, results.ErrPrizegivingPlanRevision),
 		errors.Is(err, results.ErrCommandConflict):
 		return connect.NewError(connect.CodeAborted, err)
 	case errors.Is(err, results.ErrIncomplete),
 		errors.Is(err, results.ErrCompetitionRanking),
 		errors.Is(err, results.ErrUnplacedOrder),
 		errors.Is(err, results.ErrDisposition),
-		errors.Is(err, results.ErrScoreRequired):
+		errors.Is(err, results.ErrScoreRequired),
+		errors.Is(err, results.ErrCompetitionPrizegivingAssignment),
+		errors.Is(err, results.ErrPrizegivingLocked),
+		errors.Is(err, results.ErrPrizegivingPreflightBlocked),
+		errors.Is(err, results.ErrPrizegivingPreflightRequired):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, command.ErrInvalidID),
 		errors.Is(err, results.ErrInvalidInput),

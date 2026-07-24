@@ -12,7 +12,9 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/prizegiving"
+	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
 	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 )
 
 // PrizegivingCreate is the builder for creating a Prizegiving entity.
@@ -31,6 +33,108 @@ func (_c *PrizegivingCreate) SetEventID(v int) *PrizegivingCreate {
 // SetCeremonySessionID sets the "ceremony_session_id" field.
 func (_c *PrizegivingCreate) SetCeremonySessionID(v int) *PrizegivingCreate {
 	_c.mutation.SetCeremonySessionID(v)
+	return _c
+}
+
+// SetRevision sets the "revision" field.
+func (_c *PrizegivingCreate) SetRevision(v int) *PrizegivingCreate {
+	_c.mutation.SetRevision(v)
+	return _c
+}
+
+// SetNillableRevision sets the "revision" field if the given value is not nil.
+func (_c *PrizegivingCreate) SetNillableRevision(v *int) *PrizegivingCreate {
+	if v != nil {
+		_c.SetRevision(*v)
+	}
+	return _c
+}
+
+// SetCompetitionSessionIds sets the "competition_session_ids" field.
+func (_c *PrizegivingCreate) SetCompetitionSessionIds(v []int) *PrizegivingCreate {
+	_c.mutation.SetCompetitionSessionIds(v)
+	return _c
+}
+
+// SetSequence sets the "sequence" field.
+func (_c *PrizegivingCreate) SetSequence(v []prizegivingvalue.Item) *PrizegivingCreate {
+	_c.mutation.SetSequence(v)
+	return _c
+}
+
+// SetPublicationOrder sets the "publication_order" field.
+func (_c *PrizegivingCreate) SetPublicationOrder(v []prizegivingvalue.ItemRef) *PrizegivingCreate {
+	_c.mutation.SetPublicationOrder(v)
+	return _c
+}
+
+// SetResultsTextTemplate sets the "results_text_template" field.
+func (_c *PrizegivingCreate) SetResultsTextTemplate(v prizegivingvalue.Template) *PrizegivingCreate {
+	_c.mutation.SetResultsTextTemplate(v)
+	return _c
+}
+
+// SetNillableResultsTextTemplate sets the "results_text_template" field if the given value is not nil.
+func (_c *PrizegivingCreate) SetNillableResultsTextTemplate(v *prizegivingvalue.Template) *PrizegivingCreate {
+	if v != nil {
+		_c.SetResultsTextTemplate(*v)
+	}
+	return _c
+}
+
+// SetLocked sets the "locked" field.
+func (_c *PrizegivingCreate) SetLocked(v bool) *PrizegivingCreate {
+	_c.mutation.SetLocked(v)
+	return _c
+}
+
+// SetNillableLocked sets the "locked" field if the given value is not nil.
+func (_c *PrizegivingCreate) SetNillableLocked(v *bool) *PrizegivingCreate {
+	if v != nil {
+		_c.SetLocked(*v)
+	}
+	return _c
+}
+
+// SetPreflightLock sets the "preflight_lock" field.
+func (_c *PrizegivingCreate) SetPreflightLock(v prizegivingvalue.Lock) *PrizegivingCreate {
+	_c.mutation.SetPreflightLock(v)
+	return _c
+}
+
+// SetNillablePreflightLock sets the "preflight_lock" field if the given value is not nil.
+func (_c *PrizegivingCreate) SetNillablePreflightLock(v *prizegivingvalue.Lock) *PrizegivingCreate {
+	if v != nil {
+		_c.SetPreflightLock(*v)
+	}
+	return _c
+}
+
+// SetLockedByAccountID sets the "locked_by_account_id" field.
+func (_c *PrizegivingCreate) SetLockedByAccountID(v int) *PrizegivingCreate {
+	_c.mutation.SetLockedByAccountID(v)
+	return _c
+}
+
+// SetNillableLockedByAccountID sets the "locked_by_account_id" field if the given value is not nil.
+func (_c *PrizegivingCreate) SetNillableLockedByAccountID(v *int) *PrizegivingCreate {
+	if v != nil {
+		_c.SetLockedByAccountID(*v)
+	}
+	return _c
+}
+
+// SetLockedAt sets the "locked_at" field.
+func (_c *PrizegivingCreate) SetLockedAt(v time.Time) *PrizegivingCreate {
+	_c.mutation.SetLockedAt(v)
+	return _c
+}
+
+// SetNillableLockedAt sets the "locked_at" field if the given value is not nil.
+func (_c *PrizegivingCreate) SetNillableLockedAt(v *time.Time) *PrizegivingCreate {
+	if v != nil {
+		_c.SetLockedAt(*v)
+	}
 	return _c
 }
 
@@ -70,6 +174,21 @@ func (_c *PrizegivingCreate) SetCeremony(v *Session) *PrizegivingCreate {
 	return _c.SetCeremonyID(v.ID)
 }
 
+// AddCompetitionIDs adds the "competitions" edge to the PrizegivingCompetition entity by IDs.
+func (_c *PrizegivingCreate) AddCompetitionIDs(ids ...int) *PrizegivingCreate {
+	_c.mutation.AddCompetitionIDs(ids...)
+	return _c
+}
+
+// AddCompetitions adds the "competitions" edges to the PrizegivingCompetition entity.
+func (_c *PrizegivingCreate) AddCompetitions(v ...*PrizegivingCompetition) *PrizegivingCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddCompetitionIDs(ids...)
+}
+
 // Mutation returns the PrizegivingMutation object of the builder.
 func (_c *PrizegivingCreate) Mutation() *PrizegivingMutation {
 	return _c.mutation
@@ -107,6 +226,14 @@ func (_c *PrizegivingCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *PrizegivingCreate) defaults() error {
+	if _, ok := _c.mutation.Revision(); !ok {
+		v := prizegiving.DefaultRevision
+		_c.mutation.SetRevision(v)
+	}
+	if _, ok := _c.mutation.Locked(); !ok {
+		v := prizegiving.DefaultLocked
+		_c.mutation.SetLocked(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		if prizegiving.DefaultCreatedAt == nil {
 			return fmt.Errorf("ent: uninitialized prizegiving.DefaultCreatedAt (forgotten import ent/runtime?)")
@@ -124,6 +251,22 @@ func (_c *PrizegivingCreate) check() error {
 	}
 	if _, ok := _c.mutation.CeremonySessionID(); !ok {
 		return &ValidationError{Name: "ceremony_session_id", err: errors.New(`ent: missing required field "Prizegiving.ceremony_session_id"`)}
+	}
+	if _, ok := _c.mutation.Revision(); !ok {
+		return &ValidationError{Name: "revision", err: errors.New(`ent: missing required field "Prizegiving.revision"`)}
+	}
+	if v, ok := _c.mutation.Revision(); ok {
+		if err := prizegiving.RevisionValidator(v); err != nil {
+			return &ValidationError{Name: "revision", err: fmt.Errorf(`ent: validator failed for field "Prizegiving.revision": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.Locked(); !ok {
+		return &ValidationError{Name: "locked", err: errors.New(`ent: missing required field "Prizegiving.locked"`)}
+	}
+	if v, ok := _c.mutation.LockedByAccountID(); ok {
+		if err := prizegiving.LockedByAccountIDValidator(v); err != nil {
+			return &ValidationError{Name: "locked_by_account_id", err: fmt.Errorf(`ent: validator failed for field "Prizegiving.locked_by_account_id": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.CreatedByAccountID(); !ok {
 		return &ValidationError{Name: "created_by_account_id", err: errors.New(`ent: missing required field "Prizegiving.created_by_account_id"`)}
@@ -168,6 +311,42 @@ func (_c *PrizegivingCreate) createSpec() (*Prizegiving, *sqlgraph.CreateSpec) {
 		_node = &Prizegiving{config: _c.config}
 		_spec = sqlgraph.NewCreateSpec(prizegiving.Table, sqlgraph.NewFieldSpec(prizegiving.FieldID, field.TypeInt))
 	)
+	if value, ok := _c.mutation.Revision(); ok {
+		_spec.SetField(prizegiving.FieldRevision, field.TypeInt, value)
+		_node.Revision = value
+	}
+	if value, ok := _c.mutation.CompetitionSessionIds(); ok {
+		_spec.SetField(prizegiving.FieldCompetitionSessionIds, field.TypeJSON, value)
+		_node.CompetitionSessionIds = value
+	}
+	if value, ok := _c.mutation.Sequence(); ok {
+		_spec.SetField(prizegiving.FieldSequence, field.TypeJSON, value)
+		_node.Sequence = value
+	}
+	if value, ok := _c.mutation.PublicationOrder(); ok {
+		_spec.SetField(prizegiving.FieldPublicationOrder, field.TypeJSON, value)
+		_node.PublicationOrder = value
+	}
+	if value, ok := _c.mutation.ResultsTextTemplate(); ok {
+		_spec.SetField(prizegiving.FieldResultsTextTemplate, field.TypeJSON, value)
+		_node.ResultsTextTemplate = value
+	}
+	if value, ok := _c.mutation.Locked(); ok {
+		_spec.SetField(prizegiving.FieldLocked, field.TypeBool, value)
+		_node.Locked = value
+	}
+	if value, ok := _c.mutation.PreflightLock(); ok {
+		_spec.SetField(prizegiving.FieldPreflightLock, field.TypeJSON, value)
+		_node.PreflightLock = value
+	}
+	if value, ok := _c.mutation.LockedByAccountID(); ok {
+		_spec.SetField(prizegiving.FieldLockedByAccountID, field.TypeInt, value)
+		_node.LockedByAccountID = &value
+	}
+	if value, ok := _c.mutation.LockedAt(); ok {
+		_spec.SetField(prizegiving.FieldLockedAt, field.TypeTime, value)
+		_node.LockedAt = &value
+	}
 	if value, ok := _c.mutation.CreatedByAccountID(); ok {
 		_spec.SetField(prizegiving.FieldCreatedByAccountID, field.TypeInt, value)
 		_node.CreatedByAccountID = value
@@ -208,6 +387,22 @@ func (_c *PrizegivingCreate) createSpec() (*Prizegiving, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.CeremonySessionID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.CompetitionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   prizegiving.CompetitionsTable,
+			Columns: []string{prizegiving.CompetitionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(prizegivingcompetition.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

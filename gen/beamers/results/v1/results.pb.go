@@ -375,6 +375,162 @@ func (AwardReleasePathKind) EnumDescriptor() ([]byte, []int) {
 	return file_beamers_results_v1_results_proto_rawDescGZIP(), []int{6}
 }
 
+type ResultItemKind int32
+
+const (
+	ResultItemKind_RESULT_ITEM_KIND_UNSPECIFIED         ResultItemKind = 0
+	ResultItemKind_RESULT_ITEM_KIND_COMPETITION_RESULTS ResultItemKind = 1
+	ResultItemKind_RESULT_ITEM_KIND_NO_PUBLIC_RESULTS   ResultItemKind = 2
+	ResultItemKind_RESULT_ITEM_KIND_COMPETITION_AWARD   ResultItemKind = 3
+	ResultItemKind_RESULT_ITEM_KIND_EVENT_AWARD         ResultItemKind = 4
+)
+
+// Enum value maps for ResultItemKind.
+var (
+	ResultItemKind_name = map[int32]string{
+		0: "RESULT_ITEM_KIND_UNSPECIFIED",
+		1: "RESULT_ITEM_KIND_COMPETITION_RESULTS",
+		2: "RESULT_ITEM_KIND_NO_PUBLIC_RESULTS",
+		3: "RESULT_ITEM_KIND_COMPETITION_AWARD",
+		4: "RESULT_ITEM_KIND_EVENT_AWARD",
+	}
+	ResultItemKind_value = map[string]int32{
+		"RESULT_ITEM_KIND_UNSPECIFIED":         0,
+		"RESULT_ITEM_KIND_COMPETITION_RESULTS": 1,
+		"RESULT_ITEM_KIND_NO_PUBLIC_RESULTS":   2,
+		"RESULT_ITEM_KIND_COMPETITION_AWARD":   3,
+		"RESULT_ITEM_KIND_EVENT_AWARD":         4,
+	}
+)
+
+func (x ResultItemKind) Enum() *ResultItemKind {
+	p := new(ResultItemKind)
+	*p = x
+	return p
+}
+
+func (x ResultItemKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ResultItemKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_beamers_results_v1_results_proto_enumTypes[7].Descriptor()
+}
+
+func (ResultItemKind) Type() protoreflect.EnumType {
+	return &file_beamers_results_v1_results_proto_enumTypes[7]
+}
+
+func (x ResultItemKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ResultItemKind.Descriptor instead.
+func (ResultItemKind) EnumDescriptor() ([]byte, []int) {
+	return file_beamers_results_v1_results_proto_rawDescGZIP(), []int{7}
+}
+
+type RevealMethod int32
+
+const (
+	RevealMethod_REVEAL_METHOD_UNSPECIFIED         RevealMethod = 0
+	RevealMethod_REVEAL_METHOD_STATIC_RESULT       RevealMethod = 1
+	RevealMethod_REVEAL_METHOD_SEQUENTIAL_PODIUM   RevealMethod = 2
+	RevealMethod_REVEAL_METHOD_ANIMATED_SCORE_BARS RevealMethod = 3
+)
+
+// Enum value maps for RevealMethod.
+var (
+	RevealMethod_name = map[int32]string{
+		0: "REVEAL_METHOD_UNSPECIFIED",
+		1: "REVEAL_METHOD_STATIC_RESULT",
+		2: "REVEAL_METHOD_SEQUENTIAL_PODIUM",
+		3: "REVEAL_METHOD_ANIMATED_SCORE_BARS",
+	}
+	RevealMethod_value = map[string]int32{
+		"REVEAL_METHOD_UNSPECIFIED":         0,
+		"REVEAL_METHOD_STATIC_RESULT":       1,
+		"REVEAL_METHOD_SEQUENTIAL_PODIUM":   2,
+		"REVEAL_METHOD_ANIMATED_SCORE_BARS": 3,
+	}
+)
+
+func (x RevealMethod) Enum() *RevealMethod {
+	p := new(RevealMethod)
+	*p = x
+	return p
+}
+
+func (x RevealMethod) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (RevealMethod) Descriptor() protoreflect.EnumDescriptor {
+	return file_beamers_results_v1_results_proto_enumTypes[8].Descriptor()
+}
+
+func (RevealMethod) Type() protoreflect.EnumType {
+	return &file_beamers_results_v1_results_proto_enumTypes[8]
+}
+
+func (x RevealMethod) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use RevealMethod.Descriptor instead.
+func (RevealMethod) EnumDescriptor() ([]byte, []int) {
+	return file_beamers_results_v1_results_proto_rawDescGZIP(), []int{8}
+}
+
+type PrizegivingPreviewMode int32
+
+const (
+	PrizegivingPreviewMode_PRIZEGIVING_PREVIEW_MODE_UNSPECIFIED PrizegivingPreviewMode = 0
+	PrizegivingPreviewMode_PRIZEGIVING_PREVIEW_MODE_PREVIEW     PrizegivingPreviewMode = 1
+	PrizegivingPreviewMode_PRIZEGIVING_PREVIEW_MODE_REHEARSAL   PrizegivingPreviewMode = 2
+)
+
+// Enum value maps for PrizegivingPreviewMode.
+var (
+	PrizegivingPreviewMode_name = map[int32]string{
+		0: "PRIZEGIVING_PREVIEW_MODE_UNSPECIFIED",
+		1: "PRIZEGIVING_PREVIEW_MODE_PREVIEW",
+		2: "PRIZEGIVING_PREVIEW_MODE_REHEARSAL",
+	}
+	PrizegivingPreviewMode_value = map[string]int32{
+		"PRIZEGIVING_PREVIEW_MODE_UNSPECIFIED": 0,
+		"PRIZEGIVING_PREVIEW_MODE_PREVIEW":     1,
+		"PRIZEGIVING_PREVIEW_MODE_REHEARSAL":   2,
+	}
+)
+
+func (x PrizegivingPreviewMode) Enum() *PrizegivingPreviewMode {
+	p := new(PrizegivingPreviewMode)
+	*p = x
+	return p
+}
+
+func (x PrizegivingPreviewMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PrizegivingPreviewMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_beamers_results_v1_results_proto_enumTypes[9].Descriptor()
+}
+
+func (PrizegivingPreviewMode) Type() protoreflect.EnumType {
+	return &file_beamers_results_v1_results_proto_enumTypes[9]
+}
+
+func (x PrizegivingPreviewMode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PrizegivingPreviewMode.Descriptor instead.
+func (PrizegivingPreviewMode) EnumDescriptor() ([]byte, []int) {
+	return file_beamers_results_v1_results_proto_rawDescGZIP(), []int{9}
+}
+
 type ScorePolicy struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Type           ScoreType              `protobuf:"varint,1,opt,name=type,proto3,enum=beamers.results.v1.ScoreType" json:"type,omitempty"`
@@ -2207,6 +2363,1122 @@ func (x *MarkEventAwardsReadyResponse) GetDraft() *EventAwardsDraft {
 	return nil
 }
 
+type ResultItemRef struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	Kind                 ResultItemKind         `protobuf:"varint,1,opt,name=kind,proto3,enum=beamers.results.v1.ResultItemKind" json:"kind,omitempty"`
+	CompetitionSessionId int64                  `protobuf:"varint,2,opt,name=competition_session_id,json=competitionSessionId,proto3" json:"competition_session_id,omitempty"`
+	AwardKey             string                 `protobuf:"bytes,3,opt,name=award_key,json=awardKey,proto3" json:"award_key,omitempty"`
+	DisplayOrder         int32                  `protobuf:"varint,4,opt,name=display_order,json=displayOrder,proto3" json:"display_order,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *ResultItemRef) Reset() {
+	*x = ResultItemRef{}
+	mi := &file_beamers_results_v1_results_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResultItemRef) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResultItemRef) ProtoMessage() {}
+
+func (x *ResultItemRef) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_results_v1_results_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResultItemRef.ProtoReflect.Descriptor instead.
+func (*ResultItemRef) Descriptor() ([]byte, []int) {
+	return file_beamers_results_v1_results_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *ResultItemRef) GetKind() ResultItemKind {
+	if x != nil {
+		return x.Kind
+	}
+	return ResultItemKind_RESULT_ITEM_KIND_UNSPECIFIED
+}
+
+func (x *ResultItemRef) GetCompetitionSessionId() int64 {
+	if x != nil {
+		return x.CompetitionSessionId
+	}
+	return 0
+}
+
+func (x *ResultItemRef) GetAwardKey() string {
+	if x != nil {
+		return x.AwardKey
+	}
+	return ""
+}
+
+func (x *ResultItemRef) GetDisplayOrder() int32 {
+	if x != nil {
+		return x.DisplayOrder
+	}
+	return 0
+}
+
+type ResultItem struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	Kind                 ResultItemKind         `protobuf:"varint,1,opt,name=kind,proto3,enum=beamers.results.v1.ResultItemKind" json:"kind,omitempty"`
+	CompetitionSessionId int64                  `protobuf:"varint,2,opt,name=competition_session_id,json=competitionSessionId,proto3" json:"competition_session_id,omitempty"`
+	AwardKey             string                 `protobuf:"bytes,3,opt,name=award_key,json=awardKey,proto3" json:"award_key,omitempty"`
+	DisplayOrder         int32                  `protobuf:"varint,4,opt,name=display_order,json=displayOrder,proto3" json:"display_order,omitempty"`
+	RevealMethod         RevealMethod           `protobuf:"varint,5,opt,name=reveal_method,json=revealMethod,proto3,enum=beamers.results.v1.RevealMethod" json:"reveal_method,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *ResultItem) Reset() {
+	*x = ResultItem{}
+	mi := &file_beamers_results_v1_results_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResultItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResultItem) ProtoMessage() {}
+
+func (x *ResultItem) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_results_v1_results_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResultItem.ProtoReflect.Descriptor instead.
+func (*ResultItem) Descriptor() ([]byte, []int) {
+	return file_beamers_results_v1_results_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *ResultItem) GetKind() ResultItemKind {
+	if x != nil {
+		return x.Kind
+	}
+	return ResultItemKind_RESULT_ITEM_KIND_UNSPECIFIED
+}
+
+func (x *ResultItem) GetCompetitionSessionId() int64 {
+	if x != nil {
+		return x.CompetitionSessionId
+	}
+	return 0
+}
+
+func (x *ResultItem) GetAwardKey() string {
+	if x != nil {
+		return x.AwardKey
+	}
+	return ""
+}
+
+func (x *ResultItem) GetDisplayOrder() int32 {
+	if x != nil {
+		return x.DisplayOrder
+	}
+	return 0
+}
+
+func (x *ResultItem) GetRevealMethod() RevealMethod {
+	if x != nil {
+		return x.RevealMethod
+	}
+	return RevealMethod_REVEAL_METHOD_UNSPECIFIED
+}
+
+type ResultsTextTemplate struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Revision      int64                  `protobuf:"varint,1,opt,name=revision,proto3" json:"revision,omitempty"`
+	Source        string                 `protobuf:"bytes,2,opt,name=source,proto3" json:"source,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResultsTextTemplate) Reset() {
+	*x = ResultsTextTemplate{}
+	mi := &file_beamers_results_v1_results_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResultsTextTemplate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResultsTextTemplate) ProtoMessage() {}
+
+func (x *ResultsTextTemplate) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_results_v1_results_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResultsTextTemplate.ProtoReflect.Descriptor instead.
+func (*ResultsTextTemplate) Descriptor() ([]byte, []int) {
+	return file_beamers_results_v1_results_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *ResultsTextTemplate) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+func (x *ResultsTextTemplate) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+type PrizegivingCompetitionLock struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     int64                  `protobuf:"varint,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	DraftId       int64                  `protobuf:"varint,2,opt,name=draft_id,json=draftId,proto3" json:"draft_id,omitempty"`
+	DraftRevision int64                  `protobuf:"varint,3,opt,name=draft_revision,json=draftRevision,proto3" json:"draft_revision,omitempty"`
+	Disposition   ResultsDisposition     `protobuf:"varint,4,opt,name=disposition,proto3,enum=beamers.results.v1.ResultsDisposition" json:"disposition,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PrizegivingCompetitionLock) Reset() {
+	*x = PrizegivingCompetitionLock{}
+	mi := &file_beamers_results_v1_results_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PrizegivingCompetitionLock) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PrizegivingCompetitionLock) ProtoMessage() {}
+
+func (x *PrizegivingCompetitionLock) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_results_v1_results_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PrizegivingCompetitionLock.ProtoReflect.Descriptor instead.
+func (*PrizegivingCompetitionLock) Descriptor() ([]byte, []int) {
+	return file_beamers_results_v1_results_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *PrizegivingCompetitionLock) GetSessionId() int64 {
+	if x != nil {
+		return x.SessionId
+	}
+	return 0
+}
+
+func (x *PrizegivingCompetitionLock) GetDraftId() int64 {
+	if x != nil {
+		return x.DraftId
+	}
+	return 0
+}
+
+func (x *PrizegivingCompetitionLock) GetDraftRevision() int64 {
+	if x != nil {
+		return x.DraftRevision
+	}
+	return 0
+}
+
+func (x *PrizegivingCompetitionLock) GetDisposition() ResultsDisposition {
+	if x != nil {
+		return x.Disposition
+	}
+	return ResultsDisposition_RESULTS_DISPOSITION_UNSPECIFIED
+}
+
+type LockedResultItem struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Item          *ResultItem            `protobuf:"bytes,1,opt,name=item,proto3" json:"item,omitempty"`
+	RevealSeed    uint64                 `protobuf:"varint,2,opt,name=reveal_seed,json=revealSeed,proto3" json:"reveal_seed,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LockedResultItem) Reset() {
+	*x = LockedResultItem{}
+	mi := &file_beamers_results_v1_results_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LockedResultItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LockedResultItem) ProtoMessage() {}
+
+func (x *LockedResultItem) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_results_v1_results_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LockedResultItem.ProtoReflect.Descriptor instead.
+func (*LockedResultItem) Descriptor() ([]byte, []int) {
+	return file_beamers_results_v1_results_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *LockedResultItem) GetItem() *ResultItem {
+	if x != nil {
+		return x.Item
+	}
+	return nil
+}
+
+func (x *LockedResultItem) GetRevealSeed() uint64 {
+	if x != nil {
+		return x.RevealSeed
+	}
+	return 0
+}
+
+type PrizegivingPreflightLock struct {
+	state                    protoimpl.MessageState        `protogen:"open.v1"`
+	PlanRevision             int64                         `protobuf:"varint,1,opt,name=plan_revision,json=planRevision,proto3" json:"plan_revision,omitempty"`
+	CompetitionSources       []*PrizegivingCompetitionLock `protobuf:"bytes,2,rep,name=competition_sources,json=competitionSources,proto3" json:"competition_sources,omitempty"`
+	EventAwardsDraftRevision int64                         `protobuf:"varint,3,opt,name=event_awards_draft_revision,json=eventAwardsDraftRevision,proto3" json:"event_awards_draft_revision,omitempty"`
+	EventAwardsPathRevision  int64                         `protobuf:"varint,4,opt,name=event_awards_path_revision,json=eventAwardsPathRevision,proto3" json:"event_awards_path_revision,omitempty"`
+	Sequence                 []*LockedResultItem           `protobuf:"bytes,5,rep,name=sequence,proto3" json:"sequence,omitempty"`
+	PublicationOrder         []*ResultItemRef              `protobuf:"bytes,6,rep,name=publication_order,json=publicationOrder,proto3" json:"publication_order,omitempty"`
+	ResultsTextTemplate      *ResultsTextTemplate          `protobuf:"bytes,7,opt,name=results_text_template,json=resultsTextTemplate,proto3" json:"results_text_template,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
+}
+
+func (x *PrizegivingPreflightLock) Reset() {
+	*x = PrizegivingPreflightLock{}
+	mi := &file_beamers_results_v1_results_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PrizegivingPreflightLock) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PrizegivingPreflightLock) ProtoMessage() {}
+
+func (x *PrizegivingPreflightLock) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_results_v1_results_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PrizegivingPreflightLock.ProtoReflect.Descriptor instead.
+func (*PrizegivingPreflightLock) Descriptor() ([]byte, []int) {
+	return file_beamers_results_v1_results_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *PrizegivingPreflightLock) GetPlanRevision() int64 {
+	if x != nil {
+		return x.PlanRevision
+	}
+	return 0
+}
+
+func (x *PrizegivingPreflightLock) GetCompetitionSources() []*PrizegivingCompetitionLock {
+	if x != nil {
+		return x.CompetitionSources
+	}
+	return nil
+}
+
+func (x *PrizegivingPreflightLock) GetEventAwardsDraftRevision() int64 {
+	if x != nil {
+		return x.EventAwardsDraftRevision
+	}
+	return 0
+}
+
+func (x *PrizegivingPreflightLock) GetEventAwardsPathRevision() int64 {
+	if x != nil {
+		return x.EventAwardsPathRevision
+	}
+	return 0
+}
+
+func (x *PrizegivingPreflightLock) GetSequence() []*LockedResultItem {
+	if x != nil {
+		return x.Sequence
+	}
+	return nil
+}
+
+func (x *PrizegivingPreflightLock) GetPublicationOrder() []*ResultItemRef {
+	if x != nil {
+		return x.PublicationOrder
+	}
+	return nil
+}
+
+func (x *PrizegivingPreflightLock) GetResultsTextTemplate() *ResultsTextTemplate {
+	if x != nil {
+		return x.ResultsTextTemplate
+	}
+	return nil
+}
+
+type PrizegivingPlan struct {
+	state                 protoimpl.MessageState    `protogen:"open.v1"`
+	Id                    int64                     `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	EventId               int64                     `protobuf:"varint,2,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	CeremonySessionId     int64                     `protobuf:"varint,3,opt,name=ceremony_session_id,json=ceremonySessionId,proto3" json:"ceremony_session_id,omitempty"`
+	Revision              int64                     `protobuf:"varint,4,opt,name=revision,proto3" json:"revision,omitempty"`
+	CompetitionSessionIds []int64                   `protobuf:"varint,5,rep,packed,name=competition_session_ids,json=competitionSessionIds,proto3" json:"competition_session_ids,omitempty"`
+	Sequence              []*ResultItem             `protobuf:"bytes,6,rep,name=sequence,proto3" json:"sequence,omitempty"`
+	PublicationOrder      []*ResultItemRef          `protobuf:"bytes,7,rep,name=publication_order,json=publicationOrder,proto3" json:"publication_order,omitempty"`
+	ResultsTextTemplate   *ResultsTextTemplate      `protobuf:"bytes,8,opt,name=results_text_template,json=resultsTextTemplate,proto3" json:"results_text_template,omitempty"`
+	Locked                bool                      `protobuf:"varint,9,opt,name=locked,proto3" json:"locked,omitempty"`
+	PreflightLock         *PrizegivingPreflightLock `protobuf:"bytes,10,opt,name=preflight_lock,json=preflightLock,proto3" json:"preflight_lock,omitempty"`
+	LockedByAccountId     int64                     `protobuf:"varint,11,opt,name=locked_by_account_id,json=lockedByAccountId,proto3" json:"locked_by_account_id,omitempty"`
+	LockedAt              *timestamppb.Timestamp    `protobuf:"bytes,12,opt,name=locked_at,json=lockedAt,proto3" json:"locked_at,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *PrizegivingPlan) Reset() {
+	*x = PrizegivingPlan{}
+	mi := &file_beamers_results_v1_results_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PrizegivingPlan) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PrizegivingPlan) ProtoMessage() {}
+
+func (x *PrizegivingPlan) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_results_v1_results_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PrizegivingPlan.ProtoReflect.Descriptor instead.
+func (*PrizegivingPlan) Descriptor() ([]byte, []int) {
+	return file_beamers_results_v1_results_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *PrizegivingPlan) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *PrizegivingPlan) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+func (x *PrizegivingPlan) GetCeremonySessionId() int64 {
+	if x != nil {
+		return x.CeremonySessionId
+	}
+	return 0
+}
+
+func (x *PrizegivingPlan) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+func (x *PrizegivingPlan) GetCompetitionSessionIds() []int64 {
+	if x != nil {
+		return x.CompetitionSessionIds
+	}
+	return nil
+}
+
+func (x *PrizegivingPlan) GetSequence() []*ResultItem {
+	if x != nil {
+		return x.Sequence
+	}
+	return nil
+}
+
+func (x *PrizegivingPlan) GetPublicationOrder() []*ResultItemRef {
+	if x != nil {
+		return x.PublicationOrder
+	}
+	return nil
+}
+
+func (x *PrizegivingPlan) GetResultsTextTemplate() *ResultsTextTemplate {
+	if x != nil {
+		return x.ResultsTextTemplate
+	}
+	return nil
+}
+
+func (x *PrizegivingPlan) GetLocked() bool {
+	if x != nil {
+		return x.Locked
+	}
+	return false
+}
+
+func (x *PrizegivingPlan) GetPreflightLock() *PrizegivingPreflightLock {
+	if x != nil {
+		return x.PreflightLock
+	}
+	return nil
+}
+
+func (x *PrizegivingPlan) GetLockedByAccountId() int64 {
+	if x != nil {
+		return x.LockedByAccountId
+	}
+	return 0
+}
+
+func (x *PrizegivingPlan) GetLockedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LockedAt
+	}
+	return nil
+}
+
+type GetPrizegivingPlanRequest struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	EventId           int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	CeremonySessionId int64                  `protobuf:"varint,2,opt,name=ceremony_session_id,json=ceremonySessionId,proto3" json:"ceremony_session_id,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *GetPrizegivingPlanRequest) Reset() {
+	*x = GetPrizegivingPlanRequest{}
+	mi := &file_beamers_results_v1_results_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPrizegivingPlanRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPrizegivingPlanRequest) ProtoMessage() {}
+
+func (x *GetPrizegivingPlanRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_results_v1_results_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPrizegivingPlanRequest.ProtoReflect.Descriptor instead.
+func (*GetPrizegivingPlanRequest) Descriptor() ([]byte, []int) {
+	return file_beamers_results_v1_results_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *GetPrizegivingPlanRequest) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+func (x *GetPrizegivingPlanRequest) GetCeremonySessionId() int64 {
+	if x != nil {
+		return x.CeremonySessionId
+	}
+	return 0
+}
+
+type GetPrizegivingPlanResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Plan          *PrizegivingPlan       `protobuf:"bytes,1,opt,name=plan,proto3" json:"plan,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPrizegivingPlanResponse) Reset() {
+	*x = GetPrizegivingPlanResponse{}
+	mi := &file_beamers_results_v1_results_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPrizegivingPlanResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPrizegivingPlanResponse) ProtoMessage() {}
+
+func (x *GetPrizegivingPlanResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_results_v1_results_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPrizegivingPlanResponse.ProtoReflect.Descriptor instead.
+func (*GetPrizegivingPlanResponse) Descriptor() ([]byte, []int) {
+	return file_beamers_results_v1_results_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *GetPrizegivingPlanResponse) GetPlan() *PrizegivingPlan {
+	if x != nil {
+		return x.Plan
+	}
+	return nil
+}
+
+type SavePrizegivingPlanRequest struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	EventId               int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	CeremonySessionId     int64                  `protobuf:"varint,2,opt,name=ceremony_session_id,json=ceremonySessionId,proto3" json:"ceremony_session_id,omitempty"`
+	CommandId             string                 `protobuf:"bytes,3,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
+	ExpectedRevision      int64                  `protobuf:"varint,4,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	CompetitionSessionIds []int64                `protobuf:"varint,5,rep,packed,name=competition_session_ids,json=competitionSessionIds,proto3" json:"competition_session_ids,omitempty"`
+	Sequence              []*ResultItem          `protobuf:"bytes,6,rep,name=sequence,proto3" json:"sequence,omitempty"`
+	PublicationOrder      []*ResultItemRef       `protobuf:"bytes,7,rep,name=publication_order,json=publicationOrder,proto3" json:"publication_order,omitempty"`
+	ResultsTextTemplate   *ResultsTextTemplate   `protobuf:"bytes,8,opt,name=results_text_template,json=resultsTextTemplate,proto3" json:"results_text_template,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *SavePrizegivingPlanRequest) Reset() {
+	*x = SavePrizegivingPlanRequest{}
+	mi := &file_beamers_results_v1_results_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SavePrizegivingPlanRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SavePrizegivingPlanRequest) ProtoMessage() {}
+
+func (x *SavePrizegivingPlanRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_results_v1_results_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SavePrizegivingPlanRequest.ProtoReflect.Descriptor instead.
+func (*SavePrizegivingPlanRequest) Descriptor() ([]byte, []int) {
+	return file_beamers_results_v1_results_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *SavePrizegivingPlanRequest) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+func (x *SavePrizegivingPlanRequest) GetCeremonySessionId() int64 {
+	if x != nil {
+		return x.CeremonySessionId
+	}
+	return 0
+}
+
+func (x *SavePrizegivingPlanRequest) GetCommandId() string {
+	if x != nil {
+		return x.CommandId
+	}
+	return ""
+}
+
+func (x *SavePrizegivingPlanRequest) GetExpectedRevision() int64 {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return 0
+}
+
+func (x *SavePrizegivingPlanRequest) GetCompetitionSessionIds() []int64 {
+	if x != nil {
+		return x.CompetitionSessionIds
+	}
+	return nil
+}
+
+func (x *SavePrizegivingPlanRequest) GetSequence() []*ResultItem {
+	if x != nil {
+		return x.Sequence
+	}
+	return nil
+}
+
+func (x *SavePrizegivingPlanRequest) GetPublicationOrder() []*ResultItemRef {
+	if x != nil {
+		return x.PublicationOrder
+	}
+	return nil
+}
+
+func (x *SavePrizegivingPlanRequest) GetResultsTextTemplate() *ResultsTextTemplate {
+	if x != nil {
+		return x.ResultsTextTemplate
+	}
+	return nil
+}
+
+type SavePrizegivingPlanResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Plan          *PrizegivingPlan       `protobuf:"bytes,1,opt,name=plan,proto3" json:"plan,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SavePrizegivingPlanResponse) Reset() {
+	*x = SavePrizegivingPlanResponse{}
+	mi := &file_beamers_results_v1_results_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SavePrizegivingPlanResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SavePrizegivingPlanResponse) ProtoMessage() {}
+
+func (x *SavePrizegivingPlanResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_results_v1_results_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SavePrizegivingPlanResponse.ProtoReflect.Descriptor instead.
+func (*SavePrizegivingPlanResponse) Descriptor() ([]byte, []int) {
+	return file_beamers_results_v1_results_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *SavePrizegivingPlanResponse) GetPlan() *PrizegivingPlan {
+	if x != nil {
+		return x.Plan
+	}
+	return nil
+}
+
+type PrizegivingPreflightFinding struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PrizegivingPreflightFinding) Reset() {
+	*x = PrizegivingPreflightFinding{}
+	mi := &file_beamers_results_v1_results_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PrizegivingPreflightFinding) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PrizegivingPreflightFinding) ProtoMessage() {}
+
+func (x *PrizegivingPreflightFinding) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_results_v1_results_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PrizegivingPreflightFinding.ProtoReflect.Descriptor instead.
+func (*PrizegivingPreflightFinding) Descriptor() ([]byte, []int) {
+	return file_beamers_results_v1_results_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *PrizegivingPreflightFinding) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *PrizegivingPreflightFinding) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type RunPrizegivingPreflightRequest struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	EventId           int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	CeremonySessionId int64                  `protobuf:"varint,2,opt,name=ceremony_session_id,json=ceremonySessionId,proto3" json:"ceremony_session_id,omitempty"`
+	CommandId         string                 `protobuf:"bytes,3,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
+	ExpectedRevision  int64                  `protobuf:"varint,4,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *RunPrizegivingPreflightRequest) Reset() {
+	*x = RunPrizegivingPreflightRequest{}
+	mi := &file_beamers_results_v1_results_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RunPrizegivingPreflightRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RunPrizegivingPreflightRequest) ProtoMessage() {}
+
+func (x *RunPrizegivingPreflightRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_results_v1_results_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RunPrizegivingPreflightRequest.ProtoReflect.Descriptor instead.
+func (*RunPrizegivingPreflightRequest) Descriptor() ([]byte, []int) {
+	return file_beamers_results_v1_results_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *RunPrizegivingPreflightRequest) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+func (x *RunPrizegivingPreflightRequest) GetCeremonySessionId() int64 {
+	if x != nil {
+		return x.CeremonySessionId
+	}
+	return 0
+}
+
+func (x *RunPrizegivingPreflightRequest) GetCommandId() string {
+	if x != nil {
+		return x.CommandId
+	}
+	return ""
+}
+
+func (x *RunPrizegivingPreflightRequest) GetExpectedRevision() int64 {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return 0
+}
+
+type RunPrizegivingPreflightResponse struct {
+	state         protoimpl.MessageState         `protogen:"open.v1"`
+	Plan          *PrizegivingPlan               `protobuf:"bytes,1,opt,name=plan,proto3" json:"plan,omitempty"`
+	Findings      []*PrizegivingPreflightFinding `protobuf:"bytes,2,rep,name=findings,proto3" json:"findings,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RunPrizegivingPreflightResponse) Reset() {
+	*x = RunPrizegivingPreflightResponse{}
+	mi := &file_beamers_results_v1_results_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RunPrizegivingPreflightResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RunPrizegivingPreflightResponse) ProtoMessage() {}
+
+func (x *RunPrizegivingPreflightResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_results_v1_results_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RunPrizegivingPreflightResponse.ProtoReflect.Descriptor instead.
+func (*RunPrizegivingPreflightResponse) Descriptor() ([]byte, []int) {
+	return file_beamers_results_v1_results_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *RunPrizegivingPreflightResponse) GetPlan() *PrizegivingPlan {
+	if x != nil {
+		return x.Plan
+	}
+	return nil
+}
+
+func (x *RunPrizegivingPreflightResponse) GetFindings() []*PrizegivingPreflightFinding {
+	if x != nil {
+		return x.Findings
+	}
+	return nil
+}
+
+type PreviewPrizegivingRequest struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	EventId           int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	CeremonySessionId int64                  `protobuf:"varint,2,opt,name=ceremony_session_id,json=ceremonySessionId,proto3" json:"ceremony_session_id,omitempty"`
+	Mode              PrizegivingPreviewMode `protobuf:"varint,3,opt,name=mode,proto3,enum=beamers.results.v1.PrizegivingPreviewMode" json:"mode,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *PreviewPrizegivingRequest) Reset() {
+	*x = PreviewPrizegivingRequest{}
+	mi := &file_beamers_results_v1_results_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PreviewPrizegivingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PreviewPrizegivingRequest) ProtoMessage() {}
+
+func (x *PreviewPrizegivingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_results_v1_results_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PreviewPrizegivingRequest.ProtoReflect.Descriptor instead.
+func (*PreviewPrizegivingRequest) Descriptor() ([]byte, []int) {
+	return file_beamers_results_v1_results_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *PreviewPrizegivingRequest) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+func (x *PreviewPrizegivingRequest) GetCeremonySessionId() int64 {
+	if x != nil {
+		return x.CeremonySessionId
+	}
+	return 0
+}
+
+func (x *PreviewPrizegivingRequest) GetMode() PrizegivingPreviewMode {
+	if x != nil {
+		return x.Mode
+	}
+	return PrizegivingPreviewMode_PRIZEGIVING_PREVIEW_MODE_UNSPECIFIED
+}
+
+type PrizegivingPreview struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Mode          PrizegivingPreviewMode `protobuf:"varint,1,opt,name=mode,proto3,enum=beamers.results.v1.PrizegivingPreviewMode" json:"mode,omitempty"`
+	Watermark     string                 `protobuf:"bytes,2,opt,name=watermark,proto3" json:"watermark,omitempty"`
+	Plan          *PrizegivingPlan       `protobuf:"bytes,3,opt,name=plan,proto3" json:"plan,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PrizegivingPreview) Reset() {
+	*x = PrizegivingPreview{}
+	mi := &file_beamers_results_v1_results_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PrizegivingPreview) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PrizegivingPreview) ProtoMessage() {}
+
+func (x *PrizegivingPreview) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_results_v1_results_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PrizegivingPreview.ProtoReflect.Descriptor instead.
+func (*PrizegivingPreview) Descriptor() ([]byte, []int) {
+	return file_beamers_results_v1_results_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *PrizegivingPreview) GetMode() PrizegivingPreviewMode {
+	if x != nil {
+		return x.Mode
+	}
+	return PrizegivingPreviewMode_PRIZEGIVING_PREVIEW_MODE_UNSPECIFIED
+}
+
+func (x *PrizegivingPreview) GetWatermark() string {
+	if x != nil {
+		return x.Watermark
+	}
+	return ""
+}
+
+func (x *PrizegivingPreview) GetPlan() *PrizegivingPlan {
+	if x != nil {
+		return x.Plan
+	}
+	return nil
+}
+
+type PreviewPrizegivingResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Preview       *PrizegivingPreview    `protobuf:"bytes,1,opt,name=preview,proto3" json:"preview,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PreviewPrizegivingResponse) Reset() {
+	*x = PreviewPrizegivingResponse{}
+	mi := &file_beamers_results_v1_results_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PreviewPrizegivingResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PreviewPrizegivingResponse) ProtoMessage() {}
+
+func (x *PreviewPrizegivingResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_results_v1_results_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PreviewPrizegivingResponse.ProtoReflect.Descriptor instead.
+func (*PreviewPrizegivingResponse) Descriptor() ([]byte, []int) {
+	return file_beamers_results_v1_results_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *PreviewPrizegivingResponse) GetPreview() *PrizegivingPreview {
+	if x != nil {
+		return x.Preview
+	}
+	return nil
+}
+
 var File_beamers_results_v1_results_proto protoreflect.FileDescriptor
 
 const file_beamers_results_v1_results_proto_rawDesc = "" +
@@ -2366,7 +3638,93 @@ const file_beamers_results_v1_results_proto_rawDesc = "" +
 	"\frelease_path\x18\x04 \x01(\v2$.beamers.results.v1.AwardReleasePathR\vreleasePath\x124\n" +
 	"\x16expected_path_revision\x18\x05 \x01(\x03R\x14expectedPathRevision\"Z\n" +
 	"\x1cMarkEventAwardsReadyResponse\x12:\n" +
-	"\x05draft\x18\x01 \x01(\v2$.beamers.results.v1.EventAwardsDraftR\x05draft*\xa6\x01\n" +
+	"\x05draft\x18\x01 \x01(\v2$.beamers.results.v1.EventAwardsDraftR\x05draft\"\xbf\x01\n" +
+	"\rResultItemRef\x126\n" +
+	"\x04kind\x18\x01 \x01(\x0e2\".beamers.results.v1.ResultItemKindR\x04kind\x124\n" +
+	"\x16competition_session_id\x18\x02 \x01(\x03R\x14competitionSessionId\x12\x1b\n" +
+	"\taward_key\x18\x03 \x01(\tR\bawardKey\x12#\n" +
+	"\rdisplay_order\x18\x04 \x01(\x05R\fdisplayOrder\"\x83\x02\n" +
+	"\n" +
+	"ResultItem\x126\n" +
+	"\x04kind\x18\x01 \x01(\x0e2\".beamers.results.v1.ResultItemKindR\x04kind\x124\n" +
+	"\x16competition_session_id\x18\x02 \x01(\x03R\x14competitionSessionId\x12\x1b\n" +
+	"\taward_key\x18\x03 \x01(\tR\bawardKey\x12#\n" +
+	"\rdisplay_order\x18\x04 \x01(\x05R\fdisplayOrder\x12E\n" +
+	"\rreveal_method\x18\x05 \x01(\x0e2 .beamers.results.v1.RevealMethodR\frevealMethod\"I\n" +
+	"\x13ResultsTextTemplate\x12\x1a\n" +
+	"\brevision\x18\x01 \x01(\x03R\brevision\x12\x16\n" +
+	"\x06source\x18\x02 \x01(\tR\x06source\"\xc7\x01\n" +
+	"\x1aPrizegivingCompetitionLock\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\x03R\tsessionId\x12\x19\n" +
+	"\bdraft_id\x18\x02 \x01(\x03R\adraftId\x12%\n" +
+	"\x0edraft_revision\x18\x03 \x01(\x03R\rdraftRevision\x12H\n" +
+	"\vdisposition\x18\x04 \x01(\x0e2&.beamers.results.v1.ResultsDispositionR\vdisposition\"g\n" +
+	"\x10LockedResultItem\x122\n" +
+	"\x04item\x18\x01 \x01(\v2\x1e.beamers.results.v1.ResultItemR\x04item\x12\x1f\n" +
+	"\vreveal_seed\x18\x02 \x01(\x04R\n" +
+	"revealSeed\"\x8b\x04\n" +
+	"\x18PrizegivingPreflightLock\x12#\n" +
+	"\rplan_revision\x18\x01 \x01(\x03R\fplanRevision\x12_\n" +
+	"\x13competition_sources\x18\x02 \x03(\v2..beamers.results.v1.PrizegivingCompetitionLockR\x12competitionSources\x12=\n" +
+	"\x1bevent_awards_draft_revision\x18\x03 \x01(\x03R\x18eventAwardsDraftRevision\x12;\n" +
+	"\x1aevent_awards_path_revision\x18\x04 \x01(\x03R\x17eventAwardsPathRevision\x12@\n" +
+	"\bsequence\x18\x05 \x03(\v2$.beamers.results.v1.LockedResultItemR\bsequence\x12N\n" +
+	"\x11publication_order\x18\x06 \x03(\v2!.beamers.results.v1.ResultItemRefR\x10publicationOrder\x12[\n" +
+	"\x15results_text_template\x18\a \x01(\v2'.beamers.results.v1.ResultsTextTemplateR\x13resultsTextTemplate\"\x80\x05\n" +
+	"\x0fPrizegivingPlan\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x19\n" +
+	"\bevent_id\x18\x02 \x01(\x03R\aeventId\x12.\n" +
+	"\x13ceremony_session_id\x18\x03 \x01(\x03R\x11ceremonySessionId\x12\x1a\n" +
+	"\brevision\x18\x04 \x01(\x03R\brevision\x126\n" +
+	"\x17competition_session_ids\x18\x05 \x03(\x03R\x15competitionSessionIds\x12:\n" +
+	"\bsequence\x18\x06 \x03(\v2\x1e.beamers.results.v1.ResultItemR\bsequence\x12N\n" +
+	"\x11publication_order\x18\a \x03(\v2!.beamers.results.v1.ResultItemRefR\x10publicationOrder\x12[\n" +
+	"\x15results_text_template\x18\b \x01(\v2'.beamers.results.v1.ResultsTextTemplateR\x13resultsTextTemplate\x12\x16\n" +
+	"\x06locked\x18\t \x01(\bR\x06locked\x12S\n" +
+	"\x0epreflight_lock\x18\n" +
+	" \x01(\v2,.beamers.results.v1.PrizegivingPreflightLockR\rpreflightLock\x12/\n" +
+	"\x14locked_by_account_id\x18\v \x01(\x03R\x11lockedByAccountId\x127\n" +
+	"\tlocked_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\blockedAt\"f\n" +
+	"\x19GetPrizegivingPlanRequest\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12.\n" +
+	"\x13ceremony_session_id\x18\x02 \x01(\x03R\x11ceremonySessionId\"U\n" +
+	"\x1aGetPrizegivingPlanResponse\x127\n" +
+	"\x04plan\x18\x01 \x01(\v2#.beamers.results.v1.PrizegivingPlanR\x04plan\"\xd4\x03\n" +
+	"\x1aSavePrizegivingPlanRequest\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12.\n" +
+	"\x13ceremony_session_id\x18\x02 \x01(\x03R\x11ceremonySessionId\x12\x1d\n" +
+	"\n" +
+	"command_id\x18\x03 \x01(\tR\tcommandId\x12+\n" +
+	"\x11expected_revision\x18\x04 \x01(\x03R\x10expectedRevision\x126\n" +
+	"\x17competition_session_ids\x18\x05 \x03(\x03R\x15competitionSessionIds\x12:\n" +
+	"\bsequence\x18\x06 \x03(\v2\x1e.beamers.results.v1.ResultItemR\bsequence\x12N\n" +
+	"\x11publication_order\x18\a \x03(\v2!.beamers.results.v1.ResultItemRefR\x10publicationOrder\x12[\n" +
+	"\x15results_text_template\x18\b \x01(\v2'.beamers.results.v1.ResultsTextTemplateR\x13resultsTextTemplate\"V\n" +
+	"\x1bSavePrizegivingPlanResponse\x127\n" +
+	"\x04plan\x18\x01 \x01(\v2#.beamers.results.v1.PrizegivingPlanR\x04plan\"K\n" +
+	"\x1bPrizegivingPreflightFinding\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xb7\x01\n" +
+	"\x1eRunPrizegivingPreflightRequest\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12.\n" +
+	"\x13ceremony_session_id\x18\x02 \x01(\x03R\x11ceremonySessionId\x12\x1d\n" +
+	"\n" +
+	"command_id\x18\x03 \x01(\tR\tcommandId\x12+\n" +
+	"\x11expected_revision\x18\x04 \x01(\x03R\x10expectedRevision\"\xa7\x01\n" +
+	"\x1fRunPrizegivingPreflightResponse\x127\n" +
+	"\x04plan\x18\x01 \x01(\v2#.beamers.results.v1.PrizegivingPlanR\x04plan\x12K\n" +
+	"\bfindings\x18\x02 \x03(\v2/.beamers.results.v1.PrizegivingPreflightFindingR\bfindings\"\xa6\x01\n" +
+	"\x19PreviewPrizegivingRequest\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12.\n" +
+	"\x13ceremony_session_id\x18\x02 \x01(\x03R\x11ceremonySessionId\x12>\n" +
+	"\x04mode\x18\x03 \x01(\x0e2*.beamers.results.v1.PrizegivingPreviewModeR\x04mode\"\xab\x01\n" +
+	"\x12PrizegivingPreview\x12>\n" +
+	"\x04mode\x18\x01 \x01(\x0e2*.beamers.results.v1.PrizegivingPreviewModeR\x04mode\x12\x1c\n" +
+	"\twatermark\x18\x02 \x01(\tR\twatermark\x127\n" +
+	"\x04plan\x18\x03 \x01(\v2#.beamers.results.v1.PrizegivingPlanR\x04plan\"^\n" +
+	"\x1aPreviewPrizegivingResponse\x12@\n" +
+	"\apreview\x18\x01 \x01(\v2&.beamers.results.v1.PrizegivingPreviewR\apreview*\xa6\x01\n" +
 	"\x12ResultsDisposition\x12#\n" +
 	"\x1fRESULTS_DISPOSITION_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bRESULTS_DISPOSITION_PENDING\x10\x01\x12\x1f\n" +
@@ -2397,7 +3755,22 @@ const file_beamers_results_v1_results_proto_rawDesc = "" +
 	"\x14AwardReleasePathKind\x12'\n" +
 	"#AWARD_RELEASE_PATH_KIND_UNSPECIFIED\x10\x00\x12&\n" +
 	"\"AWARD_RELEASE_PATH_KIND_STANDALONE\x10\x01\x12'\n" +
-	"#AWARD_RELEASE_PATH_KIND_PRIZEGIVING\x10\x022\xa7\b\n" +
+	"#AWARD_RELEASE_PATH_KIND_PRIZEGIVING\x10\x02*\xce\x01\n" +
+	"\x0eResultItemKind\x12 \n" +
+	"\x1cRESULT_ITEM_KIND_UNSPECIFIED\x10\x00\x12(\n" +
+	"$RESULT_ITEM_KIND_COMPETITION_RESULTS\x10\x01\x12&\n" +
+	"\"RESULT_ITEM_KIND_NO_PUBLIC_RESULTS\x10\x02\x12&\n" +
+	"\"RESULT_ITEM_KIND_COMPETITION_AWARD\x10\x03\x12 \n" +
+	"\x1cRESULT_ITEM_KIND_EVENT_AWARD\x10\x04*\x9a\x01\n" +
+	"\fRevealMethod\x12\x1d\n" +
+	"\x19REVEAL_METHOD_UNSPECIFIED\x10\x00\x12\x1f\n" +
+	"\x1bREVEAL_METHOD_STATIC_RESULT\x10\x01\x12#\n" +
+	"\x1fREVEAL_METHOD_SEQUENTIAL_PODIUM\x10\x02\x12%\n" +
+	"!REVEAL_METHOD_ANIMATED_SCORE_BARS\x10\x03*\x90\x01\n" +
+	"\x16PrizegivingPreviewMode\x12(\n" +
+	"$PRIZEGIVING_PREVIEW_MODE_UNSPECIFIED\x10\x00\x12$\n" +
+	" PRIZEGIVING_PREVIEW_MODE_PREVIEW\x10\x01\x12&\n" +
+	"\"PRIZEGIVING_PREVIEW_MODE_REHEARSAL\x10\x022\x8e\f\n" +
 	"\x0eResultsService\x12\x8b\x01\n" +
 	"\x1aGetCompetitionResultsDraft\x125.beamers.results.v1.GetCompetitionResultsDraftRequest\x1a6.beamers.results.v1.GetCompetitionResultsDraftResponse\x12\x8e\x01\n" +
 	"\x1bSaveCompetitionResultsDraft\x126.beamers.results.v1.SaveCompetitionResultsDraftRequest\x1a7.beamers.results.v1.SaveCompetitionResultsDraftResponse\x12|\n" +
@@ -2406,7 +3779,11 @@ const file_beamers_results_v1_results_proto_rawDesc = "" +
 	"\x14DesignatePrizegiving\x12/.beamers.results.v1.DesignatePrizegivingRequest\x1a0.beamers.results.v1.DesignatePrizegivingResponse\x12v\n" +
 	"\x13GetEventAwardsDraft\x12..beamers.results.v1.GetEventAwardsDraftRequest\x1a/.beamers.results.v1.GetEventAwardsDraftResponse\x12y\n" +
 	"\x14SaveEventAwardsDraft\x12/.beamers.results.v1.SaveEventAwardsDraftRequest\x1a0.beamers.results.v1.SaveEventAwardsDraftResponse\x12y\n" +
-	"\x14MarkEventAwardsReady\x12/.beamers.results.v1.MarkEventAwardsReadyRequest\x1a0.beamers.results.v1.MarkEventAwardsReadyResponseB?Z=github.com/dotwaffle/beamers/gen/beamers/results/v1;resultsv1b\x06proto3"
+	"\x14MarkEventAwardsReady\x12/.beamers.results.v1.MarkEventAwardsReadyRequest\x1a0.beamers.results.v1.MarkEventAwardsReadyResponse\x12s\n" +
+	"\x12GetPrizegivingPlan\x12-.beamers.results.v1.GetPrizegivingPlanRequest\x1a..beamers.results.v1.GetPrizegivingPlanResponse\x12v\n" +
+	"\x13SavePrizegivingPlan\x12..beamers.results.v1.SavePrizegivingPlanRequest\x1a/.beamers.results.v1.SavePrizegivingPlanResponse\x12\x82\x01\n" +
+	"\x17RunPrizegivingPreflight\x122.beamers.results.v1.RunPrizegivingPreflightRequest\x1a3.beamers.results.v1.RunPrizegivingPreflightResponse\x12s\n" +
+	"\x12PreviewPrizegiving\x12-.beamers.results.v1.PreviewPrizegivingRequest\x1a..beamers.results.v1.PreviewPrizegivingResponseB?Z=github.com/dotwaffle/beamers/gen/beamers/results/v1;resultsv1b\x06proto3"
 
 var (
 	file_beamers_results_v1_results_proto_rawDescOnce sync.Once
@@ -2420,8 +3797,8 @@ func file_beamers_results_v1_results_proto_rawDescGZIP() []byte {
 	return file_beamers_results_v1_results_proto_rawDescData
 }
 
-var file_beamers_results_v1_results_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
-var file_beamers_results_v1_results_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
+var file_beamers_results_v1_results_proto_enumTypes = make([]protoimpl.EnumInfo, 10)
+var file_beamers_results_v1_results_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
 var file_beamers_results_v1_results_proto_goTypes = []any{
 	(ResultsDisposition)(0),                     // 0: beamers.results.v1.ResultsDisposition
 	(ResultStanding)(0),                         // 1: beamers.results.v1.ResultStanding
@@ -2430,95 +3807,148 @@ var file_beamers_results_v1_results_proto_goTypes = []any{
 	(ScoreRequirement)(0),                       // 4: beamers.results.v1.ScoreRequirement
 	(ScoreInterpretation)(0),                    // 5: beamers.results.v1.ScoreInterpretation
 	(AwardReleasePathKind)(0),                   // 6: beamers.results.v1.AwardReleasePathKind
-	(*ScorePolicy)(nil),                         // 7: beamers.results.v1.ScorePolicy
-	(*ScoreValue)(nil),                          // 8: beamers.results.v1.ScoreValue
-	(*CompetitionResultStanding)(nil),           // 9: beamers.results.v1.CompetitionResultStanding
-	(*AwardRecipient)(nil),                      // 10: beamers.results.v1.AwardRecipient
-	(*CompetitionAward)(nil),                    // 11: beamers.results.v1.CompetitionAward
-	(*AwardReleasePath)(nil),                    // 12: beamers.results.v1.AwardReleasePath
-	(*EventAward)(nil),                          // 13: beamers.results.v1.EventAward
-	(*EventAwardPathState)(nil),                 // 14: beamers.results.v1.EventAwardPathState
-	(*CompetitionResultsDraft)(nil),             // 15: beamers.results.v1.CompetitionResultsDraft
-	(*GetCompetitionResultsDraftRequest)(nil),   // 16: beamers.results.v1.GetCompetitionResultsDraftRequest
-	(*GetCompetitionResultsDraftResponse)(nil),  // 17: beamers.results.v1.GetCompetitionResultsDraftResponse
-	(*SaveCompetitionResultsDraftRequest)(nil),  // 18: beamers.results.v1.SaveCompetitionResultsDraftRequest
-	(*SaveCompetitionResultsDraftResponse)(nil), // 19: beamers.results.v1.SaveCompetitionResultsDraftResponse
-	(*SaveCompetitionAwardsRequest)(nil),        // 20: beamers.results.v1.SaveCompetitionAwardsRequest
-	(*SaveCompetitionAwardsResponse)(nil),       // 21: beamers.results.v1.SaveCompetitionAwardsResponse
-	(*MarkCompetitionResultsReadyRequest)(nil),  // 22: beamers.results.v1.MarkCompetitionResultsReadyRequest
-	(*MarkCompetitionResultsReadyResponse)(nil), // 23: beamers.results.v1.MarkCompetitionResultsReadyResponse
-	(*Prizegiving)(nil),                         // 24: beamers.results.v1.Prizegiving
-	(*DesignatePrizegivingRequest)(nil),         // 25: beamers.results.v1.DesignatePrizegivingRequest
-	(*DesignatePrizegivingResponse)(nil),        // 26: beamers.results.v1.DesignatePrizegivingResponse
-	(*EventAwardsDraft)(nil),                    // 27: beamers.results.v1.EventAwardsDraft
-	(*GetEventAwardsDraftRequest)(nil),          // 28: beamers.results.v1.GetEventAwardsDraftRequest
-	(*GetEventAwardsDraftResponse)(nil),         // 29: beamers.results.v1.GetEventAwardsDraftResponse
-	(*SaveEventAwardsDraftRequest)(nil),         // 30: beamers.results.v1.SaveEventAwardsDraftRequest
-	(*SaveEventAwardsDraftResponse)(nil),        // 31: beamers.results.v1.SaveEventAwardsDraftResponse
-	(*MarkEventAwardsReadyRequest)(nil),         // 32: beamers.results.v1.MarkEventAwardsReadyRequest
-	(*MarkEventAwardsReadyResponse)(nil),        // 33: beamers.results.v1.MarkEventAwardsReadyResponse
-	(*durationpb.Duration)(nil),                 // 34: google.protobuf.Duration
-	(*timestamppb.Timestamp)(nil),               // 35: google.protobuf.Timestamp
+	(ResultItemKind)(0),                         // 7: beamers.results.v1.ResultItemKind
+	(RevealMethod)(0),                           // 8: beamers.results.v1.RevealMethod
+	(PrizegivingPreviewMode)(0),                 // 9: beamers.results.v1.PrizegivingPreviewMode
+	(*ScorePolicy)(nil),                         // 10: beamers.results.v1.ScorePolicy
+	(*ScoreValue)(nil),                          // 11: beamers.results.v1.ScoreValue
+	(*CompetitionResultStanding)(nil),           // 12: beamers.results.v1.CompetitionResultStanding
+	(*AwardRecipient)(nil),                      // 13: beamers.results.v1.AwardRecipient
+	(*CompetitionAward)(nil),                    // 14: beamers.results.v1.CompetitionAward
+	(*AwardReleasePath)(nil),                    // 15: beamers.results.v1.AwardReleasePath
+	(*EventAward)(nil),                          // 16: beamers.results.v1.EventAward
+	(*EventAwardPathState)(nil),                 // 17: beamers.results.v1.EventAwardPathState
+	(*CompetitionResultsDraft)(nil),             // 18: beamers.results.v1.CompetitionResultsDraft
+	(*GetCompetitionResultsDraftRequest)(nil),   // 19: beamers.results.v1.GetCompetitionResultsDraftRequest
+	(*GetCompetitionResultsDraftResponse)(nil),  // 20: beamers.results.v1.GetCompetitionResultsDraftResponse
+	(*SaveCompetitionResultsDraftRequest)(nil),  // 21: beamers.results.v1.SaveCompetitionResultsDraftRequest
+	(*SaveCompetitionResultsDraftResponse)(nil), // 22: beamers.results.v1.SaveCompetitionResultsDraftResponse
+	(*SaveCompetitionAwardsRequest)(nil),        // 23: beamers.results.v1.SaveCompetitionAwardsRequest
+	(*SaveCompetitionAwardsResponse)(nil),       // 24: beamers.results.v1.SaveCompetitionAwardsResponse
+	(*MarkCompetitionResultsReadyRequest)(nil),  // 25: beamers.results.v1.MarkCompetitionResultsReadyRequest
+	(*MarkCompetitionResultsReadyResponse)(nil), // 26: beamers.results.v1.MarkCompetitionResultsReadyResponse
+	(*Prizegiving)(nil),                         // 27: beamers.results.v1.Prizegiving
+	(*DesignatePrizegivingRequest)(nil),         // 28: beamers.results.v1.DesignatePrizegivingRequest
+	(*DesignatePrizegivingResponse)(nil),        // 29: beamers.results.v1.DesignatePrizegivingResponse
+	(*EventAwardsDraft)(nil),                    // 30: beamers.results.v1.EventAwardsDraft
+	(*GetEventAwardsDraftRequest)(nil),          // 31: beamers.results.v1.GetEventAwardsDraftRequest
+	(*GetEventAwardsDraftResponse)(nil),         // 32: beamers.results.v1.GetEventAwardsDraftResponse
+	(*SaveEventAwardsDraftRequest)(nil),         // 33: beamers.results.v1.SaveEventAwardsDraftRequest
+	(*SaveEventAwardsDraftResponse)(nil),        // 34: beamers.results.v1.SaveEventAwardsDraftResponse
+	(*MarkEventAwardsReadyRequest)(nil),         // 35: beamers.results.v1.MarkEventAwardsReadyRequest
+	(*MarkEventAwardsReadyResponse)(nil),        // 36: beamers.results.v1.MarkEventAwardsReadyResponse
+	(*ResultItemRef)(nil),                       // 37: beamers.results.v1.ResultItemRef
+	(*ResultItem)(nil),                          // 38: beamers.results.v1.ResultItem
+	(*ResultsTextTemplate)(nil),                 // 39: beamers.results.v1.ResultsTextTemplate
+	(*PrizegivingCompetitionLock)(nil),          // 40: beamers.results.v1.PrizegivingCompetitionLock
+	(*LockedResultItem)(nil),                    // 41: beamers.results.v1.LockedResultItem
+	(*PrizegivingPreflightLock)(nil),            // 42: beamers.results.v1.PrizegivingPreflightLock
+	(*PrizegivingPlan)(nil),                     // 43: beamers.results.v1.PrizegivingPlan
+	(*GetPrizegivingPlanRequest)(nil),           // 44: beamers.results.v1.GetPrizegivingPlanRequest
+	(*GetPrizegivingPlanResponse)(nil),          // 45: beamers.results.v1.GetPrizegivingPlanResponse
+	(*SavePrizegivingPlanRequest)(nil),          // 46: beamers.results.v1.SavePrizegivingPlanRequest
+	(*SavePrizegivingPlanResponse)(nil),         // 47: beamers.results.v1.SavePrizegivingPlanResponse
+	(*PrizegivingPreflightFinding)(nil),         // 48: beamers.results.v1.PrizegivingPreflightFinding
+	(*RunPrizegivingPreflightRequest)(nil),      // 49: beamers.results.v1.RunPrizegivingPreflightRequest
+	(*RunPrizegivingPreflightResponse)(nil),     // 50: beamers.results.v1.RunPrizegivingPreflightResponse
+	(*PreviewPrizegivingRequest)(nil),           // 51: beamers.results.v1.PreviewPrizegivingRequest
+	(*PrizegivingPreview)(nil),                  // 52: beamers.results.v1.PrizegivingPreview
+	(*PreviewPrizegivingResponse)(nil),          // 53: beamers.results.v1.PreviewPrizegivingResponse
+	(*durationpb.Duration)(nil),                 // 54: google.protobuf.Duration
+	(*timestamppb.Timestamp)(nil),               // 55: google.protobuf.Timestamp
 }
 var file_beamers_results_v1_results_proto_depIdxs = []int32{
 	2,  // 0: beamers.results.v1.ScorePolicy.type:type_name -> beamers.results.v1.ScoreType
 	3,  // 1: beamers.results.v1.ScorePolicy.visibility:type_name -> beamers.results.v1.ScoreVisibility
 	4,  // 2: beamers.results.v1.ScorePolicy.requirement:type_name -> beamers.results.v1.ScoreRequirement
 	5,  // 3: beamers.results.v1.ScorePolicy.interpretation:type_name -> beamers.results.v1.ScoreInterpretation
-	34, // 4: beamers.results.v1.ScoreValue.duration:type_name -> google.protobuf.Duration
+	54, // 4: beamers.results.v1.ScoreValue.duration:type_name -> google.protobuf.Duration
 	1,  // 5: beamers.results.v1.CompetitionResultStanding.standing:type_name -> beamers.results.v1.ResultStanding
-	8,  // 6: beamers.results.v1.CompetitionResultStanding.score:type_name -> beamers.results.v1.ScoreValue
-	10, // 7: beamers.results.v1.CompetitionAward.recipients:type_name -> beamers.results.v1.AwardRecipient
+	11, // 6: beamers.results.v1.CompetitionResultStanding.score:type_name -> beamers.results.v1.ScoreValue
+	13, // 7: beamers.results.v1.CompetitionAward.recipients:type_name -> beamers.results.v1.AwardRecipient
 	6,  // 8: beamers.results.v1.AwardReleasePath.kind:type_name -> beamers.results.v1.AwardReleasePathKind
-	10, // 9: beamers.results.v1.EventAward.recipients:type_name -> beamers.results.v1.AwardRecipient
-	12, // 10: beamers.results.v1.EventAward.release_path:type_name -> beamers.results.v1.AwardReleasePath
-	12, // 11: beamers.results.v1.EventAwardPathState.release_path:type_name -> beamers.results.v1.AwardReleasePath
-	35, // 12: beamers.results.v1.EventAwardPathState.ready_at:type_name -> google.protobuf.Timestamp
+	13, // 9: beamers.results.v1.EventAward.recipients:type_name -> beamers.results.v1.AwardRecipient
+	15, // 10: beamers.results.v1.EventAward.release_path:type_name -> beamers.results.v1.AwardReleasePath
+	15, // 11: beamers.results.v1.EventAwardPathState.release_path:type_name -> beamers.results.v1.AwardReleasePath
+	55, // 12: beamers.results.v1.EventAwardPathState.ready_at:type_name -> google.protobuf.Timestamp
 	0,  // 13: beamers.results.v1.CompetitionResultsDraft.disposition:type_name -> beamers.results.v1.ResultsDisposition
-	7,  // 14: beamers.results.v1.CompetitionResultsDraft.score:type_name -> beamers.results.v1.ScorePolicy
-	9,  // 15: beamers.results.v1.CompetitionResultsDraft.standings:type_name -> beamers.results.v1.CompetitionResultStanding
-	35, // 16: beamers.results.v1.CompetitionResultsDraft.ready_at:type_name -> google.protobuf.Timestamp
-	35, // 17: beamers.results.v1.CompetitionResultsDraft.created_at:type_name -> google.protobuf.Timestamp
-	11, // 18: beamers.results.v1.CompetitionResultsDraft.awards:type_name -> beamers.results.v1.CompetitionAward
-	15, // 19: beamers.results.v1.GetCompetitionResultsDraftResponse.draft:type_name -> beamers.results.v1.CompetitionResultsDraft
+	10, // 14: beamers.results.v1.CompetitionResultsDraft.score:type_name -> beamers.results.v1.ScorePolicy
+	12, // 15: beamers.results.v1.CompetitionResultsDraft.standings:type_name -> beamers.results.v1.CompetitionResultStanding
+	55, // 16: beamers.results.v1.CompetitionResultsDraft.ready_at:type_name -> google.protobuf.Timestamp
+	55, // 17: beamers.results.v1.CompetitionResultsDraft.created_at:type_name -> google.protobuf.Timestamp
+	14, // 18: beamers.results.v1.CompetitionResultsDraft.awards:type_name -> beamers.results.v1.CompetitionAward
+	18, // 19: beamers.results.v1.GetCompetitionResultsDraftResponse.draft:type_name -> beamers.results.v1.CompetitionResultsDraft
 	0,  // 20: beamers.results.v1.SaveCompetitionResultsDraftRequest.disposition:type_name -> beamers.results.v1.ResultsDisposition
-	7,  // 21: beamers.results.v1.SaveCompetitionResultsDraftRequest.score:type_name -> beamers.results.v1.ScorePolicy
-	9,  // 22: beamers.results.v1.SaveCompetitionResultsDraftRequest.standings:type_name -> beamers.results.v1.CompetitionResultStanding
-	15, // 23: beamers.results.v1.SaveCompetitionResultsDraftResponse.draft:type_name -> beamers.results.v1.CompetitionResultsDraft
-	11, // 24: beamers.results.v1.SaveCompetitionAwardsRequest.awards:type_name -> beamers.results.v1.CompetitionAward
-	15, // 25: beamers.results.v1.SaveCompetitionAwardsResponse.draft:type_name -> beamers.results.v1.CompetitionResultsDraft
-	15, // 26: beamers.results.v1.MarkCompetitionResultsReadyResponse.draft:type_name -> beamers.results.v1.CompetitionResultsDraft
-	35, // 27: beamers.results.v1.Prizegiving.created_at:type_name -> google.protobuf.Timestamp
-	24, // 28: beamers.results.v1.DesignatePrizegivingResponse.prizegiving:type_name -> beamers.results.v1.Prizegiving
-	13, // 29: beamers.results.v1.EventAwardsDraft.awards:type_name -> beamers.results.v1.EventAward
-	14, // 30: beamers.results.v1.EventAwardsDraft.path_states:type_name -> beamers.results.v1.EventAwardPathState
-	35, // 31: beamers.results.v1.EventAwardsDraft.created_at:type_name -> google.protobuf.Timestamp
-	27, // 32: beamers.results.v1.GetEventAwardsDraftResponse.draft:type_name -> beamers.results.v1.EventAwardsDraft
-	13, // 33: beamers.results.v1.SaveEventAwardsDraftRequest.awards:type_name -> beamers.results.v1.EventAward
-	27, // 34: beamers.results.v1.SaveEventAwardsDraftResponse.draft:type_name -> beamers.results.v1.EventAwardsDraft
-	12, // 35: beamers.results.v1.MarkEventAwardsReadyRequest.release_path:type_name -> beamers.results.v1.AwardReleasePath
-	27, // 36: beamers.results.v1.MarkEventAwardsReadyResponse.draft:type_name -> beamers.results.v1.EventAwardsDraft
-	16, // 37: beamers.results.v1.ResultsService.GetCompetitionResultsDraft:input_type -> beamers.results.v1.GetCompetitionResultsDraftRequest
-	18, // 38: beamers.results.v1.ResultsService.SaveCompetitionResultsDraft:input_type -> beamers.results.v1.SaveCompetitionResultsDraftRequest
-	20, // 39: beamers.results.v1.ResultsService.SaveCompetitionAwards:input_type -> beamers.results.v1.SaveCompetitionAwardsRequest
-	22, // 40: beamers.results.v1.ResultsService.MarkCompetitionResultsReady:input_type -> beamers.results.v1.MarkCompetitionResultsReadyRequest
-	25, // 41: beamers.results.v1.ResultsService.DesignatePrizegiving:input_type -> beamers.results.v1.DesignatePrizegivingRequest
-	28, // 42: beamers.results.v1.ResultsService.GetEventAwardsDraft:input_type -> beamers.results.v1.GetEventAwardsDraftRequest
-	30, // 43: beamers.results.v1.ResultsService.SaveEventAwardsDraft:input_type -> beamers.results.v1.SaveEventAwardsDraftRequest
-	32, // 44: beamers.results.v1.ResultsService.MarkEventAwardsReady:input_type -> beamers.results.v1.MarkEventAwardsReadyRequest
-	17, // 45: beamers.results.v1.ResultsService.GetCompetitionResultsDraft:output_type -> beamers.results.v1.GetCompetitionResultsDraftResponse
-	19, // 46: beamers.results.v1.ResultsService.SaveCompetitionResultsDraft:output_type -> beamers.results.v1.SaveCompetitionResultsDraftResponse
-	21, // 47: beamers.results.v1.ResultsService.SaveCompetitionAwards:output_type -> beamers.results.v1.SaveCompetitionAwardsResponse
-	23, // 48: beamers.results.v1.ResultsService.MarkCompetitionResultsReady:output_type -> beamers.results.v1.MarkCompetitionResultsReadyResponse
-	26, // 49: beamers.results.v1.ResultsService.DesignatePrizegiving:output_type -> beamers.results.v1.DesignatePrizegivingResponse
-	29, // 50: beamers.results.v1.ResultsService.GetEventAwardsDraft:output_type -> beamers.results.v1.GetEventAwardsDraftResponse
-	31, // 51: beamers.results.v1.ResultsService.SaveEventAwardsDraft:output_type -> beamers.results.v1.SaveEventAwardsDraftResponse
-	33, // 52: beamers.results.v1.ResultsService.MarkEventAwardsReady:output_type -> beamers.results.v1.MarkEventAwardsReadyResponse
-	45, // [45:53] is the sub-list for method output_type
-	37, // [37:45] is the sub-list for method input_type
-	37, // [37:37] is the sub-list for extension type_name
-	37, // [37:37] is the sub-list for extension extendee
-	0,  // [0:37] is the sub-list for field type_name
+	10, // 21: beamers.results.v1.SaveCompetitionResultsDraftRequest.score:type_name -> beamers.results.v1.ScorePolicy
+	12, // 22: beamers.results.v1.SaveCompetitionResultsDraftRequest.standings:type_name -> beamers.results.v1.CompetitionResultStanding
+	18, // 23: beamers.results.v1.SaveCompetitionResultsDraftResponse.draft:type_name -> beamers.results.v1.CompetitionResultsDraft
+	14, // 24: beamers.results.v1.SaveCompetitionAwardsRequest.awards:type_name -> beamers.results.v1.CompetitionAward
+	18, // 25: beamers.results.v1.SaveCompetitionAwardsResponse.draft:type_name -> beamers.results.v1.CompetitionResultsDraft
+	18, // 26: beamers.results.v1.MarkCompetitionResultsReadyResponse.draft:type_name -> beamers.results.v1.CompetitionResultsDraft
+	55, // 27: beamers.results.v1.Prizegiving.created_at:type_name -> google.protobuf.Timestamp
+	27, // 28: beamers.results.v1.DesignatePrizegivingResponse.prizegiving:type_name -> beamers.results.v1.Prizegiving
+	16, // 29: beamers.results.v1.EventAwardsDraft.awards:type_name -> beamers.results.v1.EventAward
+	17, // 30: beamers.results.v1.EventAwardsDraft.path_states:type_name -> beamers.results.v1.EventAwardPathState
+	55, // 31: beamers.results.v1.EventAwardsDraft.created_at:type_name -> google.protobuf.Timestamp
+	30, // 32: beamers.results.v1.GetEventAwardsDraftResponse.draft:type_name -> beamers.results.v1.EventAwardsDraft
+	16, // 33: beamers.results.v1.SaveEventAwardsDraftRequest.awards:type_name -> beamers.results.v1.EventAward
+	30, // 34: beamers.results.v1.SaveEventAwardsDraftResponse.draft:type_name -> beamers.results.v1.EventAwardsDraft
+	15, // 35: beamers.results.v1.MarkEventAwardsReadyRequest.release_path:type_name -> beamers.results.v1.AwardReleasePath
+	30, // 36: beamers.results.v1.MarkEventAwardsReadyResponse.draft:type_name -> beamers.results.v1.EventAwardsDraft
+	7,  // 37: beamers.results.v1.ResultItemRef.kind:type_name -> beamers.results.v1.ResultItemKind
+	7,  // 38: beamers.results.v1.ResultItem.kind:type_name -> beamers.results.v1.ResultItemKind
+	8,  // 39: beamers.results.v1.ResultItem.reveal_method:type_name -> beamers.results.v1.RevealMethod
+	0,  // 40: beamers.results.v1.PrizegivingCompetitionLock.disposition:type_name -> beamers.results.v1.ResultsDisposition
+	38, // 41: beamers.results.v1.LockedResultItem.item:type_name -> beamers.results.v1.ResultItem
+	40, // 42: beamers.results.v1.PrizegivingPreflightLock.competition_sources:type_name -> beamers.results.v1.PrizegivingCompetitionLock
+	41, // 43: beamers.results.v1.PrizegivingPreflightLock.sequence:type_name -> beamers.results.v1.LockedResultItem
+	37, // 44: beamers.results.v1.PrizegivingPreflightLock.publication_order:type_name -> beamers.results.v1.ResultItemRef
+	39, // 45: beamers.results.v1.PrizegivingPreflightLock.results_text_template:type_name -> beamers.results.v1.ResultsTextTemplate
+	38, // 46: beamers.results.v1.PrizegivingPlan.sequence:type_name -> beamers.results.v1.ResultItem
+	37, // 47: beamers.results.v1.PrizegivingPlan.publication_order:type_name -> beamers.results.v1.ResultItemRef
+	39, // 48: beamers.results.v1.PrizegivingPlan.results_text_template:type_name -> beamers.results.v1.ResultsTextTemplate
+	42, // 49: beamers.results.v1.PrizegivingPlan.preflight_lock:type_name -> beamers.results.v1.PrizegivingPreflightLock
+	55, // 50: beamers.results.v1.PrizegivingPlan.locked_at:type_name -> google.protobuf.Timestamp
+	43, // 51: beamers.results.v1.GetPrizegivingPlanResponse.plan:type_name -> beamers.results.v1.PrizegivingPlan
+	38, // 52: beamers.results.v1.SavePrizegivingPlanRequest.sequence:type_name -> beamers.results.v1.ResultItem
+	37, // 53: beamers.results.v1.SavePrizegivingPlanRequest.publication_order:type_name -> beamers.results.v1.ResultItemRef
+	39, // 54: beamers.results.v1.SavePrizegivingPlanRequest.results_text_template:type_name -> beamers.results.v1.ResultsTextTemplate
+	43, // 55: beamers.results.v1.SavePrizegivingPlanResponse.plan:type_name -> beamers.results.v1.PrizegivingPlan
+	43, // 56: beamers.results.v1.RunPrizegivingPreflightResponse.plan:type_name -> beamers.results.v1.PrizegivingPlan
+	48, // 57: beamers.results.v1.RunPrizegivingPreflightResponse.findings:type_name -> beamers.results.v1.PrizegivingPreflightFinding
+	9,  // 58: beamers.results.v1.PreviewPrizegivingRequest.mode:type_name -> beamers.results.v1.PrizegivingPreviewMode
+	9,  // 59: beamers.results.v1.PrizegivingPreview.mode:type_name -> beamers.results.v1.PrizegivingPreviewMode
+	43, // 60: beamers.results.v1.PrizegivingPreview.plan:type_name -> beamers.results.v1.PrizegivingPlan
+	52, // 61: beamers.results.v1.PreviewPrizegivingResponse.preview:type_name -> beamers.results.v1.PrizegivingPreview
+	19, // 62: beamers.results.v1.ResultsService.GetCompetitionResultsDraft:input_type -> beamers.results.v1.GetCompetitionResultsDraftRequest
+	21, // 63: beamers.results.v1.ResultsService.SaveCompetitionResultsDraft:input_type -> beamers.results.v1.SaveCompetitionResultsDraftRequest
+	23, // 64: beamers.results.v1.ResultsService.SaveCompetitionAwards:input_type -> beamers.results.v1.SaveCompetitionAwardsRequest
+	25, // 65: beamers.results.v1.ResultsService.MarkCompetitionResultsReady:input_type -> beamers.results.v1.MarkCompetitionResultsReadyRequest
+	28, // 66: beamers.results.v1.ResultsService.DesignatePrizegiving:input_type -> beamers.results.v1.DesignatePrizegivingRequest
+	31, // 67: beamers.results.v1.ResultsService.GetEventAwardsDraft:input_type -> beamers.results.v1.GetEventAwardsDraftRequest
+	33, // 68: beamers.results.v1.ResultsService.SaveEventAwardsDraft:input_type -> beamers.results.v1.SaveEventAwardsDraftRequest
+	35, // 69: beamers.results.v1.ResultsService.MarkEventAwardsReady:input_type -> beamers.results.v1.MarkEventAwardsReadyRequest
+	44, // 70: beamers.results.v1.ResultsService.GetPrizegivingPlan:input_type -> beamers.results.v1.GetPrizegivingPlanRequest
+	46, // 71: beamers.results.v1.ResultsService.SavePrizegivingPlan:input_type -> beamers.results.v1.SavePrizegivingPlanRequest
+	49, // 72: beamers.results.v1.ResultsService.RunPrizegivingPreflight:input_type -> beamers.results.v1.RunPrizegivingPreflightRequest
+	51, // 73: beamers.results.v1.ResultsService.PreviewPrizegiving:input_type -> beamers.results.v1.PreviewPrizegivingRequest
+	20, // 74: beamers.results.v1.ResultsService.GetCompetitionResultsDraft:output_type -> beamers.results.v1.GetCompetitionResultsDraftResponse
+	22, // 75: beamers.results.v1.ResultsService.SaveCompetitionResultsDraft:output_type -> beamers.results.v1.SaveCompetitionResultsDraftResponse
+	24, // 76: beamers.results.v1.ResultsService.SaveCompetitionAwards:output_type -> beamers.results.v1.SaveCompetitionAwardsResponse
+	26, // 77: beamers.results.v1.ResultsService.MarkCompetitionResultsReady:output_type -> beamers.results.v1.MarkCompetitionResultsReadyResponse
+	29, // 78: beamers.results.v1.ResultsService.DesignatePrizegiving:output_type -> beamers.results.v1.DesignatePrizegivingResponse
+	32, // 79: beamers.results.v1.ResultsService.GetEventAwardsDraft:output_type -> beamers.results.v1.GetEventAwardsDraftResponse
+	34, // 80: beamers.results.v1.ResultsService.SaveEventAwardsDraft:output_type -> beamers.results.v1.SaveEventAwardsDraftResponse
+	36, // 81: beamers.results.v1.ResultsService.MarkEventAwardsReady:output_type -> beamers.results.v1.MarkEventAwardsReadyResponse
+	45, // 82: beamers.results.v1.ResultsService.GetPrizegivingPlan:output_type -> beamers.results.v1.GetPrizegivingPlanResponse
+	47, // 83: beamers.results.v1.ResultsService.SavePrizegivingPlan:output_type -> beamers.results.v1.SavePrizegivingPlanResponse
+	50, // 84: beamers.results.v1.ResultsService.RunPrizegivingPreflight:output_type -> beamers.results.v1.RunPrizegivingPreflightResponse
+	53, // 85: beamers.results.v1.ResultsService.PreviewPrizegiving:output_type -> beamers.results.v1.PreviewPrizegivingResponse
+	74, // [74:86] is the sub-list for method output_type
+	62, // [62:74] is the sub-list for method input_type
+	62, // [62:62] is the sub-list for extension type_name
+	62, // [62:62] is the sub-list for extension extendee
+	0,  // [0:62] is the sub-list for field type_name
 }
 
 func init() { file_beamers_results_v1_results_proto_init() }
@@ -2540,8 +3970,8 @@ func file_beamers_results_v1_results_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_beamers_results_v1_results_proto_rawDesc), len(file_beamers_results_v1_results_proto_rawDesc)),
-			NumEnums:      7,
-			NumMessages:   27,
+			NumEnums:      10,
+			NumMessages:   44,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

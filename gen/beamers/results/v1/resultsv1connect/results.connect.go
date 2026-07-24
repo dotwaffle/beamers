@@ -57,6 +57,18 @@ const (
 	// ResultsServiceMarkEventAwardsReadyProcedure is the fully-qualified name of the ResultsService's
 	// MarkEventAwardsReady RPC.
 	ResultsServiceMarkEventAwardsReadyProcedure = "/beamers.results.v1.ResultsService/MarkEventAwardsReady"
+	// ResultsServiceGetPrizegivingPlanProcedure is the fully-qualified name of the ResultsService's
+	// GetPrizegivingPlan RPC.
+	ResultsServiceGetPrizegivingPlanProcedure = "/beamers.results.v1.ResultsService/GetPrizegivingPlan"
+	// ResultsServiceSavePrizegivingPlanProcedure is the fully-qualified name of the ResultsService's
+	// SavePrizegivingPlan RPC.
+	ResultsServiceSavePrizegivingPlanProcedure = "/beamers.results.v1.ResultsService/SavePrizegivingPlan"
+	// ResultsServiceRunPrizegivingPreflightProcedure is the fully-qualified name of the
+	// ResultsService's RunPrizegivingPreflight RPC.
+	ResultsServiceRunPrizegivingPreflightProcedure = "/beamers.results.v1.ResultsService/RunPrizegivingPreflight"
+	// ResultsServicePreviewPrizegivingProcedure is the fully-qualified name of the ResultsService's
+	// PreviewPrizegiving RPC.
+	ResultsServicePreviewPrizegivingProcedure = "/beamers.results.v1.ResultsService/PreviewPrizegiving"
 )
 
 // ResultsServiceClient is a client for the beamers.results.v1.ResultsService service.
@@ -69,6 +81,10 @@ type ResultsServiceClient interface {
 	GetEventAwardsDraft(context.Context, *connect.Request[v1.GetEventAwardsDraftRequest]) (*connect.Response[v1.GetEventAwardsDraftResponse], error)
 	SaveEventAwardsDraft(context.Context, *connect.Request[v1.SaveEventAwardsDraftRequest]) (*connect.Response[v1.SaveEventAwardsDraftResponse], error)
 	MarkEventAwardsReady(context.Context, *connect.Request[v1.MarkEventAwardsReadyRequest]) (*connect.Response[v1.MarkEventAwardsReadyResponse], error)
+	GetPrizegivingPlan(context.Context, *connect.Request[v1.GetPrizegivingPlanRequest]) (*connect.Response[v1.GetPrizegivingPlanResponse], error)
+	SavePrizegivingPlan(context.Context, *connect.Request[v1.SavePrizegivingPlanRequest]) (*connect.Response[v1.SavePrizegivingPlanResponse], error)
+	RunPrizegivingPreflight(context.Context, *connect.Request[v1.RunPrizegivingPreflightRequest]) (*connect.Response[v1.RunPrizegivingPreflightResponse], error)
+	PreviewPrizegiving(context.Context, *connect.Request[v1.PreviewPrizegivingRequest]) (*connect.Response[v1.PreviewPrizegivingResponse], error)
 }
 
 // NewResultsServiceClient constructs a client for the beamers.results.v1.ResultsService service. By
@@ -130,6 +146,30 @@ func NewResultsServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(resultsServiceMethods.ByName("MarkEventAwardsReady")),
 			connect.WithClientOptions(opts...),
 		),
+		getPrizegivingPlan: connect.NewClient[v1.GetPrizegivingPlanRequest, v1.GetPrizegivingPlanResponse](
+			httpClient,
+			baseURL+ResultsServiceGetPrizegivingPlanProcedure,
+			connect.WithSchema(resultsServiceMethods.ByName("GetPrizegivingPlan")),
+			connect.WithClientOptions(opts...),
+		),
+		savePrizegivingPlan: connect.NewClient[v1.SavePrizegivingPlanRequest, v1.SavePrizegivingPlanResponse](
+			httpClient,
+			baseURL+ResultsServiceSavePrizegivingPlanProcedure,
+			connect.WithSchema(resultsServiceMethods.ByName("SavePrizegivingPlan")),
+			connect.WithClientOptions(opts...),
+		),
+		runPrizegivingPreflight: connect.NewClient[v1.RunPrizegivingPreflightRequest, v1.RunPrizegivingPreflightResponse](
+			httpClient,
+			baseURL+ResultsServiceRunPrizegivingPreflightProcedure,
+			connect.WithSchema(resultsServiceMethods.ByName("RunPrizegivingPreflight")),
+			connect.WithClientOptions(opts...),
+		),
+		previewPrizegiving: connect.NewClient[v1.PreviewPrizegivingRequest, v1.PreviewPrizegivingResponse](
+			httpClient,
+			baseURL+ResultsServicePreviewPrizegivingProcedure,
+			connect.WithSchema(resultsServiceMethods.ByName("PreviewPrizegiving")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -143,6 +183,10 @@ type resultsServiceClient struct {
 	getEventAwardsDraft         *connect.Client[v1.GetEventAwardsDraftRequest, v1.GetEventAwardsDraftResponse]
 	saveEventAwardsDraft        *connect.Client[v1.SaveEventAwardsDraftRequest, v1.SaveEventAwardsDraftResponse]
 	markEventAwardsReady        *connect.Client[v1.MarkEventAwardsReadyRequest, v1.MarkEventAwardsReadyResponse]
+	getPrizegivingPlan          *connect.Client[v1.GetPrizegivingPlanRequest, v1.GetPrizegivingPlanResponse]
+	savePrizegivingPlan         *connect.Client[v1.SavePrizegivingPlanRequest, v1.SavePrizegivingPlanResponse]
+	runPrizegivingPreflight     *connect.Client[v1.RunPrizegivingPreflightRequest, v1.RunPrizegivingPreflightResponse]
+	previewPrizegiving          *connect.Client[v1.PreviewPrizegivingRequest, v1.PreviewPrizegivingResponse]
 }
 
 // GetCompetitionResultsDraft calls beamers.results.v1.ResultsService.GetCompetitionResultsDraft.
@@ -185,6 +229,26 @@ func (c *resultsServiceClient) MarkEventAwardsReady(ctx context.Context, req *co
 	return c.markEventAwardsReady.CallUnary(ctx, req)
 }
 
+// GetPrizegivingPlan calls beamers.results.v1.ResultsService.GetPrizegivingPlan.
+func (c *resultsServiceClient) GetPrizegivingPlan(ctx context.Context, req *connect.Request[v1.GetPrizegivingPlanRequest]) (*connect.Response[v1.GetPrizegivingPlanResponse], error) {
+	return c.getPrizegivingPlan.CallUnary(ctx, req)
+}
+
+// SavePrizegivingPlan calls beamers.results.v1.ResultsService.SavePrizegivingPlan.
+func (c *resultsServiceClient) SavePrizegivingPlan(ctx context.Context, req *connect.Request[v1.SavePrizegivingPlanRequest]) (*connect.Response[v1.SavePrizegivingPlanResponse], error) {
+	return c.savePrizegivingPlan.CallUnary(ctx, req)
+}
+
+// RunPrizegivingPreflight calls beamers.results.v1.ResultsService.RunPrizegivingPreflight.
+func (c *resultsServiceClient) RunPrizegivingPreflight(ctx context.Context, req *connect.Request[v1.RunPrizegivingPreflightRequest]) (*connect.Response[v1.RunPrizegivingPreflightResponse], error) {
+	return c.runPrizegivingPreflight.CallUnary(ctx, req)
+}
+
+// PreviewPrizegiving calls beamers.results.v1.ResultsService.PreviewPrizegiving.
+func (c *resultsServiceClient) PreviewPrizegiving(ctx context.Context, req *connect.Request[v1.PreviewPrizegivingRequest]) (*connect.Response[v1.PreviewPrizegivingResponse], error) {
+	return c.previewPrizegiving.CallUnary(ctx, req)
+}
+
 // ResultsServiceHandler is an implementation of the beamers.results.v1.ResultsService service.
 type ResultsServiceHandler interface {
 	GetCompetitionResultsDraft(context.Context, *connect.Request[v1.GetCompetitionResultsDraftRequest]) (*connect.Response[v1.GetCompetitionResultsDraftResponse], error)
@@ -195,6 +259,10 @@ type ResultsServiceHandler interface {
 	GetEventAwardsDraft(context.Context, *connect.Request[v1.GetEventAwardsDraftRequest]) (*connect.Response[v1.GetEventAwardsDraftResponse], error)
 	SaveEventAwardsDraft(context.Context, *connect.Request[v1.SaveEventAwardsDraftRequest]) (*connect.Response[v1.SaveEventAwardsDraftResponse], error)
 	MarkEventAwardsReady(context.Context, *connect.Request[v1.MarkEventAwardsReadyRequest]) (*connect.Response[v1.MarkEventAwardsReadyResponse], error)
+	GetPrizegivingPlan(context.Context, *connect.Request[v1.GetPrizegivingPlanRequest]) (*connect.Response[v1.GetPrizegivingPlanResponse], error)
+	SavePrizegivingPlan(context.Context, *connect.Request[v1.SavePrizegivingPlanRequest]) (*connect.Response[v1.SavePrizegivingPlanResponse], error)
+	RunPrizegivingPreflight(context.Context, *connect.Request[v1.RunPrizegivingPreflightRequest]) (*connect.Response[v1.RunPrizegivingPreflightResponse], error)
+	PreviewPrizegiving(context.Context, *connect.Request[v1.PreviewPrizegivingRequest]) (*connect.Response[v1.PreviewPrizegivingResponse], error)
 }
 
 // NewResultsServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -252,6 +320,30 @@ func NewResultsServiceHandler(svc ResultsServiceHandler, opts ...connect.Handler
 		connect.WithSchema(resultsServiceMethods.ByName("MarkEventAwardsReady")),
 		connect.WithHandlerOptions(opts...),
 	)
+	resultsServiceGetPrizegivingPlanHandler := connect.NewUnaryHandler(
+		ResultsServiceGetPrizegivingPlanProcedure,
+		svc.GetPrizegivingPlan,
+		connect.WithSchema(resultsServiceMethods.ByName("GetPrizegivingPlan")),
+		connect.WithHandlerOptions(opts...),
+	)
+	resultsServiceSavePrizegivingPlanHandler := connect.NewUnaryHandler(
+		ResultsServiceSavePrizegivingPlanProcedure,
+		svc.SavePrizegivingPlan,
+		connect.WithSchema(resultsServiceMethods.ByName("SavePrizegivingPlan")),
+		connect.WithHandlerOptions(opts...),
+	)
+	resultsServiceRunPrizegivingPreflightHandler := connect.NewUnaryHandler(
+		ResultsServiceRunPrizegivingPreflightProcedure,
+		svc.RunPrizegivingPreflight,
+		connect.WithSchema(resultsServiceMethods.ByName("RunPrizegivingPreflight")),
+		connect.WithHandlerOptions(opts...),
+	)
+	resultsServicePreviewPrizegivingHandler := connect.NewUnaryHandler(
+		ResultsServicePreviewPrizegivingProcedure,
+		svc.PreviewPrizegiving,
+		connect.WithSchema(resultsServiceMethods.ByName("PreviewPrizegiving")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/beamers.results.v1.ResultsService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ResultsServiceGetCompetitionResultsDraftProcedure:
@@ -270,6 +362,14 @@ func NewResultsServiceHandler(svc ResultsServiceHandler, opts ...connect.Handler
 			resultsServiceSaveEventAwardsDraftHandler.ServeHTTP(w, r)
 		case ResultsServiceMarkEventAwardsReadyProcedure:
 			resultsServiceMarkEventAwardsReadyHandler.ServeHTTP(w, r)
+		case ResultsServiceGetPrizegivingPlanProcedure:
+			resultsServiceGetPrizegivingPlanHandler.ServeHTTP(w, r)
+		case ResultsServiceSavePrizegivingPlanProcedure:
+			resultsServiceSavePrizegivingPlanHandler.ServeHTTP(w, r)
+		case ResultsServiceRunPrizegivingPreflightProcedure:
+			resultsServiceRunPrizegivingPreflightHandler.ServeHTTP(w, r)
+		case ResultsServicePreviewPrizegivingProcedure:
+			resultsServicePreviewPrizegivingHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -309,4 +409,20 @@ func (UnimplementedResultsServiceHandler) SaveEventAwardsDraft(context.Context, 
 
 func (UnimplementedResultsServiceHandler) MarkEventAwardsReady(context.Context, *connect.Request[v1.MarkEventAwardsReadyRequest]) (*connect.Response[v1.MarkEventAwardsReadyResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.MarkEventAwardsReady is not implemented"))
+}
+
+func (UnimplementedResultsServiceHandler) GetPrizegivingPlan(context.Context, *connect.Request[v1.GetPrizegivingPlanRequest]) (*connect.Response[v1.GetPrizegivingPlanResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.GetPrizegivingPlan is not implemented"))
+}
+
+func (UnimplementedResultsServiceHandler) SavePrizegivingPlan(context.Context, *connect.Request[v1.SavePrizegivingPlanRequest]) (*connect.Response[v1.SavePrizegivingPlanResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.SavePrizegivingPlan is not implemented"))
+}
+
+func (UnimplementedResultsServiceHandler) RunPrizegivingPreflight(context.Context, *connect.Request[v1.RunPrizegivingPreflightRequest]) (*connect.Response[v1.RunPrizegivingPreflightResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.RunPrizegivingPreflight is not implemented"))
+}
+
+func (UnimplementedResultsServiceHandler) PreviewPrizegiving(context.Context, *connect.Request[v1.PreviewPrizegivingRequest]) (*connect.Response[v1.PreviewPrizegivingResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.PreviewPrizegiving is not implemented"))
 }

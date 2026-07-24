@@ -45,6 +45,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/migration"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/prizegiving"
+	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
@@ -152,6 +153,7 @@ func checkColumn(t, c string) error {
 			migration.Table:                   migration.ValidColumn,
 			passwordcredential.Table:          passwordcredential.ValidColumn,
 			prizegiving.Table:                 prizegiving.ValidColumn,
+			prizegivingcompetition.Table:      prizegivingcompetition.ValidColumn,
 			publicschedulebaseline.Table:      publicschedulebaseline.ValidColumn,
 			publicschedulebaselineentry.Table: publicschedulebaselineentry.ValidColumn,
 			reopenwindow.Table:                reopenwindow.ValidColumn,

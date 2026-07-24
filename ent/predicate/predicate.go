@@ -105,6 +105,9 @@ type PasswordCredential func(*sql.Selector)
 // Prizegiving is the predicate function for prizegiving builders.
 type Prizegiving func(*sql.Selector)
 
+// PrizegivingCompetition is the predicate function for prizegivingcompetition builders.
+type PrizegivingCompetition func(*sql.Selector)
+
 // PublicScheduleBaseline is the predicate function for publicschedulebaseline builders.
 type PublicScheduleBaseline func(*sql.Selector)
 

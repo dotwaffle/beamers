@@ -4,7 +4,6 @@ package ent
 
 import (
 	"context"
-	"database/sql/driver"
 	"errors"
 	"fmt"
 	"math"
@@ -20,54 +19,54 @@ import (
 	"github.com/dotwaffle/beamers/ent/session"
 )
 
-// PrizegivingQuery is the builder for querying Prizegiving entities.
-type PrizegivingQuery struct {
+// PrizegivingCompetitionQuery is the builder for querying PrizegivingCompetition entities.
+type PrizegivingCompetitionQuery struct {
 	config
-	ctx              *QueryContext
-	order            []prizegiving.OrderOption
-	inters           []Interceptor
-	predicates       []predicate.Prizegiving
-	withEvent        *EventQuery
-	withCeremony     *SessionQuery
-	withCompetitions *PrizegivingCompetitionQuery
+	ctx             *QueryContext
+	order           []prizegivingcompetition.OrderOption
+	inters          []Interceptor
+	predicates      []predicate.PrizegivingCompetition
+	withEvent       *EventQuery
+	withPrizegiving *PrizegivingQuery
+	withCompetition *SessionQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
 }
 
-// Where adds a new predicate for the PrizegivingQuery builder.
-func (_q *PrizegivingQuery) Where(ps ...predicate.Prizegiving) *PrizegivingQuery {
+// Where adds a new predicate for the PrizegivingCompetitionQuery builder.
+func (_q *PrizegivingCompetitionQuery) Where(ps ...predicate.PrizegivingCompetition) *PrizegivingCompetitionQuery {
 	_q.predicates = append(_q.predicates, ps...)
 	return _q
 }
 
 // Limit the number of records to be returned by this query.
-func (_q *PrizegivingQuery) Limit(limit int) *PrizegivingQuery {
+func (_q *PrizegivingCompetitionQuery) Limit(limit int) *PrizegivingCompetitionQuery {
 	_q.ctx.Limit = &limit
 	return _q
 }
 
 // Offset to start from.
-func (_q *PrizegivingQuery) Offset(offset int) *PrizegivingQuery {
+func (_q *PrizegivingCompetitionQuery) Offset(offset int) *PrizegivingCompetitionQuery {
 	_q.ctx.Offset = &offset
 	return _q
 }
 
 // Unique configures the query builder to filter duplicate records on query.
 // By default, unique is set to true, and can be disabled using this method.
-func (_q *PrizegivingQuery) Unique(unique bool) *PrizegivingQuery {
+func (_q *PrizegivingCompetitionQuery) Unique(unique bool) *PrizegivingCompetitionQuery {
 	_q.ctx.Unique = &unique
 	return _q
 }
 
 // Order specifies how the records should be ordered.
-func (_q *PrizegivingQuery) Order(o ...prizegiving.OrderOption) *PrizegivingQuery {
+func (_q *PrizegivingCompetitionQuery) Order(o ...prizegivingcompetition.OrderOption) *PrizegivingCompetitionQuery {
 	_q.order = append(_q.order, o...)
 	return _q
 }
 
 // QueryEvent chains the current query on the "event" edge.
-func (_q *PrizegivingQuery) QueryEvent() *EventQuery {
+func (_q *PrizegivingCompetitionQuery) QueryEvent() *EventQuery {
 	query := (&EventClient{config: _q.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := _q.prepareQuery(ctx); err != nil {
@@ -78,9 +77,9 @@ func (_q *PrizegivingQuery) QueryEvent() *EventQuery {
 			return nil, err
 		}
 		step := sqlgraph.NewStep(
-			sqlgraph.From(prizegiving.Table, prizegiving.FieldID, selector),
+			sqlgraph.From(prizegivingcompetition.Table, prizegivingcompetition.FieldID, selector),
 			sqlgraph.To(event.Table, event.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, prizegiving.EventTable, prizegiving.EventColumn),
+			sqlgraph.Edge(sqlgraph.M2O, true, prizegivingcompetition.EventTable, prizegivingcompetition.EventColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -88,8 +87,30 @@ func (_q *PrizegivingQuery) QueryEvent() *EventQuery {
 	return query
 }
 
-// QueryCeremony chains the current query on the "ceremony" edge.
-func (_q *PrizegivingQuery) QueryCeremony() *SessionQuery {
+// QueryPrizegiving chains the current query on the "prizegiving" edge.
+func (_q *PrizegivingCompetitionQuery) QueryPrizegiving() *PrizegivingQuery {
+	query := (&PrizegivingClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(prizegivingcompetition.Table, prizegivingcompetition.FieldID, selector),
+			sqlgraph.To(prizegiving.Table, prizegiving.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, prizegivingcompetition.PrizegivingTable, prizegivingcompetition.PrizegivingColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryCompetition chains the current query on the "competition" edge.
+func (_q *PrizegivingCompetitionQuery) QueryCompetition() *SessionQuery {
 	query := (&SessionClient{config: _q.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := _q.prepareQuery(ctx); err != nil {
@@ -100,9 +121,9 @@ func (_q *PrizegivingQuery) QueryCeremony() *SessionQuery {
 			return nil, err
 		}
 		step := sqlgraph.NewStep(
-			sqlgraph.From(prizegiving.Table, prizegiving.FieldID, selector),
+			sqlgraph.From(prizegivingcompetition.Table, prizegivingcompetition.FieldID, selector),
 			sqlgraph.To(session.Table, session.FieldID),
-			sqlgraph.Edge(sqlgraph.O2O, true, prizegiving.CeremonyTable, prizegiving.CeremonyColumn),
+			sqlgraph.Edge(sqlgraph.O2O, true, prizegivingcompetition.CompetitionTable, prizegivingcompetition.CompetitionColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -110,43 +131,21 @@ func (_q *PrizegivingQuery) QueryCeremony() *SessionQuery {
 	return query
 }
 
-// QueryCompetitions chains the current query on the "competitions" edge.
-func (_q *PrizegivingQuery) QueryCompetitions() *PrizegivingCompetitionQuery {
-	query := (&PrizegivingCompetitionClient{config: _q.config}).Query()
-	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
-		if err := _q.prepareQuery(ctx); err != nil {
-			return nil, err
-		}
-		selector := _q.sqlQuery(ctx)
-		if err := selector.Err(); err != nil {
-			return nil, err
-		}
-		step := sqlgraph.NewStep(
-			sqlgraph.From(prizegiving.Table, prizegiving.FieldID, selector),
-			sqlgraph.To(prizegivingcompetition.Table, prizegivingcompetition.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, prizegiving.CompetitionsTable, prizegiving.CompetitionsColumn),
-		)
-		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
-		return fromU, nil
-	}
-	return query
-}
-
-// First returns the first Prizegiving entity from the query.
-// Returns a *NotFoundError when no Prizegiving was found.
-func (_q *PrizegivingQuery) First(ctx context.Context) (*Prizegiving, error) {
+// First returns the first PrizegivingCompetition entity from the query.
+// Returns a *NotFoundError when no PrizegivingCompetition was found.
+func (_q *PrizegivingCompetitionQuery) First(ctx context.Context) (*PrizegivingCompetition, error) {
 	nodes, err := _q.Limit(1).All(setContextOp(ctx, _q.ctx, ent.OpQueryFirst))
 	if err != nil {
 		return nil, err
 	}
 	if len(nodes) == 0 {
-		return nil, &NotFoundError{prizegiving.Label}
+		return nil, &NotFoundError{prizegivingcompetition.Label}
 	}
 	return nodes[0], nil
 }
 
 // FirstX is like First, but panics if an error occurs.
-func (_q *PrizegivingQuery) FirstX(ctx context.Context) *Prizegiving {
+func (_q *PrizegivingCompetitionQuery) FirstX(ctx context.Context) *PrizegivingCompetition {
 	node, err := _q.First(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -154,22 +153,22 @@ func (_q *PrizegivingQuery) FirstX(ctx context.Context) *Prizegiving {
 	return node
 }
 
-// FirstID returns the first Prizegiving ID from the query.
-// Returns a *NotFoundError when no Prizegiving ID was found.
-func (_q *PrizegivingQuery) FirstID(ctx context.Context) (id int, err error) {
+// FirstID returns the first PrizegivingCompetition ID from the query.
+// Returns a *NotFoundError when no PrizegivingCompetition ID was found.
+func (_q *PrizegivingCompetitionQuery) FirstID(ctx context.Context) (id int, err error) {
 	var ids []int
 	if ids, err = _q.Limit(1).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryFirstID)); err != nil {
 		return
 	}
 	if len(ids) == 0 {
-		err = &NotFoundError{prizegiving.Label}
+		err = &NotFoundError{prizegivingcompetition.Label}
 		return
 	}
 	return ids[0], nil
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (_q *PrizegivingQuery) FirstIDX(ctx context.Context) int {
+func (_q *PrizegivingCompetitionQuery) FirstIDX(ctx context.Context) int {
 	id, err := _q.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -177,10 +176,10 @@ func (_q *PrizegivingQuery) FirstIDX(ctx context.Context) int {
 	return id
 }
 
-// Only returns a single Prizegiving entity found by the query, ensuring it only returns one.
-// Returns a *NotSingularError when more than one Prizegiving entity is found.
-// Returns a *NotFoundError when no Prizegiving entities are found.
-func (_q *PrizegivingQuery) Only(ctx context.Context) (*Prizegiving, error) {
+// Only returns a single PrizegivingCompetition entity found by the query, ensuring it only returns one.
+// Returns a *NotSingularError when more than one PrizegivingCompetition entity is found.
+// Returns a *NotFoundError when no PrizegivingCompetition entities are found.
+func (_q *PrizegivingCompetitionQuery) Only(ctx context.Context) (*PrizegivingCompetition, error) {
 	nodes, err := _q.Limit(2).All(setContextOp(ctx, _q.ctx, ent.OpQueryOnly))
 	if err != nil {
 		return nil, err
@@ -189,14 +188,14 @@ func (_q *PrizegivingQuery) Only(ctx context.Context) (*Prizegiving, error) {
 	case 1:
 		return nodes[0], nil
 	case 0:
-		return nil, &NotFoundError{prizegiving.Label}
+		return nil, &NotFoundError{prizegivingcompetition.Label}
 	default:
-		return nil, &NotSingularError{prizegiving.Label}
+		return nil, &NotSingularError{prizegivingcompetition.Label}
 	}
 }
 
 // OnlyX is like Only, but panics if an error occurs.
-func (_q *PrizegivingQuery) OnlyX(ctx context.Context) *Prizegiving {
+func (_q *PrizegivingCompetitionQuery) OnlyX(ctx context.Context) *PrizegivingCompetition {
 	node, err := _q.Only(ctx)
 	if err != nil {
 		panic(err)
@@ -204,10 +203,10 @@ func (_q *PrizegivingQuery) OnlyX(ctx context.Context) *Prizegiving {
 	return node
 }
 
-// OnlyID is like Only, but returns the only Prizegiving ID in the query.
-// Returns a *NotSingularError when more than one Prizegiving ID is found.
+// OnlyID is like Only, but returns the only PrizegivingCompetition ID in the query.
+// Returns a *NotSingularError when more than one PrizegivingCompetition ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (_q *PrizegivingQuery) OnlyID(ctx context.Context) (id int, err error) {
+func (_q *PrizegivingCompetitionQuery) OnlyID(ctx context.Context) (id int, err error) {
 	var ids []int
 	if ids, err = _q.Limit(2).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryOnlyID)); err != nil {
 		return
@@ -216,15 +215,15 @@ func (_q *PrizegivingQuery) OnlyID(ctx context.Context) (id int, err error) {
 	case 1:
 		id = ids[0]
 	case 0:
-		err = &NotFoundError{prizegiving.Label}
+		err = &NotFoundError{prizegivingcompetition.Label}
 	default:
-		err = &NotSingularError{prizegiving.Label}
+		err = &NotSingularError{prizegivingcompetition.Label}
 	}
 	return
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (_q *PrizegivingQuery) OnlyIDX(ctx context.Context) int {
+func (_q *PrizegivingCompetitionQuery) OnlyIDX(ctx context.Context) int {
 	id, err := _q.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -232,18 +231,18 @@ func (_q *PrizegivingQuery) OnlyIDX(ctx context.Context) int {
 	return id
 }
 
-// All executes the query and returns a list of Prizegivings.
-func (_q *PrizegivingQuery) All(ctx context.Context) ([]*Prizegiving, error) {
+// All executes the query and returns a list of PrizegivingCompetitions.
+func (_q *PrizegivingCompetitionQuery) All(ctx context.Context) ([]*PrizegivingCompetition, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryAll)
 	if err := _q.prepareQuery(ctx); err != nil {
 		return nil, err
 	}
-	qr := querierAll[[]*Prizegiving, *PrizegivingQuery]()
-	return withInterceptors[[]*Prizegiving](ctx, _q, qr, _q.inters)
+	qr := querierAll[[]*PrizegivingCompetition, *PrizegivingCompetitionQuery]()
+	return withInterceptors[[]*PrizegivingCompetition](ctx, _q, qr, _q.inters)
 }
 
 // AllX is like All, but panics if an error occurs.
-func (_q *PrizegivingQuery) AllX(ctx context.Context) []*Prizegiving {
+func (_q *PrizegivingCompetitionQuery) AllX(ctx context.Context) []*PrizegivingCompetition {
 	nodes, err := _q.All(ctx)
 	if err != nil {
 		panic(err)
@@ -251,20 +250,20 @@ func (_q *PrizegivingQuery) AllX(ctx context.Context) []*Prizegiving {
 	return nodes
 }
 
-// IDs executes the query and returns a list of Prizegiving IDs.
-func (_q *PrizegivingQuery) IDs(ctx context.Context) (ids []int, err error) {
+// IDs executes the query and returns a list of PrizegivingCompetition IDs.
+func (_q *PrizegivingCompetitionQuery) IDs(ctx context.Context) (ids []int, err error) {
 	if _q.ctx.Unique == nil && _q.path != nil {
 		_q.Unique(true)
 	}
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryIDs)
-	if err = _q.Select(prizegiving.FieldID).Scan(ctx, &ids); err != nil {
+	if err = _q.Select(prizegivingcompetition.FieldID).Scan(ctx, &ids); err != nil {
 		return nil, err
 	}
 	return ids, nil
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (_q *PrizegivingQuery) IDsX(ctx context.Context) []int {
+func (_q *PrizegivingCompetitionQuery) IDsX(ctx context.Context) []int {
 	ids, err := _q.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -273,16 +272,16 @@ func (_q *PrizegivingQuery) IDsX(ctx context.Context) []int {
 }
 
 // Count returns the count of the given query.
-func (_q *PrizegivingQuery) Count(ctx context.Context) (int, error) {
+func (_q *PrizegivingCompetitionQuery) Count(ctx context.Context) (int, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryCount)
 	if err := _q.prepareQuery(ctx); err != nil {
 		return 0, err
 	}
-	return withInterceptors[int](ctx, _q, querierCount[*PrizegivingQuery](), _q.inters)
+	return withInterceptors[int](ctx, _q, querierCount[*PrizegivingCompetitionQuery](), _q.inters)
 }
 
 // CountX is like Count, but panics if an error occurs.
-func (_q *PrizegivingQuery) CountX(ctx context.Context) int {
+func (_q *PrizegivingCompetitionQuery) CountX(ctx context.Context) int {
 	count, err := _q.Count(ctx)
 	if err != nil {
 		panic(err)
@@ -291,7 +290,7 @@ func (_q *PrizegivingQuery) CountX(ctx context.Context) int {
 }
 
 // Exist returns true if the query has elements in the graph.
-func (_q *PrizegivingQuery) Exist(ctx context.Context) (bool, error) {
+func (_q *PrizegivingCompetitionQuery) Exist(ctx context.Context) (bool, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryExist)
 	switch _, err := _q.FirstID(ctx); {
 	case IsNotFound(err):
@@ -304,7 +303,7 @@ func (_q *PrizegivingQuery) Exist(ctx context.Context) (bool, error) {
 }
 
 // ExistX is like Exist, but panics if an error occurs.
-func (_q *PrizegivingQuery) ExistX(ctx context.Context) bool {
+func (_q *PrizegivingCompetitionQuery) ExistX(ctx context.Context) bool {
 	exist, err := _q.Exist(ctx)
 	if err != nil {
 		panic(err)
@@ -312,21 +311,21 @@ func (_q *PrizegivingQuery) ExistX(ctx context.Context) bool {
 	return exist
 }
 
-// Clone returns a duplicate of the PrizegivingQuery builder, including all associated steps. It can be
+// Clone returns a duplicate of the PrizegivingCompetitionQuery builder, including all associated steps. It can be
 // used to prepare common query builders and use them differently after the clone is made.
-func (_q *PrizegivingQuery) Clone() *PrizegivingQuery {
+func (_q *PrizegivingCompetitionQuery) Clone() *PrizegivingCompetitionQuery {
 	if _q == nil {
 		return nil
 	}
-	return &PrizegivingQuery{
-		config:           _q.config,
-		ctx:              _q.ctx.Clone(),
-		order:            append([]prizegiving.OrderOption{}, _q.order...),
-		inters:           append([]Interceptor{}, _q.inters...),
-		predicates:       append([]predicate.Prizegiving{}, _q.predicates...),
-		withEvent:        _q.withEvent.Clone(),
-		withCeremony:     _q.withCeremony.Clone(),
-		withCompetitions: _q.withCompetitions.Clone(),
+	return &PrizegivingCompetitionQuery{
+		config:          _q.config,
+		ctx:             _q.ctx.Clone(),
+		order:           append([]prizegivingcompetition.OrderOption{}, _q.order...),
+		inters:          append([]Interceptor{}, _q.inters...),
+		predicates:      append([]predicate.PrizegivingCompetition{}, _q.predicates...),
+		withEvent:       _q.withEvent.Clone(),
+		withPrizegiving: _q.withPrizegiving.Clone(),
+		withCompetition: _q.withCompetition.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -335,7 +334,7 @@ func (_q *PrizegivingQuery) Clone() *PrizegivingQuery {
 
 // WithEvent tells the query-builder to eager-load the nodes that are connected to
 // the "event" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *PrizegivingQuery) WithEvent(opts ...func(*EventQuery)) *PrizegivingQuery {
+func (_q *PrizegivingCompetitionQuery) WithEvent(opts ...func(*EventQuery)) *PrizegivingCompetitionQuery {
 	query := (&EventClient{config: _q.config}).Query()
 	for _, opt := range opts {
 		opt(query)
@@ -344,25 +343,25 @@ func (_q *PrizegivingQuery) WithEvent(opts ...func(*EventQuery)) *PrizegivingQue
 	return _q
 }
 
-// WithCeremony tells the query-builder to eager-load the nodes that are connected to
-// the "ceremony" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *PrizegivingQuery) WithCeremony(opts ...func(*SessionQuery)) *PrizegivingQuery {
+// WithPrizegiving tells the query-builder to eager-load the nodes that are connected to
+// the "prizegiving" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *PrizegivingCompetitionQuery) WithPrizegiving(opts ...func(*PrizegivingQuery)) *PrizegivingCompetitionQuery {
+	query := (&PrizegivingClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withPrizegiving = query
+	return _q
+}
+
+// WithCompetition tells the query-builder to eager-load the nodes that are connected to
+// the "competition" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *PrizegivingCompetitionQuery) WithCompetition(opts ...func(*SessionQuery)) *PrizegivingCompetitionQuery {
 	query := (&SessionClient{config: _q.config}).Query()
 	for _, opt := range opts {
 		opt(query)
 	}
-	_q.withCeremony = query
-	return _q
-}
-
-// WithCompetitions tells the query-builder to eager-load the nodes that are connected to
-// the "competitions" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *PrizegivingQuery) WithCompetitions(opts ...func(*PrizegivingCompetitionQuery)) *PrizegivingQuery {
-	query := (&PrizegivingCompetitionClient{config: _q.config}).Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-	_q.withCompetitions = query
+	_q.withCompetition = query
 	return _q
 }
 
@@ -376,15 +375,15 @@ func (_q *PrizegivingQuery) WithCompetitions(opts ...func(*PrizegivingCompetitio
 //		Count int `json:"count,omitempty"`
 //	}
 //
-//	client.Prizegiving.Query().
-//		GroupBy(prizegiving.FieldEventID).
+//	client.PrizegivingCompetition.Query().
+//		GroupBy(prizegivingcompetition.FieldEventID).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
-func (_q *PrizegivingQuery) GroupBy(field string, fields ...string) *PrizegivingGroupBy {
+func (_q *PrizegivingCompetitionQuery) GroupBy(field string, fields ...string) *PrizegivingCompetitionGroupBy {
 	_q.ctx.Fields = append([]string{field}, fields...)
-	grbuild := &PrizegivingGroupBy{build: _q}
+	grbuild := &PrizegivingCompetitionGroupBy{build: _q}
 	grbuild.flds = &_q.ctx.Fields
-	grbuild.label = prizegiving.Label
+	grbuild.label = prizegivingcompetition.Label
 	grbuild.scan = grbuild.Scan
 	return grbuild
 }
@@ -398,23 +397,23 @@ func (_q *PrizegivingQuery) GroupBy(field string, fields ...string) *Prizegiving
 //		EventID int `json:"event_id,omitempty"`
 //	}
 //
-//	client.Prizegiving.Query().
-//		Select(prizegiving.FieldEventID).
+//	client.PrizegivingCompetition.Query().
+//		Select(prizegivingcompetition.FieldEventID).
 //		Scan(ctx, &v)
-func (_q *PrizegivingQuery) Select(fields ...string) *PrizegivingSelect {
+func (_q *PrizegivingCompetitionQuery) Select(fields ...string) *PrizegivingCompetitionSelect {
 	_q.ctx.Fields = append(_q.ctx.Fields, fields...)
-	sbuild := &PrizegivingSelect{PrizegivingQuery: _q}
-	sbuild.label = prizegiving.Label
+	sbuild := &PrizegivingCompetitionSelect{PrizegivingCompetitionQuery: _q}
+	sbuild.label = prizegivingcompetition.Label
 	sbuild.flds, sbuild.scan = &_q.ctx.Fields, sbuild.Scan
 	return sbuild
 }
 
-// Aggregate returns a PrizegivingSelect configured with the given aggregations.
-func (_q *PrizegivingQuery) Aggregate(fns ...AggregateFunc) *PrizegivingSelect {
+// Aggregate returns a PrizegivingCompetitionSelect configured with the given aggregations.
+func (_q *PrizegivingCompetitionQuery) Aggregate(fns ...AggregateFunc) *PrizegivingCompetitionSelect {
 	return _q.Select().Aggregate(fns...)
 }
 
-func (_q *PrizegivingQuery) prepareQuery(ctx context.Context) error {
+func (_q *PrizegivingCompetitionQuery) prepareQuery(ctx context.Context) error {
 	for _, inter := range _q.inters {
 		if inter == nil {
 			return fmt.Errorf("ent: uninitialized interceptor (forgotten import ent/runtime?)")
@@ -426,7 +425,7 @@ func (_q *PrizegivingQuery) prepareQuery(ctx context.Context) error {
 		}
 	}
 	for _, f := range _q.ctx.Fields {
-		if !prizegiving.ValidColumn(f) {
+		if !prizegivingcompetition.ValidColumn(f) {
 			return &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 		}
 	}
@@ -437,30 +436,30 @@ func (_q *PrizegivingQuery) prepareQuery(ctx context.Context) error {
 		}
 		_q.sql = prev
 	}
-	if prizegiving.Policy == nil {
-		return errors.New("ent: uninitialized prizegiving.Policy (forgotten import ent/runtime?)")
+	if prizegivingcompetition.Policy == nil {
+		return errors.New("ent: uninitialized prizegivingcompetition.Policy (forgotten import ent/runtime?)")
 	}
-	if err := prizegiving.Policy.EvalQuery(ctx, _q); err != nil {
+	if err := prizegivingcompetition.Policy.EvalQuery(ctx, _q); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (_q *PrizegivingQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Prizegiving, error) {
+func (_q *PrizegivingCompetitionQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*PrizegivingCompetition, error) {
 	var (
-		nodes       = []*Prizegiving{}
+		nodes       = []*PrizegivingCompetition{}
 		_spec       = _q.querySpec()
 		loadedTypes = [3]bool{
 			_q.withEvent != nil,
-			_q.withCeremony != nil,
-			_q.withCompetitions != nil,
+			_q.withPrizegiving != nil,
+			_q.withCompetition != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
-		return (*Prizegiving).scanValues(nil, columns)
+		return (*PrizegivingCompetition).scanValues(nil, columns)
 	}
 	_spec.Assign = func(columns []string, values []any) error {
-		node := &Prizegiving{config: _q.config}
+		node := &PrizegivingCompetition{config: _q.config}
 		nodes = append(nodes, node)
 		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
@@ -476,31 +475,28 @@ func (_q *PrizegivingQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*
 	}
 	if query := _q.withEvent; query != nil {
 		if err := _q.loadEvent(ctx, query, nodes, nil,
-			func(n *Prizegiving, e *Event) { n.Edges.Event = e }); err != nil {
+			func(n *PrizegivingCompetition, e *Event) { n.Edges.Event = e }); err != nil {
 			return nil, err
 		}
 	}
-	if query := _q.withCeremony; query != nil {
-		if err := _q.loadCeremony(ctx, query, nodes, nil,
-			func(n *Prizegiving, e *Session) { n.Edges.Ceremony = e }); err != nil {
+	if query := _q.withPrizegiving; query != nil {
+		if err := _q.loadPrizegiving(ctx, query, nodes, nil,
+			func(n *PrizegivingCompetition, e *Prizegiving) { n.Edges.Prizegiving = e }); err != nil {
 			return nil, err
 		}
 	}
-	if query := _q.withCompetitions; query != nil {
-		if err := _q.loadCompetitions(ctx, query, nodes,
-			func(n *Prizegiving) { n.Edges.Competitions = []*PrizegivingCompetition{} },
-			func(n *Prizegiving, e *PrizegivingCompetition) {
-				n.Edges.Competitions = append(n.Edges.Competitions, e)
-			}); err != nil {
+	if query := _q.withCompetition; query != nil {
+		if err := _q.loadCompetition(ctx, query, nodes, nil,
+			func(n *PrizegivingCompetition, e *Session) { n.Edges.Competition = e }); err != nil {
 			return nil, err
 		}
 	}
 	return nodes, nil
 }
 
-func (_q *PrizegivingQuery) loadEvent(ctx context.Context, query *EventQuery, nodes []*Prizegiving, init func(*Prizegiving), assign func(*Prizegiving, *Event)) error {
+func (_q *PrizegivingCompetitionQuery) loadEvent(ctx context.Context, query *EventQuery, nodes []*PrizegivingCompetition, init func(*PrizegivingCompetition), assign func(*PrizegivingCompetition, *Event)) error {
 	ids := make([]int, 0, len(nodes))
-	nodeids := make(map[int][]*Prizegiving)
+	nodeids := make(map[int][]*PrizegivingCompetition)
 	for i := range nodes {
 		fk := nodes[i].EventID
 		if _, ok := nodeids[fk]; !ok {
@@ -527,11 +523,40 @@ func (_q *PrizegivingQuery) loadEvent(ctx context.Context, query *EventQuery, no
 	}
 	return nil
 }
-func (_q *PrizegivingQuery) loadCeremony(ctx context.Context, query *SessionQuery, nodes []*Prizegiving, init func(*Prizegiving), assign func(*Prizegiving, *Session)) error {
+func (_q *PrizegivingCompetitionQuery) loadPrizegiving(ctx context.Context, query *PrizegivingQuery, nodes []*PrizegivingCompetition, init func(*PrizegivingCompetition), assign func(*PrizegivingCompetition, *Prizegiving)) error {
 	ids := make([]int, 0, len(nodes))
-	nodeids := make(map[int][]*Prizegiving)
+	nodeids := make(map[int][]*PrizegivingCompetition)
 	for i := range nodes {
-		fk := nodes[i].CeremonySessionID
+		fk := nodes[i].PrizegivingID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(prizegiving.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "prizegiving_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+func (_q *PrizegivingCompetitionQuery) loadCompetition(ctx context.Context, query *SessionQuery, nodes []*PrizegivingCompetition, init func(*PrizegivingCompetition), assign func(*PrizegivingCompetition, *Session)) error {
+	ids := make([]int, 0, len(nodes))
+	nodeids := make(map[int][]*PrizegivingCompetition)
+	for i := range nodes {
+		fk := nodes[i].CompetitionSessionID
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -548,7 +573,7 @@ func (_q *PrizegivingQuery) loadCeremony(ctx context.Context, query *SessionQuer
 	for _, n := range neighbors {
 		nodes, ok := nodeids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "ceremony_session_id" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected foreign-key "competition_session_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -556,38 +581,8 @@ func (_q *PrizegivingQuery) loadCeremony(ctx context.Context, query *SessionQuer
 	}
 	return nil
 }
-func (_q *PrizegivingQuery) loadCompetitions(ctx context.Context, query *PrizegivingCompetitionQuery, nodes []*Prizegiving, init func(*Prizegiving), assign func(*Prizegiving, *PrizegivingCompetition)) error {
-	fks := make([]driver.Value, 0, len(nodes))
-	nodeids := make(map[int]*Prizegiving)
-	for i := range nodes {
-		fks = append(fks, nodes[i].ID)
-		nodeids[nodes[i].ID] = nodes[i]
-		if init != nil {
-			init(nodes[i])
-		}
-	}
-	if len(query.ctx.Fields) > 0 {
-		query.ctx.AppendFieldOnce(prizegivingcompetition.FieldPrizegivingID)
-	}
-	query.Where(predicate.PrizegivingCompetition(func(s *sql.Selector) {
-		s.Where(sql.InValues(s.C(prizegiving.CompetitionsColumn), fks...))
-	}))
-	neighbors, err := query.All(ctx)
-	if err != nil {
-		return err
-	}
-	for _, n := range neighbors {
-		fk := n.PrizegivingID
-		node, ok := nodeids[fk]
-		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "prizegiving_id" returned %v for node %v`, fk, n.ID)
-		}
-		assign(node, n)
-	}
-	return nil
-}
 
-func (_q *PrizegivingQuery) sqlCount(ctx context.Context) (int, error) {
+func (_q *PrizegivingCompetitionQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := _q.querySpec()
 	_spec.Node.Columns = _q.ctx.Fields
 	if len(_q.ctx.Fields) > 0 {
@@ -596,8 +591,8 @@ func (_q *PrizegivingQuery) sqlCount(ctx context.Context) (int, error) {
 	return sqlgraph.CountNodes(ctx, _q.driver, _spec)
 }
 
-func (_q *PrizegivingQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(prizegiving.Table, prizegiving.Columns, sqlgraph.NewFieldSpec(prizegiving.FieldID, field.TypeInt))
+func (_q *PrizegivingCompetitionQuery) querySpec() *sqlgraph.QuerySpec {
+	_spec := sqlgraph.NewQuerySpec(prizegivingcompetition.Table, prizegivingcompetition.Columns, sqlgraph.NewFieldSpec(prizegivingcompetition.FieldID, field.TypeInt))
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique
@@ -606,17 +601,20 @@ func (_q *PrizegivingQuery) querySpec() *sqlgraph.QuerySpec {
 	}
 	if fields := _q.ctx.Fields; len(fields) > 0 {
 		_spec.Node.Columns = make([]string, 0, len(fields))
-		_spec.Node.Columns = append(_spec.Node.Columns, prizegiving.FieldID)
+		_spec.Node.Columns = append(_spec.Node.Columns, prizegivingcompetition.FieldID)
 		for i := range fields {
-			if fields[i] != prizegiving.FieldID {
+			if fields[i] != prizegivingcompetition.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
 		}
 		if _q.withEvent != nil {
-			_spec.Node.AddColumnOnce(prizegiving.FieldEventID)
+			_spec.Node.AddColumnOnce(prizegivingcompetition.FieldEventID)
 		}
-		if _q.withCeremony != nil {
-			_spec.Node.AddColumnOnce(prizegiving.FieldCeremonySessionID)
+		if _q.withPrizegiving != nil {
+			_spec.Node.AddColumnOnce(prizegivingcompetition.FieldPrizegivingID)
+		}
+		if _q.withCompetition != nil {
+			_spec.Node.AddColumnOnce(prizegivingcompetition.FieldCompetitionSessionID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {
@@ -642,12 +640,12 @@ func (_q *PrizegivingQuery) querySpec() *sqlgraph.QuerySpec {
 	return _spec
 }
 
-func (_q *PrizegivingQuery) sqlQuery(ctx context.Context) *sql.Selector {
+func (_q *PrizegivingCompetitionQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	builder := sql.Dialect(_q.driver.Dialect())
-	t1 := builder.Table(prizegiving.Table)
+	t1 := builder.Table(prizegivingcompetition.Table)
 	columns := _q.ctx.Fields
 	if len(columns) == 0 {
-		columns = prizegiving.Columns
+		columns = prizegivingcompetition.Columns
 	}
 	selector := builder.Select(t1.Columns(columns...)...).From(t1)
 	if _q.sql != nil {
@@ -674,28 +672,28 @@ func (_q *PrizegivingQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	return selector
 }
 
-// PrizegivingGroupBy is the group-by builder for Prizegiving entities.
-type PrizegivingGroupBy struct {
+// PrizegivingCompetitionGroupBy is the group-by builder for PrizegivingCompetition entities.
+type PrizegivingCompetitionGroupBy struct {
 	selector
-	build *PrizegivingQuery
+	build *PrizegivingCompetitionQuery
 }
 
 // Aggregate adds the given aggregation functions to the group-by query.
-func (_g *PrizegivingGroupBy) Aggregate(fns ...AggregateFunc) *PrizegivingGroupBy {
+func (_g *PrizegivingCompetitionGroupBy) Aggregate(fns ...AggregateFunc) *PrizegivingCompetitionGroupBy {
 	_g.fns = append(_g.fns, fns...)
 	return _g
 }
 
 // Scan applies the selector query and scans the result into the given value.
-func (_g *PrizegivingGroupBy) Scan(ctx context.Context, v any) error {
+func (_g *PrizegivingCompetitionGroupBy) Scan(ctx context.Context, v any) error {
 	ctx = setContextOp(ctx, _g.build.ctx, ent.OpQueryGroupBy)
 	if err := _g.build.prepareQuery(ctx); err != nil {
 		return err
 	}
-	return scanWithInterceptors[*PrizegivingQuery, *PrizegivingGroupBy](ctx, _g.build, _g, _g.build.inters, v)
+	return scanWithInterceptors[*PrizegivingCompetitionQuery, *PrizegivingCompetitionGroupBy](ctx, _g.build, _g, _g.build.inters, v)
 }
 
-func (_g *PrizegivingGroupBy) sqlScan(ctx context.Context, root *PrizegivingQuery, v any) error {
+func (_g *PrizegivingCompetitionGroupBy) sqlScan(ctx context.Context, root *PrizegivingCompetitionQuery, v any) error {
 	selector := root.sqlQuery(ctx).Select()
 	aggregation := make([]string, 0, len(_g.fns))
 	for _, fn := range _g.fns {
@@ -722,28 +720,28 @@ func (_g *PrizegivingGroupBy) sqlScan(ctx context.Context, root *PrizegivingQuer
 	return sql.ScanSlice(rows, v)
 }
 
-// PrizegivingSelect is the builder for selecting fields of Prizegiving entities.
-type PrizegivingSelect struct {
-	*PrizegivingQuery
+// PrizegivingCompetitionSelect is the builder for selecting fields of PrizegivingCompetition entities.
+type PrizegivingCompetitionSelect struct {
+	*PrizegivingCompetitionQuery
 	selector
 }
 
 // Aggregate adds the given aggregation functions to the selector query.
-func (_s *PrizegivingSelect) Aggregate(fns ...AggregateFunc) *PrizegivingSelect {
+func (_s *PrizegivingCompetitionSelect) Aggregate(fns ...AggregateFunc) *PrizegivingCompetitionSelect {
 	_s.fns = append(_s.fns, fns...)
 	return _s
 }
 
 // Scan applies the selector query and scans the result into the given value.
-func (_s *PrizegivingSelect) Scan(ctx context.Context, v any) error {
+func (_s *PrizegivingCompetitionSelect) Scan(ctx context.Context, v any) error {
 	ctx = setContextOp(ctx, _s.ctx, ent.OpQuerySelect)
 	if err := _s.prepareQuery(ctx); err != nil {
 		return err
 	}
-	return scanWithInterceptors[*PrizegivingQuery, *PrizegivingSelect](ctx, _s.PrizegivingQuery, _s, _s.inters, v)
+	return scanWithInterceptors[*PrizegivingCompetitionQuery, *PrizegivingCompetitionSelect](ctx, _s.PrizegivingCompetitionQuery, _s, _s.inters, v)
 }
 
-func (_s *PrizegivingSelect) sqlScan(ctx context.Context, root *PrizegivingQuery, v any) error {
+func (_s *PrizegivingCompetitionSelect) sqlScan(ctx context.Context, root *PrizegivingCompetitionQuery, v any) error {
 	selector := root.sqlQuery(ctx)
 	aggregation := make([]string, 0, len(_s.fns))
 	for _, fn := range _s.fns {

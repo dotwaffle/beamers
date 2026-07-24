@@ -15,6 +15,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/prizegiving"
+	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessioncancellation"
@@ -590,6 +591,25 @@ func (_c *SessionCreate) SetPrizegiving(v *Prizegiving) *SessionCreate {
 	return _c.SetPrizegivingID(v.ID)
 }
 
+// SetPrizegivingAssignmentID sets the "prizegiving_assignment" edge to the PrizegivingCompetition entity by ID.
+func (_c *SessionCreate) SetPrizegivingAssignmentID(id int) *SessionCreate {
+	_c.mutation.SetPrizegivingAssignmentID(id)
+	return _c
+}
+
+// SetNillablePrizegivingAssignmentID sets the "prizegiving_assignment" edge to the PrizegivingCompetition entity by ID if the given value is not nil.
+func (_c *SessionCreate) SetNillablePrizegivingAssignmentID(id *int) *SessionCreate {
+	if id != nil {
+		_c = _c.SetPrizegivingAssignmentID(*id)
+	}
+	return _c
+}
+
+// SetPrizegivingAssignment sets the "prizegiving_assignment" edge to the PrizegivingCompetition entity.
+func (_c *SessionCreate) SetPrizegivingAssignment(v *PrizegivingCompetition) *SessionCreate {
+	return _c.SetPrizegivingAssignmentID(v.ID)
+}
+
 // Mutation returns the SessionMutation object of the builder.
 func (_c *SessionCreate) Mutation() *SessionMutation {
 	return _c.mutation
@@ -1109,6 +1129,22 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(prizegiving.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.PrizegivingAssignmentIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   session.PrizegivingAssignmentTable,
+			Columns: []string{session.PrizegivingAssignmentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(prizegivingcompetition.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

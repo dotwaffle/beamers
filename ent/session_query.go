@@ -19,6 +19,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/prizegiving"
+	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessioncancellation"
@@ -44,6 +45,7 @@ type SessionQuery struct {
 	withCompetitionResultsDrafts    *CompetitionResultsDraftQuery
 	withCompetitionResultStandings  *CompetitionResultStandingQuery
 	withPrizegiving                 *PrizegivingQuery
+	withPrizegivingAssignment       *PrizegivingCompetitionQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -300,6 +302,28 @@ func (_q *SessionQuery) QueryPrizegiving() *PrizegivingQuery {
 	return query
 }
 
+// QueryPrizegivingAssignment chains the current query on the "prizegiving_assignment" edge.
+func (_q *SessionQuery) QueryPrizegivingAssignment() *PrizegivingCompetitionQuery {
+	query := (&PrizegivingCompetitionClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(session.Table, session.FieldID, selector),
+			sqlgraph.To(prizegivingcompetition.Table, prizegivingcompetition.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, session.PrizegivingAssignmentTable, session.PrizegivingAssignmentColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // First returns the first Session entity from the query.
 // Returns a *NotFoundError when no Session was found.
 func (_q *SessionQuery) First(ctx context.Context) (*Session, error) {
@@ -502,6 +526,7 @@ func (_q *SessionQuery) Clone() *SessionQuery {
 		withCompetitionResultsDrafts:    _q.withCompetitionResultsDrafts.Clone(),
 		withCompetitionResultStandings:  _q.withCompetitionResultStandings.Clone(),
 		withPrizegiving:                 _q.withPrizegiving.Clone(),
+		withPrizegivingAssignment:       _q.withPrizegivingAssignment.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -618,6 +643,17 @@ func (_q *SessionQuery) WithPrizegiving(opts ...func(*PrizegivingQuery)) *Sessio
 	return _q
 }
 
+// WithPrizegivingAssignment tells the query-builder to eager-load the nodes that are connected to
+// the "prizegiving_assignment" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *SessionQuery) WithPrizegivingAssignment(opts ...func(*PrizegivingCompetitionQuery)) *SessionQuery {
+	query := (&PrizegivingCompetitionClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withPrizegivingAssignment = query
+	return _q
+}
+
 // GroupBy is used to group vertices by one or more fields/columns.
 // It is often used with aggregate functions, like: count, max, mean, min, sum.
 //
@@ -702,7 +738,7 @@ func (_q *SessionQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Sess
 	var (
 		nodes       = []*Session{}
 		_spec       = _q.querySpec()
-		loadedTypes = [10]bool{
+		loadedTypes = [11]bool{
 			_q.withEvent != nil,
 			_q.withDraft != nil,
 			_q.withPublishedVersions != nil,
@@ -713,6 +749,7 @@ func (_q *SessionQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Sess
 			_q.withCompetitionResultsDrafts != nil,
 			_q.withCompetitionResultStandings != nil,
 			_q.withPrizegiving != nil,
+			_q.withPrizegivingAssignment != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -804,6 +841,12 @@ func (_q *SessionQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Sess
 	if query := _q.withPrizegiving; query != nil {
 		if err := _q.loadPrizegiving(ctx, query, nodes, nil,
 			func(n *Session, e *Prizegiving) { n.Edges.Prizegiving = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withPrizegivingAssignment; query != nil {
+		if err := _q.loadPrizegivingAssignment(ctx, query, nodes, nil,
+			func(n *Session, e *PrizegivingCompetition) { n.Edges.PrizegivingAssignment = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -1095,6 +1138,33 @@ func (_q *SessionQuery) loadPrizegiving(ctx context.Context, query *PrizegivingQ
 		node, ok := nodeids[fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "ceremony_session_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *SessionQuery) loadPrizegivingAssignment(ctx context.Context, query *PrizegivingCompetitionQuery, nodes []*Session, init func(*Session), assign func(*Session, *PrizegivingCompetition)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Session)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(prizegivingcompetition.FieldCompetitionSessionID)
+	}
+	query.Where(predicate.PrizegivingCompetition(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(session.PrizegivingAssignmentColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.CompetitionSessionID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "competition_session_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}

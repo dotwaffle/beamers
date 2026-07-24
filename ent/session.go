@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/prizegiving"
+	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
@@ -114,9 +115,11 @@ type SessionEdges struct {
 	CompetitionResultStandings []*CompetitionResultStanding `json:"competition_result_standings,omitempty"`
 	// Prizegiving holds the value of the prizegiving edge.
 	Prizegiving *Prizegiving `json:"prizegiving,omitempty"`
+	// PrizegivingAssignment holds the value of the prizegiving_assignment edge.
+	PrizegivingAssignment *PrizegivingCompetition `json:"prizegiving_assignment,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [10]bool
+	loadedTypes [11]bool
 }
 
 // EventOrErr returns the Event value or an error if the edge
@@ -215,6 +218,17 @@ func (e SessionEdges) PrizegivingOrErr() (*Prizegiving, error) {
 		return nil, &NotFoundError{label: prizegiving.Label}
 	}
 	return nil, &NotLoadedError{edge: "prizegiving"}
+}
+
+// PrizegivingAssignmentOrErr returns the PrizegivingAssignment value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e SessionEdges) PrizegivingAssignmentOrErr() (*PrizegivingCompetition, error) {
+	if e.PrizegivingAssignment != nil {
+		return e.PrizegivingAssignment, nil
+	} else if e.loadedTypes[10] {
+		return nil, &NotFoundError{label: prizegivingcompetition.Label}
+	}
+	return nil, &NotLoadedError{edge: "prizegiving_assignment"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -520,6 +534,11 @@ func (_m *Session) QueryCompetitionResultStandings() *CompetitionResultStandingQ
 // QueryPrizegiving queries the "prizegiving" edge of the Session entity.
 func (_m *Session) QueryPrizegiving() *PrizegivingQuery {
 	return NewSessionClient(_m.config).QueryPrizegiving(_m)
+}
+
+// QueryPrizegivingAssignment queries the "prizegiving_assignment" edge of the Session entity.
+func (_m *Session) QueryPrizegivingAssignment() *PrizegivingCompetitionQuery {
+	return NewSessionClient(_m.config).QueryPrizegivingAssignment(_m)
 }
 
 // Update returns a builder for updating this Session.

@@ -6,12 +6,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/prizegiving"
+	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
+	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 )
 
 // PrizegivingUpdate is the builder for updating Prizegiving entities.
@@ -27,9 +31,221 @@ func (_u *PrizegivingUpdate) Where(ps ...predicate.Prizegiving) *PrizegivingUpda
 	return _u
 }
 
+// SetRevision sets the "revision" field.
+func (_u *PrizegivingUpdate) SetRevision(v int) *PrizegivingUpdate {
+	_u.mutation.ResetRevision()
+	_u.mutation.SetRevision(v)
+	return _u
+}
+
+// SetNillableRevision sets the "revision" field if the given value is not nil.
+func (_u *PrizegivingUpdate) SetNillableRevision(v *int) *PrizegivingUpdate {
+	if v != nil {
+		_u.SetRevision(*v)
+	}
+	return _u
+}
+
+// AddRevision adds value to the "revision" field.
+func (_u *PrizegivingUpdate) AddRevision(v int) *PrizegivingUpdate {
+	_u.mutation.AddRevision(v)
+	return _u
+}
+
+// SetCompetitionSessionIds sets the "competition_session_ids" field.
+func (_u *PrizegivingUpdate) SetCompetitionSessionIds(v []int) *PrizegivingUpdate {
+	_u.mutation.SetCompetitionSessionIds(v)
+	return _u
+}
+
+// AppendCompetitionSessionIds appends value to the "competition_session_ids" field.
+func (_u *PrizegivingUpdate) AppendCompetitionSessionIds(v []int) *PrizegivingUpdate {
+	_u.mutation.AppendCompetitionSessionIds(v)
+	return _u
+}
+
+// ClearCompetitionSessionIds clears the value of the "competition_session_ids" field.
+func (_u *PrizegivingUpdate) ClearCompetitionSessionIds() *PrizegivingUpdate {
+	_u.mutation.ClearCompetitionSessionIds()
+	return _u
+}
+
+// SetSequence sets the "sequence" field.
+func (_u *PrizegivingUpdate) SetSequence(v []prizegivingvalue.Item) *PrizegivingUpdate {
+	_u.mutation.SetSequence(v)
+	return _u
+}
+
+// AppendSequence appends value to the "sequence" field.
+func (_u *PrizegivingUpdate) AppendSequence(v []prizegivingvalue.Item) *PrizegivingUpdate {
+	_u.mutation.AppendSequence(v)
+	return _u
+}
+
+// ClearSequence clears the value of the "sequence" field.
+func (_u *PrizegivingUpdate) ClearSequence() *PrizegivingUpdate {
+	_u.mutation.ClearSequence()
+	return _u
+}
+
+// SetPublicationOrder sets the "publication_order" field.
+func (_u *PrizegivingUpdate) SetPublicationOrder(v []prizegivingvalue.ItemRef) *PrizegivingUpdate {
+	_u.mutation.SetPublicationOrder(v)
+	return _u
+}
+
+// AppendPublicationOrder appends value to the "publication_order" field.
+func (_u *PrizegivingUpdate) AppendPublicationOrder(v []prizegivingvalue.ItemRef) *PrizegivingUpdate {
+	_u.mutation.AppendPublicationOrder(v)
+	return _u
+}
+
+// ClearPublicationOrder clears the value of the "publication_order" field.
+func (_u *PrizegivingUpdate) ClearPublicationOrder() *PrizegivingUpdate {
+	_u.mutation.ClearPublicationOrder()
+	return _u
+}
+
+// SetResultsTextTemplate sets the "results_text_template" field.
+func (_u *PrizegivingUpdate) SetResultsTextTemplate(v prizegivingvalue.Template) *PrizegivingUpdate {
+	_u.mutation.SetResultsTextTemplate(v)
+	return _u
+}
+
+// SetNillableResultsTextTemplate sets the "results_text_template" field if the given value is not nil.
+func (_u *PrizegivingUpdate) SetNillableResultsTextTemplate(v *prizegivingvalue.Template) *PrizegivingUpdate {
+	if v != nil {
+		_u.SetResultsTextTemplate(*v)
+	}
+	return _u
+}
+
+// ClearResultsTextTemplate clears the value of the "results_text_template" field.
+func (_u *PrizegivingUpdate) ClearResultsTextTemplate() *PrizegivingUpdate {
+	_u.mutation.ClearResultsTextTemplate()
+	return _u
+}
+
+// SetLocked sets the "locked" field.
+func (_u *PrizegivingUpdate) SetLocked(v bool) *PrizegivingUpdate {
+	_u.mutation.SetLocked(v)
+	return _u
+}
+
+// SetNillableLocked sets the "locked" field if the given value is not nil.
+func (_u *PrizegivingUpdate) SetNillableLocked(v *bool) *PrizegivingUpdate {
+	if v != nil {
+		_u.SetLocked(*v)
+	}
+	return _u
+}
+
+// SetPreflightLock sets the "preflight_lock" field.
+func (_u *PrizegivingUpdate) SetPreflightLock(v prizegivingvalue.Lock) *PrizegivingUpdate {
+	_u.mutation.SetPreflightLock(v)
+	return _u
+}
+
+// SetNillablePreflightLock sets the "preflight_lock" field if the given value is not nil.
+func (_u *PrizegivingUpdate) SetNillablePreflightLock(v *prizegivingvalue.Lock) *PrizegivingUpdate {
+	if v != nil {
+		_u.SetPreflightLock(*v)
+	}
+	return _u
+}
+
+// ClearPreflightLock clears the value of the "preflight_lock" field.
+func (_u *PrizegivingUpdate) ClearPreflightLock() *PrizegivingUpdate {
+	_u.mutation.ClearPreflightLock()
+	return _u
+}
+
+// SetLockedByAccountID sets the "locked_by_account_id" field.
+func (_u *PrizegivingUpdate) SetLockedByAccountID(v int) *PrizegivingUpdate {
+	_u.mutation.ResetLockedByAccountID()
+	_u.mutation.SetLockedByAccountID(v)
+	return _u
+}
+
+// SetNillableLockedByAccountID sets the "locked_by_account_id" field if the given value is not nil.
+func (_u *PrizegivingUpdate) SetNillableLockedByAccountID(v *int) *PrizegivingUpdate {
+	if v != nil {
+		_u.SetLockedByAccountID(*v)
+	}
+	return _u
+}
+
+// AddLockedByAccountID adds value to the "locked_by_account_id" field.
+func (_u *PrizegivingUpdate) AddLockedByAccountID(v int) *PrizegivingUpdate {
+	_u.mutation.AddLockedByAccountID(v)
+	return _u
+}
+
+// ClearLockedByAccountID clears the value of the "locked_by_account_id" field.
+func (_u *PrizegivingUpdate) ClearLockedByAccountID() *PrizegivingUpdate {
+	_u.mutation.ClearLockedByAccountID()
+	return _u
+}
+
+// SetLockedAt sets the "locked_at" field.
+func (_u *PrizegivingUpdate) SetLockedAt(v time.Time) *PrizegivingUpdate {
+	_u.mutation.SetLockedAt(v)
+	return _u
+}
+
+// SetNillableLockedAt sets the "locked_at" field if the given value is not nil.
+func (_u *PrizegivingUpdate) SetNillableLockedAt(v *time.Time) *PrizegivingUpdate {
+	if v != nil {
+		_u.SetLockedAt(*v)
+	}
+	return _u
+}
+
+// ClearLockedAt clears the value of the "locked_at" field.
+func (_u *PrizegivingUpdate) ClearLockedAt() *PrizegivingUpdate {
+	_u.mutation.ClearLockedAt()
+	return _u
+}
+
+// AddCompetitionIDs adds the "competitions" edge to the PrizegivingCompetition entity by IDs.
+func (_u *PrizegivingUpdate) AddCompetitionIDs(ids ...int) *PrizegivingUpdate {
+	_u.mutation.AddCompetitionIDs(ids...)
+	return _u
+}
+
+// AddCompetitions adds the "competitions" edges to the PrizegivingCompetition entity.
+func (_u *PrizegivingUpdate) AddCompetitions(v ...*PrizegivingCompetition) *PrizegivingUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCompetitionIDs(ids...)
+}
+
 // Mutation returns the PrizegivingMutation object of the builder.
 func (_u *PrizegivingUpdate) Mutation() *PrizegivingMutation {
 	return _u.mutation
+}
+
+// ClearCompetitions clears all "competitions" edges to the PrizegivingCompetition entity.
+func (_u *PrizegivingUpdate) ClearCompetitions() *PrizegivingUpdate {
+	_u.mutation.ClearCompetitions()
+	return _u
+}
+
+// RemoveCompetitionIDs removes the "competitions" edge to PrizegivingCompetition entities by IDs.
+func (_u *PrizegivingUpdate) RemoveCompetitionIDs(ids ...int) *PrizegivingUpdate {
+	_u.mutation.RemoveCompetitionIDs(ids...)
+	return _u
+}
+
+// RemoveCompetitions removes "competitions" edges to PrizegivingCompetition entities.
+func (_u *PrizegivingUpdate) RemoveCompetitions(v ...*PrizegivingCompetition) *PrizegivingUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCompetitionIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -61,6 +277,16 @@ func (_u *PrizegivingUpdate) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *PrizegivingUpdate) check() error {
+	if v, ok := _u.mutation.Revision(); ok {
+		if err := prizegiving.RevisionValidator(v); err != nil {
+			return &ValidationError{Name: "revision", err: fmt.Errorf(`ent: validator failed for field "Prizegiving.revision": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.LockedByAccountID(); ok {
+		if err := prizegiving.LockedByAccountIDValidator(v); err != nil {
+			return &ValidationError{Name: "locked_by_account_id", err: fmt.Errorf(`ent: validator failed for field "Prizegiving.locked_by_account_id": %w`, err)}
+		}
+	}
 	if _u.mutation.EventCleared() && len(_u.mutation.EventIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Prizegiving.event"`)
 	}
@@ -82,6 +308,120 @@ func (_u *PrizegivingUpdate) sqlSave(ctx context.Context) (_node int, err error)
 			}
 		}
 	}
+	if value, ok := _u.mutation.Revision(); ok {
+		_spec.SetField(prizegiving.FieldRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedRevision(); ok {
+		_spec.AddField(prizegiving.FieldRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.CompetitionSessionIds(); ok {
+		_spec.SetField(prizegiving.FieldCompetitionSessionIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedCompetitionSessionIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, prizegiving.FieldCompetitionSessionIds, value)
+		})
+	}
+	if _u.mutation.CompetitionSessionIdsCleared() {
+		_spec.ClearField(prizegiving.FieldCompetitionSessionIds, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.Sequence(); ok {
+		_spec.SetField(prizegiving.FieldSequence, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedSequence(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, prizegiving.FieldSequence, value)
+		})
+	}
+	if _u.mutation.SequenceCleared() {
+		_spec.ClearField(prizegiving.FieldSequence, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.PublicationOrder(); ok {
+		_spec.SetField(prizegiving.FieldPublicationOrder, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedPublicationOrder(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, prizegiving.FieldPublicationOrder, value)
+		})
+	}
+	if _u.mutation.PublicationOrderCleared() {
+		_spec.ClearField(prizegiving.FieldPublicationOrder, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.ResultsTextTemplate(); ok {
+		_spec.SetField(prizegiving.FieldResultsTextTemplate, field.TypeJSON, value)
+	}
+	if _u.mutation.ResultsTextTemplateCleared() {
+		_spec.ClearField(prizegiving.FieldResultsTextTemplate, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.Locked(); ok {
+		_spec.SetField(prizegiving.FieldLocked, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.PreflightLock(); ok {
+		_spec.SetField(prizegiving.FieldPreflightLock, field.TypeJSON, value)
+	}
+	if _u.mutation.PreflightLockCleared() {
+		_spec.ClearField(prizegiving.FieldPreflightLock, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.LockedByAccountID(); ok {
+		_spec.SetField(prizegiving.FieldLockedByAccountID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedLockedByAccountID(); ok {
+		_spec.AddField(prizegiving.FieldLockedByAccountID, field.TypeInt, value)
+	}
+	if _u.mutation.LockedByAccountIDCleared() {
+		_spec.ClearField(prizegiving.FieldLockedByAccountID, field.TypeInt)
+	}
+	if value, ok := _u.mutation.LockedAt(); ok {
+		_spec.SetField(prizegiving.FieldLockedAt, field.TypeTime, value)
+	}
+	if _u.mutation.LockedAtCleared() {
+		_spec.ClearField(prizegiving.FieldLockedAt, field.TypeTime)
+	}
+	if _u.mutation.CompetitionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   prizegiving.CompetitionsTable,
+			Columns: []string{prizegiving.CompetitionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(prizegivingcompetition.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCompetitionsIDs(); len(nodes) > 0 && !_u.mutation.CompetitionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   prizegiving.CompetitionsTable,
+			Columns: []string{prizegiving.CompetitionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(prizegivingcompetition.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CompetitionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   prizegiving.CompetitionsTable,
+			Columns: []string{prizegiving.CompetitionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(prizegivingcompetition.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{prizegiving.Label}
@@ -102,9 +442,221 @@ type PrizegivingUpdateOne struct {
 	mutation *PrizegivingMutation
 }
 
+// SetRevision sets the "revision" field.
+func (_u *PrizegivingUpdateOne) SetRevision(v int) *PrizegivingUpdateOne {
+	_u.mutation.ResetRevision()
+	_u.mutation.SetRevision(v)
+	return _u
+}
+
+// SetNillableRevision sets the "revision" field if the given value is not nil.
+func (_u *PrizegivingUpdateOne) SetNillableRevision(v *int) *PrizegivingUpdateOne {
+	if v != nil {
+		_u.SetRevision(*v)
+	}
+	return _u
+}
+
+// AddRevision adds value to the "revision" field.
+func (_u *PrizegivingUpdateOne) AddRevision(v int) *PrizegivingUpdateOne {
+	_u.mutation.AddRevision(v)
+	return _u
+}
+
+// SetCompetitionSessionIds sets the "competition_session_ids" field.
+func (_u *PrizegivingUpdateOne) SetCompetitionSessionIds(v []int) *PrizegivingUpdateOne {
+	_u.mutation.SetCompetitionSessionIds(v)
+	return _u
+}
+
+// AppendCompetitionSessionIds appends value to the "competition_session_ids" field.
+func (_u *PrizegivingUpdateOne) AppendCompetitionSessionIds(v []int) *PrizegivingUpdateOne {
+	_u.mutation.AppendCompetitionSessionIds(v)
+	return _u
+}
+
+// ClearCompetitionSessionIds clears the value of the "competition_session_ids" field.
+func (_u *PrizegivingUpdateOne) ClearCompetitionSessionIds() *PrizegivingUpdateOne {
+	_u.mutation.ClearCompetitionSessionIds()
+	return _u
+}
+
+// SetSequence sets the "sequence" field.
+func (_u *PrizegivingUpdateOne) SetSequence(v []prizegivingvalue.Item) *PrizegivingUpdateOne {
+	_u.mutation.SetSequence(v)
+	return _u
+}
+
+// AppendSequence appends value to the "sequence" field.
+func (_u *PrizegivingUpdateOne) AppendSequence(v []prizegivingvalue.Item) *PrizegivingUpdateOne {
+	_u.mutation.AppendSequence(v)
+	return _u
+}
+
+// ClearSequence clears the value of the "sequence" field.
+func (_u *PrizegivingUpdateOne) ClearSequence() *PrizegivingUpdateOne {
+	_u.mutation.ClearSequence()
+	return _u
+}
+
+// SetPublicationOrder sets the "publication_order" field.
+func (_u *PrizegivingUpdateOne) SetPublicationOrder(v []prizegivingvalue.ItemRef) *PrizegivingUpdateOne {
+	_u.mutation.SetPublicationOrder(v)
+	return _u
+}
+
+// AppendPublicationOrder appends value to the "publication_order" field.
+func (_u *PrizegivingUpdateOne) AppendPublicationOrder(v []prizegivingvalue.ItemRef) *PrizegivingUpdateOne {
+	_u.mutation.AppendPublicationOrder(v)
+	return _u
+}
+
+// ClearPublicationOrder clears the value of the "publication_order" field.
+func (_u *PrizegivingUpdateOne) ClearPublicationOrder() *PrizegivingUpdateOne {
+	_u.mutation.ClearPublicationOrder()
+	return _u
+}
+
+// SetResultsTextTemplate sets the "results_text_template" field.
+func (_u *PrizegivingUpdateOne) SetResultsTextTemplate(v prizegivingvalue.Template) *PrizegivingUpdateOne {
+	_u.mutation.SetResultsTextTemplate(v)
+	return _u
+}
+
+// SetNillableResultsTextTemplate sets the "results_text_template" field if the given value is not nil.
+func (_u *PrizegivingUpdateOne) SetNillableResultsTextTemplate(v *prizegivingvalue.Template) *PrizegivingUpdateOne {
+	if v != nil {
+		_u.SetResultsTextTemplate(*v)
+	}
+	return _u
+}
+
+// ClearResultsTextTemplate clears the value of the "results_text_template" field.
+func (_u *PrizegivingUpdateOne) ClearResultsTextTemplate() *PrizegivingUpdateOne {
+	_u.mutation.ClearResultsTextTemplate()
+	return _u
+}
+
+// SetLocked sets the "locked" field.
+func (_u *PrizegivingUpdateOne) SetLocked(v bool) *PrizegivingUpdateOne {
+	_u.mutation.SetLocked(v)
+	return _u
+}
+
+// SetNillableLocked sets the "locked" field if the given value is not nil.
+func (_u *PrizegivingUpdateOne) SetNillableLocked(v *bool) *PrizegivingUpdateOne {
+	if v != nil {
+		_u.SetLocked(*v)
+	}
+	return _u
+}
+
+// SetPreflightLock sets the "preflight_lock" field.
+func (_u *PrizegivingUpdateOne) SetPreflightLock(v prizegivingvalue.Lock) *PrizegivingUpdateOne {
+	_u.mutation.SetPreflightLock(v)
+	return _u
+}
+
+// SetNillablePreflightLock sets the "preflight_lock" field if the given value is not nil.
+func (_u *PrizegivingUpdateOne) SetNillablePreflightLock(v *prizegivingvalue.Lock) *PrizegivingUpdateOne {
+	if v != nil {
+		_u.SetPreflightLock(*v)
+	}
+	return _u
+}
+
+// ClearPreflightLock clears the value of the "preflight_lock" field.
+func (_u *PrizegivingUpdateOne) ClearPreflightLock() *PrizegivingUpdateOne {
+	_u.mutation.ClearPreflightLock()
+	return _u
+}
+
+// SetLockedByAccountID sets the "locked_by_account_id" field.
+func (_u *PrizegivingUpdateOne) SetLockedByAccountID(v int) *PrizegivingUpdateOne {
+	_u.mutation.ResetLockedByAccountID()
+	_u.mutation.SetLockedByAccountID(v)
+	return _u
+}
+
+// SetNillableLockedByAccountID sets the "locked_by_account_id" field if the given value is not nil.
+func (_u *PrizegivingUpdateOne) SetNillableLockedByAccountID(v *int) *PrizegivingUpdateOne {
+	if v != nil {
+		_u.SetLockedByAccountID(*v)
+	}
+	return _u
+}
+
+// AddLockedByAccountID adds value to the "locked_by_account_id" field.
+func (_u *PrizegivingUpdateOne) AddLockedByAccountID(v int) *PrizegivingUpdateOne {
+	_u.mutation.AddLockedByAccountID(v)
+	return _u
+}
+
+// ClearLockedByAccountID clears the value of the "locked_by_account_id" field.
+func (_u *PrizegivingUpdateOne) ClearLockedByAccountID() *PrizegivingUpdateOne {
+	_u.mutation.ClearLockedByAccountID()
+	return _u
+}
+
+// SetLockedAt sets the "locked_at" field.
+func (_u *PrizegivingUpdateOne) SetLockedAt(v time.Time) *PrizegivingUpdateOne {
+	_u.mutation.SetLockedAt(v)
+	return _u
+}
+
+// SetNillableLockedAt sets the "locked_at" field if the given value is not nil.
+func (_u *PrizegivingUpdateOne) SetNillableLockedAt(v *time.Time) *PrizegivingUpdateOne {
+	if v != nil {
+		_u.SetLockedAt(*v)
+	}
+	return _u
+}
+
+// ClearLockedAt clears the value of the "locked_at" field.
+func (_u *PrizegivingUpdateOne) ClearLockedAt() *PrizegivingUpdateOne {
+	_u.mutation.ClearLockedAt()
+	return _u
+}
+
+// AddCompetitionIDs adds the "competitions" edge to the PrizegivingCompetition entity by IDs.
+func (_u *PrizegivingUpdateOne) AddCompetitionIDs(ids ...int) *PrizegivingUpdateOne {
+	_u.mutation.AddCompetitionIDs(ids...)
+	return _u
+}
+
+// AddCompetitions adds the "competitions" edges to the PrizegivingCompetition entity.
+func (_u *PrizegivingUpdateOne) AddCompetitions(v ...*PrizegivingCompetition) *PrizegivingUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCompetitionIDs(ids...)
+}
+
 // Mutation returns the PrizegivingMutation object of the builder.
 func (_u *PrizegivingUpdateOne) Mutation() *PrizegivingMutation {
 	return _u.mutation
+}
+
+// ClearCompetitions clears all "competitions" edges to the PrizegivingCompetition entity.
+func (_u *PrizegivingUpdateOne) ClearCompetitions() *PrizegivingUpdateOne {
+	_u.mutation.ClearCompetitions()
+	return _u
+}
+
+// RemoveCompetitionIDs removes the "competitions" edge to PrizegivingCompetition entities by IDs.
+func (_u *PrizegivingUpdateOne) RemoveCompetitionIDs(ids ...int) *PrizegivingUpdateOne {
+	_u.mutation.RemoveCompetitionIDs(ids...)
+	return _u
+}
+
+// RemoveCompetitions removes "competitions" edges to PrizegivingCompetition entities.
+func (_u *PrizegivingUpdateOne) RemoveCompetitions(v ...*PrizegivingCompetition) *PrizegivingUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCompetitionIDs(ids...)
 }
 
 // Where appends a list predicates to the PrizegivingUpdate builder.
@@ -149,6 +701,16 @@ func (_u *PrizegivingUpdateOne) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *PrizegivingUpdateOne) check() error {
+	if v, ok := _u.mutation.Revision(); ok {
+		if err := prizegiving.RevisionValidator(v); err != nil {
+			return &ValidationError{Name: "revision", err: fmt.Errorf(`ent: validator failed for field "Prizegiving.revision": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.LockedByAccountID(); ok {
+		if err := prizegiving.LockedByAccountIDValidator(v); err != nil {
+			return &ValidationError{Name: "locked_by_account_id", err: fmt.Errorf(`ent: validator failed for field "Prizegiving.locked_by_account_id": %w`, err)}
+		}
+	}
 	if _u.mutation.EventCleared() && len(_u.mutation.EventIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Prizegiving.event"`)
 	}
@@ -186,6 +748,120 @@ func (_u *PrizegivingUpdateOne) sqlSave(ctx context.Context) (_node *Prizegiving
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := _u.mutation.Revision(); ok {
+		_spec.SetField(prizegiving.FieldRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedRevision(); ok {
+		_spec.AddField(prizegiving.FieldRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.CompetitionSessionIds(); ok {
+		_spec.SetField(prizegiving.FieldCompetitionSessionIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedCompetitionSessionIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, prizegiving.FieldCompetitionSessionIds, value)
+		})
+	}
+	if _u.mutation.CompetitionSessionIdsCleared() {
+		_spec.ClearField(prizegiving.FieldCompetitionSessionIds, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.Sequence(); ok {
+		_spec.SetField(prizegiving.FieldSequence, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedSequence(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, prizegiving.FieldSequence, value)
+		})
+	}
+	if _u.mutation.SequenceCleared() {
+		_spec.ClearField(prizegiving.FieldSequence, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.PublicationOrder(); ok {
+		_spec.SetField(prizegiving.FieldPublicationOrder, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedPublicationOrder(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, prizegiving.FieldPublicationOrder, value)
+		})
+	}
+	if _u.mutation.PublicationOrderCleared() {
+		_spec.ClearField(prizegiving.FieldPublicationOrder, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.ResultsTextTemplate(); ok {
+		_spec.SetField(prizegiving.FieldResultsTextTemplate, field.TypeJSON, value)
+	}
+	if _u.mutation.ResultsTextTemplateCleared() {
+		_spec.ClearField(prizegiving.FieldResultsTextTemplate, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.Locked(); ok {
+		_spec.SetField(prizegiving.FieldLocked, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.PreflightLock(); ok {
+		_spec.SetField(prizegiving.FieldPreflightLock, field.TypeJSON, value)
+	}
+	if _u.mutation.PreflightLockCleared() {
+		_spec.ClearField(prizegiving.FieldPreflightLock, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.LockedByAccountID(); ok {
+		_spec.SetField(prizegiving.FieldLockedByAccountID, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedLockedByAccountID(); ok {
+		_spec.AddField(prizegiving.FieldLockedByAccountID, field.TypeInt, value)
+	}
+	if _u.mutation.LockedByAccountIDCleared() {
+		_spec.ClearField(prizegiving.FieldLockedByAccountID, field.TypeInt)
+	}
+	if value, ok := _u.mutation.LockedAt(); ok {
+		_spec.SetField(prizegiving.FieldLockedAt, field.TypeTime, value)
+	}
+	if _u.mutation.LockedAtCleared() {
+		_spec.ClearField(prizegiving.FieldLockedAt, field.TypeTime)
+	}
+	if _u.mutation.CompetitionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   prizegiving.CompetitionsTable,
+			Columns: []string{prizegiving.CompetitionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(prizegivingcompetition.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCompetitionsIDs(); len(nodes) > 0 && !_u.mutation.CompetitionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   prizegiving.CompetitionsTable,
+			Columns: []string{prizegiving.CompetitionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(prizegivingcompetition.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CompetitionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   prizegiving.CompetitionsTable,
+			Columns: []string{prizegiving.CompetitionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(prizegivingcompetition.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &Prizegiving{config: _u.config}
 	_spec.Assign = _node.assignValues

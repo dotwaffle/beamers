@@ -39,6 +39,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/migration"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/prizegiving"
+	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
@@ -1661,14 +1662,47 @@ func init() {
 	}
 	prizegivingFields := schema.Prizegiving{}.Fields()
 	_ = prizegivingFields
+	// prizegivingDescRevision is the schema descriptor for revision field.
+	prizegivingDescRevision := prizegivingFields[2].Descriptor()
+	// prizegiving.DefaultRevision holds the default value on creation for the revision field.
+	prizegiving.DefaultRevision = prizegivingDescRevision.Default.(int)
+	// prizegiving.RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
+	prizegiving.RevisionValidator = prizegivingDescRevision.Validators[0].(func(int) error)
+	// prizegivingDescLocked is the schema descriptor for locked field.
+	prizegivingDescLocked := prizegivingFields[7].Descriptor()
+	// prizegiving.DefaultLocked holds the default value on creation for the locked field.
+	prizegiving.DefaultLocked = prizegivingDescLocked.Default.(bool)
+	// prizegivingDescLockedByAccountID is the schema descriptor for locked_by_account_id field.
+	prizegivingDescLockedByAccountID := prizegivingFields[9].Descriptor()
+	// prizegiving.LockedByAccountIDValidator is a validator for the "locked_by_account_id" field. It is called by the builders before save.
+	prizegiving.LockedByAccountIDValidator = prizegivingDescLockedByAccountID.Validators[0].(func(int) error)
 	// prizegivingDescCreatedByAccountID is the schema descriptor for created_by_account_id field.
-	prizegivingDescCreatedByAccountID := prizegivingFields[2].Descriptor()
+	prizegivingDescCreatedByAccountID := prizegivingFields[11].Descriptor()
 	// prizegiving.CreatedByAccountIDValidator is a validator for the "created_by_account_id" field. It is called by the builders before save.
 	prizegiving.CreatedByAccountIDValidator = prizegivingDescCreatedByAccountID.Validators[0].(func(int) error)
 	// prizegivingDescCreatedAt is the schema descriptor for created_at field.
-	prizegivingDescCreatedAt := prizegivingFields[3].Descriptor()
+	prizegivingDescCreatedAt := prizegivingFields[12].Descriptor()
 	// prizegiving.DefaultCreatedAt holds the default value on creation for the created_at field.
 	prizegiving.DefaultCreatedAt = prizegivingDescCreatedAt.Default.(func() time.Time)
+	prizegivingcompetition.Policy = privacy.NewPolicies(schema.PrizegivingCompetition{})
+	prizegivingcompetition.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := prizegivingcompetition.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	prizegivingcompetitionFields := schema.PrizegivingCompetition{}.Fields()
+	_ = prizegivingcompetitionFields
+	// prizegivingcompetitionDescPrizegivingID is the schema descriptor for prizegiving_id field.
+	prizegivingcompetitionDescPrizegivingID := prizegivingcompetitionFields[1].Descriptor()
+	// prizegivingcompetition.PrizegivingIDValidator is a validator for the "prizegiving_id" field. It is called by the builders before save.
+	prizegivingcompetition.PrizegivingIDValidator = prizegivingcompetitionDescPrizegivingID.Validators[0].(func(int) error)
+	// prizegivingcompetitionDescCompetitionSessionID is the schema descriptor for competition_session_id field.
+	prizegivingcompetitionDescCompetitionSessionID := prizegivingcompetitionFields[2].Descriptor()
+	// prizegivingcompetition.CompetitionSessionIDValidator is a validator for the "competition_session_id" field. It is called by the builders before save.
+	prizegivingcompetition.CompetitionSessionIDValidator = prizegivingcompetitionDescCompetitionSessionID.Validators[0].(func(int) error)
 	publicschedulebaseline.Policy = privacy.NewPolicies(schema.PublicScheduleBaseline{})
 	publicschedulebaseline.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

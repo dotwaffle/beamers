@@ -8,6 +8,8 @@ import (
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
+
+	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 )
 
 // Prizegiving designates one Ceremony Session for Results release.
@@ -32,6 +34,15 @@ func (Prizegiving) Fields() []ent.Field {
 	return []ent.Field{
 		field.Int("event_id").Immutable(),
 		field.Int("ceremony_session_id").Immutable(),
+		field.Int("revision").Default(0).NonNegative(),
+		field.JSON("competition_session_ids", []int{}).Optional(),
+		field.JSON("sequence", []prizegivingvalue.Item{}).Optional(),
+		field.JSON("publication_order", []prizegivingvalue.ItemRef{}).Optional(),
+		field.JSON("results_text_template", prizegivingvalue.Template{}).Optional(),
+		field.Bool("locked").Default(false),
+		field.JSON("preflight_lock", prizegivingvalue.Lock{}).Optional(),
+		field.Int("locked_by_account_id").Optional().Nillable().Positive(),
+		field.Time("locked_at").Optional().Nillable(),
 		field.Int("created_by_account_id").Positive().Immutable(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 	}
@@ -52,6 +63,7 @@ func (Prizegiving) Edges() []ent.Edge {
 			Unique().
 			Immutable().
 			Required(),
+		edge.To("competitions", PrizegivingCompetition.Type),
 	}
 }
 

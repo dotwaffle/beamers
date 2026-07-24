@@ -1393,6 +1393,29 @@ func HasPrizegivingsWith(preds ...predicate.Prizegiving) predicate.Event {
 	})
 }
 
+// HasPrizegivingCompetitions applies the HasEdge predicate on the "prizegiving_competitions" edge.
+func HasPrizegivingCompetitions() predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, PrizegivingCompetitionsTable, PrizegivingCompetitionsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasPrizegivingCompetitionsWith applies the HasEdge predicate on the "prizegiving_competitions" edge with a given conditions (other predicates).
+func HasPrizegivingCompetitionsWith(preds ...predicate.PrizegivingCompetition) predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := newPrizegivingCompetitionsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasUploadLinks applies the HasEdge predicate on the "upload_links" edge.
 func HasUploadLinks() predicate.Event {
 	return predicate.Event(func(s *sql.Selector) {

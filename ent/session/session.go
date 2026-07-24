@@ -100,6 +100,8 @@ const (
 	EdgeCompetitionResultStandings = "competition_result_standings"
 	// EdgePrizegiving holds the string denoting the prizegiving edge name in mutations.
 	EdgePrizegiving = "prizegiving"
+	// EdgePrizegivingAssignment holds the string denoting the prizegiving_assignment edge name in mutations.
+	EdgePrizegivingAssignment = "prizegiving_assignment"
 	// Table holds the table name of the session in the database.
 	Table = "sessions"
 	// EventTable is the table that holds the event relation/edge.
@@ -172,6 +174,13 @@ const (
 	PrizegivingInverseTable = "prizegivings"
 	// PrizegivingColumn is the table column denoting the prizegiving relation/edge.
 	PrizegivingColumn = "ceremony_session_id"
+	// PrizegivingAssignmentTable is the table that holds the prizegiving_assignment relation/edge.
+	PrizegivingAssignmentTable = "prizegiving_competitions"
+	// PrizegivingAssignmentInverseTable is the table name for the PrizegivingCompetition entity.
+	// It exists in this package in order to avoid circular dependency with the "prizegivingcompetition" package.
+	PrizegivingAssignmentInverseTable = "prizegiving_competitions"
+	// PrizegivingAssignmentColumn is the table column denoting the prizegiving_assignment relation/edge.
+	PrizegivingAssignmentColumn = "competition_session_id"
 )
 
 // Columns holds all SQL columns for session fields.
@@ -640,6 +649,13 @@ func ByPrizegivingField(field string, opts ...sql.OrderTermOption) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newPrizegivingStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByPrizegivingAssignmentField orders the results by prizegiving_assignment field.
+func ByPrizegivingAssignmentField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newPrizegivingAssignmentStep(), sql.OrderByField(field, opts...))
+	}
+}
 func newEventStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -708,5 +724,12 @@ func newPrizegivingStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(PrizegivingInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2O, false, PrizegivingTable, PrizegivingColumn),
+	)
+}
+func newPrizegivingAssignmentStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(PrizegivingAssignmentInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2O, false, PrizegivingAssignmentTable, PrizegivingAssignmentColumn),
 	)
 }

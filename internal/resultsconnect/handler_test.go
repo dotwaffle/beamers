@@ -20,3 +20,18 @@ func TestScoreValueFromProtoRejectsDurationOutsideExactStorageRange(t *testing.T
 		t.Fatalf("oversized Duration error = %v", err)
 	}
 }
+
+func TestPrizegivingPlanFromProtoRejectsUnspecifiedEnums(t *testing.T) {
+	_, err := resultItemsFromProto([]*resultsv1.ResultItem{{
+		Kind: resultsv1.ResultItemKind_RESULT_ITEM_KIND_COMPETITION_RESULTS,
+	}})
+	if !errors.Is(err, results.ErrInvalidInput) {
+		t.Fatalf("unspecified Reveal Method error = %v", err)
+	}
+
+	if mode := prizegivingPreviewModeFromProto(
+		resultsv1.PrizegivingPreviewMode_PRIZEGIVING_PREVIEW_MODE_UNSPECIFIED,
+	); mode != "" {
+		t.Fatalf("unspecified Prizegiving Preview mode = %q", mode)
+	}
+}

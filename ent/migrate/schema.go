@@ -1030,6 +1030,15 @@ var (
 	// PrizegivingsColumns holds the columns for the "prizegivings" table.
 	PrizegivingsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "revision", Type: field.TypeInt, Default: 0},
+		{Name: "competition_session_ids", Type: field.TypeJSON, Nullable: true},
+		{Name: "sequence", Type: field.TypeJSON, Nullable: true},
+		{Name: "publication_order", Type: field.TypeJSON, Nullable: true},
+		{Name: "results_text_template", Type: field.TypeJSON, Nullable: true},
+		{Name: "locked", Type: field.TypeBool, Default: false},
+		{Name: "preflight_lock", Type: field.TypeJSON, Nullable: true},
+		{Name: "locked_by_account_id", Type: field.TypeInt, Nullable: true},
+		{Name: "locked_at", Type: field.TypeTime, Nullable: true},
 		{Name: "created_by_account_id", Type: field.TypeInt},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "event_id", Type: field.TypeInt},
@@ -1043,13 +1052,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "prizegivings_events_prizegivings",
-				Columns:    []*schema.Column{PrizegivingsColumns[3]},
+				Columns:    []*schema.Column{PrizegivingsColumns[12]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "prizegivings_sessions_prizegiving",
-				Columns:    []*schema.Column{PrizegivingsColumns[4]},
+				Columns:    []*schema.Column{PrizegivingsColumns[13]},
 				RefColumns: []*schema.Column{SessionsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -1058,7 +1067,47 @@ var (
 			{
 				Name:    "prizegiving_event_id_ceremony_session_id",
 				Unique:  true,
-				Columns: []*schema.Column{PrizegivingsColumns[3], PrizegivingsColumns[4]},
+				Columns: []*schema.Column{PrizegivingsColumns[12], PrizegivingsColumns[13]},
+			},
+		},
+	}
+	// PrizegivingCompetitionsColumns holds the columns for the "prizegiving_competitions" table.
+	PrizegivingCompetitionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "event_id", Type: field.TypeInt},
+		{Name: "prizegiving_id", Type: field.TypeInt},
+		{Name: "competition_session_id", Type: field.TypeInt, Unique: true},
+	}
+	// PrizegivingCompetitionsTable holds the schema information for the "prizegiving_competitions" table.
+	PrizegivingCompetitionsTable = &schema.Table{
+		Name:       "prizegiving_competitions",
+		Columns:    PrizegivingCompetitionsColumns,
+		PrimaryKey: []*schema.Column{PrizegivingCompetitionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "prizegiving_competitions_events_prizegiving_competitions",
+				Columns:    []*schema.Column{PrizegivingCompetitionsColumns[1]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "prizegiving_competitions_prizegivings_competitions",
+				Columns:    []*schema.Column{PrizegivingCompetitionsColumns[2]},
+				RefColumns: []*schema.Column{PrizegivingsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "prizegiving_competitions_sessions_prizegiving_assignment",
+				Columns:    []*schema.Column{PrizegivingCompetitionsColumns[3]},
+				RefColumns: []*schema.Column{SessionsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "prizegivingcompetition_event_id_prizegiving_id_competition_session_id",
+				Unique:  true,
+				Columns: []*schema.Column{PrizegivingCompetitionsColumns[1], PrizegivingCompetitionsColumns[2], PrizegivingCompetitionsColumns[3]},
 			},
 		},
 	}
@@ -1668,6 +1717,7 @@ var (
 		BeamersSchemaMigrationsTable,
 		PasswordCredentialsTable,
 		PrizegivingsTable,
+		PrizegivingCompetitionsTable,
 		PublicScheduleBaselinesTable,
 		PublicScheduleBaselineEntriesTable,
 		ReopenWindowsTable,
@@ -1739,6 +1789,9 @@ func init() {
 	PasswordCredentialsTable.ForeignKeys[0].RefTable = AccountsTable
 	PrizegivingsTable.ForeignKeys[0].RefTable = EventsTable
 	PrizegivingsTable.ForeignKeys[1].RefTable = SessionsTable
+	PrizegivingCompetitionsTable.ForeignKeys[0].RefTable = EventsTable
+	PrizegivingCompetitionsTable.ForeignKeys[1].RefTable = PrizegivingsTable
+	PrizegivingCompetitionsTable.ForeignKeys[2].RefTable = SessionsTable
 	PublicScheduleBaselinesTable.ForeignKeys[0].RefTable = EventsTable
 	PublicScheduleBaselineEntriesTable.ForeignKeys[0].RefTable = PublicScheduleBaselinesTable
 	PublicScheduleBaselineEntriesTable.ForeignKeys[1].RefTable = SessionsTable

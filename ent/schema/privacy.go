@@ -23,6 +23,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/prizegiving"
+	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
@@ -675,6 +676,24 @@ func filterViewablePrizegivings() privacy.QueryRule {
 	})
 }
 
+func filterViewablePrizegivingCompetitions() privacy.QueryRule {
+	type selectorFilter interface {
+		Where(...predicate.PrizegivingCompetition) *beamersent.PrizegivingCompetitionQuery
+	}
+	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
+		eventIDs, err := resultsEventIDs(ctx)
+		if err != nil {
+			return err
+		}
+		filter, ok := query.(selectorFilter)
+		if !ok {
+			return privacy.Denyf("unexpected Prizegiving Competition query %T", query)
+		}
+		filter.Where(prizegivingcompetition.EventIDIn(eventIDs...))
+		return privacy.Skip
+	})
+}
+
 func allowManageResultsMutation() privacy.MutationRule {
 	type eventOwnedMutation interface {
 		EventID() (int, bool)
@@ -811,6 +830,40 @@ func allowProducerResultsMutation() privacy.MutationRule {
 			if err != nil {
 				return privacy.Denyf("read Results mutation Event ownership: %v", err)
 			}
+		}
+		identity, _ := viewer.FromContext(ctx)
+		if identity.CanProduceEvent(eventID) {
+			return privacy.Allow
+		}
+		return privacy.Skip
+	})
+}
+
+func allowProducerPrizegivingCompetitionMutation() privacy.MutationRule {
+	type assignmentMutation interface {
+		EventID() (int, bool)
+		ID() (int, bool)
+		Client() *beamersent.Client
+	}
+	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
+		assignment, ok := mutation.(assignmentMutation)
+		if !ok {
+			return privacy.Skip
+		}
+		eventID, exists := assignment.EventID()
+		if !exists {
+			id, identified := assignment.ID()
+			if !identified {
+				return privacy.Skip
+			}
+			found, err := assignment.Client().PrizegivingCompetition.Get(
+				privacy.DecisionContext(ctx, privacy.Allow),
+				id,
+			)
+			if err != nil {
+				return privacy.Denyf("read Prizegiving Competition ownership: %v", err)
+			}
+			eventID = found.EventID
 		}
 		identity, _ := viewer.FromContext(ctx)
 		if identity.CanProduceEvent(eventID) {

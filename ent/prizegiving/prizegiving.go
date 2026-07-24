@@ -19,6 +19,24 @@ const (
 	FieldEventID = "event_id"
 	// FieldCeremonySessionID holds the string denoting the ceremony_session_id field in the database.
 	FieldCeremonySessionID = "ceremony_session_id"
+	// FieldRevision holds the string denoting the revision field in the database.
+	FieldRevision = "revision"
+	// FieldCompetitionSessionIds holds the string denoting the competition_session_ids field in the database.
+	FieldCompetitionSessionIds = "competition_session_ids"
+	// FieldSequence holds the string denoting the sequence field in the database.
+	FieldSequence = "sequence"
+	// FieldPublicationOrder holds the string denoting the publication_order field in the database.
+	FieldPublicationOrder = "publication_order"
+	// FieldResultsTextTemplate holds the string denoting the results_text_template field in the database.
+	FieldResultsTextTemplate = "results_text_template"
+	// FieldLocked holds the string denoting the locked field in the database.
+	FieldLocked = "locked"
+	// FieldPreflightLock holds the string denoting the preflight_lock field in the database.
+	FieldPreflightLock = "preflight_lock"
+	// FieldLockedByAccountID holds the string denoting the locked_by_account_id field in the database.
+	FieldLockedByAccountID = "locked_by_account_id"
+	// FieldLockedAt holds the string denoting the locked_at field in the database.
+	FieldLockedAt = "locked_at"
 	// FieldCreatedByAccountID holds the string denoting the created_by_account_id field in the database.
 	FieldCreatedByAccountID = "created_by_account_id"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -27,6 +45,8 @@ const (
 	EdgeEvent = "event"
 	// EdgeCeremony holds the string denoting the ceremony edge name in mutations.
 	EdgeCeremony = "ceremony"
+	// EdgeCompetitions holds the string denoting the competitions edge name in mutations.
+	EdgeCompetitions = "competitions"
 	// Table holds the table name of the prizegiving in the database.
 	Table = "prizegivings"
 	// EventTable is the table that holds the event relation/edge.
@@ -43,6 +63,13 @@ const (
 	CeremonyInverseTable = "sessions"
 	// CeremonyColumn is the table column denoting the ceremony relation/edge.
 	CeremonyColumn = "ceremony_session_id"
+	// CompetitionsTable is the table that holds the competitions relation/edge.
+	CompetitionsTable = "prizegiving_competitions"
+	// CompetitionsInverseTable is the table name for the PrizegivingCompetition entity.
+	// It exists in this package in order to avoid circular dependency with the "prizegivingcompetition" package.
+	CompetitionsInverseTable = "prizegiving_competitions"
+	// CompetitionsColumn is the table column denoting the competitions relation/edge.
+	CompetitionsColumn = "prizegiving_id"
 )
 
 // Columns holds all SQL columns for prizegiving fields.
@@ -50,6 +77,15 @@ var Columns = []string{
 	FieldID,
 	FieldEventID,
 	FieldCeremonySessionID,
+	FieldRevision,
+	FieldCompetitionSessionIds,
+	FieldSequence,
+	FieldPublicationOrder,
+	FieldResultsTextTemplate,
+	FieldLocked,
+	FieldPreflightLock,
+	FieldLockedByAccountID,
+	FieldLockedAt,
 	FieldCreatedByAccountID,
 	FieldCreatedAt,
 }
@@ -72,6 +108,14 @@ func ValidColumn(column string) bool {
 var (
 	Hooks  [1]ent.Hook
 	Policy ent.Policy
+	// DefaultRevision holds the default value on creation for the "revision" field.
+	DefaultRevision int
+	// RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
+	RevisionValidator func(int) error
+	// DefaultLocked holds the default value on creation for the "locked" field.
+	DefaultLocked bool
+	// LockedByAccountIDValidator is a validator for the "locked_by_account_id" field. It is called by the builders before save.
+	LockedByAccountIDValidator func(int) error
 	// CreatedByAccountIDValidator is a validator for the "created_by_account_id" field. It is called by the builders before save.
 	CreatedByAccountIDValidator func(int) error
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
@@ -94,6 +138,26 @@ func ByEventID(opts ...sql.OrderTermOption) OrderOption {
 // ByCeremonySessionID orders the results by the ceremony_session_id field.
 func ByCeremonySessionID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCeremonySessionID, opts...).ToFunc()
+}
+
+// ByRevision orders the results by the revision field.
+func ByRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRevision, opts...).ToFunc()
+}
+
+// ByLocked orders the results by the locked field.
+func ByLocked(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLocked, opts...).ToFunc()
+}
+
+// ByLockedByAccountID orders the results by the locked_by_account_id field.
+func ByLockedByAccountID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLockedByAccountID, opts...).ToFunc()
+}
+
+// ByLockedAt orders the results by the locked_at field.
+func ByLockedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLockedAt, opts...).ToFunc()
 }
 
 // ByCreatedByAccountID orders the results by the created_by_account_id field.
@@ -119,6 +183,20 @@ func ByCeremonyField(field string, opts ...sql.OrderTermOption) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newCeremonyStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByCompetitionsCount orders the results by competitions count.
+func ByCompetitionsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCompetitionsStep(), opts...)
+	}
+}
+
+// ByCompetitions orders the results by competitions terms.
+func ByCompetitions(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCompetitionsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newEventStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -131,5 +209,12 @@ func newCeremonyStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(CeremonyInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2O, true, CeremonyTable, CeremonyColumn),
+	)
+}
+func newCompetitionsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CompetitionsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CompetitionsTable, CompetitionsColumn),
 	)
 }

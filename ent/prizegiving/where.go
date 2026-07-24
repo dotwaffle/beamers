@@ -65,6 +65,26 @@ func CeremonySessionID(v int) predicate.Prizegiving {
 	return predicate.Prizegiving(sql.FieldEQ(FieldCeremonySessionID, v))
 }
 
+// Revision applies equality check predicate on the "revision" field. It's identical to RevisionEQ.
+func Revision(v int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldEQ(FieldRevision, v))
+}
+
+// Locked applies equality check predicate on the "locked" field. It's identical to LockedEQ.
+func Locked(v bool) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldEQ(FieldLocked, v))
+}
+
+// LockedByAccountID applies equality check predicate on the "locked_by_account_id" field. It's identical to LockedByAccountIDEQ.
+func LockedByAccountID(v int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldEQ(FieldLockedByAccountID, v))
+}
+
+// LockedAt applies equality check predicate on the "locked_at" field. It's identical to LockedAtEQ.
+func LockedAt(v time.Time) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldEQ(FieldLockedAt, v))
+}
+
 // CreatedByAccountID applies equality check predicate on the "created_by_account_id" field. It's identical to CreatedByAccountIDEQ.
 func CreatedByAccountID(v int) predicate.Prizegiving {
 	return predicate.Prizegiving(sql.FieldEQ(FieldCreatedByAccountID, v))
@@ -113,6 +133,206 @@ func CeremonySessionIDIn(vs ...int) predicate.Prizegiving {
 // CeremonySessionIDNotIn applies the NotIn predicate on the "ceremony_session_id" field.
 func CeremonySessionIDNotIn(vs ...int) predicate.Prizegiving {
 	return predicate.Prizegiving(sql.FieldNotIn(FieldCeremonySessionID, vs...))
+}
+
+// RevisionEQ applies the EQ predicate on the "revision" field.
+func RevisionEQ(v int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldEQ(FieldRevision, v))
+}
+
+// RevisionNEQ applies the NEQ predicate on the "revision" field.
+func RevisionNEQ(v int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldNEQ(FieldRevision, v))
+}
+
+// RevisionIn applies the In predicate on the "revision" field.
+func RevisionIn(vs ...int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldIn(FieldRevision, vs...))
+}
+
+// RevisionNotIn applies the NotIn predicate on the "revision" field.
+func RevisionNotIn(vs ...int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldNotIn(FieldRevision, vs...))
+}
+
+// RevisionGT applies the GT predicate on the "revision" field.
+func RevisionGT(v int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldGT(FieldRevision, v))
+}
+
+// RevisionGTE applies the GTE predicate on the "revision" field.
+func RevisionGTE(v int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldGTE(FieldRevision, v))
+}
+
+// RevisionLT applies the LT predicate on the "revision" field.
+func RevisionLT(v int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldLT(FieldRevision, v))
+}
+
+// RevisionLTE applies the LTE predicate on the "revision" field.
+func RevisionLTE(v int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldLTE(FieldRevision, v))
+}
+
+// CompetitionSessionIdsIsNil applies the IsNil predicate on the "competition_session_ids" field.
+func CompetitionSessionIdsIsNil() predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldIsNull(FieldCompetitionSessionIds))
+}
+
+// CompetitionSessionIdsNotNil applies the NotNil predicate on the "competition_session_ids" field.
+func CompetitionSessionIdsNotNil() predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldNotNull(FieldCompetitionSessionIds))
+}
+
+// SequenceIsNil applies the IsNil predicate on the "sequence" field.
+func SequenceIsNil() predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldIsNull(FieldSequence))
+}
+
+// SequenceNotNil applies the NotNil predicate on the "sequence" field.
+func SequenceNotNil() predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldNotNull(FieldSequence))
+}
+
+// PublicationOrderIsNil applies the IsNil predicate on the "publication_order" field.
+func PublicationOrderIsNil() predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldIsNull(FieldPublicationOrder))
+}
+
+// PublicationOrderNotNil applies the NotNil predicate on the "publication_order" field.
+func PublicationOrderNotNil() predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldNotNull(FieldPublicationOrder))
+}
+
+// ResultsTextTemplateIsNil applies the IsNil predicate on the "results_text_template" field.
+func ResultsTextTemplateIsNil() predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldIsNull(FieldResultsTextTemplate))
+}
+
+// ResultsTextTemplateNotNil applies the NotNil predicate on the "results_text_template" field.
+func ResultsTextTemplateNotNil() predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldNotNull(FieldResultsTextTemplate))
+}
+
+// LockedEQ applies the EQ predicate on the "locked" field.
+func LockedEQ(v bool) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldEQ(FieldLocked, v))
+}
+
+// LockedNEQ applies the NEQ predicate on the "locked" field.
+func LockedNEQ(v bool) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldNEQ(FieldLocked, v))
+}
+
+// PreflightLockIsNil applies the IsNil predicate on the "preflight_lock" field.
+func PreflightLockIsNil() predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldIsNull(FieldPreflightLock))
+}
+
+// PreflightLockNotNil applies the NotNil predicate on the "preflight_lock" field.
+func PreflightLockNotNil() predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldNotNull(FieldPreflightLock))
+}
+
+// LockedByAccountIDEQ applies the EQ predicate on the "locked_by_account_id" field.
+func LockedByAccountIDEQ(v int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldEQ(FieldLockedByAccountID, v))
+}
+
+// LockedByAccountIDNEQ applies the NEQ predicate on the "locked_by_account_id" field.
+func LockedByAccountIDNEQ(v int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldNEQ(FieldLockedByAccountID, v))
+}
+
+// LockedByAccountIDIn applies the In predicate on the "locked_by_account_id" field.
+func LockedByAccountIDIn(vs ...int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldIn(FieldLockedByAccountID, vs...))
+}
+
+// LockedByAccountIDNotIn applies the NotIn predicate on the "locked_by_account_id" field.
+func LockedByAccountIDNotIn(vs ...int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldNotIn(FieldLockedByAccountID, vs...))
+}
+
+// LockedByAccountIDGT applies the GT predicate on the "locked_by_account_id" field.
+func LockedByAccountIDGT(v int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldGT(FieldLockedByAccountID, v))
+}
+
+// LockedByAccountIDGTE applies the GTE predicate on the "locked_by_account_id" field.
+func LockedByAccountIDGTE(v int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldGTE(FieldLockedByAccountID, v))
+}
+
+// LockedByAccountIDLT applies the LT predicate on the "locked_by_account_id" field.
+func LockedByAccountIDLT(v int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldLT(FieldLockedByAccountID, v))
+}
+
+// LockedByAccountIDLTE applies the LTE predicate on the "locked_by_account_id" field.
+func LockedByAccountIDLTE(v int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldLTE(FieldLockedByAccountID, v))
+}
+
+// LockedByAccountIDIsNil applies the IsNil predicate on the "locked_by_account_id" field.
+func LockedByAccountIDIsNil() predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldIsNull(FieldLockedByAccountID))
+}
+
+// LockedByAccountIDNotNil applies the NotNil predicate on the "locked_by_account_id" field.
+func LockedByAccountIDNotNil() predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldNotNull(FieldLockedByAccountID))
+}
+
+// LockedAtEQ applies the EQ predicate on the "locked_at" field.
+func LockedAtEQ(v time.Time) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldEQ(FieldLockedAt, v))
+}
+
+// LockedAtNEQ applies the NEQ predicate on the "locked_at" field.
+func LockedAtNEQ(v time.Time) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldNEQ(FieldLockedAt, v))
+}
+
+// LockedAtIn applies the In predicate on the "locked_at" field.
+func LockedAtIn(vs ...time.Time) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldIn(FieldLockedAt, vs...))
+}
+
+// LockedAtNotIn applies the NotIn predicate on the "locked_at" field.
+func LockedAtNotIn(vs ...time.Time) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldNotIn(FieldLockedAt, vs...))
+}
+
+// LockedAtGT applies the GT predicate on the "locked_at" field.
+func LockedAtGT(v time.Time) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldGT(FieldLockedAt, v))
+}
+
+// LockedAtGTE applies the GTE predicate on the "locked_at" field.
+func LockedAtGTE(v time.Time) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldGTE(FieldLockedAt, v))
+}
+
+// LockedAtLT applies the LT predicate on the "locked_at" field.
+func LockedAtLT(v time.Time) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldLT(FieldLockedAt, v))
+}
+
+// LockedAtLTE applies the LTE predicate on the "locked_at" field.
+func LockedAtLTE(v time.Time) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldLTE(FieldLockedAt, v))
+}
+
+// LockedAtIsNil applies the IsNil predicate on the "locked_at" field.
+func LockedAtIsNil() predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldIsNull(FieldLockedAt))
+}
+
+// LockedAtNotNil applies the NotNil predicate on the "locked_at" field.
+func LockedAtNotNil() predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldNotNull(FieldLockedAt))
 }
 
 // CreatedByAccountIDEQ applies the EQ predicate on the "created_by_account_id" field.
@@ -233,6 +453,29 @@ func HasCeremony() predicate.Prizegiving {
 func HasCeremonyWith(preds ...predicate.Session) predicate.Prizegiving {
 	return predicate.Prizegiving(func(s *sql.Selector) {
 		step := newCeremonyStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasCompetitions applies the HasEdge predicate on the "competitions" edge.
+func HasCompetitions() predicate.Prizegiving {
+	return predicate.Prizegiving(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CompetitionsTable, CompetitionsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCompetitionsWith applies the HasEdge predicate on the "competitions" edge with a given conditions (other predicates).
+func HasCompetitionsWith(preds ...predicate.PrizegivingCompetition) predicate.Prizegiving {
+	return predicate.Prizegiving(func(s *sql.Selector) {
+		step := newCompetitionsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)
