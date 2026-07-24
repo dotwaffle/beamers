@@ -195,6 +195,7 @@ func formPreflight(state store.ActivationPreflightState, now time.Time) Prefligh
 		strconv.Itoa(state.EventRevision),
 		strconv.Itoa(state.PublishedRundown.PublishedRevision),
 		strconv.Itoa(state.ActivationGeneration),
+		strconv.FormatBool(state.PublicScheduleBaselineCaptured),
 		state.PlannedStartDate,
 		state.PlannedEndDate,
 		state.Timezone,
@@ -312,6 +313,12 @@ func validPublishedSession(session store.PublishedSession) bool {
 
 func operationalWarnings(state store.ActivationPreflightState, now time.Time) []Finding {
 	var warnings []Finding
+	if !state.PublicScheduleBaselineCaptured {
+		warnings = append(warnings, Finding{
+			Code:    "public_schedule_baseline_missing",
+			Message: "Public Schedule Baseline has not been captured; attendee views cannot show “Was:” timing context",
+		})
+	}
 	for _, display := range state.UnassignedDisplays {
 		warnings = append(warnings, Finding{
 			Code: "unassigned_display", Message: fmt.Sprintf("Display %s has no Assignment for this Event", display.Name),

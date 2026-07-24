@@ -93,6 +93,12 @@ type Migration func(*sql.Selector)
 // PasswordCredential is the predicate function for passwordcredential builders.
 type PasswordCredential func(*sql.Selector)
 
+// PublicScheduleBaseline is the predicate function for publicschedulebaseline builders.
+type PublicScheduleBaseline func(*sql.Selector)
+
+// PublicScheduleBaselineEntry is the predicate function for publicschedulebaselineentry builders.
+type PublicScheduleBaselineEntry func(*sql.Selector)
+
 // ReopenWindow is the predicate function for reopenwindow builders.
 type ReopenWindow func(*sql.Selector)
 

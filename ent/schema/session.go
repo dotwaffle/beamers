@@ -85,6 +85,7 @@ func (Session) Edges() []ent.Edge {
 		edge.To("published_versions", SessionPublishedVersion.Type),
 		edge.To("runs", SessionRun.Type),
 		edge.To("cancellations", SessionCancellation.Type),
+		edge.To("public_schedule_baseline_entry", PublicScheduleBaselineEntry.Type).Unique(),
 		edge.To("competition_entries", CompetitionEntry.Type),
 	}
 }

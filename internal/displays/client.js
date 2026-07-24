@@ -663,17 +663,29 @@ function appendSessionSchedule(parent, snapshot, session) {
   appendParagraph(parent, `Status: ${session.lifecycle}`);
   appendParagraph(
     parent,
-    `Forecast Time: ${formatScheduleTime(snapshot, session.forecastStart)}–` +
-      formatScheduleTime(snapshot, session.forecastEnd),
+    `${requiredText(session.presentedStartLabel, "presented start label")}: ` +
+      `${formatScheduleTime(snapshot, session.presentedStart)} – ` +
+      `${requiredText(session.presentedEndLabel, "presented end label")}: ` +
+      formatScheduleTime(snapshot, session.presentedEnd),
   );
 }
 
 function formatScheduleTime(snapshot, value) {
+  if (!value || !Number.isFinite(new Date(value).getTime())) {
+    throw new Error("Presented Session time is invalid");
+  }
   return new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
     timeStyle: "short",
     timeZone: snapshot.eventTimezone || "UTC",
   }).format(new Date(value));
+}
+
+function requiredText(value, name) {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`Session ${name} is invalid`);
+  }
+  return value;
 }
 
 async function acknowledgeSnapshot(snapshot, rendererUnstable) {

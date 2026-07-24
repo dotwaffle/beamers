@@ -209,6 +209,14 @@ func (transaction *CommandTx) Publish(ctx context.Context, params PublishParams)
 	if publishErr := transaction.publishChanges(ctx, changes, nextPublishedRevision, params.Now); publishErr != nil {
 		return PublishResult{}, publishErr
 	}
+	if baselineErr := transaction.enrollPublicScheduleBaselineEntries(
+		ctx,
+		params.EventID,
+		nextPublishedRevision,
+		params.Now,
+	); baselineErr != nil {
+		return PublishResult{}, baselineErr
+	}
 	if _, updateErr := transaction.transaction.DraftChange.Update().
 		Where(draftchange.IDIn(params.ChangeIDs...)).
 		SetStatus(draftchange.StatusPublished).

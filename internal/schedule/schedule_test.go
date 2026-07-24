@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dotwaffle/beamers/internal/publictime"
 	"github.com/dotwaffle/beamers/internal/store"
 )
 
@@ -97,8 +98,12 @@ func TestScheduleLanguageUsesContentLanguageThenEventLocale(t *testing.T) {
 
 func TestSortScheduleSessionsUsesAbsoluteFallbackOrder(t *testing.T) {
 	sessions := []store.PublicScheduleSession{
-		{ID: 2, ForecastStart: time.Date(2026, 10, 25, 1, 15, 0, 0, time.UTC)},
-		{ID: 1, ForecastStart: time.Date(2026, 10, 25, 0, 45, 0, 0, time.UTC)},
+		{ID: 2, PublicTime: publictime.Facts{Forecast: publictime.Range{
+			Start: time.Date(2026, 10, 25, 1, 15, 0, 0, time.UTC),
+		}}},
+		{ID: 1, PublicTime: publictime.Facts{Forecast: publictime.Range{
+			Start: time.Date(2026, 10, 25, 0, 45, 0, 0, time.UTC),
+		}}},
 	}
 	sortScheduleSessions(sessions)
 	if sessions[0].ID != 1 || sessions[1].ID != 2 {
@@ -109,36 +114,25 @@ func TestSortScheduleSessionsUsesAbsoluteFallbackOrder(t *testing.T) {
 func TestFilterScheduleSessionsMatchesEverySelectedDimension(t *testing.T) {
 	sessions := []store.PublicScheduleSession{
 		{
-			ID: 1, ForecastStart: time.Date(2026, 8, 21, 8, 0, 0, 0, time.UTC),
+			ID: 1, PublicTime: publictime.Facts{Forecast: publictime.Range{
+				Start: time.Date(2026, 8, 21, 8, 0, 0, 0, time.UTC),
+			}},
 			LocationIDs: []int{1}, LaneIDs: []int{2}, TrackIDs: []int{3},
 		},
 		{
-			ID: 2, ForecastStart: time.Date(2026, 8, 21, 9, 0, 0, 0, time.UTC),
+			ID: 2, PublicTime: publictime.Facts{Forecast: publictime.Range{
+				Start: time.Date(2026, 8, 21, 9, 0, 0, 0, time.UTC),
+			}},
 			LocationIDs: []int{1}, LaneIDs: []int{4}, TrackIDs: []int{3},
 		},
 	}
 	filtered := filterScheduleSessions(sessions, Filter{
 		Day: "2026-08-21", LocationID: 1, LaneID: 2, TrackID: 3,
 	}, func(item store.PublicScheduleSession) string {
-		return item.ForecastStart.Format(time.DateOnly)
+		return item.PublicTime.Forecast.Start.Format(time.DateOnly)
 	})
 	if len(filtered) != 1 || filtered[0].ID != 1 {
 		t.Fatalf("filtered Schedule Sessions = %+v", filtered)
-	}
-}
-
-func TestPublicActualTimeUsesCommunicatedTimeWithinTolerance(t *testing.T) {
-	communicated := time.Date(2026, 8, 21, 8, 0, 0, 0, time.UTC)
-	actual := communicated.Add(90 * time.Second)
-
-	if got := publicActualTime(actual, communicated, 30*time.Minute); !got.Equal(communicated) {
-		t.Errorf("normalized public Actual Time = %s; want %s", got, communicated)
-	}
-	if got := publicActualTime(actual, communicated, 10*time.Minute); !got.Equal(actual) {
-		t.Errorf("short Session public Actual Time = %s; want exact %s", got, actual)
-	}
-	if got := publicActualTime(actual.Add(time.Minute), communicated, 30*time.Minute); !got.Equal(actual.Add(time.Minute)) {
-		t.Errorf("late public Actual Time = %s; want exact %s", got, actual.Add(time.Minute))
 	}
 }
 

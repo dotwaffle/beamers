@@ -24,6 +24,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/displayviews"
+	"github.com/dotwaffle/beamers/internal/publictime"
 	"github.com/dotwaffle/beamers/internal/stagetimer"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -186,24 +187,28 @@ type Acknowledgment struct {
 
 // Session is one Display-safe committed Schedule item.
 type Session struct {
-	ID                   int
-	Title                string
-	Speaker              string
-	PublicDetails        string
-	ForecastStart        time.Time
-	ForecastEnd          time.Time
-	Lifecycle            string
-	LiveStateRevision    int
-	ActualStart          time.Time
-	ActualEnd            *time.Time
-	LocationIDs          []int
-	LaneIDs              []int
-	TrackIDs             []int
-	Unavailable          bool
-	AvailabilityMessage  string
-	DisplayForecastStart string
-	DisplayForecastEnd   string
-	orderAt              time.Time
+	ID                    int
+	Title                 string
+	Speaker               string
+	PublicDetails         string
+	ForecastStart         time.Time
+	ForecastEnd           time.Time
+	Lifecycle             string
+	LiveStateRevision     int
+	ActualStart           time.Time
+	ActualEnd             *time.Time
+	LocationIDs           []int
+	LaneIDs               []int
+	TrackIDs              []int
+	Unavailable           bool
+	AvailabilityMessage   string
+	PresentedStart        time.Time
+	PresentedEnd          time.Time
+	PresentedStartLabel   publictime.Label
+	PresentedEndLabel     publictime.Label
+	DisplayPresentedStart string
+	DisplayPresentedEnd   string
+	orderAt               time.Time
 }
 
 // StageTimer is one authoritative live Session clock for a Display.
@@ -355,7 +360,14 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 		}
 	}
 	for _, item := range found.Sessions {
-		if selected, ok := displaySession(found, item, now, zone); ok {
+		selected, ok, presentationErr := displaySession(found, item, now, zone)
+		if presentationErr != nil {
+			return Snapshot{}, errors.Join(
+				fmt.Errorf("present Display Session %d", item.ID),
+				presentationErr,
+			)
+		}
+		if ok {
 			result.Sessions = append(result.Sessions, selected)
 		}
 	}
@@ -864,15 +876,15 @@ func displaySession(
 	found store.DisplaySessionState,
 	now time.Time,
 	zone *time.Location,
-) (Session, bool) {
+) (Session, bool, error) {
 	if found.Lifecycle == "Ended" || found.Lifecycle != "Live" && !found.ForecastEnd.After(now) {
-		return Session{}, false
+		return Session{}, false, nil
 	}
 	if snapshot.ViewKey == displayviews.EventOverview && found.AudienceVisibility != "Public" {
-		return Session{}, false
+		return Session{}, false, nil
 	}
 	if snapshot.ViewKey == displayviews.LocationSignage && !containsID(found.LocationIDs, snapshot.LocationID) {
-		return Session{}, false
+		return Session{}, false, nil
 	}
 	if found.AudienceVisibility != "Public" {
 		return Session{
@@ -880,7 +892,11 @@ func displaySession(
 			AvailabilityMessage: "Location unavailable until " +
 				found.ForecastEnd.In(zone).Format("Jan 2, 2006 15:04 MST"),
 			orderAt: found.ForecastStart,
-		}, true
+		}, true, nil
+	}
+	presentation, err := publictime.Present(found.PublicTime)
+	if err != nil {
+		return Session{}, false, err
 	}
 	return Session{
 		ID: found.ID, Title: found.Title, Speaker: found.Speaker, PublicDetails: found.PublicDetails,
@@ -888,10 +904,12 @@ func displaySession(
 		Lifecycle: found.Lifecycle, LiveStateRevision: found.LiveStateRevision,
 		ActualStart: found.ActualStart, ActualEnd: found.ActualEnd,
 		LocationIDs: found.LocationIDs, LaneIDs: found.LaneIDs, TrackIDs: found.TrackIDs,
-		DisplayForecastStart: found.ForecastStart.In(zone).Format("Jan 2, 2006 15:04 MST"),
-		DisplayForecastEnd:   found.ForecastEnd.In(zone).Format("Jan 2, 2006 15:04 MST"),
-		orderAt:              found.ForecastStart,
-	}, true
+		PresentedStart: presentation.Start.Time, PresentedEnd: presentation.End.Time,
+		PresentedStartLabel: presentation.Start.Label, PresentedEndLabel: presentation.End.Label,
+		DisplayPresentedStart: presentation.Start.Time.In(zone).Format("Jan 2, 2006 15:04 MST"),
+		DisplayPresentedEnd:   presentation.End.Time.In(zone).Format("Jan 2, 2006 15:04 MST"),
+		orderAt:               found.ForecastStart,
+	}, true, nil
 }
 
 func containsID(ids []int, selected int) bool {

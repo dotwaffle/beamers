@@ -76,6 +76,8 @@ const (
 	EdgeDraftChanges = "draft_changes"
 	// EdgeImportReferences holds the string denoting the import_references edge name in mutations.
 	EdgeImportReferences = "import_references"
+	// EdgePublicScheduleBaseline holds the string denoting the public_schedule_baseline edge name in mutations.
+	EdgePublicScheduleBaseline = "public_schedule_baseline"
 	// EdgeDisplayAssignments holds the string denoting the display_assignments edge name in mutations.
 	EdgeDisplayAssignments = "display_assignments"
 	// EdgeDisplayOverrides holds the string denoting the display_overrides edge name in mutations.
@@ -159,6 +161,13 @@ const (
 	ImportReferencesInverseTable = "import_references"
 	// ImportReferencesColumn is the table column denoting the import_references relation/edge.
 	ImportReferencesColumn = "event_id"
+	// PublicScheduleBaselineTable is the table that holds the public_schedule_baseline relation/edge.
+	PublicScheduleBaselineTable = "public_schedule_baselines"
+	// PublicScheduleBaselineInverseTable is the table name for the PublicScheduleBaseline entity.
+	// It exists in this package in order to avoid circular dependency with the "publicschedulebaseline" package.
+	PublicScheduleBaselineInverseTable = "public_schedule_baselines"
+	// PublicScheduleBaselineColumn is the table column denoting the public_schedule_baseline relation/edge.
+	PublicScheduleBaselineColumn = "event_id"
 	// DisplayAssignmentsTable is the table that holds the display_assignments relation/edge.
 	DisplayAssignmentsTable = "display_assignments"
 	// DisplayAssignmentsInverseTable is the table name for the DisplayAssignment entity.
@@ -566,6 +575,13 @@ func ByImportReferences(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption 
 	}
 }
 
+// ByPublicScheduleBaselineField orders the results by public_schedule_baseline field.
+func ByPublicScheduleBaselineField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newPublicScheduleBaselineStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // ByDisplayAssignmentsCount orders the results by display_assignments count.
 func ByDisplayAssignmentsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -668,6 +684,13 @@ func newImportReferencesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ImportReferencesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ImportReferencesTable, ImportReferencesColumn),
+	)
+}
+func newPublicScheduleBaselineStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(PublicScheduleBaselineInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2O, false, PublicScheduleBaselineTable, PublicScheduleBaselineColumn),
 	)
 }
 func newDisplayAssignmentsStep() *sqlgraph.Step {

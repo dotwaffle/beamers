@@ -853,6 +853,10 @@ type DisplaySession struct {
 	TrackIds            []int64                `protobuf:"varint,13,rep,packed,name=track_ids,json=trackIds,proto3" json:"track_ids,omitempty"`
 	Unavailable         bool                   `protobuf:"varint,14,opt,name=unavailable,proto3" json:"unavailable,omitempty"`
 	AvailabilityMessage string                 `protobuf:"bytes,15,opt,name=availability_message,json=availabilityMessage,proto3" json:"availability_message,omitempty"`
+	PresentedStart      *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=presented_start,json=presentedStart,proto3" json:"presented_start,omitempty"`
+	PresentedEnd        *timestamppb.Timestamp `protobuf:"bytes,17,opt,name=presented_end,json=presentedEnd,proto3" json:"presented_end,omitempty"`
+	PresentedStartLabel string                 `protobuf:"bytes,18,opt,name=presented_start_label,json=presentedStartLabel,proto3" json:"presented_start_label,omitempty"`
+	PresentedEndLabel   string                 `protobuf:"bytes,19,opt,name=presented_end_label,json=presentedEndLabel,proto3" json:"presented_end_label,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -988,6 +992,34 @@ func (x *DisplaySession) GetUnavailable() bool {
 func (x *DisplaySession) GetAvailabilityMessage() string {
 	if x != nil {
 		return x.AvailabilityMessage
+	}
+	return ""
+}
+
+func (x *DisplaySession) GetPresentedStart() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PresentedStart
+	}
+	return nil
+}
+
+func (x *DisplaySession) GetPresentedEnd() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PresentedEnd
+	}
+	return nil
+}
+
+func (x *DisplaySession) GetPresentedStartLabel() string {
+	if x != nil {
+		return x.PresentedStartLabel
+	}
+	return ""
+}
+
+func (x *DisplaySession) GetPresentedEndLabel() string {
+	if x != nil {
+		return x.PresentedEndLabel
 	}
 	return ""
 }
@@ -1669,7 +1701,7 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\x04font\x18\b \x01(\tR\x04font\x12\x1e\n" +
 	"\n" +
 	"transition\x18\t \x01(\tR\n" +
-	"transition\"\xf1\x04\n" +
+	"transition\"\xdb\x06\n" +
 	"\x0eDisplaySession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x18\n" +
@@ -1687,7 +1719,11 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\blane_ids\x18\f \x03(\x03R\alaneIds\x12\x1b\n" +
 	"\ttrack_ids\x18\r \x03(\x03R\btrackIds\x12 \n" +
 	"\vunavailable\x18\x0e \x01(\bR\vunavailable\x121\n" +
-	"\x14availability_message\x18\x0f \x01(\tR\x13availabilityMessage\"|\n" +
+	"\x14availability_message\x18\x0f \x01(\tR\x13availabilityMessage\x12C\n" +
+	"\x0fpresented_start\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampR\x0epresentedStart\x12?\n" +
+	"\rpresented_end\x18\x11 \x01(\v2\x1a.google.protobuf.TimestampR\fpresentedEnd\x122\n" +
+	"\x15presented_start_label\x18\x12 \x01(\tR\x13presentedStartLabel\x12.\n" +
+	"\x13presented_end_label\x18\x13 \x01(\tR\x11presentedEndLabel\"|\n" +
 	"\x0eTimerThreshold\x12+\n" +
 	"\x11remaining_seconds\x18\x01 \x01(\x03R\x10remainingSeconds\x12=\n" +
 	"\bemphasis\x18\x02 \x01(\x0e2!.beamers.display.v1.TimerEmphasisR\bemphasis\"\xbc\x03\n" +
@@ -1819,23 +1855,25 @@ var file_beamers_display_v1_display_proto_depIdxs = []int32{
 	16, // 15: beamers.display.v1.DisplaySession.forecast_end:type_name -> google.protobuf.Timestamp
 	16, // 16: beamers.display.v1.DisplaySession.actual_start:type_name -> google.protobuf.Timestamp
 	16, // 17: beamers.display.v1.DisplaySession.actual_end:type_name -> google.protobuf.Timestamp
-	1,  // 18: beamers.display.v1.TimerThreshold.emphasis:type_name -> beamers.display.v1.TimerEmphasis
-	0,  // 19: beamers.display.v1.StageTimer.mode:type_name -> beamers.display.v1.StageTimerMode
-	16, // 20: beamers.display.v1.StageTimer.anchor:type_name -> google.protobuf.Timestamp
-	11, // 21: beamers.display.v1.StageTimer.thresholds:type_name -> beamers.display.v1.TimerThreshold
-	16, // 22: beamers.display.v1.StageTimer.forecast_end:type_name -> google.protobuf.Timestamp
-	16, // 23: beamers.display.v1.StageTimer.adjustment_notice_expires_at:type_name -> google.protobuf.Timestamp
-	15, // 24: beamers.display.v1.AcknowledgeResponse.acknowledgment:type_name -> beamers.display.v1.DisplayAcknowledgment
-	16, // 25: beamers.display.v1.DisplayAcknowledgment.applied_at:type_name -> google.protobuf.Timestamp
-	2,  // 26: beamers.display.v1.DisplayService.GetSnapshot:input_type -> beamers.display.v1.GetSnapshotRequest
-	13, // 27: beamers.display.v1.DisplayService.Acknowledge:input_type -> beamers.display.v1.AcknowledgeRequest
-	3,  // 28: beamers.display.v1.DisplayService.GetSnapshot:output_type -> beamers.display.v1.GetSnapshotResponse
-	14, // 29: beamers.display.v1.DisplayService.Acknowledge:output_type -> beamers.display.v1.AcknowledgeResponse
-	28, // [28:30] is the sub-list for method output_type
-	26, // [26:28] is the sub-list for method input_type
-	26, // [26:26] is the sub-list for extension type_name
-	26, // [26:26] is the sub-list for extension extendee
-	0,  // [0:26] is the sub-list for field type_name
+	16, // 18: beamers.display.v1.DisplaySession.presented_start:type_name -> google.protobuf.Timestamp
+	16, // 19: beamers.display.v1.DisplaySession.presented_end:type_name -> google.protobuf.Timestamp
+	1,  // 20: beamers.display.v1.TimerThreshold.emphasis:type_name -> beamers.display.v1.TimerEmphasis
+	0,  // 21: beamers.display.v1.StageTimer.mode:type_name -> beamers.display.v1.StageTimerMode
+	16, // 22: beamers.display.v1.StageTimer.anchor:type_name -> google.protobuf.Timestamp
+	11, // 23: beamers.display.v1.StageTimer.thresholds:type_name -> beamers.display.v1.TimerThreshold
+	16, // 24: beamers.display.v1.StageTimer.forecast_end:type_name -> google.protobuf.Timestamp
+	16, // 25: beamers.display.v1.StageTimer.adjustment_notice_expires_at:type_name -> google.protobuf.Timestamp
+	15, // 26: beamers.display.v1.AcknowledgeResponse.acknowledgment:type_name -> beamers.display.v1.DisplayAcknowledgment
+	16, // 27: beamers.display.v1.DisplayAcknowledgment.applied_at:type_name -> google.protobuf.Timestamp
+	2,  // 28: beamers.display.v1.DisplayService.GetSnapshot:input_type -> beamers.display.v1.GetSnapshotRequest
+	13, // 29: beamers.display.v1.DisplayService.Acknowledge:input_type -> beamers.display.v1.AcknowledgeRequest
+	3,  // 30: beamers.display.v1.DisplayService.GetSnapshot:output_type -> beamers.display.v1.GetSnapshotResponse
+	14, // 31: beamers.display.v1.DisplayService.Acknowledge:output_type -> beamers.display.v1.AcknowledgeResponse
+	30, // [30:32] is the sub-list for method output_type
+	28, // [28:30] is the sub-list for method input_type
+	28, // [28:28] is the sub-list for extension type_name
+	28, // [28:28] is the sub-list for extension extendee
+	0,  // [0:28] is the sub-list for field type_name
 }
 
 func init() { file_beamers_display_v1_display_proto_init() }

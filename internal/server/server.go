@@ -178,6 +178,18 @@ func Run(ctx context.Context, config Config) error {
 		); err != nil {
 			return errors.Join(err, listener.Close(), installation.Close())
 		}
+		if err := registerScheduleBaselineRoutes(
+			mux,
+			installation.Authentication(),
+			installation.ScheduleBaselineCommands(),
+			installation.ScheduleBaselineQueries(),
+			listener.Addr(),
+			config.TracerProvider,
+			config.MeterProvider,
+			config.Propagator,
+		); err != nil {
+			return errors.Join(err, listener.Close(), installation.Close())
+		}
 		if err := registerSessionControlRoutes(
 			mux,
 			installation.Authentication(),

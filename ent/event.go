@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/dotwaffle/beamers/ent/event"
+	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/rundown"
 )
 
@@ -86,13 +87,15 @@ type EventEdges struct {
 	DraftChanges []*DraftChange `json:"draft_changes,omitempty"`
 	// ImportReferences holds the value of the import_references edge.
 	ImportReferences []*ImportReference `json:"import_references,omitempty"`
+	// PublicScheduleBaseline holds the value of the public_schedule_baseline edge.
+	PublicScheduleBaseline *PublicScheduleBaseline `json:"public_schedule_baseline,omitempty"`
 	// DisplayAssignments holds the value of the display_assignments edge.
 	DisplayAssignments []*DisplayAssignment `json:"display_assignments,omitempty"`
 	// DisplayOverrides holds the value of the display_overrides edge.
 	DisplayOverrides []*DisplayOverride `json:"display_overrides,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [13]bool
+	loadedTypes [14]bool
 }
 
 // GrantsOrErr returns the Grants value or an error if the edge
@@ -196,10 +199,21 @@ func (e EventEdges) ImportReferencesOrErr() ([]*ImportReference, error) {
 	return nil, &NotLoadedError{edge: "import_references"}
 }
 
+// PublicScheduleBaselineOrErr returns the PublicScheduleBaseline value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e EventEdges) PublicScheduleBaselineOrErr() (*PublicScheduleBaseline, error) {
+	if e.PublicScheduleBaseline != nil {
+		return e.PublicScheduleBaseline, nil
+	} else if e.loadedTypes[11] {
+		return nil, &NotFoundError{label: publicschedulebaseline.Label}
+	}
+	return nil, &NotLoadedError{edge: "public_schedule_baseline"}
+}
+
 // DisplayAssignmentsOrErr returns the DisplayAssignments value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) DisplayAssignmentsOrErr() ([]*DisplayAssignment, error) {
-	if e.loadedTypes[11] {
+	if e.loadedTypes[12] {
 		return e.DisplayAssignments, nil
 	}
 	return nil, &NotLoadedError{edge: "display_assignments"}
@@ -208,7 +222,7 @@ func (e EventEdges) DisplayAssignmentsOrErr() ([]*DisplayAssignment, error) {
 // DisplayOverridesOrErr returns the DisplayOverrides value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) DisplayOverridesOrErr() ([]*DisplayOverride, error) {
-	if e.loadedTypes[12] {
+	if e.loadedTypes[13] {
 		return e.DisplayOverrides, nil
 	}
 	return nil, &NotLoadedError{edge: "display_overrides"}
@@ -427,6 +441,11 @@ func (_m *Event) QueryDraftChanges() *DraftChangeQuery {
 // QueryImportReferences queries the "import_references" edge of the Event entity.
 func (_m *Event) QueryImportReferences() *ImportReferenceQuery {
 	return NewEventClient(_m.config).QueryImportReferences(_m)
+}
+
+// QueryPublicScheduleBaseline queries the "public_schedule_baseline" edge of the Event entity.
+func (_m *Event) QueryPublicScheduleBaseline() *PublicScheduleBaselineQuery {
+	return NewEventClient(_m.config).QueryPublicScheduleBaseline(_m)
 }
 
 // QueryDisplayAssignments queries the "display_assignments" edge of the Event entity.

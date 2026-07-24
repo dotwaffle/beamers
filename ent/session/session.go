@@ -90,6 +90,8 @@ const (
 	EdgeRuns = "runs"
 	// EdgeCancellations holds the string denoting the cancellations edge name in mutations.
 	EdgeCancellations = "cancellations"
+	// EdgePublicScheduleBaselineEntry holds the string denoting the public_schedule_baseline_entry edge name in mutations.
+	EdgePublicScheduleBaselineEntry = "public_schedule_baseline_entry"
 	// EdgeCompetitionEntries holds the string denoting the competition_entries edge name in mutations.
 	EdgeCompetitionEntries = "competition_entries"
 	// Table holds the table name of the session in the database.
@@ -129,6 +131,13 @@ const (
 	CancellationsInverseTable = "session_cancellations"
 	// CancellationsColumn is the table column denoting the cancellations relation/edge.
 	CancellationsColumn = "session_id"
+	// PublicScheduleBaselineEntryTable is the table that holds the public_schedule_baseline_entry relation/edge.
+	PublicScheduleBaselineEntryTable = "public_schedule_baseline_entries"
+	// PublicScheduleBaselineEntryInverseTable is the table name for the PublicScheduleBaselineEntry entity.
+	// It exists in this package in order to avoid circular dependency with the "publicschedulebaselineentry" package.
+	PublicScheduleBaselineEntryInverseTable = "public_schedule_baseline_entries"
+	// PublicScheduleBaselineEntryColumn is the table column denoting the public_schedule_baseline_entry relation/edge.
+	PublicScheduleBaselineEntryColumn = "session_id"
 	// CompetitionEntriesTable is the table that holds the competition_entries relation/edge.
 	CompetitionEntriesTable = "competition_entries"
 	// CompetitionEntriesInverseTable is the table name for the CompetitionEntry entity.
@@ -549,6 +558,13 @@ func ByCancellations(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByPublicScheduleBaselineEntryField orders the results by public_schedule_baseline_entry field.
+func ByPublicScheduleBaselineEntryField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newPublicScheduleBaselineEntryStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // ByCompetitionEntriesCount orders the results by competition_entries count.
 func ByCompetitionEntriesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -595,6 +611,13 @@ func newCancellationsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(CancellationsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, CancellationsTable, CancellationsColumn),
+	)
+}
+func newPublicScheduleBaselineEntryStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(PublicScheduleBaselineEntryInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2O, false, PublicScheduleBaselineEntryTable, PublicScheduleBaselineEntryColumn),
 	)
 }
 func newCompetitionEntriesStep() *sqlgraph.Step {

@@ -35,6 +35,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
 	"github.com/dotwaffle/beamers/ent/migration"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
+	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
+	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/schema"
@@ -1549,6 +1551,44 @@ func init() {
 	passwordcredentialDescCreatedAt := passwordcredentialFields[2].Descriptor()
 	// passwordcredential.DefaultCreatedAt holds the default value on creation for the created_at field.
 	passwordcredential.DefaultCreatedAt = passwordcredentialDescCreatedAt.Default.(func() time.Time)
+	publicschedulebaseline.Policy = privacy.NewPolicies(schema.PublicScheduleBaseline{})
+	publicschedulebaseline.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := publicschedulebaseline.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	publicschedulebaselineFields := schema.PublicScheduleBaseline{}.Fields()
+	_ = publicschedulebaselineFields
+	// publicschedulebaselineDescSourcePublishedRevision is the schema descriptor for source_published_revision field.
+	publicschedulebaselineDescSourcePublishedRevision := publicschedulebaselineFields[1].Descriptor()
+	// publicschedulebaseline.SourcePublishedRevisionValidator is a validator for the "source_published_revision" field. It is called by the builders before save.
+	publicschedulebaseline.SourcePublishedRevisionValidator = publicschedulebaselineDescSourcePublishedRevision.Validators[0].(func(int) error)
+	// publicschedulebaselineDescCapturedAt is the schema descriptor for captured_at field.
+	publicschedulebaselineDescCapturedAt := publicschedulebaselineFields[2].Descriptor()
+	// publicschedulebaseline.DefaultCapturedAt holds the default value on creation for the captured_at field.
+	publicschedulebaseline.DefaultCapturedAt = publicschedulebaselineDescCapturedAt.Default.(func() time.Time)
+	publicschedulebaselineentry.Policy = privacy.NewPolicies(schema.PublicScheduleBaselineEntry{})
+	publicschedulebaselineentry.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := publicschedulebaselineentry.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	publicschedulebaselineentryFields := schema.PublicScheduleBaselineEntry{}.Fields()
+	_ = publicschedulebaselineentryFields
+	// publicschedulebaselineentryDescSourcePublishedRevision is the schema descriptor for source_published_revision field.
+	publicschedulebaselineentryDescSourcePublishedRevision := publicschedulebaselineentryFields[3].Descriptor()
+	// publicschedulebaselineentry.SourcePublishedRevisionValidator is a validator for the "source_published_revision" field. It is called by the builders before save.
+	publicschedulebaselineentry.SourcePublishedRevisionValidator = publicschedulebaselineentryDescSourcePublishedRevision.Validators[0].(func(int) error)
+	// publicschedulebaselineentryDescRecordedAt is the schema descriptor for recorded_at field.
+	publicschedulebaselineentryDescRecordedAt := publicschedulebaselineentryFields[4].Descriptor()
+	// publicschedulebaselineentry.DefaultRecordedAt holds the default value on creation for the recorded_at field.
+	publicschedulebaselineentry.DefaultRecordedAt = publicschedulebaselineentryDescRecordedAt.Default.(func() time.Time)
 	reopenwindow.Policy = privacy.NewPolicies(schema.ReopenWindow{})
 	reopenwindow.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

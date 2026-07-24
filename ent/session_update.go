@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/predicate"
+	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessioncancellation"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
@@ -680,6 +681,25 @@ func (_u *SessionUpdate) AddCancellations(v ...*SessionCancellation) *SessionUpd
 	return _u.AddCancellationIDs(ids...)
 }
 
+// SetPublicScheduleBaselineEntryID sets the "public_schedule_baseline_entry" edge to the PublicScheduleBaselineEntry entity by ID.
+func (_u *SessionUpdate) SetPublicScheduleBaselineEntryID(id int) *SessionUpdate {
+	_u.mutation.SetPublicScheduleBaselineEntryID(id)
+	return _u
+}
+
+// SetNillablePublicScheduleBaselineEntryID sets the "public_schedule_baseline_entry" edge to the PublicScheduleBaselineEntry entity by ID if the given value is not nil.
+func (_u *SessionUpdate) SetNillablePublicScheduleBaselineEntryID(id *int) *SessionUpdate {
+	if id != nil {
+		_u = _u.SetPublicScheduleBaselineEntryID(*id)
+	}
+	return _u
+}
+
+// SetPublicScheduleBaselineEntry sets the "public_schedule_baseline_entry" edge to the PublicScheduleBaselineEntry entity.
+func (_u *SessionUpdate) SetPublicScheduleBaselineEntry(v *PublicScheduleBaselineEntry) *SessionUpdate {
+	return _u.SetPublicScheduleBaselineEntryID(v.ID)
+}
+
 // AddCompetitionEntryIDs adds the "competition_entries" edge to the CompetitionEntry entity by IDs.
 func (_u *SessionUpdate) AddCompetitionEntryIDs(ids ...int) *SessionUpdate {
 	_u.mutation.AddCompetitionEntryIDs(ids...)
@@ -767,6 +787,12 @@ func (_u *SessionUpdate) RemoveCancellations(v ...*SessionCancellation) *Session
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveCancellationIDs(ids...)
+}
+
+// ClearPublicScheduleBaselineEntry clears the "public_schedule_baseline_entry" edge to the PublicScheduleBaselineEntry entity.
+func (_u *SessionUpdate) ClearPublicScheduleBaselineEntry() *SessionUpdate {
+	_u.mutation.ClearPublicScheduleBaselineEntry()
+	return _u
 }
 
 // ClearCompetitionEntries clears all "competition_entries" edges to the CompetitionEntry entity.
@@ -1265,6 +1291,35 @@ func (_u *SessionUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(sessioncancellation.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.PublicScheduleBaselineEntryCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   session.PublicScheduleBaselineEntryTable,
+			Columns: []string{session.PublicScheduleBaselineEntryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(publicschedulebaselineentry.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PublicScheduleBaselineEntryIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   session.PublicScheduleBaselineEntryTable,
+			Columns: []string{session.PublicScheduleBaselineEntryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(publicschedulebaselineentry.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -1983,6 +2038,25 @@ func (_u *SessionUpdateOne) AddCancellations(v ...*SessionCancellation) *Session
 	return _u.AddCancellationIDs(ids...)
 }
 
+// SetPublicScheduleBaselineEntryID sets the "public_schedule_baseline_entry" edge to the PublicScheduleBaselineEntry entity by ID.
+func (_u *SessionUpdateOne) SetPublicScheduleBaselineEntryID(id int) *SessionUpdateOne {
+	_u.mutation.SetPublicScheduleBaselineEntryID(id)
+	return _u
+}
+
+// SetNillablePublicScheduleBaselineEntryID sets the "public_schedule_baseline_entry" edge to the PublicScheduleBaselineEntry entity by ID if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillablePublicScheduleBaselineEntryID(id *int) *SessionUpdateOne {
+	if id != nil {
+		_u = _u.SetPublicScheduleBaselineEntryID(*id)
+	}
+	return _u
+}
+
+// SetPublicScheduleBaselineEntry sets the "public_schedule_baseline_entry" edge to the PublicScheduleBaselineEntry entity.
+func (_u *SessionUpdateOne) SetPublicScheduleBaselineEntry(v *PublicScheduleBaselineEntry) *SessionUpdateOne {
+	return _u.SetPublicScheduleBaselineEntryID(v.ID)
+}
+
 // AddCompetitionEntryIDs adds the "competition_entries" edge to the CompetitionEntry entity by IDs.
 func (_u *SessionUpdateOne) AddCompetitionEntryIDs(ids ...int) *SessionUpdateOne {
 	_u.mutation.AddCompetitionEntryIDs(ids...)
@@ -2070,6 +2144,12 @@ func (_u *SessionUpdateOne) RemoveCancellations(v ...*SessionCancellation) *Sess
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveCancellationIDs(ids...)
+}
+
+// ClearPublicScheduleBaselineEntry clears the "public_schedule_baseline_entry" edge to the PublicScheduleBaselineEntry entity.
+func (_u *SessionUpdateOne) ClearPublicScheduleBaselineEntry() *SessionUpdateOne {
+	_u.mutation.ClearPublicScheduleBaselineEntry()
+	return _u
 }
 
 // ClearCompetitionEntries clears all "competition_entries" edges to the CompetitionEntry entity.
@@ -2598,6 +2678,35 @@ func (_u *SessionUpdateOne) sqlSave(ctx context.Context) (_node *Session, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(sessioncancellation.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.PublicScheduleBaselineEntryCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   session.PublicScheduleBaselineEntryTable,
+			Columns: []string{session.PublicScheduleBaselineEntryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(publicschedulebaselineentry.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PublicScheduleBaselineEntryIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   session.PublicScheduleBaselineEntryTable,
+			Columns: []string{session.PublicScheduleBaselineEntryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(publicschedulebaselineentry.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

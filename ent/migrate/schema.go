@@ -881,6 +881,56 @@ var (
 			},
 		},
 	}
+	// PublicScheduleBaselinesColumns holds the columns for the "public_schedule_baselines" table.
+	PublicScheduleBaselinesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "source_published_revision", Type: field.TypeInt},
+		{Name: "captured_at", Type: field.TypeTime},
+		{Name: "event_id", Type: field.TypeInt, Unique: true},
+	}
+	// PublicScheduleBaselinesTable holds the schema information for the "public_schedule_baselines" table.
+	PublicScheduleBaselinesTable = &schema.Table{
+		Name:       "public_schedule_baselines",
+		Columns:    PublicScheduleBaselinesColumns,
+		PrimaryKey: []*schema.Column{PublicScheduleBaselinesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "public_schedule_baselines_events_public_schedule_baseline",
+				Columns:    []*schema.Column{PublicScheduleBaselinesColumns[3]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
+	// PublicScheduleBaselineEntriesColumns holds the columns for the "public_schedule_baseline_entries" table.
+	PublicScheduleBaselineEntriesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "forecast_start", Type: field.TypeTime},
+		{Name: "source_published_revision", Type: field.TypeInt},
+		{Name: "recorded_at", Type: field.TypeTime},
+		{Name: "baseline_id", Type: field.TypeInt},
+		{Name: "session_id", Type: field.TypeInt, Unique: true},
+	}
+	// PublicScheduleBaselineEntriesTable holds the schema information for the "public_schedule_baseline_entries" table.
+	PublicScheduleBaselineEntriesTable = &schema.Table{
+		Name:       "public_schedule_baseline_entries",
+		Columns:    PublicScheduleBaselineEntriesColumns,
+		PrimaryKey: []*schema.Column{PublicScheduleBaselineEntriesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "public_schedule_baseline_entries_public_schedule_baselines_entries",
+				Columns:    []*schema.Column{PublicScheduleBaselineEntriesColumns[4]},
+				RefColumns: []*schema.Column{PublicScheduleBaselinesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "public_schedule_baseline_entries_sessions_public_schedule_baseline_entry",
+				Columns:    []*schema.Column{PublicScheduleBaselineEntriesColumns[5]},
+				RefColumns: []*schema.Column{SessionsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
 	// ReopenWindowsColumns holds the columns for the "reopen_windows" table.
 	ReopenWindowsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -1433,6 +1483,8 @@ var (
 		LocationPublishedVersionsTable,
 		BeamersSchemaMigrationsTable,
 		PasswordCredentialsTable,
+		PublicScheduleBaselinesTable,
+		PublicScheduleBaselineEntriesTable,
 		ReopenWindowsTable,
 		RundownsTable,
 		SessionsTable,
@@ -1493,6 +1545,9 @@ func init() {
 		"schema_migrations_checksum_length": "length(checksum) = 64",
 	}
 	PasswordCredentialsTable.ForeignKeys[0].RefTable = AccountsTable
+	PublicScheduleBaselinesTable.ForeignKeys[0].RefTable = EventsTable
+	PublicScheduleBaselineEntriesTable.ForeignKeys[0].RefTable = PublicScheduleBaselinesTable
+	PublicScheduleBaselineEntriesTable.ForeignKeys[1].RefTable = SessionsTable
 	RundownsTable.ForeignKeys[0].RefTable = EventsTable
 	SessionsTable.ForeignKeys[0].RefTable = EventsTable
 	SessionCancellationsTable.ForeignKeys[0].RefTable = SessionsTable

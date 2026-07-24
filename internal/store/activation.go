@@ -9,6 +9,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/rundown"
 )
 
@@ -19,16 +20,17 @@ var (
 
 // ActivationPreflightState is the store-owned input to Activation Preflight.
 type ActivationPreflightState struct {
-	EventID              int
-	EventRevision        int
-	ActivationGeneration int
-	PlannedStartDate     string
-	PlannedEndDate       string
-	Timezone             string
-	EventDayBoundary     string
-	PublishedRundown     CrewRundownState
-	DisplayAssignments   []DisplayAssignment
-	UnassignedDisplays   []Display
+	EventID                        int
+	EventRevision                  int
+	ActivationGeneration           int
+	PlannedStartDate               string
+	PlannedEndDate                 string
+	Timezone                       string
+	EventDayBoundary               string
+	PublishedRundown               CrewRundownState
+	DisplayAssignments             []DisplayAssignment
+	UnassignedDisplays             []Display
+	PublicScheduleBaselineCaptured bool
 }
 
 // ActiveEventState is the installation-wide live routing designation.
@@ -78,13 +80,23 @@ func loadActivationPreflight(
 	if err != nil {
 		return ActivationPreflightState{}, err
 	}
+	baselineCaptured, err := client.PublicScheduleBaseline.Query().
+		Where(publicschedulebaseline.EventIDEQ(eventID)).
+		Exist(internalContext)
+	if err != nil {
+		return ActivationPreflightState{}, opaqueError(
+			"load Public Schedule Baseline for Activation Preflight",
+			err,
+		)
+	}
 	return ActivationPreflightState{
 		EventID: eventID, EventRevision: found.Revision,
 		ActivationGeneration: routing.ActivationGeneration,
 		PlannedStartDate:     found.PlannedStartDate, PlannedEndDate: found.PlannedEndDate,
 		Timezone: found.Timezone, EventDayBoundary: found.EventDayBoundary, PublishedRundown: published,
-		DisplayAssignments: assignments,
-		UnassignedDisplays: unassigned,
+		DisplayAssignments:             assignments,
+		UnassignedDisplays:             unassigned,
+		PublicScheduleBaselineCaptured: baselineCaptured,
 	}, nil
 }
 

@@ -13,3 +13,5 @@ Scheduled Sessions show Forecast Time and identify a changed Planned Time as "wa
 Live Sessions show normalized Actual Start with Forecast End or remaining time.
 Ended Sessions show normalized Actual Time.
 Canceled Sessions show their last Forecast Time with the Public Cancellation Message.
+
+ADR 0050 supersedes this paragraph's public-presentation rules while preserving the three time layers and exact crew history.

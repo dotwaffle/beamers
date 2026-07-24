@@ -121,7 +121,10 @@ func TestActivationPreflightWarnsForEmptyLanesAndSuspiciousDates(t *testing.T) {
 	if len(preflight.Blockers) != 0 {
 		t.Fatalf("Activation Preflight blockers = %+v, want none", preflight.Blockers)
 	}
-	wantCodes := map[string]bool{"empty_lane": false, "suspicious_dates": false}
+	wantCodes := map[string]bool{
+		"empty_lane": false, "suspicious_dates": false,
+		"public_schedule_baseline_missing": false,
+	}
 	for _, warning := range preflight.Warnings {
 		if _, ok := wantCodes[warning.Code]; ok {
 			wantCodes[warning.Code] = true

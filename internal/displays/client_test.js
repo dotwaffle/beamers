@@ -148,6 +148,32 @@ test("rotation advances configured pages without replacing persistent regions", 
   assert.equal(rotation.children[1].hidden, false);
 });
 
+test("live renderer uses server-selected public time labels", async () => {
+  const browser = await startBrowser({
+    snapshot: displaySnapshot({
+      standby: false,
+      viewKey: "event-overview",
+      composition: displayComposition({
+        key: "event-overview",
+        regions: [
+          {name: "schedule", widget: "rotation", persistent: false},
+        ],
+      }),
+      sessions: [{
+        ...displaySession("Opening Keynote"),
+        lifecycle: "Live",
+        presentedStart: "2099-08-21T08:04:00Z",
+        presentedStartLabel: "Actual Start",
+      }],
+    }),
+  });
+
+  const schedule = nodeText(browser.document.main.children[0]);
+  assert.match(schedule, /Actual Start/);
+  assert.match(schedule, /Forecast End/);
+  assert.doesNotMatch(schedule, /Forecast Time/);
+});
+
 test("health refresh preserves an unchanged composition and its rotation", async () => {
   const browser = await startBrowser({
     snapshot: displaySnapshot({
@@ -759,9 +785,13 @@ function stageTimerSnapshot(overrides = {}) {
 function displaySession(title) {
   return {
     title,
-    lifecycle: "Planned",
+    lifecycle: "Scheduled",
     forecastStart: "2099-08-21T08:00:00Z",
     forecastEnd: "2099-08-21T09:00:00Z",
+    presentedStart: "2099-08-21T08:00:00Z",
+    presentedEnd: "2099-08-21T09:00:00Z",
+    presentedStartLabel: "Forecast Start",
+    presentedEndLabel: "Forecast End",
   };
 }
 

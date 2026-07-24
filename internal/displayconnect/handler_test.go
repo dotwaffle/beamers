@@ -7,8 +7,32 @@ import (
 	displayv1 "github.com/dotwaffle/beamers/gen/beamers/display/v1"
 	"github.com/dotwaffle/beamers/internal/displays"
 	"github.com/dotwaffle/beamers/internal/displaystream"
+	"github.com/dotwaffle/beamers/internal/publictime"
 	"github.com/dotwaffle/beamers/internal/stagetimer"
 )
+
+func TestSessionMessageCarriesPublicTimePresentation(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 2, 7, 12, 30, 0, 0, time.UTC)
+	end := start.Add(time.Hour)
+	message := sessionMessage(displays.Session{
+		PresentedStart: start, PresentedEnd: end,
+		PresentedStartLabel: publictime.LabelActualStart,
+		PresentedEndLabel:   publictime.LabelForecastEnd,
+	})
+
+	if got := message.GetPresentedStart().AsTime(); !got.Equal(start) {
+		t.Errorf("presented start = %v, want %v", got, start)
+	}
+	if got := message.GetPresentedEnd().AsTime(); !got.Equal(end) {
+		t.Errorf("presented end = %v, want %v", got, end)
+	}
+	if message.GetPresentedStartLabel() != "Actual Start" ||
+		message.GetPresentedEndLabel() != "Forecast End" {
+		t.Errorf("presented labels = %q, %q", message.GetPresentedStartLabel(), message.GetPresentedEndLabel())
+	}
+}
 
 func TestSnapshotMessageCarriesStageTimerContract(t *testing.T) {
 	t.Parallel()

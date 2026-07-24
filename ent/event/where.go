@@ -1393,6 +1393,29 @@ func HasImportReferencesWith(preds ...predicate.ImportReference) predicate.Event
 	})
 }
 
+// HasPublicScheduleBaseline applies the HasEdge predicate on the "public_schedule_baseline" edge.
+func HasPublicScheduleBaseline() predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, PublicScheduleBaselineTable, PublicScheduleBaselineColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasPublicScheduleBaselineWith applies the HasEdge predicate on the "public_schedule_baseline" edge with a given conditions (other predicates).
+func HasPublicScheduleBaselineWith(preds ...predicate.PublicScheduleBaseline) predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := newPublicScheduleBaselineStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasDisplayAssignments applies the HasEdge predicate on the "display_assignments" edge.
 func HasDisplayAssignments() predicate.Event {
 	return predicate.Event(func(s *sql.Selector) {

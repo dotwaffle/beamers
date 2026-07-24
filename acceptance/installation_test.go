@@ -1312,7 +1312,7 @@ func TestLocationSignageRendersPublicScheduleAndNeutralCrewOnlyOccupancy(t *test
 		t.Fatalf("Location Signage = %d %q, want %d", response.StatusCode, body, http.StatusOK)
 	}
 	for _, want := range []string{
-		"Location Signage", "Opening Keynote", "Forecast Time:", "Location unavailable until",
+		"Location Signage", "Opening Keynote", "Forecast Start:", "Location unavailable until",
 	} {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("Location Signage missing %q: %s", want, body)
@@ -1359,7 +1359,7 @@ func TestEventOverviewRendersCommittedPublicSchedule(t *testing.T) {
 		t.Fatalf("Event Overview = %d %q, want %d", response.StatusCode, body, http.StatusOK)
 	}
 	for _, want := range []string{
-		"Event Overview", "Opening Keynote", "Forecast Time:", `src="/display/assets/`,
+		"Event Overview", "Opening Keynote", "Forecast Start:", `src="/display/assets/`,
 	} {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("Event Overview missing %q: %s", want, body)
@@ -5991,14 +5991,14 @@ func TestProducerReinstatesCanceledLiveSessionFromPlacementPreview(t *testing.T)
 	}
 	if public.StatusCode != http.StatusOK ||
 		!strings.Contains(string(body), "Status: Scheduled") ||
-		!strings.Contains(string(body), "Rescheduled") ||
+		!strings.Contains(string(body), "Forecast Start:") ||
 		!strings.Contains(string(body), "Location: Side Hall") ||
 		!strings.Contains(string(body), "Lane: Side Lane") ||
 		strings.Contains(string(body), "Actual Start:") ||
 		strings.Contains(string(body), "Actual End:") ||
 		!strings.Contains(
 			string(body),
-			started.Msg.GetState().GetActualStart().AsTime().
+			proposedStart.
 				In(time.FixedZone("CEST", 2*60*60)).
 				Format("02 Jan 2006 15:04 MST"),
 		) {

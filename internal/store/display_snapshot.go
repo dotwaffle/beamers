@@ -15,6 +15,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
+	"github.com/dotwaffle/beamers/internal/publictime"
 )
 
 // DisplaySnapshotState is one authorized, transactionally consistent Display projection.
@@ -64,6 +65,7 @@ type DisplaySessionState struct {
 	LocationIDs             []int
 	LaneIDs                 []int
 	TrackIDs                []int
+	PublicTime              publictime.Facts
 }
 
 // LoadDisplaySnapshot authenticates a credential hash and captures one Active Event snapshot.
@@ -358,6 +360,17 @@ func loadDisplaySession(
 			actualEnd := run.ActualEnd
 			result.ActualEnd = &actualEnd
 		}
+	}
+	result.PublicTime, err = loadPublicTimeFacts(ctx, client, publicTimeFactsParams{
+		Session:     identity,
+		Lifecycle:   publictime.Lifecycle(result.Lifecycle),
+		Forecast:    publictime.Range{Start: result.ForecastStart, End: result.ForecastEnd},
+		ActualStart: result.ActualStart,
+		ActualEnd:   result.ActualEnd,
+		RunDuration: result.RunPlannedEnd.Sub(result.RunPlannedStart),
+	})
+	if err != nil {
+		return DisplaySessionState{}, err
 	}
 	return result, nil
 }

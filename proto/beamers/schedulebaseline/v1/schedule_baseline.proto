@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package beamers.schedulebaseline.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/dotwaffle/beamers/gen/beamers/schedulebaseline/v1;schedulebaselinev1";
+
+service ScheduleBaselineService {
+  rpc Preview(PreviewRequest) returns (PreviewResponse);
+  rpc Capture(CaptureRequest) returns (CaptureResponse);
+}
+
+message Session {
+  int64 id = 1;
+  string title = 2;
+  google.protobuf.Timestamp forecast_start = 3;
+}
+
+message Finding {
+  int64 session_id = 1;
+  string message = 2;
+}
+
+message Confirmation {
+  int64 published_revision = 1;
+  string fingerprint = 2;
+}
+
+message PreviewRequest {
+  int64 event_id = 1;
+}
+
+message PreviewResponse {
+  int64 event_id = 1;
+  string event_name = 2;
+  bool active = 3;
+  bool requires_non_active_acknowledgment = 4;
+  Confirmation confirmation = 5;
+  repeated Session sessions = 6;
+  repeated Finding validation_failures = 7;
+}
+
+message CaptureRequest {
+  int64 event_id = 1;
+  string command_id = 2;
+  Confirmation confirmation = 3;
+  string acknowledged_event_name = 4;
+}
+
+message CaptureResponse {
+  int64 event_id = 1;
+  int64 published_revision = 2;
+  int64 session_count = 3;
+  google.protobuf.Timestamp captured_at = 4;
+}

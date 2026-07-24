@@ -22,6 +22,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/predicate"
+	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/track"
@@ -515,6 +516,25 @@ func (_u *EventUpdate) AddImportReferences(v ...*ImportReference) *EventUpdate {
 	return _u.AddImportReferenceIDs(ids...)
 }
 
+// SetPublicScheduleBaselineID sets the "public_schedule_baseline" edge to the PublicScheduleBaseline entity by ID.
+func (_u *EventUpdate) SetPublicScheduleBaselineID(id int) *EventUpdate {
+	_u.mutation.SetPublicScheduleBaselineID(id)
+	return _u
+}
+
+// SetNillablePublicScheduleBaselineID sets the "public_schedule_baseline" edge to the PublicScheduleBaseline entity by ID if the given value is not nil.
+func (_u *EventUpdate) SetNillablePublicScheduleBaselineID(id *int) *EventUpdate {
+	if id != nil {
+		_u = _u.SetPublicScheduleBaselineID(*id)
+	}
+	return _u
+}
+
+// SetPublicScheduleBaseline sets the "public_schedule_baseline" edge to the PublicScheduleBaseline entity.
+func (_u *EventUpdate) SetPublicScheduleBaseline(v *PublicScheduleBaseline) *EventUpdate {
+	return _u.SetPublicScheduleBaselineID(v.ID)
+}
+
 // AddDisplayAssignmentIDs adds the "display_assignments" edge to the DisplayAssignment entity by IDs.
 func (_u *EventUpdate) AddDisplayAssignmentIDs(ids ...int) *EventUpdate {
 	_u.mutation.AddDisplayAssignmentIDs(ids...)
@@ -764,6 +784,12 @@ func (_u *EventUpdate) RemoveImportReferences(v ...*ImportReference) *EventUpdat
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveImportReferenceIDs(ids...)
+}
+
+// ClearPublicScheduleBaseline clears the "public_schedule_baseline" edge to the PublicScheduleBaseline entity.
+func (_u *EventUpdate) ClearPublicScheduleBaseline() *EventUpdate {
+	_u.mutation.ClearPublicScheduleBaseline()
+	return _u
 }
 
 // ClearDisplayAssignments clears all "display_assignments" edges to the DisplayAssignment entity.
@@ -1489,6 +1515,35 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.PublicScheduleBaselineCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   event.PublicScheduleBaselineTable,
+			Columns: []string{event.PublicScheduleBaselineColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(publicschedulebaseline.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PublicScheduleBaselineIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   event.PublicScheduleBaselineTable,
+			Columns: []string{event.PublicScheduleBaselineColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(publicschedulebaseline.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.DisplayAssignmentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -2073,6 +2128,25 @@ func (_u *EventUpdateOne) AddImportReferences(v ...*ImportReference) *EventUpdat
 	return _u.AddImportReferenceIDs(ids...)
 }
 
+// SetPublicScheduleBaselineID sets the "public_schedule_baseline" edge to the PublicScheduleBaseline entity by ID.
+func (_u *EventUpdateOne) SetPublicScheduleBaselineID(id int) *EventUpdateOne {
+	_u.mutation.SetPublicScheduleBaselineID(id)
+	return _u
+}
+
+// SetNillablePublicScheduleBaselineID sets the "public_schedule_baseline" edge to the PublicScheduleBaseline entity by ID if the given value is not nil.
+func (_u *EventUpdateOne) SetNillablePublicScheduleBaselineID(id *int) *EventUpdateOne {
+	if id != nil {
+		_u = _u.SetPublicScheduleBaselineID(*id)
+	}
+	return _u
+}
+
+// SetPublicScheduleBaseline sets the "public_schedule_baseline" edge to the PublicScheduleBaseline entity.
+func (_u *EventUpdateOne) SetPublicScheduleBaseline(v *PublicScheduleBaseline) *EventUpdateOne {
+	return _u.SetPublicScheduleBaselineID(v.ID)
+}
+
 // AddDisplayAssignmentIDs adds the "display_assignments" edge to the DisplayAssignment entity by IDs.
 func (_u *EventUpdateOne) AddDisplayAssignmentIDs(ids ...int) *EventUpdateOne {
 	_u.mutation.AddDisplayAssignmentIDs(ids...)
@@ -2322,6 +2396,12 @@ func (_u *EventUpdateOne) RemoveImportReferences(v ...*ImportReference) *EventUp
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveImportReferenceIDs(ids...)
+}
+
+// ClearPublicScheduleBaseline clears the "public_schedule_baseline" edge to the PublicScheduleBaseline entity.
+func (_u *EventUpdateOne) ClearPublicScheduleBaseline() *EventUpdateOne {
+	_u.mutation.ClearPublicScheduleBaseline()
+	return _u
 }
 
 // ClearDisplayAssignments clears all "display_assignments" edges to the DisplayAssignment entity.
@@ -3070,6 +3150,35 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(importreference.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.PublicScheduleBaselineCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   event.PublicScheduleBaselineTable,
+			Columns: []string{event.PublicScheduleBaselineColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(publicschedulebaseline.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PublicScheduleBaselineIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   event.PublicScheduleBaselineTable,
+			Columns: []string{event.PublicScheduleBaselineColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(publicschedulebaseline.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

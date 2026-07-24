@@ -41,6 +41,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/migration"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/predicate"
+	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
+	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
@@ -64,47 +66,49 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypeAccount                  = "Account"
-	TypeAccountSession           = "AccountSession"
-	TypeAttachment               = "Attachment"
-	TypeAttachmentVersion        = "AttachmentVersion"
-	TypeAuditEntry               = "AuditEntry"
-	TypeBootstrapCredential      = "BootstrapCredential"
-	TypeCommandReceipt           = "CommandReceipt"
-	TypeCompetitionEntry         = "CompetitionEntry"
-	TypeDisplay                  = "Display"
-	TypeDisplayAssignment        = "DisplayAssignment"
-	TypeDisplayCredential        = "DisplayCredential"
-	TypeDisplayEnrollment        = "DisplayEnrollment"
-	TypeDisplayOverride          = "DisplayOverride"
-	TypeDisplayOverrideState     = "DisplayOverrideState"
-	TypeDraftChange              = "DraftChange"
-	TypeDraftChangeDependency    = "DraftChangeDependency"
-	TypeDraftEdit                = "DraftEdit"
-	TypeEvent                    = "Event"
-	TypeEventGrant               = "EventGrant"
-	TypeImportReference          = "ImportReference"
-	TypeInstallation             = "Installation"
-	TypeLane                     = "Lane"
-	TypeLaneDraft                = "LaneDraft"
-	TypeLanePublishedVersion     = "LanePublishedVersion"
-	TypeLocation                 = "Location"
-	TypeLocationDraft            = "LocationDraft"
-	TypeLocationPublishedVersion = "LocationPublishedVersion"
-	TypeMigration                = "Migration"
-	TypePasswordCredential       = "PasswordCredential"
-	TypeReopenWindow             = "ReopenWindow"
-	TypeRundown                  = "Rundown"
-	TypeSession                  = "Session"
-	TypeSessionCancellation      = "SessionCancellation"
-	TypeSessionDraft             = "SessionDraft"
-	TypeSessionPublishedVersion  = "SessionPublishedVersion"
-	TypeSessionRun               = "SessionRun"
-	TypeSessionRunAmendment      = "SessionRunAmendment"
-	TypeTrack                    = "Track"
-	TypeTrackDraft               = "TrackDraft"
-	TypeTrackPublishedVersion    = "TrackPublishedVersion"
-	TypeUploadLink               = "UploadLink"
+	TypeAccount                     = "Account"
+	TypeAccountSession              = "AccountSession"
+	TypeAttachment                  = "Attachment"
+	TypeAttachmentVersion           = "AttachmentVersion"
+	TypeAuditEntry                  = "AuditEntry"
+	TypeBootstrapCredential         = "BootstrapCredential"
+	TypeCommandReceipt              = "CommandReceipt"
+	TypeCompetitionEntry            = "CompetitionEntry"
+	TypeDisplay                     = "Display"
+	TypeDisplayAssignment           = "DisplayAssignment"
+	TypeDisplayCredential           = "DisplayCredential"
+	TypeDisplayEnrollment           = "DisplayEnrollment"
+	TypeDisplayOverride             = "DisplayOverride"
+	TypeDisplayOverrideState        = "DisplayOverrideState"
+	TypeDraftChange                 = "DraftChange"
+	TypeDraftChangeDependency       = "DraftChangeDependency"
+	TypeDraftEdit                   = "DraftEdit"
+	TypeEvent                       = "Event"
+	TypeEventGrant                  = "EventGrant"
+	TypeImportReference             = "ImportReference"
+	TypeInstallation                = "Installation"
+	TypeLane                        = "Lane"
+	TypeLaneDraft                   = "LaneDraft"
+	TypeLanePublishedVersion        = "LanePublishedVersion"
+	TypeLocation                    = "Location"
+	TypeLocationDraft               = "LocationDraft"
+	TypeLocationPublishedVersion    = "LocationPublishedVersion"
+	TypeMigration                   = "Migration"
+	TypePasswordCredential          = "PasswordCredential"
+	TypePublicScheduleBaseline      = "PublicScheduleBaseline"
+	TypePublicScheduleBaselineEntry = "PublicScheduleBaselineEntry"
+	TypeReopenWindow                = "ReopenWindow"
+	TypeRundown                     = "Rundown"
+	TypeSession                     = "Session"
+	TypeSessionCancellation         = "SessionCancellation"
+	TypeSessionDraft                = "SessionDraft"
+	TypeSessionPublishedVersion     = "SessionPublishedVersion"
+	TypeSessionRun                  = "SessionRun"
+	TypeSessionRunAmendment         = "SessionRunAmendment"
+	TypeTrack                       = "Track"
+	TypeTrackDraft                  = "TrackDraft"
+	TypeTrackPublishedVersion       = "TrackPublishedVersion"
+	TypeUploadLink                  = "UploadLink"
 )
 
 // AccountMutation represents an operation that mutates the Account nodes in the graph.
@@ -17182,6 +17186,8 @@ type EventMutation struct {
 	import_references                         map[int]struct{}
 	removedimport_references                  map[int]struct{}
 	clearedimport_references                  bool
+	public_schedule_baseline                  *int
+	clearedpublic_schedule_baseline           bool
 	display_assignments                       map[int]struct{}
 	removeddisplay_assignments                map[int]struct{}
 	cleareddisplay_assignments                bool
@@ -18694,6 +18700,45 @@ func (m *EventMutation) ResetImportReferences() {
 	m.removedimport_references = nil
 }
 
+// SetPublicScheduleBaselineID sets the "public_schedule_baseline" edge to the PublicScheduleBaseline entity by id.
+func (m *EventMutation) SetPublicScheduleBaselineID(id int) {
+	m.public_schedule_baseline = &id
+}
+
+// ClearPublicScheduleBaseline clears the "public_schedule_baseline" edge to the PublicScheduleBaseline entity.
+func (m *EventMutation) ClearPublicScheduleBaseline() {
+	m.clearedpublic_schedule_baseline = true
+}
+
+// PublicScheduleBaselineCleared reports if the "public_schedule_baseline" edge to the PublicScheduleBaseline entity was cleared.
+func (m *EventMutation) PublicScheduleBaselineCleared() bool {
+	return m.clearedpublic_schedule_baseline
+}
+
+// PublicScheduleBaselineID returns the "public_schedule_baseline" edge ID in the mutation.
+func (m *EventMutation) PublicScheduleBaselineID() (id int, exists bool) {
+	if m.public_schedule_baseline != nil {
+		return *m.public_schedule_baseline, true
+	}
+	return
+}
+
+// PublicScheduleBaselineIDs returns the "public_schedule_baseline" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// PublicScheduleBaselineID instead. It exists only for internal usage by the builders.
+func (m *EventMutation) PublicScheduleBaselineIDs() (ids []int) {
+	if id := m.public_schedule_baseline; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetPublicScheduleBaseline resets all changes to the "public_schedule_baseline" edge.
+func (m *EventMutation) ResetPublicScheduleBaseline() {
+	m.public_schedule_baseline = nil
+	m.clearedpublic_schedule_baseline = false
+}
+
 // AddDisplayAssignmentIDs adds the "display_assignments" edge to the DisplayAssignment entity by ids.
 func (m *EventMutation) AddDisplayAssignmentIDs(ids ...int) {
 	if m.display_assignments == nil {
@@ -19325,7 +19370,7 @@ func (m *EventMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *EventMutation) AddedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 14)
 	if m.grants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -19358,6 +19403,9 @@ func (m *EventMutation) AddedEdges() []string {
 	}
 	if m.import_references != nil {
 		edges = append(edges, event.EdgeImportReferences)
+	}
+	if m.public_schedule_baseline != nil {
+		edges = append(edges, event.EdgePublicScheduleBaseline)
 	}
 	if m.display_assignments != nil {
 		edges = append(edges, event.EdgeDisplayAssignments)
@@ -19436,6 +19484,10 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgePublicScheduleBaseline:
+		if id := m.public_schedule_baseline; id != nil {
+			return []ent.Value{*id}
+		}
 	case event.EdgeDisplayAssignments:
 		ids := make([]ent.Value, 0, len(m.display_assignments))
 		for id := range m.display_assignments {
@@ -19454,7 +19506,7 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *EventMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 14)
 	if m.removedgrants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -19576,7 +19628,7 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *EventMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 14)
 	if m.clearedgrants {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -19609,6 +19661,9 @@ func (m *EventMutation) ClearedEdges() []string {
 	}
 	if m.clearedimport_references {
 		edges = append(edges, event.EdgeImportReferences)
+	}
+	if m.clearedpublic_schedule_baseline {
+		edges = append(edges, event.EdgePublicScheduleBaseline)
 	}
 	if m.cleareddisplay_assignments {
 		edges = append(edges, event.EdgeDisplayAssignments)
@@ -19645,6 +19700,8 @@ func (m *EventMutation) EdgeCleared(name string) bool {
 		return m.cleareddraft_changes
 	case event.EdgeImportReferences:
 		return m.clearedimport_references
+	case event.EdgePublicScheduleBaseline:
+		return m.clearedpublic_schedule_baseline
 	case event.EdgeDisplayAssignments:
 		return m.cleareddisplay_assignments
 	case event.EdgeDisplayOverrides:
@@ -19659,6 +19716,9 @@ func (m *EventMutation) ClearEdge(name string) error {
 	switch name {
 	case event.EdgeRundown:
 		m.ClearRundown()
+		return nil
+	case event.EdgePublicScheduleBaseline:
+		m.ClearPublicScheduleBaseline()
 		return nil
 	}
 	return fmt.Errorf("unknown Event unique edge %s", name)
@@ -19700,6 +19760,9 @@ func (m *EventMutation) ResetEdge(name string) error {
 		return nil
 	case event.EdgeImportReferences:
 		m.ResetImportReferences()
+		return nil
+	case event.EdgePublicScheduleBaseline:
+		m.ResetPublicScheduleBaseline()
 		return nil
 	case event.EdgeDisplayAssignments:
 		m.ResetDisplayAssignments()
@@ -27141,6 +27204,1293 @@ func (m *PasswordCredentialMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown PasswordCredential edge %s", name)
 }
 
+// PublicScheduleBaselineMutation represents an operation that mutates the PublicScheduleBaseline nodes in the graph.
+type PublicScheduleBaselineMutation struct {
+	config
+	op                           Op
+	typ                          string
+	id                           *int
+	source_published_revision    *int
+	addsource_published_revision *int
+	captured_at                  *time.Time
+	clearedFields                map[string]struct{}
+	event                        *int
+	clearedevent                 bool
+	entries                      map[int]struct{}
+	removedentries               map[int]struct{}
+	clearedentries               bool
+	done                         bool
+	oldValue                     func(context.Context) (*PublicScheduleBaseline, error)
+	predicates                   []predicate.PublicScheduleBaseline
+}
+
+var _ ent.Mutation = (*PublicScheduleBaselineMutation)(nil)
+
+// publicschedulebaselineOption allows management of the mutation configuration using functional options.
+type publicschedulebaselineOption func(*PublicScheduleBaselineMutation)
+
+// newPublicScheduleBaselineMutation creates new mutation for the PublicScheduleBaseline entity.
+func newPublicScheduleBaselineMutation(c config, op Op, opts ...publicschedulebaselineOption) *PublicScheduleBaselineMutation {
+	m := &PublicScheduleBaselineMutation{
+		config:        c,
+		op:            op,
+		typ:           TypePublicScheduleBaseline,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withPublicScheduleBaselineID sets the ID field of the mutation.
+func withPublicScheduleBaselineID(id int) publicschedulebaselineOption {
+	return func(m *PublicScheduleBaselineMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *PublicScheduleBaseline
+		)
+		m.oldValue = func(ctx context.Context) (*PublicScheduleBaseline, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().PublicScheduleBaseline.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withPublicScheduleBaseline sets the old PublicScheduleBaseline of the mutation.
+func withPublicScheduleBaseline(node *PublicScheduleBaseline) publicschedulebaselineOption {
+	return func(m *PublicScheduleBaselineMutation) {
+		m.oldValue = func(context.Context) (*PublicScheduleBaseline, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m PublicScheduleBaselineMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m PublicScheduleBaselineMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *PublicScheduleBaselineMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *PublicScheduleBaselineMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().PublicScheduleBaseline.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetEventID sets the "event_id" field.
+func (m *PublicScheduleBaselineMutation) SetEventID(i int) {
+	m.event = &i
+}
+
+// EventID returns the value of the "event_id" field in the mutation.
+func (m *PublicScheduleBaselineMutation) EventID() (r int, exists bool) {
+	v := m.event
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventID returns the old "event_id" field's value of the PublicScheduleBaseline entity.
+// If the PublicScheduleBaseline object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PublicScheduleBaselineMutation) OldEventID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventID: %w", err)
+	}
+	return oldValue.EventID, nil
+}
+
+// ResetEventID resets all changes to the "event_id" field.
+func (m *PublicScheduleBaselineMutation) ResetEventID() {
+	m.event = nil
+}
+
+// SetSourcePublishedRevision sets the "source_published_revision" field.
+func (m *PublicScheduleBaselineMutation) SetSourcePublishedRevision(i int) {
+	m.source_published_revision = &i
+	m.addsource_published_revision = nil
+}
+
+// SourcePublishedRevision returns the value of the "source_published_revision" field in the mutation.
+func (m *PublicScheduleBaselineMutation) SourcePublishedRevision() (r int, exists bool) {
+	v := m.source_published_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSourcePublishedRevision returns the old "source_published_revision" field's value of the PublicScheduleBaseline entity.
+// If the PublicScheduleBaseline object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PublicScheduleBaselineMutation) OldSourcePublishedRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSourcePublishedRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSourcePublishedRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSourcePublishedRevision: %w", err)
+	}
+	return oldValue.SourcePublishedRevision, nil
+}
+
+// AddSourcePublishedRevision adds i to the "source_published_revision" field.
+func (m *PublicScheduleBaselineMutation) AddSourcePublishedRevision(i int) {
+	if m.addsource_published_revision != nil {
+		*m.addsource_published_revision += i
+	} else {
+		m.addsource_published_revision = &i
+	}
+}
+
+// AddedSourcePublishedRevision returns the value that was added to the "source_published_revision" field in this mutation.
+func (m *PublicScheduleBaselineMutation) AddedSourcePublishedRevision() (r int, exists bool) {
+	v := m.addsource_published_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSourcePublishedRevision resets all changes to the "source_published_revision" field.
+func (m *PublicScheduleBaselineMutation) ResetSourcePublishedRevision() {
+	m.source_published_revision = nil
+	m.addsource_published_revision = nil
+}
+
+// SetCapturedAt sets the "captured_at" field.
+func (m *PublicScheduleBaselineMutation) SetCapturedAt(t time.Time) {
+	m.captured_at = &t
+}
+
+// CapturedAt returns the value of the "captured_at" field in the mutation.
+func (m *PublicScheduleBaselineMutation) CapturedAt() (r time.Time, exists bool) {
+	v := m.captured_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCapturedAt returns the old "captured_at" field's value of the PublicScheduleBaseline entity.
+// If the PublicScheduleBaseline object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PublicScheduleBaselineMutation) OldCapturedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCapturedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCapturedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCapturedAt: %w", err)
+	}
+	return oldValue.CapturedAt, nil
+}
+
+// ResetCapturedAt resets all changes to the "captured_at" field.
+func (m *PublicScheduleBaselineMutation) ResetCapturedAt() {
+	m.captured_at = nil
+}
+
+// ClearEvent clears the "event" edge to the Event entity.
+func (m *PublicScheduleBaselineMutation) ClearEvent() {
+	m.clearedevent = true
+	m.clearedFields[publicschedulebaseline.FieldEventID] = struct{}{}
+}
+
+// EventCleared reports if the "event" edge to the Event entity was cleared.
+func (m *PublicScheduleBaselineMutation) EventCleared() bool {
+	return m.clearedevent
+}
+
+// EventIDs returns the "event" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// EventID instead. It exists only for internal usage by the builders.
+func (m *PublicScheduleBaselineMutation) EventIDs() (ids []int) {
+	if id := m.event; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetEvent resets all changes to the "event" edge.
+func (m *PublicScheduleBaselineMutation) ResetEvent() {
+	m.event = nil
+	m.clearedevent = false
+}
+
+// AddEntryIDs adds the "entries" edge to the PublicScheduleBaselineEntry entity by ids.
+func (m *PublicScheduleBaselineMutation) AddEntryIDs(ids ...int) {
+	if m.entries == nil {
+		m.entries = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.entries[ids[i]] = struct{}{}
+	}
+}
+
+// ClearEntries clears the "entries" edge to the PublicScheduleBaselineEntry entity.
+func (m *PublicScheduleBaselineMutation) ClearEntries() {
+	m.clearedentries = true
+}
+
+// EntriesCleared reports if the "entries" edge to the PublicScheduleBaselineEntry entity was cleared.
+func (m *PublicScheduleBaselineMutation) EntriesCleared() bool {
+	return m.clearedentries
+}
+
+// RemoveEntryIDs removes the "entries" edge to the PublicScheduleBaselineEntry entity by IDs.
+func (m *PublicScheduleBaselineMutation) RemoveEntryIDs(ids ...int) {
+	if m.removedentries == nil {
+		m.removedentries = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.entries, ids[i])
+		m.removedentries[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedEntries returns the removed IDs of the "entries" edge to the PublicScheduleBaselineEntry entity.
+func (m *PublicScheduleBaselineMutation) RemovedEntriesIDs() (ids []int) {
+	for id := range m.removedentries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// EntriesIDs returns the "entries" edge IDs in the mutation.
+func (m *PublicScheduleBaselineMutation) EntriesIDs() (ids []int) {
+	for id := range m.entries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetEntries resets all changes to the "entries" edge.
+func (m *PublicScheduleBaselineMutation) ResetEntries() {
+	m.entries = nil
+	m.clearedentries = false
+	m.removedentries = nil
+}
+
+// Where appends a list predicates to the PublicScheduleBaselineMutation builder.
+func (m *PublicScheduleBaselineMutation) Where(ps ...predicate.PublicScheduleBaseline) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the PublicScheduleBaselineMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *PublicScheduleBaselineMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.PublicScheduleBaseline, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *PublicScheduleBaselineMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *PublicScheduleBaselineMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (PublicScheduleBaseline).
+func (m *PublicScheduleBaselineMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *PublicScheduleBaselineMutation) Fields() []string {
+	fields := make([]string, 0, 3)
+	if m.event != nil {
+		fields = append(fields, publicschedulebaseline.FieldEventID)
+	}
+	if m.source_published_revision != nil {
+		fields = append(fields, publicschedulebaseline.FieldSourcePublishedRevision)
+	}
+	if m.captured_at != nil {
+		fields = append(fields, publicschedulebaseline.FieldCapturedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *PublicScheduleBaselineMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case publicschedulebaseline.FieldEventID:
+		return m.EventID()
+	case publicschedulebaseline.FieldSourcePublishedRevision:
+		return m.SourcePublishedRevision()
+	case publicschedulebaseline.FieldCapturedAt:
+		return m.CapturedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *PublicScheduleBaselineMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case publicschedulebaseline.FieldEventID:
+		return m.OldEventID(ctx)
+	case publicschedulebaseline.FieldSourcePublishedRevision:
+		return m.OldSourcePublishedRevision(ctx)
+	case publicschedulebaseline.FieldCapturedAt:
+		return m.OldCapturedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown PublicScheduleBaseline field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *PublicScheduleBaselineMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case publicschedulebaseline.FieldEventID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventID(v)
+		return nil
+	case publicschedulebaseline.FieldSourcePublishedRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSourcePublishedRevision(v)
+		return nil
+	case publicschedulebaseline.FieldCapturedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCapturedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown PublicScheduleBaseline field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *PublicScheduleBaselineMutation) AddedFields() []string {
+	var fields []string
+	if m.addsource_published_revision != nil {
+		fields = append(fields, publicschedulebaseline.FieldSourcePublishedRevision)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *PublicScheduleBaselineMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case publicschedulebaseline.FieldSourcePublishedRevision:
+		return m.AddedSourcePublishedRevision()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *PublicScheduleBaselineMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case publicschedulebaseline.FieldSourcePublishedRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSourcePublishedRevision(v)
+		return nil
+	}
+	return fmt.Errorf("unknown PublicScheduleBaseline numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *PublicScheduleBaselineMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *PublicScheduleBaselineMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *PublicScheduleBaselineMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown PublicScheduleBaseline nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *PublicScheduleBaselineMutation) ResetField(name string) error {
+	switch name {
+	case publicschedulebaseline.FieldEventID:
+		m.ResetEventID()
+		return nil
+	case publicschedulebaseline.FieldSourcePublishedRevision:
+		m.ResetSourcePublishedRevision()
+		return nil
+	case publicschedulebaseline.FieldCapturedAt:
+		m.ResetCapturedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown PublicScheduleBaseline field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *PublicScheduleBaselineMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.event != nil {
+		edges = append(edges, publicschedulebaseline.EdgeEvent)
+	}
+	if m.entries != nil {
+		edges = append(edges, publicschedulebaseline.EdgeEntries)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *PublicScheduleBaselineMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case publicschedulebaseline.EdgeEvent:
+		if id := m.event; id != nil {
+			return []ent.Value{*id}
+		}
+	case publicschedulebaseline.EdgeEntries:
+		ids := make([]ent.Value, 0, len(m.entries))
+		for id := range m.entries {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *PublicScheduleBaselineMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.removedentries != nil {
+		edges = append(edges, publicschedulebaseline.EdgeEntries)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *PublicScheduleBaselineMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case publicschedulebaseline.EdgeEntries:
+		ids := make([]ent.Value, 0, len(m.removedentries))
+		for id := range m.removedentries {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *PublicScheduleBaselineMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedevent {
+		edges = append(edges, publicschedulebaseline.EdgeEvent)
+	}
+	if m.clearedentries {
+		edges = append(edges, publicschedulebaseline.EdgeEntries)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *PublicScheduleBaselineMutation) EdgeCleared(name string) bool {
+	switch name {
+	case publicschedulebaseline.EdgeEvent:
+		return m.clearedevent
+	case publicschedulebaseline.EdgeEntries:
+		return m.clearedentries
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *PublicScheduleBaselineMutation) ClearEdge(name string) error {
+	switch name {
+	case publicschedulebaseline.EdgeEvent:
+		m.ClearEvent()
+		return nil
+	}
+	return fmt.Errorf("unknown PublicScheduleBaseline unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *PublicScheduleBaselineMutation) ResetEdge(name string) error {
+	switch name {
+	case publicschedulebaseline.EdgeEvent:
+		m.ResetEvent()
+		return nil
+	case publicschedulebaseline.EdgeEntries:
+		m.ResetEntries()
+		return nil
+	}
+	return fmt.Errorf("unknown PublicScheduleBaseline edge %s", name)
+}
+
+// PublicScheduleBaselineEntryMutation represents an operation that mutates the PublicScheduleBaselineEntry nodes in the graph.
+type PublicScheduleBaselineEntryMutation struct {
+	config
+	op                           Op
+	typ                          string
+	id                           *int
+	forecast_start               *time.Time
+	source_published_revision    *int
+	addsource_published_revision *int
+	recorded_at                  *time.Time
+	clearedFields                map[string]struct{}
+	baseline                     *int
+	clearedbaseline              bool
+	session                      *int
+	clearedsession               bool
+	done                         bool
+	oldValue                     func(context.Context) (*PublicScheduleBaselineEntry, error)
+	predicates                   []predicate.PublicScheduleBaselineEntry
+}
+
+var _ ent.Mutation = (*PublicScheduleBaselineEntryMutation)(nil)
+
+// publicschedulebaselineentryOption allows management of the mutation configuration using functional options.
+type publicschedulebaselineentryOption func(*PublicScheduleBaselineEntryMutation)
+
+// newPublicScheduleBaselineEntryMutation creates new mutation for the PublicScheduleBaselineEntry entity.
+func newPublicScheduleBaselineEntryMutation(c config, op Op, opts ...publicschedulebaselineentryOption) *PublicScheduleBaselineEntryMutation {
+	m := &PublicScheduleBaselineEntryMutation{
+		config:        c,
+		op:            op,
+		typ:           TypePublicScheduleBaselineEntry,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withPublicScheduleBaselineEntryID sets the ID field of the mutation.
+func withPublicScheduleBaselineEntryID(id int) publicschedulebaselineentryOption {
+	return func(m *PublicScheduleBaselineEntryMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *PublicScheduleBaselineEntry
+		)
+		m.oldValue = func(ctx context.Context) (*PublicScheduleBaselineEntry, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().PublicScheduleBaselineEntry.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withPublicScheduleBaselineEntry sets the old PublicScheduleBaselineEntry of the mutation.
+func withPublicScheduleBaselineEntry(node *PublicScheduleBaselineEntry) publicschedulebaselineentryOption {
+	return func(m *PublicScheduleBaselineEntryMutation) {
+		m.oldValue = func(context.Context) (*PublicScheduleBaselineEntry, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m PublicScheduleBaselineEntryMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m PublicScheduleBaselineEntryMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *PublicScheduleBaselineEntryMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *PublicScheduleBaselineEntryMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().PublicScheduleBaselineEntry.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetBaselineID sets the "baseline_id" field.
+func (m *PublicScheduleBaselineEntryMutation) SetBaselineID(i int) {
+	m.baseline = &i
+}
+
+// BaselineID returns the value of the "baseline_id" field in the mutation.
+func (m *PublicScheduleBaselineEntryMutation) BaselineID() (r int, exists bool) {
+	v := m.baseline
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBaselineID returns the old "baseline_id" field's value of the PublicScheduleBaselineEntry entity.
+// If the PublicScheduleBaselineEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PublicScheduleBaselineEntryMutation) OldBaselineID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBaselineID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBaselineID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBaselineID: %w", err)
+	}
+	return oldValue.BaselineID, nil
+}
+
+// ResetBaselineID resets all changes to the "baseline_id" field.
+func (m *PublicScheduleBaselineEntryMutation) ResetBaselineID() {
+	m.baseline = nil
+}
+
+// SetSessionID sets the "session_id" field.
+func (m *PublicScheduleBaselineEntryMutation) SetSessionID(i int) {
+	m.session = &i
+}
+
+// SessionID returns the value of the "session_id" field in the mutation.
+func (m *PublicScheduleBaselineEntryMutation) SessionID() (r int, exists bool) {
+	v := m.session
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSessionID returns the old "session_id" field's value of the PublicScheduleBaselineEntry entity.
+// If the PublicScheduleBaselineEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PublicScheduleBaselineEntryMutation) OldSessionID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSessionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSessionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSessionID: %w", err)
+	}
+	return oldValue.SessionID, nil
+}
+
+// ResetSessionID resets all changes to the "session_id" field.
+func (m *PublicScheduleBaselineEntryMutation) ResetSessionID() {
+	m.session = nil
+}
+
+// SetForecastStart sets the "forecast_start" field.
+func (m *PublicScheduleBaselineEntryMutation) SetForecastStart(t time.Time) {
+	m.forecast_start = &t
+}
+
+// ForecastStart returns the value of the "forecast_start" field in the mutation.
+func (m *PublicScheduleBaselineEntryMutation) ForecastStart() (r time.Time, exists bool) {
+	v := m.forecast_start
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldForecastStart returns the old "forecast_start" field's value of the PublicScheduleBaselineEntry entity.
+// If the PublicScheduleBaselineEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PublicScheduleBaselineEntryMutation) OldForecastStart(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldForecastStart is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldForecastStart requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldForecastStart: %w", err)
+	}
+	return oldValue.ForecastStart, nil
+}
+
+// ResetForecastStart resets all changes to the "forecast_start" field.
+func (m *PublicScheduleBaselineEntryMutation) ResetForecastStart() {
+	m.forecast_start = nil
+}
+
+// SetSourcePublishedRevision sets the "source_published_revision" field.
+func (m *PublicScheduleBaselineEntryMutation) SetSourcePublishedRevision(i int) {
+	m.source_published_revision = &i
+	m.addsource_published_revision = nil
+}
+
+// SourcePublishedRevision returns the value of the "source_published_revision" field in the mutation.
+func (m *PublicScheduleBaselineEntryMutation) SourcePublishedRevision() (r int, exists bool) {
+	v := m.source_published_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSourcePublishedRevision returns the old "source_published_revision" field's value of the PublicScheduleBaselineEntry entity.
+// If the PublicScheduleBaselineEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PublicScheduleBaselineEntryMutation) OldSourcePublishedRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSourcePublishedRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSourcePublishedRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSourcePublishedRevision: %w", err)
+	}
+	return oldValue.SourcePublishedRevision, nil
+}
+
+// AddSourcePublishedRevision adds i to the "source_published_revision" field.
+func (m *PublicScheduleBaselineEntryMutation) AddSourcePublishedRevision(i int) {
+	if m.addsource_published_revision != nil {
+		*m.addsource_published_revision += i
+	} else {
+		m.addsource_published_revision = &i
+	}
+}
+
+// AddedSourcePublishedRevision returns the value that was added to the "source_published_revision" field in this mutation.
+func (m *PublicScheduleBaselineEntryMutation) AddedSourcePublishedRevision() (r int, exists bool) {
+	v := m.addsource_published_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSourcePublishedRevision resets all changes to the "source_published_revision" field.
+func (m *PublicScheduleBaselineEntryMutation) ResetSourcePublishedRevision() {
+	m.source_published_revision = nil
+	m.addsource_published_revision = nil
+}
+
+// SetRecordedAt sets the "recorded_at" field.
+func (m *PublicScheduleBaselineEntryMutation) SetRecordedAt(t time.Time) {
+	m.recorded_at = &t
+}
+
+// RecordedAt returns the value of the "recorded_at" field in the mutation.
+func (m *PublicScheduleBaselineEntryMutation) RecordedAt() (r time.Time, exists bool) {
+	v := m.recorded_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRecordedAt returns the old "recorded_at" field's value of the PublicScheduleBaselineEntry entity.
+// If the PublicScheduleBaselineEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PublicScheduleBaselineEntryMutation) OldRecordedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRecordedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRecordedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRecordedAt: %w", err)
+	}
+	return oldValue.RecordedAt, nil
+}
+
+// ResetRecordedAt resets all changes to the "recorded_at" field.
+func (m *PublicScheduleBaselineEntryMutation) ResetRecordedAt() {
+	m.recorded_at = nil
+}
+
+// ClearBaseline clears the "baseline" edge to the PublicScheduleBaseline entity.
+func (m *PublicScheduleBaselineEntryMutation) ClearBaseline() {
+	m.clearedbaseline = true
+	m.clearedFields[publicschedulebaselineentry.FieldBaselineID] = struct{}{}
+}
+
+// BaselineCleared reports if the "baseline" edge to the PublicScheduleBaseline entity was cleared.
+func (m *PublicScheduleBaselineEntryMutation) BaselineCleared() bool {
+	return m.clearedbaseline
+}
+
+// BaselineIDs returns the "baseline" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// BaselineID instead. It exists only for internal usage by the builders.
+func (m *PublicScheduleBaselineEntryMutation) BaselineIDs() (ids []int) {
+	if id := m.baseline; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetBaseline resets all changes to the "baseline" edge.
+func (m *PublicScheduleBaselineEntryMutation) ResetBaseline() {
+	m.baseline = nil
+	m.clearedbaseline = false
+}
+
+// ClearSession clears the "session" edge to the Session entity.
+func (m *PublicScheduleBaselineEntryMutation) ClearSession() {
+	m.clearedsession = true
+	m.clearedFields[publicschedulebaselineentry.FieldSessionID] = struct{}{}
+}
+
+// SessionCleared reports if the "session" edge to the Session entity was cleared.
+func (m *PublicScheduleBaselineEntryMutation) SessionCleared() bool {
+	return m.clearedsession
+}
+
+// SessionIDs returns the "session" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SessionID instead. It exists only for internal usage by the builders.
+func (m *PublicScheduleBaselineEntryMutation) SessionIDs() (ids []int) {
+	if id := m.session; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSession resets all changes to the "session" edge.
+func (m *PublicScheduleBaselineEntryMutation) ResetSession() {
+	m.session = nil
+	m.clearedsession = false
+}
+
+// Where appends a list predicates to the PublicScheduleBaselineEntryMutation builder.
+func (m *PublicScheduleBaselineEntryMutation) Where(ps ...predicate.PublicScheduleBaselineEntry) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the PublicScheduleBaselineEntryMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *PublicScheduleBaselineEntryMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.PublicScheduleBaselineEntry, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *PublicScheduleBaselineEntryMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *PublicScheduleBaselineEntryMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (PublicScheduleBaselineEntry).
+func (m *PublicScheduleBaselineEntryMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *PublicScheduleBaselineEntryMutation) Fields() []string {
+	fields := make([]string, 0, 5)
+	if m.baseline != nil {
+		fields = append(fields, publicschedulebaselineentry.FieldBaselineID)
+	}
+	if m.session != nil {
+		fields = append(fields, publicschedulebaselineentry.FieldSessionID)
+	}
+	if m.forecast_start != nil {
+		fields = append(fields, publicschedulebaselineentry.FieldForecastStart)
+	}
+	if m.source_published_revision != nil {
+		fields = append(fields, publicschedulebaselineentry.FieldSourcePublishedRevision)
+	}
+	if m.recorded_at != nil {
+		fields = append(fields, publicschedulebaselineentry.FieldRecordedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *PublicScheduleBaselineEntryMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case publicschedulebaselineentry.FieldBaselineID:
+		return m.BaselineID()
+	case publicschedulebaselineentry.FieldSessionID:
+		return m.SessionID()
+	case publicschedulebaselineentry.FieldForecastStart:
+		return m.ForecastStart()
+	case publicschedulebaselineentry.FieldSourcePublishedRevision:
+		return m.SourcePublishedRevision()
+	case publicschedulebaselineentry.FieldRecordedAt:
+		return m.RecordedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *PublicScheduleBaselineEntryMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case publicschedulebaselineentry.FieldBaselineID:
+		return m.OldBaselineID(ctx)
+	case publicschedulebaselineentry.FieldSessionID:
+		return m.OldSessionID(ctx)
+	case publicschedulebaselineentry.FieldForecastStart:
+		return m.OldForecastStart(ctx)
+	case publicschedulebaselineentry.FieldSourcePublishedRevision:
+		return m.OldSourcePublishedRevision(ctx)
+	case publicschedulebaselineentry.FieldRecordedAt:
+		return m.OldRecordedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown PublicScheduleBaselineEntry field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *PublicScheduleBaselineEntryMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case publicschedulebaselineentry.FieldBaselineID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBaselineID(v)
+		return nil
+	case publicschedulebaselineentry.FieldSessionID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSessionID(v)
+		return nil
+	case publicschedulebaselineentry.FieldForecastStart:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetForecastStart(v)
+		return nil
+	case publicschedulebaselineentry.FieldSourcePublishedRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSourcePublishedRevision(v)
+		return nil
+	case publicschedulebaselineentry.FieldRecordedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRecordedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown PublicScheduleBaselineEntry field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *PublicScheduleBaselineEntryMutation) AddedFields() []string {
+	var fields []string
+	if m.addsource_published_revision != nil {
+		fields = append(fields, publicschedulebaselineentry.FieldSourcePublishedRevision)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *PublicScheduleBaselineEntryMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case publicschedulebaselineentry.FieldSourcePublishedRevision:
+		return m.AddedSourcePublishedRevision()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *PublicScheduleBaselineEntryMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case publicschedulebaselineentry.FieldSourcePublishedRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSourcePublishedRevision(v)
+		return nil
+	}
+	return fmt.Errorf("unknown PublicScheduleBaselineEntry numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *PublicScheduleBaselineEntryMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *PublicScheduleBaselineEntryMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *PublicScheduleBaselineEntryMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown PublicScheduleBaselineEntry nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *PublicScheduleBaselineEntryMutation) ResetField(name string) error {
+	switch name {
+	case publicschedulebaselineentry.FieldBaselineID:
+		m.ResetBaselineID()
+		return nil
+	case publicschedulebaselineentry.FieldSessionID:
+		m.ResetSessionID()
+		return nil
+	case publicschedulebaselineentry.FieldForecastStart:
+		m.ResetForecastStart()
+		return nil
+	case publicschedulebaselineentry.FieldSourcePublishedRevision:
+		m.ResetSourcePublishedRevision()
+		return nil
+	case publicschedulebaselineentry.FieldRecordedAt:
+		m.ResetRecordedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown PublicScheduleBaselineEntry field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *PublicScheduleBaselineEntryMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.baseline != nil {
+		edges = append(edges, publicschedulebaselineentry.EdgeBaseline)
+	}
+	if m.session != nil {
+		edges = append(edges, publicschedulebaselineentry.EdgeSession)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *PublicScheduleBaselineEntryMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case publicschedulebaselineentry.EdgeBaseline:
+		if id := m.baseline; id != nil {
+			return []ent.Value{*id}
+		}
+	case publicschedulebaselineentry.EdgeSession:
+		if id := m.session; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *PublicScheduleBaselineEntryMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *PublicScheduleBaselineEntryMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *PublicScheduleBaselineEntryMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedbaseline {
+		edges = append(edges, publicschedulebaselineentry.EdgeBaseline)
+	}
+	if m.clearedsession {
+		edges = append(edges, publicschedulebaselineentry.EdgeSession)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *PublicScheduleBaselineEntryMutation) EdgeCleared(name string) bool {
+	switch name {
+	case publicschedulebaselineentry.EdgeBaseline:
+		return m.clearedbaseline
+	case publicschedulebaselineentry.EdgeSession:
+		return m.clearedsession
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *PublicScheduleBaselineEntryMutation) ClearEdge(name string) error {
+	switch name {
+	case publicschedulebaselineentry.EdgeBaseline:
+		m.ClearBaseline()
+		return nil
+	case publicschedulebaselineentry.EdgeSession:
+		m.ClearSession()
+		return nil
+	}
+	return fmt.Errorf("unknown PublicScheduleBaselineEntry unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *PublicScheduleBaselineEntryMutation) ResetEdge(name string) error {
+	switch name {
+	case publicschedulebaselineentry.EdgeBaseline:
+		m.ResetBaseline()
+		return nil
+	case publicschedulebaselineentry.EdgeSession:
+		m.ResetSession()
+		return nil
+	}
+	return fmt.Errorf("unknown PublicScheduleBaselineEntry edge %s", name)
+}
+
 // ReopenWindowMutation represents an operation that mutates the ReopenWindow nodes in the graph.
 type ReopenWindowMutation struct {
 	config
@@ -28670,72 +30020,74 @@ func (m *RundownMutation) ResetEdge(name string) error {
 // SessionMutation represents an operation that mutates the Session nodes in the graph.
 type SessionMutation struct {
 	config
-	op                                 Op
-	typ                                string
-	id                                 *int
-	lifecycle                          *session.Lifecycle
-	live_state_revision                *int
-	addlive_state_revision             *int
-	forecast_start                     *time.Time
-	forecast_end                       *time.Time
-	communicated_start                 *time.Time
-	communicated_end                   *time.Time
-	previous_forecast_start            *time.Time
-	forecast_lane_ids                  *[]int
-	appendforecast_lane_ids            []int
-	forecast_location_ids              *[]int
-	appendforecast_location_ids        []int
-	public_cancellation_message        *string
-	cancellation_crew_notes            *string
-	corrected_title                    *string
-	corrected_speaker                  *string
-	corrected_public_details           *string
-	require_entry_review               *bool
-	file_delivery_required             *bool
-	readiness_revision                 *int
-	addreadiness_revision              *int
-	entry_order_policy                 *session.EntryOrderPolicy
-	entry_order_seed                   *int64
-	addentry_order_seed                *int64
-	entry_order_manual_ids             *[]int
-	appendentry_order_manual_ids       []int
-	locked_entry_order_ids             *[]int
-	appendlocked_entry_order_ids       []int
-	entry_order_locked_at              *time.Time
-	entry_order_revision               *int
-	addentry_order_revision            *int
-	program_output_kind                *session.ProgramOutputKind
-	program_output_entry_id            *int
-	addprogram_output_entry_id         *int
-	program_output_revision            *int
-	addprogram_output_revision         *int
-	program_cursor                     *int
-	addprogram_cursor                  *int
-	program_output_taken_at            *time.Time
-	attachment_release_policy_override *session.AttachmentReleasePolicyOverride
-	attachment_release_revision        *int
-	addattachment_release_revision     *int
-	created_at                         *time.Time
-	clearedFields                      map[string]struct{}
-	event                              *int
-	clearedevent                       bool
-	draft                              *int
-	cleareddraft                       bool
-	published_versions                 map[int]struct{}
-	removedpublished_versions          map[int]struct{}
-	clearedpublished_versions          bool
-	runs                               map[int]struct{}
-	removedruns                        map[int]struct{}
-	clearedruns                        bool
-	cancellations                      map[int]struct{}
-	removedcancellations               map[int]struct{}
-	clearedcancellations               bool
-	competition_entries                map[int]struct{}
-	removedcompetition_entries         map[int]struct{}
-	clearedcompetition_entries         bool
-	done                               bool
-	oldValue                           func(context.Context) (*Session, error)
-	predicates                         []predicate.Session
+	op                                    Op
+	typ                                   string
+	id                                    *int
+	lifecycle                             *session.Lifecycle
+	live_state_revision                   *int
+	addlive_state_revision                *int
+	forecast_start                        *time.Time
+	forecast_end                          *time.Time
+	communicated_start                    *time.Time
+	communicated_end                      *time.Time
+	previous_forecast_start               *time.Time
+	forecast_lane_ids                     *[]int
+	appendforecast_lane_ids               []int
+	forecast_location_ids                 *[]int
+	appendforecast_location_ids           []int
+	public_cancellation_message           *string
+	cancellation_crew_notes               *string
+	corrected_title                       *string
+	corrected_speaker                     *string
+	corrected_public_details              *string
+	require_entry_review                  *bool
+	file_delivery_required                *bool
+	readiness_revision                    *int
+	addreadiness_revision                 *int
+	entry_order_policy                    *session.EntryOrderPolicy
+	entry_order_seed                      *int64
+	addentry_order_seed                   *int64
+	entry_order_manual_ids                *[]int
+	appendentry_order_manual_ids          []int
+	locked_entry_order_ids                *[]int
+	appendlocked_entry_order_ids          []int
+	entry_order_locked_at                 *time.Time
+	entry_order_revision                  *int
+	addentry_order_revision               *int
+	program_output_kind                   *session.ProgramOutputKind
+	program_output_entry_id               *int
+	addprogram_output_entry_id            *int
+	program_output_revision               *int
+	addprogram_output_revision            *int
+	program_cursor                        *int
+	addprogram_cursor                     *int
+	program_output_taken_at               *time.Time
+	attachment_release_policy_override    *session.AttachmentReleasePolicyOverride
+	attachment_release_revision           *int
+	addattachment_release_revision        *int
+	created_at                            *time.Time
+	clearedFields                         map[string]struct{}
+	event                                 *int
+	clearedevent                          bool
+	draft                                 *int
+	cleareddraft                          bool
+	published_versions                    map[int]struct{}
+	removedpublished_versions             map[int]struct{}
+	clearedpublished_versions             bool
+	runs                                  map[int]struct{}
+	removedruns                           map[int]struct{}
+	clearedruns                           bool
+	cancellations                         map[int]struct{}
+	removedcancellations                  map[int]struct{}
+	clearedcancellations                  bool
+	public_schedule_baseline_entry        *int
+	clearedpublic_schedule_baseline_entry bool
+	competition_entries                   map[int]struct{}
+	removedcompetition_entries            map[int]struct{}
+	clearedcompetition_entries            bool
+	done                                  bool
+	oldValue                              func(context.Context) (*Session, error)
+	predicates                            []predicate.Session
 }
 
 var _ ent.Mutation = (*SessionMutation)(nil)
@@ -30688,6 +32040,45 @@ func (m *SessionMutation) ResetCancellations() {
 	m.removedcancellations = nil
 }
 
+// SetPublicScheduleBaselineEntryID sets the "public_schedule_baseline_entry" edge to the PublicScheduleBaselineEntry entity by id.
+func (m *SessionMutation) SetPublicScheduleBaselineEntryID(id int) {
+	m.public_schedule_baseline_entry = &id
+}
+
+// ClearPublicScheduleBaselineEntry clears the "public_schedule_baseline_entry" edge to the PublicScheduleBaselineEntry entity.
+func (m *SessionMutation) ClearPublicScheduleBaselineEntry() {
+	m.clearedpublic_schedule_baseline_entry = true
+}
+
+// PublicScheduleBaselineEntryCleared reports if the "public_schedule_baseline_entry" edge to the PublicScheduleBaselineEntry entity was cleared.
+func (m *SessionMutation) PublicScheduleBaselineEntryCleared() bool {
+	return m.clearedpublic_schedule_baseline_entry
+}
+
+// PublicScheduleBaselineEntryID returns the "public_schedule_baseline_entry" edge ID in the mutation.
+func (m *SessionMutation) PublicScheduleBaselineEntryID() (id int, exists bool) {
+	if m.public_schedule_baseline_entry != nil {
+		return *m.public_schedule_baseline_entry, true
+	}
+	return
+}
+
+// PublicScheduleBaselineEntryIDs returns the "public_schedule_baseline_entry" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// PublicScheduleBaselineEntryID instead. It exists only for internal usage by the builders.
+func (m *SessionMutation) PublicScheduleBaselineEntryIDs() (ids []int) {
+	if id := m.public_schedule_baseline_entry; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetPublicScheduleBaselineEntry resets all changes to the "public_schedule_baseline_entry" edge.
+func (m *SessionMutation) ResetPublicScheduleBaselineEntry() {
+	m.public_schedule_baseline_entry = nil
+	m.clearedpublic_schedule_baseline_entry = false
+}
+
 // AddCompetitionEntryIDs adds the "competition_entries" edge to the CompetitionEntry entity by ids.
 func (m *SessionMutation) AddCompetitionEntryIDs(ids ...int) {
 	if m.competition_entries == nil {
@@ -31618,7 +33009,7 @@ func (m *SessionMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *SessionMutation) AddedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.event != nil {
 		edges = append(edges, session.EdgeEvent)
 	}
@@ -31633,6 +33024,9 @@ func (m *SessionMutation) AddedEdges() []string {
 	}
 	if m.cancellations != nil {
 		edges = append(edges, session.EdgeCancellations)
+	}
+	if m.public_schedule_baseline_entry != nil {
+		edges = append(edges, session.EdgePublicScheduleBaselineEntry)
 	}
 	if m.competition_entries != nil {
 		edges = append(edges, session.EdgeCompetitionEntries)
@@ -31670,6 +33064,10 @@ func (m *SessionMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case session.EdgePublicScheduleBaselineEntry:
+		if id := m.public_schedule_baseline_entry; id != nil {
+			return []ent.Value{*id}
+		}
 	case session.EdgeCompetitionEntries:
 		ids := make([]ent.Value, 0, len(m.competition_entries))
 		for id := range m.competition_entries {
@@ -31682,7 +33080,7 @@ func (m *SessionMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *SessionMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.removedpublished_versions != nil {
 		edges = append(edges, session.EdgePublishedVersions)
 	}
@@ -31732,7 +33130,7 @@ func (m *SessionMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *SessionMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.clearedevent {
 		edges = append(edges, session.EdgeEvent)
 	}
@@ -31747,6 +33145,9 @@ func (m *SessionMutation) ClearedEdges() []string {
 	}
 	if m.clearedcancellations {
 		edges = append(edges, session.EdgeCancellations)
+	}
+	if m.clearedpublic_schedule_baseline_entry {
+		edges = append(edges, session.EdgePublicScheduleBaselineEntry)
 	}
 	if m.clearedcompetition_entries {
 		edges = append(edges, session.EdgeCompetitionEntries)
@@ -31768,6 +33169,8 @@ func (m *SessionMutation) EdgeCleared(name string) bool {
 		return m.clearedruns
 	case session.EdgeCancellations:
 		return m.clearedcancellations
+	case session.EdgePublicScheduleBaselineEntry:
+		return m.clearedpublic_schedule_baseline_entry
 	case session.EdgeCompetitionEntries:
 		return m.clearedcompetition_entries
 	}
@@ -31783,6 +33186,9 @@ func (m *SessionMutation) ClearEdge(name string) error {
 		return nil
 	case session.EdgeDraft:
 		m.ClearDraft()
+		return nil
+	case session.EdgePublicScheduleBaselineEntry:
+		m.ClearPublicScheduleBaselineEntry()
 		return nil
 	}
 	return fmt.Errorf("unknown Session unique edge %s", name)
@@ -31806,6 +33212,9 @@ func (m *SessionMutation) ResetEdge(name string) error {
 		return nil
 	case session.EdgeCancellations:
 		m.ResetCancellations()
+		return nil
+	case session.EdgePublicScheduleBaselineEntry:
+		m.ResetPublicScheduleBaselineEntry()
 		return nil
 	case session.EdgeCompetitionEntries:
 		m.ResetCompetitionEntries()

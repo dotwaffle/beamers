@@ -1565,6 +1565,29 @@ func HasCancellationsWith(preds ...predicate.SessionCancellation) predicate.Sess
 	})
 }
 
+// HasPublicScheduleBaselineEntry applies the HasEdge predicate on the "public_schedule_baseline_entry" edge.
+func HasPublicScheduleBaselineEntry() predicate.Session {
+	return predicate.Session(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, PublicScheduleBaselineEntryTable, PublicScheduleBaselineEntryColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasPublicScheduleBaselineEntryWith applies the HasEdge predicate on the "public_schedule_baseline_entry" edge with a given conditions (other predicates).
+func HasPublicScheduleBaselineEntryWith(preds ...predicate.PublicScheduleBaselineEntry) predicate.Session {
+	return predicate.Session(func(s *sql.Selector) {
+		step := newPublicScheduleBaselineEntryStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasCompetitionEntries applies the HasEdge predicate on the "competition_entries" edge.
 func HasCompetitionEntries() predicate.Session {
 	return predicate.Session(func(s *sql.Selector) {

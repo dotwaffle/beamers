@@ -44,6 +44,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
 	"github.com/dotwaffle/beamers/ent/migration"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
+	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
+	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
@@ -121,6 +123,10 @@ type Client struct {
 	Migration *MigrationClient
 	// PasswordCredential is the client for interacting with the PasswordCredential builders.
 	PasswordCredential *PasswordCredentialClient
+	// PublicScheduleBaseline is the client for interacting with the PublicScheduleBaseline builders.
+	PublicScheduleBaseline *PublicScheduleBaselineClient
+	// PublicScheduleBaselineEntry is the client for interacting with the PublicScheduleBaselineEntry builders.
+	PublicScheduleBaselineEntry *PublicScheduleBaselineEntryClient
 	// ReopenWindow is the client for interacting with the ReopenWindow builders.
 	ReopenWindow *ReopenWindowClient
 	// Rundown is the client for interacting with the Rundown builders.
@@ -185,6 +191,8 @@ func (c *Client) init() {
 	c.LocationPublishedVersion = NewLocationPublishedVersionClient(c.config)
 	c.Migration = NewMigrationClient(c.config)
 	c.PasswordCredential = NewPasswordCredentialClient(c.config)
+	c.PublicScheduleBaseline = NewPublicScheduleBaselineClient(c.config)
+	c.PublicScheduleBaselineEntry = NewPublicScheduleBaselineEntryClient(c.config)
 	c.ReopenWindow = NewReopenWindowClient(c.config)
 	c.Rundown = NewRundownClient(c.config)
 	c.Session = NewSessionClient(c.config)
@@ -287,49 +295,51 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:                      ctx,
-		config:                   cfg,
-		Account:                  NewAccountClient(cfg),
-		AccountSession:           NewAccountSessionClient(cfg),
-		Attachment:               NewAttachmentClient(cfg),
-		AttachmentVersion:        NewAttachmentVersionClient(cfg),
-		AuditEntry:               NewAuditEntryClient(cfg),
-		BootstrapCredential:      NewBootstrapCredentialClient(cfg),
-		CommandReceipt:           NewCommandReceiptClient(cfg),
-		CompetitionEntry:         NewCompetitionEntryClient(cfg),
-		Display:                  NewDisplayClient(cfg),
-		DisplayAssignment:        NewDisplayAssignmentClient(cfg),
-		DisplayCredential:        NewDisplayCredentialClient(cfg),
-		DisplayEnrollment:        NewDisplayEnrollmentClient(cfg),
-		DisplayOverride:          NewDisplayOverrideClient(cfg),
-		DisplayOverrideState:     NewDisplayOverrideStateClient(cfg),
-		DraftChange:              NewDraftChangeClient(cfg),
-		DraftChangeDependency:    NewDraftChangeDependencyClient(cfg),
-		DraftEdit:                NewDraftEditClient(cfg),
-		Event:                    NewEventClient(cfg),
-		EventGrant:               NewEventGrantClient(cfg),
-		ImportReference:          NewImportReferenceClient(cfg),
-		Installation:             NewInstallationClient(cfg),
-		Lane:                     NewLaneClient(cfg),
-		LaneDraft:                NewLaneDraftClient(cfg),
-		LanePublishedVersion:     NewLanePublishedVersionClient(cfg),
-		Location:                 NewLocationClient(cfg),
-		LocationDraft:            NewLocationDraftClient(cfg),
-		LocationPublishedVersion: NewLocationPublishedVersionClient(cfg),
-		Migration:                NewMigrationClient(cfg),
-		PasswordCredential:       NewPasswordCredentialClient(cfg),
-		ReopenWindow:             NewReopenWindowClient(cfg),
-		Rundown:                  NewRundownClient(cfg),
-		Session:                  NewSessionClient(cfg),
-		SessionCancellation:      NewSessionCancellationClient(cfg),
-		SessionDraft:             NewSessionDraftClient(cfg),
-		SessionPublishedVersion:  NewSessionPublishedVersionClient(cfg),
-		SessionRun:               NewSessionRunClient(cfg),
-		SessionRunAmendment:      NewSessionRunAmendmentClient(cfg),
-		Track:                    NewTrackClient(cfg),
-		TrackDraft:               NewTrackDraftClient(cfg),
-		TrackPublishedVersion:    NewTrackPublishedVersionClient(cfg),
-		UploadLink:               NewUploadLinkClient(cfg),
+		ctx:                         ctx,
+		config:                      cfg,
+		Account:                     NewAccountClient(cfg),
+		AccountSession:              NewAccountSessionClient(cfg),
+		Attachment:                  NewAttachmentClient(cfg),
+		AttachmentVersion:           NewAttachmentVersionClient(cfg),
+		AuditEntry:                  NewAuditEntryClient(cfg),
+		BootstrapCredential:         NewBootstrapCredentialClient(cfg),
+		CommandReceipt:              NewCommandReceiptClient(cfg),
+		CompetitionEntry:            NewCompetitionEntryClient(cfg),
+		Display:                     NewDisplayClient(cfg),
+		DisplayAssignment:           NewDisplayAssignmentClient(cfg),
+		DisplayCredential:           NewDisplayCredentialClient(cfg),
+		DisplayEnrollment:           NewDisplayEnrollmentClient(cfg),
+		DisplayOverride:             NewDisplayOverrideClient(cfg),
+		DisplayOverrideState:        NewDisplayOverrideStateClient(cfg),
+		DraftChange:                 NewDraftChangeClient(cfg),
+		DraftChangeDependency:       NewDraftChangeDependencyClient(cfg),
+		DraftEdit:                   NewDraftEditClient(cfg),
+		Event:                       NewEventClient(cfg),
+		EventGrant:                  NewEventGrantClient(cfg),
+		ImportReference:             NewImportReferenceClient(cfg),
+		Installation:                NewInstallationClient(cfg),
+		Lane:                        NewLaneClient(cfg),
+		LaneDraft:                   NewLaneDraftClient(cfg),
+		LanePublishedVersion:        NewLanePublishedVersionClient(cfg),
+		Location:                    NewLocationClient(cfg),
+		LocationDraft:               NewLocationDraftClient(cfg),
+		LocationPublishedVersion:    NewLocationPublishedVersionClient(cfg),
+		Migration:                   NewMigrationClient(cfg),
+		PasswordCredential:          NewPasswordCredentialClient(cfg),
+		PublicScheduleBaseline:      NewPublicScheduleBaselineClient(cfg),
+		PublicScheduleBaselineEntry: NewPublicScheduleBaselineEntryClient(cfg),
+		ReopenWindow:                NewReopenWindowClient(cfg),
+		Rundown:                     NewRundownClient(cfg),
+		Session:                     NewSessionClient(cfg),
+		SessionCancellation:         NewSessionCancellationClient(cfg),
+		SessionDraft:                NewSessionDraftClient(cfg),
+		SessionPublishedVersion:     NewSessionPublishedVersionClient(cfg),
+		SessionRun:                  NewSessionRunClient(cfg),
+		SessionRunAmendment:         NewSessionRunAmendmentClient(cfg),
+		Track:                       NewTrackClient(cfg),
+		TrackDraft:                  NewTrackDraftClient(cfg),
+		TrackPublishedVersion:       NewTrackPublishedVersionClient(cfg),
+		UploadLink:                  NewUploadLinkClient(cfg),
 	}, nil
 }
 
@@ -347,49 +357,51 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:                      ctx,
-		config:                   cfg,
-		Account:                  NewAccountClient(cfg),
-		AccountSession:           NewAccountSessionClient(cfg),
-		Attachment:               NewAttachmentClient(cfg),
-		AttachmentVersion:        NewAttachmentVersionClient(cfg),
-		AuditEntry:               NewAuditEntryClient(cfg),
-		BootstrapCredential:      NewBootstrapCredentialClient(cfg),
-		CommandReceipt:           NewCommandReceiptClient(cfg),
-		CompetitionEntry:         NewCompetitionEntryClient(cfg),
-		Display:                  NewDisplayClient(cfg),
-		DisplayAssignment:        NewDisplayAssignmentClient(cfg),
-		DisplayCredential:        NewDisplayCredentialClient(cfg),
-		DisplayEnrollment:        NewDisplayEnrollmentClient(cfg),
-		DisplayOverride:          NewDisplayOverrideClient(cfg),
-		DisplayOverrideState:     NewDisplayOverrideStateClient(cfg),
-		DraftChange:              NewDraftChangeClient(cfg),
-		DraftChangeDependency:    NewDraftChangeDependencyClient(cfg),
-		DraftEdit:                NewDraftEditClient(cfg),
-		Event:                    NewEventClient(cfg),
-		EventGrant:               NewEventGrantClient(cfg),
-		ImportReference:          NewImportReferenceClient(cfg),
-		Installation:             NewInstallationClient(cfg),
-		Lane:                     NewLaneClient(cfg),
-		LaneDraft:                NewLaneDraftClient(cfg),
-		LanePublishedVersion:     NewLanePublishedVersionClient(cfg),
-		Location:                 NewLocationClient(cfg),
-		LocationDraft:            NewLocationDraftClient(cfg),
-		LocationPublishedVersion: NewLocationPublishedVersionClient(cfg),
-		Migration:                NewMigrationClient(cfg),
-		PasswordCredential:       NewPasswordCredentialClient(cfg),
-		ReopenWindow:             NewReopenWindowClient(cfg),
-		Rundown:                  NewRundownClient(cfg),
-		Session:                  NewSessionClient(cfg),
-		SessionCancellation:      NewSessionCancellationClient(cfg),
-		SessionDraft:             NewSessionDraftClient(cfg),
-		SessionPublishedVersion:  NewSessionPublishedVersionClient(cfg),
-		SessionRun:               NewSessionRunClient(cfg),
-		SessionRunAmendment:      NewSessionRunAmendmentClient(cfg),
-		Track:                    NewTrackClient(cfg),
-		TrackDraft:               NewTrackDraftClient(cfg),
-		TrackPublishedVersion:    NewTrackPublishedVersionClient(cfg),
-		UploadLink:               NewUploadLinkClient(cfg),
+		ctx:                         ctx,
+		config:                      cfg,
+		Account:                     NewAccountClient(cfg),
+		AccountSession:              NewAccountSessionClient(cfg),
+		Attachment:                  NewAttachmentClient(cfg),
+		AttachmentVersion:           NewAttachmentVersionClient(cfg),
+		AuditEntry:                  NewAuditEntryClient(cfg),
+		BootstrapCredential:         NewBootstrapCredentialClient(cfg),
+		CommandReceipt:              NewCommandReceiptClient(cfg),
+		CompetitionEntry:            NewCompetitionEntryClient(cfg),
+		Display:                     NewDisplayClient(cfg),
+		DisplayAssignment:           NewDisplayAssignmentClient(cfg),
+		DisplayCredential:           NewDisplayCredentialClient(cfg),
+		DisplayEnrollment:           NewDisplayEnrollmentClient(cfg),
+		DisplayOverride:             NewDisplayOverrideClient(cfg),
+		DisplayOverrideState:        NewDisplayOverrideStateClient(cfg),
+		DraftChange:                 NewDraftChangeClient(cfg),
+		DraftChangeDependency:       NewDraftChangeDependencyClient(cfg),
+		DraftEdit:                   NewDraftEditClient(cfg),
+		Event:                       NewEventClient(cfg),
+		EventGrant:                  NewEventGrantClient(cfg),
+		ImportReference:             NewImportReferenceClient(cfg),
+		Installation:                NewInstallationClient(cfg),
+		Lane:                        NewLaneClient(cfg),
+		LaneDraft:                   NewLaneDraftClient(cfg),
+		LanePublishedVersion:        NewLanePublishedVersionClient(cfg),
+		Location:                    NewLocationClient(cfg),
+		LocationDraft:               NewLocationDraftClient(cfg),
+		LocationPublishedVersion:    NewLocationPublishedVersionClient(cfg),
+		Migration:                   NewMigrationClient(cfg),
+		PasswordCredential:          NewPasswordCredentialClient(cfg),
+		PublicScheduleBaseline:      NewPublicScheduleBaselineClient(cfg),
+		PublicScheduleBaselineEntry: NewPublicScheduleBaselineEntryClient(cfg),
+		ReopenWindow:                NewReopenWindowClient(cfg),
+		Rundown:                     NewRundownClient(cfg),
+		Session:                     NewSessionClient(cfg),
+		SessionCancellation:         NewSessionCancellationClient(cfg),
+		SessionDraft:                NewSessionDraftClient(cfg),
+		SessionPublishedVersion:     NewSessionPublishedVersionClient(cfg),
+		SessionRun:                  NewSessionRunClient(cfg),
+		SessionRunAmendment:         NewSessionRunAmendmentClient(cfg),
+		Track:                       NewTrackClient(cfg),
+		TrackDraft:                  NewTrackDraftClient(cfg),
+		TrackPublishedVersion:       NewTrackPublishedVersionClient(cfg),
+		UploadLink:                  NewUploadLinkClient(cfg),
 	}, nil
 }
 
@@ -426,7 +438,8 @@ func (c *Client) Use(hooks ...Hook) {
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventGrant, c.ImportReference,
 		c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion, c.Location,
 		c.LocationDraft, c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
-		c.ReopenWindow, c.Rundown, c.Session, c.SessionCancellation, c.SessionDraft,
+		c.PublicScheduleBaseline, c.PublicScheduleBaselineEntry, c.ReopenWindow,
+		c.Rundown, c.Session, c.SessionCancellation, c.SessionDraft,
 		c.SessionPublishedVersion, c.SessionRun, c.SessionRunAmendment, c.Track,
 		c.TrackDraft, c.TrackPublishedVersion, c.UploadLink,
 	} {
@@ -445,7 +458,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventGrant, c.ImportReference,
 		c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion, c.Location,
 		c.LocationDraft, c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
-		c.ReopenWindow, c.Rundown, c.Session, c.SessionCancellation, c.SessionDraft,
+		c.PublicScheduleBaseline, c.PublicScheduleBaselineEntry, c.ReopenWindow,
+		c.Rundown, c.Session, c.SessionCancellation, c.SessionDraft,
 		c.SessionPublishedVersion, c.SessionRun, c.SessionRunAmendment, c.Track,
 		c.TrackDraft, c.TrackPublishedVersion, c.UploadLink,
 	} {
@@ -514,6 +528,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Migration.mutate(ctx, m)
 	case *PasswordCredentialMutation:
 		return c.PasswordCredential.mutate(ctx, m)
+	case *PublicScheduleBaselineMutation:
+		return c.PublicScheduleBaseline.mutate(ctx, m)
+	case *PublicScheduleBaselineEntryMutation:
+		return c.PublicScheduleBaselineEntry.mutate(ctx, m)
 	case *ReopenWindowMutation:
 		return c.ReopenWindow.mutate(ctx, m)
 	case *RundownMutation:
@@ -3633,6 +3651,22 @@ func (c *EventClient) QueryImportReferences(_m *Event) *ImportReferenceQuery {
 	return query
 }
 
+// QueryPublicScheduleBaseline queries the public_schedule_baseline edge of a Event.
+func (c *EventClient) QueryPublicScheduleBaseline(_m *Event) *PublicScheduleBaselineQuery {
+	query := (&PublicScheduleBaselineClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(publicschedulebaseline.Table, publicschedulebaseline.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, event.PublicScheduleBaselineTable, event.PublicScheduleBaselineColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryDisplayAssignments queries the display_assignments edge of a Event.
 func (c *EventClient) QueryDisplayAssignments(_m *Event) *DisplayAssignmentQuery {
 	query := (&DisplayAssignmentClient{config: c.config}).Query()
@@ -5548,6 +5582,338 @@ func (c *PasswordCredentialClient) mutate(ctx context.Context, m *PasswordCreden
 	}
 }
 
+// PublicScheduleBaselineClient is a client for the PublicScheduleBaseline schema.
+type PublicScheduleBaselineClient struct {
+	config
+}
+
+// NewPublicScheduleBaselineClient returns a client for the PublicScheduleBaseline from the given config.
+func NewPublicScheduleBaselineClient(c config) *PublicScheduleBaselineClient {
+	return &PublicScheduleBaselineClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `publicschedulebaseline.Hooks(f(g(h())))`.
+func (c *PublicScheduleBaselineClient) Use(hooks ...Hook) {
+	c.hooks.PublicScheduleBaseline = append(c.hooks.PublicScheduleBaseline, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `publicschedulebaseline.Intercept(f(g(h())))`.
+func (c *PublicScheduleBaselineClient) Intercept(interceptors ...Interceptor) {
+	c.inters.PublicScheduleBaseline = append(c.inters.PublicScheduleBaseline, interceptors...)
+}
+
+// Create returns a builder for creating a PublicScheduleBaseline entity.
+func (c *PublicScheduleBaselineClient) Create() *PublicScheduleBaselineCreate {
+	mutation := newPublicScheduleBaselineMutation(c.config, OpCreate)
+	return &PublicScheduleBaselineCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of PublicScheduleBaseline entities.
+func (c *PublicScheduleBaselineClient) CreateBulk(builders ...*PublicScheduleBaselineCreate) *PublicScheduleBaselineCreateBulk {
+	return &PublicScheduleBaselineCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *PublicScheduleBaselineClient) MapCreateBulk(slice any, setFunc func(*PublicScheduleBaselineCreate, int)) *PublicScheduleBaselineCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &PublicScheduleBaselineCreateBulk{err: fmt.Errorf("calling to PublicScheduleBaselineClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*PublicScheduleBaselineCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &PublicScheduleBaselineCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for PublicScheduleBaseline.
+func (c *PublicScheduleBaselineClient) Update() *PublicScheduleBaselineUpdate {
+	mutation := newPublicScheduleBaselineMutation(c.config, OpUpdate)
+	return &PublicScheduleBaselineUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *PublicScheduleBaselineClient) UpdateOne(_m *PublicScheduleBaseline) *PublicScheduleBaselineUpdateOne {
+	mutation := newPublicScheduleBaselineMutation(c.config, OpUpdateOne, withPublicScheduleBaseline(_m))
+	return &PublicScheduleBaselineUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *PublicScheduleBaselineClient) UpdateOneID(id int) *PublicScheduleBaselineUpdateOne {
+	mutation := newPublicScheduleBaselineMutation(c.config, OpUpdateOne, withPublicScheduleBaselineID(id))
+	return &PublicScheduleBaselineUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for PublicScheduleBaseline.
+func (c *PublicScheduleBaselineClient) Delete() *PublicScheduleBaselineDelete {
+	mutation := newPublicScheduleBaselineMutation(c.config, OpDelete)
+	return &PublicScheduleBaselineDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *PublicScheduleBaselineClient) DeleteOne(_m *PublicScheduleBaseline) *PublicScheduleBaselineDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *PublicScheduleBaselineClient) DeleteOneID(id int) *PublicScheduleBaselineDeleteOne {
+	builder := c.Delete().Where(publicschedulebaseline.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &PublicScheduleBaselineDeleteOne{builder}
+}
+
+// Query returns a query builder for PublicScheduleBaseline.
+func (c *PublicScheduleBaselineClient) Query() *PublicScheduleBaselineQuery {
+	return &PublicScheduleBaselineQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypePublicScheduleBaseline},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a PublicScheduleBaseline entity by its id.
+func (c *PublicScheduleBaselineClient) Get(ctx context.Context, id int) (*PublicScheduleBaseline, error) {
+	return c.Query().Where(publicschedulebaseline.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *PublicScheduleBaselineClient) GetX(ctx context.Context, id int) *PublicScheduleBaseline {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a PublicScheduleBaseline.
+func (c *PublicScheduleBaselineClient) QueryEvent(_m *PublicScheduleBaseline) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(publicschedulebaseline.Table, publicschedulebaseline.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, publicschedulebaseline.EventTable, publicschedulebaseline.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryEntries queries the entries edge of a PublicScheduleBaseline.
+func (c *PublicScheduleBaselineClient) QueryEntries(_m *PublicScheduleBaseline) *PublicScheduleBaselineEntryQuery {
+	query := (&PublicScheduleBaselineEntryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(publicschedulebaseline.Table, publicschedulebaseline.FieldID, id),
+			sqlgraph.To(publicschedulebaselineentry.Table, publicschedulebaselineentry.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, publicschedulebaseline.EntriesTable, publicschedulebaseline.EntriesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *PublicScheduleBaselineClient) Hooks() []Hook {
+	hooks := c.hooks.PublicScheduleBaseline
+	return append(hooks[:len(hooks):len(hooks)], publicschedulebaseline.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *PublicScheduleBaselineClient) Interceptors() []Interceptor {
+	return c.inters.PublicScheduleBaseline
+}
+
+func (c *PublicScheduleBaselineClient) mutate(ctx context.Context, m *PublicScheduleBaselineMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&PublicScheduleBaselineCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&PublicScheduleBaselineUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&PublicScheduleBaselineUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&PublicScheduleBaselineDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown PublicScheduleBaseline mutation op: %q", m.Op())
+	}
+}
+
+// PublicScheduleBaselineEntryClient is a client for the PublicScheduleBaselineEntry schema.
+type PublicScheduleBaselineEntryClient struct {
+	config
+}
+
+// NewPublicScheduleBaselineEntryClient returns a client for the PublicScheduleBaselineEntry from the given config.
+func NewPublicScheduleBaselineEntryClient(c config) *PublicScheduleBaselineEntryClient {
+	return &PublicScheduleBaselineEntryClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `publicschedulebaselineentry.Hooks(f(g(h())))`.
+func (c *PublicScheduleBaselineEntryClient) Use(hooks ...Hook) {
+	c.hooks.PublicScheduleBaselineEntry = append(c.hooks.PublicScheduleBaselineEntry, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `publicschedulebaselineentry.Intercept(f(g(h())))`.
+func (c *PublicScheduleBaselineEntryClient) Intercept(interceptors ...Interceptor) {
+	c.inters.PublicScheduleBaselineEntry = append(c.inters.PublicScheduleBaselineEntry, interceptors...)
+}
+
+// Create returns a builder for creating a PublicScheduleBaselineEntry entity.
+func (c *PublicScheduleBaselineEntryClient) Create() *PublicScheduleBaselineEntryCreate {
+	mutation := newPublicScheduleBaselineEntryMutation(c.config, OpCreate)
+	return &PublicScheduleBaselineEntryCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of PublicScheduleBaselineEntry entities.
+func (c *PublicScheduleBaselineEntryClient) CreateBulk(builders ...*PublicScheduleBaselineEntryCreate) *PublicScheduleBaselineEntryCreateBulk {
+	return &PublicScheduleBaselineEntryCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *PublicScheduleBaselineEntryClient) MapCreateBulk(slice any, setFunc func(*PublicScheduleBaselineEntryCreate, int)) *PublicScheduleBaselineEntryCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &PublicScheduleBaselineEntryCreateBulk{err: fmt.Errorf("calling to PublicScheduleBaselineEntryClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*PublicScheduleBaselineEntryCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &PublicScheduleBaselineEntryCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for PublicScheduleBaselineEntry.
+func (c *PublicScheduleBaselineEntryClient) Update() *PublicScheduleBaselineEntryUpdate {
+	mutation := newPublicScheduleBaselineEntryMutation(c.config, OpUpdate)
+	return &PublicScheduleBaselineEntryUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *PublicScheduleBaselineEntryClient) UpdateOne(_m *PublicScheduleBaselineEntry) *PublicScheduleBaselineEntryUpdateOne {
+	mutation := newPublicScheduleBaselineEntryMutation(c.config, OpUpdateOne, withPublicScheduleBaselineEntry(_m))
+	return &PublicScheduleBaselineEntryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *PublicScheduleBaselineEntryClient) UpdateOneID(id int) *PublicScheduleBaselineEntryUpdateOne {
+	mutation := newPublicScheduleBaselineEntryMutation(c.config, OpUpdateOne, withPublicScheduleBaselineEntryID(id))
+	return &PublicScheduleBaselineEntryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for PublicScheduleBaselineEntry.
+func (c *PublicScheduleBaselineEntryClient) Delete() *PublicScheduleBaselineEntryDelete {
+	mutation := newPublicScheduleBaselineEntryMutation(c.config, OpDelete)
+	return &PublicScheduleBaselineEntryDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *PublicScheduleBaselineEntryClient) DeleteOne(_m *PublicScheduleBaselineEntry) *PublicScheduleBaselineEntryDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *PublicScheduleBaselineEntryClient) DeleteOneID(id int) *PublicScheduleBaselineEntryDeleteOne {
+	builder := c.Delete().Where(publicschedulebaselineentry.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &PublicScheduleBaselineEntryDeleteOne{builder}
+}
+
+// Query returns a query builder for PublicScheduleBaselineEntry.
+func (c *PublicScheduleBaselineEntryClient) Query() *PublicScheduleBaselineEntryQuery {
+	return &PublicScheduleBaselineEntryQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypePublicScheduleBaselineEntry},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a PublicScheduleBaselineEntry entity by its id.
+func (c *PublicScheduleBaselineEntryClient) Get(ctx context.Context, id int) (*PublicScheduleBaselineEntry, error) {
+	return c.Query().Where(publicschedulebaselineentry.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *PublicScheduleBaselineEntryClient) GetX(ctx context.Context, id int) *PublicScheduleBaselineEntry {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryBaseline queries the baseline edge of a PublicScheduleBaselineEntry.
+func (c *PublicScheduleBaselineEntryClient) QueryBaseline(_m *PublicScheduleBaselineEntry) *PublicScheduleBaselineQuery {
+	query := (&PublicScheduleBaselineClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(publicschedulebaselineentry.Table, publicschedulebaselineentry.FieldID, id),
+			sqlgraph.To(publicschedulebaseline.Table, publicschedulebaseline.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, publicschedulebaselineentry.BaselineTable, publicschedulebaselineentry.BaselineColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySession queries the session edge of a PublicScheduleBaselineEntry.
+func (c *PublicScheduleBaselineEntryClient) QuerySession(_m *PublicScheduleBaselineEntry) *SessionQuery {
+	query := (&SessionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(publicschedulebaselineentry.Table, publicschedulebaselineentry.FieldID, id),
+			sqlgraph.To(session.Table, session.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, publicschedulebaselineentry.SessionTable, publicschedulebaselineentry.SessionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *PublicScheduleBaselineEntryClient) Hooks() []Hook {
+	hooks := c.hooks.PublicScheduleBaselineEntry
+	return append(hooks[:len(hooks):len(hooks)], publicschedulebaselineentry.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *PublicScheduleBaselineEntryClient) Interceptors() []Interceptor {
+	return c.inters.PublicScheduleBaselineEntry
+}
+
+func (c *PublicScheduleBaselineEntryClient) mutate(ctx context.Context, m *PublicScheduleBaselineEntryMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&PublicScheduleBaselineEntryCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&PublicScheduleBaselineEntryUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&PublicScheduleBaselineEntryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&PublicScheduleBaselineEntryDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown PublicScheduleBaselineEntry mutation op: %q", m.Op())
+	}
+}
+
 // ReopenWindowClient is a client for the ReopenWindow schema.
 type ReopenWindowClient struct {
 	config
@@ -6013,6 +6379,22 @@ func (c *SessionClient) QueryCancellations(_m *Session) *SessionCancellationQuer
 			sqlgraph.From(session.Table, session.FieldID, id),
 			sqlgraph.To(sessioncancellation.Table, sessioncancellation.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, session.CancellationsTable, session.CancellationsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryPublicScheduleBaselineEntry queries the public_schedule_baseline_entry edge of a Session.
+func (c *SessionClient) QueryPublicScheduleBaselineEntry(_m *Session) *PublicScheduleBaselineEntryQuery {
+	query := (&PublicScheduleBaselineEntryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(session.Table, session.FieldID, id),
+			sqlgraph.To(publicschedulebaselineentry.Table, publicschedulebaselineentry.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, session.PublicScheduleBaselineEntryTable, session.PublicScheduleBaselineEntryColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -7597,7 +7979,8 @@ type (
 		DisplayOverrideState, DraftChange, DraftChangeDependency, DraftEdit, Event,
 		EventGrant, ImportReference, Installation, Lane, LaneDraft,
 		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
-		Migration, PasswordCredential, ReopenWindow, Rundown, Session,
+		Migration, PasswordCredential, PublicScheduleBaseline,
+		PublicScheduleBaselineEntry, ReopenWindow, Rundown, Session,
 		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
 		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
 		UploadLink []ent.Hook
@@ -7609,7 +7992,8 @@ type (
 		DisplayOverrideState, DraftChange, DraftChangeDependency, DraftEdit, Event,
 		EventGrant, ImportReference, Installation, Lane, LaneDraft,
 		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
-		Migration, PasswordCredential, ReopenWindow, Rundown, Session,
+		Migration, PasswordCredential, PublicScheduleBaseline,
+		PublicScheduleBaselineEntry, ReopenWindow, Rundown, Session,
 		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
 		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
 		UploadLink []ent.Interceptor

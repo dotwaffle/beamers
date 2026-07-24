@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/publictime"
 	"github.com/dotwaffle/beamers/internal/store"
 )
 
@@ -80,7 +81,7 @@ type Session struct {
 	PublicDetails        string             `json:"public_details,omitempty"`
 	CancellationMessage  string             `json:"cancellation_message,omitempty"`
 	Lifecycle            string             `json:"lifecycle"`
-	Previous             *TimePoint         `json:"previous,omitempty"`
+	Was                  *TimePoint         `json:"was,omitempty"`
 	EventDay             string             `json:"event_day"`
 	LocalDate            string             `json:"local_date"`
 	CalendarDateRollover bool               `json:"calendar_date_rollover"`
@@ -174,17 +175,34 @@ func (service *Service) snapshot(ctx context.Context, upcomingOnly bool, filter 
 	locationNames := locationNames(state.Locations)
 	laneNames := laneNames(state.Lanes)
 	trackNames := trackNames(state.Tracks)
+	presentations := make(map[int]publictime.Presentation, len(state.Sessions))
+	for _, item := range state.Sessions {
+		presentation, presentationErr := publictime.Present(item.PublicTime)
+		if presentationErr != nil {
+			return Snapshot{}, fmt.Errorf(
+				"present public Schedule Session %d: %w",
+				item.ID,
+				presentationErr,
+			)
+		}
+		presentations[item.ID] = presentation
+	}
 	sortScheduleSessions(state.Sessions)
 	eventDays := make(map[int]string, len(state.Sessions))
 	dayOptions := make(map[string]struct{})
 	eligible := make([]store.PublicScheduleSession, 0, len(state.Sessions))
 	for _, item := range state.Sessions {
-		if upcomingOnly && (item.Lifecycle == "Ended" ||
-			(item.Lifecycle != "Live" && item.Lifecycle != "Canceled" &&
-				!item.ForecastEnd.After(service.now()))) {
+		lifecycle := item.PublicTime.Lifecycle
+		if upcomingOnly && (lifecycle == publictime.Ended ||
+			(lifecycle != publictime.Live && lifecycle != publictime.Canceled &&
+				!item.PublicTime.Forecast.End.After(service.now()))) {
 			continue
 		}
-		eventDay, dayErr := groupedEventDay(item.ForecastStart.In(zone), zone, state.EventDayBoundary)
+		eventDay, dayErr := groupedEventDay(
+			item.PublicTime.Forecast.Start.In(zone),
+			zone,
+			state.EventDayBoundary,
+		)
 		if dayErr != nil {
 			return Snapshot{}, dayErr
 		}
@@ -196,46 +214,41 @@ func (service *Service) snapshot(ctx context.Context, upcomingOnly bool, filter 
 		return eventDays[item.ID]
 	})
 	for _, item := range state.Sessions {
-		actualStart := TimePoint{Label: "Actual Start"}
-		if !item.ActualStart.IsZero() {
-			publicStart := publicActualTime(item.ActualStart, item.CommunicatedStart, item.PlannedDuration)
-			actualStart = projectedTimePoint("Actual Start", publicStart, displayZone, zone, state.EventLocale)
-		}
-		actualEnd := TimePoint{Label: "Actual End"}
-		if item.ActualEnd != nil {
-			publicEnd := publicActualTime(*item.ActualEnd, item.CommunicatedEnd, item.PlannedDuration)
-			actualEnd = projectedTimePoint("Actual End", publicEnd, displayZone, zone, state.EventLocale)
-		}
-		localStart := item.ForecastStart.In(zone)
-		displayStart := item.ForecastStart.In(displayZone)
-		var previous *TimePoint
-		if !item.PreviousForecastStart.IsZero() && item.Lifecycle != "Canceled" {
+		presentation := presentations[item.ID]
+		localStart := item.PublicTime.Forecast.Start.In(zone)
+		displayStart := presentation.Start.Time.In(displayZone)
+		var was *TimePoint
+		if presentation.Was != nil &&
+			formatEventTime(presentation.Start.Time.In(displayZone), state.EventLocale) !=
+				formatEventTime(presentation.Was.Time.In(displayZone), state.EventLocale) {
 			projected := projectedTimePoint(
-				"Previous Forecast Start", item.PreviousForecastStart,
-				displayZone, zone, state.EventLocale,
+				string(presentation.Was.Label),
+				presentation.Was.Time,
+				displayZone,
+				zone,
+				state.EventLocale,
 			)
-			previous = &projected
+			was = &projected
 		}
 		eventDay := eventDays[item.ID]
-		forecastStart := projectedTimePoint(
-			"Forecast Start", item.ForecastStart, displayZone, zone, state.EventLocale,
+		presentedStart := projectedTimePoint(
+			string(presentation.Start.Label),
+			presentation.Start.Time,
+			displayZone,
+			zone,
+			state.EventLocale,
 		)
-		forecastEnd := projectedTimePoint(
-			"Forecast End", item.ForecastEnd, displayZone, zone, state.EventLocale,
+		presentedEnd := projectedTimePoint(
+			string(presentation.End.Label),
+			presentation.End.Time,
+			displayZone,
+			zone,
+			state.EventLocale,
 		)
-		timePresentation := TimePresentation{Start: forecastStart, End: forecastEnd}
-		switch item.Lifecycle {
-		case "Live":
-			timePresentation.Start = actualStart
-		case "Ended":
-			timePresentation.Start, timePresentation.End = actualStart, actualEnd
-		case "Canceled":
-			timePresentation.Start.Label = "Last Forecast Start"
-			timePresentation.End.Label = "Last Forecast End"
-		}
+		timePresentation := TimePresentation{Start: presentedStart, End: presentedEnd}
 		timePresentation.ViewerLocal = result.ViewerLocal
 		timePresentation.TimezoneLabel = displayStart.Format("MST -07:00")
-		timePresentation.EventTimezoneLabel = localStart.Format("MST -07:00")
+		timePresentation.EventTimezoneLabel = presentation.Start.Time.In(zone).Format("MST -07:00")
 		competitionEntries := make([]CompetitionEntry, 0, len(item.CompetitionEntries))
 		for _, foundEntry := range item.CompetitionEntries {
 			competitionEntries = append(competitionEntries, CompetitionEntry{
@@ -247,7 +260,7 @@ func (service *Service) snapshot(ctx context.Context, upcomingOnly bool, filter 
 		result.Sessions = append(result.Sessions, Session{
 			ID: item.ID, Title: item.Title, Speaker: item.Speaker, PublicDetails: item.PublicDetails,
 			CancellationMessage: item.CancellationMessage,
-			Lifecycle:           item.Lifecycle, Previous: previous,
+			Lifecycle:           string(item.PublicTime.Lifecycle), Was: was,
 			EventDay: eventDay, LocalDate: localStart.Format(time.DateOnly),
 			Time:        timePresentation,
 			LocationIDs: item.LocationIDs, LaneIDs: item.LaneIDs, TrackIDs: item.TrackIDs,
@@ -314,7 +327,9 @@ func scheduleLanguage(contentLanguage, eventLocale string) string {
 
 func sortScheduleSessions(sessions []store.PublicScheduleSession) {
 	sort.SliceStable(sessions, func(first, second int) bool {
-		return sessions[first].ForecastStart.Before(sessions[second].ForecastStart)
+		return sessions[first].PublicTime.Forecast.Start.Before(
+			sessions[second].PublicTime.Forecast.Start,
+		)
 	})
 }
 
@@ -420,20 +435,6 @@ func filterScheduleSessions(
 
 func containsID(ids []int, selected int) bool {
 	return slices.Contains(ids, selected)
-}
-
-func publicActualTime(actual, communicated time.Time, plannedDuration time.Duration) time.Time {
-	if communicated.IsZero() || plannedDuration <= 10*time.Minute {
-		return actual
-	}
-	difference := actual.Sub(communicated)
-	if difference < 0 {
-		difference = -difference
-	}
-	if difference <= 2*time.Minute {
-		return communicated
-	}
-	return actual
 }
 
 func validateFilter(filter Filter) (*time.Location, error) {

@@ -16,6 +16,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/predicate"
+	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessioncancellation"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
@@ -26,16 +27,17 @@ import (
 // SessionQuery is the builder for querying Session entities.
 type SessionQuery struct {
 	config
-	ctx                    *QueryContext
-	order                  []session.OrderOption
-	inters                 []Interceptor
-	predicates             []predicate.Session
-	withEvent              *EventQuery
-	withDraft              *SessionDraftQuery
-	withPublishedVersions  *SessionPublishedVersionQuery
-	withRuns               *SessionRunQuery
-	withCancellations      *SessionCancellationQuery
-	withCompetitionEntries *CompetitionEntryQuery
+	ctx                             *QueryContext
+	order                           []session.OrderOption
+	inters                          []Interceptor
+	predicates                      []predicate.Session
+	withEvent                       *EventQuery
+	withDraft                       *SessionDraftQuery
+	withPublishedVersions           *SessionPublishedVersionQuery
+	withRuns                        *SessionRunQuery
+	withCancellations               *SessionCancellationQuery
+	withPublicScheduleBaselineEntry *PublicScheduleBaselineEntryQuery
+	withCompetitionEntries          *CompetitionEntryQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -175,6 +177,28 @@ func (_q *SessionQuery) QueryCancellations() *SessionCancellationQuery {
 			sqlgraph.From(session.Table, session.FieldID, selector),
 			sqlgraph.To(sessioncancellation.Table, sessioncancellation.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, session.CancellationsTable, session.CancellationsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryPublicScheduleBaselineEntry chains the current query on the "public_schedule_baseline_entry" edge.
+func (_q *SessionQuery) QueryPublicScheduleBaselineEntry() *PublicScheduleBaselineEntryQuery {
+	query := (&PublicScheduleBaselineEntryClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(session.Table, session.FieldID, selector),
+			sqlgraph.To(publicschedulebaselineentry.Table, publicschedulebaselineentry.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, session.PublicScheduleBaselineEntryTable, session.PublicScheduleBaselineEntryColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -391,17 +415,18 @@ func (_q *SessionQuery) Clone() *SessionQuery {
 		return nil
 	}
 	return &SessionQuery{
-		config:                 _q.config,
-		ctx:                    _q.ctx.Clone(),
-		order:                  append([]session.OrderOption{}, _q.order...),
-		inters:                 append([]Interceptor{}, _q.inters...),
-		predicates:             append([]predicate.Session{}, _q.predicates...),
-		withEvent:              _q.withEvent.Clone(),
-		withDraft:              _q.withDraft.Clone(),
-		withPublishedVersions:  _q.withPublishedVersions.Clone(),
-		withRuns:               _q.withRuns.Clone(),
-		withCancellations:      _q.withCancellations.Clone(),
-		withCompetitionEntries: _q.withCompetitionEntries.Clone(),
+		config:                          _q.config,
+		ctx:                             _q.ctx.Clone(),
+		order:                           append([]session.OrderOption{}, _q.order...),
+		inters:                          append([]Interceptor{}, _q.inters...),
+		predicates:                      append([]predicate.Session{}, _q.predicates...),
+		withEvent:                       _q.withEvent.Clone(),
+		withDraft:                       _q.withDraft.Clone(),
+		withPublishedVersions:           _q.withPublishedVersions.Clone(),
+		withRuns:                        _q.withRuns.Clone(),
+		withCancellations:               _q.withCancellations.Clone(),
+		withPublicScheduleBaselineEntry: _q.withPublicScheduleBaselineEntry.Clone(),
+		withCompetitionEntries:          _q.withCompetitionEntries.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -460,6 +485,17 @@ func (_q *SessionQuery) WithCancellations(opts ...func(*SessionCancellationQuery
 		opt(query)
 	}
 	_q.withCancellations = query
+	return _q
+}
+
+// WithPublicScheduleBaselineEntry tells the query-builder to eager-load the nodes that are connected to
+// the "public_schedule_baseline_entry" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *SessionQuery) WithPublicScheduleBaselineEntry(opts ...func(*PublicScheduleBaselineEntryQuery)) *SessionQuery {
+	query := (&PublicScheduleBaselineEntryClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withPublicScheduleBaselineEntry = query
 	return _q
 }
 
@@ -558,12 +594,13 @@ func (_q *SessionQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Sess
 	var (
 		nodes       = []*Session{}
 		_spec       = _q.querySpec()
-		loadedTypes = [6]bool{
+		loadedTypes = [7]bool{
 			_q.withEvent != nil,
 			_q.withDraft != nil,
 			_q.withPublishedVersions != nil,
 			_q.withRuns != nil,
 			_q.withCancellations != nil,
+			_q.withPublicScheduleBaselineEntry != nil,
 			_q.withCompetitionEntries != nil,
 		}
 	)
@@ -617,6 +654,12 @@ func (_q *SessionQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Sess
 		if err := _q.loadCancellations(ctx, query, nodes,
 			func(n *Session) { n.Edges.Cancellations = []*SessionCancellation{} },
 			func(n *Session, e *SessionCancellation) { n.Edges.Cancellations = append(n.Edges.Cancellations, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withPublicScheduleBaselineEntry; query != nil {
+		if err := _q.loadPublicScheduleBaselineEntry(ctx, query, nodes, nil,
+			func(n *Session, e *PublicScheduleBaselineEntry) { n.Edges.PublicScheduleBaselineEntry = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -763,6 +806,33 @@ func (_q *SessionQuery) loadCancellations(ctx context.Context, query *SessionCan
 	}
 	query.Where(predicate.SessionCancellation(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(session.CancellationsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.SessionID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "session_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *SessionQuery) loadPublicScheduleBaselineEntry(ctx context.Context, query *PublicScheduleBaselineEntryQuery, nodes []*Session, init func(*Session), assign func(*Session, *PublicScheduleBaselineEntry)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Session)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(publicschedulebaselineentry.FieldSessionID)
+	}
+	query.Where(predicate.PublicScheduleBaselineEntry(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(session.PublicScheduleBaselineEntryColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

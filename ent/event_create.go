@@ -20,6 +20,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/location"
+	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/track"
@@ -418,6 +419,25 @@ func (_c *EventCreate) AddImportReferences(v ...*ImportReference) *EventCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddImportReferenceIDs(ids...)
+}
+
+// SetPublicScheduleBaselineID sets the "public_schedule_baseline" edge to the PublicScheduleBaseline entity by ID.
+func (_c *EventCreate) SetPublicScheduleBaselineID(id int) *EventCreate {
+	_c.mutation.SetPublicScheduleBaselineID(id)
+	return _c
+}
+
+// SetNillablePublicScheduleBaselineID sets the "public_schedule_baseline" edge to the PublicScheduleBaseline entity by ID if the given value is not nil.
+func (_c *EventCreate) SetNillablePublicScheduleBaselineID(id *int) *EventCreate {
+	if id != nil {
+		_c = _c.SetPublicScheduleBaselineID(*id)
+	}
+	return _c
+}
+
+// SetPublicScheduleBaseline sets the "public_schedule_baseline" edge to the PublicScheduleBaseline entity.
+func (_c *EventCreate) SetPublicScheduleBaseline(v *PublicScheduleBaseline) *EventCreate {
+	return _c.SetPublicScheduleBaselineID(v.ID)
 }
 
 // AddDisplayAssignmentIDs adds the "display_assignments" edge to the DisplayAssignment entity by IDs.
@@ -934,6 +954,22 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(importreference.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.PublicScheduleBaselineIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   event.PublicScheduleBaselineTable,
+			Columns: []string{event.PublicScheduleBaselineColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(publicschedulebaseline.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

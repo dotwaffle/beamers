@@ -69,6 +69,7 @@ func (Event) Edges() []ent.Edge {
 		edge.To("draft_edits", DraftEdit.Type),
 		edge.To("draft_changes", DraftChange.Type),
 		edge.To("import_references", ImportReference.Type),
+		edge.To("public_schedule_baseline", PublicScheduleBaseline.Type).Unique(),
 		edge.To("display_assignments", DisplayAssignment.Type),
 		edge.To("display_overrides", DisplayOverride.Type),
 	}

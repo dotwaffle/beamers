@@ -15,6 +15,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/programcontrol"
 	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/schedule"
+	"github.com/dotwaffle/beamers/internal/schedulebaseline"
 	"github.com/dotwaffle/beamers/internal/sessioncontrol"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -32,19 +33,21 @@ var (
 
 // Installation coordinates access to installation persistence.
 type Installation struct {
-	storage         *store.SQLite
-	authentication  *auth.Service
-	displays        *displays.Service
-	activation      *activation.Service
-	attachments     *attachments.Service
-	competition     *competition.Service
-	events          *events.Service
-	overrides       *overrides.Service
-	programControl  *programcontrol.Service
-	rundownCommands *rundown.Commands
-	rundownQueries  *rundown.Queries
-	schedule        *schedule.Service
-	sessionControl  *sessioncontrol.Service
+	storage          *store.SQLite
+	authentication   *auth.Service
+	displays         *displays.Service
+	activation       *activation.Service
+	attachments      *attachments.Service
+	competition      *competition.Service
+	events           *events.Service
+	overrides        *overrides.Service
+	programControl   *programcontrol.Service
+	rundownCommands  *rundown.Commands
+	rundownQueries   *rundown.Queries
+	schedule         *schedule.Service
+	baselineCommands *schedulebaseline.Commands
+	baselineQueries  *schedulebaseline.Queries
+	sessionControl   *sessioncontrol.Service
 }
 
 // Initialize creates a new installation with the committed schema.
@@ -119,6 +122,16 @@ func OpenInstallation(ctx context.Context, dataDir string) (*Installation, error
 		return nil, errors.Join(err, storage.Close())
 	}
 	installation.schedule = scheduleService
+	baselineCommands, err := schedulebaseline.NewCommands(storage, time.Now)
+	if err != nil {
+		return nil, errors.Join(err, storage.Close())
+	}
+	installation.baselineCommands = baselineCommands
+	baselineQueries, err := schedulebaseline.NewQueries(storage)
+	if err != nil {
+		return nil, errors.Join(err, storage.Close())
+	}
+	installation.baselineQueries = baselineQueries
 	sessionControlService, err := sessioncontrol.New(storage, time.Now)
 	if err != nil {
 		return nil, errors.Join(err, storage.Close())
@@ -225,6 +238,18 @@ func (installation *Installation) RundownQueries() *rundown.Queries {
 // It is nil only while the installation is restricted to recovery mode.
 func (installation *Installation) Schedule() *schedule.Service {
 	return installation.schedule
+}
+
+// ScheduleBaselineCommands returns immutable baseline capture commands.
+// It is nil only while the installation is restricted to recovery mode.
+func (installation *Installation) ScheduleBaselineCommands() *schedulebaseline.Commands {
+	return installation.baselineCommands
+}
+
+// ScheduleBaselineQueries returns revision-bound baseline previews.
+// It is nil only while the installation is restricted to recovery mode.
+func (installation *Installation) ScheduleBaselineQueries() *schedulebaseline.Queries {
+	return installation.baselineQueries
 }
 
 // SessionControl returns the live Session command service.

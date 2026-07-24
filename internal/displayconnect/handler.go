@@ -315,6 +315,8 @@ func sessionMessage(found displays.Session) *displayv1.DisplaySession {
 		LocationIds: ints64(found.LocationIDs), LaneIds: ints64(found.LaneIDs),
 		TrackIds: ints64(found.TrackIDs), Unavailable: found.Unavailable,
 		AvailabilityMessage: found.AvailabilityMessage,
+		PresentedStartLabel: string(found.PresentedStartLabel),
+		PresentedEndLabel:   string(found.PresentedEndLabel),
 	}
 	if !found.ForecastStart.IsZero() {
 		result.ForecastStart = timestamppb.New(found.ForecastStart)
@@ -327,6 +329,12 @@ func sessionMessage(found displays.Session) *displayv1.DisplaySession {
 	}
 	if found.ActualEnd != nil {
 		result.ActualEnd = timestamppb.New(*found.ActualEnd)
+	}
+	if !found.PresentedStart.IsZero() {
+		result.PresentedStart = timestamppb.New(found.PresentedStart)
+	}
+	if !found.PresentedEnd.IsZero() {
+		result.PresentedEnd = timestamppb.New(found.PresentedEnd)
 	}
 	return result
 }

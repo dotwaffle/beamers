@@ -357,6 +357,30 @@ func (f PasswordCredentialFunc) Mutate(ctx context.Context, m ent.Mutation) (ent
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PasswordCredentialMutation", m)
 }
 
+// The PublicScheduleBaselineFunc type is an adapter to allow the use of ordinary
+// function as PublicScheduleBaseline mutator.
+type PublicScheduleBaselineFunc func(context.Context, *ent.PublicScheduleBaselineMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f PublicScheduleBaselineFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.PublicScheduleBaselineMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PublicScheduleBaselineMutation", m)
+}
+
+// The PublicScheduleBaselineEntryFunc type is an adapter to allow the use of ordinary
+// function as PublicScheduleBaselineEntry mutator.
+type PublicScheduleBaselineEntryFunc func(context.Context, *ent.PublicScheduleBaselineEntryMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f PublicScheduleBaselineEntryFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.PublicScheduleBaselineEntryMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PublicScheduleBaselineEntryMutation", m)
+}
+
 // The ReopenWindowFunc type is an adapter to allow the use of ordinary
 // function as ReopenWindow mutator.
 type ReopenWindowFunc func(context.Context, *ent.ReopenWindowMutation) (ent.Value, error)

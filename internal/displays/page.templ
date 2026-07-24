@@ -205,7 +205,7 @@ templ displaySessionRegion(snapshot Snapshot, session Session, rotationPage bool
 		} else {
 			<h3>{ session.Title }</h3>
 			<p>Status: { session.Lifecycle }</p>
-			<p>Forecast Time: <time datetime={ session.ForecastStart.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayForecastStart }</time>–<time datetime={ session.ForecastEnd.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayForecastEnd }</time></p>
+			<p>{ string(session.PresentedStartLabel) }: <time datetime={ session.PresentedStart.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayPresentedStart }</time> – { string(session.PresentedEndLabel) }: <time datetime={ session.PresentedEnd.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayPresentedEnd }</time></p>
 			if session.Speaker != "" {
 				<p>{ session.Speaker }</p>
 			}

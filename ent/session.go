@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/dotwaffle/beamers/ent/event"
+	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 )
@@ -102,11 +103,13 @@ type SessionEdges struct {
 	Runs []*SessionRun `json:"runs,omitempty"`
 	// Cancellations holds the value of the cancellations edge.
 	Cancellations []*SessionCancellation `json:"cancellations,omitempty"`
+	// PublicScheduleBaselineEntry holds the value of the public_schedule_baseline_entry edge.
+	PublicScheduleBaselineEntry *PublicScheduleBaselineEntry `json:"public_schedule_baseline_entry,omitempty"`
 	// CompetitionEntries holds the value of the competition_entries edge.
 	CompetitionEntries []*CompetitionEntry `json:"competition_entries,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [6]bool
+	loadedTypes [7]bool
 }
 
 // EventOrErr returns the Event value or an error if the edge
@@ -158,10 +161,21 @@ func (e SessionEdges) CancellationsOrErr() ([]*SessionCancellation, error) {
 	return nil, &NotLoadedError{edge: "cancellations"}
 }
 
+// PublicScheduleBaselineEntryOrErr returns the PublicScheduleBaselineEntry value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e SessionEdges) PublicScheduleBaselineEntryOrErr() (*PublicScheduleBaselineEntry, error) {
+	if e.PublicScheduleBaselineEntry != nil {
+		return e.PublicScheduleBaselineEntry, nil
+	} else if e.loadedTypes[5] {
+		return nil, &NotFoundError{label: publicschedulebaselineentry.Label}
+	}
+	return nil, &NotLoadedError{edge: "public_schedule_baseline_entry"}
+}
+
 // CompetitionEntriesOrErr returns the CompetitionEntries value or an error if the edge
 // was not loaded in eager-loading.
 func (e SessionEdges) CompetitionEntriesOrErr() ([]*CompetitionEntry, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[6] {
 		return e.CompetitionEntries, nil
 	}
 	return nil, &NotLoadedError{edge: "competition_entries"}
@@ -445,6 +459,11 @@ func (_m *Session) QueryRuns() *SessionRunQuery {
 // QueryCancellations queries the "cancellations" edge of the Session entity.
 func (_m *Session) QueryCancellations() *SessionCancellationQuery {
 	return NewSessionClient(_m.config).QueryCancellations(_m)
+}
+
+// QueryPublicScheduleBaselineEntry queries the "public_schedule_baseline_entry" edge of the Session entity.
+func (_m *Session) QueryPublicScheduleBaselineEntry() *PublicScheduleBaselineEntryQuery {
+	return NewSessionClient(_m.config).QueryPublicScheduleBaselineEntry(_m)
 }
 
 // QueryCompetitionEntries queries the "competition_entries" edge of the Session entity.

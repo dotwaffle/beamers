@@ -312,8 +312,16 @@ _Avoid_: Publish, timing adjustment
 _Avoid_: Planned Time, Forecast Time
 
 **Public Time Tolerance**: For a Session whose Planned Time spans more than ten minutes, an Actual Time within two minutes of Communicated Time is presented publicly as on time.
-Exact Actual Time remains available to crew.
+Live and Ended Sessions use their Run Snapshot duration; exact Actual Time remains available to crew.
 _Avoid_: Actual Time rounding
+
+**Public Time Presentation**: The attendee-facing choice and labeling of Planned Time, Forecast Time, Actual Time, Communicated Time, and the Public Schedule Baseline according to Session lifecycle.
+It changes neither the underlying time facts nor which Sessions a public View includes; any included Scheduled, Live, Ended, or Canceled Session may show “Was:” when its current presented start differs from its Public Schedule Baseline.
+_Avoid_: Display Time, Normalized Time
+
+**Public Schedule Baseline**: The Event-owned, immutable Forecast Start deliberately recorded by a Producer from the current Published Revision for each Public Session when attendee-facing venue operations open, or atomically when a Session later first becomes Public.
+Entries survive revision and visibility changes; absence does not prevent public presentation but provides no “Was:” context.
+_Avoid_: Event start, Original Published Time, Previous Forecast Time
 
 **Import Reference**: An external CSV key or iCalendar UID retained as evidence for duplicate detection and explicit mapping without becoming Session identity.
 _Avoid_: Session identity, synchronization key

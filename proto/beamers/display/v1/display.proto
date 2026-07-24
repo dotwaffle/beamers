@@ -104,6 +104,10 @@ message DisplaySession {
   repeated int64 track_ids = 13;
   bool unavailable = 14;
   string availability_message = 15;
+  google.protobuf.Timestamp presented_start = 16;
+  google.protobuf.Timestamp presented_end = 17;
+  string presented_start_label = 18;
+  string presented_end_label = 19;
 }
 
 enum StageTimerMode {

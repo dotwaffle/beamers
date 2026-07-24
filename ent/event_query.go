@@ -24,6 +24,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/location"
 	"github.com/dotwaffle/beamers/ent/predicate"
+	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/track"
@@ -33,23 +34,24 @@ import (
 // EventQuery is the builder for querying Event entities.
 type EventQuery struct {
 	config
-	ctx                    *QueryContext
-	order                  []event.OrderOption
-	inters                 []Interceptor
-	predicates             []predicate.Event
-	withGrants             *EventGrantQuery
-	withRundown            *RundownQuery
-	withLocations          *LocationQuery
-	withLanes              *LaneQuery
-	withTracks             *TrackQuery
-	withSessions           *SessionQuery
-	withCompetitionEntries *CompetitionEntryQuery
-	withUploadLinks        *UploadLinkQuery
-	withDraftEdits         *DraftEditQuery
-	withDraftChanges       *DraftChangeQuery
-	withImportReferences   *ImportReferenceQuery
-	withDisplayAssignments *DisplayAssignmentQuery
-	withDisplayOverrides   *DisplayOverrideQuery
+	ctx                        *QueryContext
+	order                      []event.OrderOption
+	inters                     []Interceptor
+	predicates                 []predicate.Event
+	withGrants                 *EventGrantQuery
+	withRundown                *RundownQuery
+	withLocations              *LocationQuery
+	withLanes                  *LaneQuery
+	withTracks                 *TrackQuery
+	withSessions               *SessionQuery
+	withCompetitionEntries     *CompetitionEntryQuery
+	withUploadLinks            *UploadLinkQuery
+	withDraftEdits             *DraftEditQuery
+	withDraftChanges           *DraftChangeQuery
+	withImportReferences       *ImportReferenceQuery
+	withPublicScheduleBaseline *PublicScheduleBaselineQuery
+	withDisplayAssignments     *DisplayAssignmentQuery
+	withDisplayOverrides       *DisplayOverrideQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -328,6 +330,28 @@ func (_q *EventQuery) QueryImportReferences() *ImportReferenceQuery {
 	return query
 }
 
+// QueryPublicScheduleBaseline chains the current query on the "public_schedule_baseline" edge.
+func (_q *EventQuery) QueryPublicScheduleBaseline() *PublicScheduleBaselineQuery {
+	query := (&PublicScheduleBaselineClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, selector),
+			sqlgraph.To(publicschedulebaseline.Table, publicschedulebaseline.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, event.PublicScheduleBaselineTable, event.PublicScheduleBaselineColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // QueryDisplayAssignments chains the current query on the "display_assignments" edge.
 func (_q *EventQuery) QueryDisplayAssignments() *DisplayAssignmentQuery {
 	query := (&DisplayAssignmentClient{config: _q.config}).Query()
@@ -559,24 +583,25 @@ func (_q *EventQuery) Clone() *EventQuery {
 		return nil
 	}
 	return &EventQuery{
-		config:                 _q.config,
-		ctx:                    _q.ctx.Clone(),
-		order:                  append([]event.OrderOption{}, _q.order...),
-		inters:                 append([]Interceptor{}, _q.inters...),
-		predicates:             append([]predicate.Event{}, _q.predicates...),
-		withGrants:             _q.withGrants.Clone(),
-		withRundown:            _q.withRundown.Clone(),
-		withLocations:          _q.withLocations.Clone(),
-		withLanes:              _q.withLanes.Clone(),
-		withTracks:             _q.withTracks.Clone(),
-		withSessions:           _q.withSessions.Clone(),
-		withCompetitionEntries: _q.withCompetitionEntries.Clone(),
-		withUploadLinks:        _q.withUploadLinks.Clone(),
-		withDraftEdits:         _q.withDraftEdits.Clone(),
-		withDraftChanges:       _q.withDraftChanges.Clone(),
-		withImportReferences:   _q.withImportReferences.Clone(),
-		withDisplayAssignments: _q.withDisplayAssignments.Clone(),
-		withDisplayOverrides:   _q.withDisplayOverrides.Clone(),
+		config:                     _q.config,
+		ctx:                        _q.ctx.Clone(),
+		order:                      append([]event.OrderOption{}, _q.order...),
+		inters:                     append([]Interceptor{}, _q.inters...),
+		predicates:                 append([]predicate.Event{}, _q.predicates...),
+		withGrants:                 _q.withGrants.Clone(),
+		withRundown:                _q.withRundown.Clone(),
+		withLocations:              _q.withLocations.Clone(),
+		withLanes:                  _q.withLanes.Clone(),
+		withTracks:                 _q.withTracks.Clone(),
+		withSessions:               _q.withSessions.Clone(),
+		withCompetitionEntries:     _q.withCompetitionEntries.Clone(),
+		withUploadLinks:            _q.withUploadLinks.Clone(),
+		withDraftEdits:             _q.withDraftEdits.Clone(),
+		withDraftChanges:           _q.withDraftChanges.Clone(),
+		withImportReferences:       _q.withImportReferences.Clone(),
+		withPublicScheduleBaseline: _q.withPublicScheduleBaseline.Clone(),
+		withDisplayAssignments:     _q.withDisplayAssignments.Clone(),
+		withDisplayOverrides:       _q.withDisplayOverrides.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -704,6 +729,17 @@ func (_q *EventQuery) WithImportReferences(opts ...func(*ImportReferenceQuery)) 
 	return _q
 }
 
+// WithPublicScheduleBaseline tells the query-builder to eager-load the nodes that are connected to
+// the "public_schedule_baseline" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *EventQuery) WithPublicScheduleBaseline(opts ...func(*PublicScheduleBaselineQuery)) *EventQuery {
+	query := (&PublicScheduleBaselineClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withPublicScheduleBaseline = query
+	return _q
+}
+
 // WithDisplayAssignments tells the query-builder to eager-load the nodes that are connected to
 // the "display_assignments" edge. The optional arguments are used to configure the query builder of the edge.
 func (_q *EventQuery) WithDisplayAssignments(opts ...func(*DisplayAssignmentQuery)) *EventQuery {
@@ -810,7 +846,7 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 	var (
 		nodes       = []*Event{}
 		_spec       = _q.querySpec()
-		loadedTypes = [13]bool{
+		loadedTypes = [14]bool{
 			_q.withGrants != nil,
 			_q.withRundown != nil,
 			_q.withLocations != nil,
@@ -822,6 +858,7 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 			_q.withDraftEdits != nil,
 			_q.withDraftChanges != nil,
 			_q.withImportReferences != nil,
+			_q.withPublicScheduleBaseline != nil,
 			_q.withDisplayAssignments != nil,
 			_q.withDisplayOverrides != nil,
 		}
@@ -919,6 +956,12 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 		if err := _q.loadImportReferences(ctx, query, nodes,
 			func(n *Event) { n.Edges.ImportReferences = []*ImportReference{} },
 			func(n *Event, e *ImportReference) { n.Edges.ImportReferences = append(n.Edges.ImportReferences, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withPublicScheduleBaseline; query != nil {
+		if err := _q.loadPublicScheduleBaseline(ctx, query, nodes, nil,
+			func(n *Event, e *PublicScheduleBaseline) { n.Edges.PublicScheduleBaseline = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -1253,6 +1296,33 @@ func (_q *EventQuery) loadImportReferences(ctx context.Context, query *ImportRef
 	}
 	query.Where(predicate.ImportReference(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(event.ImportReferencesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.EventID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "event_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *EventQuery) loadPublicScheduleBaseline(ctx context.Context, query *PublicScheduleBaselineQuery, nodes []*Event, init func(*Event), assign func(*Event, *PublicScheduleBaseline)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Event)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(publicschedulebaseline.FieldEventID)
+	}
+	query.Where(predicate.PublicScheduleBaseline(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(event.PublicScheduleBaselineColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

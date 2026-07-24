@@ -14,6 +14,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
 	"github.com/dotwaffle/beamers/ent/track"
+	"github.com/dotwaffle/beamers/internal/publictime"
 )
 
 // PublicScheduleState contains only attendee-safe current Published data.
@@ -50,24 +51,16 @@ type PublicScheduleTrack struct {
 
 // PublicScheduleSession contains no crew-only fields.
 type PublicScheduleSession struct {
-	ID                    int
-	Title                 string
-	Speaker               string
-	PublicDetails         string
-	CancellationMessage   string
-	ForecastStart         time.Time
-	ForecastEnd           time.Time
-	PreviousForecastStart time.Time
-	Lifecycle             string
-	ActualStart           time.Time
-	ActualEnd             *time.Time
-	CommunicatedStart     time.Time
-	CommunicatedEnd       time.Time
-	PlannedDuration       time.Duration
-	LocationIDs           []int
-	LaneIDs               []int
-	TrackIDs              []int
-	CompetitionEntries    []PublicCompetitionEntry
+	ID                  int
+	Title               string
+	Speaker             string
+	PublicDetails       string
+	CancellationMessage string
+	PublicTime          publictime.Facts
+	LocationIDs         []int
+	LaneIDs             []int
+	TrackIDs            []int
+	CompetitionEntries  []PublicCompetitionEntry
 }
 
 // PublicCompetitionEntry contains attendee-safe Included Entry details.
@@ -197,9 +190,7 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 		}
 		var actualStart time.Time
 		var actualEnd *time.Time
-		communicatedStart := identity.CommunicatedStart
-		communicatedEnd := identity.CommunicatedEnd
-		plannedDuration := version.PlannedEnd.Sub(version.PlannedStart)
+		runDuration := version.PlannedEnd.Sub(version.PlannedStart)
 		run, queryErr := installationStore.client.SessionRun.Query().
 			Where(sessionrun.SessionIDEQ(identity.ID)).Order(ent.Desc(sessionrun.FieldID)).First(ctx)
 		if queryErr != nil && !ent.IsNotFound(queryErr) {
@@ -212,10 +203,7 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 			if decodeErr := json.Unmarshal([]byte(run.SnapshotJSON), &snapshot); decodeErr != nil {
 				return opaqueError("decode public Schedule Run Snapshot", decodeErr)
 			}
-			plannedDuration = snapshot.PlannedEnd.Sub(snapshot.PlannedStart)
-			if communicatedStart.IsZero() {
-				communicatedStart = snapshot.PlannedStart
-			}
+			runDuration = snapshot.PlannedEnd.Sub(snapshot.PlannedStart)
 			actualStart = run.ActualStart
 			if !run.ActualEnd.IsZero() {
 				ended := run.ActualEnd
@@ -256,15 +244,26 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 		if !identity.ForecastEnd.IsZero() {
 			forecastEnd = identity.ForecastEnd
 		}
+		publicTime, queryErr := loadPublicTimeFacts(
+			ctx,
+			installationStore.client,
+			publicTimeFactsParams{
+				Session:     identity,
+				Lifecycle:   publictime.Lifecycle(identity.Lifecycle.String()),
+				Forecast:    publictime.Range{Start: forecastStart, End: forecastEnd},
+				ActualStart: actualStart,
+				ActualEnd:   actualEnd,
+				RunDuration: runDuration,
+			},
+		)
+		if queryErr != nil {
+			return queryErr
+		}
 		result.Sessions = append(result.Sessions, PublicScheduleSession{
 			ID: identity.ID, Title: details.Title, Speaker: details.Speaker, PublicDetails: details.PublicDetails,
 			CancellationMessage: identity.PublicCancellationMessage,
-			ForecastStart:       forecastStart, ForecastEnd: forecastEnd,
-			PreviousForecastStart: identity.PreviousForecastStart,
-			Lifecycle:             identity.Lifecycle.String(), ActualStart: actualStart, ActualEnd: actualEnd,
-			CommunicatedStart: communicatedStart, CommunicatedEnd: communicatedEnd,
-			PlannedDuration: plannedDuration,
-			LocationIDs:     locations, LaneIDs: lanes, TrackIDs: tracks,
+			PublicTime:          publicTime,
+			LocationIDs:         locations, LaneIDs: lanes, TrackIDs: tracks,
 			CompetitionEntries: competitionEntries,
 		})
 	}

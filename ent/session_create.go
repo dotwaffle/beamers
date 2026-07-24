@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/event"
+	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessioncancellation"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
@@ -503,6 +504,25 @@ func (_c *SessionCreate) AddCancellations(v ...*SessionCancellation) *SessionCre
 	return _c.AddCancellationIDs(ids...)
 }
 
+// SetPublicScheduleBaselineEntryID sets the "public_schedule_baseline_entry" edge to the PublicScheduleBaselineEntry entity by ID.
+func (_c *SessionCreate) SetPublicScheduleBaselineEntryID(id int) *SessionCreate {
+	_c.mutation.SetPublicScheduleBaselineEntryID(id)
+	return _c
+}
+
+// SetNillablePublicScheduleBaselineEntryID sets the "public_schedule_baseline_entry" edge to the PublicScheduleBaselineEntry entity by ID if the given value is not nil.
+func (_c *SessionCreate) SetNillablePublicScheduleBaselineEntryID(id *int) *SessionCreate {
+	if id != nil {
+		_c = _c.SetPublicScheduleBaselineEntryID(*id)
+	}
+	return _c
+}
+
+// SetPublicScheduleBaselineEntry sets the "public_schedule_baseline_entry" edge to the PublicScheduleBaselineEntry entity.
+func (_c *SessionCreate) SetPublicScheduleBaselineEntry(v *PublicScheduleBaselineEntry) *SessionCreate {
+	return _c.SetPublicScheduleBaselineEntryID(v.ID)
+}
+
 // AddCompetitionEntryIDs adds the "competition_entries" edge to the CompetitionEntry entity by IDs.
 func (_c *SessionCreate) AddCompetitionEntryIDs(ids ...int) *SessionCreate {
 	_c.mutation.AddCompetitionEntryIDs(ids...)
@@ -957,6 +977,22 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(sessioncancellation.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.PublicScheduleBaselineEntryIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   session.PublicScheduleBaselineEntryTable,
+			Columns: []string{session.PublicScheduleBaselineEntryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(publicschedulebaselineentry.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

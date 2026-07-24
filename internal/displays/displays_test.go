@@ -12,8 +12,67 @@ import (
 	_ "github.com/dotwaffle/beamers/ent/runtime"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/displayviews"
+	"github.com/dotwaffle/beamers/internal/publictime"
 	"github.com/dotwaffle/beamers/internal/store"
 )
+
+func TestDisplaySessionUsesSharedPublicTimePresentation(t *testing.T) {
+	forecastStart := time.Date(2026, 8, 21, 10, 0, 0, 0, time.UTC)
+	forecastEnd := forecastStart.Add(time.Hour)
+	communicatedStart := forecastStart.Add(4 * time.Minute)
+	actualStart := forecastStart.Add(5 * time.Minute)
+	found := store.DisplaySessionState{
+		ID: 11, Title: "Live Session", AudienceVisibility: "Public",
+		Lifecycle: "Live", ForecastStart: forecastStart, ForecastEnd: forecastEnd,
+		PublicTime: publictime.Facts{
+			Lifecycle: publictime.Live,
+			Forecast:  publictime.Range{Start: forecastStart, End: forecastEnd},
+			Actual:    publictime.OptionalRange{Start: &actualStart},
+			Communicated: publictime.OptionalRange{
+				Start: &communicatedStart,
+			},
+			RunDuration: time.Hour,
+		},
+	}
+
+	session, selected, err := displaySession(
+		store.DisplaySnapshotState{ViewKey: displayviews.EventOverview},
+		found,
+		forecastStart,
+		time.UTC,
+	)
+	if err != nil {
+		t.Fatalf("present Display Session: %v", err)
+	}
+	if !selected || session.PresentedStartLabel != publictime.LabelActualStart ||
+		!session.PresentedStart.Equal(communicatedStart) ||
+		session.PresentedEndLabel != publictime.LabelForecastEnd ||
+		!session.orderAt.Equal(forecastStart) {
+		t.Fatalf("Display Session = %+v, want normalized Actual Start and Forecast End", session)
+	}
+}
+
+func TestDisplaySessionRejectsImpossiblePublicTimeState(t *testing.T) {
+	start := time.Date(2026, 8, 21, 10, 0, 0, 0, time.UTC)
+	_, selected, err := displaySession(
+		store.DisplaySnapshotState{ViewKey: displayviews.EventOverview},
+		store.DisplaySessionState{
+			ID: 12, AudienceVisibility: "Public", Lifecycle: "Live",
+			ForecastStart: start, ForecastEnd: start.Add(time.Hour),
+			PublicTime: publictime.Facts{
+				Lifecycle:   publictime.Live,
+				Forecast:    publictime.Range{Start: start, End: start.Add(time.Hour)},
+				RunDuration: time.Hour,
+			},
+		},
+		start,
+		time.UTC,
+	)
+	if !errors.Is(err, publictime.ErrImpossibleState) || selected {
+		t.Fatalf("impossible Display Session = selected %v, error %v", selected, err)
+	}
+}
 
 func TestEnrollmentForBrowserPersistsAndReusesPendingMaterial(t *testing.T) {
 	dataDir := t.TempDir()

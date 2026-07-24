@@ -107,11 +107,11 @@ templ SessionDetails(session Session) {
 		}
 	}
 	@OperationalTime(session.Time)
-	if session.Previous != nil {
+	if session.Was != nil {
 		if session.Time.ViewerLocal {
-			<p>Rescheduled; was { session.Previous.Event } Event time / <time datetime={ session.Previous.Datetime }>{ session.Previous.Display }</time> attendee-local</p>
+			<p>Was: { session.Was.Event } Event time / <time datetime={ session.Was.Datetime }>{ session.Was.Display }</time> attendee-local</p>
 		} else {
-			<p>Rescheduled; was <time datetime={ session.Previous.Datetime }>{ session.Previous.Display }</time></p>
+			<p>Was: <time datetime={ session.Was.Datetime }>{ session.Was.Display }</time></p>
 		}
 	}
 	for _, location := range session.Locations {
