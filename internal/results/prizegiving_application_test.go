@@ -2,11 +2,12 @@ package results_test
 
 import (
 	"bytes"
-	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 
 	_ "github.com/dotwaffle/beamers/ent/runtime"
 	programv1 "github.com/dotwaffle/beamers/gen/beamers/program/v1"
+	"github.com/dotwaffle/beamers/gen/beamers/program/v1/programv1connect"
 	resultsv1 "github.com/dotwaffle/beamers/gen/beamers/results/v1"
 	"github.com/dotwaffle/beamers/internal/activation"
 	"github.com/dotwaffle/beamers/internal/auth"
@@ -536,33 +538,39 @@ func newResultRPCInvoker(
 	if err != nil {
 		t.Fatalf("create Authentication interceptor: %v", err)
 	}
-	invoke := func(
-		ctx context.Context,
-		request connect.AnyRequest,
-	) (connect.AnyResponse, error) {
-		typed, ok := request.(*connect.Request[programv1.ActOnResultRequest])
-		if !ok {
-			return nil, errors.New("unexpected Program Result request type")
-		}
-		return handler.ActOnResult(ctx, typed)
-	}
-	wrapped := programconnect.ErrorInterceptor().WrapUnary(
-		authenticationInterceptor.WrapUnary(invoke),
+	path, serviceHandler := programv1connect.NewProgramControlServiceHandler(
+		handler,
+		connect.WithInterceptors(
+			connectapi.RequestIDInterceptor(),
+			programconnect.ErrorInterceptor(),
+			authenticationInterceptor,
+		),
+	)
+	mux := http.NewServeMux()
+	mux.Handle(path, http.HandlerFunc(func(
+		response http.ResponseWriter,
+		request *http.Request,
+	) {
+		request.Body = http.MaxBytesReader(response, request.Body, 64<<10)
+		serviceHandler.ServeHTTP(response, request)
+	}))
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	client := programv1connect.NewProgramControlServiceClient(
+		server.Client(),
+		server.URL,
+		connect.WithProtoJSON(),
 	)
 	return func(
 		message *programv1.ActOnResultRequest,
 	) (*programv1.ActOnResultResponse, error) {
 		request := connect.NewRequest(message)
 		request.Header().Set("Cookie", "beamers_session="+sessionToken)
-		response, invokeErr := wrapped(t.Context(), request)
+		response, invokeErr := client.ActOnResult(t.Context(), request)
 		if invokeErr != nil {
 			return nil, invokeErr
 		}
-		typed, ok := response.(*connect.Response[programv1.ActOnResultResponse])
-		if !ok {
-			return nil, errors.New("unexpected Program Result response type")
-		}
-		return typed.Msg, nil
+		return response.Msg, nil
 	}, displayStream, programStream
 }
 
