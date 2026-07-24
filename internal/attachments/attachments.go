@@ -229,7 +229,7 @@ func New(storage *store.SQLite, root string, now func() time.Time) (*Service, er
 		return nil, errors.New("attachment storage is required")
 	}
 	if root == "" {
-		return nil, errors.New("Attachment Store root is required")
+		return nil, errors.New("attachment store root is required")
 	}
 	if now == nil {
 		return nil, errors.New("attachment clock is required")
