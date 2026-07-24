@@ -60,6 +60,7 @@ func BuildPublicResultsModel(
 	model := PublicResultsPublication{
 		SchemaVersion: "1",
 		Event:         PublicResultsEvent{Name: source.EventName},
+		EventTitle:    source.EventName,
 		Revision:      source.Revision,
 		Status:        source.Status,
 		PublishedAt:   source.PublishedAt,
@@ -125,14 +126,13 @@ func buildPublicCompetitionResults(
 	entries := slices.Clone(source.Entries)
 	sort.SliceStable(entries, func(first, second int) bool {
 		left, right := entries[first], entries[second]
-		if left.ResultDisposition == "Eligible" &&
-			right.ResultDisposition == "Eligible" {
-			if left.Standing == Placed && right.Standing == Placed {
-				return left.DisplayOrder < right.DisplayOrder
-			}
-			if left.Standing != right.Standing {
-				return left.Standing == Placed
-			}
+		leftSection := publicResultSection(left)
+		rightSection := publicResultSection(right)
+		if leftSection != rightSection {
+			return leftSection < rightSection
+		}
+		if leftSection == 0 {
+			return left.DisplayOrder < right.DisplayOrder
 		}
 		return left.LockedOrder < right.LockedOrder
 	})
@@ -171,6 +171,19 @@ func buildPublicCompetitionResults(
 		result.Awards = append(result.Awards, award)
 	}
 	return result, nil
+}
+
+func publicResultSection(entry PublicResultsSourceEntry) int {
+	switch {
+	case entry.ResultDisposition == "Eligible" && entry.Standing == Placed:
+		return 0
+	case entry.ResultDisposition == "Eligible":
+		return 1
+	case entry.ResultDisposition == "Disqualified":
+		return 2
+	default:
+		return 3
+	}
 }
 
 func publicResultsAward(

@@ -197,25 +197,53 @@ func (service *Service) ReleaseStandaloneResults(
 				return command.Execution[Publication]{}, ErrResultsPublicationRequired
 			}
 			storedRef := prizegivingItemRefInputs([]ResultItemRef{ref})[0]
+			lock := store.PrizegivingPreflightLock{
+				ReleasePolicy:    ResultsStandalone,
+				PublicationOrder: []store.PrizegivingResultItemRef{storedRef},
+				CompetitionSources: []store.PrizegivingCompetitionLock{{
+					SessionID: input.CompetitionSessionID,
+					DraftID:   draft.ID, DraftRevision: draft.Revision,
+					Disposition: draft.Disposition,
+				}},
+				Template: prizegivingTemplateInput(DefaultResultsTextTemplate()),
+			}
+			lock, renderErr := freezeResultsRenderSource(
+				actor.Context(ctx),
+				transaction,
+				input.EventID,
+				lock,
+			)
+			if renderErr != nil {
+				return command.Execution[Publication]{}, renderErr
+			}
+			rendered, renderErr := renderResultsPublication(
+				actor.Context(ctx),
+				transaction,
+				input.EventID,
+				input.CompetitionSessionID,
+				current,
+				next,
+				lock,
+				identity.Now,
+			)
+			if renderErr != nil {
+				return command.Execution[Publication]{}, renderErr
+			}
 			stored, appendErr := transaction.AppendResultsPublication(
 				actor.Context(ctx),
 				store.AppendResultsPublicationParams{
-					EventID:          input.EventID,
-					Scope:            store.ResultsPublicationStandalone,
-					ScopeSessionID:   input.CompetitionSessionID,
-					ExpectedRevision: current.Revision,
-					Policy:           ResultsStandalone,
-					Status:           store.ResultsPublicationStatus(next.Status),
-					Items:            []store.PrizegivingResultItemRef{storedRef},
-					Lock: store.PrizegivingPreflightLock{
-						ReleasePolicy:    ResultsStandalone,
-						PublicationOrder: []store.PrizegivingResultItemRef{storedRef},
-						CompetitionSources: []store.PrizegivingCompetitionLock{{
-							SessionID: input.CompetitionSessionID,
-							DraftID:   draft.ID, DraftRevision: draft.Revision,
-							Disposition: draft.Disposition,
-						}},
-					},
+					EventID:            input.EventID,
+					Scope:              store.ResultsPublicationStandalone,
+					ScopeSessionID:     input.CompetitionSessionID,
+					ExpectedRevision:   current.Revision,
+					Policy:             ResultsStandalone,
+					Status:             store.ResultsPublicationStatus(next.Status),
+					Items:              []store.PrizegivingResultItemRef{storedRef},
+					Lock:               lock,
+					Template:           prizegivingTemplateInput(rendered.Template),
+					RenderedHTML:       rendered.HTML,
+					RenderedText:       rendered.Text,
+					RenderedJSON:       rendered.JSON,
 					CreatedByAccountID: actor.ID,
 					Now:                identity.Now,
 				},
@@ -287,6 +315,27 @@ func AdvancePrizegivingPublication(
 	if err != nil || !changed {
 		return next, changed, err
 	}
+	releaseLock := plan.Lock
+	if len(current.Lock.RenderSource) != 0 {
+		releaseLock.RenderSource = current.Lock.RenderSource
+	}
+	releaseLock, err = freezeResultsRenderSource(ctx, transaction, eventID, releaseLock)
+	if err != nil {
+		return Publication{}, false, err
+	}
+	rendered, err := renderResultsPublication(
+		ctx,
+		transaction,
+		eventID,
+		ceremonySessionID,
+		current,
+		next,
+		releaseLock,
+		now,
+	)
+	if err != nil {
+		return Publication{}, false, err
+	}
 	stored, err := transaction.AppendResultsPublication(
 		ctx,
 		store.AppendResultsPublicationParams{
@@ -297,7 +346,11 @@ func AdvancePrizegivingPublication(
 			Policy:             plan.ReleasePolicy,
 			Status:             store.ResultsPublicationStatus(next.Status),
 			Items:              prizegivingItemRefInputs(next.Items),
-			Lock:               plan.Lock,
+			Lock:               releaseLock,
+			Template:           prizegivingTemplateInput(rendered.Template),
+			RenderedHTML:       rendered.HTML,
+			RenderedText:       rendered.Text,
+			RenderedJSON:       rendered.JSON,
 			CreatedByAccountID: actor.ID,
 			Now:                now,
 		},
@@ -306,6 +359,247 @@ func AdvancePrizegivingPublication(
 		return Publication{}, false, err
 	}
 	return publicationFromStore(stored), true, nil
+}
+
+func freezeResultsRenderSource(
+	ctx context.Context,
+	transaction *store.CommandTx,
+	eventID int,
+	lock store.PrizegivingPreflightLock,
+) (store.PrizegivingPreflightLock, error) {
+	if len(lock.RenderSource) != 0 {
+		return lock, nil
+	}
+	source, err := transaction.LoadResultsPublicationRenderSource(ctx, eventID, lock)
+	if err != nil {
+		return store.PrizegivingPreflightLock{}, err
+	}
+	lock.RenderSource, err = json.Marshal(source)
+	if err != nil {
+		return store.PrizegivingPreflightLock{}, ErrResultsRendering
+	}
+	return lock, nil
+}
+
+func renderResultsPublication(
+	ctx context.Context,
+	transaction *store.CommandTx,
+	eventID, scopeSessionID int,
+	current store.ResultsPublication,
+	next Publication,
+	lock store.PrizegivingPreflightLock,
+	publishedAt time.Time,
+) (RenderedPublicResults, error) {
+	source, err := transaction.LoadResultsPublicationRenderSource(ctx, eventID, lock)
+	if err != nil {
+		return RenderedPublicResults{}, err
+	}
+	publicSource, err := publicResultsSource(source, next, scopeSessionID, publishedAt)
+	if err != nil {
+		return RenderedPublicResults{}, err
+	}
+	model, err := BuildPublicResultsModel(publicSource)
+	if err != nil {
+		return RenderedPublicResults{}, err
+	}
+	if current.Revision > 0 && current.RenderedJSON != "" {
+		var frozen PublicResultsPublication
+		if json.Unmarshal([]byte(current.RenderedJSON), &frozen) != nil ||
+			len(frozen.Items) != len(current.Items) {
+			return RenderedPublicResults{}, ErrResultsRendering
+		}
+		frozenByRef := make(map[ResultItemRef]PublicResultsItem, len(current.Items))
+		for index, ref := range publicationFromStore(current).Items {
+			frozenByRef[ref] = frozen.Items[index]
+		}
+		model.Event = frozen.Event
+		model.EventTitle = frozen.Event.Name
+		for index, ref := range next.Items {
+			if item, ok := frozenByRef[ref]; ok {
+				model.Items[index] = item
+			}
+		}
+	}
+	template := TextTemplate{
+		Revision: lock.Template.Revision,
+		Source:   lock.Template.Source,
+	}
+	return RenderPublicResults(model, template)
+}
+
+func publicResultsSource(
+	source store.ResultsPublicationRenderSource,
+	next Publication,
+	scopeSessionID int,
+	publishedAt time.Time,
+) (PublicResultsSource, error) {
+	competitions := make(
+		map[int]store.ResultsPublicationCompetitionSource,
+		len(source.Competitions),
+	)
+	entryNames := make(map[int]string)
+	for _, competition := range source.Competitions {
+		competitions[competition.Draft.SessionID] = competition
+		for _, entry := range competition.Entries {
+			entryNames[entry.ID] = entry.Name
+		}
+	}
+	for _, entry := range source.RecipientEntries {
+		entryNames[entry.ID] = entry.Name
+	}
+	result := PublicResultsSource{
+		EventName: source.EventName, Revision: next.Revision,
+		Status: next.Status, PublishedAt: publishedAt,
+		Items: make([]PublicResultsSourceItem, 0, len(next.Items)),
+	}
+	for _, ref := range next.Items {
+		item := PublicResultsSourceItem{Ref: ref}
+		switch ref.Kind {
+		case ResultItemCompetition, ResultItemNoPublicResults:
+			competition, ok := competitions[ref.CompetitionSessionID]
+			if !ok {
+				return PublicResultsSource{}, ErrResultsRendering
+			}
+			item = publicCompetitionSourceItem(ref, competition, entryNames)
+		case ResultItemCompetitionAward:
+			competition, ok := competitions[ref.CompetitionSessionID]
+			if !ok {
+				return PublicResultsSource{}, ErrResultsRendering
+			}
+			award, ok := findPublicCompetitionAward(
+				competition.Draft.Awards,
+				ref.AwardKey,
+				entryNames,
+			)
+			if !ok {
+				return PublicResultsSource{}, ErrResultsRendering
+			}
+			item.Award = &award
+		case ResultItemEventAward:
+			award, ok := findPublicEventAward(
+				source.EventAwards,
+				ref.AwardKey,
+				scopeSessionID,
+				entryNames,
+			)
+			if !ok {
+				return PublicResultsSource{}, ErrResultsRendering
+			}
+			item.Award = &award
+		default:
+			return PublicResultsSource{}, ErrResultsRendering
+		}
+		result.Items = append(result.Items, item)
+	}
+	return result, nil
+}
+
+func publicCompetitionSourceItem(
+	ref ResultItemRef,
+	competition store.ResultsPublicationCompetitionSource,
+	entryNames map[int]string,
+) PublicResultsSourceItem {
+	found := competition.Draft
+	item := PublicResultsSourceItem{
+		Ref: ref, CompetitionTitle: competition.Title,
+		PublicExplanation: found.PublicExplanation,
+		Score: ScorePolicy{
+			Type: ScoreType(found.ScoreType), Visibility: ScoreVisibility(found.ScoreVisibility),
+			Unit: found.ScoreUnit, Precision: found.ScorePrecision,
+			Requirement:    ScoreRequirement(found.ScoreRequirement),
+			Interpretation: ScoreInterpretation(found.ScoreInterpretation),
+		},
+	}
+	standings := make(map[int]store.CompetitionResultStanding, len(found.Standings))
+	for _, standing := range found.Standings {
+		standings[standing.EntryID] = standing
+	}
+	for index, entry := range competition.Entries {
+		if entry.Disposition != "Included" {
+			continue
+		}
+		publicEntry := PublicResultsSourceEntry{
+			Name: entry.Name, ResultDisposition: entry.ResultDisposition,
+			PublicDisqualificationMessage: entry.PublicDisqualificationMessage,
+			LockedOrder:                   index + 1,
+		}
+		if standing, ok := standings[entry.ID]; ok {
+			publicEntry.Standing = ResultStanding(standing.Standing)
+			publicEntry.Placement = standing.Placement
+			publicEntry.DisplayOrder = standing.DisplayOrder
+			publicEntry.DecimalScore = dereferenceString(standing.DecimalScore)
+			if standing.DurationScoreNanos != nil {
+				duration := time.Duration(*standing.DurationScoreNanos)
+				publicEntry.DurationScore = &duration
+			}
+		}
+		item.Entries = append(item.Entries, publicEntry)
+	}
+	for _, award := range found.Awards {
+		if award.Promoted {
+			continue
+		}
+		item.Awards = append(item.Awards, publicResultsAwardSource(
+			award.Name,
+			award.Recipients,
+			entryNames,
+		))
+	}
+	return item
+}
+
+func findPublicCompetitionAward(
+	awards []store.CompetitionAward,
+	key string,
+	entryNames map[int]string,
+) (PublicResultsSourceAward, bool) {
+	for _, award := range awards {
+		if award.Key == key && award.Promoted {
+			return publicResultsAwardSource(award.Name, award.Recipients, entryNames), true
+		}
+	}
+	return PublicResultsSourceAward{}, false
+}
+
+func findPublicEventAward(
+	awards []store.EventAward,
+	key string,
+	scopeSessionID int,
+	entryNames map[int]string,
+) (PublicResultsSourceAward, bool) {
+	for _, award := range awards {
+		if award.Key == key &&
+			award.ReleasePath.Kind == "Prizegiving" &&
+			award.ReleasePath.PrizegivingSessionID == scopeSessionID {
+			return publicResultsAwardSource(award.Name, award.Recipients, entryNames), true
+		}
+	}
+	return PublicResultsSourceAward{}, false
+}
+
+func publicResultsAwardSource(
+	name string,
+	recipients []store.AwardRecipientInput,
+	entryNames map[int]string,
+) PublicResultsSourceAward {
+	result := PublicResultsSourceAward{
+		Name: name, Recipients: make([]string, 0, len(recipients)),
+	}
+	for _, recipient := range recipients {
+		displayName := recipient.DisplayName
+		if recipient.EntryID > 0 {
+			displayName = entryNames[recipient.EntryID]
+		}
+		result.Recipients = append(result.Recipients, displayName)
+	}
+	return result
+}
+
+func dereferenceString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 // PrizegivingPublicationStates projects canonical release state for publication.

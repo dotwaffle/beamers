@@ -34,6 +34,10 @@ func (ResultsPublication) Fields() []ent.Field {
 		field.Enum("status").Values("Partial", "Final").Immutable(),
 		field.JSON("items", []prizegivingvalue.ItemRef{}).Immutable(),
 		field.JSON("prizegiving_lock", prizegivingvalue.Lock{}).Optional().Immutable(),
+		field.JSON("results_text_template", prizegivingvalue.Template{}).Optional().Immutable(),
+		field.String("rendered_html").Optional().Immutable(),
+		field.String("rendered_text").Optional().Immutable(),
+		field.String("rendered_json").Optional().Immutable(),
 		field.Int("created_by_account_id").Optional().Nillable().Positive().Immutable(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 	}

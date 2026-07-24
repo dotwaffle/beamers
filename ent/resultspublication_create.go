@@ -78,6 +78,62 @@ func (_c *ResultsPublicationCreate) SetNillablePrizegivingLock(v *prizegivingval
 	return _c
 }
 
+// SetResultsTextTemplate sets the "results_text_template" field.
+func (_c *ResultsPublicationCreate) SetResultsTextTemplate(v prizegivingvalue.Template) *ResultsPublicationCreate {
+	_c.mutation.SetResultsTextTemplate(v)
+	return _c
+}
+
+// SetNillableResultsTextTemplate sets the "results_text_template" field if the given value is not nil.
+func (_c *ResultsPublicationCreate) SetNillableResultsTextTemplate(v *prizegivingvalue.Template) *ResultsPublicationCreate {
+	if v != nil {
+		_c.SetResultsTextTemplate(*v)
+	}
+	return _c
+}
+
+// SetRenderedHTML sets the "rendered_html" field.
+func (_c *ResultsPublicationCreate) SetRenderedHTML(v string) *ResultsPublicationCreate {
+	_c.mutation.SetRenderedHTML(v)
+	return _c
+}
+
+// SetNillableRenderedHTML sets the "rendered_html" field if the given value is not nil.
+func (_c *ResultsPublicationCreate) SetNillableRenderedHTML(v *string) *ResultsPublicationCreate {
+	if v != nil {
+		_c.SetRenderedHTML(*v)
+	}
+	return _c
+}
+
+// SetRenderedText sets the "rendered_text" field.
+func (_c *ResultsPublicationCreate) SetRenderedText(v string) *ResultsPublicationCreate {
+	_c.mutation.SetRenderedText(v)
+	return _c
+}
+
+// SetNillableRenderedText sets the "rendered_text" field if the given value is not nil.
+func (_c *ResultsPublicationCreate) SetNillableRenderedText(v *string) *ResultsPublicationCreate {
+	if v != nil {
+		_c.SetRenderedText(*v)
+	}
+	return _c
+}
+
+// SetRenderedJSON sets the "rendered_json" field.
+func (_c *ResultsPublicationCreate) SetRenderedJSON(v string) *ResultsPublicationCreate {
+	_c.mutation.SetRenderedJSON(v)
+	return _c
+}
+
+// SetNillableRenderedJSON sets the "rendered_json" field if the given value is not nil.
+func (_c *ResultsPublicationCreate) SetNillableRenderedJSON(v *string) *ResultsPublicationCreate {
+	if v != nil {
+		_c.SetRenderedJSON(*v)
+	}
+	return _c
+}
+
 // SetCreatedByAccountID sets the "created_by_account_id" field.
 func (_c *ResultsPublicationCreate) SetCreatedByAccountID(v int) *ResultsPublicationCreate {
 	_c.mutation.SetCreatedByAccountID(v)
@@ -270,6 +326,22 @@ func (_c *ResultsPublicationCreate) createSpec() (*ResultsPublication, *sqlgraph
 	if value, ok := _c.mutation.PrizegivingLock(); ok {
 		_spec.SetField(resultspublication.FieldPrizegivingLock, field.TypeJSON, value)
 		_node.PrizegivingLock = value
+	}
+	if value, ok := _c.mutation.ResultsTextTemplate(); ok {
+		_spec.SetField(resultspublication.FieldResultsTextTemplate, field.TypeJSON, value)
+		_node.ResultsTextTemplate = value
+	}
+	if value, ok := _c.mutation.RenderedHTML(); ok {
+		_spec.SetField(resultspublication.FieldRenderedHTML, field.TypeString, value)
+		_node.RenderedHTML = value
+	}
+	if value, ok := _c.mutation.RenderedText(); ok {
+		_spec.SetField(resultspublication.FieldRenderedText, field.TypeString, value)
+		_node.RenderedText = value
+	}
+	if value, ok := _c.mutation.RenderedJSON(); ok {
+		_spec.SetField(resultspublication.FieldRenderedJSON, field.TypeString, value)
+		_node.RenderedJSON = value
 	}
 	if value, ok := _c.mutation.CreatedByAccountID(); ok {
 		_spec.SetField(resultspublication.FieldCreatedByAccountID, field.TypeInt, value)

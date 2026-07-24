@@ -70,6 +70,21 @@ func Revision(v int) predicate.ResultsPublication {
 	return predicate.ResultsPublication(sql.FieldEQ(FieldRevision, v))
 }
 
+// RenderedHTML applies equality check predicate on the "rendered_html" field. It's identical to RenderedHTMLEQ.
+func RenderedHTML(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldEQ(FieldRenderedHTML, v))
+}
+
+// RenderedText applies equality check predicate on the "rendered_text" field. It's identical to RenderedTextEQ.
+func RenderedText(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldEQ(FieldRenderedText, v))
+}
+
+// RenderedJSON applies equality check predicate on the "rendered_json" field. It's identical to RenderedJSONEQ.
+func RenderedJSON(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldEQ(FieldRenderedJSON, v))
+}
+
 // CreatedByAccountID applies equality check predicate on the "created_by_account_id" field. It's identical to CreatedByAccountIDEQ.
 func CreatedByAccountID(v int) predicate.ResultsPublication {
 	return predicate.ResultsPublication(sql.FieldEQ(FieldCreatedByAccountID, v))
@@ -248,6 +263,241 @@ func PrizegivingLockIsNil() predicate.ResultsPublication {
 // PrizegivingLockNotNil applies the NotNil predicate on the "prizegiving_lock" field.
 func PrizegivingLockNotNil() predicate.ResultsPublication {
 	return predicate.ResultsPublication(sql.FieldNotNull(FieldPrizegivingLock))
+}
+
+// ResultsTextTemplateIsNil applies the IsNil predicate on the "results_text_template" field.
+func ResultsTextTemplateIsNil() predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldIsNull(FieldResultsTextTemplate))
+}
+
+// ResultsTextTemplateNotNil applies the NotNil predicate on the "results_text_template" field.
+func ResultsTextTemplateNotNil() predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldNotNull(FieldResultsTextTemplate))
+}
+
+// RenderedHTMLEQ applies the EQ predicate on the "rendered_html" field.
+func RenderedHTMLEQ(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldEQ(FieldRenderedHTML, v))
+}
+
+// RenderedHTMLNEQ applies the NEQ predicate on the "rendered_html" field.
+func RenderedHTMLNEQ(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldNEQ(FieldRenderedHTML, v))
+}
+
+// RenderedHTMLIn applies the In predicate on the "rendered_html" field.
+func RenderedHTMLIn(vs ...string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldIn(FieldRenderedHTML, vs...))
+}
+
+// RenderedHTMLNotIn applies the NotIn predicate on the "rendered_html" field.
+func RenderedHTMLNotIn(vs ...string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldNotIn(FieldRenderedHTML, vs...))
+}
+
+// RenderedHTMLGT applies the GT predicate on the "rendered_html" field.
+func RenderedHTMLGT(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldGT(FieldRenderedHTML, v))
+}
+
+// RenderedHTMLGTE applies the GTE predicate on the "rendered_html" field.
+func RenderedHTMLGTE(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldGTE(FieldRenderedHTML, v))
+}
+
+// RenderedHTMLLT applies the LT predicate on the "rendered_html" field.
+func RenderedHTMLLT(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldLT(FieldRenderedHTML, v))
+}
+
+// RenderedHTMLLTE applies the LTE predicate on the "rendered_html" field.
+func RenderedHTMLLTE(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldLTE(FieldRenderedHTML, v))
+}
+
+// RenderedHTMLContains applies the Contains predicate on the "rendered_html" field.
+func RenderedHTMLContains(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldContains(FieldRenderedHTML, v))
+}
+
+// RenderedHTMLHasPrefix applies the HasPrefix predicate on the "rendered_html" field.
+func RenderedHTMLHasPrefix(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldHasPrefix(FieldRenderedHTML, v))
+}
+
+// RenderedHTMLHasSuffix applies the HasSuffix predicate on the "rendered_html" field.
+func RenderedHTMLHasSuffix(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldHasSuffix(FieldRenderedHTML, v))
+}
+
+// RenderedHTMLIsNil applies the IsNil predicate on the "rendered_html" field.
+func RenderedHTMLIsNil() predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldIsNull(FieldRenderedHTML))
+}
+
+// RenderedHTMLNotNil applies the NotNil predicate on the "rendered_html" field.
+func RenderedHTMLNotNil() predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldNotNull(FieldRenderedHTML))
+}
+
+// RenderedHTMLEqualFold applies the EqualFold predicate on the "rendered_html" field.
+func RenderedHTMLEqualFold(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldEqualFold(FieldRenderedHTML, v))
+}
+
+// RenderedHTMLContainsFold applies the ContainsFold predicate on the "rendered_html" field.
+func RenderedHTMLContainsFold(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldContainsFold(FieldRenderedHTML, v))
+}
+
+// RenderedTextEQ applies the EQ predicate on the "rendered_text" field.
+func RenderedTextEQ(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldEQ(FieldRenderedText, v))
+}
+
+// RenderedTextNEQ applies the NEQ predicate on the "rendered_text" field.
+func RenderedTextNEQ(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldNEQ(FieldRenderedText, v))
+}
+
+// RenderedTextIn applies the In predicate on the "rendered_text" field.
+func RenderedTextIn(vs ...string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldIn(FieldRenderedText, vs...))
+}
+
+// RenderedTextNotIn applies the NotIn predicate on the "rendered_text" field.
+func RenderedTextNotIn(vs ...string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldNotIn(FieldRenderedText, vs...))
+}
+
+// RenderedTextGT applies the GT predicate on the "rendered_text" field.
+func RenderedTextGT(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldGT(FieldRenderedText, v))
+}
+
+// RenderedTextGTE applies the GTE predicate on the "rendered_text" field.
+func RenderedTextGTE(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldGTE(FieldRenderedText, v))
+}
+
+// RenderedTextLT applies the LT predicate on the "rendered_text" field.
+func RenderedTextLT(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldLT(FieldRenderedText, v))
+}
+
+// RenderedTextLTE applies the LTE predicate on the "rendered_text" field.
+func RenderedTextLTE(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldLTE(FieldRenderedText, v))
+}
+
+// RenderedTextContains applies the Contains predicate on the "rendered_text" field.
+func RenderedTextContains(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldContains(FieldRenderedText, v))
+}
+
+// RenderedTextHasPrefix applies the HasPrefix predicate on the "rendered_text" field.
+func RenderedTextHasPrefix(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldHasPrefix(FieldRenderedText, v))
+}
+
+// RenderedTextHasSuffix applies the HasSuffix predicate on the "rendered_text" field.
+func RenderedTextHasSuffix(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldHasSuffix(FieldRenderedText, v))
+}
+
+// RenderedTextIsNil applies the IsNil predicate on the "rendered_text" field.
+func RenderedTextIsNil() predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldIsNull(FieldRenderedText))
+}
+
+// RenderedTextNotNil applies the NotNil predicate on the "rendered_text" field.
+func RenderedTextNotNil() predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldNotNull(FieldRenderedText))
+}
+
+// RenderedTextEqualFold applies the EqualFold predicate on the "rendered_text" field.
+func RenderedTextEqualFold(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldEqualFold(FieldRenderedText, v))
+}
+
+// RenderedTextContainsFold applies the ContainsFold predicate on the "rendered_text" field.
+func RenderedTextContainsFold(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldContainsFold(FieldRenderedText, v))
+}
+
+// RenderedJSONEQ applies the EQ predicate on the "rendered_json" field.
+func RenderedJSONEQ(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldEQ(FieldRenderedJSON, v))
+}
+
+// RenderedJSONNEQ applies the NEQ predicate on the "rendered_json" field.
+func RenderedJSONNEQ(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldNEQ(FieldRenderedJSON, v))
+}
+
+// RenderedJSONIn applies the In predicate on the "rendered_json" field.
+func RenderedJSONIn(vs ...string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldIn(FieldRenderedJSON, vs...))
+}
+
+// RenderedJSONNotIn applies the NotIn predicate on the "rendered_json" field.
+func RenderedJSONNotIn(vs ...string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldNotIn(FieldRenderedJSON, vs...))
+}
+
+// RenderedJSONGT applies the GT predicate on the "rendered_json" field.
+func RenderedJSONGT(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldGT(FieldRenderedJSON, v))
+}
+
+// RenderedJSONGTE applies the GTE predicate on the "rendered_json" field.
+func RenderedJSONGTE(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldGTE(FieldRenderedJSON, v))
+}
+
+// RenderedJSONLT applies the LT predicate on the "rendered_json" field.
+func RenderedJSONLT(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldLT(FieldRenderedJSON, v))
+}
+
+// RenderedJSONLTE applies the LTE predicate on the "rendered_json" field.
+func RenderedJSONLTE(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldLTE(FieldRenderedJSON, v))
+}
+
+// RenderedJSONContains applies the Contains predicate on the "rendered_json" field.
+func RenderedJSONContains(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldContains(FieldRenderedJSON, v))
+}
+
+// RenderedJSONHasPrefix applies the HasPrefix predicate on the "rendered_json" field.
+func RenderedJSONHasPrefix(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldHasPrefix(FieldRenderedJSON, v))
+}
+
+// RenderedJSONHasSuffix applies the HasSuffix predicate on the "rendered_json" field.
+func RenderedJSONHasSuffix(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldHasSuffix(FieldRenderedJSON, v))
+}
+
+// RenderedJSONIsNil applies the IsNil predicate on the "rendered_json" field.
+func RenderedJSONIsNil() predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldIsNull(FieldRenderedJSON))
+}
+
+// RenderedJSONNotNil applies the NotNil predicate on the "rendered_json" field.
+func RenderedJSONNotNil() predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldNotNull(FieldRenderedJSON))
+}
+
+// RenderedJSONEqualFold applies the EqualFold predicate on the "rendered_json" field.
+func RenderedJSONEqualFold(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldEqualFold(FieldRenderedJSON, v))
+}
+
+// RenderedJSONContainsFold applies the ContainsFold predicate on the "rendered_json" field.
+func RenderedJSONContainsFold(v string) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldContainsFold(FieldRenderedJSON, v))
 }
 
 // CreatedByAccountIDEQ applies the EQ predicate on the "created_by_account_id" field.

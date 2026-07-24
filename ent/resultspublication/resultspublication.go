@@ -32,6 +32,14 @@ const (
 	FieldItems = "items"
 	// FieldPrizegivingLock holds the string denoting the prizegiving_lock field in the database.
 	FieldPrizegivingLock = "prizegiving_lock"
+	// FieldResultsTextTemplate holds the string denoting the results_text_template field in the database.
+	FieldResultsTextTemplate = "results_text_template"
+	// FieldRenderedHTML holds the string denoting the rendered_html field in the database.
+	FieldRenderedHTML = "rendered_html"
+	// FieldRenderedText holds the string denoting the rendered_text field in the database.
+	FieldRenderedText = "rendered_text"
+	// FieldRenderedJSON holds the string denoting the rendered_json field in the database.
+	FieldRenderedJSON = "rendered_json"
 	// FieldCreatedByAccountID holds the string denoting the created_by_account_id field in the database.
 	FieldCreatedByAccountID = "created_by_account_id"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -60,6 +68,10 @@ var Columns = []string{
 	FieldStatus,
 	FieldItems,
 	FieldPrizegivingLock,
+	FieldResultsTextTemplate,
+	FieldRenderedHTML,
+	FieldRenderedText,
+	FieldRenderedJSON,
 	FieldCreatedByAccountID,
 	FieldCreatedAt,
 }
@@ -199,6 +211,21 @@ func ByReleasePolicy(opts ...sql.OrderTermOption) OrderOption {
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
+}
+
+// ByRenderedHTML orders the results by the rendered_html field.
+func ByRenderedHTML(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRenderedHTML, opts...).ToFunc()
+}
+
+// ByRenderedText orders the results by the rendered_text field.
+func ByRenderedText(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRenderedText, opts...).ToFunc()
+}
+
+// ByRenderedJSON orders the results by the rendered_json field.
+func ByRenderedJSON(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRenderedJSON, opts...).ToFunc()
 }
 
 // ByCreatedByAccountID orders the results by the created_by_account_id field.

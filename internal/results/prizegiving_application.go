@@ -91,6 +91,7 @@ type PrizegivingPreview struct {
 	Plan               PrizegivingPlan        `json:"plan"`
 	CompetitionResults []Draft                `json:"competition_results"`
 	EventAwards        []EventAward           `json:"event_awards"`
+	ResultsText        string                 `json:"results_text"`
 }
 
 // GetPrizegivingPlan returns one designated plan to Results viewers.
@@ -263,12 +264,27 @@ func (service *Service) RunPrizegivingPreflight(
 					ErrPrizegivingPreflightBlocked,
 				), nil
 			}
+			storedLock := prizegivingLockInput(lock)
+			renderSource, sourceErr := transaction.LoadResultsPublicationRenderSource(
+				actor.Context(ctx),
+				input.EventID,
+				storedLock,
+			)
+			if sourceErr != nil {
+				return command.Execution[PrizegivingPreflight]{}, sourceErr
+			}
+			storedLock.RenderSource, sourceErr = json.Marshal(renderSource)
+			if sourceErr != nil {
+				return command.Execution[PrizegivingPreflight]{}, errors.New(
+					"encode Prizegiving render source",
+				)
+			}
 			stored, lockErr := transaction.LockPrizegivingPlan(
 				actor.Context(ctx),
 				input.EventID,
 				input.CeremonySessionID,
 				input.ExpectedRevision,
-				prizegivingLockInput(lock),
+				storedLock,
 				actor.ID,
 				identity.Now,
 			)
@@ -321,12 +337,48 @@ func (service *Service) PreviewPrizegiving(
 	eventAwards := eventAwardsDraft(store.EventAwardsDraft{
 		Awards: found.EventAwards,
 	}).Awards
-	return projectPrizegivingPreview(
+	preview, err := projectPrizegivingPreview(
 		prizegivingPlan(found.Plan),
 		competitionResults,
 		eventAwards,
 		mode,
 	)
+	if err != nil {
+		return PrizegivingPreview{}, err
+	}
+	renderSource, err := service.storage.LoadResultsPublicationRenderSource(
+		actor.Context(ctx),
+		eventID,
+		found.Plan.Lock,
+	)
+	if err != nil {
+		return PrizegivingPreview{}, err
+	}
+	publicSource, err := publicResultsSource(
+		renderSource,
+		Publication{
+			Revision: 1, Status: ResultsPublicationFinal,
+			Items: prizegivingItemRefs(found.Plan.Lock.PublicationOrder),
+		},
+		ceremonySessionID,
+		service.now().UTC(),
+	)
+	if err != nil {
+		return PrizegivingPreview{}, err
+	}
+	model, err := BuildPublicResultsModel(publicSource)
+	if err != nil {
+		return PrizegivingPreview{}, err
+	}
+	rendered, err := RenderPublicResults(
+		model,
+		prizegivingTemplate(found.Plan.Lock.Template),
+	)
+	if err != nil {
+		return PrizegivingPreview{}, err
+	}
+	preview.ResultsText = rendered.Text
+	return preview, nil
 }
 
 func projectPrizegivingPreview(

@@ -1,4 +1,4 @@
-h1:OuICbGSKssYtL581lQbAKUiOa/hf6ZMr7hrLlsETtfs=
+h1:oCrJtMyl1uqtlXn4Db3UV8awkJGu0NWSmsB6aJdGJVw=
 0001_initialize.sql h1:xwTCiCDERoBPK7+31D4g3SOs7BivkqIi3/tf+14eOlo=
 0002_bootstrap_auth.sql h1:Z4h1bvDVGzPXbmlEc3NCEn1HvMSf2V6eY56wIlxFLjA=
 0003_add_events.sql h1:6XxTAjVp9ntlWbsdacCMQkdgTAG185npJMhgxOSnAtA=
@@ -44,3 +44,4 @@ h1:OuICbGSKssYtL581lQbAKUiOa/hf6ZMr7hrLlsETtfs=
 0043_add_prizegiving_reveal.sql h1:V4Yf8fP81Htjnx7LAQLObL+J1ENt9L+UmNl1U7RHNHM=
 0044_add_results_publications.sql h1:jyV/3TZP+TEkDb23A4QR8Tu81LCt4HQEC2SidD0InIk=
 0045_add_prizegiving_release_policy.sql h1:GuXRbtclDdbwtsrzGUNAZZ6+ax7bpPsKWFLSK4yc58E=
+0046_render_results_publications.sql h1:5yMdMeeM2XEnD42d4zpSCMLerx85m9owaH8hws9pt14=

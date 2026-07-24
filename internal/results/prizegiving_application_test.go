@@ -228,10 +228,107 @@ func TestPrizegivingPublicCommandsPreflightAndPreview(t *testing.T) {
 		t.Fatalf("Preview Prizegiving: %v", err)
 	}
 	if preview.Watermark == "" ||
+		preview.ResultsText != "Revision 2026\n" ||
 		len(preview.CompetitionResults) != 1 ||
 		preview.CompetitionResults[0].ID != draft.ID ||
 		preview.CompetitionResults[0].Disposition != results.Publish {
 		t.Fatalf("Prizegiving Preview = %+v", preview)
+	}
+}
+
+func TestPrizegivingReleaseBlocksOnTemplateRenderFailure(t *testing.T) {
+	storage, actor, eventID, _, _ := openPrizegivingApplicationTest(t)
+	now := func() time.Time {
+		return time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
+	}
+	ceremonyID, competitionID := publishPrizegivingSessions(
+		t,
+		storage,
+		actor,
+		eventID,
+		now,
+	)
+	service, err := results.New(storage, now)
+	if err != nil {
+		t.Fatalf("create Results service: %v", err)
+	}
+	if _, err = service.DesignatePrizegiving(
+		t.Context(),
+		actor,
+		results.DesignatePrizegivingInput{
+			EventID: eventID, CeremonySessionID: ceremonyID,
+			CommandID: "designate-render-failure-prizegiving",
+		},
+	); err != nil {
+		t.Fatalf("designate Prizegiving: %v", err)
+	}
+	draft, err := service.Save(t.Context(), actor, results.SaveInput{
+		EventID: eventID, SessionID: competitionID,
+		CommandID: "save-render-failure-results", Disposition: results.Publish,
+		Score: results.ScorePolicy{Type: results.None},
+	})
+	if err != nil {
+		t.Fatalf("save Results: %v", err)
+	}
+	if _, err = service.MarkReady(t.Context(), actor, results.MarkReadyInput{
+		EventID: eventID, SessionID: competitionID,
+		CommandID: "ready-render-failure-results", ExpectedRevision: draft.Revision,
+	}); err != nil {
+		t.Fatalf("mark Results Ready: %v", err)
+	}
+	plan, err := service.SavePrizegivingPlan(
+		t.Context(),
+		actor,
+		results.SavePrizegivingPlanInput{
+			EventID: eventID, CeremonySessionID: ceremonyID,
+			CommandID:             "save-render-failure-plan",
+			CompetitionSessionIDs: []int{competitionID},
+			ReleasePolicy:         results.ResultsAllAtCue,
+			Template: results.TextTemplate{
+				Revision: 1, Source: "{{.UndocumentedField}}\n",
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("save render-failure Prizegiving plan: %v", err)
+	}
+	if _, err = service.RunPrizegivingPreflight(
+		t.Context(),
+		actor,
+		results.RunPrizegivingPreflightInput{
+			EventID: eventID, CeremonySessionID: ceremonyID,
+			CommandID: "lock-render-failure-plan", ExpectedRevision: plan.Revision,
+		},
+	); err != nil {
+		t.Fatalf("lock render-failure Prizegiving plan: %v", err)
+	}
+	if _, err = service.PreviewPrizegiving(
+		t.Context(),
+		actor,
+		eventID,
+		ceremonyID,
+		results.PrizegivingPreviewModePreview,
+	); !errors.Is(err, results.ErrResultsRendering) {
+		t.Fatalf("render-failure Preview error = %v", err)
+	}
+	if _, err = service.FirePrizegivingResultsCue(
+		t.Context(),
+		actor,
+		results.FirePrizegivingResultsCueInput{
+			EventID: eventID, CeremonySessionID: ceremonyID,
+			CommandID: "release-render-failure-results",
+		},
+	); !errors.Is(err, results.ErrResultsRendering) {
+		t.Fatalf("render-failure release error = %v", err)
+	}
+	stored, err := storage.LoadResultsPublication(
+		t.Context(),
+		eventID,
+		store.ResultsPublicationPrizegiving,
+		ceremonyID,
+	)
+	if err != nil || stored.Revision != 0 {
+		t.Fatalf("publication after render failure = %+v, %v", stored, err)
 	}
 }
 
@@ -299,7 +396,11 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 	if err != nil ||
 		stored.Lock.ReleasePolicy != results.ResultsStandalone ||
 		len(stored.Lock.CompetitionSources) != 1 ||
-		stored.Lock.CompetitionSources[0].DraftID != draft.ID {
+		stored.Lock.CompetitionSources[0].DraftID != draft.ID ||
+		stored.Template.Revision != 1 ||
+		!strings.Contains(stored.RenderedHTML, "Revision 2026 Results") ||
+		!strings.Contains(stored.RenderedText, "Final") ||
+		!strings.Contains(stored.RenderedJSON, `"schema_version": "1"`) {
 		t.Fatalf("stored standalone Results Publication = %+v, %v", stored, err)
 	}
 	if _, err = service.DesignatePrizegiving(

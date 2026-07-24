@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"slices"
 	"time"
@@ -74,6 +75,7 @@ type PrizegivingPreflightLock struct {
 	Sequence                 []PrizegivingLockedResultItem  `json:"sequence"`
 	PublicationOrder         []PrizegivingResultItemRef     `json:"publication_order"`
 	Template                 PrizegivingResultsTextTemplate `json:"template"`
+	RenderSource             json.RawMessage                `json:"render_source,omitempty"`
 }
 
 // PrizegivingPlan is one editable or Preflight-locked release plan.
@@ -720,6 +722,7 @@ func prizegivingLockValue(value PrizegivingPreflightLock) prizegivingvalue.Lock 
 		EventAwardsPathRevision:  value.EventAwardsPathRevision,
 		PublicationOrder:         prizegivingItemRefValues(value.PublicationOrder),
 		Template:                 prizegivingTemplateValue(value.Template),
+		RenderSource:             slices.Clone(value.RenderSource),
 	}
 	for _, source := range value.CompetitionSources {
 		result.CompetitionSources = append(
@@ -747,6 +750,7 @@ func prizegivingLock(value prizegivingvalue.Lock) PrizegivingPreflightLock {
 		EventAwardsPathRevision:  value.EventAwardsPathRevision,
 		PublicationOrder:         prizegivingItemRefs(value.PublicationOrder),
 		Template:                 prizegivingTemplate(value.Template),
+		RenderSource:             slices.Clone(value.RenderSource),
 	}
 	for _, source := range value.CompetitionSources {
 		result.CompetitionSources = append(

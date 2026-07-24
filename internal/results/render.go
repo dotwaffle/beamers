@@ -63,6 +63,7 @@ type PublicResultsItem struct {
 type PublicResultsPublication struct {
 	SchemaVersion string              `json:"schema_version"`
 	Event         PublicResultsEvent  `json:"event"`
+	EventTitle    string              `json:"-"`
 	Revision      int                 `json:"revision"`
 	Status        PublicationStatus   `json:"status"`
 	PublishedAt   time.Time           `json:"published_at"`

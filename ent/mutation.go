@@ -35954,6 +35954,10 @@ type ResultsPublicationMutation struct {
 	items                    *[]prizegivingvalue.ItemRef
 	appenditems              []prizegivingvalue.ItemRef
 	prizegiving_lock         *prizegivingvalue.Lock
+	results_text_template    *prizegivingvalue.Template
+	rendered_html            *string
+	rendered_text            *string
+	rendered_json            *string
 	created_by_account_id    *int
 	addcreated_by_account_id *int
 	created_at               *time.Time
@@ -36419,6 +36423,202 @@ func (m *ResultsPublicationMutation) ResetPrizegivingLock() {
 	delete(m.clearedFields, resultspublication.FieldPrizegivingLock)
 }
 
+// SetResultsTextTemplate sets the "results_text_template" field.
+func (m *ResultsPublicationMutation) SetResultsTextTemplate(pr prizegivingvalue.Template) {
+	m.results_text_template = &pr
+}
+
+// ResultsTextTemplate returns the value of the "results_text_template" field in the mutation.
+func (m *ResultsPublicationMutation) ResultsTextTemplate() (r prizegivingvalue.Template, exists bool) {
+	v := m.results_text_template
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResultsTextTemplate returns the old "results_text_template" field's value of the ResultsPublication entity.
+// If the ResultsPublication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsPublicationMutation) OldResultsTextTemplate(ctx context.Context) (v prizegivingvalue.Template, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResultsTextTemplate is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResultsTextTemplate requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResultsTextTemplate: %w", err)
+	}
+	return oldValue.ResultsTextTemplate, nil
+}
+
+// ClearResultsTextTemplate clears the value of the "results_text_template" field.
+func (m *ResultsPublicationMutation) ClearResultsTextTemplate() {
+	m.results_text_template = nil
+	m.clearedFields[resultspublication.FieldResultsTextTemplate] = struct{}{}
+}
+
+// ResultsTextTemplateCleared returns if the "results_text_template" field was cleared in this mutation.
+func (m *ResultsPublicationMutation) ResultsTextTemplateCleared() bool {
+	_, ok := m.clearedFields[resultspublication.FieldResultsTextTemplate]
+	return ok
+}
+
+// ResetResultsTextTemplate resets all changes to the "results_text_template" field.
+func (m *ResultsPublicationMutation) ResetResultsTextTemplate() {
+	m.results_text_template = nil
+	delete(m.clearedFields, resultspublication.FieldResultsTextTemplate)
+}
+
+// SetRenderedHTML sets the "rendered_html" field.
+func (m *ResultsPublicationMutation) SetRenderedHTML(s string) {
+	m.rendered_html = &s
+}
+
+// RenderedHTML returns the value of the "rendered_html" field in the mutation.
+func (m *ResultsPublicationMutation) RenderedHTML() (r string, exists bool) {
+	v := m.rendered_html
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRenderedHTML returns the old "rendered_html" field's value of the ResultsPublication entity.
+// If the ResultsPublication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsPublicationMutation) OldRenderedHTML(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRenderedHTML is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRenderedHTML requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRenderedHTML: %w", err)
+	}
+	return oldValue.RenderedHTML, nil
+}
+
+// ClearRenderedHTML clears the value of the "rendered_html" field.
+func (m *ResultsPublicationMutation) ClearRenderedHTML() {
+	m.rendered_html = nil
+	m.clearedFields[resultspublication.FieldRenderedHTML] = struct{}{}
+}
+
+// RenderedHTMLCleared returns if the "rendered_html" field was cleared in this mutation.
+func (m *ResultsPublicationMutation) RenderedHTMLCleared() bool {
+	_, ok := m.clearedFields[resultspublication.FieldRenderedHTML]
+	return ok
+}
+
+// ResetRenderedHTML resets all changes to the "rendered_html" field.
+func (m *ResultsPublicationMutation) ResetRenderedHTML() {
+	m.rendered_html = nil
+	delete(m.clearedFields, resultspublication.FieldRenderedHTML)
+}
+
+// SetRenderedText sets the "rendered_text" field.
+func (m *ResultsPublicationMutation) SetRenderedText(s string) {
+	m.rendered_text = &s
+}
+
+// RenderedText returns the value of the "rendered_text" field in the mutation.
+func (m *ResultsPublicationMutation) RenderedText() (r string, exists bool) {
+	v := m.rendered_text
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRenderedText returns the old "rendered_text" field's value of the ResultsPublication entity.
+// If the ResultsPublication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsPublicationMutation) OldRenderedText(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRenderedText is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRenderedText requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRenderedText: %w", err)
+	}
+	return oldValue.RenderedText, nil
+}
+
+// ClearRenderedText clears the value of the "rendered_text" field.
+func (m *ResultsPublicationMutation) ClearRenderedText() {
+	m.rendered_text = nil
+	m.clearedFields[resultspublication.FieldRenderedText] = struct{}{}
+}
+
+// RenderedTextCleared returns if the "rendered_text" field was cleared in this mutation.
+func (m *ResultsPublicationMutation) RenderedTextCleared() bool {
+	_, ok := m.clearedFields[resultspublication.FieldRenderedText]
+	return ok
+}
+
+// ResetRenderedText resets all changes to the "rendered_text" field.
+func (m *ResultsPublicationMutation) ResetRenderedText() {
+	m.rendered_text = nil
+	delete(m.clearedFields, resultspublication.FieldRenderedText)
+}
+
+// SetRenderedJSON sets the "rendered_json" field.
+func (m *ResultsPublicationMutation) SetRenderedJSON(s string) {
+	m.rendered_json = &s
+}
+
+// RenderedJSON returns the value of the "rendered_json" field in the mutation.
+func (m *ResultsPublicationMutation) RenderedJSON() (r string, exists bool) {
+	v := m.rendered_json
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRenderedJSON returns the old "rendered_json" field's value of the ResultsPublication entity.
+// If the ResultsPublication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsPublicationMutation) OldRenderedJSON(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRenderedJSON is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRenderedJSON requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRenderedJSON: %w", err)
+	}
+	return oldValue.RenderedJSON, nil
+}
+
+// ClearRenderedJSON clears the value of the "rendered_json" field.
+func (m *ResultsPublicationMutation) ClearRenderedJSON() {
+	m.rendered_json = nil
+	m.clearedFields[resultspublication.FieldRenderedJSON] = struct{}{}
+}
+
+// RenderedJSONCleared returns if the "rendered_json" field was cleared in this mutation.
+func (m *ResultsPublicationMutation) RenderedJSONCleared() bool {
+	_, ok := m.clearedFields[resultspublication.FieldRenderedJSON]
+	return ok
+}
+
+// ResetRenderedJSON resets all changes to the "rendered_json" field.
+func (m *ResultsPublicationMutation) ResetRenderedJSON() {
+	m.rendered_json = nil
+	delete(m.clearedFields, resultspublication.FieldRenderedJSON)
+}
+
 // SetCreatedByAccountID sets the "created_by_account_id" field.
 func (m *ResultsPublicationMutation) SetCreatedByAccountID(i int) {
 	m.created_by_account_id = &i
@@ -36586,7 +36786,7 @@ func (m *ResultsPublicationMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ResultsPublicationMutation) Fields() []string {
-	fields := make([]string, 0, 10)
+	fields := make([]string, 0, 14)
 	if m.event != nil {
 		fields = append(fields, resultspublication.FieldEventID)
 	}
@@ -36610,6 +36810,18 @@ func (m *ResultsPublicationMutation) Fields() []string {
 	}
 	if m.prizegiving_lock != nil {
 		fields = append(fields, resultspublication.FieldPrizegivingLock)
+	}
+	if m.results_text_template != nil {
+		fields = append(fields, resultspublication.FieldResultsTextTemplate)
+	}
+	if m.rendered_html != nil {
+		fields = append(fields, resultspublication.FieldRenderedHTML)
+	}
+	if m.rendered_text != nil {
+		fields = append(fields, resultspublication.FieldRenderedText)
+	}
+	if m.rendered_json != nil {
+		fields = append(fields, resultspublication.FieldRenderedJSON)
 	}
 	if m.created_by_account_id != nil {
 		fields = append(fields, resultspublication.FieldCreatedByAccountID)
@@ -36641,6 +36853,14 @@ func (m *ResultsPublicationMutation) Field(name string) (ent.Value, bool) {
 		return m.Items()
 	case resultspublication.FieldPrizegivingLock:
 		return m.PrizegivingLock()
+	case resultspublication.FieldResultsTextTemplate:
+		return m.ResultsTextTemplate()
+	case resultspublication.FieldRenderedHTML:
+		return m.RenderedHTML()
+	case resultspublication.FieldRenderedText:
+		return m.RenderedText()
+	case resultspublication.FieldRenderedJSON:
+		return m.RenderedJSON()
 	case resultspublication.FieldCreatedByAccountID:
 		return m.CreatedByAccountID()
 	case resultspublication.FieldCreatedAt:
@@ -36670,6 +36890,14 @@ func (m *ResultsPublicationMutation) OldField(ctx context.Context, name string) 
 		return m.OldItems(ctx)
 	case resultspublication.FieldPrizegivingLock:
 		return m.OldPrizegivingLock(ctx)
+	case resultspublication.FieldResultsTextTemplate:
+		return m.OldResultsTextTemplate(ctx)
+	case resultspublication.FieldRenderedHTML:
+		return m.OldRenderedHTML(ctx)
+	case resultspublication.FieldRenderedText:
+		return m.OldRenderedText(ctx)
+	case resultspublication.FieldRenderedJSON:
+		return m.OldRenderedJSON(ctx)
 	case resultspublication.FieldCreatedByAccountID:
 		return m.OldCreatedByAccountID(ctx)
 	case resultspublication.FieldCreatedAt:
@@ -36738,6 +36966,34 @@ func (m *ResultsPublicationMutation) SetField(name string, value ent.Value) erro
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetPrizegivingLock(v)
+		return nil
+	case resultspublication.FieldResultsTextTemplate:
+		v, ok := value.(prizegivingvalue.Template)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResultsTextTemplate(v)
+		return nil
+	case resultspublication.FieldRenderedHTML:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRenderedHTML(v)
+		return nil
+	case resultspublication.FieldRenderedText:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRenderedText(v)
+		return nil
+	case resultspublication.FieldRenderedJSON:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRenderedJSON(v)
 		return nil
 	case resultspublication.FieldCreatedByAccountID:
 		v, ok := value.(int)
@@ -36825,6 +37081,18 @@ func (m *ResultsPublicationMutation) ClearedFields() []string {
 	if m.FieldCleared(resultspublication.FieldPrizegivingLock) {
 		fields = append(fields, resultspublication.FieldPrizegivingLock)
 	}
+	if m.FieldCleared(resultspublication.FieldResultsTextTemplate) {
+		fields = append(fields, resultspublication.FieldResultsTextTemplate)
+	}
+	if m.FieldCleared(resultspublication.FieldRenderedHTML) {
+		fields = append(fields, resultspublication.FieldRenderedHTML)
+	}
+	if m.FieldCleared(resultspublication.FieldRenderedText) {
+		fields = append(fields, resultspublication.FieldRenderedText)
+	}
+	if m.FieldCleared(resultspublication.FieldRenderedJSON) {
+		fields = append(fields, resultspublication.FieldRenderedJSON)
+	}
 	if m.FieldCleared(resultspublication.FieldCreatedByAccountID) {
 		fields = append(fields, resultspublication.FieldCreatedByAccountID)
 	}
@@ -36844,6 +37112,18 @@ func (m *ResultsPublicationMutation) ClearField(name string) error {
 	switch name {
 	case resultspublication.FieldPrizegivingLock:
 		m.ClearPrizegivingLock()
+		return nil
+	case resultspublication.FieldResultsTextTemplate:
+		m.ClearResultsTextTemplate()
+		return nil
+	case resultspublication.FieldRenderedHTML:
+		m.ClearRenderedHTML()
+		return nil
+	case resultspublication.FieldRenderedText:
+		m.ClearRenderedText()
+		return nil
+	case resultspublication.FieldRenderedJSON:
+		m.ClearRenderedJSON()
 		return nil
 	case resultspublication.FieldCreatedByAccountID:
 		m.ClearCreatedByAccountID()
@@ -36879,6 +37159,18 @@ func (m *ResultsPublicationMutation) ResetField(name string) error {
 		return nil
 	case resultspublication.FieldPrizegivingLock:
 		m.ResetPrizegivingLock()
+		return nil
+	case resultspublication.FieldResultsTextTemplate:
+		m.ResetResultsTextTemplate()
+		return nil
+	case resultspublication.FieldRenderedHTML:
+		m.ResetRenderedHTML()
+		return nil
+	case resultspublication.FieldRenderedText:
+		m.ResetRenderedText()
+		return nil
+	case resultspublication.FieldRenderedJSON:
+		m.ResetRenderedJSON()
 		return nil
 	case resultspublication.FieldCreatedByAccountID:
 		m.ResetCreatedByAccountID()

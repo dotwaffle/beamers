@@ -1,7 +1,10 @@
 // Package prizegivingvalue defines persisted Prizegiving plan value objects.
 package prizegivingvalue
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // ReleasePolicy selects when locked Result Items become public.
 type ReleasePolicy string
@@ -101,6 +104,7 @@ type Lock struct {
 	Sequence                 []LockedItem      `json:"sequence"`
 	PublicationOrder         []ItemRef         `json:"publication_order"`
 	Template                 Template          `json:"template"`
+	RenderSource             json.RawMessage   `json:"render_source,omitempty"`
 }
 
 // StageState is one Result Item's durable presentation outcome.

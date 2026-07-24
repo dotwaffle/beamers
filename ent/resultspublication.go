@@ -36,6 +36,14 @@ type ResultsPublication struct {
 	Items []prizegivingvalue.ItemRef `json:"items,omitempty"`
 	// PrizegivingLock holds the value of the "prizegiving_lock" field.
 	PrizegivingLock prizegivingvalue.Lock `json:"prizegiving_lock,omitempty"`
+	// ResultsTextTemplate holds the value of the "results_text_template" field.
+	ResultsTextTemplate prizegivingvalue.Template `json:"results_text_template,omitempty"`
+	// RenderedHTML holds the value of the "rendered_html" field.
+	RenderedHTML string `json:"rendered_html,omitempty"`
+	// RenderedText holds the value of the "rendered_text" field.
+	RenderedText string `json:"rendered_text,omitempty"`
+	// RenderedJSON holds the value of the "rendered_json" field.
+	RenderedJSON string `json:"rendered_json,omitempty"`
 	// CreatedByAccountID holds the value of the "created_by_account_id" field.
 	CreatedByAccountID *int `json:"created_by_account_id,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -71,11 +79,11 @@ func (*ResultsPublication) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case resultspublication.FieldItems, resultspublication.FieldPrizegivingLock:
+		case resultspublication.FieldItems, resultspublication.FieldPrizegivingLock, resultspublication.FieldResultsTextTemplate:
 			values[i] = new([]byte)
 		case resultspublication.FieldID, resultspublication.FieldEventID, resultspublication.FieldScopeSessionID, resultspublication.FieldRevision, resultspublication.FieldCreatedByAccountID:
 			values[i] = new(sql.NullInt64)
-		case resultspublication.FieldScope, resultspublication.FieldReleasePolicy, resultspublication.FieldStatus:
+		case resultspublication.FieldScope, resultspublication.FieldReleasePolicy, resultspublication.FieldStatus, resultspublication.FieldRenderedHTML, resultspublication.FieldRenderedText, resultspublication.FieldRenderedJSON:
 			values[i] = new(sql.NullString)
 		case resultspublication.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -151,6 +159,32 @@ func (_m *ResultsPublication) assignValues(columns []string, values []any) error
 				if err := json.Unmarshal(*value, &_m.PrizegivingLock); err != nil {
 					return fmt.Errorf("unmarshal field prizegiving_lock: %w", err)
 				}
+			}
+		case resultspublication.FieldResultsTextTemplate:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field results_text_template", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.ResultsTextTemplate); err != nil {
+					return fmt.Errorf("unmarshal field results_text_template: %w", err)
+				}
+			}
+		case resultspublication.FieldRenderedHTML:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field rendered_html", values[i])
+			} else if value.Valid {
+				_m.RenderedHTML = value.String
+			}
+		case resultspublication.FieldRenderedText:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field rendered_text", values[i])
+			} else if value.Valid {
+				_m.RenderedText = value.String
+			}
+		case resultspublication.FieldRenderedJSON:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field rendered_json", values[i])
+			} else if value.Valid {
+				_m.RenderedJSON = value.String
 			}
 		case resultspublication.FieldCreatedByAccountID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -229,6 +263,18 @@ func (_m *ResultsPublication) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("prizegiving_lock=")
 	builder.WriteString(fmt.Sprintf("%v", _m.PrizegivingLock))
+	builder.WriteString(", ")
+	builder.WriteString("results_text_template=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ResultsTextTemplate))
+	builder.WriteString(", ")
+	builder.WriteString("rendered_html=")
+	builder.WriteString(_m.RenderedHTML)
+	builder.WriteString(", ")
+	builder.WriteString("rendered_text=")
+	builder.WriteString(_m.RenderedText)
+	builder.WriteString(", ")
+	builder.WriteString("rendered_json=")
+	builder.WriteString(_m.RenderedJSON)
 	builder.WriteString(", ")
 	if v := _m.CreatedByAccountID; v != nil {
 		builder.WriteString("created_by_account_id=")

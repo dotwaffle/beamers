@@ -1819,11 +1819,11 @@ func init() {
 	// resultspublication.RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
 	resultspublication.RevisionValidator = resultspublicationDescRevision.Validators[0].(func(int) error)
 	// resultspublicationDescCreatedByAccountID is the schema descriptor for created_by_account_id field.
-	resultspublicationDescCreatedByAccountID := resultspublicationFields[8].Descriptor()
+	resultspublicationDescCreatedByAccountID := resultspublicationFields[12].Descriptor()
 	// resultspublication.CreatedByAccountIDValidator is a validator for the "created_by_account_id" field. It is called by the builders before save.
 	resultspublication.CreatedByAccountIDValidator = resultspublicationDescCreatedByAccountID.Validators[0].(func(int) error)
 	// resultspublicationDescCreatedAt is the schema descriptor for created_at field.
-	resultspublicationDescCreatedAt := resultspublicationFields[9].Descriptor()
+	resultspublicationDescCreatedAt := resultspublicationFields[13].Descriptor()
 	// resultspublication.DefaultCreatedAt holds the default value on creation for the created_at field.
 	resultspublication.DefaultCreatedAt = resultspublicationDescCreatedAt.Default.(func() time.Time)
 	rundown.Policy = privacy.NewPolicies(schema.Rundown{})

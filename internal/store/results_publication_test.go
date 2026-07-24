@@ -68,6 +68,30 @@ func TestResultsPublicationAppendIsImmutableAndRevisionChecked(t *testing.T) {
 		t.Fatalf("load current Results Publication = %+v, %v", loaded, err)
 	}
 
+	enrichedLock := lock
+	enrichedLock.RenderSource = []byte(`{"event_name":"frozen"}`)
+	continuation := beginCommand(t, installation, ctx)
+	second, err := continuation.AppendResultsPublication(
+		ctx,
+		AppendResultsPublicationParams{
+			EventID: event.ID, Scope: ResultsPublicationPrizegiving,
+			ScopeSessionID: ceremony.ID, ExpectedRevision: 1,
+			Policy: ResultsPublicationProgressive,
+			Status: ResultsPublicationFinal,
+			Items:  []PrizegivingResultItemRef{ref},
+			Lock:   enrichedLock, CreatedByAccountID: 7, Now: now.Add(time.Second),
+		},
+	)
+	if err != nil {
+		t.Fatalf("continue pre-render Results Publication: %v", err)
+	}
+	if err = continuation.Commit(); err != nil {
+		t.Fatalf("commit continued Results Publication: %v", err)
+	}
+	if second.Revision != 2 || len(second.Lock.RenderSource) == 0 {
+		t.Fatalf("continued Results Publication = %+v", second)
+	}
+
 	stale := beginCommand(t, installation, ctx)
 	_, err = stale.AppendResultsPublication(
 		ctx,

@@ -82,6 +82,18 @@ func (_u *ResultsPublicationUpdate) sqlSave(ctx context.Context) (_node int, err
 	if _u.mutation.PrizegivingLockCleared() {
 		_spec.ClearField(resultspublication.FieldPrizegivingLock, field.TypeJSON)
 	}
+	if _u.mutation.ResultsTextTemplateCleared() {
+		_spec.ClearField(resultspublication.FieldResultsTextTemplate, field.TypeJSON)
+	}
+	if _u.mutation.RenderedHTMLCleared() {
+		_spec.ClearField(resultspublication.FieldRenderedHTML, field.TypeString)
+	}
+	if _u.mutation.RenderedTextCleared() {
+		_spec.ClearField(resultspublication.FieldRenderedText, field.TypeString)
+	}
+	if _u.mutation.RenderedJSONCleared() {
+		_spec.ClearField(resultspublication.FieldRenderedJSON, field.TypeString)
+	}
 	if _u.mutation.CreatedByAccountIDCleared() {
 		_spec.ClearField(resultspublication.FieldCreatedByAccountID, field.TypeInt)
 	}
@@ -189,6 +201,18 @@ func (_u *ResultsPublicationUpdateOne) sqlSave(ctx context.Context) (_node *Resu
 	}
 	if _u.mutation.PrizegivingLockCleared() {
 		_spec.ClearField(resultspublication.FieldPrizegivingLock, field.TypeJSON)
+	}
+	if _u.mutation.ResultsTextTemplateCleared() {
+		_spec.ClearField(resultspublication.FieldResultsTextTemplate, field.TypeJSON)
+	}
+	if _u.mutation.RenderedHTMLCleared() {
+		_spec.ClearField(resultspublication.FieldRenderedHTML, field.TypeString)
+	}
+	if _u.mutation.RenderedTextCleared() {
+		_spec.ClearField(resultspublication.FieldRenderedText, field.TypeString)
+	}
+	if _u.mutation.RenderedJSONCleared() {
+		_spec.ClearField(resultspublication.FieldRenderedJSON, field.TypeString)
 	}
 	if _u.mutation.CreatedByAccountIDCleared() {
 		_spec.ClearField(resultspublication.FieldCreatedByAccountID, field.TypeInt)

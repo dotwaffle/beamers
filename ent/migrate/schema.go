@@ -1201,6 +1201,10 @@ var (
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"Partial", "Final"}},
 		{Name: "items", Type: field.TypeJSON},
 		{Name: "prizegiving_lock", Type: field.TypeJSON, Nullable: true},
+		{Name: "results_text_template", Type: field.TypeJSON, Nullable: true},
+		{Name: "rendered_html", Type: field.TypeString, Nullable: true},
+		{Name: "rendered_text", Type: field.TypeString, Nullable: true},
+		{Name: "rendered_json", Type: field.TypeString, Nullable: true},
 		{Name: "created_by_account_id", Type: field.TypeInt, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "event_id", Type: field.TypeInt},
@@ -1213,7 +1217,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "results_publications_events_results_publications",
-				Columns:    []*schema.Column{ResultsPublicationsColumns[10]},
+				Columns:    []*schema.Column{ResultsPublicationsColumns[14]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -1222,12 +1226,12 @@ var (
 			{
 				Name:    "resultspublication_event_id_scope_scope_session_id_revision",
 				Unique:  true,
-				Columns: []*schema.Column{ResultsPublicationsColumns[10], ResultsPublicationsColumns[1], ResultsPublicationsColumns[2], ResultsPublicationsColumns[3]},
+				Columns: []*schema.Column{ResultsPublicationsColumns[14], ResultsPublicationsColumns[1], ResultsPublicationsColumns[2], ResultsPublicationsColumns[3]},
 			},
 			{
 				Name:    "resultspublication_event_id_scope_scope_session_id",
 				Unique:  false,
-				Columns: []*schema.Column{ResultsPublicationsColumns[10], ResultsPublicationsColumns[1], ResultsPublicationsColumns[2]},
+				Columns: []*schema.Column{ResultsPublicationsColumns[14], ResultsPublicationsColumns[1], ResultsPublicationsColumns[2]},
 			},
 		},
 	}
