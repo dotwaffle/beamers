@@ -363,14 +363,15 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create Session control: %v", err)
 	}
-	if _, err = sessionService.Start(
+	started, err := sessionService.Start(
 		t.Context(),
 		actor,
 		sessioncontrol.StartInput{
 			EventID: eventID, SessionID: ceremonyID,
 			CommandID: "start-public-program-prizegiving",
 		},
-	); err != nil {
+	)
+	if err != nil {
 		t.Fatalf("start Prizegiving: %v", err)
 	}
 	programService, err := programcontrol.New(storage, now)
@@ -581,6 +582,30 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 		progressive.Status != store.ResultsPublicationPartial ||
 		len(progressive.Items) != 2 {
 		t.Fatalf("Progressive Publication after static Reveal = %+v, %v", progressive, err)
+	}
+	ended, err := sessionService.End(
+		t.Context(),
+		actor,
+		sessioncontrol.EndInput{
+			EventID: eventID, SessionID: ceremonyID,
+			CommandID:                 "end-public-program-prizegiving",
+			ExpectedLiveStateRevision: started.LiveStateRevision,
+		},
+	)
+	if err != nil || ended.Lifecycle != "Ended" {
+		t.Fatalf("end resolved Prizegiving = %+v, %v", ended, err)
+	}
+	finalPublication, err := storage.LoadResultsPublication(
+		t.Context(),
+		eventID,
+		store.ResultsPublicationPrizegiving,
+		ceremonyID,
+	)
+	if err != nil ||
+		finalPublication.Revision != 3 ||
+		finalPublication.Status != store.ResultsPublicationFinal ||
+		len(finalPublication.Items) != 2 {
+		t.Fatalf("Publication after Ceremony End = %+v, %v", finalPublication, err)
 	}
 }
 

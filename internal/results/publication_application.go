@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
+	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/command"
@@ -23,6 +24,12 @@ type FirePrizegivingResultsCueInput struct {
 	EventID           int    `json:"event_id"`
 	CeremonySessionID int    `json:"ceremony_session_id"`
 	CommandID         string `json:"command_id"`
+}
+
+// PrizegivingPublicationTrigger contains one durable release trigger.
+type PrizegivingPublicationTrigger struct {
+	CueFired      bool
+	CeremonyEnded bool
 }
 
 // FirePrizegivingResultsCue atomically publishes the complete locked set.
@@ -64,58 +71,18 @@ func (service *Service) FirePrizegivingResultsCue(
 			return result, nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Publication], error) {
-			plan, loadErr := transaction.LoadPrizegivingPlan(
+			next, _, advanceErr := AdvancePrizegivingPublication(
 				actor.Context(ctx),
+				actor,
+				transaction,
 				input.EventID,
 				input.CeremonySessionID,
+				identity.Now,
+				store.ProgramChannelState{},
+				PrizegivingPublicationTrigger{CueFired: true},
 			)
-			if loadErr != nil {
-				return command.Execution[Publication]{}, loadErr
-			}
-			if !plan.Locked {
-				return command.Execution[Publication]{}, ErrPrizegivingPreflightRequired
-			}
-			if plan.ReleasePolicy != ResultsAllAtCue {
-				return command.Execution[Publication]{}, ErrResultsReleasePolicy
-			}
-			current, loadErr := transaction.LoadResultsPublication(
-				actor.Context(ctx),
-				input.EventID,
-				store.ResultsPublicationPrizegiving,
-				input.CeremonySessionID,
-			)
-			if loadErr != nil {
-				return command.Execution[Publication]{}, loadErr
-			}
-			next, changed, advanceErr := AdvancePublication(PublicationInput{
-				Policy:   plan.ReleasePolicy,
-				Order:    prizegivingItemRefs(plan.Lock.PublicationOrder),
-				Current:  publicationFromStore(current),
-				CueFired: true,
-			})
 			if advanceErr != nil {
 				return command.Execution[Publication]{}, advanceErr
-			}
-			if changed {
-				stored, appendErr := transaction.AppendResultsPublication(
-					actor.Context(ctx),
-					store.AppendResultsPublicationParams{
-						EventID:            input.EventID,
-						Scope:              store.ResultsPublicationPrizegiving,
-						ScopeSessionID:     input.CeremonySessionID,
-						ExpectedRevision:   current.Revision,
-						Policy:             plan.ReleasePolicy,
-						Status:             store.ResultsPublicationStatus(next.Status),
-						Items:              prizegivingItemRefInputs(next.Items),
-						Lock:               plan.Lock,
-						CreatedByAccountID: actor.ID,
-						Now:                identity.Now,
-					},
-				)
-				if appendErr != nil {
-					return command.Execution[Publication]{}, appendErr
-				}
-				next = publicationFromStore(stored)
 			}
 			outcome, marshalErr := json.Marshal(next)
 			if marshalErr != nil {
@@ -126,6 +93,99 @@ func (service *Service) FirePrizegivingResultsCue(
 			return command.Success(next, string(outcome)), nil
 		},
 	})
+}
+
+// AdvancePrizegivingPublication appends one policy-valid manifest revision.
+func AdvancePrizegivingPublication(
+	ctx context.Context,
+	actor auth.Account,
+	transaction *store.CommandTx,
+	eventID, ceremonySessionID int,
+	now time.Time,
+	channel store.ProgramChannelState,
+	trigger PrizegivingPublicationTrigger,
+) (Publication, bool, error) {
+	plan, err := transaction.LoadPrizegivingPlan(
+		ctx,
+		eventID,
+		ceremonySessionID,
+	)
+	if errors.Is(err, store.ErrPrizegivingSession) && trigger.CeremonyEnded {
+		return Publication{}, false, nil
+	}
+	if err != nil {
+		return Publication{}, false, err
+	}
+	if !plan.Locked {
+		return Publication{}, false, ErrPrizegivingPreflightRequired
+	}
+	if trigger.CueFired && plan.ReleasePolicy != ResultsAllAtCue {
+		return Publication{}, false, ErrResultsReleasePolicy
+	}
+	current, err := transaction.LoadResultsPublication(
+		ctx,
+		eventID,
+		store.ResultsPublicationPrizegiving,
+		ceremonySessionID,
+	)
+	if err != nil {
+		return Publication{}, false, err
+	}
+	next, changed, err := AdvancePublication(PublicationInput{
+		Policy:        plan.ReleasePolicy,
+		Order:         prizegivingItemRefs(plan.Lock.PublicationOrder),
+		States:        publicationStageStates(channel.Items),
+		Current:       publicationFromStore(current),
+		CueFired:      trigger.CueFired,
+		CeremonyEnded: trigger.CeremonyEnded,
+	})
+	if err != nil || !changed {
+		return next, changed, err
+	}
+	stored, err := transaction.AppendResultsPublication(
+		ctx,
+		store.AppendResultsPublicationParams{
+			EventID:            eventID,
+			Scope:              store.ResultsPublicationPrizegiving,
+			ScopeSessionID:     ceremonySessionID,
+			ExpectedRevision:   current.Revision,
+			Policy:             plan.ReleasePolicy,
+			Status:             store.ResultsPublicationStatus(next.Status),
+			Items:              prizegivingItemRefInputs(next.Items),
+			Lock:               plan.Lock,
+			CreatedByAccountID: actor.ID,
+			Now:                now,
+		},
+	)
+	if err != nil {
+		return Publication{}, false, err
+	}
+	return publicationFromStore(stored), true, nil
+}
+
+func publicationStageStates(items []store.ProgramItem) []ResultItemStageState {
+	states := make([]ResultItemStageState, 0, len(items))
+	for _, item := range items {
+		if item.Result == nil {
+			continue
+		}
+		states = append(states, ResultItemStageState{
+			Ref: ResultItemRef{
+				Kind:                 ResultItemKind(item.Result.Ref.Kind),
+				CompetitionSessionID: item.Result.Ref.CompetitionSessionID,
+				AwardKey:             item.Result.Ref.AwardKey,
+				DisplayOrder:         item.Result.Ref.DisplayOrder,
+			},
+			Status:            item.Result.Status,
+			Release:           item.Result.Release,
+			TakenAt:           item.Result.TakenAt,
+			RevealStartedAt:   item.Result.RevealStartedAt,
+			RevealDuration:    item.Result.RevealDuration,
+			RevealCompletedAt: item.Result.RevealCompletedAt,
+			SkippedAt:         item.Result.SkippedAt,
+		})
+	}
+	return states
 }
 
 func publicationFromStore(value store.ResultsPublication) Publication {

@@ -13,6 +13,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/command"
+	"github.com/dotwaffle/beamers/internal/results"
 	"github.com/dotwaffle/beamers/internal/sessiontarget"
 	"github.com/dotwaffle/beamers/internal/store"
 	"github.com/dotwaffle/beamers/internal/timingripple"
@@ -403,7 +404,7 @@ func (service *Service) End(
 		sessionCommand{EventID: input.EventID, SessionID: input.SessionID, CommandID: input.CommandID,
 			Action: "EndSession", Payload: string(payload)},
 		func(transaction *store.CommandTx, now time.Time) (store.LiveSessionState, error) {
-			return transaction.EndSession(
+			ended, endErr := transaction.EndSession(
 				actor.Context(ctx),
 				input.EventID,
 				input.SessionID,
@@ -412,6 +413,32 @@ func (service *Service) End(
 				input.DeferredEntriesFingerprint,
 				now,
 			)
+			if endErr != nil {
+				return ended, endErr
+			}
+			channel, loadErr := transaction.LoadProgramChannelAt(
+				actor.Context(ctx),
+				input.EventID,
+				input.SessionID,
+				now,
+			)
+			if loadErr != nil {
+				return store.LiveSessionState{}, loadErr
+			}
+			_, _, publicationErr := results.AdvancePrizegivingPublication(
+				actor.Context(ctx),
+				actor,
+				transaction,
+				input.EventID,
+				input.SessionID,
+				now,
+				channel,
+				results.PrizegivingPublicationTrigger{CeremonyEnded: true},
+			)
+			if publicationErr != nil {
+				return store.LiveSessionState{}, publicationErr
+			}
+			return ended, nil
 		},
 	)
 }
