@@ -134,6 +134,20 @@ func (_c *ResultsPublicationCreate) SetNillableRenderedJSON(v *string) *ResultsP
 	return _c
 }
 
+// SetResultsCorrectionRevision sets the "results_correction_revision" field.
+func (_c *ResultsPublicationCreate) SetResultsCorrectionRevision(v int) *ResultsPublicationCreate {
+	_c.mutation.SetResultsCorrectionRevision(v)
+	return _c
+}
+
+// SetNillableResultsCorrectionRevision sets the "results_correction_revision" field if the given value is not nil.
+func (_c *ResultsPublicationCreate) SetNillableResultsCorrectionRevision(v *int) *ResultsPublicationCreate {
+	if v != nil {
+		_c.SetResultsCorrectionRevision(*v)
+	}
+	return _c
+}
+
 // SetCreatedByAccountID sets the "created_by_account_id" field.
 func (_c *ResultsPublicationCreate) SetCreatedByAccountID(v int) *ResultsPublicationCreate {
 	_c.mutation.SetCreatedByAccountID(v)
@@ -262,6 +276,11 @@ func (_c *ResultsPublicationCreate) check() error {
 	if _, ok := _c.mutation.Items(); !ok {
 		return &ValidationError{Name: "items", err: errors.New(`ent: missing required field "ResultsPublication.items"`)}
 	}
+	if v, ok := _c.mutation.ResultsCorrectionRevision(); ok {
+		if err := resultspublication.ResultsCorrectionRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "results_correction_revision", err: fmt.Errorf(`ent: validator failed for field "ResultsPublication.results_correction_revision": %w`, err)}
+		}
+	}
 	if v, ok := _c.mutation.CreatedByAccountID(); ok {
 		if err := resultspublication.CreatedByAccountIDValidator(v); err != nil {
 			return &ValidationError{Name: "created_by_account_id", err: fmt.Errorf(`ent: validator failed for field "ResultsPublication.created_by_account_id": %w`, err)}
@@ -342,6 +361,10 @@ func (_c *ResultsPublicationCreate) createSpec() (*ResultsPublication, *sqlgraph
 	if value, ok := _c.mutation.RenderedJSON(); ok {
 		_spec.SetField(resultspublication.FieldRenderedJSON, field.TypeString, value)
 		_node.RenderedJSON = value
+	}
+	if value, ok := _c.mutation.ResultsCorrectionRevision(); ok {
+		_spec.SetField(resultspublication.FieldResultsCorrectionRevision, field.TypeInt, value)
+		_node.ResultsCorrectionRevision = value
 	}
 	if value, ok := _c.mutation.CreatedByAccountID(); ok {
 		_spec.SetField(resultspublication.FieldCreatedByAccountID, field.TypeInt, value)

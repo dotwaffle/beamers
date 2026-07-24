@@ -92,6 +92,31 @@ func TestResultsPublicationAppendIsImmutableAndRevisionChecked(t *testing.T) {
 		t.Fatalf("continued Results Publication = %+v", second)
 	}
 
+	correction := beginCommand(t, installation, ctx)
+	corrected, err := correction.AppendResultsPublication(
+		ctx,
+		AppendResultsPublicationParams{
+			EventID: event.ID, Scope: ResultsPublicationPrizegiving,
+			ScopeSessionID: ceremony.ID, ExpectedRevision: 2,
+			Policy: ResultsPublicationProgressive,
+			Status: ResultsPublicationFinal,
+			Items:  []PrizegivingResultItemRef{ref}, Lock: enrichedLock,
+			ResultsCorrectionRevision: 3,
+			RenderedHTML:              "<p>corrected</p>", RenderedText: "corrected",
+			RenderedJSON: `{"revision":3}`, CreatedByAccountID: 7,
+			Now: now.Add(2 * time.Second),
+		},
+	)
+	if err != nil {
+		t.Fatalf("append corrected Results Publication: %v", err)
+	}
+	if err = correction.Commit(); err != nil {
+		t.Fatalf("commit corrected Results Publication: %v", err)
+	}
+	if corrected.Revision != 3 || corrected.ResultsCorrectionRevision != 3 {
+		t.Fatalf("corrected Results Publication = %+v", corrected)
+	}
+
 	stale := beginCommand(t, installation, ctx)
 	_, err = stale.AppendResultsPublication(
 		ctx,

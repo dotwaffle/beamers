@@ -38,6 +38,7 @@ func (ResultsPublication) Fields() []ent.Field {
 		field.String("rendered_html").Optional().Immutable(),
 		field.String("rendered_text").Optional().Immutable(),
 		field.String("rendered_json").Optional().Immutable(),
+		field.Int("results_correction_revision").Optional().Positive().Immutable(),
 		field.Int("created_by_account_id").Optional().Nillable().Positive().Immutable(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 	}

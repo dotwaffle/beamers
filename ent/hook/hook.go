@@ -453,6 +453,18 @@ func (f ReopenWindowFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ReopenWindowMutation", m)
 }
 
+// The ResultsCorrectionFunc type is an adapter to allow the use of ordinary
+// function as ResultsCorrection mutator.
+type ResultsCorrectionFunc func(context.Context, *ent.ResultsCorrectionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ResultsCorrectionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ResultsCorrectionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ResultsCorrectionMutation", m)
+}
+
 // The ResultsPublicationFunc type is an adapter to allow the use of ordinary
 // function as ResultsPublication mutator.
 type ResultsPublicationFunc func(context.Context, *ent.ResultsPublicationMutation) (ent.Value, error)

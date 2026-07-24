@@ -52,6 +52,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
+	"github.com/dotwaffle/beamers/ent/resultscorrection"
 	"github.com/dotwaffle/beamers/ent/resultspublication"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
@@ -147,6 +148,8 @@ type Client struct {
 	PublicScheduleBaselineEntry *PublicScheduleBaselineEntryClient
 	// ReopenWindow is the client for interacting with the ReopenWindow builders.
 	ReopenWindow *ReopenWindowClient
+	// ResultsCorrection is the client for interacting with the ResultsCorrection builders.
+	ResultsCorrection *ResultsCorrectionClient
 	// ResultsPublication is the client for interacting with the ResultsPublication builders.
 	ResultsPublication *ResultsPublicationClient
 	// Rundown is the client for interacting with the Rundown builders.
@@ -219,6 +222,7 @@ func (c *Client) init() {
 	c.PublicScheduleBaseline = NewPublicScheduleBaselineClient(c.config)
 	c.PublicScheduleBaselineEntry = NewPublicScheduleBaselineEntryClient(c.config)
 	c.ReopenWindow = NewReopenWindowClient(c.config)
+	c.ResultsCorrection = NewResultsCorrectionClient(c.config)
 	c.ResultsPublication = NewResultsPublicationClient(c.config)
 	c.Rundown = NewRundownClient(c.config)
 	c.Session = NewSessionClient(c.config)
@@ -360,6 +364,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		PublicScheduleBaseline:      NewPublicScheduleBaselineClient(cfg),
 		PublicScheduleBaselineEntry: NewPublicScheduleBaselineEntryClient(cfg),
 		ReopenWindow:                NewReopenWindowClient(cfg),
+		ResultsCorrection:           NewResultsCorrectionClient(cfg),
 		ResultsPublication:          NewResultsPublicationClient(cfg),
 		Rundown:                     NewRundownClient(cfg),
 		Session:                     NewSessionClient(cfg),
@@ -428,6 +433,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		PublicScheduleBaseline:      NewPublicScheduleBaselineClient(cfg),
 		PublicScheduleBaselineEntry: NewPublicScheduleBaselineEntryClient(cfg),
 		ReopenWindow:                NewReopenWindowClient(cfg),
+		ResultsCorrection:           NewResultsCorrectionClient(cfg),
 		ResultsPublication:          NewResultsPublicationClient(cfg),
 		Rundown:                     NewRundownClient(cfg),
 		Session:                     NewSessionClient(cfg),
@@ -479,10 +485,10 @@ func (c *Client) Use(hooks ...Hook) {
 		c.LanePublishedVersion, c.Location, c.LocationDraft,
 		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Prizegiving,
 		c.PrizegivingCompetition, c.PublicScheduleBaseline,
-		c.PublicScheduleBaselineEntry, c.ReopenWindow, c.ResultsPublication, c.Rundown,
-		c.Session, c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion,
-		c.SessionRun, c.SessionRunAmendment, c.Track, c.TrackDraft,
-		c.TrackPublishedVersion, c.UploadLink,
+		c.PublicScheduleBaselineEntry, c.ReopenWindow, c.ResultsCorrection,
+		c.ResultsPublication, c.Rundown, c.Session, c.SessionCancellation,
+		c.SessionDraft, c.SessionPublishedVersion, c.SessionRun, c.SessionRunAmendment,
+		c.Track, c.TrackDraft, c.TrackPublishedVersion, c.UploadLink,
 	} {
 		n.Use(hooks...)
 	}
@@ -502,10 +508,10 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.LanePublishedVersion, c.Location, c.LocationDraft,
 		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Prizegiving,
 		c.PrizegivingCompetition, c.PublicScheduleBaseline,
-		c.PublicScheduleBaselineEntry, c.ReopenWindow, c.ResultsPublication, c.Rundown,
-		c.Session, c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion,
-		c.SessionRun, c.SessionRunAmendment, c.Track, c.TrackDraft,
-		c.TrackPublishedVersion, c.UploadLink,
+		c.PublicScheduleBaselineEntry, c.ReopenWindow, c.ResultsCorrection,
+		c.ResultsPublication, c.Rundown, c.Session, c.SessionCancellation,
+		c.SessionDraft, c.SessionPublishedVersion, c.SessionRun, c.SessionRunAmendment,
+		c.Track, c.TrackDraft, c.TrackPublishedVersion, c.UploadLink,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -588,6 +594,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.PublicScheduleBaselineEntry.mutate(ctx, m)
 	case *ReopenWindowMutation:
 		return c.ReopenWindow.mutate(ctx, m)
+	case *ResultsCorrectionMutation:
+		return c.ResultsCorrection.mutate(ctx, m)
 	case *ResultsPublicationMutation:
 		return c.ResultsPublication.mutate(ctx, m)
 	case *RundownMutation:
@@ -4135,6 +4143,22 @@ func (c *EventClient) QueryResultsPublications(_m *Event) *ResultsPublicationQue
 	return query
 }
 
+// QueryResultsCorrections queries the results_corrections edge of a Event.
+func (c *EventClient) QueryResultsCorrections(_m *Event) *ResultsCorrectionQuery {
+	query := (&ResultsCorrectionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(resultscorrection.Table, resultscorrection.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.ResultsCorrectionsTable, event.ResultsCorrectionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryUploadLinks queries the upload_links edge of a Event.
 func (c *EventClient) QueryUploadLinks(_m *Event) *UploadLinkQuery {
 	query := (&UploadLinkClient{config: c.config}).Query()
@@ -7110,6 +7134,156 @@ func (c *ReopenWindowClient) mutate(ctx context.Context, m *ReopenWindowMutation
 	}
 }
 
+// ResultsCorrectionClient is a client for the ResultsCorrection schema.
+type ResultsCorrectionClient struct {
+	config
+}
+
+// NewResultsCorrectionClient returns a client for the ResultsCorrection from the given config.
+func NewResultsCorrectionClient(c config) *ResultsCorrectionClient {
+	return &ResultsCorrectionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `resultscorrection.Hooks(f(g(h())))`.
+func (c *ResultsCorrectionClient) Use(hooks ...Hook) {
+	c.hooks.ResultsCorrection = append(c.hooks.ResultsCorrection, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `resultscorrection.Intercept(f(g(h())))`.
+func (c *ResultsCorrectionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ResultsCorrection = append(c.inters.ResultsCorrection, interceptors...)
+}
+
+// Create returns a builder for creating a ResultsCorrection entity.
+func (c *ResultsCorrectionClient) Create() *ResultsCorrectionCreate {
+	mutation := newResultsCorrectionMutation(c.config, OpCreate)
+	return &ResultsCorrectionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ResultsCorrection entities.
+func (c *ResultsCorrectionClient) CreateBulk(builders ...*ResultsCorrectionCreate) *ResultsCorrectionCreateBulk {
+	return &ResultsCorrectionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ResultsCorrectionClient) MapCreateBulk(slice any, setFunc func(*ResultsCorrectionCreate, int)) *ResultsCorrectionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ResultsCorrectionCreateBulk{err: fmt.Errorf("calling to ResultsCorrectionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ResultsCorrectionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ResultsCorrectionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ResultsCorrection.
+func (c *ResultsCorrectionClient) Update() *ResultsCorrectionUpdate {
+	mutation := newResultsCorrectionMutation(c.config, OpUpdate)
+	return &ResultsCorrectionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ResultsCorrectionClient) UpdateOne(_m *ResultsCorrection) *ResultsCorrectionUpdateOne {
+	mutation := newResultsCorrectionMutation(c.config, OpUpdateOne, withResultsCorrection(_m))
+	return &ResultsCorrectionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ResultsCorrectionClient) UpdateOneID(id int) *ResultsCorrectionUpdateOne {
+	mutation := newResultsCorrectionMutation(c.config, OpUpdateOne, withResultsCorrectionID(id))
+	return &ResultsCorrectionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ResultsCorrection.
+func (c *ResultsCorrectionClient) Delete() *ResultsCorrectionDelete {
+	mutation := newResultsCorrectionMutation(c.config, OpDelete)
+	return &ResultsCorrectionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ResultsCorrectionClient) DeleteOne(_m *ResultsCorrection) *ResultsCorrectionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ResultsCorrectionClient) DeleteOneID(id int) *ResultsCorrectionDeleteOne {
+	builder := c.Delete().Where(resultscorrection.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ResultsCorrectionDeleteOne{builder}
+}
+
+// Query returns a query builder for ResultsCorrection.
+func (c *ResultsCorrectionClient) Query() *ResultsCorrectionQuery {
+	return &ResultsCorrectionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeResultsCorrection},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ResultsCorrection entity by its id.
+func (c *ResultsCorrectionClient) Get(ctx context.Context, id int) (*ResultsCorrection, error) {
+	return c.Query().Where(resultscorrection.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ResultsCorrectionClient) GetX(ctx context.Context, id int) *ResultsCorrection {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a ResultsCorrection.
+func (c *ResultsCorrectionClient) QueryEvent(_m *ResultsCorrection) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(resultscorrection.Table, resultscorrection.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, resultscorrection.EventTable, resultscorrection.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ResultsCorrectionClient) Hooks() []Hook {
+	hooks := c.hooks.ResultsCorrection
+	return append(hooks[:len(hooks):len(hooks)], resultscorrection.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *ResultsCorrectionClient) Interceptors() []Interceptor {
+	return c.inters.ResultsCorrection
+}
+
+func (c *ResultsCorrectionClient) mutate(ctx context.Context, m *ResultsCorrectionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ResultsCorrectionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ResultsCorrectionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ResultsCorrectionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ResultsCorrectionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ResultsCorrection mutation op: %q", m.Op())
+	}
+}
+
 // ResultsPublicationClient is a client for the ResultsPublication schema.
 type ResultsPublicationClient struct {
 	config
@@ -9258,9 +9432,9 @@ type (
 		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
 		Migration, PasswordCredential, Prizegiving, PrizegivingCompetition,
 		PublicScheduleBaseline, PublicScheduleBaselineEntry, ReopenWindow,
-		ResultsPublication, Rundown, Session, SessionCancellation, SessionDraft,
-		SessionPublishedVersion, SessionRun, SessionRunAmendment, Track, TrackDraft,
-		TrackPublishedVersion, UploadLink []ent.Hook
+		ResultsCorrection, ResultsPublication, Rundown, Session, SessionCancellation,
+		SessionDraft, SessionPublishedVersion, SessionRun, SessionRunAmendment, Track,
+		TrackDraft, TrackPublishedVersion, UploadLink []ent.Hook
 	}
 	inters struct {
 		Account, AccountSession, Attachment, AttachmentVersion, AuditEntry,
@@ -9272,9 +9446,9 @@ type (
 		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
 		Migration, PasswordCredential, Prizegiving, PrizegivingCompetition,
 		PublicScheduleBaseline, PublicScheduleBaselineEntry, ReopenWindow,
-		ResultsPublication, Rundown, Session, SessionCancellation, SessionDraft,
-		SessionPublishedVersion, SessionRun, SessionRunAmendment, Track, TrackDraft,
-		TrackPublishedVersion, UploadLink []ent.Interceptor
+		ResultsCorrection, ResultsPublication, Rundown, Session, SessionCancellation,
+		SessionDraft, SessionPublishedVersion, SessionRun, SessionRunAmendment, Track,
+		TrackDraft, TrackPublishedVersion, UploadLink []ent.Interceptor
 	}
 )
 

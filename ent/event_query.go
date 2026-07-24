@@ -30,6 +30,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
+	"github.com/dotwaffle/beamers/ent/resultscorrection"
 	"github.com/dotwaffle/beamers/ent/resultspublication"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
@@ -57,6 +58,7 @@ type EventQuery struct {
 	withPrizegivings               *PrizegivingQuery
 	withPrizegivingCompetitions    *PrizegivingCompetitionQuery
 	withResultsPublications        *ResultsPublicationQuery
+	withResultsCorrections         *ResultsCorrectionQuery
 	withUploadLinks                *UploadLinkQuery
 	withDraftEdits                 *DraftEditQuery
 	withDraftChanges               *DraftChangeQuery
@@ -379,6 +381,28 @@ func (_q *EventQuery) QueryResultsPublications() *ResultsPublicationQuery {
 			sqlgraph.From(event.Table, event.FieldID, selector),
 			sqlgraph.To(resultspublication.Table, resultspublication.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, event.ResultsPublicationsTable, event.ResultsPublicationsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryResultsCorrections chains the current query on the "results_corrections" edge.
+func (_q *EventQuery) QueryResultsCorrections() *ResultsCorrectionQuery {
+	query := (&ResultsCorrectionClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, selector),
+			sqlgraph.To(resultscorrection.Table, resultscorrection.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.ResultsCorrectionsTable, event.ResultsCorrectionsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -745,6 +769,7 @@ func (_q *EventQuery) Clone() *EventQuery {
 		withPrizegivings:               _q.withPrizegivings.Clone(),
 		withPrizegivingCompetitions:    _q.withPrizegivingCompetitions.Clone(),
 		withResultsPublications:        _q.withResultsPublications.Clone(),
+		withResultsCorrections:         _q.withResultsCorrections.Clone(),
 		withUploadLinks:                _q.withUploadLinks.Clone(),
 		withDraftEdits:                 _q.withDraftEdits.Clone(),
 		withDraftChanges:               _q.withDraftChanges.Clone(),
@@ -898,6 +923,17 @@ func (_q *EventQuery) WithResultsPublications(opts ...func(*ResultsPublicationQu
 		opt(query)
 	}
 	_q.withResultsPublications = query
+	return _q
+}
+
+// WithResultsCorrections tells the query-builder to eager-load the nodes that are connected to
+// the "results_corrections" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *EventQuery) WithResultsCorrections(opts ...func(*ResultsCorrectionQuery)) *EventQuery {
+	query := (&ResultsCorrectionClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withResultsCorrections = query
 	return _q
 }
 
@@ -1062,7 +1098,7 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 	var (
 		nodes       = []*Event{}
 		_spec       = _q.querySpec()
-		loadedTypes = [20]bool{
+		loadedTypes = [21]bool{
 			_q.withGrants != nil,
 			_q.withRundown != nil,
 			_q.withLocations != nil,
@@ -1076,6 +1112,7 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 			_q.withPrizegivings != nil,
 			_q.withPrizegivingCompetitions != nil,
 			_q.withResultsPublications != nil,
+			_q.withResultsCorrections != nil,
 			_q.withUploadLinks != nil,
 			_q.withDraftEdits != nil,
 			_q.withDraftChanges != nil,
@@ -1199,6 +1236,15 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 			func(n *Event) { n.Edges.ResultsPublications = []*ResultsPublication{} },
 			func(n *Event, e *ResultsPublication) {
 				n.Edges.ResultsPublications = append(n.Edges.ResultsPublications, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withResultsCorrections; query != nil {
+		if err := _q.loadResultsCorrections(ctx, query, nodes,
+			func(n *Event) { n.Edges.ResultsCorrections = []*ResultsCorrection{} },
+			func(n *Event, e *ResultsCorrection) {
+				n.Edges.ResultsCorrections = append(n.Edges.ResultsCorrections, e)
 			}); err != nil {
 			return nil, err
 		}
@@ -1628,6 +1674,36 @@ func (_q *EventQuery) loadResultsPublications(ctx context.Context, query *Result
 	}
 	query.Where(predicate.ResultsPublication(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(event.ResultsPublicationsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.EventID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "event_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *EventQuery) loadResultsCorrections(ctx context.Context, query *ResultsCorrectionQuery, nodes []*Event, init func(*Event), assign func(*Event, *ResultsCorrection)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Event)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(resultscorrection.FieldEventID)
+	}
+	query.Where(predicate.ResultsCorrection(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(event.ResultsCorrectionsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

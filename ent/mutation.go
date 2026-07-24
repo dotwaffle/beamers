@@ -49,6 +49,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
+	"github.com/dotwaffle/beamers/ent/resultscorrection"
 	"github.com/dotwaffle/beamers/ent/resultspublication"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
@@ -111,6 +112,7 @@ const (
 	TypePublicScheduleBaseline      = "PublicScheduleBaseline"
 	TypePublicScheduleBaselineEntry = "PublicScheduleBaselineEntry"
 	TypeReopenWindow                = "ReopenWindow"
+	TypeResultsCorrection           = "ResultsCorrection"
 	TypeResultsPublication          = "ResultsPublication"
 	TypeRundown                     = "Rundown"
 	TypeSession                     = "Session"
@@ -20089,6 +20091,9 @@ type EventMutation struct {
 	results_publications                      map[int]struct{}
 	removedresults_publications               map[int]struct{}
 	clearedresults_publications               bool
+	results_corrections                       map[int]struct{}
+	removedresults_corrections                map[int]struct{}
+	clearedresults_corrections                bool
 	upload_links                              map[int]struct{}
 	removedupload_links                       map[int]struct{}
 	clearedupload_links                       bool
@@ -21723,6 +21728,60 @@ func (m *EventMutation) ResetResultsPublications() {
 	m.removedresults_publications = nil
 }
 
+// AddResultsCorrectionIDs adds the "results_corrections" edge to the ResultsCorrection entity by ids.
+func (m *EventMutation) AddResultsCorrectionIDs(ids ...int) {
+	if m.results_corrections == nil {
+		m.results_corrections = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.results_corrections[ids[i]] = struct{}{}
+	}
+}
+
+// ClearResultsCorrections clears the "results_corrections" edge to the ResultsCorrection entity.
+func (m *EventMutation) ClearResultsCorrections() {
+	m.clearedresults_corrections = true
+}
+
+// ResultsCorrectionsCleared reports if the "results_corrections" edge to the ResultsCorrection entity was cleared.
+func (m *EventMutation) ResultsCorrectionsCleared() bool {
+	return m.clearedresults_corrections
+}
+
+// RemoveResultsCorrectionIDs removes the "results_corrections" edge to the ResultsCorrection entity by IDs.
+func (m *EventMutation) RemoveResultsCorrectionIDs(ids ...int) {
+	if m.removedresults_corrections == nil {
+		m.removedresults_corrections = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.results_corrections, ids[i])
+		m.removedresults_corrections[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedResultsCorrections returns the removed IDs of the "results_corrections" edge to the ResultsCorrection entity.
+func (m *EventMutation) RemovedResultsCorrectionsIDs() (ids []int) {
+	for id := range m.removedresults_corrections {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResultsCorrectionsIDs returns the "results_corrections" edge IDs in the mutation.
+func (m *EventMutation) ResultsCorrectionsIDs() (ids []int) {
+	for id := range m.results_corrections {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetResultsCorrections resets all changes to the "results_corrections" edge.
+func (m *EventMutation) ResetResultsCorrections() {
+	m.results_corrections = nil
+	m.clearedresults_corrections = false
+	m.removedresults_corrections = nil
+}
+
 // AddUploadLinkIDs adds the "upload_links" edge to the UploadLink entity by ids.
 func (m *EventMutation) AddUploadLinkIDs(ids ...int) {
 	if m.upload_links == nil {
@@ -22609,7 +22668,7 @@ func (m *EventMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *EventMutation) AddedEdges() []string {
-	edges := make([]string, 0, 20)
+	edges := make([]string, 0, 21)
 	if m.grants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -22648,6 +22707,9 @@ func (m *EventMutation) AddedEdges() []string {
 	}
 	if m.results_publications != nil {
 		edges = append(edges, event.EdgeResultsPublications)
+	}
+	if m.results_corrections != nil {
+		edges = append(edges, event.EdgeResultsCorrections)
 	}
 	if m.upload_links != nil {
 		edges = append(edges, event.EdgeUploadLinks)
@@ -22753,6 +22815,12 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeResultsCorrections:
+		ids := make([]ent.Value, 0, len(m.results_corrections))
+		for id := range m.results_corrections {
+			ids = append(ids, id)
+		}
+		return ids
 	case event.EdgeUploadLinks:
 		ids := make([]ent.Value, 0, len(m.upload_links))
 		for id := range m.upload_links {
@@ -22799,7 +22867,7 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *EventMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 20)
+	edges := make([]string, 0, 21)
 	if m.removedgrants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -22835,6 +22903,9 @@ func (m *EventMutation) RemovedEdges() []string {
 	}
 	if m.removedresults_publications != nil {
 		edges = append(edges, event.EdgeResultsPublications)
+	}
+	if m.removedresults_corrections != nil {
+		edges = append(edges, event.EdgeResultsCorrections)
 	}
 	if m.removedupload_links != nil {
 		edges = append(edges, event.EdgeUploadLinks)
@@ -22933,6 +23004,12 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeResultsCorrections:
+		ids := make([]ent.Value, 0, len(m.removedresults_corrections))
+		for id := range m.removedresults_corrections {
+			ids = append(ids, id)
+		}
+		return ids
 	case event.EdgeUploadLinks:
 		ids := make([]ent.Value, 0, len(m.removedupload_links))
 		for id := range m.removedupload_links {
@@ -22975,7 +23052,7 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *EventMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 20)
+	edges := make([]string, 0, 21)
 	if m.clearedgrants {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -23014,6 +23091,9 @@ func (m *EventMutation) ClearedEdges() []string {
 	}
 	if m.clearedresults_publications {
 		edges = append(edges, event.EdgeResultsPublications)
+	}
+	if m.clearedresults_corrections {
+		edges = append(edges, event.EdgeResultsCorrections)
 	}
 	if m.clearedupload_links {
 		edges = append(edges, event.EdgeUploadLinks)
@@ -23069,6 +23149,8 @@ func (m *EventMutation) EdgeCleared(name string) bool {
 		return m.clearedprizegiving_competitions
 	case event.EdgeResultsPublications:
 		return m.clearedresults_publications
+	case event.EdgeResultsCorrections:
+		return m.clearedresults_corrections
 	case event.EdgeUploadLinks:
 		return m.clearedupload_links
 	case event.EdgeDraftEdits:
@@ -23143,6 +23225,9 @@ func (m *EventMutation) ResetEdge(name string) error {
 		return nil
 	case event.EdgeResultsPublications:
 		m.ResetResultsPublications()
+		return nil
+	case event.EdgeResultsCorrections:
+		m.ResetResultsCorrections()
 		return nil
 	case event.EdgeUploadLinks:
 		m.ResetUploadLinks()
@@ -35938,35 +36023,1345 @@ func (m *ReopenWindowMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown ReopenWindow edge %s", name)
 }
 
+// ResultsCorrectionMutation represents an operation that mutates the ResultsCorrection nodes in the graph.
+type ResultsCorrectionMutation struct {
+	config
+	op                            Op
+	typ                           string
+	id                            *int
+	scope                         *resultscorrection.Scope
+	scope_session_id              *int
+	addscope_session_id           *int
+	revision                      *int
+	addrevision                   *int
+	base_publication_revision     *int
+	addbase_publication_revision  *int
+	status                        *resultscorrection.Status
+	publication_order             *[]prizegivingvalue.ItemRef
+	appendpublication_order       []prizegivingvalue.ItemRef
+	items_json                    *string
+	results_text_template         *prizegivingvalue.Template
+	crew_reason                   *string
+	public_note                   *string
+	published_results_revision    *int
+	addpublished_results_revision *int
+	created_by_account_id         *int
+	addcreated_by_account_id      *int
+	created_at                    *time.Time
+	clearedFields                 map[string]struct{}
+	event                         *int
+	clearedevent                  bool
+	done                          bool
+	oldValue                      func(context.Context) (*ResultsCorrection, error)
+	predicates                    []predicate.ResultsCorrection
+}
+
+var _ ent.Mutation = (*ResultsCorrectionMutation)(nil)
+
+// resultscorrectionOption allows management of the mutation configuration using functional options.
+type resultscorrectionOption func(*ResultsCorrectionMutation)
+
+// newResultsCorrectionMutation creates new mutation for the ResultsCorrection entity.
+func newResultsCorrectionMutation(c config, op Op, opts ...resultscorrectionOption) *ResultsCorrectionMutation {
+	m := &ResultsCorrectionMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeResultsCorrection,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withResultsCorrectionID sets the ID field of the mutation.
+func withResultsCorrectionID(id int) resultscorrectionOption {
+	return func(m *ResultsCorrectionMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ResultsCorrection
+		)
+		m.oldValue = func(ctx context.Context) (*ResultsCorrection, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ResultsCorrection.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withResultsCorrection sets the old ResultsCorrection of the mutation.
+func withResultsCorrection(node *ResultsCorrection) resultscorrectionOption {
+	return func(m *ResultsCorrectionMutation) {
+		m.oldValue = func(context.Context) (*ResultsCorrection, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ResultsCorrectionMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ResultsCorrectionMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ResultsCorrectionMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ResultsCorrectionMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ResultsCorrection.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetEventID sets the "event_id" field.
+func (m *ResultsCorrectionMutation) SetEventID(i int) {
+	m.event = &i
+}
+
+// EventID returns the value of the "event_id" field in the mutation.
+func (m *ResultsCorrectionMutation) EventID() (r int, exists bool) {
+	v := m.event
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventID returns the old "event_id" field's value of the ResultsCorrection entity.
+// If the ResultsCorrection object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsCorrectionMutation) OldEventID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventID: %w", err)
+	}
+	return oldValue.EventID, nil
+}
+
+// ResetEventID resets all changes to the "event_id" field.
+func (m *ResultsCorrectionMutation) ResetEventID() {
+	m.event = nil
+}
+
+// SetScope sets the "scope" field.
+func (m *ResultsCorrectionMutation) SetScope(r resultscorrection.Scope) {
+	m.scope = &r
+}
+
+// Scope returns the value of the "scope" field in the mutation.
+func (m *ResultsCorrectionMutation) Scope() (r resultscorrection.Scope, exists bool) {
+	v := m.scope
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldScope returns the old "scope" field's value of the ResultsCorrection entity.
+// If the ResultsCorrection object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsCorrectionMutation) OldScope(ctx context.Context) (v resultscorrection.Scope, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldScope is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldScope requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldScope: %w", err)
+	}
+	return oldValue.Scope, nil
+}
+
+// ResetScope resets all changes to the "scope" field.
+func (m *ResultsCorrectionMutation) ResetScope() {
+	m.scope = nil
+}
+
+// SetScopeSessionID sets the "scope_session_id" field.
+func (m *ResultsCorrectionMutation) SetScopeSessionID(i int) {
+	m.scope_session_id = &i
+	m.addscope_session_id = nil
+}
+
+// ScopeSessionID returns the value of the "scope_session_id" field in the mutation.
+func (m *ResultsCorrectionMutation) ScopeSessionID() (r int, exists bool) {
+	v := m.scope_session_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldScopeSessionID returns the old "scope_session_id" field's value of the ResultsCorrection entity.
+// If the ResultsCorrection object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsCorrectionMutation) OldScopeSessionID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldScopeSessionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldScopeSessionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldScopeSessionID: %w", err)
+	}
+	return oldValue.ScopeSessionID, nil
+}
+
+// AddScopeSessionID adds i to the "scope_session_id" field.
+func (m *ResultsCorrectionMutation) AddScopeSessionID(i int) {
+	if m.addscope_session_id != nil {
+		*m.addscope_session_id += i
+	} else {
+		m.addscope_session_id = &i
+	}
+}
+
+// AddedScopeSessionID returns the value that was added to the "scope_session_id" field in this mutation.
+func (m *ResultsCorrectionMutation) AddedScopeSessionID() (r int, exists bool) {
+	v := m.addscope_session_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetScopeSessionID resets all changes to the "scope_session_id" field.
+func (m *ResultsCorrectionMutation) ResetScopeSessionID() {
+	m.scope_session_id = nil
+	m.addscope_session_id = nil
+}
+
+// SetRevision sets the "revision" field.
+func (m *ResultsCorrectionMutation) SetRevision(i int) {
+	m.revision = &i
+	m.addrevision = nil
+}
+
+// Revision returns the value of the "revision" field in the mutation.
+func (m *ResultsCorrectionMutation) Revision() (r int, exists bool) {
+	v := m.revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRevision returns the old "revision" field's value of the ResultsCorrection entity.
+// If the ResultsCorrection object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsCorrectionMutation) OldRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRevision: %w", err)
+	}
+	return oldValue.Revision, nil
+}
+
+// AddRevision adds i to the "revision" field.
+func (m *ResultsCorrectionMutation) AddRevision(i int) {
+	if m.addrevision != nil {
+		*m.addrevision += i
+	} else {
+		m.addrevision = &i
+	}
+}
+
+// AddedRevision returns the value that was added to the "revision" field in this mutation.
+func (m *ResultsCorrectionMutation) AddedRevision() (r int, exists bool) {
+	v := m.addrevision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRevision resets all changes to the "revision" field.
+func (m *ResultsCorrectionMutation) ResetRevision() {
+	m.revision = nil
+	m.addrevision = nil
+}
+
+// SetBasePublicationRevision sets the "base_publication_revision" field.
+func (m *ResultsCorrectionMutation) SetBasePublicationRevision(i int) {
+	m.base_publication_revision = &i
+	m.addbase_publication_revision = nil
+}
+
+// BasePublicationRevision returns the value of the "base_publication_revision" field in the mutation.
+func (m *ResultsCorrectionMutation) BasePublicationRevision() (r int, exists bool) {
+	v := m.base_publication_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBasePublicationRevision returns the old "base_publication_revision" field's value of the ResultsCorrection entity.
+// If the ResultsCorrection object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsCorrectionMutation) OldBasePublicationRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBasePublicationRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBasePublicationRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBasePublicationRevision: %w", err)
+	}
+	return oldValue.BasePublicationRevision, nil
+}
+
+// AddBasePublicationRevision adds i to the "base_publication_revision" field.
+func (m *ResultsCorrectionMutation) AddBasePublicationRevision(i int) {
+	if m.addbase_publication_revision != nil {
+		*m.addbase_publication_revision += i
+	} else {
+		m.addbase_publication_revision = &i
+	}
+}
+
+// AddedBasePublicationRevision returns the value that was added to the "base_publication_revision" field in this mutation.
+func (m *ResultsCorrectionMutation) AddedBasePublicationRevision() (r int, exists bool) {
+	v := m.addbase_publication_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetBasePublicationRevision resets all changes to the "base_publication_revision" field.
+func (m *ResultsCorrectionMutation) ResetBasePublicationRevision() {
+	m.base_publication_revision = nil
+	m.addbase_publication_revision = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *ResultsCorrectionMutation) SetStatus(r resultscorrection.Status) {
+	m.status = &r
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *ResultsCorrectionMutation) Status() (r resultscorrection.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the ResultsCorrection entity.
+// If the ResultsCorrection object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsCorrectionMutation) OldStatus(ctx context.Context) (v resultscorrection.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *ResultsCorrectionMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetPublicationOrder sets the "publication_order" field.
+func (m *ResultsCorrectionMutation) SetPublicationOrder(pr []prizegivingvalue.ItemRef) {
+	m.publication_order = &pr
+	m.appendpublication_order = nil
+}
+
+// PublicationOrder returns the value of the "publication_order" field in the mutation.
+func (m *ResultsCorrectionMutation) PublicationOrder() (r []prizegivingvalue.ItemRef, exists bool) {
+	v := m.publication_order
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublicationOrder returns the old "publication_order" field's value of the ResultsCorrection entity.
+// If the ResultsCorrection object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsCorrectionMutation) OldPublicationOrder(ctx context.Context) (v []prizegivingvalue.ItemRef, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublicationOrder is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublicationOrder requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublicationOrder: %w", err)
+	}
+	return oldValue.PublicationOrder, nil
+}
+
+// AppendPublicationOrder adds pr to the "publication_order" field.
+func (m *ResultsCorrectionMutation) AppendPublicationOrder(pr []prizegivingvalue.ItemRef) {
+	m.appendpublication_order = append(m.appendpublication_order, pr...)
+}
+
+// AppendedPublicationOrder returns the list of values that were appended to the "publication_order" field in this mutation.
+func (m *ResultsCorrectionMutation) AppendedPublicationOrder() ([]prizegivingvalue.ItemRef, bool) {
+	if len(m.appendpublication_order) == 0 {
+		return nil, false
+	}
+	return m.appendpublication_order, true
+}
+
+// ResetPublicationOrder resets all changes to the "publication_order" field.
+func (m *ResultsCorrectionMutation) ResetPublicationOrder() {
+	m.publication_order = nil
+	m.appendpublication_order = nil
+}
+
+// SetItemsJSON sets the "items_json" field.
+func (m *ResultsCorrectionMutation) SetItemsJSON(s string) {
+	m.items_json = &s
+}
+
+// ItemsJSON returns the value of the "items_json" field in the mutation.
+func (m *ResultsCorrectionMutation) ItemsJSON() (r string, exists bool) {
+	v := m.items_json
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldItemsJSON returns the old "items_json" field's value of the ResultsCorrection entity.
+// If the ResultsCorrection object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsCorrectionMutation) OldItemsJSON(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldItemsJSON is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldItemsJSON requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldItemsJSON: %w", err)
+	}
+	return oldValue.ItemsJSON, nil
+}
+
+// ResetItemsJSON resets all changes to the "items_json" field.
+func (m *ResultsCorrectionMutation) ResetItemsJSON() {
+	m.items_json = nil
+}
+
+// SetResultsTextTemplate sets the "results_text_template" field.
+func (m *ResultsCorrectionMutation) SetResultsTextTemplate(pr prizegivingvalue.Template) {
+	m.results_text_template = &pr
+}
+
+// ResultsTextTemplate returns the value of the "results_text_template" field in the mutation.
+func (m *ResultsCorrectionMutation) ResultsTextTemplate() (r prizegivingvalue.Template, exists bool) {
+	v := m.results_text_template
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResultsTextTemplate returns the old "results_text_template" field's value of the ResultsCorrection entity.
+// If the ResultsCorrection object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsCorrectionMutation) OldResultsTextTemplate(ctx context.Context) (v prizegivingvalue.Template, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResultsTextTemplate is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResultsTextTemplate requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResultsTextTemplate: %w", err)
+	}
+	return oldValue.ResultsTextTemplate, nil
+}
+
+// ResetResultsTextTemplate resets all changes to the "results_text_template" field.
+func (m *ResultsCorrectionMutation) ResetResultsTextTemplate() {
+	m.results_text_template = nil
+}
+
+// SetCrewReason sets the "crew_reason" field.
+func (m *ResultsCorrectionMutation) SetCrewReason(s string) {
+	m.crew_reason = &s
+}
+
+// CrewReason returns the value of the "crew_reason" field in the mutation.
+func (m *ResultsCorrectionMutation) CrewReason() (r string, exists bool) {
+	v := m.crew_reason
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCrewReason returns the old "crew_reason" field's value of the ResultsCorrection entity.
+// If the ResultsCorrection object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsCorrectionMutation) OldCrewReason(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCrewReason is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCrewReason requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCrewReason: %w", err)
+	}
+	return oldValue.CrewReason, nil
+}
+
+// ResetCrewReason resets all changes to the "crew_reason" field.
+func (m *ResultsCorrectionMutation) ResetCrewReason() {
+	m.crew_reason = nil
+}
+
+// SetPublicNote sets the "public_note" field.
+func (m *ResultsCorrectionMutation) SetPublicNote(s string) {
+	m.public_note = &s
+}
+
+// PublicNote returns the value of the "public_note" field in the mutation.
+func (m *ResultsCorrectionMutation) PublicNote() (r string, exists bool) {
+	v := m.public_note
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublicNote returns the old "public_note" field's value of the ResultsCorrection entity.
+// If the ResultsCorrection object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsCorrectionMutation) OldPublicNote(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublicNote is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublicNote requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublicNote: %w", err)
+	}
+	return oldValue.PublicNote, nil
+}
+
+// ClearPublicNote clears the value of the "public_note" field.
+func (m *ResultsCorrectionMutation) ClearPublicNote() {
+	m.public_note = nil
+	m.clearedFields[resultscorrection.FieldPublicNote] = struct{}{}
+}
+
+// PublicNoteCleared returns if the "public_note" field was cleared in this mutation.
+func (m *ResultsCorrectionMutation) PublicNoteCleared() bool {
+	_, ok := m.clearedFields[resultscorrection.FieldPublicNote]
+	return ok
+}
+
+// ResetPublicNote resets all changes to the "public_note" field.
+func (m *ResultsCorrectionMutation) ResetPublicNote() {
+	m.public_note = nil
+	delete(m.clearedFields, resultscorrection.FieldPublicNote)
+}
+
+// SetPublishedResultsRevision sets the "published_results_revision" field.
+func (m *ResultsCorrectionMutation) SetPublishedResultsRevision(i int) {
+	m.published_results_revision = &i
+	m.addpublished_results_revision = nil
+}
+
+// PublishedResultsRevision returns the value of the "published_results_revision" field in the mutation.
+func (m *ResultsCorrectionMutation) PublishedResultsRevision() (r int, exists bool) {
+	v := m.published_results_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublishedResultsRevision returns the old "published_results_revision" field's value of the ResultsCorrection entity.
+// If the ResultsCorrection object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsCorrectionMutation) OldPublishedResultsRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublishedResultsRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublishedResultsRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublishedResultsRevision: %w", err)
+	}
+	return oldValue.PublishedResultsRevision, nil
+}
+
+// AddPublishedResultsRevision adds i to the "published_results_revision" field.
+func (m *ResultsCorrectionMutation) AddPublishedResultsRevision(i int) {
+	if m.addpublished_results_revision != nil {
+		*m.addpublished_results_revision += i
+	} else {
+		m.addpublished_results_revision = &i
+	}
+}
+
+// AddedPublishedResultsRevision returns the value that was added to the "published_results_revision" field in this mutation.
+func (m *ResultsCorrectionMutation) AddedPublishedResultsRevision() (r int, exists bool) {
+	v := m.addpublished_results_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearPublishedResultsRevision clears the value of the "published_results_revision" field.
+func (m *ResultsCorrectionMutation) ClearPublishedResultsRevision() {
+	m.published_results_revision = nil
+	m.addpublished_results_revision = nil
+	m.clearedFields[resultscorrection.FieldPublishedResultsRevision] = struct{}{}
+}
+
+// PublishedResultsRevisionCleared returns if the "published_results_revision" field was cleared in this mutation.
+func (m *ResultsCorrectionMutation) PublishedResultsRevisionCleared() bool {
+	_, ok := m.clearedFields[resultscorrection.FieldPublishedResultsRevision]
+	return ok
+}
+
+// ResetPublishedResultsRevision resets all changes to the "published_results_revision" field.
+func (m *ResultsCorrectionMutation) ResetPublishedResultsRevision() {
+	m.published_results_revision = nil
+	m.addpublished_results_revision = nil
+	delete(m.clearedFields, resultscorrection.FieldPublishedResultsRevision)
+}
+
+// SetCreatedByAccountID sets the "created_by_account_id" field.
+func (m *ResultsCorrectionMutation) SetCreatedByAccountID(i int) {
+	m.created_by_account_id = &i
+	m.addcreated_by_account_id = nil
+}
+
+// CreatedByAccountID returns the value of the "created_by_account_id" field in the mutation.
+func (m *ResultsCorrectionMutation) CreatedByAccountID() (r int, exists bool) {
+	v := m.created_by_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedByAccountID returns the old "created_by_account_id" field's value of the ResultsCorrection entity.
+// If the ResultsCorrection object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsCorrectionMutation) OldCreatedByAccountID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedByAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedByAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedByAccountID: %w", err)
+	}
+	return oldValue.CreatedByAccountID, nil
+}
+
+// AddCreatedByAccountID adds i to the "created_by_account_id" field.
+func (m *ResultsCorrectionMutation) AddCreatedByAccountID(i int) {
+	if m.addcreated_by_account_id != nil {
+		*m.addcreated_by_account_id += i
+	} else {
+		m.addcreated_by_account_id = &i
+	}
+}
+
+// AddedCreatedByAccountID returns the value that was added to the "created_by_account_id" field in this mutation.
+func (m *ResultsCorrectionMutation) AddedCreatedByAccountID() (r int, exists bool) {
+	v := m.addcreated_by_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCreatedByAccountID resets all changes to the "created_by_account_id" field.
+func (m *ResultsCorrectionMutation) ResetCreatedByAccountID() {
+	m.created_by_account_id = nil
+	m.addcreated_by_account_id = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ResultsCorrectionMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ResultsCorrectionMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ResultsCorrection entity.
+// If the ResultsCorrection object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsCorrectionMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ResultsCorrectionMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearEvent clears the "event" edge to the Event entity.
+func (m *ResultsCorrectionMutation) ClearEvent() {
+	m.clearedevent = true
+	m.clearedFields[resultscorrection.FieldEventID] = struct{}{}
+}
+
+// EventCleared reports if the "event" edge to the Event entity was cleared.
+func (m *ResultsCorrectionMutation) EventCleared() bool {
+	return m.clearedevent
+}
+
+// EventIDs returns the "event" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// EventID instead. It exists only for internal usage by the builders.
+func (m *ResultsCorrectionMutation) EventIDs() (ids []int) {
+	if id := m.event; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetEvent resets all changes to the "event" edge.
+func (m *ResultsCorrectionMutation) ResetEvent() {
+	m.event = nil
+	m.clearedevent = false
+}
+
+// Where appends a list predicates to the ResultsCorrectionMutation builder.
+func (m *ResultsCorrectionMutation) Where(ps ...predicate.ResultsCorrection) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ResultsCorrectionMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ResultsCorrectionMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ResultsCorrection, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ResultsCorrectionMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ResultsCorrectionMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ResultsCorrection).
+func (m *ResultsCorrectionMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ResultsCorrectionMutation) Fields() []string {
+	fields := make([]string, 0, 14)
+	if m.event != nil {
+		fields = append(fields, resultscorrection.FieldEventID)
+	}
+	if m.scope != nil {
+		fields = append(fields, resultscorrection.FieldScope)
+	}
+	if m.scope_session_id != nil {
+		fields = append(fields, resultscorrection.FieldScopeSessionID)
+	}
+	if m.revision != nil {
+		fields = append(fields, resultscorrection.FieldRevision)
+	}
+	if m.base_publication_revision != nil {
+		fields = append(fields, resultscorrection.FieldBasePublicationRevision)
+	}
+	if m.status != nil {
+		fields = append(fields, resultscorrection.FieldStatus)
+	}
+	if m.publication_order != nil {
+		fields = append(fields, resultscorrection.FieldPublicationOrder)
+	}
+	if m.items_json != nil {
+		fields = append(fields, resultscorrection.FieldItemsJSON)
+	}
+	if m.results_text_template != nil {
+		fields = append(fields, resultscorrection.FieldResultsTextTemplate)
+	}
+	if m.crew_reason != nil {
+		fields = append(fields, resultscorrection.FieldCrewReason)
+	}
+	if m.public_note != nil {
+		fields = append(fields, resultscorrection.FieldPublicNote)
+	}
+	if m.published_results_revision != nil {
+		fields = append(fields, resultscorrection.FieldPublishedResultsRevision)
+	}
+	if m.created_by_account_id != nil {
+		fields = append(fields, resultscorrection.FieldCreatedByAccountID)
+	}
+	if m.created_at != nil {
+		fields = append(fields, resultscorrection.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ResultsCorrectionMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case resultscorrection.FieldEventID:
+		return m.EventID()
+	case resultscorrection.FieldScope:
+		return m.Scope()
+	case resultscorrection.FieldScopeSessionID:
+		return m.ScopeSessionID()
+	case resultscorrection.FieldRevision:
+		return m.Revision()
+	case resultscorrection.FieldBasePublicationRevision:
+		return m.BasePublicationRevision()
+	case resultscorrection.FieldStatus:
+		return m.Status()
+	case resultscorrection.FieldPublicationOrder:
+		return m.PublicationOrder()
+	case resultscorrection.FieldItemsJSON:
+		return m.ItemsJSON()
+	case resultscorrection.FieldResultsTextTemplate:
+		return m.ResultsTextTemplate()
+	case resultscorrection.FieldCrewReason:
+		return m.CrewReason()
+	case resultscorrection.FieldPublicNote:
+		return m.PublicNote()
+	case resultscorrection.FieldPublishedResultsRevision:
+		return m.PublishedResultsRevision()
+	case resultscorrection.FieldCreatedByAccountID:
+		return m.CreatedByAccountID()
+	case resultscorrection.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ResultsCorrectionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case resultscorrection.FieldEventID:
+		return m.OldEventID(ctx)
+	case resultscorrection.FieldScope:
+		return m.OldScope(ctx)
+	case resultscorrection.FieldScopeSessionID:
+		return m.OldScopeSessionID(ctx)
+	case resultscorrection.FieldRevision:
+		return m.OldRevision(ctx)
+	case resultscorrection.FieldBasePublicationRevision:
+		return m.OldBasePublicationRevision(ctx)
+	case resultscorrection.FieldStatus:
+		return m.OldStatus(ctx)
+	case resultscorrection.FieldPublicationOrder:
+		return m.OldPublicationOrder(ctx)
+	case resultscorrection.FieldItemsJSON:
+		return m.OldItemsJSON(ctx)
+	case resultscorrection.FieldResultsTextTemplate:
+		return m.OldResultsTextTemplate(ctx)
+	case resultscorrection.FieldCrewReason:
+		return m.OldCrewReason(ctx)
+	case resultscorrection.FieldPublicNote:
+		return m.OldPublicNote(ctx)
+	case resultscorrection.FieldPublishedResultsRevision:
+		return m.OldPublishedResultsRevision(ctx)
+	case resultscorrection.FieldCreatedByAccountID:
+		return m.OldCreatedByAccountID(ctx)
+	case resultscorrection.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ResultsCorrection field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ResultsCorrectionMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case resultscorrection.FieldEventID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventID(v)
+		return nil
+	case resultscorrection.FieldScope:
+		v, ok := value.(resultscorrection.Scope)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetScope(v)
+		return nil
+	case resultscorrection.FieldScopeSessionID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetScopeSessionID(v)
+		return nil
+	case resultscorrection.FieldRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRevision(v)
+		return nil
+	case resultscorrection.FieldBasePublicationRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBasePublicationRevision(v)
+		return nil
+	case resultscorrection.FieldStatus:
+		v, ok := value.(resultscorrection.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case resultscorrection.FieldPublicationOrder:
+		v, ok := value.([]prizegivingvalue.ItemRef)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublicationOrder(v)
+		return nil
+	case resultscorrection.FieldItemsJSON:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetItemsJSON(v)
+		return nil
+	case resultscorrection.FieldResultsTextTemplate:
+		v, ok := value.(prizegivingvalue.Template)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResultsTextTemplate(v)
+		return nil
+	case resultscorrection.FieldCrewReason:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCrewReason(v)
+		return nil
+	case resultscorrection.FieldPublicNote:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublicNote(v)
+		return nil
+	case resultscorrection.FieldPublishedResultsRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublishedResultsRevision(v)
+		return nil
+	case resultscorrection.FieldCreatedByAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedByAccountID(v)
+		return nil
+	case resultscorrection.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ResultsCorrection field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ResultsCorrectionMutation) AddedFields() []string {
+	var fields []string
+	if m.addscope_session_id != nil {
+		fields = append(fields, resultscorrection.FieldScopeSessionID)
+	}
+	if m.addrevision != nil {
+		fields = append(fields, resultscorrection.FieldRevision)
+	}
+	if m.addbase_publication_revision != nil {
+		fields = append(fields, resultscorrection.FieldBasePublicationRevision)
+	}
+	if m.addpublished_results_revision != nil {
+		fields = append(fields, resultscorrection.FieldPublishedResultsRevision)
+	}
+	if m.addcreated_by_account_id != nil {
+		fields = append(fields, resultscorrection.FieldCreatedByAccountID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ResultsCorrectionMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case resultscorrection.FieldScopeSessionID:
+		return m.AddedScopeSessionID()
+	case resultscorrection.FieldRevision:
+		return m.AddedRevision()
+	case resultscorrection.FieldBasePublicationRevision:
+		return m.AddedBasePublicationRevision()
+	case resultscorrection.FieldPublishedResultsRevision:
+		return m.AddedPublishedResultsRevision()
+	case resultscorrection.FieldCreatedByAccountID:
+		return m.AddedCreatedByAccountID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ResultsCorrectionMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case resultscorrection.FieldScopeSessionID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddScopeSessionID(v)
+		return nil
+	case resultscorrection.FieldRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRevision(v)
+		return nil
+	case resultscorrection.FieldBasePublicationRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddBasePublicationRevision(v)
+		return nil
+	case resultscorrection.FieldPublishedResultsRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPublishedResultsRevision(v)
+		return nil
+	case resultscorrection.FieldCreatedByAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCreatedByAccountID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ResultsCorrection numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ResultsCorrectionMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(resultscorrection.FieldPublicNote) {
+		fields = append(fields, resultscorrection.FieldPublicNote)
+	}
+	if m.FieldCleared(resultscorrection.FieldPublishedResultsRevision) {
+		fields = append(fields, resultscorrection.FieldPublishedResultsRevision)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ResultsCorrectionMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ResultsCorrectionMutation) ClearField(name string) error {
+	switch name {
+	case resultscorrection.FieldPublicNote:
+		m.ClearPublicNote()
+		return nil
+	case resultscorrection.FieldPublishedResultsRevision:
+		m.ClearPublishedResultsRevision()
+		return nil
+	}
+	return fmt.Errorf("unknown ResultsCorrection nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ResultsCorrectionMutation) ResetField(name string) error {
+	switch name {
+	case resultscorrection.FieldEventID:
+		m.ResetEventID()
+		return nil
+	case resultscorrection.FieldScope:
+		m.ResetScope()
+		return nil
+	case resultscorrection.FieldScopeSessionID:
+		m.ResetScopeSessionID()
+		return nil
+	case resultscorrection.FieldRevision:
+		m.ResetRevision()
+		return nil
+	case resultscorrection.FieldBasePublicationRevision:
+		m.ResetBasePublicationRevision()
+		return nil
+	case resultscorrection.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case resultscorrection.FieldPublicationOrder:
+		m.ResetPublicationOrder()
+		return nil
+	case resultscorrection.FieldItemsJSON:
+		m.ResetItemsJSON()
+		return nil
+	case resultscorrection.FieldResultsTextTemplate:
+		m.ResetResultsTextTemplate()
+		return nil
+	case resultscorrection.FieldCrewReason:
+		m.ResetCrewReason()
+		return nil
+	case resultscorrection.FieldPublicNote:
+		m.ResetPublicNote()
+		return nil
+	case resultscorrection.FieldPublishedResultsRevision:
+		m.ResetPublishedResultsRevision()
+		return nil
+	case resultscorrection.FieldCreatedByAccountID:
+		m.ResetCreatedByAccountID()
+		return nil
+	case resultscorrection.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ResultsCorrection field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ResultsCorrectionMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.event != nil {
+		edges = append(edges, resultscorrection.EdgeEvent)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ResultsCorrectionMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case resultscorrection.EdgeEvent:
+		if id := m.event; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ResultsCorrectionMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ResultsCorrectionMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ResultsCorrectionMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedevent {
+		edges = append(edges, resultscorrection.EdgeEvent)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ResultsCorrectionMutation) EdgeCleared(name string) bool {
+	switch name {
+	case resultscorrection.EdgeEvent:
+		return m.clearedevent
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ResultsCorrectionMutation) ClearEdge(name string) error {
+	switch name {
+	case resultscorrection.EdgeEvent:
+		m.ClearEvent()
+		return nil
+	}
+	return fmt.Errorf("unknown ResultsCorrection unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ResultsCorrectionMutation) ResetEdge(name string) error {
+	switch name {
+	case resultscorrection.EdgeEvent:
+		m.ResetEvent()
+		return nil
+	}
+	return fmt.Errorf("unknown ResultsCorrection edge %s", name)
+}
+
 // ResultsPublicationMutation represents an operation that mutates the ResultsPublication nodes in the graph.
 type ResultsPublicationMutation struct {
 	config
-	op                       Op
-	typ                      string
-	id                       *int
-	scope                    *resultspublication.Scope
-	scope_session_id         *int
-	addscope_session_id      *int
-	revision                 *int
-	addrevision              *int
-	release_policy           *resultspublication.ReleasePolicy
-	status                   *resultspublication.Status
-	items                    *[]prizegivingvalue.ItemRef
-	appenditems              []prizegivingvalue.ItemRef
-	prizegiving_lock         *prizegivingvalue.Lock
-	results_text_template    *prizegivingvalue.Template
-	rendered_html            *string
-	rendered_text            *string
-	rendered_json            *string
-	created_by_account_id    *int
-	addcreated_by_account_id *int
-	created_at               *time.Time
-	clearedFields            map[string]struct{}
-	event                    *int
-	clearedevent             bool
-	done                     bool
-	oldValue                 func(context.Context) (*ResultsPublication, error)
-	predicates               []predicate.ResultsPublication
+	op                             Op
+	typ                            string
+	id                             *int
+	scope                          *resultspublication.Scope
+	scope_session_id               *int
+	addscope_session_id            *int
+	revision                       *int
+	addrevision                    *int
+	release_policy                 *resultspublication.ReleasePolicy
+	status                         *resultspublication.Status
+	items                          *[]prizegivingvalue.ItemRef
+	appenditems                    []prizegivingvalue.ItemRef
+	prizegiving_lock               *prizegivingvalue.Lock
+	results_text_template          *prizegivingvalue.Template
+	rendered_html                  *string
+	rendered_text                  *string
+	rendered_json                  *string
+	results_correction_revision    *int
+	addresults_correction_revision *int
+	created_by_account_id          *int
+	addcreated_by_account_id       *int
+	created_at                     *time.Time
+	clearedFields                  map[string]struct{}
+	event                          *int
+	clearedevent                   bool
+	done                           bool
+	oldValue                       func(context.Context) (*ResultsPublication, error)
+	predicates                     []predicate.ResultsPublication
 }
 
 var _ ent.Mutation = (*ResultsPublicationMutation)(nil)
@@ -36619,6 +38014,76 @@ func (m *ResultsPublicationMutation) ResetRenderedJSON() {
 	delete(m.clearedFields, resultspublication.FieldRenderedJSON)
 }
 
+// SetResultsCorrectionRevision sets the "results_correction_revision" field.
+func (m *ResultsPublicationMutation) SetResultsCorrectionRevision(i int) {
+	m.results_correction_revision = &i
+	m.addresults_correction_revision = nil
+}
+
+// ResultsCorrectionRevision returns the value of the "results_correction_revision" field in the mutation.
+func (m *ResultsPublicationMutation) ResultsCorrectionRevision() (r int, exists bool) {
+	v := m.results_correction_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResultsCorrectionRevision returns the old "results_correction_revision" field's value of the ResultsPublication entity.
+// If the ResultsPublication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResultsPublicationMutation) OldResultsCorrectionRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResultsCorrectionRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResultsCorrectionRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResultsCorrectionRevision: %w", err)
+	}
+	return oldValue.ResultsCorrectionRevision, nil
+}
+
+// AddResultsCorrectionRevision adds i to the "results_correction_revision" field.
+func (m *ResultsPublicationMutation) AddResultsCorrectionRevision(i int) {
+	if m.addresults_correction_revision != nil {
+		*m.addresults_correction_revision += i
+	} else {
+		m.addresults_correction_revision = &i
+	}
+}
+
+// AddedResultsCorrectionRevision returns the value that was added to the "results_correction_revision" field in this mutation.
+func (m *ResultsPublicationMutation) AddedResultsCorrectionRevision() (r int, exists bool) {
+	v := m.addresults_correction_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearResultsCorrectionRevision clears the value of the "results_correction_revision" field.
+func (m *ResultsPublicationMutation) ClearResultsCorrectionRevision() {
+	m.results_correction_revision = nil
+	m.addresults_correction_revision = nil
+	m.clearedFields[resultspublication.FieldResultsCorrectionRevision] = struct{}{}
+}
+
+// ResultsCorrectionRevisionCleared returns if the "results_correction_revision" field was cleared in this mutation.
+func (m *ResultsPublicationMutation) ResultsCorrectionRevisionCleared() bool {
+	_, ok := m.clearedFields[resultspublication.FieldResultsCorrectionRevision]
+	return ok
+}
+
+// ResetResultsCorrectionRevision resets all changes to the "results_correction_revision" field.
+func (m *ResultsPublicationMutation) ResetResultsCorrectionRevision() {
+	m.results_correction_revision = nil
+	m.addresults_correction_revision = nil
+	delete(m.clearedFields, resultspublication.FieldResultsCorrectionRevision)
+}
+
 // SetCreatedByAccountID sets the "created_by_account_id" field.
 func (m *ResultsPublicationMutation) SetCreatedByAccountID(i int) {
 	m.created_by_account_id = &i
@@ -36786,7 +38251,7 @@ func (m *ResultsPublicationMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ResultsPublicationMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 15)
 	if m.event != nil {
 		fields = append(fields, resultspublication.FieldEventID)
 	}
@@ -36822,6 +38287,9 @@ func (m *ResultsPublicationMutation) Fields() []string {
 	}
 	if m.rendered_json != nil {
 		fields = append(fields, resultspublication.FieldRenderedJSON)
+	}
+	if m.results_correction_revision != nil {
+		fields = append(fields, resultspublication.FieldResultsCorrectionRevision)
 	}
 	if m.created_by_account_id != nil {
 		fields = append(fields, resultspublication.FieldCreatedByAccountID)
@@ -36861,6 +38329,8 @@ func (m *ResultsPublicationMutation) Field(name string) (ent.Value, bool) {
 		return m.RenderedText()
 	case resultspublication.FieldRenderedJSON:
 		return m.RenderedJSON()
+	case resultspublication.FieldResultsCorrectionRevision:
+		return m.ResultsCorrectionRevision()
 	case resultspublication.FieldCreatedByAccountID:
 		return m.CreatedByAccountID()
 	case resultspublication.FieldCreatedAt:
@@ -36898,6 +38368,8 @@ func (m *ResultsPublicationMutation) OldField(ctx context.Context, name string) 
 		return m.OldRenderedText(ctx)
 	case resultspublication.FieldRenderedJSON:
 		return m.OldRenderedJSON(ctx)
+	case resultspublication.FieldResultsCorrectionRevision:
+		return m.OldResultsCorrectionRevision(ctx)
 	case resultspublication.FieldCreatedByAccountID:
 		return m.OldCreatedByAccountID(ctx)
 	case resultspublication.FieldCreatedAt:
@@ -36995,6 +38467,13 @@ func (m *ResultsPublicationMutation) SetField(name string, value ent.Value) erro
 		}
 		m.SetRenderedJSON(v)
 		return nil
+	case resultspublication.FieldResultsCorrectionRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResultsCorrectionRevision(v)
+		return nil
 	case resultspublication.FieldCreatedByAccountID:
 		v, ok := value.(int)
 		if !ok {
@@ -37023,6 +38502,9 @@ func (m *ResultsPublicationMutation) AddedFields() []string {
 	if m.addrevision != nil {
 		fields = append(fields, resultspublication.FieldRevision)
 	}
+	if m.addresults_correction_revision != nil {
+		fields = append(fields, resultspublication.FieldResultsCorrectionRevision)
+	}
 	if m.addcreated_by_account_id != nil {
 		fields = append(fields, resultspublication.FieldCreatedByAccountID)
 	}
@@ -37038,6 +38520,8 @@ func (m *ResultsPublicationMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedScopeSessionID()
 	case resultspublication.FieldRevision:
 		return m.AddedRevision()
+	case resultspublication.FieldResultsCorrectionRevision:
+		return m.AddedResultsCorrectionRevision()
 	case resultspublication.FieldCreatedByAccountID:
 		return m.AddedCreatedByAccountID()
 	}
@@ -37062,6 +38546,13 @@ func (m *ResultsPublicationMutation) AddField(name string, value ent.Value) erro
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddRevision(v)
+		return nil
+	case resultspublication.FieldResultsCorrectionRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddResultsCorrectionRevision(v)
 		return nil
 	case resultspublication.FieldCreatedByAccountID:
 		v, ok := value.(int)
@@ -37092,6 +38583,9 @@ func (m *ResultsPublicationMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(resultspublication.FieldRenderedJSON) {
 		fields = append(fields, resultspublication.FieldRenderedJSON)
+	}
+	if m.FieldCleared(resultspublication.FieldResultsCorrectionRevision) {
+		fields = append(fields, resultspublication.FieldResultsCorrectionRevision)
 	}
 	if m.FieldCleared(resultspublication.FieldCreatedByAccountID) {
 		fields = append(fields, resultspublication.FieldCreatedByAccountID)
@@ -37124,6 +38618,9 @@ func (m *ResultsPublicationMutation) ClearField(name string) error {
 		return nil
 	case resultspublication.FieldRenderedJSON:
 		m.ClearRenderedJSON()
+		return nil
+	case resultspublication.FieldResultsCorrectionRevision:
+		m.ClearResultsCorrectionRevision()
 		return nil
 	case resultspublication.FieldCreatedByAccountID:
 		m.ClearCreatedByAccountID()
@@ -37171,6 +38668,9 @@ func (m *ResultsPublicationMutation) ResetField(name string) error {
 		return nil
 	case resultspublication.FieldRenderedJSON:
 		m.ResetRenderedJSON()
+		return nil
+	case resultspublication.FieldResultsCorrectionRevision:
+		m.ResetResultsCorrectionRevision()
 		return nil
 	case resultspublication.FieldCreatedByAccountID:
 		m.ResetCreatedByAccountID()

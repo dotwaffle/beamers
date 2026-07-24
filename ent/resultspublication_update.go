@@ -94,6 +94,9 @@ func (_u *ResultsPublicationUpdate) sqlSave(ctx context.Context) (_node int, err
 	if _u.mutation.RenderedJSONCleared() {
 		_spec.ClearField(resultspublication.FieldRenderedJSON, field.TypeString)
 	}
+	if _u.mutation.ResultsCorrectionRevisionCleared() {
+		_spec.ClearField(resultspublication.FieldResultsCorrectionRevision, field.TypeInt)
+	}
 	if _u.mutation.CreatedByAccountIDCleared() {
 		_spec.ClearField(resultspublication.FieldCreatedByAccountID, field.TypeInt)
 	}
@@ -213,6 +216,9 @@ func (_u *ResultsPublicationUpdateOne) sqlSave(ctx context.Context) (_node *Resu
 	}
 	if _u.mutation.RenderedJSONCleared() {
 		_spec.ClearField(resultspublication.FieldRenderedJSON, field.TypeString)
+	}
+	if _u.mutation.ResultsCorrectionRevisionCleared() {
+		_spec.ClearField(resultspublication.FieldResultsCorrectionRevision, field.TypeInt)
 	}
 	if _u.mutation.CreatedByAccountIDCleared() {
 		_spec.ClearField(resultspublication.FieldCreatedByAccountID, field.TypeInt)

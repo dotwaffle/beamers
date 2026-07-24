@@ -1191,6 +1191,50 @@ var (
 			},
 		},
 	}
+	// ResultsCorrectionsColumns holds the columns for the "results_corrections" table.
+	ResultsCorrectionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "scope", Type: field.TypeEnum, Enums: []string{"Prizegiving", "Standalone"}},
+		{Name: "scope_session_id", Type: field.TypeInt},
+		{Name: "revision", Type: field.TypeInt},
+		{Name: "base_publication_revision", Type: field.TypeInt},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"Draft", "Ready", "Published"}},
+		{Name: "publication_order", Type: field.TypeJSON},
+		{Name: "items_json", Type: field.TypeString},
+		{Name: "results_text_template", Type: field.TypeJSON},
+		{Name: "crew_reason", Type: field.TypeString, Size: 10000},
+		{Name: "public_note", Type: field.TypeString, Nullable: true, Size: 10000},
+		{Name: "published_results_revision", Type: field.TypeInt, Nullable: true},
+		{Name: "created_by_account_id", Type: field.TypeInt},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "event_id", Type: field.TypeInt},
+	}
+	// ResultsCorrectionsTable holds the schema information for the "results_corrections" table.
+	ResultsCorrectionsTable = &schema.Table{
+		Name:       "results_corrections",
+		Columns:    ResultsCorrectionsColumns,
+		PrimaryKey: []*schema.Column{ResultsCorrectionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "results_corrections_events_results_corrections",
+				Columns:    []*schema.Column{ResultsCorrectionsColumns[14]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "resultscorrection_event_id_scope_scope_session_id_revision",
+				Unique:  true,
+				Columns: []*schema.Column{ResultsCorrectionsColumns[14], ResultsCorrectionsColumns[1], ResultsCorrectionsColumns[2], ResultsCorrectionsColumns[3]},
+			},
+			{
+				Name:    "resultscorrection_event_id_scope_scope_session_id",
+				Unique:  false,
+				Columns: []*schema.Column{ResultsCorrectionsColumns[14], ResultsCorrectionsColumns[1], ResultsCorrectionsColumns[2]},
+			},
+		},
+	}
 	// ResultsPublicationsColumns holds the columns for the "results_publications" table.
 	ResultsPublicationsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -1205,6 +1249,7 @@ var (
 		{Name: "rendered_html", Type: field.TypeString, Nullable: true},
 		{Name: "rendered_text", Type: field.TypeString, Nullable: true},
 		{Name: "rendered_json", Type: field.TypeString, Nullable: true},
+		{Name: "results_correction_revision", Type: field.TypeInt, Nullable: true},
 		{Name: "created_by_account_id", Type: field.TypeInt, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "event_id", Type: field.TypeInt},
@@ -1217,7 +1262,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "results_publications_events_results_publications",
-				Columns:    []*schema.Column{ResultsPublicationsColumns[14]},
+				Columns:    []*schema.Column{ResultsPublicationsColumns[15]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -1226,12 +1271,12 @@ var (
 			{
 				Name:    "resultspublication_event_id_scope_scope_session_id_revision",
 				Unique:  true,
-				Columns: []*schema.Column{ResultsPublicationsColumns[14], ResultsPublicationsColumns[1], ResultsPublicationsColumns[2], ResultsPublicationsColumns[3]},
+				Columns: []*schema.Column{ResultsPublicationsColumns[15], ResultsPublicationsColumns[1], ResultsPublicationsColumns[2], ResultsPublicationsColumns[3]},
 			},
 			{
 				Name:    "resultspublication_event_id_scope_scope_session_id",
 				Unique:  false,
-				Columns: []*schema.Column{ResultsPublicationsColumns[14], ResultsPublicationsColumns[1], ResultsPublicationsColumns[2]},
+				Columns: []*schema.Column{ResultsPublicationsColumns[15], ResultsPublicationsColumns[1], ResultsPublicationsColumns[2]},
 			},
 		},
 	}
@@ -1769,6 +1814,7 @@ var (
 		PublicScheduleBaselinesTable,
 		PublicScheduleBaselineEntriesTable,
 		ReopenWindowsTable,
+		ResultsCorrectionsTable,
 		ResultsPublicationsTable,
 		RundownsTable,
 		SessionsTable,
@@ -1844,6 +1890,7 @@ func init() {
 	PublicScheduleBaselinesTable.ForeignKeys[0].RefTable = EventsTable
 	PublicScheduleBaselineEntriesTable.ForeignKeys[0].RefTable = PublicScheduleBaselinesTable
 	PublicScheduleBaselineEntriesTable.ForeignKeys[1].RefTable = SessionsTable
+	ResultsCorrectionsTable.ForeignKeys[0].RefTable = EventsTable
 	ResultsPublicationsTable.ForeignKeys[0].RefTable = EventsTable
 	RundownsTable.ForeignKeys[0].RefTable = EventsTable
 	SessionsTable.ForeignKeys[0].RefTable = EventsTable

@@ -61,20 +61,21 @@ const (
 
 // ResultsPublication is one immutable release-manifest revision.
 type ResultsPublication struct {
-	EventID            int
-	Scope              ResultsPublicationScope
-	ScopeSessionID     int
-	Revision           int
-	Policy             ResultsPublicationPolicy
-	Status             ResultsPublicationStatus
-	Items              []PrizegivingResultItemRef
-	Lock               PrizegivingPreflightLock
-	Template           PrizegivingResultsTextTemplate
-	RenderedHTML       string
-	RenderedText       string
-	RenderedJSON       string
-	CreatedByAccountID int
-	CreatedAt          time.Time
+	EventID                   int
+	Scope                     ResultsPublicationScope
+	ScopeSessionID            int
+	Revision                  int
+	Policy                    ResultsPublicationPolicy
+	Status                    ResultsPublicationStatus
+	Items                     []PrizegivingResultItemRef
+	Lock                      PrizegivingPreflightLock
+	Template                  PrizegivingResultsTextTemplate
+	RenderedHTML              string
+	RenderedText              string
+	RenderedJSON              string
+	ResultsCorrectionRevision int
+	CreatedByAccountID        int
+	CreatedAt                 time.Time
 }
 
 // ResultsPublicationRenderSource contains exact facts resolved for rendering.
@@ -94,20 +95,21 @@ type ResultsPublicationCompetitionSource struct {
 
 // AppendResultsPublicationParams contains one complete immutable manifest.
 type AppendResultsPublicationParams struct {
-	EventID            int
-	Scope              ResultsPublicationScope
-	ScopeSessionID     int
-	ExpectedRevision   int
-	Policy             ResultsPublicationPolicy
-	Status             ResultsPublicationStatus
-	Items              []PrizegivingResultItemRef
-	Lock               PrizegivingPreflightLock
-	Template           PrizegivingResultsTextTemplate
-	RenderedHTML       string
-	RenderedText       string
-	RenderedJSON       string
-	CreatedByAccountID int
-	Now                time.Time
+	EventID                   int
+	Scope                     ResultsPublicationScope
+	ScopeSessionID            int
+	ExpectedRevision          int
+	Policy                    ResultsPublicationPolicy
+	Status                    ResultsPublicationStatus
+	Items                     []PrizegivingResultItemRef
+	Lock                      PrizegivingPreflightLock
+	Template                  PrizegivingResultsTextTemplate
+	RenderedHTML              string
+	RenderedText              string
+	RenderedJSON              string
+	ResultsCorrectionRevision int
+	CreatedByAccountID        int
+	Now                       time.Time
 }
 
 // AppendResultsPublication appends one monotonic manifest revision.
@@ -146,6 +148,9 @@ func (transaction *CommandTx) AppendResultsPublication(
 		SetRenderedText(params.RenderedText).
 		SetRenderedJSON(params.RenderedJSON).
 		SetCreatedAt(params.Now)
+	if params.ResultsCorrectionRevision > 0 {
+		create.SetResultsCorrectionRevision(params.ResultsCorrectionRevision)
+	}
 	if params.CreatedByAccountID > 0 {
 		create.SetCreatedByAccountID(params.CreatedByAccountID)
 	}
@@ -369,6 +374,9 @@ func validResultsPublicationAppend(
 	current ResultsPublication,
 	params AppendResultsPublicationParams,
 ) bool {
+	if params.ResultsCorrectionRevision > 0 {
+		return validResultsCorrectionPublicationAppend(current, params)
+	}
 	if current.Status == ResultsPublicationFinal ||
 		current.Policy != params.Policy ||
 		!sameResultsPublicationLock(current.Lock, params.Lock) {
@@ -386,6 +394,53 @@ func validResultsPublicationAppend(
 	return true
 }
 
+func validResultsCorrectionPublicationAppend(
+	current ResultsPublication,
+	params AppendResultsPublicationParams,
+) bool {
+	if current.Revision == 0 ||
+		current.Policy != params.Policy ||
+		current.Status != params.Status ||
+		len(current.Lock.RenderSource) == 0 ||
+		!reflect.DeepEqual(current.Lock.RenderSource, params.Lock.RenderSource) ||
+		!samePrizegivingItemIdentitySet(current.Items, params.Items) ||
+		!reflect.DeepEqual(params.Items, params.Lock.PublicationOrder) {
+		return false
+	}
+	return true
+}
+
+func samePrizegivingItemIdentitySet(
+	current, next []PrizegivingResultItemRef,
+) bool {
+	if len(current) != len(next) {
+		return false
+	}
+	type identity struct {
+		Kind                 prizegivingvalue.ItemKind
+		CompetitionSessionID int
+		AwardKey             string
+	}
+	counts := make(map[identity]int, len(current))
+	for _, ref := range current {
+		counts[identity{
+			Kind: ref.Kind, CompetitionSessionID: ref.CompetitionSessionID,
+			AwardKey: ref.AwardKey,
+		}]++
+	}
+	for _, ref := range next {
+		key := identity{
+			Kind: ref.Kind, CompetitionSessionID: ref.CompetitionSessionID,
+			AwardKey: ref.AwardKey,
+		}
+		counts[key]--
+		if counts[key] < 0 {
+			return false
+		}
+	}
+	return true
+}
+
 func sameResultsPublicationLock(
 	current, next PrizegivingPreflightLock,
 ) bool {
@@ -397,19 +452,20 @@ func sameResultsPublicationLock(
 
 func resultsPublication(found *ent.ResultsPublication) ResultsPublication {
 	result := ResultsPublication{
-		EventID:        found.EventID,
-		Scope:          ResultsPublicationScope(found.Scope),
-		ScopeSessionID: found.ScopeSessionID,
-		Revision:       found.Revision,
-		Policy:         ResultsPublicationPolicy(found.ReleasePolicy),
-		Status:         ResultsPublicationStatus(found.Status),
-		Items:          prizegivingItemRefs(found.Items),
-		Lock:           prizegivingLock(found.PrizegivingLock),
-		Template:       prizegivingTemplate(found.ResultsTextTemplate),
-		RenderedHTML:   found.RenderedHTML,
-		RenderedText:   found.RenderedText,
-		RenderedJSON:   found.RenderedJSON,
-		CreatedAt:      found.CreatedAt,
+		EventID:                   found.EventID,
+		Scope:                     ResultsPublicationScope(found.Scope),
+		ScopeSessionID:            found.ScopeSessionID,
+		Revision:                  found.Revision,
+		Policy:                    ResultsPublicationPolicy(found.ReleasePolicy),
+		Status:                    ResultsPublicationStatus(found.Status),
+		Items:                     prizegivingItemRefs(found.Items),
+		Lock:                      prizegivingLock(found.PrizegivingLock),
+		Template:                  prizegivingTemplate(found.ResultsTextTemplate),
+		RenderedHTML:              found.RenderedHTML,
+		RenderedText:              found.RenderedText,
+		RenderedJSON:              found.RenderedJSON,
+		ResultsCorrectionRevision: found.ResultsCorrectionRevision,
+		CreatedAt:                 found.CreatedAt,
 	}
 	if found.CreatedByAccountID != nil {
 		result.CreatedByAccountID = *found.CreatedByAccountID

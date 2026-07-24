@@ -85,6 +85,11 @@ func RenderedJSON(v string) predicate.ResultsPublication {
 	return predicate.ResultsPublication(sql.FieldEQ(FieldRenderedJSON, v))
 }
 
+// ResultsCorrectionRevision applies equality check predicate on the "results_correction_revision" field. It's identical to ResultsCorrectionRevisionEQ.
+func ResultsCorrectionRevision(v int) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldEQ(FieldResultsCorrectionRevision, v))
+}
+
 // CreatedByAccountID applies equality check predicate on the "created_by_account_id" field. It's identical to CreatedByAccountIDEQ.
 func CreatedByAccountID(v int) predicate.ResultsPublication {
 	return predicate.ResultsPublication(sql.FieldEQ(FieldCreatedByAccountID, v))
@@ -498,6 +503,56 @@ func RenderedJSONEqualFold(v string) predicate.ResultsPublication {
 // RenderedJSONContainsFold applies the ContainsFold predicate on the "rendered_json" field.
 func RenderedJSONContainsFold(v string) predicate.ResultsPublication {
 	return predicate.ResultsPublication(sql.FieldContainsFold(FieldRenderedJSON, v))
+}
+
+// ResultsCorrectionRevisionEQ applies the EQ predicate on the "results_correction_revision" field.
+func ResultsCorrectionRevisionEQ(v int) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldEQ(FieldResultsCorrectionRevision, v))
+}
+
+// ResultsCorrectionRevisionNEQ applies the NEQ predicate on the "results_correction_revision" field.
+func ResultsCorrectionRevisionNEQ(v int) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldNEQ(FieldResultsCorrectionRevision, v))
+}
+
+// ResultsCorrectionRevisionIn applies the In predicate on the "results_correction_revision" field.
+func ResultsCorrectionRevisionIn(vs ...int) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldIn(FieldResultsCorrectionRevision, vs...))
+}
+
+// ResultsCorrectionRevisionNotIn applies the NotIn predicate on the "results_correction_revision" field.
+func ResultsCorrectionRevisionNotIn(vs ...int) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldNotIn(FieldResultsCorrectionRevision, vs...))
+}
+
+// ResultsCorrectionRevisionGT applies the GT predicate on the "results_correction_revision" field.
+func ResultsCorrectionRevisionGT(v int) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldGT(FieldResultsCorrectionRevision, v))
+}
+
+// ResultsCorrectionRevisionGTE applies the GTE predicate on the "results_correction_revision" field.
+func ResultsCorrectionRevisionGTE(v int) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldGTE(FieldResultsCorrectionRevision, v))
+}
+
+// ResultsCorrectionRevisionLT applies the LT predicate on the "results_correction_revision" field.
+func ResultsCorrectionRevisionLT(v int) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldLT(FieldResultsCorrectionRevision, v))
+}
+
+// ResultsCorrectionRevisionLTE applies the LTE predicate on the "results_correction_revision" field.
+func ResultsCorrectionRevisionLTE(v int) predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldLTE(FieldResultsCorrectionRevision, v))
+}
+
+// ResultsCorrectionRevisionIsNil applies the IsNil predicate on the "results_correction_revision" field.
+func ResultsCorrectionRevisionIsNil() predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldIsNull(FieldResultsCorrectionRevision))
+}
+
+// ResultsCorrectionRevisionNotNil applies the NotNil predicate on the "results_correction_revision" field.
+func ResultsCorrectionRevisionNotNil() predicate.ResultsPublication {
+	return predicate.ResultsPublication(sql.FieldNotNull(FieldResultsCorrectionRevision))
 }
 
 // CreatedByAccountIDEQ applies the EQ predicate on the "created_by_account_id" field.

@@ -88,6 +88,8 @@ type Tx struct {
 	PublicScheduleBaselineEntry *PublicScheduleBaselineEntryClient
 	// ReopenWindow is the client for interacting with the ReopenWindow builders.
 	ReopenWindow *ReopenWindowClient
+	// ResultsCorrection is the client for interacting with the ResultsCorrection builders.
+	ResultsCorrection *ResultsCorrectionClient
 	// ResultsPublication is the client for interacting with the ResultsPublication builders.
 	ResultsPublication *ResultsPublicationClient
 	// Rundown is the client for interacting with the Rundown builders.
@@ -280,6 +282,7 @@ func (tx *Tx) init() {
 	tx.PublicScheduleBaseline = NewPublicScheduleBaselineClient(tx.config)
 	tx.PublicScheduleBaselineEntry = NewPublicScheduleBaselineEntryClient(tx.config)
 	tx.ReopenWindow = NewReopenWindowClient(tx.config)
+	tx.ResultsCorrection = NewResultsCorrectionClient(tx.config)
 	tx.ResultsPublication = NewResultsPublicationClient(tx.config)
 	tx.Rundown = NewRundownClient(tx.config)
 	tx.Session = NewSessionClient(tx.config)

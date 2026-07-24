@@ -28,6 +28,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
+	"github.com/dotwaffle/beamers/ent/resultscorrection"
 	"github.com/dotwaffle/beamers/ent/resultspublication"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
@@ -552,6 +553,21 @@ func (_u *EventUpdate) AddResultsPublications(v ...*ResultsPublication) *EventUp
 	return _u.AddResultsPublicationIDs(ids...)
 }
 
+// AddResultsCorrectionIDs adds the "results_corrections" edge to the ResultsCorrection entity by IDs.
+func (_u *EventUpdate) AddResultsCorrectionIDs(ids ...int) *EventUpdate {
+	_u.mutation.AddResultsCorrectionIDs(ids...)
+	return _u
+}
+
+// AddResultsCorrections adds the "results_corrections" edges to the ResultsCorrection entity.
+func (_u *EventUpdate) AddResultsCorrections(v ...*ResultsCorrection) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddResultsCorrectionIDs(ids...)
+}
+
 // AddUploadLinkIDs adds the "upload_links" edge to the UploadLink entity by IDs.
 func (_u *EventUpdate) AddUploadLinkIDs(ids ...int) *EventUpdate {
 	_u.mutation.AddUploadLinkIDs(ids...)
@@ -922,6 +938,27 @@ func (_u *EventUpdate) RemoveResultsPublications(v ...*ResultsPublication) *Even
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveResultsPublicationIDs(ids...)
+}
+
+// ClearResultsCorrections clears all "results_corrections" edges to the ResultsCorrection entity.
+func (_u *EventUpdate) ClearResultsCorrections() *EventUpdate {
+	_u.mutation.ClearResultsCorrections()
+	return _u
+}
+
+// RemoveResultsCorrectionIDs removes the "results_corrections" edge to ResultsCorrection entities by IDs.
+func (_u *EventUpdate) RemoveResultsCorrectionIDs(ids ...int) *EventUpdate {
+	_u.mutation.RemoveResultsCorrectionIDs(ids...)
+	return _u
+}
+
+// RemoveResultsCorrections removes "results_corrections" edges to ResultsCorrection entities.
+func (_u *EventUpdate) RemoveResultsCorrections(v ...*ResultsCorrection) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveResultsCorrectionIDs(ids...)
 }
 
 // ClearUploadLinks clears all "upload_links" edges to the UploadLink entity.
@@ -1827,6 +1864,51 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.ResultsCorrectionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.ResultsCorrectionsTable,
+			Columns: []string{event.ResultsCorrectionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(resultscorrection.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedResultsCorrectionsIDs(); len(nodes) > 0 && !_u.mutation.ResultsCorrectionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.ResultsCorrectionsTable,
+			Columns: []string{event.ResultsCorrectionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(resultscorrection.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ResultsCorrectionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.ResultsCorrectionsTable,
+			Columns: []string{event.ResultsCorrectionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(resultscorrection.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.UploadLinksCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -2650,6 +2732,21 @@ func (_u *EventUpdateOne) AddResultsPublications(v ...*ResultsPublication) *Even
 	return _u.AddResultsPublicationIDs(ids...)
 }
 
+// AddResultsCorrectionIDs adds the "results_corrections" edge to the ResultsCorrection entity by IDs.
+func (_u *EventUpdateOne) AddResultsCorrectionIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.AddResultsCorrectionIDs(ids...)
+	return _u
+}
+
+// AddResultsCorrections adds the "results_corrections" edges to the ResultsCorrection entity.
+func (_u *EventUpdateOne) AddResultsCorrections(v ...*ResultsCorrection) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddResultsCorrectionIDs(ids...)
+}
+
 // AddUploadLinkIDs adds the "upload_links" edge to the UploadLink entity by IDs.
 func (_u *EventUpdateOne) AddUploadLinkIDs(ids ...int) *EventUpdateOne {
 	_u.mutation.AddUploadLinkIDs(ids...)
@@ -3020,6 +3117,27 @@ func (_u *EventUpdateOne) RemoveResultsPublications(v ...*ResultsPublication) *E
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveResultsPublicationIDs(ids...)
+}
+
+// ClearResultsCorrections clears all "results_corrections" edges to the ResultsCorrection entity.
+func (_u *EventUpdateOne) ClearResultsCorrections() *EventUpdateOne {
+	_u.mutation.ClearResultsCorrections()
+	return _u
+}
+
+// RemoveResultsCorrectionIDs removes the "results_corrections" edge to ResultsCorrection entities by IDs.
+func (_u *EventUpdateOne) RemoveResultsCorrectionIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.RemoveResultsCorrectionIDs(ids...)
+	return _u
+}
+
+// RemoveResultsCorrections removes "results_corrections" edges to ResultsCorrection entities.
+func (_u *EventUpdateOne) RemoveResultsCorrections(v ...*ResultsCorrection) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveResultsCorrectionIDs(ids...)
 }
 
 // ClearUploadLinks clears all "upload_links" edges to the UploadLink entity.
@@ -3948,6 +4066,51 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(resultspublication.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ResultsCorrectionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.ResultsCorrectionsTable,
+			Columns: []string{event.ResultsCorrectionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(resultscorrection.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedResultsCorrectionsIDs(); len(nodes) > 0 && !_u.mutation.ResultsCorrectionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.ResultsCorrectionsTable,
+			Columns: []string{event.ResultsCorrectionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(resultscorrection.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ResultsCorrectionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.ResultsCorrectionsTable,
+			Columns: []string{event.ResultsCorrectionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(resultscorrection.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

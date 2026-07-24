@@ -44,6 +44,8 @@ type ResultsPublication struct {
 	RenderedText string `json:"rendered_text,omitempty"`
 	// RenderedJSON holds the value of the "rendered_json" field.
 	RenderedJSON string `json:"rendered_json,omitempty"`
+	// ResultsCorrectionRevision holds the value of the "results_correction_revision" field.
+	ResultsCorrectionRevision int `json:"results_correction_revision,omitempty"`
 	// CreatedByAccountID holds the value of the "created_by_account_id" field.
 	CreatedByAccountID *int `json:"created_by_account_id,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -81,7 +83,7 @@ func (*ResultsPublication) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case resultspublication.FieldItems, resultspublication.FieldPrizegivingLock, resultspublication.FieldResultsTextTemplate:
 			values[i] = new([]byte)
-		case resultspublication.FieldID, resultspublication.FieldEventID, resultspublication.FieldScopeSessionID, resultspublication.FieldRevision, resultspublication.FieldCreatedByAccountID:
+		case resultspublication.FieldID, resultspublication.FieldEventID, resultspublication.FieldScopeSessionID, resultspublication.FieldRevision, resultspublication.FieldResultsCorrectionRevision, resultspublication.FieldCreatedByAccountID:
 			values[i] = new(sql.NullInt64)
 		case resultspublication.FieldScope, resultspublication.FieldReleasePolicy, resultspublication.FieldStatus, resultspublication.FieldRenderedHTML, resultspublication.FieldRenderedText, resultspublication.FieldRenderedJSON:
 			values[i] = new(sql.NullString)
@@ -186,6 +188,12 @@ func (_m *ResultsPublication) assignValues(columns []string, values []any) error
 			} else if value.Valid {
 				_m.RenderedJSON = value.String
 			}
+		case resultspublication.FieldResultsCorrectionRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field results_correction_revision", values[i])
+			} else if value.Valid {
+				_m.ResultsCorrectionRevision = int(value.Int64)
+			}
 		case resultspublication.FieldCreatedByAccountID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for field created_by_account_id", values[i])
@@ -275,6 +283,9 @@ func (_m *ResultsPublication) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("rendered_json=")
 	builder.WriteString(_m.RenderedJSON)
+	builder.WriteString(", ")
+	builder.WriteString("results_correction_revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ResultsCorrectionRevision))
 	builder.WriteString(", ")
 	if v := _m.CreatedByAccountID; v != nil {
 		builder.WriteString("created_by_account_id=")

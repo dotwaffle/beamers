@@ -1439,6 +1439,29 @@ func HasResultsPublicationsWith(preds ...predicate.ResultsPublication) predicate
 	})
 }
 
+// HasResultsCorrections applies the HasEdge predicate on the "results_corrections" edge.
+func HasResultsCorrections() predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ResultsCorrectionsTable, ResultsCorrectionsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasResultsCorrectionsWith applies the HasEdge predicate on the "results_corrections" edge with a given conditions (other predicates).
+func HasResultsCorrectionsWith(preds ...predicate.ResultsCorrection) predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := newResultsCorrectionsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasUploadLinks applies the HasEdge predicate on the "upload_links" edge.
 func HasUploadLinks() predicate.Event {
 	return predicate.Event(func(s *sql.Selector) {

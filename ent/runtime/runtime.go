@@ -43,6 +43,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
+	"github.com/dotwaffle/beamers/ent/resultscorrection"
 	"github.com/dotwaffle/beamers/ent/resultspublication"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/schema"
@@ -1799,6 +1800,67 @@ func init() {
 	reopenwindowDescUpdatedAt := reopenwindowFields[9].Descriptor()
 	// reopenwindow.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	reopenwindow.DefaultUpdatedAt = reopenwindowDescUpdatedAt.Default.(func() time.Time)
+	resultscorrection.Policy = privacy.NewPolicies(schema.ResultsCorrection{})
+	resultscorrection.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := resultscorrection.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	resultscorrectionFields := schema.ResultsCorrection{}.Fields()
+	_ = resultscorrectionFields
+	// resultscorrectionDescScopeSessionID is the schema descriptor for scope_session_id field.
+	resultscorrectionDescScopeSessionID := resultscorrectionFields[2].Descriptor()
+	// resultscorrection.ScopeSessionIDValidator is a validator for the "scope_session_id" field. It is called by the builders before save.
+	resultscorrection.ScopeSessionIDValidator = resultscorrectionDescScopeSessionID.Validators[0].(func(int) error)
+	// resultscorrectionDescRevision is the schema descriptor for revision field.
+	resultscorrectionDescRevision := resultscorrectionFields[3].Descriptor()
+	// resultscorrection.RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
+	resultscorrection.RevisionValidator = resultscorrectionDescRevision.Validators[0].(func(int) error)
+	// resultscorrectionDescBasePublicationRevision is the schema descriptor for base_publication_revision field.
+	resultscorrectionDescBasePublicationRevision := resultscorrectionFields[4].Descriptor()
+	// resultscorrection.BasePublicationRevisionValidator is a validator for the "base_publication_revision" field. It is called by the builders before save.
+	resultscorrection.BasePublicationRevisionValidator = resultscorrectionDescBasePublicationRevision.Validators[0].(func(int) error)
+	// resultscorrectionDescItemsJSON is the schema descriptor for items_json field.
+	resultscorrectionDescItemsJSON := resultscorrectionFields[7].Descriptor()
+	// resultscorrection.ItemsJSONValidator is a validator for the "items_json" field. It is called by the builders before save.
+	resultscorrection.ItemsJSONValidator = resultscorrectionDescItemsJSON.Validators[0].(func(string) error)
+	// resultscorrectionDescCrewReason is the schema descriptor for crew_reason field.
+	resultscorrectionDescCrewReason := resultscorrectionFields[9].Descriptor()
+	// resultscorrection.CrewReasonValidator is a validator for the "crew_reason" field. It is called by the builders before save.
+	resultscorrection.CrewReasonValidator = func() func(string) error {
+		validators := resultscorrectionDescCrewReason.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(crew_reason string) error {
+			for _, fn := range fns {
+				if err := fn(crew_reason); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// resultscorrectionDescPublicNote is the schema descriptor for public_note field.
+	resultscorrectionDescPublicNote := resultscorrectionFields[10].Descriptor()
+	// resultscorrection.PublicNoteValidator is a validator for the "public_note" field. It is called by the builders before save.
+	resultscorrection.PublicNoteValidator = resultscorrectionDescPublicNote.Validators[0].(func(string) error)
+	// resultscorrectionDescPublishedResultsRevision is the schema descriptor for published_results_revision field.
+	resultscorrectionDescPublishedResultsRevision := resultscorrectionFields[11].Descriptor()
+	// resultscorrection.PublishedResultsRevisionValidator is a validator for the "published_results_revision" field. It is called by the builders before save.
+	resultscorrection.PublishedResultsRevisionValidator = resultscorrectionDescPublishedResultsRevision.Validators[0].(func(int) error)
+	// resultscorrectionDescCreatedByAccountID is the schema descriptor for created_by_account_id field.
+	resultscorrectionDescCreatedByAccountID := resultscorrectionFields[12].Descriptor()
+	// resultscorrection.CreatedByAccountIDValidator is a validator for the "created_by_account_id" field. It is called by the builders before save.
+	resultscorrection.CreatedByAccountIDValidator = resultscorrectionDescCreatedByAccountID.Validators[0].(func(int) error)
+	// resultscorrectionDescCreatedAt is the schema descriptor for created_at field.
+	resultscorrectionDescCreatedAt := resultscorrectionFields[13].Descriptor()
+	// resultscorrection.DefaultCreatedAt holds the default value on creation for the created_at field.
+	resultscorrection.DefaultCreatedAt = resultscorrectionDescCreatedAt.Default.(func() time.Time)
 	resultspublication.Policy = privacy.NewPolicies(schema.ResultsPublication{})
 	resultspublication.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
@@ -1818,12 +1880,16 @@ func init() {
 	resultspublicationDescRevision := resultspublicationFields[3].Descriptor()
 	// resultspublication.RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
 	resultspublication.RevisionValidator = resultspublicationDescRevision.Validators[0].(func(int) error)
+	// resultspublicationDescResultsCorrectionRevision is the schema descriptor for results_correction_revision field.
+	resultspublicationDescResultsCorrectionRevision := resultspublicationFields[12].Descriptor()
+	// resultspublication.ResultsCorrectionRevisionValidator is a validator for the "results_correction_revision" field. It is called by the builders before save.
+	resultspublication.ResultsCorrectionRevisionValidator = resultspublicationDescResultsCorrectionRevision.Validators[0].(func(int) error)
 	// resultspublicationDescCreatedByAccountID is the schema descriptor for created_by_account_id field.
-	resultspublicationDescCreatedByAccountID := resultspublicationFields[12].Descriptor()
+	resultspublicationDescCreatedByAccountID := resultspublicationFields[13].Descriptor()
 	// resultspublication.CreatedByAccountIDValidator is a validator for the "created_by_account_id" field. It is called by the builders before save.
 	resultspublication.CreatedByAccountIDValidator = resultspublicationDescCreatedByAccountID.Validators[0].(func(int) error)
 	// resultspublicationDescCreatedAt is the schema descriptor for created_at field.
-	resultspublicationDescCreatedAt := resultspublicationFields[13].Descriptor()
+	resultspublicationDescCreatedAt := resultspublicationFields[14].Descriptor()
 	// resultspublication.DefaultCreatedAt holds the default value on creation for the created_at field.
 	resultspublication.DefaultCreatedAt = resultspublicationDescCreatedAt.Default.(func() time.Time)
 	rundown.Policy = privacy.NewPolicies(schema.Rundown{})
