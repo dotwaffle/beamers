@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -327,6 +328,9 @@ func applyRestoreWithOptions(
 			"forced unsupported Restore requires repeated acknowledgment that it makes no safety claim",
 		)
 	}
+	if err = validatePreparedRestore(ctx, journal); err != nil {
+		return Manifest{}, err
+	}
 	if journal.Plan.ReplacesData {
 		current, openErr := store.Open(ctx, journal.Plan.DataDir)
 		if openErr != nil {
@@ -416,6 +420,77 @@ func applyRestoreWithOptions(
 		return Manifest{}, err
 	}
 	return journal.Plan.Manifest, nil
+}
+
+func validatePreparedRestore(ctx context.Context, journal restoreJournal) error {
+	manifest, err := Verify(filepath.Join(journal.StagingRoot, "archive"))
+	if err != nil {
+		return err
+	}
+	if !reflect.DeepEqual(manifest, journal.Plan.Manifest) {
+		return errors.New("staged Restore archive no longer matches its preview")
+	}
+	databasePath := filepath.Join(journal.StagedData, "beamers.db")
+	databaseHash, err := fileSHA256(databasePath)
+	if err != nil || databaseHash != manifest.DatabaseSHA256 {
+		return errors.Join(err, errors.New("staged Restore database integrity check failed"))
+	}
+	if err = validateStagedAttachments(journal.StagedAttachments, manifest.Attachments); err != nil {
+		return err
+	}
+	if journal.Plan.ForcedUnsupported {
+		inspection, inspectErr := store.InspectUnsupportedSnapshot(ctx, databasePath)
+		if inspectErr != nil ||
+			inspection.SchemaVersion != manifest.SchemaVersion ||
+			!slices.Equal(
+				inspection.UnknownSchemaElements,
+				journal.Plan.UnknownSchemaElements,
+			) {
+			return errors.Join(
+				inspectErr,
+				errors.New("staged unsupported Restore no longer matches its preview"),
+			)
+		}
+		return nil
+	}
+	return errors.Join(validateCompatibility(manifest), store.ValidateSnapshot(ctx, databasePath))
+}
+
+func validateStagedAttachments(root string, attachments []Attachment) error {
+	expected := make(map[string]Attachment, len(attachments))
+	for _, attachment := range attachments {
+		expected[filepath.Clean(attachment.StorageKey)] = attachment
+		if err := verifyAttachment(root, attachment); err != nil {
+			return err
+		}
+	}
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			if errors.Is(walkErr, os.ErrNotExist) && len(expected) == 0 {
+				return fs.SkipAll
+			}
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		relative, relativeErr := filepath.Rel(root, path)
+		if relativeErr != nil || !entry.Type().IsRegular() {
+			return errors.New("staged Restore contains an invalid Attachment")
+		}
+		if _, ok := expected[relative]; !ok {
+			return errors.New("staged Restore contains an unreferenced Attachment")
+		}
+		delete(expected, relative)
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if len(expected) != 0 {
+		return errors.New("staged Restore is missing an Attachment")
+	}
+	return nil
 }
 
 // RecoverRestore rolls back an interrupted cutover before an installation opens.

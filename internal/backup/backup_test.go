@@ -171,6 +171,33 @@ func TestVerifyRejectsTamperedAttachment(t *testing.T) {
 	}
 }
 
+func TestVerifyRejectsTamperedManifest(t *testing.T) {
+	dataDir := filepath.Join(t.TempDir(), "installation")
+	if err := store.Initialize(t.Context(), dataDir); err != nil {
+		t.Fatalf("initialize installation: %v", err)
+	}
+	archivePath := filepath.Join(t.TempDir(), "backup.zip")
+	if _, err := Create(t.Context(), CreateInput{
+		DataDir: dataDir, OutputPath: archivePath, Mode: Sanitized,
+	}); err != nil {
+		t.Fatalf("create Backup: %v", err)
+	}
+	tamperedPath := filepath.Join(t.TempDir(), "tampered.zip")
+	rewriteZIPEntry(
+		t,
+		archivePath,
+		tamperedPath,
+		manifestName,
+		[]byte(`{"format_version":1,"mode":"Sanitized","schema_version":1,`+
+			`"minimum_reader_schema_version":1,"minimum_writer_schema_version":1,`+
+			`"created_at":"2026-07-24T12:00:00Z","database_sha256":"tampered",`+
+			`"attachments":[]}`),
+	)
+	if _, err := Verify(tamperedPath); err == nil {
+		t.Fatal("tampered manifest unexpectedly verified")
+	}
+}
+
 func TestRestoreReplacesExistingInstallationThroughDurableJournal(t *testing.T) {
 	ctx := t.Context()
 	sourceDataDir := filepath.Join(t.TempDir(), "source")
@@ -228,6 +255,52 @@ func TestRestoreReplacesExistingInstallationThroughDurableJournal(t *testing.T) 
 	}
 	if err = errors.Join(restored.Ready(ctx), restored.Close()); err != nil {
 		t.Fatalf("restored installation readiness: %v", err)
+	}
+}
+
+func TestRestoreRejectsStagingChangedAfterPreview(t *testing.T) {
+	ctx := t.Context()
+	sourceDataDir := filepath.Join(t.TempDir(), "source")
+	if err := store.Initialize(ctx, sourceDataDir); err != nil {
+		t.Fatalf("initialize source installation: %v", err)
+	}
+	archivePath := filepath.Join(t.TempDir(), "backup.zip")
+	if _, err := Create(ctx, CreateInput{
+		DataDir: sourceDataDir, OutputPath: archivePath, Mode: Sanitized,
+	}); err != nil {
+		t.Fatalf("create Backup: %v", err)
+	}
+	targetDataDir := filepath.Join(t.TempDir(), "target")
+	if err := store.Initialize(ctx, targetDataDir); err != nil {
+		t.Fatalf("initialize target installation: %v", err)
+	}
+	oldMarker := filepath.Join(targetDataDir, "old-generation")
+	if err := os.WriteFile(oldMarker, []byte("old"), 0o600); err != nil {
+		t.Fatalf("write old-generation marker: %v", err)
+	}
+	plan, err := PrepareRestore(ctx, RestoreInput{
+		InputPath: archivePath, DataDir: targetDataDir, Replace: true,
+	})
+	if err != nil {
+		t.Fatalf("prepare Restore: %v", err)
+	}
+	journal, err := readRestoreJournal(plan.JournalPath)
+	if err != nil {
+		t.Fatalf("read Restore journal: %v", err)
+	}
+	if err = os.WriteFile(
+		filepath.Join(journal.StagedData, "beamers.db"),
+		[]byte("changed after preview"),
+		0o600,
+	); err != nil {
+		t.Fatalf("change staged database: %v", err)
+	}
+
+	if _, err = ApplyRestore(ctx, plan.JournalPath); err == nil {
+		t.Fatal("changed Restore staging unexpectedly applied")
+	}
+	if content, readErr := os.ReadFile(oldMarker); readErr != nil || string(content) != "old" {
+		t.Fatalf("current installation changed = %q, %v", content, readErr)
 	}
 }
 
