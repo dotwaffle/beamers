@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -67,6 +68,11 @@ func ApplyRestoreWithOptions(
 	return backup.ApplyRestoreWithOptions(ctx, journalPath, options)
 }
 
+// QuarantineDamagedRestoreJournal preserves a journal that cannot be resumed safely.
+func QuarantineDamagedRestoreJournal(dataDir string) (string, error) {
+	return backup.QuarantineDamagedRestoreJournal(dataDir)
+}
+
 var (
 	// ErrAlreadyInitialized means initialization found existing installation data.
 	ErrAlreadyInitialized = store.ErrAlreadyInitialized
@@ -81,6 +87,7 @@ var (
 // Installation coordinates access to installation persistence.
 type Installation struct {
 	storage          *store.SQLite
+	releaseAccess    func() error
 	authentication   *auth.Service
 	displays         *displays.Service
 	activation       *activation.Service
@@ -106,7 +113,50 @@ type OpenConfig struct {
 
 // Initialize creates a new installation with the committed schema.
 func Initialize(ctx context.Context, dataDir string) error {
-	return store.Initialize(ctx, dataDir)
+	return InitializeWithConfig(ctx, OpenConfig{DataDir: dataDir})
+}
+
+// InitializeWithConfig creates an installation only when all configured roots are unused.
+func InitializeWithConfig(ctx context.Context, config OpenConfig) (returnErr error) {
+	if config.DataDir == "" {
+		return store.Initialize(ctx, config.DataDir)
+	}
+	if config.AttachmentsDir == "" {
+		config.AttachmentsDir = filepath.Join(config.DataDir, "attachments")
+	}
+	roots := configuredAccessRoots(config)
+	for _, root := range roots {
+		marker, err := store.ExclusiveAccessMarker(root)
+		if err != nil {
+			return err
+		}
+		if err = os.MkdirAll(filepath.Dir(marker), 0o700); err != nil {
+			return fmt.Errorf("create exclusive access marker directory: %w", err)
+		}
+	}
+	release, err := store.HoldExclusiveAccess(roots...)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, release())
+	}()
+
+	if _, err = os.Lstat(config.DataDir + ".beamers-restore.json"); err == nil {
+		return fmt.Errorf("%w: Restore journal exists", ErrAlreadyInitialized)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("inspect Restore journal: %w", err)
+	}
+	if store.UsesExternalAttachments(config.DataDir, config.AttachmentsDir) {
+		entries, readErr := os.ReadDir(config.AttachmentsDir)
+		if readErr == nil && len(entries) != 0 {
+			return fmt.Errorf("%w: Attachment Store contains state", ErrAlreadyInitialized)
+		}
+		if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
+			return fmt.Errorf("inspect Attachment Store: %w", readErr)
+		}
+	}
+	return store.Initialize(ctx, config.DataDir)
 }
 
 // OpenInstallation opens storage for normal service or local recovery mode.
@@ -124,14 +174,40 @@ func OpenInstallationWithConfig(
 	}
 	if config.DataDir != "" {
 		if err := backup.RecoverRestore(config.DataDir); err != nil {
-			return nil, fmt.Errorf("recover interrupted Restore: %w", err)
+			return &Installation{storage: store.RecoverySQLite(
+				fmt.Errorf("recover interrupted Restore: %w", err),
+			)}, nil
+		}
+	}
+	ownedState, err := configuredInstallationHasState(config)
+	if err != nil {
+		return &Installation{storage: store.RecoverySQLite(
+			fmt.Errorf("inspect configured installation state: %w", err),
+		)}, nil
+	}
+	var releaseAccess func() error
+	if ownedState {
+		releaseAccess, err = store.HoldExclusiveAccess(configuredAccessRoots(config)...)
+		if err != nil {
+			if errors.Is(err, ErrInstallationInUse) {
+				return nil, err
+			}
+			return &Installation{storage: store.RecoverySQLite(
+				fmt.Errorf("lock configured installation state: %w", err),
+			)}, nil
 		}
 	}
 	storage, err := store.Open(ctx, config.DataDir)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, ErrInstallationInUse) {
+			return nil, errors.Join(err, closeAccess(releaseAccess))
+		}
+		return &Installation{
+			storage:       store.RecoverySQLite(err),
+			releaseAccess: releaseAccess,
+		}, nil
 	}
-	installation := &Installation{storage: storage}
+	installation := &Installation{storage: storage, releaseAccess: releaseAccess}
 	startupErr := storage.StartupError()
 	if startupErr != nil {
 		// Startup storage failures deliberately produce a recovery-mode handle.
@@ -139,81 +215,81 @@ func OpenInstallationWithConfig(
 	}
 	overrideService, err := overrides.New(ctx, storage, time.Now)
 	if err != nil {
-		return nil, errors.Join(err, storage.Close())
+		return nil, errors.Join(err, installation.Close())
 	}
 	installation.overrides = overrideService
 	authConfig := auth.DefaultConfig()
 	authConfig.StorageState = overrideService
 	authentication, err := auth.New(storage, authConfig)
 	if err != nil {
-		return nil, errors.Join(err, storage.Close())
+		return nil, errors.Join(err, installation.Close())
 	}
 	installation.authentication = authentication
 	activationService, err := activation.New(storage, time.Now)
 	if err != nil {
-		return nil, errors.Join(err, storage.Close())
+		return nil, errors.Join(err, installation.Close())
 	}
 	installation.activation = activationService
 	attachmentService, err := attachments.New(storage, config.AttachmentsDir, time.Now)
 	if err != nil {
-		return nil, errors.Join(err, storage.Close())
+		return nil, errors.Join(err, installation.Close())
 	}
 	installation.attachments = attachmentService
 	eventService, err := events.New(storage, time.Now)
 	if err != nil {
-		return nil, errors.Join(err, storage.Close())
+		return nil, errors.Join(err, installation.Close())
 	}
 	installation.events = eventService
 	displayConfig := displays.DefaultConfig()
 	displayConfig.Emergency = overrideService
 	displayService, err := displays.New(storage, displayConfig)
 	if err != nil {
-		return nil, errors.Join(err, storage.Close())
+		return nil, errors.Join(err, installation.Close())
 	}
 	installation.displays = displayService
 	competitionService, err := competition.New(storage, time.Now)
 	if err != nil {
-		return nil, errors.Join(err, storage.Close())
+		return nil, errors.Join(err, installation.Close())
 	}
 	installation.competition = competitionService
 	programControlService, err := programcontrol.New(storage, time.Now)
 	if err != nil {
-		return nil, errors.Join(err, storage.Close())
+		return nil, errors.Join(err, installation.Close())
 	}
 	installation.programControl = programControlService
 	resultsService, err := results.New(storage, time.Now)
 	if err != nil {
-		return nil, errors.Join(err, storage.Close())
+		return nil, errors.Join(err, installation.Close())
 	}
 	installation.results = resultsService
 	rundownCommands, err := rundown.NewCommands(storage, time.Now)
 	if err != nil {
-		return nil, errors.Join(err, storage.Close())
+		return nil, errors.Join(err, installation.Close())
 	}
 	installation.rundownCommands = rundownCommands
 	rundownQueries, err := rundown.NewQueries(storage)
 	if err != nil {
-		return nil, errors.Join(err, storage.Close())
+		return nil, errors.Join(err, installation.Close())
 	}
 	installation.rundownQueries = rundownQueries
 	scheduleService, err := schedule.New(storage, time.Now)
 	if err != nil {
-		return nil, errors.Join(err, storage.Close())
+		return nil, errors.Join(err, installation.Close())
 	}
 	installation.schedule = scheduleService
 	baselineCommands, err := schedulebaseline.NewCommands(storage, time.Now)
 	if err != nil {
-		return nil, errors.Join(err, storage.Close())
+		return nil, errors.Join(err, installation.Close())
 	}
 	installation.baselineCommands = baselineCommands
 	baselineQueries, err := schedulebaseline.NewQueries(storage)
 	if err != nil {
-		return nil, errors.Join(err, storage.Close())
+		return nil, errors.Join(err, installation.Close())
 	}
 	installation.baselineQueries = baselineQueries
 	sessionControlService, err := sessioncontrol.New(storage, time.Now)
 	if err != nil {
-		return nil, errors.Join(err, storage.Close())
+		return nil, errors.Join(err, installation.Close())
 	}
 	installation.sessionControl = sessionControlService
 	return installation, nil
@@ -245,6 +321,13 @@ func IssueAdministratorBootstrap(
 	ctx context.Context,
 	dataDir string,
 ) (token string, returnErr error) {
+	releaseAccess, err := store.HoldExclusiveAccess(dataDir)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, releaseAccess())
+	}()
 	storage, err := store.Open(ctx, dataDir)
 	if err != nil {
 		return "", err
@@ -361,5 +444,70 @@ func (installation *Installation) SessionControl() *sessioncontrol.Service {
 
 // Close closes storage and releases the installation lock.
 func (installation *Installation) Close() error {
-	return installation.storage.Close()
+	if installation == nil {
+		return nil
+	}
+	return errors.Join(installation.storage.Close(), closeAccess(installation.releaseAccess))
+}
+
+func configuredAccessRoots(config OpenConfig) []string {
+	roots := []string{config.DataDir}
+	if store.UsesExternalAttachments(config.DataDir, config.AttachmentsDir) {
+		roots = append(roots, config.AttachmentsDir)
+	}
+	return roots
+}
+
+func configuredInstallationHasState(config OpenConfig) (bool, error) {
+	for _, path := range append(
+		configuredAccessRoots(config),
+		config.DataDir+".beamers-restore.json",
+	) {
+		found, err := pathHasState(path)
+		if err != nil {
+			return false, err
+		}
+		if found {
+			return true, nil
+		}
+	}
+	for _, root := range configuredAccessRoots(config) {
+		marker, err := store.ExclusiveAccessMarker(root)
+		if err != nil {
+			return false, err
+		}
+		found, err := pathHasState(marker)
+		if err != nil {
+			return false, err
+		}
+		if found {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func pathHasState(path string) (bool, error) {
+	info, err := os.Lstat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if !info.IsDir() {
+		return true, nil
+	}
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return false, err
+	}
+	return len(entries) != 0, nil
+}
+
+func closeAccess(release func() error) error {
+	if release == nil {
+		return nil
+	}
+	return release()
 }

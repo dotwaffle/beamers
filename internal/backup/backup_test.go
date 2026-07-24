@@ -300,8 +300,22 @@ func TestRestoreReplacesExistingInstallationThroughDurableJournal(t *testing.T) 
 		t.Fatalf("Restore preview changed current installation: %v", err)
 	}
 
-	if _, err = ApplyRestore(ctx, plan.JournalPath); err != nil {
+	installedGenerationLocked := false
+	if _, err = applyRestore(ctx, plan.JournalPath, func(phase restorePhase) error {
+		if phase != restoreDataInstalled {
+			return nil
+		}
+		release, openErr := store.HoldExclusiveAccess(targetDataDir)
+		if openErr == nil {
+			return release()
+		}
+		installedGenerationLocked = errors.Is(openErr, store.ErrInstallationInUse)
+		return nil
+	}); err != nil {
 		t.Fatalf("apply Restore: %v", err)
+	}
+	if !installedGenerationLocked {
+		t.Fatal("installed generation was not held exclusively through Restore commit")
 	}
 	if _, err = os.Stat(oldMarker); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("old marker remains in restored installation: %v", err)
@@ -429,6 +443,16 @@ func TestRestoreRecoversInterruptedCrossFilesystemCutover(t *testing.T) {
 		t.Fatalf("interrupted Restore error = %v", err)
 	}
 
+	releaseAccess, err := store.HoldExclusiveAccess(targetAttachmentsDir)
+	if err != nil {
+		t.Fatalf("hold interrupted Attachment Store: %v", err)
+	}
+	if err = RecoverRestore(targetDataDir); !errors.Is(err, store.ErrInstallationInUse) {
+		t.Fatalf("contended Restore recovery error = %v", err)
+	}
+	if err = releaseAccess(); err != nil {
+		t.Fatalf("release interrupted Attachment Store: %v", err)
+	}
 	if err = RecoverRestore(targetDataDir); err != nil {
 		t.Fatalf("recover interrupted Restore: %v", err)
 	}

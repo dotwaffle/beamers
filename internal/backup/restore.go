@@ -85,9 +85,8 @@ func PrepareRestore(
 		return RestorePlan{}, fmt.Errorf("resolve Restore data directory: %w", pathErr)
 	}
 	input.DataDir = absoluteDataDir
-	defaultAttachments := filepath.Join(input.DataDir, "attachments")
 	if input.AttachmentsDir == "" {
-		input.AttachmentsDir = defaultAttachments
+		input.AttachmentsDir = filepath.Join(input.DataDir, "attachments")
 	} else {
 		absoluteAttachments, attachmentsPathErr := filepath.Abs(input.AttachmentsDir)
 		if attachmentsPathErr != nil {
@@ -98,7 +97,7 @@ func PrepareRestore(
 		}
 		input.AttachmentsDir = absoluteAttachments
 	}
-	externalAttachments := filepath.Clean(input.AttachmentsDir) != filepath.Clean(defaultAttachments)
+	externalAttachments := store.UsesExternalAttachments(input.DataDir, input.AttachmentsDir)
 	if externalAttachments && pathsOverlap(input.DataDir, input.AttachmentsDir) {
 		return RestorePlan{}, errors.New(
 			"Restore data directory and external Attachment Store must not overlap",
@@ -324,7 +323,7 @@ func applyRestoreWithOptions(
 	journalPath string,
 	options ApplyOptions,
 	afterPhase func(restorePhase) error,
-) (Manifest, error) {
+) (_ Manifest, returnErr error) {
 	journal, err := readRestoreJournal(journalPath)
 	if err != nil {
 		return Manifest{}, err
@@ -340,17 +339,19 @@ func applyRestoreWithOptions(
 	if preparedErr := validatePreparedRestore(ctx, journal); preparedErr != nil {
 		return Manifest{}, preparedErr
 	}
-	if journal.Plan.ReplacesData {
-		current, openErr := store.Open(ctx, journal.Plan.DataDir)
-		if openErr != nil {
-			return Manifest{}, openErr
-		}
-		if closeErr := current.Close(); closeErr != nil {
-			return Manifest{}, closeErr
-		}
+	accessRoots := []string{journal.Plan.DataDir}
+	if journal.ExternalAttachments {
+		accessRoots = append(accessRoots, journal.Plan.AttachmentsDir)
 	}
-	fail := func(cause error) (Manifest, error) {
-		return Manifest{}, errors.Join(cause, rollbackRestore(journal))
+	releaseAccess, lockErr := store.HoldExclusiveAccess(accessRoots...)
+	if lockErr != nil {
+		return Manifest{}, lockErr
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, releaseAccess())
+	}()
+	fail := func(cause error) error {
+		return errors.Join(cause, rollbackRestore(journal))
 	}
 	advance := func(phase restorePhase) error {
 		journal.Phase = phase
@@ -365,7 +366,7 @@ func applyRestoreWithOptions(
 
 	if journal.Plan.ReplacesData {
 		if err = renameAndSync(journal.Plan.DataDir, journal.Plan.DataQuarantine); err != nil {
-			return fail(fmt.Errorf("quarantine current installation: %w", err))
+			return Manifest{}, fail(fmt.Errorf("quarantine current installation: %w", err))
 		}
 	}
 	if advanceErr := advance(restoreDataQuarantined); advanceErr != nil {
@@ -376,7 +377,7 @@ func applyRestoreWithOptions(
 			journal.Plan.AttachmentsDir,
 			journal.Plan.AttachmentsQuarantine,
 		); err != nil {
-			return fail(fmt.Errorf("quarantine current Attachment Store: %w", err))
+			return Manifest{}, fail(fmt.Errorf("quarantine current Attachment Store: %w", err))
 		}
 	}
 	if advanceErr := advance(restoreAttachmentsQuarantined); advanceErr != nil {
@@ -384,14 +385,14 @@ func applyRestoreWithOptions(
 	}
 	if journal.ExternalAttachments {
 		if err = renameAndSync(journal.StagedAttachments, journal.Plan.AttachmentsDir); err != nil {
-			return fail(fmt.Errorf("install restored Attachment Store: %w", err))
+			return Manifest{}, fail(fmt.Errorf("install restored Attachment Store: %w", err))
 		}
 	}
 	if advanceErr := advance(restoreAttachmentsInstalled); advanceErr != nil {
 		return Manifest{}, advanceErr
 	}
 	if err = renameAndSync(journal.StagedData, journal.Plan.DataDir); err != nil {
-		return fail(fmt.Errorf("install restored data directory: %w", err))
+		return Manifest{}, fail(fmt.Errorf("install restored data directory: %w", err))
 	}
 	if advanceErr := advance(restoreDataInstalled); advanceErr != nil {
 		return Manifest{}, advanceErr
@@ -403,27 +404,21 @@ func applyRestoreWithOptions(
 			filepath.Join(journal.Plan.DataDir, "beamers.db"),
 		)
 		if inspectErr != nil || inspection.SchemaVersion != journal.Plan.Manifest.SchemaVersion {
-			return fail(errors.Join(
+			return Manifest{}, fail(errors.Join(
 				inspectErr,
 				errors.New("installed unsupported Restore copy changed during cutover"),
 			))
 		}
 	} else {
-		installed, openErr := store.Open(ctx, journal.Plan.DataDir)
-		if openErr != nil {
-			return fail(openErr)
-		}
-		readyErr := installed.StartupError()
-		if readyErr == nil {
-			readyErr = installed.Ready(ctx)
-		}
-		readyErr = errors.Join(readyErr, installed.Close())
-		if readyErr != nil {
-			return fail(readyErr)
+		if readyErr := store.ValidateSnapshot(
+			ctx,
+			filepath.Join(journal.Plan.DataDir, "beamers.db"),
+		); readyErr != nil {
+			return Manifest{}, fail(readyErr)
 		}
 	}
 	if err = advance(restoreCommitted); err != nil {
-		return fail(err)
+		return Manifest{}, fail(err)
 	}
 	if err := cleanupCommittedRestore(journal); err != nil {
 		return Manifest{}, err
@@ -514,7 +509,7 @@ func validateStagedAttachments(root string, attachments []Attachment) error {
 }
 
 // RecoverRestore rolls back an interrupted cutover before an installation opens.
-func RecoverRestore(dataDir string) error {
+func RecoverRestore(dataDir string) (returnErr error) {
 	absoluteDataDir, err := filepath.Abs(dataDir)
 	if err != nil {
 		return fmt.Errorf("resolve Restore recovery path: %w", err)
@@ -527,6 +522,17 @@ func RecoverRestore(dataDir string) error {
 	if err != nil {
 		return err
 	}
+	accessRoots := []string{journal.Plan.DataDir}
+	if journal.ExternalAttachments {
+		accessRoots = append(accessRoots, journal.Plan.AttachmentsDir)
+	}
+	releaseAccess, err := store.HoldExclusiveAccess(accessRoots...)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, releaseAccess())
+	}()
 	if journal.Phase == restoreCommitted {
 		return cleanupCommittedRestore(journal)
 	}
@@ -538,6 +544,39 @@ func RecoverRestore(dataDir string) error {
 		return nil
 	}
 	return rollbackRestore(journal)
+}
+
+// QuarantineDamagedRestoreJournal preserves an unreadable journal outside its active path.
+func QuarantineDamagedRestoreJournal(dataDir string) (_ string, returnErr error) {
+	absoluteDataDir, err := filepath.Abs(dataDir)
+	if err != nil {
+		return "", fmt.Errorf("resolve Restore recovery path: %w", err)
+	}
+	releaseAccess, err := store.HoldExclusiveAccess(absoluteDataDir)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, releaseAccess())
+	}()
+	journalPath := absoluteDataDir + ".beamers-restore.json"
+	if _, err = readRestoreJournal(journalPath); err == nil {
+		return "", errors.New("Restore journal is valid; resume or recover it instead")
+	} else if errors.Is(err, os.ErrNotExist) {
+		return "", errors.New("Restore journal does not exist")
+	}
+	quarantine, err := os.MkdirTemp(
+		filepath.Dir(absoluteDataDir),
+		"."+filepath.Base(absoluteDataDir)+".beamers-damaged-journal-*",
+	)
+	if err != nil {
+		return "", fmt.Errorf("reserve damaged Restore journal quarantine: %w", err)
+	}
+	preservedPath := filepath.Join(quarantine, "journal")
+	if err = renameAndSync(journalPath, preservedPath); err != nil {
+		return "", errors.Join(err, os.Remove(quarantine))
+	}
+	return preservedPath, nil
 }
 
 func validateCompatibility(manifest Manifest) error {

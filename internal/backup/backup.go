@@ -82,6 +82,20 @@ func Create(ctx context.Context, input CreateInput) (manifest Manifest, returnEr
 	if input.DataDir == "" {
 		return Manifest{}, errors.New("backup data directory is required")
 	}
+	if input.AttachmentsDir == "" {
+		input.AttachmentsDir = filepath.Join(input.DataDir, "attachments")
+	}
+	accessRoots := []string{input.DataDir}
+	if store.UsesExternalAttachments(input.DataDir, input.AttachmentsDir) {
+		accessRoots = append(accessRoots, input.AttachmentsDir)
+	}
+	releaseAccess, err := store.HoldExclusiveAccess(accessRoots...)
+	if err != nil {
+		return Manifest{}, err
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, releaseAccess())
+	}()
 	installation, err := store.Open(ctx, input.DataDir)
 	if err != nil {
 		return Manifest{}, err

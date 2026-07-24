@@ -8029,6 +8029,132 @@ func TestServeRefusesUnsupportedSchema(t *testing.T) {
 	}
 }
 
+func TestUnsafeStartupOnlyServesLocalRecoveryDiagnostics(t *testing.T) {
+	bin := buildBeamers(t)
+	dataDir := filepath.Join(t.TempDir(), "data")
+	runBeamers(t, bin, "init", "--data-dir", dataDir)
+	if err := storetest.MarkSchemaNewer(
+		t.Context(),
+		filepath.Join(dataDir, "beamers.db"),
+	); err != nil {
+		t.Fatalf("make installation schema unsafe: %v", err)
+	}
+
+	server := startBeamersAt(t, bin, dataDir, "0.0.0.0:0")
+	assertLoopbackAddress(t, server.address)
+	assertRecoveryProbes(t, server.address)
+	assertRecoveryDiagnostics(t, server.address, "unsupported_schema", "")
+	assertGETResponse(
+		t,
+		authenticatedClient(t),
+		server.address,
+		"/schedule",
+		http.StatusNotFound,
+		"404 page not found\n",
+	)
+	request, err := http.NewRequestWithContext(
+		t.Context(),
+		http.MethodPost,
+		"http://"+server.address+"/admin/events",
+		strings.NewReader("{}"),
+	)
+	if err != nil {
+		t.Fatalf("create recovery Crew request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Sec-Fetch-Site", "same-origin")
+	response, err := authenticatedClient(t).Do(request)
+	if err != nil {
+		t.Fatalf("send recovery Crew request: %v", err)
+	}
+	body, readErr := io.ReadAll(response.Body)
+	closeErr := response.Body.Close()
+	if err = errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read recovery Crew response: %v", err)
+	}
+	if response.StatusCode != http.StatusNotFound ||
+		response.Header.Get("X-Beamers-Build") != "" ||
+		string(body) != "404 page not found\n" {
+		t.Fatalf("recovery Crew response = %d %q, headers %v", response.StatusCode, body, response.Header)
+	}
+	server.stop(t)
+}
+
+func TestUnreadableInstallationMarkerStaysInLocalRecovery(t *testing.T) {
+	bin := buildBeamers(t)
+	dataDir := filepath.Join(t.TempDir(), "data")
+	runBeamers(t, bin, "init", "--data-dir", dataDir)
+	markerPath := filepath.Join(dataDir, ".beamers.lock")
+	if err := os.Chmod(markerPath, 0); err != nil {
+		t.Fatalf("make installation marker unreadable: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(markerPath, 0o600)
+	})
+
+	server := startBeamersAt(t, bin, dataDir, "0.0.0.0:0")
+	assertLoopbackAddress(t, server.address)
+	assertRecoveryProbes(t, server.address)
+	assertRecoveryDiagnostics(t, server.address, "unavailable", "open installation lock")
+	server.stop(t)
+}
+
+func TestDamagedRestoreJournalStaysInLocalRecovery(t *testing.T) {
+	bin := buildBeamers(t)
+	dataDir := filepath.Join(t.TempDir(), "data")
+	runBeamers(t, bin, "init", "--data-dir", dataDir)
+	backupPath := filepath.Join(t.TempDir(), "backup.zip")
+	runBeamers(
+		t,
+		bin,
+		"backup",
+		"--data-dir", dataDir,
+		"--output", backupPath,
+	)
+	journalPath := dataDir + ".beamers-restore.json"
+	if err := os.WriteFile(journalPath, []byte("damaged"), 0o600); err != nil {
+		t.Fatalf("damage Restore journal: %v", err)
+	}
+
+	server := startBeamersAt(t, bin, dataDir, "0.0.0.0:0")
+	assertLoopbackAddress(t, server.address)
+	assertRecoveryProbes(t, server.address)
+	assertRecoveryDiagnostics(t, server.address, "unavailable", "recover interrupted Restore")
+	server.stop(t)
+	if contents, err := os.ReadFile(journalPath); err != nil || string(contents) != "damaged" {
+		t.Fatalf("damaged Restore journal changed = %q, %v", contents, err)
+	}
+
+	runBeamersFails(
+		t,
+		bin,
+		"restore", "quarantine-journal",
+		"--data-dir", dataDir,
+	)
+	output := strings.TrimSpace(runBeamersOutput(
+		t,
+		bin,
+		"restore", "quarantine-journal",
+		"--data-dir", dataDir,
+		"--acknowledge-damaged-journal",
+	))
+	const prefix = "preserved damaged Restore journal at "
+	if !strings.HasPrefix(output, prefix) {
+		t.Fatalf("quarantine journal output = %q", output)
+	}
+	preservedPath := strings.TrimPrefix(output, prefix)
+	if contents, err := os.ReadFile(preservedPath); err != nil || string(contents) != "damaged" {
+		t.Fatalf("preserved Restore journal = %q, %v", contents, err)
+	}
+	runBeamersOutput(
+		t,
+		bin,
+		"restore", "preview",
+		"--input", backupPath,
+		"--data-dir", dataDir,
+	)
+}
+
 func TestMissingDatabaseCannotBeReinitialized(t *testing.T) {
 	bin := buildBeamers(t)
 	dataDir := filepath.Join(t.TempDir(), "data")
@@ -8037,6 +8163,125 @@ func TestMissingDatabaseCannotBeReinitialized(t *testing.T) {
 		t.Fatalf("remove initialized database: %v", err)
 	}
 	runBeamersFails(t, bin, "init", "--data-dir", dataDir)
+}
+
+func TestInitializationRequiresCompleteUnusedInstallationState(t *testing.T) {
+	bin := buildBeamers(t)
+	root := t.TempDir()
+
+	failedCommandDataDir := filepath.Join(root, "failed-command-data")
+	runBeamersFails(
+		t,
+		bin,
+		"backup",
+		"--data-dir", failedCommandDataDir,
+		"--output", filepath.Join(root, "missing-backup.zip"),
+	)
+	runBeamersFails(t, bin, "bootstrap", "--data-dir", failedCommandDataDir)
+	runBeamers(t, bin, "init", "--data-dir", failedCommandDataDir)
+
+	journalDataDir := filepath.Join(root, "journal-data")
+	if err := os.WriteFile(
+		journalDataDir+".beamers-restore.json",
+		[]byte("interrupted"),
+		0o600,
+	); err != nil {
+		t.Fatalf("write Restore journal: %v", err)
+	}
+	runBeamersFails(t, bin, "init", "--data-dir", journalDataDir)
+	if _, err := os.Stat(journalDataDir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("initialization changed journaled installation: %v", err)
+	}
+
+	usedAttachments := filepath.Join(root, "used-attachments")
+	if err := os.Mkdir(usedAttachments, 0o700); err != nil {
+		t.Fatalf("create used Attachment Store: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(usedAttachments, "owned"), []byte("state"), 0o600); err != nil {
+		t.Fatalf("write Attachment state: %v", err)
+	}
+	attachmentDataDir := filepath.Join(root, "attachment-data")
+	runBeamersFails(
+		t,
+		bin,
+		"init",
+		"--data-dir", attachmentDataDir,
+		"--attachments-dir", usedAttachments,
+	)
+	if _, err := os.Stat(attachmentDataDir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("initialization changed installation with Attachment state: %v", err)
+	}
+
+	emptyAttachments := filepath.Join(root, "empty-attachments")
+	if err := os.Mkdir(emptyAttachments, 0o700); err != nil {
+		t.Fatalf("create empty Attachment Store: %v", err)
+	}
+	unusedDataDir := filepath.Join(root, "unused-data")
+	runBeamers(
+		t,
+		bin,
+		"init",
+		"--data-dir", unusedDataDir,
+		"--attachments-dir", emptyAttachments,
+	)
+}
+
+func TestRestoreRequiresExclusiveDatabaseAndAttachmentRoots(t *testing.T) {
+	bin := buildBeamers(t)
+	root := t.TempDir()
+
+	sourceDataDir := filepath.Join(root, "source")
+	runBeamers(t, bin, "init", "--data-dir", sourceDataDir)
+	backupPath := filepath.Join(root, "backup.zip")
+	runBeamers(t, bin, "backup", "--data-dir", sourceDataDir, "--output", backupPath)
+
+	targetDataDir := filepath.Join(root, "target")
+	runBeamers(t, bin, "init", "--data-dir", targetDataDir)
+	sharedAttachments := filepath.Join(root, "shared-attachments")
+	if err := os.Mkdir(sharedAttachments, 0o700); err != nil {
+		t.Fatalf("create shared Attachment Store: %v", err)
+	}
+	oldAttachment := filepath.Join(sharedAttachments, "owned")
+	if err := os.WriteFile(oldAttachment, []byte("current"), 0o600); err != nil {
+		t.Fatalf("write current Attachment state: %v", err)
+	}
+	planOutput := runBeamersOutput(
+		t,
+		bin,
+		"restore", "preview",
+		"--input", backupPath,
+		"--data-dir", targetDataDir,
+		"--attachments-dir", sharedAttachments,
+	)
+	var plan struct {
+		JournalPath string `json:"journal_path"`
+	}
+	if err := json.Unmarshal([]byte(planOutput), &plan); err != nil || plan.JournalPath == "" {
+		t.Fatalf("decode Restore plan: %+v, %v", plan, err)
+	}
+
+	holderDataDir := filepath.Join(root, "holder")
+	runBeamers(t, bin, "init", "--data-dir", holderDataDir)
+	holder := startBeamersWithAttachments(t, bin, holderDataDir, sharedAttachments)
+	runBeamersFails(
+		t,
+		bin,
+		"restore", "apply",
+		"--journal", plan.JournalPath,
+		"--acknowledge-replacement",
+	)
+	if contents, err := os.ReadFile(oldAttachment); err != nil || string(contents) != "current" {
+		t.Fatalf("contended Restore changed Attachment state = %q, %v", contents, err)
+	}
+	holder.stop(t)
+
+	runBeamers(
+		t,
+		bin,
+		"restore", "apply",
+		"--journal", plan.JournalPath,
+		"--acknowledge-replacement",
+	)
 }
 
 type runningServer struct {
@@ -8097,8 +8342,34 @@ func startBeamers(t *testing.T, bin, dataDir string) *runningServer {
 
 func startBeamersAt(t *testing.T, bin, dataDir, listenAddress string) *runningServer {
 	t.Helper()
+	return startBeamersWithAttachmentsAt(t, bin, dataDir, "", listenAddress)
+}
 
-	cmd := exec.CommandContext(t.Context(), bin, "serve", "--data-dir", dataDir, "--listen", listenAddress)
+func startBeamersWithAttachments(
+	t *testing.T,
+	bin, dataDir, attachmentsDir string,
+) *runningServer {
+	t.Helper()
+	return startBeamersWithAttachmentsAt(
+		t,
+		bin,
+		dataDir,
+		attachmentsDir,
+		"127.0.0.1:0",
+	)
+}
+
+func startBeamersWithAttachmentsAt(
+	t *testing.T,
+	bin, dataDir, attachmentsDir, listenAddress string,
+) *runningServer {
+	t.Helper()
+
+	args := []string{"serve", "--data-dir", dataDir, "--listen", listenAddress}
+	if attachmentsDir != "" {
+		args = append(args, "--attachments-dir", attachmentsDir)
+	}
+	cmd := exec.CommandContext(t.Context(), bin, args...)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		t.Fatalf("capture beamers stderr: %v", err)
@@ -8214,6 +8485,30 @@ func assertRecoveryProbes(t *testing.T, address string) {
 	assertProbe(t, address, "/livez", "live\n")
 	readiness := requestProbe(t.Context(), address, "/readyz", 5*time.Second)
 	assertProbeResult(t, "/readyz", readiness, http.StatusServiceUnavailable, "not ready\n")
+}
+
+func assertRecoveryDiagnostics(t *testing.T, address, wantStorage, wantDetail string) {
+	t.Helper()
+	response := get(t, authenticatedClient(t), address, "/diagnostics")
+	var diagnostic struct {
+		Mode    string `json:"mode"`
+		Storage string `json:"storage"`
+		Detail  string `json:"detail"`
+	}
+	decodeErr := json.NewDecoder(response.Body).Decode(&diagnostic)
+	closeErr := response.Body.Close()
+	if err := errors.Join(decodeErr, closeErr); err != nil {
+		t.Fatalf("read recovery diagnostics: %v", err)
+	}
+	if response.StatusCode != http.StatusOK ||
+		response.Header.Get("Cache-Control") != "no-store" ||
+		diagnostic.Mode != "recovery" ||
+		diagnostic.Storage != wantStorage ||
+		diagnostic.Detail == "" ||
+		len(diagnostic.Detail) > 512 ||
+		!strings.Contains(diagnostic.Detail, wantDetail) {
+		t.Fatalf("recovery diagnostics = %d %+v, headers %v", response.StatusCode, diagnostic, response.Header)
+	}
 }
 
 func assertLoopbackAddress(t *testing.T, address string) {

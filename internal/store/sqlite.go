@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,6 +29,7 @@ import (
 const (
 	databaseFilename = "beamers.db"
 	lockFilename     = ".beamers.lock"
+	accessLockSuffix = ".beamers-access.lock"
 	applicationID    = 0x424D5253
 )
 
@@ -211,7 +213,12 @@ func Open(ctx context.Context, dataDir string) (*SQLite, error) {
 }
 
 func recoverySQLite(startupErr error) (*SQLite, error) {
-	return (&SQLite{}).withStartupError(startupErr)
+	return RecoverySQLite(startupErr), nil
+}
+
+// RecoverySQLite creates a storage handle that can only report one startup failure.
+func RecoverySQLite(startupErr error) *SQLite {
+	return &SQLite{startupErr: startupErr}
 }
 
 func (installation *SQLite) withStartupError(startupErr error) (*SQLite, error) {
@@ -838,6 +845,67 @@ func validateCurrentSchema(ctx context.Context, database *sql.DB, migrations []m
 
 type installationLock struct {
 	file *os.File
+}
+
+// ExclusiveAccessMarker returns the stable lock path adjacent to one owned root.
+func ExclusiveAccessMarker(root string) (string, error) {
+	absolute, err := filepath.Abs(root)
+	if err != nil {
+		return "", fmt.Errorf("resolve exclusive access root: %w", err)
+	}
+	return absolute + accessLockSuffix, nil
+}
+
+// UsesExternalAttachments reports whether Attachments live outside their default root.
+func UsesExternalAttachments(dataDir, attachmentsDir string) bool {
+	return attachmentsDir != "" &&
+		filepath.Clean(attachmentsDir) != filepath.Clean(filepath.Join(dataDir, "attachments"))
+}
+
+// HoldExclusiveAccess locks configured roots without placing markers inside them.
+func HoldExclusiveAccess(roots ...string) (func() error, error) {
+	markers := make([]string, 0, len(roots))
+	seen := make(map[string]struct{}, len(roots))
+	for _, root := range roots {
+		if root == "" {
+			continue
+		}
+		marker, err := ExclusiveAccessMarker(root)
+		if err != nil {
+			return nil, err
+		}
+		if _, duplicate := seen[marker]; duplicate {
+			continue
+		}
+		seen[marker] = struct{}{}
+		markers = append(markers, marker)
+	}
+	sort.Strings(markers)
+
+	locks := make([]*installationLock, 0, len(markers))
+	release := func() error {
+		var releaseErr error
+		for _, lock := range slices.Backward(locks) {
+			releaseErr = errors.Join(releaseErr, lock.close())
+		}
+		return releaseErr
+	}
+	for _, marker := range markers {
+		file, err := os.OpenFile( //nolint:gosec // Host-configured root selects its adjacent lock.
+			marker,
+			os.O_CREATE|os.O_RDWR,
+			0o600,
+		)
+		if err != nil {
+			return nil, errors.Join(fmt.Errorf("open exclusive access marker: %w", err), release())
+		}
+		lock, err := lockInstallationFile(file)
+		if err != nil {
+			return nil, errors.Join(err, release())
+		}
+		locks = append(locks, lock)
+	}
+	return release, nil
 }
 
 func createInstallationLock(dataDir string) (*installationLock, error) {

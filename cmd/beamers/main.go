@@ -74,6 +74,8 @@ func runRestore(ctx context.Context, args []string, stdout, stderr io.Writer) er
 			return runRestorePreview(ctx, args[1:], stdout, stderr)
 		case "apply":
 			return runRestoreApply(ctx, args[1:], stdout, stderr)
+		case "quarantine-journal":
+			return runRestoreQuarantineJournal(args[1:], stdout, stderr)
 		}
 	}
 	flags := flag.NewFlagSet("restore", flag.ContinueOnError)
@@ -100,6 +102,32 @@ func runRestore(ctx context.Context, args []string, stdout, stderr io.Writer) er
 		return err
 	}
 	_, err = fmt.Fprintf(stdout, "restored %s Backup into %s\n", manifest.Mode, *dataDir)
+	return err
+}
+
+func runRestoreQuarantineJournal(args []string, stdout, stderr io.Writer) error {
+	flags := flag.NewFlagSet("restore quarantine-journal", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	dataDir := flags.String("data-dir", "", "installation data directory")
+	acknowledge := flags.Bool(
+		"acknowledge-damaged-journal",
+		false,
+		"acknowledge that the unreadable journal will move to quarantine",
+	)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 {
+		return errors.New("restore quarantine-journal accepts no positional arguments")
+	}
+	if !*acknowledge {
+		return errors.New("damaged Restore journal acknowledgment is required")
+	}
+	preservedPath, err := operations.QuarantineDamagedRestoreJournal(*dataDir)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(stdout, "preserved damaged Restore journal at %s\n", preservedPath)
 	return err
 }
 
@@ -272,13 +300,20 @@ func runInit(ctx context.Context, args []string, stdout, stderr io.Writer) error
 	flags := flag.NewFlagSet("init", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	dataDir := flags.String("data-dir", "", "installation data directory")
+	attachmentsDir := flags.String(
+		"attachments-dir",
+		"",
+		"Attachment Store root (default: DATA-DIR/attachments)",
+	)
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() != 0 {
 		return errors.New("init accepts no positional arguments")
 	}
-	if err := operations.Initialize(ctx, *dataDir); err != nil {
+	if err := operations.InitializeWithConfig(ctx, operations.OpenConfig{
+		DataDir: *dataDir, AttachmentsDir: *attachmentsDir,
+	}); err != nil {
 		return err
 	}
 	_, err := fmt.Fprintf(stdout, "initialized installation in %s\n", *dataDir)

@@ -2,10 +2,12 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -276,13 +278,27 @@ func (application *application) buildHandler(
 	installation *operations.Installation,
 ) (http.Handler, error) {
 	mux := http.NewServeMux()
-	if installation.StartupError() != nil {
-		// Recovery mode deliberately exposes only the stable outer probes.
-		handler := requireCompatibleClientBuild(
-			application.config.BuildVersion,
-			mux,
-		)
-		return handler, nil //nolint:nilerr // StartupError selects the restricted handler.
+	if startupErr := installation.StartupError(); startupErr != nil {
+		mux.HandleFunc("GET /diagnostics", func(response http.ResponseWriter, _ *http.Request) {
+			detail := strings.ToValidUTF8(startupErr.Error(), "")
+			if len(detail) > 512 {
+				detail = strings.ToValidUTF8(detail[:512], "")
+			}
+			storage := "unavailable"
+			switch {
+			case errors.Is(startupErr, operations.ErrUninitialized):
+				storage = "uninitialized"
+			case errors.Is(startupErr, operations.ErrUnsupportedSchema):
+				storage = "unsupported_schema"
+			}
+			response.Header().Set("Cache-Control", "no-store")
+			response.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(response).Encode(map[string]string{
+				"mode": "recovery", "storage": storage, "detail": detail,
+			})
+		})
+		// Recovery mode deliberately exposes only local diagnostics and stable probes.
+		return mux, nil //nolint:nilerr // StartupError selects the restricted handler.
 	}
 	registerAuthenticationRoutes(
 		mux,
