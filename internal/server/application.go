@@ -21,6 +21,8 @@ type applicationConfig struct {
 	ProgramStream   *displaystream.Hub
 }
 
+var errRestoreInProgress = errors.New("restore already in progress")
+
 // application keeps probes stable while normal routes are rebuilt after Restore.
 type application struct {
 	config applicationConfig
@@ -30,10 +32,18 @@ type application struct {
 	handler      http.Handler
 	accepting    bool
 	maintenance  bool
+	restoring    bool
 	active       int
 	nextRequest  uint64
 	cancels      map[uint64]context.CancelCauseFunc
 	drained      chan struct{}
+}
+
+type applicationRequestContextKey struct{}
+
+type applicationRequest struct {
+	id       uint64
+	detached bool
 }
 
 func newApplication(config applicationConfig) (*application, error) {
@@ -74,34 +84,29 @@ func (application *application) ServeHTTP(
 		return
 	}
 	handler := application.handler
-	tracked := request.URL.Path != "/admin/restores/apply"
-	var cancel context.CancelCauseFunc
-	var requestID uint64
-	if tracked {
-		if application.active == 0 {
-			application.drained = make(chan struct{})
-		}
-		application.active++
-		application.nextRequest++
-		requestID = application.nextRequest
-		requestContext, requestCancel := context.WithCancelCause(request.Context())
-		cancel = requestCancel
-		application.cancels[requestID] = cancel
-		request = request.WithContext(requestContext)
+	if application.active == 0 {
+		application.drained = make(chan struct{})
 	}
+	application.active++
+	application.nextRequest++
+	tracked := &applicationRequest{id: application.nextRequest}
+	requestContext, cancel := context.WithCancelCause(request.Context())
+	application.cancels[tracked.id] = cancel
+	request = request.WithContext(context.WithValue(
+		requestContext,
+		applicationRequestContextKey{},
+		tracked,
+	))
 	application.mu.Unlock()
-	if tracked {
-		defer func() {
-			cancel(nil)
-			application.mu.Lock()
-			delete(application.cancels, requestID)
-			application.active--
-			if application.active == 0 {
-				close(application.drained)
-			}
-			application.mu.Unlock()
-		}()
-	}
+	defer func() {
+		cancel(nil)
+		application.mu.Lock()
+		if !tracked.detached {
+			delete(application.cancels, tracked.id)
+			application.finishRequestLocked()
+		}
+		application.mu.Unlock()
+	}()
 	handler.ServeHTTP(response, request)
 }
 
@@ -186,6 +191,7 @@ func (application *application) restore(ctx context.Context, journalPath string)
 	application.installation = reopened
 	application.handler = handler
 	application.maintenance = false
+	application.restoring = false
 	application.accepting = reopened.StartupError() == nil
 	application.mu.Unlock()
 	return restoreErr
@@ -195,8 +201,20 @@ func (application *application) beginRestore(
 	ctx context.Context,
 ) (*operations.Installation, error) {
 	application.mu.Lock()
+	if application.restoring {
+		application.mu.Unlock()
+		return nil, errRestoreInProgress
+	}
+	application.restoring = true
 	application.maintenance = true
 	application.accepting = false
+	if current, ok := ctx.Value(applicationRequestContextKey{}).(*applicationRequest); ok {
+		if _, tracked := application.cancels[current.id]; tracked {
+			current.detached = true
+			delete(application.cancels, current.id)
+			application.finishRequestLocked()
+		}
+	}
 	for _, cancel := range application.cancels {
 		cancel(errors.New("installation entering Restore maintenance"))
 	}
@@ -208,10 +226,18 @@ func (application *application) beginRestore(
 		return installation, nil
 	case <-ctx.Done():
 		application.mu.Lock()
+		application.restoring = false
 		application.maintenance = false
 		application.accepting = installation != nil && installation.StartupError() == nil
 		application.mu.Unlock()
 		return nil, context.Cause(ctx)
+	}
+}
+
+func (application *application) finishRequestLocked() {
+	application.active--
+	if application.active == 0 {
+		close(application.drained)
 	}
 }
 
@@ -220,6 +246,7 @@ func (application *application) setUnavailable(installation *operations.Installa
 	application.installation = installation
 	application.accepting = false
 	application.maintenance = true
+	application.restoring = false
 	application.mu.Unlock()
 }
 

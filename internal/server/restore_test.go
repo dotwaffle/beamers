@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net"
 	"net/http"
@@ -26,11 +27,29 @@ import (
 func TestRestoreMaintenanceCancelsAndDrainsActiveReads(t *testing.T) {
 	started := make(chan struct{})
 	canceled := make(chan struct{})
-	application := &application{
+	releaseRead := make(chan struct{})
+	applyStarted := make(chan struct{}, 2)
+	releaseApply := make(chan struct{})
+	restoreResult := make(chan error, 2)
+	var app *application
+	app = &application{
 		handler: http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
+			if request.URL.Path == "/admin/restores/apply" {
+				applyStarted <- struct{}{}
+				<-releaseApply
+				ctx, cancel := context.WithTimeout(
+					context.WithoutCancel(request.Context()),
+					time.Second,
+				)
+				defer cancel()
+				_, err := app.beginRestore(ctx)
+				restoreResult <- err
+				return
+			}
 			close(started)
 			<-request.Context().Done()
 			close(canceled)
+			<-releaseRead
 		}),
 		accepting: true,
 		cancels:   make(map[uint64]context.CancelCauseFunc),
@@ -39,7 +58,7 @@ func TestRestoreMaintenanceCancelsAndDrainsActiveReads(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		application.ServeHTTP(
+		app.ServeHTTP(
 			httptest.NewRecorder(),
 			httptest.NewRequestWithContext(
 				t.Context(),
@@ -50,15 +69,31 @@ func TestRestoreMaintenanceCancelsAndDrainsActiveReads(t *testing.T) {
 		)
 	}()
 	<-started
-	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-	defer cancel()
-	if _, err := application.beginRestore(ctx); err != nil {
-		t.Fatalf("drain active read: %v", err)
+	for range 2 {
+		go app.ServeHTTP(
+			httptest.NewRecorder(),
+			httptest.NewRequestWithContext(
+				t.Context(),
+				http.MethodPost,
+				"/admin/restores/apply",
+				http.NoBody,
+			),
+		)
 	}
+	<-applyStarted
+	<-applyStarted
+	close(releaseApply)
 	select {
 	case <-canceled:
-	case <-ctx.Done():
+	case <-time.After(time.Second):
 		t.Fatal("active read was not canceled before Restore")
+	}
+	if err := <-restoreResult; !errors.Is(err, errRestoreInProgress) {
+		t.Fatalf("competing Restore error = %v", err)
+	}
+	close(releaseRead)
+	if err := <-restoreResult; err != nil {
+		t.Fatalf("drain active read: %v", err)
 	}
 	<-done
 }
