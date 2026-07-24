@@ -61,7 +61,7 @@ func (handler *Handler) GetProgramChannel(
 	if err != nil {
 		return nil, err
 	}
-	state, err := handler.service.Current(
+	state, err := handler.service.ReconcileAndCurrent(
 		ctx, actor, int(request.Msg.GetEventId()), int(request.Msg.GetSessionId()),
 	)
 	if err != nil {

@@ -632,7 +632,7 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 		t.Fatalf("Publication before elapsed Reveal = %+v, %v", beforeElapsed, err)
 	}
 	nowValue = nowValue.Add(3 * time.Second)
-	revealed, err := programService.Current(
+	revealed, err := programService.ReconcileAndCurrent(
 		t.Context(),
 		actor,
 		eventID,
@@ -672,7 +672,7 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 	if reconciliations != 1 {
 		t.Fatalf("Progressive Publication Audit Entries = %d, want 1", reconciliations)
 	}
-	if _, err = programService.Current(
+	if _, err = programService.ReconcileAndCurrent(
 		t.Context(),
 		actor,
 		eventID,

@@ -440,12 +440,33 @@ func (service *Service) Current(
 	if !actor.CanOperateEvent(eventID) {
 		return State{}, ErrOperatorRequired
 	}
+	return service.currentAt(ctx, actor, eventID, sessionID, service.now().UTC())
+}
+
+// ReconcileAndCurrent commits elapsed publication before returning current state.
+func (service *Service) ReconcileAndCurrent(
+	ctx context.Context,
+	actor auth.Account,
+	eventID, sessionID int,
+) (State, error) {
+	if !actor.CanOperateEvent(eventID) {
+		return State{}, ErrOperatorRequired
+	}
 	now := service.now().UTC()
 	if err := service.reconcileProgressivePublication(
 		ctx, actor, eventID, sessionID, now,
 	); err != nil {
 		return State{}, err
 	}
+	return service.currentAt(ctx, actor, eventID, sessionID, now)
+}
+
+func (service *Service) currentAt(
+	ctx context.Context,
+	actor auth.Account,
+	eventID, sessionID int,
+	now time.Time,
+) (State, error) {
 	owned := service.controlFor(sessionID)
 	owned.mu.Lock()
 	defer owned.mu.Unlock()

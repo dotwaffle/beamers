@@ -148,7 +148,9 @@ func (handlers programViewHandlers) events(response http.ResponseWriter, request
 			if !open {
 				return
 			}
-			state, err = handlers.service.Current(request.Context(), actor, eventID, sessionID)
+			state, err = handlers.service.ReconcileAndCurrent(
+				request.Context(), actor, eventID, sessionID,
+			)
 			if err != nil || writeProgramInvalidation(response, notification, state) != nil {
 				return
 			}
@@ -197,7 +199,9 @@ func (handlers programViewHandlers) view(response http.ResponseWriter, request *
 		http.Error(response, "invalid Event", http.StatusBadRequest)
 		return
 	}
-	state, err := handlers.service.Current(request.Context(), actor, eventID, sessionID)
+	state, err := handlers.service.ReconcileAndCurrent(
+		request.Context(), actor, eventID, sessionID,
+	)
 	if err != nil {
 		handlers.logger.ErrorContext(request.Context(), "load Program control View", "error", err)
 		http.Error(response, "Program control unavailable", http.StatusForbidden)
