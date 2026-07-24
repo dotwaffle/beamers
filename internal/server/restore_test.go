@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"go.opentelemetry.io/otel/metric/noop"
 	"go.opentelemetry.io/otel/propagation"
@@ -20,6 +22,46 @@ import (
 	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/operations"
 )
+
+func TestRestoreMaintenanceCancelsAndDrainsActiveReads(t *testing.T) {
+	started := make(chan struct{})
+	canceled := make(chan struct{})
+	application := &application{
+		handler: http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
+			close(started)
+			<-request.Context().Done()
+			close(canceled)
+		}),
+		accepting: true,
+		cancels:   make(map[uint64]context.CancelCauseFunc),
+		drained:   closedChannel(),
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		application.ServeHTTP(
+			httptest.NewRecorder(),
+			httptest.NewRequestWithContext(
+				t.Context(),
+				http.MethodGet,
+				"/storage-read",
+				http.NoBody,
+			),
+		)
+	}()
+	<-started
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	if _, err := application.beginRestore(ctx); err != nil {
+		t.Fatalf("drain active read: %v", err)
+	}
+	select {
+	case <-canceled:
+	case <-ctx.Done():
+		t.Fatal("active read was not canceled before Restore")
+	}
+	<-done
+}
 
 func TestHealthyAdministratorRestoresThroughMaintenanceMode(t *testing.T) {
 	ctx := t.Context()

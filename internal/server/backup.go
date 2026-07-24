@@ -12,15 +12,19 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/backup"
 	"github.com/dotwaffle/beamers/internal/operations"
 )
 
-const maxRestoreUploadBytes int64 = 65 << 30
+const (
+	maxRestoreUploadBytes   int64 = 65 << 30
+	restoreOperationTimeout       = 30 * time.Minute
+)
 
-type backupHandlers struct {
+type archiveHandlers struct {
 	installation       *operations.Installation
 	dataDir            string
 	attachmentsDir     string
@@ -38,7 +42,7 @@ func registerBackupRoutes(
 	logger *slog.Logger,
 	listenerAddress net.Addr,
 ) {
-	handlers := backupHandlers{
+	handlers := archiveHandlers{
 		installation:       installation,
 		dataDir:            dataDir,
 		attachmentsDir:     attachmentsDir,
@@ -51,19 +55,14 @@ func registerBackupRoutes(
 	mux.HandleFunc("/admin/restores/apply", handlers.applyRestore)
 }
 
-func (handlers backupHandlers) previewRestore(
+func (handlers archiveHandlers) previewRestore(
 	response http.ResponseWriter,
 	request *http.Request,
 ) {
 	if !requestAllowed(response, request, http.MethodPost, handlers.allowPlaintextCrew) {
 		return
 	}
-	actor, ok := handlers.authenticate(response, request)
-	if !ok {
-		return
-	}
-	if !actor.Administrator {
-		http.Error(response, "Administrator authority required", http.StatusForbidden)
+	if _, ok := handlers.authenticateAdministrator(response, request); !ok {
 		return
 	}
 	mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
@@ -117,19 +116,15 @@ func (handlers backupHandlers) previewRestore(
 	}
 }
 
-func (handlers backupHandlers) applyRestore(
+func (handlers archiveHandlers) applyRestore(
 	response http.ResponseWriter,
 	request *http.Request,
 ) {
 	if !requestAllowed(response, request, http.MethodPost, handlers.allowPlaintextCrew) {
 		return
 	}
-	actor, ok := handlers.authenticate(response, request)
+	actor, ok := handlers.authenticateAdministrator(response, request)
 	if !ok {
-		return
-	}
-	if !actor.Administrator {
-		http.Error(response, "Administrator authority required", http.StatusForbidden)
 		return
 	}
 	var input struct {
@@ -165,10 +160,13 @@ func (handlers backupHandlers) applyRestore(
 		handlers.writeRestoreFailure(response, request, err)
 		return
 	}
-	if err = handlers.restore(
+	// Cutover must survive a disconnected Administrator, but remains lifecycle-bounded.
+	restoreContext, cancel := context.WithTimeout(
 		context.WithoutCancel(request.Context()),
-		dataDir+".beamers-restore.json",
-	); err != nil {
+		restoreOperationTimeout,
+	)
+	defer cancel()
+	if err = handlers.restore(restoreContext, dataDir+".beamers-restore.json"); err != nil {
 		handlers.writeRestoreFailure(response, request, err)
 		return
 	}
@@ -176,16 +174,12 @@ func (handlers backupHandlers) applyRestore(
 	_, _ = response.Write([]byte("{\"restored\":true}\n"))
 }
 
-func (handlers backupHandlers) create(response http.ResponseWriter, request *http.Request) {
+func (handlers archiveHandlers) create(response http.ResponseWriter, request *http.Request) {
 	if !requestAllowed(response, request, http.MethodPost, handlers.allowPlaintextCrew) {
 		return
 	}
-	actor, ok := handlers.authenticate(response, request)
+	actor, ok := handlers.authenticateAdministrator(response, request)
 	if !ok {
-		return
-	}
-	if !actor.Administrator {
-		http.Error(response, "Administrator authority required", http.StatusForbidden)
 		return
 	}
 	var input struct {
@@ -279,7 +273,7 @@ func (handlers backupHandlers) create(response http.ResponseWriter, request *htt
 	}
 }
 
-func (handlers backupHandlers) authenticate(
+func (handlers archiveHandlers) authenticate(
 	response http.ResponseWriter,
 	request *http.Request,
 ) (auth.Account, bool) {
@@ -304,7 +298,22 @@ func (handlers backupHandlers) authenticate(
 	return actor, true
 }
 
-func (handlers backupHandlers) writeFailure(
+func (handlers archiveHandlers) authenticateAdministrator(
+	response http.ResponseWriter,
+	request *http.Request,
+) (auth.Account, bool) {
+	actor, ok := handlers.authenticate(response, request)
+	if !ok {
+		return auth.Account{}, false
+	}
+	if !actor.Administrator {
+		http.Error(response, "Administrator authority required", http.StatusForbidden)
+		return auth.Account{}, false
+	}
+	return actor, true
+}
+
+func (handlers archiveHandlers) writeFailure(
 	response http.ResponseWriter,
 	request *http.Request,
 	err error,
@@ -313,7 +322,7 @@ func (handlers backupHandlers) writeFailure(
 	http.Error(response, "Backup unavailable", http.StatusInternalServerError)
 }
 
-func (handlers backupHandlers) writeRestoreFailure(
+func (handlers archiveHandlers) writeRestoreFailure(
 	response http.ResponseWriter,
 	request *http.Request,
 	err error,

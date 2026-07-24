@@ -26,12 +26,14 @@ type application struct {
 	config applicationConfig
 
 	mu           sync.Mutex
-	changed      *sync.Cond
 	installation *operations.Installation
 	handler      http.Handler
 	accepting    bool
 	maintenance  bool
-	mutations    int
+	active       int
+	nextRequest  uint64
+	cancels      map[uint64]context.CancelCauseFunc
+	drained      chan struct{}
 }
 
 func newApplication(config applicationConfig) (*application, error) {
@@ -39,8 +41,9 @@ func newApplication(config applicationConfig) (*application, error) {
 		config:       config,
 		installation: config.Installation,
 		accepting:    config.Installation.StartupError() == nil,
+		cancels:      make(map[uint64]context.CancelCauseFunc),
+		drained:      closedChannel(),
 	}
-	found.changed = sync.NewCond(&found.mu)
 	handler, err := found.buildHandler(config.Installation)
 	if err != nil {
 		return nil, err
@@ -62,9 +65,6 @@ func (application *application) ServeHTTP(
 		return
 	}
 
-	mutation := request.Method != http.MethodGet &&
-		request.Method != http.MethodHead &&
-		request.Method != http.MethodOptions
 	application.mu.Lock()
 	if application.maintenance {
 		application.mu.Unlock()
@@ -74,15 +74,31 @@ func (application *application) ServeHTTP(
 		return
 	}
 	handler := application.handler
-	if mutation {
-		application.mutations++
+	tracked := request.URL.Path != "/admin/restores/apply"
+	var cancel context.CancelCauseFunc
+	var requestID uint64
+	if tracked {
+		if application.active == 0 {
+			application.drained = make(chan struct{})
+		}
+		application.active++
+		application.nextRequest++
+		requestID = application.nextRequest
+		requestContext, requestCancel := context.WithCancelCause(request.Context())
+		cancel = requestCancel
+		application.cancels[requestID] = cancel
+		request = request.WithContext(requestContext)
 	}
 	application.mu.Unlock()
-	if mutation {
+	if tracked {
 		defer func() {
+			cancel(nil)
 			application.mu.Lock()
-			application.mutations--
-			application.changed.Broadcast()
+			delete(application.cancels, requestID)
+			application.active--
+			if application.active == 0 {
+				close(application.drained)
+			}
 			application.mu.Unlock()
 		}()
 	}
@@ -143,16 +159,11 @@ func (application *application) readiness(
 }
 
 func (application *application) restore(ctx context.Context, journalPath string) error {
-	application.mu.Lock()
-	application.maintenance = true
-	application.accepting = false
-	for application.mutations > 1 {
-		application.changed.Wait()
+	installation, err := application.beginRestore(ctx)
+	if err != nil {
+		return err
 	}
-	installation := application.installation
-	application.mu.Unlock()
-
-	if err := installation.Close(); err != nil {
+	if err = installation.Close(); err != nil {
 		application.setUnavailable(installation)
 		return err
 	}
@@ -176,9 +187,32 @@ func (application *application) restore(ctx context.Context, journalPath string)
 	application.handler = handler
 	application.maintenance = false
 	application.accepting = reopened.StartupError() == nil
-	application.changed.Broadcast()
 	application.mu.Unlock()
 	return restoreErr
+}
+
+func (application *application) beginRestore(
+	ctx context.Context,
+) (*operations.Installation, error) {
+	application.mu.Lock()
+	application.maintenance = true
+	application.accepting = false
+	for _, cancel := range application.cancels {
+		cancel(errors.New("installation entering Restore maintenance"))
+	}
+	drained := application.drained
+	installation := application.installation
+	application.mu.Unlock()
+	select {
+	case <-drained:
+		return installation, nil
+	case <-ctx.Done():
+		application.mu.Lock()
+		application.maintenance = false
+		application.accepting = installation != nil && installation.StartupError() == nil
+		application.mu.Unlock()
+		return nil, context.Cause(ctx)
+	}
 }
 
 func (application *application) setUnavailable(installation *operations.Installation) {
@@ -186,7 +220,6 @@ func (application *application) setUnavailable(installation *operations.Installa
 	application.installation = installation
 	application.accepting = false
 	application.maintenance = true
-	application.changed.Broadcast()
 	application.mu.Unlock()
 }
 
@@ -194,6 +227,9 @@ func (application *application) Close() error {
 	application.mu.Lock()
 	application.accepting = false
 	application.maintenance = true
+	for _, cancel := range application.cancels {
+		cancel(errors.New("application closing"))
+	}
 	installation := application.installation
 	application.installation = nil
 	application.mu.Unlock()
@@ -201,6 +237,12 @@ func (application *application) Close() error {
 		return nil
 	}
 	return installation.Close()
+}
+
+func closedChannel() chan struct{} {
+	found := make(chan struct{})
+	close(found)
+	return found
 }
 
 func (application *application) buildHandler(
