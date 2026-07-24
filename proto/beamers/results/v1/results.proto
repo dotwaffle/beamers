@@ -20,6 +20,8 @@ service ResultsService {
   rpc SavePrizegivingPlan(SavePrizegivingPlanRequest) returns (SavePrizegivingPlanResponse);
   rpc RunPrizegivingPreflight(RunPrizegivingPreflightRequest) returns (RunPrizegivingPreflightResponse);
   rpc PreviewPrizegiving(PreviewPrizegivingRequest) returns (PreviewPrizegivingResponse);
+  rpc FirePrizegivingResultsCue(FirePrizegivingResultsCueRequest) returns (FirePrizegivingResultsCueResponse);
+  rpc ReleaseStandaloneResults(ReleaseStandaloneResultsRequest) returns (ReleaseStandaloneResultsResponse);
 }
 
 enum ResultsDisposition {
@@ -34,6 +36,13 @@ enum ResultsReleasePolicy {
   RESULTS_RELEASE_POLICY_ALL_AT_CUE = 1;
   RESULTS_RELEASE_POLICY_PROGRESSIVE_ON_REVEAL = 2;
   RESULTS_RELEASE_POLICY_AT_CEREMONY_END = 3;
+  RESULTS_RELEASE_POLICY_STANDALONE = 4;
+}
+
+enum ResultsPublicationStatus {
+  RESULTS_PUBLICATION_STATUS_UNSPECIFIED = 0;
+  RESULTS_PUBLICATION_STATUS_PARTIAL = 1;
+  RESULTS_PUBLICATION_STATUS_FINAL = 2;
 }
 
 enum ResultStanding {
@@ -397,4 +406,30 @@ message PrizegivingPreview {
 
 message PreviewPrizegivingResponse {
   PrizegivingPreview preview = 1;
+}
+
+message ResultsPublication {
+  int64 revision = 1;
+  ResultsPublicationStatus status = 2;
+  repeated ResultItemRef items = 3;
+}
+
+message FirePrizegivingResultsCueRequest {
+  int64 event_id = 1;
+  int64 ceremony_session_id = 2;
+  string command_id = 3;
+}
+
+message FirePrizegivingResultsCueResponse {
+  ResultsPublication publication = 1;
+}
+
+message ReleaseStandaloneResultsRequest {
+  int64 event_id = 1;
+  int64 competition_session_id = 2;
+  string command_id = 3;
+}
+
+message ReleaseStandaloneResultsResponse {
+  ResultsPublication publication = 1;
 }

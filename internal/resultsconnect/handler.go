@@ -394,6 +394,58 @@ func (handler *Handler) PreviewPrizegiving(
 	}), nil
 }
 
+// FirePrizegivingResultsCue publishes one complete locked Prizegiving set.
+func (handler *Handler) FirePrizegivingResultsCue(
+	ctx context.Context,
+	request *connect.Request[resultsv1.FirePrizegivingResultsCueRequest],
+) (*connect.Response[resultsv1.FirePrizegivingResultsCueResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	released, err := handler.service.FirePrizegivingResultsCue(
+		ctx,
+		actor,
+		results.FirePrizegivingResultsCueInput{
+			EventID:           int(request.Msg.GetEventId()),
+			CeremonySessionID: int(request.Msg.GetCeremonySessionId()),
+			CommandID:         request.Msg.GetCommandId(),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&resultsv1.FirePrizegivingResultsCueResponse{
+		Publication: resultsPublication(released),
+	}), nil
+}
+
+// ReleaseStandaloneResults publishes one reviewed unassigned Competition.
+func (handler *Handler) ReleaseStandaloneResults(
+	ctx context.Context,
+	request *connect.Request[resultsv1.ReleaseStandaloneResultsRequest],
+) (*connect.Response[resultsv1.ReleaseStandaloneResultsResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	released, err := handler.service.ReleaseStandaloneResults(
+		ctx,
+		actor,
+		results.ReleaseStandaloneResultsInput{
+			EventID:              int(request.Msg.GetEventId()),
+			CompetitionSessionID: int(request.Msg.GetCompetitionSessionId()),
+			CommandID:            request.Msg.GetCommandId(),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&resultsv1.ReleaseStandaloneResultsResponse{
+		Publication: resultsPublication(released),
+	}), nil
+}
+
 func standingsFromProto(
 	values []*resultsv1.CompetitionResultStanding,
 ) ([]results.Standing, error) {
@@ -814,6 +866,7 @@ func resultsReleasePolicy(
 		results.ResultsAllAtCue:            resultsv1.ResultsReleasePolicy_RESULTS_RELEASE_POLICY_ALL_AT_CUE,
 		results.ResultsProgressiveOnReveal: resultsv1.ResultsReleasePolicy_RESULTS_RELEASE_POLICY_PROGRESSIVE_ON_REVEAL,
 		results.ResultsAtCeremonyEnd:       resultsv1.ResultsReleasePolicy_RESULTS_RELEASE_POLICY_AT_CEREMONY_END,
+		results.ResultsStandalone:          resultsv1.ResultsReleasePolicy_RESULTS_RELEASE_POLICY_STANDALONE,
 	}[value]
 }
 
@@ -824,7 +877,20 @@ func resultsReleasePolicyFromProto(
 		resultsv1.ResultsReleasePolicy_RESULTS_RELEASE_POLICY_ALL_AT_CUE:            results.ResultsAllAtCue,
 		resultsv1.ResultsReleasePolicy_RESULTS_RELEASE_POLICY_PROGRESSIVE_ON_REVEAL: results.ResultsProgressiveOnReveal,
 		resultsv1.ResultsReleasePolicy_RESULTS_RELEASE_POLICY_AT_CEREMONY_END:       results.ResultsAtCeremonyEnd,
+		resultsv1.ResultsReleasePolicy_RESULTS_RELEASE_POLICY_STANDALONE:            results.ResultsStandalone,
 	}[value]
+}
+
+func resultsPublication(value results.Publication) *resultsv1.ResultsPublication {
+	status := map[results.PublicationStatus]resultsv1.ResultsPublicationStatus{
+		results.ResultsPublicationPartial: resultsv1.ResultsPublicationStatus_RESULTS_PUBLICATION_STATUS_PARTIAL,
+		results.ResultsPublicationFinal:   resultsv1.ResultsPublicationStatus_RESULTS_PUBLICATION_STATUS_FINAL,
+	}[value.Status]
+	return &resultsv1.ResultsPublication{
+		Revision: int64(value.Revision),
+		Status:   status,
+		Items:    resultItemRefs(value.Items),
+	}
 }
 
 func resultItemKind(value results.ResultItemKind) resultsv1.ResultItemKind {
@@ -1042,7 +1108,9 @@ func connectError(err error) error {
 		errors.Is(err, results.ErrCompetitionPrizegivingAssignment),
 		errors.Is(err, results.ErrPrizegivingLocked),
 		errors.Is(err, results.ErrPrizegivingPreflightBlocked),
-		errors.Is(err, results.ErrPrizegivingPreflightRequired):
+		errors.Is(err, results.ErrPrizegivingPreflightRequired),
+		errors.Is(err, results.ErrResultsReleasePolicy),
+		errors.Is(err, results.ErrResultsPublicationRequired):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, command.ErrInvalidID),
 		errors.Is(err, results.ErrInvalidInput),

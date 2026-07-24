@@ -69,6 +69,12 @@ const (
 	// ResultsServicePreviewPrizegivingProcedure is the fully-qualified name of the ResultsService's
 	// PreviewPrizegiving RPC.
 	ResultsServicePreviewPrizegivingProcedure = "/beamers.results.v1.ResultsService/PreviewPrizegiving"
+	// ResultsServiceFirePrizegivingResultsCueProcedure is the fully-qualified name of the
+	// ResultsService's FirePrizegivingResultsCue RPC.
+	ResultsServiceFirePrizegivingResultsCueProcedure = "/beamers.results.v1.ResultsService/FirePrizegivingResultsCue"
+	// ResultsServiceReleaseStandaloneResultsProcedure is the fully-qualified name of the
+	// ResultsService's ReleaseStandaloneResults RPC.
+	ResultsServiceReleaseStandaloneResultsProcedure = "/beamers.results.v1.ResultsService/ReleaseStandaloneResults"
 )
 
 // ResultsServiceClient is a client for the beamers.results.v1.ResultsService service.
@@ -85,6 +91,8 @@ type ResultsServiceClient interface {
 	SavePrizegivingPlan(context.Context, *connect.Request[v1.SavePrizegivingPlanRequest]) (*connect.Response[v1.SavePrizegivingPlanResponse], error)
 	RunPrizegivingPreflight(context.Context, *connect.Request[v1.RunPrizegivingPreflightRequest]) (*connect.Response[v1.RunPrizegivingPreflightResponse], error)
 	PreviewPrizegiving(context.Context, *connect.Request[v1.PreviewPrizegivingRequest]) (*connect.Response[v1.PreviewPrizegivingResponse], error)
+	FirePrizegivingResultsCue(context.Context, *connect.Request[v1.FirePrizegivingResultsCueRequest]) (*connect.Response[v1.FirePrizegivingResultsCueResponse], error)
+	ReleaseStandaloneResults(context.Context, *connect.Request[v1.ReleaseStandaloneResultsRequest]) (*connect.Response[v1.ReleaseStandaloneResultsResponse], error)
 }
 
 // NewResultsServiceClient constructs a client for the beamers.results.v1.ResultsService service. By
@@ -170,6 +178,18 @@ func NewResultsServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(resultsServiceMethods.ByName("PreviewPrizegiving")),
 			connect.WithClientOptions(opts...),
 		),
+		firePrizegivingResultsCue: connect.NewClient[v1.FirePrizegivingResultsCueRequest, v1.FirePrizegivingResultsCueResponse](
+			httpClient,
+			baseURL+ResultsServiceFirePrizegivingResultsCueProcedure,
+			connect.WithSchema(resultsServiceMethods.ByName("FirePrizegivingResultsCue")),
+			connect.WithClientOptions(opts...),
+		),
+		releaseStandaloneResults: connect.NewClient[v1.ReleaseStandaloneResultsRequest, v1.ReleaseStandaloneResultsResponse](
+			httpClient,
+			baseURL+ResultsServiceReleaseStandaloneResultsProcedure,
+			connect.WithSchema(resultsServiceMethods.ByName("ReleaseStandaloneResults")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -187,6 +207,8 @@ type resultsServiceClient struct {
 	savePrizegivingPlan         *connect.Client[v1.SavePrizegivingPlanRequest, v1.SavePrizegivingPlanResponse]
 	runPrizegivingPreflight     *connect.Client[v1.RunPrizegivingPreflightRequest, v1.RunPrizegivingPreflightResponse]
 	previewPrizegiving          *connect.Client[v1.PreviewPrizegivingRequest, v1.PreviewPrizegivingResponse]
+	firePrizegivingResultsCue   *connect.Client[v1.FirePrizegivingResultsCueRequest, v1.FirePrizegivingResultsCueResponse]
+	releaseStandaloneResults    *connect.Client[v1.ReleaseStandaloneResultsRequest, v1.ReleaseStandaloneResultsResponse]
 }
 
 // GetCompetitionResultsDraft calls beamers.results.v1.ResultsService.GetCompetitionResultsDraft.
@@ -249,6 +271,16 @@ func (c *resultsServiceClient) PreviewPrizegiving(ctx context.Context, req *conn
 	return c.previewPrizegiving.CallUnary(ctx, req)
 }
 
+// FirePrizegivingResultsCue calls beamers.results.v1.ResultsService.FirePrizegivingResultsCue.
+func (c *resultsServiceClient) FirePrizegivingResultsCue(ctx context.Context, req *connect.Request[v1.FirePrizegivingResultsCueRequest]) (*connect.Response[v1.FirePrizegivingResultsCueResponse], error) {
+	return c.firePrizegivingResultsCue.CallUnary(ctx, req)
+}
+
+// ReleaseStandaloneResults calls beamers.results.v1.ResultsService.ReleaseStandaloneResults.
+func (c *resultsServiceClient) ReleaseStandaloneResults(ctx context.Context, req *connect.Request[v1.ReleaseStandaloneResultsRequest]) (*connect.Response[v1.ReleaseStandaloneResultsResponse], error) {
+	return c.releaseStandaloneResults.CallUnary(ctx, req)
+}
+
 // ResultsServiceHandler is an implementation of the beamers.results.v1.ResultsService service.
 type ResultsServiceHandler interface {
 	GetCompetitionResultsDraft(context.Context, *connect.Request[v1.GetCompetitionResultsDraftRequest]) (*connect.Response[v1.GetCompetitionResultsDraftResponse], error)
@@ -263,6 +295,8 @@ type ResultsServiceHandler interface {
 	SavePrizegivingPlan(context.Context, *connect.Request[v1.SavePrizegivingPlanRequest]) (*connect.Response[v1.SavePrizegivingPlanResponse], error)
 	RunPrizegivingPreflight(context.Context, *connect.Request[v1.RunPrizegivingPreflightRequest]) (*connect.Response[v1.RunPrizegivingPreflightResponse], error)
 	PreviewPrizegiving(context.Context, *connect.Request[v1.PreviewPrizegivingRequest]) (*connect.Response[v1.PreviewPrizegivingResponse], error)
+	FirePrizegivingResultsCue(context.Context, *connect.Request[v1.FirePrizegivingResultsCueRequest]) (*connect.Response[v1.FirePrizegivingResultsCueResponse], error)
+	ReleaseStandaloneResults(context.Context, *connect.Request[v1.ReleaseStandaloneResultsRequest]) (*connect.Response[v1.ReleaseStandaloneResultsResponse], error)
 }
 
 // NewResultsServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -344,6 +378,18 @@ func NewResultsServiceHandler(svc ResultsServiceHandler, opts ...connect.Handler
 		connect.WithSchema(resultsServiceMethods.ByName("PreviewPrizegiving")),
 		connect.WithHandlerOptions(opts...),
 	)
+	resultsServiceFirePrizegivingResultsCueHandler := connect.NewUnaryHandler(
+		ResultsServiceFirePrizegivingResultsCueProcedure,
+		svc.FirePrizegivingResultsCue,
+		connect.WithSchema(resultsServiceMethods.ByName("FirePrizegivingResultsCue")),
+		connect.WithHandlerOptions(opts...),
+	)
+	resultsServiceReleaseStandaloneResultsHandler := connect.NewUnaryHandler(
+		ResultsServiceReleaseStandaloneResultsProcedure,
+		svc.ReleaseStandaloneResults,
+		connect.WithSchema(resultsServiceMethods.ByName("ReleaseStandaloneResults")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/beamers.results.v1.ResultsService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ResultsServiceGetCompetitionResultsDraftProcedure:
@@ -370,6 +416,10 @@ func NewResultsServiceHandler(svc ResultsServiceHandler, opts ...connect.Handler
 			resultsServiceRunPrizegivingPreflightHandler.ServeHTTP(w, r)
 		case ResultsServicePreviewPrizegivingProcedure:
 			resultsServicePreviewPrizegivingHandler.ServeHTTP(w, r)
+		case ResultsServiceFirePrizegivingResultsCueProcedure:
+			resultsServiceFirePrizegivingResultsCueHandler.ServeHTTP(w, r)
+		case ResultsServiceReleaseStandaloneResultsProcedure:
+			resultsServiceReleaseStandaloneResultsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -425,4 +475,12 @@ func (UnimplementedResultsServiceHandler) RunPrizegivingPreflight(context.Contex
 
 func (UnimplementedResultsServiceHandler) PreviewPrizegiving(context.Context, *connect.Request[v1.PreviewPrizegivingRequest]) (*connect.Response[v1.PreviewPrizegivingResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.PreviewPrizegiving is not implemented"))
+}
+
+func (UnimplementedResultsServiceHandler) FirePrizegivingResultsCue(context.Context, *connect.Request[v1.FirePrizegivingResultsCueRequest]) (*connect.Response[v1.FirePrizegivingResultsCueResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.FirePrizegivingResultsCue is not implemented"))
+}
+
+func (UnimplementedResultsServiceHandler) ReleaseStandaloneResults(context.Context, *connect.Request[v1.ReleaseStandaloneResultsRequest]) (*connect.Response[v1.ReleaseStandaloneResultsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.ReleaseStandaloneResults is not implemented"))
 }
