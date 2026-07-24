@@ -607,7 +607,7 @@ func filterViewableCompetitionResultsDrafts() privacy.QueryRule {
 		Where(...predicate.CompetitionResultsDraft) *beamersent.CompetitionResultsDraftQuery
 	}
 	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
-		eventIDs, err := resultsEventIDs(ctx, viewer.ViewResults)
+		eventIDs, err := resultsEventIDs(ctx)
 		if err != nil {
 			return err
 		}
@@ -625,7 +625,7 @@ func filterViewableCompetitionResultStandings() privacy.QueryRule {
 		Where(...predicate.CompetitionResultStanding) *beamersent.CompetitionResultStandingQuery
 	}
 	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
-		eventIDs, err := resultsEventIDs(ctx, viewer.ViewResults)
+		eventIDs, err := resultsEventIDs(ctx)
 		if err != nil {
 			return err
 		}
@@ -643,7 +643,7 @@ func filterViewableEventAwardsDrafts() privacy.QueryRule {
 		Where(...predicate.EventAwardsDraft) *beamersent.EventAwardsDraftQuery
 	}
 	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
-		eventIDs, err := resultsEventIDs(ctx, viewer.ViewResults)
+		eventIDs, err := resultsEventIDs(ctx)
 		if err != nil {
 			return err
 		}
@@ -661,7 +661,7 @@ func filterViewablePrizegivings() privacy.QueryRule {
 		Where(...predicate.Prizegiving) *beamersent.PrizegivingQuery
 	}
 	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
-		eventIDs, err := resultsEventIDs(ctx, viewer.ViewResults)
+		eventIDs, err := resultsEventIDs(ctx)
 		if err != nil {
 			return err
 		}
@@ -758,16 +758,16 @@ func allowProducerResultsMutation() privacy.MutationRule {
 	})
 }
 
-func resultsEventIDs(ctx context.Context, capability viewer.Capability) ([]int, error) {
+func resultsEventIDs(ctx context.Context) ([]int, error) {
 	identity, _ := viewer.FromContext(ctx)
 	eventIDs := make([]int, 0, len(identity.EventRoles))
 	for eventID := range identity.EventRoles {
-		if identity.HasCapability(eventID, capability) {
+		if identity.HasCapability(eventID, viewer.ViewResults) {
 			eventIDs = append(eventIDs, eventID)
 		}
 	}
 	if len(eventIDs) == 0 {
-		return nil, privacy.Denyf("%s capability is required", capability)
+		return nil, privacy.Denyf("%s capability is required", viewer.ViewResults)
 	}
 	return eventIDs, nil
 }
