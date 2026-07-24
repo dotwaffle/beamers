@@ -235,6 +235,106 @@ func TestPrizegivingPublicCommandsPreflightAndPreview(t *testing.T) {
 	}
 }
 
+func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T) {
+	storage, actor, eventID, _, _ := openPrizegivingApplicationTest(t)
+	now := func() time.Time {
+		return time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
+	}
+	ceremonyID, competitionID := publishPrizegivingSessions(
+		t,
+		storage,
+		actor,
+		eventID,
+		now,
+	)
+	service, err := results.New(storage, now)
+	if err != nil {
+		t.Fatalf("create Results service: %v", err)
+	}
+	draft, err := service.Save(t.Context(), actor, results.SaveInput{
+		EventID: eventID, SessionID: competitionID,
+		CommandID: "save-standalone-results", Disposition: results.Publish,
+		Score: results.ScorePolicy{Type: results.None},
+	})
+	if err != nil {
+		t.Fatalf("save standalone Results: %v", err)
+	}
+	if _, err = service.ReleaseStandaloneResults(
+		t.Context(),
+		actor,
+		results.ReleaseStandaloneResultsInput{
+			EventID: eventID, CompetitionSessionID: competitionID,
+			CommandID: "release-unready-standalone-results",
+		},
+	); !errors.Is(err, results.ErrResultsPublicationRequired) {
+		t.Fatalf("unready standalone Results release error = %v", err)
+	}
+	draft, err = service.MarkReady(t.Context(), actor, results.MarkReadyInput{
+		EventID: eventID, SessionID: competitionID,
+		CommandID: "ready-standalone-results", ExpectedRevision: draft.Revision,
+	})
+	if err != nil {
+		t.Fatalf("mark standalone Results Ready: %v", err)
+	}
+	released, err := service.ReleaseStandaloneResults(
+		t.Context(),
+		actor,
+		results.ReleaseStandaloneResultsInput{
+			EventID: eventID, CompetitionSessionID: competitionID,
+			CommandID: "release-standalone-results",
+		},
+	)
+	if err != nil ||
+		released.Revision != 1 ||
+		released.Status != results.ResultsPublicationFinal ||
+		len(released.Items) != 1 {
+		t.Fatalf("release standalone Results = %+v, %v", released, err)
+	}
+	stored, err := storage.LoadResultsPublication(
+		t.Context(),
+		eventID,
+		store.ResultsPublicationStandalone,
+		competitionID,
+	)
+	if err != nil ||
+		stored.Lock.ReleasePolicy != results.ResultsStandalone ||
+		len(stored.Lock.CompetitionSources) != 1 ||
+		stored.Lock.CompetitionSources[0].DraftID != draft.ID {
+		t.Fatalf("stored standalone Results Publication = %+v, %v", stored, err)
+	}
+	if _, err = service.DesignatePrizegiving(
+		t.Context(),
+		actor,
+		results.DesignatePrizegivingInput{
+			EventID: eventID, CeremonySessionID: ceremonyID,
+			CommandID: "designate-after-standalone-release",
+		},
+	); err != nil {
+		t.Fatalf("designate Prizegiving after standalone release: %v", err)
+	}
+	if _, err = service.SavePrizegivingPlan(
+		t.Context(),
+		actor,
+		results.SavePrizegivingPlanInput{
+			EventID: eventID, CeremonySessionID: ceremonyID,
+			CommandID:             "assign-published-standalone-results",
+			CompetitionSessionIDs: []int{competitionID},
+			Sequence: []results.ResultItem{{
+				Kind: results.ResultItemCompetition, CompetitionSessionID: competitionID,
+				DisplayOrder: 1, RevealMethod: results.RevealStatic,
+			}},
+			PublicationOrder: []results.ResultItemRef{{
+				Kind: results.ResultItemCompetition, CompetitionSessionID: competitionID,
+				DisplayOrder: 1,
+			}},
+			ReleasePolicy: results.ResultsProgressiveOnReveal,
+			Template:      results.TextTemplate{Revision: 1, Source: "{{.EventTitle}}\n"},
+		},
+	); !errors.Is(err, results.ErrCompetitionPrizegivingAssignment) {
+		t.Fatalf("assign published standalone Results error = %v", err)
+	}
+}
+
 func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 	storage, actor, eventID, authentication, sessionToken :=
 		openPrizegivingApplicationTest(t)

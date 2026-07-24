@@ -11,6 +11,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
 	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
+	"github.com/dotwaffle/beamers/ent/resultspublication"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
@@ -144,6 +145,47 @@ type PrizegivingCompetitionOrderState struct {
 type PrizegivingDefaultOrderState struct {
 	Competitions []PrizegivingCompetitionOrderState
 	EventAwards  []EventAward
+}
+
+// LoadStandaloneResultsReleaseState returns one unassigned Competition's draft.
+func (transaction *CommandTx) LoadStandaloneResultsReleaseState(
+	ctx context.Context,
+	eventID, competitionSessionID int,
+) (CompetitionResultsDraft, error) {
+	found, err := transaction.transaction.Session.Query().
+		Where(
+			session.IDEQ(competitionSessionID),
+			session.EventIDEQ(eventID),
+		).
+		Only(systemContext(ctx))
+	if err != nil {
+		return CompetitionResultsDraft{}, ErrCompetitionPrizegivingAssignment
+	}
+	version, err := found.QueryPublishedVersions().
+		Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).
+		First(systemContext(ctx))
+	if err != nil || version.Type != sessionpublishedversion.TypeCompetition {
+		return CompetitionResultsDraft{}, ErrCompetitionPrizegivingAssignment
+	}
+	assigned, err := transaction.transaction.PrizegivingCompetition.Query().
+		Where(
+			prizegivingcompetition.CompetitionSessionIDEQ(competitionSessionID),
+		).
+		Exist(systemContext(ctx))
+	if err != nil {
+		return CompetitionResultsDraft{}, opaqueError(
+			"check standalone Competition assignment",
+			err,
+		)
+	}
+	if assigned {
+		return CompetitionResultsDraft{}, ErrCompetitionPrizegivingAssignment
+	}
+	return transaction.LoadCompetitionResultsDraft(
+		ctx,
+		eventID,
+		competitionSessionID,
+	)
 }
 
 // LoadPrizegivingPlan returns one designated Prizegiving's current plan.
@@ -480,6 +522,19 @@ func (transaction *CommandTx) validatePrizegivingCompetitionAssignments(
 		return opaqueError("check Competition Prizegiving assignment", err)
 	}
 	if assignedElsewhere {
+		return ErrCompetitionPrizegivingAssignment
+	}
+	publishedStandalone, err := transaction.transaction.ResultsPublication.Query().
+		Where(
+			resultspublication.EventIDEQ(found.EventID),
+			resultspublication.ScopeEQ(resultspublication.ScopeStandalone),
+			resultspublication.ScopeSessionIDIn(competitionSessionIDs...),
+		).
+		Exist(systemContext(ctx))
+	if err != nil {
+		return opaqueError("check standalone Results Publication", err)
+	}
+	if publishedStandalone {
 		return ErrCompetitionPrizegivingAssignment
 	}
 	competitions, err := transaction.transaction.Session.Query().

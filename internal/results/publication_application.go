@@ -26,6 +26,13 @@ type FirePrizegivingResultsCueInput struct {
 	CommandID         string `json:"command_id"`
 }
 
+// ReleaseStandaloneResultsInput identifies one unassigned Competition release.
+type ReleaseStandaloneResultsInput struct {
+	EventID              int    `json:"event_id"`
+	CompetitionSessionID int    `json:"competition_session_id"`
+	CommandID            string `json:"command_id"`
+}
+
 // PrizegivingPublicationTrigger contains one durable release trigger.
 type PrizegivingPublicationTrigger struct {
 	CueFired      bool
@@ -93,6 +100,136 @@ func (service *Service) FirePrizegivingResultsCue(
 			return command.Success(next, string(outcome)), nil
 		},
 	})
+}
+
+// ReleaseStandaloneResults publishes one exact reviewed unassigned Competition.
+func (service *Service) ReleaseStandaloneResults(
+	ctx context.Context,
+	actor auth.Account,
+	input ReleaseStandaloneResultsInput,
+) (Publication, error) {
+	if input.EventID <= 0 || input.CompetitionSessionID <= 0 {
+		return Publication{}, ErrInvalidInput
+	}
+	if err := command.ValidateID(input.CommandID); err != nil {
+		return Publication{}, err
+	}
+	if !actor.CanProduceEvent(input.EventID) {
+		return Publication{}, ErrProducerRequired
+	}
+	payload, err := json.Marshal(input)
+	if err != nil {
+		return Publication{}, errors.New("encode standalone Results release command")
+	}
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID,
+		CommandID:      input.CommandID,
+		PayloadHash:    command.PayloadHash(string(payload)),
+		Action:         "ReleaseStandaloneResults",
+		TargetType:     "Competition",
+		TargetID:       strconv.Itoa(input.CompetitionSessionID),
+		Now:            service.now().UTC(),
+	}
+	return command.Execute(actor.Context(ctx), command.Plan[Publication]{
+		Storage:  service.storage,
+		Identity: identity,
+		Replay: func(outcome string) (Publication, error) {
+			var result Publication
+			if err := store.DecodeCommandReceipt(outcome, &result); err != nil {
+				return Publication{}, err
+			}
+			return result, nil
+		},
+		Apply: func(transaction *store.CommandTx) (command.Execution[Publication], error) {
+			current, loadErr := transaction.LoadResultsPublication(
+				actor.Context(ctx),
+				input.EventID,
+				store.ResultsPublicationStandalone,
+				input.CompetitionSessionID,
+			)
+			if loadErr != nil {
+				return command.Execution[Publication]{}, loadErr
+			}
+			if current.Status == store.ResultsPublicationFinal {
+				return publicationExecution(publicationFromStore(current))
+			}
+			draft, loadErr := transaction.LoadStandaloneResultsReleaseState(
+				actor.Context(ctx),
+				input.EventID,
+				input.CompetitionSessionID,
+			)
+			if loadErr != nil {
+				return command.Execution[Publication]{}, loadErr
+			}
+			if draft.Revision == 0 || draft.Disposition == string(Pending) || !draft.Ready {
+				return command.Execution[Publication]{}, ErrResultsPublicationRequired
+			}
+			kind := ResultItemCompetition
+			if draft.Disposition == string(NoPublicResults) {
+				kind = ResultItemNoPublicResults
+			}
+			ref := ResultItemRef{
+				Kind:                 kind,
+				CompetitionSessionID: input.CompetitionSessionID,
+				DisplayOrder:         1,
+			}
+			next, changed, advanceErr := AdvancePublication(PublicationInput{
+				Policy: ResultsStandalone,
+				Order:  []ResultItemRef{ref},
+				States: []ResultItemStageState{{
+					Ref: ref, Status: ResultItemRevealed, Release: ResultReleaseReady,
+				}},
+				Current:           publicationFromStore(current),
+				StandaloneRelease: true,
+			})
+			if advanceErr != nil {
+				return command.Execution[Publication]{}, advanceErr
+			}
+			if !changed {
+				return command.Execution[Publication]{}, ErrResultsPublicationRequired
+			}
+			storedRef := prizegivingItemRefInputs([]ResultItemRef{ref})[0]
+			stored, appendErr := transaction.AppendResultsPublication(
+				actor.Context(ctx),
+				store.AppendResultsPublicationParams{
+					EventID:          input.EventID,
+					Scope:            store.ResultsPublicationStandalone,
+					ScopeSessionID:   input.CompetitionSessionID,
+					ExpectedRevision: current.Revision,
+					Policy:           ResultsStandalone,
+					Status:           store.ResultsPublicationStatus(next.Status),
+					Items:            []store.PrizegivingResultItemRef{storedRef},
+					Lock: store.PrizegivingPreflightLock{
+						ReleasePolicy:    ResultsStandalone,
+						PublicationOrder: []store.PrizegivingResultItemRef{storedRef},
+						CompetitionSources: []store.PrizegivingCompetitionLock{{
+							SessionID: input.CompetitionSessionID,
+							DraftID:   draft.ID, DraftRevision: draft.Revision,
+							Disposition: draft.Disposition,
+						}},
+					},
+					CreatedByAccountID: actor.ID,
+					Now:                identity.Now,
+				},
+			)
+			if appendErr != nil {
+				return command.Execution[Publication]{}, appendErr
+			}
+			return publicationExecution(publicationFromStore(stored))
+		},
+	})
+}
+
+func publicationExecution(
+	value Publication,
+) (command.Execution[Publication], error) {
+	outcome, err := json.Marshal(value)
+	if err != nil {
+		return command.Execution[Publication]{}, errors.New(
+			"encode Results Publication outcome",
+		)
+	}
+	return command.Success(value, string(outcome)), nil
 }
 
 // AdvancePrizegivingPublication appends one policy-valid manifest revision.
