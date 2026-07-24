@@ -17,6 +17,7 @@ import (
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
 
 	_ "github.com/dotwaffle/beamers/ent/runtime" // Register generated hooks, validators, and privacy policies.
+	"github.com/dotwaffle/beamers/internal/backup"
 	"github.com/dotwaffle/beamers/internal/buildinfo"
 	"github.com/dotwaffle/beamers/internal/operations"
 	"github.com/dotwaffle/beamers/internal/server"
@@ -45,6 +46,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		err = runInit(ctx, args[1:], stdout, stderr)
 	case "bootstrap":
 		err = runBootstrap(ctx, args[1:], stdout, stderr)
+	case "backup":
+		err = runBackup(ctx, args[1:], stdout, stderr)
 	case "serve":
 		err = runServe(ctx, args[1:], stderr, logger)
 	case "help", "-h", "--help":
@@ -59,6 +62,62 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	logger.Error("command failed", "command", args[0], "error", err)
 	return 1
+}
+
+func runBackup(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	if len(args) > 0 && args[0] == "verify" {
+		flags := flag.NewFlagSet("backup verify", flag.ContinueOnError)
+		flags.SetOutput(stderr)
+		input := flags.String("input", "", "Backup archive path")
+		if err := flags.Parse(args[1:]); err != nil {
+			return err
+		}
+		if flags.NArg() != 0 {
+			return errors.New("backup verify accepts no positional arguments")
+		}
+		manifest, err := operations.VerifyBackup(*input)
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(
+			stdout,
+			"verified %s Backup format %d\n",
+			manifest.Mode,
+			manifest.FormatVersion,
+		)
+		return err
+	}
+	flags := flag.NewFlagSet("backup", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	dataDir := flags.String("data-dir", "", "installation data directory")
+	attachmentsDir := flags.String(
+		"attachments-dir",
+		"",
+		"Attachment Store root (default: DATA-DIR/attachments)",
+	)
+	output := flags.String("output", "", "Backup archive output path")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 {
+		return errors.New("backup accepts no positional arguments")
+	}
+	manifest, err := operations.CreateBackup(ctx, backup.CreateInput{
+		DataDir:        *dataDir,
+		AttachmentsDir: *attachmentsDir,
+		OutputPath:     *output,
+		Mode:           backup.Sanitized,
+	})
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(
+		stdout,
+		"created %s Backup at %s\n",
+		manifest.Mode,
+		*output,
+	)
+	return err
 }
 
 func runBootstrap(ctx context.Context, args []string, stdout, stderr io.Writer) error {
@@ -100,6 +159,11 @@ func runServe(ctx context.Context, args []string, stderr io.Writer, logger *slog
 	flags := flag.NewFlagSet("serve", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	dataDir := flags.String("data-dir", "", "installation data directory")
+	attachmentsDir := flags.String(
+		"attachments-dir",
+		"",
+		"Attachment Store root (default: DATA-DIR/attachments)",
+	)
 	listenAddress := flags.String("listen", "127.0.0.1:8080", "HTTP listen address")
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -109,6 +173,7 @@ func runServe(ctx context.Context, args []string, stderr io.Writer, logger *slog
 	}
 	return server.Run(ctx, server.Config{
 		DataDir:         *dataDir,
+		AttachmentsDir:  *attachmentsDir,
 		ListenAddress:   *listenAddress,
 		BuildVersion:    buildinfo.Version(),
 		ShutdownTimeout: 10 * time.Second,
@@ -123,5 +188,5 @@ func runServe(ctx context.Context, args []string, stderr io.Writer, logger *slog
 }
 
 func printUsage(output io.Writer) {
-	_, _ = fmt.Fprintln(output, "usage: beamers <init|bootstrap|serve> [options]")
+	_, _ = fmt.Fprintln(output, "usage: beamers <init|bootstrap|backup|serve> [options]")
 }

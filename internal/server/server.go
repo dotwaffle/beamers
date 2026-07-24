@@ -24,6 +24,7 @@ const displaySubscriberQueueCapacity = 1
 // Config contains the immutable service configuration.
 type Config struct {
 	DataDir         string
+	AttachmentsDir  string
 	ListenAddress   string
 	BuildVersion    string
 	ShutdownTimeout time.Duration
@@ -38,7 +39,9 @@ func Run(ctx context.Context, config Config) error {
 	if config.BuildVersion == "" {
 		return errors.New("server build version is required")
 	}
-	installation, err := operations.OpenInstallation(ctx, config.DataDir)
+	installation, err := operations.OpenInstallationWithConfig(ctx, operations.OpenConfig{
+		DataDir: config.DataDir, AttachmentsDir: config.AttachmentsDir,
+	})
 	if err != nil {
 		return err
 	}

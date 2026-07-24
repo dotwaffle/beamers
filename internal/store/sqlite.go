@@ -62,6 +62,13 @@ type migration struct {
 	sql      string
 }
 
+// BackupAttachment identifies one immutable file referenced by installation state.
+type BackupAttachment struct {
+	StorageKey string
+	SHA256     string
+	SizeBytes  int64
+}
+
 // systemContext is the store-only boundary for narrowly isolated internal work.
 func systemContext(ctx context.Context) context.Context {
 	return privacy.DecisionContext(ctx, privacy.Allow)
@@ -229,6 +236,106 @@ func (installation *SQLite) Ready(ctx context.Context) error {
 		return fmt.Errorf("%w: found %d installation identity records", ErrUnsupportedSchema, count)
 	}
 	return nil
+}
+
+// Snapshot writes one consistent compact database copy without replacing an
+// existing destination.
+func (installation *SQLite) Snapshot(ctx context.Context, destination string) error {
+	if installation == nil || installation.database == nil {
+		return ErrUninitialized
+	}
+	if destination == "" {
+		return errors.New("snapshot destination is required")
+	}
+	if _, err := os.Stat(destination); err == nil {
+		return errors.New("snapshot destination already exists")
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("inspect snapshot destination: %w", err)
+	}
+	if _, err := installation.database.ExecContext(
+		ctx,
+		"VACUUM main INTO ?",
+		destination,
+	); err != nil {
+		return fmt.Errorf("snapshot installation database: %w", err)
+	}
+	return syncFile(destination)
+}
+
+// SanitizeSnapshot removes authentication material from a closed snapshot.
+func SanitizeSnapshot(ctx context.Context, path string) (returnErr error) {
+	database, err := openDatabase(ctx, path)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, database.Close())
+	}()
+	transaction, err := database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin Backup sanitization: %w", err)
+	}
+	defer func() {
+		_ = transaction.Rollback()
+	}()
+	for _, statement := range []string{
+		"DELETE FROM account_sessions",
+		"DELETE FROM bootstrap_credentials",
+		"DELETE FROM password_credentials",
+		"DELETE FROM display_credentials",
+		"DELETE FROM display_enrollments",
+		"DELETE FROM upload_links",
+		"DELETE FROM command_receipts WHERE action = 'CreateAccount'",
+	} {
+		if _, err = transaction.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("sanitize Backup authentication material: %w", err)
+		}
+	}
+	if err = transaction.Commit(); err != nil {
+		return fmt.Errorf("commit Backup sanitization: %w", err)
+	}
+	return syncFile(path)
+}
+
+// BackupAttachments lists the distinct immutable files referenced by state.
+func (installation *SQLite) BackupAttachments(
+	ctx context.Context,
+) ([]BackupAttachment, error) {
+	if installation == nil || installation.client == nil {
+		return nil, ErrUninitialized
+	}
+	versions, err := installation.client.AttachmentVersion.Query().All(systemContext(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("list Backup Attachments: %w", err)
+	}
+	byKey := make(map[string]BackupAttachment, len(versions))
+	for _, version := range versions {
+		found := BackupAttachment{
+			StorageKey: version.StorageKey,
+			SHA256:     version.Sha256,
+			SizeBytes:  version.SizeBytes,
+		}
+		if prior, exists := byKey[found.StorageKey]; exists && prior != found {
+			return nil, errors.New("Attachment storage key has conflicting metadata")
+		}
+		byKey[found.StorageKey] = found
+	}
+	attachments := make([]BackupAttachment, 0, len(byKey))
+	for _, found := range byKey {
+		attachments = append(attachments, found)
+	}
+	sort.Slice(attachments, func(left, right int) bool {
+		return attachments[left].StorageKey < attachments[right].StorageKey
+	})
+	return attachments, nil
+}
+
+// SchemaVersion returns the latest committed schema understood by this binary.
+func (installation *SQLite) SchemaVersion() int {
+	if installation == nil || len(installation.migrations) == 0 {
+		return 0
+	}
+	return installation.migrations[len(installation.migrations)-1].version
 }
 
 // Close closes storage and releases the installation's process lock.

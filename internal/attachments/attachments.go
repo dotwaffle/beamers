@@ -219,22 +219,22 @@ type ReleasedVersion struct {
 // Service owns Attachment commands.
 type Service struct {
 	storage *store.SQLite
-	dataDir string
+	root    string
 	now     func() time.Time
 }
 
 // New creates an Attachment Service with explicit dependencies.
-func New(storage *store.SQLite, dataDir string, now func() time.Time) (*Service, error) {
+func New(storage *store.SQLite, root string, now func() time.Time) (*Service, error) {
 	if storage == nil {
 		return nil, errors.New("attachment storage is required")
 	}
-	if dataDir == "" {
-		return nil, errors.New("attachment data directory is required")
+	if root == "" {
+		return nil, errors.New("Attachment Store root is required")
 	}
 	if now == nil {
 		return nil, errors.New("attachment clock is required")
 	}
-	return &Service{storage: storage, dataDir: dataDir, now: now}, nil
+	return &Service{storage: storage, root: root, now: now}, nil
 }
 
 // IssueUploadLink rotates and returns one target-scoped credential.
@@ -444,7 +444,7 @@ type storedFile struct {
 }
 
 func (service *Service) storeFile(body io.Reader) (storedFile, error) {
-	root := filepath.Join(service.dataDir, "attachments")
+	root := service.root
 	temporaryDirectory := filepath.Join(root, ".tmp")
 	if err := os.MkdirAll(temporaryDirectory, 0o700); err != nil {
 		return storedFile{}, errors.New("prepare Attachment storage")
@@ -512,7 +512,7 @@ func (service *Service) ReadVersion(
 	if err != nil {
 		return Version{}, nil, err
 	}
-	content, err := os.ReadFile(filepath.Join(service.dataDir, "attachments", stored.StorageKey))
+	content, err := os.ReadFile(filepath.Join(service.root, stored.StorageKey))
 	if err != nil {
 		return Version{}, nil, errors.New("read Attachment bytes")
 	}
@@ -738,7 +738,7 @@ func (service *Service) ReadReleasedVersion(
 }
 
 func (service *Service) readStoredVersion(stored store.AttachmentVersion) ([]byte, error) {
-	content, err := os.ReadFile(filepath.Join(service.dataDir, "attachments", stored.StorageKey))
+	content, err := os.ReadFile(filepath.Join(service.root, stored.StorageKey))
 	if err != nil {
 		return nil, errors.New("read Attachment bytes")
 	}

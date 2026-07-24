@@ -3,11 +3,13 @@ package operations
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/activation"
 	"github.com/dotwaffle/beamers/internal/attachments"
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/backup"
 	"github.com/dotwaffle/beamers/internal/competition"
 	"github.com/dotwaffle/beamers/internal/displays"
 	"github.com/dotwaffle/beamers/internal/events"
@@ -20,6 +22,19 @@ import (
 	"github.com/dotwaffle/beamers/internal/sessioncontrol"
 	"github.com/dotwaffle/beamers/internal/store"
 )
+
+// CreateBackup writes one verified installation archive.
+func CreateBackup(
+	ctx context.Context,
+	input backup.CreateInput,
+) (backup.Manifest, error) {
+	return backup.Create(ctx, input)
+}
+
+// VerifyBackup validates one installation archive without applying it.
+func VerifyBackup(path string) (backup.Manifest, error) {
+	return backup.Verify(path)
+}
 
 var (
 	// ErrAlreadyInitialized means initialization found existing installation data.
@@ -52,6 +67,12 @@ type Installation struct {
 	sessionControl   *sessioncontrol.Service
 }
 
+// OpenConfig identifies an installation's database and Attachment Store roots.
+type OpenConfig struct {
+	DataDir        string
+	AttachmentsDir string
+}
+
 // Initialize creates a new installation with the committed schema.
 func Initialize(ctx context.Context, dataDir string) error {
 	return store.Initialize(ctx, dataDir)
@@ -59,7 +80,18 @@ func Initialize(ctx context.Context, dataDir string) error {
 
 // OpenInstallation opens storage for normal service or local recovery mode.
 func OpenInstallation(ctx context.Context, dataDir string) (*Installation, error) {
-	storage, err := store.Open(ctx, dataDir)
+	return OpenInstallationWithConfig(ctx, OpenConfig{DataDir: dataDir})
+}
+
+// OpenInstallationWithConfig opens storage with explicit local roots.
+func OpenInstallationWithConfig(
+	ctx context.Context,
+	config OpenConfig,
+) (*Installation, error) {
+	if config.AttachmentsDir == "" {
+		config.AttachmentsDir = filepath.Join(config.DataDir, "attachments")
+	}
+	storage, err := store.Open(ctx, config.DataDir)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +118,7 @@ func OpenInstallation(ctx context.Context, dataDir string) (*Installation, error
 		return nil, errors.Join(err, storage.Close())
 	}
 	installation.activation = activationService
-	attachmentService, err := attachments.New(storage, dataDir, time.Now)
+	attachmentService, err := attachments.New(storage, config.AttachmentsDir, time.Now)
 	if err != nil {
 		return nil, errors.Join(err, storage.Close())
 	}
