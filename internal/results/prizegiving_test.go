@@ -1,7 +1,6 @@
 package results
 
 import (
-	"errors"
 	"reflect"
 	"testing"
 	"time"
@@ -128,13 +127,6 @@ func TestPrizegivingRevealCompletionAndSkipActionsAreMonotonic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("start Result Reveal: %v", err)
 	}
-	if _, err = CompletePrizegivingReveal(
-		locked,
-		revealing,
-		startedAt.Add(2*time.Second),
-	); !errors.Is(err, ErrResultRevealRunning) {
-		t.Fatalf("early Reveal completion error = %v", err)
-	}
 	if effective := AdvanceElapsedPrizegivingReveal(
 		locked,
 		revealing,
@@ -152,14 +144,7 @@ func TestPrizegivingRevealCompletionAndSkipActionsAreMonotonic(t *testing.T) {
 		effective.RevealCompletedAt != startedAt.Add(3*time.Second) {
 		t.Fatalf("elapsed Reveal completion = %+v", effective)
 	}
-	revealed, err := CompletePrizegivingReveal(
-		locked,
-		revealing,
-		startedAt.Add(3*time.Second),
-	)
-	if err != nil {
-		t.Fatalf("complete Result Reveal: %v", err)
-	}
+	revealed := effective
 	if revealed.Status != ResultItemRevealed ||
 		revealed.RevealCompletedAt != startedAt.Add(3*time.Second) {
 		t.Fatalf("completed Result Reveal = %+v", revealed)

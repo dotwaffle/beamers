@@ -3,6 +3,8 @@ package results
 import (
 	"errors"
 	"time"
+
+	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 )
 
 var (
@@ -13,31 +15,31 @@ var (
 )
 
 // ResultItemStageStatus is one Result Item's monotonic stage outcome.
-type ResultItemStageStatus string
+type ResultItemStageStatus = prizegivingvalue.StageStatus
 
 const (
 	// ResultItemPending has not entered Program Output.
-	ResultItemPending ResultItemStageStatus = "Pending"
+	ResultItemPending = prizegivingvalue.StagePending
 	// ResultItemTaken is unrevealed in Program Output.
-	ResultItemTaken ResultItemStageStatus = "Taken"
+	ResultItemTaken = prizegivingvalue.StageTaken
 	// ResultItemRevealing is running a timed presentation.
-	ResultItemRevealing ResultItemStageStatus = "Revealing"
+	ResultItemRevealing = prizegivingvalue.StageRevealing
 	// ResultItemRevealed reached its immutable final truth.
-	ResultItemRevealed ResultItemStageStatus = "Revealed"
+	ResultItemRevealed = prizegivingvalue.StageRevealed
 	// ResultItemSkipped was deliberately omitted from stage presentation.
-	ResultItemSkipped ResultItemStageStatus = "Skipped"
+	ResultItemSkipped = prizegivingvalue.StageSkipped
 )
 
 // ResultReleaseState describes when a resolved item becomes publishable.
-type ResultReleaseState string
+type ResultReleaseState = prizegivingvalue.ReleaseState
 
 const (
 	// ResultReleaseHeld keeps an unresolved item out of publication.
-	ResultReleaseHeld ResultReleaseState = "Held"
+	ResultReleaseHeld = prizegivingvalue.ReleaseHeld
 	// ResultReleaseReady permits the configured reveal policy to publish it.
-	ResultReleaseReady ResultReleaseState = "Ready"
+	ResultReleaseReady = prizegivingvalue.ReleaseReady
 	// ResultReleaseCeremonyEnd queues a stage-skipped item for normal completion.
-	ResultReleaseCeremonyEnd ResultReleaseState = "CeremonyEnd"
+	ResultReleaseCeremonyEnd = prizegivingvalue.ReleaseCeremonyEnd
 )
 
 // ResultItemStageState is one durable Result Item presentation state.
@@ -108,26 +110,6 @@ func StartPrizegivingReveal(
 	}, nil
 }
 
-// CompletePrizegivingReveal reaches final truth after one timed presentation.
-func CompletePrizegivingReveal(
-	item LockedResultItem,
-	current ResultItemStageState,
-	now time.Time,
-) (ResultItemStageState, error) {
-	if current.Status != ResultItemRevealing ||
-		current.Ref != item.Ref(item.DisplayOrder) {
-		return current, ErrResultItemTransition
-	}
-	if now.Before(current.RevealStartedAt.Add(current.RevealDuration)) {
-		return current, ErrResultRevealRunning
-	}
-	next := current
-	next.Status = ResultItemRevealed
-	next.Release = ResultReleaseReady
-	next.RevealCompletedAt = now
-	return next, nil
-}
-
 // SkipPrizegivingResultToFinal immediately reaches immutable final truth.
 func SkipPrizegivingResultToFinal(
 	item LockedResultItem,
@@ -170,11 +152,20 @@ func AdvanceElapsedPrizegivingReveal(
 	current ResultItemStageState,
 	now time.Time,
 ) ResultItemStageState {
-	completed, err := CompletePrizegivingReveal(item, current, now)
-	if err != nil {
+	if current.Ref != item.Ref(item.DisplayOrder) {
 		return current
 	}
-	return completed
+	effective := (prizegivingvalue.StageState{
+		Status:              current.Status,
+		Release:             current.Release,
+		RevealStartedAt:     current.RevealStartedAt,
+		RevealDurationNanos: int64(current.RevealDuration),
+		RevealCompletedAt:   current.RevealCompletedAt,
+	}).EffectiveAt(now)
+	current.Status = effective.Status
+	current.Release = effective.Release
+	current.RevealCompletedAt = effective.RevealCompletedAt
+	return current
 }
 
 // ReplayPrizegivingReveal reruns presentation without changing canonical state.

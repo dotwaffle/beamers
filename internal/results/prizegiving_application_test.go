@@ -1,15 +1,28 @@
 package results_test
 
 import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
+	"connectrpc.com/connect"
+
 	_ "github.com/dotwaffle/beamers/ent/runtime"
+	programv1 "github.com/dotwaffle/beamers/gen/beamers/program/v1"
+	resultsv1 "github.com/dotwaffle/beamers/gen/beamers/results/v1"
 	"github.com/dotwaffle/beamers/internal/activation"
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/connectapi"
+	"github.com/dotwaffle/beamers/internal/displays"
+	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/programconnect"
 	"github.com/dotwaffle/beamers/internal/programcontrol"
 	"github.com/dotwaffle/beamers/internal/results"
 	"github.com/dotwaffle/beamers/internal/rundown"
@@ -19,7 +32,7 @@ import (
 )
 
 func TestPrizegivingPublicCommandsPreflightAndPreview(t *testing.T) {
-	storage, actor, eventID := openPrizegivingApplicationTest(t)
+	storage, actor, eventID, _, _ := openPrizegivingApplicationTest(t)
 	now := func() time.Time {
 		return time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
 	}
@@ -183,7 +196,8 @@ func TestPrizegivingPublicCommandsPreflightAndPreview(t *testing.T) {
 }
 
 func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
-	storage, actor, eventID := openPrizegivingApplicationTest(t)
+	storage, actor, eventID, authentication, sessionToken :=
+		openPrizegivingApplicationTest(t)
 	nowValue := time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
 	now := func() time.Time { return nowValue }
 	ceremonyID, competitionID := publishPrizegivingSessions(
@@ -215,6 +229,25 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 	if err != nil {
 		t.Fatalf("save Results: %v", err)
 	}
+	draft, err = resultsService.SaveCompetitionAwards(
+		t.Context(),
+		actor,
+		results.SaveCompetitionAwardsInput{
+			EventID: eventID, SessionID: competitionID,
+			CommandID:        "save-public-program-award",
+			ExpectedRevision: draft.Revision,
+			Awards: []results.Award{{
+				Key: "jury", Name: "Jury Award", Promoted: true,
+				DisplayOrder: 1,
+				Recipients: []results.AwardRecipient{{
+					DisplayName: "Team One",
+				}},
+			}},
+		},
+	)
+	if err != nil {
+		t.Fatalf("save promoted Competition Award: %v", err)
+	}
 	if _, err = resultsService.MarkReady(
 		t.Context(),
 		actor,
@@ -230,6 +263,13 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 		Kind: results.ResultItemCompetition, CompetitionSessionID: competitionID,
 		DisplayOrder: 1, RevealMethod: results.RevealSequentialPodium,
 	}
+	awardItem := results.ResultItem{
+		Kind:                 results.ResultItemCompetitionAward,
+		CompetitionSessionID: competitionID,
+		AwardKey:             "jury",
+		DisplayOrder:         2,
+		RevealMethod:         results.RevealStatic,
+	}
 	plan, err := resultsService.SavePrizegivingPlan(
 		t.Context(),
 		actor,
@@ -237,8 +277,11 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 			EventID: eventID, CeremonySessionID: ceremonyID,
 			CommandID:             "save-public-program-plan",
 			CompetitionSessionIDs: []int{competitionID},
-			Sequence:              []results.ResultItem{item},
-			PublicationOrder:      []results.ResultItemRef{item.Ref(1)},
+			Sequence:              []results.ResultItem{item, awardItem},
+			PublicationOrder: []results.ResultItemRef{
+				item.Ref(1),
+				awardItem.Ref(2),
+			},
 			Template: results.TextTemplate{
 				Revision: 1, Source: "{{.EventTitle}}\n",
 			},
@@ -318,29 +361,84 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 	if !taken.Committed ||
 		taken.State.Channel.Output.Result == nil ||
 		taken.State.Channel.Output.Result.Status != "Taken" ||
-		taken.State.Channel.Output.Result.Release != "Held" {
+		taken.State.Channel.Output.Result.Release != "Held" ||
+		taken.State.Preview.Result == nil ||
+		taken.State.Preview.Result.Ref.AwardKey != "jury" {
 		t.Fatalf("Taken Program Result = %+v", taken)
 	}
-	revealing, err := programService.ActOnResult(
+	if _, err = programService.Take(
 		t.Context(),
 		actor,
-		programcontrol.ResultActionInput{
+		programcontrol.TakeInput{
 			EventID: eventID, SessionID: ceremonyID,
-			CommandID:               "reveal-public-program-result",
-			Action:                  programcontrol.ResultReveal,
-			Item:                    taken.State.Channel.Output,
-			ExpectedProgramRevision: taken.State.Channel.Revision,
+			CommandID:               "premature-second-result",
+			ExpectedRevision:        taken.State.Channel.Revision,
 			ExpectedControlRevision: taken.State.ControlRevision,
+			Item:                    taken.State.Preview,
 		},
-	)
-	if err != nil {
-		t.Fatalf("Reveal Result: %v", err)
+	); !errors.Is(err, programcontrol.ErrResultRevealRunning) {
+		t.Fatalf("premature second Result Take error = %v", err)
 	}
-	if !revealing.Committed ||
-		revealing.State.Channel.Output.Result.Status != "Revealing" ||
-		revealing.State.Channel.Output.Result.Release != "Held" ||
-		revealing.State.Channel.Output.Result.RevealDuration != 3*time.Second {
-		t.Fatalf("Revealing Program Result = %+v", revealing)
+	invokeResult, displayStream, programStream := newResultRPCInvoker(
+		t,
+		storage,
+		programService,
+		authentication,
+		sessionToken,
+		now,
+	)
+	resultItemMessage := &programv1.ProgramItem{
+		Kind: programv1.ProgramItemKind_PROGRAM_ITEM_KIND_RESULT,
+		Result: &programv1.ProgramResult{
+			Item: &resultsv1.ResultItemRef{
+				Kind:                 resultsv1.ResultItemKind_RESULT_ITEM_KIND_COMPETITION_RESULTS,
+				CompetitionSessionId: int64(competitionID),
+				DisplayOrder:         1,
+			},
+		},
+	}
+	revealing, err := invokeResult(&programv1.ActOnResultRequest{
+		EventId: int64(eventID), SessionId: int64(ceremonyID),
+		CommandId: "reveal-public-program-result",
+		Action:    programv1.ResultAction_RESULT_ACTION_REVEAL,
+		Item:      resultItemMessage,
+		ExpectedProgramRevision: int64(
+			taken.State.Channel.Revision,
+		),
+		ExpectedControlStateRevision: int64(
+			taken.State.ControlRevision,
+		),
+	})
+	if err != nil {
+		t.Fatalf("Reveal Result RPC: %v", err)
+	}
+	revealingResult := revealing.GetChannel().GetProgramOutput().GetResult()
+	if revealingResult.GetStatus() !=
+		programv1.ResultStageStatus_RESULT_STAGE_STATUS_REVEALING ||
+		revealingResult.GetRelease() !=
+			programv1.ResultReleaseState_RESULT_RELEASE_STATE_HELD ||
+		revealingResult.GetRevealDuration().AsDuration() != 3*time.Second ||
+		displayStream.Cursor().Position != 1 ||
+		programStream.Cursor().Position != 1 {
+		t.Fatalf("Revealing Program Result RPC = %+v", revealing)
+	}
+	if _, retryErr := invokeResult(&programv1.ActOnResultRequest{
+		EventId: int64(eventID), SessionId: int64(ceremonyID),
+		CommandId:                    "reject-second-reveal",
+		Action:                       programv1.ResultAction_RESULT_ACTION_REVEAL,
+		Item:                         resultItemMessage,
+		ExpectedProgramRevision:      revealing.GetChannel().GetLiveStateRevision(),
+		ExpectedControlStateRevision: revealing.GetChannel().GetControlStateRevision(),
+	}); connect.CodeOf(retryErr) != connect.CodeFailedPrecondition {
+		t.Fatalf("second Reveal RPC error = %v", retryErr)
+	}
+	if displayStream.Cursor().Position != 1 ||
+		programStream.Cursor().Position != 1 {
+		t.Fatalf(
+			"rejected Reveal notifications = display %d, program %d",
+			displayStream.Cursor().Position,
+			programStream.Cursor().Position,
+		)
 	}
 	nowValue = nowValue.Add(3 * time.Second)
 	revealed, err := programService.Current(
@@ -378,11 +476,99 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 			revealed.Channel.Output.Result.RevealSeed {
 		t.Fatalf("Replayed Program Result = %+v", replayed)
 	}
+	secondTaken, err := programService.Take(
+		t.Context(),
+		actor,
+		programcontrol.TakeInput{
+			EventID: eventID, SessionID: ceremonyID,
+			CommandID:               "take-second-public-program-result",
+			ExpectedRevision:        replayed.State.Channel.Revision,
+			ExpectedControlRevision: replayed.State.ControlRevision,
+			Item:                    replayed.State.Preview,
+		},
+	)
+	if err != nil ||
+		secondTaken.State.Channel.Output.Result == nil ||
+		secondTaken.State.Channel.Output.Result.Ref.AwardKey != "jury" {
+		t.Fatalf("Take second Result after resolution = %+v, %v", secondTaken, err)
+	}
+}
+
+func newResultRPCInvoker(
+	t *testing.T,
+	storage *store.SQLite,
+	programService *programcontrol.Service,
+	authentication *auth.Service,
+	sessionToken string,
+	now func() time.Time,
+) (
+	func(*programv1.ActOnResultRequest) (*programv1.ActOnResultResponse, error),
+	*displaystream.Hub,
+	*displaystream.Hub,
+) {
+	t.Helper()
+	displayConfig := displays.DefaultConfig()
+	displayConfig.Now = now
+	displayService, err := displays.New(storage, displayConfig)
+	if err != nil {
+		t.Fatalf("create Display service: %v", err)
+	}
+	displayStream, err := displaystream.New("result-rpc-display", 1)
+	if err != nil {
+		t.Fatalf("create Display stream: %v", err)
+	}
+	programStream, err := displaystream.New("result-rpc-program", 1)
+	if err != nil {
+		t.Fatalf("create Program stream: %v", err)
+	}
+	handler, err := programconnect.NewHandler(
+		programService,
+		displayService,
+		displayStream,
+		programStream,
+	)
+	if err != nil {
+		t.Fatalf("create Program Connect handler: %v", err)
+	}
+	authenticationInterceptor, err := connectapi.AuthenticationInterceptor(
+		authentication,
+	)
+	if err != nil {
+		t.Fatalf("create Authentication interceptor: %v", err)
+	}
+	invoke := func(
+		ctx context.Context,
+		request connect.AnyRequest,
+	) (connect.AnyResponse, error) {
+		typed, ok := request.(*connect.Request[programv1.ActOnResultRequest])
+		if !ok {
+			return nil, errors.New("unexpected Program Result request type")
+		}
+		return handler.ActOnResult(ctx, typed)
+	}
+	wrapped := programconnect.ErrorInterceptor().WrapUnary(
+		authenticationInterceptor.WrapUnary(invoke),
+	)
+	return func(
+		message *programv1.ActOnResultRequest,
+	) (*programv1.ActOnResultResponse, error) {
+		request := connect.NewRequest(message)
+		request.Header().Set("Cookie", "beamers_session="+sessionToken)
+		response, invokeErr := wrapped(t.Context(), request)
+		if invokeErr != nil {
+			return nil, invokeErr
+		}
+		typed, ok := response.(*connect.Response[programv1.ActOnResultResponse])
+		if !ok {
+			return nil, errors.New("unexpected Program Result response type")
+		}
+		return typed.Msg, nil
+	}, displayStream, programStream
 }
 
 func openPrizegivingApplicationTest(
 	t *testing.T,
-) (*store.SQLite, auth.Account, int) {
+) (*store.SQLite, auth.Account, int, *auth.Service, string) {
 	t.Helper()
 	dataDir := t.TempDir()
 	if err := store.Initialize(t.Context(), dataDir); err != nil {
@@ -407,13 +593,18 @@ func openPrizegivingApplicationTest(
 	); err != nil {
 		t.Fatalf("issue bootstrap: %v", err)
 	}
+	sessionToken := base64.RawURLEncoding.EncodeToString(
+		bytes.Repeat([]byte("s"), 32),
+	)
+	sessionDigest := sha256.Sum256([]byte(sessionToken))
 	created, err := storage.BootstrapAdministrator(
 		t.Context(),
 		store.BootstrapAdministratorParams{
 			BootstrapHash: bootstrapHash,
 			Name:          "Producer", NormalizedName: "producer",
-			PasswordHash: "test-password-hash", SessionHash: strings.Repeat("s", 64),
-			Now: now, SessionExpiry: now.Add(time.Hour),
+			PasswordHash: "test-password-hash",
+			SessionHash:  fmt.Sprintf("%x", sessionDigest),
+			Now:          now, SessionExpiry: now.Add(time.Hour),
 		},
 	)
 	if err != nil {
@@ -421,6 +612,12 @@ func openPrizegivingApplicationTest(
 	}
 	administrator := auth.Account{
 		ID: created.ID, Name: created.Name, Administrator: true,
+	}
+	authConfig := auth.DefaultConfig()
+	authConfig.Now = func() time.Time { return now }
+	authentication, err := auth.New(storage, authConfig)
+	if err != nil {
+		t.Fatalf("create Authentication service: %v", err)
 	}
 	eventService, err := events.New(storage, func() time.Time { return now })
 	if err != nil {
@@ -450,7 +647,7 @@ func openPrizegivingApplicationTest(
 		t.Fatalf("grant Producer: %v", err)
 	}
 	administrator.EventRoles = map[int]viewer.Role{event.ID: viewer.Producer}
-	return storage, administrator, event.ID
+	return storage, administrator, event.ID, authentication, sessionToken
 }
 
 func publishPrizegivingSessions(

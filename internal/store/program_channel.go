@@ -549,62 +549,19 @@ func loadPrizegivingProgramChannel(
 		len(plan.PreflightLock.Sequence),
 	)
 	for _, locked := range plan.PreflightLock.Sequence {
-		ref := prizegivingItemRef(locked.ItemRef)
-		result := ProgramResult{
-			Ref: ref, RevealMethod: locked.RevealMethod,
-			ReducedMotionRevealMethod: "StaticResult",
-			RevealSeed:                locked.RevealSeed,
-			Status:                    "Pending",
-			Release:                   "Held",
+		item, loadErr := loadPrizegivingProgramItem(
+			internalContext,
+			client,
+			version.Title,
+			plan.PreflightLock.CompetitionSources,
+			eventAwards,
+			states,
+			locked,
+		)
+		if loadErr != nil {
+			return ProgramChannelState{}, loadErr
 		}
-		if state, ok := states[ref]; ok {
-			result.Status = state.Status
-			result.Release = state.Release
-			result.TakenAt = state.TakenAt
-			result.RevealStartedAt = state.RevealStartedAt
-			result.RevealDuration = state.RevealDuration
-			result.RevealCompletedAt = state.RevealCompletedAt
-			result.SkippedAt = state.SkippedAt
-		}
-		title := prizegivingResultTitle(ref, version.Title)
-		switch ref.Kind {
-		case "CompetitionResults", "NoPublicResults", "CompetitionAward":
-			source, ok := findPrizegivingCompetitionSource(
-				plan.PreflightLock.CompetitionSources,
-				ref.CompetitionSessionID,
-			)
-			if !ok {
-				return ProgramChannelState{}, ErrProgramItem
-			}
-			lockedResults, loadErr := loadCompetitionResultsDraftByID(
-				internalContext,
-				client,
-				source.DraftID,
-			)
-			if loadErr != nil {
-				return ProgramChannelState{}, loadErr
-			}
-			if locked.RevealMethod == "AnimatedScoreBars" {
-				result.ScoreBars = programScoreBars(lockedResults)
-			}
-			result.CompetitionResults = programCompetitionResults(
-				lockedResults,
-				ref,
-			)
-			title = prizegivingCompetitionResultTitle(result, title)
-		case "EventAward":
-			award, foundAward := findPrizegivingEventAward(eventAwards, ref.AwardKey)
-			if !foundAward {
-				return ProgramChannelState{}, ErrProgramItem
-			}
-			result.EventAward = award
-			title = result.EventAward.Name
-		default:
-			return ProgramChannelState{}, ErrProgramItem
-		}
-		items = append(items, ProgramItem{
-			Kind: ProgramItemResult, Title: title, Result: &result,
-		})
+		items = append(items, item)
 	}
 	state := ProgramChannelState{
 		EventID: found.EventID, SessionID: found.ID, Name: version.Title,
@@ -644,6 +601,72 @@ func loadPrizegivingProgramChannel(
 	}
 	setProgramContext(&state, found.ProgramCursor)
 	return state, nil
+}
+
+func loadPrizegivingProgramItem(
+	ctx context.Context,
+	client *ent.Client,
+	ceremonyTitle string,
+	sources []prizegivingvalue.CompetitionLock,
+	eventAwards []EventAward,
+	states map[PrizegivingResultItemRef]PrizegivingStageState,
+	locked prizegivingvalue.LockedItem,
+) (ProgramItem, error) {
+	ref := prizegivingItemRef(locked.ItemRef)
+	result := ProgramResult{
+		Ref: ref, RevealMethod: locked.RevealMethod,
+		ReducedMotionRevealMethod: prizegivingvalue.RevealStatic,
+		RevealSeed:                locked.RevealSeed,
+		Status:                    prizegivingvalue.StagePending,
+		Release:                   prizegivingvalue.ReleaseHeld,
+	}
+	if state, ok := states[ref]; ok {
+		result.Status = state.Status
+		result.Release = state.Release
+		result.TakenAt = state.TakenAt
+		result.RevealStartedAt = state.RevealStartedAt
+		result.RevealDuration = state.RevealDuration
+		result.RevealCompletedAt = state.RevealCompletedAt
+		result.SkippedAt = state.SkippedAt
+	}
+	title := prizegivingResultTitle(ref, ceremonyTitle)
+	switch ref.Kind {
+	case prizegivingvalue.ItemCompetitionResults,
+		prizegivingvalue.ItemNoPublicResults,
+		prizegivingvalue.ItemCompetitionAward:
+		source, ok := findPrizegivingCompetitionSource(
+			sources,
+			ref.CompetitionSessionID,
+		)
+		if !ok {
+			return ProgramItem{}, ErrProgramItem
+		}
+		lockedResults, err := loadCompetitionResultsDraftByID(
+			ctx,
+			client,
+			source.DraftID,
+		)
+		if err != nil {
+			return ProgramItem{}, err
+		}
+		if locked.RevealMethod == prizegivingvalue.RevealAnimatedScoreBars {
+			result.ScoreBars = programScoreBars(lockedResults)
+		}
+		result.CompetitionResults = programCompetitionResults(lockedResults, ref)
+		title = prizegivingCompetitionResultTitle(result, title)
+	case prizegivingvalue.ItemEventAward:
+		award, ok := findPrizegivingEventAward(eventAwards, ref.AwardKey)
+		if !ok {
+			return ProgramItem{}, ErrProgramItem
+		}
+		result.EventAward = award
+		title = result.EventAward.Name
+	default:
+		return ProgramItem{}, ErrProgramItem
+	}
+	return ProgramItem{
+		Kind: ProgramItemResult, Title: title, Result: &result,
+	}, nil
 }
 
 func (transaction *CommandTx) savePrizegivingStageState(
