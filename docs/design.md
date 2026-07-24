@@ -425,16 +425,20 @@ The control surface labels this degraded path prominently, and the service attem
 
 Unsafe startup storage enters local-only recovery mode.
 No Crew, public, Display, or live-control Interface is served.
-An offline CLI using host operating-system authority validates and explicitly installs a restore while preserving suspect state in a non-overwriting quarantine location.
+The `beamers` executable uses host operating-system authority to validate and explicitly install a Restore while preserving suspect state in a non-overwriting quarantine location.
 Beamers never silently creates over, replaces, restores, or promotes data.
-Kong is the preferred CLI parser but is kept behind an adapter and is not an architectural dependency.
+Healthy administrative maintenance and host recovery are adapters over the same Backup and Restore operations.
 
 ### Backup and replication
 
-Versioned backups can exclude authentication secrets while retaining Account names, roles, and related structure; this sanitized form is the default.
+Versioned conventional archives contain a database snapshot, every referenced immutable Attachment Version, compatibility metadata, and integrity hashes.
+The Attachment Store defaults inside the data directory but may use a separately configured local root.
+Backups can exclude authentication secrets while retaining Account names, roles, and related structure; this Sanitized Backup is the default.
 Beamers does not encrypt backups, so deployments apply external encryption and access control where required.
-Restore validates integrity and compatibility before atomic replacement.
-A sanitized Restore requires Administrator re-bootstrap and Display re-Enrollment.
+Full-Fidelity Backup requires recent Administrator re-authentication and explicit acknowledgment of its external protection requirements.
+Restore validates integrity and compatibility, stages both database and Attachments, and uses a durable journal to coordinate non-overwriting cross-filesystem cutover.
+A Sanitized Restore requires Administrator re-bootstrap and Display re-Enrollment.
+Final Files Export is a separate reproducible public/archive projection and is never authoritative recovery material.
 
 Optional embedded Litestream replication is disabled by default and isolated behind an adapter.
 It provides asynchronous full-fidelity disaster-recovery copies, not command durability, sanitized backup, automatic failover, or a second authority.
@@ -481,11 +485,13 @@ Raspberry Pi devices are Display or operator-console candidates, not authoritati
 Local hard-disk ZFS RAID-Z development validates correctness but does not certify the SSD-based latency objective.
 
 Upgrades are manual and offline-capable.
-The service stops, migration preflight creates and verifies a backup, committed migrations apply, and the new version starts and proves readiness.
-Rollback restores the pre-upgrade backup with the prior binary because version one has no down migrations.
+Safe committed migrations run automatically in Maintenance Mode after a verified Backup, against staged state that must pass sanity checks before readiness returns.
+Destructive, rollback-incompatible, or unclassified plans require a re-authenticated Administrator preview and approval or a host-authorized fallback.
+Declared reader and writer compatibility ranges allow an older binary to retain post-upgrade data where the migration contract permits it.
+Rollback otherwise restores the pre-upgrade Backup with the prior binary because version one has no down migrations.
 
 Live operational state normally blocks migration.
-An urgent crash, security, or data-visibility fix may use a guarded force-live option requiring exclusive database access, a mandatory reason, a fresh verified backup, prominent confirmation, and an Audit Entry.
+An urgent crash, security, or data-visibility fix may use a guarded force-live option requiring exclusive database access, a mandatory reason, a fresh verified Full-Fidelity Backup, prominent confirmation, and an Audit Entry.
 
 ## Quality attributes and release gates
 

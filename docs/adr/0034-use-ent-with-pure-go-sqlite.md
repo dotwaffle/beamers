@@ -7,7 +7,8 @@ SQLite remains the authoritative store described in ADR 0011.
 Schema changes use versioned migration files generated from the Ent schema and committed with the application.
 Normal service startup never invokes Ent's automatic `Schema.Create` migration path.
 
-An explicit migration command performs a preflight, requires a verified backup, and applies every pending migration transactionally where SQLite permits.
+Migration execution follows ADR 0051: safe committed migrations run automatically against staged state in Maintenance Mode, while unsafe plans require explicit approval or host authority.
+Every path requires a verified backup and applies pending migrations transactionally where SQLite permits.
 It refuses a database with an unknown or newer schema version.
 Version one does not provide down migrations; operational rollback restores the verified backup and runs the prior application binary.
 

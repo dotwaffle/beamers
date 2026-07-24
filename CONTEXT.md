@@ -50,6 +50,23 @@ _Avoid_: transport acknowledgment, duplicate Audit Entry
 It grants no Event crew access by itself.
 _Avoid_: Producer
 
+**Backup**: A versioned integrity-checked archive of one installation's authoritative database and referenced Attachment Versions.
+It is disaster-recovery material, not Event interchange or continuous replication.
+_Avoid_: Event Export, Litestream replica
+
+**Sanitized Backup**: The default Backup form that preserves identities and operational history while excluding authentication secrets.
+It requires Administrator re-bootstrap and Display re-Enrollment after Restore.
+_Avoid_: anonymized export
+
+**Full-Fidelity Backup**: An explicitly requested Backup that includes authentication secrets for credential-preserving recovery.
+_Avoid_: Sanitized Backup
+
+**Restore**: The explicit replacement of an installation with one validated Backup while preserving the replaced state for rollback or diagnosis.
+_Avoid_: Import, Revert
+
+**Maintenance Mode**: The bounded service state in which operational state is intentionally frozen while Backup, Restore, migration, or validation work prevents normal commands.
+_Avoid_: Disconnected, recovery mode
+
 **Producer**: The Event role authorized to configure an Event and use all of its live controls.
 _Avoid_: Administrator
 
@@ -142,6 +159,13 @@ _Avoid_: Attachment Version, Crew Note
 
 **Attachment Version**: One immutable uploaded revision of an Attachment.
 _Avoid_: Attachment
+
+**Attachment Store**: The installation's configured authoritative collection of immutable Attachment Version bytes.
+_Avoid_: Final Files Export, Backup
+
+**Final Files Export**: A reproducible human-navigable projection of selected Final Versions for external publication or archival.
+It is disposable and never authoritative.
+_Avoid_: Attachment Store, Backup
 
 **Upload Link**: An unguessable, revocable credential granting an uploader access to one Presentation or Entry until its submission access closes.
 _Avoid_: Account, public upload
@@ -515,6 +539,9 @@ _Avoid_: End Now
 
 **Display**: An addressable screen endpoint that presents Event information.
 _Avoid_: View, monitor, screen
+
+**Stale**: The connected Display condition in which its last committed frame remains valid but intentionally frozen during Maintenance Mode.
+_Avoid_: Disconnected, Live
 
 **Display Group**: A logical set of Displays that may be targeted together by an Override.
 _Avoid_: View, Location

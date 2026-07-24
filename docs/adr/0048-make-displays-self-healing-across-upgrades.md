@@ -4,6 +4,9 @@ Displays never require a manual browser refresh for an ordinary server restart, 
 They keep their last rendered frame, show the disconnection indicator, reconnect with bounded backoff and jitter, obtain an authoritative snapshot, and resume live updates.
 Asset URLs are content-addressed so cached files from different builds cannot be mixed.
 
+During Maintenance Mode, an output Display remains connected to the maintenance shell, retains its last committed frame, and shows a discreet accessible Stale marker distinct from Disconnected.
+Interactive Crew Clients instead show the maintenance state and return to their requested page when readiness returns.
+
 The Display state protocol remains backward-compatible within version one where practical.
 Every connection and snapshot identifies its protocol version.
 If a new server cannot serve the running client, the Display first verifies that the new entry document is reachable, then performs a controlled reload of its server-hosted assets automatically.

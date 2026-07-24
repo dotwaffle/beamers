@@ -1,5 +1,7 @@
 # Keep upgrades explicit and offline-capable
 
+Status: superseded by ADR-0051
+
 Version one performs no automatic update discovery, download, installation, or restart.
 It exposes its build version without contacting an update service.
 Administrators obtain and verify release binaries or images externally, so an installation can be maintained without internet access.
