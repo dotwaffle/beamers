@@ -45,32 +45,41 @@ const (
 
 // PrizegivingStageState is one Result Item's durable presentation state.
 type PrizegivingStageState struct {
-	Ref               PrizegivingResultItemRef
-	Status            string
-	TakenAt           time.Time
-	RevealStartedAt   time.Time
-	RevealDuration    time.Duration
-	RevealCompletedAt time.Time
-	SkippedAt         time.Time
+	Ref               PrizegivingResultItemRef      `json:"ref"`
+	Status            prizegivingvalue.StageStatus  `json:"status"`
+	Release           prizegivingvalue.ReleaseState `json:"release"`
+	TakenAt           time.Time                     `json:"taken_at,omitzero"`
+	RevealStartedAt   time.Time                     `json:"reveal_started_at,omitzero"`
+	RevealDuration    time.Duration                 `json:"reveal_duration,omitempty"`
+	RevealCompletedAt time.Time                     `json:"reveal_completed_at,omitzero"`
+	SkippedAt         time.Time                     `json:"skipped_at,omitzero"`
 }
 
 // ProgramResult is one exact locked Prizegiving presentation source.
 type ProgramResult struct {
-	Ref                       PrizegivingResultItemRef
-	RevealMethod              string
-	ReducedMotionRevealMethod string
-	RevealSeed                uint64
-	Status                    string
-	TakenAt                   time.Time
-	RevealStartedAt           time.Time
-	RevealDuration            time.Duration
-	RevealCompletedAt         time.Time
-	SkippedAt                 time.Time
-	Replay                    bool
-	PresentationStartedAt     time.Time
-	PresentationDuration      time.Duration
-	CompetitionResults        CompetitionResultsDraft
-	EventAward                EventAward
+	Ref                       PrizegivingResultItemRef      `json:"ref"`
+	RevealMethod              prizegivingvalue.RevealMethod `json:"reveal_method"`
+	ReducedMotionRevealMethod prizegivingvalue.RevealMethod `json:"reduced_motion_reveal_method"`
+	RevealSeed                uint64                        `json:"reveal_seed"`
+	Status                    prizegivingvalue.StageStatus  `json:"status"`
+	Release                   prizegivingvalue.ReleaseState `json:"release"`
+	TakenAt                   time.Time                     `json:"taken_at,omitzero"`
+	RevealStartedAt           time.Time                     `json:"reveal_started_at,omitzero"`
+	RevealDuration            time.Duration                 `json:"reveal_duration,omitempty"`
+	RevealCompletedAt         time.Time                     `json:"reveal_completed_at,omitzero"`
+	SkippedAt                 time.Time                     `json:"skipped_at,omitzero"`
+	Replay                    bool                          `json:"replay,omitempty"`
+	PresentationStartedAt     time.Time                     `json:"presentation_started_at,omitzero"`
+	PresentationDuration      time.Duration                 `json:"presentation_duration,omitempty"`
+	CompetitionResults        CompetitionResultsDraft       `json:"competition_results,omitzero"`
+	EventAward                EventAward                    `json:"event_award,omitzero"`
+	ScoreBars                 []ProgramScoreBar             `json:"score_bars,omitempty"`
+}
+
+// ProgramScoreBar is one non-sensitive relative score presentation value.
+type ProgramScoreBar struct {
+	EntryID     int    `json:"entry_id"`
+	BasisPoints uint32 `json:"basis_points"`
 }
 
 // ProgramItem is one exact selectable built-in presentation state.
@@ -80,6 +89,21 @@ type ProgramItem struct {
 	Title   string          `json:"title"`
 	Retry   bool            `json:"retry,omitempty"`
 	Result  *ProgramResult  `json:"result,omitempty"`
+}
+
+// SameIdentity reports whether two values name the same canonical Program Item.
+func (item ProgramItem) SameIdentity(other ProgramItem) bool {
+	if item.Kind != other.Kind ||
+		item.EntryID != other.EntryID ||
+		item.Retry != other.Retry {
+		return false
+	}
+	if item.Kind != ProgramItemResult {
+		return true
+	}
+	return item.Result != nil &&
+		other.Result != nil &&
+		item.Result.Ref == other.Result.Ref
 }
 
 // ProgramChannelState is durable Program Output plus its canonical context.
@@ -122,6 +146,7 @@ type PrizegivingResultActionParams struct {
 	Item               ProgramItem
 	State              PrizegivingStageState
 	Presentation       PrizegivingPresentationRun
+	ObservedAt         time.Time
 }
 
 // SkipPrizegivingResultFromStageParams records one unpresented locked Result.
@@ -138,7 +163,18 @@ func (installation *SQLite) LoadProgramChannel(
 	eventID, sessionID int,
 ) (ProgramChannelState, error) {
 	return loadProgramChannel(
-		ctx, installation.client, eventID, sessionID,
+		ctx, installation.client, eventID, sessionID, time.Time{},
+	)
+}
+
+// LoadProgramChannelAt includes Result completion derived from server time.
+func (installation *SQLite) LoadProgramChannelAt(
+	ctx context.Context,
+	eventID, sessionID int,
+	observedAt time.Time,
+) (ProgramChannelState, error) {
+	return loadProgramChannel(
+		ctx, installation.client, eventID, sessionID, observedAt,
 	)
 }
 
@@ -148,7 +184,18 @@ func (transaction *CommandTx) LoadProgramChannel(
 	eventID, sessionID int,
 ) (ProgramChannelState, error) {
 	return loadProgramChannel(
-		ctx, transaction.transaction.Client(), eventID, sessionID,
+		ctx, transaction.transaction.Client(), eventID, sessionID, time.Time{},
+	)
+}
+
+// LoadProgramChannelAt returns transaction-consistent, time-projected state.
+func (transaction *CommandTx) LoadProgramChannelAt(
+	ctx context.Context,
+	eventID, sessionID int,
+	observedAt time.Time,
+) (ProgramChannelState, error) {
+	return loadProgramChannel(
+		ctx, transaction.transaction.Client(), eventID, sessionID, observedAt,
 	)
 }
 
@@ -161,7 +208,7 @@ func (transaction *CommandTx) TakeProgramItem(
 		return ProgramChannelState{}, err
 	}
 	state, err := loadProgramChannel(
-		ctx, transaction.transaction.Client(), params.EventID, params.SessionID,
+		ctx, transaction.transaction.Client(), params.EventID, params.SessionID, params.Now,
 	)
 	if err != nil {
 		return ProgramChannelState{}, err
@@ -199,14 +246,14 @@ func (transaction *CommandTx) TakeProgramItem(
 		if ceremony.Lifecycle != session.LifecycleLive {
 			return ProgramChannelState{}, ErrPrizegivingNotLive
 		}
-		if err = transaction.savePrizegivingStageState(
+		if updateErr := transaction.savePrizegivingStageState(
 			ctx,
 			params.EventID,
 			params.SessionID,
 			params.ExpectedRevision,
 			*params.ResultState,
-		); err != nil {
-			return ProgramChannelState{}, err
+		); updateErr != nil {
+			return ProgramChannelState{}, updateErr
 		}
 	}
 	cursor := stateCursor(state)
@@ -240,7 +287,7 @@ func (transaction *CommandTx) TakeProgramItem(
 		return ProgramChannelState{}, opaqueError("commit Program Output", err)
 	}
 	return loadProgramChannel(
-		ctx, transaction.transaction.Client(), params.EventID, params.SessionID,
+		ctx, transaction.transaction.Client(), params.EventID, params.SessionID, params.Now,
 	)
 }
 
@@ -252,10 +299,11 @@ func (transaction *CommandTx) ApplyPrizegivingResultAction(
 	if err := transaction.requireActiveEvent(ctx, params.EventID); err != nil {
 		return ProgramChannelState{}, err
 	}
-	current, err := transaction.LoadProgramChannel(
+	current, err := transaction.LoadProgramChannelAt(
 		ctx,
 		params.EventID,
 		params.SessionID,
+		params.ObservedAt,
 	)
 	if err != nil {
 		return ProgramChannelState{}, err
@@ -271,14 +319,14 @@ func (transaction *CommandTx) ApplyPrizegivingResultAction(
 		params.State.Ref != params.Item.Result.Ref {
 		return ProgramChannelState{}, ErrProgramItem
 	}
-	if err = transaction.savePrizegivingStageState(
+	if updateErr := transaction.savePrizegivingStageState(
 		ctx,
 		params.EventID,
 		params.SessionID,
 		params.ExpectedRevision,
 		params.State,
-	); err != nil {
-		return ProgramChannelState{}, err
+	); updateErr != nil {
+		return ProgramChannelState{}, updateErr
 	}
 	_, err = transaction.transaction.Session.UpdateOneID(params.SessionID).
 		Where(
@@ -303,7 +351,9 @@ func (transaction *CommandTx) ApplyPrizegivingResultAction(
 			err,
 		)
 	}
-	return transaction.LoadProgramChannel(ctx, params.EventID, params.SessionID)
+	return transaction.LoadProgramChannelAt(
+		ctx, params.EventID, params.SessionID, params.ObservedAt,
+	)
 }
 
 // SkipPrizegivingResultFromStage advances past one unpresented Result while
@@ -331,17 +381,17 @@ func (transaction *CommandTx) SkipPrizegivingResultFromStage(
 		selected.Kind != ProgramItemResult ||
 		selected.Result == nil ||
 		params.State.Ref != selected.Result.Ref ||
-		!programItemEqual(current.Next, selected) {
+		!current.Next.SameIdentity(selected) {
 		return ProgramChannelState{}, ErrProgramItem
 	}
-	if err = transaction.savePrizegivingStageState(
+	if updateErr := transaction.savePrizegivingStageState(
 		ctx,
 		params.EventID,
 		params.SessionID,
 		params.ExpectedRevision,
 		params.State,
-	); err != nil {
-		return ProgramChannelState{}, err
+	); updateErr != nil {
+		return ProgramChannelState{}, updateErr
 	}
 	_, err = transaction.transaction.Session.UpdateOneID(params.SessionID).
 		Where(
@@ -367,6 +417,7 @@ func loadProgramChannel(
 	ctx context.Context,
 	client *ent.Client,
 	eventID, sessionID int,
+	observedAt time.Time,
 ) (ProgramChannelState, error) {
 	found, err := client.Session.Query().
 		Where(session.IDEQ(sessionID), session.EventIDEQ(eventID)).
@@ -387,7 +438,9 @@ func loadProgramChannel(
 	case sessionpublishedversion.TypeCompetition:
 		return loadCompetitionProgramChannel(ctx, client, found, version)
 	case sessionpublishedversion.TypeCeremony:
-		return loadPrizegivingProgramChannel(ctx, client, found, version)
+		return loadPrizegivingProgramChannel(
+			ctx, client, found, version, observedAt,
+		)
 	default:
 		return ProgramChannelState{}, ErrProgramItem
 	}
@@ -437,6 +490,7 @@ func loadPrizegivingProgramChannel(
 	client *ent.Client,
 	found *ent.Session,
 	version *ent.SessionPublishedVersion,
+	observedAt time.Time,
 ) (ProgramChannelState, error) {
 	internalContext := systemContext(ctx)
 	plan, err := client.Prizegiving.Query().
@@ -460,6 +514,9 @@ func loadPrizegivingProgramChannel(
 		len(plan.ItemStates),
 	)
 	for _, value := range plan.ItemStates {
+		if !observedAt.IsZero() {
+			value = value.EffectiveAt(observedAt)
+		}
 		state := prizegivingStageState(value)
 		states[state.Ref] = state
 	}
@@ -492,15 +549,17 @@ func loadPrizegivingProgramChannel(
 		len(plan.PreflightLock.Sequence),
 	)
 	for _, locked := range plan.PreflightLock.Sequence {
-		ref := prizegivingItemRef(locked.Item.ItemRef)
+		ref := prizegivingItemRef(locked.ItemRef)
 		result := ProgramResult{
 			Ref: ref, RevealMethod: locked.RevealMethod,
 			ReducedMotionRevealMethod: "StaticResult",
 			RevealSeed:                locked.RevealSeed,
 			Status:                    "Pending",
+			Release:                   "Held",
 		}
 		if state, ok := states[ref]; ok {
 			result.Status = state.Status
+			result.Release = state.Release
 			result.TakenAt = state.TakenAt
 			result.RevealStartedAt = state.RevealStartedAt
 			result.RevealDuration = state.RevealDuration
@@ -517,16 +576,19 @@ func loadPrizegivingProgramChannel(
 			if !ok {
 				return ProgramChannelState{}, ErrProgramItem
 			}
-			result.CompetitionResults, err = loadCompetitionResultsDraftByID(
+			lockedResults, loadErr := loadCompetitionResultsDraftByID(
 				internalContext,
 				client,
 				source.DraftID,
 			)
-			if err != nil {
-				return ProgramChannelState{}, err
+			if loadErr != nil {
+				return ProgramChannelState{}, loadErr
+			}
+			if locked.RevealMethod == "AnimatedScoreBars" {
+				result.ScoreBars = programScoreBars(lockedResults)
 			}
 			result.CompetitionResults = programCompetitionResults(
-				result.CompetitionResults,
+				lockedResults,
 				ref,
 			)
 			title = prizegivingCompetitionResultTitle(result, title)
@@ -584,47 +646,6 @@ func loadPrizegivingProgramChannel(
 	return state, nil
 }
 
-func programCompetitionResults(
-	found CompetitionResultsDraft,
-	ref PrizegivingResultItemRef,
-) CompetitionResultsDraft {
-	found.NoPublicCrewReason = ""
-	found.ReadyByAccountID = 0
-	found.CreatedByAccountID = 0
-	switch ref.Kind {
-	case "NoPublicResults":
-		found.Standings = nil
-		found.Awards = nil
-	case "CompetitionAward":
-		found.Standings = nil
-		selected := make([]CompetitionAward, 0, 1)
-		for _, award := range found.Awards {
-			if award.Key == ref.AwardKey {
-				selected = append(selected, award)
-				break
-			}
-		}
-		found.Awards = selected
-	default:
-		standings := slices.Clone(found.Standings)
-		if found.ScoreVisibility != "Public" {
-			for index := range standings {
-				standings[index].DecimalScore = nil
-				standings[index].DurationScoreNanos = nil
-			}
-		}
-		found.Standings = standings
-		awards := make([]CompetitionAward, 0, len(found.Awards))
-		for _, award := range found.Awards {
-			if !award.Promoted {
-				awards = append(awards, award)
-			}
-		}
-		found.Awards = awards
-	}
-	return found
-}
-
 func (transaction *CommandTx) savePrizegivingStageState(
 	ctx context.Context,
 	eventID, ceremonySessionID, expectedRevision int,
@@ -675,6 +696,7 @@ func prizegivingStageState(
 ) PrizegivingStageState {
 	return PrizegivingStageState{
 		Ref: prizegivingItemRef(value.ItemRef), Status: value.Status,
+		Release: value.Release,
 		TakenAt: value.TakenAt, RevealStartedAt: value.RevealStartedAt,
 		RevealDuration:    time.Duration(value.RevealDurationNanos),
 		RevealCompletedAt: value.RevealCompletedAt, SkippedAt: value.SkippedAt,
@@ -693,6 +715,7 @@ func prizegivingStageStateValue(
 ) prizegivingvalue.StageState {
 	return prizegivingvalue.StageState{
 		ItemRef: prizegivingItemRefValue(value.Ref), Status: value.Status,
+		Release: value.Release,
 		TakenAt: value.TakenAt, RevealStartedAt: value.RevealStartedAt,
 		RevealDurationNanos: int64(value.RevealDuration),
 		RevealCompletedAt:   value.RevealCompletedAt, SkippedAt: value.SkippedAt,
@@ -786,13 +809,15 @@ func programItemTitle(item ProgramItem, competitionTitle string, entries []*ent.
 				return entry.Name
 			}
 		}
+	case ProgramItemResult:
+		return item.Title
 	}
 	return ""
 }
 
 func findProgramItem(items []ProgramItem, wanted ProgramItem) (ProgramItem, int, bool) {
 	for index, item := range items {
-		if programItemEqual(item, wanted) {
+		if item.SameIdentity(wanted) {
 			return item, index, true
 		}
 	}
@@ -801,7 +826,7 @@ func findProgramItem(items []ProgramItem, wanted ProgramItem) (ProgramItem, int,
 
 func stateCursor(state ProgramChannelState) int {
 	for index, item := range state.Items {
-		if programItemEqual(item, state.Current) {
+		if item.SameIdentity(state.Current) {
 			return index
 		}
 	}
@@ -818,20 +843,6 @@ func setProgramContext(state *ProgramChannelState, cursor int) {
 	if cursor+1 >= 0 && cursor+1 < len(state.Items) {
 		state.Next = state.Items[cursor+1]
 	}
-}
-
-func programItemEqual(left, right ProgramItem) bool {
-	if left.Kind != right.Kind ||
-		left.EntryID != right.EntryID ||
-		left.Retry != right.Retry {
-		return false
-	}
-	if left.Kind != ProgramItemResult {
-		return true
-	}
-	return left.Result != nil &&
-		right.Result != nil &&
-		left.Result.Ref == right.Result.Ref
 }
 
 func deferredEntries(entries []*ent.CompetitionEntry) []*ent.CompetitionEntry {

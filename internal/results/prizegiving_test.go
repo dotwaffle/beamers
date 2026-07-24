@@ -135,6 +135,23 @@ func TestPrizegivingRevealCompletionAndSkipActionsAreMonotonic(t *testing.T) {
 	); !errors.Is(err, ErrResultRevealRunning) {
 		t.Fatalf("early Reveal completion error = %v", err)
 	}
+	if effective := AdvanceElapsedPrizegivingReveal(
+		locked,
+		revealing,
+		startedAt.Add(2*time.Second),
+	); effective != revealing {
+		t.Fatalf("early elapsed Reveal = %+v", effective)
+	}
+	effective := AdvanceElapsedPrizegivingReveal(
+		locked,
+		revealing,
+		startedAt.Add(3*time.Second),
+	)
+	if effective.Status != ResultItemRevealed ||
+		effective.Release != ResultReleaseReady ||
+		effective.RevealCompletedAt != startedAt.Add(3*time.Second) {
+		t.Fatalf("elapsed Reveal completion = %+v", effective)
+	}
 	revealed, err := CompletePrizegivingReveal(
 		locked,
 		revealing,
@@ -170,6 +187,7 @@ func TestPrizegivingRevealCompletionAndSkipActionsAreMonotonic(t *testing.T) {
 		t.Fatalf("Skip Result to Final: %v", err)
 	}
 	if skipFinal.Status != ResultItemRevealed ||
+		skipFinal.Release != ResultReleaseReady ||
 		skipFinal.RevealCompletedAt != startedAt.Add(time.Second) {
 		t.Fatalf("Skip to Final state = %+v", skipFinal)
 	}
@@ -181,7 +199,8 @@ func TestPrizegivingRevealCompletionAndSkipActionsAreMonotonic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Skip Result from Stage: %v", err)
 	}
-	if skipped.Status != ResultItemSkipped {
+	if skipped.Status != ResultItemSkipped ||
+		skipped.Release != ResultReleaseCeremonyEnd {
 		t.Fatalf("Skip from Stage state = %+v", skipped)
 	}
 }
@@ -203,8 +222,21 @@ func TestPrizegivingEndListsEveryUnresolvedResultItem(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Take No Public Results: %v", err)
 	}
-	if finalOnTake.Status != ResultItemRevealed {
+	if finalOnTake.Status != ResultItemTaken ||
+		finalOnTake.Release != ResultReleaseHeld {
 		t.Fatalf("No Public Results Take = %+v", finalOnTake)
+	}
+	finalOnReveal, _, err := StartPrizegivingReveal(
+		noPublic,
+		finalOnTake,
+		now,
+	)
+	if err != nil {
+		t.Fatalf("Reveal No Public Results: %v", err)
+	}
+	if finalOnReveal.Status != ResultItemRevealed ||
+		finalOnReveal.Release != ResultReleaseReady {
+		t.Fatalf("No Public Results Reveal = %+v", finalOnReveal)
 	}
 	pending := ResultItemRef{
 		Kind: ResultItemCompetition, CompetitionSessionID: 11, DisplayOrder: 1,
@@ -217,7 +249,7 @@ func TestPrizegivingEndListsEveryUnresolvedResultItem(t *testing.T) {
 			}},
 			noPublic,
 		},
-		[]ResultItemStageState{finalOnTake},
+		[]ResultItemStageState{finalOnReveal},
 	)
 	if !reflect.DeepEqual(unresolved, []ResultItemRef{pending}) {
 		t.Fatalf("unresolved Result Items = %+v", unresolved)

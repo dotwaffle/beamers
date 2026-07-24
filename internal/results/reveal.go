@@ -28,10 +28,23 @@ const (
 	ResultItemSkipped ResultItemStageStatus = "Skipped"
 )
 
+// ResultReleaseState describes when a resolved item becomes publishable.
+type ResultReleaseState string
+
+const (
+	// ResultReleaseHeld keeps an unresolved item out of publication.
+	ResultReleaseHeld ResultReleaseState = "Held"
+	// ResultReleaseReady permits the configured reveal policy to publish it.
+	ResultReleaseReady ResultReleaseState = "Ready"
+	// ResultReleaseCeremonyEnd queues a stage-skipped item for normal completion.
+	ResultReleaseCeremonyEnd ResultReleaseState = "CeremonyEnd"
+)
+
 // ResultItemStageState is one durable Result Item presentation state.
 type ResultItemStageState struct {
 	Ref               ResultItemRef
 	Status            ResultItemStageStatus
+	Release           ResultReleaseState
 	TakenAt           time.Time
 	RevealStartedAt   time.Time
 	RevealDuration    time.Duration
@@ -59,12 +72,8 @@ func TakePrizegivingResultItem(
 		return current, ErrResultItemTransition
 	}
 	next := ResultItemStageState{
-		Ref: item.Ref(item.DisplayOrder), Status: ResultItemTaken, TakenAt: now,
-	}
-	if item.Kind == ResultItemNoPublicResults {
-		next.Status = ResultItemRevealed
-		next.RevealStartedAt = now
-		next.RevealCompletedAt = now
+		Ref: item.Ref(item.DisplayOrder), Status: ResultItemTaken,
+		Release: ResultReleaseHeld, TakenAt: now,
 	}
 	return next, nil
 }
@@ -89,6 +98,7 @@ func StartPrizegivingReveal(
 	next.RevealDuration = duration
 	if duration == 0 {
 		next.Status = ResultItemRevealed
+		next.Release = ResultReleaseReady
 		next.RevealCompletedAt = now
 	}
 	return next, ResultPresentation{
@@ -113,6 +123,7 @@ func CompletePrizegivingReveal(
 	}
 	next := current
 	next.Status = ResultItemRevealed
+	next.Release = ResultReleaseReady
 	next.RevealCompletedAt = now
 	return next, nil
 }
@@ -130,6 +141,7 @@ func SkipPrizegivingResultToFinal(
 	}
 	next := current
 	next.Status = ResultItemRevealed
+	next.Release = ResultReleaseReady
 	if next.RevealStartedAt.IsZero() {
 		next.RevealStartedAt = now
 	}
@@ -147,8 +159,22 @@ func SkipPrizegivingResultFromStage(
 		return current, ErrResultItemTransition
 	}
 	return ResultItemStageState{
-		Ref: item.Ref(item.DisplayOrder), Status: ResultItemSkipped, SkippedAt: now,
+		Ref: item.Ref(item.DisplayOrder), Status: ResultItemSkipped,
+		Release: ResultReleaseCeremonyEnd, SkippedAt: now,
 	}, nil
+}
+
+// AdvanceElapsedPrizegivingReveal derives deterministic server-time completion.
+func AdvanceElapsedPrizegivingReveal(
+	item LockedResultItem,
+	current ResultItemStageState,
+	now time.Time,
+) ResultItemStageState {
+	completed, err := CompletePrizegivingReveal(item, current, now)
+	if err != nil {
+		return current
+	}
+	return completed
 }
 
 // ReplayPrizegivingReveal reruns presentation without changing canonical state.

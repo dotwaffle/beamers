@@ -9,6 +9,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/command"
+	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 	"github.com/dotwaffle/beamers/internal/store"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
@@ -519,9 +520,10 @@ func prizegivingItemInputs(values []ResultItem) []store.PrizegivingResultItem {
 	result := make([]store.PrizegivingResultItem, 0, len(values))
 	for _, value := range values {
 		result = append(result, store.PrizegivingResultItem{
-			Kind: string(value.Kind), CompetitionSessionID: value.CompetitionSessionID,
-			AwardKey: value.AwardKey, DisplayOrder: value.DisplayOrder,
-			RevealMethod: string(value.RevealMethod),
+			Kind:                 prizegivingvalue.ItemKind(value.Kind),
+			CompetitionSessionID: value.CompetitionSessionID,
+			AwardKey:             value.AwardKey, DisplayOrder: value.DisplayOrder,
+			RevealMethod: prizegivingvalue.RevealMethod(value.RevealMethod),
 		})
 	}
 	return result
@@ -547,8 +549,9 @@ func prizegivingItemRefInputs(
 	result := make([]store.PrizegivingResultItemRef, 0, len(values))
 	for _, value := range values {
 		result = append(result, store.PrizegivingResultItemRef{
-			Kind: string(value.Kind), CompetitionSessionID: value.CompetitionSessionID,
-			AwardKey: value.AwardKey, DisplayOrder: value.DisplayOrder,
+			Kind:                 prizegivingvalue.ItemKind(value.Kind),
+			CompetitionSessionID: value.CompetitionSessionID,
+			AwardKey:             value.AwardKey, DisplayOrder: value.DisplayOrder,
 		})
 	}
 	return result

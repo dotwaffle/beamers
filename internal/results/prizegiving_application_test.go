@@ -228,7 +228,7 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 	}
 	item := results.ResultItem{
 		Kind: results.ResultItemCompetition, CompetitionSessionID: competitionID,
-		DisplayOrder: 1, RevealMethod: results.RevealStatic,
+		DisplayOrder: 1, RevealMethod: results.RevealSequentialPodium,
 	}
 	plan, err := resultsService.SavePrizegivingPlan(
 		t.Context(),
@@ -317,10 +317,11 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 	}
 	if !taken.Committed ||
 		taken.State.Channel.Output.Result == nil ||
-		taken.State.Channel.Output.Result.Status != "Taken" {
+		taken.State.Channel.Output.Result.Status != "Taken" ||
+		taken.State.Channel.Output.Result.Release != "Held" {
 		t.Fatalf("Taken Program Result = %+v", taken)
 	}
-	revealed, err := programService.ActOnResult(
+	revealing, err := programService.ActOnResult(
 		t.Context(),
 		actor,
 		programcontrol.ResultActionInput{
@@ -335,10 +336,26 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Reveal Result: %v", err)
 	}
-	if !revealed.Committed ||
-		revealed.State.Channel.Output.Result.Status != "Revealed" ||
-		revealed.State.Channel.Output.Result.CompetitionResults.ID != draft.ID {
-		t.Fatalf("Revealed Program Result = %+v", revealed)
+	if !revealing.Committed ||
+		revealing.State.Channel.Output.Result.Status != "Revealing" ||
+		revealing.State.Channel.Output.Result.Release != "Held" ||
+		revealing.State.Channel.Output.Result.RevealDuration != 3*time.Second {
+		t.Fatalf("Revealing Program Result = %+v", revealing)
+	}
+	nowValue = nowValue.Add(3 * time.Second)
+	revealed, err := programService.Current(
+		t.Context(),
+		actor,
+		eventID,
+		ceremonyID,
+	)
+	if err != nil {
+		t.Fatalf("restore elapsed Result Reveal: %v", err)
+	}
+	if revealed.Channel.Output.Result.Status != "Revealed" ||
+		revealed.Channel.Output.Result.Release != "Ready" ||
+		revealed.Channel.Output.Result.CompetitionResults.ID != draft.ID {
+		t.Fatalf("restored Program Result = %+v", revealed)
 	}
 	replayed, err := programService.ActOnResult(
 		t.Context(),
@@ -347,9 +364,9 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 			EventID: eventID, SessionID: ceremonyID,
 			CommandID:               "replay-public-program-result",
 			Action:                  programcontrol.ResultReplayReveal,
-			Item:                    revealed.State.Channel.Output,
-			ExpectedProgramRevision: revealed.State.Channel.Revision,
-			ExpectedControlRevision: revealed.State.ControlRevision,
+			Item:                    revealed.Channel.Output,
+			ExpectedProgramRevision: revealed.Channel.Revision,
+			ExpectedControlRevision: revealed.ControlRevision,
 		},
 	)
 	if err != nil {
@@ -358,7 +375,7 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 	if !replayed.Committed ||
 		!replayed.State.Channel.Output.Result.Replay ||
 		replayed.State.Channel.Output.Result.RevealSeed !=
-			revealed.State.Channel.Output.Result.RevealSeed {
+			revealed.Channel.Output.Result.RevealSeed {
 		t.Fatalf("Replayed Program Result = %+v", replayed)
 	}
 }

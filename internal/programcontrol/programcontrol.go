@@ -11,6 +11,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/command"
+	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 	"github.com/dotwaffle/beamers/internal/results"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -121,8 +122,6 @@ type ResultAction string
 const (
 	// ResultReveal starts the locked Result presentation.
 	ResultReveal ResultAction = "Reveal"
-	// ResultCompleteReveal records completion of a timed Reveal.
-	ResultCompleteReveal ResultAction = "CompleteReveal"
 	// ResultReplayReveal reruns presentation without changing final truth.
 	ResultReplayReveal ResultAction = "ReplayReveal"
 	// ResultSkipToFinal completes the current Result immediately.
@@ -234,15 +233,15 @@ func (service *Service) OpenConnection(
 	if !actor.CanOperateEvent(eventID) {
 		return State{}, false, nil, ErrOperatorRequired
 	}
-	if _, err := service.storage.LoadProgramChannel(
-		actor.Context(ctx), eventID, sessionID,
+	if _, err := service.storage.LoadProgramChannelAt(
+		actor.Context(ctx), eventID, sessionID, service.now().UTC(),
 	); err != nil {
 		return State{}, false, nil, err
 	}
 	owned := service.controlFor(sessionID)
 	owned.mu.Lock()
-	channel, err := service.storage.LoadProgramChannel(
-		actor.Context(ctx), eventID, sessionID,
+	channel, err := service.storage.LoadProgramChannelAt(
+		actor.Context(ctx), eventID, sessionID, service.now().UTC(),
 	)
 	if err != nil {
 		owned.mu.Unlock()
@@ -318,12 +317,9 @@ func (service *Service) controlIdentity(actor auth.Account, input ControlInput) 
 func (service *Service) previewIdentity(actor auth.Account, input SelectPreviewInput) store.CommandIdentity {
 	payload := []string{
 		strconv.Itoa(input.EventID), strconv.Itoa(input.SessionID),
-		strconv.Itoa(input.ExpectedRevision), string(input.Item.Kind),
-		strconv.Itoa(input.Item.EntryID),
+		strconv.Itoa(input.ExpectedRevision),
 	}
-	if input.Item.Retry {
-		payload = append(payload, "retry")
-	}
+	payload = append(payload, programItemIdentity(input.Item)...)
 	return store.CommandIdentity{
 		ActorAccountID: actor.ID, CommandID: input.CommandID,
 		PayloadHash: command.PayloadHash(payload...),
@@ -335,12 +331,9 @@ func (service *Service) previewIdentity(actor auth.Account, input SelectPreviewI
 func (service *Service) takeIdentity(actor auth.Account, input TakeInput) store.CommandIdentity {
 	payload := []string{
 		strconv.Itoa(input.EventID), strconv.Itoa(input.SessionID),
-		strconv.Itoa(input.ExpectedRevision), string(input.Item.Kind),
-		strconv.Itoa(input.Item.EntryID),
+		strconv.Itoa(input.ExpectedRevision),
 	}
-	if input.Item.Retry {
-		payload = append(payload, "retry")
-	}
+	payload = append(payload, programItemIdentity(input.Item)...)
 	payload = append(
 		payload,
 		strconv.Itoa(input.ExpectedControlRevision),
@@ -373,29 +366,43 @@ func (service *Service) resultIdentity(
 	actor auth.Account,
 	input ResultActionInput,
 ) store.CommandIdentity {
-	ref := store.PrizegivingResultItemRef{}
-	if input.Item.Result != nil {
-		ref = input.Item.Result.Ref
+	payload := []string{
+		strconv.Itoa(input.EventID),
+		strconv.Itoa(input.SessionID),
+		string(input.Action),
 	}
+	payload = append(payload, programItemIdentity(input.Item)...)
+	payload = append(
+		payload,
+		strconv.Itoa(input.ExpectedProgramRevision),
+		strconv.Itoa(input.ExpectedControlRevision),
+	)
 	return store.CommandIdentity{
 		ActorAccountID: actor.ID, CommandID: input.CommandID,
-		PayloadHash: command.PayloadHash(
-			strconv.Itoa(input.EventID),
-			strconv.Itoa(input.SessionID),
-			string(input.Action),
-			string(input.Item.Kind),
-			ref.Kind,
-			strconv.Itoa(ref.CompetitionSessionID),
-			ref.AwardKey,
-			strconv.Itoa(ref.DisplayOrder),
-			strconv.Itoa(input.ExpectedProgramRevision),
-			strconv.Itoa(input.ExpectedControlRevision),
-		),
-		Action:     "ActOnPrizegivingResult" + string(input.Action),
-		TargetType: "ProgramChannel",
-		TargetID:   strconv.Itoa(input.SessionID),
-		Now:        service.now().UTC(),
+		PayloadHash: command.PayloadHash(payload...),
+		Action:      "ActOnPrizegivingResult" + string(input.Action),
+		TargetType:  "ProgramChannel",
+		TargetID:    strconv.Itoa(input.SessionID),
+		Now:         service.now().UTC(),
 	}
+}
+
+func programItemIdentity(item store.ProgramItem) []string {
+	parts := []string{
+		string(item.Kind),
+		strconv.Itoa(item.EntryID),
+		strconv.FormatBool(item.Retry),
+	}
+	if item.Result == nil {
+		return parts
+	}
+	return append(
+		parts,
+		string(item.Result.Ref.Kind),
+		strconv.Itoa(item.Result.Ref.CompetitionSessionID),
+		item.Result.Ref.AwardKey,
+		strconv.Itoa(item.Result.Ref.DisplayOrder),
+	)
 }
 
 func (service *Service) auditOperatorRejection(
@@ -433,13 +440,17 @@ func (service *Service) Current(
 	if !actor.CanOperateEvent(eventID) {
 		return State{}, ErrOperatorRequired
 	}
-	if _, err := service.storage.LoadProgramChannel(actor.Context(ctx), eventID, sessionID); err != nil {
+	if _, err := service.storage.LoadProgramChannelAt(
+		actor.Context(ctx), eventID, sessionID, service.now().UTC(),
+	); err != nil {
 		return State{}, err
 	}
 	owned := service.controlFor(sessionID)
 	owned.mu.Lock()
 	defer owned.mu.Unlock()
-	channel, err := service.storage.LoadProgramChannel(actor.Context(ctx), eventID, sessionID)
+	channel, err := service.storage.LoadProgramChannelAt(
+		actor.Context(ctx), eventID, sessionID, service.now().UTC(),
+	)
 	if err != nil {
 		return State{}, err
 	}
@@ -459,16 +470,16 @@ func (service *Service) Control(
 	if !actor.CanOperateEvent(input.EventID) {
 		return State{}, service.auditOperatorRejection(actor.Context(ctx), identity)
 	}
-	if _, err := service.storage.LoadProgramChannel(
-		actor.Context(ctx), input.EventID, input.SessionID,
+	if _, err := service.storage.LoadProgramChannelAt(
+		actor.Context(ctx), input.EventID, input.SessionID, service.now().UTC(),
 	); err != nil {
 		return State{}, err
 	}
 	owned := service.controlFor(input.SessionID)
 	owned.mu.Lock()
 	defer owned.mu.Unlock()
-	channel, err := service.storage.LoadProgramChannel(
-		actor.Context(ctx), input.EventID, input.SessionID,
+	channel, err := service.storage.LoadProgramChannelAt(
+		actor.Context(ctx), input.EventID, input.SessionID, service.now().UTC(),
 	)
 	if err != nil {
 		return State{}, err
@@ -583,16 +594,16 @@ func (service *Service) SelectPreview(
 	if !actor.CanOperateEvent(input.EventID) {
 		return State{}, service.auditOperatorRejection(actor.Context(ctx), identity)
 	}
-	if _, err := service.storage.LoadProgramChannel(
-		actor.Context(ctx), input.EventID, input.SessionID,
+	if _, err := service.storage.LoadProgramChannelAt(
+		actor.Context(ctx), input.EventID, input.SessionID, service.now().UTC(),
 	); err != nil {
 		return State{}, err
 	}
 	owned := service.controlFor(input.SessionID)
 	owned.mu.Lock()
 	defer owned.mu.Unlock()
-	channel, err := service.storage.LoadProgramChannel(
-		actor.Context(ctx), input.EventID, input.SessionID,
+	channel, err := service.storage.LoadProgramChannelAt(
+		actor.Context(ctx), input.EventID, input.SessionID, service.now().UTC(),
 	)
 	if err != nil {
 		return State{}, err
@@ -658,8 +669,8 @@ func (service *Service) Take(
 	if !actor.CanOperateEvent(input.EventID) {
 		return TakeResult{}, service.auditOperatorRejection(actor.Context(ctx), identity)
 	}
-	if _, err := service.storage.LoadProgramChannel(
-		actor.Context(ctx), input.EventID, input.SessionID,
+	if _, err := service.storage.LoadProgramChannelAt(
+		actor.Context(ctx), input.EventID, input.SessionID, service.now().UTC(),
 	); err != nil {
 		return TakeResult{}, err
 	}
@@ -694,7 +705,7 @@ func (service *Service) Take(
 					ErrControlOwnerRequired,
 				), nil
 			}
-			if !programItemEqual(control.preview, input.Item) {
+			if !control.preview.SameIdentity(input.Item) {
 				return takeRejection(
 					store.ProgramChannelState{},
 					control,
@@ -702,8 +713,8 @@ func (service *Service) Take(
 					ErrPreviewItem,
 				), nil
 			}
-			current, loadErr := transaction.LoadProgramChannel(
-				actor.Context(ctx), input.EventID, input.SessionID,
+			current, loadErr := transaction.LoadProgramChannelAt(
+				actor.Context(ctx), input.EventID, input.SessionID, identity.Now,
 			)
 			if loadErr != nil {
 				return command.Execution[takeReceipt]{}, loadErr
@@ -727,7 +738,7 @@ func (service *Service) Take(
 					identity.Now,
 				)
 				if transitionErr != nil {
-					return takeRejection(
+					return takeRejection( //nolint:nilerr // The rejection is a persisted command outcome.
 						current,
 						control,
 						rejectionProgramItemInvalid,
@@ -808,8 +819,8 @@ func (service *Service) DeferEntry(
 	if !actor.CanOperateEvent(input.EventID) {
 		return TakeResult{}, service.auditOperatorRejection(actor.Context(ctx), identity)
 	}
-	if _, err := service.storage.LoadProgramChannel(
-		actor.Context(ctx), input.EventID, input.SessionID,
+	if _, err := service.storage.LoadProgramChannelAt(
+		actor.Context(ctx), input.EventID, input.SessionID, service.now().UTC(),
 	); err != nil {
 		return TakeResult{}, err
 	}
@@ -829,8 +840,8 @@ func (service *Service) DeferEntry(
 			return replayed, nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[takeReceipt], error) {
-			current, loadErr := transaction.LoadProgramChannel(
-				actor.Context(ctx), input.EventID, input.SessionID,
+			current, loadErr := transaction.LoadProgramChannelAt(
+				actor.Context(ctx), input.EventID, input.SessionID, identity.Now,
 			)
 			if loadErr != nil {
 				return command.Execution[takeReceipt]{}, loadErr
@@ -871,8 +882,8 @@ func (service *Service) DeferEntry(
 				}
 				return command.Execution[takeReceipt]{}, deferErr
 			}
-			deferred, loadErr := transaction.LoadProgramChannel(
-				actor.Context(ctx), input.EventID, input.SessionID,
+			deferred, loadErr := transaction.LoadProgramChannelAt(
+				actor.Context(ctx), input.EventID, input.SessionID, identity.Now,
 			)
 			if loadErr != nil {
 				return command.Execution[takeReceipt]{}, loadErr
@@ -922,10 +933,11 @@ func (service *Service) ActOnResult(
 	if !actor.CanOperateEvent(input.EventID) {
 		return TakeResult{}, service.auditOperatorRejection(actor.Context(ctx), identity)
 	}
-	if _, err := service.storage.LoadProgramChannel(
+	if _, err := service.storage.LoadProgramChannelAt(
 		actor.Context(ctx),
 		input.EventID,
 		input.SessionID,
+		service.now().UTC(),
 	); err != nil {
 		return TakeResult{}, err
 	}
@@ -945,10 +957,11 @@ func (service *Service) ActOnResult(
 			return replayed, nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[takeReceipt], error) {
-			current, loadErr := transaction.LoadProgramChannel(
+			current, loadErr := transaction.LoadProgramChannelAt(
 				actor.Context(ctx),
 				input.EventID,
 				input.SessionID,
+				identity.Now,
 			)
 			if loadErr != nil {
 				return command.Execution[takeReceipt]{}, loadErr
@@ -987,7 +1000,7 @@ func (service *Service) ActOnResult(
 				), nil
 			}
 			if input.Action == ResultSkipFromStage &&
-				!programItemEqual(control.preview, selected) {
+				!control.preview.SameIdentity(selected) {
 				return takeRejection(
 					current,
 					control,
@@ -1030,7 +1043,7 @@ func (service *Service) ActOnResult(
 						EventID: input.EventID, SessionID: input.SessionID,
 						ExpectedRevision: input.ExpectedProgramRevision,
 						Item:             selected, State: prizegivingStageState(nextState),
-						Presentation: presentation,
+						Presentation: presentation, ObservedAt: identity.Now,
 					},
 				)
 			}
@@ -1084,31 +1097,25 @@ func transitionResult(
 	state := resultItemStageState(selected)
 	switch action {
 	case ResultReveal:
-		if !programItemEqual(current.Output, selected) {
+		if !current.Output.SameIdentity(selected) {
 			return state, store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
 		}
 		next, presentation, err := results.StartPrizegivingReveal(item, state, now)
 		return next, prizegivingPresentationRun(false, presentation), err
-	case ResultCompleteReveal:
-		if !programItemEqual(current.Output, selected) {
-			return state, store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
-		}
-		next, err := results.CompletePrizegivingReveal(item, state, now)
-		return next, existingPresentationRun(current.Output), err
 	case ResultReplayReveal:
-		if !programItemEqual(current.Output, selected) {
+		if !current.Output.SameIdentity(selected) {
 			return state, store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
 		}
 		next, presentation, err := results.ReplayPrizegivingReveal(item, state, now)
 		return next, prizegivingPresentationRun(true, presentation), err
 	case ResultSkipToFinal:
-		if !programItemEqual(current.Output, selected) {
+		if !current.Output.SameIdentity(selected) {
 			return state, store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
 		}
 		next, err := results.SkipPrizegivingResultToFinal(item, state, now)
 		return next, existingPresentationRun(current.Output), err
 	case ResultSkipFromStage:
-		if !programItemEqual(current.Next, selected) {
+		if !current.Next.SameIdentity(selected) {
 			return state, store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
 		}
 		next, err := results.SkipPrizegivingResultFromStage(item, state, now)
@@ -1162,25 +1169,11 @@ func owner(actor auth.Account, connected bool) Owner {
 
 func selectItem(items []store.ProgramItem, wanted store.ProgramItem) (store.ProgramItem, bool) {
 	for _, item := range items {
-		if programItemEqual(item, wanted) {
+		if item.SameIdentity(wanted) {
 			return item, true
 		}
 	}
 	return store.ProgramItem{}, false
-}
-
-func programItemEqual(left, right store.ProgramItem) bool {
-	if left.Kind != right.Kind ||
-		left.EntryID != right.EntryID ||
-		left.Retry != right.Retry {
-		return false
-	}
-	if left.Kind != store.ProgramItemResult {
-		return true
-	}
-	return left.Result != nil &&
-		right.Result != nil &&
-		left.Result.Ref == right.Result.Ref
 }
 
 func lockedResultItem(item store.ProgramItem) results.LockedResultItem {
@@ -1211,6 +1204,7 @@ func resultItemStageState(item store.ProgramItem) results.ResultItemStageState {
 			DisplayOrder:         item.Result.Ref.DisplayOrder,
 		},
 		Status:            results.ResultItemStageStatus(item.Result.Status),
+		Release:           results.ResultReleaseState(item.Result.Release),
 		TakenAt:           item.Result.TakenAt,
 		RevealStartedAt:   item.Result.RevealStartedAt,
 		RevealDuration:    item.Result.RevealDuration,
@@ -1224,12 +1218,13 @@ func prizegivingStageState(
 ) store.PrizegivingStageState {
 	return store.PrizegivingStageState{
 		Ref: store.PrizegivingResultItemRef{
-			Kind:                 string(value.Ref.Kind),
+			Kind:                 prizegivingvalue.ItemKind(value.Ref.Kind),
 			CompetitionSessionID: value.Ref.CompetitionSessionID,
 			AwardKey:             value.Ref.AwardKey,
 			DisplayOrder:         value.Ref.DisplayOrder,
 		},
-		Status:            string(value.Status),
+		Status:            prizegivingvalue.StageStatus(value.Status),
+		Release:           prizegivingvalue.ReleaseState(value.Release),
 		TakenAt:           value.TakenAt,
 		RevealStartedAt:   value.RevealStartedAt,
 		RevealDuration:    value.RevealDuration,

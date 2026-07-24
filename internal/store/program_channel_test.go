@@ -209,7 +209,7 @@ func TestTakePrizegivingResultCommitsUnrevealedProgramOutput(t *testing.T) {
 			ExpectedRevision: 0, Item: channel.Next,
 			Now: time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC),
 			ResultState: &PrizegivingStageState{
-				Ref: channel.Next.Result.Ref, Status: "Taken",
+				Ref: channel.Next.Result.Ref, Status: "Taken", Release: "Held",
 				TakenAt: time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC),
 			},
 		},
@@ -224,6 +224,7 @@ func TestTakePrizegivingResultCommitsUnrevealedProgramOutput(t *testing.T) {
 		taken.Output.Kind != ProgramItemResult ||
 		taken.Output.Result == nil ||
 		taken.Output.Result.Status != "Taken" ||
+		taken.Output.Result.Release != "Held" ||
 		taken.Next.Kind != "" {
 		t.Fatalf("Taken Prizegiving Program Channel = %+v", taken)
 	}
@@ -257,7 +258,7 @@ func TestTakePrizegivingResultCommitsUnrevealedProgramOutput(t *testing.T) {
 			EventID: event.ID, SessionID: ceremony.ID,
 			ExpectedRevision: 1, Item: taken.Output,
 			State: PrizegivingStageState{
-				Ref: taken.Output.Result.Ref, Status: "Revealing",
+				Ref: taken.Output.Result.Ref, Status: "Revealing", Release: "Held",
 				TakenAt:         taken.Output.Result.TakenAt,
 				RevealStartedAt: revealStartedAt,
 				RevealDuration:  3 * time.Second,
@@ -275,12 +276,27 @@ func TestTakePrizegivingResultCommitsUnrevealedProgramOutput(t *testing.T) {
 	}
 	if revealing.Revision != 2 ||
 		revealing.Output.Result.Status != "Revealing" ||
+		revealing.Output.Result.Release != "Held" ||
 		revealing.Output.Result.PresentationStartedAt != revealStartedAt ||
 		revealing.Output.Result.PresentationDuration != 3*time.Second ||
 		revealing.Output.Result.Replay {
 		t.Fatalf("Revealing Prizegiving Program Channel = %+v", revealing)
 	}
 	completedAt := revealStartedAt.Add(3 * time.Second)
+	elapsed, err := installation.LoadProgramChannelAt(
+		producerContext,
+		event.ID,
+		ceremony.ID,
+		completedAt,
+	)
+	if err != nil {
+		t.Fatalf("load elapsed Prizegiving Reveal: %v", err)
+	}
+	if elapsed.Output.Result.Status != "Revealed" ||
+		elapsed.Output.Result.Release != "Ready" ||
+		elapsed.Output.Result.RevealCompletedAt != completedAt {
+		t.Fatalf("elapsed Prizegiving Reveal = %+v", elapsed)
+	}
 	completeTransaction, err := installation.BeginCommand(producerContext)
 	if err != nil {
 		t.Fatalf("begin Prizegiving Reveal completion: %v", err)
@@ -291,7 +307,7 @@ func TestTakePrizegivingResultCommitsUnrevealedProgramOutput(t *testing.T) {
 			EventID: event.ID, SessionID: ceremony.ID,
 			ExpectedRevision: 2, Item: revealing.Output,
 			State: PrizegivingStageState{
-				Ref: revealing.Output.Result.Ref, Status: "Revealed",
+				Ref: revealing.Output.Result.Ref, Status: "Revealed", Release: "Ready",
 				TakenAt:           revealing.Output.Result.TakenAt,
 				RevealStartedAt:   revealStartedAt,
 				RevealDuration:    3 * time.Second,
@@ -319,7 +335,7 @@ func TestTakePrizegivingResultCommitsUnrevealedProgramOutput(t *testing.T) {
 			EventID: event.ID, SessionID: ceremony.ID,
 			ExpectedRevision: 3, Item: revealed.Output,
 			State: PrizegivingStageState{
-				Ref: revealed.Output.Result.Ref, Status: "Revealed",
+				Ref: revealed.Output.Result.Ref, Status: "Revealed", Release: "Ready",
 				TakenAt:           revealed.Output.Result.TakenAt,
 				RevealStartedAt:   revealStartedAt,
 				RevealDuration:    3 * time.Second,
@@ -410,5 +426,71 @@ func TestProgramCompetitionResultsOmitsUnreleasedAndCrewOnlyData(t *testing.T) {
 	)
 	if len(nonPublic.Standings) != 0 || len(nonPublic.Awards) != 0 {
 		t.Fatalf("No Public Results output = %+v", nonPublic)
+	}
+	secondScore := "12.5"
+	found.Standings = append(found.Standings, CompetitionResultStanding{
+		EntryID: 2, Standing: "Placed", Placement: 2,
+		DecimalScore: &secondScore,
+	})
+	found.ScoreInterpretation = "HigherWins"
+	bars := programScoreBars(found)
+	if len(bars) != 2 ||
+		bars[0] != (ProgramScoreBar{EntryID: 1, BasisPoints: 10000}) ||
+		bars[1] != (ProgramScoreBar{EntryID: 2, BasisPoints: 2500}) {
+		t.Fatalf("crew-only relative score bars = %+v", bars)
+	}
+}
+
+func TestUnlockedPrizegivingCannotEnd(t *testing.T) {
+	client := openEntTestClient(t)
+	installation := &SQLite{client: client}
+	fixtureContext := systemContext(t.Context())
+	event := createSchemaTestEvent(t, client)
+	client.Installation.Create().SetActiveEventID(event.ID).SaveX(fixtureContext)
+	ceremony := createPublishedResultsSession(
+		t,
+		client,
+		event.ID,
+		sessionpublishedversion.TypeCeremony,
+		"Prizegiving",
+	)
+	ceremony.Update().SetLifecycle(session.LifecycleLive).SaveX(fixtureContext)
+	client.SessionRun.Create().
+		SetSessionID(ceremony.ID).
+		SetActualStart(time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)).
+		SetSnapshotJSON(`{"type":"Ceremony"}`).
+		SaveX(fixtureContext)
+	client.Prizegiving.Create().
+		SetEventID(event.ID).
+		SetCeremonySessionID(ceremony.ID).
+		SetSequence([]prizegivingvalue.Item{{
+			ItemRef: prizegivingvalue.ItemRef{
+				Kind: "EventAward", AwardKey: "community", DisplayOrder: 1,
+			},
+			RevealMethod: "StaticResult",
+		}}).
+		SetCreatedByAccountID(1).
+		SaveX(fixtureContext)
+	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+		AccountID: 1, EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
+	})
+	command := beginCommand(t, installation, producerContext)
+	_, err := command.EndSession(
+		producerContext,
+		event.ID,
+		ceremony.ID,
+		0,
+		false,
+		"",
+		time.Date(2026, 8, 21, 14, 5, 0, 0, time.UTC),
+	)
+	var unresolved *PrizegivingResultsUnresolvedError
+	if !errors.As(err, &unresolved) ||
+		len(unresolved.Items) != 1 ||
+		unresolved.Items[0].AwardKey != "community" {
+		t.Fatalf("unlocked Prizegiving End error = %#v", err)
+	}
+	if rollbackErr := command.Rollback(); rollbackErr != nil {
+		t.Fatalf("roll back unlocked Prizegiving End: %v", rollbackErr)
 	}
 }

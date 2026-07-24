@@ -20,6 +20,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
 	"github.com/dotwaffle/beamers/ent/sessionrunamendment"
+	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -289,6 +290,7 @@ func (transaction *CommandTx) EndSession(
 			ctx,
 			eventID,
 			sessionID,
+			now,
 		); unresolvedErr != nil {
 			return LiveSessionState{}, unresolvedErr
 		}
@@ -344,12 +346,12 @@ func (transaction *CommandTx) EndSession(
 func (transaction *CommandTx) requirePrizegivingResultsResolved(
 	ctx context.Context,
 	eventID, ceremonySessionID int,
+	now time.Time,
 ) error {
 	found, err := transaction.transaction.Prizegiving.Query().
 		Where(
 			prizegiving.EventIDEQ(eventID),
 			prizegiving.CeremonySessionIDEQ(ceremonySessionID),
-			prizegiving.LockedEQ(true),
 		).
 		Only(ctx)
 	if ent.IsNotFound(err) {
@@ -358,15 +360,31 @@ func (transaction *CommandTx) requirePrizegivingResultsResolved(
 	if err != nil {
 		return opaqueError("load Prizegiving before Ceremony End", err)
 	}
-	statuses := make(map[PrizegivingResultItemRef]string, len(found.ItemStates))
+	if !found.Locked {
+		unresolved := make(
+			[]PrizegivingResultItemRef,
+			0,
+			len(found.Sequence),
+		)
+		for _, item := range found.Sequence {
+			unresolved = append(unresolved, prizegivingItemRef(item.ItemRef))
+		}
+		return &PrizegivingResultsUnresolvedError{Items: unresolved}
+	}
+	statuses := make(
+		map[PrizegivingResultItemRef]prizegivingvalue.StageStatus,
+		len(found.ItemStates),
+	)
 	for _, state := range found.ItemStates {
+		state = state.EffectiveAt(now)
 		statuses[prizegivingItemRef(state.ItemRef)] = state.Status
 	}
 	unresolved := make([]PrizegivingResultItemRef, 0)
 	for _, item := range found.PreflightLock.Sequence {
-		ref := prizegivingItemRef(item.Item.ItemRef)
+		ref := prizegivingItemRef(item.ItemRef)
 		status := statuses[ref]
-		if status != "Revealed" && status != "Skipped" {
+		if status != prizegivingvalue.StageRevealed &&
+			status != prizegivingvalue.StageSkipped {
 			unresolved = append(unresolved, ref)
 		}
 	}

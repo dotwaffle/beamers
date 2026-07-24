@@ -28,19 +28,19 @@ var (
 
 // PrizegivingResultItemRef identifies one ordered Result Item.
 type PrizegivingResultItemRef struct {
-	Kind                 string `json:"kind"`
-	CompetitionSessionID int    `json:"competition_session_id,omitempty"`
-	AwardKey             string `json:"award_key,omitempty"`
-	DisplayOrder         int    `json:"display_order"`
+	Kind                 prizegivingvalue.ItemKind `json:"kind"`
+	CompetitionSessionID int                       `json:"competition_session_id,omitempty"`
+	AwardKey             string                    `json:"award_key,omitempty"`
+	DisplayOrder         int                       `json:"display_order"`
 }
 
 // PrizegivingResultItem adds presentation configuration.
 type PrizegivingResultItem struct {
-	Kind                 string `json:"kind"`
-	CompetitionSessionID int    `json:"competition_session_id,omitempty"`
-	AwardKey             string `json:"award_key,omitempty"`
-	DisplayOrder         int    `json:"display_order"`
-	RevealMethod         string `json:"reveal_method"`
+	Kind                 prizegivingvalue.ItemKind     `json:"kind"`
+	CompetitionSessionID int                           `json:"competition_session_id,omitempty"`
+	AwardKey             string                        `json:"award_key,omitempty"`
+	DisplayOrder         int                           `json:"display_order"`
+	RevealMethod         prizegivingvalue.RevealMethod `json:"reveal_method"`
 }
 
 // PrizegivingResultsTextTemplate is one exact template revision.

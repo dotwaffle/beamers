@@ -178,7 +178,7 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 			slices.Contains(sessionState.LocationIDs, result.LocationID) &&
 			(result.ProgramChannelID == 0 || sessionState.Lifecycle == "Live") {
 			channel, channelErr := loadProgramChannel(
-				internalContext, client, result.ActiveEventID, publishedSession.ID,
+				internalContext, client, result.ActiveEventID, publishedSession.ID, now,
 			)
 			if channelErr != nil {
 				return DisplaySnapshotState{}, channelErr

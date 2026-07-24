@@ -294,7 +294,6 @@ func controlAction(value programv1.ControlAction) programcontrol.ControlAction {
 func resultAction(value programv1.ResultAction) programcontrol.ResultAction {
 	return map[programv1.ResultAction]programcontrol.ResultAction{
 		programv1.ResultAction_RESULT_ACTION_REVEAL:          programcontrol.ResultReveal,
-		programv1.ResultAction_RESULT_ACTION_COMPLETE_REVEAL: programcontrol.ResultCompleteReveal,
 		programv1.ResultAction_RESULT_ACTION_REPLAY_REVEAL:   programcontrol.ResultReplayReveal,
 		programv1.ResultAction_RESULT_ACTION_SKIP_TO_FINAL:   programcontrol.ResultSkipToFinal,
 		programv1.ResultAction_RESULT_ACTION_SKIP_FROM_STAGE: programcontrol.ResultSkipFromStage,

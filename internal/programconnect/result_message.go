@@ -8,6 +8,7 @@ import (
 
 	programv1 "github.com/dotwaffle/beamers/gen/beamers/program/v1"
 	resultsv1 "github.com/dotwaffle/beamers/gen/beamers/results/v1"
+	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 	"github.com/dotwaffle/beamers/internal/store"
 )
 
@@ -26,13 +27,19 @@ func ProgramResultMessage(found *store.ProgramResult) *programv1.ProgramResult {
 	}
 	result := &programv1.ProgramResult{
 		Item:                      resultItemRefMessage(found.Ref),
-		RevealMethod:              revealMethod(found.RevealMethod),
-		ReducedMotionRevealMethod: revealMethod(found.ReducedMotionRevealMethod),
+		RevealMethod:              revealMethod(string(found.RevealMethod)),
+		ReducedMotionRevealMethod: revealMethod(string(found.ReducedMotionRevealMethod)),
 		RevealSeed:                found.RevealSeed,
-		Status:                    resultStageStatus(found.Status),
+		Status:                    resultStageStatus(string(found.Status)),
+		Release:                   resultReleaseState(string(found.Release)),
 		Replay:                    found.Replay,
 		CompetitionResults:        competitionResultsDraftMessage(found.CompetitionResults),
 		EventAward:                eventAwardMessage(found.EventAward),
+	}
+	for _, bar := range found.ScoreBars {
+		result.ScoreBars = append(result.ScoreBars, &programv1.ProgramScoreBar{
+			EntryId: int64(bar.EntryID), BasisPoints: bar.BasisPoints,
+		})
 	}
 	setTimestamp(&result.TakenAt, found.TakenAt)
 	setTimestamp(&result.RevealStartedAt, found.RevealStartedAt)
@@ -44,16 +51,24 @@ func ProgramResultMessage(found *store.ProgramResult) *programv1.ProgramResult {
 	return result
 }
 
+func resultReleaseState(found string) programv1.ResultReleaseState {
+	return map[string]programv1.ResultReleaseState{
+		"Held":        programv1.ResultReleaseState_RESULT_RELEASE_STATE_HELD,
+		"Ready":       programv1.ResultReleaseState_RESULT_RELEASE_STATE_READY,
+		"CeremonyEnd": programv1.ResultReleaseState_RESULT_RELEASE_STATE_CEREMONY_END,
+	}[found]
+}
+
 func resultItemRefFromMessage(
 	found *resultsv1.ResultItemRef,
 ) store.PrizegivingResultItemRef {
 	return store.PrizegivingResultItemRef{
-		Kind: map[resultsv1.ResultItemKind]string{
+		Kind: prizegivingvalue.ItemKind(map[resultsv1.ResultItemKind]string{
 			resultsv1.ResultItemKind_RESULT_ITEM_KIND_COMPETITION_RESULTS: "CompetitionResults",
 			resultsv1.ResultItemKind_RESULT_ITEM_KIND_NO_PUBLIC_RESULTS:   "NoPublicResults",
 			resultsv1.ResultItemKind_RESULT_ITEM_KIND_COMPETITION_AWARD:   "CompetitionAward",
 			resultsv1.ResultItemKind_RESULT_ITEM_KIND_EVENT_AWARD:         "EventAward",
-		}[found.GetKind()],
+		}[found.GetKind()]),
 		CompetitionSessionID: int(found.GetCompetitionSessionId()),
 		AwardKey:             found.GetAwardKey(),
 		DisplayOrder:         int(found.GetDisplayOrder()),
@@ -69,7 +84,7 @@ func resultItemRefMessage(
 			"NoPublicResults":    resultsv1.ResultItemKind_RESULT_ITEM_KIND_NO_PUBLIC_RESULTS,
 			"CompetitionAward":   resultsv1.ResultItemKind_RESULT_ITEM_KIND_COMPETITION_AWARD,
 			"EventAward":         resultsv1.ResultItemKind_RESULT_ITEM_KIND_EVENT_AWARD,
-		}[found.Kind],
+		}[string(found.Kind)],
 		CompetitionSessionId: int64(found.CompetitionSessionID),
 		AwardKey:             found.AwardKey,
 		DisplayOrder:         int32(found.DisplayOrder), //nolint:gosec // Locked Result Items are bounded.
@@ -120,7 +135,8 @@ func competitionResultsDraftMessage(
 				"Public":   resultsv1.ScoreVisibility_SCORE_VISIBILITY_PUBLIC,
 				"CrewOnly": resultsv1.ScoreVisibility_SCORE_VISIBILITY_CREW_ONLY,
 			}[found.ScoreVisibility],
-			Unit: found.ScoreUnit, Precision: int32(found.ScorePrecision),
+			Unit:      found.ScoreUnit,
+			Precision: int32(found.ScorePrecision), //nolint:gosec // Validated before storage.
 			Requirement: map[string]resultsv1.ScoreRequirement{
 				"Optional": resultsv1.ScoreRequirement_SCORE_REQUIREMENT_OPTIONAL,
 				"Required": resultsv1.ScoreRequirement_SCORE_REQUIREMENT_REQUIRED,

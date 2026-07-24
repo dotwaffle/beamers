@@ -3,18 +3,61 @@ package prizegivingvalue
 
 import "time"
 
+// ItemKind identifies one persisted Result Item source.
+type ItemKind string
+
+// Persisted Result Item kinds.
+const (
+	ItemCompetitionResults ItemKind = "CompetitionResults"
+	ItemNoPublicResults    ItemKind = "NoPublicResults"
+	ItemCompetitionAward   ItemKind = "CompetitionAward"
+	ItemEventAward         ItemKind = "EventAward"
+)
+
+// RevealMethod identifies one persisted presentation algorithm.
+type RevealMethod string
+
+// Persisted reveal algorithms.
+const (
+	RevealStatic            RevealMethod = "StaticResult"
+	RevealSequentialPodium  RevealMethod = "SequentialPodium"
+	RevealAnimatedScoreBars RevealMethod = "AnimatedScoreBars"
+)
+
+// StageStatus identifies one persisted Result presentation state.
+type StageStatus string
+
+// Persisted Result presentation states.
+const (
+	StagePending   StageStatus = "Pending"
+	StageTaken     StageStatus = "Taken"
+	StageRevealing StageStatus = "Revealing"
+	StageRevealed  StageStatus = "Revealed"
+	StageSkipped   StageStatus = "Skipped"
+)
+
+// ReleaseState identifies a Result Item's downstream publication eligibility.
+type ReleaseState string
+
+// Persisted downstream publication eligibility states.
+const (
+	ReleaseHeld        ReleaseState = "Held"
+	ReleaseReady       ReleaseState = "Ready"
+	ReleaseCeremonyEnd ReleaseState = "CeremonyEnd"
+)
+
 // ItemRef identifies one ordered Result Item.
 type ItemRef struct {
-	Kind                 string `json:"kind"`
-	CompetitionSessionID int    `json:"competition_session_id,omitempty"`
-	AwardKey             string `json:"award_key,omitempty"`
-	DisplayOrder         int    `json:"display_order"`
+	Kind                 ItemKind `json:"kind"`
+	CompetitionSessionID int      `json:"competition_session_id,omitempty"`
+	AwardKey             string   `json:"award_key,omitempty"`
+	DisplayOrder         int      `json:"display_order"`
 }
 
 // Item adds presentation configuration to one Result Item.
 type Item struct {
 	ItemRef
-	RevealMethod string `json:"reveal_method"`
+	RevealMethod RevealMethod `json:"reveal_method"`
 }
 
 // Template is one exact Results Text Template revision.
@@ -51,12 +94,28 @@ type Lock struct {
 // StageState is one Result Item's durable presentation outcome.
 type StageState struct {
 	ItemRef
-	Status              string    `json:"status"`
-	TakenAt             time.Time `json:"taken_at,omitzero"`
-	RevealStartedAt     time.Time `json:"reveal_started_at,omitzero"`
-	RevealDurationNanos int64     `json:"reveal_duration_nanos,omitempty"`
-	RevealCompletedAt   time.Time `json:"reveal_completed_at,omitzero"`
-	SkippedAt           time.Time `json:"skipped_at,omitzero"`
+	Status              StageStatus  `json:"status"`
+	Release             ReleaseState `json:"release"`
+	TakenAt             time.Time    `json:"taken_at,omitzero"`
+	RevealStartedAt     time.Time    `json:"reveal_started_at,omitzero"`
+	RevealDurationNanos int64        `json:"reveal_duration_nanos,omitempty"`
+	RevealCompletedAt   time.Time    `json:"reveal_completed_at,omitzero"`
+	SkippedAt           time.Time    `json:"skipped_at,omitzero"`
+}
+
+// EffectiveAt derives completion of a timed Reveal from durable server facts.
+func (state StageState) EffectiveAt(now time.Time) StageState {
+	if state.Status != StageRevealing ||
+		state.RevealStartedAt.IsZero() ||
+		now.Before(state.RevealStartedAt.Add(time.Duration(state.RevealDurationNanos))) {
+		return state
+	}
+	state.Status = StageRevealed
+	state.Release = ReleaseReady
+	state.RevealCompletedAt = state.RevealStartedAt.Add(
+		time.Duration(state.RevealDurationNanos),
+	)
+	return state
 }
 
 // ProgramOutput identifies one Result Item presentation run.
