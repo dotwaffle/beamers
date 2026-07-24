@@ -64,6 +64,8 @@ const (
 	EdgeEvent = "event"
 	// EdgeCompetition holds the string denoting the competition edge name in mutations.
 	EdgeCompetition = "competition"
+	// EdgeResultStandings holds the string denoting the result_standings edge name in mutations.
+	EdgeResultStandings = "result_standings"
 	// Table holds the table name of the competitionentry in the database.
 	Table = "competition_entries"
 	// EventTable is the table that holds the event relation/edge.
@@ -80,6 +82,13 @@ const (
 	CompetitionInverseTable = "sessions"
 	// CompetitionColumn is the table column denoting the competition relation/edge.
 	CompetitionColumn = "competition_session_id"
+	// ResultStandingsTable is the table that holds the result_standings relation/edge.
+	ResultStandingsTable = "competition_result_standings"
+	// ResultStandingsInverseTable is the table name for the CompetitionResultStanding entity.
+	// It exists in this package in order to avoid circular dependency with the "competitionresultstanding" package.
+	ResultStandingsInverseTable = "competition_result_standings"
+	// ResultStandingsColumn is the table column denoting the result_standings relation/edge.
+	ResultStandingsColumn = "entry_id"
 )
 
 // Columns holds all SQL columns for competitionentry fields.
@@ -371,6 +380,20 @@ func ByCompetitionField(field string, opts ...sql.OrderTermOption) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newCompetitionStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByResultStandingsCount orders the results by result_standings count.
+func ByResultStandingsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newResultStandingsStep(), opts...)
+	}
+}
+
+// ByResultStandings orders the results by result_standings terms.
+func ByResultStandings(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newResultStandingsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newEventStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -383,5 +406,12 @@ func newCompetitionStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(CompetitionInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, CompetitionTable, CompetitionColumn),
+	)
+}
+func newResultStandingsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ResultStandingsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ResultStandingsTable, ResultStandingsColumn),
 	)
 }

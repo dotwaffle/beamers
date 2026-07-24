@@ -23,6 +23,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
+	"github.com/dotwaffle/beamers/ent/competitionresultsdraft"
+	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
 	"github.com/dotwaffle/beamers/ent/display"
 	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/displaycredential"
@@ -83,6 +85,10 @@ type Client struct {
 	CommandReceipt *CommandReceiptClient
 	// CompetitionEntry is the client for interacting with the CompetitionEntry builders.
 	CompetitionEntry *CompetitionEntryClient
+	// CompetitionResultStanding is the client for interacting with the CompetitionResultStanding builders.
+	CompetitionResultStanding *CompetitionResultStandingClient
+	// CompetitionResultsDraft is the client for interacting with the CompetitionResultsDraft builders.
+	CompetitionResultsDraft *CompetitionResultsDraftClient
 	// Display is the client for interacting with the Display builders.
 	Display *DisplayClient
 	// DisplayAssignment is the client for interacting with the DisplayAssignment builders.
@@ -172,6 +178,8 @@ func (c *Client) init() {
 	c.BootstrapCredential = NewBootstrapCredentialClient(c.config)
 	c.CommandReceipt = NewCommandReceiptClient(c.config)
 	c.CompetitionEntry = NewCompetitionEntryClient(c.config)
+	c.CompetitionResultStanding = NewCompetitionResultStandingClient(c.config)
+	c.CompetitionResultsDraft = NewCompetitionResultsDraftClient(c.config)
 	c.Display = NewDisplayClient(c.config)
 	c.DisplayAssignment = NewDisplayAssignmentClient(c.config)
 	c.DisplayCredential = NewDisplayCredentialClient(c.config)
@@ -307,6 +315,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		BootstrapCredential:         NewBootstrapCredentialClient(cfg),
 		CommandReceipt:              NewCommandReceiptClient(cfg),
 		CompetitionEntry:            NewCompetitionEntryClient(cfg),
+		CompetitionResultStanding:   NewCompetitionResultStandingClient(cfg),
+		CompetitionResultsDraft:     NewCompetitionResultsDraftClient(cfg),
 		Display:                     NewDisplayClient(cfg),
 		DisplayAssignment:           NewDisplayAssignmentClient(cfg),
 		DisplayCredential:           NewDisplayCredentialClient(cfg),
@@ -369,6 +379,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		BootstrapCredential:         NewBootstrapCredentialClient(cfg),
 		CommandReceipt:              NewCommandReceiptClient(cfg),
 		CompetitionEntry:            NewCompetitionEntryClient(cfg),
+		CompetitionResultStanding:   NewCompetitionResultStandingClient(cfg),
+		CompetitionResultsDraft:     NewCompetitionResultsDraftClient(cfg),
 		Display:                     NewDisplayClient(cfg),
 		DisplayAssignment:           NewDisplayAssignmentClient(cfg),
 		DisplayCredential:           NewDisplayCredentialClient(cfg),
@@ -434,7 +446,8 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.Account, c.AccountSession, c.Attachment, c.AttachmentVersion, c.AuditEntry,
-		c.BootstrapCredential, c.CommandReceipt, c.CompetitionEntry, c.Display,
+		c.BootstrapCredential, c.CommandReceipt, c.CompetitionEntry,
+		c.CompetitionResultStanding, c.CompetitionResultsDraft, c.Display,
 		c.DisplayAssignment, c.DisplayCredential, c.DisplayEnrollment,
 		c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventGrant, c.ImportReference,
@@ -454,7 +467,8 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.Account, c.AccountSession, c.Attachment, c.AttachmentVersion, c.AuditEntry,
-		c.BootstrapCredential, c.CommandReceipt, c.CompetitionEntry, c.Display,
+		c.BootstrapCredential, c.CommandReceipt, c.CompetitionEntry,
+		c.CompetitionResultStanding, c.CompetitionResultsDraft, c.Display,
 		c.DisplayAssignment, c.DisplayCredential, c.DisplayEnrollment,
 		c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventGrant, c.ImportReference,
@@ -488,6 +502,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.CommandReceipt.mutate(ctx, m)
 	case *CompetitionEntryMutation:
 		return c.CompetitionEntry.mutate(ctx, m)
+	case *CompetitionResultStandingMutation:
+		return c.CompetitionResultStanding.mutate(ctx, m)
+	case *CompetitionResultsDraftMutation:
+		return c.CompetitionResultsDraft.mutate(ctx, m)
 	case *DisplayMutation:
 		return c.Display.mutate(ctx, m)
 	case *DisplayAssignmentMutation:
@@ -1817,6 +1835,22 @@ func (c *CompetitionEntryClient) QueryCompetition(_m *CompetitionEntry) *Session
 	return query
 }
 
+// QueryResultStandings queries the result_standings edge of a CompetitionEntry.
+func (c *CompetitionEntryClient) QueryResultStandings(_m *CompetitionEntry) *CompetitionResultStandingQuery {
+	query := (&CompetitionResultStandingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(competitionentry.Table, competitionentry.FieldID, id),
+			sqlgraph.To(competitionresultstanding.Table, competitionresultstanding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, competitionentry.ResultStandingsTable, competitionentry.ResultStandingsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *CompetitionEntryClient) Hooks() []Hook {
 	hooks := c.hooks.CompetitionEntry
@@ -1840,6 +1874,386 @@ func (c *CompetitionEntryClient) mutate(ctx context.Context, m *CompetitionEntry
 		return (&CompetitionEntryDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown CompetitionEntry mutation op: %q", m.Op())
+	}
+}
+
+// CompetitionResultStandingClient is a client for the CompetitionResultStanding schema.
+type CompetitionResultStandingClient struct {
+	config
+}
+
+// NewCompetitionResultStandingClient returns a client for the CompetitionResultStanding from the given config.
+func NewCompetitionResultStandingClient(c config) *CompetitionResultStandingClient {
+	return &CompetitionResultStandingClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `competitionresultstanding.Hooks(f(g(h())))`.
+func (c *CompetitionResultStandingClient) Use(hooks ...Hook) {
+	c.hooks.CompetitionResultStanding = append(c.hooks.CompetitionResultStanding, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `competitionresultstanding.Intercept(f(g(h())))`.
+func (c *CompetitionResultStandingClient) Intercept(interceptors ...Interceptor) {
+	c.inters.CompetitionResultStanding = append(c.inters.CompetitionResultStanding, interceptors...)
+}
+
+// Create returns a builder for creating a CompetitionResultStanding entity.
+func (c *CompetitionResultStandingClient) Create() *CompetitionResultStandingCreate {
+	mutation := newCompetitionResultStandingMutation(c.config, OpCreate)
+	return &CompetitionResultStandingCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of CompetitionResultStanding entities.
+func (c *CompetitionResultStandingClient) CreateBulk(builders ...*CompetitionResultStandingCreate) *CompetitionResultStandingCreateBulk {
+	return &CompetitionResultStandingCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *CompetitionResultStandingClient) MapCreateBulk(slice any, setFunc func(*CompetitionResultStandingCreate, int)) *CompetitionResultStandingCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &CompetitionResultStandingCreateBulk{err: fmt.Errorf("calling to CompetitionResultStandingClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*CompetitionResultStandingCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &CompetitionResultStandingCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for CompetitionResultStanding.
+func (c *CompetitionResultStandingClient) Update() *CompetitionResultStandingUpdate {
+	mutation := newCompetitionResultStandingMutation(c.config, OpUpdate)
+	return &CompetitionResultStandingUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *CompetitionResultStandingClient) UpdateOne(_m *CompetitionResultStanding) *CompetitionResultStandingUpdateOne {
+	mutation := newCompetitionResultStandingMutation(c.config, OpUpdateOne, withCompetitionResultStanding(_m))
+	return &CompetitionResultStandingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *CompetitionResultStandingClient) UpdateOneID(id int) *CompetitionResultStandingUpdateOne {
+	mutation := newCompetitionResultStandingMutation(c.config, OpUpdateOne, withCompetitionResultStandingID(id))
+	return &CompetitionResultStandingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for CompetitionResultStanding.
+func (c *CompetitionResultStandingClient) Delete() *CompetitionResultStandingDelete {
+	mutation := newCompetitionResultStandingMutation(c.config, OpDelete)
+	return &CompetitionResultStandingDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *CompetitionResultStandingClient) DeleteOne(_m *CompetitionResultStanding) *CompetitionResultStandingDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *CompetitionResultStandingClient) DeleteOneID(id int) *CompetitionResultStandingDeleteOne {
+	builder := c.Delete().Where(competitionresultstanding.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &CompetitionResultStandingDeleteOne{builder}
+}
+
+// Query returns a query builder for CompetitionResultStanding.
+func (c *CompetitionResultStandingClient) Query() *CompetitionResultStandingQuery {
+	return &CompetitionResultStandingQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeCompetitionResultStanding},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a CompetitionResultStanding entity by its id.
+func (c *CompetitionResultStandingClient) Get(ctx context.Context, id int) (*CompetitionResultStanding, error) {
+	return c.Query().Where(competitionresultstanding.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *CompetitionResultStandingClient) GetX(ctx context.Context, id int) *CompetitionResultStanding {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a CompetitionResultStanding.
+func (c *CompetitionResultStandingClient) QueryEvent(_m *CompetitionResultStanding) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(competitionresultstanding.Table, competitionresultstanding.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, competitionresultstanding.EventTable, competitionresultstanding.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDraft queries the draft edge of a CompetitionResultStanding.
+func (c *CompetitionResultStandingClient) QueryDraft(_m *CompetitionResultStanding) *CompetitionResultsDraftQuery {
+	query := (&CompetitionResultsDraftClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(competitionresultstanding.Table, competitionresultstanding.FieldID, id),
+			sqlgraph.To(competitionresultsdraft.Table, competitionresultsdraft.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, competitionresultstanding.DraftTable, competitionresultstanding.DraftColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCompetition queries the competition edge of a CompetitionResultStanding.
+func (c *CompetitionResultStandingClient) QueryCompetition(_m *CompetitionResultStanding) *SessionQuery {
+	query := (&SessionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(competitionresultstanding.Table, competitionresultstanding.FieldID, id),
+			sqlgraph.To(session.Table, session.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, competitionresultstanding.CompetitionTable, competitionresultstanding.CompetitionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryEntry queries the entry edge of a CompetitionResultStanding.
+func (c *CompetitionResultStandingClient) QueryEntry(_m *CompetitionResultStanding) *CompetitionEntryQuery {
+	query := (&CompetitionEntryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(competitionresultstanding.Table, competitionresultstanding.FieldID, id),
+			sqlgraph.To(competitionentry.Table, competitionentry.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, competitionresultstanding.EntryTable, competitionresultstanding.EntryColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *CompetitionResultStandingClient) Hooks() []Hook {
+	hooks := c.hooks.CompetitionResultStanding
+	return append(hooks[:len(hooks):len(hooks)], competitionresultstanding.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *CompetitionResultStandingClient) Interceptors() []Interceptor {
+	return c.inters.CompetitionResultStanding
+}
+
+func (c *CompetitionResultStandingClient) mutate(ctx context.Context, m *CompetitionResultStandingMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&CompetitionResultStandingCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&CompetitionResultStandingUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&CompetitionResultStandingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&CompetitionResultStandingDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown CompetitionResultStanding mutation op: %q", m.Op())
+	}
+}
+
+// CompetitionResultsDraftClient is a client for the CompetitionResultsDraft schema.
+type CompetitionResultsDraftClient struct {
+	config
+}
+
+// NewCompetitionResultsDraftClient returns a client for the CompetitionResultsDraft from the given config.
+func NewCompetitionResultsDraftClient(c config) *CompetitionResultsDraftClient {
+	return &CompetitionResultsDraftClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `competitionresultsdraft.Hooks(f(g(h())))`.
+func (c *CompetitionResultsDraftClient) Use(hooks ...Hook) {
+	c.hooks.CompetitionResultsDraft = append(c.hooks.CompetitionResultsDraft, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `competitionresultsdraft.Intercept(f(g(h())))`.
+func (c *CompetitionResultsDraftClient) Intercept(interceptors ...Interceptor) {
+	c.inters.CompetitionResultsDraft = append(c.inters.CompetitionResultsDraft, interceptors...)
+}
+
+// Create returns a builder for creating a CompetitionResultsDraft entity.
+func (c *CompetitionResultsDraftClient) Create() *CompetitionResultsDraftCreate {
+	mutation := newCompetitionResultsDraftMutation(c.config, OpCreate)
+	return &CompetitionResultsDraftCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of CompetitionResultsDraft entities.
+func (c *CompetitionResultsDraftClient) CreateBulk(builders ...*CompetitionResultsDraftCreate) *CompetitionResultsDraftCreateBulk {
+	return &CompetitionResultsDraftCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *CompetitionResultsDraftClient) MapCreateBulk(slice any, setFunc func(*CompetitionResultsDraftCreate, int)) *CompetitionResultsDraftCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &CompetitionResultsDraftCreateBulk{err: fmt.Errorf("calling to CompetitionResultsDraftClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*CompetitionResultsDraftCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &CompetitionResultsDraftCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for CompetitionResultsDraft.
+func (c *CompetitionResultsDraftClient) Update() *CompetitionResultsDraftUpdate {
+	mutation := newCompetitionResultsDraftMutation(c.config, OpUpdate)
+	return &CompetitionResultsDraftUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *CompetitionResultsDraftClient) UpdateOne(_m *CompetitionResultsDraft) *CompetitionResultsDraftUpdateOne {
+	mutation := newCompetitionResultsDraftMutation(c.config, OpUpdateOne, withCompetitionResultsDraft(_m))
+	return &CompetitionResultsDraftUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *CompetitionResultsDraftClient) UpdateOneID(id int) *CompetitionResultsDraftUpdateOne {
+	mutation := newCompetitionResultsDraftMutation(c.config, OpUpdateOne, withCompetitionResultsDraftID(id))
+	return &CompetitionResultsDraftUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for CompetitionResultsDraft.
+func (c *CompetitionResultsDraftClient) Delete() *CompetitionResultsDraftDelete {
+	mutation := newCompetitionResultsDraftMutation(c.config, OpDelete)
+	return &CompetitionResultsDraftDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *CompetitionResultsDraftClient) DeleteOne(_m *CompetitionResultsDraft) *CompetitionResultsDraftDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *CompetitionResultsDraftClient) DeleteOneID(id int) *CompetitionResultsDraftDeleteOne {
+	builder := c.Delete().Where(competitionresultsdraft.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &CompetitionResultsDraftDeleteOne{builder}
+}
+
+// Query returns a query builder for CompetitionResultsDraft.
+func (c *CompetitionResultsDraftClient) Query() *CompetitionResultsDraftQuery {
+	return &CompetitionResultsDraftQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeCompetitionResultsDraft},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a CompetitionResultsDraft entity by its id.
+func (c *CompetitionResultsDraftClient) Get(ctx context.Context, id int) (*CompetitionResultsDraft, error) {
+	return c.Query().Where(competitionresultsdraft.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *CompetitionResultsDraftClient) GetX(ctx context.Context, id int) *CompetitionResultsDraft {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a CompetitionResultsDraft.
+func (c *CompetitionResultsDraftClient) QueryEvent(_m *CompetitionResultsDraft) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(competitionresultsdraft.Table, competitionresultsdraft.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, competitionresultsdraft.EventTable, competitionresultsdraft.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCompetition queries the competition edge of a CompetitionResultsDraft.
+func (c *CompetitionResultsDraftClient) QueryCompetition(_m *CompetitionResultsDraft) *SessionQuery {
+	query := (&SessionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(competitionresultsdraft.Table, competitionresultsdraft.FieldID, id),
+			sqlgraph.To(session.Table, session.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, competitionresultsdraft.CompetitionTable, competitionresultsdraft.CompetitionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryStandings queries the standings edge of a CompetitionResultsDraft.
+func (c *CompetitionResultsDraftClient) QueryStandings(_m *CompetitionResultsDraft) *CompetitionResultStandingQuery {
+	query := (&CompetitionResultStandingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(competitionresultsdraft.Table, competitionresultsdraft.FieldID, id),
+			sqlgraph.To(competitionresultstanding.Table, competitionresultstanding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, competitionresultsdraft.StandingsTable, competitionresultsdraft.StandingsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *CompetitionResultsDraftClient) Hooks() []Hook {
+	hooks := c.hooks.CompetitionResultsDraft
+	return append(hooks[:len(hooks):len(hooks)], competitionresultsdraft.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *CompetitionResultsDraftClient) Interceptors() []Interceptor {
+	return c.inters.CompetitionResultsDraft
+}
+
+func (c *CompetitionResultsDraftClient) mutate(ctx context.Context, m *CompetitionResultsDraftMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&CompetitionResultsDraftCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&CompetitionResultsDraftUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&CompetitionResultsDraftUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&CompetitionResultsDraftDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown CompetitionResultsDraft mutation op: %q", m.Op())
 	}
 }
 
@@ -3582,6 +3996,38 @@ func (c *EventClient) QueryCompetitionEntries(_m *Event) *CompetitionEntryQuery 
 			sqlgraph.From(event.Table, event.FieldID, id),
 			sqlgraph.To(competitionentry.Table, competitionentry.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, event.CompetitionEntriesTable, event.CompetitionEntriesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCompetitionResultsDrafts queries the competition_results_drafts edge of a Event.
+func (c *EventClient) QueryCompetitionResultsDrafts(_m *Event) *CompetitionResultsDraftQuery {
+	query := (&CompetitionResultsDraftClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(competitionresultsdraft.Table, competitionresultsdraft.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.CompetitionResultsDraftsTable, event.CompetitionResultsDraftsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCompetitionResultStandings queries the competition_result_standings edge of a Event.
+func (c *EventClient) QueryCompetitionResultStandings(_m *Event) *CompetitionResultStandingQuery {
+	query := (&CompetitionResultStandingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(competitionresultstanding.Table, competitionresultstanding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.CompetitionResultStandingsTable, event.CompetitionResultStandingsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -6420,6 +6866,38 @@ func (c *SessionClient) QueryCompetitionEntries(_m *Session) *CompetitionEntryQu
 	return query
 }
 
+// QueryCompetitionResultsDrafts queries the competition_results_drafts edge of a Session.
+func (c *SessionClient) QueryCompetitionResultsDrafts(_m *Session) *CompetitionResultsDraftQuery {
+	query := (&CompetitionResultsDraftClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(session.Table, session.FieldID, id),
+			sqlgraph.To(competitionresultsdraft.Table, competitionresultsdraft.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, session.CompetitionResultsDraftsTable, session.CompetitionResultsDraftsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCompetitionResultStandings queries the competition_result_standings edge of a Session.
+func (c *SessionClient) QueryCompetitionResultStandings(_m *Session) *CompetitionResultStandingQuery {
+	query := (&CompetitionResultStandingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(session.Table, session.FieldID, id),
+			sqlgraph.To(competitionresultstanding.Table, competitionresultstanding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, session.CompetitionResultStandingsTable, session.CompetitionResultStandingsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *SessionClient) Hooks() []Hook {
 	hooks := c.hooks.Session
@@ -7976,28 +8454,28 @@ func (c *UploadLinkClient) mutate(ctx context.Context, m *UploadLinkMutation) (V
 type (
 	hooks struct {
 		Account, AccountSession, Attachment, AttachmentVersion, AuditEntry,
-		BootstrapCredential, CommandReceipt, CompetitionEntry, Display,
-		DisplayAssignment, DisplayCredential, DisplayEnrollment, DisplayOverride,
-		DisplayOverrideState, DraftChange, DraftChangeDependency, DraftEdit, Event,
-		EventGrant, ImportReference, Installation, Lane, LaneDraft,
-		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
-		Migration, PasswordCredential, PublicScheduleBaseline,
-		PublicScheduleBaselineEntry, ReopenWindow, Rundown, Session,
-		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
-		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
+		BootstrapCredential, CommandReceipt, CompetitionEntry,
+		CompetitionResultStanding, CompetitionResultsDraft, Display, DisplayAssignment,
+		DisplayCredential, DisplayEnrollment, DisplayOverride, DisplayOverrideState,
+		DraftChange, DraftChangeDependency, DraftEdit, Event, EventGrant,
+		ImportReference, Installation, Lane, LaneDraft, LanePublishedVersion, Location,
+		LocationDraft, LocationPublishedVersion, Migration, PasswordCredential,
+		PublicScheduleBaseline, PublicScheduleBaselineEntry, ReopenWindow, Rundown,
+		Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
+		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
 		UploadLink []ent.Hook
 	}
 	inters struct {
 		Account, AccountSession, Attachment, AttachmentVersion, AuditEntry,
-		BootstrapCredential, CommandReceipt, CompetitionEntry, Display,
-		DisplayAssignment, DisplayCredential, DisplayEnrollment, DisplayOverride,
-		DisplayOverrideState, DraftChange, DraftChangeDependency, DraftEdit, Event,
-		EventGrant, ImportReference, Installation, Lane, LaneDraft,
-		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
-		Migration, PasswordCredential, PublicScheduleBaseline,
-		PublicScheduleBaselineEntry, ReopenWindow, Rundown, Session,
-		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
-		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
+		BootstrapCredential, CommandReceipt, CompetitionEntry,
+		CompetitionResultStanding, CompetitionResultsDraft, Display, DisplayAssignment,
+		DisplayCredential, DisplayEnrollment, DisplayOverride, DisplayOverrideState,
+		DraftChange, DraftChangeDependency, DraftEdit, Event, EventGrant,
+		ImportReference, Installation, Lane, LaneDraft, LanePublishedVersion, Location,
+		LocationDraft, LocationPublishedVersion, Migration, PasswordCredential,
+		PublicScheduleBaseline, PublicScheduleBaselineEntry, ReopenWindow, Rundown,
+		Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
+		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
 		UploadLink []ent.Interceptor
 	}
 )

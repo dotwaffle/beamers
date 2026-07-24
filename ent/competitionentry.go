@@ -75,9 +75,11 @@ type CompetitionEntryEdges struct {
 	Event *Event `json:"event,omitempty"`
 	// Competition holds the value of the competition edge.
 	Competition *Session `json:"competition,omitempty"`
+	// ResultStandings holds the value of the result_standings edge.
+	ResultStandings []*CompetitionResultStanding `json:"result_standings,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [3]bool
 }
 
 // EventOrErr returns the Event value or an error if the edge
@@ -100,6 +102,15 @@ func (e CompetitionEntryEdges) CompetitionOrErr() (*Session, error) {
 		return nil, &NotFoundError{label: session.Label}
 	}
 	return nil, &NotLoadedError{edge: "competition"}
+}
+
+// ResultStandingsOrErr returns the ResultStandings value or an error if the edge
+// was not loaded in eager-loading.
+func (e CompetitionEntryEdges) ResultStandingsOrErr() ([]*CompetitionResultStanding, error) {
+	if e.loadedTypes[2] {
+		return e.ResultStandings, nil
+	}
+	return nil, &NotLoadedError{edge: "result_standings"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -289,6 +300,11 @@ func (_m *CompetitionEntry) QueryEvent() *EventQuery {
 // QueryCompetition queries the "competition" edge of the CompetitionEntry entity.
 func (_m *CompetitionEntry) QueryCompetition() *SessionQuery {
 	return NewCompetitionEntryClient(_m.config).QueryCompetition(_m)
+}
+
+// QueryResultStandings queries the "result_standings" edge of the CompetitionEntry entity.
+func (_m *CompetitionEntry) QueryResultStandings() *CompetitionResultStandingQuery {
+	return NewCompetitionEntryClient(_m.config).QueryResultStandings(_m)
 }
 
 // Update returns a builder for updating this CompetitionEntry.

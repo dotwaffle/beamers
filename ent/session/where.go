@@ -1611,6 +1611,52 @@ func HasCompetitionEntriesWith(preds ...predicate.CompetitionEntry) predicate.Se
 	})
 }
 
+// HasCompetitionResultsDrafts applies the HasEdge predicate on the "competition_results_drafts" edge.
+func HasCompetitionResultsDrafts() predicate.Session {
+	return predicate.Session(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CompetitionResultsDraftsTable, CompetitionResultsDraftsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCompetitionResultsDraftsWith applies the HasEdge predicate on the "competition_results_drafts" edge with a given conditions (other predicates).
+func HasCompetitionResultsDraftsWith(preds ...predicate.CompetitionResultsDraft) predicate.Session {
+	return predicate.Session(func(s *sql.Selector) {
+		step := newCompetitionResultsDraftsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasCompetitionResultStandings applies the HasEdge predicate on the "competition_result_standings" edge.
+func HasCompetitionResultStandings() predicate.Session {
+	return predicate.Session(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CompetitionResultStandingsTable, CompetitionResultStandingsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCompetitionResultStandingsWith applies the HasEdge predicate on the "competition_result_standings" edge with a given conditions (other predicates).
+func HasCompetitionResultStandingsWith(preds ...predicate.CompetitionResultStanding) predicate.Session {
+	return predicate.Session(func(s *sql.Selector) {
+		step := newCompetitionResultStandingsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Session) predicate.Session {
 	return predicate.Session(sql.AndPredicates(predicates...))

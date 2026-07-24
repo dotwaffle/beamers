@@ -1301,6 +1301,52 @@ func HasCompetitionEntriesWith(preds ...predicate.CompetitionEntry) predicate.Ev
 	})
 }
 
+// HasCompetitionResultsDrafts applies the HasEdge predicate on the "competition_results_drafts" edge.
+func HasCompetitionResultsDrafts() predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CompetitionResultsDraftsTable, CompetitionResultsDraftsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCompetitionResultsDraftsWith applies the HasEdge predicate on the "competition_results_drafts" edge with a given conditions (other predicates).
+func HasCompetitionResultsDraftsWith(preds ...predicate.CompetitionResultsDraft) predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := newCompetitionResultsDraftsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasCompetitionResultStandings applies the HasEdge predicate on the "competition_result_standings" edge.
+func HasCompetitionResultStandings() predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CompetitionResultStandingsTable, CompetitionResultStandingsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCompetitionResultStandingsWith applies the HasEdge predicate on the "competition_result_standings" edge with a given conditions (other predicates).
+func HasCompetitionResultStandingsWith(preds ...predicate.CompetitionResultStanding) predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := newCompetitionResultStandingsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasUploadLinks applies the HasEdge predicate on the "upload_links" edge.
 func HasUploadLinks() predicate.Event {
 	return predicate.Event(func(s *sql.Selector) {

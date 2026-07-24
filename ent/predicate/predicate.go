@@ -30,6 +30,12 @@ type CommandReceipt func(*sql.Selector)
 // CompetitionEntry is the predicate function for competitionentry builders.
 type CompetitionEntry func(*sql.Selector)
 
+// CompetitionResultStanding is the predicate function for competitionresultstanding builders.
+type CompetitionResultStanding func(*sql.Selector)
+
+// CompetitionResultsDraft is the predicate function for competitionresultsdraft builders.
+type CompetitionResultsDraft func(*sql.Selector)
+
 // Display is the predicate function for display builders.
 type Display func(*sql.Selector)
 

@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
+	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
 	"github.com/dotwaffle/beamers/ent/predicate"
 )
 
@@ -395,9 +396,45 @@ func (_u *CompetitionEntryUpdate) AddRevision(v int) *CompetitionEntryUpdate {
 	return _u
 }
 
+// AddResultStandingIDs adds the "result_standings" edge to the CompetitionResultStanding entity by IDs.
+func (_u *CompetitionEntryUpdate) AddResultStandingIDs(ids ...int) *CompetitionEntryUpdate {
+	_u.mutation.AddResultStandingIDs(ids...)
+	return _u
+}
+
+// AddResultStandings adds the "result_standings" edges to the CompetitionResultStanding entity.
+func (_u *CompetitionEntryUpdate) AddResultStandings(v ...*CompetitionResultStanding) *CompetitionEntryUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddResultStandingIDs(ids...)
+}
+
 // Mutation returns the CompetitionEntryMutation object of the builder.
 func (_u *CompetitionEntryUpdate) Mutation() *CompetitionEntryMutation {
 	return _u.mutation
+}
+
+// ClearResultStandings clears all "result_standings" edges to the CompetitionResultStanding entity.
+func (_u *CompetitionEntryUpdate) ClearResultStandings() *CompetitionEntryUpdate {
+	_u.mutation.ClearResultStandings()
+	return _u
+}
+
+// RemoveResultStandingIDs removes the "result_standings" edge to CompetitionResultStanding entities by IDs.
+func (_u *CompetitionEntryUpdate) RemoveResultStandingIDs(ids ...int) *CompetitionEntryUpdate {
+	_u.mutation.RemoveResultStandingIDs(ids...)
+	return _u
+}
+
+// RemoveResultStandings removes "result_standings" edges to CompetitionResultStanding entities.
+func (_u *CompetitionEntryUpdate) RemoveResultStandings(v ...*CompetitionResultStanding) *CompetitionEntryUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveResultStandingIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -624,6 +661,51 @@ func (_u *CompetitionEntryUpdate) sqlSave(ctx context.Context) (_node int, err e
 	}
 	if value, ok := _u.mutation.AddedRevision(); ok {
 		_spec.AddField(competitionentry.FieldRevision, field.TypeInt, value)
+	}
+	if _u.mutation.ResultStandingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   competitionentry.ResultStandingsTable,
+			Columns: []string{competitionentry.ResultStandingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionresultstanding.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedResultStandingsIDs(); len(nodes) > 0 && !_u.mutation.ResultStandingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   competitionentry.ResultStandingsTable,
+			Columns: []string{competitionentry.ResultStandingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionresultstanding.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ResultStandingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   competitionentry.ResultStandingsTable,
+			Columns: []string{competitionentry.ResultStandingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionresultstanding.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -1012,9 +1094,45 @@ func (_u *CompetitionEntryUpdateOne) AddRevision(v int) *CompetitionEntryUpdateO
 	return _u
 }
 
+// AddResultStandingIDs adds the "result_standings" edge to the CompetitionResultStanding entity by IDs.
+func (_u *CompetitionEntryUpdateOne) AddResultStandingIDs(ids ...int) *CompetitionEntryUpdateOne {
+	_u.mutation.AddResultStandingIDs(ids...)
+	return _u
+}
+
+// AddResultStandings adds the "result_standings" edges to the CompetitionResultStanding entity.
+func (_u *CompetitionEntryUpdateOne) AddResultStandings(v ...*CompetitionResultStanding) *CompetitionEntryUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddResultStandingIDs(ids...)
+}
+
 // Mutation returns the CompetitionEntryMutation object of the builder.
 func (_u *CompetitionEntryUpdateOne) Mutation() *CompetitionEntryMutation {
 	return _u.mutation
+}
+
+// ClearResultStandings clears all "result_standings" edges to the CompetitionResultStanding entity.
+func (_u *CompetitionEntryUpdateOne) ClearResultStandings() *CompetitionEntryUpdateOne {
+	_u.mutation.ClearResultStandings()
+	return _u
+}
+
+// RemoveResultStandingIDs removes the "result_standings" edge to CompetitionResultStanding entities by IDs.
+func (_u *CompetitionEntryUpdateOne) RemoveResultStandingIDs(ids ...int) *CompetitionEntryUpdateOne {
+	_u.mutation.RemoveResultStandingIDs(ids...)
+	return _u
+}
+
+// RemoveResultStandings removes "result_standings" edges to CompetitionResultStanding entities.
+func (_u *CompetitionEntryUpdateOne) RemoveResultStandings(v ...*CompetitionResultStanding) *CompetitionEntryUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveResultStandingIDs(ids...)
 }
 
 // Where appends a list predicates to the CompetitionEntryUpdate builder.
@@ -1271,6 +1389,51 @@ func (_u *CompetitionEntryUpdateOne) sqlSave(ctx context.Context) (_node *Compet
 	}
 	if value, ok := _u.mutation.AddedRevision(); ok {
 		_spec.AddField(competitionentry.FieldRevision, field.TypeInt, value)
+	}
+	if _u.mutation.ResultStandingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   competitionentry.ResultStandingsTable,
+			Columns: []string{competitionentry.ResultStandingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionresultstanding.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedResultStandingsIDs(); len(nodes) > 0 && !_u.mutation.ResultStandingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   competitionentry.ResultStandingsTable,
+			Columns: []string{competitionentry.ResultStandingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionresultstanding.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ResultStandingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   competitionentry.ResultStandingsTable,
+			Columns: []string{competitionentry.ResultStandingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionresultstanding.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &CompetitionEntry{config: _u.config}
 	_spec.Assign = _node.assignValues

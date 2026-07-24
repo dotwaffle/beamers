@@ -13,61 +13,61 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/dotwaffle/beamers/ent/competitionentry"
+	"github.com/dotwaffle/beamers/ent/competitionresultsdraft"
 	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/session"
 )
 
-// CompetitionEntryQuery is the builder for querying CompetitionEntry entities.
-type CompetitionEntryQuery struct {
+// CompetitionResultsDraftQuery is the builder for querying CompetitionResultsDraft entities.
+type CompetitionResultsDraftQuery struct {
 	config
-	ctx                 *QueryContext
-	order               []competitionentry.OrderOption
-	inters              []Interceptor
-	predicates          []predicate.CompetitionEntry
-	withEvent           *EventQuery
-	withCompetition     *SessionQuery
-	withResultStandings *CompetitionResultStandingQuery
+	ctx             *QueryContext
+	order           []competitionresultsdraft.OrderOption
+	inters          []Interceptor
+	predicates      []predicate.CompetitionResultsDraft
+	withEvent       *EventQuery
+	withCompetition *SessionQuery
+	withStandings   *CompetitionResultStandingQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
 }
 
-// Where adds a new predicate for the CompetitionEntryQuery builder.
-func (_q *CompetitionEntryQuery) Where(ps ...predicate.CompetitionEntry) *CompetitionEntryQuery {
+// Where adds a new predicate for the CompetitionResultsDraftQuery builder.
+func (_q *CompetitionResultsDraftQuery) Where(ps ...predicate.CompetitionResultsDraft) *CompetitionResultsDraftQuery {
 	_q.predicates = append(_q.predicates, ps...)
 	return _q
 }
 
 // Limit the number of records to be returned by this query.
-func (_q *CompetitionEntryQuery) Limit(limit int) *CompetitionEntryQuery {
+func (_q *CompetitionResultsDraftQuery) Limit(limit int) *CompetitionResultsDraftQuery {
 	_q.ctx.Limit = &limit
 	return _q
 }
 
 // Offset to start from.
-func (_q *CompetitionEntryQuery) Offset(offset int) *CompetitionEntryQuery {
+func (_q *CompetitionResultsDraftQuery) Offset(offset int) *CompetitionResultsDraftQuery {
 	_q.ctx.Offset = &offset
 	return _q
 }
 
 // Unique configures the query builder to filter duplicate records on query.
 // By default, unique is set to true, and can be disabled using this method.
-func (_q *CompetitionEntryQuery) Unique(unique bool) *CompetitionEntryQuery {
+func (_q *CompetitionResultsDraftQuery) Unique(unique bool) *CompetitionResultsDraftQuery {
 	_q.ctx.Unique = &unique
 	return _q
 }
 
 // Order specifies how the records should be ordered.
-func (_q *CompetitionEntryQuery) Order(o ...competitionentry.OrderOption) *CompetitionEntryQuery {
+func (_q *CompetitionResultsDraftQuery) Order(o ...competitionresultsdraft.OrderOption) *CompetitionResultsDraftQuery {
 	_q.order = append(_q.order, o...)
 	return _q
 }
 
 // QueryEvent chains the current query on the "event" edge.
-func (_q *CompetitionEntryQuery) QueryEvent() *EventQuery {
+func (_q *CompetitionResultsDraftQuery) QueryEvent() *EventQuery {
 	query := (&EventClient{config: _q.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := _q.prepareQuery(ctx); err != nil {
@@ -78,9 +78,9 @@ func (_q *CompetitionEntryQuery) QueryEvent() *EventQuery {
 			return nil, err
 		}
 		step := sqlgraph.NewStep(
-			sqlgraph.From(competitionentry.Table, competitionentry.FieldID, selector),
+			sqlgraph.From(competitionresultsdraft.Table, competitionresultsdraft.FieldID, selector),
 			sqlgraph.To(event.Table, event.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, competitionentry.EventTable, competitionentry.EventColumn),
+			sqlgraph.Edge(sqlgraph.M2O, true, competitionresultsdraft.EventTable, competitionresultsdraft.EventColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -89,7 +89,7 @@ func (_q *CompetitionEntryQuery) QueryEvent() *EventQuery {
 }
 
 // QueryCompetition chains the current query on the "competition" edge.
-func (_q *CompetitionEntryQuery) QueryCompetition() *SessionQuery {
+func (_q *CompetitionResultsDraftQuery) QueryCompetition() *SessionQuery {
 	query := (&SessionClient{config: _q.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := _q.prepareQuery(ctx); err != nil {
@@ -100,9 +100,9 @@ func (_q *CompetitionEntryQuery) QueryCompetition() *SessionQuery {
 			return nil, err
 		}
 		step := sqlgraph.NewStep(
-			sqlgraph.From(competitionentry.Table, competitionentry.FieldID, selector),
+			sqlgraph.From(competitionresultsdraft.Table, competitionresultsdraft.FieldID, selector),
 			sqlgraph.To(session.Table, session.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, competitionentry.CompetitionTable, competitionentry.CompetitionColumn),
+			sqlgraph.Edge(sqlgraph.M2O, true, competitionresultsdraft.CompetitionTable, competitionresultsdraft.CompetitionColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -110,8 +110,8 @@ func (_q *CompetitionEntryQuery) QueryCompetition() *SessionQuery {
 	return query
 }
 
-// QueryResultStandings chains the current query on the "result_standings" edge.
-func (_q *CompetitionEntryQuery) QueryResultStandings() *CompetitionResultStandingQuery {
+// QueryStandings chains the current query on the "standings" edge.
+func (_q *CompetitionResultsDraftQuery) QueryStandings() *CompetitionResultStandingQuery {
 	query := (&CompetitionResultStandingClient{config: _q.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := _q.prepareQuery(ctx); err != nil {
@@ -122,9 +122,9 @@ func (_q *CompetitionEntryQuery) QueryResultStandings() *CompetitionResultStandi
 			return nil, err
 		}
 		step := sqlgraph.NewStep(
-			sqlgraph.From(competitionentry.Table, competitionentry.FieldID, selector),
+			sqlgraph.From(competitionresultsdraft.Table, competitionresultsdraft.FieldID, selector),
 			sqlgraph.To(competitionresultstanding.Table, competitionresultstanding.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, competitionentry.ResultStandingsTable, competitionentry.ResultStandingsColumn),
+			sqlgraph.Edge(sqlgraph.O2M, false, competitionresultsdraft.StandingsTable, competitionresultsdraft.StandingsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -132,21 +132,21 @@ func (_q *CompetitionEntryQuery) QueryResultStandings() *CompetitionResultStandi
 	return query
 }
 
-// First returns the first CompetitionEntry entity from the query.
-// Returns a *NotFoundError when no CompetitionEntry was found.
-func (_q *CompetitionEntryQuery) First(ctx context.Context) (*CompetitionEntry, error) {
+// First returns the first CompetitionResultsDraft entity from the query.
+// Returns a *NotFoundError when no CompetitionResultsDraft was found.
+func (_q *CompetitionResultsDraftQuery) First(ctx context.Context) (*CompetitionResultsDraft, error) {
 	nodes, err := _q.Limit(1).All(setContextOp(ctx, _q.ctx, ent.OpQueryFirst))
 	if err != nil {
 		return nil, err
 	}
 	if len(nodes) == 0 {
-		return nil, &NotFoundError{competitionentry.Label}
+		return nil, &NotFoundError{competitionresultsdraft.Label}
 	}
 	return nodes[0], nil
 }
 
 // FirstX is like First, but panics if an error occurs.
-func (_q *CompetitionEntryQuery) FirstX(ctx context.Context) *CompetitionEntry {
+func (_q *CompetitionResultsDraftQuery) FirstX(ctx context.Context) *CompetitionResultsDraft {
 	node, err := _q.First(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -154,22 +154,22 @@ func (_q *CompetitionEntryQuery) FirstX(ctx context.Context) *CompetitionEntry {
 	return node
 }
 
-// FirstID returns the first CompetitionEntry ID from the query.
-// Returns a *NotFoundError when no CompetitionEntry ID was found.
-func (_q *CompetitionEntryQuery) FirstID(ctx context.Context) (id int, err error) {
+// FirstID returns the first CompetitionResultsDraft ID from the query.
+// Returns a *NotFoundError when no CompetitionResultsDraft ID was found.
+func (_q *CompetitionResultsDraftQuery) FirstID(ctx context.Context) (id int, err error) {
 	var ids []int
 	if ids, err = _q.Limit(1).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryFirstID)); err != nil {
 		return
 	}
 	if len(ids) == 0 {
-		err = &NotFoundError{competitionentry.Label}
+		err = &NotFoundError{competitionresultsdraft.Label}
 		return
 	}
 	return ids[0], nil
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (_q *CompetitionEntryQuery) FirstIDX(ctx context.Context) int {
+func (_q *CompetitionResultsDraftQuery) FirstIDX(ctx context.Context) int {
 	id, err := _q.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -177,10 +177,10 @@ func (_q *CompetitionEntryQuery) FirstIDX(ctx context.Context) int {
 	return id
 }
 
-// Only returns a single CompetitionEntry entity found by the query, ensuring it only returns one.
-// Returns a *NotSingularError when more than one CompetitionEntry entity is found.
-// Returns a *NotFoundError when no CompetitionEntry entities are found.
-func (_q *CompetitionEntryQuery) Only(ctx context.Context) (*CompetitionEntry, error) {
+// Only returns a single CompetitionResultsDraft entity found by the query, ensuring it only returns one.
+// Returns a *NotSingularError when more than one CompetitionResultsDraft entity is found.
+// Returns a *NotFoundError when no CompetitionResultsDraft entities are found.
+func (_q *CompetitionResultsDraftQuery) Only(ctx context.Context) (*CompetitionResultsDraft, error) {
 	nodes, err := _q.Limit(2).All(setContextOp(ctx, _q.ctx, ent.OpQueryOnly))
 	if err != nil {
 		return nil, err
@@ -189,14 +189,14 @@ func (_q *CompetitionEntryQuery) Only(ctx context.Context) (*CompetitionEntry, e
 	case 1:
 		return nodes[0], nil
 	case 0:
-		return nil, &NotFoundError{competitionentry.Label}
+		return nil, &NotFoundError{competitionresultsdraft.Label}
 	default:
-		return nil, &NotSingularError{competitionentry.Label}
+		return nil, &NotSingularError{competitionresultsdraft.Label}
 	}
 }
 
 // OnlyX is like Only, but panics if an error occurs.
-func (_q *CompetitionEntryQuery) OnlyX(ctx context.Context) *CompetitionEntry {
+func (_q *CompetitionResultsDraftQuery) OnlyX(ctx context.Context) *CompetitionResultsDraft {
 	node, err := _q.Only(ctx)
 	if err != nil {
 		panic(err)
@@ -204,10 +204,10 @@ func (_q *CompetitionEntryQuery) OnlyX(ctx context.Context) *CompetitionEntry {
 	return node
 }
 
-// OnlyID is like Only, but returns the only CompetitionEntry ID in the query.
-// Returns a *NotSingularError when more than one CompetitionEntry ID is found.
+// OnlyID is like Only, but returns the only CompetitionResultsDraft ID in the query.
+// Returns a *NotSingularError when more than one CompetitionResultsDraft ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (_q *CompetitionEntryQuery) OnlyID(ctx context.Context) (id int, err error) {
+func (_q *CompetitionResultsDraftQuery) OnlyID(ctx context.Context) (id int, err error) {
 	var ids []int
 	if ids, err = _q.Limit(2).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryOnlyID)); err != nil {
 		return
@@ -216,15 +216,15 @@ func (_q *CompetitionEntryQuery) OnlyID(ctx context.Context) (id int, err error)
 	case 1:
 		id = ids[0]
 	case 0:
-		err = &NotFoundError{competitionentry.Label}
+		err = &NotFoundError{competitionresultsdraft.Label}
 	default:
-		err = &NotSingularError{competitionentry.Label}
+		err = &NotSingularError{competitionresultsdraft.Label}
 	}
 	return
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (_q *CompetitionEntryQuery) OnlyIDX(ctx context.Context) int {
+func (_q *CompetitionResultsDraftQuery) OnlyIDX(ctx context.Context) int {
 	id, err := _q.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -232,18 +232,18 @@ func (_q *CompetitionEntryQuery) OnlyIDX(ctx context.Context) int {
 	return id
 }
 
-// All executes the query and returns a list of CompetitionEntries.
-func (_q *CompetitionEntryQuery) All(ctx context.Context) ([]*CompetitionEntry, error) {
+// All executes the query and returns a list of CompetitionResultsDrafts.
+func (_q *CompetitionResultsDraftQuery) All(ctx context.Context) ([]*CompetitionResultsDraft, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryAll)
 	if err := _q.prepareQuery(ctx); err != nil {
 		return nil, err
 	}
-	qr := querierAll[[]*CompetitionEntry, *CompetitionEntryQuery]()
-	return withInterceptors[[]*CompetitionEntry](ctx, _q, qr, _q.inters)
+	qr := querierAll[[]*CompetitionResultsDraft, *CompetitionResultsDraftQuery]()
+	return withInterceptors[[]*CompetitionResultsDraft](ctx, _q, qr, _q.inters)
 }
 
 // AllX is like All, but panics if an error occurs.
-func (_q *CompetitionEntryQuery) AllX(ctx context.Context) []*CompetitionEntry {
+func (_q *CompetitionResultsDraftQuery) AllX(ctx context.Context) []*CompetitionResultsDraft {
 	nodes, err := _q.All(ctx)
 	if err != nil {
 		panic(err)
@@ -251,20 +251,20 @@ func (_q *CompetitionEntryQuery) AllX(ctx context.Context) []*CompetitionEntry {
 	return nodes
 }
 
-// IDs executes the query and returns a list of CompetitionEntry IDs.
-func (_q *CompetitionEntryQuery) IDs(ctx context.Context) (ids []int, err error) {
+// IDs executes the query and returns a list of CompetitionResultsDraft IDs.
+func (_q *CompetitionResultsDraftQuery) IDs(ctx context.Context) (ids []int, err error) {
 	if _q.ctx.Unique == nil && _q.path != nil {
 		_q.Unique(true)
 	}
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryIDs)
-	if err = _q.Select(competitionentry.FieldID).Scan(ctx, &ids); err != nil {
+	if err = _q.Select(competitionresultsdraft.FieldID).Scan(ctx, &ids); err != nil {
 		return nil, err
 	}
 	return ids, nil
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (_q *CompetitionEntryQuery) IDsX(ctx context.Context) []int {
+func (_q *CompetitionResultsDraftQuery) IDsX(ctx context.Context) []int {
 	ids, err := _q.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -273,16 +273,16 @@ func (_q *CompetitionEntryQuery) IDsX(ctx context.Context) []int {
 }
 
 // Count returns the count of the given query.
-func (_q *CompetitionEntryQuery) Count(ctx context.Context) (int, error) {
+func (_q *CompetitionResultsDraftQuery) Count(ctx context.Context) (int, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryCount)
 	if err := _q.prepareQuery(ctx); err != nil {
 		return 0, err
 	}
-	return withInterceptors[int](ctx, _q, querierCount[*CompetitionEntryQuery](), _q.inters)
+	return withInterceptors[int](ctx, _q, querierCount[*CompetitionResultsDraftQuery](), _q.inters)
 }
 
 // CountX is like Count, but panics if an error occurs.
-func (_q *CompetitionEntryQuery) CountX(ctx context.Context) int {
+func (_q *CompetitionResultsDraftQuery) CountX(ctx context.Context) int {
 	count, err := _q.Count(ctx)
 	if err != nil {
 		panic(err)
@@ -291,7 +291,7 @@ func (_q *CompetitionEntryQuery) CountX(ctx context.Context) int {
 }
 
 // Exist returns true if the query has elements in the graph.
-func (_q *CompetitionEntryQuery) Exist(ctx context.Context) (bool, error) {
+func (_q *CompetitionResultsDraftQuery) Exist(ctx context.Context) (bool, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryExist)
 	switch _, err := _q.FirstID(ctx); {
 	case IsNotFound(err):
@@ -304,7 +304,7 @@ func (_q *CompetitionEntryQuery) Exist(ctx context.Context) (bool, error) {
 }
 
 // ExistX is like Exist, but panics if an error occurs.
-func (_q *CompetitionEntryQuery) ExistX(ctx context.Context) bool {
+func (_q *CompetitionResultsDraftQuery) ExistX(ctx context.Context) bool {
 	exist, err := _q.Exist(ctx)
 	if err != nil {
 		panic(err)
@@ -312,21 +312,21 @@ func (_q *CompetitionEntryQuery) ExistX(ctx context.Context) bool {
 	return exist
 }
 
-// Clone returns a duplicate of the CompetitionEntryQuery builder, including all associated steps. It can be
+// Clone returns a duplicate of the CompetitionResultsDraftQuery builder, including all associated steps. It can be
 // used to prepare common query builders and use them differently after the clone is made.
-func (_q *CompetitionEntryQuery) Clone() *CompetitionEntryQuery {
+func (_q *CompetitionResultsDraftQuery) Clone() *CompetitionResultsDraftQuery {
 	if _q == nil {
 		return nil
 	}
-	return &CompetitionEntryQuery{
-		config:              _q.config,
-		ctx:                 _q.ctx.Clone(),
-		order:               append([]competitionentry.OrderOption{}, _q.order...),
-		inters:              append([]Interceptor{}, _q.inters...),
-		predicates:          append([]predicate.CompetitionEntry{}, _q.predicates...),
-		withEvent:           _q.withEvent.Clone(),
-		withCompetition:     _q.withCompetition.Clone(),
-		withResultStandings: _q.withResultStandings.Clone(),
+	return &CompetitionResultsDraftQuery{
+		config:          _q.config,
+		ctx:             _q.ctx.Clone(),
+		order:           append([]competitionresultsdraft.OrderOption{}, _q.order...),
+		inters:          append([]Interceptor{}, _q.inters...),
+		predicates:      append([]predicate.CompetitionResultsDraft{}, _q.predicates...),
+		withEvent:       _q.withEvent.Clone(),
+		withCompetition: _q.withCompetition.Clone(),
+		withStandings:   _q.withStandings.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -335,7 +335,7 @@ func (_q *CompetitionEntryQuery) Clone() *CompetitionEntryQuery {
 
 // WithEvent tells the query-builder to eager-load the nodes that are connected to
 // the "event" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *CompetitionEntryQuery) WithEvent(opts ...func(*EventQuery)) *CompetitionEntryQuery {
+func (_q *CompetitionResultsDraftQuery) WithEvent(opts ...func(*EventQuery)) *CompetitionResultsDraftQuery {
 	query := (&EventClient{config: _q.config}).Query()
 	for _, opt := range opts {
 		opt(query)
@@ -346,7 +346,7 @@ func (_q *CompetitionEntryQuery) WithEvent(opts ...func(*EventQuery)) *Competiti
 
 // WithCompetition tells the query-builder to eager-load the nodes that are connected to
 // the "competition" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *CompetitionEntryQuery) WithCompetition(opts ...func(*SessionQuery)) *CompetitionEntryQuery {
+func (_q *CompetitionResultsDraftQuery) WithCompetition(opts ...func(*SessionQuery)) *CompetitionResultsDraftQuery {
 	query := (&SessionClient{config: _q.config}).Query()
 	for _, opt := range opts {
 		opt(query)
@@ -355,14 +355,14 @@ func (_q *CompetitionEntryQuery) WithCompetition(opts ...func(*SessionQuery)) *C
 	return _q
 }
 
-// WithResultStandings tells the query-builder to eager-load the nodes that are connected to
-// the "result_standings" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *CompetitionEntryQuery) WithResultStandings(opts ...func(*CompetitionResultStandingQuery)) *CompetitionEntryQuery {
+// WithStandings tells the query-builder to eager-load the nodes that are connected to
+// the "standings" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *CompetitionResultsDraftQuery) WithStandings(opts ...func(*CompetitionResultStandingQuery)) *CompetitionResultsDraftQuery {
 	query := (&CompetitionResultStandingClient{config: _q.config}).Query()
 	for _, opt := range opts {
 		opt(query)
 	}
-	_q.withResultStandings = query
+	_q.withStandings = query
 	return _q
 }
 
@@ -376,15 +376,15 @@ func (_q *CompetitionEntryQuery) WithResultStandings(opts ...func(*CompetitionRe
 //		Count int `json:"count,omitempty"`
 //	}
 //
-//	client.CompetitionEntry.Query().
-//		GroupBy(competitionentry.FieldEventID).
+//	client.CompetitionResultsDraft.Query().
+//		GroupBy(competitionresultsdraft.FieldEventID).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
-func (_q *CompetitionEntryQuery) GroupBy(field string, fields ...string) *CompetitionEntryGroupBy {
+func (_q *CompetitionResultsDraftQuery) GroupBy(field string, fields ...string) *CompetitionResultsDraftGroupBy {
 	_q.ctx.Fields = append([]string{field}, fields...)
-	grbuild := &CompetitionEntryGroupBy{build: _q}
+	grbuild := &CompetitionResultsDraftGroupBy{build: _q}
 	grbuild.flds = &_q.ctx.Fields
-	grbuild.label = competitionentry.Label
+	grbuild.label = competitionresultsdraft.Label
 	grbuild.scan = grbuild.Scan
 	return grbuild
 }
@@ -398,23 +398,23 @@ func (_q *CompetitionEntryQuery) GroupBy(field string, fields ...string) *Compet
 //		EventID int `json:"event_id,omitempty"`
 //	}
 //
-//	client.CompetitionEntry.Query().
-//		Select(competitionentry.FieldEventID).
+//	client.CompetitionResultsDraft.Query().
+//		Select(competitionresultsdraft.FieldEventID).
 //		Scan(ctx, &v)
-func (_q *CompetitionEntryQuery) Select(fields ...string) *CompetitionEntrySelect {
+func (_q *CompetitionResultsDraftQuery) Select(fields ...string) *CompetitionResultsDraftSelect {
 	_q.ctx.Fields = append(_q.ctx.Fields, fields...)
-	sbuild := &CompetitionEntrySelect{CompetitionEntryQuery: _q}
-	sbuild.label = competitionentry.Label
+	sbuild := &CompetitionResultsDraftSelect{CompetitionResultsDraftQuery: _q}
+	sbuild.label = competitionresultsdraft.Label
 	sbuild.flds, sbuild.scan = &_q.ctx.Fields, sbuild.Scan
 	return sbuild
 }
 
-// Aggregate returns a CompetitionEntrySelect configured with the given aggregations.
-func (_q *CompetitionEntryQuery) Aggregate(fns ...AggregateFunc) *CompetitionEntrySelect {
+// Aggregate returns a CompetitionResultsDraftSelect configured with the given aggregations.
+func (_q *CompetitionResultsDraftQuery) Aggregate(fns ...AggregateFunc) *CompetitionResultsDraftSelect {
 	return _q.Select().Aggregate(fns...)
 }
 
-func (_q *CompetitionEntryQuery) prepareQuery(ctx context.Context) error {
+func (_q *CompetitionResultsDraftQuery) prepareQuery(ctx context.Context) error {
 	for _, inter := range _q.inters {
 		if inter == nil {
 			return fmt.Errorf("ent: uninitialized interceptor (forgotten import ent/runtime?)")
@@ -426,7 +426,7 @@ func (_q *CompetitionEntryQuery) prepareQuery(ctx context.Context) error {
 		}
 	}
 	for _, f := range _q.ctx.Fields {
-		if !competitionentry.ValidColumn(f) {
+		if !competitionresultsdraft.ValidColumn(f) {
 			return &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 		}
 	}
@@ -437,30 +437,30 @@ func (_q *CompetitionEntryQuery) prepareQuery(ctx context.Context) error {
 		}
 		_q.sql = prev
 	}
-	if competitionentry.Policy == nil {
-		return errors.New("ent: uninitialized competitionentry.Policy (forgotten import ent/runtime?)")
+	if competitionresultsdraft.Policy == nil {
+		return errors.New("ent: uninitialized competitionresultsdraft.Policy (forgotten import ent/runtime?)")
 	}
-	if err := competitionentry.Policy.EvalQuery(ctx, _q); err != nil {
+	if err := competitionresultsdraft.Policy.EvalQuery(ctx, _q); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (_q *CompetitionEntryQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*CompetitionEntry, error) {
+func (_q *CompetitionResultsDraftQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*CompetitionResultsDraft, error) {
 	var (
-		nodes       = []*CompetitionEntry{}
+		nodes       = []*CompetitionResultsDraft{}
 		_spec       = _q.querySpec()
 		loadedTypes = [3]bool{
 			_q.withEvent != nil,
 			_q.withCompetition != nil,
-			_q.withResultStandings != nil,
+			_q.withStandings != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
-		return (*CompetitionEntry).scanValues(nil, columns)
+		return (*CompetitionResultsDraft).scanValues(nil, columns)
 	}
 	_spec.Assign = func(columns []string, values []any) error {
-		node := &CompetitionEntry{config: _q.config}
+		node := &CompetitionResultsDraft{config: _q.config}
 		nodes = append(nodes, node)
 		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
@@ -476,21 +476,21 @@ func (_q *CompetitionEntryQuery) sqlAll(ctx context.Context, hooks ...queryHook)
 	}
 	if query := _q.withEvent; query != nil {
 		if err := _q.loadEvent(ctx, query, nodes, nil,
-			func(n *CompetitionEntry, e *Event) { n.Edges.Event = e }); err != nil {
+			func(n *CompetitionResultsDraft, e *Event) { n.Edges.Event = e }); err != nil {
 			return nil, err
 		}
 	}
 	if query := _q.withCompetition; query != nil {
 		if err := _q.loadCompetition(ctx, query, nodes, nil,
-			func(n *CompetitionEntry, e *Session) { n.Edges.Competition = e }); err != nil {
+			func(n *CompetitionResultsDraft, e *Session) { n.Edges.Competition = e }); err != nil {
 			return nil, err
 		}
 	}
-	if query := _q.withResultStandings; query != nil {
-		if err := _q.loadResultStandings(ctx, query, nodes,
-			func(n *CompetitionEntry) { n.Edges.ResultStandings = []*CompetitionResultStanding{} },
-			func(n *CompetitionEntry, e *CompetitionResultStanding) {
-				n.Edges.ResultStandings = append(n.Edges.ResultStandings, e)
+	if query := _q.withStandings; query != nil {
+		if err := _q.loadStandings(ctx, query, nodes,
+			func(n *CompetitionResultsDraft) { n.Edges.Standings = []*CompetitionResultStanding{} },
+			func(n *CompetitionResultsDraft, e *CompetitionResultStanding) {
+				n.Edges.Standings = append(n.Edges.Standings, e)
 			}); err != nil {
 			return nil, err
 		}
@@ -498,9 +498,9 @@ func (_q *CompetitionEntryQuery) sqlAll(ctx context.Context, hooks ...queryHook)
 	return nodes, nil
 }
 
-func (_q *CompetitionEntryQuery) loadEvent(ctx context.Context, query *EventQuery, nodes []*CompetitionEntry, init func(*CompetitionEntry), assign func(*CompetitionEntry, *Event)) error {
+func (_q *CompetitionResultsDraftQuery) loadEvent(ctx context.Context, query *EventQuery, nodes []*CompetitionResultsDraft, init func(*CompetitionResultsDraft), assign func(*CompetitionResultsDraft, *Event)) error {
 	ids := make([]int, 0, len(nodes))
-	nodeids := make(map[int][]*CompetitionEntry)
+	nodeids := make(map[int][]*CompetitionResultsDraft)
 	for i := range nodes {
 		fk := nodes[i].EventID
 		if _, ok := nodeids[fk]; !ok {
@@ -527,9 +527,9 @@ func (_q *CompetitionEntryQuery) loadEvent(ctx context.Context, query *EventQuer
 	}
 	return nil
 }
-func (_q *CompetitionEntryQuery) loadCompetition(ctx context.Context, query *SessionQuery, nodes []*CompetitionEntry, init func(*CompetitionEntry), assign func(*CompetitionEntry, *Session)) error {
+func (_q *CompetitionResultsDraftQuery) loadCompetition(ctx context.Context, query *SessionQuery, nodes []*CompetitionResultsDraft, init func(*CompetitionResultsDraft), assign func(*CompetitionResultsDraft, *Session)) error {
 	ids := make([]int, 0, len(nodes))
-	nodeids := make(map[int][]*CompetitionEntry)
+	nodeids := make(map[int][]*CompetitionResultsDraft)
 	for i := range nodes {
 		fk := nodes[i].CompetitionSessionID
 		if _, ok := nodeids[fk]; !ok {
@@ -556,9 +556,9 @@ func (_q *CompetitionEntryQuery) loadCompetition(ctx context.Context, query *Ses
 	}
 	return nil
 }
-func (_q *CompetitionEntryQuery) loadResultStandings(ctx context.Context, query *CompetitionResultStandingQuery, nodes []*CompetitionEntry, init func(*CompetitionEntry), assign func(*CompetitionEntry, *CompetitionResultStanding)) error {
+func (_q *CompetitionResultsDraftQuery) loadStandings(ctx context.Context, query *CompetitionResultStandingQuery, nodes []*CompetitionResultsDraft, init func(*CompetitionResultsDraft), assign func(*CompetitionResultsDraft, *CompetitionResultStanding)) error {
 	fks := make([]driver.Value, 0, len(nodes))
-	nodeids := make(map[int]*CompetitionEntry)
+	nodeids := make(map[int]*CompetitionResultsDraft)
 	for i := range nodes {
 		fks = append(fks, nodes[i].ID)
 		nodeids[nodes[i].ID] = nodes[i]
@@ -567,27 +567,27 @@ func (_q *CompetitionEntryQuery) loadResultStandings(ctx context.Context, query 
 		}
 	}
 	if len(query.ctx.Fields) > 0 {
-		query.ctx.AppendFieldOnce(competitionresultstanding.FieldEntryID)
+		query.ctx.AppendFieldOnce(competitionresultstanding.FieldResultsDraftID)
 	}
 	query.Where(predicate.CompetitionResultStanding(func(s *sql.Selector) {
-		s.Where(sql.InValues(s.C(competitionentry.ResultStandingsColumn), fks...))
+		s.Where(sql.InValues(s.C(competitionresultsdraft.StandingsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {
 		return err
 	}
 	for _, n := range neighbors {
-		fk := n.EntryID
+		fk := n.ResultsDraftID
 		node, ok := nodeids[fk]
 		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "entry_id" returned %v for node %v`, fk, n.ID)
+			return fmt.Errorf(`unexpected referenced foreign-key "results_draft_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}
 	return nil
 }
 
-func (_q *CompetitionEntryQuery) sqlCount(ctx context.Context) (int, error) {
+func (_q *CompetitionResultsDraftQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := _q.querySpec()
 	_spec.Node.Columns = _q.ctx.Fields
 	if len(_q.ctx.Fields) > 0 {
@@ -596,8 +596,8 @@ func (_q *CompetitionEntryQuery) sqlCount(ctx context.Context) (int, error) {
 	return sqlgraph.CountNodes(ctx, _q.driver, _spec)
 }
 
-func (_q *CompetitionEntryQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(competitionentry.Table, competitionentry.Columns, sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt))
+func (_q *CompetitionResultsDraftQuery) querySpec() *sqlgraph.QuerySpec {
+	_spec := sqlgraph.NewQuerySpec(competitionresultsdraft.Table, competitionresultsdraft.Columns, sqlgraph.NewFieldSpec(competitionresultsdraft.FieldID, field.TypeInt))
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique
@@ -606,17 +606,17 @@ func (_q *CompetitionEntryQuery) querySpec() *sqlgraph.QuerySpec {
 	}
 	if fields := _q.ctx.Fields; len(fields) > 0 {
 		_spec.Node.Columns = make([]string, 0, len(fields))
-		_spec.Node.Columns = append(_spec.Node.Columns, competitionentry.FieldID)
+		_spec.Node.Columns = append(_spec.Node.Columns, competitionresultsdraft.FieldID)
 		for i := range fields {
-			if fields[i] != competitionentry.FieldID {
+			if fields[i] != competitionresultsdraft.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
 		}
 		if _q.withEvent != nil {
-			_spec.Node.AddColumnOnce(competitionentry.FieldEventID)
+			_spec.Node.AddColumnOnce(competitionresultsdraft.FieldEventID)
 		}
 		if _q.withCompetition != nil {
-			_spec.Node.AddColumnOnce(competitionentry.FieldCompetitionSessionID)
+			_spec.Node.AddColumnOnce(competitionresultsdraft.FieldCompetitionSessionID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {
@@ -642,12 +642,12 @@ func (_q *CompetitionEntryQuery) querySpec() *sqlgraph.QuerySpec {
 	return _spec
 }
 
-func (_q *CompetitionEntryQuery) sqlQuery(ctx context.Context) *sql.Selector {
+func (_q *CompetitionResultsDraftQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	builder := sql.Dialect(_q.driver.Dialect())
-	t1 := builder.Table(competitionentry.Table)
+	t1 := builder.Table(competitionresultsdraft.Table)
 	columns := _q.ctx.Fields
 	if len(columns) == 0 {
-		columns = competitionentry.Columns
+		columns = competitionresultsdraft.Columns
 	}
 	selector := builder.Select(t1.Columns(columns...)...).From(t1)
 	if _q.sql != nil {
@@ -674,28 +674,28 @@ func (_q *CompetitionEntryQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	return selector
 }
 
-// CompetitionEntryGroupBy is the group-by builder for CompetitionEntry entities.
-type CompetitionEntryGroupBy struct {
+// CompetitionResultsDraftGroupBy is the group-by builder for CompetitionResultsDraft entities.
+type CompetitionResultsDraftGroupBy struct {
 	selector
-	build *CompetitionEntryQuery
+	build *CompetitionResultsDraftQuery
 }
 
 // Aggregate adds the given aggregation functions to the group-by query.
-func (_g *CompetitionEntryGroupBy) Aggregate(fns ...AggregateFunc) *CompetitionEntryGroupBy {
+func (_g *CompetitionResultsDraftGroupBy) Aggregate(fns ...AggregateFunc) *CompetitionResultsDraftGroupBy {
 	_g.fns = append(_g.fns, fns...)
 	return _g
 }
 
 // Scan applies the selector query and scans the result into the given value.
-func (_g *CompetitionEntryGroupBy) Scan(ctx context.Context, v any) error {
+func (_g *CompetitionResultsDraftGroupBy) Scan(ctx context.Context, v any) error {
 	ctx = setContextOp(ctx, _g.build.ctx, ent.OpQueryGroupBy)
 	if err := _g.build.prepareQuery(ctx); err != nil {
 		return err
 	}
-	return scanWithInterceptors[*CompetitionEntryQuery, *CompetitionEntryGroupBy](ctx, _g.build, _g, _g.build.inters, v)
+	return scanWithInterceptors[*CompetitionResultsDraftQuery, *CompetitionResultsDraftGroupBy](ctx, _g.build, _g, _g.build.inters, v)
 }
 
-func (_g *CompetitionEntryGroupBy) sqlScan(ctx context.Context, root *CompetitionEntryQuery, v any) error {
+func (_g *CompetitionResultsDraftGroupBy) sqlScan(ctx context.Context, root *CompetitionResultsDraftQuery, v any) error {
 	selector := root.sqlQuery(ctx).Select()
 	aggregation := make([]string, 0, len(_g.fns))
 	for _, fn := range _g.fns {
@@ -722,28 +722,28 @@ func (_g *CompetitionEntryGroupBy) sqlScan(ctx context.Context, root *Competitio
 	return sql.ScanSlice(rows, v)
 }
 
-// CompetitionEntrySelect is the builder for selecting fields of CompetitionEntry entities.
-type CompetitionEntrySelect struct {
-	*CompetitionEntryQuery
+// CompetitionResultsDraftSelect is the builder for selecting fields of CompetitionResultsDraft entities.
+type CompetitionResultsDraftSelect struct {
+	*CompetitionResultsDraftQuery
 	selector
 }
 
 // Aggregate adds the given aggregation functions to the selector query.
-func (_s *CompetitionEntrySelect) Aggregate(fns ...AggregateFunc) *CompetitionEntrySelect {
+func (_s *CompetitionResultsDraftSelect) Aggregate(fns ...AggregateFunc) *CompetitionResultsDraftSelect {
 	_s.fns = append(_s.fns, fns...)
 	return _s
 }
 
 // Scan applies the selector query and scans the result into the given value.
-func (_s *CompetitionEntrySelect) Scan(ctx context.Context, v any) error {
+func (_s *CompetitionResultsDraftSelect) Scan(ctx context.Context, v any) error {
 	ctx = setContextOp(ctx, _s.ctx, ent.OpQuerySelect)
 	if err := _s.prepareQuery(ctx); err != nil {
 		return err
 	}
-	return scanWithInterceptors[*CompetitionEntryQuery, *CompetitionEntrySelect](ctx, _s.CompetitionEntryQuery, _s, _s.inters, v)
+	return scanWithInterceptors[*CompetitionResultsDraftQuery, *CompetitionResultsDraftSelect](ctx, _s.CompetitionResultsDraftQuery, _s, _s.inters, v)
 }
 
-func (_s *CompetitionEntrySelect) sqlScan(ctx context.Context, root *CompetitionEntryQuery, v any) error {
+func (_s *CompetitionResultsDraftSelect) sqlScan(ctx context.Context, root *CompetitionResultsDraftQuery, v any) error {
 	selector := root.sqlQuery(ctx)
 	aggregation := make([]string, 0, len(_s.fns))
 	for _, fn := range _s.fns {

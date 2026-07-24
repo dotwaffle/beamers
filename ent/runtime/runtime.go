@@ -14,6 +14,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
+	"github.com/dotwaffle/beamers/ent/competitionresultsdraft"
+	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
 	"github.com/dotwaffle/beamers/ent/display"
 	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/displaycredential"
@@ -593,6 +595,78 @@ func init() {
 	competitionentryDescCreatedAt := competitionentryFields[21].Descriptor()
 	// competitionentry.DefaultCreatedAt holds the default value on creation for the created_at field.
 	competitionentry.DefaultCreatedAt = competitionentryDescCreatedAt.Default.(func() time.Time)
+	competitionresultstanding.Policy = privacy.NewPolicies(schema.CompetitionResultStanding{})
+	competitionresultstanding.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := competitionresultstanding.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	competitionresultstandingFields := schema.CompetitionResultStanding{}.Fields()
+	_ = competitionresultstandingFields
+	// competitionresultstandingDescPlacement is the schema descriptor for placement field.
+	competitionresultstandingDescPlacement := competitionresultstandingFields[5].Descriptor()
+	// competitionresultstanding.PlacementValidator is a validator for the "placement" field. It is called by the builders before save.
+	competitionresultstanding.PlacementValidator = competitionresultstandingDescPlacement.Validators[0].(func(int) error)
+	// competitionresultstandingDescDisplayOrder is the schema descriptor for display_order field.
+	competitionresultstandingDescDisplayOrder := competitionresultstandingFields[6].Descriptor()
+	// competitionresultstanding.DisplayOrderValidator is a validator for the "display_order" field. It is called by the builders before save.
+	competitionresultstanding.DisplayOrderValidator = competitionresultstandingDescDisplayOrder.Validators[0].(func(int) error)
+	// competitionresultstandingDescDecimalScore is the schema descriptor for decimal_score field.
+	competitionresultstandingDescDecimalScore := competitionresultstandingFields[7].Descriptor()
+	// competitionresultstanding.DecimalScoreValidator is a validator for the "decimal_score" field. It is called by the builders before save.
+	competitionresultstanding.DecimalScoreValidator = competitionresultstandingDescDecimalScore.Validators[0].(func(string) error)
+	// competitionresultstandingDescDurationScoreNanos is the schema descriptor for duration_score_nanos field.
+	competitionresultstandingDescDurationScoreNanos := competitionresultstandingFields[8].Descriptor()
+	// competitionresultstanding.DurationScoreNanosValidator is a validator for the "duration_score_nanos" field. It is called by the builders before save.
+	competitionresultstanding.DurationScoreNanosValidator = competitionresultstandingDescDurationScoreNanos.Validators[0].(func(int64) error)
+	competitionresultsdraft.Policy = privacy.NewPolicies(schema.CompetitionResultsDraft{})
+	competitionresultsdraft.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := competitionresultsdraft.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	competitionresultsdraftFields := schema.CompetitionResultsDraft{}.Fields()
+	_ = competitionresultsdraftFields
+	// competitionresultsdraftDescRevision is the schema descriptor for revision field.
+	competitionresultsdraftDescRevision := competitionresultsdraftFields[2].Descriptor()
+	// competitionresultsdraft.RevisionValidator is a validator for the "revision" field. It is called by the builders before save.
+	competitionresultsdraft.RevisionValidator = competitionresultsdraftDescRevision.Validators[0].(func(int) error)
+	// competitionresultsdraftDescNoPublicCrewReason is the schema descriptor for no_public_crew_reason field.
+	competitionresultsdraftDescNoPublicCrewReason := competitionresultsdraftFields[4].Descriptor()
+	// competitionresultsdraft.NoPublicCrewReasonValidator is a validator for the "no_public_crew_reason" field. It is called by the builders before save.
+	competitionresultsdraft.NoPublicCrewReasonValidator = competitionresultsdraftDescNoPublicCrewReason.Validators[0].(func(string) error)
+	// competitionresultsdraftDescPublicExplanation is the schema descriptor for public_explanation field.
+	competitionresultsdraftDescPublicExplanation := competitionresultsdraftFields[5].Descriptor()
+	// competitionresultsdraft.PublicExplanationValidator is a validator for the "public_explanation" field. It is called by the builders before save.
+	competitionresultsdraft.PublicExplanationValidator = competitionresultsdraftDescPublicExplanation.Validators[0].(func(string) error)
+	// competitionresultsdraftDescScoreUnit is the schema descriptor for score_unit field.
+	competitionresultsdraftDescScoreUnit := competitionresultsdraftFields[8].Descriptor()
+	// competitionresultsdraft.ScoreUnitValidator is a validator for the "score_unit" field. It is called by the builders before save.
+	competitionresultsdraft.ScoreUnitValidator = competitionresultsdraftDescScoreUnit.Validators[0].(func(string) error)
+	// competitionresultsdraftDescScorePrecision is the schema descriptor for score_precision field.
+	competitionresultsdraftDescScorePrecision := competitionresultsdraftFields[9].Descriptor()
+	// competitionresultsdraft.DefaultScorePrecision holds the default value on creation for the score_precision field.
+	competitionresultsdraft.DefaultScorePrecision = competitionresultsdraftDescScorePrecision.Default.(int)
+	// competitionresultsdraft.ScorePrecisionValidator is a validator for the "score_precision" field. It is called by the builders before save.
+	competitionresultsdraft.ScorePrecisionValidator = competitionresultsdraftDescScorePrecision.Validators[0].(func(int) error)
+	// competitionresultsdraftDescReadyByAccountID is the schema descriptor for ready_by_account_id field.
+	competitionresultsdraftDescReadyByAccountID := competitionresultsdraftFields[12].Descriptor()
+	// competitionresultsdraft.ReadyByAccountIDValidator is a validator for the "ready_by_account_id" field. It is called by the builders before save.
+	competitionresultsdraft.ReadyByAccountIDValidator = competitionresultsdraftDescReadyByAccountID.Validators[0].(func(int) error)
+	// competitionresultsdraftDescCreatedByAccountID is the schema descriptor for created_by_account_id field.
+	competitionresultsdraftDescCreatedByAccountID := competitionresultsdraftFields[14].Descriptor()
+	// competitionresultsdraft.CreatedByAccountIDValidator is a validator for the "created_by_account_id" field. It is called by the builders before save.
+	competitionresultsdraft.CreatedByAccountIDValidator = competitionresultsdraftDescCreatedByAccountID.Validators[0].(func(int) error)
+	// competitionresultsdraftDescCreatedAt is the schema descriptor for created_at field.
+	competitionresultsdraftDescCreatedAt := competitionresultsdraftFields[15].Descriptor()
+	// competitionresultsdraft.DefaultCreatedAt holds the default value on creation for the created_at field.
+	competitionresultsdraft.DefaultCreatedAt = competitionresultsdraftDescCreatedAt.Default.(func() time.Time)
 	display.Policy = privacy.NewPolicies(schema.Display{})
 	display.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

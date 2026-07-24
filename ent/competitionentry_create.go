@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
+	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/session"
 )
@@ -312,6 +313,21 @@ func (_c *CompetitionEntryCreate) SetCompetitionID(id int) *CompetitionEntryCrea
 // SetCompetition sets the "competition" edge to the Session entity.
 func (_c *CompetitionEntryCreate) SetCompetition(v *Session) *CompetitionEntryCreate {
 	return _c.SetCompetitionID(v.ID)
+}
+
+// AddResultStandingIDs adds the "result_standings" edge to the CompetitionResultStanding entity by IDs.
+func (_c *CompetitionEntryCreate) AddResultStandingIDs(ids ...int) *CompetitionEntryCreate {
+	_c.mutation.AddResultStandingIDs(ids...)
+	return _c
+}
+
+// AddResultStandings adds the "result_standings" edges to the CompetitionResultStanding entity.
+func (_c *CompetitionEntryCreate) AddResultStandings(v ...*CompetitionResultStanding) *CompetitionEntryCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddResultStandingIDs(ids...)
 }
 
 // Mutation returns the CompetitionEntryMutation object of the builder.
@@ -634,6 +650,22 @@ func (_c *CompetitionEntryCreate) createSpec() (*CompetitionEntry, *sqlgraph.Cre
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.CompetitionSessionID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.ResultStandingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   competitionentry.ResultStandingsTable,
+			Columns: []string{competitionentry.ResultStandingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionresultstanding.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

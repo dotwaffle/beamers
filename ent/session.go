@@ -107,9 +107,13 @@ type SessionEdges struct {
 	PublicScheduleBaselineEntry *PublicScheduleBaselineEntry `json:"public_schedule_baseline_entry,omitempty"`
 	// CompetitionEntries holds the value of the competition_entries edge.
 	CompetitionEntries []*CompetitionEntry `json:"competition_entries,omitempty"`
+	// CompetitionResultsDrafts holds the value of the competition_results_drafts edge.
+	CompetitionResultsDrafts []*CompetitionResultsDraft `json:"competition_results_drafts,omitempty"`
+	// CompetitionResultStandings holds the value of the competition_result_standings edge.
+	CompetitionResultStandings []*CompetitionResultStanding `json:"competition_result_standings,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [7]bool
+	loadedTypes [9]bool
 }
 
 // EventOrErr returns the Event value or an error if the edge
@@ -179,6 +183,24 @@ func (e SessionEdges) CompetitionEntriesOrErr() ([]*CompetitionEntry, error) {
 		return e.CompetitionEntries, nil
 	}
 	return nil, &NotLoadedError{edge: "competition_entries"}
+}
+
+// CompetitionResultsDraftsOrErr returns the CompetitionResultsDrafts value or an error if the edge
+// was not loaded in eager-loading.
+func (e SessionEdges) CompetitionResultsDraftsOrErr() ([]*CompetitionResultsDraft, error) {
+	if e.loadedTypes[7] {
+		return e.CompetitionResultsDrafts, nil
+	}
+	return nil, &NotLoadedError{edge: "competition_results_drafts"}
+}
+
+// CompetitionResultStandingsOrErr returns the CompetitionResultStandings value or an error if the edge
+// was not loaded in eager-loading.
+func (e SessionEdges) CompetitionResultStandingsOrErr() ([]*CompetitionResultStanding, error) {
+	if e.loadedTypes[8] {
+		return e.CompetitionResultStandings, nil
+	}
+	return nil, &NotLoadedError{edge: "competition_result_standings"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -469,6 +491,16 @@ func (_m *Session) QueryPublicScheduleBaselineEntry() *PublicScheduleBaselineEnt
 // QueryCompetitionEntries queries the "competition_entries" edge of the Session entity.
 func (_m *Session) QueryCompetitionEntries() *CompetitionEntryQuery {
 	return NewSessionClient(_m.config).QueryCompetitionEntries(_m)
+}
+
+// QueryCompetitionResultsDrafts queries the "competition_results_drafts" edge of the Session entity.
+func (_m *Session) QueryCompetitionResultsDrafts() *CompetitionResultsDraftQuery {
+	return NewSessionClient(_m.config).QueryCompetitionResultsDrafts(_m)
+}
+
+// QueryCompetitionResultStandings queries the "competition_result_standings" edge of the Session entity.
+func (_m *Session) QueryCompetitionResultStandings() *CompetitionResultStandingQuery {
+	return NewSessionClient(_m.config).QueryCompetitionResultStandings(_m)
 }
 
 // Update returns a builder for updating this Session.

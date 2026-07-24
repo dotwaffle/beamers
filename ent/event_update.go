@@ -12,6 +12,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
+	"github.com/dotwaffle/beamers/ent/competitionresultsdraft"
+	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
 	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/displayoverride"
 	"github.com/dotwaffle/beamers/ent/draftchange"
@@ -456,6 +458,36 @@ func (_u *EventUpdate) AddCompetitionEntries(v ...*CompetitionEntry) *EventUpdat
 	return _u.AddCompetitionEntryIDs(ids...)
 }
 
+// AddCompetitionResultsDraftIDs adds the "competition_results_drafts" edge to the CompetitionResultsDraft entity by IDs.
+func (_u *EventUpdate) AddCompetitionResultsDraftIDs(ids ...int) *EventUpdate {
+	_u.mutation.AddCompetitionResultsDraftIDs(ids...)
+	return _u
+}
+
+// AddCompetitionResultsDrafts adds the "competition_results_drafts" edges to the CompetitionResultsDraft entity.
+func (_u *EventUpdate) AddCompetitionResultsDrafts(v ...*CompetitionResultsDraft) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCompetitionResultsDraftIDs(ids...)
+}
+
+// AddCompetitionResultStandingIDs adds the "competition_result_standings" edge to the CompetitionResultStanding entity by IDs.
+func (_u *EventUpdate) AddCompetitionResultStandingIDs(ids ...int) *EventUpdate {
+	_u.mutation.AddCompetitionResultStandingIDs(ids...)
+	return _u
+}
+
+// AddCompetitionResultStandings adds the "competition_result_standings" edges to the CompetitionResultStanding entity.
+func (_u *EventUpdate) AddCompetitionResultStandings(v ...*CompetitionResultStanding) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCompetitionResultStandingIDs(ids...)
+}
+
 // AddUploadLinkIDs adds the "upload_links" edge to the UploadLink entity by IDs.
 func (_u *EventUpdate) AddUploadLinkIDs(ids ...int) *EventUpdate {
 	_u.mutation.AddUploadLinkIDs(ids...)
@@ -700,6 +732,48 @@ func (_u *EventUpdate) RemoveCompetitionEntries(v ...*CompetitionEntry) *EventUp
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveCompetitionEntryIDs(ids...)
+}
+
+// ClearCompetitionResultsDrafts clears all "competition_results_drafts" edges to the CompetitionResultsDraft entity.
+func (_u *EventUpdate) ClearCompetitionResultsDrafts() *EventUpdate {
+	_u.mutation.ClearCompetitionResultsDrafts()
+	return _u
+}
+
+// RemoveCompetitionResultsDraftIDs removes the "competition_results_drafts" edge to CompetitionResultsDraft entities by IDs.
+func (_u *EventUpdate) RemoveCompetitionResultsDraftIDs(ids ...int) *EventUpdate {
+	_u.mutation.RemoveCompetitionResultsDraftIDs(ids...)
+	return _u
+}
+
+// RemoveCompetitionResultsDrafts removes "competition_results_drafts" edges to CompetitionResultsDraft entities.
+func (_u *EventUpdate) RemoveCompetitionResultsDrafts(v ...*CompetitionResultsDraft) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCompetitionResultsDraftIDs(ids...)
+}
+
+// ClearCompetitionResultStandings clears all "competition_result_standings" edges to the CompetitionResultStanding entity.
+func (_u *EventUpdate) ClearCompetitionResultStandings() *EventUpdate {
+	_u.mutation.ClearCompetitionResultStandings()
+	return _u
+}
+
+// RemoveCompetitionResultStandingIDs removes the "competition_result_standings" edge to CompetitionResultStanding entities by IDs.
+func (_u *EventUpdate) RemoveCompetitionResultStandingIDs(ids ...int) *EventUpdate {
+	_u.mutation.RemoveCompetitionResultStandingIDs(ids...)
+	return _u
+}
+
+// RemoveCompetitionResultStandings removes "competition_result_standings" edges to CompetitionResultStanding entities.
+func (_u *EventUpdate) RemoveCompetitionResultStandings(v ...*CompetitionResultStanding) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCompetitionResultStandingIDs(ids...)
 }
 
 // ClearUploadLinks clears all "upload_links" edges to the UploadLink entity.
@@ -1328,6 +1402,96 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CompetitionResultsDraftsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.CompetitionResultsDraftsTable,
+			Columns: []string{event.CompetitionResultsDraftsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionresultsdraft.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCompetitionResultsDraftsIDs(); len(nodes) > 0 && !_u.mutation.CompetitionResultsDraftsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.CompetitionResultsDraftsTable,
+			Columns: []string{event.CompetitionResultsDraftsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionresultsdraft.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CompetitionResultsDraftsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.CompetitionResultsDraftsTable,
+			Columns: []string{event.CompetitionResultsDraftsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionresultsdraft.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CompetitionResultStandingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.CompetitionResultStandingsTable,
+			Columns: []string{event.CompetitionResultStandingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionresultstanding.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCompetitionResultStandingsIDs(); len(nodes) > 0 && !_u.mutation.CompetitionResultStandingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.CompetitionResultStandingsTable,
+			Columns: []string{event.CompetitionResultStandingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionresultstanding.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CompetitionResultStandingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.CompetitionResultStandingsTable,
+			Columns: []string{event.CompetitionResultStandingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionresultstanding.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -2068,6 +2232,36 @@ func (_u *EventUpdateOne) AddCompetitionEntries(v ...*CompetitionEntry) *EventUp
 	return _u.AddCompetitionEntryIDs(ids...)
 }
 
+// AddCompetitionResultsDraftIDs adds the "competition_results_drafts" edge to the CompetitionResultsDraft entity by IDs.
+func (_u *EventUpdateOne) AddCompetitionResultsDraftIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.AddCompetitionResultsDraftIDs(ids...)
+	return _u
+}
+
+// AddCompetitionResultsDrafts adds the "competition_results_drafts" edges to the CompetitionResultsDraft entity.
+func (_u *EventUpdateOne) AddCompetitionResultsDrafts(v ...*CompetitionResultsDraft) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCompetitionResultsDraftIDs(ids...)
+}
+
+// AddCompetitionResultStandingIDs adds the "competition_result_standings" edge to the CompetitionResultStanding entity by IDs.
+func (_u *EventUpdateOne) AddCompetitionResultStandingIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.AddCompetitionResultStandingIDs(ids...)
+	return _u
+}
+
+// AddCompetitionResultStandings adds the "competition_result_standings" edges to the CompetitionResultStanding entity.
+func (_u *EventUpdateOne) AddCompetitionResultStandings(v ...*CompetitionResultStanding) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCompetitionResultStandingIDs(ids...)
+}
+
 // AddUploadLinkIDs adds the "upload_links" edge to the UploadLink entity by IDs.
 func (_u *EventUpdateOne) AddUploadLinkIDs(ids ...int) *EventUpdateOne {
 	_u.mutation.AddUploadLinkIDs(ids...)
@@ -2312,6 +2506,48 @@ func (_u *EventUpdateOne) RemoveCompetitionEntries(v ...*CompetitionEntry) *Even
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveCompetitionEntryIDs(ids...)
+}
+
+// ClearCompetitionResultsDrafts clears all "competition_results_drafts" edges to the CompetitionResultsDraft entity.
+func (_u *EventUpdateOne) ClearCompetitionResultsDrafts() *EventUpdateOne {
+	_u.mutation.ClearCompetitionResultsDrafts()
+	return _u
+}
+
+// RemoveCompetitionResultsDraftIDs removes the "competition_results_drafts" edge to CompetitionResultsDraft entities by IDs.
+func (_u *EventUpdateOne) RemoveCompetitionResultsDraftIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.RemoveCompetitionResultsDraftIDs(ids...)
+	return _u
+}
+
+// RemoveCompetitionResultsDrafts removes "competition_results_drafts" edges to CompetitionResultsDraft entities.
+func (_u *EventUpdateOne) RemoveCompetitionResultsDrafts(v ...*CompetitionResultsDraft) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCompetitionResultsDraftIDs(ids...)
+}
+
+// ClearCompetitionResultStandings clears all "competition_result_standings" edges to the CompetitionResultStanding entity.
+func (_u *EventUpdateOne) ClearCompetitionResultStandings() *EventUpdateOne {
+	_u.mutation.ClearCompetitionResultStandings()
+	return _u
+}
+
+// RemoveCompetitionResultStandingIDs removes the "competition_result_standings" edge to CompetitionResultStanding entities by IDs.
+func (_u *EventUpdateOne) RemoveCompetitionResultStandingIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.RemoveCompetitionResultStandingIDs(ids...)
+	return _u
+}
+
+// RemoveCompetitionResultStandings removes "competition_result_standings" edges to CompetitionResultStanding entities.
+func (_u *EventUpdateOne) RemoveCompetitionResultStandings(v ...*CompetitionResultStanding) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCompetitionResultStandingIDs(ids...)
 }
 
 // ClearUploadLinks clears all "upload_links" edges to the UploadLink entity.
@@ -2970,6 +3206,96 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CompetitionResultsDraftsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.CompetitionResultsDraftsTable,
+			Columns: []string{event.CompetitionResultsDraftsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionresultsdraft.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCompetitionResultsDraftsIDs(); len(nodes) > 0 && !_u.mutation.CompetitionResultsDraftsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.CompetitionResultsDraftsTable,
+			Columns: []string{event.CompetitionResultsDraftsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionresultsdraft.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CompetitionResultsDraftsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.CompetitionResultsDraftsTable,
+			Columns: []string{event.CompetitionResultsDraftsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionresultsdraft.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CompetitionResultStandingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.CompetitionResultStandingsTable,
+			Columns: []string{event.CompetitionResultStandingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionresultstanding.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCompetitionResultStandingsIDs(); len(nodes) > 0 && !_u.mutation.CompetitionResultStandingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.CompetitionResultStandingsTable,
+			Columns: []string{event.CompetitionResultStandingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionresultstanding.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CompetitionResultStandingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.CompetitionResultStandingsTable,
+			Columns: []string{event.CompetitionResultStandingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionresultstanding.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

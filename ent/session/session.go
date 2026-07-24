@@ -94,6 +94,10 @@ const (
 	EdgePublicScheduleBaselineEntry = "public_schedule_baseline_entry"
 	// EdgeCompetitionEntries holds the string denoting the competition_entries edge name in mutations.
 	EdgeCompetitionEntries = "competition_entries"
+	// EdgeCompetitionResultsDrafts holds the string denoting the competition_results_drafts edge name in mutations.
+	EdgeCompetitionResultsDrafts = "competition_results_drafts"
+	// EdgeCompetitionResultStandings holds the string denoting the competition_result_standings edge name in mutations.
+	EdgeCompetitionResultStandings = "competition_result_standings"
 	// Table holds the table name of the session in the database.
 	Table = "sessions"
 	// EventTable is the table that holds the event relation/edge.
@@ -145,6 +149,20 @@ const (
 	CompetitionEntriesInverseTable = "competition_entries"
 	// CompetitionEntriesColumn is the table column denoting the competition_entries relation/edge.
 	CompetitionEntriesColumn = "competition_session_id"
+	// CompetitionResultsDraftsTable is the table that holds the competition_results_drafts relation/edge.
+	CompetitionResultsDraftsTable = "competition_results_drafts"
+	// CompetitionResultsDraftsInverseTable is the table name for the CompetitionResultsDraft entity.
+	// It exists in this package in order to avoid circular dependency with the "competitionresultsdraft" package.
+	CompetitionResultsDraftsInverseTable = "competition_results_drafts"
+	// CompetitionResultsDraftsColumn is the table column denoting the competition_results_drafts relation/edge.
+	CompetitionResultsDraftsColumn = "competition_session_id"
+	// CompetitionResultStandingsTable is the table that holds the competition_result_standings relation/edge.
+	CompetitionResultStandingsTable = "competition_result_standings"
+	// CompetitionResultStandingsInverseTable is the table name for the CompetitionResultStanding entity.
+	// It exists in this package in order to avoid circular dependency with the "competitionresultstanding" package.
+	CompetitionResultStandingsInverseTable = "competition_result_standings"
+	// CompetitionResultStandingsColumn is the table column denoting the competition_result_standings relation/edge.
+	CompetitionResultStandingsColumn = "competition_session_id"
 )
 
 // Columns holds all SQL columns for session fields.
@@ -578,6 +596,34 @@ func ByCompetitionEntries(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOptio
 		sqlgraph.OrderByNeighborTerms(s, newCompetitionEntriesStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByCompetitionResultsDraftsCount orders the results by competition_results_drafts count.
+func ByCompetitionResultsDraftsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCompetitionResultsDraftsStep(), opts...)
+	}
+}
+
+// ByCompetitionResultsDrafts orders the results by competition_results_drafts terms.
+func ByCompetitionResultsDrafts(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCompetitionResultsDraftsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByCompetitionResultStandingsCount orders the results by competition_result_standings count.
+func ByCompetitionResultStandingsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCompetitionResultStandingsStep(), opts...)
+	}
+}
+
+// ByCompetitionResultStandings orders the results by competition_result_standings terms.
+func ByCompetitionResultStandings(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCompetitionResultStandingsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newEventStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -625,5 +671,19 @@ func newCompetitionEntriesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(CompetitionEntriesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, CompetitionEntriesTable, CompetitionEntriesColumn),
+	)
+}
+func newCompetitionResultsDraftsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CompetitionResultsDraftsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CompetitionResultsDraftsTable, CompetitionResultsDraftsColumn),
+	)
+}
+func newCompetitionResultStandingsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CompetitionResultStandingsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CompetitionResultStandingsTable, CompetitionResultStandingsColumn),
 	)
 }

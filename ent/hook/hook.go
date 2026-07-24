@@ -105,6 +105,30 @@ func (f CompetitionEntryFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.V
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CompetitionEntryMutation", m)
 }
 
+// The CompetitionResultStandingFunc type is an adapter to allow the use of ordinary
+// function as CompetitionResultStanding mutator.
+type CompetitionResultStandingFunc func(context.Context, *ent.CompetitionResultStandingMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f CompetitionResultStandingFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.CompetitionResultStandingMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CompetitionResultStandingMutation", m)
+}
+
+// The CompetitionResultsDraftFunc type is an adapter to allow the use of ordinary
+// function as CompetitionResultsDraft mutator.
+type CompetitionResultsDraftFunc func(context.Context, *ent.CompetitionResultsDraftMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f CompetitionResultsDraftFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.CompetitionResultsDraftMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CompetitionResultsDraftMutation", m)
+}
+
 // The DisplayFunc type is an adapter to allow the use of ordinary
 // function as Display mutator.
 type DisplayFunc func(context.Context, *ent.DisplayMutation) (ent.Value, error)

@@ -75,6 +75,7 @@ func (CompetitionEntry) Edges() []ent.Edge {
 			Unique().
 			Immutable().
 			Required(),
+		edge.To("result_standings", CompetitionResultStanding.Type),
 	}
 }
 

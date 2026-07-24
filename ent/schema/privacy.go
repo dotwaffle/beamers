@@ -9,6 +9,8 @@ import (
 
 	beamersent "github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
+	"github.com/dotwaffle/beamers/ent/competitionresultsdraft"
+	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftchangedependency"
 	"github.com/dotwaffle/beamers/ent/importreference"
@@ -596,6 +598,82 @@ func allowEventOwnedMutation() privacy.MutationRule {
 		}
 		return privacy.Skip
 	})
+}
+
+func filterViewableCompetitionResultsDrafts() privacy.QueryRule {
+	type selectorFilter interface {
+		Where(...predicate.CompetitionResultsDraft) *beamersent.CompetitionResultsDraftQuery
+	}
+	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
+		eventIDs, err := resultsEventIDs(ctx, viewer.ViewResults)
+		if err != nil {
+			return err
+		}
+		filter, ok := query.(selectorFilter)
+		if !ok {
+			return privacy.Denyf("unexpected Competition Results Draft query %T", query)
+		}
+		filter.Where(competitionresultsdraft.EventIDIn(eventIDs...))
+		return privacy.Skip
+	})
+}
+
+func filterViewableCompetitionResultStandings() privacy.QueryRule {
+	type selectorFilter interface {
+		Where(...predicate.CompetitionResultStanding) *beamersent.CompetitionResultStandingQuery
+	}
+	return eventQueryRule(func(ctx context.Context, query ent.Query) error {
+		eventIDs, err := resultsEventIDs(ctx, viewer.ViewResults)
+		if err != nil {
+			return err
+		}
+		filter, ok := query.(selectorFilter)
+		if !ok {
+			return privacy.Denyf("unexpected Competition Result Standing query %T", query)
+		}
+		filter.Where(competitionresultstanding.EventIDIn(eventIDs...))
+		return privacy.Skip
+	})
+}
+
+func allowManageResultsMutation() privacy.MutationRule {
+	type eventOwnedMutation interface {
+		EventID() (int, bool)
+		OldEventID(context.Context) (int, error)
+	}
+	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
+		owned, ok := mutation.(eventOwnedMutation)
+		if !ok {
+			return privacy.Skip
+		}
+		eventID, exists := owned.EventID()
+		if !exists {
+			var err error
+			eventID, err = owned.OldEventID(ctx)
+			if err != nil {
+				return privacy.Denyf("read Results mutation Event ownership: %v", err)
+			}
+		}
+		identity, _ := viewer.FromContext(ctx)
+		if identity.HasCapability(eventID, viewer.ManageResults) {
+			return privacy.Allow
+		}
+		return privacy.Skip
+	})
+}
+
+func resultsEventIDs(ctx context.Context, capability viewer.Capability) ([]int, error) {
+	identity, _ := viewer.FromContext(ctx)
+	eventIDs := make([]int, 0, len(identity.EventRoles))
+	for eventID := range identity.EventRoles {
+		if identity.HasCapability(eventID, capability) {
+			eventIDs = append(eventIDs, eventID)
+		}
+	}
+	if len(eventIDs) == 0 {
+		return nil, privacy.Denyf("%s capability is required", capability)
+	}
+	return eventIDs, nil
 }
 
 func allowScopedSessionLiveMutation() privacy.MutationRule {

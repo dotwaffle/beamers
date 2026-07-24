@@ -233,6 +233,120 @@ var (
 			},
 		},
 	}
+	// CompetitionResultStandingsColumns holds the columns for the "competition_result_standings" table.
+	CompetitionResultStandingsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "standing", Type: field.TypeEnum, Enums: []string{"Placed", "Unplaced"}},
+		{Name: "placement", Type: field.TypeInt, Nullable: true},
+		{Name: "display_order", Type: field.TypeInt},
+		{Name: "decimal_score", Type: field.TypeString, Nullable: true, Size: 200},
+		{Name: "duration_score_nanos", Type: field.TypeInt64, Nullable: true},
+		{Name: "entry_id", Type: field.TypeInt},
+		{Name: "results_draft_id", Type: field.TypeInt},
+		{Name: "event_id", Type: field.TypeInt},
+		{Name: "competition_session_id", Type: field.TypeInt},
+	}
+	// CompetitionResultStandingsTable holds the schema information for the "competition_result_standings" table.
+	CompetitionResultStandingsTable = &schema.Table{
+		Name:       "competition_result_standings",
+		Columns:    CompetitionResultStandingsColumns,
+		PrimaryKey: []*schema.Column{CompetitionResultStandingsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "competition_result_standings_competition_entries_result_standings",
+				Columns:    []*schema.Column{CompetitionResultStandingsColumns[6]},
+				RefColumns: []*schema.Column{CompetitionEntriesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "competition_result_standings_competition_results_drafts_standings",
+				Columns:    []*schema.Column{CompetitionResultStandingsColumns[7]},
+				RefColumns: []*schema.Column{CompetitionResultsDraftsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "competition_result_standings_events_competition_result_standings",
+				Columns:    []*schema.Column{CompetitionResultStandingsColumns[8]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "competition_result_standings_sessions_competition_result_standings",
+				Columns:    []*schema.Column{CompetitionResultStandingsColumns[9]},
+				RefColumns: []*schema.Column{SessionsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "competitionresultstanding_results_draft_id_entry_id",
+				Unique:  true,
+				Columns: []*schema.Column{CompetitionResultStandingsColumns[7], CompetitionResultStandingsColumns[6]},
+			},
+			{
+				Name:    "competitionresultstanding_results_draft_id_display_order",
+				Unique:  true,
+				Columns: []*schema.Column{CompetitionResultStandingsColumns[7], CompetitionResultStandingsColumns[3]},
+			},
+			{
+				Name:    "competitionresultstanding_competition_session_id_results_draft_id",
+				Unique:  false,
+				Columns: []*schema.Column{CompetitionResultStandingsColumns[9], CompetitionResultStandingsColumns[7]},
+			},
+		},
+	}
+	// CompetitionResultsDraftsColumns holds the columns for the "competition_results_drafts" table.
+	CompetitionResultsDraftsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "revision", Type: field.TypeInt},
+		{Name: "disposition", Type: field.TypeEnum, Enums: []string{"Pending", "Publish", "NoPublicResults"}},
+		{Name: "no_public_crew_reason", Type: field.TypeString, Nullable: true, Size: 10000},
+		{Name: "public_explanation", Type: field.TypeString, Nullable: true, Size: 10000},
+		{Name: "score_type", Type: field.TypeEnum, Enums: []string{"None", "Decimal", "Duration"}},
+		{Name: "score_visibility", Type: field.TypeEnum, Enums: []string{"Public", "CrewOnly"}, Default: "Public"},
+		{Name: "score_unit", Type: field.TypeString, Nullable: true, Size: 100},
+		{Name: "score_precision", Type: field.TypeInt, Default: 0},
+		{Name: "score_requirement", Type: field.TypeEnum, Enums: []string{"Optional", "Required"}, Default: "Optional"},
+		{Name: "score_interpretation", Type: field.TypeEnum, Enums: []string{"HigherWins", "LowerWins", "Informational"}, Default: "Informational"},
+		{Name: "ready_by_account_id", Type: field.TypeInt, Nullable: true},
+		{Name: "ready_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_by_account_id", Type: field.TypeInt},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "event_id", Type: field.TypeInt},
+		{Name: "competition_session_id", Type: field.TypeInt},
+	}
+	// CompetitionResultsDraftsTable holds the schema information for the "competition_results_drafts" table.
+	CompetitionResultsDraftsTable = &schema.Table{
+		Name:       "competition_results_drafts",
+		Columns:    CompetitionResultsDraftsColumns,
+		PrimaryKey: []*schema.Column{CompetitionResultsDraftsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "competition_results_drafts_events_competition_results_drafts",
+				Columns:    []*schema.Column{CompetitionResultsDraftsColumns[15]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "competition_results_drafts_sessions_competition_results_drafts",
+				Columns:    []*schema.Column{CompetitionResultsDraftsColumns[16]},
+				RefColumns: []*schema.Column{SessionsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "competitionresultsdraft_competition_session_id_revision",
+				Unique:  true,
+				Columns: []*schema.Column{CompetitionResultsDraftsColumns[16], CompetitionResultsDraftsColumns[1]},
+			},
+			{
+				Name:    "competitionresultsdraft_event_id_competition_session_id_revision",
+				Unique:  false,
+				Columns: []*schema.Column{CompetitionResultsDraftsColumns[15], CompetitionResultsDraftsColumns[16], CompetitionResultsDraftsColumns[1]},
+			},
+		},
+	}
 	// DisplaysColumns holds the columns for the "displays" table.
 	DisplaysColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -1462,6 +1576,8 @@ var (
 		BootstrapCredentialsTable,
 		CommandReceiptsTable,
 		CompetitionEntriesTable,
+		CompetitionResultStandingsTable,
+		CompetitionResultsDraftsTable,
 		DisplaysTable,
 		DisplayAssignmentsTable,
 		DisplayCredentialsTable,
@@ -1513,6 +1629,12 @@ func init() {
 	CommandReceiptsTable.ForeignKeys[0].RefTable = AccountsTable
 	CompetitionEntriesTable.ForeignKeys[0].RefTable = EventsTable
 	CompetitionEntriesTable.ForeignKeys[1].RefTable = SessionsTable
+	CompetitionResultStandingsTable.ForeignKeys[0].RefTable = CompetitionEntriesTable
+	CompetitionResultStandingsTable.ForeignKeys[1].RefTable = CompetitionResultsDraftsTable
+	CompetitionResultStandingsTable.ForeignKeys[2].RefTable = EventsTable
+	CompetitionResultStandingsTable.ForeignKeys[3].RefTable = SessionsTable
+	CompetitionResultsDraftsTable.ForeignKeys[0].RefTable = EventsTable
+	CompetitionResultsDraftsTable.ForeignKeys[1].RefTable = SessionsTable
 	DisplayAssignmentsTable.ForeignKeys[0].RefTable = DisplaysTable
 	DisplayAssignmentsTable.ForeignKeys[1].RefTable = EventsTable
 	DisplayAssignmentsTable.ForeignKeys[2].RefTable = LocationsTable
