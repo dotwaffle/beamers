@@ -706,6 +706,15 @@ func (transaction *CommandTx) ActivatePriorityOverride(
 	if err != nil {
 		return DisplayOverride{}, opaqueError("activate priority Display Override", err)
 	}
+	if params.Presentation == DisplayOverrideReplace {
+		if err := transaction.reconcilePrizegivingRevealPauses(
+			ctx,
+			params.EventID,
+			params.Now,
+		); err != nil {
+			return DisplayOverride{}, err
+		}
+	}
 	return displayOverride(created), nil
 }
 
@@ -881,6 +890,15 @@ func (transaction *CommandTx) activateDisplayOverride(
 			return DisplayOverride{}, selectErr
 		}
 	}
+	if kind == DisplayOverrideTechnicalDifficulties {
+		if err := transaction.reconcilePrizegivingRevealPauses(
+			ctx,
+			eventID,
+			now,
+		); err != nil {
+			return DisplayOverride{}, err
+		}
+	}
 	return displayOverride(created), nil
 }
 
@@ -967,6 +985,15 @@ func (transaction *CommandTx) ClearDisplayOverride(
 			return DisplayOverride{}, opaqueError("clear current Display Override selections", err)
 		}
 	}
+	if DisplayOverridePresentation(found.Presentation.String()) == DisplayOverrideReplace {
+		if err := transaction.reconcilePrizegivingRevealPauses(
+			ctx,
+			eventID,
+			now,
+		); err != nil {
+			return DisplayOverride{}, err
+		}
+	}
 	return displayOverride(updated), nil
 }
 
@@ -1015,6 +1042,13 @@ func (transaction *CommandTx) PersistDegradedEmergencyAlert(
 	if err != nil {
 		return DisplayOverride{}, opaqueError("persist degraded Emergency clear", err)
 	}
+	if err := transaction.reconcilePrizegivingRevealPauses(
+		ctx,
+		outcome.EventID,
+		outcome.ClearedAt,
+	); err != nil {
+		return DisplayOverride{}, err
+	}
 	return displayOverride(updated), nil
 }
 
@@ -1055,6 +1089,13 @@ INSERT INTO display_overrides (
 	found, err := transaction.transaction.DisplayOverride.Get(internalContext, outcome.ID)
 	if err != nil {
 		return DisplayOverride{}, opaqueError("load persisted degraded Emergency Alert", err)
+	}
+	if err := transaction.reconcilePrizegivingRevealPauses(
+		ctx,
+		outcome.EventID,
+		outcome.CreatedAt,
+	); err != nil {
+		return DisplayOverride{}, err
 	}
 	return displayOverride(found), nil
 }

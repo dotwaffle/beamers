@@ -1415,24 +1415,7 @@ func lockedResultItem(item store.ProgramItem) results.LockedResultItem {
 }
 
 func resultItemStageState(item store.ProgramItem) results.ResultItemStageState {
-	if item.Result == nil {
-		return results.ResultItemStageState{}
-	}
-	return results.ResultItemStageState{
-		Ref: results.ResultItemRef{
-			Kind:                 results.ResultItemKind(item.Result.Ref.Kind),
-			CompetitionSessionID: item.Result.Ref.CompetitionSessionID,
-			AwardKey:             item.Result.Ref.AwardKey,
-			DisplayOrder:         item.Result.Ref.DisplayOrder,
-		},
-		Status:            item.Result.Status,
-		Release:           item.Result.Release,
-		TakenAt:           item.Result.TakenAt,
-		RevealStartedAt:   item.Result.RevealStartedAt,
-		RevealDuration:    item.Result.RevealDuration,
-		RevealCompletedAt: item.Result.RevealCompletedAt,
-		SkippedAt:         item.Result.SkippedAt,
-	}
+	return results.ResultItemStageStateFromProgramResult(item.Result)
 }
 
 func prizegivingStageState(
@@ -1445,13 +1428,15 @@ func prizegivingStageState(
 			AwardKey:             value.Ref.AwardKey,
 			DisplayOrder:         value.Ref.DisplayOrder,
 		},
-		Status:            value.Status,
-		Release:           value.Release,
-		TakenAt:           value.TakenAt,
-		RevealStartedAt:   value.RevealStartedAt,
-		RevealDuration:    value.RevealDuration,
-		RevealCompletedAt: value.RevealCompletedAt,
-		SkippedAt:         value.SkippedAt,
+		Status:               value.Status,
+		Release:              value.Release,
+		TakenAt:              value.TakenAt,
+		RevealStartedAt:      value.RevealStartedAt,
+		RevealDuration:       value.RevealDuration,
+		RevealPausedAt:       value.RevealPausedAt,
+		RevealPausedDuration: value.RevealPausedDuration,
+		RevealCompletedAt:    value.RevealCompletedAt,
+		SkippedAt:            value.SkippedAt,
 	}
 }
 

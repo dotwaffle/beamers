@@ -315,23 +315,36 @@ func PrizegivingPublicationStates(items []store.ProgramItem) []ResultItemStageSt
 		if item.Result == nil {
 			continue
 		}
-		states = append(states, ResultItemStageState{
-			Ref: ResultItemRef{
-				Kind:                 ResultItemKind(item.Result.Ref.Kind),
-				CompetitionSessionID: item.Result.Ref.CompetitionSessionID,
-				AwardKey:             item.Result.Ref.AwardKey,
-				DisplayOrder:         item.Result.Ref.DisplayOrder,
-			},
-			Status:            item.Result.Status,
-			Release:           item.Result.Release,
-			TakenAt:           item.Result.TakenAt,
-			RevealStartedAt:   item.Result.RevealStartedAt,
-			RevealDuration:    item.Result.RevealDuration,
-			RevealCompletedAt: item.Result.RevealCompletedAt,
-			SkippedAt:         item.Result.SkippedAt,
-		})
+		states = append(states, ResultItemStageStateFromProgramResult(item.Result))
 	}
 	return states
+}
+
+// ResultItemStageStateFromProgramResult restores one canonical Result state
+// from a Program projection.
+func ResultItemStageStateFromProgramResult(
+	item *store.ProgramResult,
+) ResultItemStageState {
+	if item == nil {
+		return ResultItemStageState{}
+	}
+	return ResultItemStageState{
+		Ref: ResultItemRef{
+			Kind:                 ResultItemKind(item.Ref.Kind),
+			CompetitionSessionID: item.Ref.CompetitionSessionID,
+			AwardKey:             item.Ref.AwardKey,
+			DisplayOrder:         item.Ref.DisplayOrder,
+		},
+		Status:               item.Status,
+		Release:              item.Release,
+		TakenAt:              item.TakenAt,
+		RevealStartedAt:      item.RevealStartedAt,
+		RevealDuration:       item.RevealDuration,
+		RevealPausedAt:       item.RevealPausedAt,
+		RevealPausedDuration: item.RevealPausedDuration,
+		RevealCompletedAt:    item.RevealCompletedAt,
+		SkippedAt:            item.SkippedAt,
+	}
 }
 
 func publicationFromStore(value store.ResultsPublication) Publication {

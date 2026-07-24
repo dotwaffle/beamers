@@ -44,14 +44,16 @@ const (
 
 // ResultItemStageState is one durable Result Item presentation state.
 type ResultItemStageState struct {
-	Ref               ResultItemRef         `json:"ref"`
-	Status            ResultItemStageStatus `json:"status"`
-	Release           ResultReleaseState    `json:"release"`
-	TakenAt           time.Time             `json:"taken_at,omitzero"`
-	RevealStartedAt   time.Time             `json:"reveal_started_at,omitzero"`
-	RevealDuration    time.Duration         `json:"reveal_duration,omitempty"`
-	RevealCompletedAt time.Time             `json:"reveal_completed_at,omitzero"`
-	SkippedAt         time.Time             `json:"skipped_at,omitzero"`
+	Ref                  ResultItemRef         `json:"ref"`
+	Status               ResultItemStageStatus `json:"status"`
+	Release              ResultReleaseState    `json:"release"`
+	TakenAt              time.Time             `json:"taken_at,omitzero"`
+	RevealStartedAt      time.Time             `json:"reveal_started_at,omitzero"`
+	RevealDuration       time.Duration         `json:"reveal_duration,omitempty"`
+	RevealPausedAt       time.Time             `json:"reveal_paused_at,omitzero"`
+	RevealPausedDuration time.Duration         `json:"reveal_paused_duration,omitempty"`
+	RevealCompletedAt    time.Time             `json:"reveal_completed_at,omitzero"`
+	SkippedAt            time.Time             `json:"skipped_at,omitzero"`
 }
 
 // ResultPresentation describes one deterministic Reveal run.
@@ -124,11 +126,29 @@ func SkipPrizegivingResultToFinal(
 	next := current
 	next.Status = ResultItemRevealed
 	next.Release = ResultReleaseReady
+	next.RevealPausedAt = time.Time{}
 	if next.RevealStartedAt.IsZero() {
 		next.RevealStartedAt = now
 	}
 	next.RevealCompletedAt = now
 	return next, nil
+}
+
+// SetPrizegivingRevealPaused applies full Replace Override coverage to one
+// active Reveal without changing any Event or Session clock.
+func SetPrizegivingRevealPaused(
+	current ResultItemStageState,
+	paused bool,
+	now time.Time,
+) ResultItemStageState {
+	effective := (prizegivingvalue.StageState{
+		Status:            current.Status,
+		RevealPausedAt:    current.RevealPausedAt,
+		RevealPausedNanos: int64(current.RevealPausedDuration),
+	}).WithRevealPaused(paused, now)
+	current.RevealPausedAt = effective.RevealPausedAt
+	current.RevealPausedDuration = time.Duration(effective.RevealPausedNanos)
+	return current
 }
 
 // SkipPrizegivingResultFromStage records deliberate omission without revealing.
@@ -160,10 +180,14 @@ func AdvanceElapsedPrizegivingReveal(
 		Release:             current.Release,
 		RevealStartedAt:     current.RevealStartedAt,
 		RevealDurationNanos: int64(current.RevealDuration),
+		RevealPausedAt:      current.RevealPausedAt,
+		RevealPausedNanos:   int64(current.RevealPausedDuration),
 		RevealCompletedAt:   current.RevealCompletedAt,
 	}).EffectiveAt(now)
 	current.Status = effective.Status
 	current.Release = effective.Release
+	current.RevealPausedAt = effective.RevealPausedAt
+	current.RevealPausedDuration = time.Duration(effective.RevealPausedNanos)
 	current.RevealCompletedAt = effective.RevealCompletedAt
 	return current
 }

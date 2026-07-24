@@ -245,6 +245,13 @@ func (transaction *CommandTx) AssignDisplay(
 	if syncErr := transaction.syncDisplayOverridesForAssignment(ctx, assignment, now); syncErr != nil {
 		return DisplayAssignment{}, syncErr
 	}
+	if pauseErr := transaction.reconcilePrizegivingRevealPauses(
+		ctx,
+		assignment.EventID,
+		now,
+	); pauseErr != nil {
+		return DisplayAssignment{}, pauseErr
+	}
 	return assignment, nil
 }
 

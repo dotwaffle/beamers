@@ -111,22 +111,50 @@ type StageState struct {
 	TakenAt             time.Time    `json:"taken_at,omitzero"`
 	RevealStartedAt     time.Time    `json:"reveal_started_at,omitzero"`
 	RevealDurationNanos int64        `json:"reveal_duration_nanos,omitempty"`
+	RevealPausedAt      time.Time    `json:"reveal_paused_at,omitzero"`
+	RevealPausedNanos   int64        `json:"reveal_paused_nanos,omitempty"`
 	RevealCompletedAt   time.Time    `json:"reveal_completed_at,omitzero"`
 	SkippedAt           time.Time    `json:"skipped_at,omitzero"`
+}
+
+// WithRevealPaused applies full Replace Override coverage to an active Reveal.
+func (state StageState) WithRevealPaused(paused bool, now time.Time) StageState {
+	if state.Status != StageRevealing {
+		return state
+	}
+	if paused {
+		if state.RevealPausedAt.IsZero() {
+			state.RevealPausedAt = now
+		}
+		return state
+	}
+	if state.RevealPausedAt.IsZero() {
+		return state
+	}
+	if now.After(state.RevealPausedAt) {
+		state.RevealPausedNanos += int64(now.Sub(state.RevealPausedAt))
+	}
+	state.RevealPausedAt = time.Time{}
+	return state
 }
 
 // EffectiveAt derives completion of a timed Reveal from durable server facts.
 func (state StageState) EffectiveAt(now time.Time) StageState {
 	if state.Status != StageRevealing ||
 		state.RevealStartedAt.IsZero() ||
-		now.Before(state.RevealStartedAt.Add(time.Duration(state.RevealDurationNanos))) {
+		!state.RevealPausedAt.IsZero() ||
+		now.Before(
+			state.RevealStartedAt.
+				Add(time.Duration(state.RevealDurationNanos)).
+				Add(time.Duration(state.RevealPausedNanos)),
+		) {
 		return state
 	}
 	state.Status = StageRevealed
 	state.Release = ReleaseReady
 	state.RevealCompletedAt = state.RevealStartedAt.Add(
 		time.Duration(state.RevealDurationNanos),
-	)
+	).Add(time.Duration(state.RevealPausedNanos))
 	return state
 }
 

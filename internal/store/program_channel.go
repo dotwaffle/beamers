@@ -45,14 +45,16 @@ const (
 
 // PrizegivingStageState is one Result Item's durable presentation state.
 type PrizegivingStageState struct {
-	Ref               PrizegivingResultItemRef      `json:"ref"`
-	Status            prizegivingvalue.StageStatus  `json:"status"`
-	Release           prizegivingvalue.ReleaseState `json:"release"`
-	TakenAt           time.Time                     `json:"taken_at,omitzero"`
-	RevealStartedAt   time.Time                     `json:"reveal_started_at,omitzero"`
-	RevealDuration    time.Duration                 `json:"reveal_duration,omitempty"`
-	RevealCompletedAt time.Time                     `json:"reveal_completed_at,omitzero"`
-	SkippedAt         time.Time                     `json:"skipped_at,omitzero"`
+	Ref                  PrizegivingResultItemRef      `json:"ref"`
+	Status               prizegivingvalue.StageStatus  `json:"status"`
+	Release              prizegivingvalue.ReleaseState `json:"release"`
+	TakenAt              time.Time                     `json:"taken_at,omitzero"`
+	RevealStartedAt      time.Time                     `json:"reveal_started_at,omitzero"`
+	RevealDuration       time.Duration                 `json:"reveal_duration,omitempty"`
+	RevealPausedAt       time.Time                     `json:"reveal_paused_at,omitzero"`
+	RevealPausedDuration time.Duration                 `json:"reveal_paused_duration,omitempty"`
+	RevealCompletedAt    time.Time                     `json:"reveal_completed_at,omitzero"`
+	SkippedAt            time.Time                     `json:"skipped_at,omitzero"`
 }
 
 // ProgramResult is one exact locked Prizegiving presentation source.
@@ -66,6 +68,8 @@ type ProgramResult struct {
 	TakenAt                   time.Time                     `json:"taken_at,omitzero"`
 	RevealStartedAt           time.Time                     `json:"reveal_started_at,omitzero"`
 	RevealDuration            time.Duration                 `json:"reveal_duration,omitempty"`
+	RevealPausedAt            time.Time                     `json:"reveal_paused_at,omitzero"`
+	RevealPausedDuration      time.Duration                 `json:"reveal_paused_duration,omitempty"`
 	RevealCompletedAt         time.Time                     `json:"reveal_completed_at,omitzero"`
 	SkippedAt                 time.Time                     `json:"skipped_at,omitzero"`
 	Replay                    bool                          `json:"replay,omitempty"`
@@ -515,7 +519,26 @@ func loadPrizegivingProgramChannel(
 	)
 	for _, value := range plan.ItemStates {
 		if !observedAt.IsZero() {
-			value = value.EffectiveAt(observedAt)
+			var transitions []prizegivingvalue.RevealCoverageTransition
+			if !value.RevealPausedAt.IsZero() {
+				var coverageErr error
+				transitions, coverageErr = prizegivingRevealCoverageTransitions(
+					internalContext,
+					client,
+					found.EventID,
+					found.ID,
+					value.RevealPausedAt,
+					observedAt,
+				)
+				if coverageErr != nil {
+					return ProgramChannelState{}, coverageErr
+				}
+			}
+			value = prizegivingvalue.ReconcileRevealCoverageState(
+				value,
+				transitions,
+				observedAt,
+			)
 		}
 		state := prizegivingStageState(value)
 		states[state.Ref] = state
@@ -585,8 +608,20 @@ func loadPrizegivingProgramChannel(
 		}
 		if output, _, ok := findProgramItem(items, wanted); ok {
 			output.Result.Replay = found.ProgramOutputResult.Replay
-			output.Result.PresentationStartedAt =
-				found.ProgramOutputResult.StartedAt
+			presentationStartedAt := found.ProgramOutputResult.StartedAt
+			if !output.Result.Replay {
+				presentationStartedAt = presentationStartedAt.Add(
+					output.Result.RevealPausedDuration,
+				)
+				if !observedAt.IsZero() &&
+					!output.Result.RevealPausedAt.IsZero() &&
+					observedAt.After(output.Result.RevealPausedAt) {
+					presentationStartedAt = presentationStartedAt.Add(
+						observedAt.Sub(output.Result.RevealPausedAt),
+					)
+				}
+			}
+			output.Result.PresentationStartedAt = presentationStartedAt
 			output.Result.PresentationDuration = time.Duration(
 				found.ProgramOutputResult.DurationNanos,
 			)
@@ -626,6 +661,8 @@ func loadPrizegivingProgramItem(
 		result.TakenAt = state.TakenAt
 		result.RevealStartedAt = state.RevealStartedAt
 		result.RevealDuration = state.RevealDuration
+		result.RevealPausedAt = state.RevealPausedAt
+		result.RevealPausedDuration = state.RevealPausedDuration
 		result.RevealCompletedAt = state.RevealCompletedAt
 		result.SkippedAt = state.SkippedAt
 	}
@@ -721,8 +758,10 @@ func prizegivingStageState(
 		Ref: prizegivingItemRef(value.ItemRef), Status: value.Status,
 		Release: value.Release,
 		TakenAt: value.TakenAt, RevealStartedAt: value.RevealStartedAt,
-		RevealDuration:    time.Duration(value.RevealDurationNanos),
-		RevealCompletedAt: value.RevealCompletedAt, SkippedAt: value.SkippedAt,
+		RevealDuration:       time.Duration(value.RevealDurationNanos),
+		RevealPausedAt:       value.RevealPausedAt,
+		RevealPausedDuration: time.Duration(value.RevealPausedNanos),
+		RevealCompletedAt:    value.RevealCompletedAt, SkippedAt: value.SkippedAt,
 	}
 }
 
@@ -741,6 +780,8 @@ func prizegivingStageStateValue(
 		Release: value.Release,
 		TakenAt: value.TakenAt, RevealStartedAt: value.RevealStartedAt,
 		RevealDurationNanos: int64(value.RevealDuration),
+		RevealPausedAt:      value.RevealPausedAt,
+		RevealPausedNanos:   int64(value.RevealPausedDuration),
 		RevealCompletedAt:   value.RevealCompletedAt, SkippedAt: value.SkippedAt,
 	}
 }

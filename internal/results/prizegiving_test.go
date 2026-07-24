@@ -190,6 +190,111 @@ func TestPrizegivingRevealCompletionAndSkipActionsAreMonotonic(t *testing.T) {
 	}
 }
 
+func TestPrizegivingRevealPausePreservesElapsedPresentationTime(t *testing.T) {
+	startedAt := time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
+	current := ResultItemStageState{
+		Status:          ResultItemRevealing,
+		RevealStartedAt: startedAt,
+		RevealDuration:  5 * time.Second,
+	}
+
+	paused := SetPrizegivingRevealPaused(
+		current,
+		true,
+		startedAt.Add(2*time.Second),
+	)
+	if paused.RevealPausedAt != startedAt.Add(2*time.Second) ||
+		paused.RevealPausedDuration != 0 {
+		t.Fatalf("paused Reveal = %+v", paused)
+	}
+	if effective := prizegivingStageStateEffectiveAt(
+		paused,
+		startedAt.Add(time.Minute),
+	); effective.Status != ResultItemRevealing {
+		t.Fatalf("paused elapsed Reveal = %+v", effective)
+	}
+
+	resumed := SetPrizegivingRevealPaused(
+		paused,
+		false,
+		startedAt.Add(12*time.Second),
+	)
+	if !resumed.RevealPausedAt.IsZero() ||
+		resumed.RevealPausedDuration != 10*time.Second {
+		t.Fatalf("resumed Reveal = %+v", resumed)
+	}
+	if effective := prizegivingStageStateEffectiveAt(
+		resumed,
+		startedAt.Add(14*time.Second),
+	); effective.Status != ResultItemRevealing {
+		t.Fatalf("early resumed Reveal = %+v", effective)
+	}
+	completed := prizegivingStageStateEffectiveAt(
+		resumed,
+		startedAt.Add(15*time.Second),
+	)
+	if completed.Status != ResultItemRevealed ||
+		completed.RevealCompletedAt != startedAt.Add(15*time.Second) {
+		t.Fatalf("completed resumed Reveal = %+v", completed)
+	}
+}
+
+func TestPrizegivingRevealPauseIgnoresResolvedStatesAndRepeatedCoverage(t *testing.T) {
+	now := time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
+	revealed := ResultItemStageState{Status: ResultItemRevealed}
+	if got := SetPrizegivingRevealPaused(revealed, true, now); got != revealed {
+		t.Fatalf("paused final Reveal = %+v", got)
+	}
+
+	revealing := ResultItemStageState{
+		Status: ResultItemRevealing,
+	}
+	paused := SetPrizegivingRevealPaused(revealing, true, now)
+	if got := SetPrizegivingRevealPaused(
+		paused,
+		true,
+		now.Add(time.Second),
+	); got != paused {
+		t.Fatalf("repeated full coverage = %+v", got)
+	}
+	if got := SetPrizegivingRevealPaused(
+		revealing,
+		false,
+		now,
+	); got != revealing {
+		t.Fatalf("repeated partial coverage = %+v", got)
+	}
+}
+
+func prizegivingStageStateEffectiveAt(
+	state ResultItemStageState,
+	now time.Time,
+) ResultItemStageState {
+	return AdvanceElapsedPrizegivingReveal(
+		LockedResultItem{
+			ResultItem: ResultItem{
+				Kind:                 ResultItemCompetition,
+				CompetitionSessionID: 11,
+				DisplayOrder:         1,
+			},
+		},
+		ResultItemStageState{
+			Ref: ResultItemRef{
+				Kind:                 ResultItemCompetition,
+				CompetitionSessionID: 11,
+				DisplayOrder:         1,
+			},
+			Status:               state.Status,
+			Release:              state.Release,
+			RevealStartedAt:      state.RevealStartedAt,
+			RevealDuration:       state.RevealDuration,
+			RevealPausedAt:       state.RevealPausedAt,
+			RevealPausedDuration: state.RevealPausedDuration,
+		},
+		now,
+	)
+}
+
 func TestPrizegivingEndListsEveryUnresolvedResultItem(t *testing.T) {
 	now := time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
 	noPublic := LockedResultItem{
