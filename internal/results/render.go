@@ -61,13 +61,21 @@ type PublicResultsItem struct {
 
 // PublicResultsPublication is the documented immutable cross-format model.
 type PublicResultsPublication struct {
-	SchemaVersion string              `json:"schema_version"`
-	Event         PublicResultsEvent  `json:"event"`
-	EventTitle    string              `json:"-"`
-	Revision      int                 `json:"revision"`
-	Status        PublicationStatus   `json:"status"`
-	PublishedAt   time.Time           `json:"published_at"`
-	Items         []PublicResultsItem `json:"items"`
+	SchemaVersion string                   `json:"schema_version"`
+	Event         PublicResultsEvent       `json:"event"`
+	EventTitle    string                   `json:"-"`
+	Revision      int                      `json:"revision"`
+	Status        PublicationStatus        `json:"status"`
+	PublishedAt   time.Time                `json:"published_at"`
+	Correction    *PublicResultsCorrection `json:"correction,omitempty"`
+	Items         []PublicResultsItem      `json:"items"`
+}
+
+// PublicResultsCorrection identifies one monotonic public correction.
+type PublicResultsCorrection struct {
+	PreviousRevision int       `json:"previous_revision"`
+	Note             string    `json:"note,omitempty"`
+	CorrectedAt      time.Time `json:"corrected_at"`
 }
 
 // RenderedPublicResults freezes every canonical public representation.
@@ -80,6 +88,8 @@ type RenderedPublicResults struct {
 }
 
 const defaultResultsTextSource = `{{ .Event.Name }} Results
+{{ with .Correction }}Corrected{{ with .Note }} — {{ . }}{{ end }}
+{{ end }}
 {{ range .Items }}{{ with .Competition }}
 {{ .Title }}
 {{ range .Placed }}{{ .Placement }}. {{ .Name }}{{ with .Score }} — {{ . }}{{ end }}
@@ -96,6 +106,7 @@ Award: {{ .Name }} — {{ join .Recipients ", " }}
 const publicResultsHTMLSource = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>{{ .Event.Name }} Results</title></head>
 <body><main><h1>{{ .Event.Name }} Results</h1>
+{{ with .Correction }}<aside><strong>Corrected</strong>{{ with .Note }} — {{ . }}{{ end }}</aside>{{ end }}
 {{ range .Items }}{{ with .Competition }}<section><h2>{{ .Title }}</h2>
 {{ with .Placed }}<h3>Placements</h3><ol>{{ range . }}<li value="{{ .Placement }}">{{ .Name }}{{ with .Score }} <span>{{ . }}</span>{{ end }}</li>{{ end }}</ol>{{ end }}
 {{ with .Unplaced }}<h3>Unplaced</h3><ul>{{ range . }}<li>{{ .Name }}</li>{{ end }}</ul>{{ end }}
