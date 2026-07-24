@@ -148,6 +148,16 @@ linters:
       - path: cmd/
         linters:
           - revive
+      # templ components receive request context at Render; contextcheck cannot
+      # follow context through generated component closures.
+      - path: internal/server/displays\.go
+        source: 'displays\.(DisplayPage|EnrollmentPage|EnrollmentClaimPage|EnrollmentClaimReloadPage|EnrollmentClaimedPage)'
+        linters:
+          - contextcheck
+      - path: internal/server/overrides\.go
+        source: 'overrides\.(EmergencyAlertConfirmationPage|EmergencyClearConfirmationPage)'
+        linters:
+          - contextcheck
 
 issues:
   max-same-issues: 0

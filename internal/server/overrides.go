@@ -139,8 +139,8 @@ func (handlers overrideHandlers) emergencyAlertConfirmation(
 		return
 	}
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err = overrides.EmergencyAlertConfirmationPage(preview, commandID). //nolint:contextcheck // Generated templ closures receive context when rendered.
-										Render(request.Context(), response); err != nil {
+	if err = overrides.EmergencyAlertConfirmationPage(preview, commandID).
+		Render(request.Context(), response); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write Emergency confirmation", "error", err)
 	}
 }
@@ -219,8 +219,8 @@ func (handlers overrideHandlers) emergencyClearConfirmation(
 			continue
 		}
 		response.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err = overrides.EmergencyClearConfirmationPage(item). //nolint:contextcheck // Generated templ closures receive context when rendered.
-										Render(request.Context(), response); err != nil {
+		if err = overrides.EmergencyClearConfirmationPage(item).
+			Render(request.Context(), response); err != nil {
 			handlers.logger.ErrorContext(request.Context(), "write Emergency clear confirmation", "error", err)
 		}
 		return

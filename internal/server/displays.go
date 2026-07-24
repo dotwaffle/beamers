@@ -70,7 +70,7 @@ func (handlers displayHandlers) display(response http.ResponseWriter, request *h
 		response.Header().Set("X-Beamers-Display-Asset", snapshot.AssetVersion)
 		response.Header().Set("X-Beamers-Display-Protocol", snapshot.ProtocolVersion)
 		response.Header().Set("Content-Type", "text/html; charset=utf-8")
-		page := displays.DisplayPage(snapshot) //nolint:contextcheck // Generated templ closures receive context when rendered.
+		page := displays.DisplayPage(snapshot)
 		if err := page.Render(request.Context(), response); err != nil {
 			handlers.logger.ErrorContext(request.Context(), "write Display page", "error", err)
 		}
@@ -99,7 +99,6 @@ func (handlers displayHandlers) display(response http.ResponseWriter, request *h
 	}
 	setDisplayCookies(response, request, enrollment)
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
-	//nolint:contextcheck // Generated templ closures receive context when rendered.
 	if err := displays.EnrollmentPage(enrollment.Code, qrCode).Render(request.Context(), response); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write Display Enrollment page", "error", err)
 	}
@@ -231,7 +230,6 @@ func (handlers displayHandlers) enrollmentClaimPage(response http.ResponseWriter
 	commandID := "enroll-display-" + strings.ToLower(strings.ReplaceAll(code, "-", ""))
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	initialName := displayClaimRecoveryName(request, code)
-	//nolint:contextcheck // Generated templ closures receive context when rendered.
 	page := displays.EnrollmentClaimPage(code, commandID, handlers.buildVersion, initialName)
 	if err := page.Render(request.Context(), response); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write Display claim page", "error", err)
@@ -267,7 +265,6 @@ func (handlers displayHandlers) claimEnrollment(response http.ResponseWriter, re
 		}.Encode()
 		response.Header().Set("Content-Type", "text/html; charset=utf-8")
 		response.WriteHeader(http.StatusConflict)
-		//nolint:contextcheck // Generated templ closures receive context when rendered.
 		page := displays.EnrollmentClaimReloadPage(reloadURL)
 		if err := page.Render(request.Context(), response); err != nil {
 			handlers.logger.ErrorContext(request.Context(), "write reload-required page", "error", err)
@@ -299,7 +296,6 @@ func (handlers displayHandlers) claimEnrollment(response http.ResponseWriter, re
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	clearDisplayClaimRecoveryCookie(response, request)
 	response.WriteHeader(http.StatusCreated)
-	//nolint:contextcheck // Generated templ closures receive context when rendered.
 	if err := displays.EnrollmentClaimedPage(created).Render(request.Context(), response); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write enrolled Display page", "error", err)
 	}
