@@ -160,6 +160,45 @@ func (_u *PrizegivingUpdate) ClearPreflightLock() *PrizegivingUpdate {
 	return _u
 }
 
+// SetOperationRevision sets the "operation_revision" field.
+func (_u *PrizegivingUpdate) SetOperationRevision(v int) *PrizegivingUpdate {
+	_u.mutation.ResetOperationRevision()
+	_u.mutation.SetOperationRevision(v)
+	return _u
+}
+
+// SetNillableOperationRevision sets the "operation_revision" field if the given value is not nil.
+func (_u *PrizegivingUpdate) SetNillableOperationRevision(v *int) *PrizegivingUpdate {
+	if v != nil {
+		_u.SetOperationRevision(*v)
+	}
+	return _u
+}
+
+// AddOperationRevision adds value to the "operation_revision" field.
+func (_u *PrizegivingUpdate) AddOperationRevision(v int) *PrizegivingUpdate {
+	_u.mutation.AddOperationRevision(v)
+	return _u
+}
+
+// SetItemStates sets the "item_states" field.
+func (_u *PrizegivingUpdate) SetItemStates(v []prizegivingvalue.StageState) *PrizegivingUpdate {
+	_u.mutation.SetItemStates(v)
+	return _u
+}
+
+// AppendItemStates appends value to the "item_states" field.
+func (_u *PrizegivingUpdate) AppendItemStates(v []prizegivingvalue.StageState) *PrizegivingUpdate {
+	_u.mutation.AppendItemStates(v)
+	return _u
+}
+
+// ClearItemStates clears the value of the "item_states" field.
+func (_u *PrizegivingUpdate) ClearItemStates() *PrizegivingUpdate {
+	_u.mutation.ClearItemStates()
+	return _u
+}
+
 // SetLockedByAccountID sets the "locked_by_account_id" field.
 func (_u *PrizegivingUpdate) SetLockedByAccountID(v int) *PrizegivingUpdate {
 	_u.mutation.ResetLockedByAccountID()
@@ -282,6 +321,11 @@ func (_u *PrizegivingUpdate) check() error {
 			return &ValidationError{Name: "revision", err: fmt.Errorf(`ent: validator failed for field "Prizegiving.revision": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.OperationRevision(); ok {
+		if err := prizegiving.OperationRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "operation_revision", err: fmt.Errorf(`ent: validator failed for field "Prizegiving.operation_revision": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.LockedByAccountID(); ok {
 		if err := prizegiving.LockedByAccountIDValidator(v); err != nil {
 			return &ValidationError{Name: "locked_by_account_id", err: fmt.Errorf(`ent: validator failed for field "Prizegiving.locked_by_account_id": %w`, err)}
@@ -361,6 +405,23 @@ func (_u *PrizegivingUpdate) sqlSave(ctx context.Context) (_node int, err error)
 	}
 	if _u.mutation.PreflightLockCleared() {
 		_spec.ClearField(prizegiving.FieldPreflightLock, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.OperationRevision(); ok {
+		_spec.SetField(prizegiving.FieldOperationRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedOperationRevision(); ok {
+		_spec.AddField(prizegiving.FieldOperationRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ItemStates(); ok {
+		_spec.SetField(prizegiving.FieldItemStates, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedItemStates(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, prizegiving.FieldItemStates, value)
+		})
+	}
+	if _u.mutation.ItemStatesCleared() {
+		_spec.ClearField(prizegiving.FieldItemStates, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.LockedByAccountID(); ok {
 		_spec.SetField(prizegiving.FieldLockedByAccountID, field.TypeInt, value)
@@ -571,6 +632,45 @@ func (_u *PrizegivingUpdateOne) ClearPreflightLock() *PrizegivingUpdateOne {
 	return _u
 }
 
+// SetOperationRevision sets the "operation_revision" field.
+func (_u *PrizegivingUpdateOne) SetOperationRevision(v int) *PrizegivingUpdateOne {
+	_u.mutation.ResetOperationRevision()
+	_u.mutation.SetOperationRevision(v)
+	return _u
+}
+
+// SetNillableOperationRevision sets the "operation_revision" field if the given value is not nil.
+func (_u *PrizegivingUpdateOne) SetNillableOperationRevision(v *int) *PrizegivingUpdateOne {
+	if v != nil {
+		_u.SetOperationRevision(*v)
+	}
+	return _u
+}
+
+// AddOperationRevision adds value to the "operation_revision" field.
+func (_u *PrizegivingUpdateOne) AddOperationRevision(v int) *PrizegivingUpdateOne {
+	_u.mutation.AddOperationRevision(v)
+	return _u
+}
+
+// SetItemStates sets the "item_states" field.
+func (_u *PrizegivingUpdateOne) SetItemStates(v []prizegivingvalue.StageState) *PrizegivingUpdateOne {
+	_u.mutation.SetItemStates(v)
+	return _u
+}
+
+// AppendItemStates appends value to the "item_states" field.
+func (_u *PrizegivingUpdateOne) AppendItemStates(v []prizegivingvalue.StageState) *PrizegivingUpdateOne {
+	_u.mutation.AppendItemStates(v)
+	return _u
+}
+
+// ClearItemStates clears the value of the "item_states" field.
+func (_u *PrizegivingUpdateOne) ClearItemStates() *PrizegivingUpdateOne {
+	_u.mutation.ClearItemStates()
+	return _u
+}
+
 // SetLockedByAccountID sets the "locked_by_account_id" field.
 func (_u *PrizegivingUpdateOne) SetLockedByAccountID(v int) *PrizegivingUpdateOne {
 	_u.mutation.ResetLockedByAccountID()
@@ -706,6 +806,11 @@ func (_u *PrizegivingUpdateOne) check() error {
 			return &ValidationError{Name: "revision", err: fmt.Errorf(`ent: validator failed for field "Prizegiving.revision": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.OperationRevision(); ok {
+		if err := prizegiving.OperationRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "operation_revision", err: fmt.Errorf(`ent: validator failed for field "Prizegiving.operation_revision": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.LockedByAccountID(); ok {
 		if err := prizegiving.LockedByAccountIDValidator(v); err != nil {
 			return &ValidationError{Name: "locked_by_account_id", err: fmt.Errorf(`ent: validator failed for field "Prizegiving.locked_by_account_id": %w`, err)}
@@ -802,6 +907,23 @@ func (_u *PrizegivingUpdateOne) sqlSave(ctx context.Context) (_node *Prizegiving
 	}
 	if _u.mutation.PreflightLockCleared() {
 		_spec.ClearField(prizegiving.FieldPreflightLock, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.OperationRevision(); ok {
+		_spec.SetField(prizegiving.FieldOperationRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedOperationRevision(); ok {
+		_spec.AddField(prizegiving.FieldOperationRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ItemStates(); ok {
+		_spec.SetField(prizegiving.FieldItemStates, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedItemStates(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, prizegiving.FieldItemStates, value)
+		})
+	}
+	if _u.mutation.ItemStatesCleared() {
+		_spec.ClearField(prizegiving.FieldItemStates, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.LockedByAccountID(); ok {
 		_spec.SetField(prizegiving.FieldLockedByAccountID, field.TypeInt, value)

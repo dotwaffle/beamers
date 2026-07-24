@@ -1,6 +1,7 @@
 package results
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 	"time"
@@ -47,6 +48,179 @@ func TestDefaultPrizegivingOrderUsesPlannedTimeAndAwardsLast(t *testing.T) {
 			sequence,
 			publicationOrder,
 		)
+	}
+}
+
+func TestPrizegivingTakeAndRevealPreserveLockedTruth(t *testing.T) {
+	now := time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
+	for _, test := range []struct {
+		name       string
+		method     RevealMethod
+		wantStatus ResultItemStageStatus
+		wantTime   time.Duration
+	}{
+		{
+			name: "static", method: RevealStatic,
+			wantStatus: ResultItemRevealed,
+		},
+		{
+			name: "sequential podium", method: RevealSequentialPodium,
+			wantStatus: ResultItemRevealing, wantTime: 3 * time.Second,
+		},
+		{
+			name: "animated score bars", method: RevealAnimatedScoreBars,
+			wantStatus: ResultItemRevealing, wantTime: 5 * time.Second,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			locked := LockedResultItem{
+				ResultItem: ResultItem{
+					Kind: ResultItemCompetition, CompetitionSessionID: 11,
+					DisplayOrder: 1, RevealMethod: test.method,
+				},
+				RevealSeed: 73,
+			}
+			taken, err := TakePrizegivingResultItem(locked, ResultItemStageState{}, now)
+			if err != nil {
+				t.Fatalf("Take Result Item: %v", err)
+			}
+			if taken.Status != ResultItemTaken || taken.TakenAt != now {
+				t.Fatalf("Taken Result Item = %+v", taken)
+			}
+
+			revealed, presentation, err := StartPrizegivingReveal(locked, taken, now)
+			if err != nil {
+				t.Fatalf("start Result Reveal: %v", err)
+			}
+			if revealed.Status != test.wantStatus ||
+				revealed.RevealDuration != test.wantTime ||
+				presentation.Item != locked ||
+				presentation.Method != test.method ||
+				presentation.ReducedMotionMethod != RevealStatic ||
+				presentation.RevealSeed != 73 {
+				t.Fatalf(
+					"Reveal state=%+v presentation=%+v",
+					revealed,
+					presentation,
+				)
+			}
+			if test.wantTime == 0 && revealed.RevealCompletedAt != now {
+				t.Fatalf("Static Reveal completion = %v, want %v", revealed.RevealCompletedAt, now)
+			}
+		})
+	}
+}
+
+func TestPrizegivingRevealCompletionAndSkipActionsAreMonotonic(t *testing.T) {
+	startedAt := time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
+	locked := LockedResultItem{
+		ResultItem: ResultItem{
+			Kind: ResultItemCompetition, CompetitionSessionID: 11,
+			DisplayOrder: 1, RevealMethod: RevealSequentialPodium,
+		},
+		RevealSeed: 73,
+	}
+	taken, err := TakePrizegivingResultItem(locked, ResultItemStageState{}, startedAt)
+	if err != nil {
+		t.Fatalf("Take Result Item: %v", err)
+	}
+	revealing, _, err := StartPrizegivingReveal(locked, taken, startedAt)
+	if err != nil {
+		t.Fatalf("start Result Reveal: %v", err)
+	}
+	if _, err = CompletePrizegivingReveal(
+		locked,
+		revealing,
+		startedAt.Add(2*time.Second),
+	); !errors.Is(err, ErrResultRevealRunning) {
+		t.Fatalf("early Reveal completion error = %v", err)
+	}
+	revealed, err := CompletePrizegivingReveal(
+		locked,
+		revealing,
+		startedAt.Add(3*time.Second),
+	)
+	if err != nil {
+		t.Fatalf("complete Result Reveal: %v", err)
+	}
+	if revealed.Status != ResultItemRevealed ||
+		revealed.RevealCompletedAt != startedAt.Add(3*time.Second) {
+		t.Fatalf("completed Result Reveal = %+v", revealed)
+	}
+	replayedState, replay, err := ReplayPrizegivingReveal(
+		locked,
+		revealed,
+		startedAt.Add(time.Minute),
+	)
+	if err != nil {
+		t.Fatalf("Replay Result Reveal: %v", err)
+	}
+	if replayedState != revealed || replay.Item != locked ||
+		replay.RevealSeed != locked.RevealSeed ||
+		replay.StartedAt != startedAt.Add(time.Minute) {
+		t.Fatalf("Replay state=%+v presentation=%+v", replayedState, replay)
+	}
+
+	skipFinal, err := SkipPrizegivingResultToFinal(
+		locked,
+		taken,
+		startedAt.Add(time.Second),
+	)
+	if err != nil {
+		t.Fatalf("Skip Result to Final: %v", err)
+	}
+	if skipFinal.Status != ResultItemRevealed ||
+		skipFinal.RevealCompletedAt != startedAt.Add(time.Second) {
+		t.Fatalf("Skip to Final state = %+v", skipFinal)
+	}
+	skipped, err := SkipPrizegivingResultFromStage(
+		locked,
+		ResultItemStageState{},
+		startedAt,
+	)
+	if err != nil {
+		t.Fatalf("Skip Result from Stage: %v", err)
+	}
+	if skipped.Status != ResultItemSkipped {
+		t.Fatalf("Skip from Stage state = %+v", skipped)
+	}
+}
+
+func TestPrizegivingEndListsEveryUnresolvedResultItem(t *testing.T) {
+	now := time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
+	noPublic := LockedResultItem{
+		ResultItem: ResultItem{
+			Kind: ResultItemNoPublicResults, CompetitionSessionID: 12,
+			DisplayOrder: 2, RevealMethod: RevealStatic,
+		},
+		RevealSeed: 74,
+	}
+	finalOnTake, err := TakePrizegivingResultItem(
+		noPublic,
+		ResultItemStageState{},
+		now,
+	)
+	if err != nil {
+		t.Fatalf("Take No Public Results: %v", err)
+	}
+	if finalOnTake.Status != ResultItemRevealed {
+		t.Fatalf("No Public Results Take = %+v", finalOnTake)
+	}
+	pending := ResultItemRef{
+		Kind: ResultItemCompetition, CompetitionSessionID: 11, DisplayOrder: 1,
+	}
+	unresolved := UnresolvedPrizegivingResultItems(
+		[]LockedResultItem{
+			{ResultItem: ResultItem{
+				Kind: pending.Kind, CompetitionSessionID: pending.CompetitionSessionID,
+				DisplayOrder: 1, RevealMethod: RevealStatic,
+			}},
+			noPublic,
+		},
+		[]ResultItemStageState{finalOnTake},
+	)
+	if !reflect.DeepEqual(unresolved, []ResultItemRef{pending}) {
+		t.Fatalf("unresolved Result Items = %+v", unresolved)
 	}
 }
 

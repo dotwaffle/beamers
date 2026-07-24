@@ -186,6 +186,47 @@ func (handler *Handler) DeferEntry(
 	return connect.NewResponse(&programv1.DeferEntryResponse{Channel: channel}), nil
 }
 
+// ActOnResult reveals, completes, replays, or skips one locked Result.
+func (handler *Handler) ActOnResult(
+	ctx context.Context,
+	request *connect.Request[programv1.ActOnResultRequest],
+) (*connect.Response[programv1.ActOnResultResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	acted, err := handler.service.ActOnResult(
+		ctx,
+		actor,
+		programcontrol.ResultActionInput{
+			EventID: int(request.Msg.GetEventId()), SessionID: int(request.Msg.GetSessionId()),
+			CommandID: request.Msg.GetCommandId(),
+			Action:    resultAction(request.Msg.GetAction()),
+			Item:      programItemFromMessage(request.Msg.GetItem()),
+			ExpectedProgramRevision: int(
+				request.Msg.GetExpectedProgramRevision(),
+			),
+			ExpectedControlRevision: int(
+				request.Msg.GetExpectedControlStateRevision(),
+			),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if acted.Committed {
+		handler.displayStream.Notify()
+		handler.programStream.Notify()
+	}
+	channel, err := handler.channel(ctx, acted.State, true)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(
+		&programv1.ActOnResultResponse{Channel: channel},
+	), nil
+}
+
 func (handler *Handler) channel(
 	ctx context.Context,
 	state programcontrol.State,
@@ -250,6 +291,16 @@ func controlAction(value programv1.ControlAction) programcontrol.ControlAction {
 	}[value]
 }
 
+func resultAction(value programv1.ResultAction) programcontrol.ResultAction {
+	return map[programv1.ResultAction]programcontrol.ResultAction{
+		programv1.ResultAction_RESULT_ACTION_REVEAL:          programcontrol.ResultReveal,
+		programv1.ResultAction_RESULT_ACTION_COMPLETE_REVEAL: programcontrol.ResultCompleteReveal,
+		programv1.ResultAction_RESULT_ACTION_REPLAY_REVEAL:   programcontrol.ResultReplayReveal,
+		programv1.ResultAction_RESULT_ACTION_SKIP_TO_FINAL:   programcontrol.ResultSkipToFinal,
+		programv1.ResultAction_RESULT_ACTION_SKIP_FROM_STAGE: programcontrol.ResultSkipFromStage,
+	}[value]
+}
+
 func programItemFromMessage(found *programv1.ProgramItem) store.ProgramItem {
 	if found == nil {
 		return store.ProgramItem{}
@@ -261,9 +312,11 @@ func programItemFromMessage(found *programv1.ProgramItem) store.ProgramItem {
 			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_STARTING: store.ProgramItemStarting,
 			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_ENTRY:    store.ProgramItemEntry,
 			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_ENDING:   store.ProgramItemEnding,
+			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_RESULT:   store.ProgramItemResult,
 		}[found.GetKind()],
 		EntryID: int(found.GetEntryId()),
 		Retry:   found.GetRetry(),
+		Result:  programResultFromMessage(found.GetResult()),
 	}
 }
 
@@ -278,8 +331,10 @@ func programItemMessage(found store.ProgramItem) *programv1.ProgramItem {
 			store.ProgramItemStarting: programv1.ProgramItemKind_PROGRAM_ITEM_KIND_STARTING,
 			store.ProgramItemEntry:    programv1.ProgramItemKind_PROGRAM_ITEM_KIND_ENTRY,
 			store.ProgramItemEnding:   programv1.ProgramItemKind_PROGRAM_ITEM_KIND_ENDING,
+			store.ProgramItemResult:   programv1.ProgramItemKind_PROGRAM_ITEM_KIND_RESULT,
 		}[found.Kind],
 		EntryId: int64(found.EntryID), Title: found.Title, Retry: found.Retry,
+		Result: ProgramResultMessage(found.Result),
 	}
 }
 
@@ -323,7 +378,9 @@ func connectError(err error) error {
 		return connect.NewError(connect.CodePermissionDenied, err)
 	case errors.Is(err, programcontrol.ErrControlOwned),
 		errors.Is(err, programcontrol.ErrHandoverUnavailable),
-		errors.Is(err, programcontrol.ErrTakeoverConfirmation):
+		errors.Is(err, programcontrol.ErrTakeoverConfirmation),
+		errors.Is(err, programcontrol.ErrResultTransition),
+		errors.Is(err, programcontrol.ErrResultRevealRunning):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, programcontrol.ErrProgramRevision),
 		errors.Is(err, programcontrol.ErrControlRevision),

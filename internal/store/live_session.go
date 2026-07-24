@@ -12,6 +12,7 @@ import (
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessioncancellation"
@@ -33,7 +34,23 @@ var (
 	ErrEventNotActive = errors.New("event is not active")
 	// ErrSessionScopeRequired means the actor cannot control every Session Lane.
 	ErrSessionScopeRequired = errors.New("session Lane scope required")
+	// ErrPrizegivingResultsUnresolved means End found Results not revealed or skipped.
+	ErrPrizegivingResultsUnresolved = errors.New("Prizegiving Results are unresolved")
 )
+
+// PrizegivingResultsUnresolvedError lists every Result blocking Ceremony End.
+type PrizegivingResultsUnresolvedError struct {
+	Items []PrizegivingResultItemRef
+}
+
+func (err *PrizegivingResultsUnresolvedError) Error() string {
+	return ErrPrizegivingResultsUnresolved.Error()
+}
+
+// Unwrap supports stable error classification while preserving item details.
+func (err *PrizegivingResultsUnresolvedError) Unwrap() error {
+	return ErrPrizegivingResultsUnresolved
+}
 
 // SessionRunSnapshot contains immutable Published context captured by Start and
 // the exact Competition Entry order completed once by the first Entry Slide Take.
@@ -267,6 +284,15 @@ func (transaction *CommandTx) EndSession(
 			return LiveSessionState{}, confirmErr
 		}
 	}
+	if version.Type == sessionpublishedversion.TypeCeremony {
+		if unresolvedErr := transaction.requirePrizegivingResultsResolved(
+			ctx,
+			eventID,
+			sessionID,
+		); unresolvedErr != nil {
+			return LiveSessionState{}, unresolvedErr
+		}
+	}
 	communicatedEnd := identity.ForecastEnd
 	run, err := transaction.transaction.SessionRun.Query().Where(
 		sessionrun.SessionIDEQ(sessionID), sessionrun.ActualEndIsNil(),
@@ -313,6 +339,41 @@ func (transaction *CommandTx) EndSession(
 		Lifecycle: updated.Lifecycle.String(), LiveStateRevision: updated.LiveStateRevision,
 		ActualStart: endedRun.ActualStart, ActualEnd: &actualEnd,
 	}, nil
+}
+
+func (transaction *CommandTx) requirePrizegivingResultsResolved(
+	ctx context.Context,
+	eventID, ceremonySessionID int,
+) error {
+	found, err := transaction.transaction.Prizegiving.Query().
+		Where(
+			prizegiving.EventIDEQ(eventID),
+			prizegiving.CeremonySessionIDEQ(ceremonySessionID),
+			prizegiving.LockedEQ(true),
+		).
+		Only(ctx)
+	if ent.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return opaqueError("load Prizegiving before Ceremony End", err)
+	}
+	statuses := make(map[PrizegivingResultItemRef]string, len(found.ItemStates))
+	for _, state := range found.ItemStates {
+		statuses[prizegivingItemRef(state.ItemRef)] = state.Status
+	}
+	unresolved := make([]PrizegivingResultItemRef, 0)
+	for _, item := range found.PreflightLock.Sequence {
+		ref := prizegivingItemRef(item.Item.ItemRef)
+		status := statuses[ref]
+		if status != "Revealed" && status != "Skipped" {
+			unresolved = append(unresolved, ref)
+		}
+	}
+	if len(unresolved) > 0 {
+		return &PrizegivingResultsUnresolvedError{Items: unresolved}
+	}
+	return nil
 }
 
 type runAmendmentEvidence struct {

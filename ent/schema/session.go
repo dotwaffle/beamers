@@ -7,6 +7,8 @@ import (
 	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+
+	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 )
 
 // Session is the stable identity of one planned unit within a Rundown.
@@ -57,9 +59,10 @@ func (Session) Fields() []ent.Field {
 		field.Time("entry_order_locked_at").Optional(),
 		field.Int("entry_order_revision").Default(0).NonNegative(),
 		field.Enum("program_output_kind").
-			Values("Standby", "Upcoming", "Starting", "Entry", "Ending").
+			Values("Standby", "Upcoming", "Starting", "Entry", "Ending", "Result").
 			Default("Standby"),
 		field.Int("program_output_entry_id").Optional().Nillable().Positive(),
+		field.JSON("program_output_result", prizegivingvalue.ProgramOutput{}).Optional(),
 		field.Int("program_output_revision").Default(0).NonNegative(),
 		field.Int("program_cursor").Default(-1),
 		field.Time("program_output_taken_at").Optional(),

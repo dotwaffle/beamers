@@ -41,6 +41,8 @@ func (Prizegiving) Fields() []ent.Field {
 		field.JSON("results_text_template", prizegivingvalue.Template{}).Optional(),
 		field.Bool("locked").Default(false),
 		field.JSON("preflight_lock", prizegivingvalue.Lock{}).Optional(),
+		field.Int("operation_revision").Default(0).NonNegative(),
+		field.JSON("item_states", []prizegivingvalue.StageState{}).Optional(),
 		field.Int("locked_by_account_id").Optional().Nillable().Positive(),
 		field.Time("locked_at").Optional().Nillable(),
 		field.Int("created_by_account_id").Positive().Immutable(),

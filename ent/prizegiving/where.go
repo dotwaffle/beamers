@@ -75,6 +75,11 @@ func Locked(v bool) predicate.Prizegiving {
 	return predicate.Prizegiving(sql.FieldEQ(FieldLocked, v))
 }
 
+// OperationRevision applies equality check predicate on the "operation_revision" field. It's identical to OperationRevisionEQ.
+func OperationRevision(v int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldEQ(FieldOperationRevision, v))
+}
+
 // LockedByAccountID applies equality check predicate on the "locked_by_account_id" field. It's identical to LockedByAccountIDEQ.
 func LockedByAccountID(v int) predicate.Prizegiving {
 	return predicate.Prizegiving(sql.FieldEQ(FieldLockedByAccountID, v))
@@ -233,6 +238,56 @@ func PreflightLockIsNil() predicate.Prizegiving {
 // PreflightLockNotNil applies the NotNil predicate on the "preflight_lock" field.
 func PreflightLockNotNil() predicate.Prizegiving {
 	return predicate.Prizegiving(sql.FieldNotNull(FieldPreflightLock))
+}
+
+// OperationRevisionEQ applies the EQ predicate on the "operation_revision" field.
+func OperationRevisionEQ(v int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldEQ(FieldOperationRevision, v))
+}
+
+// OperationRevisionNEQ applies the NEQ predicate on the "operation_revision" field.
+func OperationRevisionNEQ(v int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldNEQ(FieldOperationRevision, v))
+}
+
+// OperationRevisionIn applies the In predicate on the "operation_revision" field.
+func OperationRevisionIn(vs ...int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldIn(FieldOperationRevision, vs...))
+}
+
+// OperationRevisionNotIn applies the NotIn predicate on the "operation_revision" field.
+func OperationRevisionNotIn(vs ...int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldNotIn(FieldOperationRevision, vs...))
+}
+
+// OperationRevisionGT applies the GT predicate on the "operation_revision" field.
+func OperationRevisionGT(v int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldGT(FieldOperationRevision, v))
+}
+
+// OperationRevisionGTE applies the GTE predicate on the "operation_revision" field.
+func OperationRevisionGTE(v int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldGTE(FieldOperationRevision, v))
+}
+
+// OperationRevisionLT applies the LT predicate on the "operation_revision" field.
+func OperationRevisionLT(v int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldLT(FieldOperationRevision, v))
+}
+
+// OperationRevisionLTE applies the LTE predicate on the "operation_revision" field.
+func OperationRevisionLTE(v int) predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldLTE(FieldOperationRevision, v))
+}
+
+// ItemStatesIsNil applies the IsNil predicate on the "item_states" field.
+func ItemStatesIsNil() predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldIsNull(FieldItemStates))
+}
+
+// ItemStatesNotNil applies the NotNil predicate on the "item_states" field.
+func ItemStatesNotNil() predicate.Prizegiving {
+	return predicate.Prizegiving(sql.FieldNotNull(FieldItemStates))
 }
 
 // LockedByAccountIDEQ applies the EQ predicate on the "locked_by_account_id" field.

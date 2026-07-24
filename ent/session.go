@@ -16,6 +16,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
+	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 )
 
 // Session is the model entity for the Session schema.
@@ -75,6 +76,8 @@ type Session struct {
 	ProgramOutputKind session.ProgramOutputKind `json:"program_output_kind,omitempty"`
 	// ProgramOutputEntryID holds the value of the "program_output_entry_id" field.
 	ProgramOutputEntryID *int `json:"program_output_entry_id,omitempty"`
+	// ProgramOutputResult holds the value of the "program_output_result" field.
+	ProgramOutputResult prizegivingvalue.ProgramOutput `json:"program_output_result,omitempty"`
 	// ProgramOutputRevision holds the value of the "program_output_revision" field.
 	ProgramOutputRevision int `json:"program_output_revision,omitempty"`
 	// ProgramCursor holds the value of the "program_cursor" field.
@@ -236,7 +239,7 @@ func (*Session) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case session.FieldForecastLaneIds, session.FieldForecastLocationIds, session.FieldEntryOrderManualIds, session.FieldLockedEntryOrderIds:
+		case session.FieldForecastLaneIds, session.FieldForecastLocationIds, session.FieldEntryOrderManualIds, session.FieldLockedEntryOrderIds, session.FieldProgramOutputResult:
 			values[i] = new([]byte)
 		case session.FieldRequireEntryReview, session.FieldFileDeliveryRequired:
 			values[i] = new(sql.NullBool)
@@ -435,6 +438,14 @@ func (_m *Session) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.ProgramOutputEntryID = new(int)
 				*_m.ProgramOutputEntryID = int(value.Int64)
+			}
+		case session.FieldProgramOutputResult:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field program_output_result", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.ProgramOutputResult); err != nil {
+					return fmt.Errorf("unmarshal field program_output_result: %w", err)
+				}
 			}
 		case session.FieldProgramOutputRevision:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -651,6 +662,9 @@ func (_m *Session) String() string {
 		builder.WriteString("program_output_entry_id=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
+	builder.WriteString(", ")
+	builder.WriteString("program_output_result=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ProgramOutputResult))
 	builder.WriteString(", ")
 	builder.WriteString("program_output_revision=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ProgramOutputRevision))

@@ -1,6 +1,8 @@
 // Package prizegivingvalue defines persisted Prizegiving plan value objects.
 package prizegivingvalue
 
+import "time"
+
 // ItemRef identifies one ordered Result Item.
 type ItemRef struct {
 	Kind                 string `json:"kind"`
@@ -44,4 +46,23 @@ type Lock struct {
 	Sequence                 []LockedItem      `json:"sequence"`
 	PublicationOrder         []ItemRef         `json:"publication_order"`
 	Template                 Template          `json:"template"`
+}
+
+// StageState is one Result Item's durable presentation outcome.
+type StageState struct {
+	ItemRef
+	Status              string    `json:"status"`
+	TakenAt             time.Time `json:"taken_at,omitzero"`
+	RevealStartedAt     time.Time `json:"reveal_started_at,omitzero"`
+	RevealDurationNanos int64     `json:"reveal_duration_nanos,omitempty"`
+	RevealCompletedAt   time.Time `json:"reveal_completed_at,omitzero"`
+	SkippedAt           time.Time `json:"skipped_at,omitzero"`
+}
+
+// ProgramOutput identifies one Result Item presentation run.
+type ProgramOutput struct {
+	ItemRef
+	Replay        bool      `json:"replay,omitempty"`
+	StartedAt     time.Time `json:"started_at,omitzero"`
+	DurationNanos int64     `json:"duration_nanos,omitempty"`
 }

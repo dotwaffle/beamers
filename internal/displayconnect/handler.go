@@ -16,6 +16,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/displays"
 	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/displayviews"
+	"github.com/dotwaffle/beamers/internal/programconnect"
 	"github.com/dotwaffle/beamers/internal/stagetimer"
 )
 
@@ -233,9 +234,11 @@ func snapshotMessage(
 				"Starting": programv1.ProgramItemKind_PROGRAM_ITEM_KIND_STARTING,
 				"Entry":    programv1.ProgramItemKind_PROGRAM_ITEM_KIND_ENTRY,
 				"Ending":   programv1.ProgramItemKind_PROGRAM_ITEM_KIND_ENDING,
+				"Result":   programv1.ProgramItemKind_PROGRAM_ITEM_KIND_RESULT,
 			}[found.ProgramOutput.Kind],
 			EntryId: int64(found.ProgramOutput.EntryID),
 			Title:   found.ProgramOutput.Title,
+			Result:  programconnect.ProgramResultMessage(found.ProgramOutput.Result),
 		}
 	}
 	for _, item := range found.Sessions {

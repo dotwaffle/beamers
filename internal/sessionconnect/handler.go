@@ -767,6 +767,8 @@ func connectError(err error) error {
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, sessioncontrol.ErrDeferredEntriesConfirmation):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
+	case errors.Is(err, sessioncontrol.ErrPrizegivingResultsUnresolved):
+		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, sessioncontrol.ErrDeferredEntriesPreviewStale):
 		return connect.NewError(connect.CodeAborted, err)
 	case errors.Is(err, sessioncontrol.ErrLiveDetailConfirmation):

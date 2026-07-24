@@ -1210,6 +1210,16 @@ func ProgramOutputEntryIDNotNil() predicate.Session {
 	return predicate.Session(sql.FieldNotNull(FieldProgramOutputEntryID))
 }
 
+// ProgramOutputResultIsNil applies the IsNil predicate on the "program_output_result" field.
+func ProgramOutputResultIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldProgramOutputResult))
+}
+
+// ProgramOutputResultNotNil applies the NotNil predicate on the "program_output_result" field.
+func ProgramOutputResultNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldProgramOutputResult))
+}
+
 // ProgramOutputRevisionEQ applies the EQ predicate on the "program_output_revision" field.
 func ProgramOutputRevisionEQ(v int) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldProgramOutputRevision, v))

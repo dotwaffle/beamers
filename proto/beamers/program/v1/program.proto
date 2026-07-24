@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package beamers.program.v1;
 
+import "beamers/results/v1/results.proto";
+import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/dotwaffle/beamers/gen/beamers/program/v1;programv1";
@@ -12,6 +14,7 @@ service ProgramControlService {
   rpc SelectPreview(SelectPreviewRequest) returns (SelectPreviewResponse);
   rpc Take(TakeRequest) returns (TakeResponse);
   rpc DeferEntry(DeferEntryRequest) returns (DeferEntryResponse);
+  rpc ActOnResult(ActOnResultRequest) returns (ActOnResultResponse);
 }
 
 enum ProgramItemKind {
@@ -21,6 +24,34 @@ enum ProgramItemKind {
   PROGRAM_ITEM_KIND_STARTING = 3;
   PROGRAM_ITEM_KIND_ENTRY = 4;
   PROGRAM_ITEM_KIND_ENDING = 5;
+  PROGRAM_ITEM_KIND_RESULT = 6;
+}
+
+enum ResultStageStatus {
+  RESULT_STAGE_STATUS_UNSPECIFIED = 0;
+  RESULT_STAGE_STATUS_PENDING = 1;
+  RESULT_STAGE_STATUS_TAKEN = 2;
+  RESULT_STAGE_STATUS_REVEALING = 3;
+  RESULT_STAGE_STATUS_REVEALED = 4;
+  RESULT_STAGE_STATUS_SKIPPED = 5;
+}
+
+message ProgramResult {
+  beamers.results.v1.ResultItemRef item = 1;
+  beamers.results.v1.RevealMethod reveal_method = 2;
+  beamers.results.v1.RevealMethod reduced_motion_reveal_method = 3;
+  uint64 reveal_seed = 4;
+  ResultStageStatus status = 5;
+  google.protobuf.Timestamp taken_at = 6;
+  google.protobuf.Timestamp reveal_started_at = 7;
+  google.protobuf.Duration reveal_duration = 8;
+  google.protobuf.Timestamp reveal_completed_at = 9;
+  google.protobuf.Timestamp skipped_at = 10;
+  bool replay = 11;
+  google.protobuf.Timestamp presentation_started_at = 12;
+  google.protobuf.Duration presentation_duration = 13;
+  beamers.results.v1.CompetitionResultsDraft competition_results = 14;
+  beamers.results.v1.EventAward event_award = 15;
 }
 
 message ProgramItem {
@@ -28,6 +59,7 @@ message ProgramItem {
   int64 entry_id = 2;
   string title = 3;
   bool retry = 4;
+  ProgramResult result = 5;
 }
 
 message ControlOwner {
@@ -129,5 +161,28 @@ message DeferEntryRequest {
 }
 
 message DeferEntryResponse {
+  ProgramChannel channel = 1;
+}
+
+enum ResultAction {
+  RESULT_ACTION_UNSPECIFIED = 0;
+  RESULT_ACTION_REVEAL = 1;
+  RESULT_ACTION_COMPLETE_REVEAL = 2;
+  RESULT_ACTION_REPLAY_REVEAL = 3;
+  RESULT_ACTION_SKIP_TO_FINAL = 4;
+  RESULT_ACTION_SKIP_FROM_STAGE = 5;
+}
+
+message ActOnResultRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  string command_id = 3;
+  ResultAction action = 4;
+  ProgramItem item = 5;
+  int64 expected_program_revision = 6;
+  int64 expected_control_state_revision = 7;
+}
+
+message ActOnResultResponse {
   ProgramChannel channel = 1;
 }

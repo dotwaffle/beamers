@@ -11,6 +11,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/command"
+	"github.com/dotwaffle/beamers/internal/results"
 	"github.com/dotwaffle/beamers/internal/store"
 )
 
@@ -39,6 +40,10 @@ var (
 	ErrEntryDefer = store.ErrCompetitionEntryDefer
 	// ErrCommandConflict means a Command ID was reused with another payload.
 	ErrCommandConflict = store.ErrCommandConflict
+	// ErrResultTransition means the requested Result action is not valid now.
+	ErrResultTransition = results.ErrResultItemTransition
+	// ErrResultRevealRunning means Reveal completion was requested too early.
+	ErrResultRevealRunning = results.ErrResultRevealRunning
 )
 
 // ControlAction selects one explicit ownership transition.
@@ -110,6 +115,32 @@ type DeferEntryInput struct {
 	ExpectedControlRevision     int
 }
 
+// ResultAction selects one explicit Prizegiving Result transition.
+type ResultAction string
+
+const (
+	// ResultReveal starts the locked Result presentation.
+	ResultReveal ResultAction = "Reveal"
+	// ResultCompleteReveal records completion of a timed Reveal.
+	ResultCompleteReveal ResultAction = "CompleteReveal"
+	// ResultReplayReveal reruns presentation without changing final truth.
+	ResultReplayReveal ResultAction = "ReplayReveal"
+	// ResultSkipToFinal completes the current Result immediately.
+	ResultSkipToFinal ResultAction = "SkipToFinal"
+	// ResultSkipFromStage omits an unpresented Result and advances Preview.
+	ResultSkipFromStage ResultAction = "SkipFromStage"
+)
+
+// ResultActionInput applies one Result transition through the Control Owner.
+type ResultActionInput struct {
+	EventID, SessionID      int
+	CommandID               string
+	Action                  ResultAction
+	Item                    store.ProgramItem
+	ExpectedProgramRevision int
+	ExpectedControlRevision int
+}
+
 // TakeResult distinguishes a new durable commit from an exact receipt replay.
 type TakeResult struct {
 	State     State
@@ -147,6 +178,8 @@ const (
 	rejectionEntryOrderStale      rejectionCode = "competition_entry_order_preview_stale"
 	rejectionEntryRevision        rejectionCode = "competition_entry_revision_conflict"
 	rejectionEntryDefer           rejectionCode = "competition_entry_defer_invalid"
+	rejectionResultTransition     rejectionCode = "prizegiving_result_transition_invalid"
+	rejectionResultRevealRunning  rejectionCode = "prizegiving_result_reveal_running"
 )
 
 type controlReceipt struct {
@@ -333,6 +366,35 @@ func (service *Service) deferIdentity(actor auth.Account, input DeferEntryInput)
 		),
 		Action: "DeferCompetitionEntry", TargetType: "CompetitionEntry",
 		TargetID: strconv.Itoa(input.EntryID), Now: service.now().UTC(),
+	}
+}
+
+func (service *Service) resultIdentity(
+	actor auth.Account,
+	input ResultActionInput,
+) store.CommandIdentity {
+	ref := store.PrizegivingResultItemRef{}
+	if input.Item.Result != nil {
+		ref = input.Item.Result.Ref
+	}
+	return store.CommandIdentity{
+		ActorAccountID: actor.ID, CommandID: input.CommandID,
+		PayloadHash: command.PayloadHash(
+			strconv.Itoa(input.EventID),
+			strconv.Itoa(input.SessionID),
+			string(input.Action),
+			string(input.Item.Kind),
+			ref.Kind,
+			strconv.Itoa(ref.CompetitionSessionID),
+			ref.AwardKey,
+			strconv.Itoa(ref.DisplayOrder),
+			strconv.Itoa(input.ExpectedProgramRevision),
+			strconv.Itoa(input.ExpectedControlRevision),
+		),
+		Action:     "ActOnPrizegivingResult" + string(input.Action),
+		TargetType: "ProgramChannel",
+		TargetID:   strconv.Itoa(input.SessionID),
+		Now:        service.now().UTC(),
 	}
 }
 
@@ -651,17 +713,37 @@ func (service *Service) Take(
 					current, control, rejectionProgramRevision, ErrProgramRevision,
 				), nil
 			}
-			if _, valid := selectItem(current.Items, input.Item); !valid {
+			selected, valid := selectItem(current.Items, input.Item)
+			if !valid {
 				return takeRejection(
 					current, control, rejectionProgramItemInvalid, ErrProgramItem,
 				), nil
 			}
+			var resultState *store.PrizegivingStageState
+			if selected.Kind == store.ProgramItemResult {
+				next, transitionErr := results.TakePrizegivingResultItem(
+					lockedResultItem(selected),
+					resultItemStageState(selected),
+					identity.Now,
+				)
+				if transitionErr != nil {
+					return takeRejection(
+						current,
+						control,
+						rejectionProgramItemInvalid,
+						ErrProgramItem,
+					), nil
+				}
+				converted := prizegivingStageState(next)
+				resultState = &converted
+			}
 			taken, takeErr := transaction.TakeProgramItem(actor.Context(ctx), store.TakeProgramItemParams{
 				EventID: input.EventID, SessionID: input.SessionID,
-				ExpectedRevision: input.ExpectedRevision, Item: input.Item,
+				ExpectedRevision: input.ExpectedRevision, Item: selected,
 				ExpectedEntryOrderRevision: input.ExpectedEntryOrderRevision,
 				EntryOrderFingerprint:      input.EntryOrderFingerprint,
 				Now:                        identity.Now,
+				ResultState:                resultState,
 			})
 			if takeErr != nil {
 				switch {
@@ -826,6 +908,238 @@ func (service *Service) DeferEntry(
 	}, nil
 }
 
+// ActOnResult applies a pure Prizegiving Result transition before a caller
+// notifies Displays.
+func (service *Service) ActOnResult(
+	ctx context.Context,
+	actor auth.Account,
+	input ResultActionInput,
+) (TakeResult, error) {
+	if err := command.ValidateID(input.CommandID); err != nil {
+		return TakeResult{}, err
+	}
+	identity := service.resultIdentity(actor, input)
+	if !actor.CanOperateEvent(input.EventID) {
+		return TakeResult{}, service.auditOperatorRejection(actor.Context(ctx), identity)
+	}
+	if _, err := service.storage.LoadProgramChannel(
+		actor.Context(ctx),
+		input.EventID,
+		input.SessionID,
+	); err != nil {
+		return TakeResult{}, err
+	}
+	owned := service.controlFor(input.SessionID)
+	owned.mu.Lock()
+	defer owned.mu.Unlock()
+	control := owned.state
+	committed := false
+	outcome, err := command.Execute(actor.Context(ctx), command.Plan[takeReceipt]{
+		Storage:  service.storage,
+		Identity: identity,
+		Replay: func(outcome string) (takeReceipt, error) {
+			var replayed takeReceipt
+			if err := store.DecodeCommandReceipt(outcome, &replayed); err != nil {
+				return takeReceipt{}, err
+			}
+			return replayed, nil
+		},
+		Apply: func(transaction *store.CommandTx) (command.Execution[takeReceipt], error) {
+			current, loadErr := transaction.LoadProgramChannel(
+				actor.Context(ctx),
+				input.EventID,
+				input.SessionID,
+			)
+			if loadErr != nil {
+				return command.Execution[takeReceipt]{}, loadErr
+			}
+			if control.revision != input.ExpectedControlRevision {
+				return takeRejection(
+					current,
+					control,
+					rejectionControlRevision,
+					ErrControlRevision,
+				), nil
+			}
+			if !control.hasOwner || control.owner.AccountID != actor.ID {
+				return takeRejection(
+					current,
+					control,
+					rejectionControlOwnerRequired,
+					ErrControlOwnerRequired,
+				), nil
+			}
+			if current.Revision != input.ExpectedProgramRevision {
+				return takeRejection(
+					current,
+					control,
+					rejectionProgramRevision,
+					ErrProgramRevision,
+				), nil
+			}
+			selected, valid := selectItem(current.Items, input.Item)
+			if !valid || selected.Kind != store.ProgramItemResult {
+				return takeRejection(
+					current,
+					control,
+					rejectionProgramItemInvalid,
+					ErrProgramItem,
+				), nil
+			}
+			if input.Action == ResultSkipFromStage &&
+				!programItemEqual(control.preview, selected) {
+				return takeRejection(
+					current,
+					control,
+					rejectionPreviewItemInvalid,
+					ErrPreviewItem,
+				), nil
+			}
+			nextState, presentation, transitionErr := transitionResult(
+				input.Action,
+				selected,
+				current,
+				identity.Now,
+			)
+			if transitionErr != nil {
+				code := rejectionResultTransition
+				if errors.Is(transitionErr, results.ErrResultRevealRunning) {
+					code = rejectionResultRevealRunning
+				}
+				return takeRejection(
+					current,
+					control,
+					code,
+					transitionErr,
+				), nil
+			}
+			var updated store.ProgramChannelState
+			if input.Action == ResultSkipFromStage {
+				updated, loadErr = transaction.SkipPrizegivingResultFromStage(
+					actor.Context(ctx),
+					store.SkipPrizegivingResultFromStageParams{
+						EventID: input.EventID, SessionID: input.SessionID,
+						ExpectedRevision: input.ExpectedProgramRevision,
+						Item:             selected, State: prizegivingStageState(nextState),
+					},
+				)
+			} else {
+				updated, loadErr = transaction.ApplyPrizegivingResultAction(
+					actor.Context(ctx),
+					store.PrizegivingResultActionParams{
+						EventID: input.EventID, SessionID: input.SessionID,
+						ExpectedRevision: input.ExpectedProgramRevision,
+						Item:             selected, State: prizegivingStageState(nextState),
+						Presentation: presentation,
+					},
+				)
+			}
+			if loadErr != nil {
+				return command.Execution[takeReceipt]{}, loadErr
+			}
+			nextControl := control
+			nextControl.preview = updated.Next
+			nextControl.revision++
+			result := takeReceipt{
+				Channel: updated,
+				Control: controlReceiptFrom(nextControl),
+			}
+			encoded, encodeErr := json.Marshal(result)
+			if encodeErr != nil {
+				return command.Execution[takeReceipt]{}, errors.New(
+					"encode Prizegiving Result outcome",
+				)
+			}
+			committed = true
+			return command.Success(result, string(encoded)), nil
+		},
+	})
+	if err != nil {
+		var rejected *store.RejectedCommandError
+		if errors.As(err, &rejected) {
+			err = takeError(rejected.Rejection.Code)
+		}
+		return TakeResult{}, err
+	}
+	if committed {
+		owned.state = outcome.Control.control()
+	}
+	return TakeResult{
+		State:     service.state(outcome.Channel, outcome.Control.control()),
+		Committed: committed,
+	}, nil
+}
+
+func transitionResult(
+	action ResultAction,
+	selected store.ProgramItem,
+	current store.ProgramChannelState,
+	now time.Time,
+) (
+	results.ResultItemStageState,
+	store.PrizegivingPresentationRun,
+	error,
+) {
+	item := lockedResultItem(selected)
+	state := resultItemStageState(selected)
+	switch action {
+	case ResultReveal:
+		if !programItemEqual(current.Output, selected) {
+			return state, store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
+		}
+		next, presentation, err := results.StartPrizegivingReveal(item, state, now)
+		return next, prizegivingPresentationRun(false, presentation), err
+	case ResultCompleteReveal:
+		if !programItemEqual(current.Output, selected) {
+			return state, store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
+		}
+		next, err := results.CompletePrizegivingReveal(item, state, now)
+		return next, existingPresentationRun(current.Output), err
+	case ResultReplayReveal:
+		if !programItemEqual(current.Output, selected) {
+			return state, store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
+		}
+		next, presentation, err := results.ReplayPrizegivingReveal(item, state, now)
+		return next, prizegivingPresentationRun(true, presentation), err
+	case ResultSkipToFinal:
+		if !programItemEqual(current.Output, selected) {
+			return state, store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
+		}
+		next, err := results.SkipPrizegivingResultToFinal(item, state, now)
+		return next, existingPresentationRun(current.Output), err
+	case ResultSkipFromStage:
+		if !programItemEqual(current.Next, selected) {
+			return state, store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
+		}
+		next, err := results.SkipPrizegivingResultFromStage(item, state, now)
+		return next, store.PrizegivingPresentationRun{}, err
+	default:
+		return state, store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
+	}
+}
+
+func prizegivingPresentationRun(
+	replay bool,
+	value results.ResultPresentation,
+) store.PrizegivingPresentationRun {
+	return store.PrizegivingPresentationRun{
+		Replay: replay, StartedAt: value.StartedAt, Duration: value.Duration,
+	}
+}
+
+func existingPresentationRun(
+	item store.ProgramItem,
+) store.PrizegivingPresentationRun {
+	if item.Result == nil {
+		return store.PrizegivingPresentationRun{}
+	}
+	return store.PrizegivingPresentationRun{
+		Replay:    item.Result.Replay,
+		StartedAt: item.Result.PresentationStartedAt,
+		Duration:  item.Result.PresentationDuration,
+	}
+}
+
 func (service *Service) state(channel store.ProgramChannelState, control controlState) State {
 	result := State{Channel: channel, ControlRevision: control.revision, Preview: control.preview}
 	if result.Preview.Kind == "" {
@@ -856,7 +1170,72 @@ func selectItem(items []store.ProgramItem, wanted store.ProgramItem) (store.Prog
 }
 
 func programItemEqual(left, right store.ProgramItem) bool {
-	return left.Kind == right.Kind && left.EntryID == right.EntryID && left.Retry == right.Retry
+	if left.Kind != right.Kind ||
+		left.EntryID != right.EntryID ||
+		left.Retry != right.Retry {
+		return false
+	}
+	if left.Kind != store.ProgramItemResult {
+		return true
+	}
+	return left.Result != nil &&
+		right.Result != nil &&
+		left.Result.Ref == right.Result.Ref
+}
+
+func lockedResultItem(item store.ProgramItem) results.LockedResultItem {
+	if item.Result == nil {
+		return results.LockedResultItem{}
+	}
+	return results.LockedResultItem{
+		ResultItem: results.ResultItem{
+			Kind:                 results.ResultItemKind(item.Result.Ref.Kind),
+			CompetitionSessionID: item.Result.Ref.CompetitionSessionID,
+			AwardKey:             item.Result.Ref.AwardKey,
+			DisplayOrder:         item.Result.Ref.DisplayOrder,
+			RevealMethod:         results.RevealMethod(item.Result.RevealMethod),
+		},
+		RevealSeed: item.Result.RevealSeed,
+	}
+}
+
+func resultItemStageState(item store.ProgramItem) results.ResultItemStageState {
+	if item.Result == nil {
+		return results.ResultItemStageState{}
+	}
+	return results.ResultItemStageState{
+		Ref: results.ResultItemRef{
+			Kind:                 results.ResultItemKind(item.Result.Ref.Kind),
+			CompetitionSessionID: item.Result.Ref.CompetitionSessionID,
+			AwardKey:             item.Result.Ref.AwardKey,
+			DisplayOrder:         item.Result.Ref.DisplayOrder,
+		},
+		Status:            results.ResultItemStageStatus(item.Result.Status),
+		TakenAt:           item.Result.TakenAt,
+		RevealStartedAt:   item.Result.RevealStartedAt,
+		RevealDuration:    item.Result.RevealDuration,
+		RevealCompletedAt: item.Result.RevealCompletedAt,
+		SkippedAt:         item.Result.SkippedAt,
+	}
+}
+
+func prizegivingStageState(
+	value results.ResultItemStageState,
+) store.PrizegivingStageState {
+	return store.PrizegivingStageState{
+		Ref: store.PrizegivingResultItemRef{
+			Kind:                 string(value.Ref.Kind),
+			CompetitionSessionID: value.Ref.CompetitionSessionID,
+			AwardKey:             value.Ref.AwardKey,
+			DisplayOrder:         value.Ref.DisplayOrder,
+		},
+		Status:            string(value.Status),
+		TakenAt:           value.TakenAt,
+		RevealStartedAt:   value.RevealStartedAt,
+		RevealDuration:    value.RevealDuration,
+		RevealCompletedAt: value.RevealCompletedAt,
+		SkippedAt:         value.SkippedAt,
+	}
 }
 
 func controlReceiptFrom(control controlState) controlReceipt {
@@ -958,6 +1337,10 @@ func rejectionError(code, fallback string) error {
 		return ErrEntryRevision
 	case rejectionEntryDefer:
 		return ErrEntryDefer
+	case rejectionResultTransition:
+		return ErrResultTransition
+	case rejectionResultRevealRunning:
+		return ErrResultRevealRunning
 	default:
 		return errors.New(fallback)
 	}

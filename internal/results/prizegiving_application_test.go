@@ -7,10 +7,13 @@ import (
 	"time"
 
 	_ "github.com/dotwaffle/beamers/ent/runtime"
+	"github.com/dotwaffle/beamers/internal/activation"
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/programcontrol"
 	"github.com/dotwaffle/beamers/internal/results"
 	"github.com/dotwaffle/beamers/internal/rundown"
+	"github.com/dotwaffle/beamers/internal/sessioncontrol"
 	"github.com/dotwaffle/beamers/internal/store"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
@@ -176,6 +179,187 @@ func TestPrizegivingPublicCommandsPreflightAndPreview(t *testing.T) {
 		preview.CompetitionResults[0].ID != draft.ID ||
 		preview.CompetitionResults[0].Disposition != results.Publish {
 		t.Fatalf("Prizegiving Preview = %+v", preview)
+	}
+}
+
+func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
+	storage, actor, eventID := openPrizegivingApplicationTest(t)
+	nowValue := time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
+	now := func() time.Time { return nowValue }
+	ceremonyID, competitionID := publishPrizegivingSessions(
+		t,
+		storage,
+		actor,
+		eventID,
+		now,
+	)
+	resultsService, err := results.New(storage, now)
+	if err != nil {
+		t.Fatalf("create Results service: %v", err)
+	}
+	if _, err = resultsService.DesignatePrizegiving(
+		t.Context(),
+		actor,
+		results.DesignatePrizegivingInput{
+			EventID: eventID, CeremonySessionID: ceremonyID,
+			CommandID: "designate-public-program-prizegiving",
+		},
+	); err != nil {
+		t.Fatalf("designate Prizegiving: %v", err)
+	}
+	draft, err := resultsService.Save(t.Context(), actor, results.SaveInput{
+		EventID: eventID, SessionID: competitionID,
+		CommandID: "save-public-program-results", Disposition: results.Publish,
+		Score: results.ScorePolicy{Type: results.None},
+	})
+	if err != nil {
+		t.Fatalf("save Results: %v", err)
+	}
+	if _, err = resultsService.MarkReady(
+		t.Context(),
+		actor,
+		results.MarkReadyInput{
+			EventID: eventID, SessionID: competitionID,
+			CommandID:        "ready-public-program-results",
+			ExpectedRevision: draft.Revision,
+		},
+	); err != nil {
+		t.Fatalf("mark Results Ready: %v", err)
+	}
+	item := results.ResultItem{
+		Kind: results.ResultItemCompetition, CompetitionSessionID: competitionID,
+		DisplayOrder: 1, RevealMethod: results.RevealStatic,
+	}
+	plan, err := resultsService.SavePrizegivingPlan(
+		t.Context(),
+		actor,
+		results.SavePrizegivingPlanInput{
+			EventID: eventID, CeremonySessionID: ceremonyID,
+			CommandID:             "save-public-program-plan",
+			CompetitionSessionIDs: []int{competitionID},
+			Sequence:              []results.ResultItem{item},
+			PublicationOrder:      []results.ResultItemRef{item.Ref(1)},
+			Template: results.TextTemplate{
+				Revision: 1, Source: "{{.EventTitle}}\n",
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("save Prizegiving plan: %v", err)
+	}
+	if _, err = resultsService.RunPrizegivingPreflight(
+		t.Context(),
+		actor,
+		results.RunPrizegivingPreflightInput{
+			EventID: eventID, CeremonySessionID: ceremonyID,
+			CommandID:        "lock-public-program-plan",
+			ExpectedRevision: plan.Revision,
+		},
+	); err != nil {
+		t.Fatalf("lock Prizegiving plan: %v", err)
+	}
+	activationService, err := activation.New(storage, now)
+	if err != nil {
+		t.Fatalf("create Activation service: %v", err)
+	}
+	preflight, err := activationService.Preflight(t.Context(), actor, eventID)
+	if err != nil {
+		t.Fatalf("preflight Event activation: %v", err)
+	}
+	if _, err = activationService.Activate(
+		t.Context(),
+		actor,
+		activation.ActivateInput{
+			EventID: eventID, CommandID: "activate-public-program-event",
+			Confirmation: preflight.Confirmation,
+		},
+	); err != nil {
+		t.Fatalf("activate Event: %v", err)
+	}
+	sessionService, err := sessioncontrol.New(storage, now)
+	if err != nil {
+		t.Fatalf("create Session control: %v", err)
+	}
+	if _, err = sessionService.Start(
+		t.Context(),
+		actor,
+		sessioncontrol.StartInput{
+			EventID: eventID, SessionID: ceremonyID,
+			CommandID: "start-public-program-prizegiving",
+		},
+	); err != nil {
+		t.Fatalf("start Prizegiving: %v", err)
+	}
+	programService, err := programcontrol.New(storage, now)
+	if err != nil {
+		t.Fatalf("create Program control: %v", err)
+	}
+	claimed, err := programService.Control(
+		t.Context(),
+		actor,
+		programcontrol.ControlInput{
+			EventID: eventID, SessionID: ceremonyID,
+			Action: programcontrol.ControlClaim, CommandID: "claim-public-program",
+		},
+	)
+	if err != nil {
+		t.Fatalf("claim Program Channel: %v", err)
+	}
+	taken, err := programService.Take(t.Context(), actor, programcontrol.TakeInput{
+		EventID: eventID, SessionID: ceremonyID,
+		CommandID:               "take-public-program-result",
+		ExpectedRevision:        claimed.Channel.Revision,
+		ExpectedControlRevision: claimed.ControlRevision,
+		Item:                    claimed.Preview,
+	})
+	if err != nil {
+		t.Fatalf("Take Result: %v", err)
+	}
+	if !taken.Committed ||
+		taken.State.Channel.Output.Result == nil ||
+		taken.State.Channel.Output.Result.Status != "Taken" {
+		t.Fatalf("Taken Program Result = %+v", taken)
+	}
+	revealed, err := programService.ActOnResult(
+		t.Context(),
+		actor,
+		programcontrol.ResultActionInput{
+			EventID: eventID, SessionID: ceremonyID,
+			CommandID:               "reveal-public-program-result",
+			Action:                  programcontrol.ResultReveal,
+			Item:                    taken.State.Channel.Output,
+			ExpectedProgramRevision: taken.State.Channel.Revision,
+			ExpectedControlRevision: taken.State.ControlRevision,
+		},
+	)
+	if err != nil {
+		t.Fatalf("Reveal Result: %v", err)
+	}
+	if !revealed.Committed ||
+		revealed.State.Channel.Output.Result.Status != "Revealed" ||
+		revealed.State.Channel.Output.Result.CompetitionResults.ID != draft.ID {
+		t.Fatalf("Revealed Program Result = %+v", revealed)
+	}
+	replayed, err := programService.ActOnResult(
+		t.Context(),
+		actor,
+		programcontrol.ResultActionInput{
+			EventID: eventID, SessionID: ceremonyID,
+			CommandID:               "replay-public-program-result",
+			Action:                  programcontrol.ResultReplayReveal,
+			Item:                    revealed.State.Channel.Output,
+			ExpectedProgramRevision: revealed.State.Channel.Revision,
+			ExpectedControlRevision: revealed.State.ControlRevision,
+		},
+	)
+	if err != nil {
+		t.Fatalf("Replay Result: %v", err)
+	}
+	if !replayed.Committed ||
+		!replayed.State.Channel.Output.Result.Replay ||
+		replayed.State.Channel.Output.Result.RevealSeed !=
+			revealed.State.Channel.Output.Result.RevealSeed {
+		t.Fatalf("Replayed Program Result = %+v", replayed)
 	}
 }
 

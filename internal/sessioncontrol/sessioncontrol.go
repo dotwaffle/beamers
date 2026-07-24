@@ -39,6 +39,8 @@ var (
 	ErrDeferredEntriesConfirmation = store.ErrDeferredEntriesConfirmation
 	// ErrDeferredEntriesPreviewStale means deferred Entries changed after preflight.
 	ErrDeferredEntriesPreviewStale = store.ErrDeferredEntriesPreviewStale
+	// ErrPrizegivingResultsUnresolved means Results still block Ceremony End.
+	ErrPrizegivingResultsUnresolved = store.ErrPrizegivingResultsUnresolved
 	// ErrCommandConflict means a Command ID was reused for different work.
 	ErrCommandConflict = store.ErrCommandConflict
 	// ErrLiveDetailConfirmation means a correction was not explicitly confirmed.

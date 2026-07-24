@@ -13,6 +13,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/displayoverride"
 	"github.com/dotwaffle/beamers/ent/displayoverridestate"
 	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
 	"github.com/dotwaffle/beamers/internal/publictime"
@@ -163,13 +164,21 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 			return DisplaySnapshotState{}, sessionErr
 		}
 		result.Sessions = append(result.Sessions, sessionState)
+		programSession, programErr := isProgramChannelSession(
+			internalContext,
+			client,
+			result.ActiveEventID,
+			publishedSession,
+		)
+		if programErr != nil {
+			return DisplaySnapshotState{}, programErr
+		}
 		if result.ViewKey == "competition-output" &&
-			publishedSession.Type == "Competition" &&
+			programSession &&
 			slices.Contains(sessionState.LocationIDs, result.LocationID) &&
 			(result.ProgramChannelID == 0 || sessionState.Lifecycle == "Live") {
 			channel, channelErr := loadProgramChannel(
-				internalContext, client.Session, client.CompetitionEntry, client.Event,
-				result.ActiveEventID, publishedSession.ID,
+				internalContext, client, result.ActiveEventID, publishedSession.ID,
 			)
 			if channelErr != nil {
 				return DisplaySnapshotState{}, channelErr
@@ -392,7 +401,16 @@ func competitionOutputProgramChannelID(
 	}
 	selected := 0
 	for _, publishedSession := range published.Sessions {
-		if publishedSession.Type != "Competition" {
+		programSession, programErr := isProgramChannelSession(
+			ctx,
+			client,
+			eventID,
+			publishedSession,
+		)
+		if programErr != nil {
+			return 0, programErr
+		}
+		if !programSession {
 			continue
 		}
 		sessionState, sessionErr := loadDisplaySession(ctx, client, publishedSession)
@@ -410,6 +428,35 @@ func competitionOutputProgramChannelID(
 		}
 	}
 	return selected, nil
+}
+
+func isProgramChannelSession(
+	ctx context.Context,
+	client *ent.Client,
+	eventID int,
+	published PublishedSession,
+) (bool, error) {
+	switch published.Type {
+	case "Competition":
+		return true, nil
+	case "Ceremony":
+		locked, err := client.Prizegiving.Query().
+			Where(
+				prizegiving.EventIDEQ(eventID),
+				prizegiving.CeremonySessionIDEQ(published.ID),
+				prizegiving.LockedEQ(true),
+			).
+			Exist(ctx)
+		if err != nil {
+			return false, opaqueError(
+				"check locked Prizegiving Program Channel",
+				err,
+			)
+		}
+		return locked, nil
+	default:
+		return false, nil
+	}
 }
 
 func publishedLocationName(locations []PublishedLocation, locationID int) string {

@@ -31325,6 +31325,10 @@ type PrizegivingMutation struct {
 	results_text_template         *prizegivingvalue.Template
 	locked                        *bool
 	preflight_lock                *prizegivingvalue.Lock
+	operation_revision            *int
+	addoperation_revision         *int
+	item_states                   *[]prizegivingvalue.StageState
+	appenditem_states             []prizegivingvalue.StageState
 	locked_by_account_id          *int
 	addlocked_by_account_id       *int
 	locked_at                     *time.Time
@@ -31899,6 +31903,127 @@ func (m *PrizegivingMutation) ResetPreflightLock() {
 	delete(m.clearedFields, prizegiving.FieldPreflightLock)
 }
 
+// SetOperationRevision sets the "operation_revision" field.
+func (m *PrizegivingMutation) SetOperationRevision(i int) {
+	m.operation_revision = &i
+	m.addoperation_revision = nil
+}
+
+// OperationRevision returns the value of the "operation_revision" field in the mutation.
+func (m *PrizegivingMutation) OperationRevision() (r int, exists bool) {
+	v := m.operation_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOperationRevision returns the old "operation_revision" field's value of the Prizegiving entity.
+// If the Prizegiving object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PrizegivingMutation) OldOperationRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOperationRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOperationRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOperationRevision: %w", err)
+	}
+	return oldValue.OperationRevision, nil
+}
+
+// AddOperationRevision adds i to the "operation_revision" field.
+func (m *PrizegivingMutation) AddOperationRevision(i int) {
+	if m.addoperation_revision != nil {
+		*m.addoperation_revision += i
+	} else {
+		m.addoperation_revision = &i
+	}
+}
+
+// AddedOperationRevision returns the value that was added to the "operation_revision" field in this mutation.
+func (m *PrizegivingMutation) AddedOperationRevision() (r int, exists bool) {
+	v := m.addoperation_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetOperationRevision resets all changes to the "operation_revision" field.
+func (m *PrizegivingMutation) ResetOperationRevision() {
+	m.operation_revision = nil
+	m.addoperation_revision = nil
+}
+
+// SetItemStates sets the "item_states" field.
+func (m *PrizegivingMutation) SetItemStates(ps []prizegivingvalue.StageState) {
+	m.item_states = &ps
+	m.appenditem_states = nil
+}
+
+// ItemStates returns the value of the "item_states" field in the mutation.
+func (m *PrizegivingMutation) ItemStates() (r []prizegivingvalue.StageState, exists bool) {
+	v := m.item_states
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldItemStates returns the old "item_states" field's value of the Prizegiving entity.
+// If the Prizegiving object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PrizegivingMutation) OldItemStates(ctx context.Context) (v []prizegivingvalue.StageState, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldItemStates is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldItemStates requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldItemStates: %w", err)
+	}
+	return oldValue.ItemStates, nil
+}
+
+// AppendItemStates adds ps to the "item_states" field.
+func (m *PrizegivingMutation) AppendItemStates(ps []prizegivingvalue.StageState) {
+	m.appenditem_states = append(m.appenditem_states, ps...)
+}
+
+// AppendedItemStates returns the list of values that were appended to the "item_states" field in this mutation.
+func (m *PrizegivingMutation) AppendedItemStates() ([]prizegivingvalue.StageState, bool) {
+	if len(m.appenditem_states) == 0 {
+		return nil, false
+	}
+	return m.appenditem_states, true
+}
+
+// ClearItemStates clears the value of the "item_states" field.
+func (m *PrizegivingMutation) ClearItemStates() {
+	m.item_states = nil
+	m.appenditem_states = nil
+	m.clearedFields[prizegiving.FieldItemStates] = struct{}{}
+}
+
+// ItemStatesCleared returns if the "item_states" field was cleared in this mutation.
+func (m *PrizegivingMutation) ItemStatesCleared() bool {
+	_, ok := m.clearedFields[prizegiving.FieldItemStates]
+	return ok
+}
+
+// ResetItemStates resets all changes to the "item_states" field.
+func (m *PrizegivingMutation) ResetItemStates() {
+	m.item_states = nil
+	m.appenditem_states = nil
+	delete(m.clearedFields, prizegiving.FieldItemStates)
+}
+
 // SetLockedByAccountID sets the "locked_by_account_id" field.
 func (m *PrizegivingMutation) SetLockedByAccountID(i int) {
 	m.locked_by_account_id = &i
@@ -32265,7 +32390,7 @@ func (m *PrizegivingMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *PrizegivingMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 15)
 	if m.event != nil {
 		fields = append(fields, prizegiving.FieldEventID)
 	}
@@ -32292,6 +32417,12 @@ func (m *PrizegivingMutation) Fields() []string {
 	}
 	if m.preflight_lock != nil {
 		fields = append(fields, prizegiving.FieldPreflightLock)
+	}
+	if m.operation_revision != nil {
+		fields = append(fields, prizegiving.FieldOperationRevision)
+	}
+	if m.item_states != nil {
+		fields = append(fields, prizegiving.FieldItemStates)
 	}
 	if m.locked_by_account_id != nil {
 		fields = append(fields, prizegiving.FieldLockedByAccountID)
@@ -32331,6 +32462,10 @@ func (m *PrizegivingMutation) Field(name string) (ent.Value, bool) {
 		return m.Locked()
 	case prizegiving.FieldPreflightLock:
 		return m.PreflightLock()
+	case prizegiving.FieldOperationRevision:
+		return m.OperationRevision()
+	case prizegiving.FieldItemStates:
+		return m.ItemStates()
 	case prizegiving.FieldLockedByAccountID:
 		return m.LockedByAccountID()
 	case prizegiving.FieldLockedAt:
@@ -32366,6 +32501,10 @@ func (m *PrizegivingMutation) OldField(ctx context.Context, name string) (ent.Va
 		return m.OldLocked(ctx)
 	case prizegiving.FieldPreflightLock:
 		return m.OldPreflightLock(ctx)
+	case prizegiving.FieldOperationRevision:
+		return m.OldOperationRevision(ctx)
+	case prizegiving.FieldItemStates:
+		return m.OldItemStates(ctx)
 	case prizegiving.FieldLockedByAccountID:
 		return m.OldLockedByAccountID(ctx)
 	case prizegiving.FieldLockedAt:
@@ -32446,6 +32585,20 @@ func (m *PrizegivingMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetPreflightLock(v)
 		return nil
+	case prizegiving.FieldOperationRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOperationRevision(v)
+		return nil
+	case prizegiving.FieldItemStates:
+		v, ok := value.([]prizegivingvalue.StageState)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetItemStates(v)
+		return nil
 	case prizegiving.FieldLockedByAccountID:
 		v, ok := value.(int)
 		if !ok {
@@ -32485,6 +32638,9 @@ func (m *PrizegivingMutation) AddedFields() []string {
 	if m.addrevision != nil {
 		fields = append(fields, prizegiving.FieldRevision)
 	}
+	if m.addoperation_revision != nil {
+		fields = append(fields, prizegiving.FieldOperationRevision)
+	}
 	if m.addlocked_by_account_id != nil {
 		fields = append(fields, prizegiving.FieldLockedByAccountID)
 	}
@@ -32501,6 +32657,8 @@ func (m *PrizegivingMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
 	case prizegiving.FieldRevision:
 		return m.AddedRevision()
+	case prizegiving.FieldOperationRevision:
+		return m.AddedOperationRevision()
 	case prizegiving.FieldLockedByAccountID:
 		return m.AddedLockedByAccountID()
 	case prizegiving.FieldCreatedByAccountID:
@@ -32520,6 +32678,13 @@ func (m *PrizegivingMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddRevision(v)
+		return nil
+	case prizegiving.FieldOperationRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOperationRevision(v)
 		return nil
 	case prizegiving.FieldLockedByAccountID:
 		v, ok := value.(int)
@@ -32558,6 +32723,9 @@ func (m *PrizegivingMutation) ClearedFields() []string {
 	if m.FieldCleared(prizegiving.FieldPreflightLock) {
 		fields = append(fields, prizegiving.FieldPreflightLock)
 	}
+	if m.FieldCleared(prizegiving.FieldItemStates) {
+		fields = append(fields, prizegiving.FieldItemStates)
+	}
 	if m.FieldCleared(prizegiving.FieldLockedByAccountID) {
 		fields = append(fields, prizegiving.FieldLockedByAccountID)
 	}
@@ -32592,6 +32760,9 @@ func (m *PrizegivingMutation) ClearField(name string) error {
 		return nil
 	case prizegiving.FieldPreflightLock:
 		m.ClearPreflightLock()
+		return nil
+	case prizegiving.FieldItemStates:
+		m.ClearItemStates()
 		return nil
 	case prizegiving.FieldLockedByAccountID:
 		m.ClearLockedByAccountID()
@@ -32633,6 +32804,12 @@ func (m *PrizegivingMutation) ResetField(name string) error {
 		return nil
 	case prizegiving.FieldPreflightLock:
 		m.ResetPreflightLock()
+		return nil
+	case prizegiving.FieldOperationRevision:
+		m.ResetOperationRevision()
+		return nil
+	case prizegiving.FieldItemStates:
+		m.ResetItemStates()
 		return nil
 	case prizegiving.FieldLockedByAccountID:
 		m.ResetLockedByAccountID()
@@ -36219,6 +36396,7 @@ type SessionMutation struct {
 	program_output_kind                   *session.ProgramOutputKind
 	program_output_entry_id               *int
 	addprogram_output_entry_id            *int
+	program_output_result                 *prizegivingvalue.ProgramOutput
 	program_output_revision               *int
 	addprogram_output_revision            *int
 	program_cursor                        *int
@@ -37682,6 +37860,55 @@ func (m *SessionMutation) ResetProgramOutputEntryID() {
 	delete(m.clearedFields, session.FieldProgramOutputEntryID)
 }
 
+// SetProgramOutputResult sets the "program_output_result" field.
+func (m *SessionMutation) SetProgramOutputResult(po prizegivingvalue.ProgramOutput) {
+	m.program_output_result = &po
+}
+
+// ProgramOutputResult returns the value of the "program_output_result" field in the mutation.
+func (m *SessionMutation) ProgramOutputResult() (r prizegivingvalue.ProgramOutput, exists bool) {
+	v := m.program_output_result
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProgramOutputResult returns the old "program_output_result" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldProgramOutputResult(ctx context.Context) (v prizegivingvalue.ProgramOutput, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProgramOutputResult is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProgramOutputResult requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProgramOutputResult: %w", err)
+	}
+	return oldValue.ProgramOutputResult, nil
+}
+
+// ClearProgramOutputResult clears the value of the "program_output_result" field.
+func (m *SessionMutation) ClearProgramOutputResult() {
+	m.program_output_result = nil
+	m.clearedFields[session.FieldProgramOutputResult] = struct{}{}
+}
+
+// ProgramOutputResultCleared returns if the "program_output_result" field was cleared in this mutation.
+func (m *SessionMutation) ProgramOutputResultCleared() bool {
+	_, ok := m.clearedFields[session.FieldProgramOutputResult]
+	return ok
+}
+
+// ResetProgramOutputResult resets all changes to the "program_output_result" field.
+func (m *SessionMutation) ResetProgramOutputResult() {
+	m.program_output_result = nil
+	delete(m.clearedFields, session.FieldProgramOutputResult)
+}
+
 // SetProgramOutputRevision sets the "program_output_revision" field.
 func (m *SessionMutation) SetProgramOutputRevision(i int) {
 	m.program_output_revision = &i
@@ -38525,7 +38752,7 @@ func (m *SessionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SessionMutation) Fields() []string {
-	fields := make([]string, 0, 32)
+	fields := make([]string, 0, 33)
 	if m.event != nil {
 		fields = append(fields, session.FieldEventID)
 	}
@@ -38603,6 +38830,9 @@ func (m *SessionMutation) Fields() []string {
 	}
 	if m.program_output_entry_id != nil {
 		fields = append(fields, session.FieldProgramOutputEntryID)
+	}
+	if m.program_output_result != nil {
+		fields = append(fields, session.FieldProgramOutputResult)
 	}
 	if m.program_output_revision != nil {
 		fields = append(fields, session.FieldProgramOutputRevision)
@@ -38682,6 +38912,8 @@ func (m *SessionMutation) Field(name string) (ent.Value, bool) {
 		return m.ProgramOutputKind()
 	case session.FieldProgramOutputEntryID:
 		return m.ProgramOutputEntryID()
+	case session.FieldProgramOutputResult:
+		return m.ProgramOutputResult()
 	case session.FieldProgramOutputRevision:
 		return m.ProgramOutputRevision()
 	case session.FieldProgramCursor:
@@ -38755,6 +38987,8 @@ func (m *SessionMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldProgramOutputKind(ctx)
 	case session.FieldProgramOutputEntryID:
 		return m.OldProgramOutputEntryID(ctx)
+	case session.FieldProgramOutputResult:
+		return m.OldProgramOutputResult(ctx)
 	case session.FieldProgramOutputRevision:
 		return m.OldProgramOutputRevision(ctx)
 	case session.FieldProgramCursor:
@@ -38957,6 +39191,13 @@ func (m *SessionMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetProgramOutputEntryID(v)
+		return nil
+	case session.FieldProgramOutputResult:
+		v, ok := value.(prizegivingvalue.ProgramOutput)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProgramOutputResult(v)
 		return nil
 	case session.FieldProgramOutputRevision:
 		v, ok := value.(int)
@@ -39180,6 +39421,9 @@ func (m *SessionMutation) ClearedFields() []string {
 	if m.FieldCleared(session.FieldProgramOutputEntryID) {
 		fields = append(fields, session.FieldProgramOutputEntryID)
 	}
+	if m.FieldCleared(session.FieldProgramOutputResult) {
+		fields = append(fields, session.FieldProgramOutputResult)
+	}
 	if m.FieldCleared(session.FieldProgramOutputTakenAt) {
 		fields = append(fields, session.FieldProgramOutputTakenAt)
 	}
@@ -39250,6 +39494,9 @@ func (m *SessionMutation) ClearField(name string) error {
 		return nil
 	case session.FieldProgramOutputEntryID:
 		m.ClearProgramOutputEntryID()
+		return nil
+	case session.FieldProgramOutputResult:
+		m.ClearProgramOutputResult()
 		return nil
 	case session.FieldProgramOutputTakenAt:
 		m.ClearProgramOutputTakenAt()
@@ -39342,6 +39589,9 @@ func (m *SessionMutation) ResetField(name string) error {
 		return nil
 	case session.FieldProgramOutputEntryID:
 		m.ResetProgramOutputEntryID()
+		return nil
+	case session.FieldProgramOutputResult:
+		m.ResetProgramOutputResult()
 		return nil
 	case session.FieldProgramOutputRevision:
 		m.ResetProgramOutputRevision()

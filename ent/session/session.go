@@ -68,6 +68,8 @@ const (
 	FieldProgramOutputKind = "program_output_kind"
 	// FieldProgramOutputEntryID holds the string denoting the program_output_entry_id field in the database.
 	FieldProgramOutputEntryID = "program_output_entry_id"
+	// FieldProgramOutputResult holds the string denoting the program_output_result field in the database.
+	FieldProgramOutputResult = "program_output_result"
 	// FieldProgramOutputRevision holds the string denoting the program_output_revision field in the database.
 	FieldProgramOutputRevision = "program_output_revision"
 	// FieldProgramCursor holds the string denoting the program_cursor field in the database.
@@ -212,6 +214,7 @@ var Columns = []string{
 	FieldEntryOrderRevision,
 	FieldProgramOutputKind,
 	FieldProgramOutputEntryID,
+	FieldProgramOutputResult,
 	FieldProgramOutputRevision,
 	FieldProgramCursor,
 	FieldProgramOutputTakenAt,
@@ -350,6 +353,7 @@ const (
 	ProgramOutputKindStarting ProgramOutputKind = "Starting"
 	ProgramOutputKindEntry    ProgramOutputKind = "Entry"
 	ProgramOutputKindEnding   ProgramOutputKind = "Ending"
+	ProgramOutputKindResult   ProgramOutputKind = "Result"
 )
 
 func (pok ProgramOutputKind) String() string {
@@ -359,7 +363,7 @@ func (pok ProgramOutputKind) String() string {
 // ProgramOutputKindValidator is a validator for the "program_output_kind" field enum values. It is called by the builders before save.
 func ProgramOutputKindValidator(pok ProgramOutputKind) error {
 	switch pok {
-	case ProgramOutputKindStandby, ProgramOutputKindUpcoming, ProgramOutputKindStarting, ProgramOutputKindEntry, ProgramOutputKindEnding:
+	case ProgramOutputKindStandby, ProgramOutputKindUpcoming, ProgramOutputKindStarting, ProgramOutputKindEntry, ProgramOutputKindEnding, ProgramOutputKindResult:
 		return nil
 	default:
 		return fmt.Errorf("session: invalid enum value for program_output_kind field: %q", pok)

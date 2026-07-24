@@ -39,6 +39,10 @@ type Prizegiving struct {
 	Locked bool `json:"locked,omitempty"`
 	// PreflightLock holds the value of the "preflight_lock" field.
 	PreflightLock prizegivingvalue.Lock `json:"preflight_lock,omitempty"`
+	// OperationRevision holds the value of the "operation_revision" field.
+	OperationRevision int `json:"operation_revision,omitempty"`
+	// ItemStates holds the value of the "item_states" field.
+	ItemStates []prizegivingvalue.StageState `json:"item_states,omitempty"`
 	// LockedByAccountID holds the value of the "locked_by_account_id" field.
 	LockedByAccountID *int `json:"locked_by_account_id,omitempty"`
 	// LockedAt holds the value of the "locked_at" field.
@@ -102,11 +106,11 @@ func (*Prizegiving) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case prizegiving.FieldCompetitionSessionIds, prizegiving.FieldSequence, prizegiving.FieldPublicationOrder, prizegiving.FieldResultsTextTemplate, prizegiving.FieldPreflightLock:
+		case prizegiving.FieldCompetitionSessionIds, prizegiving.FieldSequence, prizegiving.FieldPublicationOrder, prizegiving.FieldResultsTextTemplate, prizegiving.FieldPreflightLock, prizegiving.FieldItemStates:
 			values[i] = new([]byte)
 		case prizegiving.FieldLocked:
 			values[i] = new(sql.NullBool)
-		case prizegiving.FieldID, prizegiving.FieldEventID, prizegiving.FieldCeremonySessionID, prizegiving.FieldRevision, prizegiving.FieldLockedByAccountID, prizegiving.FieldCreatedByAccountID:
+		case prizegiving.FieldID, prizegiving.FieldEventID, prizegiving.FieldCeremonySessionID, prizegiving.FieldRevision, prizegiving.FieldOperationRevision, prizegiving.FieldLockedByAccountID, prizegiving.FieldCreatedByAccountID:
 			values[i] = new(sql.NullInt64)
 		case prizegiving.FieldLockedAt, prizegiving.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -193,6 +197,20 @@ func (_m *Prizegiving) assignValues(columns []string, values []any) error {
 			} else if value != nil && len(*value) > 0 {
 				if err := json.Unmarshal(*value, &_m.PreflightLock); err != nil {
 					return fmt.Errorf("unmarshal field preflight_lock: %w", err)
+				}
+			}
+		case prizegiving.FieldOperationRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field operation_revision", values[i])
+			} else if value.Valid {
+				_m.OperationRevision = int(value.Int64)
+			}
+		case prizegiving.FieldItemStates:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field item_states", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.ItemStates); err != nil {
+					return fmt.Errorf("unmarshal field item_states: %w", err)
 				}
 			}
 		case prizegiving.FieldLockedByAccountID:
@@ -298,6 +316,12 @@ func (_m *Prizegiving) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("preflight_lock=")
 	builder.WriteString(fmt.Sprintf("%v", _m.PreflightLock))
+	builder.WriteString(", ")
+	builder.WriteString("operation_revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.OperationRevision))
+	builder.WriteString(", ")
+	builder.WriteString("item_states=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ItemStates))
 	builder.WriteString(", ")
 	if v := _m.LockedByAccountID; v != nil {
 		builder.WriteString("locked_by_account_id=")

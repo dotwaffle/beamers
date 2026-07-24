@@ -1672,16 +1672,22 @@ func init() {
 	prizegivingDescLocked := prizegivingFields[7].Descriptor()
 	// prizegiving.DefaultLocked holds the default value on creation for the locked field.
 	prizegiving.DefaultLocked = prizegivingDescLocked.Default.(bool)
+	// prizegivingDescOperationRevision is the schema descriptor for operation_revision field.
+	prizegivingDescOperationRevision := prizegivingFields[9].Descriptor()
+	// prizegiving.DefaultOperationRevision holds the default value on creation for the operation_revision field.
+	prizegiving.DefaultOperationRevision = prizegivingDescOperationRevision.Default.(int)
+	// prizegiving.OperationRevisionValidator is a validator for the "operation_revision" field. It is called by the builders before save.
+	prizegiving.OperationRevisionValidator = prizegivingDescOperationRevision.Validators[0].(func(int) error)
 	// prizegivingDescLockedByAccountID is the schema descriptor for locked_by_account_id field.
-	prizegivingDescLockedByAccountID := prizegivingFields[9].Descriptor()
+	prizegivingDescLockedByAccountID := prizegivingFields[11].Descriptor()
 	// prizegiving.LockedByAccountIDValidator is a validator for the "locked_by_account_id" field. It is called by the builders before save.
 	prizegiving.LockedByAccountIDValidator = prizegivingDescLockedByAccountID.Validators[0].(func(int) error)
 	// prizegivingDescCreatedByAccountID is the schema descriptor for created_by_account_id field.
-	prizegivingDescCreatedByAccountID := prizegivingFields[11].Descriptor()
+	prizegivingDescCreatedByAccountID := prizegivingFields[13].Descriptor()
 	// prizegiving.CreatedByAccountIDValidator is a validator for the "created_by_account_id" field. It is called by the builders before save.
 	prizegiving.CreatedByAccountIDValidator = prizegivingDescCreatedByAccountID.Validators[0].(func(int) error)
 	// prizegivingDescCreatedAt is the schema descriptor for created_at field.
-	prizegivingDescCreatedAt := prizegivingFields[12].Descriptor()
+	prizegivingDescCreatedAt := prizegivingFields[14].Descriptor()
 	// prizegiving.DefaultCreatedAt holds the default value on creation for the created_at field.
 	prizegiving.DefaultCreatedAt = prizegivingDescCreatedAt.Default.(func() time.Time)
 	prizegivingcompetition.Policy = privacy.NewPolicies(schema.PrizegivingCompetition{})
@@ -1879,23 +1885,23 @@ func init() {
 	// session.ProgramOutputEntryIDValidator is a validator for the "program_output_entry_id" field. It is called by the builders before save.
 	session.ProgramOutputEntryIDValidator = sessionDescProgramOutputEntryID.Validators[0].(func(int) error)
 	// sessionDescProgramOutputRevision is the schema descriptor for program_output_revision field.
-	sessionDescProgramOutputRevision := sessionFields[26].Descriptor()
+	sessionDescProgramOutputRevision := sessionFields[27].Descriptor()
 	// session.DefaultProgramOutputRevision holds the default value on creation for the program_output_revision field.
 	session.DefaultProgramOutputRevision = sessionDescProgramOutputRevision.Default.(int)
 	// session.ProgramOutputRevisionValidator is a validator for the "program_output_revision" field. It is called by the builders before save.
 	session.ProgramOutputRevisionValidator = sessionDescProgramOutputRevision.Validators[0].(func(int) error)
 	// sessionDescProgramCursor is the schema descriptor for program_cursor field.
-	sessionDescProgramCursor := sessionFields[27].Descriptor()
+	sessionDescProgramCursor := sessionFields[28].Descriptor()
 	// session.DefaultProgramCursor holds the default value on creation for the program_cursor field.
 	session.DefaultProgramCursor = sessionDescProgramCursor.Default.(int)
 	// sessionDescAttachmentReleaseRevision is the schema descriptor for attachment_release_revision field.
-	sessionDescAttachmentReleaseRevision := sessionFields[30].Descriptor()
+	sessionDescAttachmentReleaseRevision := sessionFields[31].Descriptor()
 	// session.DefaultAttachmentReleaseRevision holds the default value on creation for the attachment_release_revision field.
 	session.DefaultAttachmentReleaseRevision = sessionDescAttachmentReleaseRevision.Default.(int)
 	// session.AttachmentReleaseRevisionValidator is a validator for the "attachment_release_revision" field. It is called by the builders before save.
 	session.AttachmentReleaseRevisionValidator = sessionDescAttachmentReleaseRevision.Validators[0].(func(int) error)
 	// sessionDescCreatedAt is the schema descriptor for created_at field.
-	sessionDescCreatedAt := sessionFields[31].Descriptor()
+	sessionDescCreatedAt := sessionFields[32].Descriptor()
 	// session.DefaultCreatedAt holds the default value on creation for the created_at field.
 	session.DefaultCreatedAt = sessionDescCreatedAt.Default.(func() time.Time)
 	sessioncancellation.Policy = privacy.NewPolicies(schema.SessionCancellation{})

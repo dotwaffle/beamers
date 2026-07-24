@@ -22,6 +22,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
+	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 )
 
 // SessionCreate is the builder for creating a Session entity.
@@ -351,6 +352,20 @@ func (_c *SessionCreate) SetProgramOutputEntryID(v int) *SessionCreate {
 func (_c *SessionCreate) SetNillableProgramOutputEntryID(v *int) *SessionCreate {
 	if v != nil {
 		_c.SetProgramOutputEntryID(*v)
+	}
+	return _c
+}
+
+// SetProgramOutputResult sets the "program_output_result" field.
+func (_c *SessionCreate) SetProgramOutputResult(v prizegivingvalue.ProgramOutput) *SessionCreate {
+	_c.mutation.SetProgramOutputResult(v)
+	return _c
+}
+
+// SetNillableProgramOutputResult sets the "program_output_result" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableProgramOutputResult(v *prizegivingvalue.ProgramOutput) *SessionCreate {
+	if v != nil {
+		_c.SetProgramOutputResult(*v)
 	}
 	return _c
 }
@@ -950,6 +965,10 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ProgramOutputEntryID(); ok {
 		_spec.SetField(session.FieldProgramOutputEntryID, field.TypeInt, value)
 		_node.ProgramOutputEntryID = &value
+	}
+	if value, ok := _c.mutation.ProgramOutputResult(); ok {
+		_spec.SetField(session.FieldProgramOutputResult, field.TypeJSON, value)
+		_node.ProgramOutputResult = value
 	}
 	if value, ok := _c.mutation.ProgramOutputRevision(); ok {
 		_spec.SetField(session.FieldProgramOutputRevision, field.TypeInt, value)

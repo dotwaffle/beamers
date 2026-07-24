@@ -110,6 +110,26 @@ func (_c *PrizegivingCreate) SetNillablePreflightLock(v *prizegivingvalue.Lock) 
 	return _c
 }
 
+// SetOperationRevision sets the "operation_revision" field.
+func (_c *PrizegivingCreate) SetOperationRevision(v int) *PrizegivingCreate {
+	_c.mutation.SetOperationRevision(v)
+	return _c
+}
+
+// SetNillableOperationRevision sets the "operation_revision" field if the given value is not nil.
+func (_c *PrizegivingCreate) SetNillableOperationRevision(v *int) *PrizegivingCreate {
+	if v != nil {
+		_c.SetOperationRevision(*v)
+	}
+	return _c
+}
+
+// SetItemStates sets the "item_states" field.
+func (_c *PrizegivingCreate) SetItemStates(v []prizegivingvalue.StageState) *PrizegivingCreate {
+	_c.mutation.SetItemStates(v)
+	return _c
+}
+
 // SetLockedByAccountID sets the "locked_by_account_id" field.
 func (_c *PrizegivingCreate) SetLockedByAccountID(v int) *PrizegivingCreate {
 	_c.mutation.SetLockedByAccountID(v)
@@ -234,6 +254,10 @@ func (_c *PrizegivingCreate) defaults() error {
 		v := prizegiving.DefaultLocked
 		_c.mutation.SetLocked(v)
 	}
+	if _, ok := _c.mutation.OperationRevision(); !ok {
+		v := prizegiving.DefaultOperationRevision
+		_c.mutation.SetOperationRevision(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		if prizegiving.DefaultCreatedAt == nil {
 			return fmt.Errorf("ent: uninitialized prizegiving.DefaultCreatedAt (forgotten import ent/runtime?)")
@@ -262,6 +286,14 @@ func (_c *PrizegivingCreate) check() error {
 	}
 	if _, ok := _c.mutation.Locked(); !ok {
 		return &ValidationError{Name: "locked", err: errors.New(`ent: missing required field "Prizegiving.locked"`)}
+	}
+	if _, ok := _c.mutation.OperationRevision(); !ok {
+		return &ValidationError{Name: "operation_revision", err: errors.New(`ent: missing required field "Prizegiving.operation_revision"`)}
+	}
+	if v, ok := _c.mutation.OperationRevision(); ok {
+		if err := prizegiving.OperationRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "operation_revision", err: fmt.Errorf(`ent: validator failed for field "Prizegiving.operation_revision": %w`, err)}
+		}
 	}
 	if v, ok := _c.mutation.LockedByAccountID(); ok {
 		if err := prizegiving.LockedByAccountIDValidator(v); err != nil {
@@ -338,6 +370,14 @@ func (_c *PrizegivingCreate) createSpec() (*Prizegiving, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.PreflightLock(); ok {
 		_spec.SetField(prizegiving.FieldPreflightLock, field.TypeJSON, value)
 		_node.PreflightLock = value
+	}
+	if value, ok := _c.mutation.OperationRevision(); ok {
+		_spec.SetField(prizegiving.FieldOperationRevision, field.TypeInt, value)
+		_node.OperationRevision = value
+	}
+	if value, ok := _c.mutation.ItemStates(); ok {
+		_spec.SetField(prizegiving.FieldItemStates, field.TypeJSON, value)
+		_node.ItemStates = value
 	}
 	if value, ok := _c.mutation.LockedByAccountID(); ok {
 		_spec.SetField(prizegiving.FieldLockedByAccountID, field.TypeInt, value)

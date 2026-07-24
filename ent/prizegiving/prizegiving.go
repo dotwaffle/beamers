@@ -33,6 +33,10 @@ const (
 	FieldLocked = "locked"
 	// FieldPreflightLock holds the string denoting the preflight_lock field in the database.
 	FieldPreflightLock = "preflight_lock"
+	// FieldOperationRevision holds the string denoting the operation_revision field in the database.
+	FieldOperationRevision = "operation_revision"
+	// FieldItemStates holds the string denoting the item_states field in the database.
+	FieldItemStates = "item_states"
 	// FieldLockedByAccountID holds the string denoting the locked_by_account_id field in the database.
 	FieldLockedByAccountID = "locked_by_account_id"
 	// FieldLockedAt holds the string denoting the locked_at field in the database.
@@ -84,6 +88,8 @@ var Columns = []string{
 	FieldResultsTextTemplate,
 	FieldLocked,
 	FieldPreflightLock,
+	FieldOperationRevision,
+	FieldItemStates,
 	FieldLockedByAccountID,
 	FieldLockedAt,
 	FieldCreatedByAccountID,
@@ -114,6 +120,10 @@ var (
 	RevisionValidator func(int) error
 	// DefaultLocked holds the default value on creation for the "locked" field.
 	DefaultLocked bool
+	// DefaultOperationRevision holds the default value on creation for the "operation_revision" field.
+	DefaultOperationRevision int
+	// OperationRevisionValidator is a validator for the "operation_revision" field. It is called by the builders before save.
+	OperationRevisionValidator func(int) error
 	// LockedByAccountIDValidator is a validator for the "locked_by_account_id" field. It is called by the builders before save.
 	LockedByAccountIDValidator func(int) error
 	// CreatedByAccountIDValidator is a validator for the "created_by_account_id" field. It is called by the builders before save.
@@ -148,6 +158,11 @@ func ByRevision(opts ...sql.OrderTermOption) OrderOption {
 // ByLocked orders the results by the locked field.
 func ByLocked(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldLocked, opts...).ToFunc()
+}
+
+// ByOperationRevision orders the results by the operation_revision field.
+func ByOperationRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOperationRevision, opts...).ToFunc()
 }
 
 // ByLockedByAccountID orders the results by the locked_by_account_id field.

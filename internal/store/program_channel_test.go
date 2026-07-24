@@ -8,6 +8,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
+	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -101,5 +102,313 @@ func TestTakeProgramItemCommitsOutputAndEntryLockTogether(t *testing.T) {
 	}
 	if err = stale.Rollback(); err != nil {
 		t.Fatalf("roll back stale Take: %v", err)
+	}
+}
+
+func TestTakePrizegivingResultCommitsUnrevealedProgramOutput(t *testing.T) {
+	client := openEntTestClient(t)
+	installation := &SQLite{client: client}
+	fixtureContext := systemContext(t.Context())
+	event := createSchemaTestEvent(t, client)
+	client.Installation.Create().SetActiveEventID(event.ID).SaveX(fixtureContext)
+	ceremony := createPublishedResultsSession(
+		t,
+		client,
+		event.ID,
+		sessionpublishedversion.TypeCeremony,
+		"Prizegiving",
+	)
+	ceremony.Update().SetLifecycle(session.LifecycleLive).SaveX(fixtureContext)
+	client.SessionRun.Create().
+		SetSessionID(ceremony.ID).
+		SetActualStart(time.Date(2026, 8, 21, 13, 55, 0, 0, time.UTC)).
+		SetSnapshotJSON(`{"type":"Ceremony"}`).
+		SaveX(fixtureContext)
+	competition := createPublishedResultsSession(
+		t,
+		client,
+		event.ID,
+		sessionpublishedversion.TypeCompetition,
+		"Final",
+	)
+	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+		AccountID: 1, EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
+	})
+	draftTransaction, err := installation.BeginCommand(producerContext)
+	if err != nil {
+		t.Fatalf("begin Results Draft: %v", err)
+	}
+	draft, err := draftTransaction.SaveCompetitionResultsDraft(
+		producerContext,
+		SaveCompetitionResultsDraftParams{
+			EventID: event.ID, SessionID: competition.ID,
+			Disposition: "Publish", ScoreType: "None",
+			ScoreVisibility: "Public", ScoreRequirement: "Optional",
+			ScoreInterpretation: "Informational",
+			CreatedByAccountID:  1,
+			Now:                 time.Date(2026, 8, 21, 13, 0, 0, 0, time.UTC),
+		},
+	)
+	if err != nil {
+		t.Fatalf("save Results Draft: %v", err)
+	}
+	if err = draftTransaction.Commit(); err != nil {
+		t.Fatalf("commit Results Draft: %v", err)
+	}
+	item := prizegivingvalue.LockedItem{
+		Item: prizegivingvalue.Item{
+			ItemRef: prizegivingvalue.ItemRef{
+				Kind: "CompetitionResults", CompetitionSessionID: competition.ID,
+				DisplayOrder: 1,
+			},
+			RevealMethod: "SequentialPodium",
+		},
+		RevealSeed: 73,
+	}
+	client.Prizegiving.Create().
+		SetEventID(event.ID).
+		SetCeremonySessionID(ceremony.ID).
+		SetRevision(1).
+		SetLocked(true).
+		SetPreflightLock(prizegivingvalue.Lock{
+			PlanRevision: 1,
+			CompetitionSources: []prizegivingvalue.CompetitionLock{{
+				SessionID: competition.ID, DraftID: draft.ID,
+				DraftRevision: draft.Revision, Disposition: draft.Disposition,
+			}},
+			Sequence: []prizegivingvalue.LockedItem{item},
+		}).
+		SetCreatedByAccountID(1).
+		SaveX(fixtureContext)
+
+	channel, err := installation.LoadProgramChannel(
+		producerContext,
+		event.ID,
+		ceremony.ID,
+	)
+	if err != nil {
+		t.Fatalf("load Prizegiving Program Channel: %v", err)
+	}
+	if len(channel.Items) != 1 ||
+		channel.Next.Kind != ProgramItemResult ||
+		channel.Next.Result == nil ||
+		channel.Next.Result.Ref.CompetitionSessionID != competition.ID ||
+		channel.Next.Result.RevealMethod != "SequentialPodium" ||
+		channel.Next.Result.RevealSeed != 73 ||
+		channel.Next.Result.CompetitionResults.Revision != draft.Revision {
+		t.Fatalf("initial Prizegiving Program Channel = %+v", channel)
+	}
+	command, err := installation.BeginCommand(producerContext)
+	if err != nil {
+		t.Fatalf("begin Prizegiving Take: %v", err)
+	}
+	taken, err := command.TakeProgramItem(
+		producerContext,
+		TakeProgramItemParams{
+			EventID: event.ID, SessionID: ceremony.ID,
+			ExpectedRevision: 0, Item: channel.Next,
+			Now: time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC),
+			ResultState: &PrizegivingStageState{
+				Ref: channel.Next.Result.Ref, Status: "Taken",
+				TakenAt: time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC),
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("Take Prizegiving Result Item: %v", err)
+	}
+	if err = command.Commit(); err != nil {
+		t.Fatalf("commit Prizegiving Take: %v", err)
+	}
+	if taken.Revision != 1 ||
+		taken.Output.Kind != ProgramItemResult ||
+		taken.Output.Result == nil ||
+		taken.Output.Result.Status != "Taken" ||
+		taken.Next.Kind != "" {
+		t.Fatalf("Taken Prizegiving Program Channel = %+v", taken)
+	}
+	blockedEnd := beginCommand(t, installation, producerContext)
+	_, err = blockedEnd.EndSession(
+		producerContext,
+		event.ID,
+		ceremony.ID,
+		0,
+		false,
+		"",
+		time.Date(2026, 8, 21, 14, 0, 30, 0, time.UTC),
+	)
+	var unresolved *PrizegivingResultsUnresolvedError
+	if !errors.As(err, &unresolved) ||
+		len(unresolved.Items) != 1 ||
+		unresolved.Items[0] != taken.Output.Result.Ref {
+		t.Fatalf("Prizegiving End error = %#v, want current unresolved Result", err)
+	}
+	if err = blockedEnd.Rollback(); err != nil {
+		t.Fatalf("roll back blocked Prizegiving End: %v", err)
+	}
+	revealStartedAt := time.Date(2026, 8, 21, 14, 1, 0, 0, time.UTC)
+	revealTransaction, err := installation.BeginCommand(producerContext)
+	if err != nil {
+		t.Fatalf("begin Prizegiving Reveal: %v", err)
+	}
+	revealing, err := revealTransaction.ApplyPrizegivingResultAction(
+		producerContext,
+		PrizegivingResultActionParams{
+			EventID: event.ID, SessionID: ceremony.ID,
+			ExpectedRevision: 1, Item: taken.Output,
+			State: PrizegivingStageState{
+				Ref: taken.Output.Result.Ref, Status: "Revealing",
+				TakenAt:         taken.Output.Result.TakenAt,
+				RevealStartedAt: revealStartedAt,
+				RevealDuration:  3 * time.Second,
+			},
+			Presentation: PrizegivingPresentationRun{
+				StartedAt: revealStartedAt, Duration: 3 * time.Second,
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("apply Prizegiving Reveal: %v", err)
+	}
+	if err = revealTransaction.Commit(); err != nil {
+		t.Fatalf("commit Prizegiving Reveal: %v", err)
+	}
+	if revealing.Revision != 2 ||
+		revealing.Output.Result.Status != "Revealing" ||
+		revealing.Output.Result.PresentationStartedAt != revealStartedAt ||
+		revealing.Output.Result.PresentationDuration != 3*time.Second ||
+		revealing.Output.Result.Replay {
+		t.Fatalf("Revealing Prizegiving Program Channel = %+v", revealing)
+	}
+	completedAt := revealStartedAt.Add(3 * time.Second)
+	completeTransaction, err := installation.BeginCommand(producerContext)
+	if err != nil {
+		t.Fatalf("begin Prizegiving Reveal completion: %v", err)
+	}
+	revealed, err := completeTransaction.ApplyPrizegivingResultAction(
+		producerContext,
+		PrizegivingResultActionParams{
+			EventID: event.ID, SessionID: ceremony.ID,
+			ExpectedRevision: 2, Item: revealing.Output,
+			State: PrizegivingStageState{
+				Ref: revealing.Output.Result.Ref, Status: "Revealed",
+				TakenAt:           revealing.Output.Result.TakenAt,
+				RevealStartedAt:   revealStartedAt,
+				RevealDuration:    3 * time.Second,
+				RevealCompletedAt: completedAt,
+			},
+			Presentation: PrizegivingPresentationRun{
+				StartedAt: revealStartedAt, Duration: 3 * time.Second,
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("complete Prizegiving Reveal: %v", err)
+	}
+	if err = completeTransaction.Commit(); err != nil {
+		t.Fatalf("commit Prizegiving Reveal completion: %v", err)
+	}
+	replayStartedAt := completedAt.Add(time.Minute)
+	replayTransaction, err := installation.BeginCommand(producerContext)
+	if err != nil {
+		t.Fatalf("begin Prizegiving Replay: %v", err)
+	}
+	replayed, err := replayTransaction.ApplyPrizegivingResultAction(
+		producerContext,
+		PrizegivingResultActionParams{
+			EventID: event.ID, SessionID: ceremony.ID,
+			ExpectedRevision: 3, Item: revealed.Output,
+			State: PrizegivingStageState{
+				Ref: revealed.Output.Result.Ref, Status: "Revealed",
+				TakenAt:           revealed.Output.Result.TakenAt,
+				RevealStartedAt:   revealStartedAt,
+				RevealDuration:    3 * time.Second,
+				RevealCompletedAt: completedAt,
+			},
+			Presentation: PrizegivingPresentationRun{
+				Replay: true, StartedAt: replayStartedAt,
+				Duration: 3 * time.Second,
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("Replay Prizegiving Result: %v", err)
+	}
+	if err = replayTransaction.Commit(); err != nil {
+		t.Fatalf("commit Prizegiving Replay: %v", err)
+	}
+	if replayed.Revision != 4 ||
+		replayed.Output.Result.Status != "Revealed" ||
+		!replayed.Output.Result.Replay ||
+		replayed.Output.Result.PresentationStartedAt != replayStartedAt ||
+		replayed.Output.Result.RevealCompletedAt != completedAt {
+		t.Fatalf("Replayed Prizegiving Program Channel = %+v", replayed)
+	}
+	endTransaction := beginCommand(t, installation, producerContext)
+	ended, err := endTransaction.EndSession(
+		producerContext,
+		event.ID,
+		ceremony.ID,
+		0,
+		false,
+		"",
+		replayStartedAt.Add(3*time.Second),
+	)
+	if err != nil {
+		t.Fatalf("end resolved Prizegiving: %v", err)
+	}
+	if err = endTransaction.Commit(); err != nil {
+		t.Fatalf("commit resolved Prizegiving End: %v", err)
+	}
+	if ended.Lifecycle != "Ended" {
+		t.Fatalf("resolved Prizegiving state = %+v", ended)
+	}
+}
+
+func TestProgramCompetitionResultsOmitsUnreleasedAndCrewOnlyData(t *testing.T) {
+	score := "17.5"
+	found := CompetitionResultsDraft{
+		NoPublicCrewReason: "private reason",
+		ScoreVisibility:    "CrewOnly",
+		ReadyByAccountID:   7,
+		CreatedByAccountID: 8,
+		Standings: []CompetitionResultStanding{{
+			EntryID: 1, Standing: "Placed", Placement: 1,
+			DecimalScore: &score,
+		}},
+		Awards: []CompetitionAward{
+			{Key: "embedded", Name: "Embedded"},
+			{Key: "promoted", Name: "Promoted", Promoted: true},
+		},
+	}
+	projected := programCompetitionResults(
+		found,
+		PrizegivingResultItemRef{Kind: "CompetitionResults"},
+	)
+	if projected.NoPublicCrewReason != "" ||
+		projected.ReadyByAccountID != 0 ||
+		projected.CreatedByAccountID != 0 ||
+		projected.Standings[0].DecimalScore != nil ||
+		len(projected.Awards) != 1 ||
+		projected.Awards[0].Key != "embedded" {
+		t.Fatalf("public Competition Results = %+v", projected)
+	}
+	award := programCompetitionResults(
+		found,
+		PrizegivingResultItemRef{
+			Kind: "CompetitionAward", AwardKey: "promoted",
+		},
+	)
+	if len(award.Standings) != 0 ||
+		len(award.Awards) != 1 ||
+		award.Awards[0].Key != "promoted" {
+		t.Fatalf("promoted Competition Award = %+v", award)
+	}
+	nonPublic := programCompetitionResults(
+		found,
+		PrizegivingResultItemRef{Kind: "NoPublicResults"},
+	)
+	if len(nonPublic.Standings) != 0 || len(nonPublic.Awards) != 0 {
+		t.Fatalf("No Public Results output = %+v", nonPublic)
 	}
 }

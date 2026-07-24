@@ -1037,6 +1037,8 @@ var (
 		{Name: "results_text_template", Type: field.TypeJSON, Nullable: true},
 		{Name: "locked", Type: field.TypeBool, Default: false},
 		{Name: "preflight_lock", Type: field.TypeJSON, Nullable: true},
+		{Name: "operation_revision", Type: field.TypeInt, Default: 0},
+		{Name: "item_states", Type: field.TypeJSON, Nullable: true},
 		{Name: "locked_by_account_id", Type: field.TypeInt, Nullable: true},
 		{Name: "locked_at", Type: field.TypeTime, Nullable: true},
 		{Name: "created_by_account_id", Type: field.TypeInt},
@@ -1052,13 +1054,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "prizegivings_events_prizegivings",
-				Columns:    []*schema.Column{PrizegivingsColumns[12]},
+				Columns:    []*schema.Column{PrizegivingsColumns[14]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "prizegivings_sessions_prizegiving",
-				Columns:    []*schema.Column{PrizegivingsColumns[13]},
+				Columns:    []*schema.Column{PrizegivingsColumns[15]},
 				RefColumns: []*schema.Column{SessionsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -1067,7 +1069,7 @@ var (
 			{
 				Name:    "prizegiving_event_id_ceremony_session_id",
 				Unique:  true,
-				Columns: []*schema.Column{PrizegivingsColumns[12], PrizegivingsColumns[13]},
+				Columns: []*schema.Column{PrizegivingsColumns[14], PrizegivingsColumns[15]},
 			},
 		},
 	}
@@ -1235,8 +1237,9 @@ var (
 		{Name: "locked_entry_order_ids", Type: field.TypeJSON, Nullable: true},
 		{Name: "entry_order_locked_at", Type: field.TypeTime, Nullable: true},
 		{Name: "entry_order_revision", Type: field.TypeInt, Default: 0},
-		{Name: "program_output_kind", Type: field.TypeEnum, Enums: []string{"Standby", "Upcoming", "Starting", "Entry", "Ending"}, Default: "Standby"},
+		{Name: "program_output_kind", Type: field.TypeEnum, Enums: []string{"Standby", "Upcoming", "Starting", "Entry", "Ending", "Result"}, Default: "Standby"},
 		{Name: "program_output_entry_id", Type: field.TypeInt, Nullable: true},
+		{Name: "program_output_result", Type: field.TypeJSON, Nullable: true},
 		{Name: "program_output_revision", Type: field.TypeInt, Default: 0},
 		{Name: "program_cursor", Type: field.TypeInt, Default: -1},
 		{Name: "program_output_taken_at", Type: field.TypeTime, Nullable: true},
@@ -1253,7 +1256,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "sessions_events_sessions",
-				Columns:    []*schema.Column{SessionsColumns[32]},
+				Columns:    []*schema.Column{SessionsColumns[33]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},

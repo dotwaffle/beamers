@@ -914,6 +914,7 @@ func allowScopedSessionLiveMutation() privacy.MutationRule {
 			"entry_order_revision",
 			"program_output_kind",
 			"program_output_entry_id",
+			"program_output_result",
 			"program_output_revision",
 			"program_cursor",
 			"program_output_taken_at",

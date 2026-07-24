@@ -235,11 +235,12 @@ type StageTimer struct {
 	AdjustmentNoticeExpiresAt time.Time
 }
 
-// ProgramItem is one Display-safe committed Competition presentation state.
+// ProgramItem is one Display-safe committed presentation state.
 type ProgramItem struct {
 	Kind    string
 	EntryID int
 	Title   string
+	Result  *store.ProgramResult
 }
 
 // ClaimInput confirms one Display Enrollment code.
@@ -351,7 +352,7 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 	if found.ProgramChannelID > 0 {
 		result.ProgramOutput = &ProgramItem{
 			Kind: string(found.ProgramOutput.Kind), EntryID: found.ProgramOutput.EntryID,
-			Title: found.ProgramOutput.Title,
+			Title: found.ProgramOutput.Title, Result: found.ProgramOutput.Result,
 		}
 	}
 	configuration, err := displayviews.ParseConfiguration(found.DisplayConfiguration)

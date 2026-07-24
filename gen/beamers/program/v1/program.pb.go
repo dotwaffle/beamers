@@ -7,8 +7,10 @@
 package programv1
 
 import (
+	v1 "github.com/dotwaffle/beamers/gen/beamers/results/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
@@ -31,6 +33,7 @@ const (
 	ProgramItemKind_PROGRAM_ITEM_KIND_STARTING    ProgramItemKind = 3
 	ProgramItemKind_PROGRAM_ITEM_KIND_ENTRY       ProgramItemKind = 4
 	ProgramItemKind_PROGRAM_ITEM_KIND_ENDING      ProgramItemKind = 5
+	ProgramItemKind_PROGRAM_ITEM_KIND_RESULT      ProgramItemKind = 6
 )
 
 // Enum value maps for ProgramItemKind.
@@ -42,6 +45,7 @@ var (
 		3: "PROGRAM_ITEM_KIND_STARTING",
 		4: "PROGRAM_ITEM_KIND_ENTRY",
 		5: "PROGRAM_ITEM_KIND_ENDING",
+		6: "PROGRAM_ITEM_KIND_RESULT",
 	}
 	ProgramItemKind_value = map[string]int32{
 		"PROGRAM_ITEM_KIND_UNSPECIFIED": 0,
@@ -50,6 +54,7 @@ var (
 		"PROGRAM_ITEM_KIND_STARTING":    3,
 		"PROGRAM_ITEM_KIND_ENTRY":       4,
 		"PROGRAM_ITEM_KIND_ENDING":      5,
+		"PROGRAM_ITEM_KIND_RESULT":      6,
 	}
 )
 
@@ -78,6 +83,64 @@ func (x ProgramItemKind) Number() protoreflect.EnumNumber {
 // Deprecated: Use ProgramItemKind.Descriptor instead.
 func (ProgramItemKind) EnumDescriptor() ([]byte, []int) {
 	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{0}
+}
+
+type ResultStageStatus int32
+
+const (
+	ResultStageStatus_RESULT_STAGE_STATUS_UNSPECIFIED ResultStageStatus = 0
+	ResultStageStatus_RESULT_STAGE_STATUS_PENDING     ResultStageStatus = 1
+	ResultStageStatus_RESULT_STAGE_STATUS_TAKEN       ResultStageStatus = 2
+	ResultStageStatus_RESULT_STAGE_STATUS_REVEALING   ResultStageStatus = 3
+	ResultStageStatus_RESULT_STAGE_STATUS_REVEALED    ResultStageStatus = 4
+	ResultStageStatus_RESULT_STAGE_STATUS_SKIPPED     ResultStageStatus = 5
+)
+
+// Enum value maps for ResultStageStatus.
+var (
+	ResultStageStatus_name = map[int32]string{
+		0: "RESULT_STAGE_STATUS_UNSPECIFIED",
+		1: "RESULT_STAGE_STATUS_PENDING",
+		2: "RESULT_STAGE_STATUS_TAKEN",
+		3: "RESULT_STAGE_STATUS_REVEALING",
+		4: "RESULT_STAGE_STATUS_REVEALED",
+		5: "RESULT_STAGE_STATUS_SKIPPED",
+	}
+	ResultStageStatus_value = map[string]int32{
+		"RESULT_STAGE_STATUS_UNSPECIFIED": 0,
+		"RESULT_STAGE_STATUS_PENDING":     1,
+		"RESULT_STAGE_STATUS_TAKEN":       2,
+		"RESULT_STAGE_STATUS_REVEALING":   3,
+		"RESULT_STAGE_STATUS_REVEALED":    4,
+		"RESULT_STAGE_STATUS_SKIPPED":     5,
+	}
+)
+
+func (x ResultStageStatus) Enum() *ResultStageStatus {
+	p := new(ResultStageStatus)
+	*p = x
+	return p
+}
+
+func (x ResultStageStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ResultStageStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_beamers_program_v1_program_proto_enumTypes[1].Descriptor()
+}
+
+func (ResultStageStatus) Type() protoreflect.EnumType {
+	return &file_beamers_program_v1_program_proto_enumTypes[1]
+}
+
+func (x ResultStageStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ResultStageStatus.Descriptor instead.
+func (ResultStageStatus) EnumDescriptor() ([]byte, []int) {
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{1}
 }
 
 type ControlAction int32
@@ -122,11 +185,11 @@ func (x ControlAction) String() string {
 }
 
 func (ControlAction) Descriptor() protoreflect.EnumDescriptor {
-	return file_beamers_program_v1_program_proto_enumTypes[1].Descriptor()
+	return file_beamers_program_v1_program_proto_enumTypes[2].Descriptor()
 }
 
 func (ControlAction) Type() protoreflect.EnumType {
-	return &file_beamers_program_v1_program_proto_enumTypes[1]
+	return &file_beamers_program_v1_program_proto_enumTypes[2]
 }
 
 func (x ControlAction) Number() protoreflect.EnumNumber {
@@ -135,7 +198,221 @@ func (x ControlAction) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ControlAction.Descriptor instead.
 func (ControlAction) EnumDescriptor() ([]byte, []int) {
-	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{1}
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{2}
+}
+
+type ResultAction int32
+
+const (
+	ResultAction_RESULT_ACTION_UNSPECIFIED     ResultAction = 0
+	ResultAction_RESULT_ACTION_REVEAL          ResultAction = 1
+	ResultAction_RESULT_ACTION_COMPLETE_REVEAL ResultAction = 2
+	ResultAction_RESULT_ACTION_REPLAY_REVEAL   ResultAction = 3
+	ResultAction_RESULT_ACTION_SKIP_TO_FINAL   ResultAction = 4
+	ResultAction_RESULT_ACTION_SKIP_FROM_STAGE ResultAction = 5
+)
+
+// Enum value maps for ResultAction.
+var (
+	ResultAction_name = map[int32]string{
+		0: "RESULT_ACTION_UNSPECIFIED",
+		1: "RESULT_ACTION_REVEAL",
+		2: "RESULT_ACTION_COMPLETE_REVEAL",
+		3: "RESULT_ACTION_REPLAY_REVEAL",
+		4: "RESULT_ACTION_SKIP_TO_FINAL",
+		5: "RESULT_ACTION_SKIP_FROM_STAGE",
+	}
+	ResultAction_value = map[string]int32{
+		"RESULT_ACTION_UNSPECIFIED":     0,
+		"RESULT_ACTION_REVEAL":          1,
+		"RESULT_ACTION_COMPLETE_REVEAL": 2,
+		"RESULT_ACTION_REPLAY_REVEAL":   3,
+		"RESULT_ACTION_SKIP_TO_FINAL":   4,
+		"RESULT_ACTION_SKIP_FROM_STAGE": 5,
+	}
+)
+
+func (x ResultAction) Enum() *ResultAction {
+	p := new(ResultAction)
+	*p = x
+	return p
+}
+
+func (x ResultAction) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ResultAction) Descriptor() protoreflect.EnumDescriptor {
+	return file_beamers_program_v1_program_proto_enumTypes[3].Descriptor()
+}
+
+func (ResultAction) Type() protoreflect.EnumType {
+	return &file_beamers_program_v1_program_proto_enumTypes[3]
+}
+
+func (x ResultAction) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ResultAction.Descriptor instead.
+func (ResultAction) EnumDescriptor() ([]byte, []int) {
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{3}
+}
+
+type ProgramResult struct {
+	state                     protoimpl.MessageState      `protogen:"open.v1"`
+	Item                      *v1.ResultItemRef           `protobuf:"bytes,1,opt,name=item,proto3" json:"item,omitempty"`
+	RevealMethod              v1.RevealMethod             `protobuf:"varint,2,opt,name=reveal_method,json=revealMethod,proto3,enum=beamers.results.v1.RevealMethod" json:"reveal_method,omitempty"`
+	ReducedMotionRevealMethod v1.RevealMethod             `protobuf:"varint,3,opt,name=reduced_motion_reveal_method,json=reducedMotionRevealMethod,proto3,enum=beamers.results.v1.RevealMethod" json:"reduced_motion_reveal_method,omitempty"`
+	RevealSeed                uint64                      `protobuf:"varint,4,opt,name=reveal_seed,json=revealSeed,proto3" json:"reveal_seed,omitempty"`
+	Status                    ResultStageStatus           `protobuf:"varint,5,opt,name=status,proto3,enum=beamers.program.v1.ResultStageStatus" json:"status,omitempty"`
+	TakenAt                   *timestamppb.Timestamp      `protobuf:"bytes,6,opt,name=taken_at,json=takenAt,proto3" json:"taken_at,omitempty"`
+	RevealStartedAt           *timestamppb.Timestamp      `protobuf:"bytes,7,opt,name=reveal_started_at,json=revealStartedAt,proto3" json:"reveal_started_at,omitempty"`
+	RevealDuration            *durationpb.Duration        `protobuf:"bytes,8,opt,name=reveal_duration,json=revealDuration,proto3" json:"reveal_duration,omitempty"`
+	RevealCompletedAt         *timestamppb.Timestamp      `protobuf:"bytes,9,opt,name=reveal_completed_at,json=revealCompletedAt,proto3" json:"reveal_completed_at,omitempty"`
+	SkippedAt                 *timestamppb.Timestamp      `protobuf:"bytes,10,opt,name=skipped_at,json=skippedAt,proto3" json:"skipped_at,omitempty"`
+	Replay                    bool                        `protobuf:"varint,11,opt,name=replay,proto3" json:"replay,omitempty"`
+	PresentationStartedAt     *timestamppb.Timestamp      `protobuf:"bytes,12,opt,name=presentation_started_at,json=presentationStartedAt,proto3" json:"presentation_started_at,omitempty"`
+	PresentationDuration      *durationpb.Duration        `protobuf:"bytes,13,opt,name=presentation_duration,json=presentationDuration,proto3" json:"presentation_duration,omitempty"`
+	CompetitionResults        *v1.CompetitionResultsDraft `protobuf:"bytes,14,opt,name=competition_results,json=competitionResults,proto3" json:"competition_results,omitempty"`
+	EventAward                *v1.EventAward              `protobuf:"bytes,15,opt,name=event_award,json=eventAward,proto3" json:"event_award,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
+}
+
+func (x *ProgramResult) Reset() {
+	*x = ProgramResult{}
+	mi := &file_beamers_program_v1_program_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProgramResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProgramResult) ProtoMessage() {}
+
+func (x *ProgramResult) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_program_v1_program_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProgramResult.ProtoReflect.Descriptor instead.
+func (*ProgramResult) Descriptor() ([]byte, []int) {
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *ProgramResult) GetItem() *v1.ResultItemRef {
+	if x != nil {
+		return x.Item
+	}
+	return nil
+}
+
+func (x *ProgramResult) GetRevealMethod() v1.RevealMethod {
+	if x != nil {
+		return x.RevealMethod
+	}
+	return v1.RevealMethod(0)
+}
+
+func (x *ProgramResult) GetReducedMotionRevealMethod() v1.RevealMethod {
+	if x != nil {
+		return x.ReducedMotionRevealMethod
+	}
+	return v1.RevealMethod(0)
+}
+
+func (x *ProgramResult) GetRevealSeed() uint64 {
+	if x != nil {
+		return x.RevealSeed
+	}
+	return 0
+}
+
+func (x *ProgramResult) GetStatus() ResultStageStatus {
+	if x != nil {
+		return x.Status
+	}
+	return ResultStageStatus_RESULT_STAGE_STATUS_UNSPECIFIED
+}
+
+func (x *ProgramResult) GetTakenAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.TakenAt
+	}
+	return nil
+}
+
+func (x *ProgramResult) GetRevealStartedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.RevealStartedAt
+	}
+	return nil
+}
+
+func (x *ProgramResult) GetRevealDuration() *durationpb.Duration {
+	if x != nil {
+		return x.RevealDuration
+	}
+	return nil
+}
+
+func (x *ProgramResult) GetRevealCompletedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.RevealCompletedAt
+	}
+	return nil
+}
+
+func (x *ProgramResult) GetSkippedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.SkippedAt
+	}
+	return nil
+}
+
+func (x *ProgramResult) GetReplay() bool {
+	if x != nil {
+		return x.Replay
+	}
+	return false
+}
+
+func (x *ProgramResult) GetPresentationStartedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PresentationStartedAt
+	}
+	return nil
+}
+
+func (x *ProgramResult) GetPresentationDuration() *durationpb.Duration {
+	if x != nil {
+		return x.PresentationDuration
+	}
+	return nil
+}
+
+func (x *ProgramResult) GetCompetitionResults() *v1.CompetitionResultsDraft {
+	if x != nil {
+		return x.CompetitionResults
+	}
+	return nil
+}
+
+func (x *ProgramResult) GetEventAward() *v1.EventAward {
+	if x != nil {
+		return x.EventAward
+	}
+	return nil
 }
 
 type ProgramItem struct {
@@ -144,13 +421,14 @@ type ProgramItem struct {
 	EntryId       int64                  `protobuf:"varint,2,opt,name=entry_id,json=entryId,proto3" json:"entry_id,omitempty"`
 	Title         string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
 	Retry         bool                   `protobuf:"varint,4,opt,name=retry,proto3" json:"retry,omitempty"`
+	Result        *ProgramResult         `protobuf:"bytes,5,opt,name=result,proto3" json:"result,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ProgramItem) Reset() {
 	*x = ProgramItem{}
-	mi := &file_beamers_program_v1_program_proto_msgTypes[0]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -162,7 +440,7 @@ func (x *ProgramItem) String() string {
 func (*ProgramItem) ProtoMessage() {}
 
 func (x *ProgramItem) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_program_v1_program_proto_msgTypes[0]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -175,7 +453,7 @@ func (x *ProgramItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProgramItem.ProtoReflect.Descriptor instead.
 func (*ProgramItem) Descriptor() ([]byte, []int) {
-	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{0}
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ProgramItem) GetKind() ProgramItemKind {
@@ -206,6 +484,13 @@ func (x *ProgramItem) GetRetry() bool {
 	return false
 }
 
+func (x *ProgramItem) GetResult() *ProgramResult {
+	if x != nil {
+		return x.Result
+	}
+	return nil
+}
+
 type ControlOwner struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	AccountId     int64                  `protobuf:"varint,1,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
@@ -217,7 +502,7 @@ type ControlOwner struct {
 
 func (x *ControlOwner) Reset() {
 	*x = ControlOwner{}
-	mi := &file_beamers_program_v1_program_proto_msgTypes[1]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -229,7 +514,7 @@ func (x *ControlOwner) String() string {
 func (*ControlOwner) ProtoMessage() {}
 
 func (x *ControlOwner) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_program_v1_program_proto_msgTypes[1]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -242,7 +527,7 @@ func (x *ControlOwner) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ControlOwner.ProtoReflect.Descriptor instead.
 func (*ControlOwner) Descriptor() ([]byte, []int) {
-	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{1}
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ControlOwner) GetAccountId() int64 {
@@ -277,7 +562,7 @@ type ConsumingDisplay struct {
 
 func (x *ConsumingDisplay) Reset() {
 	*x = ConsumingDisplay{}
-	mi := &file_beamers_program_v1_program_proto_msgTypes[2]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -289,7 +574,7 @@ func (x *ConsumingDisplay) String() string {
 func (*ConsumingDisplay) ProtoMessage() {}
 
 func (x *ConsumingDisplay) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_program_v1_program_proto_msgTypes[2]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -302,7 +587,7 @@ func (x *ConsumingDisplay) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsumingDisplay.ProtoReflect.Descriptor instead.
 func (*ConsumingDisplay) Descriptor() ([]byte, []int) {
-	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{2}
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ConsumingDisplay) GetDisplayId() int64 {
@@ -349,7 +634,7 @@ type ProgramChannel struct {
 
 func (x *ProgramChannel) Reset() {
 	*x = ProgramChannel{}
-	mi := &file_beamers_program_v1_program_proto_msgTypes[3]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -361,7 +646,7 @@ func (x *ProgramChannel) String() string {
 func (*ProgramChannel) ProtoMessage() {}
 
 func (x *ProgramChannel) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_program_v1_program_proto_msgTypes[3]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -374,7 +659,7 @@ func (x *ProgramChannel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProgramChannel.ProtoReflect.Descriptor instead.
 func (*ProgramChannel) Descriptor() ([]byte, []int) {
-	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{3}
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ProgramChannel) GetEventId() int64 {
@@ -492,7 +777,7 @@ type GetProgramChannelRequest struct {
 
 func (x *GetProgramChannelRequest) Reset() {
 	*x = GetProgramChannelRequest{}
-	mi := &file_beamers_program_v1_program_proto_msgTypes[4]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -504,7 +789,7 @@ func (x *GetProgramChannelRequest) String() string {
 func (*GetProgramChannelRequest) ProtoMessage() {}
 
 func (x *GetProgramChannelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_program_v1_program_proto_msgTypes[4]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -517,7 +802,7 @@ func (x *GetProgramChannelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetProgramChannelRequest.ProtoReflect.Descriptor instead.
 func (*GetProgramChannelRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{4}
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetProgramChannelRequest) GetEventId() int64 {
@@ -543,7 +828,7 @@ type GetProgramChannelResponse struct {
 
 func (x *GetProgramChannelResponse) Reset() {
 	*x = GetProgramChannelResponse{}
-	mi := &file_beamers_program_v1_program_proto_msgTypes[5]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -555,7 +840,7 @@ func (x *GetProgramChannelResponse) String() string {
 func (*GetProgramChannelResponse) ProtoMessage() {}
 
 func (x *GetProgramChannelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_program_v1_program_proto_msgTypes[5]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -568,7 +853,7 @@ func (x *GetProgramChannelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetProgramChannelResponse.ProtoReflect.Descriptor instead.
 func (*GetProgramChannelResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{5}
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetProgramChannelResponse) GetChannel() *ProgramChannel {
@@ -592,7 +877,7 @@ type ChangeControlRequest struct {
 
 func (x *ChangeControlRequest) Reset() {
 	*x = ChangeControlRequest{}
-	mi := &file_beamers_program_v1_program_proto_msgTypes[6]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -604,7 +889,7 @@ func (x *ChangeControlRequest) String() string {
 func (*ChangeControlRequest) ProtoMessage() {}
 
 func (x *ChangeControlRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_program_v1_program_proto_msgTypes[6]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -617,7 +902,7 @@ func (x *ChangeControlRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangeControlRequest.ProtoReflect.Descriptor instead.
 func (*ChangeControlRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{6}
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ChangeControlRequest) GetEventId() int64 {
@@ -671,7 +956,7 @@ type ChangeControlResponse struct {
 
 func (x *ChangeControlResponse) Reset() {
 	*x = ChangeControlResponse{}
-	mi := &file_beamers_program_v1_program_proto_msgTypes[7]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -683,7 +968,7 @@ func (x *ChangeControlResponse) String() string {
 func (*ChangeControlResponse) ProtoMessage() {}
 
 func (x *ChangeControlResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_program_v1_program_proto_msgTypes[7]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -696,7 +981,7 @@ func (x *ChangeControlResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangeControlResponse.ProtoReflect.Descriptor instead.
 func (*ChangeControlResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{7}
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ChangeControlResponse) GetChannel() *ProgramChannel {
@@ -719,7 +1004,7 @@ type SelectPreviewRequest struct {
 
 func (x *SelectPreviewRequest) Reset() {
 	*x = SelectPreviewRequest{}
-	mi := &file_beamers_program_v1_program_proto_msgTypes[8]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -731,7 +1016,7 @@ func (x *SelectPreviewRequest) String() string {
 func (*SelectPreviewRequest) ProtoMessage() {}
 
 func (x *SelectPreviewRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_program_v1_program_proto_msgTypes[8]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -744,7 +1029,7 @@ func (x *SelectPreviewRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SelectPreviewRequest.ProtoReflect.Descriptor instead.
 func (*SelectPreviewRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{8}
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *SelectPreviewRequest) GetEventId() int64 {
@@ -791,7 +1076,7 @@ type SelectPreviewResponse struct {
 
 func (x *SelectPreviewResponse) Reset() {
 	*x = SelectPreviewResponse{}
-	mi := &file_beamers_program_v1_program_proto_msgTypes[9]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -803,7 +1088,7 @@ func (x *SelectPreviewResponse) String() string {
 func (*SelectPreviewResponse) ProtoMessage() {}
 
 func (x *SelectPreviewResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_program_v1_program_proto_msgTypes[9]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -816,7 +1101,7 @@ func (x *SelectPreviewResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SelectPreviewResponse.ProtoReflect.Descriptor instead.
 func (*SelectPreviewResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{9}
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *SelectPreviewResponse) GetChannel() *ProgramChannel {
@@ -842,7 +1127,7 @@ type TakeRequest struct {
 
 func (x *TakeRequest) Reset() {
 	*x = TakeRequest{}
-	mi := &file_beamers_program_v1_program_proto_msgTypes[10]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -854,7 +1139,7 @@ func (x *TakeRequest) String() string {
 func (*TakeRequest) ProtoMessage() {}
 
 func (x *TakeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_program_v1_program_proto_msgTypes[10]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -867,7 +1152,7 @@ func (x *TakeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TakeRequest.ProtoReflect.Descriptor instead.
 func (*TakeRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{10}
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *TakeRequest) GetEventId() int64 {
@@ -935,7 +1220,7 @@ type TakeResponse struct {
 
 func (x *TakeResponse) Reset() {
 	*x = TakeResponse{}
-	mi := &file_beamers_program_v1_program_proto_msgTypes[11]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -947,7 +1232,7 @@ func (x *TakeResponse) String() string {
 func (*TakeResponse) ProtoMessage() {}
 
 func (x *TakeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_program_v1_program_proto_msgTypes[11]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -960,7 +1245,7 @@ func (x *TakeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TakeResponse.ProtoReflect.Descriptor instead.
 func (*TakeResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{11}
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *TakeResponse) GetChannel() *ProgramChannel {
@@ -985,7 +1270,7 @@ type DeferEntryRequest struct {
 
 func (x *DeferEntryRequest) Reset() {
 	*x = DeferEntryRequest{}
-	mi := &file_beamers_program_v1_program_proto_msgTypes[12]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -997,7 +1282,7 @@ func (x *DeferEntryRequest) String() string {
 func (*DeferEntryRequest) ProtoMessage() {}
 
 func (x *DeferEntryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_program_v1_program_proto_msgTypes[12]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1010,7 +1295,7 @@ func (x *DeferEntryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeferEntryRequest.ProtoReflect.Descriptor instead.
 func (*DeferEntryRequest) Descriptor() ([]byte, []int) {
-	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{12}
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *DeferEntryRequest) GetEventId() int64 {
@@ -1071,7 +1356,7 @@ type DeferEntryResponse struct {
 
 func (x *DeferEntryResponse) Reset() {
 	*x = DeferEntryResponse{}
-	mi := &file_beamers_program_v1_program_proto_msgTypes[13]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1083,7 +1368,7 @@ func (x *DeferEntryResponse) String() string {
 func (*DeferEntryResponse) ProtoMessage() {}
 
 func (x *DeferEntryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beamers_program_v1_program_proto_msgTypes[13]
+	mi := &file_beamers_program_v1_program_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1096,10 +1381,146 @@ func (x *DeferEntryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeferEntryResponse.ProtoReflect.Descriptor instead.
 func (*DeferEntryResponse) Descriptor() ([]byte, []int) {
-	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{13}
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *DeferEntryResponse) GetChannel() *ProgramChannel {
+	if x != nil {
+		return x.Channel
+	}
+	return nil
+}
+
+type ActOnResultRequest struct {
+	state                        protoimpl.MessageState `protogen:"open.v1"`
+	EventId                      int64                  `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	SessionId                    int64                  `protobuf:"varint,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	CommandId                    string                 `protobuf:"bytes,3,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
+	Action                       ResultAction           `protobuf:"varint,4,opt,name=action,proto3,enum=beamers.program.v1.ResultAction" json:"action,omitempty"`
+	Item                         *ProgramItem           `protobuf:"bytes,5,opt,name=item,proto3" json:"item,omitempty"`
+	ExpectedProgramRevision      int64                  `protobuf:"varint,6,opt,name=expected_program_revision,json=expectedProgramRevision,proto3" json:"expected_program_revision,omitempty"`
+	ExpectedControlStateRevision int64                  `protobuf:"varint,7,opt,name=expected_control_state_revision,json=expectedControlStateRevision,proto3" json:"expected_control_state_revision,omitempty"`
+	unknownFields                protoimpl.UnknownFields
+	sizeCache                    protoimpl.SizeCache
+}
+
+func (x *ActOnResultRequest) Reset() {
+	*x = ActOnResultRequest{}
+	mi := &file_beamers_program_v1_program_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ActOnResultRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ActOnResultRequest) ProtoMessage() {}
+
+func (x *ActOnResultRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_program_v1_program_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ActOnResultRequest.ProtoReflect.Descriptor instead.
+func (*ActOnResultRequest) Descriptor() ([]byte, []int) {
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *ActOnResultRequest) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+func (x *ActOnResultRequest) GetSessionId() int64 {
+	if x != nil {
+		return x.SessionId
+	}
+	return 0
+}
+
+func (x *ActOnResultRequest) GetCommandId() string {
+	if x != nil {
+		return x.CommandId
+	}
+	return ""
+}
+
+func (x *ActOnResultRequest) GetAction() ResultAction {
+	if x != nil {
+		return x.Action
+	}
+	return ResultAction_RESULT_ACTION_UNSPECIFIED
+}
+
+func (x *ActOnResultRequest) GetItem() *ProgramItem {
+	if x != nil {
+		return x.Item
+	}
+	return nil
+}
+
+func (x *ActOnResultRequest) GetExpectedProgramRevision() int64 {
+	if x != nil {
+		return x.ExpectedProgramRevision
+	}
+	return 0
+}
+
+func (x *ActOnResultRequest) GetExpectedControlStateRevision() int64 {
+	if x != nil {
+		return x.ExpectedControlStateRevision
+	}
+	return 0
+}
+
+type ActOnResultResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Channel       *ProgramChannel        `protobuf:"bytes,1,opt,name=channel,proto3" json:"channel,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ActOnResultResponse) Reset() {
+	*x = ActOnResultResponse{}
+	mi := &file_beamers_program_v1_program_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ActOnResultResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ActOnResultResponse) ProtoMessage() {}
+
+func (x *ActOnResultResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beamers_program_v1_program_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ActOnResultResponse.ProtoReflect.Descriptor instead.
+func (*ActOnResultResponse) Descriptor() ([]byte, []int) {
+	return file_beamers_program_v1_program_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *ActOnResultResponse) GetChannel() *ProgramChannel {
 	if x != nil {
 		return x.Channel
 	}
@@ -1110,12 +1531,33 @@ var File_beamers_program_v1_program_proto protoreflect.FileDescriptor
 
 const file_beamers_program_v1_program_proto_rawDesc = "" +
 	"\n" +
-	" beamers/program/v1/program.proto\x12\x12beamers.program.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8d\x01\n" +
+	" beamers/program/v1/program.proto\x12\x12beamers.program.v1\x1a beamers/results/v1/results.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf5\a\n" +
+	"\rProgramResult\x125\n" +
+	"\x04item\x18\x01 \x01(\v2!.beamers.results.v1.ResultItemRefR\x04item\x12E\n" +
+	"\rreveal_method\x18\x02 \x01(\x0e2 .beamers.results.v1.RevealMethodR\frevealMethod\x12a\n" +
+	"\x1creduced_motion_reveal_method\x18\x03 \x01(\x0e2 .beamers.results.v1.RevealMethodR\x19reducedMotionRevealMethod\x12\x1f\n" +
+	"\vreveal_seed\x18\x04 \x01(\x04R\n" +
+	"revealSeed\x12=\n" +
+	"\x06status\x18\x05 \x01(\x0e2%.beamers.program.v1.ResultStageStatusR\x06status\x125\n" +
+	"\btaken_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\atakenAt\x12F\n" +
+	"\x11reveal_started_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x0frevealStartedAt\x12B\n" +
+	"\x0freveal_duration\x18\b \x01(\v2\x19.google.protobuf.DurationR\x0erevealDuration\x12J\n" +
+	"\x13reveal_completed_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\x11revealCompletedAt\x129\n" +
+	"\n" +
+	"skipped_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tskippedAt\x12\x16\n" +
+	"\x06replay\x18\v \x01(\bR\x06replay\x12R\n" +
+	"\x17presentation_started_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\x15presentationStartedAt\x12N\n" +
+	"\x15presentation_duration\x18\r \x01(\v2\x19.google.protobuf.DurationR\x14presentationDuration\x12\\\n" +
+	"\x13competition_results\x18\x0e \x01(\v2+.beamers.results.v1.CompetitionResultsDraftR\x12competitionResults\x12?\n" +
+	"\vevent_award\x18\x0f \x01(\v2\x1e.beamers.results.v1.EventAwardR\n" +
+	"eventAward\"\xc8\x01\n" +
 	"\vProgramItem\x127\n" +
 	"\x04kind\x18\x01 \x01(\x0e2#.beamers.program.v1.ProgramItemKindR\x04kind\x12\x19\n" +
 	"\bentry_id\x18\x02 \x01(\x03R\aentryId\x12\x14\n" +
 	"\x05title\x18\x03 \x01(\tR\x05title\x12\x14\n" +
-	"\x05retry\x18\x04 \x01(\bR\x05retry\"_\n" +
+	"\x05retry\x18\x04 \x01(\bR\x05retry\x129\n" +
+	"\x06result\x18\x05 \x01(\v2!.beamers.program.v1.ProgramResultR\x06result\"_\n" +
 	"\fControlOwner\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x12\n" +
@@ -1195,28 +1637,56 @@ const file_beamers_program_v1_program_proto_rawDesc = "" +
 	"\x19expected_program_revision\x18\x06 \x01(\x03R\x17expectedProgramRevision\x12E\n" +
 	"\x1fexpected_control_state_revision\x18\a \x01(\x03R\x1cexpectedControlStateRevision\"R\n" +
 	"\x12DeferEntryResponse\x12<\n" +
-	"\achannel\x18\x01 \x01(\v2\".beamers.program.v1.ProgramChannelR\achannel*\xce\x01\n" +
+	"\achannel\x18\x01 \x01(\v2\".beamers.program.v1.ProgramChannelR\achannel\"\xdf\x02\n" +
+	"\x12ActOnResultRequest\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\x03R\tsessionId\x12\x1d\n" +
+	"\n" +
+	"command_id\x18\x03 \x01(\tR\tcommandId\x128\n" +
+	"\x06action\x18\x04 \x01(\x0e2 .beamers.program.v1.ResultActionR\x06action\x123\n" +
+	"\x04item\x18\x05 \x01(\v2\x1f.beamers.program.v1.ProgramItemR\x04item\x12:\n" +
+	"\x19expected_program_revision\x18\x06 \x01(\x03R\x17expectedProgramRevision\x12E\n" +
+	"\x1fexpected_control_state_revision\x18\a \x01(\x03R\x1cexpectedControlStateRevision\"S\n" +
+	"\x13ActOnResultResponse\x12<\n" +
+	"\achannel\x18\x01 \x01(\v2\".beamers.program.v1.ProgramChannelR\achannel*\xec\x01\n" +
 	"\x0fProgramItemKind\x12!\n" +
 	"\x1dPROGRAM_ITEM_KIND_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19PROGRAM_ITEM_KIND_STANDBY\x10\x01\x12\x1e\n" +
 	"\x1aPROGRAM_ITEM_KIND_UPCOMING\x10\x02\x12\x1e\n" +
 	"\x1aPROGRAM_ITEM_KIND_STARTING\x10\x03\x12\x1b\n" +
 	"\x17PROGRAM_ITEM_KIND_ENTRY\x10\x04\x12\x1c\n" +
-	"\x18PROGRAM_ITEM_KIND_ENDING\x10\x05*\xc7\x01\n" +
+	"\x18PROGRAM_ITEM_KIND_ENDING\x10\x05\x12\x1c\n" +
+	"\x18PROGRAM_ITEM_KIND_RESULT\x10\x06*\xde\x01\n" +
+	"\x11ResultStageStatus\x12#\n" +
+	"\x1fRESULT_STAGE_STATUS_UNSPECIFIED\x10\x00\x12\x1f\n" +
+	"\x1bRESULT_STAGE_STATUS_PENDING\x10\x01\x12\x1d\n" +
+	"\x19RESULT_STAGE_STATUS_TAKEN\x10\x02\x12!\n" +
+	"\x1dRESULT_STAGE_STATUS_REVEALING\x10\x03\x12 \n" +
+	"\x1cRESULT_STAGE_STATUS_REVEALED\x10\x04\x12\x1f\n" +
+	"\x1bRESULT_STAGE_STATUS_SKIPPED\x10\x05*\xc7\x01\n" +
 	"\rControlAction\x12\x1e\n" +
 	"\x1aCONTROL_ACTION_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14CONTROL_ACTION_CLAIM\x10\x01\x12#\n" +
 	"\x1fCONTROL_ACTION_REQUEST_HANDOVER\x10\x02\x12\x1b\n" +
 	"\x17CONTROL_ACTION_HANDOVER\x10\x03\x12\x1b\n" +
 	"\x17CONTROL_ACTION_TAKEOVER\x10\x04\x12\x1d\n" +
-	"\x19CONTROL_ACTION_DISCONNECT\x10\x052\xfd\x03\n" +
+	"\x19CONTROL_ACTION_DISCONNECT\x10\x05*\xcf\x01\n" +
+	"\fResultAction\x12\x1d\n" +
+	"\x19RESULT_ACTION_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14RESULT_ACTION_REVEAL\x10\x01\x12!\n" +
+	"\x1dRESULT_ACTION_COMPLETE_REVEAL\x10\x02\x12\x1f\n" +
+	"\x1bRESULT_ACTION_REPLAY_REVEAL\x10\x03\x12\x1f\n" +
+	"\x1bRESULT_ACTION_SKIP_TO_FINAL\x10\x04\x12!\n" +
+	"\x1dRESULT_ACTION_SKIP_FROM_STAGE\x10\x052\xdd\x04\n" +
 	"\x15ProgramControlService\x12p\n" +
 	"\x11GetProgramChannel\x12,.beamers.program.v1.GetProgramChannelRequest\x1a-.beamers.program.v1.GetProgramChannelResponse\x12d\n" +
 	"\rChangeControl\x12(.beamers.program.v1.ChangeControlRequest\x1a).beamers.program.v1.ChangeControlResponse\x12d\n" +
 	"\rSelectPreview\x12(.beamers.program.v1.SelectPreviewRequest\x1a).beamers.program.v1.SelectPreviewResponse\x12I\n" +
 	"\x04Take\x12\x1f.beamers.program.v1.TakeRequest\x1a .beamers.program.v1.TakeResponse\x12[\n" +
 	"\n" +
-	"DeferEntry\x12%.beamers.program.v1.DeferEntryRequest\x1a&.beamers.program.v1.DeferEntryResponseB?Z=github.com/dotwaffle/beamers/gen/beamers/program/v1;programv1b\x06proto3"
+	"DeferEntry\x12%.beamers.program.v1.DeferEntryRequest\x1a&.beamers.program.v1.DeferEntryResponse\x12^\n" +
+	"\vActOnResult\x12&.beamers.program.v1.ActOnResultRequest\x1a'.beamers.program.v1.ActOnResultResponseB?Z=github.com/dotwaffle/beamers/gen/beamers/program/v1;programv1b\x06proto3"
 
 var (
 	file_beamers_program_v1_program_proto_rawDescOnce sync.Once
@@ -1230,62 +1700,91 @@ func file_beamers_program_v1_program_proto_rawDescGZIP() []byte {
 	return file_beamers_program_v1_program_proto_rawDescData
 }
 
-var file_beamers_program_v1_program_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_beamers_program_v1_program_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_beamers_program_v1_program_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_beamers_program_v1_program_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_beamers_program_v1_program_proto_goTypes = []any{
-	(ProgramItemKind)(0),              // 0: beamers.program.v1.ProgramItemKind
-	(ControlAction)(0),                // 1: beamers.program.v1.ControlAction
-	(*ProgramItem)(nil),               // 2: beamers.program.v1.ProgramItem
-	(*ControlOwner)(nil),              // 3: beamers.program.v1.ControlOwner
-	(*ConsumingDisplay)(nil),          // 4: beamers.program.v1.ConsumingDisplay
-	(*ProgramChannel)(nil),            // 5: beamers.program.v1.ProgramChannel
-	(*GetProgramChannelRequest)(nil),  // 6: beamers.program.v1.GetProgramChannelRequest
-	(*GetProgramChannelResponse)(nil), // 7: beamers.program.v1.GetProgramChannelResponse
-	(*ChangeControlRequest)(nil),      // 8: beamers.program.v1.ChangeControlRequest
-	(*ChangeControlResponse)(nil),     // 9: beamers.program.v1.ChangeControlResponse
-	(*SelectPreviewRequest)(nil),      // 10: beamers.program.v1.SelectPreviewRequest
-	(*SelectPreviewResponse)(nil),     // 11: beamers.program.v1.SelectPreviewResponse
-	(*TakeRequest)(nil),               // 12: beamers.program.v1.TakeRequest
-	(*TakeResponse)(nil),              // 13: beamers.program.v1.TakeResponse
-	(*DeferEntryRequest)(nil),         // 14: beamers.program.v1.DeferEntryRequest
-	(*DeferEntryResponse)(nil),        // 15: beamers.program.v1.DeferEntryResponse
-	(*timestamppb.Timestamp)(nil),     // 16: google.protobuf.Timestamp
+	(ProgramItemKind)(0),               // 0: beamers.program.v1.ProgramItemKind
+	(ResultStageStatus)(0),             // 1: beamers.program.v1.ResultStageStatus
+	(ControlAction)(0),                 // 2: beamers.program.v1.ControlAction
+	(ResultAction)(0),                  // 3: beamers.program.v1.ResultAction
+	(*ProgramResult)(nil),              // 4: beamers.program.v1.ProgramResult
+	(*ProgramItem)(nil),                // 5: beamers.program.v1.ProgramItem
+	(*ControlOwner)(nil),               // 6: beamers.program.v1.ControlOwner
+	(*ConsumingDisplay)(nil),           // 7: beamers.program.v1.ConsumingDisplay
+	(*ProgramChannel)(nil),             // 8: beamers.program.v1.ProgramChannel
+	(*GetProgramChannelRequest)(nil),   // 9: beamers.program.v1.GetProgramChannelRequest
+	(*GetProgramChannelResponse)(nil),  // 10: beamers.program.v1.GetProgramChannelResponse
+	(*ChangeControlRequest)(nil),       // 11: beamers.program.v1.ChangeControlRequest
+	(*ChangeControlResponse)(nil),      // 12: beamers.program.v1.ChangeControlResponse
+	(*SelectPreviewRequest)(nil),       // 13: beamers.program.v1.SelectPreviewRequest
+	(*SelectPreviewResponse)(nil),      // 14: beamers.program.v1.SelectPreviewResponse
+	(*TakeRequest)(nil),                // 15: beamers.program.v1.TakeRequest
+	(*TakeResponse)(nil),               // 16: beamers.program.v1.TakeResponse
+	(*DeferEntryRequest)(nil),          // 17: beamers.program.v1.DeferEntryRequest
+	(*DeferEntryResponse)(nil),         // 18: beamers.program.v1.DeferEntryResponse
+	(*ActOnResultRequest)(nil),         // 19: beamers.program.v1.ActOnResultRequest
+	(*ActOnResultResponse)(nil),        // 20: beamers.program.v1.ActOnResultResponse
+	(*v1.ResultItemRef)(nil),           // 21: beamers.results.v1.ResultItemRef
+	(v1.RevealMethod)(0),               // 22: beamers.results.v1.RevealMethod
+	(*timestamppb.Timestamp)(nil),      // 23: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),        // 24: google.protobuf.Duration
+	(*v1.CompetitionResultsDraft)(nil), // 25: beamers.results.v1.CompetitionResultsDraft
+	(*v1.EventAward)(nil),              // 26: beamers.results.v1.EventAward
 }
 var file_beamers_program_v1_program_proto_depIdxs = []int32{
-	0,  // 0: beamers.program.v1.ProgramItem.kind:type_name -> beamers.program.v1.ProgramItemKind
-	3,  // 1: beamers.program.v1.ProgramChannel.control_owner:type_name -> beamers.program.v1.ControlOwner
-	3,  // 2: beamers.program.v1.ProgramChannel.handover_requester:type_name -> beamers.program.v1.ControlOwner
-	2,  // 3: beamers.program.v1.ProgramChannel.previous:type_name -> beamers.program.v1.ProgramItem
-	2,  // 4: beamers.program.v1.ProgramChannel.current:type_name -> beamers.program.v1.ProgramItem
-	2,  // 5: beamers.program.v1.ProgramChannel.next:type_name -> beamers.program.v1.ProgramItem
-	2,  // 6: beamers.program.v1.ProgramChannel.preview:type_name -> beamers.program.v1.ProgramItem
-	2,  // 7: beamers.program.v1.ProgramChannel.program_output:type_name -> beamers.program.v1.ProgramItem
-	2,  // 8: beamers.program.v1.ProgramChannel.items:type_name -> beamers.program.v1.ProgramItem
-	16, // 9: beamers.program.v1.ProgramChannel.taken_at:type_name -> google.protobuf.Timestamp
-	4,  // 10: beamers.program.v1.ProgramChannel.consuming_displays:type_name -> beamers.program.v1.ConsumingDisplay
-	5,  // 11: beamers.program.v1.GetProgramChannelResponse.channel:type_name -> beamers.program.v1.ProgramChannel
-	1,  // 12: beamers.program.v1.ChangeControlRequest.action:type_name -> beamers.program.v1.ControlAction
-	5,  // 13: beamers.program.v1.ChangeControlResponse.channel:type_name -> beamers.program.v1.ProgramChannel
-	2,  // 14: beamers.program.v1.SelectPreviewRequest.item:type_name -> beamers.program.v1.ProgramItem
-	5,  // 15: beamers.program.v1.SelectPreviewResponse.channel:type_name -> beamers.program.v1.ProgramChannel
-	2,  // 16: beamers.program.v1.TakeRequest.preview:type_name -> beamers.program.v1.ProgramItem
-	5,  // 17: beamers.program.v1.TakeResponse.channel:type_name -> beamers.program.v1.ProgramChannel
-	5,  // 18: beamers.program.v1.DeferEntryResponse.channel:type_name -> beamers.program.v1.ProgramChannel
-	6,  // 19: beamers.program.v1.ProgramControlService.GetProgramChannel:input_type -> beamers.program.v1.GetProgramChannelRequest
-	8,  // 20: beamers.program.v1.ProgramControlService.ChangeControl:input_type -> beamers.program.v1.ChangeControlRequest
-	10, // 21: beamers.program.v1.ProgramControlService.SelectPreview:input_type -> beamers.program.v1.SelectPreviewRequest
-	12, // 22: beamers.program.v1.ProgramControlService.Take:input_type -> beamers.program.v1.TakeRequest
-	14, // 23: beamers.program.v1.ProgramControlService.DeferEntry:input_type -> beamers.program.v1.DeferEntryRequest
-	7,  // 24: beamers.program.v1.ProgramControlService.GetProgramChannel:output_type -> beamers.program.v1.GetProgramChannelResponse
-	9,  // 25: beamers.program.v1.ProgramControlService.ChangeControl:output_type -> beamers.program.v1.ChangeControlResponse
-	11, // 26: beamers.program.v1.ProgramControlService.SelectPreview:output_type -> beamers.program.v1.SelectPreviewResponse
-	13, // 27: beamers.program.v1.ProgramControlService.Take:output_type -> beamers.program.v1.TakeResponse
-	15, // 28: beamers.program.v1.ProgramControlService.DeferEntry:output_type -> beamers.program.v1.DeferEntryResponse
-	24, // [24:29] is the sub-list for method output_type
-	19, // [19:24] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	21, // 0: beamers.program.v1.ProgramResult.item:type_name -> beamers.results.v1.ResultItemRef
+	22, // 1: beamers.program.v1.ProgramResult.reveal_method:type_name -> beamers.results.v1.RevealMethod
+	22, // 2: beamers.program.v1.ProgramResult.reduced_motion_reveal_method:type_name -> beamers.results.v1.RevealMethod
+	1,  // 3: beamers.program.v1.ProgramResult.status:type_name -> beamers.program.v1.ResultStageStatus
+	23, // 4: beamers.program.v1.ProgramResult.taken_at:type_name -> google.protobuf.Timestamp
+	23, // 5: beamers.program.v1.ProgramResult.reveal_started_at:type_name -> google.protobuf.Timestamp
+	24, // 6: beamers.program.v1.ProgramResult.reveal_duration:type_name -> google.protobuf.Duration
+	23, // 7: beamers.program.v1.ProgramResult.reveal_completed_at:type_name -> google.protobuf.Timestamp
+	23, // 8: beamers.program.v1.ProgramResult.skipped_at:type_name -> google.protobuf.Timestamp
+	23, // 9: beamers.program.v1.ProgramResult.presentation_started_at:type_name -> google.protobuf.Timestamp
+	24, // 10: beamers.program.v1.ProgramResult.presentation_duration:type_name -> google.protobuf.Duration
+	25, // 11: beamers.program.v1.ProgramResult.competition_results:type_name -> beamers.results.v1.CompetitionResultsDraft
+	26, // 12: beamers.program.v1.ProgramResult.event_award:type_name -> beamers.results.v1.EventAward
+	0,  // 13: beamers.program.v1.ProgramItem.kind:type_name -> beamers.program.v1.ProgramItemKind
+	4,  // 14: beamers.program.v1.ProgramItem.result:type_name -> beamers.program.v1.ProgramResult
+	6,  // 15: beamers.program.v1.ProgramChannel.control_owner:type_name -> beamers.program.v1.ControlOwner
+	6,  // 16: beamers.program.v1.ProgramChannel.handover_requester:type_name -> beamers.program.v1.ControlOwner
+	5,  // 17: beamers.program.v1.ProgramChannel.previous:type_name -> beamers.program.v1.ProgramItem
+	5,  // 18: beamers.program.v1.ProgramChannel.current:type_name -> beamers.program.v1.ProgramItem
+	5,  // 19: beamers.program.v1.ProgramChannel.next:type_name -> beamers.program.v1.ProgramItem
+	5,  // 20: beamers.program.v1.ProgramChannel.preview:type_name -> beamers.program.v1.ProgramItem
+	5,  // 21: beamers.program.v1.ProgramChannel.program_output:type_name -> beamers.program.v1.ProgramItem
+	5,  // 22: beamers.program.v1.ProgramChannel.items:type_name -> beamers.program.v1.ProgramItem
+	23, // 23: beamers.program.v1.ProgramChannel.taken_at:type_name -> google.protobuf.Timestamp
+	7,  // 24: beamers.program.v1.ProgramChannel.consuming_displays:type_name -> beamers.program.v1.ConsumingDisplay
+	8,  // 25: beamers.program.v1.GetProgramChannelResponse.channel:type_name -> beamers.program.v1.ProgramChannel
+	2,  // 26: beamers.program.v1.ChangeControlRequest.action:type_name -> beamers.program.v1.ControlAction
+	8,  // 27: beamers.program.v1.ChangeControlResponse.channel:type_name -> beamers.program.v1.ProgramChannel
+	5,  // 28: beamers.program.v1.SelectPreviewRequest.item:type_name -> beamers.program.v1.ProgramItem
+	8,  // 29: beamers.program.v1.SelectPreviewResponse.channel:type_name -> beamers.program.v1.ProgramChannel
+	5,  // 30: beamers.program.v1.TakeRequest.preview:type_name -> beamers.program.v1.ProgramItem
+	8,  // 31: beamers.program.v1.TakeResponse.channel:type_name -> beamers.program.v1.ProgramChannel
+	8,  // 32: beamers.program.v1.DeferEntryResponse.channel:type_name -> beamers.program.v1.ProgramChannel
+	3,  // 33: beamers.program.v1.ActOnResultRequest.action:type_name -> beamers.program.v1.ResultAction
+	5,  // 34: beamers.program.v1.ActOnResultRequest.item:type_name -> beamers.program.v1.ProgramItem
+	8,  // 35: beamers.program.v1.ActOnResultResponse.channel:type_name -> beamers.program.v1.ProgramChannel
+	9,  // 36: beamers.program.v1.ProgramControlService.GetProgramChannel:input_type -> beamers.program.v1.GetProgramChannelRequest
+	11, // 37: beamers.program.v1.ProgramControlService.ChangeControl:input_type -> beamers.program.v1.ChangeControlRequest
+	13, // 38: beamers.program.v1.ProgramControlService.SelectPreview:input_type -> beamers.program.v1.SelectPreviewRequest
+	15, // 39: beamers.program.v1.ProgramControlService.Take:input_type -> beamers.program.v1.TakeRequest
+	17, // 40: beamers.program.v1.ProgramControlService.DeferEntry:input_type -> beamers.program.v1.DeferEntryRequest
+	19, // 41: beamers.program.v1.ProgramControlService.ActOnResult:input_type -> beamers.program.v1.ActOnResultRequest
+	10, // 42: beamers.program.v1.ProgramControlService.GetProgramChannel:output_type -> beamers.program.v1.GetProgramChannelResponse
+	12, // 43: beamers.program.v1.ProgramControlService.ChangeControl:output_type -> beamers.program.v1.ChangeControlResponse
+	14, // 44: beamers.program.v1.ProgramControlService.SelectPreview:output_type -> beamers.program.v1.SelectPreviewResponse
+	16, // 45: beamers.program.v1.ProgramControlService.Take:output_type -> beamers.program.v1.TakeResponse
+	18, // 46: beamers.program.v1.ProgramControlService.DeferEntry:output_type -> beamers.program.v1.DeferEntryResponse
+	20, // 47: beamers.program.v1.ProgramControlService.ActOnResult:output_type -> beamers.program.v1.ActOnResultResponse
+	42, // [42:48] is the sub-list for method output_type
+	36, // [36:42] is the sub-list for method input_type
+	36, // [36:36] is the sub-list for extension type_name
+	36, // [36:36] is the sub-list for extension extendee
+	0,  // [0:36] is the sub-list for field type_name
 }
 
 func init() { file_beamers_program_v1_program_proto_init() }
@@ -1298,8 +1797,8 @@ func file_beamers_program_v1_program_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_beamers_program_v1_program_proto_rawDesc), len(file_beamers_program_v1_program_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   14,
+			NumEnums:      4,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

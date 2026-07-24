@@ -24,6 +24,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
+	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 )
 
 // SessionUpdate is the builder for updating Session entities.
@@ -515,6 +516,26 @@ func (_u *SessionUpdate) AddProgramOutputEntryID(v int) *SessionUpdate {
 // ClearProgramOutputEntryID clears the value of the "program_output_entry_id" field.
 func (_u *SessionUpdate) ClearProgramOutputEntryID() *SessionUpdate {
 	_u.mutation.ClearProgramOutputEntryID()
+	return _u
+}
+
+// SetProgramOutputResult sets the "program_output_result" field.
+func (_u *SessionUpdate) SetProgramOutputResult(v prizegivingvalue.ProgramOutput) *SessionUpdate {
+	_u.mutation.SetProgramOutputResult(v)
+	return _u
+}
+
+// SetNillableProgramOutputResult sets the "program_output_result" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableProgramOutputResult(v *prizegivingvalue.ProgramOutput) *SessionUpdate {
+	if v != nil {
+		_u.SetProgramOutputResult(*v)
+	}
+	return _u
+}
+
+// ClearProgramOutputResult clears the value of the "program_output_result" field.
+func (_u *SessionUpdate) ClearProgramOutputResult() *SessionUpdate {
+	_u.mutation.ClearProgramOutputResult()
 	return _u
 }
 
@@ -1229,6 +1250,12 @@ func (_u *SessionUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.ProgramOutputEntryIDCleared() {
 		_spec.ClearField(session.FieldProgramOutputEntryID, field.TypeInt)
+	}
+	if value, ok := _u.mutation.ProgramOutputResult(); ok {
+		_spec.SetField(session.FieldProgramOutputResult, field.TypeJSON, value)
+	}
+	if _u.mutation.ProgramOutputResultCleared() {
+		_spec.ClearField(session.FieldProgramOutputResult, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.ProgramOutputRevision(); ok {
 		_spec.SetField(session.FieldProgramOutputRevision, field.TypeInt, value)
@@ -2145,6 +2172,26 @@ func (_u *SessionUpdateOne) ClearProgramOutputEntryID() *SessionUpdateOne {
 	return _u
 }
 
+// SetProgramOutputResult sets the "program_output_result" field.
+func (_u *SessionUpdateOne) SetProgramOutputResult(v prizegivingvalue.ProgramOutput) *SessionUpdateOne {
+	_u.mutation.SetProgramOutputResult(v)
+	return _u
+}
+
+// SetNillableProgramOutputResult sets the "program_output_result" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableProgramOutputResult(v *prizegivingvalue.ProgramOutput) *SessionUpdateOne {
+	if v != nil {
+		_u.SetProgramOutputResult(*v)
+	}
+	return _u
+}
+
+// ClearProgramOutputResult clears the value of the "program_output_result" field.
+func (_u *SessionUpdateOne) ClearProgramOutputResult() *SessionUpdateOne {
+	_u.mutation.ClearProgramOutputResult()
+	return _u
+}
+
 // SetProgramOutputRevision sets the "program_output_revision" field.
 func (_u *SessionUpdateOne) SetProgramOutputRevision(v int) *SessionUpdateOne {
 	_u.mutation.ResetProgramOutputRevision()
@@ -2886,6 +2933,12 @@ func (_u *SessionUpdateOne) sqlSave(ctx context.Context) (_node *Session, err er
 	}
 	if _u.mutation.ProgramOutputEntryIDCleared() {
 		_spec.ClearField(session.FieldProgramOutputEntryID, field.TypeInt)
+	}
+	if value, ok := _u.mutation.ProgramOutputResult(); ok {
+		_spec.SetField(session.FieldProgramOutputResult, field.TypeJSON, value)
+	}
+	if _u.mutation.ProgramOutputResultCleared() {
+		_spec.ClearField(session.FieldProgramOutputResult, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.ProgramOutputRevision(); ok {
 		_spec.SetField(session.FieldProgramOutputRevision, field.TypeInt, value)
