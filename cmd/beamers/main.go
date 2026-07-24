@@ -113,6 +113,17 @@ func runRestorePreview(ctx context.Context, args []string, stdout, stderr io.Wri
 		"",
 		"Attachment Store root (default: DATA-DIR/attachments)",
 	)
+	forceUnsupported := flags.Bool(
+		"force-unsupported",
+		false,
+		"host-only: stage unsupported state without a safety claim",
+	)
+	reason := flags.String("reason", "", "mandatory reason for forced unsupported Restore")
+	acknowledgeUnsupported := flags.Bool(
+		"acknowledge-no-safety",
+		false,
+		"acknowledge that forced unsupported Restore makes no safety claim",
+	)
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -120,13 +131,22 @@ func runRestorePreview(ctx context.Context, args []string, stdout, stderr io.Wri
 		return errors.New("restore preview accepts no positional arguments")
 	}
 	plan, err := operations.PrepareRestore(ctx, backup.RestoreInput{
-		InputPath:      *input,
-		DataDir:        *dataDir,
-		AttachmentsDir: *attachmentsDir,
-		Replace:        true,
+		InputPath:                   *input,
+		DataDir:                     *dataDir,
+		AttachmentsDir:              *attachmentsDir,
+		Replace:                     true,
+		ForceUnsupported:            *forceUnsupported,
+		ForceReason:                 *reason,
+		AcknowledgeUnsupportedRisks: *acknowledgeUnsupported,
 	})
 	if err != nil {
 		return err
+	}
+	if plan.ForcedUnsupported {
+		_, _ = fmt.Fprintln(
+			stderr,
+			"WARNING: forced unsupported Restore makes no safety claim; review unknown_schema_elements",
+		)
 	}
 	return json.NewEncoder(stdout).Encode(plan)
 }
@@ -140,6 +160,11 @@ func runRestoreApply(ctx context.Context, args []string, stdout, stderr io.Write
 		false,
 		"acknowledge that current installation state will move to quarantine",
 	)
+	acknowledgeUnsupported := flags.Bool(
+		"acknowledge-no-safety",
+		false,
+		"repeat that forced unsupported Restore makes no safety claim",
+	)
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -149,9 +174,21 @@ func runRestoreApply(ctx context.Context, args []string, stdout, stderr io.Write
 	if !*acknowledge {
 		return errors.New("restore replacement acknowledgment is required")
 	}
-	manifest, err := operations.ApplyRestore(ctx, *journal)
+	manifest, err := operations.ApplyRestoreWithOptions(
+		ctx,
+		*journal,
+		backup.ApplyOptions{
+			AcknowledgeUnsupportedRisks: *acknowledgeUnsupported,
+		},
+	)
 	if err != nil {
 		return err
+	}
+	if *acknowledgeUnsupported {
+		_, _ = fmt.Fprintln(
+			stderr,
+			"WARNING: installed forced unsupported state without a safety claim",
+		)
 	}
 	_, err = fmt.Fprintf(stdout, "restored %s Backup from prepared journal\n", manifest.Mode)
 	return err

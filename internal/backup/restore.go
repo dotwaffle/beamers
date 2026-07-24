@@ -36,7 +36,15 @@ type RestorePlan struct {
 	AttachmentsQuarantine string   `json:"attachments_quarantine,omitempty"`
 	ReplacesData          bool     `json:"replaces_data"`
 	ReplacesAttachments   bool     `json:"replaces_attachments"`
+	ForcedUnsupported     bool     `json:"forced_unsupported"`
+	ForceReason           string   `json:"force_reason,omitempty"`
+	UnknownSchemaElements []string `json:"unknown_schema_elements,omitempty"`
 	Manifest              Manifest `json:"manifest"`
+}
+
+// ApplyOptions carries the repeated safeguard for a forced unsupported Restore.
+type ApplyOptions struct {
+	AcknowledgeUnsupportedRisks bool
 }
 
 type restoreJournal struct {
@@ -58,6 +66,13 @@ func PrepareRestore(
 ) (_ RestorePlan, returnErr error) {
 	if input.InputPath == "" || input.DataDir == "" {
 		return RestorePlan{}, errors.New("Restore input and data directory are required")
+	}
+	input.ForceReason = strings.TrimSpace(input.ForceReason)
+	if input.ForceUnsupported &&
+		(input.ForceReason == "" || !input.AcknowledgeUnsupportedRisks) {
+		return RestorePlan{}, errors.New(
+			"forced unsupported Restore requires a reason and acknowledgment that it makes no safety claim",
+		)
 	}
 	absoluteInput, pathErr := filepath.Abs(input.InputPath)
 	if pathErr != nil {
@@ -132,9 +147,6 @@ func PrepareRestore(
 	if verifyErr != nil {
 		return RestorePlan{}, verifyErr
 	}
-	if compatibilityErr := validateCompatibility(manifest); compatibilityErr != nil {
-		return RestorePlan{}, compatibilityErr
-	}
 
 	stagedData := filepath.Join(stagingRoot, "data")
 	if mkdirErr := os.Mkdir(stagedData, 0o700); mkdirErr != nil {
@@ -167,11 +179,32 @@ func PrepareRestore(
 	); extractErr != nil {
 		return RestorePlan{}, extractErr
 	}
-	if validationErr := store.ValidateSnapshot(
+	compatibilityErr := validateCompatibility(manifest)
+	validationErr := store.ValidateSnapshot(
 		ctx,
 		filepath.Join(stagedData, "beamers.db"),
-	); validationErr != nil {
-		return RestorePlan{}, validationErr
+	)
+	var unsupported store.UnsupportedSnapshotInspection
+	switch {
+	case compatibilityErr == nil && validationErr == nil:
+		if input.ForceUnsupported {
+			return RestorePlan{}, errors.New("Restore is supported; force option is not permitted")
+		}
+	case !input.ForceUnsupported:
+		return RestorePlan{}, errors.Join(compatibilityErr, validationErr)
+	default:
+		unsupported, validationErr = store.InspectUnsupportedSnapshot(
+			ctx,
+			filepath.Join(stagedData, "beamers.db"),
+		)
+		if validationErr != nil {
+			return RestorePlan{}, validationErr
+		}
+		if unsupported.SchemaVersion != manifest.SchemaVersion {
+			return RestorePlan{}, errors.New(
+				"backup manifest schema version does not match its database copy",
+			)
+		}
 	}
 	if markerErr := createInstallationMarker(stagedData); markerErr != nil {
 		return RestorePlan{}, markerErr
@@ -220,12 +253,15 @@ func PrepareRestore(
 		}()
 	}
 	plan := RestorePlan{
-		JournalPath:         journalPath,
-		DataDir:             input.DataDir,
-		AttachmentsDir:      input.AttachmentsDir,
-		ReplacesData:        replacesData,
-		ReplacesAttachments: replacesAttachments,
-		Manifest:            manifest,
+		JournalPath:           journalPath,
+		DataDir:               input.DataDir,
+		AttachmentsDir:        input.AttachmentsDir,
+		ReplacesData:          replacesData,
+		ReplacesAttachments:   replacesAttachments,
+		ForcedUnsupported:     input.ForceUnsupported,
+		ForceReason:           input.ForceReason,
+		UnknownSchemaElements: unsupported.UnknownSchemaElements,
+		Manifest:              manifest,
 	}
 	if replacesData {
 		plan.DataQuarantine = filepath.Join(dataQuarantineRoot, "original")
@@ -253,12 +289,30 @@ func PrepareRestore(
 
 // ApplyRestore executes one prepared journal and proves the installed state ready.
 func ApplyRestore(ctx context.Context, journalPath string) (Manifest, error) {
-	return applyRestore(ctx, journalPath, nil)
+	return applyRestoreWithOptions(ctx, journalPath, ApplyOptions{}, nil)
+}
+
+// ApplyRestoreWithOptions executes a prepared forced Restore with repeated acknowledgment.
+func ApplyRestoreWithOptions(
+	ctx context.Context,
+	journalPath string,
+	options ApplyOptions,
+) (Manifest, error) {
+	return applyRestoreWithOptions(ctx, journalPath, options, nil)
 }
 
 func applyRestore(
 	ctx context.Context,
 	journalPath string,
+	afterPhase func(restorePhase) error,
+) (Manifest, error) {
+	return applyRestoreWithOptions(ctx, journalPath, ApplyOptions{}, afterPhase)
+}
+
+func applyRestoreWithOptions(
+	ctx context.Context,
+	journalPath string,
+	options ApplyOptions,
 	afterPhase func(restorePhase) error,
 ) (Manifest, error) {
 	journal, err := readRestoreJournal(journalPath)
@@ -267,6 +321,11 @@ func applyRestore(
 	}
 	if journal.Phase != restorePrepared {
 		return Manifest{}, errors.New("Restore journal contains an interrupted cutover; recover it first")
+	}
+	if journal.Plan.ForcedUnsupported && !options.AcknowledgeUnsupportedRisks {
+		return Manifest{}, errors.New(
+			"forced unsupported Restore requires repeated acknowledgment that it makes no safety claim",
+		)
 	}
 	if journal.Plan.ReplacesData {
 		current, openErr := store.Open(ctx, journal.Plan.DataDir)
@@ -325,17 +384,30 @@ func applyRestore(
 		return Manifest{}, advanceErr
 	}
 
-	installed, err := store.Open(ctx, journal.Plan.DataDir)
-	if err != nil {
-		return fail(err)
-	}
-	readyErr := installed.StartupError()
-	if readyErr == nil {
-		readyErr = installed.Ready(ctx)
-	}
-	readyErr = errors.Join(readyErr, installed.Close())
-	if readyErr != nil {
-		return fail(readyErr)
+	if journal.Plan.ForcedUnsupported {
+		inspection, inspectErr := store.InspectUnsupportedSnapshot(
+			ctx,
+			filepath.Join(journal.Plan.DataDir, "beamers.db"),
+		)
+		if inspectErr != nil || inspection.SchemaVersion != journal.Plan.Manifest.SchemaVersion {
+			return fail(errors.Join(
+				inspectErr,
+				errors.New("installed unsupported Restore copy changed during cutover"),
+			))
+		}
+	} else {
+		installed, openErr := store.Open(ctx, journal.Plan.DataDir)
+		if openErr != nil {
+			return fail(openErr)
+		}
+		readyErr := installed.StartupError()
+		if readyErr == nil {
+			readyErr = installed.Ready(ctx)
+		}
+		readyErr = errors.Join(readyErr, installed.Close())
+		if readyErr != nil {
+			return fail(readyErr)
+		}
 	}
 	if err = advance(restoreCommitted); err != nil {
 		return fail(err)

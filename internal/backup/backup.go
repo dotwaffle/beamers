@@ -68,10 +68,13 @@ type CreateInput struct {
 
 // RestoreInput selects one verified Backup and local destination.
 type RestoreInput struct {
-	InputPath      string
-	DataDir        string
-	AttachmentsDir string
-	Replace        bool
+	InputPath                   string
+	DataDir                     string
+	AttachmentsDir              string
+	Replace                     bool
+	ForceUnsupported            bool
+	ForceReason                 string
+	AcknowledgeUnsupportedRisks bool
 }
 
 // Create writes and verifies one installation Backup.
@@ -281,7 +284,9 @@ func Restore(ctx context.Context, input RestoreInput) (Manifest, error) {
 	if err != nil {
 		return Manifest{}, err
 	}
-	return ApplyRestore(ctx, plan.JournalPath)
+	return ApplyRestoreWithOptions(ctx, plan.JournalPath, ApplyOptions{
+		AcknowledgeUnsupportedRisks: input.AcknowledgeUnsupportedRisks,
+	})
 }
 
 func extractRestore(

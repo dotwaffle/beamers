@@ -69,6 +69,13 @@ type BackupAttachment struct {
 	SizeBytes  int64
 }
 
+// UnsupportedSnapshotInspection describes a structurally valid Beamers database
+// that this executable cannot safely open.
+type UnsupportedSnapshotInspection struct {
+	SchemaVersion         int
+	UnknownSchemaElements []string
+}
+
 // systemContext is the store-only boundary for narrowly isolated internal work.
 func systemContext(ctx context.Context) context.Context {
 	return privacy.DecisionContext(ctx, privacy.Allow)
@@ -311,6 +318,134 @@ func ValidateSnapshot(ctx context.Context, path string) (returnErr error) {
 		returnErr = errors.Join(returnErr, database.Close())
 	}()
 	return validateStorage(ctx, database, migrations)
+}
+
+// InspectUnsupportedSnapshot checks integrity and reports schema elements not
+// understood by this executable without mutating the supplied copy.
+func InspectUnsupportedSnapshot(
+	ctx context.Context,
+	path string,
+) (_ UnsupportedSnapshotInspection, returnErr error) {
+	database, err := openValidationDatabase(ctx, path)
+	if err != nil {
+		return UnsupportedSnapshotInspection{}, err
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, database.Close())
+	}()
+	if integrityErr := verifySQLiteIntegrity(ctx, database); integrityErr != nil {
+		return UnsupportedSnapshotInspection{}, integrityErr
+	}
+	var foundApplicationID, schemaVersion int
+	if err = database.QueryRowContext(ctx, "PRAGMA application_id").Scan(
+		&foundApplicationID,
+	); err != nil {
+		return UnsupportedSnapshotInspection{}, fmt.Errorf(
+			"read unsupported Restore application identifier: %w",
+			err,
+		)
+	}
+	if foundApplicationID != applicationID {
+		return UnsupportedSnapshotInspection{}, fmt.Errorf(
+			"%w: unknown application identifier",
+			ErrUnsupportedSchema,
+		)
+	}
+	if err = database.QueryRowContext(ctx, "PRAGMA user_version").Scan(
+		&schemaVersion,
+	); err != nil {
+		return UnsupportedSnapshotInspection{}, fmt.Errorf(
+			"read unsupported Restore schema version: %w",
+			err,
+		)
+	}
+	foundSchema, err := sqliteSchema(ctx, database)
+	if err != nil {
+		return UnsupportedSnapshotInspection{}, err
+	}
+
+	migrations, err := loadMigrations()
+	if err != nil {
+		return UnsupportedSnapshotInspection{}, fmt.Errorf("load committed migrations: %w", err)
+	}
+	current, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		return UnsupportedSnapshotInspection{}, fmt.Errorf("open current schema model: %w", err)
+	}
+	current.SetMaxOpenConns(1)
+	defer func() {
+		returnErr = errors.Join(returnErr, current.Close())
+	}()
+	if err = initializeSchema(ctx, current, migrations); err != nil {
+		return UnsupportedSnapshotInspection{}, fmt.Errorf("build current schema model: %w", err)
+	}
+	currentSchema, err := sqliteSchema(ctx, current)
+	if err != nil {
+		return UnsupportedSnapshotInspection{}, err
+	}
+	unknown := make([]string, 0)
+	for name, found := range foundSchema {
+		expected, exists := currentSchema[name]
+		if !exists {
+			unknown = append(unknown, name)
+		} else if found != expected {
+			unknown = append(unknown, "changed "+name)
+		}
+	}
+	sort.Strings(unknown)
+	return UnsupportedSnapshotInspection{
+		SchemaVersion:         schemaVersion,
+		UnknownSchemaElements: unknown,
+	}, nil
+}
+
+func verifySQLiteIntegrity(ctx context.Context, database *sql.DB) (returnErr error) {
+	rows, err := database.QueryContext(ctx, "PRAGMA quick_check")
+	if err != nil {
+		return fmt.Errorf("check unsupported Restore copy: %w", err)
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, rows.Close())
+	}()
+	for rows.Next() {
+		var result string
+		if err = rows.Scan(&result); err != nil {
+			return fmt.Errorf("read unsupported Restore integrity result: %w", err)
+		}
+		if result != "ok" {
+			return errors.New("unsupported Restore copy failed SQLite integrity check")
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return fmt.Errorf("finish unsupported Restore integrity check: %w", err)
+	}
+	return nil
+}
+
+func sqliteSchema(ctx context.Context, database *sql.DB) (_ map[string]string, returnErr error) {
+	rows, err := database.QueryContext(
+		ctx,
+		"SELECT type, name, coalesce(sql, '') FROM sqlite_schema "+
+			"WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("read SQLite schema elements: %w", err)
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, rows.Close())
+	}()
+	elements := make(map[string]string)
+	for rows.Next() {
+		var kind, name, definition string
+		if err = rows.Scan(&kind, &name, &definition); err != nil {
+			return nil, fmt.Errorf("read SQLite schema element: %w", err)
+		}
+		elements[kind+" "+name] = definition
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("finish SQLite schema inspection: %w", err)
+	}
+	return elements, nil
 }
 
 // BackupAttachmentsFromSnapshot lists immutable files referenced by a snapshot.

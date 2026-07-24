@@ -6,11 +6,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -97,12 +99,17 @@ func TestSanitizedBackupIncludesConfiguredAttachmentsAndRemovesCredentials(t *te
 			t.Fatalf("%s count = %d, want 0", table, count)
 		}
 	}
-	var accounts int
-	if err = database.QueryRowContext(ctx, "SELECT count(*) FROM accounts").Scan(&accounts); err != nil {
-		t.Fatalf("count Accounts: %v", err)
-	}
-	if accounts != 1 {
-		t.Fatalf("Account identities = %d, want 1", accounts)
+	for _, table := range []string{"accounts", "displays", "audit_entries"} {
+		var count int
+		if err = database.QueryRowContext(
+			ctx,
+			"SELECT count(*) FROM "+table,
+		).Scan(&count); err != nil {
+			t.Fatalf("count preserved %s: %v", table, err)
+		}
+		if count != 1 {
+			t.Fatalf("preserved %s count = %d, want 1", table, count)
+		}
 	}
 
 	restoredDataDir := filepath.Join(t.TempDir(), "restored")
@@ -309,6 +316,78 @@ func TestRestoreRecoversInterruptedCrossFilesystemCutover(t *testing.T) {
 	}
 }
 
+func TestForcedUnsupportedRestoreReportsUnknownSchemaAndMakesNoSafetyClaim(
+	t *testing.T,
+) {
+	ctx := t.Context()
+	sourceDataDir := filepath.Join(t.TempDir(), "source")
+	if err := store.Initialize(ctx, sourceDataDir); err != nil {
+		t.Fatalf("initialize source installation: %v", err)
+	}
+	supportedArchive := filepath.Join(t.TempDir(), "supported.zip")
+	if _, err := Create(ctx, CreateInput{
+		DataDir: sourceDataDir, OutputPath: supportedArchive,
+	}); err != nil {
+		t.Fatalf("create supported Backup: %v", err)
+	}
+	unsupportedArchive := filepath.Join(t.TempDir(), "unsupported.zip")
+	makeUnsupportedBackup(t, supportedArchive, unsupportedArchive)
+	targetDataDir := filepath.Join(t.TempDir(), "target")
+
+	if _, err := PrepareRestore(ctx, RestoreInput{
+		InputPath: unsupportedArchive,
+		DataDir:   targetDataDir,
+	}); err == nil {
+		t.Fatal("unsupported Restore unexpectedly prepared normally")
+	}
+	if _, err := PrepareRestore(ctx, RestoreInput{
+		InputPath:        unsupportedArchive,
+		DataDir:          targetDataDir,
+		ForceUnsupported: true,
+	}); err == nil {
+		t.Fatal("forced unsupported Restore unexpectedly accepted without safeguards")
+	}
+	plan, err := PrepareRestore(ctx, RestoreInput{
+		InputPath:                   unsupportedArchive,
+		DataDir:                     targetDataDir,
+		ForceUnsupported:            true,
+		ForceReason:                 "recover after newer binary failure",
+		AcknowledgeUnsupportedRisks: true,
+	})
+	if err != nil {
+		t.Fatalf("prepare forced unsupported Restore: %v", err)
+	}
+	if !plan.ForcedUnsupported ||
+		plan.ForceReason != "recover after newer binary failure" ||
+		!slices.Contains(plan.UnknownSchemaElements, "table future_state") {
+		t.Fatalf("forced unsupported Restore plan = %+v", plan)
+	}
+	if _, err = ApplyRestore(ctx, plan.JournalPath); err == nil {
+		t.Fatal("forced unsupported Restore applied without repeated acknowledgment")
+	}
+	if _, err = ApplyRestoreWithOptions(
+		ctx,
+		plan.JournalPath,
+		ApplyOptions{AcknowledgeUnsupportedRisks: true},
+	); err != nil {
+		t.Fatalf("apply forced unsupported Restore: %v", err)
+	}
+	installed, err := store.Open(ctx, targetDataDir)
+	if err != nil {
+		t.Fatalf("open forced unsupported Restore: %v", err)
+	}
+	if !errors.Is(installed.StartupError(), store.ErrUnsupportedSchema) {
+		_ = installed.Close()
+		t.Fatalf("forced Restore startup error = %v", installed.StartupError())
+	}
+	if err = installed.Close(); err != nil {
+		t.Fatalf("close forced unsupported Restore: %v", err)
+	}
+	if _, err = os.Stat(unsupportedArchive); err != nil {
+		t.Fatalf("forced Restore removed input Backup: %v", err)
+	}
+}
+
 func seedBackupState(
 	t *testing.T,
 	ctx context.Context,
@@ -341,6 +420,22 @@ func seedBackupState(
 		{
 			"INSERT INTO account_sessions (account_id, token_hash, created_at, expires_at) VALUES (1, ?, ?, ?)",
 			[]any{digest, now, now.Add(time.Hour)},
+		},
+		{
+			"INSERT INTO events (id, name, planned_start_date, planned_end_date, timezone, event_locale, event_day_boundary, created_at) VALUES (1, 'Event', '2026-07-24', '2026-07-24', 'UTC', 'en-US', '00:00', ?)",
+			[]any{now},
+		},
+		{
+			"INSERT INTO audit_entries (actor_kind, created_at, action, target_type, target_id, result, actor_account_id) VALUES ('Account', ?, 'BackupTest', 'Installation', '1', 'Succeeded', 1)",
+			[]any{now},
+		},
+		{
+			"INSERT INTO displays (id, name, created_at, enrolled_at) VALUES (1, 'Stage', ?, ?)",
+			[]any{now, now},
+		},
+		{
+			"INSERT INTO display_credentials (display_id, token_hash, created_at) VALUES (1, ?, ?)",
+			[]any{fmt.Sprintf("%064x", 2), now},
 		},
 		{
 			"INSERT INTO attachments (id, event_id, owner_type, owner_id, name, created_at) VALUES (1, 1, 'Presentation', 1, 'slides', ?)",
@@ -458,5 +553,99 @@ func rewriteZIPEntry(t *testing.T, source, destination, name string, replacement
 	}
 	if err = output.Close(); err != nil {
 		t.Fatalf("close rewritten file: %v", err)
+	}
+}
+
+func makeUnsupportedBackup(t *testing.T, sourcePath, destinationPath string) {
+	t.Helper()
+	source, err := zip.OpenReader(sourcePath)
+	if err != nil {
+		t.Fatalf("open supported Backup: %v", err)
+	}
+	defer func() {
+		if closeErr := source.Close(); closeErr != nil {
+			t.Errorf("close supported Backup: %v", closeErr)
+		}
+	}()
+	databasePath := filepath.Join(t.TempDir(), "future.db")
+	extractZIPEntry(t, source.File, databaseName, databasePath)
+	database, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatalf("open future database: %v", err)
+	}
+	current, err := store.CurrentSchemaVersion()
+	if err != nil {
+		t.Fatalf("read current schema version: %v", err)
+	}
+	if _, err = database.ExecContext(
+		t.Context(),
+		"CREATE TABLE future_state (id integer PRIMARY KEY); PRAGMA user_version = "+
+			fmt.Sprint(current+1),
+	); err != nil {
+		_ = database.Close()
+		t.Fatalf("create future schema element: %v", err)
+	}
+	if err = database.Close(); err != nil {
+		t.Fatalf("close future database: %v", err)
+	}
+	databaseContent, err := os.ReadFile(databasePath)
+	if err != nil {
+		t.Fatalf("read future database: %v", err)
+	}
+	databaseHash := fmt.Sprintf("%x", sha256.Sum256(databaseContent))
+
+	output, err := os.OpenFile(
+		destinationPath,
+		os.O_CREATE|os.O_EXCL|os.O_WRONLY,
+		0o600,
+	)
+	if err != nil {
+		t.Fatalf("create unsupported Backup: %v", err)
+	}
+	writer := zip.NewWriter(output)
+	for _, file := range source.File {
+		var content []byte
+		switch file.Name {
+		case manifestName:
+			input, openErr := file.Open()
+			if openErr != nil {
+				t.Fatalf("open manifest: %v", openErr)
+			}
+			var manifest Manifest
+			if decodeErr := json.NewDecoder(input).Decode(&manifest); decodeErr != nil {
+				_ = input.Close()
+				t.Fatalf("decode manifest: %v", decodeErr)
+			}
+			_ = input.Close()
+			manifest.SchemaVersion = current + 1
+			manifest.MinimumReaderSchemaVersion = current + 1
+			manifest.MinimumWriterSchemaVersion = current + 1
+			manifest.DatabaseSHA256 = databaseHash
+			content, err = json.Marshal(manifest)
+		case databaseName:
+			content = databaseContent
+		default:
+			input, openErr := file.Open()
+			if openErr != nil {
+				t.Fatalf("open %s: %v", file.Name, openErr)
+			}
+			content, err = io.ReadAll(input)
+			_ = input.Close()
+		}
+		if err != nil {
+			t.Fatalf("read %s: %v", file.Name, err)
+		}
+		entry, createErr := writer.CreateHeader(&zip.FileHeader{
+			Name: file.Name, Method: file.Method,
+		})
+		if createErr != nil {
+			t.Fatalf("create %s: %v", file.Name, createErr)
+		}
+		if _, err = entry.Write(content); err != nil {
+			t.Fatalf("write %s: %v", file.Name, err)
+		}
+	}
+	if err = errors.Join(writer.Close(), output.Close()); err != nil {
+		t.Fatalf("close unsupported Backup: %v", err)
 	}
 }

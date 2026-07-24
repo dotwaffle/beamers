@@ -58,6 +58,15 @@ func ApplyRestore(ctx context.Context, journalPath string) (backup.Manifest, err
 	return backup.ApplyRestore(ctx, journalPath)
 }
 
+// ApplyRestoreWithOptions executes a forced unsupported replacement plan.
+func ApplyRestoreWithOptions(
+	ctx context.Context,
+	journalPath string,
+	options backup.ApplyOptions,
+) (backup.Manifest, error) {
+	return backup.ApplyRestoreWithOptions(ctx, journalPath, options)
+}
+
 var (
 	// ErrAlreadyInitialized means initialization found existing installation data.
 	ErrAlreadyInitialized = store.ErrAlreadyInitialized
