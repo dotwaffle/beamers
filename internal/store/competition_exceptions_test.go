@@ -136,6 +136,34 @@ func TestCompetitionEntryReplayDeferAndResolution(t *testing.T) {
 	if thirdFailure.ResolutionRequired || thirdFailure.ReleaseHold {
 		t.Fatalf("Technical Failure decided resolution: %+v", thirdFailure)
 	}
+	draftTransaction := beginCommand(t, installation, producerContext)
+	if _, err = draftTransaction.SaveCompetitionResultsDraft(
+		producerContext,
+		SaveCompetitionResultsDraftParams{
+			EventID: event.ID, SessionID: competition.ID, ExpectedRevision: 0,
+			Disposition: "Publish", ScoreType: "None",
+			CreatedByAccountID: 1, Now: now,
+			Standings: []CompetitionResultStandingInput{
+				{EntryID: entries[0], Standing: "Placed", Placement: 1, DisplayOrder: 1},
+				{EntryID: entries[1], Standing: "Unplaced", DisplayOrder: 2},
+				{EntryID: entries[2], Standing: "Unplaced", DisplayOrder: 3},
+			},
+		},
+	); err != nil {
+		t.Fatalf("save Ready Results fixture: %v", err)
+	}
+	if _, err = draftTransaction.MarkCompetitionResultsReady(
+		producerContext,
+		MarkCompetitionResultsReadyParams{
+			EventID: event.ID, SessionID: competition.ID, ExpectedRevision: 1,
+			ReviewedByAccountID: 1, Now: now,
+		},
+	); err != nil {
+		t.Fatalf("mark Ready Results fixture: %v", err)
+	}
+	if err = draftTransaction.Commit(); err != nil {
+		t.Fatalf("commit Ready Results fixture: %v", err)
+	}
 
 	preflight, err := installation.PreflightCompetitionEnd(
 		producerContext, event.ID, competition.ID,
@@ -164,6 +192,12 @@ func TestCompetitionEntryReplayDeferAndResolution(t *testing.T) {
 	if err = ending.Commit(); err != nil {
 		t.Fatalf("commit confirmed End: %v", err)
 	}
+	superseded, err := installation.LoadCompetitionResultsDraft(
+		producerContext, event.ID, competition.ID,
+	)
+	if err != nil || superseded.Revision != 2 || superseded.Ready {
+		t.Fatalf("required resolution did not supersede Ready Results = %+v, %v", superseded, err)
+	}
 	blocked, err := installation.LoadCompetition(producerContext, event.ID, competition.ID)
 	if err != nil {
 		t.Fatalf("load blocked resolution state: %v", err)
@@ -177,6 +211,7 @@ func TestCompetitionEntryReplayDeferAndResolution(t *testing.T) {
 		EventID: event.ID, SessionID: competition.ID, EntryID: first.ID,
 		ExpectedRevision: first.Revision, ResultDisposition: "Disqualified",
 		CrewReason: "rules violation", PublicDisqualificationMessage: "Disqualified",
+		Now: now,
 	})
 	first = client.CompetitionEntry.GetX(fixtureContext, first.ID)
 	if first.PresentationStatus != competitionentry.PresentationStatusPresented ||
@@ -187,13 +222,13 @@ func TestCompetitionEntryReplayDeferAndResolution(t *testing.T) {
 	resolveCompetitionEntry(t, installation, producerContext, ResolveCompetitionEntryParams{
 		EventID: event.ID, SessionID: competition.ID, EntryID: second.ID,
 		ExpectedRevision: second.Revision, ResultDisposition: "Withheld",
-		CrewReason: "private organizer decision",
+		CrewReason: "private organizer decision", Now: now,
 	})
 	third = client.CompetitionEntry.GetX(fixtureContext, third.ID)
 	resolveCompetitionEntry(t, installation, producerContext, ResolveCompetitionEntryParams{
 		EventID: event.ID, SessionID: competition.ID, EntryID: third.ID,
 		ExpectedRevision: third.Revision, ResultDisposition: "Eligible",
-		CrewReason: "technical failure accepted",
+		CrewReason: "technical failure accepted", Now: now,
 	})
 	resolved, err := installation.LoadCompetition(producerContext, event.ID, competition.ID)
 	if err != nil {

@@ -397,6 +397,11 @@ func (transaction *CommandTx) CreateCompetitionEntry(ctx context.Context, params
 	if err != nil {
 		return CompetitionEntry{}, opaqueError("create Competition Entry", err)
 	}
+	if err := transaction.SupersedeCompetitionResultsDraft(
+		ctx, params.EventID, params.SessionID, params.Now,
+	); err != nil {
+		return CompetitionEntry{}, err
+	}
 	return competitionEntry(created), nil
 }
 
@@ -428,6 +433,11 @@ func (transaction *CommandTx) UpdateCompetitionEntry(ctx context.Context, params
 		Save(ctx)
 	if err != nil {
 		return CompetitionEntry{}, opaqueError("update Competition Entry", err)
+	}
+	if err := transaction.SupersedeCompetitionResultsDraft(
+		ctx, params.EventID, params.SessionID, params.Now,
+	); err != nil {
+		return CompetitionEntry{}, err
 	}
 	return competitionEntry(updated), nil
 }
@@ -618,6 +628,11 @@ func (transaction *CommandTx) ChangeCompetitionEntryDisposition(
 	updated, err := update.Save(ctx)
 	if err != nil {
 		return CompetitionEntry{}, opaqueError("change Competition Entry disposition", err)
+	}
+	if err := transaction.SupersedeCompetitionResultsDraft(
+		ctx, params.EventID, params.SessionID, params.Now,
+	); err != nil {
+		return CompetitionEntry{}, err
 	}
 	return competitionEntry(updated), nil
 }

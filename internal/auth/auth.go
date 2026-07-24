@@ -935,3 +935,11 @@ func (account Account) CanOperateEvent(eventID int) bool {
 	role := account.EventRoles[eventID]
 	return role == viewer.Producer || role == viewer.Operator
 }
+
+// HasCapability reports role-default or explicitly granted Event authority.
+func (account Account) HasCapability(eventID int, capability viewer.Capability) bool {
+	return viewer.Identity{
+		AccountID: account.ID, Administrator: account.Administrator,
+		EventRoles: account.EventRoles, EventScopes: account.EventScopes,
+	}.HasCapability(eventID, capability)
+}

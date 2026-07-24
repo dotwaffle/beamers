@@ -2,6 +2,7 @@ package results
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -59,21 +60,19 @@ func TestReviewRequiresUnplacedEntriesInLockedOrder(t *testing.T) {
 	}
 }
 
-func TestReviewAcceptsExplicitNoPublicResultsWithoutStandings(t *testing.T) {
+func TestValidateDraftAcceptsExplicitNoPublicResultsWithoutStandings(t *testing.T) {
 	draft := Draft{
 		Disposition:    NoPublicResults,
 		NoPublicReason: "Judging could not be completed",
 		Score:          ScorePolicy{Type: None},
 	}
-	entries := []EligibleEntry{{ID: 31, LockedOrder: 1}}
-
-	if err := Review(draft, entries); err != nil {
-		t.Fatalf("review No Public Results: %v", err)
+	if err := ValidateDraft(draft); err != nil {
+		t.Fatalf("validate No Public Results: %v", err)
 	}
 
 	draft.NoPublicReason = ""
-	if err := Review(draft, entries); !errors.Is(err, ErrCrewReasonRequired) {
-		t.Fatalf("review No Public Results without Crew Reason error = %v", err)
+	if err := ValidateDraft(draft); !errors.Is(err, ErrCrewReasonRequired) {
+		t.Fatalf("validate No Public Results without Crew Reason error = %v", err)
 	}
 }
 
@@ -118,5 +117,24 @@ func TestReviewRequiresExactScoresWithoutDerivingPlacement(t *testing.T) {
 	draft.Standings[1].Score = ScoreValue{Duration: &negativeDuration}
 	if err := Review(draft, entries); !errors.Is(err, ErrInvalidScore) {
 		t.Fatalf("review negative Duration Score error = %v", err)
+	}
+}
+
+func TestValidateDraftRejectsScoresBeyondStorageBounds(t *testing.T) {
+	decimal := strings.Repeat("1", 201)
+	draft := Draft{
+		Disposition: Publish,
+		Score: ScorePolicy{
+			Type: Decimal, Visibility: ScorePublic,
+			Unit: strings.Repeat("u", 101), Precision: 2,
+			Requirement: ScoreOptional, Interpretation: Informational,
+		},
+		Standings: []Standing{{
+			EntryID: 1, Standing: Placed, Placement: 1, DisplayOrder: 1,
+			Score: ScoreValue{Decimal: &decimal},
+		}},
+	}
+	if err := ValidateDraft(draft); !errors.Is(err, ErrInvalidScore) {
+		t.Fatalf("oversized Score policy error = %v", err)
 	}
 }

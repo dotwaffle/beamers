@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 var (
@@ -52,12 +53,12 @@ const (
 
 // ScorePolicy defines one Competition's score representation.
 type ScorePolicy struct {
-	Type           ScoreType
-	Visibility     ScoreVisibility
-	Unit           string
-	Precision      int
-	Requirement    ScoreRequirement
-	Interpretation ScoreInterpretation
+	Type           ScoreType           `json:"type"`
+	Visibility     ScoreVisibility     `json:"visibility"`
+	Unit           string              `json:"unit,omitempty"`
+	Precision      int                 `json:"precision"`
+	Requirement    ScoreRequirement    `json:"requirement"`
+	Interpretation ScoreInterpretation `json:"interpretation"`
 }
 
 // ScoreVisibility controls whether exact Scores become public.
@@ -94,8 +95,8 @@ const (
 
 // ScoreValue contains exactly one configured canonical Score representation.
 type ScoreValue struct {
-	Decimal  *string
-	Duration *time.Duration
+	Decimal  *string        `json:"decimal,omitempty"`
+	Duration *time.Duration `json:"duration,omitempty"`
 }
 
 // ResultStanding states whether one eligible Entry placed.
@@ -110,20 +111,29 @@ const (
 
 // Standing is one Entry's explicit result in a Draft.
 type Standing struct {
-	EntryID      int
-	Standing     ResultStanding
-	Placement    int
-	DisplayOrder int
-	Score        ScoreValue
+	EntryID      int            `json:"entry_id"`
+	Standing     ResultStanding `json:"standing"`
+	Placement    int            `json:"placement,omitempty"`
+	DisplayOrder int            `json:"display_order"`
+	Score        ScoreValue     `json:"score"`
 }
 
 // Draft is one complete immutable Competition Results proposal.
 type Draft struct {
-	Disposition       Disposition
-	NoPublicReason    string
-	PublicExplanation string
-	Score             ScorePolicy
-	Standings         []Standing
+	ID                 int
+	EventID            int
+	SessionID          int
+	Revision           int
+	Disposition        Disposition
+	NoPublicReason     string
+	PublicExplanation  string
+	Score              ScorePolicy
+	Standings          []Standing
+	Ready              bool
+	ReadyByAccountID   int
+	ReadyAt            time.Time
+	CreatedByAccountID int
+	CreatedAt          time.Time
 }
 
 // EligibleEntry is one Included Entry that requires an explicit Standing.
@@ -132,8 +142,9 @@ type EligibleEntry struct {
 	LockedOrder int
 }
 
-// Review validates whether one exact Results Draft can be marked Ready.
-func Review(draft Draft, entries []EligibleEntry) error {
+// ValidateDraft validates one editable Results Draft without requiring complete
+// eligible Entry coverage.
+func ValidateDraft(draft Draft) error {
 	if err := validateScorePolicy(draft.Score); err != nil {
 		return err
 	}
@@ -146,32 +157,19 @@ func Review(draft Draft, entries []EligibleEntry) error {
 			return ErrDisposition
 		}
 		return nil
-	case Publish:
-	case Pending:
-		return ErrDisposition
+	case Publish, Pending:
 	default:
 		return ErrDisposition
-	}
-	if len(draft.Standings) != len(entries) {
-		return ErrIncomplete
-	}
-	eligible := make(map[int]EligibleEntry, len(entries))
-	for _, entry := range entries {
-		eligible[entry.ID] = entry
 	}
 	ordered := slices.Clone(draft.Standings)
 	sort.Slice(ordered, func(first, second int) bool {
 		return ordered[first].DisplayOrder < ordered[second].DisplayOrder
 	})
 	seen := make(map[int]struct{}, len(ordered))
-	unplacedIDs := make([]int, 0, len(ordered))
 	previousPlacement := 0
 	unplaced := false
 	for index, standing := range ordered {
 		if standing.DisplayOrder != index+1 || standing.EntryID <= 0 {
-			return ErrIncomplete
-		}
-		if _, ok := eligible[standing.EntryID]; !ok {
 			return ErrIncomplete
 		}
 		if _, duplicate := seen[standing.EntryID]; duplicate {
@@ -193,12 +191,47 @@ func Review(draft Draft, entries []EligibleEntry) error {
 				return ErrCompetitionRanking
 			}
 			unplaced = true
-			unplacedIDs = append(unplacedIDs, standing.EntryID)
 		default:
 			return ErrIncomplete
 		}
 		if err := validateScore(draft.Score, standing.Score); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// Review validates whether one exact Publish Draft can be marked Ready.
+func Review(draft Draft, entries []EligibleEntry) error {
+	if err := ValidateDraft(draft); err != nil {
+		return err
+	}
+	if draft.Disposition != Publish {
+		return ErrDisposition
+	}
+	if len(draft.Standings) != len(entries) {
+		return ErrIncomplete
+	}
+	eligible := make(map[int]EligibleEntry, len(entries))
+	for _, entry := range entries {
+		eligible[entry.ID] = entry
+	}
+	ordered := slices.Clone(draft.Standings)
+	sort.Slice(ordered, func(first, second int) bool {
+		return ordered[first].DisplayOrder < ordered[second].DisplayOrder
+	})
+	seen := make(map[int]struct{}, len(ordered))
+	unplacedIDs := make([]int, 0, len(ordered))
+	for _, standing := range ordered {
+		if _, ok := eligible[standing.EntryID]; !ok {
+			return ErrIncomplete
+		}
+		if _, duplicate := seen[standing.EntryID]; duplicate {
+			return ErrIncomplete
+		}
+		seen[standing.EntryID] = struct{}{}
+		if standing.Standing == Unplaced {
+			unplacedIDs = append(unplacedIDs, standing.EntryID)
 		}
 	}
 	lockedUnplaced := make([]EligibleEntry, 0, len(unplacedIDs))
@@ -217,11 +250,26 @@ func Review(draft Draft, entries []EligibleEntry) error {
 }
 
 func validateScorePolicy(policy ScorePolicy) error {
+	validVisibility := policy.Visibility == "" ||
+		policy.Visibility == ScorePublic || policy.Visibility == ScoreCrewOnly
+	validRequirement := policy.Requirement == "" ||
+		policy.Requirement == ScoreOptional || policy.Requirement == ScoreRequired
+	validInterpretation := policy.Interpretation == "" ||
+		policy.Interpretation == HigherWins ||
+		policy.Interpretation == LowerWins ||
+		policy.Interpretation == Informational
 	switch policy.Type {
 	case None:
+		if policy.Unit != "" || policy.Precision != 0 ||
+			!validVisibility || !validRequirement || !validInterpretation {
+			return ErrInvalidScore
+		}
 		return nil
 	case Decimal, Duration:
 		if strings.TrimSpace(policy.Unit) == "" ||
+			!utf8.ValidString(policy.Unit) ||
+			utf8.RuneCountInString(policy.Unit) > 100 ||
+			strings.ContainsRune(policy.Unit, '\x00') ||
 			policy.Precision < 0 || policy.Precision > 9 ||
 			(policy.Visibility != ScorePublic && policy.Visibility != ScoreCrewOnly) ||
 			(policy.Requirement != ScoreOptional && policy.Requirement != ScoreRequired) ||
@@ -261,7 +309,7 @@ func validateScore(policy ScorePolicy, score ScoreValue) error {
 }
 
 func validDecimal(value string, precision int) bool {
-	if value == "" || strings.TrimSpace(value) != value {
+	if value == "" || len(value) > 200 || strings.TrimSpace(value) != value {
 		return false
 	}
 	if value[0] == '-' {

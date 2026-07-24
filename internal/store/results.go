@@ -6,13 +6,17 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/ent"
+	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/competitionresultsdraft"
 	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
+	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 var (
 	// ErrCompetitionResultsRevision means a Results command used a stale revision.
 	ErrCompetitionResultsRevision = errors.New("competition results revision conflict")
+	// ErrCompetitionResultsEntry means a Standing references an Entry outside its Competition.
+	ErrCompetitionResultsEntry = errors.New("competition results entry is outside the competition")
 )
 
 // CompetitionResultStandingInput is one Entry result in a proposed Draft.
@@ -84,6 +88,13 @@ type MarkCompetitionResultsReadyParams struct {
 	Now                 time.Time
 }
 
+// CompetitionResultsEligibleEntry is one Included, eligible Entry and its
+// current canonical presentation order.
+type CompetitionResultsEligibleEntry struct {
+	ID          int
+	LockedOrder int
+}
+
 // LoadCompetitionResultsDraft returns the current Results revision.
 func (installation *SQLite) LoadCompetitionResultsDraft(
 	ctx context.Context,
@@ -144,6 +155,32 @@ func (transaction *CommandTx) SaveCompetitionResultsDraft(
 	}
 	if currentRevision != params.ExpectedRevision {
 		return CompetitionResultsDraft{}, ErrCompetitionResultsRevision
+	}
+	entryIDs := make([]int, 0, len(params.Standings))
+	uniqueEntryIDs := make(map[int]struct{}, len(params.Standings))
+	for _, standing := range params.Standings {
+		uniqueEntryIDs[standing.EntryID] = struct{}{}
+	}
+	for entryID := range uniqueEntryIDs {
+		entryIDs = append(entryIDs, entryID)
+	}
+	if len(entryIDs) != len(params.Standings) {
+		return CompetitionResultsDraft{}, ErrCompetitionResultsEntry
+	}
+	if len(entryIDs) > 0 {
+		entryCount, countErr := client.CompetitionEntry.Query().
+			Where(
+				competitionentry.IDIn(entryIDs...),
+				competitionentry.EventIDEQ(params.EventID),
+				competitionentry.CompetitionSessionIDEQ(params.SessionID),
+			).
+			Count(internalContext)
+		if countErr != nil {
+			return CompetitionResultsDraft{}, opaqueError("validate Competition Result Entries", countErr)
+		}
+		if entryCount != len(entryIDs) {
+			return CompetitionResultsDraft{}, ErrCompetitionResultsEntry
+		}
 	}
 	scoreVisibility := params.ScoreVisibility
 	if scoreVisibility == "" {
@@ -222,6 +259,115 @@ func (transaction *CommandTx) MarkCompetitionResultsReady(
 		return CompetitionResultsDraft{}, opaqueError("mark Competition Results Ready", err)
 	}
 	return loadCompetitionResultsDraftByID(internalContext, client, updated.ID)
+}
+
+// LoadCompetitionResultsReviewState returns the current Draft and the exact
+// eligible Entry set from the same command transaction.
+func (transaction *CommandTx) LoadCompetitionResultsReviewState(
+	ctx context.Context,
+	eventID, sessionID int,
+) (CompetitionResultsDraft, []CompetitionResultsEligibleEntry, error) {
+	internalContext := systemContext(ctx)
+	client := transaction.transaction.Client()
+	current, err := client.CompetitionResultsDraft.Query().
+		Where(
+			competitionresultsdraft.EventIDEQ(eventID),
+			competitionresultsdraft.CompetitionSessionIDEQ(sessionID),
+		).
+		Order(ent.Desc(competitionresultsdraft.FieldRevision)).
+		First(internalContext)
+	if ent.IsNotFound(err) {
+		return CompetitionResultsDraft{}, nil, ErrCompetitionResultsRevision
+	}
+	if err != nil {
+		return CompetitionResultsDraft{}, nil, opaqueError("load Results Draft for review", err)
+	}
+	draft, err := loadCompetitionResultsDraftByID(internalContext, client, current.ID)
+	if err != nil {
+		return CompetitionResultsDraft{}, nil, err
+	}
+	_, competition, err := transaction.competitionConfiguration(
+		internalContext, eventID, sessionID,
+	)
+	if err != nil {
+		return CompetitionResultsDraft{}, nil, err
+	}
+	included, err := transaction.includedCompetitionEntries(internalContext, sessionID)
+	if err != nil {
+		return CompetitionResultsDraft{}, nil, err
+	}
+	order, _, err := competitionEntryOrder(competition, included)
+	if err != nil {
+		return CompetitionResultsDraft{}, nil, err
+	}
+	eligibleIDs := make(map[int]struct{}, len(included))
+	for _, entry := range included {
+		if entry.ResultDisposition == competitionentry.ResultDispositionEligible {
+			eligibleIDs[entry.ID] = struct{}{}
+		}
+	}
+	eligible := make([]CompetitionResultsEligibleEntry, 0, len(eligibleIDs))
+	for index, entryID := range order.EntryIDs {
+		if _, ok := eligibleIDs[entryID]; ok {
+			eligible = append(eligible, CompetitionResultsEligibleEntry{
+				ID: entryID, LockedOrder: index + 1,
+			})
+		}
+	}
+	return draft, eligible, nil
+}
+
+// SupersedeCompetitionResultsDraft clones the current Draft into a new,
+// non-Ready revision after a relevant Competition fact changes.
+func (transaction *CommandTx) SupersedeCompetitionResultsDraft(
+	ctx context.Context,
+	eventID, sessionID int,
+	now time.Time,
+) error {
+	internalContext := systemContext(ctx)
+	client := transaction.transaction.Client()
+	current, err := client.CompetitionResultsDraft.Query().
+		Where(
+			competitionresultsdraft.EventIDEQ(eventID),
+			competitionresultsdraft.CompetitionSessionIDEQ(sessionID),
+		).
+		Order(ent.Desc(competitionresultsdraft.FieldRevision)).
+		WithStandings(func(query *ent.CompetitionResultStandingQuery) {
+			query.Order(ent.Asc(competitionresultstanding.FieldDisplayOrder))
+		}).
+		First(internalContext)
+	if ent.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return opaqueError("load Results Draft to supersede", err)
+	}
+	identity, ok := viewer.FromContext(ctx)
+	if !ok || identity.AccountID <= 0 {
+		return errors.New("supersede Results Draft: viewer context is missing")
+	}
+	found := competitionResultsDraft(current)
+	standings := make([]CompetitionResultStandingInput, 0, len(found.Standings))
+	for _, standing := range found.Standings {
+		standings = append(standings, CompetitionResultStandingInput(standing))
+	}
+	_, err = transaction.SaveCompetitionResultsDraft(
+		internalContext,
+		SaveCompetitionResultsDraftParams{
+			EventID: eventID, SessionID: sessionID,
+			ExpectedRevision:   found.Revision,
+			Disposition:        found.Disposition,
+			NoPublicCrewReason: found.NoPublicCrewReason,
+			PublicExplanation:  found.PublicExplanation,
+			ScoreType:          found.ScoreType, ScoreVisibility: found.ScoreVisibility,
+			ScoreUnit: found.ScoreUnit, ScorePrecision: found.ScorePrecision,
+			ScoreRequirement:    found.ScoreRequirement,
+			ScoreInterpretation: found.ScoreInterpretation,
+			CreatedByAccountID:  identity.AccountID, Now: now,
+			Standings: standings,
+		},
+	)
+	return err
 }
 
 func loadCompetitionResultsDraftByID(

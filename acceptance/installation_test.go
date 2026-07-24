@@ -38,6 +38,8 @@ import (
 	"github.com/dotwaffle/beamers/gen/beamers/competition/v1/competitionv1connect"
 	programv1 "github.com/dotwaffle/beamers/gen/beamers/program/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/program/v1/programv1connect"
+	resultsv1 "github.com/dotwaffle/beamers/gen/beamers/results/v1"
+	"github.com/dotwaffle/beamers/gen/beamers/results/v1/resultsv1connect"
 	rundownv1 "github.com/dotwaffle/beamers/gen/beamers/rundown/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/rundown/v1/rundownv1connect"
 	sessionv1 "github.com/dotwaffle/beamers/gen/beamers/session/v1"
@@ -3163,6 +3165,141 @@ func TestProducerCreatesIncludedCompetitionEntry(t *testing.T) {
 	}
 	if !strings.Contains(string(auditBody), "ChangeCompetitionEntryDisposition") {
 		t.Fatalf("Competition disposition change missing from Audit history: %s", auditBody)
+	}
+	server.stop(t)
+}
+
+func TestProducerStagesAndReviewsCompetitionResults(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, administrator, server)
+	competitionID, _ := addCompetitionSession(t, administrator, server)
+	competitionClient := competitionv1connect.NewCompetitionServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	first, err := competitionClient.CreateEntry(t.Context(), connect.NewRequest(
+		&competitionv1.CreateEntryRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "create-results-entry-first",
+			Name: "First Result",
+		},
+	))
+	if err != nil {
+		t.Fatalf("create first Results Entry: %v", err)
+	}
+	second, err := competitionClient.CreateEntry(t.Context(), connect.NewRequest(
+		&competitionv1.CreateEntryRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "create-results-entry-second",
+			Name: "Second Result",
+		},
+	))
+	if err != nil {
+		t.Fatalf("create second Results Entry: %v", err)
+	}
+	resultsClient := resultsv1connect.NewResultsServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	initial, err := resultsClient.GetCompetitionResultsDraft(
+		t.Context(),
+		connect.NewRequest(&resultsv1.GetCompetitionResultsDraftRequest{
+			EventId: 1, SessionId: competitionID,
+		}),
+	)
+	if err != nil || initial.Msg.GetDraft().GetRevision() != 0 ||
+		initial.Msg.GetDraft().GetDisposition() !=
+			resultsv1.ResultsDisposition_RESULTS_DISPOSITION_PENDING {
+		t.Fatalf("initial Results Draft = %+v, %v", initial, err)
+	}
+	saved, err := resultsClient.SaveCompetitionResultsDraft(
+		t.Context(),
+		connect.NewRequest(&resultsv1.SaveCompetitionResultsDraftRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "save-results-draft",
+			ExpectedRevision: 0,
+			Disposition:      resultsv1.ResultsDisposition_RESULTS_DISPOSITION_PUBLISH,
+			Score: &resultsv1.ScorePolicy{
+				Type:           resultsv1.ScoreType_SCORE_TYPE_NONE,
+				Visibility:     resultsv1.ScoreVisibility_SCORE_VISIBILITY_PUBLIC,
+				Requirement:    resultsv1.ScoreRequirement_SCORE_REQUIREMENT_OPTIONAL,
+				Interpretation: resultsv1.ScoreInterpretation_SCORE_INTERPRETATION_INFORMATIONAL,
+			},
+			Standings: []*resultsv1.CompetitionResultStanding{
+				{
+					EntryId:   first.Msg.GetEntry().GetId(),
+					Standing:  resultsv1.ResultStanding_RESULT_STANDING_PLACED,
+					Placement: proto.Int64(1), DisplayOrder: 1,
+				},
+				{
+					EntryId:      second.Msg.GetEntry().GetId(),
+					Standing:     resultsv1.ResultStanding_RESULT_STANDING_UNPLACED,
+					DisplayOrder: 2,
+				},
+			},
+		}),
+	)
+	if err != nil || saved.Msg.GetDraft().GetRevision() != 1 ||
+		saved.Msg.GetDraft().GetReady() {
+		t.Fatalf("save Results Draft = %+v, %v", saved, err)
+	}
+	ready, err := resultsClient.MarkCompetitionResultsReady(
+		t.Context(),
+		connect.NewRequest(&resultsv1.MarkCompetitionResultsReadyRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "review-results-draft",
+			ExpectedRevision: 1,
+		}),
+	)
+	if err != nil || !ready.Msg.GetDraft().GetReady() ||
+		ready.Msg.GetDraft().GetRevision() != 1 {
+		t.Fatalf("mark Results Ready = %+v, %v", ready, err)
+	}
+	_, err = competitionClient.UpdateEntry(t.Context(), connect.NewRequest(
+		&competitionv1.UpdateEntryRequest{
+			EventId: 1, SessionId: competitionID, EntryId: first.Msg.GetEntry().GetId(),
+			CommandId:        "update-reviewed-results-entry",
+			ExpectedRevision: first.Msg.GetEntry().GetRevision(),
+			Name:             "Renamed Result",
+		},
+	))
+	if err != nil {
+		t.Fatalf("update reviewed Results Entry: %v", err)
+	}
+	superseded, err := resultsClient.GetCompetitionResultsDraft(
+		t.Context(),
+		connect.NewRequest(&resultsv1.GetCompetitionResultsDraftRequest{
+			EventId: 1, SessionId: competitionID,
+		}),
+	)
+	if err != nil || superseded.Msg.GetDraft().GetRevision() != 2 ||
+		superseded.Msg.GetDraft().GetReady() {
+		t.Fatalf("superseded Results Draft = %+v, %v", superseded, err)
+	}
+	noPublic, err := resultsClient.SaveCompetitionResultsDraft(
+		t.Context(),
+		connect.NewRequest(&resultsv1.SaveCompetitionResultsDraftRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "withhold-public-results",
+			ExpectedRevision:   2,
+			Disposition:        resultsv1.ResultsDisposition_RESULTS_DISPOSITION_NO_PUBLIC_RESULTS,
+			NoPublicCrewReason: "Judging could not be completed",
+			PublicExplanation:  "No results published.",
+			Score: &resultsv1.ScorePolicy{
+				Type:           resultsv1.ScoreType_SCORE_TYPE_NONE,
+				Visibility:     resultsv1.ScoreVisibility_SCORE_VISIBILITY_PUBLIC,
+				Requirement:    resultsv1.ScoreRequirement_SCORE_REQUIREMENT_OPTIONAL,
+				Interpretation: resultsv1.ScoreInterpretation_SCORE_INTERPRETATION_INFORMATIONAL,
+			},
+		}),
+	)
+	if err != nil || noPublic.Msg.GetDraft().GetRevision() != 3 ||
+		noPublic.Msg.GetDraft().GetReady() ||
+		noPublic.Msg.GetDraft().GetNoPublicCrewReason() == "" {
+		t.Fatalf("save No Public Results revision = %+v, %v", noPublic, err)
+	}
+	_, staleReadyErr := resultsClient.MarkCompetitionResultsReady(
+		t.Context(),
+		connect.NewRequest(&resultsv1.MarkCompetitionResultsReadyRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "stale-results-review",
+			ExpectedRevision: 1,
+		}),
+	)
+	if connect.CodeOf(staleReadyErr) != connect.CodeAborted {
+		t.Fatalf("stale Results Ready error = %v, want Aborted", staleReadyErr)
 	}
 	server.stop(t)
 }

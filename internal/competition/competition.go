@@ -396,13 +396,14 @@ func (service *Service) ConfigureEntryOrder(
 	return service.executeEntryOrderCommand(
 		ctx, actor, input.EventID, input.SessionID, input.CommandID,
 		"ConfigureCompetitionEntryOrder", input,
-		func(transaction *store.CommandTx, _ time.Time) (store.EntryOrderState, error) {
+		func(transaction *store.CommandTx, now time.Time) (store.EntryOrderState, error) {
 			return transaction.ConfigureCompetitionEntryOrder(
 				actor.Context(ctx), store.ConfigureEntryOrderParams{
 					EventID: input.EventID, SessionID: input.SessionID,
 					ExpectedRevision: input.ExpectedRevision,
 					Policy:           store.EntryOrderPolicy(input.Policy), Seed: input.Seed,
 					ManualEntryIDs: slices.Clone(input.ManualEntryIDs),
+					Now:            now,
 				},
 			)
 		},
@@ -679,7 +680,7 @@ func (service *Service) ResolveEntry(
 		"ResolveCompetitionEntry",
 		strconv.Itoa(input.EntryID),
 		input,
-		func(transaction *store.CommandTx, _ time.Time) (store.CompetitionEntry, error) {
+		func(transaction *store.CommandTx, now time.Time) (store.CompetitionEntry, error) {
 			return transaction.ResolveCompetitionEntry(
 				actor.Context(ctx),
 				store.ResolveCompetitionEntryParams{
@@ -688,6 +689,7 @@ func (service *Service) ResolveEntry(
 					ResultDisposition:             input.ResultDisposition,
 					CrewReason:                    input.CrewReason,
 					PublicDisqualificationMessage: input.PublicDisqualificationMessage,
+					Now:                           now,
 				},
 			)
 		},

@@ -43,6 +43,7 @@ type ResolveCompetitionEntryParams struct {
 	ResultDisposition             string
 	CrewReason                    string
 	PublicDisqualificationMessage string
+	Now                           time.Time
 }
 
 // TechnicalFailureParams records a cause without deciding judging or release.
@@ -225,6 +226,11 @@ func (transaction *CommandTx) ResolveCompetitionEntry(
 	if err != nil {
 		return CompetitionEntry{}, opaqueError("resolve Competition Entry", err)
 	}
+	if err := transaction.SupersedeCompetitionResultsDraft(
+		ctx, params.EventID, params.SessionID, params.Now,
+	); err != nil {
+		return CompetitionEntry{}, err
+	}
 	return competitionEntry(updated), nil
 }
 
@@ -284,6 +290,7 @@ func (transaction *CommandTx) confirmCompetitionEnd(
 	eventID, sessionID int,
 	confirmed bool,
 	fingerprint string,
+	now time.Time,
 ) error {
 	found, err := transaction.transaction.Session.Query().
 		Where(session.IDEQ(sessionID), session.EventIDEQ(eventID)).
@@ -324,7 +331,7 @@ func (transaction *CommandTx) confirmCompetitionEnd(
 			return opaqueError("mark Competition Entry Not Presented", err)
 		}
 	}
-	return nil
+	return transaction.SupersedeCompetitionResultsDraft(ctx, eventID, sessionID, now)
 }
 
 func competitionEndPreflight(

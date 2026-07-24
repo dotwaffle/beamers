@@ -1,0 +1,130 @@
+syntax = "proto3";
+
+package beamers.results.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/dotwaffle/beamers/gen/beamers/results/v1;resultsv1";
+
+service ResultsService {
+  rpc GetCompetitionResultsDraft(GetCompetitionResultsDraftRequest) returns (GetCompetitionResultsDraftResponse);
+  rpc SaveCompetitionResultsDraft(SaveCompetitionResultsDraftRequest) returns (SaveCompetitionResultsDraftResponse);
+  rpc MarkCompetitionResultsReady(MarkCompetitionResultsReadyRequest) returns (MarkCompetitionResultsReadyResponse);
+}
+
+enum ResultsDisposition {
+  RESULTS_DISPOSITION_UNSPECIFIED = 0;
+  RESULTS_DISPOSITION_PENDING = 1;
+  RESULTS_DISPOSITION_PUBLISH = 2;
+  RESULTS_DISPOSITION_NO_PUBLIC_RESULTS = 3;
+}
+
+enum ResultStanding {
+  RESULT_STANDING_UNSPECIFIED = 0;
+  RESULT_STANDING_PLACED = 1;
+  RESULT_STANDING_UNPLACED = 2;
+}
+
+enum ScoreType {
+  SCORE_TYPE_UNSPECIFIED = 0;
+  SCORE_TYPE_NONE = 1;
+  SCORE_TYPE_DECIMAL = 2;
+  SCORE_TYPE_DURATION = 3;
+}
+
+enum ScoreVisibility {
+  SCORE_VISIBILITY_UNSPECIFIED = 0;
+  SCORE_VISIBILITY_PUBLIC = 1;
+  SCORE_VISIBILITY_CREW_ONLY = 2;
+}
+
+enum ScoreRequirement {
+  SCORE_REQUIREMENT_UNSPECIFIED = 0;
+  SCORE_REQUIREMENT_OPTIONAL = 1;
+  SCORE_REQUIREMENT_REQUIRED = 2;
+}
+
+enum ScoreInterpretation {
+  SCORE_INTERPRETATION_UNSPECIFIED = 0;
+  SCORE_INTERPRETATION_HIGHER_WINS = 1;
+  SCORE_INTERPRETATION_LOWER_WINS = 2;
+  SCORE_INTERPRETATION_INFORMATIONAL = 3;
+}
+
+message ScorePolicy {
+  ScoreType type = 1;
+  ScoreVisibility visibility = 2;
+  string unit = 3;
+  int32 precision = 4;
+  ScoreRequirement requirement = 5;
+  ScoreInterpretation interpretation = 6;
+}
+
+message ScoreValue {
+  oneof value {
+    string decimal = 1;
+    google.protobuf.Duration duration = 2;
+  }
+}
+
+message CompetitionResultStanding {
+  int64 entry_id = 1;
+  ResultStanding standing = 2;
+  optional int64 placement = 3;
+  int32 display_order = 4;
+  ScoreValue score = 5;
+}
+
+message CompetitionResultsDraft {
+  int64 id = 1;
+  int64 event_id = 2;
+  int64 session_id = 3;
+  int64 revision = 4;
+  ResultsDisposition disposition = 5;
+  string no_public_crew_reason = 6;
+  string public_explanation = 7;
+  ScorePolicy score = 8;
+  repeated CompetitionResultStanding standings = 9;
+  bool ready = 10;
+  int64 ready_by_account_id = 11;
+  google.protobuf.Timestamp ready_at = 12;
+  int64 created_by_account_id = 13;
+  google.protobuf.Timestamp created_at = 14;
+}
+
+message GetCompetitionResultsDraftRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+}
+
+message GetCompetitionResultsDraftResponse {
+  CompetitionResultsDraft draft = 1;
+}
+
+message SaveCompetitionResultsDraftRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  string command_id = 3;
+  int64 expected_revision = 4;
+  ResultsDisposition disposition = 5;
+  string no_public_crew_reason = 6;
+  string public_explanation = 7;
+  ScorePolicy score = 8;
+  repeated CompetitionResultStanding standings = 9;
+}
+
+message SaveCompetitionResultsDraftResponse {
+  CompetitionResultsDraft draft = 1;
+}
+
+message MarkCompetitionResultsReadyRequest {
+  int64 event_id = 1;
+  int64 session_id = 2;
+  string command_id = 3;
+  int64 expected_revision = 4;
+}
+
+message MarkCompetitionResultsReadyResponse {
+  CompetitionResultsDraft draft = 1;
+}

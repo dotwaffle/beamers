@@ -58,6 +58,7 @@ type ConfigureEntryOrderParams struct {
 	Policy             EntryOrderPolicy
 	Seed               int64
 	ManualEntryIDs     []int
+	Now                time.Time
 }
 
 type entryOrderPolicyBehavior struct {
@@ -130,6 +131,11 @@ func (transaction *CommandTx) ConfigureCompetitionEntryOrder(
 	if err != nil {
 		return EntryOrderState{}, opaqueError("configure Competition Entry Order", err)
 	}
+	if supersedeErr := transaction.SupersedeCompetitionResultsDraft(
+		ctx, params.EventID, params.SessionID, params.Now,
+	); supersedeErr != nil {
+		return EntryOrderState{}, supersedeErr
+	}
 	state, _, err := competitionEntryOrder(updated, entries)
 	return state, err
 }
@@ -187,6 +193,11 @@ func (transaction *CommandTx) TakeCompetitionEntrySlide(
 			SetLockedEntryOrderIds(slices.Clone(preview.EntryIDs)).
 			Save(ctx); runErr != nil {
 			return EntryOrderState{}, opaqueError("capture Run Snapshot Entry Order", runErr)
+		}
+		if supersedeErr := transaction.SupersedeCompetitionResultsDraft(
+			ctx, params.EventID, params.SessionID, params.Now,
+		); supersedeErr != nil {
+			return EntryOrderState{}, supersedeErr
 		}
 	}
 	presented, err := transaction.competitionEntry(

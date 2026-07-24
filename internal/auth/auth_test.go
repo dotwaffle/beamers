@@ -10,7 +10,20 @@ import (
 
 	_ "github.com/dotwaffle/beamers/ent/runtime"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/viewer"
 )
+
+func TestAdministratorNeedsResultsEventGrant(t *testing.T) {
+	administrator := Account{Administrator: true}
+	if administrator.HasCapability(1, viewer.ViewResults) {
+		t.Fatal("Administrator received implicit Results Access")
+	}
+	administrator.EventRoles = map[int]viewer.Role{1: viewer.Producer}
+	if !administrator.HasCapability(1, viewer.ViewResults) ||
+		!administrator.HasCapability(1, viewer.ManageResults) {
+		t.Fatal("Producer grant did not supply Results Access")
+	}
+}
 
 func TestPasswordWorkAdmissionEnforcesMemoryBudget(t *testing.T) {
 	service := &Service{passwordWork: make(chan struct{}, passwordConcurrency)}

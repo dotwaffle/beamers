@@ -1,6 +1,7 @@
 package store
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -186,5 +187,118 @@ func TestCompetitionResultsDraftRevisionsClearReady(t *testing.T) {
 	}
 	if err = managedTransaction.Commit(); err != nil {
 		t.Fatalf("commit managed Results Draft: %v", err)
+	}
+
+	if _, err = installation.LoadCompetitionResultsDraft(
+		t.Context(), event.ID, competition.ID,
+	); err == nil {
+		t.Fatal("missing viewer read an unreleased Results Draft")
+	}
+	deniedTransaction, err := installation.BeginCommand(observerContext)
+	if err != nil {
+		t.Fatalf("begin denied Results mutation: %v", err)
+	}
+	if _, err = deniedTransaction.SaveCompetitionResultsDraft(
+		observerContext,
+		SaveCompetitionResultsDraftParams{
+			EventID: event.ID, SessionID: competition.ID, ExpectedRevision: 3,
+			Disposition: "Pending", ScoreType: "None",
+			CreatedByAccountID: 8, Now: now.Add(4 * time.Minute),
+		},
+	); err == nil {
+		t.Fatal("Observer without Manage Results mutated an unreleased Draft")
+	}
+	if err = deniedTransaction.Rollback(); err != nil {
+		t.Fatalf("roll back denied Results mutation: %v", err)
+	}
+
+	otherEvent := createSchemaTestEvent(t, client)
+	otherCompetition := client.Session.Create().
+		SetEventID(otherEvent.ID).
+		SetLifecycle(session.LifecycleEnded).
+		SaveX(fixtureContext)
+	client.SessionPublishedVersion.Create().
+		SetSessionID(otherCompetition.ID).
+		SetPublishedRevision(1).
+		SetTitle("Other Results Competition").
+		SetType(sessionpublishedversion.TypeCompetition).
+		SetAudienceVisibility(sessionpublishedversion.AudienceVisibilityPublic).
+		SetPlannedStart(now).
+		SetPlannedEnd(now.Add(time.Hour)).
+		SetTimingPolicy(sessionpublishedversion.TimingPolicyFixedEnd).
+		SetMinimumDurationSeconds(1800).
+		SetStartBoundary(sessionpublishedversion.StartBoundaryHard).
+		SetEndBoundary(sessionpublishedversion.EndBoundaryHard).
+		SetSubmissionDeadline(now.Add(-time.Minute)).
+		SaveX(fixtureContext)
+	otherEntry := client.CompetitionEntry.Create().
+		SetEventID(otherEvent.ID).
+		SetCompetitionSessionID(otherCompetition.ID).
+		SetName("Other Event Entry").
+		SetDisposition(competitionentry.DispositionIncluded).
+		SaveX(fixtureContext)
+	otherProducerContext := viewer.NewContext(t.Context(), viewer.Identity{
+		AccountID:  11,
+		EventRoles: map[int]viewer.Role{otherEvent.ID: viewer.Producer},
+	})
+	otherTransaction, err := installation.BeginCommand(otherProducerContext)
+	if err != nil {
+		t.Fatalf("begin other Event Results Draft: %v", err)
+	}
+	if _, err = otherTransaction.SaveCompetitionResultsDraft(
+		otherProducerContext,
+		SaveCompetitionResultsDraftParams{
+			EventID: otherEvent.ID, SessionID: otherCompetition.ID,
+			ExpectedRevision: 0, Disposition: "Pending", ScoreType: "None",
+			CreatedByAccountID: 11, Now: now,
+		},
+	); err != nil {
+		t.Fatalf("save other Event Results Draft: %v", err)
+	}
+	if err = otherTransaction.Commit(); err != nil {
+		t.Fatalf("commit other Event Results Draft: %v", err)
+	}
+	crossEvent, crossEventErr := installation.LoadCompetitionResultsDraft(
+		viewContext, otherEvent.ID, otherCompetition.ID,
+	)
+	if crossEventErr == nil && crossEvent.Revision != 0 {
+		t.Fatalf("View Results leaked another Event Draft = %+v", crossEvent)
+	}
+	crossMutation, err := installation.BeginCommand(manageContext)
+	if err != nil {
+		t.Fatalf("begin cross-Event Results mutation: %v", err)
+	}
+	if _, err = crossMutation.SaveCompetitionResultsDraft(
+		manageContext,
+		SaveCompetitionResultsDraftParams{
+			EventID: otherEvent.ID, SessionID: otherCompetition.ID,
+			ExpectedRevision: 1, Disposition: "Pending", ScoreType: "None",
+			CreatedByAccountID: 10, Now: now.Add(5 * time.Minute),
+		},
+	); err == nil {
+		t.Fatal("Manage Results mutated another Event Draft")
+	}
+	if err = crossMutation.Rollback(); err != nil {
+		t.Fatalf("roll back cross-Event Results mutation: %v", err)
+	}
+	crossStanding, err := installation.BeginCommand(manageContext)
+	if err != nil {
+		t.Fatalf("begin cross-Event Standing mutation: %v", err)
+	}
+	if _, err = crossStanding.SaveCompetitionResultsDraft(
+		manageContext,
+		SaveCompetitionResultsDraftParams{
+			EventID: event.ID, SessionID: competition.ID, ExpectedRevision: 3,
+			Disposition: "Publish", ScoreType: "None",
+			CreatedByAccountID: 10, Now: now.Add(6 * time.Minute),
+			Standings: []CompetitionResultStandingInput{{
+				EntryID: otherEntry.ID, Standing: "Placed", Placement: 1, DisplayOrder: 1,
+			}},
+		},
+	); !errors.Is(err, ErrCompetitionResultsEntry) {
+		t.Fatalf("cross-Event Standing error = %v", err)
+	}
+	if err = crossStanding.Rollback(); err != nil {
+		t.Fatalf("roll back cross-Event Standing mutation: %v", err)
 	}
 }

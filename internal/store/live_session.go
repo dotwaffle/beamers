@@ -262,6 +262,7 @@ func (transaction *CommandTx) EndSession(
 			sessionID,
 			confirmedDeferredEntries,
 			deferredEntriesFingerprint,
+			now,
 		); confirmErr != nil {
 			return LiveSessionState{}, confirmErr
 		}

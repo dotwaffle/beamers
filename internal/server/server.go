@@ -153,6 +153,17 @@ func Run(ctx context.Context, config Config) error {
 		); err != nil {
 			return errors.Join(err, listener.Close(), installation.Close())
 		}
+		if err := registerResultsRoutes(
+			mux,
+			installation.Authentication(),
+			installation.Results(),
+			listener.Addr(),
+			config.TracerProvider,
+			config.MeterProvider,
+			config.Propagator,
+		); err != nil {
+			return errors.Join(err, listener.Close(), installation.Close())
+		}
 		if err := registerProgramControlRoutes(
 			mux,
 			installation.Authentication(),
