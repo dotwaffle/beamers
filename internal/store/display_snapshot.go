@@ -174,12 +174,36 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 	); overrideErr != nil {
 		return DisplaySnapshotState{}, overrideErr
 	}
+	sessionIDs := make([]int, 0, len(published.Sessions))
 	for _, publishedSession := range published.Sessions {
+		sessionIDs = append(sessionIDs, publishedSession.ID)
+	}
+	sessionIdentities := make(map[int]*ent.Session, len(sessionIDs))
+	if len(sessionIDs) > 0 {
+		identities, queryErr := client.Session.Query().
+			Where(session.IDIn(sessionIDs...)).
+			All(internalContext)
+		if queryErr != nil {
+			return DisplaySnapshotState{}, opaqueError("load Display Session identities", queryErr)
+		}
+		for _, identity := range identities {
+			sessionIdentities[identity.ID] = identity
+		}
+	}
+	for _, publishedSession := range published.Sessions {
+		identity := sessionIdentities[publishedSession.ID]
+		if identity == nil {
+			return DisplaySnapshotState{}, opaqueError(
+				"load Display Session identity",
+				errors.New("missing Session"),
+			)
+		}
 		sessionState, sessionErr := loadDisplaySessionWithBaseline(
 			internalContext,
 			client,
 			publishedSession,
 			published.baselineStarts[publishedSession.ID],
+			identity,
 		)
 		if sessionErr != nil {
 			return DisplaySnapshotState{}, sessionErr
@@ -423,11 +447,8 @@ func loadDisplaySessionWithBaseline(
 	client *ent.Client,
 	published PublishedSession,
 	baselineStart time.Time,
+	identity *ent.Session,
 ) (DisplaySessionState, error) {
-	identity, err := client.Session.Get(ctx, published.ID)
-	if err != nil {
-		return DisplaySessionState{}, opaqueError("load Display Session identity", err)
-	}
 	result := DisplaySessionState{
 		ID: published.ID, AudienceVisibility: published.AudienceVisibility,
 		TimerTitle:    published.Title,
@@ -500,6 +521,10 @@ func loadDisplaySession(
 	client *ent.Client,
 	published PublishedSession,
 ) (DisplaySessionState, error) {
+	identity, err := client.Session.Get(ctx, published.ID)
+	if err != nil {
+		return DisplaySessionState{}, opaqueError("load Display Session identity", err)
+	}
 	baseline, err := client.PublicScheduleBaselineEntry.Query().
 		Where(publicschedulebaselineentry.SessionIDEQ(published.ID)).
 		Only(ctx)
@@ -510,7 +535,7 @@ func loadDisplaySession(
 	if err == nil {
 		baselineStart = baseline.ForecastStart
 	}
-	return loadDisplaySessionWithBaseline(ctx, client, published, baselineStart)
+	return loadDisplaySessionWithBaseline(ctx, client, published, baselineStart, identity)
 }
 
 func competitionOutputProgramChannelID(
