@@ -1,16 +1,188 @@
 package store
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"slices"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/dotwaffle/beamers/ent"
+	"github.com/dotwaffle/beamers/ent/attachment"
+	"github.com/dotwaffle/beamers/ent/attachmentversion"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
+
+func TestCompetitionPreflightUsesOneReadSnapshot(t *testing.T) {
+	dataDir := t.TempDir()
+	if err := Initialize(t.Context(), dataDir); err != nil {
+		t.Fatalf("initialize Competition Preflight database: %v", err)
+	}
+	installation, err := Open(t.Context(), dataDir)
+	if err != nil {
+		t.Fatalf("open Competition Preflight database: %v", err)
+	}
+	defer func() {
+		if closeErr := installation.Close(); closeErr != nil {
+			t.Errorf("close Competition Preflight database: %v", closeErr)
+		}
+	}()
+
+	client := installation.client
+	fixtureContext := systemContext(t.Context())
+	event := createSchemaTestEvent(t, client)
+	competition := client.Session.Create().
+		SetEventID(event.ID).
+		SetRequireEntryReview(true).
+		SetFileDeliveryRequired(true).
+		SaveX(fixtureContext)
+	client.SessionPublishedVersion.Create().
+		SetSessionID(competition.ID).
+		SetPublishedRevision(1).
+		SetTitle("Snapshot Competition").
+		SetType(sessionpublishedversion.TypeCompetition).
+		SetAudienceVisibility(sessionpublishedversion.AudienceVisibilityPublic).
+		SetPlannedStart(time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)).
+		SetPlannedEnd(time.Date(2026, 8, 21, 13, 0, 0, 0, time.UTC)).
+		SetTimingPolicy(sessionpublishedversion.TimingPolicyFixedEnd).
+		SetMinimumDurationSeconds(1800).
+		SetStartBoundary(sessionpublishedversion.StartBoundaryHard).
+		SetEndBoundary(sessionpublishedversion.EndBoundaryHard).
+		SaveX(fixtureContext)
+	entry := client.CompetitionEntry.Create().
+		SetEventID(event.ID).
+		SetCompetitionSessionID(competition.ID).
+		SetName("Reviewed Entry").
+		SetDisposition(competitionentry.DispositionIncluded).
+		SetReviewedContentRevision(1).
+		SetReviewedByAccountID(1).
+		SetReviewedAt(time.Date(2026, 8, 21, 11, 0, 0, 0, time.UTC)).
+		SaveX(fixtureContext)
+	logical := client.Attachment.Create().
+		SetEventID(event.ID).
+		SetOwnerType(attachment.OwnerTypeEntry).
+		SetOwnerID(entry.ID).
+		SetName("entry").
+		SaveX(fixtureContext)
+	version := client.AttachmentVersion.Create().
+		SetAttachmentID(logical.ID).
+		SetVersion(1).
+		SetOriginalFilename("entry.zip").
+		SetMediaType("application/zip").
+		SetSizeBytes(1).
+		SetSha256("00").
+		SetStorageKey("entry").
+		SetUploaderType(attachmentversion.UploaderTypeCrew).
+		SetUploaderID(1).
+		SetPrimary(true).
+		SaveX(fixtureContext)
+
+	attachmentQuery := make(chan struct{})
+	continueQuery := make(chan struct{})
+	var queryOnce, releaseOnce sync.Once
+	release := func() {
+		releaseOnce.Do(func() {
+			close(continueQuery)
+		})
+	}
+	defer release()
+	client.Attachment.Intercept(ent.InterceptFunc(func(next ent.Querier) ent.Querier {
+		return ent.QuerierFunc(func(ctx context.Context, query ent.Query) (ent.Value, error) {
+			if _, ok := query.(*ent.AttachmentQuery); ok {
+				queryOnce.Do(func() {
+					close(attachmentQuery)
+					<-continueQuery
+				})
+			}
+			return next.Query(ctx, query)
+		})
+	}))
+
+	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+		AccountID: 1, EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
+	})
+	type preflightResult struct {
+		preflight CompetitionPreflight
+		err       error
+	}
+	result := make(chan preflightResult, 1)
+	go func() {
+		preflight, preflightErr := installation.PreflightCompetitionStart(
+			producerContext,
+			event.ID,
+			competition.ID,
+		)
+		result <- preflightResult{preflight: preflight, err: preflightErr}
+	}()
+	select {
+	case <-attachmentQuery:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Competition Preflight did not reach Attachment query")
+	}
+
+	writerResult := make(chan error, 1)
+	go func() {
+		writer, writerErr := client.Tx(fixtureContext)
+		if writerErr != nil {
+			writerResult <- fmt.Errorf("begin concurrent readiness update: %w", writerErr)
+			return
+		}
+		defer func() {
+			_ = writer.Rollback()
+		}()
+		writerContext := systemContext(fixtureContext)
+		if _, writerErr = writer.AttachmentVersion.UpdateOneID(version.ID).
+			SetPrimary(false).
+			SetFinal(true).
+			AddReadinessRevision(1).
+			Save(writerContext); writerErr != nil {
+			writerResult <- fmt.Errorf("update concurrent Attachment readiness: %w", writerErr)
+			return
+		}
+		if _, writerErr = writer.CompetitionEntry.UpdateOneID(entry.ID).
+			AddContentRevision(1).
+			AddRevision(1).
+			Save(writerContext); writerErr != nil {
+			writerResult <- fmt.Errorf("invalidate concurrent Entry review: %w", writerErr)
+			return
+		}
+		writerResult <- writer.Commit()
+	}()
+	select {
+	case writerErr := <-writerResult:
+		t.Fatalf("concurrent readiness update completed during Preflight: %v", writerErr)
+	case <-time.After(100 * time.Millisecond):
+	}
+	release()
+
+	var got preflightResult
+	select {
+	case got = <-result:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Competition Preflight did not finish")
+	}
+	select {
+	case writerErr := <-writerResult:
+		if writerErr != nil {
+			t.Fatalf("commit concurrent readiness update: %v", writerErr)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("concurrent readiness update did not finish")
+	}
+	if got.err != nil ||
+		len(got.preflight.Blockers) != 0 ||
+		len(got.preflight.Attachments) != 1 ||
+		!got.preflight.Attachments[0].Primary ||
+		!got.preflight.Attachments[0].Final ||
+		got.preflight.Attachments[0].ReadinessRevision != version.ReadinessRevision+1 {
+		t.Fatalf("snapshot Competition Preflight = %+v, %v", got.preflight, got.err)
+	}
+}
 
 func TestCompetitionDeadlineClosesEntryHistory(t *testing.T) {
 	client := openEntTestClient(t)
