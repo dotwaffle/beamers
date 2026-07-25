@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 
 	"entgo.io/ent/dialect"
@@ -61,11 +62,17 @@ var migrationFiles embed.FS
 type SQLite struct {
 	database   *sql.DB
 	client     *ent.Client
+	reader     *ent.Client
 	lock       *installationLock
 	migrations []migration
 	applied    int
 	startupErr error
-	dbMetrics  otelmetric.Registration
+	dbMetrics  []otelmetric.Registration
+
+	displayRundownMu     sync.Mutex
+	displayRundownKey    displayRundownCacheKey
+	displayRundown       CrewRundownState
+	displayRundownCached bool
 }
 
 type migration struct {
@@ -298,28 +305,49 @@ func open(
 	if err != nil {
 		return installation.withStartupError(err)
 	}
-	if err := validateStorage(ctx, database, migrations); err != nil {
+	if storageErr := validateStorage(ctx, database, migrations); storageErr != nil {
+		return installation.withStartupError(errors.Join(
+			storageErr,
+			unregister(dbMetrics),
+			database.Close(),
+		))
+	}
+	var appliedVersion int
+	if versionErr := database.QueryRowContext(ctx, "PRAGMA user_version").Scan(&appliedVersion); versionErr != nil {
+		return installation.withStartupError(errors.Join(
+			fmt.Errorf("read opened schema version: %w", versionErr),
+			unregister(dbMetrics),
+			database.Close(),
+		))
+	}
+
+	var readerDatabase *sql.DB
+	var readerMetrics otelmetric.Registration
+	if tracerProvider == nil {
+		readerDatabase, err = openReadDatabase(ctx, databasePath)
+	} else {
+		readerDatabase, readerMetrics, err = openTelemetryReadDatabase(
+			ctx,
+			databasePath,
+			tracerProvider,
+			meterProvider,
+		)
+	}
+	if err != nil {
 		return installation.withStartupError(errors.Join(
 			err,
 			unregister(dbMetrics),
 			database.Close(),
 		))
 	}
-	var appliedVersion int
-	if err := database.QueryRowContext(ctx, "PRAGMA user_version").Scan(&appliedVersion); err != nil {
-		return installation.withStartupError(errors.Join(
-			fmt.Errorf("read opened schema version: %w", err),
-			unregister(dbMetrics),
-			database.Close(),
-		))
-	}
-
 	driver := entsql.OpenDB(dialect.SQLite, database)
+	readerDriver := entsql.OpenDB(dialect.SQLite, readerDatabase)
 	installation.database = database
 	installation.client = ent.NewClient(ent.Driver(driver))
+	installation.reader = ent.NewClient(ent.Driver(readerDriver))
 	installation.migrations = migrations
 	installation.applied = appliedVersion
-	installation.dbMetrics = dbMetrics
+	installation.dbMetrics = []otelmetric.Registration{dbMetrics, readerMetrics}
 	return installation, nil
 }
 
@@ -798,13 +826,20 @@ func (installation *SQLite) Close() error {
 		return nil
 	}
 	var databaseErr error
-	metricsErr := unregister(installation.dbMetrics)
+	var metricsErr error
+	for _, registration := range installation.dbMetrics {
+		metricsErr = errors.Join(metricsErr, unregister(registration))
+	}
+	var readerErr error
+	if installation.reader != nil {
+		readerErr = installation.reader.Close()
+	}
 	if installation.client != nil {
 		databaseErr = installation.client.Close()
 	} else if installation.database != nil {
 		databaseErr = installation.database.Close()
 	}
-	return errors.Join(metricsErr, databaseErr, installation.lock.close())
+	return errors.Join(metricsErr, readerErr, databaseErr, installation.lock.close())
 }
 
 func unregister(registration otelmetric.Registration) error {
@@ -892,9 +927,49 @@ func openDatabase(ctx context.Context, path string) (*sql.DB, error) {
 	return openSQLite(ctx, path, false)
 }
 
+const displayReadConnectionLimit = 64
+
+func openReadDatabase(ctx context.Context, path string) (*sql.DB, error) {
+	return openSQLitePool(ctx, path, true, displayReadConnectionLimit)
+}
+
 func openTelemetryDatabase(
 	ctx context.Context,
 	path string,
+	tracerProvider trace.TracerProvider,
+	meterProvider otelmetric.MeterProvider,
+) (*sql.DB, otelmetric.Registration, error) {
+	return openTelemetrySQLite(
+		ctx,
+		path,
+		false,
+		1,
+		tracerProvider,
+		meterProvider,
+	)
+}
+
+func openTelemetryReadDatabase(
+	ctx context.Context,
+	path string,
+	tracerProvider trace.TracerProvider,
+	meterProvider otelmetric.MeterProvider,
+) (*sql.DB, otelmetric.Registration, error) {
+	return openTelemetrySQLite(
+		ctx,
+		path,
+		true,
+		displayReadConnectionLimit,
+		tracerProvider,
+		meterProvider,
+	)
+}
+
+func openTelemetrySQLite(
+	ctx context.Context,
+	path string,
+	readOnly bool,
+	maxConnections int,
 	tracerProvider trace.TracerProvider,
 	meterProvider otelmetric.MeterProvider,
 ) (*sql.DB, otelmetric.Registration, error) {
@@ -912,11 +987,12 @@ func openTelemetryDatabase(
 			OmitConnectorConnect: true,
 		}),
 	}
-	database, err := otelsql.Open("sqlite", sqliteDataSource(path, false), options...)
+	database, err := otelsql.Open("sqlite", sqliteDataSource(path, readOnly), options...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("open instrumented installation database: %w", err)
 	}
-	database.SetMaxOpenConns(1)
+	database.SetMaxOpenConns(maxConnections)
+	database.SetMaxIdleConns(maxConnections)
 	if err = database.PingContext(ctx); err != nil {
 		return nil, nil, errors.Join(
 			fmt.Errorf("open instrumented installation database: %w", err),
@@ -938,6 +1014,15 @@ func openValidationDatabase(ctx context.Context, path string) (*sql.DB, error) {
 }
 
 func openSQLite(ctx context.Context, path string, readOnly bool) (*sql.DB, error) {
+	return openSQLitePool(ctx, path, readOnly, 1)
+}
+
+func openSQLitePool(
+	ctx context.Context,
+	path string,
+	readOnly bool,
+	maxConnections int,
+) (*sql.DB, error) {
 	database, err := sql.Open("sqlite", sqliteDataSource(path, readOnly))
 	action := "open installation database"
 	if readOnly {
@@ -946,7 +1031,8 @@ func openSQLite(ctx context.Context, path string, readOnly bool) (*sql.DB, error
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", action, err)
 	}
-	database.SetMaxOpenConns(1)
+	database.SetMaxOpenConns(maxConnections)
+	database.SetMaxIdleConns(maxConnections)
 	if err := database.PingContext(ctx); err != nil {
 		return nil, errors.Join(fmt.Errorf("%s: %w", action, err), database.Close())
 	}

@@ -395,6 +395,8 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 	sort.SliceStable(result.Sessions, func(first, second int) bool {
 		return result.Sessions[first].orderAt.Before(result.Sessions[second].orderAt)
 	})
+	completedAt := service.now().UTC()
+	result.ServerTime = now.Add(completedAt.Sub(now) / 2)
 	return result, nil
 }
 

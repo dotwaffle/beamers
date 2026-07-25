@@ -32,6 +32,7 @@ type displayHandlers struct {
 	allowPlaintextDisplay bool
 	buildVersion          string
 	enrollmentLimiter     *authFailureLimiter
+	invalidations         *displayInvalidationCache
 }
 
 func registerDisplayRoutes(
@@ -48,6 +49,7 @@ func registerDisplayRoutes(
 		allowPlaintextDisplay: listenerIsLoopback(listenerAddress),
 		buildVersion:          buildVersion,
 		enrollmentLimiter:     newAuthFailureLimiter(time.Now),
+		invalidations:         &displayInvalidationCache{},
 	}
 	mux.HandleFunc("/display", handlers.display)
 	mux.HandleFunc("/display/client.js", handlers.clientJavaScript)

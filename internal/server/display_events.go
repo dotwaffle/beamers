@@ -1,11 +1,13 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/displays"
@@ -25,6 +27,53 @@ type displayInvalidation struct {
 	ActiveEventID        int    `json:"active_event_id"`
 	ActivationGeneration int    `json:"activation_generation"`
 	PublishedRevision    int    `json:"published_revision"`
+}
+
+type displayInvalidationCache struct {
+	mu       sync.Mutex
+	cursor   displaystream.Cursor
+	snapshot displays.Snapshot
+	ready    chan struct{}
+	valid    bool
+}
+
+func (cache *displayInvalidationCache) current(
+	ctx context.Context,
+	cursor displaystream.Cursor,
+	load func(context.Context) (displays.Snapshot, error),
+) (displays.Snapshot, error) {
+	for {
+		cache.mu.Lock()
+		if cache.valid && cache.cursor == cursor {
+			snapshot := cache.snapshot
+			cache.mu.Unlock()
+			return snapshot, nil
+		}
+		if cache.ready != nil {
+			ready := cache.ready
+			cache.mu.Unlock()
+			select {
+			case <-ready:
+				continue
+			case <-ctx.Done():
+				return displays.Snapshot{}, context.Cause(ctx)
+			}
+		}
+		cache.ready = make(chan struct{})
+		cache.mu.Unlock()
+
+		snapshot, err := load(ctx)
+		cache.mu.Lock()
+		if err == nil {
+			cache.cursor = cursor
+			cache.snapshot = snapshot
+			cache.valid = true
+		}
+		close(cache.ready)
+		cache.ready = nil
+		cache.mu.Unlock()
+		return snapshot, err
+	}
 }
 
 func (handlers displayHandlers) events(response http.ResponseWriter, request *http.Request) {
@@ -79,7 +128,13 @@ func (handlers displayHandlers) events(response http.ResponseWriter, request *ht
 			if !ok {
 				return
 			}
-			snapshot, err := handlers.service.Current(request.Context(), credential)
+			snapshot, err := handlers.invalidations.current(
+				request.Context(),
+				notification,
+				func(ctx context.Context) (displays.Snapshot, error) {
+					return handlers.service.Current(ctx, credential)
+				},
+			)
 			if err != nil {
 				return
 			}

@@ -146,8 +146,14 @@ func TestDisplayEnrollmentExpiresAndClaimIsSingleUse(t *testing.T) {
 	random := append(bytes.Repeat([]byte{1}, enrollmentCodeBytes+displayTokenBytes),
 		bytes.Repeat([]byte{2}, enrollmentCodeBytes+displayTokenBytes)...)
 	clock := now
+	clockStep := time.Duration(0)
 	service, err := New(storage, Config{
-		Now: func() time.Time { return clock }, Random: bytes.NewReader(random), EnrollmentTTL: 10 * time.Minute,
+		Now: func() time.Time {
+			current := clock
+			clock = clock.Add(clockStep)
+			return current
+		},
+		Random: bytes.NewReader(random), EnrollmentTTL: 10 * time.Minute,
 	})
 	if err != nil {
 		t.Fatalf("create Display service: %v", err)
@@ -192,9 +198,14 @@ func TestDisplayEnrollmentExpiresAndClaimIsSingleUse(t *testing.T) {
 	}); !errors.Is(claimErr, ErrEnrollmentUnavailable) {
 		t.Errorf("reused Display code error = %v", claimErr)
 	}
+	clockStep = 100 * time.Millisecond
+	currentStarted := clock
 	current, err := service.Current(t.Context(), issued.Credential)
 	if err != nil || current.Display != claimed || !current.Standby {
 		t.Errorf("claimed Display current state = %+v, %v", current, err)
+	}
+	if want := currentStarted.Add(clockStep / 2); !current.ServerTime.Equal(want) {
+		t.Errorf("Display server time = %s, want request midpoint %s", current.ServerTime, want)
 	}
 }
 

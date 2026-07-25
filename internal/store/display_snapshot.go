@@ -14,6 +14,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/displayoverridestate"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/prizegiving"
+	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
 	"github.com/dotwaffle/beamers/internal/publictime"
@@ -70,6 +71,11 @@ type DisplaySessionState struct {
 	PublicTime              publictime.Facts
 }
 
+type displayRundownCacheKey struct {
+	eventID           int
+	publishedRevision int
+}
+
 // LoadDisplaySnapshot authenticates a credential hash and captures one Active Event snapshot.
 func (installationStore *SQLite) LoadDisplaySnapshot(
 	ctx context.Context,
@@ -77,7 +83,7 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 	now time.Time,
 ) (DisplaySnapshotState, error) {
 	internalContext := systemContext(ctx)
-	transaction, err := installationStore.client.Tx(internalContext)
+	transaction, err := installationStore.reader.Tx(internalContext)
 	if err != nil {
 		return DisplaySnapshotState{}, opaqueError("begin Display Snapshot", err)
 	}
@@ -121,7 +127,11 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 	result.EventName = activeEvent.Name
 	result.EventTimezone = activeEvent.Timezone
 	result.DisplayConfiguration = activeEvent.DisplayConfiguration
-	published, err := loadCrewRundown(internalContext, client, result.ActiveEventID)
+	published, err := installationStore.loadDisplayRundown(
+		internalContext,
+		client,
+		result.ActiveEventID,
+	)
 	if err != nil {
 		return DisplaySnapshotState{}, err
 	}
@@ -192,6 +202,34 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 		}
 	}
 	return result, nil
+}
+
+func (installationStore *SQLite) loadDisplayRundown(
+	ctx context.Context,
+	client *ent.Client,
+	eventID int,
+) (CrewRundownState, error) {
+	revisions, err := client.Rundown.Query().Where(rundown.EventIDEQ(eventID)).Only(ctx)
+	if err != nil {
+		return CrewRundownState{}, opaqueError("load Display Rundown revision", err)
+	}
+	key := displayRundownCacheKey{
+		eventID:           eventID,
+		publishedRevision: revisions.PublishedRevision,
+	}
+	installationStore.displayRundownMu.Lock()
+	defer installationStore.displayRundownMu.Unlock()
+	if installationStore.displayRundownCached && installationStore.displayRundownKey == key {
+		return installationStore.displayRundown, nil
+	}
+	found, err := loadCrewRundown(ctx, client, eventID)
+	if err != nil {
+		return CrewRundownState{}, err
+	}
+	installationStore.displayRundownKey = key
+	installationStore.displayRundown = found
+	installationStore.displayRundownCached = true
+	return found, nil
 }
 
 func loadCurrentDisplayOverrides(
@@ -331,7 +369,9 @@ func loadDisplaySession(
 		Type: published.Type, TimingPolicy: published.TimingPolicy,
 		RunPlannedStart: published.PlannedStart, RunPlannedEnd: published.PlannedEnd,
 		Lifecycle: identity.Lifecycle.String(), LiveStateRevision: identity.LiveStateRevision,
-		LocationIDs: published.LocationIDs, LaneIDs: published.LaneIDs, TrackIDs: published.TrackIDs,
+		LocationIDs: slices.Clone(published.LocationIDs),
+		LaneIDs:     slices.Clone(published.LaneIDs),
+		TrackIDs:    slices.Clone(published.TrackIDs),
 	}
 	if !identity.ForecastStart.IsZero() {
 		result.ForecastStart = identity.ForecastStart
