@@ -504,8 +504,7 @@ func (service *Service) ReadVersion(
 	actor auth.Account,
 	eventID, versionID int,
 ) (Version, []byte, error) {
-	if eventID <= 0 || versionID <= 0 ||
-		(!actor.Administrator && actor.EventRoles[eventID] == "") {
+	if eventID <= 0 || versionID <= 0 || actor.EventRoles[eventID] == "" {
 		return Version{}, nil, ErrUploadTargetNotFound
 	}
 	stored, err := service.storage.LoadAttachmentVersion(actor.Context(ctx), eventID, versionID)
