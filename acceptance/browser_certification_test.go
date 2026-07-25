@@ -385,7 +385,8 @@ func TestBrowserCertification(t *testing.T) {
 		http.StatusCreated,
 		"",
 	)
-	sessionID := prepareActiveSchedule(t, administrator, server)
+	prepareActiveSchedule(t, administrator, server)
+	crewSessionID, _ := addCompetitionSession(t, administrator, server)
 	enrollmentCode, displayCredential := prepareBrowserEnrollment(
 		t,
 		server,
@@ -430,7 +431,7 @@ func TestBrowserCertification(t *testing.T) {
 			origin+"/admin/displays/enroll?code="+url.QueryEscape(enrollmentCode),
 			"enrollment",
 		),
-		certifyCrewControl(t, driver, origin, sessionID),
+		certifyCrewControl(t, driver, origin, crewSessionID),
 	)
 	report.CrewCommandCommitted = true
 	closeBrowserSession(t, driver)
