@@ -1,0 +1,172 @@
+name: Browsers
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browsers-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  versions:
+    name: Resolve supported versions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.versions.outputs.matrix }}
+
+    steps:
+      - name: Resolve current and previous majors
+        id: versions
+        shell: bash
+        run: |
+          chrome_current="$(
+            curl --fail --silent --show-error --location \
+              https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions.json |
+              jq --raw-output '.channels.Stable.version'
+          )"
+          chrome_major="${chrome_current%%.*}"
+          chrome_previous="$((chrome_major - 1))"
+
+          firefox_current="$(
+            curl --fail --silent --show-error --location \
+              https://product-details.mozilla.org/1.0/firefox_versions.json |
+              jq --raw-output '.LATEST_FIREFOX_VERSION'
+          )"
+          firefox_major="${firefox_current%%.*}"
+          firefox_previous_major="$((firefox_major - 1))"
+          firefox_previous="$(
+            curl --fail --silent --show-error --location \
+              https://product-details.mozilla.org/1.0/firefox.json |
+              jq --raw-output --arg major "$firefox_previous_major" \
+                '[.releases | to_entries[] |
+                  select(.key | startswith("firefox-" + $major + "."))] |
+                  sort_by(.value.date) | last | .key | sub("^firefox-"; "")'
+          )"
+
+          matrix="$(
+            jq --compact-output --null-input \
+              --arg chrome_current "$chrome_current" \
+              --argjson chrome_major "$chrome_major" \
+              --arg chrome_previous "$chrome_previous" \
+              --arg firefox_current "$firefox_current" \
+              --argjson firefox_major "$firefox_major" \
+              --arg firefox_previous "$firefox_previous" \
+              --argjson firefox_previous_major "$firefox_previous_major" \
+              '{include: [
+                {engine: "chromium", role: "current",
+                  version: $chrome_current, major: $chrome_major},
+                {engine: "chromium", role: "previous",
+                  version: $chrome_previous, major: ($chrome_major - 1)},
+                {engine: "firefox", role: "current",
+                  version: $firefox_current, major: $firefox_major},
+                {engine: "firefox", role: "previous",
+                  version: $firefox_previous, major: $firefox_previous_major}
+              ]}'
+          )"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  certify:
+    name: ${{ matrix.engine }} ${{ matrix.role }}
+    needs: versions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.versions.outputs.matrix) }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Restore Go caches
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: go-${{ runner.os }}-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            go-${{ runner.os }}-
+
+      - name: Install toolchain
+        uses: jdx/mise-action@v4
+        with:
+          cache: true
+
+      - name: Install Chromium
+        if: matrix.engine == 'chromium'
+        id: chrome
+        uses: browser-actions/setup-chrome@v2
+        with:
+          chrome-version: ${{ matrix.version }}
+          install-chromedriver: true
+
+      - name: Install Firefox
+        if: matrix.engine == 'firefox'
+        id: firefox
+        uses: browser-actions/setup-firefox@v1
+        with:
+          firefox-version: ${{ matrix.version }}
+
+      - name: Install GeckoDriver
+        if: matrix.engine == 'firefox'
+        uses: browser-actions/setup-geckodriver@v1
+        with:
+          token: ${{ github.token }}
+
+      - name: Certify Chromium
+        if: matrix.engine == 'chromium'
+        env:
+          BEAMERS_BROWSER_CERTIFICATION: "1"
+          BEAMERS_BROWSER_ENGINE: chromium
+          BEAMERS_BROWSER_ROLE: ${{ matrix.role }}
+          BEAMERS_BROWSER_MAJOR: ${{ matrix.major }}
+          BEAMERS_BROWSER_BINARY: ${{ steps.chrome.outputs.chrome-path }}
+          BEAMERS_WEBDRIVER_BINARY: ${{ steps.chrome.outputs.chromedriver-path }}
+          BEAMERS_BROWSER_REPORT: ${{ github.workspace }}/artifacts/browser.json
+        run: |
+          go test ./acceptance \
+            -run '^TestBrowserCertification$' \
+            -count=1 \
+            -timeout 25m \
+            -v
+
+      - name: Certify Firefox
+        if: matrix.engine == 'firefox'
+        env:
+          BEAMERS_BROWSER_CERTIFICATION: "1"
+          BEAMERS_BROWSER_ENGINE: firefox
+          BEAMERS_BROWSER_ROLE: ${{ matrix.role }}
+          BEAMERS_BROWSER_MAJOR: ${{ matrix.major }}
+          BEAMERS_BROWSER_BINARY: ${{ steps.firefox.outputs.firefox-path }}
+          BEAMERS_WEBDRIVER_BINARY: geckodriver
+          BEAMERS_BROWSER_REPORT: ${{ github.workspace }}/artifacts/browser.json
+        run: |
+          go test ./acceptance \
+            -run '^TestBrowserCertification$' \
+            -count=1 \
+            -timeout 25m \
+            -v
+
+      - name: Report browser evidence
+        if: always()
+        run: |
+          if [ -f artifacts/browser.json ]; then
+            echo "::notice title=Browser evidence::$(jq -c . artifacts/browser.json)"
+          fi
+
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-${{ matrix.engine }}-${{ matrix.role }}-${{ github.run_id }}
+          path: artifacts/browser.json
+          if-no-files-found: ignore
+          retention-days: 30
