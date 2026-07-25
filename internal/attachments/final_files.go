@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -74,6 +75,13 @@ func (service *Service) PlanFinalFiles(
 	if eventID <= 0 {
 		return FinalFilesPlan{}, ErrInvalidInput
 	}
+	if outputPath != "" {
+		var err error
+		outputPath, err = canonicalFinalFilesOutput(outputPath)
+		if err != nil {
+			return FinalFilesPlan{}, err
+		}
+	}
 	versions, err := service.storage.LoadFinalFileVersions(ctx, eventID)
 	if err != nil {
 		return FinalFilesPlan{}, err
@@ -127,6 +135,7 @@ func (service *Service) WriteFinalFilesDirectory(
 	if len(plan.Collisions) != 0 {
 		return FinalFilesManifest{}, ErrFinalFilesDestinationExists
 	}
+	outputPath = plan.OutputPath
 	if err = os.MkdirAll(filepath.Dir(outputPath), 0o700); err != nil {
 		return FinalFilesManifest{}, fmt.Errorf("prepare Final Files Export parent: %w", err)
 	}
@@ -335,6 +344,33 @@ func finalFilesPlanDigest(plan FinalFilesPlan) (string, error) {
 	}
 	digest := sha256.Sum256(commitment)
 	return hex.EncodeToString(digest[:]), nil
+}
+
+func canonicalFinalFilesOutput(outputPath string) (string, error) {
+	absolute, err := filepath.Abs(outputPath)
+	if err != nil {
+		return "", fmt.Errorf("resolve Final Files Export destination: %w", err)
+	}
+	parts := []string{filepath.Base(absolute)}
+	parent := filepath.Dir(absolute)
+	for {
+		resolved, resolveErr := filepath.EvalSymlinks(parent)
+		if resolveErr == nil {
+			for _, part := range slices.Backward(parts) {
+				resolved = filepath.Join(resolved, part)
+			}
+			return resolved, nil
+		}
+		if !errors.Is(resolveErr, os.ErrNotExist) {
+			return "", fmt.Errorf("resolve Final Files Export destination: %w", resolveErr)
+		}
+		next := filepath.Dir(parent)
+		if next == parent {
+			return "", fmt.Errorf("resolve Final Files Export destination: %w", resolveErr)
+		}
+		parts = append(parts, filepath.Base(parent))
+		parent = next
+	}
 }
 
 func writeFinalFilesZIPEntry(archive *zip.Writer, name string, content []byte) error {

@@ -5073,7 +5073,6 @@ type releasedEntryAttachments struct {
 	competitionID     int64
 	entryID           int64
 	publicVersion     attachmentVersionResponse
-	crewVersion       attachmentVersionResponse
 }
 
 func prepareReleasedEntryAttachments(t *testing.T) releasedEntryAttachments {
@@ -5172,7 +5171,7 @@ func prepareReleasedEntryAttachments(t *testing.T) releasedEntryAttachments {
 		administrator: administrator, server: server,
 		competitionClient: competitionClient,
 		competitionID:     competitionID, entryID: entryID,
-		publicVersion: publicVersion, crewVersion: crewVersion,
+		publicVersion: publicVersion,
 	}
 }
 

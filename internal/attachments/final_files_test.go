@@ -1,6 +1,8 @@
 package attachments
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -54,5 +56,22 @@ func TestFinalFilesPathsAreGroupedSafeAndCollisionProof(t *testing.T) {
 	if len(presentation) != 1 ||
 		!strings.HasPrefix(presentation[0].Path, "untracked/presentations/Demo-Final--session-6/") {
 		t.Fatalf("Presentation Final Files path = %+v", presentation)
+	}
+}
+
+func TestFinalFilesOutputResolvesRelativeAndSymlinkedParents(t *testing.T) {
+	realParent := t.TempDir()
+	linkParent := filepath.Join(t.TempDir(), "publication")
+	if err := os.Symlink(realParent, linkParent); err != nil {
+		t.Fatalf("create publication symlink: %v", err)
+	}
+
+	resolved, err := canonicalFinalFilesOutput(filepath.Join(linkParent, "new", "final-files"))
+	if err != nil {
+		t.Fatalf("resolve Final Files Export output: %v", err)
+	}
+	want := filepath.Join(realParent, "new", "final-files")
+	if resolved != want {
+		t.Fatalf("Final Files Export output = %q, want %q", resolved, want)
 	}
 }
