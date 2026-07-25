@@ -115,12 +115,6 @@ jobs:
         with:
           firefox-version: ${{ matrix.version }}
 
-      - name: Install GeckoDriver
-        if: matrix.engine == 'firefox'
-        uses: browser-actions/setup-geckodriver@v1
-        with:
-          token: ${{ github.token }}
-
       - name: Certify Chromium
         if: matrix.engine == 'chromium'
         env:
