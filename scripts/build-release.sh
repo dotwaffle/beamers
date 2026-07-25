@@ -24,7 +24,7 @@ if [ -n "$mode" ] && [ "$mode" != "--binary-only" ]; then
 	exit 2
 fi
 
-repository=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+repository=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 source_date_epoch=${SOURCE_DATE_EPOCH:-$(git -C "$repository" log -1 --format=%ct)}
 case "$source_date_epoch" in
 	"" | *[!0-9]*)
@@ -41,7 +41,7 @@ mkdir -p "$output"
 binary="$output/beamers-linux-amd64"
 (
 	cd "$repository"
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOFLAGS= GOWORK=off \
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOFLAGS='' GOWORK=off \
 		go build -mod=readonly -trimpath -buildvcs=false \
 		-ldflags="-buildid= -s -w -X github.com/dotwaffle/beamers/internal/buildinfo.version=$version" \
 		-o "$binary" ./cmd/beamers

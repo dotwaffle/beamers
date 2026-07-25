@@ -21,7 +21,7 @@ if id beamers >/dev/null 2>&1; then
 	exit 1
 fi
 
-repository=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+repository=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 temporary=$(mktemp -d)
 installed=0
 cleanup() {
