@@ -67,7 +67,7 @@ func TestDiagnosticsAreLocalOrAdministratorOnly(t *testing.T) {
 }
 
 func TestDiagnosticsRetainIndependentComponentsWhenStorageFails(t *testing.T) {
-	found := normalDiagnostics(nil, errors.New("storage failed"), 2, 3, true)
+	found := normalDiagnostics(nil, errors.New("storage failed"), 2, 3, true, nil)
 	if found.Storage.Status != "unavailable" ||
 		found.Backup.Status != "unavailable" ||
 		found.Replication.Status != "disabled" ||

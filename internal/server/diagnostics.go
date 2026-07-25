@@ -9,6 +9,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/displays"
 	"github.com/dotwaffle/beamers/internal/displaystream"
+	"github.com/dotwaffle/beamers/internal/replication"
 	"github.com/dotwaffle/beamers/internal/telemetry"
 )
 
@@ -19,6 +20,7 @@ func registerDiagnosticsRoutes(
 	displayStream *displaystream.Hub,
 	programStream *displaystream.Hub,
 	telemetryRuntime *telemetry.Runtime,
+	replicationAdapter *replication.Adapter,
 	logger *slog.Logger,
 	listenerAddress net.Addr,
 ) {
@@ -38,6 +40,7 @@ func registerDiagnosticsRoutes(
 			displayStream.SubscriberCount(),
 			programStream.SubscriberCount(),
 			telemetryRuntime != nil && telemetryRuntime.Enabled(),
+			replicationAdapter,
 		)
 		response.Header().Set("Cache-Control", "no-store")
 		response.Header().Set("Content-Type", "application/json")
@@ -95,7 +98,7 @@ type normalDiagnosticsResponse struct {
 	Mode        string               `json:"mode"`
 	Storage     componentDiagnostics `json:"storage"`
 	Backup      componentDiagnostics `json:"backup"`
-	Replication componentDiagnostics `json:"replication"`
+	Replication replication.Status   `json:"replication"`
 	Streams     struct {
 		Display streamDiagnostics `json:"display"`
 		Program streamDiagnostics `json:"program"`
@@ -114,12 +117,13 @@ func normalDiagnostics(
 	displaySubscribers int,
 	programSubscribers int,
 	telemetryEnabled bool,
+	replicationAdapter *replication.Adapter,
 ) normalDiagnosticsResponse {
 	found := normalDiagnosticsResponse{
 		Mode:        "normal",
 		Storage:     componentDiagnostics{Status: "ready"},
 		Backup:      componentDiagnostics{Status: "available"},
-		Replication: componentDiagnostics{Status: "disabled"},
+		Replication: replication.Status{Status: "disabled"},
 		Telemetry:   componentDiagnostics{Status: "disabled"},
 	}
 	found.Streams.Display = streamDiagnostics{
@@ -135,6 +139,9 @@ func normalDiagnostics(
 	}
 	if telemetryEnabled {
 		found.Telemetry.Status = "enabled"
+	}
+	if replicationAdapter != nil {
+		found.Replication = replicationAdapter.Status()
 	}
 	if statusErr != nil {
 		found.Storage.Status = "unavailable"

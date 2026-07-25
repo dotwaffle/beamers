@@ -13,14 +13,17 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/operations"
+	"github.com/dotwaffle/beamers/internal/replication"
 )
 
 type applicationConfig struct {
 	Config
+	ReplicationDone <-chan struct{}
 	Installation    *operations.Installation
 	ListenerAddress net.Addr
 	DisplayStream   *displaystream.Hub
 	ProgramStream   *displaystream.Hub
+	Replication     *replication.Adapter
 }
 
 var errRestoreInProgress = errors.New("restore already in progress")
@@ -210,6 +213,7 @@ func (application *application) restore(ctx context.Context, journalPath string)
 	if err != nil {
 		return err
 	}
+	application.stopReplication(ctx)
 	if err = installation.Close(); err != nil {
 		application.setUnavailable(installation)
 		return err
@@ -236,6 +240,7 @@ func (application *application) restore(ctx context.Context, journalPath string)
 	application.rejectMutations = false
 	application.rejectStreams = false
 	application.mu.Unlock()
+	application.startReplication(application.replicationContext()) //nolint:contextcheck // Replication follows the server, not the completed Restore request.
 	return restoreErr
 }
 
@@ -346,6 +351,7 @@ func (application *application) applyPreparedUpgrade(
 	application.rejectMutations = false
 	application.rejectStreams = false
 	application.mu.Unlock()
+	application.startReplication(application.replicationContext()) //nolint:contextcheck // Replication follows the server, not the completed upgrade request.
 	return result, nil
 }
 
@@ -362,6 +368,68 @@ func (application *application) Close() error {
 		installationErr = installation.Close()
 	}
 	return errors.Join(installationErr, upgrade.Close())
+}
+
+func (application *application) startReplication(ctx context.Context) {
+	if application.config.Replication == nil {
+		return
+	}
+	if err := application.config.Replication.StartAsync(
+		ctx,
+		application.config.ShutdownTimeout,
+	); err != nil {
+		application.config.Logger.WarnContext(
+			ctx,
+			"replication unavailable; authoritative service remains active",
+			"component", "replication",
+			"status", application.config.Replication.Status().ErrorClass,
+		)
+	}
+}
+
+func (application *application) stopReplication(ctx context.Context) {
+	if application.config.Replication == nil {
+		return
+	}
+	stopContext, cancel := context.WithTimeout(ctx, application.config.ShutdownTimeout)
+	defer cancel()
+	if err := application.config.Replication.Finalize(stopContext); err != nil {
+		application.config.Logger.WarnContext(
+			stopContext,
+			"replication final synchronization failed",
+			"component", "replication",
+			"status", application.config.Replication.Status().ErrorClass,
+		)
+	}
+}
+
+func (application *application) replicationContext() context.Context {
+	return replicationLifetimeContext{done: application.config.ReplicationDone}
+}
+
+type replicationLifetimeContext struct {
+	done <-chan struct{}
+}
+
+func (ctx replicationLifetimeContext) Deadline() (time.Time, bool) {
+	return time.Time{}, false
+}
+
+func (ctx replicationLifetimeContext) Done() <-chan struct{} {
+	return ctx.done
+}
+
+func (ctx replicationLifetimeContext) Err() error {
+	select {
+	case <-ctx.done:
+		return context.Canceled
+	default:
+		return nil
+	}
+}
+
+func (replicationLifetimeContext) Value(any) any {
+	return nil
 }
 
 func (application *application) beginShutdown() {
@@ -496,6 +564,7 @@ func (application *application) buildHandler(
 		application.config.DisplayStream,
 		application.config.ProgramStream,
 		application.config.Telemetry,
+		application.config.Replication,
 		application.config.Logger,
 		application.config.ListenerAddress,
 	)

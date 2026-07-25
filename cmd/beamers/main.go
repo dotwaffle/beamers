@@ -483,6 +483,11 @@ func runServe(ctx context.Context, args []string, stderr io.Writer) int {
 		2*time.Second,
 		"maximum duration of one telemetry export",
 	)
+	replicaURL := flags.String(
+		"replica-url",
+		"",
+		"full-fidelity Litestream file URL (disabled when empty)",
+	)
 	if err := flags.Parse(args); err != nil {
 		return fail(err)
 	}
@@ -516,6 +521,7 @@ func runServe(ctx context.Context, args []string, stderr io.Writer) int {
 		MeterProvider:   telemetryRuntime.MeterProvider(),
 		Propagator:      telemetryRuntime.Propagator(),
 		Telemetry:       telemetryRuntime,
+		ReplicaURL:      *replicaURL,
 	})
 	if err != nil {
 		return fail(err)

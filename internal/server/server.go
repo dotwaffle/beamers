@@ -16,6 +16,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/operations"
+	"github.com/dotwaffle/beamers/internal/replication"
 	"github.com/dotwaffle/beamers/internal/telemetry"
 )
 
@@ -35,6 +36,7 @@ type Config struct {
 	MeterProvider   metric.MeterProvider
 	Propagator      propagation.TextMapPropagator
 	Telemetry       *telemetry.Runtime
+	ReplicaURL      string
 	ReplicationSync func(context.Context) error
 }
 
@@ -99,13 +101,28 @@ func Run(ctx context.Context, config Config) error {
 	if err != nil {
 		return errors.Join(err, listener.Close(), installation.Close(), upgrade.Close())
 	}
+	var replica *replication.Adapter
+	replicationSync := config.ReplicationSync
+	replicationContext, cancelReplication := context.WithCancel(ctx)
+	defer cancelReplication()
+	if config.ReplicaURL != "" {
+		replica = replication.New(replication.Config{
+			DatabasePath:  filepath.Join(config.DataDir, "beamers.db"),
+			Destination:   config.ReplicaURL,
+			Logger:        config.Logger,
+			MeterProvider: config.MeterProvider,
+		})
+		replicationSync = replica.Finalize
+	}
 
 	appConfig := applicationConfig{
 		Config:          config,
+		ReplicationDone: replicationContext.Done(),
 		Installation:    installation,
 		ListenerAddress: listener.Addr(),
 		DisplayStream:   displayStream,
 		ProgramStream:   programStream,
+		Replication:     replica,
 	}
 	var application *application
 	if upgrade != nil {
@@ -116,7 +133,6 @@ func Run(ctx context.Context, config Config) error {
 			return errors.Join(err, listener.Close(), installation.Close())
 		}
 	}
-
 	httpServer := &http.Server{
 		Handler:           application,
 		ReadTimeout:       10 * time.Second,
@@ -136,6 +152,9 @@ func Run(ctx context.Context, config Config) error {
 	go func() {
 		serveResult <- httpServer.Serve(listener)
 	}()
+	if startupErr == nil && upgrade == nil {
+		application.startReplication(application.replicationContext()) //nolint:contextcheck // Replication follows the explicit server lifetime.
+	}
 	if upgrade != nil && !upgrade.Plan().RequiresApproval {
 		result, upgradeErr := application.applyPreparedUpgrade(
 			ctx,
@@ -153,7 +172,21 @@ func Run(ctx context.Context, config Config) error {
 
 	select {
 	case err := <-serveResult:
-		return errors.Join(normalizeServeError(err), application.Close())
+		cancelReplication()
+		closeContext, cancel := context.WithTimeout(
+			context.WithoutCancel(ctx),
+			config.ShutdownTimeout,
+		)
+		defer cancel()
+		var replicationErr error
+		if replicationSync != nil {
+			replicationErr = replicationSync(closeContext)
+		}
+		return errors.Join(
+			normalizeServeError(err),
+			replicationErr,
+			application.Close(),
+		)
 	case <-ctx.Done():
 		shutdownStarted := time.Now()
 		shutdownDeadline := shutdownStarted.Add(config.ShutdownTimeout)
@@ -213,7 +246,7 @@ func Run(ctx context.Context, config Config) error {
 			shutdownFinalizers{
 				http:        httpServer.Shutdown,
 				forceHTTP:   httpServer.Close,
-				replication: config.ReplicationSync,
+				replication: replicationSync,
 				telemetry:   telemetryFinalizer(config.Telemetry),
 				storage:     func(context.Context) error { return application.Close() },
 			},
