@@ -226,7 +226,7 @@ func (installation *SQLite) LoadCompetition(ctx context.Context, eventID, sessio
 	return state, nil
 }
 
-// PreflightCompetitionStart applies unambiguous readiness automation and reports blockers.
+// PreflightCompetitionStart previews unambiguous readiness automation and reports blockers.
 func (installation *SQLite) PreflightCompetitionStart(
 	ctx context.Context,
 	eventID, sessionID int,
@@ -238,14 +238,7 @@ func (installation *SQLite) PreflightCompetitionStart(
 	defer func() {
 		_ = transaction.Rollback()
 	}()
-	result, err := loadCompetitionPreflight(ctx, transaction.Client(), eventID, sessionID)
-	if err != nil {
-		return CompetitionPreflight{}, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return CompetitionPreflight{}, opaqueError("commit Competition Preflight", err)
-	}
-	return result, nil
+	return loadCompetitionPreflight(ctx, transaction.Client(), eventID, sessionID, false)
 }
 
 // PreflightCompetitionStart applies automation inside a Start command transaction.
@@ -253,13 +246,14 @@ func (transaction *CommandTx) PreflightCompetitionStart(
 	ctx context.Context,
 	eventID, sessionID int,
 ) (CompetitionPreflight, error) {
-	return loadCompetitionPreflight(ctx, transaction.transaction.Client(), eventID, sessionID)
+	return loadCompetitionPreflight(ctx, transaction.transaction.Client(), eventID, sessionID, true)
 }
 
 func loadCompetitionPreflight(
 	ctx context.Context,
 	client *ent.Client,
 	eventID, sessionID int,
+	persistAutomation bool,
 ) (CompetitionPreflight, error) {
 	state, _, err := loadCompetitionConfiguration(
 		ctx, client.Session, client.Event, eventID, sessionID,
@@ -308,18 +302,20 @@ func loadCompetitionPreflight(
 			if queryErr != nil {
 				return CompetitionPreflight{}, opaqueError("load Entry Attachments for Preflight", queryErr)
 			}
-			versions := make([]*ent.AttachmentVersion, 0)
+			versions := make([]attachmentPreflightVersion, 0)
 			logicalByVersion := make(map[int]*ent.Attachment)
 			for _, item := range logical {
 				for _, version := range item.Edges.Versions {
-					versions = append(versions, version)
+					versions = append(versions, attachmentPreflightVersion{
+						stored: version, readiness: attachmentReadiness(version),
+					})
 					logicalByVersion[version.ID] = item
 				}
 			}
 			if len(versions) == 1 {
 				desiredFinal := !result.RequireEntryReview || reviewCurrent
 				updated, updateErr := applyAttachmentAutomation(
-					internalContext, versions[0], true, desiredFinal,
+					internalContext, versions[0], true, desiredFinal, persistAutomation,
 				)
 				if updateErr != nil {
 					return CompetitionPreflight{}, updateErr
@@ -329,13 +325,13 @@ func loadCompetitionPreflight(
 				finals := finalAttachmentVersions(versions)
 				if len(finals) == 1 {
 					updated, updateErr := applyAttachmentAutomation(
-						internalContext, finals[0], true, true,
+						internalContext, finals[0], true, true, persistAutomation,
 					)
 					if updateErr != nil {
 						return CompetitionPreflight{}, updateErr
 					}
 					for index, version := range versions {
-						if version.ID == updated.ID {
+						if version.stored.ID == updated.stored.ID {
 							versions[index] = updated
 						}
 					}
@@ -344,7 +340,12 @@ func loadCompetitionPreflight(
 			for _, version := range versions {
 				result.Attachments = append(
 					result.Attachments,
-					attachmentReadinessForEntry(entry.ID, logicalByVersion[version.ID], version),
+					attachmentReadinessForEntry(
+						entry.ID,
+						logicalByVersion[version.stored.ID],
+						version.stored,
+						version.readiness,
+					),
 				)
 			}
 			if !result.FileDeliveryRequired {
@@ -773,8 +774,8 @@ func attachmentReadinessForEntry(
 	entryID int,
 	logical *ent.Attachment,
 	version *ent.AttachmentVersion,
+	readiness AttachmentReadiness,
 ) AttachmentReadiness {
-	readiness := attachmentReadiness(version)
 	readiness.EntryID = entryID
 	readiness.AttachmentVersion = version.Version
 	readiness.LogicalName = logical.Name
@@ -782,49 +783,63 @@ func attachmentReadinessForEntry(
 	return readiness
 }
 
+type attachmentPreflightVersion struct {
+	stored    *ent.AttachmentVersion
+	readiness AttachmentReadiness
+}
+
 func applyAttachmentAutomation(
 	ctx context.Context,
-	version *ent.AttachmentVersion,
+	version attachmentPreflightVersion,
 	primary, final bool,
-) (*ent.AttachmentVersion, error) {
-	if version.Primary == primary && version.Final == final {
+	persist bool,
+) (attachmentPreflightVersion, error) {
+	if version.readiness.Primary == primary && version.readiness.Final == final {
 		return version, nil
 	}
-	updated, err := version.Update().
+	if !persist {
+		version.readiness.Primary = primary
+		version.readiness.Final = final
+		version.readiness.ReadinessRevision++
+		return version, nil
+	}
+	updated, err := version.stored.Update().
 		SetPrimary(primary).
 		SetFinal(final).
 		AddReadinessRevision(1).
 		Save(ctx)
 	if err != nil {
-		return nil, opaqueError("apply Attachment Preflight automation", err)
+		return attachmentPreflightVersion{}, opaqueError("apply Attachment Preflight automation", err)
 	}
-	return updated, nil
+	version.stored = updated
+	version.readiness = attachmentReadiness(updated)
+	return version, nil
 }
 
-func countPrimaryAttachmentVersions(versions []*ent.AttachmentVersion) int {
+func countPrimaryAttachmentVersions(versions []attachmentPreflightVersion) int {
 	count := 0
 	for _, version := range versions {
-		if version.Primary {
+		if version.readiness.Primary {
 			count++
 		}
 	}
 	return count
 }
 
-func countFinalPrimaryAttachmentVersions(versions []*ent.AttachmentVersion) int {
+func countFinalPrimaryAttachmentVersions(versions []attachmentPreflightVersion) int {
 	count := 0
 	for _, version := range versions {
-		if version.Primary && version.Final {
+		if version.readiness.Primary && version.readiness.Final {
 			count++
 		}
 	}
 	return count
 }
 
-func finalAttachmentVersions(versions []*ent.AttachmentVersion) []*ent.AttachmentVersion {
-	finals := make([]*ent.AttachmentVersion, 0, len(versions))
+func finalAttachmentVersions(versions []attachmentPreflightVersion) []attachmentPreflightVersion {
+	finals := make([]attachmentPreflightVersion, 0, len(versions))
 	for _, version := range versions {
-		if version.Final {
+		if version.readiness.Final {
 			finals = append(finals, version)
 		}
 	}

@@ -3377,11 +3377,37 @@ func TestCompetitionStartPreflightRequiresFinalPrimaryDelivery(t *testing.T) {
 		ready.Msg.GetAttachments()[0].GetRevision() <= int64(uploaded.ReadinessRevision) {
 		t.Fatalf("ready Competition Preflight = %+v, %v", ready, err)
 	}
+	_, previewRevisionErr := competitionClient.SetEntryAttachmentReadiness(
+		t.Context(),
+		connect.NewRequest(&competitionv1.SetEntryAttachmentReadinessRequest{
+			EventId: 1, SessionId: competitionID, EntryId: created.Msg.GetEntry().GetId(),
+			AttachmentVersionId: int64(uploaded.ID), CommandId: "reject-preview-revision",
+			ExpectedRevision: ready.Msg.GetAttachments()[0].GetRevision(),
+			Final:            true,
+			Primary:          true,
+		}),
+	)
+	if connect.CodeOf(previewRevisionErr) != connect.CodeAborted {
+		t.Fatalf("persisted Competition Preflight revision error = %v, want Aborted", previewRevisionErr)
+	}
 	if _, err = sessionClient.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
 		EventId: 1, SessionId: competitionID, CommandId: "start-ready-competition",
 		ExpectedLiveStateRevision: proto.Int64(0),
 	})); err != nil {
 		t.Fatalf("start ready Competition: %v", err)
+	}
+	_, staleAfterStartErr := competitionClient.SetEntryAttachmentReadiness(
+		t.Context(),
+		connect.NewRequest(&competitionv1.SetEntryAttachmentReadinessRequest{
+			EventId: 1, SessionId: competitionID, EntryId: created.Msg.GetEntry().GetId(),
+			AttachmentVersionId: int64(uploaded.ID), CommandId: "reject-pre-start-revision",
+			ExpectedRevision: int64(uploaded.ReadinessRevision),
+			Final:            true,
+			Primary:          true,
+		}),
+	)
+	if connect.CodeOf(staleAfterStartErr) != connect.CodeAborted {
+		t.Fatalf("unpersisted Start automation error = %v, want Aborted", staleAfterStartErr)
 	}
 	server.stop(t)
 }
@@ -3591,7 +3617,7 @@ func TestCompetitionPreflightRequiresDispositionAndUnambiguousPrimary(t *testing
 	if !first.Primary || first.Final || second.Primary || second.Final {
 		t.Fatalf("two uploaded versions = %+v then %+v", first, second)
 	}
-	_, err = client.SetEntryAttachmentReadiness(t.Context(), connect.NewRequest(
+	cleared, err := client.SetEntryAttachmentReadiness(t.Context(), connect.NewRequest(
 		&competitionv1.SetEntryAttachmentReadinessRequest{
 			EventId: 1, SessionId: competitionID, EntryId: entry.GetId(),
 			AttachmentVersionId: int64(first.ID), CommandId: "clear-primary-v1",
@@ -3613,7 +3639,7 @@ func TestCompetitionPreflightRequiresDispositionAndUnambiguousPrimary(t *testing
 		&competitionv1.SetEntryAttachmentReadinessRequest{
 			EventId: 1, SessionId: competitionID, EntryId: entry.GetId(),
 			AttachmentVersionId: int64(first.ID), CommandId: "clear-primary-v1-again",
-			ExpectedRevision: firstCandidate.GetRevision(), Final: true, Primary: false,
+			ExpectedRevision: cleared.Msg.GetAttachment().GetRevision(), Final: true, Primary: false,
 		},
 	))
 	if err != nil {
