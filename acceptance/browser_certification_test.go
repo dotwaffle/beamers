@@ -735,7 +735,8 @@ func certifyCrewControl(
 	sessionID int64,
 ) browserPageEvidence {
 	t.Helper()
-	target := origin + "/crew/program/" + strconv.FormatInt(sessionID, 10)
+	target := origin + "/crew/program/" + strconv.FormatInt(sessionID, 10) +
+		"?event_id=1"
 	if err := driver.navigate(t.Context(), target); err != nil {
 		t.Fatalf("navigate to Crew control: %v", err)
 	}
