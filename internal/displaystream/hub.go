@@ -155,6 +155,13 @@ func (hub *Hub) Cursor() Cursor {
 	return Cursor{StreamID: hub.streamID, Position: hub.position}
 }
 
+// SubscriberCount returns the current bounded live-consumer count.
+func (hub *Hub) SubscriberCount() int {
+	hub.mu.Lock()
+	defer hub.mu.Unlock()
+	return len(hub.subscribers)
+}
+
 // Publish advances the stream and drops subscribers whose queue is full.
 func (hub *Hub) Publish() Cursor {
 	hub.mu.Lock()

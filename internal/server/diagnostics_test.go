@@ -1,0 +1,203 @@
+package server
+
+import (
+	"crypto/tls"
+	"encoding/json"
+	"errors"
+	"log/slog"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"testing"
+
+	metricnoop "go.opentelemetry.io/otel/metric/noop"
+	"go.opentelemetry.io/otel/propagation"
+	tracenoop "go.opentelemetry.io/otel/trace/noop"
+
+	"github.com/dotwaffle/beamers/internal/displaystream"
+	"github.com/dotwaffle/beamers/internal/operations"
+)
+
+func TestDiagnosticsAreLocalOrAdministratorOnly(t *testing.T) {
+	application, session := newDiagnosticsTestApplication(
+		t,
+		&net.TCPAddr{IP: net.ParseIP("192.0.2.1"), Port: 8080},
+	)
+
+	public := httptest.NewRecorder()
+	application.ServeHTTP(
+		public,
+		httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/diagnostics", http.NoBody),
+	)
+	if public.Code != http.StatusNotFound {
+		t.Fatalf("public diagnostics status = %d, want 404", public.Code)
+	}
+
+	unauthenticated := httptest.NewRecorder()
+	plaintext := httptest.NewRequestWithContext(
+		t.Context(), http.MethodGet, "/admin/diagnostics", http.NoBody,
+	)
+	application.ServeHTTP(unauthenticated, plaintext)
+	if unauthenticated.Code != http.StatusForbidden {
+		t.Fatalf("plaintext diagnostics status = %d, want 403", unauthenticated.Code)
+	}
+
+	unauthenticated = httptest.NewRecorder()
+	secure := httptest.NewRequestWithContext(
+		t.Context(), http.MethodGet, "/admin/diagnostics", http.NoBody,
+	)
+	secure.TLS = &tls.ConnectionState{}
+	application.ServeHTTP(
+		unauthenticated,
+		secure,
+	)
+	if unauthenticated.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated diagnostics status = %d, want 401", unauthenticated.Code)
+	}
+
+	request := httptest.NewRequestWithContext(
+		t.Context(), http.MethodGet, "/admin/diagnostics", http.NoBody,
+	)
+	request.TLS = &tls.ConnectionState{}
+	request.AddCookie(&http.Cookie{Name: sessionCookieName, Value: session})
+	response := httptest.NewRecorder()
+	application.ServeHTTP(response, request)
+	assertDiagnosticsResponse(t, response)
+}
+
+func TestDiagnosticsRetainIndependentComponentsWhenStorageFails(t *testing.T) {
+	found := normalDiagnostics(nil, errors.New("storage failed"), 2, 3, true)
+	if found.Storage.Status != "unavailable" ||
+		found.Backup.Status != "unavailable" ||
+		found.Replication.Status != "disabled" ||
+		found.Displays.Status != "unavailable" ||
+		found.Streams.Display.Subscribers != 2 ||
+		found.Streams.Program.Subscribers != 3 ||
+		found.Telemetry.Status != "enabled" {
+		t.Fatalf("diagnostics = %+v", found)
+	}
+}
+
+func TestDiagnosticsAreAvailableOnLoopback(t *testing.T) {
+	application, _ := newDiagnosticsTestApplication(
+		t,
+		&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8080},
+	)
+
+	response := httptest.NewRecorder()
+	application.ServeHTTP(
+		response,
+		httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/diagnostics", http.NoBody),
+	)
+	assertDiagnosticsResponse(t, response)
+}
+
+func assertDiagnosticsResponse(t *testing.T, response *httptest.ResponseRecorder) {
+	t.Helper()
+	if response.Code != http.StatusOK {
+		t.Fatalf("diagnostics status = %d, want 200; body %q", response.Code, response.Body.String())
+	}
+	if value := response.Header().Get("Cache-Control"); value != "no-store" {
+		t.Fatalf("Cache-Control = %q, want no-store", value)
+	}
+	var found struct {
+		Mode    string `json:"mode"`
+		Storage struct {
+			Status string `json:"status"`
+		} `json:"storage"`
+		Backup struct {
+			Status string `json:"status"`
+		} `json:"backup"`
+		Streams struct {
+			Display struct {
+				Status      string `json:"status"`
+				Subscribers int    `json:"subscribers"`
+			} `json:"display"`
+			Program struct {
+				Status      string `json:"status"`
+				Subscribers int    `json:"subscribers"`
+			} `json:"program"`
+		} `json:"streams"`
+		Displays struct {
+			Total    int            `json:"total"`
+			Delivery map[string]int `json:"delivery"`
+		} `json:"displays"`
+		Telemetry struct {
+			Status string `json:"status"`
+		} `json:"telemetry"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&found); err != nil {
+		t.Fatalf("decode diagnostics: %v", err)
+	}
+	if found.Mode != "normal" ||
+		found.Storage.Status != "ready" ||
+		found.Backup.Status != "available" ||
+		found.Streams.Display.Status != "ready" ||
+		found.Streams.Program.Status != "ready" ||
+		found.Displays.Total != 0 ||
+		found.Telemetry.Status != "disabled" {
+		t.Fatalf("diagnostics = %+v", found)
+	}
+}
+
+func newDiagnosticsTestApplication(
+	t *testing.T,
+	listenerAddress net.Addr,
+) (*application, string) {
+	t.Helper()
+	dataDir := filepath.Join(t.TempDir(), "installation")
+	if err := operations.Initialize(t.Context(), dataDir); err != nil {
+		t.Fatalf("initialize installation: %v", err)
+	}
+	installation, err := operations.OpenInstallation(t.Context(), dataDir)
+	if err != nil {
+		t.Fatalf("open installation: %v", err)
+	}
+	bootstrapToken, err := installation.Authentication().IssueBootstrap(t.Context())
+	if err != nil {
+		_ = installation.Close()
+		t.Fatalf("issue bootstrap: %v", err)
+	}
+	session, err := installation.Authentication().BootstrapAdministrator(
+		t.Context(),
+		bootstrapToken,
+		"Administrator",
+		"correct horse battery staple",
+	)
+	if err != nil {
+		_ = installation.Close()
+		t.Fatalf("bootstrap Administrator: %v", err)
+	}
+	displayStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
+	if err != nil {
+		_ = installation.Close()
+		t.Fatalf("create Display stream: %v", err)
+	}
+	programStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
+	if err != nil {
+		_ = installation.Close()
+		t.Fatalf("create Program Output stream: %v", err)
+	}
+	found, err := newApplication(applicationConfig{
+		Config: Config{
+			DataDir: dataDir, AttachmentsDir: filepath.Join(dataDir, "attachments"),
+			BuildVersion: "test", Logger: slog.New(slog.DiscardHandler),
+			TracerProvider: tracenoop.NewTracerProvider(),
+			MeterProvider:  metricnoop.NewMeterProvider(),
+			Propagator:     propagation.TraceContext{},
+		},
+		Installation: installation, ListenerAddress: listenerAddress,
+		DisplayStream: displayStream, ProgramStream: programStream,
+	})
+	if err != nil {
+		_ = installation.Close()
+		t.Fatalf("build application: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := found.Close(); closeErr != nil {
+			t.Errorf("close application: %v", closeErr)
+		}
+	})
+	return found, session.Token
+}

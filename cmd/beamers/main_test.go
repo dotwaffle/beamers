@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +16,39 @@ import (
 	"github.com/dotwaffle/beamers/internal/operations"
 	"github.com/dotwaffle/beamers/internal/store/storetest"
 )
+
+func TestServeCommandExportsItsTerminalError(t *testing.T) {
+	exported := make(chan struct{}, 1)
+	collector := httptest.NewServer(http.HandlerFunc(func(
+		response http.ResponseWriter,
+		request *http.Request,
+	) {
+		if request.URL.Path == "/v1/logs" {
+			exported <- struct{}{}
+		}
+		response.WriteHeader(http.StatusOK)
+	}))
+	defer collector.Close()
+
+	var stdout, stderr bytes.Buffer
+	if code := run(
+		t.Context(),
+		[]string{
+			"serve",
+			"--otlp-endpoint", collector.URL,
+			"--shutdown-timeout", "0",
+		},
+		&stdout,
+		&stderr,
+	); code != 1 {
+		t.Fatalf("serve exit = %d, want 1; stderr = %s", code, stderr.String())
+	}
+	select {
+	case <-exported:
+	default:
+		t.Fatal("serve terminal error was not exported")
+	}
+}
 
 func TestBackupCommandCreatesAndVerifiesSanitizedArchive(t *testing.T) {
 	dataDir := filepath.Join(t.TempDir(), "installation")

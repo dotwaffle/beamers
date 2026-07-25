@@ -8,6 +8,9 @@ import (
 	"path/filepath"
 	"time"
 
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/dotwaffle/beamers/internal/activation"
 	"github.com/dotwaffle/beamers/internal/attachments"
 	"github.com/dotwaffle/beamers/internal/auth"
@@ -111,6 +114,8 @@ type Installation struct {
 type OpenConfig struct {
 	DataDir        string
 	AttachmentsDir string
+	TracerProvider trace.TracerProvider
+	MeterProvider  metric.MeterProvider
 }
 
 // Initialize creates a new installation with the committed schema.
@@ -209,7 +214,17 @@ func OpenInstallationWithConfig(
 			)}, nil
 		}
 	}
-	storage, err := store.Open(ctx, config.DataDir)
+	var storage *store.SQLite
+	if config.TracerProvider != nil || config.MeterProvider != nil {
+		storage, err = store.OpenWithTelemetry(
+			ctx,
+			config.DataDir,
+			config.TracerProvider,
+			config.MeterProvider,
+		)
+	} else {
+		storage, err = store.Open(ctx, config.DataDir)
+	}
 	if err != nil {
 		if errors.Is(err, ErrInstallationInUse) {
 			return nil, errors.Join(err, closeAccess(releaseAccess))

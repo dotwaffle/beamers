@@ -7970,6 +7970,59 @@ func TestInstallationStartsHealthyAndRestarts(t *testing.T) {
 	}
 }
 
+func TestHealthyInstallationExposesBoundedLocalDiagnostics(t *testing.T) {
+	bin := buildBeamers(t)
+	dataDir := filepath.Join(t.TempDir(), "data")
+	runBeamers(t, bin, "init", "--data-dir", dataDir)
+	server := startBeamers(t, bin, dataDir)
+
+	response := get(t, authenticatedClient(t), server.address, "/diagnostics")
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			t.Errorf("close diagnostics response: %v", err)
+		}
+	}()
+	var found struct {
+		Mode    string `json:"mode"`
+		Storage struct {
+			Status string `json:"status"`
+		} `json:"storage"`
+		Backup struct {
+			Status string `json:"status"`
+		} `json:"backup"`
+		Replication struct {
+			Status string `json:"status"`
+		} `json:"replication"`
+		Streams map[string]struct {
+			Status      string `json:"status"`
+			Subscribers int    `json:"subscribers"`
+		} `json:"streams"`
+		Displays struct {
+			Total    int            `json:"total"`
+			Delivery map[string]int `json:"delivery"`
+		} `json:"displays"`
+		Telemetry struct {
+			Status string `json:"status"`
+		} `json:"telemetry"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&found); err != nil {
+		t.Fatalf("decode diagnostics: %v", err)
+	}
+	if response.StatusCode != http.StatusOK ||
+		response.Header.Get("Cache-Control") != "no-store" ||
+		found.Mode != "normal" ||
+		found.Storage.Status != "ready" ||
+		found.Backup.Status != "available" ||
+		found.Replication.Status != "disabled" ||
+		found.Streams["display"].Status != "ready" ||
+		found.Streams["program"].Status != "ready" ||
+		found.Displays.Total != 0 ||
+		found.Telemetry.Status != "disabled" {
+		t.Fatalf("diagnostics = %d %+v, headers %v", response.StatusCode, found, response.Header)
+	}
+	server.stop(t)
+}
+
 func TestServeRequiresExactApprovalForRollbackIncompatibleUpgrade(t *testing.T) {
 	bin := buildBeamers(t)
 	root := t.TempDir()

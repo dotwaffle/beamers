@@ -38,9 +38,12 @@ type application struct {
 	restoring       bool
 	upgrade         *operations.Upgrade
 	upgradeApplying bool
+	rejectMutations bool
+	rejectStreams   bool
 	active          int
 	nextRequest     uint64
 	cancels         map[uint64]context.CancelCauseFunc
+	persistent      map[uint64]bool
 	drained         chan struct{}
 }
 
@@ -55,6 +58,7 @@ func newUpgradeApplication(
 		maintenanceKind: "upgrade",
 		upgrade:         upgrade,
 		cancels:         make(map[uint64]context.CancelCauseFunc),
+		persistent:      make(map[uint64]bool),
 		drained:         closedChannel(),
 	}
 }
@@ -72,6 +76,7 @@ func newApplication(config applicationConfig) (*application, error) {
 		installation: config.Installation,
 		accepting:    config.Installation.StartupError() == nil,
 		cancels:      make(map[uint64]context.CancelCauseFunc),
+		persistent:   make(map[uint64]bool),
 		drained:      closedChannel(),
 	}
 	handler, err := found.buildHandler(config.Installation)
@@ -110,6 +115,13 @@ func (application *application) ServeHTTP(
 		return
 	}
 	handler := application.handler
+	persistent := persistentRequest(request.URL.Path)
+	if (application.rejectMutations && mutationRequest(request)) ||
+		(application.rejectStreams && persistent) {
+		application.mu.Unlock()
+		serveMaintenance(response, request, "shutdown")
+		return
+	}
 	if application.active == 0 {
 		application.drained = make(chan struct{})
 	}
@@ -118,6 +130,9 @@ func (application *application) ServeHTTP(
 	tracked := &applicationRequest{id: application.nextRequest}
 	requestContext, cancel := context.WithCancelCause(request.Context())
 	application.cancels[tracked.id] = cancel
+	if persistent {
+		application.persistent[tracked.id] = true
+	}
 	request = request.WithContext(context.WithValue(
 		requestContext,
 		applicationRequestContextKey{},
@@ -129,6 +144,7 @@ func (application *application) ServeHTTP(
 		application.mu.Lock()
 		if !tracked.detached {
 			delete(application.cancels, tracked.id)
+			delete(application.persistent, tracked.id)
 			application.finishRequestLocked()
 		}
 		application.mu.Unlock()
@@ -199,10 +215,7 @@ func (application *application) restore(ctx context.Context, journalPath string)
 		return err
 	}
 	_, restoreErr := operations.ApplyRestore(ctx, journalPath)
-	reopened, openErr := operations.OpenInstallationWithConfig(ctx, operations.OpenConfig{
-		DataDir:        application.config.DataDir,
-		AttachmentsDir: application.config.AttachmentsDir,
-	})
+	reopened, openErr := operations.OpenInstallationWithConfig(ctx, application.openConfig())
 	if openErr != nil {
 		application.setUnavailable(nil)
 		return errors.Join(restoreErr, openErr)
@@ -220,6 +233,8 @@ func (application *application) restore(ctx context.Context, journalPath string)
 	application.maintenanceKind = ""
 	application.restoring = false
 	application.accepting = reopened.StartupError() == nil
+	application.rejectMutations = false
+	application.rejectStreams = false
 	application.mu.Unlock()
 	return restoreErr
 }
@@ -240,6 +255,7 @@ func (application *application) beginRestore(
 		if _, tracked := application.cancels[current.id]; tracked {
 			current.detached = true
 			delete(application.cancels, current.id)
+			delete(application.persistent, current.id)
 			application.finishRequestLocked()
 		}
 	}
@@ -258,6 +274,8 @@ func (application *application) beginRestore(
 		application.maintenance = false
 		application.maintenanceKind = ""
 		application.accepting = installation != nil && installation.StartupError() == nil
+		application.rejectMutations = false
+		application.rejectStreams = false
 		application.mu.Unlock()
 		return nil, context.Cause(ctx)
 	}
@@ -277,6 +295,8 @@ func (application *application) setUnavailable(installation *operations.Installa
 	application.maintenance = true
 	application.maintenanceKind = "restore"
 	application.restoring = false
+	application.rejectMutations = true
+	application.rejectStreams = true
 	application.mu.Unlock()
 }
 
@@ -301,10 +321,7 @@ func (application *application) applyPreparedUpgrade(
 		application.mu.Unlock()
 		return result, err
 	}
-	reopened, err := operations.OpenInstallationWithConfig(ctx, operations.OpenConfig{
-		DataDir:        application.config.DataDir,
-		AttachmentsDir: application.config.AttachmentsDir,
-	})
+	reopened, err := operations.OpenInstallationWithConfig(ctx, application.openConfig())
 	if err != nil {
 		application.mu.Lock()
 		application.upgradeApplying = false
@@ -326,18 +343,15 @@ func (application *application) applyPreparedUpgrade(
 	application.maintenance = false
 	application.maintenanceKind = ""
 	application.upgradeApplying = false
+	application.rejectMutations = false
+	application.rejectStreams = false
 	application.mu.Unlock()
 	return result, nil
 }
 
 func (application *application) Close() error {
+	application.beginShutdown()
 	application.mu.Lock()
-	application.accepting = false
-	application.maintenance = true
-	application.maintenanceKind = "shutdown"
-	for _, cancel := range application.cancels {
-		cancel(errors.New("application closing"))
-	}
 	installation := application.installation
 	application.installation = nil
 	upgrade := application.upgrade
@@ -348,6 +362,69 @@ func (application *application) Close() error {
 		installationErr = installation.Close()
 	}
 	return errors.Join(installationErr, upgrade.Close())
+}
+
+func (application *application) beginShutdown() {
+	application.mu.Lock()
+	defer application.mu.Unlock()
+	application.accepting = false
+	application.maintenance = true
+	application.maintenanceKind = "shutdown"
+	application.rejectMutations = true
+	application.rejectStreams = true
+	for _, cancel := range application.cancels {
+		cancel(errors.New("application closing"))
+	}
+}
+
+func (application *application) beginInFlightDrain() (int, <-chan struct{}) {
+	application.mu.Lock()
+	defer application.mu.Unlock()
+	application.rejectMutations = true
+	application.rejectStreams = true
+	for id := range application.persistent {
+		if cancel := application.cancels[id]; cancel != nil {
+			cancel(errors.New("persistent stream closing"))
+		}
+	}
+	return application.active, application.drained
+}
+
+func (application *application) withdrawReadiness() (int, <-chan struct{}) {
+	application.mu.Lock()
+	defer application.mu.Unlock()
+	application.accepting = false
+	return application.active, application.drained
+}
+
+func persistentRequest(path string) bool {
+	return path == "/display/events" ||
+		(strings.HasPrefix(path, "/crew/program/") && strings.HasSuffix(path, "/events"))
+}
+
+func mutationRequest(request *http.Request) bool {
+	if request.Method != http.MethodGet && request.Method != http.MethodHead {
+		return true
+	}
+	if request.Method != http.MethodGet {
+		return false
+	}
+	if request.URL.Path == "/display" {
+		return true
+	}
+	program, found := strings.CutPrefix(request.URL.Path, "/crew/program/")
+	return found && program != "" && !strings.ContainsRune(program, '/')
+}
+
+func (application *application) openConfig() operations.OpenConfig {
+	config := operations.OpenConfig{
+		DataDir: application.config.DataDir, AttachmentsDir: application.config.AttachmentsDir,
+	}
+	if application.config.Telemetry != nil && application.config.Telemetry.Enabled() {
+		config.TracerProvider = application.config.TracerProvider
+		config.MeterProvider = application.config.MeterProvider
+	}
+	return config
 }
 
 func serveMaintenance(
@@ -412,6 +489,16 @@ func (application *application) buildHandler(
 		// Recovery mode deliberately exposes only local diagnostics and stable probes.
 		return mux, nil //nolint:nilerr // StartupError selects the restricted handler.
 	}
+	registerDiagnosticsRoutes(
+		mux,
+		installation.Authentication(),
+		installation.Displays(),
+		application.config.DisplayStream,
+		application.config.ProgramStream,
+		application.config.Telemetry,
+		application.config.Logger,
+		application.config.ListenerAddress,
+	)
 	registerAuthenticationRoutes(
 		mux,
 		installation.Authentication(),

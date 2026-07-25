@@ -8,6 +8,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	metricnoop "go.opentelemetry.io/otel/metric/noop"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
 func TestCommittedMigrationsReplayIntoCleanSQLite(t *testing.T) {
@@ -30,6 +34,47 @@ func TestCommittedMigrationsReplayIntoCleanSQLite(t *testing.T) {
 	}
 	if err := installation.Ready(t.Context()); err != nil {
 		t.Fatalf("query migrated database through Ent: %v", err)
+	}
+}
+
+func TestTelemetryOpenTracesOperationsWithoutSQLOrDSN(t *testing.T) {
+	dataDir := t.TempDir()
+	if err := Initialize(t.Context(), dataDir); err != nil {
+		t.Fatalf("initialize database: %v", err)
+	}
+	recorder := tracetest.NewSpanRecorder()
+	tracerProvider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	installation, err := OpenWithTelemetry(
+		t.Context(),
+		dataDir,
+		tracerProvider,
+		metricnoop.NewMeterProvider(),
+	)
+	if err != nil {
+		t.Fatalf("open instrumented database: %v", err)
+	}
+	if err = installation.Ready(t.Context()); err != nil {
+		t.Fatalf("query instrumented database: %v", err)
+	}
+	if err = installation.Close(); err != nil {
+		t.Fatalf("close instrumented database: %v", err)
+	}
+	spans := recorder.Ended()
+	if len(spans) == 0 {
+		t.Fatal("instrumented database emitted no spans")
+	}
+	for _, span := range spans {
+		switch span.Name() {
+		case "sql.conn.reset_session", "sql.conn.prepare", "sql.rows", "sql.connector.connect":
+			t.Errorf("low-value span emitted: %s", span.Name())
+		}
+		for _, attribute := range span.Attributes() {
+			if attribute.Key == "db.query.text" ||
+				strings.Contains(attribute.Value.String(), dataDir) ||
+				strings.Contains(attribute.Value.String(), "PRAGMA") {
+				t.Errorf("unsafe span attribute %s=%s", attribute.Key, attribute.Value.String())
+			}
+		}
 	}
 }
 

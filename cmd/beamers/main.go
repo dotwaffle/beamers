@@ -13,15 +13,12 @@ import (
 	"syscall"
 	"time"
 
-	"go.opentelemetry.io/otel/metric/noop"
-	"go.opentelemetry.io/otel/propagation"
-	tracenoop "go.opentelemetry.io/otel/trace/noop"
-
 	_ "github.com/dotwaffle/beamers/ent/runtime" // Register generated hooks, validators, and privacy policies.
 	"github.com/dotwaffle/beamers/internal/backup"
 	"github.com/dotwaffle/beamers/internal/buildinfo"
 	"github.com/dotwaffle/beamers/internal/operations"
 	"github.com/dotwaffle/beamers/internal/server"
+	"github.com/dotwaffle/beamers/internal/telemetry"
 )
 
 func main() {
@@ -54,7 +51,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	case "upgrade":
 		err = runUpgrade(ctx, args[1:], stdout, stderr)
 	case "serve":
-		err = runServe(ctx, args[1:], stderr, logger)
+		return runServe(ctx, args[1:], stderr)
 	case "help", "-h", "--help":
 		printUsage(stdout)
 		return 0
@@ -440,7 +437,15 @@ func runInit(ctx context.Context, args []string, stdout, stderr io.Writer) error
 	return err
 }
 
-func runServe(ctx context.Context, args []string, stderr io.Writer, logger *slog.Logger) error {
+func runServe(ctx context.Context, args []string, stderr io.Writer) int {
+	logger := slog.New(slog.NewJSONHandler(stderr, nil))
+	fail := func(err error) int {
+		if errors.Is(err, context.Canceled) {
+			return 0
+		}
+		logger.Error("command failed", "command", "serve", "error", err)
+		return 1
+	}
 	flags := flag.NewFlagSet("serve", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	dataDir := flags.String("data-dir", "", "installation data directory")
@@ -450,26 +455,64 @@ func runServe(ctx context.Context, args []string, stderr io.Writer, logger *slog
 		"Attachment Store root (default: DATA-DIR/attachments)",
 	)
 	listenAddress := flags.String("listen", "127.0.0.1:8080", "HTTP listen address")
+	shutdownTimeout := flags.Duration(
+		"shutdown-timeout",
+		10*time.Second,
+		"hosting platform graceful-stop budget",
+	)
+	otlpEndpoint := flags.String(
+		"otlp-endpoint",
+		"",
+		"OTLP HTTP base URL (disabled when empty)",
+	)
+	sampleRatio := flags.Float64(
+		"telemetry-sample-ratio",
+		1,
+		"trace sampling ratio from zero to one",
+	)
+	exportTimeout := flags.Duration(
+		"telemetry-export-timeout",
+		2*time.Second,
+		"maximum duration of one telemetry export",
+	)
 	if err := flags.Parse(args); err != nil {
-		return err
+		return fail(err)
 	}
 	if flags.NArg() != 0 {
-		return errors.New("serve accepts no positional arguments")
+		return fail(errors.New("serve accepts no positional arguments"))
 	}
-	return server.Run(ctx, server.Config{
+	telemetryRuntime, err := telemetry.New(ctx, telemetry.Config{
+		Endpoint:       *otlpEndpoint,
+		ServiceVersion: buildinfo.Version(),
+		Stderr:         stderr,
+		SampleRatio:    *sampleRatio,
+		ExportTimeout:  *exportTimeout,
+	})
+	if err != nil {
+		return fail(err)
+	}
+	logger = telemetryRuntime.Logger()
+	defer func() {
+		shutdownContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), *exportTimeout)
+		defer cancel()
+		_ = telemetryRuntime.Shutdown(shutdownContext)
+	}()
+	err = server.Run(ctx, server.Config{
 		DataDir:         *dataDir,
 		AttachmentsDir:  *attachmentsDir,
 		ListenAddress:   *listenAddress,
 		BuildVersion:    buildinfo.Version(),
-		ShutdownTimeout: 10 * time.Second,
-		Logger:          logger,
-		TracerProvider:  tracenoop.NewTracerProvider(),
-		MeterProvider:   noop.NewMeterProvider(),
-		Propagator: propagation.NewCompositeTextMapPropagator(
-			propagation.TraceContext{},
-			propagation.Baggage{},
-		),
+		ShutdownTimeout: *shutdownTimeout,
+		Logger:          telemetryRuntime.Logger(),
+		TracerProvider:  telemetryRuntime.TracerProvider(),
+		MeterProvider:   telemetryRuntime.MeterProvider(),
+		Propagator:      telemetryRuntime.Propagator(),
+		Telemetry:       telemetryRuntime,
 	})
+	if err != nil {
+		return fail(err)
+	}
+	return 0
 }
 
 func printUsage(output io.Writer) {
