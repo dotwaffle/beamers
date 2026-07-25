@@ -9,9 +9,9 @@ The rated ceiling is one Active Event with 64 Locations, 64 concurrent Lanes, 5,
 The stress profile retains 25,000 records, 500 Displays, and 200 Crew consoles to expose scaling failures, but it does not carry the rated latency objective.
 Counts remain tested targets rather than hard configuration limits.
 
-Certification uses a dedicated Linux AMD64 server with four assigned CPU cores, 8 GB RAM, and durable local SSD storage.
-A separate machine generates fixed-rate load with jitter after warmup.
-GitHub-hosted runs remain useful correctness and regression diagnostics, but shared runner scheduling and a colocated load generator cannot certify capacity.
+Certification uses standard GitHub-hosted Linux AMD64 runners and records exact runner, workflow, CPU, memory, filesystem, and storage provenance.
+The colocated generator produces fixed-rate load with jitter after warmup.
+The diagnostic stress profile applies explicit process-memory, goroutine, and open-file bounds derived from the runner and workload.
 
 Representative and rated runs sample at least 200 independent live commands and report nearest-rank p50, p95, p99, and maximum latency.
 Display delivery is measured both from commit to decoded Snapshot and from operator command to decoded Snapshot.

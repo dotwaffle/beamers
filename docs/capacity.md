@@ -28,9 +28,9 @@ The diagnostic stress profile must preserve correctness, progress, and bounded r
 
 ## Certification topology
 
-The reference server is Linux AMD64 with four assigned CPU cores, 8 GB RAM, and durable local SSD storage with working `fsync`.
-The workload generator runs on a separate machine so request generation, public caching, and Display clients do not consume the server's assigned CPUs.
-The run uses fixed-rate arrivals with jitter after warmup rather than a response-dependent synchronized loop.
+Certification runs on GitHub's standard `ubuntu-24.04` hosted runners.
+Each profile records the runner environment, name, operating system, architecture, workflow run, commit, CPU count and model, memory, filesystem, storage source, and storage type so results retain their provenance.
+Server and workload generator share the runner; the generator still uses fixed-rate arrivals with jitter after warmup rather than a response-dependent synchronized loop.
 
 Each rated run samples at least 200 independent live commands.
 Percentiles use the nearest-rank method.
@@ -51,54 +51,21 @@ Public freshness timing begins after the mutation commits.
 
 ### Run a certification
 
-Use an isolated server and generator with synchronized clocks.
-The server listens on loopback; expose it to the generator through an SSH tunnel so the temporary credentials never cross plaintext networking.
-
-On the server:
+The manual `Capacity` workflow certifies every representative and rated profile and runs the diagnostic stress profile:
 
 ```sh
-umask 077
-BEAMERS_CAPACITY_SOAK=1 \
-BEAMERS_CAPACITY_ROLE=server \
-BEAMERS_CAPACITY_CERTIFY=1 \
-BEAMERS_CAPACITY_PROFILE=rated \
-BEAMERS_CAPACITY_DURATION=10m \
-BEAMERS_CAPACITY_LISTEN=127.0.0.1:8080 \
-BEAMERS_CAPACITY_ORIGIN=http://127.0.0.1:8080 \
-BEAMERS_CAPACITY_TARGET=/secure/path/capacity-target.json \
-go test ./internal/server -run '^TestCapacityEnvelope$' -count=1 -timeout 20m -v
+gh workflow run Capacity --ref main -f profile=all
 ```
 
-While it waits, securely copy `capacity-target.json` to the generator with mode `0600` and start an SSH tunnel from generator port 8080 to server port 8080.
-Then run on the generator:
+The default dispatch certifies only the rated profile.
+With `profile=all`, the rated profile runs first; only a pass starts the other representative profiles and stress in parallel.
+Certification fails when a representative or rated run is shorter than five minutes, collects fewer than 200 live commands, or misses a latency objective.
+The stress profile remains diagnostic and cannot certify.
+It fails if peak process memory exceeds 80 percent of runner memory or if goroutine or open-file maxima exceed the workload-derived bounds.
+The workflow requires one `capacity.json` artifact per profile with runner facts, workload counts, sample counts, resource maxima, and latency percentiles.
+Pass `-f profile=stress` or another profile name to rerun only one failed profile.
 
-```sh
-BEAMERS_CAPACITY_SOAK=1 \
-BEAMERS_CAPACITY_ROLE=generator \
-BEAMERS_CAPACITY_CERTIFY=1 \
-BEAMERS_CAPACITY_PROFILE=rated \
-BEAMERS_CAPACITY_DURATION=10m \
-BEAMERS_CAPACITY_TARGET=./capacity-target.json \
-BEAMERS_CAPACITY_REPORT=./capacity.json \
-go test ./internal/server -run '^TestCapacityEnvelope$' -count=1 -timeout 20m -v
-```
-
-Repeat for `netuk`, `nova`, `fosdem`, and `revision`.
-The generator signals the server to stop after collecting server resource maxima.
-Delete both copies of `capacity-target.json` after the run because they contain temporary session and Display credentials.
-Certification fails on a shared hostname, a GitHub-hosted generator, a diagnostic stress profile, non-reference server hardware, fewer than 200 live commands, or any latency objective.
-
-## GitHub-hosted diagnostics
-
-The manual `Capacity` workflow is a sustained correctness and regression diagnostic:
-
-```sh
-gh workflow run Capacity --ref main -f duration=10m
-```
-
-Use at least ten minutes when collecting diagnostic evidence.
-The workflow uploads `capacity.json` with the runner facts, workload counts, sample counts, and latency percentiles.
-It does not certify the rated envelope because the shared hosted runner colocates the server, clients, cache, and load generator.
+## Local diagnostics
 
 For a non-certifying local correctness run:
 

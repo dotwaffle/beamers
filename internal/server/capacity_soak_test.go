@@ -53,12 +53,13 @@ import (
 )
 
 const (
-	publicPollingInterval   = 12 * time.Second
-	publicFreshnessBound    = 15 * time.Second
-	capacityStageDuration   = 2 * time.Hour
-	capacityTimerSkewBound  = 250 * time.Millisecond
-	capacityCommandInterval = 2 * time.Second
-	capacityWarmup          = 5 * time.Second
+	publicPollingInterval         = 12 * time.Second
+	publicFreshnessBound          = 15 * time.Second
+	capacityStageDuration         = 2 * time.Hour
+	capacityTimerSkewBound        = 250 * time.Millisecond
+	capacityCommandInterval       = time.Second
+	capacityWarmup                = 5 * time.Second
+	capacityCertificationDuration = 5 * time.Minute
 )
 
 type capacityProfile struct {
@@ -133,21 +134,17 @@ type capacityTarget struct {
 	DisplayCredentials []string         `json:"display_credentials"`
 }
 
-func capacityCertificationError(target capacityTarget, generatorHostname string) error {
-	profile, err := capacityProfileNamed(target.Profile)
-	if err != nil {
-		return err
-	}
+func capacityCertificationError(profile capacityProfile, role string) error {
 	if !profile.Certified {
-		return fmt.Errorf("capacity profile %q is diagnostic only", target.Profile)
+		return fmt.Errorf("capacity profile %q is diagnostic only", profile.Name)
 	}
-	if os.Getenv("RUNNER_ENVIRONMENT") == "github-hosted" {
-		return errors.New("GitHub-hosted runners cannot certify capacity")
+	if role != "" && role != "combined" {
+		return errors.New("capacity certification requires the combined hosted topology")
 	}
-	if target.ServerHostname == "" ||
-		generatorHostname == "" ||
-		target.ServerHostname == generatorHostname {
-		return errors.New("capacity certification requires separate server and generator machines")
+	if os.Getenv("RUNNER_ENVIRONMENT") != "github-hosted" ||
+		runtime.GOOS != "linux" ||
+		runtime.GOARCH != "amd64" {
+		return errors.New("capacity certification requires a GitHub-hosted Linux AMD64 runner")
 	}
 	return nil
 }
@@ -173,6 +170,18 @@ func TestCapacityLoadArrivalsRemainOrderedWithJitter(t *testing.T) {
 			t.Fatalf("arrival %d at %s follows %s", arrival, scheduled, previous)
 		}
 		previous = scheduled
+	}
+}
+
+func TestCapacityCertificationDurationCollectsRequiredCommands(t *testing.T) {
+	started := time.Unix(0, 0)
+	deadline := started.Add(capacityCertificationDuration)
+	samples := 0
+	for capacityCommandArrival(started, samples, capacityCommandInterval).Before(deadline) {
+		samples++
+	}
+	if samples < 200 {
+		t.Fatalf("certification samples = %d, want at least 200", samples)
 	}
 }
 
@@ -207,26 +216,62 @@ func TestCapacityFanoutSummarizesEachCommandFirst(t *testing.T) {
 	}
 }
 
-func TestCapacityCertificationRequiresSeparateNonHostedMachines(t *testing.T) {
-	target := capacityTarget{
-		Profile:        "rated",
-		ServerHostname: "server",
+func TestCapacityCertificationAcceptsHostedCombinedTopology(t *testing.T) {
+	t.Setenv("RUNNER_ENVIRONMENT", "github-hosted")
+	profile, err := capacityProfileNamed("rated")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = capacityCertificationError(profile, "combined"); err != nil {
+		t.Fatalf("GitHub-hosted combined certification rejected: %v", err)
 	}
 	t.Setenv("RUNNER_ENVIRONMENT", "self-hosted")
-	if err := capacityCertificationError(target, "generator"); err != nil {
-		t.Fatalf("separate self-hosted machines rejected: %v", err)
+	if err = capacityCertificationError(profile, "combined"); err == nil {
+		t.Fatal("self-hosted certification accepted")
 	}
-	if err := capacityCertificationError(target, "server"); err == nil {
-		t.Fatal("same-host certification accepted")
+	t.Setenv("RUNNER_ENVIRONMENT", "github-hosted")
+	if err = capacityCertificationError(profile, "generator"); err == nil {
+		t.Fatal("remote certification accepted")
 	}
-	target.Profile = "stress"
-	if err := capacityCertificationError(target, "generator"); err == nil {
+	profile, err = capacityProfileNamed("stress")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = capacityCertificationError(profile, "combined"); err == nil {
 		t.Fatal("stress-profile certification accepted")
 	}
-	target.Profile = "rated"
-	t.Setenv("RUNNER_ENVIRONMENT", "github-hosted")
-	if err := capacityCertificationError(target, "generator"); err == nil {
-		t.Fatal("GitHub-hosted certification accepted")
+}
+
+func TestCapacityEvidenceRejectsIncompleteProvenanceAndUnboundedStress(t *testing.T) {
+	hardware := capacityHardware{
+		GOOS: "linux", GOARCH: "amd64", CPUs: 4, CPUModel: "test",
+		MemoryBytes: 8 << 30, StorageSource: "/dev/root", Filesystem: "ext4",
+		NonRotational: true,
+	}
+	runner := capacityRunner{
+		Environment: "github-hosted", Name: "runner", OS: "Linux", Arch: "X64",
+		GitHubRunID: "1", GitHubSHA: strings.Repeat("a", 40),
+	}
+	if err := capacityProvenanceError(hardware, runner); err != nil {
+		t.Fatalf("complete provenance rejected: %v", err)
+	}
+	hardware.CPUModel = ""
+	if err := capacityProvenanceError(hardware, runner); err == nil {
+		t.Fatal("missing CPU model accepted")
+	}
+	hardware.CPUModel = "test"
+	envelope := capacityEnvelope{
+		Displays: 500, CrewConsoles: 200, PublicReaders: 10_000,
+	}
+	resources := capacityResources{
+		MaxProcessBytes: 1 << 30, MaxGoroutines: 11_000, MaxOpenFiles: 1_000,
+	}
+	if err := capacityResourceBoundError(hardware, envelope, resources); err != nil {
+		t.Fatalf("bounded stress resources rejected: %v", err)
+	}
+	resources.MaxProcessBytes = 7 << 30
+	if err := capacityResourceBoundError(hardware, envelope, resources); err == nil {
+		t.Fatal("unbounded stress memory accepted")
 	}
 }
 
@@ -236,15 +281,18 @@ func TestCapacityEnvelope(t *testing.T) {
 	}
 	profile := selectedCapacityProfile(t)
 	certify := os.Getenv("BEAMERS_CAPACITY_CERTIFY") == "1"
-	duration := capacityDuration(t, certify)
-	switch role := os.Getenv("BEAMERS_CAPACITY_ROLE"); role {
-	case "", "combined":
-		if certify {
-			t.Fatal("combined capacity runs cannot certify capacity")
+	role := os.Getenv("BEAMERS_CAPACITY_ROLE")
+	if certify {
+		if err := capacityCertificationError(profile, role); err != nil {
+			t.Fatal(err)
 		}
-		runCombinedCapacity(t, profile, duration)
+	}
+	duration := capacityDuration(t, certify)
+	switch role {
+	case "", "combined":
+		runCombinedCapacity(t, profile, duration, certify)
 	case "server":
-		serveCapacityTarget(t, profile, duration, certify)
+		serveCapacityTarget(t, profile, duration)
 	case "generator":
 		runRemoteCapacity(t, profile, duration, certify)
 	default:
@@ -252,7 +300,12 @@ func TestCapacityEnvelope(t *testing.T) {
 	}
 }
 
-func runCombinedCapacity(t *testing.T, profile capacityProfile, duration time.Duration) {
+func runCombinedCapacity(
+	t *testing.T,
+	profile capacityProfile,
+	duration time.Duration,
+	certify bool,
+) {
 	t.Helper()
 	fixture := prepareCapacityFixture(t, profile.Envelope)
 	application, displayStream := newCapacityApplication(t, fixture)
@@ -266,7 +319,7 @@ func runCombinedCapacity(t *testing.T, profile capacityProfile, duration time.Du
 		fixture,
 		probe.token,
 	)
-	runCapacityLoad(t, target, duration, false)
+	runCapacityLoad(t, target, duration, certify)
 	if profile.Envelope.SessionsAndEntries >= testedSessionsEntries {
 		verifyCapacityWarning(
 			t,
@@ -453,20 +506,17 @@ func runCapacityLoad(
 		t.Fatalf("read generator hostname: %v", err)
 	}
 	resources := readCapacityResources(t, client, target)
-	certified := false
-	if certify {
-		certified = verifyCapacityThresholds(t, metrics)
-	}
+	runner := inspectCapacityRunner()
 	report := capacityReport{
 		Profile:  target.Profile,
 		Hardware: target.Hardware,
+		Runner:   runner,
 		Duration: duration.String(),
 		Envelope: envelope,
 		Topology: capacityTopology{
 			ServerHostname:    target.ServerHostname,
 			GeneratorHostname: generatorHostname,
 			SeparateMachines:  target.ServerHostname != generatorHostname,
-			Certified:         certified,
 		},
 		Resources:               resources,
 		LiveCommand:             summarizeCapacityLatency(metrics.liveCommands),
@@ -479,6 +529,13 @@ func runCapacityLoad(
 		PublicRequests:          publicRequests.Load(),
 	}
 	writeCapacityReport(t, report)
+	if certify {
+		requireCapacityProvenance(t, target.Hardware, runner)
+		report.Topology.Certified = verifyCapacityThresholds(t, metrics)
+		writeCapacityReport(t, report)
+	} else if profile.Name == "stress" {
+		verifyCapacityResourceBounds(t, target.Hardware, envelope, resources)
+	}
 	t.Logf("capacity report: %+v", report)
 }
 
@@ -512,7 +569,6 @@ func serveCapacityTarget(
 	t *testing.T,
 	profile capacityProfile,
 	duration time.Duration,
-	certify bool,
 ) {
 	t.Helper()
 	fixture := prepareCapacityFixture(t, profile.Envelope)
@@ -535,15 +591,6 @@ func serveCapacityTarget(
 		origin = "http://" + listener.Addr().String()
 	}
 	target := capacityTargetForFixture(t, origin, profile, fixture, probe.token)
-	if certify {
-		if !profile.Certified {
-			t.Fatalf("capacity profile %q is diagnostic only", profile.Name)
-		}
-		if os.Getenv("RUNNER_ENVIRONMENT") == "github-hosted" {
-			t.Fatal("GitHub-hosted runners cannot certify capacity")
-		}
-		requireReferenceHardware(t, target.Hardware)
-	}
 	targetPath := os.Getenv("BEAMERS_CAPACITY_TARGET")
 	if targetPath == "" {
 		t.Fatal("BEAMERS_CAPACITY_TARGET is required for the capacity server")
@@ -596,16 +643,6 @@ func runRemoteCapacity(
 			target.Profile,
 			profile.Name,
 		)
-	}
-	if certify {
-		hostname, err := os.Hostname()
-		if err != nil {
-			t.Fatalf("read generator hostname: %v", err)
-		}
-		if err = capacityCertificationError(target, hostname); err != nil {
-			t.Fatal(err)
-		}
-		requireReferenceHardware(t, target.Hardware)
 	}
 	t.Cleanup(func() {
 		finishCapacityTarget(t, target)
@@ -2463,8 +2500,11 @@ func capacityDuration(t *testing.T, certify bool) time.Duration {
 	if err != nil || duration < time.Minute || duration > 30*time.Minute {
 		t.Fatalf("BEAMERS_CAPACITY_DURATION must be between 1m and 30m")
 	}
-	if certify && duration < 10*time.Minute {
-		t.Fatal("certification capacity duration must be at least 10m")
+	if certify && duration < capacityCertificationDuration {
+		t.Fatalf(
+			"certification capacity duration must be at least %s",
+			capacityCertificationDuration,
+		)
 	}
 	return duration
 }
@@ -2473,6 +2513,7 @@ type capacityHardware struct {
 	GOOS          string `json:"goos"`
 	GOARCH        string `json:"goarch"`
 	CPUs          int    `json:"cpus"`
+	CPUModel      string `json:"cpu_model"`
 	MemoryBytes   int64  `json:"memory_bytes"`
 	StorageSource string `json:"storage_source"`
 	Filesystem    string `json:"filesystem"`
@@ -2485,6 +2526,7 @@ func inspectCapacityHardware(t *testing.T, dataPath string) capacityHardware {
 		GOOS:        runtime.GOOS,
 		GOARCH:      runtime.GOARCH,
 		CPUs:        runtime.GOMAXPROCS(0),
+		CPUModel:    linuxCPUModel(),
 		MemoryBytes: linuxMemoryBytes(),
 	}
 	hardware.StorageSource, hardware.Filesystem = linuxMount(dataPath)
@@ -2494,6 +2536,20 @@ func inspectCapacityHardware(t *testing.T, dataPath string) capacityHardware {
 		hardware.NonRotational = false
 	}
 	return hardware
+}
+
+func linuxCPUModel() string {
+	content, err := os.ReadFile("/proc/cpuinfo")
+	if err != nil {
+		return ""
+	}
+	for line := range strings.SplitSeq(string(content), "\n") {
+		name, value, found := strings.Cut(line, ":")
+		if found && strings.TrimSpace(name) == "model name" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }
 
 func githubHostedNonRotational(source, filesystem string) bool {
@@ -2597,18 +2653,97 @@ func linuxMemoryBytes() int64 {
 	return total
 }
 
-func requireReferenceHardware(t *testing.T, hardware capacityHardware) {
-	t.Helper()
-	if hardware.GOOS != "linux" ||
-		hardware.GOARCH != "amd64" ||
-		hardware.CPUs != 4 ||
-		hardware.MemoryBytes < 7<<30 ||
-		hardware.MemoryBytes > 9<<30 ||
-		hardware.StorageSource == "" ||
-		hardware.Filesystem == "tmpfs" ||
-		!hardware.NonRotational {
-		t.Fatalf("runner does not meet reference hardware: %+v", hardware)
+type capacityRunner struct {
+	Environment string `json:"environment"`
+	Name        string `json:"name"`
+	OS          string `json:"os"`
+	Arch        string `json:"arch"`
+	GitHubRunID string `json:"github_run_id"`
+	GitHubSHA   string `json:"github_sha"`
+}
+
+func inspectCapacityRunner() capacityRunner {
+	return capacityRunner{
+		Environment: os.Getenv("RUNNER_ENVIRONMENT"),
+		Name:        os.Getenv("RUNNER_NAME"),
+		OS:          os.Getenv("RUNNER_OS"),
+		Arch:        os.Getenv("RUNNER_ARCH"),
+		GitHubRunID: os.Getenv("GITHUB_RUN_ID"),
+		GitHubSHA:   os.Getenv("GITHUB_SHA"),
 	}
+}
+
+func requireCapacityProvenance(
+	t *testing.T,
+	hardware capacityHardware,
+	runner capacityRunner,
+) {
+	t.Helper()
+	if err := capacityProvenanceError(hardware, runner); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func capacityProvenanceError(
+	hardware capacityHardware,
+	runner capacityRunner,
+) error {
+	if hardware.CPUs <= 0 ||
+		hardware.CPUModel == "" ||
+		hardware.MemoryBytes <= 0 ||
+		hardware.StorageSource == "" ||
+		hardware.Filesystem == "" ||
+		runner.Environment != "github-hosted" ||
+		runner.Name == "" ||
+		runner.OS != "Linux" ||
+		runner.Arch != "X64" ||
+		runner.GitHubRunID == "" ||
+		runner.GitHubSHA == "" {
+		return fmt.Errorf(
+			"capacity certification provenance is incomplete: hardware=%+v runner=%+v",
+			hardware,
+			runner,
+		)
+	}
+	return nil
+}
+
+func verifyCapacityResourceBounds(
+	t *testing.T,
+	hardware capacityHardware,
+	envelope capacityEnvelope,
+	resources capacityResources,
+) {
+	t.Helper()
+	if err := capacityResourceBoundError(hardware, envelope, resources); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func capacityResourceBoundError(
+	hardware capacityHardware,
+	envelope capacityEnvelope,
+	resources capacityResources,
+) error {
+	maxGoroutines := 2*envelope.PublicReaders +
+		4*envelope.Displays +
+		2*envelope.CrewConsoles +
+		2_048
+	maxOpenFiles := 4*envelope.Displays +
+		2*envelope.CrewConsoles +
+		2_048
+	if hardware.MemoryBytes <= 0 ||
+		resources.MaxProcessBytes > hardware.MemoryBytes*8/10 ||
+		resources.MaxGoroutines > maxGoroutines ||
+		resources.MaxOpenFiles > maxOpenFiles {
+		return fmt.Errorf(
+			"capacity stress resources exceed bounds: hardware=%+v envelope=%+v resources=%+v",
+			hardware,
+			envelope,
+			resources,
+		)
+	}
+	return nil
 }
 
 type capacityLatency struct {
@@ -2698,6 +2833,7 @@ type capacityTopology struct {
 type capacityReport struct {
 	Profile                 string            `json:"profile"`
 	Hardware                capacityHardware  `json:"hardware"`
+	Runner                  capacityRunner    `json:"runner"`
 	Duration                string            `json:"duration"`
 	Envelope                capacityEnvelope  `json:"envelope"`
 	Topology                capacityTopology  `json:"topology"`
