@@ -740,13 +740,27 @@ func certifyCrewControl(
 	if err := driver.navigate(t.Context(), target); err != nil {
 		t.Fatalf("navigate to Crew control: %v", err)
 	}
-	if err := driver.waitFor(
+	if waitErr := driver.waitFor(
 		t.Context(),
 		15*time.Second,
 		`return document.querySelector("#connection-status").textContent !== `+
 			`"Loading authoritative state…";`,
-	); err != nil {
-		t.Fatalf("wait for Crew control: %v", err)
+	); waitErr != nil {
+		details, detailErr := driver.evaluateString(
+			t.Context(),
+			`return JSON.stringify({`+
+				`url: location.href, `+
+				`status: document.querySelector("#connection-status")?.textContent, `+
+				`scripts: [...document.scripts].map((script) => script.src), `+
+				`resources: performance.getEntriesByType("resource").map((entry) => entry.name)`+
+				`});`,
+		)
+		t.Fatalf(
+			"wait for Crew control: %v; page = %s, %v",
+			waitErr,
+			details,
+			detailErr,
+		)
 	}
 	status, err := driver.evaluateString(
 		t.Context(),
