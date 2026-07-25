@@ -592,6 +592,12 @@ func (application *application) buildHandler(
 		application.config.Logger,
 		application.config.ListenerAddress,
 	)
+	registerFinalFilesRoutes(
+		mux,
+		installation,
+		application.config.Logger,
+		application.config.ListenerAddress,
+	)
 	registerEventRoutes(
 		mux,
 		installation.Authentication(),

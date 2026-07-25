@@ -300,6 +300,8 @@ func requestTimeout(path string) time.Duration {
 		return 0
 	case path == "/admin/restores/preview" || path == "/admin/restores/apply":
 		return restoreOperationTimeout
+	case path == "/admin/final-files":
+		return restoreOperationTimeout
 	case strings.HasPrefix(path, "/upload/") ||
 		strings.HasSuffix(path, "/attachments"):
 		return uploadRequestTimeout

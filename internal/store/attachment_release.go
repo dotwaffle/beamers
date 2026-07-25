@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"sort"
 	"time"
 
 	"github.com/dotwaffle/beamers/ent"
@@ -13,6 +14,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
+	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
 )
 
 var (
@@ -54,6 +56,24 @@ type CompetitionAttachmentReleaseConfiguration struct {
 	Policy    AttachmentReleasePolicy `json:"policy,omitempty"`
 	Override  bool                    `json:"override"`
 	Revision  int                     `json:"revision"`
+}
+
+// FinalFileTrack identifies one published Track used by an export path.
+type FinalFileTrack struct {
+	ID   int
+	Name string
+}
+
+// FinalFileVersion is one public Final Version with human-facing owner metadata.
+type FinalFileVersion struct {
+	AttachmentVersion
+	EventName    string
+	SessionID    int
+	SessionTitle string
+	SessionType  string
+	EntryID      int
+	EntryName    string
+	Tracks       []FinalFileTrack
 }
 
 // ConfigureEventAttachmentReleaseParams changes an Event's default trigger.
@@ -319,6 +339,14 @@ func (installationStore *SQLite) LoadReleasedAttachmentVersions(
 	if err != nil {
 		return nil, opaqueError("load Attachment Release Event", err)
 	}
+	return installationStore.loadReleasedAttachmentVersions(internalContext, eventID, foundEvent)
+}
+
+func (installationStore *SQLite) loadReleasedAttachmentVersions(
+	ctx context.Context,
+	eventID int,
+	foundEvent *ent.Event,
+) ([]AttachmentVersion, error) {
 	versions, err := installationStore.client.AttachmentVersion.Query().
 		Where(
 			attachmentversion.FinalEQ(true),
@@ -328,7 +356,7 @@ func (installationStore *SQLite) LoadReleasedAttachmentVersions(
 		).
 		WithAttachment().
 		Order(ent.Asc(attachmentversion.FieldID)).
-		All(internalContext)
+		All(ctx)
 	if err != nil {
 		return nil, opaqueError("load eligible Attachment Versions", err)
 	}
@@ -339,7 +367,7 @@ func (installationStore *SQLite) LoadReleasedAttachmentVersions(
 			return nil, opaqueError("load released Attachment owner", edgeErr)
 		}
 		sessionID, eligible, ownerErr := installationStore.publicAttachmentOwner(
-			internalContext, logical,
+			ctx, logical,
 		)
 		if ownerErr != nil {
 			return nil, ownerErr
@@ -347,7 +375,7 @@ func (installationStore *SQLite) LoadReleasedAttachmentVersions(
 		if !eligible {
 			continue
 		}
-		ownerSession, queryErr := installationStore.client.Session.Get(internalContext, sessionID)
+		ownerSession, queryErr := installationStore.client.Session.Get(ctx, sessionID)
 		if queryErr != nil {
 			return nil, opaqueError("load released Attachment Session", queryErr)
 		}
@@ -361,6 +389,78 @@ func (installationStore *SQLite) LoadReleasedAttachmentVersions(
 		released = append(released, attachmentVersion(logical, version))
 	}
 	return released, nil
+}
+
+// LoadFinalFileVersions lists one Event's public Final Versions with export labels.
+func (installationStore *SQLite) LoadFinalFileVersions(
+	ctx context.Context,
+	eventID int,
+) ([]FinalFileVersion, error) {
+	internalContext := systemContext(ctx)
+	foundEvent, err := installationStore.client.Event.Get(internalContext, eventID)
+	if ent.IsNotFound(err) {
+		return nil, ErrUploadTargetNotFound
+	}
+	if err != nil {
+		return nil, opaqueError("load Final Files Export Event", err)
+	}
+	released, err := installationStore.loadReleasedAttachmentVersions(
+		internalContext, eventID, foundEvent,
+	)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]FinalFileVersion, 0, len(released))
+	for _, version := range released {
+		sessionID := version.OwnerID
+		entryID, entryName := 0, ""
+		if version.OwnerType == UploadTargetEntry {
+			entry, queryErr := installationStore.client.CompetitionEntry.Get(
+				internalContext, version.OwnerID,
+			)
+			if queryErr != nil {
+				return nil, opaqueError("load Final Files Export Entry", queryErr)
+			}
+			sessionID, entryID, entryName = entry.CompetitionSessionID, entry.ID, entry.Name
+		}
+		published, queryErr := installationStore.client.SessionPublishedVersion.Query().
+			Where(sessionpublishedversion.SessionIDEQ(sessionID)).
+			Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).
+			WithTracks().
+			First(internalContext)
+		if queryErr != nil {
+			return nil, opaqueError("load Final Files Export Session", queryErr)
+		}
+		tracks := make([]FinalFileTrack, 0, len(published.Edges.Tracks))
+		// ponytail: exports are infrequent; batch Track labels if large Events make this measurable.
+		for _, identity := range published.Edges.Tracks {
+			label, labelErr := installationStore.client.TrackPublishedVersion.Query().
+				Where(trackpublishedversion.TrackIDEQ(identity.ID)).
+				Order(ent.Desc(trackpublishedversion.FieldPublishedRevision)).
+				First(internalContext)
+			if labelErr != nil {
+				return nil, opaqueError("load Final Files Export Track", labelErr)
+			}
+			tracks = append(tracks, FinalFileTrack{ID: identity.ID, Name: label.Name})
+		}
+		sort.Slice(tracks, func(left, right int) bool {
+			if tracks[left].Name != tracks[right].Name {
+				return tracks[left].Name < tracks[right].Name
+			}
+			return tracks[left].ID < tracks[right].ID
+		})
+		result = append(result, FinalFileVersion{
+			AttachmentVersion: version,
+			EventName:         foundEvent.Name,
+			SessionID:         sessionID,
+			SessionTitle:      published.Title,
+			SessionType:       published.Type.String(),
+			EntryID:           entryID,
+			EntryName:         entryName,
+			Tracks:            tracks,
+		})
+	}
+	return result, nil
 }
 
 // LoadReleasedAttachmentVersion returns one exact attendee-safe immutable version.
@@ -395,7 +495,10 @@ func (installationStore *SQLite) publicAttachmentOwner(
 		if queryErr != nil {
 			return 0, false, opaqueError("load Presentation Attachment owner", queryErr)
 		}
-		return found.ID, true, nil
+		public, queryErr := installationStore.publicPublishedSession(
+			ctx, found.ID, sessionpublishedversion.TypePresentation,
+		)
+		return found.ID, public, queryErr
 	case attachment.OwnerTypeEntry:
 		entry, queryErr := installationStore.client.CompetitionEntry.Query().
 			Where(
@@ -412,10 +515,39 @@ func (installationStore *SQLite) publicAttachmentOwner(
 		eligible := entry.Disposition == competitionentry.DispositionIncluded &&
 			entry.ResultDisposition != competitionentry.ResultDispositionWithheld &&
 			!entry.ReleaseHold
+		if !eligible {
+			return entry.CompetitionSessionID, false, nil
+		}
+		public, queryErr := installationStore.publicPublishedSession(
+			ctx, entry.CompetitionSessionID, sessionpublishedversion.TypeCompetition,
+		)
+		if queryErr != nil {
+			return 0, false, queryErr
+		}
+		eligible = public
 		return entry.CompetitionSessionID, eligible, nil
 	default:
 		return 0, false, nil
 	}
+}
+
+func (installationStore *SQLite) publicPublishedSession(
+	ctx context.Context,
+	sessionID int,
+	sessionType sessionpublishedversion.Type,
+) (bool, error) {
+	published, err := installationStore.client.SessionPublishedVersion.Query().
+		Where(sessionpublishedversion.SessionIDEQ(sessionID)).
+		Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).
+		First(ctx)
+	if ent.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, opaqueError("load public Attachment Session", err)
+	}
+	return published.Type == sessionType &&
+		published.AudienceVisibility == sessionpublishedversion.AudienceVisibilityPublic, nil
 }
 
 func validAttachmentReleasePolicy(policy AttachmentReleasePolicy) bool {
