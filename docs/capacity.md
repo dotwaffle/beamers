@@ -35,6 +35,7 @@ The run uses fixed-rate arrivals with jitter after warmup rather than a response
 Each rated run samples at least 200 independent live commands.
 Percentiles use the nearest-rank method.
 Each command first produces p50, p95, p99, and maximum Display fanout latency; those per-command results are then summarized across commands rather than pooling every command-Display observation.
+The commit-to boundary uses the server's command decision timestamp immediately before the durable transaction, conservatively including commit time rather than understating delivery latency.
 
 The rated objectives are:
 
@@ -47,6 +48,45 @@ The rated objectives are:
 
 Online Stage Timer skew must remain at or below 250 milliseconds.
 Public freshness timing begins after the mutation commits.
+
+### Run a certification
+
+Use an isolated server and generator with synchronized clocks.
+The server listens on loopback; expose it to the generator through an SSH tunnel so the temporary credentials never cross plaintext networking.
+
+On the server:
+
+```sh
+umask 077
+BEAMERS_CAPACITY_SOAK=1 \
+BEAMERS_CAPACITY_ROLE=server \
+BEAMERS_CAPACITY_CERTIFY=1 \
+BEAMERS_CAPACITY_PROFILE=rated \
+BEAMERS_CAPACITY_DURATION=10m \
+BEAMERS_CAPACITY_LISTEN=127.0.0.1:8080 \
+BEAMERS_CAPACITY_ORIGIN=http://127.0.0.1:8080 \
+BEAMERS_CAPACITY_TARGET=/secure/path/capacity-target.json \
+go test ./internal/server -run '^TestCapacityEnvelope$' -count=1 -timeout 20m -v
+```
+
+While it waits, securely copy `capacity-target.json` to the generator with mode `0600` and start an SSH tunnel from generator port 8080 to server port 8080.
+Then run on the generator:
+
+```sh
+BEAMERS_CAPACITY_SOAK=1 \
+BEAMERS_CAPACITY_ROLE=generator \
+BEAMERS_CAPACITY_CERTIFY=1 \
+BEAMERS_CAPACITY_PROFILE=rated \
+BEAMERS_CAPACITY_DURATION=10m \
+BEAMERS_CAPACITY_TARGET=./capacity-target.json \
+BEAMERS_CAPACITY_REPORT=./capacity.json \
+go test ./internal/server -run '^TestCapacityEnvelope$' -count=1 -timeout 20m -v
+```
+
+Repeat for `netuk`, `nova`, `fosdem`, and `revision`.
+The generator signals the server to stop after collecting server resource maxima.
+Delete both copies of `capacity-target.json` after the run because they contain temporary session and Display credentials.
+Certification fails on a shared hostname, a GitHub-hosted generator, a diagnostic stress profile, non-reference server hardware, fewer than 200 live commands, or any latency objective.
 
 ## GitHub-hosted diagnostics
 
@@ -64,6 +104,8 @@ For a non-certifying local correctness run:
 
 ```sh
 BEAMERS_CAPACITY_SOAK=1 \
+BEAMERS_CAPACITY_ROLE=combined \
+BEAMERS_CAPACITY_PROFILE=netuk \
 BEAMERS_CAPACITY_DURATION=1m \
 go test ./internal/server -run '^TestCapacityEnvelope$' -count=1 -timeout 15m
 ```

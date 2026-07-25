@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   capacity:
-    name: Reference capacity soak
+    name: Hosted diagnostic stress
     runs-on: ubuntu-24.04
     timeout-minutes: 45
 
@@ -41,12 +41,13 @@ jobs:
         with:
           cache: true
 
-      - name: Run reference capacity soak
+      - name: Run hosted diagnostic stress
         env:
           BEAMERS_CAPACITY_SOAK: "1"
+          BEAMERS_CAPACITY_ROLE: combined
+          BEAMERS_CAPACITY_PROFILE: stress
           BEAMERS_CAPACITY_DURATION: ${{ inputs.duration }}
           BEAMERS_CAPACITY_REPORT: ${{ github.workspace }}/artifacts/capacity.json
-          BEAMERS_REFERENCE_HARDWARE: "1"
         run: |
           go test ./internal/server \
             -run '^TestCapacityEnvelope$' \

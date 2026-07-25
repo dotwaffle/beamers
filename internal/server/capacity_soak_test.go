@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
@@ -17,6 +18,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -131,6 +133,38 @@ func selectedCapacityProfile(t *testing.T) capacityProfile {
 	return profile
 }
 
+type capacityTarget struct {
+	Origin             string           `json:"origin"`
+	Profile            string           `json:"profile"`
+	Envelope           capacityEnvelope `json:"envelope"`
+	Hardware           capacityHardware `json:"hardware"`
+	ServerHostname     string           `json:"server_hostname"`
+	ProbeToken         string           `json:"probe_token"`
+	SessionToken       string           `json:"session_token"`
+	EventID            int              `json:"event_id"`
+	LiveSessionID      int              `json:"live_session_id"`
+	DisplayCredentials []string         `json:"display_credentials"`
+}
+
+func capacityCertificationError(target capacityTarget, generatorHostname string) error {
+	profile, err := capacityProfileNamed(target.Profile)
+	if err != nil {
+		return err
+	}
+	if !profile.Certified {
+		return fmt.Errorf("capacity profile %q is diagnostic only", target.Profile)
+	}
+	if os.Getenv("RUNNER_ENVIRONMENT") == "github-hosted" {
+		return errors.New("GitHub-hosted runners cannot certify capacity")
+	}
+	if target.ServerHostname == "" ||
+		generatorHostname == "" ||
+		target.ServerHostname == generatorHostname {
+		return errors.New("capacity certification requires separate server and generator machines")
+	}
+	return nil
+}
+
 func TestCapacityProfiles(t *testing.T) {
 	want := map[string]capacityEnvelope{
 		"netuk": {
@@ -187,21 +221,82 @@ func TestCapacityFanoutSummarizesEachCommandFirst(t *testing.T) {
 	}
 }
 
+func TestCapacityCertificationRequiresSeparateNonHostedMachines(t *testing.T) {
+	target := capacityTarget{
+		Profile:        "rated",
+		ServerHostname: "server",
+	}
+	t.Setenv("RUNNER_ENVIRONMENT", "self-hosted")
+	if err := capacityCertificationError(target, "generator"); err != nil {
+		t.Fatalf("separate self-hosted machines rejected: %v", err)
+	}
+	if err := capacityCertificationError(target, "server"); err == nil {
+		t.Fatal("same-host certification accepted")
+	}
+	target.Profile = "stress"
+	if err := capacityCertificationError(target, "generator"); err == nil {
+		t.Fatal("stress-profile certification accepted")
+	}
+	target.Profile = "rated"
+	t.Setenv("RUNNER_ENVIRONMENT", "github-hosted")
+	if err := capacityCertificationError(target, "generator"); err == nil {
+		t.Fatal("GitHub-hosted certification accepted")
+	}
+}
+
 func TestCapacityEnvelope(t *testing.T) {
 	if os.Getenv("BEAMERS_CAPACITY_SOAK") != "1" {
 		t.Skip("set BEAMERS_CAPACITY_SOAK=1 to run the reference capacity soak")
 	}
 	profile := selectedCapacityProfile(t)
-	envelope := profile.Envelope
-	referenceHardware := os.Getenv("BEAMERS_REFERENCE_HARDWARE") == "1"
-	duration := capacityDuration(t, referenceHardware)
-	hardware := inspectCapacityHardware(t, os.TempDir())
-	writeCapacityReport(t, capacityReport{Hardware: hardware, Duration: duration.String()})
-	if referenceHardware {
-		requireReferenceHardware(t, hardware)
+	certify := os.Getenv("BEAMERS_CAPACITY_CERTIFY") == "1"
+	duration := capacityDuration(t, certify)
+	switch role := os.Getenv("BEAMERS_CAPACITY_ROLE"); role {
+	case "", "combined":
+		if certify {
+			t.Fatal("combined capacity runs cannot certify capacity")
+		}
+		runCombinedCapacity(t, profile, duration)
+	case "server":
+		serveCapacityTarget(t, profile, duration, certify)
+	case "generator":
+		runRemoteCapacity(t, profile, duration, certify)
+	default:
+		t.Fatalf("unknown BEAMERS_CAPACITY_ROLE %q", role)
 	}
+}
 
-	fixture := prepareCapacityFixture(t, envelope)
+func runCombinedCapacity(t *testing.T, profile capacityProfile, duration time.Duration) {
+	t.Helper()
+	fixture := prepareCapacityFixture(t, profile.Envelope)
+	application, displayStream := newCapacityApplication(t, fixture)
+	probe := newCapacityProbe(t, application)
+	origin := httptest.NewServer(probe)
+	t.Cleanup(origin.Close)
+	target := capacityTargetForFixture(
+		t,
+		origin.URL,
+		profile,
+		fixture,
+		probe.token,
+	)
+	runCapacityLoad(t, target, duration, false)
+	if profile.Envelope.SessionsAndEntries >= testedSessionsEntries {
+		verifyCapacityWarning(
+			t,
+			application,
+			fixture,
+			displayStream,
+			profile.Envelope,
+		)
+	}
+}
+
+func newCapacityApplication(
+	t *testing.T,
+	fixture capacityFixture,
+) (*application, *displaystream.Hub) {
+	t.Helper()
 	displayStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
 	if err != nil {
 		t.Fatalf("create Display stream: %v", err)
@@ -233,9 +328,28 @@ func TestCapacityEnvelope(t *testing.T) {
 			t.Errorf("close capacity application: %v", closeErr)
 		}
 	})
-	origin := httptest.NewServer(application)
-	t.Cleanup(origin.Close)
+	return application, displayStream
+}
 
+func runCapacityLoad(
+	t *testing.T,
+	target capacityTarget,
+	duration time.Duration,
+	certify bool,
+) {
+	t.Helper()
+	profile, err := capacityProfileNamed(target.Profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if target.Envelope != profile.Envelope {
+		t.Fatalf(
+			"capacity target envelope = %+v, want profile %+v",
+			target.Envelope,
+			profile.Envelope,
+		)
+	}
+	envelope := target.Envelope
 	transport := &http.Transport{
 		MaxIdleConns:        envelope.Displays + envelope.CrewConsoles + 100,
 		MaxIdleConnsPerHost: envelope.Displays + envelope.CrewConsoles + 100,
@@ -244,7 +358,7 @@ func TestCapacityEnvelope(t *testing.T) {
 	}
 	t.Cleanup(transport.CloseIdleConnections)
 	client := &http.Client{Transport: transport, Timeout: 30 * time.Second}
-	cache := newCapacityScheduleCache(origin.URL, client)
+	cache := newCapacityScheduleCache(target.Origin, client)
 	cacheServer := httptest.NewServer(cache)
 	t.Cleanup(cacheServer.Close)
 	primeCapacitySchedule(t, client, cacheServer.URL)
@@ -253,24 +367,26 @@ func TestCapacityEnvelope(t *testing.T) {
 	t.Cleanup(cancel)
 	applied := make(chan capacityDisplayApplied, envelope.Displays)
 	backgroundErr := make(chan error, 1)
+	displayReady := make(chan struct{}, envelope.Displays)
 	var displayRequests atomic.Int64
 	startCapacityDisplays(
 		ctx,
 		client,
-		origin.URL,
-		fixture.displayCredentials,
-		fixture.liveSessionID,
+		target.Origin,
+		target.DisplayCredentials,
+		target.LiveSessionID,
 		applied,
+		displayReady,
 		backgroundErr,
 		&displayRequests,
 	)
-	waitForCapacitySubscribers(t, displayStream, envelope.Displays, backgroundErr)
+	waitForCapacityDisplays(t, displayReady, envelope.Displays, backgroundErr)
 
 	authenticatedClient := &http.Client{
 		Transport: capacityCookieTransport{
 			base: transport,
 			cookie: &http.Cookie{
-				Name: sessionCookieName, Value: fixture.sessionToken,
+				Name: sessionCookieName, Value: target.SessionToken,
 			},
 		},
 		Timeout: 30 * time.Second,
@@ -285,8 +401,8 @@ func TestCapacityEnvelope(t *testing.T) {
 		runCapacityCrewLoad(
 			ctx,
 			authenticatedClient,
-			origin.URL,
-			fixture.eventID,
+			target.Origin,
+			target.EventID,
 			envelope.CrewConsoles,
 			backgroundErr,
 			&crewRequests,
@@ -314,16 +430,27 @@ func TestCapacityEnvelope(t *testing.T) {
 
 	sessionClient := sessionv1connect.NewSessionControlServiceClient(
 		authenticatedClient,
-		origin.URL,
+		target.Origin,
 	)
+	commandInterval := capacityCommandInterval
+	fanoutTimeout := 3 * time.Second
+	if !profile.Certified {
+		commandInterval = 20 * time.Second
+		fanoutTimeout = 30 * time.Second
+	}
 	metrics := runCapacityCommands(
 		ctx,
 		t,
 		sessionClient,
 		cache,
-		fixture,
+		capacityFixture{
+			eventID:       target.EventID,
+			liveSessionID: target.LiveSessionID,
+		},
 		envelope.Displays,
 		duration,
+		commandInterval,
+		fanoutTimeout,
 		applied,
 		backgroundErr,
 	)
@@ -335,11 +462,23 @@ func TestCapacityEnvelope(t *testing.T) {
 	default:
 	}
 
+	generatorHostname, err := os.Hostname()
+	if err != nil {
+		t.Fatalf("read generator hostname: %v", err)
+	}
+	resources := readCapacityResources(t, client, target)
 	report := capacityReport{
-		Profile:                 profile.Name,
-		Hardware:                hardware,
-		Duration:                duration.String(),
-		Envelope:                envelope,
+		Profile:  target.Profile,
+		Hardware: target.Hardware,
+		Duration: duration.String(),
+		Envelope: envelope,
+		Topology: capacityTopology{
+			ServerHostname:    target.ServerHostname,
+			GeneratorHostname: generatorHostname,
+			SeparateMachines:  target.ServerHostname != generatorHostname,
+			Certified:         certify,
+		},
+		Resources:               resources,
 		LiveCommand:             summarizeCapacityLatency(metrics.liveCommands),
 		DisplayCommit:           summarizeCapacityFanout(metrics.displayCommit),
 		DisplayOperator:         summarizeCapacityFanout(metrics.displayOperator),
@@ -351,11 +490,381 @@ func TestCapacityEnvelope(t *testing.T) {
 	}
 	writeCapacityReport(t, report)
 	t.Logf("capacity report: %+v", report)
-	if referenceHardware {
+	if certify {
 		verifyCapacityThresholds(t, metrics)
 	}
-	if envelope.SessionsAndEntries >= testedSessionsEntries {
-		verifyCapacityWarning(t, application, fixture, displayStream, envelope)
+}
+
+func capacityTargetForFixture(
+	t *testing.T,
+	origin string,
+	profile capacityProfile,
+	fixture capacityFixture,
+	probeToken string,
+) capacityTarget {
+	t.Helper()
+	hostname, err := os.Hostname()
+	if err != nil {
+		t.Fatalf("read server hostname: %v", err)
+	}
+	return capacityTarget{
+		Origin:             origin,
+		Profile:            profile.Name,
+		Envelope:           profile.Envelope,
+		Hardware:           inspectCapacityHardware(t, fixture.dataDir),
+		ServerHostname:     hostname,
+		ProbeToken:         probeToken,
+		SessionToken:       fixture.sessionToken,
+		EventID:            fixture.eventID,
+		LiveSessionID:      fixture.liveSessionID,
+		DisplayCredentials: fixture.displayCredentials,
+	}
+}
+
+func serveCapacityTarget(
+	t *testing.T,
+	profile capacityProfile,
+	duration time.Duration,
+	certify bool,
+) {
+	t.Helper()
+	fixture := prepareCapacityFixture(t, profile.Envelope)
+	application, _ := newCapacityApplication(t, fixture)
+	probe := newCapacityProbe(t, application)
+	address := os.Getenv("BEAMERS_CAPACITY_LISTEN")
+	if address == "" {
+		address = "127.0.0.1:8080"
+	}
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		t.Fatalf("listen for capacity generator: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = listener.Close()
+	})
+	origin := os.Getenv("BEAMERS_CAPACITY_ORIGIN")
+	if origin == "" {
+		origin = "http://" + listener.Addr().String()
+	}
+	target := capacityTargetForFixture(t, origin, profile, fixture, probe.token)
+	if certify {
+		if !profile.Certified {
+			t.Fatalf("capacity profile %q is diagnostic only", profile.Name)
+		}
+		if os.Getenv("RUNNER_ENVIRONMENT") == "github-hosted" {
+			t.Fatal("GitHub-hosted runners cannot certify capacity")
+		}
+		requireReferenceHardware(t, target.Hardware)
+	}
+	targetPath := os.Getenv("BEAMERS_CAPACITY_TARGET")
+	if targetPath == "" {
+		t.Fatal("BEAMERS_CAPACITY_TARGET is required for the capacity server")
+	}
+	writeCapacityTarget(t, targetPath, target)
+
+	server := &http.Server{
+		Handler:           probe,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	serveErr := make(chan error, 1)
+	go func() {
+		serveErr <- server.Serve(listener)
+	}()
+	t.Logf("capacity server ready; copy %s securely to the generator", targetPath)
+	select {
+	case <-probe.done:
+	case err = <-serveErr:
+		if !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("serve capacity target: %v", err)
+		}
+	case <-time.After(duration + 5*time.Minute):
+		t.Fatal("capacity generator did not finish before the server deadline")
+	}
+	shutdownCtx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	if err = server.Shutdown(shutdownCtx); err != nil {
+		t.Fatalf("shut down capacity server: %v", err)
+	}
+}
+
+func runRemoteCapacity(
+	t *testing.T,
+	profile capacityProfile,
+	duration time.Duration,
+	certify bool,
+) {
+	t.Helper()
+	targetPath := os.Getenv("BEAMERS_CAPACITY_TARGET")
+	if targetPath == "" {
+		t.Fatal("BEAMERS_CAPACITY_TARGET is required for the capacity generator")
+	}
+	target := readCapacityTarget(t, targetPath)
+	if err := validateCapacityTarget(target); err != nil {
+		t.Fatal(err)
+	}
+	if target.Profile != profile.Name {
+		t.Fatalf(
+			"capacity target profile = %q, generator profile = %q",
+			target.Profile,
+			profile.Name,
+		)
+	}
+	if certify {
+		hostname, err := os.Hostname()
+		if err != nil {
+			t.Fatalf("read generator hostname: %v", err)
+		}
+		if err = capacityCertificationError(target, hostname); err != nil {
+			t.Fatal(err)
+		}
+		requireReferenceHardware(t, target.Hardware)
+	}
+	t.Cleanup(func() {
+		finishCapacityTarget(t, target)
+	})
+	runCapacityLoad(t, target, duration, certify)
+}
+
+func validateCapacityTarget(target capacityTarget) error {
+	profile, err := capacityProfileNamed(target.Profile)
+	if err != nil {
+		return err
+	}
+	if target.Envelope != profile.Envelope ||
+		target.ProbeToken == "" ||
+		target.SessionToken == "" ||
+		target.EventID <= 0 ||
+		target.LiveSessionID <= 0 ||
+		len(target.DisplayCredentials) != target.Envelope.Displays {
+		return errors.New("capacity target is incomplete or does not match its profile")
+	}
+	origin, err := url.Parse(target.Origin)
+	if err != nil || origin.Hostname() == "" {
+		return errors.New("capacity target has an invalid origin")
+	}
+	if origin.Scheme == "https" {
+		return nil
+	}
+	address := net.ParseIP(origin.Hostname())
+	if origin.Scheme != "http" ||
+		(origin.Hostname() != "localhost" && (address == nil || !address.IsLoopback())) {
+		return errors.New("capacity target must use HTTPS or a loopback HTTP tunnel")
+	}
+	return nil
+}
+
+func writeCapacityTarget(t *testing.T, path string, target capacityTarget) {
+	t.Helper()
+	encoded, err := json.MarshalIndent(target, "", "  ")
+	if err != nil {
+		t.Fatalf("encode capacity target: %v", err)
+	}
+	if err = os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatalf("create capacity target directory: %v", err)
+	}
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		t.Fatalf("create capacity target without overwrite: %v", err)
+	}
+	_, writeErr := file.Write(append(encoded, '\n'))
+	closeErr := file.Close()
+	if err = errors.Join(writeErr, closeErr); err != nil {
+		t.Fatalf("write capacity target: %v", err)
+	}
+}
+
+func readCapacityTarget(t *testing.T, path string) capacityTarget {
+	t.Helper()
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("inspect capacity target: %v", err)
+	}
+	if info.Mode().Perm()&0o077 != 0 {
+		t.Fatal("capacity target must not be readable by group or other users")
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read capacity target: %v", err)
+	}
+	var target capacityTarget
+	if err = json.Unmarshal(content, &target); err != nil {
+		t.Fatalf("decode capacity target: %v", err)
+	}
+	return target
+}
+
+const capacityProbeHeader = "X-Beamers-Capacity-Probe"
+
+type capacityProbe struct {
+	next      http.Handler
+	token     string
+	resources *capacityResourceSampler
+	done      chan struct{}
+	finish    sync.Once
+}
+
+func newCapacityProbe(t *testing.T, next http.Handler) *capacityProbe {
+	t.Helper()
+	var token [32]byte
+	if _, err := rand.Read(token[:]); err != nil {
+		t.Fatalf("create capacity probe token: %v", err)
+	}
+	return &capacityProbe{
+		next:      next,
+		token:     hex.EncodeToString(token[:]),
+		resources: newCapacityResourceSampler(t.Context()),
+		done:      make(chan struct{}),
+	}
+}
+
+func (probe *capacityProbe) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+	switch request.URL.Path {
+	case "/capacity-probe/resources":
+		if request.Method != http.MethodGet ||
+			request.Header.Get(capacityProbeHeader) != probe.token {
+			http.NotFound(response, request)
+			return
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(probe.resources.current())
+	case "/capacity-probe/finish":
+		if request.Method != http.MethodPost ||
+			request.Header.Get(capacityProbeHeader) != probe.token {
+			http.NotFound(response, request)
+			return
+		}
+		probe.finish.Do(func() {
+			close(probe.done)
+		})
+		response.WriteHeader(http.StatusNoContent)
+	default:
+		probe.next.ServeHTTP(response, request)
+	}
+}
+
+type capacityResources struct {
+	MaxHeapAllocBytes int64 `json:"max_heap_alloc_bytes"`
+	MaxProcessBytes   int64 `json:"max_process_bytes"`
+	MaxGoroutines     int   `json:"max_goroutines"`
+	MaxOpenFiles      int   `json:"max_open_files"`
+}
+
+type capacityResourceSampler struct {
+	mu           sync.Mutex
+	currentValue capacityResources
+}
+
+func newCapacityResourceSampler(ctx context.Context) *capacityResourceSampler {
+	sampler := &capacityResourceSampler{}
+	go func() {
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			sampler.sample()
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
+		}
+	}()
+	return sampler
+}
+
+func (sampler *capacityResourceSampler) sample() {
+	var memory runtime.MemStats
+	runtime.ReadMemStats(&memory)
+	var usage syscall.Rusage
+	_ = syscall.Getrusage(syscall.RUSAGE_SELF, &usage)
+	openFiles, _ := os.ReadDir("/proc/self/fd")
+	sampler.mu.Lock()
+	defer sampler.mu.Unlock()
+	sampler.currentValue.MaxHeapAllocBytes = max(
+		sampler.currentValue.MaxHeapAllocBytes,
+		int64(memory.Alloc),
+	)
+	sampler.currentValue.MaxProcessBytes = max(
+		sampler.currentValue.MaxProcessBytes,
+		usage.Maxrss*1024,
+	)
+	sampler.currentValue.MaxGoroutines = max(
+		sampler.currentValue.MaxGoroutines,
+		runtime.NumGoroutine(),
+	)
+	sampler.currentValue.MaxOpenFiles = max(
+		sampler.currentValue.MaxOpenFiles,
+		len(openFiles),
+	)
+}
+
+func (sampler *capacityResourceSampler) current() capacityResources {
+	sampler.sample()
+	sampler.mu.Lock()
+	defer sampler.mu.Unlock()
+	return sampler.currentValue
+}
+
+func readCapacityResources(
+	t *testing.T,
+	client *http.Client,
+	target capacityTarget,
+) capacityResources {
+	t.Helper()
+	request, err := http.NewRequestWithContext(
+		t.Context(),
+		http.MethodGet,
+		target.Origin+"/capacity-probe/resources",
+		http.NoBody,
+	)
+	if err != nil {
+		t.Fatalf("create capacity resource request: %v", err)
+	}
+	request.Header.Set(capacityProbeHeader, target.ProbeToken)
+	response, err := client.Do(request)
+	if err != nil {
+		t.Fatalf("read capacity resources: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("capacity resources status = %d", response.StatusCode)
+	}
+	var resources capacityResources
+	if err = json.NewDecoder(response.Body).Decode(&resources); err != nil {
+		t.Fatalf("decode capacity resources: %v", err)
+	}
+	if resources.MaxHeapAllocBytes == 0 ||
+		resources.MaxProcessBytes == 0 ||
+		resources.MaxGoroutines == 0 {
+		t.Fatalf("capacity resource evidence = %+v", resources)
+	}
+	return resources
+}
+
+func finishCapacityTarget(t *testing.T, target capacityTarget) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	request, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		target.Origin+"/capacity-probe/finish",
+		http.NoBody,
+	)
+	if err != nil {
+		t.Errorf("create capacity finish request: %v", err)
+		return
+	}
+	request.Header.Set(capacityProbeHeader, target.ProbeToken)
+	response, err := (&http.Client{Timeout: 5 * time.Second}).Do(request)
+	if err != nil {
+		t.Errorf("finish capacity target: %v", err)
+		return
+	}
+	if closeErr := response.Body.Close(); closeErr != nil {
+		t.Errorf("close capacity finish response: %v", closeErr)
+	}
+	if response.StatusCode != http.StatusNoContent {
+		t.Errorf("capacity finish status = %d", response.StatusCode)
 	}
 }
 
@@ -862,6 +1371,7 @@ func startCapacityDisplays(
 	credentials []string,
 	liveSessionID int,
 	applied chan<- capacityDisplayApplied,
+	ready chan<- struct{},
 	backgroundErr chan<- error,
 	requests *atomic.Int64,
 ) {
@@ -873,6 +1383,7 @@ func startCapacityDisplays(
 			credential,
 			liveSessionID,
 			applied,
+			ready,
 			backgroundErr,
 			requests,
 		)
@@ -886,6 +1397,7 @@ func runCapacityDisplay(
 	credential string,
 	liveSessionID int,
 	applied chan<- capacityDisplayApplied,
+	ready chan<- struct{},
 	backgroundErr chan<- error,
 	requests *atomic.Int64,
 ) {
@@ -939,6 +1451,11 @@ func runCapacityDisplay(
 			backgroundErr,
 			fmt.Errorf("Display stream status = %d", response.StatusCode),
 		)
+		return
+	}
+	select {
+	case ready <- struct{}{}:
+	case <-ctx.Done():
 		return
 	}
 	reader := bufio.NewReader(response.Body)
@@ -1216,26 +1733,22 @@ func capacityLiveRevision(snapshot capacitySnapshot, sessionID int) (int64, erro
 	return 0, errors.New("live Session missing from Display Snapshot")
 }
 
-func waitForCapacitySubscribers(
+func waitForCapacityDisplays(
 	t *testing.T,
-	stream *displaystream.Hub,
+	ready <-chan struct{},
 	want int,
 	backgroundErr <-chan error,
 ) {
 	t.Helper()
-	deadline := time.Now().Add(30 * time.Second)
-	for time.Now().Before(deadline) {
+	for range want {
 		select {
 		case err := <-backgroundErr:
 			t.Fatalf("start capacity Displays: %v", err)
-		default:
+		case <-ready:
+		case <-time.After(30 * time.Second):
+			t.Fatalf("capacity Displays ready fewer than %d", want)
 		}
-		if stream.SubscriberCount() == want {
-			return
-		}
-		time.Sleep(25 * time.Millisecond)
 	}
-	t.Fatalf("Display subscribers = %d, want %d", stream.SubscriberCount(), want)
 }
 
 func runCapacityCrewLoad(
@@ -1364,6 +1877,8 @@ func runCapacityCommands(
 	fixture capacityFixture,
 	displays int,
 	duration time.Duration,
+	commandInterval time.Duration,
+	fanoutTimeout time.Duration,
 	applied <-chan capacityDisplayApplied,
 	backgroundErr <-chan error,
 ) capacityMetrics {
@@ -1375,7 +1890,7 @@ func runCapacityCommands(
 	freshnessResults := make(chan capacityFreshnessResult, 512)
 	commandIndex := 0
 	for {
-		scheduled := capacityCommandArrival(started, commandIndex)
+		scheduled := capacityCommandArrival(started, commandIndex, commandInterval)
 		if scheduled.After(deadline) {
 			break
 		}
@@ -1401,7 +1916,7 @@ func runCapacityCommands(
 			t.Fatal("capacity soak canceled")
 		case <-time.After(max(time.Until(scheduled), 0)):
 		}
-		if lag := time.Since(scheduled); lag > capacityCommandInterval {
+		if lag := time.Since(scheduled); lag > commandInterval {
 			t.Fatalf("capacity generator fell %s behind fixed-rate arrivals", lag)
 		}
 		previousETag := cache.etag()
@@ -1425,6 +1940,7 @@ func runCapacityCommands(
 		)
 		operatorFanout := make([]time.Duration, 0, displays)
 		commitFanout := make([]time.Duration, 0, displays)
+		clockOffsets := make([]time.Duration, 0, displays)
 		for range displays {
 			select {
 			case result := <-applied:
@@ -1443,6 +1959,7 @@ func runCapacityCommands(
 					commitFanout,
 					max(result.at.Sub(command.serverAt.Add(-result.clockOffset)), 0),
 				)
+				clockOffsets = append(clockOffsets, result.clockOffset)
 				timerSkew := absoluteDuration(
 					result.timerAnchor.Sub(command.timerAnchor),
 				) + result.clockUncertainty
@@ -1452,8 +1969,11 @@ func runCapacityCommands(
 				)
 			case err := <-backgroundErr:
 				t.Fatalf("capacity Display application: %v", err)
-			case <-time.After(3 * time.Second):
-				t.Fatal("capacity Displays did not apply committed output within three seconds")
+			case <-time.After(fanoutTimeout):
+				t.Fatalf(
+					"capacity Displays did not apply committed output within %s",
+					fanoutTimeout,
+				)
 			}
 		}
 		metrics.displayOperator = append(metrics.displayOperator, operatorFanout)
@@ -1462,7 +1982,7 @@ func runCapacityCommands(
 			ctx,
 			cache,
 			previousETag,
-			commandCompleted,
+			command.serverAt.Add(-medianCapacityDuration(clockOffsets)),
 			freshnessResults,
 		)
 		commandIndex++
@@ -1481,6 +2001,12 @@ func runCapacityCommands(
 		}
 	}
 	return metrics
+}
+
+func medianCapacityDuration(values []time.Duration) time.Duration {
+	sorted := slices.Clone(values)
+	slices.Sort(sorted)
+	return sorted[len(sorted)/2]
 }
 
 type capacityCommandResult struct {
@@ -1551,13 +2077,17 @@ func executeCapacityCommand(
 	}, nil
 }
 
-func capacityCommandArrival(started time.Time, index int) time.Time {
+func capacityCommandArrival(
+	started time.Time,
+	index int,
+	interval time.Duration,
+) time.Time {
 	if index == 0 {
 		return started.Add(capacityWarmup)
 	}
 	jitter := time.Duration((index*137)%501-250) * time.Millisecond
 	return started.Add(
-		capacityWarmup + time.Duration(index)*capacityCommandInterval + jitter,
+		capacityWarmup + time.Duration(index)*interval + jitter,
 	)
 }
 
@@ -1857,7 +2387,7 @@ func sendCapacityError(
 	}
 }
 
-func capacityDuration(t *testing.T, referenceHardware bool) time.Duration {
+func capacityDuration(t *testing.T, certify bool) time.Duration {
 	t.Helper()
 	value := os.Getenv("BEAMERS_CAPACITY_DURATION")
 	if value == "" {
@@ -1867,8 +2397,8 @@ func capacityDuration(t *testing.T, referenceHardware bool) time.Duration {
 	if err != nil || duration < time.Minute || duration > 30*time.Minute {
 		t.Fatalf("BEAMERS_CAPACITY_DURATION must be between 1m and 30m")
 	}
-	if referenceHardware && duration < 10*time.Minute {
-		t.Fatal("reference capacity duration must be at least 10m")
+	if certify && duration < 10*time.Minute {
+		t.Fatal("certification capacity duration must be at least 10m")
 	}
 	return duration
 }
@@ -1888,7 +2418,7 @@ func inspectCapacityHardware(t *testing.T, dataPath string) capacityHardware {
 	hardware := capacityHardware{
 		GOOS:        runtime.GOOS,
 		GOARCH:      runtime.GOARCH,
-		CPUs:        runtime.NumCPU(),
+		CPUs:        runtime.GOMAXPROCS(0),
 		MemoryBytes: linuxMemoryBytes(),
 	}
 	hardware.StorageSource, hardware.Filesystem = linuxMount(dataPath)
@@ -1979,24 +2509,35 @@ func linuxMemoryBytes() int64 {
 	if err != nil {
 		return 0
 	}
+	var total int64
 	for line := range strings.SplitSeq(string(content), "\n") {
 		fields := strings.Fields(line)
 		if len(fields) == 3 && fields[0] == "MemTotal:" && fields[2] == "kB" {
 			kilobytes, parseErr := strconv.ParseInt(fields[1], 10, 64)
 			if parseErr == nil {
-				return kilobytes * 1024
+				total = kilobytes * 1024
 			}
+			break
 		}
 	}
-	return 0
+	limit, err := os.ReadFile("/sys/fs/cgroup/memory.max")
+	if err != nil {
+		return total
+	}
+	limited, err := strconv.ParseInt(strings.TrimSpace(string(limit)), 10, 64)
+	if err == nil && limited > 0 && (total == 0 || limited < total) {
+		return limited
+	}
+	return total
 }
 
 func requireReferenceHardware(t *testing.T, hardware capacityHardware) {
 	t.Helper()
 	if hardware.GOOS != "linux" ||
 		hardware.GOARCH != "amd64" ||
-		hardware.CPUs < 4 ||
-		hardware.MemoryBytes < 8<<30 ||
+		hardware.CPUs != 4 ||
+		hardware.MemoryBytes < 7<<30 ||
+		hardware.MemoryBytes > 9<<30 ||
 		hardware.StorageSource == "" ||
 		hardware.Filesystem == "tmpfs" ||
 		!hardware.NonRotational {
@@ -2081,19 +2622,28 @@ type capacityEnvelope struct {
 	PublicReaders      int `json:"public_readers"`
 }
 
+type capacityTopology struct {
+	ServerHostname    string `json:"server_hostname"`
+	GeneratorHostname string `json:"generator_hostname"`
+	SeparateMachines  bool   `json:"separate_machines"`
+	Certified         bool   `json:"certified"`
+}
+
 type capacityReport struct {
-	Profile                 string           `json:"profile"`
-	Hardware                capacityHardware `json:"hardware"`
-	Duration                string           `json:"duration"`
-	Envelope                capacityEnvelope `json:"envelope"`
-	LiveCommand             capacityLatency  `json:"live_command"`
-	DisplayCommit           capacityFanout   `json:"display_commit"`
-	DisplayOperator         capacityFanout   `json:"display_operator"`
-	StageTimerMaximumSkewMS int64            `json:"stage_timer_maximum_skew_ms"`
-	PublicFreshness         capacityLatency  `json:"public_freshness"`
-	CrewRequests            int64            `json:"crew_requests"`
-	DisplayRequests         int64            `json:"display_requests"`
-	PublicRequests          int64            `json:"public_requests"`
+	Profile                 string            `json:"profile"`
+	Hardware                capacityHardware  `json:"hardware"`
+	Duration                string            `json:"duration"`
+	Envelope                capacityEnvelope  `json:"envelope"`
+	Topology                capacityTopology  `json:"topology"`
+	Resources               capacityResources `json:"resources"`
+	LiveCommand             capacityLatency   `json:"live_command"`
+	DisplayCommit           capacityFanout    `json:"display_commit"`
+	DisplayOperator         capacityFanout    `json:"display_operator"`
+	StageTimerMaximumSkewMS int64             `json:"stage_timer_maximum_skew_ms"`
+	PublicFreshness         capacityLatency   `json:"public_freshness"`
+	CrewRequests            int64             `json:"crew_requests"`
+	DisplayRequests         int64             `json:"display_requests"`
+	PublicRequests          int64             `json:"public_requests"`
 }
 
 func writeCapacityReport(t *testing.T, report capacityReport) {
