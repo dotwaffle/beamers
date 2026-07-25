@@ -88,15 +88,9 @@ func (service *Service) PlanFinalFiles(
 	sort.Slice(manifest.Files, func(left, right int) bool {
 		return manifest.Files[left].Path < manifest.Files[right].Path
 	})
-	manifestBytes, err := encodeFinalFilesManifest(manifest)
-	if err != nil {
-		return FinalFilesPlan{}, err
-	}
-	digest := sha256.Sum256(manifestBytes)
 	plan := FinalFilesPlan{
 		FinalFilesManifest: manifest,
 		OutputPath:         outputPath,
-		PreviewDigest:      hex.EncodeToString(digest[:]),
 		Collisions:         []string{},
 	}
 	if outputPath != "" {
@@ -105,6 +99,10 @@ func (service *Service) PlanFinalFiles(
 		} else if !errors.Is(err, os.ErrNotExist) {
 			return FinalFilesPlan{}, fmt.Errorf("inspect Final Files Export destination: %w", err)
 		}
+	}
+	plan.PreviewDigest, err = finalFilesPlanDigest(plan)
+	if err != nil {
+		return FinalFilesPlan{}, err
 	}
 	return plan, nil
 }
@@ -320,6 +318,23 @@ func encodeFinalFilesManifest(manifest FinalFilesManifest) ([]byte, error) {
 		return nil, errors.New("encode Final Files Export manifest")
 	}
 	return append(content, '\n'), nil
+}
+
+func finalFilesPlanDigest(plan FinalFilesPlan) (string, error) {
+	commitment, err := json.Marshal(struct {
+		FinalFilesManifest
+		OutputPath string   `json:"output_path,omitempty"`
+		Collisions []string `json:"collisions"`
+	}{
+		FinalFilesManifest: plan.FinalFilesManifest,
+		OutputPath:         plan.OutputPath,
+		Collisions:         plan.Collisions,
+	})
+	if err != nil {
+		return "", errors.New("encode Final Files Export preview")
+	}
+	digest := sha256.Sum256(commitment)
+	return hex.EncodeToString(digest[:]), nil
 }
 
 func writeFinalFilesZIPEntry(archive *zip.Writer, name string, content []byte) error {

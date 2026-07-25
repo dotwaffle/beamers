@@ -4,22 +4,52 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 
 	"github.com/dotwaffle/beamers/internal/attachments"
+	"github.com/dotwaffle/beamers/internal/operations"
 )
 
-func (handlers archiveHandlers) previewFinalFiles(
+type finalFilesHandlers struct {
+	installation       *operations.Installation
+	logger             *slog.Logger
+	allowPlaintextCrew bool
+}
+
+func registerFinalFilesRoutes(
+	mux *http.ServeMux,
+	installation *operations.Installation,
+	logger *slog.Logger,
+	listenerAddress net.Addr,
+) {
+	handlers := finalFilesHandlers{
+		installation:       installation,
+		logger:             logger,
+		allowPlaintextCrew: listenerIsLoopback(listenerAddress),
+	}
+	mux.HandleFunc("/admin/final-files/preview", handlers.preview)
+	mux.HandleFunc("/admin/final-files", handlers.download)
+}
+
+func (handlers finalFilesHandlers) preview(
 	response http.ResponseWriter,
 	request *http.Request,
 ) {
 	if !requestAllowed(response, request, http.MethodPost, handlers.allowPlaintextCrew) {
 		return
 	}
-	if _, ok := handlers.authenticateAdministrator(response, request); !ok {
+	if _, ok := authenticateAdministrator(
+		response,
+		request,
+		handlers.installation.Authentication(),
+		handlers.logger,
+		"Final Files Export",
+	); !ok {
 		return
 	}
 	var input struct {
@@ -44,14 +74,20 @@ func (handlers archiveHandlers) previewFinalFiles(
 	}
 }
 
-func (handlers archiveHandlers) downloadFinalFiles(
+func (handlers finalFilesHandlers) download(
 	response http.ResponseWriter,
 	request *http.Request,
 ) {
 	if !requestAllowed(response, request, http.MethodPost, handlers.allowPlaintextCrew) {
 		return
 	}
-	if _, ok := handlers.authenticateAdministrator(response, request); !ok {
+	if _, ok := authenticateAdministrator(
+		response,
+		request,
+		handlers.installation.Authentication(),
+		handlers.logger,
+		"Final Files Export",
+	); !ok {
 		return
 	}
 	var input struct {
@@ -116,7 +152,7 @@ func (handlers archiveHandlers) downloadFinalFiles(
 	}
 }
 
-func (handlers archiveHandlers) writeFinalFilesFailure(
+func (handlers finalFilesHandlers) writeFinalFilesFailure(
 	response http.ResponseWriter,
 	request *http.Request,
 	err error,

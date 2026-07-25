@@ -51,8 +51,6 @@ func registerBackupRoutes(
 		allowPlaintextCrew: listenerIsLoopback(listenerAddress),
 	}
 	mux.HandleFunc("/admin/backups", handlers.create)
-	mux.HandleFunc("/admin/final-files/preview", handlers.previewFinalFiles)
-	mux.HandleFunc("/admin/final-files", handlers.downloadFinalFiles)
 	mux.HandleFunc("/admin/restores/preview", handlers.previewRestore)
 	mux.HandleFunc("/admin/restores/apply", handlers.applyRestore)
 }
@@ -64,7 +62,13 @@ func (handlers archiveHandlers) previewRestore(
 	if !requestAllowed(response, request, http.MethodPost, handlers.allowPlaintextCrew) {
 		return
 	}
-	if _, ok := handlers.authenticateAdministrator(response, request); !ok {
+	if _, ok := authenticateAdministrator(
+		response,
+		request,
+		handlers.installation.Authentication(),
+		handlers.logger,
+		"Restore",
+	); !ok {
 		return
 	}
 	mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
@@ -125,7 +129,13 @@ func (handlers archiveHandlers) applyRestore(
 	if !requestAllowed(response, request, http.MethodPost, handlers.allowPlaintextCrew) {
 		return
 	}
-	actor, ok := handlers.authenticateAdministrator(response, request)
+	actor, ok := authenticateAdministrator(
+		response,
+		request,
+		handlers.installation.Authentication(),
+		handlers.logger,
+		"Restore",
+	)
 	if !ok {
 		return
 	}
@@ -180,7 +190,13 @@ func (handlers archiveHandlers) create(response http.ResponseWriter, request *ht
 	if !requestAllowed(response, request, http.MethodPost, handlers.allowPlaintextCrew) {
 		return
 	}
-	actor, ok := handlers.authenticateAdministrator(response, request)
+	actor, ok := authenticateAdministrator(
+		response,
+		request,
+		handlers.installation.Authentication(),
+		handlers.logger,
+		"Backup",
+	)
 	if !ok {
 		return
 	}
@@ -273,46 +289,6 @@ func (handlers archiveHandlers) create(response http.ResponseWriter, request *ht
 	if _, err = io.Copy(response, archive); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write Backup download", "error", err)
 	}
-}
-
-func (handlers archiveHandlers) authenticate(
-	response http.ResponseWriter,
-	request *http.Request,
-) (auth.Account, bool) {
-	cookie, err := request.Cookie(sessionCookieName)
-	if err != nil {
-		http.Error(response, "authentication required", http.StatusUnauthorized)
-		return auth.Account{}, false
-	}
-	actor, err := handlers.installation.Authentication().Authenticate(
-		request.Context(),
-		cookie.Value,
-	)
-	if errors.Is(err, auth.ErrInvalidSession) {
-		http.Error(response, "authentication required", http.StatusUnauthorized)
-		return auth.Account{}, false
-	}
-	if err != nil {
-		handlers.logger.ErrorContext(request.Context(), "Backup authentication failed", "error", err)
-		http.Error(response, "authentication unavailable", http.StatusInternalServerError)
-		return auth.Account{}, false
-	}
-	return actor, true
-}
-
-func (handlers archiveHandlers) authenticateAdministrator(
-	response http.ResponseWriter,
-	request *http.Request,
-) (auth.Account, bool) {
-	actor, ok := handlers.authenticate(response, request)
-	if !ok {
-		return auth.Account{}, false
-	}
-	if !actor.Administrator {
-		http.Error(response, "Administrator authority required", http.StatusForbidden)
-		return auth.Account{}, false
-	}
-	return actor, true
 }
 
 func (handlers archiveHandlers) writeFailure(
