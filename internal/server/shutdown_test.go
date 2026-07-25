@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,7 +17,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/telemetry"
 )
 
-func TestTelemetryShutdownTimeoutDoesNotFailServer(t *testing.T) {
+func TestTelemetryShutdownTimeoutIsReportedAfterLiveWorkStops(t *testing.T) {
 	collector := httptest.NewServer(http.HandlerFunc(func(
 		response http.ResponseWriter,
 		_ *http.Request,
@@ -29,7 +30,7 @@ func TestTelemetryShutdownTimeoutDoesNotFailServer(t *testing.T) {
 	var logs bytes.Buffer
 	telemetryRuntime, err := telemetry.New(t.Context(), telemetry.Config{
 		Endpoint: collector.URL, ServiceVersion: "test", Stderr: &logs,
-		SampleRatio: 1, ExportTimeout: time.Second,
+		SampleRatio: 1, ExportTimeout: 50 * time.Millisecond,
 	})
 	if err != nil {
 		t.Fatalf("create telemetry runtime: %v", err)
@@ -52,7 +53,7 @@ func TestTelemetryShutdownTimeoutDoesNotFailServer(t *testing.T) {
 	go func() {
 		result <- Run(ctx, Config{
 			DataDir: dataDir, ListenAddress: address, BuildVersion: "test",
-			ShutdownTimeout: 100 * time.Millisecond,
+			ShutdownTimeout: 500 * time.Millisecond,
 			Logger:          telemetryRuntime.Logger(),
 			TracerProvider:  telemetryRuntime.TracerProvider(),
 			MeterProvider:   telemetryRuntime.MeterProvider(),
@@ -62,8 +63,8 @@ func TestTelemetryShutdownTimeoutDoesNotFailServer(t *testing.T) {
 	}()
 	waitForReady(t, address)
 	cancel()
-	if err = <-result; err != nil {
-		t.Fatalf("server shutdown: %v", err)
+	if err = <-result; !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("server shutdown error = %v, want telemetry deadline", err)
 	}
 	for _, fragment := range []string{
 		`"phase":"readiness"`,
@@ -74,7 +75,7 @@ func TestTelemetryShutdownTimeoutDoesNotFailServer(t *testing.T) {
 		`"finalizer":"storage"`,
 		`"finalizer":"telemetry"`,
 		`"status":"timeout"`,
-		`"budget_ms":100`,
+		`"budget_ms":500`,
 		`"elapsed_ms":`,
 		`"remaining_ms":`,
 	} {
@@ -84,19 +85,87 @@ func TestTelemetryShutdownTimeoutDoesNotFailServer(t *testing.T) {
 	}
 }
 
-func TestFinalizersReportDeadlineWithoutWaitingForStalledWork(t *testing.T) {
+func TestShutdownFinalizersRunSynchronizationBeforeStorage(t *testing.T) {
+	replicationErr := errors.New("replication failed")
+	telemetryErr := errors.New("telemetry failed")
+	storageErr := errors.New("storage failed")
+	var mu sync.Mutex
+	var order []string
+	record := func(name string) {
+		mu.Lock()
+		defer mu.Unlock()
+		order = append(order, name)
+	}
+	statuses := make(map[string]string)
+
+	timedOut, err := finalizeShutdown(
+		t.Context(),
+		shutdownFinalizers{
+			http: func(context.Context) error {
+				record("http")
+				return nil
+			},
+			replication: func(context.Context) error {
+				record("replication")
+				return replicationErr
+			},
+			telemetry: func(context.Context) error {
+				record("telemetry")
+				return telemetryErr
+			},
+			storage: func(context.Context) error {
+				record("storage")
+				return storageErr
+			},
+		},
+		func(result finalizerResult) {
+			statuses[result.name] = result.status()
+		},
+	)
+	if timedOut ||
+		!errors.Is(err, replicationErr) ||
+		!errors.Is(err, storageErr) ||
+		!errors.Is(err, telemetryErr) {
+		t.Fatalf("timedOut=%t error=%v", timedOut, err)
+	}
+	if len(order) != 4 || order[len(order)-1] != "storage" {
+		t.Fatalf("finalizer order = %v, want storage last", order)
+	}
+	if statuses["http"] != "complete" ||
+		statuses["replication"] != "error" ||
+		statuses["telemetry"] != "error" ||
+		statuses["storage"] != "error" {
+		t.Fatalf("finalizer statuses = %v", statuses)
+	}
+}
+
+func TestShutdownFinalizersSkipStorageAfterSynchronizationDeadline(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
 	defer cancel()
-	results := make(chan finalizerResult, 2)
-	results <- finalizerResult{name: "http"}
+	stalled := make(chan struct{})
+	t.Cleanup(func() {
+		close(stalled)
+	})
+	storageStarted := false
 	found := make(map[string]string)
 	started := time.Now()
-	timedOut, err := collectFinalizers(
+	timedOut, err := finalizeShutdown(
 		ctx,
-		[]string{"http", "storage"},
-		results,
+		shutdownFinalizers{
+			http: func(context.Context) error {
+				return nil
+			},
+			replication: func(context.Context) error {
+				<-stalled
+				return nil
+			},
+			storage: func(context.Context) error {
+				storageStarted = true
+				return nil
+			},
+		},
 		func(result finalizerResult) {
-			found[result.name] = finalizerStatus(result.err)
+			found[result.name] = result.status()
 		},
 	)
 	if !errors.Is(err, context.DeadlineExceeded) {
@@ -104,9 +173,37 @@ func TestFinalizersReportDeadlineWithoutWaitingForStalledWork(t *testing.T) {
 	}
 	if !timedOut ||
 		found["http"] != "complete" ||
-		found["storage"] != "timeout" ||
+		found["replication"] != "timeout" ||
+		found["storage"] != "skipped" ||
+		storageStarted ||
 		time.Since(started) > 200*time.Millisecond {
 		t.Fatalf("timedOut=%t found=%v elapsed=%s", timedOut, found, time.Since(started))
+	}
+}
+
+func TestShutdownFinalizersUseReserveAfterSynchronizationCancellation(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
+	defer cancel()
+	storageStarted := false
+	_, err := finalizeShutdown(
+		ctx,
+		shutdownFinalizers{
+			http: func(context.Context) error {
+				return nil
+			},
+			replication: func(syncContext context.Context) error {
+				<-syncContext.Done()
+				return context.Cause(syncContext)
+			},
+			storage: func(context.Context) error {
+				storageStarted = true
+				return nil
+			},
+		},
+		func(finalizerResult) {},
+	)
+	if !errors.Is(err, context.DeadlineExceeded) || !storageStarted {
+		t.Fatalf("error=%v storageStarted=%t, want sync timeout and storage closure", err, storageStarted)
 	}
 }
 
@@ -134,6 +231,21 @@ func TestTrafficDrainUsesOnlyLongProfileWithActiveWork(t *testing.T) {
 	cancel()
 	if status := waitForTrafficDrain(ctx, 30*time.Second, 1, open); status != "canceled" {
 		t.Fatalf("canceled drain status = %q, want canceled", status)
+	}
+	deadlineContext, cancelDeadline := context.WithTimeout(t.Context(), 20*time.Millisecond)
+	defer cancelDeadline()
+	started := time.Now()
+	if status := waitForTrafficDrain(
+		deadlineContext,
+		30*time.Second,
+		1,
+		open,
+	); status != "timeout" || time.Since(started) > 200*time.Millisecond {
+		t.Fatalf(
+			"deadline drain status = %q elapsed=%s, want bounded timeout",
+			status,
+			time.Since(started),
+		)
 	}
 }
 
@@ -203,6 +315,14 @@ func TestInFlightDrainCancelsStreamsButPreservesActiveWork(t *testing.T) {
 		waiting,
 	); status != "canceled" {
 		t.Fatalf("in-flight wait status = %q, want canceled", status)
+	}
+	if status := waitForInFlightDrain(
+		t.Context(),
+		time.Now().Add(-time.Millisecond),
+		active,
+		waiting,
+	); status != "timeout" {
+		t.Fatalf("reserve-expired in-flight status = %q, want timeout", status)
 	}
 }
 

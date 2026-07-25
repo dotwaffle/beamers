@@ -45,14 +45,15 @@ type Config struct {
 
 // Runtime supplies one stderr-first logger and shared signal providers.
 type Runtime struct {
-	logger         *slog.Logger
-	tracerProvider trace.TracerProvider
-	meterProvider  metric.MeterProvider
-	traceSDK       *sdktrace.TracerProvider
-	metricSDK      *sdkmetric.MeterProvider
-	logSDK         *log.LoggerProvider
-	shutdownOnce   sync.Once
-	shutdownErr    error
+	logger          *slog.Logger
+	tracerProvider  trace.TracerProvider
+	meterProvider   metric.MeterProvider
+	traceSDK        *sdktrace.TracerProvider
+	metricSDK       *sdkmetric.MeterProvider
+	logSDK          *log.LoggerProvider
+	shutdownTimeout time.Duration
+	shutdownOnce    sync.Once
+	shutdownErr     error
 }
 
 // New creates a disabled runtime when Endpoint is empty.
@@ -155,11 +156,12 @@ func New(ctx context.Context, config Config) (*Runtime, error) {
 				otelslog.WithLoggerProvider(logProvider),
 			)},
 		)),
-		tracerProvider: traceProvider,
-		meterProvider:  metricProvider,
-		traceSDK:       traceProvider,
-		metricSDK:      metricProvider,
-		logSDK:         logProvider,
+		tracerProvider:  traceProvider,
+		meterProvider:   metricProvider,
+		traceSDK:        traceProvider,
+		metricSDK:       metricProvider,
+		logSDK:          logProvider,
+		shutdownTimeout: config.ExportTimeout,
 	}, nil
 }
 
@@ -197,10 +199,12 @@ func (runtime *Runtime) Shutdown(ctx context.Context) error {
 		return nil
 	}
 	runtime.shutdownOnce.Do(func() {
+		shutdownContext, cancel := context.WithTimeout(ctx, runtime.shutdownTimeout)
+		defer cancel()
 		results := make(chan error, 3)
-		go func() { results <- runtime.logSDK.Shutdown(ctx) }()
-		go func() { results <- runtime.metricSDK.Shutdown(ctx) }()
-		go func() { results <- runtime.traceSDK.Shutdown(ctx) }()
+		go func() { results <- runtime.logSDK.Shutdown(shutdownContext) }()
+		go func() { results <- runtime.metricSDK.Shutdown(shutdownContext) }()
+		go func() { results <- runtime.traceSDK.Shutdown(shutdownContext) }()
 		runtime.shutdownErr = errors.Join(<-results, <-results, <-results)
 	})
 	return runtime.shutdownErr

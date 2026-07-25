@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"go.opentelemetry.io/otel/metric"
@@ -34,6 +35,7 @@ type Config struct {
 	MeterProvider   metric.MeterProvider
 	Propagator      propagation.TextMapPropagator
 	Telemetry       *telemetry.Runtime
+	ReplicationSync func(context.Context) error
 }
 
 // Run serves health endpoints until the context is canceled.
@@ -206,21 +208,15 @@ func Run(ctx context.Context, config Config) error {
 		)
 		application.beginShutdown()
 
-		// Start HTTP and storage closure together so final synchronization uses
-		// the entire remaining platform budget.
-		shutdownResults := make(chan finalizerResult, 2)
-		go func() {
-			shutdownResults <- finalizerResult{
-				name: "http", err: httpServer.Shutdown(shutdownContext),
-			}
-		}()
-		go func() {
-			shutdownResults <- finalizerResult{name: "storage", err: application.Close()}
-		}()
-		finalizerTimedOut, shutdownErr := collectFinalizers(
+		_, shutdownErr := finalizeShutdown(
 			shutdownContext,
-			[]string{"http", "storage"},
-			shutdownResults,
+			shutdownFinalizers{
+				http:        httpServer.Shutdown,
+				forceHTTP:   httpServer.Close,
+				replication: config.ReplicationSync,
+				telemetry:   telemetryFinalizer(config.Telemetry),
+				storage:     func(context.Context) error { return application.Close() },
+			},
 			func(result finalizerResult) {
 				logShutdown(
 					config.Logger,
@@ -228,36 +224,11 @@ func Run(ctx context.Context, config Config) error {
 					shutdownDeadline,
 					config.ShutdownTimeout,
 					"finalize",
-					finalizerStatus(result.err),
+					result.status(),
 					result.name,
 				)
 			},
 		)
-		if finalizerTimedOut {
-			shutdownErr = errors.Join(shutdownErr, httpServer.Close())
-		}
-		if config.Telemetry == nil || !config.Telemetry.Enabled() {
-			logShutdown(
-				config.Logger,
-				shutdownStarted,
-				shutdownDeadline,
-				config.ShutdownTimeout,
-				"finalize",
-				"skipped",
-				"telemetry",
-			)
-		} else {
-			telemetryErr := config.Telemetry.Shutdown(shutdownContext)
-			logShutdown(
-				config.Logger,
-				shutdownStarted,
-				shutdownDeadline,
-				config.ShutdownTimeout,
-				"finalize",
-				finalizerStatus(telemetryErr),
-				"telemetry",
-			)
-		}
 		serveErr := normalizeServeError(<-serveResult)
 		finalErr := errors.Join(shutdownErr, serveErr)
 		logShutdown(
@@ -312,38 +283,157 @@ func waitForInFlightDrain(
 }
 
 type finalizerResult struct {
-	name string
-	err  error
+	name           string
+	err            error
+	statusOverride string
 }
 
-func collectFinalizers(
+func (result finalizerResult) status() string {
+	if result.statusOverride != "" {
+		return result.statusOverride
+	}
+	return finalizerStatus(result.err)
+}
+
+type shutdownFinalizer struct {
+	name string
+	run  func(context.Context) error
+}
+
+type shutdownFinalizers struct {
+	http        func(context.Context) error
+	forceHTTP   func() error
+	replication func(context.Context) error
+	telemetry   func(context.Context) error
+	storage     func(context.Context) error
+}
+
+func finalizeShutdown(
 	ctx context.Context,
-	names []string,
-	results <-chan finalizerResult,
+	finalizers shutdownFinalizers,
 	observe func(finalizerResult),
 ) (bool, error) {
-	pending := make(map[string]struct{}, len(names))
-	for _, name := range names {
-		pending[name] = struct{}{}
+	httpContext, cancelHTTP := shutdownPhaseContext(ctx, 1, 4)
+	httpTimedOut, httpErr := runFinalizers(
+		httpContext,
+		[]shutdownFinalizer{{name: "http", run: finalizers.http}},
+		observe,
+	)
+	cancelHTTP()
+	if httpTimedOut && finalizers.forceHTTP != nil {
+		httpErr = errors.Join(httpErr, finalizers.forceHTTP())
 	}
-	var finalizerErr error
-	for len(pending) != 0 {
+
+	synchronization := make([]shutdownFinalizer, 0, 2)
+	if finalizers.replication == nil {
+		observe(finalizerResult{name: "replication", statusOverride: "skipped"})
+	} else {
+		synchronization = append(synchronization, shutdownFinalizer{
+			name: "replication",
+			run:  finalizers.replication,
+		})
+	}
+	if finalizers.telemetry == nil {
+		observe(finalizerResult{name: "telemetry", statusOverride: "skipped"})
+	} else {
+		synchronization = append(synchronization, shutdownFinalizer{
+			name: "telemetry",
+			run:  finalizers.telemetry,
+		})
+	}
+	var synchronizationWait sync.WaitGroup
+	for index := range synchronization {
+		run := synchronization[index].run
+		synchronizationWait.Add(1)
+		synchronization[index].run = func(ctx context.Context) error {
+			defer synchronizationWait.Done()
+			return run(ctx)
+		}
+	}
+	syncContext, cancelSync := shutdownPhaseContext(ctx, 3, 4)
+	syncTimedOut, syncErr := runFinalizers(syncContext, synchronization, observe)
+	cancelSync()
+	if syncTimedOut {
+		synchronizationStopped := make(chan struct{})
+		go func() {
+			synchronizationWait.Wait()
+			close(synchronizationStopped)
+		}()
+		select {
+		case <-synchronizationStopped:
+		case <-ctx.Done():
+			observe(finalizerResult{name: "storage", statusOverride: "skipped"})
+			return true, errors.Join(httpErr, syncErr)
+		}
+	}
+
+	storageTimedOut, storageErr := runFinalizers(
+		ctx,
+		[]shutdownFinalizer{{name: "storage", run: finalizers.storage}},
+		observe,
+	)
+	return httpTimedOut || storageTimedOut, errors.Join(httpErr, syncErr, storageErr)
+}
+
+func shutdownPhaseContext(
+	ctx context.Context,
+	numerator, denominator int,
+) (context.Context, context.CancelFunc) {
+	deadline, found := ctx.Deadline()
+	if !found {
+		return context.WithCancel(ctx)
+	}
+	remaining := time.Until(deadline)
+	return context.WithDeadline(
+		ctx,
+		time.Now().Add(remaining*time.Duration(numerator)/time.Duration(denominator)),
+	)
+}
+
+func runFinalizers(
+	ctx context.Context,
+	finalizers []shutdownFinalizer,
+	observe func(finalizerResult),
+) (bool, error) {
+	results := make(chan finalizerResult, len(finalizers))
+	pending := make(map[string]shutdownFinalizer, len(finalizers))
+	for _, finalizer := range finalizers {
+		pending[finalizer.name] = finalizer
+		go func() {
+			results <- finalizerResult{
+				name: finalizer.name,
+				err:  finalizer.run(ctx),
+			}
+		}()
+	}
+	var foundErr error
+	for len(pending) > 0 {
 		select {
 		case result := <-results:
-			if _, expected := pending[result.name]; !expected {
+			_, expected := pending[result.name]
+			if !expected {
 				continue
 			}
 			delete(pending, result.name)
-			finalizerErr = errors.Join(finalizerErr, result.err)
+			foundErr = errors.Join(foundErr, result.err)
 			observe(result)
 		case <-ctx.Done():
 			for name := range pending {
-				observe(finalizerResult{name: name, err: context.Cause(ctx)})
+				result := finalizerResult{name: name, err: context.Cause(ctx)}
+				observe(result)
+				foundErr = errors.Join(foundErr, result.err)
 			}
-			return true, errors.Join(finalizerErr, context.Cause(ctx))
+			return true, foundErr
 		}
 	}
-	return false, finalizerErr
+	return false, foundErr
+}
+
+func telemetryFinalizer(runtime *telemetry.Runtime) func(context.Context) error {
+	if runtime == nil || !runtime.Enabled() {
+		return nil
+	}
+	return runtime.Shutdown
 }
 
 func logShutdown(
