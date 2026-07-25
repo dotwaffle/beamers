@@ -428,9 +428,6 @@ func validateRequest(message any) error {
 		); err != nil {
 			return err
 		}
-		if request.GetUpdateMask() == nil || len(request.GetUpdateMask().GetPaths()) == 0 {
-			return errors.New("update_mask must select corrected details")
-		}
 		return nil
 	case *sessionv1.GetSessionHistoryRequest:
 		if err := positiveID(request.GetEventId(), "event_id"); err != nil {

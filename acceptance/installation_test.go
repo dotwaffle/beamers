@@ -1997,6 +1997,74 @@ func TestUrgentNoticesAndEmergencyAlertsTargetCurrentDisplays(t *testing.T) {
 		individual.status != http.StatusOK || individualOverride.ID <= overlayOverride.ID {
 		t.Fatalf("activate individual Urgent Replace = %d: %s (%v)", individual.status, individual.body, err)
 	}
+	rejectedOverrides := []struct {
+		method string
+		path   string
+		body   map[string]any
+		action string
+	}{
+		{
+			method: http.MethodPatch,
+			path:   "/crew/events/1/stage-message-configuration",
+			body: map[string]any{
+				"expected_revision": -1,
+				"command_id":        "reject-invalid-stage-message-configuration",
+			},
+			action: "ConfigureStageMessages",
+		},
+		{
+			path: "/crew/events/1/stage-messages",
+			body: map[string]any{
+				"text": "invalid", "target_group_key": "crew",
+				"duration_seconds": -1, "command_id": "reject-invalid-stage-message",
+			},
+			action: "SendStageMessage",
+		},
+		{
+			path: "/crew/events/1/technical-difficulties",
+			body: map[string]any{
+				"text": "invalid", "duration_seconds": 0,
+				"command_id": "reject-technical",
+			},
+			action: "ActivateTechnicalDifficulties",
+		},
+		{
+			path: "/crew/events/1/urgent-notices",
+			body: map[string]any{
+				"target": map[string]any{"type": "Event"}, "text": "invalid",
+				"duration_seconds": -1, "command_id": "reject-invalid-urgent",
+			},
+			action: "ActivateUrgentNotice",
+		},
+		{
+			path: fmt.Sprintf(
+				"/crew/events/1/overrides/%d/clear",
+				individualOverride.ID,
+			),
+			body: map[string]any{
+				"expected_revision": 0, "command_id": "reject-invalid-clear",
+			},
+			action: "ClearDisplayOverride",
+		},
+	}
+	for _, rejected := range rejectedOverrides {
+		for range 2 {
+			method := rejected.method
+			if method == "" {
+				method = http.MethodPost
+			}
+			response := requestJSONMethod(
+				t.Context(), method, administrator, server.address,
+				rejected.path, rejected.body,
+			)
+			if response.status != http.StatusUnprocessableEntity {
+				t.Fatalf(
+					"%s invalid input = %d: %s",
+					rejected.action, response.status, response.body,
+				)
+			}
+		}
+	}
 	assign("event-overview", []string{"other"}, "move-fixed-priority-display")
 	page = readDisplayHTML(t, displayClient, server.address)
 	if !strings.Contains(page, "Fixed Display notice") ||
@@ -2036,17 +2104,63 @@ func TestUrgentNoticesAndEmergencyAlertsTargetCurrentDisplays(t *testing.T) {
 			confirmationPage.StatusCode, confirmationBody, err,
 		)
 	}
-	unconfirmed := requestJSON(
-		t.Context(), administrator, server.address,
-		"/crew/events/1/emergency-alerts",
-		map[string]any{
-			"target": map[string]any{"type": "Event"},
-			"text":   "Evacuate using marked exits", "preview_fingerprint": preview.ConfirmationFingerprint,
-			"command_id": "reject-unconfirmed-emergency",
-		},
-	)
-	if unconfirmed.status != http.StatusUnprocessableEntity {
-		t.Fatalf("unconfirmed Emergency Alert = %d: %s", unconfirmed.status, unconfirmed.body)
+	unconfirmedEmergency := map[string]any{
+		"target": map[string]any{"type": "Event"},
+		"text":   "Evacuate using marked exits", "preview_fingerprint": preview.ConfirmationFingerprint,
+		"command_id": "reject-unconfirmed-emergency",
+	}
+	for range 2 {
+		unconfirmed := requestJSON(
+			t.Context(), administrator, server.address,
+			"/crew/events/1/emergency-alerts", unconfirmedEmergency,
+		)
+		if unconfirmed.status != http.StatusUnprocessableEntity {
+			t.Fatalf("unconfirmed Emergency Alert = %d: %s", unconfirmed.status, unconfirmed.body)
+		}
+	}
+	for range 2 {
+		missingFingerprint := requestJSON(
+			t.Context(), administrator, server.address,
+			"/crew/events/1/emergency-alerts",
+			map[string]any{
+				"target": map[string]any{"type": "Event"},
+				"text":   "Evacuate using marked exits", "confirmed": true,
+				"confirmation_method": "Keyboard",
+				"command_id":          "reject-missing-emergency-fingerprint",
+			},
+		)
+		if missingFingerprint.status != http.StatusUnprocessableEntity {
+			t.Fatalf(
+				"missing Emergency fingerprint = %d: %s",
+				missingFingerprint.status, missingFingerprint.body,
+			)
+		}
+	}
+	rejectedEntries, _ := readAuditHistory(t, administrator, server.address)
+	rejectedCounts := map[string]int{
+		"ConfigureStageMessages":        1,
+		"SendStageMessage":              1,
+		"ActivateTechnicalDifficulties": 1,
+		"ActivateUrgentNotice":          1,
+		"ClearDisplayOverride":          1,
+		"ActivateEmergencyAlert":        2,
+	}
+	for _, entry := range rejectedEntries {
+		if entry.Outcome != "Rejected" {
+			continue
+		}
+		if _, expected := rejectedCounts[entry.Action]; !expected {
+			continue
+		}
+		if entry.Reason != "override_invalid_input" {
+			t.Errorf("%s rejection reason = %q", entry.Action, entry.Reason)
+		}
+		rejectedCounts[entry.Action]--
+	}
+	for action, remaining := range rejectedCounts {
+		if remaining != 0 {
+			t.Errorf("%s rejected Audit Entry count remaining = %d", action, remaining)
+		}
 	}
 	emergency := requestJSON(
 		t.Context(), administrator, server.address,
@@ -2375,25 +2489,28 @@ func TestEmergencyAlertSurvivesPartialStorageFailureAndRecoversEvidence(t *testi
 			afterRecovery.status, afterRecovery.body,
 		)
 	}
-	entries, _ := readAuditHistory(t, administrator, server.address)
-	actionCounts := map[string]int{}
-	for _, entry := range entries {
-		actionCounts[entry.Action]++
+	assertRecoveredEvidence := func(label string) {
+		entries, _ := readAuditHistory(t, administrator, server.address)
+		remaining := map[string]int{
+			"ActivateEmergencyAlert/Rejected/override_revision_conflict": 1,
+			"ActivateEmergencyAlert/Succeeded/":                          1,
+			"ClearDisplayOverride/Succeeded/":                            1,
+		}
+		for _, entry := range entries {
+			key := entry.Action + "/" + entry.Outcome + "/" + entry.Reason
+			if _, expected := remaining[key]; expected {
+				remaining[key]--
+			}
+		}
+		for evidence, count := range remaining {
+			if count != 0 {
+				t.Errorf("%s Emergency evidence %q remaining = %d", label, evidence, count)
+			}
+		}
 	}
-	if actionCounts["ActivateEmergencyAlert"] != 1 ||
-		actionCounts["ClearDisplayOverride"] != 1 {
-		t.Fatalf("recovered Emergency audit counts = %v", actionCounts)
-	}
+	assertRecoveredEvidence("recovered")
 	assertProbe(t, server.address, "/readyz", "ready\n")
-	entries, _ = readAuditHistory(t, administrator, server.address)
-	actionCounts = map[string]int{}
-	for _, entry := range entries {
-		actionCounts[entry.Action]++
-	}
-	if actionCounts["ActivateEmergencyAlert"] != 1 ||
-		actionCounts["ClearDisplayOverride"] != 1 {
-		t.Fatalf("repeated recovery Emergency audit counts = %v", actionCounts)
-	}
+	assertRecoveredEvidence("repeated recovery")
 
 	dataDir, bin := server.dataDir, server.bin
 	server.stop(t)
@@ -6400,11 +6517,46 @@ func TestOperatorCancelsScheduledSessionWithPublicMessage(t *testing.T) {
 	}
 	unconfirmed.CommandId = "reject-unconfirmed-cancel"
 	unconfirmed.Confirmed = false
-	_, unconfirmedErr := client.CancelSession(
-		t.Context(), connect.NewRequest(unconfirmed),
-	)
-	if connect.CodeOf(unconfirmedErr) != connect.CodeFailedPrecondition {
-		t.Fatalf("unconfirmed Cancel Session = %v", unconfirmedErr)
+	for range 2 {
+		_, unconfirmedErr := client.CancelSession(
+			t.Context(), connect.NewRequest(unconfirmed),
+		)
+		if connect.CodeOf(unconfirmedErr) != connect.CodeFailedPrecondition {
+			t.Fatalf("unconfirmed Cancel Session = %v", unconfirmedErr)
+		}
+	}
+	invalidTextMessage := proto.Clone(request)
+	invalidText, ok := invalidTextMessage.(*sessionv1.CancelSessionRequest)
+	if !ok {
+		t.Fatalf("cloned Cancel Session text request type = %T", invalidTextMessage)
+	}
+	invalidText.CommandId = "reject-cancellation-text"
+	invalidText.PublicCancellationMessage = strings.Repeat("x", 10001)
+	for range 2 {
+		_, invalidTextErr := client.CancelSession(
+			t.Context(), connect.NewRequest(invalidText),
+		)
+		if connect.CodeOf(invalidTextErr) != connect.CodeInvalidArgument {
+			t.Fatalf("invalid Cancel Session text = %v", invalidTextErr)
+		}
+	}
+	audits, _ := readAuditHistory(t, administrator, server.address)
+	rejections := map[string]int{
+		"cancel_confirmation_required": 1,
+		"cancellation_text_invalid":    1,
+	}
+	for _, entry := range audits {
+		if entry.Action == "CancelSession" &&
+			entry.TargetType == "Session" &&
+			entry.TargetID == strconv.FormatInt(sessionID, 10) &&
+			entry.Outcome == "Rejected" {
+			rejections[entry.Reason]--
+		}
+	}
+	for reason, remaining := range rejections {
+		if remaining != 0 {
+			t.Fatalf("Cancel Session rejection %q remaining = %d", reason, remaining)
+		}
 	}
 	canceled, err := client.CancelSession(t.Context(), connect.NewRequest(request))
 	if err != nil {
@@ -6970,21 +7122,46 @@ func TestOperatorCorrectsLiveDetailsWithoutRewritingRunSnapshot(t *testing.T) {
 	if err != nil || retried.Msg.GetAmendmentId() != corrected.Msg.GetAmendmentId() {
 		t.Fatalf("exact Live Detail Correction retry = %+v, %v", retried, err)
 	}
-	_, unconfirmedErr := client.CorrectLiveDetails(t.Context(), connect.NewRequest(&sessionv1.CorrectLiveDetailsRequest{
+	unconfirmedRequest := &sessionv1.CorrectLiveDetailsRequest{
 		EventId: 1, SessionId: sessionID, CommandId: "unconfirmed-live-details",
 		ExpectedLiveStateRevision: proto.Int64(2), Title: "Must Not Apply",
 		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"title"}},
-	}))
-	if connect.CodeOf(unconfirmedErr) != connect.CodeFailedPrecondition {
-		t.Errorf("unconfirmed Live Detail Correction error = %v, want FailedPrecondition", unconfirmedErr)
 	}
-	_, broadCorrectionErr := client.CorrectLiveDetails(t.Context(), connect.NewRequest(&sessionv1.CorrectLiveDetailsRequest{
+	for range 2 {
+		_, unconfirmedErr := client.CorrectLiveDetails(
+			t.Context(), connect.NewRequest(unconfirmedRequest),
+		)
+		if connect.CodeOf(unconfirmedErr) != connect.CodeFailedPrecondition {
+			t.Errorf("unconfirmed Live Detail Correction error = %v, want FailedPrecondition", unconfirmedErr)
+		}
+	}
+	broadCorrectionRequest := &sessionv1.CorrectLiveDetailsRequest{
 		EventId: 1, SessionId: sessionID, CommandId: "reject-broad-live-correction",
 		ExpectedLiveStateRevision: proto.Int64(2), Confirmed: true,
 		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"crew_notes"}},
-	}))
-	if connect.CodeOf(broadCorrectionErr) != connect.CodeInvalidArgument {
-		t.Errorf("broad Live Detail Correction error = %v, want InvalidArgument", broadCorrectionErr)
+	}
+	for range 2 {
+		_, broadCorrectionErr := client.CorrectLiveDetails(
+			t.Context(), connect.NewRequest(broadCorrectionRequest),
+		)
+		if connect.CodeOf(broadCorrectionErr) != connect.CodeInvalidArgument {
+			t.Errorf("broad Live Detail Correction error = %v, want InvalidArgument", broadCorrectionErr)
+		}
+	}
+	emptyCorrectionRequest := &sessionv1.CorrectLiveDetailsRequest{
+		EventId: 1, SessionId: sessionID, CommandId: "reject-empty-live-correction",
+		ExpectedLiveStateRevision: proto.Int64(2), Confirmed: true,
+	}
+	for range 2 {
+		_, emptyCorrectionErr := client.CorrectLiveDetails(
+			t.Context(), connect.NewRequest(emptyCorrectionRequest),
+		)
+		if connect.CodeOf(emptyCorrectionErr) != connect.CodeInvalidArgument {
+			t.Errorf(
+				"empty Live Detail Correction error = %v, want InvalidArgument",
+				emptyCorrectionErr,
+			)
+		}
 	}
 
 	public := get(t, authenticatedClient(t), server.address, "/schedule")
@@ -7078,14 +7255,30 @@ func TestOperatorCorrectsLiveDetailsWithoutRewritingRunSnapshot(t *testing.T) {
 	}
 	audits, _ := readAuditHistory(t, administrator, server.address)
 	correctionAudits := 0
+	rejectedCorrectionReasons := map[string]int{
+		"live_detail_confirmation_required": 1,
+		"live_detail_fields_invalid":        2,
+	}
 	for _, entry := range audits {
-		if entry.Action == "CorrectLiveDetails" && entry.TargetType == "Session" &&
-			entry.TargetID == strconv.FormatInt(sessionID, 10) && entry.Outcome == "Succeeded" {
+		if entry.Action != "CorrectLiveDetails" ||
+			entry.TargetType != "Session" ||
+			entry.TargetID != strconv.FormatInt(sessionID, 10) {
+			continue
+		}
+		switch entry.Outcome {
+		case "Succeeded":
 			correctionAudits++
+		case "Rejected":
+			rejectedCorrectionReasons[entry.Reason]--
 		}
 	}
 	if correctionAudits != 1 {
 		t.Errorf("successful Live Detail Correction Audit Entries = %d, want 1", correctionAudits)
+	}
+	for reason, remaining := range rejectedCorrectionReasons {
+		if remaining != 0 {
+			t.Errorf("Live Detail Correction rejection %q remaining = %d", reason, remaining)
+		}
 	}
 	server.stop(t)
 }

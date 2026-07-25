@@ -2,6 +2,7 @@ package overrides
 
 import (
 	"errors"
+	"maps"
 	"path/filepath"
 	"reflect"
 	"sync"
@@ -294,6 +295,16 @@ func TestRecoverPersistsDegradedEmergencyEvidenceExactlyOnce(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bootstrap Administrator: %v", err)
 	}
+	secondActor, err := authentication.CreateAccount(
+		t.Context(),
+		session.Account,
+		"Recovery Operator",
+		"another correct horse battery staple",
+		"create-recovery-operator",
+	)
+	if err != nil {
+		t.Fatalf("create recovery Operator: %v", err)
+	}
 	eventService, err := events.New(storage, func() time.Time {
 		return now
 	})
@@ -339,6 +350,71 @@ func TestRecoverPersistsDegradedEmergencyEvidenceExactlyOnce(t *testing.T) {
 	if err != nil {
 		t.Fatalf("preview recovery Emergency: %v", err)
 	}
+	rejected := input
+	rejected.PreviewFingerprint = preview.ConfirmationFingerprint
+	rejected.CommandID = "reject-degraded-emergency"
+	for range 2 {
+		if _, rejectedErr := service.ActivateEmergencyAlert(
+			t.Context(),
+			actor,
+			rejected,
+		); !errors.Is(rejectedErr, ErrInvalidInput) {
+			t.Fatalf("reject degraded Emergency: %v", rejectedErr)
+		}
+	}
+	crossActorConflict := rejected
+	crossActorConflict.Text = "Different actor work"
+	for range 2 {
+		if _, conflictErr := service.ActivateEmergencyAlert(
+			t.Context(),
+			secondActor,
+			crossActorConflict,
+		); !errors.Is(conflictErr, ErrCommandConflict) {
+			t.Fatalf("cross-actor degraded Emergency conflict: %v", conflictErr)
+		}
+	}
+	preexistingConflict := rejected
+	preexistingConflict.CommandID = "create-recovery-operator"
+	for range 2 {
+		if _, rejectedErr := service.ActivateEmergencyAlert(
+			t.Context(),
+			actor,
+			preexistingConflict,
+		); !errors.Is(rejectedErr, ErrInvalidInput) {
+			t.Fatalf("queue preexisting receipt conflict: %v", rejectedErr)
+		}
+	}
+	stale := input
+	stale.PreviewFingerprint = "stale-fingerprint"
+	stale.Confirmed = true
+	stale.ConfirmationMethod = "Keyboard"
+	stale.CommandID = "reject-stale-degraded-emergency"
+	for range 2 {
+		if _, staleErr := service.ActivateEmergencyAlert(
+			t.Context(),
+			actor,
+			stale,
+		); !errors.Is(staleErr, ErrRevision) {
+			t.Fatalf("reject stale degraded Emergency: %v", staleErr)
+		}
+	}
+	unauthorizedActor := actor
+	unauthorizedActor.Administrator = false
+	unauthorizedActor.EventRoles = map[int]viewer.Role{event.ID: viewer.Operator}
+	unauthorized := input
+	unauthorized.PreviewFingerprint = preview.ConfirmationFingerprint
+	unauthorized.Confirmed = true
+	unauthorized.ConfirmationMethod = "Keyboard"
+	unauthorized.CommandID = "reject-unauthorized-degraded-emergency"
+	for range 2 {
+		if _, unauthorizedErr := service.ActivateEmergencyAlert(
+			t.Context(),
+			unauthorizedActor,
+			unauthorized,
+		); !errors.Is(unauthorizedErr, ErrScopeDenied) {
+			t.Fatalf("reject unauthorized degraded Emergency: %v", unauthorizedErr)
+		}
+	}
 	input.PreviewFingerprint = preview.ConfirmationFingerprint
 	input.Confirmed = true
 	input.ConfirmationMethod = "Keyboard"
@@ -346,6 +422,69 @@ func TestRecoverPersistsDegradedEmergencyEvidenceExactlyOnce(t *testing.T) {
 	activated, err := service.ActivateEmergencyAlert(t.Context(), actor, input)
 	if err != nil {
 		t.Fatalf("activate recovery Emergency: %v", err)
+	}
+	conflicting := input
+	conflicting.Text = "Different emergency work"
+	for range 2 {
+		if _, conflictErr := service.ActivateEmergencyAlert(
+			t.Context(),
+			actor,
+			conflicting,
+		); !errors.Is(conflictErr, ErrCommandConflict) {
+			t.Fatalf("conflict degraded Emergency: %v", conflictErr)
+		}
+	}
+	rejectedClear := ClearInput{
+		EventID: event.ID, OverrideID: activated.ID,
+		ExpectedRevision: activated.Revision,
+		CommandID:        "reject-degraded-emergency-clear",
+	}
+	for range 2 {
+		if _, rejectedErr := service.Clear(
+			t.Context(),
+			actor,
+			rejectedClear,
+		); !errors.Is(rejectedErr, ErrInvalidInput) {
+			t.Fatalf("reject degraded Emergency clear: %v", rejectedErr)
+		}
+	}
+	conflictingClear := rejectedClear
+	conflictingClear.ExpectedRevision++
+	for range 2 {
+		if _, conflictErr := service.Clear(
+			t.Context(),
+			actor,
+			conflictingClear,
+		); !errors.Is(conflictErr, ErrCommandConflict) {
+			t.Fatalf("conflict degraded Emergency clear: %v", conflictErr)
+		}
+	}
+	staleClear := rejectedClear
+	staleClear.ExpectedRevision++
+	staleClear.CommandID = "reject-stale-degraded-emergency-clear"
+	staleClear.Confirmed = true
+	staleClear.ConfirmationMethod = "Keyboard"
+	for range 2 {
+		if _, staleErr := service.Clear(
+			t.Context(),
+			actor,
+			staleClear,
+		); !errors.Is(staleErr, ErrRevision) {
+			t.Fatalf("reject stale degraded Emergency clear: %v", staleErr)
+		}
+	}
+	unauthorizedClear := rejectedClear
+	unauthorizedClear.CommandID = "reject-unauthorized-degraded-emergency-clear"
+	unauthorizedClear.Confirmed = true
+	unauthorizedClear.ConfirmationMethod = "Keyboard"
+	for range 2 {
+		if _, unauthorizedErr := service.Clear(
+			t.Context(),
+			unauthorizedActor,
+			unauthorizedClear,
+		); !errors.Is(unauthorizedErr, ErrScopeDenied) {
+			t.Fatalf("reject unauthorized degraded Emergency clear: %v", unauthorizedErr)
+		}
 	}
 
 	recoveredStorage, err := store.Open(t.Context(), dataDir)
@@ -390,6 +529,48 @@ func TestRecoverPersistsDegradedEmergencyEvidenceExactlyOnce(t *testing.T) {
 	if err != nil || replayed.ID != activated.ID {
 		t.Fatalf("replay recovered Emergency = %+v, %v", replayed, err)
 	}
+	if _, rejectedErr := service.ActivateEmergencyAlert(
+		t.Context(),
+		actor,
+		rejected,
+	); !errors.Is(rejectedErr, ErrInvalidInput) {
+		t.Fatalf("replay recovered rejected Emergency: %v", rejectedErr)
+	}
+	if _, staleErr := service.ActivateEmergencyAlert(
+		t.Context(),
+		actor,
+		stale,
+	); !errors.Is(staleErr, ErrRevision) {
+		t.Fatalf("replay recovered stale Emergency: %v", staleErr)
+	}
+	if _, unauthorizedErr := service.ActivateEmergencyAlert(
+		t.Context(),
+		unauthorizedActor,
+		unauthorized,
+	); !errors.Is(unauthorizedErr, ErrScopeDenied) {
+		t.Fatalf("replay recovered unauthorized Emergency: %v", unauthorizedErr)
+	}
+	if _, rejectedErr := service.Clear(
+		t.Context(),
+		actor,
+		rejectedClear,
+	); !errors.Is(rejectedErr, ErrInvalidInput) {
+		t.Fatalf("replay recovered rejected Emergency clear: %v", rejectedErr)
+	}
+	if _, staleErr := service.Clear(
+		t.Context(),
+		actor,
+		staleClear,
+	); !errors.Is(staleErr, ErrRevision) {
+		t.Fatalf("replay recovered stale Emergency clear: %v", staleErr)
+	}
+	if _, unauthorizedErr := service.Clear(
+		t.Context(),
+		unauthorizedActor,
+		unauthorizedClear,
+	); !errors.Is(unauthorizedErr, ErrScopeDenied) {
+		t.Fatalf("replay recovered unauthorized Emergency clear: %v", unauthorizedErr)
+	}
 	recoveredAuthentication, err := auth.New(recoveredStorage, auth.DefaultConfig())
 	if err != nil {
 		t.Fatalf("create recovered authentication service: %v", err)
@@ -399,13 +580,49 @@ func TestRecoverPersistsDegradedEmergencyEvidenceExactlyOnce(t *testing.T) {
 		t.Fatalf("list recovered Audit Entries: %v", err)
 	}
 	emergencyEntries := 0
+	rejectedReasons := map[string]int{
+		"override_invalid_input":     1,
+		"override_revision_conflict": 1,
+		"override_scope_denied":      1,
+		"command_id_conflict":        3,
+	}
+	clearReasons := maps.Clone(rejectedReasons)
+	clearReasons["command_id_conflict"] = 1
 	for _, entry := range audit {
 		if entry.Action == "ActivateEmergencyAlert" {
 			emergencyEntries++
+			if entry.Outcome == "Rejected" {
+				rejectedReasons[entry.Reason]--
+			}
+		}
+		if entry.Action == "ClearDisplayOverride" &&
+			entry.Outcome == "Rejected" {
+			clearReasons[entry.Reason]--
 		}
 	}
-	if emergencyEntries != 1 {
-		t.Fatalf("recovered Emergency Audit Entries = %d, want 1", emergencyEntries)
+	if emergencyEntries != 7 {
+		t.Fatalf(
+			"recovered Emergency Audit Entries = %d, want 7",
+			emergencyEntries,
+		)
+	}
+	for reason, remaining := range rejectedReasons {
+		if remaining != 0 {
+			t.Errorf(
+				"recovered Emergency rejection %q remaining = %d",
+				reason,
+				remaining,
+			)
+		}
+	}
+	for reason, remaining := range clearReasons {
+		if remaining != 0 {
+			t.Errorf(
+				"recovered Emergency clear rejection %q remaining = %d",
+				reason,
+				remaining,
+			)
+		}
 	}
 
 	nextService, err := New(t.Context(), recoveredStorage, func() time.Time {

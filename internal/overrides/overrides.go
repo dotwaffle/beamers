@@ -139,26 +139,35 @@ type Service struct {
 	storage *store.SQLite
 	now     func() time.Time
 
-	recoveryMu       sync.Mutex
-	degradedMu       sync.Mutex
-	displaySnapshots map[string]store.DisplaySnapshotState
-	degraded         bool
-	degradedCause    error
-	degradedCurrent  *store.DisplayOverride
-	degradedReceipts map[degradedReceiptKey]degradedReceipt
-	degradedPending  []degradedCommand
-	nextDegradedID   int
+	recoveryMu        sync.Mutex
+	degradedMu        sync.Mutex
+	displaySnapshots  map[string]store.DisplaySnapshotState
+	degraded          bool
+	degradedCause     error
+	degradedCurrent   *store.DisplayOverride
+	degradedReceipts  map[degradedReceiptKey]degradedReceipt
+	degradedConflicts map[degradedConflictKey]struct{}
+	degradedPending   []degradedCommand
+	nextDegradedID    int
 }
 
 type degradedReceiptKey struct {
-	actorID   int
 	commandID string
 }
 
+type degradedConflictKey struct {
+	degradedReceiptKey
+	actorID     int
+	action      string
+	payloadHash string
+}
+
 type degradedReceipt struct {
+	actorID     int
 	action      string
 	payloadHash string
 	outcome     store.DisplayOverride
+	rejection   string
 }
 
 type degradedCommandKind uint8
@@ -169,10 +178,12 @@ const (
 )
 
 type degradedCommand struct {
-	kind     degradedCommandKind
-	actor    auth.Account
-	identity store.CommandIdentity
-	outcome  store.DisplayOverride
+	kind      degradedCommandKind
+	actor     auth.Account
+	identity  store.CommandIdentity
+	outcome   store.DisplayOverride
+	rejection store.CommandRejection
+	conflict  bool
 }
 
 // PreviewStageMessage resolves content and Displays without activation.
@@ -284,11 +295,12 @@ func New(ctx context.Context, storage *store.SQLite, now func() time.Time) (*Ser
 		return nil, errors.New("degraded Emergency Alert identity space is exhausted")
 	}
 	return &Service{
-		storage:          storage,
-		now:              now,
-		displaySnapshots: make(map[string]store.DisplaySnapshotState),
-		degradedReceipts: make(map[degradedReceiptKey]degradedReceipt),
-		nextDegradedID:   nextDegradedID,
+		storage:           storage,
+		now:               now,
+		displaySnapshots:  make(map[string]store.DisplaySnapshotState),
+		degradedReceipts:  make(map[degradedReceiptKey]degradedReceipt),
+		degradedConflicts: make(map[degradedConflictKey]struct{}),
+		nextDegradedID:    nextDegradedID,
 	}, nil
 }
 
@@ -319,13 +331,20 @@ func (service *Service) ConfigureStageMessages(
 	actor auth.Account,
 	input ConfigureInput,
 ) (StageMessageConfiguration, error) {
-	if input.EventID <= 0 || input.ExpectedRevision < 0 {
+	if input.EventID <= 0 {
 		return StageMessageConfiguration{}, ErrInvalidInput
+	}
+	validationErr := invalidInputError(input.ExpectedRevision < 0)
+	if rejectionLacksCommandIdentity(input.CommandID, validationErr) {
+		return StageMessageConfiguration{}, validationErr
 	}
 	return execute(
 		ctx, service, actor, input.EventID, input.CommandID,
 		"ConfigureStageMessages", "Event", strconv.Itoa(input.EventID), input,
 		func(transaction *store.CommandTx, _ time.Time) (StageMessageConfiguration, error) {
+			if validationErr != nil {
+				return StageMessageConfiguration{}, validationErr
+			}
 			if !actor.CanProduceEvent(input.EventID) {
 				return StageMessageConfiguration{}, ErrProducerRequired
 			}
@@ -347,8 +366,9 @@ func (service *Service) SendStageMessage(
 	actor auth.Account,
 	input SendStageMessageInput,
 ) (Override, error) {
-	if input.EventID <= 0 || input.DurationSeconds < 0 {
-		return Override{}, ErrInvalidInput
+	validationErr := invalidInputError(input.EventID <= 0 || input.DurationSeconds < 0)
+	if rejectionLacksCommandIdentity(input.CommandID, validationErr) {
+		return Override{}, validationErr
 	}
 	targetID := input.TargetGroupKey
 	if targetID == "" {
@@ -359,6 +379,9 @@ func (service *Service) SendStageMessage(
 			ctx, service, actor, input.EventID, input.CommandID,
 			"SendStageMessage", "DisplayGroup", targetID, input,
 			func(transaction *store.CommandTx, now time.Time) (Override, error) {
+				if validationErr != nil {
+					return Override{}, validationErr
+				}
 				return transaction.ActivateStageMessage(
 					actor.Context(ctx),
 					store.ActivateStageMessageParams{
@@ -379,14 +402,22 @@ func (service *Service) ActivateTechnicalDifficulties(
 	actor auth.Account,
 	input TechnicalDifficultiesInput,
 ) (Override, error) {
-	if !validTechnicalDifficultiesInput(input) {
-		return Override{}, ErrInvalidInput
+	validationErr := invalidInputError(!validTechnicalDifficultiesInput(input))
+	if rejectionLacksCommandIdentity(input.CommandID, validationErr) {
+		return Override{}, validationErr
+	}
+	targetID := input.TargetGroupKey
+	if targetID == "" {
+		targetID = "unresolved"
 	}
 	return service.activateDurably(func() (Override, error) {
 		return execute(
 			ctx, service, actor, input.EventID, input.CommandID,
-			"ActivateTechnicalDifficulties", "DisplayGroup", input.TargetGroupKey, input,
+			"ActivateTechnicalDifficulties", "DisplayGroup", targetID, input,
 			func(transaction *store.CommandTx, now time.Time) (Override, error) {
+				if validationErr != nil {
+					return Override{}, validationErr
+				}
 				return transaction.ActivateTechnicalDifficulties(
 					actor.Context(ctx),
 					store.ActivateTechnicalDifficultiesParams{
@@ -418,10 +449,6 @@ func (service *Service) ActivateEmergencyAlert(
 	input.Presentation = string(store.DisplayOverrideReplace)
 	input.UntilCleared = true
 	input.DurationSeconds = 0
-	if !input.Confirmed || !validEmergencyConfirmation(input.ConfirmationMethod) ||
-		input.PreviewFingerprint == "" {
-		return Override{}, ErrInvalidInput
-	}
 	if service.isDegraded() {
 		return service.activateDegradedEmergency(actor, input)
 	}
@@ -442,21 +469,46 @@ func validEmergencyConfirmation(method string) bool {
 	return method == "Keyboard" || method == "TwoSecondHold"
 }
 
+func validEmergencyInput(input PriorityInput) bool {
+	return input.Confirmed &&
+		validEmergencyConfirmation(input.ConfirmationMethod) &&
+		input.PreviewFingerprint != ""
+}
+
+func invalidInputError(invalid bool) error {
+	if invalid {
+		return ErrInvalidInput
+	}
+	return nil
+}
+
+func rejectionLacksCommandIdentity(commandID string, rejection error) bool {
+	return rejection != nil && command.ValidateID(commandID) != nil
+}
+
 func (service *Service) activatePriority(
 	ctx context.Context,
 	actor auth.Account,
 	input PriorityInput,
 	kind store.DisplayOverrideKind,
 ) (Override, error) {
-	if input.EventID <= 0 || input.DurationSeconds < 0 ||
-		input.DurationSeconds > 24*60*60 {
-		return Override{}, ErrInvalidInput
+	validationErr := invalidInputError(
+		input.EventID <= 0 ||
+			input.DurationSeconds < 0 ||
+			input.DurationSeconds > 24*60*60 ||
+			kind == store.DisplayOverrideEmergencyAlert && !validEmergencyInput(input),
+	)
+	if rejectionLacksCommandIdentity(input.CommandID, validationErr) {
+		return Override{}, validationErr
 	}
 	return service.activateDurably(func() (Override, error) {
 		return execute(
 			ctx, service, actor, input.EventID, input.CommandID,
 			"Activate"+string(kind), string(input.Target.Type), displayTargetID(input.Target), input,
 			func(transaction *store.CommandTx, now time.Time) (Override, error) {
+				if validationErr != nil {
+					return Override{}, validationErr
+				}
 				return transaction.ActivatePriorityOverride(
 					actor.Context(ctx), priorityParams(input, kind, now),
 				)
@@ -499,16 +551,22 @@ func (service *Service) Clear(
 	actor auth.Account,
 	input ClearInput,
 ) (Override, error) {
-	if input.EventID <= 0 || input.OverrideID <= 0 || input.ExpectedRevision <= 0 {
-		return Override{}, ErrInvalidInput
-	}
+	validationErr := invalidInputError(
+		input.EventID <= 0 || input.OverrideID <= 0 || input.ExpectedRevision <= 0,
+	)
 	if service.isDegraded() {
 		return service.clearDegradedEmergency(actor, input)
+	}
+	if rejectionLacksCommandIdentity(input.CommandID, validationErr) {
+		return Override{}, validationErr
 	}
 	cleared, err := execute(
 		ctx, service, actor, input.EventID, input.CommandID,
 		"ClearDisplayOverride", "DisplayOverride", strconv.Itoa(input.OverrideID), input,
 		func(transaction *store.CommandTx, now time.Time) (Override, error) {
+			if validationErr != nil {
+				return Override{}, validationErr
+			}
 			return transaction.ClearDisplayOverride(
 				actor.Context(ctx), input.EventID, input.OverrideID,
 				input.ExpectedRevision, now,
@@ -615,6 +673,7 @@ func (service *Service) Recover(ctx context.Context) (bool, error) {
 				service.degradedCause = nil
 				service.degradedCurrent = nil
 				clear(service.degradedReceipts)
+				clear(service.degradedConflicts)
 			} else if service.degradedCurrent == nil && len(service.degradedReceipts) == 0 {
 				service.degraded = false
 				service.degradedCause = nil
@@ -647,11 +706,22 @@ func (service *Service) persistDegradedCommand(
 			Replay: func(outcome string) (store.DisplayOverride, error) {
 				var replayed store.DisplayOverride
 				err := store.DecodeCommandReceipt(outcome, &replayed)
-				return replayed, err
+				return replayed, restoreOverrideRejection(err)
 			},
 			Apply: func(
 				transaction *store.CommandTx,
 			) (command.Execution[store.DisplayOverride], error) {
+				if pending.conflict {
+					return command.Execution[store.DisplayOverride]{},
+						errors.New("degraded Command conflict lost its original receipt")
+				}
+				if pending.rejection.Code != "" {
+					return command.Reject(
+						store.DisplayOverride{},
+						pending.rejection,
+						overrideRejectionError(pending.rejection.Code),
+					), nil
+				}
 				if _, persistErr := transaction.PersistDegradedEmergencyAlert(
 					pending.actor.Context(ctx),
 					pending.outcome,
@@ -667,6 +737,13 @@ func (service *Service) persistDegradedCommand(
 			},
 		},
 	)
+	if errors.Is(err, ErrCommandConflict) {
+		return nil
+	}
+	if pending.rejection.Code != "" &&
+		errors.Is(err, overrideRejectionError(pending.rejection.Code)) {
+		return nil
+	}
 	return err
 }
 
@@ -762,13 +839,6 @@ func (service *Service) activateDegradedEmergency(
 	actor auth.Account,
 	input PriorityInput,
 ) (Override, error) {
-	if input.EventID <= 0 || input.DurationSeconds != 0 ||
-		input.Presentation != string(store.DisplayOverrideReplace) ||
-		!input.UntilCleared || !input.Confirmed ||
-		!validEmergencyConfirmation(input.ConfirmationMethod) ||
-		input.PreviewFingerprint == "" {
-		return Override{}, ErrInvalidInput
-	}
 	identity, err := service.degradedCommandIdentity(
 		actor,
 		input.CommandID,
@@ -780,22 +850,38 @@ func (service *Service) activateDegradedEmergency(
 	if err != nil {
 		return Override{}, err
 	}
-	key := degradedReceiptKey{actorID: actor.ID, commandID: input.CommandID}
+	key := degradedReceiptKey{commandID: input.CommandID}
 
 	service.degradedMu.Lock()
 	defer service.degradedMu.Unlock()
-	if replayed, ok, replayErr := service.degradedReplayLocked(key, identity); ok {
+	if replayed, ok, replayErr := service.degradedReplayLocked(key, actor, identity); ok {
 		return replayed, replayErr
+	}
+	if input.EventID <= 0 || input.DurationSeconds != 0 ||
+		input.Presentation != string(store.DisplayOverrideReplace) ||
+		!input.UntilCleared || !validEmergencyInput(input) {
+		return Override{}, service.retainDegradedRejectionLocked(
+			key, actor, identity, ErrInvalidInput,
+		)
 	}
 	preview, err := service.degradedEmergencyPreviewLocked(actor, input)
 	if err != nil {
+		if _, rejected := overrideRejection(err); rejected {
+			return Override{}, service.retainDegradedRejectionLocked(
+				key, actor, identity, err,
+			)
+		}
 		return Override{}, err
 	}
 	if preview.ConfirmationFingerprint != input.PreviewFingerprint {
-		return Override{}, ErrRevision
+		return Override{}, service.retainDegradedRejectionLocked(
+			key, actor, identity, ErrRevision,
+		)
 	}
 	if service.degradedCurrent != nil && service.degradedCurrent.ClearedAt.IsZero() {
-		return Override{}, ErrRevision
+		return Override{}, service.retainDegradedRejectionLocked(
+			key, actor, identity, ErrRevision,
+		)
 	}
 	if service.nextDegradedID == math.MaxInt {
 		return Override{}, errors.New("degraded Emergency Alert identity space is exhausted")
@@ -812,7 +898,8 @@ func (service *Service) activateDegradedEmergency(
 	service.degraded = true
 	service.degradedCurrent = cloneDisplayOverride(&activated)
 	service.degradedReceipts[key] = degradedReceipt{
-		action: identity.Action, payloadHash: identity.PayloadHash, outcome: activated,
+		actorID: identity.ActorAccountID,
+		action:  identity.Action, payloadHash: identity.PayloadHash, outcome: activated,
 	}
 	service.degradedPending = append(service.degradedPending, degradedCommand{
 		kind: degradedActivate, actor: cloneActor(actor), identity: identity, outcome: activated,
@@ -824,10 +911,6 @@ func (service *Service) clearDegradedEmergency(
 	actor auth.Account,
 	input ClearInput,
 ) (Override, error) {
-	if input.EventID <= 0 || input.OverrideID <= 0 || input.ExpectedRevision <= 0 ||
-		!input.Confirmed || !validEmergencyConfirmation(input.ConfirmationMethod) {
-		return Override{}, ErrInvalidInput
-	}
 	identity, err := service.degradedCommandIdentity(
 		actor,
 		input.CommandID,
@@ -839,25 +922,37 @@ func (service *Service) clearDegradedEmergency(
 	if err != nil {
 		return Override{}, err
 	}
-	key := degradedReceiptKey{actorID: actor.ID, commandID: input.CommandID}
+	key := degradedReceiptKey{commandID: input.CommandID}
 
 	service.degradedMu.Lock()
 	defer service.degradedMu.Unlock()
-	if replayed, ok, replayErr := service.degradedReplayLocked(key, identity); ok {
+	if replayed, ok, replayErr := service.degradedReplayLocked(key, actor, identity); ok {
 		return replayed, replayErr
+	}
+	if input.EventID <= 0 || input.OverrideID <= 0 || input.ExpectedRevision <= 0 ||
+		!input.Confirmed || !validEmergencyConfirmation(input.ConfirmationMethod) {
+		return Override{}, service.retainDegradedRejectionLocked(
+			key, actor, identity, ErrInvalidInput,
+		)
 	}
 	current := service.degradedCurrent
 	if current == nil || current.ID != input.OverrideID {
 		current = service.cachedEmergencyLocked(input.EventID, input.OverrideID)
 	}
 	if current == nil || current.EventID != input.EventID {
-		return Override{}, ErrNotFound
+		return Override{}, service.retainDegradedRejectionLocked(
+			key, actor, identity, ErrNotFound,
+		)
 	}
 	if !current.ClearedAt.IsZero() || current.Revision != input.ExpectedRevision {
-		return *current, ErrRevision
+		return *current, service.retainDegradedRejectionLocked(
+			key, actor, identity, ErrRevision,
+		)
 	}
 	if !canOperateDegradedEmergency(actor, input.EventID, current.Target) {
-		return Override{}, ErrScopeDenied
+		return Override{}, service.retainDegradedRejectionLocked(
+			key, actor, identity, ErrScopeDenied,
+		)
 	}
 	cleared := *current
 	cleared.Revision++
@@ -866,7 +961,8 @@ func (service *Service) clearDegradedEmergency(
 	service.degraded = true
 	service.degradedCurrent = cloneDisplayOverride(&cleared)
 	service.degradedReceipts[key] = degradedReceipt{
-		action: identity.Action, payloadHash: identity.PayloadHash, outcome: cleared,
+		actorID: identity.ActorAccountID,
+		action:  identity.Action, payloadHash: identity.PayloadHash, outcome: cleared,
 	}
 	service.degradedPending = append(service.degradedPending, degradedCommand{
 		kind: degradedClear, actor: cloneActor(actor), identity: identity, outcome: cleared,
@@ -935,16 +1031,52 @@ func (service *Service) listDegradedEmergency(
 
 func (service *Service) degradedReplayLocked(
 	key degradedReceiptKey,
+	actor auth.Account,
 	identity store.CommandIdentity,
 ) (store.DisplayOverride, bool, error) {
 	receipt, ok := service.degradedReceipts[key]
 	if !ok {
 		return store.DisplayOverride{}, false, nil
 	}
-	if receipt.action != identity.Action || receipt.payloadHash != identity.PayloadHash {
+	if receipt.actorID != identity.ActorAccountID ||
+		receipt.action != identity.Action ||
+		receipt.payloadHash != identity.PayloadHash {
+		conflict := degradedConflictKey{
+			degradedReceiptKey: key,
+			actorID:            identity.ActorAccountID,
+			action:             identity.Action,
+			payloadHash:        identity.PayloadHash,
+		}
+		if _, retained := service.degradedConflicts[conflict]; !retained {
+			service.degradedConflicts[conflict] = struct{}{}
+			service.degradedPending = append(service.degradedPending, degradedCommand{
+				actor: cloneActor(actor), identity: identity, conflict: true,
+			})
+		}
 		return store.DisplayOverride{}, true, ErrCommandConflict
 	}
+	if receipt.rejection != "" {
+		return receipt.outcome, true, overrideRejectionError(receipt.rejection)
+	}
 	return receipt.outcome, true, nil
+}
+
+func (service *Service) retainDegradedRejectionLocked(
+	key degradedReceiptKey,
+	actor auth.Account,
+	identity store.CommandIdentity,
+	rejectionErr error,
+) error {
+	rejection, _ := overrideRejection(rejectionErr)
+	service.degradedReceipts[key] = degradedReceipt{
+		actorID: identity.ActorAccountID,
+		action:  identity.Action, payloadHash: identity.PayloadHash,
+		rejection: rejection.Code,
+	}
+	service.degradedPending = append(service.degradedPending, degradedCommand{
+		actor: cloneActor(actor), identity: identity, rejection: rejection,
+	})
+	return rejectionErr
 }
 
 func (service *Service) degradedCommandIdentity(
@@ -1186,12 +1318,17 @@ func execute[T any](
 		Storage: service.storage, Identity: identity,
 		Replay: func(outcome string) (T, error) {
 			var replayed T
-			err := store.DecodeCommandReceipt(outcome, &replayed)
-			return replayed, err
+			if decodeErr := store.DecodeCommandReceipt(outcome, &replayed); decodeErr != nil {
+				return replayed, restoreOverrideRejection(decodeErr)
+			}
+			return replayed, nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[T], error) {
 			result, applyErr := apply(transaction, identity.Now)
 			if applyErr != nil {
+				if rejection, rejected := overrideRejection(applyErr); rejected {
+					return command.Reject(result, rejection, applyErr), nil
+				}
 				return command.Execution[T]{}, applyErr
 			}
 			outcome, marshalErr := json.Marshal(result)
@@ -1201,4 +1338,43 @@ func execute[T any](
 			return command.Success(result, string(outcome)), nil
 		},
 	})
+}
+
+var overrideRejections = []struct {
+	err  error
+	code string
+}{
+	{ErrProducerRequired, "producer_required"},
+	{ErrScopeDenied, "override_scope_denied"},
+	{ErrInvalidInput, "override_invalid_input"},
+	{ErrNotFound, "override_not_found"},
+	{ErrRevision, "override_revision_conflict"},
+	{ErrConfigurationRevision, "stage_message_configuration_revision_conflict"},
+	{ErrEventNotActive, "event_not_active"},
+}
+
+func overrideRejection(err error) (store.CommandRejection, bool) {
+	for _, known := range overrideRejections {
+		if errors.Is(err, known.err) {
+			return store.CommandRejection{Code: known.code, Message: err.Error()}, true
+		}
+	}
+	return store.CommandRejection{}, false
+}
+
+func restoreOverrideRejection(err error) error {
+	var rejected *store.RejectedCommandError
+	if !errors.As(err, &rejected) {
+		return err
+	}
+	return overrideRejectionError(rejected.Rejection.Code)
+}
+
+func overrideRejectionError(code string) error {
+	for _, known := range overrideRejections {
+		if code == known.code {
+			return known.err
+		}
+	}
+	return errors.New("display Override command unavailable")
 }
