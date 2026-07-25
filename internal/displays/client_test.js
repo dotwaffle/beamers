@@ -36,6 +36,18 @@ test("snapshot failure retains the frame and retries with bounded backoff", asyn
   assert.notEqual(browser.document.main, browser.initialMain);
 });
 
+test("maintenance retains the frame and reports Stale instead of Disconnected", async () => {
+  const browser = await startBrowser({snapshotMaintenance: 1});
+  assert.equal(browser.document.main, browser.initialMain);
+  assert.equal(browser.eventSources.length, 0);
+  assert.equal(browser.indicator.dataset.connection, "stale");
+  assert.equal(browser.indicator.textContent, "Stale during maintenance. Retrying…");
+
+  await browser.runTimer((delay) => delay >= 375 && delay <= 625);
+  assert.equal(browser.snapshotRequests, 2);
+  assert.equal(browser.eventSources.length, 1);
+});
+
 test("invalidation resnapshots instead of treating SSE as authority", async () => {
   const browser = await startBrowser({
     snapshots: [
@@ -650,6 +662,17 @@ async function startBrowser(options = {}) {
   async function fetch(url, request = {}) {
     if (url.endsWith("/GetSnapshot")) {
       browser.snapshotRequests++;
+      if (browser.snapshotRequests <= (options.snapshotMaintenance ?? 0)) {
+        return {
+          ok: false,
+          status: 503,
+          headers: {
+            get(name) {
+              return name === "X-Beamers-Maintenance" ? "upgrade" : null;
+            },
+          },
+        };
+      }
       if (browser.snapshotRequests <= (options.snapshotFailures ?? 0)) {
         throw new Error("snapshot unavailable");
       }

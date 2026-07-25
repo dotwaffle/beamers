@@ -23,6 +23,12 @@ type Migration struct {
 	Name string `json:"name,omitempty"`
 	// Checksum holds the value of the "checksum" field.
 	Checksum string `json:"checksum,omitempty"`
+	// Safety holds the value of the "safety" field.
+	Safety migration.Safety `json:"safety,omitempty"`
+	// MinimumReaderSchemaVersion holds the value of the "minimum_reader_schema_version" field.
+	MinimumReaderSchemaVersion int `json:"minimum_reader_schema_version,omitempty"`
+	// MinimumWriterSchemaVersion holds the value of the "minimum_writer_schema_version" field.
+	MinimumWriterSchemaVersion int `json:"minimum_writer_schema_version,omitempty"`
 	// AppliedAt holds the value of the "applied_at" field.
 	AppliedAt    time.Time `json:"applied_at,omitempty"`
 	selectValues sql.SelectValues
@@ -33,9 +39,9 @@ func (*Migration) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case migration.FieldID, migration.FieldVersion:
+		case migration.FieldID, migration.FieldVersion, migration.FieldMinimumReaderSchemaVersion, migration.FieldMinimumWriterSchemaVersion:
 			values[i] = new(sql.NullInt64)
-		case migration.FieldName, migration.FieldChecksum:
+		case migration.FieldName, migration.FieldChecksum, migration.FieldSafety:
 			values[i] = new(sql.NullString)
 		case migration.FieldAppliedAt:
 			values[i] = new(sql.NullTime)
@@ -77,6 +83,24 @@ func (_m *Migration) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field checksum", values[i])
 			} else if value.Valid {
 				_m.Checksum = value.String
+			}
+		case migration.FieldSafety:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field safety", values[i])
+			} else if value.Valid {
+				_m.Safety = migration.Safety(value.String)
+			}
+		case migration.FieldMinimumReaderSchemaVersion:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field minimum_reader_schema_version", values[i])
+			} else if value.Valid {
+				_m.MinimumReaderSchemaVersion = int(value.Int64)
+			}
+		case migration.FieldMinimumWriterSchemaVersion:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field minimum_writer_schema_version", values[i])
+			} else if value.Valid {
+				_m.MinimumWriterSchemaVersion = int(value.Int64)
 			}
 		case migration.FieldAppliedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -128,6 +152,15 @@ func (_m *Migration) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("checksum=")
 	builder.WriteString(_m.Checksum)
+	builder.WriteString(", ")
+	builder.WriteString("safety=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Safety))
+	builder.WriteString(", ")
+	builder.WriteString("minimum_reader_schema_version=")
+	builder.WriteString(fmt.Sprintf("%v", _m.MinimumReaderSchemaVersion))
+	builder.WriteString(", ")
+	builder.WriteString("minimum_writer_schema_version=")
+	builder.WriteString(fmt.Sprintf("%v", _m.MinimumWriterSchemaVersion))
 	builder.WriteString(", ")
 	builder.WriteString("applied_at=")
 	builder.WriteString(_m.AppliedAt.Format(time.ANSIC))

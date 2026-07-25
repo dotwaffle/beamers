@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"sort"
 	"strconv"
@@ -42,7 +43,11 @@ var (
 	ErrUninitialized = errors.New("installation is uninitialized")
 	// ErrUnsupportedSchema means the database is not a supported committed schema.
 	ErrUnsupportedSchema = errors.New("installation schema is unsupported")
+	// ErrNoMigration means the installation already uses the current schema.
+	ErrNoMigration = errors.New("installation does not require migration")
 )
+
+const minimumManagedUpgradeVersion = 47
 
 //go:embed migrations/*.sql
 var migrationFiles embed.FS
@@ -54,6 +59,7 @@ type SQLite struct {
 	client     *ent.Client
 	lock       *installationLock
 	migrations []migration
+	applied    int
 	startupErr error
 }
 
@@ -62,6 +68,59 @@ type migration struct {
 	name     string
 	checksum string
 	sql      string
+}
+
+// MigrationSafety classifies the data-loss risk of one committed migration.
+type MigrationSafety string
+
+const (
+	// MigrationNonDestructive is an attested data-preserving migration.
+	MigrationNonDestructive MigrationSafety = "NonDestructive"
+	// MigrationDestructive may remove or reinterpret authoritative data.
+	MigrationDestructive MigrationSafety = "Destructive"
+	// MigrationUnclassified has no matching committed attestation.
+	MigrationUnclassified MigrationSafety = "Unclassified"
+)
+
+type migrationContract struct {
+	name          string
+	checksum      string
+	safety        MigrationSafety
+	minimumReader int
+	minimumWriter int
+	consequence   string
+}
+
+var migrationContracts = map[int]migrationContract{
+	48: {
+		name:          "record_upgrade_contracts",
+		checksum:      "fd3e9c0762d6524976814ce0b8711b7398c7d4ef5b29b29d52062209a889e00a",
+		safety:        MigrationNonDestructive,
+		minimumReader: 48,
+		minimumWriter: 48,
+		consequence:   "records migration safety and forward compatibility metadata",
+	},
+}
+
+// MigrationStep is one exact committed migration in an upgrade plan.
+type MigrationStep struct {
+	Version                    int             `json:"version"`
+	Name                       string          `json:"name"`
+	Checksum                   string          `json:"checksum"`
+	Safety                     MigrationSafety `json:"safety"`
+	MinimumReaderSchemaVersion int             `json:"minimum_reader_schema_version"`
+	MinimumWriterSchemaVersion int             `json:"minimum_writer_schema_version"`
+	Consequence                string          `json:"consequence"`
+}
+
+// MigrationPlan is an exact validated schema-prefix transition.
+type MigrationPlan struct {
+	FromVersion                int             `json:"from_version"`
+	ToVersion                  int             `json:"to_version"`
+	Safety                     MigrationSafety `json:"safety"`
+	MinimumReaderSchemaVersion int             `json:"minimum_reader_schema_version"`
+	MinimumWriterSchemaVersion int             `json:"minimum_writer_schema_version"`
+	Migrations                 []MigrationStep `json:"migrations"`
 }
 
 // BackupAttachment identifies one immutable file referenced by installation state.
@@ -204,11 +263,19 @@ func Open(ctx context.Context, dataDir string) (*SQLite, error) {
 	if err := validateStorage(ctx, database, migrations); err != nil {
 		return installation.withStartupError(errors.Join(err, database.Close()))
 	}
+	var appliedVersion int
+	if err := database.QueryRowContext(ctx, "PRAGMA user_version").Scan(&appliedVersion); err != nil {
+		return installation.withStartupError(errors.Join(
+			fmt.Errorf("read opened schema version: %w", err),
+			database.Close(),
+		))
+	}
 
 	driver := entsql.OpenDB(dialect.SQLite, database)
 	installation.database = database
 	installation.client = ent.NewClient(ent.Driver(driver))
 	installation.migrations = migrations
+	installation.applied = appliedVersion
 	return installation, nil
 }
 
@@ -530,10 +597,10 @@ func BackupAttachmentsFromSnapshot(
 
 // SchemaVersion returns the latest committed schema understood by this binary.
 func (installation *SQLite) SchemaVersion() int {
-	if installation == nil || len(installation.migrations) == 0 {
+	if installation == nil {
 		return 0
 	}
-	return installation.migrations[len(installation.migrations)-1].version
+	return installation.applied
 }
 
 // CurrentSchemaVersion returns the latest committed schema understood by this binary.
@@ -546,6 +613,139 @@ func CurrentSchemaVersion() (int, error) {
 		return 0, ErrUnsupportedSchema
 	}
 	return migrations[len(migrations)-1].version, nil
+}
+
+// PlanMigrations validates one known database prefix and returns its exact
+// transition to the latest committed schema.
+func PlanMigrations(
+	ctx context.Context,
+	databasePath string,
+) (_ MigrationPlan, returnErr error) {
+	migrations, err := loadMigrations()
+	if err != nil {
+		return MigrationPlan{}, fmt.Errorf("load committed migrations: %w", err)
+	}
+	database, err := openValidationDatabase(ctx, databasePath)
+	if err != nil {
+		return MigrationPlan{}, err
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, database.Close())
+	}()
+	applied, err := validateSchemaPrefix(ctx, database, migrations)
+	if err != nil {
+		return MigrationPlan{}, err
+	}
+	if applied > len(migrations) {
+		return MigrationPlan{}, fmt.Errorf(
+			"%w: schema version %d is newer than this executable",
+			ErrUnsupportedSchema,
+			applied,
+		)
+	}
+	if applied != len(migrations) && applied < minimumManagedUpgradeVersion {
+		return MigrationPlan{}, fmt.Errorf(
+			"%w: schema version %d predates managed upgrades",
+			ErrUnsupportedSchema,
+			applied,
+		)
+	}
+	plan := MigrationPlan{
+		FromVersion: applied,
+		ToVersion:   len(migrations),
+		Safety:      MigrationNonDestructive,
+		Migrations:  make([]MigrationStep, 0, len(migrations)-applied),
+	}
+	for _, migration := range migrations[applied:] {
+		contract, attested := migrationContracts[migration.version]
+		if !attested ||
+			contract.name != migration.name ||
+			contract.checksum != migration.checksum {
+			plan.Safety = MigrationUnclassified
+			contract = migrationContract{
+				safety:        MigrationUnclassified,
+				minimumReader: migration.version,
+				minimumWriter: migration.version,
+				consequence:   "migration has no matching committed safety attestation",
+			}
+		} else if contract.safety == MigrationDestructive &&
+			plan.Safety != MigrationUnclassified {
+			plan.Safety = MigrationDestructive
+		}
+		plan.MinimumReaderSchemaVersion = contract.minimumReader
+		plan.MinimumWriterSchemaVersion = contract.minimumWriter
+		plan.Migrations = append(plan.Migrations, MigrationStep{
+			Version: migration.version, Name: migration.name,
+			Checksum: migration.checksum, Safety: contract.safety,
+			MinimumReaderSchemaVersion: contract.minimumReader,
+			MinimumWriterSchemaVersion: contract.minimumWriter,
+			Consequence:                contract.consequence,
+		})
+	}
+	if len(plan.Migrations) == 0 {
+		plan.MinimumReaderSchemaVersion = applied
+		plan.MinimumWriterSchemaVersion = applied
+	}
+	return plan, nil
+}
+
+// MigrateSnapshot applies one exact plan to a closed staged database.
+func MigrateSnapshot(ctx context.Context, databasePath string, plan MigrationPlan) error {
+	found, err := PlanMigrations(ctx, databasePath)
+	if err != nil {
+		return err
+	}
+	if !reflect.DeepEqual(found, plan) {
+		return errors.New("staged migration plan no longer matches its preview")
+	}
+	if len(plan.Migrations) == 0 {
+		return nil
+	}
+	migrations, err := loadMigrations()
+	if err != nil {
+		return fmt.Errorf("load committed migrations: %w", err)
+	}
+	database, err := openDatabase(ctx, databasePath)
+	if err != nil {
+		return err
+	}
+	transaction, err := database.BeginTx(ctx, nil)
+	if err != nil {
+		return errors.Join(fmt.Errorf("begin staged migration: %w", err), database.Close())
+	}
+	defer func() {
+		_ = transaction.Rollback()
+	}()
+	for _, step := range plan.Migrations {
+		committedMigration := migrations[step.Version-1]
+		if _, err = transaction.ExecContext(ctx, committedMigration.sql); err != nil {
+			return errors.Join(
+				fmt.Errorf(
+					"apply migration %04d_%s: %w",
+					committedMigration.version,
+					committedMigration.name,
+					err,
+				),
+				database.Close(),
+			)
+		}
+		if err = recordMigration(ctx, transaction, committedMigration); err != nil {
+			return errors.Join(err, database.Close())
+		}
+		if _, err = transaction.ExecContext(
+			ctx,
+			fmt.Sprintf("PRAGMA user_version = %d", committedMigration.version),
+		); err != nil {
+			return errors.Join(fmt.Errorf("set schema version: %w", err), database.Close())
+		}
+	}
+	if err = transaction.Commit(); err != nil {
+		return errors.Join(fmt.Errorf("commit staged migration: %w", err), database.Close())
+	}
+	if err = database.Close(); err != nil {
+		return fmt.Errorf("close migrated database: %w", err)
+	}
+	return ValidateSnapshot(ctx, databasePath)
 }
 
 // Close closes storage and releases the installation's process lock.
@@ -745,14 +945,8 @@ func initializeSchema(ctx context.Context, database *sql.DB, migrations []migrat
 		if _, err := transaction.ExecContext(ctx, migration.sql); err != nil {
 			return fmt.Errorf("apply migration %04d_%s: %w", migration.version, migration.name, err)
 		}
-		if _, err := transaction.ExecContext(
-			ctx,
-			"INSERT INTO beamers_schema_migrations (version, name, checksum, applied_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
-			migration.version,
-			migration.name,
-			migration.checksum,
-		); err != nil {
-			return fmt.Errorf("record migration %04d_%s: %w", migration.version, migration.name, err)
+		if err := recordMigration(ctx, transaction, migration); err != nil {
+			return err
 		}
 	}
 	if _, err := transaction.ExecContext(
@@ -769,6 +963,62 @@ func initializeSchema(ctx context.Context, database *sql.DB, migrations []migrat
 	}
 	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("commit schema initialization: %w", err)
+	}
+	return nil
+}
+
+func recordMigration(
+	ctx context.Context,
+	transaction *sql.Tx,
+	migration migration,
+) error {
+	contract, attested := migrationContracts[migration.version]
+	if migration.version >= 48 {
+		if !attested ||
+			contract.name != migration.name ||
+			contract.checksum != migration.checksum {
+			contract = migrationContract{
+				safety:        MigrationUnclassified,
+				minimumReader: migration.version,
+				minimumWriter: migration.version,
+			}
+		}
+		if _, err := transaction.ExecContext(
+			ctx,
+			"INSERT INTO beamers_schema_migrations "+
+				"(version, name, checksum, safety, minimum_reader_schema_version, "+
+				"minimum_writer_schema_version, applied_at) "+
+				"VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+			migration.version,
+			migration.name,
+			migration.checksum,
+			contract.safety,
+			contract.minimumReader,
+			contract.minimumWriter,
+		); err != nil {
+			return fmt.Errorf(
+				"record migration %04d_%s: %w",
+				migration.version,
+				migration.name,
+				err,
+			)
+		}
+		return nil
+	}
+	if _, err := transaction.ExecContext(
+		ctx,
+		"INSERT INTO beamers_schema_migrations "+
+			"(version, name, checksum, applied_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
+		migration.version,
+		migration.name,
+		migration.checksum,
+	); err != nil {
+		return fmt.Errorf(
+			"record migration %04d_%s: %w",
+			migration.version,
+			migration.name,
+			err,
+		)
 	}
 	return nil
 }
@@ -791,56 +1041,146 @@ func validateStorage(ctx context.Context, database *sql.DB, migrations []migrati
 	return nil
 }
 
-func validateCurrentSchema(ctx context.Context, database *sql.DB, migrations []migration) (returnErr error) {
+func validateCurrentSchema(ctx context.Context, database *sql.DB, migrations []migration) error {
+	applied, err := validateSchemaPrefix(ctx, database, migrations)
+	if err != nil {
+		return err
+	}
+	if applied <= len(migrations) {
+		if applied != len(migrations) {
+			return fmt.Errorf(
+				"%w: schema version %d is not current",
+				ErrUnsupportedSchema,
+				applied,
+			)
+		}
+		return nil
+	}
+	var schemaVersion, minimumReader, minimumWriter int
+	if err := database.QueryRowContext(
+		ctx,
+		"SELECT version, minimum_reader_schema_version, "+
+			"minimum_writer_schema_version FROM beamers_schema_migrations "+
+			"ORDER BY version DESC LIMIT 1",
+	).Scan(&schemaVersion, &minimumReader, &minimumWriter); err != nil {
+		return errors.Join(
+			ErrUnsupportedSchema,
+			fmt.Errorf("read forward compatibility contract: %w", err),
+		)
+	}
+	if schemaVersion != applied ||
+		len(migrations) < minimumReader ||
+		len(migrations) < minimumWriter {
+		return fmt.Errorf(
+			"%w: schema version %d requires reader %d and writer %d",
+			ErrUnsupportedSchema,
+			applied,
+			minimumReader,
+			minimumWriter,
+		)
+	}
+	return nil
+}
+
+func validateSchemaPrefix(
+	ctx context.Context,
+	database *sql.DB,
+	migrations []migration,
+) (applied int, returnErr error) {
 	var foundApplicationID int
 	if err := database.QueryRowContext(ctx, "PRAGMA application_id").Scan(&foundApplicationID); err != nil {
-		return errors.Join(ErrUnsupportedSchema, fmt.Errorf("read application identifier: %w", err))
+		return 0, errors.Join(
+			ErrUnsupportedSchema,
+			fmt.Errorf("read application identifier: %w", err),
+		)
 	}
 	if foundApplicationID == 0 {
-		return ErrUninitialized
+		return 0, ErrUninitialized
 	}
 	if foundApplicationID != applicationID {
-		return fmt.Errorf("%w: unknown application identifier", ErrUnsupportedSchema)
+		return 0, fmt.Errorf("%w: unknown application identifier", ErrUnsupportedSchema)
 	}
 
 	rows, err := database.QueryContext(ctx, "SELECT version, name, checksum FROM beamers_schema_migrations ORDER BY version")
 	if err != nil {
-		return errors.Join(ErrUnsupportedSchema, fmt.Errorf("read migration history: %w", err))
+		return 0, errors.Join(
+			ErrUnsupportedSchema,
+			fmt.Errorf("read migration history: %w", err),
+		)
 	}
 	defer func() {
-		returnErr = errors.Join(returnErr, rows.Close())
+		if closeErr := rows.Close(); closeErr != nil {
+			returnErr = errors.Join(
+				returnErr,
+				fmt.Errorf("close migration history: %w", closeErr),
+			)
+		}
 	}()
-	applied := 0
 	for rows.Next() {
 		var version int
 		var name, checksum string
 		if err := rows.Scan(&version, &name, &checksum); err != nil {
-			return errors.Join(ErrUnsupportedSchema, fmt.Errorf("read migration record: %w", err))
+			return 0, errors.Join(
+				ErrUnsupportedSchema,
+				fmt.Errorf("read migration record: %w", err),
+			)
 		}
-		if applied >= len(migrations) {
-			return fmt.Errorf("%w: schema version %d is newer than this executable", ErrUnsupportedSchema, version)
+		if version != applied+1 {
+			return 0, errors.Join(
+				fmt.Errorf("%w: migration history is not contiguous", ErrUnsupportedSchema),
+			)
 		}
-		expected := migrations[applied]
-		if version != expected.version || name != expected.name || checksum != expected.checksum {
-			return fmt.Errorf("%w: migration %d does not match committed history", ErrUnsupportedSchema, version)
+		if applied < len(migrations) {
+			expected := migrations[applied]
+			if name != expected.name || checksum != expected.checksum {
+				return 0, errors.Join(
+					fmt.Errorf(
+						"%w: migration %d does not match committed history",
+						ErrUnsupportedSchema,
+						version,
+					),
+				)
+			}
+		} else if name == "" || len(checksum) != sha256.Size*2 {
+			return 0, errors.Join(
+				fmt.Errorf(
+					"%w: migration %d has invalid forward history",
+					ErrUnsupportedSchema,
+					version,
+				),
+			)
 		}
 		applied++
 	}
 	if err := rows.Err(); err != nil {
-		return errors.Join(ErrUnsupportedSchema, fmt.Errorf("read migration history: %w", err))
+		return 0, errors.Join(
+			ErrUnsupportedSchema,
+			fmt.Errorf("read migration history: %w", err),
+		)
+	}
+	if err := rows.Close(); err != nil {
+		return 0, errors.Join(
+			ErrUnsupportedSchema,
+			fmt.Errorf("close migration history: %w", err),
+		)
 	}
 
 	var userVersion int
 	if err := database.QueryRowContext(ctx, "PRAGMA user_version").Scan(&userVersion); err != nil {
-		return errors.Join(ErrUnsupportedSchema, fmt.Errorf("read schema version: %w", err))
+		return 0, errors.Join(
+			ErrUnsupportedSchema,
+			fmt.Errorf("read schema version: %w", err),
+		)
 	}
-	if userVersion > len(migrations) {
-		return fmt.Errorf("%w: schema version %d is newer than this executable", ErrUnsupportedSchema, userVersion)
+	if userVersion != applied {
+		return 0, fmt.Errorf(
+			"%w: schema version %d does not match %d migration records",
+			ErrUnsupportedSchema,
+			userVersion,
+			applied,
+		)
 	}
-	if applied != len(migrations) || userVersion != applied {
-		return fmt.Errorf("%w: schema version %d is not current", ErrUnsupportedSchema, userVersion)
-	}
-	return nil
+	return applied, nil
 }
 
 type installationLock struct {

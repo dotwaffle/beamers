@@ -3,6 +3,7 @@
 package migration
 
 import (
+	"fmt"
 	"time"
 
 	"entgo.io/ent/dialect/sql"
@@ -19,6 +20,12 @@ const (
 	FieldName = "name"
 	// FieldChecksum holds the string denoting the checksum field in the database.
 	FieldChecksum = "checksum"
+	// FieldSafety holds the string denoting the safety field in the database.
+	FieldSafety = "safety"
+	// FieldMinimumReaderSchemaVersion holds the string denoting the minimum_reader_schema_version field in the database.
+	FieldMinimumReaderSchemaVersion = "minimum_reader_schema_version"
+	// FieldMinimumWriterSchemaVersion holds the string denoting the minimum_writer_schema_version field in the database.
+	FieldMinimumWriterSchemaVersion = "minimum_writer_schema_version"
 	// FieldAppliedAt holds the string denoting the applied_at field in the database.
 	FieldAppliedAt = "applied_at"
 	// Table holds the table name of the migration in the database.
@@ -31,6 +38,9 @@ var Columns = []string{
 	FieldVersion,
 	FieldName,
 	FieldChecksum,
+	FieldSafety,
+	FieldMinimumReaderSchemaVersion,
+	FieldMinimumWriterSchemaVersion,
 	FieldAppliedAt,
 }
 
@@ -51,9 +61,45 @@ var (
 	NameValidator func(string) error
 	// ChecksumValidator is a validator for the "checksum" field. It is called by the builders before save.
 	ChecksumValidator func(string) error
+	// DefaultMinimumReaderSchemaVersion holds the default value on creation for the "minimum_reader_schema_version" field.
+	DefaultMinimumReaderSchemaVersion int
+	// MinimumReaderSchemaVersionValidator is a validator for the "minimum_reader_schema_version" field. It is called by the builders before save.
+	MinimumReaderSchemaVersionValidator func(int) error
+	// DefaultMinimumWriterSchemaVersion holds the default value on creation for the "minimum_writer_schema_version" field.
+	DefaultMinimumWriterSchemaVersion int
+	// MinimumWriterSchemaVersionValidator is a validator for the "minimum_writer_schema_version" field. It is called by the builders before save.
+	MinimumWriterSchemaVersionValidator func(int) error
 	// DefaultAppliedAt holds the default value on creation for the "applied_at" field.
 	DefaultAppliedAt func() time.Time
 )
+
+// Safety defines the type for the "safety" enum field.
+type Safety string
+
+// SafetyBaseline is the default value of the Safety enum.
+const DefaultSafety = SafetyBaseline
+
+// Safety values.
+const (
+	SafetyBaseline       Safety = "Baseline"
+	SafetyNonDestructive Safety = "NonDestructive"
+	SafetyDestructive    Safety = "Destructive"
+	SafetyUnclassified   Safety = "Unclassified"
+)
+
+func (s Safety) String() string {
+	return string(s)
+}
+
+// SafetyValidator is a validator for the "safety" field enum values. It is called by the builders before save.
+func SafetyValidator(s Safety) error {
+	switch s {
+	case SafetyBaseline, SafetyNonDestructive, SafetyDestructive, SafetyUnclassified:
+		return nil
+	default:
+		return fmt.Errorf("migration: invalid enum value for safety field: %q", s)
+	}
+}
 
 // OrderOption defines the ordering options for the Migration queries.
 type OrderOption func(*sql.Selector)
@@ -76,6 +122,21 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 // ByChecksum orders the results by the checksum field.
 func ByChecksum(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldChecksum, opts...).ToFunc()
+}
+
+// BySafety orders the results by the safety field.
+func BySafety(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSafety, opts...).ToFunc()
+}
+
+// ByMinimumReaderSchemaVersion orders the results by the minimum_reader_schema_version field.
+func ByMinimumReaderSchemaVersion(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMinimumReaderSchemaVersion, opts...).ToFunc()
+}
+
+// ByMinimumWriterSchemaVersion orders the results by the minimum_writer_schema_version field.
+func ByMinimumWriterSchemaVersion(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMinimumWriterSchemaVersion, opts...).ToFunc()
 }
 
 // ByAppliedAt orders the results by the applied_at field.

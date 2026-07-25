@@ -113,7 +113,7 @@ var (
 	// AuditEntriesColumns holds the columns for the "audit_entries" table.
 	AuditEntriesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
-		{Name: "actor_kind", Type: field.TypeEnum, Enums: []string{"Account", "UploadLink"}, Default: "Account"},
+		{Name: "actor_kind", Type: field.TypeEnum, Enums: []string{"Account", "UploadLink", "Host"}, Default: "Account"},
 		{Name: "actor_upload_link_id", Type: field.TypeInt, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "action", Type: field.TypeString, Size: 100},
@@ -997,6 +997,9 @@ var (
 		{Name: "version", Type: field.TypeInt, Unique: true},
 		{Name: "name", Type: field.TypeString, Unique: true},
 		{Name: "checksum", Type: field.TypeString, Size: 64},
+		{Name: "safety", Type: field.TypeEnum, Enums: []string{"Baseline", "NonDestructive", "Destructive", "Unclassified"}, Default: "Baseline"},
+		{Name: "minimum_reader_schema_version", Type: field.TypeInt, Default: 48},
+		{Name: "minimum_writer_schema_version", Type: field.TypeInt, Default: 48},
 		{Name: "applied_at", Type: field.TypeTime},
 	}
 	// BeamersSchemaMigrationsTable holds the schema information for the "beamers_schema_migrations" table.

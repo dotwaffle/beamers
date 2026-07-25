@@ -1630,8 +1630,20 @@ func init() {
 			return nil
 		}
 	}()
+	// migrationDescMinimumReaderSchemaVersion is the schema descriptor for minimum_reader_schema_version field.
+	migrationDescMinimumReaderSchemaVersion := migrationFields[4].Descriptor()
+	// migration.DefaultMinimumReaderSchemaVersion holds the default value on creation for the minimum_reader_schema_version field.
+	migration.DefaultMinimumReaderSchemaVersion = migrationDescMinimumReaderSchemaVersion.Default.(int)
+	// migration.MinimumReaderSchemaVersionValidator is a validator for the "minimum_reader_schema_version" field. It is called by the builders before save.
+	migration.MinimumReaderSchemaVersionValidator = migrationDescMinimumReaderSchemaVersion.Validators[0].(func(int) error)
+	// migrationDescMinimumWriterSchemaVersion is the schema descriptor for minimum_writer_schema_version field.
+	migrationDescMinimumWriterSchemaVersion := migrationFields[5].Descriptor()
+	// migration.DefaultMinimumWriterSchemaVersion holds the default value on creation for the minimum_writer_schema_version field.
+	migration.DefaultMinimumWriterSchemaVersion = migrationDescMinimumWriterSchemaVersion.Default.(int)
+	// migration.MinimumWriterSchemaVersionValidator is a validator for the "minimum_writer_schema_version" field. It is called by the builders before save.
+	migration.MinimumWriterSchemaVersionValidator = migrationDescMinimumWriterSchemaVersion.Validators[0].(func(int) error)
 	// migrationDescAppliedAt is the schema descriptor for applied_at field.
-	migrationDescAppliedAt := migrationFields[3].Descriptor()
+	migrationDescAppliedAt := migrationFields[6].Descriptor()
 	// migration.DefaultAppliedAt holds the default value on creation for the applied_at field.
 	migration.DefaultAppliedAt = migrationDescAppliedAt.Default.(func() time.Time)
 	passwordcredential.Policy = privacy.NewPolicies(schema.PasswordCredential{})

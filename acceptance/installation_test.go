@@ -7970,6 +7970,77 @@ func TestInstallationStartsHealthyAndRestarts(t *testing.T) {
 	}
 }
 
+func TestServeRequiresExactApprovalForRollbackIncompatibleUpgrade(t *testing.T) {
+	bin := buildBeamers(t)
+	root := t.TempDir()
+	dataDir := filepath.Join(root, "data")
+	runBeamers(t, bin, "init", "--data-dir", dataDir)
+	if err := storetest.DowngradeBeforeUpgradeContracts(
+		t.Context(),
+		filepath.Join(dataDir, "beamers.db"),
+	); err != nil {
+		t.Fatalf("prepare schema 47 fixture: %v", err)
+	}
+
+	server := startBeamers(t, bin, dataDir)
+	assertProbe(t, server.address, "/livez", "live\n")
+	readiness := requestProbe(t.Context(), server.address, "/readyz", time.Second)
+	assertProbeResult(
+		t,
+		"/readyz",
+		readiness,
+		http.StatusServiceUnavailable,
+		"not ready\n",
+	)
+	page := get(t, authenticatedClient(t), server.address, "/admin/events?event=1")
+	body, readErr := io.ReadAll(page.Body)
+	closeErr := page.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil ||
+		page.StatusCode != http.StatusServiceUnavailable ||
+		page.Header.Get("X-Beamers-Maintenance") != "upgrade" ||
+		!bytes.Contains(body, []byte("Maintenance in progress")) {
+		t.Fatalf(
+			"upgrade maintenance page = %d: %s (%v)",
+			page.StatusCode,
+			body,
+			err,
+		)
+	}
+	server.stop(t)
+
+	var preview struct {
+		PreviewDigest string `json:"preview_digest"`
+	}
+	if err := json.Unmarshal([]byte(runBeamersOutput(
+		t,
+		bin,
+		"upgrade", "preview",
+		"--data-dir", dataDir,
+	)), &preview); err != nil || preview.PreviewDigest == "" {
+		t.Fatalf("decode upgrade preview = %+v, %v", preview, err)
+	}
+	runBeamers(
+		t,
+		bin,
+		"upgrade", "apply",
+		"--data-dir", dataDir,
+		"--approve-consequences",
+		"--acknowledge-no-down-migration",
+		"--preview-digest", preview.PreviewDigest,
+	)
+	upgraded := startBeamers(t, bin, dataDir)
+	assertProbe(t, upgraded.address, "/readyz", "ready\n")
+	upgraded.stop(t)
+
+	backups, err := filepath.Glob(
+		filepath.Join(root, ".data.beamers-upgrade-backup-*", "backup.zip"),
+	)
+	if err != nil || len(backups) != 1 {
+		t.Fatalf("approved upgrade Backups = %v, %v", backups, err)
+	}
+	runBeamers(t, bin, "backup", "verify", "--input", backups[0])
+}
+
 func TestServeDoesNotInitializeStorage(t *testing.T) {
 	bin := buildBeamers(t)
 	missingDataDir := filepath.Join(t.TempDir(), "missing")

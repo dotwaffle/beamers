@@ -65,6 +65,79 @@ func ReplaceMigrationChecksum(ctx context.Context, path string) error {
 	})
 }
 
+// DowngradeBeforeUpgradeContracts converts a current fixture into the exact
+// schema immediately before migration contract columns were added.
+func DowngradeBeforeUpgradeContracts(ctx context.Context, path string) error {
+	return mutateSchema(path, func(database *sql.DB) error {
+		const statement = `
+PRAGMA foreign_keys = off;
+CREATE TABLE beamers_schema_migrations_before_upgrade (
+	id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+	version integer NOT NULL,
+	name text NOT NULL,
+	checksum text NOT NULL,
+	applied_at datetime NOT NULL,
+	CONSTRAINT schema_migrations_checksum_length CHECK (length(checksum) = 64)
+);
+INSERT INTO beamers_schema_migrations_before_upgrade
+	(id, version, name, checksum, applied_at)
+SELECT id, version, name, checksum, applied_at
+FROM beamers_schema_migrations
+WHERE version <= 47;
+DROP TABLE beamers_schema_migrations;
+ALTER TABLE beamers_schema_migrations_before_upgrade
+	RENAME TO beamers_schema_migrations;
+CREATE UNIQUE INDEX beamers_schema_migrations_version_key
+	ON beamers_schema_migrations (version);
+CREATE UNIQUE INDEX beamers_schema_migrations_name_key
+	ON beamers_schema_migrations (name);
+PRAGMA user_version = 47;
+PRAGMA foreign_keys = on;`
+		if _, err := database.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("downgrade fixture before upgrade contracts: %w", err)
+		}
+		return nil
+	})
+}
+
+// AddLiveSession adds the smallest persisted live-operation fixture.
+func AddLiveSession(ctx context.Context, path string) error {
+	return mutateSchema(path, func(database *sql.DB) error {
+		const statement = `
+INSERT INTO events (
+	name, planned_start_date, planned_end_date, timezone, event_locale,
+	event_day_boundary, created_at
+) VALUES ('Upgrade fixture', '2026-07-24', '2026-07-24', 'UTC', 'en-US',
+	'04:00', CURRENT_TIMESTAMP);
+INSERT INTO sessions (event_id, lifecycle, created_at)
+VALUES (last_insert_rowid(), 'Live', CURRENT_TIMESTAMP);`
+		if _, err := database.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("add live Session fixture: %w", err)
+		}
+		return nil
+	})
+}
+
+// CountUpgradeAudits reports durable guarded-upgrade evidence.
+func CountUpgradeAudits(ctx context.Context, path string) (count int, returnErr error) {
+	location := &url.URL{Scheme: "file", Path: path}
+	database, err := sql.Open("sqlite", location.String())
+	if err != nil {
+		return 0, fmt.Errorf("open SQLite fixture: %w", err)
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, database.Close())
+	}()
+	if err = database.QueryRowContext(
+		ctx,
+		"SELECT COUNT(*) FROM audit_entries WHERE action IN "+
+			"('ApproveStorageUpgrade', 'ForceLiveStorageUpgrade')",
+	).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count upgrade Audit Entries: %w", err)
+	}
+	return count, nil
+}
+
 // FailSessionRunUpdates installs a test-only trigger that forces target adjustment rollback.
 func FailSessionRunUpdates(ctx context.Context, path string) error {
 	return mutateSchema(path, func(database *sql.DB) error {

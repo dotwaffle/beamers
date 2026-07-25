@@ -20,6 +20,18 @@ func (Migration) Fields() []ent.Field {
 		field.Int("version").Positive().Unique().Immutable(),
 		field.String("name").NotEmpty().Unique().Immutable(),
 		field.String("checksum").MinLen(64).MaxLen(64).Immutable(),
+		field.Enum("safety").
+			Values("Baseline", "NonDestructive", "Destructive", "Unclassified").
+			Default("Baseline").
+			Immutable(),
+		field.Int("minimum_reader_schema_version").
+			Positive().
+			Default(48).
+			Immutable(),
+		field.Int("minimum_writer_schema_version").
+			Positive().
+			Default(48).
+			Immutable(),
 		field.Time("applied_at").Default(time.Now).Immutable(),
 	}
 }

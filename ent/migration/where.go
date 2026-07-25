@@ -69,6 +69,16 @@ func Checksum(v string) predicate.Migration {
 	return predicate.Migration(sql.FieldEQ(FieldChecksum, v))
 }
 
+// MinimumReaderSchemaVersion applies equality check predicate on the "minimum_reader_schema_version" field. It's identical to MinimumReaderSchemaVersionEQ.
+func MinimumReaderSchemaVersion(v int) predicate.Migration {
+	return predicate.Migration(sql.FieldEQ(FieldMinimumReaderSchemaVersion, v))
+}
+
+// MinimumWriterSchemaVersion applies equality check predicate on the "minimum_writer_schema_version" field. It's identical to MinimumWriterSchemaVersionEQ.
+func MinimumWriterSchemaVersion(v int) predicate.Migration {
+	return predicate.Migration(sql.FieldEQ(FieldMinimumWriterSchemaVersion, v))
+}
+
 // AppliedAt applies equality check predicate on the "applied_at" field. It's identical to AppliedAtEQ.
 func AppliedAt(v time.Time) predicate.Migration {
 	return predicate.Migration(sql.FieldEQ(FieldAppliedAt, v))
@@ -242,6 +252,106 @@ func ChecksumEqualFold(v string) predicate.Migration {
 // ChecksumContainsFold applies the ContainsFold predicate on the "checksum" field.
 func ChecksumContainsFold(v string) predicate.Migration {
 	return predicate.Migration(sql.FieldContainsFold(FieldChecksum, v))
+}
+
+// SafetyEQ applies the EQ predicate on the "safety" field.
+func SafetyEQ(v Safety) predicate.Migration {
+	return predicate.Migration(sql.FieldEQ(FieldSafety, v))
+}
+
+// SafetyNEQ applies the NEQ predicate on the "safety" field.
+func SafetyNEQ(v Safety) predicate.Migration {
+	return predicate.Migration(sql.FieldNEQ(FieldSafety, v))
+}
+
+// SafetyIn applies the In predicate on the "safety" field.
+func SafetyIn(vs ...Safety) predicate.Migration {
+	return predicate.Migration(sql.FieldIn(FieldSafety, vs...))
+}
+
+// SafetyNotIn applies the NotIn predicate on the "safety" field.
+func SafetyNotIn(vs ...Safety) predicate.Migration {
+	return predicate.Migration(sql.FieldNotIn(FieldSafety, vs...))
+}
+
+// MinimumReaderSchemaVersionEQ applies the EQ predicate on the "minimum_reader_schema_version" field.
+func MinimumReaderSchemaVersionEQ(v int) predicate.Migration {
+	return predicate.Migration(sql.FieldEQ(FieldMinimumReaderSchemaVersion, v))
+}
+
+// MinimumReaderSchemaVersionNEQ applies the NEQ predicate on the "minimum_reader_schema_version" field.
+func MinimumReaderSchemaVersionNEQ(v int) predicate.Migration {
+	return predicate.Migration(sql.FieldNEQ(FieldMinimumReaderSchemaVersion, v))
+}
+
+// MinimumReaderSchemaVersionIn applies the In predicate on the "minimum_reader_schema_version" field.
+func MinimumReaderSchemaVersionIn(vs ...int) predicate.Migration {
+	return predicate.Migration(sql.FieldIn(FieldMinimumReaderSchemaVersion, vs...))
+}
+
+// MinimumReaderSchemaVersionNotIn applies the NotIn predicate on the "minimum_reader_schema_version" field.
+func MinimumReaderSchemaVersionNotIn(vs ...int) predicate.Migration {
+	return predicate.Migration(sql.FieldNotIn(FieldMinimumReaderSchemaVersion, vs...))
+}
+
+// MinimumReaderSchemaVersionGT applies the GT predicate on the "minimum_reader_schema_version" field.
+func MinimumReaderSchemaVersionGT(v int) predicate.Migration {
+	return predicate.Migration(sql.FieldGT(FieldMinimumReaderSchemaVersion, v))
+}
+
+// MinimumReaderSchemaVersionGTE applies the GTE predicate on the "minimum_reader_schema_version" field.
+func MinimumReaderSchemaVersionGTE(v int) predicate.Migration {
+	return predicate.Migration(sql.FieldGTE(FieldMinimumReaderSchemaVersion, v))
+}
+
+// MinimumReaderSchemaVersionLT applies the LT predicate on the "minimum_reader_schema_version" field.
+func MinimumReaderSchemaVersionLT(v int) predicate.Migration {
+	return predicate.Migration(sql.FieldLT(FieldMinimumReaderSchemaVersion, v))
+}
+
+// MinimumReaderSchemaVersionLTE applies the LTE predicate on the "minimum_reader_schema_version" field.
+func MinimumReaderSchemaVersionLTE(v int) predicate.Migration {
+	return predicate.Migration(sql.FieldLTE(FieldMinimumReaderSchemaVersion, v))
+}
+
+// MinimumWriterSchemaVersionEQ applies the EQ predicate on the "minimum_writer_schema_version" field.
+func MinimumWriterSchemaVersionEQ(v int) predicate.Migration {
+	return predicate.Migration(sql.FieldEQ(FieldMinimumWriterSchemaVersion, v))
+}
+
+// MinimumWriterSchemaVersionNEQ applies the NEQ predicate on the "minimum_writer_schema_version" field.
+func MinimumWriterSchemaVersionNEQ(v int) predicate.Migration {
+	return predicate.Migration(sql.FieldNEQ(FieldMinimumWriterSchemaVersion, v))
+}
+
+// MinimumWriterSchemaVersionIn applies the In predicate on the "minimum_writer_schema_version" field.
+func MinimumWriterSchemaVersionIn(vs ...int) predicate.Migration {
+	return predicate.Migration(sql.FieldIn(FieldMinimumWriterSchemaVersion, vs...))
+}
+
+// MinimumWriterSchemaVersionNotIn applies the NotIn predicate on the "minimum_writer_schema_version" field.
+func MinimumWriterSchemaVersionNotIn(vs ...int) predicate.Migration {
+	return predicate.Migration(sql.FieldNotIn(FieldMinimumWriterSchemaVersion, vs...))
+}
+
+// MinimumWriterSchemaVersionGT applies the GT predicate on the "minimum_writer_schema_version" field.
+func MinimumWriterSchemaVersionGT(v int) predicate.Migration {
+	return predicate.Migration(sql.FieldGT(FieldMinimumWriterSchemaVersion, v))
+}
+
+// MinimumWriterSchemaVersionGTE applies the GTE predicate on the "minimum_writer_schema_version" field.
+func MinimumWriterSchemaVersionGTE(v int) predicate.Migration {
+	return predicate.Migration(sql.FieldGTE(FieldMinimumWriterSchemaVersion, v))
+}
+
+// MinimumWriterSchemaVersionLT applies the LT predicate on the "minimum_writer_schema_version" field.
+func MinimumWriterSchemaVersionLT(v int) predicate.Migration {
+	return predicate.Migration(sql.FieldLT(FieldMinimumWriterSchemaVersion, v))
+}
+
+// MinimumWriterSchemaVersionLTE applies the LTE predicate on the "minimum_writer_schema_version" field.
+func MinimumWriterSchemaVersionLTE(v int) predicate.Migration {
+	return predicate.Migration(sql.FieldLTE(FieldMinimumWriterSchemaVersion, v))
 }
 
 // AppliedAtEQ applies the EQ predicate on the "applied_at" field.

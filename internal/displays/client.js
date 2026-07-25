@@ -22,6 +22,8 @@ let recoveryTimer;
 let rendererFailures = 0;
 let rotationTimer;
 
+class MaintenanceError extends Error {}
+
 async function recoverDisplay(reason = "reconnecting") {
   const generation = ++recoveryGeneration;
   clearTimeout(recoveryTimer);
@@ -58,9 +60,11 @@ async function recoverDisplay(reason = "reconnecting") {
     void acknowledgeSnapshot(snapshot, false);
     openEventStream(snapshot);
     scheduleHealthRefresh(snapshot);
-  } catch {
+  } catch (error) {
     if (generation === recoveryGeneration) {
-      if (recoveryAttempt >= 3) {
+      if (error instanceof MaintenanceError) {
+        scheduleRecovery(undefined, "stale");
+      } else if (recoveryAttempt >= 3) {
         await controlledReload();
       } else {
         scheduleRecovery();
@@ -83,6 +87,9 @@ async function fetchSnapshot() {
       signal: controller.signal,
     });
     if (!response.ok) {
+      if (response.headers.get("X-Beamers-Maintenance") === "upgrade") {
+        throw new MaintenanceError();
+      }
       throw new Error(`snapshot request failed: ${response.status}`);
     }
     const {snapshot} = await response.json();
@@ -139,11 +146,16 @@ function openEventStream(snapshot) {
   });
 }
 
-function scheduleRecovery(delay) {
+function scheduleRecovery(delay, state = "disconnected") {
   eventSource?.close();
   clearTimeout(healthTimer);
   clearTimeout(recoveryTimer);
-  setConnection("disconnected", "Connection lost. Reconnecting…");
+  setConnection(
+    state,
+    state === "stale"
+      ? "Stale during maintenance. Retrying…"
+      : "Connection lost. Reconnecting…",
+  );
   const wait = delay ?? recoveryBackoff();
   recoveryTimer = setTimeout(() => void recoverDisplay("reconnecting"), wait);
 }
@@ -211,8 +223,8 @@ async function refreshHealth() {
     clockUncertaintyMilliseconds = uncertainty;
     void acknowledgeSnapshot(snapshot, false);
     scheduleHealthRefresh(snapshot);
-  } catch {
-    scheduleRecovery();
+  } catch (error) {
+    scheduleRecovery(undefined, error instanceof MaintenanceError ? "stale" : "disconnected");
   }
 }
 

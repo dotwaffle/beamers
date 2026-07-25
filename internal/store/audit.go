@@ -35,7 +35,7 @@ func (installation *SQLite) ListAuditEntries(ctx context.Context) ([]AuditEntry,
 	entries := make([]AuditEntry, 0, len(found))
 	for _, item := range found {
 		actorAccountID := 0
-		actorName := "Upload Link"
+		actorName := "Host"
 		if item.ActorKind == "Account" {
 			actor, actorErr := item.Edges.ActorOrErr()
 			if actorErr != nil {
@@ -43,7 +43,7 @@ func (installation *SQLite) ListAuditEntries(ctx context.Context) ([]AuditEntry,
 			}
 			actorName = actor.Name
 			actorAccountID = item.ActorAccountID
-		} else if item.ActorUploadLinkID != 0 {
+		} else if item.ActorKind == "UploadLink" && item.ActorUploadLinkID != 0 {
 			actorName = "Upload Link #" + strconv.Itoa(item.ActorUploadLinkID)
 		}
 		entries = append(entries, AuditEntry{

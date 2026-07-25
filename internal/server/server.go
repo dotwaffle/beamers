@@ -43,13 +43,25 @@ func Run(ctx context.Context, config Config) error {
 	if attachmentsDir == "" {
 		attachmentsDir = filepath.Join(config.DataDir, "attachments")
 	}
-	installation, err := operations.OpenInstallationWithConfig(ctx, operations.OpenConfig{
+	openConfig := operations.OpenConfig{
 		DataDir: config.DataDir, AttachmentsDir: attachmentsDir,
-	})
-	if err != nil {
-		return err
 	}
-	startupErr := installation.StartupError()
+	var err error
+	upgrade, upgradeErr := operations.PrepareUpgrade(ctx, openConfig)
+	var installation *operations.Installation
+	if upgradeErr != nil {
+		if errors.Is(upgradeErr, operations.ErrInstallationInUse) {
+			return upgradeErr
+		}
+		installation, err = operations.OpenInstallationWithConfig(ctx, openConfig)
+		if err != nil {
+			return err
+		}
+	}
+	var startupErr error
+	if installation != nil {
+		startupErr = installation.StartupError()
+	}
 	listenAddress := config.ListenAddress
 	if startupErr != nil {
 		listenAddress, err = localRecoveryAddress(listenAddress)
@@ -66,26 +78,32 @@ func Run(ctx context.Context, config Config) error {
 	listenConfig := net.ListenConfig{}
 	listener, err := listenConfig.Listen(ctx, "tcp", listenAddress)
 	if err != nil {
-		return errors.Join(err, installation.Close())
+		return errors.Join(err, installation.Close(), upgrade.Close())
 	}
 	displayStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
 	if err != nil {
-		return errors.Join(err, listener.Close(), installation.Close())
+		return errors.Join(err, listener.Close(), installation.Close(), upgrade.Close())
 	}
 	programStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
 	if err != nil {
-		return errors.Join(err, listener.Close(), installation.Close())
+		return errors.Join(err, listener.Close(), installation.Close(), upgrade.Close())
 	}
 
-	application, err := newApplication(applicationConfig{
+	appConfig := applicationConfig{
 		Config:          config,
 		Installation:    installation,
 		ListenerAddress: listener.Addr(),
 		DisplayStream:   displayStream,
 		ProgramStream:   programStream,
-	})
-	if err != nil {
-		return errors.Join(err, listener.Close(), installation.Close())
+	}
+	var application *application
+	if upgrade != nil {
+		application = newUpgradeApplication(appConfig, upgrade)
+	} else {
+		application, err = newApplication(appConfig)
+		if err != nil {
+			return errors.Join(err, listener.Close(), installation.Close())
+		}
 	}
 
 	httpServer := &http.Server{
@@ -98,6 +116,8 @@ func Run(ctx context.Context, config Config) error {
 	mode := "normal"
 	if startupErr != nil {
 		mode = "recovery"
+	} else if upgrade != nil {
+		mode = "upgrade"
 	}
 	config.Logger.Info("server listening", "address", listener.Addr().String(), "mode", mode)
 
@@ -105,6 +125,20 @@ func Run(ctx context.Context, config Config) error {
 	go func() {
 		serveResult <- httpServer.Serve(listener)
 	}()
+	if upgrade != nil && !upgrade.Plan().RequiresApproval {
+		result, upgradeErr := application.applyPreparedUpgrade(
+			ctx,
+			operations.UpgradeApproval{},
+		)
+		if upgradeErr != nil && !errors.Is(upgradeErr, context.Canceled) {
+			config.Logger.Error(
+				"automatic storage upgrade failed",
+				"component", "storage",
+				"rollback_backup", result.BackupPath,
+				"error", upgradeErr,
+			)
+		}
+	}
 
 	select {
 	case err := <-serveResult:

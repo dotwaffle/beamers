@@ -29,16 +29,34 @@ var errRestoreInProgress = errors.New("restore already in progress")
 type application struct {
 	config applicationConfig
 
-	mu           sync.Mutex
-	installation *operations.Installation
-	handler      http.Handler
-	accepting    bool
-	maintenance  bool
-	restoring    bool
-	active       int
-	nextRequest  uint64
-	cancels      map[uint64]context.CancelCauseFunc
-	drained      chan struct{}
+	mu              sync.Mutex
+	installation    *operations.Installation
+	handler         http.Handler
+	accepting       bool
+	maintenance     bool
+	maintenanceKind string
+	restoring       bool
+	upgrade         *operations.Upgrade
+	upgradeApplying bool
+	active          int
+	nextRequest     uint64
+	cancels         map[uint64]context.CancelCauseFunc
+	drained         chan struct{}
+}
+
+func newUpgradeApplication(
+	config applicationConfig,
+	upgrade *operations.Upgrade,
+) *application {
+	return &application{
+		config:          config,
+		handler:         http.NotFoundHandler(),
+		maintenance:     true,
+		maintenanceKind: "upgrade",
+		upgrade:         upgrade,
+		cancels:         make(map[uint64]context.CancelCauseFunc),
+		drained:         closedChannel(),
+	}
 }
 
 type applicationRequestContextKey struct{}
@@ -79,10 +97,16 @@ func (application *application) ServeHTTP(
 
 	application.mu.Lock()
 	if application.maintenance {
+		kind := application.maintenanceKind
+		upgradeRoute := kind == "upgrade" &&
+			(request.URL.Path == "/admin/upgrade" ||
+				request.URL.Path == "/admin/upgrade/apply")
 		application.mu.Unlock()
-		response.Header().Set("Retry-After", "1")
-		response.Header().Set("X-Beamers-Maintenance", "restore")
-		http.Error(response, "maintenance in progress", http.StatusServiceUnavailable)
+		if upgradeRoute {
+			application.serveUpgrade(response, request)
+			return
+		}
+		serveMaintenance(response, request, kind)
 		return
 	}
 	handler := application.handler
@@ -193,6 +217,7 @@ func (application *application) restore(ctx context.Context, journalPath string)
 	application.installation = reopened
 	application.handler = handler
 	application.maintenance = false
+	application.maintenanceKind = ""
 	application.restoring = false
 	application.accepting = reopened.StartupError() == nil
 	application.mu.Unlock()
@@ -209,6 +234,7 @@ func (application *application) beginRestore(
 	}
 	application.restoring = true
 	application.maintenance = true
+	application.maintenanceKind = "restore"
 	application.accepting = false
 	if current, ok := ctx.Value(applicationRequestContextKey{}).(*applicationRequest); ok {
 		if _, tracked := application.cancels[current.id]; tracked {
@@ -230,6 +256,7 @@ func (application *application) beginRestore(
 		application.mu.Lock()
 		application.restoring = false
 		application.maintenance = false
+		application.maintenanceKind = ""
 		application.accepting = installation != nil && installation.StartupError() == nil
 		application.mu.Unlock()
 		return nil, context.Cause(ctx)
@@ -248,24 +275,109 @@ func (application *application) setUnavailable(installation *operations.Installa
 	application.installation = installation
 	application.accepting = false
 	application.maintenance = true
+	application.maintenanceKind = "restore"
 	application.restoring = false
 	application.mu.Unlock()
+}
+
+func (application *application) applyPreparedUpgrade(
+	ctx context.Context,
+	approval operations.UpgradeApproval,
+) (operations.UpgradeResult, error) {
+	application.mu.Lock()
+	if application.upgradeApplying || application.upgrade == nil {
+		application.mu.Unlock()
+		return operations.UpgradeResult{}, errors.New("upgrade is not available")
+	}
+	upgrade := application.upgrade
+	application.upgrade = nil
+	application.upgradeApplying = true
+	application.mu.Unlock()
+
+	result, err := upgrade.Apply(ctx, approval)
+	if err != nil {
+		application.mu.Lock()
+		application.upgradeApplying = false
+		application.mu.Unlock()
+		return result, err
+	}
+	reopened, err := operations.OpenInstallationWithConfig(ctx, operations.OpenConfig{
+		DataDir:        application.config.DataDir,
+		AttachmentsDir: application.config.AttachmentsDir,
+	})
+	if err != nil {
+		application.mu.Lock()
+		application.upgradeApplying = false
+		application.mu.Unlock()
+		return result, err
+	}
+	handler, err := application.buildHandler(reopened)
+	if err != nil {
+		err = errors.Join(err, reopened.Close())
+		application.mu.Lock()
+		application.upgradeApplying = false
+		application.mu.Unlock()
+		return result, err
+	}
+	application.mu.Lock()
+	application.installation = reopened
+	application.handler = handler
+	application.accepting = true
+	application.maintenance = false
+	application.maintenanceKind = ""
+	application.upgradeApplying = false
+	application.mu.Unlock()
+	return result, nil
 }
 
 func (application *application) Close() error {
 	application.mu.Lock()
 	application.accepting = false
 	application.maintenance = true
+	application.maintenanceKind = "shutdown"
 	for _, cancel := range application.cancels {
 		cancel(errors.New("application closing"))
 	}
 	installation := application.installation
 	application.installation = nil
+	upgrade := application.upgrade
+	application.upgrade = nil
 	application.mu.Unlock()
-	if installation == nil {
-		return nil
+	var installationErr error
+	if installation != nil {
+		installationErr = installation.Close()
 	}
-	return installation.Close()
+	return errors.Join(installationErr, upgrade.Close())
+}
+
+func serveMaintenance(
+	response http.ResponseWriter,
+	request *http.Request,
+	kind string,
+) {
+	if kind == "" {
+		kind = "restore"
+	}
+	response.Header().Set("Cache-Control", "no-store")
+	response.Header().Set("Retry-After", "1")
+	response.Header().Set("X-Beamers-Maintenance", kind)
+	if request.Method != http.MethodGet && request.Method != http.MethodHead {
+		http.Error(response, "maintenance in progress", http.StatusServiceUnavailable)
+		return
+	}
+	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	response.WriteHeader(http.StatusServiceUnavailable)
+	if request.Method == http.MethodHead {
+		return
+	}
+	_, _ = response.Write([]byte(`<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<meta http-equiv="refresh" content="1">
+<title>Beamers maintenance</title></head>
+<body><main><h1>Maintenance in progress</h1>
+<p role="status">Beamers will return to this page when storage is ready.</p></main>
+</body></html>`))
 }
 
 func closedChannel() chan struct{} {

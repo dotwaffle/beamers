@@ -82,6 +82,8 @@ var (
 	ErrUninitialized = store.ErrUninitialized
 	// ErrUnsupportedSchema means the database is not a supported committed schema.
 	ErrUnsupportedSchema = store.ErrUnsupportedSchema
+	// ErrNoUpgrade means the installation already uses the current schema.
+	ErrNoUpgrade = store.ErrNoMigration
 )
 
 // Installation coordinates access to installation persistence.
@@ -147,6 +149,11 @@ func InitializeWithConfig(ctx context.Context, config OpenConfig) (returnErr err
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("inspect Restore journal: %w", err)
 	}
+	if _, err = os.Lstat(config.DataDir + ".beamers-upgrade.json"); err == nil {
+		return fmt.Errorf("%w: upgrade journal exists", ErrAlreadyInitialized)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("inspect upgrade journal: %w", err)
+	}
 	if store.UsesExternalAttachments(config.DataDir, config.AttachmentsDir) {
 		entries, readErr := os.ReadDir(config.AttachmentsDir)
 		if readErr == nil && len(entries) != 0 {
@@ -176,6 +183,11 @@ func OpenInstallationWithConfig(
 		if err := backup.RecoverRestore(config.DataDir); err != nil {
 			return &Installation{storage: store.RecoverySQLite(
 				fmt.Errorf("recover interrupted Restore: %w", err),
+			)}, nil
+		}
+		if err := RecoverUpgrade(config.DataDir); err != nil {
+			return &Installation{storage: store.RecoverySQLite(
+				fmt.Errorf("recover interrupted upgrade: %w", err),
 			)}, nil
 		}
 	}
@@ -462,6 +474,7 @@ func configuredInstallationHasState(config OpenConfig) (bool, error) {
 	for _, path := range append(
 		configuredAccessRoots(config),
 		config.DataDir+".beamers-restore.json",
+		config.DataDir+".beamers-upgrade.json",
 	) {
 		found, err := pathHasState(path)
 		if err != nil {

@@ -38,6 +38,48 @@ func (_c *MigrationCreate) SetChecksum(v string) *MigrationCreate {
 	return _c
 }
 
+// SetSafety sets the "safety" field.
+func (_c *MigrationCreate) SetSafety(v migration.Safety) *MigrationCreate {
+	_c.mutation.SetSafety(v)
+	return _c
+}
+
+// SetNillableSafety sets the "safety" field if the given value is not nil.
+func (_c *MigrationCreate) SetNillableSafety(v *migration.Safety) *MigrationCreate {
+	if v != nil {
+		_c.SetSafety(*v)
+	}
+	return _c
+}
+
+// SetMinimumReaderSchemaVersion sets the "minimum_reader_schema_version" field.
+func (_c *MigrationCreate) SetMinimumReaderSchemaVersion(v int) *MigrationCreate {
+	_c.mutation.SetMinimumReaderSchemaVersion(v)
+	return _c
+}
+
+// SetNillableMinimumReaderSchemaVersion sets the "minimum_reader_schema_version" field if the given value is not nil.
+func (_c *MigrationCreate) SetNillableMinimumReaderSchemaVersion(v *int) *MigrationCreate {
+	if v != nil {
+		_c.SetMinimumReaderSchemaVersion(*v)
+	}
+	return _c
+}
+
+// SetMinimumWriterSchemaVersion sets the "minimum_writer_schema_version" field.
+func (_c *MigrationCreate) SetMinimumWriterSchemaVersion(v int) *MigrationCreate {
+	_c.mutation.SetMinimumWriterSchemaVersion(v)
+	return _c
+}
+
+// SetNillableMinimumWriterSchemaVersion sets the "minimum_writer_schema_version" field if the given value is not nil.
+func (_c *MigrationCreate) SetNillableMinimumWriterSchemaVersion(v *int) *MigrationCreate {
+	if v != nil {
+		_c.SetMinimumWriterSchemaVersion(*v)
+	}
+	return _c
+}
+
 // SetAppliedAt sets the "applied_at" field.
 func (_c *MigrationCreate) SetAppliedAt(v time.Time) *MigrationCreate {
 	_c.mutation.SetAppliedAt(v)
@@ -87,6 +129,18 @@ func (_c *MigrationCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *MigrationCreate) defaults() {
+	if _, ok := _c.mutation.Safety(); !ok {
+		v := migration.DefaultSafety
+		_c.mutation.SetSafety(v)
+	}
+	if _, ok := _c.mutation.MinimumReaderSchemaVersion(); !ok {
+		v := migration.DefaultMinimumReaderSchemaVersion
+		_c.mutation.SetMinimumReaderSchemaVersion(v)
+	}
+	if _, ok := _c.mutation.MinimumWriterSchemaVersion(); !ok {
+		v := migration.DefaultMinimumWriterSchemaVersion
+		_c.mutation.SetMinimumWriterSchemaVersion(v)
+	}
 	if _, ok := _c.mutation.AppliedAt(); !ok {
 		v := migration.DefaultAppliedAt()
 		_c.mutation.SetAppliedAt(v)
@@ -117,6 +171,30 @@ func (_c *MigrationCreate) check() error {
 	if v, ok := _c.mutation.Checksum(); ok {
 		if err := migration.ChecksumValidator(v); err != nil {
 			return &ValidationError{Name: "checksum", err: fmt.Errorf(`ent: validator failed for field "Migration.checksum": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.Safety(); !ok {
+		return &ValidationError{Name: "safety", err: errors.New(`ent: missing required field "Migration.safety"`)}
+	}
+	if v, ok := _c.mutation.Safety(); ok {
+		if err := migration.SafetyValidator(v); err != nil {
+			return &ValidationError{Name: "safety", err: fmt.Errorf(`ent: validator failed for field "Migration.safety": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.MinimumReaderSchemaVersion(); !ok {
+		return &ValidationError{Name: "minimum_reader_schema_version", err: errors.New(`ent: missing required field "Migration.minimum_reader_schema_version"`)}
+	}
+	if v, ok := _c.mutation.MinimumReaderSchemaVersion(); ok {
+		if err := migration.MinimumReaderSchemaVersionValidator(v); err != nil {
+			return &ValidationError{Name: "minimum_reader_schema_version", err: fmt.Errorf(`ent: validator failed for field "Migration.minimum_reader_schema_version": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.MinimumWriterSchemaVersion(); !ok {
+		return &ValidationError{Name: "minimum_writer_schema_version", err: errors.New(`ent: missing required field "Migration.minimum_writer_schema_version"`)}
+	}
+	if v, ok := _c.mutation.MinimumWriterSchemaVersion(); ok {
+		if err := migration.MinimumWriterSchemaVersionValidator(v); err != nil {
+			return &ValidationError{Name: "minimum_writer_schema_version", err: fmt.Errorf(`ent: validator failed for field "Migration.minimum_writer_schema_version": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.AppliedAt(); !ok {
@@ -159,6 +237,18 @@ func (_c *MigrationCreate) createSpec() (*Migration, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Checksum(); ok {
 		_spec.SetField(migration.FieldChecksum, field.TypeString, value)
 		_node.Checksum = value
+	}
+	if value, ok := _c.mutation.Safety(); ok {
+		_spec.SetField(migration.FieldSafety, field.TypeEnum, value)
+		_node.Safety = value
+	}
+	if value, ok := _c.mutation.MinimumReaderSchemaVersion(); ok {
+		_spec.SetField(migration.FieldMinimumReaderSchemaVersion, field.TypeInt, value)
+		_node.MinimumReaderSchemaVersion = value
+	}
+	if value, ok := _c.mutation.MinimumWriterSchemaVersion(); ok {
+		_spec.SetField(migration.FieldMinimumWriterSchemaVersion, field.TypeInt, value)
+		_node.MinimumWriterSchemaVersion = value
 	}
 	if value, ok := _c.mutation.AppliedAt(); ok {
 		_spec.SetField(migration.FieldAppliedAt, field.TypeTime, value)

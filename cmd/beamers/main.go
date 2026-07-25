@@ -51,6 +51,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		err = runBackup(ctx, args[1:], stdout, stderr)
 	case "restore":
 		err = runRestore(ctx, args[1:], stdout, stderr)
+	case "upgrade":
+		err = runUpgrade(ctx, args[1:], stdout, stderr)
 	case "serve":
 		err = runServe(ctx, args[1:], stderr, logger)
 	case "help", "-h", "--help":
@@ -65,6 +67,124 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	logger.Error("command failed", "command", args[0], "error", err)
 	return 1
+}
+
+func runUpgrade(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	if len(args) == 0 {
+		return errors.New("upgrade requires preview or apply")
+	}
+	switch args[0] {
+	case "preview":
+		return runUpgradePreview(ctx, args[1:], stdout, stderr)
+	case "apply":
+		return runUpgradeApply(ctx, args[1:], stdout, stderr)
+	default:
+		return errors.New("upgrade requires preview or apply")
+	}
+}
+
+func runUpgradePreview(
+	ctx context.Context,
+	args []string,
+	stdout, stderr io.Writer,
+) (returnErr error) {
+	flags := flag.NewFlagSet("upgrade preview", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	dataDir := flags.String("data-dir", "", "installation data directory")
+	attachmentsDir := flags.String(
+		"attachments-dir",
+		"",
+		"Attachment Store root (default: DATA-DIR/attachments)",
+	)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 {
+		return errors.New("upgrade preview accepts no positional arguments")
+	}
+	upgrade, err := operations.PrepareUpgrade(ctx, operations.OpenConfig{
+		DataDir: *dataDir, AttachmentsDir: *attachmentsDir,
+	})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, upgrade.Close())
+	}()
+	return json.NewEncoder(stdout).Encode(upgrade.Plan())
+}
+
+func runUpgradeApply(
+	ctx context.Context,
+	args []string,
+	stdout, stderr io.Writer,
+) error {
+	flags := flag.NewFlagSet("upgrade apply", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	dataDir := flags.String("data-dir", "", "installation data directory")
+	attachmentsDir := flags.String(
+		"attachments-dir",
+		"",
+		"Attachment Store root (default: DATA-DIR/attachments)",
+	)
+	approve := flags.Bool(
+		"approve-consequences",
+		false,
+		"approve the exact previewed migration consequences",
+	)
+	acknowledgeNoDownMigration := flags.Bool(
+		"acknowledge-no-down-migration",
+		false,
+		"acknowledge rollback requires the prior binary and preserved Backup",
+	)
+	forceLive := flags.Bool(
+		"force-live",
+		false,
+		"allow migration while explicitly preserved live state exists",
+	)
+	reason := flags.String("reason", "", "mandatory reason for force-live migration")
+	previewDigest := flags.String(
+		"preview-digest",
+		"",
+		"exact digest returned by upgrade preview",
+	)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 {
+		return errors.New("upgrade apply accepts no positional arguments")
+	}
+	upgrade, err := operations.PrepareUpgrade(ctx, operations.OpenConfig{
+		DataDir: *dataDir, AttachmentsDir: *attachmentsDir,
+	})
+	if err != nil {
+		return err
+	}
+	if upgrade.Plan().RequiresApproval {
+		_, _ = fmt.Fprintln(
+			stderr,
+			"WARNING: approved upgrade has no down migration; preserve and protect its Full-Fidelity Backup",
+		)
+	}
+	result, err := upgrade.Apply(ctx, operations.UpgradeApproval{
+		ApproveConsequences:        *approve,
+		AcknowledgeNoDownMigration: *acknowledgeNoDownMigration,
+		ForceLive:                  *forceLive,
+		Reason:                     *reason,
+		HostAuthority:              true,
+		PreviewDigest:              *previewDigest,
+	})
+	if err != nil {
+		if result.BackupPath != "" {
+			_, _ = fmt.Fprintf(
+				stderr,
+				"rollback Backup preserved at %s\n",
+				result.BackupPath,
+			)
+		}
+		return err
+	}
+	return json.NewEncoder(stdout).Encode(result)
 }
 
 func runRestore(ctx context.Context, args []string, stdout, stderr io.Writer) error {
@@ -353,5 +473,8 @@ func runServe(ctx context.Context, args []string, stderr io.Writer, logger *slog
 }
 
 func printUsage(output io.Writer) {
-	_, _ = fmt.Fprintln(output, "usage: beamers <init|bootstrap|backup|restore|serve> [options]")
+	_, _ = fmt.Fprintln(
+		output,
+		"usage: beamers <init|bootstrap|backup|restore|upgrade|serve> [options]",
+	)
 }

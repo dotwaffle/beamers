@@ -106,6 +106,7 @@ const DefaultActorKind = ActorKindAccount
 const (
 	ActorKindAccount    ActorKind = "Account"
 	ActorKindUploadLink ActorKind = "UploadLink"
+	ActorKindHost       ActorKind = "Host"
 )
 
 func (ak ActorKind) String() string {
@@ -115,7 +116,7 @@ func (ak ActorKind) String() string {
 // ActorKindValidator is a validator for the "actor_kind" field enum values. It is called by the builders before save.
 func ActorKindValidator(ak ActorKind) error {
 	switch ak {
-	case ActorKindAccount, ActorKindUploadLink:
+	case ActorKindAccount, ActorKindUploadLink, ActorKindHost:
 		return nil
 	default:
 		return fmt.Errorf("auditentry: invalid enum value for actor_kind field: %q", ak)

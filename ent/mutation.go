@@ -30390,18 +30390,23 @@ func (m *LocationPublishedVersionMutation) ResetEdge(name string) error {
 // MigrationMutation represents an operation that mutates the Migration nodes in the graph.
 type MigrationMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *int
-	version       *int
-	addversion    *int
-	name          *string
-	checksum      *string
-	applied_at    *time.Time
-	clearedFields map[string]struct{}
-	done          bool
-	oldValue      func(context.Context) (*Migration, error)
-	predicates    []predicate.Migration
+	op                               Op
+	typ                              string
+	id                               *int
+	version                          *int
+	addversion                       *int
+	name                             *string
+	checksum                         *string
+	safety                           *migration.Safety
+	minimum_reader_schema_version    *int
+	addminimum_reader_schema_version *int
+	minimum_writer_schema_version    *int
+	addminimum_writer_schema_version *int
+	applied_at                       *time.Time
+	clearedFields                    map[string]struct{}
+	done                             bool
+	oldValue                         func(context.Context) (*Migration, error)
+	predicates                       []predicate.Migration
 }
 
 var _ ent.Mutation = (*MigrationMutation)(nil)
@@ -30630,6 +30635,154 @@ func (m *MigrationMutation) ResetChecksum() {
 	m.checksum = nil
 }
 
+// SetSafety sets the "safety" field.
+func (m *MigrationMutation) SetSafety(value migration.Safety) {
+	m.safety = &value
+}
+
+// Safety returns the value of the "safety" field in the mutation.
+func (m *MigrationMutation) Safety() (r migration.Safety, exists bool) {
+	v := m.safety
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSafety returns the old "safety" field's value of the Migration entity.
+// If the Migration object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MigrationMutation) OldSafety(ctx context.Context) (v migration.Safety, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSafety is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSafety requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSafety: %w", err)
+	}
+	return oldValue.Safety, nil
+}
+
+// ResetSafety resets all changes to the "safety" field.
+func (m *MigrationMutation) ResetSafety() {
+	m.safety = nil
+}
+
+// SetMinimumReaderSchemaVersion sets the "minimum_reader_schema_version" field.
+func (m *MigrationMutation) SetMinimumReaderSchemaVersion(i int) {
+	m.minimum_reader_schema_version = &i
+	m.addminimum_reader_schema_version = nil
+}
+
+// MinimumReaderSchemaVersion returns the value of the "minimum_reader_schema_version" field in the mutation.
+func (m *MigrationMutation) MinimumReaderSchemaVersion() (r int, exists bool) {
+	v := m.minimum_reader_schema_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMinimumReaderSchemaVersion returns the old "minimum_reader_schema_version" field's value of the Migration entity.
+// If the Migration object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MigrationMutation) OldMinimumReaderSchemaVersion(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMinimumReaderSchemaVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMinimumReaderSchemaVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMinimumReaderSchemaVersion: %w", err)
+	}
+	return oldValue.MinimumReaderSchemaVersion, nil
+}
+
+// AddMinimumReaderSchemaVersion adds i to the "minimum_reader_schema_version" field.
+func (m *MigrationMutation) AddMinimumReaderSchemaVersion(i int) {
+	if m.addminimum_reader_schema_version != nil {
+		*m.addminimum_reader_schema_version += i
+	} else {
+		m.addminimum_reader_schema_version = &i
+	}
+}
+
+// AddedMinimumReaderSchemaVersion returns the value that was added to the "minimum_reader_schema_version" field in this mutation.
+func (m *MigrationMutation) AddedMinimumReaderSchemaVersion() (r int, exists bool) {
+	v := m.addminimum_reader_schema_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetMinimumReaderSchemaVersion resets all changes to the "minimum_reader_schema_version" field.
+func (m *MigrationMutation) ResetMinimumReaderSchemaVersion() {
+	m.minimum_reader_schema_version = nil
+	m.addminimum_reader_schema_version = nil
+}
+
+// SetMinimumWriterSchemaVersion sets the "minimum_writer_schema_version" field.
+func (m *MigrationMutation) SetMinimumWriterSchemaVersion(i int) {
+	m.minimum_writer_schema_version = &i
+	m.addminimum_writer_schema_version = nil
+}
+
+// MinimumWriterSchemaVersion returns the value of the "minimum_writer_schema_version" field in the mutation.
+func (m *MigrationMutation) MinimumWriterSchemaVersion() (r int, exists bool) {
+	v := m.minimum_writer_schema_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMinimumWriterSchemaVersion returns the old "minimum_writer_schema_version" field's value of the Migration entity.
+// If the Migration object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MigrationMutation) OldMinimumWriterSchemaVersion(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMinimumWriterSchemaVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMinimumWriterSchemaVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMinimumWriterSchemaVersion: %w", err)
+	}
+	return oldValue.MinimumWriterSchemaVersion, nil
+}
+
+// AddMinimumWriterSchemaVersion adds i to the "minimum_writer_schema_version" field.
+func (m *MigrationMutation) AddMinimumWriterSchemaVersion(i int) {
+	if m.addminimum_writer_schema_version != nil {
+		*m.addminimum_writer_schema_version += i
+	} else {
+		m.addminimum_writer_schema_version = &i
+	}
+}
+
+// AddedMinimumWriterSchemaVersion returns the value that was added to the "minimum_writer_schema_version" field in this mutation.
+func (m *MigrationMutation) AddedMinimumWriterSchemaVersion() (r int, exists bool) {
+	v := m.addminimum_writer_schema_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetMinimumWriterSchemaVersion resets all changes to the "minimum_writer_schema_version" field.
+func (m *MigrationMutation) ResetMinimumWriterSchemaVersion() {
+	m.minimum_writer_schema_version = nil
+	m.addminimum_writer_schema_version = nil
+}
+
 // SetAppliedAt sets the "applied_at" field.
 func (m *MigrationMutation) SetAppliedAt(t time.Time) {
 	m.applied_at = &t
@@ -30700,7 +30853,7 @@ func (m *MigrationMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *MigrationMutation) Fields() []string {
-	fields := make([]string, 0, 4)
+	fields := make([]string, 0, 7)
 	if m.version != nil {
 		fields = append(fields, migration.FieldVersion)
 	}
@@ -30709,6 +30862,15 @@ func (m *MigrationMutation) Fields() []string {
 	}
 	if m.checksum != nil {
 		fields = append(fields, migration.FieldChecksum)
+	}
+	if m.safety != nil {
+		fields = append(fields, migration.FieldSafety)
+	}
+	if m.minimum_reader_schema_version != nil {
+		fields = append(fields, migration.FieldMinimumReaderSchemaVersion)
+	}
+	if m.minimum_writer_schema_version != nil {
+		fields = append(fields, migration.FieldMinimumWriterSchemaVersion)
 	}
 	if m.applied_at != nil {
 		fields = append(fields, migration.FieldAppliedAt)
@@ -30727,6 +30889,12 @@ func (m *MigrationMutation) Field(name string) (ent.Value, bool) {
 		return m.Name()
 	case migration.FieldChecksum:
 		return m.Checksum()
+	case migration.FieldSafety:
+		return m.Safety()
+	case migration.FieldMinimumReaderSchemaVersion:
+		return m.MinimumReaderSchemaVersion()
+	case migration.FieldMinimumWriterSchemaVersion:
+		return m.MinimumWriterSchemaVersion()
 	case migration.FieldAppliedAt:
 		return m.AppliedAt()
 	}
@@ -30744,6 +30912,12 @@ func (m *MigrationMutation) OldField(ctx context.Context, name string) (ent.Valu
 		return m.OldName(ctx)
 	case migration.FieldChecksum:
 		return m.OldChecksum(ctx)
+	case migration.FieldSafety:
+		return m.OldSafety(ctx)
+	case migration.FieldMinimumReaderSchemaVersion:
+		return m.OldMinimumReaderSchemaVersion(ctx)
+	case migration.FieldMinimumWriterSchemaVersion:
+		return m.OldMinimumWriterSchemaVersion(ctx)
 	case migration.FieldAppliedAt:
 		return m.OldAppliedAt(ctx)
 	}
@@ -30776,6 +30950,27 @@ func (m *MigrationMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetChecksum(v)
 		return nil
+	case migration.FieldSafety:
+		v, ok := value.(migration.Safety)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSafety(v)
+		return nil
+	case migration.FieldMinimumReaderSchemaVersion:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMinimumReaderSchemaVersion(v)
+		return nil
+	case migration.FieldMinimumWriterSchemaVersion:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMinimumWriterSchemaVersion(v)
+		return nil
 	case migration.FieldAppliedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -30794,6 +30989,12 @@ func (m *MigrationMutation) AddedFields() []string {
 	if m.addversion != nil {
 		fields = append(fields, migration.FieldVersion)
 	}
+	if m.addminimum_reader_schema_version != nil {
+		fields = append(fields, migration.FieldMinimumReaderSchemaVersion)
+	}
+	if m.addminimum_writer_schema_version != nil {
+		fields = append(fields, migration.FieldMinimumWriterSchemaVersion)
+	}
 	return fields
 }
 
@@ -30804,6 +31005,10 @@ func (m *MigrationMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
 	case migration.FieldVersion:
 		return m.AddedVersion()
+	case migration.FieldMinimumReaderSchemaVersion:
+		return m.AddedMinimumReaderSchemaVersion()
+	case migration.FieldMinimumWriterSchemaVersion:
+		return m.AddedMinimumWriterSchemaVersion()
 	}
 	return nil, false
 }
@@ -30819,6 +31024,20 @@ func (m *MigrationMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddVersion(v)
+		return nil
+	case migration.FieldMinimumReaderSchemaVersion:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddMinimumReaderSchemaVersion(v)
+		return nil
+	case migration.FieldMinimumWriterSchemaVersion:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddMinimumWriterSchemaVersion(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Migration numeric field %s", name)
@@ -30855,6 +31074,15 @@ func (m *MigrationMutation) ResetField(name string) error {
 		return nil
 	case migration.FieldChecksum:
 		m.ResetChecksum()
+		return nil
+	case migration.FieldSafety:
+		m.ResetSafety()
+		return nil
+	case migration.FieldMinimumReaderSchemaVersion:
+		m.ResetMinimumReaderSchemaVersion()
+		return nil
+	case migration.FieldMinimumWriterSchemaVersion:
+		m.ResetMinimumWriterSchemaVersion()
 		return nil
 	case migration.FieldAppliedAt:
 		m.ResetAppliedAt()
