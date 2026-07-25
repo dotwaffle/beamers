@@ -30,14 +30,77 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  capacity:
+  rated:
+    if: inputs.profile == 'rated' || inputs.profile == 'all'
+    name: rated
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Restore Go caches
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: go-${{ runner.os }}-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            go-${{ runner.os }}-
+
+      - name: Install toolchain
+        uses: jdx/mise-action@v4
+        with:
+          cache: true
+
+      - name: Run capacity profile
+        env:
+          BEAMERS_CAPACITY_SOAK: "1"
+          BEAMERS_CAPACITY_ROLE: combined
+          BEAMERS_CAPACITY_CERTIFY: "1"
+          BEAMERS_CAPACITY_PROFILE: rated
+          BEAMERS_CAPACITY_DURATION: ${{ inputs.duration }}
+          BEAMERS_CAPACITY_REPORT: ${{ github.workspace }}/artifacts/capacity.json
+        run: |
+          go test ./internal/server \
+            -run '^TestCapacityEnvelope$' \
+            -count=1 \
+            -timeout 40m \
+            -v
+
+      - name: Report capacity evidence
+        if: always()
+        run: |
+          if [ -f artifacts/capacity.json ]; then
+            echo "::notice title=Capacity evidence::$(jq -c . artifacts/capacity.json)"
+          fi
+
+      - name: Upload capacity evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: capacity-rated-${{ github.run_id }}
+          path: artifacts/capacity.json
+          if-no-files-found: error
+          retention-days: 30
+
+  profiles:
+    needs: rated
+    if: >-
+      always() &&
+      (
+        (inputs.profile == 'all' && needs.rated.result == 'success') ||
+        (inputs.profile != 'all' && inputs.profile != 'rated')
+      )
     name: ${{ matrix.profile }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        profile: ${{ fromJSON(inputs.profile == 'all' && '["netuk","nova","fosdem","revision","rated","stress"]' || format('["{0}"]', inputs.profile)) }}
+        profile: ${{ fromJSON(inputs.profile == 'all' && '["netuk","nova","fosdem","revision","stress"]' || format('["{0}"]', inputs.profile)) }}
 
     steps:
       - name: Check out repository

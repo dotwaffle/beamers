@@ -57,7 +57,8 @@ The manual `Capacity` workflow certifies every representative and rated profile 
 gh workflow run Capacity --ref main -f profile=all
 ```
 
-The default dispatch certifies only the rated profile; use `profile=all` for complete release evidence.
+The default dispatch certifies only the rated profile.
+With `profile=all`, the rated profile runs first; only a pass starts the other representative profiles and stress in parallel.
 Certification fails when a representative or rated run is shorter than five minutes, collects fewer than 200 live commands, or misses a latency objective.
 The stress profile remains diagnostic and cannot certify.
 It fails if peak process memory exceeds 80 percent of runner memory or if goroutine or open-file maxima exceed the workload-derived bounds.
