@@ -1641,11 +1641,19 @@ func linuxNonRotational(path string) bool {
 		(device&0xfffff00000000000)>>32
 	minor := device&0x00000000000000ff |
 		(device&0x00000ffffff00000)>>12
-	value, err := os.ReadFile(fmt.Sprintf(
-		"/sys/dev/block/%d:%d/queue/rotational",
-		major,
-		minor,
-	))
+	devicePath := fmt.Sprintf("/sys/dev/block/%d:%d", major, minor)
+	value, err := os.ReadFile(filepath.Join(devicePath, "queue", "rotational"))
+	if err != nil {
+		resolved, resolveErr := filepath.EvalSymlinks(devicePath)
+		if resolveErr != nil {
+			return false
+		}
+		value, err = os.ReadFile(filepath.Join(
+			filepath.Dir(resolved),
+			"queue",
+			"rotational",
+		))
+	}
 	return err == nil && strings.TrimSpace(string(value)) == "0"
 }
 

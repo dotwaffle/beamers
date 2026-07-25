@@ -54,6 +54,13 @@ jobs:
             -timeout 40m \
             -v
 
+      - name: Report capacity evidence
+        if: always()
+        run: |
+          if [ -f artifacts/capacity.json ]; then
+            echo "::notice title=Capacity evidence::$(jq -c . artifacts/capacity.json)"
+          fi
+
       - name: Upload capacity evidence
         if: always()
         uses: actions/upload-artifact@v7
