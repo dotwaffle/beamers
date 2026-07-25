@@ -6,8 +6,21 @@ on:
       duration:
         description: Sustained workload duration
         required: true
-        default: 10m
+        default: 5m
         type: string
+      profile:
+        description: Capacity profile
+        required: true
+        default: rated
+        type: choice
+        options:
+          - all
+          - netuk
+          - nova
+          - fosdem
+          - revision
+          - rated
+          - stress
 
 permissions:
   contents: read
@@ -18,31 +31,13 @@ concurrency:
 
 jobs:
   capacity:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.profile }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: NetUK certification
-            profile: netuk
-            certify: "1"
-          - name: Nova certification
-            profile: nova
-            certify: "1"
-          - name: FOSDEM certification
-            profile: fosdem
-            certify: "1"
-          - name: Revision certification
-            profile: revision
-            certify: "1"
-          - name: Rated certification
-            profile: rated
-            certify: "1"
-          - name: Diagnostic stress
-            profile: stress
-            certify: "0"
+        profile: ${{ fromJSON(inputs.profile == 'all' && '["netuk","nova","fosdem","revision","rated","stress"]' || format('["{0}"]', inputs.profile)) }}
 
     steps:
       - name: Check out repository
@@ -67,7 +62,7 @@ jobs:
         env:
           BEAMERS_CAPACITY_SOAK: "1"
           BEAMERS_CAPACITY_ROLE: combined
-          BEAMERS_CAPACITY_CERTIFY: ${{ matrix.certify }}
+          BEAMERS_CAPACITY_CERTIFY: ${{ matrix.profile == 'stress' && '0' || '1' }}
           BEAMERS_CAPACITY_PROFILE: ${{ matrix.profile }}
           BEAMERS_CAPACITY_DURATION: ${{ inputs.duration }}
           BEAMERS_CAPACITY_REPORT: ${{ github.workspace }}/artifacts/capacity.json

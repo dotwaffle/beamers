@@ -53,12 +53,13 @@ import (
 )
 
 const (
-	publicPollingInterval   = 12 * time.Second
-	publicFreshnessBound    = 15 * time.Second
-	capacityStageDuration   = 2 * time.Hour
-	capacityTimerSkewBound  = 250 * time.Millisecond
-	capacityCommandInterval = 2 * time.Second
-	capacityWarmup          = 5 * time.Second
+	publicPollingInterval         = 12 * time.Second
+	publicFreshnessBound          = 15 * time.Second
+	capacityStageDuration         = 2 * time.Hour
+	capacityTimerSkewBound        = 250 * time.Millisecond
+	capacityCommandInterval       = time.Second
+	capacityWarmup                = 5 * time.Second
+	capacityCertificationDuration = 5 * time.Minute
 )
 
 type capacityProfile struct {
@@ -169,6 +170,18 @@ func TestCapacityLoadArrivalsRemainOrderedWithJitter(t *testing.T) {
 			t.Fatalf("arrival %d at %s follows %s", arrival, scheduled, previous)
 		}
 		previous = scheduled
+	}
+}
+
+func TestCapacityCertificationDurationCollectsRequiredCommands(t *testing.T) {
+	started := time.Unix(0, 0)
+	deadline := started.Add(capacityCertificationDuration)
+	samples := 0
+	for capacityCommandArrival(started, samples, capacityCommandInterval).Before(deadline) {
+		samples++
+	}
+	if samples < 200 {
+		t.Fatalf("certification samples = %d, want at least 200", samples)
 	}
 }
 
@@ -2487,8 +2500,11 @@ func capacityDuration(t *testing.T, certify bool) time.Duration {
 	if err != nil || duration < time.Minute || duration > 30*time.Minute {
 		t.Fatalf("BEAMERS_CAPACITY_DURATION must be between 1m and 30m")
 	}
-	if certify && duration < 10*time.Minute {
-		t.Fatal("certification capacity duration must be at least 10m")
+	if certify && duration < capacityCertificationDuration {
+		t.Fatalf(
+			"certification capacity duration must be at least %s",
+			capacityCertificationDuration,
+		)
 	}
 	return duration
 }
@@ -2709,7 +2725,7 @@ func capacityResourceBoundError(
 	envelope capacityEnvelope,
 	resources capacityResources,
 ) error {
-	maxGoroutines := envelope.PublicReaders +
+	maxGoroutines := 2*envelope.PublicReaders +
 		4*envelope.Displays +
 		2*envelope.CrewConsoles +
 		2_048

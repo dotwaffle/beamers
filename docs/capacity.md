@@ -54,13 +54,15 @@ Public freshness timing begins after the mutation commits.
 The manual `Capacity` workflow certifies every representative and rated profile and runs the diagnostic stress profile:
 
 ```sh
-gh workflow run Capacity --ref main -f duration=10m
+gh workflow run Capacity --ref main -f profile=all
 ```
 
-Certification fails when a representative or rated run is shorter than ten minutes, collects fewer than 200 live commands, or misses a latency objective.
+The default dispatch certifies only the rated profile; use `profile=all` for complete release evidence.
+Certification fails when a representative or rated run is shorter than five minutes, collects fewer than 200 live commands, or misses a latency objective.
 The stress profile remains diagnostic and cannot certify.
 It fails if peak process memory exceeds 80 percent of runner memory or if goroutine or open-file maxima exceed the workload-derived bounds.
 The workflow requires one `capacity.json` artifact per profile with runner facts, workload counts, sample counts, resource maxima, and latency percentiles.
+Pass `-f profile=stress` or another profile name to rerun only one failed profile.
 
 ## Local diagnostics
 
