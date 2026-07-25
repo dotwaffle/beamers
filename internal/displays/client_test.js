@@ -371,6 +371,104 @@ test("Stage Timer ignores browser wall-clock jumps after synchronization", async
   assert.match(nodeText(region), /01:00/);
 });
 
+test("initial clock synchronization retries a noisy sample", async () => {
+  const started = Date.now();
+  const browser = await startBrowser({
+    snapshots: [
+      displaySnapshot({serverTime: new Date(started).toISOString()}),
+      displaySnapshot({serverTime: new Date(started + 600).toISOString()}),
+    ],
+    snapshotDelays: [600, 0],
+  });
+  assert.equal(browser.snapshotRequests, 2);
+  assert.equal(browser.acknowledgments.at(-1).clockUncertaintyMilliseconds, 0);
+});
+
+test("initial clock synchronization survives a wall-clock step between retries", async () => {
+  const started = Date.now();
+  const browser = await startBrowser({
+    snapshots: [
+      displaySnapshot({serverTime: new Date(started + 300).toISOString()}),
+      displaySnapshot({serverTime: new Date(started + 950).toISOString()}),
+      displaySnapshot({serverTime: new Date(started + 1700).toISOString()}),
+    ],
+    snapshotDelays: [600, 700, 800],
+    snapshotWallJumps: [0, 60 * 60 * 1000, 0],
+  });
+  const acknowledgment = browser.acknowledgments.at(-1);
+  assert.equal(browser.snapshotRequests, 3);
+  assert.equal(acknowledgment.clockUncertaintyMilliseconds, 300);
+  assert.ok(acknowledgment.clockOffsetMilliseconds < -(59 * 60 * 1000));
+});
+
+test("clock synchronization survives a backward wall-clock step during fetch", async () => {
+  const started = Date.now();
+  const browser = await startBrowser({
+    snapshot: stageTimerSnapshot({
+      serverTime: new Date(started + 50).toISOString(),
+      stageTimer: {
+        sessionId: "42",
+        title: "Closing Keynote",
+        mode: "STAGE_TIMER_MODE_COUNTDOWN",
+        anchor: new Date(started + 60_000).toISOString(),
+        thresholds: [],
+      },
+    }),
+    snapshotDelays: [100],
+    snapshotWallJumps: [-(60 * 60 * 1000)],
+  });
+  const acknowledgment = browser.acknowledgments.at(-1);
+  assert.equal(acknowledgment.clockUncertaintyMilliseconds, 50);
+  assert.ok(acknowledgment.clockOffsetMilliseconds > (59 * 60 * 1000));
+  assert.match(nodeText(browser.document.main.children[1]), /01:00/);
+});
+
+test("clock synchronization retains a good sample after a noisy refresh", async () => {
+  const started = Date.now();
+  const timer = {
+    sessionId: "42",
+    title: "Closing Keynote",
+    mode: "STAGE_TIMER_MODE_COUNTDOWN",
+    anchor: new Date(started + 60_000).toISOString(),
+    thresholds: [],
+  };
+  const browser = await startBrowser({
+    snapshots: [
+      stageTimerSnapshot({
+        serverTime: new Date(started).toISOString(),
+        stageTimer: timer,
+      }),
+      stageTimerSnapshot({
+        serverTime: new Date(started).toISOString(),
+        publishedRevision: "2",
+        stageTimer: timer,
+      }),
+    ],
+    snapshotDelays: [0, 600],
+  });
+  const initial = browser.acknowledgments.at(-1);
+  const before = nodeText(browser.document.main.children[1]);
+  browser.now += 60 * 60 * 1000;
+  browser.eventSources[0].emit("invalidate", {
+    data: JSON.stringify({
+      protocol_version: "beamers.display.v1",
+      asset_version: "asset-current",
+      stream_position: 2,
+    }),
+  });
+  await browser.runTimer((delay) => delay === 0);
+  const refreshed = browser.acknowledgments.at(-1);
+  assert.equal(nodeText(browser.document.main.children[1]), before);
+  assert.equal(
+    refreshed.clockOffsetMilliseconds,
+    initial.clockOffsetMilliseconds - (60 * 60 * 1000),
+  );
+  assert.equal(
+    refreshed.clockUncertaintyMilliseconds,
+    initial.clockUncertaintyMilliseconds,
+  );
+});
+
 test("Location Now Next excludes canceled Sessions without removing rotation content", async () => {
   const browser = await startBrowser({
     snapshot: displaySnapshot({
@@ -662,6 +760,7 @@ async function startBrowser(options = {}) {
   async function fetch(url, request = {}) {
     if (url.endsWith("/GetSnapshot")) {
       browser.snapshotRequests++;
+      const snapshotIndex = browser.snapshotRequests - 1;
       if (browser.snapshotRequests <= (options.snapshotMaintenance ?? 0)) {
         return {
           ok: false,
@@ -677,8 +776,12 @@ async function startBrowser(options = {}) {
         throw new Error("snapshot unavailable");
       }
       const snapshot = snapshots[
-        Math.min(browser.snapshotRequests - 1, snapshots.length - 1)
+        Math.min(snapshotIndex, snapshots.length - 1)
       ];
+      const delay = options.snapshotDelays?.[snapshotIndex] ?? 0;
+      browser.now += delay;
+      browser.monotonicNow += delay;
+      browser.now += options.snapshotWallJumps?.[snapshotIndex] ?? 0;
       return jsonResponse({snapshot});
     }
     if (url.endsWith("/Acknowledge")) {

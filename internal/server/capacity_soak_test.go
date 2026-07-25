@@ -59,6 +59,7 @@ const (
 	publicPollingInterval   = 12 * time.Second
 	publicFreshnessBound    = 15 * time.Second
 	capacityStageDuration   = 2 * time.Hour
+	capacityTimerSkewBound  = 250 * time.Millisecond
 )
 
 func TestCapacityEnvelope(t *testing.T) {
@@ -741,10 +742,22 @@ func runCapacityDisplay(
 	backgroundErr chan<- error,
 	requests *atomic.Int64,
 ) {
-	snapshot, _, err := fetchCapacitySnapshot(ctx, client, baseURL, credential)
+	snapshot, clock, err := fetchCapacitySnapshot(ctx, client, baseURL, credential)
 	if err != nil {
 		sendCapacityError(ctx, backgroundErr, err)
 		return
+	}
+	for range 2 {
+		if clock.uncertainty <= capacityTimerSkewBound {
+			break
+		}
+		var candidate capacityClock
+		snapshot, candidate, err = fetchCapacitySnapshot(ctx, client, baseURL, credential)
+		if err != nil {
+			sendCapacityError(ctx, backgroundErr, err)
+			return
+		}
+		clock = clock.selectSample(candidate)
 	}
 	request, err := http.NewRequestWithContext(
 		ctx,
@@ -789,7 +802,7 @@ func runCapacityDisplay(
 			}
 			return
 		}
-		snapshot, clock, snapshotErr := fetchCapacitySnapshot(
+		snapshot, candidateClock, snapshotErr := fetchCapacitySnapshot(
 			ctx,
 			client,
 			baseURL,
@@ -799,6 +812,7 @@ func runCapacityDisplay(
 			sendCapacityError(ctx, backgroundErr, snapshotErr)
 			return
 		}
+		clock = clock.selectSample(candidateClock)
 		if snapshot.StageTimer == nil {
 			sendCapacityError(
 				ctx,
@@ -821,7 +835,7 @@ func runCapacityDisplay(
 		select {
 		case applied <- capacityDisplayApplied{
 			at:           time.Now(),
-			clockOffset:  clock.offset,
+			clockOffset:  clock.offset(),
 			timerAnchor:  timerAnchor,
 			liveRevision: liveRevision,
 		}:
@@ -897,8 +911,22 @@ type capacitySnapshot struct {
 }
 
 type capacityClock struct {
-	offset      time.Duration
-	uncertainty time.Duration
+	localReference  time.Time
+	serverReference time.Time
+	uncertainty     time.Duration
+}
+
+func (clock capacityClock) selectSample(candidate capacityClock) capacityClock {
+	if candidate.uncertainty <= capacityTimerSkewBound ||
+		candidate.uncertainty < clock.uncertainty {
+		return candidate
+	}
+	return clock
+}
+
+func (clock capacityClock) offset() time.Duration {
+	now := time.Now()
+	return clock.serverReference.Add(now.Sub(clock.localReference)).Sub(now)
 }
 
 func fetchCapacitySnapshot(
@@ -945,10 +973,11 @@ func fetchCapacitySnapshot(
 	if err != nil {
 		return capacitySnapshot{}, capacityClock{}, fmt.Errorf("parse Display server time: %w", err)
 	}
-	midpoint := started.Add(finished.Sub(started) / 2)
+	midpoint := finished.Add(-finished.Sub(started) / 2)
 	return decoded.Snapshot, capacityClock{
-		offset:      serverTime.Sub(midpoint),
-		uncertainty: finished.Sub(started) / 2,
+		localReference:  midpoint,
+		serverReference: serverTime,
+		uncertainty:     finished.Sub(started) / 2,
 	}, nil
 }
 
@@ -979,7 +1008,7 @@ func acknowledgeCapacitySnapshot(
 		"emergency_alert_id":             capacityProtoInteger(snapshot.EmergencyAlert.ID),
 		"emergency_alert_revision":       capacityProtoInteger(snapshot.EmergencyAlert.Revision),
 		"standby":                        snapshot.Standby,
-		"clock_offset_milliseconds":      clock.offset.Milliseconds(),
+		"clock_offset_milliseconds":      clock.offset().Milliseconds(),
 		"clock_uncertainty_milliseconds": clock.uncertainty.Milliseconds(),
 		"renderer_unstable":              false,
 		"snapshot_token":                 snapshot.SnapshotToken,
@@ -1462,7 +1491,7 @@ func verifyCapacityThresholds(t *testing.T, metrics capacityMetrics) {
 	if display.P99MS > 1_000 {
 		t.Errorf("Display application p99 = %dms, want <= 1000ms", display.P99MS)
 	}
-	if metrics.maximumTimerSkew > 250*time.Millisecond {
+	if metrics.maximumTimerSkew > capacityTimerSkewBound {
 		t.Errorf(
 			"Stage Timer maximum skew = %s, want <= 250ms",
 			metrics.maximumTimerSkew,

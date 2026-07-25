@@ -4,6 +4,7 @@ const expectedProtocol = document.documentElement.dataset.protocolVersion;
 const expectedAsset = document.documentElement.dataset.assetVersion;
 const healthRefreshMilliseconds = 10000;
 const maximumBackoffMilliseconds = 15000;
+const maximumClockUncertaintyMilliseconds = 250;
 const reloadLoopWindowMilliseconds = 60000;
 
 let appliedSnapshot;
@@ -12,6 +13,7 @@ let clockReference = {
   monotonicMilliseconds: performance.now(),
 };
 let clockOffsetMilliseconds = 0;
+let clockSynchronized = false;
 let clockUncertaintyMilliseconds = 0;
 let clockTimer;
 let eventSource;
@@ -32,7 +34,9 @@ async function recoverDisplay(reason = "reconnecting") {
   setConnection(reason, reason === "connecting" ? "Connecting…" : "Connection lost. Reconnecting…");
 
   try {
-    const {snapshot, offset, uncertainty} = await fetchSnapshot();
+    const fetched = appliedSnapshot ? await fetchSnapshot() : await fetchInitialSnapshot();
+    const {snapshot} = fetched;
+    const clock = selectClockSample(fetched);
     if (generation !== recoveryGeneration) {
       return;
     }
@@ -41,7 +45,7 @@ async function recoverDisplay(reason = "reconnecting") {
       return;
     }
     try {
-      renderSnapshot(snapshot, offset);
+      renderSnapshot(snapshot, clock.offset);
       rendererFailures = 0;
     } catch {
       rendererFailures++;
@@ -54,8 +58,9 @@ async function recoverDisplay(reason = "reconnecting") {
       return;
     }
     appliedSnapshot = snapshot;
-    clockOffsetMilliseconds = offset;
-    clockUncertaintyMilliseconds = uncertainty;
+    clockOffsetMilliseconds = clock.offset;
+    clockSynchronized = true;
+    clockUncertaintyMilliseconds = clock.uncertainty;
     recoveryAttempt = 0;
     void acknowledgeSnapshot(snapshot, false);
     openEventStream(snapshot);
@@ -74,7 +79,7 @@ async function recoverDisplay(reason = "reconnecting") {
 }
 
 async function fetchSnapshot() {
-  const startedAt = Date.now();
+  const startedAt = performance.now();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
   try {
@@ -93,19 +98,57 @@ async function fetchSnapshot() {
       throw new Error(`snapshot request failed: ${response.status}`);
     }
     const {snapshot} = await response.json();
-    const completedAt = Date.now();
+    const completedAt = performance.now();
+    const elapsed = completedAt - startedAt;
     const serverTime = Date.parse(snapshot?.serverTime);
     if (!Number.isFinite(serverTime)) {
       throw new Error("snapshot server time is invalid");
     }
     return {
       snapshot,
-      offset: Math.round(serverTime - ((startedAt + completedAt) / 2)),
-      uncertainty: Math.round((completedAt - startedAt) / 2),
+      offset: Math.round(serverTime - (Date.now() - (elapsed / 2))),
+      uncertainty: Math.round(elapsed / 2),
+      serverReference: serverTime + (elapsed / 2),
+      monotonicReference: completedAt,
     };
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function fetchInitialSnapshot() {
+  let latest = await fetchSnapshot();
+  let best = latest;
+  for (let attempt = 0;
+    attempt < 2 && best.uncertainty > maximumClockUncertaintyMilliseconds;
+    attempt++) {
+    latest = await fetchSnapshot();
+    if (latest.uncertainty < best.uncertainty) {
+      best = latest;
+    }
+  }
+  return {
+    ...best,
+    snapshot: latest.snapshot,
+  };
+}
+
+function selectClockSample(sample) {
+  const offset = Math.round(
+    sample.serverReference +
+    (performance.now() - sample.monotonicReference) -
+    Date.now(),
+  );
+  const {uncertainty} = sample;
+  if (!clockSynchronized ||
+      uncertainty <= maximumClockUncertaintyMilliseconds ||
+      uncertainty < clockUncertaintyMilliseconds) {
+    return {offset, uncertainty};
+  }
+  return {
+    offset: Math.round(estimatedServerNow() - Date.now()),
+    uncertainty: clockUncertaintyMilliseconds,
+  };
 }
 
 function snapshotCompatible(snapshot) {
@@ -196,7 +239,9 @@ function nextSnapshotRefreshMilliseconds(snapshot) {
 
 async function refreshHealth() {
   try {
-    const {snapshot, offset, uncertainty} = await fetchSnapshot();
+    const fetched = await fetchSnapshot();
+    const {snapshot} = fetched;
+    const clock = selectClockSample(fetched);
     if (!snapshotCompatible(snapshot)) {
       await controlledReload(snapshot?.assetVersion);
       return;
@@ -206,7 +251,7 @@ async function refreshHealth() {
       return;
     }
     try {
-      renderSnapshot(snapshot, offset);
+      renderSnapshot(snapshot, clock.offset);
       rendererFailures = 0;
     } catch {
       rendererFailures++;
@@ -219,8 +264,9 @@ async function refreshHealth() {
       return;
     }
     appliedSnapshot = snapshot;
-    clockOffsetMilliseconds = offset;
-    clockUncertaintyMilliseconds = uncertainty;
+    clockOffsetMilliseconds = clock.offset;
+    clockSynchronized = true;
+    clockUncertaintyMilliseconds = clock.uncertainty;
     void acknowledgeSnapshot(snapshot, false);
     scheduleHealthRefresh(snapshot);
   } catch (error) {
