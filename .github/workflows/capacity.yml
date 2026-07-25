@@ -45,7 +45,7 @@ jobs:
         env:
           BEAMERS_CAPACITY_SOAK: "1"
           BEAMERS_CAPACITY_DURATION: ${{ inputs.duration }}
-          BEAMERS_CAPACITY_REPORT: artifacts/capacity.json
+          BEAMERS_CAPACITY_REPORT: ${{ github.workspace }}/artifacts/capacity.json
           BEAMERS_REFERENCE_HARDWARE: "1"
         run: |
           go test ./internal/server \
