@@ -1593,11 +1593,29 @@ func inspectCapacityHardware(t *testing.T, dataPath string) capacityHardware {
 		MemoryBytes: linuxMemoryBytes(),
 	}
 	hardware.StorageSource, hardware.Filesystem = linuxMount(dataPath)
-	hardware.NonRotational = linuxNonRotational(dataPath)
+	hardware.NonRotational = linuxNonRotational(dataPath) ||
+		githubHostedNonRotational(hardware.StorageSource, hardware.Filesystem)
 	if hardware.Filesystem == "tmpfs" {
 		hardware.NonRotational = false
 	}
 	return hardware
+}
+
+func githubHostedNonRotational(source, filesystem string) bool {
+	return os.Getenv("RUNNER_ENVIRONMENT") == "github-hosted" &&
+		source == "/dev/root" &&
+		filesystem == "ext4"
+}
+
+func TestGitHubHostedNonRotational(t *testing.T) {
+	t.Setenv("RUNNER_ENVIRONMENT", "github-hosted")
+	if !githubHostedNonRotational("/dev/root", "ext4") {
+		t.Fatal("GitHub-hosted synthetic root should use its documented SSD")
+	}
+	t.Setenv("RUNNER_ENVIRONMENT", "self-hosted")
+	if githubHostedNonRotational("/dev/root", "ext4") {
+		t.Fatal("self-hosted synthetic root must be inspected")
+	}
 }
 
 func linuxMount(path string) (string, string) {

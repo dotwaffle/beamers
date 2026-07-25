@@ -2,6 +2,7 @@
 
 Beamers tests the version-one envelope on Linux AMD64 with at least four CPUs, 8 GB of memory, and non-rotational local storage.
 The test performs real SQLite commits and refuses to certify tmpfs or rotating storage.
+The GitHub-hosted reference runner reports its documented SSD-backed ext4 root as the synthetic `/dev/root`; self-hosted runners must expose inspectable device metadata.
 
 The `Capacity` workflow is manual because it is a sustained release gate, not a per-commit unit test:
 
