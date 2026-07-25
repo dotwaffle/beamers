@@ -743,11 +743,22 @@ func certifyCrewControl(
 	if err := driver.waitFor(
 		t.Context(),
 		15*time.Second,
-		`return document.querySelector("#connection-status").textContent.includes("revision");`,
+		`return document.querySelector("#connection-status").textContent !== `+
+			`"Loading authoritative state…";`,
 	); err != nil {
 		t.Fatalf("wait for Crew control: %v", err)
 	}
-	if err := driver.pressKey(t.Context(), "\uE004"); err != nil {
+	status, err := driver.evaluateString(
+		t.Context(),
+		`return document.querySelector("#connection-status").textContent;`,
+	)
+	if err != nil {
+		t.Fatalf("read Crew control status: %v", err)
+	}
+	if !strings.Contains(status, "revision") {
+		t.Fatalf("Crew control status = %q, want revision", status)
+	}
+	if err = driver.pressKey(t.Context(), "\uE004"); err != nil {
 		t.Fatalf("Tab through Crew control: %v", err)
 	}
 	evidence, err := driver.auditPage(t.Context(), "crew_control")
