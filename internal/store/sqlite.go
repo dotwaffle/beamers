@@ -927,6 +927,8 @@ func openDatabase(ctx context.Context, path string) (*sql.DB, error) {
 	return openSQLite(ctx, path, false)
 }
 
+// Keep 500 concurrent Display snapshots in bounded SQLite read waves while the
+// authoritative writer remains serialized.
 const displayReadConnectionLimit = 64
 
 func openReadDatabase(ctx context.Context, path string) (*sql.DB, error) {
@@ -1026,7 +1028,7 @@ func openSQLitePool(
 	database, err := sql.Open("sqlite", sqliteDataSource(path, readOnly))
 	action := "open installation database"
 	if readOnly {
-		action += " for validation"
+		action += " read-only"
 	}
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", action, err)

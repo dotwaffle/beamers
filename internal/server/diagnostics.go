@@ -14,6 +14,12 @@ import (
 	"github.com/dotwaffle/beamers/internal/telemetry"
 )
 
+const (
+	testedLocationsOrLanes = 64
+	testedDisplays         = 500
+	testedSessionsEntries  = 25_000
+)
+
 func registerDiagnosticsRoutes(
 	mux *http.ServeMux,
 	authentication *auth.Service,
@@ -199,19 +205,19 @@ func normalDiagnostics(
 
 func capacityWarnings(capacity operations.Capacity, displaySubscribers int) []capacityWarning {
 	var warnings []capacityWarning
-	if observed := max(capacity.Locations, capacity.Lanes); observed > 64 {
+	if observed := max(capacity.Locations, capacity.Lanes); observed > testedLocationsOrLanes {
 		warnings = append(warnings, capacityWarning{
-			Code: "lanes_or_locations", Observed: observed, TestedMax: 64,
+			Code: "lanes_or_locations", Observed: observed, TestedMax: testedLocationsOrLanes,
 		})
 	}
-	if observed := capacity.Sessions + capacity.Entries; observed > 25_000 {
+	if observed := capacity.Sessions + capacity.Entries; observed > testedSessionsEntries {
 		warnings = append(warnings, capacityWarning{
-			Code: "sessions_and_entries", Observed: observed, TestedMax: 25_000,
+			Code: "sessions_and_entries", Observed: observed, TestedMax: testedSessionsEntries,
 		})
 	}
-	if observed := max(capacity.Displays, displaySubscribers); observed > 500 {
+	if observed := max(capacity.Displays, displaySubscribers); observed > testedDisplays {
 		warnings = append(warnings, capacityWarning{
-			Code: "displays", Observed: observed, TestedMax: 500,
+			Code: "displays", Observed: observed, TestedMax: testedDisplays,
 		})
 	}
 	return warnings

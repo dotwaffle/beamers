@@ -204,6 +204,9 @@ func TestDisplayEnrollmentExpiresAndClaimIsSingleUse(t *testing.T) {
 	if err != nil || current.Display != claimed || !current.Standby {
 		t.Errorf("claimed Display current state = %+v, %v", current, err)
 	}
+	if err = service.Authenticate(t.Context(), issued.Credential); err != nil {
+		t.Errorf("authenticate claimed Display: %v", err)
+	}
 	if want := currentStarted.Add(clockStep / 2); !current.ServerTime.Equal(want) {
 		t.Errorf("Display server time = %s, want request midpoint %s", current.ServerTime, want)
 	}
@@ -287,6 +290,9 @@ func TestDisplayReenrollmentPreservesExistingIdentity(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("create restored Display service: %v", err)
+	}
+	if err = service.Authenticate(ctx, first.Credential); !errors.Is(err, ErrDisplayAuthentication) {
+		t.Fatalf("authenticate removed Display credential: %v", err)
 	}
 	recovery, err := service.EnrollmentForBrowser(ctx, "", "")
 	if err != nil {

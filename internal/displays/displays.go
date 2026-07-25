@@ -321,6 +321,20 @@ func New(storage *store.SQLite, config Config) (*Service, error) {
 	}, nil
 }
 
+// Authenticate validates one persistent Display credential.
+func (service *Service) Authenticate(ctx context.Context, credential string) error {
+	if !validDisplayToken(credential) {
+		return ErrDisplayAuthentication
+	}
+	if _, err := service.storage.FindDisplayByCredential(ctx, digest(credential)); err != nil {
+		if errors.Is(err, store.ErrDisplayCredential) {
+			return ErrDisplayAuthentication
+		}
+		return err
+	}
+	return nil
+}
+
 // Current authenticates a Display and returns its complete authorized Active Event Snapshot.
 func (service *Service) Current(ctx context.Context, credential string) (Snapshot, error) {
 	if !validDisplayToken(credential) {

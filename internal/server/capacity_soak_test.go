@@ -51,22 +51,23 @@ import (
 )
 
 const (
-	capacityLocations       = 64
-	capacityDisplays        = 500
+	capacityLocations       = testedLocationsOrLanes
+	capacityDisplays        = testedDisplays
 	capacityCrewConsoles    = 200
 	capacityPublicReaders   = 10_000
-	capacitySessionsEntries = 25_000
+	capacitySessionsEntries = testedSessionsEntries
 	publicPollingInterval   = 12 * time.Second
 	publicFreshnessBound    = 15 * time.Second
+	capacityStageDuration   = 2 * time.Hour
 )
 
 func TestCapacityEnvelope(t *testing.T) {
 	if os.Getenv("BEAMERS_CAPACITY_SOAK") != "1" {
 		t.Skip("set BEAMERS_CAPACITY_SOAK=1 to run the reference capacity soak")
 	}
-	duration := capacityDuration(t)
-	hardware := inspectCapacityHardware(t, os.TempDir())
 	referenceHardware := os.Getenv("BEAMERS_REFERENCE_HARDWARE") == "1"
+	duration := capacityDuration(t, referenceHardware)
+	hardware := inspectCapacityHardware(t, os.TempDir())
 	if referenceHardware {
 		requireReferenceHardware(t, hardware)
 	}
@@ -129,6 +130,7 @@ func TestCapacityEnvelope(t *testing.T) {
 		client,
 		origin.URL,
 		fixture.displayCredentials,
+		fixture.liveSessionID,
 		applied,
 		backgroundErr,
 		&displayRequests,
@@ -219,6 +221,86 @@ func TestCapacityEnvelope(t *testing.T) {
 	verifyCapacityWarning(t, application, fixture, displayStream)
 }
 
+func BenchmarkCapacityDisplaySnapshotFanout(b *testing.B) {
+	fixture := prepareCapacityFixture(b)
+	displayStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
+	if err != nil {
+		b.Fatalf("create Display stream: %v", err)
+	}
+	programStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
+	if err != nil {
+		b.Fatalf("create Program Output stream: %v", err)
+	}
+	application, err := newApplication(b.Context(), applicationConfig{
+		Config: Config{
+			DataDir: fixture.dataDir, AttachmentsDir: filepath.Join(fixture.dataDir, "attachments"),
+			BuildVersion: "benchmark", Logger: slog.New(slog.DiscardHandler),
+			TracerProvider: tracenoop.NewTracerProvider(),
+			MeterProvider:  metricnoop.NewMeterProvider(),
+			Propagator:     propagation.TraceContext{},
+		},
+		Installation: fixture.installation,
+		ListenerAddress: &net.TCPAddr{
+			IP: net.ParseIP("127.0.0.1"), Port: 8080,
+		},
+		DisplayStream: displayStream,
+		ProgramStream: programStream,
+	})
+	if err != nil {
+		b.Fatalf("build capacity application: %v", err)
+	}
+	b.Cleanup(func() {
+		if closeErr := application.Close(); closeErr != nil {
+			b.Errorf("close capacity application: %v", closeErr)
+		}
+	})
+	origin := httptest.NewServer(application)
+	b.Cleanup(origin.Close)
+	transport := &http.Transport{
+		MaxIdleConns:        capacityDisplays,
+		MaxIdleConnsPerHost: capacityDisplays,
+		MaxConnsPerHost:     capacityDisplays,
+	}
+	b.Cleanup(transport.CloseIdleConnections)
+	client := &http.Client{Transport: transport, Timeout: 30 * time.Second}
+
+	for _, benchmark := range []struct {
+		name  string
+		limit int
+	}{
+		{name: "mode=serialized", limit: 1},
+		{name: "mode=pooled", limit: capacityDisplays},
+	} {
+		b.Run(benchmark.name, func(b *testing.B) {
+			for b.Loop() {
+				semaphore := make(chan struct{}, benchmark.limit)
+				var failed atomic.Bool
+				var requests sync.WaitGroup
+				for _, credential := range fixture.displayCredentials {
+					requests.Go(func() {
+						semaphore <- struct{}{}
+						_, _, snapshotErr := fetchCapacitySnapshot(
+							b.Context(),
+							client,
+							origin.URL,
+							credential,
+						)
+						<-semaphore
+						if snapshotErr != nil {
+							failed.Store(true)
+						}
+					})
+				}
+				requests.Wait()
+				if failed.Load() {
+					b.Fatal("fetch capacity Display Snapshot")
+				}
+			}
+			b.ReportMetric(capacityDisplays, "snapshots/op")
+		})
+	}
+}
+
 type capacityFixture struct {
 	dataDir            string
 	installation       *operations.Installation
@@ -230,8 +312,9 @@ type capacityFixture struct {
 	displayCredentials []string
 }
 
-func prepareCapacityFixture(t *testing.T) capacityFixture {
-	t.Helper()
+func prepareCapacityFixture(tb testing.TB) capacityFixture {
+	tb.Helper()
+	t := tb
 	dataDir := filepath.Join(t.TempDir(), "installation")
 	if err := operations.Initialize(t.Context(), dataDir); err != nil {
 		t.Fatalf("initialize capacity installation: %v", err)
@@ -441,7 +524,7 @@ func capacityDraft(eventID int, now time.Time) rundown.EditDraftInput {
 				Type:               rundown.SessionPresentation,
 				AudienceVisibility: rundown.AudiencePublic,
 				PlannedStart:       start,
-				PlannedEnd:         start.Add(2 * time.Hour),
+				PlannedEnd:         start.Add(capacityStageDuration),
 				TimingPolicy:       rundown.TimingFixedDuration,
 				MinimumDuration:    time.Minute,
 				StartBoundary:      rundown.BoundarySoft,
@@ -470,13 +553,14 @@ func capacityDraft(eventID int, now time.Time) rundown.EditDraftInput {
 }
 
 func bulkLoadCapacityRecords(
-	t *testing.T,
+	tb testing.TB,
 	databasePath string,
 	eventID int,
 	competitionID int,
 	locationID int,
 ) []string {
-	t.Helper()
+	tb.Helper()
+	t := tb
 	database, err := sql.Open("sqlite", databasePath)
 	if err != nil {
 		t.Fatalf("open capacity database: %v", err)
@@ -616,8 +700,10 @@ func (transport capacityCookieTransport) RoundTrip(request *http.Request) (*http
 }
 
 type capacityDisplayApplied struct {
-	at        time.Time
-	clockSkew time.Duration
+	at           time.Time
+	clockOffset  time.Duration
+	timerAnchor  time.Time
+	liveRevision int64
 }
 
 func startCapacityDisplays(
@@ -625,6 +711,7 @@ func startCapacityDisplays(
 	client *http.Client,
 	baseURL string,
 	credentials []string,
+	liveSessionID int,
 	applied chan<- capacityDisplayApplied,
 	backgroundErr chan<- error,
 	requests *atomic.Int64,
@@ -635,6 +722,7 @@ func startCapacityDisplays(
 			client,
 			baseURL,
 			credential,
+			liveSessionID,
 			applied,
 			backgroundErr,
 			requests,
@@ -647,6 +735,7 @@ func runCapacityDisplay(
 	client *http.Client,
 	baseURL string,
 	credential string,
+	liveSessionID int,
 	applied chan<- capacityDisplayApplied,
 	backgroundErr chan<- error,
 	requests *atomic.Int64,
@@ -699,7 +788,7 @@ func runCapacityDisplay(
 			}
 			return
 		}
-		snapshot, skew, snapshotErr := fetchCapacitySnapshot(
+		snapshot, clock, snapshotErr := fetchCapacitySnapshot(
 			ctx,
 			client,
 			baseURL,
@@ -717,9 +806,24 @@ func runCapacityDisplay(
 			)
 			return
 		}
+		timerAnchor, parseErr := time.Parse(time.RFC3339Nano, snapshot.StageTimer.Anchor)
+		if parseErr != nil {
+			sendCapacityError(ctx, backgroundErr, fmt.Errorf("parse Stage Timer anchor: %w", parseErr))
+			return
+		}
+		liveRevision, parseErr := capacityLiveRevision(snapshot, liveSessionID)
+		if parseErr != nil {
+			sendCapacityError(ctx, backgroundErr, parseErr)
+			return
+		}
 		requests.Add(1)
 		select {
-		case applied <- capacityDisplayApplied{at: time.Now(), clockSkew: skew}:
+		case applied <- capacityDisplayApplied{
+			at:           time.Now(),
+			clockOffset:  clock.offset,
+			timerAnchor:  timerAnchor,
+			liveRevision: liveRevision,
+		}:
 		case <-ctx.Done():
 			return
 		}
@@ -729,7 +833,7 @@ func runCapacityDisplay(
 			baseURL,
 			credential,
 			snapshot,
-			skew,
+			clock,
 		); ackErr != nil {
 			sendCapacityError(ctx, backgroundErr, ackErr)
 			return
@@ -769,6 +873,10 @@ type capacitySnapshot struct {
 	StageTimer           *struct {
 		Anchor string `json:"anchor"`
 	} `json:"stageTimer"`
+	Sessions []struct {
+		ID                string `json:"id"`
+		LiveStateRevision string `json:"liveStateRevision"`
+	} `json:"sessions"`
 	StageMessage struct {
 		ID       string `json:"id"`
 		Revision string `json:"revision"`
@@ -787,12 +895,17 @@ type capacitySnapshot struct {
 	} `json:"emergencyAlert"`
 }
 
+type capacityClock struct {
+	offset      time.Duration
+	uncertainty time.Duration
+}
+
 func fetchCapacitySnapshot(
 	ctx context.Context,
 	client *http.Client,
 	baseURL string,
 	credential string,
-) (capacitySnapshot, time.Duration, error) {
+) (capacitySnapshot, capacityClock, error) {
 	started := time.Now()
 	request, err := http.NewRequestWithContext(
 		ctx,
@@ -801,18 +914,18 @@ func fetchCapacitySnapshot(
 		strings.NewReader("{}"),
 	)
 	if err != nil {
-		return capacitySnapshot{}, 0, err
+		return capacitySnapshot{}, capacityClock{}, err
 	}
 	request.Header.Set("Content-Type", "application/json")
 	request.AddCookie(&http.Cookie{Name: displayCookieName, Value: credential})
 	response, err := client.Do(request)
 	if err != nil {
-		return capacitySnapshot{}, 0, fmt.Errorf("fetch Display Snapshot: %w", err)
+		return capacitySnapshot{}, capacityClock{}, fmt.Errorf("fetch Display Snapshot: %w", err)
 	}
 	if response.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(response.Body)
 		_ = response.Body.Close()
-		return capacitySnapshot{}, 0, fmt.Errorf(
+		return capacitySnapshot{}, capacityClock{}, fmt.Errorf(
 			"fetch Display Snapshot = %d %q",
 			response.StatusCode,
 			body,
@@ -824,15 +937,18 @@ func fetchCapacitySnapshot(
 	decodeErr := json.NewDecoder(response.Body).Decode(&decoded)
 	closeErr := response.Body.Close()
 	if err = errors.Join(decodeErr, closeErr); err != nil {
-		return capacitySnapshot{}, 0, fmt.Errorf("decode Display Snapshot: %w", err)
+		return capacitySnapshot{}, capacityClock{}, fmt.Errorf("decode Display Snapshot: %w", err)
 	}
 	finished := time.Now()
 	serverTime, err := time.Parse(time.RFC3339Nano, decoded.Snapshot.ServerTime)
 	if err != nil {
-		return capacitySnapshot{}, 0, fmt.Errorf("parse Display server time: %w", err)
+		return capacitySnapshot{}, capacityClock{}, fmt.Errorf("parse Display server time: %w", err)
 	}
 	midpoint := started.Add(finished.Sub(started) / 2)
-	return decoded.Snapshot, absoluteDuration(serverTime.Sub(midpoint)), nil
+	return decoded.Snapshot, capacityClock{
+		offset:      serverTime.Sub(midpoint),
+		uncertainty: finished.Sub(started) / 2,
+	}, nil
 }
 
 func acknowledgeCapacitySnapshot(
@@ -841,7 +957,7 @@ func acknowledgeCapacitySnapshot(
 	baseURL string,
 	credential string,
 	snapshot capacitySnapshot,
-	clockSkew time.Duration,
+	clock capacityClock,
 ) error {
 	body, err := json.Marshal(map[string]any{
 		"protocol_version":          snapshot.ProtocolVersion,
@@ -862,8 +978,8 @@ func acknowledgeCapacitySnapshot(
 		"emergency_alert_id":             capacityProtoInteger(snapshot.EmergencyAlert.ID),
 		"emergency_alert_revision":       capacityProtoInteger(snapshot.EmergencyAlert.Revision),
 		"standby":                        snapshot.Standby,
-		"clock_offset_milliseconds":      clockSkew.Milliseconds(),
-		"clock_uncertainty_milliseconds": int64(0),
+		"clock_offset_milliseconds":      clock.offset.Milliseconds(),
+		"clock_uncertainty_milliseconds": clock.uncertainty.Milliseconds(),
 		"renderer_unstable":              false,
 		"snapshot_token":                 snapshot.SnapshotToken,
 	})
@@ -902,6 +1018,24 @@ func capacityProtoInteger(value string) string {
 		return "0"
 	}
 	return value
+}
+
+func capacityLiveRevision(snapshot capacitySnapshot, sessionID int) (int64, error) {
+	for _, session := range snapshot.Sessions {
+		id, err := strconv.Atoi(session.ID)
+		if err != nil {
+			return 0, fmt.Errorf("parse Display Session ID: %w", err)
+		}
+		if id != sessionID {
+			continue
+		}
+		revision, err := strconv.ParseInt(session.LiveStateRevision, 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("parse Display Session revision: %w", err)
+		}
+		return revision, nil
+	}
+	return 0, errors.New("live Session missing from Display Snapshot")
 }
 
 func waitForCapacitySubscribers(
@@ -1039,6 +1173,7 @@ func runCapacityCommands(
 	deadline := started.Add(duration)
 	metrics := capacityMetrics{}
 	revision := int64(0)
+	var expectedTimerAnchor time.Time
 	commandIndex := 0
 	for {
 		cycleStarted := time.Now()
@@ -1059,6 +1194,11 @@ func runCapacityCommands(
 				t.Fatalf("start capacity Session: %v", err)
 			}
 			revision = response.Msg.GetState().GetLiveStateRevision()
+			actualStart := response.Msg.GetState().GetActualStart()
+			if actualStart == nil || actualStart.CheckValid() != nil {
+				t.Fatal("started capacity Session has no valid Actual Start")
+			}
+			expectedTimerAnchor = actualStart.AsTime().Add(capacityStageDuration)
 		default:
 			adjustment := time.Second
 			if commandIndex%2 == 0 {
@@ -1096,23 +1236,38 @@ func runCapacityCommands(
 				t.Fatalf("adjust capacity target: %v", err)
 			}
 			revision = response.Msg.GetState().GetLiveStateRevision()
+			forecastEnd := response.Msg.GetForecastEnd()
+			if forecastEnd == nil || forecastEnd.CheckValid() != nil {
+				t.Fatal("adjusted capacity Session has no valid Forecast End")
+			}
+			expectedTimerAnchor = forecastEnd.AsTime()
 		}
-		committed := time.Now()
+		commandCompleted := time.Now()
 		metrics.liveCommands = append(
 			metrics.liveCommands,
-			committed.Sub(commandStarted),
+			commandCompleted.Sub(commandStarted),
 		)
 		for range capacityDisplays {
 			select {
 			case result := <-applied:
-				latency := max(result.at.Sub(committed), 0)
+				if result.liveRevision != revision {
+					t.Fatalf(
+						"Display live revision = %d, want committed %d",
+						result.liveRevision,
+						revision,
+					)
+				}
+				latency := max(result.at.Sub(commandStarted), 0)
 				metrics.displayApplications = append(
 					metrics.displayApplications,
 					latency,
 				)
+				timerSkew := absoluteDuration(
+					result.timerAnchor.Sub(expectedTimerAnchor) - result.clockOffset,
+				)
 				metrics.maximumTimerSkew = max(
 					metrics.maximumTimerSkew,
-					result.clockSkew,
+					timerSkew,
 				)
 			case err := <-backgroundErr:
 				t.Fatalf("capacity Display application: %v", err)
@@ -1124,7 +1279,7 @@ func runCapacityCommands(
 			t,
 			cache,
 			previousETag,
-			committed,
+			commandStarted,
 			backgroundErr,
 		)
 		metrics.publicFreshness = append(metrics.publicFreshness, freshness)
@@ -1402,7 +1557,7 @@ func sendCapacityError(
 	}
 }
 
-func capacityDuration(t *testing.T) time.Duration {
+func capacityDuration(t *testing.T, referenceHardware bool) time.Duration {
 	t.Helper()
 	value := os.Getenv("BEAMERS_CAPACITY_DURATION")
 	if value == "" {
@@ -1411,6 +1566,9 @@ func capacityDuration(t *testing.T) time.Duration {
 	duration, err := time.ParseDuration(value)
 	if err != nil || duration < time.Minute || duration > 30*time.Minute {
 		t.Fatalf("BEAMERS_CAPACITY_DURATION must be between 1m and 30m")
+	}
+	if referenceHardware && duration < 10*time.Minute {
+		t.Fatal("reference capacity duration must be at least 10m")
 	}
 	return duration
 }

@@ -44,3 +44,4 @@ Local timing is evidence only when `BEAMERS_REFERENCE_HARDWARE=1` also passes th
 
 `GET /diagnostics` and authenticated `GET /admin/diagnostics` expose bounded capacity counts.
 Crossing the tested Location or Lane, Session plus Entry, or Display count changes capacity status to `warning`; Beamers still commits valid data.
+Crew and downstream public-reader concurrency are delivery-topology measurements verified by the workload, not installation counts the origin can infer through a coalescing cache.

@@ -20,7 +20,7 @@ import (
 )
 
 func TestDiagnosticsAreLocalOrAdministratorOnly(t *testing.T) {
-	application, session := newDiagnosticsTestApplication(
+	application, session, _, _ := newDiagnosticsTestApplication(
 		t,
 		&net.TCPAddr{IP: net.ParseIP("192.0.2.1"), Port: 8080},
 	)
@@ -127,7 +127,7 @@ func TestDiagnosticsWarnBeyondTestedCapacityWithoutRefusal(t *testing.T) {
 }
 
 func TestDiagnosticsAreAvailableOnLoopback(t *testing.T) {
-	application, _ := newDiagnosticsTestApplication(
+	application, _, _, _ := newDiagnosticsTestApplication(
 		t,
 		&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8080},
 	)
@@ -191,7 +191,7 @@ func assertDiagnosticsResponse(t *testing.T, response *httptest.ResponseRecorder
 func newDiagnosticsTestApplication(
 	t *testing.T,
 	listenerAddress net.Addr,
-) (*application, string) {
+) (*application, string, *operations.Installation, *displaystream.Hub) {
 	t.Helper()
 	dataDir := filepath.Join(t.TempDir(), "installation")
 	if err := operations.Initialize(t.Context(), dataDir); err != nil {
@@ -246,5 +246,5 @@ func newDiagnosticsTestApplication(
 			t.Errorf("close application: %v", closeErr)
 		}
 	})
-	return found, session.Token
+	return found, session.Token, installation, displayStream
 }

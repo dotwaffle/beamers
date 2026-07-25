@@ -30,24 +30,24 @@ type displayInvalidation struct {
 }
 
 type displayInvalidationCache struct {
-	mu       sync.Mutex
-	cursor   displaystream.Cursor
-	snapshot displays.Snapshot
-	ready    chan struct{}
-	valid    bool
+	mu     sync.Mutex
+	cursor displaystream.Cursor
+	cached displayInvalidation
+	ready  chan struct{}
+	valid  bool
 }
 
 func (cache *displayInvalidationCache) current(
 	ctx context.Context,
 	cursor displaystream.Cursor,
-	load func(context.Context) (displays.Snapshot, error),
-) (displays.Snapshot, error) {
+	load func(context.Context) (displayInvalidation, error),
+) (displayInvalidation, error) {
 	for {
 		cache.mu.Lock()
 		if cache.valid && cache.cursor == cursor {
-			snapshot := cache.snapshot
+			current := cache.cached
 			cache.mu.Unlock()
-			return snapshot, nil
+			return current, nil
 		}
 		if cache.ready != nil {
 			ready := cache.ready
@@ -56,23 +56,23 @@ func (cache *displayInvalidationCache) current(
 			case <-ready:
 				continue
 			case <-ctx.Done():
-				return displays.Snapshot{}, context.Cause(ctx)
+				return displayInvalidation{}, context.Cause(ctx)
 			}
 		}
 		cache.ready = make(chan struct{})
 		cache.mu.Unlock()
 
-		snapshot, err := load(ctx)
+		current, err := load(ctx)
 		cache.mu.Lock()
 		if err == nil {
 			cache.cursor = cursor
-			cache.snapshot = snapshot
+			cache.cached = current
 			cache.valid = true
 		}
 		close(cache.ready)
 		cache.ready = nil
 		cache.mu.Unlock()
-		return snapshot, err
+		return current, err
 	}
 }
 
@@ -128,17 +128,21 @@ func (handlers displayHandlers) events(response http.ResponseWriter, request *ht
 			if !ok {
 				return
 			}
-			snapshot, err := handlers.invalidations.current(
+			if err := handlers.service.Authenticate(request.Context(), credential); err != nil {
+				return
+			}
+			invalidation, err := handlers.invalidations.current(
 				request.Context(),
 				notification,
-				func(ctx context.Context) (displays.Snapshot, error) {
-					return handlers.service.Current(ctx, credential)
+				func(ctx context.Context) (displayInvalidation, error) {
+					snapshot, currentErr := handlers.service.Current(ctx, credential)
+					return newDisplayInvalidation(notification, snapshot), currentErr
 				},
 			)
 			if err != nil {
 				return
 			}
-			if err := writeDisplayInvalidation(response, notification, snapshot); err != nil {
+			if err := writeDisplayInvalidationState(response, notification, invalidation); err != nil {
 				return
 			}
 		case <-heartbeats.C:
@@ -166,13 +170,27 @@ func writeDisplayInvalidation(
 	cursor displaystream.Cursor,
 	snapshot displays.Snapshot,
 ) error {
-	invalidation := displayInvalidation{
+	return writeDisplayInvalidationState(response, cursor, newDisplayInvalidation(cursor, snapshot))
+}
+
+func newDisplayInvalidation(
+	cursor displaystream.Cursor,
+	snapshot displays.Snapshot,
+) displayInvalidation {
+	return displayInvalidation{
 		ProtocolVersion: snapshot.ProtocolVersion, AssetVersion: snapshot.AssetVersion,
 		StreamID:       cursor.StreamID,
 		StreamPosition: cursor.Position, ActiveEventID: snapshot.ActiveEventID,
 		ActivationGeneration: snapshot.ActivationGeneration,
 		PublishedRevision:    snapshot.PublishedRevision,
 	}
+}
+
+func writeDisplayInvalidationState(
+	response http.ResponseWriter,
+	cursor displaystream.Cursor,
+	invalidation displayInvalidation,
+) error {
 	data, err := json.Marshal(invalidation)
 	if err != nil {
 		return err

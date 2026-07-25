@@ -185,7 +185,7 @@ func (installation *SQLite) FindDisplayByCredential(
 	ctx context.Context,
 	tokenHash string,
 ) (Display, error) {
-	credential, err := installation.client.DisplayCredential.Query().Where(
+	credential, err := installation.reader.DisplayCredential.Query().Where(
 		displaycredential.TokenHashEQ(tokenHash),
 		displaycredential.RevokedAtIsNil(),
 	).WithDisplay().Only(systemContext(ctx))
