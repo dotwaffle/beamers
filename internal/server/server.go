@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/netip"
 	"path/filepath"
 	"sync"
 	"time"
@@ -38,6 +39,12 @@ type Config struct {
 	Telemetry       *telemetry.Runtime
 	ReplicaURL      string
 	ReplicationSync func(context.Context) error
+	TLSCertificate  string
+	TLSPrivateKey   string
+	TrustedProxies  []netip.Prefix
+	PublicListen    string
+	InsecureCrew    bool
+	InsecureDisplay bool
 }
 
 // Run serves health endpoints until the context is canceled.
@@ -47,6 +54,9 @@ func Run(ctx context.Context, config Config) error {
 	}
 	if config.ShutdownTimeout <= 0 {
 		return errors.New("server shutdown timeout must be positive")
+	}
+	if (config.TLSCertificate == "") != (config.TLSPrivateKey == "") {
+		return errors.New("TLS certificate and private key must be configured together")
 	}
 	attachmentsDir := config.AttachmentsDir
 	if attachmentsDir == "" {
@@ -93,13 +103,20 @@ func Run(ctx context.Context, config Config) error {
 	if err != nil {
 		return errors.Join(err, installation.Close(), upgrade.Close())
 	}
+	var publicListener net.Listener
+	if config.PublicListen != "" && startupErr == nil {
+		publicListener, err = listenConfig.Listen(ctx, "tcp", config.PublicListen)
+		if err != nil {
+			return errors.Join(err, listener.Close(), installation.Close(), upgrade.Close())
+		}
+	}
 	displayStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
 	if err != nil {
-		return errors.Join(err, listener.Close(), installation.Close(), upgrade.Close())
+		return errors.Join(err, listener.Close(), closeListener(publicListener), installation.Close(), upgrade.Close())
 	}
 	programStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
 	if err != nil {
-		return errors.Join(err, listener.Close(), installation.Close(), upgrade.Close())
+		return errors.Join(err, listener.Close(), closeListener(publicListener), installation.Close(), upgrade.Close())
 	}
 	var replica *replication.Adapter
 	replicationSync := config.ReplicationSync
@@ -128,17 +145,33 @@ func Run(ctx context.Context, config Config) error {
 	if upgrade != nil {
 		application = newUpgradeApplication(appConfig, upgrade)
 	} else {
-		application, err = newApplication(appConfig)
+		application, err = newApplication(ctx, appConfig)
 		if err != nil {
-			return errors.Join(err, listener.Close(), installation.Close())
+			return errors.Join(err, listener.Close(), closeListener(publicListener), installation.Close())
 		}
 	}
+	privateHandler := protectInterfaces(application, interfacePolicy{
+		listenerAddress: listener.Addr(), trustedProxies: config.TrustedProxies,
+		allowInsecureCrew: config.InsecureCrew, allowInsecureDisplay: config.InsecureDisplay,
+	})
 	httpServer := &http.Server{
-		Handler:           application,
+		Handler:           privateHandler,
 		ReadTimeout:       10 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,
-		WriteTimeout:      10 * time.Second,
 		IdleTimeout:       60 * time.Second,
+	}
+	var publicServer *http.Server
+	if publicListener != nil {
+		publicServer = &http.Server{
+			Handler: protectInterfaces(application, interfacePolicy{
+				listenerAddress: publicListener.Addr(),
+				trustedProxies:  config.TrustedProxies,
+				publicOnly:      true,
+			}),
+			ReadTimeout:       10 * time.Second,
+			ReadHeaderTimeout: 5 * time.Second,
+			IdleTimeout:       60 * time.Second,
+		}
 	}
 	mode := "normal"
 	if startupErr != nil {
@@ -146,12 +179,52 @@ func Run(ctx context.Context, config Config) error {
 	} else if upgrade != nil {
 		mode = "upgrade"
 	}
-	config.Logger.Info("server listening", "address", listener.Addr().String(), "mode", mode)
+	if config.InsecureCrew {
+		config.Logger.Warn(
+			"insecure Crew mode enabled; credentials and sessions may be observed",
+			"component", "interfaces",
+		)
+	}
+	if config.InsecureDisplay {
+		config.Logger.Warn(
+			"insecure Display mode enabled; credentials and content may be observed",
+			"component", "interfaces",
+		)
+	}
+	scheme := "http"
+	if config.TLSCertificate != "" {
+		scheme = "https"
+	}
+	config.Logger.Info(
+		"server listening",
+		"address", listener.Addr().String(),
+		"mode", mode,
+		"scheme", scheme,
+	)
 
-	serveResult := make(chan error, 1)
+	serveResult := make(chan error, 2)
 	go func() {
+		if config.TLSCertificate != "" {
+			serveResult <- httpServer.ServeTLS(
+				listener,
+				config.TLSCertificate,
+				config.TLSPrivateKey,
+			)
+			return
+		}
 		serveResult <- httpServer.Serve(listener)
 	}()
+	if publicServer != nil {
+		config.Logger.Info(
+			"public server listening",
+			"address", publicListener.Addr().String(),
+			"mode", mode,
+			"scheme", "http",
+		)
+		go func() {
+			serveResult <- publicServer.Serve(publicListener)
+		}()
+	}
 	if startupErr == nil && upgrade == nil {
 		application.startReplication(application.replicationContext()) //nolint:contextcheck // Replication follows the explicit server lifetime.
 	}
@@ -184,6 +257,8 @@ func Run(ctx context.Context, config Config) error {
 		}
 		return errors.Join(
 			normalizeServeError(err),
+			httpServer.Close(),
+			closeHTTPServer(publicServer),
 			replicationErr,
 			application.Close(),
 		)
@@ -244,8 +319,15 @@ func Run(ctx context.Context, config Config) error {
 		_, shutdownErr := finalizeShutdown(
 			shutdownContext,
 			shutdownFinalizers{
-				http:        httpServer.Shutdown,
-				forceHTTP:   httpServer.Close,
+				http: func(ctx context.Context) error {
+					return errors.Join(
+						httpServer.Shutdown(ctx),
+						shutdownHTTPServer(ctx, publicServer),
+					)
+				},
+				forceHTTP: func() error {
+					return errors.Join(httpServer.Close(), closeHTTPServer(publicServer))
+				},
 				replication: replicationSync,
 				telemetry:   telemetryFinalizer(config.Telemetry),
 				storage:     func(context.Context) error { return application.Close() },
@@ -275,6 +357,27 @@ func Run(ctx context.Context, config Config) error {
 		)
 		return finalErr
 	}
+}
+
+func closeListener(listener net.Listener) error {
+	if listener == nil {
+		return nil
+	}
+	return listener.Close()
+}
+
+func shutdownHTTPServer(ctx context.Context, server *http.Server) error {
+	if server == nil {
+		return nil
+	}
+	return server.Shutdown(ctx)
+}
+
+func closeHTTPServer(server *http.Server) error {
+	if server == nil {
+		return nil
+	}
+	return server.Close()
 }
 
 func waitForTrafficDrain(

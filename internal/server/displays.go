@@ -30,8 +30,8 @@ type displayHandlers struct {
 	stream                *displaystream.Hub
 	logger                *slog.Logger
 	allowPlaintextDisplay bool
-	claimOrigin           string
 	buildVersion          string
+	enrollmentLimiter     *authFailureLimiter
 }
 
 func registerDisplayRoutes(
@@ -46,8 +46,8 @@ func registerDisplayRoutes(
 	handlers := displayHandlers{
 		authentication: authentication, service: service, stream: stream, logger: logger,
 		allowPlaintextDisplay: listenerIsLoopback(listenerAddress),
-		claimOrigin:           "http://" + listenerAddress.String(),
 		buildVersion:          buildVersion,
+		enrollmentLimiter:     newAuthFailureLimiter(time.Now),
 	}
 	mux.HandleFunc("/display", handlers.display)
 	mux.HandleFunc("/display/client.js", handlers.clientJavaScript)
@@ -82,17 +82,35 @@ func (handlers displayHandlers) display(response http.ResponseWriter, request *h
 		http.Error(response, "Display unavailable", http.StatusInternalServerError)
 		return
 	}
+	enrollmentKey := authFailureKey{
+		value: "display-enrollment|" + authClientAddress(request),
+		limit: 10,
+	}
+	if retryAfter, blocked := handlers.enrollmentLimiter.reserve(enrollmentKey); blocked {
+		writeAuthRateLimit(response, retryAfter)
+		return
+	}
 	enrollment, err := handlers.service.EnrollmentForBrowser(request.Context(), code, credential)
 	if err != nil {
+		handlers.enrollmentLimiter.release(enrollmentKey)
 		handlers.logger.ErrorContext(request.Context(), "Display Enrollment failed", "error", err)
 		http.Error(response, "Display Enrollment unavailable", http.StatusInternalServerError)
 		return
+	}
+	if enrollment.Code == code && enrollment.Credential == credential {
+		handlers.enrollmentLimiter.release(enrollmentKey)
 	}
 	claimURL := url.URL{
 		Path:     "/admin/displays/enroll",
 		RawQuery: url.Values{"code": []string{enrollment.Code}}.Encode(),
 	}
-	qrCode, err := displays.EnrollmentQRCodeDataURL(handlers.claimOrigin + claimURL.String())
+	scheme := "http"
+	if requestIsSecure(request) {
+		scheme = "https"
+	}
+	qrCode, err := displays.EnrollmentQRCodeDataURL(
+		scheme + "://" + request.Host + claimURL.String(),
+	)
 	if err != nil {
 		handlers.logger.ErrorContext(request.Context(), "Display Enrollment QR rendering failed", "error", err)
 		http.Error(response, "Display Enrollment unavailable", http.StatusInternalServerError)
@@ -291,12 +309,26 @@ func (handlers displayHandlers) claimEnrollment(response http.ResponseWriter, re
 		}
 		displayID = parsed
 	}
+	clientKey := authFailureKey{
+		value: "display-claim-client|" + authClientAddress(request),
+		limit: clientFailureLimit,
+	}
+	codeKey := authFailureKey{
+		value: "display-claim|" + authClientAddress(request) + "|" +
+			authFingerprint(request.PostForm.Get("code")),
+		limit: principalFailureLimit,
+	}
+	if retryAfter, blocked := handlers.enrollmentLimiter.reserve(clientKey, codeKey); blocked {
+		writeAuthRateLimit(response, retryAfter)
+		return
+	}
 	created, err := handlers.service.ClaimEnrollment(request.Context(), actor, displays.ClaimInput{
 		Code: request.PostForm.Get("code"), Name: request.PostForm.Get("name"),
 		DisplayID: displayID, CommandID: request.PostForm.Get("command_id"),
 	})
 	switch {
 	case errors.Is(err, displays.ErrAdministratorRequired):
+		handlers.enrollmentLimiter.release(clientKey, codeKey)
 		http.Error(response, "Administrator authority required", http.StatusForbidden)
 		return
 	case errors.Is(err, displays.ErrInvalidDisplay):
@@ -312,13 +344,17 @@ func (handlers displayHandlers) claimEnrollment(response http.ResponseWriter, re
 		http.Error(response, err.Error(), http.StatusConflict)
 		return
 	case errors.Is(err, displays.ErrCommandConflict):
+		handlers.enrollmentLimiter.release(clientKey, codeKey)
 		http.Error(response, err.Error(), http.StatusConflict)
 		return
 	case err != nil:
+		handlers.enrollmentLimiter.release(clientKey, codeKey)
 		handlers.logger.ErrorContext(request.Context(), "claim Display Enrollment failed", "error", err)
 		http.Error(response, "Display Enrollment unavailable", http.StatusInternalServerError)
 		return
 	}
+	handlers.enrollmentLimiter.release(clientKey, codeKey)
+	handlers.enrollmentLimiter.reset(codeKey)
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	clearDisplayClaimRecoveryCookie(response, request)
 	response.WriteHeader(http.StatusCreated)
@@ -345,7 +381,7 @@ func setDisplayClaimRecoveryCookie(
 	http.SetCookie(response, &http.Cookie{
 		Name: displayClaimRecoveryCookie, Value: value,
 		Path: "/admin/displays/enroll", MaxAge: 60, HttpOnly: true,
-		Secure: request.TLS != nil, SameSite: http.SameSiteStrictMode,
+		Secure: requestIsSecure(request), SameSite: http.SameSiteStrictMode,
 	})
 }
 
@@ -370,7 +406,7 @@ func clearDisplayClaimRecoveryCookie(response http.ResponseWriter, request *http
 	http.SetCookie(response, &http.Cookie{
 		Name: displayClaimRecoveryCookie, Path: "/admin/displays/enroll",
 		MaxAge: -1, HttpOnly: true,
-		Secure: request.TLS != nil, SameSite: http.SameSiteStrictMode,
+		Secure: requestIsSecure(request), SameSite: http.SameSiteStrictMode,
 	})
 }
 
@@ -410,19 +446,19 @@ func setDisplayCookies(response http.ResponseWriter, request *http.Request, enro
 		{
 			Name: displayCookieName, Value: enrollment.Credential, Path: "/display",
 			Expires: enrollment.CredentialExpires, HttpOnly: true,
-			Secure: request.TLS != nil, SameSite: http.SameSiteStrictMode,
+			Secure: requestIsSecure(request), SameSite: http.SameSiteStrictMode,
 		},
 		//nolint:gosec // G124 cannot infer the listener-level loopback restriction.
 		{
 			Name: displayCookieName, Value: enrollment.Credential, Path: displayConnectCookiePath,
 			Expires: enrollment.CredentialExpires, HttpOnly: true,
-			Secure: request.TLS != nil, SameSite: http.SameSiteStrictMode,
+			Secure: requestIsSecure(request), SameSite: http.SameSiteStrictMode,
 		},
 		//nolint:gosec // G124 cannot infer the listener-level loopback restriction.
 		{
 			Name: displayEnrollmentCookieName, Value: enrollment.Code, Path: "/display",
 			Expires: enrollment.ExpiresAt, HttpOnly: true,
-			Secure: request.TLS != nil, SameSite: http.SameSiteStrictMode,
+			Secure: requestIsSecure(request), SameSite: http.SameSiteStrictMode,
 		},
 	} {
 		http.SetCookie(response, cookie)
@@ -433,6 +469,6 @@ func clearDisplayEnrollmentCookie(response http.ResponseWriter, request *http.Re
 	// Match the creation attributes so the browser retains only its persistent credential.
 	http.SetCookie(response, &http.Cookie{ //nolint:gosec // G124 cannot infer the listener-level loopback restriction.
 		Name: displayEnrollmentCookieName, Path: "/display", Expires: time.Unix(1, 0).UTC(), MaxAge: -1,
-		HttpOnly: true, Secure: request.TLS != nil, SameSite: http.SameSiteStrictMode,
+		HttpOnly: true, Secure: requestIsSecure(request), SameSite: http.SameSiteStrictMode,
 	})
 }

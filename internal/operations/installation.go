@@ -378,6 +378,18 @@ func (installation *Installation) StartupError() error {
 	return installation.storage.StartupError()
 }
 
+// RecordInterfaceModes persists host-authorized insecure mode transitions.
+func (installation *Installation) RecordInterfaceModes(
+	ctx context.Context,
+	insecureCrew bool,
+	insecureDisplay bool,
+) error {
+	if err := installation.storage.RecordHostInterfaceMode(ctx, "Crew", insecureCrew); err != nil {
+		return err
+	}
+	return installation.storage.RecordHostInterfaceMode(ctx, "Display", insecureDisplay)
+}
+
 // Ready reports whether storage is usable and on the supported schema.
 func (installation *Installation) Ready(ctx context.Context) error {
 	return installation.storage.Ready(ctx)

@@ -37,16 +37,43 @@ func newAuthFailureLimiter(now func() time.Time) *authFailureLimiter {
 	return &authFailureLimiter{now: now, failures: make(map[string]authFailureState)}
 }
 
-func (limiter *authFailureLimiter) blocked(keys ...authFailureKey) (time.Duration, bool) {
+func (limiter *authFailureLimiter) reserve(keys ...authFailureKey) (time.Duration, bool) {
 	limiter.mutex.Lock()
 	defer limiter.mutex.Unlock()
 
 	now := limiter.now()
 	limiter.prune(now)
+	if retryAfter, blocked := limiter.blockedLocked(now, keys...); blocked {
+		return retryAfter, true
+	}
+	newKeys := 0
+	for _, key := range keys {
+		if _, found := limiter.failures[key.value]; !found {
+			newKeys++
+		}
+	}
+	if len(limiter.failures)+newKeys > maxAuthFailureEntries {
+		return authFailureWindow, true
+	}
+	limiter.recordLocked(now, keys...)
+	return 0, false
+}
+
+func (limiter *authFailureLimiter) blockedLocked(
+	now time.Time,
+	keys ...authFailureKey,
+) (time.Duration, bool) {
 	var longest time.Duration
 	for _, key := range keys {
 		state, found := limiter.failures[key.value]
-		if !found || state.count < key.limit {
+		if !found {
+			continue
+		}
+		if !now.Before(state.started.Add(authFailureWindow)) {
+			delete(limiter.failures, key.value)
+			continue
+		}
+		if state.count < key.limit {
 			continue
 		}
 		remaining := state.started.Add(authFailureWindow).Sub(now)
@@ -57,12 +84,7 @@ func (limiter *authFailureLimiter) blocked(keys ...authFailureKey) (time.Duratio
 	return longest, longest > 0
 }
 
-func (limiter *authFailureLimiter) record(keys ...authFailureKey) {
-	limiter.mutex.Lock()
-	defer limiter.mutex.Unlock()
-
-	now := limiter.now()
-	limiter.prune(now)
+func (limiter *authFailureLimiter) recordLocked(now time.Time, keys ...authFailureKey) {
 	for _, key := range keys {
 		state, found := limiter.failures[key.value]
 		if !found {
@@ -72,6 +94,23 @@ func (limiter *authFailureLimiter) record(keys ...authFailureKey) {
 			state.started = now
 		}
 		state.count++
+		limiter.failures[key.value] = state
+	}
+}
+
+func (limiter *authFailureLimiter) release(keys ...authFailureKey) {
+	limiter.mutex.Lock()
+	defer limiter.mutex.Unlock()
+	for _, key := range keys {
+		state, found := limiter.failures[key.value]
+		if !found {
+			continue
+		}
+		if state.count <= 1 {
+			delete(limiter.failures, key.value)
+			continue
+		}
+		state.count--
 		limiter.failures[key.value] = state
 	}
 }
@@ -121,11 +160,15 @@ func uploadLimitKeys(request *http.Request, token string) (authFailureKey, authF
 }
 
 func authClientAddress(request *http.Request) string {
-	host, _, err := net.SplitHostPort(request.RemoteAddr)
+	return requestClientAddress(request)
+}
+
+func authClientAddressFromRemote(remote string) string {
+	host, _, err := net.SplitHostPort(remote)
 	if err == nil {
 		return host
 	}
-	return request.RemoteAddr
+	return remote
 }
 
 func authFingerprint(value string) string {

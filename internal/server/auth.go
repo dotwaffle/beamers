@@ -63,7 +63,7 @@ func (handlers authenticationHandlers) bootstrap(
 		return
 	}
 	clientKey, bootstrapKey := bootstrapFailureKeys(request)
-	if retryAfter, blocked := handlers.limiter.blocked(clientKey, bootstrapKey); blocked {
+	if retryAfter, blocked := handlers.limiter.reserve(clientKey, bootstrapKey); blocked {
 		writeAuthRateLimit(response, retryAfter)
 		return
 	}
@@ -75,17 +75,17 @@ func (handlers authenticationHandlers) bootstrap(
 	)
 	switch {
 	case errors.Is(err, auth.ErrAuthenticationBusy):
+		handlers.limiter.release(clientKey, bootstrapKey)
 		writeAuthRateLimit(response, time.Second)
 		return
 	case errors.Is(err, auth.ErrInvalidAccountDetails):
-		handlers.limiter.record(clientKey, bootstrapKey)
 		http.Error(response, "invalid Account details", http.StatusBadRequest)
 		return
 	case errors.Is(err, auth.ErrAuthenticationFailed):
-		handlers.limiter.record(clientKey, bootstrapKey)
 		http.Error(response, "authentication failed", http.StatusUnauthorized)
 		return
 	case err != nil:
+		handlers.limiter.release(clientKey, bootstrapKey)
 		handlers.logger.ErrorContext(
 			request.Context(),
 			"Administrator bootstrap failed",
@@ -95,6 +95,7 @@ func (handlers authenticationHandlers) bootstrap(
 		http.Error(response, "authentication unavailable", http.StatusInternalServerError)
 		return
 	}
+	handlers.limiter.release(clientKey, bootstrapKey)
 	handlers.limiter.reset(bootstrapKey)
 	setSessionCookie(response, request, session)
 	response.WriteHeader(http.StatusCreated)
@@ -116,21 +117,22 @@ func (handlers authenticationHandlers) signIn(
 		return
 	}
 	clientKey, accountKey := signInFailureKeys(request, input.Name)
-	if retryAfter, blocked := handlers.limiter.blocked(clientKey, accountKey); blocked {
+	if retryAfter, blocked := handlers.limiter.reserve(clientKey, accountKey); blocked {
 		writeAuthRateLimit(response, retryAfter)
 		return
 	}
 	session, err := handlers.service.SignIn(request.Context(), input.Name, input.Password)
 	if errors.Is(err, auth.ErrAuthenticationBusy) {
+		handlers.limiter.release(clientKey, accountKey)
 		writeAuthRateLimit(response, time.Second)
 		return
 	}
 	if errors.Is(err, auth.ErrAuthenticationFailed) {
-		handlers.limiter.record(clientKey, accountKey)
 		http.Error(response, "authentication failed", http.StatusUnauthorized)
 		return
 	}
 	if err != nil {
+		handlers.limiter.release(clientKey, accountKey)
 		handlers.logger.ErrorContext(
 			request.Context(),
 			"Account sign-in failed",
@@ -140,6 +142,7 @@ func (handlers authenticationHandlers) signIn(
 		http.Error(response, "authentication unavailable", http.StatusInternalServerError)
 		return
 	}
+	handlers.limiter.release(clientKey, accountKey)
 	handlers.limiter.reset(accountKey)
 	setSessionCookie(response, request, session)
 	response.WriteHeader(http.StatusNoContent)
@@ -230,11 +233,16 @@ func requestAllowed(
 		http.Error(response, "method not allowed", http.StatusMethodNotAllowed)
 		return false
 	}
-	if request.TLS == nil && !allowPlaintextCrew {
+	if !requestIsSecure(request) &&
+		!allowPlaintextCrew &&
+		!requestPlaintextAllowed(request) {
 		http.Error(response, "secure transport required", http.StatusForbidden)
 		return false
 	}
-	if method == http.MethodPost && !sameOrigin(request) {
+	if method != http.MethodGet &&
+		method != http.MethodHead &&
+		method != http.MethodOptions &&
+		!sameOrigin(request) {
 		http.Error(response, "cross-origin request rejected", http.StatusForbidden)
 		return false
 	}
@@ -271,7 +279,7 @@ func sameOrigin(request *http.Request) bool {
 		return false
 	}
 	wantScheme := "http"
-	if request.TLS != nil {
+	if requestIsSecure(request) {
 		wantScheme = "https"
 	}
 	return parsed.Scheme == wantScheme && parsed.Host == request.Host
@@ -287,7 +295,7 @@ func setSessionCookie(response http.ResponseWriter, request *http.Request, sessi
 		Path:     "/",
 		Expires:  session.ExpiresAt,
 		HttpOnly: true,
-		Secure:   request.TLS != nil,
+		Secure:   requestIsSecure(request),
 		SameSite: http.SameSiteStrictMode,
 	})
 }
@@ -301,7 +309,7 @@ func clearSessionCookie(response http.ResponseWriter, request *http.Request) {
 		Expires:  time.Unix(1, 0).UTC(),
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   request.TLS != nil,
+		Secure:   requestIsSecure(request),
 		SameSite: http.SameSiteStrictMode,
 	})
 }

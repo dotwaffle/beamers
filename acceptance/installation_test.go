@@ -7908,6 +7908,48 @@ func TestSignInFailuresAreGenericAndRateLimited(t *testing.T) {
 	server.stop(t)
 }
 
+func TestInvalidDisplayCookiesCannotBypassEnrollmentRateLimit(t *testing.T) {
+	bin := buildBeamers(t)
+	dataDir := filepath.Join(t.TempDir(), "data")
+	runBeamers(t, bin, "init", "--data-dir", dataDir)
+	server := startBeamers(t, bin, dataDir)
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	for attempt := range 11 {
+		request, err := http.NewRequestWithContext(
+			t.Context(),
+			http.MethodGet,
+			"http://"+server.address+"/display",
+			http.NoBody,
+		)
+		if err != nil {
+			t.Fatalf("create Display Enrollment request: %v", err)
+		}
+		request.AddCookie(&http.Cookie{Name: "beamers_display", Value: "invalid"})
+		request.AddCookie(&http.Cookie{Name: "beamers_display_enrollment", Value: "invalid"})
+		response, err := client.Do(request)
+		if err != nil {
+			t.Fatalf("send Display Enrollment request: %v", err)
+		}
+		if closeErr := response.Body.Close(); closeErr != nil {
+			t.Fatalf("close Display Enrollment response: %v", closeErr)
+		}
+		want := http.StatusOK
+		if attempt == 10 {
+			want = http.StatusTooManyRequests
+		}
+		if response.StatusCode != want {
+			t.Fatalf(
+				"Display Enrollment attempt %d = %d, want %d",
+				attempt+1,
+				response.StatusCode,
+				want,
+			)
+		}
+	}
+	server.stop(t)
+}
+
 func TestPlaintextNonLoopbackRefusesAuthentication(t *testing.T) {
 	bin := buildBeamers(t)
 	dataDir := filepath.Join(t.TempDir(), "data")

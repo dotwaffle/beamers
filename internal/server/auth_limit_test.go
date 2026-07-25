@@ -15,17 +15,32 @@ func TestUploadLimiterBoundsEachCredentialAndClient(t *testing.T) {
 	clientKey, credentialKey := uploadLimitKeys(request, "secret")
 
 	for range credentialKey.limit {
-		if _, blocked := limiter.blocked(clientKey, credentialKey); blocked {
+		if _, blocked := limiter.reserve(clientKey, credentialKey); blocked {
 			t.Fatal("Upload Link blocked before its conservative request limit")
 		}
-		limiter.record(clientKey, credentialKey)
 	}
-	if _, blocked := limiter.blocked(clientKey, credentialKey); !blocked {
+	if _, blocked := limiter.reserve(clientKey, credentialKey); !blocked {
 		t.Fatal("Upload Link remains unbounded after its request limit")
 	}
 
 	now = now.Add(authFailureWindow)
-	if _, blocked := limiter.blocked(clientKey, credentialKey); blocked {
+	limiter.lastPrune = now // Exercise requested-key expiry while full-map pruning is throttled.
+	if _, blocked := limiter.reserve(clientKey, credentialKey); blocked {
 		t.Fatal("Upload Link limit did not expire after its fixed window")
+	}
+}
+
+func TestLimiterReservationIsAtomicAndReleasable(t *testing.T) {
+	limiter := newAuthFailureLimiter(time.Now)
+	key := authFailureKey{value: "enrollment|client", limit: 1}
+	if _, blocked := limiter.reserve(key); blocked {
+		t.Fatal("first reservation was blocked")
+	}
+	if _, blocked := limiter.reserve(key); !blocked {
+		t.Fatal("second reservation bypassed the in-flight limit")
+	}
+	limiter.release(key)
+	if _, blocked := limiter.reserve(key); blocked {
+		t.Fatal("released reservation remained blocked")
 	}
 }

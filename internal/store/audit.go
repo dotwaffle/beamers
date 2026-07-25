@@ -2,10 +2,12 @@ package store
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"time"
 
 	"github.com/dotwaffle/beamers/ent"
+	"github.com/dotwaffle/beamers/ent/auditentry"
 )
 
 // AuditEntry is the Administrator-readable projection of one durable action.
@@ -21,6 +23,54 @@ type AuditEntry struct {
 	Outcome        string
 	Reason         string
 	Note           string
+}
+
+// RecordHostInterfaceMode appends a host-authorized mode transition.
+func (installation *SQLite) RecordHostInterfaceMode(
+	ctx context.Context,
+	target string,
+	enabled bool,
+) error {
+	if installation == nil || installation.client == nil {
+		return ErrUninitialized
+	}
+	if target != "Crew" && target != "Display" {
+		return errors.New("invalid insecure Interface target")
+	}
+	state := "disabled"
+	if enabled {
+		state = "enabled"
+	}
+	latest, err := installation.client.AuditEntry.Query().
+		Where(
+			auditentry.ActionEQ("ConfigureInsecure"+target),
+			auditentry.TargetTypeEQ("Interface"),
+			auditentry.TargetIDEQ(target),
+		).
+		Order(ent.Desc(auditentry.FieldID)).
+		First(systemContext(ctx))
+	switch {
+	case ent.IsNotFound(err):
+		if !enabled {
+			return nil
+		}
+	case err != nil:
+		return opaqueError("load insecure Interface Audit state", err)
+	case latest.Note == state:
+		return nil
+	}
+	if _, err = installation.client.AuditEntry.Create().
+		SetCreatedAt(time.Now().UTC()).
+		SetActorKind(auditentry.ActorKindHost).
+		SetAction("ConfigureInsecure" + target).
+		SetTargetType("Interface").
+		SetTargetID(target).
+		SetResult(auditentry.ResultSucceeded).
+		SetNote(state).
+		Save(systemContext(ctx)); err != nil {
+		return opaqueError("record insecure Interface Audit state", err)
+	}
+	return nil
 }
 
 // ListAuditEntries returns installation-lifetime history in creation order.

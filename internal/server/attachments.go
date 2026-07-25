@@ -108,11 +108,10 @@ func (handlers attachmentHandlers) upload(response http.ResponseWriter, request 
 		return
 	}
 	clientKey, credentialKey := uploadLimitKeys(request, request.PathValue("token"))
-	if retryAfter, blocked := handlers.uploadLimiter.blocked(clientKey, credentialKey); blocked {
+	if retryAfter, blocked := handlers.uploadLimiter.reserve(clientKey, credentialKey); blocked {
 		writeUploadRateLimit(response, retryAfter)
 		return
 	}
-	handlers.uploadLimiter.record(clientKey, credentialKey)
 	request.Body = http.MaxBytesReader(response, request.Body, (64<<20)+(1<<20))
 	name, filename, mediaType, body, ok := multipartUpload(response, request)
 	if !ok {

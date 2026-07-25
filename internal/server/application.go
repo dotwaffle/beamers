@@ -73,7 +73,7 @@ type applicationRequest struct {
 	detached bool
 }
 
-func newApplication(config applicationConfig) (*application, error) {
+func newApplication(ctx context.Context, config applicationConfig) (*application, error) {
 	found := &application{
 		config:       config,
 		installation: config.Installation,
@@ -82,7 +82,7 @@ func newApplication(config applicationConfig) (*application, error) {
 		persistent:   make(map[uint64]bool),
 		drained:      closedChannel(),
 	}
-	handler, err := found.buildHandler(config.Installation)
+	handler, err := found.buildHandler(ctx, config.Installation)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +224,7 @@ func (application *application) restore(ctx context.Context, journalPath string)
 		application.setUnavailable(nil)
 		return errors.Join(restoreErr, openErr)
 	}
-	handler, buildErr := application.buildHandler(reopened)
+	handler, buildErr := application.buildHandler(ctx, reopened)
 	if buildErr != nil {
 		application.setUnavailable(reopened)
 		return errors.Join(restoreErr, buildErr)
@@ -333,7 +333,7 @@ func (application *application) applyPreparedUpgrade(
 		application.mu.Unlock()
 		return result, err
 	}
-	handler, err := application.buildHandler(reopened)
+	handler, err := application.buildHandler(ctx, reopened)
 	if err != nil {
 		err = errors.Join(err, reopened.Close())
 		application.mu.Lock()
@@ -532,6 +532,7 @@ func closedChannel() chan struct{} {
 }
 
 func (application *application) buildHandler(
+	ctx context.Context,
 	installation *operations.Installation,
 ) (http.Handler, error) {
 	mux := http.NewServeMux()
@@ -556,6 +557,13 @@ func (application *application) buildHandler(
 		})
 		// Recovery mode deliberately exposes only local diagnostics and stable probes.
 		return mux, nil //nolint:nilerr // StartupError selects the restricted handler.
+	}
+	if err := installation.RecordInterfaceModes(
+		ctx,
+		application.config.InsecureCrew,
+		application.config.InsecureDisplay,
+	); err != nil {
+		return nil, err
 	}
 	registerDiagnosticsRoutes(
 		mux,
@@ -659,6 +667,7 @@ func (application *application) buildHandler(
 		application.config.TracerProvider,
 		application.config.MeterProvider,
 		application.config.Propagator,
+		application.config.Logger,
 	); err != nil {
 		return nil, err
 	}

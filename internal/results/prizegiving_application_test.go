@@ -406,6 +406,30 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 		!strings.Contains(stored.RenderedJSON, `"schema_version": "1"`) {
 		t.Fatalf("stored standalone Results Publication = %+v, %v", stored, err)
 	}
+	publicArtifact, found, err := service.PublicArtifact(
+		t.Context(),
+		eventID,
+		results.PublicationScopeStandalone,
+		competitionID,
+		stored.Revision,
+	)
+	if err != nil ||
+		!found ||
+		publicArtifact.Revision != stored.Revision ||
+		publicArtifact.HTML != stored.RenderedHTML ||
+		publicArtifact.Text != stored.RenderedText ||
+		publicArtifact.JSON != stored.RenderedJSON {
+		t.Fatalf("public Results artifact = %+v, %t, %v", publicArtifact, found, err)
+	}
+	if _, found, err = service.PublicArtifact(
+		t.Context(),
+		eventID,
+		results.PublicationScopeStandalone,
+		competitionID,
+		stored.Revision+100,
+	); err != nil || found {
+		t.Fatalf("missing public Results revision found = %t, error = %v", found, err)
+	}
 	var releasedModel results.PublicResultsPublication
 	if err = json.Unmarshal([]byte(stored.RenderedJSON), &releasedModel); err != nil {
 		t.Fatalf("decode released Results model: %v", err)
@@ -523,7 +547,7 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 		!strings.Contains(latest.RenderedJSON, `"previous_revision": 1`) {
 		t.Fatalf("corrected Results Publication = %+v, %v", latest, err)
 	}
-	original, err := storage.LoadResultsPublicationRevision(
+	original, found, err := storage.LoadResultsPublicationRevision(
 		t.Context(),
 		eventID,
 		store.ResultsPublicationStandalone,
@@ -531,8 +555,9 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 		1,
 	)
 	if err != nil ||
+		!found ||
 		strings.Contains(original.RenderedJSON, "Competition title corrected.") {
-		t.Fatalf("original Results Publication = %+v, %v", original, err)
+		t.Fatalf("original Results Publication = %+v, %t, %v", original, found, err)
 	}
 	historyRequest := connect.NewRequest(
 		&resultsv1.GetResultsCorrectionHistoryRequest{

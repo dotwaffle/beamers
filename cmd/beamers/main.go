@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/netip"
 	"os"
 	"os/signal"
 	"syscall"
@@ -463,6 +464,40 @@ func runServe(ctx context.Context, args []string, stderr io.Writer) int {
 		"Attachment Store root (default: DATA-DIR/attachments)",
 	)
 	listenAddress := flags.String("listen", "127.0.0.1:8080", "HTTP listen address")
+	publicListenAddress := flags.String(
+		"public-listen",
+		"",
+		"optional public Schedule and Results HTTP listen address",
+	)
+	tlsCertificate := flags.String("tls-cert", "", "TLS certificate file")
+	tlsPrivateKey := flags.String("tls-key", "", "TLS private key file")
+	insecureCrew := flags.Bool(
+		"insecure-crew",
+		false,
+		"permit plaintext Crew access on a non-loopback listener",
+	)
+	insecureDisplay := flags.Bool(
+		"insecure-display",
+		false,
+		"permit plaintext Display access on a non-loopback listener",
+	)
+	var trustedProxies []netip.Prefix
+	flags.Func(
+		"trusted-proxy",
+		"trusted reverse proxy IP address or CIDR (repeatable)",
+		func(value string) error {
+			prefix, err := netip.ParsePrefix(value)
+			if err != nil {
+				address, addressErr := netip.ParseAddr(value)
+				if addressErr != nil {
+					return fmt.Errorf("parse trusted proxy %q: %w", value, err)
+				}
+				prefix = netip.PrefixFrom(address, address.BitLen())
+			}
+			trustedProxies = append(trustedProxies, prefix.Masked())
+			return nil
+		},
+	)
 	shutdownTimeout := flags.Duration(
 		"shutdown-timeout",
 		10*time.Second,
@@ -522,6 +557,12 @@ func runServe(ctx context.Context, args []string, stderr io.Writer) int {
 		Propagator:      telemetryRuntime.Propagator(),
 		Telemetry:       telemetryRuntime,
 		ReplicaURL:      *replicaURL,
+		TLSCertificate:  *tlsCertificate,
+		TLSPrivateKey:   *tlsPrivateKey,
+		TrustedProxies:  trustedProxies,
+		PublicListen:    *publicListenAddress,
+		InsecureCrew:    *insecureCrew,
+		InsecureDisplay: *insecureDisplay,
 	})
 	if err != nil {
 		return fail(err)

@@ -142,7 +142,7 @@ func TestHealthyAdministratorRestoresThroughMaintenanceMode(t *testing.T) {
 		t.Fatalf("create Program Output stream: %v", err)
 	}
 	logger := slog.New(slog.DiscardHandler)
-	application, err := newApplication(applicationConfig{
+	application, err := newApplication(t.Context(), applicationConfig{
 		Config: Config{
 			DataDir: dataDir, AttachmentsDir: filepath.Join(dataDir, "attachments"),
 			BuildVersion: "test", Logger: logger,

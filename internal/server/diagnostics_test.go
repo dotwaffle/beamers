@@ -179,7 +179,7 @@ func newDiagnosticsTestApplication(
 		_ = installation.Close()
 		t.Fatalf("create Program Output stream: %v", err)
 	}
-	found, err := newApplication(applicationConfig{
+	found, err := newApplication(t.Context(), applicationConfig{
 		Config: Config{
 			DataDir: dataDir, AttachmentsDir: filepath.Join(dataDir, "attachments"),
 			BuildVersion: "test", Logger: slog.New(slog.DiscardHandler),

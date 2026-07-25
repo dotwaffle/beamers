@@ -335,7 +335,7 @@ func (installation *SQLite) LoadResultsPublicationRevision(
 	eventID int,
 	scope ResultsPublicationScope,
 	scopeSessionID, revision int,
-) (ResultsPublication, error) {
+) (ResultsPublication, bool, error) {
 	found, err := installation.client.ResultsPublication.Query().
 		Where(
 			resultspublication.EventIDEQ(eventID),
@@ -344,13 +344,16 @@ func (installation *SQLite) LoadResultsPublicationRevision(
 			resultspublication.RevisionEQ(revision),
 		).
 		Only(systemContext(ctx))
+	if ent.IsNotFound(err) {
+		return ResultsPublication{}, false, nil
+	}
 	if err != nil {
-		return ResultsPublication{}, opaqueError(
+		return ResultsPublication{}, false, opaqueError(
 			"load Results Publication revision",
 			err,
 		)
 	}
-	return resultsPublication(found), nil
+	return resultsPublication(found), true, nil
 }
 
 // ListResultsPublicationHistory returns every immutable scope revision.
