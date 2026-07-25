@@ -67,54 +67,41 @@ type capacityProfile struct {
 	Certified bool
 }
 
-var capacityProfiles = map[string]capacityProfile{
-	"netuk": {
-		Name: "netuk", Certified: true,
-		Envelope: capacityEnvelope{
+func capacityProfileNamed(name string) (capacityProfile, error) {
+	profile := capacityProfile{Name: name, Certified: true}
+	switch name {
+	case "netuk":
+		profile.Envelope = capacityEnvelope{
 			Locations: 6, Lanes: 3, SessionsAndEntries: 75,
 			Displays: 20, CrewConsoles: 10, PublicReaders: 500,
-		},
-	},
-	"nova": {
-		Name: "nova", Certified: true,
-		Envelope: capacityEnvelope{
+		}
+	case "nova":
+		profile.Envelope = capacityEnvelope{
 			Locations: 4, Lanes: 2, SessionsAndEntries: 250,
 			Displays: 15, CrewConsoles: 5, PublicReaders: 250,
-		},
-	},
-	"fosdem": {
-		Name: "fosdem", Certified: true,
-		Envelope: capacityEnvelope{
+		}
+	case "fosdem":
+		profile.Envelope = capacityEnvelope{
 			Locations: 40, Lanes: 40, SessionsAndEntries: 1_500,
 			Displays: 150, CrewConsoles: 75, PublicReaders: 10_000,
-		},
-	},
-	"revision": {
-		Name: "revision", Certified: true,
-		Envelope: capacityEnvelope{
+		}
+	case "revision":
+		profile.Envelope = capacityEnvelope{
 			Locations: 4, Lanes: 4, SessionsAndEntries: 750,
 			Displays: 30, CrewConsoles: 40, PublicReaders: 2_000,
-		},
-	},
-	"rated": {
-		Name: "rated", Certified: true,
-		Envelope: capacityEnvelope{
+		}
+	case "rated":
+		profile.Envelope = capacityEnvelope{
 			Locations: 64, Lanes: 64, SessionsAndEntries: 5_000,
 			Displays: 250, CrewConsoles: 100, PublicReaders: 10_000,
-		},
-	},
-	"stress": {
-		Name: "stress",
-		Envelope: capacityEnvelope{
+		}
+	case "stress":
+		profile.Certified = false
+		profile.Envelope = capacityEnvelope{
 			Locations: 64, Lanes: 64, SessionsAndEntries: 25_000,
 			Displays: 500, CrewConsoles: 200, PublicReaders: 10_000,
-		},
-	},
-}
-
-func capacityProfileNamed(name string) (capacityProfile, error) {
-	profile, found := capacityProfiles[name]
-	if !found {
+		}
+	default:
 		return capacityProfile{}, fmt.Errorf("unknown capacity profile %q", name)
 	}
 	return profile, nil
@@ -165,44 +152,27 @@ func capacityCertificationError(target capacityTarget, generatorHostname string)
 	return nil
 }
 
-func TestCapacityProfiles(t *testing.T) {
-	want := map[string]capacityEnvelope{
-		"netuk": {
-			Locations: 6, Lanes: 3, SessionsAndEntries: 75,
-			Displays: 20, CrewConsoles: 10, PublicReaders: 500,
-		},
-		"nova": {
-			Locations: 4, Lanes: 2, SessionsAndEntries: 250,
-			Displays: 15, CrewConsoles: 5, PublicReaders: 250,
-		},
-		"fosdem": {
-			Locations: 40, Lanes: 40, SessionsAndEntries: 1_500,
-			Displays: 150, CrewConsoles: 75, PublicReaders: 10_000,
-		},
-		"revision": {
-			Locations: 4, Lanes: 4, SessionsAndEntries: 750,
-			Displays: 30, CrewConsoles: 40, PublicReaders: 2_000,
-		},
-		"rated": {
-			Locations: 64, Lanes: 64, SessionsAndEntries: 5_000,
-			Displays: 250, CrewConsoles: 100, PublicReaders: 10_000,
-		},
-		"stress": {
-			Locations: 64, Lanes: 64, SessionsAndEntries: 25_000,
-			Displays: 500, CrewConsoles: 200, PublicReaders: 10_000,
-		},
-	}
-	for name, envelope := range want {
-		profile, err := capacityProfileNamed(name)
-		if err != nil {
-			t.Fatalf("profile %q: %v", name, err)
-		}
-		if profile.Envelope != envelope {
-			t.Errorf("profile %q = %+v, want %+v", name, profile.Envelope, envelope)
-		}
-	}
+func TestCapacityProfileRejectsUnknown(t *testing.T) {
 	if _, err := capacityProfileNamed("unknown"); err == nil {
 		t.Fatal("unknown capacity profile accepted")
+	}
+}
+
+func TestCapacityLoadArrivalsRemainOrderedWithJitter(t *testing.T) {
+	started := time.Unix(0, 0)
+	previous := started.Add(-time.Second)
+	for arrival := range 200 {
+		scheduled := capacityLoadArrival(
+			started,
+			arrival%100,
+			arrival/100,
+			100,
+			2*time.Second,
+		)
+		if !scheduled.After(previous) {
+			t.Fatalf("arrival %d at %s follows %s", arrival, scheduled, previous)
+		}
+		previous = scheduled
 	}
 }
 
@@ -422,8 +392,8 @@ func runCapacityLoad(
 	}()
 	select {
 	case <-publicReady:
-	case err := <-backgroundErr:
-		t.Fatalf("start capacity public readers: %v", err)
+	case backgroundError := <-backgroundErr:
+		t.Fatalf("start capacity public readers: %v", backgroundError)
 	case <-time.After(publicPollingInterval + 30*time.Second):
 		t.Fatal("capacity public readers did not become ready")
 	}
@@ -457,8 +427,8 @@ func runCapacityLoad(
 	cancel()
 	loadGroup.Wait()
 	select {
-	case err := <-backgroundErr:
-		t.Fatalf("capacity background load: %v", err)
+	case backgroundError := <-backgroundErr:
+		t.Fatalf("capacity background load: %v", backgroundError)
 	default:
 	}
 
@@ -467,6 +437,10 @@ func runCapacityLoad(
 		t.Fatalf("read generator hostname: %v", err)
 	}
 	resources := readCapacityResources(t, client, target)
+	certified := false
+	if certify {
+		certified = verifyCapacityThresholds(t, metrics)
+	}
 	report := capacityReport{
 		Profile:  target.Profile,
 		Hardware: target.Hardware,
@@ -476,7 +450,7 @@ func runCapacityLoad(
 			ServerHostname:    target.ServerHostname,
 			GeneratorHostname: generatorHostname,
 			SeparateMachines:  target.ServerHostname != generatorHostname,
-			Certified:         certify,
+			Certified:         certified,
 		},
 		Resources:               resources,
 		LiveCommand:             summarizeCapacityLatency(metrics.liveCommands),
@@ -490,9 +464,6 @@ func runCapacityLoad(
 	}
 	writeCapacityReport(t, report)
 	t.Logf("capacity report: %+v", report)
-	if certify {
-		verifyCapacityThresholds(t, metrics)
-	}
 }
 
 func capacityTargetForFixture(
@@ -535,7 +506,8 @@ func serveCapacityTarget(
 	if address == "" {
 		address = "127.0.0.1:8080"
 	}
-	listener, err := net.Listen("tcp", address)
+	var listenConfig net.ListenConfig
+	listener, err := listenConfig.Listen(t.Context(), "tcp", address)
 	if err != nil {
 		t.Fatalf("listen for capacity generator: %v", err)
 	}
@@ -725,8 +697,15 @@ func (probe *capacityProbe) ServeHTTP(response http.ResponseWriter, request *htt
 			http.NotFound(response, request)
 			return
 		}
+		resources, err := probe.resources.current()
+		if err != nil {
+			http.Error(response, "capacity resource evidence unavailable", http.StatusServiceUnavailable)
+			return
+		}
 		response.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(response).Encode(probe.resources.current())
+		if err = json.NewEncoder(response).Encode(resources); err != nil {
+			return
+		}
 	case "/capacity-probe/finish":
 		if request.Method != http.MethodPost ||
 			request.Header.Get(capacityProbeHeader) != probe.token {
@@ -752,6 +731,7 @@ type capacityResources struct {
 type capacityResourceSampler struct {
 	mu           sync.Mutex
 	currentValue capacityResources
+	err          error
 }
 
 func newCapacityResourceSampler(ctx context.Context) *capacityResourceSampler {
@@ -760,7 +740,10 @@ func newCapacityResourceSampler(ctx context.Context) *capacityResourceSampler {
 		ticker := time.NewTicker(100 * time.Millisecond)
 		defer ticker.Stop()
 		for {
-			sampler.sample()
+			if err := sampler.sample(); err != nil {
+				sampler.fail(err)
+				return
+			}
 			select {
 			case <-ctx.Done():
 				return
@@ -771,12 +754,17 @@ func newCapacityResourceSampler(ctx context.Context) *capacityResourceSampler {
 	return sampler
 }
 
-func (sampler *capacityResourceSampler) sample() {
+func (sampler *capacityResourceSampler) sample() error {
 	var memory runtime.MemStats
 	runtime.ReadMemStats(&memory)
 	var usage syscall.Rusage
-	_ = syscall.Getrusage(syscall.RUSAGE_SELF, &usage)
-	openFiles, _ := os.ReadDir("/proc/self/fd")
+	if err := syscall.Getrusage(syscall.RUSAGE_SELF, &usage); err != nil {
+		return fmt.Errorf("read process resource use: %w", err)
+	}
+	openFiles, err := os.ReadDir("/proc/self/fd")
+	if err != nil {
+		return fmt.Errorf("count process file descriptors: %w", err)
+	}
 	sampler.mu.Lock()
 	defer sampler.mu.Unlock()
 	sampler.currentValue.MaxHeapAllocBytes = max(
@@ -795,13 +783,24 @@ func (sampler *capacityResourceSampler) sample() {
 		sampler.currentValue.MaxOpenFiles,
 		len(openFiles),
 	)
+	return nil
 }
 
-func (sampler *capacityResourceSampler) current() capacityResources {
-	sampler.sample()
+func (sampler *capacityResourceSampler) fail(err error) {
 	sampler.mu.Lock()
 	defer sampler.mu.Unlock()
-	return sampler.currentValue
+	if sampler.err == nil {
+		sampler.err = err
+	}
+}
+
+func (sampler *capacityResourceSampler) current() (capacityResources, error) {
+	if err := sampler.sample(); err != nil {
+		sampler.fail(err)
+	}
+	sampler.mu.Lock()
+	defer sampler.mu.Unlock()
+	return sampler.currentValue, sampler.err
 }
 
 func readCapacityResources(
@@ -824,12 +823,14 @@ func readCapacityResources(
 	if err != nil {
 		t.Fatalf("read capacity resources: %v", err)
 	}
-	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
+		_ = response.Body.Close()
 		t.Fatalf("capacity resources status = %d", response.StatusCode)
 	}
 	var resources capacityResources
-	if err = json.NewDecoder(response.Body).Decode(&resources); err != nil {
+	decodeErr := json.NewDecoder(response.Body).Decode(&resources)
+	closeErr := response.Body.Close()
+	if err = errors.Join(decodeErr, closeErr); err != nil {
 		t.Fatalf("decode capacity resources: %v", err)
 	}
 	if resources.MaxHeapAllocBytes == 0 ||
@@ -869,7 +870,11 @@ func finishCapacityTarget(t *testing.T, target capacityTarget) {
 }
 
 func BenchmarkCapacityDisplaySnapshotFanout(b *testing.B) {
-	envelope := capacityProfiles["rated"].Envelope
+	profile, err := capacityProfileNamed("rated")
+	if err != nil {
+		b.Fatal(err)
+	}
+	envelope := profile.Envelope
 	fixture := prepareCapacityFixture(b, envelope)
 	displayStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
 	if err != nil {
@@ -1761,35 +1766,34 @@ func runCapacityCrewLoad(
 	requests *atomic.Int64,
 ) {
 	rundownClient := rundownv1connect.NewRundownServiceClient(client, baseURL)
-	run := func() bool {
-		var group sync.WaitGroup
-		for range consoles {
-			group.Go(func() {
-				_, err := rundownClient.GetCrewRundown(
-					ctx,
-					connect.NewRequest(&rundownv1.GetCrewRundownRequest{
-						EventId: int64(eventID),
-					}),
-				)
-				if err != nil && ctx.Err() == nil {
-					sendCapacityError(ctx, backgroundErr, fmt.Errorf("Crew console: %w", err))
-					return
-				}
-				if err == nil {
-					requests.Add(1)
-				}
-			})
+	started := time.Now()
+	var group sync.WaitGroup
+	for arrival := 0; ; arrival++ {
+		index := arrival % consoles
+		cycle := arrival / consoles
+		if !waitForCapacityArrival(
+			ctx,
+			capacityLoadArrival(started, index, cycle, consoles, 2*time.Second),
+		) {
+			break
 		}
-		group.Wait()
-		return ctx.Err() == nil
+		group.Go(func() {
+			_, err := rundownClient.GetCrewRundown(
+				ctx,
+				connect.NewRequest(&rundownv1.GetCrewRundownRequest{
+					EventId: int64(eventID),
+				}),
+			)
+			if err != nil && ctx.Err() == nil {
+				sendCapacityError(ctx, backgroundErr, fmt.Errorf("Crew console: %w", err))
+				return
+			}
+			if err == nil {
+				requests.Add(1)
+			}
+		})
 	}
-	for run() {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(2 * time.Second):
-		}
-	}
+	group.Wait()
 }
 
 func runCapacityPublicLoad(
@@ -1803,21 +1807,23 @@ func runCapacityPublicLoad(
 ) {
 	var readyReaders atomic.Int64
 	var group sync.WaitGroup
+	started := time.Now()
 	for index := range readers {
 		group.Go(func() {
 			firstRequest := true
-			timer := time.NewTimer(
-				time.Duration(index) * publicPollingInterval / time.Duration(readers),
-			)
-			defer timer.Stop()
-			select {
-			case <-ctx.Done():
-				return
-			case <-timer.C:
-			}
-			ticker := time.NewTicker(publicPollingInterval)
-			defer ticker.Stop()
-			for {
+			for cycle := 0; ; cycle++ {
+				if !waitForCapacityArrival(
+					ctx,
+					capacityLoadArrival(
+						started,
+						index,
+						cycle,
+						readers,
+						publicPollingInterval,
+					),
+				) {
+					return
+				}
 				request, err := http.NewRequestWithContext(
 					ctx,
 					http.MethodHead,
@@ -1850,15 +1856,34 @@ func runCapacityPublicLoad(
 						}
 					}
 				}
-				select {
-				case <-ctx.Done():
-					return
-				case <-ticker.C:
-				}
 			}
 		})
 	}
 	group.Wait()
+}
+
+func capacityLoadArrival(
+	started time.Time,
+	index int,
+	cycle int,
+	workers int,
+	interval time.Duration,
+) time.Time {
+	spacing := interval / time.Duration(workers)
+	arrival := cycle*workers + index
+	jitter := time.Duration((arrival*137)%201-100) * spacing / 400
+	return started.Add(time.Duration(arrival)*spacing + jitter)
+}
+
+func waitForCapacityArrival(ctx context.Context, scheduled time.Time) bool {
+	timer := time.NewTimer(max(time.Until(scheduled), 0))
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
 }
 
 type capacityMetrics struct {
@@ -2250,22 +2275,28 @@ func primeCapacitySchedule(t *testing.T, client *http.Client, baseURL string) {
 	}
 }
 
-func verifyCapacityThresholds(t *testing.T, metrics capacityMetrics) {
+func verifyCapacityThresholds(t *testing.T, metrics capacityMetrics) bool {
 	t.Helper()
+	passed := true
 	live := summarizeCapacityLatency(metrics.liveCommands)
 	if live.Samples < 200 {
+		passed = false
 		t.Errorf("live command samples = %d, want at least 200", live.Samples)
 	}
 	if live.P50MS > 100 {
+		passed = false
 		t.Errorf("durable live command p50 = %dms, want <= 100ms", live.P50MS)
 	}
 	if live.P95MS > 250 {
+		passed = false
 		t.Errorf("durable live command p95 = %dms, want <= 250ms", live.P95MS)
 	}
 	if live.P99MS > 500 {
+		passed = false
 		t.Errorf("durable live command p99 = %dms, want <= 500ms", live.P99MS)
 	}
 	if live.MaxMS > 2_000 {
+		passed = false
 		t.Errorf("durable live command maximum = %dms, want <= 2000ms", live.MaxMS)
 	}
 	for index, fanout := range metrics.displayCommit {
@@ -2274,6 +2305,7 @@ func verifyCapacityThresholds(t *testing.T, metrics capacityMetrics) {
 			display.P95MS > 500 ||
 			display.P99MS > 1_000 ||
 			display.MaxMS > 2_000 {
+			passed = false
 			t.Errorf(
 				"command %d commit-to-Display fanout = %+v, want <= 250/500/1000/2000ms",
 				index,
@@ -2283,6 +2315,7 @@ func verifyCapacityThresholds(t *testing.T, metrics capacityMetrics) {
 	}
 	for index, fanout := range metrics.displayOperator {
 		if display := summarizeCapacityLatency(fanout); display.P95MS > 750 {
+			passed = false
 			t.Errorf(
 				"command %d operator-to-Display p95 = %dms, want <= 750ms",
 				index,
@@ -2291,6 +2324,7 @@ func verifyCapacityThresholds(t *testing.T, metrics capacityMetrics) {
 		}
 	}
 	if metrics.maximumTimerSkew > capacityTimerSkewBound {
+		passed = false
 		t.Errorf(
 			"Stage Timer maximum skew = %s, want <= 250ms",
 			metrics.maximumTimerSkew,
@@ -2300,11 +2334,13 @@ func verifyCapacityThresholds(t *testing.T, metrics capacityMetrics) {
 	if freshness.P50MS > 7_000 ||
 		freshness.P95MS > 13_000 ||
 		freshness.MaxMS > 15_000 {
+		passed = false
 		t.Errorf(
 			"public freshness = %+v, want p50/p95/max <= 7000/13000/15000ms",
 			freshness,
 		)
 	}
+	return passed
 }
 
 func verifyCapacityWarning(
