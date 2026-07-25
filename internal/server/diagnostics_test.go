@@ -97,11 +97,11 @@ func TestDiagnosticsWarnBeyondTestedCapacityWithoutRefusal(t *testing.T) {
 			Locations: 65,
 			Lanes:     64,
 			Sessions:  2,
-			Entries:   24_999,
-			Displays:  501,
+			Entries:   4_999,
+			Displays:  251,
 		},
 		nil,
-		500,
+		250,
 		0,
 		false,
 		nil,
@@ -117,6 +117,20 @@ func TestDiagnosticsWarnBeyondTestedCapacityWithoutRefusal(t *testing.T) {
 	for _, warning := range found.Capacity.Warnings {
 		if _, known := want[warning.Code]; known {
 			want[warning.Code] = true
+		}
+		switch warning.Code {
+		case "lanes_or_locations":
+			if warning.TestedMax != 64 {
+				t.Errorf("Location or Lane tested max = %d, want 64", warning.TestedMax)
+			}
+		case "sessions_and_entries":
+			if warning.TestedMax != 5_000 {
+				t.Errorf("Session and Entry tested max = %d, want 5000", warning.TestedMax)
+			}
+		case "displays":
+			if warning.TestedMax != 250 {
+				t.Errorf("Display tested max = %d, want 250", warning.TestedMax)
+			}
 		}
 	}
 	for code, seen := range want {

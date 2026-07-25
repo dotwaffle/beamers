@@ -16,8 +16,8 @@ import (
 
 const (
 	testedLocationsOrLanes = 64
-	testedDisplays         = 500
-	testedSessionsEntries  = 25_000
+	testedDisplays         = 250
+	testedSessionsEntries  = 5_000
 )
 
 func registerDiagnosticsRoutes(
