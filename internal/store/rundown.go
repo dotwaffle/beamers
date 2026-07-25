@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	entsql "entgo.io/ent/dialect/sql"
+
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftchangedependency"
@@ -934,15 +936,26 @@ func loadCrewRundown(ctx context.Context, client *ent.Client, eventID int) (Crew
 	if err != nil {
 		return CrewRundownState{}, opaqueError("load Crew Locations", err)
 	}
+	locationVersions, err := client.LocationPublishedVersion.Query().
+		Where(
+			locationpublishedversion.HasLocationWith(location.EventIDEQ(eventID)),
+			latestPublishedVersion(
+				locationpublishedversion.Table,
+				locationpublishedversion.FieldLocationID,
+			),
+		).
+		All(ctx)
+	if err != nil {
+		return CrewRundownState{}, opaqueError("load current Published Locations", err)
+	}
+	locationVersionsByIdentity := make(map[int]*ent.LocationPublishedVersion, len(locationVersions))
+	for _, version := range locationVersions {
+		locationVersionsByIdentity[version.LocationID] = version
+	}
 	for _, identity := range locations {
-		version, queryErr := identity.QueryPublishedVersions().
-			Order(ent.Desc("published_revision")).
-			First(ctx)
-		if ent.IsNotFound(queryErr) {
+		version := locationVersionsByIdentity[identity.ID]
+		if version == nil {
 			continue
-		}
-		if queryErr != nil {
-			return CrewRundownState{}, opaqueError("load current Published Location", queryErr)
 		}
 		if !version.Retired {
 			result.Locations = append(result.Locations, PublishedLocation{ID: identity.ID, Name: version.Name})
@@ -952,13 +965,26 @@ func loadCrewRundown(ctx context.Context, client *ent.Client, eventID int) (Crew
 	if err != nil {
 		return CrewRundownState{}, opaqueError("load Crew Lanes", err)
 	}
+	laneVersions, err := client.LanePublishedVersion.Query().
+		Where(
+			lanepublishedversion.HasLaneWith(lane.EventIDEQ(eventID)),
+			latestPublishedVersion(
+				lanepublishedversion.Table,
+				lanepublishedversion.FieldLaneID,
+			),
+		).
+		All(ctx)
+	if err != nil {
+		return CrewRundownState{}, opaqueError("load current Published Lanes", err)
+	}
+	laneVersionsByIdentity := make(map[int]*ent.LanePublishedVersion, len(laneVersions))
+	for _, version := range laneVersions {
+		laneVersionsByIdentity[version.LaneID] = version
+	}
 	for _, identity := range lanes {
-		version, queryErr := identity.QueryPublishedVersions().Order(ent.Desc("published_revision")).First(ctx)
-		if ent.IsNotFound(queryErr) {
+		version := laneVersionsByIdentity[identity.ID]
+		if version == nil {
 			continue
-		}
-		if queryErr != nil {
-			return CrewRundownState{}, opaqueError("load current Published Lane", queryErr)
 		}
 		if !version.Retired {
 			result.Lanes = append(result.Lanes, PublishedLane{
@@ -970,13 +996,26 @@ func loadCrewRundown(ctx context.Context, client *ent.Client, eventID int) (Crew
 	if err != nil {
 		return CrewRundownState{}, opaqueError("load Crew Tracks", err)
 	}
+	trackVersions, err := client.TrackPublishedVersion.Query().
+		Where(
+			trackpublishedversion.HasTrackWith(track.EventIDEQ(eventID)),
+			latestPublishedVersion(
+				trackpublishedversion.Table,
+				trackpublishedversion.FieldTrackID,
+			),
+		).
+		All(ctx)
+	if err != nil {
+		return CrewRundownState{}, opaqueError("load current Published Tracks", err)
+	}
+	trackVersionsByIdentity := make(map[int]*ent.TrackPublishedVersion, len(trackVersions))
+	for _, version := range trackVersions {
+		trackVersionsByIdentity[version.TrackID] = version
+	}
 	for _, identity := range tracks {
-		version, queryErr := identity.QueryPublishedVersions().Order(ent.Desc("published_revision")).First(ctx)
-		if ent.IsNotFound(queryErr) {
+		version := trackVersionsByIdentity[identity.ID]
+		if version == nil {
 			continue
-		}
-		if queryErr != nil {
-			return CrewRundownState{}, opaqueError("load current Published Track", queryErr)
 		}
 		if !version.Retired {
 			result.Tracks = append(result.Tracks, PublishedTrack{ID: identity.ID, Name: version.Name})
@@ -986,36 +1025,40 @@ func loadCrewRundown(ctx context.Context, client *ent.Client, eventID int) (Crew
 	if err != nil {
 		return CrewRundownState{}, opaqueError("load Crew Sessions", err)
 	}
+	versions, err := client.SessionPublishedVersion.Query().
+		Where(
+			sessionpublishedversion.HasSessionWith(session.EventIDEQ(eventID)),
+			latestPublishedVersion(
+				sessionpublishedversion.Table,
+				sessionpublishedversion.FieldSessionID,
+			),
+		).
+		WithLanes().
+		WithLocations().
+		WithTracks().
+		All(ctx)
+	if err != nil {
+		return CrewRundownState{}, opaqueError("load current Published Sessions", err)
+	}
+	versionsBySession := make(map[int]*ent.SessionPublishedVersion, len(versions))
+	for _, version := range versions {
+		versionsBySession[version.SessionID] = version
+	}
 	for _, identity := range sessions {
-		version, queryErr := identity.QueryPublishedVersions().Order(ent.Desc("published_revision")).First(ctx)
-		if ent.IsNotFound(queryErr) {
+		version := versionsBySession[identity.ID]
+		if version == nil {
 			continue
 		}
-		if queryErr != nil {
-			return CrewRundownState{}, opaqueError("load current Published Session", queryErr)
-		}
-		lanes, queryErr := version.QueryLanes().All(ctx)
-		if queryErr != nil {
-			return CrewRundownState{}, opaqueError("load Published Session Lanes", queryErr)
-		}
-		laneIDs := make([]int, 0, len(lanes))
-		for _, item := range lanes {
+		laneIDs := make([]int, 0, len(version.Edges.Lanes))
+		for _, item := range version.Edges.Lanes {
 			laneIDs = append(laneIDs, item.ID)
 		}
-		locations, queryErr := version.QueryLocations().All(ctx)
-		if queryErr != nil {
-			return CrewRundownState{}, opaqueError("load Published Session Locations", queryErr)
-		}
-		locationIDs := make([]int, 0, len(locations))
-		for _, item := range locations {
+		locationIDs := make([]int, 0, len(version.Edges.Locations))
+		for _, item := range version.Edges.Locations {
 			locationIDs = append(locationIDs, item.ID)
 		}
-		tracks, queryErr := version.QueryTracks().All(ctx)
-		if queryErr != nil {
-			return CrewRundownState{}, opaqueError("load Published Session Tracks", queryErr)
-		}
-		trackIDs := make([]int, 0, len(tracks))
-		for _, item := range tracks {
+		trackIDs := make([]int, 0, len(version.Edges.Tracks))
+		for _, item := range version.Edges.Tracks {
 			trackIDs = append(trackIDs, item.ID)
 		}
 		details := correctedSessionDetails(identity, SessionDetails{
@@ -1036,4 +1079,21 @@ func loadCrewRundown(ctx context.Context, client *ent.Client, eventID int) (Crew
 		})
 	}
 	return result, nil
+}
+
+func latestPublishedVersion(
+	table string,
+	identityField string,
+) func(*entsql.Selector) {
+	return func(selector *entsql.Selector) {
+		revisionField := sessionpublishedversion.FieldPublishedRevision
+		candidate := entsql.Table(table).As("candidate")
+		latest := entsql.Select(entsql.Max(candidate.C(revisionField))).
+			From(candidate).
+			Where(entsql.ColumnsEQ(
+				candidate.C(identityField),
+				selector.C(identityField),
+			))
+		selector.Where(entsql.EQ(selector.C(revisionField), latest))
+	}
 }
