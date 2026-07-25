@@ -104,13 +104,22 @@ func (evidence browserPageEvidence) validate() error {
 		}
 	}
 	if len(evidence.UnlabeledControls) > 0 {
-		findings = append(findings, "unlabeled controls")
+		findings = append(
+			findings,
+			"unlabeled controls: "+strings.Join(evidence.UnlabeledControls, ", "),
+		)
 	}
 	if len(evidence.SmallTargets) > 0 {
-		findings = append(findings, "small targets")
+		findings = append(
+			findings,
+			"small targets: "+strings.Join(evidence.SmallTargets, ", "),
+		)
 	}
 	if len(evidence.ContrastFailures) > 0 {
-		findings = append(findings, "contrast failures")
+		findings = append(
+			findings,
+			"contrast failures: "+strings.Join(evidence.ContrastFailures, ", "),
+		)
 	}
 	if len(findings) == 0 {
 		return nil
