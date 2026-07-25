@@ -150,6 +150,7 @@ func TestCapacityEnvelope(t *testing.T) {
 	}
 	var crewRequests atomic.Int64
 	var publicRequests atomic.Int64
+	publicReady := make(chan struct{})
 	var loadGroup sync.WaitGroup
 	loadGroup.Add(2)
 	go func() {
@@ -171,8 +172,16 @@ func TestCapacityEnvelope(t *testing.T) {
 			cacheServer.URL,
 			backgroundErr,
 			&publicRequests,
+			publicReady,
 		)
 	}()
+	select {
+	case <-publicReady:
+	case err := <-backgroundErr:
+		t.Fatalf("start capacity public readers: %v", err)
+	case <-time.After(publicPollingInterval + 30*time.Second):
+		t.Fatal("capacity public readers did not become ready")
+	}
 
 	sessionClient := sessionv1connect.NewSessionControlServiceClient(
 		authenticatedClient,
@@ -1136,11 +1145,25 @@ func runCapacityPublicLoad(
 	baseURL string,
 	backgroundErr chan<- error,
 	requests *atomic.Int64,
+	ready chan<- struct{},
 ) {
-	run := func() bool {
-		var group sync.WaitGroup
-		for range capacityPublicReaders {
-			group.Go(func() {
+	var readyReaders atomic.Int64
+	var group sync.WaitGroup
+	for index := range capacityPublicReaders {
+		group.Go(func() {
+			firstRequest := true
+			timer := time.NewTimer(
+				time.Duration(index) * publicPollingInterval / capacityPublicReaders,
+			)
+			defer timer.Stop()
+			select {
+			case <-ctx.Done():
+				return
+			case <-timer.C:
+			}
+			ticker := time.NewTicker(publicPollingInterval)
+			defer ticker.Stop()
+			for {
 				request, err := http.NewRequestWithContext(
 					ctx,
 					http.MethodHead,
@@ -1166,19 +1189,22 @@ func runCapacityPublicLoad(
 				}
 				if err == nil {
 					requests.Add(1)
+					if firstRequest {
+						firstRequest = false
+						if readyReaders.Add(1) == capacityPublicReaders {
+							close(ready)
+						}
+					}
 				}
-			})
-		}
-		group.Wait()
-		return ctx.Err() == nil
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+				}
+			}
+		})
 	}
-	for run() {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(publicPollingInterval):
-		}
-	}
+	group.Wait()
 }
 
 type capacityMetrics struct {
