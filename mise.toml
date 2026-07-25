@@ -18,6 +18,7 @@ node = "24.18.0"
 "go:connectrpc.com/connect/cmd/protoc-gen-connect-go" = "1.20.0"
 "go:google.golang.org/protobuf/cmd/protoc-gen-go" = "1.36.11"
 rumdl = "0.2.34"
+shellcheck = "0.11.0"
 templ = "0.3.906"
 
 [tasks.format]
@@ -28,12 +29,13 @@ rumdl fmt .
 """
 
 [tasks.lint]
-description = "Run Go and Markdown static analysis"
+description = "Run static analysis"
 run = """
 actionlint
 buf lint
 golangci-lint run
 rumdl check .
+shellcheck scripts/*.sh
 """
 
 [tasks.test]

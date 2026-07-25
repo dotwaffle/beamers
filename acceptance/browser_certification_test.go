@@ -48,12 +48,14 @@ type browserPageEvidence struct {
 }
 
 type browserCertificationConfig struct {
-	Engine          string
-	Role            string
-	ExpectedMajor   int
-	BrowserBinary   string
-	WebDriverBinary string
-	ReportPath      string
+	Engine            string
+	Role              string
+	ExpectedMajor     int
+	BrowserBinary     string
+	WebDriverBinary   string
+	WebDriverEndpoint string
+	WebDriverVersion  string
+	ReportPath        string
 }
 
 type browserCertificationReport struct {
@@ -522,12 +524,14 @@ func browserConfigFromEnvironment(t *testing.T) browserCertificationConfig {
 		t.Fatal("BEAMERS_BROWSER_MAJOR must be a positive browser major")
 	}
 	config := browserCertificationConfig{
-		Engine:          os.Getenv("BEAMERS_BROWSER_ENGINE"),
-		Role:            os.Getenv("BEAMERS_BROWSER_ROLE"),
-		ExpectedMajor:   expectedMajor,
-		BrowserBinary:   os.Getenv("BEAMERS_BROWSER_BINARY"),
-		WebDriverBinary: os.Getenv("BEAMERS_WEBDRIVER_BINARY"),
-		ReportPath:      os.Getenv("BEAMERS_BROWSER_REPORT"),
+		Engine:            os.Getenv("BEAMERS_BROWSER_ENGINE"),
+		Role:              os.Getenv("BEAMERS_BROWSER_ROLE"),
+		ExpectedMajor:     expectedMajor,
+		BrowserBinary:     os.Getenv("BEAMERS_BROWSER_BINARY"),
+		WebDriverBinary:   os.Getenv("BEAMERS_WEBDRIVER_BINARY"),
+		WebDriverEndpoint: os.Getenv("BEAMERS_WEBDRIVER_ENDPOINT"),
+		WebDriverVersion:  os.Getenv("BEAMERS_WEBDRIVER_VERSION"),
+		ReportPath:        os.Getenv("BEAMERS_BROWSER_REPORT"),
 	}
 	if config.Engine != "chromium" && config.Engine != "firefox" {
 		t.Fatalf("unsupported BEAMERS_BROWSER_ENGINE %q", config.Engine)
@@ -535,19 +539,23 @@ func browserConfigFromEnvironment(t *testing.T) browserCertificationConfig {
 	if config.Role != "current" && config.Role != "previous" {
 		t.Fatalf("unsupported BEAMERS_BROWSER_ROLE %q", config.Role)
 	}
-	for _, required := range []struct {
-		name string
-		path string
-	}{
-		{"BEAMERS_BROWSER_BINARY", config.BrowserBinary},
-		{"BEAMERS_WEBDRIVER_BINARY", config.WebDriverBinary},
-	} {
-		if required.path == "" {
-			t.Fatalf("%s is required", required.name)
+	if config.WebDriverEndpoint == "" {
+		for _, required := range []struct {
+			name string
+			path string
+		}{
+			{"BEAMERS_BROWSER_BINARY", config.BrowserBinary},
+			{"BEAMERS_WEBDRIVER_BINARY", config.WebDriverBinary},
+		} {
+			if required.path == "" {
+				t.Fatalf("%s is required", required.name)
+			}
+			if _, err = exec.LookPath(required.path); err != nil {
+				t.Fatalf("%s: %v", required.name, err)
+			}
 		}
-		if _, err = exec.LookPath(required.path); err != nil {
-			t.Fatalf("%s: %v", required.name, err)
-		}
+	} else if config.WebDriverVersion == "" {
+		t.Fatal("BEAMERS_WEBDRIVER_VERSION is required with BEAMERS_WEBDRIVER_ENDPOINT")
 	}
 	if config.ReportPath == "" {
 		t.Fatal("BEAMERS_BROWSER_REPORT is required")
@@ -560,6 +568,9 @@ func startBrowserDriver(
 	config browserCertificationConfig,
 ) (string, string) {
 	t.Helper()
+	if config.WebDriverEndpoint != "" {
+		return config.WebDriverEndpoint, config.WebDriverVersion
+	}
 	versionCommand := exec.CommandContext(
 		t.Context(),
 		config.WebDriverBinary,
@@ -684,8 +695,7 @@ func startBrowserSession(
 	capabilities := map[string]any{"browserName": "chrome"}
 	switch config.Engine {
 	case "chromium":
-		capabilities["goog:chromeOptions"] = map[string]any{
-			"binary": config.BrowserBinary,
+		options := map[string]any{
 			"args": []string{
 				"--headless=new",
 				"--no-sandbox",
@@ -694,13 +704,20 @@ func startBrowserSession(
 				"--window-size=1280,720",
 			},
 		}
+		if config.BrowserBinary != "" {
+			options["binary"] = config.BrowserBinary
+		}
+		capabilities["goog:chromeOptions"] = options
 	case "firefox":
 		capabilities["browserName"] = "firefox"
-		capabilities["moz:firefoxOptions"] = map[string]any{
-			"binary": config.BrowserBinary,
-			"args":   []string{"-headless"},
-			"prefs":  map[string]any{"ui.prefersReducedMotion": 1},
+		options := map[string]any{
+			"args":  []string{"-headless"},
+			"prefs": map[string]any{"ui.prefersReducedMotion": 1},
 		}
+		if config.BrowserBinary != "" {
+			options["binary"] = config.BrowserBinary
+		}
+		capabilities["moz:firefoxOptions"] = options
 	}
 	driver, err := newWebDriver(t.Context(), client, endpoint, capabilities)
 	if err != nil {
@@ -719,14 +736,34 @@ func certifyInteractivePage(
 	if err := driver.navigate(t.Context(), target); err != nil {
 		t.Fatalf("navigate to %s: %v", surface, err)
 	}
-	if err := driver.pressKey(t.Context(), "\uE004"); err != nil {
-		t.Fatalf("Tab through %s: %v", surface, err)
-	}
+	focusKeyboardControl(t, driver, surface)
 	evidence, err := driver.auditPage(t.Context(), surface)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return evidence
+}
+
+func focusKeyboardControl(t *testing.T, driver *webDriver, surface string) {
+	t.Helper()
+	for range 10 {
+		if err := driver.pressKey(t.Context(), "\uE004"); err != nil {
+			t.Fatalf("Tab through %s: %v", surface, err)
+		}
+		focused, err := driver.evaluateBool(
+			t.Context(),
+			`const active = document.activeElement;`+
+				`return active && active !== document.body && `+
+				`active.matches("a[href],button,input,select,textarea,[tabindex]");`,
+		)
+		if err != nil {
+			t.Fatalf("inspect %s keyboard focus: %v", surface, err)
+		}
+		if focused {
+			return
+		}
+	}
+	t.Fatalf("Tab did not reach a control on %s", surface)
 }
 
 func certifyCrewControl(
@@ -773,9 +810,7 @@ func certifyCrewControl(
 	if !strings.Contains(status, "revision") {
 		t.Fatalf("Crew control status = %q, want revision", status)
 	}
-	if err = driver.pressKey(t.Context(), "\uE004"); err != nil {
-		t.Fatalf("Tab through Crew control: %v", err)
-	}
+	focusKeyboardControl(t, driver, "Crew control")
 	evidence, err := driver.auditPage(t.Context(), "crew_control")
 	if err != nil {
 		t.Fatal(err)

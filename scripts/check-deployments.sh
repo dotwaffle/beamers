@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-repository=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+repository=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 temporary=$(mktemp -d)
 project=
 compose_env=

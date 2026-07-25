@@ -9,6 +9,16 @@ Hosted evidence does not certify Safari, kiosk fullscreen, kiosk hardware, an ac
 
 ## Run the hosted check locally
 
+With Docker or Podman:
+
+```sh
+scripts/check-browser-chromium.sh
+```
+
+Set `CONTAINER_RUNTIME=podman` to use Podman.
+Set `BEAMERS_SELENIUM_IMAGE` to test a specific Selenium Chromium image.
+Set `BEAMERS_BROWSER_RUNS` to repeat the certification against one container.
+
 Install a supported browser and its W3C WebDriver, then run:
 
 ```sh
