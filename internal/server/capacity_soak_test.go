@@ -176,6 +176,22 @@ func TestCapacityLoadArrivalsRemainOrderedWithJitter(t *testing.T) {
 	}
 }
 
+func TestCapacityFreshnessStopsWhenCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	target := make(chan capacityFreshnessResult)
+	done := make(chan struct{})
+	go func() {
+		observeCapacityFreshness(ctx, &capacityScheduleCache{}, "", time.Now(), target)
+		close(done)
+	}()
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("freshness observer did not stop")
+	}
+}
+
 func TestCapacityFanoutSummarizesEachCommandFirst(t *testing.T) {
 	found := summarizeCapacityFanout([][]time.Duration{
 		{10 * time.Millisecond, 20 * time.Millisecond, 30 * time.Millisecond},
@@ -2131,18 +2147,32 @@ func observeCapacityFreshness(
 	deadline := committed.Add(publicFreshnessBound + time.Second)
 	for time.Now().Before(deadline) {
 		if etag := cache.etag(); etag != "" && etag != previousETag {
-			target <- capacityFreshnessResult{latency: time.Since(committed)}
+			sendCapacityFreshnessResult(
+				ctx,
+				target,
+				capacityFreshnessResult{latency: time.Since(committed)},
+			)
 			return
 		}
 		select {
 		case <-ctx.Done():
-			target <- capacityFreshnessResult{err: ctx.Err()}
 			return
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
-	target <- capacityFreshnessResult{
+	sendCapacityFreshnessResult(ctx, target, capacityFreshnessResult{
 		err: fmt.Errorf("public Schedule remained stale beyond %s", publicFreshnessBound),
+	})
+}
+
+func sendCapacityFreshnessResult(
+	ctx context.Context,
+	target chan<- capacityFreshnessResult,
+	result capacityFreshnessResult,
+) {
+	select {
+	case target <- result:
+	case <-ctx.Done():
 	}
 }
 
