@@ -15,10 +15,10 @@ on:
         type: choice
         options:
           - all
-          - netuk
-          - nova
-          - fosdem
-          - revision
+          - small-conference
+          - small-demoparty
+          - large-conference
+          - large-demoparty
           - rated
           - stress
 
@@ -100,7 +100,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        profile: ${{ fromJSON(inputs.profile == 'all' && '["netuk","nova","fosdem","revision","stress"]' || format('["{0}"]', inputs.profile)) }}
+        profile: ${{ fromJSON(inputs.profile == 'all' && '["small-conference","small-demoparty","large-conference","large-demoparty","stress"]' || format('["{0}"]', inputs.profile)) }}
 
     steps:
       - name: Check out repository

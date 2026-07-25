@@ -71,22 +71,22 @@ type capacityProfile struct {
 func capacityProfileNamed(name string) (capacityProfile, error) {
 	profile := capacityProfile{Name: name, Certified: true}
 	switch name {
-	case "netuk":
+	case "small-conference":
 		profile.Envelope = capacityEnvelope{
 			Locations: 6, Lanes: 3, SessionsAndEntries: 75,
 			Displays: 20, CrewConsoles: 10, PublicReaders: 500,
 		}
-	case "nova":
+	case "small-demoparty":
 		profile.Envelope = capacityEnvelope{
 			Locations: 4, Lanes: 2, SessionsAndEntries: 250,
 			Displays: 15, CrewConsoles: 5, PublicReaders: 250,
 		}
-	case "fosdem":
+	case "large-conference":
 		profile.Envelope = capacityEnvelope{
-			Locations: 40, Lanes: 40, SessionsAndEntries: 1_500,
+			Locations: 70, Lanes: 40, SessionsAndEntries: 1_500,
 			Displays: 150, CrewConsoles: 75, PublicReaders: 10_000,
 		}
-	case "revision":
+	case "large-demoparty":
 		profile.Envelope = capacityEnvelope{
 			Locations: 4, Lanes: 4, SessionsAndEntries: 750,
 			Displays: 30, CrewConsoles: 40, PublicReaders: 2_000,
@@ -152,6 +152,67 @@ func capacityCertificationError(profile capacityProfile, role string) error {
 func TestCapacityProfileRejectsUnknown(t *testing.T) {
 	if _, err := capacityProfileNamed("unknown"); err == nil {
 		t.Fatal("unknown capacity profile accepted")
+	}
+}
+
+func TestCapacityProfiles(t *testing.T) {
+	tests := map[string]capacityEnvelope{
+		"small-conference": {
+			Locations: 6, Lanes: 3, SessionsAndEntries: 75,
+			Displays: 20, CrewConsoles: 10, PublicReaders: 500,
+		},
+		"small-demoparty": {
+			Locations: 4, Lanes: 2, SessionsAndEntries: 250,
+			Displays: 15, CrewConsoles: 5, PublicReaders: 250,
+		},
+		"large-conference": {
+			Locations: 70, Lanes: 40, SessionsAndEntries: 1_500,
+			Displays: 150, CrewConsoles: 75, PublicReaders: 10_000,
+		},
+		"large-demoparty": {
+			Locations: 4, Lanes: 4, SessionsAndEntries: 750,
+			Displays: 30, CrewConsoles: 40, PublicReaders: 2_000,
+		},
+	}
+	for name, want := range tests {
+		profile, err := capacityProfileNamed(name)
+		if err != nil {
+			t.Fatalf("capacityProfileNamed(%q): %v", name, err)
+		}
+		if profile.Name != name || profile.Envelope != want || !profile.Certified {
+			t.Errorf("capacityProfileNamed(%q) = %+v, want certified %+v", name, profile, want)
+		}
+	}
+}
+
+func TestCapacityWorkflowProfiles(t *testing.T) {
+	workflow, err := os.ReadFile(
+		filepath.Join("..", "..", ".github", "workflows", "capacity.yml"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents := string(workflow)
+	profiles := []string{
+		"small-conference",
+		"small-demoparty",
+		"large-conference",
+		"large-demoparty",
+	}
+	for _, profile := range profiles {
+		if count := strings.Count(contents, profile); count != 2 {
+			t.Errorf("workflow contains profile %q %d times, want choice and all matrix", profile, count)
+		}
+	}
+	const all = `["small-conference","small-demoparty","large-conference","large-demoparty","stress"]`
+	if !strings.Contains(contents, all) {
+		t.Error("workflow all matrix does not contain five secondary profiles")
+	}
+	for _, legacy := range []string{"netuk", "nova", "fosdem", "revision"} {
+		if strings.Contains(contents, "- "+legacy) ||
+			strings.Contains(contents, `"`+legacy+`"`) {
+			t.Errorf("workflow retains legacy profile %q", legacy)
+		}
 	}
 }
 

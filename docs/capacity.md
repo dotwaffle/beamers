@@ -6,16 +6,19 @@ It retains a larger stress profile to expose scaling failures without promising 
 ## Workload profiles
 
 The named profiles are reproducible planning models, not claims about the exact infrastructure or staffing of the example Events.
-[NetUK3](https://www.netuk.org/netuk3) and its [timetable](https://indico.netuk.org/event/3/timetable/) calibrate a typical conference.
-[Nova 2026](https://2026.novaparty.org/) calibrates a typical demoparty.
-The [FOSDEM 2026 schedule](https://fosdem.org/2026/schedule/) calibrates a large conference, while [Revision 2026 results](https://www.pouet.net/party_results.php?which=1550&when=2026) help calibrate a large competition-oriented Event.
+[NetUK3](https://www.netuk.org/netuk3) and its [timetable](https://indico.netuk.org/event/3/timetable/) calibrate the small-conference profile.
+[Nova 2026](https://2026.novaparty.org/) calibrates the small-demoparty profile.
+The [FOSDEM 2026 schedule](https://fosdem.org/2026/schedule/) contributes 1,079 Events across 37 rooms to the large-conference profile.
+The [EMF Camp 2026 schedule](https://www.emfcamp.org/schedule/2026) contributes 550 items with 583 occurrences across 66 venues and peaks at 37 concurrent occurrences.
+Together, the sources support 40 concurrent lanes with headroom; the combined profile allows 70 locations for EMF Camp and retains FOSDEM's larger content bound.
+[Revision 2026 results](https://www.pouet.net/party_results.php?which=1550&when=2026) calibrate the large-demoparty profile.
 
 | Profile | Locations | Concurrent Lanes | Sessions + Entries | Displays | Active Crew | Downstream public readers |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| NetUK typical conference | 6 | 3 | 75 | 20 | 10 | 500 |
-| Nova typical demoparty | 4 | 2 | 250 | 15 | 5 | 250 |
-| FOSDEM large conference | 40 | 40 | 1,500 | 150 | 75 | 10,000 |
-| Revision large demoparty | 4 | 4 | 750 | 30 | 40 | 2,000 |
+| Small conference | 6 | 3 | 75 | 20 | 10 | 500 |
+| Small demoparty | 4 | 2 | 250 | 15 | 5 | 250 |
+| Large conference | 70 | 40 | 1,500 | 150 | 75 | 10,000 |
+| Large demoparty | 4 | 4 | 750 | 30 | 40 | 2,000 |
 | Rated ceiling | 64 | 64 | 5,000 | 250 | 100 | 10,000 |
 | Diagnostic stress | 64 | 64 | 25,000 | 500 | 200 | 10,000 |
 
@@ -72,7 +75,7 @@ For a non-certifying local correctness run:
 ```sh
 BEAMERS_CAPACITY_SOAK=1 \
 BEAMERS_CAPACITY_ROLE=combined \
-BEAMERS_CAPACITY_PROFILE=netuk \
+BEAMERS_CAPACITY_PROFILE=small-conference \
 BEAMERS_CAPACITY_DURATION=1m \
 go test ./internal/server -run '^TestCapacityEnvelope$' -count=1 -timeout 15m
 ```
