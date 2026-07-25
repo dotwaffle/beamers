@@ -67,15 +67,62 @@ func TestDiagnosticsAreLocalOrAdministratorOnly(t *testing.T) {
 }
 
 func TestDiagnosticsRetainIndependentComponentsWhenStorageFails(t *testing.T) {
-	found := normalDiagnostics(nil, errors.New("storage failed"), 2, 3, true, nil)
+	found := normalDiagnostics(
+		nil,
+		errors.New("storage failed"),
+		operations.Capacity{},
+		errors.New("capacity unavailable"),
+		2,
+		3,
+		true,
+		nil,
+	)
 	if found.Storage.Status != "unavailable" ||
 		found.Backup.Status != "unavailable" ||
 		found.Replication.Status != "disabled" ||
 		found.Displays.Status != "unavailable" ||
+		found.Capacity.Status != "unavailable" ||
 		found.Streams.Display.Subscribers != 2 ||
 		found.Streams.Program.Subscribers != 3 ||
 		found.Telemetry.Status != "enabled" {
 		t.Fatalf("diagnostics = %+v", found)
+	}
+}
+
+func TestDiagnosticsWarnBeyondTestedCapacityWithoutRefusal(t *testing.T) {
+	found := normalDiagnostics(
+		nil,
+		nil,
+		operations.Capacity{
+			Locations: 65,
+			Lanes:     64,
+			Sessions:  2,
+			Entries:   24_999,
+			Displays:  501,
+		},
+		nil,
+		500,
+		0,
+		false,
+		nil,
+	)
+	if found.Capacity.Status != "warning" {
+		t.Fatalf("capacity status = %q, want warning", found.Capacity.Status)
+	}
+	want := map[string]bool{
+		"lanes_or_locations":   false,
+		"sessions_and_entries": false,
+		"displays":             false,
+	}
+	for _, warning := range found.Capacity.Warnings {
+		if _, known := want[warning.Code]; known {
+			want[warning.Code] = true
+		}
+	}
+	for code, seen := range want {
+		if !seen {
+			t.Errorf("capacity warnings = %+v, want %q", found.Capacity.Warnings, code)
+		}
 	}
 }
 

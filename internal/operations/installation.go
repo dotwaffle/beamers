@@ -110,6 +110,9 @@ type Installation struct {
 	sessionControl   *sessioncontrol.Service
 }
 
+// Capacity is the durable installation shape compared with the tested envelope.
+type Capacity = store.Capacity
+
 // OpenConfig identifies an installation's database and Attachment Store roots.
 type OpenConfig struct {
 	DataDir        string
@@ -393,6 +396,11 @@ func (installation *Installation) RecordInterfaceModes(
 // Ready reports whether storage is usable and on the supported schema.
 func (installation *Installation) Ready(ctx context.Context) error {
 	return installation.storage.Ready(ctx)
+}
+
+// Capacity returns durable counts used for operational warnings.
+func (installation *Installation) Capacity(ctx context.Context) (Capacity, error) {
+	return installation.storage.Capacity(ctx)
 }
 
 // Recover persists process-owned degraded state after storage becomes writable.

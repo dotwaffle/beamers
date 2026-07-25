@@ -9,6 +9,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/displays"
 	"github.com/dotwaffle/beamers/internal/displaystream"
+	"github.com/dotwaffle/beamers/internal/operations"
 	"github.com/dotwaffle/beamers/internal/replication"
 	"github.com/dotwaffle/beamers/internal/telemetry"
 )
@@ -16,6 +17,7 @@ import (
 func registerDiagnosticsRoutes(
 	mux *http.ServeMux,
 	authentication *auth.Service,
+	installation *operations.Installation,
 	displayService *displays.Service,
 	displayStream *displaystream.Hub,
 	programStream *displaystream.Hub,
@@ -34,9 +36,20 @@ func registerDiagnosticsRoutes(
 				"error", statusErr,
 			)
 		}
+		capacity, capacityErr := installation.Capacity(request.Context())
+		if capacityErr != nil {
+			logger.ErrorContext(
+				request.Context(),
+				"build capacity diagnostics",
+				"component", "diagnostics",
+				"error", capacityErr,
+			)
+		}
 		found := normalDiagnostics(
 			statuses,
 			statusErr,
+			capacity,
+			capacityErr,
 			displayStream.SubscriberCount(),
 			programStream.SubscriberCount(),
 			telemetryRuntime != nil && telemetryRuntime.Enabled(),
@@ -108,12 +121,27 @@ type normalDiagnosticsResponse struct {
 		Total    int            `json:"total"`
 		Delivery map[string]int `json:"delivery"`
 	} `json:"displays"`
+	Capacity  capacityDiagnostics  `json:"capacity"`
 	Telemetry componentDiagnostics `json:"telemetry"`
+}
+
+type capacityWarning struct {
+	Code      string `json:"code"`
+	Observed  int    `json:"observed"`
+	TestedMax int    `json:"tested_max"`
+}
+
+type capacityDiagnostics struct {
+	Status   string              `json:"status"`
+	Counts   operations.Capacity `json:"counts"`
+	Warnings []capacityWarning   `json:"warnings,omitempty"`
 }
 
 func normalDiagnostics(
 	statuses []displays.Status,
 	statusErr error,
+	capacity operations.Capacity,
+	capacityErr error,
 	displaySubscribers int,
 	programSubscribers int,
 	telemetryEnabled bool,
@@ -125,6 +153,7 @@ func normalDiagnostics(
 		Backup:      componentDiagnostics{Status: "available"},
 		Replication: replication.Status{Status: "disabled"},
 		Telemetry:   componentDiagnostics{Status: "disabled"},
+		Capacity:    capacityDiagnostics{Status: "within_tested_envelope", Counts: capacity},
 	}
 	found.Streams.Display = streamDiagnostics{
 		Status: "ready", Subscribers: displaySubscribers,
@@ -143,6 +172,14 @@ func normalDiagnostics(
 	if replicationAdapter != nil {
 		found.Replication = replicationAdapter.Status()
 	}
+	if capacityErr != nil {
+		found.Capacity.Status = "unavailable"
+	} else {
+		found.Capacity.Warnings = capacityWarnings(capacity, displaySubscribers)
+		if len(found.Capacity.Warnings) > 0 {
+			found.Capacity.Status = "warning"
+		}
+	}
 	if statusErr != nil {
 		found.Storage.Status = "unavailable"
 		found.Backup.Status = "unavailable"
@@ -158,4 +195,24 @@ func normalDiagnostics(
 		found.Displays.Delivery[status.DeliveryState]++
 	}
 	return found
+}
+
+func capacityWarnings(capacity operations.Capacity, displaySubscribers int) []capacityWarning {
+	var warnings []capacityWarning
+	if observed := max(capacity.Locations, capacity.Lanes); observed > 64 {
+		warnings = append(warnings, capacityWarning{
+			Code: "lanes_or_locations", Observed: observed, TestedMax: 64,
+		})
+	}
+	if observed := capacity.Sessions + capacity.Entries; observed > 25_000 {
+		warnings = append(warnings, capacityWarning{
+			Code: "sessions_and_entries", Observed: observed, TestedMax: 25_000,
+		})
+	}
+	if observed := max(capacity.Displays, displaySubscribers); observed > 500 {
+		warnings = append(warnings, capacityWarning{
+			Code: "displays", Observed: observed, TestedMax: 500,
+		})
+	}
+	return warnings
 }

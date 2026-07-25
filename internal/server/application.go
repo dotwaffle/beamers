@@ -568,6 +568,7 @@ func (application *application) buildHandler(
 	registerDiagnosticsRoutes(
 		mux,
 		installation.Authentication(),
+		installation,
 		installation.Displays(),
 		application.config.DisplayStream,
 		application.config.ProgramStream,

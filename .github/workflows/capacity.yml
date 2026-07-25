@@ -1,0 +1,64 @@
+name: Capacity
+
+on:
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: Sustained workload duration
+        required: true
+        default: 10m
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: capacity-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  capacity:
+    name: Reference capacity soak
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Restore Go caches
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: go-${{ runner.os }}-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            go-${{ runner.os }}-
+
+      - name: Install toolchain
+        uses: jdx/mise-action@v4
+        with:
+          cache: true
+
+      - name: Run reference capacity soak
+        env:
+          BEAMERS_CAPACITY_SOAK: "1"
+          BEAMERS_CAPACITY_DURATION: ${{ inputs.duration }}
+          BEAMERS_CAPACITY_REPORT: artifacts/capacity.json
+          BEAMERS_REFERENCE_HARDWARE: "1"
+        run: |
+          go test ./internal/server \
+            -run '^TestCapacityEnvelope$' \
+            -count=1 \
+            -timeout 40m \
+            -v
+
+      - name: Upload capacity evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: capacity-${{ github.run_id }}
+          path: artifacts/capacity.json
+          if-no-files-found: ignore
+          retention-days: 30

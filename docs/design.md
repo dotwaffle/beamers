@@ -512,6 +512,9 @@ On reference Linux AMD64 hardware with at least four CPU cores, 8 GB RAM, and du
 Connected Displays target committed-output application within 500 milliseconds at p95 and one second at p99.
 Online Stage Timer skew targets at most 250 milliseconds.
 
+The reproducible workload and reference-run procedure are documented in
+[Capacity verification](capacity.md).
+
 ### Accessibility and localization
 
 Public, Display, and Crew surfaces target WCAG 2.2 AA.
