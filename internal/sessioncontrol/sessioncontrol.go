@@ -461,13 +461,6 @@ func (service *Service) Cancel(
 	if err := command.ValidateID(input.CommandID); err != nil {
 		return State{}, err
 	}
-	if !input.Confirmed {
-		return State{}, ErrCancelConfirmation
-	}
-	if utf8.RuneCountInString(input.PublicCancellationMessage) > 10000 ||
-		utf8.RuneCountInString(input.CrewNotes) > 10000 {
-		return State{}, ErrCancellationText
-	}
 	payload, err := json.Marshal(input)
 	if err != nil {
 		return State{}, errors.New("encode Cancel Session command")
@@ -479,6 +472,13 @@ func (service *Service) Cancel(
 			CommandID: input.CommandID, Action: "CancelSession", Payload: string(payload),
 		},
 		func(transaction *store.CommandTx, now time.Time) (store.LiveSessionState, error) {
+			if !input.Confirmed {
+				return store.LiveSessionState{}, ErrCancelConfirmation
+			}
+			if utf8.RuneCountInString(input.PublicCancellationMessage) > 10000 ||
+				utf8.RuneCountInString(input.CrewNotes) > 10000 {
+				return store.LiveSessionState{}, ErrCancellationText
+			}
 			return transaction.CancelSession(actor.Context(ctx), store.CancelSessionParams{
 				EventID: input.EventID, SessionID: input.SessionID,
 				ExpectedLiveStateRevision: input.ExpectedLiveStateRevision,
@@ -756,14 +756,8 @@ func (service *Service) CorrectLiveDetails(
 	if err := command.ValidateID(input.CommandID); err != nil {
 		return Correction{}, err
 	}
-	if !input.Confirmed {
-		return Correction{}, ErrLiveDetailConfirmation
-	}
 	input.Title = strings.TrimSpace(input.Title)
 	input.Speaker = strings.TrimSpace(input.Speaker)
-	if err := validateLiveDetailFields(input); err != nil {
-		return Correction{}, err
-	}
 	payload, err := json.Marshal(input)
 	if err != nil {
 		return Correction{}, errors.New("encode Live Detail Correction command")
@@ -783,6 +777,18 @@ func (service *Service) CorrectLiveDetails(
 			return correction(stored), nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Correction], error) {
+			if !input.Confirmed {
+				return correctionRejection(
+					Correction{}, store.LiveDetailCorrection{},
+					"live_detail_confirmation_required", ErrLiveDetailConfirmation,
+				)
+			}
+			if validateErr := validateLiveDetailFields(input); validateErr != nil {
+				return correctionRejection(
+					Correction{}, store.LiveDetailCorrection{},
+					"live_detail_fields_invalid", validateErr,
+				)
+			}
 			if !actor.CanOperateEvent(input.EventID) {
 				return correctionRejection(Correction{}, store.LiveDetailCorrection{}, "operator_required", ErrOperatorRequired)
 			}
@@ -1165,6 +1171,10 @@ func rejectionCode(err error) (string, bool) {
 		return "deferred_entries_confirmation_required", true
 	case errors.Is(err, ErrDeferredEntriesPreviewStale):
 		return "deferred_entries_preview_stale", true
+	case errors.Is(err, ErrCancelConfirmation):
+		return "cancel_confirmation_required", true
+	case errors.Is(err, ErrCancellationText):
+		return "cancellation_text_invalid", true
 	default:
 		return "", false
 	}
@@ -1200,6 +1210,14 @@ func restoreRejected(err error) (State, error) {
 		return State{}, ErrDeferredEntriesConfirmation
 	case "deferred_entries_preview_stale":
 		return State{}, ErrDeferredEntriesPreviewStale
+	case "cancel_confirmation_required":
+		return State{}, ErrCancelConfirmation
+	case "cancellation_text_invalid":
+		return State{}, ErrCancellationText
+	case "live_detail_confirmation_required":
+		return State{}, ErrLiveDetailConfirmation
+	case "live_detail_fields_invalid":
+		return State{}, ErrLiveDetailFields
 	default:
 		return State{}, errors.New("session command unavailable")
 	}
