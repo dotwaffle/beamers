@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	metricnoop "go.opentelemetry.io/otel/metric/noop"
@@ -73,6 +74,7 @@ func TestDiagnosticsRetainIndependentComponentsWhenStorageFails(t *testing.T) {
 		operations.Capacity{},
 		errors.New("capacity unavailable"),
 		2,
+		2,
 		3,
 		true,
 		nil,
@@ -101,7 +103,8 @@ func TestDiagnosticsWarnBeyondTestedCapacityWithoutRefusal(t *testing.T) {
 			Displays:  251,
 		},
 		nil,
-		250,
+		252,
+		251,
 		0,
 		false,
 		nil,
@@ -137,6 +140,21 @@ func TestDiagnosticsWarnBeyondTestedCapacityWithoutRefusal(t *testing.T) {
 		if !seen {
 			t.Errorf("capacity warnings = %+v, want %q", found.Capacity.Warnings, code)
 		}
+	}
+}
+
+func TestCapacityWarningsUseConnectedDisplayIdentities(t *testing.T) {
+	if warnings := capacityWarnings(operations.Capacity{Displays: 1_000}, 250); slices.ContainsFunc(
+		warnings,
+		func(warning capacityWarning) bool { return warning.Code == "displays" },
+	) {
+		t.Fatalf("offline Display enrollments produced a capacity warning: %+v", warnings)
+	}
+	warnings := capacityWarnings(operations.Capacity{Displays: 250}, 251)
+	if !slices.ContainsFunc(warnings, func(warning capacityWarning) bool {
+		return warning.Code == "displays" && warning.Observed == 251
+	}) {
+		t.Fatalf("251 connected Display identities produced no warning: %+v", warnings)
 	}
 }
 

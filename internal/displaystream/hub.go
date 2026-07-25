@@ -50,6 +50,11 @@ type Subscription struct {
 	close         func()
 }
 
+type subscriber struct {
+	notifications chan Cursor
+	displayID     int64
+}
+
 // Close releases the subscription.
 func (subscription *Subscription) Close() {
 	subscription.closeOnce.Do(subscription.close)
@@ -62,7 +67,7 @@ type Hub struct {
 	position         uint64
 	queueCapacity    int
 	nextID           uint64
-	subscribers      map[uint64]chan Cursor
+	subscribers      map[uint64]subscriber
 	snapshotTokenKey [snapshotTokenKeyBytes]byte
 }
 
@@ -76,7 +81,7 @@ func New(streamID string, queueCapacity int) (*Hub, error) {
 	}
 	hub := &Hub{
 		streamID: streamID, queueCapacity: queueCapacity,
-		subscribers: make(map[uint64]chan Cursor),
+		subscribers: make(map[uint64]subscriber),
 	}
 	if _, err := rand.Read(hub.snapshotTokenKey[:]); err != nil {
 		return nil, errors.Join(errors.New("generate Display snapshot token key"), err)
@@ -162,6 +167,19 @@ func (hub *Hub) SubscriberCount() int {
 	return len(hub.subscribers)
 }
 
+// DisplayCount returns the number of distinct connected Display identities.
+func (hub *Hub) DisplayCount() int {
+	hub.mu.Lock()
+	defer hub.mu.Unlock()
+	identities := make(map[int64]struct{}, len(hub.subscribers))
+	for _, subscriber := range hub.subscribers {
+		if subscriber.displayID > 0 {
+			identities[subscriber.displayID] = struct{}{}
+		}
+	}
+	return len(identities)
+}
+
 // Publish advances the stream and drops subscribers whose queue is full.
 func (hub *Hub) Publish() Cursor {
 	hub.mu.Lock()
@@ -170,10 +188,10 @@ func (hub *Hub) Publish() Cursor {
 	cursor := Cursor{StreamID: hub.streamID, Position: hub.position}
 	for id, subscriber := range hub.subscribers {
 		select {
-		case subscriber <- cursor:
+		case subscriber.notifications <- cursor:
 		default:
 			delete(hub.subscribers, id)
-			close(subscriber)
+			close(subscriber.notifications)
 		}
 	}
 	return cursor
@@ -186,12 +204,24 @@ func (hub *Hub) Notify() {
 
 // Subscribe starts after a complete snapshot cursor and bridges any observed gap.
 func (hub *Hub) Subscribe(after uint64) *Subscription {
+	return hub.subscribe(after, 0)
+}
+
+// SubscribeDisplay starts a subscription attributed to one Display identity.
+func (hub *Hub) SubscribeDisplay(after uint64, displayID int64) *Subscription {
+	return hub.subscribe(after, displayID)
+}
+
+func (hub *Hub) subscribe(after uint64, displayID int64) *Subscription {
 	hub.mu.Lock()
 	defer hub.mu.Unlock()
 	hub.nextID++
 	id := hub.nextID
 	notifications := make(chan Cursor, hub.queueCapacity)
-	hub.subscribers[id] = notifications
+	hub.subscribers[id] = subscriber{
+		notifications: notifications,
+		displayID:     displayID,
+	}
 	if hub.position > after {
 		notifications <- Cursor{StreamID: hub.streamID, Position: hub.position}
 	}
@@ -202,7 +232,7 @@ func (hub *Hub) Subscribe(after uint64) *Subscription {
 			defer hub.mu.Unlock()
 			if subscriber, ok := hub.subscribers[id]; ok {
 				delete(hub.subscribers, id)
-				close(subscriber)
+				close(subscriber.notifications)
 			}
 		},
 	}

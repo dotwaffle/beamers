@@ -57,6 +57,7 @@ func registerDiagnosticsRoutes(
 			capacity,
 			capacityErr,
 			displayStream.SubscriberCount(),
+			displayStream.DisplayCount(),
 			programStream.SubscriberCount(),
 			telemetryRuntime != nil && telemetryRuntime.Enabled(),
 			replicationAdapter,
@@ -149,6 +150,7 @@ func normalDiagnostics(
 	capacity operations.Capacity,
 	capacityErr error,
 	displaySubscribers int,
+	connectedDisplays int,
 	programSubscribers int,
 	telemetryEnabled bool,
 	replicationAdapter *replication.Adapter,
@@ -181,7 +183,7 @@ func normalDiagnostics(
 	if capacityErr != nil {
 		found.Capacity.Status = "unavailable"
 	} else {
-		found.Capacity.Warnings = capacityWarnings(capacity, displaySubscribers)
+		found.Capacity.Warnings = capacityWarnings(capacity, connectedDisplays)
 		if len(found.Capacity.Warnings) > 0 {
 			found.Capacity.Status = "warning"
 		}
@@ -203,7 +205,7 @@ func normalDiagnostics(
 	return found
 }
 
-func capacityWarnings(capacity operations.Capacity, displaySubscribers int) []capacityWarning {
+func capacityWarnings(capacity operations.Capacity, connectedDisplays int) []capacityWarning {
 	var warnings []capacityWarning
 	if observed := max(capacity.Locations, capacity.Lanes); observed > testedLocationsOrLanes {
 		warnings = append(warnings, capacityWarning{
@@ -215,9 +217,9 @@ func capacityWarnings(capacity operations.Capacity, displaySubscribers int) []ca
 			Code: "sessions_and_entries", Observed: observed, TestedMax: testedSessionsEntries,
 		})
 	}
-	if observed := max(capacity.Displays, displaySubscribers); observed > testedDisplays {
+	if connectedDisplays > testedDisplays {
 		warnings = append(warnings, capacityWarning{
-			Code: "displays", Observed: observed, TestedMax: testedDisplays,
+			Code: "displays", Observed: connectedDisplays, TestedMax: testedDisplays,
 		})
 	}
 	return warnings

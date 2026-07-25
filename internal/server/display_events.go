@@ -103,7 +103,7 @@ func (handlers displayHandlers) events(response http.ResponseWriter, request *ht
 	if streamChanged || unknownPosition {
 		after = current.Position
 	}
-	subscription := handlers.stream.Subscribe(after)
+	subscription := handlers.stream.SubscribeDisplay(after, int64(snapshot.Display.ID))
 	defer subscription.Close()
 
 	response.Header().Set("Cache-Control", "no-store")

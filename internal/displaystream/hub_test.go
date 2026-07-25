@@ -54,6 +54,31 @@ func TestHubBridgesSnapshotToStreamWithoutHistory(t *testing.T) {
 	}
 }
 
+func TestHubCountsConnectedDisplayIdentities(t *testing.T) {
+	hub, err := New("test-stream", 1)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	first := hub.SubscribeDisplay(0, 7)
+	duplicate := hub.SubscribeDisplay(0, 7)
+	second := hub.SubscribeDisplay(0, 8)
+	t.Cleanup(first.Close)
+	t.Cleanup(duplicate.Close)
+	t.Cleanup(second.Close)
+
+	if found := hub.DisplayCount(); found != 2 {
+		t.Fatalf("connected Display identities = %d, want 2", found)
+	}
+	first.Close()
+	if found := hub.DisplayCount(); found != 2 {
+		t.Fatalf("connected Display identities after duplicate close = %d, want 2", found)
+	}
+	duplicate.Close()
+	if found := hub.DisplayCount(); found != 1 {
+		t.Fatalf("connected Display identities after final close = %d, want 1", found)
+	}
+}
+
 func TestHubAuthenticatesExactSnapshotTuple(t *testing.T) {
 	hub, err := New("test-stream", 1)
 	if err != nil {
