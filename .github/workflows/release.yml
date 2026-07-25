@@ -5,18 +5,38 @@ on:
     tags:
       - "v*"
 
-permissions:
-  contents: write
+permissions: {}
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  evidence:
+    name: Evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      issues: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Verify release evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/check-release-evidence.sh
+
   release:
     name: Release
+    needs: evidence
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    permissions:
+      contents: write
 
     steps:
       - name: Check out repository
