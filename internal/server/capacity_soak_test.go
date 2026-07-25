@@ -18,7 +18,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -26,6 +25,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -68,6 +68,7 @@ func TestCapacityEnvelope(t *testing.T) {
 	referenceHardware := os.Getenv("BEAMERS_REFERENCE_HARDWARE") == "1"
 	duration := capacityDuration(t, referenceHardware)
 	hardware := inspectCapacityHardware(t, os.TempDir())
+	writeCapacityReport(t, capacityReport{Hardware: hardware, Duration: duration.String()})
 	if referenceHardware {
 		requireReferenceHardware(t, hardware)
 	}
@@ -1592,21 +1593,7 @@ func inspectCapacityHardware(t *testing.T, dataPath string) capacityHardware {
 		MemoryBytes: linuxMemoryBytes(),
 	}
 	hardware.StorageSource, hardware.Filesystem = linuxMount(dataPath)
-	if strings.HasPrefix(hardware.StorageSource, "/dev/") {
-		if output, err := exec.CommandContext(
-			t.Context(),
-			"lsblk",
-			"-no",
-			"ROTA",
-			hardware.StorageSource,
-		).Output(); err == nil {
-			for line := range strings.SplitSeq(string(output), "\n") {
-				if strings.TrimSpace(line) == "0" {
-					hardware.NonRotational = true
-				}
-			}
-		}
-	}
+	hardware.NonRotational = linuxNonRotational(dataPath)
 	if hardware.Filesystem == "tmpfs" {
 		hardware.NonRotational = false
 	}
@@ -1642,6 +1629,24 @@ func linuxMount(path string) (string, string) {
 		source = fields[separator+2]
 	}
 	return source, filesystem
+}
+
+func linuxNonRotational(path string) bool {
+	var status syscall.Stat_t
+	if err := syscall.Stat(path, &status); err != nil {
+		return false
+	}
+	device := status.Dev
+	major := (device&0x00000000000fff00)>>8 |
+		(device&0xfffff00000000000)>>32
+	minor := device&0x00000000000000ff |
+		(device&0x00000ffffff00000)>>12
+	value, err := os.ReadFile(fmt.Sprintf(
+		"/sys/dev/block/%d:%d/queue/rotational",
+		major,
+		minor,
+	))
+	return err == nil && strings.TrimSpace(string(value)) == "0"
 }
 
 func linuxMemoryBytes() int64 {
