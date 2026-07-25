@@ -1,37 +1,64 @@
 # Capacity verification
 
-Beamers tests the version-one envelope on Linux AMD64 with at least four CPUs, 8 GB of memory, and non-rotational local storage.
-The test performs real SQLite commits and refuses to certify tmpfs or rotating storage.
-The GitHub-hosted reference runner reports its documented SSD-backed ext4 root as the synthetic `/dev/root`; self-hosted runners must expose inspectable device metadata.
+Beamers certifies representative and rated Event profiles.
+It retains a larger stress profile to expose scaling failures without promising the rated latency objective.
 
-The `Capacity` workflow is manual because it is a sustained release gate, not a per-commit unit test:
+## Workload profiles
+
+The named profiles are reproducible planning models, not claims about the exact infrastructure or staffing of the example Events.
+[NetUK3](https://www.netuk.org/netuk3) and its [timetable](https://indico.netuk.org/event/3/timetable/) calibrate a typical conference.
+[Nova 2026](https://2026.novaparty.org/) calibrates a typical demoparty.
+The [FOSDEM 2026 schedule](https://fosdem.org/2026/schedule/) calibrates a large conference, while [Revision 2026 results](https://www.pouet.net/party_results.php?which=1550&when=2026) help calibrate a large competition-oriented Event.
+
+| Profile | Locations | Concurrent Lanes | Sessions + Entries | Displays | Active Crew | Downstream public readers |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| NetUK typical conference | 6 | 3 | 75 | 20 | 10 | 500 |
+| Nova typical demoparty | 4 | 2 | 250 | 15 | 5 | 250 |
+| FOSDEM large conference | 40 | 40 | 1,500 | 150 | 75 | 10,000 |
+| Revision large demoparty | 4 | 4 | 750 | 30 | 40 | 2,000 |
+| Rated ceiling | 64 | 64 | 5,000 | 250 | 100 | 10,000 |
+| Diagnostic stress | 64 | 64 | 25,000 | 500 | 200 | 10,000 |
+
+Public-reader counts describe clients downstream of a coalescing conditional cache.
+They are not 10,000 origin connections.
+Display counts describe connected protocol clients that receive and decode committed Snapshots, not 500 Chromium rendering processes.
+
+Representative profiles and the rated ceiling carry the latency objective.
+The diagnostic stress profile must preserve correctness, progress, and bounded resource use while reporting the same measurements, but its latency is diagnostic.
+
+## Certification topology
+
+The reference server is Linux AMD64 with four assigned CPU cores, 8 GB RAM, and durable local SSD storage with working `fsync`.
+The workload generator runs on a separate machine so request generation, public caching, and Display clients do not consume the server's assigned CPUs.
+The run uses fixed-rate arrivals with jitter after warmup rather than a response-dependent synchronized loop.
+
+Each rated run samples at least 200 independent live commands.
+Percentiles use the nearest-rank method.
+Each command first produces p50, p95, p99, and maximum Display fanout latency; those per-command results are then summarized across commands rather than pooling every command-Display observation.
+
+The rated objectives are:
+
+| Measurement | p50 | p95 | p99 | Maximum |
+| --- | ---: | ---: | ---: | ---: |
+| Durable live-command acknowledgment | 100 ms | 250 ms | 500 ms | 2 s |
+| Commit to decoded Display Snapshot | 250 ms | 500 ms | 1 s | 2 s |
+| Operator command to decoded Display Snapshot | — | 750 ms | — | — |
+| Public freshness after commit | 7 s | 13 s | — | 15 s |
+
+Online Stage Timer skew must remain at or below 250 milliseconds.
+Public freshness timing begins after the mutation commits.
+
+## GitHub-hosted diagnostics
+
+The manual `Capacity` workflow is a sustained correctness and regression diagnostic:
 
 ```sh
 gh workflow run Capacity --ref main -f duration=10m
 ```
 
-Use at least ten minutes for release evidence.
+Use at least ten minutes when collecting diagnostic evidence.
 The workflow uploads `capacity.json` with the runner facts, workload counts, sample counts, and latency percentiles.
-
-The fixture contains:
-
-- one Active Event;
-- 64 Locations and 64 Lanes;
-- one live Presentation and one Competition with 24,998 Included Entries;
-- 500 persistent Display event streams;
-- bursts from 200 concurrent Crew consoles;
-- 10,000 public readers behind one coalescing 12-second cache.
-
-Each live command commits through the Connect API.
-Every Display receives the SSE invalidation, fetches and decodes the committed Snapshot, then acknowledges it asynchronously, matching browser order.
-The proxy refreshes the public Schedule from its ETag and proves that readers observe changes within the polling interval.
-
-The gate requires:
-
-- live-command durable acknowledgment at or below 250 milliseconds p95;
-- Display application at or below 500 milliseconds p95 and one second p99;
-- Stage Timer skew at or below 250 milliseconds;
-- public freshness within 15 seconds.
+It does not certify the rated envelope because the shared hosted runner colocates the server, clients, cache, and load generator.
 
 For a non-certifying local correctness run:
 
@@ -40,8 +67,6 @@ BEAMERS_CAPACITY_SOAK=1 \
 BEAMERS_CAPACITY_DURATION=1m \
 go test ./internal/server -run '^TestCapacityEnvelope$' -count=1 -timeout 15m
 ```
-
-Local timing is evidence only when `BEAMERS_REFERENCE_HARDWARE=1` also passes the hardware gate.
 
 `GET /diagnostics` and authenticated `GET /admin/diagnostics` expose bounded capacity counts.
 Crossing the tested Location or Lane, Session plus Entry, or Display count changes capacity status to `warning`; Beamers still commits valid data.

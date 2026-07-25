@@ -1,5 +1,7 @@
 # Set the Version-One Capacity Envelope
 
+Status: superseded by ADR-0052
+
 Version one is designed and load-tested for one Active Event with up to 64 concurrent Lanes or Locations, 500 connected Displays, 200 concurrent Crew consoles, 25,000 combined Sessions and Entries, and 10,000 public readers using cacheable polling.
 These are tested targets rather than configured hard limits.
 

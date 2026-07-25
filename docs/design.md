@@ -497,20 +497,23 @@ An urgent crash, security, or data-visibility fix may use a guarded force-live o
 
 ### Capacity and latency
 
-The tested version-one envelope is one Active Event with:
+The rated version-one envelope is one Active Event with:
 
-- 64 concurrent Lanes or Locations.
-- 500 connected Displays.
-- 200 concurrent Crew consoles.
-- 25,000 combined Sessions and Entries.
-- 10,000 public readers using cacheable conditional polling.
+- 64 Locations and 64 concurrent Lanes.
+- 250 connected Displays.
+- 100 active Crew consoles.
+- 5,000 combined Sessions and Entries.
+- 10,000 downstream public readers using cacheable conditional polling.
 
 These are tested targets, not hard configuration limits.
 Attachment capacity follows storage and configured quotas.
+Representative profiles cover typical and large conferences and demoparties.
+A diagnostic stress profile retains 25,000 records, 500 Displays, and 200 Crew consoles without promising rated latency.
 
-On reference Linux AMD64 hardware with at least four CPU cores, 8 GB RAM, and durable SSD storage, live commands target durable acknowledgment within 250 milliseconds at p95.
-Connected Displays target committed-output application within 500 milliseconds at p95 and one second at p99.
+On a dedicated Linux AMD64 server with four assigned CPU cores, 8 GB RAM, durable SSD storage, and a separate load generator, live commands target durable acknowledgment within 100 milliseconds at p50, 250 milliseconds at p95, and 500 milliseconds at p99.
+Connected Displays target committed-Snapshot decoding within 250 milliseconds at p50, 500 milliseconds at p95, one second at p99, and two seconds for every observation.
 Online Stage Timer skew targets at most 250 milliseconds.
+GitHub-hosted capacity runs provide diagnostic evidence rather than certification.
 
 The reproducible workload and reference-run procedure are documented in
 [Capacity verification](capacity.md).
@@ -602,6 +605,7 @@ An optional integration is a gate only if that integration ships.
 ### Operations and release
 
 - [ADR 0031: Set the version-one capacity envelope](adr/0031-set-v1-capacity-envelope.md)
+- [ADR 0052: Calibrate capacity around Event profiles](adr/0052-calibrate-capacity-around-event-profiles.md)
 - [ADR 0043: Fail closed on startup storage errors](adr/0043-fail-closed-on-startup-storage-errors.md)
 - [ADR 0044: Separate liveness, readiness, and diagnostics](adr/0044-separate-liveness-readiness-and-diagnostics.md)
 - [ADR 0045: Adapt shutdown to the platform budget](adr/0045-adapt-shutdown-to-the-platform-budget.md)
