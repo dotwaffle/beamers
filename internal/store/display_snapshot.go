@@ -7,6 +7,8 @@ import (
 	"slices"
 	"time"
 
+	entsql "entgo.io/ent/dialect/sql"
+
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/displaycredential"
@@ -14,6 +16,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/displayoverridestate"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/prizegiving"
+	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
+	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
@@ -74,6 +78,12 @@ type DisplaySessionState struct {
 type displayRundownCacheKey struct {
 	eventID           int
 	publishedRevision int
+	baselineID        int
+}
+
+type displayRundownState struct {
+	CrewRundownState
+	baselineStarts map[int]time.Time
 }
 
 // LoadDisplaySnapshot authenticates a credential hash and captures one Active Event snapshot.
@@ -165,10 +175,11 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 		return DisplaySnapshotState{}, overrideErr
 	}
 	for _, publishedSession := range published.Sessions {
-		sessionState, sessionErr := loadDisplaySession(
+		sessionState, sessionErr := loadDisplaySessionWithBaseline(
 			internalContext,
 			client,
 			publishedSession,
+			published.baselineStarts[publishedSession.ID],
 		)
 		if sessionErr != nil {
 			return DisplaySnapshotState{}, sessionErr
@@ -208,14 +219,38 @@ func (installationStore *SQLite) loadDisplayRundown(
 	ctx context.Context,
 	client *ent.Client,
 	eventID int,
-) (CrewRundownState, error) {
-	revisions, err := client.Rundown.Query().Where(rundown.EventIDEQ(eventID)).Only(ctx)
-	if err != nil {
-		return CrewRundownState{}, opaqueError("load Display Rundown revision", err)
+) (displayRundownState, error) {
+	var rows []struct {
+		PublishedRevision int  `sql:"published_revision"`
+		BaselineID        *int `sql:"baseline_id"`
+	}
+	err := client.Rundown.Query().
+		Where(rundown.EventIDEQ(eventID)).
+		Select(rundown.FieldPublishedRevision).
+		Aggregate(func(selector *entsql.Selector) string {
+			baseline := entsql.Table(publicschedulebaseline.Table)
+			selector.LeftJoin(baseline).On(
+				selector.C(rundown.FieldEventID),
+				baseline.C(publicschedulebaseline.FieldEventID),
+			)
+			return entsql.As(
+				baseline.C(publicschedulebaseline.FieldID),
+				"baseline_id",
+			)
+		}).
+		Scan(ctx, &rows)
+	if err != nil || len(rows) != 1 {
+		if err == nil {
+			err = errors.New("missing Display Rundown revision")
+		}
+		return displayRundownState{}, opaqueError("load Display Rundown revision", err)
 	}
 	key := displayRundownCacheKey{
 		eventID:           eventID,
-		publishedRevision: revisions.PublishedRevision,
+		publishedRevision: rows[0].PublishedRevision,
+	}
+	if rows[0].BaselineID != nil {
+		key.baselineID = *rows[0].BaselineID
 	}
 	installationStore.displayRundownMu.Lock()
 	defer installationStore.displayRundownMu.Unlock()
@@ -224,12 +259,35 @@ func (installationStore *SQLite) loadDisplayRundown(
 	}
 	found, err := loadCrewRundown(ctx, client, eventID)
 	if err != nil {
-		return CrewRundownState{}, err
+		return displayRundownState{}, err
+	}
+	sessionIDs := make([]int, 0, len(found.Sessions))
+	for _, published := range found.Sessions {
+		sessionIDs = append(sessionIDs, published.ID)
+	}
+	baselineStarts := make(map[int]time.Time)
+	if len(sessionIDs) > 0 {
+		entries, queryErr := client.PublicScheduleBaselineEntry.Query().
+			Where(publicschedulebaselineentry.SessionIDIn(sessionIDs...)).
+			All(ctx)
+		if queryErr != nil {
+			return displayRundownState{}, opaqueError(
+				"load Display Public Schedule Baselines",
+				queryErr,
+			)
+		}
+		for _, entry := range entries {
+			baselineStarts[entry.SessionID] = entry.ForecastStart
+		}
+	}
+	result := displayRundownState{
+		CrewRundownState: found,
+		baselineStarts:   baselineStarts,
 	}
 	installationStore.displayRundownKey = key
-	installationStore.displayRundown = found
+	installationStore.displayRundown = result
 	installationStore.displayRundownCached = true
-	return found, nil
+	return result, nil
 }
 
 func loadCurrentDisplayOverrides(
@@ -239,6 +297,13 @@ func loadCurrentDisplayOverrides(
 	now time.Time,
 	result *DisplaySnapshotState,
 ) error {
+	hasOverrides, err := client.DisplayOverride.Query().Exist(ctx)
+	if err != nil {
+		return opaqueError("inspect current Display Overrides", err)
+	}
+	if !hasOverrides {
+		return nil
+	}
 	states, err := client.DisplayOverrideState.Query().
 		Where(
 			displayoverridestate.EventIDEQ(assignment.EventID),
@@ -353,10 +418,11 @@ func loadPriorityDisplayOverride(
 	return nil
 }
 
-func loadDisplaySession(
+func loadDisplaySessionWithBaseline(
 	ctx context.Context,
 	client *ent.Client,
 	published PublishedSession,
+	baselineStart time.Time,
 ) (DisplaySessionState, error) {
 	identity, err := client.Session.Get(ctx, published.ID)
 	if err != nil {
@@ -390,44 +456,61 @@ func loadDisplaySession(
 		result.Speaker = published.Speaker
 		result.PublicDetails = published.PublicDetails
 	}
-	run, err := client.SessionRun.Query().Where(
-		sessionrun.SessionIDEQ(published.ID),
-	).Order(ent.Desc(sessionrun.FieldID)).First(ctx)
-	if err != nil && !ent.IsNotFound(err) {
-		return DisplaySessionState{}, opaqueError("load Display Session Run", err)
-	}
-	if err == nil && (identity.Lifecycle == session.LifecycleLive ||
-		identity.Lifecycle == session.LifecycleEnded) {
-		var snapshot SessionRunSnapshot
-		if decodeErr := json.Unmarshal([]byte(run.SnapshotJSON), &snapshot); decodeErr != nil {
-			return DisplaySessionState{}, opaqueError("decode Display Session Run Snapshot", decodeErr)
+	if identity.Lifecycle == session.LifecycleLive ||
+		identity.Lifecycle == session.LifecycleEnded {
+		run, runErr := client.SessionRun.Query().Where(
+			sessionrun.SessionIDEQ(published.ID),
+		).Order(ent.Desc(sessionrun.FieldID)).First(ctx)
+		if runErr != nil && !ent.IsNotFound(runErr) {
+			return DisplaySessionState{}, opaqueError("load Display Session Run", runErr)
 		}
-		result.ActualStart = run.ActualStart
-		result.TargetAdjustmentSeconds = run.TargetAdjustmentSeconds
-		result.TargetAdjustedAt = run.TargetAdjustedAt
-		result.Type = snapshot.Type
-		result.TimingPolicy = snapshot.TimingPolicy
-		result.RunPlannedStart = snapshot.PlannedStart
-		result.RunPlannedEnd = snapshot.PlannedEnd
-		result.LocationIDs = slices.Clone(snapshot.LocationIDs)
-		result.LaneIDs = slices.Clone(snapshot.LaneIDs)
-		if !run.ActualEnd.IsZero() {
-			actualEnd := run.ActualEnd
-			result.ActualEnd = &actualEnd
+		if runErr == nil {
+			var snapshot SessionRunSnapshot
+			if decodeErr := json.Unmarshal([]byte(run.SnapshotJSON), &snapshot); decodeErr != nil {
+				return DisplaySessionState{}, opaqueError("decode Display Session Run Snapshot", decodeErr)
+			}
+			result.ActualStart = run.ActualStart
+			result.TargetAdjustmentSeconds = run.TargetAdjustmentSeconds
+			result.TargetAdjustedAt = run.TargetAdjustedAt
+			result.Type = snapshot.Type
+			result.TimingPolicy = snapshot.TimingPolicy
+			result.RunPlannedStart = snapshot.PlannedStart
+			result.RunPlannedEnd = snapshot.PlannedEnd
+			result.LocationIDs = slices.Clone(snapshot.LocationIDs)
+			result.LaneIDs = slices.Clone(snapshot.LaneIDs)
+			if !run.ActualEnd.IsZero() {
+				actualEnd := run.ActualEnd
+				result.ActualEnd = &actualEnd
+			}
 		}
 	}
-	result.PublicTime, err = loadPublicTimeFacts(ctx, client, publicTimeFactsParams{
+	result.PublicTime = publicTimeFacts(publicTimeFactsParams{
 		Session:     identity,
 		Lifecycle:   publictime.Lifecycle(result.Lifecycle),
 		Forecast:    publictime.Range{Start: result.ForecastStart, End: result.ForecastEnd},
 		ActualStart: result.ActualStart,
 		ActualEnd:   result.ActualEnd,
 		RunDuration: result.RunPlannedEnd.Sub(result.RunPlannedStart),
-	})
-	if err != nil {
-		return DisplaySessionState{}, err
-	}
+	}, instantPointer(baselineStart))
 	return result, nil
+}
+
+func loadDisplaySession(
+	ctx context.Context,
+	client *ent.Client,
+	published PublishedSession,
+) (DisplaySessionState, error) {
+	baseline, err := client.PublicScheduleBaselineEntry.Query().
+		Where(publicschedulebaselineentry.SessionIDEQ(published.ID)).
+		Only(ctx)
+	if err != nil && !ent.IsNotFound(err) {
+		return DisplaySessionState{}, opaqueError("load Public Schedule Baseline entry", err)
+	}
+	var baselineStart time.Time
+	if err == nil {
+		baselineStart = baseline.ForecastStart
+	}
+	return loadDisplaySessionWithBaseline(ctx, client, published, baselineStart)
 }
 
 func competitionOutputProgramChannelID(

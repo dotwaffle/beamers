@@ -71,7 +71,7 @@ type SQLite struct {
 
 	displayRundownMu     sync.Mutex
 	displayRundownKey    displayRundownCacheKey
-	displayRundown       CrewRundownState
+	displayRundown       displayRundownState
 	displayRundownCached bool
 }
 

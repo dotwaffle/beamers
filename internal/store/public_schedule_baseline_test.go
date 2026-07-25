@@ -40,6 +40,29 @@ func TestCapturePublicScheduleBaselineCommitsAllPublicSessions(t *testing.T) {
 		Where(rundown.EventIDEQ(event.ID)).
 		SetPublishedRevision(1).
 		SaveX(systemContext(t.Context()))
+	displayRundown, err := installationStore.loadDisplayRundown(
+		systemContext(t.Context()),
+		installationStore.client,
+		event.ID,
+	)
+	if err != nil {
+		t.Fatalf("warm Display Rundown: %v", err)
+	}
+	if len(displayRundown.baselineStarts) != 0 {
+		t.Fatalf("Display baselines before capture = %+v, want none", displayRundown.baselineStarts)
+	}
+	staleReader, err := installationStore.reader.Tx(systemContext(t.Context()))
+	if err != nil {
+		t.Fatalf("begin stale Display read: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = staleReader.Rollback()
+	})
+	if _, err = staleReader.Rundown.Query().
+		Where(rundown.EventIDEQ(event.ID)).
+		Only(systemContext(t.Context())); err != nil {
+		t.Fatalf("establish stale Display read snapshot: %v", err)
+	}
 
 	state, err := installationStore.LoadPublicScheduleBaselineState(ctx, event.ID)
 	if err != nil {
@@ -63,12 +86,52 @@ func TestCapturePublicScheduleBaselineCommitsAllPublicSessions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("capture baseline: %v", err)
 	}
-	if err := transaction.Commit(); err != nil {
+	if err = transaction.Commit(); err != nil {
 		t.Fatalf("commit baseline: %v", err)
 	}
 	if result.EventID != event.ID || result.PublishedRevision != 1 ||
 		result.SessionCount != 1 || !result.CapturedAt.Equal(now) {
 		t.Fatalf("capture result = %+v, want one Session at revision 1", result)
+	}
+	displayRundown, err = installationStore.loadDisplayRundown(
+		systemContext(t.Context()),
+		installationStore.client,
+		event.ID,
+	)
+	if err != nil || !displayRundown.baselineStarts[publicSessionID].Equal(forecastStart) {
+		t.Fatalf(
+			"Display baseline after capture = %+v, %v; want Session %d at %v",
+			displayRundown.baselineStarts,
+			err,
+			publicSessionID,
+			forecastStart,
+		)
+	}
+	staleDisplayRundown, err := installationStore.loadDisplayRundown(
+		systemContext(t.Context()),
+		staleReader.Client(),
+		event.ID,
+	)
+	if err != nil || len(staleDisplayRundown.baselineStarts) != 0 {
+		t.Fatalf(
+			"stale Display baselines after capture = %+v, %v; want none",
+			staleDisplayRundown.baselineStarts,
+			err,
+		)
+	}
+	displayRundown, err = installationStore.loadDisplayRundown(
+		systemContext(t.Context()),
+		installationStore.client,
+		event.ID,
+	)
+	if err != nil || !displayRundown.baselineStarts[publicSessionID].Equal(forecastStart) {
+		t.Fatalf(
+			"Display baseline after stale reader = %+v, %v; want Session %d at %v",
+			displayRundown.baselineStarts,
+			err,
+			publicSessionID,
+			forecastStart,
+		)
 	}
 
 	baseline := installationStore.client.PublicScheduleBaseline.Query().

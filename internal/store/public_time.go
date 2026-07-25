@@ -33,6 +33,13 @@ func loadPublicTimeFacts(
 	if err == nil {
 		baselineStart = instantPointer(baseline.ForecastStart)
 	}
+	return publicTimeFacts(params, baselineStart), nil
+}
+
+func publicTimeFacts(
+	params publicTimeFactsParams,
+	baselineStart *time.Time,
+) publictime.Facts {
 	return publictime.Facts{
 		Lifecycle: params.Lifecycle,
 		Forecast:  params.Forecast,
@@ -46,7 +53,7 @@ func loadPublicTimeFacts(
 		},
 		RunDuration:   params.RunDuration,
 		BaselineStart: baselineStart,
-	}, nil
+	}
 }
 
 func instantPointer(value time.Time) *time.Time {
