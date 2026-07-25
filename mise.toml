@@ -40,7 +40,10 @@ shellcheck scripts/*.sh
 
 [tasks.test]
 description = "Run the complete Go race suite"
-run = "go test -race ./..."
+run = """
+sh scripts/check-release-evidence_test.sh
+go test -race ./...
+"""
 
 [tasks.browser-test]
 description = "Run deterministic Display client recovery tests"

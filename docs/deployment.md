@@ -11,6 +11,23 @@ All three profiles use:
 The binary embeds its web assets and IANA timezone database.
 Serving and upgrading require no CDN, Node runtime, update service, or internet connection.
 
+## Certify a release commit
+
+Before tagging, wait for the commit's `Browsers` workflow and run the complete Capacity certification against that same commit:
+
+```sh
+gh workflow run Capacity --ref main -f profile=all
+```
+
+Attach the completed manual browser, kiosk, and accessibility evidence to issue \#51 and close it only when every check passes.
+A repository owner, member, or collaborator must end the evidence comment with the exact release candidate commit:
+
+```text
+Certified commit: FULL_40_CHARACTER_COMMIT_SHA
+```
+
+The tag workflow rejects missing, failed, partial, expired, or different-commit Browser and Capacity evidence before building release artifacts.
+
 ## Verify release files
 
 Obtain release files and their checksum files outside the venue network.
