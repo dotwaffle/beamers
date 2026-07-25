@@ -1,6 +1,7 @@
 package acceptance_test
 
 import (
+	"archive/zip"
 	"bufio"
 	"bytes"
 	"context"
@@ -4958,12 +4959,155 @@ func TestFinalAttachmentsReleaseByPolicyAndSurviveRestart(t *testing.T) {
 		t.Fatalf("lift public Attachment hold = %d: %s", lifted.status, lifted.body)
 	}
 
+	unauthenticatedPreview := requestJSON(
+		t.Context(), http.DefaultClient, server.address,
+		"/admin/final-files/preview",
+		map[string]any{"event_id": 1},
+	)
+	if unauthenticatedPreview.status != http.StatusUnauthorized {
+		t.Fatalf(
+			"unauthenticated Final Files Export preview = %d: %s",
+			unauthenticatedPreview.status, unauthenticatedPreview.body,
+		)
+	}
+	webPreview := requestJSON(
+		t.Context(), administrator, server.address,
+		"/admin/final-files/preview",
+		map[string]any{"event_id": 1},
+	)
+	var downloadable struct {
+		PreviewDigest string `json:"preview_digest"`
+		Files         []struct {
+			Path string `json:"path"`
+		} `json:"files"`
+	}
+	if err = json.Unmarshal([]byte(webPreview.body), &downloadable); err != nil ||
+		webPreview.status != http.StatusOK ||
+		downloadable.PreviewDigest == "" ||
+		len(downloadable.Files) != 1 {
+		t.Fatalf(
+			"Administrator Final Files Export preview = %d: %s (%v)",
+			webPreview.status, webPreview.body, err,
+		)
+	}
+	download := requestJSON(
+		t.Context(), administrator, server.address,
+		"/admin/final-files",
+		map[string]any{
+			"event_id":       1,
+			"preview_digest": downloadable.PreviewDigest,
+		},
+	)
+	if download.status != http.StatusOK ||
+		download.header.Get("Content-Type") != "application/zip" {
+		t.Fatalf(
+			"Administrator Final Files Export download = %d, %q: %s",
+			download.status, download.header.Get("Content-Type"), download.body,
+		)
+	}
+	archive, err := zip.NewReader(
+		bytes.NewReader([]byte(download.body)),
+		int64(len(download.body)),
+	)
+	if err != nil {
+		t.Fatalf("open Final Files Export download: %v", err)
+	}
+	if len(archive.File) != 2 ||
+		archive.File[0].Name != downloadable.Files[0].Path ||
+		archive.File[1].Name != "manifest.json" {
+		t.Fatalf("Final Files Export download entries = %+v", archive.File)
+	}
+
 	dataDir, bin := server.dataDir, server.bin
 	server.stop(t)
 	restarted := startBeamers(t, bin, dataDir)
 	assertReleasedAttachmentIDs(t, restarted.address, publicVersion.ID)
 	assertPublicAttachmentBytes(t, restarted.address, publicVersion.ID, http.StatusOK, "public release")
 	restarted.stop(t)
+
+	outputDir := filepath.Join(t.TempDir(), "final-files")
+	var preview struct {
+		PreviewDigest string   `json:"preview_digest"`
+		Collisions    []string `json:"collisions"`
+		Files         []struct {
+			Path             string `json:"path"`
+			SHA256           string `json:"sha256"`
+			OriginalFilename string `json:"original_filename"`
+		} `json:"files"`
+	}
+	if err = json.Unmarshal([]byte(runBeamersOutput(
+		t, bin,
+		"export-final-files", "preview",
+		"--data-dir", dataDir,
+		"--event-id", "1",
+		"--output", outputDir,
+	)), &preview); err != nil {
+		t.Fatalf("decode Final Files Export preview: %v", err)
+	}
+	if preview.PreviewDigest == "" || len(preview.Collisions) != 0 || len(preview.Files) != 1 {
+		t.Fatalf("Final Files Export preview = %+v", preview)
+	}
+	exported := preview.Files[0]
+	if !strings.HasPrefix(exported.Path, "untracked/competitions/") ||
+		exported.OriginalFilename != "public.txt" ||
+		exported.SHA256 == "" {
+		t.Fatalf("Final Files Export file = %+v", exported)
+	}
+	runBeamersFails(
+		t, bin,
+		"export-final-files", "apply",
+		"--data-dir", dataDir,
+		"--event-id", "1",
+		"--output", outputDir,
+		"--preview-digest", "stale-preview",
+		"--approve-export",
+	)
+	if _, statErr := os.Lstat(outputDir); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("stale Final Files Export created output: %v", statErr)
+	}
+	runBeamers(
+		t, bin,
+		"export-final-files", "apply",
+		"--data-dir", dataDir,
+		"--event-id", "1",
+		"--output", outputDir,
+		"--preview-digest", preview.PreviewDigest,
+		"--approve-export",
+	)
+	content, err := os.ReadFile(filepath.Join(outputDir, filepath.FromSlash(exported.Path)))
+	if err != nil || string(content) != "public release" {
+		t.Fatalf("read Final Files Export content = %q, %v", content, err)
+	}
+	firstManifest, err := os.ReadFile(filepath.Join(outputDir, "manifest.json"))
+	if err != nil || !bytes.Contains(firstManifest, []byte(`"original_filename":"public.txt"`)) ||
+		bytes.Contains(firstManifest, []byte(`"original_filename":"crew.txt"`)) {
+		t.Fatalf("Final Files Export manifest = %s, %v", firstManifest, err)
+	}
+	var repeated struct {
+		PreviewDigest string   `json:"preview_digest"`
+		Collisions    []string `json:"collisions"`
+	}
+	if err = json.Unmarshal([]byte(runBeamersOutput(
+		t, bin,
+		"export-final-files", "preview",
+		"--data-dir", dataDir,
+		"--event-id", "1",
+		"--output", outputDir,
+	)), &repeated); err != nil {
+		t.Fatalf("decode repeated Final Files Export preview: %v", err)
+	}
+	if repeated.PreviewDigest != preview.PreviewDigest || len(repeated.Collisions) == 0 {
+		t.Fatalf("repeated Final Files Export preview = %+v", repeated)
+	}
+	runBeamersFails(
+		t, bin,
+		"export-final-files", "apply",
+		"--data-dir", dataDir,
+		"--event-id", "1",
+		"--output", outputDir,
+		"--preview-digest", preview.PreviewDigest,
+		"--approve-export",
+	)
 }
 
 func TestPresentationUploadClosesAtDeadlineOrActualStart(t *testing.T) {

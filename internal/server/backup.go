@@ -51,6 +51,8 @@ func registerBackupRoutes(
 		allowPlaintextCrew: listenerIsLoopback(listenerAddress),
 	}
 	mux.HandleFunc("/admin/backups", handlers.create)
+	mux.HandleFunc("/admin/final-files/preview", handlers.previewFinalFiles)
+	mux.HandleFunc("/admin/final-files", handlers.downloadFinalFiles)
 	mux.HandleFunc("/admin/restores/preview", handlers.previewRestore)
 	mux.HandleFunc("/admin/restores/apply", handlers.applyRestore)
 }

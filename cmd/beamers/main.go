@@ -58,6 +58,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		err = runBackup(ctx, args[1:], stdout, stderr)
 	case "restore":
 		err = runRestore(ctx, args[1:], stdout, stderr)
+	case "export-final-files":
+		err = runExportFinalFiles(ctx, args[1:], stdout, stderr)
 	case "upgrade":
 		err = runUpgrade(ctx, args[1:], stdout, stderr)
 	case "serve":
@@ -74,6 +76,107 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	logger.Error("command failed", "command", args[0], "error", err)
 	return 1
+}
+
+func runExportFinalFiles(
+	ctx context.Context,
+	args []string,
+	stdout, stderr io.Writer,
+) error {
+	if len(args) == 0 {
+		return errors.New("export-final-files requires preview or apply")
+	}
+	switch args[0] {
+	case "preview":
+		return runExportFinalFilesPreview(ctx, args[1:], stdout, stderr)
+	case "apply":
+		return runExportFinalFilesApply(ctx, args[1:], stdout, stderr)
+	default:
+		return errors.New("export-final-files requires preview or apply")
+	}
+}
+
+func runExportFinalFilesPreview(
+	ctx context.Context,
+	args []string,
+	stdout, stderr io.Writer,
+) (returnErr error) {
+	flags := flag.NewFlagSet("export-final-files preview", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	dataDir := flags.String("data-dir", "", "installation data directory")
+	attachmentsDir := flags.String(
+		"attachments-dir", "", "Attachment Store root (default: DATA-DIR/attachments)",
+	)
+	eventID := flags.Int("event-id", 0, "Event identity")
+	output := flags.String("output", "", "new export directory")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 {
+		return errors.New("export-final-files preview accepts no positional arguments")
+	}
+	installation, err := operations.OpenInstallationWithConfig(ctx, operations.OpenConfig{
+		DataDir: *dataDir, AttachmentsDir: *attachmentsDir,
+	})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, installation.Close())
+	}()
+	if startupErr := installation.StartupError(); startupErr != nil {
+		return startupErr
+	}
+	plan, err := installation.Attachments().PlanFinalFiles(ctx, *eventID, *output)
+	if err != nil {
+		return err
+	}
+	return json.NewEncoder(stdout).Encode(plan)
+}
+
+func runExportFinalFilesApply(
+	ctx context.Context,
+	args []string,
+	stdout, stderr io.Writer,
+) (returnErr error) {
+	flags := flag.NewFlagSet("export-final-files apply", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	dataDir := flags.String("data-dir", "", "installation data directory")
+	attachmentsDir := flags.String(
+		"attachments-dir", "", "Attachment Store root (default: DATA-DIR/attachments)",
+	)
+	eventID := flags.Int("event-id", 0, "Event identity")
+	output := flags.String("output", "", "new export directory")
+	previewDigest := flags.String("preview-digest", "", "exact preview digest")
+	approve := flags.Bool("approve-export", false, "confirm the exact Final Files Export")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 {
+		return errors.New("export-final-files apply accepts no positional arguments")
+	}
+	if !*approve {
+		return errors.New("approval for Final Files Export is required")
+	}
+	installation, err := operations.OpenInstallationWithConfig(ctx, operations.OpenConfig{
+		DataDir: *dataDir, AttachmentsDir: *attachmentsDir,
+	})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, installation.Close())
+	}()
+	if startupErr := installation.StartupError(); startupErr != nil {
+		return startupErr
+	}
+	manifest, err := installation.Attachments().WriteFinalFilesDirectory(
+		ctx, *eventID, *output, *previewDigest,
+	)
+	if err != nil {
+		return err
+	}
+	return json.NewEncoder(stdout).Encode(manifest)
 }
 
 func runUpgrade(ctx context.Context, args []string, stdout, stderr io.Writer) error {
@@ -574,6 +677,6 @@ func runServe(ctx context.Context, args []string, stderr io.Writer) int {
 func printUsage(output io.Writer) {
 	_, _ = fmt.Fprintln(
 		output,
-		"usage: beamers <init|bootstrap|backup|restore|upgrade|serve> [options]",
+		"usage: beamers <init|bootstrap|backup|restore|export-final-files|upgrade|serve> [options]",
 	)
 }

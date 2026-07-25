@@ -101,6 +101,37 @@ func TestAttachmentReleasePolicyEligibilityHoldAndCue(t *testing.T) {
 	if released := releasedVersionIDs(t, installationStore); !slices.Equal(released, []int{publicVersion.ID}) {
 		t.Fatalf("On Ended releases = %v, want [%d]", released, publicVersion.ID)
 	}
+	client.SessionPublishedVersion.Create().
+		SetSessionID(competition.ID).
+		SetPublishedRevision(2).
+		SetTitle("Crew Only Competition").
+		SetType(sessionpublishedversion.TypeCompetition).
+		SetAudienceVisibility(sessionpublishedversion.AudienceVisibilityCrewOnly).
+		SetPlannedStart(now).
+		SetPlannedEnd(now.Add(time.Hour)).
+		SetTimingPolicy(sessionpublishedversion.TimingPolicyFixedEnd).
+		SetMinimumDurationSeconds(1800).
+		SetStartBoundary(sessionpublishedversion.StartBoundaryHard).
+		SetEndBoundary(sessionpublishedversion.EndBoundaryHard).
+		SetSubmissionDeadline(now.Add(2 * time.Hour)).
+		SaveX(fixtureContext)
+	if released := releasedVersionIDs(t, installationStore); len(released) != 0 {
+		t.Fatalf("Crew Only Session releases = %v", released)
+	}
+	client.SessionPublishedVersion.Create().
+		SetSessionID(competition.ID).
+		SetPublishedRevision(3).
+		SetTitle("Release Competition").
+		SetType(sessionpublishedversion.TypeCompetition).
+		SetAudienceVisibility(sessionpublishedversion.AudienceVisibilityPublic).
+		SetPlannedStart(now).
+		SetPlannedEnd(now.Add(time.Hour)).
+		SetTimingPolicy(sessionpublishedversion.TimingPolicyFixedEnd).
+		SetMinimumDurationSeconds(1800).
+		SetStartBoundary(sessionpublishedversion.StartBoundaryHard).
+		SetEndBoundary(sessionpublishedversion.EndBoundaryHard).
+		SetSubmissionDeadline(now.Add(2 * time.Hour)).
+		SaveX(fixtureContext)
 
 	configure := beginCommand(t, installationStore, producerContext)
 	configured, err := configure.ConfigureCompetitionAttachmentRelease(
