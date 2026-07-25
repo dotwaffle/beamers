@@ -126,11 +126,12 @@ jobs:
           BEAMERS_WEBDRIVER_BINARY: ${{ steps.chrome.outputs.chromedriver-path }}
           BEAMERS_BROWSER_REPORT: ${{ github.workspace }}/artifacts/browser.json
         run: |
+          mkdir -p artifacts
           go test ./acceptance \
             -run '^TestBrowserCertification$' \
             -count=1 \
             -timeout 25m \
-            -v
+            -v 2>&1 | tee artifacts/browser.log
 
       - name: Certify Firefox
         if: matrix.engine == 'firefox'
@@ -143,17 +144,22 @@ jobs:
           BEAMERS_WEBDRIVER_BINARY: geckodriver
           BEAMERS_BROWSER_REPORT: ${{ github.workspace }}/artifacts/browser.json
         run: |
+          mkdir -p artifacts
           go test ./acceptance \
             -run '^TestBrowserCertification$' \
             -count=1 \
             -timeout 25m \
-            -v
+            -v 2>&1 | tee artifacts/browser.log
 
       - name: Report browser evidence
         if: always()
         run: |
           if [ -f artifacts/browser.json ]; then
             echo "::notice title=Browser evidence::$(jq -c . artifacts/browser.json)"
+          elif [ -f artifacts/browser.log ]; then
+            while IFS= read -r line; do
+              echo "::error title=Browser certification::$line"
+            done < <(tail -n 20 artifacts/browser.log)
           fi
 
       - name: Upload browser evidence
@@ -161,6 +167,8 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: browser-${{ matrix.engine }}-${{ matrix.role }}-${{ github.run_id }}
-          path: artifacts/browser.json
+          path: |
+            artifacts/browser.json
+            artifacts/browser.log
           if-no-files-found: ignore
           retention-days: 30
