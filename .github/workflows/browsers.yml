@@ -126,6 +126,7 @@ jobs:
           BEAMERS_WEBDRIVER_BINARY: ${{ steps.chrome.outputs.chromedriver-path }}
           BEAMERS_BROWSER_REPORT: ${{ github.workspace }}/artifacts/browser.json
         run: |
+          set -o pipefail
           mkdir -p artifacts
           go test ./acceptance \
             -run '^TestBrowserCertification$' \
@@ -144,6 +145,7 @@ jobs:
           BEAMERS_WEBDRIVER_BINARY: geckodriver
           BEAMERS_BROWSER_REPORT: ${{ github.workspace }}/artifacts/browser.json
         run: |
+          set -o pipefail
           mkdir -p artifacts
           go test ./acceptance \
             -run '^TestBrowserCertification$' \
