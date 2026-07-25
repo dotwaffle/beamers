@@ -18,9 +18,31 @@ concurrency:
 
 jobs:
   capacity:
-    name: Hosted diagnostic stress
+    name: ${{ matrix.name }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: NetUK certification
+            profile: netuk
+            certify: "1"
+          - name: Nova certification
+            profile: nova
+            certify: "1"
+          - name: FOSDEM certification
+            profile: fosdem
+            certify: "1"
+          - name: Revision certification
+            profile: revision
+            certify: "1"
+          - name: Rated certification
+            profile: rated
+            certify: "1"
+          - name: Diagnostic stress
+            profile: stress
+            certify: "0"
 
     steps:
       - name: Check out repository
@@ -41,11 +63,12 @@ jobs:
         with:
           cache: true
 
-      - name: Run hosted diagnostic stress
+      - name: Run capacity profile
         env:
           BEAMERS_CAPACITY_SOAK: "1"
           BEAMERS_CAPACITY_ROLE: combined
-          BEAMERS_CAPACITY_PROFILE: stress
+          BEAMERS_CAPACITY_CERTIFY: ${{ matrix.certify }}
+          BEAMERS_CAPACITY_PROFILE: ${{ matrix.profile }}
           BEAMERS_CAPACITY_DURATION: ${{ inputs.duration }}
           BEAMERS_CAPACITY_REPORT: ${{ github.workspace }}/artifacts/capacity.json
         run: |
@@ -66,7 +89,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: capacity-${{ github.run_id }}
+          name: capacity-${{ matrix.profile }}-${{ github.run_id }}
           path: artifacts/capacity.json
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 30

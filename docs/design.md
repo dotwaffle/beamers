@@ -510,12 +510,12 @@ Attachment capacity follows storage and configured quotas.
 Representative profiles cover typical and large conferences and demoparties.
 A diagnostic stress profile retains 25,000 records, 500 Displays, and 200 Crew consoles without promising rated latency.
 
-On a dedicated Linux AMD64 server with four assigned CPU cores, 8 GB RAM, durable SSD storage, and a separate load generator, live commands target durable acknowledgment within 100 milliseconds at p50, 250 milliseconds at p95, and 500 milliseconds at p99.
+On a standard GitHub-hosted Linux AMD64 runner with recorded provenance, live commands target durable acknowledgment within 100 milliseconds at p50, 250 milliseconds at p95, and 500 milliseconds at p99.
 Connected Displays target committed-Snapshot decoding within 250 milliseconds at p50, 500 milliseconds at p95, one second at p99, and two seconds for every observation.
 Online Stage Timer skew targets at most 250 milliseconds.
-GitHub-hosted capacity runs provide diagnostic evidence rather than certification.
+GitHub-hosted representative and rated capacity runs provide certification evidence; the larger stress profile remains diagnostic.
 
-The reproducible workload and reference-run procedure are documented in
+The reproducible workload and hosted-run procedure are documented in
 [Capacity verification](capacity.md).
 
 ### Accessibility and localization
