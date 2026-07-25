@@ -26,6 +26,39 @@ templ EnrollmentClaimPage(code string, commandID string, buildVersion string, in
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<style>
+				body {
+					margin: 0;
+					color: #101828;
+					background: #fff;
+					font: 1rem/1.5 system-ui, sans-serif;
+				}
+				main {
+					box-sizing: border-box;
+					max-width: 44rem;
+					margin: auto;
+					padding: 1rem;
+				}
+				form,
+				label {
+					display: grid;
+					gap: 0.5rem;
+				}
+				form {
+					gap: 1rem;
+				}
+				input:not([type="hidden"]),
+				button {
+					box-sizing: border-box;
+					min-width: 2.75rem;
+					min-height: 2.75rem;
+					font: inherit;
+				}
+				:focus-visible {
+					outline: 0.2rem solid #175cd3;
+					outline-offset: 0.15rem;
+				}
+			</style>
 			<title>Claim Display</title>
 		</head>
 		<body>
