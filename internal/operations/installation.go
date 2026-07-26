@@ -37,8 +37,8 @@ func CreateBackup(
 }
 
 // VerifyBackup validates one installation archive without applying it.
-func VerifyBackup(path string) (backup.Manifest, error) {
-	return backup.Verify(path)
+func VerifyBackup(ctx context.Context, path string) (backup.Manifest, error) {
+	return backup.Verify(ctx, path)
 }
 
 // RestoreBackup installs one verified archive into unused local roots.

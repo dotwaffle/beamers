@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/dotwaffle/beamers/internal/backup"
 )
 
 const (
@@ -287,7 +289,7 @@ func setBrowserProtectionHeaders(response http.ResponseWriter, secure bool) {
 func requestBodyLimit(path string) int64 {
 	switch {
 	case path == "/admin/restores/preview":
-		return maxRestoreUploadBytes
+		return backup.MaxArchiveBytes
 	case strings.HasPrefix(path, "/upload/") ||
 		strings.HasSuffix(path, "/attachments"):
 		return (64 << 20) + (1 << 20)

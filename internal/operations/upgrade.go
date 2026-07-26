@@ -214,7 +214,7 @@ func (upgrade *Upgrade) Apply(
 		BackupPath:  backupPath,
 		Manifest:    manifest,
 	}
-	if verified, verifyErr := backup.Verify(backupPath); verifyErr != nil ||
+	if verified, verifyErr := backup.Verify(ctx, backupPath); verifyErr != nil ||
 		!reflect.DeepEqual(verified, manifest) {
 		return result, errors.Join(
 			verifyErr,
@@ -356,7 +356,7 @@ func validateInstalledUpgrade(
 	config OpenConfig,
 	backupPath string,
 ) (returnErr error) {
-	if _, err := backup.Verify(backupPath); err != nil {
+	if _, err := backup.Verify(ctx, backupPath); err != nil {
 		return err
 	}
 	installation, err := store.Open(ctx, config.DataDir)

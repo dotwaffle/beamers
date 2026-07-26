@@ -19,10 +19,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/operations"
 )
 
-const (
-	maxRestoreUploadBytes   int64 = 65 << 30
-	restoreOperationTimeout       = 30 * time.Minute
-)
+const restoreOperationTimeout = 30 * time.Minute
 
 type archiveHandlers struct {
 	installation       *operations.Installation
@@ -122,7 +119,7 @@ func (handlers archiveHandlers) previewRestore(
 		handlers.writeRestoreFailure(response, request, err)
 		return
 	}
-	request.Body = http.MaxBytesReader(response, request.Body, maxRestoreUploadBytes)
+	request.Body = http.MaxBytesReader(response, request.Body, backup.MaxArchiveBytes)
 	_, copyErr := io.Copy(archive, request.Body)
 	closeErr := archive.Close()
 	if err = errors.Join(copyErr, closeErr); err != nil {

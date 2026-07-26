@@ -485,7 +485,7 @@ func runBackup(ctx context.Context, args []string, stdout, stderr io.Writer) err
 		if flags.NArg() != 0 {
 			return errors.New("backup verify accepts no positional arguments")
 		}
-		manifest, err := operations.VerifyBackup(*input)
+		manifest, err := operations.VerifyBackup(ctx, *input)
 		if err != nil {
 			return err
 		}

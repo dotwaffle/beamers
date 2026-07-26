@@ -162,6 +162,16 @@ The supplied data and Attachment Store destinations are explicit path mappings.
 Other unavailable paths or behavior differences require `--acknowledge-configuration-differences` when applying the prepared Restore.
 Restore does not rewrite native arguments, systemd units, Compose files, certificates, private keys, or replication destinations.
 
+Restore enforces these fixed version-one archive limits before decompression:
+
+- The compressed archive must not exceed 65 GiB.
+- The archive may contain one manifest, one database, and at most 32,768 Attachment entries.
+- The manifest and each Attachment must not exceed 64 MiB.
+- The database must not exceed 64 GiB.
+- All expanded entries together must not exceed 128 GiB.
+
+Verification and extraction honor cancellation and deadlines, and a rejected Restore removes its private staging data.
+
 ## Readiness and shutdown
 
 - `/livez` proves the process is alive.

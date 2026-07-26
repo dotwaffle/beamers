@@ -117,7 +117,7 @@ func TestApprovedUpgradeInstallsValidatedStagedSchema(t *testing.T) {
 	if !filepath.IsAbs(result.BackupPath) {
 		t.Fatalf("upgrade Backup path is not durable: %q", result.BackupPath)
 	}
-	if _, err = backup.Verify(result.BackupPath); err != nil {
+	if _, err = backup.Verify(ctx, result.BackupPath); err != nil {
 		t.Fatalf("verify rollback Backup: %v", err)
 	}
 
@@ -175,7 +175,7 @@ func TestFailedUpgradeRestoresOriginalAndPreservesRollbackBackup(t *testing.T) {
 	t.Cleanup(func() {
 		_ = os.RemoveAll(filepath.Dir(result.BackupPath))
 	})
-	if _, verifyErr := backup.Verify(result.BackupPath); verifyErr != nil {
+	if _, verifyErr := backup.Verify(ctx, result.BackupPath); verifyErr != nil {
 		t.Fatalf("verify preserved rollback Backup: %v", verifyErr)
 	}
 	if _, statErr := os.Stat(dataDir + ".beamers-upgrade.json"); !errors.Is(statErr, os.ErrNotExist) {
