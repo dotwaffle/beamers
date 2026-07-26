@@ -53,7 +53,7 @@ func backupConfiguration(config Config) backup.Configuration {
 }
 
 func registerBackupRoutes(
-	mux *http.ServeMux,
+	mux *routeMux,
 	installation *operations.Installation,
 	dataDir string,
 	attachmentsDir string,
@@ -73,10 +73,29 @@ func registerBackupRoutes(
 		logger:             logger,
 		allowPlaintextCrew: listenerIsLoopback(listenerAddress),
 	}
-	mux.HandleFunc("/admin/backups", handlers.create)
-	mux.HandleFunc("/admin/restores/preview", handlers.previewRestore)
-	mux.HandleFunc("/admin/restores/apply", handlers.applyRestore)
-	mux.HandleFunc("/admin/restores/cancel", handlers.cancelPreparedRestore)
+	mux.HandleFunc("/admin/backups", crewRoute(), handlers.create)
+	mux.HandleFunc(
+		"/admin/restores/preview",
+		routeContract{
+			kind: crewInterface, timeout: restoreOperationTimeout,
+			maxBodyBytes: backup.MaxArchiveBytes, recoveryLimit: 10,
+		},
+		handlers.previewRestore,
+	)
+	mux.HandleFunc(
+		"/admin/restores/apply",
+		routeContract{
+			kind: crewInterface, timeout: restoreOperationTimeout, recoveryLimit: 5,
+		},
+		handlers.applyRestore,
+	)
+	mux.HandleFunc(
+		"/admin/restores/cancel",
+		routeContract{
+			kind: crewInterface, timeout: restoreOperationTimeout, recoveryLimit: 5,
+		},
+		handlers.cancelPreparedRestore,
+	)
 }
 
 func (handlers archiveHandlers) previewRestore(

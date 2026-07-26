@@ -11,11 +11,53 @@ import (
 	"testing"
 )
 
+func TestRoutePolicyMatchesRegisteredRoutesAndFailsClosed(t *testing.T) {
+	routes := newRouteMux()
+	routes.HandleFunc(
+		"/results/{eventID}",
+		publicRoute(),
+		func(response http.ResponseWriter, _ *http.Request) {
+			response.WriteHeader(http.StatusNoContent)
+		},
+	)
+	handler := protectInterfaces(routes, interfacePolicy{
+		listenerAddress: &net.TCPAddr{IP: net.IPv4zero, Port: 8081},
+		publicOnly:      true,
+	})
+
+	request := httptest.NewRequestWithContext(
+		t.Context(),
+		http.MethodGet,
+		"/results/7",
+		http.NoBody,
+	)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("registered route = %d, want %d", response.Code, http.StatusNoContent)
+	}
+
+	request = httptest.NewRequestWithContext(
+		t.Context(),
+		http.MethodGet,
+		"/unregistered",
+		http.NoBody,
+	)
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("unregistered route = %d, want %d", response.Code, http.StatusNotFound)
+	}
+}
+
 func TestInterfacePolicyKeepsInsecureCrewAndDisplaySeparate(t *testing.T) {
 	listener := &net.TCPAddr{IP: net.IPv4zero, Port: 8080}
-	handler := protectInterfaces(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+	handler := protectTestRoutes(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
 		response.WriteHeader(http.StatusNoContent)
-	}), interfacePolicy{
+	}), map[string]routeContract{
+		"/display":      displayRoute(),
+		"/auth/sign-in": crewRoute(),
+	}, interfacePolicy{
 		listenerAddress:      listener,
 		allowInsecureDisplay: true,
 	})
@@ -55,7 +97,7 @@ func TestInterfacePolicyKeepsInsecureCrewAndDisplaySeparate(t *testing.T) {
 func TestInterfacePolicyTrustsForwardingOnlyFromConfiguredProxy(t *testing.T) {
 	listener := &net.TCPAddr{IP: net.IPv4zero, Port: 8080}
 	trusted := netip.MustParsePrefix("192.0.2.0/24")
-	handler := protectInterfaces(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+	handler := protectTestRoutes(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if !requestIsSecure(request) {
 			t.Error("trusted proxy request is not secure")
 		}
@@ -63,7 +105,9 @@ func TestInterfacePolicyTrustsForwardingOnlyFromConfiguredProxy(t *testing.T) {
 			t.Errorf("trusted proxy client = %q, want 198.51.100.9", got)
 		}
 		http.SetCookie(response, &http.Cookie{Name: "test", Value: "value", Secure: requestIsSecure(request)})
-	}), interfacePolicy{listenerAddress: listener, trustedProxies: []netip.Prefix{trusted}})
+	}), map[string]routeContract{
+		"/auth/session": crewRoute(),
+	}, interfacePolicy{listenerAddress: listener, trustedProxies: []netip.Prefix{trusted}})
 
 	request := httptest.NewRequestWithContext(
 		t.Context(),
@@ -101,9 +145,19 @@ func TestInterfacePolicyTrustsForwardingOnlyFromConfiguredProxy(t *testing.T) {
 }
 
 func TestPublicListenerOnlyServesAllowlistedRoutes(t *testing.T) {
-	handler := protectInterfaces(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+	publicRoutes := make(map[string]routeContract)
+	for _, path := range []string{
+		"/schedule",
+		"/results/events/1/prizegiving/2",
+		"/results/events/1/event-awards",
+		"/public/attachments",
+		"/public/attachments/42",
+	} {
+		publicRoutes[path] = publicRoute()
+	}
+	handler := protectTestRoutes(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
 		response.WriteHeader(http.StatusNoContent)
-	}), interfacePolicy{
+	}), publicRoutes, interfacePolicy{
 		listenerAddress: &net.TCPAddr{IP: net.IPv4zero, Port: 8081},
 		publicOnly:      true,
 	})
@@ -142,7 +196,7 @@ func TestPublicListenerOnlyServesAllowlistedRoutes(t *testing.T) {
 }
 
 func TestInterfacePolicyBoundsOrdinaryRequestsAndSetsBrowserHeaders(t *testing.T) {
-	handler := protectInterfaces(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+	handler := protectTestRoutes(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if _, ok := request.Context().Deadline(); !ok {
 			t.Error("ordinary request has no deadline")
 		}
@@ -150,7 +204,7 @@ func TestInterfacePolicyBoundsOrdinaryRequestsAndSetsBrowserHeaders(t *testing.T
 		if err == nil {
 			t.Error("oversized ordinary request was readable")
 		}
-	}), interfacePolicy{
+	}), map[string]routeContract{"/auth/sign-in": crewRoute()}, interfacePolicy{
 		listenerAddress: &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8080},
 	})
 	request := httptest.NewRequestWithContext(
@@ -176,13 +230,17 @@ func TestInterfacePolicyBoundsOrdinaryRequestsAndSetsBrowserHeaders(t *testing.T
 
 func TestRecoveryEntryPointsHaveBuiltInRateLimits(t *testing.T) {
 	fail := false
-	handler := protectInterfaces(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+	handler := protectTestRoutes(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
 		if fail {
 			http.Error(response, "authentication required", http.StatusUnauthorized)
 			return
 		}
 		response.WriteHeader(http.StatusNoContent)
-	}), interfacePolicy{
+	}), map[string]routeContract{
+		"/admin/restores/apply": {
+			kind: crewInterface, timeout: restoreOperationTimeout, recoveryLimit: 5,
+		},
+	}, interfacePolicy{
 		listenerAddress: &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8080},
 	})
 	for _, method := range []string{http.MethodGet, http.MethodPost} {
@@ -240,10 +298,14 @@ func TestRecoveryEntryPointsHaveBuiltInRateLimits(t *testing.T) {
 }
 
 func TestInsecureModesRenderCrewHTMLWarning(t *testing.T) {
-	handler := protectInterfaces(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+	handler := protectTestRoutes(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
 		response.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = response.Write([]byte("<!doctype html><html><body><main>Control</main></body></html>"))
-	}), interfacePolicy{
+	}), map[string]routeContract{
+		"/crew/program/1": {
+			kind: crewInterface, mutatesOnRead: true, crewWarningPage: true,
+		},
+	}, interfacePolicy{
 		listenerAddress:      &net.TCPAddr{IP: net.IPv4zero, Port: 8080},
 		allowInsecureCrew:    true,
 		allowInsecureDisplay: true,
@@ -263,6 +325,26 @@ func TestInsecureModesRenderCrewHTMLWarning(t *testing.T) {
 		!strings.Contains(body, "insecure Display mode enabled") {
 		t.Fatalf("Crew HTML warning = %q", body)
 	}
+}
+
+func protectTestRoutes(
+	handler http.Handler,
+	contracts map[string]routeContract,
+	policy interfacePolicy,
+) http.Handler {
+	routes := testRouteMux(handler, contracts)
+	return protectInterfaces(routes, policy)
+}
+
+func testRouteMux(
+	handler http.Handler,
+	contracts map[string]routeContract,
+) *routeMux {
+	routes := newRouteMux()
+	for pattern, contract := range contracts {
+		routes.Handle(pattern, contract, handler)
+	}
+	return routes
 }
 
 func TestUnsafeMethodsRequireSameOrigin(t *testing.T) {

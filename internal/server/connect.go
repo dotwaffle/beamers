@@ -26,10 +26,11 @@ type connectRouteConfig struct {
 	errorInterceptor      connect.Interceptor
 	validationInterceptor connect.Interceptor
 	maxBodyBytes          int64
+	contract              routeContract
 	build                 func(...connect.HandlerOption) (string, http.Handler)
 }
 
-func registerConnectRoute(mux *http.ServeMux, config connectRouteConfig) error {
+func registerConnectRoute(mux *routeMux, config connectRouteConfig) error {
 	if mux == nil || config.build == nil {
 		return errors.New(config.name + " Connect registration is incomplete")
 	}
@@ -62,11 +63,12 @@ func registerConnectRoute(mux *http.ServeMux, config connectRouteConfig) error {
 		config.validationInterceptor,
 	))
 	allowPlaintextCrew := listenerIsLoopback(config.listenerAddress)
-	mux.Handle(path, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+	contract := config.contract
+	contract.maxBodyBytes = config.maxBodyBytes
+	mux.Handle(path, contract, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if !requestAllowed(response, request, http.MethodPost, allowPlaintextCrew) {
 			return
 		}
-		request.Body = http.MaxBytesReader(response, request.Body, config.maxBodyBytes)
 		handler.ServeHTTP(response, request)
 	}))
 	return nil

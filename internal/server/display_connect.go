@@ -18,7 +18,7 @@ import (
 const maxDisplayRPCBodyBytes = 64 << 10
 
 func registerDisplayConnectRoutes(
-	mux *http.ServeMux,
+	mux *routeMux,
 	service *displays.Service,
 	stream *displaystream.Hub,
 	listenerAddress net.Addr,
@@ -37,7 +37,7 @@ func registerDisplayConnectRoutes(
 	return registerConnectRoute(mux, connectRouteConfig{
 		name: "display", authenticationLayer: authentication, listenerAddress: listenerAddress,
 		tracerProvider: tracerProvider, meterProvider: meterProvider, propagator: propagator,
-		maxBodyBytes: maxDisplayRPCBodyBytes,
+		maxBodyBytes: maxDisplayRPCBodyBytes, contract: displayRoute(),
 		build: func(options ...connect.HandlerOption) (string, http.Handler) {
 			return displayv1connect.NewDisplayServiceHandler(adapter, options...)
 		},

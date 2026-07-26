@@ -36,7 +36,7 @@ type displayHandlers struct {
 }
 
 func registerDisplayRoutes(
-	mux *http.ServeMux,
+	mux *routeMux,
 	authentication *auth.Service,
 	service *displays.Service,
 	stream *displaystream.Hub,
@@ -51,13 +51,25 @@ func registerDisplayRoutes(
 		enrollmentLimiter:     newAuthFailureLimiter(time.Now),
 		invalidations:         &displayInvalidationCache{},
 	}
-	mux.HandleFunc("/display", handlers.display)
-	mux.HandleFunc("/display/client.js", handlers.clientJavaScript)
-	mux.HandleFunc("/display/assets/", handlers.clientJavaScript)
-	mux.HandleFunc("/display/events", handlers.events)
-	mux.HandleFunc("/admin/displays", handlers.list)
-	mux.HandleFunc("/admin/displays/enroll", handlers.enroll)
-	mux.HandleFunc("/admin/displays/{displayID}/assign", handlers.assign)
+	mux.HandleFunc(
+		"/display",
+		routeContract{kind: displayInterface, mutatesOnRead: true},
+		handlers.display,
+	)
+	mux.HandleFunc("/display/client.js", displayRoute(), handlers.clientJavaScript)
+	mux.HandleFunc("/display/assets/", displayRoute(), handlers.clientJavaScript)
+	mux.HandleFunc(
+		"/display/events",
+		routeContract{kind: displayInterface, persistent: true},
+		handlers.events,
+	)
+	mux.HandleFunc("/admin/displays", crewRoute(), handlers.list)
+	mux.HandleFunc(
+		"/admin/displays/enroll",
+		routeContract{kind: crewInterface, crewWarningPage: true},
+		handlers.enroll,
+	)
+	mux.HandleFunc("/admin/displays/{displayID}/assign", crewRoute(), handlers.assign)
 }
 
 func (handlers displayHandlers) display(response http.ResponseWriter, request *http.Request) {

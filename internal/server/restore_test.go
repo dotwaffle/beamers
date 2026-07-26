@@ -31,30 +31,35 @@ func TestRestoreMaintenanceCancelsAndDrainsActiveReads(t *testing.T) {
 	applyStarted := make(chan struct{}, 2)
 	releaseApply := make(chan struct{})
 	restoreResult := make(chan error, 2)
-	var app *application
-	app = &application{
-		handler: http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
-			if request.URL.Path == "/admin/restores/apply" {
-				applyStarted <- struct{}{}
-				<-releaseApply
-				ctx, cancel := context.WithTimeout(
-					context.WithoutCancel(request.Context()),
-					time.Second,
-				)
-				defer cancel()
-				_, err := app.beginRestore(ctx)
-				restoreResult <- err
-				return
-			}
-			close(started)
-			<-request.Context().Done()
-			close(canceled)
-			<-releaseRead
-		}),
+	app := &application{
 		accepting: true,
 		cancels:   make(map[uint64]context.CancelCauseFunc),
 		drained:   closedChannel(),
 	}
+	handler := http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
+		if request.URL.Path == "/admin/restores/apply" {
+			applyStarted <- struct{}{}
+			<-releaseApply
+			ctx, cancel := context.WithTimeout(
+				context.WithoutCancel(request.Context()),
+				time.Second,
+			)
+			defer cancel()
+			_, err := app.beginRestore(ctx)
+			restoreResult <- err
+			return
+		}
+		close(started)
+		<-request.Context().Done()
+		close(canceled)
+		<-releaseRead
+	})
+	app.handler = testRouteMux(handler, map[string]routeContract{
+		"/admin/restores/apply": {
+			kind: crewInterface, timeout: restoreOperationTimeout, recoveryLimit: 5,
+		},
+		"/storage-read": crewRoute(),
+	})
 	done := make(chan struct{})
 	go func() {
 		defer close(done)

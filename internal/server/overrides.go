@@ -26,7 +26,7 @@ type overrideHandlers struct {
 }
 
 func registerOverrideRoutes(
-	mux *http.ServeMux,
+	mux *routeMux,
 	authentication *auth.Service,
 	service *overrides.Service,
 	notify func(),
@@ -39,36 +39,67 @@ func registerOverrideRoutes(
 	}
 	mux.HandleFunc(
 		"/crew/events/{eventID}/stage-message-configuration",
+		crewRoute(),
 		handlers.configureStageMessages,
 	)
-	mux.HandleFunc("/crew/events/{eventID}/stage-messages", handlers.sendStageMessage)
+	mux.HandleFunc(
+		"/crew/events/{eventID}/stage-messages",
+		crewRoute(),
+		handlers.sendStageMessage,
+	)
 	mux.HandleFunc(
 		"/crew/events/{eventID}/stage-messages/preview",
+		crewRoute(),
 		handlers.previewStageMessage,
 	)
 	mux.HandleFunc(
 		"/crew/events/{eventID}/technical-difficulties",
+		crewRoute(),
 		handlers.activateTechnicalDifficulties,
 	)
 	mux.HandleFunc(
 		"/crew/events/{eventID}/technical-difficulties/preview",
+		crewRoute(),
 		handlers.previewTechnicalDifficulties,
 	)
 	mux.HandleFunc(
 		"/crew/events/{eventID}/overrides/{overrideID}/clear",
+		crewRoute(),
 		handlers.clearOverride,
 	)
-	mux.HandleFunc("/crew/events/{eventID}/overrides", handlers.listActiveOverrides)
-	mux.HandleFunc("/crew/events/{eventID}/urgent-notices/preview", handlers.previewUrgentNotice)
-	mux.HandleFunc("/crew/events/{eventID}/urgent-notices", handlers.activateUrgentNotice)
-	mux.HandleFunc("/crew/events/{eventID}/emergency-alerts/preview", handlers.previewEmergencyAlert)
-	mux.HandleFunc("/crew/events/{eventID}/emergency-alerts", handlers.activateEmergencyAlert)
+	mux.HandleFunc(
+		"/crew/events/{eventID}/overrides",
+		crewRoute(),
+		handlers.listActiveOverrides,
+	)
+	mux.HandleFunc(
+		"/crew/events/{eventID}/urgent-notices/preview",
+		crewRoute(),
+		handlers.previewUrgentNotice,
+	)
+	mux.HandleFunc(
+		"/crew/events/{eventID}/urgent-notices",
+		crewRoute(),
+		handlers.activateUrgentNotice,
+	)
+	mux.HandleFunc(
+		"/crew/events/{eventID}/emergency-alerts/preview",
+		crewRoute(),
+		handlers.previewEmergencyAlert,
+	)
+	mux.HandleFunc(
+		"/crew/events/{eventID}/emergency-alerts",
+		crewRoute(),
+		handlers.activateEmergencyAlert,
+	)
 	mux.HandleFunc(
 		"/crew/events/{eventID}/emergency-alerts/confirmation",
+		routeContract{kind: crewInterface, crewWarningPage: true},
 		handlers.emergencyAlertConfirmation,
 	)
 	mux.HandleFunc(
 		"/crew/events/{eventID}/overrides/{overrideID}/clear-confirmation",
+		crewRoute(),
 		handlers.emergencyClearConfirmation,
 	)
 }

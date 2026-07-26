@@ -255,10 +255,23 @@ func TestInFlightDrainCancelsStreamsButPreservesActiveWork(t *testing.T) {
 	workContext, cancelWork := context.WithCancelCause(t.Context())
 	defer cancelWork(nil)
 	drained := make(chan struct{})
+	handler := http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		response.WriteHeader(http.StatusNoContent)
+	})
 	application := &application{
 		active: 2,
-		handler: http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
-			response.WriteHeader(http.StatusNoContent)
+		handler: testRouteMux(handler, map[string]routeContract{
+			"/command": crewRoute(),
+			"/display": {
+				kind: displayInterface, mutatesOnRead: true,
+			},
+			"/crew/program/{sessionID}": {
+				kind: crewInterface, mutatesOnRead: true, crewWarningPage: true,
+			},
+			"/display/events": {
+				kind: displayInterface, persistent: true,
+			},
+			"/schedule": publicRoute(),
 		}),
 		cancels: map[uint64]context.CancelCauseFunc{
 			1: cancelStream,
@@ -299,6 +312,14 @@ func TestInFlightDrainCancelsStreamsButPreservesActiveWork(t *testing.T) {
 		}
 	}
 	response := httptest.NewRecorder()
+	application.ServeHTTP(
+		response,
+		httptest.NewRequestWithContext(t.Context(), http.MethodHead, "/display", http.NoBody),
+	)
+	if response.Code != http.StatusNoContent {
+		t.Errorf("HEAD /display status = %d, want 204", response.Code)
+	}
+	response = httptest.NewRecorder()
 	application.ServeHTTP(
 		response,
 		httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/schedule", http.NoBody),

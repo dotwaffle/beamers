@@ -19,7 +19,7 @@ import (
 )
 
 func TestRegisterConnectRouteOwnsMethodAndBodyAdmission(t *testing.T) {
-	mux := http.NewServeMux()
+	mux := newRouteMux()
 	backendCalls := 0
 	err := registerConnectRoute(mux, connectRouteConfig{
 		name: "test", authentication: &auth.Service{},
@@ -28,6 +28,7 @@ func TestRegisterConnectRouteOwnsMethodAndBodyAdmission(t *testing.T) {
 		propagator:       propagation.TraceContext{},
 		errorInterceptor: connectapi.RequestIDInterceptor(), validationInterceptor: connectapi.RequestIDInterceptor(),
 		maxBodyBytes: 4,
+		contract:     crewRoute(),
 		build: func(...connect.HandlerOption) (string, http.Handler) {
 			return "/test", http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 				backendCalls++
@@ -47,17 +48,20 @@ func TestRegisterConnectRouteOwnsMethodAndBodyAdmission(t *testing.T) {
 	if err != nil {
 		t.Fatalf("register Connect route: %v", err)
 	}
+	handler := protectInterfaces(mux, interfacePolicy{
+		listenerAddress: &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8080},
+	})
 
 	get := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "http://localhost/test", http.NoBody)
 	getResponse := httptest.NewRecorder()
-	mux.ServeHTTP(getResponse, get)
+	handler.ServeHTTP(getResponse, get)
 	if getResponse.Code != http.StatusMethodNotAllowed || backendCalls != 0 {
 		t.Fatalf("GET response/calls = %d/%d, want 405/0", getResponse.Code, backendCalls)
 	}
 
 	post := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "http://localhost/test", strings.NewReader("12345"))
 	postResponse := httptest.NewRecorder()
-	mux.ServeHTTP(postResponse, post)
+	handler.ServeHTTP(postResponse, post)
 	if postResponse.Code != http.StatusRequestEntityTooLarge || backendCalls != 1 {
 		t.Fatalf("large POST response/calls = %d/%d, want 413/1", postResponse.Code, backendCalls)
 	}

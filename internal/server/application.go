@@ -35,7 +35,7 @@ type application struct {
 
 	mu              sync.Mutex
 	installation    *operations.Installation
-	handler         http.Handler
+	handler         *routeMux
 	accepting       bool
 	maintenance     bool
 	maintenanceKind string
@@ -55,9 +55,8 @@ func newUpgradeApplication(
 	config applicationConfig,
 	upgrade *operations.Upgrade,
 ) *application {
-	return &application{
+	app := &application{
 		config:          config,
-		handler:         http.NotFoundHandler(),
 		maintenance:     true,
 		maintenanceKind: "upgrade",
 		upgrade:         upgrade,
@@ -65,6 +64,18 @@ func newUpgradeApplication(
 		persistent:      make(map[uint64]bool),
 		drained:         closedChannel(),
 	}
+	app.handler = app.probeRoutes()
+	app.handler.HandleFunc(
+		"/admin/upgrade",
+		crewRoute(),
+		app.upgradePreview,
+	)
+	app.handler.HandleFunc(
+		"/admin/upgrade/apply",
+		routeContract{kind: crewInterface, recoveryLimit: 5},
+		app.upgradeApply,
+	)
+	return app
 }
 
 type applicationRequestContextKey struct{}
@@ -95,32 +106,31 @@ func (application *application) ServeHTTP(
 	response http.ResponseWriter,
 	request *http.Request,
 ) {
-	switch request.URL.Path {
-	case "/livez":
-		liveness(response, request)
-		return
-	case "/readyz":
-		application.readiness(response, request)
+	application.mu.Lock()
+	handler := application.handler
+	contract, found := handler.contract(request)
+	if !found {
+		application.mu.Unlock()
+		http.NotFound(response, request)
 		return
 	}
-
-	application.mu.Lock()
+	if contract.kind == probeInterface {
+		application.mu.Unlock()
+		handler.ServeHTTP(response, request)
+		return
+	}
 	if application.maintenance {
 		kind := application.maintenanceKind
-		upgradeRoute := kind == "upgrade" &&
-			(request.URL.Path == "/admin/upgrade" ||
-				request.URL.Path == "/admin/upgrade/apply")
 		application.mu.Unlock()
-		if upgradeRoute {
-			application.serveUpgrade(response, request)
+		if kind == "upgrade" {
+			handler.ServeHTTP(response, request)
 			return
 		}
 		serveMaintenance(response, request, kind)
 		return
 	}
-	handler := application.handler
-	persistent := persistentRequest(request.URL.Path)
-	if (application.rejectMutations && mutationRequest(request)) ||
+	persistent := contract.persistent
+	if (application.rejectMutations && requestMutates(request, contract)) ||
 		(application.rejectStreams && persistent) {
 		application.mu.Unlock()
 		serveMaintenance(response, request, "shutdown")
@@ -207,6 +217,15 @@ func (application *application) readiness(
 	}
 	response.WriteHeader(http.StatusOK)
 	_, _ = response.Write([]byte("ready\n"))
+}
+
+func (application *application) contract(
+	request *http.Request,
+) (routeContract, bool) {
+	application.mu.Lock()
+	handler := application.handler
+	application.mu.Unlock()
+	return handler.contract(request)
 }
 
 func (application *application) restore(
@@ -489,23 +508,11 @@ func (application *application) withdrawReadiness() (int, <-chan struct{}) {
 	return application.active, application.drained
 }
 
-func persistentRequest(path string) bool {
-	return path == "/display/events" ||
-		(strings.HasPrefix(path, "/crew/program/") && strings.HasSuffix(path, "/events"))
-}
-
-func mutationRequest(request *http.Request) bool {
-	if request.Method != http.MethodGet && request.Method != http.MethodHead {
-		return true
+func requestMutates(request *http.Request, contract routeContract) bool {
+	if request.Method == http.MethodGet {
+		return contract.mutatesOnRead
 	}
-	if request.Method != http.MethodGet {
-		return false
-	}
-	if request.URL.Path == "/display" {
-		return true
-	}
-	program, found := strings.CutPrefix(request.URL.Path, "/crew/program/")
-	return found && program != "" && !strings.ContainsRune(program, '/')
+	return request.Method != http.MethodHead
 }
 
 func (application *application) openConfig() operations.OpenConfig {
@@ -558,10 +565,16 @@ func closedChannel() chan struct{} {
 func (application *application) buildHandler(
 	ctx context.Context,
 	installation *operations.Installation,
-) (http.Handler, error) {
-	mux := http.NewServeMux()
+) (*routeMux, error) {
+	mux := application.probeRoutes()
 	if startupErr := installation.StartupError(); startupErr != nil {
-		mux.HandleFunc("GET /diagnostics", func(response http.ResponseWriter, _ *http.Request) {
+		mux.HandleFunc("/diagnostics", crewRoute(), func(
+			response http.ResponseWriter,
+			request *http.Request,
+		) {
+			if !probeMethodAllowed(response, request) {
+				return
+			}
 			detail := strings.ToValidUTF8(startupErr.Error(), "")
 			if len(detail) > 512 {
 				detail = strings.ToValidUTF8(detail[:512], "")
@@ -756,5 +769,13 @@ func (application *application) buildHandler(
 	); err != nil {
 		return nil, err
 	}
-	return requireCompatibleClientBuild(application.config.BuildVersion, mux), nil
+	mux.handler = requireCompatibleClientBuild(application.config.BuildVersion, mux.handler)
+	return mux, nil
+}
+
+func (application *application) probeRoutes() *routeMux {
+	mux := newRouteMux()
+	mux.HandleFunc("/livez", probeRoute(), liveness)
+	mux.HandleFunc("/readyz", probeRoute(), application.readiness)
+	return mux
 }

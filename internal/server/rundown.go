@@ -18,7 +18,7 @@ import (
 const maxRundownRPCBodyBytes = 1 << 20
 
 func registerRundownRoutes(
-	mux *http.ServeMux,
+	mux *routeMux,
 	authentication *auth.Service,
 	commands *rundown.Commands,
 	queries *rundown.Queries,
@@ -38,6 +38,7 @@ func registerRundownRoutes(
 		errorInterceptor:      rundownconnect.ErrorInterceptor(),
 		validationInterceptor: rundownconnect.ValidationInterceptor(),
 		maxBodyBytes:          maxRundownRPCBodyBytes,
+		contract:              crewRoute(),
 		build: func(options ...connect.HandlerOption) (string, http.Handler) {
 			return rundownv1connect.NewRundownServiceHandler(adapter, options...)
 		},
