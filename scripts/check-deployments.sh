@@ -53,6 +53,8 @@ if [ "${BEAMERS_FULL_DEPLOYMENT_CHECK:-0}" = "1" ]; then
 		"$temporary/second/beamers-oci-linux-amd64.tar"
 	cmp "$temporary/first/beamers-image-linux-amd64.tar" \
 		"$temporary/second/beamers-image-linux-amd64.tar"
+	cmp "$temporary/first/beamers-build-toolchain.txt" \
+		"$temporary/second/beamers-build-toolchain.txt"
 fi
 
 grep -F 'ENTRYPOINT ["/usr/local/bin/beamers"]' "$repository/Dockerfile"
