@@ -317,16 +317,27 @@ func runRestore(ctx context.Context, args []string, stdout, stderr io.Writer) er
 		"",
 		"unused Attachment Store root (default: DATA-DIR/attachments)",
 	)
+	acknowledgeConfiguration := flags.Bool(
+		"acknowledge-configuration-differences",
+		false,
+		"acknowledge unresolved service configuration differences",
+	)
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() != 0 {
 		return errors.New("restore accepts no positional arguments")
 	}
+	configuration, err := backup.LoadConfiguration(*dataDir, *attachmentsDir)
+	if err != nil {
+		return err
+	}
 	manifest, err := operations.RestoreBackup(ctx, backup.RestoreInput{
-		InputPath:      *input,
-		DataDir:        *dataDir,
-		AttachmentsDir: *attachmentsDir,
+		InputPath:                           *input,
+		DataDir:                             *dataDir,
+		AttachmentsDir:                      *attachmentsDir,
+		Configuration:                       configuration,
+		AcknowledgeConfigurationDifferences: *acknowledgeConfiguration,
 	})
 	if err != nil {
 		return err
@@ -388,10 +399,15 @@ func runRestorePreview(ctx context.Context, args []string, stdout, stderr io.Wri
 	if flags.NArg() != 0 {
 		return errors.New("restore preview accepts no positional arguments")
 	}
+	configuration, err := backup.LoadConfiguration(*dataDir, *attachmentsDir)
+	if err != nil {
+		return err
+	}
 	plan, err := operations.PrepareRestore(ctx, backup.RestoreInput{
 		InputPath:                   *input,
 		DataDir:                     *dataDir,
 		AttachmentsDir:              *attachmentsDir,
+		Configuration:               configuration,
 		Replace:                     true,
 		ForceUnsupported:            *forceUnsupported,
 		ForceReason:                 *reason,
@@ -423,6 +439,11 @@ func runRestoreApply(ctx context.Context, args []string, stdout, stderr io.Write
 		false,
 		"repeat that forced unsupported Restore makes no safety claim",
 	)
+	acknowledgeConfiguration := flags.Bool(
+		"acknowledge-configuration-differences",
+		false,
+		"repeat acknowledgment of unresolved service configuration differences",
+	)
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -436,7 +457,8 @@ func runRestoreApply(ctx context.Context, args []string, stdout, stderr io.Write
 		ctx,
 		*journal,
 		backup.ApplyOptions{
-			AcknowledgeUnsupportedRisks: *acknowledgeUnsupported,
+			AcknowledgeUnsupportedRisks:         *acknowledgeUnsupported,
+			AcknowledgeConfigurationDifferences: *acknowledgeConfiguration,
 		},
 	)
 	if err != nil {
@@ -490,11 +512,16 @@ func runBackup(ctx context.Context, args []string, stdout, stderr io.Writer) err
 	if flags.NArg() != 0 {
 		return errors.New("backup accepts no positional arguments")
 	}
+	configuration, err := backup.LoadConfiguration(*dataDir, *attachmentsDir)
+	if err != nil {
+		return err
+	}
 	manifest, err := operations.CreateBackup(ctx, backup.CreateInput{
 		DataDir:        *dataDir,
 		AttachmentsDir: *attachmentsDir,
 		OutputPath:     *output,
 		Mode:           backup.Sanitized,
+		Configuration:  configuration,
 	})
 	if err != nil {
 		return err

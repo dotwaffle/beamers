@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	formatVersion        = 1
+	formatVersion        = 2
 	manifestName         = "manifest.json"
 	databaseName         = "database/beamers.db"
 	maxRestoreEntryBytes = 64 << 30
@@ -40,14 +40,16 @@ const (
 
 // Manifest is the independently verifiable archive contract.
 type Manifest struct {
-	FormatVersion              int          `json:"format_version"`
-	Mode                       Mode         `json:"mode"`
-	SchemaVersion              int          `json:"schema_version"`
-	MinimumReaderSchemaVersion int          `json:"minimum_reader_schema_version"`
-	MinimumWriterSchemaVersion int          `json:"minimum_writer_schema_version"`
-	CreatedAt                  time.Time    `json:"created_at"`
-	DatabaseSHA256             string       `json:"database_sha256"`
-	Attachments                []Attachment `json:"attachments"`
+	FormatVersion              int           `json:"format_version"`
+	Mode                       Mode          `json:"mode"`
+	SchemaVersion              int           `json:"schema_version"`
+	MinimumReaderSchemaVersion int           `json:"minimum_reader_schema_version"`
+	MinimumWriterSchemaVersion int           `json:"minimum_writer_schema_version"`
+	CreatedAt                  time.Time     `json:"created_at"`
+	DatabaseSHA256             string        `json:"database_sha256"`
+	Configuration              Configuration `json:"configuration"`
+	ConfigurationSHA256        string        `json:"configuration_sha256"`
+	Attachments                []Attachment  `json:"attachments"`
 }
 
 // Attachment identifies one immutable Attachment Store object.
@@ -64,17 +66,20 @@ type CreateInput struct {
 	OutputPath     string
 	Mode           Mode
 	Now            time.Time
+	Configuration  Configuration
 }
 
 // RestoreInput selects one verified Backup and local destination.
 type RestoreInput struct {
-	InputPath                   string
-	DataDir                     string
-	AttachmentsDir              string
-	Replace                     bool
-	ForceUnsupported            bool
-	ForceReason                 string
-	AcknowledgeUnsupportedRisks bool
+	InputPath                           string
+	DataDir                             string
+	AttachmentsDir                      string
+	Configuration                       Configuration
+	Replace                             bool
+	ForceUnsupported                    bool
+	ForceReason                         string
+	AcknowledgeUnsupportedRisks         bool
+	AcknowledgeConfigurationDifferences bool
 }
 
 // Create writes and verifies one installation Backup.
@@ -176,6 +181,14 @@ func CreateWithStorage(
 		}
 		attachments = append(attachments, attachment)
 	}
+	configuration, err := normalizeConfiguration(input.Configuration)
+	if err != nil {
+		return Manifest{}, err
+	}
+	configurationHash, err := configurationSHA256(configuration)
+	if err != nil {
+		return Manifest{}, err
+	}
 	manifest := Manifest{
 		FormatVersion:              formatVersion,
 		Mode:                       input.Mode,
@@ -184,6 +197,8 @@ func CreateWithStorage(
 		MinimumWriterSchemaVersion: schemaVersion,
 		CreatedAt:                  input.Now.UTC(),
 		DatabaseSHA256:             databaseHash,
+		Configuration:              configuration,
+		ConfigurationSHA256:        configurationHash,
 		Attachments:                attachments,
 	}
 	stagedArchive := filepath.Join(workDir, "archive")
@@ -252,9 +267,19 @@ func Verify(archivePath string) (Manifest, error) {
 		manifest.MinimumReaderSchemaVersion > manifest.SchemaVersion ||
 		manifest.MinimumWriterSchemaVersion <= 0 ||
 		manifest.MinimumWriterSchemaVersion > manifest.SchemaVersion ||
+		manifest.Configuration.Version != configurationVersion ||
+		len(manifest.ConfigurationSHA256) != sha256.Size*2 ||
 		database == nil ||
 		!manifestFound {
 		return Manifest{}, errors.New("backup manifest is invalid")
+	}
+	configurationHash, err := configurationSHA256(manifest.Configuration)
+	if err != nil || configurationHash != manifest.ConfigurationSHA256 {
+		return Manifest{}, errors.New("backup service configuration integrity check failed")
+	}
+	manifest.Configuration, err = normalizeConfiguration(manifest.Configuration)
+	if err != nil {
+		return Manifest{}, errors.New("backup service configuration is invalid")
 	}
 	foundHash, err := zipFileSHA256(database)
 	if err != nil {
@@ -299,7 +324,8 @@ func Restore(ctx context.Context, input RestoreInput) (Manifest, error) {
 		return Manifest{}, err
 	}
 	return ApplyRestoreWithOptions(ctx, plan.JournalPath, ApplyOptions{
-		AcknowledgeUnsupportedRisks: input.AcknowledgeUnsupportedRisks,
+		AcknowledgeUnsupportedRisks:         input.AcknowledgeUnsupportedRisks,
+		AcknowledgeConfigurationDifferences: input.AcknowledgeConfigurationDifferences,
 	})
 }
 

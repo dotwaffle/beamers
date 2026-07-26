@@ -19,9 +19,14 @@ func TestOpenInstallationRollsBackInterruptedRestoreBeforeReadiness(t *testing.T
 	if err := Initialize(ctx, sourceDataDir); err != nil {
 		t.Fatalf("initialize source: %v", err)
 	}
+	sourceConfiguration, configurationErr := backup.LoadConfiguration(sourceDataDir, "")
+	if configurationErr != nil {
+		t.Fatalf("load source configuration: %v", configurationErr)
+	}
 	archivePath := filepath.Join(t.TempDir(), "backup.zip")
 	if _, err := backup.Create(ctx, backup.CreateInput{
 		DataDir: sourceDataDir, OutputPath: archivePath,
+		Configuration: sourceConfiguration,
 	}); err != nil {
 		t.Fatalf("create Backup: %v", err)
 	}
@@ -30,14 +35,19 @@ func TestOpenInstallationRollsBackInterruptedRestoreBeforeReadiness(t *testing.T
 	if err := Initialize(ctx, targetDataDir); err != nil {
 		t.Fatalf("initialize target: %v", err)
 	}
+	targetConfiguration, configurationErr := backup.LoadConfiguration(targetDataDir, "")
+	if configurationErr != nil {
+		t.Fatalf("load target configuration: %v", configurationErr)
+	}
 	oldMarker := filepath.Join(targetDataDir, "old-generation")
 	if err := os.WriteFile(oldMarker, []byte("old"), 0o600); err != nil {
 		t.Fatalf("write old-generation marker: %v", err)
 	}
 	plan, err := backup.PrepareRestore(ctx, backup.RestoreInput{
-		InputPath: archivePath,
-		DataDir:   targetDataDir,
-		Replace:   true,
+		InputPath:     archivePath,
+		DataDir:       targetDataDir,
+		Replace:       true,
+		Configuration: targetConfiguration,
 	})
 	if err != nil {
 		t.Fatalf("prepare Restore: %v", err)

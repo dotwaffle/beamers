@@ -50,6 +50,10 @@ func TestAdministratorDownloadsFullFidelityBackupAfterReauthentication(t *testin
 		installation,
 		dataDir,
 		filepath.Join(dataDir, "attachments"),
+		backup.Configuration{
+			DataDir: dataDir, AttachmentsDir: filepath.Join(dataDir, "attachments"),
+			ListenAddress: "0.0.0.0:8443",
+		},
 		nil,
 		slog.New(slog.NewTextHandler(os.Stderr, nil)),
 		&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8080},
@@ -86,13 +90,21 @@ func TestAdministratorDownloadsFullFidelityBackupAfterReauthentication(t *testin
 	if err != nil {
 		t.Fatalf("verify downloaded Backup: %v", err)
 	}
-	if manifest.Mode != backup.FullFidelity {
-		t.Fatalf("downloaded Backup mode = %q", manifest.Mode)
+	if manifest.Mode != backup.FullFidelity ||
+		manifest.Configuration.Version != 1 ||
+		manifest.Configuration.ListenAddress != "0.0.0.0:8443" ||
+		manifest.ConfigurationSHA256 == "" {
+		t.Fatalf("downloaded Backup manifest = %+v", manifest)
 	}
 	restoredDataDir := filepath.Join(t.TempDir(), "restored")
+	restoredConfiguration, err := backup.LoadConfiguration(restoredDataDir, "")
+	if err != nil {
+		t.Fatalf("load Restore configuration: %v", err)
+	}
 	if _, err = backup.Restore(t.Context(), backup.RestoreInput{
-		InputPath: archivePath,
-		DataDir:   restoredDataDir,
+		InputPath: archivePath, DataDir: restoredDataDir,
+		Configuration:                       restoredConfiguration,
+		AcknowledgeConfigurationDifferences: true,
 	}); err != nil {
 		t.Fatalf("Restore downloaded Backup: %v", err)
 	}
@@ -131,5 +143,15 @@ func TestAdministratorDownloadsFullFidelityBackupAfterReauthentication(t *testin
 	mux.ServeHTTP(response, request)
 	if response.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("unacknowledged Backup response = %d: %s", response.Code, response.Body.String())
+	}
+}
+
+func TestBackupConfigurationRedactsUnavailableReplicationDestination(t *testing.T) {
+	configuration := backupConfiguration(Config{
+		DataDir:    filepath.Join(t.TempDir(), "data"),
+		ReplicaURL: "https://operator:secret@example.test/replica",
+	})
+	if !configuration.ReplicationEnabled || configuration.ReplicaURL != "" {
+		t.Fatalf("replication configuration = %+v", configuration)
 	}
 }

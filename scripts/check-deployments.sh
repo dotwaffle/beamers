@@ -137,4 +137,31 @@ docker exec "$container" wget --no-check-certificate --quiet \
 	grep -F 'font-family'
 compose stop beamers
 compose logs --no-color beamers | grep -F '"phase":"shutdown"'
+compose run --rm --no-deps beamers \
+	backup \
+	--data-dir=/var/lib/beamers/data \
+	--attachments-dir=/var/lib/beamers/attachments \
+	--output=/var/lib/beamers/compose.beamers-backup
+compose run --rm --no-deps beamers \
+	backup verify \
+	--input=/var/lib/beamers/compose.beamers-backup
+compose run --rm --no-deps beamers \
+	restore preview \
+	--input=/var/lib/beamers/compose.beamers-backup \
+	--data-dir=/var/lib/beamers/restored-data \
+	--attachments-dir=/var/lib/beamers/restored-attachments \
+	>"$temporary/compose-restore-plan.json"
+grep -F '"listen_address":"0.0.0.0:8443"' \
+	"$temporary/compose-restore-plan.json"
+grep -F '"tls_private_key":"/run/secrets/tls.key"' \
+	"$temporary/compose-restore-plan.json"
+grep -F '"requires_configuration_acknowledgment":true' \
+	"$temporary/compose-restore-plan.json"
+grep -F '"resolution":"acknowledgment_required"' \
+	"$temporary/compose-restore-plan.json"
+compose run --rm --no-deps beamers \
+	restore apply \
+	--journal=/var/lib/beamers/restored-data.beamers-restore.json \
+	--acknowledge-replacement \
+	--acknowledge-configuration-differences
 compose up --detach --wait --wait-timeout 30

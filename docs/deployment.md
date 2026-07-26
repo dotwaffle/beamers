@@ -147,6 +147,21 @@ The image declares the same volume so an ad hoc container does not write authori
 
 Compose uses an exec-form entrypoint, leaves Beamers as PID 1, sends `SIGTERM`, and enforces the same ten-second budget as the process.
 
+## Back up and restore configuration
+
+Each successful service start records an allowlisted non-secret receipt of its effective listener, security, replication, storage-path, and shutdown configuration.
+Native, systemd, and Compose Backups include that receipt in the versioned archive manifest and verify its SHA-256 digest.
+The receipt contains configured TLS file paths but never certificate or private-key contents.
+It contains only credential-free Litestream file URLs and never credentials or tokens.
+
+An offline Backup uses the configuration from the last successful service start.
+Restart Beamers after changing host deployment configuration so the receipt reflects the effective settings before creating a Backup.
+
+Restore preview reports differences between the archived configuration and the target host configuration.
+The supplied data and Attachment Store destinations are explicit path mappings.
+Other unavailable paths or behavior differences require `--acknowledge-configuration-differences` when applying the prepared Restore.
+Restore does not rewrite native arguments, systemd units, Compose files, certificates, private keys, or replication destinations.
+
 ## Readiness and shutdown
 
 - `/livez` proves the process is alive.
