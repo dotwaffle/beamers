@@ -461,6 +461,16 @@ func (driver *webDriver) navigate(ctx context.Context, target string) error {
 	return err
 }
 
+func (driver *webDriver) setWindowSize(ctx context.Context, width, height int) error {
+	_, err := driver.command(
+		ctx,
+		http.MethodPost,
+		driver.sessionPath("/window/rect"),
+		map[string]int{"width": width, "height": height},
+	)
+	return err
+}
+
 func (driver *webDriver) addCookie(ctx context.Context, cookie *http.Cookie) error {
 	_, err := driver.command(
 		ctx,
@@ -633,6 +643,7 @@ func TestBrowserCertification(t *testing.T) {
 			config.ExpectedMajor,
 		)
 	}
+	assertResponsivePageWidths(t, crewDriver, origin+"/schedule", 320, 1440)
 	report.Pages = append(
 		report.Pages,
 		certifyInteractivePage(t, crewDriver, origin+"/schedule", "schedule"),
@@ -1199,6 +1210,33 @@ func certifyInteractivePage(
 		t.Fatal(err)
 	}
 	return evidence
+}
+
+func assertResponsivePageWidths(
+	t *testing.T,
+	driver *webDriver,
+	target string,
+	widths ...int,
+) {
+	t.Helper()
+	if err := driver.navigate(t.Context(), target); err != nil {
+		t.Fatalf("navigate to responsive page: %v", err)
+	}
+	for _, width := range widths {
+		if err := driver.setWindowSize(t.Context(), width, 900); err != nil {
+			t.Fatalf("set browser width %d: %v", width, err)
+		}
+		fits, err := driver.evaluateBool(
+			t.Context(),
+			`return document.documentElement.scrollWidth <= window.innerWidth;`,
+		)
+		if err != nil {
+			t.Fatalf("inspect browser width %d: %v", width, err)
+		}
+		if !fits {
+			t.Fatalf("page overflows horizontally at %d pixels", width)
+		}
+	}
 }
 
 func focusKeyboardControl(t *testing.T, driver *webDriver, surface string) {

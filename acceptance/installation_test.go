@@ -9749,7 +9749,7 @@ func assertProtectedSessionCookie(t *testing.T, headers http.Header) {
 	t.Helper()
 
 	cookie := headers.Get("Set-Cookie")
-	for _, attribute := range []string{"Path=/", "Expires=", "HttpOnly", "SameSite=Strict"} {
+	for _, attribute := range []string{"Path=/", "Expires=", "HttpOnly", "SameSite=Lax"} {
 		if !strings.Contains(cookie, attribute) {
 			t.Errorf("session cookie %q does not contain %q", cookie, attribute)
 		}

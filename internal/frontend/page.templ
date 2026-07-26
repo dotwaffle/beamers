@@ -1,0 +1,112 @@
+package frontend
+
+templ Head(title string) {
+	<head>
+		<meta charset="utf-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1"/>
+		<link rel="stylesheet" href={ StylesheetPath }/>
+		<title>{ title }</title>
+	</head>
+}
+
+templ Navigation(accountName string, csrfToken string) {
+	<header>
+		<nav aria-label="Primary">
+			<a href="/">Beamers</a>
+			<a href="/schedule">Schedule</a>
+			if accountName == "" {
+				<a href="/sign-in">Sign in</a>
+			} else {
+				<span>{ accountName }</span>
+				<form method="post" action="/sign-out">
+					<input type="hidden" name="csrf_token" value={ csrfToken }/>
+					<button type="submit">Sign out</button>
+				</form>
+			}
+		</nav>
+	</header>
+}
+
+templ Root(setupRequired bool, accountName string, csrfToken string) {
+	<!doctype html>
+	<html lang="en">
+		@Head("Beamers")
+		<body>
+			@Navigation(accountName, csrfToken)
+			<main>
+				if setupRequired {
+					<h1>Set up Beamers</h1>
+					<p>Create the first Account using the one-time token printed by <code>beamers bootstrap</code>.</p>
+					<p><a href="/setup">Continue setup</a></p>
+				} else {
+					<h1>Events</h1>
+					<p>No public Events yet.</p>
+				}
+			</main>
+		</body>
+	</html>
+}
+
+templ Setup(csrfToken string, message string) {
+	<!doctype html>
+	<html lang="en">
+		@Head("Set up Beamers")
+		<body>
+			@Navigation("", csrfToken)
+			<main>
+				<h1>Set up Beamers</h1>
+				if message != "" {
+					<p class="error" role="alert">{ message }</p>
+				}
+				<form class="stack" method="post" action="/setup">
+					<input type="hidden" name="csrf_token" value={ csrfToken }/>
+					<label>
+						One-time setup token
+						<input name="bootstrap_token" autocomplete="off" required/>
+					</label>
+					<label>
+						Account Handle
+						<input name="handle" autocomplete="username" maxlength="200" required/>
+					</label>
+					<label>
+						Display Name
+						<input name="display_name" autocomplete="name" maxlength="200" required/>
+					</label>
+					<label>
+						Password
+						<input type="password" name="password" autocomplete="new-password" minlength="12" required/>
+					</label>
+					<button type="submit">Create first Account</button>
+				</form>
+			</main>
+		</body>
+	</html>
+}
+
+templ SignIn(csrfToken string, message string, handle string) {
+	<!doctype html>
+	<html lang="en">
+		@Head("Sign in · Beamers")
+		<body>
+			@Navigation("", csrfToken)
+			<main>
+				<h1>Sign in</h1>
+				if message != "" {
+					<p class="error" role="alert">{ message }</p>
+				}
+				<form class="stack" method="post" action="/sign-in">
+					<input type="hidden" name="csrf_token" value={ csrfToken }/>
+					<label>
+						Account Handle
+						<input name="handle" value={ handle } autocomplete="username" required/>
+					</label>
+					<label>
+						Password
+						<input type="password" name="password" autocomplete="current-password" required/>
+					</label>
+					<button type="submit">Sign in</button>
+				</form>
+			</main>
+		</body>
+	</html>
+}

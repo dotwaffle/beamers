@@ -33,6 +33,15 @@ var (
 // MaxActiveSessionsPerAccount is the durable concurrent Account session cap.
 const MaxActiveSessionsPerAccount = 8
 
+// SetupRequired reports whether the installation has no Account Credential.
+func (installation *SQLite) SetupRequired(ctx context.Context) (bool, error) {
+	count, err := installation.client.PasswordCredential.Query().Count(systemContext(ctx))
+	if err != nil {
+		return false, opaqueError("count Account credentials for setup", err)
+	}
+	return count == 0, nil
+}
+
 // AccountCredential is the authentication projection of an Account.
 type AccountCredential struct {
 	ID               int                       `json:"id"`

@@ -214,6 +214,14 @@ func (service *Service) IssueBootstrap(ctx context.Context) (string, error) {
 	return token, nil
 }
 
+// SetupRequired reports whether browser setup still needs a first Account.
+func (service *Service) SetupRequired(ctx context.Context) (bool, error) {
+	if service.storageDegraded() {
+		return false, ErrStorageDegraded
+	}
+	return service.storage.SetupRequired(ctx)
+}
+
 // BootstrapAdministrator consumes a bootstrap credential and creates the first
 // Administrator together with an authenticated session.
 func (service *Service) BootstrapAdministrator(
@@ -222,11 +230,25 @@ func (service *Service) BootstrapAdministrator(
 	name string,
 	password string,
 ) (Session, error) {
+	return service.BootstrapFirstAccount(ctx, bootstrapToken, name, name, password)
+}
+
+// BootstrapFirstAccount consumes a bootstrap credential and creates the first
+// Administrator Account with separate sign-in and display names.
+func (service *Service) BootstrapFirstAccount(
+	ctx context.Context,
+	bootstrapToken string,
+	handle string,
+	displayName string,
+	password string,
+) (Session, error) {
 	if service.storageDegraded() {
 		return Session{}, ErrStorageDegraded
 	}
-	normalizedName, displayName, err := normalizeAccountName(name)
-	if err != nil || !validPassword(password) || !validToken(bootstrapToken) {
+	normalizedName, _, handleErr := normalizeAccountName(handle)
+	displayName, displayErr := normalizeDisplayName(displayName)
+	if handleErr != nil || displayErr != nil ||
+		!validPassword(password) || !validToken(bootstrapToken) {
 		return Session{}, ErrInvalidAccountDetails
 	}
 	passwordHash, err := service.hashPassword(password)
@@ -840,16 +862,24 @@ func (service *Service) endPasswordWork() {
 }
 
 func normalizeAccountName(name string) (normalized, display string, err error) {
-	display = strings.TrimSpace(name)
+	display, err = normalizeDisplayName(name)
+	if err != nil {
+		return "", "", err
+	}
+	return strings.ToLower(display), display, nil
+}
+
+func normalizeDisplayName(name string) (string, error) {
+	display := strings.TrimSpace(name)
 	if display == "" || utf8.RuneCountInString(display) > 200 || !utf8.ValidString(display) {
-		return "", "", ErrInvalidAccountDetails
+		return "", ErrInvalidAccountDetails
 	}
 	for _, character := range display {
 		if unicode.IsControl(character) {
-			return "", "", ErrInvalidAccountDetails
+			return "", ErrInvalidAccountDetails
 		}
 	}
-	return strings.ToLower(display), display, nil
+	return display, nil
 }
 
 func validPassword(password string) bool {

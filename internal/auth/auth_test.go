@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"reflect"
 	"strings"
@@ -40,6 +41,32 @@ func TestPasswordWorkAdmissionEnforcesMemoryBudget(t *testing.T) {
 	service.endPasswordWork()
 	if !service.beginPasswordWork() {
 		t.Fatal("released password capacity was not reusable")
+	}
+}
+
+func TestBootstrapFirstAccountRejectsInvalidIdentityFields(t *testing.T) {
+	service, _ := openAccountTestService(t)
+	token := base64.RawURLEncoding.EncodeToString(make([]byte, tokenBytes))
+	for _, testCase := range []struct {
+		name        string
+		handle      string
+		displayName string
+	}{
+		{name: "handle", handle: "", displayName: "Ada Lovelace"},
+		{name: "display name", handle: "ada", displayName: ""},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, err := service.BootstrapFirstAccount(
+				t.Context(),
+				token,
+				testCase.handle,
+				testCase.displayName,
+				"correct horse battery staple",
+			)
+			if !errors.Is(err, ErrInvalidAccountDetails) {
+				t.Fatalf("BootstrapFirstAccount error = %v, want %v", err, ErrInvalidAccountDetails)
+			}
+		})
 	}
 }
 

@@ -33,11 +33,12 @@ func registerAuthenticationRoutes(
 	service *auth.Service,
 	logger *slog.Logger,
 	listenerAddress net.Addr,
+	limiter *authFailureLimiter,
 ) {
 	handlers := authenticationHandlers{
 		service:            service,
 		logger:             logger,
-		limiter:            newAuthFailureLimiter(time.Now),
+		limiter:            limiter,
 		allowPlaintextCrew: listenerIsLoopback(listenerAddress),
 	}
 	mux.HandleFunc("/auth/bootstrap", crewRoute(), handlers.bootstrap)
@@ -296,7 +297,7 @@ func setSessionCookie(response http.ResponseWriter, request *http.Request, sessi
 		Expires:  session.ExpiresAt,
 		HttpOnly: true,
 		Secure:   requestIsSecure(request),
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode,
 	})
 }
 
@@ -310,7 +311,7 @@ func clearSessionCookie(response http.ResponseWriter, request *http.Request) {
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   requestIsSecure(request),
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode,
 	})
 }
 

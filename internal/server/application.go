@@ -614,12 +614,22 @@ func (application *application) buildHandler(
 		application.config.Logger,
 		application.config.ListenerAddress,
 	)
+	authenticationLimiter := newAuthFailureLimiter(time.Now)
 	registerAuthenticationRoutes(
 		mux,
 		installation.Authentication(),
 		application.config.Logger,
 		application.config.ListenerAddress,
+		authenticationLimiter,
 	)
+	if err := registerFrontendRoutes(
+		mux,
+		installation.Authentication(),
+		authenticationLimiter,
+		application.config.Logger,
+	); err != nil {
+		return nil, err
+	}
 	registerBackupRoutes(
 		mux,
 		installation,
