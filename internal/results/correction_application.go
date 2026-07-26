@@ -365,23 +365,6 @@ func (service *Service) PublishCorrection(
 			if validateErr != nil {
 				return command.Execution[PublishCorrectionResult]{}, validateErr
 			}
-			var currentModel PublicResultsPublication
-			if json.Unmarshal([]byte(base.RenderedJSON), &currentModel) != nil {
-				return command.Execution[PublishCorrectionResult]{}, ErrCorrectionBase
-			}
-			correctedModel, buildErr := BuildCorrectedResultsPublication(
-				currentModel,
-				publicationFromStore(base).Items,
-				proposal,
-				identity.Now,
-			)
-			if buildErr != nil {
-				return command.Execution[PublishCorrectionResult]{}, buildErr
-			}
-			rendered, renderErr := RenderPublicResults(correctedModel, proposal.Template)
-			if renderErr != nil {
-				return command.Execution[PublishCorrectionResult]{}, renderErr
-			}
 			nextCorrectionRevision := current.Revision + 1
 			lock := base.Lock
 			lock.PublicationOrder = correctedPublicationOrder(
@@ -389,25 +372,24 @@ func (service *Service) PublishCorrection(
 				prizegivingItemRefInputs(proposal.PublicationOrder),
 			)
 			lock.Template = prizegivingTemplateInput(proposal.Template)
-			published, appendErr := appendScopedResultsPublication(
+			published, _, publishErr := publishResultsPublication(
 				actor.Context(ctx),
 				transaction,
-				store.AppendResultsPublicationParams{
-					EventID:          input.EventID,
-					Scope:            store.ResultsPublicationScope(input.Scope),
-					ScopeSessionID:   input.ScopeSessionID,
-					ExpectedRevision: base.Revision,
-					Policy:           base.Policy, Status: base.Status,
-					Items: prizegivingItemRefInputs(proposal.PublicationOrder),
-					Lock:  lock, Template: prizegivingTemplateInput(proposal.Template),
-					RenderedHTML: rendered.HTML, RenderedText: rendered.Text,
-					RenderedJSON:              rendered.JSON,
+				publicationPipelineInput{
+					EventID:                   input.EventID,
+					Scope:                     store.ResultsPublicationScope(input.Scope),
+					ScopeSessionID:            input.ScopeSessionID,
+					Current:                   base,
+					Policy:                    base.Policy,
+					Lock:                      lock,
+					Correction:                &proposal,
 					ResultsCorrectionRevision: nextCorrectionRevision,
-					CreatedByAccountID:        actor.ID, Now: identity.Now,
+					ActorAccountID:            actor.ID,
+					Now:                       identity.Now,
 				},
 			)
-			if appendErr != nil {
-				return command.Execution[PublishCorrectionResult]{}, appendErr
+			if publishErr != nil {
+				return command.Execution[PublishCorrectionResult]{}, publishErr
 			}
 			params, paramsErr := correctionStoreParams(
 				input.EventID,
@@ -437,7 +419,7 @@ func (service *Service) PublishCorrection(
 			}
 			result := PublishCorrectionResult{
 				Correction:  projected,
-				Publication: publicationFromStore(published),
+				Publication: published,
 			}
 			outcome, marshalErr := json.Marshal(result)
 			if marshalErr != nil {

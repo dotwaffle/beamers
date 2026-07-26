@@ -1220,7 +1220,7 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 	); err != nil {
 		t.Fatalf("activate Event: %v", err)
 	}
-	sessionService, err := sessioncontrol.New(storage, now)
+	sessionService, err := sessioncontrol.New(storage, resultsService, now)
 	if err != nil {
 		t.Fatalf("create Session control: %v", err)
 	}
@@ -1235,7 +1235,7 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 	if err != nil {
 		t.Fatalf("start Prizegiving: %v", err)
 	}
-	programService, err := programcontrol.New(storage, now)
+	programService, err := programcontrol.New(storage, resultsService, now)
 	if err != nil {
 		t.Fatalf("create Program control: %v", err)
 	}
@@ -1477,6 +1477,45 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 		progressive.Status != store.ResultsPublicationPartial ||
 		len(progressive.Items) != 2 {
 		t.Fatalf("Progressive Publication after static Reveal = %+v, %v", progressive, err)
+	}
+	rolledBack, err := storage.BeginCommand(actor.Context(t.Context()))
+	if err != nil {
+		t.Fatalf("begin rolled-back Ceremony End: %v", err)
+	}
+	candidate, changed, err := resultsService.CompletePrizegivingPublication(
+		actor.Context(t.Context()),
+		actor,
+		rolledBack,
+		results.CompletePrizegivingPublicationInput{
+			EventID: eventID, CeremonySessionID: ceremonyID, Now: now(),
+		},
+	)
+	if err != nil ||
+		!changed ||
+		candidate.Revision != 3 ||
+		candidate.Status != results.ResultsPublicationFinal {
+		t.Fatalf("rolled-back Ceremony End candidate = %+v, %t, %v", candidate, changed, err)
+	}
+	if err = rolledBack.Rollback(); err != nil {
+		t.Fatalf("roll back Ceremony End: %v", err)
+	}
+	afterRollback, err := storage.LoadResultsPublication(
+		t.Context(),
+		eventID,
+		store.ResultsPublicationPrizegiving,
+		ceremonyID,
+	)
+	if err != nil || afterRollback.Revision != progressive.Revision {
+		t.Fatalf("Publication after rollback = %+v, %v", afterRollback, err)
+	}
+	eventAfterRollback, err := storage.LoadResultsPublication(
+		t.Context(),
+		eventID,
+		store.ResultsPublicationEvent,
+		eventID,
+	)
+	if err != nil || eventAfterRollback.Revision != progressive.Revision {
+		t.Fatalf("Event Publication after rollback = %+v, %v", eventAfterRollback, err)
 	}
 	ended, err := sessionService.End(
 		t.Context(),

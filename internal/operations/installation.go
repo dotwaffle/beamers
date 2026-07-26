@@ -234,16 +234,16 @@ func OpenInstallationWithConfig(
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.competition = competitionService
-	programControlService, err := programcontrol.New(storage, time.Now)
-	if err != nil {
-		return nil, errors.Join(err, installation.Close())
-	}
-	installation.programControl = programControlService
 	resultsService, err := results.New(storage, time.Now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.results = resultsService
+	programControlService, err := programcontrol.New(storage, resultsService, time.Now)
+	if err != nil {
+		return nil, errors.Join(err, installation.Close())
+	}
+	installation.programControl = programControlService
 	rundownCommands, err := rundown.NewCommands(storage, time.Now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
@@ -269,7 +269,7 @@ func OpenInstallationWithConfig(
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.baselineQueries = baselineQueries
-	sessionControlService, err := sessioncontrol.New(storage, time.Now)
+	sessionControlService, err := sessioncontrol.New(storage, resultsService, time.Now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}

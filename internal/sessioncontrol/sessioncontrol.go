@@ -346,19 +346,27 @@ func (err *RevisionConflictError) Unwrap() error {
 
 // Service owns Session progression command lifecycle.
 type Service struct {
-	storage *store.SQLite
-	now     func() time.Time
+	storage      *store.SQLite
+	publications *results.Service
+	now          func() time.Time
 }
 
 // New creates a Session control service with explicit persistence and clock dependencies.
-func New(storage *store.SQLite, now func() time.Time) (*Service, error) {
+func New(
+	storage *store.SQLite,
+	publications *results.Service,
+	now func() time.Time,
+) (*Service, error) {
 	if storage == nil {
 		return nil, errors.New("session control storage is required")
+	}
+	if publications == nil {
+		return nil, errors.New("results publication service is required")
 	}
 	if now == nil {
 		return nil, errors.New("session control clock is required")
 	}
-	return &Service{storage: storage, now: now}, nil
+	return &Service{storage: storage, publications: publications, now: now}, nil
 }
 
 // Start creates one immutable Run and advances a Scheduled Session to Live.
@@ -416,33 +424,13 @@ func (service *Service) End(
 			if endErr != nil {
 				return ended, endErr
 			}
-			if _, planErr := transaction.LoadPrizegivingPlan(
-				actor.Context(ctx),
-				input.EventID,
-				input.SessionID,
-			); errors.Is(planErr, store.ErrPrizegivingSession) {
-				return ended, nil
-			} else if planErr != nil {
-				return store.LiveSessionState{}, planErr
-			}
-			channel, loadErr := transaction.LoadProgramChannelAt(
-				actor.Context(ctx),
-				input.EventID,
-				input.SessionID,
-				now,
-			)
-			if loadErr != nil {
-				return store.LiveSessionState{}, loadErr
-			}
-			_, _, publicationErr := results.AdvancePrizegivingPublication(
+			_, _, publicationErr := service.publications.CompletePrizegivingPublication(
 				actor.Context(ctx),
 				actor,
 				transaction,
-				input.EventID,
-				input.SessionID,
-				now,
-				channel,
-				results.PrizegivingPublicationTrigger{CeremonyEnded: true},
+				results.CompletePrizegivingPublicationInput{
+					EventID: input.EventID, CeremonySessionID: input.SessionID, Now: now,
+				},
 			)
 			if publicationErr != nil {
 				return store.LiveSessionState{}, publicationErr
