@@ -665,21 +665,46 @@ func TestBrowserCertification(t *testing.T) {
 			t, &displays[index], programOutput,
 		))
 	}
-	if err := crewDriver.waitFor(
-		t.Context(),
-		15*time.Second,
-		`return refresh().then(() => `+
-			`[...document.querySelectorAll("#displays li[data-delivery]")].length === 2 && `+
-			`[...document.querySelectorAll("#displays li[data-delivery]")].every(`+
-			`(display) => display.dataset.delivery === "applied"));`,
-	); err != nil {
-		t.Fatalf("wait for two Display acknowledgments: %v", err)
+	crewURL := origin + "/crew/program/" + strconv.FormatInt(crewSessionID, 10) +
+		"?event_id=1"
+	acknowledgmentsReady := `return ` +
+		`[...document.querySelectorAll("#displays li[data-delivery]")].length === 2 && ` +
+		`[...document.querySelectorAll("#displays li[data-delivery]")].every(` +
+		`(display) => display.dataset.delivery === "applied");`
+	for deadline := time.Now().Add(15 * time.Second); ; {
+		err := crewDriver.navigate(t.Context(), crewURL)
+		if err == nil {
+			err = crewDriver.waitFor(
+				t.Context(),
+				time.Until(deadline),
+				`return document.querySelector("#connection-status").textContent !== `+
+					`"Loading authoritative state…";`,
+			)
+		}
+		if err == nil {
+			var ready bool
+			ready, err = crewDriver.evaluateBool(t.Context(), acknowledgmentsReady)
+			if err == nil && ready {
+				break
+			}
+			if err == nil {
+				err = errors.New("acknowledgments not ready")
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("wait for two Display acknowledgments: %v", err)
+		}
+		select {
+		case <-t.Context().Done():
+			t.Fatalf("wait for two Display acknowledgments: %v", t.Context().Err())
+		case <-time.After(100 * time.Millisecond):
+		}
 	}
 	acknowledgedJSON, err := crewDriver.evaluateString(
 		t.Context(),
-		`return JSON.stringify(channel.consumingDisplays`+
-			`.filter((display) => display.deliveryState === "applied")`+
-			`.map((display) => String(display.displayId)));`,
+		`return JSON.stringify([...document.querySelectorAll(`+
+			`"#displays li[data-display-id][data-delivery=applied]")].map(`+
+			`(display) => display.dataset.displayId));`,
 	)
 	if err != nil {
 		t.Fatalf("read acknowledged Displays: %v", err)
@@ -771,16 +796,17 @@ func captureBrowserDisplayOutput(
 	}
 	outputJSON, err := display.driver.evaluateString(
 		t.Context(),
-		`return JSON.stringify({`+
-			`display_id: String(appliedSnapshot.displayId), `+
+		`const main = document.querySelector("main"); `+
+			`return JSON.stringify({`+
+			`display_id: main.dataset.displayId, `+
 			`program_output: {`+
-			`kind: appliedSnapshot.programOutput.kind, `+
-			`entry_id: String(appliedSnapshot.programOutput.entryId ?? ""), `+
-			`title: appliedSnapshot.programOutput.title, `+
-			`revision: String(appliedSnapshot.programOutputRevision)`+
+			`kind: main.dataset.programOutputKind, `+
+			`entry_id: main.dataset.programOutputEntryId, `+
+			`title: document.querySelector('[data-widget="program-output"] h1').textContent, `+
+			`revision: main.dataset.programOutputRevision`+
 			`}, `+
-			`stream_id: appliedSnapshot.streamId, `+
-			`stream_position: String(appliedSnapshot.streamPosition), `+
+			`stream_id: main.dataset.streamId, `+
+			`stream_position: main.dataset.streamPosition, `+
 			`acknowledged: false`+
 			`});`,
 	)
@@ -1145,8 +1171,9 @@ func certifyCrewControl(
 	}
 	connectedJSON, err := driver.evaluateString(
 		t.Context(),
-		`return JSON.stringify(channel.consumingDisplays`+
-			`.map((display) => String(display.displayId)));`,
+		`return JSON.stringify([...document.querySelectorAll(`+
+			`"#displays li[data-display-id]")].map(`+
+			`(display) => display.dataset.displayId));`,
 	)
 	if err != nil {
 		t.Fatalf("read connected consuming Displays: %v", err)
@@ -1224,11 +1251,12 @@ func certifyCrewControl(
 	}
 	programOutputJSON, err := driver.evaluateString(
 		t.Context(),
-		`return JSON.stringify({`+
-			`kind: channel.programOutput.kind, `+
-			`entry_id: String(channel.programOutput.entryId ?? ""), `+
-			`title: channel.programOutput.title, `+
-			`revision: String(channel.liveStateRevision)`+
+		`const output = document.querySelector('[data-item="programOutput"]'); `+
+			`return JSON.stringify({`+
+			`kind: output.dataset.kind, `+
+			`entry_id: output.dataset.entryId, `+
+			`title: output.textContent, `+
+			`revision: output.dataset.revision`+
 			`});`,
 	)
 	if err != nil {

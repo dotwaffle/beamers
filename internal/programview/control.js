@@ -58,7 +58,13 @@ function itemLabel(item) {
 
 function render() {
   for (const field of ["previous", "current", "next", "preview", "programOutput"]) {
-    document.querySelector(`[data-item="${field}"]`).textContent = itemLabel(channel[field]);
+    const node = document.querySelector(`[data-item="${field}"]`);
+    node.textContent = itemLabel(channel[field]);
+    if (field === "programOutput") {
+      node.dataset.kind = channel[field]?.kind ?? "";
+      node.dataset.entryId = String(channel[field]?.entryId ?? "");
+      node.dataset.revision = String(channel.liveStateRevision);
+    }
   }
   const owner = channel.controlOwner;
   document.querySelector("#owner").textContent = owner
@@ -78,6 +84,7 @@ function render() {
   const displays = document.querySelector("#displays");
   displays.replaceChildren(...(channel.consumingDisplays ?? []).map((display) => {
     const item = document.createElement("li");
+    item.dataset.displayId = String(display.displayId);
     item.dataset.delivery = display.deliveryState;
     item.textContent = `${display.name}: ${display.deliveryState}`;
     return item;

@@ -249,10 +249,12 @@ test("Competition Output rerenders after a durable Take", async () => {
     snapshots: [
       displaySnapshot({
         ...snapshot,
+        programOutputRevision: "1",
         programOutput: {kind: "PROGRAM_ITEM_KIND_STARTING", title: "Starting"},
       }),
       displaySnapshot({
         ...snapshot,
+        programOutputRevision: "2",
         streamPosition: "2",
         programOutput: {kind: "PROGRAM_ITEM_KIND_UPCOMING", title: "Upcoming"},
       }),
@@ -269,6 +271,9 @@ test("Competition Output rerenders after a durable Take", async () => {
   await browser.runTimer((delay) => delay === 0);
 
   assert.match(nodeText(browser.document.main.children[0]), /Upcoming/);
+  assert.equal(browser.document.main.dataset.programOutputKind, "PROGRAM_ITEM_KIND_UPCOMING");
+  assert.equal(browser.document.main.dataset.programOutputRevision, "2");
+  assert.equal(browser.document.main.dataset.streamPosition, "2");
   assert.equal(browser.acknowledgments.at(-1).streamPosition, "2");
 });
 
