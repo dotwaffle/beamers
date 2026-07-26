@@ -43,6 +43,74 @@ func TestPasswordWorkAdmissionEnforcesMemoryBudget(t *testing.T) {
 	}
 }
 
+func TestCreateAccountRetryDoesNotRetainPasswordIdentity(t *testing.T) {
+	service, administrator := openAccountTestService(t)
+
+	first, err := service.CreateAccount(
+		t.Context(),
+		administrator,
+		"Pat Producer",
+		"correct horse battery staple",
+		"create-pat",
+	)
+	if err != nil {
+		t.Fatalf("create Account: %v", err)
+	}
+	retried, err := service.CreateAccount(
+		t.Context(),
+		administrator,
+		" pat producer ",
+		"a different valid password",
+		"create-pat",
+	)
+	if err != nil {
+		t.Fatalf("retry Account creation: %v", err)
+	}
+	if !reflect.DeepEqual(retried, first) {
+		t.Fatalf("retry Account = %+v, want original %+v", retried, first)
+	}
+
+	accounts, err := service.ListAccounts(t.Context(), administrator)
+	if err != nil {
+		t.Fatalf("list Accounts: %v", err)
+	}
+	audits, err := service.ListAuditEntries(t.Context(), administrator)
+	if err != nil {
+		t.Fatalf("list Audit Entries: %v", err)
+	}
+	if len(accounts) != 2 || len(audits) != 1 {
+		t.Fatalf("Accounts/Audit Entries = %d/%d, want 2/1", len(accounts), len(audits))
+	}
+
+	for _, password := range []string{"first rejected password", "second rejected password"} {
+		if _, err = service.CreateAccount(
+			t.Context(),
+			administrator,
+			"Pat Producer",
+			password,
+			"reject-existing-pat",
+		); !errors.Is(err, ErrAccountExists) {
+			t.Fatalf("rejected Account retry error = %v, want %v", err, ErrAccountExists)
+		}
+	}
+	if _, err = service.CreateAccount(
+		t.Context(),
+		administrator,
+		"Different Account",
+		"a different valid password",
+		"create-pat",
+	); !errors.Is(err, ErrCommandConflict) {
+		t.Fatalf("different Account reuse error = %v, want %v", err, ErrCommandConflict)
+	}
+	audits, err = service.ListAuditEntries(t.Context(), administrator)
+	if err != nil {
+		t.Fatalf("list final Audit Entries: %v", err)
+	}
+	if len(audits) != 3 {
+		t.Fatalf("final Audit Entry count = %d, want success, rejection, conflict", len(audits))
+	}
+}
+
 func TestAuthenticateUsesOnlyUnexpiredPreviouslyValidatedSessionDuringStorageFailure(
 	t *testing.T,
 ) {
@@ -192,6 +260,46 @@ func TestAuthenticateUsesOnlyUnexpiredPreviouslyValidatedSessionDuringStorageFai
 	); signInErr == nil {
 		t.Fatal("new sign-in succeeded without storage")
 	}
+}
+
+func openAccountTestService(t *testing.T) (*Service, Account) {
+	t.Helper()
+	dataDir := t.TempDir()
+	if err := store.Initialize(t.Context(), dataDir); err != nil {
+		t.Fatalf("initialize authentication storage: %v", err)
+	}
+	storage, err := store.Open(t.Context(), dataDir)
+	if err != nil {
+		t.Fatalf("open authentication storage: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := storage.Close(); closeErr != nil {
+			t.Errorf("close authentication storage: %v", closeErr)
+		}
+	})
+	service, err := New(storage, Config{
+		Now:          time.Now,
+		Random:       testRandomReader{},
+		BootstrapTTL: time.Hour,
+		SessionTTL:   time.Hour,
+	})
+	if err != nil {
+		t.Fatalf("create authentication service: %v", err)
+	}
+	bootstrap, err := service.IssueBootstrap(t.Context())
+	if err != nil {
+		t.Fatalf("issue bootstrap: %v", err)
+	}
+	session, err := service.BootstrapAdministrator(
+		t.Context(),
+		bootstrap,
+		"Ada Admin",
+		"administrator password",
+	)
+	if err != nil {
+		t.Fatalf("bootstrap Administrator: %v", err)
+	}
+	return service, session.Account
 }
 
 type testRandomReader struct{}

@@ -19,5 +19,6 @@ A crash before commit leaves no Receipt and a retry executes normally; a lost re
 
 Reusing a Command ID with a different canonical payload is rejected and audited as a conflict.
 An exact retry creates no second Audit Entry.
+Write-only credentials are excluded from canonical payload identity: reusing a CreateAccount Command ID for the same normalized Account name replays its first outcome without changing the credential.
 Command Receipts share the installation-lifetime retention of audit history and exclude sensitive response bodies.
 A lost post-commit live notification does not change the command outcome; SSE consumers recover through sequence-gap detection and authoritative snapshots.

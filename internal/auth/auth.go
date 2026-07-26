@@ -354,7 +354,11 @@ func (service *Service) CreateAccount(
 	if service.storageDegraded() {
 		return Account{}, ErrStorageDegraded
 	}
-	payloadHash := command.PayloadHash(name, password)
+	identityName := name
+	if normalizedName, _, normalizeErr := normalizeAccountName(name); normalizeErr == nil {
+		identityName = normalizedName
+	}
+	payloadHash := command.PayloadHash(identityName)
 	if err := command.ValidateID(commandID); err != nil {
 		return Account{}, ErrInvalidAccountDetails
 	}
@@ -392,7 +396,7 @@ func (service *Service) CreateAccount(
 				PasswordHash:   passwordHash,
 				Now:            identity.Now,
 				CommandID:      commandID,
-				PayloadHash:    command.PayloadHash(normalizedName, password),
+				PayloadHash:    payloadHash,
 			})
 			if errors.Is(createErr, ErrAccountExists) {
 				return accountRejectionExecution[Account](createErr), nil

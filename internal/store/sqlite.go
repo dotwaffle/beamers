@@ -438,7 +438,6 @@ func SanitizeSnapshot(ctx context.Context, path string) (returnErr error) {
 		"DELETE FROM display_credentials",
 		"DELETE FROM display_enrollments",
 		"DELETE FROM upload_links",
-		"DELETE FROM command_receipts WHERE action = 'CreateAccount'",
 	} {
 		if _, err = transaction.ExecContext(ctx, statement); err != nil {
 			return fmt.Errorf("sanitize Backup authentication material: %w", err)
@@ -482,7 +481,6 @@ func ValidateSanitizedSnapshot(ctx context.Context, path string) (returnErr erro
 		"SELECT EXISTS(SELECT 1 FROM display_credentials)",
 		"SELECT EXISTS(SELECT 1 FROM display_enrollments)",
 		"SELECT EXISTS(SELECT 1 FROM upload_links)",
-		"SELECT EXISTS(SELECT 1 FROM command_receipts WHERE action = 'CreateAccount')",
 	} {
 		var found bool
 		if err = database.QueryRowContext(ctx, query).Scan(&found); err != nil {

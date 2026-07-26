@@ -12,12 +12,15 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	_ "github.com/dotwaffle/beamers/ent/runtime"
+	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 
 	_ "modernc.org/sqlite"
@@ -138,6 +141,189 @@ func TestSanitizedBackupIncludesConfiguredAttachmentsAndRemovesCredentials(t *te
 		filepath.Join(restoredDataDir, "beamers.db"),
 	); err != nil {
 		t.Fatalf("validate restored database: %v", err)
+	}
+}
+
+func TestSanitizedBackupRetainsSecureCreateAccountReceipt(t *testing.T) {
+	testBackupRetainsSecureCreateAccountReceipt(t, Sanitized)
+}
+
+func TestFullFidelityBackupRetainsSecureCreateAccountReceipt(t *testing.T) {
+	testBackupRetainsSecureCreateAccountReceipt(t, FullFidelity)
+}
+
+func testBackupRetainsSecureCreateAccountReceipt(t *testing.T, mode Mode) {
+	t.Helper()
+	ctx := t.Context()
+	dataDir := filepath.Join(t.TempDir(), "installation")
+	if err := store.Initialize(ctx, dataDir); err != nil {
+		t.Fatalf("initialize installation: %v", err)
+	}
+	storage, err := store.Open(ctx, dataDir)
+	if err != nil {
+		t.Fatalf("open installation: %v", err)
+	}
+	storageOpen := true
+	t.Cleanup(func() {
+		if storageOpen {
+			if closeErr := storage.Close(); closeErr != nil {
+				t.Errorf("close installation: %v", closeErr)
+			}
+		}
+	})
+	authentication, err := auth.New(storage, auth.DefaultConfig())
+	if err != nil {
+		t.Fatalf("create authentication service: %v", err)
+	}
+	bootstrap, err := authentication.IssueBootstrap(ctx)
+	if err != nil {
+		t.Fatalf("issue bootstrap: %v", err)
+	}
+	session, err := authentication.BootstrapAdministrator(
+		ctx,
+		bootstrap,
+		"Ada Admin",
+		"administrator password",
+	)
+	if err != nil {
+		t.Fatalf("bootstrap Administrator: %v", err)
+	}
+	created, err := authentication.CreateAccount(
+		ctx,
+		session.Account,
+		"Pat Producer",
+		"correct horse battery staple",
+		"create-pat",
+	)
+	if err != nil {
+		t.Fatalf("create Account: %v", err)
+	}
+	err = storage.Close()
+	storageOpen = false
+	if err != nil {
+		t.Fatalf("close installation: %v", err)
+	}
+
+	archivePath := filepath.Join(t.TempDir(), "backup.zip")
+	if _, err = Create(ctx, CreateInput{
+		DataDir: dataDir, OutputPath: archivePath, Mode: mode,
+	}); err != nil {
+		t.Fatalf("create %s Backup: %v", mode, err)
+	}
+	archive, err := zip.OpenReader(archivePath)
+	if err != nil {
+		t.Fatalf("open %s Backup: %v", mode, err)
+	}
+	archiveOpen := true
+	t.Cleanup(func() {
+		if archiveOpen {
+			if closeErr := archive.Close(); closeErr != nil {
+				t.Errorf("close %s Backup: %v", mode, closeErr)
+			}
+		}
+	})
+	databasePath := filepath.Join(t.TempDir(), "backup.db")
+	extractZIPEntry(t, archive.File, databaseName, databasePath)
+	err = archive.Close()
+	archiveOpen = false
+	if err != nil {
+		t.Fatalf("close %s Backup: %v", mode, err)
+	}
+	database, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatalf("open Backup database: %v", err)
+	}
+	databaseOpen := true
+	t.Cleanup(func() {
+		if databaseOpen {
+			if closeErr := database.Close(); closeErr != nil {
+				t.Errorf("close Backup database: %v", closeErr)
+			}
+		}
+	})
+	var payloadHash, outcome string
+	if err = database.QueryRowContext(
+		ctx,
+		"SELECT payload_hash, outcome_json FROM command_receipts WHERE command_id = 'create-pat'",
+	).Scan(&payloadHash, &outcome); err != nil {
+		_ = database.Close()
+		t.Fatalf("read CreateAccount receipt: %v", err)
+	}
+	var credentialCount int
+	if err = database.QueryRowContext(
+		ctx,
+		"SELECT count(*) FROM password_credentials",
+	).Scan(&credentialCount); err != nil {
+		_ = database.Close()
+		t.Fatalf("count sanitized credentials: %v", err)
+	}
+	err = database.Close()
+	databaseOpen = false
+	if err != nil {
+		t.Fatalf("close Backup database: %v", err)
+	}
+	wantCredentials := 0
+	if mode == FullFidelity {
+		wantCredentials = 2
+	}
+	if payloadHash != command.PayloadHash("pat producer") ||
+		strings.Contains(outcome, "correct horse battery staple") ||
+		strings.Contains(outcome, "argon2") ||
+		credentialCount != wantCredentials {
+		t.Fatalf("receipt hash/outcome/credentials = %q/%q/%d", payloadHash, outcome, credentialCount)
+	}
+
+	restoredDataDir := filepath.Join(t.TempDir(), "restored")
+	if _, err = Restore(ctx, RestoreInput{
+		InputPath: archivePath, DataDir: restoredDataDir,
+	}); err != nil {
+		t.Fatalf("Restore %s Backup: %v", mode, err)
+	}
+	restoredStorage, err := store.Open(ctx, restoredDataDir)
+	if err != nil {
+		t.Fatalf("open restored installation: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := restoredStorage.Close(); closeErr != nil {
+			t.Errorf("close restored installation: %v", closeErr)
+		}
+	})
+	restoredAuth, err := auth.New(restoredStorage, auth.DefaultConfig())
+	if err != nil {
+		t.Fatalf("create restored authentication service: %v", err)
+	}
+	retried, err := restoredAuth.CreateAccount(
+		ctx,
+		session.Account,
+		"Pat Producer",
+		"correct horse battery staple",
+		"create-pat",
+	)
+	if err != nil || !reflect.DeepEqual(retried, created) {
+		t.Fatalf("retry restored Account = %+v, %v; want %+v", retried, err, created)
+	}
+	audits, err := restoredAuth.ListAuditEntries(ctx, session.Account)
+	if err != nil {
+		t.Fatalf("list restored Audit Entries: %v", err)
+	}
+	if len(audits) != 1 {
+		t.Fatalf("restored Audit Entry count = %d, want 1", len(audits))
+	}
+	if _, err = restoredAuth.CreateAccount(
+		ctx,
+		session.Account,
+		"Different Account",
+		"correct horse battery staple",
+		"create-pat",
+	); !errors.Is(err, auth.ErrCommandConflict) {
+		t.Fatalf("reused consumed Command ID error = %v", err)
+	}
+	accounts, err := restoredAuth.ListAccounts(ctx, session.Account)
+	if err != nil {
+		t.Fatalf("list restored Accounts: %v", err)
+	}
+	if len(accounts) != 2 {
+		t.Fatalf("restored Account count = %d, want 2", len(accounts))
 	}
 }
 
