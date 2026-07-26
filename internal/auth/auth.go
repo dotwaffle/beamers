@@ -102,6 +102,14 @@ type Session struct {
 	Account   Account
 }
 
+// SessionCounts is token-free bounded authentication diagnostic data.
+type SessionCounts struct {
+	Active          int
+	Cached          int
+	Stored          int
+	PerAccountLimit int
+}
+
 // Config contains explicit authentication dependencies and lifetimes.
 type Config struct {
 	Now          func() time.Time
@@ -299,18 +307,39 @@ func (service *Service) SignIn(ctx context.Context, name, password string) (Sess
 	}
 	now := service.now().UTC()
 	expiresAt := now.Add(service.sessionTTL)
-	if err := service.storage.CreateAccountSession(
+	revoked, err := service.storage.CreateAccountSession(
 		ctx,
 		credential.ID,
 		tokenDigest(token),
 		now,
 		expiresAt,
-	); err != nil {
+	)
+	if err != nil {
 		return Session{}, err
 	}
+	service.pruneSessionCache(now, revoked)
 	session := newSession(token, expiresAt, credential)
 	service.rememberSession(token, session.Account, expiresAt)
 	return session, nil
+}
+
+// SessionCounts returns token-free active durable and in-memory session counts.
+func (service *Service) SessionCounts(ctx context.Context) (SessionCounts, error) {
+	now := service.now().UTC()
+	durable, err := service.storage.CountAccountSessions(ctx, now)
+	if err != nil {
+		return SessionCounts{}, err
+	}
+	service.pruneSessionCache(now, nil)
+	service.sessionMu.RLock()
+	cached := len(service.sessions)
+	service.sessionMu.RUnlock()
+	return SessionCounts{
+		Active:          durable.Active,
+		Cached:          cached,
+		Stored:          durable.Stored,
+		PerAccountLimit: store.MaxActiveSessionsPerAccount,
+	}, nil
 }
 
 // Reauthenticate verifies the current Administrator without issuing a session.
@@ -722,6 +751,19 @@ func (service *Service) forgetSession(tokenHash string) {
 	service.sessionMu.Lock()
 	defer service.sessionMu.Unlock()
 	delete(service.sessions, tokenHash)
+}
+
+func (service *Service) pruneSessionCache(now time.Time, revoked []string) {
+	service.sessionMu.Lock()
+	defer service.sessionMu.Unlock()
+	for tokenHash, cached := range service.sessions {
+		if !cached.expiresAt.After(now) {
+			delete(service.sessions, tokenHash)
+		}
+	}
+	for _, tokenHash := range revoked {
+		delete(service.sessions, tokenHash)
+	}
 }
 
 func cloneAccount(source Account) Account {

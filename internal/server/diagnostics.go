@@ -51,11 +51,22 @@ func registerDiagnosticsRoutes(
 				"error", capacityErr,
 			)
 		}
+		sessionCounts, sessionCountsErr := authentication.SessionCounts(request.Context())
+		if sessionCountsErr != nil {
+			logger.ErrorContext(
+				request.Context(),
+				"build authentication diagnostics",
+				"component", "diagnostics",
+				"error", sessionCountsErr,
+			)
+		}
 		found := normalDiagnostics(
 			statuses,
 			statusErr,
 			capacity,
 			capacityErr,
+			sessionCounts,
+			sessionCountsErr,
 			displayStream.SubscriberCount(),
 			displayStream.DisplayCount(),
 			programStream.SubscriberCount(),
@@ -114,12 +125,21 @@ type streamDiagnostics struct {
 	Subscribers int    `json:"subscribers"`
 }
 
+type authenticationDiagnostics struct {
+	Status          string `json:"status"`
+	Active          int    `json:"active"`
+	Cached          int    `json:"cached"`
+	Stored          int    `json:"stored"`
+	PerAccountLimit int    `json:"per_account_limit"`
+}
+
 type normalDiagnosticsResponse struct {
-	Mode        string               `json:"mode"`
-	Storage     componentDiagnostics `json:"storage"`
-	Backup      componentDiagnostics `json:"backup"`
-	Replication replication.Status   `json:"replication"`
-	Streams     struct {
+	Mode           string                    `json:"mode"`
+	Storage        componentDiagnostics      `json:"storage"`
+	Backup         componentDiagnostics      `json:"backup"`
+	Authentication authenticationDiagnostics `json:"authentication"`
+	Replication    replication.Status        `json:"replication"`
+	Streams        struct {
 		Display streamDiagnostics `json:"display"`
 		Program streamDiagnostics `json:"program"`
 	} `json:"streams"`
@@ -149,6 +169,8 @@ func normalDiagnostics(
 	statusErr error,
 	capacity operations.Capacity,
 	capacityErr error,
+	sessionCounts auth.SessionCounts,
+	sessionCountsErr error,
 	displaySubscribers int,
 	connectedDisplays int,
 	programSubscribers int,
@@ -162,6 +184,13 @@ func normalDiagnostics(
 		Replication: replication.Status{Status: "disabled"},
 		Telemetry:   componentDiagnostics{Status: "disabled"},
 		Capacity:    capacityDiagnostics{Status: "within_tested_envelope", Counts: capacity},
+		Authentication: authenticationDiagnostics{
+			Status:          "bounded",
+			Active:          sessionCounts.Active,
+			Cached:          sessionCounts.Cached,
+			Stored:          sessionCounts.Stored,
+			PerAccountLimit: sessionCounts.PerAccountLimit,
+		},
 	}
 	found.Streams.Display = streamDiagnostics{
 		Status: "ready", Subscribers: displaySubscribers,
@@ -187,6 +216,9 @@ func normalDiagnostics(
 		if len(found.Capacity.Warnings) > 0 {
 			found.Capacity.Status = "warning"
 		}
+	}
+	if sessionCountsErr != nil {
+		found.Authentication.Status = "unavailable"
 	}
 	if statusErr != nil {
 		found.Storage.Status = "unavailable"

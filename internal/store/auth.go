@@ -30,6 +30,9 @@ var (
 	ErrLastAdministrator = errors.New("last Administrator cannot be disabled")
 )
 
+// MaxActiveSessionsPerAccount is the durable concurrent Account session cap.
+const MaxActiveSessionsPerAccount = 8
+
 // AccountCredential is the authentication projection of an Account.
 type AccountCredential struct {
 	ID               int                       `json:"id"`
@@ -39,6 +42,12 @@ type AccountCredential struct {
 	EventRoles       map[int]viewer.Role       `json:"-"`
 	EventScopes      map[int]viewer.EventScope `json:"-"`
 	SessionExpiresAt time.Time                 `json:"-"`
+}
+
+// AccountSessionCounts is token-free durable session diagnostic data.
+type AccountSessionCounts struct {
+	Active int
+	Stored int
 }
 
 // BootstrapAdministratorParams contains the values committed atomically when
@@ -359,19 +368,88 @@ func (installation *SQLite) CreateAccountSession(
 	tokenHash string,
 	now time.Time,
 	expiresAt time.Time,
-) error {
+) ([]string, error) {
 	ctx = systemContext(ctx)
-	if err := createAccountSession(
+	transaction, err := installation.client.Tx(ctx)
+	if err != nil {
+		return nil, opaqueError("begin Account session creation", err)
+	}
+	defer func() {
+		_ = transaction.Rollback()
+	}()
+	if _, err = transaction.AccountSession.Delete().Where(
+		accountsession.Or(
+			accountsession.RevokedAtNotNil(),
+			accountsession.ExpiresAtLTE(now),
+		),
+	).Exec(ctx); err != nil {
+		return nil, opaqueError("prune inactive Account sessions", err)
+	}
+	if createErr := createAccountSession(
 		ctx,
-		installation.client.AccountSession,
+		transaction.AccountSession,
 		accountID,
 		tokenHash,
 		now,
 		expiresAt,
-	); err != nil {
-		return opaqueError("create Account session", err)
+	); createErr != nil {
+		return nil, opaqueError("create Account session", createErr)
 	}
-	return nil
+	active, err := transaction.AccountSession.Query().
+		Where(
+			accountsession.AccountIDEQ(accountID),
+			accountsession.RevokedAtIsNil(),
+			accountsession.ExpiresAtGT(now),
+		).
+		Order(
+			ent.Asc(accountsession.FieldCreatedAt),
+			ent.Asc(accountsession.FieldID),
+		).
+		All(ctx)
+	if err != nil {
+		return nil, opaqueError("list active Account sessions", err)
+	}
+	var revoked []string
+	if excess := len(active) - MaxActiveSessionsPerAccount; excess > 0 {
+		ids := make([]int, excess)
+		revoked = make([]string, excess)
+		for index, session := range active[:excess] {
+			ids[index] = session.ID
+			revoked[index] = session.TokenHash
+		}
+		if _, err = transaction.AccountSession.Delete().
+			Where(accountsession.IDIn(ids...)).
+			Exec(ctx); err != nil {
+			return nil, opaqueError("revoke oldest Account sessions", err)
+		}
+	}
+	if err = transaction.Commit(); err != nil {
+		return nil, opaqueError("commit Account session creation", err)
+	}
+	return revoked, nil
+}
+
+// CountAccountSessions returns token-free durable session counts.
+func (installation *SQLite) CountAccountSessions(
+	ctx context.Context,
+	now time.Time,
+) (AccountSessionCounts, error) {
+	internalContext := systemContext(ctx)
+	stored, err := installation.client.AccountSession.Query().Count(internalContext)
+	if err != nil {
+		return AccountSessionCounts{}, opaqueError("count stored Account sessions", err)
+	}
+	active, err := installation.client.AccountSession.Query().
+		Where(
+			accountsession.RevokedAtIsNil(),
+			accountsession.ExpiresAtGT(now),
+			accountsession.HasAccountWith(account.DisabledAtIsNil()),
+		).
+		Count(internalContext)
+	if err != nil {
+		return AccountSessionCounts{}, opaqueError("count active Account sessions", err)
+	}
+	return AccountSessionCounts{Active: active, Stored: stored}, nil
 }
 
 // FindAccountSession returns the enabled Account for an active session.

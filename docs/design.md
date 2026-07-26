@@ -388,6 +388,7 @@ Correctness depends on durable revisions and snapshots, not delivery of every no
 
 Every Crew Member uses an individual Account.
 Version one supports regular credential-based Accounts; passkeys and hardware authenticators are future additions.
+Each Account may hold at most eight active sessions; a successful login prunes inactive sessions and revokes the oldest active session first when the cap is reached.
 
 Administrator is installation-wide and does not imply Event access.
 Producer, Operator, and Observer are Event roles granted through Event Grants.
