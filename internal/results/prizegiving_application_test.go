@@ -403,12 +403,21 @@ func TestStandaloneEventAwardsReleaseCommandSemantics(t *testing.T) {
 		ExpectedDraftRevision: preflight.Lock.EventAwardsDraftRevision,
 		ExpectedPathRevision:  preflight.Lock.EventAwardsPathRevision,
 	}
+	unauthorized := input
+	unauthorized.CommandID = "reject-unauthorized-standalone-event-awards"
 	if _, err := fixture.service.ReleaseStandaloneEventAwards(
 		t.Context(),
 		revoked,
-		input,
+		unauthorized,
 	); !errors.Is(err, results.ErrProducerRequired) {
 		t.Fatalf("unauthorized standalone Event Awards release error = %v", err)
+	}
+	if _, err := fixture.service.ReleaseStandaloneEventAwards(
+		t.Context(),
+		fixture.actor,
+		unauthorized,
+	); !errors.Is(err, results.ErrProducerRequired) {
+		t.Fatalf("authorized retry of rejected Event Awards release error = %v", err)
 	}
 	stale := input
 	stale.CommandID = "release-stale-standalone-event-awards"
@@ -476,8 +485,8 @@ func TestStandaloneEventAwardsReleaseCommandSemantics(t *testing.T) {
 			releaseAudits++
 		}
 	}
-	if releaseAudits != 2 {
-		t.Fatalf("standalone Event Awards release Audit count = %d, want 2", releaseAudits)
+	if releaseAudits != 4 {
+		t.Fatalf("standalone Event Awards release Audit count = %d, want 4", releaseAudits)
 	}
 }
 
@@ -675,6 +684,19 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 	if err != nil {
 		t.Fatalf("save standalone Results: %v", err)
 	}
+	scopeInput := results.ReleaseStandaloneResultsInput{
+		EventID: eventID, CompetitionSessionID: ceremonyID,
+		CommandID: "reject-standalone-results-scope",
+	}
+	for attempt := range 2 {
+		if _, scopeErr := service.ReleaseStandaloneResults(
+			t.Context(),
+			actor,
+			scopeInput,
+		); !errors.Is(scopeErr, results.ErrCompetitionPrizegivingAssignment) {
+			t.Fatalf("standalone Results scope attempt %d error = %v", attempt+1, scopeErr)
+		}
+	}
 	if _, err = service.ReleaseStandaloneResults(
 		t.Context(),
 		actor,
@@ -761,6 +783,20 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 	); err != nil || found {
 		t.Fatalf("missing public Results revision found = %t, error = %v", found, err)
 	}
+	audits, err := storage.ListAuditEntries(actor.Context(t.Context()))
+	if err != nil {
+		t.Fatalf("list standalone Results Audit Entries: %v", err)
+	}
+	scopeAudits := 0
+	for _, audit := range audits {
+		if audit.Action == "ReleaseStandaloneResults" &&
+			audit.Reason == "competition_prizegiving_assignment" {
+			scopeAudits++
+		}
+	}
+	if scopeAudits != 1 {
+		t.Fatalf("standalone Results scope Audit count = %d, want 1", scopeAudits)
+	}
 	var releasedModel results.PublicResultsPublication
 	if err = json.Unmarshal([]byte(stored.RenderedJSON), &releasedModel); err != nil {
 		t.Fatalf("decode released Results model: %v", err)
@@ -831,12 +867,34 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 		CommandId:        "review-standalone-results-correction",
 		ExpectedRevision: saved.Msg.GetCorrection().GetRevision(),
 	})
+	staleReviewRequest := connect.NewRequest(&resultsv1.ReviewResultsCorrectionRequest{
+		EventId:          int64(eventID),
+		Scope:            resultsv1.ResultsPublicationScope_RESULTS_PUBLICATION_SCOPE_STANDALONE,
+		ScopeSessionId:   int64(competitionID),
+		CommandId:        "reject-stale-results-correction",
+		ExpectedRevision: saved.Msg.GetCorrection().GetRevision() + 1,
+	})
+	setResultsSessionCookie(staleReviewRequest.Header(), sessionToken)
+	if _, err = client.ReviewResultsCorrection(
+		t.Context(),
+		staleReviewRequest,
+	); connect.CodeOf(err) != connect.CodeAborted {
+		t.Fatalf("stale Results Correction review error = %v", err)
+	}
 	setResultsSessionCookie(reviewRequest.Header(), sessionToken)
 	reviewed, err := client.ReviewResultsCorrection(t.Context(), reviewRequest)
 	if err != nil ||
 		reviewed.Msg.GetCorrection().GetStatus() !=
 			resultsv1.ResultsCorrectionStatus_RESULTS_CORRECTION_STATUS_READY {
 		t.Fatalf("review Results Correction RPC = %+v, %v", reviewed, err)
+	}
+	staleRetryRequest := connect.NewRequest(staleReviewRequest.Msg)
+	setResultsSessionCookie(staleRetryRequest.Header(), sessionToken)
+	if _, err = client.ReviewResultsCorrection(
+		t.Context(),
+		staleRetryRequest,
+	); connect.CodeOf(err) != connect.CodeAborted {
+		t.Fatalf("retried stale Results Correction review error = %v", err)
 	}
 	publishRequest := connect.NewRequest(&resultsv1.PublishResultsCorrectionRequest{
 		EventId:          int64(eventID),
@@ -929,7 +987,7 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 		) {
 		t.Fatalf("Results Correction history RPC = %+v, %v", history, err)
 	}
-	audits, err := storage.ListAuditEntries(actor.Context(t.Context()))
+	audits, err = storage.ListAuditEntries(actor.Context(t.Context()))
 	if err != nil {
 		t.Fatalf("list Results Correction Audit Entries: %v", err)
 	}
@@ -940,14 +998,17 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 		}
 		if strings.Contains(audit.Action, "ResultsCorrection") {
 			correctionAudits++
+			if audit.Reason == "correction_revision" {
+				continue
+			}
 			if audit.Reason != "The public title was incomplete." ||
 				audit.Note != "Competition title corrected." {
 				t.Fatalf("Results Correction Audit evidence = %+v", audit)
 			}
 		}
 	}
-	if correctionAudits != 3 {
-		t.Fatalf("Results Correction Audit count = %d, want 3", correctionAudits)
+	if correctionAudits != 4 {
+		t.Fatalf("Results Correction Audit count = %d, want 4", correctionAudits)
 	}
 	if _, err = service.DesignatePrizegiving(
 		t.Context(),
