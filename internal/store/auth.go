@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/dotwaffle/beamers/ent"
@@ -488,5 +489,11 @@ func accountCredential(found *ent.Account, passwordHash string) AccountCredentia
 }
 
 func opaqueError(action string, err error) error {
+	switch {
+	case errors.Is(err, context.Canceled):
+		return fmt.Errorf("%s: %w", action, context.Canceled)
+	case errors.Is(err, context.DeadlineExceeded):
+		return fmt.Errorf("%s: %w", action, context.DeadlineExceeded)
+	}
 	return errors.New(action + ": " + err.Error())
 }

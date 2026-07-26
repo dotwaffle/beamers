@@ -1,6 +1,7 @@
 package overrides
 
 import (
+	"context"
 	"errors"
 	"maps"
 	"path/filepath"
@@ -29,6 +30,70 @@ func TestTechnicalDifficultiesRejectsDurationBeforeConversion(t *testing.T) {
 	)
 	if !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("large Technical Difficulties duration error = %v", err)
+	}
+}
+
+func TestCanceledEmergencyActivationDoesNotEnterDegradedMode(t *testing.T) {
+	dataDir := t.TempDir()
+	if err := store.Initialize(t.Context(), dataDir); err != nil {
+		t.Fatalf("initialize canceled Emergency storage: %v", err)
+	}
+	storage, err := store.Open(t.Context(), dataDir)
+	if err != nil {
+		t.Fatalf("open canceled Emergency storage: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := storage.Close(); closeErr != nil {
+			t.Errorf("close canceled Emergency storage: %v", closeErr)
+		}
+	})
+	service, err := New(t.Context(), storage, time.Now)
+	if err != nil {
+		t.Fatalf("create canceled Emergency service: %v", err)
+	}
+	input := PriorityInput{
+		EventID:   1,
+		Target:    Target{Type: store.DisplayOverrideTargetEvent},
+		Text:      "Evacuate using marked exits",
+		Confirmed: true, ConfirmationMethod: "Keyboard",
+		PreviewFingerprint: "canceled-preview", CommandID: "canceled-emergency",
+	}
+	for _, test := range []struct {
+		name string
+		ctx  func() (context.Context, context.CancelFunc)
+		want error
+	}{
+		{
+			name: "canceled",
+			ctx: func() (context.Context, context.CancelFunc) {
+				ctx, cancel := context.WithCancel(t.Context())
+				cancel()
+				return ctx, func() {}
+			},
+			want: context.Canceled,
+		},
+		{
+			name: "deadline",
+			ctx: func() (context.Context, context.CancelFunc) {
+				return context.WithDeadline(t.Context(), time.Now().Add(-time.Second))
+			},
+			want: context.DeadlineExceeded,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, cancel := test.ctx()
+			defer cancel()
+			if _, activateErr := service.ActivateEmergencyAlert(
+				ctx,
+				auth.Account{ID: 1},
+				input,
+			); !errors.Is(activateErr, test.want) {
+				t.Fatalf("Emergency activation error = %v, want %v", activateErr, test.want)
+			}
+			if service.Degraded() {
+				t.Fatal("canceled Emergency activation entered degraded mode")
+			}
+		})
 	}
 }
 
