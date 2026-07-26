@@ -195,22 +195,33 @@ type takeReceipt struct {
 
 // Service serializes process-local ownership around durable Program Output.
 type Service struct {
-	storage  *store.SQLite
-	now      func() time.Time
-	mu       sync.Mutex
-	controls map[int]*channelControl
+	storage      *store.SQLite
+	publications *results.Service
+	now          func() time.Time
+	mu           sync.Mutex
+	controls     map[int]*channelControl
 }
 
 // New creates a Program control service. Its empty control map deliberately
 // clears ownership and unsent Preview after every process restart.
-func New(storage *store.SQLite, now func() time.Time) (*Service, error) {
+func New(
+	storage *store.SQLite,
+	publications *results.Service,
+	now func() time.Time,
+) (*Service, error) {
 	if storage == nil {
 		return nil, errors.New("program control storage is required")
+	}
+	if publications == nil {
+		return nil, errors.New("results publication service is required")
 	}
 	if now == nil {
 		return nil, errors.New("program control clock is required")
 	}
-	return &Service{storage: storage, now: now, controls: make(map[int]*channelControl)}, nil
+	return &Service{
+		storage: storage, publications: publications, now: now,
+		controls: make(map[int]*channelControl),
+	}, nil
 }
 
 func (service *Service) controlFor(sessionID int) *channelControl {
@@ -497,7 +508,9 @@ func (service *Service) reconcileProgressivePublication(
 			return nil
 		}
 		plan, err := service.storage.LoadPrizegivingPlan(
-			actor.Context(ctx), eventID, sessionID,
+			actor.Context(ctx),
+			eventID,
+			sessionID,
 		)
 		if err != nil {
 			return err
@@ -506,16 +519,14 @@ func (service *Service) reconcileProgressivePublication(
 			plan.ReleasePolicy != prizegivingvalue.ReleaseProgressiveOnReveal {
 			return nil
 		}
-		current, err := service.storage.LoadResultsPublication(
-			actor.Context(ctx),
-			eventID,
-			store.ResultsPublicationPrizegiving,
-			sessionID,
-		)
-		if err != nil {
-			return err
+		ready := false
+		for _, state := range states {
+			if state.Release == results.ResultReleaseReady {
+				ready = true
+				break
+			}
 		}
-		if !progressivePublicationNeeded(channel.Items, current) {
+		if !ready {
 			return nil
 		}
 		payload, err := progressiveReconciliationPayload(
@@ -554,16 +565,15 @@ func (service *Service) reconcileProgressivePublication(
 				Apply: func(
 					transaction *store.CommandTx,
 				) (command.Execution[results.Publication], error) {
-					updated, _, advanceErr := results.AdvancePrizegivingPublication(
-						actor.Context(ctx),
-						actor,
-						transaction,
-						eventID,
-						sessionID,
-						now,
-						channel,
-						results.PrizegivingPublicationTrigger{},
-					)
+					updated, _, advanceErr :=
+						service.publications.ReconcilePrizegivingPublication(
+							actor.Context(ctx),
+							actor,
+							transaction,
+							results.ReconcilePrizegivingPublicationInput{
+								EventID: eventID, CeremonySessionID: sessionID, Now: now,
+							},
+						)
 					if advanceErr != nil {
 						return command.Execution[results.Publication]{}, advanceErr
 					}
@@ -600,29 +610,6 @@ type progressiveReconciliationIdentity struct {
 	SessionID      int                            `json:"session_id"`
 	ActorAccountID int                            `json:"actor_account_id"`
 	States         []results.ResultItemStageState `json:"states"`
-}
-
-func progressivePublicationNeeded(
-	items []store.ProgramItem,
-	current store.ResultsPublication,
-) bool {
-	released := make(
-		map[store.PrizegivingResultItemRef]struct{},
-		len(current.Items),
-	)
-	for _, item := range current.Items {
-		released[item] = struct{}{}
-	}
-	for _, item := range items {
-		if item.Result == nil ||
-			item.Result.Release != prizegivingvalue.ReleaseReady {
-			continue
-		}
-		if _, ok := released[item.Result.Ref]; !ok {
-			return true
-		}
-	}
-	return false
 }
 
 // Control applies one explicit process-local ownership transition.
@@ -1192,14 +1179,13 @@ func (service *Service) applyResultAction(
 	if err != nil {
 		return command.Execution[takeReceipt]{}, false, err
 	}
-	publicationErr := advanceProgressivePublication(
-		ctx,
+	_, _, publicationErr := service.publications.ReconcilePrizegivingPublication(
+		actor.Context(ctx),
 		actor,
-		input.EventID,
-		input.SessionID,
-		now,
 		transaction,
-		updated,
+		results.ReconcilePrizegivingPublicationInput{
+			EventID: input.EventID, CeremonySessionID: input.SessionID, Now: now,
+		},
 	)
 	if publicationErr != nil {
 		return command.Execution[takeReceipt]{}, false, publicationErr
@@ -1218,27 +1204,6 @@ func (service *Service) applyResultAction(
 		)
 	}
 	return command.Success(result, string(encoded)), true, nil
-}
-
-func advanceProgressivePublication(
-	ctx context.Context,
-	actor auth.Account,
-	eventID, sessionID int,
-	now time.Time,
-	transaction *store.CommandTx,
-	channel store.ProgramChannelState,
-) error {
-	_, _, err := results.AdvancePrizegivingPublication(
-		actor.Context(ctx),
-		actor,
-		transaction,
-		eventID,
-		sessionID,
-		now,
-		channel,
-		results.PrizegivingPublicationTrigger{},
-	)
-	return err
 }
 
 func validateResultAction(

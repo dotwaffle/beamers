@@ -47,10 +47,24 @@ type ReleaseStandaloneEventAwardsInput struct {
 	ExpectedPathRevision  int    `json:"expected_path_revision"`
 }
 
-// PrizegivingPublicationTrigger contains one durable release trigger.
-type PrizegivingPublicationTrigger struct {
+type prizegivingPublicationTrigger struct {
 	CueFired      bool
 	CeremonyEnded bool
+	Reconcile     bool
+}
+
+// ReconcilePrizegivingPublicationInput identifies one progressive live-state pass.
+type ReconcilePrizegivingPublicationInput struct {
+	EventID           int
+	CeremonySessionID int
+	Now               time.Time
+}
+
+// CompletePrizegivingPublicationInput identifies one ceremony completion.
+type CompletePrizegivingPublicationInput struct {
+	EventID           int
+	CeremonySessionID int
+	Now               time.Time
 }
 
 // FirePrizegivingResultsCue atomically publishes the complete locked set.
@@ -88,15 +102,14 @@ func (service *Service) FirePrizegivingResultsCue(
 			if !actor.CanProduceEvent(input.EventID) {
 				return command.Execution[Publication]{}, ErrProducerRequired
 			}
-			next, _, advanceErr := AdvancePrizegivingPublication(
+			next, _, advanceErr := service.advancePrizegivingPublication(
 				actor.Context(ctx),
 				actor,
 				transaction,
 				input.EventID,
 				input.CeremonySessionID,
 				identity.Now,
-				store.ProgramChannelState{},
-				PrizegivingPublicationTrigger{CueFired: true},
+				prizegivingPublicationTrigger{CueFired: true},
 			)
 			if advanceErr != nil {
 				return command.Execution[Publication]{}, advanceErr
@@ -187,21 +200,6 @@ func (service *Service) ReleaseStandaloneResults(
 				CompetitionSessionID: input.CompetitionSessionID,
 				DisplayOrder:         1,
 			}
-			next, changed, advanceErr := AdvancePublication(PublicationInput{
-				Policy: ResultsStandalone,
-				Order:  []ResultItemRef{ref},
-				States: []ResultItemStageState{{
-					Ref: ref, Status: ResultItemRevealed, Release: ResultReleaseReady,
-				}},
-				Current:           publicationFromStore(current),
-				StandaloneRelease: true,
-			})
-			if advanceErr != nil {
-				return command.Execution[Publication]{}, advanceErr
-			}
-			if !changed {
-				return command.Execution[Publication]{}, ErrResultsPublicationRequired
-			}
 			storedRef := prizegivingItemRefInputs([]ResultItemRef{ref})[0]
 			lock := store.PrizegivingPreflightLock{
 				ReleasePolicy:    ResultsStandalone,
@@ -213,52 +211,36 @@ func (service *Service) ReleaseStandaloneResults(
 				}},
 				Template: prizegivingTemplateInput(DefaultResultsTextTemplate()),
 			}
-			lock, renderErr := freezeResultsRenderSource(
+			published, changed, publishErr := publishResultsPublication(
 				actor.Context(ctx),
 				transaction,
-				input.EventID,
-				lock,
-			)
-			if renderErr != nil {
-				return command.Execution[Publication]{}, renderErr
-			}
-			rendered, renderErr := renderResultsPublication(
-				actor.Context(ctx),
-				transaction,
-				input.EventID,
-				input.CompetitionSessionID,
-				current,
-				next,
-				lock,
-				identity.Now,
-			)
-			if renderErr != nil {
-				return command.Execution[Publication]{}, renderErr
-			}
-			stored, appendErr := appendScopedResultsPublication(
-				actor.Context(ctx),
-				transaction,
-				store.AppendResultsPublicationParams{
-					EventID:            input.EventID,
-					Scope:              store.ResultsPublicationStandalone,
-					ScopeSessionID:     input.CompetitionSessionID,
-					ExpectedRevision:   current.Revision,
-					Policy:             ResultsStandalone,
-					Status:             store.ResultsPublicationStatus(next.Status),
-					Items:              []store.PrizegivingResultItemRef{storedRef},
-					Lock:               lock,
-					Template:           prizegivingTemplateInput(rendered.Template),
-					RenderedHTML:       rendered.HTML,
-					RenderedText:       rendered.Text,
-					RenderedJSON:       rendered.JSON,
-					CreatedByAccountID: actor.ID,
-					Now:                identity.Now,
+				publicationPipelineInput{
+					EventID:        input.EventID,
+					Scope:          store.ResultsPublicationStandalone,
+					ScopeSessionID: input.CompetitionSessionID,
+					Current:        current,
+					Policy:         ResultsStandalone,
+					Lock:           lock,
+					Advance: PublicationInput{
+						Policy: ResultsStandalone,
+						Order:  []ResultItemRef{ref},
+						States: []ResultItemStageState{{
+							Ref: ref, Status: ResultItemRevealed,
+							Release: ResultReleaseReady,
+						}},
+						StandaloneRelease: true,
+					},
+					ActorAccountID: actor.ID,
+					Now:            identity.Now,
 				},
 			)
-			if appendErr != nil {
-				return command.Execution[Publication]{}, appendErr
+			if publishErr != nil {
+				return command.Execution[Publication]{}, publishErr
 			}
-			return publicationExecution(publicationFromStore(stored))
+			if !changed {
+				return command.Execution[Publication]{}, ErrResultsPublicationRequired
+			}
+			return publicationExecution(published)
 		}),
 	})
 }
@@ -369,59 +351,33 @@ func (service *Service) ReleaseStandaloneEventAwards(
 					Ref: ref, Status: ResultItemRevealed, Release: ResultReleaseReady,
 				})
 			}
-			next, changed, advanceErr := AdvancePublication(PublicationInput{
-				Policy: ResultsStandalone,
-				Order:  lock.PublicationOrder,
-				States: states, Current: publicationFromStore(current),
-				StandaloneRelease: true,
-			})
-			if advanceErr != nil {
-				return command.Execution[Publication]{}, advanceErr
+			lockInput := prizegivingLockInput(lock)
+			published, changed, publishErr := publishResultsPublication(
+				actor.Context(ctx),
+				transaction,
+				publicationPipelineInput{
+					EventID:        input.EventID,
+					Scope:          store.ResultsPublicationEventAwards,
+					ScopeSessionID: input.EventID,
+					Current:        current,
+					Policy:         ResultsStandalone,
+					Lock:           lockInput,
+					Advance: PublicationInput{
+						Policy: ResultsStandalone,
+						Order:  lock.PublicationOrder,
+						States: states, StandaloneRelease: true,
+					},
+					ActorAccountID: actor.ID,
+					Now:            identity.Now,
+				},
+			)
+			if publishErr != nil {
+				return command.Execution[Publication]{}, publishErr
 			}
 			if !changed {
 				return command.Execution[Publication]{}, ErrResultsPublicationRequired
 			}
-			lockInput := prizegivingLockInput(lock)
-			lockInput, renderErr := freezeResultsRenderSource(
-				actor.Context(ctx),
-				transaction,
-				input.EventID,
-				lockInput,
-			)
-			if renderErr != nil {
-				return command.Execution[Publication]{}, renderErr
-			}
-			rendered, renderErr := renderResultsPublication(
-				actor.Context(ctx),
-				transaction,
-				input.EventID,
-				0,
-				current,
-				next,
-				lockInput,
-				identity.Now,
-			)
-			if renderErr != nil {
-				return command.Execution[Publication]{}, renderErr
-			}
-			stored, appendErr := appendScopedResultsPublication(
-				actor.Context(ctx),
-				transaction,
-				store.AppendResultsPublicationParams{
-					EventID: input.EventID, Scope: store.ResultsPublicationEventAwards,
-					ScopeSessionID: input.EventID, ExpectedRevision: current.Revision,
-					Policy: ResultsStandalone, Status: store.ResultsPublicationFinal,
-					Items: prizegivingItemRefInputs(next.Items), Lock: lockInput,
-					Template:     prizegivingTemplateInput(rendered.Template),
-					RenderedHTML: rendered.HTML, RenderedText: rendered.Text,
-					RenderedJSON: rendered.JSON, CreatedByAccountID: actor.ID,
-					Now: identity.Now,
-				},
-			)
-			if appendErr != nil {
-				return command.Execution[Publication]{}, appendErr
-			}
-			return publicationExecution(publicationFromStore(stored))
+			return publicationExecution(published)
 		}),
 	})
 }
@@ -466,26 +422,87 @@ func publicationExecution(
 	return command.Success(value, string(outcome)), nil
 }
 
-// AdvancePrizegivingPublication appends one policy-valid manifest revision.
-func AdvancePrizegivingPublication(
+type publicationPipelineInput struct {
+	EventID                   int
+	Scope                     store.ResultsPublicationScope
+	ScopeSessionID            int
+	Current                   store.ResultsPublication
+	Policy                    ReleasePolicy
+	Lock                      store.PrizegivingPreflightLock
+	Advance                   PublicationInput
+	Correction                *CorrectionProposal
+	ResultsCorrectionRevision int
+	ActorAccountID            int
+	Now                       time.Time
+}
+
+// ReconcilePrizegivingPublication applies one progressive live-state transition
+// inside its caller's command transaction.
+func (service *Service) ReconcilePrizegivingPublication(
+	ctx context.Context,
+	actor auth.Account,
+	transaction *store.CommandTx,
+	input ReconcilePrizegivingPublicationInput,
+) (Publication, bool, error) {
+	if transaction == nil || input.EventID <= 0 || input.CeremonySessionID <= 0 {
+		return Publication{}, false, ErrInvalidInput
+	}
+	return service.advancePrizegivingPublication(
+		ctx,
+		actor,
+		transaction,
+		input.EventID,
+		input.CeremonySessionID,
+		input.Now,
+		prizegivingPublicationTrigger{Reconcile: true},
+	)
+}
+
+// CompletePrizegivingPublication applies ceremony completion inside its
+// caller's command transaction.
+func (service *Service) CompletePrizegivingPublication(
+	ctx context.Context,
+	actor auth.Account,
+	transaction *store.CommandTx,
+	input CompletePrizegivingPublicationInput,
+) (Publication, bool, error) {
+	if transaction == nil || input.EventID <= 0 || input.CeremonySessionID <= 0 {
+		return Publication{}, false, ErrInvalidInput
+	}
+	return service.advancePrizegivingPublication(
+		ctx,
+		actor,
+		transaction,
+		input.EventID,
+		input.CeremonySessionID,
+		input.Now,
+		prizegivingPublicationTrigger{CeremonyEnded: true},
+	)
+}
+
+func (service *Service) advancePrizegivingPublication(
 	ctx context.Context,
 	actor auth.Account,
 	transaction *store.CommandTx,
 	eventID, ceremonySessionID int,
 	now time.Time,
-	channel store.ProgramChannelState,
-	trigger PrizegivingPublicationTrigger,
+	trigger prizegivingPublicationTrigger,
 ) (Publication, bool, error) {
 	plan, err := transaction.LoadPrizegivingPlan(
 		ctx,
 		eventID,
 		ceremonySessionID,
 	)
-	if errors.Is(err, store.ErrPrizegivingSession) && trigger.CeremonyEnded {
+	if errors.Is(err, store.ErrPrizegivingSession) &&
+		(trigger.CeremonyEnded || trigger.Reconcile) {
 		return Publication{}, false, nil
 	}
 	if err != nil {
 		return Publication{}, false, err
+	}
+	if trigger.Reconcile &&
+		(!plan.Locked || plan.ReleasePolicy != ResultsProgressiveOnReveal) {
+		return Publication{}, false, nil
 	}
 	if !plan.Locked {
 		return Publication{}, false, ErrPrizegivingPreflightRequired
@@ -502,39 +519,111 @@ func AdvancePrizegivingPublication(
 	if err != nil {
 		return Publication{}, false, err
 	}
+	var states []ResultItemStageState
+	if !trigger.CueFired {
+		channel, loadErr := transaction.LoadProgramChannelAt(
+			ctx,
+			eventID,
+			ceremonySessionID,
+			now,
+		)
+		if loadErr != nil {
+			return Publication{}, false, loadErr
+		}
+		states = PrizegivingPublicationStates(channel.Items)
+	}
 	publicationOrder := plan.Lock.PublicationOrder
-	if current.Revision > 0 {
-		publicationOrder = current.Lock.PublicationOrder
-	}
-	next, changed, err := AdvancePublication(PublicationInput{
-		Policy:        plan.ReleasePolicy,
-		Order:         prizegivingItemRefs(publicationOrder),
-		States:        PrizegivingPublicationStates(channel.Items),
-		Current:       publicationFromStore(current),
-		CueFired:      trigger.CueFired,
-		CeremonyEnded: trigger.CeremonyEnded,
-	})
-	if err != nil || !changed {
-		return next, changed, err
-	}
 	releaseLock := plan.Lock
 	if current.Revision > 0 {
+		publicationOrder = current.Lock.PublicationOrder
 		releaseLock = current.Lock
 	}
-	releaseLock, err = freezeResultsRenderSource(ctx, transaction, eventID, releaseLock)
-	if err != nil {
-		return Publication{}, false, err
-	}
-	rendered, err := renderResultsPublication(
+	return publishResultsPublication(
 		ctx,
 		transaction,
-		eventID,
-		ceremonySessionID,
-		current,
-		next,
-		releaseLock,
-		now,
+		publicationPipelineInput{
+			EventID:        eventID,
+			Scope:          store.ResultsPublicationPrizegiving,
+			ScopeSessionID: ceremonySessionID,
+			Current:        current,
+			Policy:         plan.ReleasePolicy,
+			Lock:           releaseLock,
+			Advance: PublicationInput{
+				Policy:        plan.ReleasePolicy,
+				Order:         prizegivingItemRefs(publicationOrder),
+				States:        states,
+				CueFired:      trigger.CueFired,
+				CeremonyEnded: trigger.CeremonyEnded,
+			},
+			ActorAccountID: actor.ID,
+			Now:            now,
+		},
 	)
+}
+
+func publishResultsPublication(
+	ctx context.Context,
+	transaction *store.CommandTx,
+	input publicationPipelineInput,
+) (Publication, bool, error) {
+	current := publicationFromStore(input.Current)
+	var (
+		next     Publication
+		rendered RenderedPublicResults
+		changed  bool
+		err      error
+	)
+	lock := input.Lock
+	if input.Correction != nil {
+		var currentModel PublicResultsPublication
+		if json.Unmarshal([]byte(input.Current.RenderedJSON), &currentModel) != nil {
+			return Publication{}, false, ErrCorrectionBase
+		}
+		value, buildErr := BuildCorrectedResultsPublication(
+			currentModel,
+			current.Items,
+			*input.Correction,
+			input.Now,
+		)
+		if buildErr != nil {
+			return Publication{}, false, buildErr
+		}
+		next = Publication{
+			Revision: input.Current.Revision + 1,
+			Status:   current.Status,
+			Items:    input.Correction.PublicationOrder,
+		}
+		rendered, err = RenderPublicResults(value, input.Correction.Template)
+	} else {
+		input.Advance.Current = current
+		next, changed, err = AdvancePublication(input.Advance)
+		if err != nil || !changed {
+			return next, changed, err
+		}
+		lock, err = freezeResultsRenderSource(
+			ctx,
+			transaction,
+			input.EventID,
+			lock,
+		)
+		if err != nil {
+			return Publication{}, false, err
+		}
+		renderSessionID := input.ScopeSessionID
+		if input.Scope == store.ResultsPublicationEventAwards {
+			renderSessionID = 0
+		}
+		rendered, err = renderResultsPublication(
+			ctx,
+			transaction,
+			input.EventID,
+			renderSessionID,
+			input.Current,
+			next,
+			lock,
+			input.Now,
+		)
+	}
 	if err != nil {
 		return Publication{}, false, err
 	}
@@ -542,20 +631,21 @@ func AdvancePrizegivingPublication(
 		ctx,
 		transaction,
 		store.AppendResultsPublicationParams{
-			EventID:            eventID,
-			Scope:              store.ResultsPublicationPrizegiving,
-			ScopeSessionID:     ceremonySessionID,
-			ExpectedRevision:   current.Revision,
-			Policy:             plan.ReleasePolicy,
-			Status:             store.ResultsPublicationStatus(next.Status),
-			Items:              prizegivingItemRefInputs(next.Items),
-			Lock:               releaseLock,
-			Template:           prizegivingTemplateInput(rendered.Template),
-			RenderedHTML:       rendered.HTML,
-			RenderedText:       rendered.Text,
-			RenderedJSON:       rendered.JSON,
-			CreatedByAccountID: actor.ID,
-			Now:                now,
+			EventID:                   input.EventID,
+			Scope:                     input.Scope,
+			ScopeSessionID:            input.ScopeSessionID,
+			ExpectedRevision:          input.Current.Revision,
+			Policy:                    input.Policy,
+			Status:                    store.ResultsPublicationStatus(next.Status),
+			Items:                     prizegivingItemRefInputs(next.Items),
+			Lock:                      lock,
+			Template:                  prizegivingTemplateInput(rendered.Template),
+			RenderedHTML:              rendered.HTML,
+			RenderedText:              rendered.Text,
+			RenderedJSON:              rendered.JSON,
+			ResultsCorrectionRevision: input.ResultsCorrectionRevision,
+			CreatedByAccountID:        input.ActorAccountID,
+			Now:                       input.Now,
 		},
 	)
 	if err != nil {
