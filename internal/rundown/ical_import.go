@@ -130,13 +130,13 @@ func (commands *Commands) ImportICalendar(
 			if selectionErr != nil {
 				return rejectICalendarImport(rejection{Code: "validation", Field: "proposal_ids", Message: selectionErr.Error()})
 			}
-			normalized, validationErr := validateEditDraft(draftInput)
+			normalized, validationErr := ValidateEditDraft(draftInput)
 			if validationErr != nil {
 				var invalid *ValidationError
 				_ = errors.As(validationErr, &invalid)
 				return rejectICalendarImport(rejection{Code: "validation", Field: invalid.Field, Message: invalid.Message})
 			}
-			stored, editErr := transaction.EditDraft(actor.Context(ctx), editDraftParams(actor.ID, normalized, identity.Now))
+			stored, editErr := transaction.EditDraft(actor.Context(ctx), EditDraftParams(actor.ID, normalized, identity.Now))
 			if editErr != nil {
 				return command.Execution[CSVImportResult]{}, editErr
 			}

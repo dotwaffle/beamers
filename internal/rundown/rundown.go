@@ -252,13 +252,13 @@ func (commands *Commands) EditDraft(
 			if !actor.CanProduceEvent(input.EventID) {
 				return editDraftRejection(rejection{Code: "event_access_denied", Message: ErrEventAccessDenied.Error()})
 			}
-			normalized, validationErr := validateEditDraft(input)
+			normalized, validationErr := ValidateEditDraft(input)
 			if validationErr != nil {
 				var invalid *ValidationError
 				_ = errors.As(validationErr, &invalid)
 				return editDraftRejection(rejection{Code: "validation", Field: invalid.Field, Message: invalid.Message})
 			}
-			stored, editErr := transaction.EditDraft(actor.Context(ctx), editDraftParams(actor.ID, normalized, identity.Now))
+			stored, editErr := transaction.EditDraft(actor.Context(ctx), EditDraftParams(actor.ID, normalized, identity.Now))
 			if errors.Is(editErr, store.ErrDraftReference) {
 				return editDraftRejection(rejection{
 					Code: "validation", Field: "references", Message: "must identify Draft structure in this Event",
@@ -333,7 +333,8 @@ func rejectionError(rejected rejection) error {
 	}
 }
 
-func validateEditDraft(input EditDraftInput) (EditDraftInput, error) {
+// ValidateEditDraft normalizes and validates one complete Draft Edit.
+func ValidateEditDraft(input EditDraftInput) (EditDraftInput, error) {
 	if input.EventID <= 0 {
 		return EditDraftInput{}, invalid("event_id", "must identify an Event")
 	}
@@ -656,7 +657,8 @@ func invalid(field, message string) error {
 	return &ValidationError{Field: field, Message: message}
 }
 
-func editDraftParams(actorID int, input EditDraftInput, now time.Time) store.EditDraftParams {
+// EditDraftParams converts validated domain input to its atomic store operation.
+func EditDraftParams(actorID int, input EditDraftInput, now time.Time) store.EditDraftParams {
 	params := store.EditDraftParams{
 		EventID: input.EventID, ActorAccountID: actorID,
 		ExpectedDraftRevision: input.ExpectedDraftRevision, Now: now,

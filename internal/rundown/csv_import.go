@@ -166,13 +166,13 @@ func (commands *Commands) ImportCSV(
 			if selectionErr != nil {
 				return rejectCSVImport(rejection{Code: "validation", Field: "proposal_ids", Message: selectionErr.Error()})
 			}
-			normalized, validationErr := validateEditDraft(draftInput)
+			normalized, validationErr := ValidateEditDraft(draftInput)
 			if validationErr != nil {
 				var invalid *ValidationError
 				_ = errors.As(validationErr, &invalid)
 				return rejectCSVImport(rejection{Code: "validation", Field: invalid.Field, Message: invalid.Message})
 			}
-			stored, editErr := transaction.EditDraft(actor.Context(ctx), editDraftParams(actor.ID, normalized, identity.Now))
+			stored, editErr := transaction.EditDraft(actor.Context(ctx), EditDraftParams(actor.ID, normalized, identity.Now))
 			if editErr != nil {
 				return command.Execution[CSVImportResult]{}, editErr
 			}
@@ -452,7 +452,7 @@ func csvSessionAddition(
 		StartBoundary: Boundary(startBoundary), EndBoundary: Boundary(endBoundary),
 		Lanes: lanes, Locations: locations, Tracks: tracks,
 	}
-	normalized, validationErr := validateEditDraft(EditDraftInput{EventID: 1, Sessions: []SessionDraftInput{result}})
+	normalized, validationErr := ValidateEditDraft(EditDraftInput{EventID: 1, Sessions: []SessionDraftInput{result}})
 	if validationErr != nil {
 		return SessionDraftInput{}, validationErr
 	}
@@ -475,7 +475,7 @@ func csvSessionUpdates(
 		}
 		current, proposed, draft, err := csvUpdateValue(field, value, matched, state, location)
 		if err == nil && !slices.Contains([]string{"lane", "location", "track"}, field) {
-			normalized, validationErr := validateEditDraft(EditDraftInput{
+			normalized, validationErr := ValidateEditDraft(EditDraftInput{
 				EventID: 1, Sessions: []SessionDraftInput{draft},
 			})
 			if validationErr != nil {
