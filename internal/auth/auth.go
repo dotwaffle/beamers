@@ -57,6 +57,10 @@ var (
 	ErrAdministratorRequired = errors.New("administrator authority required")
 	// ErrAccountExists means the requested Account name is already in use.
 	ErrAccountExists = store.ErrAccountExists
+	// ErrRegistrationClosed means visitors cannot create new Accounts.
+	ErrRegistrationClosed = store.ErrRegistrationClosed
+	// ErrProfileEntryUnavailable means a Profile selected an unreleased Entry.
+	ErrProfileEntryUnavailable = store.ErrProfileEntryUnavailable
 	// ErrDisableAccountNotFound means the target is unknown or already disabled.
 	ErrDisableAccountNotFound = store.ErrDisableAccountNotFound
 	// ErrLastAdministrator means retirement would remove all installation administration.
@@ -73,10 +77,27 @@ var (
 // Account is the authenticated identity exposed above the persistence boundary.
 type Account struct {
 	ID            int
+	Handle        string
 	Name          string
 	Administrator bool
 	EventRoles    map[int]viewer.Role
 	EventScopes   map[int]viewer.EventScope
+}
+
+// Profile is one Account's private settings or public projection.
+type Profile struct {
+	Handle           string
+	DisplayName      string
+	Published        bool
+	Entries          []ProfileEntry
+	AvailableEntries []ProfileEntry
+}
+
+// ProfileEntry is one released Entry selected for a Public Profile.
+type ProfileEntry struct {
+	ID       int
+	Name     string
+	Selected bool
 }
 
 // AuditEntry is one Administrator-readable authenticated action.
@@ -377,7 +398,11 @@ func (service *Service) Reauthenticate(
 	if !actor.Administrator {
 		return ErrAdministratorRequired
 	}
-	normalizedName, _, err := normalizeAccountName(actor.Name)
+	handle := actor.Handle
+	if handle == "" {
+		handle = actor.Name
+	}
+	normalizedName, _, err := normalizeAccountName(handle)
 	if err != nil {
 		return ErrAuthenticationFailed
 	}
@@ -396,6 +421,162 @@ func (service *Service) Reauthenticate(
 		return ErrAuthenticationFailed
 	}
 	return nil
+}
+
+// RegistrationOpen reports whether visitors may create Accounts.
+func (service *Service) RegistrationOpen(ctx context.Context) (bool, error) {
+	if service.storageDegraded() {
+		return false, ErrStorageDegraded
+	}
+	return service.storage.RegistrationOpen(ctx)
+}
+
+// SetRegistrationOpen updates the installation Registration Policy.
+func (service *Service) SetRegistrationOpen(
+	ctx context.Context,
+	actor Account,
+	open bool,
+) error {
+	if service.storageDegraded() {
+		return ErrStorageDegraded
+	}
+	if !actor.Administrator {
+		return ErrAdministratorRequired
+	}
+	return service.storage.SetRegistrationOpen(actor.Context(ctx), open)
+}
+
+// Register creates one visitor Account without requiring email.
+func (service *Service) Register(
+	ctx context.Context,
+	handle string,
+	displayName string,
+	password string,
+) (Account, error) {
+	if service.storageDegraded() {
+		return Account{}, ErrStorageDegraded
+	}
+	normalizedHandle, _, handleErr := normalizeAccountName(handle)
+	displayName, displayErr := normalizeDisplayName(displayName)
+	if handleErr != nil || displayErr != nil || !service.validPassword(password) {
+		return Account{}, ErrInvalidAccountDetails
+	}
+	passwordHash, err := service.hashPassword(password)
+	if err != nil {
+		return Account{}, err
+	}
+	created, err := service.storage.RegisterAccount(ctx, store.CreateAccountParams{
+		Name:           displayName,
+		NormalizedName: normalizedHandle,
+		PasswordHash:   passwordHash,
+		Now:            service.now().UTC(),
+	})
+	if err != nil {
+		return Account{}, err
+	}
+	return account(created), nil
+}
+
+// Profile returns the authenticated Account's private Profile settings.
+func (service *Service) Profile(ctx context.Context, actor Account) (Profile, error) {
+	found, exists, err := service.storage.AccountProfile(actor.Context(ctx), actor.ID)
+	if err != nil {
+		return Profile{}, err
+	}
+	result := Profile{Handle: actor.Handle, DisplayName: actor.Name}
+	if exists {
+		result = profile(found)
+	}
+	available, err := service.storage.ReleasedProfileEntries(actor.Context(ctx))
+	if err != nil {
+		return Profile{}, err
+	}
+	selected := make(map[int]struct{}, len(result.Entries))
+	for _, entry := range result.Entries {
+		selected[entry.ID] = struct{}{}
+	}
+	result.AvailableEntries = make([]ProfileEntry, 0, len(available))
+	for _, entry := range available {
+		_, ok := selected[entry.ID]
+		result.AvailableEntries = append(
+			result.AvailableEntries,
+			ProfileEntry{ID: entry.ID, Name: entry.Name, Selected: ok},
+		)
+	}
+	return result, nil
+}
+
+// PublicProfile returns the published Profile matching a Handle.
+func (service *Service) PublicProfile(
+	ctx context.Context,
+	handle string,
+) (Profile, bool, error) {
+	normalizedHandle, valid := publicProfileHandle(handle)
+	if !valid {
+		return Profile{}, false, nil
+	}
+	found, ok, err := service.storage.PublicProfile(ctx, normalizedHandle)
+	if err != nil || !ok {
+		return Profile{}, ok, err
+	}
+	return profile(found), true, nil
+}
+
+func publicProfileHandle(handle string) (string, bool) {
+	normalized, _, err := normalizeAccountName(handle)
+	return normalized, err == nil
+}
+
+// UpdateProfile changes one Account's Display Name and public selection.
+func (service *Service) UpdateProfile(
+	ctx context.Context,
+	actor Account,
+	displayName string,
+	published bool,
+	entryIDs []int,
+) error {
+	if service.storageDegraded() {
+		return ErrStorageDegraded
+	}
+	displayName, err := normalizeDisplayName(displayName)
+	if err != nil {
+		return ErrInvalidAccountDetails
+	}
+	for _, entryID := range entryIDs {
+		if entryID <= 0 {
+			return ErrProfileEntryUnavailable
+		}
+	}
+	if err := service.storage.UpdateAccountProfile(
+		actor.Context(ctx),
+		actor.ID,
+		actor.Handle,
+		displayName,
+		published,
+		entryIDs,
+	); err != nil {
+		return err
+	}
+	service.sessionMu.Lock()
+	for token, session := range service.sessions {
+		if session.account.ID == actor.ID {
+			session.account.Name = displayName
+			service.sessions[token] = session
+		}
+	}
+	service.sessionMu.Unlock()
+	return nil
+}
+
+func profile(found store.AccountProfile) Profile {
+	entries := make([]ProfileEntry, 0, len(found.Entries))
+	for _, entry := range found.Entries {
+		entries = append(entries, ProfileEntry{ID: entry.ID, Name: entry.Name})
+	}
+	return Profile{
+		Handle: found.Handle, DisplayName: found.DisplayName,
+		Published: found.Published, Entries: entries,
+	}
 }
 
 // CreateAccount creates an individual non-Administrator Account.
@@ -819,9 +1000,10 @@ func (service *Service) pruneSessionCache(now time.Time, revoked []string) {
 
 func cloneAccount(source Account) Account {
 	cloned := Account{
-		ID: source.ID, Name: source.Name, Administrator: source.Administrator,
-		EventRoles:  make(map[int]viewer.Role, len(source.EventRoles)),
-		EventScopes: make(map[int]viewer.EventScope, len(source.EventScopes)),
+		ID: source.ID, Handle: source.Handle, Name: source.Name,
+		Administrator: source.Administrator,
+		EventRoles:    make(map[int]viewer.Role, len(source.EventRoles)),
+		EventScopes:   make(map[int]viewer.EventScope, len(source.EventScopes)),
 	}
 	maps.Copy(cloned.EventRoles, source.EventRoles)
 	for eventID, scope := range source.EventScopes {
@@ -1051,8 +1233,9 @@ func newSession(token string, expiresAt time.Time, found store.AccountCredential
 
 func account(found store.AccountCredential) Account {
 	return Account{
-		ID: found.ID, Name: found.Name, Administrator: found.Administrator,
-		EventRoles: found.EventRoles, EventScopes: found.EventScopes,
+		ID: found.ID, Handle: found.Handle, Name: found.Name,
+		Administrator: found.Administrator,
+		EventRoles:    found.EventRoles, EventScopes: found.EventScopes,
 	}
 }
 

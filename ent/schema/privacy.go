@@ -2,12 +2,15 @@ package schema
 
 import (
 	"context"
+	"time"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/privacy"
 
 	beamersent "github.com/dotwaffle/beamers/ent"
+	"github.com/dotwaffle/beamers/ent/account"
+	"github.com/dotwaffle/beamers/ent/accountprofile"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/competitionresultsdraft"
 	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
@@ -35,6 +38,12 @@ import (
 	"github.com/dotwaffle/beamers/internal/awardvalue"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
+
+type queryRuleFunc func(context.Context, ent.Query) error
+
+func (rule queryRuleFunc) EvalQuery(ctx context.Context, query ent.Query) error {
+	return rule(ctx, query)
+}
 
 func denyMissingViewer() privacy.QueryMutationRule {
 	return privacy.ContextQueryMutationRule(func(ctx context.Context) error {
@@ -1359,6 +1368,115 @@ func allowAdministratorMutation() privacy.MutationRule {
 			return privacy.Allow
 		}
 		return privacy.Skip
+	})
+}
+
+func filterVisibleAccountProfiles() privacy.QueryRule {
+	type profileFilter interface {
+		Where(...predicate.AccountProfile) *beamersent.AccountProfileQuery
+	}
+	return queryRuleFunc(func(ctx context.Context, query ent.Query) error {
+		filter, ok := query.(profileFilter)
+		if !ok {
+			return privacy.Denyf("unexpected Account Profile query %T", query)
+		}
+		identity, authenticated := viewer.FromContext(ctx)
+		if authenticated && identity.AccountID > 0 {
+			filter.Where(accountprofile.Or(
+				accountprofile.AccountIDEQ(identity.AccountID),
+				accountprofile.PublishedEQ(true),
+			))
+		} else {
+			filter.Where(accountprofile.PublishedEQ(true))
+		}
+		return privacy.Skip
+	})
+}
+
+func allowOwnAccountProfileMutation() privacy.MutationRule {
+	type ownedProfileMutation interface {
+		AccountID() (int, bool)
+		OldAccountID(context.Context) (int, error)
+	}
+	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
+		identity, _ := viewer.FromContext(ctx)
+		owned, ok := mutation.(ownedProfileMutation)
+		if !ok {
+			return privacy.Skip
+		}
+		accountID, exists := owned.AccountID()
+		if !exists {
+			var err error
+			accountID, err = owned.OldAccountID(ctx)
+			if err != nil {
+				return privacy.Denyf("read Account Profile ownership: %v", err)
+			}
+		}
+		if accountID == identity.AccountID {
+			return privacy.Allow
+		}
+		return privacy.Skip
+	})
+}
+
+func allowOwnAccountNameMutation() privacy.MutationRule {
+	type identifiedMutation interface {
+		ID() (int, bool)
+		Fields() []string
+	}
+	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
+		identity, _ := viewer.FromContext(ctx)
+		identified, ok := mutation.(identifiedMutation)
+		if !ok || !mutation.Op().Is(ent.OpUpdateOne) {
+			return privacy.Skip
+		}
+		id, exists := identified.ID()
+		fields := identified.Fields()
+		if exists && id == identity.AccountID &&
+			len(fields) == 1 && fields[0] == account.FieldName {
+			return privacy.Allow
+		}
+		return privacy.Skip
+	})
+}
+
+func allowRegistrationAccountCreation() privacy.MutationRule {
+	type registrationMutation interface {
+		Administrator() (bool, bool)
+		DisabledAt() (time.Time, bool)
+		Client() *beamersent.Client
+	}
+	return privacy.MutationRuleFunc(func(ctx context.Context, mutation ent.Mutation) error {
+		if !mutation.Op().Is(ent.OpCreate) {
+			return privacy.Skip
+		}
+		created, ok := mutation.(registrationMutation)
+		if !ok {
+			return privacy.Skip
+		}
+		administrator, set := created.Administrator()
+		if !set || administrator {
+			return privacy.Skip
+		}
+		if _, disabled := created.DisabledAt(); disabled {
+			return privacy.Denyf("registered Account cannot start disabled")
+		}
+		internalContext := privacy.DecisionContext(ctx, privacy.Allow)
+		credentials, err := created.Client().PasswordCredential.Query().Count(internalContext)
+		if err != nil || credentials == 0 {
+			return privacy.Denyf("Account registration requires completed setup")
+		}
+		policy, err := created.Client().RegistrationPolicy.Query().Only(internalContext)
+		if beamersent.IsNotFound(err) {
+			return privacy.Allow
+		}
+		if err != nil {
+			return privacy.Denyf("read Registration Policy: %v", err)
+		}
+		if !policy.RegistrationOpen {
+			return privacy.Denyf("registration is closed")
+		}
+		return privacy.Allow
 	})
 }
 

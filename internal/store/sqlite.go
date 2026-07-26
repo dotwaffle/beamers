@@ -120,6 +120,14 @@ var migrationContracts = map[int]migrationContract{
 		minimumWriter: 49,
 		consequence:   "adds persistent Account browser presentation preferences",
 	},
+	50: {
+		name:          "open_registration_profiles",
+		checksum:      "bf23f44b3049a1780f266cc0f2b168a28c6f278ed1b84fb7b01e3116c5e9cb22",
+		safety:        MigrationNonDestructive,
+		minimumReader: 50,
+		minimumWriter: 50,
+		consequence:   "adds Registration Policy and private-by-default Public Profiles",
+	},
 }
 
 // MigrationStep is one exact committed migration in an upgrade plan.

@@ -44,6 +44,29 @@ var (
 			},
 		},
 	}
+	// AccountProfilesColumns holds the columns for the "account_profiles" table.
+	AccountProfilesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "normalized_handle", Type: field.TypeString, Unique: true, Size: 200},
+		{Name: "display_name", Type: field.TypeString, Size: 200},
+		{Name: "published", Type: field.TypeBool, Default: false},
+		{Name: "selected_entries", Type: field.TypeJSON, Nullable: true},
+		{Name: "account_id", Type: field.TypeInt, Unique: true},
+	}
+	// AccountProfilesTable holds the schema information for the "account_profiles" table.
+	AccountProfilesTable = &schema.Table{
+		Name:       "account_profiles",
+		Columns:    AccountProfilesColumns,
+		PrimaryKey: []*schema.Column{AccountProfilesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "account_profiles_accounts_profile",
+				Columns:    []*schema.Column{AccountProfilesColumns[5]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
 	// AccountSessionsColumns holds the columns for the "account_sessions" table.
 	AccountSessionsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -1187,6 +1210,29 @@ var (
 			},
 		},
 	}
+	// RegistrationPoliciesColumns holds the columns for the "registration_policies" table.
+	RegistrationPoliciesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "registration_open", Type: field.TypeBool, Default: true},
+	}
+	// RegistrationPoliciesTable holds the schema information for the "registration_policies" table.
+	RegistrationPoliciesTable = &schema.Table{
+		Name:       "registration_policies",
+		Columns:    RegistrationPoliciesColumns,
+		PrimaryKey: []*schema.Column{RegistrationPoliciesColumns[0]},
+	}
+	// ReleasedProfileEntriesColumns holds the columns for the "released_profile_entries" table.
+	ReleasedProfileEntriesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "entry_id", Type: field.TypeInt, Unique: true},
+		{Name: "name", Type: field.TypeString},
+	}
+	// ReleasedProfileEntriesTable holds the schema information for the "released_profile_entries" table.
+	ReleasedProfileEntriesTable = &schema.Table{
+		Name:       "released_profile_entries",
+		Columns:    ReleasedProfileEntriesColumns,
+		PrimaryKey: []*schema.Column{ReleasedProfileEntriesColumns[0]},
+	}
 	// ReopenWindowsColumns holds the columns for the "reopen_windows" table.
 	ReopenWindowsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -1802,6 +1848,7 @@ var (
 	Tables = []*schema.Table{
 		AccountsTable,
 		AccountPreferencesTable,
+		AccountProfilesTable,
 		AccountSessionsTable,
 		AttachmentsTable,
 		AttachmentVersionsTable,
@@ -1837,6 +1884,8 @@ var (
 		PrizegivingCompetitionsTable,
 		PublicScheduleBaselinesTable,
 		PublicScheduleBaselineEntriesTable,
+		RegistrationPoliciesTable,
+		ReleasedProfileEntriesTable,
 		ReopenWindowsTable,
 		ResultsCorrectionsTable,
 		ResultsPublicationsTable,
@@ -1862,6 +1911,7 @@ var (
 
 func init() {
 	AccountPreferencesTable.ForeignKeys[0].RefTable = AccountsTable
+	AccountProfilesTable.ForeignKeys[0].RefTable = AccountsTable
 	AccountSessionsTable.ForeignKeys[0].RefTable = AccountsTable
 	AttachmentVersionsTable.ForeignKeys[0].RefTable = AttachmentsTable
 	AuditEntriesTable.ForeignKeys[0].RefTable = AccountsTable

@@ -15,6 +15,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/accountpreference"
+	"github.com/dotwaffle/beamers/ent/accountprofile"
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
@@ -33,6 +34,7 @@ type AccountQuery struct {
 	predicates             []predicate.Account
 	withPasswordCredential *PasswordCredentialQuery
 	withPreference         *AccountPreferenceQuery
+	withProfile            *AccountProfileQuery
 	withSessions           *AccountSessionQuery
 	withEventGrants        *EventGrantQuery
 	withAuditEntries       *AuditEntryQuery
@@ -111,6 +113,28 @@ func (_q *AccountQuery) QueryPreference() *AccountPreferenceQuery {
 			sqlgraph.From(account.Table, account.FieldID, selector),
 			sqlgraph.To(accountpreference.Table, accountpreference.FieldID),
 			sqlgraph.Edge(sqlgraph.O2O, false, account.PreferenceTable, account.PreferenceColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryProfile chains the current query on the "profile" edge.
+func (_q *AccountQuery) QueryProfile() *AccountProfileQuery {
+	query := (&AccountProfileClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, selector),
+			sqlgraph.To(accountprofile.Table, accountprofile.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, account.ProfileTable, account.ProfileColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -422,6 +446,7 @@ func (_q *AccountQuery) Clone() *AccountQuery {
 		predicates:             append([]predicate.Account{}, _q.predicates...),
 		withPasswordCredential: _q.withPasswordCredential.Clone(),
 		withPreference:         _q.withPreference.Clone(),
+		withProfile:            _q.withProfile.Clone(),
 		withSessions:           _q.withSessions.Clone(),
 		withEventGrants:        _q.withEventGrants.Clone(),
 		withAuditEntries:       _q.withAuditEntries.Clone(),
@@ -452,6 +477,17 @@ func (_q *AccountQuery) WithPreference(opts ...func(*AccountPreferenceQuery)) *A
 		opt(query)
 	}
 	_q.withPreference = query
+	return _q
+}
+
+// WithProfile tells the query-builder to eager-load the nodes that are connected to
+// the "profile" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AccountQuery) WithProfile(opts ...func(*AccountProfileQuery)) *AccountQuery {
+	query := (&AccountProfileClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withProfile = query
 	return _q
 }
 
@@ -594,9 +630,10 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	var (
 		nodes       = []*Account{}
 		_spec       = _q.querySpec()
-		loadedTypes = [7]bool{
+		loadedTypes = [8]bool{
 			_q.withPasswordCredential != nil,
 			_q.withPreference != nil,
+			_q.withProfile != nil,
 			_q.withSessions != nil,
 			_q.withEventGrants != nil,
 			_q.withAuditEntries != nil,
@@ -631,6 +668,12 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	if query := _q.withPreference; query != nil {
 		if err := _q.loadPreference(ctx, query, nodes, nil,
 			func(n *Account, e *AccountPreference) { n.Edges.Preference = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withProfile; query != nil {
+		if err := _q.loadProfile(ctx, query, nodes, nil,
+			func(n *Account, e *AccountProfile) { n.Edges.Profile = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -711,6 +754,33 @@ func (_q *AccountQuery) loadPreference(ctx context.Context, query *AccountPrefer
 	}
 	query.Where(predicate.AccountPreference(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(account.PreferenceColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.AccountID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "account_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *AccountQuery) loadProfile(ctx context.Context, query *AccountProfileQuery, nodes []*Account, init func(*Account), assign func(*Account, *AccountProfile)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Account)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(accountprofile.FieldAccountID)
+	}
+	query.Where(predicate.AccountProfile(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(account.ProfileColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

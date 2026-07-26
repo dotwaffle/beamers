@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/accountpreference"
+	"github.com/dotwaffle/beamers/ent/accountprofile"
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/attachment"
 	"github.com/dotwaffle/beamers/ent/attachmentversion"
@@ -49,6 +50,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
+	"github.com/dotwaffle/beamers/ent/registrationpolicy"
+	"github.com/dotwaffle/beamers/ent/releasedprofileentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
 	"github.com/dotwaffle/beamers/ent/resultscorrection"
 	"github.com/dotwaffle/beamers/ent/resultspublication"
@@ -65,6 +68,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/uploadlink"
 	"github.com/dotwaffle/beamers/internal/awardvalue"
 	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
+	"github.com/dotwaffle/beamers/internal/profilevalue"
 )
 
 const (
@@ -78,6 +82,7 @@ const (
 	// Node types.
 	TypeAccount                     = "Account"
 	TypeAccountPreference           = "AccountPreference"
+	TypeAccountProfile              = "AccountProfile"
 	TypeAccountSession              = "AccountSession"
 	TypeAttachment                  = "Attachment"
 	TypeAttachmentVersion           = "AttachmentVersion"
@@ -113,6 +118,8 @@ const (
 	TypePrizegivingCompetition      = "PrizegivingCompetition"
 	TypePublicScheduleBaseline      = "PublicScheduleBaseline"
 	TypePublicScheduleBaselineEntry = "PublicScheduleBaselineEntry"
+	TypeRegistrationPolicy          = "RegistrationPolicy"
+	TypeReleasedProfileEntry        = "ReleasedProfileEntry"
 	TypeReopenWindow                = "ReopenWindow"
 	TypeResultsCorrection           = "ResultsCorrection"
 	TypeResultsPublication          = "ResultsPublication"
@@ -145,6 +152,8 @@ type AccountMutation struct {
 	clearedpassword_credential bool
 	preference                 *int
 	clearedpreference          bool
+	profile                    *int
+	clearedprofile             bool
 	sessions                   map[int]struct{}
 	removedsessions            map[int]struct{}
 	clearedsessions            bool
@@ -532,6 +541,45 @@ func (m *AccountMutation) PreferenceIDs() (ids []int) {
 func (m *AccountMutation) ResetPreference() {
 	m.preference = nil
 	m.clearedpreference = false
+}
+
+// SetProfileID sets the "profile" edge to the AccountProfile entity by id.
+func (m *AccountMutation) SetProfileID(id int) {
+	m.profile = &id
+}
+
+// ClearProfile clears the "profile" edge to the AccountProfile entity.
+func (m *AccountMutation) ClearProfile() {
+	m.clearedprofile = true
+}
+
+// ProfileCleared reports if the "profile" edge to the AccountProfile entity was cleared.
+func (m *AccountMutation) ProfileCleared() bool {
+	return m.clearedprofile
+}
+
+// ProfileID returns the "profile" edge ID in the mutation.
+func (m *AccountMutation) ProfileID() (id int, exists bool) {
+	if m.profile != nil {
+		return *m.profile, true
+	}
+	return
+}
+
+// ProfileIDs returns the "profile" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ProfileID instead. It exists only for internal usage by the builders.
+func (m *AccountMutation) ProfileIDs() (ids []int) {
+	if id := m.profile; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetProfile resets all changes to the "profile" edge.
+func (m *AccountMutation) ResetProfile() {
+	m.profile = nil
+	m.clearedprofile = false
 }
 
 // AddSessionIDs adds the "sessions" edge to the AccountSession entity by ids.
@@ -1014,12 +1062,15 @@ func (m *AccountMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AccountMutation) AddedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.password_credential != nil {
 		edges = append(edges, account.EdgePasswordCredential)
 	}
 	if m.preference != nil {
 		edges = append(edges, account.EdgePreference)
+	}
+	if m.profile != nil {
+		edges = append(edges, account.EdgeProfile)
 	}
 	if m.sessions != nil {
 		edges = append(edges, account.EdgeSessions)
@@ -1049,6 +1100,10 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 		}
 	case account.EdgePreference:
 		if id := m.preference; id != nil {
+			return []ent.Value{*id}
+		}
+	case account.EdgeProfile:
+		if id := m.profile; id != nil {
 			return []ent.Value{*id}
 		}
 	case account.EdgeSessions:
@@ -1087,7 +1142,7 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AccountMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.removedsessions != nil {
 		edges = append(edges, account.EdgeSessions)
 	}
@@ -1146,12 +1201,15 @@ func (m *AccountMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AccountMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.clearedpassword_credential {
 		edges = append(edges, account.EdgePasswordCredential)
 	}
 	if m.clearedpreference {
 		edges = append(edges, account.EdgePreference)
+	}
+	if m.clearedprofile {
+		edges = append(edges, account.EdgeProfile)
 	}
 	if m.clearedsessions {
 		edges = append(edges, account.EdgeSessions)
@@ -1179,6 +1237,8 @@ func (m *AccountMutation) EdgeCleared(name string) bool {
 		return m.clearedpassword_credential
 	case account.EdgePreference:
 		return m.clearedpreference
+	case account.EdgeProfile:
+		return m.clearedprofile
 	case account.EdgeSessions:
 		return m.clearedsessions
 	case account.EdgeEventGrants:
@@ -1203,6 +1263,9 @@ func (m *AccountMutation) ClearEdge(name string) error {
 	case account.EdgePreference:
 		m.ClearPreference()
 		return nil
+	case account.EdgeProfile:
+		m.ClearProfile()
+		return nil
 	}
 	return fmt.Errorf("unknown Account unique edge %s", name)
 }
@@ -1216,6 +1279,9 @@ func (m *AccountMutation) ResetEdge(name string) error {
 		return nil
 	case account.EdgePreference:
 		m.ResetPreference()
+		return nil
+	case account.EdgeProfile:
+		m.ResetProfile()
 		return nil
 	case account.EdgeSessions:
 		m.ResetSessions()
@@ -1671,6 +1737,644 @@ func (m *AccountPreferenceMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown AccountPreference edge %s", name)
+}
+
+// AccountProfileMutation represents an operation that mutates the AccountProfile nodes in the graph.
+type AccountProfileMutation struct {
+	config
+	op                     Op
+	typ                    string
+	id                     *int
+	normalized_handle      *string
+	display_name           *string
+	published              *bool
+	selected_entries       *[]profilevalue.Entry
+	appendselected_entries []profilevalue.Entry
+	clearedFields          map[string]struct{}
+	account                *int
+	clearedaccount         bool
+	done                   bool
+	oldValue               func(context.Context) (*AccountProfile, error)
+	predicates             []predicate.AccountProfile
+}
+
+var _ ent.Mutation = (*AccountProfileMutation)(nil)
+
+// accountprofileOption allows management of the mutation configuration using functional options.
+type accountprofileOption func(*AccountProfileMutation)
+
+// newAccountProfileMutation creates new mutation for the AccountProfile entity.
+func newAccountProfileMutation(c config, op Op, opts ...accountprofileOption) *AccountProfileMutation {
+	m := &AccountProfileMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeAccountProfile,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withAccountProfileID sets the ID field of the mutation.
+func withAccountProfileID(id int) accountprofileOption {
+	return func(m *AccountProfileMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *AccountProfile
+		)
+		m.oldValue = func(ctx context.Context) (*AccountProfile, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().AccountProfile.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withAccountProfile sets the old AccountProfile of the mutation.
+func withAccountProfile(node *AccountProfile) accountprofileOption {
+	return func(m *AccountProfileMutation) {
+		m.oldValue = func(context.Context) (*AccountProfile, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m AccountProfileMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m AccountProfileMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *AccountProfileMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *AccountProfileMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().AccountProfile.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetAccountID sets the "account_id" field.
+func (m *AccountProfileMutation) SetAccountID(i int) {
+	m.account = &i
+}
+
+// AccountID returns the value of the "account_id" field in the mutation.
+func (m *AccountProfileMutation) AccountID() (r int, exists bool) {
+	v := m.account
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAccountID returns the old "account_id" field's value of the AccountProfile entity.
+// If the AccountProfile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountProfileMutation) OldAccountID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAccountID: %w", err)
+	}
+	return oldValue.AccountID, nil
+}
+
+// ResetAccountID resets all changes to the "account_id" field.
+func (m *AccountProfileMutation) ResetAccountID() {
+	m.account = nil
+}
+
+// SetNormalizedHandle sets the "normalized_handle" field.
+func (m *AccountProfileMutation) SetNormalizedHandle(s string) {
+	m.normalized_handle = &s
+}
+
+// NormalizedHandle returns the value of the "normalized_handle" field in the mutation.
+func (m *AccountProfileMutation) NormalizedHandle() (r string, exists bool) {
+	v := m.normalized_handle
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNormalizedHandle returns the old "normalized_handle" field's value of the AccountProfile entity.
+// If the AccountProfile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountProfileMutation) OldNormalizedHandle(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNormalizedHandle is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNormalizedHandle requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNormalizedHandle: %w", err)
+	}
+	return oldValue.NormalizedHandle, nil
+}
+
+// ResetNormalizedHandle resets all changes to the "normalized_handle" field.
+func (m *AccountProfileMutation) ResetNormalizedHandle() {
+	m.normalized_handle = nil
+}
+
+// SetDisplayName sets the "display_name" field.
+func (m *AccountProfileMutation) SetDisplayName(s string) {
+	m.display_name = &s
+}
+
+// DisplayName returns the value of the "display_name" field in the mutation.
+func (m *AccountProfileMutation) DisplayName() (r string, exists bool) {
+	v := m.display_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDisplayName returns the old "display_name" field's value of the AccountProfile entity.
+// If the AccountProfile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountProfileMutation) OldDisplayName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDisplayName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDisplayName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDisplayName: %w", err)
+	}
+	return oldValue.DisplayName, nil
+}
+
+// ResetDisplayName resets all changes to the "display_name" field.
+func (m *AccountProfileMutation) ResetDisplayName() {
+	m.display_name = nil
+}
+
+// SetPublished sets the "published" field.
+func (m *AccountProfileMutation) SetPublished(b bool) {
+	m.published = &b
+}
+
+// Published returns the value of the "published" field in the mutation.
+func (m *AccountProfileMutation) Published() (r bool, exists bool) {
+	v := m.published
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublished returns the old "published" field's value of the AccountProfile entity.
+// If the AccountProfile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountProfileMutation) OldPublished(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublished is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublished requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublished: %w", err)
+	}
+	return oldValue.Published, nil
+}
+
+// ResetPublished resets all changes to the "published" field.
+func (m *AccountProfileMutation) ResetPublished() {
+	m.published = nil
+}
+
+// SetSelectedEntries sets the "selected_entries" field.
+func (m *AccountProfileMutation) SetSelectedEntries(pr []profilevalue.Entry) {
+	m.selected_entries = &pr
+	m.appendselected_entries = nil
+}
+
+// SelectedEntries returns the value of the "selected_entries" field in the mutation.
+func (m *AccountProfileMutation) SelectedEntries() (r []profilevalue.Entry, exists bool) {
+	v := m.selected_entries
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSelectedEntries returns the old "selected_entries" field's value of the AccountProfile entity.
+// If the AccountProfile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountProfileMutation) OldSelectedEntries(ctx context.Context) (v []profilevalue.Entry, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSelectedEntries is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSelectedEntries requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSelectedEntries: %w", err)
+	}
+	return oldValue.SelectedEntries, nil
+}
+
+// AppendSelectedEntries adds pr to the "selected_entries" field.
+func (m *AccountProfileMutation) AppendSelectedEntries(pr []profilevalue.Entry) {
+	m.appendselected_entries = append(m.appendselected_entries, pr...)
+}
+
+// AppendedSelectedEntries returns the list of values that were appended to the "selected_entries" field in this mutation.
+func (m *AccountProfileMutation) AppendedSelectedEntries() ([]profilevalue.Entry, bool) {
+	if len(m.appendselected_entries) == 0 {
+		return nil, false
+	}
+	return m.appendselected_entries, true
+}
+
+// ClearSelectedEntries clears the value of the "selected_entries" field.
+func (m *AccountProfileMutation) ClearSelectedEntries() {
+	m.selected_entries = nil
+	m.appendselected_entries = nil
+	m.clearedFields[accountprofile.FieldSelectedEntries] = struct{}{}
+}
+
+// SelectedEntriesCleared returns if the "selected_entries" field was cleared in this mutation.
+func (m *AccountProfileMutation) SelectedEntriesCleared() bool {
+	_, ok := m.clearedFields[accountprofile.FieldSelectedEntries]
+	return ok
+}
+
+// ResetSelectedEntries resets all changes to the "selected_entries" field.
+func (m *AccountProfileMutation) ResetSelectedEntries() {
+	m.selected_entries = nil
+	m.appendselected_entries = nil
+	delete(m.clearedFields, accountprofile.FieldSelectedEntries)
+}
+
+// ClearAccount clears the "account" edge to the Account entity.
+func (m *AccountProfileMutation) ClearAccount() {
+	m.clearedaccount = true
+	m.clearedFields[accountprofile.FieldAccountID] = struct{}{}
+}
+
+// AccountCleared reports if the "account" edge to the Account entity was cleared.
+func (m *AccountProfileMutation) AccountCleared() bool {
+	return m.clearedaccount
+}
+
+// AccountIDs returns the "account" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AccountID instead. It exists only for internal usage by the builders.
+func (m *AccountProfileMutation) AccountIDs() (ids []int) {
+	if id := m.account; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAccount resets all changes to the "account" edge.
+func (m *AccountProfileMutation) ResetAccount() {
+	m.account = nil
+	m.clearedaccount = false
+}
+
+// Where appends a list predicates to the AccountProfileMutation builder.
+func (m *AccountProfileMutation) Where(ps ...predicate.AccountProfile) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the AccountProfileMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *AccountProfileMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.AccountProfile, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *AccountProfileMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *AccountProfileMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (AccountProfile).
+func (m *AccountProfileMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *AccountProfileMutation) Fields() []string {
+	fields := make([]string, 0, 5)
+	if m.account != nil {
+		fields = append(fields, accountprofile.FieldAccountID)
+	}
+	if m.normalized_handle != nil {
+		fields = append(fields, accountprofile.FieldNormalizedHandle)
+	}
+	if m.display_name != nil {
+		fields = append(fields, accountprofile.FieldDisplayName)
+	}
+	if m.published != nil {
+		fields = append(fields, accountprofile.FieldPublished)
+	}
+	if m.selected_entries != nil {
+		fields = append(fields, accountprofile.FieldSelectedEntries)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *AccountProfileMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case accountprofile.FieldAccountID:
+		return m.AccountID()
+	case accountprofile.FieldNormalizedHandle:
+		return m.NormalizedHandle()
+	case accountprofile.FieldDisplayName:
+		return m.DisplayName()
+	case accountprofile.FieldPublished:
+		return m.Published()
+	case accountprofile.FieldSelectedEntries:
+		return m.SelectedEntries()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *AccountProfileMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case accountprofile.FieldAccountID:
+		return m.OldAccountID(ctx)
+	case accountprofile.FieldNormalizedHandle:
+		return m.OldNormalizedHandle(ctx)
+	case accountprofile.FieldDisplayName:
+		return m.OldDisplayName(ctx)
+	case accountprofile.FieldPublished:
+		return m.OldPublished(ctx)
+	case accountprofile.FieldSelectedEntries:
+		return m.OldSelectedEntries(ctx)
+	}
+	return nil, fmt.Errorf("unknown AccountProfile field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AccountProfileMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case accountprofile.FieldAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAccountID(v)
+		return nil
+	case accountprofile.FieldNormalizedHandle:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNormalizedHandle(v)
+		return nil
+	case accountprofile.FieldDisplayName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDisplayName(v)
+		return nil
+	case accountprofile.FieldPublished:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublished(v)
+		return nil
+	case accountprofile.FieldSelectedEntries:
+		v, ok := value.([]profilevalue.Entry)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSelectedEntries(v)
+		return nil
+	}
+	return fmt.Errorf("unknown AccountProfile field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *AccountProfileMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *AccountProfileMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AccountProfileMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown AccountProfile numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *AccountProfileMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(accountprofile.FieldSelectedEntries) {
+		fields = append(fields, accountprofile.FieldSelectedEntries)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *AccountProfileMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *AccountProfileMutation) ClearField(name string) error {
+	switch name {
+	case accountprofile.FieldSelectedEntries:
+		m.ClearSelectedEntries()
+		return nil
+	}
+	return fmt.Errorf("unknown AccountProfile nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *AccountProfileMutation) ResetField(name string) error {
+	switch name {
+	case accountprofile.FieldAccountID:
+		m.ResetAccountID()
+		return nil
+	case accountprofile.FieldNormalizedHandle:
+		m.ResetNormalizedHandle()
+		return nil
+	case accountprofile.FieldDisplayName:
+		m.ResetDisplayName()
+		return nil
+	case accountprofile.FieldPublished:
+		m.ResetPublished()
+		return nil
+	case accountprofile.FieldSelectedEntries:
+		m.ResetSelectedEntries()
+		return nil
+	}
+	return fmt.Errorf("unknown AccountProfile field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *AccountProfileMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.account != nil {
+		edges = append(edges, accountprofile.EdgeAccount)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *AccountProfileMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case accountprofile.EdgeAccount:
+		if id := m.account; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *AccountProfileMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *AccountProfileMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *AccountProfileMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedaccount {
+		edges = append(edges, accountprofile.EdgeAccount)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *AccountProfileMutation) EdgeCleared(name string) bool {
+	switch name {
+	case accountprofile.EdgeAccount:
+		return m.clearedaccount
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *AccountProfileMutation) ClearEdge(name string) error {
+	switch name {
+	case accountprofile.EdgeAccount:
+		m.ClearAccount()
+		return nil
+	}
+	return fmt.Errorf("unknown AccountProfile unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *AccountProfileMutation) ResetEdge(name string) error {
+	switch name {
+	case accountprofile.EdgeAccount:
+		m.ResetAccount()
+		return nil
+	}
+	return fmt.Errorf("unknown AccountProfile edge %s", name)
 }
 
 // AccountSessionMutation represents an operation that mutates the AccountSession nodes in the graph.
@@ -35778,6 +36482,748 @@ func (m *PublicScheduleBaselineEntryMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown PublicScheduleBaselineEntry edge %s", name)
+}
+
+// RegistrationPolicyMutation represents an operation that mutates the RegistrationPolicy nodes in the graph.
+type RegistrationPolicyMutation struct {
+	config
+	op                Op
+	typ               string
+	id                *int
+	registration_open *bool
+	clearedFields     map[string]struct{}
+	done              bool
+	oldValue          func(context.Context) (*RegistrationPolicy, error)
+	predicates        []predicate.RegistrationPolicy
+}
+
+var _ ent.Mutation = (*RegistrationPolicyMutation)(nil)
+
+// registrationpolicyOption allows management of the mutation configuration using functional options.
+type registrationpolicyOption func(*RegistrationPolicyMutation)
+
+// newRegistrationPolicyMutation creates new mutation for the RegistrationPolicy entity.
+func newRegistrationPolicyMutation(c config, op Op, opts ...registrationpolicyOption) *RegistrationPolicyMutation {
+	m := &RegistrationPolicyMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeRegistrationPolicy,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withRegistrationPolicyID sets the ID field of the mutation.
+func withRegistrationPolicyID(id int) registrationpolicyOption {
+	return func(m *RegistrationPolicyMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *RegistrationPolicy
+		)
+		m.oldValue = func(ctx context.Context) (*RegistrationPolicy, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().RegistrationPolicy.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withRegistrationPolicy sets the old RegistrationPolicy of the mutation.
+func withRegistrationPolicy(node *RegistrationPolicy) registrationpolicyOption {
+	return func(m *RegistrationPolicyMutation) {
+		m.oldValue = func(context.Context) (*RegistrationPolicy, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m RegistrationPolicyMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m RegistrationPolicyMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *RegistrationPolicyMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *RegistrationPolicyMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().RegistrationPolicy.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetRegistrationOpen sets the "registration_open" field.
+func (m *RegistrationPolicyMutation) SetRegistrationOpen(b bool) {
+	m.registration_open = &b
+}
+
+// RegistrationOpen returns the value of the "registration_open" field in the mutation.
+func (m *RegistrationPolicyMutation) RegistrationOpen() (r bool, exists bool) {
+	v := m.registration_open
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRegistrationOpen returns the old "registration_open" field's value of the RegistrationPolicy entity.
+// If the RegistrationPolicy object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RegistrationPolicyMutation) OldRegistrationOpen(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRegistrationOpen is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRegistrationOpen requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRegistrationOpen: %w", err)
+	}
+	return oldValue.RegistrationOpen, nil
+}
+
+// ResetRegistrationOpen resets all changes to the "registration_open" field.
+func (m *RegistrationPolicyMutation) ResetRegistrationOpen() {
+	m.registration_open = nil
+}
+
+// Where appends a list predicates to the RegistrationPolicyMutation builder.
+func (m *RegistrationPolicyMutation) Where(ps ...predicate.RegistrationPolicy) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the RegistrationPolicyMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *RegistrationPolicyMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.RegistrationPolicy, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *RegistrationPolicyMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *RegistrationPolicyMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (RegistrationPolicy).
+func (m *RegistrationPolicyMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *RegistrationPolicyMutation) Fields() []string {
+	fields := make([]string, 0, 1)
+	if m.registration_open != nil {
+		fields = append(fields, registrationpolicy.FieldRegistrationOpen)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *RegistrationPolicyMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case registrationpolicy.FieldRegistrationOpen:
+		return m.RegistrationOpen()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *RegistrationPolicyMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case registrationpolicy.FieldRegistrationOpen:
+		return m.OldRegistrationOpen(ctx)
+	}
+	return nil, fmt.Errorf("unknown RegistrationPolicy field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *RegistrationPolicyMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case registrationpolicy.FieldRegistrationOpen:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRegistrationOpen(v)
+		return nil
+	}
+	return fmt.Errorf("unknown RegistrationPolicy field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *RegistrationPolicyMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *RegistrationPolicyMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *RegistrationPolicyMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown RegistrationPolicy numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *RegistrationPolicyMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *RegistrationPolicyMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *RegistrationPolicyMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown RegistrationPolicy nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *RegistrationPolicyMutation) ResetField(name string) error {
+	switch name {
+	case registrationpolicy.FieldRegistrationOpen:
+		m.ResetRegistrationOpen()
+		return nil
+	}
+	return fmt.Errorf("unknown RegistrationPolicy field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *RegistrationPolicyMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *RegistrationPolicyMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *RegistrationPolicyMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *RegistrationPolicyMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *RegistrationPolicyMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *RegistrationPolicyMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *RegistrationPolicyMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown RegistrationPolicy unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *RegistrationPolicyMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown RegistrationPolicy edge %s", name)
+}
+
+// ReleasedProfileEntryMutation represents an operation that mutates the ReleasedProfileEntry nodes in the graph.
+type ReleasedProfileEntryMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int
+	entry_id      *int
+	addentry_id   *int
+	name          *string
+	clearedFields map[string]struct{}
+	done          bool
+	oldValue      func(context.Context) (*ReleasedProfileEntry, error)
+	predicates    []predicate.ReleasedProfileEntry
+}
+
+var _ ent.Mutation = (*ReleasedProfileEntryMutation)(nil)
+
+// releasedprofileentryOption allows management of the mutation configuration using functional options.
+type releasedprofileentryOption func(*ReleasedProfileEntryMutation)
+
+// newReleasedProfileEntryMutation creates new mutation for the ReleasedProfileEntry entity.
+func newReleasedProfileEntryMutation(c config, op Op, opts ...releasedprofileentryOption) *ReleasedProfileEntryMutation {
+	m := &ReleasedProfileEntryMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeReleasedProfileEntry,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withReleasedProfileEntryID sets the ID field of the mutation.
+func withReleasedProfileEntryID(id int) releasedprofileentryOption {
+	return func(m *ReleasedProfileEntryMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ReleasedProfileEntry
+		)
+		m.oldValue = func(ctx context.Context) (*ReleasedProfileEntry, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ReleasedProfileEntry.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withReleasedProfileEntry sets the old ReleasedProfileEntry of the mutation.
+func withReleasedProfileEntry(node *ReleasedProfileEntry) releasedprofileentryOption {
+	return func(m *ReleasedProfileEntryMutation) {
+		m.oldValue = func(context.Context) (*ReleasedProfileEntry, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ReleasedProfileEntryMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ReleasedProfileEntryMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ReleasedProfileEntryMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ReleasedProfileEntryMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ReleasedProfileEntry.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetEntryID sets the "entry_id" field.
+func (m *ReleasedProfileEntryMutation) SetEntryID(i int) {
+	m.entry_id = &i
+	m.addentry_id = nil
+}
+
+// EntryID returns the value of the "entry_id" field in the mutation.
+func (m *ReleasedProfileEntryMutation) EntryID() (r int, exists bool) {
+	v := m.entry_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEntryID returns the old "entry_id" field's value of the ReleasedProfileEntry entity.
+// If the ReleasedProfileEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReleasedProfileEntryMutation) OldEntryID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEntryID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEntryID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEntryID: %w", err)
+	}
+	return oldValue.EntryID, nil
+}
+
+// AddEntryID adds i to the "entry_id" field.
+func (m *ReleasedProfileEntryMutation) AddEntryID(i int) {
+	if m.addentry_id != nil {
+		*m.addentry_id += i
+	} else {
+		m.addentry_id = &i
+	}
+}
+
+// AddedEntryID returns the value that was added to the "entry_id" field in this mutation.
+func (m *ReleasedProfileEntryMutation) AddedEntryID() (r int, exists bool) {
+	v := m.addentry_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetEntryID resets all changes to the "entry_id" field.
+func (m *ReleasedProfileEntryMutation) ResetEntryID() {
+	m.entry_id = nil
+	m.addentry_id = nil
+}
+
+// SetName sets the "name" field.
+func (m *ReleasedProfileEntryMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *ReleasedProfileEntryMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the ReleasedProfileEntry entity.
+// If the ReleasedProfileEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReleasedProfileEntryMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *ReleasedProfileEntryMutation) ResetName() {
+	m.name = nil
+}
+
+// Where appends a list predicates to the ReleasedProfileEntryMutation builder.
+func (m *ReleasedProfileEntryMutation) Where(ps ...predicate.ReleasedProfileEntry) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ReleasedProfileEntryMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ReleasedProfileEntryMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ReleasedProfileEntry, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ReleasedProfileEntryMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ReleasedProfileEntryMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ReleasedProfileEntry).
+func (m *ReleasedProfileEntryMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ReleasedProfileEntryMutation) Fields() []string {
+	fields := make([]string, 0, 2)
+	if m.entry_id != nil {
+		fields = append(fields, releasedprofileentry.FieldEntryID)
+	}
+	if m.name != nil {
+		fields = append(fields, releasedprofileentry.FieldName)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ReleasedProfileEntryMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case releasedprofileentry.FieldEntryID:
+		return m.EntryID()
+	case releasedprofileentry.FieldName:
+		return m.Name()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ReleasedProfileEntryMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case releasedprofileentry.FieldEntryID:
+		return m.OldEntryID(ctx)
+	case releasedprofileentry.FieldName:
+		return m.OldName(ctx)
+	}
+	return nil, fmt.Errorf("unknown ReleasedProfileEntry field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ReleasedProfileEntryMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case releasedprofileentry.FieldEntryID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEntryID(v)
+		return nil
+	case releasedprofileentry.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ReleasedProfileEntry field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ReleasedProfileEntryMutation) AddedFields() []string {
+	var fields []string
+	if m.addentry_id != nil {
+		fields = append(fields, releasedprofileentry.FieldEntryID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ReleasedProfileEntryMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case releasedprofileentry.FieldEntryID:
+		return m.AddedEntryID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ReleasedProfileEntryMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case releasedprofileentry.FieldEntryID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddEntryID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ReleasedProfileEntry numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ReleasedProfileEntryMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ReleasedProfileEntryMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ReleasedProfileEntryMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown ReleasedProfileEntry nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ReleasedProfileEntryMutation) ResetField(name string) error {
+	switch name {
+	case releasedprofileentry.FieldEntryID:
+		m.ResetEntryID()
+		return nil
+	case releasedprofileentry.FieldName:
+		m.ResetName()
+		return nil
+	}
+	return fmt.Errorf("unknown ReleasedProfileEntry field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ReleasedProfileEntryMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ReleasedProfileEntryMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ReleasedProfileEntryMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ReleasedProfileEntryMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ReleasedProfileEntryMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ReleasedProfileEntryMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ReleasedProfileEntryMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown ReleasedProfileEntry unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ReleasedProfileEntryMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown ReleasedProfileEntry edge %s", name)
 }
 
 // ReopenWindowMutation represents an operation that mutates the ReopenWindow nodes in the graph.

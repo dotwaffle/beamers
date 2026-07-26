@@ -21,7 +21,9 @@ func (Account) Policy() ent.Policy {
 			denyMissingViewer(), allowAdministrator(), privacy.AlwaysDenyRule(),
 		},
 		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowAdministratorMutation(), privacy.AlwaysDenyRule(),
+			allowRegistrationAccountCreation(), denyMissingViewer(),
+			allowAdministratorMutation(), allowOwnAccountNameMutation(),
+			privacy.AlwaysDenyRule(),
 		},
 	}
 }
@@ -30,7 +32,7 @@ func (Account) Policy() ent.Policy {
 func (Account) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("name").NotEmpty().MaxLen(200),
-		field.String("normalized_name").NotEmpty().MaxLen(200).Unique().Immutable(),
+		field.String("normalized_name").NotEmpty().MaxLen(200).Unique(),
 		field.Bool("administrator").Immutable(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 		field.Time("disabled_at").Optional().Nillable(),
@@ -42,6 +44,7 @@ func (Account) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("password_credential", PasswordCredential.Type).Unique(),
 		edge.To("preference", AccountPreference.Type).Unique(),
+		edge.To("profile", AccountProfile.Type).Unique(),
 		edge.To("sessions", AccountSession.Type),
 		edge.To("event_grants", EventGrant.Type),
 		edge.To("audit_entries", AuditEntry.Type),

@@ -2,6 +2,8 @@ package frontend
 
 import "strconv"
 
+import "github.com/dotwaffle/beamers/internal/auth"
+
 templ Head(title string) {
 	<head>
 		<meta charset="utf-8"/>
@@ -18,8 +20,10 @@ templ Navigation(accountName string, csrfToken string, reducedEffects bool) {
 			<a href="/schedule">Schedule</a>
 			if accountName == "" {
 				<a href="/sign-in">Sign in</a>
+				<a href="/register">Register</a>
 			} else {
 				<span>{ accountName }</span>
+				<a href="/profile">Profile</a>
 				<form method="post" action="/sign-out">
 					<input type="hidden" name="csrf_token" value={ csrfToken }/>
 					<button type="submit">Sign out</button>
@@ -42,6 +46,124 @@ templ Navigation(accountName string, csrfToken string, reducedEffects bool) {
 			</form>
 		</nav>
 	</header>
+}
+
+templ Register(
+	csrfToken string,
+	message string,
+	handle string,
+	displayName string,
+	open bool,
+	reducedEffects bool,
+) {
+	<!doctype html>
+	<html lang="en">
+		@Head("Register · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
+			@Navigation("", csrfToken, reducedEffects)
+			<main>
+				<h1>Register</h1>
+				if message != "" {
+					<p class="error" role="alert">{ message }</p>
+				}
+				if open {
+					<form class="stack" method="post" action="/register">
+						<input type="hidden" name="csrf_token" value={ csrfToken }/>
+						<label>
+							Account Handle
+							<input name="handle" value={ handle } autocomplete="username" maxlength="200" required/>
+						</label>
+						<label>
+							Display Name
+							<input name="display_name" value={ displayName } autocomplete="name" maxlength="200" required/>
+						</label>
+						<label>
+							Password
+							<input type="password" name="password" autocomplete="new-password" minlength="12" required/>
+						</label>
+						<button type="submit">Create Account</button>
+					</form>
+				} else {
+					<p>Registration is closed.</p>
+				}
+			</main>
+		</body>
+	</html>
+}
+
+templ ProfilePage(csrfToken string, profile auth.Profile, reducedEffects bool) {
+	<!doctype html>
+	<html lang="en">
+		@Head("Profile · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
+			@Navigation(profile.DisplayName, csrfToken, reducedEffects)
+			<main>
+				<h1>Profile</h1>
+				<p>Account Handle: <strong>{ profile.Handle }</strong></p>
+				<form class="stack" method="post" action="/profile">
+					<input type="hidden" name="csrf_token" value={ csrfToken }/>
+					<label>
+						Display Name
+						<input name="display_name" value={ profile.DisplayName } autocomplete="name" maxlength="200" required/>
+					</label>
+					<label>
+						<input type="checkbox" name="published" value="true" checked?={ profile.Published }/>
+						Publish my Profile
+					</label>
+					for _, entry := range profile.AvailableEntries {
+						<label>
+							<input type="checkbox" name="entry_id" value={ strconv.Itoa(entry.ID) } checked?={ entry.Selected }/>
+							{ entry.Name }
+						</label>
+					}
+					<button type="submit">Save Profile</button>
+				</form>
+				if profile.Published {
+					<p><a href={ templ.SafeURL("/people/" + profile.Handle) }>View Public Profile</a></p>
+				}
+			</main>
+		</body>
+	</html>
+}
+
+templ PublicProfile(profile auth.Profile) {
+	<!doctype html>
+	<html lang="en">
+		@Head(profile.DisplayName + " · Beamers")
+		<body>
+			<main>
+				<h1>{ profile.DisplayName }</h1>
+				if len(profile.Entries) > 0 {
+					<h2>Released Entries</h2>
+					<ul>
+						for _, entry := range profile.Entries {
+							<li>{ entry.Name }</li>
+						}
+					</ul>
+				}
+			</main>
+		</body>
+	</html>
+}
+
+templ RegistrationPolicy(csrfToken string, open bool, reducedEffects bool) {
+	<!doctype html>
+	<html lang="en">
+		@Head("Registration · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
+			<main>
+				<h1>Registration</h1>
+				<form class="stack" method="post" action="/admin/registration">
+					<input type="hidden" name="csrf_token" value={ csrfToken }/>
+					<label>
+						<input type="checkbox" name="registration_open" value="true" checked?={ open }/>
+						Allow new Accounts
+					</label>
+					<button type="submit">Save Registration Policy</button>
+				</form>
+			</main>
+		</body>
+	</html>
 }
 
 templ Root(setupRequired bool, accountName string, csrfToken string, reducedEffects bool) {

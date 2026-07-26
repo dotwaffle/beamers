@@ -72,6 +72,9 @@ func DowngradeBeforeUpgradeContracts(ctx context.Context, path string) error {
 		const statement = `
 PRAGMA foreign_keys = off;
 DROP TABLE account_preferences;
+DROP TABLE account_profiles;
+DROP TABLE released_profile_entries;
+DROP TABLE registration_policies;
 CREATE TABLE beamers_schema_migrations_before_upgrade (
 	id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
 	version integer NOT NULL,

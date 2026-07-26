@@ -29,6 +29,8 @@ const (
 	EdgePasswordCredential = "password_credential"
 	// EdgePreference holds the string denoting the preference edge name in mutations.
 	EdgePreference = "preference"
+	// EdgeProfile holds the string denoting the profile edge name in mutations.
+	EdgeProfile = "profile"
 	// EdgeSessions holds the string denoting the sessions edge name in mutations.
 	EdgeSessions = "sessions"
 	// EdgeEventGrants holds the string denoting the event_grants edge name in mutations.
@@ -55,6 +57,13 @@ const (
 	PreferenceInverseTable = "account_preferences"
 	// PreferenceColumn is the table column denoting the preference relation/edge.
 	PreferenceColumn = "account_id"
+	// ProfileTable is the table that holds the profile relation/edge.
+	ProfileTable = "account_profiles"
+	// ProfileInverseTable is the table name for the AccountProfile entity.
+	// It exists in this package in order to avoid circular dependency with the "accountprofile" package.
+	ProfileInverseTable = "account_profiles"
+	// ProfileColumn is the table column denoting the profile relation/edge.
+	ProfileColumn = "account_id"
 	// SessionsTable is the table that holds the sessions relation/edge.
 	SessionsTable = "account_sessions"
 	// SessionsInverseTable is the table name for the AccountSession entity.
@@ -175,6 +184,13 @@ func ByPreferenceField(field string, opts ...sql.OrderTermOption) OrderOption {
 	}
 }
 
+// ByProfileField orders the results by profile field.
+func ByProfileField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newProfileStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // BySessionsCount orders the results by sessions count.
 func BySessionsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -256,6 +272,13 @@ func newPreferenceStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(PreferenceInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2O, false, PreferenceTable, PreferenceColumn),
+	)
+}
+func newProfileStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ProfileInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2O, false, ProfileTable, ProfileColumn),
 	)
 }
 func newSessionsStep() *sqlgraph.Step {

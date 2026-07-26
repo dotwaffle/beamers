@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"mime"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -49,9 +50,13 @@ func registerFrontendRoutes(
 	formRoute.maxBodyBytes = maxAuthBodyBytes
 	mux.HandleFunc("/", browserPageRoute(), handlers.root)
 	mux.HandleFunc("/setup", formRoute, handlers.setup)
+	mux.HandleFunc("/register", formRoute, handlers.register)
 	mux.HandleFunc("/sign-in", formRoute, handlers.signIn)
 	mux.HandleFunc("/sign-out", formRoute, handlers.signOut)
 	mux.HandleFunc("/effects", formRoute, handlers.effects)
+	mux.HandleFunc("/profile", formRoute, handlers.profile)
+	mux.HandleFunc("/people/{handle}", browserPageRoute(), handlers.publicProfile)
+	mux.HandleFunc("/admin/registration", formRoute, handlers.registrationPolicy)
 	for _, path := range []string{
 		frontend.StylesheetPath,
 		frontend.ChakraRegularPath,
@@ -67,6 +72,248 @@ func registerFrontendRoutes(
 		mux.HandleFunc(path, publicRoute(), handler)
 	}
 	return nil
+}
+
+func (handlers frontendHandlers) register(response http.ResponseWriter, request *http.Request) {
+	setupRequired, err := handlers.authentication.SetupRequired(request.Context())
+	if err != nil {
+		handlers.frontendError(response, request, "read setup state", err)
+		return
+	}
+	if setupRequired {
+		http.Redirect(response, request, "/setup", http.StatusSeeOther)
+		return
+	}
+	open, err := handlers.authentication.RegistrationOpen(request.Context())
+	if err != nil {
+		handlers.frontendError(response, request, "read Registration Policy", err)
+		return
+	}
+	csrfToken, err := handlers.csrfToken(response, request)
+	if err != nil {
+		handlers.frontendError(response, request, "create CSRF proof", err)
+		return
+	}
+	switch request.Method {
+	case http.MethodGet, http.MethodHead:
+		handlers.render(
+			response,
+			request,
+			http.StatusOK,
+			frontend.Register(csrfToken, "", "", "", open, reducedEffectsCookie(request)),
+		)
+		return
+	case http.MethodPost:
+	default:
+		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
+		return
+	}
+	if !handlers.validForm(response, request) {
+		return
+	}
+	handle := request.Form.Get("handle")
+	displayName := request.Form.Get("display_name")
+	clientKey, accountKey := registrationFailureKeys(request, handle)
+	if retryAfter, blocked := handlers.limiter.reserve(clientKey, accountKey); blocked {
+		writeAuthRateLimit(response, retryAfter)
+		return
+	}
+	_, err = handlers.authentication.Register(
+		request.Context(),
+		handle,
+		displayName,
+		request.Form.Get("password"),
+	)
+	status := 0
+	message := ""
+	renderOpen := open
+	switch {
+	case errors.Is(err, auth.ErrRegistrationClosed):
+		status, message, renderOpen = http.StatusForbidden, "Registration is closed.", false
+	case errors.Is(err, auth.ErrAccountExists):
+		status, message = http.StatusConflict, "That Account Handle is already in use."
+	case errors.Is(err, auth.ErrInvalidAccountDetails):
+		status, message = http.StatusBadRequest, "Check the Account details and try again."
+	case errors.Is(err, auth.ErrAuthenticationBusy):
+		handlers.limiter.release(clientKey, accountKey)
+		writeAuthRateLimit(response, time.Second)
+	case err != nil:
+		handlers.limiter.release(clientKey, accountKey)
+		handlers.frontendError(response, request, "register Account", err)
+	default:
+		http.Redirect(response, request, "/sign-in", http.StatusSeeOther)
+	}
+	if message != "" {
+		handlers.render(
+			response, request, status,
+			frontend.Register(
+				csrfToken, message, handle, displayName, renderOpen,
+				reducedEffectsCookie(request),
+			),
+		)
+	}
+}
+
+func (handlers frontendHandlers) profile(response http.ResponseWriter, request *http.Request) {
+	actor, ok := handlers.browserAccount(response, request)
+	if !ok {
+		return
+	}
+	csrfToken, err := handlers.csrfToken(response, request)
+	if err != nil {
+		handlers.frontendError(response, request, "create CSRF proof", err)
+		return
+	}
+	switch request.Method {
+	case http.MethodGet, http.MethodHead:
+	case http.MethodPost:
+		if !handlers.validForm(response, request) {
+			return
+		}
+		entryIDs, parseErr := positiveFormIDs(request.Form["entry_id"])
+		if parseErr != nil {
+			http.Error(response, "invalid Profile Entry", http.StatusBadRequest)
+			return
+		}
+		err = handlers.authentication.UpdateProfile(
+			request.Context(),
+			actor,
+			request.Form.Get("display_name"),
+			request.Form.Get("published") == "true",
+			entryIDs,
+		)
+		switch {
+		case errors.Is(err, auth.ErrInvalidAccountDetails),
+			errors.Is(err, auth.ErrProfileEntryUnavailable):
+			http.Error(response, "invalid Profile", http.StatusBadRequest)
+		case err != nil:
+			handlers.frontendError(response, request, "update Profile", err)
+		default:
+			http.Redirect(response, request, "/profile", http.StatusSeeOther)
+		}
+		return
+	default:
+		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
+		return
+	}
+	found, err := handlers.authentication.Profile(request.Context(), actor)
+	if err != nil {
+		handlers.frontendError(response, request, "read Profile", err)
+		return
+	}
+	handlers.render(
+		response,
+		request,
+		http.StatusOK,
+		frontend.ProfilePage(csrfToken, found, reducedEffectsCookie(request)),
+	)
+}
+
+func (handlers frontendHandlers) publicProfile(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	if !frontendReadAllowed(response, request) {
+		return
+	}
+	found, ok, err := handlers.authentication.PublicProfile(
+		request.Context(),
+		request.PathValue("handle"),
+	)
+	if err != nil {
+		handlers.frontendError(response, request, "read Public Profile", err)
+		return
+	}
+	if !ok {
+		http.NotFound(response, request)
+		return
+	}
+	handlers.render(response, request, http.StatusOK, frontend.PublicProfile(found))
+}
+
+func (handlers frontendHandlers) registrationPolicy(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	actor, ok := handlers.browserAccount(response, request)
+	if !ok {
+		return
+	}
+	if !actor.Administrator {
+		http.Error(response, "Administrator authority required", http.StatusForbidden)
+		return
+	}
+	csrfToken, err := handlers.csrfToken(response, request)
+	if err != nil {
+		handlers.frontendError(response, request, "create CSRF proof", err)
+		return
+	}
+	switch request.Method {
+	case http.MethodGet, http.MethodHead:
+	case http.MethodPost:
+		if !handlers.validForm(response, request) {
+			return
+		}
+		err = handlers.authentication.SetRegistrationOpen(
+			request.Context(),
+			actor,
+			request.Form.Get("registration_open") == "true",
+		)
+		if err != nil {
+			handlers.frontendError(response, request, "set Registration Policy", err)
+			return
+		}
+		http.Redirect(response, request, "/admin/registration", http.StatusSeeOther)
+		return
+	default:
+		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
+		return
+	}
+	open, err := handlers.authentication.RegistrationOpen(request.Context())
+	if err != nil {
+		handlers.frontendError(response, request, "read Registration Policy", err)
+		return
+	}
+	handlers.render(
+		response,
+		request,
+		http.StatusOK,
+		frontend.RegistrationPolicy(csrfToken, open, reducedEffectsCookie(request)),
+	)
+}
+
+func (handlers frontendHandlers) browserAccount(
+	response http.ResponseWriter,
+	request *http.Request,
+) (auth.Account, bool) {
+	cookie, err := request.Cookie(sessionCookieName)
+	if err != nil {
+		http.Redirect(response, request, "/sign-in", http.StatusSeeOther)
+		return auth.Account{}, false
+	}
+	found, err := handlers.authentication.Authenticate(request.Context(), cookie.Value)
+	if errors.Is(err, auth.ErrInvalidSession) {
+		clearSessionCookie(response, request)
+		http.Redirect(response, request, "/sign-in", http.StatusSeeOther)
+		return auth.Account{}, false
+	}
+	if err != nil {
+		handlers.frontendError(response, request, "authenticate Frontend session", err)
+		return auth.Account{}, false
+	}
+	return found, true
+}
+
+func positiveFormIDs(values []string) ([]int, error) {
+	ids := make([]int, 0, len(values))
+	for _, value := range values {
+		id, err := strconv.Atoi(value)
+		if err != nil || id <= 0 {
+			return nil, errors.New("invalid ID")
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
 
 func (handlers frontendHandlers) root(response http.ResponseWriter, request *http.Request) {

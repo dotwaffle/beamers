@@ -8,6 +8,7 @@ import (
 
 	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/accountpreference"
+	"github.com/dotwaffle/beamers/ent/accountprofile"
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/attachment"
 	"github.com/dotwaffle/beamers/ent/attachmentversion"
@@ -43,6 +44,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
+	"github.com/dotwaffle/beamers/ent/registrationpolicy"
+	"github.com/dotwaffle/beamers/ent/releasedprofileentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
 	"github.com/dotwaffle/beamers/ent/resultscorrection"
 	"github.com/dotwaffle/beamers/ent/resultspublication"
@@ -133,6 +136,57 @@ func init() {
 	accountpreferenceDescReducedEffects := accountpreferenceFields[1].Descriptor()
 	// accountpreference.DefaultReducedEffects holds the default value on creation for the reduced_effects field.
 	accountpreference.DefaultReducedEffects = accountpreferenceDescReducedEffects.Default.(bool)
+	accountprofile.Policy = privacy.NewPolicies(schema.AccountProfile{})
+	accountprofile.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := accountprofile.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	accountprofileFields := schema.AccountProfile{}.Fields()
+	_ = accountprofileFields
+	// accountprofileDescNormalizedHandle is the schema descriptor for normalized_handle field.
+	accountprofileDescNormalizedHandle := accountprofileFields[1].Descriptor()
+	// accountprofile.NormalizedHandleValidator is a validator for the "normalized_handle" field. It is called by the builders before save.
+	accountprofile.NormalizedHandleValidator = func() func(string) error {
+		validators := accountprofileDescNormalizedHandle.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(normalized_handle string) error {
+			for _, fn := range fns {
+				if err := fn(normalized_handle); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// accountprofileDescDisplayName is the schema descriptor for display_name field.
+	accountprofileDescDisplayName := accountprofileFields[2].Descriptor()
+	// accountprofile.DisplayNameValidator is a validator for the "display_name" field. It is called by the builders before save.
+	accountprofile.DisplayNameValidator = func() func(string) error {
+		validators := accountprofileDescDisplayName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(display_name string) error {
+			for _, fn := range fns {
+				if err := fn(display_name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// accountprofileDescPublished is the schema descriptor for published field.
+	accountprofileDescPublished := accountprofileFields[3].Descriptor()
+	// accountprofile.DefaultPublished holds the default value on creation for the published field.
+	accountprofile.DefaultPublished = accountprofileDescPublished.Default.(bool)
 	accountsession.Policy = privacy.NewPolicies(schema.AccountSession{})
 	accountsession.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
@@ -1777,6 +1831,40 @@ func init() {
 	publicschedulebaselineentryDescRecordedAt := publicschedulebaselineentryFields[4].Descriptor()
 	// publicschedulebaselineentry.DefaultRecordedAt holds the default value on creation for the recorded_at field.
 	publicschedulebaselineentry.DefaultRecordedAt = publicschedulebaselineentryDescRecordedAt.Default.(func() time.Time)
+	registrationpolicy.Policy = privacy.NewPolicies(schema.RegistrationPolicy{})
+	registrationpolicy.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := registrationpolicy.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	registrationpolicyFields := schema.RegistrationPolicy{}.Fields()
+	_ = registrationpolicyFields
+	// registrationpolicyDescRegistrationOpen is the schema descriptor for registration_open field.
+	registrationpolicyDescRegistrationOpen := registrationpolicyFields[0].Descriptor()
+	// registrationpolicy.DefaultRegistrationOpen holds the default value on creation for the registration_open field.
+	registrationpolicy.DefaultRegistrationOpen = registrationpolicyDescRegistrationOpen.Default.(bool)
+	releasedprofileentry.Policy = privacy.NewPolicies(schema.ReleasedProfileEntry{})
+	releasedprofileentry.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := releasedprofileentry.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	releasedprofileentryFields := schema.ReleasedProfileEntry{}.Fields()
+	_ = releasedprofileentryFields
+	// releasedprofileentryDescEntryID is the schema descriptor for entry_id field.
+	releasedprofileentryDescEntryID := releasedprofileentryFields[0].Descriptor()
+	// releasedprofileentry.EntryIDValidator is a validator for the "entry_id" field. It is called by the builders before save.
+	releasedprofileentry.EntryIDValidator = releasedprofileentryDescEntryID.Validators[0].(func(int) error)
+	// releasedprofileentryDescName is the schema descriptor for name field.
+	releasedprofileentryDescName := releasedprofileentryFields[1].Descriptor()
+	// releasedprofileentry.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	releasedprofileentry.NameValidator = releasedprofileentryDescName.Validators[0].(func(string) error)
 	reopenwindow.Policy = privacy.NewPolicies(schema.ReopenWindow{})
 	reopenwindow.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

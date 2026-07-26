@@ -12,6 +12,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
+	"github.com/dotwaffle/beamers/ent/releasedprofileentry"
 	"github.com/dotwaffle/beamers/ent/resultspublication"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
@@ -174,7 +175,79 @@ func (transaction *CommandTx) AppendResultsPublication(
 		}
 		return ResultsPublication{}, opaqueError("append Results Publication", err)
 	}
+	if err := upsertReleasedProfileEntries(
+		ctx,
+		transaction.transaction.Client(),
+		params.RenderedJSON,
+	); err != nil {
+		return ResultsPublication{}, err
+	}
 	return resultsPublication(created), nil
+}
+
+func upsertReleasedProfileEntries(
+	ctx context.Context,
+	client *ent.Client,
+	renderedJSON string,
+) error {
+	if renderedJSON == "" {
+		return nil
+	}
+	released, err := decodeReleasedProfileEntries(renderedJSON)
+	if err != nil {
+		return err
+	}
+	for _, entry := range released {
+		found, queryErr := client.ReleasedProfileEntry.Query().
+			Where(releasedprofileentry.EntryIDEQ(entry.ID)).
+			Only(ctx)
+		switch {
+		case ent.IsNotFound(queryErr):
+			_, err = client.ReleasedProfileEntry.Create().
+				SetEntryID(entry.ID).
+				SetName(entry.Name).
+				Save(ctx)
+		case queryErr != nil:
+			err = queryErr
+		default:
+			_, err = found.Update().SetName(entry.Name).Save(ctx)
+		}
+		if err != nil {
+			return opaqueError("record released Profile Entry", err)
+		}
+	}
+	return nil
+}
+
+func decodeReleasedProfileEntries(renderedJSON string) (map[int]ProfileEntry, error) {
+	var model struct {
+		Items []struct {
+			Competition *struct {
+				Placed       []ProfileEntry `json:"placed"`
+				Unplaced     []ProfileEntry `json:"unplaced"`
+				Disqualified []ProfileEntry `json:"disqualified"`
+			} `json:"competition"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(renderedJSON), &model); err != nil {
+		return nil, opaqueError("decode released Results", err)
+	}
+	released := make(map[int]ProfileEntry)
+	for _, item := range model.Items {
+		if item.Competition == nil {
+			continue
+		}
+		for _, entries := range [][]ProfileEntry{
+			item.Competition.Placed,
+			item.Competition.Unplaced,
+			item.Competition.Disqualified,
+		} {
+			for _, entry := range entries {
+				released[entry.ID] = entry
+			}
+		}
+	}
+	return released, nil
 }
 
 // LoadResultsPublicationRenderSource resolves one lock inside the release transaction.

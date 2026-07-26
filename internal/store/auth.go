@@ -1,18 +1,23 @@
 package store
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strconv"
 	"time"
 
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/accountpreference"
+	"github.com/dotwaffle/beamers/ent/accountprofile"
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
+	"github.com/dotwaffle/beamers/internal/profilevalue"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -25,6 +30,10 @@ var (
 	ErrInvalidSession = errors.New("invalid account session")
 	// ErrAccountExists means an Account already uses the requested normalized name.
 	ErrAccountExists = errors.New("account already exists")
+	// ErrRegistrationClosed means the installation is not accepting new Accounts.
+	ErrRegistrationClosed = errors.New("registration is closed")
+	// ErrProfileEntryUnavailable means a Public Profile selected an unreleased Entry.
+	ErrProfileEntryUnavailable = errors.New("profile Entry is unavailable")
 	// ErrDisableAccountNotFound means an Account cannot be retired by the command.
 	ErrDisableAccountNotFound = errors.New("account not found")
 	// ErrLastAdministrator means retirement would leave no installation Administrator.
@@ -46,12 +55,47 @@ func (installation *SQLite) SetupRequired(ctx context.Context) (bool, error) {
 // AccountCredential is the authentication projection of an Account.
 type AccountCredential struct {
 	ID               int                       `json:"id"`
+	Handle           string                    `json:"handle"`
 	Name             string                    `json:"name"`
 	PasswordHash     string                    `json:"-"`
 	Administrator    bool                      `json:"administrator"`
 	EventRoles       map[int]viewer.Role       `json:"-"`
 	EventScopes      map[int]viewer.EventScope `json:"-"`
 	SessionExpiresAt time.Time                 `json:"-"`
+}
+
+// AccountProfile is one Account's private profile settings or public projection.
+type AccountProfile struct {
+	Handle           string
+	DisplayName      string
+	Published        bool
+	Entries          []ProfileEntry
+	AvailableEntries []ProfileEntry
+}
+
+// ReleasedProfileEntries lists Entries eligible for Public Profile selection.
+func (installation *SQLite) ReleasedProfileEntries(ctx context.Context) ([]ProfileEntry, error) {
+	found, err := installation.client.ReleasedProfileEntry.Query().All(ctx)
+	if err != nil {
+		return nil, opaqueError("read released Profile Entries", err)
+	}
+	if len(found) == 0 {
+		return nil, err
+	}
+	entries := make([]ProfileEntry, 0, len(found))
+	for _, entry := range found {
+		entries = append(entries, ProfileEntry{ID: entry.EntryID, Name: entry.Name})
+	}
+	slices.SortFunc(entries, func(left, right ProfileEntry) int {
+		return cmp.Compare(left.ID, right.ID)
+	})
+	return entries, nil
+}
+
+// ProfileEntry is one released Entry selected for a Public Profile.
+type ProfileEntry struct {
+	ID   int    `json:"entry_id"`
+	Name string `json:"name"`
 }
 
 // AccountReducedEffects returns one Account's presentation preference.
@@ -126,6 +170,206 @@ type CreateAccountParams struct {
 	PayloadHash    string
 }
 
+// RegistrationOpen reports whether visitors may create Accounts.
+func (installation *SQLite) RegistrationOpen(ctx context.Context) (bool, error) {
+	found, err := installation.client.RegistrationPolicy.Query().Only(ctx)
+	if ent.IsNotFound(err) {
+		return true, nil
+	}
+	if err != nil {
+		return false, opaqueError("read Registration Policy", err)
+	}
+	return found.RegistrationOpen, nil
+}
+
+// SetRegistrationOpen updates the installation Registration Policy.
+func (installation *SQLite) SetRegistrationOpen(ctx context.Context, open bool) error {
+	found, err := installation.client.RegistrationPolicy.Query().Only(ctx)
+	if ent.IsNotFound(err) {
+		_, err = installation.client.RegistrationPolicy.Create().
+			SetRegistrationOpen(open).
+			Save(ctx)
+	} else if err == nil {
+		_, err = found.Update().SetRegistrationOpen(open).Save(ctx)
+	}
+	if err != nil {
+		return opaqueError("set Registration Policy", err)
+	}
+	return nil
+}
+
+// RegisterAccount creates one visitor Account while registration remains open.
+func (installation *SQLite) RegisterAccount(
+	ctx context.Context,
+	params CreateAccountParams,
+) (AccountCredential, error) {
+	requestContext := ctx
+	internalContext := systemContext(ctx)
+	transaction, err := installation.client.Tx(ctx)
+	if err != nil {
+		return AccountCredential{}, opaqueError("begin Account registration", err)
+	}
+	defer func() {
+		_ = transaction.Rollback()
+	}()
+	credentials, err := transaction.PasswordCredential.Query().Count(internalContext)
+	if err != nil {
+		return AccountCredential{}, opaqueError("count Account credentials for registration", err)
+	}
+	policy, err := transaction.RegistrationPolicy.Query().Only(internalContext)
+	if err != nil && !ent.IsNotFound(err) {
+		return AccountCredential{}, opaqueError("read Registration Policy", err)
+	}
+	if credentials == 0 || (policy != nil && !policy.RegistrationOpen) {
+		return AccountCredential{}, ErrRegistrationClosed
+	}
+	created, err := transaction.Account.Create().
+		SetName(params.Name).
+		SetNormalizedName(params.NormalizedName).
+		SetAdministrator(false).
+		SetCreatedAt(params.Now).
+		Save(requestContext)
+	if ent.IsConstraintError(err) {
+		return AccountCredential{}, ErrAccountExists
+	}
+	if err != nil {
+		return AccountCredential{}, opaqueError("register Account", err)
+	}
+	if _, err = transaction.PasswordCredential.Create().
+		SetAccountID(created.ID).
+		SetPasswordHash(params.PasswordHash).
+		SetCreatedAt(params.Now).
+		Save(internalContext); err != nil {
+		return AccountCredential{}, opaqueError("create registered Account credential", err)
+	}
+	if err = transaction.Commit(); err != nil {
+		return AccountCredential{}, opaqueError("commit Account registration", err)
+	}
+	return accountCredential(created, params.PasswordHash), nil
+}
+
+// AccountProfile returns one enabled Account's private profile settings.
+func (installation *SQLite) AccountProfile(
+	ctx context.Context,
+	accountID int,
+) (AccountProfile, bool, error) {
+	found, err := installation.client.AccountProfile.Query().
+		Where(accountprofile.AccountIDEQ(accountID)).
+		Only(ctx)
+	if ent.IsNotFound(err) {
+		return AccountProfile{}, false, nil
+	}
+	if err != nil {
+		return AccountProfile{}, false, opaqueError("read Account Profile", err)
+	}
+	return accountProfile(found), true, nil
+}
+
+// PublicProfile returns the published profile matching a case-insensitive Handle.
+func (installation *SQLite) PublicProfile(
+	ctx context.Context,
+	normalizedHandle string,
+) (AccountProfile, bool, error) {
+	found, err := installation.client.AccountProfile.Query().
+		Where(
+			accountprofile.NormalizedHandleEQ(normalizedHandle),
+			accountprofile.PublishedEQ(true),
+		).
+		Only(ctx)
+	if ent.IsNotFound(err) {
+		return AccountProfile{}, false, nil
+	}
+	if err != nil {
+		return AccountProfile{}, false, opaqueError("read Public Profile", err)
+	}
+	return accountProfile(found), true, nil
+}
+
+// UpdateAccountProfile replaces one Account's profile and released Entry selection.
+func (installation *SQLite) UpdateAccountProfile(
+	ctx context.Context,
+	accountID int,
+	accountHandle string,
+	displayName string,
+	published bool,
+	entryIDs []int,
+) error {
+	transaction, err := installation.client.Tx(ctx)
+	if err != nil {
+		return opaqueError("begin Profile update", err)
+	}
+	defer func() {
+		_ = transaction.Rollback()
+	}()
+	entryIDs = slices.Compact(slices.Sorted(slices.Values(entryIDs)))
+	selectedEntries := make([]profilevalue.Entry, 0, len(entryIDs))
+	if len(entryIDs) != 0 {
+		released, releaseErr := transaction.ReleasedProfileEntry.Query().All(ctx)
+		if releaseErr != nil {
+			return opaqueError("read released Profile Entries", releaseErr)
+		}
+		releasedByID := make(map[int]*ent.ReleasedProfileEntry, len(released))
+		for _, entry := range released {
+			releasedByID[entry.EntryID] = entry
+		}
+		for _, entryID := range entryIDs {
+			entry, ok := releasedByID[entryID]
+			if !ok {
+				return ErrProfileEntryUnavailable
+			}
+			selectedEntries = append(
+				selectedEntries,
+				profilevalue.Entry{ID: entry.EntryID, Name: entry.Name},
+			)
+		}
+	}
+	if _, err = transaction.Account.UpdateOneID(accountID).
+		SetName(displayName).
+		Save(ctx); err != nil {
+		return opaqueError("update Account Profile", err)
+	}
+	found, err := transaction.AccountProfile.Query().
+		Where(accountprofile.AccountIDEQ(accountID)).
+		Only(ctx)
+	switch {
+	case ent.IsNotFound(err):
+		create := transaction.AccountProfile.Create().
+			SetAccountID(accountID).
+			SetNormalizedHandle(accountHandle).
+			SetDisplayName(displayName).
+			SetSelectedEntries(selectedEntries).
+			SetPublished(published)
+		if _, err = create.Save(ctx); err != nil {
+			return opaqueError("create Account Profile", err)
+		}
+	case err != nil:
+		return opaqueError("read Account Profile", err)
+	default:
+		update := found.Update().
+			SetDisplayName(displayName).
+			SetSelectedEntries(selectedEntries).
+			SetPublished(published)
+		if _, err = update.Save(ctx); err != nil {
+			return opaqueError("update Account Profile", err)
+		}
+	}
+	if err = transaction.Commit(); err != nil {
+		return opaqueError("commit Account Profile", err)
+	}
+	return nil
+}
+
+func accountProfile(found *ent.AccountProfile) AccountProfile {
+	entries := make([]ProfileEntry, 0, len(found.SelectedEntries))
+	for _, entry := range found.SelectedEntries {
+		entries = append(entries, ProfileEntry{ID: entry.ID, Name: entry.Name})
+	}
+	return AccountProfile{
+		Handle: found.NormalizedHandle, DisplayName: found.DisplayName,
+		Published: found.Published, Entries: entries,
+	}
+}
+
 // DisabledAccount is the durable outcome of retiring one enabled Account.
 type DisabledAccount struct {
 	ID   int    `json:"id"`
@@ -138,11 +382,12 @@ func (transaction *CommandTx) DisableAccount(
 	accountID int,
 	now time.Time,
 ) (DisabledAccount, error) {
+	authorizedContext := ctx
 	internalContext := systemContext(ctx)
 	target, err := transaction.transaction.Account.Query().Where(
 		account.IDEQ(accountID),
 		account.DisabledAtIsNil(),
-	).Only(internalContext)
+	).Only(authorizedContext)
 	if ent.IsNotFound(err) {
 		return DisabledAccount{}, ErrDisableAccountNotFound
 	}
@@ -152,7 +397,7 @@ func (transaction *CommandTx) DisableAccount(
 	if target.Administrator {
 		administrators, countErr := transaction.transaction.Account.Query().Where(
 			account.AdministratorEQ(true), account.DisabledAtIsNil(),
-		).Count(internalContext)
+		).Count(authorizedContext)
 		if countErr != nil {
 			return DisabledAccount{}, opaqueError("count enabled Administrators", countErr)
 		}
@@ -160,10 +405,19 @@ func (transaction *CommandTx) DisableAccount(
 			return DisabledAccount{}, ErrLastAdministrator
 		}
 	}
+	placeholder := "\x1fdisabled-account-" + strconv.Itoa(accountID)
+	if _, deleteErr := transaction.transaction.AccountProfile.Delete().
+		Where(accountprofile.AccountIDEQ(accountID)).
+		Exec(authorizedContext); deleteErr != nil {
+		return DisabledAccount{}, opaqueError("detach Account Profile", deleteErr)
+	}
 	updated, err := transaction.transaction.Account.Update().Where(
 		account.IDEQ(accountID),
 		account.DisabledAtIsNil(),
-	).SetDisabledAt(now).Save(internalContext)
+	).
+		SetNormalizedName(placeholder).
+		SetDisabledAt(now).
+		Save(authorizedContext)
 	if err != nil {
 		return DisabledAccount{}, opaqueError("disable Account", err)
 	}
@@ -613,6 +867,7 @@ func createAccountSession(
 func accountCredential(found *ent.Account, passwordHash string) AccountCredential {
 	return AccountCredential{
 		ID:            found.ID,
+		Handle:        found.NormalizedName,
 		Name:          found.Name,
 		PasswordHash:  passwordHash,
 		Administrator: found.Administrator,

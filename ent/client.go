@@ -17,6 +17,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/accountpreference"
+	"github.com/dotwaffle/beamers/ent/accountprofile"
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/attachment"
 	"github.com/dotwaffle/beamers/ent/attachmentversion"
@@ -52,6 +53,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
+	"github.com/dotwaffle/beamers/ent/registrationpolicy"
+	"github.com/dotwaffle/beamers/ent/releasedprofileentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
 	"github.com/dotwaffle/beamers/ent/resultscorrection"
 	"github.com/dotwaffle/beamers/ent/resultspublication"
@@ -79,6 +82,8 @@ type Client struct {
 	Account *AccountClient
 	// AccountPreference is the client for interacting with the AccountPreference builders.
 	AccountPreference *AccountPreferenceClient
+	// AccountProfile is the client for interacting with the AccountProfile builders.
+	AccountProfile *AccountProfileClient
 	// AccountSession is the client for interacting with the AccountSession builders.
 	AccountSession *AccountSessionClient
 	// Attachment is the client for interacting with the Attachment builders.
@@ -149,6 +154,10 @@ type Client struct {
 	PublicScheduleBaseline *PublicScheduleBaselineClient
 	// PublicScheduleBaselineEntry is the client for interacting with the PublicScheduleBaselineEntry builders.
 	PublicScheduleBaselineEntry *PublicScheduleBaselineEntryClient
+	// RegistrationPolicy is the client for interacting with the RegistrationPolicy builders.
+	RegistrationPolicy *RegistrationPolicyClient
+	// ReleasedProfileEntry is the client for interacting with the ReleasedProfileEntry builders.
+	ReleasedProfileEntry *ReleasedProfileEntryClient
 	// ReopenWindow is the client for interacting with the ReopenWindow builders.
 	ReopenWindow *ReopenWindowClient
 	// ResultsCorrection is the client for interacting with the ResultsCorrection builders.
@@ -190,6 +199,7 @@ func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
 	c.Account = NewAccountClient(c.config)
 	c.AccountPreference = NewAccountPreferenceClient(c.config)
+	c.AccountProfile = NewAccountProfileClient(c.config)
 	c.AccountSession = NewAccountSessionClient(c.config)
 	c.Attachment = NewAttachmentClient(c.config)
 	c.AttachmentVersion = NewAttachmentVersionClient(c.config)
@@ -225,6 +235,8 @@ func (c *Client) init() {
 	c.PrizegivingCompetition = NewPrizegivingCompetitionClient(c.config)
 	c.PublicScheduleBaseline = NewPublicScheduleBaselineClient(c.config)
 	c.PublicScheduleBaselineEntry = NewPublicScheduleBaselineEntryClient(c.config)
+	c.RegistrationPolicy = NewRegistrationPolicyClient(c.config)
+	c.ReleasedProfileEntry = NewReleasedProfileEntryClient(c.config)
 	c.ReopenWindow = NewReopenWindowClient(c.config)
 	c.ResultsCorrection = NewResultsCorrectionClient(c.config)
 	c.ResultsPublication = NewResultsPublicationClient(c.config)
@@ -333,6 +345,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		config:                      cfg,
 		Account:                     NewAccountClient(cfg),
 		AccountPreference:           NewAccountPreferenceClient(cfg),
+		AccountProfile:              NewAccountProfileClient(cfg),
 		AccountSession:              NewAccountSessionClient(cfg),
 		Attachment:                  NewAttachmentClient(cfg),
 		AttachmentVersion:           NewAttachmentVersionClient(cfg),
@@ -368,6 +381,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		PrizegivingCompetition:      NewPrizegivingCompetitionClient(cfg),
 		PublicScheduleBaseline:      NewPublicScheduleBaselineClient(cfg),
 		PublicScheduleBaselineEntry: NewPublicScheduleBaselineEntryClient(cfg),
+		RegistrationPolicy:          NewRegistrationPolicyClient(cfg),
+		ReleasedProfileEntry:        NewReleasedProfileEntryClient(cfg),
 		ReopenWindow:                NewReopenWindowClient(cfg),
 		ResultsCorrection:           NewResultsCorrectionClient(cfg),
 		ResultsPublication:          NewResultsPublicationClient(cfg),
@@ -403,6 +418,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		config:                      cfg,
 		Account:                     NewAccountClient(cfg),
 		AccountPreference:           NewAccountPreferenceClient(cfg),
+		AccountProfile:              NewAccountProfileClient(cfg),
 		AccountSession:              NewAccountSessionClient(cfg),
 		Attachment:                  NewAttachmentClient(cfg),
 		AttachmentVersion:           NewAttachmentVersionClient(cfg),
@@ -438,6 +454,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		PrizegivingCompetition:      NewPrizegivingCompetitionClient(cfg),
 		PublicScheduleBaseline:      NewPublicScheduleBaselineClient(cfg),
 		PublicScheduleBaselineEntry: NewPublicScheduleBaselineEntryClient(cfg),
+		RegistrationPolicy:          NewRegistrationPolicyClient(cfg),
+		ReleasedProfileEntry:        NewReleasedProfileEntryClient(cfg),
 		ReopenWindow:                NewReopenWindowClient(cfg),
 		ResultsCorrection:           NewResultsCorrectionClient(cfg),
 		ResultsPublication:          NewResultsPublicationClient(cfg),
@@ -481,20 +499,21 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.Account, c.AccountPreference, c.AccountSession, c.Attachment,
-		c.AttachmentVersion, c.AuditEntry, c.BootstrapCredential, c.CommandReceipt,
-		c.CompetitionEntry, c.CompetitionResultStanding, c.CompetitionResultsDraft,
-		c.Display, c.DisplayAssignment, c.DisplayCredential, c.DisplayEnrollment,
-		c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
+		c.Account, c.AccountPreference, c.AccountProfile, c.AccountSession,
+		c.Attachment, c.AttachmentVersion, c.AuditEntry, c.BootstrapCredential,
+		c.CommandReceipt, c.CompetitionEntry, c.CompetitionResultStanding,
+		c.CompetitionResultsDraft, c.Display, c.DisplayAssignment, c.DisplayCredential,
+		c.DisplayEnrollment, c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventAwardsDraft,
 		c.EventGrant, c.ImportReference, c.Installation, c.Lane, c.LaneDraft,
 		c.LanePublishedVersion, c.Location, c.LocationDraft,
 		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Prizegiving,
 		c.PrizegivingCompetition, c.PublicScheduleBaseline,
-		c.PublicScheduleBaselineEntry, c.ReopenWindow, c.ResultsCorrection,
-		c.ResultsPublication, c.Rundown, c.Session, c.SessionCancellation,
-		c.SessionDraft, c.SessionPublishedVersion, c.SessionRun, c.SessionRunAmendment,
-		c.Track, c.TrackDraft, c.TrackPublishedVersion, c.UploadLink,
+		c.PublicScheduleBaselineEntry, c.RegistrationPolicy, c.ReleasedProfileEntry,
+		c.ReopenWindow, c.ResultsCorrection, c.ResultsPublication, c.Rundown,
+		c.Session, c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion,
+		c.SessionRun, c.SessionRunAmendment, c.Track, c.TrackDraft,
+		c.TrackPublishedVersion, c.UploadLink,
 	} {
 		n.Use(hooks...)
 	}
@@ -504,20 +523,21 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.Account, c.AccountPreference, c.AccountSession, c.Attachment,
-		c.AttachmentVersion, c.AuditEntry, c.BootstrapCredential, c.CommandReceipt,
-		c.CompetitionEntry, c.CompetitionResultStanding, c.CompetitionResultsDraft,
-		c.Display, c.DisplayAssignment, c.DisplayCredential, c.DisplayEnrollment,
-		c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
+		c.Account, c.AccountPreference, c.AccountProfile, c.AccountSession,
+		c.Attachment, c.AttachmentVersion, c.AuditEntry, c.BootstrapCredential,
+		c.CommandReceipt, c.CompetitionEntry, c.CompetitionResultStanding,
+		c.CompetitionResultsDraft, c.Display, c.DisplayAssignment, c.DisplayCredential,
+		c.DisplayEnrollment, c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventAwardsDraft,
 		c.EventGrant, c.ImportReference, c.Installation, c.Lane, c.LaneDraft,
 		c.LanePublishedVersion, c.Location, c.LocationDraft,
 		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Prizegiving,
 		c.PrizegivingCompetition, c.PublicScheduleBaseline,
-		c.PublicScheduleBaselineEntry, c.ReopenWindow, c.ResultsCorrection,
-		c.ResultsPublication, c.Rundown, c.Session, c.SessionCancellation,
-		c.SessionDraft, c.SessionPublishedVersion, c.SessionRun, c.SessionRunAmendment,
-		c.Track, c.TrackDraft, c.TrackPublishedVersion, c.UploadLink,
+		c.PublicScheduleBaselineEntry, c.RegistrationPolicy, c.ReleasedProfileEntry,
+		c.ReopenWindow, c.ResultsCorrection, c.ResultsPublication, c.Rundown,
+		c.Session, c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion,
+		c.SessionRun, c.SessionRunAmendment, c.Track, c.TrackDraft,
+		c.TrackPublishedVersion, c.UploadLink,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -530,6 +550,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Account.mutate(ctx, m)
 	case *AccountPreferenceMutation:
 		return c.AccountPreference.mutate(ctx, m)
+	case *AccountProfileMutation:
+		return c.AccountProfile.mutate(ctx, m)
 	case *AccountSessionMutation:
 		return c.AccountSession.mutate(ctx, m)
 	case *AttachmentMutation:
@@ -600,6 +622,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.PublicScheduleBaseline.mutate(ctx, m)
 	case *PublicScheduleBaselineEntryMutation:
 		return c.PublicScheduleBaselineEntry.mutate(ctx, m)
+	case *RegistrationPolicyMutation:
+		return c.RegistrationPolicy.mutate(ctx, m)
+	case *ReleasedProfileEntryMutation:
+		return c.ReleasedProfileEntry.mutate(ctx, m)
 	case *ReopenWindowMutation:
 		return c.ReopenWindow.mutate(ctx, m)
 	case *ResultsCorrectionMutation:
@@ -766,6 +792,22 @@ func (c *AccountClient) QueryPreference(_m *Account) *AccountPreferenceQuery {
 			sqlgraph.From(account.Table, account.FieldID, id),
 			sqlgraph.To(accountpreference.Table, accountpreference.FieldID),
 			sqlgraph.Edge(sqlgraph.O2O, false, account.PreferenceTable, account.PreferenceColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryProfile queries the profile edge of a Account.
+func (c *AccountClient) QueryProfile(_m *Account) *AccountProfileQuery {
+	query := (&AccountProfileClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(accountprofile.Table, accountprofile.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, account.ProfileTable, account.ProfileColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -1026,6 +1068,156 @@ func (c *AccountPreferenceClient) mutate(ctx context.Context, m *AccountPreferen
 		return (&AccountPreferenceDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown AccountPreference mutation op: %q", m.Op())
+	}
+}
+
+// AccountProfileClient is a client for the AccountProfile schema.
+type AccountProfileClient struct {
+	config
+}
+
+// NewAccountProfileClient returns a client for the AccountProfile from the given config.
+func NewAccountProfileClient(c config) *AccountProfileClient {
+	return &AccountProfileClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `accountprofile.Hooks(f(g(h())))`.
+func (c *AccountProfileClient) Use(hooks ...Hook) {
+	c.hooks.AccountProfile = append(c.hooks.AccountProfile, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `accountprofile.Intercept(f(g(h())))`.
+func (c *AccountProfileClient) Intercept(interceptors ...Interceptor) {
+	c.inters.AccountProfile = append(c.inters.AccountProfile, interceptors...)
+}
+
+// Create returns a builder for creating a AccountProfile entity.
+func (c *AccountProfileClient) Create() *AccountProfileCreate {
+	mutation := newAccountProfileMutation(c.config, OpCreate)
+	return &AccountProfileCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of AccountProfile entities.
+func (c *AccountProfileClient) CreateBulk(builders ...*AccountProfileCreate) *AccountProfileCreateBulk {
+	return &AccountProfileCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *AccountProfileClient) MapCreateBulk(slice any, setFunc func(*AccountProfileCreate, int)) *AccountProfileCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &AccountProfileCreateBulk{err: fmt.Errorf("calling to AccountProfileClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*AccountProfileCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &AccountProfileCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for AccountProfile.
+func (c *AccountProfileClient) Update() *AccountProfileUpdate {
+	mutation := newAccountProfileMutation(c.config, OpUpdate)
+	return &AccountProfileUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *AccountProfileClient) UpdateOne(_m *AccountProfile) *AccountProfileUpdateOne {
+	mutation := newAccountProfileMutation(c.config, OpUpdateOne, withAccountProfile(_m))
+	return &AccountProfileUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *AccountProfileClient) UpdateOneID(id int) *AccountProfileUpdateOne {
+	mutation := newAccountProfileMutation(c.config, OpUpdateOne, withAccountProfileID(id))
+	return &AccountProfileUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for AccountProfile.
+func (c *AccountProfileClient) Delete() *AccountProfileDelete {
+	mutation := newAccountProfileMutation(c.config, OpDelete)
+	return &AccountProfileDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *AccountProfileClient) DeleteOne(_m *AccountProfile) *AccountProfileDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *AccountProfileClient) DeleteOneID(id int) *AccountProfileDeleteOne {
+	builder := c.Delete().Where(accountprofile.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &AccountProfileDeleteOne{builder}
+}
+
+// Query returns a query builder for AccountProfile.
+func (c *AccountProfileClient) Query() *AccountProfileQuery {
+	return &AccountProfileQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAccountProfile},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a AccountProfile entity by its id.
+func (c *AccountProfileClient) Get(ctx context.Context, id int) (*AccountProfile, error) {
+	return c.Query().Where(accountprofile.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *AccountProfileClient) GetX(ctx context.Context, id int) *AccountProfile {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryAccount queries the account edge of a AccountProfile.
+func (c *AccountProfileClient) QueryAccount(_m *AccountProfile) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(accountprofile.Table, accountprofile.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, accountprofile.AccountTable, accountprofile.AccountColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *AccountProfileClient) Hooks() []Hook {
+	hooks := c.hooks.AccountProfile
+	return append(hooks[:len(hooks):len(hooks)], accountprofile.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *AccountProfileClient) Interceptors() []Interceptor {
+	return c.inters.AccountProfile
+}
+
+func (c *AccountProfileClient) mutate(ctx context.Context, m *AccountProfileMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&AccountProfileCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&AccountProfileUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&AccountProfileUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&AccountProfileDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown AccountProfile mutation op: %q", m.Op())
 	}
 }
 
@@ -7174,6 +7366,274 @@ func (c *PublicScheduleBaselineEntryClient) mutate(ctx context.Context, m *Publi
 	}
 }
 
+// RegistrationPolicyClient is a client for the RegistrationPolicy schema.
+type RegistrationPolicyClient struct {
+	config
+}
+
+// NewRegistrationPolicyClient returns a client for the RegistrationPolicy from the given config.
+func NewRegistrationPolicyClient(c config) *RegistrationPolicyClient {
+	return &RegistrationPolicyClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `registrationpolicy.Hooks(f(g(h())))`.
+func (c *RegistrationPolicyClient) Use(hooks ...Hook) {
+	c.hooks.RegistrationPolicy = append(c.hooks.RegistrationPolicy, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `registrationpolicy.Intercept(f(g(h())))`.
+func (c *RegistrationPolicyClient) Intercept(interceptors ...Interceptor) {
+	c.inters.RegistrationPolicy = append(c.inters.RegistrationPolicy, interceptors...)
+}
+
+// Create returns a builder for creating a RegistrationPolicy entity.
+func (c *RegistrationPolicyClient) Create() *RegistrationPolicyCreate {
+	mutation := newRegistrationPolicyMutation(c.config, OpCreate)
+	return &RegistrationPolicyCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of RegistrationPolicy entities.
+func (c *RegistrationPolicyClient) CreateBulk(builders ...*RegistrationPolicyCreate) *RegistrationPolicyCreateBulk {
+	return &RegistrationPolicyCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *RegistrationPolicyClient) MapCreateBulk(slice any, setFunc func(*RegistrationPolicyCreate, int)) *RegistrationPolicyCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &RegistrationPolicyCreateBulk{err: fmt.Errorf("calling to RegistrationPolicyClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*RegistrationPolicyCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &RegistrationPolicyCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for RegistrationPolicy.
+func (c *RegistrationPolicyClient) Update() *RegistrationPolicyUpdate {
+	mutation := newRegistrationPolicyMutation(c.config, OpUpdate)
+	return &RegistrationPolicyUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *RegistrationPolicyClient) UpdateOne(_m *RegistrationPolicy) *RegistrationPolicyUpdateOne {
+	mutation := newRegistrationPolicyMutation(c.config, OpUpdateOne, withRegistrationPolicy(_m))
+	return &RegistrationPolicyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *RegistrationPolicyClient) UpdateOneID(id int) *RegistrationPolicyUpdateOne {
+	mutation := newRegistrationPolicyMutation(c.config, OpUpdateOne, withRegistrationPolicyID(id))
+	return &RegistrationPolicyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for RegistrationPolicy.
+func (c *RegistrationPolicyClient) Delete() *RegistrationPolicyDelete {
+	mutation := newRegistrationPolicyMutation(c.config, OpDelete)
+	return &RegistrationPolicyDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *RegistrationPolicyClient) DeleteOne(_m *RegistrationPolicy) *RegistrationPolicyDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *RegistrationPolicyClient) DeleteOneID(id int) *RegistrationPolicyDeleteOne {
+	builder := c.Delete().Where(registrationpolicy.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &RegistrationPolicyDeleteOne{builder}
+}
+
+// Query returns a query builder for RegistrationPolicy.
+func (c *RegistrationPolicyClient) Query() *RegistrationPolicyQuery {
+	return &RegistrationPolicyQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeRegistrationPolicy},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a RegistrationPolicy entity by its id.
+func (c *RegistrationPolicyClient) Get(ctx context.Context, id int) (*RegistrationPolicy, error) {
+	return c.Query().Where(registrationpolicy.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *RegistrationPolicyClient) GetX(ctx context.Context, id int) *RegistrationPolicy {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *RegistrationPolicyClient) Hooks() []Hook {
+	hooks := c.hooks.RegistrationPolicy
+	return append(hooks[:len(hooks):len(hooks)], registrationpolicy.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *RegistrationPolicyClient) Interceptors() []Interceptor {
+	return c.inters.RegistrationPolicy
+}
+
+func (c *RegistrationPolicyClient) mutate(ctx context.Context, m *RegistrationPolicyMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&RegistrationPolicyCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&RegistrationPolicyUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&RegistrationPolicyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&RegistrationPolicyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown RegistrationPolicy mutation op: %q", m.Op())
+	}
+}
+
+// ReleasedProfileEntryClient is a client for the ReleasedProfileEntry schema.
+type ReleasedProfileEntryClient struct {
+	config
+}
+
+// NewReleasedProfileEntryClient returns a client for the ReleasedProfileEntry from the given config.
+func NewReleasedProfileEntryClient(c config) *ReleasedProfileEntryClient {
+	return &ReleasedProfileEntryClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `releasedprofileentry.Hooks(f(g(h())))`.
+func (c *ReleasedProfileEntryClient) Use(hooks ...Hook) {
+	c.hooks.ReleasedProfileEntry = append(c.hooks.ReleasedProfileEntry, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `releasedprofileentry.Intercept(f(g(h())))`.
+func (c *ReleasedProfileEntryClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ReleasedProfileEntry = append(c.inters.ReleasedProfileEntry, interceptors...)
+}
+
+// Create returns a builder for creating a ReleasedProfileEntry entity.
+func (c *ReleasedProfileEntryClient) Create() *ReleasedProfileEntryCreate {
+	mutation := newReleasedProfileEntryMutation(c.config, OpCreate)
+	return &ReleasedProfileEntryCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ReleasedProfileEntry entities.
+func (c *ReleasedProfileEntryClient) CreateBulk(builders ...*ReleasedProfileEntryCreate) *ReleasedProfileEntryCreateBulk {
+	return &ReleasedProfileEntryCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ReleasedProfileEntryClient) MapCreateBulk(slice any, setFunc func(*ReleasedProfileEntryCreate, int)) *ReleasedProfileEntryCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ReleasedProfileEntryCreateBulk{err: fmt.Errorf("calling to ReleasedProfileEntryClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ReleasedProfileEntryCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ReleasedProfileEntryCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ReleasedProfileEntry.
+func (c *ReleasedProfileEntryClient) Update() *ReleasedProfileEntryUpdate {
+	mutation := newReleasedProfileEntryMutation(c.config, OpUpdate)
+	return &ReleasedProfileEntryUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ReleasedProfileEntryClient) UpdateOne(_m *ReleasedProfileEntry) *ReleasedProfileEntryUpdateOne {
+	mutation := newReleasedProfileEntryMutation(c.config, OpUpdateOne, withReleasedProfileEntry(_m))
+	return &ReleasedProfileEntryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ReleasedProfileEntryClient) UpdateOneID(id int) *ReleasedProfileEntryUpdateOne {
+	mutation := newReleasedProfileEntryMutation(c.config, OpUpdateOne, withReleasedProfileEntryID(id))
+	return &ReleasedProfileEntryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ReleasedProfileEntry.
+func (c *ReleasedProfileEntryClient) Delete() *ReleasedProfileEntryDelete {
+	mutation := newReleasedProfileEntryMutation(c.config, OpDelete)
+	return &ReleasedProfileEntryDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ReleasedProfileEntryClient) DeleteOne(_m *ReleasedProfileEntry) *ReleasedProfileEntryDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ReleasedProfileEntryClient) DeleteOneID(id int) *ReleasedProfileEntryDeleteOne {
+	builder := c.Delete().Where(releasedprofileentry.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ReleasedProfileEntryDeleteOne{builder}
+}
+
+// Query returns a query builder for ReleasedProfileEntry.
+func (c *ReleasedProfileEntryClient) Query() *ReleasedProfileEntryQuery {
+	return &ReleasedProfileEntryQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeReleasedProfileEntry},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ReleasedProfileEntry entity by its id.
+func (c *ReleasedProfileEntryClient) Get(ctx context.Context, id int) (*ReleasedProfileEntry, error) {
+	return c.Query().Where(releasedprofileentry.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ReleasedProfileEntryClient) GetX(ctx context.Context, id int) *ReleasedProfileEntry {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ReleasedProfileEntryClient) Hooks() []Hook {
+	hooks := c.hooks.ReleasedProfileEntry
+	return append(hooks[:len(hooks):len(hooks)], releasedprofileentry.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *ReleasedProfileEntryClient) Interceptors() []Interceptor {
+	return c.inters.ReleasedProfileEntry
+}
+
+func (c *ReleasedProfileEntryClient) mutate(ctx context.Context, m *ReleasedProfileEntryMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ReleasedProfileEntryCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ReleasedProfileEntryUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ReleasedProfileEntryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ReleasedProfileEntryDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ReleasedProfileEntry mutation op: %q", m.Op())
+	}
+}
+
 // ReopenWindowClient is a client for the ReopenWindow schema.
 type ReopenWindowClient struct {
 	config
@@ -9597,32 +10057,34 @@ func (c *UploadLinkClient) mutate(ctx context.Context, m *UploadLinkMutation) (V
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Account, AccountPreference, AccountSession, Attachment, AttachmentVersion,
-		AuditEntry, BootstrapCredential, CommandReceipt, CompetitionEntry,
-		CompetitionResultStanding, CompetitionResultsDraft, Display, DisplayAssignment,
-		DisplayCredential, DisplayEnrollment, DisplayOverride, DisplayOverrideState,
-		DraftChange, DraftChangeDependency, DraftEdit, Event, EventAwardsDraft,
-		EventGrant, ImportReference, Installation, Lane, LaneDraft,
+		Account, AccountPreference, AccountProfile, AccountSession, Attachment,
+		AttachmentVersion, AuditEntry, BootstrapCredential, CommandReceipt,
+		CompetitionEntry, CompetitionResultStanding, CompetitionResultsDraft, Display,
+		DisplayAssignment, DisplayCredential, DisplayEnrollment, DisplayOverride,
+		DisplayOverrideState, DraftChange, DraftChangeDependency, DraftEdit, Event,
+		EventAwardsDraft, EventGrant, ImportReference, Installation, Lane, LaneDraft,
 		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
 		Migration, PasswordCredential, Prizegiving, PrizegivingCompetition,
-		PublicScheduleBaseline, PublicScheduleBaselineEntry, ReopenWindow,
-		ResultsCorrection, ResultsPublication, Rundown, Session, SessionCancellation,
-		SessionDraft, SessionPublishedVersion, SessionRun, SessionRunAmendment, Track,
-		TrackDraft, TrackPublishedVersion, UploadLink []ent.Hook
+		PublicScheduleBaseline, PublicScheduleBaselineEntry, RegistrationPolicy,
+		ReleasedProfileEntry, ReopenWindow, ResultsCorrection, ResultsPublication,
+		Rundown, Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
+		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
+		UploadLink []ent.Hook
 	}
 	inters struct {
-		Account, AccountPreference, AccountSession, Attachment, AttachmentVersion,
-		AuditEntry, BootstrapCredential, CommandReceipt, CompetitionEntry,
-		CompetitionResultStanding, CompetitionResultsDraft, Display, DisplayAssignment,
-		DisplayCredential, DisplayEnrollment, DisplayOverride, DisplayOverrideState,
-		DraftChange, DraftChangeDependency, DraftEdit, Event, EventAwardsDraft,
-		EventGrant, ImportReference, Installation, Lane, LaneDraft,
+		Account, AccountPreference, AccountProfile, AccountSession, Attachment,
+		AttachmentVersion, AuditEntry, BootstrapCredential, CommandReceipt,
+		CompetitionEntry, CompetitionResultStanding, CompetitionResultsDraft, Display,
+		DisplayAssignment, DisplayCredential, DisplayEnrollment, DisplayOverride,
+		DisplayOverrideState, DraftChange, DraftChangeDependency, DraftEdit, Event,
+		EventAwardsDraft, EventGrant, ImportReference, Installation, Lane, LaneDraft,
 		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
 		Migration, PasswordCredential, Prizegiving, PrizegivingCompetition,
-		PublicScheduleBaseline, PublicScheduleBaselineEntry, ReopenWindow,
-		ResultsCorrection, ResultsPublication, Rundown, Session, SessionCancellation,
-		SessionDraft, SessionPublishedVersion, SessionRun, SessionRunAmendment, Track,
-		TrackDraft, TrackPublishedVersion, UploadLink []ent.Interceptor
+		PublicScheduleBaseline, PublicScheduleBaselineEntry, RegistrationPolicy,
+		ReleasedProfileEntry, ReopenWindow, ResultsCorrection, ResultsPublication,
+		Rundown, Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
+		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
+		UploadLink []ent.Interceptor
 	}
 )
 

@@ -204,6 +204,217 @@ func TestBrowserSetupAndSessionSurviveRestart(t *testing.T) {
 	server.stop(t)
 }
 
+func TestBrowserRegistrationProfileAndDisablement(t *testing.T) {
+	bin := buildBeamers(t)
+	dataDir := filepath.Join(t.TempDir(), "data")
+	runBeamers(t, bin, "init", "--data-dir", dataDir)
+	bootstrapToken := strings.TrimSpace(
+		runBeamersOutput(t, bin, "bootstrap", "--data-dir", dataDir),
+	)
+	server := startBeamers(t, bin, dataDir)
+	admin := authenticatedClient(t)
+	admin.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	setup := getFrontendPage(t, admin, server.address, "/setup")
+	setupResponse := postFrontendForm(t, admin, server.address, "/setup", url.Values{
+		"csrf_token":      {requireFrontendCSRF(t, setup)},
+		"bootstrap_token": {bootstrapToken},
+		"handle":          {"admin"},
+		"display_name":    {"Ada Admin"},
+		"password":        {"administrator correct horse battery staple"},
+	})
+	if setupResponse.status != http.StatusSeeOther {
+		t.Fatalf("setup response = %d %q", setupResponse.status, setupResponse.body)
+	}
+	assertJSONRequest(
+		t,
+		admin,
+		server.address,
+		"/admin/events",
+		validEventInput(),
+		http.StatusCreated,
+		"{\"id\":1,\"name\":\"Revision 2026\",\"planned_start_date\":\"2026-08-21\",\"planned_end_date\":\"2026-08-23\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"de-DE\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":1}\n",
+	)
+	assertJSONRequest(
+		t,
+		admin,
+		server.address,
+		"/admin/events/1/grants",
+		map[string]any{
+			"account_id": 1,
+			"role":       "Producer",
+			"command_id": "grant-browser-admin-producer",
+		},
+		http.StatusCreated,
+		"{\"event_id\":1,\"account_id\":1,\"role\":\"Producer\"}\n",
+	)
+
+	participant := authenticatedClient(t)
+	participant.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	registration := getFrontendPage(t, participant, server.address, "/register")
+	if !strings.Contains(registration.body, `method="post" action="/register"`) ||
+		strings.Contains(registration.body, "email") {
+		t.Fatalf("registration form = %q", registration.body)
+	}
+	registered := postFrontendForm(t, participant, server.address, "/register", url.Values{
+		"csrf_token":   {requireFrontendCSRF(t, registration)},
+		"handle":       {"participant"},
+		"display_name": {"Private Person"},
+		"password":     {"participant correct horse battery staple"},
+	})
+	if registered.status != http.StatusSeeOther ||
+		registered.header.Get("Location") != "/sign-in" {
+		t.Fatalf("registration response = %d %q", registered.status, registered.body)
+	}
+	duplicateClient := authenticatedClient(t)
+	duplicatePage := getFrontendPage(t, duplicateClient, server.address, "/register")
+	duplicate := postFrontendForm(
+		t,
+		duplicateClient,
+		server.address,
+		"/register",
+		url.Values{
+			"csrf_token":   {requireFrontendCSRF(t, duplicatePage)},
+			"handle":       {"PARTICIPANT"},
+			"display_name": {"Someone Else"},
+			"password":     {"different correct horse battery staple"},
+		},
+	)
+	if duplicate.status != http.StatusConflict ||
+		!strings.Contains(duplicate.body, "already in use") {
+		t.Fatalf("duplicate registration = %d %q", duplicate.status, duplicate.body)
+	}
+	if private := getFrontendPage(
+		t,
+		authenticatedClient(t),
+		server.address,
+		"/people/participant",
+	); private.status != http.StatusNotFound {
+		t.Fatalf("private Profile status = %d, want 404", private.status)
+	}
+
+	signInPage := getFrontendPage(t, participant, server.address, "/sign-in")
+	signIn := postFrontendForm(t, participant, server.address, "/sign-in", url.Values{
+		"csrf_token": {requireFrontendCSRF(t, signInPage)},
+		"handle":     {"PARTICIPANT"},
+		"password":   {"participant correct horse battery staple"},
+	})
+	if signIn.status != http.StatusSeeOther {
+		t.Fatalf("participant sign-in = %d %q", signIn.status, signIn.body)
+	}
+	profile := getFrontendPage(t, participant, server.address, "/profile")
+	if !strings.Contains(profile.body, `method="post" action="/profile"`) ||
+		!strings.Contains(profile.body, "Private Person") {
+		t.Fatalf("Profile form = %q", profile.body)
+	}
+	saved := postFrontendForm(t, participant, server.address, "/profile", url.Values{
+		"csrf_token":   {requireFrontendCSRF(t, profile)},
+		"display_name": {"Public Person"},
+		"published":    {"true"},
+	})
+	if saved.status != http.StatusSeeOther {
+		t.Fatalf("Profile update = %d %q", saved.status, saved.body)
+	}
+	public := getFrontendPage(
+		t,
+		authenticatedClient(t),
+		server.address,
+		"/people/PARTICIPANT",
+	)
+	if public.status != http.StatusOK || !strings.Contains(public.body, "Public Person") ||
+		strings.Contains(public.body, "Private Person") {
+		t.Fatalf("Public Profile = %d %q", public.status, public.body)
+	}
+
+	policy := getFrontendPage(t, admin, server.address, "/admin/registration")
+	closed := postFrontendForm(t, admin, server.address, "/admin/registration", url.Values{
+		"csrf_token": {requireFrontendCSRF(t, policy)},
+	})
+	if closed.status != http.StatusSeeOther {
+		t.Fatalf("close registration = %d %q", closed.status, closed.body)
+	}
+	closedPage := getFrontendPage(t, authenticatedClient(t), server.address, "/register")
+	if !strings.Contains(closedPage.body, "Registration is closed") ||
+		strings.Contains(closedPage.body, `action="/register"`) {
+		t.Fatalf("closed registration page = %q", closedPage.body)
+	}
+	signedInRoot := getFrontendPage(t, participant, server.address, "/")
+	signedOut := postFrontendForm(t, participant, server.address, "/sign-out", url.Values{
+		"csrf_token": {requireFrontendCSRF(t, signedInRoot)},
+	})
+	if signedOut.status != http.StatusSeeOther {
+		t.Fatalf("sign-out after registration closed = %d %q", signedOut.status, signedOut.body)
+	}
+	closedSignInPage := getFrontendPage(t, participant, server.address, "/sign-in")
+	closedSignIn := postFrontendForm(t, participant, server.address, "/sign-in", url.Values{
+		"csrf_token": {requireFrontendCSRF(t, closedSignInPage)},
+		"handle":     {"participant"},
+		"password":   {"participant correct horse battery staple"},
+	})
+	if closedSignIn.status != http.StatusSeeOther {
+		t.Fatalf(
+			"existing sign-in after registration closed = %d %q",
+			closedSignIn.status,
+			closedSignIn.body,
+		)
+	}
+	rejectedEvent := validEventInput()
+	rejectedEvent["command_id"] = "disabled-participant-event-attempt"
+	assertJSONRequest(
+		t,
+		participant,
+		server.address,
+		"/admin/events",
+		rejectedEvent,
+		http.StatusForbidden,
+		"Administrator authority required\n",
+	)
+	assertJSONRequest(
+		t,
+		admin,
+		server.address,
+		"/admin/accounts/2/disable",
+		map[string]string{
+			"command_id": "disable-browser-participant",
+			"reason":     "access_revoked",
+		},
+		http.StatusNoContent,
+		"",
+	)
+	if disabled := getFrontendPage(
+		t,
+		authenticatedClient(t),
+		server.address,
+		"/people/participant",
+	); disabled.status != http.StatusNotFound {
+		t.Fatalf("disabled Public Profile status = %d, want 404", disabled.status)
+	}
+	audits, _ := readAuditHistory(t, admin, server.address)
+	retainedEventActor := false
+	for _, entry := range audits {
+		if entry.ActorAccountID == 2 &&
+			entry.Action == "CreateEvent" &&
+			entry.Outcome == "Rejected" {
+			retainedEventActor = true
+		}
+	}
+	if !retainedEventActor {
+		t.Fatal("disablement erased the participant's retained Event history")
+	}
+	assertGETResponse(
+		t,
+		admin,
+		server.address,
+		"/crew/events/1",
+		http.StatusOK,
+		"{\"id\":1,\"name\":\"Revision 2026\",\"planned_start_date\":\"2026-08-21\",\"planned_end_date\":\"2026-08-23\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"de-DE\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":1}\n",
+	)
+	server.stop(t)
+}
+
 type frontendResponse struct {
 	status int
 	header http.Header

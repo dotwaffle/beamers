@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/accountpreference"
+	"github.com/dotwaffle/beamers/ent/accountprofile"
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
@@ -45,6 +46,20 @@ func (_u *AccountUpdate) SetName(v string) *AccountUpdate {
 func (_u *AccountUpdate) SetNillableName(v *string) *AccountUpdate {
 	if v != nil {
 		_u.SetName(*v)
+	}
+	return _u
+}
+
+// SetNormalizedName sets the "normalized_name" field.
+func (_u *AccountUpdate) SetNormalizedName(v string) *AccountUpdate {
+	_u.mutation.SetNormalizedName(v)
+	return _u
+}
+
+// SetNillableNormalizedName sets the "normalized_name" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableNormalizedName(v *string) *AccountUpdate {
+	if v != nil {
+		_u.SetNormalizedName(*v)
 	}
 	return _u
 }
@@ -105,6 +120,25 @@ func (_u *AccountUpdate) SetNillablePreferenceID(id *int) *AccountUpdate {
 // SetPreference sets the "preference" edge to the AccountPreference entity.
 func (_u *AccountUpdate) SetPreference(v *AccountPreference) *AccountUpdate {
 	return _u.SetPreferenceID(v.ID)
+}
+
+// SetProfileID sets the "profile" edge to the AccountProfile entity by ID.
+func (_u *AccountUpdate) SetProfileID(id int) *AccountUpdate {
+	_u.mutation.SetProfileID(id)
+	return _u
+}
+
+// SetNillableProfileID sets the "profile" edge to the AccountProfile entity by ID if the given value is not nil.
+func (_u *AccountUpdate) SetNillableProfileID(id *int) *AccountUpdate {
+	if id != nil {
+		_u = _u.SetProfileID(*id)
+	}
+	return _u
+}
+
+// SetProfile sets the "profile" edge to the AccountProfile entity.
+func (_u *AccountUpdate) SetProfile(v *AccountProfile) *AccountUpdate {
+	return _u.SetProfileID(v.ID)
 }
 
 // AddSessionIDs adds the "sessions" edge to the AccountSession entity by IDs.
@@ -196,6 +230,12 @@ func (_u *AccountUpdate) ClearPasswordCredential() *AccountUpdate {
 // ClearPreference clears the "preference" edge to the AccountPreference entity.
 func (_u *AccountUpdate) ClearPreference() *AccountUpdate {
 	_u.mutation.ClearPreference()
+	return _u
+}
+
+// ClearProfile clears the "profile" edge to the AccountProfile entity.
+func (_u *AccountUpdate) ClearProfile() *AccountUpdate {
+	_u.mutation.ClearProfile()
 	return _u
 }
 
@@ -338,6 +378,11 @@ func (_u *AccountUpdate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Account.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.NormalizedName(); ok {
+		if err := account.NormalizedNameValidator(v); err != nil {
+			return &ValidationError{Name: "normalized_name", err: fmt.Errorf(`ent: validator failed for field "Account.normalized_name": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -355,6 +400,9 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(account.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.NormalizedName(); ok {
+		_spec.SetField(account.FieldNormalizedName, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.DisabledAt(); ok {
 		_spec.SetField(account.FieldDisabledAt, field.TypeTime, value)
@@ -413,6 +461,35 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(accountpreference.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ProfileCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   account.ProfileTable,
+			Columns: []string{account.ProfileColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(accountprofile.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ProfileIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   account.ProfileTable,
+			Columns: []string{account.ProfileColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(accountprofile.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -679,6 +756,20 @@ func (_u *AccountUpdateOne) SetNillableName(v *string) *AccountUpdateOne {
 	return _u
 }
 
+// SetNormalizedName sets the "normalized_name" field.
+func (_u *AccountUpdateOne) SetNormalizedName(v string) *AccountUpdateOne {
+	_u.mutation.SetNormalizedName(v)
+	return _u
+}
+
+// SetNillableNormalizedName sets the "normalized_name" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableNormalizedName(v *string) *AccountUpdateOne {
+	if v != nil {
+		_u.SetNormalizedName(*v)
+	}
+	return _u
+}
+
 // SetDisabledAt sets the "disabled_at" field.
 func (_u *AccountUpdateOne) SetDisabledAt(v time.Time) *AccountUpdateOne {
 	_u.mutation.SetDisabledAt(v)
@@ -735,6 +826,25 @@ func (_u *AccountUpdateOne) SetNillablePreferenceID(id *int) *AccountUpdateOne {
 // SetPreference sets the "preference" edge to the AccountPreference entity.
 func (_u *AccountUpdateOne) SetPreference(v *AccountPreference) *AccountUpdateOne {
 	return _u.SetPreferenceID(v.ID)
+}
+
+// SetProfileID sets the "profile" edge to the AccountProfile entity by ID.
+func (_u *AccountUpdateOne) SetProfileID(id int) *AccountUpdateOne {
+	_u.mutation.SetProfileID(id)
+	return _u
+}
+
+// SetNillableProfileID sets the "profile" edge to the AccountProfile entity by ID if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableProfileID(id *int) *AccountUpdateOne {
+	if id != nil {
+		_u = _u.SetProfileID(*id)
+	}
+	return _u
+}
+
+// SetProfile sets the "profile" edge to the AccountProfile entity.
+func (_u *AccountUpdateOne) SetProfile(v *AccountProfile) *AccountUpdateOne {
+	return _u.SetProfileID(v.ID)
 }
 
 // AddSessionIDs adds the "sessions" edge to the AccountSession entity by IDs.
@@ -826,6 +936,12 @@ func (_u *AccountUpdateOne) ClearPasswordCredential() *AccountUpdateOne {
 // ClearPreference clears the "preference" edge to the AccountPreference entity.
 func (_u *AccountUpdateOne) ClearPreference() *AccountUpdateOne {
 	_u.mutation.ClearPreference()
+	return _u
+}
+
+// ClearProfile clears the "profile" edge to the AccountProfile entity.
+func (_u *AccountUpdateOne) ClearProfile() *AccountUpdateOne {
+	_u.mutation.ClearProfile()
 	return _u
 }
 
@@ -981,6 +1097,11 @@ func (_u *AccountUpdateOne) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Account.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.NormalizedName(); ok {
+		if err := account.NormalizedNameValidator(v); err != nil {
+			return &ValidationError{Name: "normalized_name", err: fmt.Errorf(`ent: validator failed for field "Account.normalized_name": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -1015,6 +1136,9 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(account.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.NormalizedName(); ok {
+		_spec.SetField(account.FieldNormalizedName, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.DisabledAt(); ok {
 		_spec.SetField(account.FieldDisabledAt, field.TypeTime, value)
@@ -1073,6 +1197,35 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(accountpreference.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ProfileCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   account.ProfileTable,
+			Columns: []string{account.ProfileColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(accountprofile.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ProfileIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   account.ProfileTable,
+			Columns: []string{account.ProfileColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(accountprofile.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

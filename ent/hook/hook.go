@@ -33,6 +33,18 @@ func (f AccountPreferenceFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AccountPreferenceMutation", m)
 }
 
+// The AccountProfileFunc type is an adapter to allow the use of ordinary
+// function as AccountProfile mutator.
+type AccountProfileFunc func(context.Context, *ent.AccountProfileMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AccountProfileFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AccountProfileMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AccountProfileMutation", m)
+}
+
 // The AccountSessionFunc type is an adapter to allow the use of ordinary
 // function as AccountSession mutator.
 type AccountSessionFunc func(context.Context, *ent.AccountSessionMutation) (ent.Value, error)
@@ -451,6 +463,30 @@ func (f PublicScheduleBaselineEntryFunc) Mutate(ctx context.Context, m ent.Mutat
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PublicScheduleBaselineEntryMutation", m)
+}
+
+// The RegistrationPolicyFunc type is an adapter to allow the use of ordinary
+// function as RegistrationPolicy mutator.
+type RegistrationPolicyFunc func(context.Context, *ent.RegistrationPolicyMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f RegistrationPolicyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.RegistrationPolicyMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RegistrationPolicyMutation", m)
+}
+
+// The ReleasedProfileEntryFunc type is an adapter to allow the use of ordinary
+// function as ReleasedProfileEntry mutator.
+type ReleasedProfileEntryFunc func(context.Context, *ent.ReleasedProfileEntryMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ReleasedProfileEntryFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ReleasedProfileEntryMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ReleasedProfileEntryMutation", m)
 }
 
 // The ReopenWindowFunc type is an adapter to allow the use of ordinary

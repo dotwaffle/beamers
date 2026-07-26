@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/accountpreference"
+	"github.com/dotwaffle/beamers/ent/accountprofile"
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/attachment"
 	"github.com/dotwaffle/beamers/ent/attachmentversion"
@@ -49,6 +50,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
+	"github.com/dotwaffle/beamers/ent/registrationpolicy"
+	"github.com/dotwaffle/beamers/ent/releasedprofileentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
 	"github.com/dotwaffle/beamers/ent/resultscorrection"
 	"github.com/dotwaffle/beamers/ent/resultspublication"
@@ -125,6 +128,7 @@ func checkColumn(t, c string) error {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			account.Table:                     account.ValidColumn,
 			accountpreference.Table:           accountpreference.ValidColumn,
+			accountprofile.Table:              accountprofile.ValidColumn,
 			accountsession.Table:              accountsession.ValidColumn,
 			attachment.Table:                  attachment.ValidColumn,
 			attachmentversion.Table:           attachmentversion.ValidColumn,
@@ -160,6 +164,8 @@ func checkColumn(t, c string) error {
 			prizegivingcompetition.Table:      prizegivingcompetition.ValidColumn,
 			publicschedulebaseline.Table:      publicschedulebaseline.ValidColumn,
 			publicschedulebaselineentry.Table: publicschedulebaselineentry.ValidColumn,
+			registrationpolicy.Table:          registrationpolicy.ValidColumn,
+			releasedprofileentry.Table:        releasedprofileentry.ValidColumn,
 			reopenwindow.Table:                reopenwindow.ValidColumn,
 			resultscorrection.Table:           resultscorrection.ValidColumn,
 			resultspublication.Table:          resultspublication.ValidColumn,

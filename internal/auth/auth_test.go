@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"reflect"
@@ -81,6 +82,146 @@ func TestDemoPasswordRequiresExplicitConfiguration(t *testing.T) {
 	)
 	if !errors.Is(err, ErrInvalidAccountDetails) {
 		t.Fatalf("default demo password error = %v, want %v", err, ErrInvalidAccountDetails)
+	}
+}
+
+func TestOpenRegistrationSeparatesHandleFromDisplayName(t *testing.T) {
+	service, administrator := openAccountTestService(t)
+	service.random = rand.Reader
+
+	if open, err := service.RegistrationOpen(t.Context()); err != nil || !open {
+		t.Fatalf("default Registration Policy = %t, %v; want open", open, err)
+	}
+	registered, err := service.Register(
+		t.Context(),
+		"pat",
+		"Pat Participant",
+		"participant correct horse battery staple",
+	)
+	if err != nil {
+		t.Fatalf("register Account: %v", err)
+	}
+	if registered.Handle != "pat" || registered.Name != "Pat Participant" {
+		t.Fatalf("registered Account = %+v", registered)
+	}
+	if _, err = service.Register(
+		t.Context(),
+		"PAT",
+		"Someone Else",
+		"different correct horse battery staple",
+	); !errors.Is(err, ErrAccountExists) {
+		t.Fatalf("case-insensitive duplicate error = %v, want %v", err, ErrAccountExists)
+	}
+	if _, err = service.Register(
+		t.Context(),
+		"pat-two",
+		"Pat Participant",
+		"another correct horse battery staple",
+	); err != nil {
+		t.Fatalf("register duplicate Display Name: %v", err)
+	}
+	session, err := service.SignIn(
+		t.Context(),
+		"PAT",
+		"participant correct horse battery staple",
+	)
+	if err != nil || session.Account.ID != registered.ID {
+		t.Fatalf("case-insensitive sign-in = %+v, %v", session.Account, err)
+	}
+
+	if err = service.SetRegistrationOpen(t.Context(), registered, false); !errors.Is(
+		err,
+		ErrAdministratorRequired,
+	) {
+		t.Fatalf("participant policy update error = %v, want %v", err, ErrAdministratorRequired)
+	}
+	if err = service.SetRegistrationOpen(t.Context(), administrator, false); err != nil {
+		t.Fatalf("close registration: %v", err)
+	}
+	if _, err = service.Register(
+		t.Context(),
+		"closed",
+		"Closed Registration",
+		"closed correct horse battery staple",
+	); !errors.Is(err, ErrRegistrationClosed) {
+		t.Fatalf("closed registration error = %v, want %v", err, ErrRegistrationClosed)
+	}
+	if _, err = service.SignIn(
+		t.Context(),
+		"pat",
+		"participant correct horse battery staple",
+	); err != nil {
+		t.Fatalf("existing sign-in while registration closed: %v", err)
+	}
+}
+
+func TestPublicProfileIsPrivateByDefaultAndDetachedOnDisable(t *testing.T) {
+	service, administrator := openAccountTestService(t)
+	service.random = rand.Reader
+	registered, err := service.Register(
+		t.Context(),
+		"profile-owner",
+		"Private Person",
+		"profile correct horse battery staple",
+	)
+	if err != nil {
+		t.Fatalf("register profile owner: %v", err)
+	}
+	if _, found, profileErr := service.PublicProfile(
+		t.Context(),
+		"PROFILE-OWNER",
+	); profileErr != nil || found {
+		t.Fatalf("private Public Profile = found %t, %v", found, profileErr)
+	}
+	session, err := service.SignIn(
+		t.Context(),
+		"profile-owner",
+		"profile correct horse battery staple",
+	)
+	if err != nil {
+		t.Fatalf("sign in profile owner: %v", err)
+	}
+	authenticated, err := service.Authenticate(t.Context(), session.Token)
+	if err != nil || authenticated.Handle != "profile-owner" {
+		t.Fatalf("authenticated Profile owner = %+v, %v", authenticated, err)
+	}
+	if err = service.UpdateProfile(
+		t.Context(),
+		authenticated,
+		"Shared Display Name",
+		true,
+		nil,
+	); err != nil {
+		t.Fatalf("publish Public Profile: %v", err)
+	}
+	profile, found, err := service.PublicProfile(t.Context(), "profile-owner")
+	if err != nil || !found {
+		t.Fatalf("published Public Profile = found %t, %v", found, err)
+	}
+	if profile.Handle != "profile-owner" ||
+		profile.DisplayName != "Shared Display Name" ||
+		len(profile.Entries) != 0 {
+		t.Fatalf("published Public Profile = %+v", profile)
+	}
+	if _, err = service.Register(
+		t.Context(),
+		"disabled-account-2",
+		"Collision Guard",
+		"collision correct horse battery staple",
+	); err != nil {
+		t.Fatalf("register collision Handle: %v", err)
+	}
+	if err = service.DisableAccount(
+		t.Context(),
+		administrator,
+		registered.ID,
+		"disable-profile-owner",
+		"access_revoked",
+	); err != nil {
+		t.Fatalf("disable profile owner: %v", err)
+	}
+	if _, found, err = service.PublicProfile(t.Context(), "profile-owner"); err != nil || found {
+		t.Fatalf("disabled Public Profile = found %t, %v", found, err)
 	}
 }
 

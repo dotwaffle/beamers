@@ -12,6 +12,9 @@ type Account func(*sql.Selector)
 // AccountPreference is the predicate function for accountpreference builders.
 type AccountPreference func(*sql.Selector)
 
+// AccountProfile is the predicate function for accountprofile builders.
+type AccountProfile func(*sql.Selector)
+
 // AccountSession is the predicate function for accountsession builders.
 type AccountSession func(*sql.Selector)
 
@@ -116,6 +119,12 @@ type PublicScheduleBaseline func(*sql.Selector)
 
 // PublicScheduleBaselineEntry is the predicate function for publicschedulebaselineentry builders.
 type PublicScheduleBaselineEntry func(*sql.Selector)
+
+// RegistrationPolicy is the predicate function for registrationpolicy builders.
+type RegistrationPolicy func(*sql.Selector)
+
+// ReleasedProfileEntry is the predicate function for releasedprofileentry builders.
+type ReleasedProfileEntry func(*sql.Selector)
 
 // ReopenWindow is the predicate function for reopenwindow builders.
 type ReopenWindow func(*sql.Selector)

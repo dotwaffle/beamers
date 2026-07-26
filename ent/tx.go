@@ -18,6 +18,8 @@ type Tx struct {
 	Account *AccountClient
 	// AccountPreference is the client for interacting with the AccountPreference builders.
 	AccountPreference *AccountPreferenceClient
+	// AccountProfile is the client for interacting with the AccountProfile builders.
+	AccountProfile *AccountProfileClient
 	// AccountSession is the client for interacting with the AccountSession builders.
 	AccountSession *AccountSessionClient
 	// Attachment is the client for interacting with the Attachment builders.
@@ -88,6 +90,10 @@ type Tx struct {
 	PublicScheduleBaseline *PublicScheduleBaselineClient
 	// PublicScheduleBaselineEntry is the client for interacting with the PublicScheduleBaselineEntry builders.
 	PublicScheduleBaselineEntry *PublicScheduleBaselineEntryClient
+	// RegistrationPolicy is the client for interacting with the RegistrationPolicy builders.
+	RegistrationPolicy *RegistrationPolicyClient
+	// ReleasedProfileEntry is the client for interacting with the ReleasedProfileEntry builders.
+	ReleasedProfileEntry *ReleasedProfileEntryClient
 	// ReopenWindow is the client for interacting with the ReopenWindow builders.
 	ReopenWindow *ReopenWindowClient
 	// ResultsCorrection is the client for interacting with the ResultsCorrection builders.
@@ -249,6 +255,7 @@ func (tx *Tx) Client() *Client {
 func (tx *Tx) init() {
 	tx.Account = NewAccountClient(tx.config)
 	tx.AccountPreference = NewAccountPreferenceClient(tx.config)
+	tx.AccountProfile = NewAccountProfileClient(tx.config)
 	tx.AccountSession = NewAccountSessionClient(tx.config)
 	tx.Attachment = NewAttachmentClient(tx.config)
 	tx.AttachmentVersion = NewAttachmentVersionClient(tx.config)
@@ -284,6 +291,8 @@ func (tx *Tx) init() {
 	tx.PrizegivingCompetition = NewPrizegivingCompetitionClient(tx.config)
 	tx.PublicScheduleBaseline = NewPublicScheduleBaselineClient(tx.config)
 	tx.PublicScheduleBaselineEntry = NewPublicScheduleBaselineEntryClient(tx.config)
+	tx.RegistrationPolicy = NewRegistrationPolicyClient(tx.config)
+	tx.ReleasedProfileEntry = NewReleasedProfileEntryClient(tx.config)
 	tx.ReopenWindow = NewReopenWindowClient(tx.config)
 	tx.ResultsCorrection = NewResultsCorrectionClient(tx.config)
 	tx.ResultsPublication = NewResultsPublicationClient(tx.config)

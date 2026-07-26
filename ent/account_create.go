@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/accountpreference"
+	"github.com/dotwaffle/beamers/ent/accountprofile"
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
@@ -109,6 +110,25 @@ func (_c *AccountCreate) SetNillablePreferenceID(id *int) *AccountCreate {
 // SetPreference sets the "preference" edge to the AccountPreference entity.
 func (_c *AccountCreate) SetPreference(v *AccountPreference) *AccountCreate {
 	return _c.SetPreferenceID(v.ID)
+}
+
+// SetProfileID sets the "profile" edge to the AccountProfile entity by ID.
+func (_c *AccountCreate) SetProfileID(id int) *AccountCreate {
+	_c.mutation.SetProfileID(id)
+	return _c
+}
+
+// SetNillableProfileID sets the "profile" edge to the AccountProfile entity by ID if the given value is not nil.
+func (_c *AccountCreate) SetNillableProfileID(id *int) *AccountCreate {
+	if id != nil {
+		_c = _c.SetProfileID(*id)
+	}
+	return _c
+}
+
+// SetProfile sets the "profile" edge to the AccountProfile entity.
+func (_c *AccountCreate) SetProfile(v *AccountProfile) *AccountCreate {
+	return _c.SetProfileID(v.ID)
 }
 
 // AddSessionIDs adds the "sessions" edge to the AccountSession entity by IDs.
@@ -328,6 +348,22 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(accountpreference.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.ProfileIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   account.ProfileTable,
+			Columns: []string{account.ProfileColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(accountprofile.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
