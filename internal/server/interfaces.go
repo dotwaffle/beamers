@@ -241,6 +241,8 @@ func requestInterface(path string) interfaceKind {
 	case path == "/schedule" ||
 		strings.HasPrefix(path, "/schedule/") ||
 		path == "/assets/schedule.css" ||
+		path == "/public/attachments" ||
+		strings.HasPrefix(path, "/public/attachments/") ||
 		strings.HasPrefix(path, "/results/"):
 		return publicInterface
 	case path == "/display" ||

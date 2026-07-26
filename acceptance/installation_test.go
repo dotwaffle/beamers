@@ -4893,7 +4893,7 @@ func TestFinalAttachmentsReleaseByPolicyAndSurviveRestart(t *testing.T) {
 	if override.status != http.StatusOK {
 		t.Fatalf("configure Competition Attachment release = %d: %s", override.status, override.body)
 	}
-	assertReleasedAttachmentIDs(t, server.address)
+	assertReleasedAttachmentsOnListeners(t, server)
 	staleOverride := requestJSONMethod(
 		t.Context(), http.MethodPatch, administrator, server.address,
 		fmt.Sprintf("/crew/events/1/competitions/%d/attachment-release", competitionID),
@@ -4954,7 +4954,7 @@ func TestFinalAttachmentsReleaseByPolicyAndSurviveRestart(t *testing.T) {
 	})); err != nil {
 		t.Fatalf("start bound Attachment Release Cue Session: %v", err)
 	}
-	assertReleasedAttachmentIDs(t, server.address, publicVersion.ID)
+	assertReleasedAttachmentsOnListeners(t, server, publicVersion.ID)
 	cue := requestJSON(
 		t.Context(), administrator, server.address, "/crew/events/1/attachment-release-cue",
 		map[string]any{
@@ -4964,7 +4964,7 @@ func TestFinalAttachmentsReleaseByPolicyAndSurviveRestart(t *testing.T) {
 	if cue.status != http.StatusOK {
 		t.Fatalf("fire Attachment Release Cue = %d: %s", cue.status, cue.body)
 	}
-	assertReleasedAttachmentIDs(t, server.address, publicVersion.ID)
+	assertReleasedAttachmentsOnListeners(t, server, publicVersion.ID)
 
 	current, err := competitionClient.GetCompetition(t.Context(), connect.NewRequest(
 		&competitionv1.GetCompetitionRequest{EventId: 1, SessionId: competitionID},
@@ -4984,7 +4984,11 @@ func TestFinalAttachmentsReleaseByPolicyAndSurviveRestart(t *testing.T) {
 	if err != nil || !entryHeld.Msg.GetEntry().GetReleaseHold() {
 		t.Fatalf("apply Entry Release Hold = %+v, %v", entryHeld, err)
 	}
-	assertReleasedAttachmentIDs(t, server.address)
+	assertReleasedAttachmentsOnListeners(t, server)
+	assertPublicAttachmentOnListeners(
+		t, server, publicVersion.ID,
+		http.StatusNotFound, "Attachment Version not found\n",
+	)
 	entryLifted, err := competitionClient.SetEntryReleaseHold(t.Context(), connect.NewRequest(
 		&competitionv1.SetEntryReleaseHoldRequest{
 			EventId: 1, SessionId: competitionID, EntryId: entryID,
@@ -4996,7 +5000,7 @@ func TestFinalAttachmentsReleaseByPolicyAndSurviveRestart(t *testing.T) {
 	if err != nil || entryLifted.Msg.GetEntry().GetReleaseHold() {
 		t.Fatalf("lift Entry Release Hold = %+v, %v", entryLifted, err)
 	}
-	assertReleasedAttachmentIDs(t, server.address, publicVersion.ID)
+	assertReleasedAttachmentsOnListeners(t, server, publicVersion.ID)
 
 	held := requestJSONMethod(
 		t.Context(), http.MethodPatch, administrator, server.address,
@@ -5009,7 +5013,11 @@ func TestFinalAttachmentsReleaseByPolicyAndSurviveRestart(t *testing.T) {
 	if held.status != http.StatusOK {
 		t.Fatalf("hold public Attachment = %d: %s", held.status, held.body)
 	}
-	assertReleasedAttachmentIDs(t, server.address)
+	assertReleasedAttachmentsOnListeners(t, server)
+	assertPublicAttachmentOnListeners(
+		t, server, publicVersion.ID,
+		http.StatusNotFound, "Attachment Version not found\n",
+	)
 	lifted := requestJSONMethod(
 		t.Context(), http.MethodPatch, administrator, server.address,
 		fmt.Sprintf("/crew/events/1/attachment-versions/%d/release", publicVersion.ID),
@@ -5024,9 +5032,17 @@ func TestFinalAttachmentsReleaseByPolicyAndSurviveRestart(t *testing.T) {
 
 	dataDir, bin := server.dataDir, server.bin
 	server.stop(t)
-	restarted := startBeamers(t, bin, dataDir)
-	assertReleasedAttachmentIDs(t, restarted.address, publicVersion.ID)
-	assertPublicAttachmentBytes(t, restarted.address, publicVersion.ID, http.StatusOK, "public release")
+	restarted := startBeamersWithPublicListener(t, bin, dataDir)
+	assertReleasedAttachmentsOnListeners(t, restarted, publicVersion.ID)
+	assertPublicAttachmentOnListeners(
+		t, restarted, publicVersion.ID, http.StatusOK, "public release",
+	)
+	prepareAndActivateSecondEvent(t, administrator, restarted)
+	assertReleasedAttachmentsOnListeners(t, restarted)
+	assertPublicAttachmentOnListeners(
+		t, restarted, publicVersion.ID,
+		http.StatusNotFound, "Attachment Version not found\n",
+	)
 	restarted.stop(t)
 }
 
@@ -5220,7 +5236,7 @@ type releasedEntryAttachments struct {
 
 func prepareReleasedEntryAttachments(t *testing.T) releasedEntryAttachments {
 	t.Helper()
-	administrator, server := startAuthenticatedAdministrator(t)
+	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
 	prepareActiveSchedule(t, administrator, server)
 	competitionID, _ := addCompetitionSession(t, administrator, server)
 	competitionClient := competitionv1connect.NewCompetitionServiceClient(
@@ -5269,6 +5285,10 @@ func prepareReleasedEntryAttachments(t *testing.T) releasedEntryAttachments {
 			publicVersion.ReleaseEligibility, crewVersion.ReleaseEligibility,
 		)
 	}
+	assertPublicAttachmentOnListeners(
+		t, server, publicVersion.ID,
+		http.StatusNotFound, "Attachment Version not found\n",
+	)
 	for _, version := range []attachmentVersionResponse{publicVersion, crewVersion} {
 		_, err = competitionClient.SetEntryAttachmentReadiness(t.Context(), connect.NewRequest(
 			&competitionv1.SetEntryAttachmentReadinessRequest{
@@ -5295,7 +5315,7 @@ func prepareReleasedEntryAttachments(t *testing.T) releasedEntryAttachments {
 	if configured.status != http.StatusOK {
 		t.Fatalf("configure Attachment Release Policy = %d: %s", configured.status, configured.body)
 	}
-	assertReleasedAttachmentIDs(t, server.address)
+	assertReleasedAttachmentsOnListeners(t, server)
 	sessionClient := sessionv1connect.NewSessionControlServiceClient(
 		administrator, "http://"+server.address, connect.WithProtoJSON(),
 	)
@@ -5305,10 +5325,17 @@ func prepareReleasedEntryAttachments(t *testing.T) releasedEntryAttachments {
 	})); err != nil {
 		t.Fatalf("start Competition for Attachment release: %v", err)
 	}
-	assertReleasedAttachmentIDs(t, server.address, publicVersion.ID)
-	assertPublicAttachmentBytes(t, server.address, publicVersion.ID, http.StatusOK, "public release")
-	assertPublicAttachmentBytes(
-		t, server.address, crewVersion.ID, http.StatusNotFound, "Attachment Version not found\n",
+	assertReleasedAttachmentsOnListeners(t, server, publicVersion.ID)
+	assertPublicAttachmentOnListeners(
+		t, server, publicVersion.ID, http.StatusOK, "public release",
+	)
+	assertPublicAttachmentOnListeners(
+		t, server, crewVersion.ID,
+		http.StatusNotFound, "Attachment Version not found\n",
+	)
+	assertPublicAttachmentOnListeners(
+		t, server, 999999,
+		http.StatusNotFound, "Attachment Version not found\n",
 	)
 	return releasedEntryAttachments{
 		administrator: administrator, server: server,
@@ -5531,6 +5558,33 @@ func assertPublicAttachmentBytes(
 		t.Fatalf(
 			"public Attachment Version %d = %d %q, want %d %q",
 			versionID, response.StatusCode, body, wantStatus, wantBody,
+		)
+	}
+}
+
+func assertReleasedAttachmentsOnListeners(
+	t *testing.T,
+	server *runningServer,
+	want ...int,
+) {
+	t.Helper()
+	assertReleasedAttachmentIDs(t, server.address, want...)
+	if server.publicAddress != "" {
+		assertReleasedAttachmentIDs(t, server.publicAddress, want...)
+	}
+}
+
+func assertPublicAttachmentOnListeners(
+	t *testing.T,
+	server *runningServer,
+	versionID, wantStatus int,
+	wantBody string,
+) {
+	t.Helper()
+	assertPublicAttachmentBytes(t, server.address, versionID, wantStatus, wantBody)
+	if server.publicAddress != "" {
+		assertPublicAttachmentBytes(
+			t, server.publicAddress, versionID, wantStatus, wantBody,
 		)
 	}
 }
@@ -8255,13 +8309,33 @@ func validEventInput() map[string]string {
 
 func startAuthenticatedAdministrator(t *testing.T) (*http.Client, *runningServer) {
 	t.Helper()
+	return startAuthenticatedAdministratorWithListeners(t, false)
+}
+
+func startAuthenticatedAdministratorWithPublicListener(
+	t *testing.T,
+) (*http.Client, *runningServer) {
+	t.Helper()
+	return startAuthenticatedAdministratorWithListeners(t, true)
+}
+
+func startAuthenticatedAdministratorWithListeners(
+	t *testing.T,
+	separatePublic bool,
+) (*http.Client, *runningServer) {
+	t.Helper()
 
 	bin := buildBeamers(t)
 	dataDir := filepath.Join(t.TempDir(), "data")
 	runBeamers(t, bin, "init", "--data-dir", dataDir)
 	bootstrapToken := strings.TrimSpace(runBeamersOutput(t, bin, "bootstrap", "--data-dir", dataDir))
 	client := authenticatedClient(t)
-	server := startBeamers(t, bin, dataDir)
+	var server *runningServer
+	if separatePublic {
+		server = startBeamersWithPublicListener(t, bin, dataDir)
+	} else {
+		server = startBeamers(t, bin, dataDir)
+	}
 	assertJSONRequest(
 		t,
 		client,
@@ -8879,11 +8953,12 @@ func TestRestoreRequiresExclusiveDatabaseAndAttachmentRoots(t *testing.T) {
 }
 
 type runningServer struct {
-	address string
-	bin     string
-	dataDir string
-	cmd     *exec.Cmd
-	done    chan error
+	address       string
+	publicAddress string
+	bin           string
+	dataDir       string
+	cmd           *exec.Cmd
+	done          chan error
 }
 
 func buildBeamers(t *testing.T) string {
@@ -8958,10 +9033,31 @@ func startBeamersWithAttachmentsAt(
 	bin, dataDir, attachmentsDir, listenAddress string,
 ) *runningServer {
 	t.Helper()
+	return startBeamersWithAttachmentsAndPublicAt(
+		t, bin, dataDir, attachmentsDir, listenAddress, false,
+	)
+}
+
+func startBeamersWithPublicListener(t *testing.T, bin, dataDir string) *runningServer {
+	t.Helper()
+	return startBeamersWithAttachmentsAndPublicAt(
+		t, bin, dataDir, "", "127.0.0.1:0", true,
+	)
+}
+
+func startBeamersWithAttachmentsAndPublicAt(
+	t *testing.T,
+	bin, dataDir, attachmentsDir, listenAddress string,
+	separatePublic bool,
+) *runningServer {
+	t.Helper()
 
 	args := []string{"serve", "--data-dir", dataDir, "--listen", listenAddress}
 	if attachmentsDir != "" {
 		args = append(args, "--attachments-dir", attachmentsDir)
+	}
+	if separatePublic {
+		args = append(args, "--public-listen", "127.0.0.1:0")
 	}
 	cmd := exec.CommandContext(t.Context(), bin, args...)
 	stderr, err := cmd.StderrPipe()
@@ -8983,20 +9079,29 @@ func startBeamersWithAttachmentsAt(
 			_ = server.cmd.Process.Kill()
 		}
 	})
-	server.address = waitForListeningAddress(t, stderr, done)
+	server.address, server.publicAddress = waitForListeningAddresses(
+		t, stderr, done, separatePublic,
+	)
 	return server
 }
 
-func waitForListeningAddress(t *testing.T, stderr io.Reader, done <-chan error) string {
+func waitForListeningAddresses(
+	t *testing.T,
+	stderr io.Reader,
+	done <-chan error,
+	separatePublic bool,
+) (string, string) {
 	t.Helper()
 
 	type result struct {
-		address string
-		err     error
+		privateAddress string
+		publicAddress  string
+		err            error
 	}
 	listening := make(chan result, 1)
 	go func() {
 		scanner := bufio.NewScanner(stderr)
+		var privateAddress, publicAddress string
 		for scanner.Scan() {
 			var entry struct {
 				Message string `json:"msg"`
@@ -9005,8 +9110,17 @@ func waitForListeningAddress(t *testing.T, stderr io.Reader, done <-chan error) 
 			if err := json.Unmarshal(scanner.Bytes(), &entry); err != nil {
 				continue
 			}
-			if entry.Message == "server listening" {
-				listening <- result{address: entry.Address}
+			switch entry.Message {
+			case "server listening":
+				privateAddress = entry.Address
+			case "public server listening":
+				publicAddress = entry.Address
+			}
+			if privateAddress != "" && (!separatePublic || publicAddress != "") {
+				listening <- result{
+					privateAddress: privateAddress,
+					publicAddress:  publicAddress,
+				}
 				return
 			}
 		}
@@ -9018,16 +9132,16 @@ func waitForListeningAddress(t *testing.T, stderr io.Reader, done <-chan error) 
 		if got.err != nil {
 			t.Fatalf("read server startup: %v", got.err)
 		}
-		if got.address == "" {
+		if got.privateAddress == "" || separatePublic && got.publicAddress == "" {
 			t.Fatal("server exited without announcing its address")
 		}
-		return got.address
+		return got.privateAddress, got.publicAddress
 	case err := <-done:
 		t.Fatalf("server exited during startup: %v", err)
 	case <-time.After(10 * time.Second):
 		t.Fatal("server did not announce its address")
 	}
-	return ""
+	return "", ""
 }
 
 func assertProbe(t *testing.T, address, path, wantBody string) {
