@@ -32,6 +32,8 @@ const (
 	PublicationScopeStandalone PublicationScope = "Standalone"
 	// PublicationScopeEventAwards targets one standalone Event Awards publication.
 	PublicationScopeEventAwards PublicationScope = "EventAwards"
+	// PublicationScopeEvent targets the canonical Event aggregate.
+	PublicationScopeEvent PublicationScope = "Event"
 )
 
 // CorrectionStatus describes one append-only review revision.
@@ -397,8 +399,9 @@ func (service *Service) PublishCorrection(
 				prizegivingItemRefInputs(proposal.PublicationOrder),
 			)
 			lock.Template = prizegivingTemplateInput(proposal.Template)
-			published, appendErr := transaction.AppendResultsPublication(
+			published, appendErr := appendScopedResultsPublication(
 				actor.Context(ctx),
+				transaction,
 				store.AppendResultsPublicationParams{
 					EventID:          input.EventID,
 					Scope:            store.ResultsPublicationScope(input.Scope),

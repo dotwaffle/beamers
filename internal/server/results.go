@@ -96,6 +96,15 @@ func registerPublicResultsRoutes(
 		"/results/events/{eventID}/event-awards/revisions/{revision}/results.json",
 		handlers.versionedEventAwardsJSON,
 	)
+	mux.HandleFunc("/results/events/{eventID}", handlers.latestEventHTML)
+	mux.HandleFunc(
+		"/results/events/{eventID}/results.txt",
+		handlers.latestEventText,
+	)
+	mux.HandleFunc(
+		"/results/events/{eventID}/revisions/{revision}/results.json",
+		handlers.versionedEventJSON,
+	)
 }
 
 func (handlers publicResultsHandlers) latestHTML(
@@ -148,6 +157,57 @@ func (handlers publicResultsHandlers) versionedEventAwardsJSON(
 		return
 	}
 	handlers.serveEventAwards(response, request, revision, "application/json")
+}
+
+func (handlers publicResultsHandlers) latestEventHTML(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	handlers.serveEvent(response, request, 0, "text/html; charset=utf-8")
+}
+
+func (handlers publicResultsHandlers) latestEventText(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	handlers.serveEvent(response, request, 0, "text/plain; charset=utf-8")
+}
+
+func (handlers publicResultsHandlers) versionedEventJSON(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	revision, err := strconv.Atoi(request.PathValue("revision"))
+	if err != nil || revision <= 0 {
+		http.NotFound(response, request)
+		return
+	}
+	handlers.serveEvent(response, request, revision, "application/json")
+}
+
+func (handlers publicResultsHandlers) serveEvent(
+	response http.ResponseWriter,
+	request *http.Request,
+	revision int,
+	contentType string,
+) {
+	if !publicMethodAllowed(response, request) {
+		return
+	}
+	eventID, err := positivePathID(request, "eventID")
+	if err != nil {
+		http.NotFound(response, request)
+		return
+	}
+	handlers.serveArtifact(
+		response,
+		request,
+		eventID,
+		results.PublicationScopeEvent,
+		eventID,
+		revision,
+		contentType,
+	)
 }
 
 func (handlers publicResultsHandlers) serveEventAwards(

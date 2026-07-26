@@ -153,13 +153,15 @@ func (service *Service) PublicArtifact(
 	if eventID <= 0 || scopeSessionID <= 0 || revision < 0 ||
 		(scope != PublicationScopePrizegiving &&
 			scope != PublicationScopeStandalone &&
-			scope != PublicationScopeEventAwards) {
+			scope != PublicationScopeEventAwards &&
+			scope != PublicationScopeEvent) {
 		return PublicArtifact{}, false, ErrInvalidInput
 	}
 	storeScope := map[PublicationScope]store.ResultsPublicationScope{
 		PublicationScopePrizegiving: store.ResultsPublicationPrizegiving,
 		PublicationScopeStandalone:  store.ResultsPublicationStandalone,
 		PublicationScopeEventAwards: store.ResultsPublicationEventAwards,
+		PublicationScopeEvent:       store.ResultsPublicationEvent,
 	}[scope]
 	if revision == 0 {
 		found, err := service.storage.LoadResultsPublication(

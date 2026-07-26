@@ -26,6 +26,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/displays"
 	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 	"github.com/dotwaffle/beamers/internal/programconnect"
 	"github.com/dotwaffle/beamers/internal/programcontrol"
 	"github.com/dotwaffle/beamers/internal/results"
@@ -529,6 +530,25 @@ func TestStandaloneEventAwardsPublicFormatsSurviveRestart(t *testing.T) {
 			err,
 		)
 	}
+	eventArtifact, found, err := restartedService.PublicArtifact(
+		t.Context(),
+		fixture.eventID,
+		results.PublicationScopeEvent,
+		fixture.eventID,
+		1,
+	)
+	if err != nil ||
+		!found ||
+		!strings.Contains(eventArtifact.JSON, `"key": "community"`) ||
+		!strings.Contains(eventArtifact.JSON, `"status": "Partial"`) ||
+		strings.Contains(eventArtifact.JSON, `"key": "jury"`) {
+		t.Fatalf(
+			"restarted Event Results = %+v, %t, %v",
+			eventArtifact,
+			found,
+			err,
+		)
+	}
 }
 
 type standaloneEventAwardsFixture struct {
@@ -705,6 +725,18 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 		!strings.Contains(stored.RenderedJSON, `"schema_version": "1"`) {
 		t.Fatalf("stored standalone Results Publication = %+v, %v", stored, err)
 	}
+	eventPublication, err := storage.LoadResultsPublication(
+		t.Context(),
+		eventID,
+		store.ResultsPublicationEvent,
+		eventID,
+	)
+	if err != nil ||
+		eventPublication.Revision != 1 ||
+		eventPublication.Status != store.ResultsPublicationFinal ||
+		len(eventPublication.Items) != 1 {
+		t.Fatalf("Event Results Publication = %+v, %v", eventPublication, err)
+	}
 	publicArtifact, found, err := service.PublicArtifact(
 		t.Context(),
 		eventID,
@@ -846,6 +878,20 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 		!strings.Contains(latest.RenderedJSON, `"previous_revision": 1`) {
 		t.Fatalf("corrected Results Publication = %+v, %v", latest, err)
 	}
+	eventPublication, err = storage.LoadResultsPublication(
+		t.Context(),
+		eventID,
+		store.ResultsPublicationEvent,
+		eventID,
+	)
+	if err != nil ||
+		eventPublication.Revision != 2 ||
+		eventPublication.Status != store.ResultsPublicationFinal ||
+		!strings.Contains(eventPublication.RenderedHTML, "Corrected Final") ||
+		!strings.Contains(eventPublication.RenderedText, "Competition title corrected.") ||
+		!strings.Contains(eventPublication.RenderedJSON, `"previous_revision": 1`) {
+		t.Fatalf("corrected Event Results Publication = %+v, %v", eventPublication, err)
+	}
 	original, found, err := storage.LoadResultsPublicationRevision(
 		t.Context(),
 		eventID,
@@ -974,6 +1020,18 @@ func TestStandaloneNoPublicResultsReleaseDoesNotRequireReadyReview(t *testing.T)
 		len(released.Items) != 1 ||
 		released.Items[0].Kind != results.ResultItemNoPublicResults {
 		t.Fatalf("release standalone No Public Results = %+v, %v", released, err)
+	}
+	eventPublication, err := storage.LoadResultsPublication(
+		t.Context(),
+		eventID,
+		store.ResultsPublicationEvent,
+		eventID,
+	)
+	if err != nil ||
+		eventPublication.Status != store.ResultsPublicationFinal ||
+		len(eventPublication.Items) != 1 ||
+		eventPublication.Items[0].Kind != prizegivingvalue.ItemNoPublicResults {
+		t.Fatalf("No Public Results Event Publication = %+v, %v", eventPublication, err)
 	}
 }
 

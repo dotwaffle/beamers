@@ -137,6 +137,82 @@ func TestResultsPublicationAppendIsImmutableAndRevisionChecked(t *testing.T) {
 	}
 }
 
+func TestEventResultsPublicationRejectsNonMonotonicAppend(t *testing.T) {
+	client := openEntTestClient(t)
+	installation := &SQLite{client: client}
+	event := createSchemaTestEvent(t, client)
+	ctx := systemContext(t.Context())
+	now := time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
+	competition := PrizegivingResultItemRef{
+		Kind: "CompetitionResults", CompetitionSessionID: 17, DisplayOrder: 1,
+	}
+	award := PrizegivingResultItemRef{
+		Kind: "EventAward", AwardKey: "community", DisplayOrder: 2,
+	}
+	base := AppendResultsPublicationParams{
+		EventID: event.ID, Scope: ResultsPublicationEvent,
+		ScopeSessionID: event.ID, ExpectedRevision: 0,
+		Policy: ResultsPublicationStandalonePolicy,
+		Status: ResultsPublicationFinal,
+		Items:  []PrizegivingResultItemRef{competition, award},
+		Lock: PrizegivingPreflightLock{
+			PublicationOrder: []PrizegivingResultItemRef{competition, award},
+		},
+		Now: now,
+	}
+	transaction := beginCommand(t, installation, ctx)
+	if _, err := transaction.AppendResultsPublication(ctx, base); err != nil {
+		t.Fatalf("append Event Results Publication: %v", err)
+	}
+	if err := transaction.Commit(); err != nil {
+		t.Fatalf("commit Event Results Publication: %v", err)
+	}
+	tests := []struct {
+		name   string
+		change func(*AppendResultsPublicationParams)
+	}{
+		{
+			name: "retraction",
+			change: func(params *AppendResultsPublicationParams) {
+				params.Items = params.Items[:1]
+			},
+		},
+		{
+			name: "Final to Partial",
+			change: func(params *AppendResultsPublicationParams) {
+				params.Status = ResultsPublicationPartial
+			},
+		},
+		{
+			name: "reorder",
+			change: func(params *AppendResultsPublicationParams) {
+				params.Lock.PublicationOrder = []PrizegivingResultItemRef{
+					award,
+					competition,
+				}
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			params := base
+			params.ExpectedRevision = 1
+			params.Now = now.Add(time.Second)
+			test.change(&params)
+			rejected := beginCommand(t, installation, ctx)
+			if _, err := rejected.AppendResultsPublication(
+				ctx,
+				params,
+			); !errors.Is(err, ErrResultsPublicationTransition) {
+				t.Fatalf("non-monotonic Event append error = %v", err)
+			}
+			if err := rejected.Rollback(); err != nil {
+				t.Fatalf("roll back rejected Event append: %v", err)
+			}
+		})
+	}
+}
+
 func TestResultsPublicationRenderSourceFreezesEventLocaleAndContentLanguage(t *testing.T) {
 	client := openEntTestClient(t)
 	installation := &SQLite{client: client}

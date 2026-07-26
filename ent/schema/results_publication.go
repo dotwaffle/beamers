@@ -25,7 +25,9 @@ func (ResultsPublication) Policy() ent.Policy {
 func (ResultsPublication) Fields() []ent.Field {
 	return []ent.Field{
 		field.Int("event_id").Immutable(),
-		field.Enum("scope").Values("Prizegiving", "Standalone", "EventAwards").Immutable(),
+		field.Enum("scope").
+			Values("Prizegiving", "Standalone", "EventAwards", "Event").
+			Immutable(),
 		field.Int("scope_session_id").Positive().Immutable(),
 		field.Int("revision").Positive().Immutable(),
 		field.Enum("release_policy").

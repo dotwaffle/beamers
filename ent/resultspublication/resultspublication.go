@@ -117,6 +117,7 @@ const (
 	ScopePrizegiving Scope = "Prizegiving"
 	ScopeStandalone  Scope = "Standalone"
 	ScopeEventAwards Scope = "EventAwards"
+	ScopeEvent       Scope = "Event"
 )
 
 func (s Scope) String() string {
@@ -126,7 +127,7 @@ func (s Scope) String() string {
 // ScopeValidator is a validator for the "scope" field enum values. It is called by the builders before save.
 func ScopeValidator(s Scope) error {
 	switch s {
-	case ScopePrizegiving, ScopeStandalone, ScopeEventAwards:
+	case ScopePrizegiving, ScopeStandalone, ScopeEventAwards, ScopeEvent:
 		return nil
 	default:
 		return fmt.Errorf("resultspublication: invalid enum value for scope field: %q", s)
