@@ -7,10 +7,12 @@ import (
 
 func TestBuildPublicResultsModelAppliesVisibilityAndPublicationOrder(t *testing.T) {
 	model, err := BuildPublicResultsModel(PublicResultsSource{
-		EventName:   "Demo",
-		Revision:    4,
-		Status:      ResultsPublicationPartial,
-		PublishedAt: time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC),
+		EventName:       "Demo",
+		EventLocale:     "de-DE",
+		ContentLanguage: "fr",
+		Revision:        4,
+		Status:          ResultsPublicationPartial,
+		PublishedAt:     time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC),
 		Items: []PublicResultsSourceItem{
 			{
 				Ref: ResultItemRef{
@@ -57,6 +59,9 @@ func TestBuildPublicResultsModelAppliesVisibilityAndPublicationOrder(t *testing.
 		t.Fatalf("build public Results model: %v", err)
 	}
 	if len(model.Items) != 2 ||
+		model.Event.EventLocale != "de-DE" ||
+		model.Event.ContentLanguage != "fr" ||
+		model.Event.Language != "fr" ||
 		model.Items[0].NoPublicResults == nil ||
 		model.Items[0].NoPublicResults.Explanation != "No results published." ||
 		model.Items[1].Competition == nil {

@@ -401,8 +401,11 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 		len(stored.Lock.CompetitionSources) != 1 ||
 		stored.Lock.CompetitionSources[0].DraftID != draft.ID ||
 		stored.Template.Revision != 1 ||
+		!strings.Contains(stored.RenderedHTML, `lang="de-DE" data-locale="de-DE"`) ||
 		!strings.Contains(stored.RenderedHTML, "Revision 2026 Results") ||
 		!strings.Contains(stored.RenderedText, "Final") ||
+		!strings.Contains(stored.RenderedJSON, `"event_locale": "de-DE"`) ||
+		!strings.Contains(stored.RenderedJSON, `"content_language": ""`) ||
 		!strings.Contains(stored.RenderedJSON, `"schema_version": "1"`) {
 		t.Fatalf("stored standalone Results Publication = %+v, %v", stored, err)
 	}

@@ -198,7 +198,10 @@ func TestCorrectionFromStoreFailsClosedOnMalformedRevision(t *testing.T) {
 func TestPreservePublishedResultsMatchesCorrectedItemsByIdentity(t *testing.T) {
 	correction := &PublicResultsCorrection{PreviousRevision: 1}
 	frozen := PublicResultsPublication{
-		Event:      PublicResultsEvent{Name: "Frozen Event"},
+		Event: PublicResultsEvent{
+			Name: "Frozen Event", EventLocale: "de-DE",
+			ContentLanguage: "fr", Language: "fr",
+		},
 		EventTitle: "Frozen Event",
 		Correction: correction,
 		Items: []PublicResultsItem{
@@ -217,7 +220,10 @@ func TestPreservePublishedResultsMatchesCorrectedItemsByIdentity(t *testing.T) {
 		},
 	}
 	model := PublicResultsPublication{
-		Event: PublicResultsEvent{Name: "Current Event"},
+		Event: PublicResultsEvent{
+			Name: "Current Event", EventLocale: "en-US",
+			ContentLanguage: "en", Language: "en",
+		},
 		Items: []PublicResultsItem{
 			{Kind: ResultItemEventAward, Award: &PublicResultsAward{Name: "Old Community"}},
 			{Kind: ResultItemCompetitionAward, Award: &PublicResultsAward{Name: "Jury"}},
@@ -248,6 +254,9 @@ func TestPreservePublishedResultsMatchesCorrectedItemsByIdentity(t *testing.T) {
 		},
 	)
 	if model.Event.Name != "Frozen Event" ||
+		model.Event.EventLocale != "de-DE" ||
+		model.Event.ContentLanguage != "fr" ||
+		model.Event.Language != "fr" ||
 		model.Correction != correction ||
 		model.Items[0].Award.Name != "Corrected Community" ||
 		model.Items[1].Award.Name != "Jury" ||

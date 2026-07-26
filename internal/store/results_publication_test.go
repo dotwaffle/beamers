@@ -137,6 +137,29 @@ func TestResultsPublicationAppendIsImmutableAndRevisionChecked(t *testing.T) {
 	}
 }
 
+func TestResultsPublicationRenderSourceFreezesEventLocaleAndContentLanguage(t *testing.T) {
+	client := openEntTestClient(t)
+	installation := &SQLite{client: client}
+	event := createSchemaTestEvent(t, client)
+	client.Event.UpdateOne(event).
+		SetContentLanguage("fr").
+		SaveX(systemContext(t.Context()))
+
+	source, err := installation.LoadResultsPublicationRenderSource(
+		t.Context(),
+		event.ID,
+		PrizegivingPreflightLock{},
+	)
+	if err != nil {
+		t.Fatalf("load Results Publication render source: %v", err)
+	}
+	if source.EventName != event.Name ||
+		source.EventLocale != "de-DE" ||
+		source.ContentLanguage != "fr" {
+		t.Fatalf("Results Publication Event metadata = %+v", source)
+	}
+}
+
 func TestPartialResultsCorrectionPreservesLockedUnreleasedItems(t *testing.T) {
 	client := openEntTestClient(t)
 	installation := &SQLite{client: client}

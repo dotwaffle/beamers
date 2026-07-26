@@ -81,6 +81,8 @@ type ResultsPublication struct {
 // ResultsPublicationRenderSource contains exact facts resolved for rendering.
 type ResultsPublicationRenderSource struct {
 	EventName        string                                `json:"event_name"`
+	EventLocale      string                                `json:"event_locale"`
+	ContentLanguage  string                                `json:"content_language"`
 	Competitions     []ResultsPublicationCompetitionSource `json:"competitions"`
 	EventAwards      []EventAward                          `json:"event_awards"`
 	RecipientEntries []CompetitionEntry                    `json:"recipient_entries"`
@@ -213,8 +215,10 @@ func loadResultsPublicationRenderSource(
 		return ResultsPublicationRenderSource{}, opaqueError("load Results Publication Event", err)
 	}
 	source := ResultsPublicationRenderSource{
-		EventName:    foundEvent.Name,
-		Competitions: make([]ResultsPublicationCompetitionSource, 0, len(lock.CompetitionSources)),
+		EventName:       foundEvent.Name,
+		EventLocale:     foundEvent.EventLocale,
+		ContentLanguage: foundEvent.ContentLanguage,
+		Competitions:    make([]ResultsPublicationCompetitionSource, 0, len(lock.CompetitionSources)),
 	}
 	for _, locked := range lock.CompetitionSources {
 		draft, loadErr := loadCompetitionResultsDraftByID(

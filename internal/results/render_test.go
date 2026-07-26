@@ -10,10 +10,13 @@ import (
 func TestRenderPublicationKeepsHTMLTextAndJSONOnOneModel(t *testing.T) {
 	publication := PublicResultsPublication{
 		SchemaVersion: "1",
-		Event:         PublicResultsEvent{Name: "Demo & Dance"},
-		Revision:      7,
-		Status:        ResultsPublicationFinal,
-		PublishedAt:   time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC),
+		Event: PublicResultsEvent{
+			Name: "Demo & Dance", EventLocale: "de-DE",
+			ContentLanguage: "fr", Language: "fr",
+		},
+		Revision:    7,
+		Status:      ResultsPublicationFinal,
+		PublishedAt: time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC),
 		Items: []PublicResultsItem{{
 			Kind: ResultItemCompetition,
 			Competition: &PublicCompetitionResults{
@@ -52,14 +55,39 @@ func TestRenderPublicationKeepsHTMLTextAndJSONOnOneModel(t *testing.T) {
 		!strings.Contains(rendered.HTML, "Final &lt;Round&gt;") {
 		t.Fatalf("HTML did not escape public content: %s", rendered.HTML)
 	}
+	for _, want := range []string{
+		`<html lang="fr" data-locale="de-DE">`,
+		`<meta name="viewport" content="width=device-width, initial-scale=1">`,
+		`<time datetime="2026-08-21T14:00:00Z">21 Aug 2026, 14:00 UTC</time>`,
+		`href="/schedule"`,
+	} {
+		if !strings.Contains(rendered.HTML, want) {
+			t.Fatalf("localized Results HTML missing %q: %s", want, rendered.HTML)
+		}
+	}
 	var decoded PublicResultsPublication
 	if err = json.Unmarshal([]byte(rendered.JSON), &decoded); err != nil {
 		t.Fatalf("decode versioned Results JSON: %v", err)
 	}
 	if decoded.SchemaVersion != "1" ||
+		decoded.Event.EventLocale != "de-DE" ||
+		decoded.Event.ContentLanguage != "fr" ||
+		decoded.Event.Language != "fr" ||
 		decoded.Revision != publication.Revision ||
 		len(decoded.Items) != 1 {
 		t.Fatalf("decoded Results JSON = %+v", decoded)
+	}
+
+	publication.Event.EventLocale = "en-US"
+	rendered, err = RenderPublicResults(publication, DefaultResultsTextTemplate())
+	if err != nil {
+		t.Fatalf("render en-US public Results: %v", err)
+	}
+	if !strings.Contains(
+		rendered.HTML,
+		`<time datetime="2026-08-21T14:00:00Z">Aug 21, 2026, 2:00 PM UTC</time>`,
+	) {
+		t.Fatalf("en-US Results time missing: %s", rendered.HTML)
 	}
 }
 
