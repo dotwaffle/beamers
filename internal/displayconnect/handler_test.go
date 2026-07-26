@@ -40,7 +40,7 @@ func TestSnapshotMessageCarriesStageTimerContract(t *testing.T) {
 	anchor := time.Date(2026, 2, 7, 12, 30, 0, 0, time.UTC)
 	forecastEnd := anchor.Add(15 * time.Minute)
 	noticeExpires := anchor.Add(5 * time.Second)
-	message := snapshotMessage(displays.Snapshot{
+	message, err := snapshotMessage(displays.Snapshot{
 		StageTimer: &displays.StageTimer{
 			SessionID:                 42,
 			Title:                     "Closing Keynote",
@@ -55,6 +55,9 @@ func TestSnapshotMessageCarriesStageTimerContract(t *testing.T) {
 			},
 		},
 	}, displaystream.Cursor{}, "")
+	if err != nil {
+		t.Fatalf("project Display snapshot: %v", err)
+	}
 
 	timer := message.GetStageTimer()
 	if timer.GetSessionId() != 42 || timer.GetTitle() != "Closing Keynote" {

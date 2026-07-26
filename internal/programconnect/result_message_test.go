@@ -1,6 +1,7 @@
 package programconnect
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -10,12 +11,13 @@ import (
 	resultsv1 "github.com/dotwaffle/beamers/gen/beamers/results/v1"
 	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 	"github.com/dotwaffle/beamers/internal/programcontrol"
+	"github.com/dotwaffle/beamers/internal/resultsprojection"
 	"github.com/dotwaffle/beamers/internal/store"
 )
 
 func TestProgramResultMessagePreservesPublicRevealContract(t *testing.T) {
 	startedAt := time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
-	message := ProgramResultMessage(&store.ProgramResult{
+	message, err := ProgramResultMessage(&store.ProgramResult{
 		Ref: store.PrizegivingResultItemRef{
 			Kind:                 prizegivingvalue.ItemCompetitionResults,
 			CompetitionSessionID: 17,
@@ -32,6 +34,9 @@ func TestProgramResultMessagePreservesPublicRevealContract(t *testing.T) {
 			EntryID: 4, BasisPoints: 7500,
 		}},
 	})
+	if err != nil {
+		t.Fatalf("project Program Result: %v", err)
+	}
 	if message.GetItem().GetKind() !=
 		resultsv1.ResultItemKind_RESULT_ITEM_KIND_COMPETITION_RESULTS ||
 		message.GetItem().GetCompetitionSessionId() != 17 ||
@@ -47,6 +52,38 @@ func TestProgramResultMessagePreservesPublicRevealContract(t *testing.T) {
 		len(message.GetScoreBars()) != 1 ||
 		message.GetScoreBars()[0].GetBasisPoints() != 7500 {
 		t.Fatalf("Program Result message = %+v", message)
+	}
+}
+
+func TestProgramResultMessageRejectsUnknownResultsState(t *testing.T) {
+	for name, value := range map[string]*store.ProgramResult{
+		"release": {
+			Ref: store.PrizegivingResultItemRef{
+				Kind: prizegivingvalue.ItemCompetitionResults,
+			},
+			RevealMethod:              prizegivingvalue.RevealStatic,
+			ReducedMotionRevealMethod: prizegivingvalue.RevealStatic,
+			Status:                    prizegivingvalue.StagePending,
+			Release:                   "mystery",
+		},
+		"status": {
+			Ref: store.PrizegivingResultItemRef{
+				Kind: prizegivingvalue.ItemCompetitionResults,
+			},
+			RevealMethod:              prizegivingvalue.RevealStatic,
+			ReducedMotionRevealMethod: prizegivingvalue.RevealStatic,
+			Status:                    "mystery",
+			Release:                   prizegivingvalue.ReleaseHeld,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := ProgramResultMessage(value); !errors.Is(
+				err,
+				resultsprojection.ErrUnknownValue,
+			) {
+				t.Fatalf("projection error = %v, want ErrUnknownValue", err)
+			}
+		})
 	}
 }
 

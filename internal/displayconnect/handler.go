@@ -194,16 +194,18 @@ func (*Handler) GetSnapshot(
 	if !ok {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("display authentication required"))
 	}
-	return connect.NewResponse(&displayv1.GetSnapshotResponse{
-		Snapshot: snapshotMessage(authorized.snapshot, authorized.cursor, authorized.snapshotToken),
-	}), nil
+	snapshot, err := snapshotMessage(authorized.snapshot, authorized.cursor, authorized.snapshotToken)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&displayv1.GetSnapshotResponse{Snapshot: snapshot}), nil
 }
 
 func snapshotMessage(
 	found displays.Snapshot,
 	cursor displaystream.Cursor,
 	snapshotToken string,
-) *displayv1.DisplaySnapshot {
+) (*displayv1.DisplaySnapshot, error) {
 	result := &displayv1.DisplaySnapshot{
 		ProtocolVersion:       found.ProtocolVersion,
 		AssetVersion:          found.AssetVersion,
@@ -227,6 +229,10 @@ func snapshotMessage(
 		ProgramOutputRevision: int64(found.ProgramOutputRevision),
 	}
 	if found.ProgramOutput != nil {
+		programResult, err := programconnect.ProgramResultMessage(found.ProgramOutput.Result)
+		if err != nil {
+			return nil, err
+		}
 		result.ProgramOutput = &programv1.ProgramItem{
 			Kind: map[string]programv1.ProgramItemKind{
 				"Standby":  programv1.ProgramItemKind_PROGRAM_ITEM_KIND_STANDBY,
@@ -238,7 +244,7 @@ func snapshotMessage(
 			}[found.ProgramOutput.Kind],
 			EntryId: int64(found.ProgramOutput.EntryID),
 			Title:   found.ProgramOutput.Title,
-			Result:  programconnect.ProgramResultMessage(found.ProgramOutput.Result),
+			Result:  programResult,
 		}
 	}
 	for _, item := range found.Sessions {
@@ -251,7 +257,7 @@ func snapshotMessage(
 	result.TechnicalDifficulties = displayOverrideMessage(found.TechnicalDifficulties)
 	result.UrgentNotice = displayOverrideMessage(found.UrgentNotice)
 	result.EmergencyAlert = displayOverrideMessage(found.EmergencyAlert)
-	return result
+	return result, nil
 }
 
 func displayOverrideMessage(found *displays.DisplayOverride) *displayv1.DisplayOverride {
