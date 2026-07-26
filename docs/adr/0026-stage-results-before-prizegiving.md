@@ -1,11 +1,14 @@
 # Stage results before Prizegiving
 
+ADR 0055 supersedes this decision's voting deferral.
+The reviewed Results Draft and Prizegiving release boundaries remain in force.
+
 V1 stores a crew-only Results Draft for each Competition with ordered placements and optional award labels.
 A Producer reviews and marks the draft Ready.
 An Event may designate multiple Ceremony Sessions as Prizegivings and assign each Competition to at most one of them.
 Prizegiving Preflight checks only its assigned Competitions and blocks while any Results Disposition is Pending, any Publish disposition lacks Ready Results, or any Not Presented Entry has Resolution Required.
 Its Results Reveal Policy then governs release of those exact revisions; non-progressive release publishes the set atomically, while Progressive on Reveal publishes its revealed subset.
-Vote collection and tallying are deferred because they depend on the future attendee Account and admission vote-key system.
+ADR 0055 feeds a closed Voting Tally into this reviewed Results Draft workflow.
 
 Prizegiving assignment is optional.
 An unassigned Competition may use a Producer-triggered Standalone Results Release after the same disposition, Ready Results when publishing, and Entry-resolution checks.
@@ -118,8 +121,8 @@ This prevents editing Awards for a later ceremony from blocking the current one.
 Relevant Preflight blocks until that path's Event Awards are Ready.
 Changing an Award, recipient, or release assignment creates a new revision and clears Ready only for affected paths.
 
-The deferred voting design must revisit thumbs voting, an optional coup de coeur vote scoped per Competition or Event, and whether Audience Choice derives from that vote or aggregate ranking.
-V1 assigns Awards manually and makes none of those choices.
+Additional Voting Methods and automatic Audience Choice derivation remain deferred.
+Version one assigns Awards manually.
 
 Each Prizegiving chooses a Results Reveal Policy: All at Cue, Progressive on Reveal, or At Ceremony End.
 Progressive on Reveal is the default so public results remain synchronized with completed stage reveals without delaying everything until the end.

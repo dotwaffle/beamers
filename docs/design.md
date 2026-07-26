@@ -14,8 +14,9 @@ If this overview is ambiguous, use the glossary for terminology and the relevant
 Beamers is a venue-local application for operating a live Event and communicating its actual state.
 It owns the authoritative Rundown after optional one-way import, rather than merely displaying a timetable owned elsewhere.
 
-Crew Members use it to publish a Schedule, progress Sessions, adjust live timing, control stage and Competition output, issue temporary Overrides, collect scoped file submissions, and release reviewed results.
-Attendees see current and upcoming information on venue Displays and a public read-only Schedule.
+Crew Members use it to publish a Schedule, progress Sessions, adjust live timing, control stage and Competition output, issue temporary Overrides, collect account-bound file submissions, and release reviewed results.
+Attendees browse the public Frontend without an Account.
+Signing in adds Favorite Sessions, Competition Entry submission, voting when eligible, and an authorized Backstage section for Crew Members.
 Speakers receive a Stage Timer and discreet Stage Messages.
 
 The central promise is that every surface reflects what the crew says is happening now.
@@ -37,20 +38,25 @@ Version one must provide:
 - Inputless Display Enrollment, Event-specific Assignment, grouped targeting, and automatic recovery.
 - Emergency Alert, Urgent Notice, Stage Message, and Technical Difficulties Overrides.
 - Competition submission, review, ordering, Preview, Take, replay, deferral, and resolution workflows.
-- Scoped Presentation and Entry upload links with immutable Attachment Versions, Final and Primary selection, release controls, and deadlines.
+- Optional self-registration, multiple Credentials, Favorite Sessions, account-bound Competition Entry submission, and Event-scoped Voting Eligibility.
+- Account-bound Presentation and Entry uploads with immutable Attachment Versions, Final and Primary selection, release controls, and deadlines.
+- Explicit Competition Voting Windows, configurable Voting Methods, private Ballots, immutable Voting Tallies, and Producer-reviewed Results Drafts.
 - Crew-managed Competition results, Awards, Prizegiving sequences, deterministic reveal methods, and public HTML, `results.txt`, and JSON publication.
-- Named Crew Accounts, Event-scoped roles and capabilities, durable command receipts, and lifetime Audit Entries.
+- One responsive browser shell for public, Account, Crew, and administration workflows.
+- Event-scoped roles and capabilities, durable command receipts, and lifetime Audit Entries.
+- Versioned Installation and Event Themes with accessible demoscene-forward defaults and reduced-effects behavior.
 - Backup, restore, migration, diagnostics, telemetry, and tested shutdown and upgrade behavior.
 
 ### Explicitly deferred
 
 Version one does not include:
 
-- Attendee Accounts, admission vote keys, voting, automated tallying, or Audience Choice derivation.
 - Automatic Session progression as the default; optional per-Session start or end automation is future work.
 - Bidirectional schedule synchronization or dedicated pretalx and frab integrations.
 - Generic file sharing, a WebDAV or copyparty-facing download Interface, or external write access to canonical Attachments.
-- A visual Layout or slide-template editor, arbitrary HTML or CSS Themes, portrait-specific Layouts, or arbitrary aspect-ratio guarantees.
+- General Presentation proposals or a call-for-presentations review workflow.
+- Arbitrary HTML, CSS, JavaScript, or uploaded font files in Themes.
+- A visual Layout or slide-template editor, portrait-specific Layouts, or arbitrary aspect-ratio guarantees.
 - A Location Signage Live Feed, centrally rendered broadcast video output, or external recording, streaming, lighting, and webhook integrations.
 - GraphQL, Datastar, NATS, or WebSocket delivery without a concrete consumer that justifies them.
 - Automatic failover, multiple active services, automatic replica promotion, or an authoritative read replica.
@@ -71,6 +77,10 @@ A Track is only a thematic grouping and never controls timing.
 An installation may store past, current, and future Events but designates exactly one Active Event for live commands and Display output.
 Activation Preflight blocks invalid Published structure and warns about operational incompleteness.
 Display Assignment remains Event-specific and is never silently inherited from the previously Active Event.
+Public Event Listing is a separate Producer-controlled designation.
+The root page lists public Events and features the Active Event when it is public.
+Each Event uses a current Event Slug in its public URL.
+Renaming retains the previous slug as an Event Slug Alias until an Administrator explicitly prunes it.
 
 A Session is the unit of planned live content.
 Initial Session types include Presentation, Competition, Break, Activity, Ceremony, Performance, and Hold.
@@ -140,6 +150,15 @@ A Competition is a Session containing ordered Entries.
 Its fixed Submission Deadline closes new Entries and updates regardless of later Forecast changes.
 Crew may open a bounded, audited Reopen Window for one existing Entry.
 
+Submission Eligibility defaults from the Event and may be overridden per Competition.
+All Accounts are eligible by default.
+An Event may instead require Voting Eligibility.
+Changing the policy affects only new Entries and does not strand a Submitter Account that already maintains one.
+
+An Entry has at most one Submitter Account.
+Producers may create a Crew Managed Entry from a pre-submission and may later assign an existing Account.
+Public credits are independent of the Submitter Account.
+
 Entry Disposition is Pending, Included, or Rejected.
 The Event decides whether new Entries default to Pending or Included.
 Optional Entry Review is separate from disposition and, when required, blocks Competition start until every participating Entry's current contents have been reviewed.
@@ -156,6 +175,18 @@ Ending with deferred Entries requires confirmation and marks them Not Presented 
 Prizegiving and relevant public release remain blocked until each is resolved, such as public inclusion, Technical Failure handling, Disqualification, or Withholding.
 Technical Failure does not by itself decide judging eligibility, public visibility, or Attachment release.
 
+Each Competition inherits a Voting Method from the Event and freezes it when its Voting Window opens.
+Version one supplies Range Voting from one through five.
+Once an Account casts any Vote in a Competition, every omitted votable Entry receives the neutral value three during tallying.
+The Self-Vote Policy either Allows the Submitter Account's explicit Vote or substitutes the same neutral value.
+Under the neutral policy, that value contributes only when the Submitter Account participates in the Competition.
+
+A Producer explicitly opens and closes the Voting Window.
+An Entry becomes votable when its first Competition Slide is Taken.
+Authenticated live updates add it to eligible Ballots without requiring a refresh.
+Closing creates one immutable Voting Tally.
+The tally seeds a Results Draft for Producer review but never publishes Results or makes its ordering authoritative.
+
 Rejection excludes an Entry from presentation.
 Disqualification may occur after presentation, preserves true history, and is publicly visible unless a separate accepted outcome applies.
 Withholding is available for a Not Presented Entry whose existence and files should remain private, such as a technical failure that may be resubmitted elsewhere.
@@ -165,13 +196,14 @@ Withholding is available for a Not Presented Entry whose existence and files sho
 Beamers owns canonical Attachment files, metadata, visibility, and integrity.
 Replacing a file creates an immutable Attachment Version.
 
-Scoped, revocable Upload Links permit uploads to one Presentation or Entry without creating an attendee Account.
+An Account may upload only for an Entry or Presentation for which it is the Submitter Account.
+A Producer may upload through Backstage for any Entry or Presentation.
 A sole upload becomes Primary automatically.
 Preflight also marks it Final by default unless the Event's review policy requires crew approval.
 
 File Delivery Required defaults on for Competitions and off for Presentations.
 When enabled, it blocks Start until every participating Entry, or the Presentation itself, has a Final Primary Attachment.
-A Presentation Upload Link closes at Actual Start unless a Producer configured an earlier fixed Upload Deadline.
+A Presentation Submitter's upload access closes at Actual Start unless a Producer configured an earlier fixed Presentation Upload Deadline.
 
 Multiple Attachments may each have a Final Version, but only one Attachment Version is Primary for an Entry or Presentation.
 The Primary is selected by crew as the default operational file.
@@ -220,6 +252,25 @@ Post-release changes use a reviewed Results Correction and retain prior revision
 
 ## User surfaces and live operation
 
+### Browser shell and setup
+
+Every attendee and Crew version-one workflow is completable through one responsive browser shell.
+Public Event, Schedule, and Results routes remain available without an Account.
+Signing in adds My Schedule, My Entries, Voting, and Public Profile controls.
+Backstage appears only for authorized Event roles and capabilities.
+Installation administration appears there only for Administrators.
+Small screens use a navigation drawer and larger screens use a sidebar.
+Server authorization remains authoritative regardless of which links are rendered.
+
+An unbootstrapped installation presents a setup action at the root.
+The host-authorized `beamers bootstrap` command prints a one-time token.
+Submitting it at `/setup` creates the first Account and Credential and removes the setup route.
+Creating the first Event offers an explicit, checked-by-default action to grant that Account Producer access.
+
+The normal root lists public Events, features the public Active Event, and exposes sign-in or Account controls.
+CLI commands remain limited to host lifecycle, bootstrap, recovery, and service operation.
+Browser users never need Connect, Protocol Buffers, direct SQLite access, or `curl`.
+
 ### Planning and publishing
 
 CSV and iCalendar imports create or update Draft proposals only.
@@ -235,13 +286,54 @@ They remain revision-checked, idempotent, durable, and audited.
 ### Public Schedule
 
 The responsive, unauthenticated public Schedule shows current and upcoming Public Sessions, Forecast Times, Locations, Lanes, and Tracks.
-Day, Location, Lane, and Track filters use shareable URLs rather than Accounts or server-side preferences.
+Day, Location, Lane, and Track filters use shareable URLs.
 Each Public Session has a stable deep link across renaming, retiming, cancellation, and reinstatement.
 A Crew Only or unknown Session returns the same generic not-found response.
 
 The Schedule defaults to Event time and may offer attendee-local conversion without changing Event-day grouping.
 It is always available on the venue network and may be exposed externally as a deployment choice.
-Cacheable conditional polling about every 15 seconds keeps it current without placing public readers on the immediate live stream.
+SSE invalidation and snapshot recovery keep an open Schedule current without requiring refresh.
+Cacheable complete responses remain available for first load, direct navigation, and recovery.
+
+A signed-in Account may create Favorite Sessions.
+Favorites are private and produce My Schedule only.
+They expose no public counts, notifications, or operational signal.
+
+### Accounts, submissions, and voting
+
+Open self-registration is the default.
+It requires only an Account Handle, Display Name, and Password Credential.
+Registration may be closed installation-wide.
+Configured identity providers may separately allow sign-in and linking while denying new Account creation.
+
+An Account may add Password, WebAuthn, and Federated Identity Credentials and may remove its password after another Credential exists.
+SceneID and PeeringDB are named optional providers built on constrained adapters.
+Generic OpenID Connect is also supported.
+Provider configuration and client secrets are host-managed and providers are absent from the browser until configured.
+
+Federated identities are keyed by provider and immutable subject.
+They are never automatically linked by Account Handle, Display Name, or email.
+An existing Account authenticates before linking a provider.
+Otherwise an allowed provider creates a distinct Account.
+
+Accounts generate single-use Recovery Codes.
+An Administrator may issue a short-lived recovery token after offline identity verification.
+That action is audited and revokes existing sessions.
+Host bootstrap remains the recovery path for the last Administrator.
+
+Profiles are private by default.
+An Account may publish its Display Name and selected released Entries.
+Favorites, Voting Eligibility, Ballots, Credentials, Event Grants, contact details, and audit history are never public.
+
+Competition Entries require a signed-in Account unless a Producer creates them through Backstage.
+General Presentation submission is Crew Managed in version one.
+A Producer may assign one Submitter Account to an imported Presentation so that person can maintain its public details and Attachments.
+
+Venue crew issue Voting Keys after admission verification.
+A signed-in Account redeems one key once to gain Voting Eligibility for that Event.
+The voter can see its own Ballot.
+Crew can see eligibility, participation, completion, aggregates after close, and the resulting Voting Tally but not individual Votes.
+Audit records voting lifecycle actions without recording Vote values.
 
 ### Displays and Views
 
@@ -344,22 +436,21 @@ A clock is an explicit seam, allowing pure domain tests to control time and dayl
 ### Web and transport choices
 
 Server-owned HTML uses templ.
-Htmx adds modest form, filtering, navigation, validation, and partial-replacement behavior while direct routes remain useful complete pages.
+Htmx adds form, filtering, navigation, validation, partial-replacement, and SSE behavior while direct routes remain useful complete pages.
 Small JavaScript modules handle clocks, Display rendering, presentation effects, and recovery behavior that is not a natural HTML exchange.
+Public browsing, sign-in, submission, and Backstage forms remain usable without JavaScript where live behavior is not essential.
+Voting and Displays may require JavaScript for live state.
 
 Programmatic commands and queries use versioned Protocol Buffer contracts over ConnectRPC, normally using Connect's JSON encoding in browsers.
 Server-rendered handlers call application modules directly rather than making loopback RPCs.
 Version one begins with unary RPCs.
 
-SSE carries authenticated, revisioned change notifications and heartbeats to Displays and Crew consoles.
+SSE carries scoped, revisioned change notifications and heartbeats to public browsers, signed-in Accounts, Displays, and Crew consoles.
 Connect provides complete snapshots, commands, and Display acknowledgments.
 A client resnapshots after reconnect, a sequence gap, an Active Event change, or incompatible state.
 Slow subscribers are disconnected and recover from a snapshot rather than blocking commands.
 
-The unauthenticated public Schedule uses cacheable conditional polling about every 15 seconds.
-Immediate push is reserved for Displays and Crew consoles in version one.
-
-Pinned web assets are embedded in the Go binary.
+Pinned htmx, its official SSE extension, and application assets are embedded in the Go binary.
 Production rendering does not depend on a CDN, Node toolchain, or internet connection.
 
 ## Data, consistency, and history
@@ -379,16 +470,22 @@ Every state-changing command follows one transaction pipeline:
 
 Audit Entries are append-only at the application level and retained for the installation lifetime.
 They identify actors, targets, actions, and outcomes but exclude credentials, secrets, and Attachment contents.
-Disabled Accounts retain stable historical identity.
+Disabled Accounts retain stable historical identity for audit and event history while private personal data is detached.
+Public Entry credits remain until a Producer edits them.
 
 SSE is not an event store and clients are not authorities.
 Correctness depends on durable revisions and snapshots, not delivery of every notification.
 
 ## Identity, authorization, and network security
 
-Every Crew Member uses an individual Account.
-Version one supports regular credential-based Accounts; passkeys and hardware authenticators are future additions.
+Every attendee and Crew Member uses an individual Account when signing in.
+One Account may hold multiple independently revocable Password, WebAuthn, and Federated Identity Credentials.
+An enabled Account retains at least one active Credential.
 Each Account may hold at most eight active sessions; a successful login prunes inactive sessions and revokes the oldest active session first when the cap is reached.
+
+Browser authentication uses revocable server-side sessions in `HttpOnly`, `SameSite=Lax` cookies.
+HTTPS sessions also use `Secure`.
+State-changing requests require CSRF protection independently of htmx or complete-page submission.
 
 Administrator is installation-wide and does not imply Event access.
 Producer, Operator, and Observer are Event roles granted through Event Grants.
@@ -398,14 +495,31 @@ Ent privacy policies are the final authorization boundary for operational entiti
 Handlers may repeat checks for clearer errors but cannot grant access denied by policy.
 Privacy bypass is confined to narrow migration, bootstrap, and internal system paths and is inaccessible from request-derived contexts.
 
-Crew origins require TLS, either directly or through an explicitly trusted reverse proxy.
-Any insecure venue-LAN mode is explicit and prominently warned.
-Public and private listeners may be separated.
+HTTPS is the default, either directly or through an explicitly trusted reverse proxy.
+The Frontend and Backstage may use separate listeners so an installation can expose public and Account routes while keeping Backstage private.
+An explicitly configured insecure Frontend may bind to a non-loopback interface with persistent browser and log warnings.
+Password authentication remains available there, but WebAuthn is unavailable without a browser secure context and federation may be unavailable when provider policy requires HTTPS.
+Demo mode enables this insecure behavior automatically and announces it.
 Same-origin protections, request-size limits, deadlines, rate limits, secure cookies, and strict Content Security Policy apply independently of transport choice.
 
 Public Schedule and published Results are unauthenticated.
 Crew Only resources return a generic not-found response rather than confirming existence.
-Upload Links are unguessable scoped credentials, not Accounts.
+
+### Demo mode
+
+`beamers demo` starts one disposable, representative installation bound to `0.0.0.0:8080` unless `--listen` overrides it.
+It enables plaintext browser access with an explicit warning because remote trials are its purpose.
+All seeded Accounts use the password `demo`.
+
+The deterministic seed spans two Event days.
+It includes Locations, Lanes, Tracks, public Sessions, Favorite Sessions, Entries, Attachments, Displays, roles, capabilities, Audit Entries, and one unused Voting Key.
+One Competition accepts submissions.
+One is live with presented Entries and an open Voting Window.
+One has completed and released Results.
+Representative Accounts cover an attendee, a Voting Eligible attendee, a Producer who is also Administrator, and a scoped Operator.
+
+Without `--data-dir`, state uses a fresh temporary directory and is deleted on clean shutdown.
+An explicit data directory preserves state and refuses to overwrite an existing installation.
 
 ## Resilience and recovery
 
@@ -504,7 +618,7 @@ The rated version-one envelope is one Active Event with:
 - 250 connected Displays.
 - 100 active Crew consoles.
 - 5,000 combined Sessions and Entries.
-- 10,000 downstream public readers using cacheable conditional polling.
+- 10,000 downstream public readers using cacheable snapshots and revisioned invalidation.
 
 These are tested targets, not hard configuration limits.
 Attachment capacity follows storage and configured quotas.
@@ -524,6 +638,27 @@ The reproducible workload and hosted-run procedure are documented in
 Public, Display, and Crew surfaces target WCAG 2.2 AA.
 Keyboard use, focus, touch targets, screen readers, zoom, contrast, reduced motion, and text over variable media are release concerns rather than optional polish.
 Themes must preserve required contrast, using Contrast Scrims where content varies.
+
+The built-in visual direction is demoscene-forward without sacrificing body-text legibility.
+Beamers bundles and self-hosts Chakra Petch for headings and Open Sans for body text.
+Version one Themes select only bundled font families.
+
+The built-in base Theme feeds an Installation Theme for root, authentication, Public Profiles, and the Backstage shell.
+Each Event Theme inherits from it for public pages and Displays and may define controlled signage variants.
+Themes configure tokens, branding assets, backgrounds, type choices, transition and effect presets, and motion level.
+Arbitrary CSS, HTML, JavaScript, and font upload are prohibited.
+
+Theme editing creates an immutable Draft Theme Revision.
+Preview renders representative pages and Displays.
+Activation blocks known contrast or legibility failures.
+Rollback activates an earlier revision.
+Emergency Alerts always use a certified built-in presentation.
+
+Decorative effects may include built-in starfields and brief non-looping transitions.
+A visible pause control stops ambient effects.
+Browser reduced-motion and forced-color preferences override the Theme automatically.
+Reduced Effects is also available as a persistent anonymous or Account preference and as a Display setting.
+Accessibility is inherent to every Theme rather than supplied by an overlay or separate rescue mode.
 
 Version one user-interface copy is English.
 Content accepts Unicode and carries Event Locale and optional Content Language metadata.
@@ -566,11 +701,13 @@ An optional integration is a gate only if that integration ships.
 - [ADR 0007: Unify temporary content as Overrides](adr/0007-unify-temporary-content-as-overrides.md)
 - [ADR 0008: Enroll inputless Displays](adr/0008-enroll-inputless-displays.md)
 - [ADR 0018: Compose Views from Regions](adr/0018-compose-views-from-regions.md)
-- [ADR 0019: Provide a read-only public Schedule](adr/0019-provide-a-read-only-public-schedule.md)
+- [ADR 0019: Provide a read-only public Schedule (superseded in part)](adr/0019-provide-a-read-only-public-schedule.md)
 - [ADR 0020: Separate public and crew data](adr/0020-separate-public-and-crew-data.md)
 - [ADR 0032: Target WCAG 2.2 AA](adr/0032-target-wcag-2-2-aa.md)
 - [ADR 0033: Limit version-one localization](adr/0033-limit-version-one-localization.md)
 - [ADR 0048: Make Displays self-healing across upgrades](adr/0048-make-displays-self-healing-across-upgrades.md)
+- [ADR 0053: Make the browser Frontend primary](adr/0053-make-the-browser-frontend-primary.md)
+- [ADR 0056: Version controlled Themes](adr/0056-version-controlled-themes.md)
 
 ### Competitions, Attachments, and Results
 
@@ -579,6 +716,7 @@ An optional integration is a gate only if that integration ships.
 - [ADR 0025: Fix Competition Submission Deadlines](adr/0025-fix-competition-submission-deadlines.md)
 - [ADR 0026: Stage Results before Prizegiving](adr/0026-stage-results-before-prizegiving.md)
 - [ADR 0027: Serialize live control by Program Channel](adr/0027-serialize-live-control-by-program-channel.md)
+- [ADR 0055: Tally attendee Votes by Competition](adr/0055-tally-attendee-votes-by-competition.md)
 
 ### Authority, identity, and consistency
 
@@ -591,6 +729,7 @@ An optional integration is a gate only if that integration ships.
 - [ADR 0029: Retain audit history](adr/0029-retain-audit-history.md)
 - [ADR 0030: Require secure Crew origins](adr/0030-require-secure-crew-origins.md)
 - [ADR 0042: Permit a degraded Emergency Alert](adr/0042-permit-a-degraded-emergency-alert.md)
+- [ADR 0054: Use Accounts for optional participation](adr/0054-use-accounts-for-participation.md)
 
 ### Application architecture
 

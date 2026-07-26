@@ -7,9 +7,10 @@ Handlers call application services directly and never expose Ent entities as vie
 Htmx provides modest hypermedia interactions such as forms, filtering, navigation, validation, and partial replacement.
 Routes return useful complete pages for direct navigation where appropriate rather than trusting the `HX-Request` header as an authorization or correctness boundary.
 
-The revisioned state stream in ADR 0038 remains independent of htmx.
+The revisioned state stream in ADR 0038 remains independent of htmx's internal state.
+The official htmx SSE extension may consume its notifications and swap server-rendered fragments.
 Small, purpose-built JavaScript modules implement Display rendering, clocks, presentation effects, state-stream recovery, and control behavior that is not cleanly expressed as an HTML exchange.
-Version one does not use htmx's SSE extension or Datastar's DOM-patch and signal protocol for authoritative state.
+Datastar's DOM-patch and signal protocol is not used for authoritative state.
 
 Pinned htmx and application assets are embedded in the Go binary; deployment does not depend on a CDN or Node build.
 The Content Security Policy uses external scripts and forbids inline handlers or evaluated expressions.

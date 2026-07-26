@@ -1,5 +1,8 @@
 # Own Attachment files
 
+The Upload Link workflow is superseded by ADR 0054.
+Canonical Attachment ownership, immutable versions, release controls, and deadlines remain in force.
+
 The application owns canonical Attachment files and their metadata, visibility, and integrity.
 Replacing a file creates a new Attachment version rather than silently modifying the original.
 A future read-only WebDAV endpoint, copyparty export, or similar adapter may expose Competition Entries for convenient crew download, but external file services do not write canonical storage.
@@ -29,15 +32,10 @@ An Event Release Policy, optionally overridden by a Competition, releases eligib
 A Producer may fire that cue manually or bind it to a selected ceremony Session becoming Live, avoiding a fragile fixed wall-clock release time.
 
 Only Included Entries participate in operational delivery or public Attachment release.
-Pending and Rejected Entries remain crew-only; rejection also closes the Entry's Upload Link.
+Pending and Rejected Entries remain crew-only; rejection also closes submission access.
 
-The initial Attachment workflow for speaker and entrant uploads uses one unguessable, revocable Upload Link scoped to a Presentation or Entry rather than an attendee Account.
-It grants no access to other submissions and expires when submission access closes; a Reopen Window temporarily restores access for its scoped target.
-Rotation invalidates a shared link.
-Audit attributes changes to that upload identity, and Crew Members may upload on the contributor's behalf.
-Multi-Competition attendee Accounts and voting remain future work.
-
-A Presentation's Upload Link closes at Actual Start unless a Producer configures an earlier fixed Upload Deadline, which does not move with Forecast Time.
+ADR 0054 defines the Account-bound Entry and Presentation upload workflow.
+A Presentation Submitter's access closes at Actual Start unless a Producer configures an earlier fixed Presentation Upload Deadline, which does not move with Forecast Time.
 After closure, a temporary Reopen Window may restore access under the same audited, automatically expiring rules used for Competition Entries.
 
 Disqualifying a locked Included Entry applies a Release Hold without changing the uploader's underlying Release Eligibility choices.

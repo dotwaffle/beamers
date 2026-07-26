@@ -15,6 +15,6 @@ Its credentials retain only the existing least-privilege Display access.
 Proxy-derived scheme and client information are trusted only from configured proxy addresses.
 Certificate private keys follow the existing backup rule for private authentication material and are excluded by default.
 
-Credential-bearing and recovery endpoints have conservative built-in abuse limits, including Crew login, Display Enrollment, Upload Links when introduced, and Administrator recovery.
+Credential-bearing and recovery endpoints have conservative built-in abuse limits, including Account login, registration, Voting Key redemption, Display Enrollment, and Administrator recovery.
 These protections do not depend on a reverse proxy.
 Public read-only routes favor conditional responses and caching; deployments may add broader perimeter limits without changing application semantics.

@@ -25,20 +25,62 @@ _Avoid_: UI translation
 Activation is a readiness designation, not an Event lifecycle state.
 _Avoid_: Published Event, started Event, open Event
 
+**Public Event Listing**: The attendee-facing collection of Events a Producer has made discoverable, independent of which Event is Active.
+_Avoid_: Active Event, Event archive
+
+**Event Slug**: The current human-readable identifier in an Event's public URL.
+It is unique among current slugs and retained aliases.
+_Avoid_: Event ID, Event title
+
+**Event Slug Alias**: A previous Event Slug that redirects to the current public URL until an Administrator explicitly prunes it.
+Pruning permits reuse and may break or retarget stale links.
+_Avoid_: duplicate Event, permanent redirect guarantee
+
 **Activation Preflight**: The review before changing the Active Event that blocks invalid published state and warns about operational incompleteness.
 _Avoid_: Publish, Event start
 
 **Account**: An installation-wide identity used by one person to authenticate.
 _Avoid_: Event role, Display identity
 
-**Disabled Account**: A retired Account whose sessions, credentials, and Event Grants are revoked while its stable identity remains available to Audit Entries.
-_Avoid_: deleted Account, anonymized actor
+**Account Handle**: An Account's stable, unique, case-insensitive local sign-in and profile identifier.
+_Avoid_: Display Name, public credit
+
+**Display Name**: An Account's mutable, non-unique human-readable name.
+_Avoid_: Account Handle, public credit
+
+**Public Profile**: An Account's optional attendee-facing page containing its Display Name and selected released Entries.
+_Avoid_: Account record, Crew directory
+
+**Credential**: One independently revocable way to authenticate an Account: Password, WebAuthn, or Federated Identity.
+An enabled Account retains at least one Credential.
+_Avoid_: Account, Event Grant
+
+**Federated Identity**: A Credential identified only by its configured provider and immutable provider subject.
+It is linked after authenticating the Account and never matched by handle, display name, or email.
+_Avoid_: Display Name, Account Handle
+
+**Registration Policy**: The installation setting that permits or denies creation of new Accounts through local registration and configured identity providers.
+Existing Accounts may still sign in and link permitted providers while registration is closed.
+_Avoid_: Event Grant, Submission Eligibility
+
+**Recovery Code**: An Account-generated, single-use secret that restores access when ordinary Credentials are unavailable.
+_Avoid_: Voting Key, bootstrap token
+
+**Disabled Account**: A retired Account whose sessions, Credentials, and Event Grants are revoked and whose private personal data is detached while its stable identity remains available to Audit Entries.
+_Avoid_: erased history, active Account
 
 **Event Grant**: The association of an Account with its role, scopes, and additional capabilities for one Event.
 _Avoid_: Account, Administrator
 
 **Crew Member**: An authenticated person acting through an Account under the Administrator role or an Event Grant.
 _Avoid_: Attendee, Display
+
+**Frontend**: The browser Interface containing public Event pages and signed-in attendee capabilities.
+It may be exposed separately from Backstage.
+_Avoid_: public listener, Backstage
+
+**Backstage**: The authorized browser section for Event crew and installation administration.
+_Avoid_: Frontend, Crew Only Session
 
 **Audit Entry**: An immutable record of who performed a relevant action, when, against what, and with what result, excluding credentials, secrets, and file contents.
 _Avoid_: application log, mutable note
@@ -167,10 +209,7 @@ _Avoid_: Final Files Export, Backup
 It is disposable and never authoritative.
 _Avoid_: Attachment Store, Backup
 
-**Upload Link**: An unguessable, revocable credential granting an uploader access to one Presentation or Entry until its submission access closes.
-_Avoid_: Account, public upload
-
-**Upload Deadline**: An optional fixed instant closing a Presentation's Upload Link before it starts; without one, the link closes at Actual Start.
+**Presentation Upload Deadline**: An optional fixed instant closing a Presentation Submitter's upload access before it starts; without one, access closes at Actual Start.
 _Avoid_: Submission Deadline, Forecast Time
 
 **Final Version**: The Attachment Version approved for operational delivery.
@@ -403,6 +442,17 @@ _Avoid_: Forecast Time, Hard Boundary
 **Entry**: One work submitted for possible presentation within a Competition.
 _Avoid_: Session
 
+**Submitter Account**: The optional sole Account responsible for attendee-side maintenance of an Entry or Presentation.
+Public credits remain independent of this association.
+_Avoid_: public credit, Crew Member
+
+**Crew Managed**: An Entry or Presentation with no Submitter Account, maintained through Backstage until a Producer assigns one.
+_Avoid_: anonymous submission, Crew Only
+
+**Submission Eligibility**: The Competition policy allowing new Entries from all Accounts or only Accounts with Voting Eligibility.
+It gates creation, not continued access to an existing Entry.
+_Avoid_: Voting Eligibility, Entry Disposition
+
 **Entry Disposition**: The Pending, Included, or Rejected status determining whether an Entry participates in its Competition, independently of Entry Review.
 It becomes immutable when the Entry's first Competition Slide is Taken.
 _Avoid_: Entry Review, Audience Visibility
@@ -438,8 +488,8 @@ _Avoid_: Rejected Entry, Disqualified Entry
 **Withhold Entry**: The Producer action that records a Crew Reason and makes a Not Presented Entry Withheld without erasing its history.
 _Avoid_: Disqualify Entry
 
-**Rejected Entry**: An Entry retained for crew and audit but excluded from Competition presentation, public lists, and Attachment release; its Upload Link is closed.
-Rejection may be reversed without automatically restoring upload access.
+**Rejected Entry**: An Entry retained for crew and audit but excluded from Competition presentation, public lists, and Attachment release.
+Rejection may be reversed without automatically restoring submission access.
 _Avoid_: Canceled Session, Pending Entry
 
 **Disqualified Entry**: An Included Entry excluded from judging or results after Competition order locks, whether or not it was presented.
@@ -562,8 +612,22 @@ _Avoid_: Competition Slide
 **View Layout**: The spatial arrangement of Regions within a View.
 _Avoid_: View Page
 
-**Theme**: The Event's configurable branding, colors, fonts, backgrounds, and transitions applied to Views without changing their Layout or content.
+**Theme**: A controlled presentation configuration for branding, colors, bundled fonts, backgrounds, transitions, and effects without arbitrary code.
 _Avoid_: View Layout, slide template
+
+**Installation Theme**: The Theme inherited by root, authentication, Public Profile, and Backstage surfaces.
+_Avoid_: Event Theme, base Theme
+
+**Event Theme**: The Theme inherited from the Installation Theme and applied to one Event's public pages and Displays.
+_Avoid_: Installation Theme, View Layout
+
+**Theme Revision**: An immutable, previewable Theme configuration.
+Editing creates a Draft revision; activation selects the revision used by its surfaces and rollback activates an earlier revision.
+_Avoid_: live CSS edit, View Layout
+
+**Reduced Effects**: A persistent visitor or Display preference that suppresses decorative motion and overrides Theme motion choices.
+Browser reduced-motion and forced-color preferences take precedence automatically.
+_Avoid_: accessibility overlay, unstyled mode
 
 **Contrast Scrim**: An opaque or translucent surface behind text that guarantees required contrast over variable image or video content.
 _Avoid_: decorative overlay, Override
@@ -596,6 +660,36 @@ _Avoid_: Stage Message, audit entry
 
 **Competition Output**: The public View presenting Competition Slides as Program Output.
 _Avoid_: Competition control View
+
+**Favorite Session**: An Account's private bookmark of one Public Session, used only to construct My Schedule.
+_Avoid_: public endorsement, notification subscription
+
+**Voting Key**: An Event-scoped, single-use bearer code issued after admission verification and redeemed by one signed-in Account for Voting Eligibility.
+_Avoid_: Recovery Code, Credential
+
+**Voting Eligibility**: The durable Event association allowing an Account to vote in open Competitions after it redeems a Voting Key.
+_Avoid_: Submission Eligibility, Event Grant
+
+**Voting Method**: The frozen Competition rule that validates Votes and produces a Voting Tally.
+Version one provides Range Voting.
+_Avoid_: Results Draft, Reveal Method
+
+**Voting Window**: A Competition's explicit Open or Closed voting state.
+An Entry becomes votable when its first Competition Slide is Taken.
+_Avoid_: Submission Deadline, Session lifecycle
+
+**Vote**: One Account's explicit score for one votable Entry under the Competition's Voting Method.
+_Avoid_: Score, Placement
+
+**Ballot**: One Account's private collection of Votes for a Competition.
+_Avoid_: Voting Tally, Results Draft
+
+**Self-Vote Policy**: The frozen Competition choice that either Allows a Submitter's Vote or prevents it and contributes the neutral range value when that Account participates in the Competition.
+_Avoid_: Submission Eligibility, Entry Disposition
+
+**Voting Tally**: The immutable aggregate created when a Voting Window closes.
+It seeds a Results Draft but never publishes results or determines authoritative Placements without Producer review.
+_Avoid_: Ballot, Ready Results
 
 **Standby**: A branded idle View or Program Item shown when no other normal content is assigned or selected.
 _Avoid_: Technical Difficulties

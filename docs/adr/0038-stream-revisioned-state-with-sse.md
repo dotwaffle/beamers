@@ -2,7 +2,8 @@
 
 Version one uses server-sent events to notify Displays and Crew consoles about authoritative state changes.
 ConnectRPC remains responsible for commands, Display acknowledgments, and complete state snapshots.
-The public Schedule may continue using cacheable conditional polling as described in ADR 0019.
+ADR 0053 extends the same invalidation and recovery model to public and signed-in Frontend browsers.
+Cacheable complete pages remain available for direct navigation and recovery.
 
 Each stream is authenticated and scoped using the same Account, Event Grant, or Display identity as its snapshot endpoint.
 Events carry a monotonic stream position and the authoritative entity or channel revision needed to reject stale application.

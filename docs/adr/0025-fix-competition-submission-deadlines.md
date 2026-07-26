@@ -15,8 +15,8 @@ Entry Disposition is independent from review.
 An Event configures whether new Entries default to Pending or Included, with an optional Competition override.
 Pending Entries may receive uploads but remain crew-only and block Competition Start until changed to Included or Rejected.
 Included Entries participate in the Competition.
-Rejected Entries remain available to crew and audit but are excluded from presentation, public lists, and Attachment release, and their Upload Links close.
-An authorized Crew Member may return a Rejected Entry to Pending or Included while preserving audit history, but upload access remains closed until explicitly reissued or reopened.
+Rejected Entries remain available to crew and audit but are excluded from presentation, public lists, and Attachment release, and their submission access closes.
+An authorized Crew Member may return a Rejected Entry to Pending or Included while preserving audit history, but submission access remains closed until explicitly restored or reopened.
 Once the Competition is Live, an Entry Disposition change requires a Producer's warned override, and it becomes immutable after the Entry's first Slide is Taken.
 A later Disqualified outcome preserves that Entry's presentation history while excluding it from judging or results.
 The public history retains a Disqualified label and Attachment access is suspended through a separately reversible Release Hold.
