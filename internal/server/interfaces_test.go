@@ -107,7 +107,12 @@ func TestPublicListenerOnlyServesAllowlistedRoutes(t *testing.T) {
 		listenerAddress: &net.TCPAddr{IP: net.IPv4zero, Port: 8081},
 		publicOnly:      true,
 	})
-	for _, path := range []string{"/schedule", "/results/events/1/prizegiving/2"} {
+	for _, path := range []string{
+		"/schedule",
+		"/results/events/1/prizegiving/2",
+		"/public/attachments",
+		"/public/attachments/42",
+	} {
 		request := httptest.NewRequestWithContext(
 			t.Context(),
 			http.MethodGet,
