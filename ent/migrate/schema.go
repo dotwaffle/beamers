@@ -1241,7 +1241,7 @@ var (
 	// ResultsPublicationsColumns holds the columns for the "results_publications" table.
 	ResultsPublicationsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
-		{Name: "scope", Type: field.TypeEnum, Enums: []string{"Prizegiving", "Standalone", "EventAwards"}},
+		{Name: "scope", Type: field.TypeEnum, Enums: []string{"Prizegiving", "Standalone", "EventAwards", "Event"}},
 		{Name: "scope_session_id", Type: field.TypeInt},
 		{Name: "revision", Type: field.TypeInt},
 		{Name: "release_policy", Type: field.TypeEnum, Enums: []string{"AllAtCue", "ProgressiveOnReveal", "AtCeremonyEnd", "Standalone"}},

@@ -243,8 +243,9 @@ func (service *Service) ReleaseStandaloneResults(
 			if renderErr != nil {
 				return command.Execution[Publication]{}, renderErr
 			}
-			stored, appendErr := transaction.AppendResultsPublication(
+			stored, appendErr := appendScopedResultsPublication(
 				actor.Context(ctx),
+				transaction,
 				store.AppendResultsPublicationParams{
 					EventID:            input.EventID,
 					Scope:              store.ResultsPublicationStandalone,
@@ -415,8 +416,9 @@ func (service *Service) ReleaseStandaloneEventAwards(
 			if renderErr != nil {
 				return command.Execution[Publication]{}, renderErr
 			}
-			stored, appendErr := transaction.AppendResultsPublication(
+			stored, appendErr := appendScopedResultsPublication(
 				actor.Context(ctx),
+				transaction,
 				store.AppendResultsPublicationParams{
 					EventID: input.EventID, Scope: store.ResultsPublicationEventAwards,
 					ScopeSessionID: input.EventID, ExpectedRevision: current.Revision,
@@ -548,8 +550,9 @@ func AdvancePrizegivingPublication(
 	if err != nil {
 		return Publication{}, false, err
 	}
-	stored, err := transaction.AppendResultsPublication(
+	stored, err := appendScopedResultsPublication(
 		ctx,
+		transaction,
 		store.AppendResultsPublicationParams{
 			EventID:            eventID,
 			Scope:              store.ResultsPublicationPrizegiving,
@@ -571,6 +574,247 @@ func AdvancePrizegivingPublication(
 		return Publication{}, false, err
 	}
 	return publicationFromStore(stored), true, nil
+}
+
+func appendScopedResultsPublication(
+	ctx context.Context,
+	transaction *store.CommandTx,
+	params store.AppendResultsPublicationParams,
+) (store.ResultsPublication, error) {
+	scoped, err := transaction.AppendResultsPublication(ctx, params)
+	if err != nil {
+		return store.ResultsPublication{}, err
+	}
+	state, err := transaction.LoadEventResultsAggregateState(ctx, params.EventID)
+	if err != nil {
+		return store.ResultsPublication{}, err
+	}
+	current, err := transaction.LoadResultsPublication(
+		ctx,
+		params.EventID,
+		store.ResultsPublicationEvent,
+		params.EventID,
+	)
+	if err != nil {
+		return store.ResultsPublication{}, err
+	}
+	rendered, aggregateParams, err := buildEventResultsPublication(
+		state,
+		current,
+		scoped,
+		params.CreatedByAccountID,
+		params.Now,
+	)
+	if err != nil {
+		return store.ResultsPublication{}, err
+	}
+	aggregateParams.RenderedHTML = rendered.HTML
+	aggregateParams.RenderedText = rendered.Text
+	aggregateParams.RenderedJSON = rendered.JSON
+	if _, err = transaction.AppendResultsPublication(ctx, aggregateParams); err != nil {
+		return store.ResultsPublication{}, err
+	}
+	return scoped, nil
+}
+
+type eventResultIdentity struct {
+	kind                 ResultItemKind
+	competitionSessionID int
+	awardKey             string
+}
+
+func eventResultRefIdentity(ref ResultItemRef) eventResultIdentity {
+	kind := ref.Kind
+	if kind == ResultItemNoPublicResults {
+		kind = ResultItemCompetition
+	}
+	return eventResultIdentity{
+		kind: kind, competitionSessionID: ref.CompetitionSessionID,
+		awardKey: ref.AwardKey,
+	}
+}
+
+type eventAggregateItem struct {
+	ref  ResultItemRef
+	item PublicResultsItem
+}
+
+func buildEventResultsPublication(
+	state store.EventResultsAggregateState,
+	current, scoped store.ResultsPublication,
+	actorID int,
+	now time.Time,
+) (RenderedPublicResults, store.AppendResultsPublicationParams, error) {
+	order := eventResultsOrder(state, current)
+	items := make(map[eventResultIdentity]eventAggregateItem)
+	var event PublicResultsEvent
+	for _, publication := range state.Publications {
+		var model PublicResultsPublication
+		if json.Unmarshal([]byte(publication.RenderedJSON), &model) != nil ||
+			len(model.Items) != len(publication.Items) {
+			return RenderedPublicResults{}, store.AppendResultsPublicationParams{},
+				ErrResultsRendering
+		}
+		if event.Name == "" {
+			event = model.Event
+		}
+		for index, item := range model.Items {
+			ref := prizegivingItemRefs([]store.PrizegivingResultItemRef{
+				publication.Items[index],
+			})[0]
+			items[eventResultRefIdentity(ref)] = eventAggregateItem{
+				ref: ref, item: item,
+			}
+		}
+	}
+	if current.Revision > 0 {
+		var model PublicResultsPublication
+		if json.Unmarshal([]byte(current.RenderedJSON), &model) != nil {
+			return RenderedPublicResults{}, store.AppendResultsPublicationParams{},
+				ErrResultsRendering
+		}
+		event = model.Event
+	}
+	model := PublicResultsPublication{
+		SchemaVersion: "1",
+		Event:         event,
+		EventTitle:    event.Name,
+		Revision:      current.Revision + 1,
+		Status:        ResultsPublicationPartial,
+		PublishedAt:   now,
+	}
+	storedItems := make([]store.PrizegivingResultItemRef, 0, len(items))
+	releasedCompetitions := make(map[int]struct{})
+	for _, locked := range order {
+		ref := prizegivingItemRefs([]store.PrizegivingResultItemRef{locked})[0]
+		aggregateItem, ok := items[eventResultRefIdentity(ref)]
+		if !ok {
+			continue
+		}
+		ref = aggregateItem.ref
+		ref.DisplayOrder = len(model.Items) + 1
+		model.Items = append(model.Items, aggregateItem.item)
+		storedItems = append(
+			storedItems,
+			prizegivingItemRefInputs([]ResultItemRef{ref})[0],
+		)
+		if ref.Kind == ResultItemCompetition || ref.Kind == ResultItemNoPublicResults {
+			releasedCompetitions[ref.CompetitionSessionID] = struct{}{}
+		}
+	}
+	if len(releasedCompetitions) == len(state.Competitions) {
+		model.Status = ResultsPublicationFinal
+	}
+	if scoped.ResultsCorrectionRevision > 0 {
+		var corrected PublicResultsPublication
+		if json.Unmarshal([]byte(scoped.RenderedJSON), &corrected) != nil {
+			return RenderedPublicResults{}, store.AppendResultsPublicationParams{},
+				ErrResultsRendering
+		}
+		model.Correction = &PublicResultsCorrection{
+			PreviousRevision: current.Revision,
+			CorrectedAt:      now,
+		}
+		if corrected.Correction != nil {
+			model.Correction.Note = corrected.Correction.Note
+		}
+	}
+	template := DefaultResultsTextTemplate()
+	if current.Revision > 0 {
+		template = prizegivingTemplate(current.Template)
+	} else if scoped.Template.Revision > 0 {
+		template = prizegivingTemplate(scoped.Template)
+	}
+	rendered, err := RenderPublicResults(model, template)
+	if err != nil {
+		return RenderedPublicResults{}, store.AppendResultsPublicationParams{}, err
+	}
+	lock := store.PrizegivingPreflightLock{
+		PublicationOrder: order,
+		Template:         prizegivingTemplateInput(template),
+	}
+	return rendered, store.AppendResultsPublicationParams{
+		EventID: scoped.EventID,
+		Scope:   store.ResultsPublicationEvent, ScopeSessionID: scoped.EventID,
+		ExpectedRevision:   current.Revision,
+		Policy:             ResultsStandalone,
+		Status:             store.ResultsPublicationStatus(model.Status),
+		Items:              storedItems,
+		Lock:               lock,
+		Template:           prizegivingTemplateInput(template),
+		CreatedByAccountID: actorID,
+		Now:                now,
+	}, nil
+}
+
+func eventResultsOrder(
+	state store.EventResultsAggregateState,
+	current store.ResultsPublication,
+) []store.PrizegivingResultItemRef {
+	if current.Revision > 0 {
+		return appendMissingEventResultRefs(
+			current.Lock.PublicationOrder,
+			state.Publications,
+		)
+	}
+	input := PrizegivingDefaultOrderInput{
+		Competitions: make(
+			[]PrizegivingCompetitionOrderSource,
+			0,
+			len(state.Competitions),
+		),
+		EventAwards: make([]EventAward, 0, len(state.EventAwards)),
+	}
+	for _, competition := range state.Competitions {
+		input.Competitions = append(input.Competitions, PrizegivingCompetitionOrderSource{
+			SessionID: competition.SessionID, PlannedStart: competition.PlannedStart,
+			Draft: draft(competition.Draft),
+		})
+	}
+	for _, award := range state.EventAwards {
+		input.EventAwards = append(input.EventAwards, EventAward{
+			Award: Award{
+				Key: award.Key, Name: award.Name, DisplayOrder: award.DisplayOrder,
+				Recipients: awardRecipients(award.Recipients),
+			},
+			ReleasePath: awardReleasePath(award.ReleasePath),
+		})
+	}
+	_, order := BuildDefaultPrizegivingOrder(input)
+	return appendMissingEventResultRefs(
+		prizegivingItemRefInputs(order),
+		state.Publications,
+	)
+}
+
+func appendMissingEventResultRefs(
+	order []store.PrizegivingResultItemRef,
+	publications []store.ResultsPublication,
+) []store.PrizegivingResultItemRef {
+	identities := make(map[eventResultIdentity]struct{}, len(order))
+	for _, stored := range order {
+		ref := prizegivingItemRefs([]store.PrizegivingResultItemRef{stored})[0]
+		identities[eventResultRefIdentity(ref)] = struct{}{}
+	}
+	for _, publication := range publications {
+		for _, stored := range publication.Items {
+			ref := prizegivingItemRefs([]store.PrizegivingResultItemRef{stored})[0]
+			identity := eventResultRefIdentity(ref)
+			if _, ok := identities[identity]; ok {
+				continue
+			}
+			ref.DisplayOrder = len(order) + 1
+			order = append(
+				order,
+				prizegivingItemRefInputs([]ResultItemRef{ref})[0],
+			)
+			identities[identity] = struct{}{}
+		}
+	}
+	for index := range order {
+		order[index].DisplayOrder = index + 1
+	}
+	return order
 }
 
 func freezeResultsRenderSource(

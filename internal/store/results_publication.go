@@ -35,6 +35,8 @@ const (
 	ResultsPublicationStandalone ResultsPublicationScope = "Standalone"
 	// ResultsPublicationEventAwards identifies one standalone Event Awards scope.
 	ResultsPublicationEventAwards ResultsPublicationScope = "EventAwards"
+	// ResultsPublicationEvent identifies one canonical Event aggregate.
+	ResultsPublicationEvent ResultsPublicationScope = "Event"
 )
 
 // ResultsPublicationPolicy selects the release trigger for one scope.
@@ -88,6 +90,13 @@ type ResultsPublicationRenderSource struct {
 	Competitions     []ResultsPublicationCompetitionSource `json:"competitions"`
 	EventAwards      []EventAward                          `json:"event_awards"`
 	RecipientEntries []CompetitionEntry                    `json:"recipient_entries"`
+}
+
+// EventResultsAggregateState contains the frozen inputs for one Event revision.
+type EventResultsAggregateState struct {
+	Competitions []PrizegivingCompetitionOrderState
+	EventAwards  []EventAward
+	Publications []ResultsPublication
 }
 
 // ResultsPublicationCompetitionSource is one locked Competition and its public facts.
@@ -404,6 +413,92 @@ func (transaction *CommandTx) LoadResultsPublication(
 	return found, err
 }
 
+// LoadEventResultsAggregateState loads current Event order and scoped releases.
+func (transaction *CommandTx) LoadEventResultsAggregateState(
+	ctx context.Context,
+	eventID int,
+) (EventResultsAggregateState, error) {
+	ctx = systemContext(ctx)
+	client := transaction.transaction.Client()
+	sessions, err := client.Session.Query().
+		Where(session.EventIDEQ(eventID)).
+		All(ctx)
+	if err != nil {
+		return EventResultsAggregateState{}, opaqueError(
+			"load Event Results sessions",
+			err,
+		)
+	}
+	state := EventResultsAggregateState{}
+	for _, found := range sessions {
+		version, versionErr := found.QueryPublishedVersions().
+			Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).
+			First(ctx)
+		if ent.IsNotFound(versionErr) {
+			continue
+		}
+		if versionErr != nil {
+			return EventResultsAggregateState{}, opaqueError(
+				"load Event Results session version",
+				versionErr,
+			)
+		}
+		if version.Type != sessionpublishedversion.TypeCompetition {
+			continue
+		}
+		draft, draftErr := transaction.LoadCompetitionResultsDraft(
+			ctx,
+			eventID,
+			found.ID,
+		)
+		if draftErr != nil {
+			return EventResultsAggregateState{}, draftErr
+		}
+		state.Competitions = append(
+			state.Competitions,
+			PrizegivingCompetitionOrderState{
+				SessionID: found.ID, PlannedStart: version.PlannedStart, Draft: draft,
+			},
+		)
+	}
+	awards, err := transaction.LoadEventAwardsDraft(ctx, eventID)
+	if err != nil {
+		return EventResultsAggregateState{}, err
+	}
+	state.EventAwards = slices.Clone(awards.Awards)
+	foundPublications, err := client.ResultsPublication.Query().
+		Where(resultspublication.EventIDEQ(eventID)).
+		Order(
+			ent.Asc(resultspublication.FieldScope),
+			ent.Asc(resultspublication.FieldScopeSessionID),
+			ent.Desc(resultspublication.FieldRevision),
+		).
+		All(ctx)
+	if err != nil {
+		return EventResultsAggregateState{}, opaqueError(
+			"load scoped Results Publications",
+			err,
+		)
+	}
+	type scopeKey struct {
+		scope     resultspublication.Scope
+		sessionID int
+	}
+	seen := make(map[scopeKey]struct{})
+	for _, found := range foundPublications {
+		if found.Scope == resultspublication.ScopeEvent {
+			continue
+		}
+		key := scopeKey{scope: found.Scope, sessionID: found.ScopeSessionID}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		state.Publications = append(state.Publications, resultsPublication(found))
+	}
+	return state, nil
+}
+
 func loadResultsPublication(
 	ctx context.Context,
 	client *ent.Client,
@@ -432,6 +527,9 @@ func validResultsPublicationAppend(
 	current ResultsPublication,
 	params AppendResultsPublicationParams,
 ) bool {
+	if params.Scope == ResultsPublicationEvent {
+		return validEventResultsPublicationAppend(current, params)
+	}
 	if params.ResultsCorrectionRevision > 0 {
 		return validResultsCorrectionPublicationAppend(current, params)
 	}
@@ -450,6 +548,48 @@ func validResultsPublicationAppend(
 		}
 	}
 	return true
+}
+
+func validEventResultsPublicationAppend(
+	current ResultsPublication,
+	params AppendResultsPublicationParams,
+) bool {
+	if current.Policy != params.Policy ||
+		current.Status == ResultsPublicationFinal &&
+			params.Status != ResultsPublicationFinal ||
+		!resultsPublicationOrderPrefix(
+			current.Lock.PublicationOrder,
+			params.Lock.PublicationOrder,
+		) {
+		return false
+	}
+	next := make(map[PrizegivingResultItemRef]struct{}, len(params.Items))
+	for _, ref := range params.Items {
+		ref.DisplayOrder = 0
+		if ref.Kind == prizegivingvalue.ItemNoPublicResults {
+			ref.Kind = prizegivingvalue.ItemCompetitionResults
+		}
+		next[ref] = struct{}{}
+	}
+	for _, ref := range current.Items {
+		ref.DisplayOrder = 0
+		if ref.Kind == prizegivingvalue.ItemNoPublicResults {
+			ref.Kind = prizegivingvalue.ItemCompetitionResults
+		}
+		if _, ok := next[ref]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func resultsPublicationOrderPrefix(
+	current, next []PrizegivingResultItemRef,
+) bool {
+	if len(current) > len(next) {
+		return false
+	}
+	return reflect.DeepEqual(current, next[:len(current)])
 }
 
 func validResultsCorrectionPublicationAppend(
