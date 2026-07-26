@@ -334,7 +334,7 @@ func runRestore(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	if err != nil {
 		return err
 	}
-	manifest, err := operations.RestoreBackup(ctx, backup.RestoreInput{
+	manifest, err := backup.Restore(ctx, backup.RestoreInput{
 		InputPath:                           *input,
 		DataDir:                             *dataDir,
 		AttachmentsDir:                      *attachmentsDir,
@@ -366,7 +366,7 @@ func runRestoreQuarantineJournal(args []string, stdout, stderr io.Writer) error 
 	if !*acknowledge {
 		return errors.New("damaged Restore journal acknowledgment is required")
 	}
-	preservedPath, err := operations.QuarantineDamagedRestoreJournal(*dataDir)
+	preservedPath, err := backup.QuarantineDamagedRestoreJournal(*dataDir)
 	if err != nil {
 		return err
 	}
@@ -405,7 +405,7 @@ func runRestorePreview(ctx context.Context, args []string, stdout, stderr io.Wri
 	if err != nil {
 		return err
 	}
-	plan, err := operations.PrepareRestore(ctx, backup.RestoreInput{
+	plan, err := backup.PrepareRestore(ctx, backup.RestoreInput{
 		InputPath:                   *input,
 		DataDir:                     *dataDir,
 		AttachmentsDir:              *attachmentsDir,
@@ -455,7 +455,7 @@ func runRestoreApply(ctx context.Context, args []string, stdout, stderr io.Write
 	if !*acknowledge {
 		return errors.New("restore replacement acknowledgment is required")
 	}
-	manifest, err := operations.ApplyRestoreWithOptions(
+	manifest, err := backup.ApplyRestoreWithOptions(
 		ctx,
 		*journal,
 		backup.ApplyOptions{
@@ -494,7 +494,7 @@ func runRestoreCancel(ctx context.Context, args []string, stdout, stderr io.Writ
 	if !*acknowledge {
 		return errors.New("prepared Restore cancellation acknowledgment is required")
 	}
-	if err := operations.CancelPreparedRestore(ctx, *journal); err != nil {
+	if err := backup.CancelPreparedRestore(ctx, *journal); err != nil {
 		return err
 	}
 	_, err := fmt.Fprintln(stdout, "canceled prepared Restore")
@@ -512,7 +512,7 @@ func runBackup(ctx context.Context, args []string, stdout, stderr io.Writer) err
 		if flags.NArg() != 0 {
 			return errors.New("backup verify accepts no positional arguments")
 		}
-		manifest, err := operations.VerifyBackup(ctx, *input)
+		manifest, err := backup.Verify(ctx, *input)
 		if err != nil {
 			return err
 		}
@@ -543,7 +543,7 @@ func runBackup(ctx context.Context, args []string, stdout, stderr io.Writer) err
 	if err != nil {
 		return err
 	}
-	manifest, err := operations.CreateBackup(ctx, backup.CreateInput{
+	manifest, err := backup.Create(ctx, backup.CreateInput{
 		DataDir:        *dataDir,
 		AttachmentsDir: *attachmentsDir,
 		OutputPath:     *output,

@@ -28,59 +28,6 @@ import (
 	"github.com/dotwaffle/beamers/internal/store"
 )
 
-// CreateBackup writes one verified installation archive.
-func CreateBackup(
-	ctx context.Context,
-	input backup.CreateInput,
-) (backup.Manifest, error) {
-	return backup.Create(ctx, input)
-}
-
-// VerifyBackup validates one installation archive without applying it.
-func VerifyBackup(ctx context.Context, path string) (backup.Manifest, error) {
-	return backup.Verify(ctx, path)
-}
-
-// RestoreBackup installs one verified archive into unused local roots.
-func RestoreBackup(
-	ctx context.Context,
-	input backup.RestoreInput,
-) (backup.Manifest, error) {
-	return backup.Restore(ctx, input)
-}
-
-// PrepareRestore verifies, stages, and persists an exact replacement plan.
-func PrepareRestore(
-	ctx context.Context,
-	input backup.RestoreInput,
-) (backup.RestorePlan, error) {
-	return backup.PrepareRestore(ctx, input)
-}
-
-// ApplyRestore executes one acknowledged replacement plan.
-func ApplyRestore(ctx context.Context, journalPath string) (backup.Manifest, error) {
-	return backup.ApplyRestore(ctx, journalPath)
-}
-
-// ApplyRestoreWithOptions executes a forced unsupported replacement plan.
-func ApplyRestoreWithOptions(
-	ctx context.Context,
-	journalPath string,
-	options backup.ApplyOptions,
-) (backup.Manifest, error) {
-	return backup.ApplyRestoreWithOptions(ctx, journalPath, options)
-}
-
-// CancelPreparedRestore abandons one intact replacement plan before cutover.
-func CancelPreparedRestore(ctx context.Context, journalPath string) error {
-	return backup.CancelPreparedRestore(ctx, journalPath)
-}
-
-// QuarantineDamagedRestoreJournal preserves a journal that cannot be resumed safely.
-func QuarantineDamagedRestoreJournal(dataDir string) (string, error) {
-	return backup.QuarantineDamagedRestoreJournal(dataDir)
-}
-
 var (
 	// ErrAlreadyInitialized means initialization found existing installation data.
 	ErrAlreadyInitialized = store.ErrAlreadyInitialized
