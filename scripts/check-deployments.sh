@@ -136,6 +136,9 @@ docker exec "$container" wget --no-check-certificate --quiet \
 	grep -F '/assets/schedule.css'
 docker exec "$container" wget --no-check-certificate --quiet \
 	--output-document=- https://127.0.0.1:8443/assets/schedule.css |
+	grep -F 'grid-template-columns'
+docker exec "$container" wget --no-check-certificate --quiet \
+	--output-document=- https://127.0.0.1:8443/assets/frontend.css |
 	grep -F 'font-family'
 compose stop beamers
 compose logs --no-color beamers | grep -F '"phase":"shutdown"'
