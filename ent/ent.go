@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/dotwaffle/beamers/ent/account"
+	"github.com/dotwaffle/beamers/ent/accountpreference"
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/attachment"
 	"github.com/dotwaffle/beamers/ent/attachmentversion"
@@ -123,6 +124,7 @@ func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			account.Table:                     account.ValidColumn,
+			accountpreference.Table:           accountpreference.ValidColumn,
 			accountsession.Table:              accountsession.ValidColumn,
 			attachment.Table:                  attachment.ValidColumn,
 			attachmentversion.Table:           attachmentversion.ValidColumn,

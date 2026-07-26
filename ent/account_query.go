@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/account"
+	"github.com/dotwaffle/beamers/ent/accountpreference"
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
@@ -31,6 +32,7 @@ type AccountQuery struct {
 	inters                 []Interceptor
 	predicates             []predicate.Account
 	withPasswordCredential *PasswordCredentialQuery
+	withPreference         *AccountPreferenceQuery
 	withSessions           *AccountSessionQuery
 	withEventGrants        *EventGrantQuery
 	withAuditEntries       *AuditEntryQuery
@@ -87,6 +89,28 @@ func (_q *AccountQuery) QueryPasswordCredential() *PasswordCredentialQuery {
 			sqlgraph.From(account.Table, account.FieldID, selector),
 			sqlgraph.To(passwordcredential.Table, passwordcredential.FieldID),
 			sqlgraph.Edge(sqlgraph.O2O, false, account.PasswordCredentialTable, account.PasswordCredentialColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryPreference chains the current query on the "preference" edge.
+func (_q *AccountQuery) QueryPreference() *AccountPreferenceQuery {
+	query := (&AccountPreferenceClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, selector),
+			sqlgraph.To(accountpreference.Table, accountpreference.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, account.PreferenceTable, account.PreferenceColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -397,6 +421,7 @@ func (_q *AccountQuery) Clone() *AccountQuery {
 		inters:                 append([]Interceptor{}, _q.inters...),
 		predicates:             append([]predicate.Account{}, _q.predicates...),
 		withPasswordCredential: _q.withPasswordCredential.Clone(),
+		withPreference:         _q.withPreference.Clone(),
 		withSessions:           _q.withSessions.Clone(),
 		withEventGrants:        _q.withEventGrants.Clone(),
 		withAuditEntries:       _q.withAuditEntries.Clone(),
@@ -416,6 +441,17 @@ func (_q *AccountQuery) WithPasswordCredential(opts ...func(*PasswordCredentialQ
 		opt(query)
 	}
 	_q.withPasswordCredential = query
+	return _q
+}
+
+// WithPreference tells the query-builder to eager-load the nodes that are connected to
+// the "preference" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AccountQuery) WithPreference(opts ...func(*AccountPreferenceQuery)) *AccountQuery {
+	query := (&AccountPreferenceClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withPreference = query
 	return _q
 }
 
@@ -558,8 +594,9 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	var (
 		nodes       = []*Account{}
 		_spec       = _q.querySpec()
-		loadedTypes = [6]bool{
+		loadedTypes = [7]bool{
 			_q.withPasswordCredential != nil,
+			_q.withPreference != nil,
 			_q.withSessions != nil,
 			_q.withEventGrants != nil,
 			_q.withAuditEntries != nil,
@@ -588,6 +625,12 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	if query := _q.withPasswordCredential; query != nil {
 		if err := _q.loadPasswordCredential(ctx, query, nodes, nil,
 			func(n *Account, e *PasswordCredential) { n.Edges.PasswordCredential = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withPreference; query != nil {
+		if err := _q.loadPreference(ctx, query, nodes, nil,
+			func(n *Account, e *AccountPreference) { n.Edges.Preference = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -641,6 +684,33 @@ func (_q *AccountQuery) loadPasswordCredential(ctx context.Context, query *Passw
 	}
 	query.Where(predicate.PasswordCredential(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(account.PasswordCredentialColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.AccountID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "account_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *AccountQuery) loadPreference(ctx context.Context, query *AccountPreferenceQuery, nodes []*Account, init func(*Account), assign func(*Account, *AccountPreference)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Account)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(accountpreference.FieldAccountID)
+	}
+	query.Where(predicate.AccountPreference(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(account.PreferenceColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

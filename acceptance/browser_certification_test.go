@@ -643,9 +643,11 @@ func TestBrowserCertification(t *testing.T) {
 			config.ExpectedMajor,
 		)
 	}
+	assertResponsivePageWidths(t, crewDriver, origin+"/", 320, 375, 768, 1024, 1440)
 	assertResponsivePageWidths(t, crewDriver, origin+"/schedule", 320, 1440)
 	report.Pages = append(
 		report.Pages,
+		certifyFrontendTheme(t, crewDriver, origin),
 		certifyInteractivePage(t, crewDriver, origin+"/schedule", "schedule"),
 		certifyResultsPage(t, crewDriver, origin, crewSessionID),
 	)
@@ -746,6 +748,14 @@ func TestBrowserCertification(t *testing.T) {
 		report.Displays[index].Acknowledged = acknowledged[report.Displays[index].DisplayID]
 	}
 	closeBrowserSession(t, crewDriver)
+	forcedColorsDriver := startForcedColorsBrowserSession(
+		t,
+		client,
+		crewDriverEndpoint,
+		config,
+	)
+	certifyForcedColors(t, forcedColorsDriver, origin)
+	closeBrowserSession(t, forcedColorsDriver)
 
 	server.stop(t)
 	for index := range displays {
@@ -1150,17 +1160,43 @@ func startBrowserSession(
 	config browserCertificationConfig,
 ) *webDriver {
 	t.Helper()
+	return startBrowserSessionWithForcedColors(t, client, endpoint, config, false)
+}
+
+func startForcedColorsBrowserSession(
+	t *testing.T,
+	client *http.Client,
+	endpoint string,
+	config browserCertificationConfig,
+) *webDriver {
+	t.Helper()
+	return startBrowserSessionWithForcedColors(t, client, endpoint, config, true)
+}
+
+func startBrowserSessionWithForcedColors(
+	t *testing.T,
+	client *http.Client,
+	endpoint string,
+	config browserCertificationConfig,
+	forcedColors bool,
+) *webDriver {
+	t.Helper()
 	capabilities := map[string]any{"browserName": "chrome"}
 	switch config.Engine {
 	case "chromium":
+		args := []string{
+			"--headless=new",
+			"--no-sandbox",
+			"--disable-dev-shm-usage",
+			"--force-prefers-reduced-motion=reduce",
+			"--user-data-dir=" + t.TempDir(),
+			"--window-size=1280,720",
+		}
+		if forcedColors {
+			args = append(args, "--force-high-contrast")
+		}
 		options := map[string]any{
-			"args": []string{
-				"--headless=new",
-				"--no-sandbox",
-				"--disable-dev-shm-usage",
-				"--force-prefers-reduced-motion=reduce",
-				"--window-size=1280,720",
-			},
+			"args": args,
 		}
 		if config.BrowserBinary != "" {
 			options["binary"] = config.BrowserBinary
@@ -1168,9 +1204,14 @@ func startBrowserSession(
 		capabilities["goog:chromeOptions"] = options
 	case "firefox":
 		capabilities["browserName"] = "firefox"
+		preferences := map[string]any{"ui.prefersReducedMotion": 1}
+		if forcedColors {
+			preferences["browser.display.document_color_use"] = 2
+			preferences["browser.display.use_system_colors"] = true
+		}
 		options := map[string]any{
 			"args":  []string{"-headless"},
-			"prefs": map[string]any{"ui.prefersReducedMotion": 1},
+			"prefs": preferences,
 		}
 		if config.BrowserBinary != "" {
 			options["binary"] = config.BrowserBinary
@@ -1210,6 +1251,69 @@ func certifyInteractivePage(
 		t.Fatal(err)
 	}
 	return evidence
+}
+
+func certifyFrontendTheme(
+	t *testing.T,
+	driver *webDriver,
+	origin string,
+) browserPageEvidence {
+	t.Helper()
+	evidence := certifyInteractivePage(t, driver, origin+"/", "frontend")
+	if err := driver.waitFor(
+		t.Context(),
+		10*time.Second,
+		`return document.fonts.status === "loaded" && `+
+			`document.fonts.check('16px "Open Sans"') && `+
+			`document.fonts.check('700 16px "Chakra Petch"');`,
+	); err != nil {
+		t.Fatalf("load bundled Frontend fonts: %v", err)
+	}
+	themeReady, err := driver.evaluateBool(
+		t.Context(),
+		`const body = getComputedStyle(document.body);`+
+			`const heading = getComputedStyle(document.querySelector("h1"));`+
+			`const stars = getComputedStyle(document.body, "::before");`+
+			`const pause = [...document.querySelectorAll("button")].find(`+
+			`(button) => button.textContent.trim() === "Pause effects");`+
+			`return body.fontFamily.includes("Open Sans") && `+
+			`heading.fontFamily.includes("Chakra Petch") && `+
+			`matchMedia("(prefers-reduced-motion: reduce)").matches && `+
+			`Number.parseFloat(stars.animationDuration) === 0 && `+
+			`Boolean(pause) && pause.getAttribute("aria-pressed") === "false";`,
+	)
+	if err != nil || !themeReady {
+		t.Fatalf("certify base Frontend Theme = %t, %v", themeReady, err)
+	}
+	return evidence
+}
+
+func certifyForcedColors(
+	t *testing.T,
+	driver *webDriver,
+	origin string,
+) {
+	t.Helper()
+	if err := driver.navigate(t.Context(), origin+"/"); err != nil {
+		t.Fatalf("navigate to forced-colors Frontend: %v", err)
+	}
+	forced, err := driver.evaluateBool(
+		t.Context(),
+		`return matchMedia("(forced-colors: active)").matches && `+
+			`getComputedStyle(document.body, "::before").display === "none" && `+
+			`getComputedStyle(document.querySelector("main")).boxShadow === "none";`,
+	)
+	if err != nil || !forced {
+		t.Fatalf("certify forced-colors Frontend = %t, %v", forced, err)
+	}
+	focusKeyboardControl(t, driver, "forced-colors Frontend")
+	evidence, err := driver.auditPage(t.Context(), "frontend")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = evidence.validate(); err != nil {
+		t.Fatalf("validate forced-colors Frontend: %v", err)
+	}
 }
 
 func assertResponsivePageWidths(

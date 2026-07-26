@@ -16,6 +16,8 @@ type Tx struct {
 	config
 	// Account is the client for interacting with the Account builders.
 	Account *AccountClient
+	// AccountPreference is the client for interacting with the AccountPreference builders.
+	AccountPreference *AccountPreferenceClient
 	// AccountSession is the client for interacting with the AccountSession builders.
 	AccountSession *AccountSessionClient
 	// Attachment is the client for interacting with the Attachment builders.
@@ -246,6 +248,7 @@ func (tx *Tx) Client() *Client {
 
 func (tx *Tx) init() {
 	tx.Account = NewAccountClient(tx.config)
+	tx.AccountPreference = NewAccountPreferenceClient(tx.config)
 	tx.AccountSession = NewAccountSessionClient(tx.config)
 	tx.Attachment = NewAttachmentClient(tx.config)
 	tx.AttachmentVersion = NewAttachmentVersionClient(tx.config)

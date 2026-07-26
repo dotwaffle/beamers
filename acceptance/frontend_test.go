@@ -32,6 +32,28 @@ func TestBrowserSetupAndSessionSurviveRestart(t *testing.T) {
 	if root.status != http.StatusOK || !strings.Contains(root.body, "Set up Beamers") {
 		t.Fatalf("unbootstrapped root = %d %q", root.status, root.body)
 	}
+	anonymousReduce := postFrontendForm(t, client, server.address, "/effects", url.Values{
+		"csrf_token":     {requireFrontendCSRF(t, root)},
+		"reduce_effects": {"true"},
+	})
+	if anonymousReduce.status != http.StatusSeeOther {
+		t.Fatalf(
+			"anonymous reduce effects response = %d %q",
+			anonymousReduce.status,
+			anonymousReduce.body,
+		)
+	}
+	anonymousReduced := getFrontendPage(t, client, server.address, "/")
+	if !strings.Contains(anonymousReduced.body, `data-reduced-effects="true"`) {
+		t.Fatalf("anonymous Reduced Effects root = %q", anonymousReduced.body)
+	}
+	resumeEffects := postFrontendForm(t, client, server.address, "/effects", url.Values{
+		"csrf_token":     {requireFrontendCSRF(t, anonymousReduced)},
+		"reduce_effects": {"false"},
+	})
+	if resumeEffects.status != http.StatusSeeOther {
+		t.Fatalf("anonymous resume effects = %d %q", resumeEffects.status, resumeEffects.body)
+	}
 	setup := getFrontendPage(t, client, server.address, "/setup")
 	csrf := requireFrontendCSRF(t, setup)
 	failedSetup := postFrontendForm(t, client, server.address, "/setup", url.Values{
@@ -70,6 +92,32 @@ func TestBrowserSetupAndSessionSurviveRestart(t *testing.T) {
 		!strings.Contains(signedIn.body, "Sign out") {
 		t.Fatalf("signed-in root = %q", signedIn.body)
 	}
+	reduceEffects := postFrontendForm(t, client, server.address, "/effects", url.Values{
+		"csrf_token":     {requireFrontendCSRF(t, signedIn)},
+		"reduce_effects": {"true"},
+	})
+	if reduceEffects.status != http.StatusSeeOther {
+		t.Fatalf(
+			"reduce effects response = %d %q",
+			reduceEffects.status,
+			reduceEffects.body,
+		)
+	}
+	effectsCookie := frontendResponseCookie(
+		t,
+		reduceEffects.header,
+		"beamers_reduced_effects",
+	)
+	if !effectsCookie.HttpOnly ||
+		effectsCookie.SameSite != http.SameSiteLaxMode ||
+		effectsCookie.Secure {
+		t.Fatalf("Reduced Effects cookie = %#v", effectsCookie)
+	}
+	reduced := getFrontendPage(t, client, server.address, "/")
+	if !strings.Contains(reduced.body, `data-reduced-effects="true"`) ||
+		!strings.Contains(reduced.body, "Resume effects") {
+		t.Fatalf("reduced-effects root = %q", reduced.body)
+	}
 	signedInSignInPage := getFrontendPage(t, client, server.address, "/sign-in")
 	if signedInSignInPage.status != http.StatusSeeOther ||
 		signedInSignInPage.header.Get("Location") != "/" {
@@ -82,8 +130,18 @@ func TestBrowserSetupAndSessionSurviveRestart(t *testing.T) {
 
 	server.stop(t)
 	server = startBeamers(t, bin, dataDir)
+	client = authenticatedClient(t)
+	client.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	origin, err := url.Parse("http://" + server.address)
+	if err != nil {
+		t.Fatalf("parse server origin: %v", err)
+	}
+	client.Jar.SetCookies(origin, []*http.Cookie{sessionCookie})
 	restarted := getFrontendPage(t, client, server.address, "/")
-	if !strings.Contains(restarted.body, "Ada Lovelace") {
+	if !strings.Contains(restarted.body, "Ada Lovelace") ||
+		!strings.Contains(restarted.body, `data-reduced-effects="true"`) {
 		t.Fatalf("restarted root lost session: %q", restarted.body)
 	}
 
@@ -105,7 +163,8 @@ func TestBrowserSetupAndSessionSurviveRestart(t *testing.T) {
 	}
 	anonymous := getFrontendPage(t, client, server.address, "/")
 	if !strings.Contains(anonymous.body, "Sign in") ||
-		strings.Contains(anonymous.body, "Ada Lovelace") {
+		strings.Contains(anonymous.body, "Ada Lovelace") ||
+		!strings.Contains(anonymous.body, `data-reduced-effects="true"`) {
 		t.Fatalf("anonymous root = %q", anonymous.body)
 	}
 
@@ -131,6 +190,9 @@ func TestBrowserSetupAndSessionSurviveRestart(t *testing.T) {
 
 	for _, asset := range []string{
 		"/assets/frontend.css",
+		"/assets/chakra-petch-regular.ttf",
+		"/assets/chakra-petch-bold.ttf",
+		"/assets/open-sans.ttf",
 		"/assets/htmx-2.0.10.min.js",
 		"/assets/htmx-ext-sse-2.2.4.min.js",
 	} {

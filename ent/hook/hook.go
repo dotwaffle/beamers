@@ -21,6 +21,18 @@ func (f AccountFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, err
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AccountMutation", m)
 }
 
+// The AccountPreferenceFunc type is an adapter to allow the use of ordinary
+// function as AccountPreference mutator.
+type AccountPreferenceFunc func(context.Context, *ent.AccountPreferenceMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AccountPreferenceFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AccountPreferenceMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AccountPreferenceMutation", m)
+}
+
 // The AccountSessionFunc type is an adapter to allow the use of ordinary
 // function as AccountSession mutator.
 type AccountSessionFunc func(context.Context, *ent.AccountSessionMutation) (ent.Value, error)

@@ -112,6 +112,14 @@ var migrationContracts = map[int]migrationContract{
 		minimumWriter: 48,
 		consequence:   "records migration safety and forward compatibility metadata",
 	},
+	49: {
+		name:          "reduced_effects",
+		checksum:      "f4256c337c09ffcb5d241b11bbecefded8942ac8ae6f401de18bf95ab20a7357",
+		safety:        MigrationNonDestructive,
+		minimumReader: 49,
+		minimumWriter: 49,
+		consequence:   "adds persistent Account browser presentation preferences",
+	},
 }
 
 // MigrationStep is one exact committed migration in an upgrade plan.

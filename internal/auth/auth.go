@@ -634,6 +634,31 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Account
 	return service.authenticate(ctx, token)
 }
 
+// SetReducedEffects persists the preference for the authenticated Account.
+func (service *Service) SetReducedEffects(
+	ctx context.Context,
+	token string,
+	enabled bool,
+) error {
+	authenticated, err := service.authenticate(ctx, token)
+	if err != nil {
+		return err
+	}
+	return service.storage.SetAccountReducedEffects(ctx, authenticated.ID, enabled)
+}
+
+// ReducedEffects returns the preference for the authenticated Account.
+func (service *Service) ReducedEffects(
+	ctx context.Context,
+	token string,
+) (bool, error) {
+	authenticated, err := service.authenticate(ctx, token)
+	if err != nil {
+		return false, err
+	}
+	return service.storage.AccountReducedEffects(ctx, authenticated.ID)
+}
+
 // AuthenticatePreviouslyValidated returns only a pre-failure Account snapshot
 // while storage is degraded. It exists solely for the Emergency Alert path.
 func (service *Service) AuthenticatePreviouslyValidated(

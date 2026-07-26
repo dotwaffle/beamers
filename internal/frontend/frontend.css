@@ -1,6 +1,41 @@
+@font-face {
+  font-display: swap;
+  font-family: "Chakra Petch";
+  font-style: normal;
+  font-weight: 400;
+  src: url("/assets/chakra-petch-regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-display: swap;
+  font-family: "Chakra Petch";
+  font-style: normal;
+  font-weight: 700;
+  src: url("/assets/chakra-petch-bold.ttf") format("truetype");
+}
+
+@font-face {
+  font-display: swap;
+  font-family: "Open Sans";
+  font-stretch: 75% 100%;
+  font-style: normal;
+  font-weight: 300 800;
+  src: url("/assets/open-sans.ttf") format("truetype-variations");
+}
+
 :root {
-  color-scheme: light dark;
-  font-family: system-ui, sans-serif;
+  color-scheme: dark;
+  --background: #080b15;
+  --surface: #141a2c;
+  --surface-raised: #1c2440;
+  --border: #7180aa;
+  --text: #f1f5ff;
+  --muted: #c2cbe0;
+  --accent: #62ebcb;
+  --link: #79d7ff;
+  --focus: #ffdf6e;
+  --danger: #ff86a2;
+  font-family: "Open Sans", system-ui, sans-serif;
   line-height: 1.5;
 }
 
@@ -9,7 +44,26 @@
 }
 
 body {
+  background:
+    radial-gradient(circle at 15% 10%, #172755 0, transparent 32rem),
+    var(--background);
+  color: var(--text);
   margin: 0;
+  min-block-size: 100vh;
+}
+
+body[data-reduced-effects]::before {
+  animation: starfield 24s linear infinite;
+  background-image:
+    radial-gradient(circle, #ffffff 0 1px, transparent 1.5px),
+    radial-gradient(circle, var(--accent) 0 1px, transparent 1.5px);
+  background-position: 0 0, 2rem 3rem;
+  background-size: 5rem 5rem, 7rem 7rem;
+  content: "";
+  inset: 0;
+  opacity: 0.18;
+  pointer-events: none;
+  position: fixed;
 }
 
 header,
@@ -17,6 +71,22 @@ main {
   margin: 0 auto;
   max-width: 72rem;
   padding: clamp(1rem, 4vw, 3rem);
+  position: relative;
+}
+
+header {
+  padding-block-end: 1rem;
+}
+
+main {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  box-shadow: 0 1.5rem 5rem #00000066;
+}
+
+body[data-reduced-effects] main {
+  animation: arrive 350ms ease-out;
 }
 
 nav {
@@ -27,7 +97,37 @@ nav {
 }
 
 nav form {
+  margin: 0;
+}
+
+nav form:first-of-type {
   margin-inline-start: auto;
+}
+
+nav > a:first-child {
+  color: var(--accent);
+  font-family: "Chakra Petch", sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+h3 {
+  font-family: "Chakra Petch", sans-serif;
+  line-height: 1.15;
+}
+
+h1 {
+  color: var(--accent);
+  font-size: clamp(2rem, 8vw, 4.5rem);
+  margin-block-start: 0;
+}
+
+p {
+  max-width: 70ch;
 }
 
 .stack {
@@ -37,13 +137,17 @@ nav form {
 }
 
 label {
+  color: var(--muted);
   display: grid;
-  gap: 0.25rem;
+  font-weight: 600;
+  gap: 0.35rem;
 }
 
 button,
 input,
 select {
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
   box-sizing: border-box;
   font: inherit;
   min-block-size: 2.75rem;
@@ -51,23 +155,95 @@ select {
   width: 100%;
 }
 
+input,
+select {
+  background: var(--background);
+  color: var(--text);
+  padding: 0.55rem 0.7rem;
+}
+
 button {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #07130f;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 0.55rem 0.9rem;
   width: auto;
 }
 
+button[aria-pressed="true"] {
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
 a {
-  color: LinkText;
+  color: var(--link);
   display: inline-block;
   min-block-size: 2.75rem;
+  padding-block: 0.55rem;
+  text-underline-offset: 0.2em;
 }
 
 :focus-visible {
-  outline: 0.2rem solid Highlight;
+  outline: 0.2rem solid var(--focus);
   outline-offset: 0.15rem;
 }
 
 .error {
-  color: MarkText;
-  background: Mark;
+  background: #4c1320;
+  border-inline-start: 0.3rem solid var(--danger);
+  color: #fff0f2;
   padding: 0.75rem;
+}
+
+body[data-reduced-effects="true"]::before {
+  animation: none;
+  opacity: 0.08;
+}
+
+body[data-reduced-effects="true"] main {
+  animation: none;
+}
+
+@keyframes starfield {
+  to {
+    background-position: 5rem 5rem, -5rem 10rem;
+  }
+}
+
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-reduced-effects]::before,
+  body[data-reduced-effects] main {
+    animation: none;
+  }
+}
+
+@media (forced-colors: active) {
+  body {
+    background: Canvas;
+  }
+
+  body[data-reduced-effects]::before {
+    display: none;
+  }
+
+  main {
+    background: Canvas;
+    border-color: CanvasText;
+    box-shadow: none;
+  }
+
+  button,
+  input,
+  select {
+    border-color: ButtonText;
+  }
 }

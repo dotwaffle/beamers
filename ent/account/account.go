@@ -27,6 +27,8 @@ const (
 	FieldDisabledAt = "disabled_at"
 	// EdgePasswordCredential holds the string denoting the password_credential edge name in mutations.
 	EdgePasswordCredential = "password_credential"
+	// EdgePreference holds the string denoting the preference edge name in mutations.
+	EdgePreference = "preference"
 	// EdgeSessions holds the string denoting the sessions edge name in mutations.
 	EdgeSessions = "sessions"
 	// EdgeEventGrants holds the string denoting the event_grants edge name in mutations.
@@ -46,6 +48,13 @@ const (
 	PasswordCredentialInverseTable = "password_credentials"
 	// PasswordCredentialColumn is the table column denoting the password_credential relation/edge.
 	PasswordCredentialColumn = "account_id"
+	// PreferenceTable is the table that holds the preference relation/edge.
+	PreferenceTable = "account_preferences"
+	// PreferenceInverseTable is the table name for the AccountPreference entity.
+	// It exists in this package in order to avoid circular dependency with the "accountpreference" package.
+	PreferenceInverseTable = "account_preferences"
+	// PreferenceColumn is the table column denoting the preference relation/edge.
+	PreferenceColumn = "account_id"
 	// SessionsTable is the table that holds the sessions relation/edge.
 	SessionsTable = "account_sessions"
 	// SessionsInverseTable is the table name for the AccountSession entity.
@@ -159,6 +168,13 @@ func ByPasswordCredentialField(field string, opts ...sql.OrderTermOption) OrderO
 	}
 }
 
+// ByPreferenceField orders the results by preference field.
+func ByPreferenceField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newPreferenceStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // BySessionsCount orders the results by sessions count.
 func BySessionsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -233,6 +249,13 @@ func newPasswordCredentialStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(PasswordCredentialInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2O, false, PasswordCredentialTable, PasswordCredentialColumn),
+	)
+}
+func newPreferenceStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(PreferenceInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2O, false, PreferenceTable, PreferenceColumn),
 	)
 }
 func newSessionsStep() *sqlgraph.Step {

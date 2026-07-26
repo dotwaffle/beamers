@@ -41,6 +41,7 @@ func (Account) Fields() []ent.Field {
 func (Account) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("password_credential", PasswordCredential.Type).Unique(),
+		edge.To("preference", AccountPreference.Type).Unique(),
 		edge.To("sessions", AccountSession.Type),
 		edge.To("event_grants", EventGrant.Type),
 		edge.To("audit_entries", AuditEntry.Type),

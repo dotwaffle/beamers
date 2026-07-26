@@ -1,5 +1,7 @@
 package frontend
 
+import "strconv"
+
 templ Head(title string) {
 	<head>
 		<meta charset="utf-8"/>
@@ -9,7 +11,7 @@ templ Head(title string) {
 	</head>
 }
 
-templ Navigation(accountName string, csrfToken string) {
+templ Navigation(accountName string, csrfToken string, reducedEffects bool) {
 	<header>
 		<nav aria-label="Primary">
 			<a href="/">Beamers</a>
@@ -23,16 +25,31 @@ templ Navigation(accountName string, csrfToken string) {
 					<button type="submit">Sign out</button>
 				</form>
 			}
+			<form method="post" action="/effects">
+				<input type="hidden" name="csrf_token" value={ csrfToken }/>
+				<button
+					type="submit"
+					name="reduce_effects"
+					value={ strconv.FormatBool(!reducedEffects) }
+					aria-pressed={ strconv.FormatBool(reducedEffects) }
+				>
+					if reducedEffects {
+						Resume effects
+					} else {
+						Pause effects
+					}
+				</button>
+			</form>
 		</nav>
 	</header>
 }
 
-templ Root(setupRequired bool, accountName string, csrfToken string) {
+templ Root(setupRequired bool, accountName string, csrfToken string, reducedEffects bool) {
 	<!doctype html>
 	<html lang="en">
 		@Head("Beamers")
-		<body>
-			@Navigation(accountName, csrfToken)
+		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
+			@Navigation(accountName, csrfToken, reducedEffects)
 			<main>
 				if setupRequired {
 					<h1>Set up Beamers</h1>
@@ -47,12 +64,12 @@ templ Root(setupRequired bool, accountName string, csrfToken string) {
 	</html>
 }
 
-templ Setup(csrfToken string, message string) {
+templ Setup(csrfToken string, message string, reducedEffects bool) {
 	<!doctype html>
 	<html lang="en">
 		@Head("Set up Beamers")
-		<body>
-			@Navigation("", csrfToken)
+		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
+			@Navigation("", csrfToken, reducedEffects)
 			<main>
 				<h1>Set up Beamers</h1>
 				if message != "" {
@@ -83,12 +100,12 @@ templ Setup(csrfToken string, message string) {
 	</html>
 }
 
-templ SignIn(csrfToken string, message string, handle string) {
+templ SignIn(csrfToken string, message string, handle string, reducedEffects bool) {
 	<!doctype html>
 	<html lang="en">
 		@Head("Sign in · Beamers")
-		<body>
-			@Navigation("", csrfToken)
+		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
+			@Navigation("", csrfToken, reducedEffects)
 			<main>
 				<h1>Sign in</h1>
 				if message != "" {

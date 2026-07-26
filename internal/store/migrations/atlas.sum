@@ -1,4 +1,4 @@
-h1:r1ArYGdH1KNTJbOntOhUDnZuTJ7vuXyErVxOGgtleJQ=
+h1:jAWul/385xecZK/4L+2PzaVJZnPjsYg+62fu9OisyQw=
 0001_initialize.sql h1:xwTCiCDERoBPK7+31D4g3SOs7BivkqIi3/tf+14eOlo=
 0002_bootstrap_auth.sql h1:Z4h1bvDVGzPXbmlEc3NCEn1HvMSf2V6eY56wIlxFLjA=
 0003_add_events.sql h1:6XxTAjVp9ntlWbsdacCMQkdgTAG185npJMhgxOSnAtA=
@@ -47,3 +47,4 @@ h1:r1ArYGdH1KNTJbOntOhUDnZuTJ7vuXyErVxOGgtleJQ=
 0046_render_results_publications.sql h1:5yMdMeeM2XEnD42d4zpSCMLerx85m9owaH8hws9pt14=
 0047_add_results_corrections.sql h1:XkEH+cnHO2P+5WJ4QeOk9Q5vPw1A1YKDQi8Q91T+z8g=
 0048_record_upgrade_contracts.sql h1:lvjf290UDN4Mzem4SwGtAcE3xnSb5fgrgVRR2rYPfRw=
+0049_reduced_effects.sql h1:l/2NQKyXs6YZU9Yx/0qT5N5J/QNMiiD68zhp9a0j6zw=

@@ -24,6 +24,26 @@ var (
 		Columns:    AccountsColumns,
 		PrimaryKey: []*schema.Column{AccountsColumns[0]},
 	}
+	// AccountPreferencesColumns holds the columns for the "account_preferences" table.
+	AccountPreferencesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "reduced_effects", Type: field.TypeBool, Default: false},
+		{Name: "account_id", Type: field.TypeInt, Unique: true},
+	}
+	// AccountPreferencesTable holds the schema information for the "account_preferences" table.
+	AccountPreferencesTable = &schema.Table{
+		Name:       "account_preferences",
+		Columns:    AccountPreferencesColumns,
+		PrimaryKey: []*schema.Column{AccountPreferencesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "account_preferences_accounts_preference",
+				Columns:    []*schema.Column{AccountPreferencesColumns[2]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
 	// AccountSessionsColumns holds the columns for the "account_sessions" table.
 	AccountSessionsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -1781,6 +1801,7 @@ var (
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		AccountsTable,
+		AccountPreferencesTable,
 		AccountSessionsTable,
 		AttachmentsTable,
 		AttachmentVersionsTable,
@@ -1840,6 +1861,7 @@ var (
 )
 
 func init() {
+	AccountPreferencesTable.ForeignKeys[0].RefTable = AccountsTable
 	AccountSessionsTable.ForeignKeys[0].RefTable = AccountsTable
 	AttachmentVersionsTable.ForeignKeys[0].RefTable = AttachmentsTable
 	AuditEntriesTable.ForeignKeys[0].RefTable = AccountsTable

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/ent/account"
+	"github.com/dotwaffle/beamers/ent/accountpreference"
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/attachment"
 	"github.com/dotwaffle/beamers/ent/attachmentversion"
@@ -117,6 +118,21 @@ func init() {
 	accountDescCreatedAt := accountFields[3].Descriptor()
 	// account.DefaultCreatedAt holds the default value on creation for the created_at field.
 	account.DefaultCreatedAt = accountDescCreatedAt.Default.(func() time.Time)
+	accountpreference.Policy = privacy.NewPolicies(schema.AccountPreference{})
+	accountpreference.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := accountpreference.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	accountpreferenceFields := schema.AccountPreference{}.Fields()
+	_ = accountpreferenceFields
+	// accountpreferenceDescReducedEffects is the schema descriptor for reduced_effects field.
+	accountpreferenceDescReducedEffects := accountpreferenceFields[1].Descriptor()
+	// accountpreference.DefaultReducedEffects holds the default value on creation for the reduced_effects field.
+	accountpreference.DefaultReducedEffects = accountpreferenceDescReducedEffects.Default.(bool)
 	accountsession.Policy = privacy.NewPolicies(schema.AccountSession{})
 	accountsession.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

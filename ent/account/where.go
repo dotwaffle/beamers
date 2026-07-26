@@ -333,6 +333,29 @@ func HasPasswordCredentialWith(preds ...predicate.PasswordCredential) predicate.
 	})
 }
 
+// HasPreference applies the HasEdge predicate on the "preference" edge.
+func HasPreference() predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, PreferenceTable, PreferenceColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasPreferenceWith applies the HasEdge predicate on the "preference" edge with a given conditions (other predicates).
+func HasPreferenceWith(preds ...predicate.AccountPreference) predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := newPreferenceStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasSessions applies the HasEdge predicate on the "sessions" edge.
 func HasSessions() predicate.Account {
 	return predicate.Account(func(s *sql.Selector) {

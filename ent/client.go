@@ -16,6 +16,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/dotwaffle/beamers/ent/account"
+	"github.com/dotwaffle/beamers/ent/accountpreference"
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/attachment"
 	"github.com/dotwaffle/beamers/ent/attachmentversion"
@@ -76,6 +77,8 @@ type Client struct {
 	Schema *migrate.Schema
 	// Account is the client for interacting with the Account builders.
 	Account *AccountClient
+	// AccountPreference is the client for interacting with the AccountPreference builders.
+	AccountPreference *AccountPreferenceClient
 	// AccountSession is the client for interacting with the AccountSession builders.
 	AccountSession *AccountSessionClient
 	// Attachment is the client for interacting with the Attachment builders.
@@ -186,6 +189,7 @@ func NewClient(opts ...Option) *Client {
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
 	c.Account = NewAccountClient(c.config)
+	c.AccountPreference = NewAccountPreferenceClient(c.config)
 	c.AccountSession = NewAccountSessionClient(c.config)
 	c.Attachment = NewAttachmentClient(c.config)
 	c.AttachmentVersion = NewAttachmentVersionClient(c.config)
@@ -328,6 +332,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ctx:                         ctx,
 		config:                      cfg,
 		Account:                     NewAccountClient(cfg),
+		AccountPreference:           NewAccountPreferenceClient(cfg),
 		AccountSession:              NewAccountSessionClient(cfg),
 		Attachment:                  NewAttachmentClient(cfg),
 		AttachmentVersion:           NewAttachmentVersionClient(cfg),
@@ -397,6 +402,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ctx:                         ctx,
 		config:                      cfg,
 		Account:                     NewAccountClient(cfg),
+		AccountPreference:           NewAccountPreferenceClient(cfg),
 		AccountSession:              NewAccountSessionClient(cfg),
 		Attachment:                  NewAttachmentClient(cfg),
 		AttachmentVersion:           NewAttachmentVersionClient(cfg),
@@ -475,10 +481,10 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.Account, c.AccountSession, c.Attachment, c.AttachmentVersion, c.AuditEntry,
-		c.BootstrapCredential, c.CommandReceipt, c.CompetitionEntry,
-		c.CompetitionResultStanding, c.CompetitionResultsDraft, c.Display,
-		c.DisplayAssignment, c.DisplayCredential, c.DisplayEnrollment,
+		c.Account, c.AccountPreference, c.AccountSession, c.Attachment,
+		c.AttachmentVersion, c.AuditEntry, c.BootstrapCredential, c.CommandReceipt,
+		c.CompetitionEntry, c.CompetitionResultStanding, c.CompetitionResultsDraft,
+		c.Display, c.DisplayAssignment, c.DisplayCredential, c.DisplayEnrollment,
 		c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventAwardsDraft,
 		c.EventGrant, c.ImportReference, c.Installation, c.Lane, c.LaneDraft,
@@ -498,10 +504,10 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.Account, c.AccountSession, c.Attachment, c.AttachmentVersion, c.AuditEntry,
-		c.BootstrapCredential, c.CommandReceipt, c.CompetitionEntry,
-		c.CompetitionResultStanding, c.CompetitionResultsDraft, c.Display,
-		c.DisplayAssignment, c.DisplayCredential, c.DisplayEnrollment,
+		c.Account, c.AccountPreference, c.AccountSession, c.Attachment,
+		c.AttachmentVersion, c.AuditEntry, c.BootstrapCredential, c.CommandReceipt,
+		c.CompetitionEntry, c.CompetitionResultStanding, c.CompetitionResultsDraft,
+		c.Display, c.DisplayAssignment, c.DisplayCredential, c.DisplayEnrollment,
 		c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventAwardsDraft,
 		c.EventGrant, c.ImportReference, c.Installation, c.Lane, c.LaneDraft,
@@ -522,6 +528,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
 	case *AccountMutation:
 		return c.Account.mutate(ctx, m)
+	case *AccountPreferenceMutation:
+		return c.AccountPreference.mutate(ctx, m)
 	case *AccountSessionMutation:
 		return c.AccountSession.mutate(ctx, m)
 	case *AttachmentMutation:
@@ -749,6 +757,22 @@ func (c *AccountClient) QueryPasswordCredential(_m *Account) *PasswordCredential
 	return query
 }
 
+// QueryPreference queries the preference edge of a Account.
+func (c *AccountClient) QueryPreference(_m *Account) *AccountPreferenceQuery {
+	query := (&AccountPreferenceClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(accountpreference.Table, accountpreference.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, account.PreferenceTable, account.PreferenceColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QuerySessions queries the sessions edge of a Account.
 func (c *AccountClient) QuerySessions(_m *Account) *AccountSessionQuery {
 	query := (&AccountSessionClient{config: c.config}).Query()
@@ -852,6 +876,156 @@ func (c *AccountClient) mutate(ctx context.Context, m *AccountMutation) (Value, 
 		return (&AccountDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Account mutation op: %q", m.Op())
+	}
+}
+
+// AccountPreferenceClient is a client for the AccountPreference schema.
+type AccountPreferenceClient struct {
+	config
+}
+
+// NewAccountPreferenceClient returns a client for the AccountPreference from the given config.
+func NewAccountPreferenceClient(c config) *AccountPreferenceClient {
+	return &AccountPreferenceClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `accountpreference.Hooks(f(g(h())))`.
+func (c *AccountPreferenceClient) Use(hooks ...Hook) {
+	c.hooks.AccountPreference = append(c.hooks.AccountPreference, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `accountpreference.Intercept(f(g(h())))`.
+func (c *AccountPreferenceClient) Intercept(interceptors ...Interceptor) {
+	c.inters.AccountPreference = append(c.inters.AccountPreference, interceptors...)
+}
+
+// Create returns a builder for creating a AccountPreference entity.
+func (c *AccountPreferenceClient) Create() *AccountPreferenceCreate {
+	mutation := newAccountPreferenceMutation(c.config, OpCreate)
+	return &AccountPreferenceCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of AccountPreference entities.
+func (c *AccountPreferenceClient) CreateBulk(builders ...*AccountPreferenceCreate) *AccountPreferenceCreateBulk {
+	return &AccountPreferenceCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *AccountPreferenceClient) MapCreateBulk(slice any, setFunc func(*AccountPreferenceCreate, int)) *AccountPreferenceCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &AccountPreferenceCreateBulk{err: fmt.Errorf("calling to AccountPreferenceClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*AccountPreferenceCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &AccountPreferenceCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for AccountPreference.
+func (c *AccountPreferenceClient) Update() *AccountPreferenceUpdate {
+	mutation := newAccountPreferenceMutation(c.config, OpUpdate)
+	return &AccountPreferenceUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *AccountPreferenceClient) UpdateOne(_m *AccountPreference) *AccountPreferenceUpdateOne {
+	mutation := newAccountPreferenceMutation(c.config, OpUpdateOne, withAccountPreference(_m))
+	return &AccountPreferenceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *AccountPreferenceClient) UpdateOneID(id int) *AccountPreferenceUpdateOne {
+	mutation := newAccountPreferenceMutation(c.config, OpUpdateOne, withAccountPreferenceID(id))
+	return &AccountPreferenceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for AccountPreference.
+func (c *AccountPreferenceClient) Delete() *AccountPreferenceDelete {
+	mutation := newAccountPreferenceMutation(c.config, OpDelete)
+	return &AccountPreferenceDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *AccountPreferenceClient) DeleteOne(_m *AccountPreference) *AccountPreferenceDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *AccountPreferenceClient) DeleteOneID(id int) *AccountPreferenceDeleteOne {
+	builder := c.Delete().Where(accountpreference.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &AccountPreferenceDeleteOne{builder}
+}
+
+// Query returns a query builder for AccountPreference.
+func (c *AccountPreferenceClient) Query() *AccountPreferenceQuery {
+	return &AccountPreferenceQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAccountPreference},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a AccountPreference entity by its id.
+func (c *AccountPreferenceClient) Get(ctx context.Context, id int) (*AccountPreference, error) {
+	return c.Query().Where(accountpreference.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *AccountPreferenceClient) GetX(ctx context.Context, id int) *AccountPreference {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryAccount queries the account edge of a AccountPreference.
+func (c *AccountPreferenceClient) QueryAccount(_m *AccountPreference) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(accountpreference.Table, accountpreference.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, accountpreference.AccountTable, accountpreference.AccountColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *AccountPreferenceClient) Hooks() []Hook {
+	hooks := c.hooks.AccountPreference
+	return append(hooks[:len(hooks):len(hooks)], accountpreference.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *AccountPreferenceClient) Interceptors() []Interceptor {
+	return c.inters.AccountPreference
+}
+
+func (c *AccountPreferenceClient) mutate(ctx context.Context, m *AccountPreferenceMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&AccountPreferenceCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&AccountPreferenceUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&AccountPreferenceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&AccountPreferenceDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown AccountPreference mutation op: %q", m.Op())
 	}
 }
 
@@ -9423,8 +9597,8 @@ func (c *UploadLinkClient) mutate(ctx context.Context, m *UploadLinkMutation) (V
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Account, AccountSession, Attachment, AttachmentVersion, AuditEntry,
-		BootstrapCredential, CommandReceipt, CompetitionEntry,
+		Account, AccountPreference, AccountSession, Attachment, AttachmentVersion,
+		AuditEntry, BootstrapCredential, CommandReceipt, CompetitionEntry,
 		CompetitionResultStanding, CompetitionResultsDraft, Display, DisplayAssignment,
 		DisplayCredential, DisplayEnrollment, DisplayOverride, DisplayOverrideState,
 		DraftChange, DraftChangeDependency, DraftEdit, Event, EventAwardsDraft,
@@ -9437,8 +9611,8 @@ type (
 		TrackDraft, TrackPublishedVersion, UploadLink []ent.Hook
 	}
 	inters struct {
-		Account, AccountSession, Attachment, AttachmentVersion, AuditEntry,
-		BootstrapCredential, CommandReceipt, CompetitionEntry,
+		Account, AccountPreference, AccountSession, Attachment, AttachmentVersion,
+		AuditEntry, BootstrapCredential, CommandReceipt, CompetitionEntry,
 		CompetitionResultStanding, CompetitionResultsDraft, Display, DisplayAssignment,
 		DisplayCredential, DisplayEnrollment, DisplayOverride, DisplayOverrideState,
 		DraftChange, DraftChangeDependency, DraftEdit, Event, EventAwardsDraft,

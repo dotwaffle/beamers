@@ -20,8 +20,10 @@ import (
 )
 
 const (
-	csrfCookieName = "beamers_csrf"
-	csrfTokenBytes = 32
+	csrfCookieName           = "beamers_csrf"
+	reducedEffectsCookieName = "beamers_reduced_effects"
+	csrfTokenBytes           = 32
+	reducedEffectsMaxAge     = 365 * 24 * 60 * 60
 )
 
 type frontendHandlers struct {
@@ -49,8 +51,12 @@ func registerFrontendRoutes(
 	mux.HandleFunc("/setup", formRoute, handlers.setup)
 	mux.HandleFunc("/sign-in", formRoute, handlers.signIn)
 	mux.HandleFunc("/sign-out", formRoute, handlers.signOut)
+	mux.HandleFunc("/effects", formRoute, handlers.effects)
 	for _, path := range []string{
 		frontend.StylesheetPath,
+		frontend.ChakraRegularPath,
+		frontend.ChakraBoldPath,
+		frontend.OpenSansPath,
 		frontend.HTMXPath,
 		frontend.SSEPath,
 	} {
@@ -77,6 +83,7 @@ func (handlers frontendHandlers) root(response http.ResponseWriter, request *htt
 		return
 	}
 	accountName := ""
+	reducedEffects := reducedEffectsCookie(request)
 	if cookie, cookieErr := request.Cookie(sessionCookieName); cookieErr == nil {
 		account, authenticateErr := handlers.authentication.Authenticate(
 			request.Context(),
@@ -85,6 +92,20 @@ func (handlers frontendHandlers) root(response http.ResponseWriter, request *htt
 		switch {
 		case authenticateErr == nil:
 			accountName = account.Name
+			reducedEffects, authenticateErr = handlers.authentication.ReducedEffects(
+				request.Context(),
+				cookie.Value,
+			)
+			if authenticateErr != nil {
+				handlers.frontendError(
+					response,
+					request,
+					"read Account Reduced Effects",
+					authenticateErr,
+				)
+				return
+			}
+			setReducedEffectsCookie(response, request, reducedEffects)
 		case errors.Is(authenticateErr, auth.ErrInvalidSession):
 			clearSessionCookie(response, request)
 		default:
@@ -101,7 +122,7 @@ func (handlers frontendHandlers) root(response http.ResponseWriter, request *htt
 		response,
 		request,
 		http.StatusOK,
-		frontend.Root(setupRequired, accountName, csrfToken),
+		frontend.Root(setupRequired, accountName, csrfToken, reducedEffects),
 	)
 }
 
@@ -122,7 +143,12 @@ func (handlers frontendHandlers) setup(response http.ResponseWriter, request *ht
 	}
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
-		handlers.render(response, request, http.StatusOK, frontend.Setup(csrfToken, ""))
+		handlers.render(
+			response,
+			request,
+			http.StatusOK,
+			frontend.Setup(csrfToken, "", reducedEffectsCookie(request)),
+		)
 		return
 	case http.MethodPost:
 	default:
@@ -149,9 +175,9 @@ func (handlers frontendHandlers) setup(response http.ResponseWriter, request *ht
 		handlers.limiter.release(clientKey, bootstrapKey)
 		writeAuthRateLimit(response, time.Second)
 	case errors.Is(err, auth.ErrInvalidAccountDetails):
-		handlers.render(response, request, http.StatusBadRequest, frontend.Setup(csrfToken, "Check the Account details and try again."))
+		handlers.render(response, request, http.StatusBadRequest, frontend.Setup(csrfToken, "Check the Account details and try again.", reducedEffectsCookie(request)))
 	case errors.Is(err, auth.ErrAuthenticationFailed):
-		handlers.render(response, request, http.StatusUnauthorized, frontend.Setup(csrfToken, "Setup token is invalid or expired."))
+		handlers.render(response, request, http.StatusUnauthorized, frontend.Setup(csrfToken, "Setup token is invalid or expired.", reducedEffectsCookie(request)))
 	case err != nil:
 		handlers.limiter.release(clientKey, bootstrapKey)
 		handlers.frontendError(response, request, "bootstrap first Account", err)
@@ -198,7 +224,7 @@ func (handlers frontendHandlers) signIn(response http.ResponseWriter, request *h
 	}
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
-		handlers.render(response, request, http.StatusOK, frontend.SignIn(csrfToken, "", ""))
+		handlers.render(response, request, http.StatusOK, frontend.SignIn(csrfToken, "", "", reducedEffectsCookie(request)))
 		return
 	case http.MethodPost:
 	default:
@@ -224,7 +250,7 @@ func (handlers frontendHandlers) signIn(response http.ResponseWriter, request *h
 		handlers.limiter.release(clientKey, accountKey)
 		writeAuthRateLimit(response, time.Second)
 	case errors.Is(err, auth.ErrAuthenticationFailed):
-		handlers.render(response, request, http.StatusUnauthorized, frontend.SignIn(csrfToken, "Sign-in failed.", handle))
+		handlers.render(response, request, http.StatusUnauthorized, frontend.SignIn(csrfToken, "Sign-in failed.", handle, reducedEffectsCookie(request)))
 	case err != nil:
 		handlers.limiter.release(clientKey, accountKey)
 		handlers.frontendError(response, request, "sign in Account", err)
@@ -234,6 +260,31 @@ func (handlers frontendHandlers) signIn(response http.ResponseWriter, request *h
 		setSessionCookie(response, request, session)
 		http.Redirect(response, request, "/", http.StatusSeeOther)
 	}
+}
+
+func (handlers frontendHandlers) effects(response http.ResponseWriter, request *http.Request) {
+	if request.Method != http.MethodPost {
+		frontendMethodNotAllowed(response, http.MethodPost)
+		return
+	}
+	if !handlers.validForm(response, request) {
+		return
+	}
+	enabled := request.Form.Get("reduce_effects") == "true"
+	if cookie, err := request.Cookie(sessionCookieName); err == nil {
+		if err = handlers.authentication.SetReducedEffects(
+			request.Context(),
+			cookie.Value,
+			enabled,
+		); errors.Is(err, auth.ErrInvalidSession) {
+			clearSessionCookie(response, request)
+		} else if err != nil {
+			handlers.frontendError(response, request, "set Account Reduced Effects", err)
+			return
+		}
+	}
+	setReducedEffectsCookie(response, request, enabled)
+	http.Redirect(response, request, "/", http.StatusSeeOther)
 }
 
 func (handlers frontendHandlers) signOut(response http.ResponseWriter, request *http.Request) {
@@ -252,6 +303,33 @@ func (handlers frontendHandlers) signOut(response http.ResponseWriter, request *
 	}
 	clearSessionCookie(response, request)
 	http.Redirect(response, request, "/", http.StatusSeeOther)
+}
+
+func reducedEffectsCookie(request *http.Request) bool {
+	cookie, err := request.Cookie(reducedEffectsCookieName)
+	return err == nil && cookie.Value == "true"
+}
+
+func setReducedEffectsCookie(
+	response http.ResponseWriter,
+	request *http.Request,
+	enabled bool,
+) {
+	//nolint:gosec // Plaintext cookies are limited by the listener policy.
+	cookie := &http.Cookie{
+		Name:     reducedEffectsCookieName,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   requestIsSecure(request),
+		SameSite: http.SameSiteLaxMode,
+	}
+	if enabled {
+		cookie.Value = "true"
+		cookie.MaxAge = reducedEffectsMaxAge
+	} else {
+		cookie.MaxAge = -1
+	}
+	http.SetCookie(response, cookie)
 }
 
 func (handlers frontendHandlers) validForm(
@@ -315,6 +393,8 @@ func (handlers frontendHandlers) asset(path string) (http.HandlerFunc, error) {
 	if strings.HasSuffix(path, ".css") {
 		cacheControl = "public, max-age=3600"
 		contentType = "text/css; charset=utf-8"
+	} else if strings.HasSuffix(path, ".ttf") {
+		contentType = "font/ttf"
 	}
 	return func(response http.ResponseWriter, request *http.Request) {
 		if !frontendReadAllowed(response, request) {

@@ -71,6 +71,7 @@ func DowngradeBeforeUpgradeContracts(ctx context.Context, path string) error {
 	return mutateSchema(path, func(database *sql.DB) error {
 		const statement = `
 PRAGMA foreign_keys = off;
+DROP TABLE account_preferences;
 CREATE TABLE beamers_schema_migrations_before_upgrade (
 	id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
 	version integer NOT NULL,

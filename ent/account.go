@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/dotwaffle/beamers/ent/account"
+	"github.com/dotwaffle/beamers/ent/accountpreference"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 )
 
@@ -38,6 +39,8 @@ type Account struct {
 type AccountEdges struct {
 	// PasswordCredential holds the value of the password_credential edge.
 	PasswordCredential *PasswordCredential `json:"password_credential,omitempty"`
+	// Preference holds the value of the preference edge.
+	Preference *AccountPreference `json:"preference,omitempty"`
 	// Sessions holds the value of the sessions edge.
 	Sessions []*AccountSession `json:"sessions,omitempty"`
 	// EventGrants holds the value of the event_grants edge.
@@ -50,7 +53,7 @@ type AccountEdges struct {
 	DraftEdits []*DraftEdit `json:"draft_edits,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [6]bool
+	loadedTypes [7]bool
 }
 
 // PasswordCredentialOrErr returns the PasswordCredential value or an error if the edge
@@ -64,10 +67,21 @@ func (e AccountEdges) PasswordCredentialOrErr() (*PasswordCredential, error) {
 	return nil, &NotLoadedError{edge: "password_credential"}
 }
 
+// PreferenceOrErr returns the Preference value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e AccountEdges) PreferenceOrErr() (*AccountPreference, error) {
+	if e.Preference != nil {
+		return e.Preference, nil
+	} else if e.loadedTypes[1] {
+		return nil, &NotFoundError{label: accountpreference.Label}
+	}
+	return nil, &NotLoadedError{edge: "preference"}
+}
+
 // SessionsOrErr returns the Sessions value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) SessionsOrErr() ([]*AccountSession, error) {
-	if e.loadedTypes[1] {
+	if e.loadedTypes[2] {
 		return e.Sessions, nil
 	}
 	return nil, &NotLoadedError{edge: "sessions"}
@@ -76,7 +90,7 @@ func (e AccountEdges) SessionsOrErr() ([]*AccountSession, error) {
 // EventGrantsOrErr returns the EventGrants value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) EventGrantsOrErr() ([]*EventGrant, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[3] {
 		return e.EventGrants, nil
 	}
 	return nil, &NotLoadedError{edge: "event_grants"}
@@ -85,7 +99,7 @@ func (e AccountEdges) EventGrantsOrErr() ([]*EventGrant, error) {
 // AuditEntriesOrErr returns the AuditEntries value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) AuditEntriesOrErr() ([]*AuditEntry, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[4] {
 		return e.AuditEntries, nil
 	}
 	return nil, &NotLoadedError{edge: "audit_entries"}
@@ -94,7 +108,7 @@ func (e AccountEdges) AuditEntriesOrErr() ([]*AuditEntry, error) {
 // CommandReceiptsOrErr returns the CommandReceipts value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) CommandReceiptsOrErr() ([]*CommandReceipt, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[5] {
 		return e.CommandReceipts, nil
 	}
 	return nil, &NotLoadedError{edge: "command_receipts"}
@@ -103,7 +117,7 @@ func (e AccountEdges) CommandReceiptsOrErr() ([]*CommandReceipt, error) {
 // DraftEditsOrErr returns the DraftEdits value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) DraftEditsOrErr() ([]*DraftEdit, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[6] {
 		return e.DraftEdits, nil
 	}
 	return nil, &NotLoadedError{edge: "draft_edits"}
@@ -190,6 +204,11 @@ func (_m *Account) Value(name string) (ent.Value, error) {
 // QueryPasswordCredential queries the "password_credential" edge of the Account entity.
 func (_m *Account) QueryPasswordCredential() *PasswordCredentialQuery {
 	return NewAccountClient(_m.config).QueryPasswordCredential(_m)
+}
+
+// QueryPreference queries the "preference" edge of the Account entity.
+func (_m *Account) QueryPreference() *AccountPreferenceQuery {
+	return NewAccountClient(_m.config).QueryPreference(_m)
 }
 
 // QuerySessions queries the "sessions" edge of the Account entity.

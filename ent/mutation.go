@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/dotwaffle/beamers/ent/account"
+	"github.com/dotwaffle/beamers/ent/accountpreference"
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/attachment"
 	"github.com/dotwaffle/beamers/ent/attachmentversion"
@@ -76,6 +77,7 @@ const (
 
 	// Node types.
 	TypeAccount                     = "Account"
+	TypeAccountPreference           = "AccountPreference"
 	TypeAccountSession              = "AccountSession"
 	TypeAttachment                  = "Attachment"
 	TypeAttachmentVersion           = "AttachmentVersion"
@@ -141,6 +143,8 @@ type AccountMutation struct {
 	clearedFields              map[string]struct{}
 	password_credential        *int
 	clearedpassword_credential bool
+	preference                 *int
+	clearedpreference          bool
 	sessions                   map[int]struct{}
 	removedsessions            map[int]struct{}
 	clearedsessions            bool
@@ -489,6 +493,45 @@ func (m *AccountMutation) PasswordCredentialIDs() (ids []int) {
 func (m *AccountMutation) ResetPasswordCredential() {
 	m.password_credential = nil
 	m.clearedpassword_credential = false
+}
+
+// SetPreferenceID sets the "preference" edge to the AccountPreference entity by id.
+func (m *AccountMutation) SetPreferenceID(id int) {
+	m.preference = &id
+}
+
+// ClearPreference clears the "preference" edge to the AccountPreference entity.
+func (m *AccountMutation) ClearPreference() {
+	m.clearedpreference = true
+}
+
+// PreferenceCleared reports if the "preference" edge to the AccountPreference entity was cleared.
+func (m *AccountMutation) PreferenceCleared() bool {
+	return m.clearedpreference
+}
+
+// PreferenceID returns the "preference" edge ID in the mutation.
+func (m *AccountMutation) PreferenceID() (id int, exists bool) {
+	if m.preference != nil {
+		return *m.preference, true
+	}
+	return
+}
+
+// PreferenceIDs returns the "preference" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// PreferenceID instead. It exists only for internal usage by the builders.
+func (m *AccountMutation) PreferenceIDs() (ids []int) {
+	if id := m.preference; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetPreference resets all changes to the "preference" edge.
+func (m *AccountMutation) ResetPreference() {
+	m.preference = nil
+	m.clearedpreference = false
 }
 
 // AddSessionIDs adds the "sessions" edge to the AccountSession entity by ids.
@@ -971,9 +1014,12 @@ func (m *AccountMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AccountMutation) AddedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.password_credential != nil {
 		edges = append(edges, account.EdgePasswordCredential)
+	}
+	if m.preference != nil {
+		edges = append(edges, account.EdgePreference)
 	}
 	if m.sessions != nil {
 		edges = append(edges, account.EdgeSessions)
@@ -999,6 +1045,10 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 	switch name {
 	case account.EdgePasswordCredential:
 		if id := m.password_credential; id != nil {
+			return []ent.Value{*id}
+		}
+	case account.EdgePreference:
+		if id := m.preference; id != nil {
 			return []ent.Value{*id}
 		}
 	case account.EdgeSessions:
@@ -1037,7 +1087,7 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AccountMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.removedsessions != nil {
 		edges = append(edges, account.EdgeSessions)
 	}
@@ -1096,9 +1146,12 @@ func (m *AccountMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AccountMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.clearedpassword_credential {
 		edges = append(edges, account.EdgePasswordCredential)
+	}
+	if m.clearedpreference {
+		edges = append(edges, account.EdgePreference)
 	}
 	if m.clearedsessions {
 		edges = append(edges, account.EdgeSessions)
@@ -1124,6 +1177,8 @@ func (m *AccountMutation) EdgeCleared(name string) bool {
 	switch name {
 	case account.EdgePasswordCredential:
 		return m.clearedpassword_credential
+	case account.EdgePreference:
+		return m.clearedpreference
 	case account.EdgeSessions:
 		return m.clearedsessions
 	case account.EdgeEventGrants:
@@ -1145,6 +1200,9 @@ func (m *AccountMutation) ClearEdge(name string) error {
 	case account.EdgePasswordCredential:
 		m.ClearPasswordCredential()
 		return nil
+	case account.EdgePreference:
+		m.ClearPreference()
+		return nil
 	}
 	return fmt.Errorf("unknown Account unique edge %s", name)
 }
@@ -1155,6 +1213,9 @@ func (m *AccountMutation) ResetEdge(name string) error {
 	switch name {
 	case account.EdgePasswordCredential:
 		m.ResetPasswordCredential()
+		return nil
+	case account.EdgePreference:
+		m.ResetPreference()
 		return nil
 	case account.EdgeSessions:
 		m.ResetSessions()
@@ -1173,6 +1234,443 @@ func (m *AccountMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown Account edge %s", name)
+}
+
+// AccountPreferenceMutation represents an operation that mutates the AccountPreference nodes in the graph.
+type AccountPreferenceMutation struct {
+	config
+	op              Op
+	typ             string
+	id              *int
+	reduced_effects *bool
+	clearedFields   map[string]struct{}
+	account         *int
+	clearedaccount  bool
+	done            bool
+	oldValue        func(context.Context) (*AccountPreference, error)
+	predicates      []predicate.AccountPreference
+}
+
+var _ ent.Mutation = (*AccountPreferenceMutation)(nil)
+
+// accountpreferenceOption allows management of the mutation configuration using functional options.
+type accountpreferenceOption func(*AccountPreferenceMutation)
+
+// newAccountPreferenceMutation creates new mutation for the AccountPreference entity.
+func newAccountPreferenceMutation(c config, op Op, opts ...accountpreferenceOption) *AccountPreferenceMutation {
+	m := &AccountPreferenceMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeAccountPreference,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withAccountPreferenceID sets the ID field of the mutation.
+func withAccountPreferenceID(id int) accountpreferenceOption {
+	return func(m *AccountPreferenceMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *AccountPreference
+		)
+		m.oldValue = func(ctx context.Context) (*AccountPreference, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().AccountPreference.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withAccountPreference sets the old AccountPreference of the mutation.
+func withAccountPreference(node *AccountPreference) accountpreferenceOption {
+	return func(m *AccountPreferenceMutation) {
+		m.oldValue = func(context.Context) (*AccountPreference, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m AccountPreferenceMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m AccountPreferenceMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *AccountPreferenceMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *AccountPreferenceMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().AccountPreference.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetAccountID sets the "account_id" field.
+func (m *AccountPreferenceMutation) SetAccountID(i int) {
+	m.account = &i
+}
+
+// AccountID returns the value of the "account_id" field in the mutation.
+func (m *AccountPreferenceMutation) AccountID() (r int, exists bool) {
+	v := m.account
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAccountID returns the old "account_id" field's value of the AccountPreference entity.
+// If the AccountPreference object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountPreferenceMutation) OldAccountID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAccountID: %w", err)
+	}
+	return oldValue.AccountID, nil
+}
+
+// ResetAccountID resets all changes to the "account_id" field.
+func (m *AccountPreferenceMutation) ResetAccountID() {
+	m.account = nil
+}
+
+// SetReducedEffects sets the "reduced_effects" field.
+func (m *AccountPreferenceMutation) SetReducedEffects(b bool) {
+	m.reduced_effects = &b
+}
+
+// ReducedEffects returns the value of the "reduced_effects" field in the mutation.
+func (m *AccountPreferenceMutation) ReducedEffects() (r bool, exists bool) {
+	v := m.reduced_effects
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReducedEffects returns the old "reduced_effects" field's value of the AccountPreference entity.
+// If the AccountPreference object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountPreferenceMutation) OldReducedEffects(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReducedEffects is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReducedEffects requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReducedEffects: %w", err)
+	}
+	return oldValue.ReducedEffects, nil
+}
+
+// ResetReducedEffects resets all changes to the "reduced_effects" field.
+func (m *AccountPreferenceMutation) ResetReducedEffects() {
+	m.reduced_effects = nil
+}
+
+// ClearAccount clears the "account" edge to the Account entity.
+func (m *AccountPreferenceMutation) ClearAccount() {
+	m.clearedaccount = true
+	m.clearedFields[accountpreference.FieldAccountID] = struct{}{}
+}
+
+// AccountCleared reports if the "account" edge to the Account entity was cleared.
+func (m *AccountPreferenceMutation) AccountCleared() bool {
+	return m.clearedaccount
+}
+
+// AccountIDs returns the "account" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AccountID instead. It exists only for internal usage by the builders.
+func (m *AccountPreferenceMutation) AccountIDs() (ids []int) {
+	if id := m.account; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAccount resets all changes to the "account" edge.
+func (m *AccountPreferenceMutation) ResetAccount() {
+	m.account = nil
+	m.clearedaccount = false
+}
+
+// Where appends a list predicates to the AccountPreferenceMutation builder.
+func (m *AccountPreferenceMutation) Where(ps ...predicate.AccountPreference) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the AccountPreferenceMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *AccountPreferenceMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.AccountPreference, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *AccountPreferenceMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *AccountPreferenceMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (AccountPreference).
+func (m *AccountPreferenceMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *AccountPreferenceMutation) Fields() []string {
+	fields := make([]string, 0, 2)
+	if m.account != nil {
+		fields = append(fields, accountpreference.FieldAccountID)
+	}
+	if m.reduced_effects != nil {
+		fields = append(fields, accountpreference.FieldReducedEffects)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *AccountPreferenceMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case accountpreference.FieldAccountID:
+		return m.AccountID()
+	case accountpreference.FieldReducedEffects:
+		return m.ReducedEffects()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *AccountPreferenceMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case accountpreference.FieldAccountID:
+		return m.OldAccountID(ctx)
+	case accountpreference.FieldReducedEffects:
+		return m.OldReducedEffects(ctx)
+	}
+	return nil, fmt.Errorf("unknown AccountPreference field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AccountPreferenceMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case accountpreference.FieldAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAccountID(v)
+		return nil
+	case accountpreference.FieldReducedEffects:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReducedEffects(v)
+		return nil
+	}
+	return fmt.Errorf("unknown AccountPreference field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *AccountPreferenceMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *AccountPreferenceMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AccountPreferenceMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown AccountPreference numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *AccountPreferenceMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *AccountPreferenceMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *AccountPreferenceMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown AccountPreference nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *AccountPreferenceMutation) ResetField(name string) error {
+	switch name {
+	case accountpreference.FieldAccountID:
+		m.ResetAccountID()
+		return nil
+	case accountpreference.FieldReducedEffects:
+		m.ResetReducedEffects()
+		return nil
+	}
+	return fmt.Errorf("unknown AccountPreference field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *AccountPreferenceMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.account != nil {
+		edges = append(edges, accountpreference.EdgeAccount)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *AccountPreferenceMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case accountpreference.EdgeAccount:
+		if id := m.account; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *AccountPreferenceMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *AccountPreferenceMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *AccountPreferenceMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedaccount {
+		edges = append(edges, accountpreference.EdgeAccount)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *AccountPreferenceMutation) EdgeCleared(name string) bool {
+	switch name {
+	case accountpreference.EdgeAccount:
+		return m.clearedaccount
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *AccountPreferenceMutation) ClearEdge(name string) error {
+	switch name {
+	case accountpreference.EdgeAccount:
+		m.ClearAccount()
+		return nil
+	}
+	return fmt.Errorf("unknown AccountPreference unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *AccountPreferenceMutation) ResetEdge(name string) error {
+	switch name {
+	case accountpreference.EdgeAccount:
+		m.ResetAccount()
+		return nil
+	}
+	return fmt.Errorf("unknown AccountPreference edge %s", name)
 }
 
 // AccountSessionMutation represents an operation that mutates the AccountSession nodes in the graph.

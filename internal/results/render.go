@@ -109,6 +109,7 @@ Award: {{ .Name }} — {{ join .Recipients ", " }}
 const publicResultsHTMLSource = `<!doctype html>
 <html lang="{{ .Event.Language }}" data-locale="{{ .Event.EventLocale }}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/assets/frontend.css">
 <link rel="stylesheet" href="/assets/schedule.css">
 <title>{{ .Event.Name }} Results</title></head>
 <body><main><a href="/schedule">Schedule</a><h1>{{ .Event.Name }} Results</h1>

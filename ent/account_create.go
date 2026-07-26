@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/account"
+	"github.com/dotwaffle/beamers/ent/accountpreference"
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
@@ -89,6 +90,25 @@ func (_c *AccountCreate) SetNillablePasswordCredentialID(id *int) *AccountCreate
 // SetPasswordCredential sets the "password_credential" edge to the PasswordCredential entity.
 func (_c *AccountCreate) SetPasswordCredential(v *PasswordCredential) *AccountCreate {
 	return _c.SetPasswordCredentialID(v.ID)
+}
+
+// SetPreferenceID sets the "preference" edge to the AccountPreference entity by ID.
+func (_c *AccountCreate) SetPreferenceID(id int) *AccountCreate {
+	_c.mutation.SetPreferenceID(id)
+	return _c
+}
+
+// SetNillablePreferenceID sets the "preference" edge to the AccountPreference entity by ID if the given value is not nil.
+func (_c *AccountCreate) SetNillablePreferenceID(id *int) *AccountCreate {
+	if id != nil {
+		_c = _c.SetPreferenceID(*id)
+	}
+	return _c
+}
+
+// SetPreference sets the "preference" edge to the AccountPreference entity.
+func (_c *AccountCreate) SetPreference(v *AccountPreference) *AccountCreate {
+	return _c.SetPreferenceID(v.ID)
 }
 
 // AddSessionIDs adds the "sessions" edge to the AccountSession entity by IDs.
@@ -292,6 +312,22 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(passwordcredential.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.PreferenceIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   account.PreferenceTable,
+			Columns: []string{account.PreferenceColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(accountpreference.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

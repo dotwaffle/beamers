@@ -9,6 +9,9 @@ import (
 // Account is the predicate function for account builders.
 type Account func(*sql.Selector)
 
+// AccountPreference is the predicate function for accountpreference builders.
+type AccountPreference func(*sql.Selector)
+
 // AccountSession is the predicate function for accountsession builders.
 type AccountSession func(*sql.Selector)
 

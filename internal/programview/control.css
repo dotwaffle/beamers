@@ -1,20 +1,7 @@
-:root {
-  color-scheme: dark;
-  font-family: system-ui, sans-serif;
-  background: #11151c;
-  color: #f5f7fa;
-}
-
-body {
-  margin: 0 auto;
-  max-width: 90rem;
-  padding: 1.5rem;
-}
-
 .eyebrow {
-  color: #84d7ff;
+  color: var(--link);
   font-weight: 700;
-  letter-spacing: .08em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -24,15 +11,16 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
 }
 
-.item, section {
-  background: #1b2330;
-  border: 1px solid #39475b;
-  border-radius: .5rem;
+.item,
+section {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
   padding: 1rem;
 }
 
 .item:last-child {
-  border-color: #f4bd50;
+  border-color: var(--focus);
 }
 
 main {
@@ -43,27 +31,18 @@ main {
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: .75rem;
+  gap: 0.75rem;
 }
 
 button {
-  background: #29364a;
-  border: 2px solid #6681a8;
-  border-radius: .4rem;
-  color: inherit;
-  cursor: pointer;
   min-height: 3rem;
-  padding: .6rem 1rem;
 }
 
-button:focus-visible {
-  outline: 3px solid #84d7ff;
-  outline-offset: 2px;
-}
-
-button[aria-pressed="true"], .take {
+button[aria-pressed="true"],
+.take {
   background: #8b4b00;
-  border-color: #f4bd50;
+  border-color: var(--focus);
+  color: #ffffff;
 }
 
 [data-delivery="applied"]::marker {

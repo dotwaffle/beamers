@@ -8,6 +8,7 @@ import (
 
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/account"
+	"github.com/dotwaffle/beamers/ent/accountpreference"
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
@@ -51,6 +52,49 @@ type AccountCredential struct {
 	EventRoles       map[int]viewer.Role       `json:"-"`
 	EventScopes      map[int]viewer.EventScope `json:"-"`
 	SessionExpiresAt time.Time                 `json:"-"`
+}
+
+// AccountReducedEffects returns one Account's presentation preference.
+func (installation *SQLite) AccountReducedEffects(
+	ctx context.Context,
+	accountID int,
+) (bool, error) {
+	preference, err := installation.client.AccountPreference.Query().
+		Where(accountpreference.AccountIDEQ(accountID)).
+		Only(systemContext(ctx))
+	if ent.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, opaqueError("read Account Reduced Effects", err)
+	}
+	return preference.ReducedEffects, nil
+}
+
+// SetAccountReducedEffects updates one Account preference.
+func (installation *SQLite) SetAccountReducedEffects(
+	ctx context.Context,
+	accountID int,
+	enabled bool,
+) error {
+	internalContext := systemContext(ctx)
+	preference, err := installation.client.AccountPreference.Query().
+		Where(accountpreference.AccountIDEQ(accountID)).
+		Only(internalContext)
+	if ent.IsNotFound(err) {
+		_, err = installation.client.AccountPreference.Create().
+			SetAccountID(accountID).
+			SetReducedEffects(enabled).
+			Save(internalContext)
+	} else if err == nil {
+		_, err = preference.Update().
+			SetReducedEffects(enabled).
+			Save(internalContext)
+	}
+	if err != nil {
+		return opaqueError("set Account Reduced Effects", err)
+	}
+	return nil
 }
 
 // AccountSessionCounts is token-free durable session diagnostic data.

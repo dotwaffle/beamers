@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/account"
+	"github.com/dotwaffle/beamers/ent/accountpreference"
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
@@ -85,6 +86,25 @@ func (_u *AccountUpdate) SetNillablePasswordCredentialID(id *int) *AccountUpdate
 // SetPasswordCredential sets the "password_credential" edge to the PasswordCredential entity.
 func (_u *AccountUpdate) SetPasswordCredential(v *PasswordCredential) *AccountUpdate {
 	return _u.SetPasswordCredentialID(v.ID)
+}
+
+// SetPreferenceID sets the "preference" edge to the AccountPreference entity by ID.
+func (_u *AccountUpdate) SetPreferenceID(id int) *AccountUpdate {
+	_u.mutation.SetPreferenceID(id)
+	return _u
+}
+
+// SetNillablePreferenceID sets the "preference" edge to the AccountPreference entity by ID if the given value is not nil.
+func (_u *AccountUpdate) SetNillablePreferenceID(id *int) *AccountUpdate {
+	if id != nil {
+		_u = _u.SetPreferenceID(*id)
+	}
+	return _u
+}
+
+// SetPreference sets the "preference" edge to the AccountPreference entity.
+func (_u *AccountUpdate) SetPreference(v *AccountPreference) *AccountUpdate {
+	return _u.SetPreferenceID(v.ID)
 }
 
 // AddSessionIDs adds the "sessions" edge to the AccountSession entity by IDs.
@@ -170,6 +190,12 @@ func (_u *AccountUpdate) Mutation() *AccountMutation {
 // ClearPasswordCredential clears the "password_credential" edge to the PasswordCredential entity.
 func (_u *AccountUpdate) ClearPasswordCredential() *AccountUpdate {
 	_u.mutation.ClearPasswordCredential()
+	return _u
+}
+
+// ClearPreference clears the "preference" edge to the AccountPreference entity.
+func (_u *AccountUpdate) ClearPreference() *AccountUpdate {
+	_u.mutation.ClearPreference()
 	return _u
 }
 
@@ -358,6 +384,35 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(passwordcredential.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.PreferenceCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   account.PreferenceTable,
+			Columns: []string{account.PreferenceColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(accountpreference.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PreferenceIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   account.PreferenceTable,
+			Columns: []string{account.PreferenceColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(accountpreference.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -663,6 +718,25 @@ func (_u *AccountUpdateOne) SetPasswordCredential(v *PasswordCredential) *Accoun
 	return _u.SetPasswordCredentialID(v.ID)
 }
 
+// SetPreferenceID sets the "preference" edge to the AccountPreference entity by ID.
+func (_u *AccountUpdateOne) SetPreferenceID(id int) *AccountUpdateOne {
+	_u.mutation.SetPreferenceID(id)
+	return _u
+}
+
+// SetNillablePreferenceID sets the "preference" edge to the AccountPreference entity by ID if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillablePreferenceID(id *int) *AccountUpdateOne {
+	if id != nil {
+		_u = _u.SetPreferenceID(*id)
+	}
+	return _u
+}
+
+// SetPreference sets the "preference" edge to the AccountPreference entity.
+func (_u *AccountUpdateOne) SetPreference(v *AccountPreference) *AccountUpdateOne {
+	return _u.SetPreferenceID(v.ID)
+}
+
 // AddSessionIDs adds the "sessions" edge to the AccountSession entity by IDs.
 func (_u *AccountUpdateOne) AddSessionIDs(ids ...int) *AccountUpdateOne {
 	_u.mutation.AddSessionIDs(ids...)
@@ -746,6 +820,12 @@ func (_u *AccountUpdateOne) Mutation() *AccountMutation {
 // ClearPasswordCredential clears the "password_credential" edge to the PasswordCredential entity.
 func (_u *AccountUpdateOne) ClearPasswordCredential() *AccountUpdateOne {
 	_u.mutation.ClearPasswordCredential()
+	return _u
+}
+
+// ClearPreference clears the "preference" edge to the AccountPreference entity.
+func (_u *AccountUpdateOne) ClearPreference() *AccountUpdateOne {
+	_u.mutation.ClearPreference()
 	return _u
 }
 
@@ -964,6 +1044,35 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(passwordcredential.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.PreferenceCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   account.PreferenceTable,
+			Columns: []string{account.PreferenceColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(accountpreference.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PreferenceIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   account.PreferenceTable,
+			Columns: []string{account.PreferenceColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(accountpreference.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
