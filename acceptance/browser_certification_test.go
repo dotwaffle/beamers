@@ -58,22 +58,220 @@ type browserCertificationConfig struct {
 	ReportPath        string
 }
 
+type browserProgramOutputEvidence struct {
+	Kind     string `json:"kind"`
+	EntryID  string `json:"entry_id,omitempty"`
+	Title    string `json:"title"`
+	Revision string `json:"revision"`
+}
+
+type browserDisplayOutputEvidence struct {
+	DisplayID      string                       `json:"display_id"`
+	ProgramOutput  browserProgramOutputEvidence `json:"program_output"`
+	StreamID       string                       `json:"stream_id"`
+	StreamPosition string                       `json:"stream_position"`
+	Acknowledged   bool                         `json:"acknowledged"`
+}
+
+type browserDisplayCertification struct {
+	driverEndpoint string
+	enrollmentCode string
+	credential     string
+	driver         *webDriver
+	committedFrame string
+}
+
 type browserCertificationReport struct {
-	Commit               string                `json:"commit"`
-	Engine               string                `json:"engine"`
-	Role                 string                `json:"role"`
-	BrowserVersion       string                `json:"browser_version"`
-	WebDriverVersion     string                `json:"webdriver_version"`
-	GitHubRunID          string                `json:"github_run_id,omitempty"`
-	RunnerOS             string                `json:"runner_os,omitempty"`
-	RunnerArchitecture   string                `json:"runner_architecture,omitempty"`
-	GeneratedAt          time.Time             `json:"generated_at"`
-	Pages                []browserPageEvidence `json:"pages"`
-	CrewCommandCommitted bool                  `json:"crew_command_committed"`
-	DisplayRetainedFrame bool                  `json:"display_retained_frame"`
-	DisplayReconnected   bool                  `json:"display_reconnected"`
-	KioskEvidence        bool                  `json:"kiosk_evidence"`
-	ManualAccessibility  bool                  `json:"manual_accessibility"`
+	Commit                         string                         `json:"commit"`
+	Engine                         string                         `json:"engine"`
+	Role                           string                         `json:"role"`
+	BrowserVersion                 string                         `json:"browser_version"`
+	WebDriverVersion               string                         `json:"webdriver_version"`
+	GitHubRunID                    string                         `json:"github_run_id,omitempty"`
+	RunnerOS                       string                         `json:"runner_os,omitempty"`
+	RunnerArchitecture             string                         `json:"runner_architecture,omitempty"`
+	GeneratedAt                    time.Time                      `json:"generated_at"`
+	Pages                          []browserPageEvidence          `json:"pages"`
+	CrewCommandCommitted           bool                           `json:"crew_command_committed"`
+	DisplaysConnectedBeforeCommand []string                       `json:"displays_connected_before_command"`
+	ProgramOutput                  browserProgramOutputEvidence   `json:"program_output"`
+	Displays                       []browserDisplayOutputEvidence `json:"displays"`
+	DisplayRetainedFrame           bool                           `json:"display_retained_frame"`
+	DisplayReconnected             bool                           `json:"display_reconnected"`
+	KioskEvidence                  bool                           `json:"kiosk_evidence"`
+	ManualAccessibility            bool                           `json:"manual_accessibility"`
+}
+
+func (report browserCertificationReport) validate() error {
+	switch {
+	case !report.CrewCommandCommitted:
+		return errors.New("Crew command was not committed")
+	case len(report.DisplaysConnectedBeforeCommand) != 2:
+		return fmt.Errorf("Displays connected before command = %d, want 2",
+			len(report.DisplaysConnectedBeforeCommand))
+	case report.ProgramOutput.Kind == "" ||
+		report.ProgramOutput.Title == "" ||
+		report.ProgramOutput.Revision == "":
+		return errors.New("Program Output is missing")
+	case len(report.Displays) != 2:
+		return fmt.Errorf("Display outputs = %d, want 2", len(report.Displays))
+	case !report.DisplayRetainedFrame:
+		return errors.New("Display did not retain its committed frame")
+	case !report.DisplayReconnected:
+		return errors.New("Display did not reconnect after restart")
+	}
+	connected := make(map[string]bool, 2)
+	for _, displayID := range report.DisplaysConnectedBeforeCommand {
+		if displayID == "" || connected[displayID] {
+			return errors.New("connected Display identities are incomplete")
+		}
+		connected[displayID] = true
+	}
+	seen := make(map[string]bool, 2)
+	for _, display := range report.Displays {
+		switch {
+		case !connected[display.DisplayID], seen[display.DisplayID]:
+			return errors.New("Display output identity was not connected before command")
+		case display.ProgramOutput != report.ProgramOutput:
+			return errors.New("Display output does not match Program Output")
+		case display.StreamID == "" || display.StreamPosition == "":
+			return errors.New("Display output cursor is missing")
+		case !display.Acknowledged:
+			return errors.New("Display output was not acknowledged")
+		}
+		seen[display.DisplayID] = true
+	}
+	var crewPages, displayPages, enrollmentPages int
+	for _, page := range report.Pages {
+		if err := page.validate(); err != nil {
+			return fmt.Errorf("validate %s page evidence: %w", page.Surface, err)
+		}
+		switch page.Surface {
+		case "crew_control":
+			crewPages++
+		case "display":
+			displayPages++
+		case "enrollment":
+			enrollmentPages++
+		}
+	}
+	if crewPages != 1 || displayPages != 2 || enrollmentPages != 1 {
+		return fmt.Errorf(
+			"browser evidence has %d Crew, %d Display, and %d Enrollment pages, want 1, 2, and 1",
+			crewPages,
+			displayPages,
+			enrollmentPages,
+		)
+	}
+	return nil
+}
+
+func TestBrowserCertificationReportRequiresDurableTwoDisplayTake(t *testing.T) {
+	validReport := func() browserCertificationReport {
+		programOutput := browserProgramOutputEvidence{
+			Kind: "PROGRAM_ITEM_KIND_STARTING", Title: "Opening Keynote", Revision: "1",
+		}
+		return browserCertificationReport{
+			CrewCommandCommitted:           true,
+			DisplaysConnectedBeforeCommand: []string{"1", "2"},
+			ProgramOutput:                  programOutput,
+			Displays: []browserDisplayOutputEvidence{
+				{
+					DisplayID: "1", ProgramOutput: programOutput,
+					StreamID: "stream", StreamPosition: "1", Acknowledged: true,
+				},
+				{
+					DisplayID: "2", ProgramOutput: programOutput,
+					StreamID: "stream", StreamPosition: "1", Acknowledged: true,
+				},
+			},
+			Pages: []browserPageEvidence{
+				validBrowserPageEvidence("crew_control"),
+				validBrowserPageEvidence("display"),
+				validBrowserPageEvidence("display"),
+				validBrowserPageEvidence("enrollment"),
+			},
+			DisplayRetainedFrame: true,
+			DisplayReconnected:   true,
+		}
+	}
+	if err := validReport().validate(); err != nil {
+		t.Fatalf("complete browser certification report: %v", err)
+	}
+
+	tests := map[string]func(*browserCertificationReport){
+		"missing Crew command": func(report *browserCertificationReport) {
+			report.CrewCommandCommitted = false
+		},
+		"missing connected Display": func(report *browserCertificationReport) {
+			report.DisplaysConnectedBeforeCommand = report.DisplaysConnectedBeforeCommand[:1]
+		},
+		"duplicate connected Display": func(report *browserCertificationReport) {
+			report.DisplaysConnectedBeforeCommand[1] = "1"
+		},
+		"empty connected Display": func(report *browserCertificationReport) {
+			report.DisplaysConnectedBeforeCommand[1] = ""
+		},
+		"missing Program Output": func(report *browserCertificationReport) {
+			report.ProgramOutput = browserProgramOutputEvidence{}
+		},
+		"missing Display output": func(report *browserCertificationReport) {
+			report.Displays = report.Displays[:1]
+		},
+		"unconnected Display output": func(report *browserCertificationReport) {
+			report.Displays[1].DisplayID = "3"
+		},
+		"duplicate Display output": func(report *browserCertificationReport) {
+			report.Displays[1].DisplayID = "1"
+		},
+		"mismatched Display output": func(report *browserCertificationReport) {
+			report.Displays[1].ProgramOutput.Title = "Standby"
+		},
+		"missing Display cursor": func(report *browserCertificationReport) {
+			report.Displays[1].StreamPosition = ""
+		},
+		"missing acknowledgment": func(report *browserCertificationReport) {
+			report.Displays[1].Acknowledged = false
+		},
+		"missing browser evidence": func(report *browserCertificationReport) {
+			report.Pages = nil
+		},
+		"missing enrollment evidence": func(report *browserCertificationReport) {
+			report.Pages = report.Pages[:3]
+		},
+		"invalid browser evidence": func(report *browserCertificationReport) {
+			report.Pages[0].Title = ""
+		},
+		"missing retained frame": func(report *browserCertificationReport) {
+			report.DisplayRetainedFrame = false
+		},
+		"missing reconnect": func(report *browserCertificationReport) {
+			report.DisplayReconnected = false
+		},
+	}
+	for name, breakReport := range tests {
+		t.Run(name, func(t *testing.T) {
+			report := validReport()
+			breakReport(&report)
+			if err := report.validate(); err == nil {
+				t.Fatal("browser certification report accepted incomplete evidence")
+			}
+		})
+	}
+}
+
+func validBrowserPageEvidence(surface string) browserPageEvidence {
+	evidence := browserPageEvidence{
+		Surface: surface, Title: "Evidence", Language: "en", Main: true, Heading: true,
+	}
+	if surface == "display" {
+		evidence.ReducedMotion = true
+		evidence.NonColorStatus = true
+	} else {
+		evidence.KeyboardOperable = true
+		evidence.FocusVisible = true
+	}
+	return evidence
 }
 
 func (evidence browserPageEvidence) validate() error {
@@ -351,6 +549,9 @@ func (driver *webDriver) waitFor(
 
 func (driver *webDriver) close(ctx context.Context) error {
 	_, err := driver.command(ctx, http.MethodDelete, driver.sessionPath(""), nil)
+	if err == nil {
+		driver.sessionID = ""
+	}
 	return err
 }
 
@@ -363,7 +564,11 @@ func TestBrowserCertification(t *testing.T) {
 		t.Skip("set BEAMERS_BROWSER_CERTIFICATION=1 to run real-browser certification")
 	}
 	config := browserConfigFromEnvironment(t)
-	webDriverEndpoint, webDriverVersion := startBrowserDriver(t, config)
+	crewDriverEndpoint, webDriverVersion := startBrowserDriver(t, config)
+	displays := make([]browserDisplayCertification, 2)
+	for index := range displays {
+		displays[index].driverEndpoint, _ = startBrowserDriver(t, config)
+	}
 	client := &http.Client{Timeout: 10 * time.Second}
 
 	bin := buildBrowserBeamers(t, "browser-certification")
@@ -389,10 +594,10 @@ func TestBrowserCertification(t *testing.T) {
 	)
 	prepareActiveSchedule(t, administrator, server)
 	crewSessionID, _ := addCompetitionSession(t, administrator, server)
-	enrollmentCode, displayCredential := prepareBrowserEnrollment(
-		t,
-		server,
-	)
+	for index := range displays {
+		displays[index].enrollmentCode, displays[index].credential =
+			prepareBrowserEnrollment(t, server)
+	}
 	origin := "http://" + server.address
 
 	report := browserCertificationReport{
@@ -405,21 +610,21 @@ func TestBrowserCertification(t *testing.T) {
 		RunnerArchitecture: os.Getenv("RUNNER_ARCH"),
 		GeneratedAt:        time.Now().UTC(),
 	}
-	driver := startBrowserSession(t, client, webDriverEndpoint, config)
-	report.BrowserVersion = driver.browserVersion
-	if major := browserMajor(t, driver.browserVersion); major != config.ExpectedMajor {
+	crewDriver := startBrowserSession(t, client, crewDriverEndpoint, config)
+	report.BrowserVersion = crewDriver.browserVersion
+	if major := browserMajor(t, crewDriver.browserVersion); major != config.ExpectedMajor {
 		t.Fatalf(
 			"browser major = %d from %q, want %d",
 			major,
-			driver.browserVersion,
+			crewDriver.browserVersion,
 			config.ExpectedMajor,
 		)
 	}
 	report.Pages = append(
 		report.Pages,
-		certifyInteractivePage(t, driver, origin+"/schedule", "schedule"),
+		certifyInteractivePage(t, crewDriver, origin+"/schedule", "schedule"),
 	)
-	addBrowserCookie(t, driver, browserCookie(
+	addBrowserCookie(t, crewDriver, browserCookie(
 		t,
 		administrator,
 		origin,
@@ -429,92 +634,196 @@ func TestBrowserCertification(t *testing.T) {
 	report.Pages = append(report.Pages,
 		certifyInteractivePage(
 			t,
-			driver,
-			origin+"/admin/displays/enroll?code="+url.QueryEscape(enrollmentCode),
+			crewDriver,
+			origin+"/admin/displays/enroll?code="+url.QueryEscape(displays[0].enrollmentCode),
 			"enrollment",
 		),
-		certifyCrewControl(t, driver, origin, crewSessionID),
 	)
-	report.CrewCommandCommitted = true
-	closeBrowserSession(t, driver)
+	for index, display := range displays {
+		claimBrowserEnrollment(
+			t, administrator, server, display.enrollmentCode, index+1,
+			fmt.Sprintf("Browser Certification %d", index+1),
+		)
+	}
 
-	claimBrowserEnrollment(t, administrator, server, enrollmentCode)
-	driver = startBrowserSession(t, client, webDriverEndpoint, config)
-	if err := driver.navigate(t.Context(), origin+"/schedule"); err != nil {
+	for index := range displays {
+		report.Pages = append(report.Pages, startCertifiedBrowserDisplay(
+			t, client, config, origin, &displays[index],
+		))
+	}
+
+	crewEvidence, connectedDisplayIDs, programOutput := certifyCrewControl(
+		t, crewDriver, origin, crewSessionID,
+	)
+	report.Pages = append(report.Pages, crewEvidence)
+	report.CrewCommandCommitted = true
+	report.DisplaysConnectedBeforeCommand = connectedDisplayIDs
+	report.ProgramOutput = programOutput
+
+	for index := range displays {
+		report.Displays = append(report.Displays, captureBrowserDisplayOutput(
+			t, &displays[index], programOutput,
+		))
+	}
+	if err := crewDriver.waitFor(
+		t.Context(),
+		15*time.Second,
+		`return refresh().then(() => `+
+			`[...document.querySelectorAll("#displays li[data-delivery]")].length === 2 && `+
+			`[...document.querySelectorAll("#displays li[data-delivery]")].every(`+
+			`(display) => display.dataset.delivery === "applied"));`,
+	); err != nil {
+		t.Fatalf("wait for two Display acknowledgments: %v", err)
+	}
+	acknowledgedJSON, err := crewDriver.evaluateString(
+		t.Context(),
+		`return JSON.stringify(channel.consumingDisplays`+
+			`.filter((display) => display.deliveryState === "applied")`+
+			`.map((display) => String(display.displayId)));`,
+	)
+	if err != nil {
+		t.Fatalf("read acknowledged Displays: %v", err)
+	}
+	var acknowledgedDisplayIDs []string
+	if err = json.Unmarshal([]byte(acknowledgedJSON), &acknowledgedDisplayIDs); err != nil {
+		t.Fatalf("decode acknowledged Displays: %v", err)
+	}
+	acknowledged := make(map[string]bool, len(acknowledgedDisplayIDs))
+	for _, displayID := range acknowledgedDisplayIDs {
+		acknowledged[displayID] = true
+	}
+	for index := range report.Displays {
+		report.Displays[index].Acknowledged = acknowledged[report.Displays[index].DisplayID]
+	}
+	closeBrowserSession(t, crewDriver)
+
+	server.stop(t)
+	for index := range displays {
+		assertBrowserDisplayFrame(
+			t, &displays[index], "disconnected", 15*time.Second, "while disconnected",
+		)
+	}
+	report.DisplayRetainedFrame = true
+
+	restarted := startBeamersAt(t, bin, dataDir, server.address)
+	for index := range displays {
+		display := &displays[index]
+		assertBrowserDisplayFrame(
+			t, display, "connected", 30*time.Second, "after compatible restart",
+		)
+		closeBrowserSession(t, display.driver)
+	}
+	report.DisplayReconnected = true
+	restarted.stop(t)
+	writeBrowserCertificationReport(t, config.ReportPath, report)
+}
+
+func startCertifiedBrowserDisplay(
+	t *testing.T,
+	client *http.Client,
+	config browserCertificationConfig,
+	origin string,
+	display *browserDisplayCertification,
+) browserPageEvidence {
+	t.Helper()
+	display.driver = startBrowserSession(t, client, display.driverEndpoint, config)
+	if err := display.driver.navigate(t.Context(), origin+"/schedule"); err != nil {
 		t.Fatalf("navigate to Display cookie origin: %v", err)
 	}
 	for _, path := range []string{"/display", "/beamers.display.v1.DisplayService"} {
-		addBrowserCookie(t, driver, &http.Cookie{
+		addBrowserCookie(t, display.driver, &http.Cookie{
 			Name:     "beamers_display",
-			Value:    displayCredential,
+			Value:    display.credential,
 			Path:     path,
 			HttpOnly: true,
 		})
 	}
-	if err := driver.navigate(t.Context(), origin+"/display"); err != nil {
+	if err := display.driver.navigate(t.Context(), origin+"/display"); err != nil {
 		t.Fatalf("navigate to Display: %v", err)
 	}
-	if err := driver.waitFor(
+	if err := display.driver.waitFor(
 		t.Context(),
 		15*time.Second,
 		`return document.documentElement.dataset.connection === "connected";`,
 	); err != nil {
 		t.Fatalf("wait for connected Display: %v", err)
 	}
-	displayEvidence, err := driver.auditPage(t.Context(), "display")
+	evidence, err := display.driver.auditPage(t.Context(), "display")
 	if err != nil {
 		t.Fatal(err)
 	}
-	report.Pages = append(report.Pages, displayEvidence)
-	committedFrame, err := driver.evaluateString(
+	return evidence
+}
+
+func captureBrowserDisplayOutput(
+	t *testing.T,
+	display *browserDisplayCertification,
+	programOutput browserProgramOutputEvidence,
+) browserDisplayOutputEvidence {
+	t.Helper()
+	outputScript := `return document.querySelector(` +
+		`'[data-widget="program-output"] h1')?.textContent === ` +
+		strconv.Quote(programOutput.Title) + `;`
+	if err := display.driver.waitFor(
+		t.Context(), 15*time.Second, outputScript,
+	); err != nil {
+		t.Fatalf("wait for committed Program Output on Display: %v", err)
+	}
+	outputJSON, err := display.driver.evaluateString(
+		t.Context(),
+		`return JSON.stringify({`+
+			`display_id: String(appliedSnapshot.displayId), `+
+			`program_output: {`+
+			`kind: appliedSnapshot.programOutput.kind, `+
+			`entry_id: String(appliedSnapshot.programOutput.entryId ?? ""), `+
+			`title: appliedSnapshot.programOutput.title, `+
+			`revision: String(appliedSnapshot.programOutputRevision)`+
+			`}, `+
+			`stream_id: appliedSnapshot.streamId, `+
+			`stream_position: String(appliedSnapshot.streamPosition), `+
+			`acknowledged: false`+
+			`});`,
+	)
+	if err != nil {
+		t.Fatalf("read Display Program Output: %v", err)
+	}
+	var output browserDisplayOutputEvidence
+	if err = json.Unmarshal([]byte(outputJSON), &output); err != nil {
+		t.Fatalf("decode Display Program Output: %v", err)
+	}
+	display.committedFrame, err = display.driver.evaluateString(
 		t.Context(),
 		`return document.querySelector("main").textContent;`,
 	)
 	if err != nil {
 		t.Fatalf("read committed Display frame: %v", err)
 	}
-	server.stop(t)
-	if err = driver.waitFor(
-		t.Context(),
-		15*time.Second,
-		`return document.documentElement.dataset.connection === "disconnected";`,
-	); err != nil {
-		t.Fatalf("wait for disconnected Display: %v", err)
-	}
-	retainedFrame, err := driver.evaluateString(
-		t.Context(),
-		`return document.querySelector("main").textContent;`,
-	)
-	if err != nil {
-		t.Fatalf("read disconnected Display frame: %v", err)
-	}
-	if retainedFrame != committedFrame {
-		t.Fatal("Display replaced its committed frame while disconnected")
-	}
-	report.DisplayRetainedFrame = true
+	return output
+}
 
-	restarted := startBeamersAt(t, bin, dataDir, server.address)
-	if err = driver.waitFor(
-		t.Context(),
-		30*time.Second,
-		`return document.documentElement.dataset.connection === "connected";`,
-	); err != nil {
-		t.Fatalf("wait for Display recovery after restart: %v", err)
+func assertBrowserDisplayFrame(
+	t *testing.T,
+	display *browserDisplayCertification,
+	connection string,
+	timeout time.Duration,
+	failure string,
+) {
+	t.Helper()
+	script := `return document.documentElement.dataset.connection === ` +
+		strconv.Quote(connection) + `;`
+	if err := display.driver.waitFor(t.Context(), timeout, script); err != nil {
+		t.Fatalf("wait for %s Display: %v", connection, err)
 	}
-	recoveredFrame, err := driver.evaluateString(
+	frame, err := display.driver.evaluateString(
 		t.Context(),
 		`return document.querySelector("main").textContent;`,
 	)
 	if err != nil {
-		t.Fatalf("read recovered Display frame: %v", err)
+		t.Fatalf("read %s Display frame: %v", connection, err)
 	}
-	if recoveredFrame != committedFrame {
-		t.Fatal("Display changed its committed frame after compatible restart")
+	if frame != display.committedFrame {
+		t.Fatalf("Display changed its committed frame %s", failure)
 	}
-	report.DisplayReconnected = true
-	closeBrowserSession(t, driver)
-	restarted.stop(t)
-	writeBrowserCertificationReport(t, config.ReportPath, report)
 }
 
 func browserConfigFromEnvironment(t *testing.T) browserCertificationConfig {
@@ -723,6 +1032,16 @@ func startBrowserSession(
 	if err != nil {
 		t.Fatalf("start %s WebDriver session: %v", config.Engine, err)
 	}
+	t.Cleanup(func() {
+		if driver.sessionID == "" {
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if closeErr := driver.close(ctx); closeErr != nil {
+			t.Errorf("clean up browser session: %v", closeErr)
+		}
+	})
 	return driver
 }
 
@@ -771,7 +1090,7 @@ func certifyCrewControl(
 	driver *webDriver,
 	origin string,
 	sessionID int64,
-) browserPageEvidence {
+) (browserPageEvidence, []string, browserProgramOutputEvidence) {
 	t.Helper()
 	target := origin + "/crew/program/" + strconv.FormatInt(sessionID, 10) +
 		"?event_id=1"
@@ -815,6 +1134,27 @@ func certifyCrewControl(
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err = driver.waitFor(
+		t.Context(),
+		15*time.Second,
+		`return [...document.querySelectorAll("#displays li[data-delivery]")].length === 2 && `+
+			`[...document.querySelectorAll("#displays li[data-delivery]")].every(`+
+			`(display) => display.dataset.delivery === "applied");`,
+	); err != nil {
+		t.Fatalf("wait for two connected consuming Displays: %v", err)
+	}
+	connectedJSON, err := driver.evaluateString(
+		t.Context(),
+		`return JSON.stringify(channel.consumingDisplays`+
+			`.map((display) => String(display.displayId)));`,
+	)
+	if err != nil {
+		t.Fatalf("read connected consuming Displays: %v", err)
+	}
+	var connectedDisplayIDs []string
+	if err = json.Unmarshal([]byte(connectedJSON), &connectedDisplayIDs); err != nil {
+		t.Fatalf("decode connected consuming Displays: %v", err)
+	}
 	focused, err := driver.evaluateBool(
 		t.Context(),
 		`const button = document.querySelector('[data-control-action="CONTROL_ACTION_CLAIM"]');`+
@@ -833,7 +1173,72 @@ func certifyCrewControl(
 	); err != nil {
 		t.Fatalf("wait for committed Crew Claim command: %v", err)
 	}
-	return evidence
+	selected, err := driver.evaluateString(
+		t.Context(),
+		`const button = [...document.querySelectorAll("#program-items button")].find(`+
+			`(candidate) => candidate.getAttribute("aria-pressed") === "false" && `+
+			`candidate.textContent !== "standby");`+
+			`if (!button) return ""; button.focus(); return button.textContent;`,
+	)
+	if err != nil || selected == "" {
+		t.Fatalf("focus Crew Preview control = %q, %v", selected, err)
+	}
+	if err = driver.pressKey(t.Context(), "\uE007"); err != nil {
+		t.Fatalf("activate Crew Preview control: %v", err)
+	}
+	previewScript := `return document.querySelector('[data-item="preview"]').textContent === ` +
+		strconv.Quote(selected) + `;`
+	if err = driver.waitFor(t.Context(), 15*time.Second, previewScript); err != nil {
+		t.Fatalf("wait for committed Crew Preview command: %v", err)
+	}
+	focused, err = driver.evaluateBool(
+		t.Context(),
+		`const button = document.querySelector("#take");`+
+			`button.focus(); return document.activeElement === button;`,
+	)
+	if err != nil || !focused {
+		t.Fatalf("focus Crew Take control = %t, %v", focused, err)
+	}
+	if err = driver.pressKey(t.Context(), "\uE007"); err != nil {
+		t.Fatalf("activate Crew Take control: %v", err)
+	}
+	takenScript := `return document.querySelector('[data-item="programOutput"]').textContent === ` +
+		strconv.Quote(selected) + `;`
+	if err = driver.waitFor(t.Context(), 15*time.Second, takenScript); err != nil {
+		details, detailErr := driver.evaluateString(
+			t.Context(),
+			`return JSON.stringify({`+
+				`status: document.querySelector("#connection-status")?.textContent, `+
+				`preview: document.querySelector('[data-item="preview"]')?.textContent, `+
+				`programOutput: document.querySelector('[data-item="programOutput"]')?.textContent, `+
+				`displays: [...document.querySelectorAll("#displays li")].map(`+
+				`(display) => ({text: display.textContent, delivery: display.dataset.delivery}))`+
+				`});`,
+		)
+		t.Fatalf(
+			"wait for durable Crew Take on two Displays: %v; page = %s, %v",
+			err,
+			details,
+			detailErr,
+		)
+	}
+	programOutputJSON, err := driver.evaluateString(
+		t.Context(),
+		`return JSON.stringify({`+
+			`kind: channel.programOutput.kind, `+
+			`entry_id: String(channel.programOutput.entryId ?? ""), `+
+			`title: channel.programOutput.title, `+
+			`revision: String(channel.liveStateRevision)`+
+			`});`,
+	)
+	if err != nil {
+		t.Fatalf("read committed Program Output: %v", err)
+	}
+	var programOutput browserProgramOutputEvidence
+	if err = json.Unmarshal([]byte(programOutputJSON), &programOutput); err != nil {
+		t.Fatalf("decode committed Program Output: %v", err)
+	}
+	return evidence, connectedDisplayIDs, programOutput
 }
 
 func prepareBrowserEnrollment(
@@ -870,6 +1275,8 @@ func claimBrowserEnrollment(
 	administrator *http.Client,
 	server *runningServer,
 	code string,
+	displayID int,
+	name string,
 ) {
 	t.Helper()
 	page := get(
@@ -888,8 +1295,8 @@ func claimBrowserEnrollment(
 	}
 	response := postForm(t, administrator, server.address, url.Values{
 		"code":          {code},
-		"name":          {"Browser Certification"},
-		"command_id":    {"claim-browser-certification"},
+		"name":          {name},
+		"command_id":    {fmt.Sprintf("claim-browser-certification-%d", displayID)},
 		"build_version": {build},
 	})
 	body, readErr := io.ReadAll(response.Body)
@@ -900,6 +1307,22 @@ func claimBrowserEnrollment(
 	if response.StatusCode != http.StatusCreated {
 		t.Fatalf("claim Display = %d %q", response.StatusCode, body)
 	}
+	assertJSONRequest(
+		t,
+		administrator,
+		server.address,
+		fmt.Sprintf("/admin/displays/%d/assign", displayID),
+		map[string]any{
+			"event_id": 1, "location_id": 1, "view_key": "competition-output",
+			"command_id": fmt.Sprintf("assign-browser-certification-%d", displayID),
+		},
+		http.StatusOK,
+		fmt.Sprintf(
+			"{\"display_id\":%d,\"event_id\":1,\"location_id\":1,"+
+				"\"view_key\":\"competition-output\"}\n",
+			displayID,
+		),
+	)
 }
 
 func browserCookie(
@@ -988,6 +1411,9 @@ func writeBrowserCertificationReport(
 	report browserCertificationReport,
 ) {
 	t.Helper()
+	if err := report.validate(); err != nil {
+		t.Fatalf("validate browser certification report: %v", err)
+	}
 	encoded, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		t.Fatalf("encode browser certification report: %v", err)

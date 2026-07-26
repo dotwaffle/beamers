@@ -27,6 +27,8 @@ browser_major="$(grep -oE '[0-9]+' <<<"$browser_version" | head -1)"
   --name "$container" \
   --network host \
   --shm-size 2g \
+  --env SE_NODE_MAX_SESSIONS=3 \
+  --env SE_NODE_OVERRIDE_MAX_SESSIONS=true \
   "$image" >/dev/null
 
 for _ in {1..60}; do

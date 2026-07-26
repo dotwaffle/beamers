@@ -234,6 +234,44 @@ test("Competition Output renders committed Program Output", async () => {
   assert.match(nodeText(program), /Entry/);
 });
 
+test("Competition Output rerenders after a durable Take", async () => {
+  const snapshot = {
+    standby: false,
+    viewKey: "competition-output",
+    composition: displayComposition({
+      key: "competition-output",
+      regions: [
+        {name: "program", widget: "program-output", persistent: true},
+      ],
+    }),
+  };
+  const browser = await startBrowser({
+    snapshots: [
+      displaySnapshot({
+        ...snapshot,
+        programOutput: {kind: "PROGRAM_ITEM_KIND_STARTING", title: "Starting"},
+      }),
+      displaySnapshot({
+        ...snapshot,
+        streamPosition: "2",
+        programOutput: {kind: "PROGRAM_ITEM_KIND_UPCOMING", title: "Upcoming"},
+      }),
+    ],
+  });
+
+  browser.eventSources[0].emit("invalidate", {
+    data: JSON.stringify({
+      protocol_version: "beamers.display.v1",
+      asset_version: "asset-current",
+      stream_position: 2,
+    }),
+  });
+  await browser.runTimer((delay) => delay === 0);
+
+  assert.match(nodeText(browser.document.main.children[0]), /Upcoming/);
+  assert.equal(browser.acknowledgments.at(-1).streamPosition, "2");
+});
+
 test("persistent clock advances without replacing the committed frame", async () => {
   const browser = await startBrowser({
     snapshot: displaySnapshot({

@@ -315,6 +315,7 @@ function renderSnapshot(snapshot, offset) {
     standby: snapshot.standby,
     sessions: snapshot.sessions,
     stageTimer: snapshot.stageTimer,
+    programOutput: snapshot.programOutput,
     stageMessage: snapshot.stageMessage,
     technicalDifficulties: snapshot.technicalDifficulties,
     urgentNotice: snapshot.urgentNotice,
