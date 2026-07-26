@@ -220,13 +220,23 @@ func CreateWithStorage(
 	if _, err = Verify(ctx, stagedArchive); err != nil {
 		return Manifest{}, err
 	}
-	if err = os.Link(stagedArchive, input.OutputPath); err != nil {
-		if errors.Is(err, os.ErrExist) {
-			return Manifest{}, errors.New("backup output already exists")
-		}
-		return Manifest{}, fmt.Errorf("install Backup archive: %w", err)
+	if err := installArchive(stagedArchive, input.OutputPath, syncDirectory); err != nil {
+		return Manifest{}, err
 	}
 	return manifest, nil
+}
+
+func installArchive(staged, output string, syncParent func(string) error) error {
+	if err := os.Link(staged, output); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return errors.New("backup output already exists")
+		}
+		return fmt.Errorf("install Backup archive: %w", err)
+	}
+	if err := syncParent(filepath.Dir(output)); err != nil {
+		return fmt.Errorf("sync Backup output directory: %w", err)
+	}
+	return nil
 }
 
 // Verify validates one complete Backup without extracting it.
