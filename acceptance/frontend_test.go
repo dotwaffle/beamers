@@ -4,10 +4,12 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -415,6 +417,191 @@ func TestBrowserRegistrationProfileAndDisablement(t *testing.T) {
 	server.stop(t)
 }
 
+func TestBackstageNavigationReflectsAuthorityAndInterface(t *testing.T) {
+	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
+	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events",
+		validEventInput(), http.StatusCreated,
+		"{\"id\":1,\"name\":\"Revision 2026\",\"planned_start_date\":\"2026-08-21\",\"planned_end_date\":\"2026-08-23\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"de-DE\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":1}\n",
+	)
+	secondEvent := validEventInput()
+	secondEvent["name"] = "Revision 2027"
+	secondEvent["command_id"] = "create-event-2"
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events",
+		secondEvent, http.StatusCreated,
+		"{\"id\":2,\"name\":\"Revision 2027\",\"planned_start_date\":\"2026-08-21\",\"planned_end_date\":\"2026-08-23\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"de-DE\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":1}\n",
+	)
+	const password = "backstage correct horse battery staple"
+	for index, name := range []string{
+		"Pat Producer",
+		"Opal Operator",
+		"Olive Observer",
+		"Alex Attendee",
+	} {
+		assertJSONRequest(
+			t, administrator, server.address, "/admin/accounts",
+			map[string]string{
+				"name": name, "password": password,
+				"command_id": "create-backstage-account-" + strconv.Itoa(index+2),
+			},
+			http.StatusCreated,
+			"{\"id\":"+strconv.Itoa(index+2)+",\"name\":\""+name+"\",\"administrator\":false}\n",
+		)
+	}
+	for _, grant := range []struct {
+		eventID  int
+		account  int
+		role     string
+		command  string
+		extra    map[string]any
+		response string
+	}{
+		{1, 1, "Producer", "grant-admin-producer", nil,
+			"{\"event_id\":1,\"account_id\":1,\"role\":\"Producer\"}\n"},
+		{2, 1, "Observer", "grant-admin-observer", nil,
+			"{\"event_id\":2,\"account_id\":1,\"role\":\"Observer\"}\n"},
+		{1, 2, "Producer", "grant-pat-producer", nil,
+			"{\"event_id\":1,\"account_id\":2,\"role\":\"Producer\"}\n"},
+		{1, 3, "Operator", "grant-opal-operator", map[string]any{
+			"display_group_keys": []string{"stage"},
+			"capabilities":       []string{"EmergencyAlert", "ViewResults"},
+		}, "{\"event_id\":1,\"account_id\":3,\"role\":\"Operator\",\"display_group_keys\":[\"stage\"],\"capabilities\":[\"EmergencyAlert\",\"ViewResults\"]}\n"},
+		{1, 4, "Observer", "grant-olive-observer", nil,
+			"{\"event_id\":1,\"account_id\":4,\"role\":\"Observer\"}\n"},
+	} {
+		input := map[string]any{
+			"account_id": grant.account,
+			"role":       grant.role,
+			"command_id": grant.command,
+		}
+		maps.Copy(input, grant.extra)
+		assertJSONRequest(
+			t,
+			administrator,
+			server.address,
+			"/admin/events/"+strconv.Itoa(grant.eventID)+"/grants",
+			input,
+			http.StatusCreated,
+			grant.response,
+		)
+	}
+
+	assertBackstage := func(
+		name string,
+		want []string,
+		absent []string,
+	) *http.Client {
+		t.Helper()
+		client := authenticatedClient(t)
+		client.CheckRedirect = func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+		assertJSONRequest(
+			t, client, server.address, "/auth/sign-in",
+			map[string]string{"name": name, "password": password},
+			http.StatusNoContent, "",
+		)
+		root := getFrontendPage(t, client, server.address, "/")
+		if !strings.Contains(root.body, `href="/backstage"`) {
+			t.Fatalf("%s root has no Backstage link: %q", name, root.body)
+		}
+		page := getFrontendPage(t, client, server.address, "/backstage")
+		if page.status != http.StatusOK {
+			t.Fatalf("%s Backstage = %d %q", name, page.status, page.body)
+		}
+		navigation := frontendBackstageNavigation(t, page)
+		for _, text := range want {
+			if !strings.Contains(navigation, text) {
+				t.Errorf("%s Backstage lacks %q", name, text)
+			}
+		}
+		for _, text := range absent {
+			if strings.Contains(navigation, text) {
+				t.Errorf("%s Backstage unexpectedly contains %q", name, text)
+			}
+		}
+		return client
+	}
+
+	adminPage := getFrontendPage(t, administrator, server.address, "/backstage")
+	adminNavigation := frontendBackstageNavigation(t, adminPage)
+	for _, text := range []string{
+		"Installation",
+		"Event #1",
+		"Producer",
+		"Event #2",
+		"Observer",
+	} {
+		if adminPage.status != http.StatusOK || !strings.Contains(adminNavigation, text) {
+			t.Errorf("Administrator Backstage lacks %q: %d %q", text, adminPage.status, adminPage.body)
+		}
+	}
+	producer := assertBackstage(
+		"Pat Producer",
+		[]string{"Plan and publish", "Competition Entries and Attachments", "Results and Prizegiving"},
+		[]string{"Installation"},
+	)
+	assertBackstage(
+		"Opal Operator",
+		[]string{
+			"Sessions and Displays",
+			"Program Output and Overrides",
+			"Emergency Alerts",
+			"Results and Prizegiving",
+		},
+		[]string{"Plan and publish", "Competition Entries and Attachments", "Installation"},
+	)
+	assertBackstage(
+		"Olive Observer",
+		[]string{"Event overview"},
+		[]string{"Sessions and Displays", "Results and Prizegiving", "Installation"},
+	)
+	if forbidden := getFrontendPage(
+		t,
+		producer,
+		server.address,
+		"/admin/registration",
+	); forbidden.status != http.StatusForbidden {
+		t.Fatalf("Producer direct administration = %d, want 403", forbidden.status)
+	}
+	attendee := authenticatedClient(t)
+	attendee.CheckRedirect = producer.CheckRedirect
+	assertJSONRequest(
+		t, attendee, server.address, "/auth/sign-in",
+		map[string]string{"name": "Alex Attendee", "password": password},
+		http.StatusNoContent, "",
+	)
+	if root := getFrontendPage(t, attendee, server.address, "/"); strings.Contains(root.body, `href="/backstage"`) {
+		t.Fatalf("attendee root exposes Backstage: %q", root.body)
+	}
+	if page := getFrontendPage(t, attendee, server.address, "/backstage"); page.status != http.StatusNotFound {
+		t.Fatalf("attendee Backstage = %d, want 404", page.status)
+	}
+	if public := getFrontendPage(
+		t,
+		authenticatedClient(t),
+		server.publicAddress,
+		"/backstage",
+	); public.status != http.StatusNotFound {
+		t.Fatalf("public-listener Backstage = %d, want 404", public.status)
+	}
+	if frontend := getFrontendPage(
+		t,
+		administrator,
+		server.publicAddress,
+		"/",
+	); frontend.status != http.StatusOK {
+		t.Fatalf("public-listener Frontend = %d, want 200", frontend.status)
+	} else if strings.Contains(frontend.body, `href="/backstage"`) {
+		t.Fatalf("public-listener Frontend advertises private Backstage: %q", frontend.body)
+	}
+	server.stop(t)
+}
+
 type frontendResponse struct {
 	status int
 	header http.Header
@@ -490,6 +677,20 @@ func requireFrontendCSRF(t *testing.T, response frontendResponse) string {
 		t.Fatalf("CSRF page = %d %q", response.status, response.body)
 	}
 	return match[1]
+}
+
+func frontendBackstageNavigation(t *testing.T, response frontendResponse) string {
+	t.Helper()
+	const start = `<nav class="backstage-links"`
+	startAt := strings.Index(response.body, start)
+	if response.status != http.StatusOK || startAt < 0 {
+		t.Fatalf("Backstage navigation page = %d %q", response.status, response.body)
+	}
+	endAt := strings.Index(response.body[startAt:], "</nav>")
+	if endAt < 0 {
+		t.Fatalf("Backstage navigation is unclosed: %q", response.body)
+	}
+	return response.body[startAt : startAt+endAt]
 }
 
 func frontendResponseCookie(

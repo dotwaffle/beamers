@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"mime"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/frontend"
+	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 const (
@@ -56,7 +58,10 @@ func registerFrontendRoutes(
 	mux.HandleFunc("/effects", formRoute, handlers.effects)
 	mux.HandleFunc("/profile", formRoute, handlers.profile)
 	mux.HandleFunc("/people/{handle}", browserPageRoute(), handlers.publicProfile)
-	mux.HandleFunc("/admin/registration", formRoute, handlers.registrationPolicy)
+	mux.HandleFunc("/backstage", backstagePageRoute(), handlers.backstage)
+	backstageFormRoute := backstagePageRoute()
+	backstageFormRoute.maxBodyBytes = maxAuthBodyBytes
+	mux.HandleFunc("/admin/registration", backstageFormRoute, handlers.registrationPolicy)
 	for _, path := range []string{
 		frontend.StylesheetPath,
 		frontend.ChakraRegularPath,
@@ -205,7 +210,13 @@ func (handlers frontendHandlers) profile(response http.ResponseWriter, request *
 		response,
 		request,
 		http.StatusOK,
-		frontend.ProfilePage(csrfToken, found, reducedEffectsCookie(request)),
+		frontend.ProfilePage(
+			csrfToken,
+			found,
+			reducedEffectsCookie(request),
+			backstageAccessible(request) &&
+				backstageAvailable(backstageNavigation(actor)),
+		),
 	)
 }
 
@@ -278,8 +289,131 @@ func (handlers frontendHandlers) registrationPolicy(
 		response,
 		request,
 		http.StatusOK,
-		frontend.RegistrationPolicy(csrfToken, open, reducedEffectsCookie(request)),
+		frontend.RegistrationPolicy(
+			csrfToken,
+			open,
+			reducedEffectsCookie(request),
+			actor.Name,
+			backstageNavigation(actor),
+		),
 	)
+}
+
+func (handlers frontendHandlers) backstage(response http.ResponseWriter, request *http.Request) {
+	if !frontendReadAllowed(response, request) {
+		return
+	}
+	actor, ok := handlers.browserAccount(response, request)
+	if !ok {
+		return
+	}
+	navigation := backstageNavigation(actor)
+	if !backstageAvailable(navigation) {
+		http.NotFound(response, request)
+		return
+	}
+	csrfToken, err := handlers.csrfToken(response, request)
+	if err != nil {
+		handlers.frontendError(response, request, "create CSRF proof", err)
+		return
+	}
+	handlers.render(
+		response,
+		request,
+		http.StatusOK,
+		frontend.Backstage(
+			actor.Name,
+			csrfToken,
+			reducedEffectsCookie(request),
+			navigation,
+		),
+	)
+}
+
+type backstageNavigationModel = frontend.BackstageNavigation
+type backstageEventNavigation = frontend.BackstageEvent
+
+func backstageNavigation(account auth.Account) backstageNavigationModel {
+	eventIDs := make([]int, 0, len(account.EventRoles))
+	for eventID := range account.EventRoles {
+		eventIDs = append(eventIDs, eventID)
+	}
+	slices.Sort(eventIDs)
+	navigation := backstageNavigationModel{
+		Administrator: account.Administrator,
+		Events:        make([]backstageEventNavigation, 0, len(eventIDs)),
+	}
+	for _, eventID := range eventIDs {
+		role := account.EventRoles[eventID]
+		sections := []frontend.BackstageSection{
+			backstageSection(eventID, "overview", "Event overview"),
+		}
+		if role == viewer.Producer {
+			sections = append(sections,
+				backstageSection(eventID, "planning", "Plan and publish"),
+			)
+		}
+		scope := account.EventScopes[eventID]
+		if role == viewer.Producer ||
+			role == viewer.Operator &&
+				(len(scope.LaneIDs) != 0 || len(scope.DisplayGroupKeys) != 0) {
+			sections = append(sections,
+				backstageSection(eventID, "operation", "Sessions and Displays"),
+			)
+		}
+		if role == viewer.Producer ||
+			role == viewer.Operator &&
+				(len(scope.LaneIDs) != 0 ||
+					len(scope.DisplayGroupKeys) != 0) {
+			sections = append(sections,
+				backstageSection(eventID, "control", "Program Output and Overrides"),
+			)
+		}
+		if account.HasCapability(eventID, viewer.EmergencyAlert) &&
+			(role == viewer.Producer ||
+				len(scope.LaneIDs) != 0 ||
+				len(scope.DisplayGroupKeys) != 0) {
+			sections = append(sections,
+				backstageSection(eventID, "emergency", "Emergency Alerts"),
+			)
+		}
+		if role == viewer.Producer {
+			sections = append(sections,
+				backstageSection(eventID, "entries", "Competition Entries and Attachments"),
+			)
+		}
+		if role == viewer.Producer ||
+			account.HasCapability(eventID, viewer.ViewResults) ||
+			account.HasCapability(eventID, viewer.ManageResults) {
+			sections = append(sections,
+				backstageSection(eventID, "results", "Results and Prizegiving"),
+			)
+		}
+		navigation.Events = append(navigation.Events, backstageEventNavigation{
+			ID: eventID, Role: string(role), Sections: sections,
+		})
+	}
+	return navigation
+}
+
+func backstageSection(eventID int, fragment, label string) frontend.BackstageSection {
+	id := "event-" + strconv.Itoa(eventID) + "-" + fragment
+	return frontend.BackstageSection{
+		ID:    id,
+		Label: label,
+		Href:  "/backstage#" + id,
+	}
+}
+
+func backstageAvailable(navigation backstageNavigationModel) bool {
+	return navigation.Administrator || len(navigation.Events) != 0
+}
+
+func backstageAccessible(request *http.Request) bool {
+	details, ok := request.Context().Value(
+		interfaceRequestContextKey{},
+	).(interfaceRequest)
+	return !ok || !details.publicOnly
 }
 
 func (handlers frontendHandlers) browserAccount(
@@ -330,6 +464,7 @@ func (handlers frontendHandlers) root(response http.ResponseWriter, request *htt
 		return
 	}
 	accountName := ""
+	backstage := false
 	reducedEffects := reducedEffectsCookie(request)
 	if cookie, cookieErr := request.Cookie(sessionCookieName); cookieErr == nil {
 		account, authenticateErr := handlers.authentication.Authenticate(
@@ -339,6 +474,8 @@ func (handlers frontendHandlers) root(response http.ResponseWriter, request *htt
 		switch {
 		case authenticateErr == nil:
 			accountName = account.Name
+			backstage = backstageAccessible(request) &&
+				backstageAvailable(backstageNavigation(account))
 			reducedEffects, authenticateErr = handlers.authentication.ReducedEffects(
 				request.Context(),
 				cookie.Value,
@@ -369,7 +506,7 @@ func (handlers frontendHandlers) root(response http.ResponseWriter, request *htt
 		response,
 		request,
 		http.StatusOK,
-		frontend.Root(setupRequired, accountName, csrfToken, reducedEffects),
+		frontend.Root(setupRequired, accountName, csrfToken, reducedEffects, backstage),
 	)
 }
 

@@ -73,6 +73,10 @@ func browserPageRoute() routeContract {
 	return routeContract{kind: publicInterface, browserWarningPage: true}
 }
 
+func backstagePageRoute() routeContract {
+	return routeContract{kind: crewInterface, browserWarningPage: true}
+}
+
 func probeRoute() routeContract {
 	return routeContract{kind: probeInterface}
 }
@@ -139,6 +143,7 @@ type interfaceRequest struct {
 	secure         bool
 	clientAddress  string
 	allowPlaintext bool
+	publicOnly     bool
 }
 
 type routeHandler interface {
@@ -189,7 +194,7 @@ func protectInterfaces(
 		warnings := insecureWarnings(kind, policy)
 		details := interfaceRequest{
 			secure: secure, clientAddress: clientAddress,
-			allowPlaintext: allowPlaintext,
+			allowPlaintext: allowPlaintext, publicOnly: policy.publicOnly,
 		}
 		requestContext := context.WithValue(
 			request.Context(),

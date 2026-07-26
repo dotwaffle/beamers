@@ -658,7 +658,11 @@ func TestBrowserCertification(t *testing.T) {
 		"beamers_session",
 		"/",
 	))
-	report.Pages = append(report.Pages,
+	assertResponsivePageWidths(t, crewDriver, origin+"/backstage", 320, 1440)
+	assertBackstageNavigationModes(t, crewDriver, origin)
+	report.Pages = append(
+		report.Pages,
+		certifyInteractivePage(t, crewDriver, origin+"/backstage", "backstage"),
 		certifyInteractivePage(
 			t,
 			crewDriver,
@@ -1339,6 +1343,50 @@ func assertResponsivePageWidths(
 		}
 		if !fits {
 			t.Fatalf("page overflows horizontally at %d pixels", width)
+		}
+	}
+}
+
+func assertBackstageNavigationModes(
+	t *testing.T,
+	driver *webDriver,
+	origin string,
+) {
+	t.Helper()
+	if err := driver.navigate(t.Context(), origin+"/backstage"); err != nil {
+		t.Fatalf("navigate to Backstage: %v", err)
+	}
+	for _, check := range []struct {
+		width      int
+		wantDrawer bool
+	}{
+		{width: 320, wantDrawer: true},
+		{width: 1440, wantDrawer: false},
+	} {
+		if err := driver.setWindowSize(t.Context(), check.width, 900); err != nil {
+			t.Fatalf("set Backstage width %d: %v", check.width, err)
+		}
+		drawer, err := driver.evaluateBool(
+			t.Context(),
+			`return getComputedStyle(document.querySelector(".backstage-drawer")).display !== "none";`,
+		)
+		if err != nil {
+			t.Fatalf("inspect Backstage drawer at %d pixels: %v", check.width, err)
+		}
+		sidebar, err := driver.evaluateBool(
+			t.Context(),
+			`return getComputedStyle(document.querySelector(".backstage-sidebar")).display !== "none";`,
+		)
+		if err != nil {
+			t.Fatalf("inspect Backstage sidebar at %d pixels: %v", check.width, err)
+		}
+		if drawer != check.wantDrawer || sidebar == check.wantDrawer {
+			t.Fatalf(
+				"Backstage navigation at %d pixels = drawer %t, sidebar %t",
+				check.width,
+				drawer,
+				sidebar,
+			)
 		}
 	}
 }

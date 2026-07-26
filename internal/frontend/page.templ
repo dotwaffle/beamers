@@ -4,6 +4,23 @@ import "strconv"
 
 import "github.com/dotwaffle/beamers/internal/auth"
 
+type BackstageNavigation struct {
+	Administrator bool
+	Events        []BackstageEvent
+}
+
+type BackstageEvent struct {
+	ID       int
+	Role     string
+	Sections []BackstageSection
+}
+
+type BackstageSection struct {
+	ID    string
+	Label string
+	Href  string
+}
+
 templ Head(title string) {
 	<head>
 		<meta charset="utf-8"/>
@@ -13,7 +30,7 @@ templ Head(title string) {
 	</head>
 }
 
-templ Navigation(accountName string, csrfToken string, reducedEffects bool) {
+templ Navigation(accountName string, csrfToken string, reducedEffects bool, backstage bool) {
 	<header>
 		<nav aria-label="Primary">
 			<a href="/">Beamers</a>
@@ -24,6 +41,9 @@ templ Navigation(accountName string, csrfToken string, reducedEffects bool) {
 			} else {
 				<span>{ accountName }</span>
 				<a href="/profile">Profile</a>
+				if backstage {
+					<a href="/backstage">Backstage</a>
+				}
 				<form method="post" action="/sign-out">
 					<input type="hidden" name="csrf_token" value={ csrfToken }/>
 					<button type="submit">Sign out</button>
@@ -60,7 +80,7 @@ templ Register(
 	<html lang="en">
 		@Head("Register · Beamers")
 		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
-			@Navigation("", csrfToken, reducedEffects)
+			@Navigation("", csrfToken, reducedEffects, false)
 			<main>
 				<h1>Register</h1>
 				if message != "" {
@@ -91,12 +111,12 @@ templ Register(
 	</html>
 }
 
-templ ProfilePage(csrfToken string, profile auth.Profile, reducedEffects bool) {
+templ ProfilePage(csrfToken string, profile auth.Profile, reducedEffects bool, backstage bool) {
 	<!doctype html>
 	<html lang="en">
 		@Head("Profile · Beamers")
 		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
-			@Navigation(profile.DisplayName, csrfToken, reducedEffects)
+			@Navigation(profile.DisplayName, csrfToken, reducedEffects, backstage)
 			<main>
 				<h1>Profile</h1>
 				<p>Account Handle: <strong>{ profile.Handle }</strong></p>
@@ -146,32 +166,121 @@ templ PublicProfile(profile auth.Profile) {
 	</html>
 }
 
-templ RegistrationPolicy(csrfToken string, open bool, reducedEffects bool) {
+templ BackstageLinks(navigation BackstageNavigation) {
+	<nav class="backstage-links" aria-label="Backstage">
+		if navigation.Administrator {
+			<section>
+				<h2>Installation</h2>
+				<ul>
+					<li><a href="/backstage#administration">Accounts, Event Grants, and activation</a></li>
+					<li><a href="/admin/registration">Registration</a></li>
+					<li><a href="/backstage#diagnostics">Backups and diagnostics</a></li>
+				</ul>
+			</section>
+		}
+		for _, event := range navigation.Events {
+			<section>
+				<h2>Event #{ strconv.Itoa(event.ID) }</h2>
+				<p>{ event.Role }</p>
+				<ul>
+					for _, section := range event.Sections {
+						<li><a href={ templ.SafeURL(section.Href) }>{ section.Label }</a></li>
+					}
+				</ul>
+			</section>
+		}
+	</nav>
+}
+
+templ BackstageNavigationViews(navigation BackstageNavigation) {
+	<details class="backstage-drawer">
+		<summary>Backstage navigation</summary>
+		@BackstageLinks(navigation)
+	</details>
+	<aside class="backstage-sidebar">
+		@BackstageLinks(navigation)
+	</aside>
+}
+
+templ Backstage(
+	accountName string,
+	csrfToken string,
+	reducedEffects bool,
+	navigation BackstageNavigation,
+) {
 	<!doctype html>
 	<html lang="en">
-		@Head("Registration · Beamers")
+		@Head("Backstage · Beamers")
 		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
-			<main>
-				<h1>Registration</h1>
-				<form class="stack" method="post" action="/admin/registration">
-					<input type="hidden" name="csrf_token" value={ csrfToken }/>
-					<label>
-						<input type="checkbox" name="registration_open" value="true" checked?={ open }/>
-						Allow new Accounts
-					</label>
-					<button type="submit">Save Registration Policy</button>
-				</form>
-			</main>
+			@Navigation(accountName, csrfToken, reducedEffects, true)
+			<div class="backstage-layout">
+				@BackstageNavigationViews(navigation)
+				<main>
+					<h1>Backstage</h1>
+					if navigation.Administrator {
+						<section id="administration">
+							<h2>Accounts, Event Grants, and activation</h2>
+						</section>
+						<section id="diagnostics">
+							<h2>Backups and diagnostics</h2>
+						</section>
+					}
+					for _, event := range navigation.Events {
+						<section>
+							<h2>Event #{ strconv.Itoa(event.ID) } · { event.Role }</h2>
+							for _, section := range event.Sections {
+								<h3 id={ section.ID }>{ section.Label }</h3>
+							}
+						</section>
+					}
+				</main>
+			</div>
 		</body>
 	</html>
 }
 
-templ Root(setupRequired bool, accountName string, csrfToken string, reducedEffects bool) {
+templ RegistrationPolicy(
+	csrfToken string,
+	open bool,
+	reducedEffects bool,
+	accountName string,
+	navigation BackstageNavigation,
+) {
+	<!doctype html>
+	<html lang="en">
+		@Head("Registration · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
+			@Navigation(accountName, csrfToken, reducedEffects, true)
+			<div class="backstage-layout">
+				@BackstageNavigationViews(navigation)
+				<main>
+					<h1>Registration</h1>
+					<form class="stack" method="post" action="/admin/registration">
+						<input type="hidden" name="csrf_token" value={ csrfToken }/>
+						<label>
+							<input type="checkbox" name="registration_open" value="true" checked?={ open }/>
+							Allow new Accounts
+						</label>
+						<button type="submit">Save Registration Policy</button>
+					</form>
+				</main>
+			</div>
+		</body>
+	</html>
+}
+
+templ Root(
+	setupRequired bool,
+	accountName string,
+	csrfToken string,
+	reducedEffects bool,
+	backstage bool,
+) {
 	<!doctype html>
 	<html lang="en">
 		@Head("Beamers")
 		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
-			@Navigation(accountName, csrfToken, reducedEffects)
+			@Navigation(accountName, csrfToken, reducedEffects, backstage)
 			<main>
 				if setupRequired {
 					<h1>Set up Beamers</h1>
@@ -191,7 +300,7 @@ templ Setup(csrfToken string, message string, reducedEffects bool) {
 	<html lang="en">
 		@Head("Set up Beamers")
 		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
-			@Navigation("", csrfToken, reducedEffects)
+			@Navigation("", csrfToken, reducedEffects, false)
 			<main>
 				<h1>Set up Beamers</h1>
 				if message != "" {
@@ -227,7 +336,7 @@ templ SignIn(csrfToken string, message string, handle string, reducedEffects boo
 	<html lang="en">
 		@Head("Sign in · Beamers")
 		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
-			@Navigation("", csrfToken, reducedEffects)
+			@Navigation("", csrfToken, reducedEffects, false)
 			<main>
 				<h1>Sign in</h1>
 				if message != "" {
