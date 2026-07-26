@@ -30,6 +30,8 @@ const (
 	PublicationScopePrizegiving PublicationScope = "Prizegiving"
 	// PublicationScopeStandalone targets one standalone Competition publication.
 	PublicationScopeStandalone PublicationScope = "Standalone"
+	// PublicationScopeEventAwards targets one standalone Event Awards publication.
+	PublicationScopeEventAwards PublicationScope = "EventAwards"
 )
 
 // CorrectionStatus describes one append-only review revision.

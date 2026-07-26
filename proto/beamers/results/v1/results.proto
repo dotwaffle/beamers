@@ -22,6 +22,8 @@ service ResultsService {
   rpc PreviewPrizegiving(PreviewPrizegivingRequest) returns (PreviewPrizegivingResponse);
   rpc FirePrizegivingResultsCue(FirePrizegivingResultsCueRequest) returns (FirePrizegivingResultsCueResponse);
   rpc ReleaseStandaloneResults(ReleaseStandaloneResultsRequest) returns (ReleaseStandaloneResultsResponse);
+  rpc PreflightStandaloneEventAwards(PreflightStandaloneEventAwardsRequest) returns (PreflightStandaloneEventAwardsResponse);
+  rpc ReleaseStandaloneEventAwards(ReleaseStandaloneEventAwardsRequest) returns (ReleaseStandaloneEventAwardsResponse);
   rpc GetResultsCorrection(GetResultsCorrectionRequest) returns (GetResultsCorrectionResponse);
   rpc SaveResultsCorrection(SaveResultsCorrectionRequest) returns (SaveResultsCorrectionResponse);
   rpc ReviewResultsCorrection(ReviewResultsCorrectionRequest) returns (ReviewResultsCorrectionResponse);
@@ -54,6 +56,7 @@ enum ResultsPublicationScope {
   RESULTS_PUBLICATION_SCOPE_UNSPECIFIED = 0;
   RESULTS_PUBLICATION_SCOPE_PRIZEGIVING = 1;
   RESULTS_PUBLICATION_SCOPE_STANDALONE = 2;
+  RESULTS_PUBLICATION_SCOPE_EVENT_AWARDS = 3;
 }
 
 enum ResultsCorrectionStatus {
@@ -449,6 +452,26 @@ message ReleaseStandaloneResultsRequest {
 }
 
 message ReleaseStandaloneResultsResponse {
+  ResultsPublication publication = 1;
+}
+
+message PreflightStandaloneEventAwardsRequest {
+  int64 event_id = 1;
+}
+
+message PreflightStandaloneEventAwardsResponse {
+  PrizegivingPreflightLock lock = 1;
+  repeated PrizegivingPreflightFinding findings = 2;
+}
+
+message ReleaseStandaloneEventAwardsRequest {
+  int64 event_id = 1;
+  string command_id = 2;
+  int64 expected_draft_revision = 3;
+  int64 expected_path_revision = 4;
+}
+
+message ReleaseStandaloneEventAwardsResponse {
   ResultsPublication publication = 1;
 }
 

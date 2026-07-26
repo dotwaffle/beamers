@@ -75,6 +75,12 @@ const (
 	// ResultsServiceReleaseStandaloneResultsProcedure is the fully-qualified name of the
 	// ResultsService's ReleaseStandaloneResults RPC.
 	ResultsServiceReleaseStandaloneResultsProcedure = "/beamers.results.v1.ResultsService/ReleaseStandaloneResults"
+	// ResultsServicePreflightStandaloneEventAwardsProcedure is the fully-qualified name of the
+	// ResultsService's PreflightStandaloneEventAwards RPC.
+	ResultsServicePreflightStandaloneEventAwardsProcedure = "/beamers.results.v1.ResultsService/PreflightStandaloneEventAwards"
+	// ResultsServiceReleaseStandaloneEventAwardsProcedure is the fully-qualified name of the
+	// ResultsService's ReleaseStandaloneEventAwards RPC.
+	ResultsServiceReleaseStandaloneEventAwardsProcedure = "/beamers.results.v1.ResultsService/ReleaseStandaloneEventAwards"
 	// ResultsServiceGetResultsCorrectionProcedure is the fully-qualified name of the ResultsService's
 	// GetResultsCorrection RPC.
 	ResultsServiceGetResultsCorrectionProcedure = "/beamers.results.v1.ResultsService/GetResultsCorrection"
@@ -108,6 +114,8 @@ type ResultsServiceClient interface {
 	PreviewPrizegiving(context.Context, *connect.Request[v1.PreviewPrizegivingRequest]) (*connect.Response[v1.PreviewPrizegivingResponse], error)
 	FirePrizegivingResultsCue(context.Context, *connect.Request[v1.FirePrizegivingResultsCueRequest]) (*connect.Response[v1.FirePrizegivingResultsCueResponse], error)
 	ReleaseStandaloneResults(context.Context, *connect.Request[v1.ReleaseStandaloneResultsRequest]) (*connect.Response[v1.ReleaseStandaloneResultsResponse], error)
+	PreflightStandaloneEventAwards(context.Context, *connect.Request[v1.PreflightStandaloneEventAwardsRequest]) (*connect.Response[v1.PreflightStandaloneEventAwardsResponse], error)
+	ReleaseStandaloneEventAwards(context.Context, *connect.Request[v1.ReleaseStandaloneEventAwardsRequest]) (*connect.Response[v1.ReleaseStandaloneEventAwardsResponse], error)
 	GetResultsCorrection(context.Context, *connect.Request[v1.GetResultsCorrectionRequest]) (*connect.Response[v1.GetResultsCorrectionResponse], error)
 	SaveResultsCorrection(context.Context, *connect.Request[v1.SaveResultsCorrectionRequest]) (*connect.Response[v1.SaveResultsCorrectionResponse], error)
 	ReviewResultsCorrection(context.Context, *connect.Request[v1.ReviewResultsCorrectionRequest]) (*connect.Response[v1.ReviewResultsCorrectionResponse], error)
@@ -210,6 +218,18 @@ func NewResultsServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(resultsServiceMethods.ByName("ReleaseStandaloneResults")),
 			connect.WithClientOptions(opts...),
 		),
+		preflightStandaloneEventAwards: connect.NewClient[v1.PreflightStandaloneEventAwardsRequest, v1.PreflightStandaloneEventAwardsResponse](
+			httpClient,
+			baseURL+ResultsServicePreflightStandaloneEventAwardsProcedure,
+			connect.WithSchema(resultsServiceMethods.ByName("PreflightStandaloneEventAwards")),
+			connect.WithClientOptions(opts...),
+		),
+		releaseStandaloneEventAwards: connect.NewClient[v1.ReleaseStandaloneEventAwardsRequest, v1.ReleaseStandaloneEventAwardsResponse](
+			httpClient,
+			baseURL+ResultsServiceReleaseStandaloneEventAwardsProcedure,
+			connect.WithSchema(resultsServiceMethods.ByName("ReleaseStandaloneEventAwards")),
+			connect.WithClientOptions(opts...),
+		),
 		getResultsCorrection: connect.NewClient[v1.GetResultsCorrectionRequest, v1.GetResultsCorrectionResponse](
 			httpClient,
 			baseURL+ResultsServiceGetResultsCorrectionProcedure,
@@ -245,25 +265,27 @@ func NewResultsServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 
 // resultsServiceClient implements ResultsServiceClient.
 type resultsServiceClient struct {
-	getCompetitionResultsDraft  *connect.Client[v1.GetCompetitionResultsDraftRequest, v1.GetCompetitionResultsDraftResponse]
-	saveCompetitionResultsDraft *connect.Client[v1.SaveCompetitionResultsDraftRequest, v1.SaveCompetitionResultsDraftResponse]
-	saveCompetitionAwards       *connect.Client[v1.SaveCompetitionAwardsRequest, v1.SaveCompetitionAwardsResponse]
-	markCompetitionResultsReady *connect.Client[v1.MarkCompetitionResultsReadyRequest, v1.MarkCompetitionResultsReadyResponse]
-	designatePrizegiving        *connect.Client[v1.DesignatePrizegivingRequest, v1.DesignatePrizegivingResponse]
-	getEventAwardsDraft         *connect.Client[v1.GetEventAwardsDraftRequest, v1.GetEventAwardsDraftResponse]
-	saveEventAwardsDraft        *connect.Client[v1.SaveEventAwardsDraftRequest, v1.SaveEventAwardsDraftResponse]
-	markEventAwardsReady        *connect.Client[v1.MarkEventAwardsReadyRequest, v1.MarkEventAwardsReadyResponse]
-	getPrizegivingPlan          *connect.Client[v1.GetPrizegivingPlanRequest, v1.GetPrizegivingPlanResponse]
-	savePrizegivingPlan         *connect.Client[v1.SavePrizegivingPlanRequest, v1.SavePrizegivingPlanResponse]
-	runPrizegivingPreflight     *connect.Client[v1.RunPrizegivingPreflightRequest, v1.RunPrizegivingPreflightResponse]
-	previewPrizegiving          *connect.Client[v1.PreviewPrizegivingRequest, v1.PreviewPrizegivingResponse]
-	firePrizegivingResultsCue   *connect.Client[v1.FirePrizegivingResultsCueRequest, v1.FirePrizegivingResultsCueResponse]
-	releaseStandaloneResults    *connect.Client[v1.ReleaseStandaloneResultsRequest, v1.ReleaseStandaloneResultsResponse]
-	getResultsCorrection        *connect.Client[v1.GetResultsCorrectionRequest, v1.GetResultsCorrectionResponse]
-	saveResultsCorrection       *connect.Client[v1.SaveResultsCorrectionRequest, v1.SaveResultsCorrectionResponse]
-	reviewResultsCorrection     *connect.Client[v1.ReviewResultsCorrectionRequest, v1.ReviewResultsCorrectionResponse]
-	publishResultsCorrection    *connect.Client[v1.PublishResultsCorrectionRequest, v1.PublishResultsCorrectionResponse]
-	getResultsCorrectionHistory *connect.Client[v1.GetResultsCorrectionHistoryRequest, v1.GetResultsCorrectionHistoryResponse]
+	getCompetitionResultsDraft     *connect.Client[v1.GetCompetitionResultsDraftRequest, v1.GetCompetitionResultsDraftResponse]
+	saveCompetitionResultsDraft    *connect.Client[v1.SaveCompetitionResultsDraftRequest, v1.SaveCompetitionResultsDraftResponse]
+	saveCompetitionAwards          *connect.Client[v1.SaveCompetitionAwardsRequest, v1.SaveCompetitionAwardsResponse]
+	markCompetitionResultsReady    *connect.Client[v1.MarkCompetitionResultsReadyRequest, v1.MarkCompetitionResultsReadyResponse]
+	designatePrizegiving           *connect.Client[v1.DesignatePrizegivingRequest, v1.DesignatePrizegivingResponse]
+	getEventAwardsDraft            *connect.Client[v1.GetEventAwardsDraftRequest, v1.GetEventAwardsDraftResponse]
+	saveEventAwardsDraft           *connect.Client[v1.SaveEventAwardsDraftRequest, v1.SaveEventAwardsDraftResponse]
+	markEventAwardsReady           *connect.Client[v1.MarkEventAwardsReadyRequest, v1.MarkEventAwardsReadyResponse]
+	getPrizegivingPlan             *connect.Client[v1.GetPrizegivingPlanRequest, v1.GetPrizegivingPlanResponse]
+	savePrizegivingPlan            *connect.Client[v1.SavePrizegivingPlanRequest, v1.SavePrizegivingPlanResponse]
+	runPrizegivingPreflight        *connect.Client[v1.RunPrizegivingPreflightRequest, v1.RunPrizegivingPreflightResponse]
+	previewPrizegiving             *connect.Client[v1.PreviewPrizegivingRequest, v1.PreviewPrizegivingResponse]
+	firePrizegivingResultsCue      *connect.Client[v1.FirePrizegivingResultsCueRequest, v1.FirePrizegivingResultsCueResponse]
+	releaseStandaloneResults       *connect.Client[v1.ReleaseStandaloneResultsRequest, v1.ReleaseStandaloneResultsResponse]
+	preflightStandaloneEventAwards *connect.Client[v1.PreflightStandaloneEventAwardsRequest, v1.PreflightStandaloneEventAwardsResponse]
+	releaseStandaloneEventAwards   *connect.Client[v1.ReleaseStandaloneEventAwardsRequest, v1.ReleaseStandaloneEventAwardsResponse]
+	getResultsCorrection           *connect.Client[v1.GetResultsCorrectionRequest, v1.GetResultsCorrectionResponse]
+	saveResultsCorrection          *connect.Client[v1.SaveResultsCorrectionRequest, v1.SaveResultsCorrectionResponse]
+	reviewResultsCorrection        *connect.Client[v1.ReviewResultsCorrectionRequest, v1.ReviewResultsCorrectionResponse]
+	publishResultsCorrection       *connect.Client[v1.PublishResultsCorrectionRequest, v1.PublishResultsCorrectionResponse]
+	getResultsCorrectionHistory    *connect.Client[v1.GetResultsCorrectionHistoryRequest, v1.GetResultsCorrectionHistoryResponse]
 }
 
 // GetCompetitionResultsDraft calls beamers.results.v1.ResultsService.GetCompetitionResultsDraft.
@@ -336,6 +358,18 @@ func (c *resultsServiceClient) ReleaseStandaloneResults(ctx context.Context, req
 	return c.releaseStandaloneResults.CallUnary(ctx, req)
 }
 
+// PreflightStandaloneEventAwards calls
+// beamers.results.v1.ResultsService.PreflightStandaloneEventAwards.
+func (c *resultsServiceClient) PreflightStandaloneEventAwards(ctx context.Context, req *connect.Request[v1.PreflightStandaloneEventAwardsRequest]) (*connect.Response[v1.PreflightStandaloneEventAwardsResponse], error) {
+	return c.preflightStandaloneEventAwards.CallUnary(ctx, req)
+}
+
+// ReleaseStandaloneEventAwards calls
+// beamers.results.v1.ResultsService.ReleaseStandaloneEventAwards.
+func (c *resultsServiceClient) ReleaseStandaloneEventAwards(ctx context.Context, req *connect.Request[v1.ReleaseStandaloneEventAwardsRequest]) (*connect.Response[v1.ReleaseStandaloneEventAwardsResponse], error) {
+	return c.releaseStandaloneEventAwards.CallUnary(ctx, req)
+}
+
 // GetResultsCorrection calls beamers.results.v1.ResultsService.GetResultsCorrection.
 func (c *resultsServiceClient) GetResultsCorrection(ctx context.Context, req *connect.Request[v1.GetResultsCorrectionRequest]) (*connect.Response[v1.GetResultsCorrectionResponse], error) {
 	return c.getResultsCorrection.CallUnary(ctx, req)
@@ -377,6 +411,8 @@ type ResultsServiceHandler interface {
 	PreviewPrizegiving(context.Context, *connect.Request[v1.PreviewPrizegivingRequest]) (*connect.Response[v1.PreviewPrizegivingResponse], error)
 	FirePrizegivingResultsCue(context.Context, *connect.Request[v1.FirePrizegivingResultsCueRequest]) (*connect.Response[v1.FirePrizegivingResultsCueResponse], error)
 	ReleaseStandaloneResults(context.Context, *connect.Request[v1.ReleaseStandaloneResultsRequest]) (*connect.Response[v1.ReleaseStandaloneResultsResponse], error)
+	PreflightStandaloneEventAwards(context.Context, *connect.Request[v1.PreflightStandaloneEventAwardsRequest]) (*connect.Response[v1.PreflightStandaloneEventAwardsResponse], error)
+	ReleaseStandaloneEventAwards(context.Context, *connect.Request[v1.ReleaseStandaloneEventAwardsRequest]) (*connect.Response[v1.ReleaseStandaloneEventAwardsResponse], error)
 	GetResultsCorrection(context.Context, *connect.Request[v1.GetResultsCorrectionRequest]) (*connect.Response[v1.GetResultsCorrectionResponse], error)
 	SaveResultsCorrection(context.Context, *connect.Request[v1.SaveResultsCorrectionRequest]) (*connect.Response[v1.SaveResultsCorrectionResponse], error)
 	ReviewResultsCorrection(context.Context, *connect.Request[v1.ReviewResultsCorrectionRequest]) (*connect.Response[v1.ReviewResultsCorrectionResponse], error)
@@ -475,6 +511,18 @@ func NewResultsServiceHandler(svc ResultsServiceHandler, opts ...connect.Handler
 		connect.WithSchema(resultsServiceMethods.ByName("ReleaseStandaloneResults")),
 		connect.WithHandlerOptions(opts...),
 	)
+	resultsServicePreflightStandaloneEventAwardsHandler := connect.NewUnaryHandler(
+		ResultsServicePreflightStandaloneEventAwardsProcedure,
+		svc.PreflightStandaloneEventAwards,
+		connect.WithSchema(resultsServiceMethods.ByName("PreflightStandaloneEventAwards")),
+		connect.WithHandlerOptions(opts...),
+	)
+	resultsServiceReleaseStandaloneEventAwardsHandler := connect.NewUnaryHandler(
+		ResultsServiceReleaseStandaloneEventAwardsProcedure,
+		svc.ReleaseStandaloneEventAwards,
+		connect.WithSchema(resultsServiceMethods.ByName("ReleaseStandaloneEventAwards")),
+		connect.WithHandlerOptions(opts...),
+	)
 	resultsServiceGetResultsCorrectionHandler := connect.NewUnaryHandler(
 		ResultsServiceGetResultsCorrectionProcedure,
 		svc.GetResultsCorrection,
@@ -535,6 +583,10 @@ func NewResultsServiceHandler(svc ResultsServiceHandler, opts ...connect.Handler
 			resultsServiceFirePrizegivingResultsCueHandler.ServeHTTP(w, r)
 		case ResultsServiceReleaseStandaloneResultsProcedure:
 			resultsServiceReleaseStandaloneResultsHandler.ServeHTTP(w, r)
+		case ResultsServicePreflightStandaloneEventAwardsProcedure:
+			resultsServicePreflightStandaloneEventAwardsHandler.ServeHTTP(w, r)
+		case ResultsServiceReleaseStandaloneEventAwardsProcedure:
+			resultsServiceReleaseStandaloneEventAwardsHandler.ServeHTTP(w, r)
 		case ResultsServiceGetResultsCorrectionProcedure:
 			resultsServiceGetResultsCorrectionHandler.ServeHTTP(w, r)
 		case ResultsServiceSaveResultsCorrectionProcedure:
@@ -608,6 +660,14 @@ func (UnimplementedResultsServiceHandler) FirePrizegivingResultsCue(context.Cont
 
 func (UnimplementedResultsServiceHandler) ReleaseStandaloneResults(context.Context, *connect.Request[v1.ReleaseStandaloneResultsRequest]) (*connect.Response[v1.ReleaseStandaloneResultsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.ReleaseStandaloneResults is not implemented"))
+}
+
+func (UnimplementedResultsServiceHandler) PreflightStandaloneEventAwards(context.Context, *connect.Request[v1.PreflightStandaloneEventAwardsRequest]) (*connect.Response[v1.PreflightStandaloneEventAwardsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.PreflightStandaloneEventAwards is not implemented"))
+}
+
+func (UnimplementedResultsServiceHandler) ReleaseStandaloneEventAwards(context.Context, *connect.Request[v1.ReleaseStandaloneEventAwardsRequest]) (*connect.Response[v1.ReleaseStandaloneEventAwardsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("beamers.results.v1.ResultsService.ReleaseStandaloneEventAwards is not implemented"))
 }
 
 func (UnimplementedResultsServiceHandler) GetResultsCorrection(context.Context, *connect.Request[v1.GetResultsCorrectionRequest]) (*connect.Response[v1.GetResultsCorrectionResponse], error) {

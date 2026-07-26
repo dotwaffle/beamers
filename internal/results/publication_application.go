@@ -33,6 +33,20 @@ type ReleaseStandaloneResultsInput struct {
 	CommandID            string `json:"command_id"`
 }
 
+// StandaloneEventAwardsPreflight binds one exact reviewed standalone Award set.
+type StandaloneEventAwardsPreflight struct {
+	Lock     PrizegivingPreflightLock      `json:"lock"`
+	Findings []PrizegivingPreflightFinding `json:"findings"`
+}
+
+// ReleaseStandaloneEventAwardsInput identifies one exact reviewed Award set.
+type ReleaseStandaloneEventAwardsInput struct {
+	EventID               int    `json:"event_id"`
+	CommandID             string `json:"command_id"`
+	ExpectedDraftRevision int    `json:"expected_draft_revision"`
+	ExpectedPathRevision  int    `json:"expected_path_revision"`
+}
+
 // PrizegivingPublicationTrigger contains one durable release trigger.
 type PrizegivingPublicationTrigger struct {
 	CueFired      bool
@@ -254,6 +268,200 @@ func (service *Service) ReleaseStandaloneResults(
 			return publicationExecution(publicationFromStore(stored))
 		},
 	})
+}
+
+// PreflightStandaloneEventAwards reports blockers without changing release state.
+func (service *Service) PreflightStandaloneEventAwards(
+	ctx context.Context,
+	actor auth.Account,
+	eventID int,
+) (StandaloneEventAwardsPreflight, error) {
+	if eventID <= 0 {
+		return StandaloneEventAwardsPreflight{}, ErrInvalidInput
+	}
+	if !actor.CanProduceEvent(eventID) {
+		return StandaloneEventAwardsPreflight{}, ErrProducerRequired
+	}
+	draft, err := service.storage.LoadEventAwardsDraft(actor.Context(ctx), eventID)
+	if err != nil {
+		return StandaloneEventAwardsPreflight{}, err
+	}
+	lock, ready := standaloneEventAwardsLock(eventAwardsDraft(draft))
+	result := StandaloneEventAwardsPreflight{Lock: lock}
+	if len(lock.PublicationOrder) == 0 {
+		result.Findings = append(result.Findings, prizegivingFinding(
+			"event_awards_missing",
+			"No Event Awards are assigned to standalone release",
+		))
+	} else if !ready {
+		result.Findings = append(result.Findings, prizegivingFinding(
+			"event_awards_not_ready",
+			"Standalone Event Awards lack Ready review",
+		))
+	}
+	return result, nil
+}
+
+// ReleaseStandaloneEventAwards publishes one exact reviewed standalone Award set.
+func (service *Service) ReleaseStandaloneEventAwards(
+	ctx context.Context,
+	actor auth.Account,
+	input ReleaseStandaloneEventAwardsInput,
+) (Publication, error) {
+	if input.EventID <= 0 ||
+		input.ExpectedDraftRevision <= 0 ||
+		input.ExpectedPathRevision <= 0 {
+		return Publication{}, ErrInvalidInput
+	}
+	if err := command.ValidateID(input.CommandID); err != nil {
+		return Publication{}, err
+	}
+	if !actor.CanProduceEvent(input.EventID) {
+		return Publication{}, ErrProducerRequired
+	}
+	payload, err := json.Marshal(input)
+	if err != nil {
+		return Publication{}, errors.New("encode standalone Event Awards release command")
+	}
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID,
+		CommandID:      input.CommandID,
+		PayloadHash:    command.PayloadHash(string(payload)),
+		Action:         "ReleaseStandaloneEventAwards",
+		TargetType:     "Event",
+		TargetID:       strconv.Itoa(input.EventID),
+		Now:            service.now().UTC(),
+	}
+	return command.Execute(actor.Context(ctx), command.Plan[Publication]{
+		Storage:  service.storage,
+		Identity: identity,
+		Replay: func(outcome string) (Publication, error) {
+			var result Publication
+			if err := store.DecodeCommandReceipt(outcome, &result); err != nil {
+				return Publication{}, err
+			}
+			return result, nil
+		},
+		Apply: func(transaction *store.CommandTx) (command.Execution[Publication], error) {
+			current, loadErr := transaction.LoadResultsPublication(
+				actor.Context(ctx),
+				input.EventID,
+				store.ResultsPublicationEventAwards,
+				input.EventID,
+			)
+			if loadErr != nil {
+				return command.Execution[Publication]{}, loadErr
+			}
+			if current.Status == store.ResultsPublicationFinal {
+				return publicationExecution(publicationFromStore(current))
+			}
+			draft, loadErr := transaction.LoadEventAwardsDraft(
+				actor.Context(ctx),
+				input.EventID,
+			)
+			if loadErr != nil {
+				return command.Execution[Publication]{}, loadErr
+			}
+			lock, ready := standaloneEventAwardsLock(eventAwardsDraft(draft))
+			if draft.Revision != input.ExpectedDraftRevision ||
+				lock.EventAwardsPathRevision != input.ExpectedPathRevision {
+				return command.Execution[Publication]{}, ErrEventAwardsRevision
+			}
+			if !ready || len(lock.PublicationOrder) == 0 {
+				return command.Execution[Publication]{}, ErrResultsPublicationRequired
+			}
+			states := make(
+				[]ResultItemStageState,
+				0,
+				len(lock.PublicationOrder),
+			)
+			for _, ref := range lock.PublicationOrder {
+				states = append(states, ResultItemStageState{
+					Ref: ref, Status: ResultItemRevealed, Release: ResultReleaseReady,
+				})
+			}
+			next, changed, advanceErr := AdvancePublication(PublicationInput{
+				Policy: ResultsStandalone,
+				Order:  lock.PublicationOrder,
+				States: states, Current: publicationFromStore(current),
+				StandaloneRelease: true,
+			})
+			if advanceErr != nil {
+				return command.Execution[Publication]{}, advanceErr
+			}
+			if !changed {
+				return command.Execution[Publication]{}, ErrResultsPublicationRequired
+			}
+			lockInput := prizegivingLockInput(lock)
+			lockInput, renderErr := freezeResultsRenderSource(
+				actor.Context(ctx),
+				transaction,
+				input.EventID,
+				lockInput,
+			)
+			if renderErr != nil {
+				return command.Execution[Publication]{}, renderErr
+			}
+			rendered, renderErr := renderResultsPublication(
+				actor.Context(ctx),
+				transaction,
+				input.EventID,
+				0,
+				current,
+				next,
+				lockInput,
+				identity.Now,
+			)
+			if renderErr != nil {
+				return command.Execution[Publication]{}, renderErr
+			}
+			stored, appendErr := transaction.AppendResultsPublication(
+				actor.Context(ctx),
+				store.AppendResultsPublicationParams{
+					EventID: input.EventID, Scope: store.ResultsPublicationEventAwards,
+					ScopeSessionID: input.EventID, ExpectedRevision: current.Revision,
+					Policy: ResultsStandalone, Status: store.ResultsPublicationFinal,
+					Items: prizegivingItemRefInputs(next.Items), Lock: lockInput,
+					Template:     prizegivingTemplateInput(rendered.Template),
+					RenderedHTML: rendered.HTML, RenderedText: rendered.Text,
+					RenderedJSON: rendered.JSON, CreatedByAccountID: actor.ID,
+					Now: identity.Now,
+				},
+			)
+			if appendErr != nil {
+				return command.Execution[Publication]{}, appendErr
+			}
+			return publicationExecution(publicationFromStore(stored))
+		},
+	})
+}
+
+func standaloneEventAwardsLock(
+	draft EventAwardsDraft,
+) (PrizegivingPreflightLock, bool) {
+	lock := PrizegivingPreflightLock{
+		EventID: draft.EventID, ReleasePolicy: ResultsStandalone,
+		EventAwardsDraftRevision: draft.Revision,
+		Template:                 DefaultResultsTextTemplate(),
+	}
+	ready := false
+	for _, state := range draft.PathStates {
+		if state.ReleasePath.Kind == StandaloneRelease {
+			lock.EventAwardsPathRevision = state.Revision
+			ready = state.Ready
+			break
+		}
+	}
+	for _, award := range draft.Awards {
+		if award.ReleasePath.Kind != StandaloneRelease {
+			continue
+		}
+		lock.PublicationOrder = append(lock.PublicationOrder, ResultItemRef{
+			Kind: ResultItemEventAward, AwardKey: award.Key,
+			DisplayOrder: award.DisplayOrder,
+		})
+	}
+	return lock, ready
 }
 
 func publicationExecution(
@@ -597,9 +805,10 @@ func findPublicEventAward(
 	entryNames map[int]string,
 ) (PublicResultsSourceAward, bool) {
 	for _, award := range awards {
-		if award.Key == key &&
+		matchesPath := award.ReleasePath.Kind == "Standalone" && scopeSessionID == 0 ||
 			award.ReleasePath.Kind == "Prizegiving" &&
-			award.ReleasePath.PrizegivingSessionID == scopeSessionID {
+				award.ReleasePath.PrizegivingSessionID == scopeSessionID
+		if award.Key == key && matchesPath {
 			return publicResultsAwardSource(
 				award.Key,
 				award.Name,

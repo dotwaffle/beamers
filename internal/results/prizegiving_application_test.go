@@ -37,7 +37,7 @@ import (
 )
 
 func TestPrizegivingPublicCommandsPreflightAndPreview(t *testing.T) {
-	storage, actor, eventID, _, _ := openPrizegivingApplicationTest(t)
+	storage, actor, eventID, _ := openPrizegivingApplicationTest(t)
 	now := func() time.Time {
 		return time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
 	}
@@ -240,7 +240,7 @@ func TestPrizegivingPublicCommandsPreflightAndPreview(t *testing.T) {
 }
 
 func TestPrizegivingReleaseBlocksOnTemplateRenderFailure(t *testing.T) {
-	storage, actor, eventID, _, _ := openPrizegivingApplicationTest(t)
+	storage, actor, eventID, _ := openPrizegivingApplicationTest(t)
 	now := func() time.Time {
 		return time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
 	}
@@ -335,8 +335,304 @@ func TestPrizegivingReleaseBlocksOnTemplateRenderFailure(t *testing.T) {
 	}
 }
 
+func TestStandaloneEventAwardsPreflightIsSideEffectFree(t *testing.T) {
+	fixture := newStandaloneEventAwardsFixture(t)
+	auditsBefore, err := fixture.storage.ListAuditEntries(
+		fixture.actor.Context(t.Context()),
+	)
+	if err != nil {
+		t.Fatalf("list Audit Entries before Event Awards Preflight: %v", err)
+	}
+	blocked, err := fixture.service.PreflightStandaloneEventAwards(
+		t.Context(),
+		fixture.actor,
+		fixture.eventID,
+	)
+	if err != nil ||
+		len(blocked.Findings) != 1 ||
+		blocked.Findings[0].Code != "event_awards_not_ready" {
+		t.Fatalf("blocked standalone Event Awards Preflight = %+v, %v", blocked, err)
+	}
+	auditsAfter, err := fixture.storage.ListAuditEntries(
+		fixture.actor.Context(t.Context()),
+	)
+	if err != nil || len(auditsAfter) != len(auditsBefore) {
+		t.Fatalf(
+			"standalone Event Awards Preflight mutated Audit = %d, want %d, %v",
+			len(auditsAfter),
+			len(auditsBefore),
+			err,
+		)
+	}
+	preflight := fixture.markReady(t)
+	if len(preflight.Findings) != 0 ||
+		preflight.Lock.EventAwardsDraftRevision != fixture.draft.Revision ||
+		preflight.Lock.EventAwardsPathRevision != 1 ||
+		len(preflight.Lock.PublicationOrder) != 1 ||
+		preflight.Lock.PublicationOrder[0].AwardKey != "community" {
+		t.Fatalf("standalone Event Awards Preflight = %+v", preflight)
+	}
+	client := newResultsRPCClient(t, fixture.service, fixture.authentication)
+	preflightRequest := connect.NewRequest(
+		&resultsv1.PreflightStandaloneEventAwardsRequest{
+			EventId: int64(fixture.eventID),
+		},
+	)
+	setResultsSessionCookie(preflightRequest.Header(), fixture.sessionToken)
+	rpcPreflight, err := client.PreflightStandaloneEventAwards(
+		t.Context(),
+		preflightRequest,
+	)
+	if err != nil ||
+		rpcPreflight.Msg.GetLock().GetEventAwardsDraftRevision() !=
+			int64(fixture.draft.Revision) ||
+		rpcPreflight.Msg.GetLock().GetEventAwardsPathRevision() != 1 ||
+		len(rpcPreflight.Msg.GetLock().GetPublicationOrder()) != 1 {
+		t.Fatalf("standalone Event Awards Preflight RPC = %+v, %v", rpcPreflight, err)
+	}
+}
+
+func TestStandaloneEventAwardsReleaseCommandSemantics(t *testing.T) {
+	fixture := newStandaloneEventAwardsFixture(t)
+	preflight := fixture.markReady(t)
+	revoked := fixture.actor
+	revoked.EventRoles = nil
+	input := results.ReleaseStandaloneEventAwardsInput{
+		EventID: fixture.eventID, CommandID: "release-standalone-event-awards",
+		ExpectedDraftRevision: preflight.Lock.EventAwardsDraftRevision,
+		ExpectedPathRevision:  preflight.Lock.EventAwardsPathRevision,
+	}
+	if _, err := fixture.service.ReleaseStandaloneEventAwards(
+		t.Context(),
+		revoked,
+		input,
+	); !errors.Is(err, results.ErrProducerRequired) {
+		t.Fatalf("unauthorized standalone Event Awards release error = %v", err)
+	}
+	stale := input
+	stale.CommandID = "release-stale-standalone-event-awards"
+	stale.ExpectedDraftRevision++
+	if _, err := fixture.service.ReleaseStandaloneEventAwards(
+		t.Context(),
+		fixture.actor,
+		stale,
+	); !errors.Is(err, results.ErrEventAwardsRevision) {
+		t.Fatalf("stale standalone Event Awards release error = %v", err)
+	}
+	releaseRequest := connect.NewRequest(
+		&resultsv1.ReleaseStandaloneEventAwardsRequest{
+			EventId: int64(input.EventID), CommandId: input.CommandID,
+			ExpectedDraftRevision: int64(input.ExpectedDraftRevision),
+			ExpectedPathRevision:  int64(input.ExpectedPathRevision),
+		},
+	)
+	setResultsSessionCookie(releaseRequest.Header(), fixture.sessionToken)
+	client := newResultsRPCClient(t, fixture.service, fixture.authentication)
+	released, err := client.ReleaseStandaloneEventAwards(
+		t.Context(),
+		releaseRequest,
+	)
+	if err != nil ||
+		released.Msg.GetPublication().GetRevision() != 1 ||
+		released.Msg.GetPublication().GetStatus() !=
+			resultsv1.ResultsPublicationStatus_RESULTS_PUBLICATION_STATUS_FINAL ||
+		len(released.Msg.GetPublication().GetItems()) != 1 ||
+		released.Msg.GetPublication().GetItems()[0].GetAwardKey() != "community" {
+		t.Fatalf("release standalone Event Awards = %+v, %v", released, err)
+	}
+	replayRequest := connect.NewRequest(releaseRequest.Msg)
+	setResultsSessionCookie(replayRequest.Header(), fixture.sessionToken)
+	replayed, err := client.ReleaseStandaloneEventAwards(
+		t.Context(),
+		replayRequest,
+	)
+	if err != nil ||
+		replayed.Msg.GetPublication().GetRevision() !=
+			released.Msg.GetPublication().GetRevision() {
+		t.Fatalf("replay standalone Event Awards release = %+v, %v", replayed, err)
+	}
+	conflict := connect.NewRequest(&resultsv1.ReleaseStandaloneEventAwardsRequest{
+		EventId: int64(input.EventID), CommandId: input.CommandID,
+		ExpectedDraftRevision: int64(input.ExpectedDraftRevision),
+		ExpectedPathRevision:  int64(input.ExpectedPathRevision + 1),
+	})
+	setResultsSessionCookie(conflict.Header(), fixture.sessionToken)
+	if _, err = client.ReleaseStandaloneEventAwards(
+		t.Context(),
+		conflict,
+	); connect.CodeOf(err) != connect.CodeAborted {
+		t.Fatalf("conflicting standalone Event Awards release error = %v", err)
+	}
+	audits, err := fixture.storage.ListAuditEntries(
+		fixture.actor.Context(t.Context()),
+	)
+	if err != nil {
+		t.Fatalf("list standalone Event Awards Audit Entries: %v", err)
+	}
+	releaseAudits := 0
+	for _, audit := range audits {
+		if audit.Action == "ReleaseStandaloneEventAwards" {
+			releaseAudits++
+		}
+	}
+	if releaseAudits != 2 {
+		t.Fatalf("standalone Event Awards release Audit count = %d, want 2", releaseAudits)
+	}
+}
+
+func TestStandaloneEventAwardsPublicFormatsSurviveRestart(t *testing.T) {
+	fixture := newStandaloneEventAwardsFixture(t)
+	preflight := fixture.markReady(t)
+	released, err := fixture.service.ReleaseStandaloneEventAwards(
+		t.Context(),
+		fixture.actor,
+		results.ReleaseStandaloneEventAwardsInput{
+			EventID: fixture.eventID, CommandID: "release-durable-event-awards",
+			ExpectedDraftRevision: preflight.Lock.EventAwardsDraftRevision,
+			ExpectedPathRevision:  preflight.Lock.EventAwardsPathRevision,
+		},
+	)
+	if err != nil {
+		t.Fatalf("release durable standalone Event Awards: %v", err)
+	}
+	artifact, found, err := fixture.service.PublicArtifact(
+		t.Context(),
+		fixture.eventID,
+		results.PublicationScopeEventAwards,
+		fixture.eventID,
+		released.Revision,
+	)
+	if err != nil ||
+		!found ||
+		!strings.Contains(artifact.HTML, "Community Award") ||
+		!strings.Contains(artifact.Text, "Community Award") ||
+		!strings.Contains(artifact.JSON, `"key": "community"`) ||
+		strings.Contains(artifact.JSON, `"key": "jury"`) {
+		t.Fatalf("public standalone Event Awards = %+v, %t, %v", artifact, found, err)
+	}
+	restartedService, err := results.New(fixture.restart(), fixture.now)
+	if err != nil {
+		t.Fatalf("create restarted Results service: %v", err)
+	}
+	restartedArtifact, found, err := restartedService.PublicArtifact(
+		t.Context(),
+		fixture.eventID,
+		results.PublicationScopeEventAwards,
+		fixture.eventID,
+		1,
+	)
+	if err != nil || !found || restartedArtifact.JSON != artifact.JSON {
+		t.Fatalf(
+			"restarted public standalone Event Awards = %+v, %t, %v",
+			restartedArtifact,
+			found,
+			err,
+		)
+	}
+}
+
+type standaloneEventAwardsFixture struct {
+	storage        *store.SQLite
+	actor          auth.Account
+	eventID        int
+	authentication *auth.Service
+	sessionToken   string
+	service        *results.Service
+	draft          results.EventAwardsDraft
+	now            func() time.Time
+	restart        func() *store.SQLite
+}
+
+func newStandaloneEventAwardsFixture(t *testing.T) standaloneEventAwardsFixture {
+	t.Helper()
+	storage, actor, eventID, control := openPrizegivingApplicationTest(t)
+	now := func() time.Time {
+		return time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
+	}
+	ceremonyID, _ := publishPrizegivingSessions(t, storage, actor, eventID, now)
+	service, err := results.New(storage, now)
+	if err != nil {
+		t.Fatalf("create Results service: %v", err)
+	}
+	if _, err = service.DesignatePrizegiving(
+		t.Context(),
+		actor,
+		results.DesignatePrizegivingInput{
+			EventID: eventID, CeremonySessionID: ceremonyID,
+			CommandID: "designate-event-awards-prizegiving",
+		},
+	); err != nil {
+		t.Fatalf("designate Event Awards Prizegiving: %v", err)
+	}
+	draft, err := service.SaveEventAwards(
+		t.Context(),
+		actor,
+		results.SaveEventAwardsInput{
+			EventID: eventID, CommandID: "save-event-awards",
+			Awards: []results.EventAward{
+				{
+					Award: results.Award{
+						Key: "community", Name: "Community Award",
+						Recipients:   []results.AwardRecipient{{DisplayName: "Volunteers"}},
+						DisplayOrder: 1,
+					},
+					ReleasePath: results.AwardReleasePath{Kind: results.StandaloneRelease},
+				},
+				{
+					Award: results.Award{
+						Key: "jury", Name: "Jury Award",
+						Recipients:   []results.AwardRecipient{{DisplayName: "Finalists"}},
+						DisplayOrder: 1,
+					},
+					ReleasePath: results.AwardReleasePath{
+						Kind: results.PrizegivingRelease, PrizegivingSessionID: ceremonyID,
+					},
+				},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("save Event Awards: %v", err)
+	}
+	return standaloneEventAwardsFixture{
+		storage: storage, actor: actor, eventID: eventID,
+		authentication: control.authentication, sessionToken: control.sessionToken,
+		service: service, draft: draft, now: now, restart: control.restart,
+	}
+}
+
+func (fixture *standaloneEventAwardsFixture) markReady(
+	t *testing.T,
+) results.StandaloneEventAwardsPreflight {
+	t.Helper()
+	draft, err := fixture.service.MarkEventAwardsReady(
+		t.Context(),
+		fixture.actor,
+		results.MarkEventAwardsReadyInput{
+			EventID: fixture.eventID, CommandID: "ready-standalone-event-awards",
+			ExpectedRevision:     fixture.draft.Revision,
+			ReleasePath:          results.AwardReleasePath{Kind: results.StandaloneRelease},
+			ExpectedPathRevision: 1,
+		},
+	)
+	if err != nil {
+		t.Fatalf("mark standalone Event Awards Ready: %v", err)
+	}
+	fixture.draft = draft
+	preflight, err := fixture.service.PreflightStandaloneEventAwards(
+		t.Context(),
+		fixture.actor,
+		fixture.eventID,
+	)
+	if err != nil {
+		t.Fatalf("preflight standalone Event Awards: %v", err)
+	}
+	return preflight
+}
+
 func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T) {
-	storage, actor, eventID, authentication, sessionToken := openPrizegivingApplicationTest(t)
+	storage, actor, eventID, control := openPrizegivingApplicationTest(t)
+	authentication, sessionToken := control.authentication, control.sessionToken
 	now := func() time.Time {
 		return time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
 	}
@@ -641,7 +937,7 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 }
 
 func TestStandaloneNoPublicResultsReleaseDoesNotRequireReadyReview(t *testing.T) {
-	storage, actor, eventID, _, _ := openPrizegivingApplicationTest(t)
+	storage, actor, eventID, _ := openPrizegivingApplicationTest(t)
 	now := func() time.Time {
 		return time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
 	}
@@ -682,8 +978,8 @@ func TestStandaloneNoPublicResultsReleaseDoesNotRequireReadyReview(t *testing.T)
 }
 
 func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
-	storage, actor, eventID, authentication, sessionToken :=
-		openPrizegivingApplicationTest(t)
+	storage, actor, eventID, control := openPrizegivingApplicationTest(t)
+	authentication, sessionToken := control.authentication, control.sessionToken
 	nowValue := time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
 	now := func() time.Time { return nowValue }
 	ceremonyID, competitionID := publishPrizegivingSessions(
@@ -1206,9 +1502,15 @@ func setResultsSessionCookie(header http.Header, token string) {
 	header.Set("Cookie", "beamers_session="+token)
 }
 
+type prizegivingApplicationTestControl struct {
+	authentication *auth.Service
+	sessionToken   string
+	restart        func() *store.SQLite
+}
+
 func openPrizegivingApplicationTest(
 	t *testing.T,
-) (*store.SQLite, auth.Account, int, *auth.Service, string) {
+) (*store.SQLite, auth.Account, int, prizegivingApplicationTestControl) {
 	t.Helper()
 	dataDir := t.TempDir()
 	if err := store.Initialize(t.Context(), dataDir); err != nil {
@@ -1218,11 +1520,23 @@ func openPrizegivingApplicationTest(
 	if err != nil {
 		t.Fatalf("open storage: %v", err)
 	}
+	currentStorage := storage
 	t.Cleanup(func() {
-		if closeErr := storage.Close(); closeErr != nil {
+		if closeErr := currentStorage.Close(); closeErr != nil {
 			t.Errorf("close storage: %v", closeErr)
 		}
 	})
+	restart := func() *store.SQLite {
+		t.Helper()
+		if closeErr := currentStorage.Close(); closeErr != nil {
+			t.Fatalf("close storage for restart: %v", closeErr)
+		}
+		currentStorage, err = store.Open(t.Context(), dataDir)
+		if err != nil {
+			t.Fatalf("reopen storage after restart: %v", err)
+		}
+		return currentStorage
+	}
 	now := time.Date(2026, 8, 1, 10, 0, 0, 0, time.UTC)
 	bootstrapHash := strings.Repeat("b", 64)
 	if err = storage.IssueBootstrap(
@@ -1287,7 +1601,9 @@ func openPrizegivingApplicationTest(
 		t.Fatalf("grant Producer: %v", err)
 	}
 	administrator.EventRoles = map[int]viewer.Role{event.ID: viewer.Producer}
-	return storage, administrator, event.ID, authentication, sessionToken
+	return storage, administrator, event.ID, prizegivingApplicationTestControl{
+		authentication: authentication, sessionToken: sessionToken, restart: restart,
+	}
 }
 
 func publishPrizegivingSessions(

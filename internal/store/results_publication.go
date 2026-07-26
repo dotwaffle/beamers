@@ -33,6 +33,8 @@ const (
 	ResultsPublicationPrizegiving ResultsPublicationScope = "Prizegiving"
 	// ResultsPublicationStandalone identifies one unassigned Competition scope.
 	ResultsPublicationStandalone ResultsPublicationScope = "Standalone"
+	// ResultsPublicationEventAwards identifies one standalone Event Awards scope.
+	ResultsPublicationEventAwards ResultsPublicationScope = "EventAwards"
 )
 
 // ResultsPublicationPolicy selects the release trigger for one scope.
