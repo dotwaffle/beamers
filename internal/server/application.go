@@ -234,7 +234,7 @@ func (application *application) restore(
 	options backup.ApplyOptions,
 ) error {
 	return application.runRestoreMaintenance(ctx, func() error {
-		_, err := operations.ApplyRestoreWithOptions(ctx, journalPath, options)
+		_, err := backup.ApplyRestoreWithOptions(ctx, journalPath, options)
 		return err
 	})
 }
@@ -244,7 +244,7 @@ func (application *application) cancelPreparedRestore(
 	journalPath string,
 ) error {
 	return application.runRestoreMaintenance(ctx, func() error {
-		return operations.CancelPreparedRestore(ctx, journalPath)
+		return backup.CancelPreparedRestore(ctx, journalPath)
 	})
 }
 

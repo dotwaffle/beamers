@@ -149,7 +149,7 @@ func (handlers archiveHandlers) previewRestore(
 		handlers.writeRestoreFailure(response, request, err)
 		return
 	}
-	plan, err := operations.PrepareRestore(request.Context(), backup.RestoreInput{
+	plan, err := backup.PrepareRestore(request.Context(), backup.RestoreInput{
 		InputPath:      archivePath,
 		DataDir:        handlers.dataDir,
 		AttachmentsDir: handlers.attachmentsDir,
