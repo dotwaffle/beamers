@@ -28,9 +28,30 @@ type archiveHandlers struct {
 	installation       *operations.Installation
 	dataDir            string
 	attachmentsDir     string
-	restore            func(context.Context, string) error
+	restore            func(context.Context, string, backup.ApplyOptions) error
+	configuration      backup.Configuration
 	logger             *slog.Logger
 	allowPlaintextCrew bool
+}
+
+func backupConfiguration(config Config) backup.Configuration {
+	trustedProxies := make([]string, len(config.TrustedProxies))
+	for index, prefix := range config.TrustedProxies {
+		trustedProxies[index] = prefix.String()
+	}
+	return backup.RedactConfiguration(backup.Configuration{
+		DataDir:         config.DataDir,
+		AttachmentsDir:  config.AttachmentsDir,
+		ListenAddress:   config.ListenAddress,
+		PublicListen:    config.PublicListen,
+		TLSCertificate:  config.TLSCertificate,
+		TLSPrivateKey:   config.TLSPrivateKey,
+		TrustedProxies:  trustedProxies,
+		ReplicaURL:      config.ReplicaURL,
+		ShutdownTimeout: config.ShutdownTimeout,
+		InsecureCrew:    config.InsecureCrew,
+		InsecureDisplay: config.InsecureDisplay,
+	})
 }
 
 func registerBackupRoutes(
@@ -38,7 +59,8 @@ func registerBackupRoutes(
 	installation *operations.Installation,
 	dataDir string,
 	attachmentsDir string,
-	restore func(context.Context, string) error,
+	configuration backup.Configuration,
+	restore func(context.Context, string, backup.ApplyOptions) error,
 	logger *slog.Logger,
 	listenerAddress net.Addr,
 ) {
@@ -46,6 +68,7 @@ func registerBackupRoutes(
 		installation:       installation,
 		dataDir:            dataDir,
 		attachmentsDir:     attachmentsDir,
+		configuration:      configuration,
 		restore:            restore,
 		logger:             logger,
 		allowPlaintextCrew: listenerIsLoopback(listenerAddress),
@@ -110,6 +133,7 @@ func (handlers archiveHandlers) previewRestore(
 		InputPath:      archivePath,
 		DataDir:        handlers.dataDir,
 		AttachmentsDir: handlers.attachmentsDir,
+		Configuration:  handlers.configuration,
 		Replace:        true,
 	})
 	if err != nil {
@@ -140,8 +164,9 @@ func (handlers archiveHandlers) applyRestore(
 		return
 	}
 	var input struct {
-		Password               string `json:"password"`
-		AcknowledgeReplacement bool   `json:"acknowledge_replacement"`
+		Password                            string `json:"password"`
+		AcknowledgeReplacement              bool   `json:"acknowledge_replacement"`
+		AcknowledgeConfigurationDifferences bool   `json:"acknowledge_configuration_differences"`
 	}
 	if err := decodeAuthJSON(response, request, &input); err != nil {
 		http.Error(response, "invalid request", http.StatusBadRequest)
@@ -178,7 +203,13 @@ func (handlers archiveHandlers) applyRestore(
 		restoreOperationTimeout,
 	)
 	defer cancel()
-	if err = handlers.restore(restoreContext, dataDir+".beamers-restore.json"); err != nil {
+	if err = handlers.restore(
+		restoreContext,
+		dataDir+".beamers-restore.json",
+		backup.ApplyOptions{
+			AcknowledgeConfigurationDifferences: input.AcknowledgeConfigurationDifferences,
+		},
+	); err != nil {
 		handlers.writeRestoreFailure(response, request, err)
 		return
 	}
@@ -258,9 +289,11 @@ func (handlers archiveHandlers) create(response http.ResponseWriter, request *ht
 	manifest, err := handlers.installation.CreateBackup(
 		request.Context(),
 		backup.CreateInput{
+			DataDir:        handlers.dataDir,
 			AttachmentsDir: handlers.attachmentsDir,
 			OutputPath:     archivePath,
 			Mode:           input.Mode,
+			Configuration:  handlers.configuration,
 		},
 	)
 	if err != nil {

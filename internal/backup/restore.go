@@ -30,22 +30,25 @@ const (
 
 // RestorePlan is the exact non-overwriting filesystem replacement plan.
 type RestorePlan struct {
-	JournalPath           string   `json:"journal_path"`
-	DataDir               string   `json:"data_dir"`
-	AttachmentsDir        string   `json:"attachments_dir"`
-	DataQuarantine        string   `json:"data_quarantine,omitempty"`
-	AttachmentsQuarantine string   `json:"attachments_quarantine,omitempty"`
-	ReplacesData          bool     `json:"replaces_data"`
-	ReplacesAttachments   bool     `json:"replaces_attachments"`
-	ForcedUnsupported     bool     `json:"forced_unsupported"`
-	ForceReason           string   `json:"force_reason,omitempty"`
-	UnknownSchemaElements []string `json:"unknown_schema_elements,omitempty"`
-	Manifest              Manifest `json:"manifest"`
+	JournalPath                         string                    `json:"journal_path"`
+	DataDir                             string                    `json:"data_dir"`
+	AttachmentsDir                      string                    `json:"attachments_dir"`
+	DataQuarantine                      string                    `json:"data_quarantine,omitempty"`
+	AttachmentsQuarantine               string                    `json:"attachments_quarantine,omitempty"`
+	ReplacesData                        bool                      `json:"replaces_data"`
+	ReplacesAttachments                 bool                      `json:"replaces_attachments"`
+	ForcedUnsupported                   bool                      `json:"forced_unsupported"`
+	ForceReason                         string                    `json:"force_reason,omitempty"`
+	UnknownSchemaElements               []string                  `json:"unknown_schema_elements,omitempty"`
+	ConfigurationDifferences            []ConfigurationDifference `json:"configuration_differences,omitempty"`
+	RequiresConfigurationAcknowledgment bool                      `json:"requires_configuration_acknowledgment"`
+	Manifest                            Manifest                  `json:"manifest"`
 }
 
 // ApplyOptions carries the repeated safeguard for a forced unsupported Restore.
 type ApplyOptions struct {
-	AcknowledgeUnsupportedRisks bool
+	AcknowledgeUnsupportedRisks         bool
+	AcknowledgeConfigurationDifferences bool
 }
 
 type restoreJournal struct {
@@ -147,6 +150,12 @@ func PrepareRestore(
 	if verifyErr != nil {
 		return RestorePlan{}, verifyErr
 	}
+	target, configurationErr := normalizeConfiguration(input.Configuration)
+	if configurationErr != nil {
+		return RestorePlan{}, configurationErr
+	}
+	configurationDifferences, requiresConfigurationAcknowledgment :=
+		compareConfigurations(manifest.Configuration, target)
 
 	stagedData := filepath.Join(stagingRoot, "data")
 	if mkdirErr := os.Mkdir(stagedData, 0o700); mkdirErr != nil {
@@ -262,15 +271,17 @@ func PrepareRestore(
 		}()
 	}
 	plan := RestorePlan{
-		JournalPath:           journalPath,
-		DataDir:               input.DataDir,
-		AttachmentsDir:        input.AttachmentsDir,
-		ReplacesData:          replacesData,
-		ReplacesAttachments:   replacesAttachments,
-		ForcedUnsupported:     input.ForceUnsupported,
-		ForceReason:           input.ForceReason,
-		UnknownSchemaElements: unsupported.UnknownSchemaElements,
-		Manifest:              manifest,
+		JournalPath:                         journalPath,
+		DataDir:                             input.DataDir,
+		AttachmentsDir:                      input.AttachmentsDir,
+		ReplacesData:                        replacesData,
+		ReplacesAttachments:                 replacesAttachments,
+		ForcedUnsupported:                   input.ForceUnsupported,
+		ForceReason:                         input.ForceReason,
+		UnknownSchemaElements:               unsupported.UnknownSchemaElements,
+		ConfigurationDifferences:            configurationDifferences,
+		RequiresConfigurationAcknowledgment: requiresConfigurationAcknowledgment,
+		Manifest:                            manifest,
 	}
 	if replacesData {
 		plan.DataQuarantine = filepath.Join(dataQuarantineRoot, "original")
@@ -334,6 +345,12 @@ func applyRestoreWithOptions(
 	if journal.Plan.ForcedUnsupported && !options.AcknowledgeUnsupportedRisks {
 		return Manifest{}, errors.New(
 			"forced unsupported Restore requires repeated acknowledgment that it makes no safety claim",
+		)
+	}
+	if journal.Plan.RequiresConfigurationAcknowledgment &&
+		!options.AcknowledgeConfigurationDifferences {
+		return Manifest{}, errors.New(
+			"Restore configuration differences require repeated acknowledgment",
 		)
 	}
 	if preparedErr := validatePreparedRestore(ctx, journal); preparedErr != nil {

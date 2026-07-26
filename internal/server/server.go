@@ -15,6 +15,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/dotwaffle/beamers/internal/backup"
 	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/operations"
 	"github.com/dotwaffle/beamers/internal/replication"
@@ -97,7 +98,6 @@ func Run(ctx context.Context, config Config) error {
 			"error", startupErr,
 		)
 	}
-
 	listenConfig := net.ListenConfig{}
 	listener, err := listenConfig.Listen(ctx, "tcp", listenAddress)
 	if err != nil {
@@ -148,6 +148,19 @@ func Run(ctx context.Context, config Config) error {
 		application, err = newApplication(ctx, appConfig)
 		if err != nil {
 			return errors.Join(err, listener.Close(), closeListener(publicListener), installation.Close())
+		}
+	}
+	if startupErr == nil {
+		recordedConfig := config
+		recordedConfig.AttachmentsDir = attachmentsDir
+		recordedConfig.ListenAddress = listenAddress
+		if err = backup.RecordConfiguration(backupConfiguration(recordedConfig)); err != nil {
+			return errors.Join(
+				err,
+				listener.Close(),
+				closeListener(publicListener),
+				application.Close(),
+			)
 		}
 	}
 	privateHandler := protectInterfaces(application, interfacePolicy{

@@ -52,6 +52,7 @@ func TestSanitizedBackupIncludesConfiguredAttachmentsAndRemovesCredentials(t *te
 		OutputPath:     archivePath,
 		Mode:           Sanitized,
 		Now:            time.Date(2026, 7, 24, 12, 0, 0, 0, time.UTC),
+		Configuration:  testConfiguration(t, dataDir, attachmentRoot),
 	})
 	if err != nil {
 		t.Fatalf("create Backup: %v", err)
@@ -122,6 +123,7 @@ func TestSanitizedBackupIncludesConfiguredAttachmentsAndRemovesCredentials(t *te
 		InputPath:      archivePath,
 		DataDir:        restoredDataDir,
 		AttachmentsDir: restoredAttachmentsDir,
+		Configuration:  testConfiguration(t, restoredDataDir, restoredAttachmentsDir),
 	})
 	if err != nil {
 		t.Fatalf("Restore Backup: %v", err)
@@ -142,6 +144,120 @@ func TestSanitizedBackupIncludesConfiguredAttachmentsAndRemovesCredentials(t *te
 	); err != nil {
 		t.Fatalf("validate restored database: %v", err)
 	}
+}
+
+func TestBackupConfigurationIsVerifiedAndRestoreRequiresAcknowledgment(t *testing.T) {
+	ctx := t.Context()
+	dataDir := filepath.Join(t.TempDir(), "installation")
+	if err := store.Initialize(ctx, dataDir); err != nil {
+		t.Fatalf("initialize installation: %v", err)
+	}
+	keyPath := filepath.Join(t.TempDir(), "tls.key")
+	const privateMaterial = "private key material must not enter the Backup"
+	if err := os.WriteFile(keyPath, []byte(privateMaterial), 0o600); err != nil {
+		t.Fatalf("write TLS private key: %v", err)
+	}
+	configuration := Configuration{
+		DataDir:         dataDir,
+		AttachmentsDir:  filepath.Join(dataDir, "attachments"),
+		ListenAddress:   "0.0.0.0:8443",
+		PublicListen:    "127.0.0.1:8081",
+		TLSCertificate:  "/etc/beamers/tls.crt",
+		TLSPrivateKey:   keyPath,
+		TrustedProxies:  []string{"192.0.2.0/24"},
+		ReplicaURL:      "file:///var/lib/beamers-replica",
+		ShutdownTimeout: 10 * time.Second,
+		InsecureCrew:    false,
+		InsecureDisplay: false,
+	}
+	if err := RecordConfiguration(configuration); err != nil {
+		t.Fatalf("record effective configuration: %v", err)
+	}
+
+	archivePath := filepath.Join(t.TempDir(), "backup.zip")
+	manifest, err := Create(ctx, CreateInput{
+		DataDir: dataDir, OutputPath: archivePath, Mode: Sanitized,
+		Configuration: configuration,
+	})
+	if err != nil {
+		t.Fatalf("create Backup: %v", err)
+	}
+	if manifest.Configuration.Version != 1 ||
+		manifest.ConfigurationSHA256 == "" ||
+		manifest.Configuration.ListenAddress != configuration.ListenAddress {
+		t.Fatalf("configuration evidence = %+v", manifest)
+	}
+	archiveBytes, err := os.ReadFile(archivePath)
+	if err != nil {
+		t.Fatalf("read Backup: %v", err)
+	}
+	if bytes.Contains(archiveBytes, []byte(privateMaterial)) {
+		t.Fatal("Sanitized Backup contains TLS private material")
+	}
+
+	tampered := manifest
+	tampered.Configuration.ListenAddress = "127.0.0.1:1"
+	replacement, err := json.Marshal(tampered)
+	if err != nil {
+		t.Fatalf("encode tampered manifest: %v", err)
+	}
+	tamperedPath := filepath.Join(t.TempDir(), "tampered.zip")
+	rewriteZIPEntry(t, archivePath, tamperedPath, manifestName, replacement)
+	if _, err = Verify(tamperedPath); err == nil {
+		t.Fatal("tampered configuration unexpectedly verified")
+	}
+
+	targetDataDir := filepath.Join(t.TempDir(), "restored")
+	target := configuration
+	target.DataDir = targetDataDir
+	target.AttachmentsDir = filepath.Join(targetDataDir, "attachments")
+	target.ListenAddress = "127.0.0.1:8080"
+	target.TLSCertificate = "/srv/beamers/tls.crt"
+	target.TLSPrivateKey = "/srv/beamers/tls.key"
+	plan, err := PrepareRestore(ctx, RestoreInput{
+		InputPath:     archivePath,
+		DataDir:       targetDataDir,
+		Configuration: target,
+	})
+	if err != nil {
+		t.Fatalf("preview Restore: %v", err)
+	}
+	if !plan.RequiresConfigurationAcknowledgment ||
+		!hasConfigurationDifference(plan, "data_dir", "mapped") ||
+		!hasConfigurationDifference(plan, "tls_private_key", "acknowledgment_required") ||
+		!hasConfigurationDifference(plan, "listen_address", "acknowledgment_required") {
+		t.Fatalf("configuration differences = %+v", plan.ConfigurationDifferences)
+	}
+	if _, err = ApplyRestore(ctx, plan.JournalPath); err == nil {
+		t.Fatal("unacknowledged configuration differences unexpectedly applied")
+	}
+	if _, err = ApplyRestoreWithOptions(ctx, plan.JournalPath, ApplyOptions{
+		AcknowledgeConfigurationDifferences: true,
+	}); err != nil {
+		t.Fatalf("apply acknowledged Restore: %v", err)
+	}
+}
+
+func hasConfigurationDifference(
+	plan RestorePlan,
+	field string,
+	resolution ConfigurationResolution,
+) bool {
+	for _, difference := range plan.ConfigurationDifferences {
+		if difference.Field == field && difference.Resolution == resolution {
+			return true
+		}
+	}
+	return false
+}
+
+func testConfiguration(t *testing.T, dataDir, attachmentsDir string) Configuration {
+	t.Helper()
+	configuration, err := LoadConfiguration(dataDir, attachmentsDir)
+	if err != nil {
+		t.Fatalf("load test service configuration: %v", err)
+	}
+	return configuration
 }
 
 func TestSanitizedBackupRetainsSecureCreateAccountReceipt(t *testing.T) {
@@ -207,6 +323,7 @@ func testBackupRetainsSecureCreateAccountReceipt(t *testing.T, mode Mode) {
 	archivePath := filepath.Join(t.TempDir(), "backup.zip")
 	if _, err = Create(ctx, CreateInput{
 		DataDir: dataDir, OutputPath: archivePath, Mode: mode,
+		Configuration: testConfiguration(t, dataDir, ""),
 	}); err != nil {
 		t.Fatalf("create %s Backup: %v", mode, err)
 	}
@@ -276,6 +393,7 @@ func testBackupRetainsSecureCreateAccountReceipt(t *testing.T, mode Mode) {
 	restoredDataDir := filepath.Join(t.TempDir(), "restored")
 	if _, err = Restore(ctx, RestoreInput{
 		InputPath: archivePath, DataDir: restoredDataDir,
+		Configuration: testConfiguration(t, restoredDataDir, ""),
 	}); err != nil {
 		t.Fatalf("Restore %s Backup: %v", mode, err)
 	}
@@ -347,6 +465,7 @@ func TestVerifyRejectsTamperedAttachment(t *testing.T) {
 	archivePath := filepath.Join(t.TempDir(), "backup.zip")
 	if _, err := Create(ctx, CreateInput{
 		DataDir: dataDir, OutputPath: archivePath, Mode: Sanitized,
+		Configuration: testConfiguration(t, dataDir, ""),
 	}); err != nil {
 		t.Fatalf("create Backup: %v", err)
 	}
@@ -366,6 +485,7 @@ func TestVerifyRejectsTamperedManifest(t *testing.T) {
 	archivePath := filepath.Join(t.TempDir(), "backup.zip")
 	if _, err := Create(t.Context(), CreateInput{
 		DataDir: dataDir, OutputPath: archivePath, Mode: Sanitized,
+		Configuration: testConfiguration(t, dataDir, ""),
 	}); err != nil {
 		t.Fatalf("create Backup: %v", err)
 	}
@@ -415,6 +535,7 @@ func TestRestoreRejectsFullFidelityBackupRelabeledSanitized(t *testing.T) {
 	archivePath := filepath.Join(t.TempDir(), "full-fidelity.zip")
 	if _, err = Create(ctx, CreateInput{
 		DataDir: dataDir, OutputPath: archivePath, Mode: FullFidelity,
+		Configuration: testConfiguration(t, dataDir, ""),
 	}); err != nil {
 		t.Fatalf("create Full-Fidelity Backup: %v", err)
 	}
@@ -441,9 +562,11 @@ func TestRestoreRejectsFullFidelityBackupRelabeledSanitized(t *testing.T) {
 	}
 	tamperedPath := filepath.Join(t.TempDir(), "relabeled.zip")
 	rewriteZIPEntry(t, archivePath, tamperedPath, manifestName, replacement)
+	targetDataDir := filepath.Join(t.TempDir(), "restored")
 	if _, err = PrepareRestore(ctx, RestoreInput{
-		InputPath: tamperedPath,
-		DataDir:   filepath.Join(t.TempDir(), "restored"),
+		InputPath:     tamperedPath,
+		DataDir:       targetDataDir,
+		Configuration: testConfiguration(t, targetDataDir, ""),
 	}); err == nil {
 		t.Fatal("Full-Fidelity Backup relabeled Sanitized unexpectedly prepared")
 	}
@@ -458,6 +581,7 @@ func TestRestoreReplacesExistingInstallationThroughDurableJournal(t *testing.T) 
 	archivePath := filepath.Join(t.TempDir(), "backup.zip")
 	if _, err := Create(ctx, CreateInput{
 		DataDir: sourceDataDir, OutputPath: archivePath, Mode: Sanitized,
+		Configuration: testConfiguration(t, sourceDataDir, ""),
 	}); err != nil {
 		t.Fatalf("create Backup: %v", err)
 	}
@@ -472,9 +596,10 @@ func TestRestoreReplacesExistingInstallationThroughDurableJournal(t *testing.T) 
 	}
 
 	plan, err := PrepareRestore(ctx, RestoreInput{
-		InputPath: archivePath,
-		DataDir:   targetDataDir,
-		Replace:   true,
+		InputPath:     archivePath,
+		DataDir:       targetDataDir,
+		Replace:       true,
+		Configuration: testConfiguration(t, targetDataDir, ""),
 	})
 	if err != nil {
 		t.Fatalf("prepare Restore: %v", err)
@@ -532,6 +657,7 @@ func TestRestoreRejectsStagingChangedAfterPreview(t *testing.T) {
 	archivePath := filepath.Join(t.TempDir(), "backup.zip")
 	if _, err := Create(ctx, CreateInput{
 		DataDir: sourceDataDir, OutputPath: archivePath, Mode: Sanitized,
+		Configuration: testConfiguration(t, sourceDataDir, ""),
 	}); err != nil {
 		t.Fatalf("create Backup: %v", err)
 	}
@@ -545,6 +671,7 @@ func TestRestoreRejectsStagingChangedAfterPreview(t *testing.T) {
 	}
 	plan, err := PrepareRestore(ctx, RestoreInput{
 		InputPath: archivePath, DataDir: targetDataDir, Replace: true,
+		Configuration: testConfiguration(t, targetDataDir, ""),
 	})
 	if err != nil {
 		t.Fatalf("prepare Restore: %v", err)
@@ -593,6 +720,7 @@ func TestRestoreRecoversInterruptedCrossFilesystemCutover(t *testing.T) {
 		AttachmentsDir: sourceAttachmentsDir,
 		OutputPath:     archivePath,
 		Mode:           Sanitized,
+		Configuration:  testConfiguration(t, sourceDataDir, sourceAttachmentsDir),
 	}); err != nil {
 		t.Fatalf("create Backup: %v", err)
 	}
@@ -615,6 +743,7 @@ func TestRestoreRecoversInterruptedCrossFilesystemCutover(t *testing.T) {
 		DataDir:        targetDataDir,
 		AttachmentsDir: targetAttachmentsDir,
 		Replace:        true,
+		Configuration:  testConfiguration(t, targetDataDir, targetAttachmentsDir),
 	})
 	if err != nil {
 		t.Fatalf("prepare Restore: %v", err)
@@ -675,6 +804,7 @@ func TestForcedUnsupportedRestoreReportsUnknownSchemaAndMakesNoSafetyClaim(
 	supportedArchive := filepath.Join(t.TempDir(), "supported.zip")
 	if _, err := Create(ctx, CreateInput{
 		DataDir: sourceDataDir, OutputPath: supportedArchive,
+		Configuration: testConfiguration(t, sourceDataDir, ""),
 	}); err != nil {
 		t.Fatalf("create supported Backup: %v", err)
 	}
@@ -683,14 +813,16 @@ func TestForcedUnsupportedRestoreReportsUnknownSchemaAndMakesNoSafetyClaim(
 	targetDataDir := filepath.Join(t.TempDir(), "target")
 
 	if _, err := PrepareRestore(ctx, RestoreInput{
-		InputPath: unsupportedArchive,
-		DataDir:   targetDataDir,
+		InputPath:     unsupportedArchive,
+		DataDir:       targetDataDir,
+		Configuration: testConfiguration(t, targetDataDir, ""),
 	}); err == nil {
 		t.Fatal("unsupported Restore unexpectedly prepared normally")
 	}
 	if _, err := PrepareRestore(ctx, RestoreInput{
 		InputPath:        unsupportedArchive,
 		DataDir:          targetDataDir,
+		Configuration:    testConfiguration(t, targetDataDir, ""),
 		ForceUnsupported: true,
 	}); err == nil {
 		t.Fatal("forced unsupported Restore unexpectedly accepted without safeguards")
@@ -701,6 +833,7 @@ func TestForcedUnsupportedRestoreReportsUnknownSchemaAndMakesNoSafetyClaim(
 		ForceUnsupported:            true,
 		ForceReason:                 "recover after newer binary failure",
 		AcknowledgeUnsupportedRisks: true,
+		Configuration:               testConfiguration(t, targetDataDir, ""),
 	})
 	if err != nil {
 		t.Fatalf("prepare forced unsupported Restore: %v", err)

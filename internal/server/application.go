@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dotwaffle/beamers/internal/backup"
 	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/operations"
 	"github.com/dotwaffle/beamers/internal/replication"
@@ -208,7 +209,11 @@ func (application *application) readiness(
 	_, _ = response.Write([]byte("ready\n"))
 }
 
-func (application *application) restore(ctx context.Context, journalPath string) error {
+func (application *application) restore(
+	ctx context.Context,
+	journalPath string,
+	options backup.ApplyOptions,
+) error {
 	installation, err := application.beginRestore(ctx)
 	if err != nil {
 		return err
@@ -218,7 +223,7 @@ func (application *application) restore(ctx context.Context, journalPath string)
 		application.setUnavailable(installation)
 		return err
 	}
-	_, restoreErr := operations.ApplyRestore(ctx, journalPath)
+	_, restoreErr := operations.ApplyRestoreWithOptions(ctx, journalPath, options)
 	reopened, openErr := operations.OpenInstallationWithConfig(ctx, application.openConfig())
 	if openErr != nil {
 		application.setUnavailable(nil)
@@ -588,6 +593,7 @@ func (application *application) buildHandler(
 		installation,
 		application.config.DataDir,
 		application.config.AttachmentsDir,
+		backupConfiguration(application.config.Config),
 		application.restore,
 		application.config.Logger,
 		application.config.ListenerAddress,

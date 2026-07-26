@@ -194,9 +194,16 @@ func (upgrade *Upgrade) Apply(
 	if upgrade.plan.RequiresApproval {
 		backupMode = backup.FullFidelity
 	}
+	configuration, err := backup.LoadConfiguration(
+		upgrade.config.DataDir,
+		upgrade.config.AttachmentsDir,
+	)
+	if err != nil {
+		return UpgradeResult{}, errors.Join(err, os.RemoveAll(backupRoot))
+	}
 	manifest, err := backup.CreateWithStorage(ctx, upgrade.source, backup.CreateInput{
 		DataDir: upgrade.config.DataDir, AttachmentsDir: upgrade.config.AttachmentsDir,
-		OutputPath: backupPath, Mode: backupMode,
+		OutputPath: backupPath, Mode: backupMode, Configuration: configuration,
 	})
 	if err != nil {
 		return UpgradeResult{}, errors.Join(err, os.RemoveAll(backupRoot))

@@ -83,5 +83,30 @@ test "$(sudo cat "/proc/$pid/comm")" = "beamers"
 sudo systemctl stop beamers.service
 sudo journalctl --unit=beamers.service --no-pager |
 	grep -F '"phase":"shutdown"'
+sudo -u beamers /usr/local/bin/beamers backup \
+	--data-dir=/var/lib/beamers/data \
+	--attachments-dir=/var/lib/beamers/attachments \
+	--output=/var/lib/beamers/systemd.beamers-backup
+sudo -u beamers /usr/local/bin/beamers backup verify \
+	--input=/var/lib/beamers/systemd.beamers-backup
+{
+	sudo -u beamers /usr/local/bin/beamers restore \
+		preview \
+		--input=/var/lib/beamers/systemd.beamers-backup \
+		--data-dir=/var/lib/beamers/restored-data \
+		--attachments-dir=/var/lib/beamers/restored-attachments
+} >"$temporary/systemd-restore-plan.json"
+grep -F '"listen_address":"0.0.0.0:8443"' \
+	"$temporary/systemd-restore-plan.json"
+grep -F '"tls_private_key":"/etc/beamers/tls.key"' \
+	"$temporary/systemd-restore-plan.json"
+grep -F '"requires_configuration_acknowledgment":true' \
+	"$temporary/systemd-restore-plan.json"
+grep -F '"resolution":"acknowledgment_required"' \
+	"$temporary/systemd-restore-plan.json"
+sudo -u beamers /usr/local/bin/beamers restore apply \
+	--journal=/var/lib/beamers/restored-data.beamers-restore.json \
+	--acknowledge-replacement \
+	--acknowledge-configuration-differences
 sudo systemctl start beamers.service
 wait_ready

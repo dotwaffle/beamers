@@ -121,11 +121,16 @@ func TestHealthyAdministratorRestoresThroughMaintenanceMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bootstrap Administrator: %v", err)
 	}
+	configuration, err := backup.LoadConfiguration(dataDir, "")
+	if err != nil {
+		t.Fatalf("load Backup configuration: %v", err)
+	}
 	archivePath := filepath.Join(t.TempDir(), "backup.zip")
 	if _, err = installation.CreateBackup(ctx, backup.CreateInput{
-		DataDir:    dataDir,
-		OutputPath: archivePath,
-		Mode:       backup.Sanitized,
+		DataDir:       dataDir,
+		OutputPath:    archivePath,
+		Mode:          backup.Sanitized,
+		Configuration: configuration,
 	}); err != nil {
 		t.Fatalf("create Backup: %v", err)
 	}
