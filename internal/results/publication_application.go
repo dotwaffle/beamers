@@ -65,9 +65,6 @@ func (service *Service) FirePrizegivingResultsCue(
 	if err := command.ValidateID(input.CommandID); err != nil {
 		return Publication{}, err
 	}
-	if !actor.CanProduceEvent(input.EventID) {
-		return Publication{}, ErrProducerRequired
-	}
 	payload, err := json.Marshal(input)
 	if err != nil {
 		return Publication{}, errors.New("encode Results release cue command")
@@ -84,14 +81,13 @@ func (service *Service) FirePrizegivingResultsCue(
 	return command.Execute(actor.Context(ctx), command.Plan[Publication]{
 		Storage:  service.storage,
 		Identity: identity,
-		Replay: func(outcome string) (Publication, error) {
-			var result Publication
-			if err := store.DecodeCommandReceipt(outcome, &result); err != nil {
-				return Publication{}, err
+		Replay:   decodeResultsCommandReceipt[Publication],
+		Apply: auditResultsRejections(func(
+			transaction *store.CommandTx,
+		) (command.Execution[Publication], error) {
+			if !actor.CanProduceEvent(input.EventID) {
+				return command.Execution[Publication]{}, ErrProducerRequired
 			}
-			return result, nil
-		},
-		Apply: func(transaction *store.CommandTx) (command.Execution[Publication], error) {
 			next, _, advanceErr := AdvancePrizegivingPublication(
 				actor.Context(ctx),
 				actor,
@@ -112,7 +108,7 @@ func (service *Service) FirePrizegivingResultsCue(
 				)
 			}
 			return command.Success(next, string(outcome)), nil
-		},
+		}),
 	})
 }
 
@@ -127,9 +123,6 @@ func (service *Service) ReleaseStandaloneResults(
 	}
 	if err := command.ValidateID(input.CommandID); err != nil {
 		return Publication{}, err
-	}
-	if !actor.CanProduceEvent(input.EventID) {
-		return Publication{}, ErrProducerRequired
 	}
 	payload, err := json.Marshal(input)
 	if err != nil {
@@ -147,14 +140,13 @@ func (service *Service) ReleaseStandaloneResults(
 	return command.Execute(actor.Context(ctx), command.Plan[Publication]{
 		Storage:  service.storage,
 		Identity: identity,
-		Replay: func(outcome string) (Publication, error) {
-			var result Publication
-			if err := store.DecodeCommandReceipt(outcome, &result); err != nil {
-				return Publication{}, err
+		Replay:   decodeResultsCommandReceipt[Publication],
+		Apply: auditResultsRejections(func(
+			transaction *store.CommandTx,
+		) (command.Execution[Publication], error) {
+			if !actor.CanProduceEvent(input.EventID) {
+				return command.Execution[Publication]{}, ErrProducerRequired
 			}
-			return result, nil
-		},
-		Apply: func(transaction *store.CommandTx) (command.Execution[Publication], error) {
 			current, loadErr := transaction.LoadResultsPublication(
 				actor.Context(ctx),
 				input.EventID,
@@ -267,7 +259,7 @@ func (service *Service) ReleaseStandaloneResults(
 				return command.Execution[Publication]{}, appendErr
 			}
 			return publicationExecution(publicationFromStore(stored))
-		},
+		}),
 	})
 }
 
@@ -317,9 +309,6 @@ func (service *Service) ReleaseStandaloneEventAwards(
 	if err := command.ValidateID(input.CommandID); err != nil {
 		return Publication{}, err
 	}
-	if !actor.CanProduceEvent(input.EventID) {
-		return Publication{}, ErrProducerRequired
-	}
 	payload, err := json.Marshal(input)
 	if err != nil {
 		return Publication{}, errors.New("encode standalone Event Awards release command")
@@ -336,14 +325,13 @@ func (service *Service) ReleaseStandaloneEventAwards(
 	return command.Execute(actor.Context(ctx), command.Plan[Publication]{
 		Storage:  service.storage,
 		Identity: identity,
-		Replay: func(outcome string) (Publication, error) {
-			var result Publication
-			if err := store.DecodeCommandReceipt(outcome, &result); err != nil {
-				return Publication{}, err
+		Replay:   decodeResultsCommandReceipt[Publication],
+		Apply: auditResultsRejections(func(
+			transaction *store.CommandTx,
+		) (command.Execution[Publication], error) {
+			if !actor.CanProduceEvent(input.EventID) {
+				return command.Execution[Publication]{}, ErrProducerRequired
 			}
-			return result, nil
-		},
-		Apply: func(transaction *store.CommandTx) (command.Execution[Publication], error) {
 			current, loadErr := transaction.LoadResultsPublication(
 				actor.Context(ctx),
 				input.EventID,
@@ -434,7 +422,7 @@ func (service *Service) ReleaseStandaloneEventAwards(
 				return command.Execution[Publication]{}, appendErr
 			}
 			return publicationExecution(publicationFromStore(stored))
-		},
+		}),
 	})
 }
 

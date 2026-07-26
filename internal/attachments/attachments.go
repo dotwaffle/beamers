@@ -669,7 +669,7 @@ func (service *Service) ConfigureEventRelease(
 	return command.Execute(actor.Context(ctx), command.Plan[store.AttachmentReleaseConfiguration]{
 		Storage: service.storage, Identity: identity,
 		Replay: decodeReleaseReceipt[store.AttachmentReleaseConfiguration],
-		Apply: func(transaction *store.CommandTx) (
+		Apply: auditReleaseRejections(func(transaction *store.CommandTx) (
 			command.Execution[store.AttachmentReleaseConfiguration], error,
 		) {
 			if !actor.CanProduceEvent(input.EventID) {
@@ -682,7 +682,7 @@ func (service *Service) ConfigureEventRelease(
 				},
 			)
 			return releaseSuccess(configured, configureErr)
-		},
+		}),
 	})
 }
 
@@ -714,7 +714,7 @@ func (service *Service) ConfigureCompetitionRelease(
 		command.Plan[store.CompetitionAttachmentReleaseConfiguration]{
 			Storage: service.storage, Identity: identity,
 			Replay: decodeReleaseReceipt[store.CompetitionAttachmentReleaseConfiguration],
-			Apply: func(transaction *store.CommandTx) (
+			Apply: auditReleaseRejections(func(transaction *store.CommandTx) (
 				command.Execution[store.CompetitionAttachmentReleaseConfiguration], error,
 			) {
 				if !actor.CanProduceEvent(input.EventID) {
@@ -729,7 +729,7 @@ func (service *Service) ConfigureCompetitionRelease(
 					},
 				)
 				return releaseSuccess(configured, configureErr)
-			},
+			}),
 		},
 	)
 }
@@ -758,12 +758,10 @@ func (service *Service) SetVersionRelease(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[Version]{
 		Storage: service.storage, Identity: identity,
-		Replay: func(outcome string) (Version, error) {
-			var replayed Version
-			err := store.DecodeCommandReceipt(outcome, &replayed)
-			return replayed, err
-		},
-		Apply: func(transaction *store.CommandTx) (command.Execution[Version], error) {
+		Replay: decodeReleaseReceipt[Version],
+		Apply: auditReleaseRejections(func(
+			transaction *store.CommandTx,
+		) (command.Execution[Version], error) {
 			if !actor.CanProduceEvent(input.EventID) {
 				return command.Execution[Version]{}, ErrProducerRequired
 			}
@@ -783,7 +781,7 @@ func (service *Service) SetVersionRelease(
 				return command.Execution[Version]{}, errors.New("encode Attachment Version release outcome")
 			}
 			return command.Success(result, string(encoded)), nil
-		},
+		}),
 	})
 }
 
@@ -812,7 +810,7 @@ func (service *Service) FireReleaseCue(
 	return command.Execute(actor.Context(ctx), command.Plan[store.AttachmentReleaseConfiguration]{
 		Storage: service.storage, Identity: identity,
 		Replay: decodeReleaseReceipt[store.AttachmentReleaseConfiguration],
-		Apply: func(transaction *store.CommandTx) (
+		Apply: auditReleaseRejections(func(transaction *store.CommandTx) (
 			command.Execution[store.AttachmentReleaseConfiguration], error,
 		) {
 			if !actor.CanProduceEvent(input.EventID) {
@@ -822,7 +820,7 @@ func (service *Service) FireReleaseCue(
 				actor.Context(ctx), input.EventID, input.ExpectedRevision, identity.Now,
 			)
 			return releaseSuccess(fired, fireErr)
-		},
+		}),
 	})
 }
 
@@ -873,7 +871,65 @@ func (service *Service) readStoredVersion(stored store.AttachmentVersion) ([]byt
 func decodeReleaseReceipt[T any](outcome string) (T, error) {
 	var replayed T
 	err := store.DecodeCommandReceipt(outcome, &replayed)
+	var rejected *store.RejectedCommandError
+	if errors.As(err, &rejected) {
+		err = attachmentReleaseRejectionError(rejected.Rejection)
+	}
 	return replayed, err
+}
+
+func auditReleaseRejections[T any](
+	apply func(*store.CommandTx) (command.Execution[T], error),
+) func(*store.CommandTx) (command.Execution[T], error) {
+	return func(transaction *store.CommandTx) (command.Execution[T], error) {
+		execution, err := apply(transaction)
+		rejection, rejected := attachmentReleaseRejection(err)
+		if !rejected {
+			return execution, err
+		}
+		var zero T
+		return command.Reject(zero, rejection, err), nil
+	}
+}
+
+func attachmentReleaseRejection(err error) (store.CommandRejection, bool) {
+	var code string
+	switch {
+	case errors.Is(err, ErrProducerRequired):
+		code = "producer_required"
+	case errors.Is(err, ErrReleaseRevision):
+		code = "stale_revision"
+	case errors.Is(err, ErrReleasePolicy):
+		code = "invalid_release_policy"
+	case errors.Is(err, ErrReleaseCueBlocked):
+		code = "release_cue_blocked"
+	case errors.Is(err, ErrUploadTargetNotFound):
+		code = "attachment_target_not_found"
+	case errors.Is(err, store.ErrCompetitionNotFound):
+		code = "competition_not_found"
+	default:
+		return store.CommandRejection{}, false
+	}
+	return store.CommandRejection{Code: code}, true
+}
+
+func attachmentReleaseRejectionError(rejection store.CommandRejection) error {
+	switch rejection.Code {
+	case "producer_required":
+		return ErrProducerRequired
+	case "stale_revision":
+		return ErrReleaseRevision
+	case "invalid_release_policy":
+		return ErrReleasePolicy
+	case "release_cue_blocked":
+		return ErrReleaseCueBlocked
+	case "attachment_target_not_found":
+		return ErrUploadTargetNotFound
+	case "competition_not_found":
+		return store.ErrCompetitionNotFound
+	default:
+		return &store.RejectedCommandError{Rejection: rejection}
+	}
 }
 
 func releaseSuccess[T any](result T, resultErr error) (command.Execution[T], error) {

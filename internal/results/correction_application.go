@@ -209,9 +209,6 @@ func (service *Service) SaveCorrection(
 	if err := validateSaveCorrectionInput(input); err != nil {
 		return Correction{}, err
 	}
-	if !actor.CanProduceEvent(input.EventID) {
-		return Correction{}, ErrProducerRequired
-	}
 	payload, err := json.Marshal(input)
 	if err != nil {
 		return Correction{}, errors.New("encode Results Correction command")
@@ -227,14 +224,13 @@ func (service *Service) SaveCorrection(
 	)
 	return command.Execute(actor.Context(ctx), command.Plan[Correction]{
 		Storage: service.storage, Identity: identity,
-		Replay: func(outcome string) (Correction, error) {
-			var result Correction
-			if err := store.DecodeCommandReceipt(outcome, &result); err != nil {
-				return Correction{}, err
+		Replay: decodeResultsCommandReceipt[Correction],
+		Apply: auditResultsRejections(func(
+			transaction *store.CommandTx,
+		) (command.Execution[Correction], error) {
+			if !actor.CanProduceEvent(input.EventID) {
+				return command.Execution[Correction]{}, ErrProducerRequired
 			}
-			return result, nil
-		},
-		Apply: func(transaction *store.CommandTx) (command.Execution[Correction], error) {
 			current, loadErr := transaction.LoadResultsCorrection(
 				actor.Context(ctx),
 				input.EventID,
@@ -287,7 +283,7 @@ func (service *Service) SaveCorrection(
 				return command.Execution[Correction]{}, projectErr
 			}
 			return correctionExecution(projected, proposal)
-		},
+		}),
 	})
 }
 
@@ -315,9 +311,6 @@ func (service *Service) PublishCorrection(
 	if err := validateReviewCorrectionInput(input); err != nil {
 		return PublishCorrectionResult{}, err
 	}
-	if !actor.CanProduceEvent(input.EventID) {
-		return PublishCorrectionResult{}, ErrProducerRequired
-	}
 	payload, err := json.Marshal(input)
 	if err != nil {
 		return PublishCorrectionResult{}, errors.New("encode Results Correction publication")
@@ -333,16 +326,13 @@ func (service *Service) PublishCorrection(
 	)
 	return command.Execute(actor.Context(ctx), command.Plan[PublishCorrectionResult]{
 		Storage: service.storage, Identity: identity,
-		Replay: func(outcome string) (PublishCorrectionResult, error) {
-			var result PublishCorrectionResult
-			if err := store.DecodeCommandReceipt(outcome, &result); err != nil {
-				return PublishCorrectionResult{}, err
-			}
-			return result, nil
-		},
-		Apply: func(
+		Replay: decodeResultsCommandReceipt[PublishCorrectionResult],
+		Apply: auditResultsRejections(func(
 			transaction *store.CommandTx,
 		) (command.Execution[PublishCorrectionResult], error) {
+			if !actor.CanProduceEvent(input.EventID) {
+				return command.Execution[PublishCorrectionResult]{}, ErrProducerRequired
+			}
 			current, loadErr := transaction.LoadResultsCorrection(
 				actor.Context(ctx),
 				input.EventID,
@@ -457,7 +447,7 @@ func (service *Service) PublishCorrection(
 			}
 			return command.Success(result, string(outcome)).
 				WithAudit(correctionAudit(proposal)), nil
-		},
+		}),
 	})
 }
 
@@ -470,9 +460,6 @@ func (service *Service) advanceCorrectionReview(
 ) (Correction, error) {
 	if err := validateReviewCorrectionInput(input); err != nil {
 		return Correction{}, err
-	}
-	if !actor.CanProduceEvent(input.EventID) {
-		return Correction{}, ErrProducerRequired
 	}
 	payload, err := json.Marshal(input)
 	if err != nil {
@@ -489,14 +476,13 @@ func (service *Service) advanceCorrectionReview(
 	)
 	return command.Execute(actor.Context(ctx), command.Plan[Correction]{
 		Storage: service.storage, Identity: identity,
-		Replay: func(outcome string) (Correction, error) {
-			var result Correction
-			if err := store.DecodeCommandReceipt(outcome, &result); err != nil {
-				return Correction{}, err
+		Replay: decodeResultsCommandReceipt[Correction],
+		Apply: auditResultsRejections(func(
+			transaction *store.CommandTx,
+		) (command.Execution[Correction], error) {
+			if !actor.CanProduceEvent(input.EventID) {
+				return command.Execution[Correction]{}, ErrProducerRequired
 			}
-			return result, nil
-		},
-		Apply: func(transaction *store.CommandTx) (command.Execution[Correction], error) {
 			current, loadErr := transaction.LoadResultsCorrection(
 				actor.Context(ctx),
 				input.EventID,
@@ -555,7 +541,7 @@ func (service *Service) advanceCorrectionReview(
 				return command.Execution[Correction]{}, projectErr
 			}
 			return correctionExecution(projected, proposal)
-		},
+		}),
 	})
 }
 

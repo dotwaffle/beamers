@@ -4980,6 +4980,21 @@ func TestFinalAttachmentsReleaseByPolicyAndSurviveRestart(t *testing.T) {
 	if staleOverride.status != http.StatusConflict {
 		t.Fatalf("stale Competition Attachment release = %d: %s", staleOverride.status, staleOverride.body)
 	}
+	staleOverrideRetry := requestJSONMethod(
+		t.Context(), http.MethodPatch, administrator, server.address,
+		fmt.Sprintf("/crew/events/1/competitions/%d/attachment-release", competitionID),
+		map[string]any{
+			"policy": "OnEnded", "override": true, "expected_revision": 0,
+			"command_id": "stale-competition-attachment-release",
+		},
+	)
+	if staleOverrideRetry.status != http.StatusConflict {
+		t.Fatalf(
+			"retried stale Competition Attachment release = %d: %s",
+			staleOverrideRetry.status,
+			staleOverrideRetry.body,
+		)
+	}
 	rundownClient := rundownv1connect.NewRundownServiceClient(
 		administrator, "http://"+server.address, connect.WithProtoJSON(),
 	)
@@ -5088,6 +5103,17 @@ func TestFinalAttachmentsReleaseByPolicyAndSurviveRestart(t *testing.T) {
 	if held.status != http.StatusOK {
 		t.Fatalf("hold public Attachment = %d: %s", held.status, held.body)
 	}
+	staleHold := requestJSONMethod(
+		t.Context(), http.MethodPatch, administrator, server.address,
+		fmt.Sprintf("/crew/events/1/attachment-versions/%d/release", publicVersion.ID),
+		map[string]any{
+			"hold": false, "expected_revision": 0,
+			"command_id": "reject-stale-public-attachment-hold",
+		},
+	)
+	if staleHold.status != http.StatusConflict {
+		t.Fatalf("stale public Attachment hold = %d: %s", staleHold.status, staleHold.body)
+	}
 	assertReleasedAttachmentsOnListeners(t, server)
 	assertPublicAttachmentOnListeners(
 		t, server, publicVersion.ID,
@@ -5103,6 +5129,32 @@ func TestFinalAttachmentsReleaseByPolicyAndSurviveRestart(t *testing.T) {
 	)
 	if lifted.status != http.StatusOK {
 		t.Fatalf("lift public Attachment hold = %d: %s", lifted.status, lifted.body)
+	}
+	staleHoldRetry := requestJSONMethod(
+		t.Context(), http.MethodPatch, administrator, server.address,
+		fmt.Sprintf("/crew/events/1/attachment-versions/%d/release", publicVersion.ID),
+		map[string]any{
+			"hold": false, "expected_revision": 0,
+			"command_id": "reject-stale-public-attachment-hold",
+		},
+	)
+	if staleHoldRetry.status != http.StatusConflict {
+		t.Fatalf(
+			"retried stale public Attachment hold = %d: %s",
+			staleHoldRetry.status,
+			staleHoldRetry.body,
+		)
+	}
+	audit := get(t, administrator, server.address, "/admin/audit")
+	auditBody, readErr := io.ReadAll(audit.Body)
+	closeErr := audit.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read Attachment release Audit history: %v", err)
+	}
+	if bytes.Count(auditBody, []byte(`"action":"ConfigureCompetitionAttachmentRelease"`)) != 2 ||
+		bytes.Count(auditBody, []byte(`"reason":"stale_revision"`)) != 2 ||
+		!bytes.Contains(auditBody, []byte(`"reason":"attachment_target_not_found"`)) {
+		t.Fatalf("Attachment release rejection Audit evidence = %s", auditBody)
 	}
 
 	dataDir, bin := server.dataDir, server.bin

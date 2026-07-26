@@ -907,3 +907,111 @@ func prizegiving(stored store.Prizegiving) Prizegiving {
 		CreatedByAccountID: stored.CreatedByAccountID, CreatedAt: stored.CreatedAt,
 	}
 }
+
+func auditResultsRejections[T any](
+	apply func(*store.CommandTx) (command.Execution[T], error),
+) func(*store.CommandTx) (command.Execution[T], error) {
+	return func(transaction *store.CommandTx) (command.Execution[T], error) {
+		execution, err := apply(transaction)
+		rejection, rejected := resultsCommandRejection(err)
+		if !rejected {
+			return execution, err
+		}
+		var zero T
+		return command.Reject(zero, rejection, err), nil
+	}
+}
+
+func decodeResultsCommandReceipt[T any](outcome string) (T, error) {
+	var result T
+	err := store.DecodeCommandReceipt(outcome, &result)
+	var rejected *store.RejectedCommandError
+	if !errors.As(err, &rejected) {
+		return result, err
+	}
+	return result, resultsRejectionError(rejected.Rejection)
+}
+
+func resultsCommandRejection(err error) (store.CommandRejection, bool) {
+	var code string
+	switch {
+	case errors.Is(err, ErrProducerRequired):
+		code = "producer_required"
+	case errors.Is(err, ErrRevisionConflict):
+		code = "results_revision"
+	case errors.Is(err, ErrEventAwardsRevision):
+		code = "event_awards_revision"
+	case errors.Is(err, store.ErrResultsPublicationRevision):
+		code = "publication_revision"
+	case errors.Is(err, ErrCorrectionRevision):
+		code = "correction_revision"
+	case errors.Is(err, ErrResultsPublicationRequired):
+		code = "publication_required"
+	case errors.Is(err, ErrPrizegivingPreflightRequired):
+		code = "prizegiving_preflight_required"
+	case errors.Is(err, store.ErrResultsPublicationTransition):
+		code = "publication_transition"
+	case errors.Is(err, ErrCorrectionTransition):
+		code = "correction_transition"
+	case errors.Is(err, ErrResultItemTransition):
+		code = "result_item_transition"
+	case errors.Is(err, ErrResultsReleasePolicy):
+		code = "invalid_release_policy"
+	case errors.Is(err, ErrCorrectionBase):
+		code = "correction_base_changed"
+	case errors.Is(err, ErrResultsCorrection):
+		code = "invalid_correction"
+	case errors.Is(err, ErrCompetitionPrizegivingAssignment):
+		code = "competition_prizegiving_assignment"
+	case errors.Is(err, ErrCompetitionNotFound):
+		code = "competition_not_found"
+	case errors.Is(err, ErrEventNotFound):
+		code = "event_not_found"
+	case errors.Is(err, ErrPrizegivingSession):
+		code = "prizegiving_session_not_found"
+	default:
+		return store.CommandRejection{}, false
+	}
+	return store.CommandRejection{Code: code}, true
+}
+
+func resultsRejectionError(rejection store.CommandRejection) error {
+	switch rejection.Code {
+	case "producer_required":
+		return ErrProducerRequired
+	case "results_revision":
+		return ErrRevisionConflict
+	case "event_awards_revision":
+		return ErrEventAwardsRevision
+	case "publication_revision":
+		return store.ErrResultsPublicationRevision
+	case "correction_revision":
+		return ErrCorrectionRevision
+	case "publication_required":
+		return ErrResultsPublicationRequired
+	case "prizegiving_preflight_required":
+		return ErrPrizegivingPreflightRequired
+	case "publication_transition":
+		return store.ErrResultsPublicationTransition
+	case "correction_transition":
+		return ErrCorrectionTransition
+	case "result_item_transition":
+		return ErrResultItemTransition
+	case "invalid_release_policy":
+		return ErrResultsReleasePolicy
+	case "correction_base_changed":
+		return ErrCorrectionBase
+	case "invalid_correction":
+		return ErrResultsCorrection
+	case "competition_prizegiving_assignment":
+		return ErrCompetitionPrizegivingAssignment
+	case "competition_not_found":
+		return ErrCompetitionNotFound
+	case "event_not_found":
+		return ErrEventNotFound
+	case "prizegiving_session_not_found":
+		return ErrPrizegivingSession
+	default:
+		return &store.RejectedCommandError{Rejection: rejection}
+	}
+}
