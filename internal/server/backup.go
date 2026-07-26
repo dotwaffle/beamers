@@ -26,6 +26,7 @@ type archiveHandlers struct {
 	dataDir            string
 	attachmentsDir     string
 	restore            func(context.Context, string, backup.ApplyOptions) error
+	cancelRestore      func(context.Context, string) error
 	configuration      backup.Configuration
 	logger             *slog.Logger
 	allowPlaintextCrew bool
@@ -58,6 +59,7 @@ func registerBackupRoutes(
 	attachmentsDir string,
 	configuration backup.Configuration,
 	restore func(context.Context, string, backup.ApplyOptions) error,
+	cancelRestore func(context.Context, string) error,
 	logger *slog.Logger,
 	listenerAddress net.Addr,
 ) {
@@ -67,12 +69,14 @@ func registerBackupRoutes(
 		attachmentsDir:     attachmentsDir,
 		configuration:      configuration,
 		restore:            restore,
+		cancelRestore:      cancelRestore,
 		logger:             logger,
 		allowPlaintextCrew: listenerIsLoopback(listenerAddress),
 	}
 	mux.HandleFunc("/admin/backups", handlers.create)
 	mux.HandleFunc("/admin/restores/preview", handlers.previewRestore)
 	mux.HandleFunc("/admin/restores/apply", handlers.applyRestore)
+	mux.HandleFunc("/admin/restores/cancel", handlers.cancelPreparedRestore)
 }
 
 func (handlers archiveHandlers) previewRestore(
@@ -212,6 +216,72 @@ func (handlers archiveHandlers) applyRestore(
 	}
 	response.Header().Set("Content-Type", "application/json")
 	_, _ = response.Write([]byte("{\"restored\":true}\n"))
+}
+
+func (handlers archiveHandlers) cancelPreparedRestore(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	if !requestAllowed(response, request, http.MethodPost, handlers.allowPlaintextCrew) {
+		return
+	}
+	actor, ok := authenticateAdministrator(
+		response,
+		request,
+		handlers.installation.Authentication(),
+		handlers.logger,
+		"Restore",
+	)
+	if !ok {
+		return
+	}
+	var input struct {
+		Password                   string `json:"password"`
+		AcknowledgeAbandonPrepared bool   `json:"acknowledge_abandon_prepared_restore"`
+	}
+	if err := decodeAuthJSON(response, request, &input); err != nil {
+		http.Error(response, "invalid request", http.StatusBadRequest)
+		return
+	}
+	if !input.AcknowledgeAbandonPrepared {
+		http.Error(
+			response,
+			"prepared Restore cancellation acknowledgment required",
+			http.StatusUnprocessableEntity,
+		)
+		return
+	}
+	if err := handlers.installation.Authentication().Reauthenticate(
+		request.Context(),
+		actor,
+		input.Password,
+	); err != nil {
+		if errors.Is(err, auth.ErrAuthenticationFailed) {
+			http.Error(response, "reauthentication failed", http.StatusUnauthorized)
+			return
+		}
+		handlers.writeRestoreFailure(response, request, err)
+		return
+	}
+	dataDir, err := filepath.Abs(handlers.dataDir)
+	if err != nil {
+		handlers.writeRestoreFailure(response, request, err)
+		return
+	}
+	restoreContext, cancel := context.WithTimeout(
+		context.WithoutCancel(request.Context()),
+		restoreOperationTimeout,
+	)
+	defer cancel()
+	if err = handlers.cancelRestore(
+		restoreContext,
+		dataDir+".beamers-restore.json",
+	); err != nil {
+		handlers.writeRestoreFailure(response, request, err)
+		return
+	}
+	response.Header().Set("Content-Type", "application/json")
+	_, _ = response.Write([]byte("{\"canceled\":true}\n"))
 }
 
 func (handlers archiveHandlers) create(response http.ResponseWriter, request *http.Request) {

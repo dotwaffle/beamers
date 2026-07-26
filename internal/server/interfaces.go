@@ -225,7 +225,7 @@ func recoveryLimitKey(request *http.Request) (authFailureKey, bool) {
 	switch request.URL.Path {
 	case "/admin/restores/preview":
 		limit = 10
-	case "/admin/restores/apply", "/admin/upgrade/apply":
+	case "/admin/restores/apply", "/admin/restores/cancel", "/admin/upgrade/apply":
 		limit = 5
 	default:
 		return authFailureKey{}, false
@@ -302,7 +302,9 @@ func requestTimeout(path string) time.Duration {
 	switch {
 	case persistentRequest(path):
 		return 0
-	case path == "/admin/restores/preview" || path == "/admin/restores/apply":
+	case path == "/admin/restores/preview" ||
+		path == "/admin/restores/apply" ||
+		path == "/admin/restores/cancel":
 		return restoreOperationTimeout
 	case path == "/admin/final-files":
 		return restoreOperationTimeout

@@ -304,6 +304,8 @@ func runRestore(ctx context.Context, args []string, stdout, stderr io.Writer) er
 			return runRestorePreview(ctx, args[1:], stdout, stderr)
 		case "apply":
 			return runRestoreApply(ctx, args[1:], stdout, stderr)
+		case "cancel":
+			return runRestoreCancel(ctx, args[1:], stdout, stderr)
 		case "quarantine-journal":
 			return runRestoreQuarantineJournal(args[1:], stdout, stderr)
 		}
@@ -471,6 +473,31 @@ func runRestoreApply(ctx context.Context, args []string, stdout, stderr io.Write
 		)
 	}
 	_, err = fmt.Fprintf(stdout, "restored %s Backup from prepared journal\n", manifest.Mode)
+	return err
+}
+
+func runRestoreCancel(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	flags := flag.NewFlagSet("restore cancel", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	journal := flags.String("journal", "", "prepared Restore journal path")
+	acknowledge := flags.Bool(
+		"acknowledge-abandon-prepared",
+		false,
+		"acknowledge that prepared Restore state will be removed",
+	)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 {
+		return errors.New("restore cancel accepts no positional arguments")
+	}
+	if !*acknowledge {
+		return errors.New("prepared Restore cancellation acknowledgment is required")
+	}
+	if err := operations.CancelPreparedRestore(ctx, *journal); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintln(stdout, "canceled prepared Restore")
 	return err
 }
 

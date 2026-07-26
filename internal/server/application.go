@@ -214,6 +214,25 @@ func (application *application) restore(
 	journalPath string,
 	options backup.ApplyOptions,
 ) error {
+	return application.runRestoreMaintenance(ctx, func() error {
+		_, err := operations.ApplyRestoreWithOptions(ctx, journalPath, options)
+		return err
+	})
+}
+
+func (application *application) cancelPreparedRestore(
+	ctx context.Context,
+	journalPath string,
+) error {
+	return application.runRestoreMaintenance(ctx, func() error {
+		return operations.CancelPreparedRestore(ctx, journalPath)
+	})
+}
+
+func (application *application) runRestoreMaintenance(
+	ctx context.Context,
+	operation func() error,
+) error {
 	installation, err := application.beginRestore(ctx)
 	if err != nil {
 		return err
@@ -223,16 +242,16 @@ func (application *application) restore(
 		application.setUnavailable(installation)
 		return err
 	}
-	_, restoreErr := operations.ApplyRestoreWithOptions(ctx, journalPath, options)
+	operationErr := operation()
 	reopened, openErr := operations.OpenInstallationWithConfig(ctx, application.openConfig())
 	if openErr != nil {
 		application.setUnavailable(nil)
-		return errors.Join(restoreErr, openErr)
+		return errors.Join(operationErr, openErr)
 	}
 	handler, buildErr := application.buildHandler(ctx, reopened)
 	if buildErr != nil {
 		application.setUnavailable(reopened)
-		return errors.Join(restoreErr, buildErr)
+		return errors.Join(operationErr, buildErr)
 	}
 
 	application.mu.Lock()
@@ -246,7 +265,7 @@ func (application *application) restore(
 	application.rejectStreams = false
 	application.mu.Unlock()
 	application.startReplication(application.replicationContext()) //nolint:contextcheck // Replication follows the server, not the completed Restore request.
-	return restoreErr
+	return operationErr
 }
 
 func (application *application) beginRestore(
@@ -595,6 +614,7 @@ func (application *application) buildHandler(
 		application.config.AttachmentsDir,
 		backupConfiguration(application.config.Config),
 		application.restore,
+		application.cancelPreparedRestore,
 		application.config.Logger,
 		application.config.ListenerAddress,
 	)

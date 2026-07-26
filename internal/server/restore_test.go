@@ -195,6 +195,76 @@ func TestHealthyAdministratorRestoresThroughMaintenanceMode(t *testing.T) {
 		t.Fatalf("Restore plan = %+v", plan)
 	}
 
+	cancelWithoutAcknowledgment, err := json.Marshal(map[string]any{
+		"password": "correct horse battery staple",
+	})
+	if err != nil {
+		t.Fatalf("encode unacknowledged cancellation: %v", err)
+	}
+	cancelRequest := httptest.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		"/admin/restores/cancel",
+		bytes.NewReader(cancelWithoutAcknowledgment),
+	)
+	cancelRequest.Header.Set("Content-Type", "application/json")
+	cancelRequest.AddCookie(&http.Cookie{Name: sessionCookieName, Value: session.Token})
+	cancelResponse := httptest.NewRecorder()
+	application.ServeHTTP(cancelResponse, cancelRequest)
+	if cancelResponse.Code != http.StatusUnprocessableEntity {
+		t.Fatalf(
+			"unacknowledged cancellation response = %d: %s",
+			cancelResponse.Code,
+			cancelResponse.Body.String(),
+		)
+	}
+
+	cancelApproval, err := json.Marshal(map[string]any{
+		"password":                             "correct horse battery staple",
+		"acknowledge_abandon_prepared_restore": true,
+	})
+	if err != nil {
+		t.Fatalf("encode cancellation approval: %v", err)
+	}
+	cancelRequest = httptest.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		"/admin/restores/cancel",
+		bytes.NewReader(cancelApproval),
+	)
+	cancelRequest.Header.Set("Content-Type", "application/json")
+	cancelRequest.AddCookie(&http.Cookie{Name: sessionCookieName, Value: session.Token})
+	cancelResponse = httptest.NewRecorder()
+	application.ServeHTTP(cancelResponse, cancelRequest)
+	if cancelResponse.Code != http.StatusOK {
+		t.Fatalf(
+			"Restore cancellation response = %d: %s",
+			cancelResponse.Code,
+			cancelResponse.Body.String(),
+		)
+	}
+
+	previewRequest = httptest.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		"/admin/restores/preview",
+		bytes.NewReader(archive),
+	)
+	previewRequest.Header.Set("Content-Type", "application/zip")
+	previewRequest.AddCookie(&http.Cookie{Name: sessionCookieName, Value: session.Token})
+	previewResponse = httptest.NewRecorder()
+	application.ServeHTTP(previewResponse, previewRequest)
+	if previewResponse.Code != http.StatusOK {
+		t.Fatalf(
+			"Restore preview after cancellation response = %d: %s",
+			previewResponse.Code,
+			previewResponse.Body.String(),
+		)
+	}
+	if err = json.Unmarshal(previewResponse.Body.Bytes(), &plan); err != nil {
+		t.Fatalf("decode Restore plan after cancellation: %v", err)
+	}
+
 	approval, err := json.Marshal(map[string]any{
 		"password":                "correct horse battery staple",
 		"acknowledge_replacement": true,

@@ -1018,6 +1018,182 @@ func TestRestoreRejectsStagingChangedAfterPreview(t *testing.T) {
 	}
 }
 
+func TestCancelPreparedRestoreRemovesReservedStateAndAllowsAnotherPreview(t *testing.T) {
+	ctx := t.Context()
+	sourceDataDir := filepath.Join(t.TempDir(), "source")
+	if err := store.Initialize(ctx, sourceDataDir); err != nil {
+		t.Fatalf("initialize source installation: %v", err)
+	}
+	sourceAttachmentsDir := filepath.Join(t.TempDir(), "source-attachments")
+	if err := os.Mkdir(sourceAttachmentsDir, 0o700); err != nil {
+		t.Fatalf("create source Attachment Store: %v", err)
+	}
+	archivePath := filepath.Join(t.TempDir(), "backup.zip")
+	if _, err := Create(ctx, CreateInput{
+		DataDir:        sourceDataDir,
+		AttachmentsDir: sourceAttachmentsDir,
+		OutputPath:     archivePath,
+		Mode:           Sanitized,
+		Configuration:  testConfiguration(t, sourceDataDir, sourceAttachmentsDir),
+	}); err != nil {
+		t.Fatalf("create Backup: %v", err)
+	}
+	targetDataDir := filepath.Join(t.TempDir(), "target")
+	if err := store.Initialize(ctx, targetDataDir); err != nil {
+		t.Fatalf("initialize target installation: %v", err)
+	}
+	targetAttachmentsDir := filepath.Join(t.TempDir(), "target-attachments")
+	if err := os.Mkdir(targetAttachmentsDir, 0o700); err != nil {
+		t.Fatalf("create target Attachment Store: %v", err)
+	}
+	input := RestoreInput{
+		InputPath:      archivePath,
+		DataDir:        targetDataDir,
+		AttachmentsDir: targetAttachmentsDir,
+		Replace:        true,
+		Configuration:  testConfiguration(t, targetDataDir, targetAttachmentsDir),
+	}
+	plan, err := PrepareRestore(ctx, input)
+	if err != nil {
+		t.Fatalf("prepare Restore: %v", err)
+	}
+	journal, err := readRestoreJournal(plan.JournalPath)
+	if err != nil {
+		t.Fatalf("read Restore journal: %v", err)
+	}
+	releaseAccess, err := store.HoldExclusiveAccess(targetDataDir, targetAttachmentsDir)
+	if err != nil {
+		t.Fatalf("hold installation access: %v", err)
+	}
+	if err = CancelPreparedRestore(ctx, plan.JournalPath); err == nil {
+		t.Fatal("prepared Restore canceled while installation was in use")
+	}
+	if err = releaseAccess(); err != nil {
+		t.Fatalf("release installation access before cancellation: %v", err)
+	}
+	if err = CancelPreparedRestore(ctx, plan.JournalPath); err != nil {
+		t.Fatalf("cancel prepared Restore: %v", err)
+	}
+	for _, path := range []string{
+		plan.JournalPath,
+		journal.StagingRoot,
+		journal.StagedAttachments,
+		journal.DataQuarantineRoot,
+		journal.AttachmentsQuarantineRoot,
+	} {
+		if _, statErr := os.Stat(path); !errors.Is(statErr, os.ErrNotExist) {
+			t.Fatalf("canceled Restore path %q remains: %v", path, statErr)
+		}
+	}
+	current, err := store.Open(ctx, targetDataDir)
+	if err != nil {
+		t.Fatalf("current installation changed by cancellation: %v", err)
+	}
+	if err = current.Close(); err != nil {
+		t.Fatalf("close current installation: %v", err)
+	}
+	second, err := PrepareRestore(ctx, input)
+	if err != nil {
+		t.Fatalf("prepare Restore after cancellation: %v", err)
+	}
+	if err = CancelPreparedRestore(ctx, second.JournalPath); err != nil {
+		t.Fatalf("cancel second prepared Restore: %v", err)
+	}
+}
+
+func TestCancelPreparedRestoreRefusesDamageAndStartedCutover(t *testing.T) {
+	ctx := t.Context()
+	sourceDataDir := filepath.Join(t.TempDir(), "source")
+	if err := store.Initialize(ctx, sourceDataDir); err != nil {
+		t.Fatalf("initialize source installation: %v", err)
+	}
+	archivePath := filepath.Join(t.TempDir(), "backup.zip")
+	if _, err := Create(ctx, CreateInput{
+		DataDir: sourceDataDir, OutputPath: archivePath, Mode: Sanitized,
+		Configuration: testConfiguration(t, sourceDataDir, ""),
+	}); err != nil {
+		t.Fatalf("create Backup: %v", err)
+	}
+	prepare := func(targetDataDir string) (RestorePlan, restoreJournal) {
+		t.Helper()
+		if err := store.Initialize(ctx, targetDataDir); err != nil {
+			t.Fatalf("initialize target installation: %v", err)
+		}
+		plan, err := PrepareRestore(ctx, RestoreInput{
+			InputPath: archivePath, DataDir: targetDataDir, Replace: true,
+			Configuration: testConfiguration(t, targetDataDir, ""),
+		})
+		if err != nil {
+			t.Fatalf("prepare Restore: %v", err)
+		}
+		journal, err := readRestoreJournal(plan.JournalPath)
+		if err != nil {
+			t.Fatalf("read Restore journal: %v", err)
+		}
+		return plan, journal
+	}
+
+	malformedPlan, malformed := prepare(filepath.Join(t.TempDir(), "malformed"))
+	encodedJournal, err := json.Marshal(malformed)
+	if err != nil {
+		t.Fatalf("encode Restore journal: %v", err)
+	}
+	if err = os.WriteFile(
+		malformedPlan.JournalPath,
+		append(encodedJournal, []byte("\n{")...),
+		0o600,
+	); err != nil {
+		t.Fatalf("append Restore journal corruption: %v", err)
+	}
+	if err := CancelPreparedRestore(ctx, malformedPlan.JournalPath); err == nil {
+		t.Fatal("damaged Restore journal unexpectedly canceled")
+	}
+	if _, err := os.Stat(malformed.StagingRoot); err != nil {
+		t.Fatalf("damaged Restore staging removed: %v", err)
+	}
+
+	occupiedPlan, occupied := prepare(filepath.Join(t.TempDir(), "occupied"))
+	if err := os.WriteFile(
+		filepath.Join(occupied.DataQuarantineRoot, "unexpected"),
+		[]byte("preserve"),
+		0o600,
+	); err != nil {
+		t.Fatalf("occupy reserved Restore quarantine: %v", err)
+	}
+	if err := CancelPreparedRestore(ctx, occupiedPlan.JournalPath); err == nil {
+		t.Fatal("occupied Restore quarantine unexpectedly canceled")
+	}
+	if _, err := os.Stat(occupiedPlan.JournalPath); err != nil {
+		t.Fatalf("occupied Restore journal removed: %v", err)
+	}
+
+	damagedPlan, damaged := prepare(filepath.Join(t.TempDir(), "damaged"))
+	if err := os.WriteFile(
+		filepath.Join(damaged.StagedData, "beamers.db"),
+		[]byte("damaged"),
+		0o600,
+	); err != nil {
+		t.Fatalf("damage staged Restore: %v", err)
+	}
+	if err := CancelPreparedRestore(ctx, damagedPlan.JournalPath); err == nil {
+		t.Fatal("damaged prepared Restore unexpectedly canceled")
+	}
+	if _, err := os.Stat(damagedPlan.JournalPath); err != nil {
+		t.Fatalf("damaged Restore journal removed: %v", err)
+	}
+
+	startedPlan, started := prepare(filepath.Join(t.TempDir(), "started"))
+	if err := renameAndSync(started.Plan.DataDir, started.Plan.DataQuarantine); err != nil {
+		t.Fatalf("start Restore cutover: %v", err)
+	}
+	if err := CancelPreparedRestore(ctx, startedPlan.JournalPath); err == nil {
+		t.Fatal("started Restore cutover unexpectedly canceled")
+	}
+	if err := RecoverRestore(started.Plan.DataDir); err != nil {
+		t.Fatalf("recover refused Restore cutover: %v", err)
+	}
+}
+
 func TestRestoreRecoversInterruptedCrossFilesystemCutover(t *testing.T) {
 	ctx := t.Context()
 	sourceDataDir := filepath.Join(t.TempDir(), "source")

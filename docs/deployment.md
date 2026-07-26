@@ -160,6 +160,7 @@ Restart Beamers after changing host deployment configuration so the receipt refl
 Restore preview reports differences between the archived configuration and the target host configuration.
 The supplied data and Attachment Store destinations are explicit path mappings.
 Other unavailable paths or behavior differences require `--acknowledge-configuration-differences` when applying the prepared Restore.
+Before cutover, an Administrator may explicitly cancel an intact prepared Restore through `restore cancel` or `/admin/restores/cancel`.
 Restore does not rewrite native arguments, systemd units, Compose files, certificates, private keys, or replication destinations.
 
 Restore enforces these fixed version-one archive limits before decompression:

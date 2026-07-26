@@ -71,6 +71,11 @@ func ApplyRestoreWithOptions(
 	return backup.ApplyRestoreWithOptions(ctx, journalPath, options)
 }
 
+// CancelPreparedRestore abandons one intact replacement plan before cutover.
+func CancelPreparedRestore(ctx context.Context, journalPath string) error {
+	return backup.CancelPreparedRestore(ctx, journalPath)
+}
+
 // QuarantineDamagedRestoreJournal preserves a journal that cannot be resumed safely.
 func QuarantineDamagedRestoreJournal(dataDir string) (string, error) {
 	return backup.QuarantineDamagedRestoreJournal(dataDir)
