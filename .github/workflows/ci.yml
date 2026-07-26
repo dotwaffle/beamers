@@ -77,7 +77,7 @@ jobs:
           cache: true
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: ./.github/actions/setup-buildx
 
       - name: Verify release and deployment artifacts
         env:

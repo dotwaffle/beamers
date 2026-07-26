@@ -209,11 +209,25 @@ Version one has no down migrations.
 
 ## Reproduce release artifacts
 
-With the repository's pinned Go toolchain and Docker Buildx:
+Use the repository's pinned Go and container-build toolchains:
 
 ```sh
+. build/toolchain.env
+docker buildx create \
+  --name beamers-release \
+  --driver docker-container \
+  --driver-opt "image=$BUILDKIT_IMAGE" \
+  --use
 SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" \
   scripts/build-release.sh VERSION
+docker buildx use default
+docker buildx rm beamers-release
 ```
+
+The supported container-build boundary is Docker Buildx `v0.35.0` with the `docker-container` driver and Docker BuildKit `v0.31.2`.
+BuildKit uses the digest-pinned image recorded in `build/toolchain.env`.
+The build fails if the active Buildx client, driver, BuildKit daemon, or BuildKit image differs from that boundary.
+CI and Release use the same file through the repository's local setup action.
+Each release includes `beamers-build-toolchain.txt` with the selected versions and image digest.
 
 The builder fixes Linux AMD64, disables CGo, removes local paths and volatile Go build metadata, pins container inputs by digest, and emits checksums for the binary, OCI archive, and loadable Docker archive.
