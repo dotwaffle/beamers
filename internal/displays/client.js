@@ -315,6 +315,7 @@ function renderSnapshot(snapshot, offset) {
     standby: snapshot.standby,
     sessions: snapshot.sessions,
     stageTimer: snapshot.stageTimer,
+    programOutput: snapshot.programOutput,
     stageMessage: snapshot.stageMessage,
     technicalDifficulties: snapshot.technicalDifficulties,
     urgentNotice: snapshot.urgentNotice,
@@ -333,6 +334,12 @@ function renderSnapshot(snapshot, offset) {
   let startClockUpdates;
   main.dataset.renderKey = renderKey;
   main.dataset.layout = composition.layout.key;
+  main.dataset.displayId = String(snapshot.displayId);
+  main.dataset.programOutputKind = snapshot.programOutput?.kind || "";
+  main.dataset.programOutputEntryId = String(snapshot.programOutput?.entryId ?? "");
+  main.dataset.programOutputRevision = String(snapshot.programOutputRevision ?? "");
+  main.dataset.streamId = snapshot.streamId;
+  main.dataset.streamPosition = String(snapshot.streamPosition);
   main.className = [
     "display-view",
     `display-layout-${controlledToken(composition.layout.key, [
