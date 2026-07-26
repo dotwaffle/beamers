@@ -18,7 +18,7 @@ import (
 const maxSessionControlRPCBodyBytes = 64 << 10
 
 func registerSessionControlRoutes(
-	mux *http.ServeMux,
+	mux *routeMux,
 	authentication *auth.Service,
 	service *sessioncontrol.Service,
 	notifyDisplays func(),
@@ -37,6 +37,7 @@ func registerSessionControlRoutes(
 		errorInterceptor:      sessionconnect.ErrorInterceptor(),
 		validationInterceptor: sessionconnect.ValidationInterceptor(),
 		maxBodyBytes:          maxSessionControlRPCBodyBytes,
+		contract:              crewRoute(),
 		build: func(options ...connect.HandlerOption) (string, http.Handler) {
 			return sessionv1connect.NewSessionControlServiceHandler(adapter, options...)
 		},

@@ -44,7 +44,7 @@ func TestAdministratorDownloadsFullFidelityBackupAfterReauthentication(t *testin
 		t.Fatalf("bootstrap Administrator: %v", err)
 	}
 
-	mux := http.NewServeMux()
+	mux := newRouteMux()
 	registerBackupRoutes(
 		mux,
 		installation,

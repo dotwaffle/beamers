@@ -23,7 +23,7 @@ type eventHandlers struct {
 }
 
 func registerEventRoutes(
-	mux *http.ServeMux,
+	mux *routeMux,
 	authentication *auth.Service,
 	eventService *events.Service,
 	notifyDisplays func(),
@@ -37,14 +37,19 @@ func registerEventRoutes(
 		logger:             logger,
 		allowPlaintextCrew: listenerIsLoopback(listenerAddress),
 	}
-	mux.HandleFunc("/admin/events", handlers.createEvent)
-	mux.HandleFunc("/admin/accounts", handlers.createAccount)
-	mux.HandleFunc("/admin/accounts/{accountID}/disable", handlers.disableAccount)
-	mux.HandleFunc("/admin/audit", handlers.listAuditEntries)
-	mux.HandleFunc("/admin/events/{eventID}/grants", handlers.grantEventAccess)
-	mux.HandleFunc("/crew/events/{eventID}", handlers.crewEvent)
+	mux.HandleFunc("/admin/events", crewRoute(), handlers.createEvent)
+	mux.HandleFunc("/admin/accounts", crewRoute(), handlers.createAccount)
+	mux.HandleFunc(
+		"/admin/accounts/{accountID}/disable",
+		crewRoute(),
+		handlers.disableAccount,
+	)
+	mux.HandleFunc("/admin/audit", crewRoute(), handlers.listAuditEntries)
+	mux.HandleFunc("/admin/events/{eventID}/grants", crewRoute(), handlers.grantEventAccess)
+	mux.HandleFunc("/crew/events/{eventID}", crewRoute(), handlers.crewEvent)
 	mux.HandleFunc(
 		"/crew/events/{eventID}/display-configuration",
+		crewRoute(),
 		handlers.displayConfiguration,
 	)
 }

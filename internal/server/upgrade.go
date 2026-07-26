@@ -9,20 +9,6 @@ import (
 	"github.com/dotwaffle/beamers/internal/operations"
 )
 
-func (application *application) serveUpgrade(
-	response http.ResponseWriter,
-	request *http.Request,
-) {
-	switch request.URL.Path {
-	case "/admin/upgrade":
-		application.upgradePreview(response, request)
-	case "/admin/upgrade/apply":
-		application.upgradeApply(response, request)
-	default:
-		http.NotFound(response, request)
-	}
-}
-
 func (application *application) upgradePreview(
 	response http.ResponseWriter,
 	request *http.Request,

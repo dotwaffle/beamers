@@ -22,7 +22,7 @@ type finalFilesHandlers struct {
 }
 
 func registerFinalFilesRoutes(
-	mux *http.ServeMux,
+	mux *routeMux,
 	installation *operations.Installation,
 	logger *slog.Logger,
 	listenerAddress net.Addr,
@@ -32,8 +32,12 @@ func registerFinalFilesRoutes(
 		logger:             logger,
 		allowPlaintextCrew: listenerIsLoopback(listenerAddress),
 	}
-	mux.HandleFunc("/admin/final-files/preview", handlers.preview)
-	mux.HandleFunc("/admin/final-files", handlers.download)
+	mux.HandleFunc("/admin/final-files/preview", crewRoute(), handlers.preview)
+	mux.HandleFunc(
+		"/admin/final-files",
+		routeContract{kind: crewInterface, timeout: restoreOperationTimeout},
+		handlers.download,
+	)
 }
 
 func (handlers finalFilesHandlers) preview(

@@ -23,7 +23,7 @@ import (
 const maxResultsRPCBodyBytes = 128 << 10
 
 func registerResultsRoutes(
-	mux *http.ServeMux,
+	mux *routeMux,
 	authentication *auth.Service,
 	service *results.Service,
 	listenerAddress net.Addr,
@@ -41,6 +41,7 @@ func registerResultsRoutes(
 		tracerProvider: tracerProvider, meterProvider: meterProvider, propagator: propagator,
 		errorInterceptor: resultsconnect.ErrorInterceptor(),
 		maxBodyBytes:     maxResultsRPCBodyBytes,
+		contract:         crewRoute(),
 		build: func(options ...connect.HandlerOption) (string, http.Handler) {
 			return resultsv1connect.NewResultsServiceHandler(adapter, options...)
 		},
@@ -67,42 +68,50 @@ type publicResultsReader interface {
 }
 
 func registerPublicResultsRoutes(
-	mux *http.ServeMux,
+	mux *routeMux,
 	service publicResultsReader,
 	logger *slog.Logger,
 ) {
 	handlers := publicResultsHandlers{service: service, logger: logger}
 	mux.HandleFunc(
 		"/results/events/{eventID}/{scope}/{sessionID}",
+		publicRoute(),
 		handlers.latestHTML,
 	)
 	mux.HandleFunc(
 		"/results/events/{eventID}/{scope}/{sessionID}/results.txt",
+		publicRoute(),
 		handlers.latestText,
 	)
 	mux.HandleFunc(
 		"/results/events/{eventID}/{scope}/{sessionID}/revisions/{revision}/results.json",
+		publicRoute(),
 		handlers.versionedJSON,
 	)
 	mux.HandleFunc(
 		"/results/events/{eventID}/event-awards",
+		publicRoute(),
 		handlers.latestEventAwardsHTML,
 	)
 	mux.HandleFunc(
 		"/results/events/{eventID}/event-awards/results.txt",
+		publicRoute(),
 		handlers.latestEventAwardsText,
 	)
 	mux.HandleFunc(
 		"/results/events/{eventID}/event-awards/revisions/{revision}/results.json",
+		publicRoute(),
 		handlers.versionedEventAwardsJSON,
 	)
-	mux.HandleFunc("/results/events/{eventID}", handlers.latestEventHTML)
+	mux.HandleFunc("/results/events/{eventID}", publicRoute(), handlers.latestEventHTML)
 	mux.HandleFunc(
 		"/results/events/{eventID}/results.txt",
+		publicRoute(),
 		handlers.latestEventText,
 	)
 	mux.HandleFunc(
 		"/results/events/{eventID}/revisions/{revision}/results.json",
+		publicRoute(),
 		handlers.versionedEventJSON,
 	)
 }

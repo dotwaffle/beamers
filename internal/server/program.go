@@ -27,7 +27,7 @@ import (
 const maxProgramControlRPCBodyBytes = 64 << 10
 
 func registerProgramControlRoutes(
-	mux *http.ServeMux,
+	mux *routeMux,
 	authentication *auth.Service,
 	service *programcontrol.Service,
 	displayService *displays.Service,
@@ -51,6 +51,7 @@ func registerProgramControlRoutes(
 		tracerProvider: tracerProvider, meterProvider: meterProvider, propagator: propagator,
 		errorInterceptor: programconnect.ErrorInterceptor(),
 		maxBodyBytes:     maxProgramControlRPCBodyBytes,
+		contract:         crewRoute(),
 		build: func(options ...connect.HandlerOption) (string, http.Handler) {
 			return programv1connect.NewProgramControlServiceHandler(adapter, options...)
 		},
@@ -64,10 +65,28 @@ func registerProgramControlRoutes(
 		buildVersion:       buildVersion,
 		stream:             programStream,
 	}
-	mux.HandleFunc("/crew/program/{sessionID}", handlers.view)
-	mux.HandleFunc("/crew/program/{sessionID}/events", handlers.events)
-	mux.HandleFunc("/crew/program/assets/control.js", handlers.clientJavaScript)
-	mux.HandleFunc("/crew/program/assets/control.css", handlers.stylesheet)
+	mux.HandleFunc(
+		"/crew/program/{sessionID}",
+		routeContract{
+			kind: crewInterface, mutatesOnRead: true, crewWarningPage: true,
+		},
+		handlers.view,
+	)
+	mux.HandleFunc(
+		"/crew/program/{sessionID}/events",
+		routeContract{kind: crewInterface, persistent: true},
+		handlers.events,
+	)
+	mux.HandleFunc(
+		"/crew/program/assets/control.js",
+		crewRoute(),
+		handlers.clientJavaScript,
+	)
+	mux.HandleFunc(
+		"/crew/program/assets/control.css",
+		crewRoute(),
+		handlers.stylesheet,
+	)
 	return nil
 }
 

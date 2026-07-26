@@ -18,7 +18,7 @@ import (
 const maxActivationRPCBodyBytes = 64 << 10
 
 func registerActivationRoutes(
-	mux *http.ServeMux,
+	mux *routeMux,
 	authentication *auth.Service,
 	service *activation.Service,
 	notifyDisplays func(),
@@ -37,6 +37,7 @@ func registerActivationRoutes(
 		errorInterceptor:      activationconnect.ErrorInterceptor(),
 		validationInterceptor: activationconnect.ValidationInterceptor(),
 		maxBodyBytes:          maxActivationRPCBodyBytes,
+		contract:              crewRoute(),
 		build: func(options ...connect.HandlerOption) (string, http.Handler) {
 			return activationv1connect.NewActivationServiceHandler(adapter, options...)
 		},

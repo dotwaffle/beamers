@@ -21,7 +21,7 @@ const (
 )
 
 func registerDiagnosticsRoutes(
-	mux *http.ServeMux,
+	mux *routeMux,
 	authentication *auth.Service,
 	installation *operations.Installation,
 	displayService *displays.Service,
@@ -85,11 +85,20 @@ func registerDiagnosticsRoutes(
 		}
 	}
 	if listenerIsLoopback(listenerAddress) {
-		mux.HandleFunc("GET /diagnostics", func(response http.ResponseWriter, request *http.Request) {
+		mux.HandleFunc("/diagnostics", crewRoute(), func(
+			response http.ResponseWriter,
+			request *http.Request,
+		) {
+			if !probeMethodAllowed(response, request) {
+				return
+			}
 			serve(response, request, auth.Account{Administrator: true})
 		})
 	}
-	mux.HandleFunc("GET /admin/diagnostics", func(response http.ResponseWriter, request *http.Request) {
+	mux.HandleFunc("/admin/diagnostics", crewRoute(), func(
+		response http.ResponseWriter,
+		request *http.Request,
+	) {
 		if !requestAllowed(
 			response,
 			request,

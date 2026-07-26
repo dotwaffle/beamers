@@ -37,7 +37,7 @@ func (stub *publicResultsReaderStub) PublicArtifact(
 
 func TestPublicEventAwardsRoutesServeAllFormats(t *testing.T) {
 	stub := &publicResultsReaderStub{}
-	mux := http.NewServeMux()
+	mux := newRouteMux()
 	registerPublicResultsRoutes(
 		mux,
 		stub,
@@ -92,7 +92,7 @@ func TestPublicEventAwardsRoutesServeAllFormats(t *testing.T) {
 
 func TestPublicEventResultsRoutesServeAllFormats(t *testing.T) {
 	stub := &publicResultsReaderStub{}
-	mux := http.NewServeMux()
+	mux := newRouteMux()
 	registerPublicResultsRoutes(mux, stub, slog.New(slog.DiscardHandler))
 	tests := []struct {
 		path, contentType, body string

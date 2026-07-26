@@ -29,7 +29,7 @@ type authenticationHandlers struct {
 }
 
 func registerAuthenticationRoutes(
-	mux *http.ServeMux,
+	mux *routeMux,
 	service *auth.Service,
 	logger *slog.Logger,
 	listenerAddress net.Addr,
@@ -40,10 +40,10 @@ func registerAuthenticationRoutes(
 		limiter:            newAuthFailureLimiter(time.Now),
 		allowPlaintextCrew: listenerIsLoopback(listenerAddress),
 	}
-	mux.HandleFunc("/auth/bootstrap", handlers.bootstrap)
-	mux.HandleFunc("/auth/sign-in", handlers.signIn)
-	mux.HandleFunc("/auth/session", handlers.session)
-	mux.HandleFunc("/auth/sign-out", handlers.signOut)
+	mux.HandleFunc("/auth/bootstrap", crewRoute(), handlers.bootstrap)
+	mux.HandleFunc("/auth/sign-in", crewRoute(), handlers.signIn)
+	mux.HandleFunc("/auth/session", crewRoute(), handlers.session)
+	mux.HandleFunc("/auth/sign-out", crewRoute(), handlers.signOut)
 }
 
 func (handlers authenticationHandlers) bootstrap(

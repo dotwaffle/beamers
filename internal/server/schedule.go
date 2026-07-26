@@ -17,11 +17,11 @@ type scheduleHandlers struct {
 	logger   *slog.Logger
 }
 
-func registerScheduleRoutes(mux *http.ServeMux, service *schedule.Service, logger *slog.Logger) {
+func registerScheduleRoutes(mux *routeMux, service *schedule.Service, logger *slog.Logger) {
 	handlers := scheduleHandlers{schedule: service, logger: logger}
-	mux.HandleFunc("/schedule", handlers.list)
-	mux.HandleFunc("/schedule/sessions/{sessionID}", handlers.session)
-	mux.HandleFunc("/assets/schedule.css", handlers.stylesheet)
+	mux.HandleFunc("/schedule", publicRoute(), handlers.list)
+	mux.HandleFunc("/schedule/sessions/{sessionID}", publicRoute(), handlers.session)
+	mux.HandleFunc("/assets/schedule.css", publicRoute(), handlers.stylesheet)
 }
 
 func (handlers scheduleHandlers) list(response http.ResponseWriter, request *http.Request) {

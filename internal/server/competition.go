@@ -18,7 +18,7 @@ import (
 const maxCompetitionRPCBodyBytes = 128 << 10
 
 func registerCompetitionRoutes(
-	mux *http.ServeMux,
+	mux *routeMux,
 	authentication *auth.Service,
 	service *competition.Service,
 	listenerAddress net.Addr,
@@ -35,6 +35,7 @@ func registerCompetitionRoutes(
 		tracerProvider: tracerProvider, meterProvider: meterProvider, propagator: propagator,
 		errorInterceptor: competitionconnect.ErrorInterceptor(),
 		maxBodyBytes:     maxCompetitionRPCBodyBytes,
+		contract:         crewRoute(),
 		build: func(options ...connect.HandlerOption) (string, http.Handler) {
 			return competitionv1connect.NewCompetitionServiceHandler(adapter, options...)
 		},

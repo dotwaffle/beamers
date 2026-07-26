@@ -10,19 +10,20 @@ import (
 	"slices"
 	"strings"
 	"time"
-
-	"github.com/dotwaffle/beamers/internal/backup"
 )
 
 const (
 	defaultRequestTimeout = 10 * time.Second
 	uploadRequestTimeout  = 5 * time.Minute
+	defaultRequestBytes   = 1 << 20
+	maxUploadRequestBytes = (64 << 20) + (1 << 20)
 )
 
 type interfaceKind uint8
 
 const (
-	crewInterface interfaceKind = iota
+	unspecifiedInterface interfaceKind = iota
+	crewInterface
 	displayInterface
 	uploadInterface
 	publicInterface
@@ -37,6 +38,96 @@ type interfacePolicy struct {
 	publicOnly           bool
 }
 
+type routeContract struct {
+	kind            interfaceKind
+	timeout         time.Duration
+	maxBodyBytes    int64
+	persistent      bool
+	mutatesOnRead   bool
+	crewWarningPage bool
+	recoveryLimit   int
+}
+
+func crewRoute() routeContract {
+	return routeContract{kind: crewInterface}
+}
+
+func displayRoute() routeContract {
+	return routeContract{kind: displayInterface}
+}
+
+func uploadRoute() routeContract {
+	return routeContract{
+		kind:         uploadInterface,
+		timeout:      uploadRequestTimeout,
+		maxBodyBytes: maxUploadRequestBytes,
+	}
+}
+
+func publicRoute() routeContract {
+	return routeContract{kind: publicInterface}
+}
+
+func probeRoute() routeContract {
+	return routeContract{kind: probeInterface}
+}
+
+type routeMux struct {
+	mux       *http.ServeMux
+	handler   http.Handler
+	contracts map[string]routeContract
+}
+
+func newRouteMux() *routeMux {
+	mux := http.NewServeMux()
+	return &routeMux{
+		mux:       mux,
+		handler:   mux,
+		contracts: make(map[string]routeContract),
+	}
+}
+
+func (routes *routeMux) Handle(
+	pattern string,
+	contract routeContract,
+	handler http.Handler,
+) {
+	routes.register(pattern, contract)
+	routes.mux.Handle(pattern, handler)
+}
+
+func (routes *routeMux) HandleFunc(
+	pattern string,
+	contract routeContract,
+	handler http.HandlerFunc,
+) {
+	routes.register(pattern, contract)
+	routes.mux.HandleFunc(pattern, handler)
+}
+
+func (routes *routeMux) register(pattern string, contract routeContract) {
+	if pattern == "" || contract.timeout < 0 || contract.maxBodyBytes < 0 ||
+		contract.persistent && contract.timeout != 0 ||
+		contract.recoveryLimit < 0 ||
+		contract.kind <= unspecifiedInterface || contract.kind > probeInterface {
+		panic("invalid route contract")
+	}
+	if _, exists := routes.contracts[pattern]; exists {
+		panic("duplicate route contract")
+	}
+	routes.contracts[pattern] = contract
+}
+
+func (routes *routeMux) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+	routes.handler.ServeHTTP(response, request)
+}
+
+func (routes *routeMux) contract(request *http.Request) (routeContract, bool) {
+	_, pattern := routes.mux.Handler(request)
+	contract, ok := routes.contracts[pattern]
+	return contract, ok
+}
+
 type interfaceRequestContextKey struct{}
 
 type interfaceRequest struct {
@@ -45,10 +136,23 @@ type interfaceRequest struct {
 	allowPlaintext bool
 }
 
-func protectInterfaces(next http.Handler, policy interfacePolicy) http.Handler {
+type routeHandler interface {
+	http.Handler
+	contract(*http.Request) (routeContract, bool)
+}
+
+func protectInterfaces(
+	next routeHandler,
+	policy interfacePolicy,
+) http.Handler {
 	recoveryLimiter := newAuthFailureLimiter(time.Now)
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		kind := requestInterface(request.URL.Path)
+		contract, found := next.contract(request)
+		if !found {
+			http.NotFound(response, request)
+			return
+		}
+		kind := contract.kind
 		if policy.publicOnly && kind != publicInterface {
 			http.NotFound(response, request)
 			return
@@ -88,7 +192,7 @@ func protectInterfaces(next http.Handler, policy interfacePolicy) http.Handler {
 			details,
 		)
 		cancel := func() {}
-		if timeout := requestTimeout(request.URL.Path); timeout > 0 {
+		if timeout := contract.requestTimeout(); timeout > 0 {
 			requestContext, cancel = context.WithTimeout(requestContext, timeout)
 		}
 		defer cancel()
@@ -117,7 +221,7 @@ func protectInterfaces(next http.Handler, policy interfacePolicy) http.Handler {
 			response.Header().Set("X-Beamers-Insecure-Mode", warnings)
 		}
 		var recoveryResponse *statusResponse
-		if key, limited := recoveryLimitKey(request); limited &&
+		if key, limited := recoveryLimitKey(request, contract); limited &&
 			request.Method == http.MethodPost &&
 			sameOrigin(request) {
 			if retryAfter, blocked := recoveryLimiter.reserve(key); blocked {
@@ -136,8 +240,8 @@ func protectInterfaces(next http.Handler, policy interfacePolicy) http.Handler {
 				}
 			}()
 		}
-		request.Body = http.MaxBytesReader(response, request.Body, requestBodyLimit(request.URL.Path))
-		if warnings != "" && crewWarningPage(request.URL.Path) {
+		request.Body = http.MaxBytesReader(response, request.Body, contract.requestBodyLimit())
+		if warnings != "" && contract.crewWarningPage {
 			warningResponse := &crewWarningResponse{
 				ResponseWriter: response,
 				status:         http.StatusOK,
@@ -212,50 +316,17 @@ func (response *crewWarningResponse) flush(warnings string) {
 	_, _ = response.ResponseWriter.Write(content)
 }
 
-func crewWarningPage(path string) bool {
-	if path == "/admin/displays/enroll" || strings.HasSuffix(path, "/confirmation") {
-		return true
-	}
-	program, found := strings.CutPrefix(path, "/crew/program/")
-	return found && program != "" && !strings.ContainsRune(program, '/')
-}
-
-func recoveryLimitKey(request *http.Request) (authFailureKey, bool) {
-	var limit int
-	switch request.URL.Path {
-	case "/admin/restores/preview":
-		limit = 10
-	case "/admin/restores/apply", "/admin/restores/cancel", "/admin/upgrade/apply":
-		limit = 5
-	default:
+func recoveryLimitKey(
+	request *http.Request,
+	contract routeContract,
+) (authFailureKey, bool) {
+	if contract.recoveryLimit == 0 {
 		return authFailureKey{}, false
 	}
 	return authFailureKey{
 		value: "recovery|" + request.URL.Path + "|" + requestClientAddress(request),
-		limit: limit,
+		limit: contract.recoveryLimit,
 	}, true
-}
-
-func requestInterface(path string) interfaceKind {
-	switch {
-	case path == "/livez" || path == "/readyz":
-		return probeInterface
-	case path == "/schedule" ||
-		strings.HasPrefix(path, "/schedule/") ||
-		path == "/assets/schedule.css" ||
-		path == "/public/attachments" ||
-		strings.HasPrefix(path, "/public/attachments/") ||
-		strings.HasPrefix(path, "/results/"):
-		return publicInterface
-	case path == "/display" ||
-		strings.HasPrefix(path, "/display/") ||
-		strings.HasPrefix(path, displayConnectCookiePath+"/"):
-		return displayInterface
-	case strings.HasPrefix(path, "/upload/"):
-		return uploadInterface
-	default:
-		return crewInterface
-	}
 }
 
 func insecureWarnings(kind interfaceKind, policy interfacePolicy) string {
@@ -286,34 +357,21 @@ func setBrowserProtectionHeaders(response http.ResponseWriter, secure bool) {
 	}
 }
 
-func requestBodyLimit(path string) int64 {
-	switch {
-	case path == "/admin/restores/preview":
-		return backup.MaxArchiveBytes
-	case strings.HasPrefix(path, "/upload/") ||
-		strings.HasSuffix(path, "/attachments"):
-		return (64 << 20) + (1 << 20)
-	default:
-		return 1 << 20
+func (contract routeContract) requestBodyLimit() int64 {
+	if contract.maxBodyBytes > 0 {
+		return contract.maxBodyBytes
 	}
+	return defaultRequestBytes
 }
 
-func requestTimeout(path string) time.Duration {
+func (contract routeContract) requestTimeout() time.Duration {
 	switch {
-	case persistentRequest(path):
+	case contract.persistent:
 		return 0
-	case path == "/admin/restores/preview" ||
-		path == "/admin/restores/apply" ||
-		path == "/admin/restores/cancel":
-		return restoreOperationTimeout
-	case path == "/admin/final-files":
-		return restoreOperationTimeout
-	case strings.HasPrefix(path, "/upload/") ||
-		strings.HasSuffix(path, "/attachments"):
-		return uploadRequestTimeout
-	default:
-		return defaultRequestTimeout
+	case contract.timeout > 0:
+		return contract.timeout
 	}
+	return defaultRequestTimeout
 }
 
 func requestIsSecure(request *http.Request) bool {

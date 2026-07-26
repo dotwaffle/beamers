@@ -18,7 +18,7 @@ import (
 const maxScheduleBaselineRPCBodyBytes = 256 << 10
 
 func registerScheduleBaselineRoutes(
-	mux *http.ServeMux,
+	mux *routeMux,
 	authentication *auth.Service,
 	commands *schedulebaseline.Commands,
 	queries *schedulebaseline.Queries,
@@ -38,6 +38,7 @@ func registerScheduleBaselineRoutes(
 		errorInterceptor:      schedulebaselineconnect.ErrorInterceptor(),
 		validationInterceptor: schedulebaselineconnect.ValidationInterceptor(),
 		maxBodyBytes:          maxScheduleBaselineRPCBodyBytes,
+		contract:              crewRoute(),
 		build: func(options ...connect.HandlerOption) (string, http.Handler) {
 			return schedulebaselinev1connect.NewScheduleBaselineServiceHandler(adapter, options...)
 		},

@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -23,58 +22,27 @@ import (
 	"github.com/dotwaffle/beamers/internal/store/storetest"
 )
 
-func TestUpgradeMaintenanceKeepsCrewAndDisplayClientsDistinct(t *testing.T) {
-	application := &application{
-		maintenance:     true,
-		maintenanceKind: "upgrade",
-		accepting:       false,
-		cancels:         make(map[uint64]context.CancelCauseFunc),
-		drained:         closedChannel(),
-	}
-
-	crewResponse := httptest.NewRecorder()
-	application.ServeHTTP(
-		crewResponse,
-		httptest.NewRequestWithContext(
-			t.Context(),
-			http.MethodGet,
-			"/admin/events?event=1",
-			http.NoBody,
-		),
-	)
-	if crewResponse.Code != http.StatusServiceUnavailable ||
-		crewResponse.Header().Get("Cache-Control") != "no-store" ||
-		crewResponse.Header().Get("X-Beamers-Maintenance") != "upgrade" ||
-		!strings.Contains(crewResponse.Body.String(), "Maintenance in progress") ||
-		!strings.Contains(crewResponse.Body.String(), `http-equiv="refresh"`) ||
-		!strings.Contains(crewResponse.Body.String(), `role="status"`) {
-		t.Fatalf(
-			"maintenance Crew response = %d, headers=%v, body=%q",
-			crewResponse.Code,
-			crewResponse.Header(),
-			crewResponse.Body.String(),
+func TestUpgradeMaintenanceRejectsUnregisteredRoutes(t *testing.T) {
+	application := newUpgradeApplication(applicationConfig{}, nil)
+	for _, path := range []string{
+		"/admin/events?event=1",
+		"/beamers.display.v1.DisplayService/GetSnapshot",
+		"/unknown",
+	} {
+		response := httptest.NewRecorder()
+		application.ServeHTTP(
+			response,
+			httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, http.NoBody),
 		)
-	}
-
-	displayResponse := httptest.NewRecorder()
-	application.ServeHTTP(
-		displayResponse,
-		httptest.NewRequestWithContext(
-			t.Context(),
-			http.MethodPost,
-			"/beamers.display.v1.DisplayService/GetSnapshot",
-			strings.NewReader("{}"),
-		),
-	)
-	if displayResponse.Code != http.StatusServiceUnavailable ||
-		displayResponse.Header().Get("X-Beamers-Maintenance") != "upgrade" ||
-		strings.Contains(displayResponse.Body.String(), "<html") {
-		t.Fatalf(
-			"maintenance Display response = %d, headers=%v, body=%q",
-			displayResponse.Code,
-			displayResponse.Header(),
-			displayResponse.Body.String(),
-		)
+		if response.Code != http.StatusNotFound ||
+			response.Header().Get("X-Beamers-Maintenance") != "" {
+			t.Errorf(
+				"GET %s = %d, headers %v; want unclassified 404",
+				path,
+				response.Code,
+				response.Header(),
+			)
+		}
 	}
 }
 

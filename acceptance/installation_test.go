@@ -8742,11 +8742,11 @@ func TestServeRequiresExactApprovalForRollbackIncompatibleUpgrade(t *testing.T) 
 	body, readErr := io.ReadAll(page.Body)
 	closeErr := page.Body.Close()
 	if err := errors.Join(readErr, closeErr); err != nil ||
-		page.StatusCode != http.StatusServiceUnavailable ||
-		page.Header.Get("X-Beamers-Maintenance") != "upgrade" ||
-		!bytes.Contains(body, []byte("Maintenance in progress")) {
+		page.StatusCode != http.StatusNotFound ||
+		page.Header.Get("X-Beamers-Maintenance") != "" ||
+		!bytes.Contains(body, []byte("404 page not found")) {
 		t.Fatalf(
-			"upgrade maintenance page = %d: %s (%v)",
+			"unregistered upgrade route = %d: %s (%v)",
 			page.StatusCode,
 			body,
 			err,

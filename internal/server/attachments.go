@@ -24,7 +24,7 @@ type attachmentHandlers struct {
 }
 
 func registerAttachmentRoutes(
-	mux *http.ServeMux,
+	mux *routeMux,
 	authentication *auth.Service,
 	service *attachments.Service,
 	logger *slog.Logger,
@@ -35,25 +35,58 @@ func registerAttachmentRoutes(
 		allowPlaintextCrew: listenerIsLoopback(listenerAddress),
 		uploadLimiter:      newAuthFailureLimiter(time.Now),
 	}
-	mux.HandleFunc("/crew/events/{eventID}/upload-links", handlers.issueUploadLink)
-	mux.HandleFunc("/crew/events/{eventID}/upload-links/{linkID}/revoke", handlers.revokeUploadLink)
-	mux.HandleFunc("/crew/events/{eventID}/reopen-windows", handlers.createReopenWindow)
-	mux.HandleFunc("/crew/events/{eventID}/reopen-windows/{windowID}", handlers.updateReopenWindow)
-	mux.HandleFunc("/crew/events/{eventID}/attachments", handlers.uploadForCrew)
-	mux.HandleFunc("/crew/events/{eventID}/attachment-versions/{versionID}", handlers.readVersion)
-	mux.HandleFunc("/crew/events/{eventID}/attachment-release", handlers.configureEventRelease)
+	mux.HandleFunc("/crew/events/{eventID}/upload-links", crewRoute(), handlers.issueUploadLink)
+	mux.HandleFunc(
+		"/crew/events/{eventID}/upload-links/{linkID}/revoke",
+		crewRoute(),
+		handlers.revokeUploadLink,
+	)
+	mux.HandleFunc("/crew/events/{eventID}/reopen-windows", crewRoute(), handlers.createReopenWindow)
+	mux.HandleFunc(
+		"/crew/events/{eventID}/reopen-windows/{windowID}",
+		crewRoute(),
+		handlers.updateReopenWindow,
+	)
+	mux.HandleFunc(
+		"/crew/events/{eventID}/attachments",
+		routeContract{
+			kind: crewInterface, timeout: uploadRequestTimeout,
+			maxBodyBytes: maxUploadRequestBytes,
+		},
+		handlers.uploadForCrew,
+	)
+	mux.HandleFunc(
+		"/crew/events/{eventID}/attachment-versions/{versionID}",
+		crewRoute(),
+		handlers.readVersion,
+	)
+	mux.HandleFunc(
+		"/crew/events/{eventID}/attachment-release",
+		crewRoute(),
+		handlers.configureEventRelease,
+	)
 	mux.HandleFunc(
 		"/crew/events/{eventID}/competitions/{sessionID}/attachment-release",
+		crewRoute(),
 		handlers.configureCompetitionRelease,
 	)
 	mux.HandleFunc(
 		"/crew/events/{eventID}/attachment-versions/{versionID}/release",
+		crewRoute(),
 		handlers.setVersionRelease,
 	)
-	mux.HandleFunc("/crew/events/{eventID}/attachment-release-cue", handlers.fireReleaseCue)
-	mux.HandleFunc("/upload/{token}", handlers.upload)
-	mux.HandleFunc("/public/attachments", handlers.listReleasedVersions)
-	mux.HandleFunc("/public/attachments/{versionID}", handlers.readReleasedVersion)
+	mux.HandleFunc(
+		"/crew/events/{eventID}/attachment-release-cue",
+		crewRoute(),
+		handlers.fireReleaseCue,
+	)
+	mux.HandleFunc("/upload/{token}", uploadRoute(), handlers.upload)
+	mux.HandleFunc("/public/attachments", publicRoute(), handlers.listReleasedVersions)
+	mux.HandleFunc(
+		"/public/attachments/{versionID}",
+		publicRoute(),
+		handlers.readReleasedVersion,
+	)
 }
 
 func (handlers attachmentHandlers) issueUploadLink(response http.ResponseWriter, request *http.Request) {
