@@ -203,7 +203,7 @@ func TestBackupConfigurationIsVerifiedAndRestoreRequiresAcknowledgment(t *testin
 	}
 	tamperedPath := filepath.Join(t.TempDir(), "tampered.zip")
 	rewriteZIPEntry(t, archivePath, tamperedPath, manifestName, replacement)
-	if _, err = Verify(tamperedPath); err == nil {
+	if _, err = Verify(ctx, tamperedPath); err == nil {
 		t.Fatal("tampered configuration unexpectedly verified")
 	}
 
@@ -472,8 +472,244 @@ func TestVerifyRejectsTamperedAttachment(t *testing.T) {
 
 	tamperedPath := filepath.Join(t.TempDir(), "tampered.zip")
 	rewriteZIPEntry(t, archivePath, tamperedPath, attachmentArchivePath(t, storageKey), []byte("tampered"))
-	if _, err := Verify(tamperedPath); err == nil {
+	if _, err := Verify(t.Context(), tamperedPath); err == nil {
 		t.Fatal("tampered Attachment unexpectedly verified")
+	}
+}
+
+func TestVerifyStopsWhenCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	if _, err := Verify(ctx, filepath.Join(t.TempDir(), "backup.zip")); !errors.Is(
+		err,
+		context.Canceled,
+	) {
+		t.Fatalf("Verify error = %v, want context cancellation", err)
+	}
+}
+
+func TestVerifyRejectsOversizedCompressedArchive(t *testing.T) {
+	archivePath := filepath.Join(t.TempDir(), "oversized.zip")
+	if err := os.WriteFile(archivePath, nil, 0o600); err != nil {
+		t.Fatalf("create sparse Backup: %v", err)
+	}
+	if err := os.Truncate(archivePath, (65<<30)+1); err != nil {
+		t.Fatalf("size sparse Backup: %v", err)
+	}
+
+	if _, err := Verify(t.Context(), archivePath); err == nil ||
+		err.Error() != "backup archive exceeds compressed size limit" {
+		t.Fatalf("Verify error = %v, want compressed size limit", err)
+	}
+	assertRejectedRestoreCleansStaging(t, t.Context(), archivePath)
+}
+
+func TestVerifyRejectsExcessiveEntries(t *testing.T) {
+	archivePath := filepath.Join(t.TempDir(), "excessive-entries.zip")
+	output, err := os.OpenFile(archivePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		t.Fatalf("create Backup: %v", err)
+	}
+	writer := zip.NewWriter(output)
+	for index := range 32_771 {
+		if _, err = writer.Create(fmt.Sprintf("entry-%d", index)); err != nil {
+			t.Fatalf("create Backup entry %d: %v", index, err)
+		}
+	}
+	if err = errors.Join(writer.Close(), output.Close()); err != nil {
+		t.Fatalf("close Backup: %v", err)
+	}
+
+	if _, err = Verify(t.Context(), archivePath); err == nil ||
+		err.Error() != "backup archive exceeds entry count limit" {
+		t.Fatalf("Verify error = %v, want entry count limit", err)
+	}
+	assertRejectedRestoreCleansStaging(t, t.Context(), archivePath)
+}
+
+func TestVerifyRejectsHighRatioManifest(t *testing.T) {
+	archivePath := filepath.Join(t.TempDir(), "high-ratio.zip")
+	output, err := os.OpenFile(archivePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		t.Fatalf("create Backup: %v", err)
+	}
+	writer := zip.NewWriter(output)
+	entry, err := writer.CreateHeader(&zip.FileHeader{Name: manifestName, Method: zip.Deflate})
+	if err != nil {
+		t.Fatalf("create manifest: %v", err)
+	}
+	if _, err = io.CopyN(entry, zeroReader{}, (64<<20)+1); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+	if err = errors.Join(writer.Close(), output.Close()); err != nil {
+		t.Fatalf("close Backup: %v", err)
+	}
+
+	if _, err = Verify(t.Context(), archivePath); err == nil ||
+		err.Error() != "backup manifest exceeds size limit" {
+		t.Fatalf("Verify error = %v, want manifest size limit", err)
+	}
+	assertRejectedRestoreCleansStaging(t, t.Context(), archivePath)
+}
+
+func TestPrepareRestoreCleansTruncatedAndCanceledStaging(t *testing.T) {
+	truncated := filepath.Join(t.TempDir(), "truncated.zip")
+	if err := os.WriteFile(truncated, []byte("PK\x03\x04"), 0o600); err != nil {
+		t.Fatalf("write truncated Backup: %v", err)
+	}
+	assertRejectedRestoreCleansStaging(t, t.Context(), truncated)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	assertRejectedRestoreCleansStaging(t, ctx, truncated)
+}
+
+func TestArchiveResourceLimits(t *testing.T) {
+	file := func(name string, compressed, expanded uint64) *zip.File {
+		return &zip.File{FileHeader: zip.FileHeader{
+			Name:               name,
+			CompressedSize64:   compressed,
+			UncompressedSize64: expanded,
+		}}
+	}
+	atBoundary := []*zip.File{
+		file(manifestName, 1, 64<<20),
+		file(databaseName, 1, 64<<30),
+	}
+	for index := range 1_023 {
+		atBoundary = append(
+			atBoundary,
+			file(fmt.Sprintf("attachments/%d", index), 1, 64<<20),
+		)
+	}
+	if err := validateArchiveResources(atBoundary); err != nil {
+		t.Fatalf("boundary resources rejected: %v", err)
+	}
+
+	tests := []struct {
+		name  string
+		files []*zip.File
+	}{
+		{"manifest", []*zip.File{file(manifestName, 1, (64<<20)+1)}},
+		{"database", []*zip.File{file(databaseName, 1, (64<<30)+1)}},
+		{"Attachment", []*zip.File{file("attachments/a", 1, (64<<20)+1)}},
+		{"compressed", []*zip.File{file(databaseName, (65<<30)+1, 1)}},
+		{"aggregate expansion", append(
+			atBoundary,
+			file("attachments/too-much", 1, 1),
+		)},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := validateArchiveResources(test.files); err == nil {
+				t.Fatal("resources unexpectedly accepted")
+			}
+		})
+	}
+}
+
+func TestRestoreAcceptsAttachmentAtSizeBoundary(t *testing.T) {
+	ctx := t.Context()
+	dataDir := filepath.Join(t.TempDir(), "installation")
+	if err := store.Initialize(ctx, dataDir); err != nil {
+		t.Fatalf("initialize installation: %v", err)
+	}
+	source := filepath.Join(t.TempDir(), "attachment")
+	if err := os.WriteFile(source, nil, 0o600); err != nil {
+		t.Fatalf("create Attachment: %v", err)
+	}
+	if err := os.Truncate(source, 64<<20); err != nil {
+		t.Fatalf("size Attachment: %v", err)
+	}
+	digest, err := fileSHA256(ctx, source)
+	if err != nil {
+		t.Fatalf("hash Attachment: %v", err)
+	}
+	storageKey := filepath.Join("sha256", digest[:2], digest)
+	attachmentPath := filepath.Join(dataDir, "attachments", storageKey)
+	if err = os.MkdirAll(filepath.Dir(attachmentPath), 0o700); err != nil {
+		t.Fatalf("prepare Attachment Store: %v", err)
+	}
+	if err = os.Rename(source, attachmentPath); err != nil {
+		t.Fatalf("install Attachment: %v", err)
+	}
+	seedBackupState(t, ctx, dataDir, storageKey, digest, 64<<20)
+	archivePath := filepath.Join(t.TempDir(), "backup.zip")
+	if _, err = Create(ctx, CreateInput{
+		DataDir: dataDir, OutputPath: archivePath, Mode: Sanitized,
+		Configuration: testConfiguration(t, dataDir, ""),
+	}); err != nil {
+		t.Fatalf("create boundary Backup: %v", err)
+	}
+	targetDataDir := filepath.Join(t.TempDir(), "restored")
+	if _, err = Restore(ctx, RestoreInput{
+		InputPath: archivePath, DataDir: targetDataDir,
+		Configuration: testConfiguration(t, targetDataDir, ""),
+	}); err != nil {
+		t.Fatalf("Restore boundary Backup: %v", err)
+	}
+	info, err := os.Stat(filepath.Join(targetDataDir, "attachments", storageKey))
+	if err != nil || info.Size() != 64<<20 {
+		t.Fatalf("restored Attachment size = %v, %v", info, err)
+	}
+}
+
+func TestReaderIntegrityStopsWhenCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	input := readerFunc(func(buffer []byte) (int, error) {
+		cancel()
+		return copy(buffer, "content"), nil
+	})
+
+	if _, _, err := readerIntegrity(ctx, input); !errors.Is(err, context.Canceled) {
+		t.Fatalf("readerIntegrity error = %v, want context cancellation", err)
+	}
+}
+
+func TestExtractFileStopsWhenCanceled(t *testing.T) {
+	archivePath := filepath.Join(t.TempDir(), "entry.zip")
+	output, err := os.OpenFile(archivePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		t.Fatalf("create archive: %v", err)
+	}
+	writer := zip.NewWriter(output)
+	entry, err := writer.Create(databaseName)
+	if err != nil {
+		t.Fatalf("create archive entry: %v", err)
+	}
+	if _, err = entry.Write([]byte("content")); err != nil {
+		t.Fatalf("write archive entry: %v", err)
+	}
+	if err = errors.Join(writer.Close(), output.Close()); err != nil {
+		t.Fatalf("close archive: %v", err)
+	}
+	archive, err := zip.OpenReader(archivePath)
+	if err != nil {
+		t.Fatalf("open archive: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := archive.Close(); closeErr != nil {
+			t.Errorf("close archive: %v", closeErr)
+		}
+	})
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	destination := filepath.Join(t.TempDir(), "restored.db")
+
+	if _, err = extractFile(
+		ctx,
+		archive.File[0],
+		destination,
+		maxDatabaseBytes,
+	); !errors.Is(
+		err,
+		context.Canceled,
+	) {
+		t.Fatalf("extractFile error = %v, want context cancellation", err)
+	}
+	if _, err = os.Stat(destination); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("Restore entry residue: %v", err)
 	}
 }
 
@@ -500,8 +736,94 @@ func TestVerifyRejectsTamperedManifest(t *testing.T) {
 			`"created_at":"2026-07-24T12:00:00Z","database_sha256":"tampered",`+
 			`"attachments":[]}`),
 	)
-	if _, err := Verify(tamperedPath); err == nil {
+	if _, err := Verify(t.Context(), tamperedPath); err == nil {
 		t.Fatal("tampered manifest unexpectedly verified")
+	}
+}
+
+type zeroReader struct{}
+
+func (zeroReader) Read(buffer []byte) (int, error) {
+	clear(buffer)
+	return len(buffer), nil
+}
+
+func assertRejectedRestoreCleansStaging(
+	t *testing.T,
+	ctx context.Context,
+	archivePath string,
+) {
+	t.Helper()
+	root := t.TempDir()
+	dataDir := filepath.Join(root, "restored")
+	if _, err := PrepareRestore(ctx, RestoreInput{
+		InputPath: archivePath,
+		DataDir:   dataDir,
+	}); err == nil {
+		t.Fatal("Restore preparation unexpectedly succeeded")
+	}
+	staging, err := filepath.Glob(
+		filepath.Join(root, ".restored.beamers-restore-*"),
+	)
+	if err != nil {
+		t.Fatalf("inspect Restore staging: %v", err)
+	}
+	if len(staging) != 0 {
+		t.Fatalf("Restore staging residue = %v", staging)
+	}
+	if _, err = os.Stat(dataDir + ".beamers-restore.json"); !errors.Is(
+		err,
+		os.ErrNotExist,
+	) {
+		t.Fatalf("Restore journal residue: %v", err)
+	}
+}
+
+func TestVerifyRejectsTrailingManifestContent(t *testing.T) {
+	dataDir := filepath.Join(t.TempDir(), "installation")
+	if err := store.Initialize(t.Context(), dataDir); err != nil {
+		t.Fatalf("initialize installation: %v", err)
+	}
+	archivePath := filepath.Join(t.TempDir(), "backup.zip")
+	if _, err := Create(t.Context(), CreateInput{
+		DataDir: dataDir, OutputPath: archivePath, Mode: Sanitized,
+		Configuration: testConfiguration(t, dataDir, ""),
+	}); err != nil {
+		t.Fatalf("create Backup: %v", err)
+	}
+	archive, err := zip.OpenReader(archivePath)
+	if err != nil {
+		t.Fatalf("open Backup: %v", err)
+	}
+	var manifest []byte
+	for _, file := range archive.File {
+		if file.Name != manifestName {
+			continue
+		}
+		input, openErr := file.Open()
+		if openErr != nil {
+			t.Fatalf("open manifest: %v", openErr)
+		}
+		manifest, err = io.ReadAll(input)
+		_ = input.Close()
+		if err != nil {
+			t.Fatalf("read manifest: %v", err)
+		}
+	}
+	if err = archive.Close(); err != nil {
+		t.Fatalf("close Backup: %v", err)
+	}
+	tamperedPath := filepath.Join(t.TempDir(), "trailing-manifest.zip")
+	rewriteZIPEntry(
+		t,
+		archivePath,
+		tamperedPath,
+		manifestName,
+		append(manifest, []byte("{}")...),
+	)
+
+	if _, err = Verify(t.Context(), tamperedPath); err == nil {
+		t.Fatal("manifest with trailing JSON unexpectedly verified")
 	}
 }
 
@@ -546,7 +868,7 @@ func TestRestoreRejectsFullFidelityBackupRelabeledSanitized(t *testing.T) {
 	var manifest Manifest
 	for _, file := range archive.File {
 		if file.Name == manifestName {
-			if err = decodeZIPJSON(file, &manifest); err != nil {
+			if _, err = decodeZIPJSON(t.Context(), file, &manifest); err != nil {
 				_ = archive.Close()
 				t.Fatalf("decode manifest: %v", err)
 			}

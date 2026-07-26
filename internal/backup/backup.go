@@ -22,11 +22,18 @@ import (
 )
 
 const (
-	formatVersion        = 2
-	manifestName         = "manifest.json"
-	databaseName         = "database/beamers.db"
-	maxRestoreEntryBytes = 64 << 30
+	formatVersion         = 2
+	manifestName          = "manifest.json"
+	databaseName          = "database/beamers.db"
+	maxArchiveEntries     = 32_770
+	maxManifestBytes      = 64 << 20
+	maxDatabaseBytes      = 64 << 30
+	maxAttachmentBytes    = 64 << 20
+	maxArchiveOutputBytes = 128 << 30
 )
+
+// MaxArchiveBytes is the largest supported compressed Backup input.
+const MaxArchiveBytes int64 = 65 << 30
 
 // Mode identifies whether an archive contains authentication secrets.
 type Mode string
@@ -165,7 +172,7 @@ func CreateWithStorage(
 			return Manifest{}, sanitizeErr
 		}
 	}
-	databaseHash, err := fileSHA256(snapshotPath)
+	databaseHash, err := fileSHA256(ctx, snapshotPath)
 	if err != nil {
 		return Manifest{}, err
 	}
@@ -176,7 +183,7 @@ func CreateWithStorage(
 			SHA256:     stored.SHA256,
 			SizeBytes:  stored.SizeBytes,
 		}
-		if verifyErr := verifyAttachment(input.AttachmentsDir, attachment); verifyErr != nil {
+		if verifyErr := verifyAttachment(ctx, input.AttachmentsDir, attachment); verifyErr != nil {
 			return Manifest{}, verifyErr
 		}
 		attachments = append(attachments, attachment)
@@ -210,7 +217,7 @@ func CreateWithStorage(
 	); writeErr != nil {
 		return Manifest{}, writeErr
 	}
-	if _, err = Verify(stagedArchive); err != nil {
+	if _, err = Verify(ctx, stagedArchive); err != nil {
 		return Manifest{}, err
 	}
 	if err = os.Link(stagedArchive, input.OutputPath); err != nil {
@@ -223,7 +230,17 @@ func CreateWithStorage(
 }
 
 // Verify validates one complete Backup without extracting it.
-func Verify(archivePath string) (Manifest, error) {
+func Verify(ctx context.Context, archivePath string) (Manifest, error) {
+	if err := ctx.Err(); err != nil {
+		return Manifest{}, err
+	}
+	info, err := os.Stat(archivePath)
+	if err != nil {
+		return Manifest{}, errors.New("open Backup archive")
+	}
+	if info.Size() > MaxArchiveBytes {
+		return Manifest{}, errors.New("backup archive exceeds compressed size limit")
+	}
 	archive, err := zip.OpenReader(archivePath)
 	if err != nil {
 		return Manifest{}, errors.New("open Backup archive")
@@ -231,10 +248,14 @@ func Verify(archivePath string) (Manifest, error) {
 	defer func() {
 		_ = archive.Close()
 	}()
+	if resourceErr := validateArchiveResources(archive.File); resourceErr != nil {
+		return Manifest{}, resourceErr
+	}
 	var manifest Manifest
 	var database *zip.File
 	archiveAttachments := make(map[string]*zip.File)
 	manifestFound := false
+	remainingOutputBytes := int64(maxArchiveOutputBytes)
 	for _, file := range archive.File {
 		switch file.Name {
 		case manifestName:
@@ -242,8 +263,15 @@ func Verify(archivePath string) (Manifest, error) {
 				return Manifest{}, errors.New("backup archive contains a duplicate manifest")
 			}
 			manifestFound = true
-			if decodeErr := decodeZIPJSON(file, &manifest); decodeErr != nil {
+			manifestBytes, decodeErr := decodeZIPJSON(ctx, file, &manifest)
+			if decodeErr != nil {
 				return Manifest{}, decodeErr
+			}
+			if budgetErr := consumeArchiveOutput(
+				&remainingOutputBytes,
+				manifestBytes,
+			); budgetErr != nil {
+				return Manifest{}, budgetErr
 			}
 		case databaseName:
 			if database != nil {
@@ -281,9 +309,22 @@ func Verify(archivePath string) (Manifest, error) {
 	if err != nil {
 		return Manifest{}, errors.New("backup service configuration is invalid")
 	}
-	foundHash, err := zipFileSHA256(database)
+	foundHash, foundSize, err := zipFileIntegrity(
+		ctx,
+		database,
+		maxDatabaseBytes,
+	)
 	if err != nil {
 		return Manifest{}, err
+	}
+	if uint64(foundSize) != database.UncompressedSize64 { //nolint:gosec // io.Copy sizes are nonnegative.
+		return Manifest{}, errors.New("backup database size does not match ZIP metadata")
+	}
+	if budgetErr := consumeArchiveOutput(
+		&remainingOutputBytes,
+		foundSize,
+	); budgetErr != nil {
+		return Manifest{}, budgetErr
 	}
 	if foundHash != manifest.DatabaseSHA256 {
 		return Manifest{}, errors.New("backup database integrity check failed")
@@ -302,9 +343,19 @@ func Verify(archivePath string) (Manifest, error) {
 		if !exists {
 			return Manifest{}, errors.New("backup archive is missing an attachment")
 		}
-		foundHash, foundSize, hashErr := zipFileIntegrity(file)
+		foundHash, foundSize, hashErr := zipFileIntegrity(
+			ctx,
+			file,
+			maxAttachmentBytes,
+		)
 		if hashErr != nil {
 			return Manifest{}, hashErr
+		}
+		if budgetErr := consumeArchiveOutput(
+			&remainingOutputBytes,
+			foundSize,
+		); budgetErr != nil {
+			return Manifest{}, budgetErr
 		}
 		if foundHash != attachment.SHA256 || foundSize != attachment.SizeBytes {
 			return Manifest{}, errors.New("backup attachment integrity check failed")
@@ -315,6 +366,41 @@ func Verify(archivePath string) (Manifest, error) {
 		return Manifest{}, errors.New("backup archive contains an unreferenced attachment")
 	}
 	return manifest, nil
+}
+
+func consumeArchiveOutput(remaining *int64, size int64) error {
+	if size > *remaining {
+		return errors.New("backup archive exceeds expanded size limit")
+	}
+	*remaining -= size
+	return nil
+}
+
+func validateArchiveResources(files []*zip.File) error {
+	if len(files) > maxArchiveEntries {
+		return errors.New("backup archive exceeds entry count limit")
+	}
+	var compressedBytes, outputBytes uint64
+	for _, file := range files {
+		switch {
+		case file.Name == manifestName && file.UncompressedSize64 > maxManifestBytes:
+			return errors.New("backup manifest exceeds size limit")
+		case file.Name == databaseName && file.UncompressedSize64 > maxDatabaseBytes:
+			return errors.New("backup database exceeds size limit")
+		case strings.HasPrefix(file.Name, "attachments/") &&
+			file.UncompressedSize64 > maxAttachmentBytes:
+			return errors.New("backup Attachment exceeds size limit")
+		}
+		if file.CompressedSize64 > uint64(MaxArchiveBytes)-compressedBytes {
+			return errors.New("backup archive exceeds compressed size limit")
+		}
+		compressedBytes += file.CompressedSize64
+		if file.UncompressedSize64 > maxArchiveOutputBytes-outputBytes {
+			return errors.New("backup archive exceeds expanded size limit")
+		}
+		outputBytes += file.UncompressedSize64
+	}
+	return nil
 }
 
 // Restore prepares and applies one verified Backup without replacing existing state.
@@ -330,6 +416,7 @@ func Restore(ctx context.Context, input RestoreInput) (Manifest, error) {
 }
 
 func extractRestore(
+	ctx context.Context,
 	archivePath, dataDir, attachmentsDir string,
 	manifest Manifest,
 ) error {
@@ -350,13 +437,28 @@ func extractRestore(
 		}
 		destinations[name] = filepath.Join(attachmentsDir, attachment.StorageKey)
 	}
+	remainingOutputBytes := int64(maxArchiveOutputBytes)
 	for _, file := range archive.File {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		destination, wanted := destinations[file.Name]
 		if !wanted {
 			continue
 		}
-		if extractErr := extractFile(file, destination); extractErr != nil {
+		limit := int64(maxAttachmentBytes)
+		if file.Name == databaseName {
+			limit = maxDatabaseBytes
+		}
+		size, extractErr := extractFile(ctx, file, destination, limit)
+		if extractErr != nil {
 			return extractErr
+		}
+		if budgetErr := consumeArchiveOutput(
+			&remainingOutputBytes,
+			size,
+		); budgetErr != nil {
+			return budgetErr
 		}
 		delete(destinations, file.Name)
 	}
@@ -366,20 +468,28 @@ func extractRestore(
 	return nil
 }
 
-func extractFile(file *zip.File, destination string) error {
+func extractFile(
+	ctx context.Context,
+	file *zip.File,
+	destination string,
+	limit int64,
+) (int64, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
 	if err := os.MkdirAll(filepath.Dir(destination), 0o700); err != nil {
-		return errors.New("prepare Restore destination")
+		return 0, errors.New("prepare Restore destination")
 	}
 	input, err := file.Open()
 	if err != nil {
-		return errors.New("open Restore entry")
+		return 0, errors.New("open Restore entry")
 	}
 	defer func() {
 		_ = input.Close()
 	}()
-	if file.UncompressedSize64 > maxRestoreEntryBytes ||
+	if file.UncompressedSize64 > uint64(limit) || //nolint:gosec // Fixed positive archive limits.
 		file.UncompressedSize64 > math.MaxInt64 {
-		return errors.New("restore entry exceeds size limit")
+		return 0, errors.New("restore entry exceeds size limit")
 	}
 	output, err := os.OpenFile( //nolint:gosec // Fixed names and validated storage keys.
 		destination,
@@ -387,25 +497,40 @@ func extractFile(file *zip.File, destination string) error {
 		0o600,
 	)
 	if err != nil {
-		return errors.New("create Restore entry")
+		return 0, errors.New("create Restore entry")
 	}
-	size, err := io.CopyN(output, input, int64(file.UncompressedSize64)+1)
+	size, err := io.CopyN(
+		output,
+		cancelableReader(ctx, input),
+		limit+1,
+	)
 	if err != nil && !errors.Is(err, io.EOF) {
 		_ = output.Close()
-		return errors.New("extract Restore entry")
+		if contextErr := ctx.Err(); contextErr != nil {
+			return 0, contextErr
+		}
+		return 0, errors.New("extract Restore entry")
+	}
+	if size > limit {
+		_ = output.Close()
+		return 0, errors.New("restore entry exceeds size limit")
 	}
 	if size != int64(file.UncompressedSize64) {
 		_ = output.Close()
-		return errors.New("restore entry size does not match ZIP metadata")
+		return 0, errors.New("restore entry size does not match ZIP metadata")
+	}
+	if err = ctx.Err(); err != nil {
+		_ = output.Close()
+		return 0, err
 	}
 	if err = output.Sync(); err != nil {
 		_ = output.Close()
-		return errors.New("sync Restore entry")
+		return 0, errors.New("sync Restore entry")
 	}
 	if err = output.Close(); err != nil {
-		return errors.New("close Restore entry")
+		return 0, errors.New("close Restore entry")
 	}
-	return nil
+	return size, nil
 }
 
 func requireAbsent(target, description string) error {
@@ -417,7 +542,19 @@ func requireAbsent(target, description string) error {
 	return nil
 }
 
-func copyFileExclusive(source, destination string) (returnErr error) {
+func copyFileExclusive(
+	ctx context.Context,
+	source, destination string,
+) (returnErr error) {
+	created := false
+	defer func() {
+		if created && returnErr != nil {
+			returnErr = errors.Join(returnErr, os.Remove(destination))
+		}
+	}()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	input, err := os.Open(source) //nolint:gosec // Explicit host-authorized Backup path.
 	if err != nil {
 		return errors.New("open Restore archive")
@@ -425,6 +562,13 @@ func copyFileExclusive(source, destination string) (returnErr error) {
 	defer func() {
 		returnErr = errors.Join(returnErr, input.Close())
 	}()
+	info, err := input.Stat()
+	if err != nil {
+		return errors.New("inspect Restore archive")
+	}
+	if info.Size() > MaxArchiveBytes {
+		return errors.New("restore archive exceeds compressed size limit")
+	}
 	output, err := os.OpenFile( //nolint:gosec // Private process-owned Restore staging root.
 		destination,
 		os.O_CREATE|os.O_EXCL|os.O_WRONLY,
@@ -433,11 +577,28 @@ func copyFileExclusive(source, destination string) (returnErr error) {
 	if err != nil {
 		return errors.New("create staged Restore archive")
 	}
+	created = true
 	defer func() {
 		returnErr = errors.Join(returnErr, output.Close())
 	}()
-	if _, err = io.Copy(output, input); err != nil {
+	size, err := io.Copy(
+		output,
+		io.LimitReader(
+			cancelableReader(ctx, input),
+			MaxArchiveBytes+1,
+		),
+	)
+	if err != nil {
+		if contextErr := ctx.Err(); contextErr != nil {
+			return contextErr
+		}
 		return errors.New("stage Restore archive")
+	}
+	if size > MaxArchiveBytes {
+		return errors.New("restore archive exceeds compressed size limit")
+	}
+	if contextErr := ctx.Err(); contextErr != nil {
+		return contextErr
 	}
 	return output.Sync()
 }
@@ -511,14 +672,20 @@ func writeArchive(
 	return output.Sync()
 }
 
-func verifyAttachment(root string, attachment Attachment) error {
+func verifyAttachment(ctx context.Context, root string, attachment Attachment) error {
 	input, err := openAttachment(root, attachment.StorageKey)
 	if err != nil {
 		return err
 	}
-	foundHash, foundSize, hashErr := readerIntegrity(input)
+	foundHash, foundSize, hashErr := readerIntegrity(ctx, input)
 	closeErr := input.Close()
-	if hashErr != nil || closeErr != nil {
+	if hashErr != nil {
+		if contextErr := ctx.Err(); contextErr != nil {
+			return contextErr
+		}
+		return errors.New("read Backup Attachment")
+	}
+	if closeErr != nil {
 		return errors.New("read Backup Attachment")
 	}
 	if foundHash != attachment.SHA256 || foundSize != attachment.SizeBytes {
@@ -558,21 +725,46 @@ func attachmentArchiveName(storageKey string) (string, error) {
 	return pathpkg.Join("attachments", filepath.ToSlash(storageKey)), nil
 }
 
-func decodeZIPJSON(file *zip.File, destination any) error {
+func decodeZIPJSON(
+	ctx context.Context,
+	file *zip.File,
+	destination any,
+) (int64, error) {
 	input, err := file.Open()
 	if err != nil {
-		return errors.New("open Backup manifest")
+		return 0, errors.New("open Backup manifest")
 	}
 	defer func() {
 		_ = input.Close()
 	}()
-	if err := json.NewDecoder(input).Decode(destination); err != nil {
-		return errors.New("decode Backup manifest")
+	limited := &io.LimitedReader{
+		R: cancelableReader(ctx, input),
+		N: maxManifestBytes + 1,
 	}
-	return nil
+	decoder := json.NewDecoder(limited)
+	if err = decoder.Decode(destination); err != nil {
+		if contextErr := ctx.Err(); contextErr != nil {
+			return 0, contextErr
+		}
+		return 0, errors.New("decode Backup manifest")
+	}
+	if err = decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		if contextErr := ctx.Err(); contextErr != nil {
+			return 0, contextErr
+		}
+		return 0, errors.New("backup manifest contains trailing content")
+	}
+	size := maxManifestBytes + 1 - limited.N
+	if size > maxManifestBytes {
+		return 0, errors.New("backup manifest exceeds size limit")
+	}
+	if uint64(size) != file.UncompressedSize64 { //nolint:gosec // LimitedReader sizes are nonnegative.
+		return 0, errors.New("backup manifest size does not match ZIP metadata")
+	}
+	return size, ctx.Err()
 }
 
-func fileSHA256(filePath string) (string, error) {
+func fileSHA256(ctx context.Context, filePath string) (string, error) {
 	input, err := os.Open(filePath) //nolint:gosec // Private process-owned Backup staging.
 	if err != nil {
 		return "", errors.New("open Backup database snapshot")
@@ -580,41 +772,67 @@ func fileSHA256(filePath string) (string, error) {
 	defer func() {
 		_ = input.Close()
 	}()
-	return readerSHA256(input)
+	return readerSHA256(ctx, input)
 }
 
-func zipFileSHA256(file *zip.File) (string, error) {
+func zipFileIntegrity(
+	ctx context.Context,
+	file *zip.File,
+	limit int64,
+) (string, int64, error) {
 	input, err := file.Open()
 	if err != nil {
-		return "", errors.New("open Backup database entry")
+		return "", 0, errors.New("open Backup entry")
 	}
 	defer func() {
 		_ = input.Close()
 	}()
-	return readerSHA256(input)
-}
-
-func zipFileIntegrity(file *zip.File) (string, int64, error) {
-	input, err := file.Open()
-	if err != nil {
-		return "", 0, errors.New("open Backup Attachment entry")
+	limited := &io.LimitedReader{
+		R: cancelableReader(ctx, input),
+		N: limit + 1,
 	}
-	defer func() {
-		_ = input.Close()
-	}()
-	return readerIntegrity(input)
+	digest, size, err := readerIntegrity(ctx, limited)
+	if err != nil {
+		return "", 0, err
+	}
+	if size > limit {
+		return "", 0, errors.New("backup entry exceeds size limit")
+	}
+	return digest, size, nil
 }
 
-func readerSHA256(input io.Reader) (string, error) {
-	digest, _, err := readerIntegrity(input)
+func readerSHA256(ctx context.Context, input io.Reader) (string, error) {
+	digest, _, err := readerIntegrity(ctx, input)
 	return digest, err
 }
 
-func readerIntegrity(input io.Reader) (string, int64, error) {
+func readerIntegrity(ctx context.Context, input io.Reader) (string, int64, error) {
 	digest := sha256.New()
-	size, err := io.Copy(digest, input)
+	size, err := io.Copy(digest, cancelableReader(ctx, input))
 	if err != nil {
+		if contextErr := ctx.Err(); contextErr != nil {
+			return "", 0, contextErr
+		}
 		return "", 0, errors.New("hash Backup content")
 	}
 	return hex.EncodeToString(digest.Sum(nil)), size, nil
+}
+
+func cancelableReader(ctx context.Context, input io.Reader) io.Reader {
+	return readerFunc(func(buffer []byte) (int, error) {
+		if err := ctx.Err(); err != nil {
+			return 0, err
+		}
+		count, err := input.Read(buffer)
+		if contextErr := ctx.Err(); contextErr != nil {
+			return count, contextErr
+		}
+		return count, err
+	})
+}
+
+type readerFunc func([]byte) (int, error)
+
+func (read readerFunc) Read(buffer []byte) (int, error) {
+	return read(buffer)
 }

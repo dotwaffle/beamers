@@ -143,10 +143,10 @@ func PrepareRestore(
 		}
 	}()
 	stagedArchive := filepath.Join(stagingRoot, "archive")
-	if copyErr := copyFileExclusive(input.InputPath, stagedArchive); copyErr != nil {
+	if copyErr := copyFileExclusive(ctx, input.InputPath, stagedArchive); copyErr != nil {
 		return RestorePlan{}, copyErr
 	}
-	manifest, verifyErr := Verify(stagedArchive)
+	manifest, verifyErr := Verify(ctx, stagedArchive)
 	if verifyErr != nil {
 		return RestorePlan{}, verifyErr
 	}
@@ -181,6 +181,7 @@ func PrepareRestore(
 		}()
 	}
 	if extractErr := extractRestore(
+		ctx,
 		stagedArchive,
 		stagedData,
 		stagedAttachments,
@@ -444,7 +445,7 @@ func applyRestoreWithOptions(
 }
 
 func validatePreparedRestore(ctx context.Context, journal restoreJournal) error {
-	manifest, err := Verify(filepath.Join(journal.StagingRoot, "archive"))
+	manifest, err := Verify(ctx, filepath.Join(journal.StagingRoot, "archive"))
 	if err != nil {
 		return err
 	}
@@ -452,11 +453,12 @@ func validatePreparedRestore(ctx context.Context, journal restoreJournal) error 
 		return errors.New("staged Restore archive no longer matches its preview")
 	}
 	databasePath := filepath.Join(journal.StagedData, "beamers.db")
-	databaseHash, err := fileSHA256(databasePath)
+	databaseHash, err := fileSHA256(ctx, databasePath)
 	if err != nil || databaseHash != manifest.DatabaseSHA256 {
 		return errors.Join(err, errors.New("staged Restore database integrity check failed"))
 	}
 	if attachmentsErr := validateStagedAttachments(
+		ctx,
 		journal.StagedAttachments,
 		manifest.Attachments,
 	); attachmentsErr != nil {
@@ -488,15 +490,22 @@ func validatePreparedRestore(ctx context.Context, journal restoreJournal) error 
 	return errors.Join(validateCompatibility(manifest), store.ValidateSnapshot(ctx, databasePath))
 }
 
-func validateStagedAttachments(root string, attachments []Attachment) error {
+func validateStagedAttachments(
+	ctx context.Context,
+	root string,
+	attachments []Attachment,
+) error {
 	expected := make(map[string]Attachment, len(attachments))
 	for _, attachment := range attachments {
 		expected[filepath.Clean(attachment.StorageKey)] = attachment
-		if err := verifyAttachment(root, attachment); err != nil {
+		if err := verifyAttachment(ctx, root, attachment); err != nil {
 			return err
 		}
 	}
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
+		if contextErr := ctx.Err(); contextErr != nil {
+			return contextErr
+		}
 		if walkErr != nil {
 			if errors.Is(walkErr, os.ErrNotExist) && len(expected) == 0 {
 				return fs.SkipAll

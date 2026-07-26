@@ -86,7 +86,7 @@ func TestAdministratorDownloadsFullFidelityBackupAfterReauthentication(t *testin
 	if err = os.WriteFile(archivePath, response.Body.Bytes(), 0o600); err != nil {
 		t.Fatalf("write downloaded Backup: %v", err)
 	}
-	manifest, err := backup.Verify(archivePath)
+	manifest, err := backup.Verify(t.Context(), archivePath)
 	if err != nil {
 		t.Fatalf("verify downloaded Backup: %v", err)
 	}

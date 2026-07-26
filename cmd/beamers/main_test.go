@@ -154,7 +154,7 @@ func TestBackupCommandCreatesAndVerifiesSanitizedArchive(t *testing.T) {
 		!strings.Contains(stdout.String(), "format 2") {
 		t.Fatalf("verify Backup output = %q", stdout.String())
 	}
-	verified, err := operations.VerifyBackup(archivePath)
+	verified, err := operations.VerifyBackup(t.Context(), archivePath)
 	if err != nil {
 		t.Fatalf("read verified Backup manifest: %v", err)
 	}
