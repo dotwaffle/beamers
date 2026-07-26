@@ -36,8 +36,15 @@ type Event struct {
 	EventLocale             string `json:"event_locale"`
 	ContentLanguage         string `json:"content_language,omitempty"`
 	EventDayBoundary        string `json:"event_day_boundary"`
+	EntryDefaultDisposition string `json:"entry_default_disposition"`
 	TargetAdjustmentPresets string `json:"target_adjustment_presets"`
 	Revision                int    `json:"revision"`
+}
+
+// EventInterchangeState is one portable Event snapshot.
+type EventInterchangeState struct {
+	Event   Event
+	Rundown CrewRundownState
 }
 
 // CreateEventParams contains an Event creation command's durable values.
@@ -131,6 +138,28 @@ func (transaction *CommandTx) CreateEvent(ctx context.Context, params CreateEven
 		return Event{}, opaqueError("create Event Rundown", createErr)
 	}
 	return eventProjection(created), nil
+}
+
+// LoadEventInterchange returns core Event configuration and current Published structure.
+func (transaction *CommandTx) LoadEventInterchange(
+	ctx context.Context,
+	eventID int,
+) (EventInterchangeState, error) {
+	client := transaction.transaction.Client()
+	found, err := client.Event.Query().
+		Where(event.IDEQ(eventID)).
+		Only(ctx)
+	if ent.IsNotFound(err) {
+		return EventInterchangeState{}, ErrEventNotFound
+	}
+	if err != nil {
+		return EventInterchangeState{}, opaqueError("load Event interchange configuration", err)
+	}
+	published, err := loadCrewRundown(ctx, client, eventID)
+	if err != nil {
+		return EventInterchangeState{}, err
+	}
+	return EventInterchangeState{Event: eventProjection(found), Rundown: published}, nil
 }
 
 // GrantEventAccess mutates Event Grant state without owning command lifecycle evidence.

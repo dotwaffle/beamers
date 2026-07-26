@@ -13,7 +13,7 @@ func TestEventDayBoundaryDefaultsToMidnight(t *testing.T) {
 		Name: "Revision 2026", PlannedStartDate: "2026-08-21", PlannedEndDate: "2026-08-23",
 		Timezone: "Europe/Berlin", EventLocale: "de-DE",
 	}
-	validated, err := validateCreateInput(input)
+	validated, err := ValidateCreateInput(input)
 	if err != nil {
 		t.Fatalf("validate Event defaults: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestEventEntryDefaultDispositionAcceptsIncluded(t *testing.T) {
 		Name: "Revision 2026", PlannedStartDate: "2026-08-21", PlannedEndDate: "2026-08-23",
 		Timezone: "Europe/Berlin", EventLocale: "de-DE", EntryDefaultDisposition: "Included",
 	}
-	validated, err := validateCreateInput(input)
+	validated, err := ValidateCreateInput(input)
 	if err != nil || validated.EntryDefaultDisposition != "Included" {
 		t.Fatalf("Included Entry default = %+v, %v", validated, err)
 	}
@@ -45,7 +45,7 @@ func TestEventEntryDefaultDispositionRejectsUnsupportedValue(t *testing.T) {
 		Name: "Revision 2026", PlannedStartDate: "2026-08-21", PlannedEndDate: "2026-08-23",
 		Timezone: "Europe/Berlin", EventLocale: "de-DE", EntryDefaultDisposition: "Rejected",
 	}
-	_, err := validateCreateInput(input)
+	_, err := ValidateCreateInput(input)
 	var validation *ValidationError
 	if !errors.As(err, &validation) || validation.Field != "entry_default_disposition" {
 		t.Fatalf("unsupported Entry default error = %v", err)
@@ -58,7 +58,7 @@ func TestEventTargetAdjustmentPresetsRejectInvalidValues(t *testing.T) {
 		Timezone: "Europe/Berlin", EventLocale: "de-DE",
 		TargetAdjustmentPresetsSeconds: []int{300, 0},
 	}
-	_, err := validateCreateInput(input)
+	_, err := ValidateCreateInput(input)
 	var validation *ValidationError
 	if !errors.As(err, &validation) || validation.Field != "target_adjustment_presets_seconds" {
 		t.Fatalf("preset validation error = %v", err)
@@ -70,7 +70,7 @@ func TestEventTimezoneRejectsHostLocalConfiguration(t *testing.T) {
 		Name: "Revision 2026", PlannedStartDate: "2026-08-21", PlannedEndDate: "2026-08-23",
 		Timezone: "Local", EventLocale: "de-DE",
 	}
-	_, err := validateCreateInput(input)
+	_, err := ValidateCreateInput(input)
 	var validation *ValidationError
 	ok := errors.As(err, &validation)
 	if !ok || validation.Field != "timezone" {

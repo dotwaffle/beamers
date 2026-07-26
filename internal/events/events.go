@@ -150,7 +150,7 @@ func (service *Service) Create(
 			if !actor.Administrator {
 				return eventRejection[Event](ErrAdministratorRequired), nil
 			}
-			normalized, validationErr := validateCreateInput(input)
+			normalized, validationErr := ValidateCreateInput(input)
 			if validationErr != nil {
 				return eventRejection[Event](validationErr), nil
 			}
@@ -274,7 +274,7 @@ func (service *Service) Update(
 			if !actor.CanProduceEvent(eventID) {
 				return eventRejection[Event](ErrEventAccessDenied), nil
 			}
-			normalized, validationErr := validateCreateInput(input)
+			normalized, validationErr := ValidateCreateInput(input)
 			if validationErr != nil {
 				return eventRejection[Event](validationErr), nil
 			}
@@ -438,7 +438,8 @@ func eventSuccess[T any](value T, stored any, targetID, description string) (com
 	return execution, nil
 }
 
-func validateCreateInput(input CreateInput) (CreateInput, error) {
+// ValidateCreateInput normalizes and validates complete Event creation configuration.
+func ValidateCreateInput(input CreateInput) (CreateInput, error) {
 	input.Name = strings.TrimSpace(input.Name)
 	if input.Name == "" || utf8.RuneCountInString(input.Name) > 200 || containsControl(input.Name) {
 		return CreateInput{}, invalid("name", "must be 1 to 200 characters without control characters")
