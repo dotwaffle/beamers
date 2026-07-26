@@ -10,11 +10,13 @@ import (
 
 // PublicResultsSource contains the exact facts captured for one release.
 type PublicResultsSource struct {
-	EventName   string
-	Revision    int
-	Status      PublicationStatus
-	PublishedAt time.Time
-	Items       []PublicResultsSourceItem
+	EventName       string
+	EventLocale     string
+	ContentLanguage string
+	Revision        int
+	Status          PublicationStatus
+	PublishedAt     time.Time
+	Items           []PublicResultsSourceItem
 }
 
 // PublicResultsSourceItem contains one released item's immutable source facts.
@@ -61,12 +63,17 @@ func BuildPublicResultsModel(
 	}
 	model := PublicResultsPublication{
 		SchemaVersion: "1",
-		Event:         PublicResultsEvent{Name: source.EventName},
-		EventTitle:    source.EventName,
-		Revision:      source.Revision,
-		Status:        source.Status,
-		PublishedAt:   source.PublishedAt,
-		Items:         make([]PublicResultsItem, 0, len(source.Items)),
+		Event: PublicResultsEvent{
+			Name:            source.EventName,
+			EventLocale:     resultsLocale(source.EventLocale),
+			ContentLanguage: source.ContentLanguage,
+			Language:        resultsLanguage(source.ContentLanguage, source.EventLocale),
+		},
+		EventTitle:  source.EventName,
+		Revision:    source.Revision,
+		Status:      source.Status,
+		PublishedAt: source.PublishedAt,
+		Items:       make([]PublicResultsItem, 0, len(source.Items)),
 	}
 	for index, sourceItem := range source.Items {
 		if sourceItem.Ref.DisplayOrder != index+1 {
@@ -79,6 +86,20 @@ func BuildPublicResultsModel(
 		model.Items = append(model.Items, item)
 	}
 	return model, nil
+}
+
+func resultsLocale(eventLocale string) string {
+	if eventLocale != "" {
+		return eventLocale
+	}
+	return "en"
+}
+
+func resultsLanguage(contentLanguage, eventLocale string) string {
+	if contentLanguage != "" {
+		return contentLanguage
+	}
+	return resultsLocale(eventLocale)
 }
 
 func buildPublicResultsItem(

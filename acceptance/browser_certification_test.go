@@ -20,6 +20,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"connectrpc.com/connect"
+
+	competitionv1 "github.com/dotwaffle/beamers/gen/beamers/competition/v1"
+	"github.com/dotwaffle/beamers/gen/beamers/competition/v1/competitionv1connect"
+	resultsv1 "github.com/dotwaffle/beamers/gen/beamers/results/v1"
+	"github.com/dotwaffle/beamers/gen/beamers/results/v1/resultsv1connect"
 )
 
 //go:embed browser_audit.js
@@ -141,7 +148,7 @@ func (report browserCertificationReport) validate() error {
 		}
 		seen[display.DisplayID] = true
 	}
-	var crewPages, displayPages, enrollmentPages int
+	var crewPages, displayPages, enrollmentPages, resultsPages int
 	for _, page := range report.Pages {
 		if err := page.validate(); err != nil {
 			return fmt.Errorf("validate %s page evidence: %w", page.Surface, err)
@@ -153,14 +160,18 @@ func (report browserCertificationReport) validate() error {
 			displayPages++
 		case "enrollment":
 			enrollmentPages++
+		case "results":
+			resultsPages++
 		}
 	}
-	if crewPages != 1 || displayPages != 2 || enrollmentPages != 1 {
+	if crewPages != 1 || displayPages != 2 || enrollmentPages != 1 ||
+		resultsPages != 1 {
 		return fmt.Errorf(
-			"browser evidence has %d Crew, %d Display, and %d Enrollment pages, want 1, 2, and 1",
+			"browser evidence has %d Crew, %d Display, %d Enrollment, and %d Results pages, want 1, 2, 1, and 1",
 			crewPages,
 			displayPages,
 			enrollmentPages,
+			resultsPages,
 		)
 	}
 	return nil
@@ -190,6 +201,7 @@ func TestBrowserCertificationReportRequiresDurableTwoDisplayTake(t *testing.T) {
 				validBrowserPageEvidence("display"),
 				validBrowserPageEvidence("display"),
 				validBrowserPageEvidence("enrollment"),
+				validBrowserPageEvidence("results"),
 			},
 			DisplayRetainedFrame: true,
 			DisplayReconnected:   true,
@@ -594,6 +606,7 @@ func TestBrowserCertification(t *testing.T) {
 	)
 	prepareActiveSchedule(t, administrator, server)
 	crewSessionID, _ := addCompetitionSession(t, administrator, server)
+	prepareReleasedBrowserResults(t, administrator, server, crewSessionID)
 	for index := range displays {
 		displays[index].enrollmentCode, displays[index].credential =
 			prepareBrowserEnrollment(t, server)
@@ -623,6 +636,7 @@ func TestBrowserCertification(t *testing.T) {
 	report.Pages = append(
 		report.Pages,
 		certifyInteractivePage(t, crewDriver, origin+"/schedule", "schedule"),
+		certifyResultsPage(t, crewDriver, origin, crewSessionID),
 	)
 	addBrowserCookie(t, crewDriver, browserCookie(
 		t,
@@ -741,6 +755,104 @@ func TestBrowserCertification(t *testing.T) {
 	report.DisplayReconnected = true
 	restarted.stop(t)
 	writeBrowserCertificationReport(t, config.ReportPath, report)
+}
+
+func prepareReleasedBrowserResults(
+	t *testing.T,
+	client *http.Client,
+	server *runningServer,
+	competitionID int64,
+) {
+	t.Helper()
+	competitionClient := competitionv1connect.NewCompetitionServiceClient(
+		client,
+		"http://"+server.address,
+		connect.WithProtoJSON(),
+	)
+	entry, err := competitionClient.CreateEntry(
+		t.Context(),
+		connect.NewRequest(&competitionv1.CreateEntryRequest{
+			EventId: 1, SessionId: competitionID,
+			CommandId: "create-browser-results-entry",
+			Name:      "Browser Certified Result",
+		}),
+	)
+	if err != nil {
+		t.Fatalf("create browser Results Entry: %v", err)
+	}
+	placement := int64(1)
+	resultsClient := resultsv1connect.NewResultsServiceClient(
+		client,
+		"http://"+server.address,
+		connect.WithProtoJSON(),
+	)
+	draft, err := resultsClient.SaveCompetitionResultsDraft(
+		t.Context(),
+		connect.NewRequest(&resultsv1.SaveCompetitionResultsDraftRequest{
+			EventId: 1, SessionId: competitionID,
+			CommandId:        "save-browser-results",
+			ExpectedRevision: 0,
+			Disposition:      resultsv1.ResultsDisposition_RESULTS_DISPOSITION_PUBLISH,
+			Score: &resultsv1.ScorePolicy{
+				Type:           resultsv1.ScoreType_SCORE_TYPE_NONE,
+				Visibility:     resultsv1.ScoreVisibility_SCORE_VISIBILITY_PUBLIC,
+				Requirement:    resultsv1.ScoreRequirement_SCORE_REQUIREMENT_OPTIONAL,
+				Interpretation: resultsv1.ScoreInterpretation_SCORE_INTERPRETATION_INFORMATIONAL,
+			},
+			Standings: []*resultsv1.CompetitionResultStanding{{
+				EntryId:   entry.Msg.GetEntry().GetId(),
+				Standing:  resultsv1.ResultStanding_RESULT_STANDING_PLACED,
+				Placement: &placement, DisplayOrder: 1,
+			}},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("save browser Results: %v", err)
+	}
+	if _, err = resultsClient.MarkCompetitionResultsReady(
+		t.Context(),
+		connect.NewRequest(&resultsv1.MarkCompetitionResultsReadyRequest{
+			EventId: 1, SessionId: competitionID,
+			CommandId:        "ready-browser-results",
+			ExpectedRevision: draft.Msg.GetDraft().GetRevision(),
+		}),
+	); err != nil {
+		t.Fatalf("ready browser Results: %v", err)
+	}
+	if _, err = resultsClient.ReleaseStandaloneResults(
+		t.Context(),
+		connect.NewRequest(&resultsv1.ReleaseStandaloneResultsRequest{
+			EventId: 1, CompetitionSessionId: competitionID,
+			CommandId: "release-browser-results",
+		}),
+	); err != nil {
+		t.Fatalf("release browser Results: %v", err)
+	}
+}
+
+func certifyResultsPage(
+	t *testing.T,
+	driver *webDriver,
+	origin string,
+	competitionID int64,
+) browserPageEvidence {
+	t.Helper()
+	evidence := certifyInteractivePage(
+		t,
+		driver,
+		origin+"/results/events/1/standalone/"+
+			strconv.FormatInt(competitionID, 10),
+		"results",
+	)
+	metadata, err := driver.evaluateString(
+		t.Context(),
+		`return document.documentElement.lang + "|" + `+
+			`document.documentElement.dataset.locale;`,
+	)
+	if err != nil || metadata != "en-GB|en-GB" {
+		t.Fatalf("public Results language metadata = %q, %v", metadata, err)
+	}
+	return evidence
 }
 
 func startCertifiedBrowserDisplay(

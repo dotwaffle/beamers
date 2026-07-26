@@ -3,7 +3,7 @@
 The `Browsers` workflow runs the current and previous major Chromium and Firefox releases against real served Beamers pages.
 It records the exact browser, driver, runner, and commit versions in downloadable JSON evidence.
 
-The hosted check covers public Schedule, Enrollment controls, and a Crew Program Claim, Preview selection, and durable Take to two connected browser Displays.
+The hosted check covers public Schedule and released Results, Enrollment controls, and a Crew Program Claim, Preview selection, and durable Take to two connected browser Displays.
 It requires both Displays to render and acknowledge the exact committed Program Output.
 It also covers keyboard activation, visible focus, labels, touch targets, contrast, language metadata, reduced motion, non-color connection state, retained content during disconnect, and recovery after a compatible server restart.
 
@@ -42,7 +42,7 @@ Never edit or combine reports: each run creates one new file and refuses to over
 Use the current production Safari release on an iPhone-sized viewport and record:
 
 - Safari, operating-system, Beamers, and commit versions.
-- Public Schedule navigation, language, contrast, legibility, 200% and 400% zoom.
+- Public Schedule and released Results navigation, language, locale-sensitive presentation, contrast, legibility, 200% and 400% zoom.
 - Display Enrollment code presentation and Administrator claim form.
 - Native validation announcements, labels, visible focus, and 44 CSS-pixel targets.
 - Touch input, reduced-motion behavior, and VoiceOver reading order.
@@ -74,7 +74,7 @@ Keep timestamps, screenshots or video, server logs, browser logs, and a written 
 
 ## Representative manual accessibility review
 
-Across Schedule, Enrollment, Crew control, and Display, review:
+Across Schedule, released Results, Enrollment, Crew control, and Display, review:
 
 - Keyboard order, operation, traps, and visible focus.
 - VoiceOver plus one desktop screen reader appropriate to the deployment.

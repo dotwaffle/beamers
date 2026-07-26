@@ -469,7 +469,8 @@ func publicResultsSource(
 		entryNames[entry.ID] = entry.Name
 	}
 	result := PublicResultsSource{
-		EventName: source.EventName, Revision: next.Revision,
+		EventName: source.EventName, EventLocale: source.EventLocale,
+		ContentLanguage: source.ContentLanguage, Revision: next.Revision,
 		Status: next.Status, PublishedAt: publishedAt,
 		Items: make([]PublicResultsSourceItem, 0, len(next.Items)),
 	}

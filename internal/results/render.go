@@ -17,7 +17,10 @@ var (
 
 // PublicResultsEvent contains immutable Event identity safe for publication.
 type PublicResultsEvent struct {
-	Name string `json:"name"`
+	Name            string `json:"name"`
+	EventLocale     string `json:"event_locale"`
+	ContentLanguage string `json:"content_language"`
+	Language        string `json:"language"`
 }
 
 // PublicResultEntry is one public placement, unplaced, or disqualified Entry.
@@ -104,8 +107,12 @@ Award: {{ .Name }} — {{ join .Recipients ", " }}
 {{ end }}{{ end }}`
 
 const publicResultsHTMLSource = `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>{{ .Event.Name }} Results</title></head>
-<body><main><h1>{{ .Event.Name }} Results</h1>
+<html lang="{{ .Event.Language }}" data-locale="{{ .Event.EventLocale }}"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/assets/schedule.css">
+<title>{{ .Event.Name }} Results</title></head>
+<body><main><a href="/schedule">Schedule</a><h1>{{ .Event.Name }} Results</h1>
+<p>Published <time datetime="{{ datetime .PublishedAt }}">{{ publishedAt .PublishedAt .Event.EventLocale }}</time></p>
 {{ with .Correction }}<aside><strong>Corrected</strong>{{ with .Note }} — {{ . }}{{ end }}</aside>{{ end }}
 {{ range .Items }}{{ with .Competition }}<section><h2>{{ .Title }}</h2>
 {{ with .Placed }}<h3>Placements</h3><ol>{{ range . }}<li value="{{ .Placement }}">{{ .Name }}{{ with .Score }} <span>{{ . }}</span>{{ end }}</li>{{ end }}</ol>{{ end }}
@@ -187,8 +194,17 @@ func parseResultsTextTemplate(
 
 func resultsTemplateFunctions() texttemplate.FuncMap {
 	return texttemplate.FuncMap{
+		"datetime": func(value time.Time) string {
+			return value.Format(time.RFC3339)
+		},
 		"join":  strings.Join,
 		"lower": strings.ToLower,
+		"publishedAt": func(value time.Time, locale string) string {
+			if strings.HasPrefix(strings.ToLower(locale), "en-us") {
+				return value.Format("Jan 2, 2006, 3:04 PM MST")
+			}
+			return value.Format("02 Jan 2006, 15:04 MST")
+		},
 		"upper": strings.ToUpper,
 	}
 }
