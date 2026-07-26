@@ -68,7 +68,7 @@ func registerProgramControlRoutes(
 	mux.HandleFunc(
 		"/crew/program/{sessionID}",
 		routeContract{
-			kind: crewInterface, mutatesOnRead: true, crewWarningPage: true,
+			kind: crewInterface, mutatesOnRead: true, browserWarningPage: true,
 		},
 		handlers.view,
 	)

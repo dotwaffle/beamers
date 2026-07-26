@@ -46,6 +46,7 @@ type Config struct {
 	PublicListen    string
 	InsecureCrew    bool
 	InsecureDisplay bool
+	Demo            bool
 }
 
 // Run serves health endpoints until the context is canceled.
@@ -166,6 +167,7 @@ func Run(ctx context.Context, config Config) error {
 	privateHandler := protectInterfaces(application, interfacePolicy{
 		listenerAddress: listener.Addr(), trustedProxies: config.TrustedProxies,
 		allowInsecureCrew: config.InsecureCrew, allowInsecureDisplay: config.InsecureDisplay,
+		demo: config.Demo,
 	})
 	httpServer := &http.Server{
 		Handler:           privateHandler,

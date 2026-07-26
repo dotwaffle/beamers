@@ -36,16 +36,17 @@ type interfacePolicy struct {
 	allowInsecureCrew    bool
 	allowInsecureDisplay bool
 	publicOnly           bool
+	demo                 bool
 }
 
 type routeContract struct {
-	kind            interfaceKind
-	timeout         time.Duration
-	maxBodyBytes    int64
-	persistent      bool
-	mutatesOnRead   bool
-	crewWarningPage bool
-	recoveryLimit   int
+	kind               interfaceKind
+	timeout            time.Duration
+	maxBodyBytes       int64
+	persistent         bool
+	mutatesOnRead      bool
+	browserWarningPage bool
+	recoveryLimit      int
 }
 
 func crewRoute() routeContract {
@@ -66,6 +67,10 @@ func uploadRoute() routeContract {
 
 func publicRoute() routeContract {
 	return routeContract{kind: publicInterface}
+}
+
+func browserPageRoute() routeContract {
+	return routeContract{kind: publicInterface, browserWarningPage: true}
 }
 
 func probeRoute() routeContract {
@@ -241,7 +246,7 @@ func protectInterfaces(
 			}()
 		}
 		request.Body = http.MaxBytesReader(response, request.Body, contract.requestBodyLimit())
-		if warnings != "" && contract.crewWarningPage {
+		if warnings != "" && contract.browserWarningPage {
 			warningResponse := &crewWarningResponse{
 				ResponseWriter: response,
 				status:         http.StatusOK,
@@ -331,6 +336,9 @@ func recoveryLimitKey(
 
 func insecureWarnings(kind interfaceKind, policy interfacePolicy) string {
 	var warnings []string
+	if policy.demo {
+		warnings = append(warnings, "demo mode uses plaintext transport and shared credentials")
+	}
 	if policy.allowInsecureCrew && kind == crewInterface {
 		warnings = append(warnings, "insecure Crew mode enabled")
 	}

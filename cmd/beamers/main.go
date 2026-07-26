@@ -63,7 +63,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	case "upgrade":
 		err = runUpgrade(ctx, args[1:], stdout, stderr)
 	case "serve":
-		return runServe(ctx, args[1:], stderr)
+		return runServe(ctx, args[1:], stderr, false)
+	case "demo":
+		return runDemo(ctx, args[1:], stderr)
 	case "help", "-h", "--help":
 		printUsage(stdout)
 		return 0
@@ -604,7 +606,12 @@ func runInit(ctx context.Context, args []string, stdout, stderr io.Writer) error
 	return err
 }
 
-func runServe(ctx context.Context, args []string, stderr io.Writer) int {
+func runServe(
+	ctx context.Context,
+	args []string,
+	stderr io.Writer,
+	demo bool,
+) int {
 	logger := slog.New(slog.NewJSONHandler(stderr, nil))
 	fail := func(err error) int {
 		if errors.Is(err, context.Canceled) {
@@ -721,6 +728,7 @@ func runServe(ctx context.Context, args []string, stderr io.Writer) int {
 		PublicListen:    *publicListenAddress,
 		InsecureCrew:    *insecureCrew,
 		InsecureDisplay: *insecureDisplay,
+		Demo:            demo,
 	})
 	if err != nil {
 		return fail(err)
@@ -731,6 +739,6 @@ func runServe(ctx context.Context, args []string, stderr io.Writer) int {
 func printUsage(output io.Writer) {
 	_, _ = fmt.Fprintln(
 		output,
-		"usage: beamers <init|bootstrap|backup|restore|export-final-files|upgrade|serve> [options]",
+		"usage: beamers <init|bootstrap|backup|restore|export-final-files|upgrade|serve|demo> [options]",
 	)
 }

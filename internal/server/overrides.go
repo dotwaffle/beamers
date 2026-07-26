@@ -94,7 +94,7 @@ func registerOverrideRoutes(
 	)
 	mux.HandleFunc(
 		"/crew/events/{eventID}/emergency-alerts/confirmation",
-		routeContract{kind: crewInterface, crewWarningPage: true},
+		routeContract{kind: crewInterface, browserWarningPage: true},
 		handlers.emergencyAlertConfirmation,
 	)
 	mux.HandleFunc(

@@ -67,10 +67,11 @@ type Capacity = store.Capacity
 
 // OpenConfig identifies an installation's database and Attachment Store roots.
 type OpenConfig struct {
-	DataDir        string
-	AttachmentsDir string
-	TracerProvider trace.TracerProvider
-	MeterProvider  metric.MeterProvider
+	DataDir           string
+	AttachmentsDir    string
+	TracerProvider    trace.TracerProvider
+	MeterProvider     metric.MeterProvider
+	AllowDemoPassword bool
 }
 
 // Initialize creates a new installation with the committed schema.
@@ -202,6 +203,7 @@ func OpenInstallationWithConfig(
 	installation.overrides = overrideService
 	authConfig := auth.DefaultConfig()
 	authConfig.StorageState = overrideService
+	authConfig.AllowDemoPassword = config.AllowDemoPassword
 	authentication, err := auth.New(storage, authConfig)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())

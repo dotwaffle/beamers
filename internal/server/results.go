@@ -75,7 +75,7 @@ func registerPublicResultsRoutes(
 	handlers := publicResultsHandlers{service: service, logger: logger}
 	mux.HandleFunc(
 		"/results/events/{eventID}/{scope}/{sessionID}",
-		publicRoute(),
+		browserPageRoute(),
 		handlers.latestHTML,
 	)
 	mux.HandleFunc(
@@ -90,7 +90,7 @@ func registerPublicResultsRoutes(
 	)
 	mux.HandleFunc(
 		"/results/events/{eventID}/event-awards",
-		publicRoute(),
+		browserPageRoute(),
 		handlers.latestEventAwardsHTML,
 	)
 	mux.HandleFunc(
@@ -103,7 +103,7 @@ func registerPublicResultsRoutes(
 		publicRoute(),
 		handlers.versionedEventAwardsJSON,
 	)
-	mux.HandleFunc("/results/events/{eventID}", publicRoute(), handlers.latestEventHTML)
+	mux.HandleFunc("/results/events/{eventID}", browserPageRoute(), handlers.latestEventHTML)
 	mux.HandleFunc(
 		"/results/events/{eventID}/results.txt",
 		publicRoute(),

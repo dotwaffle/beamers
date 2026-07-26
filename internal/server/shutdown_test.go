@@ -266,7 +266,7 @@ func TestInFlightDrainCancelsStreamsButPreservesActiveWork(t *testing.T) {
 				kind: displayInterface, mutatesOnRead: true,
 			},
 			"/crew/program/{sessionID}": {
-				kind: crewInterface, mutatesOnRead: true, crewWarningPage: true,
+				kind: crewInterface, mutatesOnRead: true, browserWarningPage: true,
 			},
 			"/display/events": {
 				kind: displayInterface, persistent: true,

@@ -45,9 +45,9 @@ func registerFrontendRoutes(
 		limiter:        limiter,
 		random:         rand.Reader,
 	}
-	formRoute := publicRoute()
+	formRoute := browserPageRoute()
 	formRoute.maxBodyBytes = maxAuthBodyBytes
-	mux.HandleFunc("/", publicRoute(), handlers.root)
+	mux.HandleFunc("/", browserPageRoute(), handlers.root)
 	mux.HandleFunc("/setup", formRoute, handlers.setup)
 	mux.HandleFunc("/sign-in", formRoute, handlers.signIn)
 	mux.HandleFunc("/sign-out", formRoute, handlers.signOut)

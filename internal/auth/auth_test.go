@@ -70,6 +70,20 @@ func TestBootstrapFirstAccountRejectsInvalidIdentityFields(t *testing.T) {
 	}
 }
 
+func TestDemoPasswordRequiresExplicitConfiguration(t *testing.T) {
+	service, administrator := openAccountTestService(t)
+	_, err := service.CreateAccount(
+		t.Context(),
+		administrator,
+		"demo-user",
+		"demo",
+		"create-demo-user",
+	)
+	if !errors.Is(err, ErrInvalidAccountDetails) {
+		t.Fatalf("default demo password error = %v, want %v", err, ErrInvalidAccountDetails)
+	}
+}
+
 func TestCreateAccountRetryDoesNotRetainPasswordIdentity(t *testing.T) {
 	service, administrator := openAccountTestService(t)
 

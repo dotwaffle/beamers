@@ -53,7 +53,9 @@ func registerDisplayRoutes(
 	}
 	mux.HandleFunc(
 		"/display",
-		routeContract{kind: displayInterface, mutatesOnRead: true},
+		routeContract{
+			kind: displayInterface, mutatesOnRead: true, browserWarningPage: true,
+		},
 		handlers.display,
 	)
 	mux.HandleFunc("/display/client.js", displayRoute(), handlers.clientJavaScript)
@@ -66,7 +68,7 @@ func registerDisplayRoutes(
 	mux.HandleFunc("/admin/displays", crewRoute(), handlers.list)
 	mux.HandleFunc(
 		"/admin/displays/enroll",
-		routeContract{kind: crewInterface, crewWarningPage: true},
+		routeContract{kind: crewInterface, browserWarningPage: true},
 		handlers.enroll,
 	)
 	mux.HandleFunc("/admin/displays/{displayID}/assign", crewRoute(), handlers.assign)

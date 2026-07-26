@@ -19,8 +19,8 @@ type scheduleHandlers struct {
 
 func registerScheduleRoutes(mux *routeMux, service *schedule.Service, logger *slog.Logger) {
 	handlers := scheduleHandlers{schedule: service, logger: logger}
-	mux.HandleFunc("/schedule", publicRoute(), handlers.list)
-	mux.HandleFunc("/schedule/sessions/{sessionID}", publicRoute(), handlers.session)
+	mux.HandleFunc("/schedule", browserPageRoute(), handlers.list)
+	mux.HandleFunc("/schedule/sessions/{sessionID}", browserPageRoute(), handlers.session)
 	mux.HandleFunc("/assets/schedule.css", publicRoute(), handlers.stylesheet)
 }
 

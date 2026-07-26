@@ -117,6 +117,8 @@ type Config struct {
 	BootstrapTTL time.Duration
 	SessionTTL   time.Duration
 	StorageState StorageState
+	// AllowDemoPassword permits the fixed weak credential only while seeding demo data.
+	AllowDemoPassword bool
 }
 
 // StorageState reports whether runtime storage has entered degraded operation.
@@ -137,16 +139,17 @@ func DefaultConfig() Config {
 
 // Service owns credential hashing and session lifecycle rules.
 type Service struct {
-	storage      *store.SQLite
-	now          func() time.Time
-	random       io.Reader
-	bootstrapTTL time.Duration
-	sessionTTL   time.Duration
-	dummyHash    string
-	passwordWork chan struct{}
-	sessionMu    sync.RWMutex
-	sessions     map[string]validatedSession
-	storageState StorageState
+	storage           *store.SQLite
+	now               func() time.Time
+	random            io.Reader
+	bootstrapTTL      time.Duration
+	sessionTTL        time.Duration
+	dummyHash         string
+	passwordWork      chan struct{}
+	sessionMu         sync.RWMutex
+	sessions          map[string]validatedSession
+	storageState      StorageState
+	allowDemoPassword bool
 }
 
 type validatedSession struct {
@@ -181,15 +184,16 @@ func New(storage *store.SQLite, config Config) (*Service, error) {
 		},
 	)
 	return &Service{
-		storage:      storage,
-		now:          config.Now,
-		random:       config.Random,
-		bootstrapTTL: config.BootstrapTTL,
-		sessionTTL:   config.SessionTTL,
-		dummyHash:    dummyHash,
-		passwordWork: make(chan struct{}, passwordConcurrency),
-		sessions:     make(map[string]validatedSession),
-		storageState: config.StorageState,
+		storage:           storage,
+		now:               config.Now,
+		random:            config.Random,
+		bootstrapTTL:      config.BootstrapTTL,
+		sessionTTL:        config.SessionTTL,
+		dummyHash:         dummyHash,
+		passwordWork:      make(chan struct{}, passwordConcurrency),
+		sessions:          make(map[string]validatedSession),
+		storageState:      config.StorageState,
+		allowDemoPassword: config.AllowDemoPassword,
 	}, nil
 }
 
@@ -248,7 +252,7 @@ func (service *Service) BootstrapFirstAccount(
 	normalizedName, _, handleErr := normalizeAccountName(handle)
 	displayName, displayErr := normalizeDisplayName(displayName)
 	if handleErr != nil || displayErr != nil ||
-		!validPassword(password) || !validToken(bootstrapToken) {
+		!service.validPassword(password) || !validToken(bootstrapToken) {
 		return Session{}, ErrInvalidAccountDetails
 	}
 	passwordHash, err := service.hashPassword(password)
@@ -431,7 +435,7 @@ func (service *Service) CreateAccount(
 				return accountRejectionExecution[Account](ErrAdministratorRequired), nil
 			}
 			normalizedName, displayName, normalizeErr := normalizeAccountName(name)
-			if normalizeErr != nil || !validPassword(password) {
+			if normalizeErr != nil || !service.validPassword(password) {
 				// The executor returns this rejection only after its Receipt and Audit Entry commit.
 				//nolint:nilerr // A callback error would roll back the durable rejection.
 				return accountRejectionExecution[Account](ErrInvalidAccountDetails), nil
@@ -910,6 +914,10 @@ func normalizeDisplayName(name string) (string, error) {
 func validPassword(password string) bool {
 	length := utf8.RuneCountInString(password)
 	return utf8.ValidString(password) && length >= 12 && length <= 1024
+}
+
+func (service *Service) validPassword(password string) bool {
+	return validPassword(password) || service.allowDemoPassword && password == "demo"
 }
 
 func validToken(token string) bool {

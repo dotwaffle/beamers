@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/tls"
 	"io"
 	"net"
@@ -9,6 +10,7 @@ import (
 	"net/netip"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestRoutePolicyMatchesRegisteredRoutesAndFailsClosed(t *testing.T) {
@@ -303,7 +305,7 @@ func TestInsecureModesRenderCrewHTMLWarning(t *testing.T) {
 		_, _ = response.Write([]byte("<!doctype html><html><body><main>Control</main></body></html>"))
 	}), map[string]routeContract{
 		"/crew/program/1": {
-			kind: crewInterface, mutatesOnRead: true, crewWarningPage: true,
+			kind: crewInterface, mutatesOnRead: true, browserWarningPage: true,
 		},
 	}, interfacePolicy{
 		listenerAddress:      &net.TCPAddr{IP: net.IPv4zero, Port: 8080},
@@ -324,6 +326,63 @@ func TestInsecureModesRenderCrewHTMLWarning(t *testing.T) {
 		!strings.Contains(body, "insecure Crew mode enabled") ||
 		!strings.Contains(body, "insecure Display mode enabled") {
 		t.Fatalf("Crew HTML warning = %q", body)
+	}
+}
+
+func TestDemoWarningDoesNotBufferPersistentStreams(t *testing.T) {
+	handler := protectTestRoutes(http.HandlerFunc(func(
+		response http.ResponseWriter,
+		request *http.Request,
+	) {
+		response.Header().Set("Content-Type", "text/event-stream")
+		_, _ = response.Write([]byte("data: ready\n\n"))
+		_ = http.NewResponseController(response).Flush()
+		<-request.Context().Done()
+	}), map[string]routeContract{
+		"/events": {kind: displayInterface, persistent: true},
+	}, interfacePolicy{
+		listenerAddress:      &net.TCPAddr{IP: net.IPv4zero, Port: 8080},
+		allowInsecureDisplay: true,
+		demo:                 true,
+	})
+	server := httptest.NewServer(handler)
+	t.Cleanup(server.Close)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/events", http.NoBody)
+	if err != nil {
+		t.Fatalf("create stream request: %v", err)
+	}
+	type streamResult struct {
+		content string
+		err     error
+	}
+	streamReady := make(chan streamResult, 1)
+	go func() {
+		response, requestErr := server.Client().Do(request)
+		if requestErr != nil {
+			streamReady <- streamResult{err: requestErr}
+			return
+		}
+		defer func() {
+			_ = response.Body.Close()
+		}()
+		content := make([]byte, len("data: ready\n\n"))
+		_, requestErr = io.ReadFull(response.Body, content)
+		streamReady <- streamResult{content: string(content), err: requestErr}
+	}()
+	select {
+	case result := <-streamReady:
+		if result.err != nil {
+			t.Fatalf("open stream: %v", result.err)
+		}
+		if result.content != "data: ready\n\n" {
+			t.Fatalf("stream prefix = %q", result.content)
+		}
+		cancel()
+	case <-time.After(time.Second):
+		cancel()
+		t.Fatal("demo warning buffered persistent stream")
 	}
 }
 
