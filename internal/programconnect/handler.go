@@ -243,15 +243,32 @@ func (handler *Handler) channel(
 		}
 		statuses = nil
 	}
+	previous, err := programItemMessage(state.Channel.Previous)
+	if err != nil {
+		return nil, err
+	}
+	current, err := programItemMessage(state.Channel.Current)
+	if err != nil {
+		return nil, err
+	}
+	next, err := programItemMessage(state.Channel.Next)
+	if err != nil {
+		return nil, err
+	}
+	preview, err := programItemMessage(state.Preview)
+	if err != nil {
+		return nil, err
+	}
+	output, err := programItemMessage(state.Channel.Output)
+	if err != nil {
+		return nil, err
+	}
 	result := &programv1.ProgramChannel{
 		EventId: int64(state.Channel.EventID), SessionId: int64(state.Channel.SessionID),
 		Name: state.Channel.Name, LiveStateRevision: int64(state.Channel.Revision),
 		ControlStateRevision: int64(state.ControlRevision),
-		Previous:             programItemMessage(state.Channel.Previous),
-		Current:              programItemMessage(state.Channel.Current),
-		Next:                 programItemMessage(state.Channel.Next),
-		Preview:              programItemMessage(state.Preview),
-		ProgramOutput:        programItemMessage(state.Channel.Output),
+		Previous:             previous, Current: current, Next: next,
+		Preview: preview, ProgramOutput: output,
 	}
 	if !state.Channel.TakenAt.IsZero() {
 		result.TakenAt = timestamppb.New(state.Channel.TakenAt)
@@ -263,7 +280,11 @@ func (handler *Handler) channel(
 		result.HandoverRequester = ownerMessage(*state.HandoverRequester)
 	}
 	for _, item := range state.Channel.Items {
-		result.Items = append(result.Items, programItemMessage(item))
+		message, projectionErr := programItemMessage(item)
+		if projectionErr != nil {
+			return nil, projectionErr
+		}
+		result.Items = append(result.Items, message)
 	}
 	for _, status := range statuses {
 		if status.ViewKey != displayviews.CompetitionOutput ||
@@ -319,9 +340,13 @@ func programItemFromMessage(found *programv1.ProgramItem) store.ProgramItem {
 	}
 }
 
-func programItemMessage(found store.ProgramItem) *programv1.ProgramItem {
+func programItemMessage(found store.ProgramItem) (*programv1.ProgramItem, error) {
 	if found.Kind == "" {
-		return nil
+		return nil, nil
+	}
+	result, err := ProgramResultMessage(found.Result)
+	if err != nil {
+		return nil, err
 	}
 	return &programv1.ProgramItem{
 		Kind: map[store.ProgramItemKind]programv1.ProgramItemKind{
@@ -333,8 +358,8 @@ func programItemMessage(found store.ProgramItem) *programv1.ProgramItem {
 			store.ProgramItemResult:   programv1.ProgramItemKind_PROGRAM_ITEM_KIND_RESULT,
 		}[found.Kind],
 		EntryId: int64(found.EntryID), Title: found.Title, Retry: found.Retry,
-		Result: ProgramResultMessage(found.Result),
-	}
+		Result: result,
+	}, nil
 }
 
 func ownerMessage(found programcontrol.Owner) *programv1.ControlOwner {

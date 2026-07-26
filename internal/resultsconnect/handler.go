@@ -14,6 +14,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/connectapi"
 	"github.com/dotwaffle/beamers/internal/results"
+	"github.com/dotwaffle/beamers/internal/resultsprojection"
 )
 
 // Handler translates Results Connect requests.
@@ -72,8 +73,12 @@ func (handler *Handler) GetCompetitionResultsDraft(
 	if err != nil {
 		return nil, err
 	}
+	projected, err := resultsprojection.Draft(&found)
+	if err != nil {
+		return nil, err
+	}
 	return connect.NewResponse(&resultsv1.GetCompetitionResultsDraftResponse{
-		Draft: draft(found),
+		Draft: projected,
 	}), nil
 }
 
@@ -103,8 +108,12 @@ func (handler *Handler) SaveCompetitionResultsDraft(
 	if err != nil {
 		return nil, err
 	}
+	projected, err := resultsprojection.Draft(&saved)
+	if err != nil {
+		return nil, err
+	}
 	return connect.NewResponse(&resultsv1.SaveCompetitionResultsDraftResponse{
-		Draft: draft(saved),
+		Draft: projected,
 	}), nil
 }
 
@@ -133,8 +142,12 @@ func (handler *Handler) SaveCompetitionAwards(
 	if err != nil {
 		return nil, err
 	}
+	projected, err := resultsprojection.Draft(&saved)
+	if err != nil {
+		return nil, err
+	}
 	return connect.NewResponse(&resultsv1.SaveCompetitionAwardsResponse{
-		Draft: draft(saved),
+		Draft: projected,
 	}), nil
 }
 
@@ -155,8 +168,12 @@ func (handler *Handler) MarkCompetitionResultsReady(
 	if err != nil {
 		return nil, err
 	}
+	projected, err := resultsprojection.Draft(&ready)
+	if err != nil {
+		return nil, err
+	}
 	return connect.NewResponse(&resultsv1.MarkCompetitionResultsReadyResponse{
-		Draft: draft(ready),
+		Draft: projected,
 	}), nil
 }
 
@@ -199,8 +216,12 @@ func (handler *Handler) GetEventAwardsDraft(
 	if err != nil {
 		return nil, err
 	}
+	projected, err := resultsprojection.EventAwardsDraft(&found)
+	if err != nil {
+		return nil, err
+	}
 	return connect.NewResponse(&resultsv1.GetEventAwardsDraftResponse{
-		Draft: eventAwardsDraft(found),
+		Draft: projected,
 	}), nil
 }
 
@@ -224,8 +245,12 @@ func (handler *Handler) SaveEventAwardsDraft(
 	if err != nil {
 		return nil, err
 	}
+	projected, err := resultsprojection.EventAwardsDraft(&saved)
+	if err != nil {
+		return nil, err
+	}
 	return connect.NewResponse(&resultsv1.SaveEventAwardsDraftResponse{
-		Draft: eventAwardsDraft(saved),
+		Draft: projected,
 	}), nil
 }
 
@@ -254,8 +279,12 @@ func (handler *Handler) MarkEventAwardsReady(
 	if err != nil {
 		return nil, err
 	}
+	projected, err := resultsprojection.EventAwardsDraft(&ready)
+	if err != nil {
+		return nil, err
+	}
 	return connect.NewResponse(&resultsv1.MarkEventAwardsReadyResponse{
-		Draft: eventAwardsDraft(ready),
+		Draft: projected,
 	}), nil
 }
 
@@ -277,8 +306,12 @@ func (handler *Handler) GetPrizegivingPlan(
 	if err != nil {
 		return nil, err
 	}
+	projected, err := prizegivingPlan(found)
+	if err != nil {
+		return nil, err
+	}
 	return connect.NewResponse(&resultsv1.GetPrizegivingPlanResponse{
-		Plan: prizegivingPlan(found),
+		Plan: projected,
 	}), nil
 }
 
@@ -322,8 +355,12 @@ func (handler *Handler) SavePrizegivingPlan(
 	if err != nil {
 		return nil, err
 	}
+	projected, err := prizegivingPlan(saved)
+	if err != nil {
+		return nil, err
+	}
 	return connect.NewResponse(&resultsv1.SavePrizegivingPlanResponse{
-		Plan: prizegivingPlan(saved),
+		Plan: projected,
 	}), nil
 }
 
@@ -359,8 +396,12 @@ func (handler *Handler) RunPrizegivingPreflight(
 			Code: finding.Code, Message: finding.Message,
 		})
 	}
+	projected, projectionErr := prizegivingPlan(preflight.Plan)
+	if projectionErr != nil {
+		return nil, projectionErr
+	}
 	return connect.NewResponse(&resultsv1.RunPrizegivingPreflightResponse{
-		Plan: prizegivingPlan(preflight.Plan), Findings: findings,
+		Plan: projected, Findings: findings,
 	}), nil
 }
 
@@ -383,13 +424,27 @@ func (handler *Handler) PreviewPrizegiving(
 	if err != nil {
 		return nil, err
 	}
+	drafts, err := resultsprojection.Drafts(preview.CompetitionResults)
+	if err != nil {
+		return nil, err
+	}
+	awards, err := resultsprojection.EventAwards(preview.EventAwards)
+	if err != nil {
+		return nil, err
+	}
+	plan, err := prizegivingPlan(preview.Plan)
+	if err != nil {
+		return nil, err
+	}
+	mode, err := resultsprojection.PreviewMode(string(preview.Mode))
+	if err != nil {
+		return nil, err
+	}
 	return connect.NewResponse(&resultsv1.PreviewPrizegivingResponse{
 		Preview: &resultsv1.PrizegivingPreview{
-			Mode:               prizegivingPreviewMode(preview.Mode),
-			Watermark:          preview.Watermark,
-			Plan:               prizegivingPlan(preview.Plan),
-			CompetitionResults: competitionResultsDrafts(preview.CompetitionResults),
-			EventAwards:        eventAwards(preview.EventAwards),
+			Mode: mode, Watermark: preview.Watermark,
+			Plan:               plan,
+			CompetitionResults: drafts, EventAwards: awards,
 		},
 	}), nil
 }
@@ -415,8 +470,12 @@ func (handler *Handler) FirePrizegivingResultsCue(
 	if err != nil {
 		return nil, err
 	}
+	publication, err := resultsPublication(released)
+	if err != nil {
+		return nil, err
+	}
 	return connect.NewResponse(&resultsv1.FirePrizegivingResultsCueResponse{
-		Publication: resultsPublication(released),
+		Publication: publication,
 	}), nil
 }
 
@@ -441,8 +500,12 @@ func (handler *Handler) ReleaseStandaloneResults(
 	if err != nil {
 		return nil, err
 	}
+	publication, err := resultsPublication(released)
+	if err != nil {
+		return nil, err
+	}
 	return connect.NewResponse(&resultsv1.ReleaseStandaloneResultsResponse{
-		Publication: resultsPublication(released),
+		Publication: publication,
 	}), nil
 }
 
@@ -473,8 +536,12 @@ func (handler *Handler) PreflightStandaloneEventAwards(
 			Code: finding.Code, Message: finding.Message,
 		})
 	}
+	lock, err := prizegivingPreflightLock(preflight.Lock)
+	if err != nil {
+		return nil, err
+	}
 	return connect.NewResponse(&resultsv1.PreflightStandaloneEventAwardsResponse{
-		Lock: prizegivingPreflightLock(preflight.Lock), Findings: findings,
+		Lock: lock, Findings: findings,
 	}), nil
 }
 
@@ -499,8 +566,12 @@ func (handler *Handler) ReleaseStandaloneEventAwards(
 	if err != nil {
 		return nil, err
 	}
+	publication, err := resultsPublication(released)
+	if err != nil {
+		return nil, err
+	}
 	return connect.NewResponse(&resultsv1.ReleaseStandaloneEventAwardsResponse{
-		Publication: resultsPublication(released),
+		Publication: publication,
 	}), nil
 }
 
@@ -523,8 +594,12 @@ func (handler *Handler) GetResultsCorrection(
 	if err != nil {
 		return nil, err
 	}
+	correction, err := resultsCorrection(found)
+	if err != nil {
+		return nil, err
+	}
 	return connect.NewResponse(&resultsv1.GetResultsCorrectionResponse{
-		Correction: resultsCorrection(found),
+		Correction: correction,
 	}), nil
 }
 
@@ -557,8 +632,12 @@ func (handler *Handler) SaveResultsCorrection(
 	if err != nil {
 		return nil, err
 	}
+	correction, err := resultsCorrection(saved)
+	if err != nil {
+		return nil, err
+	}
 	return connect.NewResponse(&resultsv1.SaveResultsCorrectionResponse{
-		Correction: resultsCorrection(saved),
+		Correction: correction,
 	}), nil
 }
 
@@ -585,8 +664,12 @@ func (handler *Handler) ReviewResultsCorrection(
 	if err != nil {
 		return nil, err
 	}
+	correction, err := resultsCorrection(reviewed)
+	if err != nil {
+		return nil, err
+	}
 	return connect.NewResponse(&resultsv1.ReviewResultsCorrectionResponse{
-		Correction: resultsCorrection(reviewed),
+		Correction: correction,
 	}), nil
 }
 
@@ -613,9 +696,16 @@ func (handler *Handler) PublishResultsCorrection(
 	if err != nil {
 		return nil, err
 	}
+	correction, err := resultsCorrection(published.Correction)
+	if err != nil {
+		return nil, err
+	}
+	publication, err := resultsPublication(published.Publication)
+	if err != nil {
+		return nil, err
+	}
 	return connect.NewResponse(&resultsv1.PublishResultsCorrectionResponse{
-		Correction:  resultsCorrection(published.Correction),
-		Publication: resultsPublication(published.Publication),
+		Correction: correction, Publication: publication,
 	}), nil
 }
 
@@ -638,8 +728,12 @@ func (handler *Handler) GetResultsCorrectionHistory(
 	if err != nil {
 		return nil, err
 	}
+	history, err := resultsCorrectionHistory(found)
+	if err != nil {
+		return nil, err
+	}
 	return connect.NewResponse(&resultsv1.GetResultsCorrectionHistoryResponse{
-		History: resultsCorrectionHistory(found),
+		History: history,
 	}), nil
 }
 
@@ -803,77 +897,6 @@ func scoreValueFromProto(value *resultsv1.ScoreValue) (results.ScoreValue, error
 	}
 }
 
-func draft(value results.Draft) *resultsv1.CompetitionResultsDraft {
-	standings := make([]*resultsv1.CompetitionResultStanding, 0, len(value.Standings))
-	for _, standing := range value.Standings {
-		found := &resultsv1.CompetitionResultStanding{
-			EntryId:      int64(standing.EntryID),
-			Standing:     resultStanding(standing.Standing),
-			DisplayOrder: int32(standing.DisplayOrder), //nolint:gosec // Validated maximum is 10000.
-			Score:        scoreValue(standing.Score),
-		}
-		if standing.Placement > 0 {
-			placement := int64(standing.Placement)
-			found.Placement = &placement
-		}
-		standings = append(standings, found)
-	}
-	result := &resultsv1.CompetitionResultsDraft{
-		Id: int64(value.ID), EventId: int64(value.EventID), SessionId: int64(value.SessionID),
-		Revision: int64(value.Revision), Disposition: resultsDisposition(value.Disposition),
-		NoPublicCrewReason: value.NoPublicReason, PublicExplanation: value.PublicExplanation,
-		Score: scorePolicy(value.Score), Standings: standings, Ready: value.Ready,
-		ReadyByAccountId:   int64(value.ReadyByAccountID),
-		CreatedByAccountId: int64(value.CreatedByAccountID),
-		Awards:             competitionAwards(value.Awards),
-	}
-	if !value.ReadyAt.IsZero() {
-		result.ReadyAt = timestamppb.New(value.ReadyAt)
-	}
-	if !value.CreatedAt.IsZero() {
-		result.CreatedAt = timestamppb.New(value.CreatedAt)
-	}
-	return result
-}
-
-func competitionResultsDrafts(
-	values []results.Draft,
-) []*resultsv1.CompetitionResultsDraft {
-	drafts := make([]*resultsv1.CompetitionResultsDraft, 0, len(values))
-	for _, value := range values {
-		drafts = append(drafts, draft(value))
-	}
-	return drafts
-}
-
-func competitionAwards(values []results.Award) []*resultsv1.CompetitionAward {
-	awards := make([]*resultsv1.CompetitionAward, 0, len(values))
-	for _, value := range values {
-		awards = append(awards, &resultsv1.CompetitionAward{
-			Key: value.Key, Name: value.Name, Recipients: awardRecipients(value.Recipients),
-			Promoted:     value.Promoted,
-			DisplayOrder: int32(value.DisplayOrder), //nolint:gosec // Award count is limited to 1000.
-		})
-	}
-	return awards
-}
-
-func awardRecipients(values []results.AwardRecipient) []*resultsv1.AwardRecipient {
-	recipients := make([]*resultsv1.AwardRecipient, 0, len(values))
-	for _, value := range values {
-		found := &resultsv1.AwardRecipient{}
-		if value.EntryID > 0 {
-			found.Recipient = &resultsv1.AwardRecipient_EntryId{EntryId: int64(value.EntryID)}
-		} else {
-			found.Recipient = &resultsv1.AwardRecipient_DisplayName{
-				DisplayName: value.DisplayName,
-			}
-		}
-		recipients = append(recipients, found)
-	}
-	return recipients
-}
-
 func awardReleasePathFromProto(
 	value *resultsv1.AwardReleasePath,
 ) (results.AwardReleasePath, error) {
@@ -892,51 +915,6 @@ func awardReleasePathFromProto(
 	}, nil
 }
 
-func awardReleasePath(value results.AwardReleasePath) *resultsv1.AwardReleasePath {
-	return &resultsv1.AwardReleasePath{
-		Kind: map[results.AwardReleasePathKind]resultsv1.AwardReleasePathKind{
-			results.StandaloneRelease:  resultsv1.AwardReleasePathKind_AWARD_RELEASE_PATH_KIND_STANDALONE,
-			results.PrizegivingRelease: resultsv1.AwardReleasePathKind_AWARD_RELEASE_PATH_KIND_PRIZEGIVING,
-		}[value.Kind],
-		PrizegivingSessionId: int64(value.PrizegivingSessionID),
-	}
-}
-
-func eventAwardsDraft(value results.EventAwardsDraft) *resultsv1.EventAwardsDraft {
-	states := make([]*resultsv1.EventAwardPathState, 0, len(value.PathStates))
-	for _, state := range value.PathStates {
-		found := &resultsv1.EventAwardPathState{
-			ReleasePath: awardReleasePath(state.ReleasePath), Revision: int64(state.Revision),
-			Ready: state.Ready, ReadyByAccountId: int64(state.ReadyByAccountID),
-		}
-		if !state.ReadyAt.IsZero() {
-			found.ReadyAt = timestamppb.New(state.ReadyAt)
-		}
-		states = append(states, found)
-	}
-	result := &resultsv1.EventAwardsDraft{
-		Id: int64(value.ID), EventId: int64(value.EventID), Revision: int64(value.Revision),
-		Awards: eventAwards(value.Awards), PathStates: states,
-		CreatedByAccountId: int64(value.CreatedByAccountID),
-	}
-	if !value.CreatedAt.IsZero() {
-		result.CreatedAt = timestamppb.New(value.CreatedAt)
-	}
-	return result
-}
-
-func eventAwards(values []results.EventAward) []*resultsv1.EventAward {
-	awards := make([]*resultsv1.EventAward, 0, len(values))
-	for _, award := range values {
-		awards = append(awards, &resultsv1.EventAward{
-			Key: award.Key, Name: award.Name, Recipients: awardRecipients(award.Recipients),
-			DisplayOrder: int32(award.DisplayOrder), //nolint:gosec // Award count is limited to 1000.
-			ReleasePath:  awardReleasePath(award.ReleasePath),
-		})
-	}
-	return awards
-}
-
 func prizegiving(value results.Prizegiving) *resultsv1.Prizegiving {
 	result := &resultsv1.Prizegiving{
 		Id: int64(value.ID), EventId: int64(value.EventID),
@@ -949,57 +927,45 @@ func prizegiving(value results.Prizegiving) *resultsv1.Prizegiving {
 	return result
 }
 
-func prizegivingPlan(value results.PrizegivingPlan) *resultsv1.PrizegivingPlan {
+func prizegivingPlan(value results.PrizegivingPlan) (*resultsv1.PrizegivingPlan, error) {
 	competitionSessionIDs := make([]int64, 0, len(value.CompetitionSessionIDs))
 	for _, competitionSessionID := range value.CompetitionSessionIDs {
 		competitionSessionIDs = append(competitionSessionIDs, int64(competitionSessionID))
+	}
+	sequence, err := resultsprojection.Items(value.Sequence)
+	if err != nil {
+		return nil, err
+	}
+	publicationOrder, err := resultsprojection.ItemRefs(value.PublicationOrder)
+	if err != nil {
+		return nil, err
+	}
+	releasePolicy, err := resultsprojection.ReleasePolicy(string(value.ReleasePolicy))
+	if err != nil {
+		return nil, err
 	}
 	result := &resultsv1.PrizegivingPlan{
 		Id: int64(value.ID), EventId: int64(value.EventID),
 		CeremonySessionId:     int64(value.CeremonySessionID),
 		Revision:              int64(value.Revision),
 		CompetitionSessionIds: competitionSessionIDs,
-		Sequence:              resultItems(value.Sequence),
-		PublicationOrder:      resultItemRefs(value.PublicationOrder),
-		ReleasePolicy:         resultsReleasePolicy(value.ReleasePolicy),
+		Sequence:              sequence,
+		PublicationOrder:      publicationOrder,
+		ReleasePolicy:         releasePolicy,
 		ResultsTextTemplate:   resultsTextTemplate(value.Template),
 		Locked:                value.Locked,
 		LockedByAccountId:     int64(value.LockedByAccountID),
 	}
 	if value.Locked {
-		result.PreflightLock = prizegivingPreflightLock(value.Lock)
+		result.PreflightLock, err = prizegivingPreflightLock(value.Lock)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if !value.LockedAt.IsZero() {
 		result.LockedAt = timestamppb.New(value.LockedAt)
 	}
-	return result
-}
-
-func resultItems(values []results.ResultItem) []*resultsv1.ResultItem {
-	items := make([]*resultsv1.ResultItem, 0, len(values))
-	for _, value := range values {
-		items = append(items, &resultsv1.ResultItem{
-			Kind:                 resultItemKind(value.Kind),
-			CompetitionSessionId: int64(value.CompetitionSessionID),
-			AwardKey:             value.AwardKey,
-			DisplayOrder:         int32(value.DisplayOrder), //nolint:gosec // Result Items are bounded to 3000.
-			RevealMethod:         revealMethod(value.RevealMethod),
-		})
-	}
-	return items
-}
-
-func resultItemRefs(values []results.ResultItemRef) []*resultsv1.ResultItemRef {
-	items := make([]*resultsv1.ResultItemRef, 0, len(values))
-	for _, value := range values {
-		items = append(items, &resultsv1.ResultItemRef{
-			Kind:                 resultItemKind(value.Kind),
-			CompetitionSessionId: int64(value.CompetitionSessionID),
-			AwardKey:             value.AwardKey,
-			DisplayOrder:         int32(value.DisplayOrder), //nolint:gosec // Result Items are bounded to 3000.
-		})
-	}
-	return items
+	return result, nil
 }
 
 func resultsTextTemplate(
@@ -1025,46 +991,50 @@ func resultsTextTemplateFromProto(
 
 func prizegivingPreflightLock(
 	value results.PrizegivingPreflightLock,
-) *resultsv1.PrizegivingPreflightLock {
+) (*resultsv1.PrizegivingPreflightLock, error) {
 	sources := make(
 		[]*resultsv1.PrizegivingCompetitionLock,
 		0,
 		len(value.CompetitionSources),
 	)
 	for _, source := range value.CompetitionSources {
+		disposition, err := resultsprojection.Disposition(string(source.Disposition))
+		if err != nil {
+			return nil, err
+		}
 		sources = append(sources, &resultsv1.PrizegivingCompetitionLock{
 			SessionId: int64(source.SessionID), DraftId: int64(source.DraftID),
 			DraftRevision: int64(source.DraftRevision),
-			Disposition:   resultsDisposition(source.Disposition),
+			Disposition:   disposition,
 		})
 	}
 	sequence := make([]*resultsv1.LockedResultItem, 0, len(value.Sequence))
 	for _, item := range value.Sequence {
+		projected, err := resultsprojection.Item(item.ResultItem)
+		if err != nil {
+			return nil, err
+		}
 		sequence = append(sequence, &resultsv1.LockedResultItem{
-			Item:       resultItems([]results.ResultItem{item.ResultItem})[0],
-			RevealSeed: item.RevealSeed,
+			Item: projected, RevealSeed: item.RevealSeed,
 		})
+	}
+	publicationOrder, err := resultsprojection.ItemRefs(value.PublicationOrder)
+	if err != nil {
+		return nil, err
+	}
+	releasePolicy, err := resultsprojection.ReleasePolicy(string(value.ReleasePolicy))
+	if err != nil {
+		return nil, err
 	}
 	return &resultsv1.PrizegivingPreflightLock{
 		PlanRevision:             int64(value.PlanRevision),
 		CompetitionSources:       sources,
 		EventAwardsDraftRevision: int64(value.EventAwardsDraftRevision),
 		EventAwardsPathRevision:  int64(value.EventAwardsPathRevision),
-		Sequence:                 sequence, PublicationOrder: resultItemRefs(value.PublicationOrder),
-		ReleasePolicy:       resultsReleasePolicy(value.ReleasePolicy),
+		Sequence:                 sequence, PublicationOrder: publicationOrder,
+		ReleasePolicy:       releasePolicy,
 		ResultsTextTemplate: resultsTextTemplate(value.Template),
-	}
-}
-
-func resultsReleasePolicy(
-	value results.ReleasePolicy,
-) resultsv1.ResultsReleasePolicy {
-	return map[results.ReleasePolicy]resultsv1.ResultsReleasePolicy{
-		results.ResultsAllAtCue:            resultsv1.ResultsReleasePolicy_RESULTS_RELEASE_POLICY_ALL_AT_CUE,
-		results.ResultsProgressiveOnReveal: resultsv1.ResultsReleasePolicy_RESULTS_RELEASE_POLICY_PROGRESSIVE_ON_REVEAL,
-		results.ResultsAtCeremonyEnd:       resultsv1.ResultsReleasePolicy_RESULTS_RELEASE_POLICY_AT_CEREMONY_END,
-		results.ResultsStandalone:          resultsv1.ResultsReleasePolicy_RESULTS_RELEASE_POLICY_STANDALONE,
-	}[value]
+	}, nil
 }
 
 func resultsReleasePolicyFromProto(
@@ -1119,16 +1089,32 @@ func correctionProposalFromProto(
 
 func resultsCorrection(
 	value results.Correction,
-) *resultsv1.ResultsCorrection {
+) (*resultsv1.ResultsCorrection, error) {
+	publicationOrder, err := resultsprojection.ItemRefs(value.Proposal.PublicationOrder)
+	if err != nil {
+		return nil, err
+	}
+	items, err := publicResultsItems(value.Proposal.Items)
+	if err != nil {
+		return nil, err
+	}
+	scope, err := resultsprojection.PublicationScope(string(value.Scope))
+	if err != nil {
+		return nil, err
+	}
+	status, err := resultsprojection.CorrectionStatus(string(value.Status))
+	if err != nil {
+		return nil, err
+	}
 	projected := &resultsv1.ResultsCorrection{
-		EventId: int64(value.EventID), Scope: publicationScope(value.Scope),
+		EventId: int64(value.EventID), Scope: scope,
 		ScopeSessionId:          int64(value.ScopeSessionID),
 		Revision:                int64(value.Revision),
 		BasePublicationRevision: int64(value.BasePublicationRevision),
-		Status:                  correctionStatus(value.Status),
+		Status:                  status,
 		Proposal: &resultsv1.ResultsCorrectionProposal{
-			PublicationOrder: resultItemRefs(value.Proposal.PublicationOrder),
-			Items:            publicResultsItems(value.Proposal.Items),
+			PublicationOrder: publicationOrder,
+			Items:            items,
 			ResultsTextTemplate: resultsTextTemplate(
 				value.Proposal.Template,
 			),
@@ -1141,7 +1127,7 @@ func resultsCorrection(
 	if !value.CreatedAt.IsZero() {
 		projected.CreatedAt = timestamppb.New(value.CreatedAt)
 	}
-	return projected
+	return projected, nil
 }
 
 func publicResultsItemsFromProto(
@@ -1253,10 +1239,14 @@ func publicResultsAwardFromProto(
 
 func publicResultsItems(
 	values []results.PublicResultsItem,
-) []*resultsv1.PublicResultsItem {
+) ([]*resultsv1.PublicResultsItem, error) {
 	items := make([]*resultsv1.PublicResultsItem, 0, len(values))
 	for _, value := range values {
-		item := &resultsv1.PublicResultsItem{Kind: resultItemKind(value.Kind)}
+		kind, err := resultsprojection.ItemKind(string(value.Kind))
+		if err != nil {
+			return nil, err
+		}
+		item := &resultsv1.PublicResultsItem{Kind: kind}
 		switch {
 		case value.Competition != nil:
 			item.Item = &resultsv1.PublicResultsItem_Competition{
@@ -1273,7 +1263,7 @@ func publicResultsItems(
 		}
 		items = append(items, item)
 	}
-	return items
+	return items, nil
 }
 
 func publicCompetitionResults(
@@ -1341,7 +1331,7 @@ func publicResultsAward(
 
 func resultsCorrectionHistory(
 	value results.CorrectionHistory,
-) *resultsv1.ResultsCorrectionHistory {
+) (*resultsv1.ResultsCorrectionHistory, error) {
 	projected := &resultsv1.ResultsCorrectionHistory{
 		Corrections: make(
 			[]*resultsv1.ResultsCorrection,
@@ -1355,16 +1345,28 @@ func resultsCorrectionHistory(
 		),
 	}
 	for _, correction := range value.Corrections {
+		projectedCorrection, err := resultsCorrection(correction)
+		if err != nil {
+			return nil, err
+		}
 		projected.Corrections = append(
 			projected.Corrections,
-			resultsCorrection(correction),
+			projectedCorrection,
 		)
 	}
 	for _, publication := range value.Publications {
+		publicationOrder, err := resultsprojection.ItemRefs(publication.PublicationOrder)
+		if err != nil {
+			return nil, err
+		}
+		status, err := resultsprojection.PublicationStatus(string(publication.Status))
+		if err != nil {
+			return nil, err
+		}
 		item := &resultsv1.ResultsPublicationHistoryRevision{
 			Revision:            int64(publication.Revision),
-			Status:              resultsPublicationStatus(publication.Status),
-			PublicationOrder:    resultItemRefs(publication.PublicationOrder),
+			Status:              status,
+			PublicationOrder:    publicationOrder,
 			ResultsTextTemplate: resultsTextTemplate(publication.Template),
 			RenderedHtml:        publication.HTML,
 			RenderedText:        publication.Text,
@@ -1378,17 +1380,7 @@ func resultsCorrectionHistory(
 		}
 		projected.Publications = append(projected.Publications, item)
 	}
-	return projected
-}
-
-func publicationScope(
-	value results.PublicationScope,
-) resultsv1.ResultsPublicationScope {
-	return map[results.PublicationScope]resultsv1.ResultsPublicationScope{
-		results.PublicationScopePrizegiving: resultsv1.ResultsPublicationScope_RESULTS_PUBLICATION_SCOPE_PRIZEGIVING,
-		results.PublicationScopeStandalone:  resultsv1.ResultsPublicationScope_RESULTS_PUBLICATION_SCOPE_STANDALONE,
-		results.PublicationScopeEventAwards: resultsv1.ResultsPublicationScope_RESULTS_PUBLICATION_SCOPE_EVENT_AWARDS,
-	}[value]
+	return projected, nil
 }
 
 func publicationScopeFromProto(
@@ -1401,40 +1393,20 @@ func publicationScopeFromProto(
 	}[value]
 }
 
-func correctionStatus(
-	value results.CorrectionStatus,
-) resultsv1.ResultsCorrectionStatus {
-	return map[results.CorrectionStatus]resultsv1.ResultsCorrectionStatus{
-		results.CorrectionDraft:     resultsv1.ResultsCorrectionStatus_RESULTS_CORRECTION_STATUS_DRAFT,
-		results.CorrectionReady:     resultsv1.ResultsCorrectionStatus_RESULTS_CORRECTION_STATUS_READY,
-		results.CorrectionPublished: resultsv1.ResultsCorrectionStatus_RESULTS_CORRECTION_STATUS_PUBLISHED,
-	}[value]
-}
-
-func resultsPublicationStatus(
-	value results.PublicationStatus,
-) resultsv1.ResultsPublicationStatus {
-	return map[results.PublicationStatus]resultsv1.ResultsPublicationStatus{
-		results.ResultsPublicationPartial: resultsv1.ResultsPublicationStatus_RESULTS_PUBLICATION_STATUS_PARTIAL,
-		results.ResultsPublicationFinal:   resultsv1.ResultsPublicationStatus_RESULTS_PUBLICATION_STATUS_FINAL,
-	}[value]
-}
-
-func resultsPublication(value results.Publication) *resultsv1.ResultsPublication {
+func resultsPublication(value results.Publication) (*resultsv1.ResultsPublication, error) {
+	items, err := resultsprojection.ItemRefs(value.Items)
+	if err != nil {
+		return nil, err
+	}
+	status, err := resultsprojection.PublicationStatus(string(value.Status))
+	if err != nil {
+		return nil, err
+	}
 	return &resultsv1.ResultsPublication{
 		Revision: int64(value.Revision),
-		Status:   resultsPublicationStatus(value.Status),
-		Items:    resultItemRefs(value.Items),
-	}
-}
-
-func resultItemKind(value results.ResultItemKind) resultsv1.ResultItemKind {
-	return map[results.ResultItemKind]resultsv1.ResultItemKind{
-		results.ResultItemCompetition:      resultsv1.ResultItemKind_RESULT_ITEM_KIND_COMPETITION_RESULTS,
-		results.ResultItemNoPublicResults:  resultsv1.ResultItemKind_RESULT_ITEM_KIND_NO_PUBLIC_RESULTS,
-		results.ResultItemCompetitionAward: resultsv1.ResultItemKind_RESULT_ITEM_KIND_COMPETITION_AWARD,
-		results.ResultItemEventAward:       resultsv1.ResultItemKind_RESULT_ITEM_KIND_EVENT_AWARD,
-	}[value]
+		Status:   status,
+		Items:    items,
+	}, nil
 }
 
 func resultItemKindFromProto(value resultsv1.ResultItemKind) results.ResultItemKind {
@@ -1443,14 +1415,6 @@ func resultItemKindFromProto(value resultsv1.ResultItemKind) results.ResultItemK
 		resultsv1.ResultItemKind_RESULT_ITEM_KIND_NO_PUBLIC_RESULTS:   results.ResultItemNoPublicResults,
 		resultsv1.ResultItemKind_RESULT_ITEM_KIND_COMPETITION_AWARD:   results.ResultItemCompetitionAward,
 		resultsv1.ResultItemKind_RESULT_ITEM_KIND_EVENT_AWARD:         results.ResultItemEventAward,
-	}[value]
-}
-
-func revealMethod(value results.RevealMethod) resultsv1.RevealMethod {
-	return map[results.RevealMethod]resultsv1.RevealMethod{
-		results.RevealStatic:            resultsv1.RevealMethod_REVEAL_METHOD_STATIC_RESULT,
-		results.RevealSequentialPodium:  resultsv1.RevealMethod_REVEAL_METHOD_SEQUENTIAL_PODIUM,
-		results.RevealAnimatedScoreBars: resultsv1.RevealMethod_REVEAL_METHOD_ANIMATED_SCORE_BARS,
 	}[value]
 }
 
@@ -1463,15 +1427,6 @@ func revealMethodFromProto(value resultsv1.RevealMethod) results.RevealMethod {
 		return method
 	}
 	return results.RevealMethod("Invalid")
-}
-
-func prizegivingPreviewMode(
-	value results.PrizegivingPreviewMode,
-) resultsv1.PrizegivingPreviewMode {
-	return map[results.PrizegivingPreviewMode]resultsv1.PrizegivingPreviewMode{
-		results.PrizegivingPreviewModePreview:   resultsv1.PrizegivingPreviewMode_PRIZEGIVING_PREVIEW_MODE_PREVIEW,
-		results.PrizegivingPreviewModeRehearsal: resultsv1.PrizegivingPreviewMode_PRIZEGIVING_PREVIEW_MODE_REHEARSAL,
-	}[value]
 }
 
 func prizegivingPreviewModeFromProto(
@@ -1491,31 +1446,6 @@ func int64sToInts(values []int64) []int {
 	return result
 }
 
-func scoreValue(value results.ScoreValue) *resultsv1.ScoreValue {
-	switch {
-	case value.Decimal != nil:
-		return &resultsv1.ScoreValue{
-			Value: &resultsv1.ScoreValue_Decimal{Decimal: *value.Decimal},
-		}
-	case value.Duration != nil:
-		return &resultsv1.ScoreValue{
-			Value: &resultsv1.ScoreValue_Duration{Duration: durationpb.New(*value.Duration)},
-		}
-	default:
-		return nil
-	}
-}
-
-func scorePolicy(value results.ScorePolicy) *resultsv1.ScorePolicy {
-	return &resultsv1.ScorePolicy{
-		Type: scoreType(value.Type), Visibility: scoreVisibility(value.Visibility),
-		Unit:           value.Unit,
-		Precision:      int32(value.Precision), //nolint:gosec // Domain precision is limited to 0..9.
-		Requirement:    scoreRequirement(value.Requirement),
-		Interpretation: scoreInterpretation(value.Interpretation),
-	}
-}
-
 func scorePolicyFromProto(value *resultsv1.ScorePolicy) results.ScorePolicy {
 	if value == nil {
 		return results.ScorePolicy{}
@@ -1529,14 +1459,6 @@ func scorePolicyFromProto(value *resultsv1.ScorePolicy) results.ScorePolicy {
 	}
 }
 
-func resultsDisposition(value results.Disposition) resultsv1.ResultsDisposition {
-	return map[results.Disposition]resultsv1.ResultsDisposition{
-		results.Pending:         resultsv1.ResultsDisposition_RESULTS_DISPOSITION_PENDING,
-		results.Publish:         resultsv1.ResultsDisposition_RESULTS_DISPOSITION_PUBLISH,
-		results.NoPublicResults: resultsv1.ResultsDisposition_RESULTS_DISPOSITION_NO_PUBLIC_RESULTS,
-	}[value]
-}
-
 func resultsDispositionFromProto(value resultsv1.ResultsDisposition) results.Disposition {
 	return map[resultsv1.ResultsDisposition]results.Disposition{
 		resultsv1.ResultsDisposition_RESULTS_DISPOSITION_PENDING:           results.Pending,
@@ -1545,25 +1467,10 @@ func resultsDispositionFromProto(value resultsv1.ResultsDisposition) results.Dis
 	}[value]
 }
 
-func resultStanding(value results.ResultStanding) resultsv1.ResultStanding {
-	return map[results.ResultStanding]resultsv1.ResultStanding{
-		results.Placed:   resultsv1.ResultStanding_RESULT_STANDING_PLACED,
-		results.Unplaced: resultsv1.ResultStanding_RESULT_STANDING_UNPLACED,
-	}[value]
-}
-
 func resultStandingFromProto(value resultsv1.ResultStanding) results.ResultStanding {
 	return map[resultsv1.ResultStanding]results.ResultStanding{
 		resultsv1.ResultStanding_RESULT_STANDING_PLACED:   results.Placed,
 		resultsv1.ResultStanding_RESULT_STANDING_UNPLACED: results.Unplaced,
-	}[value]
-}
-
-func scoreType(value results.ScoreType) resultsv1.ScoreType {
-	return map[results.ScoreType]resultsv1.ScoreType{
-		results.None:     resultsv1.ScoreType_SCORE_TYPE_NONE,
-		results.Decimal:  resultsv1.ScoreType_SCORE_TYPE_DECIMAL,
-		results.Duration: resultsv1.ScoreType_SCORE_TYPE_DURATION,
 	}[value]
 }
 
@@ -1575,13 +1482,6 @@ func scoreTypeFromProto(value resultsv1.ScoreType) results.ScoreType {
 	}[value]
 }
 
-func scoreVisibility(value results.ScoreVisibility) resultsv1.ScoreVisibility {
-	return map[results.ScoreVisibility]resultsv1.ScoreVisibility{
-		results.ScorePublic:   resultsv1.ScoreVisibility_SCORE_VISIBILITY_PUBLIC,
-		results.ScoreCrewOnly: resultsv1.ScoreVisibility_SCORE_VISIBILITY_CREW_ONLY,
-	}[value]
-}
-
 func scoreVisibilityFromProto(value resultsv1.ScoreVisibility) results.ScoreVisibility {
 	return map[resultsv1.ScoreVisibility]results.ScoreVisibility{
 		resultsv1.ScoreVisibility_SCORE_VISIBILITY_PUBLIC:    results.ScorePublic,
@@ -1589,25 +1489,10 @@ func scoreVisibilityFromProto(value resultsv1.ScoreVisibility) results.ScoreVisi
 	}[value]
 }
 
-func scoreRequirement(value results.ScoreRequirement) resultsv1.ScoreRequirement {
-	return map[results.ScoreRequirement]resultsv1.ScoreRequirement{
-		results.ScoreOptional: resultsv1.ScoreRequirement_SCORE_REQUIREMENT_OPTIONAL,
-		results.ScoreRequired: resultsv1.ScoreRequirement_SCORE_REQUIREMENT_REQUIRED,
-	}[value]
-}
-
 func scoreRequirementFromProto(value resultsv1.ScoreRequirement) results.ScoreRequirement {
 	return map[resultsv1.ScoreRequirement]results.ScoreRequirement{
 		resultsv1.ScoreRequirement_SCORE_REQUIREMENT_OPTIONAL: results.ScoreOptional,
 		resultsv1.ScoreRequirement_SCORE_REQUIREMENT_REQUIRED: results.ScoreRequired,
-	}[value]
-}
-
-func scoreInterpretation(value results.ScoreInterpretation) resultsv1.ScoreInterpretation {
-	return map[results.ScoreInterpretation]resultsv1.ScoreInterpretation{
-		results.HigherWins:    resultsv1.ScoreInterpretation_SCORE_INTERPRETATION_HIGHER_WINS,
-		results.LowerWins:     resultsv1.ScoreInterpretation_SCORE_INTERPRETATION_LOWER_WINS,
-		results.Informational: resultsv1.ScoreInterpretation_SCORE_INTERPRETATION_INFORMATIONAL,
 	}[value]
 }
 
