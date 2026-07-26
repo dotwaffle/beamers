@@ -467,6 +467,20 @@ func (installation *SQLite) LoadAttachmentVersion(
 	return attachmentVersion(logical, version), nil
 }
 
+// ReferencedAttachmentStorageKeys lists every committed immutable file key.
+func (installation *SQLite) ReferencedAttachmentStorageKeys(
+	ctx context.Context,
+) ([]string, error) {
+	var keys []string
+	if err := installation.client.AttachmentVersion.Query().
+		Unique(true).
+		Select(attachmentversion.FieldStorageKey).
+		Scan(systemContext(ctx), &keys); err != nil {
+		return nil, opaqueError("list referenced Attachment storage keys", err)
+	}
+	return keys, nil
+}
+
 func attachmentVersion(logical *ent.Attachment, version *ent.AttachmentVersion) AttachmentVersion {
 	return AttachmentVersion{
 		ID: version.ID, AttachmentID: logical.ID, Version: version.Version,

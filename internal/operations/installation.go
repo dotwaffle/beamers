@@ -260,7 +260,7 @@ func OpenInstallationWithConfig(
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.activation = activationService
-	attachmentService, err := attachments.New(storage, config.AttachmentsDir, time.Now)
+	attachmentService, err := attachments.New(ctx, storage, config.AttachmentsDir, time.Now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
