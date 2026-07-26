@@ -118,6 +118,31 @@ VALUES (last_insert_rowid(), 'Live', CURRENT_TIMESTAMP);`
 	})
 }
 
+// AddReferencedAttachment adds the smallest committed Attachment Version fixture.
+func AddReferencedAttachment(
+	ctx context.Context,
+	path, storageKey, digest string,
+	size int64,
+) error {
+	return mutateSchema(path, func(database *sql.DB) error {
+		const statement = `
+INSERT INTO attachments (
+	event_id, owner_type, owner_id, name, created_at
+) VALUES (1, 'Presentation', 1, 'fixture', CURRENT_TIMESTAMP);
+INSERT INTO attachment_versions (
+	attachment_id, version, original_filename, media_type, size_bytes, sha256,
+	storage_key, uploader_type, uploader_id, created_at
+) VALUES (
+	last_insert_rowid(), 1, 'fixture.bin', 'application/octet-stream', ?, ?, ?,
+	'Crew', 1, CURRENT_TIMESTAMP
+);`
+		if _, err := database.ExecContext(ctx, statement, size, digest, storageKey); err != nil {
+			return fmt.Errorf("add referenced Attachment fixture: %w", err)
+		}
+		return nil
+	})
+}
+
 // CountUpgradeAudits reports durable guarded-upgrade evidence.
 func CountUpgradeAudits(ctx context.Context, path string) (count int, returnErr error) {
 	location := &url.URL{Scheme: "file", Path: path}

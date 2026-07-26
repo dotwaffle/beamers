@@ -11,10 +11,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -221,10 +224,16 @@ type Service struct {
 	storage *store.SQLite
 	root    string
 	now     func() time.Time
+	uploads sync.Mutex
 }
 
 // New creates an Attachment Service with explicit dependencies.
-func New(storage *store.SQLite, root string, now func() time.Time) (*Service, error) {
+func New(
+	ctx context.Context,
+	storage *store.SQLite,
+	root string,
+	now func() time.Time,
+) (*Service, error) {
 	if storage == nil {
 		return nil, errors.New("attachment storage is required")
 	}
@@ -234,7 +243,11 @@ func New(storage *store.SQLite, root string, now func() time.Time) (*Service, er
 	if now == nil {
 		return nil, errors.New("attachment clock is required")
 	}
-	return &Service{storage: storage, root: root, now: now}, nil
+	service := &Service{storage: storage, root: root, now: now}
+	if err := service.reconcileFiles(ctx); err != nil {
+		return nil, err
+	}
+	return service, nil
 }
 
 // IssueUploadLink rotates and returns one target-scoped credential.
@@ -356,6 +369,10 @@ func (service *Service) storeVersion(
 	uploaderID int,
 	crewOnly bool,
 ) (Version, error) {
+	// ponytail: one lock serializes uploads; shard by digest if upload throughput matters.
+	service.uploads.Lock()
+	defer service.uploads.Unlock()
+
 	storedFile, err := service.storeFile(body)
 	if err != nil {
 		return Version{}, err
@@ -407,7 +424,7 @@ func (service *Service) storeVersion(
 	} else {
 		identity.ActorAccountID = uploaderID
 	}
-	return command.Execute(ctx, command.Plan[Version]{
+	created, executeErr := command.Execute(ctx, command.Plan[Version]{
 		Storage: service.storage, Identity: identity,
 		Replay: func(outcome string) (Version, error) {
 			var stored Version
@@ -436,11 +453,17 @@ func (service *Service) storeVersion(
 				}), nil
 		},
 	})
+	if executeErr == nil || !storedFile.installed {
+		return created, executeErr
+	}
+	cleanupErr := service.removeIfUnreferenced(context.WithoutCancel(ctx), storedFile.key)
+	return created, errors.Join(executeErr, cleanupErr)
 }
 
 type storedFile struct {
 	key, digest string
 	size        int64
+	installed   bool
 }
 
 func (service *Service) storeFile(body io.Reader) (storedFile, error) {
@@ -495,7 +518,106 @@ func (service *Service) storeFile(body io.Reader) (storedFile, error) {
 	} else if statErr != nil {
 		return storedFile{}, errors.New("inspect Attachment storage")
 	}
-	return storedFile{key: key, digest: digest, size: size}, nil
+	return storedFile{key: key, digest: digest, size: size, installed: keepTemporary}, nil
+}
+
+func (service *Service) reconcileFiles(ctx context.Context) (returnErr error) {
+	referenced, err := service.storage.ReferencedAttachmentStorageKeys(ctx)
+	if err != nil {
+		return err
+	}
+	root, err := os.OpenRoot(service.root)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return errors.New("open Attachment storage for reconciliation")
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, root.Close())
+	}()
+	if _, statErr := root.Lstat(".tmp"); statErr == nil {
+		if err = root.RemoveAll(".tmp"); err != nil {
+			return errors.New("remove interrupted Attachment uploads")
+		}
+		if err = syncRootDirectory(root, "."); err != nil {
+			return errors.New("sync reconciled Attachment storage")
+		}
+	} else if !errors.Is(statErr, os.ErrNotExist) {
+		return errors.New("inspect interrupted Attachment uploads")
+	}
+	err = fs.WalkDir(root.FS(), "sha256", func(path string, entry fs.DirEntry, walkErr error) error {
+		if errors.Is(walkErr, os.ErrNotExist) {
+			return fs.SkipDir
+		}
+		if walkErr != nil {
+			return walkErr
+		}
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+		if !entry.Type().IsRegular() {
+			return nil
+		}
+		key := filepath.FromSlash(path)
+		if slices.Contains(referenced, key) {
+			return nil
+		}
+		if removeErr := root.Remove(key); removeErr != nil {
+			return removeErr
+		}
+		return syncRootDirectory(root, filepath.Dir(key))
+	})
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("reconcile Attachment storage: %w", err)
+	}
+	return nil
+}
+
+func (service *Service) removeIfUnreferenced(
+	ctx context.Context,
+	key string,
+) (returnErr error) {
+	referenced, err := service.storage.ReferencedAttachmentStorageKeys(ctx)
+	if err != nil {
+		return err
+	}
+	if slices.Contains(referenced, key) {
+		return nil
+	}
+	root, err := os.OpenRoot(service.root)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return errors.New("open Attachment storage for cleanup")
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, root.Close())
+	}()
+	if err = root.Remove(key); errors.Is(err, os.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		return errors.New("remove unreferenced Attachment")
+	}
+	if err = syncRootDirectory(root, filepath.Dir(key)); err != nil {
+		return errors.New("sync Attachment cleanup")
+	}
+	return nil
+}
+
+func syncRootDirectory(root *os.Root, name string) (returnErr error) {
+	directory, err := root.Open(name)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, directory.Close())
+	}()
+	return directory.Sync()
 }
 
 // ReadVersion returns verified immutable bytes to authorized crew.

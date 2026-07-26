@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -4656,6 +4657,16 @@ func TestProducerIssuesScopedEntryUploadLink(t *testing.T) {
 	if retriedVersion.ID != firstVersion.ID || retriedVersion.Version != firstVersion.Version {
 		t.Fatalf("retried Attachment upload = %+v, want original %+v", retriedVersion, firstVersion)
 	}
+	conflictingContent := []byte("conflicting immutable version")
+	conflictingUpload := requestMultipart(
+		t.Context(), http.DefaultClient, server.address, "/upload/"+link.Token,
+		map[string]string{"name": "slides", "command_id": "upload-entry-v1"}, "conflict.txt", "text/plain",
+		conflictingContent,
+	)
+	if conflictingUpload.status != http.StatusConflict {
+		t.Fatalf("conflicting Attachment upload = %d, want 409: %s", conflictingUpload.status, conflictingUpload.body)
+	}
+	assertAttachmentBlobMissing(t, server.dataDir, conflictingContent)
 
 	rotatedResult := requestJSON(
 		t.Context(), administrator, server.address, "/crew/events/1/upload-links",
@@ -4688,6 +4699,7 @@ func TestProducerIssuesScopedEntryUploadLink(t *testing.T) {
 	if oldCredential.status != http.StatusNotFound {
 		t.Fatalf("old Upload Link status = %d, want 404: %s", oldCredential.status, oldCredential.body)
 	}
+	assertAttachmentBlobMissing(t, server.dataDir, []byte("stale"))
 	secondUpload := requestMultipart(
 		t.Context(), http.DefaultClient, server.address, "/upload/"+rotated.Token,
 		map[string]string{"name": "slides", "command_id": "upload-entry-v2"}, "slides-v2.txt", "text/plain",
@@ -4701,6 +4713,28 @@ func TestProducerIssuesScopedEntryUploadLink(t *testing.T) {
 	}
 	assertAttachmentBytes(t, administrator, server.address, firstVersion.ID, "first immutable version")
 	assertAttachmentBytes(t, administrator, server.address, secondVersion.ID, "second immutable version")
+	sharedContent := []byte("shared concurrent content")
+	sharedUploads := make(chan jsonResponse, 2)
+	for index := range 2 {
+		go func() {
+			sharedUploads <- requestMultipart(
+				t.Context(), http.DefaultClient, server.address, "/upload/"+rotated.Token,
+				map[string]string{
+					"name":       "shared-" + strconv.Itoa(index),
+					"command_id": "upload-shared-" + strconv.Itoa(index),
+				},
+				"shared.txt",
+				"text/plain",
+				sharedContent,
+			)
+		}()
+	}
+	firstShared := decodeAttachmentVersion(t, <-sharedUploads)
+	secondShared := decodeAttachmentVersion(t, <-sharedUploads)
+	if firstShared.ID == secondShared.ID || firstShared.SHA256 != secondShared.SHA256 {
+		t.Fatalf("shared-content uploads = %+v and %+v", firstShared, secondShared)
+	}
+	assertAttachmentBlobPresent(t, server.dataDir, sharedContent)
 
 	otherLinkResult := requestJSON(
 		t.Context(), administrator, server.address, "/crew/events/1/upload-links",
@@ -4735,6 +4769,7 @@ func TestProducerIssuesScopedEntryUploadLink(t *testing.T) {
 	if rejectedUpload.status != http.StatusGone {
 		t.Fatalf("Rejected Entry upload = %d, want 410: %s", rejectedUpload.status, rejectedUpload.body)
 	}
+	assertAttachmentBlobMissing(t, server.dataDir, []byte("rejected"))
 	if _, err = competitionClient.ChangeEntryDisposition(t.Context(), connect.NewRequest(
 		&competitionv1.ChangeEntryDispositionRequest{
 			EventId: 1, SessionId: competitionID, EntryId: secondEntry.Msg.GetEntry().GetId(),
@@ -4756,6 +4791,7 @@ func TestProducerIssuesScopedEntryUploadLink(t *testing.T) {
 			stillClosedAfterRestore.status, stillClosedAfterRestore.body,
 		)
 	}
+	assertAttachmentBlobMissing(t, server.dataDir, []byte("restored"))
 	setCompetitionSubmissionDeadline(
 		t, administrator, server, competitionID, time.Now().UTC().Add(-time.Minute),
 	)
@@ -4766,6 +4802,7 @@ func TestProducerIssuesScopedEntryUploadLink(t *testing.T) {
 	if closedUpload.status != http.StatusGone {
 		t.Fatalf("closed Competition upload = %d, want 410: %s", closedUpload.status, closedUpload.body)
 	}
+	assertAttachmentBlobMissing(t, server.dataDir, []byte("closed"))
 	reopened := requestJSON(
 		t.Context(), administrator, server.address, "/crew/events/1/reopen-windows",
 		map[string]any{
@@ -4799,6 +4836,7 @@ func TestProducerIssuesScopedEntryUploadLink(t *testing.T) {
 	if otherStillClosed.status != http.StatusGone {
 		t.Fatalf("other Entry under scoped Reopen Window = %d, want 410: %s", otherStillClosed.status, otherStillClosed.body)
 	}
+	assertAttachmentBlobMissing(t, server.dataDir, []byte("other"))
 	extended := requestJSONMethod(
 		t.Context(), http.MethodPatch, administrator, server.address,
 		fmt.Sprintf("/crew/events/1/reopen-windows/%d", window.ID),
@@ -4830,6 +4868,7 @@ func TestProducerIssuesScopedEntryUploadLink(t *testing.T) {
 	if closedWindowUpload.status != http.StatusGone {
 		t.Fatalf("closed Reopen Window upload = %d, want 410: %s", closedWindowUpload.status, closedWindowUpload.body)
 	}
+	assertAttachmentBlobMissing(t, server.dataDir, []byte("closed window"))
 
 	crewUpload := requestMultipart(
 		t.Context(), administrator, server.address, "/crew/events/1/attachments",
@@ -4843,6 +4882,19 @@ func TestProducerIssuesScopedEntryUploadLink(t *testing.T) {
 	if crewVersion.Version != 3 || crewVersion.UploaderType != "Crew" || crewVersion.UploaderID != 1 {
 		t.Fatalf("crew Attachment Version = %+v", crewVersion)
 	}
+	failedContent := []byte("failed crew upload")
+	failedUpload := requestMultipart(
+		t.Context(), administrator, server.address, "/crew/events/1/attachments",
+		map[string]string{
+			"target_type": "Entry", "target_id": "999999",
+			"name": "missing", "command_id": "upload-missing-entry",
+		},
+		"missing.txt", "text/plain", failedContent,
+	)
+	if failedUpload.status != http.StatusNotFound {
+		t.Fatalf("missing-target Attachment upload = %d, want 404: %s", failedUpload.status, failedUpload.body)
+	}
+	assertAttachmentBlobMissing(t, server.dataDir, failedContent)
 
 	revoked := requestJSON(
 		t.Context(), administrator, server.address,
@@ -4859,6 +4911,7 @@ func TestProducerIssuesScopedEntryUploadLink(t *testing.T) {
 	if revokedCredential.status != http.StatusNotFound {
 		t.Fatalf("revoked Upload Link status = %d, want 404: %s", revokedCredential.status, revokedCredential.body)
 	}
+	assertAttachmentBlobMissing(t, server.dataDir, []byte("revoked"))
 	audit := get(t, administrator, server.address, "/admin/audit")
 	auditBody, readErr := io.ReadAll(audit.Body)
 	closeErr := audit.Body.Close()
@@ -4870,6 +4923,28 @@ func TestProducerIssuesScopedEntryUploadLink(t *testing.T) {
 		t.Fatalf("Attachment Audit actors missing: %s", auditBody)
 	}
 	server.stop(t)
+	orphanContent := []byte("interrupted installed Attachment")
+	orphanPath := attachmentBlobPath(server.dataDir, orphanContent)
+	if err := os.MkdirAll(filepath.Dir(orphanPath), 0o700); err != nil {
+		t.Fatalf("create orphan Attachment directory: %v", err)
+	}
+	if err := os.WriteFile(orphanPath, orphanContent, 0o600); err != nil {
+		t.Fatalf("write orphan Attachment: %v", err)
+	}
+	temporaryPath := filepath.Join(server.dataDir, "attachments", ".tmp", "interrupted")
+	if err := os.MkdirAll(filepath.Dir(temporaryPath), 0o700); err != nil {
+		t.Fatalf("create interrupted upload directory: %v", err)
+	}
+	if err := os.WriteFile(temporaryPath, []byte("temporary"), 0o600); err != nil {
+		t.Fatalf("write interrupted upload: %v", err)
+	}
+	restarted := startBeamers(t, server.bin, server.dataDir)
+	assertAttachmentBlobMissing(t, server.dataDir, orphanContent)
+	assertAttachmentBlobPresent(t, server.dataDir, []byte("first immutable version"))
+	if _, err := os.Stat(temporaryPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("interrupted temporary upload remains after restart: %v", err)
+	}
+	restarted.stop(t)
 }
 
 func TestFinalAttachmentsReleaseByPolicyAndSurviveRestart(t *testing.T) {
@@ -5513,6 +5588,28 @@ func assertAttachmentBytes(
 	if response.StatusCode != http.StatusOK || string(body) != want {
 		t.Fatalf("Attachment Version %d = %d %q, want 200 %q", versionID, response.StatusCode, body, want)
 	}
+}
+
+func assertAttachmentBlobMissing(t *testing.T, dataDir string, content []byte) {
+	t.Helper()
+	path := attachmentBlobPath(dataDir, content)
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("unreferenced Attachment blob %q remains: %v", path, err)
+	}
+}
+
+func assertAttachmentBlobPresent(t *testing.T, dataDir string, content []byte) {
+	t.Helper()
+	path := attachmentBlobPath(dataDir, content)
+	found, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(found, content) {
+		t.Fatalf("referenced Attachment blob %q = %q, %v", path, found, err)
+	}
+}
+
+func attachmentBlobPath(dataDir string, content []byte) string {
+	digest := fmt.Sprintf("%x", sha256.Sum256(content))
+	return filepath.Join(dataDir, "attachments", "sha256", digest[:2], digest)
 }
 
 func assertReleasedAttachmentIDs(t *testing.T, address string, want ...int) {
