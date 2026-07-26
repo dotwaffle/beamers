@@ -146,6 +146,28 @@ func TestSanitizedBackupIncludesConfiguredAttachmentsAndRemovesCredentials(t *te
 	}
 }
 
+func TestInstallArchiveSyncsPublishedFilenameBeforeSuccess(t *testing.T) {
+	directory := t.TempDir()
+	staged := filepath.Join(directory, "staged")
+	output := filepath.Join(directory, "backup.zip")
+	if err := os.WriteFile(staged, []byte("backup"), 0o600); err != nil {
+		t.Fatalf("write staged archive: %v", err)
+	}
+	syncFailure := errors.New("sync failed")
+	err := installArchive(staged, output, func(path string) error {
+		if path != directory {
+			t.Fatalf("sync path = %q, want %q", path, directory)
+		}
+		if _, statErr := os.Stat(output); statErr != nil {
+			t.Fatalf("published archive is unavailable before sync: %v", statErr)
+		}
+		return syncFailure
+	})
+	if !errors.Is(err, syncFailure) {
+		t.Fatalf("install archive error = %v, want %v", err, syncFailure)
+	}
+}
+
 func TestBackupConfigurationIsVerifiedAndRestoreRequiresAcknowledgment(t *testing.T) {
 	ctx := t.Context()
 	dataDir := filepath.Join(t.TempDir(), "installation")
