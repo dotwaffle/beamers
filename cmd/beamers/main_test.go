@@ -274,6 +274,49 @@ func TestBackupCommandCreatesAndVerifiesSanitizedArchive(t *testing.T) {
 	stderr.Reset()
 	if code := run(
 		t.Context(),
+		[]string{"restore", "cancel", "--journal", plan.JournalPath},
+		&stdout,
+		&stderr,
+	); code == 0 {
+		t.Fatal("unacknowledged prepared Restore unexpectedly canceled")
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if code := run(
+		t.Context(),
+		[]string{
+			"restore", "cancel",
+			"--journal", plan.JournalPath,
+			"--acknowledge-abandon-prepared",
+		},
+		&stdout,
+		&stderr,
+	); code != 0 {
+		t.Fatalf("cancel prepared Restore exit = %d, stderr = %s", code, stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if code := run(
+		t.Context(),
+		[]string{
+			"restore", "preview",
+			"--input", archivePath,
+			"--data-dir", restoredDataDir,
+		},
+		&stdout,
+		&stderr,
+	); code != 0 {
+		t.Fatalf("preview after cancellation exit = %d, stderr = %s", code, stderr.String())
+	}
+	if err = json.Unmarshal(stdout.Bytes(), &plan); err != nil {
+		t.Fatalf("decode replacement plan after cancellation: %v", err)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if code := run(
+		t.Context(),
 		[]string{"restore", "apply", "--journal", plan.JournalPath},
 		&stdout,
 		&stderr,

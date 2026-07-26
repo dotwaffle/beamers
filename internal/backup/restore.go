@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -320,6 +321,166 @@ func ApplyRestoreWithOptions(
 	options ApplyOptions,
 ) (Manifest, error) {
 	return applyRestoreWithOptions(ctx, journalPath, options, nil)
+}
+
+// CancelPreparedRestore abandons one intact plan before cutover starts.
+func CancelPreparedRestore(
+	ctx context.Context,
+	journalPath string,
+) (returnErr error) {
+	journal, err := readRestoreJournal(journalPath)
+	if err != nil {
+		return err
+	}
+	accessRoots := []string{journal.Plan.DataDir}
+	if journal.ExternalAttachments {
+		accessRoots = append(accessRoots, journal.Plan.AttachmentsDir)
+	}
+	releaseAccess, err := store.HoldExclusiveAccess(accessRoots...)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, releaseAccess())
+	}()
+	journal, err = readRestoreJournal(journalPath)
+	if err != nil {
+		return err
+	}
+	if journal.Phase != restorePrepared {
+		return errors.New("Restore cutover already started")
+	}
+	if ownershipErr := validatePreparedRestoreOwnership(journal); ownershipErr != nil {
+		return ownershipErr
+	}
+	started, err := restoreCutoverStarted(journal)
+	if err != nil {
+		return err
+	}
+	if started {
+		return errors.New("Restore cutover already started")
+	}
+	if quarantineErr := validateReservedRestoreRoots(journal); quarantineErr != nil {
+		return quarantineErr
+	}
+	if err = validatePreparedRestore(ctx, journal); err != nil {
+		return fmt.Errorf("prepared Restore is damaged: %w", err)
+	}
+	return cleanupPreparedRestore(journal)
+}
+
+func validatePreparedRestoreOwnership(journal restoreJournal) error {
+	dataParent := filepath.Dir(journal.Plan.DataDir)
+	if journal.Plan.JournalPath != journal.Plan.DataDir+".beamers-restore.json" ||
+		!ownedRestoreRoot(
+			journal.StagingRoot,
+			dataParent,
+			"."+filepath.Base(journal.Plan.DataDir)+".beamers-restore-",
+		) ||
+		journal.StagedData != filepath.Join(journal.StagingRoot, "data") {
+		return errors.New("Restore journal contains invalid owned paths")
+	}
+	if journal.ExternalAttachments {
+		if !ownedRestoreRoot(
+			journal.StagedAttachments,
+			filepath.Dir(journal.Plan.AttachmentsDir),
+			"."+filepath.Base(journal.Plan.AttachmentsDir)+".beamers-restore-",
+		) {
+			return errors.New("Restore journal contains invalid owned paths")
+		}
+	} else if journal.StagedAttachments != filepath.Join(journal.StagedData, "attachments") {
+		return errors.New("Restore journal contains invalid owned paths")
+	}
+	for _, owned := range []struct {
+		root, target string
+		replaces     bool
+	}{
+		{journal.DataQuarantineRoot, journal.Plan.DataDir, journal.Plan.ReplacesData},
+		{
+			journal.AttachmentsQuarantineRoot,
+			journal.Plan.AttachmentsDir,
+			journal.Plan.ReplacesAttachments,
+		},
+	} {
+		if !owned.replaces {
+			if owned.root != "" ||
+				owned.target == journal.Plan.DataDir &&
+					journal.Plan.DataQuarantine != "" ||
+				owned.target == journal.Plan.AttachmentsDir &&
+					journal.Plan.AttachmentsQuarantine != "" {
+				return errors.New("Restore journal contains invalid owned paths")
+			}
+			continue
+		}
+		if !ownedRestoreRoot(
+			owned.root,
+			filepath.Dir(owned.target),
+			"."+filepath.Base(owned.target)+".beamers-quarantine-",
+		) {
+			return errors.New("Restore journal contains invalid owned paths")
+		}
+	}
+	if journal.Plan.ReplacesData &&
+		journal.Plan.DataQuarantine != filepath.Join(journal.DataQuarantineRoot, "original") ||
+		journal.Plan.ReplacesAttachments &&
+			journal.Plan.AttachmentsQuarantine !=
+				filepath.Join(journal.AttachmentsQuarantineRoot, "original") {
+		return errors.New("Restore journal contains invalid owned paths")
+	}
+	return nil
+}
+
+func ownedRestoreRoot(path, parent, prefix string) bool {
+	return path != "" &&
+		filepath.Dir(path) == parent &&
+		strings.HasPrefix(filepath.Base(path), prefix)
+}
+
+func validateReservedRestoreRoots(journal restoreJournal) error {
+	for _, root := range []string{
+		journal.DataQuarantineRoot,
+		journal.AttachmentsQuarantineRoot,
+	} {
+		if root == "" {
+			continue
+		}
+		info, err := os.Lstat(root)
+		if err != nil || !info.IsDir() {
+			return errors.Join(err, errors.New("prepared Restore quarantine is damaged"))
+		}
+		entries, err := os.ReadDir(root)
+		if err != nil || len(entries) != 0 {
+			return errors.Join(err, errors.New("prepared Restore quarantine is damaged"))
+		}
+	}
+	return nil
+}
+
+func cleanupPreparedRestore(journal restoreJournal) error {
+	var cleanupErr error
+	for _, path := range []string{
+		journal.StagingRoot,
+		journal.StagedAttachments,
+		journal.DataQuarantineRoot,
+		journal.AttachmentsQuarantineRoot,
+	} {
+		if path == "" ||
+			path == journal.StagedAttachments && !journal.ExternalAttachments {
+			continue
+		}
+		cleanupErr = errors.Join(cleanupErr, removeRestoreRoot(path))
+	}
+	if cleanupErr != nil {
+		return cleanupErr
+	}
+	return removeJournal(journal.Plan.JournalPath)
+}
+
+func removeRestoreRoot(path string) error {
+	if err := os.RemoveAll(path); err != nil {
+		return err
+	}
+	return syncDirectory(filepath.Dir(path))
 }
 
 func applyRestore(
@@ -813,6 +974,9 @@ func readRestoreJournal(path string) (restoreJournal, error) {
 	decoder.DisallowUnknownFields()
 	if err = decoder.Decode(&journal); err != nil {
 		return restoreJournal{}, fmt.Errorf("decode Restore journal: %w", err)
+	}
+	if trailingErr := decoder.Decode(&struct{}{}); !errors.Is(trailingErr, io.EOF) {
+		return restoreJournal{}, errors.New("Restore journal contains trailing content")
 	}
 	if journal.Version != restoreJournalVersion ||
 		journal.Plan.JournalPath != path ||
