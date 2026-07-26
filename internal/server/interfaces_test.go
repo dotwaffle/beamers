@@ -110,6 +110,7 @@ func TestPublicListenerOnlyServesAllowlistedRoutes(t *testing.T) {
 	for _, path := range []string{
 		"/schedule",
 		"/results/events/1/prizegiving/2",
+		"/results/events/1/event-awards",
 		"/public/attachments",
 		"/public/attachments/42",
 	} {

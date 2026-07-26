@@ -446,6 +446,64 @@ func (handler *Handler) ReleaseStandaloneResults(
 	}), nil
 }
 
+// PreflightStandaloneEventAwards reports blockers without changing release state.
+func (handler *Handler) PreflightStandaloneEventAwards(
+	ctx context.Context,
+	request *connect.Request[resultsv1.PreflightStandaloneEventAwardsRequest],
+) (*connect.Response[resultsv1.PreflightStandaloneEventAwardsResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	preflight, err := handler.service.PreflightStandaloneEventAwards(
+		ctx,
+		actor,
+		int(request.Msg.GetEventId()),
+	)
+	if err != nil {
+		return nil, err
+	}
+	findings := make(
+		[]*resultsv1.PrizegivingPreflightFinding,
+		0,
+		len(preflight.Findings),
+	)
+	for _, finding := range preflight.Findings {
+		findings = append(findings, &resultsv1.PrizegivingPreflightFinding{
+			Code: finding.Code, Message: finding.Message,
+		})
+	}
+	return connect.NewResponse(&resultsv1.PreflightStandaloneEventAwardsResponse{
+		Lock: prizegivingPreflightLock(preflight.Lock), Findings: findings,
+	}), nil
+}
+
+// ReleaseStandaloneEventAwards publishes one exact reviewed standalone Award set.
+func (handler *Handler) ReleaseStandaloneEventAwards(
+	ctx context.Context,
+	request *connect.Request[resultsv1.ReleaseStandaloneEventAwardsRequest],
+) (*connect.Response[resultsv1.ReleaseStandaloneEventAwardsResponse], error) {
+	actor, err := connectapi.ActorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	released, err := handler.service.ReleaseStandaloneEventAwards(
+		ctx,
+		actor,
+		results.ReleaseStandaloneEventAwardsInput{
+			EventID: int(request.Msg.GetEventId()), CommandID: request.Msg.GetCommandId(),
+			ExpectedDraftRevision: int(request.Msg.GetExpectedDraftRevision()),
+			ExpectedPathRevision:  int(request.Msg.GetExpectedPathRevision()),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&resultsv1.ReleaseStandaloneEventAwardsResponse{
+		Publication: resultsPublication(released),
+	}), nil
+}
+
 // GetResultsCorrection returns the latest crew-visible correction revision.
 func (handler *Handler) GetResultsCorrection(
 	ctx context.Context,
@@ -1329,6 +1387,7 @@ func publicationScope(
 	return map[results.PublicationScope]resultsv1.ResultsPublicationScope{
 		results.PublicationScopePrizegiving: resultsv1.ResultsPublicationScope_RESULTS_PUBLICATION_SCOPE_PRIZEGIVING,
 		results.PublicationScopeStandalone:  resultsv1.ResultsPublicationScope_RESULTS_PUBLICATION_SCOPE_STANDALONE,
+		results.PublicationScopeEventAwards: resultsv1.ResultsPublicationScope_RESULTS_PUBLICATION_SCOPE_EVENT_AWARDS,
 	}[value]
 }
 
@@ -1336,8 +1395,9 @@ func publicationScopeFromProto(
 	value resultsv1.ResultsPublicationScope,
 ) results.PublicationScope {
 	return map[resultsv1.ResultsPublicationScope]results.PublicationScope{
-		resultsv1.ResultsPublicationScope_RESULTS_PUBLICATION_SCOPE_PRIZEGIVING: results.PublicationScopePrizegiving,
-		resultsv1.ResultsPublicationScope_RESULTS_PUBLICATION_SCOPE_STANDALONE:  results.PublicationScopeStandalone,
+		resultsv1.ResultsPublicationScope_RESULTS_PUBLICATION_SCOPE_PRIZEGIVING:  results.PublicationScopePrizegiving,
+		resultsv1.ResultsPublicationScope_RESULTS_PUBLICATION_SCOPE_STANDALONE:   results.PublicationScopeStandalone,
+		resultsv1.ResultsPublicationScope_RESULTS_PUBLICATION_SCOPE_EVENT_AWARDS: results.PublicationScopeEventAwards,
 	}[value]
 }
 

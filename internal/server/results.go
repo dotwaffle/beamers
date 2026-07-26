@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
@@ -51,13 +52,23 @@ func registerResultsRoutes(
 }
 
 type publicResultsHandlers struct {
-	service *results.Service
+	service publicResultsReader
 	logger  *slog.Logger
+}
+
+type publicResultsReader interface {
+	PublicArtifact(
+		context.Context,
+		int,
+		results.PublicationScope,
+		int,
+		int,
+	) (results.PublicArtifact, bool, error)
 }
 
 func registerPublicResultsRoutes(
 	mux *http.ServeMux,
-	service *results.Service,
+	service publicResultsReader,
 	logger *slog.Logger,
 ) {
 	handlers := publicResultsHandlers{service: service, logger: logger}
@@ -72,6 +83,18 @@ func registerPublicResultsRoutes(
 	mux.HandleFunc(
 		"/results/events/{eventID}/{scope}/{sessionID}/revisions/{revision}/results.json",
 		handlers.versionedJSON,
+	)
+	mux.HandleFunc(
+		"/results/events/{eventID}/event-awards",
+		handlers.latestEventAwardsHTML,
+	)
+	mux.HandleFunc(
+		"/results/events/{eventID}/event-awards/results.txt",
+		handlers.latestEventAwardsText,
+	)
+	mux.HandleFunc(
+		"/results/events/{eventID}/event-awards/revisions/{revision}/results.json",
+		handlers.versionedEventAwardsJSON,
 	)
 }
 
@@ -101,6 +124,57 @@ func (handlers publicResultsHandlers) versionedJSON(
 	handlers.serve(response, request, revision, "application/json")
 }
 
+func (handlers publicResultsHandlers) latestEventAwardsHTML(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	handlers.serveEventAwards(response, request, 0, "text/html; charset=utf-8")
+}
+
+func (handlers publicResultsHandlers) latestEventAwardsText(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	handlers.serveEventAwards(response, request, 0, "text/plain; charset=utf-8")
+}
+
+func (handlers publicResultsHandlers) versionedEventAwardsJSON(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	revision, err := strconv.Atoi(request.PathValue("revision"))
+	if err != nil || revision <= 0 {
+		http.NotFound(response, request)
+		return
+	}
+	handlers.serveEventAwards(response, request, revision, "application/json")
+}
+
+func (handlers publicResultsHandlers) serveEventAwards(
+	response http.ResponseWriter,
+	request *http.Request,
+	revision int,
+	contentType string,
+) {
+	if !publicMethodAllowed(response, request) {
+		return
+	}
+	eventID, err := positivePathID(request, "eventID")
+	if err != nil {
+		http.NotFound(response, request)
+		return
+	}
+	handlers.serveArtifact(
+		response,
+		request,
+		eventID,
+		results.PublicationScopeEventAwards,
+		eventID,
+		revision,
+		contentType,
+	)
+}
+
 func (handlers publicResultsHandlers) serve(
 	response http.ResponseWriter,
 	request *http.Request,
@@ -121,6 +195,26 @@ func (handlers publicResultsHandlers) serve(
 		http.NotFound(response, request)
 		return
 	}
+	handlers.serveArtifact(
+		response,
+		request,
+		eventID,
+		scope,
+		sessionID,
+		revision,
+		contentType,
+	)
+}
+
+func (handlers publicResultsHandlers) serveArtifact(
+	response http.ResponseWriter,
+	request *http.Request,
+	eventID int,
+	scope results.PublicationScope,
+	sessionID int,
+	revision int,
+	contentType string,
+) {
 	artifact, found, err := handlers.service.PublicArtifact(
 		request.Context(),
 		eventID,
