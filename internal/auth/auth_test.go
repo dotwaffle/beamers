@@ -262,6 +262,107 @@ func TestAuthenticateUsesOnlyUnexpiredPreviouslyValidatedSessionDuringStorageFai
 	}
 }
 
+func TestSignInBoundsSessionsAndPrunesExpiryWithoutTokenReuse(t *testing.T) {
+	const expectedLimit = 8
+	now := time.Date(2026, time.July, 26, 10, 0, 0, 0, time.UTC)
+	dataDir := t.TempDir()
+	if err := store.Initialize(t.Context(), dataDir); err != nil {
+		t.Fatalf("initialize authentication storage: %v", err)
+	}
+	storage, err := store.Open(t.Context(), dataDir)
+	if err != nil {
+		t.Fatalf("open authentication storage: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := storage.Close(); closeErr != nil {
+			t.Errorf("close authentication storage: %v", closeErr)
+		}
+	})
+	service, err := New(storage, Config{
+		Now: func() time.Time {
+			return now
+		},
+		Random:       &incrementingRandomReader{},
+		BootstrapTTL: time.Hour,
+		SessionTTL:   time.Hour,
+	})
+	if err != nil {
+		t.Fatalf("create authentication service: %v", err)
+	}
+	bootstrap, err := service.IssueBootstrap(t.Context())
+	if err != nil {
+		t.Fatalf("issue bootstrap: %v", err)
+	}
+	oldest, err := service.BootstrapAdministrator(
+		t.Context(),
+		bootstrap,
+		"Ada Admin",
+		"correct horse battery staple",
+	)
+	if err != nil {
+		t.Fatalf("bootstrap Administrator: %v", err)
+	}
+	active := []Session{oldest}
+	for range expectedLimit {
+		session, signInErr := service.SignIn(
+			t.Context(),
+			"Ada Admin",
+			"correct horse battery staple",
+		)
+		if signInErr != nil {
+			t.Fatalf("sign in: %v", signInErr)
+		}
+		active = append(active, session)
+	}
+	counts, err := service.SessionCounts(t.Context())
+	if err != nil {
+		t.Fatalf("count Account sessions: %v", err)
+	}
+	if counts.Active != expectedLimit ||
+		counts.Cached != expectedLimit ||
+		counts.Stored != expectedLimit ||
+		counts.PerAccountLimit != expectedLimit {
+		t.Fatalf("session counts = %+v", counts)
+	}
+	if _, err = service.Authenticate(t.Context(), active[0].Token); !errors.Is(
+		err,
+		ErrInvalidSession,
+	) {
+		t.Fatalf("oldest session error = %v, want %v", err, ErrInvalidSession)
+	}
+	for _, current := range active[1:] {
+		if _, err = service.Authenticate(t.Context(), current.Token); err != nil {
+			t.Fatalf("current session rejected: %v", err)
+		}
+	}
+
+	now = now.Add(2 * time.Hour)
+	replacement, err := service.SignIn(
+		t.Context(),
+		"Ada Admin",
+		"correct horse battery staple",
+	)
+	if err != nil {
+		t.Fatalf("sign in after expiry: %v", err)
+	}
+	counts, err = service.SessionCounts(t.Context())
+	if err != nil {
+		t.Fatalf("count pruned Account sessions: %v", err)
+	}
+	if counts.Active != 1 || counts.Cached != 1 || counts.Stored != 1 {
+		t.Fatalf("pruned session counts = %+v, want one", counts)
+	}
+	if _, err = service.Authenticate(t.Context(), active[len(active)-1].Token); !errors.Is(
+		err,
+		ErrInvalidSession,
+	) {
+		t.Fatalf("expired session error = %v, want %v", err, ErrInvalidSession)
+	}
+	if _, err = service.Authenticate(t.Context(), replacement.Token); err != nil {
+		t.Fatalf("replacement session rejected: %v", err)
+	}
+}
+
 func openAccountTestService(t *testing.T) (*Service, Account) {
 	t.Helper()
 	dataDir := t.TempDir()
@@ -307,6 +408,18 @@ type testRandomReader struct{}
 func (testRandomReader) Read(contents []byte) (int, error) {
 	for index := range contents {
 		contents[index] = byte(index + 1)
+	}
+	return len(contents), nil
+}
+
+type incrementingRandomReader struct {
+	next byte
+}
+
+func (reader *incrementingRandomReader) Read(contents []byte) (int, error) {
+	reader.next++
+	for index := range contents {
+		contents[index] = reader.next + byte(index)
 	}
 	return len(contents), nil
 }

@@ -16,6 +16,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
 
+	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/operations"
 )
@@ -73,6 +74,8 @@ func TestDiagnosticsRetainIndependentComponentsWhenStorageFails(t *testing.T) {
 		errors.New("storage failed"),
 		operations.Capacity{},
 		errors.New("capacity unavailable"),
+		auth.SessionCounts{},
+		errors.New("session counts unavailable"),
 		2,
 		2,
 		3,
@@ -84,6 +87,7 @@ func TestDiagnosticsRetainIndependentComponentsWhenStorageFails(t *testing.T) {
 		found.Replication.Status != "disabled" ||
 		found.Displays.Status != "unavailable" ||
 		found.Capacity.Status != "unavailable" ||
+		found.Authentication.Status != "unavailable" ||
 		found.Streams.Display.Subscribers != 2 ||
 		found.Streams.Program.Subscribers != 3 ||
 		found.Telemetry.Status != "enabled" {
@@ -102,6 +106,8 @@ func TestDiagnosticsWarnBeyondTestedCapacityWithoutRefusal(t *testing.T) {
 			Entries:   4_999,
 			Displays:  251,
 		},
+		nil,
+		auth.SessionCounts{},
 		nil,
 		252,
 		251,
@@ -188,6 +194,13 @@ func assertDiagnosticsResponse(t *testing.T, response *httptest.ResponseRecorder
 		Backup struct {
 			Status string `json:"status"`
 		} `json:"backup"`
+		Authentication struct {
+			Status          string `json:"status"`
+			Active          int    `json:"active"`
+			Cached          int    `json:"cached"`
+			Stored          int    `json:"stored"`
+			PerAccountLimit int    `json:"per_account_limit"`
+		} `json:"authentication"`
 		Streams struct {
 			Display struct {
 				Status      string `json:"status"`
@@ -212,6 +225,11 @@ func assertDiagnosticsResponse(t *testing.T, response *httptest.ResponseRecorder
 	if found.Mode != "normal" ||
 		found.Storage.Status != "ready" ||
 		found.Backup.Status != "available" ||
+		found.Authentication.Status != "bounded" ||
+		found.Authentication.Active != 1 ||
+		found.Authentication.Cached != 1 ||
+		found.Authentication.Stored != 1 ||
+		found.Authentication.PerAccountLimit != 8 ||
 		found.Streams.Display.Status != "ready" ||
 		found.Streams.Program.Status != "ready" ||
 		found.Displays.Total != 0 ||
