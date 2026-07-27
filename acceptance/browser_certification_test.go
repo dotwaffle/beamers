@@ -24,6 +24,7 @@ import (
 	"connectrpc.com/connect"
 
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	competitionv1 "github.com/dotwaffle/beamers/gen/beamers/competition/v1"
@@ -633,7 +634,7 @@ func TestBrowserCertification(t *testing.T) {
 		http.StatusCreated,
 		"",
 	)
-	prepareActiveSchedule(t, administrator, server)
+	publicSessionID := prepareActiveSchedule(t, administrator, server)
 	assertJSONMethodRequest(
 		t,
 		http.MethodPut,
@@ -686,7 +687,15 @@ func TestBrowserCertification(t *testing.T) {
 	}
 	assertResponsivePageWidths(t, crewDriver, origin+"/", 320, 375, 768, 1024, 1440)
 	assertResponsivePageWidths(t, crewDriver, origin+"/events/revision-2099", 320, 1440)
-	assertResponsivePageWidths(t, crewDriver, origin+"/schedule", 320, 1440)
+	assertResponsivePageWidths(t, crewDriver, origin+"/schedule", 320, 375, 768, 1024, 1440)
+	assertResponsivePageZoom(t, crewDriver, origin+"/schedule", 1024, 2)
+	certifyLiveScheduleUpdate(
+		t,
+		crewDriver,
+		administrator,
+		server,
+		publicSessionID,
+	)
 	report.Pages = append(
 		report.Pages,
 		certifyFrontendTheme(t, crewDriver, origin),
@@ -1941,6 +1950,140 @@ func assertResponsivePageWidths(
 		if !fits {
 			t.Fatalf("page overflows horizontally at %d pixels", width)
 		}
+	}
+}
+
+func assertResponsivePageZoom(
+	t *testing.T,
+	driver *webDriver,
+	target string,
+	width int,
+	zoom int,
+) {
+	t.Helper()
+	if err := driver.navigate(t.Context(), target); err != nil {
+		t.Fatalf("navigate to zoomed page: %v", err)
+	}
+	equivalentWidth := width / zoom
+	if err := driver.setWindowSize(t.Context(), equivalentWidth, 900); err != nil {
+		t.Fatalf("set %d%% zoom-equivalent browser width %d: %v", zoom*100, equivalentWidth, err)
+	}
+	fits, err := driver.evaluateBool(
+		t.Context(),
+		`return document.documentElement.scrollWidth <= window.innerWidth;`,
+	)
+	if err != nil {
+		t.Fatalf("inspect Schedule at %d%% zoom: %v", zoom*100, err)
+	}
+	if !fits {
+		t.Fatalf("Schedule overflows horizontally at %d pixels and %d%% zoom", width, zoom*100)
+	}
+}
+
+func certifyLiveScheduleUpdate(
+	t *testing.T,
+	driver *webDriver,
+	administrator *http.Client,
+	server *runningServer,
+	sessionID int64,
+) {
+	t.Helper()
+	target := "http://" + server.address + "/schedule?location=1"
+	if err := driver.navigate(t.Context(), target); err != nil {
+		t.Fatalf("navigate to live Schedule: %v", err)
+	}
+	if err := driver.waitFor(
+		t.Context(),
+		5*time.Second,
+		`const source = document.body["htmx-internal-data"]?.sseEventSource; `+
+			`return source?.readyState === EventSource.OPEN;`,
+	); err != nil {
+		t.Fatalf("wait for live Schedule connection: %v", err)
+	}
+	focused, err := driver.evaluateBool(
+		t.Context(),
+		`const control = document.querySelector("#schedule-location"); `+
+			`control.focus(); return document.activeElement === control;`,
+	)
+	if err != nil || !focused {
+		t.Fatalf("focus live Schedule filter = %t, %v", focused, err)
+	}
+	if focused, err = driver.evaluateBool(
+		t.Context(),
+		`window.htmx.trigger(document.querySelector("#schedule"), "sse:schedule"); return true;`,
+	); err != nil || !focused {
+		t.Fatalf("trigger Schedule focus-preservation refresh = %t, %v", focused, err)
+	}
+	if err = driver.waitFor(
+		t.Context(),
+		5*time.Second,
+		`return document.activeElement?.id === "schedule-location";`,
+	); err != nil {
+		t.Fatalf("wait for Schedule filter focus restoration: %v", err)
+	}
+	focused, err = driver.evaluateBool(
+		t.Context(),
+		fmt.Sprintf(
+			`const link = document.querySelector("#schedule-session-%d"); `+
+				`link.focus(); return document.activeElement === link;`,
+			sessionID,
+		),
+	)
+	if err != nil || !focused {
+		t.Fatalf("focus live Schedule Session link = %t, %v", focused, err)
+	}
+	client := rundownv1connect.NewRundownServiceClient(
+		administrator,
+		"http://"+server.address,
+		connect.WithProtoJSON(),
+	)
+	current, err := client.GetCrewRundown(
+		t.Context(),
+		connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
+	)
+	if err != nil {
+		t.Fatalf("load Rundown before browser Schedule update: %v", err)
+	}
+	edited, err := client.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "browser-live-schedule",
+		ExpectedDraftRevision: current.Msg.GetDraftRevision(),
+		Sessions: []*rundownv1.SessionDraft{{
+			Id: sessionID, Title: "Live Browser Keynote",
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"title"}},
+		}},
+	}))
+	if err != nil {
+		t.Fatalf("edit browser Schedule: %v", err)
+	}
+	publishEditedDraft(t, client, edited.Msg, "publish-browser-live-schedule")
+	if err = driver.waitFor(
+		t.Context(),
+		5*time.Second,
+		`return location.search === "?location=1" && `+
+			`document.querySelector("#schedule").textContent.includes("Live Browser Keynote") && `+
+			`document.querySelector("#schedule-status[role=status][aria-live=polite]")?.textContent === "Schedule updated.";`,
+	); err != nil {
+		t.Fatalf("wait for browser Schedule invalidation: %v", err)
+	}
+	focused, err = driver.evaluateBool(
+		t.Context(),
+		fmt.Sprintf(`return document.activeElement?.id === "schedule-session-%d";`, sessionID),
+	)
+	if err != nil || !focused {
+		t.Fatalf("live Schedule Session focus after invalidation = %t, %v", focused, err)
+	}
+	focused, err = driver.evaluateBool(
+		t.Context(),
+		fmt.Sprintf(
+			`document.querySelector("#schedule-session-%d").remove(); `+
+				`document.body.dispatchEvent(new CustomEvent("htmx:afterSwap", `+
+				`{bubbles: true, detail: {target: document.querySelector("#schedule")}})); `+
+				`return document.activeElement?.id === "schedule-heading";`,
+			sessionID,
+		),
+	)
+	if err != nil || !focused {
+		t.Fatalf("focus fallback after live Schedule item removal = %t, %v", focused, err)
 	}
 }
 

@@ -1,5 +1,11 @@
 package schedule
 
+import (
+	"fmt"
+
+	"github.com/dotwaffle/beamers/internal/frontend"
+)
+
 templ Page(snapshot Snapshot) {
 	<!doctype html>
 	<html lang={ snapshot.Language } data-locale={ snapshot.Locale }>
@@ -8,11 +14,25 @@ templ Page(snapshot Snapshot) {
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<link rel="stylesheet" href="/assets/frontend.css"/>
 			<link rel="stylesheet" href="/assets/schedule.css"/>
+			<script src={ frontend.HTMXPath } defer></script>
+			<script src={ frontend.SSEPath } defer></script>
+			<script src="/assets/schedule.js" defer></script>
 			<title>{ snapshot.EventName } Schedule</title>
 		</head>
-		<body>
-			<main>
-				<h1>{ snapshot.EventName } Schedule</h1>
+		<body
+			hx-ext="sse"
+			sse-connect={ snapshot.EventsPath() }
+		>
+			<main
+				id="schedule"
+				hx-get={ snapshot.SchedulePath() }
+				hx-trigger="sse:schedule"
+				hx-target="this"
+				hx-select="#schedule"
+				hx-swap="outerHTML"
+				hx-headers={ `{"Cache-Control":"no-cache"}` }
+			>
+				<h1 id="schedule-heading" tabindex="-1">{ snapshot.EventName } Schedule</h1>
 				<p>Event timezone: { snapshot.Timezone }</p>
 				if snapshot.ViewerLocal {
 					<p>Attendee-local conversion: { snapshot.ViewerTimezone }. Program days remain grouped in Event time.</p>
@@ -20,7 +40,7 @@ templ Page(snapshot Snapshot) {
 				<form method="get" action="/schedule">
 					<label>
 						Program day
-						<select name="day">
+						<select id="schedule-day" name="day">
 							<option value="">All days</option>
 							for _, day := range snapshot.DayOptions {
 								if day == snapshot.Filter.Day {
@@ -36,9 +56,9 @@ templ Page(snapshot Snapshot) {
 					@StructuralFilter("Track", "track", snapshot.Tracks)
 					<label>
 						Attendee timezone
-						<input name="time_zone" value={ snapshot.Filter.ViewerTimezone } placeholder="America/New_York"/>
+						<input id="schedule-time-zone" name="time_zone" value={ snapshot.Filter.ViewerTimezone } placeholder="America/New_York"/>
 					</label>
-					<button type="submit">Apply filters</button>
+					<button id="schedule-apply" type="submit">Apply filters</button>
 				</form>
 				for _, day := range snapshot.Days {
 					<section>
@@ -48,12 +68,13 @@ templ Page(snapshot Snapshot) {
 								<p class="calendar-date-rollover">Local calendar date: { session.LocalDate }</p>
 							}
 							<article>
-								<h3><a href={ session.PathWithTimezone(snapshot.ViewerTimezone) }>{ session.Title }</a></h3>
+								<h3><a id={ fmt.Sprintf("schedule-session-%d", session.ID) } href={ session.PathWithTimezone(snapshot.ViewerTimezone) }>{ session.Title }</a></h3>
 								@SessionDetails(session)
 							</article>
 						}
 					</section>
 				}
+				<p id="schedule-status" role="status" aria-live="polite" aria-atomic="true">Schedule updated.</p>
 			</main>
 		</body>
 	</html>
@@ -82,7 +103,7 @@ templ SessionPage(snapshot Snapshot, session Session) {
 templ StructuralFilter(label string, name string, options []FilterOption) {
 	<label>
 		{ label }
-		<select name={ name }>
+		<select id={ "schedule-" + name } name={ name }>
 			<option value="">All</option>
 			for _, option := range options {
 				if option.Selected {

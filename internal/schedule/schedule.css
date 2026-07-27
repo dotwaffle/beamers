@@ -11,6 +11,19 @@ form {
   margin-block: 1.5rem;
 }
 
+form > *,
+form label,
+form input,
+form select,
+form button {
+  max-width: 100%;
+  min-width: 0;
+}
+
+form label {
+  display: grid;
+}
+
 article p {
   margin-block: 0.35rem;
 }

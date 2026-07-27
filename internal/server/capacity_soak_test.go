@@ -451,9 +451,9 @@ func runCapacityLoad(
 	}
 	envelope := target.Envelope
 	transport := &http.Transport{
-		MaxIdleConns:        envelope.Displays + envelope.CrewConsoles + 100,
-		MaxIdleConnsPerHost: envelope.Displays + envelope.CrewConsoles + 100,
-		MaxConnsPerHost:     envelope.Displays + envelope.CrewConsoles + 100,
+		MaxIdleConns:        envelope.Displays + envelope.CrewConsoles + envelope.PublicReaders + 100,
+		MaxIdleConnsPerHost: envelope.Displays + envelope.CrewConsoles + envelope.PublicReaders + 100,
+		MaxConnsPerHost:     envelope.Displays + envelope.CrewConsoles + envelope.PublicReaders + 100,
 		IdleConnTimeout:     30 * time.Second,
 	}
 	t.Cleanup(transport.CloseIdleConnections)
@@ -514,6 +514,7 @@ func runCapacityLoad(
 			ctx,
 			client,
 			cacheServer.URL,
+			target.Origin,
 			envelope.PublicReaders,
 			backgroundErr,
 			&publicRequests,
@@ -1914,6 +1915,7 @@ func runCapacityPublicLoad(
 	ctx context.Context,
 	client *http.Client,
 	baseURL string,
+	streamURL string,
 	readers int,
 	backgroundErr chan<- error,
 	requests *atomic.Int64,
@@ -1924,56 +1926,110 @@ func runCapacityPublicLoad(
 	started := time.Now()
 	for index := range readers {
 		group.Go(func() {
-			firstRequest := true
-			for cycle := 0; ; cycle++ {
-				if !waitForCapacityArrival(
+			if !waitForCapacityArrival(
+				ctx,
+				capacityLoadArrival(started, index, 0, readers, publicPollingInterval),
+			) {
+				return
+			}
+			request, err := http.NewRequestWithContext(
+				ctx, http.MethodGet, streamURL+"/schedule/events", http.NoBody,
+			)
+			if err != nil {
+				sendCapacityError(ctx, backgroundErr, err)
+				return
+			}
+			streamClient := &http.Client{Transport: client.Transport}
+			response, err := streamClient.Do(request)
+			if err != nil {
+				sendCapacityError(ctx, backgroundErr, fmt.Errorf("open public Schedule stream: %w", err))
+				return
+			}
+			defer func() {
+				if closeErr := response.Body.Close(); closeErr != nil && ctx.Err() == nil {
+					sendCapacityError(ctx, backgroundErr, closeErr)
+				}
+			}()
+			if response.StatusCode != http.StatusOK {
+				sendCapacityError(
 					ctx,
-					capacityLoadArrival(
-						started,
-						index,
-						cycle,
-						readers,
-						publicPollingInterval,
-					),
-				) {
+					backgroundErr,
+					fmt.Errorf("public Schedule stream status = %d", response.StatusCode),
+				)
+				return
+			}
+			if readyReaders.Add(1) == int64(readers) {
+				close(ready)
+			}
+			reader := bufio.NewReader(response.Body)
+			representative := index%100 == 0
+			for {
+				_, readErr := readCapacityScheduleInvalidation(reader)
+				if readErr != nil {
+					if ctx.Err() == nil {
+						sendCapacityError(ctx, backgroundErr, readErr)
+					}
 					return
 				}
-				request, err := http.NewRequestWithContext(
-					ctx,
-					http.MethodHead,
-					baseURL+"/schedule",
-					http.NoBody,
-				)
-				if err == nil {
-					var response *http.Response
-					response, err = client.Do(request)
-					if err == nil {
-						err = response.Body.Close()
-						if response.StatusCode != http.StatusOK {
-							err = fmt.Errorf(
-								"public reader status = %d",
-								response.StatusCode,
-							)
-						}
-					}
+				if !representative {
+					continue
 				}
-				if err != nil && ctx.Err() == nil {
+				if err = resnapshotCapacitySchedule(ctx, client, baseURL); err != nil {
 					sendCapacityError(ctx, backgroundErr, err)
 					return
 				}
-				if err == nil {
-					requests.Add(1)
-					if firstRequest {
-						firstRequest = false
-						if readyReaders.Add(1) == int64(readers) {
-							close(ready)
-						}
-					}
-				}
+				requests.Add(1)
 			}
 		})
 	}
 	group.Wait()
+}
+
+func readCapacityScheduleInvalidation(reader *bufio.Reader) (string, error) {
+	event, id := "", ""
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			return "", fmt.Errorf("read public Schedule invalidation: %w", err)
+		}
+		line = strings.TrimSpace(line)
+		if value, found := strings.CutPrefix(line, "event:"); found {
+			event = strings.TrimSpace(value)
+		}
+		if value, found := strings.CutPrefix(line, "id:"); found {
+			id = strings.TrimSpace(value)
+		}
+		if line == "" && event == "schedule" {
+			return id, nil
+		}
+	}
+}
+
+func resnapshotCapacitySchedule(
+	ctx context.Context,
+	client *http.Client,
+	baseURL string,
+) error {
+	request, err := http.NewRequestWithContext(
+		ctx, http.MethodGet, baseURL+"/schedule", http.NoBody,
+	)
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Cache-Control", "no-cache")
+	response, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+	_, readErr := io.Copy(io.Discard, response.Body)
+	closeErr := response.Body.Close()
+	if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
+		return joinedErr
+	}
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("public Schedule resnapshot status = %d", response.StatusCode)
+	}
+	return nil
 }
 
 func capacityLoadArrival(
@@ -2291,8 +2347,9 @@ func (cache *capacityScheduleCache) ServeHTTP(
 	response http.ResponseWriter,
 	request *http.Request,
 ) {
+	revalidate := request.Header.Get("Cache-Control") == "no-cache"
 	cache.mu.RLock()
-	if time.Now().Before(cache.expires) {
+	if !revalidate && time.Now().Before(cache.expires) {
 		etag := cache.etagValue
 		body := cache.body
 		cache.mu.RUnlock()
@@ -2302,7 +2359,7 @@ func (cache *capacityScheduleCache) ServeHTTP(
 	cache.mu.RUnlock()
 
 	cache.mu.Lock()
-	if time.Now().After(cache.expires) {
+	if revalidate || time.Now().After(cache.expires) {
 		if err := cache.refresh(request.Context()); err != nil {
 			cache.mu.Unlock()
 			http.Error(response, err.Error(), http.StatusBadGateway)

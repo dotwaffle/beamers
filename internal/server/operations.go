@@ -21,14 +21,15 @@ import (
 )
 
 type operationHandlers struct {
-	browser     frontendHandlers
-	activation  *activation.Service
-	events      *events.Service
-	rundown     *rundown.Queries
-	sessions    *sessioncontrol.Service
-	competition *competition.Service
-	displays    *displays.Service
-	stream      *displaystream.Hub
+	browser        frontendHandlers
+	activation     *activation.Service
+	events         *events.Service
+	rundown        *rundown.Queries
+	sessions       *sessioncontrol.Service
+	competition    *competition.Service
+	displays       *displays.Service
+	stream         *displaystream.Hub
+	notifySchedule func()
 }
 
 type operationPreview struct {
@@ -55,6 +56,7 @@ func registerOperationRoutes(
 	competitionService *competition.Service,
 	displayService *displays.Service,
 	stream *displaystream.Hub,
+	notifySchedule func(),
 	logger *slog.Logger,
 ) {
 	handlers := operationHandlers{
@@ -66,6 +68,7 @@ func registerOperationRoutes(
 		activation: activationService, events: eventService,
 		rundown: rundownQueries, sessions: sessionService,
 		competition: competitionService, displays: displayService, stream: stream,
+		notifySchedule: notifySchedule,
 	}
 	route := backstagePageRoute()
 	route.maxBodyBytes = maxAuthBodyBytes
@@ -185,12 +188,19 @@ func (handlers operationHandlers) submit(
 		return
 	}
 	handlers.stream.Notify()
+	if publicScheduleOperationAction(request.Form.Get("action")) {
+		handlers.notifySchedule()
+	}
 	http.Redirect(
 		response,
 		request,
 		"/backstage/events/"+strconv.Itoa(event.ID)+"/operations",
 		http.StatusSeeOther,
 	)
+}
+
+func publicScheduleOperationAction(action string) bool {
+	return action != "enroll-display" && action != "assign-display"
 }
 
 func (handlers operationHandlers) submitSessionAction(

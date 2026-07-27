@@ -171,6 +171,10 @@ func TestAdministratorApprovesForceLiveUpgradeInMaintenance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create Program stream: %v", err)
 	}
+	scheduleStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
+	if err != nil {
+		t.Fatalf("create Schedule stream: %v", err)
+	}
 	application := newUpgradeApplication(applicationConfig{
 		Config: Config{
 			DataDir: dataDir, BuildVersion: "test",
@@ -181,6 +185,7 @@ func TestAdministratorApprovesForceLiveUpgradeInMaintenance(t *testing.T) {
 		},
 		ListenerAddress: &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8080},
 		DisplayStream:   displayStream, ProgramStream: programStream,
+		ScheduleStream: scheduleStream,
 	}, upgrade)
 	t.Cleanup(func() {
 		if closeErr := application.Close(); closeErr != nil {

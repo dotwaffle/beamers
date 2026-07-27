@@ -2886,9 +2886,9 @@ func publishEditedDraft(
 	}
 }
 
-func TestPublicScheduleSupportsConditionalPolling(t *testing.T) {
+func TestPublicScheduleSupportsCacheableSnapshotsAndLiveInvalidation(t *testing.T) {
 	client, server := startAuthenticatedAdministrator(t)
-	prepareActiveSchedule(t, client, server)
+	publicSessionID := prepareActiveSchedule(t, client, server)
 	publicClient := authenticatedClient(t)
 
 	initial := get(t, publicClient, server.address, "/schedule")
@@ -2899,6 +2899,19 @@ func TestPublicScheduleSupportsConditionalPolling(t *testing.T) {
 	}
 	if initial.StatusCode != http.StatusOK || len(initialBody) == 0 {
 		t.Fatalf("initial public Schedule = %d %q, want nonempty 200", initial.StatusCode, initialBody)
+	}
+	for _, want := range []string{
+		`hx-ext="sse"`,
+		`sse-connect="/schedule/events?`,
+		`hx-trigger="sse:schedule"`,
+		`id="schedule-location"`,
+		`id="schedule-status" role="status" aria-live="polite"`,
+		`src="/assets/htmx-2.0.10.min.js"`,
+		`src="/assets/htmx-ext-sse-2.2.4.min.js"`,
+	} {
+		if !bytes.Contains(initialBody, []byte(want)) {
+			t.Errorf("initial public Schedule missing %q", want)
+		}
 	}
 	etag := initial.Header.Get("ETag")
 	if etag == "" {
@@ -2921,8 +2934,8 @@ func TestPublicScheduleSupportsConditionalPolling(t *testing.T) {
 	}
 	conditionalBody, readErr := io.ReadAll(conditional.Body)
 	closeErr = conditional.Body.Close()
-	if err := errors.Join(readErr, closeErr); err != nil {
-		t.Fatalf("read conditional public Schedule: %v", err)
+	if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
+		t.Fatalf("read conditional public Schedule: %v", joinedErr)
 	}
 	if conditional.StatusCode != http.StatusNotModified || len(conditionalBody) != 0 {
 		t.Errorf(
@@ -2930,7 +2943,147 @@ func TestPublicScheduleSupportsConditionalPolling(t *testing.T) {
 			conditional.StatusCode, conditionalBody,
 		)
 	}
+
+	streamPath := publicScheduleEventsPath(t, initialBody)
+	streamResponse, streamReader := openPublicScheduleEvents(
+		t,
+		publicClient,
+		server.address,
+		streamPath,
+	)
+	rundownClient := rundownv1connect.NewRundownServiceClient(
+		client, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	current, err := rundownClient.GetCrewRundown(
+		t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
+	)
+	if err != nil {
+		t.Fatalf("load Rundown before Schedule invalidation: %v", err)
+	}
+	edited, err := rundownClient.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
+		EventId: 1, CommandId: "edit-live-schedule",
+		ExpectedDraftRevision: current.Msg.GetDraftRevision(),
+		Sessions: []*rundownv1.SessionDraft{{
+			Id: publicSessionID, Title: "Live Schedule Keynote",
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"title"}},
+		}},
+	}))
+	if err != nil {
+		t.Fatalf("edit live Schedule: %v", err)
+	}
+	publishEditedDraft(t, rundownClient, edited.Msg, "publish-live-schedule")
+	if eventID := readPublicScheduleInvalidation(t, streamReader); eventID == "" {
+		t.Fatal("live Schedule invalidation has no Event ID")
+	}
+	if closeErr = streamResponse.Body.Close(); closeErr != nil {
+		t.Fatalf("close live Schedule stream: %v", closeErr)
+	}
+
+	refreshedRequest, err := http.NewRequestWithContext(
+		t.Context(), http.MethodGet, "http://"+server.address+"/schedule", http.NoBody,
+	)
+	if err != nil {
+		t.Fatalf("create refreshed Schedule request: %v", err)
+	}
+	refreshedRequest.Header.Set("Cache-Control", "no-cache")
+	refreshed, err := publicClient.Do(refreshedRequest)
+	if err != nil {
+		t.Fatalf("refresh live Schedule: %v", err)
+	}
+	refreshedBody, readErr := io.ReadAll(refreshed.Body)
+	closeErr = refreshed.Body.Close()
+	if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
+		t.Fatalf("read refreshed live Schedule: %v", joinedErr)
+	}
+	if refreshed.StatusCode != http.StatusOK ||
+		!bytes.Contains(refreshedBody, []byte("Live Schedule Keynote")) {
+		t.Fatalf("refreshed live Schedule = %d %q", refreshed.StatusCode, refreshedBody)
+	}
+
+	gapResponse, gapReader := openPublicScheduleEvents(
+		t,
+		publicClient,
+		server.address,
+		streamPath,
+	)
+	readPublicScheduleInvalidation(t, gapReader)
+	if closeErr = gapResponse.Body.Close(); closeErr != nil {
+		t.Fatalf("close gap-recovery Schedule stream: %v", closeErr)
+	}
+
+	bin, dataDir := server.bin, server.dataDir
 	server.stop(t)
+	restarted := startBeamers(t, bin, dataDir)
+	incompatibleResponse, incompatibleReader := openPublicScheduleEvents(
+		t,
+		publicClient,
+		restarted.address,
+		streamPath,
+	)
+	readPublicScheduleInvalidation(t, incompatibleReader)
+	if closeErr = incompatibleResponse.Body.Close(); closeErr != nil {
+		t.Fatalf("close restarted Schedule stream: %v", closeErr)
+	}
+	restarted.stop(t)
+}
+
+func publicScheduleEventsPath(t *testing.T, page []byte) string {
+	t.Helper()
+	match := regexp.MustCompile(`sse-connect="([^"]+)"`).FindSubmatch(page)
+	if len(match) != 2 {
+		t.Fatalf("public Schedule has no SSE connection path: %s", page)
+	}
+	return strings.ReplaceAll(string(match[1]), "&amp;", "&")
+}
+
+func openPublicScheduleEvents(
+	t *testing.T,
+	client *http.Client,
+	address string,
+	path string,
+) (*http.Response, *bufio.Reader) {
+	t.Helper()
+	request, err := http.NewRequestWithContext(
+		t.Context(), http.MethodGet, "http://"+address+path, http.NoBody,
+	)
+	if err != nil {
+		t.Fatalf("create public Schedule stream request: %v", err)
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		t.Fatalf("open public Schedule stream: %v", err)
+	}
+	if response.StatusCode != http.StatusOK ||
+		response.Header.Get("Content-Type") != "text/event-stream" {
+		_ = response.Body.Close()
+		t.Fatalf(
+			"public Schedule stream = %d %q",
+			response.StatusCode,
+			response.Header.Get("Content-Type"),
+		)
+	}
+	return response, bufio.NewReader(response.Body)
+}
+
+func readPublicScheduleInvalidation(t *testing.T, reader *bufio.Reader) string {
+	t.Helper()
+	event, id := "", ""
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			t.Fatalf("read public Schedule invalidation: %v", err)
+		}
+		line = strings.TrimSpace(line)
+		if value, ok := strings.CutPrefix(line, "event:"); ok {
+			event = strings.TrimSpace(value)
+		}
+		if value, ok := strings.CutPrefix(line, "id:"); ok {
+			id = strings.TrimSpace(value)
+		}
+		if line == "" && event == "schedule" {
+			return id
+		}
+	}
 }
 
 func TestPublicScheduleEncodesFiltersAndLocalTimeInURL(t *testing.T) {
@@ -2959,6 +3112,7 @@ func TestPublicScheduleEncodesFiltersAndLocalTimeInURL(t *testing.T) {
 		"Attendee-local time (EDT -04:00): Forecast Start",
 		`datetime="2099-08-21T04:00:00-04:00">21 Aug 2099 04:00 EDT`,
 		fmt.Sprintf(`/schedule/sessions/%d?time_zone=America%%2FNew_York`, publicSessionID),
+		`hx-get="/schedule?day=2099-08-21&amp;lane=1&amp;location=1&amp;time_zone=America%2FNew_York&amp;track=1"`,
 	} {
 		if !strings.Contains(page, expected) {
 			t.Errorf("filtered local-time Schedule missing %q: %s", expected, page)
@@ -3121,6 +3275,18 @@ func TestProducerCreatesIncludedCompetitionEntry(t *testing.T) {
 			rundownv1.EntryDisposition_ENTRY_DISPOSITION_INCLUDED {
 		t.Fatalf("Competition configuration = %+v", configured.Msg)
 	}
+	schedulePage := get(t, authenticatedClient(t), server.address, "/schedule")
+	schedulePageBody, readErr := io.ReadAll(schedulePage.Body)
+	closeErr := schedulePage.Body.Close()
+	if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
+		t.Fatalf("read Schedule before Entry invalidation: %v", joinedErr)
+	}
+	entryStream, entryStreamReader := openPublicScheduleEvents(
+		t,
+		authenticatedClient(t),
+		server.address,
+		publicScheduleEventsPath(t, schedulePageBody),
+	)
 	created, err := client.CreateEntry(t.Context(), connect.NewRequest(
 		&competitionv1.CreateEntryRequest{
 			EventId: 1, SessionId: competitionID, CommandId: "create-included-entry",
@@ -3130,6 +3296,10 @@ func TestProducerCreatesIncludedCompetitionEntry(t *testing.T) {
 	))
 	if err != nil {
 		t.Fatalf("Create Entry: %v", err)
+	}
+	readPublicScheduleInvalidation(t, entryStreamReader)
+	if closeErr = entryStream.Body.Close(); closeErr != nil {
+		t.Fatalf("close Entry Schedule stream: %v", closeErr)
 	}
 	entry := created.Msg.GetEntry()
 	if entry.GetId() <= 0 || entry.GetCompetitionSessionId() != competitionID ||
@@ -3164,9 +3334,9 @@ func TestProducerCreatesIncludedCompetitionEntry(t *testing.T) {
 	scheduleBody := func() string {
 		t.Helper()
 		response := get(t, authenticatedClient(t), server.address, "/schedule/sessions/"+strconv.FormatInt(competitionID, 10))
-		body, readErr := io.ReadAll(response.Body)
-		closeErr := response.Body.Close()
-		if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
+		body, bodyReadErr := io.ReadAll(response.Body)
+		bodyCloseErr := response.Body.Close()
+		if joinedErr := errors.Join(bodyReadErr, bodyCloseErr); joinedErr != nil {
 			t.Fatalf("read public Competition: %v", joinedErr)
 		}
 		if response.StatusCode != http.StatusOK {
@@ -3288,7 +3458,7 @@ func TestProducerCreatesIncludedCompetitionEntry(t *testing.T) {
 	}
 	auditResponse := get(t, administrator, server.address, "/admin/audit")
 	auditBody, readErr := io.ReadAll(auditResponse.Body)
-	closeErr := auditResponse.Body.Close()
+	closeErr = auditResponse.Body.Close()
 	if err := errors.Join(readErr, closeErr); err != nil {
 		t.Fatalf("read Competition Audit history: %v", err)
 	}

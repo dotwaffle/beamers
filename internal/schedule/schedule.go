@@ -42,6 +42,8 @@ type Snapshot struct {
 	Lanes          []FilterOption `json:"lanes"`
 	Tracks         []FilterOption `json:"tracks"`
 	ETag           string         `json:"-"`
+	StreamID       string         `json:"-"`
+	StreamPosition uint64         `json:"-"`
 	Sessions       []Session      `json:"sessions"`
 	Days           []Day          `json:"days"`
 }
@@ -372,12 +374,36 @@ func (session Session) PathWithTimezone(viewerTimezone string) string {
 	return path + "?time_zone=" + url.QueryEscape(viewerTimezone)
 }
 
-// SchedulePath keeps attendee-local conversion when returning from a deep link.
+// SchedulePath preserves the complete shareable Schedule view.
 func (snapshot Snapshot) SchedulePath() string {
-	if snapshot.ViewerTimezone == "" {
+	values := url.Values{}
+	if snapshot.Filter.Day != "" {
+		values.Set("day", snapshot.Filter.Day)
+	}
+	if snapshot.Filter.LocationID > 0 {
+		values.Set("location", strconv.Itoa(snapshot.Filter.LocationID))
+	}
+	if snapshot.Filter.LaneID > 0 {
+		values.Set("lane", strconv.Itoa(snapshot.Filter.LaneID))
+	}
+	if snapshot.Filter.TrackID > 0 {
+		values.Set("track", strconv.Itoa(snapshot.Filter.TrackID))
+	}
+	if snapshot.ViewerTimezone != "" {
+		values.Set("time_zone", snapshot.ViewerTimezone)
+	}
+	if len(values) == 0 {
 		return "/schedule"
 	}
-	return "/schedule?time_zone=" + url.QueryEscape(snapshot.ViewerTimezone)
+	return "/schedule?" + values.Encode()
+}
+
+// EventsPath resumes invalidations after the complete snapshot cursor.
+func (snapshot Snapshot) EventsPath() string {
+	values := url.Values{}
+	values.Set("after", strconv.FormatUint(snapshot.StreamPosition, 10))
+	values.Set("stream_id", snapshot.StreamID)
+	return "/schedule/events?" + values.Encode()
 }
 
 func locationNames(items []store.PublicScheduleLocation) map[int]string {

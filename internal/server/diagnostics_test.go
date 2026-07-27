@@ -79,6 +79,8 @@ func TestDiagnosticsRetainIndependentComponentsWhenStorageFails(t *testing.T) {
 		2,
 		2,
 		3,
+		4,
+		scheduleStreamMetricSnapshot{Connections: 5, Resnapshots: 6},
 		true,
 		nil,
 	)
@@ -90,8 +92,41 @@ func TestDiagnosticsRetainIndependentComponentsWhenStorageFails(t *testing.T) {
 		found.Authentication.Status != "unavailable" ||
 		found.Streams.Display.Subscribers != 2 ||
 		found.Streams.Program.Subscribers != 3 ||
+		found.Streams.Schedule.Subscribers != 4 ||
+		found.Streams.Schedule.Connections != 5 ||
+		found.Streams.Schedule.Resnapshots != 6 ||
 		found.Telemetry.Status != "enabled" {
 		t.Fatalf("diagnostics = %+v", found)
+	}
+}
+
+func TestDiagnosticsReportScheduleReadersSeparately(t *testing.T) {
+	application, _, _, displayStream := newDiagnosticsTestApplication(
+		t,
+		&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8080},
+	)
+	display := displayStream.SubscribeDisplay(0, 7)
+	schedule := application.config.ScheduleStream.Subscribe(0)
+	t.Cleanup(display.Close)
+	t.Cleanup(schedule.Close)
+	scheduleCursor := application.config.ScheduleStream.Cursor()
+	displayStream.Notify()
+	if current := application.config.ScheduleStream.Cursor(); current != scheduleCursor {
+		t.Fatalf("Display invalidation advanced Schedule stream: %+v", current)
+	}
+
+	response := httptest.NewRecorder()
+	application.ServeHTTP(
+		response,
+		httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/diagnostics", http.NoBody),
+	)
+	var found normalDiagnosticsResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &found); err != nil {
+		t.Fatalf("decode diagnostics: %v", err)
+	}
+	if found.Streams.Display.Subscribers != 1 ||
+		found.Streams.Schedule.Subscribers != 1 {
+		t.Fatalf("stream diagnostics = %+v", found.Streams)
 	}
 }
 
@@ -112,6 +147,8 @@ func TestDiagnosticsWarnBeyondTestedCapacityWithoutRefusal(t *testing.T) {
 		252,
 		251,
 		0,
+		0,
+		scheduleStreamMetricSnapshot{},
 		false,
 		nil,
 	)

@@ -149,3 +149,20 @@ func TestValidateFilterRejectsMalformedValuesBehindServiceSeam(t *testing.T) {
 		}
 	}
 }
+
+func TestSnapshotPathsPreserveFiltersAndStreamCursor(t *testing.T) {
+	snapshot := Snapshot{
+		ViewerTimezone: "America/New_York",
+		Filter: Filter{
+			Day: "2026-08-21", LocationID: 1, LaneID: 2, TrackID: 3,
+		},
+		StreamID: "stream one", StreamPosition: 7,
+	}
+	if got := snapshot.SchedulePath(); got !=
+		"/schedule?day=2026-08-21&lane=2&location=1&time_zone=America%2FNew_York&track=3" {
+		t.Errorf("Schedule path = %q", got)
+	}
+	if got := snapshot.EventsPath(); got != "/schedule/events?after=7&stream_id=stream+one" {
+		t.Errorf("Schedule Events path = %q", got)
+	}
+}

@@ -25,6 +25,7 @@ type applicationConfig struct {
 	ListenerAddress net.Addr
 	DisplayStream   *displaystream.Hub
 	ProgramStream   *displaystream.Hub
+	ScheduleStream  *displaystream.Hub
 	Replication     *replication.Adapter
 }
 
@@ -50,6 +51,7 @@ type application struct {
 	cancels         map[uint64]context.CancelCauseFunc
 	persistent      map[uint64]bool
 	drained         chan struct{}
+	scheduleMetrics *scheduleStreamMetrics
 }
 
 func newUpgradeApplication(
@@ -64,6 +66,7 @@ func newUpgradeApplication(
 		cancels:         make(map[uint64]context.CancelCauseFunc),
 		persistent:      make(map[uint64]bool),
 		drained:         closedChannel(),
+		scheduleMetrics: &scheduleStreamMetrics{},
 	}
 	app.handler = app.probeRoutes()
 	app.handler.HandleFunc(
@@ -87,13 +90,21 @@ type applicationRequest struct {
 }
 
 func newApplication(ctx context.Context, config applicationConfig) (*application, error) {
+	if config.ScheduleStream == nil {
+		var err error
+		config.ScheduleStream, err = displaystream.NewProcess(displaySubscriberQueueCapacity)
+		if err != nil {
+			return nil, err
+		}
+	}
 	found := &application{
-		config:       config,
-		installation: config.Installation,
-		accepting:    config.Installation.StartupError() == nil,
-		cancels:      make(map[uint64]context.CancelCauseFunc),
-		persistent:   make(map[uint64]bool),
-		drained:      closedChannel(),
+		config:          config,
+		installation:    config.Installation,
+		accepting:       config.Installation.StartupError() == nil,
+		cancels:         make(map[uint64]context.CancelCauseFunc),
+		persistent:      make(map[uint64]bool),
+		drained:         closedChannel(),
+		scheduleMetrics: &scheduleStreamMetrics{},
 	}
 	handler, err := found.buildHandler(ctx, config.Installation)
 	if err != nil {
@@ -272,6 +283,8 @@ func (application *application) runRestoreMaintenance(
 	application.accepting = reopened.StartupError() == nil
 	application.rejectMutations = false
 	application.rejectStreams = false
+	application.config.DisplayStream.Notify()
+	application.config.ScheduleStream.Notify()
 	application.mu.Unlock()
 	application.startReplication(application.replicationContext()) //nolint:contextcheck // Replication follows the server, not the completed Restore request.
 	return operationErr
@@ -593,6 +606,10 @@ func (application *application) buildHandler(
 	); err != nil {
 		return nil, err
 	}
+	notifyScheduleAndDisplays := func() {
+		application.config.DisplayStream.Notify()
+		application.config.ScheduleStream.Notify()
+	}
 	diagnostics := registerDiagnosticsRoutes(
 		mux,
 		installation.Authentication(),
@@ -600,6 +617,8 @@ func (application *application) buildHandler(
 		installation.Displays(),
 		application.config.DisplayStream,
 		application.config.ProgramStream,
+		application.config.ScheduleStream,
+		application.scheduleMetrics,
 		application.config.Telemetry,
 		application.config.Replication,
 		application.config.Logger,
@@ -629,7 +648,7 @@ func (application *application) buildHandler(
 		installation.Events(),
 		installation.RundownCommands(),
 		installation.RundownQueries(),
-		application.config.DisplayStream.Notify,
+		notifyScheduleAndDisplays,
 		application.config.Logger,
 	)
 	registerAdministrationRoutes(
@@ -637,7 +656,7 @@ func (application *application) buildHandler(
 		installation.Authentication(),
 		installation.Events(),
 		installation.Activation(),
-		application.config.DisplayStream.Notify,
+		notifyScheduleAndDisplays,
 		application.config.Logger,
 	)
 	registerOperationRoutes(
@@ -650,6 +669,7 @@ func (application *application) buildHandler(
 		installation.Competition(),
 		installation.Displays(),
 		application.config.DisplayStream,
+		application.config.ScheduleStream.Notify,
 		application.config.Logger,
 	)
 	registerControlRoutes(
@@ -670,6 +690,8 @@ func (application *application) buildHandler(
 		installation.ProgramControl(),
 		installation.Events(),
 		installation.RundownQueries(),
+		application.config.DisplayStream.Notify,
+		application.config.ScheduleStream.Notify,
 		application.config.Logger,
 	)
 	registerResultsFrontendRoutes(
@@ -703,6 +725,7 @@ func (application *application) buildHandler(
 		installation.Authentication(),
 		installation.Events(),
 		application.config.DisplayStream.Notify,
+		application.config.ScheduleStream.Notify,
 		application.config.Logger,
 		application.config.ListenerAddress,
 	)
@@ -722,7 +745,13 @@ func (application *application) buildHandler(
 		application.config.Logger,
 		application.config.ListenerAddress,
 	)
-	registerScheduleRoutes(mux, installation.Schedule(), application.config.Logger)
+	registerScheduleRoutes(
+		mux,
+		installation.Schedule(),
+		application.config.ScheduleStream,
+		application.scheduleMetrics,
+		application.config.Logger,
+	)
 	registerDisplayRoutes(
 		mux,
 		installation.Authentication(),
@@ -748,7 +777,7 @@ func (application *application) buildHandler(
 		installation.Authentication(),
 		installation.RundownCommands(),
 		installation.RundownQueries(),
-		application.config.DisplayStream.Notify,
+		notifyScheduleAndDisplays,
 		application.config.ListenerAddress,
 		application.config.TracerProvider,
 		application.config.MeterProvider,
@@ -760,6 +789,7 @@ func (application *application) buildHandler(
 		mux,
 		installation.Authentication(),
 		installation.Competition(),
+		notifyScheduleAndDisplays,
 		application.config.ListenerAddress,
 		application.config.TracerProvider,
 		application.config.MeterProvider,
@@ -799,7 +829,7 @@ func (application *application) buildHandler(
 		mux,
 		installation.Authentication(),
 		installation.Activation(),
-		application.config.DisplayStream.Notify,
+		notifyScheduleAndDisplays,
 		application.config.ListenerAddress,
 		application.config.TracerProvider,
 		application.config.MeterProvider,
@@ -823,7 +853,7 @@ func (application *application) buildHandler(
 		mux,
 		installation.Authentication(),
 		installation.SessionControl(),
-		application.config.DisplayStream.Notify,
+		notifyScheduleAndDisplays,
 		application.config.ListenerAddress,
 		application.config.TracerProvider,
 		application.config.MeterProvider,

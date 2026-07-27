@@ -119,6 +119,10 @@ func Run(ctx context.Context, config Config) error {
 	if err != nil {
 		return errors.Join(err, listener.Close(), closeListener(publicListener), installation.Close(), upgrade.Close())
 	}
+	scheduleStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
+	if err != nil {
+		return errors.Join(err, listener.Close(), closeListener(publicListener), installation.Close(), upgrade.Close())
+	}
 	var replica *replication.Adapter
 	replicationSync := config.ReplicationSync
 	replicationContext, cancelReplication := context.WithCancel(ctx)
@@ -140,6 +144,7 @@ func Run(ctx context.Context, config Config) error {
 		ListenerAddress: listener.Addr(),
 		DisplayStream:   displayStream,
 		ProgramStream:   programStream,
+		ScheduleStream:  scheduleStream,
 		Replication:     replica,
 	}
 	var application *application
@@ -313,6 +318,7 @@ func Run(ctx context.Context, config Config) error {
 			activeRequests, drained = application.beginInFlightDrain()
 			application.config.DisplayStream.Notify()
 			application.config.ProgramStream.Notify()
+			application.config.ScheduleStream.Notify()
 			inFlightStatus = waitForInFlightDrain(
 				shutdownContext,
 				shutdownDeadline.Add(-10*time.Second),

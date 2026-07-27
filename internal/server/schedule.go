@@ -2,26 +2,77 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/a-h/templ"
 
+	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/schedule"
 )
 
 type scheduleHandlers struct {
 	schedule *schedule.Service
+	stream   *displaystream.Hub
+	metrics  *scheduleStreamMetrics
 	logger   *slog.Logger
 }
 
-func registerScheduleRoutes(mux *routeMux, service *schedule.Service, logger *slog.Logger) {
-	handlers := scheduleHandlers{schedule: service, logger: logger}
+type scheduleStreamMetrics struct {
+	connections            atomic.Uint64
+	gapRecoveries          atomic.Uint64
+	incompatibleRecoveries atomic.Uint64
+	resnapshots            atomic.Uint64
+	slowDrops              atomic.Uint64
+	disconnects            atomic.Uint64
+}
+
+type scheduleStreamMetricSnapshot struct {
+	Connections            uint64
+	GapRecoveries          uint64
+	IncompatibleRecoveries uint64
+	Resnapshots            uint64
+	SlowDrops              uint64
+	Disconnects            uint64
+}
+
+func (metrics *scheduleStreamMetrics) snapshot() scheduleStreamMetricSnapshot {
+	return scheduleStreamMetricSnapshot{
+		Connections:            metrics.connections.Load(),
+		GapRecoveries:          metrics.gapRecoveries.Load(),
+		IncompatibleRecoveries: metrics.incompatibleRecoveries.Load(),
+		Resnapshots:            metrics.resnapshots.Load(),
+		SlowDrops:              metrics.slowDrops.Load(),
+		Disconnects:            metrics.disconnects.Load(),
+	}
+}
+
+func registerScheduleRoutes(
+	mux *routeMux,
+	service *schedule.Service,
+	stream *displaystream.Hub,
+	metrics *scheduleStreamMetrics,
+	logger *slog.Logger,
+) {
+	handlers := scheduleHandlers{
+		schedule: service, stream: stream, metrics: metrics, logger: logger,
+	}
 	mux.HandleFunc("/schedule", browserPageRoute(), handlers.list)
+	mux.HandleFunc(
+		"/schedule/events",
+		routeContract{kind: publicInterface, persistent: true},
+		handlers.events,
+	)
 	mux.HandleFunc("/schedule/sessions/{sessionID}", browserPageRoute(), handlers.session)
 	mux.HandleFunc("/assets/schedule.css", publicRoute(), handlers.stylesheet)
+	mux.HandleFunc("/assets/schedule.js", publicRoute(), handlers.script)
 }
 
 func (handlers scheduleHandlers) list(response http.ResponseWriter, request *http.Request) {
@@ -33,7 +84,13 @@ func (handlers scheduleHandlers) list(response http.ResponseWriter, request *htt
 		http.Error(response, "invalid Schedule filters", http.StatusBadRequest)
 		return
 	}
-	snapshot, err := handlers.schedule.Current(request.Context(), filter)
+	snapshot, err := currentScheduleSnapshot(
+		request.Context(),
+		handlers.stream,
+		func(ctx context.Context) (schedule.Snapshot, error) {
+			return handlers.schedule.Current(ctx, filter)
+		},
+	)
 	if err != nil {
 		if errors.Is(err, schedule.ErrInvalidFilter) {
 			http.Error(response, "invalid Schedule filters", http.StatusBadRequest)
@@ -43,7 +100,110 @@ func (handlers scheduleHandlers) list(response http.ResponseWriter, request *htt
 		http.Error(response, "Schedule unavailable", http.StatusInternalServerError)
 		return
 	}
+	if request.Header.Get("HX-Request") == "true" ||
+		strings.Contains(request.Header.Get("Cache-Control"), "no-cache") {
+		handlers.metrics.resnapshots.Add(1)
+	}
 	handlers.render(response, request, snapshot.ETag, schedule.Page(snapshot), "public Schedule") //nolint:contextcheck // Generated templ closures receive context when rendered.
+}
+
+func currentScheduleSnapshot(
+	ctx context.Context,
+	stream *displaystream.Hub,
+	load func(context.Context) (schedule.Snapshot, error),
+) (schedule.Snapshot, error) {
+	cursor := stream.Cursor()
+	snapshot, err := load(ctx)
+	if err != nil {
+		return schedule.Snapshot{}, err
+	}
+	snapshot.StreamID = cursor.StreamID
+	snapshot.StreamPosition = cursor.Position
+	return snapshot, nil
+}
+
+func (handlers scheduleHandlers) events(response http.ResponseWriter, request *http.Request) {
+	if request.Method != http.MethodGet {
+		response.Header().Set("Allow", http.MethodGet)
+		http.Error(response, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	cursor := handlers.stream.Cursor()
+	after, err := scheduleStreamPosition(request)
+	if err != nil {
+		http.Error(response, "invalid Schedule stream position", http.StatusBadRequest)
+		return
+	}
+	streamChanged := request.URL.Query().Get("stream_id") != cursor.StreamID
+	unknownPosition := after > cursor.Position
+	incompatible := streamChanged || unknownPosition
+	if incompatible {
+		handlers.metrics.incompatibleRecoveries.Add(1)
+		after = cursor.Position
+	} else if after < cursor.Position {
+		handlers.metrics.gapRecoveries.Add(1)
+	}
+	subscription := handlers.stream.Subscribe(after)
+	defer subscription.Close()
+	handlers.metrics.connections.Add(1)
+
+	response.Header().Set("Cache-Control", "no-store")
+	response.Header().Set("Content-Type", "text/event-stream")
+	response.Header().Set("X-Accel-Buffering", "no")
+	if err = writeDisplayHeartbeat(response); err != nil {
+		handlers.metrics.disconnects.Add(1)
+		return
+	}
+	if incompatible {
+		if err = writeScheduleInvalidation(response, cursor); err != nil {
+			handlers.metrics.disconnects.Add(1)
+			return
+		}
+	}
+	heartbeats := time.NewTicker(displayHeartbeatInterval)
+	defer heartbeats.Stop()
+	for {
+		select {
+		case <-request.Context().Done():
+			handlers.metrics.disconnects.Add(1)
+			return
+		case notification, open := <-subscription.Notifications:
+			if !open {
+				handlers.metrics.slowDrops.Add(1)
+				return
+			}
+			if writeScheduleInvalidation(response, notification) != nil {
+				handlers.metrics.disconnects.Add(1)
+				return
+			}
+		case <-heartbeats.C:
+			if writeDisplayHeartbeat(response) != nil {
+				handlers.metrics.disconnects.Add(1)
+				return
+			}
+		}
+	}
+}
+
+func scheduleStreamPosition(request *http.Request) (uint64, error) {
+	value := request.Header.Get("Last-Event-ID")
+	if value == "" {
+		value = request.URL.Query().Get("after")
+	}
+	if value == "" {
+		return 0, nil
+	}
+	return strconv.ParseUint(value, 10, 64)
+}
+
+func writeScheduleInvalidation(
+	response http.ResponseWriter,
+	cursor displaystream.Cursor,
+) error {
+	return writeDisplaySSE(response, fmt.Sprintf(
+		"id: %d\nevent: schedule\ndata: refresh\n\n",
+		cursor.Position,
+	))
 }
 
 func (handlers scheduleHandlers) session(response http.ResponseWriter, request *http.Request) {
@@ -145,6 +305,24 @@ func (handlers scheduleHandlers) stylesheet(response http.ResponseWriter, reques
 	}
 	response.Header().Set("Cache-Control", "public, max-age=3600")
 	response.Header().Set("Content-Type", "text/css; charset=utf-8")
+	if request.Method == http.MethodHead {
+		return
+	}
+	_, _ = response.Write(content)
+}
+
+func (handlers scheduleHandlers) script(response http.ResponseWriter, request *http.Request) {
+	if !publicMethodAllowed(response, request) {
+		return
+	}
+	content, err := schedule.Script()
+	if err != nil {
+		handlers.logger.ErrorContext(request.Context(), "read public Schedule script", "error", err)
+		http.Error(response, "script unavailable", http.StatusInternalServerError)
+		return
+	}
+	response.Header().Set("Cache-Control", "public, max-age=3600")
+	response.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 	if request.Method == http.MethodHead {
 		return
 	}

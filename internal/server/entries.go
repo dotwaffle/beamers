@@ -20,12 +20,14 @@ import (
 )
 
 type entryHandlers struct {
-	browser     frontendHandlers
-	competition *competition.Service
-	attachments *attachments.Service
-	program     *programcontrol.Service
-	events      *events.Service
-	rundown     *rundown.Queries
+	browser        frontendHandlers
+	competition    *competition.Service
+	attachments    *attachments.Service
+	program        *programcontrol.Service
+	events         *events.Service
+	rundown        *rundown.Queries
+	notifyDisplays func()
+	notifySchedule func()
 }
 
 func registerEntryRoutes(
@@ -36,6 +38,8 @@ func registerEntryRoutes(
 	programService *programcontrol.Service,
 	eventService *events.Service,
 	rundownQueries *rundown.Queries,
+	notifyDisplays func(),
+	notifySchedule func(),
 	logger *slog.Logger,
 ) {
 	handlers := entryHandlers{
@@ -44,11 +48,13 @@ func registerEntryRoutes(
 			logger:         logger,
 			random:         rand.Reader,
 		},
-		competition: competitionService,
-		attachments: attachmentService,
-		program:     programService,
-		events:      eventService,
-		rundown:     rundownQueries,
+		competition:    competitionService,
+		attachments:    attachmentService,
+		program:        programService,
+		events:         eventService,
+		rundown:        rundownQueries,
+		notifyDisplays: notifyDisplays,
+		notifySchedule: notifySchedule,
 	}
 	route := backstagePageRoute()
 	route.maxBodyBytes = defaultRequestBytes
@@ -115,6 +121,12 @@ func (handlers entryHandlers) submit(
 	err := handlers.validateEntryActionTargets(request, actor, eventID, sessionID)
 	if err == nil {
 		err = handlers.submitEntryAction(request, actor, eventID, sessionID)
+		if err == nil {
+			handlers.notifyDisplays()
+			if publicScheduleEntryAction(request.Form.Get("action")) {
+				handlers.notifySchedule()
+			}
+		}
 	}
 	if err == nil {
 		http.Redirect( //nolint:gosec // Target has fixed segments and validated integer IDs.
@@ -127,6 +139,13 @@ func (handlers entryHandlers) submit(
 	}
 	status, message := entryError(err)
 	handlers.render(response, request, actor, eventID, sessionID, csrfToken, status, message)
+}
+
+func publicScheduleEntryAction(action string) bool {
+	return action == "create-entry" ||
+		action == "update-entry" ||
+		action == "change-disposition" ||
+		action == "resolve-entry"
 }
 
 func (handlers entryHandlers) submitEntryAction(

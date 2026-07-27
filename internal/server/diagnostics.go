@@ -27,6 +27,8 @@ type diagnosticHandlers struct {
 	displayService     *displays.Service
 	displayStream      *displaystream.Hub
 	programStream      *displaystream.Hub
+	scheduleStream     *displaystream.Hub
+	scheduleMetrics    *scheduleStreamMetrics
 	telemetryRuntime   *telemetry.Runtime
 	replicationAdapter *replication.Adapter
 	logger             *slog.Logger
@@ -39,6 +41,8 @@ func registerDiagnosticsRoutes(
 	displayService *displays.Service,
 	displayStream *displaystream.Hub,
 	programStream *displaystream.Hub,
+	scheduleStream *displaystream.Hub,
+	scheduleMetrics *scheduleStreamMetrics,
 	telemetryRuntime *telemetry.Runtime,
 	replicationAdapter *replication.Adapter,
 	logger *slog.Logger,
@@ -50,6 +54,8 @@ func registerDiagnosticsRoutes(
 		displayService:     displayService,
 		displayStream:      displayStream,
 		programStream:      programStream,
+		scheduleStream:     scheduleStream,
+		scheduleMetrics:    scheduleMetrics,
 		telemetryRuntime:   telemetryRuntime,
 		replicationAdapter: replicationAdapter,
 		logger:             logger,
@@ -163,6 +169,8 @@ func (handlers diagnosticHandlers) collect(
 		handlers.displayStream.SubscriberCount(),
 		handlers.displayStream.DisplayCount(),
 		handlers.programStream.SubscriberCount(),
+		handlers.scheduleStream.SubscriberCount(),
+		handlers.scheduleMetrics.snapshot(),
 		handlers.telemetryRuntime != nil && handlers.telemetryRuntime.Enabled(),
 		handlers.replicationAdapter,
 	)
@@ -181,6 +189,16 @@ type streamDiagnostics struct {
 	Subscribers int    `json:"subscribers"`
 }
 
+type scheduleStreamDiagnostics struct {
+	streamDiagnostics
+	Connections            uint64 `json:"connections"`
+	GapRecoveries          uint64 `json:"gap_recoveries"`
+	IncompatibleRecoveries uint64 `json:"incompatible_recoveries"`
+	Resnapshots            uint64 `json:"resnapshots"`
+	SlowDrops              uint64 `json:"slow_drops"`
+	Disconnects            uint64 `json:"disconnects"`
+}
+
 type authenticationDiagnostics struct {
 	Status          string `json:"status"`
 	Active          int    `json:"active"`
@@ -197,8 +215,9 @@ type normalDiagnosticsResponse struct {
 	Authentication authenticationDiagnostics `json:"authentication"`
 	Replication    replication.Status        `json:"replication"`
 	Streams        struct {
-		Display streamDiagnostics `json:"display"`
-		Program streamDiagnostics `json:"program"`
+		Display  streamDiagnostics         `json:"display"`
+		Program  streamDiagnostics         `json:"program"`
+		Schedule scheduleStreamDiagnostics `json:"schedule"`
 	} `json:"streams"`
 	Displays struct {
 		Status   string         `json:"status"`
@@ -231,6 +250,8 @@ func normalDiagnostics(
 	displaySubscribers int,
 	connectedDisplays int,
 	programSubscribers int,
+	scheduleSubscribers int,
+	scheduleMetrics scheduleStreamMetricSnapshot,
 	telemetryEnabled bool,
 	replicationAdapter *replication.Adapter,
 ) normalDiagnosticsResponse {
@@ -255,6 +276,17 @@ func normalDiagnostics(
 	}
 	found.Streams.Program = streamDiagnostics{
 		Status: "ready", Subscribers: programSubscribers,
+	}
+	found.Streams.Schedule = scheduleStreamDiagnostics{
+		streamDiagnostics: streamDiagnostics{
+			Status: "ready", Subscribers: scheduleSubscribers,
+		},
+		Connections:            scheduleMetrics.Connections,
+		GapRecoveries:          scheduleMetrics.GapRecoveries,
+		IncompatibleRecoveries: scheduleMetrics.IncompatibleRecoveries,
+		Resnapshots:            scheduleMetrics.Resnapshots,
+		SlowDrops:              scheduleMetrics.SlowDrops,
+		Disconnects:            scheduleMetrics.Disconnects,
 	}
 	found.Displays.Status = "ready"
 	found.Displays.Delivery = map[string]int{

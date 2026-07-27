@@ -210,6 +210,7 @@ func TestHealthyAdministratorPreparesAndCancelsRestoreWithoutCutover(t *testing.
 		_ = installation.Close()
 		t.Fatalf("build application: %v", err)
 	}
+	scheduleCursor := application.config.ScheduleStream.Cursor()
 	t.Cleanup(func() {
 		if closeErr := application.Close(); closeErr != nil {
 			t.Errorf("close application: %v", closeErr)
@@ -352,5 +353,12 @@ func TestHealthyAdministratorPreparesAndCancelsRestoreWithoutCutover(t *testing.
 	application.ServeHTTP(readyResponse, readyRequest)
 	if readyResponse.Code != http.StatusOK {
 		t.Fatalf("readiness after Restore = %d: %s", readyResponse.Code, readyResponse.Body.String())
+	}
+	if restoredCursor := application.config.ScheduleStream.Cursor(); restoredCursor.Position <= scheduleCursor.Position {
+		t.Fatalf(
+			"Schedule stream position after Restore = %d, want greater than %d",
+			restoredCursor.Position,
+			scheduleCursor.Position,
+		)
 	}
 }
