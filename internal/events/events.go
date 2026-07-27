@@ -179,6 +179,48 @@ func (service *Service) Create(
 	})
 }
 
+// List returns all Events to an Administrator.
+func (service *Service) List(
+	ctx context.Context,
+	actor auth.Account,
+) ([]Event, error) {
+	if !actor.Administrator {
+		return nil, ErrAdministratorRequired
+	}
+	found, err := service.storage.ListEvents(actor.Context(ctx))
+	if err != nil {
+		return nil, err
+	}
+	result := make([]Event, 0, len(found))
+	for _, item := range found {
+		converted, convertErr := event(item)
+		if convertErr != nil {
+			return nil, convertErr
+		}
+		result = append(result, converted)
+	}
+	return result, nil
+}
+
+// ListGrants returns all Event Grants to an Administrator.
+func (service *Service) ListGrants(
+	ctx context.Context,
+	actor auth.Account,
+) ([]Grant, error) {
+	if !actor.Administrator {
+		return nil, ErrAdministratorRequired
+	}
+	found, err := service.storage.ListEventGrants(actor.Context(ctx))
+	if err != nil {
+		return nil, err
+	}
+	result := make([]Grant, 0, len(found))
+	for _, item := range found {
+		result = append(result, grant(item))
+	}
+	return result, nil
+}
+
 // GrantEventAccess gives an Account unscoped authority for one Event.
 func (service *Service) GrantEventAccess(
 	ctx context.Context,

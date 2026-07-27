@@ -613,6 +613,274 @@ func TestBackstageNavigationReflectsAuthorityAndInterface(t *testing.T) {
 	server.stop(t)
 }
 
+func TestBrowserAdministersAccountsAndEventGrants(t *testing.T) {
+	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
+	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events",
+		validEventInput(), http.StatusCreated,
+		"{\"id\":1,\"name\":\"Revision 2026\",\"planned_start_date\":\"2026-08-21\",\"planned_end_date\":\"2026-08-23\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"de-DE\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":1}\n",
+	)
+	secondEvent := validEventInput()
+	secondEvent["name"] = "Revision 2027"
+	secondEvent["command_id"] = "create-administration-event-2"
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events",
+		secondEvent, http.StatusCreated,
+		"{\"id\":2,\"name\":\"Revision 2027\",\"planned_start_date\":\"2026-08-21\",\"planned_end_date\":\"2026-08-23\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"de-DE\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":1}\n",
+	)
+
+	backstage := getFrontendPage(t, administrator, server.address, "/backstage")
+	if !strings.Contains(
+		frontendBackstageNavigation(t, backstage),
+		`href="/backstage/administration"`,
+	) {
+		t.Fatalf("Backstage lacks administration route: %q", backstage.body)
+	}
+	const path = "/backstage/administration"
+	page := getFrontendPage(t, administrator, server.address, path)
+	for _, want := range []string{
+		"Accounts, Event Grants, and activation",
+		"Ada Admin",
+		"Revision 2026",
+		`name="action" value="create-account"`,
+		`name="action" value="grant"`,
+	} {
+		if page.status != http.StatusOK || !strings.Contains(page.body, want) {
+			t.Fatalf("administration page lacks %q: %d %q", want, page.status, page.body)
+		}
+	}
+
+	const password = "operator administration correct horse battery staple"
+	created := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":     {requireFrontendCSRF(t, page)},
+		"action":         {"create-account"},
+		"command_id":     {"browser-create-administration-account"},
+		"account_handle": {"opal"},
+		"display_name":   {"Opal Operator"},
+		"password":       {password},
+	})
+	if created.status != http.StatusSeeOther || created.header.Get("Location") != path {
+		t.Fatalf("browser Account creation = %d %q", created.status, created.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "Opal Operator") {
+		t.Fatalf("created Account absent: %d %q", page.status, page.body)
+	}
+	granted := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":         {requireFrontendCSRF(t, page)},
+		"action":             {"grant"},
+		"command_id":         {"browser-grant-administration-account"},
+		"account_id":         {"2"},
+		"event_id":           {"1"},
+		"role":               {"Operator"},
+		"display_group_keys": {"stage, stream"},
+		"capability":         {"EmergencyAlert"},
+	})
+	if granted.status != http.StatusSeeOther || granted.header.Get("Location") != path {
+		t.Fatalf("browser Event Grant = %d %q", granted.status, granted.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	for _, want := range []string{
+		"Opal Operator",
+		"Revision 2026",
+		"Operator",
+		"stage, stream",
+		"EmergencyAlert",
+	} {
+		if !strings.Contains(page.body, want) {
+			t.Fatalf("Event Grant view lacks %q: %q", want, page.body)
+		}
+	}
+	duplicateGrant := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, page)},
+		"action":     {"grant"},
+		"command_id": {"browser-duplicate-administration-grant"},
+		"account_id": {"2"},
+		"event_id":   {"1"},
+		"role":       {"Observer"},
+	})
+	if duplicateGrant.status != http.StatusConflict ||
+		!strings.Contains(duplicateGrant.body, `role="alert"`) {
+		t.Fatalf("duplicate browser Event Grant = %d %q", duplicateGrant.status, duplicateGrant.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	selfGranted := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, page)},
+		"action":     {"grant"},
+		"command_id": {"browser-self-grant"},
+		"account_id": {"1"},
+		"event_id":   {"2"},
+		"role":       {"Observer"},
+	})
+	if selfGranted.status != http.StatusSeeOther {
+		t.Fatalf("browser self-grant = %d %q", selfGranted.status, selfGranted.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "Event #2, Account #1: Observer") {
+		t.Fatalf("browser self-grant absent: %q", page.body)
+	}
+
+	operator := authenticatedClient(t)
+	operator.CheckRedirect = administrator.CheckRedirect
+	signInPage := getFrontendPage(t, operator, server.address, "/sign-in")
+	signIn := postFrontendForm(t, operator, server.address, "/sign-in", url.Values{
+		"csrf_token": {requireFrontendCSRF(t, signInPage)},
+		"handle":     {"opal"},
+		"password":   {password},
+	})
+	if signIn.status != http.StatusSeeOther {
+		t.Fatalf("granted Account sign-in = %d %q", signIn.status, signIn.body)
+	}
+	operatorBackstage := getFrontendPage(t, operator, server.address, "/backstage")
+	operatorNavigation := frontendBackstageNavigation(t, operatorBackstage)
+	if !strings.Contains(operatorNavigation, "Event #1") ||
+		!strings.Contains(operatorNavigation, "Emergency Alerts") ||
+		strings.Contains(operatorNavigation, "Event #2") {
+		t.Fatalf("Event Grant crossed Event boundary: %q", operatorNavigation)
+	}
+	if forbidden := getFrontendPage(
+		t, operator, server.address, path,
+	); forbidden.status != http.StatusForbidden {
+		t.Fatalf("Operator administration = %d, want 403", forbidden.status)
+	}
+
+	dataDir := server.dataDir
+	bin := server.bin
+	server.stop(t)
+	server = startBeamersWithPublicListener(t, bin, dataDir)
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "Opal Operator") ||
+		!strings.Contains(page.body, "EmergencyAlert") {
+		t.Fatalf("restarted administration state = %d %q", page.status, page.body)
+	}
+	if !strings.Contains(page.body, `name="action" value="disable-account"`) {
+		t.Fatalf("administration page lacks Disable Account: %q", page.body)
+	}
+	disabled := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, page)},
+		"action":     {"disable-account"},
+		"command_id": {"browser-disable-administration-account"},
+		"account_id": {"2"},
+		"reason":     {"crew_departed"},
+	})
+	if disabled.status != http.StatusSeeOther {
+		t.Fatalf("browser Account disablement = %d %q", disabled.status, disabled.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	for _, want := range []string{
+		"CreateAccount",
+		"CreateEventGrant",
+		"DisableAccount",
+		"crew_departed",
+	} {
+		if !strings.Contains(page.body, want) {
+			t.Fatalf("browser Audit view lacks %q: %q", want, page.body)
+		}
+	}
+	if strings.Contains(page.body, password) || strings.Contains(page.body, "Credential") {
+		t.Fatalf("browser Audit exposed authentication material: %q", page.body)
+	}
+	if root := getFrontendPage(
+		t, operator, server.address, "/",
+	); root.status != http.StatusOK ||
+		!strings.Contains(root.body, "Sign in") ||
+		strings.Contains(root.body, "Opal Operator") {
+		t.Fatalf("disabled Account session = %d %q", root.status, root.body)
+	}
+	if public := getFrontendPage(
+		t, authenticatedClient(t), server.publicAddress, path,
+	); public.status != http.StatusNotFound {
+		t.Fatalf("public-listener administration = %d, want 404", public.status)
+	}
+	server.stop(t)
+}
+
+func TestBrowserPreflightsAndActivatesEvent(t *testing.T) {
+	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
+	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	prepareActiveSchedule(t, administrator, server)
+	secondEvent := validEventInput()
+	secondEvent["name"] = "Blocked Event"
+	secondEvent["command_id"] = "create-blocked-browser-event"
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events",
+		secondEvent, http.StatusCreated,
+		"{\"id\":2,\"name\":\"Blocked Event\",\"planned_start_date\":\"2026-08-21\",\"planned_end_date\":\"2026-08-23\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"de-DE\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":1}\n",
+	)
+	const path = "/backstage/administration"
+	page := getFrontendPage(t, administrator, server.address, path)
+	blocked := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, page)},
+		"action":     {"preflight"},
+		"event_id":   {"2"},
+	})
+	if blocked.status != http.StatusOK ||
+		!strings.Contains(blocked.body, "published_rundown_missing") ||
+		strings.Contains(blocked.body, `name="action" value="activate"`) {
+		t.Fatalf("blocked browser Activation Preflight = %d %q", blocked.status, blocked.body)
+	}
+
+	page = getFrontendPage(t, administrator, server.address, path)
+	preflight := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, page)},
+		"action":     {"preflight"},
+		"event_id":   {"1"},
+	})
+	if preflight.status != http.StatusOK ||
+		!strings.Contains(preflight.body, "Activation Preflight") ||
+		!strings.Contains(preflight.body, `name="action" value="activate"`) {
+		t.Fatalf("browser Activation Preflight = %d %q", preflight.status, preflight.body)
+	}
+	confirmation := frontendNamedValues(
+		preflight.body,
+		"event_id",
+		"event_revision",
+		"published_revision",
+		"activation_generation",
+		"fingerprint",
+		"command_id",
+	)
+	confirmation.Set("csrf_token", requireFrontendCSRF(t, preflight))
+	confirmation.Set("action", "activate")
+	invalidConfirmation := maps.Clone(confirmation)
+	invalidConfirmation.Set("command_id", "")
+	invalidActivation := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		path,
+		invalidConfirmation,
+	)
+	if invalidActivation.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(invalidActivation.body, `role="alert"`) {
+		t.Fatalf(
+			"invalid browser Event activation = %d %q",
+			invalidActivation.status,
+			invalidActivation.body,
+		)
+	}
+	activated := postFrontendForm(t, administrator, server.address, path, confirmation)
+	if activated.status != http.StatusSeeOther {
+		t.Fatalf("browser Event activation = %d %q", activated.status, activated.body)
+	}
+
+	dataDir := server.dataDir
+	bin := server.bin
+	server.stop(t)
+	server = startBeamersWithPublicListener(t, bin, dataDir)
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "Active Event #1") ||
+		!strings.Contains(page.body, "generation 2") {
+		t.Fatalf("restarted Active Event = %d %q", page.status, page.body)
+	}
+	server.stop(t)
+}
+
 func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
 	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
@@ -620,6 +888,9 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 	}
 	const path = "/backstage/events/1/planning"
 	newEvent := getFrontendPage(t, administrator, server.address, "/backstage/events/new")
+	if !regexp.MustCompile(`name="grant_self" value="true" checked`).MatchString(newEvent.body) {
+		t.Fatalf("first Event Producer self-grant is not checked: %q", newEvent.body)
+	}
 	createdEvent := postFrontendForm(
 		t,
 		administrator,
@@ -644,6 +915,20 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 	if createdEvent.status != http.StatusSeeOther ||
 		createdEvent.header.Get("Location") != path {
 		t.Fatalf("browser Event creation = %d %q", createdEvent.status, createdEvent.body)
+	}
+	laterEvent := getFrontendPage(t, administrator, server.address, "/backstage/events/new")
+	if regexp.MustCompile(`name="grant_self" value="true" checked`).MatchString(laterEvent.body) {
+		t.Fatalf("later Event Producer self-grant remains checked: %q", laterEvent.body)
+	}
+	administration := getFrontendPage(
+		t,
+		administrator,
+		server.address,
+		"/backstage/administration",
+	)
+	if !strings.Contains(administration.body, "CreateEventGrant") ||
+		!strings.Contains(administration.body, "EventGrant #1:1") {
+		t.Fatalf("first Event self-grant Audit Entry = %d %q", administration.status, administration.body)
 	}
 	page := getFrontendPage(t, administrator, server.address, path)
 	for _, want := range []string{

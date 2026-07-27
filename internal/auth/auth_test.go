@@ -85,6 +85,32 @@ func TestDemoPasswordRequiresExplicitConfiguration(t *testing.T) {
 	}
 }
 
+func TestAdministratorAccountCreationRequiresDisplayName(t *testing.T) {
+	service, administrator := openAccountTestService(t)
+	_, err := service.CreateAccountWithDisplayName(
+		t.Context(),
+		administrator,
+		"pat",
+		"",
+		"participant correct horse battery staple",
+		"create-account-without-display-name",
+	)
+	if !errors.Is(err, ErrInvalidAccountDetails) {
+		t.Fatalf("Create Account error = %v, want %v", err, ErrInvalidAccountDetails)
+	}
+	_, err = service.CreateAccountWithDisplayName(
+		t.Context(),
+		administrator,
+		"pat",
+		"pat",
+		"participant correct horse battery staple",
+		"create-account-without-display-name",
+	)
+	if !errors.Is(err, ErrCommandConflict) {
+		t.Fatalf("corrected Create Account error = %v, want %v", err, ErrCommandConflict)
+	}
+}
+
 func TestOpenRegistrationSeparatesHandleFromDisplayName(t *testing.T) {
 	service, administrator := openAccountTestService(t)
 	service.random = rand.Reader

@@ -5,8 +5,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/command"
 )
+
+func TestAdministratorAuthorityProtectsInstallationEventLists(t *testing.T) {
+	service := &Service{}
+	if _, err := service.List(t.Context(), auth.Account{}); !errors.Is(err, ErrAdministratorRequired) {
+		t.Fatalf("List error = %v, want Administrator required", err)
+	}
+	if _, err := service.ListGrants(
+		t.Context(),
+		auth.Account{},
+	); !errors.Is(err, ErrAdministratorRequired) {
+		t.Fatalf("List Grants error = %v, want Administrator required", err)
+	}
+}
 
 func TestEventDayBoundaryDefaultsToMidnight(t *testing.T) {
 	input := CreateInput{

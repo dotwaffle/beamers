@@ -39,6 +39,7 @@ type NewEventPage struct {
 	Navigation    BackstageNavigation
 	CommandID     string
 	GrantCommandID string
+	GrantSelfDefault bool
 	Error         string
 }
 
@@ -652,7 +653,7 @@ templ NewEvent(page NewEventPage) {
 							<input name="target_adjustment_presets_seconds" value="-300,300,600"/>
 						</label>
 						<label>
-							<input type="checkbox" name="grant_self" value="true" checked/>
+							<input type="checkbox" name="grant_self" value="true" checked?={ page.GrantSelfDefault }/>
 							Grant me Producer authority for this Event
 						</label>
 						<button type="submit">Create Event</button>

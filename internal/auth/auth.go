@@ -587,14 +587,56 @@ func (service *Service) CreateAccount(
 	password string,
 	commandID string,
 ) (Account, error) {
+	return service.createAccount(ctx, actor, name, "", false, password, commandID)
+}
+
+// CreateAccountWithDisplayName creates an Account with a distinct Handle and Display Name.
+func (service *Service) CreateAccountWithDisplayName(
+	ctx context.Context,
+	actor Account,
+	handle string,
+	displayName string,
+	password string,
+	commandID string,
+) (Account, error) {
+	return service.createAccount(ctx, actor, handle, displayName, true, password, commandID)
+}
+
+func (service *Service) createAccount(
+	ctx context.Context,
+	actor Account,
+	handle string,
+	displayName string,
+	requireDisplayName bool,
+	password string,
+	commandID string,
+) (Account, error) {
 	if service.storageDegraded() {
 		return Account{}, ErrStorageDegraded
 	}
-	identityName := name
-	if normalizedName, _, normalizeErr := normalizeAccountName(name); normalizeErr == nil {
+	identityName := handle
+	defaultDisplayName := handle
+	if normalizedName, normalizedDisplayName, normalizeErr := normalizeAccountName(handle); normalizeErr == nil {
 		identityName = normalizedName
+		defaultDisplayName = normalizedDisplayName
+	}
+	identityDisplayName := displayName
+	switch {
+	case requireDisplayName:
+		if normalizedDisplayName, normalizeErr := normalizeDisplayName(displayName); normalizeErr == nil {
+			identityDisplayName = normalizedDisplayName
+		}
+	case displayName == "":
+		identityDisplayName = defaultDisplayName
+	default:
+		if normalizedDisplayName, normalizeErr := normalizeDisplayName(displayName); normalizeErr == nil {
+			identityDisplayName = normalizedDisplayName
+		}
 	}
 	payloadHash := command.PayloadHash(identityName)
+	if requireDisplayName {
+		payloadHash = command.PayloadHash(identityName, identityDisplayName)
+	}
 	if err := command.ValidateID(commandID); err != nil {
 		return Account{}, ErrInvalidAccountDetails
 	}
@@ -615,7 +657,10 @@ func (service *Service) CreateAccount(
 			if !actor.Administrator {
 				return accountRejectionExecution[Account](ErrAdministratorRequired), nil
 			}
-			normalizedName, displayName, normalizeErr := normalizeAccountName(name)
+			normalizedName, normalizedDisplayName, normalizeErr := normalizeAccountName(handle)
+			if requireDisplayName && normalizeErr == nil {
+				normalizedDisplayName, normalizeErr = normalizeDisplayName(displayName)
+			}
 			if normalizeErr != nil || !service.validPassword(password) {
 				// The executor returns this rejection only after its Receipt and Audit Entry commit.
 				//nolint:nilerr // A callback error would roll back the durable rejection.
@@ -627,7 +672,7 @@ func (service *Service) CreateAccount(
 			}
 			created, createErr := transaction.CreateAccount(actor.Context(ctx), store.CreateAccountParams{
 				ActorAccountID: actor.ID,
-				Name:           displayName,
+				Name:           normalizedDisplayName,
 				NormalizedName: normalizedName,
 				PasswordHash:   passwordHash,
 				Now:            identity.Now,

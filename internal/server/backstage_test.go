@@ -105,9 +105,11 @@ func TestBackstageNavigationRejectsAttendeeAndSeparatesRouteInterfaces(t *testin
 		t.Fatalf("register Frontend routes: %v", err)
 	}
 	registerPlanningRoutes(routes, nil, nil, nil, nil, nil, nil)
+	registerAdministrationRoutes(routes, nil, nil, nil, nil, nil)
 	for path, want := range map[string]interfaceKind{
 		"/profile":                     publicInterface,
 		"/backstage":                   crewInterface,
+		"/backstage/administration":    crewInterface,
 		"/admin/registration":          crewInterface,
 		"/backstage/events/1/planning": crewInterface,
 		"/backstage/events/new":        crewInterface,

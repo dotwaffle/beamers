@@ -1,0 +1,236 @@
+package frontend
+
+import (
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/dotwaffle/beamers/internal/activation"
+	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/events"
+)
+
+func commaSeparatedIDs(values []int) string {
+	text := make([]string, len(values))
+	for index, value := range values {
+		text[index] = strconv.Itoa(value)
+	}
+	return strings.Join(text, ", ")
+}
+
+type AdministrationPage struct {
+	AccountName    string
+	CSRFToken      string
+	ReducedEffects bool
+	Navigation     BackstageNavigation
+	Accounts       []auth.Account
+	Events         []events.Event
+	Grants         []events.Grant
+	AccountCommandID string
+	GrantCommandID string
+	DisableCommandIDs map[int]string
+	AuditEntries   []auth.AuditEntry
+	ActiveEvent    activation.ActiveEvent
+	Preflight      *activation.Preflight
+	ActivationCommandID string
+	Error          string
+}
+
+templ Administration(page AdministrationPage) {
+	<!doctype html>
+	<html lang="en">
+		@Head("Administration · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
+			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
+			<div class="backstage-layout">
+				@BackstageNavigationViews(page.Navigation)
+				<main>
+					<h1>Accounts, Event Grants, and activation</h1>
+					if page.Error != "" {
+						<p role="alert">{ page.Error }</p>
+					}
+					<section>
+						<h2>Accounts</h2>
+						<ul>
+							for _, account := range page.Accounts {
+								<li>
+									#{ strconv.Itoa(account.ID) } <strong>{ "@" + account.Handle }</strong> — { account.Name }
+									if account.Administrator {
+										<span> · Administrator</span>
+									}
+									<form method="post" action="/backstage/administration">
+										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+										<input type="hidden" name="action" value="disable-account"/>
+										<input type="hidden" name="command_id" value={ page.DisableCommandIDs[account.ID] }/>
+										<input type="hidden" name="account_id" value={ strconv.Itoa(account.ID) }/>
+										<label>
+											Reason
+											<select name="reason">
+												<option value="crew_departed">Crew departed</option>
+												<option value="access_revoked">Access revoked</option>
+												<option value="account_compromised">Account compromised</option>
+												<option value="duplicate_account">Duplicate Account</option>
+											</select>
+										</label>
+										<button type="submit">Disable Account</button>
+									</form>
+								</li>
+							}
+						</ul>
+						<form class="stack" method="post" action="/backstage/administration">
+							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+							<input type="hidden" name="action" value="create-account"/>
+							<input type="hidden" name="command_id" value={ page.AccountCommandID }/>
+							<label>Account Handle <input name="account_handle" autocomplete="off" required/></label>
+							<label>Display Name <input name="display_name" autocomplete="name" required/></label>
+							<label>Password <input type="password" name="password" minlength="12" required/></label>
+							<button type="submit">Create Account</button>
+						</form>
+					</section>
+					<section>
+						<h2>Event Grants</h2>
+						<ul>
+							for _, grant := range page.Grants {
+								<li>
+									Event #{ strconv.Itoa(grant.EventID) },
+									Account #{ strconv.Itoa(grant.AccountID) }:
+									{ grant.Role }
+									if len(grant.LaneIDs) > 0 {
+										<span> · Lanes { commaSeparatedIDs(grant.LaneIDs) }</span>
+									}
+									if len(grant.DisplayGroupKeys) > 0 {
+										<span> · Display groups { strings.Join(grant.DisplayGroupKeys, ", ") }</span>
+									}
+									if len(grant.Capabilities) > 0 {
+										<span> · Capabilities { strings.Join(grant.Capabilities, ", ") }</span>
+									}
+								</li>
+							}
+						</ul>
+						<form class="stack" method="post" action="/backstage/administration">
+							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+							<input type="hidden" name="action" value="grant"/>
+							<input type="hidden" name="command_id" value={ page.GrantCommandID }/>
+							<label>
+								Account
+								<select name="account_id" required>
+									for _, account := range page.Accounts {
+										<option value={ strconv.Itoa(account.ID) }>{ "@" + account.Handle } — { account.Name }</option>
+									}
+								</select>
+							</label>
+							<label>
+								Event
+								<select name="event_id" required>
+									for _, event := range page.Events {
+										<option value={ strconv.Itoa(event.ID) }>{ event.Name }</option>
+									}
+								</select>
+							</label>
+							<label>
+								Role
+								<select name="role">
+									<option>Producer</option>
+									<option>Operator</option>
+									<option>Observer</option>
+								</select>
+							</label>
+							<label>Lane IDs <input name="lane_ids" inputmode="numeric" placeholder="1, 2"/></label>
+							<label>Display group keys <input name="display_group_keys" placeholder="stage, stream"/></label>
+							<fieldset>
+								<legend>Additional capabilities</legend>
+								<label><input type="checkbox" name="capability" value="EmergencyAlert"/> Emergency Alert</label>
+								<label><input type="checkbox" name="capability" value="ViewResults"/> View Results</label>
+								<label><input type="checkbox" name="capability" value="ManageResults"/> Manage Results</label>
+							</fieldset>
+							<button type="submit">Grant Event access</button>
+						</form>
+					</section>
+					<section>
+						<h2>Events and activation</h2>
+						if page.ActiveEvent.EventID == 0 {
+							<p>No Active Event.</p>
+						} else {
+							<p>Active Event #{ strconv.Itoa(page.ActiveEvent.EventID) }, generation { strconv.Itoa(page.ActiveEvent.Generation) }</p>
+						}
+						<ul>
+							for _, event := range page.Events {
+								<li>#{ strconv.Itoa(event.ID) } { event.Name }</li>
+							}
+						</ul>
+						<form class="stack" method="post" action="/backstage/administration">
+							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+							<input type="hidden" name="action" value="preflight"/>
+							<label>
+								Event
+								<select name="event_id" required>
+									for _, event := range page.Events {
+										<option value={ strconv.Itoa(event.ID) }>{ event.Name }</option>
+									}
+								</select>
+							</label>
+							<button type="submit">Run Activation Preflight</button>
+						</form>
+						if page.Preflight != nil {
+							<h3>Activation Preflight · Event #{ strconv.Itoa(page.Preflight.EventID) }</h3>
+							<h4>Blockers</h4>
+							if len(page.Preflight.Blockers) == 0 {
+								<p>None.</p>
+							} else {
+								<ul>
+									for _, finding := range page.Preflight.Blockers {
+										<li role="alert"><code>{ finding.Code }</code>: { finding.Message }</li>
+									}
+								</ul>
+							}
+							<h4>Warnings</h4>
+							if len(page.Preflight.Warnings) == 0 {
+								<p>None.</p>
+							} else {
+								<ul>
+									for _, finding := range page.Preflight.Warnings {
+										<li><code>{ finding.Code }</code>: { finding.Message }</li>
+									}
+								</ul>
+							}
+							if len(page.Preflight.Blockers) == 0 {
+								<form method="post" action="/backstage/administration">
+									<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+									<input type="hidden" name="action" value="activate"/>
+									<input type="hidden" name="event_id" value={ strconv.Itoa(page.Preflight.EventID) }/>
+									<input type="hidden" name="event_revision" value={ strconv.Itoa(page.Preflight.Confirmation.EventRevision) }/>
+									<input type="hidden" name="published_revision" value={ strconv.Itoa(page.Preflight.Confirmation.PublishedRevision) }/>
+									<input type="hidden" name="activation_generation" value={ strconv.Itoa(page.Preflight.Confirmation.ActivationGeneration) }/>
+									<input type="hidden" name="fingerprint" value={ page.Preflight.Confirmation.Fingerprint }/>
+									<input type="hidden" name="command_id" value={ page.ActivationCommandID }/>
+									<button type="submit">Activate Event</button>
+								</form>
+							}
+						}
+					</section>
+					<section>
+						<h2>Audit Entries</h2>
+						<table>
+							<thead>
+								<tr><th>Time</th><th>Actor</th><th>Action</th><th>Target</th><th>Outcome</th><th>Reason</th><th>Note</th></tr>
+							</thead>
+							<tbody>
+								for _, entry := range page.AuditEntries {
+									<tr>
+										<td><time datetime={ entry.ServerTime.Format(time.RFC3339) }>{ entry.ServerTime.UTC().Format(time.RFC3339) }</time></td>
+										<td>{ entry.ActorName }</td>
+										<td>{ entry.Action }</td>
+										<td>{ entry.TargetType } #{ entry.TargetID }</td>
+										<td>{ entry.Outcome }</td>
+										<td>{ entry.Reason }</td>
+										<td>{ entry.Note }</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</section>
+				</main>
+			</div>
+		</body>
+	</html>
+}

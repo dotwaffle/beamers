@@ -135,10 +135,17 @@ func (handlers planningHandlers) renderNewEvent(
 	status int,
 	message string,
 ) {
+	existingEvents, err := handlers.events.List(request.Context(), actor)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "list Events", err)
+		return
+	}
 	handlers.browser.render(response, request, status, frontend.NewEvent(frontend.NewEventPage{
 		AccountName: actor.Name, CSRFToken: csrfToken,
 		ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
-		CommandID: commandID, GrantCommandID: grantCommandID, Error: message,
+		CommandID: commandID, GrantCommandID: grantCommandID,
+		GrantSelfDefault: len(existingEvents) == 0,
+		Error:            message,
 	}))
 }
 

@@ -140,6 +140,40 @@ func (transaction *CommandTx) CreateEvent(ctx context.Context, params CreateEven
 	return eventProjection(created), nil
 }
 
+// ListEvents returns installation Events in stable creation order.
+func (installation *SQLite) ListEvents(ctx context.Context) ([]Event, error) {
+	found, err := installation.client.Event.Query().
+		Order(ent.Asc(event.FieldID)).
+		All(systemContext(ctx))
+	if err != nil {
+		return nil, opaqueError("list Events", err)
+	}
+	events := make([]Event, 0, len(found))
+	for _, item := range found {
+		events = append(events, eventProjection(item))
+	}
+	return events, nil
+}
+
+// ListEventGrants returns installation Event Grants in stable creation order.
+func (installation *SQLite) ListEventGrants(ctx context.Context) ([]EventGrant, error) {
+	found, err := installation.client.EventGrant.Query().
+		Order(ent.Asc(eventgrant.FieldID)).
+		All(systemContext(ctx))
+	if err != nil {
+		return nil, opaqueError("list Event Grants", err)
+	}
+	grants := make([]EventGrant, 0, len(found))
+	for _, item := range found {
+		grants = append(grants, EventGrant{
+			EventID: item.EventID, AccountID: item.AccountID, Role: item.Role.String(),
+			LaneIDs: item.LaneIds, DisplayGroupKeys: item.DisplayGroupKeys,
+			Capabilities: item.Capabilities,
+		})
+	}
+	return grants, nil
+}
+
 // LoadEventInterchange returns core Event configuration and current Published structure.
 func (transaction *CommandTx) LoadEventInterchange(
 	ctx context.Context,
