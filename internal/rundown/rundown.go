@@ -179,13 +179,14 @@ type EditDraftInput struct {
 
 // DraftChange identifies one independently publishable effective change.
 type DraftChange struct {
-	ID               int    `json:"id"`
-	Kind             string `json:"kind"`
-	TargetType       string `json:"target_type"`
-	TargetID         int    `json:"target_id"`
-	FactKey          string `json:"fact_key,omitempty"`
-	Status           string `json:"status,omitempty"`
-	CurrentValueJSON string `json:"current_value_json,omitempty"`
+	ID                int    `json:"id"`
+	Kind              string `json:"kind"`
+	TargetType        string `json:"target_type"`
+	TargetID          int    `json:"target_id"`
+	FactKey           string `json:"fact_key,omitempty"`
+	Status            string `json:"status,omitempty"`
+	PreviousValueJSON string `json:"previous_value_json,omitempty"`
+	CurrentValueJSON  string `json:"current_value_json,omitempty"`
 }
 
 // EditDraftResult is the minimal committed result of one Draft Edit.
@@ -683,11 +684,11 @@ func EditDraftParams(actorID int, input EditDraftInput, now time.Time) store.Edi
 			ID: item.ID, Ref: item.Ref, Title: item.Title, Speaker: item.Speaker, Type: string(item.Type),
 			AudienceVisibility: string(item.AudienceVisibility),
 			PublicDetails:      item.PublicDetails, CrewNotes: item.CrewNotes,
-			PlannedStart: item.PlannedStart, PlannedEnd: item.PlannedEnd,
+			PlannedStart: item.PlannedStart.UTC(), PlannedEnd: item.PlannedEnd.UTC(),
 			TimingPolicy:           string(item.TimingPolicy),
 			MinimumDurationSeconds: int(item.MinimumDuration / time.Second),
 			StartBoundary:          string(item.StartBoundary), EndBoundary: string(item.EndBoundary),
-			UploadDeadline: item.UploadDeadline, SubmissionDeadline: item.SubmissionDeadline,
+			UploadDeadline: item.UploadDeadline.UTC(), SubmissionDeadline: item.SubmissionDeadline.UTC(),
 			EntryDefaultDisposition: string(item.EntryDefault),
 			UpdateFields:            item.UpdateFields,
 		}

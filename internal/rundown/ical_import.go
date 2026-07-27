@@ -438,6 +438,38 @@ func unescapeICalText(value string) string {
 	return replacer.Replace(value)
 }
 
+// ResolveLocalDateTime resolves one browser-entered Event-local wall time.
+func ResolveLocalDateTime(value, timezone, occurrence string) (time.Time, error) {
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		return time.Time{}, errors.New("event timezone is invalid")
+	}
+	local, err := time.Parse("2006-01-02T15:04", value)
+	if err != nil {
+		return time.Time{}, errors.New("must be a local date and time")
+	}
+	candidates := localTimeCandidates(local, location)
+	switch len(candidates) {
+	case 0:
+		return time.Time{}, fmt.Errorf("local time %s does not exist in %s", value, timezone)
+	case 1:
+		return candidates[0], nil
+	default:
+		switch occurrence {
+		case "Earlier":
+			return candidates[0], nil
+		case "Later":
+			return candidates[len(candidates)-1], nil
+		default:
+			return time.Time{}, fmt.Errorf(
+				"local time %s is ambiguous in %s; choose Earlier or Later",
+				value,
+				timezone,
+			)
+		}
+	}
+}
+
 func resolveICalendarTime(
 	property icalProperty,
 	eventTimezone, calendarTimezone, fallbackTimezone, occurrence string,

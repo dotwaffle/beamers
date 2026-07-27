@@ -53,15 +53,17 @@ func (err *ValidationError) Error() string {
 
 // Event is an Event's core configuration.
 type Event struct {
-	ID               int    `json:"id"`
-	Name             string `json:"name"`
-	PlannedStartDate string `json:"planned_start_date"`
-	PlannedEndDate   string `json:"planned_end_date"`
-	Timezone         string `json:"timezone"`
-	EventLocale      string `json:"event_locale"`
-	ContentLanguage  string `json:"content_language,omitempty"`
-	EventDayBoundary string `json:"event_day_boundary"`
-	Revision         int    `json:"revision"`
+	ID                             int    `json:"id"`
+	Name                           string `json:"name"`
+	PlannedStartDate               string `json:"planned_start_date"`
+	PlannedEndDate                 string `json:"planned_end_date"`
+	Timezone                       string `json:"timezone"`
+	EventLocale                    string `json:"event_locale"`
+	ContentLanguage                string `json:"content_language,omitempty"`
+	EventDayBoundary               string `json:"event_day_boundary"`
+	Revision                       int    `json:"revision"`
+	EntryDefaultDisposition        string `json:"-"`
+	TargetAdjustmentPresetsSeconds []int  `json:"-"`
 }
 
 // CreateInput contains an Administrator's proposed Event configuration.
@@ -168,7 +170,11 @@ func (service *Service) Create(
 			if createErr != nil {
 				return command.Execution[Event]{}, createErr
 			}
-			return eventSuccess(event(created), created, strconv.Itoa(created.ID), "encode Event creation outcome")
+			result, resultErr := event(created)
+			if resultErr != nil {
+				return command.Execution[Event]{}, resultErr
+			}
+			return eventSuccess(result, created, strconv.Itoa(created.ID), "encode Event creation outcome")
 		},
 	})
 }
@@ -249,7 +255,7 @@ func (service *Service) CrewEvent(
 	if err != nil {
 		return Event{}, err
 	}
-	return event(found), nil
+	return event(found)
 }
 
 // Update replaces Event configuration for a Producer.
@@ -299,7 +305,11 @@ func (service *Service) Update(
 			if updateErr != nil {
 				return command.Execution[Event]{}, updateErr
 			}
-			return eventSuccess(event(updated), updated, "", "encode Event update outcome")
+			result, resultErr := event(updated)
+			if resultErr != nil {
+				return command.Execution[Event]{}, resultErr
+			}
+			return eventSuccess(result, updated, "", "encode Event update outcome")
 		},
 	})
 }
@@ -401,7 +411,7 @@ func replayEvent(outcome string) (Event, error) {
 	if err := store.DecodeCommandReceipt(outcome, &original); err != nil {
 		return Event{}, restoreRejected(err)
 	}
-	return event(original), nil
+	return event(original)
 }
 
 func replayDisplayConfiguration(outcome string) (DisplayConfiguration, error) {
@@ -579,14 +589,19 @@ func invalid(field, message string) error {
 	return &ValidationError{Field: field, Message: message}
 }
 
-func event(found store.Event) Event {
+func event(found store.Event) (Event, error) {
+	var targetAdjustmentPresets []int
+	if err := json.Unmarshal([]byte(found.TargetAdjustmentPresets), &targetAdjustmentPresets); err != nil {
+		return Event{}, errors.New("decode Event target adjustment presets")
+	}
 	return Event{
 		ID: found.ID, Name: found.Name,
 		PlannedStartDate: found.PlannedStartDate, PlannedEndDate: found.PlannedEndDate,
 		Timezone: found.Timezone, EventLocale: found.EventLocale,
 		ContentLanguage: found.ContentLanguage, EventDayBoundary: found.EventDayBoundary,
-		Revision: found.Revision,
-	}
+		Revision: found.Revision, EntryDefaultDisposition: found.EntryDefaultDisposition,
+		TargetAdjustmentPresetsSeconds: targetAdjustmentPresets,
+	}, nil
 }
 
 func grant(found store.EventGrant) Grant {

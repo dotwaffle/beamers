@@ -630,6 +630,15 @@ func (application *application) buildHandler(
 	); err != nil {
 		return nil, err
 	}
+	registerPlanningRoutes(
+		mux,
+		installation.Authentication(),
+		installation.Events(),
+		installation.RundownCommands(),
+		installation.RundownQueries(),
+		application.config.DisplayStream.Notify,
+		application.config.Logger,
+	)
 	registerBackupRoutes(
 		mux,
 		installation,

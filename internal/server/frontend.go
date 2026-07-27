@@ -398,10 +398,14 @@ func backstageNavigation(account auth.Account) backstageNavigationModel {
 
 func backstageSection(eventID int, fragment, label string) frontend.BackstageSection {
 	id := "event-" + strconv.Itoa(eventID) + "-" + fragment
+	href := "/backstage#" + id
+	if fragment == "planning" {
+		href = "/backstage/events/" + strconv.Itoa(eventID) + "/planning"
+	}
 	return frontend.BackstageSection{
 		ID:    id,
 		Label: label,
-		Href:  "/backstage#" + id,
+		Href:  href,
 	}
 }
 

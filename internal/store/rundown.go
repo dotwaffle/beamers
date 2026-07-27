@@ -13,16 +13,21 @@ import (
 	entsql "entgo.io/ent/dialect/sql"
 
 	"github.com/dotwaffle/beamers/ent"
+	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/draftchange"
 	"github.com/dotwaffle/beamers/ent/draftchangedependency"
 	"github.com/dotwaffle/beamers/ent/lane"
+	"github.com/dotwaffle/beamers/ent/lanedraft"
 	"github.com/dotwaffle/beamers/ent/lanepublishedversion"
 	"github.com/dotwaffle/beamers/ent/location"
+	"github.com/dotwaffle/beamers/ent/locationdraft"
 	"github.com/dotwaffle/beamers/ent/locationpublishedversion"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/track"
+	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
 )
 
@@ -32,6 +37,7 @@ type PendingDraftChange struct {
 	Kind              string
 	TargetType        string
 	TargetID          int
+	FactKey           string
 	PayloadJSON       string
 	Status            string
 	PublishedRevision int
@@ -151,8 +157,9 @@ func loadPublishState(
 		}
 		state.Changes = append(state.Changes, PendingDraftChange{
 			ID: change.ID, Kind: change.Kind, TargetType: change.TargetType,
-			TargetID: change.TargetID, PayloadJSON: change.PayloadJSON,
-			Status: change.Status.String(), PublishedRevision: publishedRevision,
+			TargetID: change.TargetID, FactKey: change.FactKey,
+			PayloadJSON: change.PayloadJSON,
+			Status:      change.Status.String(), PublishedRevision: publishedRevision,
 			Dependencies: byChange[change.ID],
 		})
 	}
@@ -914,6 +921,153 @@ type PublishedSession struct {
 	LaneIDs                 []int
 	LocationIDs             []int
 	TrackIDs                []int
+}
+
+// DraftRundownState is the current materialized editable Rundown.
+type DraftRundownState struct {
+	DraftRevision     int
+	PublishedRevision int
+	Locations         []PublishedLocation
+	Lanes             []PublishedLane
+	Tracks            []PublishedTrack
+	Sessions          []PublishedSession
+}
+
+// PublishImpactDisplay is one Display routed through an Event Location.
+type PublishImpactDisplay struct {
+	ID         int
+	Name       string
+	LocationID int
+}
+
+// LoadPublishImpactDisplays returns Event Display routes used by Publish Preview.
+func (installation *SQLite) LoadPublishImpactDisplays(
+	ctx context.Context,
+	eventID int,
+) ([]PublishImpactDisplay, error) {
+	assignments, err := installation.client.DisplayAssignment.Query().
+		Where(displayassignment.EventIDEQ(eventID)).
+		WithDisplay().
+		Order(ent.Asc(displayassignment.FieldDisplayID)).
+		All(systemContext(ctx))
+	if err != nil {
+		return nil, opaqueError("load Publish Preview Displays", err)
+	}
+	result := make([]PublishImpactDisplay, 0, len(assignments))
+	for _, assignment := range assignments {
+		if assignment.Edges.Display == nil {
+			return nil, opaqueError("load Publish Preview Display identity", errors.New("missing Display"))
+		}
+		result = append(result, PublishImpactDisplay{
+			ID: assignment.DisplayID, Name: assignment.Edges.Display.Name,
+			LocationID: assignment.LocationID,
+		})
+	}
+	return result, nil
+}
+
+// LoadDraftRundown returns current materialized Draft state without exposing Ent entities.
+func (installation *SQLite) LoadDraftRundown(
+	ctx context.Context,
+	eventID int,
+) (DraftRundownState, error) {
+	revisions, err := installation.client.Rundown.Query().
+		Where(rundown.EventIDEQ(eventID)).
+		Only(ctx)
+	if ent.IsNotFound(err) {
+		return DraftRundownState{}, ErrEventNotFound
+	}
+	if err != nil {
+		return DraftRundownState{}, opaqueError("load Draft Rundown revisions", err)
+	}
+	result := DraftRundownState{
+		DraftRevision: revisions.DraftRevision, PublishedRevision: revisions.PublishedRevision,
+	}
+	locations, err := installation.client.LocationDraft.Query().
+		Where(
+			locationdraft.RetiredEQ(false),
+			locationdraft.HasLocationWith(location.EventIDEQ(eventID)),
+		).
+		Order(ent.Asc(locationdraft.FieldLocationID)).
+		All(ctx)
+	if err != nil {
+		return DraftRundownState{}, opaqueError("load Draft Locations", err)
+	}
+	for _, item := range locations {
+		result.Locations = append(result.Locations, PublishedLocation{
+			ID: item.LocationID, Name: item.Name,
+		})
+	}
+	lanes, err := installation.client.LaneDraft.Query().
+		Where(
+			lanedraft.RetiredEQ(false),
+			lanedraft.HasLaneWith(lane.EventIDEQ(eventID)),
+		).
+		Order(ent.Asc(lanedraft.FieldLaneID)).
+		All(ctx)
+	if err != nil {
+		return DraftRundownState{}, opaqueError("load Draft Lanes", err)
+	}
+	for _, item := range lanes {
+		result.Lanes = append(result.Lanes, PublishedLane{
+			ID: item.LaneID, Name: item.Name, LocationID: item.LocationID,
+		})
+	}
+	tracks, err := installation.client.TrackDraft.Query().
+		Where(
+			trackdraft.RetiredEQ(false),
+			trackdraft.HasTrackWith(track.EventIDEQ(eventID)),
+		).
+		Order(ent.Asc(trackdraft.FieldTrackID)).
+		All(ctx)
+	if err != nil {
+		return DraftRundownState{}, opaqueError("load Draft Tracks", err)
+	}
+	for _, item := range tracks {
+		result.Tracks = append(result.Tracks, PublishedTrack{
+			ID: item.TrackID, Name: item.Name,
+		})
+	}
+	sessions, err := installation.client.SessionDraft.Query().
+		Where(sessiondraft.HasSessionWith(session.EventIDEQ(eventID))).
+		Order(ent.Asc(sessiondraft.FieldSessionID)).
+		WithLanes().
+		WithLocations().
+		WithTracks().
+		All(ctx)
+	if err != nil {
+		return DraftRundownState{}, opaqueError("load Draft Sessions", err)
+	}
+	for _, item := range sessions {
+		laneIDs := make([]int, 0, len(item.Edges.Lanes))
+		for _, lane := range item.Edges.Lanes {
+			laneIDs = append(laneIDs, lane.ID)
+		}
+		sort.Ints(laneIDs)
+		locationIDs := make([]int, 0, len(item.Edges.Locations))
+		for _, location := range item.Edges.Locations {
+			locationIDs = append(locationIDs, location.ID)
+		}
+		sort.Ints(locationIDs)
+		trackIDs := make([]int, 0, len(item.Edges.Tracks))
+		for _, track := range item.Edges.Tracks {
+			trackIDs = append(trackIDs, track.ID)
+		}
+		sort.Ints(trackIDs)
+		result.Sessions = append(result.Sessions, PublishedSession{
+			ID: item.SessionID, Title: item.Title, Speaker: item.Speaker,
+			Type: item.Type.String(), AudienceVisibility: item.AudienceVisibility.String(),
+			PublicDetails: item.PublicDetails, CrewNotes: item.CrewNotes,
+			PlannedStart: item.PlannedStart, PlannedEnd: item.PlannedEnd,
+			TimingPolicy:           item.TimingPolicy.String(),
+			MinimumDurationSeconds: item.MinimumDurationSeconds,
+			StartBoundary:          item.StartBoundary.String(), EndBoundary: item.EndBoundary.String(),
+			UploadDeadline: item.UploadDeadline, SubmissionDeadline: item.SubmissionDeadline,
+			EntryDefaultDisposition: string(item.EntryDefaultDisposition),
+			LaneIDs:                 laneIDs, LocationIDs: locationIDs, TrackIDs: trackIDs,
+		})
+	}
+	return result, nil
 }
 
 // LoadCrewRundown returns the current Published versions without exposing Ent entities.

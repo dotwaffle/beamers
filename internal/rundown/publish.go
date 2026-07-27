@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
@@ -37,6 +39,8 @@ type PublishPreview struct {
 	Fingerprint           string        `json:"fingerprint"`
 	ValidationFailures    []string      `json:"validation_failures,omitempty"`
 	AffectedStructure     []string      `json:"affected_structure,omitempty"`
+	AffectedLanes         []string      `json:"affected_lanes,omitempty"`
+	AffectedDisplays      []string      `json:"affected_displays,omitempty"`
 }
 
 // PublishConfirmation is the exact normalized Preview approved by a Producer.
@@ -88,7 +92,29 @@ func (queries *Queries) PublishPreview(
 	if err != nil {
 		return PublishPreview{}, err
 	}
-	return formPublishPreview(state, input.ChangeIDs)
+	preview, err := formPublishPreview(state, input.ChangeIDs)
+	if err != nil {
+		return PublishPreview{}, err
+	}
+	if len(preview.ChangeIDs) == 0 {
+		return preview, nil
+	}
+	draft, err := queries.storage.LoadDraftRundown(actor.Context(ctx), input.EventID)
+	if err != nil {
+		return PublishPreview{}, err
+	}
+	published, err := queries.storage.LoadCrewRundown(actor.Context(ctx), input.EventID)
+	if err != nil {
+		return PublishPreview{}, err
+	}
+	displays, err := queries.storage.LoadPublishImpactDisplays(actor.Context(ctx), input.EventID)
+	if err != nil {
+		return PublishPreview{}, err
+	}
+	if err := addPublishImpact(&preview, published, draft, displays); err != nil {
+		return PublishPreview{}, err
+	}
+	return preview, nil
 }
 
 type publishOutcome struct {
@@ -191,6 +217,7 @@ func formPublishPreview(state store.PublishState, requested []int) (PublishPrevi
 	preview := PublishPreview{
 		DraftRevision: state.DraftRevision, PublishedRevision: state.PublishedRevision,
 	}
+	reviewAll := len(requested) == 0
 	byID := make(map[int]store.PendingDraftChange, len(state.Changes))
 	for _, change := range state.Changes {
 		byID[change.ID] = change
@@ -246,6 +273,20 @@ func formPublishPreview(state store.PublishState, requested []int) (PublishPrevi
 	}
 	if len(selected) == 0 {
 		preview.ValidationFailures = []string{ErrPublishSelection.Error()}
+		if reviewAll {
+			for _, change := range state.Changes {
+				if change.Status == "Conflicted" {
+					visible, err := visibleDraftChange(change)
+					if err != nil {
+						return PublishPreview{}, err
+					}
+					preview.Changes = append(preview.Changes, visible)
+				}
+			}
+			if len(preview.Changes) != 0 {
+				preview.ValidationFailures = []string{"Resolve conflicted Draft facts by editing them before publishing."}
+			}
+		}
 		return preview, nil
 	}
 	changeIDs := make([]int, 0, len(selected))
@@ -265,14 +306,27 @@ func formPublishPreview(state store.PublishState, requested []int) (PublishPrevi
 			preview.ValidationFailures = []string{"ordinary Publish cannot alter a currently Live Session"}
 			return preview, nil
 		}
-		preview.Changes = append(preview.Changes, DraftChange{
-			ID: id, Kind: change.Kind, TargetType: change.TargetType, TargetID: change.TargetID,
-		})
+		visible, err := visibleDraftChange(change)
+		if err != nil {
+			return PublishPreview{}, err
+		}
+		preview.Changes = append(preview.Changes, visible)
 		affected[change.TargetType] = struct{}{}
 		if _, explicitlyRequested := requestedSet[id]; !explicitlyRequested {
 			preview.AutoIncludedChangeIDs = append(preview.AutoIncludedChangeIDs, id)
 		}
 		fingerprintValues = append(fingerprintValues, strconv.Itoa(id), change.PayloadJSON)
+	}
+	if reviewAll {
+		for _, change := range state.Changes {
+			if change.Status == "Conflicted" {
+				visible, err := visibleDraftChange(change)
+				if err != nil {
+					return PublishPreview{}, err
+				}
+				preview.Changes = append(preview.Changes, visible)
+			}
+		}
 	}
 	for targetType := range affected {
 		preview.AffectedStructure = append(preview.AffectedStructure, targetType)
@@ -280,6 +334,242 @@ func formPublishPreview(state store.PublishState, requested []int) (PublishPrevi
 	sort.Strings(preview.AffectedStructure)
 	preview.Fingerprint = command.PayloadHash(fingerprintValues...)
 	return preview, nil
+}
+
+func visibleDraftChange(change store.PendingDraftChange) (DraftChange, error) {
+	var evidence struct {
+		Before json.RawMessage `json:"before"`
+		After  json.RawMessage `json:"after"`
+	}
+	if err := json.Unmarshal([]byte(change.PayloadJSON), &evidence); err != nil {
+		return DraftChange{}, fmt.Errorf("decode Draft Change %d evidence: %w", change.ID, err)
+	}
+	if len(evidence.After) == 0 {
+		return DraftChange{}, fmt.Errorf("decode Draft Change %d evidence: missing after value", change.ID)
+	}
+	return DraftChange{
+		ID: change.ID, Kind: change.Kind, TargetType: change.TargetType,
+		TargetID: change.TargetID, FactKey: change.FactKey, Status: change.Status,
+		PreviousValueJSON: string(evidence.Before),
+		CurrentValueJSON:  string(evidence.After),
+	}, nil
+}
+
+type publishImpactTarget struct {
+	ID  int    `json:"ID"`
+	Ref string `json:"Ref"`
+}
+
+func addPublishImpact(
+	preview *PublishPreview,
+	published store.CrewRundownState,
+	draft store.DraftRundownState,
+	displays []store.PublishImpactDisplay,
+) error {
+	type sessionCreation struct {
+		Lanes     []publishImpactTarget `json:"Lanes"`
+		Locations []publishImpactTarget `json:"Locations"`
+		Tracks    []publishImpactTarget `json:"Tracks"`
+	}
+	type laneCreation struct {
+		Location publishImpactTarget `json:"Location"`
+	}
+	selected := make(map[int]struct{}, len(preview.ChangeIDs))
+	for _, id := range preview.ChangeIDs {
+		selected[id] = struct{}{}
+	}
+	sessions := make(map[int]store.PublishedSession, len(published.Sessions))
+	publishedSessionIDs := make(map[int]struct{}, len(published.Sessions))
+	for _, session := range published.Sessions {
+		sessions[session.ID] = session
+		publishedSessionIDs[session.ID] = struct{}{}
+	}
+	previousSessions := make(map[int]store.PublishedSession)
+	for _, change := range preview.Changes {
+		if _, ok := selected[change.ID]; !ok || change.TargetType != "Session" {
+			continue
+		}
+		session, exists := sessions[change.TargetID]
+		if !exists {
+			var created sessionCreation
+			if err := json.Unmarshal([]byte(change.CurrentValueJSON), &created); err != nil {
+				return fmt.Errorf("decode Session %d Publish impact: %w", change.TargetID, err)
+			}
+			session = store.PublishedSession{
+				ID: change.TargetID, LaneIDs: draftTargetIDs(created.Lanes),
+				LocationIDs: draftTargetIDs(created.Locations),
+				TrackIDs:    draftTargetIDs(created.Tracks),
+			}
+			sessions[session.ID] = session
+		}
+		_, wasPublished := publishedSessionIDs[session.ID]
+		if _, captured := previousSessions[session.ID]; wasPublished && !captured {
+			previous := session
+			previous.LaneIDs = slices.Clone(session.LaneIDs)
+			previous.LocationIDs = slices.Clone(session.LocationIDs)
+			previous.TrackIDs = slices.Clone(session.TrackIDs)
+			previousSessions[session.ID] = previous
+		}
+		family, encodedID, membership := strings.Cut(change.FactKey, ":")
+		if !membership {
+			continue
+		}
+		id, err := strconv.Atoi(encodedID)
+		if err != nil {
+			return fmt.Errorf("decode Draft membership %q: %w", change.FactKey, err)
+		}
+		var present bool
+		if err := json.Unmarshal([]byte(change.CurrentValueJSON), &present); err != nil {
+			return fmt.Errorf("decode Draft membership %q value: %w", change.FactKey, err)
+		}
+		switch family {
+		case "lanes":
+			session.LaneIDs = setMembership(session.LaneIDs, id, present)
+		case "locations":
+			session.LocationIDs = setMembership(session.LocationIDs, id, present)
+		case "tracks":
+			session.TrackIDs = setMembership(session.TrackIDs, id, present)
+		}
+		sessions[session.ID] = session
+	}
+	laneLocations := make(map[int]int, len(published.Lanes))
+	for _, lane := range published.Lanes {
+		laneLocations[lane.ID] = lane.LocationID
+	}
+	for _, lane := range draft.Lanes {
+		if _, exists := laneLocations[lane.ID]; !exists {
+			laneLocations[lane.ID] = lane.LocationID
+		}
+	}
+	for _, change := range preview.Changes {
+		if _, ok := selected[change.ID]; !ok || change.TargetType != "Lane" {
+			continue
+		}
+		if change.FactKey == "entity" {
+			var created laneCreation
+			if err := json.Unmarshal([]byte(change.CurrentValueJSON), &created); err != nil {
+				return fmt.Errorf("decode Lane %d Publish impact: %w", change.TargetID, err)
+			}
+			laneLocations[change.TargetID] = created.Location.ID
+		}
+		if change.FactKey == "location" {
+			var locationID int
+			if err := json.Unmarshal([]byte(change.CurrentValueJSON), &locationID); err != nil {
+				return fmt.Errorf("decode Lane %d Location impact: %w", change.TargetID, err)
+			}
+			laneLocations[change.TargetID] = locationID
+		}
+	}
+	laneIDs := make(map[int]struct{})
+	locationIDs := make(map[int]struct{})
+	trackIDs := make(map[int]struct{})
+	for _, change := range preview.Changes {
+		if _, ok := selected[change.ID]; !ok {
+			continue
+		}
+		switch change.TargetType {
+		case "Lane":
+			laneIDs[change.TargetID] = struct{}{}
+			if change.FactKey == "location" {
+				var previousLocationID int
+				if err := json.Unmarshal(
+					[]byte(change.PreviousValueJSON),
+					&previousLocationID,
+				); err != nil {
+					return fmt.Errorf("decode Lane %d previous Location impact: %w", change.TargetID, err)
+				}
+				locationIDs[previousLocationID] = struct{}{}
+			}
+		case "Location":
+			locationIDs[change.TargetID] = struct{}{}
+		case "Track":
+			trackIDs[change.TargetID] = struct{}{}
+		case "Session":
+			session := sessions[change.TargetID]
+			for _, id := range session.LaneIDs {
+				laneIDs[id] = struct{}{}
+			}
+			for _, id := range session.LocationIDs {
+				locationIDs[id] = struct{}{}
+			}
+			previous := previousSessions[change.TargetID]
+			for _, id := range previous.LaneIDs {
+				laneIDs[id] = struct{}{}
+			}
+			for _, id := range previous.LocationIDs {
+				locationIDs[id] = struct{}{}
+			}
+		}
+	}
+	for _, session := range sessions {
+		if !intersects(session.TrackIDs, trackIDs) {
+			continue
+		}
+		for _, id := range session.LaneIDs {
+			laneIDs[id] = struct{}{}
+		}
+		for _, id := range session.LocationIDs {
+			locationIDs[id] = struct{}{}
+		}
+	}
+	for laneID, locationID := range laneLocations {
+		if _, selectedLane := laneIDs[laneID]; selectedLane {
+			locationIDs[locationID] = struct{}{}
+			preview.AffectedLanes = append(preview.AffectedLanes, identityLabel("Lane", laneID, ""))
+		}
+		if _, selectedLocation := locationIDs[locationID]; selectedLocation {
+			if _, alreadySelected := laneIDs[laneID]; !alreadySelected {
+				preview.AffectedLanes = append(preview.AffectedLanes, identityLabel("Lane", laneID, ""))
+			}
+		}
+	}
+	for _, display := range displays {
+		if _, ok := locationIDs[display.LocationID]; ok {
+			preview.AffectedDisplays = append(
+				preview.AffectedDisplays,
+				identityLabel("Display", display.ID, display.Name),
+			)
+		}
+	}
+	sort.Strings(preview.AffectedLanes)
+	sort.Strings(preview.AffectedDisplays)
+	return nil
+}
+
+func intersects(ids []int, selected map[int]struct{}) bool {
+	for _, id := range ids {
+		if _, ok := selected[id]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func identityLabel(kind string, id int, name string) string {
+	label := kind + " #" + strconv.Itoa(id)
+	if name != "" {
+		label += " " + name
+	}
+	return label
+}
+
+func setMembership(ids []int, id int, present bool) []int {
+	index := slices.Index(ids, id)
+	if present && index < 0 {
+		return append(ids, id)
+	}
+	if !present && index >= 0 {
+		return slices.Delete(ids, index, index+1)
+	}
+	return ids
+}
+
+func draftTargetIDs(targets []publishImpactTarget) []int {
+	ids := make([]int, 0, len(targets))
+	for _, target := range targets {
+		ids = append(ids, target.ID)
+	}
+	return ids
 }
 
 func confirmationMatches(confirmation PublishConfirmation, preview PublishPreview) bool {
@@ -303,6 +593,9 @@ type CrewRundown struct {
 	Tracks            []CrewTrack    `json:"tracks"`
 	Sessions          []CrewSession  `json:"sessions"`
 }
+
+// DraftRundown is the current materialized editable structural projection.
+type DraftRundown CrewRundown
 
 // CrewLocation is one current Published Location.
 type CrewLocation struct {
@@ -338,6 +631,9 @@ type CrewSession struct {
 	MinimumDuration    time.Duration      `json:"minimum_duration"`
 	StartBoundary      Boundary           `json:"start_boundary"`
 	EndBoundary        Boundary           `json:"end_boundary"`
+	UploadDeadline     time.Time          `json:"upload_deadline,omitzero"`
+	SubmissionDeadline time.Time          `json:"submission_deadline,omitzero"`
+	EntryDefault       EntryDisposition   `json:"entry_default_disposition,omitempty"`
 	LaneIDs            []int              `json:"lane_ids"`
 	LocationIDs        []int              `json:"location_ids"`
 	TrackIDs           []int              `json:"track_ids"`
@@ -356,23 +652,63 @@ func (queries *Queries) CrewRundown(
 	if err != nil {
 		return CrewRundown{}, err
 	}
-	result := CrewRundown{
-		DraftRevision: stored.DraftRevision, PublishedRevision: stored.PublishedRevision,
-		Locations: make([]CrewLocation, 0, len(stored.Locations)),
-		Lanes:     make([]CrewLane, 0, len(stored.Lanes)),
-		Tracks:    make([]CrewTrack, 0, len(stored.Tracks)),
-		Sessions:  make([]CrewSession, 0, len(stored.Sessions)),
+	return projectRundown(
+		stored.DraftRevision,
+		stored.PublishedRevision,
+		stored.Locations,
+		stored.Lanes,
+		stored.Tracks,
+		stored.Sessions,
+	), nil
+}
+
+// DraftRundown returns current materialized Draft state for an authorized Producer.
+func (queries *Queries) DraftRundown(
+	ctx context.Context,
+	actor auth.Account,
+	eventID int,
+) (DraftRundown, error) {
+	if !actor.CanProduceEvent(eventID) {
+		return DraftRundown{}, ErrEventAccessDenied
 	}
-	for _, item := range stored.Locations {
+	stored, err := queries.storage.LoadDraftRundown(actor.Context(ctx), eventID)
+	if err != nil {
+		return DraftRundown{}, err
+	}
+	return DraftRundown(projectRundown(
+		stored.DraftRevision,
+		stored.PublishedRevision,
+		stored.Locations,
+		stored.Lanes,
+		stored.Tracks,
+		stored.Sessions,
+	)), nil
+}
+
+func projectRundown(
+	draftRevision, publishedRevision int,
+	locations []store.PublishedLocation,
+	lanes []store.PublishedLane,
+	tracks []store.PublishedTrack,
+	sessions []store.PublishedSession,
+) CrewRundown {
+	result := CrewRundown{
+		DraftRevision: draftRevision, PublishedRevision: publishedRevision,
+		Locations: make([]CrewLocation, 0, len(locations)),
+		Lanes:     make([]CrewLane, 0, len(lanes)),
+		Tracks:    make([]CrewTrack, 0, len(tracks)),
+		Sessions:  make([]CrewSession, 0, len(sessions)),
+	}
+	for _, item := range locations {
 		result.Locations = append(result.Locations, CrewLocation{ID: item.ID, Name: item.Name})
 	}
-	for _, item := range stored.Lanes {
+	for _, item := range lanes {
 		result.Lanes = append(result.Lanes, CrewLane{ID: item.ID, Name: item.Name, LocationID: item.LocationID})
 	}
-	for _, item := range stored.Tracks {
+	for _, item := range tracks {
 		result.Tracks = append(result.Tracks, CrewTrack{ID: item.ID, Name: item.Name})
 	}
-	for _, item := range stored.Sessions {
+	for _, item := range sessions {
 		result.Sessions = append(result.Sessions, CrewSession{
 			ID: item.ID, Title: item.Title, Speaker: item.Speaker, Type: SessionType(item.Type),
 			AudienceVisibility: AudienceVisibility(item.AudienceVisibility),
@@ -381,8 +717,10 @@ func (queries *Queries) CrewRundown(
 			TimingPolicy:    TimingPolicy(item.TimingPolicy),
 			MinimumDuration: time.Duration(item.MinimumDurationSeconds) * time.Second,
 			StartBoundary:   Boundary(item.StartBoundary), EndBoundary: Boundary(item.EndBoundary),
-			LaneIDs: item.LaneIDs, LocationIDs: item.LocationIDs, TrackIDs: item.TrackIDs,
+			UploadDeadline: item.UploadDeadline, SubmissionDeadline: item.SubmissionDeadline,
+			EntryDefault: EntryDisposition(item.EntryDefaultDisposition),
+			LaneIDs:      item.LaneIDs, LocationIDs: item.LocationIDs, TrackIDs: item.TrackIDs,
 		})
 	}
-	return result, nil
+	return result
 }

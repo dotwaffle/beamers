@@ -1,0 +1,644 @@
+package frontend
+
+import (
+	"fmt"
+	"slices"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/rundown"
+)
+
+type PlanningPage struct {
+	AccountName      string
+	CSRFToken       string
+	ReducedEffects  bool
+	Navigation      BackstageNavigation
+	Event           events.Event
+	Rundown         rundown.CrewRundown
+	Draft           rundown.DraftRundown
+	SessionBases    map[int]string
+	CurrentPreview  rundown.PublishPreview
+	PublishPreview  *rundown.PublishPreview
+	CSVPreview      *rundown.CSVImportPreview
+	ICalendarPreview *rundown.ICalendarImportPreview
+	CSVData         string
+	CSVMappings     string
+	ICalendarData   string
+	ICalendarChoices string
+	CommandID       string
+	Error           string
+}
+
+type NewEventPage struct {
+	AccountName    string
+	CSRFToken     string
+	ReducedEffects bool
+	Navigation    BackstageNavigation
+	CommandID     string
+	GrantCommandID string
+	Error         string
+}
+
+func planningPresets(values []int) string {
+	parts := make([]string, 0, len(values))
+	for _, value := range values {
+		parts = append(parts, strconv.Itoa(value))
+	}
+	return strings.Join(parts, ",")
+}
+
+func planningDateTime(value time.Time, timezone string) string {
+	if value.IsZero() {
+		return ""
+	}
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		return value.UTC().Format("2006-01-02T15:04")
+	}
+	return value.In(location).Format("2006-01-02T15:04")
+}
+
+func planningZone(value time.Time, timezone string) string {
+	if value.IsZero() {
+		return ""
+	}
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		return ""
+	}
+	local := value.In(location)
+	zone, offset := local.Zone()
+	sign := "+"
+	if offset < 0 {
+		sign = "-"
+		offset = -offset
+	}
+	return zone + " UTC" + sign + strconv.Itoa(offset/3600) + ":" + fmt.Sprintf("%02d", offset%3600/60)
+}
+
+func planningContains(values []int, wanted int) bool {
+	for _, value := range values {
+		if value == wanted {
+			return true
+		}
+	}
+	return false
+}
+
+templ Planning(page PlanningPage) {
+	<!doctype html>
+	<html lang="en">
+		@Head("Plan and publish · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
+			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
+			<div class="backstage-layout">
+				@BackstageNavigationViews(page.Navigation)
+				<main>
+					<h1>Plan and publish</h1>
+					<p>
+						Draft revision { strconv.Itoa(page.CurrentPreview.DraftRevision) }.
+						Published revision { strconv.Itoa(page.CurrentPreview.PublishedRevision) }.
+					</p>
+					if page.Error != "" {
+						<p class="error" role="alert">{ page.Error }</p>
+					}
+					<section>
+						<h2>Event configuration</h2>
+						<form class="stack" method="post">
+							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+							<input type="hidden" name="action" value="event"/>
+							<input type="hidden" name="command_id" value={ page.CommandID }/>
+							<input type="hidden" name="expected_event_revision" value={ strconv.Itoa(page.Event.Revision) }/>
+							<label>Event name <input name="event_name" value={ page.Event.Name } required/></label>
+							<label>Planned start <input type="date" name="planned_start_date" value={ page.Event.PlannedStartDate } required/></label>
+							<label>Planned end <input type="date" name="planned_end_date" value={ page.Event.PlannedEndDate } required/></label>
+							<label>Timezone <input name="timezone" value={ page.Event.Timezone } required/></label>
+							<label>Event locale <input name="event_locale" value={ page.Event.EventLocale } required/></label>
+							<label>Content language <input name="content_language" value={ page.Event.ContentLanguage }/></label>
+							<label>Event day boundary <input type="time" name="event_day_boundary" value={ page.Event.EventDayBoundary } required/></label>
+							<label>
+								New Competition Entry disposition
+								<select name="entry_default_disposition">
+									<option value="Pending" selected?={ page.Event.EntryDefaultDisposition == "Pending" }>Pending</option>
+									<option value="Included" selected?={ page.Event.EntryDefaultDisposition == "Included" }>Included</option>
+								</select>
+							</label>
+							<label>
+								Target adjustment presets in seconds
+								<input name="target_adjustment_presets_seconds" value={ planningPresets(page.Event.TargetAdjustmentPresetsSeconds) }/>
+							</label>
+							<button type="submit">Save Event configuration</button>
+						</form>
+					</section>
+					<section>
+						<h2>Published Rundown</h2>
+						<ul>
+							for _, location := range page.Rundown.Locations {
+								<li>Location #{ strconv.Itoa(location.ID) }: { location.Name }</li>
+							}
+							for _, lane := range page.Rundown.Lanes {
+								<li>Lane #{ strconv.Itoa(lane.ID) }: { lane.Name }</li>
+							}
+							for _, track := range page.Rundown.Tracks {
+								<li>Track #{ strconv.Itoa(track.ID) }: { track.Name }</li>
+							}
+							for _, session := range page.Rundown.Sessions {
+								<li>Session #{ strconv.Itoa(session.ID) }: { session.Title }</li>
+							}
+						</ul>
+					</section>
+					<section>
+						<h2>Edit Draft structure</h2>
+						<p>Create related structure together, or reference current Draft IDs.</p>
+						<form class="stack" method="post">
+							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+							<input type="hidden" name="action" value="draft"/>
+							<input type="hidden" name="command_id" value={ page.CommandID }/>
+							<input type="hidden" name="expected_draft_revision" value={ strconv.Itoa(page.CurrentPreview.DraftRevision) }/>
+							<fieldset>
+								<legend>Location</legend>
+								<label>Name <input name="location_name"/></label>
+							</fieldset>
+							<fieldset>
+								<legend>Lane</legend>
+								<label>Name <input name="lane_name"/></label>
+								<label>Current Draft Location ID <input type="number" min="1" name="lane_location_id"/></label>
+							</fieldset>
+							<fieldset>
+								<legend>Track</legend>
+								<label>Name <input name="track_name"/></label>
+							</fieldset>
+							<fieldset>
+								<legend>Session</legend>
+								<label>Title <input name="session_title"/></label>
+								<label>Speaker <input name="session_speaker"/></label>
+								<label>Type
+									<select name="session_type">
+										<option>Presentation</option>
+										<option>Competition</option>
+										<option>Break</option>
+										<option>Activity</option>
+										<option>Ceremony</option>
+										<option>Performance</option>
+										<option>Hold</option>
+									</select>
+								</label>
+								<label>Audience visibility
+									<select name="audience_visibility">
+										<option>Public</option>
+										<option>CrewOnly</option>
+									</select>
+								</label>
+								<label>Public details <textarea name="public_details"></textarea></label>
+								<label>Crew notes <textarea name="crew_notes"></textarea></label>
+								<label>Planned start <input type="datetime-local" name="planned_start"/></label>
+								<label>Planned start occurrence
+									<select name="planned_start_occurrence">
+										<option value="">Unambiguous</option><option>Earlier</option><option>Later</option>
+									</select>
+								</label>
+								<label>Planned end <input type="datetime-local" name="planned_end"/></label>
+								<label>Planned end occurrence
+									<select name="planned_end_occurrence">
+										<option value="">Unambiguous</option><option>Earlier</option><option>Later</option>
+									</select>
+								</label>
+								<label>Timing policy
+									<select name="timing_policy">
+										<option>FixedEnd</option>
+										<option>FixedDuration</option>
+										<option>ManualEnd</option>
+									</select>
+								</label>
+								<label>Minimum duration <input name="minimum_duration" value="15m"/></label>
+								<label>Start boundary
+									<select name="start_boundary"><option>Soft</option><option>Hard</option></select>
+								</label>
+								<label>End boundary
+									<select name="end_boundary"><option>Soft</option><option>Hard</option></select>
+								</label>
+								<label>Current Draft Lane ID <input type="number" min="1" name="session_lane_id"/></label>
+								<label>Current Draft Location ID <input type="number" min="1" name="session_location_id"/></label>
+								<label>Current Draft Track ID <input type="number" min="1" name="session_track_id"/></label>
+								<label>Presentation upload deadline <input type="datetime-local" name="upload_deadline"/></label>
+								<label>Upload deadline occurrence
+									<select name="upload_deadline_occurrence">
+										<option value="">Unambiguous</option><option>Earlier</option><option>Later</option>
+									</select>
+								</label>
+								<label>Competition submission deadline <input type="datetime-local" name="submission_deadline"/></label>
+								<label>Submission deadline occurrence
+									<select name="submission_deadline_occurrence">
+										<option value="">Unambiguous</option><option>Earlier</option><option>Later</option>
+									</select>
+								</label>
+								<label>New Entry disposition
+									<select name="session_entry_default_disposition">
+										<option>Pending</option>
+										<option>Included</option>
+										<option>Rejected</option>
+									</select>
+								</label>
+							</fieldset>
+							<button type="submit">Apply Draft edit</button>
+						</form>
+					</section>
+					<section>
+						<h2>Materialized Draft</h2>
+						for _, location := range page.Draft.Locations {
+							<form class="stack" method="post">
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="draft"/>
+								<input type="hidden" name="command_id" value={ page.CommandID }/>
+								<input type="hidden" name="expected_draft_revision" value={ strconv.Itoa(page.Draft.DraftRevision) }/>
+								<input type="hidden" name="location_id" value={ strconv.Itoa(location.ID) }/>
+								<input type="hidden" name="base_location_name" value={ location.Name }/>
+								<label>Location #{ strconv.Itoa(location.ID) } name
+									<input name="location_name" value={ location.Name } required/>
+								</label>
+								<button type="submit">Update Location</button>
+							</form>
+						}
+						for _, lane := range page.Draft.Lanes {
+							<form class="stack" method="post">
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="draft"/>
+								<input type="hidden" name="command_id" value={ page.CommandID }/>
+								<input type="hidden" name="expected_draft_revision" value={ strconv.Itoa(page.Draft.DraftRevision) }/>
+								<input type="hidden" name="lane_id" value={ strconv.Itoa(lane.ID) }/>
+								<input type="hidden" name="base_lane_name" value={ lane.Name }/>
+								<input type="hidden" name="base_lane_location_id" value={ strconv.Itoa(lane.LocationID) }/>
+								<label>Lane #{ strconv.Itoa(lane.ID) } name
+									<input name="lane_name" value={ lane.Name } required/>
+								</label>
+								<label>Location ID
+									<input type="number" min="1" name="lane_location_id" value={ strconv.Itoa(lane.LocationID) } required/>
+								</label>
+								<button type="submit">Update Lane</button>
+							</form>
+						}
+						for _, track := range page.Draft.Tracks {
+							<form class="stack" method="post">
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="draft"/>
+								<input type="hidden" name="command_id" value={ page.CommandID }/>
+								<input type="hidden" name="expected_draft_revision" value={ strconv.Itoa(page.Draft.DraftRevision) }/>
+								<input type="hidden" name="track_id" value={ strconv.Itoa(track.ID) }/>
+								<input type="hidden" name="base_track_name" value={ track.Name }/>
+								<label>Track #{ strconv.Itoa(track.ID) } name
+									<input name="track_name" value={ track.Name } required/>
+								</label>
+								<button type="submit">Update Track</button>
+							</form>
+						}
+						for _, session := range page.Draft.Sessions {
+							<form class="stack" method="post">
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="draft"/>
+								<input type="hidden" name="command_id" value={ page.CommandID }/>
+								<input type="hidden" name="expected_draft_revision" value={ strconv.Itoa(page.Draft.DraftRevision) }/>
+								<input type="hidden" name="session_id" value={ strconv.Itoa(session.ID) }/>
+								<input type="hidden" name="base_session" value={ page.SessionBases[session.ID] }/>
+								<label>Session #{ strconv.Itoa(session.ID) } title
+									<input name="session_title" value={ session.Title } required/>
+								</label>
+								<label>Speaker <input name="session_speaker" value={ session.Speaker }/></label>
+								<label>Type
+									<select name="session_type">
+										for _, value := range []rundown.SessionType{
+											rundown.SessionPresentation, rundown.SessionCompetition, rundown.SessionBreak,
+											rundown.SessionActivity, rundown.SessionCeremony, rundown.SessionPerformance,
+											rundown.SessionHold,
+										} {
+											<option selected?={ session.Type == value }>{ string(value) }</option>
+										}
+									</select>
+								</label>
+								<label>Audience visibility
+									<select name="audience_visibility">
+										<option selected?={ session.AudienceVisibility == rundown.AudiencePublic }>Public</option>
+										<option selected?={ session.AudienceVisibility == rundown.AudienceCrewOnly }>CrewOnly</option>
+									</select>
+								</label>
+								<label>Public details <textarea name="public_details">{ session.PublicDetails }</textarea></label>
+								<label>Crew notes <textarea name="crew_notes">{ session.CrewNotes }</textarea></label>
+								<label>Planned start
+									<input type="datetime-local" name="planned_start" value={ planningDateTime(session.PlannedStart, page.Event.Timezone) } required/>
+									<span>{ planningZone(session.PlannedStart, page.Event.Timezone) }</span>
+								</label>
+								<label>Planned start occurrence
+									<select name="planned_start_occurrence">
+										<option value="">Unchanged or unambiguous</option><option>Earlier</option><option>Later</option>
+									</select>
+								</label>
+								<label>Planned end
+									<input type="datetime-local" name="planned_end" value={ planningDateTime(session.PlannedEnd, page.Event.Timezone) } required/>
+									<span>{ planningZone(session.PlannedEnd, page.Event.Timezone) }</span>
+								</label>
+								<label>Planned end occurrence
+									<select name="planned_end_occurrence">
+										<option value="">Unchanged or unambiguous</option><option>Earlier</option><option>Later</option>
+									</select>
+								</label>
+								<label>Timing policy
+									<select name="timing_policy">
+										for _, value := range []rundown.TimingPolicy{
+											rundown.TimingFixedEnd, rundown.TimingFixedDuration, rundown.TimingManualEnd,
+										} {
+											<option selected?={ session.TimingPolicy == value }>{ string(value) }</option>
+										}
+									</select>
+								</label>
+								<label>Minimum duration
+									<input name="minimum_duration" value={ session.MinimumDuration.String() } required/>
+								</label>
+								<label>Start boundary
+									<select name="start_boundary">
+										<option selected?={ session.StartBoundary == rundown.BoundarySoft }>Soft</option>
+										<option selected?={ session.StartBoundary == rundown.BoundaryHard }>Hard</option>
+									</select>
+								</label>
+								<label>End boundary
+									<select name="end_boundary">
+										<option selected?={ session.EndBoundary == rundown.BoundarySoft }>Soft</option>
+										<option selected?={ session.EndBoundary == rundown.BoundaryHard }>Hard</option>
+									</select>
+								</label>
+								<label>Presentation upload deadline
+									<input type="datetime-local" name="upload_deadline" value={ planningDateTime(session.UploadDeadline, page.Event.Timezone) }/>
+									<span>{ planningZone(session.UploadDeadline, page.Event.Timezone) }</span>
+								</label>
+								<label>Upload deadline occurrence
+									<select name="upload_deadline_occurrence">
+										<option value="">Unchanged or unambiguous</option><option>Earlier</option><option>Later</option>
+									</select>
+								</label>
+								<label>Competition submission deadline
+									<input type="datetime-local" name="submission_deadline" value={ planningDateTime(session.SubmissionDeadline, page.Event.Timezone) }/>
+									<span>{ planningZone(session.SubmissionDeadline, page.Event.Timezone) }</span>
+								</label>
+								<label>Submission deadline occurrence
+									<select name="submission_deadline_occurrence">
+										<option value="">Unchanged or unambiguous</option><option>Earlier</option><option>Later</option>
+									</select>
+								</label>
+								<label>New Entry disposition
+									<select name="session_entry_default_disposition">
+										<option value="" selected?={ session.EntryDefault == "" }>Not applicable</option>
+										<option selected?={ session.EntryDefault == rundown.EntryPending }>Pending</option>
+										<option selected?={ session.EntryDefault == rundown.EntryIncluded }>Included</option>
+									</select>
+								</label>
+								<fieldset>
+									<legend>Lanes</legend>
+									for _, lane := range page.Draft.Lanes {
+										<label>
+											<input type="checkbox" name="session_lane_ids" value={ strconv.Itoa(lane.ID) } checked?={ slices.Contains(session.LaneIDs, lane.ID) }/>
+											#{ strconv.Itoa(lane.ID) } { lane.Name }
+										</label>
+									}
+								</fieldset>
+								<fieldset>
+									<legend>Locations</legend>
+									for _, location := range page.Draft.Locations {
+										<label>
+											<input type="checkbox" name="session_location_ids" value={ strconv.Itoa(location.ID) } checked?={ slices.Contains(session.LocationIDs, location.ID) }/>
+											#{ strconv.Itoa(location.ID) } { location.Name }
+										</label>
+									}
+								</fieldset>
+								<fieldset>
+									<legend>Tracks</legend>
+									for _, track := range page.Draft.Tracks {
+										<label>
+											<input type="checkbox" name="session_track_ids" value={ strconv.Itoa(track.ID) } checked?={ slices.Contains(session.TrackIDs, track.ID) }/>
+											#{ strconv.Itoa(track.ID) } { track.Name }
+										</label>
+									}
+								</fieldset>
+								<button type="submit">Update Session</button>
+							</form>
+						}
+					</section>
+					<section>
+						<h2>Draft review</h2>
+						for _, failure := range page.CurrentPreview.ValidationFailures {
+							<p class="error" role="alert">{ failure }</p>
+						}
+						if len(page.CurrentPreview.Changes) == 0 {
+							<p>No effective Draft changes.</p>
+						} else {
+							<ul>
+								for _, change := range page.CurrentPreview.Changes {
+									<li>
+										Change #{ strconv.Itoa(change.ID) }:
+										{ change.Status } { change.TargetType } { change.FactKey }
+										{ change.CurrentValueJSON }
+									</li>
+								}
+							</ul>
+							if len(page.CurrentPreview.ChangeIDs) != 0 {
+								<form method="post">
+									<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+									<input type="hidden" name="action" value="publish-preview"/>
+									for _, change := range page.CurrentPreview.Changes {
+										if change.Status == "Effective" {
+											<label>
+												<input type="checkbox" name="change_id" value={ strconv.Itoa(change.ID) } checked/>
+												Change #{ strconv.Itoa(change.ID) }
+											</label>
+										}
+									}
+									<button type="submit">Preview publish</button>
+								</form>
+							}
+						}
+						if page.PublishPreview != nil {
+							<h3>Confirm publish</h3>
+							<p>
+								Draft revision { strconv.Itoa(page.PublishPreview.DraftRevision) }.
+								Published revision { strconv.Itoa(page.PublishPreview.PublishedRevision) }.
+							</p>
+							for _, failure := range page.PublishPreview.ValidationFailures {
+								<p class="error" role="alert">{ failure }</p>
+							}
+							<ul>
+								for _, change := range page.PublishPreview.Changes {
+									<li>
+										Change #{ strconv.Itoa(change.ID) }:
+										{ change.TargetType } { change.FactKey } { change.CurrentValueJSON }
+										if planningContains(page.PublishPreview.AutoIncludedChangeIDs, change.ID) {
+											<strong>Automatically included dependency</strong>
+										}
+									</li>
+								}
+							</ul>
+							if len(page.PublishPreview.AffectedStructure) != 0 {
+								<p>Affected structure: { strings.Join(page.PublishPreview.AffectedStructure, ", ") }</p>
+							}
+							if len(page.PublishPreview.AffectedLanes) != 0 {
+								<p>Affected Lanes: { strings.Join(page.PublishPreview.AffectedLanes, ", ") }</p>
+							}
+							if len(page.PublishPreview.AffectedDisplays) != 0 {
+								<p>Affected Displays: { strings.Join(page.PublishPreview.AffectedDisplays, ", ") }</p>
+							} else {
+								<p>Affected Displays: none currently assigned.</p>
+							}
+							if len(page.PublishPreview.ValidationFailures) == 0 {
+								<form method="post">
+									<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+									<input type="hidden" name="action" value="publish"/>
+									<input type="hidden" name="command_id" value={ page.CommandID }/>
+									<input type="hidden" name="draft_revision" value={ strconv.Itoa(page.PublishPreview.DraftRevision) }/>
+									<input type="hidden" name="published_revision" value={ strconv.Itoa(page.PublishPreview.PublishedRevision) }/>
+									<input type="hidden" name="fingerprint" value={ page.PublishPreview.Fingerprint }/>
+									for _, changeID := range page.PublishPreview.ChangeIDs {
+										<input type="hidden" name="change_id" value={ strconv.Itoa(changeID) }/>
+									}
+									<label>Publish note <textarea name="publish_note"></textarea></label>
+									<button type="submit">Publish reviewed selection</button>
+								</form>
+							}
+						}
+					</section>
+					<section>
+						<h2>CSV import</h2>
+						<form class="stack" method="post">
+							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+							<input type="hidden" name="action" value="csv-preview"/>
+							<label>Field mappings, one <code>source=target</code> per line
+								<textarea name="csv_mappings">{ page.CSVMappings }</textarea>
+							</label>
+							<label>CSV data <textarea name="csv_data">{ page.CSVData }</textarea></label>
+							<button type="submit">Preview CSV import</button>
+						</form>
+						if page.CSVPreview != nil {
+							@ImportProposals(page.CSVPreview.Proposals, page.CSVPreview.ValidationFailures)
+							<form method="post">
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="csv-import"/>
+								<input type="hidden" name="command_id" value={ page.CommandID }/>
+								<input type="hidden" name="expected_draft_revision" value={ strconv.Itoa(page.CSVPreview.DraftRevision) }/>
+								<input type="hidden" name="fingerprint" value={ page.CSVPreview.Fingerprint }/>
+								<textarea hidden name="csv_mappings">{ page.CSVMappings }</textarea>
+								<textarea hidden name="csv_data">{ page.CSVData }</textarea>
+								for _, proposal := range page.CSVPreview.Proposals {
+									if proposal.Classification == rundown.CSVProposalAddition || proposal.Classification == rundown.CSVProposalUpdate {
+										<label>
+											<input type="checkbox" name="proposal_id" value={ proposal.ID } checked/>
+											Apply { proposal.ProposedValue }
+										</label>
+									}
+								}
+								<button type="submit">Confirm CSV import</button>
+							</form>
+						}
+					</section>
+					<section>
+						<h2>iCalendar import</h2>
+						<form class="stack" method="post">
+							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+							<input type="hidden" name="action" value="icalendar-preview"/>
+							<label>Occurrence choices, one <code>UID,PROPERTY,Earlier|Later</code> per line
+								<textarea name="icalendar_choices">{ page.ICalendarChoices }</textarea>
+							</label>
+							<label>iCalendar data <textarea name="icalendar_data">{ page.ICalendarData }</textarea></label>
+							<button type="submit">Preview iCalendar import</button>
+						</form>
+						if page.ICalendarPreview != nil {
+							@ImportProposals(page.ICalendarPreview.Proposals, page.ICalendarPreview.ValidationFailures)
+							for _, warning := range page.ICalendarPreview.Warnings {
+								<p>{ warning }</p>
+							}
+							<form method="post">
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="icalendar-import"/>
+								<input type="hidden" name="command_id" value={ page.CommandID }/>
+								<input type="hidden" name="expected_draft_revision" value={ strconv.Itoa(page.ICalendarPreview.DraftRevision) }/>
+								<input type="hidden" name="fingerprint" value={ page.ICalendarPreview.Fingerprint }/>
+								<textarea hidden name="icalendar_choices">{ page.ICalendarChoices }</textarea>
+								<textarea hidden name="icalendar_data">{ page.ICalendarData }</textarea>
+								for _, proposal := range page.ICalendarPreview.Proposals {
+									if proposal.Classification == rundown.CSVProposalAddition || proposal.Classification == rundown.CSVProposalUpdate {
+										<label>
+											<input type="checkbox" name="proposal_id" value={ proposal.ID } checked/>
+											Apply { proposal.ProposedValue }
+										</label>
+									}
+								}
+								<button type="submit">Confirm iCalendar import</button>
+							</form>
+						}
+					</section>
+				</main>
+			</div>
+		</body>
+	</html>
+}
+
+templ ImportProposals(proposals []rundown.CSVImportProposal, failures []string) {
+	for _, failure := range failures {
+		<p class="error" role="alert">{ failure }</p>
+	}
+	<ul>
+		for _, proposal := range proposals {
+			<li>
+				{ proposal.Classification }:
+				if proposal.ProposedValue != "" {
+					{ proposal.ProposedValue }
+				} else if proposal.Message != "" {
+					{ proposal.Message }
+				} else {
+					{ proposal.RecordType }
+				}
+			</li>
+		}
+	</ul>
+}
+
+templ NewEvent(page NewEventPage) {
+	<!doctype html>
+	<html lang="en">
+		@Head("Create Event · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
+			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
+			<div class="backstage-layout">
+				@BackstageNavigationViews(page.Navigation)
+				<main>
+					<h1>Create Event</h1>
+					if page.Error != "" {
+						<p class="error" role="alert">{ page.Error }</p>
+					}
+					<form class="stack" method="post">
+						<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+						<input type="hidden" name="command_id" value={ page.CommandID }/>
+						<input type="hidden" name="grant_command_id" value={ page.GrantCommandID }/>
+						<label>Event name <input name="event_name" required/></label>
+						<label>Planned start <input type="date" name="planned_start_date" required/></label>
+						<label>Planned end <input type="date" name="planned_end_date" required/></label>
+						<label>Timezone <input name="timezone" value="Etc/UTC" required/></label>
+						<label>Event locale <input name="event_locale" value="en" required/></label>
+						<label>Content language <input name="content_language"/></label>
+						<label>Event day boundary <input type="time" name="event_day_boundary" value="00:00" required/></label>
+						<label>New Competition Entry disposition
+							<select name="entry_default_disposition">
+								<option>Pending</option><option>Included</option>
+							</select>
+						</label>
+						<label>Target adjustment presets in seconds
+							<input name="target_adjustment_presets_seconds" value="-300,300,600"/>
+						</label>
+						<label>
+							<input type="checkbox" name="grant_self" value="true" checked/>
+							Grant me Producer authority for this Event
+						</label>
+						<button type="submit">Create Event</button>
+					</form>
+				</main>
+			</div>
+		</body>
+	</html>
+}

@@ -124,6 +124,7 @@ nav > a:first-child {
 .backstage-layout main {
   margin: 0;
   max-width: none;
+  overflow-wrap: anywhere;
   width: 100%;
 }
 
@@ -197,7 +198,8 @@ label {
 
 button,
 input,
-select {
+select,
+textarea {
   border: 1px solid var(--border);
   border-radius: 0.35rem;
   box-sizing: border-box;
@@ -208,10 +210,19 @@ select {
 }
 
 input,
-select {
+select,
+textarea {
   background: var(--background);
   color: var(--text);
   padding: 0.55rem 0.7rem;
+}
+
+fieldset {
+  min-width: 0;
+}
+
+textarea {
+  min-block-size: 8rem;
 }
 
 button {

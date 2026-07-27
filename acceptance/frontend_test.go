@@ -602,10 +602,304 @@ func TestBackstageNavigationReflectsAuthorityAndInterface(t *testing.T) {
 	server.stop(t)
 }
 
+func TestBrowserPlansAndPublishesEvent(t *testing.T) {
+	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
+	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	const path = "/backstage/events/1/planning"
+	newEvent := getFrontendPage(t, administrator, server.address, "/backstage/events/new")
+	createdEvent := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/events/new",
+		url.Values{
+			"csrf_token":                        {requireFrontendCSRF(t, newEvent)},
+			"command_id":                        {frontendNamedValues(newEvent.body, "command_id").Get("command_id")},
+			"grant_command_id":                  {frontendNamedValues(newEvent.body, "grant_command_id").Get("grant_command_id")},
+			"event_name":                        {"Revision 2026"},
+			"planned_start_date":                {"2026-08-21"},
+			"planned_end_date":                  {"2026-08-23"},
+			"timezone":                          {"Europe/Berlin"},
+			"event_locale":                      {"de-DE"},
+			"content_language":                  {"en-GB"},
+			"event_day_boundary":                {"06:00"},
+			"entry_default_disposition":         {"Pending"},
+			"target_adjustment_presets_seconds": {"-300,300,600"},
+			"grant_self":                        {"true"},
+		},
+	)
+	if createdEvent.status != http.StatusSeeOther ||
+		createdEvent.header.Get("Location") != path {
+		t.Fatalf("browser Event creation = %d %q", createdEvent.status, createdEvent.body)
+	}
+	page := getFrontendPage(t, administrator, server.address, path)
+	for _, want := range []string{
+		"Plan and publish",
+		`name="event_name"`,
+		`name="location_name"`,
+		`name="csv_data"`,
+		`name="icalendar_data"`,
+		"Draft revision 0",
+		"Published revision 0",
+	} {
+		if page.status != http.StatusOK || !strings.Contains(page.body, want) {
+			t.Fatalf("planning page lacks %q: %d %q", want, page.status, page.body)
+		}
+	}
+
+	configured := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":                        {requireFrontendCSRF(t, page)},
+		"action":                            {"event"},
+		"command_id":                        {"browser-update-event"},
+		"expected_event_revision":           {"1"},
+		"event_name":                        {"Revision Browser"},
+		"planned_start_date":                {"2026-08-21"},
+		"planned_end_date":                  {"2026-08-23"},
+		"timezone":                          {"Europe/Berlin"},
+		"event_locale":                      {"de-DE"},
+		"content_language":                  {"en-GB"},
+		"event_day_boundary":                {"06:00"},
+		"entry_default_disposition":         {"Included"},
+		"target_adjustment_presets_seconds": {"-300,300,600"},
+	})
+	if configured.status != http.StatusSeeOther || configured.header.Get("Location") != path {
+		t.Fatalf("configure Event = %d %q", configured.status, configured.body)
+	}
+
+	page = getFrontendPage(t, administrator, server.address, path)
+	created := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":              {requireFrontendCSRF(t, page)},
+		"action":                  {"draft"},
+		"command_id":              {"browser-create-rundown"},
+		"expected_draft_revision": {"0"},
+		"location_name":           {"Hall A"},
+		"lane_name":               {"Main Stage"},
+		"track_name":              {"Demos"},
+		"session_title":           {"Opening Ceremony"},
+		"session_type":            {"Ceremony"},
+		"audience_visibility":     {"Public"},
+		"planned_start":           {"2026-08-21T10:00"},
+		"planned_end":             {"2026-08-21T10:30"},
+		"timing_policy":           {"FixedEnd"},
+		"minimum_duration":        {"15m"},
+		"start_boundary":          {"Hard"},
+		"end_boundary":            {"Soft"},
+	})
+	if created.status != http.StatusSeeOther {
+		t.Fatalf("create Draft structure = %d %q", created.status, created.body)
+	}
+	if anonymous := getFrontendPage(
+		t, authenticatedClient(t), server.publicAddress, path,
+	); anonymous.status != http.StatusNotFound {
+		t.Fatalf("public-listener planning = %d, want 404", anonymous.status)
+	}
+
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "Draft revision 1") ||
+		!strings.Contains(page.body, "Opening Ceremony") {
+		t.Fatalf("reviewable Draft = %d %q", page.status, page.body)
+	}
+	stale := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":              {requireFrontendCSRF(t, page)},
+		"action":                  {"draft"},
+		"command_id":              {"browser-stale-rundown"},
+		"expected_draft_revision": {"0"},
+		"location_name":           {"Stale Hall"},
+	})
+	if stale.status != http.StatusConflict ||
+		!strings.Contains(stale.body, `role="alert"`) ||
+		!strings.Contains(stale.body, "Draft changed") {
+		t.Fatalf("stale Draft response = %d %q", stale.status, stale.body)
+	}
+
+	preview := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, page)},
+		"action":     {"publish-preview"},
+		"change_id":  {"4"},
+	})
+	if preview.status != http.StatusOK ||
+		!strings.Contains(preview.body, "Confirm publish") ||
+		!strings.Contains(preview.body, "Draft revision 1") ||
+		!strings.Contains(preview.body, "Published revision 0") ||
+		!strings.Contains(preview.body, "Automatically included dependency") ||
+		!strings.Contains(preview.body, "Affected Lanes: Lane #1") ||
+		!strings.Contains(preview.body, "Affected Displays: none currently assigned") {
+		t.Fatalf("Publish Preview = %d %q", preview.status, preview.body)
+	}
+	staleConfirmation := frontendNamedValues(preview.body,
+		"draft_revision", "published_revision", "fingerprint", "change_id",
+	)
+	staleConfirmation.Set("csrf_token", requireFrontendCSRF(t, preview))
+	staleConfirmation.Set("action", "publish")
+	staleConfirmation.Set("command_id", "browser-stale-publish")
+	deferred := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":              {requireFrontendCSRF(t, page)},
+		"action":                  {"draft"},
+		"command_id":              {"browser-deferred-track"},
+		"expected_draft_revision": {"1"},
+		"track_name":              {"Deferred Track"},
+	})
+	if deferred.status != http.StatusSeeOther {
+		t.Fatalf("create deferred Draft work = %d %q", deferred.status, deferred.body)
+	}
+	stalePublish := postFrontendForm(
+		t, administrator, server.address, path, staleConfirmation,
+	)
+	if stalePublish.status != http.StatusConflict ||
+		!strings.Contains(stalePublish.body, "Publish Preview is stale") {
+		t.Fatalf("stale Publish = %d %q", stalePublish.status, stalePublish.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	preview = postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, page)},
+		"action":     {"publish-preview"},
+		"change_id":  {"4"},
+	})
+	confirmation := frontendNamedValues(
+		preview.body,
+		"draft_revision", "published_revision", "fingerprint", "change_id",
+	)
+	confirmation.Set("csrf_token", requireFrontendCSRF(t, preview))
+	confirmation.Set("action", "publish")
+	confirmation.Set("command_id", "browser-publish-rundown")
+	published := postFrontendForm(t, administrator, server.address, path, confirmation)
+	if published.status != http.StatusSeeOther {
+		t.Fatalf("Publish = %d %q", published.status, published.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "Published revision 1") ||
+		!strings.Contains(page.body, "Opening Ceremony") ||
+		!strings.Contains(page.body, "Deferred Track") {
+		t.Fatalf("Published planning page = %d %q", page.status, page.body)
+	}
+	edited := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":              {requireFrontendCSRF(t, page)},
+		"action":                  {"draft"},
+		"command_id":              {"browser-edit-location"},
+		"expected_draft_revision": {"3"},
+		"location_id":             {"1"},
+		"location_name":           {"Hall Alpha"},
+		"base_location_name":      {"Hall A"},
+	})
+	if edited.status != http.StatusSeeOther {
+		t.Fatalf("edit materialized Draft = %d %q", edited.status, edited.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "Draft revision 4") ||
+		!strings.Contains(page.body, `value="Hall Alpha"`) {
+		t.Fatalf("edited materialized Draft = %d %q", page.status, page.body)
+	}
+	publicSchedule := getFrontendPage(
+		t, authenticatedClient(t), server.publicAddress, "/schedule",
+	)
+	for _, private := range []string{"Opening Ceremony", "Deferred Track", "Hall Alpha"} {
+		if strings.Contains(publicSchedule.body, private) {
+			t.Fatalf("public Schedule disclosed %q: %q", private, publicSchedule.body)
+		}
+	}
+
+	const csvMappings = "kind=record_type\nkey=external_key\ntitle=title\nstart=planned_start\nend=planned_end\nlane=lane\nlocation=location"
+	const csvData = "kind,key,title,start,end,lane,location\nSession,browser-session,Imported Session,2026-08-21T11:00:00+02:00,2026-08-21T11:30:00+02:00,Main Stage,Hall Alpha\n"
+	csvPreview := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":   {requireFrontendCSRF(t, page)},
+		"action":       {"csv-preview"},
+		"csv_mappings": {csvMappings},
+		"csv_data":     {csvData},
+	})
+	if csvPreview.status != http.StatusOK ||
+		!strings.Contains(csvPreview.body, "Imported Session") ||
+		!strings.Contains(csvPreview.body, "Confirm CSV import") {
+		t.Fatalf("CSV preview = %d %q", csvPreview.status, csvPreview.body)
+	}
+	csvConfirmation := frontendNamedValues(
+		csvPreview.body,
+		"expected_draft_revision",
+		"fingerprint",
+	)
+	csvConfirmation["proposal_id"] = frontendCheckboxValues(csvPreview.body, "proposal_id")
+	csvConfirmation.Set("csrf_token", requireFrontendCSRF(t, csvPreview))
+	csvConfirmation.Set("action", "csv-import")
+	csvConfirmation.Set("command_id", "browser-import-csv")
+	csvConfirmation.Set("csv_mappings", csvMappings)
+	csvConfirmation.Set("csv_data", csvData)
+	if imported := postFrontendForm(
+		t, administrator, server.address, path, csvConfirmation,
+	); imported.status != http.StatusSeeOther {
+		t.Fatalf("CSV import = %d %q", imported.status, imported.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "Draft revision 5") ||
+		!strings.Contains(page.body, "Imported Session") {
+		t.Fatalf("CSV Draft = %d %q", page.status, page.body)
+	}
+
+	const icalendarData = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:browser-ical\r\nDTSTART:20260821T120000Z\r\nDTEND:20260821T123000Z\r\nSUMMARY:iCalendar Session\r\nLOCATION:Main Stage\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+	icalendarPreview := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":     {requireFrontendCSRF(t, page)},
+		"action":         {"icalendar-preview"},
+		"icalendar_data": {icalendarData},
+	})
+	if icalendarPreview.status != http.StatusOK ||
+		!strings.Contains(icalendarPreview.body, "iCalendar Session") ||
+		!strings.Contains(icalendarPreview.body, "Confirm iCalendar import") {
+		t.Fatalf("iCalendar preview = %d %q", icalendarPreview.status, icalendarPreview.body)
+	}
+	icalendarConfirmation := frontendNamedValues(
+		icalendarPreview.body,
+		"expected_draft_revision",
+		"fingerprint",
+	)
+	icalendarConfirmation["proposal_id"] = frontendCheckboxValues(
+		icalendarPreview.body,
+		"proposal_id",
+	)
+	icalendarConfirmation.Set("csrf_token", requireFrontendCSRF(t, icalendarPreview))
+	icalendarConfirmation.Set("action", "icalendar-import")
+	icalendarConfirmation.Set("command_id", "browser-import-icalendar")
+	icalendarConfirmation.Set("icalendar_data", icalendarData)
+	if imported := postFrontendForm(
+		t, administrator, server.address, path, icalendarConfirmation,
+	); imported.status != http.StatusSeeOther {
+		t.Fatalf("iCalendar import = %d %q", imported.status, imported.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "Draft revision 6") ||
+		!strings.Contains(page.body, "iCalendar Session") {
+		t.Fatalf("iCalendar Draft = %d %q", page.status, page.body)
+	}
+	server.stop(t)
+}
+
 type frontendResponse struct {
 	status int
 	header http.Header
 	body   string
+}
+
+func frontendNamedValues(body string, names ...string) url.Values {
+	values := make(url.Values)
+	for _, name := range names {
+		expression := regexp.MustCompile(
+			`type="hidden" name="` + regexp.QuoteMeta(name) + `" value="([^"]*)"`,
+		)
+		for _, match := range expression.FindAllStringSubmatch(body, -1) {
+			values.Add(name, match[1])
+		}
+	}
+	return values
+}
+
+func frontendCheckboxValues(body, name string) []string {
+	expression := regexp.MustCompile(
+		`type="checkbox" name="` + regexp.QuoteMeta(name) + `" value="([^"]*)" checked`,
+	)
+	var values []string
+	for _, match := range expression.FindAllStringSubmatch(body, -1) {
+		values = append(values, match[1])
+	}
+	return values
 }
 
 func getFrontendPage(
