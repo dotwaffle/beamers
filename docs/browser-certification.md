@@ -3,7 +3,8 @@
 The `Browsers` workflow runs the current and previous major Chromium and Firefox releases against real served Beamers pages.
 It records the exact browser, driver, runner, and commit versions in downloadable JSON evidence.
 
-The hosted check covers public Schedule and released Results, Enrollment controls, and a Crew Program Claim, Preview selection, and durable Take to two connected browser Displays.
+The hosted check covers public Schedule and released Results, Enrollment controls, an Override targeting confirmation, and two simultaneous Crew consoles observing a Program Claim, Preview selection, and durable Take to two connected browser Displays.
+It starts a timed Result Reveal, proves an Emergency Alert pauses it beyond its original duration on both Displays, then clears the Alert and proves the Reveal resumes.
 It requires both Displays to render and acknowledge the exact committed Program Output.
 It also covers keyboard activation, visible focus, labels, touch targets, contrast, language metadata, reduced motion, non-color connection state, retained content during disconnect, and recovery after a compatible server restart.
 

@@ -23,10 +23,19 @@ import (
 
 	"connectrpc.com/connect"
 
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	competitionv1 "github.com/dotwaffle/beamers/gen/beamers/competition/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/competition/v1/competitionv1connect"
+	programv1 "github.com/dotwaffle/beamers/gen/beamers/program/v1"
+	"github.com/dotwaffle/beamers/gen/beamers/program/v1/programv1connect"
 	resultsv1 "github.com/dotwaffle/beamers/gen/beamers/results/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/results/v1/resultsv1connect"
+	rundownv1 "github.com/dotwaffle/beamers/gen/beamers/rundown/v1"
+	"github.com/dotwaffle/beamers/gen/beamers/rundown/v1/rundownv1connect"
+	sessionv1 "github.com/dotwaffle/beamers/gen/beamers/session/v1"
+	"github.com/dotwaffle/beamers/gen/beamers/session/v1/sessionv1connect"
 )
 
 //go:embed browser_audit.js
@@ -148,7 +157,7 @@ func (report browserCertificationReport) validate() error {
 		}
 		seen[display.DisplayID] = true
 	}
-	var crewPages, displayPages, enrollmentPages, resultsPages int
+	var crewPages, controlPages, confirmationPages, displayPages, enrollmentPages, resultsPages int
 	for _, page := range report.Pages {
 		if err := page.validate(); err != nil {
 			return fmt.Errorf("validate %s page evidence: %w", page.Surface, err)
@@ -156,6 +165,10 @@ func (report browserCertificationReport) validate() error {
 		switch page.Surface {
 		case "crew_control":
 			crewPages++
+		case "control":
+			controlPages++
+		case "override_confirmation":
+			confirmationPages++
 		case "display":
 			displayPages++
 		case "enrollment":
@@ -164,11 +177,13 @@ func (report browserCertificationReport) validate() error {
 			resultsPages++
 		}
 	}
-	if crewPages != 1 || displayPages != 2 || enrollmentPages != 1 ||
-		resultsPages != 1 {
+	if crewPages != 2 || controlPages != 1 || confirmationPages != 1 ||
+		displayPages != 2 || enrollmentPages != 1 || resultsPages != 1 {
 		return fmt.Errorf(
-			"browser evidence has %d Crew, %d Display, %d Enrollment, and %d Results pages, want 1, 2, 1, and 1",
+			"browser evidence has %d Crew, %d Control, %d Override confirmation, %d Display, %d Enrollment, and %d Results pages; want 2, 1, 1, 2, 1, and 1",
 			crewPages,
+			controlPages,
+			confirmationPages,
 			displayPages,
 			enrollmentPages,
 			resultsPages,
@@ -198,6 +213,9 @@ func TestBrowserCertificationReportRequiresDurableTwoDisplayTake(t *testing.T) {
 			},
 			Pages: []browserPageEvidence{
 				validBrowserPageEvidence("crew_control"),
+				validBrowserPageEvidence("crew_control"),
+				validBrowserPageEvidence("control"),
+				validBrowserPageEvidence("override_confirmation"),
 				validBrowserPageEvidence("display"),
 				validBrowserPageEvidence("display"),
 				validBrowserPageEvidence("enrollment"),
@@ -587,6 +605,7 @@ func TestBrowserCertification(t *testing.T) {
 	}
 	config := browserConfigFromEnvironment(t)
 	crewDriverEndpoint, webDriverVersion := startBrowserDriver(t, config)
+	secondCrewDriverEndpoint, _ := startBrowserDriver(t, config)
 	displays := make([]browserDisplayCertification, 2)
 	for index := range displays {
 		displays[index].driverEndpoint, _ = startBrowserDriver(t, config)
@@ -617,6 +636,7 @@ func TestBrowserCertification(t *testing.T) {
 	prepareActiveSchedule(t, administrator, server)
 	crewSessionID, _ := addCompetitionSession(t, administrator, server)
 	prepareReleasedBrowserResults(t, administrator, server, crewSessionID)
+	prizegivingSessionID := prepareBrowserPrizegiving(t, administrator, server)
 	for index := range displays {
 		displays[index].enrollmentCode, displays[index].credential =
 			prepareBrowserEnrollment(t, server)
@@ -661,6 +681,7 @@ func TestBrowserCertification(t *testing.T) {
 	assertResponsivePageWidths(t, crewDriver, origin+"/backstage", 320, 1440)
 	assertResponsivePageWidths(t, crewDriver, origin+"/backstage/events/1/planning", 320, 1440)
 	assertResponsivePageWidths(t, crewDriver, origin+"/backstage/events/1/operations", 320, 1440)
+	assertResponsivePageWidths(t, crewDriver, origin+"/backstage/events/1/control", 320, 1440)
 	assertBackstageNavigationModes(t, crewDriver, origin)
 	report.Pages = append(
 		report.Pages,
@@ -696,21 +717,58 @@ func TestBrowserCertification(t *testing.T) {
 			t, client, config, origin, &displays[index],
 		))
 	}
-
+	secondCrewDriver, secondCrewEvidence := openSecondaryCrewControl(
+		t,
+		client,
+		config,
+		secondCrewDriverEndpoint,
+		administrator,
+		origin,
+		prizegivingSessionID,
+	)
+	report.Pages = append(report.Pages, secondCrewEvidence)
 	crewEvidence, connectedDisplayIDs, programOutput := certifyCrewControl(
-		t, crewDriver, origin, crewSessionID,
+		t, crewDriver, origin, prizegivingSessionID,
 	)
 	report.Pages = append(report.Pages, crewEvidence)
 	report.CrewCommandCommitted = true
 	report.DisplaysConnectedBeforeCommand = connectedDisplayIDs
 	report.ProgramOutput = programOutput
+	assertSecondaryCrewControl(t, secondCrewDriver, programOutput)
+	closeBrowserSession(t, secondCrewDriver)
+	programClient := beginBrowserReveal(
+		t, administrator, server, prizegivingSessionID,
+	)
+	overrideDriver := startBrowserSession(
+		t, client, secondCrewDriverEndpoint, config,
+	)
+	if err := overrideDriver.navigate(t.Context(), origin+"/schedule"); err != nil {
+		t.Fatalf("navigate Override console to cookie origin: %v", err)
+	}
+	addBrowserCookie(t, overrideDriver, browserCookie(
+		t,
+		administrator,
+		origin,
+		"beamers_session",
+		"/",
+	))
+	controlEvidence, confirmationEvidence := certifyOverrideConfirmation(
+		t,
+		overrideDriver,
+		origin,
+		displays,
+		programClient,
+		prizegivingSessionID,
+	)
+	report.Pages = append(report.Pages, controlEvidence, confirmationEvidence)
+	closeBrowserSession(t, overrideDriver)
 
 	for index := range displays {
 		report.Displays = append(report.Displays, captureBrowserDisplayOutput(
 			t, &displays[index], programOutput,
 		))
 	}
-	crewURL := origin + "/crew/program/" + strconv.FormatInt(crewSessionID, 10) +
+	crewURL := origin + "/crew/program/" + strconv.FormatInt(prizegivingSessionID, 10) +
 		"?event_id=1"
 	acknowledgmentsReady := `return ` +
 		`[...document.querySelectorAll("#displays li[data-delivery]")].length === 2 && ` +
@@ -796,6 +854,234 @@ func TestBrowserCertification(t *testing.T) {
 	writeBrowserCertificationReport(t, config.ReportPath, report)
 }
 
+func certifyOverrideConfirmation(
+	t *testing.T,
+	driver *webDriver,
+	origin string,
+	displays []browserDisplayCertification,
+	programClient programv1connect.ProgramControlServiceClient,
+	sessionID int64,
+) (browserPageEvidence, browserPageEvidence) {
+	t.Helper()
+	target := origin + "/backstage/events/1/control"
+	if err := driver.navigate(t.Context(), target); err != nil {
+		t.Fatalf("navigate to Backstage control: %v", err)
+	}
+	focusKeyboardControl(t, driver, "Backstage control")
+	controlEvidence, err := driver.auditPage(t.Context(), "control")
+	if err != nil {
+		t.Fatal(err)
+	}
+	submitted, err := driver.evaluateString(
+		t.Context(),
+		`const form = document.querySelector(`+
+			`'form[action$="/emergency-alerts/confirmation"]'); `+
+			`form.querySelector('textarea[name="text"]').value = "Browser confirmation"; `+
+			`form.querySelector('button[type="submit"]').click(); `+
+			`return "submitted";`,
+	)
+	if err != nil || submitted != "submitted" {
+		t.Fatalf("submit Emergency Alert preview = %q, %v", submitted, err)
+	}
+	if err = driver.waitFor(
+		t.Context(),
+		15*time.Second,
+		`return document.querySelector("h1").textContent === "Confirm Emergency Alert" && `+
+			`document.querySelectorAll(`+
+			`'main li').length === 2;`,
+	); err != nil {
+		t.Fatalf("wait for resolved Emergency Alert confirmation: %v", err)
+	}
+	focusKeyboardControl(t, driver, "Override confirmation")
+	confirmationEvidence, err := driver.auditPage(t.Context(), "override_confirmation")
+	if err != nil {
+		t.Fatal(err)
+	}
+	focused, err := driver.evaluateBool(
+		t.Context(),
+		`const button = document.querySelector('button[type="submit"]'); `+
+			`button.focus(); return document.activeElement === button;`,
+	)
+	if err != nil || !focused {
+		t.Fatalf("focus Emergency Alert confirmation = %t, %v", focused, err)
+	}
+	if err = driver.pressKey(t.Context(), "\uE007"); err != nil {
+		t.Fatalf("activate Emergency Alert confirmation: %v", err)
+	}
+	if err = driver.waitFor(
+		t.Context(),
+		15*time.Second,
+		`return location.pathname === "/backstage/events/1/control";`,
+	); err != nil {
+		t.Fatalf("wait for Emergency Alert activation: %v", err)
+	}
+	for index := range displays {
+		if err = displays[index].driver.waitFor(
+			t.Context(),
+			15*time.Second,
+			`return document.querySelector("main").dataset.overrideKind === "EmergencyAlert";`,
+		); err != nil {
+			t.Fatalf("Display %d did not apply Emergency Alert: %v", index+1, err)
+		}
+	}
+	assertBrowserRevealPaused(t, programClient, sessionID)
+	clicked, err := driver.evaluateString(
+		t.Context(),
+		`const link = document.querySelector('a[href*="/clear-confirmation"]'); `+
+			`link.click(); return "clicked";`,
+	)
+	if err != nil || clicked != "clicked" {
+		t.Fatalf("open Emergency Alert clear confirmation = %q, %v", clicked, err)
+	}
+	if err = driver.waitFor(
+		t.Context(),
+		15*time.Second,
+		`return document.querySelector("h1").textContent === "Confirm Emergency Alert clear";`,
+	); err != nil {
+		t.Fatalf("wait for Emergency Alert clear confirmation: %v", err)
+	}
+	focused, err = driver.evaluateBool(
+		t.Context(),
+		`const button = document.querySelector('button[type="submit"]'); `+
+			`button.focus(); return document.activeElement === button;`,
+	)
+	if err != nil || !focused {
+		t.Fatalf("focus Emergency Alert clear confirmation = %t, %v", focused, err)
+	}
+	if err = driver.pressKey(t.Context(), "\uE007"); err != nil {
+		t.Fatalf("clear Emergency Alert confirmation: %v", err)
+	}
+	if err = driver.waitFor(
+		t.Context(),
+		15*time.Second,
+		`return location.pathname === "/backstage/events/1/control";`,
+	); err != nil {
+		t.Fatalf("wait for Emergency Alert clear: %v", err)
+	}
+	for index := range displays {
+		if err = displays[index].driver.waitFor(
+			t.Context(),
+			15*time.Second,
+			`return document.querySelector("main").dataset.overrideKind !== "EmergencyAlert";`,
+		); err != nil {
+			t.Fatalf("Display %d did not clear Emergency Alert: %v", index+1, err)
+		}
+	}
+	waitForBrowserRevealCompletion(t, programClient, sessionID)
+	return controlEvidence, confirmationEvidence
+}
+
+func assertBrowserRevealPaused(
+	t *testing.T,
+	client programv1connect.ProgramControlServiceClient,
+	sessionID int64,
+) {
+	t.Helper()
+	timer := time.NewTimer(4 * time.Second)
+	defer timer.Stop()
+	select {
+	case <-t.Context().Done():
+		t.Fatal(t.Context().Err())
+	case <-timer.C:
+	}
+	channel, err := client.GetProgramChannel(
+		t.Context(),
+		connect.NewRequest(&programv1.GetProgramChannelRequest{
+			EventId: 1, SessionId: sessionID,
+		}),
+	)
+	if err != nil ||
+		channel.Msg.GetChannel().GetProgramOutput().GetResult().GetStatus() !=
+			programv1.ResultStageStatus_RESULT_STAGE_STATUS_REVEALING {
+		t.Fatalf("Result Reveal did not remain paused under Emergency Alert: %+v, %v", channel, err)
+	}
+}
+
+func waitForBrowserRevealCompletion(
+	t *testing.T,
+	client programv1connect.ProgramControlServiceClient,
+	sessionID int64,
+) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		channel, err := client.GetProgramChannel(
+			t.Context(),
+			connect.NewRequest(&programv1.GetProgramChannelRequest{
+				EventId: 1, SessionId: sessionID,
+			}),
+		)
+		if err == nil &&
+			channel.Msg.GetChannel().GetProgramOutput().GetResult().GetStatus() ==
+				programv1.ResultStageStatus_RESULT_STAGE_STATUS_REVEALED {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("Result Reveal did not resume after Emergency clear: %+v, %v", channel, err)
+		}
+		select {
+		case <-t.Context().Done():
+			t.Fatal(t.Context().Err())
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+}
+
+func openSecondaryCrewControl(
+	t *testing.T,
+	client *http.Client,
+	config browserCertificationConfig,
+	driverEndpoint string,
+	administrator *http.Client,
+	origin string,
+	sessionID int64,
+) (*webDriver, browserPageEvidence) {
+	t.Helper()
+	driver := startBrowserSession(t, client, driverEndpoint, config)
+	if err := driver.navigate(t.Context(), origin+"/schedule"); err != nil {
+		t.Fatalf("navigate second Crew console to cookie origin: %v", err)
+	}
+	addBrowserCookie(t, driver, browserCookie(
+		t,
+		administrator,
+		origin,
+		"beamers_session",
+		"/",
+	))
+	target := origin + "/crew/program/" + strconv.FormatInt(sessionID, 10) +
+		"?event_id=1"
+	if err := driver.navigate(t.Context(), target); err != nil {
+		t.Fatalf("navigate second Crew console: %v", err)
+	}
+	if err := driver.waitFor(
+		t.Context(),
+		15*time.Second,
+		`return document.querySelector("#connection-status").textContent.includes("revision");`,
+	); err != nil {
+		t.Fatalf("wait for second Crew console: %v", err)
+	}
+	focusKeyboardControl(t, driver, "second Crew control")
+	evidence, err := driver.auditPage(t.Context(), "crew_control")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return driver, evidence
+}
+
+func assertSecondaryCrewControl(
+	t *testing.T,
+	driver *webDriver,
+	output browserProgramOutputEvidence,
+) {
+	t.Helper()
+	script := `return document.querySelector("#owner").textContent.includes("Ada Admin") && ` +
+		`document.querySelector('[data-item="programOutput"]').textContent === ` +
+		strconv.Quote(output.Title) + `;`
+	if err := driver.waitFor(t.Context(), 15*time.Second, script); err != nil {
+		t.Fatalf("second Crew console did not observe committed Program Output: %v", err)
+	}
+}
+
 func prepareReleasedBrowserResults(
 	t *testing.T,
 	client *http.Client,
@@ -867,6 +1153,243 @@ func prepareReleasedBrowserResults(
 	); err != nil {
 		t.Fatalf("release browser Results: %v", err)
 	}
+}
+
+func prepareBrowserPrizegiving(
+	t *testing.T,
+	client *http.Client,
+	server *runningServer,
+) int64 {
+	t.Helper()
+	rundownClient := rundownv1connect.NewRundownServiceClient(
+		client, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	current, err := rundownClient.GetCrewRundown(
+		t.Context(),
+		connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
+	)
+	if err != nil {
+		t.Fatalf("load Rundown before browser Prizegiving: %v", err)
+	}
+	plannedStart := time.Date(2099, 8, 21, 14, 0, 0, 0, time.UTC)
+	location := &rundownv1.TargetRef{
+		Target: &rundownv1.TargetRef_Id{Id: current.Msg.GetLocations()[0].GetId()},
+	}
+	lane := &rundownv1.TargetRef{
+		Target: &rundownv1.TargetRef_Id{Id: current.Msg.GetLanes()[0].GetId()},
+	}
+	edited, err := rundownClient.EditDraft(
+		t.Context(),
+		connect.NewRequest(&rundownv1.EditDraftRequest{
+			EventId: 1, CommandId: "add-browser-prizegiving",
+			ExpectedDraftRevision: current.Msg.GetDraftRevision(),
+			Sessions: []*rundownv1.SessionDraft{
+				{
+					Ref: "browser-prizegiving-source", Title: "Browser Prizegiving Source",
+					Type:                    rundownv1.SessionType_SESSION_TYPE_COMPETITION,
+					AudienceVisibility:      rundownv1.AudienceVisibility_AUDIENCE_VISIBILITY_PUBLIC,
+					PlannedStart:            timestamppb.New(plannedStart.Add(-time.Hour)),
+					PlannedEnd:              timestamppb.New(plannedStart),
+					TimingPolicy:            rundownv1.TimingPolicy_TIMING_POLICY_FIXED_END,
+					MinimumDuration:         durationpb.New(30 * time.Minute),
+					StartBoundary:           rundownv1.Boundary_BOUNDARY_HARD,
+					EndBoundary:             rundownv1.Boundary_BOUNDARY_HARD,
+					Lanes:                   []*rundownv1.TargetRef{lane},
+					Locations:               []*rundownv1.TargetRef{location},
+					SubmissionDeadline:      timestamppb.New(plannedStart.Add(-90 * time.Minute)),
+					EntryDefaultDisposition: rundownv1.EntryDisposition_ENTRY_DISPOSITION_INCLUDED,
+				},
+				{
+					Ref: "browser-prizegiving", Title: "Browser Prizegiving",
+					Type:               rundownv1.SessionType_SESSION_TYPE_CEREMONY,
+					AudienceVisibility: rundownv1.AudienceVisibility_AUDIENCE_VISIBILITY_PUBLIC,
+					PlannedStart:       timestamppb.New(plannedStart),
+					PlannedEnd:         timestamppb.New(plannedStart.Add(time.Hour)),
+					TimingPolicy:       rundownv1.TimingPolicy_TIMING_POLICY_FIXED_END,
+					MinimumDuration:    durationpb.New(30 * time.Minute),
+					StartBoundary:      rundownv1.Boundary_BOUNDARY_HARD,
+					EndBoundary:        rundownv1.Boundary_BOUNDARY_HARD,
+					Lanes:              []*rundownv1.TargetRef{lane},
+					Locations:          []*rundownv1.TargetRef{location},
+				},
+			},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("add browser Prizegiving Sessions: %v", err)
+	}
+	publishEditedDraft(t, rundownClient, edited.Msg, "publish-browser-prizegiving")
+	current, err = rundownClient.GetCrewRundown(
+		t.Context(),
+		connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
+	)
+	if err != nil {
+		t.Fatalf("reload browser Prizegiving Sessions: %v", err)
+	}
+	var competitionID, ceremonyID int64
+	for _, session := range current.Msg.GetSessions() {
+		switch session.GetTitle() {
+		case "Browser Prizegiving Source":
+			competitionID = session.GetId()
+		case "Browser Prizegiving":
+			ceremonyID = session.GetId()
+		}
+	}
+	if competitionID == 0 || ceremonyID == 0 {
+		t.Fatalf("browser Prizegiving Session IDs = competition %d, ceremony %d",
+			competitionID, ceremonyID)
+	}
+
+	competitionClient := competitionv1connect.NewCompetitionServiceClient(
+		client, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	entry, err := competitionClient.CreateEntry(
+		t.Context(),
+		connect.NewRequest(&competitionv1.CreateEntryRequest{
+			EventId: 1, SessionId: competitionID,
+			CommandId: "create-browser-prizegiving-entry",
+			Name:      "Browser Reveal Winner",
+		}),
+	)
+	if err != nil {
+		t.Fatalf("create browser Prizegiving Entry: %v", err)
+	}
+	placement := int64(1)
+	resultsClient := resultsv1connect.NewResultsServiceClient(
+		client, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	draft, err := resultsClient.SaveCompetitionResultsDraft(
+		t.Context(),
+		connect.NewRequest(&resultsv1.SaveCompetitionResultsDraftRequest{
+			EventId: 1, SessionId: competitionID,
+			CommandId:        "save-browser-prizegiving-results",
+			ExpectedRevision: 0,
+			Disposition:      resultsv1.ResultsDisposition_RESULTS_DISPOSITION_PUBLISH,
+			Score: &resultsv1.ScorePolicy{
+				Type:           resultsv1.ScoreType_SCORE_TYPE_NONE,
+				Visibility:     resultsv1.ScoreVisibility_SCORE_VISIBILITY_PUBLIC,
+				Requirement:    resultsv1.ScoreRequirement_SCORE_REQUIREMENT_OPTIONAL,
+				Interpretation: resultsv1.ScoreInterpretation_SCORE_INTERPRETATION_INFORMATIONAL,
+			},
+			Standings: []*resultsv1.CompetitionResultStanding{{
+				EntryId: entry.Msg.GetEntry().GetId(), Standing: resultsv1.ResultStanding_RESULT_STANDING_PLACED,
+				Placement: &placement, DisplayOrder: 1,
+			}},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("save browser Prizegiving Results: %v", err)
+	}
+	if _, err = resultsClient.MarkCompetitionResultsReady(
+		t.Context(),
+		connect.NewRequest(&resultsv1.MarkCompetitionResultsReadyRequest{
+			EventId: 1, SessionId: competitionID,
+			CommandId:        "ready-browser-prizegiving-results",
+			ExpectedRevision: draft.Msg.GetDraft().GetRevision(),
+		}),
+	); err != nil {
+		t.Fatalf("ready browser Prizegiving Results: %v", err)
+	}
+	if _, err = resultsClient.DesignatePrizegiving(
+		t.Context(),
+		connect.NewRequest(&resultsv1.DesignatePrizegivingRequest{
+			EventId: 1, CeremonySessionId: ceremonyID,
+			CommandId: "designate-browser-prizegiving",
+		}),
+	); err != nil {
+		t.Fatalf("designate browser Prizegiving: %v", err)
+	}
+	item := &resultsv1.ResultItem{
+		Kind:                 resultsv1.ResultItemKind_RESULT_ITEM_KIND_COMPETITION_RESULTS,
+		CompetitionSessionId: competitionID, DisplayOrder: 1,
+		RevealMethod: resultsv1.RevealMethod_REVEAL_METHOD_SEQUENTIAL_PODIUM,
+	}
+	plan, err := resultsClient.SavePrizegivingPlan(
+		t.Context(),
+		connect.NewRequest(&resultsv1.SavePrizegivingPlanRequest{
+			EventId: 1, CeremonySessionId: ceremonyID,
+			CommandId:             "save-browser-prizegiving-plan",
+			CompetitionSessionIds: []int64{competitionID},
+			Sequence:              []*resultsv1.ResultItem{item},
+			PublicationOrder: []*resultsv1.ResultItemRef{{
+				Kind: item.GetKind(), CompetitionSessionId: competitionID, DisplayOrder: 1,
+			}},
+			ResultsTextTemplate: &resultsv1.ResultsTextTemplate{
+				Revision: 1, Source: "{{.EventTitle}}\n",
+			},
+			ReleasePolicy: resultsv1.ResultsReleasePolicy_RESULTS_RELEASE_POLICY_PROGRESSIVE_ON_REVEAL,
+		}),
+	)
+	if err != nil {
+		t.Fatalf("save browser Prizegiving plan: %v", err)
+	}
+	if _, err = resultsClient.RunPrizegivingPreflight(
+		t.Context(),
+		connect.NewRequest(&resultsv1.RunPrizegivingPreflightRequest{
+			EventId: 1, CeremonySessionId: ceremonyID,
+			CommandId:        "lock-browser-prizegiving-plan",
+			ExpectedRevision: plan.Msg.GetPlan().GetRevision(),
+		}),
+	); err != nil {
+		t.Fatalf("lock browser Prizegiving plan: %v", err)
+	}
+	sessionClient := sessionv1connect.NewSessionControlServiceClient(
+		client, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	expectedLiveStateRevision := int64(0)
+	if _, err = sessionClient.StartSession(
+		t.Context(),
+		connect.NewRequest(&sessionv1.StartSessionRequest{
+			EventId: 1, SessionId: ceremonyID,
+			CommandId:                 "start-browser-prizegiving",
+			ExpectedLiveStateRevision: &expectedLiveStateRevision,
+		}),
+	); err != nil {
+		t.Fatalf("start browser Prizegiving: %v", err)
+	}
+	return ceremonyID
+}
+
+func beginBrowserReveal(
+	t *testing.T,
+	httpClient *http.Client,
+	server *runningServer,
+	sessionID int64,
+) programv1connect.ProgramControlServiceClient {
+	t.Helper()
+	client := programv1connect.NewProgramControlServiceClient(
+		httpClient, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	current, err := client.GetProgramChannel(
+		t.Context(),
+		connect.NewRequest(&programv1.GetProgramChannelRequest{
+			EventId: 1, SessionId: sessionID,
+		}),
+	)
+	if err != nil {
+		t.Fatalf("load browser Prizegiving Program Channel: %v", err)
+	}
+	channel := current.Msg.GetChannel()
+	if channel.GetProgramOutput().GetResult() == nil {
+		t.Fatalf("browser Prizegiving Program Output is not a Result: %+v", channel)
+	}
+	revealing, err := client.ActOnResult(
+		t.Context(),
+		connect.NewRequest(&programv1.ActOnResultRequest{
+			EventId: 1, SessionId: sessionID,
+			CommandId:                    "reveal-browser-prizegiving-result",
+			Action:                       programv1.ResultAction_RESULT_ACTION_REVEAL,
+			Item:                         channel.GetProgramOutput(),
+			ExpectedProgramRevision:      channel.GetLiveStateRevision(),
+			ExpectedControlStateRevision: channel.GetControlStateRevision(),
+		}),
+	)
+	if err != nil ||
+		revealing.Msg.GetChannel().GetProgramOutput().GetResult().GetStatus() !=
+			programv1.ResultStageStatus_RESULT_STAGE_STATUS_REVEALING {
+		t.Fatalf("begin browser Result Reveal: %+v, %v", revealing, err)
+	}
+	return client
 }
 
 func certifyResultsPage(
@@ -1518,16 +2041,26 @@ func certifyCrewControl(
 	}
 	selected, err := driver.evaluateString(
 		t.Context(),
-		`const button = [...document.querySelectorAll("#program-items button")].find(`+
-			`(candidate) => candidate.getAttribute("aria-pressed") === "false" && `+
-			`candidate.textContent !== "standby");`+
+		`const buttons = [...document.querySelectorAll("#program-items button")].filter(`+
+			`(candidate) => candidate.textContent !== "standby");`+
+			`const button = buttons.find(`+
+			`(candidate) => candidate.getAttribute("aria-pressed") === "false") ?? buttons[0];`+
 			`if (!button) return ""; button.focus(); return button.textContent;`,
 	)
 	if err != nil || selected == "" {
 		t.Fatalf("focus Crew Preview control = %q, %v", selected, err)
 	}
-	if err = driver.pressKey(t.Context(), "\uE007"); err != nil {
-		t.Fatalf("activate Crew Preview control: %v", err)
+	alreadySelected, err := driver.evaluateBool(
+		t.Context(),
+		`return document.activeElement.getAttribute("aria-pressed") === "true";`,
+	)
+	if err != nil {
+		t.Fatalf("inspect Crew Preview control: %v", err)
+	}
+	if !alreadySelected {
+		if err = driver.pressKey(t.Context(), "\uE007"); err != nil {
+			t.Fatalf("activate Crew Preview control: %v", err)
+		}
 	}
 	previewScript := `return document.querySelector('[data-item="preview"]').textContent === ` +
 		strconv.Quote(selected) + `;`

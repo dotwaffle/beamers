@@ -21,6 +21,7 @@ type overrideHandlers struct {
 	authentication     *auth.Service
 	service            *overrides.Service
 	notify             func()
+	buildVersion       string
 	logger             *slog.Logger
 	allowPlaintextCrew bool
 }
@@ -30,11 +31,13 @@ func registerOverrideRoutes(
 	authentication *auth.Service,
 	service *overrides.Service,
 	notify func(),
+	buildVersion string,
 	logger *slog.Logger,
 	listenerAddress net.Addr,
 ) {
 	handlers := overrideHandlers{
-		authentication: authentication, service: service, notify: notify, logger: logger,
+		authentication: authentication, service: service, notify: notify,
+		buildVersion: buildVersion, logger: logger,
 		allowPlaintextCrew: listenerIsLoopback(listenerAddress),
 	}
 	mux.HandleFunc(
@@ -120,9 +123,14 @@ func (handlers overrideHandlers) emergencyAlertConfirmation(
 	if !ok {
 		return
 	}
+	response.Header().Set(clientBuildHeader, handlers.buildVersion)
 	if request.Method == http.MethodPost {
 		if err := request.ParseForm(); err != nil {
 			http.Error(response, "invalid request", http.StatusBadRequest)
+			return
+		}
+		if request.Form.Get("build_version") != handlers.buildVersion {
+			http.Error(response, "reload required", http.StatusConflict)
 			return
 		}
 		input := priorityFormInput(eventID, request)
@@ -144,6 +152,12 @@ func (handlers overrideHandlers) emergencyAlertConfirmation(
 				actor.ID,
 				input.CommandID,
 			)
+		}
+		if err == nil && !result.Nondurable {
+			handlers.notify()
+			// #nosec G710 -- commandContext parses eventID as an integer.
+			http.Redirect(response, request, controlPath(eventID), http.StatusSeeOther)
+			return
 		}
 		handlers.writeResult(response, request, result, err)
 		return
@@ -170,7 +184,7 @@ func (handlers overrideHandlers) emergencyAlertConfirmation(
 		return
 	}
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err = overrides.EmergencyAlertConfirmationPage(preview, commandID).
+	if err = overrides.EmergencyAlertConfirmationPage(preview, commandID, handlers.buildVersion).
 		Render(request.Context(), response); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write Emergency confirmation", "error", err)
 	}
@@ -200,6 +214,7 @@ func (handlers overrideHandlers) emergencyClearConfirmation(
 	if !ok {
 		return
 	}
+	response.Header().Set(clientBuildHeader, handlers.buildVersion)
 	overrideID, err := positivePathID(request, "overrideID")
 	if err != nil {
 		http.Error(response, "Display Override not found", http.StatusNotFound)
@@ -208,6 +223,10 @@ func (handlers overrideHandlers) emergencyClearConfirmation(
 	if request.Method == http.MethodPost {
 		if err = request.ParseForm(); err != nil {
 			http.Error(response, "invalid request", http.StatusBadRequest)
+			return
+		}
+		if request.Form.Get("build_version") != handlers.buildVersion {
+			http.Error(response, "reload required", http.StatusConflict)
 			return
 		}
 		revision, parseErr := strconv.Atoi(request.FormValue("expected_revision"))
@@ -237,6 +256,12 @@ func (handlers overrideHandlers) emergencyClearConfirmation(
 				request.FormValue("command_id"),
 			)
 		}
+		if clearErr == nil && !result.Nondurable {
+			handlers.notify()
+			// #nosec G710 -- commandContext parses eventID as an integer.
+			http.Redirect(response, request, controlPath(eventID), http.StatusSeeOther)
+			return
+		}
 		handlers.writeResult(response, request, result, clearErr)
 		return
 	}
@@ -250,7 +275,7 @@ func (handlers overrideHandlers) emergencyClearConfirmation(
 			continue
 		}
 		response.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err = overrides.EmergencyClearConfirmationPage(item).
+		if err = overrides.EmergencyClearConfirmationPage(item, handlers.buildVersion).
 			Render(request.Context(), response); err != nil {
 			handlers.logger.ErrorContext(request.Context(), "write Emergency clear confirmation", "error", err)
 		}

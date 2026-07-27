@@ -49,7 +49,7 @@ go test -race ./...
 
 [tasks.browser-test]
 description = "Run deterministic Display client recovery tests"
-run = "node --test internal/displays/client_test.js internal/frontend/event_time_test.js"
+run = "node --test internal/displays/client_test.js internal/frontend/event_time_test.js internal/programview/control_test.js"
 
 [tasks.vulncheck]
 description = "Check Go dependencies for known vulnerabilities"

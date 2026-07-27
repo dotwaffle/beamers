@@ -2,7 +2,7 @@ package overrides
 
 import "strconv"
 
-templ EmergencyAlertConfirmationPage(preview PriorityPreview, commandID string) {
+templ EmergencyAlertConfirmationPage(preview PriorityPreview, commandID, buildVersion string) {
 	<!doctype html>
 	<html lang="en">
 		<head>
@@ -35,6 +35,7 @@ templ EmergencyAlertConfirmationPage(preview PriorityPreview, commandID string) 
 					<input type="hidden" name="text" value={ preview.Text }/>
 					<input type="hidden" name="preview_fingerprint" value={ preview.ConfirmationFingerprint }/>
 					<input type="hidden" name="command_id" value={ commandID }/>
+					<input type="hidden" name="build_version" value={ buildVersion }/>
 					<button type="submit" name="confirmation_method" value="Keyboard">Activate Emergency Alert</button>
 				</form>
 			</main>
@@ -42,7 +43,7 @@ templ EmergencyAlertConfirmationPage(preview PriorityPreview, commandID string) 
 	</html>
 }
 
-templ EmergencyClearConfirmationPage(active ActiveOverride) {
+templ EmergencyClearConfirmationPage(active ActiveOverride, buildVersion string) {
 	<!doctype html>
 	<html lang="en">
 		<head>
@@ -60,6 +61,7 @@ templ EmergencyClearConfirmationPage(active ActiveOverride) {
 				<form method="post">
 					<input type="hidden" name="expected_revision" value={ strconv.Itoa(active.Revision) }/>
 					<input type="hidden" name="command_id" value={ "clear-emergency-" + strconv.Itoa(active.ID) + "-" + strconv.Itoa(active.Revision) }/>
+					<input type="hidden" name="build_version" value={ buildVersion }/>
 					<button type="submit" name="confirmation_method" value="Keyboard">Clear Emergency Alert</button>
 				</form>
 			</main>

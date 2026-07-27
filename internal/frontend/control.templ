@@ -1,0 +1,305 @@
+package frontend
+
+import (
+	"strconv"
+
+	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/overrides"
+	"github.com/dotwaffle/beamers/internal/rundown"
+	"github.com/dotwaffle/beamers/internal/store"
+)
+
+type ControlPage struct {
+	AccountName    string
+	CSRFToken     string
+	BuildVersion  string
+	ReducedEffects bool
+	Navigation    BackstageNavigation
+	Event         events.Event
+	Sessions      []rundown.CrewSession
+	Active          []overrides.ActiveOverride
+	ClearCommandIDs map[int]string
+	Preview         *OverridePreview
+	SubmittedAction string
+	Form            OverrideForm
+	FieldErrors     map[string]string
+	Error           string
+}
+
+type OverridePreview struct {
+	Action      string
+	Label       string
+	Resolved    overrides.Preview
+	Fingerprint string
+	Form        OverrideForm
+	CommandID   string
+}
+
+type OverrideForm struct {
+	Text            string
+	TargetGroupKey  string
+	TargetType      string
+	TargetID        int
+	TargetKey       string
+	Presentation   string
+	DurationSeconds int
+	UntilCleared    bool
+	Emphasis        string
+}
+
+templ Control(page ControlPage) {
+	<!doctype html>
+	<html lang={ page.Event.EventLocale } data-locale={ page.Event.EventLocale }>
+		@Head("Program Output and Overrides · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
+			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
+			<div class="backstage-layout">
+				@BackstageNavigationViews(page.Navigation)
+				<main>
+					<h1>Program Output and Overrides</h1>
+					<p>{ page.Event.Name }</p>
+					if page.Error != "" {
+						<p class="error" role="alert">{ page.Error }</p>
+					}
+					<section>
+						<h2>Program Output</h2>
+						if len(page.Sessions) == 0 {
+							<p>No Program Channels are available in your Lane scope.</p>
+						} else {
+							<ul>
+								for _, session := range page.Sessions {
+									<li>
+										<a href={ programControlPath(page.Event.ID, session.ID) }>
+											Control { session.Title }
+										</a>
+									</li>
+								}
+							</ul>
+						}
+						<p>Program control keeps Previous, Current, Next, Preview, and committed Program Output visible. Preview does not change Displays until Take.</p>
+					</section>
+					if page.Preview != nil {
+						@OverrideConfirmation(page)
+					}
+					@OverrideForms(page)
+					<section>
+						<h2>Active Overrides</h2>
+						if len(page.Active) == 0 {
+							<p>No active Overrides.</p>
+						} else {
+							for _, active := range page.Active {
+								<article>
+									<h3>{ string(active.Kind) }</h3>
+									<p>{ active.Text }</p>
+									<p>{ string(active.Presentation) } · { string(active.Target.Type) }</p>
+									@ResolvedDisplays(active.Displays)
+									if active.Kind == store.DisplayOverrideEmergencyAlert {
+										<a href={ emergencyClearConfirmationPath(page.Event.ID, active.ID) }>Review and clear Emergency Alert</a>
+									} else {
+										<form method="post">
+											<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+											<input type="hidden" name="build_version" value={ page.BuildVersion }/>
+											<input type="hidden" name="action" value="clear"/>
+											<input type="hidden" name="override_id" value={ strconv.Itoa(active.ID) }/>
+											<input type="hidden" name="expected_revision" value={ strconv.Itoa(active.Revision) }/>
+											<input type="hidden" name="command_id" value={ page.ClearCommandIDs[active.ID] }/>
+											<label><input type="checkbox" name="confirmed" value="true" required/> Confirm clear</label>
+											<button type="submit">Clear { string(active.Kind) }</button>
+										</form>
+									}
+								</article>
+							}
+						}
+					</section>
+				</main>
+			</div>
+		</body>
+	</html>
+}
+
+templ OverrideForms(page ControlPage) {
+	<section>
+		<h2>Stage Message</h2>
+		<p>Overlay on a Stage Timer Display Group.</p>
+		<form class="stack" method="post">
+			<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+			<input type="hidden" name="build_version" value={ page.BuildVersion }/>
+			<input type="hidden" name="action" value="preview-stage-message"/>
+			@OverrideCommonFields(page, "preview-stage-message")
+			@TextInputField("Display Group", "stage-target-group", "target_group_key", controlValue(page, "preview-stage-message", page.Form.TargetGroupKey), controlErrorValue(page, "preview-stage-message", "target_group_key"), true)
+			<label>
+				Emphasis
+				<select name="emphasis">
+					<option selected?={ controlValue(page, "preview-stage-message", page.Form.Emphasis) == "" || page.Form.Emphasis == "Normal" }>Normal</option>
+					<option selected?={ page.SubmittedAction == "preview-stage-message" && page.Form.Emphasis == "Attention" }>Attention</option>
+					<option selected?={ page.SubmittedAction == "preview-stage-message" && page.Form.Emphasis == "Urgent" }>Urgent</option>
+				</select>
+			</label>
+			<button type="submit">Preview Stage Message</button>
+		</form>
+	</section>
+	<section>
+		<h2>Technical Difficulties</h2>
+		<p>Replace content on a Display Group without changing Session timing.</p>
+		<form class="stack" method="post">
+			<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+			<input type="hidden" name="build_version" value={ page.BuildVersion }/>
+			<input type="hidden" name="action" value="preview-technical-difficulties"/>
+			@OverrideCommonFields(page, "preview-technical-difficulties")
+			@TextInputField("Display Group", "technical-target-group", "target_group_key", controlValue(page, "preview-technical-difficulties", page.Form.TargetGroupKey), controlErrorValue(page, "preview-technical-difficulties", "target_group_key"), true)
+			<button type="submit">Preview Technical Difficulties</button>
+		</form>
+	</section>
+	<section>
+		<h2>Urgent Notice</h2>
+		<p>Choose Overlay or Replace, then preview the resolved Displays.</p>
+		<form class="stack" method="post">
+			<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+			<input type="hidden" name="build_version" value={ page.BuildVersion }/>
+			<input type="hidden" name="action" value="preview-urgent-notice"/>
+			@OverrideCommonFields(page, "preview-urgent-notice")
+			@OverrideTargetFields(page, "preview-urgent-notice")
+			<label>
+				Presentation
+				<select name="presentation">
+					<option selected?={ controlValue(page, "preview-urgent-notice", page.Form.Presentation) == "" || page.Form.Presentation == "Overlay" }>Overlay</option>
+					<option selected?={ page.SubmittedAction == "preview-urgent-notice" && page.Form.Presentation == "Replace" }>Replace</option>
+				</select>
+			</label>
+			<button type="submit">Preview Urgent Notice</button>
+		</form>
+	</section>
+	<section id="emergency-alerts">
+		<h2>Emergency Alert</h2>
+		<p role="alert">Emergency Alert is a persistent fullscreen Replace and supplements the venue emergency system.</p>
+		<form class="stack" method="get" action={ emergencyConfirmationPath(page.Event.ID) }>
+			@TextAreaField("Message", "emergency-text", "text", "", "", true)
+			@OverrideTargetFields(page, "")
+			<button type="submit">Preview Emergency Alert</button>
+		</form>
+	</section>
+}
+
+templ OverrideCommonFields(page ControlPage, action string) {
+	@TextAreaField("Message", action+"-text", "text", controlValue(page, action, page.Form.Text), controlErrorValue(page, action, "text"), true)
+	@NumberInputField("Duration in seconds", action+"-duration", "duration_seconds", controlNumberValue(page, action, page.Form.DurationSeconds, 300), controlErrorValue(page, action, "duration_seconds"))
+	<label><input type="checkbox" name="until_cleared" value="true" checked?={ page.SubmittedAction == action && page.Form.UntilCleared }/> Until cleared</label>
+}
+
+templ OverrideTargetFields(page ControlPage, action string) {
+	<label>
+		Target
+		<select name="target_type">
+			for _, target := range []string{"Event", "Public", "Crew", "Location", "Lane", "ProgramChannel", "DisplayGroup", "Display"} {
+				<option selected?={ controlValue(page, action, page.Form.TargetType) == target || target == "Event" && controlValue(page, action, page.Form.TargetType) == "" }>{ target }</option>
+			}
+		</select>
+	</label>
+	@NumberInputField("Target numeric ID, when required", action+"-target-id", "target_id", controlNumberValue(page, action, page.Form.TargetID, 0), controlErrorValue(page, action, "target_id"))
+	@TextInputField("Target key, for a Display Group", action+"-target-key", "target_key", controlValue(page, action, page.Form.TargetKey), controlErrorValue(page, action, "target_key"), false)
+}
+
+templ TextAreaField(label, id, name, value, message string, required bool) {
+	<label for={ id }>{ label }</label>
+	if message == "" {
+		<textarea id={ id } name={ name } required?={ required }>{ value }</textarea>
+	} else {
+		<textarea id={ id } name={ name } required?={ required } aria-invalid="true" aria-describedby={ id + "-error" }>{ value }</textarea>
+		<p id={ id + "-error" } class="error">{ message }</p>
+	}
+}
+
+templ TextInputField(label, id, name, value, message string, required bool) {
+	<label for={ id }>{ label }</label>
+	if message == "" {
+		<input id={ id } name={ name } value={ value } required?={ required }/>
+	} else {
+		<input id={ id } name={ name } value={ value } required?={ required } aria-invalid="true" aria-describedby={ id + "-error" }/>
+		<p id={ id + "-error" } class="error">{ message }</p>
+	}
+}
+
+templ NumberInputField(label, id, name, value, message string) {
+	<label for={ id }>{ label }</label>
+	if message == "" {
+		<input id={ id } type="number" name={ name } min="0" value={ value } required/>
+	} else {
+		<input id={ id } type="number" name={ name } min="0" value={ value } required aria-invalid="true" aria-describedby={ id + "-error" }/>
+		<p id={ id + "-error" } class="error">{ message }</p>
+	}
+}
+
+templ OverrideConfirmation(page ControlPage) {
+	<section aria-labelledby="override-confirmation">
+		<h2 id="override-confirmation">Confirm { page.Preview.Label }</h2>
+		<p>{ page.Preview.Resolved.Text }</p>
+		<p><strong>{ string(page.Preview.Resolved.Presentation) }</strong> · { string(page.Preview.Resolved.Target.Type) }</p>
+		@ResolvedDisplays(page.Preview.Resolved.Displays)
+		<form method="post">
+			<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+			<input type="hidden" name="build_version" value={ page.BuildVersion }/>
+			<input type="hidden" name="action" value={ "activate-" + page.Preview.Action }/>
+			<input type="hidden" name="command_id" value={ page.Preview.CommandID }/>
+			<input type="hidden" name="text" value={ page.Preview.Form.Text }/>
+			<input type="hidden" name="target_group_key" value={ page.Preview.Form.TargetGroupKey }/>
+			<input type="hidden" name="target_type" value={ page.Preview.Form.TargetType }/>
+			<input type="hidden" name="target_id" value={ strconv.Itoa(page.Preview.Form.TargetID) }/>
+			<input type="hidden" name="target_key" value={ page.Preview.Form.TargetKey }/>
+			<input type="hidden" name="presentation" value={ page.Preview.Form.Presentation }/>
+			<input type="hidden" name="duration_seconds" value={ strconv.Itoa(page.Preview.Form.DurationSeconds) }/>
+			<input type="hidden" name="until_cleared" value={ strconv.FormatBool(page.Preview.Form.UntilCleared) }/>
+			<input type="hidden" name="emphasis" value={ page.Preview.Form.Emphasis }/>
+			<input type="hidden" name="preview_fingerprint" value={ page.Preview.Fingerprint }/>
+			<label><input type="checkbox" name="confirmed" value="true" required/> Confirm { page.Preview.Label }</label>
+			<button type="submit">Activate { page.Preview.Label }</button>
+		</form>
+	</section>
+}
+
+templ ResolvedDisplays(displays []store.DisplayOverrideResolvedDisplay) {
+	<h3>Resolved Displays</h3>
+	<ul>
+		for _, display := range displays {
+			<li>{ display.Name } ({ display.ViewKey })</li>
+		}
+		if len(displays) == 0 {
+			<li>No Displays currently resolve to this target.</li>
+		}
+	</ul>
+}
+
+func programControlPath(eventID, sessionID int) templ.SafeURL {
+	return templ.SafeURL("/crew/program/" + strconv.Itoa(sessionID) +
+		"?event_id=" + strconv.Itoa(eventID))
+}
+
+func emergencyConfirmationPath(eventID int) templ.SafeURL {
+	return templ.SafeURL("/crew/events/" + strconv.Itoa(eventID) +
+		"/emergency-alerts/confirmation")
+}
+
+func emergencyClearConfirmationPath(eventID, overrideID int) templ.SafeURL {
+	return templ.SafeURL("/crew/events/" + strconv.Itoa(eventID) +
+		"/overrides/" + strconv.Itoa(overrideID) + "/clear-confirmation")
+}
+
+func controlValue(page ControlPage, action, value string) string {
+	if page.SubmittedAction != action {
+		return ""
+	}
+	return value
+}
+
+func controlNumberValue(page ControlPage, action string, value, fallback int) string {
+	if page.SubmittedAction != action {
+		return strconv.Itoa(fallback)
+	}
+	return strconv.Itoa(value)
+}
+
+func controlErrorValue(page ControlPage, action, field string) string {
+	if page.SubmittedAction != action {
+		return ""
+	}
+	return page.FieldErrors[field]
+}

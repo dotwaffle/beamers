@@ -660,6 +660,16 @@ func (application *application) buildHandler(
 		application.config.DisplayStream,
 		application.config.Logger,
 	)
+	registerControlRoutes(
+		mux,
+		installation.Authentication(),
+		installation.Events(),
+		installation.RundownQueries(),
+		installation.Overrides(),
+		application.config.DisplayStream,
+		application.config.BuildVersion,
+		application.config.Logger,
+	)
 	registerEntryRoutes(
 		mux,
 		installation.Authentication(),
@@ -707,6 +717,7 @@ func (application *application) buildHandler(
 		installation.Authentication(),
 		installation.Overrides(),
 		application.config.DisplayStream.Notify,
+		application.config.BuildVersion,
 		application.config.Logger,
 		application.config.ListenerAddress,
 	)

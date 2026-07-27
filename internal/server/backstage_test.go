@@ -107,6 +107,7 @@ func TestBackstageNavigationRejectsAttendeeAndSeparatesRouteInterfaces(t *testin
 	registerPlanningRoutes(routes, nil, nil, nil, nil, nil, nil)
 	registerAdministrationRoutes(routes, nil, nil, nil, nil, nil)
 	registerOperationRoutes(routes, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	registerControlRoutes(routes, nil, nil, nil, nil, nil, "", nil)
 	for path, want := range map[string]interfaceKind{
 		"/profile":                       publicInterface,
 		"/backstage":                     crewInterface,
@@ -114,6 +115,7 @@ func TestBackstageNavigationRejectsAttendeeAndSeparatesRouteInterfaces(t *testin
 		"/admin/registration":            crewInterface,
 		"/backstage/events/1/planning":   crewInterface,
 		"/backstage/events/1/operations": crewInterface,
+		"/backstage/events/1/control":    crewInterface,
 		"/backstage/events/new":          crewInterface,
 	} {
 		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, http.NoBody)
@@ -125,6 +127,21 @@ func TestBackstageNavigationRejectsAttendeeAndSeparatesRouteInterfaces(t *testin
 			t.Errorf("%s does not preserve insecure-mode browser warnings", path)
 		}
 	}
+}
+
+func TestBackstageControlNavigationUsesDedicatedRoute(t *testing.T) {
+	navigation := backstageNavigation(auth.Account{
+		EventRoles: map[int]viewer.Role{7: viewer.Producer},
+	})
+	for _, section := range navigation.Events[0].Sections {
+		if section.Label == "Program Output and Overrides" {
+			if section.Href != "/backstage/events/7/control" {
+				t.Fatalf("control href = %q", section.Href)
+			}
+			return
+		}
+	}
+	t.Fatal("Program Output and Overrides navigation missing")
 }
 
 func backstageEventIDs(navigation backstageNavigationModel) []int {

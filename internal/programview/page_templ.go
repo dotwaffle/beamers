@@ -96,7 +96,20 @@ func Page(eventID int, sessionID int, channelName string, buildVersion string) t
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</h1><p id=\"connection-status\" role=\"status\">Loading authoritative state…</p></header><main><section class=\"sequence\" aria-label=\"Program sequence\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</h1><p><a href=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var7 templ.SafeURL
+		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/backstage/events/" + strconv.Itoa(eventID) + "/control"))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 20, Col: 89}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\">Back to Program Output and Overrides</a></p><p id=\"connection-status\" role=\"status\">Loading authoritative state…</p></header><main><section class=\"sequence\" aria-label=\"Program sequence\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -120,7 +133,7 @@ func Page(eventID int, sessionID int, channelName string, buildVersion string) t
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</section><section aria-labelledby=\"preview-heading\"><h2 id=\"preview-heading\">Preview selection</h2><div id=\"program-items\" class=\"actions\"></div></section><section aria-labelledby=\"control-heading\"><h2 id=\"control-heading\">Control</h2><p id=\"owner\">Unowned</p><div class=\"actions\"><button type=\"button\" data-control-action=\"CONTROL_ACTION_CLAIM\">Claim</button> <button type=\"button\" data-control-action=\"CONTROL_ACTION_REQUEST_HANDOVER\">Request handover</button> <button type=\"button\" data-control-action=\"CONTROL_ACTION_HANDOVER\">Hand over</button> <button type=\"button\" data-control-action=\"CONTROL_ACTION_TAKEOVER\">Confirmed takeover</button> <button type=\"button\" id=\"take\" class=\"take\">Take Preview</button></div></section><section aria-labelledby=\"displays-heading\"><h2 id=\"displays-heading\">Consuming Displays</h2><ul id=\"displays\"></ul></section></main><script src=\"/crew/program/assets/control.js\" defer></script></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</section><section aria-labelledby=\"preview-heading\"><h2 id=\"preview-heading\">Preview selection</h2><div id=\"program-items\" class=\"actions\"></div></section><section aria-labelledby=\"control-heading\"><h2 id=\"control-heading\">Control</h2><p id=\"owner\">Unowned</p><p id=\"handover-requester\"></p><div class=\"actions\"><button type=\"button\" data-control-action=\"CONTROL_ACTION_CLAIM\">Claim</button> <button type=\"button\" data-control-action=\"CONTROL_ACTION_REQUEST_HANDOVER\">Request handover</button> <button type=\"button\" data-control-action=\"CONTROL_ACTION_HANDOVER\">Hand over</button> <button type=\"button\" data-control-action=\"CONTROL_ACTION_TAKEOVER\">Confirmed takeover</button> <button type=\"button\" id=\"take\" class=\"take\">Take Preview</button> <button type=\"button\" id=\"defer\" hidden>Defer current Entry</button></div></section><section aria-labelledby=\"displays-heading\"><h2 id=\"displays-heading\">Consuming Displays</h2><ul id=\"displays\"></ul></section></main><script src=\"/crew/program/assets/control.js\" defer></script></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -144,38 +157,38 @@ func ItemPanel(label string, role string) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var7 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var7 == nil {
-			templ_7745c5c3_Var7 = templ.NopComponent
+		templ_7745c5c3_Var8 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var8 == nil {
+			templ_7745c5c3_Var8 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<article class=\"item\"><h2>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var8 string
-		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(label)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 57, Col: 13}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</h2><p data-item=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<article class=\"item\"><h2>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var9 string
-		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(role)
+		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 58, Col: 21}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 60, Col: 13}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\">—</p></article>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</h2><p data-item=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var10 string
+		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(role)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `page.templ`, Line: 61, Col: 21}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\">—</p></article>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

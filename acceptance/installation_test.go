@@ -2376,15 +2376,20 @@ func TestEmergencyAlertSurvivesPartialStorageFailureAndRecoversEvidence(t *testi
 			confirmation.StatusCode, confirmationBody, err,
 		)
 	}
-	activation := map[string]any{
-		"target": map[string]any{"type": "Event"},
-		"text":   "Evacuate through the north exit", "preview_fingerprint": preview.ConfirmationFingerprint,
-		"confirmed": true, "confirmation_method": "Keyboard",
-		"command_id": "activate-degraded-emergency",
-	}
-	activated := requestJSON(
-		t.Context(), administrator, server.address,
-		"/crew/events/1/emergency-alerts", activation,
+	activation := frontendNamedValues(
+		string(confirmationBody),
+		"target_type",
+		"target_id",
+		"target_key",
+		"text",
+		"preview_fingerprint",
+		"command_id",
+		"build_version",
+	)
+	activation.Set("confirmation_method", "Keyboard")
+	activated := postFrontendForm(
+		t, administrator, server.address,
+		"/crew/events/1/emergency-alerts/confirmation", activation,
 	)
 	var emergency struct {
 		ID         int  `json:"id"`
@@ -2392,16 +2397,17 @@ func TestEmergencyAlertSurvivesPartialStorageFailureAndRecoversEvidence(t *testi
 		Nondurable bool `json:"nondurable"`
 	}
 	if err := json.Unmarshal([]byte(activated.body), &emergency); err != nil ||
-		activated.status != http.StatusOK || emergency.ID <= 0 ||
+		activated.status != http.StatusOK || activated.header.Get("Location") != "" ||
+		emergency.ID <= 0 ||
 		emergency.Revision != 1 || !emergency.Nondurable {
 		t.Fatalf(
 			"activate degraded Emergency Alert = %d: %s (%v)",
 			activated.status, activated.body, err,
 		)
 	}
-	replayed := requestJSON(
-		t.Context(), administrator, server.address,
-		"/crew/events/1/emergency-alerts", activation,
+	replayed := postFrontendForm(
+		t, administrator, server.address,
+		"/crew/events/1/emergency-alerts/confirmation", activation,
 	)
 	if replayed.status != http.StatusOK || replayed.body != activated.body {
 		t.Fatalf(
@@ -2416,7 +2422,6 @@ func TestEmergencyAlertSurvivesPartialStorageFailureAndRecoversEvidence(t *testi
 		t.Fatalf("degraded Emergency Alert Display Snapshot = %+v", applied)
 	}
 
-	clearPath := fmt.Sprintf("/crew/events/1/overrides/%d/clear", emergency.ID)
 	clearConfirmation := get(
 		t, administrator, server.address,
 		fmt.Sprintf("/crew/events/1/overrides/%d/clear-confirmation", emergency.ID),
@@ -2432,20 +2437,25 @@ func TestEmergencyAlertSurvivesPartialStorageFailureAndRecoversEvidence(t *testi
 			clearConfirmation.StatusCode, clearConfirmationBody, err,
 		)
 	}
-	cleared := requestJSON(
-		t.Context(), administrator, server.address, clearPath,
-		map[string]any{
-			"expected_revision": emergency.Revision,
-			"confirmed":         true, "confirmation_method": "Keyboard",
-			"command_id": "clear-degraded-emergency",
-		},
+	clearForm := frontendNamedValues(
+		string(clearConfirmationBody),
+		"expected_revision",
+		"command_id",
+		"build_version",
+	)
+	clearForm.Set("confirmation_method", "Keyboard")
+	cleared := postFrontendForm(
+		t, administrator, server.address,
+		fmt.Sprintf("/crew/events/1/overrides/%d/clear-confirmation", emergency.ID),
+		clearForm,
 	)
 	var clearedEmergency struct {
 		Revision   int  `json:"revision"`
 		Nondurable bool `json:"nondurable"`
 	}
 	if err := json.Unmarshal([]byte(cleared.body), &clearedEmergency); err != nil ||
-		cleared.status != http.StatusOK || clearedEmergency.Revision != 2 ||
+		cleared.status != http.StatusOK || cleared.header.Get("Location") != "" ||
+		clearedEmergency.Revision != 2 ||
 		!clearedEmergency.Nondurable {
 		t.Fatalf(
 			"clear degraded Emergency Alert = %d: %s (%v)",
@@ -4073,7 +4083,8 @@ func TestControlOwnerTakesCompetitionEntryToDurableProgramOutput(t *testing.T) {
 	}
 	for _, want := range []string{
 		"Previous", "Current", "Next", "Preview", "Program Output",
-		"Consuming Displays", "Take Preview",
+		"Consuming Displays", "Take Preview", "Defer current Entry",
+		"Back to Program Output and Overrides",
 	} {
 		if !bytes.Contains(controlViewBody, []byte(want)) {
 			t.Fatalf("Program control View missing %q: %s", want, controlViewBody)
