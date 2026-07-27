@@ -2250,56 +2250,66 @@ func init() {
 	sessionDescCorrectedPublicDetails := sessionFields[14].Descriptor()
 	// session.CorrectedPublicDetailsValidator is a validator for the "corrected_public_details" field. It is called by the builders before save.
 	session.CorrectedPublicDetailsValidator = sessionDescCorrectedPublicDetails.Validators[0].(func(string) error)
+	// sessionDescSubmitterAccountID is the schema descriptor for submitter_account_id field.
+	sessionDescSubmitterAccountID := sessionFields[15].Descriptor()
+	// session.SubmitterAccountIDValidator is a validator for the "submitter_account_id" field. It is called by the builders before save.
+	session.SubmitterAccountIDValidator = sessionDescSubmitterAccountID.Validators[0].(func(int) error)
+	// sessionDescPresentationSubmissionRevision is the schema descriptor for presentation_submission_revision field.
+	sessionDescPresentationSubmissionRevision := sessionFields[16].Descriptor()
+	// session.DefaultPresentationSubmissionRevision holds the default value on creation for the presentation_submission_revision field.
+	session.DefaultPresentationSubmissionRevision = sessionDescPresentationSubmissionRevision.Default.(int)
+	// session.PresentationSubmissionRevisionValidator is a validator for the "presentation_submission_revision" field. It is called by the builders before save.
+	session.PresentationSubmissionRevisionValidator = sessionDescPresentationSubmissionRevision.Validators[0].(func(int) error)
 	// sessionDescRequireEntryReview is the schema descriptor for require_entry_review field.
-	sessionDescRequireEntryReview := sessionFields[15].Descriptor()
+	sessionDescRequireEntryReview := sessionFields[17].Descriptor()
 	// session.DefaultRequireEntryReview holds the default value on creation for the require_entry_review field.
 	session.DefaultRequireEntryReview = sessionDescRequireEntryReview.Default.(bool)
 	// sessionDescSubmissionEligibilityRevision is the schema descriptor for submission_eligibility_revision field.
-	sessionDescSubmissionEligibilityRevision := sessionFields[17].Descriptor()
+	sessionDescSubmissionEligibilityRevision := sessionFields[19].Descriptor()
 	// session.DefaultSubmissionEligibilityRevision holds the default value on creation for the submission_eligibility_revision field.
 	session.DefaultSubmissionEligibilityRevision = sessionDescSubmissionEligibilityRevision.Default.(int)
 	// session.SubmissionEligibilityRevisionValidator is a validator for the "submission_eligibility_revision" field. It is called by the builders before save.
 	session.SubmissionEligibilityRevisionValidator = sessionDescSubmissionEligibilityRevision.Validators[0].(func(int) error)
 	// sessionDescReadinessRevision is the schema descriptor for readiness_revision field.
-	sessionDescReadinessRevision := sessionFields[19].Descriptor()
+	sessionDescReadinessRevision := sessionFields[21].Descriptor()
 	// session.DefaultReadinessRevision holds the default value on creation for the readiness_revision field.
 	session.DefaultReadinessRevision = sessionDescReadinessRevision.Default.(int)
 	// session.ReadinessRevisionValidator is a validator for the "readiness_revision" field. It is called by the builders before save.
 	session.ReadinessRevisionValidator = sessionDescReadinessRevision.Validators[0].(func(int) error)
 	// sessionDescEntryOrderSeed is the schema descriptor for entry_order_seed field.
-	sessionDescEntryOrderSeed := sessionFields[21].Descriptor()
+	sessionDescEntryOrderSeed := sessionFields[23].Descriptor()
 	// session.DefaultEntryOrderSeed holds the default value on creation for the entry_order_seed field.
 	session.DefaultEntryOrderSeed = sessionDescEntryOrderSeed.Default.(int64)
 	// session.EntryOrderSeedValidator is a validator for the "entry_order_seed" field. It is called by the builders before save.
 	session.EntryOrderSeedValidator = sessionDescEntryOrderSeed.Validators[0].(func(int64) error)
 	// sessionDescEntryOrderRevision is the schema descriptor for entry_order_revision field.
-	sessionDescEntryOrderRevision := sessionFields[25].Descriptor()
+	sessionDescEntryOrderRevision := sessionFields[27].Descriptor()
 	// session.DefaultEntryOrderRevision holds the default value on creation for the entry_order_revision field.
 	session.DefaultEntryOrderRevision = sessionDescEntryOrderRevision.Default.(int)
 	// session.EntryOrderRevisionValidator is a validator for the "entry_order_revision" field. It is called by the builders before save.
 	session.EntryOrderRevisionValidator = sessionDescEntryOrderRevision.Validators[0].(func(int) error)
 	// sessionDescProgramOutputEntryID is the schema descriptor for program_output_entry_id field.
-	sessionDescProgramOutputEntryID := sessionFields[27].Descriptor()
+	sessionDescProgramOutputEntryID := sessionFields[29].Descriptor()
 	// session.ProgramOutputEntryIDValidator is a validator for the "program_output_entry_id" field. It is called by the builders before save.
 	session.ProgramOutputEntryIDValidator = sessionDescProgramOutputEntryID.Validators[0].(func(int) error)
 	// sessionDescProgramOutputRevision is the schema descriptor for program_output_revision field.
-	sessionDescProgramOutputRevision := sessionFields[29].Descriptor()
+	sessionDescProgramOutputRevision := sessionFields[31].Descriptor()
 	// session.DefaultProgramOutputRevision holds the default value on creation for the program_output_revision field.
 	session.DefaultProgramOutputRevision = sessionDescProgramOutputRevision.Default.(int)
 	// session.ProgramOutputRevisionValidator is a validator for the "program_output_revision" field. It is called by the builders before save.
 	session.ProgramOutputRevisionValidator = sessionDescProgramOutputRevision.Validators[0].(func(int) error)
 	// sessionDescProgramCursor is the schema descriptor for program_cursor field.
-	sessionDescProgramCursor := sessionFields[30].Descriptor()
+	sessionDescProgramCursor := sessionFields[32].Descriptor()
 	// session.DefaultProgramCursor holds the default value on creation for the program_cursor field.
 	session.DefaultProgramCursor = sessionDescProgramCursor.Default.(int)
 	// sessionDescAttachmentReleaseRevision is the schema descriptor for attachment_release_revision field.
-	sessionDescAttachmentReleaseRevision := sessionFields[33].Descriptor()
+	sessionDescAttachmentReleaseRevision := sessionFields[35].Descriptor()
 	// session.DefaultAttachmentReleaseRevision holds the default value on creation for the attachment_release_revision field.
 	session.DefaultAttachmentReleaseRevision = sessionDescAttachmentReleaseRevision.Default.(int)
 	// session.AttachmentReleaseRevisionValidator is a validator for the "attachment_release_revision" field. It is called by the builders before save.
 	session.AttachmentReleaseRevisionValidator = sessionDescAttachmentReleaseRevision.Validators[0].(func(int) error)
 	// sessionDescCreatedAt is the schema descriptor for created_at field.
-	sessionDescCreatedAt := sessionFields[34].Descriptor()
+	sessionDescCreatedAt := sessionFields[36].Descriptor()
 	// session.DefaultCreatedAt holds the default value on creation for the created_at field.
 	session.DefaultCreatedAt = sessionDescCreatedAt.Default.(func() time.Time)
 	sessioncancellation.Policy = privacy.NewPolicies(schema.SessionCancellation{})

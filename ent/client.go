@@ -1001,6 +1001,22 @@ func (c *AccountClient) QueryCompetitionEntries(_m *Account) *CompetitionEntryQu
 	return query
 }
 
+// QuerySubmittedPresentations queries the submitted_presentations edge of a Account.
+func (c *AccountClient) QuerySubmittedPresentations(_m *Account) *SessionQuery {
+	query := (&SessionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(session.Table, session.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.SubmittedPresentationsTable, account.SubmittedPresentationsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryVotingEligibilities queries the voting_eligibilities edge of a Account.
 func (c *AccountClient) QueryVotingEligibilities(_m *Account) *VotingEligibilityQuery {
 	query := (&VotingEligibilityClient{config: c.config}).Query()
@@ -9415,6 +9431,22 @@ func (c *SessionClient) QueryFavorites(_m *Session) *FavoriteSessionQuery {
 			sqlgraph.From(session.Table, session.FieldID, id),
 			sqlgraph.To(favoritesession.Table, favoritesession.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, session.FavoritesTable, session.FavoritesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySubmitter queries the submitter edge of a Session.
+func (c *SessionClient) QuerySubmitter(_m *Session) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(session.Table, session.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, session.SubmitterTable, session.SubmitterColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil

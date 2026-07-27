@@ -24,6 +24,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/recoverycode"
 	"github.com/dotwaffle/beamers/ent/recoverytoken"
+	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
 	"github.com/dotwaffle/beamers/ent/webauthncredential"
 )
@@ -262,6 +263,21 @@ func (_c *AccountCreate) AddCompetitionEntries(v ...*CompetitionEntry) *AccountC
 		ids[i] = v[i].ID
 	}
 	return _c.AddCompetitionEntryIDs(ids...)
+}
+
+// AddSubmittedPresentationIDs adds the "submitted_presentations" edge to the Session entity by IDs.
+func (_c *AccountCreate) AddSubmittedPresentationIDs(ids ...int) *AccountCreate {
+	_c.mutation.AddSubmittedPresentationIDs(ids...)
+	return _c
+}
+
+// AddSubmittedPresentations adds the "submitted_presentations" edges to the Session entity.
+func (_c *AccountCreate) AddSubmittedPresentations(v ...*Session) *AccountCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddSubmittedPresentationIDs(ids...)
 }
 
 // AddVotingEligibilityIDs adds the "voting_eligibilities" edge to the VotingEligibility entity by IDs.
@@ -614,6 +630,22 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.SubmittedPresentationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.SubmittedPresentationsTable,
+			Columns: []string{account.SubmittedPresentationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

@@ -1529,6 +1529,7 @@ var (
 		{Name: "corrected_title", Type: field.TypeString, Nullable: true, Size: 200},
 		{Name: "corrected_speaker", Type: field.TypeString, Nullable: true, Size: 200},
 		{Name: "corrected_public_details", Type: field.TypeString, Nullable: true, Size: 10000},
+		{Name: "presentation_submission_revision", Type: field.TypeInt, Default: 0},
 		{Name: "require_entry_review", Type: field.TypeBool, Default: false},
 		{Name: "submission_eligibility_override", Type: field.TypeEnum, Nullable: true, Enums: []string{"AllAccounts", "VotingEligibleAccounts"}},
 		{Name: "submission_eligibility_revision", Type: field.TypeInt, Default: 0},
@@ -1549,6 +1550,7 @@ var (
 		{Name: "attachment_release_policy_override", Type: field.TypeEnum, Nullable: true, Enums: []string{"OnLive", "OnEnded", "OnEventReleaseCue"}},
 		{Name: "attachment_release_revision", Type: field.TypeInt, Default: 0},
 		{Name: "created_at", Type: field.TypeTime},
+		{Name: "submitter_account_id", Type: field.TypeInt, Nullable: true},
 		{Name: "event_id", Type: field.TypeInt},
 	}
 	// SessionsTable holds the schema information for the "sessions" table.
@@ -1558,10 +1560,23 @@ var (
 		PrimaryKey: []*schema.Column{SessionsColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
+				Symbol:     "sessions_accounts_submitted_presentations",
+				Columns:    []*schema.Column{SessionsColumns[36]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
 				Symbol:     "sessions_events_sessions",
-				Columns:    []*schema.Column{SessionsColumns[35]},
+				Columns:    []*schema.Column{SessionsColumns[37]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "session_submitter_account_id",
+				Unique:  false,
+				Columns: []*schema.Column{SessionsColumns[36]},
 			},
 		},
 	}
@@ -2193,7 +2208,8 @@ func init() {
 	ResultsCorrectionsTable.ForeignKeys[0].RefTable = EventsTable
 	ResultsPublicationsTable.ForeignKeys[0].RefTable = EventsTable
 	RundownsTable.ForeignKeys[0].RefTable = EventsTable
-	SessionsTable.ForeignKeys[0].RefTable = EventsTable
+	SessionsTable.ForeignKeys[0].RefTable = AccountsTable
+	SessionsTable.ForeignKeys[1].RefTable = EventsTable
 	SessionCancellationsTable.ForeignKeys[0].RefTable = SessionsTable
 	SessionDraftsTable.ForeignKeys[0].RefTable = SessionsTable
 	SessionPublishedVersionsTable.ForeignKeys[0].RefTable = SessionsTable

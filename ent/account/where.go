@@ -618,6 +618,29 @@ func HasCompetitionEntriesWith(preds ...predicate.CompetitionEntry) predicate.Ac
 	})
 }
 
+// HasSubmittedPresentations applies the HasEdge predicate on the "submitted_presentations" edge.
+func HasSubmittedPresentations() predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, SubmittedPresentationsTable, SubmittedPresentationsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSubmittedPresentationsWith applies the HasEdge predicate on the "submitted_presentations" edge with a given conditions (other predicates).
+func HasSubmittedPresentationsWith(preds ...predicate.Session) predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := newSubmittedPresentationsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasVotingEligibilities applies the HasEdge predicate on the "voting_eligibilities" edge.
 func HasVotingEligibilities() predicate.Account {
 	return predicate.Account(func(s *sql.Selector) {

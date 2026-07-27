@@ -828,6 +828,7 @@ func (transaction *CommandTx) publishSessionFacts(ctx context.Context, id int, c
 	}
 	overrides := transaction.transaction.Session.UpdateOne(identity)
 	clearOverrides := false
+	submissionChanged := false
 	for _, change := range changes {
 		switch change.FactKey {
 		case draftFactTitle:
@@ -836,12 +837,17 @@ func (transaction *CommandTx) publishSessionFacts(ctx context.Context, id int, c
 		case draftFactSpeaker:
 			overrides.ClearCorrectedSpeaker()
 			clearOverrides = true
+			submissionChanged = true
 		case draftFactPublicDetails:
 			overrides.ClearCorrectedPublicDetails()
 			clearOverrides = true
+			submissionChanged = true
 		}
 	}
 	if clearOverrides {
+		if submissionChanged && identity.SubmitterAccountID != nil {
+			overrides.AddPresentationSubmissionRevision(1)
+		}
 		if _, err = overrides.Save(ctx); err != nil {
 			return opaqueError("clear reviewed Live Detail Correction overrides", err)
 		}

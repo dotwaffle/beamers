@@ -28,6 +28,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/recoverycode"
 	"github.com/dotwaffle/beamers/ent/recoverytoken"
+	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
 	"github.com/dotwaffle/beamers/ent/webauthncredential"
 )
@@ -35,25 +36,26 @@ import (
 // AccountQuery is the builder for querying Account entities.
 type AccountQuery struct {
 	config
-	ctx                     *QueryContext
-	order                   []account.OrderOption
-	inters                  []Interceptor
-	predicates              []predicate.Account
-	withPasswordCredential  *PasswordCredentialQuery
-	withWebauthnCredentials *WebAuthnCredentialQuery
-	withFederatedIdentities *FederatedIdentityQuery
-	withPreference          *AccountPreferenceQuery
-	withProfile             *AccountProfileQuery
-	withSessions            *AccountSessionQuery
-	withRecoveryCodes       *RecoveryCodeQuery
-	withRecoveryTokens      *RecoveryTokenQuery
-	withEventGrants         *EventGrantQuery
-	withFavoriteSessions    *FavoriteSessionQuery
-	withCompetitionEntries  *CompetitionEntryQuery
-	withVotingEligibilities *VotingEligibilityQuery
-	withAuditEntries        *AuditEntryQuery
-	withCommandReceipts     *CommandReceiptQuery
-	withDraftEdits          *DraftEditQuery
+	ctx                        *QueryContext
+	order                      []account.OrderOption
+	inters                     []Interceptor
+	predicates                 []predicate.Account
+	withPasswordCredential     *PasswordCredentialQuery
+	withWebauthnCredentials    *WebAuthnCredentialQuery
+	withFederatedIdentities    *FederatedIdentityQuery
+	withPreference             *AccountPreferenceQuery
+	withProfile                *AccountProfileQuery
+	withSessions               *AccountSessionQuery
+	withRecoveryCodes          *RecoveryCodeQuery
+	withRecoveryTokens         *RecoveryTokenQuery
+	withEventGrants            *EventGrantQuery
+	withFavoriteSessions       *FavoriteSessionQuery
+	withCompetitionEntries     *CompetitionEntryQuery
+	withSubmittedPresentations *SessionQuery
+	withVotingEligibilities    *VotingEligibilityQuery
+	withAuditEntries           *AuditEntryQuery
+	withCommandReceipts        *CommandReceiptQuery
+	withDraftEdits             *DraftEditQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -325,6 +327,28 @@ func (_q *AccountQuery) QueryCompetitionEntries() *CompetitionEntryQuery {
 			sqlgraph.From(account.Table, account.FieldID, selector),
 			sqlgraph.To(competitionentry.Table, competitionentry.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, account.CompetitionEntriesTable, account.CompetitionEntriesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QuerySubmittedPresentations chains the current query on the "submitted_presentations" edge.
+func (_q *AccountQuery) QuerySubmittedPresentations() *SessionQuery {
+	query := (&SessionClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, selector),
+			sqlgraph.To(session.Table, session.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.SubmittedPresentationsTable, account.SubmittedPresentationsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -607,26 +631,27 @@ func (_q *AccountQuery) Clone() *AccountQuery {
 		return nil
 	}
 	return &AccountQuery{
-		config:                  _q.config,
-		ctx:                     _q.ctx.Clone(),
-		order:                   append([]account.OrderOption{}, _q.order...),
-		inters:                  append([]Interceptor{}, _q.inters...),
-		predicates:              append([]predicate.Account{}, _q.predicates...),
-		withPasswordCredential:  _q.withPasswordCredential.Clone(),
-		withWebauthnCredentials: _q.withWebauthnCredentials.Clone(),
-		withFederatedIdentities: _q.withFederatedIdentities.Clone(),
-		withPreference:          _q.withPreference.Clone(),
-		withProfile:             _q.withProfile.Clone(),
-		withSessions:            _q.withSessions.Clone(),
-		withRecoveryCodes:       _q.withRecoveryCodes.Clone(),
-		withRecoveryTokens:      _q.withRecoveryTokens.Clone(),
-		withEventGrants:         _q.withEventGrants.Clone(),
-		withFavoriteSessions:    _q.withFavoriteSessions.Clone(),
-		withCompetitionEntries:  _q.withCompetitionEntries.Clone(),
-		withVotingEligibilities: _q.withVotingEligibilities.Clone(),
-		withAuditEntries:        _q.withAuditEntries.Clone(),
-		withCommandReceipts:     _q.withCommandReceipts.Clone(),
-		withDraftEdits:          _q.withDraftEdits.Clone(),
+		config:                     _q.config,
+		ctx:                        _q.ctx.Clone(),
+		order:                      append([]account.OrderOption{}, _q.order...),
+		inters:                     append([]Interceptor{}, _q.inters...),
+		predicates:                 append([]predicate.Account{}, _q.predicates...),
+		withPasswordCredential:     _q.withPasswordCredential.Clone(),
+		withWebauthnCredentials:    _q.withWebauthnCredentials.Clone(),
+		withFederatedIdentities:    _q.withFederatedIdentities.Clone(),
+		withPreference:             _q.withPreference.Clone(),
+		withProfile:                _q.withProfile.Clone(),
+		withSessions:               _q.withSessions.Clone(),
+		withRecoveryCodes:          _q.withRecoveryCodes.Clone(),
+		withRecoveryTokens:         _q.withRecoveryTokens.Clone(),
+		withEventGrants:            _q.withEventGrants.Clone(),
+		withFavoriteSessions:       _q.withFavoriteSessions.Clone(),
+		withCompetitionEntries:     _q.withCompetitionEntries.Clone(),
+		withSubmittedPresentations: _q.withSubmittedPresentations.Clone(),
+		withVotingEligibilities:    _q.withVotingEligibilities.Clone(),
+		withAuditEntries:           _q.withAuditEntries.Clone(),
+		withCommandReceipts:        _q.withCommandReceipts.Clone(),
+		withDraftEdits:             _q.withDraftEdits.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -751,6 +776,17 @@ func (_q *AccountQuery) WithCompetitionEntries(opts ...func(*CompetitionEntryQue
 		opt(query)
 	}
 	_q.withCompetitionEntries = query
+	return _q
+}
+
+// WithSubmittedPresentations tells the query-builder to eager-load the nodes that are connected to
+// the "submitted_presentations" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AccountQuery) WithSubmittedPresentations(opts ...func(*SessionQuery)) *AccountQuery {
+	query := (&SessionClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withSubmittedPresentations = query
 	return _q
 }
 
@@ -882,7 +918,7 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	var (
 		nodes       = []*Account{}
 		_spec       = _q.querySpec()
-		loadedTypes = [15]bool{
+		loadedTypes = [16]bool{
 			_q.withPasswordCredential != nil,
 			_q.withWebauthnCredentials != nil,
 			_q.withFederatedIdentities != nil,
@@ -894,6 +930,7 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 			_q.withEventGrants != nil,
 			_q.withFavoriteSessions != nil,
 			_q.withCompetitionEntries != nil,
+			_q.withSubmittedPresentations != nil,
 			_q.withVotingEligibilities != nil,
 			_q.withAuditEntries != nil,
 			_q.withCommandReceipts != nil,
@@ -994,6 +1031,15 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 			func(n *Account) { n.Edges.CompetitionEntries = []*CompetitionEntry{} },
 			func(n *Account, e *CompetitionEntry) {
 				n.Edges.CompetitionEntries = append(n.Edges.CompetitionEntries, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withSubmittedPresentations; query != nil {
+		if err := _q.loadSubmittedPresentations(ctx, query, nodes,
+			func(n *Account) { n.Edges.SubmittedPresentations = []*Session{} },
+			func(n *Account, e *Session) {
+				n.Edges.SubmittedPresentations = append(n.Edges.SubmittedPresentations, e)
 			}); err != nil {
 			return nil, err
 		}
@@ -1337,6 +1383,39 @@ func (_q *AccountQuery) loadCompetitionEntries(ctx context.Context, query *Compe
 	}
 	query.Where(predicate.CompetitionEntry(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(account.CompetitionEntriesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.SubmitterAccountID
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "submitter_account_id" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "submitter_account_id" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *AccountQuery) loadSubmittedPresentations(ctx context.Context, query *SessionQuery, nodes []*Account, init func(*Account), assign func(*Account, *Session)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Account)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(session.FieldSubmitterAccountID)
+	}
+	query.Where(predicate.Session(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(account.SubmittedPresentationsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

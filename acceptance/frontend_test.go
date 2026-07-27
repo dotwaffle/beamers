@@ -30,6 +30,8 @@ import (
 	"github.com/dotwaffle/beamers/gen/beamers/competition/v1/competitionv1connect"
 	programv1 "github.com/dotwaffle/beamers/gen/beamers/program/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/program/v1/programv1connect"
+	rundownv1 "github.com/dotwaffle/beamers/gen/beamers/rundown/v1"
+	"github.com/dotwaffle/beamers/gen/beamers/rundown/v1/rundownv1connect"
 	"github.com/dotwaffle/beamers/internal/backup"
 	frontendui "github.com/dotwaffle/beamers/internal/frontend"
 )
@@ -3842,12 +3844,264 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 	server.stop(t)
 }
 
+func exercisePresentationSubmissionFlow(
+	t *testing.T,
+	administrator, alex, blair *http.Client,
+	server *runningServer,
+	presentationID int64,
+) {
+	t.Helper()
+	submissionsPath := "/submissions"
+	producerPath := "/backstage/events/1/presentations/" +
+		strconv.FormatInt(presentationID, 10) + "/submission"
+	uploadPath := "/submissions/1/presentations/" +
+		strconv.FormatInt(presentationID, 10) + "/upload"
+
+	alexPage := getFrontendPage(t, alex, server.address, submissionsPath)
+	if strings.Contains(alexPage.body, "Create Presentation") ||
+		strings.Contains(alexPage.body, "Propose Presentation") {
+		t.Fatalf("self-service Presentation proposal exposed: %q", alexPage.body)
+	}
+	producerPage := getFrontendPage(t, administrator, server.address, producerPath)
+	if producerPage.status != http.StatusOK ||
+		!strings.Contains(producerPage.body, "Crew Managed") {
+		t.Fatalf("Crew Managed Presentation = %d %q", producerPage.status, producerPage.body)
+	}
+	assigned := postFrontendForm(t, administrator, server.address, producerPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, producerPage)},
+		"action":            {"assign-submitter"},
+		"command_id":        {"assign-presentation-alex"},
+		"expected_revision": {frontendNamedValues(producerPage.body, "expected_revision").Get("expected_revision")},
+		"account_id":        {"2"},
+	})
+	if assigned.status != http.StatusSeeOther {
+		t.Fatalf("assign Presentation Submitter = %d %q", assigned.status, assigned.body)
+	}
+
+	alexPage = getFrontendPage(t, alex, server.address, submissionsPath)
+	if !strings.Contains(alexPage.body, "Opening Keynote") {
+		t.Fatalf("assigned Presentation listing = %d %q", alexPage.status, alexPage.body)
+	}
+	updated := postFrontendForm(t, alex, server.address, submissionsPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, alexPage)},
+		"action":            {"update-presentation"},
+		"command_id":        {"alex-update-presentation"},
+		"event_id":          {"1"},
+		"session_id":        {strconv.FormatInt(presentationID, 10)},
+		"expected_revision": {frontendPresentationRevision(t, alexPage.body, presentationID)},
+		"speaker":           {"Alex Public Speaker"},
+		"public_details":    {"Alex approved public details"},
+	})
+	if updated.status != http.StatusSeeOther {
+		t.Fatalf("update assigned Presentation = %d %q", updated.status, updated.body)
+	}
+	for version, body := range [][]byte{
+		[]byte("first immutable slides"),
+		[]byte("second immutable slides"),
+	} {
+		alexPage = getFrontendPage(t, alex, server.address, submissionsPath)
+		uploaded := requestMultipart(
+			t.Context(),
+			alex,
+			server.address,
+			uploadPath,
+			map[string]string{
+				"csrf_token": requireFrontendCSRF(t, alexPage),
+				"command_id": "alex-presentation-upload-" + strconv.Itoa(version+1),
+				"name":       "slides",
+			},
+			"slides-v"+strconv.Itoa(version+1)+".pdf",
+			"application/pdf",
+			body,
+		)
+		if uploaded.status != http.StatusSeeOther {
+			t.Fatalf(
+				"Presentation upload Version %d = %d %q",
+				version+1,
+				uploaded.status,
+				uploaded.body,
+			)
+		}
+	}
+	alexPage = getFrontendPage(t, alex, server.address, submissionsPath)
+	for _, want := range []string{"slides-v1.pdf", "Version 1", "slides-v2.pdf", "Version 2"} {
+		if !strings.Contains(alexPage.body, want) {
+			t.Fatalf("Presentation version history lacks %q: %q", want, alexPage.body)
+		}
+	}
+
+	producerPage = getFrontendPage(t, administrator, server.address, producerPath)
+	replaced := postFrontendForm(t, administrator, server.address, producerPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, producerPage)},
+		"action":            {"assign-submitter"},
+		"command_id":        {"replace-presentation-with-blair"},
+		"expected_revision": {frontendNamedValues(producerPage.body, "expected_revision").Get("expected_revision")},
+		"account_id":        {"3"},
+	})
+	if replaced.status != http.StatusSeeOther {
+		t.Fatalf("replace Presentation Submitter = %d %q", replaced.status, replaced.body)
+	}
+	alexPage = getFrontendPage(t, alex, server.address, submissionsPath)
+	if strings.Contains(alexPage.body, "Opening Keynote") ||
+		strings.Contains(alexPage.body, "slides-v2.pdf") {
+		t.Fatalf("former Presentation Submitter retained access: %q", alexPage.body)
+	}
+	formerUpload := requestMultipart(
+		t.Context(),
+		alex,
+		server.address,
+		uploadPath,
+		map[string]string{
+			"csrf_token": requireFrontendCSRF(t, alexPage),
+			"command_id": "former-submitter-upload",
+			"name":       "must-not-parse",
+		},
+		"private.pdf",
+		"application/pdf",
+		[]byte("must remain private"),
+	)
+	if formerUpload.status != http.StatusNotFound {
+		t.Fatalf("former Submitter upload = %d %q", formerUpload.status, formerUpload.body)
+	}
+	blairPage := getFrontendPage(t, blair, server.address, submissionsPath)
+	for _, want := range []string{
+		"Opening Keynote",
+		"Alex Public Speaker",
+		"Alex approved public details",
+		"slides-v1.pdf",
+		"slides-v2.pdf",
+	} {
+		if !strings.Contains(blairPage.body, want) {
+			t.Fatalf("replacement Presentation projection lacks %q: %q", want, blairPage.body)
+		}
+	}
+
+	rundownClient := rundownv1connect.NewRundownServiceClient(
+		administrator,
+		"http://"+server.address,
+		connect.WithProtoJSON(),
+	)
+	current, err := rundownClient.GetCrewRundown(
+		t.Context(),
+		connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
+	)
+	if err != nil {
+		t.Fatalf("load Rundown before Presentation deadline: %v", err)
+	}
+	setPresentationUploadDeadline(
+		t,
+		rundownClient,
+		current.Msg.GetDraftRevision(),
+		presentationID,
+		time.Now().UTC().Add(-time.Minute),
+	)
+	blairPage = getFrontendPage(t, blair, server.address, submissionsPath)
+	closed := postFrontendForm(t, blair, server.address, submissionsPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, blairPage)},
+		"action":            {"update-presentation"},
+		"command_id":        {"blair-update-closed-presentation"},
+		"event_id":          {"1"},
+		"session_id":        {strconv.FormatInt(presentationID, 10)},
+		"expected_revision": {frontendPresentationRevision(t, blairPage.body, presentationID)},
+		"speaker":           {"Too Late"},
+	})
+	if closed.status != http.StatusGone {
+		t.Fatalf("Presentation fixed Upload Deadline = %d %q", closed.status, closed.body)
+	}
+	closedUpload := requestMultipart(
+		t.Context(),
+		blair,
+		server.address,
+		uploadPath,
+		map[string]string{
+			"csrf_token": requireFrontendCSRF(t, blairPage),
+			"command_id": "blair-presentation-upload-closed",
+			"name":       "closed",
+		},
+		"closed.pdf",
+		"application/pdf",
+		[]byte("must not persist"),
+	)
+	if closedUpload.status != http.StatusGone {
+		t.Fatalf("closed Presentation upload = %d %q", closedUpload.status, closedUpload.body)
+	}
+
+	producerPage = getFrontendPage(t, administrator, server.address, producerPath)
+	reopened := postFrontendForm(t, administrator, server.address, producerPath, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, producerPage)},
+		"action":     {"create-reopen-window"},
+		"command_id": {"reopen-presentation-submission"},
+		"reason":     {"Submitter correction"},
+		"expires_at": {time.Now().UTC().Add(3 * time.Hour).Format("2006-01-02T15:04")},
+	})
+	if reopened.status != http.StatusSeeOther {
+		t.Fatalf("reopen Presentation submission = %d %q", reopened.status, reopened.body)
+	}
+	blairPage = getFrontendPage(t, blair, server.address, submissionsPath)
+	reopenedUpdate := postFrontendForm(t, blair, server.address, submissionsPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, blairPage)},
+		"action":            {"update-presentation"},
+		"command_id":        {"blair-update-reopened-presentation"},
+		"event_id":          {"1"},
+		"session_id":        {strconv.FormatInt(presentationID, 10)},
+		"expected_revision": {frontendPresentationRevision(t, blairPage.body, presentationID)},
+		"speaker":           {"Blair Final Speaker"},
+		"public_details":    {"Blair final approved details"},
+	})
+	if reopenedUpdate.status != http.StatusSeeOther {
+		t.Fatalf("update Presentation in Reopen Window = %d %q", reopenedUpdate.status, reopenedUpdate.body)
+	}
+	blairPage = getFrontendPage(t, blair, server.address, submissionsPath)
+	reopenedUpload := requestMultipart(
+		t.Context(),
+		blair,
+		server.address,
+		uploadPath,
+		map[string]string{
+			"csrf_token": requireFrontendCSRF(t, blairPage),
+			"command_id": "blair-presentation-upload-reopened",
+			"name":       "slides",
+		},
+		"slides-v3.pdf",
+		"application/pdf",
+		[]byte("third immutable slides"),
+	)
+	if reopenedUpload.status != http.StatusSeeOther {
+		t.Fatalf("reopened Presentation upload = %d %q", reopenedUpload.status, reopenedUpload.body)
+	}
+	blairPage = getFrontendPage(t, blair, server.address, submissionsPath)
+	if !strings.Contains(blairPage.body, "slides-v3.pdf") ||
+		!strings.Contains(blairPage.body, "Version 3") {
+		t.Fatalf("reopened Presentation Version = %d %q", blairPage.status, blairPage.body)
+	}
+
+	audit := get(t, administrator, server.address, "/admin/audit")
+	auditBody, err := io.ReadAll(audit.Body)
+	_ = audit.Body.Close()
+	if err != nil ||
+		bytes.Count(auditBody, []byte(`"action":"AssignPresentationSubmitter"`)) != 2 ||
+		!bytes.Contains(auditBody, []byte(`"note":"Submitter Account #3"`)) {
+		t.Fatalf("Presentation assignment Audit evidence = %s (%v)", auditBody, err)
+	}
+	publicSchedule := getFrontendPage(
+		t,
+		authenticatedClient(t),
+		server.publicAddress,
+		"/schedule",
+	)
+	if publicSchedule.status != http.StatusOK ||
+		!strings.Contains(publicSchedule.body, "Blair Final Speaker") ||
+		!strings.Contains(publicSchedule.body, "Blair final approved details") {
+		t.Fatalf("approved public Presentation projection = %d %q", publicSchedule.status, publicSchedule.body)
+	}
+}
+
 func TestAccountSubmissionsHonorPolicyOwnershipAndReopenWindows(t *testing.T) {
 	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
 	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
-	prepareActiveSchedule(t, administrator, server)
+	presentationID := prepareActiveSchedule(t, administrator, server)
 	competitionID, _ := addCompetitionSession(t, administrator, server)
 	entriesPath := "/backstage/events/1/competitions/" +
 		strconv.FormatInt(competitionID, 10) + "/entries"
@@ -3909,6 +4163,14 @@ func TestAccountSubmissionsHonorPolicyOwnershipAndReopenWindows(t *testing.T) {
 	}
 	alex := signIn("Alex Submitter")
 	blair := signIn("Blair Submitter")
+	exercisePresentationSubmissionFlow(
+		t,
+		administrator,
+		alex,
+		blair,
+		server,
+		presentationID,
+	)
 
 	submissionsPath := "/submissions"
 	alexPage := getFrontendPage(t, alex, server.address, submissionsPath)
@@ -4126,8 +4388,13 @@ func TestAccountSubmissionsHonorPolicyOwnershipAndReopenWindows(t *testing.T) {
 	auditBody, err = io.ReadAll(audit.Body)
 	_ = audit.Body.Close()
 	if err != nil ||
-		bytes.Count(auditBody, []byte(`"action":"UploadAttachment"`)) != 1 ||
-		!bytes.Contains(auditBody, []byte(`"reason":"upload_closed"`)) {
+		bytes.Count(
+			auditBody,
+			[]byte(
+				`"action":"UploadAttachment","target_type":"Entry",`+
+					`"target_id":"1","outcome":"Rejected","reason":"upload_closed"`,
+			),
+		) != 1 {
 		t.Fatalf("Account upload rejection Audit evidence = %s (%v)", auditBody, err)
 	}
 
@@ -5178,6 +5445,20 @@ func frontendEntryRevision(t *testing.T, body string, entryID int) string {
 	match := expression.FindStringSubmatch(body)
 	if len(match) != 2 {
 		t.Fatalf("Entry #%d revision not found in %q", entryID, body)
+	}
+	return match[1]
+}
+
+func frontendPresentationRevision(t *testing.T, body string, sessionID int64) string {
+	t.Helper()
+	expression := regexp.MustCompile(
+		`(?s)name="action" value="update-presentation">.*?` +
+			`name="session_id" value="` + strconv.FormatInt(sessionID, 10) +
+			`">.*?name="expected_revision" value="([0-9]+)"`,
+	)
+	match := expression.FindStringSubmatch(body)
+	if len(match) != 2 {
+		t.Fatalf("Presentation #%d revision not found in %q", sessionID, body)
 	}
 	return match[1]
 }

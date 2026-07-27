@@ -49,6 +49,8 @@ const (
 	EdgeFavoriteSessions = "favorite_sessions"
 	// EdgeCompetitionEntries holds the string denoting the competition_entries edge name in mutations.
 	EdgeCompetitionEntries = "competition_entries"
+	// EdgeSubmittedPresentations holds the string denoting the submitted_presentations edge name in mutations.
+	EdgeSubmittedPresentations = "submitted_presentations"
 	// EdgeVotingEligibilities holds the string denoting the voting_eligibilities edge name in mutations.
 	EdgeVotingEligibilities = "voting_eligibilities"
 	// EdgeAuditEntries holds the string denoting the audit_entries edge name in mutations.
@@ -136,6 +138,13 @@ const (
 	CompetitionEntriesInverseTable = "competition_entries"
 	// CompetitionEntriesColumn is the table column denoting the competition_entries relation/edge.
 	CompetitionEntriesColumn = "submitter_account_id"
+	// SubmittedPresentationsTable is the table that holds the submitted_presentations relation/edge.
+	SubmittedPresentationsTable = "sessions"
+	// SubmittedPresentationsInverseTable is the table name for the Session entity.
+	// It exists in this package in order to avoid circular dependency with the "session" package.
+	SubmittedPresentationsInverseTable = "sessions"
+	// SubmittedPresentationsColumn is the table column denoting the submitted_presentations relation/edge.
+	SubmittedPresentationsColumn = "submitter_account_id"
 	// VotingEligibilitiesTable is the table that holds the voting_eligibilities relation/edge.
 	VotingEligibilitiesTable = "voting_eligibilities"
 	// VotingEligibilitiesInverseTable is the table name for the VotingEligibility entity.
@@ -369,6 +378,20 @@ func ByCompetitionEntries(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOptio
 	}
 }
 
+// BySubmittedPresentationsCount orders the results by submitted_presentations count.
+func BySubmittedPresentationsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSubmittedPresentationsStep(), opts...)
+	}
+}
+
+// BySubmittedPresentations orders the results by submitted_presentations terms.
+func BySubmittedPresentations(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSubmittedPresentationsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByVotingEligibilitiesCount orders the results by voting_eligibilities count.
 func ByVotingEligibilitiesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -499,6 +522,13 @@ func newCompetitionEntriesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(CompetitionEntriesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, CompetitionEntriesTable, CompetitionEntriesColumn),
+	)
+}
+func newSubmittedPresentationsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SubmittedPresentationsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, SubmittedPresentationsTable, SubmittedPresentationsColumn),
 	)
 }
 func newVotingEligibilitiesStep() *sqlgraph.Step {

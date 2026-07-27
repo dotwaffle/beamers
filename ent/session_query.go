@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/competitionresultsdraft"
 	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
@@ -43,6 +44,7 @@ type SessionQuery struct {
 	withCancellations               *SessionCancellationQuery
 	withPublicScheduleBaselineEntry *PublicScheduleBaselineEntryQuery
 	withFavorites                   *FavoriteSessionQuery
+	withSubmitter                   *AccountQuery
 	withCompetitionEntries          *CompetitionEntryQuery
 	withCompetitionResultsDrafts    *CompetitionResultsDraftQuery
 	withCompetitionResultStandings  *CompetitionResultStandingQuery
@@ -231,6 +233,28 @@ func (_q *SessionQuery) QueryFavorites() *FavoriteSessionQuery {
 			sqlgraph.From(session.Table, session.FieldID, selector),
 			sqlgraph.To(favoritesession.Table, favoritesession.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, session.FavoritesTable, session.FavoritesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QuerySubmitter chains the current query on the "submitter" edge.
+func (_q *SessionQuery) QuerySubmitter() *AccountQuery {
+	query := (&AccountClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(session.Table, session.FieldID, selector),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, session.SubmitterTable, session.SubmitterColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -547,6 +571,7 @@ func (_q *SessionQuery) Clone() *SessionQuery {
 		withCancellations:               _q.withCancellations.Clone(),
 		withPublicScheduleBaselineEntry: _q.withPublicScheduleBaselineEntry.Clone(),
 		withFavorites:                   _q.withFavorites.Clone(),
+		withSubmitter:                   _q.withSubmitter.Clone(),
 		withCompetitionEntries:          _q.withCompetitionEntries.Clone(),
 		withCompetitionResultsDrafts:    _q.withCompetitionResultsDrafts.Clone(),
 		withCompetitionResultStandings:  _q.withCompetitionResultStandings.Clone(),
@@ -632,6 +657,17 @@ func (_q *SessionQuery) WithFavorites(opts ...func(*FavoriteSessionQuery)) *Sess
 		opt(query)
 	}
 	_q.withFavorites = query
+	return _q
+}
+
+// WithSubmitter tells the query-builder to eager-load the nodes that are connected to
+// the "submitter" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *SessionQuery) WithSubmitter(opts ...func(*AccountQuery)) *SessionQuery {
+	query := (&AccountClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withSubmitter = query
 	return _q
 }
 
@@ -774,7 +810,7 @@ func (_q *SessionQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Sess
 	var (
 		nodes       = []*Session{}
 		_spec       = _q.querySpec()
-		loadedTypes = [12]bool{
+		loadedTypes = [13]bool{
 			_q.withEvent != nil,
 			_q.withDraft != nil,
 			_q.withPublishedVersions != nil,
@@ -782,6 +818,7 @@ func (_q *SessionQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Sess
 			_q.withCancellations != nil,
 			_q.withPublicScheduleBaselineEntry != nil,
 			_q.withFavorites != nil,
+			_q.withSubmitter != nil,
 			_q.withCompetitionEntries != nil,
 			_q.withCompetitionResultsDrafts != nil,
 			_q.withCompetitionResultStandings != nil,
@@ -852,6 +889,12 @@ func (_q *SessionQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Sess
 		if err := _q.loadFavorites(ctx, query, nodes,
 			func(n *Session) { n.Edges.Favorites = []*FavoriteSession{} },
 			func(n *Session, e *FavoriteSession) { n.Edges.Favorites = append(n.Edges.Favorites, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withSubmitter; query != nil {
+		if err := _q.loadSubmitter(ctx, query, nodes, nil,
+			func(n *Session, e *Account) { n.Edges.Submitter = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -1100,6 +1143,38 @@ func (_q *SessionQuery) loadFavorites(ctx context.Context, query *FavoriteSessio
 	}
 	return nil
 }
+func (_q *SessionQuery) loadSubmitter(ctx context.Context, query *AccountQuery, nodes []*Session, init func(*Session), assign func(*Session, *Account)) error {
+	ids := make([]int, 0, len(nodes))
+	nodeids := make(map[int][]*Session)
+	for i := range nodes {
+		if nodes[i].SubmitterAccountID == nil {
+			continue
+		}
+		fk := *nodes[i].SubmitterAccountID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(account.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "submitter_account_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
 func (_q *SessionQuery) loadCompetitionEntries(ctx context.Context, query *CompetitionEntryQuery, nodes []*Session, init func(*Session), assign func(*Session, *CompetitionEntry)) error {
 	fks := make([]driver.Value, 0, len(nodes))
 	nodeids := make(map[int]*Session)
@@ -1272,6 +1347,9 @@ func (_q *SessionQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withEvent != nil {
 			_spec.Node.AddColumnOnce(session.FieldEventID)
+		}
+		if _q.withSubmitter != nil {
+			_spec.Node.AddColumnOnce(session.FieldSubmitterAccountID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

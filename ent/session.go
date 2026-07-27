@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
@@ -54,6 +55,10 @@ type Session struct {
 	CorrectedSpeaker *string `json:"corrected_speaker,omitempty"`
 	// CorrectedPublicDetails holds the value of the "corrected_public_details" field.
 	CorrectedPublicDetails *string `json:"corrected_public_details,omitempty"`
+	// SubmitterAccountID holds the value of the "submitter_account_id" field.
+	SubmitterAccountID *int `json:"submitter_account_id,omitempty"`
+	// PresentationSubmissionRevision holds the value of the "presentation_submission_revision" field.
+	PresentationSubmissionRevision int `json:"presentation_submission_revision,omitempty"`
 	// RequireEntryReview holds the value of the "require_entry_review" field.
 	RequireEntryReview bool `json:"require_entry_review,omitempty"`
 	// SubmissionEligibilityOverride holds the value of the "submission_eligibility_override" field.
@@ -116,6 +121,8 @@ type SessionEdges struct {
 	PublicScheduleBaselineEntry *PublicScheduleBaselineEntry `json:"public_schedule_baseline_entry,omitempty"`
 	// Favorites holds the value of the favorites edge.
 	Favorites []*FavoriteSession `json:"favorites,omitempty"`
+	// Submitter holds the value of the submitter edge.
+	Submitter *Account `json:"submitter,omitempty"`
 	// CompetitionEntries holds the value of the competition_entries edge.
 	CompetitionEntries []*CompetitionEntry `json:"competition_entries,omitempty"`
 	// CompetitionResultsDrafts holds the value of the competition_results_drafts edge.
@@ -128,7 +135,7 @@ type SessionEdges struct {
 	PrizegivingAssignment *PrizegivingCompetition `json:"prizegiving_assignment,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [12]bool
+	loadedTypes [13]bool
 }
 
 // EventOrErr returns the Event value or an error if the edge
@@ -200,10 +207,21 @@ func (e SessionEdges) FavoritesOrErr() ([]*FavoriteSession, error) {
 	return nil, &NotLoadedError{edge: "favorites"}
 }
 
+// SubmitterOrErr returns the Submitter value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e SessionEdges) SubmitterOrErr() (*Account, error) {
+	if e.Submitter != nil {
+		return e.Submitter, nil
+	} else if e.loadedTypes[7] {
+		return nil, &NotFoundError{label: account.Label}
+	}
+	return nil, &NotLoadedError{edge: "submitter"}
+}
+
 // CompetitionEntriesOrErr returns the CompetitionEntries value or an error if the edge
 // was not loaded in eager-loading.
 func (e SessionEdges) CompetitionEntriesOrErr() ([]*CompetitionEntry, error) {
-	if e.loadedTypes[7] {
+	if e.loadedTypes[8] {
 		return e.CompetitionEntries, nil
 	}
 	return nil, &NotLoadedError{edge: "competition_entries"}
@@ -212,7 +230,7 @@ func (e SessionEdges) CompetitionEntriesOrErr() ([]*CompetitionEntry, error) {
 // CompetitionResultsDraftsOrErr returns the CompetitionResultsDrafts value or an error if the edge
 // was not loaded in eager-loading.
 func (e SessionEdges) CompetitionResultsDraftsOrErr() ([]*CompetitionResultsDraft, error) {
-	if e.loadedTypes[8] {
+	if e.loadedTypes[9] {
 		return e.CompetitionResultsDrafts, nil
 	}
 	return nil, &NotLoadedError{edge: "competition_results_drafts"}
@@ -221,7 +239,7 @@ func (e SessionEdges) CompetitionResultsDraftsOrErr() ([]*CompetitionResultsDraf
 // CompetitionResultStandingsOrErr returns the CompetitionResultStandings value or an error if the edge
 // was not loaded in eager-loading.
 func (e SessionEdges) CompetitionResultStandingsOrErr() ([]*CompetitionResultStanding, error) {
-	if e.loadedTypes[9] {
+	if e.loadedTypes[10] {
 		return e.CompetitionResultStandings, nil
 	}
 	return nil, &NotLoadedError{edge: "competition_result_standings"}
@@ -232,7 +250,7 @@ func (e SessionEdges) CompetitionResultStandingsOrErr() ([]*CompetitionResultSta
 func (e SessionEdges) PrizegivingOrErr() (*Prizegiving, error) {
 	if e.Prizegiving != nil {
 		return e.Prizegiving, nil
-	} else if e.loadedTypes[10] {
+	} else if e.loadedTypes[11] {
 		return nil, &NotFoundError{label: prizegiving.Label}
 	}
 	return nil, &NotLoadedError{edge: "prizegiving"}
@@ -243,7 +261,7 @@ func (e SessionEdges) PrizegivingOrErr() (*Prizegiving, error) {
 func (e SessionEdges) PrizegivingAssignmentOrErr() (*PrizegivingCompetition, error) {
 	if e.PrizegivingAssignment != nil {
 		return e.PrizegivingAssignment, nil
-	} else if e.loadedTypes[11] {
+	} else if e.loadedTypes[12] {
 		return nil, &NotFoundError{label: prizegivingcompetition.Label}
 	}
 	return nil, &NotLoadedError{edge: "prizegiving_assignment"}
@@ -258,7 +276,7 @@ func (*Session) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case session.FieldRequireEntryReview, session.FieldFileDeliveryRequired:
 			values[i] = new(sql.NullBool)
-		case session.FieldID, session.FieldEventID, session.FieldLiveStateRevision, session.FieldSubmissionEligibilityRevision, session.FieldReadinessRevision, session.FieldEntryOrderSeed, session.FieldEntryOrderRevision, session.FieldProgramOutputEntryID, session.FieldProgramOutputRevision, session.FieldProgramCursor, session.FieldAttachmentReleaseRevision:
+		case session.FieldID, session.FieldEventID, session.FieldLiveStateRevision, session.FieldSubmitterAccountID, session.FieldPresentationSubmissionRevision, session.FieldSubmissionEligibilityRevision, session.FieldReadinessRevision, session.FieldEntryOrderSeed, session.FieldEntryOrderRevision, session.FieldProgramOutputEntryID, session.FieldProgramOutputRevision, session.FieldProgramCursor, session.FieldAttachmentReleaseRevision:
 			values[i] = new(sql.NullInt64)
 		case session.FieldLifecycle, session.FieldPublicCancellationMessage, session.FieldCancellationCrewNotes, session.FieldCorrectedTitle, session.FieldCorrectedSpeaker, session.FieldCorrectedPublicDetails, session.FieldSubmissionEligibilityOverride, session.FieldEntryOrderPolicy, session.FieldProgramOutputKind, session.FieldAttachmentReleasePolicyOverride:
 			values[i] = new(sql.NullString)
@@ -381,6 +399,19 @@ func (_m *Session) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.CorrectedPublicDetails = new(string)
 				*_m.CorrectedPublicDetails = value.String
+			}
+		case session.FieldSubmitterAccountID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field submitter_account_id", values[i])
+			} else if value.Valid {
+				_m.SubmitterAccountID = new(int)
+				*_m.SubmitterAccountID = int(value.Int64)
+			}
+		case session.FieldPresentationSubmissionRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field presentation_submission_revision", values[i])
+			} else if value.Valid {
+				_m.PresentationSubmissionRevision = int(value.Int64)
 			}
 		case session.FieldRequireEntryReview:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -560,6 +591,11 @@ func (_m *Session) QueryFavorites() *FavoriteSessionQuery {
 	return NewSessionClient(_m.config).QueryFavorites(_m)
 }
 
+// QuerySubmitter queries the "submitter" edge of the Session entity.
+func (_m *Session) QuerySubmitter() *AccountQuery {
+	return NewSessionClient(_m.config).QuerySubmitter(_m)
+}
+
 // QueryCompetitionEntries queries the "competition_entries" edge of the Session entity.
 func (_m *Session) QueryCompetitionEntries() *CompetitionEntryQuery {
 	return NewSessionClient(_m.config).QueryCompetitionEntries(_m)
@@ -658,6 +694,14 @@ func (_m *Session) String() string {
 		builder.WriteString("corrected_public_details=")
 		builder.WriteString(*v)
 	}
+	builder.WriteString(", ")
+	if v := _m.SubmitterAccountID; v != nil {
+		builder.WriteString("submitter_account_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("presentation_submission_revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.PresentationSubmissionRevision))
 	builder.WriteString(", ")
 	builder.WriteString("require_entry_review=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RequireEntryReview))

@@ -130,7 +130,7 @@ type CrewState struct {
 	CompetitionRelease store.CompetitionAttachmentReleaseConfiguration
 }
 
-// AccountState is private metadata for only one Account's submitted Entries.
+// AccountState is private metadata for only one Account's submitted content.
 type AccountState struct {
 	Versions      []AccountVersion
 	ReopenWindows []AccountReopenWindow
@@ -139,6 +139,7 @@ type AccountState struct {
 // AccountVersion is submitter-visible immutable file metadata.
 type AccountVersion struct {
 	OwnerID, Version       int
+	OwnerType              TargetKind
 	Name, OriginalFilename string
 	SHA256                 string
 }
@@ -164,7 +165,8 @@ type CrewUploadInput struct {
 
 // AccountUploadInput identifies one upload owned by the signed-in Submitter Account.
 type AccountUploadInput struct {
-	EventID, EntryID                             int
+	EventID, TargetID                            int
+	TargetType                                   TargetKind
 	CommandID, Name, OriginalFilename, MediaType string
 	Body                                         io.Reader
 	CrewOnly                                     bool
@@ -286,12 +288,21 @@ func New(
 func (service *Service) AuthorizeAccountUpload(
 	ctx context.Context,
 	actor auth.Account,
-	eventID, entryID int,
+	eventID int,
+	targetType TargetKind,
+	targetID int,
 ) error {
-	if actor.ID <= 0 || eventID <= 0 || entryID <= 0 {
+	if actor.ID <= 0 || eventID <= 0 || targetID <= 0 ||
+		(targetType != TargetEntry && targetType != TargetPresentation) {
 		return ErrUploadTargetNotFound
 	}
-	owned, err := service.storage.AccountOwnsEntry(actor.Context(ctx), eventID, entryID, actor.ID)
+	owned, err := service.storage.AccountOwnsUploadTarget(
+		actor.Context(ctx),
+		eventID,
+		targetType,
+		targetID,
+		actor.ID,
+	)
 	if err != nil {
 		return err
 	}
@@ -411,13 +422,14 @@ func (service *Service) UploadForCrew(
 	)
 }
 
-// UploadForAccount stores one file for an Account-owned Entry.
+// UploadForAccount stores one file for Account-owned submitted content.
 func (service *Service) UploadForAccount(
 	ctx context.Context,
 	actor auth.Account,
 	input AccountUploadInput,
 ) (Version, error) {
-	if actor.ID <= 0 || input.EventID <= 0 || input.EntryID <= 0 ||
+	if actor.ID <= 0 || input.EventID <= 0 || input.TargetID <= 0 ||
+		(input.TargetType != TargetEntry && input.TargetType != TargetPresentation) ||
 		!validAttachmentInput(input.Name, input.OriginalFilename, input.Body) {
 		return Version{}, ErrInvalidInput
 	}
@@ -427,7 +439,7 @@ func (service *Service) UploadForAccount(
 	return service.storeVersion(
 		actor.Context(ctx),
 		store.UploadAuthorization{
-			EventID: input.EventID, TargetType: TargetEntry, TargetID: input.EntryID,
+			EventID: input.EventID, TargetType: input.TargetType, TargetID: input.TargetID,
 		},
 		input.CommandID,
 		input.Name,
@@ -791,8 +803,8 @@ func (service *Service) CompetitionCrewState(
 	return result, nil
 }
 
-// SubmittedEntryState returns only the signed-in Account's private file metadata.
-func (service *Service) SubmittedEntryState(
+// SubmittedState returns only the signed-in Account's private file metadata.
+func (service *Service) SubmittedState(
 	ctx context.Context,
 	actor auth.Account,
 ) (AccountState, error) {
@@ -810,7 +822,8 @@ func (service *Service) SubmittedEntryState(
 	for _, found := range stored.Versions {
 		result.Versions = append(result.Versions, AccountVersion{
 			OwnerID: found.OwnerID, Version: found.Version,
-			Name: found.Name, OriginalFilename: found.OriginalFilename,
+			OwnerType: found.OwnerType,
+			Name:      found.Name, OriginalFilename: found.OriginalFilename,
 			SHA256: found.SHA256,
 		})
 	}

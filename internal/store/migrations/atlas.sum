@@ -1,4 +1,4 @@
-h1:sR/ZNeg+JsC2O6j+w/kOLof7hJ+VmXb/15KNC5io17E=
+h1:QlckIwCA4+80o3rRiMShpBbM0aGk4ix2+fEuIDyLZoE=
 0001_initialize.sql h1:xwTCiCDERoBPK7+31D4g3SOs7BivkqIi3/tf+14eOlo=
 0002_bootstrap_auth.sql h1:Z4h1bvDVGzPXbmlEc3NCEn1HvMSf2V6eY56wIlxFLjA=
 0003_add_events.sql h1:6XxTAjVp9ntlWbsdacCMQkdgTAG185npJMhgxOSnAtA=
@@ -56,3 +56,4 @@ h1:sR/ZNeg+JsC2O6j+w/kOLof7hJ+VmXb/15KNC5io17E=
 0055_account_webauthn.sql h1:WkVzeWHxTwHjzp6BEa/OJP2U7qtQJWmANRCjo/f/hR4=
 0056_account_federation.sql h1:VAN5IgnFctLRJodFfJoGsYPyycKFmPONKRrxHTXbAOw=
 0057_account_submissions.sql h1:0skhyNoh9um5CxQJspj3YUVP8Yt3jnJRZ5tyt0Sa4AY=
+0058_presentation_submitters.sql h1:PdLzGDVFCYK2TJ15KGOk3aThK8BdIIKAqeguMHIhNLU=

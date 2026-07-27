@@ -15,6 +15,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/competition"
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/frontend"
+	"github.com/dotwaffle/beamers/internal/presentation"
 	"github.com/dotwaffle/beamers/internal/programcontrol"
 	"github.com/dotwaffle/beamers/internal/rundown"
 )
@@ -22,6 +23,7 @@ import (
 type entryHandlers struct {
 	browser        frontendHandlers
 	competition    *competition.Service
+	presentation   *presentation.Service
 	attachments    *attachments.Service
 	program        *programcontrol.Service
 	events         *events.Service
@@ -34,6 +36,7 @@ func registerEntryRoutes(
 	mux *routeMux,
 	authentication *auth.Service,
 	competitionService *competition.Service,
+	presentationService *presentation.Service,
 	attachmentService *attachments.Service,
 	programService *programcontrol.Service,
 	eventService *events.Service,
@@ -51,6 +54,7 @@ func registerEntryRoutes(
 			random:         rand.Reader,
 		},
 		competition:    competitionService,
+		presentation:   presentationService,
 		attachments:    attachmentService,
 		program:        programService,
 		events:         eventService,
@@ -82,7 +86,19 @@ func registerEntryRoutes(
 	mux.HandleFunc(
 		"/submissions/{eventID}/entries/{entryID}/upload",
 		submissionUploadRoute,
-		handlers.submissionUpload,
+		handlers.entrySubmissionUpload,
+	)
+	mux.HandleFunc(
+		"/submissions/{eventID}/presentations/{sessionID}/upload",
+		submissionUploadRoute,
+		handlers.presentationSubmissionUpload,
+	)
+	presentationRoute := backstagePageRoute()
+	presentationRoute.maxBodyBytes = defaultRequestBytes
+	mux.HandleFunc(
+		"/backstage/events/{eventID}/presentations/{sessionID}/submission",
+		presentationRoute,
+		handlers.presentationSubmission,
 	)
 }
 

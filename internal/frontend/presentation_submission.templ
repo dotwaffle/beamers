@@ -1,0 +1,75 @@
+package frontend
+
+import (
+	"strconv"
+
+	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/presentation"
+)
+
+type PresentationSubmissionPage struct {
+	AccountName    string
+	CSRFToken      string
+	ReducedEffects bool
+	Navigation     BackstageNavigation
+	CommandID      string
+	Event          events.Event
+	State          presentation.State
+	Accounts       []presentation.Account
+	Error          string
+}
+
+templ PresentationSubmission(page PresentationSubmissionPage) {
+	<!doctype html>
+	<html lang={ page.Event.EventLocale }>
+		@Head("Presentation submission · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
+			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
+			<div class="backstage-layout">
+				@BackstageNavigationViews(page.Navigation)
+				<main>
+					<h1>{ page.State.SessionTitle }</h1>
+					<p><a href={ templ.SafeURL("/backstage/events/" + strconv.Itoa(page.Event.ID) + "/planning") }>Back to planning</a></p>
+					if page.Error != "" {
+						<p class="error" role="alert">{ page.Error }</p>
+					}
+					if page.State.SubmitterAccountID == 0 {
+						<p><strong>Submitter:</strong> Crew Managed</p>
+					} else {
+						<p><strong>Submitter Account:</strong> #{ strconv.Itoa(page.State.SubmitterAccountID) }</p>
+					}
+					<p><strong>Speaker credit:</strong> { page.State.Speaker }</p>
+					<p>{ page.State.PublicDetails }</p>
+					<form method="post">
+						<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+						<input type="hidden" name="action" value="assign-submitter"/>
+						<input type="hidden" name="command_id" value={ page.CommandID }/>
+						<input type="hidden" name="expected_revision" value={ strconv.Itoa(page.State.Revision) }/>
+						<label>Submitter Account
+							<select name="account_id" required>
+								for _, account := range page.Accounts {
+									<option
+										value={ strconv.Itoa(account.ID) }
+										selected?={ account.ID == page.State.SubmitterAccountID }
+									>{ "@" + account.Handle + " — " + account.Name }</option>
+								}
+							</select>
+						</label>
+						<button type="submit">Assign or replace Submitter Account</button>
+					</form>
+					<form class="stack" method="post">
+						<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+						<input type="hidden" name="action" value="create-reopen-window"/>
+						<input type="hidden" name="command_id" value={ page.CommandID }/>
+						<label>Reopen reason <input name="reason" required/></label>
+						<label>
+							Expires at ({ page.Event.Timezone })
+							<input type="datetime-local" name="expires_at" required/>
+						</label>
+						<button type="submit">Create bounded Reopen Window</button>
+					</form>
+				</main>
+			</div>
+		</body>
+	</html>
+}

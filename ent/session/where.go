@@ -115,6 +115,16 @@ func CorrectedPublicDetails(v string) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldCorrectedPublicDetails, v))
 }
 
+// SubmitterAccountID applies equality check predicate on the "submitter_account_id" field. It's identical to SubmitterAccountIDEQ.
+func SubmitterAccountID(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldSubmitterAccountID, v))
+}
+
+// PresentationSubmissionRevision applies equality check predicate on the "presentation_submission_revision" field. It's identical to PresentationSubmissionRevisionEQ.
+func PresentationSubmissionRevision(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldPresentationSubmissionRevision, v))
+}
+
 // RequireEntryReview applies equality check predicate on the "require_entry_review" field. It's identical to RequireEntryReviewEQ.
 func RequireEntryReview(v bool) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldRequireEntryReview, v))
@@ -905,6 +915,76 @@ func CorrectedPublicDetailsContainsFold(v string) predicate.Session {
 	return predicate.Session(sql.FieldContainsFold(FieldCorrectedPublicDetails, v))
 }
 
+// SubmitterAccountIDEQ applies the EQ predicate on the "submitter_account_id" field.
+func SubmitterAccountIDEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldSubmitterAccountID, v))
+}
+
+// SubmitterAccountIDNEQ applies the NEQ predicate on the "submitter_account_id" field.
+func SubmitterAccountIDNEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldSubmitterAccountID, v))
+}
+
+// SubmitterAccountIDIn applies the In predicate on the "submitter_account_id" field.
+func SubmitterAccountIDIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldSubmitterAccountID, vs...))
+}
+
+// SubmitterAccountIDNotIn applies the NotIn predicate on the "submitter_account_id" field.
+func SubmitterAccountIDNotIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldSubmitterAccountID, vs...))
+}
+
+// SubmitterAccountIDIsNil applies the IsNil predicate on the "submitter_account_id" field.
+func SubmitterAccountIDIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldSubmitterAccountID))
+}
+
+// SubmitterAccountIDNotNil applies the NotNil predicate on the "submitter_account_id" field.
+func SubmitterAccountIDNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldSubmitterAccountID))
+}
+
+// PresentationSubmissionRevisionEQ applies the EQ predicate on the "presentation_submission_revision" field.
+func PresentationSubmissionRevisionEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldPresentationSubmissionRevision, v))
+}
+
+// PresentationSubmissionRevisionNEQ applies the NEQ predicate on the "presentation_submission_revision" field.
+func PresentationSubmissionRevisionNEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldPresentationSubmissionRevision, v))
+}
+
+// PresentationSubmissionRevisionIn applies the In predicate on the "presentation_submission_revision" field.
+func PresentationSubmissionRevisionIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldPresentationSubmissionRevision, vs...))
+}
+
+// PresentationSubmissionRevisionNotIn applies the NotIn predicate on the "presentation_submission_revision" field.
+func PresentationSubmissionRevisionNotIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldPresentationSubmissionRevision, vs...))
+}
+
+// PresentationSubmissionRevisionGT applies the GT predicate on the "presentation_submission_revision" field.
+func PresentationSubmissionRevisionGT(v int) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldPresentationSubmissionRevision, v))
+}
+
+// PresentationSubmissionRevisionGTE applies the GTE predicate on the "presentation_submission_revision" field.
+func PresentationSubmissionRevisionGTE(v int) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldPresentationSubmissionRevision, v))
+}
+
+// PresentationSubmissionRevisionLT applies the LT predicate on the "presentation_submission_revision" field.
+func PresentationSubmissionRevisionLT(v int) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldPresentationSubmissionRevision, v))
+}
+
+// PresentationSubmissionRevisionLTE applies the LTE predicate on the "presentation_submission_revision" field.
+func PresentationSubmissionRevisionLTE(v int) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldPresentationSubmissionRevision, v))
+}
+
 // RequireEntryReviewEQ applies the EQ predicate on the "require_entry_review" field.
 func RequireEntryReviewEQ(v bool) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldRequireEntryReview, v))
@@ -1688,6 +1768,29 @@ func HasFavorites() predicate.Session {
 func HasFavoritesWith(preds ...predicate.FavoriteSession) predicate.Session {
 	return predicate.Session(func(s *sql.Selector) {
 		step := newFavoritesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasSubmitter applies the HasEdge predicate on the "submitter" edge.
+func HasSubmitter() predicate.Session {
+	return predicate.Session(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, SubmitterTable, SubmitterColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSubmitterWith applies the HasEdge predicate on the "submitter" edge with a given conditions (other predicates).
+func HasSubmitterWith(preds ...predicate.Account) predicate.Session {
+	return predicate.Session(func(s *sql.Selector) {
+		step := newSubmitterStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

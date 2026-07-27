@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/competitionresultsdraft"
 	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
@@ -215,6 +216,34 @@ func (_c *SessionCreate) SetCorrectedPublicDetails(v string) *SessionCreate {
 func (_c *SessionCreate) SetNillableCorrectedPublicDetails(v *string) *SessionCreate {
 	if v != nil {
 		_c.SetCorrectedPublicDetails(*v)
+	}
+	return _c
+}
+
+// SetSubmitterAccountID sets the "submitter_account_id" field.
+func (_c *SessionCreate) SetSubmitterAccountID(v int) *SessionCreate {
+	_c.mutation.SetSubmitterAccountID(v)
+	return _c
+}
+
+// SetNillableSubmitterAccountID sets the "submitter_account_id" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableSubmitterAccountID(v *int) *SessionCreate {
+	if v != nil {
+		_c.SetSubmitterAccountID(*v)
+	}
+	return _c
+}
+
+// SetPresentationSubmissionRevision sets the "presentation_submission_revision" field.
+func (_c *SessionCreate) SetPresentationSubmissionRevision(v int) *SessionCreate {
+	_c.mutation.SetPresentationSubmissionRevision(v)
+	return _c
+}
+
+// SetNillablePresentationSubmissionRevision sets the "presentation_submission_revision" field if the given value is not nil.
+func (_c *SessionCreate) SetNillablePresentationSubmissionRevision(v *int) *SessionCreate {
+	if v != nil {
+		_c.SetPresentationSubmissionRevision(*v)
 	}
 	return _c
 }
@@ -586,6 +615,25 @@ func (_c *SessionCreate) AddFavorites(v ...*FavoriteSession) *SessionCreate {
 	return _c.AddFavoriteIDs(ids...)
 }
 
+// SetSubmitterID sets the "submitter" edge to the Account entity by ID.
+func (_c *SessionCreate) SetSubmitterID(id int) *SessionCreate {
+	_c.mutation.SetSubmitterID(id)
+	return _c
+}
+
+// SetNillableSubmitterID sets the "submitter" edge to the Account entity by ID if the given value is not nil.
+func (_c *SessionCreate) SetNillableSubmitterID(id *int) *SessionCreate {
+	if id != nil {
+		_c = _c.SetSubmitterID(*id)
+	}
+	return _c
+}
+
+// SetSubmitter sets the "submitter" edge to the Account entity.
+func (_c *SessionCreate) SetSubmitter(v *Account) *SessionCreate {
+	return _c.SetSubmitterID(v.ID)
+}
+
 // AddCompetitionEntryIDs adds the "competition_entries" edge to the CompetitionEntry entity by IDs.
 func (_c *SessionCreate) AddCompetitionEntryIDs(ids ...int) *SessionCreate {
 	_c.mutation.AddCompetitionEntryIDs(ids...)
@@ -714,6 +762,10 @@ func (_c *SessionCreate) defaults() error {
 		v := session.DefaultLiveStateRevision
 		_c.mutation.SetLiveStateRevision(v)
 	}
+	if _, ok := _c.mutation.PresentationSubmissionRevision(); !ok {
+		v := session.DefaultPresentationSubmissionRevision
+		_c.mutation.SetPresentationSubmissionRevision(v)
+	}
 	if _, ok := _c.mutation.RequireEntryReview(); !ok {
 		v := session.DefaultRequireEntryReview
 		_c.mutation.SetRequireEntryReview(v)
@@ -808,6 +860,19 @@ func (_c *SessionCreate) check() error {
 	if v, ok := _c.mutation.CorrectedPublicDetails(); ok {
 		if err := session.CorrectedPublicDetailsValidator(v); err != nil {
 			return &ValidationError{Name: "corrected_public_details", err: fmt.Errorf(`ent: validator failed for field "Session.corrected_public_details": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.SubmitterAccountID(); ok {
+		if err := session.SubmitterAccountIDValidator(v); err != nil {
+			return &ValidationError{Name: "submitter_account_id", err: fmt.Errorf(`ent: validator failed for field "Session.submitter_account_id": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.PresentationSubmissionRevision(); !ok {
+		return &ValidationError{Name: "presentation_submission_revision", err: errors.New(`ent: missing required field "Session.presentation_submission_revision"`)}
+	}
+	if v, ok := _c.mutation.PresentationSubmissionRevision(); ok {
+		if err := session.PresentationSubmissionRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "presentation_submission_revision", err: fmt.Errorf(`ent: validator failed for field "Session.presentation_submission_revision": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.RequireEntryReview(); !ok {
@@ -982,6 +1047,10 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.CorrectedPublicDetails(); ok {
 		_spec.SetField(session.FieldCorrectedPublicDetails, field.TypeString, value)
 		_node.CorrectedPublicDetails = &value
+	}
+	if value, ok := _c.mutation.PresentationSubmissionRevision(); ok {
+		_spec.SetField(session.FieldPresentationSubmissionRevision, field.TypeInt, value)
+		_node.PresentationSubmissionRevision = value
 	}
 	if value, ok := _c.mutation.RequireEntryReview(); ok {
 		_spec.SetField(session.FieldRequireEntryReview, field.TypeBool, value)
@@ -1174,6 +1243,23 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.SubmitterIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   session.SubmitterTable,
+			Columns: []string{session.SubmitterColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.SubmitterAccountID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.CompetitionEntriesIDs(); len(nodes) > 0 {

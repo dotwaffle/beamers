@@ -1,0 +1,198 @@
+package server
+
+import (
+	"errors"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/dotwaffle/beamers/internal/attachments"
+	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/command"
+	"github.com/dotwaffle/beamers/internal/frontend"
+	"github.com/dotwaffle/beamers/internal/presentation"
+)
+
+func (handlers entryHandlers) presentationSubmission(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	actor, ok := handlers.browser.browserAccount(response, request)
+	if !ok {
+		return
+	}
+	eventID, eventErr := positivePathID(request, "eventID")
+	sessionID, sessionErr := positivePathID(request, "sessionID")
+	if eventErr != nil || sessionErr != nil || !actor.CanProduceEvent(eventID) {
+		http.NotFound(response, request)
+		return
+	}
+	csrfToken, err := handlers.browser.csrfToken(response, request)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+		return
+	}
+	switch request.Method {
+	case http.MethodGet, http.MethodHead:
+		handlers.renderPresentationSubmission(
+			response,
+			request,
+			actor,
+			eventID,
+			sessionID,
+			csrfToken,
+			http.StatusOK,
+			"",
+		)
+	case http.MethodPost:
+		if !handlers.browser.validForm(response, request) {
+			return
+		}
+		err = handlers.submitPresentationSubmission(request, actor, eventID, sessionID)
+		if err == nil {
+			http.Redirect(
+				response,
+				request,
+				"/backstage/events/"+strconv.Itoa(eventID)+
+					"/presentations/"+strconv.Itoa(sessionID)+"/submission",
+				http.StatusSeeOther,
+			)
+			return
+		}
+		status, message := presentationSubmissionError(err)
+		handlers.renderPresentationSubmission(
+			response,
+			request,
+			actor,
+			eventID,
+			sessionID,
+			csrfToken,
+			status,
+			message,
+		)
+	default:
+		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
+	}
+}
+
+func (handlers entryHandlers) submitPresentationSubmission(
+	request *http.Request,
+	actor auth.Account,
+	eventID, sessionID int,
+) error {
+	switch request.Form.Get("action") {
+	case "assign-submitter":
+		revision, err := entryFormNonnegativeInt(request, "expected_revision")
+		if err != nil {
+			return err
+		}
+		accountID, err := entryFormPositiveInt(request, "account_id")
+		if err != nil {
+			return err
+		}
+		_, err = handlers.presentation.AssignSubmitter(
+			request.Context(),
+			actor,
+			presentation.AssignSubmitterInput{
+				EventID: eventID, SessionID: sessionID, AccountID: accountID,
+				ExpectedRevision: revision, CommandID: request.Form.Get("command_id"),
+			},
+		)
+		return err
+	case "create-reopen-window":
+		foundEvent, err := handlers.events.CrewEvent(request.Context(), actor, eventID)
+		if err != nil {
+			return err
+		}
+		location, err := time.LoadLocation(foundEvent.Timezone)
+		if err != nil {
+			return err
+		}
+		expiresAt, err := time.ParseInLocation(
+			"2006-01-02T15:04",
+			strings.TrimSpace(request.Form.Get("expires_at")),
+			location,
+		)
+		if err != nil {
+			return presentation.ErrInvalidInput
+		}
+		_, err = handlers.attachments.CreateReopenWindow(
+			request.Context(),
+			actor,
+			attachments.ReopenInput{
+				EventID: eventID, TargetID: sessionID,
+				TargetType: attachments.TargetPresentation,
+				Reason:     request.Form.Get("reason"), ExpiresAt: expiresAt.UTC(),
+				CommandID: request.Form.Get("command_id"),
+			},
+		)
+		return err
+	default:
+		return presentation.ErrInvalidInput
+	}
+}
+
+func (handlers entryHandlers) renderPresentationSubmission(
+	response http.ResponseWriter,
+	request *http.Request,
+	actor auth.Account,
+	eventID, sessionID int,
+	csrfToken string,
+	status int,
+	message string,
+) {
+	foundEvent, err := handlers.events.CrewEvent(request.Context(), actor, eventID)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "read Presentation Event", err)
+		return
+	}
+	state, err := handlers.presentation.Get(request.Context(), actor, eventID, sessionID)
+	if err != nil {
+		if errors.Is(err, presentation.ErrPresentationNotFound) {
+			http.NotFound(response, request)
+			return
+		}
+		handlers.browser.frontendError(response, request, "read Presentation submission", err)
+		return
+	}
+	accounts, err := handlers.presentation.AssignableAccounts(request.Context(), actor, eventID)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "list Presentation Submitter Accounts", err)
+		return
+	}
+	commandID, err := planningCommandID(handlers.browser.random)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "create Presentation command identity", err)
+		return
+	}
+	handlers.browser.render(response, request, status, frontend.PresentationSubmission(
+		frontend.PresentationSubmissionPage{
+			AccountName: actor.Name, CSRFToken: csrfToken,
+			ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
+			CommandID: commandID, Event: foundEvent, State: state, Accounts: accounts, Error: message,
+		},
+	))
+}
+
+func presentationSubmissionError(err error) (int, string) {
+	switch {
+	case errors.Is(err, attachments.ErrInvalidInput),
+		errors.Is(err, attachments.ErrReopenWindowExtension),
+		errors.Is(err, presentation.ErrInvalidInput),
+		errors.Is(err, command.ErrInvalidID):
+		return http.StatusUnprocessableEntity, "Check the Presentation submission and try again."
+	case errors.Is(err, attachments.ErrReopenWindowRevision),
+		errors.Is(err, attachments.ErrCommandConflict),
+		errors.Is(err, presentation.ErrRevisionConflict),
+		errors.Is(err, presentation.ErrCommandConflict):
+		return http.StatusConflict, "Presentation submission changed. Reload and try again."
+	case errors.Is(err, attachments.ErrProducerRequired),
+		errors.Is(err, attachments.ErrUploadTargetNotFound),
+		errors.Is(err, presentation.ErrProducerRequired),
+		errors.Is(err, presentation.ErrPresentationNotFound):
+		return http.StatusNotFound, "Presentation not found."
+	default:
+		return http.StatusInternalServerError, "Presentation submission action failed."
+	}
+}

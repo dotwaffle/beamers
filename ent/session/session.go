@@ -46,6 +46,10 @@ const (
 	FieldCorrectedSpeaker = "corrected_speaker"
 	// FieldCorrectedPublicDetails holds the string denoting the corrected_public_details field in the database.
 	FieldCorrectedPublicDetails = "corrected_public_details"
+	// FieldSubmitterAccountID holds the string denoting the submitter_account_id field in the database.
+	FieldSubmitterAccountID = "submitter_account_id"
+	// FieldPresentationSubmissionRevision holds the string denoting the presentation_submission_revision field in the database.
+	FieldPresentationSubmissionRevision = "presentation_submission_revision"
 	// FieldRequireEntryReview holds the string denoting the require_entry_review field in the database.
 	FieldRequireEntryReview = "require_entry_review"
 	// FieldSubmissionEligibilityOverride holds the string denoting the submission_eligibility_override field in the database.
@@ -100,6 +104,8 @@ const (
 	EdgePublicScheduleBaselineEntry = "public_schedule_baseline_entry"
 	// EdgeFavorites holds the string denoting the favorites edge name in mutations.
 	EdgeFavorites = "favorites"
+	// EdgeSubmitter holds the string denoting the submitter edge name in mutations.
+	EdgeSubmitter = "submitter"
 	// EdgeCompetitionEntries holds the string denoting the competition_entries edge name in mutations.
 	EdgeCompetitionEntries = "competition_entries"
 	// EdgeCompetitionResultsDrafts holds the string denoting the competition_results_drafts edge name in mutations.
@@ -161,6 +167,13 @@ const (
 	FavoritesInverseTable = "favorite_sessions"
 	// FavoritesColumn is the table column denoting the favorites relation/edge.
 	FavoritesColumn = "session_id"
+	// SubmitterTable is the table that holds the submitter relation/edge.
+	SubmitterTable = "sessions"
+	// SubmitterInverseTable is the table name for the Account entity.
+	// It exists in this package in order to avoid circular dependency with the "account" package.
+	SubmitterInverseTable = "accounts"
+	// SubmitterColumn is the table column denoting the submitter relation/edge.
+	SubmitterColumn = "submitter_account_id"
 	// CompetitionEntriesTable is the table that holds the competition_entries relation/edge.
 	CompetitionEntriesTable = "competition_entries"
 	// CompetitionEntriesInverseTable is the table name for the CompetitionEntry entity.
@@ -216,6 +229,8 @@ var Columns = []string{
 	FieldCorrectedTitle,
 	FieldCorrectedSpeaker,
 	FieldCorrectedPublicDetails,
+	FieldSubmitterAccountID,
+	FieldPresentationSubmissionRevision,
 	FieldRequireEntryReview,
 	FieldSubmissionEligibilityOverride,
 	FieldSubmissionEligibilityRevision,
@@ -270,6 +285,12 @@ var (
 	CorrectedSpeakerValidator func(string) error
 	// CorrectedPublicDetailsValidator is a validator for the "corrected_public_details" field. It is called by the builders before save.
 	CorrectedPublicDetailsValidator func(string) error
+	// SubmitterAccountIDValidator is a validator for the "submitter_account_id" field. It is called by the builders before save.
+	SubmitterAccountIDValidator func(int) error
+	// DefaultPresentationSubmissionRevision holds the default value on creation for the "presentation_submission_revision" field.
+	DefaultPresentationSubmissionRevision int
+	// PresentationSubmissionRevisionValidator is a validator for the "presentation_submission_revision" field. It is called by the builders before save.
+	PresentationSubmissionRevisionValidator func(int) error
 	// DefaultRequireEntryReview holds the default value on creation for the "require_entry_review" field.
 	DefaultRequireEntryReview bool
 	// DefaultSubmissionEligibilityRevision holds the default value on creation for the "submission_eligibility_revision" field.
@@ -509,6 +530,16 @@ func ByCorrectedPublicDetails(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCorrectedPublicDetails, opts...).ToFunc()
 }
 
+// BySubmitterAccountID orders the results by the submitter_account_id field.
+func BySubmitterAccountID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSubmitterAccountID, opts...).ToFunc()
+}
+
+// ByPresentationSubmissionRevision orders the results by the presentation_submission_revision field.
+func ByPresentationSubmissionRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPresentationSubmissionRevision, opts...).ToFunc()
+}
+
 // ByRequireEntryReview orders the results by the require_entry_review field.
 func ByRequireEntryReview(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRequireEntryReview, opts...).ToFunc()
@@ -671,6 +702,13 @@ func ByFavorites(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// BySubmitterField orders the results by submitter field.
+func BySubmitterField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSubmitterStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // ByCompetitionEntriesCount orders the results by competition_entries count.
 func ByCompetitionEntriesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -773,6 +811,13 @@ func newFavoritesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(FavoritesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, FavoritesTable, FavoritesColumn),
+	)
+}
+func newSubmitterStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SubmitterInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, SubmitterTable, SubmitterColumn),
 	)
 }
 func newCompetitionEntriesStep() *sqlgraph.Step {

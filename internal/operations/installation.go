@@ -19,6 +19,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/displays"
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/overrides"
+	"github.com/dotwaffle/beamers/internal/presentation"
 	"github.com/dotwaffle/beamers/internal/programcontrol"
 	"github.com/dotwaffle/beamers/internal/results"
 	"github.com/dotwaffle/beamers/internal/rundown"
@@ -53,6 +54,7 @@ type Installation struct {
 	events           *events.Service
 	overrides        *overrides.Service
 	programControl   *programcontrol.Service
+	presentation     *presentation.Service
 	results          *results.Service
 	rundownCommands  *rundown.Commands
 	rundownQueries   *rundown.Queries
@@ -236,6 +238,11 @@ func OpenInstallationWithConfig(
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.competition = competitionService
+	presentationService, err := presentation.New(storage, time.Now)
+	if err != nil {
+		return nil, errors.Join(err, installation.Close())
+	}
+	installation.presentation = presentationService
 	resultsService, err := results.New(storage, time.Now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
@@ -399,6 +406,12 @@ func (installation *Installation) Displays() *displays.Service {
 // It is nil only while the installation is restricted to recovery mode.
 func (installation *Installation) ProgramControl() *programcontrol.Service {
 	return installation.programControl
+}
+
+// Presentation returns assigned Presentation submission control.
+// It is nil only while the installation is restricted to recovery mode.
+func (installation *Installation) Presentation() *presentation.Service {
+	return installation.presentation
 }
 
 // Results returns unreleased Competition Results Draft control.

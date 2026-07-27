@@ -184,6 +184,14 @@ var migrationContracts = map[int]migrationContract{
 		minimumWriter: 57,
 		consequence:   "adds Account-owned Competition Entries and Submission Eligibility",
 	},
+	58: {
+		name:          "presentation_submitters",
+		checksum:      "d957f398c134984a1cab03eb0efd8fdbb70e5bce84c555f00edc27868ff00ada",
+		safety:        MigrationNonDestructive,
+		minimumReader: 58,
+		minimumWriter: 58,
+		consequence:   "adds Account assignment and approved-content revisions to Presentations",
+	},
 }
 
 // MigrationStep is one exact committed migration in an upgrade plan.

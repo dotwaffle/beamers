@@ -26,6 +26,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/recoverycode"
 	"github.com/dotwaffle/beamers/ent/recoverytoken"
+	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
 	"github.com/dotwaffle/beamers/ent/webauthncredential"
 )
@@ -266,6 +267,21 @@ func (_u *AccountUpdate) AddCompetitionEntries(v ...*CompetitionEntry) *AccountU
 		ids[i] = v[i].ID
 	}
 	return _u.AddCompetitionEntryIDs(ids...)
+}
+
+// AddSubmittedPresentationIDs adds the "submitted_presentations" edge to the Session entity by IDs.
+func (_u *AccountUpdate) AddSubmittedPresentationIDs(ids ...int) *AccountUpdate {
+	_u.mutation.AddSubmittedPresentationIDs(ids...)
+	return _u
+}
+
+// AddSubmittedPresentations adds the "submitted_presentations" edges to the Session entity.
+func (_u *AccountUpdate) AddSubmittedPresentations(v ...*Session) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSubmittedPresentationIDs(ids...)
 }
 
 // AddVotingEligibilityIDs adds the "voting_eligibilities" edge to the VotingEligibility entity by IDs.
@@ -517,6 +533,27 @@ func (_u *AccountUpdate) RemoveCompetitionEntries(v ...*CompetitionEntry) *Accou
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveCompetitionEntryIDs(ids...)
+}
+
+// ClearSubmittedPresentations clears all "submitted_presentations" edges to the Session entity.
+func (_u *AccountUpdate) ClearSubmittedPresentations() *AccountUpdate {
+	_u.mutation.ClearSubmittedPresentations()
+	return _u
+}
+
+// RemoveSubmittedPresentationIDs removes the "submitted_presentations" edge to Session entities by IDs.
+func (_u *AccountUpdate) RemoveSubmittedPresentationIDs(ids ...int) *AccountUpdate {
+	_u.mutation.RemoveSubmittedPresentationIDs(ids...)
+	return _u
+}
+
+// RemoveSubmittedPresentations removes "submitted_presentations" edges to Session entities.
+func (_u *AccountUpdate) RemoveSubmittedPresentations(v ...*Session) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSubmittedPresentationIDs(ids...)
 }
 
 // ClearVotingEligibilities clears all "voting_eligibilities" edges to the VotingEligibility entity.
@@ -1119,6 +1156,51 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.SubmittedPresentationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.SubmittedPresentationsTable,
+			Columns: []string{account.SubmittedPresentationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSubmittedPresentationsIDs(); len(nodes) > 0 && !_u.mutation.SubmittedPresentationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.SubmittedPresentationsTable,
+			Columns: []string{account.SubmittedPresentationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SubmittedPresentationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.SubmittedPresentationsTable,
+			Columns: []string{account.SubmittedPresentationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.VotingEligibilitiesCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -1544,6 +1626,21 @@ func (_u *AccountUpdateOne) AddCompetitionEntries(v ...*CompetitionEntry) *Accou
 	return _u.AddCompetitionEntryIDs(ids...)
 }
 
+// AddSubmittedPresentationIDs adds the "submitted_presentations" edge to the Session entity by IDs.
+func (_u *AccountUpdateOne) AddSubmittedPresentationIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.AddSubmittedPresentationIDs(ids...)
+	return _u
+}
+
+// AddSubmittedPresentations adds the "submitted_presentations" edges to the Session entity.
+func (_u *AccountUpdateOne) AddSubmittedPresentations(v ...*Session) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSubmittedPresentationIDs(ids...)
+}
+
 // AddVotingEligibilityIDs adds the "voting_eligibilities" edge to the VotingEligibility entity by IDs.
 func (_u *AccountUpdateOne) AddVotingEligibilityIDs(ids ...int) *AccountUpdateOne {
 	_u.mutation.AddVotingEligibilityIDs(ids...)
@@ -1793,6 +1890,27 @@ func (_u *AccountUpdateOne) RemoveCompetitionEntries(v ...*CompetitionEntry) *Ac
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveCompetitionEntryIDs(ids...)
+}
+
+// ClearSubmittedPresentations clears all "submitted_presentations" edges to the Session entity.
+func (_u *AccountUpdateOne) ClearSubmittedPresentations() *AccountUpdateOne {
+	_u.mutation.ClearSubmittedPresentations()
+	return _u
+}
+
+// RemoveSubmittedPresentationIDs removes the "submitted_presentations" edge to Session entities by IDs.
+func (_u *AccountUpdateOne) RemoveSubmittedPresentationIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.RemoveSubmittedPresentationIDs(ids...)
+	return _u
+}
+
+// RemoveSubmittedPresentations removes "submitted_presentations" edges to Session entities.
+func (_u *AccountUpdateOne) RemoveSubmittedPresentations(v ...*Session) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSubmittedPresentationIDs(ids...)
 }
 
 // ClearVotingEligibilities clears all "voting_eligibilities" edges to the VotingEligibility entity.
@@ -2418,6 +2536,51 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SubmittedPresentationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.SubmittedPresentationsTable,
+			Columns: []string{account.SubmittedPresentationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSubmittedPresentationsIDs(); len(nodes) > 0 && !_u.mutation.SubmittedPresentationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.SubmittedPresentationsTable,
+			Columns: []string{account.SubmittedPresentationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SubmittedPresentationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.SubmittedPresentationsTable,
+			Columns: []string{account.SubmittedPresentationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

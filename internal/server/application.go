@@ -700,6 +700,7 @@ func (application *application) buildHandler(
 		mux,
 		installation.Authentication(),
 		installation.Competition(),
+		installation.Presentation(),
 		installation.Attachments(),
 		installation.ProgramControl(),
 		installation.Events(),

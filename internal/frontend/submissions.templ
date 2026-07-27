@@ -5,6 +5,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/attachments"
 	"github.com/dotwaffle/beamers/internal/competition"
+	"github.com/dotwaffle/beamers/internal/presentation"
 )
 
 type SubmissionsPage struct {
@@ -14,24 +15,33 @@ type SubmissionsPage struct {
 	Backstage      bool
 	CommandID      string
 	Competitions   []competition.SubmissionCompetition
+	Presentations  []presentation.Submission
 	Attachments    attachments.AccountState
 	Error          string
 }
 
-func submittedVersions(values []attachments.AccountVersion, entryID int) []attachments.AccountVersion {
+func submittedVersions(
+	values []attachments.AccountVersion,
+	targetType attachments.TargetKind,
+	targetID int,
+) []attachments.AccountVersion {
 	result := make([]attachments.AccountVersion, 0)
 	for _, value := range values {
-		if value.OwnerID == entryID {
+		if value.OwnerType == targetType && value.OwnerID == targetID {
 			result = append(result, value)
 		}
 	}
 	return result
 }
 
-func submittedReopenWindows(values []attachments.AccountReopenWindow, entryID int) []attachments.AccountReopenWindow {
+func submittedReopenWindows(
+	values []attachments.AccountReopenWindow,
+	targetType attachments.TargetKind,
+	targetID int,
+) []attachments.AccountReopenWindow {
 	result := make([]attachments.AccountReopenWindow, 0)
 	for _, value := range values {
-		if value.TargetID == entryID {
+		if value.TargetType == targetType && value.TargetID == targetID {
 			result = append(result, value)
 		}
 	}
@@ -41,13 +51,66 @@ func submittedReopenWindows(values []attachments.AccountReopenWindow, entryID in
 templ Submissions(page SubmissionsPage) {
 	<!doctype html>
 	<html lang="en">
-		@Head("Competition submissions · Beamers")
+		@Head("My submissions · Beamers")
 		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
 			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, page.Backstage)
 			<main>
-				<h1>Competition submissions</h1>
+				<h1>My submissions</h1>
 				if page.Error != "" {
 					<p class="error" role="alert">{ page.Error }</p>
+				}
+				for _, found := range page.Presentations {
+					<section>
+						<h2>{ found.EventName } — { found.SessionTitle }</h2>
+						if found.UploadDeadline.IsZero() {
+							<p>Submission access closes at Actual Start.</p>
+						} else {
+							<p>
+								Presentation Upload Deadline:
+								@EventTime(found.UploadDeadline, found.Timezone, found.EventLocale)
+							</p>
+						}
+						<form class="stack" method="post">
+							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+							<input type="hidden" name="action" value="update-presentation"/>
+							<input type="hidden" name="command_id" value={ page.CommandID }/>
+							<input type="hidden" name="event_id" value={ strconv.Itoa(found.EventID) }/>
+							<input type="hidden" name="session_id" value={ strconv.Itoa(found.SessionID) }/>
+							<input type="hidden" name="expected_revision" value={ strconv.Itoa(found.Revision) }/>
+							<label>Speaker credit <input name="speaker" value={ found.Speaker }/></label>
+							<label>Public details <textarea name="public_details">{ found.PublicDetails }</textarea></label>
+							<button type="submit">Update Presentation details</button>
+						</form>
+						<form class="stack" method="post" enctype="multipart/form-data" action={ templ.SafeURL("/submissions/" + strconv.Itoa(found.EventID) + "/presentations/" + strconv.Itoa(found.SessionID) + "/upload") }>
+							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+							<input type="hidden" name="command_id" value={ page.CommandID }/>
+							<label>Attachment name <input name="name" required/></label>
+							<label>File <input type="file" name="file" required/></label>
+							<label>
+								<input type="checkbox" name="crew_only" value="true"/>
+								Crew Only Release Eligibility
+							</label>
+							<button type="submit">Upload immutable Version</button>
+						</form>
+						<h3>Attachment Versions</h3>
+						if len(submittedVersions(page.Attachments.Versions, attachments.TargetPresentation, found.SessionID)) == 0 {
+							<p>No Attachment Versions.</p>
+						}
+						for _, version := range submittedVersions(page.Attachments.Versions, attachments.TargetPresentation, found.SessionID) {
+							<p>
+								{ version.Name } — Version { strconv.Itoa(version.Version) }:
+								{ version.OriginalFilename } · SHA-256 { version.SHA256 }
+							</p>
+						}
+						for _, window := range submittedReopenWindows(page.Attachments.ReopenWindows, attachments.TargetPresentation, found.SessionID) {
+							if window.ClosedAt.IsZero() {
+								<p>
+									Submission access reopened until
+									@EventTime(window.ExpiresAt, found.Timezone, found.EventLocale)
+								</p>
+							}
+						}
+					</section>
 				}
 				if len(page.Competitions) == 0 {
 					<p>No published Competitions are accepting submissions.</p>
@@ -100,16 +163,16 @@ templ Submissions(page SubmissionsPage) {
 									<button type="submit">Upload immutable Version</button>
 								</form>
 								<h4>Attachment Versions</h4>
-								if len(submittedVersions(page.Attachments.Versions, entry.ID)) == 0 {
+								if len(submittedVersions(page.Attachments.Versions, attachments.TargetEntry, entry.ID)) == 0 {
 									<p>No Attachment Versions.</p>
 								}
-								for _, version := range submittedVersions(page.Attachments.Versions, entry.ID) {
+								for _, version := range submittedVersions(page.Attachments.Versions, attachments.TargetEntry, entry.ID) {
 									<p>
 										{ version.Name } — Version { strconv.Itoa(version.Version) }:
 										{ version.OriginalFilename } · SHA-256 { version.SHA256 }
 									</p>
 								}
-								for _, window := range submittedReopenWindows(page.Attachments.ReopenWindows, entry.ID) {
+								for _, window := range submittedReopenWindows(page.Attachments.ReopenWindows, attachments.TargetEntry, entry.ID) {
 									if window.ClosedAt.IsZero() {
 										<p>
 											Submission access reopened until

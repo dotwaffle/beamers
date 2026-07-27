@@ -10,6 +10,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/attachmentversion"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/event"
+	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
@@ -106,22 +107,70 @@ type SaveAttachmentVersionParams struct {
 	Now                               time.Time
 }
 
-// AccountOwnsEntry reports exact Account ownership without exposing the target.
-func (installation *SQLite) AccountOwnsEntry(
+// AccountOwnsUploadTarget reports exact Account ownership without exposing the target.
+func (installation *SQLite) AccountOwnsUploadTarget(
 	ctx context.Context,
-	eventID, entryID, accountID int,
+	eventID int,
+	targetType UploadTargetKind,
+	targetID, accountID int,
 ) (bool, error) {
-	found, err := installation.client.CompetitionEntry.Query().
-		Where(
-			competitionentry.IDEQ(entryID),
-			competitionentry.EventIDEQ(eventID),
-			competitionentry.SubmitterAccountIDEQ(accountID),
-		).
-		Exist(systemContext(ctx))
-	if err != nil {
-		return false, opaqueError("authorize Account Attachment target", err)
+	return accountOwnsUploadTarget(
+		systemContext(ctx),
+		installation.client,
+		eventID,
+		targetType,
+		targetID,
+		accountID,
+	)
+}
+
+func accountOwnsUploadTarget(
+	ctx context.Context,
+	client *ent.Client,
+	eventID int,
+	targetType UploadTargetKind,
+	targetID, accountID int,
+) (bool, error) {
+	switch targetType {
+	case UploadTargetEntry:
+		found, err := client.CompetitionEntry.Query().
+			Where(
+				competitionentry.IDEQ(targetID),
+				competitionentry.EventIDEQ(eventID),
+				competitionentry.SubmitterAccountIDEQ(accountID),
+			).
+			Exist(ctx)
+		if err != nil {
+			return false, opaqueError("authorize Account Attachment target", err)
+		}
+		return found, nil
+	case UploadTargetPresentation:
+		found, err := client.Session.Query().
+			Where(
+				session.IDEQ(targetID),
+				session.EventIDEQ(eventID),
+				session.SubmitterAccountIDEQ(accountID),
+			).
+			Exist(ctx)
+		if err != nil {
+			return false, opaqueError("authorize Account Attachment target", err)
+		}
+		if !found {
+			return false, nil
+		}
+		_, _, _, err = loadPresentationSubmission(
+			ctx,
+			client,
+			eventID,
+			targetID,
+		)
+		if errors.Is(err, ErrPresentationNotFound) {
+			return false, nil
+		}
+		return err == nil, err
+	default:
+		return false, nil
 	}
-	return found, nil
 }
 
 // ReopenWindow is one bounded target-specific upload exception.
@@ -155,6 +204,7 @@ type AccountAttachmentState struct {
 // AccountAttachmentVersion is submitter-visible immutable file metadata.
 type AccountAttachmentVersion struct {
 	OwnerID, Version       int
+	OwnerType              UploadTargetKind
 	Name, OriginalFilename string
 	SHA256                 string
 }
@@ -162,6 +212,7 @@ type AccountAttachmentVersion struct {
 // AccountReopenWindow is submitter-visible access state without Crew reasons.
 type AccountReopenWindow struct {
 	TargetID            int
+	TargetType          UploadTargetKind
 	ExpiresAt, ClosedAt time.Time
 }
 
@@ -420,30 +471,29 @@ func (transaction *CommandTx) SaveAttachmentVersion(
 			return AttachmentVersion{}, ErrUploadClosed
 		}
 	case "Account":
-		if params.Authorization.TargetType != UploadTargetEntry {
-			return AttachmentVersion{}, ErrUploadTargetNotFound
-		}
-		entry, err := transaction.transaction.CompetitionEntry.Query().Where(
-			competitionentry.IDEQ(params.Authorization.TargetID),
-			competitionentry.EventIDEQ(params.Authorization.EventID),
-			competitionentry.SubmitterAccountIDEQ(params.UploaderID),
-		).Only(internalContext)
-		if ent.IsNotFound(err) {
-			return AttachmentVersion{}, ErrUploadTargetNotFound
-		}
+		owned, err := accountOwnsUploadTarget(
+			internalContext,
+			transaction.transaction.Client(),
+			params.Authorization.EventID,
+			params.Authorization.TargetType,
+			params.Authorization.TargetID,
+			params.UploaderID,
+		)
 		if err != nil {
-			return AttachmentVersion{}, opaqueError("authorize Account Attachment upload", err)
+			return AttachmentVersion{}, err
+		}
+		if !owned {
+			return AttachmentVersion{}, ErrUploadTargetNotFound
 		}
 		open, err := uploadTargetOpen(
 			internalContext,
 			transaction.transaction.Client(),
-			UploadAuthorization{
-				EventID:    params.Authorization.EventID,
-				TargetType: UploadTargetEntry,
-				TargetID:   entry.ID,
-			},
+			params.Authorization,
 			params.Now,
 		)
+		if errors.Is(err, ErrUploadLinkInvalid) {
+			return AttachmentVersion{}, ErrUploadTargetNotFound
+		}
 		if err != nil {
 			return AttachmentVersion{}, err
 		}
@@ -637,7 +687,7 @@ func (installation *SQLite) LoadCompetitionAttachmentCrewState(
 	return result, nil
 }
 
-// LoadAccountAttachmentState returns file metadata for only one Account's Entries.
+// LoadAccountAttachmentState returns file metadata for only one Account's submitted content.
 func (installation *SQLite) LoadAccountAttachmentState(
 	ctx context.Context,
 	accountID int,
@@ -657,13 +707,36 @@ func (installation *SQLite) LoadAccountAttachmentState(
 	for _, entry := range entries {
 		entryIDs = append(entryIDs, entry.ID)
 	}
-	if len(entryIDs) == 0 {
+	presentations, err := installation.LoadAccountPresentationSubmissions(
+		internalContext,
+		accountID,
+	)
+	if err != nil {
+		return AccountAttachmentState{}, err
+	}
+	presentationIDs := make([]int, 0, len(presentations))
+	for _, found := range presentations {
+		presentationIDs = append(presentationIDs, found.SessionID)
+	}
+	if len(entryIDs) == 0 && len(presentationIDs) == 0 {
 		return AccountAttachmentState{}, nil
+	}
+	attachmentOwners := make([]predicate.Attachment, 0, 2)
+	if len(entryIDs) != 0 {
+		attachmentOwners = append(attachmentOwners, attachment.And(
+			attachment.OwnerTypeEQ(attachment.OwnerTypeEntry),
+			attachment.OwnerIDIn(entryIDs...),
+		))
+	}
+	if len(presentationIDs) != 0 {
+		attachmentOwners = append(attachmentOwners, attachment.And(
+			attachment.OwnerTypeEQ(attachment.OwnerTypePresentation),
+			attachment.OwnerIDIn(presentationIDs...),
+		))
 	}
 	versions, err := installation.client.AttachmentVersion.Query().
 		Where(attachmentversion.HasAttachmentWith(
-			attachment.OwnerTypeEQ(attachment.OwnerTypeEntry),
-			attachment.OwnerIDIn(entryIDs...),
+			attachment.Or(attachmentOwners...),
 		)).
 		WithAttachment().
 		Order(ent.Asc(attachmentversion.FieldID)).
@@ -687,15 +760,26 @@ func (installation *SQLite) LoadAccountAttachmentState(
 		}
 		result.Versions = append(result.Versions, AccountAttachmentVersion{
 			OwnerID: logical.OwnerID, Version: version.Version,
-			Name: logical.Name, OriginalFilename: version.OriginalFilename,
+			OwnerType: UploadTargetKind(logical.OwnerType.String()),
+			Name:      logical.Name, OriginalFilename: version.OriginalFilename,
 			SHA256: version.Sha256,
 		})
 	}
-	windows, err := installation.client.ReopenWindow.Query().
-		Where(
+	windowOwners := make([]predicate.ReopenWindow, 0, 2)
+	if len(entryIDs) != 0 {
+		windowOwners = append(windowOwners, reopenwindow.And(
 			reopenwindow.TargetTypeEQ(reopenwindow.TargetTypeEntry),
 			reopenwindow.TargetIDIn(entryIDs...),
-		).
+		))
+	}
+	if len(presentationIDs) != 0 {
+		windowOwners = append(windowOwners, reopenwindow.And(
+			reopenwindow.TargetTypeEQ(reopenwindow.TargetTypePresentation),
+			reopenwindow.TargetIDIn(presentationIDs...),
+		))
+	}
+	windows, err := installation.client.ReopenWindow.Query().
+		Where(reopenwindow.Or(windowOwners...)).
 		Order(ent.Asc(reopenwindow.FieldID)).
 		All(internalContext)
 	if err != nil {
@@ -707,7 +791,8 @@ func (installation *SQLite) LoadAccountAttachmentState(
 	result.ReopenWindows = make([]AccountReopenWindow, 0, len(windows))
 	for _, window := range windows {
 		result.ReopenWindows = append(result.ReopenWindows, AccountReopenWindow{
-			TargetID: window.TargetID, ExpiresAt: window.ExpiresAt, ClosedAt: window.ClosedAt,
+			TargetID: window.TargetID, TargetType: UploadTargetKind(window.TargetType.String()),
+			ExpiresAt: window.ExpiresAt, ClosedAt: window.ClosedAt,
 		})
 	}
 	return result, nil

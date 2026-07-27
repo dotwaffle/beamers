@@ -7,6 +7,7 @@ import (
 	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
 
 	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 )
@@ -47,6 +48,8 @@ func (Session) Fields() []ent.Field {
 		field.String("corrected_title").Optional().Nillable().MaxLen(200),
 		field.String("corrected_speaker").Optional().Nillable().MaxLen(200),
 		field.String("corrected_public_details").Optional().Nillable().MaxLen(10000),
+		field.Int("submitter_account_id").Optional().Nillable().Positive(),
+		field.Int("presentation_submission_revision").Default(0).NonNegative(),
 		field.Bool("require_entry_review").Default(false),
 		field.Enum("submission_eligibility_override").
 			Values("AllAccounts", "VotingEligibleAccounts").
@@ -95,10 +98,21 @@ func (Session) Edges() []ent.Edge {
 		edge.To("cancellations", SessionCancellation.Type),
 		edge.To("public_schedule_baseline_entry", PublicScheduleBaselineEntry.Type).Unique(),
 		edge.To("favorites", FavoriteSession.Type),
+		edge.From("submitter", Account.Type).
+			Ref("submitted_presentations").
+			Field("submitter_account_id").
+			Unique(),
 		edge.To("competition_entries", CompetitionEntry.Type),
 		edge.To("competition_results_drafts", CompetitionResultsDraft.Type),
 		edge.To("competition_result_standings", CompetitionResultStanding.Type),
 		edge.To("prizegiving", Prizegiving.Type).Unique(),
 		edge.To("prizegiving_assignment", PrizegivingCompetition.Type).Unique(),
+	}
+}
+
+// Indexes supports Account-owned Presentation lookup.
+func (Session) Indexes() []ent.Index {
+	return []ent.Index{
+		index.Fields("submitter_account_id"),
 	}
 }

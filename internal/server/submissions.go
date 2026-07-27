@@ -1,12 +1,15 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/dotwaffle/beamers/internal/attachments"
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/competition"
 	"github.com/dotwaffle/beamers/internal/frontend"
+	"github.com/dotwaffle/beamers/internal/presentation"
 )
 
 func (handlers entryHandlers) submissions(response http.ResponseWriter, request *http.Request) {
@@ -32,7 +35,7 @@ func (handlers entryHandlers) submissions(response http.ResponseWriter, request 
 			http.Redirect(response, request, "/submissions", http.StatusSeeOther)
 			return
 		}
-		status, message := entryError(err)
+		status, message := submissionError(err)
 		handlers.renderSubmissions(response, request, actor, csrfToken, status, message)
 	default:
 		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
@@ -78,15 +81,45 @@ func (handlers entryHandlers) submitSubmission(
 				PublicDetails: request.Form.Get("public_details"),
 			},
 		)
+	case "update-presentation":
+		revision, targetErr := entryFormNonnegativeInt(request, "expected_revision")
+		if targetErr != nil {
+			return targetErr
+		}
+		_, err = handlers.presentation.UpdateSubmission(
+			request.Context(),
+			actor,
+			presentation.UpdateSubmissionInput{
+				EventID: eventID, SessionID: sessionID,
+				CommandID: request.Form.Get("command_id"), ExpectedRevision: revision,
+				Speaker: request.Form.Get("speaker"), PublicDetails: request.Form.Get("public_details"),
+			},
+		)
 	default:
 		err = competition.ErrInvalidInput
 	}
 	return err
 }
 
+func (handlers entryHandlers) entrySubmissionUpload(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	handlers.submissionUpload(response, request, attachments.TargetEntry, "entryID")
+}
+
+func (handlers entryHandlers) presentationSubmissionUpload(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	handlers.submissionUpload(response, request, attachments.TargetPresentation, "sessionID")
+}
+
 func (handlers entryHandlers) submissionUpload(
 	response http.ResponseWriter,
 	request *http.Request,
+	targetType attachments.TargetKind,
+	targetPathID string,
 ) {
 	actor, ok := handlers.browser.browserAccount(response, request)
 	if !ok {
@@ -97,8 +130,8 @@ func (handlers entryHandlers) submissionUpload(
 		return
 	}
 	eventID, eventErr := positivePathID(request, "eventID")
-	entryID, entryErr := positivePathID(request, "entryID")
-	if eventErr != nil || entryErr != nil {
+	targetID, targetErr := positivePathID(request, targetPathID)
+	if eventErr != nil || targetErr != nil {
 		http.NotFound(response, request)
 		return
 	}
@@ -108,7 +141,7 @@ func (handlers entryHandlers) submissionUpload(
 		return
 	}
 	if err := handlers.attachments.AuthorizeAccountUpload(
-		request.Context(), actor, eventID, entryID,
+		request.Context(), actor, eventID, targetType, targetID,
 	); err != nil {
 		http.NotFound(response, request)
 		return
@@ -130,7 +163,7 @@ func (handlers entryHandlers) submissionUpload(
 		request.Context(),
 		actor,
 		attachments.AccountUploadInput{
-			EventID: eventID, EntryID: entryID,
+			EventID: eventID, TargetType: targetType, TargetID: targetID,
 			CommandID: request.FormValue("command_id"), Name: name,
 			OriginalFilename: filename, MediaType: mediaType, Body: body,
 			CrewOnly: request.FormValue("crew_only") == "true",
@@ -157,7 +190,12 @@ func (handlers entryHandlers) renderSubmissions(
 		handlers.browser.frontendError(response, request, "read Account submissions", err)
 		return
 	}
-	attachmentState, err := handlers.attachments.SubmittedEntryState(request.Context(), actor)
+	presentations, err := handlers.presentation.Submissions(request.Context(), actor)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "read Account Presentations", err)
+		return
+	}
+	attachmentState, err := handlers.attachments.SubmittedState(request.Context(), actor)
 	if err != nil {
 		handlers.browser.frontendError(response, request, "read Account submission files", err)
 		return
@@ -173,7 +211,26 @@ func (handlers entryHandlers) renderSubmissions(
 			ReducedEffects: reducedEffectsCookie(request),
 			Backstage:      backstageAvailable(backstageNavigation(actor)),
 			CommandID:      commandID, Competitions: competitions,
-			Attachments: attachmentState, Error: message,
+			Presentations: presentations,
+			Attachments:   attachmentState, Error: message,
 		},
 	))
+}
+
+func submissionError(err error) (int, string) {
+	switch {
+	case errors.Is(err, presentation.ErrInvalidInput), errors.Is(err, command.ErrInvalidID):
+		return http.StatusUnprocessableEntity, "Check the Presentation details and try again."
+	case errors.Is(err, presentation.ErrAccessClosed):
+		return http.StatusGone, "Presentation submission access is closed."
+	case errors.Is(err, presentation.ErrRevisionConflict),
+		errors.Is(err, presentation.ErrCommandConflict):
+		return http.StatusConflict, "Presentation state changed. Reload and try again."
+	case errors.Is(err, presentation.ErrSubmitterRequired),
+		errors.Is(err, presentation.ErrPresentationNotFound),
+		errors.Is(err, presentation.ErrProducerRequired):
+		return http.StatusNotFound, "Presentation not found."
+	default:
+		return entryError(err)
+	}
 }

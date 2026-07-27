@@ -177,8 +177,8 @@ templ Planning(page PlanningPage) {
 							}
 						</ul>
 					</section>
-					<section id="competition-entries">
-						<h2>Competition Entries and Attachments</h2>
+					<section id="submissions">
+						<h2>Submissions and Attachments</h2>
 						<ul>
 							for _, session := range page.Rundown.Sessions {
 								if session.Type == rundown.SessionCompetition {
@@ -191,6 +191,17 @@ templ Planning(page PlanningPage) {
 										</a>
 										— Submission Deadline
 										@EventTime(session.SubmissionDeadline, page.Event.Timezone, page.Event.EventLocale)
+									</li>
+								}
+								if session.Type == rundown.SessionPresentation {
+									<li>
+										<a href={ templ.SafeURL(
+											"/backstage/events/" + strconv.Itoa(page.Event.ID) +
+											"/presentations/" + strconv.Itoa(session.ID) + "/submission",
+										) }>
+											Manage { session.Title }
+										</a>
+										— Presentation Submitter and Attachments
 									</li>
 								}
 							}

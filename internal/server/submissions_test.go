@@ -20,7 +20,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/rundown"
 )
 
-func TestAccountSubmissionBrowserFlowKeepsEntriesAndFilesPrivate(t *testing.T) {
+func TestAccountSubmissionBrowserFlowKeepsEntriesPresentationsAndFilesPrivate(t *testing.T) {
 	application, administratorToken, installation, _ := newDiagnosticsTestApplication(
 		t,
 		&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8080},
@@ -122,14 +122,18 @@ func TestAccountSubmissionBrowserFlowKeepsEntriesAndFilesPrivate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load submission Rundown: %v", err)
 	}
-	competitionID := 0
+	competitionID, presentationID := 0, 0
 	for _, session := range published.Sessions {
-		if session.Type == rundown.SessionCompetition {
+		switch session.Type {
+		case rundown.SessionCompetition:
 			competitionID = session.ID
+		case rundown.SessionPresentation:
+			presentationID = session.ID
+		default:
 		}
 	}
-	if competitionID == 0 {
-		t.Fatal("published submission Competition missing")
+	if competitionID == 0 || presentationID == 0 {
+		t.Fatal("published submission Competition or Presentation missing")
 	}
 	const attendeePassword = "attendee correct horse battery staple"
 	attendee, err := installation.Authentication().CreateAccountWithDisplayName(
@@ -174,6 +178,108 @@ func TestAccountSubmissionBrowserFlowKeepsEntriesAndFilesPrivate(t *testing.T) {
 	beamers := httptestServer(t, application)
 	client := submissionBrowserClient(t, beamers.URL, attendeeSession.Token)
 	csrf := submissionCSRF(t, client, beamers.URL)
+	administratorClient := submissionBrowserClient(t, beamers.URL, administratorToken)
+	administratorCSRF := submissionCSRF(t, administratorClient, beamers.URL)
+	presentationPath := fmt.Sprintf(
+		"%s/backstage/events/%d/presentations/%d/submission",
+		beamers.URL,
+		event.ID,
+		presentationID,
+	)
+	assignedResponse := submissionForm(
+		t,
+		administratorClient,
+		presentationPath,
+		url.Values{
+			"csrf_token": {administratorCSRF}, "action": {"assign-submitter"},
+			"command_id":        {"assign-presentation-attendee"},
+			"expected_revision": {"0"}, "account_id": {strconv.Itoa(attendee.ID)},
+		},
+	)
+	_ = assignedResponse.Body.Close()
+	if assignedResponse.StatusCode != http.StatusOK {
+		t.Fatalf("assign Presentation Submitter status = %d", assignedResponse.StatusCode)
+	}
+	otherClient := submissionBrowserClient(t, beamers.URL, otherSession.Token)
+	if otherBody := submissionGet(t, otherClient, beamers.URL+"/submissions"); strings.Contains(
+		otherBody,
+		"Capacity Stage",
+	) {
+		t.Fatalf("unassigned Account saw private Presentation submission: %q", otherBody)
+	}
+	updatedPresentation := submissionForm(
+		t,
+		client,
+		beamers.URL+"/submissions",
+		url.Values{
+			"csrf_token": {csrf}, "action": {"update-presentation"},
+			"command_id": {"update-presentation-details"},
+			"event_id":   {strconv.Itoa(event.ID)}, "session_id": {strconv.Itoa(presentationID)},
+			"expected_revision": {"1"}, "speaker": {"Attendee Stage Credit"},
+			"public_details": {"Attendee-approved details"},
+		},
+	)
+	updatedPresentationBody := readResponseBody(t, updatedPresentation)
+	_ = updatedPresentation.Body.Close()
+	if updatedPresentation.StatusCode != http.StatusOK ||
+		!strings.Contains(updatedPresentationBody, "Attendee Stage Credit") ||
+		!strings.Contains(updatedPresentationBody, "Attendee-approved details") {
+		t.Fatalf(
+			"updated Presentation submission status/body = %d/%q",
+			updatedPresentation.StatusCode,
+			updatedPresentationBody,
+		)
+	}
+	for index, content := range [][]byte{[]byte("first deck"), []byte("second deck")} {
+		upload := submissionUpload(
+			t,
+			client,
+			fmt.Sprintf(
+				"%s/submissions/%d/presentations/%d/upload",
+				beamers.URL,
+				event.ID,
+				presentationID,
+			),
+			csrf,
+			fmt.Sprintf("upload-presentation-%d", index+1),
+			fmt.Sprintf("slides-%d.pdf", index+1),
+			"slides",
+			content,
+		)
+		body := readResponseBody(t, upload)
+		_ = upload.Body.Close()
+		if upload.StatusCode != http.StatusOK ||
+			!strings.Contains(body, fmt.Sprintf("slides-%d.pdf", index+1)) {
+			t.Fatalf("Presentation upload %d status/body = %d/%q", index+1, upload.StatusCode, body)
+		}
+	}
+	replacedResponse := submissionForm(
+		t,
+		administratorClient,
+		presentationPath,
+		url.Values{
+			"csrf_token": {administratorCSRF}, "action": {"assign-submitter"},
+			"command_id":        {"replace-presentation-attendee"},
+			"expected_revision": {"2"}, "account_id": {strconv.Itoa(other.ID)},
+		},
+	)
+	_ = replacedResponse.Body.Close()
+	if replacedResponse.StatusCode != http.StatusOK {
+		t.Fatalf("replace Presentation Submitter status = %d", replacedResponse.StatusCode)
+	}
+	if attendeeBody := submissionGet(t, client, beamers.URL+"/submissions"); strings.Contains(
+		attendeeBody,
+		"Capacity Stage",
+	) {
+		t.Fatalf("replaced Account retained Presentation access: %q", attendeeBody)
+	}
+	otherPresentationBody := submissionGet(t, otherClient, beamers.URL+"/submissions")
+	if !strings.Contains(otherPresentationBody, "Attendee Stage Credit") ||
+		!strings.Contains(otherPresentationBody, "slides-1.pdf") ||
+		!strings.Contains(otherPresentationBody, "slides-2.pdf") {
+		t.Fatalf("replacement Account Presentation projection = %q", otherPresentationBody)
+	}
+
 	response := submissionForm(
 		t,
 		client,
@@ -208,8 +314,9 @@ func TestAccountSubmissionBrowserFlowKeepsEntriesAndFilesPrivate(t *testing.T) {
 			entryID,
 		),
 		csrf,
-		event.ID,
-		entryID,
+		"submission-upload-entry",
+		"entry.zip",
+		"archive",
 		content,
 	)
 	uploadBody := readResponseBody(t, upload)
@@ -221,7 +328,6 @@ func TestAccountSubmissionBrowserFlowKeepsEntriesAndFilesPrivate(t *testing.T) {
 		t.Fatalf("uploaded submission page status/body = %d/%q", upload.StatusCode, uploadBody)
 	}
 
-	otherClient := submissionBrowserClient(t, beamers.URL, otherSession.Token)
 	otherRequest, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodGet,
@@ -323,6 +429,21 @@ func submissionCSRF(t *testing.T, client *http.Client, baseURL string) string {
 	return ""
 }
 
+func submissionGet(t *testing.T, client *http.Client, target string) string {
+	t.Helper()
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, target, http.NoBody)
+	if err != nil {
+		t.Fatalf("create submission GET request: %v", err)
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		t.Fatalf("load submission page: %v", err)
+	}
+	body := readResponseBody(t, response)
+	_ = response.Body.Close()
+	return body
+}
+
 func submissionForm(
 	t *testing.T,
 	client *http.Client,
@@ -351,22 +472,20 @@ func submissionUpload(
 	t *testing.T,
 	client *http.Client,
 	target, csrf string,
-	eventID, entryID int,
+	commandID, filename, name string,
 	content []byte,
 ) *http.Response {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 	for key, value := range map[string]string{
-		"csrf_token": csrf, "command_id": "submission-upload-entry",
-		"event_id": strconv.Itoa(eventID), "entry_id": strconv.Itoa(entryID),
-		"name": "archive",
+		"csrf_token": csrf, "command_id": commandID, "name": name,
 	} {
 		if err := writer.WriteField(key, value); err != nil {
 			t.Fatalf("write upload field: %v", err)
 		}
 	}
-	file, err := writer.CreateFormFile("file", "entry.zip")
+	file, err := writer.CreateFormFile("file", filename)
 	if err != nil {
 		t.Fatalf("create upload file: %v", err)
 	}

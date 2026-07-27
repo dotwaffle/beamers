@@ -447,15 +447,21 @@ func (transaction *CommandTx) CorrectLiveDetails(
 	update := transaction.transaction.Session.UpdateOneID(params.SessionID).
 		Where(session.EventIDEQ(params.EventID), session.LiveStateRevisionEQ(params.ExpectedRevision), session.LifecycleEQ(session.LifecycleLive)).
 		AddLiveStateRevision(1)
+	submissionChanged := false
 	for _, field := range params.Fields {
 		switch field {
 		case draftFactTitle:
 			update.SetCorrectedTitle(after.Title)
 		case draftFactSpeaker:
 			update.SetCorrectedSpeaker(after.Speaker)
+			submissionChanged = true
 		case draftFactPublicDetails:
 			update.SetCorrectedPublicDetails(after.PublicDetails)
+			submissionChanged = true
 		}
+	}
+	if submissionChanged && identity.SubmitterAccountID != nil {
+		update.AddPresentationSubmissionRevision(1)
 	}
 	updated, err := update.Save(ctx)
 	if ent.IsNotFound(err) {
