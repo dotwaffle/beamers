@@ -9291,16 +9291,43 @@ type runningServer struct {
 	done          chan error
 }
 
+var beamersTestBinary string
+
+func TestMain(m *testing.M) {
+	directory, err := os.MkdirTemp("", "beamers-acceptance-")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "prepare acceptance binary: %v\n", err)
+		os.Exit(1)
+	}
+	beamersTestBinary = filepath.Join(directory, "beamers")
+	cmd := exec.CommandContext(
+		context.Background(),
+		"go",
+		"build",
+		"-o",
+		beamersTestBinary,
+		"../cmd/beamers",
+	)
+	if output, buildErr := cmd.CombinedOutput(); buildErr != nil {
+		fmt.Fprintf(os.Stderr, "build acceptance binary: %v\n%s", buildErr, output)
+		_ = os.RemoveAll(directory)
+		os.Exit(1)
+	}
+
+	code := m.Run()
+	if err = os.RemoveAll(directory); err != nil && code == 0 {
+		fmt.Fprintf(os.Stderr, "remove acceptance binary: %v\n", err)
+		code = 1
+	}
+	os.Exit(code)
+}
+
 func buildBeamers(t *testing.T) string {
 	t.Helper()
-
-	bin := filepath.Join(t.TempDir(), "beamers")
-	cmd := exec.CommandContext(t.Context(), "go", "build", "-o", bin, "../cmd/beamers")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("build beamers: %v\n%s", err, output)
+	if beamersTestBinary == "" {
+		t.Fatal("acceptance binary is unavailable")
 	}
-	return bin
+	return beamersTestBinary
 }
 
 func runBeamers(t *testing.T, bin string, args ...string) {

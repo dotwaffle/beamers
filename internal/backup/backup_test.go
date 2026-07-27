@@ -27,6 +27,8 @@ import (
 )
 
 func TestSanitizedBackupIncludesConfiguredAttachmentsAndRemovesCredentials(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	dataDir := filepath.Join(t.TempDir(), "installation")
 	if err := store.Initialize(ctx, dataDir); err != nil {
@@ -147,6 +149,8 @@ func TestSanitizedBackupIncludesConfiguredAttachmentsAndRemovesCredentials(t *te
 }
 
 func TestInstallArchiveSyncsPublishedFilenameBeforeSuccess(t *testing.T) {
+	t.Parallel()
+
 	directory := t.TempDir()
 	staged := filepath.Join(directory, "staged")
 	output := filepath.Join(directory, "backup.zip")
@@ -169,6 +173,8 @@ func TestInstallArchiveSyncsPublishedFilenameBeforeSuccess(t *testing.T) {
 }
 
 func TestBackupConfigurationIsVerifiedAndRestoreRequiresAcknowledgment(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	dataDir := filepath.Join(t.TempDir(), "installation")
 	if err := store.Initialize(ctx, dataDir); err != nil {
@@ -283,10 +289,14 @@ func testConfiguration(t *testing.T, dataDir, attachmentsDir string) Configurati
 }
 
 func TestSanitizedBackupRetainsSecureCreateAccountReceipt(t *testing.T) {
+	t.Parallel()
+
 	testBackupRetainsSecureCreateAccountReceipt(t, Sanitized)
 }
 
 func TestFullFidelityBackupRetainsSecureCreateAccountReceipt(t *testing.T) {
+	t.Parallel()
+
 	testBackupRetainsSecureCreateAccountReceipt(t, FullFidelity)
 }
 
@@ -468,6 +478,8 @@ func testBackupRetainsSecureCreateAccountReceipt(t *testing.T, mode Mode) {
 }
 
 func TestVerifyRejectsTamperedAttachment(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	dataDir := filepath.Join(t.TempDir(), "installation")
 	if err := store.Initialize(ctx, dataDir); err != nil {
@@ -500,6 +512,8 @@ func TestVerifyRejectsTamperedAttachment(t *testing.T) {
 }
 
 func TestVerifyStopsWhenCanceled(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
@@ -512,6 +526,8 @@ func TestVerifyStopsWhenCanceled(t *testing.T) {
 }
 
 func TestVerifyRejectsOversizedCompressedArchive(t *testing.T) {
+	t.Parallel()
+
 	archivePath := filepath.Join(t.TempDir(), "oversized.zip")
 	if err := os.WriteFile(archivePath, nil, 0o600); err != nil {
 		t.Fatalf("create sparse Backup: %v", err)
@@ -528,6 +544,8 @@ func TestVerifyRejectsOversizedCompressedArchive(t *testing.T) {
 }
 
 func TestVerifyRejectsExcessiveEntries(t *testing.T) {
+	t.Parallel()
+
 	archivePath := filepath.Join(t.TempDir(), "excessive-entries.zip")
 	output, err := os.OpenFile(archivePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
@@ -551,6 +569,8 @@ func TestVerifyRejectsExcessiveEntries(t *testing.T) {
 }
 
 func TestVerifyRejectsHighRatioManifest(t *testing.T) {
+	t.Parallel()
+
 	archivePath := filepath.Join(t.TempDir(), "high-ratio.zip")
 	output, err := os.OpenFile(archivePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
@@ -576,6 +596,8 @@ func TestVerifyRejectsHighRatioManifest(t *testing.T) {
 }
 
 func TestPrepareRestoreCleansTruncatedAndCanceledStaging(t *testing.T) {
+	t.Parallel()
+
 	truncated := filepath.Join(t.TempDir(), "truncated.zip")
 	if err := os.WriteFile(truncated, []byte("PK\x03\x04"), 0o600); err != nil {
 		t.Fatalf("write truncated Backup: %v", err)
@@ -632,6 +654,8 @@ func TestArchiveResourceLimits(t *testing.T) {
 }
 
 func TestRestoreAcceptsAttachmentAtSizeBoundary(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	dataDir := filepath.Join(t.TempDir(), "installation")
 	if err := store.Initialize(ctx, dataDir); err != nil {
@@ -678,6 +702,8 @@ func TestRestoreAcceptsAttachmentAtSizeBoundary(t *testing.T) {
 }
 
 func TestReaderIntegrityStopsWhenCanceled(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(t.Context())
 	input := readerFunc(func(buffer []byte) (int, error) {
 		cancel()
@@ -690,6 +716,8 @@ func TestReaderIntegrityStopsWhenCanceled(t *testing.T) {
 }
 
 func TestExtractFileStopsWhenCanceled(t *testing.T) {
+	t.Parallel()
+
 	archivePath := filepath.Join(t.TempDir(), "entry.zip")
 	output, err := os.OpenFile(archivePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
@@ -736,6 +764,8 @@ func TestExtractFileStopsWhenCanceled(t *testing.T) {
 }
 
 func TestVerifyRejectsTamperedManifest(t *testing.T) {
+	t.Parallel()
+
 	dataDir := filepath.Join(t.TempDir(), "installation")
 	if err := store.Initialize(t.Context(), dataDir); err != nil {
 		t.Fatalf("initialize installation: %v", err)
@@ -802,6 +832,8 @@ func assertRejectedRestoreCleansStaging(
 }
 
 func TestVerifyRejectsTrailingManifestContent(t *testing.T) {
+	t.Parallel()
+
 	dataDir := filepath.Join(t.TempDir(), "installation")
 	if err := store.Initialize(t.Context(), dataDir); err != nil {
 		t.Fatalf("initialize installation: %v", err)
@@ -850,6 +882,8 @@ func TestVerifyRejectsTrailingManifestContent(t *testing.T) {
 }
 
 func TestRestoreRejectsFullFidelityBackupRelabeledSanitized(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	dataDir := filepath.Join(t.TempDir(), "installation")
 	if err := store.Initialize(ctx, dataDir); err != nil {
@@ -917,6 +951,8 @@ func TestRestoreRejectsFullFidelityBackupRelabeledSanitized(t *testing.T) {
 }
 
 func TestRestoreReplacesExistingInstallationThroughDurableJournal(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	sourceDataDir := filepath.Join(t.TempDir(), "source")
 	if err := store.Initialize(ctx, sourceDataDir); err != nil {
@@ -993,6 +1029,8 @@ func TestRestoreReplacesExistingInstallationThroughDurableJournal(t *testing.T) 
 }
 
 func TestRestoreRejectsStagingChangedAfterPreview(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	sourceDataDir := filepath.Join(t.TempDir(), "source")
 	if err := store.Initialize(ctx, sourceDataDir); err != nil {
@@ -1041,6 +1079,8 @@ func TestRestoreRejectsStagingChangedAfterPreview(t *testing.T) {
 }
 
 func TestCancelPreparedRestoreRemovesReservedStateAndAllowsAnotherPreview(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	sourceDataDir := filepath.Join(t.TempDir(), "source")
 	if err := store.Initialize(ctx, sourceDataDir); err != nil {
@@ -1131,6 +1171,8 @@ func TestCancelPreparedRestoreRemovesReservedStateAndAllowsAnotherPreview(t *tes
 }
 
 func TestCancelPreparedRestoreRefusesDamageAndStartedCutover(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	sourceDataDir := filepath.Join(t.TempDir(), "source")
 	if err := store.Initialize(ctx, sourceDataDir); err != nil {
@@ -1224,6 +1266,8 @@ func TestCancelPreparedRestoreRefusesDamageAndStartedCutover(t *testing.T) {
 }
 
 func TestRestoreRecoversInterruptedCrossFilesystemCutover(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	sourceDataDir := filepath.Join(t.TempDir(), "source")
 	if err := store.Initialize(ctx, sourceDataDir); err != nil {
@@ -1323,6 +1367,8 @@ func TestRestoreRecoversInterruptedCrossFilesystemCutover(t *testing.T) {
 func TestForcedUnsupportedRestoreReportsUnknownSchemaAndMakesNoSafetyClaim(
 	t *testing.T,
 ) {
+	t.Parallel()
+
 	ctx := t.Context()
 	sourceDataDir := filepath.Join(t.TempDir(), "source")
 	if err := store.Initialize(ctx, sourceDataDir); err != nil {
