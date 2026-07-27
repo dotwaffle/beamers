@@ -128,6 +128,14 @@ var migrationContracts = map[int]migrationContract{
 		minimumWriter: 50,
 		consequence:   "adds Registration Policy and private-by-default Public Profiles",
 	},
+	51: {
+		name:          "publish_events",
+		checksum:      "a44d781a66b968c2cb797d1a4670d25d774b784e4dcec2c7394226e84cb43c8a",
+		safety:        MigrationNonDestructive,
+		minimumReader: 51,
+		minimumWriter: 51,
+		consequence:   "adds Producer-controlled Public Event Listing state and current Event Slugs",
+	},
 }
 
 // MigrationStep is one exact committed migration in an upgrade plan.

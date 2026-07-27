@@ -1204,8 +1204,16 @@ func init() {
 			return nil
 		}
 	}()
+	// eventDescPublicSlug is the schema descriptor for public_slug field.
+	eventDescPublicSlug := eventFields[1].Descriptor()
+	// event.PublicSlugValidator is a validator for the "public_slug" field. It is called by the builders before save.
+	event.PublicSlugValidator = eventDescPublicSlug.Validators[0].(func(string) error)
+	// eventDescPublic is the schema descriptor for public field.
+	eventDescPublic := eventFields[2].Descriptor()
+	// event.DefaultPublic holds the default value on creation for the public field.
+	event.DefaultPublic = eventDescPublic.Default.(bool)
 	// eventDescPlannedStartDate is the schema descriptor for planned_start_date field.
-	eventDescPlannedStartDate := eventFields[1].Descriptor()
+	eventDescPlannedStartDate := eventFields[3].Descriptor()
 	// event.PlannedStartDateValidator is a validator for the "planned_start_date" field. It is called by the builders before save.
 	event.PlannedStartDateValidator = func() func(string) error {
 		validators := eventDescPlannedStartDate.Validators
@@ -1223,7 +1231,7 @@ func init() {
 		}
 	}()
 	// eventDescPlannedEndDate is the schema descriptor for planned_end_date field.
-	eventDescPlannedEndDate := eventFields[2].Descriptor()
+	eventDescPlannedEndDate := eventFields[4].Descriptor()
 	// event.PlannedEndDateValidator is a validator for the "planned_end_date" field. It is called by the builders before save.
 	event.PlannedEndDateValidator = func() func(string) error {
 		validators := eventDescPlannedEndDate.Validators
@@ -1241,7 +1249,7 @@ func init() {
 		}
 	}()
 	// eventDescTimezone is the schema descriptor for timezone field.
-	eventDescTimezone := eventFields[3].Descriptor()
+	eventDescTimezone := eventFields[5].Descriptor()
 	// event.TimezoneValidator is a validator for the "timezone" field. It is called by the builders before save.
 	event.TimezoneValidator = func() func(string) error {
 		validators := eventDescTimezone.Validators
@@ -1259,7 +1267,7 @@ func init() {
 		}
 	}()
 	// eventDescEventLocale is the schema descriptor for event_locale field.
-	eventDescEventLocale := eventFields[4].Descriptor()
+	eventDescEventLocale := eventFields[6].Descriptor()
 	// event.EventLocaleValidator is a validator for the "event_locale" field. It is called by the builders before save.
 	event.EventLocaleValidator = func() func(string) error {
 		validators := eventDescEventLocale.Validators
@@ -1277,11 +1285,11 @@ func init() {
 		}
 	}()
 	// eventDescContentLanguage is the schema descriptor for content_language field.
-	eventDescContentLanguage := eventFields[5].Descriptor()
+	eventDescContentLanguage := eventFields[7].Descriptor()
 	// event.ContentLanguageValidator is a validator for the "content_language" field. It is called by the builders before save.
 	event.ContentLanguageValidator = eventDescContentLanguage.Validators[0].(func(string) error)
 	// eventDescEventDayBoundary is the schema descriptor for event_day_boundary field.
-	eventDescEventDayBoundary := eventFields[6].Descriptor()
+	eventDescEventDayBoundary := eventFields[8].Descriptor()
 	// event.EventDayBoundaryValidator is a validator for the "event_day_boundary" field. It is called by the builders before save.
 	event.EventDayBoundaryValidator = func() func(string) error {
 		validators := eventDescEventDayBoundary.Validators
@@ -1299,7 +1307,7 @@ func init() {
 		}
 	}()
 	// eventDescTargetAdjustmentPresets is the schema descriptor for target_adjustment_presets field.
-	eventDescTargetAdjustmentPresets := eventFields[8].Descriptor()
+	eventDescTargetAdjustmentPresets := eventFields[10].Descriptor()
 	// event.DefaultTargetAdjustmentPresets holds the default value on creation for the target_adjustment_presets field.
 	event.DefaultTargetAdjustmentPresets = eventDescTargetAdjustmentPresets.Default.(string)
 	// event.TargetAdjustmentPresetsValidator is a validator for the "target_adjustment_presets" field. It is called by the builders before save.
@@ -1319,7 +1327,7 @@ func init() {
 		}
 	}()
 	// eventDescDisplayConfiguration is the schema descriptor for display_configuration field.
-	eventDescDisplayConfiguration := eventFields[9].Descriptor()
+	eventDescDisplayConfiguration := eventFields[11].Descriptor()
 	// event.DefaultDisplayConfiguration holds the default value on creation for the display_configuration field.
 	event.DefaultDisplayConfiguration = eventDescDisplayConfiguration.Default.(string)
 	// event.DisplayConfigurationValidator is a validator for the "display_configuration" field. It is called by the builders before save.
@@ -1339,39 +1347,39 @@ func init() {
 		}
 	}()
 	// eventDescAttachmentReleaseCueSessionID is the schema descriptor for attachment_release_cue_session_id field.
-	eventDescAttachmentReleaseCueSessionID := eventFields[11].Descriptor()
+	eventDescAttachmentReleaseCueSessionID := eventFields[13].Descriptor()
 	// event.AttachmentReleaseCueSessionIDValidator is a validator for the "attachment_release_cue_session_id" field. It is called by the builders before save.
 	event.AttachmentReleaseCueSessionIDValidator = eventDescAttachmentReleaseCueSessionID.Validators[0].(func(int) error)
 	// eventDescAttachmentReleaseRevision is the schema descriptor for attachment_release_revision field.
-	eventDescAttachmentReleaseRevision := eventFields[13].Descriptor()
+	eventDescAttachmentReleaseRevision := eventFields[15].Descriptor()
 	// event.DefaultAttachmentReleaseRevision holds the default value on creation for the attachment_release_revision field.
 	event.DefaultAttachmentReleaseRevision = eventDescAttachmentReleaseRevision.Default.(int)
 	// event.AttachmentReleaseRevisionValidator is a validator for the "attachment_release_revision" field. It is called by the builders before save.
 	event.AttachmentReleaseRevisionValidator = eventDescAttachmentReleaseRevision.Validators[0].(func(int) error)
 	// eventDescStageMessagePresets is the schema descriptor for stage_message_presets field.
-	eventDescStageMessagePresets := eventFields[14].Descriptor()
+	eventDescStageMessagePresets := eventFields[16].Descriptor()
 	// event.DefaultStageMessagePresets holds the default value on creation for the stage_message_presets field.
 	event.DefaultStageMessagePresets = eventDescStageMessagePresets.Default.(string)
 	// event.StageMessagePresetsValidator is a validator for the "stage_message_presets" field. It is called by the builders before save.
 	event.StageMessagePresetsValidator = eventDescStageMessagePresets.Validators[0].(func(string) error)
 	// eventDescStageMessageDefaultDurationSeconds is the schema descriptor for stage_message_default_duration_seconds field.
-	eventDescStageMessageDefaultDurationSeconds := eventFields[15].Descriptor()
+	eventDescStageMessageDefaultDurationSeconds := eventFields[17].Descriptor()
 	// event.DefaultStageMessageDefaultDurationSeconds holds the default value on creation for the stage_message_default_duration_seconds field.
 	event.DefaultStageMessageDefaultDurationSeconds = eventDescStageMessageDefaultDurationSeconds.Default.(int)
 	// event.StageMessageDefaultDurationSecondsValidator is a validator for the "stage_message_default_duration_seconds" field. It is called by the builders before save.
 	event.StageMessageDefaultDurationSecondsValidator = eventDescStageMessageDefaultDurationSeconds.Validators[0].(func(int) error)
 	// eventDescStageMessageConfigurationRevision is the schema descriptor for stage_message_configuration_revision field.
-	eventDescStageMessageConfigurationRevision := eventFields[16].Descriptor()
+	eventDescStageMessageConfigurationRevision := eventFields[18].Descriptor()
 	// event.DefaultStageMessageConfigurationRevision holds the default value on creation for the stage_message_configuration_revision field.
 	event.DefaultStageMessageConfigurationRevision = eventDescStageMessageConfigurationRevision.Default.(int)
 	// event.StageMessageConfigurationRevisionValidator is a validator for the "stage_message_configuration_revision" field. It is called by the builders before save.
 	event.StageMessageConfigurationRevisionValidator = eventDescStageMessageConfigurationRevision.Validators[0].(func(int) error)
 	// eventDescRevision is the schema descriptor for revision field.
-	eventDescRevision := eventFields[17].Descriptor()
+	eventDescRevision := eventFields[19].Descriptor()
 	// event.DefaultRevision holds the default value on creation for the revision field.
 	event.DefaultRevision = eventDescRevision.Default.(int)
 	// eventDescCreatedAt is the schema descriptor for created_at field.
-	eventDescCreatedAt := eventFields[18].Descriptor()
+	eventDescCreatedAt := eventFields[20].Descriptor()
 	// event.DefaultCreatedAt holds the default value on creation for the created_at field.
 	event.DefaultCreatedAt = eventDescCreatedAt.Default.(func() time.Time)
 	eventawardsdraft.Policy = privacy.NewPolicies(schema.EventAwardsDraft{})

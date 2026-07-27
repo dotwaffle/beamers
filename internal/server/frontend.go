@@ -18,6 +18,7 @@ import (
 	"github.com/a-h/templ"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/frontend"
 	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/viewer"
@@ -36,6 +37,7 @@ type frontendHandlers struct {
 	limiter        *authFailureLimiter
 	random         io.Reader
 	rundown        *rundown.Queries
+	events         *events.Service
 }
 
 func registerFrontendRoutes(
@@ -43,6 +45,7 @@ func registerFrontendRoutes(
 	authentication *auth.Service,
 	limiter *authFailureLimiter,
 	rundownQueries *rundown.Queries,
+	eventService *events.Service,
 	logger *slog.Logger,
 ) error {
 	handlers := frontendHandlers{
@@ -51,6 +54,7 @@ func registerFrontendRoutes(
 		limiter:        limiter,
 		random:         rand.Reader,
 		rundown:        rundownQueries,
+		events:         eventService,
 	}
 	formRoute := browserPageRoute()
 	formRoute.maxBodyBytes = maxAuthBodyBytes
@@ -62,6 +66,7 @@ func registerFrontendRoutes(
 	mux.HandleFunc("/effects", formRoute, handlers.effects)
 	mux.HandleFunc("/profile", formRoute, handlers.profile)
 	mux.HandleFunc("/people/{handle}", browserPageRoute(), handlers.publicProfile)
+	mux.HandleFunc("/events/{slug}", browserPageRoute(), handlers.publicEvent)
 	mux.HandleFunc("/backstage", backstagePageRoute(), handlers.backstage)
 	backstageFormRoute := backstagePageRoute()
 	backstageFormRoute.maxBodyBytes = maxAuthBodyBytes
@@ -590,11 +595,53 @@ func (handlers frontendHandlers) root(response http.ResponseWriter, request *htt
 		handlers.frontendError(response, request, "create CSRF proof", err)
 		return
 	}
+	var publicEvents []events.PublicEvent
+	if !setupRequired {
+		publicEvents, err = handlers.events.PublicListing(request.Context())
+		if err != nil {
+			handlers.frontendError(response, request, "list public Events", err)
+			return
+		}
+	}
 	handlers.render(
 		response,
 		request,
 		http.StatusOK,
-		frontend.Root(setupRequired, accountName, csrfToken, reducedEffects, backstage),
+		frontend.Root(
+			setupRequired,
+			accountName,
+			csrfToken,
+			reducedEffects,
+			backstage,
+			publicEvents,
+		),
+	)
+}
+
+func (handlers frontendHandlers) publicEvent(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	if !frontendReadAllowed(response, request) {
+		return
+	}
+	found, err := handlers.events.PublicEvent(
+		request.Context(),
+		request.PathValue("slug"),
+	)
+	if errors.Is(err, events.ErrEventNotFound) {
+		http.NotFound(response, request)
+		return
+	}
+	if err != nil {
+		handlers.frontendError(response, request, "read public Event", err)
+		return
+	}
+	handlers.render(
+		response,
+		request,
+		http.StatusOK,
+		frontend.PublicEvent(found),
 	)
 }
 

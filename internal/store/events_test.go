@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/privacy"
@@ -84,6 +85,81 @@ func TestEventAndGrantChangesCreateAuditEntries(t *testing.T) {
 		if entries[index].ActorAccountID != administrator.ID {
 			t.Errorf("Audit Entry %d actor = %d, want %d", index, entries[index].ActorAccountID, administrator.ID)
 		}
+	}
+}
+
+func TestEventCreationAssignsUniqueHumanReadableSlugs(t *testing.T) {
+	installation := openEventTestInstallation(t)
+	now := time.Date(2026, time.July, 22, 12, 0, 0, 0, time.UTC)
+	administrator := bootstrapEventTestAdministrator(t, installation, now)
+	ctx := viewer.NewContext(t.Context(), viewer.Identity{
+		AccountID: administrator.ID, Administrator: true,
+	})
+	params := CreateEventParams{
+		ActorAccountID:   administrator.ID,
+		Name:             "Summer Showcase!",
+		PlannedStartDate: "2026-08-21", PlannedEndDate: "2026-08-23",
+		Timezone: "Europe/Berlin", EventLocale: "en-GB", EventDayBoundary: "00:00",
+		Now: now, CommandID: "create-slug-1", PayloadHash: strings.Repeat("a", 64),
+	}
+	first, err := createEventCommand(t, installation, ctx, params)
+	if err != nil {
+		t.Fatalf("create first Event: %v", err)
+	}
+	params.CommandID = "create-slug-2"
+	params.PayloadHash = strings.Repeat("b", 64)
+	second, err := createEventCommand(t, installation, ctx, params)
+	if err != nil {
+		t.Fatalf("create second Event: %v", err)
+	}
+	if first.PublicSlug != "summer-showcase" ||
+		second.PublicSlug != "summer-showcase-2" {
+		t.Fatalf("Event Slugs = %q, %q", first.PublicSlug, second.PublicSlug)
+	}
+	if got := eventSlug("東京大会"); got != "東京大会" {
+		t.Fatalf("Unicode Event Slug = %q, want 東京大会", got)
+	}
+	if got := eventSlug("Cafe\u0301"); got != "cafe\u0301" {
+		t.Fatalf("combining-mark Event Slug = %q, want café", got)
+	}
+	longName := strings.Repeat("界", 200)
+	if got := eventSlug(longName); got != longName {
+		t.Fatalf("long Unicode Event Slug has %d runes, want 200", utf8.RuneCountInString(got))
+	}
+}
+
+func TestFirstPublicationAssignsSlugToMigratedEvent(t *testing.T) {
+	installation := openEventTestInstallation(t)
+	legacy, err := installation.client.Event.Create().
+		SetName("Imported Showcase").
+		SetPlannedStartDate("2026-08-21").
+		SetPlannedEndDate("2026-08-23").
+		SetTimezone("Europe/Berlin").
+		SetEventLocale("en-GB").
+		SetEventDayBoundary("00:00").
+		Save(systemContext(t.Context()))
+	if err != nil {
+		t.Fatalf("create migrated Event fixture: %v", err)
+	}
+	transaction, err := installation.BeginCommand(t.Context())
+	if err != nil {
+		t.Fatalf("begin Event update: %v", err)
+	}
+	defer func() { _ = transaction.Rollback() }()
+	updated, err := transaction.UpdateEvent(systemContext(t.Context()), UpdateEventParams{
+		EventID: legacy.ID, Name: legacy.Name, Public: true,
+		PlannedStartDate: legacy.PlannedStartDate, PlannedEndDate: legacy.PlannedEndDate,
+		Timezone: legacy.Timezone, EventLocale: legacy.EventLocale,
+		EventDayBoundary: legacy.EventDayBoundary, ExpectedRevision: legacy.Revision,
+	})
+	if err != nil {
+		t.Fatalf("publish migrated Event: %v", err)
+	}
+	if err = transaction.Commit(); err != nil {
+		t.Fatalf("commit migrated Event publication: %v", err)
+	}
+	if updated.PublicSlug != "imported-showcase" || !updated.Public {
+		t.Fatalf("published migrated Event = %+v", updated)
 	}
 }
 

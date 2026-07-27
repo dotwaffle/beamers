@@ -450,6 +450,7 @@ func eventConfigurationFormInput(request *http.Request) (events.CreateInput, err
 	}
 	return events.CreateInput{
 		Name:                           request.Form.Get("event_name"),
+		Public:                         request.Form.Get("public") == "true",
 		PlannedStartDate:               request.Form.Get("planned_start_date"),
 		PlannedEndDate:                 request.Form.Get("planned_end_date"),
 		Timezone:                       request.Form.Get("timezone"),

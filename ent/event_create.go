@@ -47,6 +47,34 @@ func (_c *EventCreate) SetName(v string) *EventCreate {
 	return _c
 }
 
+// SetPublicSlug sets the "public_slug" field.
+func (_c *EventCreate) SetPublicSlug(v string) *EventCreate {
+	_c.mutation.SetPublicSlug(v)
+	return _c
+}
+
+// SetNillablePublicSlug sets the "public_slug" field if the given value is not nil.
+func (_c *EventCreate) SetNillablePublicSlug(v *string) *EventCreate {
+	if v != nil {
+		_c.SetPublicSlug(*v)
+	}
+	return _c
+}
+
+// SetPublic sets the "public" field.
+func (_c *EventCreate) SetPublic(v bool) *EventCreate {
+	_c.mutation.SetPublic(v)
+	return _c
+}
+
+// SetNillablePublic sets the "public" field if the given value is not nil.
+func (_c *EventCreate) SetNillablePublic(v *bool) *EventCreate {
+	if v != nil {
+		_c.SetPublic(*v)
+	}
+	return _c
+}
+
 // SetPlannedStartDate sets the "planned_start_date" field.
 func (_c *EventCreate) SetPlannedStartDate(v string) *EventCreate {
 	_c.mutation.SetPlannedStartDate(v)
@@ -619,6 +647,10 @@ func (_c *EventCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *EventCreate) defaults() error {
+	if _, ok := _c.mutation.Public(); !ok {
+		v := event.DefaultPublic
+		_c.mutation.SetPublic(v)
+	}
 	if _, ok := _c.mutation.EntryDefaultDisposition(); !ok {
 		v := event.DefaultEntryDefaultDisposition
 		_c.mutation.SetEntryDefaultDisposition(v)
@@ -674,6 +706,14 @@ func (_c *EventCreate) check() error {
 		if err := event.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Event.name": %w`, err)}
 		}
+	}
+	if v, ok := _c.mutation.PublicSlug(); ok {
+		if err := event.PublicSlugValidator(v); err != nil {
+			return &ValidationError{Name: "public_slug", err: fmt.Errorf(`ent: validator failed for field "Event.public_slug": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.Public(); !ok {
+		return &ValidationError{Name: "public", err: errors.New(`ent: missing required field "Event.public"`)}
 	}
 	if _, ok := _c.mutation.PlannedStartDate(); !ok {
 		return &ValidationError{Name: "planned_start_date", err: errors.New(`ent: missing required field "Event.planned_start_date"`)}
@@ -824,6 +864,14 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(event.FieldName, field.TypeString, value)
 		_node.Name = value
+	}
+	if value, ok := _c.mutation.PublicSlug(); ok {
+		_spec.SetField(event.FieldPublicSlug, field.TypeString, value)
+		_node.PublicSlug = value
+	}
+	if value, ok := _c.mutation.Public(); ok {
+		_spec.SetField(event.FieldPublic, field.TypeBool, value)
+		_node.Public = value
 	}
 	if value, ok := _c.mutation.PlannedStartDate(); ok {
 		_spec.SetField(event.FieldPlannedStartDate, field.TypeString, value)

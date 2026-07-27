@@ -30,6 +30,8 @@ func (Event) Policy() ent.Policy {
 func (Event) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("name").NotEmpty().MaxLen(200),
+		field.String("public_slug").Optional().MaxLen(200).Unique(),
+		field.Bool("public").Default(false),
 		field.String("planned_start_date").NotEmpty().MaxLen(10),
 		field.String("planned_end_date").NotEmpty().MaxLen(10),
 		field.String("timezone").NotEmpty().MaxLen(200),

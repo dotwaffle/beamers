@@ -55,6 +55,8 @@ func (err *ValidationError) Error() string {
 type Event struct {
 	ID                             int    `json:"id"`
 	Name                           string `json:"name"`
+	PublicSlug                     string `json:"-"`
+	Public                         bool   `json:"-"`
 	PlannedStartDate               string `json:"planned_start_date"`
 	PlannedEndDate                 string `json:"planned_end_date"`
 	Timezone                       string `json:"timezone"`
@@ -69,6 +71,7 @@ type Event struct {
 // CreateInput contains an Administrator's proposed Event configuration.
 type CreateInput struct {
 	Name                           string `json:"name"`
+	Public                         bool   `json:"public,omitempty"`
 	PlannedStartDate               string `json:"planned_start_date"`
 	PlannedEndDate                 string `json:"planned_end_date"`
 	Timezone                       string `json:"timezone"`
@@ -79,6 +82,16 @@ type CreateInput struct {
 	TargetAdjustmentPresetsSeconds []int  `json:"target_adjustment_presets_seconds,omitempty"`
 	CommandID                      string `json:"command_id"`
 	ExpectedRevision               int    `json:"expected_revision,omitempty"`
+}
+
+// PublicEvent is one attendee-visible Event under its current Event Slug.
+type PublicEvent struct {
+	Name             string
+	Slug             string
+	PlannedStartDate string
+	PlannedEndDate   string
+	EventLocale      string
+	Active           bool
 }
 
 // Grant is an Account's role for one Event.
@@ -152,6 +165,11 @@ func (service *Service) Create(
 			if !actor.Administrator {
 				return eventRejection[Event](ErrAdministratorRequired), nil
 			}
+			if input.Public {
+				return eventRejection[Event](
+					invalid("public", "must be changed by a Producer after Event creation"),
+				), nil
+			}
 			normalized, validationErr := ValidateCreateInput(input)
 			if validationErr != nil {
 				return eventRejection[Event](validationErr), nil
@@ -200,6 +218,28 @@ func (service *Service) List(
 		result = append(result, converted)
 	}
 	return result, nil
+}
+
+// PublicListing returns only Events a Producer has placed in the Public Event Listing.
+func (service *Service) PublicListing(ctx context.Context) ([]PublicEvent, error) {
+	found, activeEventID, err := service.storage.ListPublicEvents(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]PublicEvent, 0, len(found))
+	for _, item := range found {
+		result = append(result, publicEvent(item, item.ID == activeEventID))
+	}
+	return result, nil
+}
+
+// PublicEvent returns one listed Event by its current Event Slug.
+func (service *Service) PublicEvent(ctx context.Context, slug string) (PublicEvent, error) {
+	found, err := service.storage.FindPublicEvent(ctx, slug)
+	if err != nil {
+		return PublicEvent{}, err
+	}
+	return publicEvent(found, false), nil
 }
 
 // ListGrants returns all Event Grants to an Administrator.
@@ -332,6 +372,7 @@ func (service *Service) Update(
 			}
 			updated, updateErr := transaction.UpdateEvent(actor.Context(ctx), store.UpdateEventParams{
 				ActorAccountID: actor.ID, EventID: eventID, Name: normalized.Name,
+				Public:           normalized.Public,
 				PlannedStartDate: normalized.PlannedStartDate, PlannedEndDate: normalized.PlannedEndDate,
 				Timezone: normalized.Timezone, EventLocale: normalized.EventLocale,
 				ContentLanguage: normalized.ContentLanguage, EventDayBoundary: normalized.EventDayBoundary,
@@ -638,12 +679,23 @@ func event(found store.Event) (Event, error) {
 	}
 	return Event{
 		ID: found.ID, Name: found.Name,
+		PublicSlug: found.PublicSlug, Public: found.Public,
 		PlannedStartDate: found.PlannedStartDate, PlannedEndDate: found.PlannedEndDate,
 		Timezone: found.Timezone, EventLocale: found.EventLocale,
 		ContentLanguage: found.ContentLanguage, EventDayBoundary: found.EventDayBoundary,
 		Revision: found.Revision, EntryDefaultDisposition: found.EntryDefaultDisposition,
 		TargetAdjustmentPresetsSeconds: targetAdjustmentPresets,
 	}, nil
+}
+
+func publicEvent(found store.PublicEvent, active bool) PublicEvent {
+	return PublicEvent{
+		Name: found.Name, Slug: found.PublicSlug,
+		PlannedStartDate: found.PlannedStartDate,
+		PlannedEndDate:   found.PlannedEndDate,
+		EventLocale:      found.EventLocale,
+		Active:           active,
+	}
 }
 
 func grant(found store.EventGrant) Grant {
@@ -767,12 +819,17 @@ func validScopeKey(value string) bool {
 }
 
 func eventPayloadHash(input CreateInput, expectedRevision int) string {
-	return command.PayloadHash(
-		input.Name, input.PlannedStartDate, input.PlannedEndDate, input.Timezone,
+	parts := []string{
+		input.Name,
+		input.PlannedStartDate, input.PlannedEndDate, input.Timezone,
 		input.EventLocale, input.ContentLanguage, input.EventDayBoundary,
 		intsPayload(input.TargetAdjustmentPresetsSeconds),
 		strconv.Itoa(expectedRevision),
-	)
+	}
+	if input.Public {
+		parts = append(parts, "public=true")
+	}
+	return command.PayloadHash(parts...)
 }
 
 func intsPayload(values []int) string {

@@ -60,6 +60,16 @@ func Name(v string) predicate.Event {
 	return predicate.Event(sql.FieldEQ(FieldName, v))
 }
 
+// PublicSlug applies equality check predicate on the "public_slug" field. It's identical to PublicSlugEQ.
+func PublicSlug(v string) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldPublicSlug, v))
+}
+
+// Public applies equality check predicate on the "public" field. It's identical to PublicEQ.
+func Public(v bool) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldPublic, v))
+}
+
 // PlannedStartDate applies equality check predicate on the "planned_start_date" field. It's identical to PlannedStartDateEQ.
 func PlannedStartDate(v string) predicate.Event {
 	return predicate.Event(sql.FieldEQ(FieldPlannedStartDate, v))
@@ -203,6 +213,91 @@ func NameEqualFold(v string) predicate.Event {
 // NameContainsFold applies the ContainsFold predicate on the "name" field.
 func NameContainsFold(v string) predicate.Event {
 	return predicate.Event(sql.FieldContainsFold(FieldName, v))
+}
+
+// PublicSlugEQ applies the EQ predicate on the "public_slug" field.
+func PublicSlugEQ(v string) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldPublicSlug, v))
+}
+
+// PublicSlugNEQ applies the NEQ predicate on the "public_slug" field.
+func PublicSlugNEQ(v string) predicate.Event {
+	return predicate.Event(sql.FieldNEQ(FieldPublicSlug, v))
+}
+
+// PublicSlugIn applies the In predicate on the "public_slug" field.
+func PublicSlugIn(vs ...string) predicate.Event {
+	return predicate.Event(sql.FieldIn(FieldPublicSlug, vs...))
+}
+
+// PublicSlugNotIn applies the NotIn predicate on the "public_slug" field.
+func PublicSlugNotIn(vs ...string) predicate.Event {
+	return predicate.Event(sql.FieldNotIn(FieldPublicSlug, vs...))
+}
+
+// PublicSlugGT applies the GT predicate on the "public_slug" field.
+func PublicSlugGT(v string) predicate.Event {
+	return predicate.Event(sql.FieldGT(FieldPublicSlug, v))
+}
+
+// PublicSlugGTE applies the GTE predicate on the "public_slug" field.
+func PublicSlugGTE(v string) predicate.Event {
+	return predicate.Event(sql.FieldGTE(FieldPublicSlug, v))
+}
+
+// PublicSlugLT applies the LT predicate on the "public_slug" field.
+func PublicSlugLT(v string) predicate.Event {
+	return predicate.Event(sql.FieldLT(FieldPublicSlug, v))
+}
+
+// PublicSlugLTE applies the LTE predicate on the "public_slug" field.
+func PublicSlugLTE(v string) predicate.Event {
+	return predicate.Event(sql.FieldLTE(FieldPublicSlug, v))
+}
+
+// PublicSlugContains applies the Contains predicate on the "public_slug" field.
+func PublicSlugContains(v string) predicate.Event {
+	return predicate.Event(sql.FieldContains(FieldPublicSlug, v))
+}
+
+// PublicSlugHasPrefix applies the HasPrefix predicate on the "public_slug" field.
+func PublicSlugHasPrefix(v string) predicate.Event {
+	return predicate.Event(sql.FieldHasPrefix(FieldPublicSlug, v))
+}
+
+// PublicSlugHasSuffix applies the HasSuffix predicate on the "public_slug" field.
+func PublicSlugHasSuffix(v string) predicate.Event {
+	return predicate.Event(sql.FieldHasSuffix(FieldPublicSlug, v))
+}
+
+// PublicSlugIsNil applies the IsNil predicate on the "public_slug" field.
+func PublicSlugIsNil() predicate.Event {
+	return predicate.Event(sql.FieldIsNull(FieldPublicSlug))
+}
+
+// PublicSlugNotNil applies the NotNil predicate on the "public_slug" field.
+func PublicSlugNotNil() predicate.Event {
+	return predicate.Event(sql.FieldNotNull(FieldPublicSlug))
+}
+
+// PublicSlugEqualFold applies the EqualFold predicate on the "public_slug" field.
+func PublicSlugEqualFold(v string) predicate.Event {
+	return predicate.Event(sql.FieldEqualFold(FieldPublicSlug, v))
+}
+
+// PublicSlugContainsFold applies the ContainsFold predicate on the "public_slug" field.
+func PublicSlugContainsFold(v string) predicate.Event {
+	return predicate.Event(sql.FieldContainsFold(FieldPublicSlug, v))
+}
+
+// PublicEQ applies the EQ predicate on the "public" field.
+func PublicEQ(v bool) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldPublic, v))
+}
+
+// PublicNEQ applies the NEQ predicate on the "public" field.
+func PublicNEQ(v bool) predicate.Event {
+	return predicate.Event(sql.FieldNEQ(FieldPublic, v))
 }
 
 // PlannedStartDateEQ applies the EQ predicate on the "planned_start_date" field.

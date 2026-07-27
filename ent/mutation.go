@@ -21231,6 +21231,8 @@ type EventMutation struct {
 	typ                                       string
 	id                                        *int
 	name                                      *string
+	public_slug                               *string
+	public                                    *bool
 	planned_start_date                        *string
 	planned_end_date                          *string
 	timezone                                  *string
@@ -21453,6 +21455,91 @@ func (m *EventMutation) OldName(ctx context.Context) (v string, err error) {
 // ResetName resets all changes to the "name" field.
 func (m *EventMutation) ResetName() {
 	m.name = nil
+}
+
+// SetPublicSlug sets the "public_slug" field.
+func (m *EventMutation) SetPublicSlug(s string) {
+	m.public_slug = &s
+}
+
+// PublicSlug returns the value of the "public_slug" field in the mutation.
+func (m *EventMutation) PublicSlug() (r string, exists bool) {
+	v := m.public_slug
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublicSlug returns the old "public_slug" field's value of the Event entity.
+// If the Event object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventMutation) OldPublicSlug(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublicSlug is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublicSlug requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublicSlug: %w", err)
+	}
+	return oldValue.PublicSlug, nil
+}
+
+// ClearPublicSlug clears the value of the "public_slug" field.
+func (m *EventMutation) ClearPublicSlug() {
+	m.public_slug = nil
+	m.clearedFields[event.FieldPublicSlug] = struct{}{}
+}
+
+// PublicSlugCleared returns if the "public_slug" field was cleared in this mutation.
+func (m *EventMutation) PublicSlugCleared() bool {
+	_, ok := m.clearedFields[event.FieldPublicSlug]
+	return ok
+}
+
+// ResetPublicSlug resets all changes to the "public_slug" field.
+func (m *EventMutation) ResetPublicSlug() {
+	m.public_slug = nil
+	delete(m.clearedFields, event.FieldPublicSlug)
+}
+
+// SetPublic sets the "public" field.
+func (m *EventMutation) SetPublic(b bool) {
+	m.public = &b
+}
+
+// Public returns the value of the "public" field in the mutation.
+func (m *EventMutation) Public() (r bool, exists bool) {
+	v := m.public
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublic returns the old "public" field's value of the Event entity.
+// If the Event object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventMutation) OldPublic(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublic is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublic requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublic: %w", err)
+	}
+	return oldValue.Public, nil
+}
+
+// ResetPublic resets all changes to the "public" field.
+func (m *EventMutation) ResetPublic() {
+	m.public = nil
 }
 
 // SetPlannedStartDate sets the "planned_start_date" field.
@@ -23381,9 +23468,15 @@ func (m *EventMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *EventMutation) Fields() []string {
-	fields := make([]string, 0, 19)
+	fields := make([]string, 0, 21)
 	if m.name != nil {
 		fields = append(fields, event.FieldName)
+	}
+	if m.public_slug != nil {
+		fields = append(fields, event.FieldPublicSlug)
+	}
+	if m.public != nil {
+		fields = append(fields, event.FieldPublic)
 	}
 	if m.planned_start_date != nil {
 		fields = append(fields, event.FieldPlannedStartDate)
@@ -23449,6 +23542,10 @@ func (m *EventMutation) Field(name string) (ent.Value, bool) {
 	switch name {
 	case event.FieldName:
 		return m.Name()
+	case event.FieldPublicSlug:
+		return m.PublicSlug()
+	case event.FieldPublic:
+		return m.Public()
 	case event.FieldPlannedStartDate:
 		return m.PlannedStartDate()
 	case event.FieldPlannedEndDate:
@@ -23496,6 +23593,10 @@ func (m *EventMutation) OldField(ctx context.Context, name string) (ent.Value, e
 	switch name {
 	case event.FieldName:
 		return m.OldName(ctx)
+	case event.FieldPublicSlug:
+		return m.OldPublicSlug(ctx)
+	case event.FieldPublic:
+		return m.OldPublic(ctx)
 	case event.FieldPlannedStartDate:
 		return m.OldPlannedStartDate(ctx)
 	case event.FieldPlannedEndDate:
@@ -23547,6 +23648,20 @@ func (m *EventMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetName(v)
+		return nil
+	case event.FieldPublicSlug:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublicSlug(v)
+		return nil
+	case event.FieldPublic:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublic(v)
 		return nil
 	case event.FieldPlannedStartDate:
 		v, ok := value.(string)
@@ -23767,6 +23882,9 @@ func (m *EventMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *EventMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(event.FieldPublicSlug) {
+		fields = append(fields, event.FieldPublicSlug)
+	}
 	if m.FieldCleared(event.FieldContentLanguage) {
 		fields = append(fields, event.FieldContentLanguage)
 	}
@@ -23790,6 +23908,9 @@ func (m *EventMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *EventMutation) ClearField(name string) error {
 	switch name {
+	case event.FieldPublicSlug:
+		m.ClearPublicSlug()
+		return nil
 	case event.FieldContentLanguage:
 		m.ClearContentLanguage()
 		return nil
@@ -23809,6 +23930,12 @@ func (m *EventMutation) ResetField(name string) error {
 	switch name {
 	case event.FieldName:
 		m.ResetName()
+		return nil
+	case event.FieldPublicSlug:
+		m.ResetPublicSlug()
+		return nil
+	case event.FieldPublic:
+		m.ResetPublic()
 		return nil
 	case event.FieldPlannedStartDate:
 		m.ResetPlannedStartDate()

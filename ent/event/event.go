@@ -18,6 +18,10 @@ const (
 	FieldID = "id"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
+	// FieldPublicSlug holds the string denoting the public_slug field in the database.
+	FieldPublicSlug = "public_slug"
+	// FieldPublic holds the string denoting the public field in the database.
+	FieldPublic = "public"
 	// FieldPlannedStartDate holds the string denoting the planned_start_date field in the database.
 	FieldPlannedStartDate = "planned_start_date"
 	// FieldPlannedEndDate holds the string denoting the planned_end_date field in the database.
@@ -251,6 +255,8 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldName,
+	FieldPublicSlug,
+	FieldPublic,
 	FieldPlannedStartDate,
 	FieldPlannedEndDate,
 	FieldTimezone,
@@ -291,6 +297,10 @@ var (
 	Policy ent.Policy
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
+	// PublicSlugValidator is a validator for the "public_slug" field. It is called by the builders before save.
+	PublicSlugValidator func(string) error
+	// DefaultPublic holds the default value on creation for the "public" field.
+	DefaultPublic bool
 	// PlannedStartDateValidator is a validator for the "planned_start_date" field. It is called by the builders before save.
 	PlannedStartDateValidator func(string) error
 	// PlannedEndDateValidator is a validator for the "planned_end_date" field. It is called by the builders before save.
@@ -399,6 +409,16 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
+}
+
+// ByPublicSlug orders the results by the public_slug field.
+func ByPublicSlug(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPublicSlug, opts...).ToFunc()
+}
+
+// ByPublic orders the results by the public field.
+func ByPublic(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPublic, opts...).ToFunc()
 }
 
 // ByPlannedStartDate orders the results by the planned_start_date field.

@@ -63,6 +63,40 @@ func (_u *EventUpdate) SetNillableName(v *string) *EventUpdate {
 	return _u
 }
 
+// SetPublicSlug sets the "public_slug" field.
+func (_u *EventUpdate) SetPublicSlug(v string) *EventUpdate {
+	_u.mutation.SetPublicSlug(v)
+	return _u
+}
+
+// SetNillablePublicSlug sets the "public_slug" field if the given value is not nil.
+func (_u *EventUpdate) SetNillablePublicSlug(v *string) *EventUpdate {
+	if v != nil {
+		_u.SetPublicSlug(*v)
+	}
+	return _u
+}
+
+// ClearPublicSlug clears the value of the "public_slug" field.
+func (_u *EventUpdate) ClearPublicSlug() *EventUpdate {
+	_u.mutation.ClearPublicSlug()
+	return _u
+}
+
+// SetPublic sets the "public" field.
+func (_u *EventUpdate) SetPublic(v bool) *EventUpdate {
+	_u.mutation.SetPublic(v)
+	return _u
+}
+
+// SetNillablePublic sets the "public" field if the given value is not nil.
+func (_u *EventUpdate) SetNillablePublic(v *bool) *EventUpdate {
+	if v != nil {
+		_u.SetPublic(*v)
+	}
+	return _u
+}
+
 // SetPlannedStartDate sets the "planned_start_date" field.
 func (_u *EventUpdate) SetPlannedStartDate(v string) *EventUpdate {
 	_u.mutation.SetPlannedStartDate(v)
@@ -1127,6 +1161,11 @@ func (_u *EventUpdate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Event.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.PublicSlug(); ok {
+		if err := event.PublicSlugValidator(v); err != nil {
+			return &ValidationError{Name: "public_slug", err: fmt.Errorf(`ent: validator failed for field "Event.public_slug": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.PlannedStartDate(); ok {
 		if err := event.PlannedStartDateValidator(v); err != nil {
 			return &ValidationError{Name: "planned_start_date", err: fmt.Errorf(`ent: validator failed for field "Event.planned_start_date": %w`, err)}
@@ -1219,6 +1258,15 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(event.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.PublicSlug(); ok {
+		_spec.SetField(event.FieldPublicSlug, field.TypeString, value)
+	}
+	if _u.mutation.PublicSlugCleared() {
+		_spec.ClearField(event.FieldPublicSlug, field.TypeString)
+	}
+	if value, ok := _u.mutation.Public(); ok {
+		_spec.SetField(event.FieldPublic, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.PlannedStartDate(); ok {
 		_spec.SetField(event.FieldPlannedStartDate, field.TypeString, value)
@@ -2238,6 +2286,40 @@ func (_u *EventUpdateOne) SetName(v string) *EventUpdateOne {
 func (_u *EventUpdateOne) SetNillableName(v *string) *EventUpdateOne {
 	if v != nil {
 		_u.SetName(*v)
+	}
+	return _u
+}
+
+// SetPublicSlug sets the "public_slug" field.
+func (_u *EventUpdateOne) SetPublicSlug(v string) *EventUpdateOne {
+	_u.mutation.SetPublicSlug(v)
+	return _u
+}
+
+// SetNillablePublicSlug sets the "public_slug" field if the given value is not nil.
+func (_u *EventUpdateOne) SetNillablePublicSlug(v *string) *EventUpdateOne {
+	if v != nil {
+		_u.SetPublicSlug(*v)
+	}
+	return _u
+}
+
+// ClearPublicSlug clears the value of the "public_slug" field.
+func (_u *EventUpdateOne) ClearPublicSlug() *EventUpdateOne {
+	_u.mutation.ClearPublicSlug()
+	return _u
+}
+
+// SetPublic sets the "public" field.
+func (_u *EventUpdateOne) SetPublic(v bool) *EventUpdateOne {
+	_u.mutation.SetPublic(v)
+	return _u
+}
+
+// SetNillablePublic sets the "public" field if the given value is not nil.
+func (_u *EventUpdateOne) SetNillablePublic(v *bool) *EventUpdateOne {
+	if v != nil {
+		_u.SetPublic(*v)
 	}
 	return _u
 }
@@ -3319,6 +3401,11 @@ func (_u *EventUpdateOne) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Event.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.PublicSlug(); ok {
+		if err := event.PublicSlugValidator(v); err != nil {
+			return &ValidationError{Name: "public_slug", err: fmt.Errorf(`ent: validator failed for field "Event.public_slug": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.PlannedStartDate(); ok {
 		if err := event.PlannedStartDateValidator(v); err != nil {
 			return &ValidationError{Name: "planned_start_date", err: fmt.Errorf(`ent: validator failed for field "Event.planned_start_date": %w`, err)}
@@ -3428,6 +3515,15 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(event.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.PublicSlug(); ok {
+		_spec.SetField(event.FieldPublicSlug, field.TypeString, value)
+	}
+	if _u.mutation.PublicSlugCleared() {
+		_spec.ClearField(event.FieldPublicSlug, field.TypeString)
+	}
+	if value, ok := _u.mutation.Public(); ok {
+		_spec.SetField(event.FieldPublic, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.PlannedStartDate(); ok {
 		_spec.SetField(event.FieldPlannedStartDate, field.TypeString, value)

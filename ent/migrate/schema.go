@@ -716,6 +716,8 @@ var (
 	EventsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "name", Type: field.TypeString, Size: 200},
+		{Name: "public_slug", Type: field.TypeString, Unique: true, Nullable: true, Size: 200},
+		{Name: "public", Type: field.TypeBool, Default: false},
 		{Name: "planned_start_date", Type: field.TypeString, Size: 10},
 		{Name: "planned_end_date", Type: field.TypeString, Size: 10},
 		{Name: "timezone", Type: field.TypeString, Size: 200},

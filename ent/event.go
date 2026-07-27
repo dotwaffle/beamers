@@ -21,6 +21,10 @@ type Event struct {
 	ID int `json:"id,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
+	// PublicSlug holds the value of the "public_slug" field.
+	PublicSlug string `json:"public_slug,omitempty"`
+	// Public holds the value of the "public" field.
+	Public bool `json:"public,omitempty"`
 	// PlannedStartDate holds the value of the "planned_start_date" field.
 	PlannedStartDate string `json:"planned_start_date,omitempty"`
 	// PlannedEndDate holds the value of the "planned_end_date" field.
@@ -310,9 +314,11 @@ func (*Event) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case event.FieldPublic:
+			values[i] = new(sql.NullBool)
 		case event.FieldID, event.FieldAttachmentReleaseCueSessionID, event.FieldAttachmentReleaseRevision, event.FieldStageMessageDefaultDurationSeconds, event.FieldStageMessageConfigurationRevision, event.FieldRevision:
 			values[i] = new(sql.NullInt64)
-		case event.FieldName, event.FieldPlannedStartDate, event.FieldPlannedEndDate, event.FieldTimezone, event.FieldEventLocale, event.FieldContentLanguage, event.FieldEventDayBoundary, event.FieldEntryDefaultDisposition, event.FieldTargetAdjustmentPresets, event.FieldDisplayConfiguration, event.FieldAttachmentReleasePolicy, event.FieldStageMessagePresets:
+		case event.FieldName, event.FieldPublicSlug, event.FieldPlannedStartDate, event.FieldPlannedEndDate, event.FieldTimezone, event.FieldEventLocale, event.FieldContentLanguage, event.FieldEventDayBoundary, event.FieldEntryDefaultDisposition, event.FieldTargetAdjustmentPresets, event.FieldDisplayConfiguration, event.FieldAttachmentReleasePolicy, event.FieldStageMessagePresets:
 			values[i] = new(sql.NullString)
 		case event.FieldAttachmentReleaseCueAt, event.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -342,6 +348,18 @@ func (_m *Event) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field name", values[i])
 			} else if value.Valid {
 				_m.Name = value.String
+			}
+		case event.FieldPublicSlug:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field public_slug", values[i])
+			} else if value.Valid {
+				_m.PublicSlug = value.String
+			}
+		case event.FieldPublic:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field public", values[i])
+			} else if value.Valid {
+				_m.Public = value.Bool
 			}
 		case event.FieldPlannedStartDate:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -595,6 +613,12 @@ func (_m *Event) String() string {
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)
+	builder.WriteString(", ")
+	builder.WriteString("public_slug=")
+	builder.WriteString(_m.PublicSlug)
+	builder.WriteString(", ")
+	builder.WriteString("public=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Public))
 	builder.WriteString(", ")
 	builder.WriteString("planned_start_date=")
 	builder.WriteString(_m.PlannedStartDate)

@@ -3,6 +3,7 @@ package frontend
 import "strconv"
 
 import "github.com/dotwaffle/beamers/internal/auth"
+import "github.com/dotwaffle/beamers/internal/events"
 
 type BackstageNavigation struct {
 	Administrator bool
@@ -273,6 +274,7 @@ templ Root(
 	csrfToken string,
 	reducedEffects bool,
 	backstage bool,
+	publicEvents []events.PublicEvent,
 ) {
 	<!doctype html>
 	<html lang="en">
@@ -286,8 +288,58 @@ templ Root(
 					<p><a href="/setup">Continue setup</a></p>
 				} else {
 					<h1>Events</h1>
-					<p>No public Events yet.</p>
+					if len(publicEvents) == 0 {
+						<p>No public Events yet.</p>
+					} else {
+						for _, event := range publicEvents {
+							if event.Active {
+								<section>
+									<h2>Featured Event</h2>
+									@PublicEventSummary(event)
+								</section>
+							}
+						}
+						<section>
+							<h2>Public Events</h2>
+							<ul>
+								for _, event := range publicEvents {
+									if !event.Active {
+										<li>@PublicEventSummary(event)</li>
+									}
+								}
+							</ul>
+						</section>
+					}
 				}
+			</main>
+		</body>
+	</html>
+}
+
+templ PublicEventSummary(event events.PublicEvent) {
+	<a href={ templ.SafeURL("/events/" + event.Slug) }>{ event.Name }</a>
+	<span>
+		<time datetime={ event.PlannedStartDate }>{ event.PlannedStartDate }</time>
+		–
+		<time datetime={ event.PlannedEndDate }>{ event.PlannedEndDate }</time>
+	</span>
+}
+
+templ PublicEvent(event events.PublicEvent) {
+	<!doctype html>
+	<html lang={ event.EventLocale }>
+		@Head(event.Name + " · Beamers")
+		<body>
+			<header>
+				<nav aria-label="Primary"><a href="/">Beamers</a></nav>
+			</header>
+			<main>
+				<h1>{ event.Name }</h1>
+				<p>
+					<time datetime={ event.PlannedStartDate }>{ event.PlannedStartDate }</time>
+					–
+					<time datetime={ event.PlannedEndDate }>{ event.PlannedEndDate }</time>
+				</p>
 			</main>
 		</body>
 	</html>

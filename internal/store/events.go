@@ -4,7 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
+	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"entgo.io/ent/privacy"
 
@@ -30,6 +34,8 @@ var (
 type Event struct {
 	ID                      int    `json:"id"`
 	Name                    string `json:"name"`
+	PublicSlug              string `json:"public_slug"`
+	Public                  bool   `json:"public"`
 	PlannedStartDate        string `json:"planned_start_date"`
 	PlannedEndDate          string `json:"planned_end_date"`
 	Timezone                string `json:"timezone"`
@@ -39,6 +45,16 @@ type Event struct {
 	EntryDefaultDisposition string `json:"entry_default_disposition"`
 	TargetAdjustmentPresets string `json:"target_adjustment_presets"`
 	Revision                int    `json:"revision"`
+}
+
+// PublicEvent is the attendee-safe persistence projection of a listed Event.
+type PublicEvent struct {
+	ID               int
+	Name             string
+	PublicSlug       string
+	PlannedStartDate string
+	PlannedEndDate   string
+	EventLocale      string
 }
 
 // EventInterchangeState is one portable Event snapshot.
@@ -93,6 +109,7 @@ type UpdateEventParams struct {
 	ActorAccountID                 int
 	EventID                        int
 	Name                           string
+	Public                         bool
 	PlannedStartDate               string
 	PlannedEndDate                 string
 	Timezone                       string
@@ -113,8 +130,13 @@ func (transaction *CommandTx) CreateEvent(ctx context.Context, params CreateEven
 	if err != nil {
 		return Event{}, opaqueError("encode Adjust Target presets", err)
 	}
+	publicSlug, err := transaction.availableEventSlug(ctx, params.Name)
+	if err != nil {
+		return Event{}, err
+	}
 	create := transaction.transaction.Event.Create().
 		SetName(params.Name).
+		SetPublicSlug(publicSlug).
 		SetPlannedStartDate(params.PlannedStartDate).
 		SetPlannedEndDate(params.PlannedEndDate).
 		SetTimezone(params.Timezone).
@@ -153,6 +175,41 @@ func (installation *SQLite) ListEvents(ctx context.Context) ([]Event, error) {
 		events = append(events, eventProjection(item))
 	}
 	return events, nil
+}
+
+// ListPublicEvents returns the attendee-visible Event collection and Active Event marker.
+func (installation *SQLite) ListPublicEvents(ctx context.Context) ([]PublicEvent, int, error) {
+	found, err := installation.client.Event.Query().
+		Where(event.PublicEQ(true)).
+		Order(ent.Asc(event.FieldID)).
+		All(systemContext(ctx))
+	if err != nil {
+		return nil, 0, opaqueError("list public Events", err)
+	}
+	active, err := installation.LoadActiveEvent(systemContext(ctx))
+	if err != nil {
+		return nil, 0, err
+	}
+	events := make([]PublicEvent, 0, len(found))
+	for _, item := range found {
+		events = append(events, publicEventProjection(item))
+	}
+	return events, active.EventID, nil
+}
+
+// FindPublicEvent returns one attendee-visible Event by its current Event Slug.
+func (installation *SQLite) FindPublicEvent(ctx context.Context, slug string) (PublicEvent, error) {
+	found, err := installation.client.Event.Query().Where(
+		event.PublicEQ(true),
+		event.PublicSlugEQ(slug),
+	).Only(systemContext(ctx))
+	if ent.IsNotFound(err) {
+		return PublicEvent{}, ErrEventNotFound
+	}
+	if err != nil {
+		return PublicEvent{}, opaqueError("find public Event", err)
+	}
+	return publicEventProjection(found), nil
 }
 
 // ListEventGrants returns installation Event Grants in stable creation order.
@@ -258,6 +315,26 @@ func (transaction *CommandTx) UpdateEvent(ctx context.Context, params UpdateEven
 	if err != nil {
 		return Event{}, opaqueError("encode Adjust Target presets", err)
 	}
+	publicSlug := ""
+	if params.Public {
+		current, currentErr := transaction.transaction.Event.Query().Where(
+			event.IDEQ(params.EventID),
+			event.RevisionEQ(params.ExpectedRevision),
+		).Only(systemContext(ctx))
+		if ent.IsNotFound(currentErr) {
+			return Event{}, ErrRevisionConflict
+		}
+		if currentErr != nil {
+			return Event{}, opaqueError("read Event Slug before publication", currentErr)
+		}
+		publicSlug = current.PublicSlug
+		if publicSlug == "" {
+			publicSlug, err = transaction.availableEventSlug(ctx, params.Name)
+			if err != nil {
+				return Event{}, err
+			}
+		}
+	}
 	entryDefaultDisposition := params.EntryDefaultDisposition
 	if entryDefaultDisposition == "" {
 		entryDefaultDisposition = "Pending"
@@ -265,6 +342,7 @@ func (transaction *CommandTx) UpdateEvent(ctx context.Context, params UpdateEven
 	update := transaction.transaction.Event.UpdateOneID(params.EventID).
 		Where(event.RevisionEQ(params.ExpectedRevision)).
 		SetName(params.Name).
+		SetPublic(params.Public).
 		SetPlannedStartDate(params.PlannedStartDate).
 		SetPlannedEndDate(params.PlannedEndDate).
 		SetTimezone(params.Timezone).
@@ -273,6 +351,9 @@ func (transaction *CommandTx) UpdateEvent(ctx context.Context, params UpdateEven
 		SetEntryDefaultDisposition(event.EntryDefaultDisposition(entryDefaultDisposition)).
 		SetTargetAdjustmentPresets(string(presets)).
 		AddRevision(1)
+	if publicSlug != "" {
+		update.SetPublicSlug(publicSlug)
+	}
 	if params.ContentLanguage == "" {
 		update.ClearContentLanguage()
 	} else {
@@ -286,6 +367,67 @@ func (transaction *CommandTx) UpdateEvent(ctx context.Context, params UpdateEven
 		return Event{}, opaqueError("update Event", err)
 	}
 	return eventProjection(updated), nil
+}
+
+func (transaction *CommandTx) availableEventSlug(ctx context.Context, name string) (string, error) {
+	base := eventSlug(name)
+	for suffix := 1; ; suffix++ {
+		candidate := base
+		if suffix > 1 {
+			trailer := "-" + strconv.Itoa(suffix)
+			runes := []rune(base)
+			limit := 200 - utf8.RuneCountInString(trailer)
+			candidate = strings.TrimRight(string(runes[:min(len(runes), limit)]), "-") + trailer
+		}
+		exists, err := transaction.transaction.Event.Query().
+			Where(event.PublicSlugEQ(candidate)).
+			Exist(systemContext(ctx))
+		if err != nil {
+			return "", opaqueError("find available Event Slug", err)
+		}
+		if !exists {
+			return candidate, nil
+		}
+	}
+}
+
+func eventSlug(name string) string {
+	var slug strings.Builder
+	slug.Grow(min(len(name), 200))
+	separator := false
+	runeCount := 0
+characters:
+	for _, character := range strings.ToLower(name) {
+		switch {
+		case unicode.IsLetter(character) || unicode.IsDigit(character):
+			if separator && runeCount > 0 {
+				if runeCount+2 > 200 {
+					break characters
+				}
+				slug.WriteByte('-')
+				runeCount++
+			}
+			slug.WriteRune(character)
+			runeCount++
+			separator = false
+		case unicode.IsMark(character) && runeCount > 0 && !separator:
+			if runeCount == 200 {
+				break characters
+			}
+			slug.WriteRune(character)
+			runeCount++
+		default:
+			separator = true
+		}
+		if runeCount == 200 {
+			break
+		}
+	}
+	found := strings.Trim(slug.String(), "-")
+	if found == "" {
+		return "event"
+	}
+	return found
 }
 
 // FindCrewEvent returns an Event only when the Account has an Event Grant.

@@ -201,6 +201,24 @@ func TestUnscopedEventGrantRetainsLegacyPayloadHash(t *testing.T) {
 	}
 }
 
+func TestUnlistedEventRetainsLegacyPayloadHash(t *testing.T) {
+	input := CreateInput{
+		Name: "Revision 2026", PlannedStartDate: "2026-08-21",
+		PlannedEndDate: "2026-08-23", Timezone: "Europe/Berlin",
+		EventLocale: "de-DE", ContentLanguage: "en-GB",
+		EventDayBoundary:               "06:00",
+		TargetAdjustmentPresetsSeconds: []int{-300, 300, 600},
+	}
+	want := command.PayloadHash(
+		input.Name, input.PlannedStartDate, input.PlannedEndDate, input.Timezone,
+		input.EventLocale, input.ContentLanguage, input.EventDayBoundary,
+		"[-300,300,600]", "1",
+	)
+	if got := eventPayloadHash(input, 1); got != want {
+		t.Errorf("unlisted Event payload hash = %q, want legacy hash %q", got, want)
+	}
+}
+
 func TestScopedEventGrantPayloadHashUsesSetOrder(t *testing.T) {
 	first := GrantInput{
 		AccountID: 2, Role: "Operator",

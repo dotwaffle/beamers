@@ -220,6 +220,148 @@ func TestBrowserSetupAndSessionSurviveRestart(t *testing.T) {
 	server.stop(t)
 }
 
+func TestBrowserPublishesEventsUnderCurrentSlugs(t *testing.T) {
+	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
+	prepareActiveSchedule(t, administrator, server)
+	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+
+	second := validEventInput()
+	second["name"] = "Summer Showcase"
+	second["command_id"] = "create-public-event-2"
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events", second,
+		http.StatusCreated,
+		"{\"id\":2,\"name\":\"Summer Showcase\",\"planned_start_date\":\"2026-08-21\",\"planned_end_date\":\"2026-08-23\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"de-DE\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":1}\n",
+	)
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events/2/grants",
+		map[string]any{
+			"account_id": 1, "role": "Producer",
+			"command_id": "grant-public-event-2",
+		},
+		http.StatusCreated,
+		"{\"event_id\":2,\"account_id\":1,\"role\":\"Producer\"}\n",
+	)
+	draft := validEventInput()
+	draft["name"] = "Secret Draft"
+	draft["command_id"] = "create-private-event-3"
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events", draft,
+		http.StatusCreated,
+		"{\"id\":3,\"name\":\"Secret Draft\",\"planned_start_date\":\"2026-08-21\",\"planned_end_date\":\"2026-08-23\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"de-DE\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":1}\n",
+	)
+
+	setListed := func(eventID int, name, start, end, locale string, listed bool) {
+		t.Helper()
+		path := "/backstage/events/" + strconv.Itoa(eventID) + "/planning"
+		page := getFrontendPage(t, administrator, server.address, path)
+		values := frontendNamedValues(
+			page.body,
+			"command_id",
+			"expected_event_revision",
+		)
+		values.Set("csrf_token", requireFrontendCSRF(t, page))
+		values.Set("action", "event")
+		values.Set("event_name", name)
+		values.Set("planned_start_date", start)
+		values.Set("planned_end_date", end)
+		values.Set("timezone", "Europe/Berlin")
+		values.Set("event_locale", locale)
+		values.Set("content_language", "en-GB")
+		values.Set("event_day_boundary", "06:00")
+		values.Set("entry_default_disposition", "Pending")
+		values.Set("target_adjustment_presets_seconds", "-300,300,600")
+		if listed {
+			values.Set("public", "true")
+		}
+		saved := postFrontendForm(t, administrator, server.address, path, values)
+		if saved.status != http.StatusSeeOther {
+			t.Fatalf("set Event %d listing to %t = %d %q", eventID, listed, saved.status, saved.body)
+		}
+	}
+	setListed(1, "Revision 2099", "2099-08-21", "2099-08-23", "en-GB", true)
+	setListed(2, "Summer Showcase", "2026-08-21", "2026-08-23", "de-DE", true)
+
+	root := getFrontendPage(t, authenticatedClient(t), server.publicAddress, "/")
+	for _, want := range []string{
+		"Featured Event",
+		`href="/events/revision-2099"`,
+		"Revision 2099",
+		`href="/events/summer-showcase"`,
+		"Summer Showcase",
+	} {
+		if root.status != http.StatusOK || !strings.Contains(root.body, want) {
+			t.Fatalf("Public Event Listing lacks %q: %d %q", want, root.status, root.body)
+		}
+	}
+	if strings.Contains(root.body, "Secret Draft") {
+		t.Fatalf("Public Event Listing disclosed Draft Event: %q", root.body)
+	}
+	for path, name := range map[string]string{
+		"/events/revision-2099":   "Revision 2099",
+		"/events/summer-showcase": "Summer Showcase",
+	} {
+		page := getFrontendPage(t, authenticatedClient(t), server.publicAddress, path)
+		if page.status != http.StatusOK || !strings.Contains(page.body, name) {
+			t.Fatalf("public Event %s = %d %q", path, page.status, page.body)
+		}
+	}
+	private := getFrontendPage(
+		t, authenticatedClient(t), server.publicAddress, "/events/secret-draft",
+	)
+	unknown := getFrontendPage(
+		t, authenticatedClient(t), server.publicAddress, "/events/unknown-event",
+	)
+	if private.status != http.StatusNotFound ||
+		private.status != unknown.status ||
+		private.body != unknown.body {
+		t.Fatalf(
+			"private and unknown Events differ: private=%d %q unknown=%d %q",
+			private.status, private.body, unknown.status, unknown.body,
+		)
+	}
+
+	root = getFrontendPage(t, administrator, server.address, "/")
+	denied := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/events/3/planning",
+		url.Values{
+			"csrf_token": {requireFrontendCSRF(t, root)},
+			"action":     {"event"},
+			"public":     {"true"},
+		},
+	)
+	if denied.status != http.StatusNotFound {
+		t.Fatalf("Administrator published without Event Grant: %d %q", denied.status, denied.body)
+	}
+
+	setListed(1, "Revision 2099", "2099-08-21", "2099-08-23", "en-GB", false)
+	root = getFrontendPage(t, authenticatedClient(t), server.publicAddress, "/")
+	if strings.Contains(root.body, "Revision 2099") ||
+		!strings.Contains(root.body, "Summer Showcase") {
+		t.Fatalf("Public Event Listing followed Active Event instead of Producer state: %q", root.body)
+	}
+	if hidden := getFrontendPage(
+		t, authenticatedClient(t), server.publicAddress, "/events/revision-2099",
+	); hidden.status != http.StatusNotFound {
+		t.Fatalf("unlisted Active Event = %d %q", hidden.status, hidden.body)
+	}
+
+	dataDir, bin := server.dataDir, server.bin
+	server.stop(t)
+	server = startBeamersWithPublicListener(t, bin, dataDir)
+	root = getFrontendPage(t, authenticatedClient(t), server.publicAddress, "/")
+	if !strings.Contains(root.body, `href="/events/summer-showcase"`) ||
+		strings.Contains(root.body, "Revision 2099") {
+		t.Fatalf("restarted Public Event Listing = %d %q", root.status, root.body)
+	}
+	server.stop(t)
+}
+
 func TestBrowserRegistrationProfileAndDisablement(t *testing.T) {
 	bin := buildBeamers(t)
 	dataDir := filepath.Join(t.TempDir(), "data")

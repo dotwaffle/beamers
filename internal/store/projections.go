@@ -6,6 +6,8 @@ func eventProjection(found *ent.Event) Event {
 	return Event{
 		ID:                      found.ID,
 		Name:                    found.Name,
+		PublicSlug:              found.PublicSlug,
+		Public:                  found.Public,
 		PlannedStartDate:        found.PlannedStartDate,
 		PlannedEndDate:          found.PlannedEndDate,
 		Timezone:                found.Timezone,
@@ -15,5 +17,14 @@ func eventProjection(found *ent.Event) Event {
 		EntryDefaultDisposition: string(found.EntryDefaultDisposition),
 		TargetAdjustmentPresets: found.TargetAdjustmentPresets,
 		Revision:                found.Revision,
+	}
+}
+
+func publicEventProjection(found *ent.Event) PublicEvent {
+	return PublicEvent{
+		ID: found.ID, Name: found.Name, PublicSlug: found.PublicSlug,
+		PlannedStartDate: found.PlannedStartDate,
+		PlannedEndDate:   found.PlannedEndDate,
+		EventLocale:      found.EventLocale,
 	}
 }

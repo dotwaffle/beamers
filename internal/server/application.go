@@ -618,6 +618,7 @@ func (application *application) buildHandler(
 		installation.Authentication(),
 		authenticationLimiter,
 		installation.RundownQueries(),
+		installation.Events(),
 		application.config.Logger,
 	); err != nil {
 		return nil, err

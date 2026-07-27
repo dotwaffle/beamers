@@ -114,6 +114,20 @@ templ Planning(page PlanningPage) {
 							<input type="hidden" name="command_id" value={ page.CommandID }/>
 							<input type="hidden" name="expected_event_revision" value={ strconv.Itoa(page.Event.Revision) }/>
 							<label>Event name <input name="event_name" value={ page.Event.Name } required/></label>
+							if page.Event.PublicSlug == "" {
+								<p>A current Event Slug will be assigned when this Event first joins the Public Event Listing.</p>
+							} else {
+								<p>
+									Current public URL:
+									<a href={ templ.SafeURL("/events/" + page.Event.PublicSlug) }>
+										/events/{ page.Event.PublicSlug }
+									</a>
+								</p>
+							}
+							<label>
+								<input type="checkbox" name="public" value="true" checked?={ page.Event.Public }/>
+								Include in the Public Event Listing
+							</label>
 							<label>Planned start <input type="date" name="planned_start_date" value={ page.Event.PlannedStartDate } required/></label>
 							<label>Planned end <input type="date" name="planned_end_date" value={ page.Event.PlannedEndDate } required/></label>
 							<label>Timezone <input name="timezone" value={ page.Event.Timezone } required/></label>

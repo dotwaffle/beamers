@@ -634,6 +634,26 @@ func TestBrowserCertification(t *testing.T) {
 		"",
 	)
 	prepareActiveSchedule(t, administrator, server)
+	assertJSONRequest(
+		t,
+		administrator,
+		server.address,
+		"/crew/events/1",
+		map[string]any{
+			"name":               "Revision 2099",
+			"public":             true,
+			"planned_start_date": "2099-08-21",
+			"planned_end_date":   "2099-08-23",
+			"timezone":           "Europe/Berlin",
+			"event_locale":       "en-GB",
+			"content_language":   "en-GB",
+			"event_day_boundary": "06:00",
+			"expected_revision":  1,
+			"command_id":         "certify-public-event",
+		},
+		http.StatusOK,
+		"{\"id\":1,\"name\":\"Revision 2099\",\"planned_start_date\":\"2099-08-21\",\"planned_end_date\":\"2099-08-23\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"en-GB\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":2}\n",
+	)
 	crewSessionID, _ := addCompetitionSession(t, administrator, server)
 	prepareReleasedBrowserResults(t, administrator, server, crewSessionID)
 	prizegivingSessionID := prepareBrowserPrizegiving(t, administrator, server)
@@ -664,10 +684,17 @@ func TestBrowserCertification(t *testing.T) {
 		)
 	}
 	assertResponsivePageWidths(t, crewDriver, origin+"/", 320, 375, 768, 1024, 1440)
+	assertResponsivePageWidths(t, crewDriver, origin+"/events/revision-2099", 320, 1440)
 	assertResponsivePageWidths(t, crewDriver, origin+"/schedule", 320, 1440)
 	report.Pages = append(
 		report.Pages,
 		certifyFrontendTheme(t, crewDriver, origin),
+		certifyInteractivePage(
+			t,
+			crewDriver,
+			origin+"/events/revision-2099",
+			"event",
+		),
 		certifyInteractivePage(t, crewDriver, origin+"/schedule", "schedule"),
 		certifyResultsPage(t, crewDriver, origin, crewSessionID),
 	)
