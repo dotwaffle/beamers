@@ -532,7 +532,7 @@ func (driver *webDriver) evaluateBool(
 		ctx,
 		http.MethodPost,
 		driver.sessionPath("/execute/sync"),
-		map[string]any{"script": script, "args": args},
+		map[string]any{"script": script, "args": append([]any{}, args...)},
 	)
 	if err != nil {
 		return false, err
@@ -595,7 +595,7 @@ func (driver *webDriver) execute(ctx context.Context, script string, args ...any
 		ctx,
 		http.MethodPost,
 		driver.sessionPath("/execute/sync"),
-		map[string]any{"script": script, "args": args},
+		map[string]any{"script": script, "args": append([]any{}, args...)},
 	)
 	return err
 }
@@ -2853,6 +2853,15 @@ func TestWebDriverUsesNavigationCookieKeyboardAndScriptCommands(t *testing.T) {
 				`{"value":{"sessionId":"session-1","capabilities":{"browserVersion":"147.0.1"}}}`,
 			))
 		case "/session/session-1/execute/sync":
+			var payload struct {
+				Args []any `json:"args"`
+			}
+			if err := json.NewDecoder(request.Body).Decode(&payload); err != nil {
+				t.Errorf("decode script command: %v", err)
+			}
+			if payload.Args == nil {
+				t.Error("script command args = null, want []")
+			}
 			_, _ = response.Write([]byte(`{"value":true}`))
 		default:
 			_, _ = response.Write([]byte(`{"value":null}`))
@@ -2884,6 +2893,9 @@ func TestWebDriverUsesNavigationCookieKeyboardAndScriptCommands(t *testing.T) {
 	if err != nil || !found {
 		t.Fatalf("evaluate boolean = %t, %v", found, err)
 	}
+	if err = driver.execute(t.Context(), "return;"); err != nil {
+		t.Fatalf("execute script: %v", err)
+	}
 	if err = driver.close(t.Context()); err != nil {
 		t.Fatalf("close WebDriver: %v", err)
 	}
@@ -2892,6 +2904,7 @@ func TestWebDriverUsesNavigationCookieKeyboardAndScriptCommands(t *testing.T) {
 		"/session/session-1/url",
 		"/session/session-1/cookie",
 		"/session/session-1/actions",
+		"/session/session-1/execute/sync",
 		"/session/session-1/execute/sync",
 		"/session/session-1",
 	}
