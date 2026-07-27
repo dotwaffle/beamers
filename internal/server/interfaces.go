@@ -25,7 +25,6 @@ const (
 	unspecifiedInterface interfaceKind = iota
 	crewInterface
 	displayInterface
-	uploadInterface
 	publicInterface
 	probeInterface
 )
@@ -55,14 +54,6 @@ func crewRoute() routeContract {
 
 func displayRoute() routeContract {
 	return routeContract{kind: displayInterface}
-}
-
-func uploadRoute() routeContract {
-	return routeContract{
-		kind:         uploadInterface,
-		timeout:      uploadRequestTimeout,
-		maxBodyBytes: maxUploadRequestBytes,
-	}
 }
 
 func publicRoute() routeContract {

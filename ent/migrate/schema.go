@@ -1822,37 +1822,6 @@ var (
 			},
 		},
 	}
-	// UploadLinksColumns holds the columns for the "upload_links" table.
-	UploadLinksColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
-		{Name: "target_type", Type: field.TypeEnum, Enums: []string{"Presentation", "Entry"}},
-		{Name: "target_id", Type: field.TypeInt},
-		{Name: "token_hash", Type: field.TypeString, Unique: true, Size: 64},
-		{Name: "revoked_at", Type: field.TypeTime, Nullable: true},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "event_id", Type: field.TypeInt},
-	}
-	// UploadLinksTable holds the schema information for the "upload_links" table.
-	UploadLinksTable = &schema.Table{
-		Name:       "upload_links",
-		Columns:    UploadLinksColumns,
-		PrimaryKey: []*schema.Column{UploadLinksColumns[0]},
-		ForeignKeys: []*schema.ForeignKey{
-			{
-				Symbol:     "upload_links_events_upload_links",
-				Columns:    []*schema.Column{UploadLinksColumns[6]},
-				RefColumns: []*schema.Column{EventsColumns[0]},
-				OnDelete:   schema.NoAction,
-			},
-		},
-		Indexes: []*schema.Index{
-			{
-				Name:    "uploadlink_event_id_target_type_target_id_created_at",
-				Unique:  false,
-				Columns: []*schema.Column{UploadLinksColumns[6], UploadLinksColumns[1], UploadLinksColumns[2], UploadLinksColumns[5]},
-			},
-		},
-	}
 	// VotingEligibilitiesColumns holds the columns for the "voting_eligibilities" table.
 	VotingEligibilitiesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -2130,7 +2099,6 @@ var (
 		TracksTable,
 		TrackDraftsTable,
 		TrackPublishedVersionsTable,
-		UploadLinksTable,
 		VotingEligibilitiesTable,
 		WebAuthnCredentialsTable,
 		SessionDraftLanesTable,
@@ -2218,7 +2186,6 @@ func init() {
 	TracksTable.ForeignKeys[0].RefTable = EventsTable
 	TrackDraftsTable.ForeignKeys[0].RefTable = TracksTable
 	TrackPublishedVersionsTable.ForeignKeys[0].RefTable = TracksTable
-	UploadLinksTable.ForeignKeys[0].RefTable = EventsTable
 	VotingEligibilitiesTable.ForeignKeys[0].RefTable = AccountsTable
 	VotingEligibilitiesTable.ForeignKeys[1].RefTable = EventsTable
 	WebAuthnCredentialsTable.ForeignKeys[0].RefTable = AccountsTable

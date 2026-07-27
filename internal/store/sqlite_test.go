@@ -87,11 +87,11 @@ func TestAttestedMigrationPlanUpgradesStagedSQLite(t *testing.T) {
 		t.Fatalf("plan migrations: %v", err)
 	}
 	if plan.FromVersion != 47 ||
-		plan.ToVersion != 58 ||
-		plan.Safety != MigrationNonDestructive ||
-		plan.MinimumReaderSchemaVersion != 58 ||
-		plan.MinimumWriterSchemaVersion != 58 ||
-		len(plan.Migrations) != 11 ||
+		plan.ToVersion != 59 ||
+		plan.Safety != MigrationDestructive ||
+		plan.MinimumReaderSchemaVersion != 59 ||
+		plan.MinimumWriterSchemaVersion != 59 ||
+		len(plan.Migrations) != 12 ||
 		plan.Migrations[0].Version != 48 ||
 		plan.Migrations[1].Version != 49 ||
 		plan.Migrations[2].Version != 50 ||
@@ -102,7 +102,8 @@ func TestAttestedMigrationPlanUpgradesStagedSQLite(t *testing.T) {
 		plan.Migrations[7].Version != 55 ||
 		plan.Migrations[8].Version != 56 ||
 		plan.Migrations[9].Version != 57 ||
-		plan.Migrations[10].Version != 58 {
+		plan.Migrations[10].Version != 58 ||
+		plan.Migrations[11].Version != 59 {
 		t.Fatalf("migration plan = %+v", plan)
 	}
 
@@ -128,19 +129,77 @@ func TestAttestedMigrationPlanUpgradesStagedSQLite(t *testing.T) {
 		ctx,
 		"SELECT safety, minimum_reader_schema_version, "+
 			"minimum_writer_schema_version FROM beamers_schema_migrations "+
-			"WHERE version = 58",
+			"WHERE version = 59",
 	).Scan(&safety, &minimumReader, &minimumWriter); err != nil {
 		t.Fatalf("read migration contract: %v", err)
 	}
-	if safety != string(MigrationNonDestructive) ||
-		minimumReader != 58 ||
-		minimumWriter != 58 {
+	if safety != string(MigrationDestructive) ||
+		minimumReader != 59 ||
+		minimumWriter != 59 {
 		t.Fatalf(
 			"migration contract = %q/%d/%d",
 			safety,
 			minimumReader,
 			minimumWriter,
 		)
+	}
+	var uploadLinkTable bool
+	if err = database.QueryRowContext(
+		ctx,
+		"SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'upload_links')",
+	).Scan(&uploadLinkTable); err != nil {
+		t.Fatalf("inspect removed Upload Link table: %v", err)
+	}
+	if uploadLinkTable {
+		t.Fatal("Upload Link table remains after migration")
+	}
+}
+
+func TestUploadLinkMigrationPreservesHistoricalAuditActor(t *testing.T) {
+	ctx := t.Context()
+	databasePath := initializeSchemaFixture(t, 58)
+	database, err := openDatabase(ctx, databasePath)
+	if err != nil {
+		t.Fatalf("open schema 58 database: %v", err)
+	}
+	if _, err = database.ExecContext(
+		ctx,
+		"INSERT INTO audit_entries "+
+			"(actor_kind, actor_upload_link_id, created_at, action, target_type, target_id, result) "+
+			"VALUES ('UploadLink', 42, CURRENT_TIMESTAMP, 'UploadAttachment', 'Entry', '7', 'Succeeded')",
+	); err != nil {
+		_ = database.Close()
+		t.Fatalf("seed Upload Link audit actor: %v", err)
+	}
+	if err = database.Close(); err != nil {
+		t.Fatalf("close schema 58 database: %v", err)
+	}
+	plan, err := PlanMigrations(ctx, databasePath)
+	if err != nil {
+		t.Fatalf("plan Upload Link removal: %v", err)
+	}
+	if err = MigrateSnapshot(ctx, databasePath, plan); err != nil {
+		t.Fatalf("migrate Upload Link audit actor: %v", err)
+	}
+	database, err = openValidationDatabase(ctx, databasePath)
+	if err != nil {
+		t.Fatalf("open migrated database: %v", err)
+	}
+	defer func() {
+		if closeErr := database.Close(); closeErr != nil {
+			t.Errorf("close migrated database: %v", closeErr)
+		}
+	}()
+	var actorKind string
+	var actorUploadLinkID int
+	if err = database.QueryRowContext(
+		ctx,
+		"SELECT actor_kind, actor_upload_link_id FROM audit_entries WHERE action = 'UploadAttachment'",
+	).Scan(&actorKind, &actorUploadLinkID); err != nil {
+		t.Fatalf("read migrated audit actor: %v", err)
+	}
+	if actorKind != "UploadLink" || actorUploadLinkID != 42 {
+		t.Fatalf("migrated audit actor = %q #%d", actorKind, actorUploadLinkID)
 	}
 }
 
@@ -234,13 +293,13 @@ func TestDeclaredForwardWriterRangeAllowsNewerSchema(t *testing.T) {
 		"INSERT INTO beamers_schema_migrations "+
 			"(version, name, checksum, safety, minimum_reader_schema_version, "+
 			"minimum_writer_schema_version, applied_at) "+
-			"VALUES (59, 'future_addition', printf('%064d', 1), "+
-			"'NonDestructive', 58, 58, CURRENT_TIMESTAMP)",
+			"VALUES (60, 'future_addition', printf('%064d', 1), "+
+			"'NonDestructive', 59, 59, CURRENT_TIMESTAMP)",
 	); err != nil {
 		_ = database.Close()
 		t.Fatalf("record future migration: %v", err)
 	}
-	if _, err = database.ExecContext(t.Context(), "PRAGMA user_version = 59"); err != nil {
+	if _, err = database.ExecContext(t.Context(), "PRAGMA user_version = 60"); err != nil {
 		_ = database.Close()
 		t.Fatalf("set future schema version: %v", err)
 	}
@@ -260,8 +319,8 @@ func TestDeclaredForwardWriterRangeAllowsNewerSchema(t *testing.T) {
 	if err = installation.StartupError(); err != nil {
 		t.Fatalf("forward-compatible startup: %v", err)
 	}
-	if installation.SchemaVersion() != 59 {
-		t.Fatalf("opened schema version = %d, want 59", installation.SchemaVersion())
+	if installation.SchemaVersion() != 60 {
+		t.Fatalf("opened schema version = %d, want 60", installation.SchemaVersion())
 	}
 }
 

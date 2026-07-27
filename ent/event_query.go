@@ -36,7 +36,6 @@ import (
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/track"
-	"github.com/dotwaffle/beamers/ent/uploadlink"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
 )
 
@@ -62,7 +61,6 @@ type EventQuery struct {
 	withPrizegivingCompetitions    *PrizegivingCompetitionQuery
 	withResultsPublications        *ResultsPublicationQuery
 	withResultsCorrections         *ResultsCorrectionQuery
-	withUploadLinks                *UploadLinkQuery
 	withVotingEligibilities        *VotingEligibilityQuery
 	withDraftEdits                 *DraftEditQuery
 	withDraftChanges               *DraftChangeQuery
@@ -436,28 +434,6 @@ func (_q *EventQuery) QueryResultsCorrections() *ResultsCorrectionQuery {
 	return query
 }
 
-// QueryUploadLinks chains the current query on the "upload_links" edge.
-func (_q *EventQuery) QueryUploadLinks() *UploadLinkQuery {
-	query := (&UploadLinkClient{config: _q.config}).Query()
-	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
-		if err := _q.prepareQuery(ctx); err != nil {
-			return nil, err
-		}
-		selector := _q.sqlQuery(ctx)
-		if err := selector.Err(); err != nil {
-			return nil, err
-		}
-		step := sqlgraph.NewStep(
-			sqlgraph.From(event.Table, event.FieldID, selector),
-			sqlgraph.To(uploadlink.Table, uploadlink.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, event.UploadLinksTable, event.UploadLinksColumn),
-		)
-		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
-		return fromU, nil
-	}
-	return query
-}
-
 // QueryVotingEligibilities chains the current query on the "voting_eligibilities" edge.
 func (_q *EventQuery) QueryVotingEligibilities() *VotingEligibilityQuery {
 	query := (&VotingEligibilityClient{config: _q.config}).Query()
@@ -819,7 +795,6 @@ func (_q *EventQuery) Clone() *EventQuery {
 		withPrizegivingCompetitions:    _q.withPrizegivingCompetitions.Clone(),
 		withResultsPublications:        _q.withResultsPublications.Clone(),
 		withResultsCorrections:         _q.withResultsCorrections.Clone(),
-		withUploadLinks:                _q.withUploadLinks.Clone(),
 		withVotingEligibilities:        _q.withVotingEligibilities.Clone(),
 		withDraftEdits:                 _q.withDraftEdits.Clone(),
 		withDraftChanges:               _q.withDraftChanges.Clone(),
@@ -998,17 +973,6 @@ func (_q *EventQuery) WithResultsCorrections(opts ...func(*ResultsCorrectionQuer
 	return _q
 }
 
-// WithUploadLinks tells the query-builder to eager-load the nodes that are connected to
-// the "upload_links" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *EventQuery) WithUploadLinks(opts ...func(*UploadLinkQuery)) *EventQuery {
-	query := (&UploadLinkClient{config: _q.config}).Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-	_q.withUploadLinks = query
-	return _q
-}
-
 // WithVotingEligibilities tells the query-builder to eager-load the nodes that are connected to
 // the "voting_eligibilities" edge. The optional arguments are used to configure the query builder of the edge.
 func (_q *EventQuery) WithVotingEligibilities(opts ...func(*VotingEligibilityQuery)) *EventQuery {
@@ -1170,7 +1134,7 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 	var (
 		nodes       = []*Event{}
 		_spec       = _q.querySpec()
-		loadedTypes = [23]bool{
+		loadedTypes = [22]bool{
 			_q.withGrants != nil,
 			_q.withSlugs != nil,
 			_q.withRundown != nil,
@@ -1186,7 +1150,6 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 			_q.withPrizegivingCompetitions != nil,
 			_q.withResultsPublications != nil,
 			_q.withResultsCorrections != nil,
-			_q.withUploadLinks != nil,
 			_q.withVotingEligibilities != nil,
 			_q.withDraftEdits != nil,
 			_q.withDraftChanges != nil,
@@ -1327,13 +1290,6 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 			func(n *Event, e *ResultsCorrection) {
 				n.Edges.ResultsCorrections = append(n.Edges.ResultsCorrections, e)
 			}); err != nil {
-			return nil, err
-		}
-	}
-	if query := _q.withUploadLinks; query != nil {
-		if err := _q.loadUploadLinks(ctx, query, nodes,
-			func(n *Event) { n.Edges.UploadLinks = []*UploadLink{} },
-			func(n *Event, e *UploadLink) { n.Edges.UploadLinks = append(n.Edges.UploadLinks, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -1824,36 +1780,6 @@ func (_q *EventQuery) loadResultsCorrections(ctx context.Context, query *Results
 	}
 	query.Where(predicate.ResultsCorrection(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(event.ResultsCorrectionsColumn), fks...))
-	}))
-	neighbors, err := query.All(ctx)
-	if err != nil {
-		return err
-	}
-	for _, n := range neighbors {
-		fk := n.EventID
-		node, ok := nodeids[fk]
-		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "event_id" returned %v for node %v`, fk, n.ID)
-		}
-		assign(node, n)
-	}
-	return nil
-}
-func (_q *EventQuery) loadUploadLinks(ctx context.Context, query *UploadLinkQuery, nodes []*Event, init func(*Event), assign func(*Event, *UploadLink)) error {
-	fks := make([]driver.Value, 0, len(nodes))
-	nodeids := make(map[int]*Event)
-	for i := range nodes {
-		fks = append(fks, nodes[i].ID)
-		nodeids[nodes[i].ID] = nodes[i]
-		if init != nil {
-			init(nodes[i])
-		}
-	}
-	if len(query.ctx.Fields) > 0 {
-		query.ctx.AppendFieldOnce(uploadlink.FieldEventID)
-	}
-	query.Where(predicate.UploadLink(func(s *sql.Selector) {
-		s.Where(sql.InValues(s.C(event.UploadLinksColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

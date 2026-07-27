@@ -34,6 +34,7 @@ func (AuditEntry) Fields() []ent.Field {
 			Values("Account", "UploadLink", "Host").
 			Default("Account").
 			Immutable(),
+		// Retain the former identifier only to render immutable historical evidence.
 		field.Int("actor_upload_link_id").Optional().Immutable(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 		field.String("action").NotEmpty().MaxLen(100).Immutable(),

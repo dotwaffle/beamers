@@ -444,7 +444,7 @@ func TestUpgradeCommandPreviewsAndAppliesKnownSafeMigration(t *testing.T) {
 	}
 	if !plan.RequiresApproval ||
 		plan.Migration.FromVersion != 47 ||
-		plan.Migration.ToVersion != 58 ||
+		plan.Migration.ToVersion != 59 ||
 		plan.PreviewDigest == "" {
 		t.Fatalf("upgrade plan = %+v", plan)
 	}
@@ -473,7 +473,7 @@ func TestUpgradeCommandPreviewsAndAppliesKnownSafeMigration(t *testing.T) {
 		_ = os.RemoveAll(filepath.Dir(result.BackupPath))
 	})
 	if result.FromVersion != 47 ||
-		result.ToVersion != 58 ||
+		result.ToVersion != 59 ||
 		result.Manifest.Mode != backup.FullFidelity {
 		t.Fatalf("upgrade result = %+v", result)
 	}

@@ -180,9 +180,6 @@ type TrackDraft func(*sql.Selector)
 // TrackPublishedVersion is the predicate function for trackpublishedversion builders.
 type TrackPublishedVersion func(*sql.Selector)
 
-// UploadLink is the predicate function for uploadlink builders.
-type UploadLink func(*sql.Selector)
-
 // VotingEligibility is the predicate function for votingeligibility builders.
 type VotingEligibility func(*sql.Selector)
 

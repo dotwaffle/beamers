@@ -32,7 +32,6 @@ import (
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/track"
-	"github.com/dotwaffle/beamers/ent/uploadlink"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
 )
 
@@ -530,21 +529,6 @@ func (_c *EventCreate) AddResultsCorrections(v ...*ResultsCorrection) *EventCrea
 		ids[i] = v[i].ID
 	}
 	return _c.AddResultsCorrectionIDs(ids...)
-}
-
-// AddUploadLinkIDs adds the "upload_links" edge to the UploadLink entity by IDs.
-func (_c *EventCreate) AddUploadLinkIDs(ids ...int) *EventCreate {
-	_c.mutation.AddUploadLinkIDs(ids...)
-	return _c
-}
-
-// AddUploadLinks adds the "upload_links" edges to the UploadLink entity.
-func (_c *EventCreate) AddUploadLinks(v ...*UploadLink) *EventCreate {
-	ids := make([]int, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _c.AddUploadLinkIDs(ids...)
 }
 
 // AddVotingEligibilityIDs adds the "voting_eligibilities" edge to the VotingEligibility entity by IDs.
@@ -1240,22 +1224,6 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(resultscorrection.FieldID, field.TypeInt),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges = append(_spec.Edges, edge)
-	}
-	if nodes := _c.mutation.UploadLinksIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   event.UploadLinksTable,
-			Columns: []string{event.UploadLinksColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(uploadlink.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

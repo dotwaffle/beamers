@@ -98,7 +98,6 @@ func TestSanitizedBackupIncludesConfiguredAttachmentsAndRemovesCredentials(t *te
 		"recovery_tokens",
 		"display_credentials",
 		"display_enrollments",
-		"upload_links",
 	} {
 		var count int
 		if err = database.QueryRowContext(ctx, "SELECT count(*) FROM "+table).Scan(&count); err != nil {
@@ -107,6 +106,16 @@ func TestSanitizedBackupIncludesConfiguredAttachmentsAndRemovesCredentials(t *te
 		if count != 0 {
 			t.Fatalf("%s count = %d, want 0", table, count)
 		}
+	}
+	var uploadLinkTables int
+	if err = database.QueryRowContext(
+		ctx,
+		"SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'upload_links'",
+	).Scan(&uploadLinkTables); err != nil {
+		t.Fatalf("inspect sanitized Upload Link persistence: %v", err)
+	}
+	if uploadLinkTables != 0 {
+		t.Fatalf("sanitized Upload Link table count = %d, want 0", uploadLinkTables)
 	}
 	for _, table := range []string{"accounts", "displays", "audit_entries"} {
 		var count int

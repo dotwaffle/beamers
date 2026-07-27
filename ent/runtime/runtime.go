@@ -65,7 +65,6 @@ import (
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
-	"github.com/dotwaffle/beamers/ent/uploadlink"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
 	"github.com/dotwaffle/beamers/ent/webauthncredential"
 
@@ -2574,43 +2573,6 @@ func init() {
 	trackpublishedversionDescCreatedAt := trackpublishedversionFields[4].Descriptor()
 	// trackpublishedversion.DefaultCreatedAt holds the default value on creation for the created_at field.
 	trackpublishedversion.DefaultCreatedAt = trackpublishedversionDescCreatedAt.Default.(func() time.Time)
-	uploadlink.Policy = privacy.NewPolicies(schema.UploadLink{})
-	uploadlink.Hooks[0] = func(next ent.Mutator) ent.Mutator {
-		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-			if err := uploadlink.Policy.EvalMutation(ctx, m); err != nil {
-				return nil, err
-			}
-			return next.Mutate(ctx, m)
-		})
-	}
-	uploadlinkFields := schema.UploadLink{}.Fields()
-	_ = uploadlinkFields
-	// uploadlinkDescTargetID is the schema descriptor for target_id field.
-	uploadlinkDescTargetID := uploadlinkFields[2].Descriptor()
-	// uploadlink.TargetIDValidator is a validator for the "target_id" field. It is called by the builders before save.
-	uploadlink.TargetIDValidator = uploadlinkDescTargetID.Validators[0].(func(int) error)
-	// uploadlinkDescTokenHash is the schema descriptor for token_hash field.
-	uploadlinkDescTokenHash := uploadlinkFields[3].Descriptor()
-	// uploadlink.TokenHashValidator is a validator for the "token_hash" field. It is called by the builders before save.
-	uploadlink.TokenHashValidator = func() func(string) error {
-		validators := uploadlinkDescTokenHash.Validators
-		fns := [...]func(string) error{
-			validators[0].(func(string) error),
-			validators[1].(func(string) error),
-		}
-		return func(token_hash string) error {
-			for _, fn := range fns {
-				if err := fn(token_hash); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-	}()
-	// uploadlinkDescCreatedAt is the schema descriptor for created_at field.
-	uploadlinkDescCreatedAt := uploadlinkFields[5].Descriptor()
-	// uploadlink.DefaultCreatedAt holds the default value on creation for the created_at field.
-	uploadlink.DefaultCreatedAt = uploadlinkDescCreatedAt.Default.(func() time.Time)
 	votingeligibility.Policy = privacy.NewPolicies(schema.VotingEligibility{})
 	votingeligibility.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

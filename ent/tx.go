@@ -130,8 +130,6 @@ type Tx struct {
 	TrackDraft *TrackDraftClient
 	// TrackPublishedVersion is the client for interacting with the TrackPublishedVersion builders.
 	TrackPublishedVersion *TrackPublishedVersionClient
-	// UploadLink is the client for interacting with the UploadLink builders.
-	UploadLink *UploadLinkClient
 	// VotingEligibility is the client for interacting with the VotingEligibility builders.
 	VotingEligibility *VotingEligibilityClient
 	// WebAuthnCredential is the client for interacting with the WebAuthnCredential builders.
@@ -325,7 +323,6 @@ func (tx *Tx) init() {
 	tx.Track = NewTrackClient(tx.config)
 	tx.TrackDraft = NewTrackDraftClient(tx.config)
 	tx.TrackPublishedVersion = NewTrackPublishedVersionClient(tx.config)
-	tx.UploadLink = NewUploadLinkClient(tx.config)
 	tx.VotingEligibility = NewVotingEligibilityClient(tx.config)
 	tx.WebAuthnCredential = NewWebAuthnCredentialClient(tx.config)
 }

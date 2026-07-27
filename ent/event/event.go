@@ -90,8 +90,6 @@ const (
 	EdgeResultsPublications = "results_publications"
 	// EdgeResultsCorrections holds the string denoting the results_corrections edge name in mutations.
 	EdgeResultsCorrections = "results_corrections"
-	// EdgeUploadLinks holds the string denoting the upload_links edge name in mutations.
-	EdgeUploadLinks = "upload_links"
 	// EdgeVotingEligibilities holds the string denoting the voting_eligibilities edge name in mutations.
 	EdgeVotingEligibilities = "voting_eligibilities"
 	// EdgeDraftEdits holds the string denoting the draft_edits edge name in mutations.
@@ -213,13 +211,6 @@ const (
 	ResultsCorrectionsInverseTable = "results_corrections"
 	// ResultsCorrectionsColumn is the table column denoting the results_corrections relation/edge.
 	ResultsCorrectionsColumn = "event_id"
-	// UploadLinksTable is the table that holds the upload_links relation/edge.
-	UploadLinksTable = "upload_links"
-	// UploadLinksInverseTable is the table name for the UploadLink entity.
-	// It exists in this package in order to avoid circular dependency with the "uploadlink" package.
-	UploadLinksInverseTable = "upload_links"
-	// UploadLinksColumn is the table column denoting the upload_links relation/edge.
-	UploadLinksColumn = "event_id"
 	// VotingEligibilitiesTable is the table that holds the voting_eligibilities relation/edge.
 	VotingEligibilitiesTable = "voting_eligibilities"
 	// VotingEligibilitiesInverseTable is the table name for the VotingEligibility entity.
@@ -766,20 +757,6 @@ func ByResultsCorrections(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOptio
 	}
 }
 
-// ByUploadLinksCount orders the results by upload_links count.
-func ByUploadLinksCount(opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborsCount(s, newUploadLinksStep(), opts...)
-	}
-}
-
-// ByUploadLinks orders the results by upload_links terms.
-func ByUploadLinks(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newUploadLinksStep(), append([]sql.OrderTerm{term}, terms...)...)
-	}
-}
-
 // ByVotingEligibilitiesCount orders the results by voting_eligibilities count.
 func ByVotingEligibilitiesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -973,13 +950,6 @@ func newResultsCorrectionsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ResultsCorrectionsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ResultsCorrectionsTable, ResultsCorrectionsColumn),
-	)
-}
-func newUploadLinksStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(UploadLinksInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.O2M, false, UploadLinksTable, UploadLinksColumn),
 	)
 }
 func newVotingEligibilitiesStep() *sqlgraph.Step {

@@ -29,6 +29,7 @@ func (AttachmentVersion) Fields() []ent.Field {
 		field.Int64("size_bytes").NonNegative().Immutable(),
 		field.String("sha256").NotEmpty().MaxLen(64).Immutable(),
 		field.String("storage_key").NotEmpty().MaxLen(200).Immutable(),
+		// UploadLink is retained only to render immutable historical versions.
 		field.Enum("uploader_type").Values("UploadLink", "Crew", "Account").Immutable(),
 		field.Int("uploader_id").Positive().Immutable(),
 		field.Bool("final").Default(false),

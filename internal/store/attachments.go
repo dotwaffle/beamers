@@ -15,14 +15,11 @@ import (
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
-	"github.com/dotwaffle/beamers/ent/uploadlink"
 )
 
 var (
 	// ErrUploadTargetNotFound hides unknown and cross-Event upload owners.
 	ErrUploadTargetNotFound = errors.New("upload target not found")
-	// ErrUploadLinkInvalid hides unknown, revoked, and malformed credentials.
-	ErrUploadLinkInvalid = errors.New("upload link is invalid")
 	// ErrUploadClosed means the fixed cutoff has arrived without an active exception.
 	ErrUploadClosed = errors.New("attachment uploads are closed")
 	// ErrReopenWindowRevision means an update used stale window state.
@@ -51,29 +48,10 @@ const (
 	AttachmentReleaseCrewOnly AttachmentReleaseEligibility = "CrewOnly"
 )
 
-// UploadLink is safe crew-visible Upload Link metadata without its credential.
-type UploadLink struct {
-	ID         int              `json:"id"`
-	EventID    int              `json:"event_id"`
-	TargetType UploadTargetKind `json:"target_type"`
-	TargetID   int              `json:"target_id"`
-	RevokedAt  time.Time        `json:"revoked_at,omitzero"`
-	CreatedAt  time.Time        `json:"created_at"`
-}
-
-// IssueUploadLinkParams rotates the credential for one exact owner.
-type IssueUploadLinkParams struct {
-	EventID    int
-	TargetType UploadTargetKind
-	TargetID   int
-	TokenHash  string
-	Now        time.Time
-}
-
-// UploadAuthorization is one current target-scoped credential.
+// UploadAuthorization identifies one exact submitted-content owner.
 type UploadAuthorization struct {
-	LinkID, EventID, TargetID int
-	TargetType                UploadTargetKind
+	EventID, TargetID int
+	TargetType        UploadTargetKind
 }
 
 // AttachmentVersion is immutable uploaded file metadata.
@@ -216,57 +194,6 @@ type AccountReopenWindow struct {
 	ExpiresAt, ClosedAt time.Time
 }
 
-// IssueUploadLink revokes prior target credentials and creates a replacement.
-func (transaction *CommandTx) IssueUploadLink(
-	ctx context.Context,
-	params IssueUploadLinkParams,
-) (UploadLink, error) {
-	if err := transaction.validateUploadTarget(ctx, params.EventID, params.TargetType, params.TargetID); err != nil {
-		return UploadLink{}, err
-	}
-	if params.TargetType == UploadTargetEntry {
-		entry, err := transaction.transaction.CompetitionEntry.Query().Where(
-			competitionentry.IDEQ(params.TargetID),
-			competitionentry.EventIDEQ(params.EventID),
-		).Only(ctx)
-		if err != nil {
-			return UploadLink{}, opaqueError("load Entry Upload Link target", err)
-		}
-		if !entry.UploadClosedAt.IsZero() {
-			if _, err = entry.Update().ClearUploadClosedAt().Save(ctx); err != nil {
-				return UploadLink{}, opaqueError("reissue rejected Entry Upload Link", err)
-			}
-		}
-	}
-	active, err := transaction.transaction.UploadLink.Query().
-		Where(
-			uploadlink.EventIDEQ(params.EventID),
-			uploadlink.TargetTypeEQ(uploadlink.TargetType(params.TargetType)),
-			uploadlink.TargetIDEQ(params.TargetID),
-			uploadlink.RevokedAtIsNil(),
-		).
-		All(ctx)
-	if err != nil {
-		return UploadLink{}, opaqueError("load active Upload Links", err)
-	}
-	for _, link := range active {
-		if _, saveErr := link.Update().SetRevokedAt(params.Now).Save(ctx); saveErr != nil {
-			return UploadLink{}, opaqueError("rotate Upload Link", saveErr)
-		}
-	}
-	created, err := transaction.transaction.UploadLink.Create().
-		SetEventID(params.EventID).
-		SetTargetType(uploadlink.TargetType(params.TargetType)).
-		SetTargetID(params.TargetID).
-		SetTokenHash(params.TokenHash).
-		SetCreatedAt(params.Now).
-		Save(ctx)
-	if err != nil {
-		return UploadLink{}, opaqueError("create Upload Link", err)
-	}
-	return uploadLink(created), nil
-}
-
 func (transaction *CommandTx) validateUploadTarget(
 	ctx context.Context,
 	eventID int,
@@ -290,7 +217,7 @@ func validateUploadTarget(
 			competitionentry.EventIDEQ(eventID),
 		).Exist(ctx)
 		if err != nil {
-			return opaqueError("validate Entry Upload Link target", err)
+			return opaqueError("validate Entry upload target", err)
 		}
 		if !exists {
 			return ErrUploadTargetNotFound
@@ -303,7 +230,7 @@ func validateUploadTarget(
 			return ErrUploadTargetNotFound
 		}
 		if err != nil {
-			return opaqueError("validate Presentation Upload Link target", err)
+			return opaqueError("validate Presentation upload target", err)
 		}
 		version, err := found.QueryPublishedVersions().
 			Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).
@@ -313,42 +240,12 @@ func validateUploadTarget(
 			return ErrUploadTargetNotFound
 		}
 		if err != nil {
-			return opaqueError("validate published Presentation Upload Link target", err)
+			return opaqueError("validate published Presentation upload target", err)
 		}
 	default:
 		return ErrUploadTargetNotFound
 	}
 	return nil
-}
-
-func uploadLink(stored *ent.UploadLink) UploadLink {
-	return UploadLink{
-		ID: stored.ID, EventID: stored.EventID,
-		TargetType: UploadTargetKind(stored.TargetType.String()),
-		TargetID:   stored.TargetID, RevokedAt: stored.RevokedAt, CreatedAt: stored.CreatedAt,
-	}
-}
-
-// ResolveUploadLink identifies a credential for receipt replay before mutable-state checks.
-func (installation *SQLite) ResolveUploadLink(
-	ctx context.Context,
-	tokenHash string,
-) (UploadAuthorization, error) {
-	internalContext := systemContext(ctx)
-	link, err := installation.client.UploadLink.Query().Where(
-		uploadlink.TokenHashEQ(tokenHash),
-	).Only(internalContext)
-	if ent.IsNotFound(err) {
-		return UploadAuthorization{}, ErrUploadLinkInvalid
-	}
-	if err != nil {
-		return UploadAuthorization{}, opaqueError("authorize Upload Link", err)
-	}
-	authorization := UploadAuthorization{
-		LinkID: link.ID, EventID: link.EventID,
-		TargetType: UploadTargetKind(link.TargetType.String()), TargetID: link.TargetID,
-	}
-	return authorization, nil
 }
 
 func uploadTargetOpen(
@@ -372,7 +269,7 @@ func uploadTargetOpen(
 			competitionentry.EventIDEQ(authorization.EventID),
 		).Only(ctx)
 		if ent.IsNotFound(queryErr) {
-			return false, ErrUploadLinkInvalid
+			return false, ErrUploadTargetNotFound
 		}
 		if queryErr != nil {
 			return false, opaqueError("load Entry upload owner", queryErr)
@@ -392,7 +289,7 @@ func uploadTargetOpen(
 			sessionpublishedversion.SessionIDEQ(entry.CompetitionSessionID),
 		).Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).First(ctx)
 		if ent.IsNotFound(queryErr) {
-			return false, ErrUploadLinkInvalid
+			return false, ErrUploadTargetNotFound
 		}
 		if queryErr != nil {
 			return false, opaqueError("load Competition upload cutoff", queryErr)
@@ -409,7 +306,7 @@ func uploadTargetOpen(
 			sessionpublishedversion.TypeEQ(sessionpublishedversion.TypePresentation),
 		).Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).First(ctx)
 		if ent.IsNotFound(queryErr) {
-			return false, ErrUploadLinkInvalid
+			return false, ErrUploadTargetNotFound
 		}
 		if queryErr != nil {
 			return false, opaqueError("load Presentation upload cutoff", queryErr)
@@ -422,7 +319,7 @@ func uploadTargetOpen(
 		}
 		return !started && (version.UploadDeadline.IsZero() || now.Before(version.UploadDeadline)), nil
 	default:
-		return false, ErrUploadLinkInvalid
+		return false, ErrUploadTargetNotFound
 	}
 }
 
@@ -444,32 +341,6 @@ func (transaction *CommandTx) SaveAttachmentVersion(
 ) (AttachmentVersion, error) {
 	internalContext := systemContext(ctx)
 	switch params.UploaderType {
-	case "UploadLink":
-		link, err := transaction.transaction.UploadLink.Query().Where(
-			uploadlink.IDEQ(params.UploaderID),
-			uploadlink.EventIDEQ(params.Authorization.EventID),
-			uploadlink.TargetTypeEQ(uploadlink.TargetType(params.Authorization.TargetType)),
-			uploadlink.TargetIDEQ(params.Authorization.TargetID),
-			uploadlink.RevokedAtIsNil(),
-		).Only(internalContext)
-		if ent.IsNotFound(err) {
-			return AttachmentVersion{}, ErrUploadLinkInvalid
-		}
-		if err != nil {
-			return AttachmentVersion{}, opaqueError("recheck Upload Link", err)
-		}
-		open, err := uploadTargetOpen(
-			internalContext, transaction.transaction.Client(), UploadAuthorization{
-				LinkID: link.ID, EventID: link.EventID,
-				TargetType: UploadTargetKind(link.TargetType.String()), TargetID: link.TargetID,
-			}, params.Now,
-		)
-		if err != nil {
-			return AttachmentVersion{}, err
-		}
-		if !open {
-			return AttachmentVersion{}, ErrUploadClosed
-		}
 	case "Account":
 		owned, err := accountOwnsUploadTarget(
 			internalContext,
@@ -491,9 +362,6 @@ func (transaction *CommandTx) SaveAttachmentVersion(
 			params.Authorization,
 			params.Now,
 		)
-		if errors.Is(err, ErrUploadLinkInvalid) {
-			return AttachmentVersion{}, ErrUploadTargetNotFound
-		}
 		if err != nil {
 			return AttachmentVersion{}, err
 		}
@@ -827,30 +695,6 @@ func attachmentVersion(logical *ent.Attachment, version *ent.AttachmentVersion) 
 		ReleaseRevision:    version.ReleaseRevision,
 		CreatedAt:          version.CreatedAt,
 	}
-}
-
-// RevokeUploadLink immediately invalidates one Event-owned credential.
-func (transaction *CommandTx) RevokeUploadLink(
-	ctx context.Context,
-	eventID, linkID int,
-	now time.Time,
-) error {
-	internalContext := systemContext(ctx)
-	link, err := transaction.transaction.UploadLink.Query().Where(
-		uploadlink.IDEQ(linkID), uploadlink.EventIDEQ(eventID),
-	).Only(internalContext)
-	if ent.IsNotFound(err) {
-		return ErrUploadTargetNotFound
-	}
-	if err != nil {
-		return opaqueError("load Upload Link", err)
-	}
-	if link.RevokedAt.IsZero() {
-		if _, err = link.Update().SetRevokedAt(now).Save(internalContext); err != nil {
-			return opaqueError("revoke Upload Link", err)
-		}
-	}
-	return nil
 }
 
 // CreateReopenWindow grants one existing target a bounded upload exception.

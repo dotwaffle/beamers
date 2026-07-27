@@ -5,7 +5,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -3642,23 +3641,14 @@ func TestCompetitionStartPreflightRequiresFinalPrimaryDelivery(t *testing.T) {
 		!strings.Contains(err.Error(), "missing_file_delivery") {
 		t.Fatalf("unready Competition Start error = %v", err)
 	}
-	link := requestJSON(
-		t.Context(), administrator, server.address, "/crew/events/1/upload-links",
-		map[string]any{
-			"target_type": "Entry", "target_id": created.Msg.GetEntry().GetId(),
-			"command_id": "issue-preflight-upload-link",
-		},
-	)
-	var credential struct {
-		Token string `json:"token"`
-	}
-	if decodeErr := json.Unmarshal([]byte(link.body), &credential); decodeErr != nil ||
-		link.status != http.StatusCreated || credential.Token == "" {
-		t.Fatalf("issue preflight Upload Link = %d: %s (%v)", link.status, link.body, decodeErr)
-	}
 	uploaded := decodeAttachmentVersion(t, requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+credential.Token,
-		map[string]string{"name": "entry", "command_id": "upload-preflight-entry"},
+		t.Context(), administrator, server.address, "/crew/events/1/attachments",
+		map[string]string{
+			"target_type": "Entry",
+			"target_id":   strconv.FormatInt(created.Msg.GetEntry().GetId(), 10),
+			"name":        "entry",
+			"command_id":  "upload-preflight-entry",
+		},
 		"entry.zip", "application/zip", []byte("one complete entry"),
 	))
 	if !uploaded.Primary || uploaded.Final {
@@ -3736,23 +3726,14 @@ func TestEntryReviewFinalizesSoleUploadAndContentChangeInvalidatesIt(t *testing.
 	if err != nil {
 		t.Fatalf("create reviewed Entry: %v", err)
 	}
-	link := requestJSON(
-		t.Context(), administrator, server.address, "/crew/events/1/upload-links",
-		map[string]any{
-			"target_type": "Entry", "target_id": created.Msg.GetEntry().GetId(),
-			"command_id": "issue-reviewed-entry-link",
-		},
-	)
-	var credential struct {
-		Token string `json:"token"`
-	}
-	if decodeErr := json.Unmarshal([]byte(link.body), &credential); decodeErr != nil ||
-		link.status != http.StatusCreated {
-		t.Fatalf("issue reviewed Entry Upload Link = %d: %s (%v)", link.status, link.body, decodeErr)
-	}
 	uploaded := decodeAttachmentVersion(t, requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+credential.Token,
-		map[string]string{"name": "entry", "command_id": "upload-reviewed-entry"},
+		t.Context(), administrator, server.address, "/crew/events/1/attachments",
+		map[string]string{
+			"target_type": "Entry",
+			"target_id":   strconv.FormatInt(created.Msg.GetEntry().GetId(), 10),
+			"name":        "entry",
+			"command_id":  "upload-reviewed-entry",
+		},
 		"entry.zip", "application/zip", []byte("review me"),
 	))
 	if !uploaded.Primary || uploaded.Final {
@@ -3888,28 +3869,24 @@ func TestCompetitionPreflightRequiresDispositionAndUnambiguousPrimary(t *testing
 	if err != nil {
 		t.Fatalf("include Primary Entry: %v", err)
 	}
-	link := requestJSON(
-		t.Context(), administrator, server.address, "/crew/events/1/upload-links",
-		map[string]any{
-			"target_type": "Entry", "target_id": included.Msg.GetEntry().GetId(),
-			"command_id": "issue-primary-entry-link",
-		},
-	)
-	var credential struct {
-		Token string `json:"token"`
-	}
-	if decodeErr := json.Unmarshal([]byte(link.body), &credential); decodeErr != nil ||
-		link.status != http.StatusCreated {
-		t.Fatalf("issue Primary Entry Upload Link = %d: %s (%v)", link.status, link.body, decodeErr)
-	}
 	first := decodeAttachmentVersion(t, requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+credential.Token,
-		map[string]string{"name": "entry", "command_id": "upload-primary-v1"},
+		t.Context(), administrator, server.address, "/crew/events/1/attachments",
+		map[string]string{
+			"target_type": "Entry",
+			"target_id":   strconv.FormatInt(included.Msg.GetEntry().GetId(), 10),
+			"name":        "entry",
+			"command_id":  "upload-primary-v1",
+		},
 		"entry-v1.zip", "application/zip", []byte("first"),
 	))
 	second := decodeAttachmentVersion(t, requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+credential.Token,
-		map[string]string{"name": "entry", "command_id": "upload-primary-v2"},
+		t.Context(), administrator, server.address, "/crew/events/1/attachments",
+		map[string]string{
+			"target_type": "Entry",
+			"target_id":   strconv.FormatInt(included.Msg.GetEntry().GetId(), 10),
+			"name":        "entry",
+			"command_id":  "upload-primary-v2",
+		},
 		"entry-v2.zip", "application/zip", []byte("second"),
 	))
 	if !first.Primary || first.Final || second.Primary || second.Final {
@@ -4757,375 +4734,39 @@ func attachmentCandidate(
 	return nil
 }
 
-func TestProducerIssuesScopedEntryUploadLink(t *testing.T) {
+func TestAnonymousUploadLinkRoutesAreRemoved(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
-	prepareActiveSchedule(t, administrator, server)
-	competitionID, _ := addCompetitionSession(t, administrator, server)
-	competitionClient := competitionv1connect.NewCompetitionServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
-	created, err := competitionClient.CreateEntry(t.Context(), connect.NewRequest(
-		&competitionv1.CreateEntryRequest{
-			EventId: 1, SessionId: competitionID, CommandId: "create-upload-entry",
-			Name: "Upload Project",
-		},
-	))
-	if err != nil {
-		t.Fatalf("create Entry for Upload Link: %v", err)
-	}
-	secondEntry, err := competitionClient.CreateEntry(t.Context(), connect.NewRequest(
-		&competitionv1.CreateEntryRequest{
-			EventId: 1, SessionId: competitionID, CommandId: "create-second-upload-entry",
-			Name: "Other Upload Project",
-		},
-	))
-	if err != nil {
-		t.Fatalf("create second Entry for scoped Reopen Window: %v", err)
-	}
-	result := requestJSON(
-		t.Context(), administrator, server.address, "/crew/events/1/upload-links",
+	presentationID := prepareActiveSchedule(t, administrator, server)
+	issued := requestJSON(
+		t.Context(),
+		administrator,
+		server.address,
+		"/crew/events/1/upload-links",
 		map[string]any{
-			"target_type": "Entry", "target_id": created.Msg.GetEntry().GetId(),
-			"command_id": "issue-entry-upload-link",
+			"target_type": "Presentation",
+			"target_id":   presentationID,
+			"command_id":  "removed-upload-link-issuance",
 		},
 	)
-	if result.err != nil {
-		t.Fatalf("issue Entry Upload Link: %v", result.err)
+	if issued.status != http.StatusNotFound {
+		t.Fatalf("removed Upload Link issuance = %d %q", issued.status, issued.body)
 	}
-	var link struct {
-		ID         int    `json:"id"`
-		TargetType string `json:"target_type"`
-		TargetID   int    `json:"target_id"`
-		Token      string `json:"token"`
-		Status     string `json:"credential_status"`
-	}
-	if decodeErr := json.Unmarshal([]byte(result.body), &link); decodeErr != nil {
-		t.Fatalf("decode Entry Upload Link: %v", decodeErr)
-	}
-	if result.status != http.StatusCreated || link.ID <= 0 || link.TargetType != "Entry" ||
-		link.TargetID != int(created.Msg.GetEntry().GetId()) || len(link.Token) < 32 ||
-		link.Status != "Issued" {
-		t.Fatalf("Entry Upload Link = %d %+v: %s", result.status, link, result.body)
-	}
-	retriedLinkResult := requestJSON(
-		t.Context(), administrator, server.address, "/crew/events/1/upload-links",
-		map[string]any{
-			"target_type": "Entry", "target_id": created.Msg.GetEntry().GetId(),
-			"command_id": "issue-entry-upload-link",
-		},
-	)
-	var retriedLink struct {
-		ID     int    `json:"id"`
-		Token  string `json:"token"`
-		Status string `json:"credential_status"`
-	}
-	if decodeErr := json.Unmarshal([]byte(retriedLinkResult.body), &retriedLink); decodeErr != nil ||
-		retriedLink.ID != link.ID || retriedLink.Token != "" || retriedLink.Status != "AlreadyIssued" {
-		t.Fatalf("retried Upload Link = %+v, want explicit non-secret replay for %+v: %s", retriedLink, link, retriedLinkResult.body)
-	}
-	firstUpload := requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+link.Token,
-		map[string]string{"name": "slides", "command_id": "upload-entry-v1"}, "slides.txt", "text/plain",
-		[]byte("first immutable version"),
-	)
-	firstVersion := decodeAttachmentVersion(t, firstUpload)
-	retriedUpload := requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+link.Token,
-		map[string]string{"name": "slides", "command_id": "upload-entry-v1"}, "slides.txt", "text/plain",
-		[]byte("first immutable version"),
-	)
-	retriedVersion := decodeAttachmentVersion(t, retriedUpload)
-	if retriedVersion.ID != firstVersion.ID || retriedVersion.Version != firstVersion.Version {
-		t.Fatalf("retried Attachment upload = %+v, want original %+v", retriedVersion, firstVersion)
-	}
-	conflictingContent := []byte("conflicting immutable version")
-	conflictingUpload := requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+link.Token,
-		map[string]string{"name": "slides", "command_id": "upload-entry-v1"}, "conflict.txt", "text/plain",
-		conflictingContent,
-	)
-	if conflictingUpload.status != http.StatusConflict {
-		t.Fatalf("conflicting Attachment upload = %d, want 409: %s", conflictingUpload.status, conflictingUpload.body)
-	}
-	assertAttachmentBlobMissing(t, server.dataDir, conflictingContent)
-
-	rotatedResult := requestJSON(
-		t.Context(), administrator, server.address, "/crew/events/1/upload-links",
-		map[string]any{
-			"target_type": "Entry", "target_id": created.Msg.GetEntry().GetId(),
-			"command_id": "rotate-entry-upload-link",
-		},
-	)
-	var rotated struct {
-		ID    int    `json:"id"`
-		Token string `json:"token"`
-	}
-	if decodeErr := json.Unmarshal([]byte(rotatedResult.body), &rotated); decodeErr != nil ||
-		rotatedResult.status != http.StatusCreated || rotated.ID == link.ID || rotated.Token == link.Token {
-		t.Fatalf("rotated Upload Link = %d %+v: %s (%v)", rotatedResult.status, rotated, rotatedResult.body, decodeErr)
-	}
-	retryAfterRotation := requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+link.Token,
-		map[string]string{"name": "slides", "command_id": "upload-entry-v1"}, "slides.txt", "text/plain",
-		[]byte("first immutable version"),
-	)
-	retriedAfterRotationVersion := decodeAttachmentVersion(t, retryAfterRotation)
-	if retriedAfterRotationVersion.ID != firstVersion.ID {
-		t.Fatalf("upload retry after rotation = %+v, want original %+v", retriedAfterRotationVersion, firstVersion)
-	}
-	oldCredential := requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+link.Token,
-		map[string]string{"name": "slides", "command_id": "upload-with-stale-link"}, "stale.txt", "text/plain", []byte("stale"),
-	)
-	if oldCredential.status != http.StatusNotFound {
-		t.Fatalf("old Upload Link status = %d, want 404: %s", oldCredential.status, oldCredential.body)
-	}
-	assertAttachmentBlobMissing(t, server.dataDir, []byte("stale"))
-	secondUpload := requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+rotated.Token,
-		map[string]string{"name": "slides", "command_id": "upload-entry-v2"}, "slides-v2.txt", "text/plain",
-		[]byte("second immutable version"),
-	)
-	secondVersion := decodeAttachmentVersion(t, secondUpload)
-	if secondVersion.AttachmentID != firstVersion.AttachmentID ||
-		firstVersion.Version != 1 || secondVersion.Version != 2 ||
-		firstVersion.SHA256 == secondVersion.SHA256 {
-		t.Fatalf("Attachment Versions = %+v then %+v", firstVersion, secondVersion)
-	}
-	assertAttachmentBytes(t, administrator, server.address, firstVersion.ID, "first immutable version")
-	assertAttachmentBytes(t, administrator, server.address, secondVersion.ID, "second immutable version")
-	sharedContent := []byte("shared concurrent content")
-	sharedUploads := make(chan jsonResponse, 2)
-	for index := range 2 {
-		go func() {
-			sharedUploads <- requestMultipart(
-				t.Context(), http.DefaultClient, server.address, "/upload/"+rotated.Token,
-				map[string]string{
-					"name":       "shared-" + strconv.Itoa(index),
-					"command_id": "upload-shared-" + strconv.Itoa(index),
-				},
-				"shared.txt",
-				"text/plain",
-				sharedContent,
-			)
-		}()
-	}
-	firstShared := decodeAttachmentVersion(t, <-sharedUploads)
-	secondShared := decodeAttachmentVersion(t, <-sharedUploads)
-	if firstShared.ID == secondShared.ID || firstShared.SHA256 != secondShared.SHA256 {
-		t.Fatalf("shared-content uploads = %+v and %+v", firstShared, secondShared)
-	}
-	assertAttachmentBlobPresent(t, server.dataDir, sharedContent)
-
-	otherLinkResult := requestJSON(
-		t.Context(), administrator, server.address, "/crew/events/1/upload-links",
-		map[string]any{
-			"target_type": "Entry", "target_id": secondEntry.Msg.GetEntry().GetId(),
-			"command_id": "issue-other-entry-upload-link",
-		},
-	)
-	var otherLink struct {
-		Token string `json:"token"`
-	}
-	if decodeErr := json.Unmarshal([]byte(otherLinkResult.body), &otherLink); decodeErr != nil ||
-		otherLinkResult.status != http.StatusCreated {
-		t.Fatalf("issue second Entry Upload Link = %d: %s (%v)", otherLinkResult.status, otherLinkResult.body, decodeErr)
-	}
-	rejectedEntry, err := competitionClient.ChangeEntryDisposition(t.Context(), connect.NewRequest(
-		&competitionv1.ChangeEntryDispositionRequest{
-			EventId: 1, SessionId: competitionID, EntryId: secondEntry.Msg.GetEntry().GetId(),
-			CommandId:        "reject-other-upload-entry",
-			ExpectedRevision: secondEntry.Msg.GetEntry().GetRevision(),
-			Disposition:      rundownv1.EntryDisposition_ENTRY_DISPOSITION_REJECTED,
-		},
-	))
-	if err != nil {
-		t.Fatalf("reject Entry with Upload Link: %v", err)
-	}
-	rejectedUpload := requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+otherLink.Token,
-		map[string]string{"name": "rejected", "command_id": "upload-rejected-entry"},
-		"rejected.txt", "text/plain", []byte("rejected"),
-	)
-	if rejectedUpload.status != http.StatusGone {
-		t.Fatalf("Rejected Entry upload = %d, want 410: %s", rejectedUpload.status, rejectedUpload.body)
-	}
-	assertAttachmentBlobMissing(t, server.dataDir, []byte("rejected"))
-	if _, err = competitionClient.ChangeEntryDisposition(t.Context(), connect.NewRequest(
-		&competitionv1.ChangeEntryDispositionRequest{
-			EventId: 1, SessionId: competitionID, EntryId: secondEntry.Msg.GetEntry().GetId(),
-			CommandId:        "restore-other-upload-entry",
-			ExpectedRevision: rejectedEntry.Msg.GetEntry().GetRevision(),
-			Disposition:      rundownv1.EntryDisposition_ENTRY_DISPOSITION_INCLUDED,
-		},
-	)); err != nil {
-		t.Fatalf("restore Rejected Entry disposition: %v", err)
-	}
-	stillClosedAfterRestore := requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+otherLink.Token,
-		map[string]string{"name": "restored", "command_id": "upload-restored-entry"},
-		"restored.txt", "text/plain", []byte("restored"),
-	)
-	if stillClosedAfterRestore.status != http.StatusGone {
-		t.Fatalf(
-			"restored Entry old Upload Link = %d, want 410 until reissue or reopen: %s",
-			stillClosedAfterRestore.status, stillClosedAfterRestore.body,
+	for _, path := range []string{
+		"/crew/events/1/upload-links/1/revoke",
+		"/upload/retired-credential",
+	} {
+		result := requestJSON(
+			t.Context(),
+			administrator,
+			server.address,
+			path,
+			map[string]string{"command_id": "removed-upload-link-route"},
 		)
-	}
-	assertAttachmentBlobMissing(t, server.dataDir, []byte("restored"))
-	setCompetitionSubmissionDeadline(
-		t, administrator, server, competitionID, time.Now().UTC().Add(-time.Minute),
-	)
-	closedUpload := requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+rotated.Token,
-		map[string]string{"name": "closed", "command_id": "upload-after-deadline"}, "closed.txt", "text/plain", []byte("closed"),
-	)
-	if closedUpload.status != http.StatusGone {
-		t.Fatalf("closed Competition upload = %d, want 410: %s", closedUpload.status, closedUpload.body)
-	}
-	assertAttachmentBlobMissing(t, server.dataDir, []byte("closed"))
-	reopened := requestJSON(
-		t.Context(), administrator, server.address, "/crew/events/1/reopen-windows",
-		map[string]any{
-			"target_type": "Entry", "target_id": secondEntry.Msg.GetEntry().GetId(),
-			"reason": "speaker requested one corrected file", "expires_at": time.Now().UTC().Add(time.Hour),
-			"command_id": "reopen-upload-entry",
-		},
-	)
-	if reopened.status != http.StatusCreated {
-		t.Fatalf("create scoped Reopen Window = %d: %s", reopened.status, reopened.body)
-	}
-	var window struct {
-		ID       int `json:"id"`
-		Revision int `json:"revision"`
-	}
-	if err := json.Unmarshal([]byte(reopened.body), &window); err != nil ||
-		window.ID <= 0 || window.Revision != 1 {
-		t.Fatalf("decode scoped Reopen Window: %s (%v)", reopened.body, err)
-	}
-	reopenedUpload := requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+otherLink.Token,
-		map[string]string{"name": "reopened", "command_id": "upload-reopened-entry"}, "reopened.txt", "text/plain", []byte("reopened"),
-	)
-	if reopenedUpload.status != http.StatusCreated {
-		t.Fatalf("reopened Entry upload = %d: %s", reopenedUpload.status, reopenedUpload.body)
-	}
-	otherStillClosed := requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+rotated.Token,
-		map[string]string{"name": "other", "command_id": "upload-other-closed-entry"}, "other.txt", "text/plain", []byte("other"),
-	)
-	if otherStillClosed.status != http.StatusGone {
-		t.Fatalf("other Entry under scoped Reopen Window = %d, want 410: %s", otherStillClosed.status, otherStillClosed.body)
-	}
-	assertAttachmentBlobMissing(t, server.dataDir, []byte("other"))
-	extended := requestJSONMethod(
-		t.Context(), http.MethodPatch, administrator, server.address,
-		fmt.Sprintf("/crew/events/1/reopen-windows/%d", window.ID),
-		map[string]any{
-			"expected_revision": window.Revision, "expires_at": time.Now().UTC().Add(2 * time.Hour),
-			"command_id": "extend-upload-entry-window",
-		},
-	)
-	if extended.status != http.StatusOK {
-		t.Fatalf("extend Reopen Window = %d: %s", extended.status, extended.body)
-	}
-	window.Revision++
-	closedWindow := requestJSONMethod(
-		t.Context(), http.MethodPatch, administrator, server.address,
-		fmt.Sprintf("/crew/events/1/reopen-windows/%d", window.ID),
-		map[string]any{
-			"expected_revision": window.Revision, "close": true,
-			"command_id": "close-upload-entry-window",
-		},
-	)
-	if closedWindow.status != http.StatusOK {
-		t.Fatalf("close Reopen Window = %d: %s", closedWindow.status, closedWindow.body)
-	}
-	closedWindowUpload := requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+otherLink.Token,
-		map[string]string{"name": "closed-window", "command_id": "upload-after-window-close"},
-		"closed-window.txt", "text/plain", []byte("closed window"),
-	)
-	if closedWindowUpload.status != http.StatusGone {
-		t.Fatalf("closed Reopen Window upload = %d, want 410: %s", closedWindowUpload.status, closedWindowUpload.body)
-	}
-	assertAttachmentBlobMissing(t, server.dataDir, []byte("closed window"))
-
-	crewUpload := requestMultipart(
-		t.Context(), administrator, server.address, "/crew/events/1/attachments",
-		map[string]string{
-			"target_type": "Entry", "target_id": strconv.FormatInt(created.Msg.GetEntry().GetId(), 10),
-			"name": "slides", "command_id": "crew-upload-entry",
-		},
-		"crew-version.txt", "text/plain", []byte("crew version"),
-	)
-	crewVersion := decodeAttachmentVersion(t, crewUpload)
-	if crewVersion.Version != 3 || crewVersion.UploaderType != "Crew" || crewVersion.UploaderID != 1 {
-		t.Fatalf("crew Attachment Version = %+v", crewVersion)
-	}
-	failedContent := []byte("failed crew upload")
-	failedUpload := requestMultipart(
-		t.Context(), administrator, server.address, "/crew/events/1/attachments",
-		map[string]string{
-			"target_type": "Entry", "target_id": "999999",
-			"name": "missing", "command_id": "upload-missing-entry",
-		},
-		"missing.txt", "text/plain", failedContent,
-	)
-	if failedUpload.status != http.StatusNotFound {
-		t.Fatalf("missing-target Attachment upload = %d, want 404: %s", failedUpload.status, failedUpload.body)
-	}
-	assertAttachmentBlobMissing(t, server.dataDir, failedContent)
-
-	revoked := requestJSON(
-		t.Context(), administrator, server.address,
-		fmt.Sprintf("/crew/events/1/upload-links/%d/revoke", rotated.ID),
-		map[string]any{"command_id": "revoke-entry-upload-link"},
-	)
-	if revoked.status != http.StatusNoContent {
-		t.Fatalf("revoke Upload Link = %d: %s", revoked.status, revoked.body)
-	}
-	revokedCredential := requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+rotated.Token,
-		map[string]string{"name": "slides", "command_id": "upload-revoked-entry"}, "revoked.txt", "text/plain", []byte("revoked"),
-	)
-	if revokedCredential.status != http.StatusNotFound {
-		t.Fatalf("revoked Upload Link status = %d, want 404: %s", revokedCredential.status, revokedCredential.body)
-	}
-	assertAttachmentBlobMissing(t, server.dataDir, []byte("revoked"))
-	audit := get(t, administrator, server.address, "/admin/audit")
-	auditBody, readErr := io.ReadAll(audit.Body)
-	closeErr := audit.Body.Close()
-	if err := errors.Join(readErr, closeErr); err != nil {
-		t.Fatalf("read Attachment Audit history: %v", err)
-	}
-	if !bytes.Contains(auditBody, []byte(`"actor_kind":"UploadLink"`)) ||
-		!bytes.Contains(auditBody, []byte(`"actor_name":"Ada Admin"`)) {
-		t.Fatalf("Attachment Audit actors missing: %s", auditBody)
+		if result.status != http.StatusNotFound {
+			t.Fatalf("removed Upload Link route %q = %d %q", path, result.status, result.body)
+		}
 	}
 	server.stop(t)
-	orphanContent := []byte("interrupted installed Attachment")
-	orphanPath := attachmentBlobPath(server.dataDir, orphanContent)
-	if err := os.MkdirAll(filepath.Dir(orphanPath), 0o700); err != nil {
-		t.Fatalf("create orphan Attachment directory: %v", err)
-	}
-	if err := os.WriteFile(orphanPath, orphanContent, 0o600); err != nil {
-		t.Fatalf("write orphan Attachment: %v", err)
-	}
-	temporaryPath := filepath.Join(server.dataDir, "attachments", ".tmp", "interrupted")
-	if err := os.MkdirAll(filepath.Dir(temporaryPath), 0o700); err != nil {
-		t.Fatalf("create interrupted upload directory: %v", err)
-	}
-	if err := os.WriteFile(temporaryPath, []byte("temporary"), 0o600); err != nil {
-		t.Fatalf("write interrupted upload: %v", err)
-	}
-	restarted := startBeamers(t, server.bin, server.dataDir)
-	assertAttachmentBlobMissing(t, server.dataDir, orphanContent)
-	assertAttachmentBlobPresent(t, server.dataDir, []byte("first immutable version"))
-	if _, err := os.Stat(temporaryPath); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("interrupted temporary upload remains after restart: %v", err)
-	}
-	restarted.stop(t)
 }
 
 func TestFinalAttachmentsReleaseByPolicyAndSurviveRestart(t *testing.T) {
@@ -5560,29 +5201,24 @@ func prepareReleasedEntryAttachments(t *testing.T) releasedEntryAttachments {
 		t.Fatalf("create Entry for Attachment release: %v", err)
 	}
 	entryID := created.Msg.GetEntry().GetId()
-	link := requestJSON(
-		t.Context(), administrator, server.address, "/crew/events/1/upload-links",
-		map[string]any{
-			"target_type": "Entry", "target_id": entryID,
-			"command_id": "issue-release-upload-link",
-		},
-	)
-	var credential struct {
-		Token string `json:"token"`
-	}
-	if decodeErr := json.Unmarshal([]byte(link.body), &credential); decodeErr != nil ||
-		link.status != http.StatusCreated || credential.Token == "" {
-		t.Fatalf("issue release Upload Link = %d: %s (%v)", link.status, link.body, decodeErr)
-	}
 	publicVersion := decodeAttachmentVersion(t, requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+credential.Token,
-		map[string]string{"name": "public", "command_id": "upload-public-release"},
+		t.Context(), administrator, server.address, "/crew/events/1/attachments",
+		map[string]string{
+			"target_type": "Entry",
+			"target_id":   strconv.FormatInt(entryID, 10),
+			"name":        "public",
+			"command_id":  "upload-public-release",
+		},
 		"public.txt", "text/plain", []byte("public release"),
 	))
 	crewVersion := decodeAttachmentVersion(t, requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+credential.Token,
+		t.Context(), administrator, server.address, "/crew/events/1/attachments",
 		map[string]string{
-			"name": "crew", "command_id": "upload-crew-release", "crew_only": "true",
+			"target_type": "Entry",
+			"target_id":   strconv.FormatInt(entryID, 10),
+			"name":        "crew",
+			"command_id":  "upload-crew-release",
+			"crew_only":   "true",
 		},
 		"crew.txt", "text/plain", []byte("crew only"),
 	))
@@ -5653,113 +5289,6 @@ func prepareReleasedEntryAttachments(t *testing.T) releasedEntryAttachments {
 	}
 }
 
-func TestPresentationUploadClosesAtDeadlineOrActualStart(t *testing.T) {
-	administrator, server := startAuthenticatedAdministrator(t)
-	presentationID := prepareActiveSchedule(t, administrator, server)
-	rundownClient := rundownv1connect.NewRundownServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
-	current, err := rundownClient.GetCrewRundown(
-		t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
-	)
-	if err != nil {
-		t.Fatalf("load Presentations for upload closure: %v", err)
-	}
-	var deadlinePresentationID int64
-	for _, session := range current.Msg.GetSessions() {
-		if session.GetTitle() == "Old Announcement" {
-			deadlinePresentationID = session.GetId()
-		}
-	}
-	if deadlinePresentationID == 0 {
-		t.Fatal("Old Announcement Presentation missing")
-	}
-	setPresentationUploadDeadline(
-		t, rundownClient, current.Msg.GetDraftRevision(), deadlinePresentationID,
-		time.Now().UTC().Add(-time.Minute),
-	)
-	deadlineLink := issuePresentationUploadLink(
-		t, administrator, server.address, deadlinePresentationID, "issue-deadline-presentation-link",
-	)
-	afterDeadline := requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+deadlineLink,
-		map[string]string{"name": "slides", "command_id": "upload-late-presentation"}, "late.pdf", "application/pdf", []byte("late"),
-	)
-	if afterDeadline.status != http.StatusGone {
-		t.Fatalf("Presentation upload after Upload Deadline = %d, want 410: %s", afterDeadline.status, afterDeadline.body)
-	}
-
-	startLink := issuePresentationUploadLink(
-		t, administrator, server.address, presentationID, "issue-start-presentation-link",
-	)
-	beforeStart := requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+startLink,
-		map[string]string{"name": "slides", "command_id": "upload-ready-presentation"}, "ready.pdf", "application/pdf", []byte("ready"),
-	)
-	if beforeStart.status != http.StatusCreated {
-		t.Fatalf("Presentation upload before Actual Start = %d: %s", beforeStart.status, beforeStart.body)
-	}
-	sessionClient := sessionv1connect.NewSessionControlServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
-	if _, err = sessionClient.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
-		EventId: 1, SessionId: presentationID, CommandId: "start-upload-presentation",
-		ExpectedLiveStateRevision: proto.Int64(0),
-	})); err != nil {
-		t.Fatalf("start Presentation for upload closure: %v", err)
-	}
-	afterStart := requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+startLink,
-		map[string]string{"name": "slides", "command_id": "upload-started-presentation"}, "started.pdf", "application/pdf", []byte("started"),
-	)
-	if afterStart.status != http.StatusGone {
-		t.Fatalf("Presentation upload after Actual Start = %d, want 410: %s", afterStart.status, afterStart.body)
-	}
-	reopened := requestJSON(
-		t.Context(), administrator, server.address, "/crew/events/1/reopen-windows",
-		map[string]any{
-			"target_type": "Presentation", "target_id": presentationID,
-			"reason": "producer approved corrected deck", "expires_at": time.Now().UTC().Add(time.Hour),
-			"command_id": "reopen-started-presentation",
-		},
-	)
-	if reopened.status != http.StatusCreated {
-		t.Fatalf("reopen started Presentation uploads = %d: %s", reopened.status, reopened.body)
-	}
-	afterReopen := requestMultipart(
-		t.Context(), http.DefaultClient, server.address, "/upload/"+startLink,
-		map[string]string{"name": "slides", "command_id": "upload-corrected-presentation"}, "corrected.pdf", "application/pdf", []byte("corrected"),
-	)
-	if afterReopen.status != http.StatusCreated {
-		t.Fatalf("Presentation upload during Reopen Window = %d: %s", afterReopen.status, afterReopen.body)
-	}
-	server.stop(t)
-}
-
-func issuePresentationUploadLink(
-	t *testing.T,
-	client *http.Client,
-	address string,
-	presentationID int64,
-	commandID string,
-) string {
-	t.Helper()
-	result := requestJSON(
-		t.Context(), client, address, "/crew/events/1/upload-links",
-		map[string]any{
-			"target_type": "Presentation", "target_id": presentationID, "command_id": commandID,
-		},
-	)
-	var link struct {
-		Token string `json:"token"`
-	}
-	if err := json.Unmarshal([]byte(result.body), &link); err != nil ||
-		result.status != http.StatusCreated || link.Token == "" {
-		t.Fatalf("issue Presentation Upload Link = %d: %s (%v)", result.status, result.body, err)
-	}
-	return link.Token
-}
-
 func setPresentationUploadDeadline(
 	t *testing.T,
 	client rundownv1connect.RundownServiceClient,
@@ -5802,47 +5331,6 @@ func decodeAttachmentVersion(t *testing.T, response jsonResponse) attachmentVers
 		t.Fatalf("decode Attachment Version = %d %+v: %s (%v)", response.status, version, response.body, err)
 	}
 	return version
-}
-
-func assertAttachmentBytes(
-	t *testing.T,
-	client *http.Client,
-	address string,
-	versionID int,
-	want string,
-) {
-	t.Helper()
-	response := get(t, client, address, fmt.Sprintf("/crew/events/1/attachment-versions/%d", versionID))
-	body, readErr := io.ReadAll(response.Body)
-	closeErr := response.Body.Close()
-	if err := errors.Join(readErr, closeErr); err != nil {
-		t.Fatalf("read Attachment Version %d: %v", versionID, err)
-	}
-	if response.StatusCode != http.StatusOK || string(body) != want {
-		t.Fatalf("Attachment Version %d = %d %q, want 200 %q", versionID, response.StatusCode, body, want)
-	}
-}
-
-func assertAttachmentBlobMissing(t *testing.T, dataDir string, content []byte) {
-	t.Helper()
-	path := attachmentBlobPath(dataDir, content)
-	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("unreferenced Attachment blob %q remains: %v", path, err)
-	}
-}
-
-func assertAttachmentBlobPresent(t *testing.T, dataDir string, content []byte) {
-	t.Helper()
-	path := attachmentBlobPath(dataDir, content)
-	found, err := os.ReadFile(path)
-	if err != nil || !bytes.Equal(found, content) {
-		t.Fatalf("referenced Attachment blob %q = %q, %v", path, found, err)
-	}
-}
-
-func attachmentBlobPath(dataDir string, content []byte) string {
-	digest := fmt.Sprintf("%x", sha256.Sum256(content))
-	return filepath.Join(dataDir, "attachments", "sha256", digest[:2], digest)
 }
 
 func assertReleasedAttachmentIDs(t *testing.T, address string, want ...int) {

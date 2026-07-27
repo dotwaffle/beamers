@@ -73,7 +73,6 @@ import (
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
-	"github.com/dotwaffle/beamers/ent/uploadlink"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
 	"github.com/dotwaffle/beamers/ent/webauthncredential"
 
@@ -201,8 +200,6 @@ type Client struct {
 	TrackDraft *TrackDraftClient
 	// TrackPublishedVersion is the client for interacting with the TrackPublishedVersion builders.
 	TrackPublishedVersion *TrackPublishedVersionClient
-	// UploadLink is the client for interacting with the UploadLink builders.
-	UploadLink *UploadLinkClient
 	// VotingEligibility is the client for interacting with the VotingEligibility builders.
 	VotingEligibility *VotingEligibilityClient
 	// WebAuthnCredential is the client for interacting with the WebAuthnCredential builders.
@@ -276,7 +273,6 @@ func (c *Client) init() {
 	c.Track = NewTrackClient(c.config)
 	c.TrackDraft = NewTrackDraftClient(c.config)
 	c.TrackPublishedVersion = NewTrackPublishedVersionClient(c.config)
-	c.UploadLink = NewUploadLinkClient(c.config)
 	c.VotingEligibility = NewVotingEligibilityClient(c.config)
 	c.WebAuthnCredential = NewWebAuthnCredentialClient(c.config)
 }
@@ -429,7 +425,6 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Track:                       NewTrackClient(cfg),
 		TrackDraft:                  NewTrackDraftClient(cfg),
 		TrackPublishedVersion:       NewTrackPublishedVersionClient(cfg),
-		UploadLink:                  NewUploadLinkClient(cfg),
 		VotingEligibility:           NewVotingEligibilityClient(cfg),
 		WebAuthnCredential:          NewWebAuthnCredentialClient(cfg),
 	}, nil
@@ -509,7 +504,6 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Track:                       NewTrackClient(cfg),
 		TrackDraft:                  NewTrackDraftClient(cfg),
 		TrackPublishedVersion:       NewTrackPublishedVersionClient(cfg),
-		UploadLink:                  NewUploadLinkClient(cfg),
 		VotingEligibility:           NewVotingEligibilityClient(cfg),
 		WebAuthnCredential:          NewWebAuthnCredentialClient(cfg),
 	}, nil
@@ -556,7 +550,7 @@ func (c *Client) Use(hooks ...Hook) {
 		c.ResultsCorrection, c.ResultsPublication, c.Rundown, c.Session,
 		c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
 		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion,
-		c.UploadLink, c.VotingEligibility, c.WebAuthnCredential,
+		c.VotingEligibility, c.WebAuthnCredential,
 	} {
 		n.Use(hooks...)
 	}
@@ -581,7 +575,7 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.ResultsCorrection, c.ResultsPublication, c.Rundown, c.Session,
 		c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
 		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion,
-		c.UploadLink, c.VotingEligibility, c.WebAuthnCredential,
+		c.VotingEligibility, c.WebAuthnCredential,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -706,8 +700,6 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.TrackDraft.mutate(ctx, m)
 	case *TrackPublishedVersionMutation:
 		return c.TrackPublishedVersion.mutate(ctx, m)
-	case *UploadLinkMutation:
-		return c.UploadLink.mutate(ctx, m)
 	case *VotingEligibilityMutation:
 		return c.VotingEligibility.mutate(ctx, m)
 	case *WebAuthnCredentialMutation:
@@ -4736,22 +4728,6 @@ func (c *EventClient) QueryResultsCorrections(_m *Event) *ResultsCorrectionQuery
 			sqlgraph.From(event.Table, event.FieldID, id),
 			sqlgraph.To(resultscorrection.Table, resultscorrection.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, event.ResultsCorrectionsTable, event.ResultsCorrectionsColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// QueryUploadLinks queries the upload_links edge of a Event.
-func (c *EventClient) QueryUploadLinks(_m *Event) *UploadLinkQuery {
-	query := (&UploadLinkClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(event.Table, event.FieldID, id),
-			sqlgraph.To(uploadlink.Table, uploadlink.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, event.UploadLinksTable, event.UploadLinksColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -10936,156 +10912,6 @@ func (c *TrackPublishedVersionClient) mutate(ctx context.Context, m *TrackPublis
 	}
 }
 
-// UploadLinkClient is a client for the UploadLink schema.
-type UploadLinkClient struct {
-	config
-}
-
-// NewUploadLinkClient returns a client for the UploadLink from the given config.
-func NewUploadLinkClient(c config) *UploadLinkClient {
-	return &UploadLinkClient{config: c}
-}
-
-// Use adds a list of mutation hooks to the hooks stack.
-// A call to `Use(f, g, h)` equals to `uploadlink.Hooks(f(g(h())))`.
-func (c *UploadLinkClient) Use(hooks ...Hook) {
-	c.hooks.UploadLink = append(c.hooks.UploadLink, hooks...)
-}
-
-// Intercept adds a list of query interceptors to the interceptors stack.
-// A call to `Intercept(f, g, h)` equals to `uploadlink.Intercept(f(g(h())))`.
-func (c *UploadLinkClient) Intercept(interceptors ...Interceptor) {
-	c.inters.UploadLink = append(c.inters.UploadLink, interceptors...)
-}
-
-// Create returns a builder for creating a UploadLink entity.
-func (c *UploadLinkClient) Create() *UploadLinkCreate {
-	mutation := newUploadLinkMutation(c.config, OpCreate)
-	return &UploadLinkCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// CreateBulk returns a builder for creating a bulk of UploadLink entities.
-func (c *UploadLinkClient) CreateBulk(builders ...*UploadLinkCreate) *UploadLinkCreateBulk {
-	return &UploadLinkCreateBulk{config: c.config, builders: builders}
-}
-
-// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
-// a builder and applies setFunc on it.
-func (c *UploadLinkClient) MapCreateBulk(slice any, setFunc func(*UploadLinkCreate, int)) *UploadLinkCreateBulk {
-	rv := reflect.ValueOf(slice)
-	if rv.Kind() != reflect.Slice {
-		return &UploadLinkCreateBulk{err: fmt.Errorf("calling to UploadLinkClient.MapCreateBulk with wrong type %T, need slice", slice)}
-	}
-	builders := make([]*UploadLinkCreate, rv.Len())
-	for i := 0; i < rv.Len(); i++ {
-		builders[i] = c.Create()
-		setFunc(builders[i], i)
-	}
-	return &UploadLinkCreateBulk{config: c.config, builders: builders}
-}
-
-// Update returns an update builder for UploadLink.
-func (c *UploadLinkClient) Update() *UploadLinkUpdate {
-	mutation := newUploadLinkMutation(c.config, OpUpdate)
-	return &UploadLinkUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOne returns an update builder for the given entity.
-func (c *UploadLinkClient) UpdateOne(_m *UploadLink) *UploadLinkUpdateOne {
-	mutation := newUploadLinkMutation(c.config, OpUpdateOne, withUploadLink(_m))
-	return &UploadLinkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOneID returns an update builder for the given id.
-func (c *UploadLinkClient) UpdateOneID(id int) *UploadLinkUpdateOne {
-	mutation := newUploadLinkMutation(c.config, OpUpdateOne, withUploadLinkID(id))
-	return &UploadLinkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// Delete returns a delete builder for UploadLink.
-func (c *UploadLinkClient) Delete() *UploadLinkDelete {
-	mutation := newUploadLinkMutation(c.config, OpDelete)
-	return &UploadLinkDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// DeleteOne returns a builder for deleting the given entity.
-func (c *UploadLinkClient) DeleteOne(_m *UploadLink) *UploadLinkDeleteOne {
-	return c.DeleteOneID(_m.ID)
-}
-
-// DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *UploadLinkClient) DeleteOneID(id int) *UploadLinkDeleteOne {
-	builder := c.Delete().Where(uploadlink.ID(id))
-	builder.mutation.id = &id
-	builder.mutation.op = OpDeleteOne
-	return &UploadLinkDeleteOne{builder}
-}
-
-// Query returns a query builder for UploadLink.
-func (c *UploadLinkClient) Query() *UploadLinkQuery {
-	return &UploadLinkQuery{
-		config: c.config,
-		ctx:    &QueryContext{Type: TypeUploadLink},
-		inters: c.Interceptors(),
-	}
-}
-
-// Get returns a UploadLink entity by its id.
-func (c *UploadLinkClient) Get(ctx context.Context, id int) (*UploadLink, error) {
-	return c.Query().Where(uploadlink.ID(id)).Only(ctx)
-}
-
-// GetX is like Get, but panics if an error occurs.
-func (c *UploadLinkClient) GetX(ctx context.Context, id int) *UploadLink {
-	obj, err := c.Get(ctx, id)
-	if err != nil {
-		panic(err)
-	}
-	return obj
-}
-
-// QueryEvent queries the event edge of a UploadLink.
-func (c *UploadLinkClient) QueryEvent(_m *UploadLink) *EventQuery {
-	query := (&EventClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(uploadlink.Table, uploadlink.FieldID, id),
-			sqlgraph.To(event.Table, event.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, uploadlink.EventTable, uploadlink.EventColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// Hooks returns the client hooks.
-func (c *UploadLinkClient) Hooks() []Hook {
-	hooks := c.hooks.UploadLink
-	return append(hooks[:len(hooks):len(hooks)], uploadlink.Hooks[:]...)
-}
-
-// Interceptors returns the client interceptors.
-func (c *UploadLinkClient) Interceptors() []Interceptor {
-	return c.inters.UploadLink
-}
-
-func (c *UploadLinkClient) mutate(ctx context.Context, m *UploadLinkMutation) (Value, error) {
-	switch m.Op() {
-	case OpCreate:
-		return (&UploadLinkCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdate:
-		return (&UploadLinkUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdateOne:
-		return (&UploadLinkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpDelete, OpDeleteOne:
-		return (&UploadLinkDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
-	default:
-		return nil, fmt.Errorf("ent: unknown UploadLink mutation op: %q", m.Op())
-	}
-}
-
 // VotingEligibilityClient is a client for the VotingEligibility schema.
 type VotingEligibilityClient struct {
 	config
@@ -11418,7 +11244,7 @@ type (
 		ReleasedProfileEntry, ReopenWindow, ResultsCorrection, ResultsPublication,
 		Rundown, Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
 		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
-		UploadLink, VotingEligibility, WebAuthnCredential []ent.Hook
+		VotingEligibility, WebAuthnCredential []ent.Hook
 	}
 	inters struct {
 		Account, AccountPreference, AccountProfile, AccountSession, Attachment,
@@ -11434,7 +11260,7 @@ type (
 		ReleasedProfileEntry, ReopenWindow, ResultsCorrection, ResultsPublication,
 		Rundown, Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
 		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
-		UploadLink, VotingEligibility, WebAuthnCredential []ent.Interceptor
+		VotingEligibility, WebAuthnCredential []ent.Interceptor
 	}
 )
 

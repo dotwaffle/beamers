@@ -174,15 +174,6 @@ func recoveryFailureKeys(
 		}
 }
 
-func uploadLimitKeys(request *http.Request, token string) (authFailureKey, authFailureKey) {
-	client := authClientAddress(request)
-	return authFailureKey{value: "upload-client|" + client, limit: 60},
-		authFailureKey{
-			value: "upload-link|" + client + "|" + authFingerprint(token),
-			limit: 20,
-		}
-}
-
 func accountUploadLimitKeys(
 	request *http.Request,
 	accountID int,

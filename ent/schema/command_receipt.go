@@ -30,6 +30,7 @@ func (CommandReceipt) Policy() ent.Policy {
 func (CommandReceipt) Fields() []ent.Field {
 	return []ent.Field{
 		field.Int("actor_account_id").Optional().Immutable(),
+		// UploadLink is retained only for immutable historical command identity.
 		field.Enum("actor_kind").Values("Account", "UploadLink").Default("Account").Immutable(),
 		field.Int("actor_upload_link_id").Optional().Immutable(),
 		field.String("command_id").NotEmpty().MaxLen(200).Unique().Immutable(),

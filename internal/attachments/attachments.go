@@ -1,11 +1,9 @@
-// Package attachments owns scoped upload credentials and immutable files.
+// Package attachments owns Account and Crew uploads and immutable files.
 package attachments
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -36,8 +34,6 @@ var (
 	ErrInvalidInput = errors.New("invalid Attachment input")
 	// ErrCommandConflict means a Command ID was reused for different work.
 	ErrCommandConflict = store.ErrCommandConflict
-	// ErrUploadLinkInvalid hides unknown, revoked, and malformed credentials.
-	ErrUploadLinkInvalid = store.ErrUploadLinkInvalid
 	// ErrUploadClosed means the fixed cutoff has arrived.
 	ErrUploadClosed = store.ErrUploadClosed
 	// ErrAttachmentTooLarge protects installation storage from unbounded requests.
@@ -77,26 +73,6 @@ const (
 	// ReleaseCrewOnly permanently excludes a version from public release.
 	ReleaseCrewOnly = store.AttachmentReleaseCrewOnly
 )
-
-// IssueLinkInput identifies one scoped upload owner.
-type IssueLinkInput struct {
-	EventID    int        `json:"event_id"`
-	TargetType TargetKind `json:"target_type"`
-	TargetID   int        `json:"target_id"`
-	CommandID  string     `json:"command_id"`
-}
-
-// UploadLink is crew-visible metadata plus a credential only on initial issuance.
-type UploadLink struct {
-	ID               int        `json:"id"`
-	EventID          int        `json:"event_id"`
-	TargetType       TargetKind `json:"target_type"`
-	TargetID         int        `json:"target_id"`
-	Token            string     `json:"token,omitempty"`
-	CredentialStatus string     `json:"credential_status"`
-	RevokedAt        time.Time  `json:"revoked_at,omitzero"`
-	CreatedAt        time.Time  `json:"created_at"`
-}
 
 // Version is one immutable uploaded file revision.
 type Version struct {
@@ -146,13 +122,6 @@ type AccountVersion struct {
 
 // AccountReopenWindow is submitter-visible access state without Crew reasons.
 type AccountReopenWindow = store.AccountReopenWindow
-
-// UploadInput contains one bounded file stream and logical owner.
-type UploadInput struct {
-	Token, CommandID, Name, OriginalFilename, MediaType string
-	Body                                                io.Reader
-	CrewOnly                                            bool
-}
 
 // CrewUploadInput identifies an on-behalf-of upload.
 type CrewUploadInput struct {
@@ -312,90 +281,6 @@ func (service *Service) AuthorizeAccountUpload(
 	return nil
 }
 
-// IssueUploadLink rotates and returns one target-scoped credential.
-func (service *Service) IssueUploadLink(
-	ctx context.Context,
-	actor auth.Account,
-	input IssueLinkInput,
-) (UploadLink, error) {
-	if input.EventID <= 0 || input.TargetID <= 0 ||
-		(input.TargetType != TargetPresentation && input.TargetType != TargetEntry) {
-		return UploadLink{}, ErrInvalidInput
-	}
-	if err := command.ValidateID(input.CommandID); err != nil {
-		return UploadLink{}, err
-	}
-	payload, err := json.Marshal(input)
-	if err != nil {
-		return UploadLink{}, errors.New("encode Upload Link command")
-	}
-	identity := store.CommandIdentity{
-		ActorAccountID: actor.ID, CommandID: input.CommandID,
-		PayloadHash: command.PayloadHash(string(payload)), Action: "IssueUploadLink",
-		TargetType: string(input.TargetType), TargetID: strconv.Itoa(input.TargetID), Now: service.now().UTC(),
-	}
-	issuedToken := ""
-	stored, err := command.Execute(actor.Context(ctx), command.Plan[store.UploadLink]{
-		Storage: service.storage, Identity: identity,
-		Replay: func(outcome string) (store.UploadLink, error) {
-			var stored store.UploadLink
-			if decodeErr := store.DecodeCommandReceipt(outcome, &stored); decodeErr != nil {
-				return store.UploadLink{}, decodeErr
-			}
-			return stored, nil
-		},
-		Apply: func(transaction *store.CommandTx) (command.Execution[store.UploadLink], error) {
-			if !actor.CanProduceEvent(input.EventID) {
-				return command.Execution[store.UploadLink]{}, ErrProducerRequired
-			}
-			token, tokenHash, tokenErr := newToken()
-			if tokenErr != nil {
-				return command.Execution[store.UploadLink]{}, tokenErr
-			}
-			created, issueErr := transaction.IssueUploadLink(actor.Context(ctx), store.IssueUploadLinkParams{
-				EventID: input.EventID, TargetType: input.TargetType, TargetID: input.TargetID,
-				TokenHash: tokenHash, Now: identity.Now,
-			})
-			if issueErr != nil {
-				return command.Execution[store.UploadLink]{}, issueErr
-			}
-			issuedToken = token
-			outcome, encodeErr := json.Marshal(created)
-			if encodeErr != nil {
-				return command.Execution[store.UploadLink]{}, errors.New("encode Upload Link outcome")
-			}
-			return command.Success(created, string(outcome)).
-				WithTargetID(strconv.Itoa(created.ID)), nil
-		},
-	})
-	if err != nil {
-		return UploadLink{}, err
-	}
-	status := "AlreadyIssued"
-	if issuedToken != "" {
-		status = "Issued"
-	}
-	return uploadLink(stored, issuedToken, status), nil
-}
-
-// Upload accepts one file through a current scoped credential.
-func (service *Service) Upload(ctx context.Context, input UploadInput) (Version, error) {
-	if !validToken(input.Token) || !validAttachmentInput(input.Name, input.OriginalFilename, input.Body) {
-		return Version{}, ErrInvalidInput
-	}
-	if err := command.ValidateID(input.CommandID); err != nil {
-		return Version{}, err
-	}
-	authorization, err := service.storage.ResolveUploadLink(ctx, tokenHash(input.Token))
-	if err != nil {
-		return Version{}, err
-	}
-	return service.storeVersion(
-		ctx, authorization, input.CommandID, input.Name, input.OriginalFilename,
-		input.MediaType, input.Body, "UploadLink", authorization.LinkID, input.CrewOnly,
-	)
-}
-
 // UploadForCrew stores one file while preserving the authenticated Account actor.
 func (service *Service) UploadForCrew(
 	ctx context.Context,
@@ -484,7 +369,6 @@ func (service *Service) storeVersion(
 	payload, err := json.Marshal(struct {
 		EventID      int    `json:"event_id"`
 		TargetID     int    `json:"target_id"`
-		LinkID       int    `json:"link_id,omitempty"`
 		TargetType   string `json:"target_type"`
 		Name         string `json:"name"`
 		Filename     string `json:"filename"`
@@ -496,8 +380,8 @@ func (service *Service) storeVersion(
 		CrewOnly     bool   `json:"crew_only"`
 	}{
 		EventID: authorization.EventID, TargetID: authorization.TargetID,
-		LinkID: authorization.LinkID, TargetType: string(authorization.TargetType),
-		Name: params.Name, Filename: params.OriginalFilename, MediaType: params.MediaType,
+		TargetType: string(authorization.TargetType),
+		Name:       params.Name, Filename: params.OriginalFilename, MediaType: params.MediaType,
 		SizeBytes: params.SizeBytes, SHA256: params.SHA256,
 		UploaderType: params.UploaderType, UploaderID: params.UploaderID,
 		CrewOnly: crewOnly,
@@ -506,15 +390,10 @@ func (service *Service) storeVersion(
 		return Version{}, errors.New("encode Attachment upload command")
 	}
 	identity := store.CommandIdentity{
-		CommandID: commandID, PayloadHash: command.PayloadHash(string(payload)),
+		ActorAccountID: uploaderID,
+		CommandID:      commandID, PayloadHash: command.PayloadHash(string(payload)),
 		Action: "UploadAttachment", TargetType: string(authorization.TargetType),
 		TargetID: strconv.Itoa(authorization.TargetID), Now: now,
-	}
-	if uploaderType == "UploadLink" {
-		identity.ActorKind = "UploadLink"
-		identity.ActorUploadLinkID = uploaderID
-	} else {
-		identity.ActorAccountID = uploaderID
 	}
 	created, executeErr := command.Execute(ctx, command.Plan[Version]{
 		Storage: service.storage, Identity: identity,
@@ -561,8 +440,6 @@ func attachmentUploadRejection(err error) (store.CommandRejection, bool) {
 	switch {
 	case errors.Is(err, ErrUploadTargetNotFound):
 		code = "attachment_target_not_found"
-	case errors.Is(err, ErrUploadLinkInvalid):
-		code = "upload_link_invalid"
 	case errors.Is(err, ErrUploadClosed):
 		code = "upload_closed"
 	default:
@@ -580,8 +457,6 @@ func decodeAttachmentUploadReceipt(outcome string, target any) error {
 	switch rejected.Rejection.Code {
 	case "attachment_target_not_found":
 		return ErrUploadTargetNotFound
-	case "upload_link_invalid":
-		return ErrUploadLinkInvalid
 	case "upload_closed":
 		return ErrUploadClosed
 	default:
@@ -1138,46 +1013,6 @@ func releasedVersion(stored store.AttachmentVersion) ReleasedVersion {
 	}
 }
 
-// RevokeUploadLink immediately invalidates one credential.
-func (service *Service) RevokeUploadLink(
-	ctx context.Context,
-	actor auth.Account,
-	eventID, linkID int,
-	commandID string,
-) error {
-	if eventID <= 0 || linkID <= 0 {
-		return ErrInvalidInput
-	}
-	if err := command.ValidateID(commandID); err != nil {
-		return err
-	}
-	if !actor.CanProduceEvent(eventID) {
-		return ErrProducerRequired
-	}
-	now := service.now().UTC()
-	payload := strconv.Itoa(eventID) + ":" + strconv.Itoa(linkID)
-	_, err := command.Execute(actor.Context(ctx), command.Plan[struct{}]{
-		Storage: service.storage,
-		Identity: store.CommandIdentity{
-			ActorAccountID: actor.ID, CommandID: commandID,
-			PayloadHash: command.PayloadHash(payload), Action: "RevokeUploadLink",
-			TargetType: "UploadLink", TargetID: strconv.Itoa(linkID), Now: now,
-		},
-		Replay: func(outcome string) (struct{}, error) {
-			var result struct{}
-			decodeErr := store.DecodeCommandReceipt(outcome, &result)
-			return result, decodeErr
-		},
-		Apply: func(transaction *store.CommandTx) (command.Execution[struct{}], error) {
-			if revokeErr := transaction.RevokeUploadLink(actor.Context(ctx), eventID, linkID, now); revokeErr != nil {
-				return command.Execution[struct{}]{}, revokeErr
-			}
-			return command.Success(struct{}{}, "{}"), nil
-		},
-	})
-	return err
-}
-
 // CreateReopenWindow restores uploads only for one target and bounded lifetime.
 func (service *Service) CreateReopenWindow(
 	ctx context.Context,
@@ -1304,17 +1139,6 @@ func validAttachmentInput(name, originalFilename string, body io.Reader) bool {
 	return true
 }
 
-func validToken(token string) bool {
-	decoded, err := base64.RawURLEncoding.DecodeString(token)
-	return err == nil && len(decoded) == 32 &&
-		base64.RawURLEncoding.EncodeToString(decoded) == token
-}
-
-func tokenHash(token string) string {
-	digest := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(digest[:])
-}
-
 func syncDirectory(path string) error {
 	directory, err := os.Open(path) //nolint:gosec // Path is an internally constructed Attachment directory.
 	if err != nil {
@@ -1335,23 +1159,5 @@ func version(stored store.AttachmentVersion) Version {
 		ReleaseEligibility: stored.ReleaseEligibility,
 		ReleaseHold:        stored.ReleaseHold, ReleaseRevision: stored.ReleaseRevision,
 		CreatedAt: stored.CreatedAt,
-	}
-}
-
-func newToken() (string, string, error) {
-	raw := make([]byte, 32)
-	if _, err := rand.Read(raw); err != nil {
-		return "", "", errors.New("generate Upload Link credential")
-	}
-	token := base64.RawURLEncoding.EncodeToString(raw)
-	digest := sha256.Sum256([]byte(token))
-	return token, hex.EncodeToString(digest[:]), nil
-}
-
-func uploadLink(stored store.UploadLink, token, credentialStatus string) UploadLink {
-	return UploadLink{
-		ID: stored.ID, EventID: stored.EventID, TargetType: stored.TargetType,
-		TargetID: stored.TargetID, Token: token, CredentialStatus: credentialStatus,
-		RevokedAt: stored.RevokedAt, CreatedAt: stored.CreatedAt,
 	}
 }

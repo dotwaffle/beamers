@@ -20,7 +20,6 @@ type attachmentHandlers struct {
 	attachments        *attachments.Service
 	logger             *slog.Logger
 	allowPlaintextCrew bool
-	uploadLimiter      *authFailureLimiter
 }
 
 func registerAttachmentRoutes(
@@ -33,14 +32,7 @@ func registerAttachmentRoutes(
 	handlers := attachmentHandlers{
 		authentication: authentication, attachments: service, logger: logger,
 		allowPlaintextCrew: listenerIsLoopback(listenerAddress),
-		uploadLimiter:      newAuthFailureLimiter(time.Now),
 	}
-	mux.HandleFunc("/crew/events/{eventID}/upload-links", crewRoute(), handlers.issueUploadLink)
-	mux.HandleFunc(
-		"/crew/events/{eventID}/upload-links/{linkID}/revoke",
-		crewRoute(),
-		handlers.revokeUploadLink,
-	)
 	mux.HandleFunc("/crew/events/{eventID}/reopen-windows", crewRoute(), handlers.createReopenWindow)
 	mux.HandleFunc(
 		"/crew/events/{eventID}/reopen-windows/{windowID}",
@@ -80,87 +72,12 @@ func registerAttachmentRoutes(
 		crewRoute(),
 		handlers.fireReleaseCue,
 	)
-	mux.HandleFunc("/upload/{token}", uploadRoute(), handlers.upload)
 	mux.HandleFunc("/public/attachments", publicRoute(), handlers.listReleasedVersions)
 	mux.HandleFunc(
 		"/public/attachments/{versionID}",
 		publicRoute(),
 		handlers.readReleasedVersion,
 	)
-}
-
-func (handlers attachmentHandlers) issueUploadLink(response http.ResponseWriter, request *http.Request) {
-	if !requestAllowed(response, request, http.MethodPost, handlers.allowPlaintextCrew) {
-		return
-	}
-	actor, ok := handlers.authenticate(response, request)
-	if !ok {
-		return
-	}
-	eventID, err := positivePathID(request, "eventID")
-	if err != nil {
-		http.Error(response, "upload target not found", http.StatusNotFound)
-		return
-	}
-	var input attachments.IssueLinkInput
-	if decodeErr := decodeAuthJSON(response, request, &input); decodeErr != nil {
-		http.Error(response, "invalid request", http.StatusBadRequest)
-		return
-	}
-	input.EventID = eventID
-	issued, err := handlers.attachments.IssueUploadLink(request.Context(), actor, input)
-	switch {
-	case errors.Is(err, attachments.ErrProducerRequired):
-		http.Error(response, "event access denied", http.StatusForbidden)
-		return
-	case errors.Is(err, attachments.ErrUploadTargetNotFound):
-		http.Error(response, "upload target not found", http.StatusNotFound)
-		return
-	case errors.Is(err, attachments.ErrInvalidInput), errors.Is(err, command.ErrInvalidID):
-		http.Error(response, "invalid request", http.StatusUnprocessableEntity)
-		return
-	case errors.Is(err, attachments.ErrCommandConflict):
-		http.Error(response, "command ID conflict", http.StatusConflict)
-		return
-	case err != nil:
-		handlers.logger.ErrorContext(request.Context(), "issue Upload Link failed", "error", err)
-		http.Error(response, "Upload Link unavailable", http.StatusInternalServerError)
-		return
-	}
-	response.Header().Set("Content-Type", "application/json")
-	response.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(response).Encode(issued); err != nil {
-		handlers.logger.ErrorContext(request.Context(), "write Upload Link", "error", err)
-	}
-}
-
-func (handlers attachmentHandlers) upload(response http.ResponseWriter, request *http.Request) {
-	if request.Method != http.MethodPost {
-		response.Header().Set("Allow", http.MethodPost)
-		http.Error(response, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	clientKey, credentialKey := uploadLimitKeys(request, request.PathValue("token"))
-	if retryAfter, blocked := handlers.uploadLimiter.reserve(clientKey, credentialKey); blocked {
-		writeUploadRateLimit(response, retryAfter)
-		return
-	}
-	request.Body = http.MaxBytesReader(response, request.Body, (64<<20)+(1<<20))
-	name, filename, mediaType, body, ok := multipartUpload(response, request)
-	if !ok {
-		return
-	}
-	defer func() {
-		if closeErr := body.Close(); closeErr != nil {
-			handlers.logger.Warn("close uploaded Attachment", "error", closeErr)
-		}
-	}()
-	created, err := handlers.attachments.Upload(request.Context(), attachments.UploadInput{
-		Token: request.PathValue("token"), CommandID: request.FormValue("command_id"), Name: name,
-		OriginalFilename: filename, MediaType: mediaType, Body: body,
-		CrewOnly: request.FormValue("crew_only") == "true",
-	})
-	handlers.writeUploadResult(response, request, created, err)
 }
 
 func writeUploadRateLimit(response http.ResponseWriter, retryAfter time.Duration) {
@@ -233,9 +150,6 @@ func (handlers attachmentHandlers) writeUploadResult(
 	err error,
 ) {
 	switch {
-	case errors.Is(err, attachments.ErrUploadLinkInvalid):
-		http.Error(response, "upload link not found", http.StatusNotFound)
-		return
 	case errors.Is(err, attachments.ErrUploadClosed):
 		http.Error(response, "uploads are closed", http.StatusGone)
 		return
@@ -267,52 +181,6 @@ func (handlers attachmentHandlers) writeUploadResult(
 	if err := json.NewEncoder(response).Encode(created); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write Attachment Version", "error", err)
 	}
-}
-
-func (handlers attachmentHandlers) revokeUploadLink(response http.ResponseWriter, request *http.Request) {
-	if !requestAllowed(response, request, http.MethodPost, handlers.allowPlaintextCrew) {
-		return
-	}
-	actor, ok := handlers.authenticate(response, request)
-	if !ok {
-		return
-	}
-	eventID, eventErr := positivePathID(request, "eventID")
-	linkID, linkErr := positivePathID(request, "linkID")
-	if eventErr != nil || linkErr != nil {
-		http.Error(response, "Upload Link not found", http.StatusNotFound)
-		return
-	}
-	var input struct {
-		CommandID string `json:"command_id"`
-	}
-	if err := decodeAuthJSON(response, request, &input); err != nil {
-		http.Error(response, "invalid request", http.StatusBadRequest)
-		return
-	}
-	err := handlers.attachments.RevokeUploadLink(request.Context(), actor, eventID, linkID, input.CommandID)
-	if errors.Is(err, attachments.ErrProducerRequired) {
-		http.Error(response, "event access denied", http.StatusForbidden)
-		return
-	}
-	if errors.Is(err, attachments.ErrUploadTargetNotFound) {
-		http.Error(response, "Upload Link not found", http.StatusNotFound)
-		return
-	}
-	if errors.Is(err, command.ErrInvalidID) {
-		http.Error(response, "invalid command ID", http.StatusUnprocessableEntity)
-		return
-	}
-	if errors.Is(err, attachments.ErrCommandConflict) {
-		http.Error(response, "command ID conflict", http.StatusConflict)
-		return
-	}
-	if err != nil {
-		handlers.logger.ErrorContext(request.Context(), "revoke Upload Link failed", "error", err)
-		http.Error(response, "Upload Link unavailable", http.StatusInternalServerError)
-		return
-	}
-	response.WriteHeader(http.StatusNoContent)
 }
 
 func (handlers attachmentHandlers) createReopenWindow(response http.ResponseWriter, request *http.Request) {

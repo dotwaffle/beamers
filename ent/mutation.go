@@ -70,7 +70,6 @@ import (
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
-	"github.com/dotwaffle/beamers/ent/uploadlink"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
 	"github.com/dotwaffle/beamers/ent/webauthncredential"
 	"github.com/dotwaffle/beamers/internal/awardvalue"
@@ -145,7 +144,6 @@ const (
 	TypeTrack                       = "Track"
 	TypeTrackDraft                  = "TrackDraft"
 	TypeTrackPublishedVersion       = "TrackPublishedVersion"
-	TypeUploadLink                  = "UploadLink"
 	TypeVotingEligibility           = "VotingEligibility"
 	TypeWebAuthnCredential          = "WebAuthnCredential"
 )
@@ -22185,9 +22183,6 @@ type EventMutation struct {
 	results_corrections                       map[int]struct{}
 	removedresults_corrections                map[int]struct{}
 	clearedresults_corrections                bool
-	upload_links                              map[int]struct{}
-	removedupload_links                       map[int]struct{}
-	clearedupload_links                       bool
 	voting_eligibilities                      map[int]struct{}
 	removedvoting_eligibilities               map[int]struct{}
 	clearedvoting_eligibilities               bool
@@ -24051,60 +24046,6 @@ func (m *EventMutation) ResetResultsCorrections() {
 	m.removedresults_corrections = nil
 }
 
-// AddUploadLinkIDs adds the "upload_links" edge to the UploadLink entity by ids.
-func (m *EventMutation) AddUploadLinkIDs(ids ...int) {
-	if m.upload_links == nil {
-		m.upload_links = make(map[int]struct{})
-	}
-	for i := range ids {
-		m.upload_links[ids[i]] = struct{}{}
-	}
-}
-
-// ClearUploadLinks clears the "upload_links" edge to the UploadLink entity.
-func (m *EventMutation) ClearUploadLinks() {
-	m.clearedupload_links = true
-}
-
-// UploadLinksCleared reports if the "upload_links" edge to the UploadLink entity was cleared.
-func (m *EventMutation) UploadLinksCleared() bool {
-	return m.clearedupload_links
-}
-
-// RemoveUploadLinkIDs removes the "upload_links" edge to the UploadLink entity by IDs.
-func (m *EventMutation) RemoveUploadLinkIDs(ids ...int) {
-	if m.removedupload_links == nil {
-		m.removedupload_links = make(map[int]struct{})
-	}
-	for i := range ids {
-		delete(m.upload_links, ids[i])
-		m.removedupload_links[ids[i]] = struct{}{}
-	}
-}
-
-// RemovedUploadLinks returns the removed IDs of the "upload_links" edge to the UploadLink entity.
-func (m *EventMutation) RemovedUploadLinksIDs() (ids []int) {
-	for id := range m.removedupload_links {
-		ids = append(ids, id)
-	}
-	return
-}
-
-// UploadLinksIDs returns the "upload_links" edge IDs in the mutation.
-func (m *EventMutation) UploadLinksIDs() (ids []int) {
-	for id := range m.upload_links {
-		ids = append(ids, id)
-	}
-	return
-}
-
-// ResetUploadLinks resets all changes to the "upload_links" edge.
-func (m *EventMutation) ResetUploadLinks() {
-	m.upload_links = nil
-	m.clearedupload_links = false
-	m.removedupload_links = nil
-}
-
 // AddVotingEligibilityIDs adds the "voting_eligibilities" edge to the VotingEligibility entity by ids.
 func (m *EventMutation) AddVotingEligibilityIDs(ids ...int) {
 	if m.voting_eligibilities == nil {
@@ -25048,7 +24989,7 @@ func (m *EventMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *EventMutation) AddedEdges() []string {
-	edges := make([]string, 0, 23)
+	edges := make([]string, 0, 22)
 	if m.grants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -25093,9 +25034,6 @@ func (m *EventMutation) AddedEdges() []string {
 	}
 	if m.results_corrections != nil {
 		edges = append(edges, event.EdgeResultsCorrections)
-	}
-	if m.upload_links != nil {
-		edges = append(edges, event.EdgeUploadLinks)
 	}
 	if m.voting_eligibilities != nil {
 		edges = append(edges, event.EdgeVotingEligibilities)
@@ -25213,12 +25151,6 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
-	case event.EdgeUploadLinks:
-		ids := make([]ent.Value, 0, len(m.upload_links))
-		for id := range m.upload_links {
-			ids = append(ids, id)
-		}
-		return ids
 	case event.EdgeVotingEligibilities:
 		ids := make([]ent.Value, 0, len(m.voting_eligibilities))
 		for id := range m.voting_eligibilities {
@@ -25265,7 +25197,7 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *EventMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 23)
+	edges := make([]string, 0, 22)
 	if m.removedgrants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -25307,9 +25239,6 @@ func (m *EventMutation) RemovedEdges() []string {
 	}
 	if m.removedresults_corrections != nil {
 		edges = append(edges, event.EdgeResultsCorrections)
-	}
-	if m.removedupload_links != nil {
-		edges = append(edges, event.EdgeUploadLinks)
 	}
 	if m.removedvoting_eligibilities != nil {
 		edges = append(edges, event.EdgeVotingEligibilities)
@@ -25420,12 +25349,6 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
-	case event.EdgeUploadLinks:
-		ids := make([]ent.Value, 0, len(m.removedupload_links))
-		for id := range m.removedupload_links {
-			ids = append(ids, id)
-		}
-		return ids
 	case event.EdgeVotingEligibilities:
 		ids := make([]ent.Value, 0, len(m.removedvoting_eligibilities))
 		for id := range m.removedvoting_eligibilities {
@@ -25468,7 +25391,7 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *EventMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 23)
+	edges := make([]string, 0, 22)
 	if m.clearedgrants {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -25513,9 +25436,6 @@ func (m *EventMutation) ClearedEdges() []string {
 	}
 	if m.clearedresults_corrections {
 		edges = append(edges, event.EdgeResultsCorrections)
-	}
-	if m.clearedupload_links {
-		edges = append(edges, event.EdgeUploadLinks)
 	}
 	if m.clearedvoting_eligibilities {
 		edges = append(edges, event.EdgeVotingEligibilities)
@@ -25575,8 +25495,6 @@ func (m *EventMutation) EdgeCleared(name string) bool {
 		return m.clearedresults_publications
 	case event.EdgeResultsCorrections:
 		return m.clearedresults_corrections
-	case event.EdgeUploadLinks:
-		return m.clearedupload_links
 	case event.EdgeVotingEligibilities:
 		return m.clearedvoting_eligibilities
 	case event.EdgeDraftEdits:
@@ -25657,9 +25575,6 @@ func (m *EventMutation) ResetEdge(name string) error {
 		return nil
 	case event.EdgeResultsCorrections:
 		m.ResetResultsCorrections()
-		return nil
-	case event.EdgeUploadLinks:
-		m.ResetUploadLinks()
 		return nil
 	case event.EdgeVotingEligibilities:
 		m.ResetVotingEligibilities()
@@ -57201,714 +57116,6 @@ func (m *TrackPublishedVersionMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown TrackPublishedVersion edge %s", name)
-}
-
-// UploadLinkMutation represents an operation that mutates the UploadLink nodes in the graph.
-type UploadLinkMutation struct {
-	config
-	op            Op
-	typ           string
-	id            *int
-	target_type   *uploadlink.TargetType
-	target_id     *int
-	addtarget_id  *int
-	token_hash    *string
-	revoked_at    *time.Time
-	created_at    *time.Time
-	clearedFields map[string]struct{}
-	event         *int
-	clearedevent  bool
-	done          bool
-	oldValue      func(context.Context) (*UploadLink, error)
-	predicates    []predicate.UploadLink
-}
-
-var _ ent.Mutation = (*UploadLinkMutation)(nil)
-
-// uploadlinkOption allows management of the mutation configuration using functional options.
-type uploadlinkOption func(*UploadLinkMutation)
-
-// newUploadLinkMutation creates new mutation for the UploadLink entity.
-func newUploadLinkMutation(c config, op Op, opts ...uploadlinkOption) *UploadLinkMutation {
-	m := &UploadLinkMutation{
-		config:        c,
-		op:            op,
-		typ:           TypeUploadLink,
-		clearedFields: make(map[string]struct{}),
-	}
-	for _, opt := range opts {
-		opt(m)
-	}
-	return m
-}
-
-// withUploadLinkID sets the ID field of the mutation.
-func withUploadLinkID(id int) uploadlinkOption {
-	return func(m *UploadLinkMutation) {
-		var (
-			err   error
-			once  sync.Once
-			value *UploadLink
-		)
-		m.oldValue = func(ctx context.Context) (*UploadLink, error) {
-			once.Do(func() {
-				if m.done {
-					err = errors.New("querying old values post mutation is not allowed")
-				} else {
-					value, err = m.Client().UploadLink.Get(ctx, id)
-				}
-			})
-			return value, err
-		}
-		m.id = &id
-	}
-}
-
-// withUploadLink sets the old UploadLink of the mutation.
-func withUploadLink(node *UploadLink) uploadlinkOption {
-	return func(m *UploadLinkMutation) {
-		m.oldValue = func(context.Context) (*UploadLink, error) {
-			return node, nil
-		}
-		m.id = &node.ID
-	}
-}
-
-// Client returns a new `ent.Client` from the mutation. If the mutation was
-// executed in a transaction (ent.Tx), a transactional client is returned.
-func (m UploadLinkMutation) Client() *Client {
-	client := &Client{config: m.config}
-	client.init()
-	return client
-}
-
-// Tx returns an `ent.Tx` for mutations that were executed in transactions;
-// it returns an error otherwise.
-func (m UploadLinkMutation) Tx() (*Tx, error) {
-	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("ent: mutation is not running in a transaction")
-	}
-	tx := &Tx{config: m.config}
-	tx.init()
-	return tx, nil
-}
-
-// ID returns the ID value in the mutation. Note that the ID is only available
-// if it was provided to the builder or after it was returned from the database.
-func (m *UploadLinkMutation) ID() (id int, exists bool) {
-	if m.id == nil {
-		return
-	}
-	return *m.id, true
-}
-
-// IDs queries the database and returns the entity ids that match the mutation's predicate.
-// That means, if the mutation is applied within a transaction with an isolation level such
-// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
-// or updated by the mutation.
-func (m *UploadLinkMutation) IDs(ctx context.Context) ([]int, error) {
-	switch {
-	case m.op.Is(OpUpdateOne | OpDeleteOne):
-		id, exists := m.ID()
-		if exists {
-			return []int{id}, nil
-		}
-		fallthrough
-	case m.op.Is(OpUpdate | OpDelete):
-		return m.Client().UploadLink.Query().Where(m.predicates...).IDs(ctx)
-	default:
-		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
-	}
-}
-
-// SetEventID sets the "event_id" field.
-func (m *UploadLinkMutation) SetEventID(i int) {
-	m.event = &i
-}
-
-// EventID returns the value of the "event_id" field in the mutation.
-func (m *UploadLinkMutation) EventID() (r int, exists bool) {
-	v := m.event
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldEventID returns the old "event_id" field's value of the UploadLink entity.
-// If the UploadLink object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *UploadLinkMutation) OldEventID(ctx context.Context) (v int, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldEventID is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldEventID requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldEventID: %w", err)
-	}
-	return oldValue.EventID, nil
-}
-
-// ResetEventID resets all changes to the "event_id" field.
-func (m *UploadLinkMutation) ResetEventID() {
-	m.event = nil
-}
-
-// SetTargetType sets the "target_type" field.
-func (m *UploadLinkMutation) SetTargetType(ut uploadlink.TargetType) {
-	m.target_type = &ut
-}
-
-// TargetType returns the value of the "target_type" field in the mutation.
-func (m *UploadLinkMutation) TargetType() (r uploadlink.TargetType, exists bool) {
-	v := m.target_type
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldTargetType returns the old "target_type" field's value of the UploadLink entity.
-// If the UploadLink object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *UploadLinkMutation) OldTargetType(ctx context.Context) (v uploadlink.TargetType, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldTargetType is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldTargetType requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldTargetType: %w", err)
-	}
-	return oldValue.TargetType, nil
-}
-
-// ResetTargetType resets all changes to the "target_type" field.
-func (m *UploadLinkMutation) ResetTargetType() {
-	m.target_type = nil
-}
-
-// SetTargetID sets the "target_id" field.
-func (m *UploadLinkMutation) SetTargetID(i int) {
-	m.target_id = &i
-	m.addtarget_id = nil
-}
-
-// TargetID returns the value of the "target_id" field in the mutation.
-func (m *UploadLinkMutation) TargetID() (r int, exists bool) {
-	v := m.target_id
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldTargetID returns the old "target_id" field's value of the UploadLink entity.
-// If the UploadLink object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *UploadLinkMutation) OldTargetID(ctx context.Context) (v int, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldTargetID is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldTargetID requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldTargetID: %w", err)
-	}
-	return oldValue.TargetID, nil
-}
-
-// AddTargetID adds i to the "target_id" field.
-func (m *UploadLinkMutation) AddTargetID(i int) {
-	if m.addtarget_id != nil {
-		*m.addtarget_id += i
-	} else {
-		m.addtarget_id = &i
-	}
-}
-
-// AddedTargetID returns the value that was added to the "target_id" field in this mutation.
-func (m *UploadLinkMutation) AddedTargetID() (r int, exists bool) {
-	v := m.addtarget_id
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ResetTargetID resets all changes to the "target_id" field.
-func (m *UploadLinkMutation) ResetTargetID() {
-	m.target_id = nil
-	m.addtarget_id = nil
-}
-
-// SetTokenHash sets the "token_hash" field.
-func (m *UploadLinkMutation) SetTokenHash(s string) {
-	m.token_hash = &s
-}
-
-// TokenHash returns the value of the "token_hash" field in the mutation.
-func (m *UploadLinkMutation) TokenHash() (r string, exists bool) {
-	v := m.token_hash
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldTokenHash returns the old "token_hash" field's value of the UploadLink entity.
-// If the UploadLink object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *UploadLinkMutation) OldTokenHash(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldTokenHash is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldTokenHash requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldTokenHash: %w", err)
-	}
-	return oldValue.TokenHash, nil
-}
-
-// ResetTokenHash resets all changes to the "token_hash" field.
-func (m *UploadLinkMutation) ResetTokenHash() {
-	m.token_hash = nil
-}
-
-// SetRevokedAt sets the "revoked_at" field.
-func (m *UploadLinkMutation) SetRevokedAt(t time.Time) {
-	m.revoked_at = &t
-}
-
-// RevokedAt returns the value of the "revoked_at" field in the mutation.
-func (m *UploadLinkMutation) RevokedAt() (r time.Time, exists bool) {
-	v := m.revoked_at
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldRevokedAt returns the old "revoked_at" field's value of the UploadLink entity.
-// If the UploadLink object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *UploadLinkMutation) OldRevokedAt(ctx context.Context) (v time.Time, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldRevokedAt is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldRevokedAt requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldRevokedAt: %w", err)
-	}
-	return oldValue.RevokedAt, nil
-}
-
-// ClearRevokedAt clears the value of the "revoked_at" field.
-func (m *UploadLinkMutation) ClearRevokedAt() {
-	m.revoked_at = nil
-	m.clearedFields[uploadlink.FieldRevokedAt] = struct{}{}
-}
-
-// RevokedAtCleared returns if the "revoked_at" field was cleared in this mutation.
-func (m *UploadLinkMutation) RevokedAtCleared() bool {
-	_, ok := m.clearedFields[uploadlink.FieldRevokedAt]
-	return ok
-}
-
-// ResetRevokedAt resets all changes to the "revoked_at" field.
-func (m *UploadLinkMutation) ResetRevokedAt() {
-	m.revoked_at = nil
-	delete(m.clearedFields, uploadlink.FieldRevokedAt)
-}
-
-// SetCreatedAt sets the "created_at" field.
-func (m *UploadLinkMutation) SetCreatedAt(t time.Time) {
-	m.created_at = &t
-}
-
-// CreatedAt returns the value of the "created_at" field in the mutation.
-func (m *UploadLinkMutation) CreatedAt() (r time.Time, exists bool) {
-	v := m.created_at
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldCreatedAt returns the old "created_at" field's value of the UploadLink entity.
-// If the UploadLink object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *UploadLinkMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
-	}
-	return oldValue.CreatedAt, nil
-}
-
-// ResetCreatedAt resets all changes to the "created_at" field.
-func (m *UploadLinkMutation) ResetCreatedAt() {
-	m.created_at = nil
-}
-
-// ClearEvent clears the "event" edge to the Event entity.
-func (m *UploadLinkMutation) ClearEvent() {
-	m.clearedevent = true
-	m.clearedFields[uploadlink.FieldEventID] = struct{}{}
-}
-
-// EventCleared reports if the "event" edge to the Event entity was cleared.
-func (m *UploadLinkMutation) EventCleared() bool {
-	return m.clearedevent
-}
-
-// EventIDs returns the "event" edge IDs in the mutation.
-// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
-// EventID instead. It exists only for internal usage by the builders.
-func (m *UploadLinkMutation) EventIDs() (ids []int) {
-	if id := m.event; id != nil {
-		ids = append(ids, *id)
-	}
-	return
-}
-
-// ResetEvent resets all changes to the "event" edge.
-func (m *UploadLinkMutation) ResetEvent() {
-	m.event = nil
-	m.clearedevent = false
-}
-
-// Where appends a list predicates to the UploadLinkMutation builder.
-func (m *UploadLinkMutation) Where(ps ...predicate.UploadLink) {
-	m.predicates = append(m.predicates, ps...)
-}
-
-// WhereP appends storage-level predicates to the UploadLinkMutation builder. Using this method,
-// users can use type-assertion to append predicates that do not depend on any generated package.
-func (m *UploadLinkMutation) WhereP(ps ...func(*sql.Selector)) {
-	p := make([]predicate.UploadLink, len(ps))
-	for i := range ps {
-		p[i] = ps[i]
-	}
-	m.Where(p...)
-}
-
-// Op returns the operation name.
-func (m *UploadLinkMutation) Op() Op {
-	return m.op
-}
-
-// SetOp allows setting the mutation operation.
-func (m *UploadLinkMutation) SetOp(op Op) {
-	m.op = op
-}
-
-// Type returns the node type of this mutation (UploadLink).
-func (m *UploadLinkMutation) Type() string {
-	return m.typ
-}
-
-// Fields returns all fields that were changed during this mutation. Note that in
-// order to get all numeric fields that were incremented/decremented, call
-// AddedFields().
-func (m *UploadLinkMutation) Fields() []string {
-	fields := make([]string, 0, 6)
-	if m.event != nil {
-		fields = append(fields, uploadlink.FieldEventID)
-	}
-	if m.target_type != nil {
-		fields = append(fields, uploadlink.FieldTargetType)
-	}
-	if m.target_id != nil {
-		fields = append(fields, uploadlink.FieldTargetID)
-	}
-	if m.token_hash != nil {
-		fields = append(fields, uploadlink.FieldTokenHash)
-	}
-	if m.revoked_at != nil {
-		fields = append(fields, uploadlink.FieldRevokedAt)
-	}
-	if m.created_at != nil {
-		fields = append(fields, uploadlink.FieldCreatedAt)
-	}
-	return fields
-}
-
-// Field returns the value of a field with the given name. The second boolean
-// return value indicates that this field was not set, or was not defined in the
-// schema.
-func (m *UploadLinkMutation) Field(name string) (ent.Value, bool) {
-	switch name {
-	case uploadlink.FieldEventID:
-		return m.EventID()
-	case uploadlink.FieldTargetType:
-		return m.TargetType()
-	case uploadlink.FieldTargetID:
-		return m.TargetID()
-	case uploadlink.FieldTokenHash:
-		return m.TokenHash()
-	case uploadlink.FieldRevokedAt:
-		return m.RevokedAt()
-	case uploadlink.FieldCreatedAt:
-		return m.CreatedAt()
-	}
-	return nil, false
-}
-
-// OldField returns the old value of the field from the database. An error is
-// returned if the mutation operation is not UpdateOne, or the query to the
-// database failed.
-func (m *UploadLinkMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
-	switch name {
-	case uploadlink.FieldEventID:
-		return m.OldEventID(ctx)
-	case uploadlink.FieldTargetType:
-		return m.OldTargetType(ctx)
-	case uploadlink.FieldTargetID:
-		return m.OldTargetID(ctx)
-	case uploadlink.FieldTokenHash:
-		return m.OldTokenHash(ctx)
-	case uploadlink.FieldRevokedAt:
-		return m.OldRevokedAt(ctx)
-	case uploadlink.FieldCreatedAt:
-		return m.OldCreatedAt(ctx)
-	}
-	return nil, fmt.Errorf("unknown UploadLink field %s", name)
-}
-
-// SetField sets the value of a field with the given name. It returns an error if
-// the field is not defined in the schema, or if the type mismatched the field
-// type.
-func (m *UploadLinkMutation) SetField(name string, value ent.Value) error {
-	switch name {
-	case uploadlink.FieldEventID:
-		v, ok := value.(int)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetEventID(v)
-		return nil
-	case uploadlink.FieldTargetType:
-		v, ok := value.(uploadlink.TargetType)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetTargetType(v)
-		return nil
-	case uploadlink.FieldTargetID:
-		v, ok := value.(int)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetTargetID(v)
-		return nil
-	case uploadlink.FieldTokenHash:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetTokenHash(v)
-		return nil
-	case uploadlink.FieldRevokedAt:
-		v, ok := value.(time.Time)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetRevokedAt(v)
-		return nil
-	case uploadlink.FieldCreatedAt:
-		v, ok := value.(time.Time)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetCreatedAt(v)
-		return nil
-	}
-	return fmt.Errorf("unknown UploadLink field %s", name)
-}
-
-// AddedFields returns all numeric fields that were incremented/decremented during
-// this mutation.
-func (m *UploadLinkMutation) AddedFields() []string {
-	var fields []string
-	if m.addtarget_id != nil {
-		fields = append(fields, uploadlink.FieldTargetID)
-	}
-	return fields
-}
-
-// AddedField returns the numeric value that was incremented/decremented on a field
-// with the given name. The second boolean return value indicates that this field
-// was not set, or was not defined in the schema.
-func (m *UploadLinkMutation) AddedField(name string) (ent.Value, bool) {
-	switch name {
-	case uploadlink.FieldTargetID:
-		return m.AddedTargetID()
-	}
-	return nil, false
-}
-
-// AddField adds the value to the field with the given name. It returns an error if
-// the field is not defined in the schema, or if the type mismatched the field
-// type.
-func (m *UploadLinkMutation) AddField(name string, value ent.Value) error {
-	switch name {
-	case uploadlink.FieldTargetID:
-		v, ok := value.(int)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddTargetID(v)
-		return nil
-	}
-	return fmt.Errorf("unknown UploadLink numeric field %s", name)
-}
-
-// ClearedFields returns all nullable fields that were cleared during this
-// mutation.
-func (m *UploadLinkMutation) ClearedFields() []string {
-	var fields []string
-	if m.FieldCleared(uploadlink.FieldRevokedAt) {
-		fields = append(fields, uploadlink.FieldRevokedAt)
-	}
-	return fields
-}
-
-// FieldCleared returns a boolean indicating if a field with the given name was
-// cleared in this mutation.
-func (m *UploadLinkMutation) FieldCleared(name string) bool {
-	_, ok := m.clearedFields[name]
-	return ok
-}
-
-// ClearField clears the value of the field with the given name. It returns an
-// error if the field is not defined in the schema.
-func (m *UploadLinkMutation) ClearField(name string) error {
-	switch name {
-	case uploadlink.FieldRevokedAt:
-		m.ClearRevokedAt()
-		return nil
-	}
-	return fmt.Errorf("unknown UploadLink nullable field %s", name)
-}
-
-// ResetField resets all changes in the mutation for the field with the given name.
-// It returns an error if the field is not defined in the schema.
-func (m *UploadLinkMutation) ResetField(name string) error {
-	switch name {
-	case uploadlink.FieldEventID:
-		m.ResetEventID()
-		return nil
-	case uploadlink.FieldTargetType:
-		m.ResetTargetType()
-		return nil
-	case uploadlink.FieldTargetID:
-		m.ResetTargetID()
-		return nil
-	case uploadlink.FieldTokenHash:
-		m.ResetTokenHash()
-		return nil
-	case uploadlink.FieldRevokedAt:
-		m.ResetRevokedAt()
-		return nil
-	case uploadlink.FieldCreatedAt:
-		m.ResetCreatedAt()
-		return nil
-	}
-	return fmt.Errorf("unknown UploadLink field %s", name)
-}
-
-// AddedEdges returns all edge names that were set/added in this mutation.
-func (m *UploadLinkMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
-	if m.event != nil {
-		edges = append(edges, uploadlink.EdgeEvent)
-	}
-	return edges
-}
-
-// AddedIDs returns all IDs (to other nodes) that were added for the given edge
-// name in this mutation.
-func (m *UploadLinkMutation) AddedIDs(name string) []ent.Value {
-	switch name {
-	case uploadlink.EdgeEvent:
-		if id := m.event; id != nil {
-			return []ent.Value{*id}
-		}
-	}
-	return nil
-}
-
-// RemovedEdges returns all edge names that were removed in this mutation.
-func (m *UploadLinkMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
-	return edges
-}
-
-// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
-// the given name in this mutation.
-func (m *UploadLinkMutation) RemovedIDs(name string) []ent.Value {
-	return nil
-}
-
-// ClearedEdges returns all edge names that were cleared in this mutation.
-func (m *UploadLinkMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
-	if m.clearedevent {
-		edges = append(edges, uploadlink.EdgeEvent)
-	}
-	return edges
-}
-
-// EdgeCleared returns a boolean which indicates if the edge with the given name
-// was cleared in this mutation.
-func (m *UploadLinkMutation) EdgeCleared(name string) bool {
-	switch name {
-	case uploadlink.EdgeEvent:
-		return m.clearedevent
-	}
-	return false
-}
-
-// ClearEdge clears the value of the edge with the given name. It returns an error
-// if that edge is not defined in the schema.
-func (m *UploadLinkMutation) ClearEdge(name string) error {
-	switch name {
-	case uploadlink.EdgeEvent:
-		m.ClearEvent()
-		return nil
-	}
-	return fmt.Errorf("unknown UploadLink unique edge %s", name)
-}
-
-// ResetEdge resets all changes to the edge with the given name in this mutation.
-// It returns an error if the edge is not defined in the schema.
-func (m *UploadLinkMutation) ResetEdge(name string) error {
-	switch name {
-	case uploadlink.EdgeEvent:
-		m.ResetEvent()
-		return nil
-	}
-	return fmt.Errorf("unknown UploadLink edge %s", name)
 }
 
 // VotingEligibilityMutation represents an operation that mutates the VotingEligibility nodes in the graph.

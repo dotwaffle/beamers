@@ -40,15 +40,13 @@ func (conflict *DraftRevisionConflictError) Unwrap() error { return ErrDraftRevi
 
 // CommandIdentity contains one command's durable replay identity.
 type CommandIdentity struct {
-	ActorKind         string
-	ActorAccountID    int
-	ActorUploadLinkID int
-	CommandID         string
-	PayloadHash       string
-	Action            string
-	TargetType        string
-	TargetID          string
-	Now               time.Time
+	ActorAccountID int
+	CommandID      string
+	PayloadHash    string
+	Action         string
+	TargetType     string
+	TargetID       string
+	Now            time.Time
 }
 
 // CommandTx owns one command's persistence transaction.
@@ -91,9 +89,9 @@ func (installation *SQLite) ProbeCommandEvidence(
 	internalContext := systemContext(ctx)
 	const receiptInsert = `
 INSERT INTO command_receipts (
-	actor_kind, command_id, payload_hash, action, target_type, target_id,
+	command_id, payload_hash, action, target_type, target_id,
 	outcome_json, created_at
-) VALUES ('Account', 'emergency-alert-storage-probe', ?, ?, ?, ?, '{}', ?)`
+) VALUES ('emergency-alert-storage-probe', ?, ?, ?, ?, '{}', ?)`
 	if _, err = transaction.ExecContext(
 		internalContext,
 		receiptInsert,
@@ -134,8 +132,7 @@ func (transaction *CommandTx) LookupReceipt(
 	identity CommandIdentity,
 ) (string, bool, error) {
 	return findCommandReceipt(ctx, transaction.transaction, commandReceiptParams{
-		ActorKind: identity.ActorKind, ActorAccountID: identity.ActorAccountID,
-		ActorUploadLinkID: identity.ActorUploadLinkID, CommandID: identity.CommandID,
+		ActorAccountID: identity.ActorAccountID, CommandID: identity.CommandID,
 		PayloadHash: identity.PayloadHash, Action: identity.Action,
 	})
 }
@@ -163,8 +160,7 @@ func (transaction *CommandTx) RecordOutcomeWithAudit(
 		result = auditentry.ResultRejected
 	}
 	if err := createCommandReceipt(ctx, transaction.transaction, commandReceiptParams{
-		ActorKind: identity.ActorKind, ActorAccountID: identity.ActorAccountID,
-		ActorUploadLinkID: identity.ActorUploadLinkID, CommandID: identity.CommandID,
+		ActorAccountID: identity.ActorAccountID, CommandID: identity.CommandID,
 		PayloadHash: identity.PayloadHash, Action: identity.Action,
 		TargetType: identity.TargetType, TargetID: identity.TargetID,
 		OutcomeJSON: outcomeJSON, Now: identity.Now,
@@ -179,13 +175,8 @@ func (transaction *CommandTx) RecordOutcomeWithAudit(
 		SetResult(result).
 		SetReason(auditReason(outcomeJSON, rejected, details.Reason)).
 		SetNote(details.Note)
-	if identity.ActorKind == "UploadLink" {
-		audit.SetActorKind(auditentry.ActorKindUploadLink).
-			SetActorUploadLinkID(identity.ActorUploadLinkID)
-	} else {
-		audit.SetActorKind(auditentry.ActorKindAccount).
-			SetActorAccountID(identity.ActorAccountID)
-	}
+	audit.SetActorKind(auditentry.ActorKindAccount).
+		SetActorAccountID(identity.ActorAccountID)
 	if _, err := audit.Save(systemContext(ctx)); err != nil {
 		return opaqueError("record command Audit Entry", err)
 	}

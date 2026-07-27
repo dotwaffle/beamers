@@ -1600,29 +1600,6 @@ func HasResultsCorrectionsWith(preds ...predicate.ResultsCorrection) predicate.E
 	})
 }
 
-// HasUploadLinks applies the HasEdge predicate on the "upload_links" edge.
-func HasUploadLinks() predicate.Event {
-	return predicate.Event(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, UploadLinksTable, UploadLinksColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasUploadLinksWith applies the HasEdge predicate on the "upload_links" edge with a given conditions (other predicates).
-func HasUploadLinksWith(preds ...predicate.UploadLink) predicate.Event {
-	return predicate.Event(func(s *sql.Selector) {
-		step := newUploadLinksStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
 // HasVotingEligibilities applies the HasEdge predicate on the "voting_eligibilities" edge.
 func HasVotingEligibilities() predicate.Event {
 	return predicate.Event(func(s *sql.Selector) {
