@@ -15,6 +15,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/competitionresultsdraft"
 	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
+	"github.com/dotwaffle/beamers/ent/favoritesession"
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
@@ -725,6 +726,21 @@ func (_u *SessionUpdate) SetPublicScheduleBaselineEntry(v *PublicScheduleBaselin
 	return _u.SetPublicScheduleBaselineEntryID(v.ID)
 }
 
+// AddFavoriteIDs adds the "favorites" edge to the FavoriteSession entity by IDs.
+func (_u *SessionUpdate) AddFavoriteIDs(ids ...int) *SessionUpdate {
+	_u.mutation.AddFavoriteIDs(ids...)
+	return _u
+}
+
+// AddFavorites adds the "favorites" edges to the FavoriteSession entity.
+func (_u *SessionUpdate) AddFavorites(v ...*FavoriteSession) *SessionUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddFavoriteIDs(ids...)
+}
+
 // AddCompetitionEntryIDs adds the "competition_entries" edge to the CompetitionEntry entity by IDs.
 func (_u *SessionUpdate) AddCompetitionEntryIDs(ids ...int) *SessionUpdate {
 	_u.mutation.AddCompetitionEntryIDs(ids...)
@@ -886,6 +902,27 @@ func (_u *SessionUpdate) RemoveCancellations(v ...*SessionCancellation) *Session
 func (_u *SessionUpdate) ClearPublicScheduleBaselineEntry() *SessionUpdate {
 	_u.mutation.ClearPublicScheduleBaselineEntry()
 	return _u
+}
+
+// ClearFavorites clears all "favorites" edges to the FavoriteSession entity.
+func (_u *SessionUpdate) ClearFavorites() *SessionUpdate {
+	_u.mutation.ClearFavorites()
+	return _u
+}
+
+// RemoveFavoriteIDs removes the "favorites" edge to FavoriteSession entities by IDs.
+func (_u *SessionUpdate) RemoveFavoriteIDs(ids ...int) *SessionUpdate {
+	_u.mutation.RemoveFavoriteIDs(ids...)
+	return _u
+}
+
+// RemoveFavorites removes "favorites" edges to FavoriteSession entities.
+func (_u *SessionUpdate) RemoveFavorites(v ...*FavoriteSession) *SessionUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveFavoriteIDs(ids...)
 }
 
 // ClearCompetitionEntries clears all "competition_entries" edges to the CompetitionEntry entity.
@@ -1473,6 +1510,51 @@ func (_u *SessionUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(publicschedulebaselineentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.FavoritesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.FavoritesTable,
+			Columns: []string{session.FavoritesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(favoritesession.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedFavoritesIDs(); len(nodes) > 0 && !_u.mutation.FavoritesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.FavoritesTable,
+			Columns: []string{session.FavoritesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(favoritesession.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.FavoritesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.FavoritesTable,
+			Columns: []string{session.FavoritesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(favoritesession.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -2378,6 +2460,21 @@ func (_u *SessionUpdateOne) SetPublicScheduleBaselineEntry(v *PublicScheduleBase
 	return _u.SetPublicScheduleBaselineEntryID(v.ID)
 }
 
+// AddFavoriteIDs adds the "favorites" edge to the FavoriteSession entity by IDs.
+func (_u *SessionUpdateOne) AddFavoriteIDs(ids ...int) *SessionUpdateOne {
+	_u.mutation.AddFavoriteIDs(ids...)
+	return _u
+}
+
+// AddFavorites adds the "favorites" edges to the FavoriteSession entity.
+func (_u *SessionUpdateOne) AddFavorites(v ...*FavoriteSession) *SessionUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddFavoriteIDs(ids...)
+}
+
 // AddCompetitionEntryIDs adds the "competition_entries" edge to the CompetitionEntry entity by IDs.
 func (_u *SessionUpdateOne) AddCompetitionEntryIDs(ids ...int) *SessionUpdateOne {
 	_u.mutation.AddCompetitionEntryIDs(ids...)
@@ -2539,6 +2636,27 @@ func (_u *SessionUpdateOne) RemoveCancellations(v ...*SessionCancellation) *Sess
 func (_u *SessionUpdateOne) ClearPublicScheduleBaselineEntry() *SessionUpdateOne {
 	_u.mutation.ClearPublicScheduleBaselineEntry()
 	return _u
+}
+
+// ClearFavorites clears all "favorites" edges to the FavoriteSession entity.
+func (_u *SessionUpdateOne) ClearFavorites() *SessionUpdateOne {
+	_u.mutation.ClearFavorites()
+	return _u
+}
+
+// RemoveFavoriteIDs removes the "favorites" edge to FavoriteSession entities by IDs.
+func (_u *SessionUpdateOne) RemoveFavoriteIDs(ids ...int) *SessionUpdateOne {
+	_u.mutation.RemoveFavoriteIDs(ids...)
+	return _u
+}
+
+// RemoveFavorites removes "favorites" edges to FavoriteSession entities.
+func (_u *SessionUpdateOne) RemoveFavorites(v ...*FavoriteSession) *SessionUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveFavoriteIDs(ids...)
 }
 
 // ClearCompetitionEntries clears all "competition_entries" edges to the CompetitionEntry entity.
@@ -3156,6 +3274,51 @@ func (_u *SessionUpdateOne) sqlSave(ctx context.Context) (_node *Session, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(publicschedulebaselineentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.FavoritesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.FavoritesTable,
+			Columns: []string{session.FavoritesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(favoritesession.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedFavoritesIDs(); len(nodes) > 0 && !_u.mutation.FavoritesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.FavoritesTable,
+			Columns: []string{session.FavoritesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(favoritesession.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.FavoritesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.FavoritesTable,
+			Columns: []string{session.FavoritesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(favoritesession.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

@@ -309,6 +309,18 @@ func (f EventSlugFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, e
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.EventSlugMutation", m)
 }
 
+// The FavoriteSessionFunc type is an adapter to allow the use of ordinary
+// function as FavoriteSession mutator.
+type FavoriteSessionFunc func(context.Context, *ent.FavoriteSessionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f FavoriteSessionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.FavoriteSessionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.FavoriteSessionMutation", m)
+}
+
 // The ImportReferenceFunc type is an adapter to allow the use of ordinary
 // function as ImportReference mutator.
 type ImportReferenceFunc func(context.Context, *ent.ImportReferenceMutation) (ent.Value, error)

@@ -35,6 +35,8 @@ const (
 	EdgeSessions = "sessions"
 	// EdgeEventGrants holds the string denoting the event_grants edge name in mutations.
 	EdgeEventGrants = "event_grants"
+	// EdgeFavoriteSessions holds the string denoting the favorite_sessions edge name in mutations.
+	EdgeFavoriteSessions = "favorite_sessions"
 	// EdgeAuditEntries holds the string denoting the audit_entries edge name in mutations.
 	EdgeAuditEntries = "audit_entries"
 	// EdgeCommandReceipts holds the string denoting the command_receipts edge name in mutations.
@@ -78,6 +80,13 @@ const (
 	EventGrantsInverseTable = "event_grants"
 	// EventGrantsColumn is the table column denoting the event_grants relation/edge.
 	EventGrantsColumn = "account_id"
+	// FavoriteSessionsTable is the table that holds the favorite_sessions relation/edge.
+	FavoriteSessionsTable = "favorite_sessions"
+	// FavoriteSessionsInverseTable is the table name for the FavoriteSession entity.
+	// It exists in this package in order to avoid circular dependency with the "favoritesession" package.
+	FavoriteSessionsInverseTable = "favorite_sessions"
+	// FavoriteSessionsColumn is the table column denoting the favorite_sessions relation/edge.
+	FavoriteSessionsColumn = "account_id"
 	// AuditEntriesTable is the table that holds the audit_entries relation/edge.
 	AuditEntriesTable = "audit_entries"
 	// AuditEntriesInverseTable is the table name for the AuditEntry entity.
@@ -219,6 +228,20 @@ func ByEventGrants(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByFavoriteSessionsCount orders the results by favorite_sessions count.
+func ByFavoriteSessionsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newFavoriteSessionsStep(), opts...)
+	}
+}
+
+// ByFavoriteSessions orders the results by favorite_sessions terms.
+func ByFavoriteSessions(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newFavoriteSessionsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByAuditEntriesCount orders the results by audit_entries count.
 func ByAuditEntriesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -293,6 +316,13 @@ func newEventGrantsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(EventGrantsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, EventGrantsTable, EventGrantsColumn),
+	)
+}
+func newFavoriteSessionsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(FavoriteSessionsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, FavoriteSessionsTable, FavoriteSessionsColumn),
 	)
 }
 func newAuditEntriesStep() *sqlgraph.Step {

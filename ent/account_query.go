@@ -21,6 +21,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/favoritesession"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/predicate"
 )
@@ -37,6 +38,7 @@ type AccountQuery struct {
 	withProfile            *AccountProfileQuery
 	withSessions           *AccountSessionQuery
 	withEventGrants        *EventGrantQuery
+	withFavoriteSessions   *FavoriteSessionQuery
 	withAuditEntries       *AuditEntryQuery
 	withCommandReceipts    *CommandReceiptQuery
 	withDraftEdits         *DraftEditQuery
@@ -179,6 +181,28 @@ func (_q *AccountQuery) QueryEventGrants() *EventGrantQuery {
 			sqlgraph.From(account.Table, account.FieldID, selector),
 			sqlgraph.To(eventgrant.Table, eventgrant.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, account.EventGrantsTable, account.EventGrantsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryFavoriteSessions chains the current query on the "favorite_sessions" edge.
+func (_q *AccountQuery) QueryFavoriteSessions() *FavoriteSessionQuery {
+	query := (&FavoriteSessionClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, selector),
+			sqlgraph.To(favoritesession.Table, favoritesession.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.FavoriteSessionsTable, account.FavoriteSessionsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -449,6 +473,7 @@ func (_q *AccountQuery) Clone() *AccountQuery {
 		withProfile:            _q.withProfile.Clone(),
 		withSessions:           _q.withSessions.Clone(),
 		withEventGrants:        _q.withEventGrants.Clone(),
+		withFavoriteSessions:   _q.withFavoriteSessions.Clone(),
 		withAuditEntries:       _q.withAuditEntries.Clone(),
 		withCommandReceipts:    _q.withCommandReceipts.Clone(),
 		withDraftEdits:         _q.withDraftEdits.Clone(),
@@ -510,6 +535,17 @@ func (_q *AccountQuery) WithEventGrants(opts ...func(*EventGrantQuery)) *Account
 		opt(query)
 	}
 	_q.withEventGrants = query
+	return _q
+}
+
+// WithFavoriteSessions tells the query-builder to eager-load the nodes that are connected to
+// the "favorite_sessions" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AccountQuery) WithFavoriteSessions(opts ...func(*FavoriteSessionQuery)) *AccountQuery {
+	query := (&FavoriteSessionClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withFavoriteSessions = query
 	return _q
 }
 
@@ -630,12 +666,13 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	var (
 		nodes       = []*Account{}
 		_spec       = _q.querySpec()
-		loadedTypes = [8]bool{
+		loadedTypes = [9]bool{
 			_q.withPasswordCredential != nil,
 			_q.withPreference != nil,
 			_q.withProfile != nil,
 			_q.withSessions != nil,
 			_q.withEventGrants != nil,
+			_q.withFavoriteSessions != nil,
 			_q.withAuditEntries != nil,
 			_q.withCommandReceipts != nil,
 			_q.withDraftEdits != nil,
@@ -688,6 +725,13 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 		if err := _q.loadEventGrants(ctx, query, nodes,
 			func(n *Account) { n.Edges.EventGrants = []*EventGrant{} },
 			func(n *Account, e *EventGrant) { n.Edges.EventGrants = append(n.Edges.EventGrants, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withFavoriteSessions; query != nil {
+		if err := _q.loadFavoriteSessions(ctx, query, nodes,
+			func(n *Account) { n.Edges.FavoriteSessions = []*FavoriteSession{} },
+			func(n *Account, e *FavoriteSession) { n.Edges.FavoriteSessions = append(n.Edges.FavoriteSessions, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -841,6 +885,36 @@ func (_q *AccountQuery) loadEventGrants(ctx context.Context, query *EventGrantQu
 	}
 	query.Where(predicate.EventGrant(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(account.EventGrantsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.AccountID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "account_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *AccountQuery) loadFavoriteSessions(ctx context.Context, query *FavoriteSessionQuery, nodes []*Account, init func(*Account), assign func(*Account, *FavoriteSession)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Account)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(favoritesession.FieldAccountID)
+	}
+	query.Where(predicate.FavoriteSession(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(account.FavoriteSessionsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

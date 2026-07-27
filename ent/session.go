@@ -110,6 +110,8 @@ type SessionEdges struct {
 	Cancellations []*SessionCancellation `json:"cancellations,omitempty"`
 	// PublicScheduleBaselineEntry holds the value of the public_schedule_baseline_entry edge.
 	PublicScheduleBaselineEntry *PublicScheduleBaselineEntry `json:"public_schedule_baseline_entry,omitempty"`
+	// Favorites holds the value of the favorites edge.
+	Favorites []*FavoriteSession `json:"favorites,omitempty"`
 	// CompetitionEntries holds the value of the competition_entries edge.
 	CompetitionEntries []*CompetitionEntry `json:"competition_entries,omitempty"`
 	// CompetitionResultsDrafts holds the value of the competition_results_drafts edge.
@@ -122,7 +124,7 @@ type SessionEdges struct {
 	PrizegivingAssignment *PrizegivingCompetition `json:"prizegiving_assignment,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [11]bool
+	loadedTypes [12]bool
 }
 
 // EventOrErr returns the Event value or an error if the edge
@@ -185,10 +187,19 @@ func (e SessionEdges) PublicScheduleBaselineEntryOrErr() (*PublicScheduleBaselin
 	return nil, &NotLoadedError{edge: "public_schedule_baseline_entry"}
 }
 
+// FavoritesOrErr returns the Favorites value or an error if the edge
+// was not loaded in eager-loading.
+func (e SessionEdges) FavoritesOrErr() ([]*FavoriteSession, error) {
+	if e.loadedTypes[6] {
+		return e.Favorites, nil
+	}
+	return nil, &NotLoadedError{edge: "favorites"}
+}
+
 // CompetitionEntriesOrErr returns the CompetitionEntries value or an error if the edge
 // was not loaded in eager-loading.
 func (e SessionEdges) CompetitionEntriesOrErr() ([]*CompetitionEntry, error) {
-	if e.loadedTypes[6] {
+	if e.loadedTypes[7] {
 		return e.CompetitionEntries, nil
 	}
 	return nil, &NotLoadedError{edge: "competition_entries"}
@@ -197,7 +208,7 @@ func (e SessionEdges) CompetitionEntriesOrErr() ([]*CompetitionEntry, error) {
 // CompetitionResultsDraftsOrErr returns the CompetitionResultsDrafts value or an error if the edge
 // was not loaded in eager-loading.
 func (e SessionEdges) CompetitionResultsDraftsOrErr() ([]*CompetitionResultsDraft, error) {
-	if e.loadedTypes[7] {
+	if e.loadedTypes[8] {
 		return e.CompetitionResultsDrafts, nil
 	}
 	return nil, &NotLoadedError{edge: "competition_results_drafts"}
@@ -206,7 +217,7 @@ func (e SessionEdges) CompetitionResultsDraftsOrErr() ([]*CompetitionResultsDraf
 // CompetitionResultStandingsOrErr returns the CompetitionResultStandings value or an error if the edge
 // was not loaded in eager-loading.
 func (e SessionEdges) CompetitionResultStandingsOrErr() ([]*CompetitionResultStanding, error) {
-	if e.loadedTypes[8] {
+	if e.loadedTypes[9] {
 		return e.CompetitionResultStandings, nil
 	}
 	return nil, &NotLoadedError{edge: "competition_result_standings"}
@@ -217,7 +228,7 @@ func (e SessionEdges) CompetitionResultStandingsOrErr() ([]*CompetitionResultSta
 func (e SessionEdges) PrizegivingOrErr() (*Prizegiving, error) {
 	if e.Prizegiving != nil {
 		return e.Prizegiving, nil
-	} else if e.loadedTypes[9] {
+	} else if e.loadedTypes[10] {
 		return nil, &NotFoundError{label: prizegiving.Label}
 	}
 	return nil, &NotLoadedError{edge: "prizegiving"}
@@ -228,7 +239,7 @@ func (e SessionEdges) PrizegivingOrErr() (*Prizegiving, error) {
 func (e SessionEdges) PrizegivingAssignmentOrErr() (*PrizegivingCompetition, error) {
 	if e.PrizegivingAssignment != nil {
 		return e.PrizegivingAssignment, nil
-	} else if e.loadedTypes[10] {
+	} else if e.loadedTypes[11] {
 		return nil, &NotFoundError{label: prizegivingcompetition.Label}
 	}
 	return nil, &NotLoadedError{edge: "prizegiving_assignment"}
@@ -525,6 +536,11 @@ func (_m *Session) QueryCancellations() *SessionCancellationQuery {
 // QueryPublicScheduleBaselineEntry queries the "public_schedule_baseline_entry" edge of the Session entity.
 func (_m *Session) QueryPublicScheduleBaselineEntry() *PublicScheduleBaselineEntryQuery {
 	return NewSessionClient(_m.config).QueryPublicScheduleBaselineEntry(_m)
+}
+
+// QueryFavorites queries the "favorites" edge of the Session entity.
+func (_m *Session) QueryFavorites() *FavoriteSessionQuery {
+	return NewSessionClient(_m.config).QueryFavorites(_m)
 }
 
 // QueryCompetitionEntries queries the "competition_entries" edge of the Session entity.

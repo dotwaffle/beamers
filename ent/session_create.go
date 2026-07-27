@@ -14,6 +14,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/competitionresultsdraft"
 	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
 	"github.com/dotwaffle/beamers/ent/event"
+	"github.com/dotwaffle/beamers/ent/favoritesession"
 	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
@@ -540,6 +541,21 @@ func (_c *SessionCreate) SetNillablePublicScheduleBaselineEntryID(id *int) *Sess
 // SetPublicScheduleBaselineEntry sets the "public_schedule_baseline_entry" edge to the PublicScheduleBaselineEntry entity.
 func (_c *SessionCreate) SetPublicScheduleBaselineEntry(v *PublicScheduleBaselineEntry) *SessionCreate {
 	return _c.SetPublicScheduleBaselineEntryID(v.ID)
+}
+
+// AddFavoriteIDs adds the "favorites" edge to the FavoriteSession entity by IDs.
+func (_c *SessionCreate) AddFavoriteIDs(ids ...int) *SessionCreate {
+	_c.mutation.AddFavoriteIDs(ids...)
+	return _c
+}
+
+// AddFavorites adds the "favorites" edges to the FavoriteSession entity.
+func (_c *SessionCreate) AddFavorites(v ...*FavoriteSession) *SessionCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddFavoriteIDs(ids...)
 }
 
 // AddCompetitionEntryIDs adds the "competition_entries" edge to the CompetitionEntry entity by IDs.
@@ -1084,6 +1100,22 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(publicschedulebaselineentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.FavoritesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.FavoritesTable,
+			Columns: []string{session.FavoritesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(favoritesession.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

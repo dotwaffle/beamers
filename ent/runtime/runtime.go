@@ -31,6 +31,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/eventslug"
+	"github.com/dotwaffle/beamers/ent/favoritesession"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/lane"
@@ -1458,6 +1459,15 @@ func init() {
 	eventslugDescCreatedAt := eventslugFields[3].Descriptor()
 	// eventslug.DefaultCreatedAt holds the default value on creation for the created_at field.
 	eventslug.DefaultCreatedAt = eventslugDescCreatedAt.Default.(func() time.Time)
+	favoritesession.Policy = privacy.NewPolicies(schema.FavoriteSession{})
+	favoritesession.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := favoritesession.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
 	importreference.Policy = privacy.NewPolicies(schema.ImportReference{})
 	importreference.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

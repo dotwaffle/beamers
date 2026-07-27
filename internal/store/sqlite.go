@@ -144,6 +144,14 @@ var migrationContracts = map[int]migrationContract{
 		minimumWriter: 52,
 		consequence:   "reserves current and retained Event Slugs in one shared namespace",
 	},
+	53: {
+		name:          "favorite_sessions",
+		checksum:      "3bad6361e513719ac989c8bc1bc45dc83442f28a0649061030b9bec3abe75c2e",
+		safety:        MigrationNonDestructive,
+		minimumReader: 53,
+		minimumWriter: 53,
+		consequence:   "adds private persistent Account bookmarks for public Sessions",
+	},
 }
 
 // MigrationStep is one exact committed migration in an upgrade plan.

@@ -36,6 +36,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/eventslug"
+	"github.com/dotwaffle/beamers/ent/favoritesession"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/lane"
@@ -106,6 +107,7 @@ const (
 	TypeEventAwardsDraft            = "EventAwardsDraft"
 	TypeEventGrant                  = "EventGrant"
 	TypeEventSlug                   = "EventSlug"
+	TypeFavoriteSession             = "FavoriteSession"
 	TypeImportReference             = "ImportReference"
 	TypeInstallation                = "Installation"
 	TypeLane                        = "Lane"
@@ -162,6 +164,9 @@ type AccountMutation struct {
 	event_grants               map[int]struct{}
 	removedevent_grants        map[int]struct{}
 	clearedevent_grants        bool
+	favorite_sessions          map[int]struct{}
+	removedfavorite_sessions   map[int]struct{}
+	clearedfavorite_sessions   bool
 	audit_entries              map[int]struct{}
 	removedaudit_entries       map[int]struct{}
 	clearedaudit_entries       bool
@@ -692,6 +697,60 @@ func (m *AccountMutation) ResetEventGrants() {
 	m.removedevent_grants = nil
 }
 
+// AddFavoriteSessionIDs adds the "favorite_sessions" edge to the FavoriteSession entity by ids.
+func (m *AccountMutation) AddFavoriteSessionIDs(ids ...int) {
+	if m.favorite_sessions == nil {
+		m.favorite_sessions = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.favorite_sessions[ids[i]] = struct{}{}
+	}
+}
+
+// ClearFavoriteSessions clears the "favorite_sessions" edge to the FavoriteSession entity.
+func (m *AccountMutation) ClearFavoriteSessions() {
+	m.clearedfavorite_sessions = true
+}
+
+// FavoriteSessionsCleared reports if the "favorite_sessions" edge to the FavoriteSession entity was cleared.
+func (m *AccountMutation) FavoriteSessionsCleared() bool {
+	return m.clearedfavorite_sessions
+}
+
+// RemoveFavoriteSessionIDs removes the "favorite_sessions" edge to the FavoriteSession entity by IDs.
+func (m *AccountMutation) RemoveFavoriteSessionIDs(ids ...int) {
+	if m.removedfavorite_sessions == nil {
+		m.removedfavorite_sessions = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.favorite_sessions, ids[i])
+		m.removedfavorite_sessions[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedFavoriteSessions returns the removed IDs of the "favorite_sessions" edge to the FavoriteSession entity.
+func (m *AccountMutation) RemovedFavoriteSessionsIDs() (ids []int) {
+	for id := range m.removedfavorite_sessions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// FavoriteSessionsIDs returns the "favorite_sessions" edge IDs in the mutation.
+func (m *AccountMutation) FavoriteSessionsIDs() (ids []int) {
+	for id := range m.favorite_sessions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetFavoriteSessions resets all changes to the "favorite_sessions" edge.
+func (m *AccountMutation) ResetFavoriteSessions() {
+	m.favorite_sessions = nil
+	m.clearedfavorite_sessions = false
+	m.removedfavorite_sessions = nil
+}
+
 // AddAuditEntryIDs adds the "audit_entries" edge to the AuditEntry entity by ids.
 func (m *AccountMutation) AddAuditEntryIDs(ids ...int) {
 	if m.audit_entries == nil {
@@ -1064,7 +1123,7 @@ func (m *AccountMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AccountMutation) AddedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 9)
 	if m.password_credential != nil {
 		edges = append(edges, account.EdgePasswordCredential)
 	}
@@ -1079,6 +1138,9 @@ func (m *AccountMutation) AddedEdges() []string {
 	}
 	if m.event_grants != nil {
 		edges = append(edges, account.EdgeEventGrants)
+	}
+	if m.favorite_sessions != nil {
+		edges = append(edges, account.EdgeFavoriteSessions)
 	}
 	if m.audit_entries != nil {
 		edges = append(edges, account.EdgeAuditEntries)
@@ -1120,6 +1182,12 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case account.EdgeFavoriteSessions:
+		ids := make([]ent.Value, 0, len(m.favorite_sessions))
+		for id := range m.favorite_sessions {
+			ids = append(ids, id)
+		}
+		return ids
 	case account.EdgeAuditEntries:
 		ids := make([]ent.Value, 0, len(m.audit_entries))
 		for id := range m.audit_entries {
@@ -1144,12 +1212,15 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AccountMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 9)
 	if m.removedsessions != nil {
 		edges = append(edges, account.EdgeSessions)
 	}
 	if m.removedevent_grants != nil {
 		edges = append(edges, account.EdgeEventGrants)
+	}
+	if m.removedfavorite_sessions != nil {
+		edges = append(edges, account.EdgeFavoriteSessions)
 	}
 	if m.removedaudit_entries != nil {
 		edges = append(edges, account.EdgeAuditEntries)
@@ -1179,6 +1250,12 @@ func (m *AccountMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case account.EdgeFavoriteSessions:
+		ids := make([]ent.Value, 0, len(m.removedfavorite_sessions))
+		for id := range m.removedfavorite_sessions {
+			ids = append(ids, id)
+		}
+		return ids
 	case account.EdgeAuditEntries:
 		ids := make([]ent.Value, 0, len(m.removedaudit_entries))
 		for id := range m.removedaudit_entries {
@@ -1203,7 +1280,7 @@ func (m *AccountMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AccountMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 9)
 	if m.clearedpassword_credential {
 		edges = append(edges, account.EdgePasswordCredential)
 	}
@@ -1218,6 +1295,9 @@ func (m *AccountMutation) ClearedEdges() []string {
 	}
 	if m.clearedevent_grants {
 		edges = append(edges, account.EdgeEventGrants)
+	}
+	if m.clearedfavorite_sessions {
+		edges = append(edges, account.EdgeFavoriteSessions)
 	}
 	if m.clearedaudit_entries {
 		edges = append(edges, account.EdgeAuditEntries)
@@ -1245,6 +1325,8 @@ func (m *AccountMutation) EdgeCleared(name string) bool {
 		return m.clearedsessions
 	case account.EdgeEventGrants:
 		return m.clearedevent_grants
+	case account.EdgeFavoriteSessions:
+		return m.clearedfavorite_sessions
 	case account.EdgeAuditEntries:
 		return m.clearedaudit_entries
 	case account.EdgeCommandReceipts:
@@ -1290,6 +1372,9 @@ func (m *AccountMutation) ResetEdge(name string) error {
 		return nil
 	case account.EdgeEventGrants:
 		m.ResetEventGrants()
+		return nil
+	case account.EdgeFavoriteSessions:
+		m.ResetFavoriteSessions()
 		return nil
 	case account.EdgeAuditEntries:
 		m.ResetAuditEntries()
@@ -26871,6 +26956,489 @@ func (m *EventSlugMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown EventSlug edge %s", name)
 }
 
+// FavoriteSessionMutation represents an operation that mutates the FavoriteSession nodes in the graph.
+type FavoriteSessionMutation struct {
+	config
+	op             Op
+	typ            string
+	id             *int
+	clearedFields  map[string]struct{}
+	account        *int
+	clearedaccount bool
+	session        *int
+	clearedsession bool
+	done           bool
+	oldValue       func(context.Context) (*FavoriteSession, error)
+	predicates     []predicate.FavoriteSession
+}
+
+var _ ent.Mutation = (*FavoriteSessionMutation)(nil)
+
+// favoritesessionOption allows management of the mutation configuration using functional options.
+type favoritesessionOption func(*FavoriteSessionMutation)
+
+// newFavoriteSessionMutation creates new mutation for the FavoriteSession entity.
+func newFavoriteSessionMutation(c config, op Op, opts ...favoritesessionOption) *FavoriteSessionMutation {
+	m := &FavoriteSessionMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeFavoriteSession,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withFavoriteSessionID sets the ID field of the mutation.
+func withFavoriteSessionID(id int) favoritesessionOption {
+	return func(m *FavoriteSessionMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *FavoriteSession
+		)
+		m.oldValue = func(ctx context.Context) (*FavoriteSession, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().FavoriteSession.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withFavoriteSession sets the old FavoriteSession of the mutation.
+func withFavoriteSession(node *FavoriteSession) favoritesessionOption {
+	return func(m *FavoriteSessionMutation) {
+		m.oldValue = func(context.Context) (*FavoriteSession, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m FavoriteSessionMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m FavoriteSessionMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *FavoriteSessionMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *FavoriteSessionMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().FavoriteSession.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetAccountID sets the "account_id" field.
+func (m *FavoriteSessionMutation) SetAccountID(i int) {
+	m.account = &i
+}
+
+// AccountID returns the value of the "account_id" field in the mutation.
+func (m *FavoriteSessionMutation) AccountID() (r int, exists bool) {
+	v := m.account
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAccountID returns the old "account_id" field's value of the FavoriteSession entity.
+// If the FavoriteSession object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *FavoriteSessionMutation) OldAccountID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAccountID: %w", err)
+	}
+	return oldValue.AccountID, nil
+}
+
+// ResetAccountID resets all changes to the "account_id" field.
+func (m *FavoriteSessionMutation) ResetAccountID() {
+	m.account = nil
+}
+
+// SetSessionID sets the "session_id" field.
+func (m *FavoriteSessionMutation) SetSessionID(i int) {
+	m.session = &i
+}
+
+// SessionID returns the value of the "session_id" field in the mutation.
+func (m *FavoriteSessionMutation) SessionID() (r int, exists bool) {
+	v := m.session
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSessionID returns the old "session_id" field's value of the FavoriteSession entity.
+// If the FavoriteSession object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *FavoriteSessionMutation) OldSessionID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSessionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSessionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSessionID: %w", err)
+	}
+	return oldValue.SessionID, nil
+}
+
+// ResetSessionID resets all changes to the "session_id" field.
+func (m *FavoriteSessionMutation) ResetSessionID() {
+	m.session = nil
+}
+
+// ClearAccount clears the "account" edge to the Account entity.
+func (m *FavoriteSessionMutation) ClearAccount() {
+	m.clearedaccount = true
+	m.clearedFields[favoritesession.FieldAccountID] = struct{}{}
+}
+
+// AccountCleared reports if the "account" edge to the Account entity was cleared.
+func (m *FavoriteSessionMutation) AccountCleared() bool {
+	return m.clearedaccount
+}
+
+// AccountIDs returns the "account" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AccountID instead. It exists only for internal usage by the builders.
+func (m *FavoriteSessionMutation) AccountIDs() (ids []int) {
+	if id := m.account; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAccount resets all changes to the "account" edge.
+func (m *FavoriteSessionMutation) ResetAccount() {
+	m.account = nil
+	m.clearedaccount = false
+}
+
+// ClearSession clears the "session" edge to the Session entity.
+func (m *FavoriteSessionMutation) ClearSession() {
+	m.clearedsession = true
+	m.clearedFields[favoritesession.FieldSessionID] = struct{}{}
+}
+
+// SessionCleared reports if the "session" edge to the Session entity was cleared.
+func (m *FavoriteSessionMutation) SessionCleared() bool {
+	return m.clearedsession
+}
+
+// SessionIDs returns the "session" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SessionID instead. It exists only for internal usage by the builders.
+func (m *FavoriteSessionMutation) SessionIDs() (ids []int) {
+	if id := m.session; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSession resets all changes to the "session" edge.
+func (m *FavoriteSessionMutation) ResetSession() {
+	m.session = nil
+	m.clearedsession = false
+}
+
+// Where appends a list predicates to the FavoriteSessionMutation builder.
+func (m *FavoriteSessionMutation) Where(ps ...predicate.FavoriteSession) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the FavoriteSessionMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *FavoriteSessionMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.FavoriteSession, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *FavoriteSessionMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *FavoriteSessionMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (FavoriteSession).
+func (m *FavoriteSessionMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *FavoriteSessionMutation) Fields() []string {
+	fields := make([]string, 0, 2)
+	if m.account != nil {
+		fields = append(fields, favoritesession.FieldAccountID)
+	}
+	if m.session != nil {
+		fields = append(fields, favoritesession.FieldSessionID)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *FavoriteSessionMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case favoritesession.FieldAccountID:
+		return m.AccountID()
+	case favoritesession.FieldSessionID:
+		return m.SessionID()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *FavoriteSessionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case favoritesession.FieldAccountID:
+		return m.OldAccountID(ctx)
+	case favoritesession.FieldSessionID:
+		return m.OldSessionID(ctx)
+	}
+	return nil, fmt.Errorf("unknown FavoriteSession field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *FavoriteSessionMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case favoritesession.FieldAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAccountID(v)
+		return nil
+	case favoritesession.FieldSessionID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSessionID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown FavoriteSession field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *FavoriteSessionMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *FavoriteSessionMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *FavoriteSessionMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown FavoriteSession numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *FavoriteSessionMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *FavoriteSessionMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *FavoriteSessionMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown FavoriteSession nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *FavoriteSessionMutation) ResetField(name string) error {
+	switch name {
+	case favoritesession.FieldAccountID:
+		m.ResetAccountID()
+		return nil
+	case favoritesession.FieldSessionID:
+		m.ResetSessionID()
+		return nil
+	}
+	return fmt.Errorf("unknown FavoriteSession field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *FavoriteSessionMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.account != nil {
+		edges = append(edges, favoritesession.EdgeAccount)
+	}
+	if m.session != nil {
+		edges = append(edges, favoritesession.EdgeSession)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *FavoriteSessionMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case favoritesession.EdgeAccount:
+		if id := m.account; id != nil {
+			return []ent.Value{*id}
+		}
+	case favoritesession.EdgeSession:
+		if id := m.session; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *FavoriteSessionMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *FavoriteSessionMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *FavoriteSessionMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedaccount {
+		edges = append(edges, favoritesession.EdgeAccount)
+	}
+	if m.clearedsession {
+		edges = append(edges, favoritesession.EdgeSession)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *FavoriteSessionMutation) EdgeCleared(name string) bool {
+	switch name {
+	case favoritesession.EdgeAccount:
+		return m.clearedaccount
+	case favoritesession.EdgeSession:
+		return m.clearedsession
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *FavoriteSessionMutation) ClearEdge(name string) error {
+	switch name {
+	case favoritesession.EdgeAccount:
+		m.ClearAccount()
+		return nil
+	case favoritesession.EdgeSession:
+		m.ClearSession()
+		return nil
+	}
+	return fmt.Errorf("unknown FavoriteSession unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *FavoriteSessionMutation) ResetEdge(name string) error {
+	switch name {
+	case favoritesession.EdgeAccount:
+		m.ResetAccount()
+		return nil
+	case favoritesession.EdgeSession:
+		m.ResetSession()
+		return nil
+	}
+	return fmt.Errorf("unknown FavoriteSession edge %s", name)
+}
+
 // ImportReferenceMutation represents an operation that mutates the ImportReference nodes in the graph.
 type ImportReferenceMutation struct {
 	config
@@ -42308,6 +42876,9 @@ type SessionMutation struct {
 	clearedcancellations                  bool
 	public_schedule_baseline_entry        *int
 	clearedpublic_schedule_baseline_entry bool
+	favorites                             map[int]struct{}
+	removedfavorites                      map[int]struct{}
+	clearedfavorites                      bool
 	competition_entries                   map[int]struct{}
 	removedcompetition_entries            map[int]struct{}
 	clearedcompetition_entries            bool
@@ -44364,6 +44935,60 @@ func (m *SessionMutation) ResetPublicScheduleBaselineEntry() {
 	m.clearedpublic_schedule_baseline_entry = false
 }
 
+// AddFavoriteIDs adds the "favorites" edge to the FavoriteSession entity by ids.
+func (m *SessionMutation) AddFavoriteIDs(ids ...int) {
+	if m.favorites == nil {
+		m.favorites = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.favorites[ids[i]] = struct{}{}
+	}
+}
+
+// ClearFavorites clears the "favorites" edge to the FavoriteSession entity.
+func (m *SessionMutation) ClearFavorites() {
+	m.clearedfavorites = true
+}
+
+// FavoritesCleared reports if the "favorites" edge to the FavoriteSession entity was cleared.
+func (m *SessionMutation) FavoritesCleared() bool {
+	return m.clearedfavorites
+}
+
+// RemoveFavoriteIDs removes the "favorites" edge to the FavoriteSession entity by IDs.
+func (m *SessionMutation) RemoveFavoriteIDs(ids ...int) {
+	if m.removedfavorites == nil {
+		m.removedfavorites = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.favorites, ids[i])
+		m.removedfavorites[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedFavorites returns the removed IDs of the "favorites" edge to the FavoriteSession entity.
+func (m *SessionMutation) RemovedFavoritesIDs() (ids []int) {
+	for id := range m.removedfavorites {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// FavoritesIDs returns the "favorites" edge IDs in the mutation.
+func (m *SessionMutation) FavoritesIDs() (ids []int) {
+	for id := range m.favorites {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetFavorites resets all changes to the "favorites" edge.
+func (m *SessionMutation) ResetFavorites() {
+	m.favorites = nil
+	m.clearedfavorites = false
+	m.removedfavorites = nil
+}
+
 // AddCompetitionEntryIDs adds the "competition_entries" edge to the CompetitionEntry entity by ids.
 func (m *SessionMutation) AddCompetitionEntryIDs(ids ...int) {
 	if m.competition_entries == nil {
@@ -45503,7 +46128,7 @@ func (m *SessionMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *SessionMutation) AddedEdges() []string {
-	edges := make([]string, 0, 11)
+	edges := make([]string, 0, 12)
 	if m.event != nil {
 		edges = append(edges, session.EdgeEvent)
 	}
@@ -45521,6 +46146,9 @@ func (m *SessionMutation) AddedEdges() []string {
 	}
 	if m.public_schedule_baseline_entry != nil {
 		edges = append(edges, session.EdgePublicScheduleBaselineEntry)
+	}
+	if m.favorites != nil {
+		edges = append(edges, session.EdgeFavorites)
 	}
 	if m.competition_entries != nil {
 		edges = append(edges, session.EdgeCompetitionEntries)
@@ -45574,6 +46202,12 @@ func (m *SessionMutation) AddedIDs(name string) []ent.Value {
 		if id := m.public_schedule_baseline_entry; id != nil {
 			return []ent.Value{*id}
 		}
+	case session.EdgeFavorites:
+		ids := make([]ent.Value, 0, len(m.favorites))
+		for id := range m.favorites {
+			ids = append(ids, id)
+		}
+		return ids
 	case session.EdgeCompetitionEntries:
 		ids := make([]ent.Value, 0, len(m.competition_entries))
 		for id := range m.competition_entries {
@@ -45606,7 +46240,7 @@ func (m *SessionMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *SessionMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 11)
+	edges := make([]string, 0, 12)
 	if m.removedpublished_versions != nil {
 		edges = append(edges, session.EdgePublishedVersions)
 	}
@@ -45615,6 +46249,9 @@ func (m *SessionMutation) RemovedEdges() []string {
 	}
 	if m.removedcancellations != nil {
 		edges = append(edges, session.EdgeCancellations)
+	}
+	if m.removedfavorites != nil {
+		edges = append(edges, session.EdgeFavorites)
 	}
 	if m.removedcompetition_entries != nil {
 		edges = append(edges, session.EdgeCompetitionEntries)
@@ -45650,6 +46287,12 @@ func (m *SessionMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case session.EdgeFavorites:
+		ids := make([]ent.Value, 0, len(m.removedfavorites))
+		for id := range m.removedfavorites {
+			ids = append(ids, id)
+		}
+		return ids
 	case session.EdgeCompetitionEntries:
 		ids := make([]ent.Value, 0, len(m.removedcompetition_entries))
 		for id := range m.removedcompetition_entries {
@@ -45674,7 +46317,7 @@ func (m *SessionMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *SessionMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 11)
+	edges := make([]string, 0, 12)
 	if m.clearedevent {
 		edges = append(edges, session.EdgeEvent)
 	}
@@ -45692,6 +46335,9 @@ func (m *SessionMutation) ClearedEdges() []string {
 	}
 	if m.clearedpublic_schedule_baseline_entry {
 		edges = append(edges, session.EdgePublicScheduleBaselineEntry)
+	}
+	if m.clearedfavorites {
+		edges = append(edges, session.EdgeFavorites)
 	}
 	if m.clearedcompetition_entries {
 		edges = append(edges, session.EdgeCompetitionEntries)
@@ -45727,6 +46373,8 @@ func (m *SessionMutation) EdgeCleared(name string) bool {
 		return m.clearedcancellations
 	case session.EdgePublicScheduleBaselineEntry:
 		return m.clearedpublic_schedule_baseline_entry
+	case session.EdgeFavorites:
+		return m.clearedfavorites
 	case session.EdgeCompetitionEntries:
 		return m.clearedcompetition_entries
 	case session.EdgeCompetitionResultsDrafts:
@@ -45785,6 +46433,9 @@ func (m *SessionMutation) ResetEdge(name string) error {
 		return nil
 	case session.EdgePublicScheduleBaselineEntry:
 		m.ResetPublicScheduleBaselineEntry()
+		return nil
+	case session.EdgeFavorites:
+		m.ResetFavorites()
 		return nil
 	case session.EdgeCompetitionEntries:
 		m.ResetCompetitionEntries()

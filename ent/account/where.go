@@ -425,6 +425,29 @@ func HasEventGrantsWith(preds ...predicate.EventGrant) predicate.Account {
 	})
 }
 
+// HasFavoriteSessions applies the HasEdge predicate on the "favorite_sessions" edge.
+func HasFavoriteSessions() predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, FavoriteSessionsTable, FavoriteSessionsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasFavoriteSessionsWith applies the HasEdge predicate on the "favorite_sessions" edge with a given conditions (other predicates).
+func HasFavoriteSessionsWith(preds ...predicate.FavoriteSession) predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := newFavoriteSessionsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasAuditEntries applies the HasEdge predicate on the "audit_entries" edge.
 func HasAuditEntries() predicate.Account {
 	return predicate.Account(func(s *sql.Selector) {

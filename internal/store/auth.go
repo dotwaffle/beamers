@@ -16,6 +16,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/favoritesession"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/internal/profilevalue"
 	"github.com/dotwaffle/beamers/internal/viewer"
@@ -410,6 +411,11 @@ func (transaction *CommandTx) DisableAccount(
 		Where(accountprofile.AccountIDEQ(accountID)).
 		Exec(authorizedContext); deleteErr != nil {
 		return DisabledAccount{}, opaqueError("detach Account Profile", deleteErr)
+	}
+	if _, deleteErr := transaction.transaction.FavoriteSession.Delete().
+		Where(favoritesession.AccountIDEQ(accountID)).
+		Exec(internalContext); deleteErr != nil {
+		return DisabledAccount{}, opaqueError("detach Favorite Sessions", deleteErr)
 	}
 	updated, err := transaction.transaction.Account.Update().Where(
 		account.IDEQ(accountID),

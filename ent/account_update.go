@@ -19,6 +19,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/favoritesession"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/predicate"
 )
@@ -171,6 +172,21 @@ func (_u *AccountUpdate) AddEventGrants(v ...*EventGrant) *AccountUpdate {
 	return _u.AddEventGrantIDs(ids...)
 }
 
+// AddFavoriteSessionIDs adds the "favorite_sessions" edge to the FavoriteSession entity by IDs.
+func (_u *AccountUpdate) AddFavoriteSessionIDs(ids ...int) *AccountUpdate {
+	_u.mutation.AddFavoriteSessionIDs(ids...)
+	return _u
+}
+
+// AddFavoriteSessions adds the "favorite_sessions" edges to the FavoriteSession entity.
+func (_u *AccountUpdate) AddFavoriteSessions(v ...*FavoriteSession) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddFavoriteSessionIDs(ids...)
+}
+
 // AddAuditEntryIDs adds the "audit_entries" edge to the AuditEntry entity by IDs.
 func (_u *AccountUpdate) AddAuditEntryIDs(ids ...int) *AccountUpdate {
 	_u.mutation.AddAuditEntryIDs(ids...)
@@ -279,6 +295,27 @@ func (_u *AccountUpdate) RemoveEventGrants(v ...*EventGrant) *AccountUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveEventGrantIDs(ids...)
+}
+
+// ClearFavoriteSessions clears all "favorite_sessions" edges to the FavoriteSession entity.
+func (_u *AccountUpdate) ClearFavoriteSessions() *AccountUpdate {
+	_u.mutation.ClearFavoriteSessions()
+	return _u
+}
+
+// RemoveFavoriteSessionIDs removes the "favorite_sessions" edge to FavoriteSession entities by IDs.
+func (_u *AccountUpdate) RemoveFavoriteSessionIDs(ids ...int) *AccountUpdate {
+	_u.mutation.RemoveFavoriteSessionIDs(ids...)
+	return _u
+}
+
+// RemoveFavoriteSessions removes "favorite_sessions" edges to FavoriteSession entities.
+func (_u *AccountUpdate) RemoveFavoriteSessions(v ...*FavoriteSession) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveFavoriteSessionIDs(ids...)
 }
 
 // ClearAuditEntries clears all "audit_entries" edges to the AuditEntry entity.
@@ -587,6 +624,51 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.FavoriteSessionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.FavoriteSessionsTable,
+			Columns: []string{account.FavoriteSessionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(favoritesession.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedFavoriteSessionsIDs(); len(nodes) > 0 && !_u.mutation.FavoriteSessionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.FavoriteSessionsTable,
+			Columns: []string{account.FavoriteSessionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(favoritesession.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.FavoriteSessionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.FavoriteSessionsTable,
+			Columns: []string{account.FavoriteSessionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(favoritesession.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.AuditEntriesCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -877,6 +959,21 @@ func (_u *AccountUpdateOne) AddEventGrants(v ...*EventGrant) *AccountUpdateOne {
 	return _u.AddEventGrantIDs(ids...)
 }
 
+// AddFavoriteSessionIDs adds the "favorite_sessions" edge to the FavoriteSession entity by IDs.
+func (_u *AccountUpdateOne) AddFavoriteSessionIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.AddFavoriteSessionIDs(ids...)
+	return _u
+}
+
+// AddFavoriteSessions adds the "favorite_sessions" edges to the FavoriteSession entity.
+func (_u *AccountUpdateOne) AddFavoriteSessions(v ...*FavoriteSession) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddFavoriteSessionIDs(ids...)
+}
+
 // AddAuditEntryIDs adds the "audit_entries" edge to the AuditEntry entity by IDs.
 func (_u *AccountUpdateOne) AddAuditEntryIDs(ids ...int) *AccountUpdateOne {
 	_u.mutation.AddAuditEntryIDs(ids...)
@@ -985,6 +1082,27 @@ func (_u *AccountUpdateOne) RemoveEventGrants(v ...*EventGrant) *AccountUpdateOn
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveEventGrantIDs(ids...)
+}
+
+// ClearFavoriteSessions clears all "favorite_sessions" edges to the FavoriteSession entity.
+func (_u *AccountUpdateOne) ClearFavoriteSessions() *AccountUpdateOne {
+	_u.mutation.ClearFavoriteSessions()
+	return _u
+}
+
+// RemoveFavoriteSessionIDs removes the "favorite_sessions" edge to FavoriteSession entities by IDs.
+func (_u *AccountUpdateOne) RemoveFavoriteSessionIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.RemoveFavoriteSessionIDs(ids...)
+	return _u
+}
+
+// RemoveFavoriteSessions removes "favorite_sessions" edges to FavoriteSession entities.
+func (_u *AccountUpdateOne) RemoveFavoriteSessions(v ...*FavoriteSession) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveFavoriteSessionIDs(ids...)
 }
 
 // ClearAuditEntries clears all "audit_entries" edges to the AuditEntry entity.
@@ -1316,6 +1434,51 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(eventgrant.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.FavoriteSessionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.FavoriteSessionsTable,
+			Columns: []string{account.FavoriteSessionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(favoritesession.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedFavoriteSessionsIDs(); len(nodes) > 0 && !_u.mutation.FavoriteSessionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.FavoriteSessionsTable,
+			Columns: []string{account.FavoriteSessionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(favoritesession.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.FavoriteSessionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.FavoriteSessionsTable,
+			Columns: []string{account.FavoriteSessionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(favoritesession.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

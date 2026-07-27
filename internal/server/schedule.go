@@ -3,10 +3,12 @@ package server
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -14,11 +16,13 @@ import (
 
 	"github.com/a-h/templ"
 
+	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/schedule"
 )
 
 type scheduleHandlers struct {
+	frontend frontendHandlers
 	schedule *schedule.Service
 	stream   *displaystream.Hub
 	metrics  *scheduleStreamMetrics
@@ -56,27 +60,55 @@ func (metrics *scheduleStreamMetrics) snapshot() scheduleStreamMetricSnapshot {
 
 func registerScheduleRoutes(
 	mux *routeMux,
+	authentication *auth.Service,
 	service *schedule.Service,
 	stream *displaystream.Hub,
 	metrics *scheduleStreamMetrics,
 	logger *slog.Logger,
 ) {
 	handlers := scheduleHandlers{
+		frontend: frontendHandlers{
+			authentication: authentication, logger: logger, random: rand.Reader,
+		},
 		schedule: service, stream: stream, metrics: metrics, logger: logger,
 	}
 	mux.HandleFunc("/schedule", browserPageRoute(), handlers.list)
+	mux.HandleFunc("/my-schedule", browserPageRoute(), handlers.mySchedule)
 	mux.HandleFunc(
 		"/schedule/events",
 		routeContract{kind: publicInterface, persistent: true},
 		handlers.events,
 	)
 	mux.HandleFunc("/schedule/sessions/{sessionID}", browserPageRoute(), handlers.session)
+	favoriteRoute := browserPageRoute()
+	favoriteRoute.maxBodyBytes = maxAuthBodyBytes
+	mux.HandleFunc(
+		"/schedule/sessions/{sessionID}/favorite",
+		favoriteRoute,
+		handlers.favorite,
+	)
 	mux.HandleFunc("/assets/schedule.css", publicRoute(), handlers.stylesheet)
 	mux.HandleFunc("/assets/schedule.js", publicRoute(), handlers.script)
 }
 
 func (handlers scheduleHandlers) list(response http.ResponseWriter, request *http.Request) {
+	handlers.schedulePage(response, request, false)
+}
+
+func (handlers scheduleHandlers) mySchedule(response http.ResponseWriter, request *http.Request) {
+	handlers.schedulePage(response, request, true)
+}
+
+func (handlers scheduleHandlers) schedulePage(
+	response http.ResponseWriter,
+	request *http.Request,
+	favoritesOnly bool,
+) {
 	if !publicMethodAllowed(response, request) {
+		return
+	}
+	account, signedIn, ok := handlers.account(response, request, favoritesOnly, request.URL.RequestURI())
+	if !ok {
 		return
 	}
 	filter, err := publicScheduleFilter(request)
@@ -88,6 +120,9 @@ func (handlers scheduleHandlers) list(response http.ResponseWriter, request *htt
 		request.Context(),
 		handlers.stream,
 		func(ctx context.Context) (schedule.Snapshot, error) {
+			if signedIn {
+				return handlers.schedule.Personalized(ctx, filter, account.ID, favoritesOnly)
+			}
 			return handlers.schedule.Current(ctx, filter)
 		},
 	)
@@ -104,7 +139,15 @@ func (handlers scheduleHandlers) list(response http.ResponseWriter, request *htt
 		strings.Contains(request.Header.Get("Cache-Control"), "no-cache") {
 		handlers.metrics.resnapshots.Add(1)
 	}
-	handlers.render(response, request, snapshot.ETag, schedule.Page(snapshot), "public Schedule") //nolint:contextcheck // Generated templ closures receive context when rendered.
+	if signedIn {
+		snapshot.AccountName = account.Name
+		snapshot.CSRFToken, err = handlers.frontend.csrfToken(response, request)
+		if err != nil {
+			handlers.frontend.frontendError(response, request, "create CSRF proof", err)
+			return
+		}
+	}
+	handlers.render(response, request, snapshot.ETag, signedIn, schedule.Page(snapshot), "public Schedule") //nolint:contextcheck // Generated templ closures receive context when rendered.
 }
 
 func currentScheduleSnapshot(
@@ -215,9 +258,30 @@ func (handlers scheduleHandlers) session(response http.ResponseWriter, request *
 		publicSessionNotFound(response)
 		return
 	}
-	snapshot, session, ok, err := handlers.schedule.Find(
-		request.Context(), sessionID, request.URL.Query().Get("time_zone"),
+	account, signedIn, proceed := handlers.account(
+		response,
+		request,
+		false,
+		request.URL.RequestURI(),
 	)
+	if !proceed {
+		return
+	}
+	var snapshot schedule.Snapshot
+	var session schedule.Session
+	var ok bool
+	if signedIn {
+		snapshot, session, ok, err = handlers.schedule.FindPersonalized(
+			request.Context(),
+			sessionID,
+			request.URL.Query().Get("time_zone"),
+			account.ID,
+		)
+	} else {
+		snapshot, session, ok, err = handlers.schedule.Find(
+			request.Context(), sessionID, request.URL.Query().Get("time_zone"),
+		)
+	}
 	if err != nil {
 		if errors.Is(err, schedule.ErrInvalidFilter) {
 			http.Error(response, "invalid Schedule filters", http.StatusBadRequest)
@@ -231,7 +295,135 @@ func (handlers scheduleHandlers) session(response http.ResponseWriter, request *
 		publicSessionNotFound(response)
 		return
 	}
-	handlers.render(response, request, snapshot.ETag, schedule.SessionPage(snapshot, session), "public Session") //nolint:contextcheck // Generated templ closures receive context when rendered.
+	if signedIn {
+		snapshot.AccountName = account.Name
+		snapshot.CSRFToken, err = handlers.frontend.csrfToken(response, request)
+		if err != nil {
+			handlers.frontend.frontendError(response, request, "create CSRF proof", err)
+			return
+		}
+	}
+	handlers.render(response, request, snapshot.ETag, signedIn, schedule.SessionPage(snapshot, session), "public Session") //nolint:contextcheck // Generated templ closures receive context when rendered.
+}
+
+func (handlers scheduleHandlers) favorite(response http.ResponseWriter, request *http.Request) {
+	if request.Method != http.MethodPost {
+		frontendMethodNotAllowed(response, http.MethodPost)
+		return
+	}
+	sessionID, err := positivePathID(request, "sessionID")
+	if err != nil {
+		publicSessionNotFound(response)
+		return
+	}
+	sessionPath := "/schedule/sessions/" + strconv.Itoa(sessionID)
+	account, _, ok := handlers.account(response, request, true, sessionPath)
+	if !ok {
+		return
+	}
+	if !handlers.frontend.validForm(response, request) {
+		return
+	}
+	var favorite bool
+	switch request.Form.Get("favorite") {
+	case "true":
+		favorite = true
+	case "false":
+	default:
+		http.Error(response, "invalid Favorite Session action", http.StatusBadRequest)
+		return
+	}
+	if err = handlers.schedule.SetFavorite(
+		request.Context(),
+		account.ID,
+		sessionID,
+		favorite,
+	); errors.Is(err, schedule.ErrSessionUnavailable) {
+		publicSessionNotFound(response)
+		return
+	} else if err != nil {
+		handlers.logger.ErrorContext(request.Context(), "Favorite Session update failed", "error", err)
+		http.Error(response, "Schedule unavailable", http.StatusInternalServerError)
+		return
+	}
+	returnTo := safeFrontendReturnTo(request.Form.Get("return_to"), sessionPath)
+	if request.Header.Get("HX-Request") == "true" {
+		returnURL, _ := url.ParseRequestURI(returnTo)
+		if !favorite && returnURL.Path == "/my-schedule" {
+			setScheduleHeaders(response, "", true)
+			response.Header().Set(
+				"HX-Retarget",
+				"#schedule-session-card-"+strconv.Itoa(sessionID),
+			)
+			response.Header().Set("HX-Reswap", "delete")
+			response.WriteHeader(http.StatusOK)
+			return
+		}
+		handlers.render(
+			response,
+			request,
+			"",
+			true,
+			schedule.FavoriteControl( //nolint:contextcheck // Generated templ closures receive context when rendered.
+				schedule.Snapshot{
+					AccountName: account.Name,
+					CSRFToken:   request.Form.Get("csrf_token"),
+				},
+				schedule.Session{ID: sessionID, Favorite: favorite},
+				returnTo,
+			),
+			"Favorite Session control",
+		)
+		return
+	}
+	//nolint:gosec // The helper accepts only same-origin absolute paths.
+	http.Redirect(
+		response,
+		request,
+		returnTo,
+		http.StatusSeeOther,
+	)
+}
+
+func (handlers scheduleHandlers) account(
+	response http.ResponseWriter,
+	request *http.Request,
+	required bool,
+	returnTo string,
+) (auth.Account, bool, bool) {
+	cookie, err := request.Cookie(sessionCookieName)
+	if err != nil {
+		if required {
+			http.Redirect(
+				response,
+				request,
+				"/sign-in?return_to="+url.QueryEscape(returnTo),
+				http.StatusSeeOther,
+			)
+			return auth.Account{}, false, false
+		}
+		return auth.Account{}, false, true
+	}
+	found, err := handlers.frontend.authentication.Authenticate(request.Context(), cookie.Value)
+	switch {
+	case err == nil:
+		return found, true, true
+	case errors.Is(err, auth.ErrInvalidSession):
+		clearSessionCookie(response, request)
+		if required {
+			http.Redirect(
+				response,
+				request,
+				"/sign-in?return_to="+url.QueryEscape(returnTo),
+				http.StatusSeeOther,
+			)
+			return auth.Account{}, false, false
+		}
+		return auth.Account{}, false, true
+	default:
+		handlers.frontend.frontendError(response, request, "authenticate Schedule session", err)
+		return auth.Account{}, false, false
+	}
 }
 
 func publicScheduleFilter(request *http.Request) (schedule.Filter, error) {
@@ -270,11 +462,12 @@ func (handlers scheduleHandlers) render(
 	response http.ResponseWriter,
 	request *http.Request,
 	etag string,
+	private bool,
 	component templ.Component,
 	name string,
 ) {
-	setScheduleHeaders(response, etag)
-	if scheduleNotModified(response, request, etag) {
+	setScheduleHeaders(response, etag, private)
+	if !private && scheduleNotModified(response, request, etag) {
 		return
 	}
 	var content bytes.Buffer
@@ -338,10 +531,15 @@ func publicMethodAllowed(response http.ResponseWriter, request *http.Request) bo
 	return false
 }
 
-func setScheduleHeaders(response http.ResponseWriter, etag string) {
-	response.Header().Set("Cache-Control", "public, max-age=15, must-revalidate")
+func setScheduleHeaders(response http.ResponseWriter, etag string, private bool) {
+	cacheControl := "public, max-age=15, must-revalidate"
+	if private {
+		cacheControl = "private, no-store"
+	} else {
+		response.Header().Set("ETag", etag)
+	}
+	response.Header().Set("Cache-Control", cacheControl)
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
-	response.Header().Set("ETag", etag)
 }
 
 func scheduleNotModified(response http.ResponseWriter, request *http.Request, etag string) bool {

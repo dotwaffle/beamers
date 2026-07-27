@@ -94,6 +94,8 @@ const (
 	EdgeCancellations = "cancellations"
 	// EdgePublicScheduleBaselineEntry holds the string denoting the public_schedule_baseline_entry edge name in mutations.
 	EdgePublicScheduleBaselineEntry = "public_schedule_baseline_entry"
+	// EdgeFavorites holds the string denoting the favorites edge name in mutations.
+	EdgeFavorites = "favorites"
 	// EdgeCompetitionEntries holds the string denoting the competition_entries edge name in mutations.
 	EdgeCompetitionEntries = "competition_entries"
 	// EdgeCompetitionResultsDrafts holds the string denoting the competition_results_drafts edge name in mutations.
@@ -148,6 +150,13 @@ const (
 	PublicScheduleBaselineEntryInverseTable = "public_schedule_baseline_entries"
 	// PublicScheduleBaselineEntryColumn is the table column denoting the public_schedule_baseline_entry relation/edge.
 	PublicScheduleBaselineEntryColumn = "session_id"
+	// FavoritesTable is the table that holds the favorites relation/edge.
+	FavoritesTable = "favorite_sessions"
+	// FavoritesInverseTable is the table name for the FavoriteSession entity.
+	// It exists in this package in order to avoid circular dependency with the "favoritesession" package.
+	FavoritesInverseTable = "favorite_sessions"
+	// FavoritesColumn is the table column denoting the favorites relation/edge.
+	FavoritesColumn = "session_id"
 	// CompetitionEntriesTable is the table that holds the competition_entries relation/edge.
 	CompetitionEntriesTable = "competition_entries"
 	// CompetitionEntriesInverseTable is the table name for the CompetitionEntry entity.
@@ -605,6 +614,20 @@ func ByPublicScheduleBaselineEntryField(field string, opts ...sql.OrderTermOptio
 	}
 }
 
+// ByFavoritesCount orders the results by favorites count.
+func ByFavoritesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newFavoritesStep(), opts...)
+	}
+}
+
+// ByFavorites orders the results by favorites terms.
+func ByFavorites(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newFavoritesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByCompetitionEntriesCount orders the results by competition_entries count.
 func ByCompetitionEntriesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -700,6 +723,13 @@ func newPublicScheduleBaselineEntryStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(PublicScheduleBaselineEntryInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2O, false, PublicScheduleBaselineEntryTable, PublicScheduleBaselineEntryColumn),
+	)
+}
+func newFavoritesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(FavoritesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, FavoritesTable, FavoritesColumn),
 	)
 }
 func newCompetitionEntriesStep() *sqlgraph.Step {

@@ -381,7 +381,7 @@ templ Setup(csrfToken string, message string, reducedEffects bool) {
 	</html>
 }
 
-templ SignIn(csrfToken string, message string, handle string, reducedEffects bool) {
+templ SignIn(csrfToken string, message string, handle string, returnTo string, reducedEffects bool) {
 	<!doctype html>
 	<html lang="en">
 		@Head("Sign in · Beamers")
@@ -394,6 +394,7 @@ templ SignIn(csrfToken string, message string, handle string, reducedEffects boo
 				}
 				<form class="stack" method="post" action="/sign-in">
 					<input type="hidden" name="csrf_token" value={ csrfToken }/>
+					<input type="hidden" name="return_to" value={ returnTo }/>
 					<label>
 						Account Handle
 						<input name="handle" value={ handle } autocomplete="username" required/>

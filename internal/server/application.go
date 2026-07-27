@@ -747,6 +747,7 @@ func (application *application) buildHandler(
 	)
 	registerScheduleRoutes(
 		mux,
+		installation.Authentication(),
 		installation.Schedule(),
 		application.config.ScheduleStream,
 		application.scheduleMetrics,

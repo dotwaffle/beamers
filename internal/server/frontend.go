@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"mime"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -735,7 +736,13 @@ func (handlers frontendHandlers) signIn(response http.ResponseWriter, request *h
 			)
 			switch {
 			case authenticateErr == nil:
-				http.Redirect(response, request, "/", http.StatusSeeOther)
+				//nolint:gosec // The helper accepts only same-origin absolute paths.
+				http.Redirect(
+					response,
+					request,
+					safeFrontendReturnTo(request.URL.Query().Get("return_to"), "/"),
+					http.StatusSeeOther,
+				)
 				return
 			case errors.Is(authenticateErr, auth.ErrInvalidSession):
 				clearSessionCookie(response, request)
@@ -752,7 +759,18 @@ func (handlers frontendHandlers) signIn(response http.ResponseWriter, request *h
 	}
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
-		handlers.render(response, request, http.StatusOK, frontend.SignIn(csrfToken, "", "", reducedEffectsCookie(request)))
+		handlers.render(
+			response,
+			request,
+			http.StatusOK,
+			frontend.SignIn(
+				csrfToken,
+				"",
+				"",
+				safeFrontendReturnTo(request.URL.Query().Get("return_to"), "/"),
+				reducedEffectsCookie(request),
+			),
+		)
 		return
 	case http.MethodPost:
 	default:
@@ -778,7 +796,18 @@ func (handlers frontendHandlers) signIn(response http.ResponseWriter, request *h
 		handlers.limiter.release(clientKey, accountKey)
 		writeAuthRateLimit(response, time.Second)
 	case errors.Is(err, auth.ErrAuthenticationFailed):
-		handlers.render(response, request, http.StatusUnauthorized, frontend.SignIn(csrfToken, "Sign-in failed.", handle, reducedEffectsCookie(request)))
+		handlers.render(
+			response,
+			request,
+			http.StatusUnauthorized,
+			frontend.SignIn(
+				csrfToken,
+				"Sign-in failed.",
+				handle,
+				safeFrontendReturnTo(request.Form.Get("return_to"), "/"),
+				reducedEffectsCookie(request),
+			),
+		)
 	case err != nil:
 		handlers.limiter.release(clientKey, accountKey)
 		handlers.frontendError(response, request, "sign in Account", err)
@@ -786,8 +815,27 @@ func (handlers frontendHandlers) signIn(response http.ResponseWriter, request *h
 		handlers.limiter.release(clientKey, accountKey)
 		handlers.limiter.reset(accountKey)
 		setSessionCookie(response, request, session)
-		http.Redirect(response, request, "/", http.StatusSeeOther)
+		//nolint:gosec // The helper accepts only same-origin absolute paths.
+		http.Redirect(
+			response,
+			request,
+			safeFrontendReturnTo(request.Form.Get("return_to"), "/"),
+			http.StatusSeeOther,
+		)
 	}
+}
+
+func safeFrontendReturnTo(value, fallback string) string {
+	parsed, err := url.ParseRequestURI(value)
+	if err != nil ||
+		!strings.HasPrefix(parsed.Path, "/") ||
+		strings.HasPrefix(parsed.Path, "//") ||
+		strings.Contains(parsed.Path, `\`) ||
+		parsed.IsAbs() ||
+		parsed.Host != "" {
+		return fallback
+	}
+	return value
 }
 
 func (handlers frontendHandlers) effects(response http.ResponseWriter, request *http.Request) {

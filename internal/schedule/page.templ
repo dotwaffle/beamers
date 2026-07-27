@@ -22,22 +22,27 @@ templ Page(snapshot Snapshot) {
 		<body
 			hx-ext="sse"
 			sse-connect={ snapshot.EventsPath() }
-		>
+			>
+			@ScheduleNavigation(snapshot, snapshot.ViewPath())
 			<main
 				id="schedule"
-				hx-get={ snapshot.SchedulePath() }
+				hx-get={ snapshot.ViewPath() }
 				hx-trigger="sse:schedule"
 				hx-target="this"
 				hx-select="#schedule"
 				hx-swap="outerHTML"
 				hx-headers={ `{"Cache-Control":"no-cache"}` }
 			>
-				<h1 id="schedule-heading" tabindex="-1">{ snapshot.EventName } Schedule</h1>
+				if snapshot.MySchedule {
+					<h1 id="schedule-heading" tabindex="-1">My Schedule</h1>
+				} else {
+					<h1 id="schedule-heading" tabindex="-1">{ snapshot.EventName } Schedule</h1>
+				}
 				<p>Event timezone: { snapshot.Timezone }</p>
 				if snapshot.ViewerLocal {
 					<p>Attendee-local conversion: { snapshot.ViewerTimezone }. Program days remain grouped in Event time.</p>
 				}
-				<form method="get" action="/schedule">
+				<form method="get" action={ snapshot.ViewPath() }>
 					<label>
 						Program day
 						<select id="schedule-day" name="day">
@@ -67,12 +72,16 @@ templ Page(snapshot Snapshot) {
 							if session.CalendarDateRollover {
 								<p class="calendar-date-rollover">Local calendar date: { session.LocalDate }</p>
 							}
-							<article>
+							<article id={ fmt.Sprintf("schedule-session-card-%d", session.ID) }>
 								<h3><a id={ fmt.Sprintf("schedule-session-%d", session.ID) } href={ session.PathWithTimezone(snapshot.ViewerTimezone) }>{ session.Title }</a></h3>
 								@SessionDetails(session)
+								@FavoriteControl(snapshot, session, snapshot.ViewPath())
 							</article>
 						}
 					</section>
+				}
+				if snapshot.MySchedule && len(snapshot.Sessions) == 0 {
+					<p>No Favorite Sessions yet.</p>
 				}
 				<p id="schedule-status" role="status" aria-live="polite" aria-atomic="true">Schedule updated.</p>
 			</main>
@@ -88,16 +97,55 @@ templ SessionPage(snapshot Snapshot, session Session) {
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<link rel="stylesheet" href="/assets/frontend.css"/>
 			<link rel="stylesheet" href="/assets/schedule.css"/>
+			<script src={ frontend.HTMXPath } defer></script>
 			<title>{ session.Title } · { snapshot.EventName } Schedule</title>
 		</head>
 		<body>
+			@ScheduleNavigation(snapshot, session.PathWithTimezone(snapshot.ViewerTimezone))
 			<main>
 				<a href={ snapshot.SchedulePath() }>Schedule</a>
 				<h1>{ session.Title }</h1>
 				@SessionDetails(session)
+				@FavoriteControl(snapshot, session, session.PathWithTimezone(snapshot.ViewerTimezone))
 			</main>
 		</body>
 	</html>
+}
+
+templ ScheduleNavigation(snapshot Snapshot, returnTo string) {
+	<nav aria-label="Schedule">
+		<a href="/">Beamers</a>
+		<a href="/schedule">Schedule</a>
+		if snapshot.AccountName == "" {
+			<a href={ SignInPath(returnTo) }>Sign in</a>
+			<a href="/register">Register</a>
+		} else {
+			<a href="/my-schedule">My Schedule</a>
+			<span>{ snapshot.AccountName }</span>
+		}
+	</nav>
+}
+
+templ FavoriteControl(snapshot Snapshot, session Session, returnTo string) {
+	if snapshot.AccountName == "" {
+		<p><a href={ SignInPath(session.PathWithTimezone(snapshot.ViewerTimezone)) }>Sign in to add to My Schedule</a></p>
+	} else {
+		<form
+			method="post"
+			action={ session.FavoritePath() }
+			hx-post={ session.FavoritePath() }
+			hx-target="this"
+			hx-swap="outerHTML"
+		>
+			<input type="hidden" name="csrf_token" value={ snapshot.CSRFToken }/>
+			<input type="hidden" name="return_to" value={ returnTo }/>
+			if session.Favorite {
+				<button type="submit" name="favorite" value="false">Remove from My Schedule</button>
+			} else {
+				<button type="submit" name="favorite" value="true">Add to My Schedule</button>
+			}
+		</form>
+	}
 }
 
 templ StructuralFilter(label string, name string, options []FilterOption) {

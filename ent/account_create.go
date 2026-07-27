@@ -18,6 +18,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/favoritesession"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 )
 
@@ -159,6 +160,21 @@ func (_c *AccountCreate) AddEventGrants(v ...*EventGrant) *AccountCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddEventGrantIDs(ids...)
+}
+
+// AddFavoriteSessionIDs adds the "favorite_sessions" edge to the FavoriteSession entity by IDs.
+func (_c *AccountCreate) AddFavoriteSessionIDs(ids ...int) *AccountCreate {
+	_c.mutation.AddFavoriteSessionIDs(ids...)
+	return _c
+}
+
+// AddFavoriteSessions adds the "favorite_sessions" edges to the FavoriteSession entity.
+func (_c *AccountCreate) AddFavoriteSessions(v ...*FavoriteSession) *AccountCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddFavoriteSessionIDs(ids...)
 }
 
 // AddAuditEntryIDs adds the "audit_entries" edge to the AuditEntry entity by IDs.
@@ -396,6 +412,22 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(eventgrant.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.FavoriteSessionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.FavoriteSessionsTable,
+			Columns: []string{account.FavoriteSessionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(favoritesession.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

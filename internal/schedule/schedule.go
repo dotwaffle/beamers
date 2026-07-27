@@ -22,6 +22,9 @@ import (
 // ErrInvalidFilter means one attendee Schedule filter is malformed.
 var ErrInvalidFilter = errors.New("invalid public Schedule filter")
 
+// ErrSessionUnavailable means a Session cannot be bookmarked from the public Schedule.
+var ErrSessionUnavailable = errors.New("Session is unavailable")
+
 // Service owns the attendee-safe Schedule query.
 type Service struct {
 	storage *store.SQLite
@@ -46,6 +49,9 @@ type Snapshot struct {
 	StreamPosition uint64         `json:"-"`
 	Sessions       []Session      `json:"sessions"`
 	Days           []Day          `json:"days"`
+	AccountName    string         `json:"-"`
+	CSRFToken      string         `json:"-"`
+	MySchedule     bool           `json:"-"`
 }
 
 // Filter is the complete shareable attendee Schedule view state.
@@ -95,6 +101,7 @@ type Session struct {
 	Lanes                []string           `json:"lanes,omitempty"`
 	Tracks               []string           `json:"tracks,omitempty"`
 	CompetitionEntries   []CompetitionEntry `json:"competition_entries,omitempty"`
+	Favorite             bool               `json:"favorite,omitempty"`
 }
 
 // CompetitionEntry is one attendee-visible Included submission.
@@ -136,6 +143,51 @@ func New(storage *store.SQLite, now func() time.Time) (*Service, error) {
 // Current returns the Active Event's cacheable public Schedule snapshot.
 func (service *Service) Current(ctx context.Context, filter Filter) (Snapshot, error) {
 	return service.snapshot(ctx, true, filter)
+}
+
+// Personalized returns one Account's Schedule or My Schedule projection.
+func (service *Service) Personalized(
+	ctx context.Context,
+	filter Filter,
+	accountID int,
+	favoritesOnly bool,
+) (Snapshot, error) {
+	if accountID <= 0 {
+		return Snapshot{}, errors.New("account is required for Schedule")
+	}
+	snapshot, err := service.snapshot(ctx, true, filter)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	return service.personalize(ctx, snapshot, accountID, favoritesOnly)
+}
+
+func (service *Service) personalize(
+	ctx context.Context,
+	snapshot Snapshot,
+	accountID int,
+	favoritesOnly bool,
+) (Snapshot, error) {
+	favoriteIDs, err := service.storage.FavoriteSessionIDs(ctx, accountID)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	favorites := make(map[int]struct{}, len(favoriteIDs))
+	for _, sessionID := range favoriteIDs {
+		favorites[sessionID] = struct{}{}
+	}
+	sessions := snapshot.Sessions[:0]
+	for index := range snapshot.Sessions {
+		_, snapshot.Sessions[index].Favorite = favorites[snapshot.Sessions[index].ID]
+		if favoritesOnly && !snapshot.Sessions[index].Favorite {
+			continue
+		}
+		sessions = append(sessions, snapshot.Sessions[index])
+	}
+	snapshot.Sessions = sessions
+	snapshot.Days = groupScheduleDays(snapshot.Sessions)
+	snapshot.MySchedule = favoritesOnly
+	return snapshot, nil
 }
 
 func (service *Service) snapshot(ctx context.Context, upcomingOnly bool, filter Filter) (Snapshot, error) {
@@ -274,12 +326,19 @@ func (service *Service) snapshot(ctx context.Context, upcomingOnly bool, filter 
 	}
 	result.DayOptions = sortedKeys(dayOptions)
 	result.Days = groupScheduleDays(result.Sessions)
-	encoded, err := json.Marshal(result)
-	if err != nil {
-		return Snapshot{}, errors.New("encode public Schedule validator")
+	if err := setSnapshotETag(&result); err != nil {
+		return Snapshot{}, err
 	}
-	result.ETag = fmt.Sprintf(`"schedule-%x"`, sha256.Sum256(encoded))
 	return result, nil
+}
+
+func setSnapshotETag(snapshot *Snapshot) error {
+	encoded, err := json.Marshal(snapshot)
+	if err != nil {
+		return errors.New("encode public Schedule validator")
+	}
+	snapshot.ETag = fmt.Sprintf(`"schedule-%x"`, sha256.Sum256(encoded))
+	return nil
 }
 
 func groupedEventDay(local time.Time, zone *time.Location, boundary string) (string, error) {
@@ -352,12 +411,67 @@ func (service *Service) Find(
 	if err != nil {
 		return Snapshot{}, Session{}, false, err
 	}
-	for _, item := range snapshot.Sessions {
-		if item.ID == sessionID {
-			return snapshot, item, true, nil
-		}
+	if session, found := findSession(snapshot.Sessions, sessionID); found {
+		return snapshot, session, true, nil
 	}
 	return snapshot, Session{}, false, nil
+}
+
+// FindPersonalized returns one public Session with one Account's Favorite state.
+func (service *Service) FindPersonalized(
+	ctx context.Context,
+	sessionID int,
+	viewerTimezone string,
+	accountID int,
+) (Snapshot, Session, bool, error) {
+	if accountID <= 0 {
+		return Snapshot{}, Session{}, false, errors.New("account is required for Schedule")
+	}
+	snapshot, err := service.snapshot(
+		ctx,
+		false,
+		Filter{ViewerTimezone: viewerTimezone},
+	)
+	if err != nil {
+		return Snapshot{}, Session{}, false, err
+	}
+	snapshot, err = service.personalize(ctx, snapshot, accountID, false)
+	if err != nil {
+		return Snapshot{}, Session{}, false, err
+	}
+	if session, found := findSession(snapshot.Sessions, sessionID); found {
+		return snapshot, session, true, nil
+	}
+	return snapshot, Session{}, false, nil
+}
+
+func findSession(sessions []Session, sessionID int) (Session, bool) {
+	for _, session := range sessions {
+		if session.ID == sessionID {
+			return session, true
+		}
+	}
+	return Session{}, false
+}
+
+// SetFavorite adds or removes one Account's bookmark of a public Session.
+func (service *Service) SetFavorite(
+	ctx context.Context,
+	accountID int,
+	sessionID int,
+	favorite bool,
+) error {
+	if accountID <= 0 || sessionID <= 0 {
+		return ErrSessionUnavailable
+	}
+	_, _, found, err := service.Find(ctx, sessionID, "")
+	if err != nil {
+		return err
+	}
+	if !found {
+		return ErrSessionUnavailable
+	}
+	return service.storage.SetFavoriteSession(ctx, accountID, sessionID, favorite)
 }
 
 // Path returns the stable public deep link for a Session identity.
@@ -376,6 +490,18 @@ func (session Session) PathWithTimezone(viewerTimezone string) string {
 
 // SchedulePath preserves the complete shareable Schedule view.
 func (snapshot Snapshot) SchedulePath() string {
+	return snapshot.viewPath("/schedule")
+}
+
+// ViewPath preserves the current Schedule or My Schedule view.
+func (snapshot Snapshot) ViewPath() string {
+	if snapshot.MySchedule {
+		return snapshot.viewPath("/my-schedule")
+	}
+	return snapshot.SchedulePath()
+}
+
+func (snapshot Snapshot) viewPath(base string) string {
 	values := url.Values{}
 	if snapshot.Filter.Day != "" {
 		values.Set("day", snapshot.Filter.Day)
@@ -393,9 +519,19 @@ func (snapshot Snapshot) SchedulePath() string {
 		values.Set("time_zone", snapshot.ViewerTimezone)
 	}
 	if len(values) == 0 {
-		return "/schedule"
+		return base
 	}
-	return "/schedule?" + values.Encode()
+	return base + "?" + values.Encode()
+}
+
+// SignInPath preserves the attendee's intended Schedule location.
+func SignInPath(returnTo string) string {
+	return "/sign-in?return_to=" + url.QueryEscape(returnTo)
+}
+
+// FavoritePath returns one Session's private bookmark mutation route.
+func (session Session) FavoritePath() string {
+	return session.Path() + "/favorite"
 }
 
 // EventsPath resumes invalidations after the complete snapshot cursor.

@@ -17,6 +17,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/competitionresultsdraft"
 	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
 	"github.com/dotwaffle/beamers/ent/event"
+	"github.com/dotwaffle/beamers/ent/favoritesession"
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
@@ -41,6 +42,7 @@ type SessionQuery struct {
 	withRuns                        *SessionRunQuery
 	withCancellations               *SessionCancellationQuery
 	withPublicScheduleBaselineEntry *PublicScheduleBaselineEntryQuery
+	withFavorites                   *FavoriteSessionQuery
 	withCompetitionEntries          *CompetitionEntryQuery
 	withCompetitionResultsDrafts    *CompetitionResultsDraftQuery
 	withCompetitionResultStandings  *CompetitionResultStandingQuery
@@ -207,6 +209,28 @@ func (_q *SessionQuery) QueryPublicScheduleBaselineEntry() *PublicScheduleBaseli
 			sqlgraph.From(session.Table, session.FieldID, selector),
 			sqlgraph.To(publicschedulebaselineentry.Table, publicschedulebaselineentry.FieldID),
 			sqlgraph.Edge(sqlgraph.O2O, false, session.PublicScheduleBaselineEntryTable, session.PublicScheduleBaselineEntryColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryFavorites chains the current query on the "favorites" edge.
+func (_q *SessionQuery) QueryFavorites() *FavoriteSessionQuery {
+	query := (&FavoriteSessionClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(session.Table, session.FieldID, selector),
+			sqlgraph.To(favoritesession.Table, favoritesession.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, session.FavoritesTable, session.FavoritesColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -522,6 +546,7 @@ func (_q *SessionQuery) Clone() *SessionQuery {
 		withRuns:                        _q.withRuns.Clone(),
 		withCancellations:               _q.withCancellations.Clone(),
 		withPublicScheduleBaselineEntry: _q.withPublicScheduleBaselineEntry.Clone(),
+		withFavorites:                   _q.withFavorites.Clone(),
 		withCompetitionEntries:          _q.withCompetitionEntries.Clone(),
 		withCompetitionResultsDrafts:    _q.withCompetitionResultsDrafts.Clone(),
 		withCompetitionResultStandings:  _q.withCompetitionResultStandings.Clone(),
@@ -596,6 +621,17 @@ func (_q *SessionQuery) WithPublicScheduleBaselineEntry(opts ...func(*PublicSche
 		opt(query)
 	}
 	_q.withPublicScheduleBaselineEntry = query
+	return _q
+}
+
+// WithFavorites tells the query-builder to eager-load the nodes that are connected to
+// the "favorites" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *SessionQuery) WithFavorites(opts ...func(*FavoriteSessionQuery)) *SessionQuery {
+	query := (&FavoriteSessionClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withFavorites = query
 	return _q
 }
 
@@ -738,13 +774,14 @@ func (_q *SessionQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Sess
 	var (
 		nodes       = []*Session{}
 		_spec       = _q.querySpec()
-		loadedTypes = [11]bool{
+		loadedTypes = [12]bool{
 			_q.withEvent != nil,
 			_q.withDraft != nil,
 			_q.withPublishedVersions != nil,
 			_q.withRuns != nil,
 			_q.withCancellations != nil,
 			_q.withPublicScheduleBaselineEntry != nil,
+			_q.withFavorites != nil,
 			_q.withCompetitionEntries != nil,
 			_q.withCompetitionResultsDrafts != nil,
 			_q.withCompetitionResultStandings != nil,
@@ -808,6 +845,13 @@ func (_q *SessionQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Sess
 	if query := _q.withPublicScheduleBaselineEntry; query != nil {
 		if err := _q.loadPublicScheduleBaselineEntry(ctx, query, nodes, nil,
 			func(n *Session, e *PublicScheduleBaselineEntry) { n.Edges.PublicScheduleBaselineEntry = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withFavorites; query != nil {
+		if err := _q.loadFavorites(ctx, query, nodes,
+			func(n *Session) { n.Edges.Favorites = []*FavoriteSession{} },
+			func(n *Session, e *FavoriteSession) { n.Edges.Favorites = append(n.Edges.Favorites, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -1011,6 +1055,36 @@ func (_q *SessionQuery) loadPublicScheduleBaselineEntry(ctx context.Context, que
 	}
 	query.Where(predicate.PublicScheduleBaselineEntry(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(session.PublicScheduleBaselineEntryColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.SessionID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "session_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *SessionQuery) loadFavorites(ctx context.Context, query *FavoriteSessionQuery, nodes []*Session, init func(*Session), assign func(*Session, *FavoriteSession)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Session)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(favoritesession.FieldSessionID)
+	}
+	query.Where(predicate.FavoriteSession(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(session.FavoritesColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

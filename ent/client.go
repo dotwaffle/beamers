@@ -40,6 +40,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/eventslug"
+	"github.com/dotwaffle/beamers/ent/favoritesession"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/lane"
@@ -129,6 +130,8 @@ type Client struct {
 	EventGrant *EventGrantClient
 	// EventSlug is the client for interacting with the EventSlug builders.
 	EventSlug *EventSlugClient
+	// FavoriteSession is the client for interacting with the FavoriteSession builders.
+	FavoriteSession *FavoriteSessionClient
 	// ImportReference is the client for interacting with the ImportReference builders.
 	ImportReference *ImportReferenceClient
 	// Installation is the client for interacting with the Installation builders.
@@ -225,6 +228,7 @@ func (c *Client) init() {
 	c.EventAwardsDraft = NewEventAwardsDraftClient(c.config)
 	c.EventGrant = NewEventGrantClient(c.config)
 	c.EventSlug = NewEventSlugClient(c.config)
+	c.FavoriteSession = NewFavoriteSessionClient(c.config)
 	c.ImportReference = NewImportReferenceClient(c.config)
 	c.Installation = NewInstallationClient(c.config)
 	c.Lane = NewLaneClient(c.config)
@@ -372,6 +376,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		EventAwardsDraft:            NewEventAwardsDraftClient(cfg),
 		EventGrant:                  NewEventGrantClient(cfg),
 		EventSlug:                   NewEventSlugClient(cfg),
+		FavoriteSession:             NewFavoriteSessionClient(cfg),
 		ImportReference:             NewImportReferenceClient(cfg),
 		Installation:                NewInstallationClient(cfg),
 		Lane:                        NewLaneClient(cfg),
@@ -446,6 +451,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		EventAwardsDraft:            NewEventAwardsDraftClient(cfg),
 		EventGrant:                  NewEventGrantClient(cfg),
 		EventSlug:                   NewEventSlugClient(cfg),
+		FavoriteSession:             NewFavoriteSessionClient(cfg),
 		ImportReference:             NewImportReferenceClient(cfg),
 		Installation:                NewInstallationClient(cfg),
 		Lane:                        NewLaneClient(cfg),
@@ -511,10 +517,10 @@ func (c *Client) Use(hooks ...Hook) {
 		c.CompetitionResultsDraft, c.Display, c.DisplayAssignment, c.DisplayCredential,
 		c.DisplayEnrollment, c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventAwardsDraft,
-		c.EventGrant, c.EventSlug, c.ImportReference, c.Installation, c.Lane,
-		c.LaneDraft, c.LanePublishedVersion, c.Location, c.LocationDraft,
-		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Prizegiving,
-		c.PrizegivingCompetition, c.PublicScheduleBaseline,
+		c.EventGrant, c.EventSlug, c.FavoriteSession, c.ImportReference,
+		c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion, c.Location,
+		c.LocationDraft, c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
+		c.Prizegiving, c.PrizegivingCompetition, c.PublicScheduleBaseline,
 		c.PublicScheduleBaselineEntry, c.RegistrationPolicy, c.ReleasedProfileEntry,
 		c.ReopenWindow, c.ResultsCorrection, c.ResultsPublication, c.Rundown,
 		c.Session, c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion,
@@ -535,10 +541,10 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.CompetitionResultsDraft, c.Display, c.DisplayAssignment, c.DisplayCredential,
 		c.DisplayEnrollment, c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventAwardsDraft,
-		c.EventGrant, c.EventSlug, c.ImportReference, c.Installation, c.Lane,
-		c.LaneDraft, c.LanePublishedVersion, c.Location, c.LocationDraft,
-		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Prizegiving,
-		c.PrizegivingCompetition, c.PublicScheduleBaseline,
+		c.EventGrant, c.EventSlug, c.FavoriteSession, c.ImportReference,
+		c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion, c.Location,
+		c.LocationDraft, c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
+		c.Prizegiving, c.PrizegivingCompetition, c.PublicScheduleBaseline,
 		c.PublicScheduleBaselineEntry, c.RegistrationPolicy, c.ReleasedProfileEntry,
 		c.ReopenWindow, c.ResultsCorrection, c.ResultsPublication, c.Rundown,
 		c.Session, c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion,
@@ -602,6 +608,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.EventGrant.mutate(ctx, m)
 	case *EventSlugMutation:
 		return c.EventSlug.mutate(ctx, m)
+	case *FavoriteSessionMutation:
+		return c.FavoriteSession.mutate(ctx, m)
 	case *ImportReferenceMutation:
 		return c.ImportReference.mutate(ctx, m)
 	case *InstallationMutation:
@@ -848,6 +856,22 @@ func (c *AccountClient) QueryEventGrants(_m *Account) *EventGrantQuery {
 			sqlgraph.From(account.Table, account.FieldID, id),
 			sqlgraph.To(eventgrant.Table, eventgrant.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, account.EventGrantsTable, account.EventGrantsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryFavoriteSessions queries the favorite_sessions edge of a Account.
+func (c *AccountClient) QueryFavoriteSessions(_m *Account) *FavoriteSessionQuery {
+	query := (&FavoriteSessionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(favoritesession.Table, favoritesession.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.FavoriteSessionsTable, account.FavoriteSessionsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -5153,6 +5177,172 @@ func (c *EventSlugClient) mutate(ctx context.Context, m *EventSlugMutation) (Val
 	}
 }
 
+// FavoriteSessionClient is a client for the FavoriteSession schema.
+type FavoriteSessionClient struct {
+	config
+}
+
+// NewFavoriteSessionClient returns a client for the FavoriteSession from the given config.
+func NewFavoriteSessionClient(c config) *FavoriteSessionClient {
+	return &FavoriteSessionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `favoritesession.Hooks(f(g(h())))`.
+func (c *FavoriteSessionClient) Use(hooks ...Hook) {
+	c.hooks.FavoriteSession = append(c.hooks.FavoriteSession, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `favoritesession.Intercept(f(g(h())))`.
+func (c *FavoriteSessionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.FavoriteSession = append(c.inters.FavoriteSession, interceptors...)
+}
+
+// Create returns a builder for creating a FavoriteSession entity.
+func (c *FavoriteSessionClient) Create() *FavoriteSessionCreate {
+	mutation := newFavoriteSessionMutation(c.config, OpCreate)
+	return &FavoriteSessionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of FavoriteSession entities.
+func (c *FavoriteSessionClient) CreateBulk(builders ...*FavoriteSessionCreate) *FavoriteSessionCreateBulk {
+	return &FavoriteSessionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *FavoriteSessionClient) MapCreateBulk(slice any, setFunc func(*FavoriteSessionCreate, int)) *FavoriteSessionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &FavoriteSessionCreateBulk{err: fmt.Errorf("calling to FavoriteSessionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*FavoriteSessionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &FavoriteSessionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for FavoriteSession.
+func (c *FavoriteSessionClient) Update() *FavoriteSessionUpdate {
+	mutation := newFavoriteSessionMutation(c.config, OpUpdate)
+	return &FavoriteSessionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *FavoriteSessionClient) UpdateOne(_m *FavoriteSession) *FavoriteSessionUpdateOne {
+	mutation := newFavoriteSessionMutation(c.config, OpUpdateOne, withFavoriteSession(_m))
+	return &FavoriteSessionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *FavoriteSessionClient) UpdateOneID(id int) *FavoriteSessionUpdateOne {
+	mutation := newFavoriteSessionMutation(c.config, OpUpdateOne, withFavoriteSessionID(id))
+	return &FavoriteSessionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for FavoriteSession.
+func (c *FavoriteSessionClient) Delete() *FavoriteSessionDelete {
+	mutation := newFavoriteSessionMutation(c.config, OpDelete)
+	return &FavoriteSessionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *FavoriteSessionClient) DeleteOne(_m *FavoriteSession) *FavoriteSessionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *FavoriteSessionClient) DeleteOneID(id int) *FavoriteSessionDeleteOne {
+	builder := c.Delete().Where(favoritesession.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &FavoriteSessionDeleteOne{builder}
+}
+
+// Query returns a query builder for FavoriteSession.
+func (c *FavoriteSessionClient) Query() *FavoriteSessionQuery {
+	return &FavoriteSessionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeFavoriteSession},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a FavoriteSession entity by its id.
+func (c *FavoriteSessionClient) Get(ctx context.Context, id int) (*FavoriteSession, error) {
+	return c.Query().Where(favoritesession.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *FavoriteSessionClient) GetX(ctx context.Context, id int) *FavoriteSession {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryAccount queries the account edge of a FavoriteSession.
+func (c *FavoriteSessionClient) QueryAccount(_m *FavoriteSession) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(favoritesession.Table, favoritesession.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, favoritesession.AccountTable, favoritesession.AccountColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySession queries the session edge of a FavoriteSession.
+func (c *FavoriteSessionClient) QuerySession(_m *FavoriteSession) *SessionQuery {
+	query := (&SessionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(favoritesession.Table, favoritesession.FieldID, id),
+			sqlgraph.To(session.Table, session.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, favoritesession.SessionTable, favoritesession.SessionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *FavoriteSessionClient) Hooks() []Hook {
+	hooks := c.hooks.FavoriteSession
+	return append(hooks[:len(hooks):len(hooks)], favoritesession.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *FavoriteSessionClient) Interceptors() []Interceptor {
+	return c.inters.FavoriteSession
+}
+
+func (c *FavoriteSessionClient) mutate(ctx context.Context, m *FavoriteSessionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&FavoriteSessionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&FavoriteSessionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&FavoriteSessionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&FavoriteSessionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown FavoriteSession mutation op: %q", m.Op())
+	}
+}
+
 // ImportReferenceClient is a client for the ImportReference schema.
 type ImportReferenceClient struct {
 	config
@@ -8596,6 +8786,22 @@ func (c *SessionClient) QueryPublicScheduleBaselineEntry(_m *Session) *PublicSch
 	return query
 }
 
+// QueryFavorites queries the favorites edge of a Session.
+func (c *SessionClient) QueryFavorites(_m *Session) *FavoriteSessionQuery {
+	query := (&FavoriteSessionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(session.Table, session.FieldID, id),
+			sqlgraph.To(favoritesession.Table, favoritesession.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, session.FavoritesTable, session.FavoritesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryCompetitionEntries queries the competition_entries edge of a Session.
 func (c *SessionClient) QueryCompetitionEntries(_m *Session) *CompetitionEntryQuery {
 	query := (&CompetitionEntryClient{config: c.config}).Query()
@@ -10236,8 +10442,8 @@ type (
 		CompetitionEntry, CompetitionResultStanding, CompetitionResultsDraft, Display,
 		DisplayAssignment, DisplayCredential, DisplayEnrollment, DisplayOverride,
 		DisplayOverrideState, DraftChange, DraftChangeDependency, DraftEdit, Event,
-		EventAwardsDraft, EventGrant, EventSlug, ImportReference, Installation, Lane,
-		LaneDraft, LanePublishedVersion, Location, LocationDraft,
+		EventAwardsDraft, EventGrant, EventSlug, FavoriteSession, ImportReference,
+		Installation, Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
 		LocationPublishedVersion, Migration, PasswordCredential, Prizegiving,
 		PrizegivingCompetition, PublicScheduleBaseline, PublicScheduleBaselineEntry,
 		RegistrationPolicy, ReleasedProfileEntry, ReopenWindow, ResultsCorrection,
@@ -10251,8 +10457,8 @@ type (
 		CompetitionEntry, CompetitionResultStanding, CompetitionResultsDraft, Display,
 		DisplayAssignment, DisplayCredential, DisplayEnrollment, DisplayOverride,
 		DisplayOverrideState, DraftChange, DraftChangeDependency, DraftEdit, Event,
-		EventAwardsDraft, EventGrant, EventSlug, ImportReference, Installation, Lane,
-		LaneDraft, LanePublishedVersion, Location, LocationDraft,
+		EventAwardsDraft, EventGrant, EventSlug, FavoriteSession, ImportReference,
+		Installation, Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
 		LocationPublishedVersion, Migration, PasswordCredential, Prizegiving,
 		PrizegivingCompetition, PublicScheduleBaseline, PublicScheduleBaselineEntry,
 		RegistrationPolicy, ReleasedProfileEntry, ReopenWindow, ResultsCorrection,
