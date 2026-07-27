@@ -31,6 +31,20 @@ func TestWebAuthnCeremoniesHaveABoundedMemory(t *testing.T) {
 	}
 }
 
+func TestWebAuthnRejectsIPAddressRelyingParty(t *testing.T) {
+	service, account := openAccountTestService(t)
+	_, err := service.BeginWebAuthnRegistration(
+		t.Context(),
+		account,
+		WebAuthnRelyingParty{
+			ID: "127.0.0.1", Origin: "http://127.0.0.1", DisplayName: "Beamers",
+		},
+	)
+	if !errors.Is(err, ErrInvalidAccountDetails) {
+		t.Fatalf("IP-address Relying Party error = %v, want %v", err, ErrInvalidAccountDetails)
+	}
+}
+
 func TestWebAuthnCredentialLifecycleSurvivesRestart(t *testing.T) {
 	service, account := openAccountTestService(t)
 	service.random = new(incrementingRandomReader)

@@ -452,11 +452,12 @@ func (service *Service) RevokeWebAuthnCredential(
 func newWebAuthn(rp WebAuthnRelyingParty) (*webauthn.WebAuthn, error) {
 	origin, err := url.Parse(rp.Origin)
 	if err != nil || origin.User != nil || origin.Path != "" || origin.RawQuery != "" ||
-		origin.Fragment != "" || origin.Hostname() != rp.ID || rp.DisplayName == "" {
+		origin.Fragment != "" || origin.Hostname() != rp.ID || rp.DisplayName == "" ||
+		net.ParseIP(rp.ID) != nil {
 		return nil, errors.New("invalid WebAuthn Relying Party")
 	}
 	if origin.Scheme != "https" &&
-		(origin.Scheme != "http" || !loopbackHost(origin.Hostname())) {
+		(origin.Scheme != "http" || !strings.EqualFold(origin.Hostname(), "localhost")) {
 		return nil, errors.New("WebAuthn Relying Party requires a secure origin")
 	}
 	return webauthn.New(&webauthn.Config{
@@ -477,10 +478,6 @@ func newWebAuthn(rp WebAuthnRelyingParty) (*webauthn.WebAuthn, error) {
 			},
 		},
 	})
-}
-
-func loopbackHost(host string) bool {
-	return strings.EqualFold(host, "localhost") || net.ParseIP(host).IsLoopback()
 }
 
 func storedWebAuthnUser(found store.WebAuthnAccount) (webAuthnUser, error) {

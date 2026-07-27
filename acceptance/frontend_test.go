@@ -10,6 +10,7 @@ import (
 	"io"
 	"maps"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -231,8 +232,17 @@ func TestBrowserWebAuthnCredentialsSurviveRestartAndRevokeIndependently(t *testi
 	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
+	_, port, splitErr := net.SplitHostPort(server.address)
+	if splitErr != nil {
+		t.Fatalf("split WebAuthn server address: %v", splitErr)
+	}
+	webAuthnAddress := net.JoinHostPort("localhost", port)
+	administrator.Jar.SetCookies(
+		&url.URL{Scheme: "http", Host: webAuthnAddress},
+		administrator.Jar.Cookies(&url.URL{Scheme: "http", Host: server.address}),
+	)
 	rp := virtualwebauthn.RelyingParty{
-		ID: "127.0.0.1", Origin: "http://" + server.address, Name: "Beamers",
+		ID: "localhost", Origin: "http://" + webAuthnAddress, Name: "Beamers",
 	}
 
 	type ceremony struct {
@@ -244,7 +254,7 @@ func TestBrowserWebAuthnCredentialsSurviveRestartAndRevokeIndependently(t *testi
 		result := requestJSON(
 			t.Context(),
 			administrator,
-			server.address,
+			webAuthnAddress,
 			"/auth/webauthn/register/begin",
 			map[string]any{},
 		)
@@ -271,7 +281,7 @@ func TestBrowserWebAuthnCredentialsSurviveRestartAndRevokeIndependently(t *testi
 		result := requestJSON(
 			t.Context(),
 			administrator,
-			server.address,
+			webAuthnAddress,
 			"/auth/webauthn/register/finish",
 			map[string]any{
 				"ceremony_id": begin.ID,
@@ -419,14 +429,19 @@ func TestBrowserWebAuthnCredentialsSurviveRestartAndRevokeIndependently(t *testi
 	server.stop(t)
 	server = startBeamersWithPublicListener(t, bin, dataDir)
 	server.address = server.publicAddress
-	rp.Origin = "http://" + server.address
+	_, port, splitErr = net.SplitHostPort(server.address)
+	if splitErr != nil {
+		t.Fatalf("split restarted WebAuthn server address: %v", splitErr)
+	}
+	webAuthnAddress = net.JoinHostPort("localhost", port)
+	rp.Origin = "http://" + webAuthnAddress
 
 	beginSignIn := func(client *http.Client) (ceremony, virtualwebauthn.AssertionOptions) {
 		t.Helper()
 		result := requestJSON(
 			t.Context(),
 			client,
-			server.address,
+			webAuthnAddress,
 			"/auth/webauthn/sign-in/begin",
 			map[string]string{"handle": "Ada Admin"},
 		)
@@ -453,7 +468,7 @@ func TestBrowserWebAuthnCredentialsSurviveRestartAndRevokeIndependently(t *testi
 		result := requestJSON(
 			t.Context(),
 			client,
-			server.address,
+			webAuthnAddress,
 			"/auth/webauthn/sign-in/finish",
 			map[string]any{
 				"ceremony_id": begin.ID,
@@ -494,14 +509,14 @@ func TestBrowserWebAuthnCredentialsSurviveRestartAndRevokeIndependently(t *testi
 		),
 		http.StatusNoContent,
 	)
-	if page := getFrontendPage(t, signedIn, server.address, "/profile"); page.status != http.StatusOK ||
+	if page := getFrontendPage(t, signedIn, webAuthnAddress, "/profile"); page.status != http.StatusOK ||
 		!strings.Contains(page.body, "Ada Admin") {
 		t.Fatalf("WebAuthn Account session Profile = %d %q", page.status, page.body)
 	}
 	signedIn.CheckRedirect = administrator.CheckRedirect
 
-	profile = getFrontendPage(t, signedIn, server.address, "/profile")
-	revoked := postFrontendForm(t, signedIn, server.address, "/profile", url.Values{
+	profile = getFrontendPage(t, signedIn, webAuthnAddress, "/profile")
+	revoked := postFrontendForm(t, signedIn, webAuthnAddress, "/profile", url.Values{
 		"csrf_token":    {requireFrontendCSRF(t, profile)},
 		"action":        {"revoke-webauthn"},
 		"credential_id": {strconv.Itoa(firstID)},
@@ -525,8 +540,8 @@ func TestBrowserWebAuthnCredentialsSurviveRestartAndRevokeIndependently(t *testi
 		http.StatusUnauthorized,
 	)
 
-	profile = getFrontendPage(t, signedIn, server.address, "/profile")
-	final := postFrontendForm(t, signedIn, server.address, "/profile", url.Values{
+	profile = getFrontendPage(t, signedIn, webAuthnAddress, "/profile")
+	final := postFrontendForm(t, signedIn, webAuthnAddress, "/profile", url.Values{
 		"csrf_token":    {requireFrontendCSRF(t, profile)},
 		"action":        {"revoke-webauthn"},
 		"credential_id": {strconv.Itoa(secondID)},

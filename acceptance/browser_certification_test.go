@@ -728,7 +728,19 @@ func TestBrowserCertification(t *testing.T) {
 		displays[index].enrollmentCode, displays[index].credential =
 			prepareBrowserEnrollment(t, server)
 	}
-	origin := "http://" + server.address
+	_, browserPort, splitErr := net.SplitHostPort(server.address)
+	if splitErr != nil {
+		t.Fatalf("split browser server address: %v", splitErr)
+	}
+	browserOrigin := &url.URL{
+		Scheme: "http",
+		Host:   net.JoinHostPort("localhost", browserPort),
+	}
+	origin := browserOrigin.String()
+	administrator.Jar.SetCookies(
+		browserOrigin,
+		administrator.Jar.Cookies(&url.URL{Scheme: "http", Host: server.address}),
+	)
 
 	report := browserCertificationReport{
 		Commit:             browserCertificationCommit(t),

@@ -222,19 +222,16 @@ func requestRelyingParty(request *http.Request) (auth.WebAuthnRelyingParty, erro
 		scheme = "https"
 	}
 	origin, err := url.Parse(scheme + "://" + request.Host)
-	if err != nil || origin.Hostname() == "" || origin.User != nil {
+	if err != nil || origin.Hostname() == "" || origin.User != nil ||
+		net.ParseIP(origin.Hostname()) != nil {
 		return auth.WebAuthnRelyingParty{}, errors.New("invalid WebAuthn origin")
 	}
-	if scheme != "https" && !isLoopbackHostname(origin.Hostname()) {
+	if scheme != "https" && !strings.EqualFold(origin.Hostname(), "localhost") {
 		return auth.WebAuthnRelyingParty{}, errors.New("insecure WebAuthn origin")
 	}
 	return auth.WebAuthnRelyingParty{
 		ID: origin.Hostname(), Origin: origin.String(), DisplayName: "Beamers",
 	}, nil
-}
-
-func isLoopbackHostname(host string) bool {
-	return strings.EqualFold(host, "localhost") || net.ParseIP(host).IsLoopback()
 }
 
 func (handlers authenticationHandlers) writeWebAuthnJSON(
