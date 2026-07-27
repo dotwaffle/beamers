@@ -634,8 +634,9 @@ func TestBrowserCertification(t *testing.T) {
 		"",
 	)
 	prepareActiveSchedule(t, administrator, server)
-	assertJSONRequest(
+	assertJSONMethodRequest(
 		t,
+		http.MethodPut,
 		administrator,
 		server.address,
 		"/crew/events/1",
