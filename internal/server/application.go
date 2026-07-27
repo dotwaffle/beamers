@@ -680,6 +680,15 @@ func (application *application) buildHandler(
 		installation.RundownQueries(),
 		application.config.Logger,
 	)
+	registerResultsFrontendRoutes(
+		mux,
+		installation.Authentication(),
+		installation.Events(),
+		installation.RundownQueries(),
+		installation.Competition(),
+		installation.Results(),
+		application.config.Logger,
+	)
 	registerBackupRoutes(
 		mux,
 		installation,

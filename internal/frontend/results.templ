@@ -1,0 +1,545 @@
+package frontend
+
+import (
+	"slices"
+	"strconv"
+	"strings"
+
+	"github.com/dotwaffle/beamers/internal/competition"
+	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/results"
+	"github.com/dotwaffle/beamers/internal/rundown"
+)
+
+type ResultsEntryPage struct {
+	Entry    competition.Entry
+	Standing results.Standing
+}
+
+type ResultsCompetitionPage struct {
+	Session                rundown.CrewSession
+	Draft                  results.Draft
+	Entries                []ResultsEntryPage
+	AssignedPrizegivingID int
+	Correction             *ResultsCorrectionPage
+}
+
+type ResultsPrizegivingPage struct {
+	Session    rundown.CrewSession
+	Designated bool
+	Plan       results.PrizegivingPlan
+	Preview    *results.PrizegivingPreview
+}
+
+type ResultsCorrectionPage struct {
+	Scope                   results.PublicationScope
+	ScopeSessionID          int
+	Current                 results.Correction
+	PublicationRevision     int
+	CorrectedResultsJSON    string
+	PublicationHistoryCount int
+}
+
+type ResultsPage struct {
+	AccountName     string
+	CSRFToken      string
+	ReducedEffects bool
+	Navigation     BackstageNavigation
+	CommandID      string
+	Event          events.Event
+	CanManage      bool
+	Producer       bool
+	Competitions   []ResultsCompetitionPage
+	Prizegivings   []ResultsPrizegivingPage
+	EventAwards    results.EventAwardsDraft
+	EventAwardsPreflight *results.StandaloneEventAwardsPreflight
+	Error          string
+}
+
+func resultsScoreValue(score results.ScoreValue) string {
+	if score.Decimal != nil {
+		return *score.Decimal
+	}
+	if score.Duration != nil {
+		return score.Duration.String()
+	}
+	return ""
+}
+
+func resultsAwardRecipientEntryIDs(recipients []results.AwardRecipient) string {
+	values := make([]string, 0, len(recipients))
+	for _, recipient := range recipients {
+		if recipient.EntryID > 0 {
+			values = append(values, strconv.Itoa(recipient.EntryID))
+		}
+	}
+	return strings.Join(values, ", ")
+}
+
+func resultsAwardRecipientNames(recipients []results.AwardRecipient) string {
+	values := make([]string, 0, len(recipients))
+	for _, recipient := range recipients {
+		if recipient.DisplayName != "" {
+			values = append(values, recipient.DisplayName)
+		}
+	}
+	return strings.Join(values, "\n")
+}
+
+templ Results(page ResultsPage) {
+	<!doctype html>
+	<html lang={ page.Event.EventLocale } data-locale={ page.Event.EventLocale }>
+		@Head("Results and Prizegiving · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
+			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
+			<div class="backstage-layout">
+				@BackstageNavigationViews(page.Navigation)
+				<main>
+					<h1>Results and Prizegiving</h1>
+					<p>{ page.Event.Name }</p>
+					if page.Error != "" {
+						<p class="error" role="alert">{ page.Error }</p>
+					}
+					if len(page.Competitions) == 0 {
+						<p>No published Competitions are available.</p>
+					}
+					for _, competition := range page.Competitions {
+						<section>
+							<h2>{ competition.Session.Title }</h2>
+							<p>
+								Draft revision { strconv.Itoa(competition.Draft.Revision) }.
+								Ready: { strconv.FormatBool(competition.Draft.Ready) }.
+							</p>
+							if page.CanManage {
+								<form method="post">
+									<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+									<input type="hidden" name="action" value="save-results-draft"/>
+									<input type="hidden" name="command_id" value={ page.CommandID }/>
+									<input type="hidden" name="competition_session_id" value={ strconv.Itoa(competition.Session.ID) }/>
+									<input type="hidden" name="expected_revision" value={ strconv.Itoa(competition.Draft.Revision) }/>
+									<label>Disposition
+										<select name="disposition">
+											<option selected?={ competition.Draft.Disposition == results.Pending }>Pending</option>
+											<option selected?={ competition.Draft.Disposition == results.Publish }>Publish</option>
+											<option selected?={ competition.Draft.Disposition == results.NoPublicResults }>NoPublicResults</option>
+										</select>
+									</label>
+									<label>Crew Reason <textarea name="no_public_reason">{ competition.Draft.NoPublicReason }</textarea></label>
+									<label>Public explanation <textarea name="public_explanation">{ competition.Draft.PublicExplanation }</textarea></label>
+									<fieldset>
+										<legend>Score policy</legend>
+										<label>Type
+											<select name="score_type">
+												<option selected?={ competition.Draft.Score.Type == results.None }>None</option>
+												<option selected?={ competition.Draft.Score.Type == results.Decimal }>Decimal</option>
+												<option selected?={ competition.Draft.Score.Type == results.Duration }>Duration</option>
+											</select>
+										</label>
+										<label>Visibility
+											<select name="score_visibility">
+												<option selected?={ competition.Draft.Score.Visibility == results.ScorePublic }>Public</option>
+												<option selected?={ competition.Draft.Score.Visibility == results.ScoreCrewOnly }>CrewOnly</option>
+											</select>
+										</label>
+										<label>Unit <input name="score_unit" value={ competition.Draft.Score.Unit }/></label>
+										<label>Precision <input type="number" min="0" name="score_precision" value={ strconv.Itoa(competition.Draft.Score.Precision) }/></label>
+										<label>Requirement
+											<select name="score_requirement">
+												<option selected?={ competition.Draft.Score.Requirement == results.ScoreOptional }>Optional</option>
+												<option selected?={ competition.Draft.Score.Requirement == results.ScoreRequired }>Required</option>
+											</select>
+										</label>
+										<label>Interpretation
+											<select name="score_interpretation">
+												<option selected?={ competition.Draft.Score.Interpretation == results.Informational }>Informational</option>
+												<option selected?={ competition.Draft.Score.Interpretation == results.HigherWins }>HigherWins</option>
+												<option selected?={ competition.Draft.Score.Interpretation == results.LowerWins }>LowerWins</option>
+											</select>
+										</label>
+									</fieldset>
+									<fieldset>
+										<legend>Result Standings</legend>
+										for _, row := range competition.Entries {
+											<fieldset>
+												<legend>{ row.Entry.Name }</legend>
+												<input type="hidden" name="standing_entry_id" value={ strconv.Itoa(row.Entry.ID) }/>
+												<label>Standing
+													<select name="standing">
+														<option selected?={ row.Standing.Standing == results.Placed }>Placed</option>
+														<option selected?={ row.Standing.Standing == results.Unplaced }>Unplaced</option>
+													</select>
+												</label>
+												<label>Placement <input type="number" min="1" name="placement" value={ strconv.Itoa(row.Standing.Placement) }/></label>
+												<label>Display order <input type="number" min="1" name="display_order" value={ strconv.Itoa(row.Standing.DisplayOrder) } required/></label>
+												<label>Score <input name="score" value={ resultsScoreValue(row.Standing.Score) }/></label>
+											</fieldset>
+										}
+									</fieldset>
+									<button type="submit">Save Results Draft</button>
+								</form>
+								<form method="post">
+									<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+									<input type="hidden" name="action" value="save-competition-awards"/>
+									<input type="hidden" name="command_id" value={ page.CommandID }/>
+									<input type="hidden" name="competition_session_id" value={ strconv.Itoa(competition.Session.ID) }/>
+									<input type="hidden" name="expected_revision" value={ strconv.Itoa(competition.Draft.Revision) }/>
+									<fieldset>
+										<legend>Competition Awards</legend>
+										for _, award := range competition.Draft.Awards {
+											@CompetitionAwardFields(award, award.DisplayOrder)
+										}
+										@CompetitionAwardFields(results.Award{}, len(competition.Draft.Awards) + 1)
+									</fieldset>
+									<button type="submit">Save Competition Awards</button>
+								</form>
+							}
+							if page.Producer && competition.Draft.Revision > 0 && !competition.Draft.Ready {
+								<form method="post">
+									<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+									<input type="hidden" name="action" value="mark-results-ready"/>
+									<input type="hidden" name="command_id" value={ page.CommandID }/>
+									<input type="hidden" name="competition_session_id" value={ strconv.Itoa(competition.Session.ID) }/>
+									<input type="hidden" name="expected_revision" value={ strconv.Itoa(competition.Draft.Revision) }/>
+									<button type="submit">Mark exact revision Ready</button>
+								</form>
+							}
+							if page.Producer && competition.Draft.Ready && competition.AssignedPrizegivingID == 0 {
+								<form method="post">
+									<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+									<input type="hidden" name="action" value="release-standalone-results"/>
+									<input type="hidden" name="command_id" value={ page.CommandID }/>
+									<input type="hidden" name="competition_session_id" value={ strconv.Itoa(competition.Session.ID) }/>
+									<button type="submit">Release standalone Results</button>
+								</form>
+							}
+							if competition.Correction != nil {
+								@ResultsCorrection(page, *competition.Correction)
+							}
+						</section>
+					}
+					for _, prizegiving := range page.Prizegivings {
+						<section>
+							<h2>{ prizegiving.Session.Title } Prizegiving</h2>
+							if !prizegiving.Designated {
+								if page.Producer {
+									<form method="post">
+										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+										<input type="hidden" name="action" value="designate-prizegiving"/>
+										<input type="hidden" name="command_id" value={ page.CommandID }/>
+										<input type="hidden" name="ceremony_session_id" value={ strconv.Itoa(prizegiving.Session.ID) }/>
+										<button type="submit">Designate Prizegiving</button>
+									</form>
+								}
+							} else {
+								<p>
+									Plan revision { strconv.Itoa(prizegiving.Plan.Revision) }.
+									Locked: { strconv.FormatBool(prizegiving.Plan.Locked) }.
+								</p>
+								if page.Producer && !prizegiving.Plan.Locked {
+									<form method="post">
+										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+										<input type="hidden" name="action" value="save-prizegiving-plan"/>
+										<input type="hidden" name="command_id" value={ page.CommandID }/>
+										<input type="hidden" name="ceremony_session_id" value={ strconv.Itoa(prizegiving.Session.ID) }/>
+										<input type="hidden" name="expected_revision" value={ strconv.Itoa(prizegiving.Plan.Revision) }/>
+										<fieldset>
+											<legend>Competition assignments</legend>
+											for _, competition := range page.Competitions {
+												<label>
+													<input
+														type="checkbox"
+														name="plan_competition_session_id"
+														value={ strconv.Itoa(competition.Session.ID) }
+														checked?={ slices.Contains(prizegiving.Plan.CompetitionSessionIDs, competition.Session.ID) }
+													/>
+													{ competition.Session.Title }
+												</label>
+											}
+										</fieldset>
+										<label>Release policy
+											<select name="release_policy">
+												<option selected?={ prizegiving.Plan.ReleasePolicy == results.ResultsProgressiveOnReveal }>ProgressiveOnReveal</option>
+												<option selected?={ prizegiving.Plan.ReleasePolicy == results.ResultsAllAtCue }>AllAtCue</option>
+												<option selected?={ prizegiving.Plan.ReleasePolicy == results.ResultsAtCeremonyEnd }>AtCeremonyEnd</option>
+											</select>
+										</label>
+										if len(prizegiving.Plan.Sequence) == 0 {
+											<p>Saving assignments creates the default sequence and publication order.</p>
+										} else {
+											<fieldset>
+												<legend>Sequence and Reveal Methods</legend>
+												for index, item := range prizegiving.Plan.Sequence {
+													@PrizegivingItemFields(item, prizegiving.Plan.PublicationOrder, index)
+												}
+											</fieldset>
+										}
+										<label>Results text template revision <input type="number" min="1" name="results_text_template_revision" value={ strconv.Itoa(prizegiving.Plan.Template.Revision) } required/></label>
+										<label>Results text template <textarea name="results_text_template" required>{ prizegiving.Plan.Template.Source }</textarea></label>
+										<button type="submit">Save Prizegiving plan</button>
+									</form>
+								}
+								if page.Producer && prizegiving.Plan.Revision > 0 && !prizegiving.Plan.Locked {
+									<form method="post">
+										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+										<input type="hidden" name="action" value="run-prizegiving-preflight"/>
+										<input type="hidden" name="command_id" value={ page.CommandID }/>
+										<input type="hidden" name="ceremony_session_id" value={ strconv.Itoa(prizegiving.Session.ID) }/>
+										<input type="hidden" name="expected_revision" value={ strconv.Itoa(prizegiving.Plan.Revision) }/>
+										<button type="submit">Run Prizegiving Preflight</button>
+									</form>
+								}
+								if prizegiving.Plan.Locked {
+									<p><a href={ resultsPreviewPath(page.Event.ID, prizegiving.Session.ID, results.PrizegivingPreviewModePreview) }>Preview locked Results</a></p>
+									<p><a href={ resultsPreviewPath(page.Event.ID, prizegiving.Session.ID, results.PrizegivingPreviewModeRehearsal) }>Rehearse locked Results</a></p>
+									<p><a href={ programControlPath(page.Event.ID, prizegiving.Session.ID) }>Open Prizegiving Program Control</a></p>
+									if page.Producer && prizegiving.Plan.ReleasePolicy == results.ResultsAllAtCue {
+										<form method="post">
+											<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+											<input type="hidden" name="action" value="fire-prizegiving-cue"/>
+											<input type="hidden" name="command_id" value={ page.CommandID }/>
+											<input type="hidden" name="ceremony_session_id" value={ strconv.Itoa(prizegiving.Session.ID) }/>
+											<button type="submit">Release Results at cue</button>
+										</form>
+									}
+								}
+								if prizegiving.Preview != nil {
+									<article>
+										<h3>{ string(prizegiving.Preview.Mode) }</h3>
+										<p><strong>{ prizegiving.Preview.Watermark }</strong></p>
+										<pre>{ prizegiving.Preview.ResultsText }</pre>
+									</article>
+								}
+							}
+						</section>
+					}
+					<section>
+						<h2>Event Awards</h2>
+						<p>Draft revision { strconv.Itoa(page.EventAwards.Revision) }.</p>
+						if page.CanManage {
+							<form method="post">
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="save-event-awards"/>
+								<input type="hidden" name="command_id" value={ page.CommandID }/>
+								<input type="hidden" name="expected_revision" value={ strconv.Itoa(page.EventAwards.Revision) }/>
+								for _, award := range page.EventAwards.Awards {
+									@EventAwardFields(award, page.Prizegivings, award.DisplayOrder)
+								}
+								@EventAwardFields(results.EventAward{}, page.Prizegivings, len(page.EventAwards.Awards) + 1)
+								<button type="submit">Save Event Awards</button>
+							</form>
+						}
+						for _, state := range page.EventAwards.PathStates {
+							<p>
+								{ string(state.ReleasePath.Kind) } path revision { strconv.Itoa(state.Revision) }.
+								Ready: { strconv.FormatBool(state.Ready) }.
+							</p>
+							if page.Producer && !state.Ready {
+								<form method="post">
+									<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+									<input type="hidden" name="action" value="mark-event-awards-ready"/>
+									<input type="hidden" name="command_id" value={ page.CommandID }/>
+									<input type="hidden" name="expected_revision" value={ strconv.Itoa(page.EventAwards.Revision) }/>
+									<input type="hidden" name="event_award_path_kind" value={ string(state.ReleasePath.Kind) }/>
+									<input type="hidden" name="event_award_path_prizegiving_session_id" value={ strconv.Itoa(state.ReleasePath.PrizegivingSessionID) }/>
+									<input type="hidden" name="expected_path_revision" value={ strconv.Itoa(state.Revision) }/>
+									<button type="submit">Mark Event Awards path Ready</button>
+								</form>
+							}
+							if page.Producer && state.Ready && state.ReleasePath.Kind == results.StandaloneRelease {
+								<form method="post">
+									<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+									<input type="hidden" name="action" value="release-standalone-event-awards"/>
+									<input type="hidden" name="command_id" value={ page.CommandID }/>
+									<input type="hidden" name="expected_revision" value={ strconv.Itoa(page.EventAwards.Revision) }/>
+									<input type="hidden" name="expected_path_revision" value={ strconv.Itoa(state.Revision) }/>
+									<button type="submit">Release standalone Event Awards</button>
+								</form>
+							}
+						}
+						if page.Producer {
+							<p><a href={ resultsEventAwardsPreflightPath(page.Event.ID) }>Preflight standalone Event Awards</a></p>
+						}
+						if page.EventAwardsPreflight != nil {
+							if len(page.EventAwardsPreflight.Findings) == 0 {
+								<p>Standalone Event Awards Preflight passed without changing release state.</p>
+							} else {
+								for _, finding := range page.EventAwardsPreflight.Findings {
+									<p class="error" role="alert">{ finding.Code }: { finding.Message }</p>
+								}
+							}
+						}
+					</section>
+				</main>
+			</div>
+		</body>
+	</html>
+}
+
+func resultsEventAwardsPreflightPath(eventID int) string {
+	return "/backstage/events/" + strconv.Itoa(eventID) +
+		"/results?event_awards_preflight=true"
+}
+
+func resultsEventAwardPrizegivingPath(ceremonyID int) string {
+	return "Prizegiving:" + strconv.Itoa(ceremonyID)
+}
+
+func resultsEventAwardPathSelected(
+	award results.EventAward,
+	ceremonyID int,
+) bool {
+	return award.ReleasePath.Kind == results.PrizegivingRelease &&
+		award.ReleasePath.PrizegivingSessionID == ceremonyID
+}
+
+templ EventAwardFields(
+	award results.EventAward,
+	prizegivings []ResultsPrizegivingPage,
+	defaultOrder int,
+) {
+	<fieldset>
+		<legend>
+			if award.Name == "" {
+				New Event Award
+			} else {
+				{ award.Name }
+			}
+		</legend>
+		<label>Key <input name="event_award_key" value={ award.Key }/></label>
+		<label>Name <input name="event_award_name" value={ award.Name }/></label>
+		<label>Recipient Entry IDs, comma-separated <input name="event_award_recipient_entry_ids" value={ resultsAwardRecipientEntryIDs(award.Recipients) }/></label>
+		<label>Other recipient names, one per line <textarea name="event_award_recipient_names">{ resultsAwardRecipientNames(award.Recipients) }</textarea></label>
+		<label>Release path
+			<select name="event_award_path">
+				<option value="Standalone" selected?={ award.ReleasePath.Kind != results.PrizegivingRelease }>Standalone</option>
+				for _, prizegiving := range prizegivings {
+						if prizegiving.Designated {
+							<option
+								value={ resultsEventAwardPrizegivingPath(prizegiving.Session.ID) }
+								selected?={ resultsEventAwardPathSelected(award, prizegiving.Session.ID) }
+							>Prizegiving: { prizegiving.Session.Title }</option>
+					}
+				}
+			</select>
+		</label>
+		<label>Display order <input type="number" min="1" name="event_award_display_order" value={ strconv.Itoa(defaultOrder) }/></label>
+	</fieldset>
+}
+
+templ ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) {
+	<section>
+		<h3>Results Correction</h3>
+		<p>
+			Publication revision { strconv.Itoa(correction.PublicationRevision) }.
+			Preserved releases: { strconv.Itoa(correction.PublicationHistoryCount) }.
+		</p>
+		if correction.Current.Revision > 0 {
+			<p>
+				Correction revision { strconv.Itoa(correction.Current.Revision) }.
+				{ string(correction.Current.Status) }.
+			</p>
+		}
+		if page.Producer && correction.Current.Status != results.CorrectionReady {
+			<form method="post">
+				<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+				<input type="hidden" name="action" value="save-results-correction"/>
+				<input type="hidden" name="command_id" value={ page.CommandID }/>
+				<input type="hidden" name="correction_scope" value={ string(correction.Scope) }/>
+				<input type="hidden" name="correction_scope_session_id" value={ strconv.Itoa(correction.ScopeSessionID) }/>
+				<input type="hidden" name="expected_correction_revision" value={ strconv.Itoa(correction.Current.Revision) }/>
+				<input type="hidden" name="base_publication_revision" value={ strconv.Itoa(correction.PublicationRevision) }/>
+				<label>Corrected Results JSON <textarea name="corrected_results_json" required>{ correction.CorrectedResultsJSON }</textarea></label>
+				<label>Crew Reason <textarea name="crew_reason" required>{ correction.Current.Proposal.CrewReason }</textarea></label>
+				<label>Public note <textarea name="public_note">{ correction.Current.Proposal.PublicNote }</textarea></label>
+				<button type="submit">Save Results Correction</button>
+			</form>
+		}
+		if page.Producer && correction.Current.Status == results.CorrectionDraft {
+			<form method="post">
+				<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+				<input type="hidden" name="action" value="review-results-correction"/>
+				<input type="hidden" name="command_id" value={ page.CommandID }/>
+				<input type="hidden" name="correction_scope" value={ string(correction.Scope) }/>
+				<input type="hidden" name="correction_scope_session_id" value={ strconv.Itoa(correction.ScopeSessionID) }/>
+				<input type="hidden" name="expected_correction_revision" value={ strconv.Itoa(correction.Current.Revision) }/>
+				<button type="submit">Mark Correction Ready</button>
+			</form>
+		}
+		if page.Producer && correction.Current.Status == results.CorrectionReady {
+			<form method="post">
+				<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+				<input type="hidden" name="action" value="publish-results-correction"/>
+				<input type="hidden" name="command_id" value={ page.CommandID }/>
+				<input type="hidden" name="correction_scope" value={ string(correction.Scope) }/>
+				<input type="hidden" name="correction_scope_session_id" value={ strconv.Itoa(correction.ScopeSessionID) }/>
+				<input type="hidden" name="expected_correction_revision" value={ strconv.Itoa(correction.Current.Revision) }/>
+				<button type="submit">Publish Results Correction</button>
+			</form>
+		}
+	</section>
+}
+
+func resultsPreviewPath(eventID, ceremonyID int, mode results.PrizegivingPreviewMode) string {
+	return "/backstage/events/" + strconv.Itoa(eventID) + "/results?ceremony_id=" +
+		strconv.Itoa(ceremonyID) + "&preview=" + string(mode)
+}
+
+func prizegivingPublicationOrder(
+	sequence results.ResultItem,
+	publication []results.ResultItemRef,
+	fallback int,
+) int {
+	for _, item := range publication {
+		if item.Kind == sequence.Kind &&
+			item.CompetitionSessionID == sequence.CompetitionSessionID &&
+			item.AwardKey == sequence.AwardKey {
+			return item.DisplayOrder
+		}
+	}
+	return fallback + 1
+}
+
+templ PrizegivingItemFields(
+	item results.ResultItem,
+	publication []results.ResultItemRef,
+	index int,
+) {
+	<fieldset>
+		<legend>{ string(item.Kind) }</legend>
+		<input type="hidden" name="item_kind" value={ string(item.Kind) }/>
+		<input type="hidden" name="item_competition_session_id" value={ strconv.Itoa(item.CompetitionSessionID) }/>
+		<input type="hidden" name="item_award_key" value={ item.AwardKey }/>
+		<label>Sequence order <input type="number" min="1" name="sequence_display_order" value={ strconv.Itoa(item.DisplayOrder) } required/></label>
+		<label>Reveal Method
+			<select name="reveal_method">
+				<option selected?={ item.RevealMethod == results.RevealStatic }>StaticResult</option>
+				<option selected?={ item.RevealMethod == results.RevealSequentialPodium }>SequentialPodium</option>
+				<option selected?={ item.RevealMethod == results.RevealAnimatedScoreBars }>AnimatedScoreBars</option>
+			</select>
+		</label>
+		<label>Publication order <input type="number" min="1" name="publication_display_order" value={ strconv.Itoa(prizegivingPublicationOrder(item, publication, index)) } required/></label>
+	</fieldset>
+}
+
+templ CompetitionAwardFields(award results.Award, defaultOrder int) {
+	<fieldset>
+		<legend>
+			if award.Name == "" {
+				New Award
+			} else {
+				{ award.Name }
+			}
+		</legend>
+		<label>Key <input name="award_key" value={ award.Key }/></label>
+		<label>Name <input name="award_name" value={ award.Name }/></label>
+		<label>Recipient Entry IDs, comma-separated <input name="award_recipient_entry_ids" value={ resultsAwardRecipientEntryIDs(award.Recipients) }/></label>
+		<label>Other recipient names, one per line <textarea name="award_recipient_names">{ resultsAwardRecipientNames(award.Recipients) }</textarea></label>
+		<label>Promoted
+			<select name="award_promoted">
+				<option value="false" selected?={ !award.Promoted }>No</option>
+				<option value="true" selected?={ award.Promoted }>Yes</option>
+			</select>
+		</label>
+		<label>Display order <input type="number" min="1" name="award_display_order" value={ strconv.Itoa(defaultOrder) }/></label>
+	</fieldset>
+}
