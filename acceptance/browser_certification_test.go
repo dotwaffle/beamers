@@ -2003,7 +2003,9 @@ func certifyLiveScheduleUpdate(
 	focused, err := driver.evaluateBool(
 		t.Context(),
 		`const control = document.querySelector("#schedule-location"); `+
-			`control.focus(); return document.activeElement === control;`,
+			`control.focus(); `+
+			`document.querySelector("#schedule").dataset.certificationRefresh = "pending"; `+
+			`return document.activeElement === control;`,
 	)
 	if err != nil || !focused {
 		t.Fatalf("focus live Schedule filter = %t, %v", focused, err)
@@ -2017,7 +2019,9 @@ func certifyLiveScheduleUpdate(
 	if err = driver.waitFor(
 		t.Context(),
 		5*time.Second,
-		`return document.activeElement?.id === "schedule-location";`,
+		`const schedule = document.querySelector("#schedule"); `+
+			`return !schedule.dataset.certificationRefresh && `+
+			`document.activeElement?.id === "schedule-location";`,
 	); err != nil {
 		t.Fatalf("wait for Schedule filter focus restoration: %v", err)
 	}
