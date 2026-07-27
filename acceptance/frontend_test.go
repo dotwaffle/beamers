@@ -30,6 +30,8 @@ import (
 )
 
 var frontendCSRFInput = regexp.MustCompile(`name="csrf_token" value="([^"]+)"`)
+var recoveryCodeOutput = regexp.MustCompile(`data-recovery-code>([^<]+)</code>`)
+var recoveryTokenOutput = regexp.MustCompile(`data-recovery-token>([^<]+)</code>`)
 
 func TestBrowserSetupAndSessionSurviveRestart(t *testing.T) {
 	bin := buildBeamers(t)
@@ -727,6 +729,161 @@ func TestBrowserRegistrationProfileAndDisablement(t *testing.T) {
 		http.StatusOK,
 		"{\"id\":1,\"name\":\"Revision 2026\",\"planned_start_date\":\"2026-08-21\",\"planned_end_date\":\"2026-08-23\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"de-DE\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":1}\n",
 	)
+	server.stop(t)
+}
+
+func TestBrowserRecoversAccountWithoutEmail(t *testing.T) {
+	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
+	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	const administrationPath = "/backstage/administration"
+	page := getFrontendPage(t, administrator, server.address, administrationPath)
+	created := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		administrationPath,
+		url.Values{
+			"csrf_token":     {requireFrontendCSRF(t, page)},
+			"action":         {"create-account"},
+			"command_id":     {"create-recovery-participant"},
+			"account_handle": {"pat"},
+			"display_name":   {"Pat Participant"},
+			"password":       {"participant correct horse battery staple"},
+		},
+	)
+	if created.status != http.StatusSeeOther {
+		t.Fatalf("create recovery Account = %d %q", created.status, created.body)
+	}
+
+	participant := authenticatedClient(t)
+	participant.CheckRedirect = administrator.CheckRedirect
+	signInPage := getFrontendPage(t, participant, server.address, "/sign-in")
+	signIn := postFrontendForm(t, participant, server.address, "/sign-in", url.Values{
+		"csrf_token": {requireFrontendCSRF(t, signInPage)},
+		"handle":     {"pat"},
+		"password":   {"participant correct horse battery staple"},
+	})
+	if signIn.status != http.StatusSeeOther {
+		t.Fatalf("sign in recovery Account = %d %q", signIn.status, signIn.body)
+	}
+	profile := getFrontendPage(t, participant, server.address, "/profile")
+	profileCommandID := frontendNamedValues(profile.body, "command_id").Get("command_id")
+	generated := postFrontendForm(t, participant, server.address, "/profile", url.Values{
+		"csrf_token": {requireFrontendCSRF(t, profile)},
+		"action":     {"replace-recovery-codes"},
+		"command_id": {profileCommandID},
+	})
+	codeMatch := recoveryCodeOutput.FindStringSubmatch(generated.body)
+	if generated.status != http.StatusOK || len(codeMatch) != 2 {
+		t.Fatalf("generate Recovery Codes = %d %q", generated.status, generated.body)
+	}
+	code := codeMatch[1]
+	if strings.Contains(getFrontendPage(t, participant, server.address, "/profile").body, code) {
+		t.Fatal("Recovery Code remained visible after its one-time response")
+	}
+
+	database, err := sql.Open("sqlite", filepath.Join(server.dataDir, "beamers.db"))
+	if err != nil {
+		t.Fatalf("open recovery database: %v", err)
+	}
+	var plaintextCount int
+	if err = database.QueryRowContext(
+		t.Context(),
+		"SELECT count(*) FROM recovery_codes WHERE code_hash = ?",
+		code,
+	).Scan(&plaintextCount); err != nil {
+		t.Fatalf("inspect Recovery Code digest: %v", err)
+	}
+	if closeErr := database.Close(); closeErr != nil {
+		t.Fatalf("close recovery database: %v", closeErr)
+	}
+	if plaintextCount != 0 {
+		t.Fatal("Recovery Code was stored as plaintext")
+	}
+
+	dataDir, bin := server.dataDir, server.bin
+	server.stop(t)
+	server = startBeamersWithPublicListener(t, bin, dataDir)
+	recoveryClient := authenticatedClient(t)
+	recoveryClient.CheckRedirect = administrator.CheckRedirect
+	recoveryPage := getFrontendPage(t, recoveryClient, server.address, "/recover")
+	recovered := postFrontendForm(t, recoveryClient, server.address, "/recover", url.Values{
+		"csrf_token": {requireFrontendCSRF(t, recoveryPage)},
+		"command_id": {frontendNamedValues(recoveryPage.body, "command_id").Get("command_id")},
+		"handle":     {"PAT"},
+		"credential": {code},
+		"password":   {"recovered correct horse battery staple"},
+	})
+	if recovered.status != http.StatusSeeOther || recovered.header.Get("Location") != "/" {
+		t.Fatalf("recover Account after restart = %d %q", recovered.status, recovered.body)
+	}
+	reuseClient := authenticatedClient(t)
+	reusePage := getFrontendPage(t, reuseClient, server.address, "/recover")
+	reuseCSRF := requireFrontendCSRF(t, reusePage)
+	reuseCommandID := frontendNamedValues(reusePage.body, "command_id").Get("command_id")
+	reused := postFrontendForm(t, reuseClient, server.address, "/recover", url.Values{
+		"csrf_token": {reuseCSRF},
+		"command_id": {reuseCommandID},
+		"handle":     {"pat"},
+		"credential": {code},
+		"password":   {"another recovered horse battery staple"},
+	})
+	if reused.status != http.StatusUnauthorized ||
+		!strings.Contains(reused.body, "Recovery failed") {
+		t.Fatalf("reuse Recovery Code = %d %q", reused.status, reused.body)
+	}
+	for attempt := 1; attempt < 5; attempt++ {
+		reused = postFrontendForm(t, reuseClient, server.address, "/recover", url.Values{
+			"csrf_token": {reuseCSRF},
+			"command_id": {reuseCommandID},
+			"handle":     {"pat"},
+			"credential": {code},
+			"password":   {"another recovered horse battery staple"},
+		})
+		if reused.status != http.StatusUnauthorized {
+			t.Fatalf("recovery failure %d = %d %q", attempt+1, reused.status, reused.body)
+		}
+	}
+	rateLimited := postFrontendForm(t, reuseClient, server.address, "/recover", url.Values{
+		"csrf_token": {reuseCSRF},
+		"command_id": {reuseCommandID},
+		"handle":     {"pat"},
+		"credential": {code},
+		"password":   {"another recovered horse battery staple"},
+	})
+	if rateLimited.status != http.StatusTooManyRequests {
+		t.Fatalf("recovery abuse limit = %d %q", rateLimited.status, rateLimited.body)
+	}
+
+	page = getFrontendPage(t, administrator, server.address, administrationPath)
+	issued := postFrontendForm(t, administrator, server.address, administrationPath, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, page)},
+		"action":     {"issue-recovery-token"},
+		"command_id": {"issue-browser-recovery-token"},
+		"account_id": {"2"},
+		"reason":     {"verified government ID in person"},
+	})
+	tokenMatch := recoveryTokenOutput.FindStringSubmatch(issued.body)
+	if issued.status != http.StatusOK || len(tokenMatch) != 2 {
+		t.Fatalf("issue Administrator Recovery Token = %d %q", issued.status, issued.body)
+	}
+	token := tokenMatch[1]
+	if root := getFrontendPage(
+		t,
+		recoveryClient,
+		server.address,
+		"/",
+	); !strings.Contains(root.body, "Sign in") {
+		t.Fatalf("Administrator recovery retained old session: %q", root.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, administrationPath)
+	if !strings.Contains(page.body, "IssueAccountRecoveryToken") ||
+		!strings.Contains(page.body, "verified government ID in person") ||
+		strings.Contains(page.body, token) {
+		t.Fatalf("Administrator recovery Audit Entry = %q", page.body)
+	}
 	server.stop(t)
 }
 

@@ -92,6 +92,8 @@ func TestSanitizedBackupIncludesConfiguredAttachmentsAndRemovesCredentials(t *te
 		"password_credentials",
 		"account_sessions",
 		"bootstrap_credentials",
+		"recovery_codes",
+		"recovery_tokens",
 		"display_credentials",
 		"display_enrollments",
 		"upload_links",
@@ -1428,6 +1430,14 @@ func seedBackupState(
 		{
 			"INSERT INTO account_sessions (account_id, token_hash, created_at, expires_at) VALUES (1, ?, ?, ?)",
 			[]any{digest, now, now.Add(time.Hour)},
+		},
+		{
+			"INSERT INTO recovery_codes (account_id, code_hash, created_at) VALUES (1, ?, ?)",
+			[]any{fmt.Sprintf("%064x", 3), now},
+		},
+		{
+			"INSERT INTO recovery_tokens (account_id, token_hash, created_at, expires_at) VALUES (1, ?, ?, ?)",
+			[]any{fmt.Sprintf("%064x", 4), now, now.Add(time.Hour)},
 		},
 		{
 			"INSERT INTO events (id, name, planned_start_date, planned_end_date, timezone, event_locale, event_day_boundary, created_at) VALUES (1, 'Event', '2026-07-24', '2026-07-24', 'UTC', 'en-US', '00:00', ?)",

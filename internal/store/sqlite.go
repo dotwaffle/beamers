@@ -152,6 +152,14 @@ var migrationContracts = map[int]migrationContract{
 		minimumWriter: 53,
 		consequence:   "adds private persistent Account bookmarks for public Sessions",
 	},
+	54: {
+		name:          "account_recovery",
+		checksum:      "b607b389cd6a0845ee6d73af4a1ef681bf7944d951c0ea8e2aa531660fda9459",
+		safety:        MigrationNonDestructive,
+		minimumReader: 54,
+		minimumWriter: 54,
+		consequence:   "adds single-use Account and Administrator recovery credentials",
+	},
 }
 
 // MigrationStep is one exact committed migration in an upgrade plan.
@@ -475,6 +483,8 @@ func SanitizeSnapshot(ctx context.Context, path string) (returnErr error) {
 		"DELETE FROM account_sessions",
 		"DELETE FROM bootstrap_credentials",
 		"DELETE FROM password_credentials",
+		"DELETE FROM recovery_codes",
+		"DELETE FROM recovery_tokens",
 		"DELETE FROM display_credentials",
 		"DELETE FROM display_enrollments",
 		"DELETE FROM upload_links",
@@ -518,6 +528,8 @@ func ValidateSanitizedSnapshot(ctx context.Context, path string) (returnErr erro
 		"SELECT EXISTS(SELECT 1 FROM account_sessions)",
 		"SELECT EXISTS(SELECT 1 FROM bootstrap_credentials)",
 		"SELECT EXISTS(SELECT 1 FROM password_credentials)",
+		"SELECT EXISTS(SELECT 1 FROM recovery_codes)",
+		"SELECT EXISTS(SELECT 1 FROM recovery_tokens)",
 		"SELECT EXISTS(SELECT 1 FROM display_credentials)",
 		"SELECT EXISTS(SELECT 1 FROM display_enrollments)",
 		"SELECT EXISTS(SELECT 1 FROM upload_links)",

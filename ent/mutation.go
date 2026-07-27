@@ -52,6 +52,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
+	"github.com/dotwaffle/beamers/ent/recoverycode"
+	"github.com/dotwaffle/beamers/ent/recoverytoken"
 	"github.com/dotwaffle/beamers/ent/registrationpolicy"
 	"github.com/dotwaffle/beamers/ent/releasedprofileentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
@@ -122,6 +124,8 @@ const (
 	TypePrizegivingCompetition      = "PrizegivingCompetition"
 	TypePublicScheduleBaseline      = "PublicScheduleBaseline"
 	TypePublicScheduleBaselineEntry = "PublicScheduleBaselineEntry"
+	TypeRecoveryCode                = "RecoveryCode"
+	TypeRecoveryToken               = "RecoveryToken"
 	TypeRegistrationPolicy          = "RegistrationPolicy"
 	TypeReleasedProfileEntry        = "ReleasedProfileEntry"
 	TypeReopenWindow                = "ReopenWindow"
@@ -161,6 +165,12 @@ type AccountMutation struct {
 	sessions                   map[int]struct{}
 	removedsessions            map[int]struct{}
 	clearedsessions            bool
+	recovery_codes             map[int]struct{}
+	removedrecovery_codes      map[int]struct{}
+	clearedrecovery_codes      bool
+	recovery_tokens            map[int]struct{}
+	removedrecovery_tokens     map[int]struct{}
+	clearedrecovery_tokens     bool
 	event_grants               map[int]struct{}
 	removedevent_grants        map[int]struct{}
 	clearedevent_grants        bool
@@ -643,6 +653,114 @@ func (m *AccountMutation) ResetSessions() {
 	m.removedsessions = nil
 }
 
+// AddRecoveryCodeIDs adds the "recovery_codes" edge to the RecoveryCode entity by ids.
+func (m *AccountMutation) AddRecoveryCodeIDs(ids ...int) {
+	if m.recovery_codes == nil {
+		m.recovery_codes = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.recovery_codes[ids[i]] = struct{}{}
+	}
+}
+
+// ClearRecoveryCodes clears the "recovery_codes" edge to the RecoveryCode entity.
+func (m *AccountMutation) ClearRecoveryCodes() {
+	m.clearedrecovery_codes = true
+}
+
+// RecoveryCodesCleared reports if the "recovery_codes" edge to the RecoveryCode entity was cleared.
+func (m *AccountMutation) RecoveryCodesCleared() bool {
+	return m.clearedrecovery_codes
+}
+
+// RemoveRecoveryCodeIDs removes the "recovery_codes" edge to the RecoveryCode entity by IDs.
+func (m *AccountMutation) RemoveRecoveryCodeIDs(ids ...int) {
+	if m.removedrecovery_codes == nil {
+		m.removedrecovery_codes = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.recovery_codes, ids[i])
+		m.removedrecovery_codes[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedRecoveryCodes returns the removed IDs of the "recovery_codes" edge to the RecoveryCode entity.
+func (m *AccountMutation) RemovedRecoveryCodesIDs() (ids []int) {
+	for id := range m.removedrecovery_codes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// RecoveryCodesIDs returns the "recovery_codes" edge IDs in the mutation.
+func (m *AccountMutation) RecoveryCodesIDs() (ids []int) {
+	for id := range m.recovery_codes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetRecoveryCodes resets all changes to the "recovery_codes" edge.
+func (m *AccountMutation) ResetRecoveryCodes() {
+	m.recovery_codes = nil
+	m.clearedrecovery_codes = false
+	m.removedrecovery_codes = nil
+}
+
+// AddRecoveryTokenIDs adds the "recovery_tokens" edge to the RecoveryToken entity by ids.
+func (m *AccountMutation) AddRecoveryTokenIDs(ids ...int) {
+	if m.recovery_tokens == nil {
+		m.recovery_tokens = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.recovery_tokens[ids[i]] = struct{}{}
+	}
+}
+
+// ClearRecoveryTokens clears the "recovery_tokens" edge to the RecoveryToken entity.
+func (m *AccountMutation) ClearRecoveryTokens() {
+	m.clearedrecovery_tokens = true
+}
+
+// RecoveryTokensCleared reports if the "recovery_tokens" edge to the RecoveryToken entity was cleared.
+func (m *AccountMutation) RecoveryTokensCleared() bool {
+	return m.clearedrecovery_tokens
+}
+
+// RemoveRecoveryTokenIDs removes the "recovery_tokens" edge to the RecoveryToken entity by IDs.
+func (m *AccountMutation) RemoveRecoveryTokenIDs(ids ...int) {
+	if m.removedrecovery_tokens == nil {
+		m.removedrecovery_tokens = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.recovery_tokens, ids[i])
+		m.removedrecovery_tokens[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedRecoveryTokens returns the removed IDs of the "recovery_tokens" edge to the RecoveryToken entity.
+func (m *AccountMutation) RemovedRecoveryTokensIDs() (ids []int) {
+	for id := range m.removedrecovery_tokens {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// RecoveryTokensIDs returns the "recovery_tokens" edge IDs in the mutation.
+func (m *AccountMutation) RecoveryTokensIDs() (ids []int) {
+	for id := range m.recovery_tokens {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetRecoveryTokens resets all changes to the "recovery_tokens" edge.
+func (m *AccountMutation) ResetRecoveryTokens() {
+	m.recovery_tokens = nil
+	m.clearedrecovery_tokens = false
+	m.removedrecovery_tokens = nil
+}
+
 // AddEventGrantIDs adds the "event_grants" edge to the EventGrant entity by ids.
 func (m *AccountMutation) AddEventGrantIDs(ids ...int) {
 	if m.event_grants == nil {
@@ -1123,7 +1241,7 @@ func (m *AccountMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AccountMutation) AddedEdges() []string {
-	edges := make([]string, 0, 9)
+	edges := make([]string, 0, 11)
 	if m.password_credential != nil {
 		edges = append(edges, account.EdgePasswordCredential)
 	}
@@ -1135,6 +1253,12 @@ func (m *AccountMutation) AddedEdges() []string {
 	}
 	if m.sessions != nil {
 		edges = append(edges, account.EdgeSessions)
+	}
+	if m.recovery_codes != nil {
+		edges = append(edges, account.EdgeRecoveryCodes)
+	}
+	if m.recovery_tokens != nil {
+		edges = append(edges, account.EdgeRecoveryTokens)
 	}
 	if m.event_grants != nil {
 		edges = append(edges, account.EdgeEventGrants)
@@ -1176,6 +1300,18 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case account.EdgeRecoveryCodes:
+		ids := make([]ent.Value, 0, len(m.recovery_codes))
+		for id := range m.recovery_codes {
+			ids = append(ids, id)
+		}
+		return ids
+	case account.EdgeRecoveryTokens:
+		ids := make([]ent.Value, 0, len(m.recovery_tokens))
+		for id := range m.recovery_tokens {
+			ids = append(ids, id)
+		}
+		return ids
 	case account.EdgeEventGrants:
 		ids := make([]ent.Value, 0, len(m.event_grants))
 		for id := range m.event_grants {
@@ -1212,9 +1348,15 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AccountMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 9)
+	edges := make([]string, 0, 11)
 	if m.removedsessions != nil {
 		edges = append(edges, account.EdgeSessions)
+	}
+	if m.removedrecovery_codes != nil {
+		edges = append(edges, account.EdgeRecoveryCodes)
+	}
+	if m.removedrecovery_tokens != nil {
+		edges = append(edges, account.EdgeRecoveryTokens)
 	}
 	if m.removedevent_grants != nil {
 		edges = append(edges, account.EdgeEventGrants)
@@ -1241,6 +1383,18 @@ func (m *AccountMutation) RemovedIDs(name string) []ent.Value {
 	case account.EdgeSessions:
 		ids := make([]ent.Value, 0, len(m.removedsessions))
 		for id := range m.removedsessions {
+			ids = append(ids, id)
+		}
+		return ids
+	case account.EdgeRecoveryCodes:
+		ids := make([]ent.Value, 0, len(m.removedrecovery_codes))
+		for id := range m.removedrecovery_codes {
+			ids = append(ids, id)
+		}
+		return ids
+	case account.EdgeRecoveryTokens:
+		ids := make([]ent.Value, 0, len(m.removedrecovery_tokens))
+		for id := range m.removedrecovery_tokens {
 			ids = append(ids, id)
 		}
 		return ids
@@ -1280,7 +1434,7 @@ func (m *AccountMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AccountMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 9)
+	edges := make([]string, 0, 11)
 	if m.clearedpassword_credential {
 		edges = append(edges, account.EdgePasswordCredential)
 	}
@@ -1292,6 +1446,12 @@ func (m *AccountMutation) ClearedEdges() []string {
 	}
 	if m.clearedsessions {
 		edges = append(edges, account.EdgeSessions)
+	}
+	if m.clearedrecovery_codes {
+		edges = append(edges, account.EdgeRecoveryCodes)
+	}
+	if m.clearedrecovery_tokens {
+		edges = append(edges, account.EdgeRecoveryTokens)
 	}
 	if m.clearedevent_grants {
 		edges = append(edges, account.EdgeEventGrants)
@@ -1323,6 +1483,10 @@ func (m *AccountMutation) EdgeCleared(name string) bool {
 		return m.clearedprofile
 	case account.EdgeSessions:
 		return m.clearedsessions
+	case account.EdgeRecoveryCodes:
+		return m.clearedrecovery_codes
+	case account.EdgeRecoveryTokens:
+		return m.clearedrecovery_tokens
 	case account.EdgeEventGrants:
 		return m.clearedevent_grants
 	case account.EdgeFavoriteSessions:
@@ -1369,6 +1533,12 @@ func (m *AccountMutation) ResetEdge(name string) error {
 		return nil
 	case account.EdgeSessions:
 		m.ResetSessions()
+		return nil
+	case account.EdgeRecoveryCodes:
+		m.ResetRecoveryCodes()
+		return nil
+	case account.EdgeRecoveryTokens:
+		m.ResetRecoveryTokens()
 		return nil
 	case account.EdgeEventGrants:
 		m.ResetEventGrants()
@@ -37807,6 +37977,1194 @@ func (m *PublicScheduleBaselineEntryMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown PublicScheduleBaselineEntry edge %s", name)
+}
+
+// RecoveryCodeMutation represents an operation that mutates the RecoveryCode nodes in the graph.
+type RecoveryCodeMutation struct {
+	config
+	op             Op
+	typ            string
+	id             *int
+	code_hash      *string
+	created_at     *time.Time
+	used_at        *time.Time
+	clearedFields  map[string]struct{}
+	account        *int
+	clearedaccount bool
+	done           bool
+	oldValue       func(context.Context) (*RecoveryCode, error)
+	predicates     []predicate.RecoveryCode
+}
+
+var _ ent.Mutation = (*RecoveryCodeMutation)(nil)
+
+// recoverycodeOption allows management of the mutation configuration using functional options.
+type recoverycodeOption func(*RecoveryCodeMutation)
+
+// newRecoveryCodeMutation creates new mutation for the RecoveryCode entity.
+func newRecoveryCodeMutation(c config, op Op, opts ...recoverycodeOption) *RecoveryCodeMutation {
+	m := &RecoveryCodeMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeRecoveryCode,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withRecoveryCodeID sets the ID field of the mutation.
+func withRecoveryCodeID(id int) recoverycodeOption {
+	return func(m *RecoveryCodeMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *RecoveryCode
+		)
+		m.oldValue = func(ctx context.Context) (*RecoveryCode, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().RecoveryCode.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withRecoveryCode sets the old RecoveryCode of the mutation.
+func withRecoveryCode(node *RecoveryCode) recoverycodeOption {
+	return func(m *RecoveryCodeMutation) {
+		m.oldValue = func(context.Context) (*RecoveryCode, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m RecoveryCodeMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m RecoveryCodeMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *RecoveryCodeMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *RecoveryCodeMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().RecoveryCode.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetAccountID sets the "account_id" field.
+func (m *RecoveryCodeMutation) SetAccountID(i int) {
+	m.account = &i
+}
+
+// AccountID returns the value of the "account_id" field in the mutation.
+func (m *RecoveryCodeMutation) AccountID() (r int, exists bool) {
+	v := m.account
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAccountID returns the old "account_id" field's value of the RecoveryCode entity.
+// If the RecoveryCode object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RecoveryCodeMutation) OldAccountID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAccountID: %w", err)
+	}
+	return oldValue.AccountID, nil
+}
+
+// ResetAccountID resets all changes to the "account_id" field.
+func (m *RecoveryCodeMutation) ResetAccountID() {
+	m.account = nil
+}
+
+// SetCodeHash sets the "code_hash" field.
+func (m *RecoveryCodeMutation) SetCodeHash(s string) {
+	m.code_hash = &s
+}
+
+// CodeHash returns the value of the "code_hash" field in the mutation.
+func (m *RecoveryCodeMutation) CodeHash() (r string, exists bool) {
+	v := m.code_hash
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCodeHash returns the old "code_hash" field's value of the RecoveryCode entity.
+// If the RecoveryCode object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RecoveryCodeMutation) OldCodeHash(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCodeHash is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCodeHash requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCodeHash: %w", err)
+	}
+	return oldValue.CodeHash, nil
+}
+
+// ResetCodeHash resets all changes to the "code_hash" field.
+func (m *RecoveryCodeMutation) ResetCodeHash() {
+	m.code_hash = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *RecoveryCodeMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *RecoveryCodeMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the RecoveryCode entity.
+// If the RecoveryCode object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RecoveryCodeMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *RecoveryCodeMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUsedAt sets the "used_at" field.
+func (m *RecoveryCodeMutation) SetUsedAt(t time.Time) {
+	m.used_at = &t
+}
+
+// UsedAt returns the value of the "used_at" field in the mutation.
+func (m *RecoveryCodeMutation) UsedAt() (r time.Time, exists bool) {
+	v := m.used_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUsedAt returns the old "used_at" field's value of the RecoveryCode entity.
+// If the RecoveryCode object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RecoveryCodeMutation) OldUsedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUsedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUsedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUsedAt: %w", err)
+	}
+	return oldValue.UsedAt, nil
+}
+
+// ClearUsedAt clears the value of the "used_at" field.
+func (m *RecoveryCodeMutation) ClearUsedAt() {
+	m.used_at = nil
+	m.clearedFields[recoverycode.FieldUsedAt] = struct{}{}
+}
+
+// UsedAtCleared returns if the "used_at" field was cleared in this mutation.
+func (m *RecoveryCodeMutation) UsedAtCleared() bool {
+	_, ok := m.clearedFields[recoverycode.FieldUsedAt]
+	return ok
+}
+
+// ResetUsedAt resets all changes to the "used_at" field.
+func (m *RecoveryCodeMutation) ResetUsedAt() {
+	m.used_at = nil
+	delete(m.clearedFields, recoverycode.FieldUsedAt)
+}
+
+// ClearAccount clears the "account" edge to the Account entity.
+func (m *RecoveryCodeMutation) ClearAccount() {
+	m.clearedaccount = true
+	m.clearedFields[recoverycode.FieldAccountID] = struct{}{}
+}
+
+// AccountCleared reports if the "account" edge to the Account entity was cleared.
+func (m *RecoveryCodeMutation) AccountCleared() bool {
+	return m.clearedaccount
+}
+
+// AccountIDs returns the "account" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AccountID instead. It exists only for internal usage by the builders.
+func (m *RecoveryCodeMutation) AccountIDs() (ids []int) {
+	if id := m.account; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAccount resets all changes to the "account" edge.
+func (m *RecoveryCodeMutation) ResetAccount() {
+	m.account = nil
+	m.clearedaccount = false
+}
+
+// Where appends a list predicates to the RecoveryCodeMutation builder.
+func (m *RecoveryCodeMutation) Where(ps ...predicate.RecoveryCode) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the RecoveryCodeMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *RecoveryCodeMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.RecoveryCode, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *RecoveryCodeMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *RecoveryCodeMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (RecoveryCode).
+func (m *RecoveryCodeMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *RecoveryCodeMutation) Fields() []string {
+	fields := make([]string, 0, 4)
+	if m.account != nil {
+		fields = append(fields, recoverycode.FieldAccountID)
+	}
+	if m.code_hash != nil {
+		fields = append(fields, recoverycode.FieldCodeHash)
+	}
+	if m.created_at != nil {
+		fields = append(fields, recoverycode.FieldCreatedAt)
+	}
+	if m.used_at != nil {
+		fields = append(fields, recoverycode.FieldUsedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *RecoveryCodeMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case recoverycode.FieldAccountID:
+		return m.AccountID()
+	case recoverycode.FieldCodeHash:
+		return m.CodeHash()
+	case recoverycode.FieldCreatedAt:
+		return m.CreatedAt()
+	case recoverycode.FieldUsedAt:
+		return m.UsedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *RecoveryCodeMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case recoverycode.FieldAccountID:
+		return m.OldAccountID(ctx)
+	case recoverycode.FieldCodeHash:
+		return m.OldCodeHash(ctx)
+	case recoverycode.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case recoverycode.FieldUsedAt:
+		return m.OldUsedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown RecoveryCode field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *RecoveryCodeMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case recoverycode.FieldAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAccountID(v)
+		return nil
+	case recoverycode.FieldCodeHash:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCodeHash(v)
+		return nil
+	case recoverycode.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case recoverycode.FieldUsedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUsedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown RecoveryCode field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *RecoveryCodeMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *RecoveryCodeMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *RecoveryCodeMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown RecoveryCode numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *RecoveryCodeMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(recoverycode.FieldUsedAt) {
+		fields = append(fields, recoverycode.FieldUsedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *RecoveryCodeMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *RecoveryCodeMutation) ClearField(name string) error {
+	switch name {
+	case recoverycode.FieldUsedAt:
+		m.ClearUsedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown RecoveryCode nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *RecoveryCodeMutation) ResetField(name string) error {
+	switch name {
+	case recoverycode.FieldAccountID:
+		m.ResetAccountID()
+		return nil
+	case recoverycode.FieldCodeHash:
+		m.ResetCodeHash()
+		return nil
+	case recoverycode.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case recoverycode.FieldUsedAt:
+		m.ResetUsedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown RecoveryCode field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *RecoveryCodeMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.account != nil {
+		edges = append(edges, recoverycode.EdgeAccount)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *RecoveryCodeMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case recoverycode.EdgeAccount:
+		if id := m.account; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *RecoveryCodeMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *RecoveryCodeMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *RecoveryCodeMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedaccount {
+		edges = append(edges, recoverycode.EdgeAccount)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *RecoveryCodeMutation) EdgeCleared(name string) bool {
+	switch name {
+	case recoverycode.EdgeAccount:
+		return m.clearedaccount
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *RecoveryCodeMutation) ClearEdge(name string) error {
+	switch name {
+	case recoverycode.EdgeAccount:
+		m.ClearAccount()
+		return nil
+	}
+	return fmt.Errorf("unknown RecoveryCode unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *RecoveryCodeMutation) ResetEdge(name string) error {
+	switch name {
+	case recoverycode.EdgeAccount:
+		m.ResetAccount()
+		return nil
+	}
+	return fmt.Errorf("unknown RecoveryCode edge %s", name)
+}
+
+// RecoveryTokenMutation represents an operation that mutates the RecoveryToken nodes in the graph.
+type RecoveryTokenMutation struct {
+	config
+	op             Op
+	typ            string
+	id             *int
+	token_hash     *string
+	created_at     *time.Time
+	expires_at     *time.Time
+	used_at        *time.Time
+	clearedFields  map[string]struct{}
+	account        *int
+	clearedaccount bool
+	done           bool
+	oldValue       func(context.Context) (*RecoveryToken, error)
+	predicates     []predicate.RecoveryToken
+}
+
+var _ ent.Mutation = (*RecoveryTokenMutation)(nil)
+
+// recoverytokenOption allows management of the mutation configuration using functional options.
+type recoverytokenOption func(*RecoveryTokenMutation)
+
+// newRecoveryTokenMutation creates new mutation for the RecoveryToken entity.
+func newRecoveryTokenMutation(c config, op Op, opts ...recoverytokenOption) *RecoveryTokenMutation {
+	m := &RecoveryTokenMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeRecoveryToken,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withRecoveryTokenID sets the ID field of the mutation.
+func withRecoveryTokenID(id int) recoverytokenOption {
+	return func(m *RecoveryTokenMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *RecoveryToken
+		)
+		m.oldValue = func(ctx context.Context) (*RecoveryToken, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().RecoveryToken.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withRecoveryToken sets the old RecoveryToken of the mutation.
+func withRecoveryToken(node *RecoveryToken) recoverytokenOption {
+	return func(m *RecoveryTokenMutation) {
+		m.oldValue = func(context.Context) (*RecoveryToken, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m RecoveryTokenMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m RecoveryTokenMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *RecoveryTokenMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *RecoveryTokenMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().RecoveryToken.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetAccountID sets the "account_id" field.
+func (m *RecoveryTokenMutation) SetAccountID(i int) {
+	m.account = &i
+}
+
+// AccountID returns the value of the "account_id" field in the mutation.
+func (m *RecoveryTokenMutation) AccountID() (r int, exists bool) {
+	v := m.account
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAccountID returns the old "account_id" field's value of the RecoveryToken entity.
+// If the RecoveryToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RecoveryTokenMutation) OldAccountID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAccountID: %w", err)
+	}
+	return oldValue.AccountID, nil
+}
+
+// ResetAccountID resets all changes to the "account_id" field.
+func (m *RecoveryTokenMutation) ResetAccountID() {
+	m.account = nil
+}
+
+// SetTokenHash sets the "token_hash" field.
+func (m *RecoveryTokenMutation) SetTokenHash(s string) {
+	m.token_hash = &s
+}
+
+// TokenHash returns the value of the "token_hash" field in the mutation.
+func (m *RecoveryTokenMutation) TokenHash() (r string, exists bool) {
+	v := m.token_hash
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTokenHash returns the old "token_hash" field's value of the RecoveryToken entity.
+// If the RecoveryToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RecoveryTokenMutation) OldTokenHash(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTokenHash is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTokenHash requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTokenHash: %w", err)
+	}
+	return oldValue.TokenHash, nil
+}
+
+// ResetTokenHash resets all changes to the "token_hash" field.
+func (m *RecoveryTokenMutation) ResetTokenHash() {
+	m.token_hash = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *RecoveryTokenMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *RecoveryTokenMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the RecoveryToken entity.
+// If the RecoveryToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RecoveryTokenMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *RecoveryTokenMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (m *RecoveryTokenMutation) SetExpiresAt(t time.Time) {
+	m.expires_at = &t
+}
+
+// ExpiresAt returns the value of the "expires_at" field in the mutation.
+func (m *RecoveryTokenMutation) ExpiresAt() (r time.Time, exists bool) {
+	v := m.expires_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExpiresAt returns the old "expires_at" field's value of the RecoveryToken entity.
+// If the RecoveryToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RecoveryTokenMutation) OldExpiresAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExpiresAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExpiresAt: %w", err)
+	}
+	return oldValue.ExpiresAt, nil
+}
+
+// ResetExpiresAt resets all changes to the "expires_at" field.
+func (m *RecoveryTokenMutation) ResetExpiresAt() {
+	m.expires_at = nil
+}
+
+// SetUsedAt sets the "used_at" field.
+func (m *RecoveryTokenMutation) SetUsedAt(t time.Time) {
+	m.used_at = &t
+}
+
+// UsedAt returns the value of the "used_at" field in the mutation.
+func (m *RecoveryTokenMutation) UsedAt() (r time.Time, exists bool) {
+	v := m.used_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUsedAt returns the old "used_at" field's value of the RecoveryToken entity.
+// If the RecoveryToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RecoveryTokenMutation) OldUsedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUsedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUsedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUsedAt: %w", err)
+	}
+	return oldValue.UsedAt, nil
+}
+
+// ClearUsedAt clears the value of the "used_at" field.
+func (m *RecoveryTokenMutation) ClearUsedAt() {
+	m.used_at = nil
+	m.clearedFields[recoverytoken.FieldUsedAt] = struct{}{}
+}
+
+// UsedAtCleared returns if the "used_at" field was cleared in this mutation.
+func (m *RecoveryTokenMutation) UsedAtCleared() bool {
+	_, ok := m.clearedFields[recoverytoken.FieldUsedAt]
+	return ok
+}
+
+// ResetUsedAt resets all changes to the "used_at" field.
+func (m *RecoveryTokenMutation) ResetUsedAt() {
+	m.used_at = nil
+	delete(m.clearedFields, recoverytoken.FieldUsedAt)
+}
+
+// ClearAccount clears the "account" edge to the Account entity.
+func (m *RecoveryTokenMutation) ClearAccount() {
+	m.clearedaccount = true
+	m.clearedFields[recoverytoken.FieldAccountID] = struct{}{}
+}
+
+// AccountCleared reports if the "account" edge to the Account entity was cleared.
+func (m *RecoveryTokenMutation) AccountCleared() bool {
+	return m.clearedaccount
+}
+
+// AccountIDs returns the "account" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AccountID instead. It exists only for internal usage by the builders.
+func (m *RecoveryTokenMutation) AccountIDs() (ids []int) {
+	if id := m.account; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAccount resets all changes to the "account" edge.
+func (m *RecoveryTokenMutation) ResetAccount() {
+	m.account = nil
+	m.clearedaccount = false
+}
+
+// Where appends a list predicates to the RecoveryTokenMutation builder.
+func (m *RecoveryTokenMutation) Where(ps ...predicate.RecoveryToken) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the RecoveryTokenMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *RecoveryTokenMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.RecoveryToken, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *RecoveryTokenMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *RecoveryTokenMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (RecoveryToken).
+func (m *RecoveryTokenMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *RecoveryTokenMutation) Fields() []string {
+	fields := make([]string, 0, 5)
+	if m.account != nil {
+		fields = append(fields, recoverytoken.FieldAccountID)
+	}
+	if m.token_hash != nil {
+		fields = append(fields, recoverytoken.FieldTokenHash)
+	}
+	if m.created_at != nil {
+		fields = append(fields, recoverytoken.FieldCreatedAt)
+	}
+	if m.expires_at != nil {
+		fields = append(fields, recoverytoken.FieldExpiresAt)
+	}
+	if m.used_at != nil {
+		fields = append(fields, recoverytoken.FieldUsedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *RecoveryTokenMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case recoverytoken.FieldAccountID:
+		return m.AccountID()
+	case recoverytoken.FieldTokenHash:
+		return m.TokenHash()
+	case recoverytoken.FieldCreatedAt:
+		return m.CreatedAt()
+	case recoverytoken.FieldExpiresAt:
+		return m.ExpiresAt()
+	case recoverytoken.FieldUsedAt:
+		return m.UsedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *RecoveryTokenMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case recoverytoken.FieldAccountID:
+		return m.OldAccountID(ctx)
+	case recoverytoken.FieldTokenHash:
+		return m.OldTokenHash(ctx)
+	case recoverytoken.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case recoverytoken.FieldExpiresAt:
+		return m.OldExpiresAt(ctx)
+	case recoverytoken.FieldUsedAt:
+		return m.OldUsedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown RecoveryToken field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *RecoveryTokenMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case recoverytoken.FieldAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAccountID(v)
+		return nil
+	case recoverytoken.FieldTokenHash:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTokenHash(v)
+		return nil
+	case recoverytoken.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case recoverytoken.FieldExpiresAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExpiresAt(v)
+		return nil
+	case recoverytoken.FieldUsedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUsedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown RecoveryToken field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *RecoveryTokenMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *RecoveryTokenMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *RecoveryTokenMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown RecoveryToken numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *RecoveryTokenMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(recoverytoken.FieldUsedAt) {
+		fields = append(fields, recoverytoken.FieldUsedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *RecoveryTokenMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *RecoveryTokenMutation) ClearField(name string) error {
+	switch name {
+	case recoverytoken.FieldUsedAt:
+		m.ClearUsedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown RecoveryToken nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *RecoveryTokenMutation) ResetField(name string) error {
+	switch name {
+	case recoverytoken.FieldAccountID:
+		m.ResetAccountID()
+		return nil
+	case recoverytoken.FieldTokenHash:
+		m.ResetTokenHash()
+		return nil
+	case recoverytoken.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case recoverytoken.FieldExpiresAt:
+		m.ResetExpiresAt()
+		return nil
+	case recoverytoken.FieldUsedAt:
+		m.ResetUsedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown RecoveryToken field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *RecoveryTokenMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.account != nil {
+		edges = append(edges, recoverytoken.EdgeAccount)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *RecoveryTokenMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case recoverytoken.EdgeAccount:
+		if id := m.account; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *RecoveryTokenMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *RecoveryTokenMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *RecoveryTokenMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedaccount {
+		edges = append(edges, recoverytoken.EdgeAccount)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *RecoveryTokenMutation) EdgeCleared(name string) bool {
+	switch name {
+	case recoverytoken.EdgeAccount:
+		return m.clearedaccount
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *RecoveryTokenMutation) ClearEdge(name string) error {
+	switch name {
+	case recoverytoken.EdgeAccount:
+		m.ClearAccount()
+		return nil
+	}
+	return fmt.Errorf("unknown RecoveryToken unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *RecoveryTokenMutation) ResetEdge(name string) error {
+	switch name {
+	case recoverytoken.EdgeAccount:
+		m.ResetAccount()
+		return nil
+	}
+	return fmt.Errorf("unknown RecoveryToken edge %s", name)
 }
 
 // RegistrationPolicyMutation represents an operation that mutates the RegistrationPolicy nodes in the graph.

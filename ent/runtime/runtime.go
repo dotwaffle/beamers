@@ -46,6 +46,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
+	"github.com/dotwaffle/beamers/ent/recoverycode"
+	"github.com/dotwaffle/beamers/ent/recoverytoken"
 	"github.com/dotwaffle/beamers/ent/registrationpolicy"
 	"github.com/dotwaffle/beamers/ent/releasedprofileentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
@@ -1887,6 +1889,72 @@ func init() {
 	publicschedulebaselineentryDescRecordedAt := publicschedulebaselineentryFields[4].Descriptor()
 	// publicschedulebaselineentry.DefaultRecordedAt holds the default value on creation for the recorded_at field.
 	publicschedulebaselineentry.DefaultRecordedAt = publicschedulebaselineentryDescRecordedAt.Default.(func() time.Time)
+	recoverycode.Policy = privacy.NewPolicies(schema.RecoveryCode{})
+	recoverycode.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := recoverycode.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	recoverycodeFields := schema.RecoveryCode{}.Fields()
+	_ = recoverycodeFields
+	// recoverycodeDescCodeHash is the schema descriptor for code_hash field.
+	recoverycodeDescCodeHash := recoverycodeFields[1].Descriptor()
+	// recoverycode.CodeHashValidator is a validator for the "code_hash" field. It is called by the builders before save.
+	recoverycode.CodeHashValidator = func() func(string) error {
+		validators := recoverycodeDescCodeHash.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(code_hash string) error {
+			for _, fn := range fns {
+				if err := fn(code_hash); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// recoverycodeDescCreatedAt is the schema descriptor for created_at field.
+	recoverycodeDescCreatedAt := recoverycodeFields[2].Descriptor()
+	// recoverycode.DefaultCreatedAt holds the default value on creation for the created_at field.
+	recoverycode.DefaultCreatedAt = recoverycodeDescCreatedAt.Default.(func() time.Time)
+	recoverytoken.Policy = privacy.NewPolicies(schema.RecoveryToken{})
+	recoverytoken.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := recoverytoken.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	recoverytokenFields := schema.RecoveryToken{}.Fields()
+	_ = recoverytokenFields
+	// recoverytokenDescTokenHash is the schema descriptor for token_hash field.
+	recoverytokenDescTokenHash := recoverytokenFields[1].Descriptor()
+	// recoverytoken.TokenHashValidator is a validator for the "token_hash" field. It is called by the builders before save.
+	recoverytoken.TokenHashValidator = func() func(string) error {
+		validators := recoverytokenDescTokenHash.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(token_hash string) error {
+			for _, fn := range fns {
+				if err := fn(token_hash); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// recoverytokenDescCreatedAt is the schema descriptor for created_at field.
+	recoverytokenDescCreatedAt := recoverytokenFields[2].Descriptor()
+	// recoverytoken.DefaultCreatedAt holds the default value on creation for the created_at field.
+	recoverytoken.DefaultCreatedAt = recoverytokenDescCreatedAt.Default.(func() time.Time)
 	registrationpolicy.Policy = privacy.NewPolicies(schema.RegistrationPolicy{})
 	registrationpolicy.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

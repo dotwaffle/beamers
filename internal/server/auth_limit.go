@@ -162,6 +162,18 @@ func registrationFailureKeys(
 		}
 }
 
+func recoveryFailureKeys(
+	request *http.Request,
+	handle string,
+) (authFailureKey, authFailureKey) {
+	client := authClientAddress(request)
+	return authFailureKey{value: "client|" + client, limit: clientFailureLimit},
+		authFailureKey{
+			value: "recovery|" + client + "|" + authFingerprint(handle),
+			limit: principalFailureLimit,
+		}
+}
+
 func uploadLimitKeys(request *http.Request, token string) (authFailureKey, authFailureKey) {
 	client := authClientAddress(request)
 	return authFailureKey{value: "upload-client|" + client, limit: 60},

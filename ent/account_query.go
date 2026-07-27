@@ -24,6 +24,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/favoritesession"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/predicate"
+	"github.com/dotwaffle/beamers/ent/recoverycode"
+	"github.com/dotwaffle/beamers/ent/recoverytoken"
 )
 
 // AccountQuery is the builder for querying Account entities.
@@ -37,6 +39,8 @@ type AccountQuery struct {
 	withPreference         *AccountPreferenceQuery
 	withProfile            *AccountProfileQuery
 	withSessions           *AccountSessionQuery
+	withRecoveryCodes      *RecoveryCodeQuery
+	withRecoveryTokens     *RecoveryTokenQuery
 	withEventGrants        *EventGrantQuery
 	withFavoriteSessions   *FavoriteSessionQuery
 	withAuditEntries       *AuditEntryQuery
@@ -159,6 +163,50 @@ func (_q *AccountQuery) QuerySessions() *AccountSessionQuery {
 			sqlgraph.From(account.Table, account.FieldID, selector),
 			sqlgraph.To(accountsession.Table, accountsession.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, account.SessionsTable, account.SessionsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryRecoveryCodes chains the current query on the "recovery_codes" edge.
+func (_q *AccountQuery) QueryRecoveryCodes() *RecoveryCodeQuery {
+	query := (&RecoveryCodeClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, selector),
+			sqlgraph.To(recoverycode.Table, recoverycode.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.RecoveryCodesTable, account.RecoveryCodesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryRecoveryTokens chains the current query on the "recovery_tokens" edge.
+func (_q *AccountQuery) QueryRecoveryTokens() *RecoveryTokenQuery {
+	query := (&RecoveryTokenClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, selector),
+			sqlgraph.To(recoverytoken.Table, recoverytoken.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.RecoveryTokensTable, account.RecoveryTokensColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -472,6 +520,8 @@ func (_q *AccountQuery) Clone() *AccountQuery {
 		withPreference:         _q.withPreference.Clone(),
 		withProfile:            _q.withProfile.Clone(),
 		withSessions:           _q.withSessions.Clone(),
+		withRecoveryCodes:      _q.withRecoveryCodes.Clone(),
+		withRecoveryTokens:     _q.withRecoveryTokens.Clone(),
 		withEventGrants:        _q.withEventGrants.Clone(),
 		withFavoriteSessions:   _q.withFavoriteSessions.Clone(),
 		withAuditEntries:       _q.withAuditEntries.Clone(),
@@ -524,6 +574,28 @@ func (_q *AccountQuery) WithSessions(opts ...func(*AccountSessionQuery)) *Accoun
 		opt(query)
 	}
 	_q.withSessions = query
+	return _q
+}
+
+// WithRecoveryCodes tells the query-builder to eager-load the nodes that are connected to
+// the "recovery_codes" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AccountQuery) WithRecoveryCodes(opts ...func(*RecoveryCodeQuery)) *AccountQuery {
+	query := (&RecoveryCodeClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withRecoveryCodes = query
+	return _q
+}
+
+// WithRecoveryTokens tells the query-builder to eager-load the nodes that are connected to
+// the "recovery_tokens" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AccountQuery) WithRecoveryTokens(opts ...func(*RecoveryTokenQuery)) *AccountQuery {
+	query := (&RecoveryTokenClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withRecoveryTokens = query
 	return _q
 }
 
@@ -666,11 +738,13 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	var (
 		nodes       = []*Account{}
 		_spec       = _q.querySpec()
-		loadedTypes = [9]bool{
+		loadedTypes = [11]bool{
 			_q.withPasswordCredential != nil,
 			_q.withPreference != nil,
 			_q.withProfile != nil,
 			_q.withSessions != nil,
+			_q.withRecoveryCodes != nil,
+			_q.withRecoveryTokens != nil,
 			_q.withEventGrants != nil,
 			_q.withFavoriteSessions != nil,
 			_q.withAuditEntries != nil,
@@ -718,6 +792,20 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 		if err := _q.loadSessions(ctx, query, nodes,
 			func(n *Account) { n.Edges.Sessions = []*AccountSession{} },
 			func(n *Account, e *AccountSession) { n.Edges.Sessions = append(n.Edges.Sessions, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withRecoveryCodes; query != nil {
+		if err := _q.loadRecoveryCodes(ctx, query, nodes,
+			func(n *Account) { n.Edges.RecoveryCodes = []*RecoveryCode{} },
+			func(n *Account, e *RecoveryCode) { n.Edges.RecoveryCodes = append(n.Edges.RecoveryCodes, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withRecoveryTokens; query != nil {
+		if err := _q.loadRecoveryTokens(ctx, query, nodes,
+			func(n *Account) { n.Edges.RecoveryTokens = []*RecoveryToken{} },
+			func(n *Account, e *RecoveryToken) { n.Edges.RecoveryTokens = append(n.Edges.RecoveryTokens, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -855,6 +943,66 @@ func (_q *AccountQuery) loadSessions(ctx context.Context, query *AccountSessionQ
 	}
 	query.Where(predicate.AccountSession(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(account.SessionsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.AccountID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "account_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *AccountQuery) loadRecoveryCodes(ctx context.Context, query *RecoveryCodeQuery, nodes []*Account, init func(*Account), assign func(*Account, *RecoveryCode)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Account)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(recoverycode.FieldAccountID)
+	}
+	query.Where(predicate.RecoveryCode(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(account.RecoveryCodesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.AccountID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "account_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *AccountQuery) loadRecoveryTokens(ctx context.Context, query *RecoveryTokenQuery, nodes []*Account, init func(*Account), assign func(*Account, *RecoveryToken)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Account)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(recoverytoken.FieldAccountID)
+	}
+	query.Where(predicate.RecoveryToken(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(account.RecoveryTokensColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

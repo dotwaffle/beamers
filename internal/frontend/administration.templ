@@ -29,6 +29,8 @@ type AdministrationPage struct {
 	AccountCommandID string
 	GrantCommandID string
 	DisableCommandIDs map[int]string
+	RecoveryCommandIDs map[int]string
+	RecoveryToken  *auth.RecoveryToken
 	SlugAliases []events.EventSlugAlias
 	PruneAliasCommandIDs map[int]string
 	AuditEntries   []auth.AuditEntry
@@ -50,6 +52,14 @@ templ Administration(page AdministrationPage) {
 					<h1>Accounts, Event Grants, and activation</h1>
 					if page.Error != "" {
 						<p role="alert">{ page.Error }</p>
+					}
+					if page.RecoveryToken != nil {
+						<section role="status">
+							<h2>Administrator Recovery Token</h2>
+							<p>Give this token to the verified Account owner now. It will not be shown again.</p>
+							<p><code data-recovery-token>{ page.RecoveryToken.Token }</code></p>
+							<p>Expires { page.RecoveryToken.ExpiresAt.UTC().Format(time.RFC3339) }.</p>
+						</section>
 					}
 					<section>
 						<h2>Accounts</h2>
@@ -75,6 +85,17 @@ templ Administration(page AdministrationPage) {
 											</select>
 										</label>
 										<button type="submit">Disable Account</button>
+									</form>
+									<form method="post" action="/backstage/administration">
+										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+										<input type="hidden" name="action" value="issue-recovery-token"/>
+										<input type="hidden" name="command_id" value={ page.RecoveryCommandIDs[account.ID] }/>
+										<input type="hidden" name="account_id" value={ strconv.Itoa(account.ID) }/>
+										<label>
+											Offline verification
+											<input name="reason" maxlength="1000" required/>
+										</label>
+										<button type="submit">Issue Recovery Token</button>
 									</form>
 								</li>
 							}

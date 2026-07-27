@@ -1267,6 +1267,51 @@ var (
 			},
 		},
 	}
+	// RecoveryCodesColumns holds the columns for the "recovery_codes" table.
+	RecoveryCodesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "code_hash", Type: field.TypeString, Unique: true, Size: 64},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "used_at", Type: field.TypeTime, Nullable: true},
+		{Name: "account_id", Type: field.TypeInt},
+	}
+	// RecoveryCodesTable holds the schema information for the "recovery_codes" table.
+	RecoveryCodesTable = &schema.Table{
+		Name:       "recovery_codes",
+		Columns:    RecoveryCodesColumns,
+		PrimaryKey: []*schema.Column{RecoveryCodesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "recovery_codes_accounts_recovery_codes",
+				Columns:    []*schema.Column{RecoveryCodesColumns[4]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
+	// RecoveryTokensColumns holds the columns for the "recovery_tokens" table.
+	RecoveryTokensColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "token_hash", Type: field.TypeString, Unique: true, Size: 64},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "used_at", Type: field.TypeTime, Nullable: true},
+		{Name: "account_id", Type: field.TypeInt},
+	}
+	// RecoveryTokensTable holds the schema information for the "recovery_tokens" table.
+	RecoveryTokensTable = &schema.Table{
+		Name:       "recovery_tokens",
+		Columns:    RecoveryTokensColumns,
+		PrimaryKey: []*schema.Column{RecoveryTokensColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "recovery_tokens_accounts_recovery_tokens",
+				Columns:    []*schema.Column{RecoveryTokensColumns[5]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
 	// RegistrationPoliciesColumns holds the columns for the "registration_policies" table.
 	RegistrationPoliciesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -1943,6 +1988,8 @@ var (
 		PrizegivingCompetitionsTable,
 		PublicScheduleBaselinesTable,
 		PublicScheduleBaselineEntriesTable,
+		RecoveryCodesTable,
+		RecoveryTokensTable,
 		RegistrationPoliciesTable,
 		ReleasedProfileEntriesTable,
 		ReopenWindowsTable,
@@ -2027,6 +2074,8 @@ func init() {
 	PublicScheduleBaselinesTable.ForeignKeys[0].RefTable = EventsTable
 	PublicScheduleBaselineEntriesTable.ForeignKeys[0].RefTable = PublicScheduleBaselinesTable
 	PublicScheduleBaselineEntriesTable.ForeignKeys[1].RefTable = SessionsTable
+	RecoveryCodesTable.ForeignKeys[0].RefTable = AccountsTable
+	RecoveryTokensTable.ForeignKeys[0].RefTable = AccountsTable
 	ResultsCorrectionsTable.ForeignKeys[0].RefTable = EventsTable
 	ResultsPublicationsTable.ForeignKeys[0].RefTable = EventsTable
 	RundownsTable.ForeignKeys[0].RefTable = EventsTable

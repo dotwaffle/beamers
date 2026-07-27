@@ -335,9 +335,10 @@ func TestAuthenticateUsesOnlyUnexpiredPreviouslyValidatedSessionDuringStorageFai
 		Now: func() time.Time {
 			return now
 		},
-		Random:       testRandomReader{},
-		BootstrapTTL: time.Hour,
-		SessionTTL:   time.Hour,
+		Random:           testRandomReader{},
+		BootstrapTTL:     time.Hour,
+		RecoveryTokenTTL: time.Hour,
+		SessionTTL:       time.Hour,
 	})
 	if err != nil {
 		t.Fatalf("create authentication service: %v", err)
@@ -364,10 +365,11 @@ func TestAuthenticateUsesOnlyUnexpiredPreviouslyValidatedSessionDuringStorageFai
 		Now: func() time.Time {
 			return now
 		},
-		Random:       testRandomReader{},
-		BootstrapTTL: time.Hour,
-		SessionTTL:   time.Hour,
-		StorageState: unwarmedState,
+		Random:           testRandomReader{},
+		BootstrapTTL:     time.Hour,
+		RecoveryTokenTTL: time.Hour,
+		SessionTTL:       time.Hour,
+		StorageState:     unwarmedState,
 	})
 	if err != nil {
 		t.Fatalf("create unwarmed authentication service: %v", err)
@@ -490,9 +492,10 @@ func TestSignInBoundsSessionsAndPrunesExpiryWithoutTokenReuse(t *testing.T) {
 		Now: func() time.Time {
 			return now
 		},
-		Random:       &incrementingRandomReader{},
-		BootstrapTTL: time.Hour,
-		SessionTTL:   time.Hour,
+		Random:           &incrementingRandomReader{},
+		BootstrapTTL:     time.Hour,
+		RecoveryTokenTTL: time.Hour,
+		SessionTTL:       time.Hour,
 	})
 	if err != nil {
 		t.Fatalf("create authentication service: %v", err)
@@ -571,6 +574,253 @@ func TestSignInBoundsSessionsAndPrunesExpiryWithoutTokenReuse(t *testing.T) {
 	}
 }
 
+func TestAccountRecoveryIsSingleUseDurableAndRevokesSessions(t *testing.T) {
+	service, administrator := openAccountTestService(t)
+	service.random = &incrementingRandomReader{}
+	now := time.Date(2026, time.July, 27, 15, 0, 0, 0, time.UTC)
+	service.now = func() time.Time { return now }
+
+	participant, err := service.Register(
+		t.Context(),
+		"pat",
+		"Pat Participant",
+		"participant correct horse battery staple",
+	)
+	if err != nil {
+		t.Fatalf("register participant: %v", err)
+	}
+	oldSession, err := service.SignIn(
+		t.Context(),
+		participant.Handle,
+		"participant correct horse battery staple",
+	)
+	if err != nil {
+		t.Fatalf("sign in participant: %v", err)
+	}
+
+	oldCodes, err := service.ReplaceRecoveryCodes(
+		t.Context(),
+		participant,
+		"replace-first-recovery-codes",
+	)
+	if err != nil {
+		t.Fatalf("generate first Recovery Codes: %v", err)
+	}
+	if _, err = service.ReplaceRecoveryCodes(
+		t.Context(),
+		participant,
+		"replace-first-recovery-codes",
+	); !errors.Is(err, ErrRecoveryCodesAlreadyReplaced) {
+		t.Fatalf(
+			"retried Recovery Code replacement error = %v, want %v",
+			err,
+			ErrRecoveryCodesAlreadyReplaced,
+		)
+	}
+	codes, err := service.ReplaceRecoveryCodes(
+		t.Context(),
+		participant,
+		"replace-recovery-codes-again",
+	)
+	if err != nil {
+		t.Fatalf("replace Recovery Codes: %v", err)
+	}
+	if len(codes) != recoveryCodeCount || reflect.DeepEqual(oldCodes, codes) {
+		t.Fatalf("replacement Recovery Codes = %v", codes)
+	}
+	if _, err = service.Recover(
+		t.Context(),
+		participant.Handle,
+		oldCodes[0],
+		"replacement correct horse battery staple",
+		"recover-with-replaced-code",
+	); !errors.Is(err, ErrAuthenticationFailed) {
+		t.Fatalf("replaced Recovery Code error = %v, want %v", err, ErrAuthenticationFailed)
+	}
+
+	restarted, err := New(service.storage, Config{
+		Now:              service.now,
+		Random:           service.random,
+		BootstrapTTL:     time.Hour,
+		SessionTTL:       time.Hour,
+		RecoveryTokenTTL: 15 * time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("restart authentication service: %v", err)
+	}
+	recovered, err := restarted.Recover(
+		t.Context(),
+		participant.Handle,
+		codes[0],
+		"replacement correct horse battery staple",
+		"recover-with-current-code",
+	)
+	if err != nil {
+		t.Fatalf("recover with Account code after restart: %v", err)
+	}
+	if recovered.Account.ID != participant.ID {
+		t.Fatalf("recovered Account = %+v, want %d", recovered.Account, participant.ID)
+	}
+	if _, err = restarted.Authenticate(t.Context(), oldSession.Token); !errors.Is(
+		err,
+		ErrInvalidSession,
+	) {
+		t.Fatalf("old session error = %v, want %v", err, ErrInvalidSession)
+	}
+	if _, err = restarted.Recover(
+		t.Context(),
+		participant.Handle,
+		codes[0],
+		"replacement correct horse battery staple",
+		"recover-with-current-code",
+	); !errors.Is(err, ErrRecoveryAlreadyCompleted) {
+		t.Fatalf("retried Recovery command error = %v, want %v", err, ErrRecoveryAlreadyCompleted)
+	}
+	if _, err = restarted.Recover(
+		t.Context(),
+		participant.Handle,
+		codes[0],
+		"another replacement horse battery staple",
+		"reuse-current-code",
+	); !errors.Is(err, ErrAuthenticationFailed) {
+		t.Fatalf("reused Recovery Code error = %v, want %v", err, ErrAuthenticationFailed)
+	}
+
+	token, err := restarted.IssueRecoveryToken(
+		t.Context(),
+		administrator,
+		participant.ID,
+		"verified government ID in person",
+		"issue-participant-recovery",
+	)
+	if err != nil {
+		t.Fatalf("issue Administrator Recovery Token: %v", err)
+	}
+	if token.Token == "" || !token.ExpiresAt.Equal(now.Add(15*time.Minute)) {
+		t.Fatalf("Administrator Recovery Token = %+v", token)
+	}
+	if _, err = restarted.Authenticate(t.Context(), recovered.Token); !errors.Is(
+		err,
+		ErrInvalidSession,
+	) {
+		t.Fatalf("session after Administrator recovery error = %v, want %v", err, ErrInvalidSession)
+	}
+	now = now.Add(15 * time.Minute)
+	if _, err = restarted.Recover(
+		t.Context(),
+		participant.Handle,
+		token.Token,
+		"expired token horse battery staple",
+		"recover-with-expired-token",
+	); !errors.Is(err, ErrAuthenticationFailed) {
+		t.Fatalf("expired Administrator Recovery Token error = %v, want %v", err, ErrAuthenticationFailed)
+	}
+	validToken, err := restarted.IssueRecoveryToken(
+		t.Context(),
+		administrator,
+		participant.ID,
+		"verified participant again",
+		"issue-participant-recovery-again",
+	)
+	if err != nil {
+		t.Fatalf("reissue Administrator Recovery Token: %v", err)
+	}
+	if _, err = restarted.Recover(
+		t.Context(),
+		participant.Handle,
+		validToken.Token,
+		"administrator recovered horse battery staple",
+		"recover-with-administrator-token",
+	); err != nil {
+		t.Fatalf("consume Administrator Recovery Token: %v", err)
+	}
+	if _, err = restarted.SignIn(
+		t.Context(),
+		participant.Handle,
+		"administrator recovered horse battery staple",
+	); err != nil {
+		t.Fatalf("sign in with recovered Credential: %v", err)
+	}
+	if _, err = restarted.SignIn(
+		t.Context(),
+		participant.Handle,
+		"replacement correct horse battery staple",
+	); !errors.Is(err, ErrAuthenticationFailed) {
+		t.Fatalf("replaced Credential error = %v, want %v", err, ErrAuthenticationFailed)
+	}
+	if _, err = restarted.Recover(
+		t.Context(),
+		participant.Handle,
+		validToken.Token,
+		"reused administrator horse battery staple",
+		"reuse-administrator-token",
+	); !errors.Is(err, ErrAuthenticationFailed) {
+		t.Fatalf("reused Administrator Recovery Token error = %v, want %v", err, ErrAuthenticationFailed)
+	}
+	if _, err = restarted.IssueRecoveryToken(
+		t.Context(),
+		administrator,
+		administrator.ID,
+		"last Administrator forgot password",
+		"issue-last-administrator-recovery",
+	); !errors.Is(err, ErrLastAdministrator) {
+		t.Fatalf("last Administrator recovery error = %v, want %v", err, ErrLastAdministrator)
+	}
+	administratorCodes, err := restarted.ReplaceRecoveryCodes(
+		t.Context(),
+		administrator,
+		"replace-last-administrator-codes",
+	)
+	if err != nil {
+		t.Fatalf("replace last Administrator Recovery Codes: %v", err)
+	}
+	if _, err = restarted.Recover(
+		t.Context(),
+		administrator.Handle,
+		administratorCodes[0],
+		"administrator host recovery required",
+		"recover-last-administrator-with-code",
+	); !errors.Is(err, ErrAuthenticationFailed) {
+		t.Fatalf(
+			"last Administrator Recovery Code error = %v, want %v",
+			err,
+			ErrAuthenticationFailed,
+		)
+	}
+
+	audit, err := restarted.ListAuditEntries(t.Context(), administrator)
+	if err != nil {
+		t.Fatalf("list recovery Audit Entries: %v", err)
+	}
+	succeeded := make(map[string]int)
+	foundRecoveryAudit := false
+	secrets := append(append(append([]string{}, oldCodes...), codes...), administratorCodes...)
+	secrets = append(secrets, token.Token, validToken.Token)
+	for _, entry := range audit {
+		if entry.Outcome == "Succeeded" {
+			succeeded[entry.Action]++
+		}
+		if entry.Action == "IssueAccountRecoveryToken" &&
+			entry.Outcome == "Succeeded" &&
+			entry.Reason == "verified government ID in person" {
+			foundRecoveryAudit = true
+		}
+		for _, secret := range secrets {
+			if strings.Contains(entry.Reason, secret) || strings.Contains(entry.Note, secret) {
+				t.Fatalf("recovery Audit Entry contains a secret: %+v", entry)
+			}
+		}
+	}
+	if !foundRecoveryAudit {
+		t.Fatal("Administrator recovery Audit Entry not found")
+	}
+	if succeeded["ReplaceRecoveryCodes"] != 3 ||
+		succeeded["RecoverAccount"] != 2 ||
+		succeeded["IssueAccountRecoveryToken"] != 2 {
+		t.Fatalf("recovery Audit Entry actions = %v", succeeded)
+	}
+}
+
 func openAccountTestService(t *testing.T) (*Service, Account) {
 	t.Helper()
 	dataDir := t.TempDir()
@@ -587,10 +837,11 @@ func openAccountTestService(t *testing.T) (*Service, Account) {
 		}
 	})
 	service, err := New(storage, Config{
-		Now:          time.Now,
-		Random:       testRandomReader{},
-		BootstrapTTL: time.Hour,
-		SessionTTL:   time.Hour,
+		Now:              time.Now,
+		Random:           testRandomReader{},
+		BootstrapTTL:     time.Hour,
+		SessionTTL:       time.Hour,
+		RecoveryTokenTTL: 15 * time.Minute,
 	})
 	if err != nil {
 		t.Fatalf("create authentication service: %v", err)

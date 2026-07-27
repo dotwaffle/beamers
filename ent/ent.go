@@ -52,6 +52,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
+	"github.com/dotwaffle/beamers/ent/recoverycode"
+	"github.com/dotwaffle/beamers/ent/recoverytoken"
 	"github.com/dotwaffle/beamers/ent/registrationpolicy"
 	"github.com/dotwaffle/beamers/ent/releasedprofileentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
@@ -168,6 +170,8 @@ func checkColumn(t, c string) error {
 			prizegivingcompetition.Table:      prizegivingcompetition.ValidColumn,
 			publicschedulebaseline.Table:      publicschedulebaseline.ValidColumn,
 			publicschedulebaselineentry.Table: publicschedulebaselineentry.ValidColumn,
+			recoverycode.Table:                recoverycode.ValidColumn,
+			recoverytoken.Table:               recoverytoken.ValidColumn,
 			registrationpolicy.Table:          registrationpolicy.ValidColumn,
 			releasedprofileentry.Table:        releasedprofileentry.ValidColumn,
 			reopenwindow.Table:                reopenwindow.ValidColumn,

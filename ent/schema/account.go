@@ -46,6 +46,8 @@ func (Account) Edges() []ent.Edge {
 		edge.To("preference", AccountPreference.Type).Unique(),
 		edge.To("profile", AccountProfile.Type).Unique(),
 		edge.To("sessions", AccountSession.Type),
+		edge.To("recovery_codes", RecoveryCode.Type),
+		edge.To("recovery_tokens", RecoveryToken.Type),
 		edge.To("event_grants", EventGrant.Type),
 		edge.To("favorite_sessions", FavoriteSession.Type),
 		edge.To("audit_entries", AuditEntry.Type),

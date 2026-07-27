@@ -22,6 +22,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/favoritesession"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/predicate"
+	"github.com/dotwaffle/beamers/ent/recoverycode"
+	"github.com/dotwaffle/beamers/ent/recoverytoken"
 )
 
 // AccountUpdate is the builder for updating Account entities.
@@ -157,6 +159,36 @@ func (_u *AccountUpdate) AddSessions(v ...*AccountSession) *AccountUpdate {
 	return _u.AddSessionIDs(ids...)
 }
 
+// AddRecoveryCodeIDs adds the "recovery_codes" edge to the RecoveryCode entity by IDs.
+func (_u *AccountUpdate) AddRecoveryCodeIDs(ids ...int) *AccountUpdate {
+	_u.mutation.AddRecoveryCodeIDs(ids...)
+	return _u
+}
+
+// AddRecoveryCodes adds the "recovery_codes" edges to the RecoveryCode entity.
+func (_u *AccountUpdate) AddRecoveryCodes(v ...*RecoveryCode) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRecoveryCodeIDs(ids...)
+}
+
+// AddRecoveryTokenIDs adds the "recovery_tokens" edge to the RecoveryToken entity by IDs.
+func (_u *AccountUpdate) AddRecoveryTokenIDs(ids ...int) *AccountUpdate {
+	_u.mutation.AddRecoveryTokenIDs(ids...)
+	return _u
+}
+
+// AddRecoveryTokens adds the "recovery_tokens" edges to the RecoveryToken entity.
+func (_u *AccountUpdate) AddRecoveryTokens(v ...*RecoveryToken) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRecoveryTokenIDs(ids...)
+}
+
 // AddEventGrantIDs adds the "event_grants" edge to the EventGrant entity by IDs.
 func (_u *AccountUpdate) AddEventGrantIDs(ids ...int) *AccountUpdate {
 	_u.mutation.AddEventGrantIDs(ids...)
@@ -274,6 +306,48 @@ func (_u *AccountUpdate) RemoveSessions(v ...*AccountSession) *AccountUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveSessionIDs(ids...)
+}
+
+// ClearRecoveryCodes clears all "recovery_codes" edges to the RecoveryCode entity.
+func (_u *AccountUpdate) ClearRecoveryCodes() *AccountUpdate {
+	_u.mutation.ClearRecoveryCodes()
+	return _u
+}
+
+// RemoveRecoveryCodeIDs removes the "recovery_codes" edge to RecoveryCode entities by IDs.
+func (_u *AccountUpdate) RemoveRecoveryCodeIDs(ids ...int) *AccountUpdate {
+	_u.mutation.RemoveRecoveryCodeIDs(ids...)
+	return _u
+}
+
+// RemoveRecoveryCodes removes "recovery_codes" edges to RecoveryCode entities.
+func (_u *AccountUpdate) RemoveRecoveryCodes(v ...*RecoveryCode) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRecoveryCodeIDs(ids...)
+}
+
+// ClearRecoveryTokens clears all "recovery_tokens" edges to the RecoveryToken entity.
+func (_u *AccountUpdate) ClearRecoveryTokens() *AccountUpdate {
+	_u.mutation.ClearRecoveryTokens()
+	return _u
+}
+
+// RemoveRecoveryTokenIDs removes the "recovery_tokens" edge to RecoveryToken entities by IDs.
+func (_u *AccountUpdate) RemoveRecoveryTokenIDs(ids ...int) *AccountUpdate {
+	_u.mutation.RemoveRecoveryTokenIDs(ids...)
+	return _u
+}
+
+// RemoveRecoveryTokens removes "recovery_tokens" edges to RecoveryToken entities.
+func (_u *AccountUpdate) RemoveRecoveryTokens(v ...*RecoveryToken) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRecoveryTokenIDs(ids...)
 }
 
 // ClearEventGrants clears all "event_grants" edges to the EventGrant entity.
@@ -572,6 +646,96 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(accountsession.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RecoveryCodesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.RecoveryCodesTable,
+			Columns: []string{account.RecoveryCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(recoverycode.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRecoveryCodesIDs(); len(nodes) > 0 && !_u.mutation.RecoveryCodesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.RecoveryCodesTable,
+			Columns: []string{account.RecoveryCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(recoverycode.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RecoveryCodesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.RecoveryCodesTable,
+			Columns: []string{account.RecoveryCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(recoverycode.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RecoveryTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.RecoveryTokensTable,
+			Columns: []string{account.RecoveryTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(recoverytoken.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRecoveryTokensIDs(); len(nodes) > 0 && !_u.mutation.RecoveryTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.RecoveryTokensTable,
+			Columns: []string{account.RecoveryTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(recoverytoken.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RecoveryTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.RecoveryTokensTable,
+			Columns: []string{account.RecoveryTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(recoverytoken.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -944,6 +1108,36 @@ func (_u *AccountUpdateOne) AddSessions(v ...*AccountSession) *AccountUpdateOne 
 	return _u.AddSessionIDs(ids...)
 }
 
+// AddRecoveryCodeIDs adds the "recovery_codes" edge to the RecoveryCode entity by IDs.
+func (_u *AccountUpdateOne) AddRecoveryCodeIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.AddRecoveryCodeIDs(ids...)
+	return _u
+}
+
+// AddRecoveryCodes adds the "recovery_codes" edges to the RecoveryCode entity.
+func (_u *AccountUpdateOne) AddRecoveryCodes(v ...*RecoveryCode) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRecoveryCodeIDs(ids...)
+}
+
+// AddRecoveryTokenIDs adds the "recovery_tokens" edge to the RecoveryToken entity by IDs.
+func (_u *AccountUpdateOne) AddRecoveryTokenIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.AddRecoveryTokenIDs(ids...)
+	return _u
+}
+
+// AddRecoveryTokens adds the "recovery_tokens" edges to the RecoveryToken entity.
+func (_u *AccountUpdateOne) AddRecoveryTokens(v ...*RecoveryToken) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRecoveryTokenIDs(ids...)
+}
+
 // AddEventGrantIDs adds the "event_grants" edge to the EventGrant entity by IDs.
 func (_u *AccountUpdateOne) AddEventGrantIDs(ids ...int) *AccountUpdateOne {
 	_u.mutation.AddEventGrantIDs(ids...)
@@ -1061,6 +1255,48 @@ func (_u *AccountUpdateOne) RemoveSessions(v ...*AccountSession) *AccountUpdateO
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveSessionIDs(ids...)
+}
+
+// ClearRecoveryCodes clears all "recovery_codes" edges to the RecoveryCode entity.
+func (_u *AccountUpdateOne) ClearRecoveryCodes() *AccountUpdateOne {
+	_u.mutation.ClearRecoveryCodes()
+	return _u
+}
+
+// RemoveRecoveryCodeIDs removes the "recovery_codes" edge to RecoveryCode entities by IDs.
+func (_u *AccountUpdateOne) RemoveRecoveryCodeIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.RemoveRecoveryCodeIDs(ids...)
+	return _u
+}
+
+// RemoveRecoveryCodes removes "recovery_codes" edges to RecoveryCode entities.
+func (_u *AccountUpdateOne) RemoveRecoveryCodes(v ...*RecoveryCode) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRecoveryCodeIDs(ids...)
+}
+
+// ClearRecoveryTokens clears all "recovery_tokens" edges to the RecoveryToken entity.
+func (_u *AccountUpdateOne) ClearRecoveryTokens() *AccountUpdateOne {
+	_u.mutation.ClearRecoveryTokens()
+	return _u
+}
+
+// RemoveRecoveryTokenIDs removes the "recovery_tokens" edge to RecoveryToken entities by IDs.
+func (_u *AccountUpdateOne) RemoveRecoveryTokenIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.RemoveRecoveryTokenIDs(ids...)
+	return _u
+}
+
+// RemoveRecoveryTokens removes "recovery_tokens" edges to RecoveryToken entities.
+func (_u *AccountUpdateOne) RemoveRecoveryTokens(v ...*RecoveryToken) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRecoveryTokenIDs(ids...)
 }
 
 // ClearEventGrants clears all "event_grants" edges to the EventGrant entity.
@@ -1389,6 +1625,96 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(accountsession.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RecoveryCodesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.RecoveryCodesTable,
+			Columns: []string{account.RecoveryCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(recoverycode.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRecoveryCodesIDs(); len(nodes) > 0 && !_u.mutation.RecoveryCodesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.RecoveryCodesTable,
+			Columns: []string{account.RecoveryCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(recoverycode.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RecoveryCodesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.RecoveryCodesTable,
+			Columns: []string{account.RecoveryCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(recoverycode.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RecoveryTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.RecoveryTokensTable,
+			Columns: []string{account.RecoveryTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(recoverytoken.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRecoveryTokensIDs(); len(nodes) > 0 && !_u.mutation.RecoveryTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.RecoveryTokensTable,
+			Columns: []string{account.RecoveryTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(recoverytoken.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RecoveryTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.RecoveryTokensTable,
+			Columns: []string{account.RecoveryTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(recoverytoken.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

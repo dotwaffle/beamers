@@ -126,6 +126,12 @@ type PublicScheduleBaseline func(*sql.Selector)
 // PublicScheduleBaselineEntry is the predicate function for publicschedulebaselineentry builders.
 type PublicScheduleBaselineEntry func(*sql.Selector)
 
+// RecoveryCode is the predicate function for recoverycode builders.
+type RecoveryCode func(*sql.Selector)
+
+// RecoveryToken is the predicate function for recoverytoken builders.
+type RecoveryToken func(*sql.Selector)
+
 // RegistrationPolicy is the predicate function for registrationpolicy builders.
 type RegistrationPolicy func(*sql.Selector)
 

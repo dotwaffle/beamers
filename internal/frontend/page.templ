@@ -112,7 +112,7 @@ templ Register(
 	</html>
 }
 
-templ ProfilePage(csrfToken string, profile auth.Profile, reducedEffects bool, backstage bool) {
+templ ProfilePage(csrfToken string, profile auth.Profile, recoveryCodes []string, recoveryCommandID string, reducedEffects bool, backstage bool) {
 	<!doctype html>
 	<html lang="en">
 		@Head("Profile · Beamers")
@@ -142,6 +142,23 @@ templ ProfilePage(csrfToken string, profile auth.Profile, reducedEffects bool, b
 				if profile.Published {
 					<p><a href={ templ.SafeURL("/people/" + profile.Handle) }>View Public Profile</a></p>
 				}
+				<section>
+					<h2>Account recovery</h2>
+					if len(recoveryCodes) > 0 {
+						<p role="status">Save these Recovery Codes now. They will not be shown again.</p>
+						<ul>
+							for _, code := range recoveryCodes {
+								<li><code data-recovery-code>{ code }</code></li>
+							}
+						</ul>
+					}
+					<form method="post" action="/profile">
+						<input type="hidden" name="csrf_token" value={ csrfToken }/>
+						<input type="hidden" name="action" value="replace-recovery-codes"/>
+						<input type="hidden" name="command_id" value={ recoveryCommandID }/>
+						<button type="submit">Replace Recovery Codes</button>
+					</form>
+				</section>
 			</main>
 		</body>
 	</html>
@@ -404,6 +421,40 @@ templ SignIn(csrfToken string, message string, handle string, returnTo string, r
 						<input type="password" name="password" autocomplete="current-password" required/>
 					</label>
 					<button type="submit">Sign in</button>
+				</form>
+				<p><a href="/recover">Use a Recovery Code or Administrator Recovery Token</a></p>
+			</main>
+		</body>
+	</html>
+}
+
+templ Recover(csrfToken string, message string, handle string, commandID string, reducedEffects bool) {
+	<!doctype html>
+	<html lang="en">
+		@Head("Recover Account · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
+			@Navigation("", csrfToken, reducedEffects, false)
+			<main>
+				<h1>Recover Account</h1>
+				if message != "" {
+					<p class="error" role="alert">{ message }</p>
+				}
+				<form class="stack" method="post" action="/recover">
+					<input type="hidden" name="csrf_token" value={ csrfToken }/>
+					<input type="hidden" name="command_id" value={ commandID }/>
+					<label>
+						Account Handle
+						<input name="handle" value={ handle } autocomplete="username" required/>
+					</label>
+					<label>
+						Recovery Code or Administrator Recovery Token
+						<input name="credential" autocomplete="one-time-code" required/>
+					</label>
+					<label>
+						New Password
+						<input type="password" name="password" autocomplete="new-password" minlength="12" required/>
+					</label>
+					<button type="submit">Recover Account</button>
 				</form>
 			</main>
 		</body>

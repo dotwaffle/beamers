@@ -27,14 +27,16 @@ import (
 )
 
 const (
-	defaultBootstrapTTL = 15 * time.Minute
-	defaultSessionTTL   = 12 * time.Hour
-	tokenBytes          = 32
-	saltBytes           = 16
-	passwordHashBytes   = 32
-	argonTime           = 3
-	argonMemory         = 64 * 1024
-	argonThreads        = 4
+	defaultBootstrapTTL     = 15 * time.Minute
+	defaultRecoveryTokenTTL = 15 * time.Minute
+	defaultSessionTTL       = 12 * time.Hour
+	recoveryCodeCount       = 8
+	tokenBytes              = 32
+	saltBytes               = 16
+	passwordHashBytes       = 32
+	argonTime               = 3
+	argonMemory             = 64 * 1024
+	argonThreads            = 4
 	// Each Argon2id operation reserves 64 MiB. Cap simultaneous KDF memory at
 	// 128 MiB while permitting two independent Crew Members to authenticate.
 	passwordMemoryBudget = 128 * 1024
@@ -67,6 +69,16 @@ var (
 	ErrLastAdministrator = store.ErrLastAdministrator
 	// ErrDisableReasonRequired means retirement lacks safe audit evidence.
 	ErrDisableReasonRequired = errors.New("disable reason is required")
+	// ErrRecoveryReasonRequired means assisted recovery lacks offline verification evidence.
+	ErrRecoveryReasonRequired = errors.New("recovery verification reason is required")
+	// ErrRecoveryAccountNotFound means assisted recovery targeted no enabled Account.
+	ErrRecoveryAccountNotFound = errors.New("recovery Account not found")
+	// ErrRecoveryTokenAlreadyIssued means a retry cannot reveal a write-only token.
+	ErrRecoveryTokenAlreadyIssued = errors.New("recovery token was already issued")
+	// ErrRecoveryCodesAlreadyReplaced means a retry cannot reveal write-only codes.
+	ErrRecoveryCodesAlreadyReplaced = errors.New("recovery codes were already replaced")
+	// ErrRecoveryAlreadyCompleted means a retry cannot recreate its write-only session.
+	ErrRecoveryAlreadyCompleted = errors.New("Account recovery was already completed")
 	// ErrCommandConflict means a Command ID was reused for different Account work.
 	ErrCommandConflict = store.ErrCommandConflict
 	// ErrStorageDegraded means only previously validated sessions may continue
@@ -123,6 +135,12 @@ type Session struct {
 	Account   Account
 }
 
+// RecoveryToken is a write-only Administrator-assisted Account recovery credential.
+type RecoveryToken struct {
+	Token     string
+	ExpiresAt time.Time
+}
+
 // SessionCounts is token-free bounded authentication diagnostic data.
 type SessionCounts struct {
 	Active          int
@@ -133,11 +151,12 @@ type SessionCounts struct {
 
 // Config contains explicit authentication dependencies and lifetimes.
 type Config struct {
-	Now          func() time.Time
-	Random       io.Reader
-	BootstrapTTL time.Duration
-	SessionTTL   time.Duration
-	StorageState StorageState
+	Now              func() time.Time
+	Random           io.Reader
+	BootstrapTTL     time.Duration
+	RecoveryTokenTTL time.Duration
+	SessionTTL       time.Duration
+	StorageState     StorageState
 	// AllowDemoPassword permits the fixed weak credential only while seeding demo data.
 	AllowDemoPassword bool
 }
@@ -151,10 +170,11 @@ type StorageState interface {
 // DefaultConfig returns production authentication dependencies and lifetimes.
 func DefaultConfig() Config {
 	return Config{
-		Now:          time.Now,
-		Random:       rand.Reader,
-		BootstrapTTL: defaultBootstrapTTL,
-		SessionTTL:   defaultSessionTTL,
+		Now:              time.Now,
+		Random:           rand.Reader,
+		BootstrapTTL:     defaultBootstrapTTL,
+		RecoveryTokenTTL: defaultRecoveryTokenTTL,
+		SessionTTL:       defaultSessionTTL,
 	}
 }
 
@@ -164,6 +184,7 @@ type Service struct {
 	now               func() time.Time
 	random            io.Reader
 	bootstrapTTL      time.Duration
+	recoveryTokenTTL  time.Duration
 	sessionTTL        time.Duration
 	dummyHash         string
 	passwordWork      chan struct{}
@@ -192,6 +213,9 @@ func New(storage *store.SQLite, config Config) (*Service, error) {
 	if config.BootstrapTTL <= 0 {
 		return nil, errors.New("bootstrap lifetime must be positive")
 	}
+	if config.RecoveryTokenTTL <= 0 {
+		return nil, errors.New("recovery token lifetime must be positive")
+	}
 	if config.SessionTTL <= 0 {
 		return nil, errors.New("session lifetime must be positive")
 	}
@@ -209,6 +233,7 @@ func New(storage *store.SQLite, config Config) (*Service, error) {
 		now:               config.Now,
 		random:            config.Random,
 		bootstrapTTL:      config.BootstrapTTL,
+		recoveryTokenTTL:  config.RecoveryTokenTTL,
 		sessionTTL:        config.SessionTTL,
 		dummyHash:         dummyHash,
 		passwordWork:      make(chan struct{}, passwordConcurrency),
@@ -368,6 +393,276 @@ func (service *Service) SignIn(ctx context.Context, name, password string) (Sess
 	session := newSession(token, expiresAt, credential)
 	service.rememberSession(token, session.Account, expiresAt)
 	return session, nil
+}
+
+// ReplaceRecoveryCodes invalidates prior codes and returns one write-only replacement set.
+func (service *Service) ReplaceRecoveryCodes(
+	ctx context.Context,
+	actor Account,
+	commandID string,
+) ([]string, error) {
+	if service.storageDegraded() {
+		return nil, ErrStorageDegraded
+	}
+	if actor.ID <= 0 {
+		return nil, ErrInvalidSession
+	}
+	if err := command.ValidateID(commandID); err != nil {
+		return nil, ErrInvalidAccountDetails
+	}
+	codes := make([]string, recoveryCodeCount)
+	hashes := make([]string, recoveryCodeCount)
+	for index := range codes {
+		code, err := service.newToken()
+		if err != nil {
+			return nil, err
+		}
+		codes[index] = code
+		hashes[index] = tokenDigest(code)
+	}
+	now := service.now().UTC()
+	result, err := command.Execute(actor.Context(ctx), command.Plan[[]string]{
+		Storage: service.storage,
+		Identity: store.CommandIdentity{
+			ActorAccountID: actor.ID,
+			CommandID:      commandID,
+			PayloadHash:    command.PayloadHash(strconv.Itoa(actor.ID)),
+			Action:         "ReplaceRecoveryCodes",
+			TargetType:     "Account",
+			TargetID:       strconv.Itoa(actor.ID),
+			Now:            now,
+		},
+		Replay: func(outcome string) ([]string, error) {
+			var original struct {
+				Count int `json:"count"`
+			}
+			if decodeErr := store.DecodeCommandReceipt(outcome, &original); decodeErr != nil {
+				return nil, decodeErr
+			}
+			return nil, nil
+		},
+		Apply: func(transaction *store.CommandTx) (command.Execution[[]string], error) {
+			if replaceErr := transaction.ReplaceRecoveryCodes(
+				actor.Context(ctx),
+				actor.ID,
+				hashes,
+				now,
+			); replaceErr != nil {
+				return command.Execution[[]string]{}, replaceErr
+			}
+			outcome, encodeErr := json.Marshal(struct {
+				Count int `json:"count"`
+			}{Count: len(codes)})
+			if encodeErr != nil {
+				return command.Execution[[]string]{}, errors.New(
+					"encode Recovery Code replacement outcome",
+				)
+			}
+			return command.Success(codes, string(outcome)), nil
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(result) == 0 {
+		return nil, ErrRecoveryCodesAlreadyReplaced
+	}
+	return result, nil
+}
+
+// Recover consumes one Account or Administrator recovery credential and
+// replaces the Account password and sessions atomically.
+func (service *Service) Recover(
+	ctx context.Context,
+	handle string,
+	secret string,
+	password string,
+	commandID string,
+) (Session, error) {
+	if service.storageDegraded() {
+		return Session{}, ErrStorageDegraded
+	}
+	normalizedName, _, nameErr := normalizeAccountName(handle)
+	if nameErr != nil || !validToken(secret) {
+		return Session{}, ErrAuthenticationFailed
+	}
+	if err := command.ValidateID(commandID); err != nil {
+		return Session{}, ErrInvalidAccountDetails
+	}
+	if !service.validPassword(password) {
+		return Session{}, ErrInvalidAccountDetails
+	}
+	passwordHash, err := service.hashPassword(password)
+	if err != nil {
+		return Session{}, err
+	}
+	sessionToken, err := service.newToken()
+	if err != nil {
+		return Session{}, err
+	}
+	now := service.now().UTC()
+	expiresAt := now.Add(service.sessionTTL)
+	secretHash := tokenDigest(secret)
+	recoverable, err := service.storage.FindRecoveryTarget(ctx, normalizedName)
+	if errors.Is(err, store.ErrInvalidRecovery) {
+		return Session{}, ErrAuthenticationFailed
+	}
+	if err != nil {
+		return Session{}, err
+	}
+	type recoveryCommandResult struct {
+		account store.AccountCredential
+		applied bool
+	}
+	recovered, err := command.Execute(
+		account(recoverable).Context(ctx),
+		command.Plan[recoveryCommandResult]{
+			Storage: service.storage,
+			Identity: store.CommandIdentity{
+				ActorAccountID: recoverable.ID,
+				CommandID:      commandID,
+				PayloadHash:    command.PayloadHash(normalizedName),
+				Action:         "RecoverAccount",
+				TargetType:     "Account",
+				TargetID:       strconv.Itoa(recoverable.ID),
+				Now:            now,
+			},
+			Replay: func(outcome string) (recoveryCommandResult, error) {
+				var original store.AccountCredential
+				if decodeErr := store.DecodeCommandReceipt(outcome, &original); decodeErr != nil {
+					return recoveryCommandResult{}, decodeErr
+				}
+				return recoveryCommandResult{account: original}, nil
+			},
+			Apply: func(transaction *store.CommandTx) (
+				command.Execution[recoveryCommandResult],
+				error,
+			) {
+				updated, recoverErr := transaction.RecoverAccount(
+					account(recoverable).Context(ctx),
+					store.RecoverAccountParams{
+						NormalizedName: normalizedName,
+						SecretHash:     secretHash,
+						PasswordHash:   passwordHash,
+						SessionHash:    tokenDigest(sessionToken),
+						Now:            now,
+						SessionExpiry:  expiresAt,
+					},
+				)
+				if recoverErr != nil {
+					return command.Execution[recoveryCommandResult]{}, recoverErr
+				}
+				outcome, encodeErr := json.Marshal(updated)
+				if encodeErr != nil {
+					return command.Execution[recoveryCommandResult]{}, errors.New(
+						"encode Account recovery outcome",
+					)
+				}
+				return command.Success(
+					recoveryCommandResult{account: updated, applied: true},
+					string(outcome),
+				), nil
+			},
+		},
+	)
+	if errors.Is(err, store.ErrInvalidRecovery) || errors.Is(err, store.ErrLastAdministrator) {
+		return Session{}, ErrAuthenticationFailed
+	}
+	if err != nil {
+		return Session{}, err
+	}
+	if !recovered.applied {
+		return Session{}, ErrRecoveryAlreadyCompleted
+	}
+	service.forgetAccountSessions(recovered.account.ID)
+	session := newSession(sessionToken, expiresAt, recovered.account)
+	service.rememberSession(sessionToken, session.Account, expiresAt)
+	return session, nil
+}
+
+// IssueRecoveryToken creates one audited Administrator-assisted recovery grant.
+func (service *Service) IssueRecoveryToken(
+	ctx context.Context,
+	actor Account,
+	accountID int,
+	reason string,
+	commandID string,
+) (RecoveryToken, error) {
+	if service.storageDegraded() {
+		return RecoveryToken{}, ErrStorageDegraded
+	}
+	if err := command.ValidateID(commandID); err != nil {
+		return RecoveryToken{}, ErrInvalidAccountDetails
+	}
+	reason = strings.TrimSpace(reason)
+	token, err := service.newToken()
+	if err != nil {
+		return RecoveryToken{}, err
+	}
+	now := service.now().UTC()
+	expiresAt := now.Add(service.recoveryTokenTTL)
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID,
+		CommandID:      commandID,
+		PayloadHash:    command.PayloadHash(strconv.Itoa(accountID), reason),
+		Action:         "IssueAccountRecoveryToken",
+		TargetType:     "Account",
+		TargetID:       strconv.Itoa(accountID),
+		Now:            now,
+	}
+	result, err := command.Execute(actor.Context(ctx), command.Plan[RecoveryToken]{
+		Storage:  service.storage,
+		Identity: identity,
+		Replay: func(outcome string) (RecoveryToken, error) {
+			var original struct {
+				AccountID int `json:"account_id"`
+			}
+			if decodeErr := store.DecodeCommandReceipt(outcome, &original); decodeErr != nil {
+				return RecoveryToken{}, restoreRejected(decodeErr)
+			}
+			return RecoveryToken{}, nil
+		},
+		Apply: func(transaction *store.CommandTx) (command.Execution[RecoveryToken], error) {
+			switch {
+			case !actor.Administrator:
+				return accountRejectionExecution[RecoveryToken](ErrAdministratorRequired), nil
+			case reason == "" || len(reason) > 1000:
+				return accountRejectionExecution[RecoveryToken](ErrRecoveryReasonRequired), nil
+			}
+			issueErr := transaction.IssueRecoveryToken(actor.Context(ctx), store.RecoveryTokenParams{
+				AccountID: accountID,
+				TokenHash: tokenDigest(token),
+				Now:       now,
+				ExpiresAt: expiresAt,
+			})
+			switch {
+			case errors.Is(issueErr, store.ErrInvalidRecovery):
+				return accountRejectionExecution[RecoveryToken](ErrRecoveryAccountNotFound), nil
+			case errors.Is(issueErr, store.ErrLastAdministrator):
+				return accountRejectionExecution[RecoveryToken](ErrLastAdministrator), nil
+			case issueErr != nil:
+				return command.Execution[RecoveryToken]{}, issueErr
+			}
+			outcome, encodeErr := json.Marshal(struct {
+				AccountID int `json:"account_id"`
+			}{AccountID: accountID})
+			if encodeErr != nil {
+				return command.Execution[RecoveryToken]{}, errors.New("encode recovery token outcome")
+			}
+			return command.Success(
+				RecoveryToken{Token: token, ExpiresAt: expiresAt},
+				string(outcome),
+			).WithAudit(store.AuditDetails{Reason: reason}), nil
+		},
+	})
+	if err != nil {
+		return RecoveryToken{}, err
+	}
+	if result.Token == "" {
+		return RecoveryToken{}, ErrRecoveryTokenAlreadyIssued
+	}
+	service.forgetAccountSessions(accountID)
+	return result, nil
 }
 
 // SessionCounts returns token-free active durable and in-memory session counts.
@@ -772,6 +1067,10 @@ func accountRejection(reason error) store.CommandRejection {
 		return store.CommandRejection{Code: "account_not_found"}
 	case errors.Is(reason, ErrDisableReasonRequired):
 		return store.CommandRejection{Code: "disable_reason_required"}
+	case errors.Is(reason, ErrRecoveryReasonRequired):
+		return store.CommandRejection{Code: "recovery_reason_required"}
+	case errors.Is(reason, ErrRecoveryAccountNotFound):
+		return store.CommandRejection{Code: "recovery_account_not_found"}
 	case errors.Is(reason, ErrLastAdministrator):
 		return store.CommandRejection{Code: "last_administrator"}
 	default:
@@ -795,6 +1094,10 @@ func restoreRejected(err error) error {
 		return ErrDisableAccountNotFound
 	case "disable_reason_required":
 		return ErrDisableReasonRequired
+	case "recovery_reason_required":
+		return ErrRecoveryReasonRequired
+	case "recovery_account_not_found":
+		return ErrRecoveryAccountNotFound
 	case "last_administrator":
 		return ErrLastAdministrator
 	default:
@@ -1028,6 +1331,16 @@ func (service *Service) forgetSession(tokenHash string) {
 	service.sessionMu.Lock()
 	defer service.sessionMu.Unlock()
 	delete(service.sessions, tokenHash)
+}
+
+func (service *Service) forgetAccountSessions(accountID int) {
+	service.sessionMu.Lock()
+	defer service.sessionMu.Unlock()
+	for tokenHash, session := range service.sessions {
+		if session.account.ID == accountID {
+			delete(service.sessions, tokenHash)
+		}
+	}
 }
 
 func (service *Service) pruneSessionCache(now time.Time, revoked []string) {

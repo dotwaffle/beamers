@@ -18,6 +18,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/favoritesession"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
+	"github.com/dotwaffle/beamers/ent/recoverycode"
+	"github.com/dotwaffle/beamers/ent/recoverytoken"
 	"github.com/dotwaffle/beamers/internal/profilevalue"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
@@ -39,6 +41,8 @@ var (
 	ErrDisableAccountNotFound = errors.New("account not found")
 	// ErrLastAdministrator means retirement would leave no installation Administrator.
 	ErrLastAdministrator = errors.New("last Administrator cannot be disabled")
+	// ErrInvalidRecovery means a recovery credential is unknown, expired, or already used.
+	ErrInvalidRecovery = errors.New("invalid Account recovery credential")
 )
 
 // MaxActiveSessionsPerAccount is the durable concurrent Account session cap.
@@ -169,6 +173,24 @@ type CreateAccountParams struct {
 	Now            time.Time
 	CommandID      string
 	PayloadHash    string
+}
+
+// RecoverAccountParams contains the values needed to replace an Account password.
+type RecoverAccountParams struct {
+	NormalizedName string
+	SecretHash     string
+	PasswordHash   string
+	SessionHash    string
+	Now            time.Time
+	SessionExpiry  time.Time
+}
+
+// RecoveryTokenParams contains one Administrator-assisted recovery grant.
+type RecoveryTokenParams struct {
+	AccountID int
+	TokenHash string
+	Now       time.Time
+	ExpiresAt time.Time
 }
 
 // RegistrationOpen reports whether visitors may create Accounts.
@@ -416,6 +438,16 @@ func (transaction *CommandTx) DisableAccount(
 		Where(favoritesession.AccountIDEQ(accountID)).
 		Exec(internalContext); deleteErr != nil {
 		return DisabledAccount{}, opaqueError("detach Favorite Sessions", deleteErr)
+	}
+	if _, deleteErr := transaction.transaction.RecoveryCode.Delete().
+		Where(recoverycode.AccountIDEQ(accountID)).
+		Exec(internalContext); deleteErr != nil {
+		return DisabledAccount{}, opaqueError("detach Recovery Codes", deleteErr)
+	}
+	if _, deleteErr := transaction.transaction.RecoveryToken.Delete().
+		Where(recoverytoken.AccountIDEQ(accountID)).
+		Exec(internalContext); deleteErr != nil {
+		return DisabledAccount{}, opaqueError("detach Recovery Tokens", deleteErr)
 	}
 	updated, err := transaction.transaction.Account.Update().Where(
 		account.IDEQ(accountID),
@@ -672,6 +704,253 @@ func (installation *SQLite) ListAccounts(ctx context.Context) ([]AccountCredenti
 		accounts = append(accounts, accountCredential(item, ""))
 	}
 	return accounts, nil
+}
+
+// ReplaceRecoveryCodes invalidates prior codes and stores one replacement digest set.
+func (transaction *CommandTx) ReplaceRecoveryCodes(
+	ctx context.Context,
+	accountID int,
+	codeHashes []string,
+	now time.Time,
+) error {
+	ctx = systemContext(ctx)
+	if _, err := transaction.transaction.RecoveryCode.Delete().
+		Where(recoverycode.AccountIDEQ(accountID)).
+		Exec(ctx); err != nil {
+		return opaqueError("replace prior Recovery Codes", err)
+	}
+	builders := make([]*ent.RecoveryCodeCreate, 0, len(codeHashes))
+	for _, codeHash := range codeHashes {
+		builders = append(builders, transaction.transaction.RecoveryCode.Create().
+			SetAccountID(accountID).
+			SetCodeHash(codeHash).
+			SetCreatedAt(now))
+	}
+	if _, err := transaction.transaction.RecoveryCode.CreateBulk(builders...).Save(ctx); err != nil {
+		return opaqueError("store Recovery Codes", err)
+	}
+	return nil
+}
+
+// IssueRecoveryToken records one short-lived token and revokes the target's sessions.
+func (transaction *CommandTx) IssueRecoveryToken(
+	ctx context.Context,
+	params RecoveryTokenParams,
+) error {
+	authorizedContext := ctx
+	internalContext := systemContext(ctx)
+	target, err := transaction.transaction.Account.Query().Where(
+		account.IDEQ(params.AccountID),
+		account.DisabledAtIsNil(),
+	).Only(authorizedContext)
+	if ent.IsNotFound(err) {
+		return ErrInvalidRecovery
+	}
+	if err != nil {
+		return opaqueError("load recovery Account", err)
+	}
+	if target.Administrator {
+		administrators, countErr := transaction.transaction.Account.Query().Where(
+			account.AdministratorEQ(true),
+			account.DisabledAtIsNil(),
+		).Count(authorizedContext)
+		if countErr != nil {
+			return opaqueError("count enabled Administrators for recovery", countErr)
+		}
+		if administrators <= 1 {
+			return ErrLastAdministrator
+		}
+	}
+	if _, err = transaction.transaction.RecoveryToken.Delete().
+		Where(recoverytoken.AccountIDEQ(params.AccountID)).
+		Exec(internalContext); err != nil {
+		return opaqueError("replace prior Recovery Tokens", err)
+	}
+	if _, err = transaction.transaction.RecoveryToken.Create().
+		SetAccountID(params.AccountID).
+		SetTokenHash(params.TokenHash).
+		SetCreatedAt(params.Now).
+		SetExpiresAt(params.ExpiresAt).
+		Save(internalContext); err != nil {
+		return opaqueError("store Recovery Token", err)
+	}
+	if _, err = transaction.transaction.AccountSession.Update().
+		Where(
+			accountsession.AccountIDEQ(params.AccountID),
+			accountsession.RevokedAtIsNil(),
+		).
+		SetRevokedAt(params.Now).
+		Save(internalContext); err != nil {
+		return opaqueError("revoke Account sessions for recovery", err)
+	}
+	return nil
+}
+
+// FindRecoveryTarget identifies an enabled Account before its proof is
+// validated inside the recovery command transaction.
+func (installation *SQLite) FindRecoveryTarget(
+	ctx context.Context,
+	normalizedName string,
+) (AccountCredential, error) {
+	ctx = systemContext(ctx)
+	found, err := findEnabledRecoveryAccount(ctx, installation.client, normalizedName)
+	if err != nil {
+		return AccountCredential{}, err
+	}
+	return accountCredential(found, ""), nil
+}
+
+// RecoverAccount consumes one Account or Administrator recovery credential,
+// replaces the password, and creates the only post-recovery session.
+func (transaction *CommandTx) RecoverAccount(
+	ctx context.Context,
+	params RecoverAccountParams,
+) (AccountCredential, error) {
+	ctx = systemContext(ctx)
+	client := transaction.transaction.Client()
+	found, codeID, tokenID, err := findRecoveryAccount(
+		ctx,
+		client,
+		params.NormalizedName,
+		params.SecretHash,
+		params.Now,
+	)
+	if err != nil {
+		return AccountCredential{}, err
+	}
+	if codeID != 0 {
+		updated, updateErr := client.RecoveryCode.Update().Where(
+			recoverycode.IDEQ(codeID),
+			recoverycode.UsedAtIsNil(),
+		).SetUsedAt(params.Now).Save(ctx)
+		if updateErr != nil {
+			return AccountCredential{}, opaqueError("consume Recovery Code", updateErr)
+		}
+		if updated != 1 {
+			return AccountCredential{}, ErrInvalidRecovery
+		}
+	} else {
+		updated, updateErr := client.RecoveryToken.Update().Where(
+			recoverytoken.IDEQ(tokenID),
+			recoverytoken.UsedAtIsNil(),
+			recoverytoken.ExpiresAtGT(params.Now),
+		).SetUsedAt(params.Now).Save(ctx)
+		if updateErr != nil {
+			return AccountCredential{}, opaqueError("consume Recovery Token", updateErr)
+		}
+		if updated != 1 {
+			return AccountCredential{}, ErrInvalidRecovery
+		}
+	}
+	credential, err := client.PasswordCredential.Query().
+		Where(passwordcredential.AccountIDEQ(found.ID)).
+		Only(ctx)
+	switch {
+	case ent.IsNotFound(err):
+		_, err = client.PasswordCredential.Create().
+			SetAccountID(found.ID).
+			SetPasswordHash(params.PasswordHash).
+			SetCreatedAt(params.Now).
+			Save(ctx)
+	case err == nil:
+		_, err = credential.Update().
+			SetPasswordHash(params.PasswordHash).
+			ClearRevokedAt().
+			Save(ctx)
+	}
+	if err != nil {
+		return AccountCredential{}, opaqueError("replace Account password", err)
+	}
+	if _, err = client.AccountSession.Update().
+		Where(
+			accountsession.AccountIDEQ(found.ID),
+			accountsession.RevokedAtIsNil(),
+		).
+		SetRevokedAt(params.Now).
+		Save(ctx); err != nil {
+		return AccountCredential{}, opaqueError("revoke recovered Account sessions", err)
+	}
+	if err = createAccountSession(
+		ctx,
+		client.AccountSession,
+		found.ID,
+		params.SessionHash,
+		params.Now,
+		params.SessionExpiry,
+	); err != nil {
+		return AccountCredential{}, opaqueError("create recovered Account session", err)
+	}
+	return accountCredential(found, params.PasswordHash), nil
+}
+
+func findRecoveryAccount(
+	ctx context.Context,
+	client *ent.Client,
+	normalizedName string,
+	secretHash string,
+	now time.Time,
+) (*ent.Account, int, int, error) {
+	found, err := findEnabledRecoveryAccount(ctx, client, normalizedName)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	if found.Administrator {
+		administrators, countErr := client.Account.Query().Where(
+			account.AdministratorEQ(true),
+			account.DisabledAtIsNil(),
+		).Count(ctx)
+		if countErr != nil {
+			return nil, 0, 0, opaqueError(
+				"count enabled Administrators for recovery",
+				countErr,
+			)
+		}
+		if administrators <= 1 {
+			return nil, 0, 0, ErrLastAdministrator
+		}
+	}
+	code, codeErr := client.RecoveryCode.Query().Where(
+		recoverycode.AccountIDEQ(found.ID),
+		recoverycode.CodeHashEQ(secretHash),
+		recoverycode.UsedAtIsNil(),
+	).Only(ctx)
+	if code != nil {
+		return found, code.ID, 0, nil
+	}
+	if codeErr != nil && !ent.IsNotFound(codeErr) {
+		return nil, 0, 0, opaqueError("read Recovery Code", codeErr)
+	}
+	token, tokenErr := client.RecoveryToken.Query().Where(
+		recoverytoken.AccountIDEQ(found.ID),
+		recoverytoken.TokenHashEQ(secretHash),
+		recoverytoken.UsedAtIsNil(),
+		recoverytoken.ExpiresAtGT(now),
+	).Only(ctx)
+	if ent.IsNotFound(tokenErr) {
+		return nil, 0, 0, ErrInvalidRecovery
+	}
+	if tokenErr != nil {
+		return nil, 0, 0, opaqueError("read Recovery Token", tokenErr)
+	}
+	return found, 0, token.ID, nil
+}
+
+func findEnabledRecoveryAccount(
+	ctx context.Context,
+	client *ent.Client,
+	normalizedName string,
+) (*ent.Account, error) {
+	found, err := client.Account.Query().Where(
+		account.NormalizedNameEQ(normalizedName),
+		account.DisabledAtIsNil(),
+	).Only(ctx)
+	if ent.IsNotFound(err) {
+		return nil, ErrInvalidRecovery
+	}
+	if err != nil {
+		return nil, opaqueError("load Account for recovery", err)
+	}
+	return found, nil
 }
 
 // CreateAccountSession persists a new session for an authenticated Account.

@@ -489,6 +489,30 @@ func (f PublicScheduleBaselineEntryFunc) Mutate(ctx context.Context, m ent.Mutat
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PublicScheduleBaselineEntryMutation", m)
 }
 
+// The RecoveryCodeFunc type is an adapter to allow the use of ordinary
+// function as RecoveryCode mutator.
+type RecoveryCodeFunc func(context.Context, *ent.RecoveryCodeMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f RecoveryCodeFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.RecoveryCodeMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RecoveryCodeMutation", m)
+}
+
+// The RecoveryTokenFunc type is an adapter to allow the use of ordinary
+// function as RecoveryToken mutator.
+type RecoveryTokenFunc func(context.Context, *ent.RecoveryTokenMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f RecoveryTokenFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.RecoveryTokenMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RecoveryTokenMutation", m)
+}
+
 // The RegistrationPolicyFunc type is an adapter to allow the use of ordinary
 // function as RegistrationPolicy mutator.
 type RegistrationPolicyFunc func(context.Context, *ent.RegistrationPolicyMutation) (ent.Value, error)

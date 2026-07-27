@@ -20,6 +20,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/favoritesession"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
+	"github.com/dotwaffle/beamers/ent/recoverycode"
+	"github.com/dotwaffle/beamers/ent/recoverytoken"
 )
 
 // AccountCreate is the builder for creating a Account entity.
@@ -145,6 +147,36 @@ func (_c *AccountCreate) AddSessions(v ...*AccountSession) *AccountCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddSessionIDs(ids...)
+}
+
+// AddRecoveryCodeIDs adds the "recovery_codes" edge to the RecoveryCode entity by IDs.
+func (_c *AccountCreate) AddRecoveryCodeIDs(ids ...int) *AccountCreate {
+	_c.mutation.AddRecoveryCodeIDs(ids...)
+	return _c
+}
+
+// AddRecoveryCodes adds the "recovery_codes" edges to the RecoveryCode entity.
+func (_c *AccountCreate) AddRecoveryCodes(v ...*RecoveryCode) *AccountCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddRecoveryCodeIDs(ids...)
+}
+
+// AddRecoveryTokenIDs adds the "recovery_tokens" edge to the RecoveryToken entity by IDs.
+func (_c *AccountCreate) AddRecoveryTokenIDs(ids ...int) *AccountCreate {
+	_c.mutation.AddRecoveryTokenIDs(ids...)
+	return _c
+}
+
+// AddRecoveryTokens adds the "recovery_tokens" edges to the RecoveryToken entity.
+func (_c *AccountCreate) AddRecoveryTokens(v ...*RecoveryToken) *AccountCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddRecoveryTokenIDs(ids...)
 }
 
 // AddEventGrantIDs adds the "event_grants" edge to the EventGrant entity by IDs.
@@ -396,6 +428,38 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(accountsession.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.RecoveryCodesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.RecoveryCodesTable,
+			Columns: []string{account.RecoveryCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(recoverycode.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.RecoveryTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.RecoveryTokensTable,
+			Columns: []string{account.RecoveryTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(recoverytoken.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

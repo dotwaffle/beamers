@@ -55,6 +55,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/prizegivingcompetition"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
+	"github.com/dotwaffle/beamers/ent/recoverycode"
+	"github.com/dotwaffle/beamers/ent/recoverytoken"
 	"github.com/dotwaffle/beamers/ent/registrationpolicy"
 	"github.com/dotwaffle/beamers/ent/releasedprofileentry"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
@@ -160,6 +162,10 @@ type Client struct {
 	PublicScheduleBaseline *PublicScheduleBaselineClient
 	// PublicScheduleBaselineEntry is the client for interacting with the PublicScheduleBaselineEntry builders.
 	PublicScheduleBaselineEntry *PublicScheduleBaselineEntryClient
+	// RecoveryCode is the client for interacting with the RecoveryCode builders.
+	RecoveryCode *RecoveryCodeClient
+	// RecoveryToken is the client for interacting with the RecoveryToken builders.
+	RecoveryToken *RecoveryTokenClient
 	// RegistrationPolicy is the client for interacting with the RegistrationPolicy builders.
 	RegistrationPolicy *RegistrationPolicyClient
 	// ReleasedProfileEntry is the client for interacting with the ReleasedProfileEntry builders.
@@ -243,6 +249,8 @@ func (c *Client) init() {
 	c.PrizegivingCompetition = NewPrizegivingCompetitionClient(c.config)
 	c.PublicScheduleBaseline = NewPublicScheduleBaselineClient(c.config)
 	c.PublicScheduleBaselineEntry = NewPublicScheduleBaselineEntryClient(c.config)
+	c.RecoveryCode = NewRecoveryCodeClient(c.config)
+	c.RecoveryToken = NewRecoveryTokenClient(c.config)
 	c.RegistrationPolicy = NewRegistrationPolicyClient(c.config)
 	c.ReleasedProfileEntry = NewReleasedProfileEntryClient(c.config)
 	c.ReopenWindow = NewReopenWindowClient(c.config)
@@ -391,6 +399,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		PrizegivingCompetition:      NewPrizegivingCompetitionClient(cfg),
 		PublicScheduleBaseline:      NewPublicScheduleBaselineClient(cfg),
 		PublicScheduleBaselineEntry: NewPublicScheduleBaselineEntryClient(cfg),
+		RecoveryCode:                NewRecoveryCodeClient(cfg),
+		RecoveryToken:               NewRecoveryTokenClient(cfg),
 		RegistrationPolicy:          NewRegistrationPolicyClient(cfg),
 		ReleasedProfileEntry:        NewReleasedProfileEntryClient(cfg),
 		ReopenWindow:                NewReopenWindowClient(cfg),
@@ -466,6 +476,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		PrizegivingCompetition:      NewPrizegivingCompetitionClient(cfg),
 		PublicScheduleBaseline:      NewPublicScheduleBaselineClient(cfg),
 		PublicScheduleBaselineEntry: NewPublicScheduleBaselineEntryClient(cfg),
+		RecoveryCode:                NewRecoveryCodeClient(cfg),
+		RecoveryToken:               NewRecoveryTokenClient(cfg),
 		RegistrationPolicy:          NewRegistrationPolicyClient(cfg),
 		ReleasedProfileEntry:        NewReleasedProfileEntryClient(cfg),
 		ReopenWindow:                NewReopenWindowClient(cfg),
@@ -521,11 +533,12 @@ func (c *Client) Use(hooks ...Hook) {
 		c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion, c.Location,
 		c.LocationDraft, c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
 		c.Prizegiving, c.PrizegivingCompetition, c.PublicScheduleBaseline,
-		c.PublicScheduleBaselineEntry, c.RegistrationPolicy, c.ReleasedProfileEntry,
-		c.ReopenWindow, c.ResultsCorrection, c.ResultsPublication, c.Rundown,
-		c.Session, c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion,
-		c.SessionRun, c.SessionRunAmendment, c.Track, c.TrackDraft,
-		c.TrackPublishedVersion, c.UploadLink,
+		c.PublicScheduleBaselineEntry, c.RecoveryCode, c.RecoveryToken,
+		c.RegistrationPolicy, c.ReleasedProfileEntry, c.ReopenWindow,
+		c.ResultsCorrection, c.ResultsPublication, c.Rundown, c.Session,
+		c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
+		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion,
+		c.UploadLink,
 	} {
 		n.Use(hooks...)
 	}
@@ -545,11 +558,12 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion, c.Location,
 		c.LocationDraft, c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
 		c.Prizegiving, c.PrizegivingCompetition, c.PublicScheduleBaseline,
-		c.PublicScheduleBaselineEntry, c.RegistrationPolicy, c.ReleasedProfileEntry,
-		c.ReopenWindow, c.ResultsCorrection, c.ResultsPublication, c.Rundown,
-		c.Session, c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion,
-		c.SessionRun, c.SessionRunAmendment, c.Track, c.TrackDraft,
-		c.TrackPublishedVersion, c.UploadLink,
+		c.PublicScheduleBaselineEntry, c.RecoveryCode, c.RecoveryToken,
+		c.RegistrationPolicy, c.ReleasedProfileEntry, c.ReopenWindow,
+		c.ResultsCorrection, c.ResultsPublication, c.Rundown, c.Session,
+		c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
+		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion,
+		c.UploadLink,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -638,6 +652,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.PublicScheduleBaseline.mutate(ctx, m)
 	case *PublicScheduleBaselineEntryMutation:
 		return c.PublicScheduleBaselineEntry.mutate(ctx, m)
+	case *RecoveryCodeMutation:
+		return c.RecoveryCode.mutate(ctx, m)
+	case *RecoveryTokenMutation:
+		return c.RecoveryToken.mutate(ctx, m)
 	case *RegistrationPolicyMutation:
 		return c.RegistrationPolicy.mutate(ctx, m)
 	case *ReleasedProfileEntryMutation:
@@ -840,6 +858,38 @@ func (c *AccountClient) QuerySessions(_m *Account) *AccountSessionQuery {
 			sqlgraph.From(account.Table, account.FieldID, id),
 			sqlgraph.To(accountsession.Table, accountsession.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, account.SessionsTable, account.SessionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRecoveryCodes queries the recovery_codes edge of a Account.
+func (c *AccountClient) QueryRecoveryCodes(_m *Account) *RecoveryCodeQuery {
+	query := (&RecoveryCodeClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(recoverycode.Table, recoverycode.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.RecoveryCodesTable, account.RecoveryCodesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRecoveryTokens queries the recovery_tokens edge of a Account.
+func (c *AccountClient) QueryRecoveryTokens(_m *Account) *RecoveryTokenQuery {
+	query := (&RecoveryTokenClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(recoverytoken.Table, recoverytoken.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.RecoveryTokensTable, account.RecoveryTokensColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -7730,6 +7780,306 @@ func (c *PublicScheduleBaselineEntryClient) mutate(ctx context.Context, m *Publi
 	}
 }
 
+// RecoveryCodeClient is a client for the RecoveryCode schema.
+type RecoveryCodeClient struct {
+	config
+}
+
+// NewRecoveryCodeClient returns a client for the RecoveryCode from the given config.
+func NewRecoveryCodeClient(c config) *RecoveryCodeClient {
+	return &RecoveryCodeClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `recoverycode.Hooks(f(g(h())))`.
+func (c *RecoveryCodeClient) Use(hooks ...Hook) {
+	c.hooks.RecoveryCode = append(c.hooks.RecoveryCode, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `recoverycode.Intercept(f(g(h())))`.
+func (c *RecoveryCodeClient) Intercept(interceptors ...Interceptor) {
+	c.inters.RecoveryCode = append(c.inters.RecoveryCode, interceptors...)
+}
+
+// Create returns a builder for creating a RecoveryCode entity.
+func (c *RecoveryCodeClient) Create() *RecoveryCodeCreate {
+	mutation := newRecoveryCodeMutation(c.config, OpCreate)
+	return &RecoveryCodeCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of RecoveryCode entities.
+func (c *RecoveryCodeClient) CreateBulk(builders ...*RecoveryCodeCreate) *RecoveryCodeCreateBulk {
+	return &RecoveryCodeCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *RecoveryCodeClient) MapCreateBulk(slice any, setFunc func(*RecoveryCodeCreate, int)) *RecoveryCodeCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &RecoveryCodeCreateBulk{err: fmt.Errorf("calling to RecoveryCodeClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*RecoveryCodeCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &RecoveryCodeCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for RecoveryCode.
+func (c *RecoveryCodeClient) Update() *RecoveryCodeUpdate {
+	mutation := newRecoveryCodeMutation(c.config, OpUpdate)
+	return &RecoveryCodeUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *RecoveryCodeClient) UpdateOne(_m *RecoveryCode) *RecoveryCodeUpdateOne {
+	mutation := newRecoveryCodeMutation(c.config, OpUpdateOne, withRecoveryCode(_m))
+	return &RecoveryCodeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *RecoveryCodeClient) UpdateOneID(id int) *RecoveryCodeUpdateOne {
+	mutation := newRecoveryCodeMutation(c.config, OpUpdateOne, withRecoveryCodeID(id))
+	return &RecoveryCodeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for RecoveryCode.
+func (c *RecoveryCodeClient) Delete() *RecoveryCodeDelete {
+	mutation := newRecoveryCodeMutation(c.config, OpDelete)
+	return &RecoveryCodeDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *RecoveryCodeClient) DeleteOne(_m *RecoveryCode) *RecoveryCodeDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *RecoveryCodeClient) DeleteOneID(id int) *RecoveryCodeDeleteOne {
+	builder := c.Delete().Where(recoverycode.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &RecoveryCodeDeleteOne{builder}
+}
+
+// Query returns a query builder for RecoveryCode.
+func (c *RecoveryCodeClient) Query() *RecoveryCodeQuery {
+	return &RecoveryCodeQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeRecoveryCode},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a RecoveryCode entity by its id.
+func (c *RecoveryCodeClient) Get(ctx context.Context, id int) (*RecoveryCode, error) {
+	return c.Query().Where(recoverycode.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *RecoveryCodeClient) GetX(ctx context.Context, id int) *RecoveryCode {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryAccount queries the account edge of a RecoveryCode.
+func (c *RecoveryCodeClient) QueryAccount(_m *RecoveryCode) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(recoverycode.Table, recoverycode.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, recoverycode.AccountTable, recoverycode.AccountColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *RecoveryCodeClient) Hooks() []Hook {
+	hooks := c.hooks.RecoveryCode
+	return append(hooks[:len(hooks):len(hooks)], recoverycode.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *RecoveryCodeClient) Interceptors() []Interceptor {
+	return c.inters.RecoveryCode
+}
+
+func (c *RecoveryCodeClient) mutate(ctx context.Context, m *RecoveryCodeMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&RecoveryCodeCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&RecoveryCodeUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&RecoveryCodeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&RecoveryCodeDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown RecoveryCode mutation op: %q", m.Op())
+	}
+}
+
+// RecoveryTokenClient is a client for the RecoveryToken schema.
+type RecoveryTokenClient struct {
+	config
+}
+
+// NewRecoveryTokenClient returns a client for the RecoveryToken from the given config.
+func NewRecoveryTokenClient(c config) *RecoveryTokenClient {
+	return &RecoveryTokenClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `recoverytoken.Hooks(f(g(h())))`.
+func (c *RecoveryTokenClient) Use(hooks ...Hook) {
+	c.hooks.RecoveryToken = append(c.hooks.RecoveryToken, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `recoverytoken.Intercept(f(g(h())))`.
+func (c *RecoveryTokenClient) Intercept(interceptors ...Interceptor) {
+	c.inters.RecoveryToken = append(c.inters.RecoveryToken, interceptors...)
+}
+
+// Create returns a builder for creating a RecoveryToken entity.
+func (c *RecoveryTokenClient) Create() *RecoveryTokenCreate {
+	mutation := newRecoveryTokenMutation(c.config, OpCreate)
+	return &RecoveryTokenCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of RecoveryToken entities.
+func (c *RecoveryTokenClient) CreateBulk(builders ...*RecoveryTokenCreate) *RecoveryTokenCreateBulk {
+	return &RecoveryTokenCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *RecoveryTokenClient) MapCreateBulk(slice any, setFunc func(*RecoveryTokenCreate, int)) *RecoveryTokenCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &RecoveryTokenCreateBulk{err: fmt.Errorf("calling to RecoveryTokenClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*RecoveryTokenCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &RecoveryTokenCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for RecoveryToken.
+func (c *RecoveryTokenClient) Update() *RecoveryTokenUpdate {
+	mutation := newRecoveryTokenMutation(c.config, OpUpdate)
+	return &RecoveryTokenUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *RecoveryTokenClient) UpdateOne(_m *RecoveryToken) *RecoveryTokenUpdateOne {
+	mutation := newRecoveryTokenMutation(c.config, OpUpdateOne, withRecoveryToken(_m))
+	return &RecoveryTokenUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *RecoveryTokenClient) UpdateOneID(id int) *RecoveryTokenUpdateOne {
+	mutation := newRecoveryTokenMutation(c.config, OpUpdateOne, withRecoveryTokenID(id))
+	return &RecoveryTokenUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for RecoveryToken.
+func (c *RecoveryTokenClient) Delete() *RecoveryTokenDelete {
+	mutation := newRecoveryTokenMutation(c.config, OpDelete)
+	return &RecoveryTokenDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *RecoveryTokenClient) DeleteOne(_m *RecoveryToken) *RecoveryTokenDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *RecoveryTokenClient) DeleteOneID(id int) *RecoveryTokenDeleteOne {
+	builder := c.Delete().Where(recoverytoken.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &RecoveryTokenDeleteOne{builder}
+}
+
+// Query returns a query builder for RecoveryToken.
+func (c *RecoveryTokenClient) Query() *RecoveryTokenQuery {
+	return &RecoveryTokenQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeRecoveryToken},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a RecoveryToken entity by its id.
+func (c *RecoveryTokenClient) Get(ctx context.Context, id int) (*RecoveryToken, error) {
+	return c.Query().Where(recoverytoken.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *RecoveryTokenClient) GetX(ctx context.Context, id int) *RecoveryToken {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryAccount queries the account edge of a RecoveryToken.
+func (c *RecoveryTokenClient) QueryAccount(_m *RecoveryToken) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(recoverytoken.Table, recoverytoken.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, recoverytoken.AccountTable, recoverytoken.AccountColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *RecoveryTokenClient) Hooks() []Hook {
+	hooks := c.hooks.RecoveryToken
+	return append(hooks[:len(hooks):len(hooks)], recoverytoken.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *RecoveryTokenClient) Interceptors() []Interceptor {
+	return c.inters.RecoveryToken
+}
+
+func (c *RecoveryTokenClient) mutate(ctx context.Context, m *RecoveryTokenMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&RecoveryTokenCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&RecoveryTokenUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&RecoveryTokenUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&RecoveryTokenDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown RecoveryToken mutation op: %q", m.Op())
+	}
+}
+
 // RegistrationPolicyClient is a client for the RegistrationPolicy schema.
 type RegistrationPolicyClient struct {
 	config
@@ -10446,10 +10796,11 @@ type (
 		Installation, Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
 		LocationPublishedVersion, Migration, PasswordCredential, Prizegiving,
 		PrizegivingCompetition, PublicScheduleBaseline, PublicScheduleBaselineEntry,
-		RegistrationPolicy, ReleasedProfileEntry, ReopenWindow, ResultsCorrection,
-		ResultsPublication, Rundown, Session, SessionCancellation, SessionDraft,
-		SessionPublishedVersion, SessionRun, SessionRunAmendment, Track, TrackDraft,
-		TrackPublishedVersion, UploadLink []ent.Hook
+		RecoveryCode, RecoveryToken, RegistrationPolicy, ReleasedProfileEntry,
+		ReopenWindow, ResultsCorrection, ResultsPublication, Rundown, Session,
+		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
+		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
+		UploadLink []ent.Hook
 	}
 	inters struct {
 		Account, AccountPreference, AccountProfile, AccountSession, Attachment,
@@ -10461,10 +10812,11 @@ type (
 		Installation, Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
 		LocationPublishedVersion, Migration, PasswordCredential, Prizegiving,
 		PrizegivingCompetition, PublicScheduleBaseline, PublicScheduleBaselineEntry,
-		RegistrationPolicy, ReleasedProfileEntry, ReopenWindow, ResultsCorrection,
-		ResultsPublication, Rundown, Session, SessionCancellation, SessionDraft,
-		SessionPublishedVersion, SessionRun, SessionRunAmendment, Track, TrackDraft,
-		TrackPublishedVersion, UploadLink []ent.Interceptor
+		RecoveryCode, RecoveryToken, RegistrationPolicy, ReleasedProfileEntry,
+		ReopenWindow, ResultsCorrection, ResultsPublication, Rundown, Session,
+		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
+		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
+		UploadLink []ent.Interceptor
 	}
 )
 

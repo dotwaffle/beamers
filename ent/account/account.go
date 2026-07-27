@@ -33,6 +33,10 @@ const (
 	EdgeProfile = "profile"
 	// EdgeSessions holds the string denoting the sessions edge name in mutations.
 	EdgeSessions = "sessions"
+	// EdgeRecoveryCodes holds the string denoting the recovery_codes edge name in mutations.
+	EdgeRecoveryCodes = "recovery_codes"
+	// EdgeRecoveryTokens holds the string denoting the recovery_tokens edge name in mutations.
+	EdgeRecoveryTokens = "recovery_tokens"
 	// EdgeEventGrants holds the string denoting the event_grants edge name in mutations.
 	EdgeEventGrants = "event_grants"
 	// EdgeFavoriteSessions holds the string denoting the favorite_sessions edge name in mutations.
@@ -73,6 +77,20 @@ const (
 	SessionsInverseTable = "account_sessions"
 	// SessionsColumn is the table column denoting the sessions relation/edge.
 	SessionsColumn = "account_id"
+	// RecoveryCodesTable is the table that holds the recovery_codes relation/edge.
+	RecoveryCodesTable = "recovery_codes"
+	// RecoveryCodesInverseTable is the table name for the RecoveryCode entity.
+	// It exists in this package in order to avoid circular dependency with the "recoverycode" package.
+	RecoveryCodesInverseTable = "recovery_codes"
+	// RecoveryCodesColumn is the table column denoting the recovery_codes relation/edge.
+	RecoveryCodesColumn = "account_id"
+	// RecoveryTokensTable is the table that holds the recovery_tokens relation/edge.
+	RecoveryTokensTable = "recovery_tokens"
+	// RecoveryTokensInverseTable is the table name for the RecoveryToken entity.
+	// It exists in this package in order to avoid circular dependency with the "recoverytoken" package.
+	RecoveryTokensInverseTable = "recovery_tokens"
+	// RecoveryTokensColumn is the table column denoting the recovery_tokens relation/edge.
+	RecoveryTokensColumn = "account_id"
 	// EventGrantsTable is the table that holds the event_grants relation/edge.
 	EventGrantsTable = "event_grants"
 	// EventGrantsInverseTable is the table name for the EventGrant entity.
@@ -214,6 +232,34 @@ func BySessions(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByRecoveryCodesCount orders the results by recovery_codes count.
+func ByRecoveryCodesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newRecoveryCodesStep(), opts...)
+	}
+}
+
+// ByRecoveryCodes orders the results by recovery_codes terms.
+func ByRecoveryCodes(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newRecoveryCodesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByRecoveryTokensCount orders the results by recovery_tokens count.
+func ByRecoveryTokensCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newRecoveryTokensStep(), opts...)
+	}
+}
+
+// ByRecoveryTokens orders the results by recovery_tokens terms.
+func ByRecoveryTokens(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newRecoveryTokensStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByEventGrantsCount orders the results by event_grants count.
 func ByEventGrantsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -309,6 +355,20 @@ func newSessionsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(SessionsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, SessionsTable, SessionsColumn),
+	)
+}
+func newRecoveryCodesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(RecoveryCodesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, RecoveryCodesTable, RecoveryCodesColumn),
+	)
+}
+func newRecoveryTokensStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(RecoveryTokensInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, RecoveryTokensTable, RecoveryTokensColumn),
 	)
 }
 func newEventGrantsStep() *sqlgraph.Step {

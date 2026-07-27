@@ -63,6 +63,7 @@ func registerFrontendRoutes(
 	mux.HandleFunc("/setup", formRoute, handlers.setup)
 	mux.HandleFunc("/register", formRoute, handlers.register)
 	mux.HandleFunc("/sign-in", formRoute, handlers.signIn)
+	mux.HandleFunc("/recover", formRoute, handlers.recover)
 	mux.HandleFunc("/sign-out", formRoute, handlers.signOut)
 	mux.HandleFunc("/effects", formRoute, handlers.effects)
 	mux.HandleFunc("/profile", formRoute, handlers.profile)
@@ -186,6 +187,30 @@ func (handlers frontendHandlers) profile(response http.ResponseWriter, request *
 		if !handlers.validForm(response, request) {
 			return
 		}
+		if request.Form.Get("action") == "replace-recovery-codes" {
+			codes, replaceErr := handlers.authentication.ReplaceRecoveryCodes(
+				request.Context(),
+				actor,
+				request.Form.Get("command_id"),
+			)
+			switch {
+			case errors.Is(replaceErr, auth.ErrRecoveryCodesAlreadyReplaced):
+				http.Error(
+					response,
+					"Recovery Codes were already replaced and cannot be shown again.",
+					http.StatusConflict,
+				)
+				return
+			case errors.Is(replaceErr, auth.ErrInvalidAccountDetails):
+				http.Error(response, "invalid command identity", http.StatusBadRequest)
+				return
+			case replaceErr != nil:
+				handlers.frontendError(response, request, "replace Recovery Codes", replaceErr)
+				return
+			}
+			handlers.renderProfile(response, request, actor, csrfToken, codes)
+			return
+		}
 		entryIDs, parseErr := positiveFormIDs(request.Form["entry_id"])
 		if parseErr != nil {
 			http.Error(response, "invalid Profile Entry", http.StatusBadRequest)
@@ -212,9 +237,24 @@ func (handlers frontendHandlers) profile(response http.ResponseWriter, request *
 		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
 		return
 	}
+	handlers.renderProfile(response, request, actor, csrfToken, nil)
+}
+
+func (handlers frontendHandlers) renderProfile(
+	response http.ResponseWriter,
+	request *http.Request,
+	actor auth.Account,
+	csrfToken string,
+	recoveryCodes []string,
+) {
 	found, err := handlers.authentication.Profile(request.Context(), actor)
 	if err != nil {
 		handlers.frontendError(response, request, "read Profile", err)
+		return
+	}
+	recoveryCommandID, err := planningCommandID(handlers.random)
+	if err != nil {
+		handlers.frontendError(response, request, "create Recovery Code command identity", err)
 		return
 	}
 	handlers.render(
@@ -224,11 +264,106 @@ func (handlers frontendHandlers) profile(response http.ResponseWriter, request *
 		frontend.ProfilePage(
 			csrfToken,
 			found,
+			recoveryCodes,
+			recoveryCommandID,
 			reducedEffectsCookie(request),
 			backstageAccessible(request) &&
 				backstageAvailable(backstageNavigation(actor)),
 		),
 	)
+}
+
+func (handlers frontendHandlers) recover(response http.ResponseWriter, request *http.Request) {
+	csrfToken, err := handlers.csrfToken(response, request)
+	if err != nil {
+		handlers.frontendError(response, request, "create CSRF proof", err)
+		return
+	}
+	switch request.Method {
+	case http.MethodGet, http.MethodHead:
+		commandID, commandErr := planningCommandID(handlers.random)
+		if commandErr != nil {
+			handlers.frontendError(response, request, "create Account recovery command identity", commandErr)
+			return
+		}
+		handlers.render(
+			response,
+			request,
+			http.StatusOK,
+			frontend.Recover(csrfToken, "", "", commandID, reducedEffectsCookie(request)),
+		)
+		return
+	case http.MethodPost:
+	default:
+		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
+		return
+	}
+	if !handlers.validForm(response, request) {
+		return
+	}
+	handle := request.Form.Get("handle")
+	clientKey, accountKey := recoveryFailureKeys(request, handle)
+	if retryAfter, blocked := handlers.limiter.reserve(clientKey, accountKey); blocked {
+		writeAuthRateLimit(response, retryAfter)
+		return
+	}
+	session, err := handlers.authentication.Recover(
+		request.Context(),
+		handle,
+		request.Form.Get("credential"),
+		request.Form.Get("password"),
+		request.Form.Get("command_id"),
+	)
+	switch {
+	case errors.Is(err, auth.ErrAuthenticationBusy):
+		handlers.limiter.release(clientKey, accountKey)
+		writeAuthRateLimit(response, time.Second)
+	case errors.Is(err, auth.ErrAuthenticationFailed):
+		handlers.render(
+			response,
+			request,
+			http.StatusUnauthorized,
+			frontend.Recover(
+				csrfToken,
+				"Recovery failed.",
+				handle,
+				request.Form.Get("command_id"),
+				reducedEffectsCookie(request),
+			),
+		)
+	case errors.Is(err, auth.ErrInvalidAccountDetails):
+		handlers.limiter.release(clientKey, accountKey)
+		handlers.render(
+			response,
+			request,
+			http.StatusUnprocessableEntity,
+			frontend.Recover(
+				csrfToken,
+				"Choose a password of at least 12 characters.",
+				handle,
+				request.Form.Get("command_id"),
+				reducedEffectsCookie(request),
+			),
+		)
+	case errors.Is(err, auth.ErrRecoveryAlreadyCompleted):
+		handlers.limiter.release(clientKey, accountKey)
+		http.Error(
+			response,
+			"Account recovery already completed; sign in with the new password.",
+			http.StatusConflict,
+		)
+	case errors.Is(err, auth.ErrCommandConflict):
+		handlers.limiter.release(clientKey, accountKey)
+		http.Error(response, "command identity conflict", http.StatusConflict)
+	case err != nil:
+		handlers.limiter.release(clientKey, accountKey)
+		handlers.frontendError(response, request, "recover Account", err)
+	default:
+		handlers.limiter.release(clientKey, accountKey)
+		handlers.limiter.reset(accountKey)
+		setSessionCookie(response, request, session)
+		http.Redirect(response, request, "/", http.StatusSeeOther)
+	}
 }
 
 func (handlers frontendHandlers) publicProfile(

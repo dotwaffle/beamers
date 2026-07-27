@@ -94,6 +94,10 @@ type Tx struct {
 	PublicScheduleBaseline *PublicScheduleBaselineClient
 	// PublicScheduleBaselineEntry is the client for interacting with the PublicScheduleBaselineEntry builders.
 	PublicScheduleBaselineEntry *PublicScheduleBaselineEntryClient
+	// RecoveryCode is the client for interacting with the RecoveryCode builders.
+	RecoveryCode *RecoveryCodeClient
+	// RecoveryToken is the client for interacting with the RecoveryToken builders.
+	RecoveryToken *RecoveryTokenClient
 	// RegistrationPolicy is the client for interacting with the RegistrationPolicy builders.
 	RegistrationPolicy *RegistrationPolicyClient
 	// ReleasedProfileEntry is the client for interacting with the ReleasedProfileEntry builders.
@@ -297,6 +301,8 @@ func (tx *Tx) init() {
 	tx.PrizegivingCompetition = NewPrizegivingCompetitionClient(tx.config)
 	tx.PublicScheduleBaseline = NewPublicScheduleBaselineClient(tx.config)
 	tx.PublicScheduleBaselineEntry = NewPublicScheduleBaselineEntryClient(tx.config)
+	tx.RecoveryCode = NewRecoveryCodeClient(tx.config)
+	tx.RecoveryToken = NewRecoveryTokenClient(tx.config)
 	tx.RegistrationPolicy = NewRegistrationPolicyClient(tx.config)
 	tx.ReleasedProfileEntry = NewReleasedProfileEntryClient(tx.config)
 	tx.ReopenWindow = NewReopenWindowClient(tx.config)

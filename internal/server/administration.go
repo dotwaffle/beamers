@@ -69,7 +69,7 @@ func (handlers administrationHandlers) administration(
 	}
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
-		handlers.render(response, request, actor, csrfToken, http.StatusOK, "", nil)
+		handlers.render(response, request, actor, csrfToken, http.StatusOK, "", nil, nil)
 	case http.MethodPost:
 		if !handlers.browser.validForm(response, request) {
 			return
@@ -88,8 +88,9 @@ func (handlers administrationHandlers) submit(
 ) {
 	action := request.Form.Get("action")
 	var (
-		preflight *activation.Preflight
-		err       error
+		preflight     *activation.Preflight
+		recoveryToken *auth.RecoveryToken
+		err           error
 	)
 	switch action {
 	case "create-account":
@@ -98,6 +99,8 @@ func (handlers administrationHandlers) submit(
 		err = handlers.createGrant(request, actor)
 	case "disable-account":
 		err = handlers.disableAccount(request, actor)
+	case "issue-recovery-token":
+		recoveryToken, err = handlers.issueRecoveryToken(request, actor)
 	case "prune-event-slug-alias":
 		err = handlers.pruneEventSlugAlias(request, actor)
 	case "preflight":
@@ -108,14 +111,28 @@ func (handlers administrationHandlers) submit(
 		err = errUnknownAdministrationAction
 	}
 	if err == nil {
-		if preflight != nil {
-			handlers.render(response, request, actor, csrfToken, http.StatusOK, "", preflight)
+		if preflight != nil || recoveryToken != nil {
+			handlers.render(
+				response,
+				request,
+				actor,
+				csrfToken,
+				http.StatusOK,
+				"",
+				preflight,
+				recoveryToken,
+			)
 			return
 		}
 		http.Redirect(response, request, "/backstage/administration", http.StatusSeeOther)
 		return
 	}
 	status, message, known := administrationError(err)
+	if action == "issue-recovery-token" && errors.Is(err, auth.ErrLastAdministrator) {
+		status, message, known = http.StatusConflict,
+			"The last Administrator requires host recovery.",
+			true
+	}
 	if !known {
 		handlers.browser.frontendError(
 			response,
@@ -125,7 +142,7 @@ func (handlers administrationHandlers) submit(
 		)
 		return
 	}
-	handlers.render(response, request, actor, csrfToken, status, message, preflight)
+	handlers.render(response, request, actor, csrfToken, status, message, preflight, nil)
 }
 
 func (handlers administrationHandlers) pruneEventSlugAlias(
@@ -212,6 +229,27 @@ func (handlers administrationHandlers) disableAccount(
 	)
 }
 
+func (handlers administrationHandlers) issueRecoveryToken(
+	request *http.Request,
+	actor auth.Account,
+) (*auth.RecoveryToken, error) {
+	accountID, err := positiveAdministrationFormID(request, "account_id")
+	if err != nil {
+		return nil, err
+	}
+	token, err := handlers.browser.authentication.IssueRecoveryToken(
+		request.Context(),
+		actor,
+		accountID,
+		request.Form.Get("reason"),
+		request.Form.Get("command_id"),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &token, nil
+}
+
 func (handlers administrationHandlers) preflight(
 	request *http.Request,
 	actor auth.Account,
@@ -279,6 +317,7 @@ func (handlers administrationHandlers) render(
 	status int,
 	message string,
 	preflight *activation.Preflight,
+	recoveryToken *auth.RecoveryToken,
 ) {
 	accounts, err := handlers.browser.authentication.ListAccounts(request.Context(), actor)
 	if err != nil {
@@ -324,10 +363,21 @@ func (handlers administrationHandlers) render(
 		return
 	}
 	disableCommandIDs := make(map[int]string, len(accounts))
+	recoveryCommandIDs := make(map[int]string, len(accounts))
 	for _, account := range accounts {
 		disableCommandIDs[account.ID], err = planningCommandID(handlers.browser.random)
 		if err != nil {
 			handlers.browser.frontendError(response, request, "create Disable Account command identity", err)
+			return
+		}
+		recoveryCommandIDs[account.ID], err = planningCommandID(handlers.browser.random)
+		if err != nil {
+			handlers.browser.frontendError(
+				response,
+				request,
+				"create Account recovery command identity",
+				err,
+			)
 			return
 		}
 	}
@@ -363,6 +413,8 @@ func (handlers administrationHandlers) render(
 			AccountCommandID:     accountCommandID,
 			GrantCommandID:       grantCommandID,
 			DisableCommandIDs:    disableCommandIDs,
+			RecoveryCommandIDs:   recoveryCommandIDs,
+			RecoveryToken:        recoveryToken,
 			SlugAliases:          slugAliases,
 			PruneAliasCommandIDs: pruneAliasCommandIDs,
 			AuditEntries:         auditEntries,
@@ -409,6 +461,11 @@ func administrationError(err error) (int, string, bool) {
 		return http.StatusForbidden, "Administrator authority required.", true
 	case errors.Is(err, auth.ErrDisableReasonRequired), errors.Is(err, auth.ErrDisableAccountNotFound):
 		return http.StatusUnprocessableEntity, "Check the Disable Account details and try again.", true
+	case errors.Is(err, auth.ErrRecoveryReasonRequired),
+		errors.Is(err, auth.ErrRecoveryAccountNotFound):
+		return http.StatusUnprocessableEntity, "Check the Account recovery details and try again.", true
+	case errors.Is(err, auth.ErrRecoveryTokenAlreadyIssued):
+		return http.StatusConflict, "That Recovery Token was already issued and cannot be shown again.", true
 	case errors.Is(err, auth.ErrLastAdministrator):
 		return http.StatusConflict, "The last Administrator cannot be disabled.", true
 	case errors.Is(err, auth.ErrAuthenticationBusy):

@@ -402,6 +402,52 @@ func HasSessionsWith(preds ...predicate.AccountSession) predicate.Account {
 	})
 }
 
+// HasRecoveryCodes applies the HasEdge predicate on the "recovery_codes" edge.
+func HasRecoveryCodes() predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, RecoveryCodesTable, RecoveryCodesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasRecoveryCodesWith applies the HasEdge predicate on the "recovery_codes" edge with a given conditions (other predicates).
+func HasRecoveryCodesWith(preds ...predicate.RecoveryCode) predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := newRecoveryCodesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasRecoveryTokens applies the HasEdge predicate on the "recovery_tokens" edge.
+func HasRecoveryTokens() predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, RecoveryTokensTable, RecoveryTokensColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasRecoveryTokensWith applies the HasEdge predicate on the "recovery_tokens" edge with a given conditions (other predicates).
+func HasRecoveryTokensWith(preds ...predicate.RecoveryToken) predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := newRecoveryTokensStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasEventGrants applies the HasEdge predicate on the "event_grants" edge.
 func HasEventGrants() predicate.Account {
 	return predicate.Account(func(s *sql.Selector) {
