@@ -33,6 +33,7 @@ func (Account) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("name").NotEmpty().MaxLen(200),
 		field.String("normalized_name").NotEmpty().MaxLen(200).Unique(),
+		field.Bytes("webauthn_user_handle").Optional().Unique().Immutable().Sensitive(),
 		field.Bool("administrator").Immutable(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 		field.Time("disabled_at").Optional().Nillable(),
@@ -43,6 +44,7 @@ func (Account) Fields() []ent.Field {
 func (Account) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("password_credential", PasswordCredential.Type).Unique(),
+		edge.To("webauthn_credentials", WebAuthnCredential.Type),
 		edge.To("preference", AccountPreference.Type).Unique(),
 		edge.To("profile", AccountProfile.Type).Unique(),
 		edge.To("sessions", AccountSession.Type),

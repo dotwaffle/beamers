@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	sessionCookieName = "beamers_session"
-	maxAuthBodyBytes  = 8 << 10
+	sessionCookieName    = "beamers_session"
+	maxAuthBodyBytes     = 8 << 10
+	maxWebAuthnBodyBytes = 64 << 10
 )
 
 type authenticationHandlers struct {
@@ -45,6 +46,12 @@ func registerAuthenticationRoutes(
 	mux.HandleFunc("/auth/sign-in", crewRoute(), handlers.signIn)
 	mux.HandleFunc("/auth/session", crewRoute(), handlers.session)
 	mux.HandleFunc("/auth/sign-out", crewRoute(), handlers.signOut)
+	webAuthnRoute := browserPageRoute()
+	webAuthnRoute.maxBodyBytes = maxWebAuthnBodyBytes
+	mux.HandleFunc("/auth/webauthn/register/begin", webAuthnRoute, handlers.beginWebAuthnRegistration)
+	mux.HandleFunc("/auth/webauthn/register/finish", webAuthnRoute, handlers.finishWebAuthnRegistration)
+	mux.HandleFunc("/auth/webauthn/sign-in/begin", webAuthnRoute, handlers.beginWebAuthnSignIn)
+	mux.HandleFunc("/auth/webauthn/sign-in/finish", webAuthnRoute, handlers.finishWebAuthnSignIn)
 }
 
 func (handlers authenticationHandlers) bootstrap(
@@ -251,11 +258,20 @@ func requestAllowed(
 }
 
 func decodeAuthJSON(response http.ResponseWriter, request *http.Request, destination any) error {
+	return decodeAuthJSONLimit(response, request, destination, maxAuthBodyBytes)
+}
+
+func decodeAuthJSONLimit(
+	response http.ResponseWriter,
+	request *http.Request,
+	destination any,
+	limit int64,
+) error {
 	mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
 	if err != nil || mediaType != "application/json" {
 		return errors.New("authentication request must be JSON")
 	}
-	request.Body = http.MaxBytesReader(response, request.Body, maxAuthBodyBytes)
+	request.Body = http.MaxBytesReader(response, request.Body, limit)
 	decoder := json.NewDecoder(request.Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(destination); err != nil {

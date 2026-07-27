@@ -65,6 +65,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
 	"github.com/dotwaffle/beamers/ent/uploadlink"
+	"github.com/dotwaffle/beamers/ent/webauthncredential"
 
 	"entgo.io/ent"
 	"entgo.io/ent/privacy"
@@ -122,7 +123,7 @@ func init() {
 		}
 	}()
 	// accountDescCreatedAt is the schema descriptor for created_at field.
-	accountDescCreatedAt := accountFields[3].Descriptor()
+	accountDescCreatedAt := accountFields[4].Descriptor()
 	// account.DefaultCreatedAt holds the default value on creation for the created_at field.
 	account.DefaultCreatedAt = accountDescCreatedAt.Default.(func() time.Time)
 	accountpreference.Policy = privacy.NewPolicies(schema.AccountPreference{})
@@ -2537,6 +2538,47 @@ func init() {
 	uploadlinkDescCreatedAt := uploadlinkFields[5].Descriptor()
 	// uploadlink.DefaultCreatedAt holds the default value on creation for the created_at field.
 	uploadlink.DefaultCreatedAt = uploadlinkDescCreatedAt.Default.(func() time.Time)
+	webauthncredential.Policy = privacy.NewPolicies(schema.WebAuthnCredential{})
+	webauthncredential.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := webauthncredential.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	webauthncredentialFields := schema.WebAuthnCredential{}.Fields()
+	_ = webauthncredentialFields
+	// webauthncredentialDescCredentialID is the schema descriptor for credential_id field.
+	webauthncredentialDescCredentialID := webauthncredentialFields[1].Descriptor()
+	// webauthncredential.CredentialIDValidator is a validator for the "credential_id" field. It is called by the builders before save.
+	webauthncredential.CredentialIDValidator = webauthncredentialDescCredentialID.Validators[0].(func([]byte) error)
+	// webauthncredentialDescName is the schema descriptor for name field.
+	webauthncredentialDescName := webauthncredentialFields[2].Descriptor()
+	// webauthncredential.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	webauthncredential.NameValidator = func() func(string) error {
+		validators := webauthncredentialDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// webauthncredentialDescCredential is the schema descriptor for credential field.
+	webauthncredentialDescCredential := webauthncredentialFields[3].Descriptor()
+	// webauthncredential.CredentialValidator is a validator for the "credential" field. It is called by the builders before save.
+	webauthncredential.CredentialValidator = webauthncredentialDescCredential.Validators[0].(func([]byte) error)
+	// webauthncredentialDescCreatedAt is the schema descriptor for created_at field.
+	webauthncredentialDescCreatedAt := webauthncredentialFields[5].Descriptor()
+	// webauthncredential.DefaultCreatedAt holds the default value on creation for the created_at field.
+	webauthncredential.DefaultCreatedAt = webauthncredentialDescCreatedAt.Default.(func() time.Time)
 }
 
 const (

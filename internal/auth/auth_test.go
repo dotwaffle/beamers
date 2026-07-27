@@ -859,6 +859,7 @@ func openAccountTestService(t *testing.T) (*Service, Account) {
 	if err != nil {
 		t.Fatalf("bootstrap Administrator: %v", err)
 	}
+	service.random = new(incrementingRandomReader)
 	return service, session.Account
 }
 

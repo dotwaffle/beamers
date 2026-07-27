@@ -3,6 +3,7 @@ package store
 import (
 	"cmp"
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"slices"
@@ -20,6 +21,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/recoverycode"
 	"github.com/dotwaffle/beamers/ent/recoverytoken"
+	"github.com/dotwaffle/beamers/ent/webauthncredential"
 	"github.com/dotwaffle/beamers/internal/profilevalue"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
@@ -43,6 +45,8 @@ var (
 	ErrLastAdministrator = errors.New("last Administrator cannot be disabled")
 	// ErrInvalidRecovery means a recovery credential is unknown, expired, or already used.
 	ErrInvalidRecovery = errors.New("invalid Account recovery credential")
+	// ErrFinalCredential means a mutation would leave an enabled Account unable to authenticate.
+	ErrFinalCredential = errors.New("final Account credential cannot be removed")
 )
 
 // MaxActiveSessionsPerAccount is the durable concurrent Account session cap.
@@ -50,23 +54,33 @@ const MaxActiveSessionsPerAccount = 8
 
 // SetupRequired reports whether the installation has no Account Credential.
 func (installation *SQLite) SetupRequired(ctx context.Context) (bool, error) {
-	count, err := installation.client.PasswordCredential.Query().Count(systemContext(ctx))
+	ctx = systemContext(ctx)
+	passwords, err := installation.client.PasswordCredential.Query().
+		Where(passwordcredential.RevokedAtIsNil()).
+		Count(ctx)
 	if err != nil {
 		return false, opaqueError("count Account credentials for setup", err)
 	}
-	return count == 0, nil
+	webauthnCredentials, err := installation.client.WebAuthnCredential.Query().
+		Where(webauthncredential.RevokedAtIsNil()).
+		Count(ctx)
+	if err != nil {
+		return false, opaqueError("count WebAuthn Credentials for setup", err)
+	}
+	return passwords+webauthnCredentials == 0, nil
 }
 
 // AccountCredential is the authentication projection of an Account.
 type AccountCredential struct {
-	ID               int                       `json:"id"`
-	Handle           string                    `json:"handle"`
-	Name             string                    `json:"name"`
-	PasswordHash     string                    `json:"-"`
-	Administrator    bool                      `json:"administrator"`
-	EventRoles       map[int]viewer.Role       `json:"-"`
-	EventScopes      map[int]viewer.EventScope `json:"-"`
-	SessionExpiresAt time.Time                 `json:"-"`
+	ID                 int                       `json:"id"`
+	Handle             string                    `json:"handle"`
+	Name               string                    `json:"name"`
+	PasswordHash       string                    `json:"-"`
+	WebAuthnUserHandle []byte                    `json:"-"`
+	Administrator      bool                      `json:"administrator"`
+	EventRoles         map[int]viewer.Role       `json:"-"`
+	EventScopes        map[int]viewer.EventScope `json:"-"`
+	SessionExpiresAt   time.Time                 `json:"-"`
 }
 
 // AccountProfile is one Account's private profile settings or public projection.
@@ -155,24 +169,26 @@ type AccountSessionCounts struct {
 // BootstrapAdministratorParams contains the values committed atomically when
 // the first Administrator consumes a bootstrap credential.
 type BootstrapAdministratorParams struct {
-	BootstrapHash  string
-	Name           string
-	NormalizedName string
-	PasswordHash   string
-	SessionHash    string
-	Now            time.Time
-	SessionExpiry  time.Time
+	BootstrapHash      string
+	Name               string
+	NormalizedName     string
+	WebAuthnUserHandle []byte
+	PasswordHash       string
+	SessionHash        string
+	Now                time.Time
+	SessionExpiry      time.Time
 }
 
 // CreateAccountParams contains the values committed atomically for a new Account.
 type CreateAccountParams struct {
-	ActorAccountID int
-	Name           string
-	NormalizedName string
-	PasswordHash   string
-	Now            time.Time
-	CommandID      string
-	PayloadHash    string
+	ActorAccountID     int
+	Name               string
+	NormalizedName     string
+	WebAuthnUserHandle []byte
+	PasswordHash       string
+	Now                time.Time
+	CommandID          string
+	PayloadHash        string
 }
 
 // RecoverAccountParams contains the values needed to replace an Account password.
@@ -235,20 +251,29 @@ func (installation *SQLite) RegisterAccount(
 	defer func() {
 		_ = transaction.Rollback()
 	}()
-	credentials, err := transaction.PasswordCredential.Query().Count(internalContext)
+	passwords, err := transaction.PasswordCredential.Query().
+		Where(passwordcredential.RevokedAtIsNil()).
+		Count(internalContext)
 	if err != nil {
 		return AccountCredential{}, opaqueError("count Account credentials for registration", err)
+	}
+	webauthnCredentials, err := transaction.WebAuthnCredential.Query().
+		Where(webauthncredential.RevokedAtIsNil()).
+		Count(internalContext)
+	if err != nil {
+		return AccountCredential{}, opaqueError("count WebAuthn Credentials for registration", err)
 	}
 	policy, err := transaction.RegistrationPolicy.Query().Only(internalContext)
 	if err != nil && !ent.IsNotFound(err) {
 		return AccountCredential{}, opaqueError("read Registration Policy", err)
 	}
-	if credentials == 0 || (policy != nil && !policy.RegistrationOpen) {
+	if passwords+webauthnCredentials == 0 || (policy != nil && !policy.RegistrationOpen) {
 		return AccountCredential{}, ErrRegistrationClosed
 	}
 	created, err := transaction.Account.Create().
 		SetName(params.Name).
 		SetNormalizedName(params.NormalizedName).
+		SetWebauthnUserHandle(params.WebAuthnUserHandle).
 		SetAdministrator(false).
 		SetCreatedAt(params.Now).
 		Save(requestContext)
@@ -474,6 +499,12 @@ func (transaction *CommandTx) DisableAccount(
 	).SetRevokedAt(now).Save(internalContext); err != nil {
 		return DisabledAccount{}, opaqueError("revoke Account credentials", err)
 	}
+	if _, err := transaction.transaction.WebAuthnCredential.Update().Where(
+		webauthncredential.AccountIDEQ(accountID),
+		webauthncredential.RevokedAtIsNil(),
+	).SetRevokedAt(now).Save(internalContext); err != nil {
+		return DisabledAccount{}, opaqueError("revoke Account WebAuthn Credentials", err)
+	}
 	if _, err := transaction.transaction.EventGrant.Delete().Where(
 		eventgrant.AccountIDEQ(accountID),
 	).Exec(internalContext); err != nil {
@@ -490,6 +521,7 @@ func (transaction *CommandTx) CreateAccount(
 	created, err := transaction.transaction.Account.Create().
 		SetName(params.Name).
 		SetNormalizedName(params.NormalizedName).
+		SetWebauthnUserHandle(params.WebAuthnUserHandle).
 		SetAdministrator(false).
 		SetCreatedAt(params.Now).
 		Save(ctx)
@@ -587,11 +619,19 @@ func (installation *SQLite) BootstrapAdministrator(
 		return AccountCredential{}, opaqueError("read bootstrap credential", err)
 	}
 
-	credentialCount, err := transaction.PasswordCredential.Query().Count(ctx)
+	passwordCount, err := transaction.PasswordCredential.Query().
+		Where(passwordcredential.RevokedAtIsNil()).
+		Count(ctx)
 	if err != nil {
 		return AccountCredential{}, opaqueError("count Account credentials during bootstrap", err)
 	}
-	if credentialCount != 0 {
+	webauthnCount, err := transaction.WebAuthnCredential.Query().
+		Where(webauthncredential.RevokedAtIsNil()).
+		Count(ctx)
+	if err != nil {
+		return AccountCredential{}, opaqueError("count WebAuthn Credentials during bootstrap", err)
+	}
+	if passwordCount+webauthnCount != 0 {
 		return AccountCredential{}, ErrInvalidBootstrap
 	}
 	accounts, err := transaction.Account.Query().All(ctx)
@@ -604,6 +644,7 @@ func (installation *SQLite) BootstrapAdministrator(
 		administrator, err = transaction.Account.Create().
 			SetName(params.Name).
 			SetNormalizedName(params.NormalizedName).
+			SetWebauthnUserHandle(params.WebAuthnUserHandle).
 			SetAdministrator(true).
 			SetCreatedAt(params.Now).
 			Save(ctx)
@@ -666,6 +707,32 @@ func (installation *SQLite) FindAccountCredential(
 	ctx context.Context,
 	normalizedName string,
 ) (AccountCredential, bool, error) {
+	if installation.applied < 55 {
+		var found AccountCredential
+		err := installation.database.QueryRowContext(
+			ctx,
+			`SELECT accounts.id, accounts.normalized_name, accounts.name,
+				accounts.administrator, password_credentials.password_hash
+			FROM password_credentials
+			JOIN accounts ON accounts.id = password_credentials.account_id
+			WHERE accounts.normalized_name = ? AND accounts.disabled_at IS NULL
+				AND password_credentials.revoked_at IS NULL`,
+			normalizedName,
+		).Scan(
+			&found.ID,
+			&found.Handle,
+			&found.Name,
+			&found.Administrator,
+			&found.PasswordHash,
+		)
+		if errors.Is(err, sql.ErrNoRows) {
+			return AccountCredential{}, false, nil
+		}
+		if err != nil {
+			return AccountCredential{}, false, opaqueError("read migration Account credential", err)
+		}
+		return found, true, nil
+	}
 	ctx = systemContext(ctx)
 	found, err := installation.client.PasswordCredential.Query().
 		Where(
@@ -969,7 +1036,32 @@ func (installation *SQLite) CreateAccountSession(
 	defer func() {
 		_ = transaction.Rollback()
 	}()
-	if _, err = transaction.AccountSession.Delete().Where(
+	revoked, err := createBoundedAccountSession(
+		ctx,
+		transaction,
+		accountID,
+		tokenHash,
+		now,
+		expiresAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err = transaction.Commit(); err != nil {
+		return nil, opaqueError("commit Account session creation", err)
+	}
+	return revoked, nil
+}
+
+func createBoundedAccountSession(
+	ctx context.Context,
+	transaction *ent.Tx,
+	accountID int,
+	tokenHash string,
+	now time.Time,
+	expiresAt time.Time,
+) ([]string, error) {
+	if _, err := transaction.AccountSession.Delete().Where(
 		accountsession.Or(
 			accountsession.RevokedAtNotNil(),
 			accountsession.ExpiresAtLTE(now),
@@ -1015,9 +1107,6 @@ func (installation *SQLite) CreateAccountSession(
 			return nil, opaqueError("revoke oldest Account sessions", err)
 		}
 	}
-	if err = transaction.Commit(); err != nil {
-		return nil, opaqueError("commit Account session creation", err)
-	}
 	return revoked, nil
 }
 
@@ -1050,6 +1139,35 @@ func (installation *SQLite) FindAccountSession(
 	tokenHash string,
 	now time.Time,
 ) (AccountCredential, error) {
+	if installation.applied < 55 {
+		var found AccountCredential
+		err := installation.database.QueryRowContext(
+			ctx,
+			`SELECT accounts.id, accounts.normalized_name, accounts.name,
+				accounts.administrator, account_sessions.expires_at
+			FROM account_sessions
+			JOIN accounts ON accounts.id = account_sessions.account_id
+			WHERE account_sessions.token_hash = ?
+				AND account_sessions.revoked_at IS NULL
+				AND account_sessions.expires_at > ?
+				AND accounts.disabled_at IS NULL`,
+			tokenHash,
+			now,
+		).Scan(
+			&found.ID,
+			&found.Handle,
+			&found.Name,
+			&found.Administrator,
+			&found.SessionExpiresAt,
+		)
+		if errors.Is(err, sql.ErrNoRows) {
+			return AccountCredential{}, ErrInvalidSession
+		}
+		if err != nil {
+			return AccountCredential{}, opaqueError("read migration Account session", err)
+		}
+		return found, nil
+	}
 	ctx = systemContext(ctx)
 	session, err := installation.client.AccountSession.Query().
 		Where(
@@ -1151,11 +1269,12 @@ func createAccountSession(
 
 func accountCredential(found *ent.Account, passwordHash string) AccountCredential {
 	return AccountCredential{
-		ID:            found.ID,
-		Handle:        found.NormalizedName,
-		Name:          found.Name,
-		PasswordHash:  passwordHash,
-		Administrator: found.Administrator,
+		ID:                 found.ID,
+		Handle:             found.NormalizedName,
+		Name:               found.Name,
+		PasswordHash:       passwordHash,
+		WebAuthnUserHandle: slices.Clone(found.WebauthnUserHandle),
+		Administrator:      found.Administrator,
 	}
 }
 

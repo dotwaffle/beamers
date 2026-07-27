@@ -65,6 +65,11 @@ func NormalizedName(v string) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldNormalizedName, v))
 }
 
+// WebauthnUserHandle applies equality check predicate on the "webauthn_user_handle" field. It's identical to WebauthnUserHandleEQ.
+func WebauthnUserHandle(v []byte) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldWebauthnUserHandle, v))
+}
+
 // Administrator applies equality check predicate on the "administrator" field. It's identical to AdministratorEQ.
 func Administrator(v bool) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldAdministrator, v))
@@ -210,6 +215,56 @@ func NormalizedNameContainsFold(v string) predicate.Account {
 	return predicate.Account(sql.FieldContainsFold(FieldNormalizedName, v))
 }
 
+// WebauthnUserHandleEQ applies the EQ predicate on the "webauthn_user_handle" field.
+func WebauthnUserHandleEQ(v []byte) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldWebauthnUserHandle, v))
+}
+
+// WebauthnUserHandleNEQ applies the NEQ predicate on the "webauthn_user_handle" field.
+func WebauthnUserHandleNEQ(v []byte) predicate.Account {
+	return predicate.Account(sql.FieldNEQ(FieldWebauthnUserHandle, v))
+}
+
+// WebauthnUserHandleIn applies the In predicate on the "webauthn_user_handle" field.
+func WebauthnUserHandleIn(vs ...[]byte) predicate.Account {
+	return predicate.Account(sql.FieldIn(FieldWebauthnUserHandle, vs...))
+}
+
+// WebauthnUserHandleNotIn applies the NotIn predicate on the "webauthn_user_handle" field.
+func WebauthnUserHandleNotIn(vs ...[]byte) predicate.Account {
+	return predicate.Account(sql.FieldNotIn(FieldWebauthnUserHandle, vs...))
+}
+
+// WebauthnUserHandleGT applies the GT predicate on the "webauthn_user_handle" field.
+func WebauthnUserHandleGT(v []byte) predicate.Account {
+	return predicate.Account(sql.FieldGT(FieldWebauthnUserHandle, v))
+}
+
+// WebauthnUserHandleGTE applies the GTE predicate on the "webauthn_user_handle" field.
+func WebauthnUserHandleGTE(v []byte) predicate.Account {
+	return predicate.Account(sql.FieldGTE(FieldWebauthnUserHandle, v))
+}
+
+// WebauthnUserHandleLT applies the LT predicate on the "webauthn_user_handle" field.
+func WebauthnUserHandleLT(v []byte) predicate.Account {
+	return predicate.Account(sql.FieldLT(FieldWebauthnUserHandle, v))
+}
+
+// WebauthnUserHandleLTE applies the LTE predicate on the "webauthn_user_handle" field.
+func WebauthnUserHandleLTE(v []byte) predicate.Account {
+	return predicate.Account(sql.FieldLTE(FieldWebauthnUserHandle, v))
+}
+
+// WebauthnUserHandleIsNil applies the IsNil predicate on the "webauthn_user_handle" field.
+func WebauthnUserHandleIsNil() predicate.Account {
+	return predicate.Account(sql.FieldIsNull(FieldWebauthnUserHandle))
+}
+
+// WebauthnUserHandleNotNil applies the NotNil predicate on the "webauthn_user_handle" field.
+func WebauthnUserHandleNotNil() predicate.Account {
+	return predicate.Account(sql.FieldNotNull(FieldWebauthnUserHandle))
+}
+
 // AdministratorEQ applies the EQ predicate on the "administrator" field.
 func AdministratorEQ(v bool) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldAdministrator, v))
@@ -325,6 +380,29 @@ func HasPasswordCredential() predicate.Account {
 func HasPasswordCredentialWith(preds ...predicate.PasswordCredential) predicate.Account {
 	return predicate.Account(func(s *sql.Selector) {
 		step := newPasswordCredentialStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasWebauthnCredentials applies the HasEdge predicate on the "webauthn_credentials" edge.
+func HasWebauthnCredentials() predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, WebauthnCredentialsTable, WebauthnCredentialsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasWebauthnCredentialsWith applies the HasEdge predicate on the "webauthn_credentials" edge with a given conditions (other predicates).
+func HasWebauthnCredentialsWith(preds ...predicate.WebAuthnCredential) predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := newWebauthnCredentialsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

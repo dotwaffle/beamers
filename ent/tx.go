@@ -130,6 +130,8 @@ type Tx struct {
 	TrackPublishedVersion *TrackPublishedVersionClient
 	// UploadLink is the client for interacting with the UploadLink builders.
 	UploadLink *UploadLinkClient
+	// WebAuthnCredential is the client for interacting with the WebAuthnCredential builders.
+	WebAuthnCredential *WebAuthnCredentialClient
 
 	// lazily loaded.
 	client     *Client
@@ -319,6 +321,7 @@ func (tx *Tx) init() {
 	tx.TrackDraft = NewTrackDraftClient(tx.config)
 	tx.TrackPublishedVersion = NewTrackPublishedVersionClient(tx.config)
 	tx.UploadLink = NewUploadLinkClient(tx.config)
+	tx.WebAuthnCredential = NewWebAuthnCredentialClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

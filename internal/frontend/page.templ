@@ -112,7 +112,18 @@ templ Register(
 	</html>
 }
 
-templ ProfilePage(csrfToken string, profile auth.Profile, recoveryCodes []string, recoveryCommandID string, reducedEffects bool, backstage bool) {
+templ ProfilePage(
+	csrfToken string,
+	profile auth.Profile,
+	passwordActive bool,
+	canRemovePassword bool,
+	credentials []auth.WebAuthnCredential,
+	recoveryCodes []string,
+	recoveryCommandID string,
+	credentialCommandID string,
+	reducedEffects bool,
+	backstage bool,
+) {
 	<!doctype html>
 	<html lang="en">
 		@Head("Profile · Beamers")
@@ -143,6 +154,58 @@ templ ProfilePage(csrfToken string, profile auth.Profile, recoveryCodes []string
 					<p><a href={ templ.SafeURL("/people/" + profile.Handle) }>View Public Profile</a></p>
 				}
 				<section>
+					<h2>Sign-in Credentials</h2>
+					<p data-webauthn-status role="status">Checking WebAuthn availability…</p>
+					<div class="stack" data-webauthn-registration hidden>
+						<label>
+							Credential name
+							<input data-webauthn-name maxlength="200" autocomplete="off" required/>
+						</label>
+						<button type="button" data-webauthn-register>Register passkey or security key</button>
+					</div>
+					if passwordActive {
+						<p>Password Credential: active</p>
+						if canRemovePassword {
+							<form method="post" action="/profile">
+								<input type="hidden" name="csrf_token" value={ csrfToken }/>
+								<input type="hidden" name="action" value="remove-password"/>
+								<input type="hidden" name="command_id" value={ credentialCommandID + "-remove-password" }/>
+								<button type="submit">Remove password</button>
+							</form>
+						} else {
+							<p>Register another Credential before removing your password.</p>
+						}
+					} else {
+						<p>Password Credential: removed</p>
+					}
+					if len(credentials) == 0 {
+						<p>No WebAuthn Credentials registered.</p>
+					} else {
+						<ul>
+							for _, credential := range credentials {
+								<li>
+									<strong>{ credential.Name }</strong>
+									if credential.Attachment != "" {
+										<span> ({ credential.Attachment })</span>
+									}
+									if credential.Revoked {
+										<span> — revoked</span>
+									} else {
+										<span> — active</span>
+										<form method="post" action="/profile">
+											<input type="hidden" name="csrf_token" value={ csrfToken }/>
+											<input type="hidden" name="action" value="revoke-webauthn"/>
+											<input type="hidden" name="credential_id" value={ strconv.Itoa(credential.ID) }/>
+											<input type="hidden" name="command_id" value={ credentialCommandID + "-revoke-" + strconv.Itoa(credential.ID) }/>
+											<button type="submit">Revoke</button>
+										</form>
+									}
+								</li>
+							}
+						</ul>
+					}
+				</section>
+				<section>
 					<h2>Account recovery</h2>
 					if len(recoveryCodes) > 0 {
 						<p role="status">Save these Recovery Codes now. They will not be shown again.</p>
@@ -160,6 +223,7 @@ templ ProfilePage(csrfToken string, profile auth.Profile, recoveryCodes []string
 					</form>
 				</section>
 			</main>
+			<script src={ WebAuthnPath } defer></script>
 		</body>
 	</html>
 }
@@ -409,7 +473,13 @@ templ SignIn(csrfToken string, message string, handle string, returnTo string, r
 				if message != "" {
 					<p class="error" role="alert">{ message }</p>
 				}
-				<form class="stack" method="post" action="/sign-in">
+				<form
+					class="stack"
+					method="post"
+					action="/sign-in"
+					data-webauthn-sign-in-form
+					data-return-to={ returnTo }
+				>
 					<input type="hidden" name="csrf_token" value={ csrfToken }/>
 					<input type="hidden" name="return_to" value={ returnTo }/>
 					<label>
@@ -421,9 +491,12 @@ templ SignIn(csrfToken string, message string, handle string, returnTo string, r
 						<input type="password" name="password" autocomplete="current-password" required/>
 					</label>
 					<button type="submit">Sign in</button>
+					<button type="button" data-webauthn-sign-in hidden>Sign in with passkey or security key</button>
 				</form>
+				<p data-webauthn-status role="status"></p>
 				<p><a href="/recover">Use a Recovery Code or Administrator Recovery Token</a></p>
 			</main>
+			<script src={ WebAuthnPath } defer></script>
 		</body>
 	</html>
 }

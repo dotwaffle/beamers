@@ -19,6 +19,8 @@ const (
 	FieldName = "name"
 	// FieldNormalizedName holds the string denoting the normalized_name field in the database.
 	FieldNormalizedName = "normalized_name"
+	// FieldWebauthnUserHandle holds the string denoting the webauthn_user_handle field in the database.
+	FieldWebauthnUserHandle = "webauthn_user_handle"
 	// FieldAdministrator holds the string denoting the administrator field in the database.
 	FieldAdministrator = "administrator"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -27,6 +29,8 @@ const (
 	FieldDisabledAt = "disabled_at"
 	// EdgePasswordCredential holds the string denoting the password_credential edge name in mutations.
 	EdgePasswordCredential = "password_credential"
+	// EdgeWebauthnCredentials holds the string denoting the webauthn_credentials edge name in mutations.
+	EdgeWebauthnCredentials = "webauthn_credentials"
 	// EdgePreference holds the string denoting the preference edge name in mutations.
 	EdgePreference = "preference"
 	// EdgeProfile holds the string denoting the profile edge name in mutations.
@@ -56,6 +60,13 @@ const (
 	PasswordCredentialInverseTable = "password_credentials"
 	// PasswordCredentialColumn is the table column denoting the password_credential relation/edge.
 	PasswordCredentialColumn = "account_id"
+	// WebauthnCredentialsTable is the table that holds the webauthn_credentials relation/edge.
+	WebauthnCredentialsTable = "web_authn_credentials"
+	// WebauthnCredentialsInverseTable is the table name for the WebAuthnCredential entity.
+	// It exists in this package in order to avoid circular dependency with the "webauthncredential" package.
+	WebauthnCredentialsInverseTable = "web_authn_credentials"
+	// WebauthnCredentialsColumn is the table column denoting the webauthn_credentials relation/edge.
+	WebauthnCredentialsColumn = "account_id"
 	// PreferenceTable is the table that holds the preference relation/edge.
 	PreferenceTable = "account_preferences"
 	// PreferenceInverseTable is the table name for the AccountPreference entity.
@@ -133,6 +144,7 @@ var Columns = []string{
 	FieldID,
 	FieldName,
 	FieldNormalizedName,
+	FieldWebauthnUserHandle,
 	FieldAdministrator,
 	FieldCreatedAt,
 	FieldDisabledAt,
@@ -201,6 +213,20 @@ func ByDisabledAt(opts ...sql.OrderTermOption) OrderOption {
 func ByPasswordCredentialField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newPasswordCredentialStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByWebauthnCredentialsCount orders the results by webauthn_credentials count.
+func ByWebauthnCredentialsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newWebauthnCredentialsStep(), opts...)
+	}
+}
+
+// ByWebauthnCredentials orders the results by webauthn_credentials terms.
+func ByWebauthnCredentials(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newWebauthnCredentialsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
 
@@ -334,6 +360,13 @@ func newPasswordCredentialStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(PasswordCredentialInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2O, false, PasswordCredentialTable, PasswordCredentialColumn),
+	)
+}
+func newWebauthnCredentialsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(WebauthnCredentialsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, WebauthnCredentialsTable, WebauthnCredentialsColumn),
 	)
 }
 func newPreferenceStep() *sqlgraph.Step {

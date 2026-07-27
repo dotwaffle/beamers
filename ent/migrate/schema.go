@@ -14,6 +14,7 @@ var (
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "name", Type: field.TypeString, Size: 200},
 		{Name: "normalized_name", Type: field.TypeString, Unique: true, Size: 200},
+		{Name: "webauthn_user_handle", Type: field.TypeBytes, Unique: true, Nullable: true},
 		{Name: "administrator", Type: field.TypeBool},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "disabled_at", Type: field.TypeTime, Nullable: true},
@@ -1796,6 +1797,39 @@ var (
 			},
 		},
 	}
+	// WebAuthnCredentialsColumns holds the columns for the "web_authn_credentials" table.
+	WebAuthnCredentialsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "credential_id", Type: field.TypeBytes},
+		{Name: "name", Type: field.TypeString, Size: 200},
+		{Name: "credential", Type: field.TypeBytes},
+		{Name: "attachment", Type: field.TypeString, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "last_used_at", Type: field.TypeTime, Nullable: true},
+		{Name: "revoked_at", Type: field.TypeTime, Nullable: true},
+		{Name: "account_id", Type: field.TypeInt},
+	}
+	// WebAuthnCredentialsTable holds the schema information for the "web_authn_credentials" table.
+	WebAuthnCredentialsTable = &schema.Table{
+		Name:       "web_authn_credentials",
+		Columns:    WebAuthnCredentialsColumns,
+		PrimaryKey: []*schema.Column{WebAuthnCredentialsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "web_authn_credentials_accounts_webauthn_credentials",
+				Columns:    []*schema.Column{WebAuthnCredentialsColumns[8]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "webauthncredential_credential_id",
+				Unique:  true,
+				Columns: []*schema.Column{WebAuthnCredentialsColumns[1]},
+			},
+		},
+	}
 	// SessionDraftLanesColumns holds the columns for the "session_draft_lanes" table.
 	SessionDraftLanesColumns = []*schema.Column{
 		{Name: "session_draft_id", Type: field.TypeInt},
@@ -2006,6 +2040,7 @@ var (
 		TrackDraftsTable,
 		TrackPublishedVersionsTable,
 		UploadLinksTable,
+		WebAuthnCredentialsTable,
 		SessionDraftLanesTable,
 		SessionDraftLocationsTable,
 		SessionDraftTracksTable,
@@ -2089,6 +2124,7 @@ func init() {
 	TrackDraftsTable.ForeignKeys[0].RefTable = TracksTable
 	TrackPublishedVersionsTable.ForeignKeys[0].RefTable = TracksTable
 	UploadLinksTable.ForeignKeys[0].RefTable = EventsTable
+	WebAuthnCredentialsTable.ForeignKeys[0].RefTable = AccountsTable
 	SessionDraftLanesTable.ForeignKeys[0].RefTable = SessionDraftsTable
 	SessionDraftLanesTable.ForeignKeys[1].RefTable = LanesTable
 	SessionDraftLocationsTable.ForeignKeys[0].RefTable = SessionDraftsTable

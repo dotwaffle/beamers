@@ -22,6 +22,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/recoverycode"
 	"github.com/dotwaffle/beamers/ent/recoverytoken"
+	"github.com/dotwaffle/beamers/ent/webauthncredential"
 )
 
 // AccountCreate is the builder for creating a Account entity.
@@ -40,6 +41,12 @@ func (_c *AccountCreate) SetName(v string) *AccountCreate {
 // SetNormalizedName sets the "normalized_name" field.
 func (_c *AccountCreate) SetNormalizedName(v string) *AccountCreate {
 	_c.mutation.SetNormalizedName(v)
+	return _c
+}
+
+// SetWebauthnUserHandle sets the "webauthn_user_handle" field.
+func (_c *AccountCreate) SetWebauthnUserHandle(v []byte) *AccountCreate {
+	_c.mutation.SetWebauthnUserHandle(v)
 	return _c
 }
 
@@ -94,6 +101,21 @@ func (_c *AccountCreate) SetNillablePasswordCredentialID(id *int) *AccountCreate
 // SetPasswordCredential sets the "password_credential" edge to the PasswordCredential entity.
 func (_c *AccountCreate) SetPasswordCredential(v *PasswordCredential) *AccountCreate {
 	return _c.SetPasswordCredentialID(v.ID)
+}
+
+// AddWebauthnCredentialIDs adds the "webauthn_credentials" edge to the WebAuthnCredential entity by IDs.
+func (_c *AccountCreate) AddWebauthnCredentialIDs(ids ...int) *AccountCreate {
+	_c.mutation.AddWebauthnCredentialIDs(ids...)
+	return _c
+}
+
+// AddWebauthnCredentials adds the "webauthn_credentials" edges to the WebAuthnCredential entity.
+func (_c *AccountCreate) AddWebauthnCredentials(v ...*WebAuthnCredential) *AccountCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddWebauthnCredentialIDs(ids...)
 }
 
 // SetPreferenceID sets the "preference" edge to the AccountPreference entity by ID.
@@ -359,6 +381,10 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 		_spec.SetField(account.FieldNormalizedName, field.TypeString, value)
 		_node.NormalizedName = value
 	}
+	if value, ok := _c.mutation.WebauthnUserHandle(); ok {
+		_spec.SetField(account.FieldWebauthnUserHandle, field.TypeBytes, value)
+		_node.WebauthnUserHandle = value
+	}
 	if value, ok := _c.mutation.Administrator(); ok {
 		_spec.SetField(account.FieldAdministrator, field.TypeBool, value)
 		_node.Administrator = value
@@ -380,6 +406,22 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(passwordcredential.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.WebauthnCredentialsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.WebauthnCredentialsTable,
+			Columns: []string{account.WebauthnCredentialsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(webauthncredential.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

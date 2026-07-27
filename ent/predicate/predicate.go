@@ -179,3 +179,6 @@ type TrackPublishedVersion func(*sql.Selector)
 
 // UploadLink is the predicate function for uploadlink builders.
 type UploadLink func(*sql.Selector)
+
+// WebAuthnCredential is the predicate function for webauthncredential builders.
+type WebAuthnCredential func(*sql.Selector)

@@ -26,26 +26,28 @@ import (
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/recoverycode"
 	"github.com/dotwaffle/beamers/ent/recoverytoken"
+	"github.com/dotwaffle/beamers/ent/webauthncredential"
 )
 
 // AccountQuery is the builder for querying Account entities.
 type AccountQuery struct {
 	config
-	ctx                    *QueryContext
-	order                  []account.OrderOption
-	inters                 []Interceptor
-	predicates             []predicate.Account
-	withPasswordCredential *PasswordCredentialQuery
-	withPreference         *AccountPreferenceQuery
-	withProfile            *AccountProfileQuery
-	withSessions           *AccountSessionQuery
-	withRecoveryCodes      *RecoveryCodeQuery
-	withRecoveryTokens     *RecoveryTokenQuery
-	withEventGrants        *EventGrantQuery
-	withFavoriteSessions   *FavoriteSessionQuery
-	withAuditEntries       *AuditEntryQuery
-	withCommandReceipts    *CommandReceiptQuery
-	withDraftEdits         *DraftEditQuery
+	ctx                     *QueryContext
+	order                   []account.OrderOption
+	inters                  []Interceptor
+	predicates              []predicate.Account
+	withPasswordCredential  *PasswordCredentialQuery
+	withWebauthnCredentials *WebAuthnCredentialQuery
+	withPreference          *AccountPreferenceQuery
+	withProfile             *AccountProfileQuery
+	withSessions            *AccountSessionQuery
+	withRecoveryCodes       *RecoveryCodeQuery
+	withRecoveryTokens      *RecoveryTokenQuery
+	withEventGrants         *EventGrantQuery
+	withFavoriteSessions    *FavoriteSessionQuery
+	withAuditEntries        *AuditEntryQuery
+	withCommandReceipts     *CommandReceiptQuery
+	withDraftEdits          *DraftEditQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -97,6 +99,28 @@ func (_q *AccountQuery) QueryPasswordCredential() *PasswordCredentialQuery {
 			sqlgraph.From(account.Table, account.FieldID, selector),
 			sqlgraph.To(passwordcredential.Table, passwordcredential.FieldID),
 			sqlgraph.Edge(sqlgraph.O2O, false, account.PasswordCredentialTable, account.PasswordCredentialColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryWebauthnCredentials chains the current query on the "webauthn_credentials" edge.
+func (_q *AccountQuery) QueryWebauthnCredentials() *WebAuthnCredentialQuery {
+	query := (&WebAuthnCredentialClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, selector),
+			sqlgraph.To(webauthncredential.Table, webauthncredential.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.WebauthnCredentialsTable, account.WebauthnCredentialsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -511,22 +535,23 @@ func (_q *AccountQuery) Clone() *AccountQuery {
 		return nil
 	}
 	return &AccountQuery{
-		config:                 _q.config,
-		ctx:                    _q.ctx.Clone(),
-		order:                  append([]account.OrderOption{}, _q.order...),
-		inters:                 append([]Interceptor{}, _q.inters...),
-		predicates:             append([]predicate.Account{}, _q.predicates...),
-		withPasswordCredential: _q.withPasswordCredential.Clone(),
-		withPreference:         _q.withPreference.Clone(),
-		withProfile:            _q.withProfile.Clone(),
-		withSessions:           _q.withSessions.Clone(),
-		withRecoveryCodes:      _q.withRecoveryCodes.Clone(),
-		withRecoveryTokens:     _q.withRecoveryTokens.Clone(),
-		withEventGrants:        _q.withEventGrants.Clone(),
-		withFavoriteSessions:   _q.withFavoriteSessions.Clone(),
-		withAuditEntries:       _q.withAuditEntries.Clone(),
-		withCommandReceipts:    _q.withCommandReceipts.Clone(),
-		withDraftEdits:         _q.withDraftEdits.Clone(),
+		config:                  _q.config,
+		ctx:                     _q.ctx.Clone(),
+		order:                   append([]account.OrderOption{}, _q.order...),
+		inters:                  append([]Interceptor{}, _q.inters...),
+		predicates:              append([]predicate.Account{}, _q.predicates...),
+		withPasswordCredential:  _q.withPasswordCredential.Clone(),
+		withWebauthnCredentials: _q.withWebauthnCredentials.Clone(),
+		withPreference:          _q.withPreference.Clone(),
+		withProfile:             _q.withProfile.Clone(),
+		withSessions:            _q.withSessions.Clone(),
+		withRecoveryCodes:       _q.withRecoveryCodes.Clone(),
+		withRecoveryTokens:      _q.withRecoveryTokens.Clone(),
+		withEventGrants:         _q.withEventGrants.Clone(),
+		withFavoriteSessions:    _q.withFavoriteSessions.Clone(),
+		withAuditEntries:        _q.withAuditEntries.Clone(),
+		withCommandReceipts:     _q.withCommandReceipts.Clone(),
+		withDraftEdits:          _q.withDraftEdits.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -541,6 +566,17 @@ func (_q *AccountQuery) WithPasswordCredential(opts ...func(*PasswordCredentialQ
 		opt(query)
 	}
 	_q.withPasswordCredential = query
+	return _q
+}
+
+// WithWebauthnCredentials tells the query-builder to eager-load the nodes that are connected to
+// the "webauthn_credentials" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AccountQuery) WithWebauthnCredentials(opts ...func(*WebAuthnCredentialQuery)) *AccountQuery {
+	query := (&WebAuthnCredentialClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withWebauthnCredentials = query
 	return _q
 }
 
@@ -738,8 +774,9 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	var (
 		nodes       = []*Account{}
 		_spec       = _q.querySpec()
-		loadedTypes = [11]bool{
+		loadedTypes = [12]bool{
 			_q.withPasswordCredential != nil,
+			_q.withWebauthnCredentials != nil,
 			_q.withPreference != nil,
 			_q.withProfile != nil,
 			_q.withSessions != nil,
@@ -773,6 +810,15 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	if query := _q.withPasswordCredential; query != nil {
 		if err := _q.loadPasswordCredential(ctx, query, nodes, nil,
 			func(n *Account, e *PasswordCredential) { n.Edges.PasswordCredential = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withWebauthnCredentials; query != nil {
+		if err := _q.loadWebauthnCredentials(ctx, query, nodes,
+			func(n *Account) { n.Edges.WebauthnCredentials = []*WebAuthnCredential{} },
+			func(n *Account, e *WebAuthnCredential) {
+				n.Edges.WebauthnCredentials = append(n.Edges.WebauthnCredentials, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -859,6 +905,36 @@ func (_q *AccountQuery) loadPasswordCredential(ctx context.Context, query *Passw
 	}
 	query.Where(predicate.PasswordCredential(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(account.PasswordCredentialColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.AccountID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "account_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *AccountQuery) loadWebauthnCredentials(ctx context.Context, query *WebAuthnCredentialQuery, nodes []*Account, init func(*Account), assign func(*Account, *WebAuthnCredential)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Account)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(webauthncredential.FieldAccountID)
+	}
+	query.Where(predicate.WebAuthnCredential(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(account.WebauthnCredentialsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

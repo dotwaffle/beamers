@@ -526,12 +526,13 @@ func (driver *webDriver) pressKey(ctx context.Context, key string) error {
 func (driver *webDriver) evaluateBool(
 	ctx context.Context,
 	script string,
+	args ...any,
 ) (bool, error) {
 	value, err := driver.command(
 		ctx,
 		http.MethodPost,
 		driver.sessionPath("/execute/sync"),
-		map[string]any{"script": script, "args": []any{}},
+		map[string]any{"script": script, "args": args},
 	)
 	if err != nil {
 		return false, err
@@ -567,13 +568,14 @@ func (driver *webDriver) waitFor(
 	ctx context.Context,
 	timeout time.Duration,
 	script string,
+	args ...any,
 ) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	for {
-		found, err := driver.evaluateBool(ctx, script)
+		found, err := driver.evaluateBool(ctx, script, args...)
 		if err == nil && found {
 			return nil
 		}
@@ -586,6 +588,69 @@ func (driver *webDriver) waitFor(
 		case <-ticker.C:
 		}
 	}
+}
+
+func (driver *webDriver) execute(ctx context.Context, script string, args ...any) error {
+	_, err := driver.command(
+		ctx,
+		http.MethodPost,
+		driver.sessionPath("/execute/sync"),
+		map[string]any{"script": script, "args": args},
+	)
+	return err
+}
+
+func (driver *webDriver) addVirtualAuthenticator(
+	ctx context.Context,
+	transport string,
+) (string, error) {
+	value, err := driver.command(
+		ctx,
+		http.MethodPost,
+		driver.sessionPath("/webauthn/authenticator"),
+		map[string]any{
+			"protocol":            "ctap2",
+			"transport":           transport,
+			"hasResidentKey":      true,
+			"hasUserVerification": true,
+			"isUserConsenting":    true,
+			"isUserVerified":      true,
+		},
+	)
+	if err != nil {
+		return "", err
+	}
+	var authenticatorID string
+	if err = json.Unmarshal(value, &authenticatorID); err != nil {
+		return "", fmt.Errorf("decode virtual authenticator ID: %w", err)
+	}
+	if authenticatorID == "" {
+		return "", errors.New("WebDriver returned an empty virtual authenticator ID")
+	}
+	return authenticatorID, nil
+}
+
+func (driver *webDriver) removeVirtualAuthenticator(
+	ctx context.Context,
+	authenticatorID string,
+) error {
+	_, err := driver.command(
+		ctx,
+		http.MethodDelete,
+		driver.sessionPath("/webauthn/authenticator/")+url.PathEscape(authenticatorID),
+		nil,
+	)
+	return err
+}
+
+func (driver *webDriver) deleteCookie(ctx context.Context, name string) error {
+	_, err := driver.command(
+		ctx,
+		http.MethodDelete,
+		driver.sessionPath("/cookie/")+url.PathEscape(name),
+		nil,
+	)
+	return err
 }
 
 func (driver *webDriver) close(ctx context.Context) error {
@@ -715,6 +780,10 @@ func TestBrowserCertification(t *testing.T) {
 		"beamers_session",
 		"/",
 	))
+	certifyWebAuthnAvailability(t, crewDriver, origin)
+	if config.Engine == "chromium" {
+		certifyWebAuthnCeremonies(t, crewDriver, origin)
+	}
 	assertResponsivePageWidths(t, crewDriver, origin+"/backstage", 320, 1440)
 	assertResponsivePageWidths(t, crewDriver, origin+"/backstage/installation", 320, 1440)
 	assertResponsivePageWidths(t, crewDriver, origin+"/backstage/events/1/planning", 320, 1440)
@@ -904,6 +973,113 @@ func TestBrowserCertification(t *testing.T) {
 	report.DisplayReconnected = true
 	restarted.stop(t)
 	writeBrowserCertificationReport(t, config.ReportPath, report)
+}
+
+func certifyWebAuthnAvailability(t *testing.T, driver *webDriver, origin string) {
+	t.Helper()
+	if err := driver.navigate(t.Context(), origin+"/profile"); err != nil {
+		t.Fatalf("navigate to WebAuthn Profile: %v", err)
+	}
+	if err := driver.waitFor(
+		t.Context(),
+		15*time.Second,
+		`return window.isSecureContext && `+
+			`typeof PublicKeyCredential === "function" && `+
+			`document.querySelector("[data-webauthn-register]").hidden === false && `+
+			`document.querySelector("[data-webauthn-status]").textContent === `+
+			`"WebAuthn is available.";`,
+	); err != nil {
+		t.Fatalf("certify secure-context WebAuthn availability: %v", err)
+	}
+}
+
+func certifyWebAuthnCeremonies(t *testing.T, driver *webDriver, origin string) {
+	t.Helper()
+	register := func(name, transport string) string {
+		t.Helper()
+		authenticatorID, err := driver.addVirtualAuthenticator(t.Context(), transport)
+		if err != nil {
+			t.Fatalf("add %s WebAuthn authenticator: %v", transport, err)
+		}
+		if err = driver.navigate(t.Context(), origin+"/profile"); err != nil {
+			t.Fatalf("navigate to WebAuthn Profile: %v", err)
+		}
+		if err = driver.execute(
+			t.Context(),
+			`const input = document.querySelector("[data-webauthn-name]");`+
+				`input.value = arguments[0];`+
+				`document.querySelector("[data-webauthn-register]").click();`,
+			name,
+		); err != nil {
+			t.Fatalf("register %s: %v", name, err)
+		}
+		if err = driver.waitFor(
+			t.Context(),
+			15*time.Second,
+			`return location.pathname === "/profile" && `+
+				`document.body.textContent.includes(arguments[0]);`,
+			name,
+		); err != nil {
+			t.Fatalf("wait for %s registration: %v", name, err)
+		}
+		return authenticatorID
+	}
+
+	passkeyID := register("Browser passkey", "internal")
+	if err := driver.removeVirtualAuthenticator(t.Context(), passkeyID); err != nil {
+		t.Fatalf("remove passkey authenticator: %v", err)
+	}
+	securityKeyID := register("Browser security key", "usb")
+	t.Cleanup(func() {
+		if err := driver.removeVirtualAuthenticator(t.Context(), securityKeyID); err != nil &&
+			driver.sessionID != "" {
+			t.Errorf("remove security-key authenticator: %v", err)
+		}
+	})
+
+	if err := driver.deleteCookie(t.Context(), "beamers_session"); err != nil {
+		t.Fatalf("delete Account session cookie: %v", err)
+	}
+	if err := driver.navigate(t.Context(), origin+"/sign-in"); err != nil {
+		t.Fatalf("navigate to WebAuthn sign-in: %v", err)
+	}
+	if err := driver.execute(
+		t.Context(),
+		`const input = document.querySelector("[name=handle]");`+
+			`input.value = "Ada Admin";`+
+			`document.querySelector("[data-webauthn-sign-in]").click();`,
+	); err != nil {
+		t.Fatalf("sign in with WebAuthn: %v", err)
+	}
+	if err := driver.waitFor(
+		t.Context(),
+		15*time.Second,
+		`return location.pathname === "/" && document.body.textContent.includes("Ada Admin");`,
+	); err != nil {
+		t.Fatalf("wait for WebAuthn sign-in: %v", err)
+	}
+
+	if err := driver.navigate(t.Context(), origin+"/profile"); err != nil {
+		t.Fatalf("navigate to WebAuthn Profile for revocation: %v", err)
+	}
+	if err := driver.execute(
+		t.Context(),
+		`const item = [...document.querySelectorAll("li")].find(`+
+			`element => element.textContent.includes("Browser passkey"));`+
+			`item.querySelector("button").click();`,
+	); err != nil {
+		t.Fatalf("revoke browser passkey: %v", err)
+	}
+	if err := driver.waitFor(
+		t.Context(),
+		15*time.Second,
+		`return location.pathname === "/profile" && `+
+			`[...document.querySelectorAll("li")].some(element => `+
+			`element.textContent.includes("Browser passkey") && `+
+			`element.textContent.includes("revoked"));`,
+	); err != nil {
+		t.Fatalf("wait for browser passkey revocation: %v", err)
+	}
 }
 
 func certifyOverrideConfirmation(
@@ -1794,6 +1970,7 @@ func startBrowserSessionWithForcedColors(
 	capabilities := map[string]any{"browserName": "chrome"}
 	switch config.Engine {
 	case "chromium":
+		capabilities["webauthn:virtualAuthenticators"] = true
 		args := []string{
 			"--headless=new",
 			"--no-sandbox",
@@ -2717,6 +2894,67 @@ func TestWebDriverUsesNavigationCookieKeyboardAndScriptCommands(t *testing.T) {
 		"/session/session-1/actions",
 		"/session/session-1/execute/sync",
 		"/session/session-1",
+	}
+	if strings.Join(paths, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("WebDriver paths = %v, want %v", paths, want)
+	}
+}
+
+func TestWebDriverUsesVirtualAuthenticatorCommands(t *testing.T) {
+	t.Parallel()
+	var paths []string
+	server := httptest.NewServer(http.HandlerFunc(func(
+		response http.ResponseWriter,
+		request *http.Request,
+	) {
+		response.Header().Set("Content-Type", "application/json")
+		paths = append(paths, request.Method+" "+request.URL.Path)
+		switch request.URL.Path {
+		case "/session":
+			_, _ = response.Write([]byte(
+				`{"value":{"sessionId":"session-1","capabilities":{"browserVersion":"147.0.1"}}}`,
+			))
+		case "/session/session-1/webauthn/authenticator":
+			var configuration map[string]any
+			if err := json.NewDecoder(request.Body).Decode(&configuration); err != nil {
+				t.Errorf("decode virtual authenticator configuration: %v", err)
+			}
+			if configuration["protocol"] != "ctap2" ||
+				configuration["transport"] != "usb" ||
+				configuration["isUserConsenting"] != true {
+				t.Errorf("virtual authenticator configuration = %v", configuration)
+			}
+			_, _ = response.Write([]byte(`{"value":"authenticator-1"}`))
+		default:
+			_, _ = response.Write([]byte(`{"value":null}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	driver, err := newWebDriver(
+		t.Context(),
+		server.Client(),
+		server.URL,
+		map[string]any{"browserName": "chrome", "webauthn:virtualAuthenticators": true},
+	)
+	if err != nil {
+		t.Fatalf("start WebDriver session: %v", err)
+	}
+	authenticatorID, err := driver.addVirtualAuthenticator(t.Context(), "usb")
+	if err != nil || authenticatorID != "authenticator-1" {
+		t.Fatalf("add virtual authenticator = %q, %v", authenticatorID, err)
+	}
+	if err = driver.deleteCookie(t.Context(), "beamers_session"); err != nil {
+		t.Fatalf("delete cookie: %v", err)
+	}
+	if err = driver.removeVirtualAuthenticator(t.Context(), authenticatorID); err != nil {
+		t.Fatalf("remove virtual authenticator: %v", err)
+	}
+	want := []string{
+		"POST /session",
+		"POST /session/session-1/webauthn/authenticator",
+		"DELETE /session/session-1/cookie/beamers_session",
+		"DELETE /session/session-1/webauthn/authenticator/authenticator-1",
 	}
 	if strings.Join(paths, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("WebDriver paths = %v, want %v", paths, want)

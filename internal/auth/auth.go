@@ -32,6 +32,7 @@ const (
 	defaultSessionTTL       = 12 * time.Hour
 	recoveryCodeCount       = 8
 	tokenBytes              = 32
+	webAuthnUserHandleBytes = 64
 	saltBytes               = 16
 	passwordHashBytes       = 32
 	argonTime               = 3
@@ -84,6 +85,8 @@ var (
 	// ErrStorageDegraded means only previously validated sessions may continue
 	// to the nondurable Emergency Alert path.
 	ErrStorageDegraded = errors.New("storage is degraded")
+	// ErrFinalCredential means removal would leave an enabled Account unable to authenticate.
+	ErrFinalCredential = store.ErrFinalCredential
 )
 
 // Account is the authenticated identity exposed above the persistence boundary.
@@ -180,18 +183,20 @@ func DefaultConfig() Config {
 
 // Service owns credential hashing and session lifecycle rules.
 type Service struct {
-	storage           *store.SQLite
-	now               func() time.Time
-	random            io.Reader
-	bootstrapTTL      time.Duration
-	recoveryTokenTTL  time.Duration
-	sessionTTL        time.Duration
-	dummyHash         string
-	passwordWork      chan struct{}
-	sessionMu         sync.RWMutex
-	sessions          map[string]validatedSession
-	storageState      StorageState
-	allowDemoPassword bool
+	storage            *store.SQLite
+	now                func() time.Time
+	random             io.Reader
+	bootstrapTTL       time.Duration
+	recoveryTokenTTL   time.Duration
+	sessionTTL         time.Duration
+	dummyHash          string
+	passwordWork       chan struct{}
+	sessionMu          sync.RWMutex
+	sessions           map[string]validatedSession
+	webAuthnMu         sync.Mutex
+	webAuthnCeremonies map[string]webAuthnCeremony
+	storageState       StorageState
+	allowDemoPassword  bool
 }
 
 type validatedSession struct {
@@ -229,17 +234,18 @@ func New(storage *store.SQLite, config Config) (*Service, error) {
 		},
 	)
 	return &Service{
-		storage:           storage,
-		now:               config.Now,
-		random:            config.Random,
-		bootstrapTTL:      config.BootstrapTTL,
-		recoveryTokenTTL:  config.RecoveryTokenTTL,
-		sessionTTL:        config.SessionTTL,
-		dummyHash:         dummyHash,
-		passwordWork:      make(chan struct{}, passwordConcurrency),
-		sessions:          make(map[string]validatedSession),
-		storageState:      config.StorageState,
-		allowDemoPassword: config.AllowDemoPassword,
+		storage:            storage,
+		now:                config.Now,
+		random:             config.Random,
+		bootstrapTTL:       config.BootstrapTTL,
+		recoveryTokenTTL:   config.RecoveryTokenTTL,
+		sessionTTL:         config.SessionTTL,
+		dummyHash:          dummyHash,
+		passwordWork:       make(chan struct{}, passwordConcurrency),
+		sessions:           make(map[string]validatedSession),
+		webAuthnCeremonies: make(map[string]webAuthnCeremony),
+		storageState:       config.StorageState,
+		allowDemoPassword:  config.AllowDemoPassword,
 	}, nil
 }
 
@@ -309,18 +315,23 @@ func (service *Service) BootstrapFirstAccount(
 	if err != nil {
 		return Session{}, err
 	}
+	userHandle, err := service.newWebAuthnUserHandle()
+	if err != nil {
+		return Session{}, err
+	}
 	now := service.now().UTC()
 	expiresAt := now.Add(service.sessionTTL)
 	created, err := service.storage.BootstrapAdministrator(
 		ctx,
 		store.BootstrapAdministratorParams{
-			BootstrapHash:  tokenDigest(bootstrapToken),
-			Name:           displayName,
-			NormalizedName: normalizedName,
-			PasswordHash:   passwordHash,
-			SessionHash:    tokenDigest(sessionToken),
-			Now:            now,
-			SessionExpiry:  expiresAt,
+			BootstrapHash:      tokenDigest(bootstrapToken),
+			Name:               displayName,
+			NormalizedName:     normalizedName,
+			WebAuthnUserHandle: userHandle,
+			PasswordHash:       passwordHash,
+			SessionHash:        tokenDigest(sessionToken),
+			Now:                now,
+			SessionExpiry:      expiresAt,
 		},
 	)
 	if errors.Is(err, store.ErrInvalidBootstrap) {
@@ -760,11 +771,16 @@ func (service *Service) Register(
 	if err != nil {
 		return Account{}, err
 	}
+	userHandle, err := service.newWebAuthnUserHandle()
+	if err != nil {
+		return Account{}, err
+	}
 	created, err := service.storage.RegisterAccount(ctx, store.CreateAccountParams{
-		Name:           displayName,
-		NormalizedName: normalizedHandle,
-		PasswordHash:   passwordHash,
-		Now:            service.now().UTC(),
+		Name:               displayName,
+		NormalizedName:     normalizedHandle,
+		WebAuthnUserHandle: userHandle,
+		PasswordHash:       passwordHash,
+		Now:                service.now().UTC(),
 	})
 	if err != nil {
 		return Account{}, err
@@ -965,14 +981,19 @@ func (service *Service) createAccount(
 			if hashErr != nil {
 				return command.Execution[Account]{}, hashErr
 			}
+			userHandle, handleErr := service.newWebAuthnUserHandle()
+			if handleErr != nil {
+				return command.Execution[Account]{}, handleErr
+			}
 			created, createErr := transaction.CreateAccount(actor.Context(ctx), store.CreateAccountParams{
-				ActorAccountID: actor.ID,
-				Name:           normalizedDisplayName,
-				NormalizedName: normalizedName,
-				PasswordHash:   passwordHash,
-				Now:            identity.Now,
-				CommandID:      commandID,
-				PayloadHash:    payloadHash,
+				ActorAccountID:     actor.ID,
+				Name:               normalizedDisplayName,
+				NormalizedName:     normalizedName,
+				WebAuthnUserHandle: userHandle,
+				PasswordHash:       passwordHash,
+				Now:                identity.Now,
+				CommandID:          commandID,
+				PayloadHash:        payloadHash,
 			})
 			if errors.Is(createErr, ErrAccountExists) {
 				return accountRejectionExecution[Account](createErr), nil
@@ -1073,6 +1094,10 @@ func accountRejection(reason error) store.CommandRejection {
 		return store.CommandRejection{Code: "recovery_account_not_found"}
 	case errors.Is(reason, ErrLastAdministrator):
 		return store.CommandRejection{Code: "last_administrator"}
+	case errors.Is(reason, ErrFinalCredential):
+		return store.CommandRejection{Code: "final_credential"}
+	case errors.Is(reason, store.ErrInvalidSession):
+		return store.CommandRejection{Code: "credential_not_found"}
 	default:
 		return store.CommandRejection{Code: "unavailable"}
 	}
@@ -1100,6 +1125,10 @@ func restoreRejected(err error) error {
 		return ErrRecoveryAccountNotFound
 	case "last_administrator":
 		return ErrLastAdministrator
+	case "final_credential":
+		return ErrFinalCredential
+	case "credential_not_found":
+		return ErrInvalidSession
 	default:
 		return errors.New("Account command unavailable")
 	}
@@ -1390,6 +1419,14 @@ func (service *Service) newToken() (string, error) {
 		return "", errors.New("generate authentication token")
 	}
 	return base64.RawURLEncoding.EncodeToString(contents), nil
+}
+
+func (service *Service) newWebAuthnUserHandle() ([]byte, error) {
+	handle := make([]byte, webAuthnUserHandleBytes)
+	if _, err := io.ReadFull(service.random, handle); err != nil {
+		return nil, errors.New("generate WebAuthn user handle")
+	}
+	return handle, nil
 }
 
 func (service *Service) hashPassword(password string) (string, error) {

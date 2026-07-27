@@ -24,6 +24,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/recoverycode"
 	"github.com/dotwaffle/beamers/ent/recoverytoken"
+	"github.com/dotwaffle/beamers/ent/webauthncredential"
 )
 
 // AccountUpdate is the builder for updating Account entities.
@@ -104,6 +105,21 @@ func (_u *AccountUpdate) SetNillablePasswordCredentialID(id *int) *AccountUpdate
 // SetPasswordCredential sets the "password_credential" edge to the PasswordCredential entity.
 func (_u *AccountUpdate) SetPasswordCredential(v *PasswordCredential) *AccountUpdate {
 	return _u.SetPasswordCredentialID(v.ID)
+}
+
+// AddWebauthnCredentialIDs adds the "webauthn_credentials" edge to the WebAuthnCredential entity by IDs.
+func (_u *AccountUpdate) AddWebauthnCredentialIDs(ids ...int) *AccountUpdate {
+	_u.mutation.AddWebauthnCredentialIDs(ids...)
+	return _u
+}
+
+// AddWebauthnCredentials adds the "webauthn_credentials" edges to the WebAuthnCredential entity.
+func (_u *AccountUpdate) AddWebauthnCredentials(v ...*WebAuthnCredential) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddWebauthnCredentialIDs(ids...)
 }
 
 // SetPreferenceID sets the "preference" edge to the AccountPreference entity by ID.
@@ -273,6 +289,27 @@ func (_u *AccountUpdate) Mutation() *AccountMutation {
 func (_u *AccountUpdate) ClearPasswordCredential() *AccountUpdate {
 	_u.mutation.ClearPasswordCredential()
 	return _u
+}
+
+// ClearWebauthnCredentials clears all "webauthn_credentials" edges to the WebAuthnCredential entity.
+func (_u *AccountUpdate) ClearWebauthnCredentials() *AccountUpdate {
+	_u.mutation.ClearWebauthnCredentials()
+	return _u
+}
+
+// RemoveWebauthnCredentialIDs removes the "webauthn_credentials" edge to WebAuthnCredential entities by IDs.
+func (_u *AccountUpdate) RemoveWebauthnCredentialIDs(ids ...int) *AccountUpdate {
+	_u.mutation.RemoveWebauthnCredentialIDs(ids...)
+	return _u
+}
+
+// RemoveWebauthnCredentials removes "webauthn_credentials" edges to WebAuthnCredential entities.
+func (_u *AccountUpdate) RemoveWebauthnCredentials(v ...*WebAuthnCredential) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveWebauthnCredentialIDs(ids...)
 }
 
 // ClearPreference clears the "preference" edge to the AccountPreference entity.
@@ -515,6 +552,9 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.NormalizedName(); ok {
 		_spec.SetField(account.FieldNormalizedName, field.TypeString, value)
 	}
+	if _u.mutation.WebauthnUserHandleCleared() {
+		_spec.ClearField(account.FieldWebauthnUserHandle, field.TypeBytes)
+	}
 	if value, ok := _u.mutation.DisabledAt(); ok {
 		_spec.SetField(account.FieldDisabledAt, field.TypeTime, value)
 	}
@@ -543,6 +583,51 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(passwordcredential.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.WebauthnCredentialsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.WebauthnCredentialsTable,
+			Columns: []string{account.WebauthnCredentialsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(webauthncredential.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedWebauthnCredentialsIDs(); len(nodes) > 0 && !_u.mutation.WebauthnCredentialsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.WebauthnCredentialsTable,
+			Columns: []string{account.WebauthnCredentialsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(webauthncredential.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.WebauthnCredentialsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.WebauthnCredentialsTable,
+			Columns: []string{account.WebauthnCredentialsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(webauthncredential.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -1055,6 +1140,21 @@ func (_u *AccountUpdateOne) SetPasswordCredential(v *PasswordCredential) *Accoun
 	return _u.SetPasswordCredentialID(v.ID)
 }
 
+// AddWebauthnCredentialIDs adds the "webauthn_credentials" edge to the WebAuthnCredential entity by IDs.
+func (_u *AccountUpdateOne) AddWebauthnCredentialIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.AddWebauthnCredentialIDs(ids...)
+	return _u
+}
+
+// AddWebauthnCredentials adds the "webauthn_credentials" edges to the WebAuthnCredential entity.
+func (_u *AccountUpdateOne) AddWebauthnCredentials(v ...*WebAuthnCredential) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddWebauthnCredentialIDs(ids...)
+}
+
 // SetPreferenceID sets the "preference" edge to the AccountPreference entity by ID.
 func (_u *AccountUpdateOne) SetPreferenceID(id int) *AccountUpdateOne {
 	_u.mutation.SetPreferenceID(id)
@@ -1222,6 +1322,27 @@ func (_u *AccountUpdateOne) Mutation() *AccountMutation {
 func (_u *AccountUpdateOne) ClearPasswordCredential() *AccountUpdateOne {
 	_u.mutation.ClearPasswordCredential()
 	return _u
+}
+
+// ClearWebauthnCredentials clears all "webauthn_credentials" edges to the WebAuthnCredential entity.
+func (_u *AccountUpdateOne) ClearWebauthnCredentials() *AccountUpdateOne {
+	_u.mutation.ClearWebauthnCredentials()
+	return _u
+}
+
+// RemoveWebauthnCredentialIDs removes the "webauthn_credentials" edge to WebAuthnCredential entities by IDs.
+func (_u *AccountUpdateOne) RemoveWebauthnCredentialIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.RemoveWebauthnCredentialIDs(ids...)
+	return _u
+}
+
+// RemoveWebauthnCredentials removes "webauthn_credentials" edges to WebAuthnCredential entities.
+func (_u *AccountUpdateOne) RemoveWebauthnCredentials(v ...*WebAuthnCredential) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveWebauthnCredentialIDs(ids...)
 }
 
 // ClearPreference clears the "preference" edge to the AccountPreference entity.
@@ -1494,6 +1615,9 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 	if value, ok := _u.mutation.NormalizedName(); ok {
 		_spec.SetField(account.FieldNormalizedName, field.TypeString, value)
 	}
+	if _u.mutation.WebauthnUserHandleCleared() {
+		_spec.ClearField(account.FieldWebauthnUserHandle, field.TypeBytes)
+	}
 	if value, ok := _u.mutation.DisabledAt(); ok {
 		_spec.SetField(account.FieldDisabledAt, field.TypeTime, value)
 	}
@@ -1522,6 +1646,51 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(passwordcredential.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.WebauthnCredentialsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.WebauthnCredentialsTable,
+			Columns: []string{account.WebauthnCredentialsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(webauthncredential.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedWebauthnCredentialsIDs(); len(nodes) > 0 && !_u.mutation.WebauthnCredentialsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.WebauthnCredentialsTable,
+			Columns: []string{account.WebauthnCredentialsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(webauthncredential.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.WebauthnCredentialsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.WebauthnCredentialsTable,
+			Columns: []string{account.WebauthnCredentialsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(webauthncredential.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

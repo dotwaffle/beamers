@@ -160,6 +160,14 @@ var migrationContracts = map[int]migrationContract{
 		minimumWriter: 54,
 		consequence:   "adds single-use Account and Administrator recovery credentials",
 	},
+	55: {
+		name:          "account_webauthn",
+		checksum:      "18fcb11394d4bb6d9e51f22c7f503750ef518d00e3c05f37ed08510bf8c3ddf6",
+		safety:        MigrationNonDestructive,
+		minimumReader: 55,
+		minimumWriter: 55,
+		consequence:   "adds stable Account WebAuthn handles and independently revocable Credentials",
+	},
 }
 
 // MigrationStep is one exact committed migration in an upgrade plan.
@@ -483,6 +491,7 @@ func SanitizeSnapshot(ctx context.Context, path string) (returnErr error) {
 		"DELETE FROM account_sessions",
 		"DELETE FROM bootstrap_credentials",
 		"DELETE FROM password_credentials",
+		"DELETE FROM web_authn_credentials",
 		"DELETE FROM recovery_codes",
 		"DELETE FROM recovery_tokens",
 		"DELETE FROM display_credentials",
@@ -528,6 +537,7 @@ func ValidateSanitizedSnapshot(ctx context.Context, path string) (returnErr erro
 		"SELECT EXISTS(SELECT 1 FROM account_sessions)",
 		"SELECT EXISTS(SELECT 1 FROM bootstrap_credentials)",
 		"SELECT EXISTS(SELECT 1 FROM password_credentials)",
+		"SELECT EXISTS(SELECT 1 FROM web_authn_credentials)",
 		"SELECT EXISTS(SELECT 1 FROM recovery_codes)",
 		"SELECT EXISTS(SELECT 1 FROM recovery_tokens)",
 		"SELECT EXISTS(SELECT 1 FROM display_credentials)",

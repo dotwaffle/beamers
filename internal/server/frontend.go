@@ -81,6 +81,7 @@ func registerFrontendRoutes(
 		frontend.HTMXPath,
 		frontend.SSEPath,
 		frontend.EventTimePath,
+		frontend.WebAuthnPath,
 	} {
 		handler, err := handlers.asset(path)
 		if err != nil {
@@ -187,7 +188,8 @@ func (handlers frontendHandlers) profile(response http.ResponseWriter, request *
 		if !handlers.validForm(response, request) {
 			return
 		}
-		if request.Form.Get("action") == "replace-recovery-codes" {
+		switch request.Form.Get("action") {
+		case "replace-recovery-codes":
 			codes, replaceErr := handlers.authentication.ReplaceRecoveryCodes(
 				request.Context(),
 				actor,
@@ -209,6 +211,52 @@ func (handlers frontendHandlers) profile(response http.ResponseWriter, request *
 				return
 			}
 			handlers.renderProfile(response, request, actor, csrfToken, codes)
+			return
+		case "remove-password":
+			err = handlers.authentication.RemovePassword(
+				request.Context(),
+				actor,
+				request.Form.Get("command_id"),
+			)
+			switch {
+			case errors.Is(err, auth.ErrFinalCredential):
+				http.Error(response, "final active Credential cannot be removed", http.StatusConflict)
+			case errors.Is(err, auth.ErrCommandConflict):
+				http.Error(response, "Credential command conflict", http.StatusConflict)
+			case errors.Is(err, auth.ErrInvalidAccountDetails):
+				http.Error(response, "invalid Credential command", http.StatusBadRequest)
+			case err != nil:
+				handlers.frontendError(response, request, "remove password Credential", err)
+			default:
+				http.Redirect(response, request, "/profile", http.StatusSeeOther)
+			}
+			return
+		case "revoke-webauthn":
+			credentialID, parseErr := strconv.Atoi(request.Form.Get("credential_id"))
+			if parseErr != nil || credentialID <= 0 {
+				http.Error(response, "invalid WebAuthn Credential", http.StatusBadRequest)
+				return
+			}
+			err = handlers.authentication.RevokeWebAuthnCredential(
+				request.Context(),
+				actor,
+				credentialID,
+				request.Form.Get("command_id"),
+			)
+			switch {
+			case errors.Is(err, auth.ErrFinalCredential):
+				http.Error(response, "final active Credential cannot be removed", http.StatusConflict)
+			case errors.Is(err, auth.ErrInvalidSession):
+				http.Error(response, "WebAuthn Credential not found", http.StatusNotFound)
+			case errors.Is(err, auth.ErrCommandConflict):
+				http.Error(response, "Credential command conflict", http.StatusConflict)
+			case errors.Is(err, auth.ErrInvalidAccountDetails):
+				http.Error(response, "invalid Credential command", http.StatusBadRequest)
+			case err != nil:
+				handlers.frontendError(response, request, "revoke WebAuthn Credential", err)
+			default:
+				http.Redirect(response, request, "/profile", http.StatusSeeOther)
+			}
 			return
 		}
 		entryIDs, parseErr := positiveFormIDs(request.Form["entry_id"])
@@ -257,6 +305,25 @@ func (handlers frontendHandlers) renderProfile(
 		handlers.frontendError(response, request, "create Recovery Code command identity", err)
 		return
 	}
+	credentialCommandID, err := planningCommandID(handlers.random)
+	if err != nil {
+		handlers.frontendError(response, request, "create Credential command identity", err)
+		return
+	}
+	passwordActive, err := handlers.authentication.PasswordActive(request.Context(), actor)
+	if err != nil {
+		handlers.frontendError(response, request, "read password Credential", err)
+		return
+	}
+	credentials, err := handlers.authentication.WebAuthnCredentials(request.Context(), actor)
+	if err != nil {
+		handlers.frontendError(response, request, "read WebAuthn Credentials", err)
+		return
+	}
+	canRemovePassword := false
+	for _, credential := range credentials {
+		canRemovePassword = canRemovePassword || !credential.Revoked
+	}
 	handlers.render(
 		response,
 		request,
@@ -264,8 +331,12 @@ func (handlers frontendHandlers) renderProfile(
 		frontend.ProfilePage(
 			csrfToken,
 			found,
+			passwordActive,
+			canRemovePassword,
+			credentials,
 			recoveryCodes,
 			recoveryCommandID,
+			credentialCommandID,
 			reducedEffectsCookie(request),
 			backstageAccessible(request) &&
 				backstageAvailable(backstageNavigation(actor)),

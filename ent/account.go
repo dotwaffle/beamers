@@ -24,6 +24,8 @@ type Account struct {
 	Name string `json:"name,omitempty"`
 	// NormalizedName holds the value of the "normalized_name" field.
 	NormalizedName string `json:"normalized_name,omitempty"`
+	// WebauthnUserHandle holds the value of the "webauthn_user_handle" field.
+	WebauthnUserHandle []byte `json:"-"`
 	// Administrator holds the value of the "administrator" field.
 	Administrator bool `json:"administrator,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -40,6 +42,8 @@ type Account struct {
 type AccountEdges struct {
 	// PasswordCredential holds the value of the password_credential edge.
 	PasswordCredential *PasswordCredential `json:"password_credential,omitempty"`
+	// WebauthnCredentials holds the value of the webauthn_credentials edge.
+	WebauthnCredentials []*WebAuthnCredential `json:"webauthn_credentials,omitempty"`
 	// Preference holds the value of the preference edge.
 	Preference *AccountPreference `json:"preference,omitempty"`
 	// Profile holds the value of the profile edge.
@@ -62,7 +66,7 @@ type AccountEdges struct {
 	DraftEdits []*DraftEdit `json:"draft_edits,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [11]bool
+	loadedTypes [12]bool
 }
 
 // PasswordCredentialOrErr returns the PasswordCredential value or an error if the edge
@@ -76,12 +80,21 @@ func (e AccountEdges) PasswordCredentialOrErr() (*PasswordCredential, error) {
 	return nil, &NotLoadedError{edge: "password_credential"}
 }
 
+// WebauthnCredentialsOrErr returns the WebauthnCredentials value or an error if the edge
+// was not loaded in eager-loading.
+func (e AccountEdges) WebauthnCredentialsOrErr() ([]*WebAuthnCredential, error) {
+	if e.loadedTypes[1] {
+		return e.WebauthnCredentials, nil
+	}
+	return nil, &NotLoadedError{edge: "webauthn_credentials"}
+}
+
 // PreferenceOrErr returns the Preference value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e AccountEdges) PreferenceOrErr() (*AccountPreference, error) {
 	if e.Preference != nil {
 		return e.Preference, nil
-	} else if e.loadedTypes[1] {
+	} else if e.loadedTypes[2] {
 		return nil, &NotFoundError{label: accountpreference.Label}
 	}
 	return nil, &NotLoadedError{edge: "preference"}
@@ -92,7 +105,7 @@ func (e AccountEdges) PreferenceOrErr() (*AccountPreference, error) {
 func (e AccountEdges) ProfileOrErr() (*AccountProfile, error) {
 	if e.Profile != nil {
 		return e.Profile, nil
-	} else if e.loadedTypes[2] {
+	} else if e.loadedTypes[3] {
 		return nil, &NotFoundError{label: accountprofile.Label}
 	}
 	return nil, &NotLoadedError{edge: "profile"}
@@ -101,7 +114,7 @@ func (e AccountEdges) ProfileOrErr() (*AccountProfile, error) {
 // SessionsOrErr returns the Sessions value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) SessionsOrErr() ([]*AccountSession, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[4] {
 		return e.Sessions, nil
 	}
 	return nil, &NotLoadedError{edge: "sessions"}
@@ -110,7 +123,7 @@ func (e AccountEdges) SessionsOrErr() ([]*AccountSession, error) {
 // RecoveryCodesOrErr returns the RecoveryCodes value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) RecoveryCodesOrErr() ([]*RecoveryCode, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[5] {
 		return e.RecoveryCodes, nil
 	}
 	return nil, &NotLoadedError{edge: "recovery_codes"}
@@ -119,7 +132,7 @@ func (e AccountEdges) RecoveryCodesOrErr() ([]*RecoveryCode, error) {
 // RecoveryTokensOrErr returns the RecoveryTokens value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) RecoveryTokensOrErr() ([]*RecoveryToken, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[6] {
 		return e.RecoveryTokens, nil
 	}
 	return nil, &NotLoadedError{edge: "recovery_tokens"}
@@ -128,7 +141,7 @@ func (e AccountEdges) RecoveryTokensOrErr() ([]*RecoveryToken, error) {
 // EventGrantsOrErr returns the EventGrants value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) EventGrantsOrErr() ([]*EventGrant, error) {
-	if e.loadedTypes[6] {
+	if e.loadedTypes[7] {
 		return e.EventGrants, nil
 	}
 	return nil, &NotLoadedError{edge: "event_grants"}
@@ -137,7 +150,7 @@ func (e AccountEdges) EventGrantsOrErr() ([]*EventGrant, error) {
 // FavoriteSessionsOrErr returns the FavoriteSessions value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) FavoriteSessionsOrErr() ([]*FavoriteSession, error) {
-	if e.loadedTypes[7] {
+	if e.loadedTypes[8] {
 		return e.FavoriteSessions, nil
 	}
 	return nil, &NotLoadedError{edge: "favorite_sessions"}
@@ -146,7 +159,7 @@ func (e AccountEdges) FavoriteSessionsOrErr() ([]*FavoriteSession, error) {
 // AuditEntriesOrErr returns the AuditEntries value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) AuditEntriesOrErr() ([]*AuditEntry, error) {
-	if e.loadedTypes[8] {
+	if e.loadedTypes[9] {
 		return e.AuditEntries, nil
 	}
 	return nil, &NotLoadedError{edge: "audit_entries"}
@@ -155,7 +168,7 @@ func (e AccountEdges) AuditEntriesOrErr() ([]*AuditEntry, error) {
 // CommandReceiptsOrErr returns the CommandReceipts value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) CommandReceiptsOrErr() ([]*CommandReceipt, error) {
-	if e.loadedTypes[9] {
+	if e.loadedTypes[10] {
 		return e.CommandReceipts, nil
 	}
 	return nil, &NotLoadedError{edge: "command_receipts"}
@@ -164,7 +177,7 @@ func (e AccountEdges) CommandReceiptsOrErr() ([]*CommandReceipt, error) {
 // DraftEditsOrErr returns the DraftEdits value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) DraftEditsOrErr() ([]*DraftEdit, error) {
-	if e.loadedTypes[10] {
+	if e.loadedTypes[11] {
 		return e.DraftEdits, nil
 	}
 	return nil, &NotLoadedError{edge: "draft_edits"}
@@ -175,6 +188,8 @@ func (*Account) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case account.FieldWebauthnUserHandle:
+			values[i] = new([]byte)
 		case account.FieldAdministrator:
 			values[i] = new(sql.NullBool)
 		case account.FieldID:
@@ -216,6 +231,12 @@ func (_m *Account) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.NormalizedName = value.String
 			}
+		case account.FieldWebauthnUserHandle:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field webauthn_user_handle", values[i])
+			} else if value != nil {
+				_m.WebauthnUserHandle = *value
+			}
 		case account.FieldAdministrator:
 			if value, ok := values[i].(*sql.NullBool); !ok {
 				return fmt.Errorf("unexpected type %T for field administrator", values[i])
@@ -251,6 +272,11 @@ func (_m *Account) Value(name string) (ent.Value, error) {
 // QueryPasswordCredential queries the "password_credential" edge of the Account entity.
 func (_m *Account) QueryPasswordCredential() *PasswordCredentialQuery {
 	return NewAccountClient(_m.config).QueryPasswordCredential(_m)
+}
+
+// QueryWebauthnCredentials queries the "webauthn_credentials" edge of the Account entity.
+func (_m *Account) QueryWebauthnCredentials() *WebAuthnCredentialQuery {
+	return NewAccountClient(_m.config).QueryWebauthnCredentials(_m)
 }
 
 // QueryPreference queries the "preference" edge of the Account entity.
@@ -331,6 +357,8 @@ func (_m *Account) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("normalized_name=")
 	builder.WriteString(_m.NormalizedName)
+	builder.WriteString(", ")
+	builder.WriteString("webauthn_user_handle=<sensitive>")
 	builder.WriteString(", ")
 	builder.WriteString("administrator=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Administrator))

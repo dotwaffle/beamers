@@ -73,6 +73,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
 	"github.com/dotwaffle/beamers/ent/uploadlink"
+	"github.com/dotwaffle/beamers/ent/webauthncredential"
 
 	stdsql "database/sql"
 )
@@ -198,6 +199,8 @@ type Client struct {
 	TrackPublishedVersion *TrackPublishedVersionClient
 	// UploadLink is the client for interacting with the UploadLink builders.
 	UploadLink *UploadLinkClient
+	// WebAuthnCredential is the client for interacting with the WebAuthnCredential builders.
+	WebAuthnCredential *WebAuthnCredentialClient
 }
 
 // NewClient creates a new client configured with the given options.
@@ -267,6 +270,7 @@ func (c *Client) init() {
 	c.TrackDraft = NewTrackDraftClient(c.config)
 	c.TrackPublishedVersion = NewTrackPublishedVersionClient(c.config)
 	c.UploadLink = NewUploadLinkClient(c.config)
+	c.WebAuthnCredential = NewWebAuthnCredentialClient(c.config)
 }
 
 type (
@@ -417,6 +421,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		TrackDraft:                  NewTrackDraftClient(cfg),
 		TrackPublishedVersion:       NewTrackPublishedVersionClient(cfg),
 		UploadLink:                  NewUploadLinkClient(cfg),
+		WebAuthnCredential:          NewWebAuthnCredentialClient(cfg),
 	}, nil
 }
 
@@ -494,6 +499,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		TrackDraft:                  NewTrackDraftClient(cfg),
 		TrackPublishedVersion:       NewTrackPublishedVersionClient(cfg),
 		UploadLink:                  NewUploadLinkClient(cfg),
+		WebAuthnCredential:          NewWebAuthnCredentialClient(cfg),
 	}, nil
 }
 
@@ -538,7 +544,7 @@ func (c *Client) Use(hooks ...Hook) {
 		c.ResultsCorrection, c.ResultsPublication, c.Rundown, c.Session,
 		c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
 		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion,
-		c.UploadLink,
+		c.UploadLink, c.WebAuthnCredential,
 	} {
 		n.Use(hooks...)
 	}
@@ -563,7 +569,7 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.ResultsCorrection, c.ResultsPublication, c.Rundown, c.Session,
 		c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
 		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion,
-		c.UploadLink,
+		c.UploadLink, c.WebAuthnCredential,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -688,6 +694,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.TrackPublishedVersion.mutate(ctx, m)
 	case *UploadLinkMutation:
 		return c.UploadLink.mutate(ctx, m)
+	case *WebAuthnCredentialMutation:
+		return c.WebAuthnCredential.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
 	}
@@ -810,6 +818,22 @@ func (c *AccountClient) QueryPasswordCredential(_m *Account) *PasswordCredential
 			sqlgraph.From(account.Table, account.FieldID, id),
 			sqlgraph.To(passwordcredential.Table, passwordcredential.FieldID),
 			sqlgraph.Edge(sqlgraph.O2O, false, account.PasswordCredentialTable, account.PasswordCredentialColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryWebauthnCredentials queries the webauthn_credentials edge of a Account.
+func (c *AccountClient) QueryWebauthnCredentials(_m *Account) *WebAuthnCredentialQuery {
+	query := (&WebAuthnCredentialClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(webauthncredential.Table, webauthncredential.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.WebauthnCredentialsTable, account.WebauthnCredentialsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -10784,6 +10808,156 @@ func (c *UploadLinkClient) mutate(ctx context.Context, m *UploadLinkMutation) (V
 	}
 }
 
+// WebAuthnCredentialClient is a client for the WebAuthnCredential schema.
+type WebAuthnCredentialClient struct {
+	config
+}
+
+// NewWebAuthnCredentialClient returns a client for the WebAuthnCredential from the given config.
+func NewWebAuthnCredentialClient(c config) *WebAuthnCredentialClient {
+	return &WebAuthnCredentialClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `webauthncredential.Hooks(f(g(h())))`.
+func (c *WebAuthnCredentialClient) Use(hooks ...Hook) {
+	c.hooks.WebAuthnCredential = append(c.hooks.WebAuthnCredential, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `webauthncredential.Intercept(f(g(h())))`.
+func (c *WebAuthnCredentialClient) Intercept(interceptors ...Interceptor) {
+	c.inters.WebAuthnCredential = append(c.inters.WebAuthnCredential, interceptors...)
+}
+
+// Create returns a builder for creating a WebAuthnCredential entity.
+func (c *WebAuthnCredentialClient) Create() *WebAuthnCredentialCreate {
+	mutation := newWebAuthnCredentialMutation(c.config, OpCreate)
+	return &WebAuthnCredentialCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of WebAuthnCredential entities.
+func (c *WebAuthnCredentialClient) CreateBulk(builders ...*WebAuthnCredentialCreate) *WebAuthnCredentialCreateBulk {
+	return &WebAuthnCredentialCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *WebAuthnCredentialClient) MapCreateBulk(slice any, setFunc func(*WebAuthnCredentialCreate, int)) *WebAuthnCredentialCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &WebAuthnCredentialCreateBulk{err: fmt.Errorf("calling to WebAuthnCredentialClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*WebAuthnCredentialCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &WebAuthnCredentialCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for WebAuthnCredential.
+func (c *WebAuthnCredentialClient) Update() *WebAuthnCredentialUpdate {
+	mutation := newWebAuthnCredentialMutation(c.config, OpUpdate)
+	return &WebAuthnCredentialUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *WebAuthnCredentialClient) UpdateOne(_m *WebAuthnCredential) *WebAuthnCredentialUpdateOne {
+	mutation := newWebAuthnCredentialMutation(c.config, OpUpdateOne, withWebAuthnCredential(_m))
+	return &WebAuthnCredentialUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *WebAuthnCredentialClient) UpdateOneID(id int) *WebAuthnCredentialUpdateOne {
+	mutation := newWebAuthnCredentialMutation(c.config, OpUpdateOne, withWebAuthnCredentialID(id))
+	return &WebAuthnCredentialUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for WebAuthnCredential.
+func (c *WebAuthnCredentialClient) Delete() *WebAuthnCredentialDelete {
+	mutation := newWebAuthnCredentialMutation(c.config, OpDelete)
+	return &WebAuthnCredentialDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *WebAuthnCredentialClient) DeleteOne(_m *WebAuthnCredential) *WebAuthnCredentialDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *WebAuthnCredentialClient) DeleteOneID(id int) *WebAuthnCredentialDeleteOne {
+	builder := c.Delete().Where(webauthncredential.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &WebAuthnCredentialDeleteOne{builder}
+}
+
+// Query returns a query builder for WebAuthnCredential.
+func (c *WebAuthnCredentialClient) Query() *WebAuthnCredentialQuery {
+	return &WebAuthnCredentialQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeWebAuthnCredential},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a WebAuthnCredential entity by its id.
+func (c *WebAuthnCredentialClient) Get(ctx context.Context, id int) (*WebAuthnCredential, error) {
+	return c.Query().Where(webauthncredential.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *WebAuthnCredentialClient) GetX(ctx context.Context, id int) *WebAuthnCredential {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryAccount queries the account edge of a WebAuthnCredential.
+func (c *WebAuthnCredentialClient) QueryAccount(_m *WebAuthnCredential) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(webauthncredential.Table, webauthncredential.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, webauthncredential.AccountTable, webauthncredential.AccountColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *WebAuthnCredentialClient) Hooks() []Hook {
+	hooks := c.hooks.WebAuthnCredential
+	return append(hooks[:len(hooks):len(hooks)], webauthncredential.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *WebAuthnCredentialClient) Interceptors() []Interceptor {
+	return c.inters.WebAuthnCredential
+}
+
+func (c *WebAuthnCredentialClient) mutate(ctx context.Context, m *WebAuthnCredentialMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&WebAuthnCredentialCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&WebAuthnCredentialUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&WebAuthnCredentialUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&WebAuthnCredentialDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown WebAuthnCredential mutation op: %q", m.Op())
+	}
+}
+
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
@@ -10799,8 +10973,8 @@ type (
 		RecoveryCode, RecoveryToken, RegistrationPolicy, ReleasedProfileEntry,
 		ReopenWindow, ResultsCorrection, ResultsPublication, Rundown, Session,
 		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
-		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
-		UploadLink []ent.Hook
+		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion, UploadLink,
+		WebAuthnCredential []ent.Hook
 	}
 	inters struct {
 		Account, AccountPreference, AccountProfile, AccountSession, Attachment,
@@ -10815,8 +10989,8 @@ type (
 		RecoveryCode, RecoveryToken, RegistrationPolicy, ReleasedProfileEntry,
 		ReopenWindow, ResultsCorrection, ResultsPublication, Rundown, Session,
 		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
-		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
-		UploadLink []ent.Interceptor
+		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion, UploadLink,
+		WebAuthnCredential []ent.Interceptor
 	}
 )
 
