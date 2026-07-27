@@ -32,6 +32,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/eventslug"
 	"github.com/dotwaffle/beamers/ent/favoritesession"
+	"github.com/dotwaffle/beamers/ent/federatedidentity"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/lane"
@@ -1471,6 +1472,57 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	federatedidentity.Policy = privacy.NewPolicies(schema.FederatedIdentity{})
+	federatedidentity.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := federatedidentity.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	federatedidentityFields := schema.FederatedIdentity{}.Fields()
+	_ = federatedidentityFields
+	// federatedidentityDescProvider is the schema descriptor for provider field.
+	federatedidentityDescProvider := federatedidentityFields[1].Descriptor()
+	// federatedidentity.ProviderValidator is a validator for the "provider" field. It is called by the builders before save.
+	federatedidentity.ProviderValidator = func() func(string) error {
+		validators := federatedidentityDescProvider.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(provider string) error {
+			for _, fn := range fns {
+				if err := fn(provider); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// federatedidentityDescSubject is the schema descriptor for subject field.
+	federatedidentityDescSubject := federatedidentityFields[2].Descriptor()
+	// federatedidentity.SubjectValidator is a validator for the "subject" field. It is called by the builders before save.
+	federatedidentity.SubjectValidator = func() func(string) error {
+		validators := federatedidentityDescSubject.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(subject string) error {
+			for _, fn := range fns {
+				if err := fn(subject); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// federatedidentityDescCreatedAt is the schema descriptor for created_at field.
+	federatedidentityDescCreatedAt := federatedidentityFields[3].Descriptor()
+	// federatedidentity.DefaultCreatedAt holds the default value on creation for the created_at field.
+	federatedidentity.DefaultCreatedAt = federatedidentityDescCreatedAt.Default.(func() time.Time)
 	importreference.Policy = privacy.NewPolicies(schema.ImportReference{})
 	importreference.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

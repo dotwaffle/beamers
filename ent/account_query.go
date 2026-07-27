@@ -22,6 +22,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/favoritesession"
+	"github.com/dotwaffle/beamers/ent/federatedidentity"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/recoverycode"
@@ -38,6 +39,7 @@ type AccountQuery struct {
 	predicates              []predicate.Account
 	withPasswordCredential  *PasswordCredentialQuery
 	withWebauthnCredentials *WebAuthnCredentialQuery
+	withFederatedIdentities *FederatedIdentityQuery
 	withPreference          *AccountPreferenceQuery
 	withProfile             *AccountProfileQuery
 	withSessions            *AccountSessionQuery
@@ -121,6 +123,28 @@ func (_q *AccountQuery) QueryWebauthnCredentials() *WebAuthnCredentialQuery {
 			sqlgraph.From(account.Table, account.FieldID, selector),
 			sqlgraph.To(webauthncredential.Table, webauthncredential.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, account.WebauthnCredentialsTable, account.WebauthnCredentialsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryFederatedIdentities chains the current query on the "federated_identities" edge.
+func (_q *AccountQuery) QueryFederatedIdentities() *FederatedIdentityQuery {
+	query := (&FederatedIdentityClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, selector),
+			sqlgraph.To(federatedidentity.Table, federatedidentity.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.FederatedIdentitiesTable, account.FederatedIdentitiesColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -542,6 +566,7 @@ func (_q *AccountQuery) Clone() *AccountQuery {
 		predicates:              append([]predicate.Account{}, _q.predicates...),
 		withPasswordCredential:  _q.withPasswordCredential.Clone(),
 		withWebauthnCredentials: _q.withWebauthnCredentials.Clone(),
+		withFederatedIdentities: _q.withFederatedIdentities.Clone(),
 		withPreference:          _q.withPreference.Clone(),
 		withProfile:             _q.withProfile.Clone(),
 		withSessions:            _q.withSessions.Clone(),
@@ -577,6 +602,17 @@ func (_q *AccountQuery) WithWebauthnCredentials(opts ...func(*WebAuthnCredential
 		opt(query)
 	}
 	_q.withWebauthnCredentials = query
+	return _q
+}
+
+// WithFederatedIdentities tells the query-builder to eager-load the nodes that are connected to
+// the "federated_identities" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AccountQuery) WithFederatedIdentities(opts ...func(*FederatedIdentityQuery)) *AccountQuery {
+	query := (&FederatedIdentityClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withFederatedIdentities = query
 	return _q
 }
 
@@ -774,9 +810,10 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	var (
 		nodes       = []*Account{}
 		_spec       = _q.querySpec()
-		loadedTypes = [12]bool{
+		loadedTypes = [13]bool{
 			_q.withPasswordCredential != nil,
 			_q.withWebauthnCredentials != nil,
+			_q.withFederatedIdentities != nil,
 			_q.withPreference != nil,
 			_q.withProfile != nil,
 			_q.withSessions != nil,
@@ -818,6 +855,15 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 			func(n *Account) { n.Edges.WebauthnCredentials = []*WebAuthnCredential{} },
 			func(n *Account, e *WebAuthnCredential) {
 				n.Edges.WebauthnCredentials = append(n.Edges.WebauthnCredentials, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withFederatedIdentities; query != nil {
+		if err := _q.loadFederatedIdentities(ctx, query, nodes,
+			func(n *Account) { n.Edges.FederatedIdentities = []*FederatedIdentity{} },
+			func(n *Account, e *FederatedIdentity) {
+				n.Edges.FederatedIdentities = append(n.Edges.FederatedIdentities, e)
 			}); err != nil {
 			return nil, err
 		}
@@ -935,6 +981,36 @@ func (_q *AccountQuery) loadWebauthnCredentials(ctx context.Context, query *WebA
 	}
 	query.Where(predicate.WebAuthnCredential(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(account.WebauthnCredentialsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.AccountID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "account_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *AccountQuery) loadFederatedIdentities(ctx context.Context, query *FederatedIdentityQuery, nodes []*Account, init func(*Account), assign func(*Account, *FederatedIdentity)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Account)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(federatedidentity.FieldAccountID)
+	}
+	query.Where(predicate.FederatedIdentity(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(account.FederatedIdentitiesColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

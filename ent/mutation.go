@@ -37,6 +37,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/eventslug"
 	"github.com/dotwaffle/beamers/ent/favoritesession"
+	"github.com/dotwaffle/beamers/ent/federatedidentity"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/lane"
@@ -111,6 +112,7 @@ const (
 	TypeEventGrant                  = "EventGrant"
 	TypeEventSlug                   = "EventSlug"
 	TypeFavoriteSession             = "FavoriteSession"
+	TypeFederatedIdentity           = "FederatedIdentity"
 	TypeImportReference             = "ImportReference"
 	TypeInstallation                = "Installation"
 	TypeLane                        = "Lane"
@@ -164,6 +166,9 @@ type AccountMutation struct {
 	webauthn_credentials        map[int]struct{}
 	removedwebauthn_credentials map[int]struct{}
 	clearedwebauthn_credentials bool
+	federated_identities        map[int]struct{}
+	removedfederated_identities map[int]struct{}
+	clearedfederated_identities bool
 	preference                  *int
 	clearedpreference           bool
 	profile                     *int
@@ -628,6 +633,60 @@ func (m *AccountMutation) ResetWebauthnCredentials() {
 	m.webauthn_credentials = nil
 	m.clearedwebauthn_credentials = false
 	m.removedwebauthn_credentials = nil
+}
+
+// AddFederatedIdentityIDs adds the "federated_identities" edge to the FederatedIdentity entity by ids.
+func (m *AccountMutation) AddFederatedIdentityIDs(ids ...int) {
+	if m.federated_identities == nil {
+		m.federated_identities = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.federated_identities[ids[i]] = struct{}{}
+	}
+}
+
+// ClearFederatedIdentities clears the "federated_identities" edge to the FederatedIdentity entity.
+func (m *AccountMutation) ClearFederatedIdentities() {
+	m.clearedfederated_identities = true
+}
+
+// FederatedIdentitiesCleared reports if the "federated_identities" edge to the FederatedIdentity entity was cleared.
+func (m *AccountMutation) FederatedIdentitiesCleared() bool {
+	return m.clearedfederated_identities
+}
+
+// RemoveFederatedIdentityIDs removes the "federated_identities" edge to the FederatedIdentity entity by IDs.
+func (m *AccountMutation) RemoveFederatedIdentityIDs(ids ...int) {
+	if m.removedfederated_identities == nil {
+		m.removedfederated_identities = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.federated_identities, ids[i])
+		m.removedfederated_identities[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedFederatedIdentities returns the removed IDs of the "federated_identities" edge to the FederatedIdentity entity.
+func (m *AccountMutation) RemovedFederatedIdentitiesIDs() (ids []int) {
+	for id := range m.removedfederated_identities {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// FederatedIdentitiesIDs returns the "federated_identities" edge IDs in the mutation.
+func (m *AccountMutation) FederatedIdentitiesIDs() (ids []int) {
+	for id := range m.federated_identities {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetFederatedIdentities resets all changes to the "federated_identities" edge.
+func (m *AccountMutation) ResetFederatedIdentities() {
+	m.federated_identities = nil
+	m.clearedfederated_identities = false
+	m.removedfederated_identities = nil
 }
 
 // SetPreferenceID sets the "preference" edge to the AccountPreference entity by id.
@@ -1373,12 +1432,15 @@ func (m *AccountMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AccountMutation) AddedEdges() []string {
-	edges := make([]string, 0, 12)
+	edges := make([]string, 0, 13)
 	if m.password_credential != nil {
 		edges = append(edges, account.EdgePasswordCredential)
 	}
 	if m.webauthn_credentials != nil {
 		edges = append(edges, account.EdgeWebauthnCredentials)
+	}
+	if m.federated_identities != nil {
+		edges = append(edges, account.EdgeFederatedIdentities)
 	}
 	if m.preference != nil {
 		edges = append(edges, account.EdgePreference)
@@ -1424,6 +1486,12 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 	case account.EdgeWebauthnCredentials:
 		ids := make([]ent.Value, 0, len(m.webauthn_credentials))
 		for id := range m.webauthn_credentials {
+			ids = append(ids, id)
+		}
+		return ids
+	case account.EdgeFederatedIdentities:
+		ids := make([]ent.Value, 0, len(m.federated_identities))
+		for id := range m.federated_identities {
 			ids = append(ids, id)
 		}
 		return ids
@@ -1489,9 +1557,12 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AccountMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 12)
+	edges := make([]string, 0, 13)
 	if m.removedwebauthn_credentials != nil {
 		edges = append(edges, account.EdgeWebauthnCredentials)
+	}
+	if m.removedfederated_identities != nil {
+		edges = append(edges, account.EdgeFederatedIdentities)
 	}
 	if m.removedsessions != nil {
 		edges = append(edges, account.EdgeSessions)
@@ -1527,6 +1598,12 @@ func (m *AccountMutation) RemovedIDs(name string) []ent.Value {
 	case account.EdgeWebauthnCredentials:
 		ids := make([]ent.Value, 0, len(m.removedwebauthn_credentials))
 		for id := range m.removedwebauthn_credentials {
+			ids = append(ids, id)
+		}
+		return ids
+	case account.EdgeFederatedIdentities:
+		ids := make([]ent.Value, 0, len(m.removedfederated_identities))
+		for id := range m.removedfederated_identities {
 			ids = append(ids, id)
 		}
 		return ids
@@ -1584,12 +1661,15 @@ func (m *AccountMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AccountMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 12)
+	edges := make([]string, 0, 13)
 	if m.clearedpassword_credential {
 		edges = append(edges, account.EdgePasswordCredential)
 	}
 	if m.clearedwebauthn_credentials {
 		edges = append(edges, account.EdgeWebauthnCredentials)
+	}
+	if m.clearedfederated_identities {
+		edges = append(edges, account.EdgeFederatedIdentities)
 	}
 	if m.clearedpreference {
 		edges = append(edges, account.EdgePreference)
@@ -1632,6 +1712,8 @@ func (m *AccountMutation) EdgeCleared(name string) bool {
 		return m.clearedpassword_credential
 	case account.EdgeWebauthnCredentials:
 		return m.clearedwebauthn_credentials
+	case account.EdgeFederatedIdentities:
+		return m.clearedfederated_identities
 	case account.EdgePreference:
 		return m.clearedpreference
 	case account.EdgeProfile:
@@ -1682,6 +1764,9 @@ func (m *AccountMutation) ResetEdge(name string) error {
 		return nil
 	case account.EdgeWebauthnCredentials:
 		m.ResetWebauthnCredentials()
+		return nil
+	case account.EdgeFederatedIdentities:
+		m.ResetFederatedIdentities()
 		return nil
 	case account.EdgePreference:
 		m.ResetPreference()
@@ -27765,6 +27850,700 @@ func (m *FavoriteSessionMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown FavoriteSession edge %s", name)
+}
+
+// FederatedIdentityMutation represents an operation that mutates the FederatedIdentity nodes in the graph.
+type FederatedIdentityMutation struct {
+	config
+	op             Op
+	typ            string
+	id             *int
+	provider       *string
+	subject        *string
+	created_at     *time.Time
+	last_used_at   *time.Time
+	revoked_at     *time.Time
+	clearedFields  map[string]struct{}
+	account        *int
+	clearedaccount bool
+	done           bool
+	oldValue       func(context.Context) (*FederatedIdentity, error)
+	predicates     []predicate.FederatedIdentity
+}
+
+var _ ent.Mutation = (*FederatedIdentityMutation)(nil)
+
+// federatedidentityOption allows management of the mutation configuration using functional options.
+type federatedidentityOption func(*FederatedIdentityMutation)
+
+// newFederatedIdentityMutation creates new mutation for the FederatedIdentity entity.
+func newFederatedIdentityMutation(c config, op Op, opts ...federatedidentityOption) *FederatedIdentityMutation {
+	m := &FederatedIdentityMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeFederatedIdentity,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withFederatedIdentityID sets the ID field of the mutation.
+func withFederatedIdentityID(id int) federatedidentityOption {
+	return func(m *FederatedIdentityMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *FederatedIdentity
+		)
+		m.oldValue = func(ctx context.Context) (*FederatedIdentity, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().FederatedIdentity.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withFederatedIdentity sets the old FederatedIdentity of the mutation.
+func withFederatedIdentity(node *FederatedIdentity) federatedidentityOption {
+	return func(m *FederatedIdentityMutation) {
+		m.oldValue = func(context.Context) (*FederatedIdentity, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m FederatedIdentityMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m FederatedIdentityMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *FederatedIdentityMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *FederatedIdentityMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().FederatedIdentity.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetAccountID sets the "account_id" field.
+func (m *FederatedIdentityMutation) SetAccountID(i int) {
+	m.account = &i
+}
+
+// AccountID returns the value of the "account_id" field in the mutation.
+func (m *FederatedIdentityMutation) AccountID() (r int, exists bool) {
+	v := m.account
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAccountID returns the old "account_id" field's value of the FederatedIdentity entity.
+// If the FederatedIdentity object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *FederatedIdentityMutation) OldAccountID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAccountID: %w", err)
+	}
+	return oldValue.AccountID, nil
+}
+
+// ResetAccountID resets all changes to the "account_id" field.
+func (m *FederatedIdentityMutation) ResetAccountID() {
+	m.account = nil
+}
+
+// SetProvider sets the "provider" field.
+func (m *FederatedIdentityMutation) SetProvider(s string) {
+	m.provider = &s
+}
+
+// Provider returns the value of the "provider" field in the mutation.
+func (m *FederatedIdentityMutation) Provider() (r string, exists bool) {
+	v := m.provider
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProvider returns the old "provider" field's value of the FederatedIdentity entity.
+// If the FederatedIdentity object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *FederatedIdentityMutation) OldProvider(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProvider is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProvider requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProvider: %w", err)
+	}
+	return oldValue.Provider, nil
+}
+
+// ResetProvider resets all changes to the "provider" field.
+func (m *FederatedIdentityMutation) ResetProvider() {
+	m.provider = nil
+}
+
+// SetSubject sets the "subject" field.
+func (m *FederatedIdentityMutation) SetSubject(s string) {
+	m.subject = &s
+}
+
+// Subject returns the value of the "subject" field in the mutation.
+func (m *FederatedIdentityMutation) Subject() (r string, exists bool) {
+	v := m.subject
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubject returns the old "subject" field's value of the FederatedIdentity entity.
+// If the FederatedIdentity object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *FederatedIdentityMutation) OldSubject(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubject is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubject requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubject: %w", err)
+	}
+	return oldValue.Subject, nil
+}
+
+// ResetSubject resets all changes to the "subject" field.
+func (m *FederatedIdentityMutation) ResetSubject() {
+	m.subject = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *FederatedIdentityMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *FederatedIdentityMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the FederatedIdentity entity.
+// If the FederatedIdentity object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *FederatedIdentityMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *FederatedIdentityMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetLastUsedAt sets the "last_used_at" field.
+func (m *FederatedIdentityMutation) SetLastUsedAt(t time.Time) {
+	m.last_used_at = &t
+}
+
+// LastUsedAt returns the value of the "last_used_at" field in the mutation.
+func (m *FederatedIdentityMutation) LastUsedAt() (r time.Time, exists bool) {
+	v := m.last_used_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastUsedAt returns the old "last_used_at" field's value of the FederatedIdentity entity.
+// If the FederatedIdentity object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *FederatedIdentityMutation) OldLastUsedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastUsedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastUsedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastUsedAt: %w", err)
+	}
+	return oldValue.LastUsedAt, nil
+}
+
+// ClearLastUsedAt clears the value of the "last_used_at" field.
+func (m *FederatedIdentityMutation) ClearLastUsedAt() {
+	m.last_used_at = nil
+	m.clearedFields[federatedidentity.FieldLastUsedAt] = struct{}{}
+}
+
+// LastUsedAtCleared returns if the "last_used_at" field was cleared in this mutation.
+func (m *FederatedIdentityMutation) LastUsedAtCleared() bool {
+	_, ok := m.clearedFields[federatedidentity.FieldLastUsedAt]
+	return ok
+}
+
+// ResetLastUsedAt resets all changes to the "last_used_at" field.
+func (m *FederatedIdentityMutation) ResetLastUsedAt() {
+	m.last_used_at = nil
+	delete(m.clearedFields, federatedidentity.FieldLastUsedAt)
+}
+
+// SetRevokedAt sets the "revoked_at" field.
+func (m *FederatedIdentityMutation) SetRevokedAt(t time.Time) {
+	m.revoked_at = &t
+}
+
+// RevokedAt returns the value of the "revoked_at" field in the mutation.
+func (m *FederatedIdentityMutation) RevokedAt() (r time.Time, exists bool) {
+	v := m.revoked_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRevokedAt returns the old "revoked_at" field's value of the FederatedIdentity entity.
+// If the FederatedIdentity object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *FederatedIdentityMutation) OldRevokedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRevokedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRevokedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRevokedAt: %w", err)
+	}
+	return oldValue.RevokedAt, nil
+}
+
+// ClearRevokedAt clears the value of the "revoked_at" field.
+func (m *FederatedIdentityMutation) ClearRevokedAt() {
+	m.revoked_at = nil
+	m.clearedFields[federatedidentity.FieldRevokedAt] = struct{}{}
+}
+
+// RevokedAtCleared returns if the "revoked_at" field was cleared in this mutation.
+func (m *FederatedIdentityMutation) RevokedAtCleared() bool {
+	_, ok := m.clearedFields[federatedidentity.FieldRevokedAt]
+	return ok
+}
+
+// ResetRevokedAt resets all changes to the "revoked_at" field.
+func (m *FederatedIdentityMutation) ResetRevokedAt() {
+	m.revoked_at = nil
+	delete(m.clearedFields, federatedidentity.FieldRevokedAt)
+}
+
+// ClearAccount clears the "account" edge to the Account entity.
+func (m *FederatedIdentityMutation) ClearAccount() {
+	m.clearedaccount = true
+	m.clearedFields[federatedidentity.FieldAccountID] = struct{}{}
+}
+
+// AccountCleared reports if the "account" edge to the Account entity was cleared.
+func (m *FederatedIdentityMutation) AccountCleared() bool {
+	return m.clearedaccount
+}
+
+// AccountIDs returns the "account" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AccountID instead. It exists only for internal usage by the builders.
+func (m *FederatedIdentityMutation) AccountIDs() (ids []int) {
+	if id := m.account; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAccount resets all changes to the "account" edge.
+func (m *FederatedIdentityMutation) ResetAccount() {
+	m.account = nil
+	m.clearedaccount = false
+}
+
+// Where appends a list predicates to the FederatedIdentityMutation builder.
+func (m *FederatedIdentityMutation) Where(ps ...predicate.FederatedIdentity) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the FederatedIdentityMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *FederatedIdentityMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.FederatedIdentity, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *FederatedIdentityMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *FederatedIdentityMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (FederatedIdentity).
+func (m *FederatedIdentityMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *FederatedIdentityMutation) Fields() []string {
+	fields := make([]string, 0, 6)
+	if m.account != nil {
+		fields = append(fields, federatedidentity.FieldAccountID)
+	}
+	if m.provider != nil {
+		fields = append(fields, federatedidentity.FieldProvider)
+	}
+	if m.subject != nil {
+		fields = append(fields, federatedidentity.FieldSubject)
+	}
+	if m.created_at != nil {
+		fields = append(fields, federatedidentity.FieldCreatedAt)
+	}
+	if m.last_used_at != nil {
+		fields = append(fields, federatedidentity.FieldLastUsedAt)
+	}
+	if m.revoked_at != nil {
+		fields = append(fields, federatedidentity.FieldRevokedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *FederatedIdentityMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case federatedidentity.FieldAccountID:
+		return m.AccountID()
+	case federatedidentity.FieldProvider:
+		return m.Provider()
+	case federatedidentity.FieldSubject:
+		return m.Subject()
+	case federatedidentity.FieldCreatedAt:
+		return m.CreatedAt()
+	case federatedidentity.FieldLastUsedAt:
+		return m.LastUsedAt()
+	case federatedidentity.FieldRevokedAt:
+		return m.RevokedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *FederatedIdentityMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case federatedidentity.FieldAccountID:
+		return m.OldAccountID(ctx)
+	case federatedidentity.FieldProvider:
+		return m.OldProvider(ctx)
+	case federatedidentity.FieldSubject:
+		return m.OldSubject(ctx)
+	case federatedidentity.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case federatedidentity.FieldLastUsedAt:
+		return m.OldLastUsedAt(ctx)
+	case federatedidentity.FieldRevokedAt:
+		return m.OldRevokedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown FederatedIdentity field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *FederatedIdentityMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case federatedidentity.FieldAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAccountID(v)
+		return nil
+	case federatedidentity.FieldProvider:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProvider(v)
+		return nil
+	case federatedidentity.FieldSubject:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubject(v)
+		return nil
+	case federatedidentity.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case federatedidentity.FieldLastUsedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastUsedAt(v)
+		return nil
+	case federatedidentity.FieldRevokedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRevokedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown FederatedIdentity field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *FederatedIdentityMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *FederatedIdentityMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *FederatedIdentityMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown FederatedIdentity numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *FederatedIdentityMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(federatedidentity.FieldLastUsedAt) {
+		fields = append(fields, federatedidentity.FieldLastUsedAt)
+	}
+	if m.FieldCleared(federatedidentity.FieldRevokedAt) {
+		fields = append(fields, federatedidentity.FieldRevokedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *FederatedIdentityMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *FederatedIdentityMutation) ClearField(name string) error {
+	switch name {
+	case federatedidentity.FieldLastUsedAt:
+		m.ClearLastUsedAt()
+		return nil
+	case federatedidentity.FieldRevokedAt:
+		m.ClearRevokedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown FederatedIdentity nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *FederatedIdentityMutation) ResetField(name string) error {
+	switch name {
+	case federatedidentity.FieldAccountID:
+		m.ResetAccountID()
+		return nil
+	case federatedidentity.FieldProvider:
+		m.ResetProvider()
+		return nil
+	case federatedidentity.FieldSubject:
+		m.ResetSubject()
+		return nil
+	case federatedidentity.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case federatedidentity.FieldLastUsedAt:
+		m.ResetLastUsedAt()
+		return nil
+	case federatedidentity.FieldRevokedAt:
+		m.ResetRevokedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown FederatedIdentity field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *FederatedIdentityMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.account != nil {
+		edges = append(edges, federatedidentity.EdgeAccount)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *FederatedIdentityMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case federatedidentity.EdgeAccount:
+		if id := m.account; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *FederatedIdentityMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *FederatedIdentityMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *FederatedIdentityMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedaccount {
+		edges = append(edges, federatedidentity.EdgeAccount)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *FederatedIdentityMutation) EdgeCleared(name string) bool {
+	switch name {
+	case federatedidentity.EdgeAccount:
+		return m.clearedaccount
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *FederatedIdentityMutation) ClearEdge(name string) error {
+	switch name {
+	case federatedidentity.EdgeAccount:
+		m.ClearAccount()
+		return nil
+	}
+	return fmt.Errorf("unknown FederatedIdentity unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *FederatedIdentityMutation) ResetEdge(name string) error {
+	switch name {
+	case federatedidentity.EdgeAccount:
+		m.ResetAccount()
+		return nil
+	}
+	return fmt.Errorf("unknown FederatedIdentity edge %s", name)
 }
 
 // ImportReferenceMutation represents an operation that mutates the ImportReference nodes in the graph.

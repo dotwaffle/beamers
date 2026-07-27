@@ -1,5 +1,6 @@
 package frontend
 
+import "net/url"
 import "strconv"
 
 import "github.com/dotwaffle/beamers/internal/auth"
@@ -75,6 +76,7 @@ templ Register(
 	handle string,
 	displayName string,
 	open bool,
+	sceneIDCreation bool,
 	reducedEffects bool,
 ) {
 	<!doctype html>
@@ -88,6 +90,9 @@ templ Register(
 					<p class="error" role="alert">{ message }</p>
 				}
 				if open {
+					if sceneIDCreation {
+						<p><a href="/auth/federation/sceneid/begin">Create Account with SceneID</a></p>
+					}
 					<form class="stack" method="post" action="/register">
 						<input type="hidden" name="csrf_token" value={ csrfToken }/>
 						<label>
@@ -118,6 +123,7 @@ templ ProfilePage(
 	passwordActive bool,
 	canRemovePassword bool,
 	credentials []auth.WebAuthnCredential,
+	sceneIDConfigured bool,
 	recoveryCodes []string,
 	recoveryCommandID string,
 	credentialCommandID string,
@@ -177,6 +183,13 @@ templ ProfilePage(
 						}
 					} else {
 						<p>Password Credential: removed</p>
+					}
+					if sceneIDConfigured {
+						<form method="post" action="/auth/federation/sceneid/begin">
+							<input type="hidden" name="csrf_token" value={ csrfToken }/>
+							<input type="hidden" name="mode" value="link"/>
+							<button type="submit">Link SceneID</button>
+						</form>
 					}
 					if len(credentials) == 0 {
 						<p>No WebAuthn Credentials registered.</p>
@@ -462,7 +475,7 @@ templ Setup(csrfToken string, message string, reducedEffects bool) {
 	</html>
 }
 
-templ SignIn(csrfToken string, message string, handle string, returnTo string, reducedEffects bool) {
+templ SignIn(csrfToken string, message string, handle string, returnTo string, sceneID bool, reducedEffects bool) {
 	<!doctype html>
 	<html lang="en">
 		@Head("Sign in · Beamers")
@@ -494,6 +507,9 @@ templ SignIn(csrfToken string, message string, handle string, returnTo string, r
 					<button type="button" data-webauthn-sign-in hidden>Sign in with passkey or security key</button>
 				</form>
 				<p data-webauthn-status role="status"></p>
+				if sceneID {
+					<p><a href={ templ.SafeURL("/auth/federation/sceneid/begin?return_to=" + url.QueryEscape(returnTo)) }>Sign in with SceneID</a></p>
+				}
 				<p><a href="/recover">Use a Recovery Code or Administrator Recovery Token</a></p>
 			</main>
 			<script src={ WebAuthnPath } defer></script>

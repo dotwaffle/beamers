@@ -53,6 +53,37 @@ func TestServeCommandExportsItsTerminalError(t *testing.T) {
 	}
 }
 
+func TestLoadSceneIDConfigReadsSecretFromFile(t *testing.T) {
+	secretFile := filepath.Join(t.TempDir(), "sceneid-secret")
+	if err := os.WriteFile(secretFile, []byte("secret-value\r\n"), 0o600); err != nil {
+		t.Fatalf("write SceneID secret: %v", err)
+	}
+	config, err := loadSceneIDConfig(
+		"client-id",
+		secretFile,
+		"https://beamers.example/auth/federation/sceneid/callback",
+		true,
+	)
+	if err != nil {
+		t.Fatalf("load SceneID config: %v", err)
+	}
+	if config.ClientID != "client-id" ||
+		config.ClientSecret != "secret-value" ||
+		config.CallbackURL != "https://beamers.example/auth/federation/sceneid/callback" ||
+		!config.AllowAccountCreation {
+		t.Fatalf("SceneID config = %+v", config)
+	}
+}
+
+func TestLoadSceneIDConfigRequiresCompleteCredentials(t *testing.T) {
+	if _, err := loadSceneIDConfig("client-id", "", "", false); err == nil {
+		t.Fatal("incomplete SceneID config accepted")
+	}
+	if _, err := loadSceneIDConfig("", "", "", true); err == nil {
+		t.Fatal("SceneID creation policy without credentials accepted")
+	}
+}
+
 func TestBackupCommandCreatesAndVerifiesSanitizedArchive(t *testing.T) {
 	dataDir := filepath.Join(t.TempDir(), "installation")
 	var stdout bytes.Buffer
@@ -413,7 +444,7 @@ func TestUpgradeCommandPreviewsAndAppliesKnownSafeMigration(t *testing.T) {
 	}
 	if !plan.RequiresApproval ||
 		plan.Migration.FromVersion != 47 ||
-		plan.Migration.ToVersion != 55 ||
+		plan.Migration.ToVersion != 56 ||
 		plan.PreviewDigest == "" {
 		t.Fatalf("upgrade plan = %+v", plan)
 	}
@@ -442,7 +473,7 @@ func TestUpgradeCommandPreviewsAndAppliesKnownSafeMigration(t *testing.T) {
 		_ = os.RemoveAll(filepath.Dir(result.BackupPath))
 	})
 	if result.FromVersion != 47 ||
-		result.ToVersion != 55 ||
+		result.ToVersion != 56 ||
 		result.Manifest.Mode != backup.FullFidelity {
 		t.Fatalf("upgrade result = %+v", result)
 	}

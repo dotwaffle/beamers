@@ -31,6 +31,8 @@ const (
 	EdgePasswordCredential = "password_credential"
 	// EdgeWebauthnCredentials holds the string denoting the webauthn_credentials edge name in mutations.
 	EdgeWebauthnCredentials = "webauthn_credentials"
+	// EdgeFederatedIdentities holds the string denoting the federated_identities edge name in mutations.
+	EdgeFederatedIdentities = "federated_identities"
 	// EdgePreference holds the string denoting the preference edge name in mutations.
 	EdgePreference = "preference"
 	// EdgeProfile holds the string denoting the profile edge name in mutations.
@@ -67,6 +69,13 @@ const (
 	WebauthnCredentialsInverseTable = "web_authn_credentials"
 	// WebauthnCredentialsColumn is the table column denoting the webauthn_credentials relation/edge.
 	WebauthnCredentialsColumn = "account_id"
+	// FederatedIdentitiesTable is the table that holds the federated_identities relation/edge.
+	FederatedIdentitiesTable = "federated_identities"
+	// FederatedIdentitiesInverseTable is the table name for the FederatedIdentity entity.
+	// It exists in this package in order to avoid circular dependency with the "federatedidentity" package.
+	FederatedIdentitiesInverseTable = "federated_identities"
+	// FederatedIdentitiesColumn is the table column denoting the federated_identities relation/edge.
+	FederatedIdentitiesColumn = "account_id"
 	// PreferenceTable is the table that holds the preference relation/edge.
 	PreferenceTable = "account_preferences"
 	// PreferenceInverseTable is the table name for the AccountPreference entity.
@@ -230,6 +239,20 @@ func ByWebauthnCredentials(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOpti
 	}
 }
 
+// ByFederatedIdentitiesCount orders the results by federated_identities count.
+func ByFederatedIdentitiesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newFederatedIdentitiesStep(), opts...)
+	}
+}
+
+// ByFederatedIdentities orders the results by federated_identities terms.
+func ByFederatedIdentities(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newFederatedIdentitiesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByPreferenceField orders the results by preference field.
 func ByPreferenceField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -367,6 +390,13 @@ func newWebauthnCredentialsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(WebauthnCredentialsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, WebauthnCredentialsTable, WebauthnCredentialsColumn),
+	)
+}
+func newFederatedIdentitiesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(FederatedIdentitiesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, FederatedIdentitiesTable, FederatedIdentitiesColumn),
 	)
 }
 func newPreferenceStep() *sqlgraph.Step {

@@ -225,14 +225,15 @@ func (transaction *CommandTx) RemovePassword(
 	if err != nil {
 		return 0, opaqueError("read password Credential for removal", err)
 	}
-	webauthnCount, err := transaction.transaction.WebAuthnCredential.Query().Where(
-		webauthncredential.AccountIDEQ(accountID),
-		webauthncredential.RevokedAtIsNil(),
-	).Count(internalContext)
+	credentialCount, err := activeAccountCredentialCount(
+		internalContext,
+		transaction.transaction.Client(),
+		accountID,
+	)
 	if err != nil {
-		return 0, opaqueError("count WebAuthn Credentials before password removal", err)
+		return 0, err
 	}
-	if webauthnCount == 0 {
+	if credentialCount <= 1 {
 		return credential.ID, ErrFinalCredential
 	}
 	if _, err = credential.Update().SetRevokedAt(now).Save(internalContext); err != nil {
@@ -260,21 +261,15 @@ func (transaction *CommandTx) RevokeWebAuthnCredential(
 	if err != nil {
 		return opaqueError("read WebAuthn Credential for revocation", err)
 	}
-	passwordCount, err := transaction.transaction.PasswordCredential.Query().Where(
-		passwordcredential.AccountIDEQ(accountID),
-		passwordcredential.RevokedAtIsNil(),
-	).Count(internalContext)
+	credentialCount, err := activeAccountCredentialCount(
+		internalContext,
+		transaction.transaction.Client(),
+		accountID,
+	)
 	if err != nil {
-		return opaqueError("count password Credentials before WebAuthn revocation", err)
+		return err
 	}
-	webauthnCount, err := transaction.transaction.WebAuthnCredential.Query().Where(
-		webauthncredential.AccountIDEQ(accountID),
-		webauthncredential.RevokedAtIsNil(),
-	).Count(internalContext)
-	if err != nil {
-		return opaqueError("count WebAuthn Credentials before revocation", err)
-	}
-	if passwordCount+webauthnCount <= 1 {
+	if credentialCount <= 1 {
 		return ErrFinalCredential
 	}
 	if _, err = stored.Update().SetRevokedAt(now).Save(internalContext); err != nil {

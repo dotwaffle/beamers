@@ -96,7 +96,7 @@ func TestApprovedUpgradeInstallsValidatedStagedSchema(t *testing.T) {
 	}
 	if !upgrade.Plan().RequiresApproval ||
 		upgrade.Plan().Migration.FromVersion != 47 ||
-		upgrade.Plan().Migration.ToVersion != 55 {
+		upgrade.Plan().Migration.ToVersion != 56 {
 		t.Fatalf("upgrade plan = %+v", upgrade.Plan())
 	}
 	result, err := upgrade.Apply(ctx, UpgradeApproval{

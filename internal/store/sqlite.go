@@ -168,6 +168,14 @@ var migrationContracts = map[int]migrationContract{
 		minimumWriter: 55,
 		consequence:   "adds stable Account WebAuthn handles and independently revocable Credentials",
 	},
+	56: {
+		name:          "account_federation",
+		checksum:      "e50c813e7328497057b172693a782cb50eb85f21193cada995c7573c1d4959ba",
+		safety:        MigrationNonDestructive,
+		minimumReader: 56,
+		minimumWriter: 56,
+		consequence:   "adds provider-and-subject Federated Identity Credentials",
+	},
 }
 
 // MigrationStep is one exact committed migration in an upgrade plan.
@@ -492,6 +500,7 @@ func SanitizeSnapshot(ctx context.Context, path string) (returnErr error) {
 		"DELETE FROM bootstrap_credentials",
 		"DELETE FROM password_credentials",
 		"DELETE FROM web_authn_credentials",
+		"DELETE FROM federated_identities",
 		"DELETE FROM recovery_codes",
 		"DELETE FROM recovery_tokens",
 		"DELETE FROM display_credentials",
@@ -538,6 +547,7 @@ func ValidateSanitizedSnapshot(ctx context.Context, path string) (returnErr erro
 		"SELECT EXISTS(SELECT 1 FROM bootstrap_credentials)",
 		"SELECT EXISTS(SELECT 1 FROM password_credentials)",
 		"SELECT EXISTS(SELECT 1 FROM web_authn_credentials)",
+		"SELECT EXISTS(SELECT 1 FROM federated_identities)",
 		"SELECT EXISTS(SELECT 1 FROM recovery_codes)",
 		"SELECT EXISTS(SELECT 1 FROM recovery_tokens)",
 		"SELECT EXISTS(SELECT 1 FROM display_credentials)",

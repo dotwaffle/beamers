@@ -11,6 +11,7 @@ import (
 	"net/netip"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 	_ "time/tzdata"
@@ -18,6 +19,7 @@ import (
 	_ "github.com/dotwaffle/beamers/ent/runtime" // Register generated hooks, validators, and privacy policies.
 	"github.com/dotwaffle/beamers/internal/backup"
 	"github.com/dotwaffle/beamers/internal/buildinfo"
+	"github.com/dotwaffle/beamers/internal/federation"
 	"github.com/dotwaffle/beamers/internal/operations"
 	"github.com/dotwaffle/beamers/internal/server"
 	"github.com/dotwaffle/beamers/internal/telemetry"
@@ -688,11 +690,40 @@ func runServe(
 		"",
 		"full-fidelity Litestream file URL (disabled when empty)",
 	)
+	sceneIDClientID := flags.String(
+		"sceneid-client-id",
+		"",
+		"SceneID OAuth client ID (disabled when empty)",
+	)
+	sceneIDClientSecretFile := flags.String(
+		"sceneid-client-secret-file",
+		"",
+		"file containing the SceneID OAuth client secret",
+	)
+	sceneIDCallbackURL := flags.String(
+		"sceneid-callback-url",
+		"",
+		"exact registered SceneID OAuth callback URL",
+	)
+	sceneIDAllowAccountCreation := flags.Bool(
+		"sceneid-allow-account-creation",
+		false,
+		"allow SceneID to create Accounts while registration is open",
+	)
 	if err := flags.Parse(args); err != nil {
 		return fail(err)
 	}
 	if flags.NArg() != 0 {
 		return fail(errors.New("serve accepts no positional arguments"))
+	}
+	sceneID, err := loadSceneIDConfig(
+		*sceneIDClientID,
+		*sceneIDClientSecretFile,
+		*sceneIDCallbackURL,
+		*sceneIDAllowAccountCreation,
+	)
+	if err != nil {
+		return fail(err)
 	}
 	telemetryRuntime, err := telemetry.New(ctx, telemetry.Config{
 		Endpoint:       *otlpEndpoint,
@@ -729,11 +760,50 @@ func runServe(
 		InsecureCrew:    *insecureCrew,
 		InsecureDisplay: *insecureDisplay,
 		Demo:            demo,
+		SceneID:         sceneID,
 	})
 	if err != nil {
 		return fail(err)
 	}
 	return 0
+}
+
+func loadSceneIDConfig(
+	clientID string,
+	clientSecretFile string,
+	callbackURL string,
+	allowAccountCreation bool,
+) (*federation.Config, error) {
+	if clientID == "" && clientSecretFile == "" && callbackURL == "" && !allowAccountCreation {
+		return nil, nil
+	}
+	if clientID == "" || clientSecretFile == "" || callbackURL == "" {
+		return nil, errors.New(
+			"SceneID client ID, client secret file, and callback URL must be configured together",
+		)
+	}
+	file, err := os.Open(clientSecretFile) //nolint:gosec // The host operator selects the secret file.
+	if err != nil {
+		return nil, fmt.Errorf("open SceneID client secret file: %w", err)
+	}
+	defer func() {
+		_ = file.Close()
+	}()
+	content, err := io.ReadAll(io.LimitReader(file, 8193))
+	if err != nil {
+		return nil, fmt.Errorf("read SceneID client secret file: %w", err)
+	}
+	if len(content) > 8192 {
+		return nil, errors.New("SceneID client secret file exceeds 8 KiB")
+	}
+	secret := strings.TrimRight(string(content), "\r\n")
+	if secret == "" {
+		return nil, errors.New("SceneID client secret file is empty")
+	}
+	return &federation.Config{
+		ClientID: clientID, ClientSecret: secret, CallbackURL: callbackURL,
+		AllowAccountCreation: allowAccountCreation,
+	}, nil
 }
 
 func printUsage(output io.Writer) {

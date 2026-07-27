@@ -71,6 +71,7 @@ func DowngradeBeforeUpgradeContracts(ctx context.Context, path string) error {
 	return mutateSchema(path, func(database *sql.DB) error {
 		const statement = `
 PRAGMA foreign_keys = off;
+DROP TABLE federated_identities;
 DROP TABLE web_authn_credentials;
 DROP INDEX accounts_webauthn_user_handle_key;
 ALTER TABLE accounts DROP COLUMN webauthn_user_handle;

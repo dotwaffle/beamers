@@ -411,6 +411,29 @@ func HasWebauthnCredentialsWith(preds ...predicate.WebAuthnCredential) predicate
 	})
 }
 
+// HasFederatedIdentities applies the HasEdge predicate on the "federated_identities" edge.
+func HasFederatedIdentities() predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, FederatedIdentitiesTable, FederatedIdentitiesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasFederatedIdentitiesWith applies the HasEdge predicate on the "federated_identities" edge with a given conditions (other predicates).
+func HasFederatedIdentitiesWith(preds ...predicate.FederatedIdentity) predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := newFederatedIdentitiesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasPreference applies the HasEdge predicate on the "preference" edge.
 func HasPreference() predicate.Account {
 	return predicate.Account(func(s *sql.Selector) {

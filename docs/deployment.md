@@ -98,6 +98,27 @@ sudo -u beamers /usr/local/bin/beamers serve \
 Send `SIGINT` or `SIGTERM` directly to this process.
 Do not place it behind a shell wrapper that remains PID 1.
 
+## Configure SceneID
+
+Create a SceneID OAuth client with this callback URL:
+
+```text
+https://BEAMERS-HOST/auth/federation/sceneid/callback
+```
+
+Store its secret in a host-readable file, then add:
+
+```sh
+--sceneid-client-id=CLIENT-ID \
+--sceneid-client-secret-file=/etc/beamers/sceneid-secret \
+--sceneid-callback-url=https://BEAMERS-HOST/auth/federation/sceneid/callback
+```
+
+Add `--sceneid-allow-account-creation` to let new SceneID identities create Accounts while the installation Registration Policy is open.
+Without it, previously linked identities may sign in and authenticated Accounts may link SceneID.
+SceneID requires HTTPS except on a loopback listener.
+The client secret is not stored in browser configuration or Backups.
+
 ## Run with systemd
 
 Install the supplied unit after the binary and persistent state are ready:

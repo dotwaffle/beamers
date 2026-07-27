@@ -84,6 +84,9 @@ type EventSlug func(*sql.Selector)
 // FavoriteSession is the predicate function for favoritesession builders.
 type FavoriteSession func(*sql.Selector)
 
+// FederatedIdentity is the predicate function for federatedidentity builders.
+type FederatedIdentity func(*sql.Selector)
+
 // ImportReference is the predicate function for importreference builders.
 type ImportReference func(*sql.Selector)
 

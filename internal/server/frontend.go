@@ -20,6 +20,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/federation"
 	"github.com/dotwaffle/beamers/internal/frontend"
 	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/viewer"
@@ -39,6 +40,7 @@ type frontendHandlers struct {
 	random         io.Reader
 	rundown        *rundown.Queries
 	events         *events.Service
+	sceneID        *federation.PublicProvider
 }
 
 func registerFrontendRoutes(
@@ -48,6 +50,7 @@ func registerFrontendRoutes(
 	rundownQueries *rundown.Queries,
 	eventService *events.Service,
 	logger *slog.Logger,
+	sceneID *federation.PublicProvider,
 ) error {
 	handlers := frontendHandlers{
 		authentication: authentication,
@@ -56,6 +59,7 @@ func registerFrontendRoutes(
 		random:         rand.Reader,
 		rundown:        rundownQueries,
 		events:         eventService,
+		sceneID:        sceneID,
 	}
 	formRoute := browserPageRoute()
 	formRoute.maxBodyBytes = maxAuthBodyBytes
@@ -118,7 +122,15 @@ func (handlers frontendHandlers) register(response http.ResponseWriter, request 
 			response,
 			request,
 			http.StatusOK,
-			frontend.Register(csrfToken, "", "", "", open, reducedEffectsCookie(request)),
+			frontend.Register(
+				csrfToken,
+				"",
+				"",
+				"",
+				open,
+				handlers.sceneID != nil && handlers.sceneID.AllowAccountCreation,
+				reducedEffectsCookie(request),
+			),
 		)
 		return
 	case http.MethodPost:
@@ -166,6 +178,7 @@ func (handlers frontendHandlers) register(response http.ResponseWriter, request 
 			response, request, status,
 			frontend.Register(
 				csrfToken, message, handle, displayName, renderOpen,
+				handlers.sceneID != nil && handlers.sceneID.AllowAccountCreation,
 				reducedEffectsCookie(request),
 			),
 		)
@@ -320,9 +333,17 @@ func (handlers frontendHandlers) renderProfile(
 		handlers.frontendError(response, request, "read WebAuthn Credentials", err)
 		return
 	}
+	federated, err := handlers.authentication.ListFederatedIdentities(request.Context(), actor)
+	if err != nil {
+		handlers.frontendError(response, request, "read Federated Identities", err)
+		return
+	}
 	canRemovePassword := false
 	for _, credential := range credentials {
 		canRemovePassword = canRemovePassword || !credential.Revoked
+	}
+	for _, identity := range federated {
+		canRemovePassword = canRemovePassword || !identity.Revoked
 	}
 	handlers.render(
 		response,
@@ -334,6 +355,7 @@ func (handlers frontendHandlers) renderProfile(
 			passwordActive,
 			canRemovePassword,
 			credentials,
+			handlers.sceneID != nil,
 			recoveryCodes,
 			recoveryCommandID,
 			credentialCommandID,
@@ -974,6 +996,7 @@ func (handlers frontendHandlers) signIn(response http.ResponseWriter, request *h
 				"",
 				"",
 				safeFrontendReturnTo(request.URL.Query().Get("return_to"), "/"),
+				handlers.sceneID != nil,
 				reducedEffectsCookie(request),
 			),
 		)
@@ -1011,6 +1034,7 @@ func (handlers frontendHandlers) signIn(response http.ResponseWriter, request *h
 				"Sign-in failed.",
 				handle,
 				safeFrontendReturnTo(request.Form.Get("return_to"), "/"),
+				handlers.sceneID != nil,
 				reducedEffectsCookie(request),
 			),
 		)
@@ -1115,6 +1139,13 @@ func setReducedEffectsCookie(
 }
 
 func (handlers frontendHandlers) validForm(
+	response http.ResponseWriter,
+	request *http.Request,
+) bool {
+	return validFormSubmission(response, request)
+}
+
+func validFormSubmission(
 	response http.ResponseWriter,
 	request *http.Request,
 ) bool {

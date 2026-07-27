@@ -20,6 +20,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/favoritesession"
+	"github.com/dotwaffle/beamers/ent/federatedidentity"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/recoverycode"
@@ -120,6 +121,21 @@ func (_u *AccountUpdate) AddWebauthnCredentials(v ...*WebAuthnCredential) *Accou
 		ids[i] = v[i].ID
 	}
 	return _u.AddWebauthnCredentialIDs(ids...)
+}
+
+// AddFederatedIdentityIDs adds the "federated_identities" edge to the FederatedIdentity entity by IDs.
+func (_u *AccountUpdate) AddFederatedIdentityIDs(ids ...int) *AccountUpdate {
+	_u.mutation.AddFederatedIdentityIDs(ids...)
+	return _u
+}
+
+// AddFederatedIdentities adds the "federated_identities" edges to the FederatedIdentity entity.
+func (_u *AccountUpdate) AddFederatedIdentities(v ...*FederatedIdentity) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddFederatedIdentityIDs(ids...)
 }
 
 // SetPreferenceID sets the "preference" edge to the AccountPreference entity by ID.
@@ -310,6 +326,27 @@ func (_u *AccountUpdate) RemoveWebauthnCredentials(v ...*WebAuthnCredential) *Ac
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveWebauthnCredentialIDs(ids...)
+}
+
+// ClearFederatedIdentities clears all "federated_identities" edges to the FederatedIdentity entity.
+func (_u *AccountUpdate) ClearFederatedIdentities() *AccountUpdate {
+	_u.mutation.ClearFederatedIdentities()
+	return _u
+}
+
+// RemoveFederatedIdentityIDs removes the "federated_identities" edge to FederatedIdentity entities by IDs.
+func (_u *AccountUpdate) RemoveFederatedIdentityIDs(ids ...int) *AccountUpdate {
+	_u.mutation.RemoveFederatedIdentityIDs(ids...)
+	return _u
+}
+
+// RemoveFederatedIdentities removes "federated_identities" edges to FederatedIdentity entities.
+func (_u *AccountUpdate) RemoveFederatedIdentities(v ...*FederatedIdentity) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveFederatedIdentityIDs(ids...)
 }
 
 // ClearPreference clears the "preference" edge to the AccountPreference entity.
@@ -628,6 +665,51 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(webauthncredential.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.FederatedIdentitiesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.FederatedIdentitiesTable,
+			Columns: []string{account.FederatedIdentitiesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(federatedidentity.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedFederatedIdentitiesIDs(); len(nodes) > 0 && !_u.mutation.FederatedIdentitiesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.FederatedIdentitiesTable,
+			Columns: []string{account.FederatedIdentitiesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(federatedidentity.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.FederatedIdentitiesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.FederatedIdentitiesTable,
+			Columns: []string{account.FederatedIdentitiesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(federatedidentity.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -1155,6 +1237,21 @@ func (_u *AccountUpdateOne) AddWebauthnCredentials(v ...*WebAuthnCredential) *Ac
 	return _u.AddWebauthnCredentialIDs(ids...)
 }
 
+// AddFederatedIdentityIDs adds the "federated_identities" edge to the FederatedIdentity entity by IDs.
+func (_u *AccountUpdateOne) AddFederatedIdentityIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.AddFederatedIdentityIDs(ids...)
+	return _u
+}
+
+// AddFederatedIdentities adds the "federated_identities" edges to the FederatedIdentity entity.
+func (_u *AccountUpdateOne) AddFederatedIdentities(v ...*FederatedIdentity) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddFederatedIdentityIDs(ids...)
+}
+
 // SetPreferenceID sets the "preference" edge to the AccountPreference entity by ID.
 func (_u *AccountUpdateOne) SetPreferenceID(id int) *AccountUpdateOne {
 	_u.mutation.SetPreferenceID(id)
@@ -1343,6 +1440,27 @@ func (_u *AccountUpdateOne) RemoveWebauthnCredentials(v ...*WebAuthnCredential) 
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveWebauthnCredentialIDs(ids...)
+}
+
+// ClearFederatedIdentities clears all "federated_identities" edges to the FederatedIdentity entity.
+func (_u *AccountUpdateOne) ClearFederatedIdentities() *AccountUpdateOne {
+	_u.mutation.ClearFederatedIdentities()
+	return _u
+}
+
+// RemoveFederatedIdentityIDs removes the "federated_identities" edge to FederatedIdentity entities by IDs.
+func (_u *AccountUpdateOne) RemoveFederatedIdentityIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.RemoveFederatedIdentityIDs(ids...)
+	return _u
+}
+
+// RemoveFederatedIdentities removes "federated_identities" edges to FederatedIdentity entities.
+func (_u *AccountUpdateOne) RemoveFederatedIdentities(v ...*FederatedIdentity) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveFederatedIdentityIDs(ids...)
 }
 
 // ClearPreference clears the "preference" edge to the AccountPreference entity.
@@ -1691,6 +1809,51 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(webauthncredential.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.FederatedIdentitiesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.FederatedIdentitiesTable,
+			Columns: []string{account.FederatedIdentitiesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(federatedidentity.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedFederatedIdentitiesIDs(); len(nodes) > 0 && !_u.mutation.FederatedIdentitiesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.FederatedIdentitiesTable,
+			Columns: []string{account.FederatedIdentitiesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(federatedidentity.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.FederatedIdentitiesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.FederatedIdentitiesTable,
+			Columns: []string{account.FederatedIdentitiesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(federatedidentity.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

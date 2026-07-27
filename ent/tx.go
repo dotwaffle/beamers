@@ -66,6 +66,8 @@ type Tx struct {
 	EventSlug *EventSlugClient
 	// FavoriteSession is the client for interacting with the FavoriteSession builders.
 	FavoriteSession *FavoriteSessionClient
+	// FederatedIdentity is the client for interacting with the FederatedIdentity builders.
+	FederatedIdentity *FederatedIdentityClient
 	// ImportReference is the client for interacting with the ImportReference builders.
 	ImportReference *ImportReferenceClient
 	// Installation is the client for interacting with the Installation builders.
@@ -289,6 +291,7 @@ func (tx *Tx) init() {
 	tx.EventGrant = NewEventGrantClient(tx.config)
 	tx.EventSlug = NewEventSlugClient(tx.config)
 	tx.FavoriteSession = NewFavoriteSessionClient(tx.config)
+	tx.FederatedIdentity = NewFederatedIdentityClient(tx.config)
 	tx.ImportReference = NewImportReferenceClient(tx.config)
 	tx.Installation = NewInstallationClient(tx.config)
 	tx.Lane = NewLaneClient(tx.config)

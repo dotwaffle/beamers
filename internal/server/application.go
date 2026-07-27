@@ -14,6 +14,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/backup"
 	"github.com/dotwaffle/beamers/internal/displaystream"
+	"github.com/dotwaffle/beamers/internal/federation"
 	"github.com/dotwaffle/beamers/internal/operations"
 	"github.com/dotwaffle/beamers/internal/replication"
 )
@@ -27,6 +28,7 @@ type applicationConfig struct {
 	ProgramStream   *displaystream.Hub
 	ScheduleStream  *displaystream.Hub
 	Replication     *replication.Adapter
+	SceneID         *federation.SceneID
 }
 
 var errRestoreInProgress = errors.New("restore already in progress")
@@ -632,6 +634,17 @@ func (application *application) buildHandler(
 		application.config.ListenerAddress,
 		authenticationLimiter,
 	)
+	registerFederationRoutes(
+		mux,
+		installation.Authentication(),
+		application.config.SceneID,
+		application.config.Logger,
+	)
+	var sceneID *federation.PublicProvider
+	if application.config.SceneID != nil {
+		public := application.config.SceneID.Public()
+		sceneID = &public
+	}
 	if err := registerFrontendRoutes(
 		mux,
 		installation.Authentication(),
@@ -639,6 +652,7 @@ func (application *application) buildHandler(
 		installation.RundownQueries(),
 		installation.Events(),
 		application.config.Logger,
+		sceneID,
 	); err != nil {
 		return nil, err
 	}

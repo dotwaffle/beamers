@@ -321,6 +321,18 @@ func (f FavoriteSessionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Va
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.FavoriteSessionMutation", m)
 }
 
+// The FederatedIdentityFunc type is an adapter to allow the use of ordinary
+// function as FederatedIdentity mutator.
+type FederatedIdentityFunc func(context.Context, *ent.FederatedIdentityMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f FederatedIdentityFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.FederatedIdentityMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.FederatedIdentityMutation", m)
+}
+
 // The ImportReferenceFunc type is an adapter to allow the use of ordinary
 // function as ImportReference mutator.
 type ImportReferenceFunc func(context.Context, *ent.ImportReferenceMutation) (ent.Value, error)

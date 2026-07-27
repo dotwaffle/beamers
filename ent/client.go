@@ -41,6 +41,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/eventslug"
 	"github.com/dotwaffle/beamers/ent/favoritesession"
+	"github.com/dotwaffle/beamers/ent/federatedidentity"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/lane"
@@ -135,6 +136,8 @@ type Client struct {
 	EventSlug *EventSlugClient
 	// FavoriteSession is the client for interacting with the FavoriteSession builders.
 	FavoriteSession *FavoriteSessionClient
+	// FederatedIdentity is the client for interacting with the FederatedIdentity builders.
+	FederatedIdentity *FederatedIdentityClient
 	// ImportReference is the client for interacting with the ImportReference builders.
 	ImportReference *ImportReferenceClient
 	// Installation is the client for interacting with the Installation builders.
@@ -238,6 +241,7 @@ func (c *Client) init() {
 	c.EventGrant = NewEventGrantClient(c.config)
 	c.EventSlug = NewEventSlugClient(c.config)
 	c.FavoriteSession = NewFavoriteSessionClient(c.config)
+	c.FederatedIdentity = NewFederatedIdentityClient(c.config)
 	c.ImportReference = NewImportReferenceClient(c.config)
 	c.Installation = NewInstallationClient(c.config)
 	c.Lane = NewLaneClient(c.config)
@@ -389,6 +393,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		EventGrant:                  NewEventGrantClient(cfg),
 		EventSlug:                   NewEventSlugClient(cfg),
 		FavoriteSession:             NewFavoriteSessionClient(cfg),
+		FederatedIdentity:           NewFederatedIdentityClient(cfg),
 		ImportReference:             NewImportReferenceClient(cfg),
 		Installation:                NewInstallationClient(cfg),
 		Lane:                        NewLaneClient(cfg),
@@ -467,6 +472,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		EventGrant:                  NewEventGrantClient(cfg),
 		EventSlug:                   NewEventSlugClient(cfg),
 		FavoriteSession:             NewFavoriteSessionClient(cfg),
+		FederatedIdentity:           NewFederatedIdentityClient(cfg),
 		ImportReference:             NewImportReferenceClient(cfg),
 		Installation:                NewInstallationClient(cfg),
 		Lane:                        NewLaneClient(cfg),
@@ -535,12 +541,12 @@ func (c *Client) Use(hooks ...Hook) {
 		c.CompetitionResultsDraft, c.Display, c.DisplayAssignment, c.DisplayCredential,
 		c.DisplayEnrollment, c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventAwardsDraft,
-		c.EventGrant, c.EventSlug, c.FavoriteSession, c.ImportReference,
-		c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion, c.Location,
-		c.LocationDraft, c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
-		c.Prizegiving, c.PrizegivingCompetition, c.PublicScheduleBaseline,
-		c.PublicScheduleBaselineEntry, c.RecoveryCode, c.RecoveryToken,
-		c.RegistrationPolicy, c.ReleasedProfileEntry, c.ReopenWindow,
+		c.EventGrant, c.EventSlug, c.FavoriteSession, c.FederatedIdentity,
+		c.ImportReference, c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion,
+		c.Location, c.LocationDraft, c.LocationPublishedVersion, c.Migration,
+		c.PasswordCredential, c.Prizegiving, c.PrizegivingCompetition,
+		c.PublicScheduleBaseline, c.PublicScheduleBaselineEntry, c.RecoveryCode,
+		c.RecoveryToken, c.RegistrationPolicy, c.ReleasedProfileEntry, c.ReopenWindow,
 		c.ResultsCorrection, c.ResultsPublication, c.Rundown, c.Session,
 		c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
 		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion,
@@ -560,12 +566,12 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.CompetitionResultsDraft, c.Display, c.DisplayAssignment, c.DisplayCredential,
 		c.DisplayEnrollment, c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventAwardsDraft,
-		c.EventGrant, c.EventSlug, c.FavoriteSession, c.ImportReference,
-		c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion, c.Location,
-		c.LocationDraft, c.LocationPublishedVersion, c.Migration, c.PasswordCredential,
-		c.Prizegiving, c.PrizegivingCompetition, c.PublicScheduleBaseline,
-		c.PublicScheduleBaselineEntry, c.RecoveryCode, c.RecoveryToken,
-		c.RegistrationPolicy, c.ReleasedProfileEntry, c.ReopenWindow,
+		c.EventGrant, c.EventSlug, c.FavoriteSession, c.FederatedIdentity,
+		c.ImportReference, c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion,
+		c.Location, c.LocationDraft, c.LocationPublishedVersion, c.Migration,
+		c.PasswordCredential, c.Prizegiving, c.PrizegivingCompetition,
+		c.PublicScheduleBaseline, c.PublicScheduleBaselineEntry, c.RecoveryCode,
+		c.RecoveryToken, c.RegistrationPolicy, c.ReleasedProfileEntry, c.ReopenWindow,
 		c.ResultsCorrection, c.ResultsPublication, c.Rundown, c.Session,
 		c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
 		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion,
@@ -630,6 +636,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.EventSlug.mutate(ctx, m)
 	case *FavoriteSessionMutation:
 		return c.FavoriteSession.mutate(ctx, m)
+	case *FederatedIdentityMutation:
+		return c.FederatedIdentity.mutate(ctx, m)
 	case *ImportReferenceMutation:
 		return c.ImportReference.mutate(ctx, m)
 	case *InstallationMutation:
@@ -834,6 +842,22 @@ func (c *AccountClient) QueryWebauthnCredentials(_m *Account) *WebAuthnCredentia
 			sqlgraph.From(account.Table, account.FieldID, id),
 			sqlgraph.To(webauthncredential.Table, webauthncredential.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, account.WebauthnCredentialsTable, account.WebauthnCredentialsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryFederatedIdentities queries the federated_identities edge of a Account.
+func (c *AccountClient) QueryFederatedIdentities(_m *Account) *FederatedIdentityQuery {
+	query := (&FederatedIdentityClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(federatedidentity.Table, federatedidentity.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.FederatedIdentitiesTable, account.FederatedIdentitiesColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -5414,6 +5438,156 @@ func (c *FavoriteSessionClient) mutate(ctx context.Context, m *FavoriteSessionMu
 		return (&FavoriteSessionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown FavoriteSession mutation op: %q", m.Op())
+	}
+}
+
+// FederatedIdentityClient is a client for the FederatedIdentity schema.
+type FederatedIdentityClient struct {
+	config
+}
+
+// NewFederatedIdentityClient returns a client for the FederatedIdentity from the given config.
+func NewFederatedIdentityClient(c config) *FederatedIdentityClient {
+	return &FederatedIdentityClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `federatedidentity.Hooks(f(g(h())))`.
+func (c *FederatedIdentityClient) Use(hooks ...Hook) {
+	c.hooks.FederatedIdentity = append(c.hooks.FederatedIdentity, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `federatedidentity.Intercept(f(g(h())))`.
+func (c *FederatedIdentityClient) Intercept(interceptors ...Interceptor) {
+	c.inters.FederatedIdentity = append(c.inters.FederatedIdentity, interceptors...)
+}
+
+// Create returns a builder for creating a FederatedIdentity entity.
+func (c *FederatedIdentityClient) Create() *FederatedIdentityCreate {
+	mutation := newFederatedIdentityMutation(c.config, OpCreate)
+	return &FederatedIdentityCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of FederatedIdentity entities.
+func (c *FederatedIdentityClient) CreateBulk(builders ...*FederatedIdentityCreate) *FederatedIdentityCreateBulk {
+	return &FederatedIdentityCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *FederatedIdentityClient) MapCreateBulk(slice any, setFunc func(*FederatedIdentityCreate, int)) *FederatedIdentityCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &FederatedIdentityCreateBulk{err: fmt.Errorf("calling to FederatedIdentityClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*FederatedIdentityCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &FederatedIdentityCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for FederatedIdentity.
+func (c *FederatedIdentityClient) Update() *FederatedIdentityUpdate {
+	mutation := newFederatedIdentityMutation(c.config, OpUpdate)
+	return &FederatedIdentityUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *FederatedIdentityClient) UpdateOne(_m *FederatedIdentity) *FederatedIdentityUpdateOne {
+	mutation := newFederatedIdentityMutation(c.config, OpUpdateOne, withFederatedIdentity(_m))
+	return &FederatedIdentityUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *FederatedIdentityClient) UpdateOneID(id int) *FederatedIdentityUpdateOne {
+	mutation := newFederatedIdentityMutation(c.config, OpUpdateOne, withFederatedIdentityID(id))
+	return &FederatedIdentityUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for FederatedIdentity.
+func (c *FederatedIdentityClient) Delete() *FederatedIdentityDelete {
+	mutation := newFederatedIdentityMutation(c.config, OpDelete)
+	return &FederatedIdentityDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *FederatedIdentityClient) DeleteOne(_m *FederatedIdentity) *FederatedIdentityDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *FederatedIdentityClient) DeleteOneID(id int) *FederatedIdentityDeleteOne {
+	builder := c.Delete().Where(federatedidentity.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &FederatedIdentityDeleteOne{builder}
+}
+
+// Query returns a query builder for FederatedIdentity.
+func (c *FederatedIdentityClient) Query() *FederatedIdentityQuery {
+	return &FederatedIdentityQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeFederatedIdentity},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a FederatedIdentity entity by its id.
+func (c *FederatedIdentityClient) Get(ctx context.Context, id int) (*FederatedIdentity, error) {
+	return c.Query().Where(federatedidentity.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *FederatedIdentityClient) GetX(ctx context.Context, id int) *FederatedIdentity {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryAccount queries the account edge of a FederatedIdentity.
+func (c *FederatedIdentityClient) QueryAccount(_m *FederatedIdentity) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(federatedidentity.Table, federatedidentity.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, federatedidentity.AccountTable, federatedidentity.AccountColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *FederatedIdentityClient) Hooks() []Hook {
+	hooks := c.hooks.FederatedIdentity
+	return append(hooks[:len(hooks):len(hooks)], federatedidentity.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *FederatedIdentityClient) Interceptors() []Interceptor {
+	return c.inters.FederatedIdentity
+}
+
+func (c *FederatedIdentityClient) mutate(ctx context.Context, m *FederatedIdentityMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&FederatedIdentityCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&FederatedIdentityUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&FederatedIdentityUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&FederatedIdentityDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown FederatedIdentity mutation op: %q", m.Op())
 	}
 }
 
@@ -10966,15 +11140,15 @@ type (
 		CompetitionEntry, CompetitionResultStanding, CompetitionResultsDraft, Display,
 		DisplayAssignment, DisplayCredential, DisplayEnrollment, DisplayOverride,
 		DisplayOverrideState, DraftChange, DraftChangeDependency, DraftEdit, Event,
-		EventAwardsDraft, EventGrant, EventSlug, FavoriteSession, ImportReference,
-		Installation, Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
-		LocationPublishedVersion, Migration, PasswordCredential, Prizegiving,
-		PrizegivingCompetition, PublicScheduleBaseline, PublicScheduleBaselineEntry,
-		RecoveryCode, RecoveryToken, RegistrationPolicy, ReleasedProfileEntry,
-		ReopenWindow, ResultsCorrection, ResultsPublication, Rundown, Session,
-		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
-		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion, UploadLink,
-		WebAuthnCredential []ent.Hook
+		EventAwardsDraft, EventGrant, EventSlug, FavoriteSession, FederatedIdentity,
+		ImportReference, Installation, Lane, LaneDraft, LanePublishedVersion, Location,
+		LocationDraft, LocationPublishedVersion, Migration, PasswordCredential,
+		Prizegiving, PrizegivingCompetition, PublicScheduleBaseline,
+		PublicScheduleBaselineEntry, RecoveryCode, RecoveryToken, RegistrationPolicy,
+		ReleasedProfileEntry, ReopenWindow, ResultsCorrection, ResultsPublication,
+		Rundown, Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
+		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
+		UploadLink, WebAuthnCredential []ent.Hook
 	}
 	inters struct {
 		Account, AccountPreference, AccountProfile, AccountSession, Attachment,
@@ -10982,15 +11156,15 @@ type (
 		CompetitionEntry, CompetitionResultStanding, CompetitionResultsDraft, Display,
 		DisplayAssignment, DisplayCredential, DisplayEnrollment, DisplayOverride,
 		DisplayOverrideState, DraftChange, DraftChangeDependency, DraftEdit, Event,
-		EventAwardsDraft, EventGrant, EventSlug, FavoriteSession, ImportReference,
-		Installation, Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
-		LocationPublishedVersion, Migration, PasswordCredential, Prizegiving,
-		PrizegivingCompetition, PublicScheduleBaseline, PublicScheduleBaselineEntry,
-		RecoveryCode, RecoveryToken, RegistrationPolicy, ReleasedProfileEntry,
-		ReopenWindow, ResultsCorrection, ResultsPublication, Rundown, Session,
-		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
-		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion, UploadLink,
-		WebAuthnCredential []ent.Interceptor
+		EventAwardsDraft, EventGrant, EventSlug, FavoriteSession, FederatedIdentity,
+		ImportReference, Installation, Lane, LaneDraft, LanePublishedVersion, Location,
+		LocationDraft, LocationPublishedVersion, Migration, PasswordCredential,
+		Prizegiving, PrizegivingCompetition, PublicScheduleBaseline,
+		PublicScheduleBaselineEntry, RecoveryCode, RecoveryToken, RegistrationPolicy,
+		ReleasedProfileEntry, ReopenWindow, ResultsCorrection, ResultsPublication,
+		Rundown, Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
+		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
+		UploadLink, WebAuthnCredential []ent.Interceptor
 	}
 )
 

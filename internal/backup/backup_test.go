@@ -91,6 +91,7 @@ func TestSanitizedBackupIncludesConfiguredAttachmentsAndRemovesCredentials(t *te
 	for _, table := range []string{
 		"password_credentials",
 		"web_authn_credentials",
+		"federated_identities",
 		"account_sessions",
 		"bootstrap_credentials",
 		"recovery_codes",
@@ -1431,6 +1432,10 @@ func seedBackupState(
 		{
 			"INSERT INTO web_authn_credentials (account_id, credential_id, name, credential, created_at) VALUES (1, ?, 'Security key', ?, ?)",
 			[]any{[]byte("credential-id"), []byte(`{"public_key":"secret"}`), now},
+		},
+		{
+			"INSERT INTO federated_identities (account_id, provider, subject, created_at) VALUES (1, 'sceneid', 'secret-subject', ?)",
+			[]any{now},
 		},
 		{
 			"INSERT INTO account_sessions (account_id, token_hash, created_at, expires_at) VALUES (1, ?, ?, ?)",

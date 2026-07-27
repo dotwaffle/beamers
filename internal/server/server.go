@@ -11,12 +11,14 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/dotwaffle/beamers/internal/backup"
 	"github.com/dotwaffle/beamers/internal/displaystream"
+	"github.com/dotwaffle/beamers/internal/federation"
 	"github.com/dotwaffle/beamers/internal/operations"
 	"github.com/dotwaffle/beamers/internal/replication"
 	"github.com/dotwaffle/beamers/internal/telemetry"
@@ -47,6 +49,7 @@ type Config struct {
 	InsecureCrew    bool
 	InsecureDisplay bool
 	Demo            bool
+	SceneID         *federation.Config
 }
 
 // Run serves health endpoints until the context is canceled.
@@ -60,6 +63,25 @@ func Run(ctx context.Context, config Config) error {
 	if (config.TLSCertificate == "") != (config.TLSPrivateKey == "") {
 		return errors.New("TLS certificate and private key must be configured together")
 	}
+	var (
+		err     error
+		sceneID *federation.SceneID
+	)
+	if config.SceneID != nil {
+		transport := otelhttp.NewTransport(
+			http.DefaultTransport,
+			otelhttp.WithTracerProvider(config.TracerProvider),
+			otelhttp.WithMeterProvider(config.MeterProvider),
+			otelhttp.WithPropagators(config.Propagator),
+		)
+		sceneID, err = federation.NewSceneID(
+			*config.SceneID,
+			&http.Client{Transport: transport, Timeout: 5 * time.Second},
+		)
+		if err != nil {
+			return err
+		}
+	}
 	attachmentsDir := config.AttachmentsDir
 	if attachmentsDir == "" {
 		attachmentsDir = filepath.Join(config.DataDir, "attachments")
@@ -71,7 +93,6 @@ func Run(ctx context.Context, config Config) error {
 		openConfig.TracerProvider = config.TracerProvider
 		openConfig.MeterProvider = config.MeterProvider
 	}
-	var err error
 	upgrade, upgradeErr := operations.PrepareUpgrade(ctx, openConfig)
 	var installation *operations.Installation
 	if upgradeErr != nil {
@@ -146,6 +167,7 @@ func Run(ctx context.Context, config Config) error {
 		ProgramStream:   programStream,
 		ScheduleStream:  scheduleStream,
 		Replication:     replica,
+		SceneID:         sceneID,
 	}
 	var application *application
 	if upgrade != nil {

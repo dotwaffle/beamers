@@ -19,6 +19,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/favoritesession"
+	"github.com/dotwaffle/beamers/ent/federatedidentity"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/recoverycode"
 	"github.com/dotwaffle/beamers/ent/recoverytoken"
@@ -116,6 +117,21 @@ func (_c *AccountCreate) AddWebauthnCredentials(v ...*WebAuthnCredential) *Accou
 		ids[i] = v[i].ID
 	}
 	return _c.AddWebauthnCredentialIDs(ids...)
+}
+
+// AddFederatedIdentityIDs adds the "federated_identities" edge to the FederatedIdentity entity by IDs.
+func (_c *AccountCreate) AddFederatedIdentityIDs(ids ...int) *AccountCreate {
+	_c.mutation.AddFederatedIdentityIDs(ids...)
+	return _c
+}
+
+// AddFederatedIdentities adds the "federated_identities" edges to the FederatedIdentity entity.
+func (_c *AccountCreate) AddFederatedIdentities(v ...*FederatedIdentity) *AccountCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddFederatedIdentityIDs(ids...)
 }
 
 // SetPreferenceID sets the "preference" edge to the AccountPreference entity by ID.
@@ -422,6 +438,22 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(webauthncredential.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.FederatedIdentitiesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.FederatedIdentitiesTable,
+			Columns: []string{account.FederatedIdentitiesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(federatedidentity.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

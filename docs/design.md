@@ -307,11 +307,11 @@ Registration may be closed installation-wide.
 Configured identity providers may separately allow sign-in and linking while denying new Account creation.
 
 An Account may add Password, WebAuthn, and Federated Identity Credentials and may remove its password after another Credential exists.
-SceneID and PeeringDB are named optional providers built on constrained adapters.
-Generic OpenID Connect is also supported.
+SceneID is the optional federated provider.
 Provider configuration and client secrets are host-managed and providers are absent from the browser until configured.
 
 Federated identities are keyed by provider and immutable subject.
+This identity model permits another OAuth2-style provider later without migrating Account identities.
 They are never automatically linked by Account Handle, Display Name, or email.
 An existing Account authenticates before linking a provider.
 Otherwise an allowed provider creates a distinct Account.

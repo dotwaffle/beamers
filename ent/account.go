@@ -44,6 +44,8 @@ type AccountEdges struct {
 	PasswordCredential *PasswordCredential `json:"password_credential,omitempty"`
 	// WebauthnCredentials holds the value of the webauthn_credentials edge.
 	WebauthnCredentials []*WebAuthnCredential `json:"webauthn_credentials,omitempty"`
+	// FederatedIdentities holds the value of the federated_identities edge.
+	FederatedIdentities []*FederatedIdentity `json:"federated_identities,omitempty"`
 	// Preference holds the value of the preference edge.
 	Preference *AccountPreference `json:"preference,omitempty"`
 	// Profile holds the value of the profile edge.
@@ -66,7 +68,7 @@ type AccountEdges struct {
 	DraftEdits []*DraftEdit `json:"draft_edits,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [12]bool
+	loadedTypes [13]bool
 }
 
 // PasswordCredentialOrErr returns the PasswordCredential value or an error if the edge
@@ -89,12 +91,21 @@ func (e AccountEdges) WebauthnCredentialsOrErr() ([]*WebAuthnCredential, error) 
 	return nil, &NotLoadedError{edge: "webauthn_credentials"}
 }
 
+// FederatedIdentitiesOrErr returns the FederatedIdentities value or an error if the edge
+// was not loaded in eager-loading.
+func (e AccountEdges) FederatedIdentitiesOrErr() ([]*FederatedIdentity, error) {
+	if e.loadedTypes[2] {
+		return e.FederatedIdentities, nil
+	}
+	return nil, &NotLoadedError{edge: "federated_identities"}
+}
+
 // PreferenceOrErr returns the Preference value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e AccountEdges) PreferenceOrErr() (*AccountPreference, error) {
 	if e.Preference != nil {
 		return e.Preference, nil
-	} else if e.loadedTypes[2] {
+	} else if e.loadedTypes[3] {
 		return nil, &NotFoundError{label: accountpreference.Label}
 	}
 	return nil, &NotLoadedError{edge: "preference"}
@@ -105,7 +116,7 @@ func (e AccountEdges) PreferenceOrErr() (*AccountPreference, error) {
 func (e AccountEdges) ProfileOrErr() (*AccountProfile, error) {
 	if e.Profile != nil {
 		return e.Profile, nil
-	} else if e.loadedTypes[3] {
+	} else if e.loadedTypes[4] {
 		return nil, &NotFoundError{label: accountprofile.Label}
 	}
 	return nil, &NotLoadedError{edge: "profile"}
@@ -114,7 +125,7 @@ func (e AccountEdges) ProfileOrErr() (*AccountProfile, error) {
 // SessionsOrErr returns the Sessions value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) SessionsOrErr() ([]*AccountSession, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[5] {
 		return e.Sessions, nil
 	}
 	return nil, &NotLoadedError{edge: "sessions"}
@@ -123,7 +134,7 @@ func (e AccountEdges) SessionsOrErr() ([]*AccountSession, error) {
 // RecoveryCodesOrErr returns the RecoveryCodes value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) RecoveryCodesOrErr() ([]*RecoveryCode, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[6] {
 		return e.RecoveryCodes, nil
 	}
 	return nil, &NotLoadedError{edge: "recovery_codes"}
@@ -132,7 +143,7 @@ func (e AccountEdges) RecoveryCodesOrErr() ([]*RecoveryCode, error) {
 // RecoveryTokensOrErr returns the RecoveryTokens value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) RecoveryTokensOrErr() ([]*RecoveryToken, error) {
-	if e.loadedTypes[6] {
+	if e.loadedTypes[7] {
 		return e.RecoveryTokens, nil
 	}
 	return nil, &NotLoadedError{edge: "recovery_tokens"}
@@ -141,7 +152,7 @@ func (e AccountEdges) RecoveryTokensOrErr() ([]*RecoveryToken, error) {
 // EventGrantsOrErr returns the EventGrants value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) EventGrantsOrErr() ([]*EventGrant, error) {
-	if e.loadedTypes[7] {
+	if e.loadedTypes[8] {
 		return e.EventGrants, nil
 	}
 	return nil, &NotLoadedError{edge: "event_grants"}
@@ -150,7 +161,7 @@ func (e AccountEdges) EventGrantsOrErr() ([]*EventGrant, error) {
 // FavoriteSessionsOrErr returns the FavoriteSessions value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) FavoriteSessionsOrErr() ([]*FavoriteSession, error) {
-	if e.loadedTypes[8] {
+	if e.loadedTypes[9] {
 		return e.FavoriteSessions, nil
 	}
 	return nil, &NotLoadedError{edge: "favorite_sessions"}
@@ -159,7 +170,7 @@ func (e AccountEdges) FavoriteSessionsOrErr() ([]*FavoriteSession, error) {
 // AuditEntriesOrErr returns the AuditEntries value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) AuditEntriesOrErr() ([]*AuditEntry, error) {
-	if e.loadedTypes[9] {
+	if e.loadedTypes[10] {
 		return e.AuditEntries, nil
 	}
 	return nil, &NotLoadedError{edge: "audit_entries"}
@@ -168,7 +179,7 @@ func (e AccountEdges) AuditEntriesOrErr() ([]*AuditEntry, error) {
 // CommandReceiptsOrErr returns the CommandReceipts value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) CommandReceiptsOrErr() ([]*CommandReceipt, error) {
-	if e.loadedTypes[10] {
+	if e.loadedTypes[11] {
 		return e.CommandReceipts, nil
 	}
 	return nil, &NotLoadedError{edge: "command_receipts"}
@@ -177,7 +188,7 @@ func (e AccountEdges) CommandReceiptsOrErr() ([]*CommandReceipt, error) {
 // DraftEditsOrErr returns the DraftEdits value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) DraftEditsOrErr() ([]*DraftEdit, error) {
-	if e.loadedTypes[11] {
+	if e.loadedTypes[12] {
 		return e.DraftEdits, nil
 	}
 	return nil, &NotLoadedError{edge: "draft_edits"}
@@ -277,6 +288,11 @@ func (_m *Account) QueryPasswordCredential() *PasswordCredentialQuery {
 // QueryWebauthnCredentials queries the "webauthn_credentials" edge of the Account entity.
 func (_m *Account) QueryWebauthnCredentials() *WebAuthnCredentialQuery {
 	return NewAccountClient(_m.config).QueryWebauthnCredentials(_m)
+}
+
+// QueryFederatedIdentities queries the "federated_identities" edge of the Account entity.
+func (_m *Account) QueryFederatedIdentities() *FederatedIdentityQuery {
+	return NewAccountClient(_m.config).QueryFederatedIdentities(_m)
 }
 
 // QueryPreference queries the "preference" edge of the Account entity.

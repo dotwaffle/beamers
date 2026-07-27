@@ -45,6 +45,7 @@ func (Account) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("password_credential", PasswordCredential.Type).Unique(),
 		edge.To("webauthn_credentials", WebAuthnCredential.Type),
+		edge.To("federated_identities", FederatedIdentity.Type),
 		edge.To("preference", AccountPreference.Type).Unique(),
 		edge.To("profile", AccountProfile.Type).Unique(),
 		edge.To("sessions", AccountSession.Type),

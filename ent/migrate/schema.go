@@ -868,6 +868,37 @@ var (
 			},
 		},
 	}
+	// FederatedIdentitiesColumns holds the columns for the "federated_identities" table.
+	FederatedIdentitiesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "provider", Type: field.TypeString, Size: 64},
+		{Name: "subject", Type: field.TypeString, Size: 1024},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "last_used_at", Type: field.TypeTime, Nullable: true},
+		{Name: "revoked_at", Type: field.TypeTime, Nullable: true},
+		{Name: "account_id", Type: field.TypeInt},
+	}
+	// FederatedIdentitiesTable holds the schema information for the "federated_identities" table.
+	FederatedIdentitiesTable = &schema.Table{
+		Name:       "federated_identities",
+		Columns:    FederatedIdentitiesColumns,
+		PrimaryKey: []*schema.Column{FederatedIdentitiesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "federated_identities_accounts_federated_identities",
+				Columns:    []*schema.Column{FederatedIdentitiesColumns[6]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "federatedidentity_provider_subject",
+				Unique:  true,
+				Columns: []*schema.Column{FederatedIdentitiesColumns[1], FederatedIdentitiesColumns[2]},
+			},
+		},
+	}
 	// ImportReferencesColumns holds the columns for the "import_references" table.
 	ImportReferencesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -2008,6 +2039,7 @@ var (
 		EventGrantsTable,
 		EventSlugsTable,
 		FavoriteSessionsTable,
+		FederatedIdentitiesTable,
 		ImportReferencesTable,
 		InstallationsTable,
 		LanesTable,
@@ -2084,6 +2116,7 @@ func init() {
 	EventSlugsTable.ForeignKeys[0].RefTable = EventsTable
 	FavoriteSessionsTable.ForeignKeys[0].RefTable = AccountsTable
 	FavoriteSessionsTable.ForeignKeys[1].RefTable = SessionsTable
+	FederatedIdentitiesTable.ForeignKeys[0].RefTable = AccountsTable
 	ImportReferencesTable.ForeignKeys[0].RefTable = EventsTable
 	InstallationsTable.ForeignKeys[0].RefTable = EventsTable
 	LanesTable.ForeignKeys[0].RefTable = EventsTable

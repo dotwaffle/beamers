@@ -18,6 +18,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/bootstrapcredential"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/favoritesession"
+	"github.com/dotwaffle/beamers/ent/federatedidentity"
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/recoverycode"
 	"github.com/dotwaffle/beamers/ent/recoverytoken"
@@ -55,19 +56,11 @@ const MaxActiveSessionsPerAccount = 8
 // SetupRequired reports whether the installation has no Account Credential.
 func (installation *SQLite) SetupRequired(ctx context.Context) (bool, error) {
 	ctx = systemContext(ctx)
-	passwords, err := installation.client.PasswordCredential.Query().
-		Where(passwordcredential.RevokedAtIsNil()).
-		Count(ctx)
+	credentials, err := activeCredentialCount(ctx, installation.client)
 	if err != nil {
-		return false, opaqueError("count Account credentials for setup", err)
+		return false, err
 	}
-	webauthnCredentials, err := installation.client.WebAuthnCredential.Query().
-		Where(webauthncredential.RevokedAtIsNil()).
-		Count(ctx)
-	if err != nil {
-		return false, opaqueError("count WebAuthn Credentials for setup", err)
-	}
-	return passwords+webauthnCredentials == 0, nil
+	return credentials == 0, nil
 }
 
 // AccountCredential is the authentication projection of an Account.
@@ -251,23 +244,15 @@ func (installation *SQLite) RegisterAccount(
 	defer func() {
 		_ = transaction.Rollback()
 	}()
-	passwords, err := transaction.PasswordCredential.Query().
-		Where(passwordcredential.RevokedAtIsNil()).
-		Count(internalContext)
+	credentials, err := activeCredentialCount(internalContext, transaction.Client())
 	if err != nil {
-		return AccountCredential{}, opaqueError("count Account credentials for registration", err)
-	}
-	webauthnCredentials, err := transaction.WebAuthnCredential.Query().
-		Where(webauthncredential.RevokedAtIsNil()).
-		Count(internalContext)
-	if err != nil {
-		return AccountCredential{}, opaqueError("count WebAuthn Credentials for registration", err)
+		return AccountCredential{}, err
 	}
 	policy, err := transaction.RegistrationPolicy.Query().Only(internalContext)
 	if err != nil && !ent.IsNotFound(err) {
 		return AccountCredential{}, opaqueError("read Registration Policy", err)
 	}
-	if passwords+webauthnCredentials == 0 || (policy != nil && !policy.RegistrationOpen) {
+	if credentials == 0 || (policy != nil && !policy.RegistrationOpen) {
 		return AccountCredential{}, ErrRegistrationClosed
 	}
 	created, err := transaction.Account.Create().
@@ -505,6 +490,12 @@ func (transaction *CommandTx) DisableAccount(
 	).SetRevokedAt(now).Save(internalContext); err != nil {
 		return DisabledAccount{}, opaqueError("revoke Account WebAuthn Credentials", err)
 	}
+	if _, err := transaction.transaction.FederatedIdentity.Update().Where(
+		federatedidentity.AccountIDEQ(accountID),
+		federatedidentity.RevokedAtIsNil(),
+	).SetRevokedAt(now).Save(internalContext); err != nil {
+		return DisabledAccount{}, opaqueError("revoke Account Federated Identities", err)
+	}
 	if _, err := transaction.transaction.EventGrant.Delete().Where(
 		eventgrant.AccountIDEQ(accountID),
 	).Exec(internalContext); err != nil {
@@ -558,9 +549,9 @@ func (installation *SQLite) IssueBootstrap(
 		_ = transaction.Rollback()
 	}()
 
-	credentialCount, err := transaction.PasswordCredential.Query().Count(ctx)
+	credentialCount, err := activeCredentialCount(ctx, transaction.Client())
 	if err != nil {
-		return opaqueError("count Account credentials before bootstrap", err)
+		return err
 	}
 	if credentialCount != 0 {
 		return ErrBootstrapUnavailable
@@ -619,19 +610,11 @@ func (installation *SQLite) BootstrapAdministrator(
 		return AccountCredential{}, opaqueError("read bootstrap credential", err)
 	}
 
-	passwordCount, err := transaction.PasswordCredential.Query().
-		Where(passwordcredential.RevokedAtIsNil()).
-		Count(ctx)
+	credentialCount, err := activeCredentialCount(ctx, transaction.Client())
 	if err != nil {
-		return AccountCredential{}, opaqueError("count Account credentials during bootstrap", err)
+		return AccountCredential{}, err
 	}
-	webauthnCount, err := transaction.WebAuthnCredential.Query().
-		Where(webauthncredential.RevokedAtIsNil()).
-		Count(ctx)
-	if err != nil {
-		return AccountCredential{}, opaqueError("count WebAuthn Credentials during bootstrap", err)
-	}
-	if passwordCount+webauthnCount != 0 {
+	if credentialCount != 0 {
 		return AccountCredential{}, ErrInvalidBootstrap
 	}
 	accounts, err := transaction.Account.Query().All(ctx)
