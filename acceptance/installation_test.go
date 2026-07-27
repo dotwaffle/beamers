@@ -9481,7 +9481,7 @@ func assertJSONMethodRequest(
 	body any,
 	wantStatus int,
 	wantBody string,
-) http.Header {
+) {
 	t.Helper()
 
 	result := requestJSONMethod(t.Context(), method, client, address, path, body)
@@ -9494,7 +9494,6 @@ func assertJSONMethodRequest(
 			method, path, result.status, result.body, wantStatus, wantBody,
 		)
 	}
-	return result.header
 }
 
 type jsonResponse struct {
