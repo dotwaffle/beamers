@@ -362,7 +362,7 @@ func setBrowserProtectionHeaders(response http.ResponseWriter, secure bool) {
 			"style-src 'self' 'unsafe-inline'",
 	)
 	response.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-	response.Header().Set("Referrer-Policy", "no-referrer")
+	response.Header().Set("Referrer-Policy", "same-origin")
 	response.Header().Set("X-Content-Type-Options", "nosniff")
 	response.Header().Set("X-Frame-Options", "DENY")
 	if secure {

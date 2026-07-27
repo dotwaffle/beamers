@@ -228,6 +228,9 @@ func TestInterfacePolicyBoundsOrdinaryRequestsAndSetsBrowserHeaders(t *testing.T
 			t.Errorf("response is missing %s", name)
 		}
 	}
+	if got := response.Header().Get("Referrer-Policy"); got != "same-origin" {
+		t.Errorf("Referrer-Policy = %q, want same-origin", got)
+	}
 }
 
 func TestRecoveryEntryPointsHaveBuiltInRateLimits(t *testing.T) {
