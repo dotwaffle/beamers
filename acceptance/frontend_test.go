@@ -1,13 +1,17 @@
 package acceptance_test
 
 import (
+	"bytes"
+	"context"
 	"database/sql"
 	"encoding/base64"
 	"errors"
 	"io"
 	"maps"
+	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -21,6 +25,7 @@ import (
 	"github.com/dotwaffle/beamers/gen/beamers/competition/v1/competitionv1connect"
 	programv1 "github.com/dotwaffle/beamers/gen/beamers/program/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/program/v1/programv1connect"
+	"github.com/dotwaffle/beamers/internal/backup"
 )
 
 var frontendCSRFInput = regexp.MustCompile(`name="csrf_token" value="([^"]+)"`)
@@ -607,6 +612,433 @@ func TestBackstageNavigationReflectsAuthorityAndInterface(t *testing.T) {
 		t.Fatalf("public-listener Frontend = %d, want 200", frontend.status)
 	} else if strings.Contains(frontend.body, `href="/backstage"`) {
 		t.Fatalf("public-listener Frontend advertises private Backstage: %q", frontend.body)
+	}
+	server.stop(t)
+}
+
+func TestBackstageOperatesBackupsAndDiagnostics(t *testing.T) {
+	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
+	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+
+	page := getFrontendPage(
+		t,
+		administrator,
+		server.address,
+		"/backstage/installation",
+	)
+	if page.status != http.StatusOK {
+		t.Fatalf("Backstage installation = %d %q", page.status, page.body)
+	}
+	for _, want := range []string{
+		"Installation health",
+		"Readiness",
+		"Capacity",
+		"Storage",
+		"Display stream",
+		"Program stream",
+		"Replication",
+		"Telemetry",
+		"Sanitized Backup",
+		"Full-Fidelity Backup",
+		"Prepare Restore",
+	} {
+		if !strings.Contains(page.body, want) {
+			t.Errorf("Backstage installation lacks %q", want)
+		}
+	}
+	if strings.Contains(page.body, server.dataDir) ||
+		strings.Contains(page.body, "correct horse battery staple") {
+		t.Fatalf("Backstage installation leaked a secret or host path: %q", page.body)
+	}
+
+	assertJSONRequest(
+		t,
+		administrator,
+		server.address,
+		"/admin/accounts",
+		map[string]string{
+			"name":       "Ordinary Crew",
+			"password":   "ordinary correct horse battery staple",
+			"command_id": "create-installation-observer",
+		},
+		http.StatusCreated,
+		"{\"id\":2,\"name\":\"Ordinary Crew\",\"administrator\":false}\n",
+	)
+	crew := authenticatedClient(t)
+	crew.CheckRedirect = administrator.CheckRedirect
+	assertJSONRequest(
+		t,
+		crew,
+		server.address,
+		"/auth/sign-in",
+		map[string]string{
+			"name":     "Ordinary Crew",
+			"password": "ordinary correct horse battery staple",
+		},
+		http.StatusNoContent,
+		"",
+	)
+	if denied := getFrontendPage(
+		t,
+		crew,
+		server.address,
+		"/backstage/installation",
+	); denied.status != http.StatusForbidden {
+		t.Fatalf("non-Administrator installation = %d %q", denied.status, denied.body)
+	}
+
+	unconfirmed := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/installation",
+		url.Values{
+			"csrf_token": {requireFrontendCSRF(t, page)},
+			"action":     {"backup-sanitized"},
+		},
+	)
+	if unconfirmed.status != http.StatusUnprocessableEntity {
+		t.Fatalf("unconfirmed Backup = %d %q", unconfirmed.status, unconfirmed.body)
+	}
+	sanitized := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/installation",
+		url.Values{
+			"csrf_token": {requireFrontendCSRF(t, page)},
+			"action":     {"backup-sanitized"},
+			"confirm":    {"true"},
+		},
+	)
+	if sanitized.status != http.StatusOK ||
+		sanitized.header.Get("Content-Type") != "application/zip" ||
+		sanitized.header.Get("X-Beamers-Backup-Mode") != string(backup.Sanitized) {
+		t.Fatalf(
+			"Sanitized Backup = %d mode %q content type %q",
+			sanitized.status,
+			sanitized.header.Get("X-Beamers-Backup-Mode"),
+			sanitized.header.Get("Content-Type"),
+		)
+	}
+	archivePath := filepath.Join(t.TempDir(), "sanitized.zip")
+	if err := os.WriteFile(archivePath, []byte(sanitized.body), 0o600); err != nil {
+		t.Fatalf("write Sanitized Backup: %v", err)
+	}
+	manifest, err := backup.Verify(t.Context(), archivePath)
+	if err != nil || manifest.Mode != backup.Sanitized {
+		t.Fatalf("verify Sanitized Backup = %+v, %v", manifest, err)
+	}
+
+	failedReauthentication := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/installation",
+		url.Values{
+			"csrf_token":             {requireFrontendCSRF(t, page)},
+			"action":                 {"backup-full-fidelity"},
+			"password":               {"wrong password"},
+			"acknowledge_protection": {"true"},
+		},
+	)
+	if failedReauthentication.status != http.StatusUnauthorized {
+		t.Fatalf(
+			"Full-Fidelity Backup without reauthentication = %d %q",
+			failedReauthentication.status,
+			failedReauthentication.body,
+		)
+	}
+	fullFidelity := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/installation",
+		url.Values{
+			"csrf_token":             {requireFrontendCSRF(t, page)},
+			"action":                 {"backup-full-fidelity"},
+			"password":               {"correct horse battery staple"},
+			"acknowledge_protection": {"true"},
+		},
+	)
+	if fullFidelity.status != http.StatusOK ||
+		fullFidelity.header.Get("X-Beamers-Backup-Mode") != string(backup.FullFidelity) {
+		t.Fatalf(
+			"Full-Fidelity Backup = %d mode %q body %q",
+			fullFidelity.status,
+			fullFidelity.header.Get("X-Beamers-Backup-Mode"),
+			fullFidelity.body,
+		)
+	}
+	fullFidelityPath := filepath.Join(t.TempDir(), "full-fidelity.zip")
+	if err = os.WriteFile(fullFidelityPath, []byte(fullFidelity.body), 0o600); err != nil {
+		t.Fatalf("write Full-Fidelity Backup: %v", err)
+	}
+	manifest, err = backup.Verify(t.Context(), fullFidelityPath)
+	if err != nil || manifest.Mode != backup.FullFidelity {
+		t.Fatalf("verify Full-Fidelity Backup = %+v, %v", manifest, err)
+	}
+
+	prepared := postFrontendMultipart(
+		t,
+		administrator,
+		server.address,
+		"/backstage/installation",
+		map[string]string{
+			"csrf_token": requireFrontendCSRF(t, page),
+			"action":     "prepare-restore",
+		},
+		"backup",
+		"sanitized.zip",
+		[]byte(sanitized.body),
+	)
+	if prepared.status != http.StatusSeeOther ||
+		prepared.header.Get("Location") != "/backstage/installation?prepared=true" {
+		t.Fatalf("prepare Restore = %d %q", prepared.status, prepared.body)
+	}
+	preparedPage := getFrontendPage(
+		t,
+		administrator,
+		server.address,
+		"/backstage/installation",
+	)
+	for _, want := range []string{"Prepared Restore", "Validation:", "Passed", "Sanitized"} {
+		if !strings.Contains(preparedPage.body, want) {
+			t.Errorf("prepared Restore page lacks %q", want)
+		}
+	}
+	if strings.Contains(preparedPage.body, "Apply Restore") ||
+		strings.Contains(preparedPage.body, server.dataDir) {
+		t.Fatalf("prepared Restore exposed replacement or host paths: %q", preparedPage.body)
+	}
+	assertJSONRequest(
+		t,
+		administrator,
+		server.address,
+		"/admin/restores/apply",
+		map[string]any{
+			"password":                "correct horse battery staple",
+			"acknowledge_replacement": true,
+		},
+		http.StatusNotFound,
+		"404 page not found\n",
+	)
+
+	uploadReader, uploadWriter := io.Pipe()
+	uploadForm := multipart.NewWriter(uploadWriter)
+	uploadRequest, err := http.NewRequestWithContext(
+		t.Context(),
+		http.MethodPost,
+		"http://"+server.address+"/backstage/installation",
+		uploadReader,
+	)
+	if err != nil {
+		t.Fatalf("create blocked Restore upload: %v", err)
+	}
+	uploadRequest.Header.Set("Content-Type", uploadForm.FormDataContentType())
+	uploadRequest.Header.Set("Origin", "http://"+server.address)
+	uploadResult := make(chan frontendHTTPResult, 1)
+	go func() {
+		response, requestErr := administrator.Do(uploadRequest)
+		uploadResult <- readFrontendHTTPResult(response, requestErr)
+	}()
+	uploadReady := make(chan error, 1)
+	releaseUpload := make(chan struct{})
+	uploadWriteResult := make(chan error, 1)
+	preparedCSRF := requireFrontendCSRF(t, preparedPage)
+	go func() {
+		var writeErr error
+		defer func() {
+			closeErr := uploadWriter.CloseWithError(writeErr)
+			uploadWriteResult <- errors.Join(writeErr, closeErr)
+		}()
+		for name, value := range map[string]string{
+			"csrf_token": preparedCSRF,
+			"action":     "prepare-restore",
+		} {
+			if writeErr = uploadForm.WriteField(name, value); writeErr != nil {
+				uploadReady <- writeErr
+				return
+			}
+		}
+		var file io.Writer
+		file, writeErr = uploadForm.CreateFormFile("backup", "blocked.zip")
+		if writeErr == nil {
+			_, writeErr = file.Write([]byte("blocked"))
+		}
+		uploadReady <- writeErr
+		if writeErr != nil {
+			return
+		}
+		select {
+		case <-releaseUpload:
+		case <-uploadRequest.Context().Done():
+			writeErr = context.Cause(uploadRequest.Context())
+			return
+		}
+		writeErr = uploadForm.Close()
+	}()
+	if err = <-uploadReady; err != nil {
+		close(releaseUpload)
+		t.Fatalf("start blocked Restore upload: %v", err)
+	}
+
+	cancelValues := url.Values{
+		"csrf_token":               {preparedCSRF},
+		"action":                   {"cancel-restore"},
+		"password":                 {"correct horse battery staple"},
+		"acknowledge_cancellation": {"true"},
+	}
+	cancelRequest, err := http.NewRequestWithContext(
+		t.Context(),
+		http.MethodPost,
+		"http://"+server.address+"/backstage/installation",
+		strings.NewReader(cancelValues.Encode()),
+	)
+	if err != nil {
+		close(releaseUpload)
+		t.Fatalf("create concurrent Restore cancellation: %v", err)
+	}
+	cancelRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	cancelRequest.Header.Set("Origin", "http://"+server.address)
+	cancelResult := make(chan frontendHTTPResult, 1)
+	go func() {
+		response, requestErr := administrator.Do(cancelRequest)
+		cancelResult <- readFrontendHTTPResult(response, requestErr)
+	}()
+
+	var maintenancePage frontendResponse
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		maintenancePage = getFrontendPage(
+			t,
+			administrator,
+			server.address,
+			"/backstage/installation",
+		)
+		if maintenancePage.status == http.StatusServiceUnavailable {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if maintenancePage.status != http.StatusServiceUnavailable ||
+		maintenancePage.header.Get("X-Beamers-Maintenance") != "restore" ||
+		!strings.Contains(maintenancePage.body, "Maintenance state:") {
+		close(releaseUpload)
+		t.Fatalf(
+			"Backstage Restore maintenance = %d, headers %v, body %q",
+			maintenancePage.status,
+			maintenancePage.header,
+			maintenancePage.body,
+		)
+	}
+	rejectedMutation := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/installation",
+		url.Values{
+			"csrf_token": {requireFrontendCSRF(t, preparedPage)},
+			"action":     {"backup-sanitized"},
+			"confirm":    {"true"},
+		},
+	)
+	if rejectedMutation.status != http.StatusServiceUnavailable ||
+		rejectedMutation.body != "maintenance in progress\n" {
+		close(releaseUpload)
+		t.Fatalf(
+			"browser mutation during Restore maintenance = %d %q",
+			rejectedMutation.status,
+			rejectedMutation.body,
+		)
+	}
+	close(releaseUpload)
+	if err = <-uploadWriteResult; err != nil {
+		t.Fatalf("finish blocked Restore upload: %v", err)
+	}
+	blockedUpload := <-uploadResult
+	if blockedUpload.err != nil {
+		t.Fatalf("blocked Restore upload: %v", blockedUpload.err)
+	}
+	cancellation := <-cancelResult
+	if cancellation.err != nil {
+		t.Fatalf("concurrent Restore cancellation: %v", cancellation.err)
+	}
+	if cancellation.page.status != http.StatusSeeOther {
+		t.Fatalf(
+			"concurrent Restore cancellation = %d %q",
+			cancellation.page.status,
+			cancellation.page.body,
+		)
+	}
+
+	afterMaintenance := getFrontendPage(
+		t,
+		administrator,
+		server.address,
+		"/backstage/installation",
+	)
+	prepared = postFrontendMultipart(
+		t,
+		administrator,
+		server.address,
+		"/backstage/installation",
+		map[string]string{
+			"csrf_token": requireFrontendCSRF(t, afterMaintenance),
+			"action":     "prepare-restore",
+		},
+		"backup",
+		"sanitized.zip",
+		[]byte(sanitized.body),
+	)
+	if prepared.status != http.StatusSeeOther {
+		t.Fatalf("reprepare Restore after maintenance = %d %q", prepared.status, prepared.body)
+	}
+
+	dataDir, bin := server.dataDir, server.bin
+	server.stop(t)
+	server = startBeamersWithPublicListener(t, bin, dataDir)
+	restartedPage := getFrontendPage(
+		t,
+		administrator,
+		server.address,
+		"/backstage/installation",
+	)
+	if restartedPage.status != http.StatusOK ||
+		!strings.Contains(restartedPage.body, "Prepared Restore") ||
+		!strings.Contains(restartedPage.body, "Passed") {
+		t.Fatalf(
+			"prepared Restore after restart = %d %q",
+			restartedPage.status,
+			restartedPage.body,
+		)
+	}
+	canceled := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/installation",
+		url.Values{
+			"csrf_token":               {requireFrontendCSRF(t, restartedPage)},
+			"action":                   {"cancel-restore"},
+			"password":                 {"correct horse battery staple"},
+			"acknowledge_cancellation": {"true"},
+		},
+	)
+	if canceled.status != http.StatusSeeOther ||
+		canceled.header.Get("Location") != "/backstage/installation?canceled=true" {
+		t.Fatalf("cancel prepared Restore = %d %q", canceled.status, canceled.body)
+	}
+	afterCancellation := getFrontendPage(
+		t,
+		administrator,
+		server.address,
+		"/backstage/installation",
+	)
+	if !strings.Contains(afterCancellation.body, "No Restore is prepared.") {
+		t.Fatalf("Restore remained prepared after cancellation: %q", afterCancellation.body)
 	}
 	server.stop(t)
 }
@@ -3332,6 +3764,30 @@ type frontendResponse struct {
 	body   string
 }
 
+type frontendHTTPResult struct {
+	page frontendResponse
+	err  error
+}
+
+func readFrontendHTTPResult(
+	response *http.Response,
+	requestErr error,
+) frontendHTTPResult {
+	if requestErr != nil {
+		return frontendHTTPResult{err: requestErr}
+	}
+	body, readErr := io.ReadAll(response.Body)
+	closeErr := response.Body.Close()
+	return frontendHTTPResult{
+		page: frontendResponse{
+			status: response.StatusCode,
+			header: response.Header,
+			body:   string(body),
+		},
+		err: errors.Join(readErr, closeErr),
+	}
+}
+
 func frontendEntryRevision(t *testing.T, body string, entryID int) string {
 	t.Helper()
 	expression := regexp.MustCompile(
@@ -3406,6 +3862,48 @@ func postFrontendForm(
 		t.Fatalf("create POST %s: %v", path, err)
 	}
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	request.Header.Set("Origin", "http://"+address)
+	return doFrontendRequest(t, client, request)
+}
+
+func postFrontendMultipart(
+	t *testing.T,
+	client *http.Client,
+	address string,
+	path string,
+	fields map[string]string,
+	fileField string,
+	filename string,
+	content []byte,
+) frontendResponse {
+	t.Helper()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	for name, value := range fields {
+		if err := writer.WriteField(name, value); err != nil {
+			t.Fatalf("write multipart field %s: %v", name, err)
+		}
+	}
+	file, err := writer.CreateFormFile(fileField, filename)
+	if err != nil {
+		t.Fatalf("create multipart file: %v", err)
+	}
+	if _, err = file.Write(content); err != nil {
+		t.Fatalf("write multipart file: %v", err)
+	}
+	if err = writer.Close(); err != nil {
+		t.Fatalf("close multipart body: %v", err)
+	}
+	request, err := http.NewRequestWithContext(
+		t.Context(),
+		http.MethodPost,
+		"http://"+address+path,
+		&body,
+	)
+	if err != nil {
+		t.Fatalf("create multipart POST %s: %v", path, err)
+	}
+	request.Header.Set("Content-Type", writer.FormDataContentType())
 	request.Header.Set("Origin", "http://"+address)
 	return doFrontendRequest(t, client, request)
 }

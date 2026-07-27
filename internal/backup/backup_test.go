@@ -1079,6 +1079,10 @@ func TestCancelPreparedRestoreRemovesReservedStateAndAllowsAnotherPreview(t *tes
 	if err != nil {
 		t.Fatalf("prepare Restore: %v", err)
 	}
+	inspected, present, err := InspectPreparedRestore(ctx, plan.JournalPath)
+	if err != nil || !present || !reflect.DeepEqual(inspected, plan) {
+		t.Fatalf("inspect prepared Restore = %+v, %t, %v", inspected, present, err)
+	}
 	journal, err := readRestoreJournal(plan.JournalPath)
 	if err != nil {
 		t.Fatalf("read Restore journal: %v", err)
@@ -1095,6 +1099,9 @@ func TestCancelPreparedRestoreRemovesReservedStateAndAllowsAnotherPreview(t *tes
 	}
 	if err = CancelPreparedRestore(ctx, plan.JournalPath); err != nil {
 		t.Fatalf("cancel prepared Restore: %v", err)
+	}
+	if _, present, err = InspectPreparedRestore(ctx, plan.JournalPath); err != nil || present {
+		t.Fatalf("inspect canceled Restore = %t, %v", present, err)
 	}
 	for _, path := range []string{
 		plan.JournalPath,

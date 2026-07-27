@@ -25,7 +25,6 @@ type archiveHandlers struct {
 	installation       *operations.Installation
 	dataDir            string
 	attachmentsDir     string
-	restore            func(context.Context, string, backup.ApplyOptions) error
 	cancelRestore      func(context.Context, string) error
 	configuration      backup.Configuration
 	logger             *slog.Logger
@@ -58,17 +57,15 @@ func registerBackupRoutes(
 	dataDir string,
 	attachmentsDir string,
 	configuration backup.Configuration,
-	restore func(context.Context, string, backup.ApplyOptions) error,
 	cancelRestore func(context.Context, string) error,
 	logger *slog.Logger,
 	listenerAddress net.Addr,
-) {
+) archiveHandlers {
 	handlers := archiveHandlers{
 		installation:       installation,
 		dataDir:            dataDir,
 		attachmentsDir:     attachmentsDir,
 		configuration:      configuration,
-		restore:            restore,
 		cancelRestore:      cancelRestore,
 		logger:             logger,
 		allowPlaintextCrew: listenerIsLoopback(listenerAddress),
@@ -83,19 +80,13 @@ func registerBackupRoutes(
 		handlers.previewRestore,
 	)
 	mux.HandleFunc(
-		"/admin/restores/apply",
-		routeContract{
-			kind: crewInterface, timeout: restoreOperationTimeout, recoveryLimit: 5,
-		},
-		handlers.applyRestore,
-	)
-	mux.HandleFunc(
 		"/admin/restores/cancel",
 		routeContract{
 			kind: crewInterface, timeout: restoreOperationTimeout, recoveryLimit: 5,
 		},
 		handlers.cancelPreparedRestore,
 	)
+	return handlers
 }
 
 func (handlers archiveHandlers) previewRestore(
@@ -119,13 +110,28 @@ func (handlers archiveHandlers) previewRestore(
 		http.Error(response, "Restore preview requires a ZIP Backup", http.StatusBadRequest)
 		return
 	}
+	request.Body = http.MaxBytesReader(response, request.Body, backup.MaxArchiveBytes)
+	plan, err := handlers.prepareRestore(request.Context(), request.Body)
+	if err != nil {
+		handlers.writeRestoreFailure(response, request, err)
+		return
+	}
+	response.Header().Set("Content-Type", "application/json")
+	if err = json.NewEncoder(response).Encode(plan); err != nil {
+		handlers.logger.ErrorContext(request.Context(), "write Restore preview", "error", err)
+	}
+}
+
+func (handlers archiveHandlers) prepareRestore(
+	ctx context.Context,
+	source io.Reader,
+) (backup.RestorePlan, error) {
 	workDir, err := os.MkdirTemp(
 		filepath.Dir(handlers.dataDir),
 		".beamers-admin-restore-*",
 	)
 	if err != nil {
-		handlers.writeRestoreFailure(response, request, err)
-		return
+		return backup.RestorePlan{}, err
 	}
 	defer func() {
 		if removeErr := os.RemoveAll(workDir); removeErr != nil {
@@ -139,17 +145,14 @@ func (handlers archiveHandlers) previewRestore(
 		0o600,
 	)
 	if err != nil {
-		handlers.writeRestoreFailure(response, request, err)
-		return
+		return backup.RestorePlan{}, err
 	}
-	request.Body = http.MaxBytesReader(response, request.Body, backup.MaxArchiveBytes)
-	_, copyErr := io.Copy(archive, request.Body)
+	_, copyErr := io.Copy(archive, source)
 	closeErr := archive.Close()
-	if err = errors.Join(copyErr, closeErr); err != nil {
-		handlers.writeRestoreFailure(response, request, err)
-		return
+	if copyCloseErr := errors.Join(copyErr, closeErr); copyCloseErr != nil {
+		return backup.RestorePlan{}, copyCloseErr
 	}
-	plan, err := backup.PrepareRestore(request.Context(), backup.RestoreInput{
+	plan, err := backup.PrepareRestore(ctx, backup.RestoreInput{
 		InputPath:      archivePath,
 		DataDir:        handlers.dataDir,
 		AttachmentsDir: handlers.attachmentsDir,
@@ -157,84 +160,9 @@ func (handlers archiveHandlers) previewRestore(
 		Replace:        true,
 	})
 	if err != nil {
-		handlers.writeRestoreFailure(response, request, err)
-		return
+		return backup.RestorePlan{}, err
 	}
-	response.Header().Set("Content-Type", "application/json")
-	if err = json.NewEncoder(response).Encode(plan); err != nil {
-		handlers.logger.ErrorContext(request.Context(), "write Restore preview", "error", err)
-	}
-}
-
-func (handlers archiveHandlers) applyRestore(
-	response http.ResponseWriter,
-	request *http.Request,
-) {
-	if !requestAllowed(response, request, http.MethodPost, handlers.allowPlaintextCrew) {
-		return
-	}
-	actor, ok := authenticateAdministrator(
-		response,
-		request,
-		handlers.installation.Authentication(),
-		handlers.logger,
-		"Restore",
-	)
-	if !ok {
-		return
-	}
-	var input struct {
-		Password                            string `json:"password"`
-		AcknowledgeReplacement              bool   `json:"acknowledge_replacement"`
-		AcknowledgeConfigurationDifferences bool   `json:"acknowledge_configuration_differences"`
-	}
-	if err := decodeAuthJSON(response, request, &input); err != nil {
-		http.Error(response, "invalid request", http.StatusBadRequest)
-		return
-	}
-	if !input.AcknowledgeReplacement {
-		http.Error(
-			response,
-			"Restore replacement acknowledgment required",
-			http.StatusUnprocessableEntity,
-		)
-		return
-	}
-	if err := handlers.installation.Authentication().Reauthenticate(
-		request.Context(),
-		actor,
-		input.Password,
-	); err != nil {
-		if errors.Is(err, auth.ErrAuthenticationFailed) {
-			http.Error(response, "reauthentication failed", http.StatusUnauthorized)
-			return
-		}
-		handlers.writeRestoreFailure(response, request, err)
-		return
-	}
-	dataDir, err := filepath.Abs(handlers.dataDir)
-	if err != nil {
-		handlers.writeRestoreFailure(response, request, err)
-		return
-	}
-	// Cutover must survive a disconnected Administrator, but remains lifecycle-bounded.
-	restoreContext, cancel := context.WithTimeout(
-		context.WithoutCancel(request.Context()),
-		restoreOperationTimeout,
-	)
-	defer cancel()
-	if err = handlers.restore(
-		restoreContext,
-		dataDir+".beamers-restore.json",
-		backup.ApplyOptions{
-			AcknowledgeConfigurationDifferences: input.AcknowledgeConfigurationDifferences,
-		},
-	); err != nil {
-		handlers.writeRestoreFailure(response, request, err)
-		return
-	}
-	response.Header().Set("Content-Type", "application/json")
-	_, _ = response.Write([]byte("{\"restored\":true}\n"))
+	return plan, nil
 }
 
 func (handlers archiveHandlers) cancelPreparedRestore(
@@ -360,7 +288,14 @@ func (handlers archiveHandlers) create(response http.ResponseWriter, request *ht
 			return
 		}
 	}
+	handlers.downloadBackup(response, request, input.Mode)
+}
 
+func (handlers archiveHandlers) downloadBackup(
+	response http.ResponseWriter,
+	request *http.Request,
+	mode backup.Mode,
+) {
 	workDir, err := os.MkdirTemp("", ".beamers-admin-backup-*")
 	if err != nil {
 		handlers.writeFailure(response, request, err)
@@ -378,7 +313,7 @@ func (handlers archiveHandlers) create(response http.ResponseWriter, request *ht
 			DataDir:        handlers.dataDir,
 			AttachmentsDir: handlers.attachmentsDir,
 			OutputPath:     archivePath,
-			Mode:           input.Mode,
+			Mode:           mode,
 			Configuration:  handlers.configuration,
 		},
 	)
@@ -404,6 +339,7 @@ func (handlers archiveHandlers) create(response http.ResponseWriter, request *ht
 	response.Header().Set("Content-Type", "application/zip")
 	response.Header().Set("Content-Disposition", `attachment; filename="beamers-backup.zip"`)
 	response.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
+	response.Header().Set("Cache-Control", "no-store")
 	response.Header().Set("X-Beamers-Backup-Mode", string(manifest.Mode))
 	if _, err = io.Copy(response, archive); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write Backup download", "error", err)

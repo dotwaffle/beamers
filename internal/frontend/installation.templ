@@ -1,0 +1,173 @@
+package frontend
+
+import "strconv"
+
+// InstallationStatus is one bounded operator-visible component status.
+type InstallationStatus struct {
+	Label  string
+	Status string
+	Detail string
+}
+
+// InstallationCapacity is the durable installation shape and tested-envelope status.
+type InstallationCapacity struct {
+	Status        string
+	ActiveEventID int
+	Locations     int
+	Lanes         int
+	Sessions      int
+	Entries       int
+	Displays      int
+	Warnings      []string
+}
+
+// PreparedRestore is the non-secret browser projection of a validated Restore plan.
+type PreparedRestore struct {
+	Present                  bool
+	Mode                     string
+	CreatedAt                string
+	ReplacesData             bool
+	ReplacesAttachments      bool
+	ConfigurationDifferences []string
+}
+
+// InstallationPage contains Backstage health, Backup, and Restore preparation state.
+type InstallationPage struct {
+	AccountName    string
+	CSRFToken      string
+	ReducedEffects bool
+	Navigation     BackstageNavigation
+	Statuses       []InstallationStatus
+	Capacity       InstallationCapacity
+	Prepared       PreparedRestore
+	Message        string
+}
+
+// Installation renders installation diagnostics and guarded maintenance forms.
+templ Installation(page InstallationPage) {
+	<!doctype html>
+	<html lang="en">
+		@Head("Installation · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
+			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
+			<div class="backstage-layout">
+				@BackstageNavigationViews(page.Navigation)
+				<main>
+					<h1>Installation health</h1>
+					if page.Message != "" {
+						<p role="status">{ page.Message }</p>
+					}
+					<section>
+						<h2>Diagnostics</h2>
+						<dl>
+							for _, status := range page.Statuses {
+								<dt>{ status.Label }</dt>
+								<dd>
+									<strong>{ status.Status }</strong>
+									if status.Detail != "" {
+										<span> · { status.Detail }</span>
+									}
+								</dd>
+							}
+						</dl>
+					</section>
+					<section>
+						<h2>Capacity</h2>
+						<p>Status: <strong>{ page.Capacity.Status }</strong></p>
+						<ul>
+							<li>Active Event: { strconv.Itoa(page.Capacity.ActiveEventID) }</li>
+							<li>Locations: { strconv.Itoa(page.Capacity.Locations) }</li>
+							<li>Lanes: { strconv.Itoa(page.Capacity.Lanes) }</li>
+							<li>Sessions: { strconv.Itoa(page.Capacity.Sessions) }</li>
+							<li>Entries: { strconv.Itoa(page.Capacity.Entries) }</li>
+							<li>Displays: { strconv.Itoa(page.Capacity.Displays) }</li>
+						</ul>
+						for _, warning := range page.Capacity.Warnings {
+							<p class="warning" role="status">{ warning }</p>
+						}
+					</section>
+					<section>
+						<h2>Backups</h2>
+						<form class="stack" method="post" action="/backstage/installation">
+							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+							<input type="hidden" name="action" value="backup-sanitized"/>
+							<h3>Sanitized Backup</h3>
+							<p>Excludes authentication secrets. Accounts must be re-bootstrapped after Restore.</p>
+							<label>
+								<input type="checkbox" name="confirm" value="true" required/>
+								Create and download this Backup
+							</label>
+							<button type="submit">Download Sanitized Backup</button>
+						</form>
+						<form class="stack" method="post" action="/backstage/installation">
+							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+							<input type="hidden" name="action" value="backup-full-fidelity"/>
+							<h3>Full-Fidelity Backup</h3>
+							<p>Contains authentication secrets and is not encrypted by Beamers.</p>
+							<label>
+								Password
+								<input type="password" name="password" autocomplete="current-password" required/>
+							</label>
+							<label>
+								<input type="checkbox" name="acknowledge_protection" value="true" required/>
+								I will protect this unencrypted Backup outside Beamers
+							</label>
+							<button type="submit">Download Full-Fidelity Backup</button>
+						</form>
+					</section>
+					<section>
+						<h2>Restore</h2>
+						<p>Preparation validates and stages a Backup. Final replacement remains host-authorized and cannot be started from this page.</p>
+						<form
+							class="stack"
+							method="post"
+							action="/backstage/installation"
+							enctype="multipart/form-data"
+						>
+							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+							<input type="hidden" name="action" value="prepare-restore"/>
+							<label>
+								Backup ZIP
+								<input type="file" name="backup" accept=".zip,application/zip" required/>
+							</label>
+							<button type="submit">Prepare Restore</button>
+						</form>
+						if page.Prepared.Present {
+							<h3>Prepared Restore</h3>
+							<p>Validation: <strong>Passed</strong></p>
+							<ul>
+								<li>Backup mode: { page.Prepared.Mode }</li>
+								<li>Created: { page.Prepared.CreatedAt }</li>
+								<li>Replaces data: { strconv.FormatBool(page.Prepared.ReplacesData) }</li>
+								<li>Replaces Attachments: { strconv.FormatBool(page.Prepared.ReplacesAttachments) }</li>
+							</ul>
+							if len(page.Prepared.ConfigurationDifferences) > 0 {
+								<p>Configuration differences:</p>
+								<ul>
+									for _, field := range page.Prepared.ConfigurationDifferences {
+										<li>{ field }</li>
+									}
+								</ul>
+							}
+							<form class="stack" method="post" action="/backstage/installation">
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="cancel-restore"/>
+								<label>
+									Password
+									<input type="password" name="password" autocomplete="current-password" required/>
+								</label>
+								<label>
+									<input type="checkbox" name="acknowledge_cancellation" value="true" required/>
+									Abandon this prepared Restore
+								</label>
+								<button type="submit">Cancel Prepared Restore</button>
+							</form>
+						} else {
+							<p>No Restore is prepared.</p>
+						}
+					</section>
+				</main>
+			</div>
+		</body>
+	</html>
+}

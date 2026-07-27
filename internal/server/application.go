@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"html"
 	"log/slog"
 	"net"
 	"net/http"
@@ -226,17 +227,6 @@ func (application *application) contract(
 	handler := application.handler
 	application.mu.Unlock()
 	return handler.contract(request)
-}
-
-func (application *application) restore(
-	ctx context.Context,
-	journalPath string,
-	options backup.ApplyOptions,
-) error {
-	return application.runRestoreMaintenance(ctx, func() error {
-		_, err := backup.ApplyRestoreWithOptions(ctx, journalPath, options)
-		return err
-	})
 }
 
 func (application *application) cancelPreparedRestore(
@@ -551,7 +541,8 @@ func serveMaintenance(
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <meta http-equiv="refresh" content="1">
 <title>Beamers maintenance</title></head>
-<body><main><h1>Maintenance in progress</h1>
+<body><main><h1>Installation maintenance</h1>
+<p>Maintenance state: <strong>` + html.EscapeString(kind) + `</strong></p>
 <p role="status">Beamers will return to this page when storage is ready.</p></main>
 </body></html>`))
 }
@@ -602,7 +593,7 @@ func (application *application) buildHandler(
 	); err != nil {
 		return nil, err
 	}
-	registerDiagnosticsRoutes(
+	diagnostics := registerDiagnosticsRoutes(
 		mux,
 		installation.Authentication(),
 		installation,
@@ -689,17 +680,17 @@ func (application *application) buildHandler(
 		installation.Results(),
 		application.config.Logger,
 	)
-	registerBackupRoutes(
+	archives := registerBackupRoutes(
 		mux,
 		installation,
 		application.config.DataDir,
 		application.config.AttachmentsDir,
 		backupConfiguration(application.config.Config),
-		application.restore,
 		application.cancelPreparedRestore,
 		application.config.Logger,
 		application.config.ListenerAddress,
 	)
+	registerInstallationFrontendRoutes(mux, diagnostics, archives)
 	registerFinalFilesRoutes(
 		mux,
 		installation,

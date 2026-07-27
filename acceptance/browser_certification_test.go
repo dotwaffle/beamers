@@ -679,6 +679,7 @@ func TestBrowserCertification(t *testing.T) {
 		"/",
 	))
 	assertResponsivePageWidths(t, crewDriver, origin+"/backstage", 320, 1440)
+	assertResponsivePageWidths(t, crewDriver, origin+"/backstage/installation", 320, 1440)
 	assertResponsivePageWidths(t, crewDriver, origin+"/backstage/events/1/planning", 320, 1440)
 	assertResponsivePageWidths(t, crewDriver, origin+"/backstage/events/1/operations", 320, 1440)
 	assertResponsivePageWidths(t, crewDriver, origin+"/backstage/events/1/control", 320, 1440)
@@ -687,6 +688,12 @@ func TestBrowserCertification(t *testing.T) {
 	report.Pages = append(
 		report.Pages,
 		certifyInteractivePage(t, crewDriver, origin+"/backstage", "backstage"),
+		certifyInteractivePage(
+			t,
+			crewDriver,
+			origin+"/backstage/installation",
+			"installation",
+		),
 		certifyInteractivePage(
 			t,
 			crewDriver,

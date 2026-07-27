@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net"
@@ -20,6 +21,17 @@ const (
 	testedSessionsEntries  = 5_000
 )
 
+type diagnosticHandlers struct {
+	authentication     *auth.Service
+	installation       *operations.Installation
+	displayService     *displays.Service
+	displayStream      *displaystream.Hub
+	programStream      *displaystream.Hub
+	telemetryRuntime   *telemetry.Runtime
+	replicationAdapter *replication.Adapter
+	logger             *slog.Logger
+}
+
 func registerDiagnosticsRoutes(
 	mux *routeMux,
 	authentication *auth.Service,
@@ -31,48 +43,19 @@ func registerDiagnosticsRoutes(
 	replicationAdapter *replication.Adapter,
 	logger *slog.Logger,
 	listenerAddress net.Addr,
-) {
+) diagnosticHandlers {
+	handlers := diagnosticHandlers{
+		authentication:     authentication,
+		installation:       installation,
+		displayService:     displayService,
+		displayStream:      displayStream,
+		programStream:      programStream,
+		telemetryRuntime:   telemetryRuntime,
+		replicationAdapter: replicationAdapter,
+		logger:             logger,
+	}
 	serve := func(response http.ResponseWriter, request *http.Request, actor auth.Account) {
-		statuses, statusErr := displayService.List(request.Context(), actor, displayStream.Cursor())
-		if statusErr != nil {
-			logger.ErrorContext(
-				request.Context(),
-				"build diagnostics",
-				"component", "diagnostics",
-				"error", statusErr,
-			)
-		}
-		capacity, capacityErr := installation.Capacity(request.Context())
-		if capacityErr != nil {
-			logger.ErrorContext(
-				request.Context(),
-				"build capacity diagnostics",
-				"component", "diagnostics",
-				"error", capacityErr,
-			)
-		}
-		sessionCounts, sessionCountsErr := authentication.SessionCounts(request.Context())
-		if sessionCountsErr != nil {
-			logger.ErrorContext(
-				request.Context(),
-				"build authentication diagnostics",
-				"component", "diagnostics",
-				"error", sessionCountsErr,
-			)
-		}
-		found := normalDiagnostics(
-			statuses,
-			statusErr,
-			capacity,
-			capacityErr,
-			sessionCounts,
-			sessionCountsErr,
-			displayStream.SubscriberCount(),
-			displayStream.DisplayCount(),
-			programStream.SubscriberCount(),
-			telemetryRuntime != nil && telemetryRuntime.Enabled(),
-			replicationAdapter,
-		)
+		found := handlers.collect(request.Context(), actor)
 		response.Header().Set("Cache-Control", "no-store")
 		response.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(response).Encode(found); err != nil {
@@ -123,6 +106,70 @@ func registerDiagnosticsRoutes(
 		}
 		serve(response, request, actor)
 	})
+	return handlers
+}
+
+func (handlers diagnosticHandlers) collect(
+	ctx context.Context,
+	actor auth.Account,
+) normalDiagnosticsResponse {
+	readinessErr := handlers.installation.Ready(ctx)
+	if readinessErr != nil {
+		handlers.logger.ErrorContext(
+			ctx,
+			"build readiness diagnostics",
+			"component", "diagnostics",
+			"error", readinessErr,
+		)
+	}
+	statuses, statusErr := handlers.displayService.List(
+		ctx,
+		actor,
+		handlers.displayStream.Cursor(),
+	)
+	if statusErr != nil {
+		handlers.logger.ErrorContext(
+			ctx,
+			"build diagnostics",
+			"component", "diagnostics",
+			"error", statusErr,
+		)
+	}
+	capacity, capacityErr := handlers.installation.Capacity(ctx)
+	if capacityErr != nil {
+		handlers.logger.ErrorContext(
+			ctx,
+			"build capacity diagnostics",
+			"component", "diagnostics",
+			"error", capacityErr,
+		)
+	}
+	sessionCounts, sessionCountsErr := handlers.authentication.SessionCounts(ctx)
+	if sessionCountsErr != nil {
+		handlers.logger.ErrorContext(
+			ctx,
+			"build authentication diagnostics",
+			"component", "diagnostics",
+			"error", sessionCountsErr,
+		)
+	}
+	diagnostics := normalDiagnostics(
+		statuses,
+		statusErr,
+		capacity,
+		capacityErr,
+		sessionCounts,
+		sessionCountsErr,
+		handlers.displayStream.SubscriberCount(),
+		handlers.displayStream.DisplayCount(),
+		handlers.programStream.SubscriberCount(),
+		handlers.telemetryRuntime != nil && handlers.telemetryRuntime.Enabled(),
+		handlers.replicationAdapter,
+	)
+	if readinessErr != nil {
+		diagnostics.Readiness.Status = "not_ready"
+	}
+	return diagnostics
 }
 
 type componentDiagnostics struct {
@@ -144,6 +191,7 @@ type authenticationDiagnostics struct {
 
 type normalDiagnosticsResponse struct {
 	Mode           string                    `json:"mode"`
+	Readiness      componentDiagnostics      `json:"readiness"`
 	Storage        componentDiagnostics      `json:"storage"`
 	Backup         componentDiagnostics      `json:"backup"`
 	Authentication authenticationDiagnostics `json:"authentication"`
@@ -188,6 +236,7 @@ func normalDiagnostics(
 ) normalDiagnosticsResponse {
 	found := normalDiagnosticsResponse{
 		Mode:        "normal",
+		Readiness:   componentDiagnostics{Status: "ready"},
 		Storage:     componentDiagnostics{Status: "ready"},
 		Backup:      componentDiagnostics{Status: "available"},
 		Replication: replication.Status{Status: "disabled"},
@@ -230,6 +279,7 @@ func normalDiagnostics(
 		found.Authentication.Status = "unavailable"
 	}
 	if statusErr != nil {
+		found.Readiness.Status = "not_ready"
 		found.Storage.Status = "unavailable"
 		found.Backup.Status = "unavailable"
 		found.Displays.Status = "unavailable"

@@ -55,7 +55,6 @@ func TestAdministratorDownloadsFullFidelityBackupAfterReauthentication(t *testin
 			ListenAddress: "0.0.0.0:8443",
 		},
 		nil,
-		nil,
 		slog.New(slog.NewTextHandler(os.Stderr, nil)),
 		&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8080},
 	)

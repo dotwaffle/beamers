@@ -187,7 +187,10 @@ func assertDiagnosticsResponse(t *testing.T, response *httptest.ResponseRecorder
 		t.Fatalf("Cache-Control = %q, want no-store", value)
 	}
 	var found struct {
-		Mode    string `json:"mode"`
+		Mode      string `json:"mode"`
+		Readiness struct {
+			Status string `json:"status"`
+		} `json:"readiness"`
 		Storage struct {
 			Status string `json:"status"`
 		} `json:"storage"`
@@ -223,6 +226,7 @@ func assertDiagnosticsResponse(t *testing.T, response *httptest.ResponseRecorder
 		t.Fatalf("decode diagnostics: %v", err)
 	}
 	if found.Mode != "normal" ||
+		found.Readiness.Status != "ready" ||
 		found.Storage.Status != "ready" ||
 		found.Backup.Status != "available" ||
 		found.Authentication.Status != "bounded" ||

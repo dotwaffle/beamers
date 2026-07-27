@@ -175,7 +175,7 @@ templ BackstageLinks(navigation BackstageNavigation) {
 						<li><a href="/backstage/events/new">Create Event</a></li>
 						<li><a href="/backstage/administration">Accounts, Event Grants, and activation</a></li>
 					<li><a href="/admin/registration">Registration</a></li>
-					<li><a href="/backstage#diagnostics">Backups and diagnostics</a></li>
+					<li><a href="/backstage/installation">Backups and diagnostics</a></li>
 				</ul>
 			</section>
 		}
@@ -221,9 +221,6 @@ templ Backstage(
 					if navigation.Administrator {
 						<section id="administration">
 							<h2>Accounts, Event Grants, and activation</h2>
-						</section>
-						<section id="diagnostics">
-							<h2>Backups and diagnostics</h2>
 						</section>
 					}
 					for _, event := range navigation.Events {

@@ -242,7 +242,7 @@ func TestRecoveryEntryPointsHaveBuiltInRateLimits(t *testing.T) {
 		}
 		response.WriteHeader(http.StatusNoContent)
 	}), map[string]routeContract{
-		"/admin/restores/apply": {
+		"/admin/restores/cancel": {
 			kind: crewInterface, timeout: restoreOperationTimeout, recoveryLimit: 5,
 		},
 	}, interfacePolicy{
@@ -253,7 +253,7 @@ func TestRecoveryEntryPointsHaveBuiltInRateLimits(t *testing.T) {
 			request := httptest.NewRequestWithContext(
 				t.Context(),
 				method,
-				"http://localhost/admin/restores/apply",
+				"http://localhost/admin/restores/cancel",
 				http.NoBody,
 			)
 			request.RemoteAddr = "127.0.0.1:1234"
@@ -271,7 +271,7 @@ func TestRecoveryEntryPointsHaveBuiltInRateLimits(t *testing.T) {
 		request := httptest.NewRequestWithContext(
 			t.Context(),
 			http.MethodPost,
-			"http://localhost/admin/restores/apply",
+			"http://localhost/admin/restores/cancel",
 			http.NoBody,
 		)
 		request.RemoteAddr = "127.0.0.1:1234"
@@ -286,7 +286,7 @@ func TestRecoveryEntryPointsHaveBuiltInRateLimits(t *testing.T) {
 		request := httptest.NewRequestWithContext(
 			t.Context(),
 			http.MethodPost,
-			"http://localhost/admin/restores/apply",
+			"http://localhost/admin/restores/cancel",
 			http.NoBody,
 		)
 		request.RemoteAddr = "127.0.0.1:1234"

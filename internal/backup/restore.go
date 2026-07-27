@@ -323,6 +323,28 @@ func ApplyRestoreWithOptions(
 	return applyRestoreWithOptions(ctx, journalPath, options, nil)
 }
 
+// InspectPreparedRestore validates and returns an intact prepared Restore.
+// The Boolean reports whether a journal exists, including when that journal is invalid.
+func InspectPreparedRestore(
+	ctx context.Context,
+	journalPath string,
+) (RestorePlan, bool, error) {
+	journal, err := readRestoreJournal(journalPath)
+	if errors.Is(err, os.ErrNotExist) {
+		return RestorePlan{}, false, nil
+	}
+	if err != nil {
+		return RestorePlan{}, true, err
+	}
+	if stateErr := validatePreparedRestoreState(journal); stateErr != nil {
+		return RestorePlan{}, true, stateErr
+	}
+	if err = validatePreparedRestore(ctx, journal); err != nil {
+		return RestorePlan{}, true, fmt.Errorf("prepared Restore is damaged: %w", err)
+	}
+	return journal.Plan, true, nil
+}
+
 // CancelPreparedRestore abandons one intact plan before cutover starts.
 func CancelPreparedRestore(
 	ctx context.Context,
@@ -347,11 +369,21 @@ func CancelPreparedRestore(
 	if err != nil {
 		return err
 	}
+	if stateErr := validatePreparedRestoreState(journal); stateErr != nil {
+		return stateErr
+	}
+	if err = validatePreparedRestore(ctx, journal); err != nil {
+		return fmt.Errorf("prepared Restore is damaged: %w", err)
+	}
+	return cleanupPreparedRestore(journal)
+}
+
+func validatePreparedRestoreState(journal restoreJournal) error {
 	if journal.Phase != restorePrepared {
 		return errors.New("Restore cutover already started")
 	}
-	if ownershipErr := validatePreparedRestoreOwnership(journal); ownershipErr != nil {
-		return ownershipErr
+	if err := validatePreparedRestoreOwnership(journal); err != nil {
+		return err
 	}
 	started, err := restoreCutoverStarted(journal)
 	if err != nil {
@@ -360,13 +392,7 @@ func CancelPreparedRestore(
 	if started {
 		return errors.New("Restore cutover already started")
 	}
-	if quarantineErr := validateReservedRestoreRoots(journal); quarantineErr != nil {
-		return quarantineErr
-	}
-	if err = validatePreparedRestore(ctx, journal); err != nil {
-		return fmt.Errorf("prepared Restore is damaged: %w", err)
-	}
-	return cleanupPreparedRestore(journal)
+	return validateReservedRestoreRoots(journal)
 }
 
 func validatePreparedRestoreOwnership(journal restoreJournal) error {

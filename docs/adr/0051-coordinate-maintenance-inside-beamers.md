@@ -1,7 +1,7 @@
 # Coordinate maintenance inside Beamers
 
 Beamers uses one executable for serving, Backup, Restore, migration, and host-authorized recovery; it does not ship a separate administrative utility whose version may drift from the deployment.
-While healthy storage can authenticate an Administrator, Backup and Restore are available through an administrative maintenance surface.
+While healthy storage can authenticate an Administrator, Backup and Restore preparation are available through an administrative maintenance surface.
 When storage cannot authenticate safely, equivalent guarded subcommands of the same executable use host operating-system authority.
 
 Safe committed migrations run automatically during startup Maintenance Mode only after Beamers creates and verifies a Backup.
@@ -15,7 +15,8 @@ Beamers does not encrypt Backup files, and a Full-Fidelity Backup requires recen
 
 Restore stages and validates the database and Attachment Store together.
 A durable cutover journal coordinates cross-filesystem quarantine and installation, resumes or rolls back after interruption, and prevents Beamers from serving mixed generations.
-Healthy Restore runs inside the main process behind a minimal Maintenance Mode shell; unsafe-startup Restore remains a host-authorized subcommand.
+Healthy Administrators may prepare, validate, inspect, and cancel a Restore through Backstage.
+Final replacement and unsafe-startup Restore remain host-authorized subcommands.
 Normal compatibility follows declared reader and writer ranges, while a host-only forced unsupported Restore preserves all inputs, reports unknown schema elements, requires a reason and prominent acknowledgment, and makes no safety claim.
 
 During Maintenance Mode, interactive Crew Clients show the maintenance state and return to their requested page when readiness returns.

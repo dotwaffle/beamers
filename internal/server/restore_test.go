@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -28,25 +29,25 @@ func TestRestoreMaintenanceCancelsAndDrainsActiveReads(t *testing.T) {
 	started := make(chan struct{})
 	canceled := make(chan struct{})
 	releaseRead := make(chan struct{})
-	applyStarted := make(chan struct{}, 2)
-	releaseApply := make(chan struct{})
-	restoreResult := make(chan error, 2)
+	maintenanceStarted := make(chan struct{}, 2)
+	releaseMaintenance := make(chan struct{})
+	maintenanceResult := make(chan error, 2)
 	app := &application{
 		accepting: true,
 		cancels:   make(map[uint64]context.CancelCauseFunc),
 		drained:   closedChannel(),
 	}
 	handler := http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
-		if request.URL.Path == "/admin/restores/apply" {
-			applyStarted <- struct{}{}
-			<-releaseApply
+		if request.URL.Path == "/admin/restores/cancel" {
+			maintenanceStarted <- struct{}{}
+			<-releaseMaintenance
 			ctx, cancel := context.WithTimeout(
 				context.WithoutCancel(request.Context()),
 				time.Second,
 			)
 			defer cancel()
 			_, err := app.beginRestore(ctx)
-			restoreResult <- err
+			maintenanceResult <- err
 			return
 		}
 		close(started)
@@ -55,10 +56,12 @@ func TestRestoreMaintenanceCancelsAndDrainsActiveReads(t *testing.T) {
 		<-releaseRead
 	})
 	app.handler = testRouteMux(handler, map[string]routeContract{
-		"/admin/restores/apply": {
+		"/admin/restores/cancel": {
 			kind: crewInterface, timeout: restoreOperationTimeout, recoveryLimit: 5,
 		},
-		"/storage-read": crewRoute(),
+		"/backstage/installation": backstagePageRoute(),
+		"/mutation":               crewRoute(),
+		"/storage-read":           crewRoute(),
 	})
 	done := make(chan struct{})
 	go func() {
@@ -80,30 +83,68 @@ func TestRestoreMaintenanceCancelsAndDrainsActiveReads(t *testing.T) {
 			httptest.NewRequestWithContext(
 				t.Context(),
 				http.MethodPost,
-				"/admin/restores/apply",
+				"/admin/restores/cancel",
 				http.NoBody,
 			),
 		)
 	}
-	<-applyStarted
-	<-applyStarted
-	close(releaseApply)
+	<-maintenanceStarted
+	<-maintenanceStarted
+	close(releaseMaintenance)
 	select {
 	case <-canceled:
 	case <-time.After(time.Second):
 		t.Fatal("active read was not canceled before Restore")
 	}
-	if err := <-restoreResult; !errors.Is(err, errRestoreInProgress) {
+	maintenancePage := httptest.NewRecorder()
+	app.ServeHTTP(
+		maintenancePage,
+		httptest.NewRequestWithContext(
+			t.Context(),
+			http.MethodGet,
+			"/backstage/installation",
+			http.NoBody,
+		),
+	)
+	if maintenancePage.Code != http.StatusServiceUnavailable ||
+		maintenancePage.Header().Get("X-Beamers-Maintenance") != "restore" ||
+		!strings.Contains(maintenancePage.Body.String(), "Maintenance state:") {
+		t.Fatalf(
+			"Restore maintenance page = %d, headers %v, body %q",
+			maintenancePage.Code,
+			maintenancePage.Header(),
+			maintenancePage.Body.String(),
+		)
+	}
+	rejectedMutation := httptest.NewRecorder()
+	app.ServeHTTP(
+		rejectedMutation,
+		httptest.NewRequestWithContext(
+			t.Context(),
+			http.MethodPost,
+			"/mutation",
+			http.NoBody,
+		),
+	)
+	if rejectedMutation.Code != http.StatusServiceUnavailable ||
+		rejectedMutation.Body.String() != "maintenance in progress\n" {
+		t.Fatalf(
+			"mutation during Restore maintenance = %d %q",
+			rejectedMutation.Code,
+			rejectedMutation.Body.String(),
+		)
+	}
+	if err := <-maintenanceResult; !errors.Is(err, errRestoreInProgress) {
 		t.Fatalf("competing Restore error = %v", err)
 	}
 	close(releaseRead)
-	if err := <-restoreResult; err != nil {
+	if err := <-maintenanceResult; err != nil {
 		t.Fatalf("drain active read: %v", err)
 	}
 	<-done
 }
 
-func TestHealthyAdministratorRestoresThroughMaintenanceMode(t *testing.T) {
+func TestHealthyAdministratorPreparesAndCancelsRestoreWithoutCutover(t *testing.T) {
 	ctx := t.Context()
 	dataDir := filepath.Join(t.TempDir(), "installation")
 	if err := operations.Initialize(ctx, dataDir); err != nil {
@@ -270,28 +311,39 @@ func TestHealthyAdministratorRestoresThroughMaintenanceMode(t *testing.T) {
 		t.Fatalf("decode Restore plan after cancellation: %v", err)
 	}
 
-	approval, err := json.Marshal(map[string]any{
-		"password":                "correct horse battery staple",
-		"acknowledge_replacement": true,
-	})
-	if err != nil {
-		t.Fatalf("encode Restore approval: %v", err)
-	}
 	applyRequest := httptest.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
 		"/admin/restores/apply",
-		bytes.NewReader(approval),
+		http.NoBody,
 	)
 	applyRequest.Header.Set("Content-Type", "application/json")
 	applyRequest.AddCookie(&http.Cookie{Name: sessionCookieName, Value: session.Token})
 	applyResponse := httptest.NewRecorder()
 	application.ServeHTTP(applyResponse, applyRequest)
-	if applyResponse.Code != http.StatusOK {
+	if applyResponse.Code != http.StatusNotFound {
 		t.Fatalf(
-			"Restore apply response = %d: %s",
+			"host-only Restore apply response = %d: %s",
 			applyResponse.Code,
 			applyResponse.Body.String(),
+		)
+	}
+
+	cancelRequest = httptest.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		"/admin/restores/cancel",
+		bytes.NewReader(cancelApproval),
+	)
+	cancelRequest.Header.Set("Content-Type", "application/json")
+	cancelRequest.AddCookie(&http.Cookie{Name: sessionCookieName, Value: session.Token})
+	cancelResponse = httptest.NewRecorder()
+	application.ServeHTTP(cancelResponse, cancelRequest)
+	if cancelResponse.Code != http.StatusOK {
+		t.Fatalf(
+			"second Restore cancellation response = %d: %s",
+			cancelResponse.Code,
+			cancelResponse.Body.String(),
 		)
 	}
 
