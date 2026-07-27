@@ -1501,6 +1501,7 @@ func TestBrowserControlsProgramOutputAndOverrides(t *testing.T) {
 		"Stage Screen",
 		"Evacuate using marked exits",
 		`name="preview_fingerprint"`,
+		`href="/assets/frontend.css"`,
 	} {
 		if emergencyPreview.status != http.StatusOK ||
 			!strings.Contains(emergencyPreview.body, want) {
@@ -1561,6 +1562,9 @@ func TestBrowserControlsProgramOutputAndOverrides(t *testing.T) {
 		t.Fatalf("Emergency Alert clear confirmation link missing: %q", page.body)
 	}
 	clearPreview := getFrontendPage(t, administrator, server.address, clearPath)
+	if !strings.Contains(clearPreview.body, `href="/assets/frontend.css"`) {
+		t.Fatalf("Emergency clear confirmation lacks Frontend styles: %q", clearPreview.body)
+	}
 	clearConfirmation := frontendNamedValues(
 		clearPreview.body,
 		"expected_revision",
