@@ -91,6 +91,20 @@ const (
 	SessionHold SessionType = "Hold"
 )
 
+// SessionLifecycle is one live progression state for a Published Session.
+type SessionLifecycle string
+
+const (
+	// SessionScheduled has not started.
+	SessionScheduled SessionLifecycle = "Scheduled"
+	// SessionLive is currently running.
+	SessionLive SessionLifecycle = "Live"
+	// SessionEnded completed normally.
+	SessionEnded SessionLifecycle = "Ended"
+	// SessionCanceled was canceled before normal completion.
+	SessionCanceled SessionLifecycle = "Canceled"
+)
+
 // AudienceVisibility controls whether a Published Session reaches public projections.
 type AudienceVisibility string
 

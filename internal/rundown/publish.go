@@ -637,6 +637,10 @@ type CrewSession struct {
 	LaneIDs            []int              `json:"lane_ids"`
 	LocationIDs        []int              `json:"location_ids"`
 	TrackIDs           []int              `json:"track_ids"`
+	Lifecycle          SessionLifecycle   `json:"lifecycle"`
+	LiveStateRevision  int                `json:"live_state_revision"`
+	ForecastStart      time.Time          `json:"forecast_start"`
+	ForecastEnd        time.Time          `json:"forecast_end"`
 }
 
 // CrewRundown returns current Published structure only through a purpose-built projection.
@@ -660,6 +664,26 @@ func (queries *Queries) CrewRundown(
 		stored.Tracks,
 		stored.Sessions,
 	), nil
+}
+
+// DisplayLocations returns the narrow Published Location projection needed for Display routing.
+func (queries *Queries) DisplayLocations(
+	ctx context.Context,
+	actor auth.Account,
+	eventID int,
+) ([]CrewLocation, error) {
+	if !actor.Administrator {
+		return nil, ErrEventAccessDenied
+	}
+	stored, err := queries.storage.LoadDisplayLocations(ctx, eventID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]CrewLocation, 0, len(stored))
+	for _, location := range stored {
+		result = append(result, CrewLocation{ID: location.ID, Name: location.Name})
+	}
+	return result, nil
 }
 
 // DraftRundown returns current materialized Draft state for an authorized Producer.
@@ -720,6 +744,8 @@ func projectRundown(
 			UploadDeadline: item.UploadDeadline, SubmissionDeadline: item.SubmissionDeadline,
 			EntryDefault: EntryDisposition(item.EntryDefaultDisposition),
 			LaneIDs:      item.LaneIDs, LocationIDs: item.LocationIDs, TrackIDs: item.TrackIDs,
+			Lifecycle: SessionLifecycle(item.Lifecycle), LiveStateRevision: item.LiveStateRevision,
+			ForecastStart: item.ForecastStart, ForecastEnd: item.ForecastEnd,
 		})
 	}
 	return result

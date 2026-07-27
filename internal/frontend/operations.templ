@@ -1,0 +1,311 @@
+package frontend
+
+import (
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/dotwaffle/beamers/internal/competition"
+	"github.com/dotwaffle/beamers/internal/displays"
+	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/rundown"
+	"github.com/dotwaffle/beamers/internal/sessioncontrol"
+)
+
+// OperationsPage contains current Session and Display operations state.
+type OperationsPage struct {
+	AccountName           string
+	CSRFToken             string
+	ReducedEffects        bool
+	Navigation            BackstageNavigation
+	Event                 events.Event
+	Rundown               rundown.CrewRundown
+	Displays              []displays.Status
+	CommandIDs            map[string]string
+	OperableSessionIDs    map[int]bool
+	DisplayCommandIDs     map[int]string
+	EnrollmentCommandID   string
+	CanAdministerDisplays bool
+	CanProduce            bool
+	TargetPreview         *sessioncontrol.TargetPreview
+	EndPreflight          *competition.EndPreflight
+	PreviewSessionID      int
+	PreviewRevision       int
+	Adjustment            time.Duration
+	ReinstatePreview      *sessioncontrol.ReinstatePreview
+	ForecastStart         time.Time
+	LaneIDs               []int
+	LocationIDs           []int
+	Error                 string
+}
+
+// Operations renders authorized Session and Display controls.
+templ Operations(page OperationsPage) {
+	<!doctype html>
+	<html lang="en">
+		@Head("Sessions and Displays · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
+			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
+			<div class="backstage-layout">
+				@BackstageNavigationViews(page.Navigation)
+				<main>
+					<h1>Sessions and Displays</h1>
+					<p>{ page.Event.Name }</p>
+					if page.Error != "" {
+						<p role="alert">{ page.Error }</p>
+					}
+					<section>
+						<h2>Sessions</h2>
+						for _, session := range page.Rundown.Sessions {
+							<article>
+								<h3>{ session.Title }</h3>
+								<p>{ session.Lifecycle } · revision { strconv.Itoa(session.LiveStateRevision) }</p>
+								if session.Lifecycle == rundown.SessionScheduled && page.OperableSessionIDs[session.ID] {
+									@sessionOperationForm(page, session, "start-session", "Start Session")
+									@cancelSessionForm(page, session)
+								}
+								if session.Lifecycle == rundown.SessionLive && page.OperableSessionIDs[session.ID] {
+									if session.Type == rundown.SessionCompetition {
+										@sessionOperationForm(page, session, "preview-end-session", "Preview End Session")
+									} else {
+										@sessionOperationForm(page, session, "end-session", "End Session")
+									}
+									@cancelSessionForm(page, session)
+									<form class="stack" method="post" action={ operationsPath(page.Event.ID) }>
+										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+										<input type="hidden" name="action" value="preview-adjust-target"/>
+										<input type="hidden" name="session_id" value={ strconv.Itoa(session.ID) }/>
+										<input type="hidden" name="expected_live_state_revision" value={ strconv.Itoa(session.LiveStateRevision) }/>
+										<label>Target adjustment <input name="adjustment" value="5m" required/></label>
+										<button type="submit">Preview Adjust Target</button>
+									</form>
+								}
+								if session.Lifecycle == rundown.SessionCanceled && page.CanProduce &&
+									page.OperableSessionIDs[session.ID] {
+									<form class="stack" method="post" action={ operationsPath(page.Event.ID) }>
+										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+										<input type="hidden" name="action" value="preview-reinstate"/>
+										<input type="hidden" name="session_id" value={ strconv.Itoa(session.ID) }/>
+										<input type="hidden" name="expected_live_state_revision" value={ strconv.Itoa(session.LiveStateRevision) }/>
+										<label>
+											New Forecast Start ({ page.Event.Timezone })
+											<input type="datetime-local" name="forecast_start" required/>
+										</label>
+										<label>Lane IDs <input name="lane_ids" value={ commaSeparatedIDs(session.LaneIDs) } required/></label>
+										<label>Location IDs <input name="location_ids" value={ commaSeparatedIDs(session.LocationIDs) } required/></label>
+										<button type="submit">Preview Reinstate and reschedule</button>
+									</form>
+								}
+							</article>
+						}
+					</section>
+					if page.TargetPreview != nil {
+						<section>
+							<h2>Adjust Target Preview</h2>
+							<p>
+								<span>Current target </span>
+								@EventTime(page.TargetPreview.CurrentTarget, page.Event.Timezone, page.Event.EventLocale)
+								<span>; proposed target </span>
+								@EventTime(page.TargetPreview.ProposedTarget, page.Event.Timezone, page.Event.EventLocale)
+								<span>.</span>
+							</p>
+							@timingEffects(page.TargetPreview.Effects, page.Event)
+							if page.TargetPreview.RequiresHardBoundaryConfirmation {
+								<p role="alert">Hard Boundary movement requires explicit confirmation.</p>
+							}
+							<form method="post" action={ operationsPath(page.Event.ID) }>
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="adjust-target"/>
+								<input type="hidden" name="session_id" value={ strconv.Itoa(page.PreviewSessionID) }/>
+								<input type="hidden" name="expected_live_state_revision" value={ strconv.Itoa(page.PreviewRevision) }/>
+								<input type="hidden" name="adjustment" value={ page.Adjustment.String() }/>
+								<input type="hidden" name="preview_fingerprint" value={ page.TargetPreview.Fingerprint }/>
+								<input type="hidden" name="command_id" value={ page.CommandIDs["adjust-target:"+strconv.Itoa(page.PreviewSessionID)] }/>
+								<input type="hidden" name="confirmed" value="true"/>
+								if page.TargetPreview.RequiresHardBoundaryConfirmation {
+									<label><input type="checkbox" name="hard_boundary_confirmed" value="true" required/> Confirm Hard Boundary movement</label>
+								}
+								<button type="submit">Adjust Target</button>
+							</form>
+						</section>
+					}
+					if page.EndPreflight != nil {
+						<section>
+							<h2>End Competition Preview</h2>
+							if page.EndPreflight.RequiresConfirmation {
+								<p role="alert">Deferred Entries will become Not Presented and require resolution.</p>
+								<ul>
+									for _, entry := range page.EndPreflight.DeferredEntries {
+										<li>{ entry.Name }</li>
+									}
+								</ul>
+							} else {
+								<p>No deferred Entries.</p>
+							}
+							<form method="post" action={ operationsPath(page.Event.ID) }>
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="end-session"/>
+								<input type="hidden" name="session_id" value={ strconv.Itoa(page.PreviewSessionID) }/>
+								<input type="hidden" name="expected_live_state_revision" value={ strconv.Itoa(page.PreviewRevision) }/>
+								<input type="hidden" name="command_id" value={ page.CommandIDs["end-session:"+strconv.Itoa(page.PreviewSessionID)] }/>
+								<input type="hidden" name="deferred_entries_fingerprint" value={ page.EndPreflight.Fingerprint }/>
+								if page.EndPreflight.RequiresConfirmation {
+									<label><input type="checkbox" name="confirmed_deferred_entries" value="true" required/> Confirm deferred Entries</label>
+								}
+								<button type="submit">End Competition</button>
+							</form>
+						</section>
+					}
+					if page.ReinstatePreview != nil {
+						<section>
+							<h2>Reinstate Session Preview</h2>
+							@timingEffects(page.ReinstatePreview.Effects, page.Event)
+							if page.ReinstatePreview.RequiresHardBoundaryConfirmation {
+								<p role="alert">Hard Boundary movement requires explicit confirmation.</p>
+							}
+							<form method="post" action={ operationsPath(page.Event.ID) }>
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="reinstate-session"/>
+								<input type="hidden" name="session_id" value={ strconv.Itoa(page.PreviewSessionID) }/>
+								<input type="hidden" name="expected_live_state_revision" value={ strconv.Itoa(page.PreviewRevision) }/>
+								<input type="hidden" name="forecast_start" value={ page.ForecastStart.UTC().Format(time.RFC3339) }/>
+								<input type="hidden" name="lane_ids" value={ commaSeparatedIDs(page.LaneIDs) }/>
+								<input type="hidden" name="location_ids" value={ commaSeparatedIDs(page.LocationIDs) }/>
+								<input type="hidden" name="preview_fingerprint" value={ page.ReinstatePreview.Fingerprint }/>
+								<input type="hidden" name="command_id" value={ page.CommandIDs["reinstate-session:"+strconv.Itoa(page.PreviewSessionID)] }/>
+								<input type="hidden" name="confirmed" value="true"/>
+								if page.ReinstatePreview.RequiresHardBoundaryConfirmation {
+									<label><input type="checkbox" name="hard_boundary_confirmed" value="true" required/> Confirm Hard Boundary movement</label>
+								}
+								<button type="submit">Reinstate and reschedule Session</button>
+							</form>
+						</section>
+					}
+					<section>
+						<h2>Displays</h2>
+						if page.CanAdministerDisplays {
+							<form class="stack" method="post" action={ operationsPath(page.Event.ID) }>
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="enroll-display"/>
+								<input type="hidden" name="command_id" value={ page.EnrollmentCommandID }/>
+								<label>Enrollment code <input name="code" required/></label>
+								<label>Display name <input name="name"/></label>
+								<label>Existing Display ID for recovery <input name="display_id" inputmode="numeric"/></label>
+								<button type="submit">Enroll or recover Display</button>
+							</form>
+						}
+						if len(page.Displays) == 0 {
+							<p>No enrolled Displays.</p>
+						} else {
+							for _, display := range page.Displays {
+								<article data-display-id={ strconv.Itoa(display.ID) }>
+									<h3>Display #{ strconv.Itoa(display.ID) } · { display.Name }</h3>
+									<p>Delivery: { display.DeliveryState }</p>
+									if display.Standby {
+										<p>Assignment: Standby</p>
+									} else {
+										<p>
+											Assignment: { display.LocationName } · { display.ViewKey }
+											if len(display.DisplayGroupKeys) > 0 {
+												<span> · { strings.Join(display.DisplayGroupKeys, ", ") }</span>
+											}
+										</p>
+									}
+									<p>
+										Applied Event #{ strconv.Itoa(display.AppliedActiveEventID) },
+										activation generation { strconv.Itoa(display.AppliedActivationGeneration) },
+										Published revision { strconv.Itoa(display.AppliedPublishedRevision) }.
+									</p>
+									if page.CanAdministerDisplays {
+										<form class="stack" method="post" action={ operationsPath(page.Event.ID) }>
+											<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+											<input type="hidden" name="action" value="assign-display"/>
+											<input type="hidden" name="command_id" value={ page.DisplayCommandIDs[display.ID] }/>
+											<input type="hidden" name="display_id" value={ strconv.Itoa(display.ID) }/>
+											<label>
+												Location
+												<select name="location_id" required>
+													for _, location := range page.Rundown.Locations {
+														<option value={ strconv.Itoa(location.ID) } selected?={ location.ID == display.LocationID }>{ location.Name }</option>
+													}
+												</select>
+											</label>
+											<label>
+												View
+												<select name="view_key" required>
+													for _, view := range []string{"event-overview", "location-signage", "stage-timer", "competition-output"} {
+														<option value={ view } selected?={ view == display.ViewKey }>{ view }</option>
+													}
+												</select>
+											</label>
+											<label>Display group keys <input name="display_group_keys" value={ strings.Join(display.DisplayGroupKeys, ", ") }/></label>
+											<button type="submit">Assign and group Display</button>
+										</form>
+									}
+								</article>
+							}
+						}
+					</section>
+				</main>
+			</div>
+		</body>
+	</html>
+}
+
+func operationsPath(eventID int) templ.SafeURL {
+	return templ.SafeURL("/backstage/events/" + strconv.Itoa(eventID) + "/operations")
+}
+
+templ sessionOperationForm(
+	page OperationsPage,
+	session rundown.CrewSession,
+	action string,
+	label string,
+) {
+	<form method="post" action={ operationsPath(page.Event.ID) }>
+		<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+		<input type="hidden" name="action" value={ action }/>
+		if !strings.HasPrefix(action, "preview-") {
+			<input type="hidden" name="command_id" value={ page.CommandIDs[action+":"+strconv.Itoa(session.ID)] }/>
+		}
+		<input type="hidden" name="session_id" value={ strconv.Itoa(session.ID) }/>
+		<input type="hidden" name="expected_live_state_revision" value={ strconv.Itoa(session.LiveStateRevision) }/>
+		<button type="submit">{ label }</button>
+	</form>
+}
+
+templ cancelSessionForm(page OperationsPage, session rundown.CrewSession) {
+	<form class="stack" method="post" action={ operationsPath(page.Event.ID) }>
+		<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+		<input type="hidden" name="action" value="cancel-session"/>
+		<input type="hidden" name="command_id" value={ page.CommandIDs["cancel-session:"+strconv.Itoa(session.ID)] }/>
+		<input type="hidden" name="session_id" value={ strconv.Itoa(session.ID) }/>
+		<input type="hidden" name="expected_live_state_revision" value={ strconv.Itoa(session.LiveStateRevision) }/>
+		<label>Public cancellation message <input name="public_cancellation_message" maxlength="10000"/></label>
+		<label>Crew notes <textarea name="crew_notes" maxlength="10000"></textarea></label>
+		<label><input type="checkbox" name="confirmed" value="true" required/> Confirm cancellation</label>
+		<button type="submit">Cancel Session</button>
+	</form>
+}
+
+templ timingEffects(effects []sessioncontrol.TargetEffect, event events.Event) {
+	if len(effects) == 0 {
+		<p>No downstream timing changes.</p>
+	} else {
+		<ul>
+			for _, effect := range effects {
+				<li>
+					Session #{ strconv.Itoa(effect.SessionID) }:
+					@EventTime(effect.CurrentForecastStart, event.Timezone, event.EventLocale)
+					<span>–</span>
+					@EventTime(effect.CurrentForecastEnd, event.Timezone, event.EventLocale)
+					<span> becomes </span>
+					@EventTime(effect.ProposedForecastStart, event.Timezone, event.EventLocale)
+					<span>–</span>
+					@EventTime(effect.ProposedForecastEnd, event.Timezone, event.EventLocale)
+					<span>.</span>
+				</li>
+			}
+		</ul>
+	}
+}

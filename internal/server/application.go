@@ -648,6 +648,18 @@ func (application *application) buildHandler(
 		application.config.DisplayStream.Notify,
 		application.config.Logger,
 	)
+	registerOperationRoutes(
+		mux,
+		installation.Authentication(),
+		installation.Activation(),
+		installation.Events(),
+		installation.RundownQueries(),
+		installation.SessionControl(),
+		installation.Competition(),
+		installation.Displays(),
+		application.config.DisplayStream,
+		application.config.Logger,
+	)
 	registerEntryRoutes(
 		mux,
 		installation.Authentication(),

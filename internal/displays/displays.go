@@ -282,6 +282,7 @@ type Status struct {
 	LocationID                           int        `json:"location_id,omitempty"`
 	LocationName                         string     `json:"location_name,omitempty"`
 	ViewKey                              string     `json:"view_key,omitempty"`
+	DisplayGroupKeys                     []string   `json:"display_group_keys,omitempty"`
 	ProgramChannelID                     int        `json:"program_channel_id,omitempty"`
 	DeliveryState                        string     `json:"delivery_state"`
 	AppliedActiveEventID                 int        `json:"applied_active_event_id"`
@@ -868,6 +869,7 @@ func status(found store.DisplayStatus, cursor displaystream.Cursor, now time.Tim
 		ID: found.ID, Name: found.Name, ActiveEventID: found.ActiveEventID, Standby: found.Standby,
 		EventName: found.EventName, LocationName: found.LocationName, ViewKey: found.ViewKey,
 		LocationID:                           found.LocationID,
+		DisplayGroupKeys:                     found.DisplayGroupKeys,
 		ProgramChannelID:                     found.ProgramChannelID,
 		AppliedActiveEventID:                 found.AppliedActiveEventID,
 		AppliedActivationGeneration:          found.AppliedActivationGeneration,

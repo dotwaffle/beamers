@@ -1,6 +1,7 @@
 package acceptance_test
 
 import (
+	"database/sql"
 	"encoding/base64"
 	"errors"
 	"io"
@@ -15,14 +16,11 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"google.golang.org/protobuf/proto"
 
 	competitionv1 "github.com/dotwaffle/beamers/gen/beamers/competition/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/competition/v1/competitionv1connect"
 	programv1 "github.com/dotwaffle/beamers/gen/beamers/program/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/program/v1/programv1connect"
-	sessionv1 "github.com/dotwaffle/beamers/gen/beamers/session/v1"
-	"github.com/dotwaffle/beamers/gen/beamers/session/v1/sessionv1connect"
 )
 
 var frontendCSRFInput = regexp.MustCompile(`name="csrf_token" value="([^"]+)"`)
@@ -881,6 +879,391 @@ func TestBrowserPreflightsAndActivatesEvent(t *testing.T) {
 	server.stop(t)
 }
 
+func TestBrowserOperatesSessionDurably(t *testing.T) {
+	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
+	sessionID := prepareActiveSchedule(t, administrator, server)
+	path := "/backstage/events/1/operations"
+	operator := provisionOperator(t, administrator, server)
+	observer := provisionObserver(t, administrator, server)
+	observerPage := getFrontendPage(t, observer, server.address, path)
+	if observerPage.status != http.StatusForbidden {
+		t.Fatalf("Observer Session operations = %d, want 403", observerPage.status)
+	}
+	operator.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+
+	page := getFrontendPage(t, operator, server.address, path)
+	for _, want := range []string{
+		"Sessions and Displays",
+		"Opening Keynote",
+		"Scheduled",
+		`name="action" value="start-session"`,
+		`name="expected_live_state_revision" value="0"`,
+	} {
+		if page.status != http.StatusOK || !strings.Contains(page.body, want) {
+			t.Fatalf("operations page lacks %q: %d %q", want, page.status, page.body)
+		}
+	}
+	started := postFrontendForm(t, operator, server.address, path, url.Values{
+		"csrf_token":                   {requireFrontendCSRF(t, page)},
+		"action":                       {"start-session"},
+		"command_id":                   {"browser-start-keynote"},
+		"session_id":                   {strconv.FormatInt(sessionID, 10)},
+		"expected_live_state_revision": {"0"},
+	})
+	if started.status != http.StatusSeeOther || started.header.Get("Location") != path {
+		t.Fatalf("browser Start Session = %d %q", started.status, started.body)
+	}
+	page = getFrontendPage(t, operator, server.address, path)
+	if !strings.Contains(page.body, "Live") ||
+		!strings.Contains(page.body, `name="action" value="end-session"`) ||
+		!strings.Contains(page.body, `name="expected_live_state_revision" value="1"`) {
+		t.Fatalf("started browser Session = %d %q", page.status, page.body)
+	}
+	stale := postFrontendForm(t, operator, server.address, path, url.Values{
+		"csrf_token":                   {requireFrontendCSRF(t, page)},
+		"action":                       {"start-session"},
+		"command_id":                   {"browser-stale-start"},
+		"session_id":                   {strconv.FormatInt(sessionID, 10)},
+		"expected_live_state_revision": {"0"},
+	})
+	if stale.status != http.StatusConflict ||
+		!strings.Contains(stale.body, `role="alert"`) ||
+		!strings.Contains(stale.body, "Session changed") {
+		t.Fatalf("stale browser Session command = %d %q", stale.status, stale.body)
+	}
+
+	dataDir, bin := server.dataDir, server.bin
+	server.stop(t)
+	server = startBeamersWithPublicListener(t, bin, dataDir)
+	page = getFrontendPage(t, operator, server.address, path)
+	if page.status != http.StatusOK ||
+		!strings.Contains(page.body, "Opening Keynote") ||
+		!strings.Contains(page.body, "Live") {
+		t.Fatalf("restarted browser Session = %d %q", page.status, page.body)
+	}
+	ended := postFrontendForm(t, operator, server.address, path, url.Values{
+		"csrf_token":                   {requireFrontendCSRF(t, page)},
+		"action":                       {"end-session"},
+		"command_id":                   {"browser-end-keynote"},
+		"session_id":                   {strconv.FormatInt(sessionID, 10)},
+		"expected_live_state_revision": {"1"},
+	})
+	if ended.status != http.StatusSeeOther {
+		t.Fatalf("browser End Session = %d %q", ended.status, ended.body)
+	}
+	page = getFrontendPage(t, operator, server.address, path)
+	if !strings.Contains(page.body, "Ended · revision 2") {
+		t.Fatalf("ended browser Session = %d %q", page.status, page.body)
+	}
+	server.stop(t)
+}
+
+func TestBrowserPreviewsAdjustsCancelsAndReinstatesSession(t *testing.T) {
+	producer, server := startAuthenticatedAdministratorWithPublicListener(t)
+	sessionID := prepareActiveSchedule(t, producer, server)
+	producer.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	path := "/backstage/events/1/operations"
+
+	page := getFrontendPage(t, producer, server.address, path)
+	started := postFrontendForm(t, producer, server.address, path, url.Values{
+		"csrf_token":                   {requireFrontendCSRF(t, page)},
+		"action":                       {"start-session"},
+		"command_id":                   {"browser-start-before-adjustment"},
+		"session_id":                   {strconv.FormatInt(sessionID, 10)},
+		"expected_live_state_revision": {"0"},
+	})
+	if started.status != http.StatusSeeOther {
+		t.Fatalf("start before browser adjustment = %d %q", started.status, started.body)
+	}
+	page = getFrontendPage(t, producer, server.address, path)
+	preview := postFrontendForm(t, producer, server.address, path, url.Values{
+		"csrf_token":                   {requireFrontendCSRF(t, page)},
+		"action":                       {"preview-adjust-target"},
+		"session_id":                   {strconv.FormatInt(sessionID, 10)},
+		"expected_live_state_revision": {"1"},
+		"adjustment":                   {"5m"},
+	})
+	for _, want := range []string{
+		"Adjust Target Preview",
+		"Hard Boundary",
+		`data-timezone="Europe/Berlin"`,
+		`name="action" value="adjust-target"`,
+		`name="preview_fingerprint"`,
+	} {
+		if preview.status != http.StatusOK || !strings.Contains(preview.body, want) {
+			t.Fatalf("Adjust Target Preview lacks %q: %d %q", want, preview.status, preview.body)
+		}
+	}
+	adjustment := frontendNamedValues(
+		preview.body,
+		"session_id",
+		"expected_live_state_revision",
+		"adjustment",
+		"preview_fingerprint",
+		"command_id",
+	)
+	adjustment.Set("csrf_token", requireFrontendCSRF(t, preview))
+	adjustment.Set("action", "adjust-target")
+	adjustment.Set("confirmed", "true")
+	adjustment.Set("hard_boundary_confirmed", "true")
+	adjusted := postFrontendForm(t, producer, server.address, path, adjustment)
+	if adjusted.status != http.StatusSeeOther {
+		t.Fatalf("browser Adjust Target = %d %q", adjusted.status, adjusted.body)
+	}
+
+	page = getFrontendPage(t, producer, server.address, path)
+	canceled := postFrontendForm(t, producer, server.address, path, url.Values{
+		"csrf_token":                   {requireFrontendCSRF(t, page)},
+		"action":                       {"cancel-session"},
+		"command_id":                   {"browser-cancel-after-adjustment"},
+		"session_id":                   {strconv.FormatInt(sessionID, 10)},
+		"expected_live_state_revision": {"2"},
+		"confirmed":                    {"true"},
+		"public_cancellation_message":  {"Speaker delayed."},
+		"crew_notes":                   {"Move to the next open placement."},
+	})
+	if canceled.status != http.StatusSeeOther {
+		t.Fatalf("browser Cancel Session = %d %q", canceled.status, canceled.body)
+	}
+	page = getFrontendPage(t, producer, server.address, path)
+	if !strings.Contains(page.body, "Canceled · revision 3") ||
+		!strings.Contains(page.body, `name="action" value="preview-reinstate"`) {
+		t.Fatalf("canceled browser Session = %d %q", page.status, page.body)
+	}
+	reinstatePreview := postFrontendForm(t, producer, server.address, path, url.Values{
+		"csrf_token":                   {requireFrontendCSRF(t, page)},
+		"action":                       {"preview-reinstate"},
+		"session_id":                   {strconv.FormatInt(sessionID, 10)},
+		"expected_live_state_revision": {"3"},
+		"forecast_start":               {"2099-08-21T11:30"},
+		"lane_ids":                     {"1"},
+		"location_ids":                 {"1"},
+	})
+	for _, want := range []string{
+		"Reinstate Session Preview",
+		"Hard Boundary",
+		`name="action" value="reinstate-session"`,
+		`name="preview_fingerprint"`,
+	} {
+		if reinstatePreview.status != http.StatusOK ||
+			!strings.Contains(reinstatePreview.body, want) {
+			t.Fatalf(
+				"Reinstate Session Preview lacks %q: %d %q",
+				want,
+				reinstatePreview.status,
+				reinstatePreview.body,
+			)
+		}
+	}
+	reinstatement := frontendNamedValues(
+		reinstatePreview.body,
+		"session_id",
+		"expected_live_state_revision",
+		"forecast_start",
+		"lane_ids",
+		"location_ids",
+		"preview_fingerprint",
+		"command_id",
+	)
+	reinstatement.Set("csrf_token", requireFrontendCSRF(t, reinstatePreview))
+	reinstatement.Set("action", "reinstate-session")
+	reinstatement.Set("confirmed", "true")
+	reinstatement.Set("hard_boundary_confirmed", "true")
+	reinstated := postFrontendForm(t, producer, server.address, path, reinstatement)
+	if reinstated.status != http.StatusSeeOther {
+		t.Fatalf("browser Reinstate Session = %d %q", reinstated.status, reinstated.body)
+	}
+	page = getFrontendPage(t, producer, server.address, path)
+	if !strings.Contains(page.body, "Scheduled · revision 4") {
+		t.Fatalf("reinstated browser Session = %d %q", page.status, page.body)
+	}
+	server.stop(t)
+}
+
+func TestBrowserAdministersDisplaysAndRecovery(t *testing.T) {
+	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
+	prepareActiveSchedule(t, administrator, server)
+	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	path := "/backstage/events/1/operations"
+	firstCode, _ := prepareBrowserEnrollment(t, server)
+	secondCode, _ := prepareBrowserEnrollment(t, server)
+
+	page := getFrontendPage(t, administrator, server.address, path)
+	enroll := func(code, name, commandID string, displayID int) {
+		t.Helper()
+		values := url.Values{
+			"csrf_token": {requireFrontendCSRF(t, page)},
+			"action":     {"enroll-display"},
+			"command_id": {commandID},
+			"code":       {code},
+			"name":       {name},
+		}
+		if displayID > 0 {
+			values.Set("display_id", strconv.Itoa(displayID))
+		}
+		response := postFrontendForm(t, administrator, server.address, path, values)
+		if response.status != http.StatusSeeOther {
+			t.Fatalf("browser Display Enrollment = %d %q", response.status, response.body)
+		}
+		page = getFrontendPage(t, administrator, server.address, path)
+	}
+	enroll(firstCode, "Main Screen", "browser-enroll-main-display", 0)
+	enroll(secondCode, "Side Screen", "browser-enroll-side-display", 0)
+	for _, want := range []string{
+		"Main Screen",
+		"Side Screen",
+		"offline",
+		`name="action" value="assign-display"`,
+	} {
+		if !strings.Contains(page.body, want) {
+			t.Fatalf("Display operations page lacks %q: %q", want, page.body)
+		}
+	}
+	assign := func(displayID int, groups, commandID string) {
+		t.Helper()
+		response := postFrontendForm(t, administrator, server.address, path, url.Values{
+			"csrf_token":         {requireFrontendCSRF(t, page)},
+			"action":             {"assign-display"},
+			"command_id":         {commandID},
+			"display_id":         {strconv.Itoa(displayID)},
+			"location_id":        {"1"},
+			"view_key":           {"event-overview"},
+			"display_group_keys": {groups},
+		})
+		if response.status != http.StatusSeeOther {
+			t.Fatalf("browser Display Assignment = %d %q", response.status, response.body)
+		}
+		page = getFrontendPage(t, administrator, server.address, path)
+	}
+	assign(1, "stage", "browser-assign-main-display")
+	assign(2, "stage, stream", "browser-assign-side-display")
+	for _, want := range []string{
+		"Main Hall",
+		"event-overview",
+		"stage, stream",
+		"Applied Event #0",
+	} {
+		if !strings.Contains(page.body, want) {
+			t.Fatalf("assigned Display view lacks %q: %q", want, page.body)
+		}
+	}
+
+	operator := provisionOperator(t, administrator, server)
+	operatorPage := getFrontendPage(t, operator, server.address, path)
+	if operatorPage.status != http.StatusOK ||
+		!strings.Contains(operatorPage.body, "Main Screen") ||
+		strings.Contains(operatorPage.body, `name="action" value="enroll-display"`) ||
+		strings.Contains(operatorPage.body, `name="action" value="assign-display"`) {
+		t.Fatalf("Display authority crossed Account authority: %d %q", operatorPage.status, operatorPage.body)
+	}
+	forbidden := postFrontendForm(t, operator, server.address, path, url.Values{
+		"csrf_token":  {requireFrontendCSRF(t, operatorPage)},
+		"action":      {"assign-display"},
+		"command_id":  {"browser-forbidden-display-assignment"},
+		"display_id":  {"1"},
+		"location_id": {"1"},
+		"view_key":    {"stage-timer"},
+	})
+	if forbidden.status != http.StatusForbidden {
+		t.Fatalf("Operator Display Assignment = %d, want 403", forbidden.status)
+	}
+
+	dataDir, bin := server.dataDir, server.bin
+	server.stop(t)
+	server = startBeamersWithPublicListener(t, bin, dataDir)
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "Main Screen") ||
+		!strings.Contains(page.body, "stage, stream") {
+		t.Fatalf("restarted Display administration = %d %q", page.status, page.body)
+	}
+	recoveryCode, recoveryCredential := prepareBrowserEnrollment(t, server)
+	recovery := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, page)},
+		"action":     {"enroll-display"},
+		"command_id": {"browser-recover-main-display"},
+		"code":       {recoveryCode},
+		"display_id": {"1"},
+	})
+	if recovery.status != http.StatusConflict ||
+		!strings.Contains(recovery.body, "active credential") ||
+		!strings.Contains(recovery.body, "Existing Display ID for recovery") {
+		t.Fatalf("unsafe Display recovery = %d %q", recovery.status, recovery.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if count := strings.Count(page.body, `data-display-id="`); count != 2 {
+		t.Fatalf("Display recovery produced %d identities, want 2: %q", count, page.body)
+	}
+	if !strings.Contains(page.body, "Main Screen") {
+		t.Fatalf("Display recovery lost identity name: %q", page.body)
+	}
+
+	dataDir, bin = server.dataDir, server.bin
+	server.stop(t)
+	database, err := sql.Open("sqlite", filepath.Join(dataDir, "beamers.db"))
+	if err != nil {
+		t.Fatalf("open restored database: %v", err)
+	}
+	if _, err = database.ExecContext(
+		t.Context(),
+		"DELETE FROM display_credentials WHERE display_id = 1",
+	); err != nil {
+		_ = database.Close()
+		t.Fatalf("strip restored Display credential: %v", err)
+	}
+	if _, err = database.ExecContext(
+		t.Context(),
+		"DELETE FROM event_grants WHERE account_id = 1 AND event_id = 1",
+	); err != nil {
+		_ = database.Close()
+		t.Fatalf("strip Administrator Event Grant: %v", err)
+	}
+	if err = database.Close(); err != nil {
+		t.Fatalf("close restored database: %v", err)
+	}
+	server = startBeamersWithPublicListener(t, bin, dataDir)
+	page = getFrontendPage(t, administrator, server.address, path)
+	if page.status != http.StatusOK ||
+		!strings.Contains(page.body, `name="action" value="enroll-display"`) ||
+		strings.Contains(page.body, "Opening Keynote") {
+		t.Fatalf("Administrator Display authority requires Event Grant: %d %q", page.status, page.body)
+	}
+	recovered := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, page)},
+		"action":     {"enroll-display"},
+		"command_id": {"browser-recover-restored-main-display"},
+		"code":       {recoveryCode},
+		"display_id": {"1"},
+	})
+	if recovered.status != http.StatusSeeOther {
+		t.Fatalf("browser Display recovery = %d %q", recovered.status, recovered.body)
+	}
+	displayClient := authenticatedClient(t)
+	displayURL, err := url.Parse("http://" + server.address + "/display")
+	if err != nil {
+		t.Fatalf("parse recovered Display URL: %v", err)
+	}
+	displayClient.Jar.SetCookies(displayURL, []*http.Cookie{
+		{Name: "beamers_display", Value: recoveryCredential, Path: "/display"},
+		{
+			Name: "beamers_display", Value: recoveryCredential,
+			Path: "/beamers.display.v1.DisplayService",
+		},
+	})
+	_ = readDisplaySnapshot(t, displayClient, server.address)
+	page = getFrontendPage(t, administrator, server.address, path)
+	if count := strings.Count(page.body, `data-display-id="`); count != 2 ||
+		!strings.Contains(page.body, "Main Screen") {
+		t.Fatalf("recovered Display identity was not preserved: %q", page.body)
+	}
+	server.stop(t)
+}
+
 func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
 	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
@@ -1659,16 +2042,17 @@ func TestBrowserDefersAndResolvesCompetitionEntries(t *testing.T) {
 		t.Fatalf("disable live file delivery = %d %q", configured.status, configured.body)
 	}
 
-	sessionClient := sessionv1connect.NewSessionControlServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
-	if _, err := sessionClient.StartSession(t.Context(), connect.NewRequest(
-		&sessionv1.StartSessionRequest{
-			EventId: 1, SessionId: competitionID, CommandId: "start-browser-competition",
-			ExpectedLiveStateRevision: proto.Int64(0),
-		},
-	)); err != nil {
-		t.Fatalf("start browser Competition: %v", err)
+	operationsPath := "/backstage/events/1/operations"
+	operationsPage := getFrontendPage(t, administrator, server.address, operationsPath)
+	started := postFrontendForm(t, administrator, server.address, operationsPath, url.Values{
+		"csrf_token":                   {requireFrontendCSRF(t, operationsPage)},
+		"action":                       {"start-session"},
+		"command_id":                   {"start-browser-competition"},
+		"session_id":                   {strconv.FormatInt(competitionID, 10)},
+		"expected_live_state_revision": {"0"},
+	})
+	if started.status != http.StatusSeeOther {
+		t.Fatalf("start browser Competition = %d %q", started.status, started.body)
 	}
 	operator := provisionOperator(t, administrator, server)
 	operator.CheckRedirect = func(*http.Request, []*http.Request) error {
@@ -1794,21 +2178,40 @@ func TestBrowserDefersAndResolvesCompetitionEntries(t *testing.T) {
 		t.Fatalf("defer second browser Entry = %d %q", deferred.status, deferred.body)
 	}
 
-	preflight, err := competitionClient.PreflightEnd(t.Context(), connect.NewRequest(
-		&competitionv1.PreflightEndRequest{EventId: 1, SessionId: competitionID},
-	))
-	if err != nil || !preflight.Msg.GetRequiresConfirmation() {
-		t.Fatalf("browser Competition End preflight = %+v, %v", preflight, err)
+	operationsPage = getFrontendPage(t, operator, server.address, operationsPath)
+	endPreview := postFrontendForm(t, operator, server.address, operationsPath, url.Values{
+		"csrf_token":                   {requireFrontendCSRF(t, operationsPage)},
+		"action":                       {"preview-end-session"},
+		"session_id":                   {strconv.FormatInt(competitionID, 10)},
+		"expected_live_state_revision": {"1"},
+	})
+	for _, want := range []string{
+		"End Competition Preview",
+		"Deferred Entries will become Not Presented",
+		names[int(firstDeferredID)-1],
+		names[int(secondDeferredID)-1],
+		`name="action" value="end-session"`,
+		`name="deferred_entries_fingerprint"`,
+	} {
+		if endPreview.status != http.StatusOK || !strings.Contains(endPreview.body, want) {
+			t.Fatalf("browser Competition End Preview lacks %q: %d %q", want, endPreview.status, endPreview.body)
+		}
 	}
-	if _, err = sessionClient.EndSession(t.Context(), connect.NewRequest(
-		&sessionv1.EndSessionRequest{
-			EventId: 1, SessionId: competitionID, CommandId: "end-browser-competition",
-			ExpectedLiveStateRevision:  proto.Int64(1),
-			ConfirmedDeferredEntries:   true,
-			DeferredEntriesFingerprint: preflight.Msg.GetFingerprint(),
-		},
-	)); err != nil {
-		t.Fatalf("end browser Competition: %v", err)
+	endFormStart := strings.Index(endPreview.body, `name="action" value="end-session"`)
+	endFormEnd := strings.Index(endPreview.body[endFormStart:], "</form>")
+	end := frontendNamedValues(
+		endPreview.body[endFormStart:endFormStart+endFormEnd],
+		"session_id",
+		"expected_live_state_revision",
+		"command_id",
+		"deferred_entries_fingerprint",
+	)
+	end.Set("csrf_token", requireFrontendCSRF(t, endPreview))
+	end.Set("action", "end-session")
+	end.Set("confirmed_deferred_entries", "true")
+	ended := postFrontendForm(t, operator, server.address, operationsPath, end)
+	if ended.status != http.StatusSeeOther {
+		t.Fatalf("end browser Competition = %d %q", ended.status, ended.body)
 	}
 
 	resolutions := []struct {

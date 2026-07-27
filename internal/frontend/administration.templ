@@ -151,7 +151,11 @@ templ Administration(page AdministrationPage) {
 						if page.ActiveEvent.EventID == 0 {
 							<p>No Active Event.</p>
 						} else {
-							<p>Active Event #{ strconv.Itoa(page.ActiveEvent.EventID) }, generation { strconv.Itoa(page.ActiveEvent.Generation) }</p>
+							<p>
+								Active Event #{ strconv.Itoa(page.ActiveEvent.EventID) },
+								generation { strconv.Itoa(page.ActiveEvent.Generation) } ·
+								<a href={ operationsPath(page.ActiveEvent.EventID) }>Sessions and Displays</a>
+							</p>
 						}
 						<ul>
 							for _, event := range page.Events {

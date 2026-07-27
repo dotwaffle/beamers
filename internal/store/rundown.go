@@ -921,6 +921,10 @@ type PublishedSession struct {
 	LaneIDs                 []int
 	LocationIDs             []int
 	TrackIDs                []int
+	Lifecycle               string
+	LiveStateRevision       int
+	ForecastStart           time.Time
+	ForecastEnd             time.Time
 }
 
 // DraftRundownState is the current materialized editable Rundown.
@@ -1075,6 +1079,14 @@ func (installation *SQLite) LoadCrewRundown(ctx context.Context, eventID int) (C
 	return loadCrewRundown(ctx, installation.client, eventID)
 }
 
+// LoadDisplayLocations returns only current Published Locations for Administrator Display routing.
+func (installation *SQLite) LoadDisplayLocations(
+	ctx context.Context,
+	eventID int,
+) ([]PublishedLocation, error) {
+	return loadPublishedLocations(systemContext(ctx), installation.client, eventID)
+}
+
 func loadCrewRundown(ctx context.Context, client *ent.Client, eventID int) (CrewRundownState, error) {
 	revisions, err := client.Rundown.Query().Where(rundown.EventIDEQ(eventID)).Only(ctx)
 	if ent.IsNotFound(err) {
@@ -1086,34 +1098,9 @@ func loadCrewRundown(ctx context.Context, client *ent.Client, eventID int) (Crew
 	result := CrewRundownState{
 		DraftRevision: revisions.DraftRevision, PublishedRevision: revisions.PublishedRevision,
 	}
-	locations, err := client.Location.Query().Where(location.EventIDEQ(eventID)).All(ctx)
+	result.Locations, err = loadPublishedLocations(ctx, client, eventID)
 	if err != nil {
-		return CrewRundownState{}, opaqueError("load Crew Locations", err)
-	}
-	locationVersions, err := client.LocationPublishedVersion.Query().
-		Where(
-			locationpublishedversion.HasLocationWith(location.EventIDEQ(eventID)),
-			latestPublishedVersion(
-				locationpublishedversion.Table,
-				locationpublishedversion.FieldLocationID,
-			),
-		).
-		All(ctx)
-	if err != nil {
-		return CrewRundownState{}, opaqueError("load current Published Locations", err)
-	}
-	locationVersionsByIdentity := make(map[int]*ent.LocationPublishedVersion, len(locationVersions))
-	for _, version := range locationVersions {
-		locationVersionsByIdentity[version.LocationID] = version
-	}
-	for _, identity := range locations {
-		version := locationVersionsByIdentity[identity.ID]
-		if version == nil {
-			continue
-		}
-		if !version.Retired {
-			result.Locations = append(result.Locations, PublishedLocation{ID: identity.ID, Name: version.Name})
-		}
+		return CrewRundownState{}, err
 	}
 	lanes, err := client.Lane.Query().Where(lane.EventIDEQ(eventID)).All(ctx)
 	if err != nil {
@@ -1218,6 +1205,14 @@ func loadCrewRundown(ctx context.Context, client *ent.Client, eventID int) (Crew
 		details := correctedSessionDetails(identity, SessionDetails{
 			Title: version.Title, Speaker: version.Speaker, PublicDetails: version.PublicDetails,
 		})
+		forecastStart := version.PlannedStart
+		if !identity.ForecastStart.IsZero() {
+			forecastStart = identity.ForecastStart
+		}
+		forecastEnd := version.PlannedEnd
+		if !identity.ForecastEnd.IsZero() {
+			forecastEnd = identity.ForecastEnd
+		}
 		result.Sessions = append(result.Sessions, PublishedSession{
 			ID: identity.ID, Title: details.Title, Speaker: details.Speaker, Type: version.Type.String(),
 			AudienceVisibility: version.AudienceVisibility.String(),
@@ -1230,7 +1225,44 @@ func loadCrewRundown(ctx context.Context, client *ent.Client, eventID int) (Crew
 			SubmissionDeadline:      version.SubmissionDeadline,
 			EntryDefaultDisposition: string(version.EntryDefaultDisposition),
 			LaneIDs:                 laneIDs, LocationIDs: locationIDs, TrackIDs: trackIDs,
+			Lifecycle: identity.Lifecycle.String(), LiveStateRevision: identity.LiveStateRevision,
+			ForecastStart: forecastStart, ForecastEnd: forecastEnd,
 		})
+	}
+	return result, nil
+}
+
+func loadPublishedLocations(
+	ctx context.Context,
+	client *ent.Client,
+	eventID int,
+) ([]PublishedLocation, error) {
+	locations, err := client.Location.Query().Where(location.EventIDEQ(eventID)).All(ctx)
+	if err != nil {
+		return nil, opaqueError("load Crew Locations", err)
+	}
+	locationVersions, err := client.LocationPublishedVersion.Query().
+		Where(
+			locationpublishedversion.HasLocationWith(location.EventIDEQ(eventID)),
+			latestPublishedVersion(
+				locationpublishedversion.Table,
+				locationpublishedversion.FieldLocationID,
+			),
+		).
+		All(ctx)
+	if err != nil {
+		return nil, opaqueError("load current Published Locations", err)
+	}
+	locationVersionsByIdentity := make(map[int]*ent.LocationPublishedVersion, len(locationVersions))
+	for _, version := range locationVersions {
+		locationVersionsByIdentity[version.LocationID] = version
+	}
+	result := make([]PublishedLocation, 0, len(locations))
+	for _, identity := range locations {
+		version := locationVersionsByIdentity[identity.ID]
+		if version != nil && !version.Retired {
+			result = append(result, PublishedLocation{ID: identity.ID, Name: version.Name})
+		}
 	}
 	return result, nil
 }

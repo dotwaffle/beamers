@@ -68,6 +68,7 @@ type DisplayStatus struct {
 	LocationID                           int
 	LocationName                         string
 	ViewKey                              string
+	DisplayGroupKeys                     []string
 	ProgramChannelID                     int
 	AppliedProtocolVersion               string
 	AppliedAssetVersion                  string
@@ -423,6 +424,7 @@ func loadDisplayStatus(
 	status.LocationID = assignment.LocationID
 	status.LocationName = published.Name
 	status.ViewKey = assignment.ViewKey
+	status.DisplayGroupKeys = assignment.DisplayGroupKeys
 	if status.ViewKey == "competition-output" {
 		status.ProgramChannelID, err = competitionOutputProgramChannelID(
 			ctx, client, routing.ActiveEventID, assignment.LocationID,

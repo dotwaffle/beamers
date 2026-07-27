@@ -473,6 +473,9 @@ func backstageSection(eventID int, fragment, label string) frontend.BackstageSec
 	if fragment == "planning" {
 		href = "/backstage/events/" + strconv.Itoa(eventID) + "/planning"
 	}
+	if fragment == "operation" {
+		href = "/backstage/events/" + strconv.Itoa(eventID) + "/operations"
+	}
 	if fragment == "entries" {
 		href = "/backstage/events/" + strconv.Itoa(eventID) +
 			"/planning#competition-entries"
