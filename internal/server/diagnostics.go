@@ -28,6 +28,7 @@ type diagnosticHandlers struct {
 	displayStream      *displaystream.Hub
 	programStream      *displaystream.Hub
 	scheduleStream     *displaystream.Hub
+	votingStream       *displaystream.Hub
 	scheduleMetrics    *scheduleStreamMetrics
 	telemetryRuntime   *telemetry.Runtime
 	replicationAdapter *replication.Adapter
@@ -42,6 +43,7 @@ func registerDiagnosticsRoutes(
 	displayStream *displaystream.Hub,
 	programStream *displaystream.Hub,
 	scheduleStream *displaystream.Hub,
+	votingStream *displaystream.Hub,
 	scheduleMetrics *scheduleStreamMetrics,
 	telemetryRuntime *telemetry.Runtime,
 	replicationAdapter *replication.Adapter,
@@ -55,6 +57,7 @@ func registerDiagnosticsRoutes(
 		displayStream:      displayStream,
 		programStream:      programStream,
 		scheduleStream:     scheduleStream,
+		votingStream:       votingStream,
 		scheduleMetrics:    scheduleMetrics,
 		telemetryRuntime:   telemetryRuntime,
 		replicationAdapter: replicationAdapter,
@@ -170,6 +173,7 @@ func (handlers diagnosticHandlers) collect(
 		handlers.displayStream.DisplayCount(),
 		handlers.programStream.SubscriberCount(),
 		handlers.scheduleStream.SubscriberCount(),
+		handlers.votingStream.SubscriberCount(),
 		handlers.scheduleMetrics.snapshot(),
 		handlers.telemetryRuntime != nil && handlers.telemetryRuntime.Enabled(),
 		handlers.replicationAdapter,
@@ -218,6 +222,7 @@ type normalDiagnosticsResponse struct {
 		Display  streamDiagnostics         `json:"display"`
 		Program  streamDiagnostics         `json:"program"`
 		Schedule scheduleStreamDiagnostics `json:"schedule"`
+		Voting   streamDiagnostics         `json:"voting"`
 	} `json:"streams"`
 	Displays struct {
 		Status   string         `json:"status"`
@@ -251,6 +256,7 @@ func normalDiagnostics(
 	connectedDisplays int,
 	programSubscribers int,
 	scheduleSubscribers int,
+	votingSubscribers int,
 	scheduleMetrics scheduleStreamMetricSnapshot,
 	telemetryEnabled bool,
 	replicationAdapter *replication.Adapter,
@@ -287,6 +293,9 @@ func normalDiagnostics(
 		Resnapshots:            scheduleMetrics.Resnapshots,
 		SlowDrops:              scheduleMetrics.SlowDrops,
 		Disconnects:            scheduleMetrics.Disconnects,
+	}
+	found.Streams.Voting = streamDiagnostics{
+		Status: "ready", Subscribers: votingSubscribers,
 	}
 	found.Displays.Status = "ready"
 	found.Displays.Delivery = map[string]int{

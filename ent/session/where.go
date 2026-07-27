@@ -135,6 +135,21 @@ func SubmissionEligibilityRevision(v int) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldSubmissionEligibilityRevision, v))
 }
 
+// VotingRevision applies equality check predicate on the "voting_revision" field. It's identical to VotingRevisionEQ.
+func VotingRevision(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldVotingRevision, v))
+}
+
+// VotingOpenedAt applies equality check predicate on the "voting_opened_at" field. It's identical to VotingOpenedAtEQ.
+func VotingOpenedAt(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldVotingOpenedAt, v))
+}
+
+// VotingClosedAt applies equality check predicate on the "voting_closed_at" field. It's identical to VotingClosedAtEQ.
+func VotingClosedAt(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldVotingClosedAt, v))
+}
+
 // FileDeliveryRequired applies equality check predicate on the "file_delivery_required" field. It's identical to FileDeliveryRequiredEQ.
 func FileDeliveryRequired(v bool) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldFileDeliveryRequired, v))
@@ -1065,6 +1080,286 @@ func SubmissionEligibilityRevisionLTE(v int) predicate.Session {
 	return predicate.Session(sql.FieldLTE(FieldSubmissionEligibilityRevision, v))
 }
 
+// VotingMethodOverrideEQ applies the EQ predicate on the "voting_method_override" field.
+func VotingMethodOverrideEQ(v VotingMethodOverride) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldVotingMethodOverride, v))
+}
+
+// VotingMethodOverrideNEQ applies the NEQ predicate on the "voting_method_override" field.
+func VotingMethodOverrideNEQ(v VotingMethodOverride) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldVotingMethodOverride, v))
+}
+
+// VotingMethodOverrideIn applies the In predicate on the "voting_method_override" field.
+func VotingMethodOverrideIn(vs ...VotingMethodOverride) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldVotingMethodOverride, vs...))
+}
+
+// VotingMethodOverrideNotIn applies the NotIn predicate on the "voting_method_override" field.
+func VotingMethodOverrideNotIn(vs ...VotingMethodOverride) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldVotingMethodOverride, vs...))
+}
+
+// VotingMethodOverrideIsNil applies the IsNil predicate on the "voting_method_override" field.
+func VotingMethodOverrideIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldVotingMethodOverride))
+}
+
+// VotingMethodOverrideNotNil applies the NotNil predicate on the "voting_method_override" field.
+func VotingMethodOverrideNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldVotingMethodOverride))
+}
+
+// SelfVotePolicyOverrideEQ applies the EQ predicate on the "self_vote_policy_override" field.
+func SelfVotePolicyOverrideEQ(v SelfVotePolicyOverride) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldSelfVotePolicyOverride, v))
+}
+
+// SelfVotePolicyOverrideNEQ applies the NEQ predicate on the "self_vote_policy_override" field.
+func SelfVotePolicyOverrideNEQ(v SelfVotePolicyOverride) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldSelfVotePolicyOverride, v))
+}
+
+// SelfVotePolicyOverrideIn applies the In predicate on the "self_vote_policy_override" field.
+func SelfVotePolicyOverrideIn(vs ...SelfVotePolicyOverride) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldSelfVotePolicyOverride, vs...))
+}
+
+// SelfVotePolicyOverrideNotIn applies the NotIn predicate on the "self_vote_policy_override" field.
+func SelfVotePolicyOverrideNotIn(vs ...SelfVotePolicyOverride) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldSelfVotePolicyOverride, vs...))
+}
+
+// SelfVotePolicyOverrideIsNil applies the IsNil predicate on the "self_vote_policy_override" field.
+func SelfVotePolicyOverrideIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldSelfVotePolicyOverride))
+}
+
+// SelfVotePolicyOverrideNotNil applies the NotNil predicate on the "self_vote_policy_override" field.
+func SelfVotePolicyOverrideNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldSelfVotePolicyOverride))
+}
+
+// VotingWindowStateEQ applies the EQ predicate on the "voting_window_state" field.
+func VotingWindowStateEQ(v VotingWindowState) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldVotingWindowState, v))
+}
+
+// VotingWindowStateNEQ applies the NEQ predicate on the "voting_window_state" field.
+func VotingWindowStateNEQ(v VotingWindowState) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldVotingWindowState, v))
+}
+
+// VotingWindowStateIn applies the In predicate on the "voting_window_state" field.
+func VotingWindowStateIn(vs ...VotingWindowState) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldVotingWindowState, vs...))
+}
+
+// VotingWindowStateNotIn applies the NotIn predicate on the "voting_window_state" field.
+func VotingWindowStateNotIn(vs ...VotingWindowState) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldVotingWindowState, vs...))
+}
+
+// FrozenVotingMethodEQ applies the EQ predicate on the "frozen_voting_method" field.
+func FrozenVotingMethodEQ(v FrozenVotingMethod) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldFrozenVotingMethod, v))
+}
+
+// FrozenVotingMethodNEQ applies the NEQ predicate on the "frozen_voting_method" field.
+func FrozenVotingMethodNEQ(v FrozenVotingMethod) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldFrozenVotingMethod, v))
+}
+
+// FrozenVotingMethodIn applies the In predicate on the "frozen_voting_method" field.
+func FrozenVotingMethodIn(vs ...FrozenVotingMethod) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldFrozenVotingMethod, vs...))
+}
+
+// FrozenVotingMethodNotIn applies the NotIn predicate on the "frozen_voting_method" field.
+func FrozenVotingMethodNotIn(vs ...FrozenVotingMethod) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldFrozenVotingMethod, vs...))
+}
+
+// FrozenVotingMethodIsNil applies the IsNil predicate on the "frozen_voting_method" field.
+func FrozenVotingMethodIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldFrozenVotingMethod))
+}
+
+// FrozenVotingMethodNotNil applies the NotNil predicate on the "frozen_voting_method" field.
+func FrozenVotingMethodNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldFrozenVotingMethod))
+}
+
+// FrozenSelfVotePolicyEQ applies the EQ predicate on the "frozen_self_vote_policy" field.
+func FrozenSelfVotePolicyEQ(v FrozenSelfVotePolicy) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldFrozenSelfVotePolicy, v))
+}
+
+// FrozenSelfVotePolicyNEQ applies the NEQ predicate on the "frozen_self_vote_policy" field.
+func FrozenSelfVotePolicyNEQ(v FrozenSelfVotePolicy) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldFrozenSelfVotePolicy, v))
+}
+
+// FrozenSelfVotePolicyIn applies the In predicate on the "frozen_self_vote_policy" field.
+func FrozenSelfVotePolicyIn(vs ...FrozenSelfVotePolicy) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldFrozenSelfVotePolicy, vs...))
+}
+
+// FrozenSelfVotePolicyNotIn applies the NotIn predicate on the "frozen_self_vote_policy" field.
+func FrozenSelfVotePolicyNotIn(vs ...FrozenSelfVotePolicy) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldFrozenSelfVotePolicy, vs...))
+}
+
+// FrozenSelfVotePolicyIsNil applies the IsNil predicate on the "frozen_self_vote_policy" field.
+func FrozenSelfVotePolicyIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldFrozenSelfVotePolicy))
+}
+
+// FrozenSelfVotePolicyNotNil applies the NotNil predicate on the "frozen_self_vote_policy" field.
+func FrozenSelfVotePolicyNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldFrozenSelfVotePolicy))
+}
+
+// VotingRevisionEQ applies the EQ predicate on the "voting_revision" field.
+func VotingRevisionEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldVotingRevision, v))
+}
+
+// VotingRevisionNEQ applies the NEQ predicate on the "voting_revision" field.
+func VotingRevisionNEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldVotingRevision, v))
+}
+
+// VotingRevisionIn applies the In predicate on the "voting_revision" field.
+func VotingRevisionIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldVotingRevision, vs...))
+}
+
+// VotingRevisionNotIn applies the NotIn predicate on the "voting_revision" field.
+func VotingRevisionNotIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldVotingRevision, vs...))
+}
+
+// VotingRevisionGT applies the GT predicate on the "voting_revision" field.
+func VotingRevisionGT(v int) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldVotingRevision, v))
+}
+
+// VotingRevisionGTE applies the GTE predicate on the "voting_revision" field.
+func VotingRevisionGTE(v int) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldVotingRevision, v))
+}
+
+// VotingRevisionLT applies the LT predicate on the "voting_revision" field.
+func VotingRevisionLT(v int) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldVotingRevision, v))
+}
+
+// VotingRevisionLTE applies the LTE predicate on the "voting_revision" field.
+func VotingRevisionLTE(v int) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldVotingRevision, v))
+}
+
+// VotingOpenedAtEQ applies the EQ predicate on the "voting_opened_at" field.
+func VotingOpenedAtEQ(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldVotingOpenedAt, v))
+}
+
+// VotingOpenedAtNEQ applies the NEQ predicate on the "voting_opened_at" field.
+func VotingOpenedAtNEQ(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldVotingOpenedAt, v))
+}
+
+// VotingOpenedAtIn applies the In predicate on the "voting_opened_at" field.
+func VotingOpenedAtIn(vs ...time.Time) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldVotingOpenedAt, vs...))
+}
+
+// VotingOpenedAtNotIn applies the NotIn predicate on the "voting_opened_at" field.
+func VotingOpenedAtNotIn(vs ...time.Time) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldVotingOpenedAt, vs...))
+}
+
+// VotingOpenedAtGT applies the GT predicate on the "voting_opened_at" field.
+func VotingOpenedAtGT(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldVotingOpenedAt, v))
+}
+
+// VotingOpenedAtGTE applies the GTE predicate on the "voting_opened_at" field.
+func VotingOpenedAtGTE(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldVotingOpenedAt, v))
+}
+
+// VotingOpenedAtLT applies the LT predicate on the "voting_opened_at" field.
+func VotingOpenedAtLT(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldVotingOpenedAt, v))
+}
+
+// VotingOpenedAtLTE applies the LTE predicate on the "voting_opened_at" field.
+func VotingOpenedAtLTE(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldVotingOpenedAt, v))
+}
+
+// VotingOpenedAtIsNil applies the IsNil predicate on the "voting_opened_at" field.
+func VotingOpenedAtIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldVotingOpenedAt))
+}
+
+// VotingOpenedAtNotNil applies the NotNil predicate on the "voting_opened_at" field.
+func VotingOpenedAtNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldVotingOpenedAt))
+}
+
+// VotingClosedAtEQ applies the EQ predicate on the "voting_closed_at" field.
+func VotingClosedAtEQ(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldVotingClosedAt, v))
+}
+
+// VotingClosedAtNEQ applies the NEQ predicate on the "voting_closed_at" field.
+func VotingClosedAtNEQ(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldVotingClosedAt, v))
+}
+
+// VotingClosedAtIn applies the In predicate on the "voting_closed_at" field.
+func VotingClosedAtIn(vs ...time.Time) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldVotingClosedAt, vs...))
+}
+
+// VotingClosedAtNotIn applies the NotIn predicate on the "voting_closed_at" field.
+func VotingClosedAtNotIn(vs ...time.Time) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldVotingClosedAt, vs...))
+}
+
+// VotingClosedAtGT applies the GT predicate on the "voting_closed_at" field.
+func VotingClosedAtGT(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldVotingClosedAt, v))
+}
+
+// VotingClosedAtGTE applies the GTE predicate on the "voting_closed_at" field.
+func VotingClosedAtGTE(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldVotingClosedAt, v))
+}
+
+// VotingClosedAtLT applies the LT predicate on the "voting_closed_at" field.
+func VotingClosedAtLT(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldVotingClosedAt, v))
+}
+
+// VotingClosedAtLTE applies the LTE predicate on the "voting_closed_at" field.
+func VotingClosedAtLTE(v time.Time) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldVotingClosedAt, v))
+}
+
+// VotingClosedAtIsNil applies the IsNil predicate on the "voting_closed_at" field.
+func VotingClosedAtIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldVotingClosedAt))
+}
+
+// VotingClosedAtNotNil applies the NotNil predicate on the "voting_closed_at" field.
+func VotingClosedAtNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldVotingClosedAt))
+}
+
 // FileDeliveryRequiredEQ applies the EQ predicate on the "file_delivery_required" field.
 func FileDeliveryRequiredEQ(v bool) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldFileDeliveryRequired, v))
@@ -1860,6 +2155,29 @@ func HasCompetitionResultStandings() predicate.Session {
 func HasCompetitionResultStandingsWith(preds ...predicate.CompetitionResultStanding) predicate.Session {
 	return predicate.Session(func(s *sql.Selector) {
 		step := newCompetitionResultStandingsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasVotes applies the HasEdge predicate on the "votes" edge.
+func HasVotes() predicate.Session {
+	return predicate.Session(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, VotesTable, VotesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasVotesWith applies the HasEdge predicate on the "votes" edge with a given conditions (other predicates).
+func HasVotesWith(preds ...predicate.Vote) predicate.Session {
+	return predicate.Session(func(s *sql.Selector) {
+		step := newVotesStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

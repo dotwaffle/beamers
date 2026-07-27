@@ -25,6 +25,7 @@ type Handler struct {
 	displays      *displays.Service
 	displayStream *displaystream.Hub
 	programStream *displaystream.Hub
+	votingStream  *displaystream.Hub
 }
 
 // NewHandler creates the Program control Connect adapter.
@@ -33,6 +34,7 @@ func NewHandler(
 	displayService *displays.Service,
 	displayStream *displaystream.Hub,
 	programStream *displaystream.Hub,
+	votingStream *displaystream.Hub,
 ) (*Handler, error) {
 	if service == nil {
 		return nil, errors.New("program control service is required")
@@ -46,9 +48,12 @@ func NewHandler(
 	if programStream == nil {
 		return nil, errors.New("program stream is required")
 	}
+	if votingStream == nil {
+		return nil, errors.New("voting stream is required")
+	}
 	return &Handler{
 		service: service, displays: displayService,
-		displayStream: displayStream, programStream: programStream,
+		displayStream: displayStream, programStream: programStream, votingStream: votingStream,
 	}, nil
 }
 
@@ -149,6 +154,9 @@ func (handler *Handler) Take(
 	if taken.Committed {
 		handler.displayStream.Notify()
 		handler.programStream.Notify()
+		if taken.State.Channel.Output.Kind == store.ProgramItemEntry {
+			handler.votingStream.Notify()
+		}
 	}
 	channel, err := handler.channel(ctx, taken.State, true)
 	if err != nil {

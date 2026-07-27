@@ -1,6 +1,7 @@
 package acceptance_test
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -37,9 +38,28 @@ import (
 )
 
 var frontendCSRFInput = regexp.MustCompile(`name="csrf_token" value="([^"]+)"`)
+var frontendSSEConnect = regexp.MustCompile(`sse-connect="([^"]+)"`)
 var recoveryCodeOutput = regexp.MustCompile(`data-recovery-code>([^<]+)</code>`)
 var recoveryTokenOutput = regexp.MustCompile(`data-recovery-token>([^<]+)</code>`)
 var votingKeyOutput = regexp.MustCompile(`data-voting-key>([^<]+)</code>`)
+
+func frontendSSEPath(t *testing.T, page string) string {
+	t.Helper()
+	match := frontendSSEConnect.FindStringSubmatch(page)
+	if len(match) != 2 {
+		t.Fatalf("page has no SSE connection path: %s", page)
+	}
+	return strings.ReplaceAll(match[1], "&amp;", "&")
+}
+
+func readBallotInvalidation(reader *bufio.Reader) error {
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil || line == "event: ballot\n" {
+			return err
+		}
+	}
+}
 
 func TestBrowserSetupAndSessionSurviveRestart(t *testing.T) {
 	bin := buildBeamers(t)
@@ -1850,6 +1870,282 @@ func TestVotingKeysIssueRedeemAndSurviveRestart(t *testing.T) {
 	server = startBeamersWithPublicListener(t, bin, dataDir)
 	if page = getFrontendPage(t, alice, server.address, "/voting"); page.status != http.StatusOK {
 		t.Fatalf("restarted Voting page = %d %q", page.status, page.body)
+	}
+	server.stop(t)
+}
+
+func TestLiveCompetitionBallotUpdatesAndSurvivesRestart(t *testing.T) {
+	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
+	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	prepareActiveSchedule(t, administrator, server)
+	competitionID, _ := addCompetitionSession(t, administrator, server)
+	entriesPath := "/backstage/events/1/competitions/" +
+		strconv.FormatInt(competitionID, 10) + "/entries"
+	page := getFrontendPage(t, administrator, server.address, entriesPath)
+	created := postFrontendForm(t, administrator, server.address, entriesPath, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, page)},
+		"action":     {"create-entry"},
+		"command_id": {"create-live-ballot-entry"},
+		"entry_name": {"Live Ballot Entry"},
+	})
+	if created.status != http.StatusSeeOther {
+		t.Fatalf("create Ballot Entry = %d %q", created.status, created.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, entriesPath)
+	configured := postFrontendForm(t, administrator, server.address, entriesPath, url.Values{
+		"csrf_token":                  {requireFrontendCSRF(t, page)},
+		"action":                      {"configure-readiness"},
+		"command_id":                  {"configure-live-ballot-readiness"},
+		"expected_readiness_revision": {"0"},
+	})
+	if configured.status != http.StatusSeeOther {
+		t.Fatalf("configure Ballot Competition readiness = %d %q", configured.status, configured.body)
+	}
+
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/accounts",
+		map[string]string{
+			"name": "Vera Voter", "password": "voter correct horse battery staple",
+			"command_id": "create-live-voter",
+		},
+		http.StatusCreated,
+		"{\"id\":2,\"name\":\"Vera Voter\",\"administrator\":false}\n",
+	)
+	keysPath := "/backstage/events/1/voting-keys"
+	keysPage := getFrontendPage(t, administrator, server.address, keysPath)
+	issued := postFrontendForm(t, administrator, server.address, keysPath, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, keysPage)},
+		"command_id": {frontendNamedValues(keysPage.body, "command_id").Get("command_id")},
+		"action":     {"issue"},
+		"count":      {"1"},
+		"expires_at": {time.Now().Add(24 * time.Hour).Format("2006-01-02T15:04")},
+	})
+	keyMatch := votingKeyOutput.FindStringSubmatch(issued.body)
+	if issued.status != http.StatusOK || len(keyMatch) != 2 {
+		t.Fatalf("issue live Voting Key = %d %q", issued.status, issued.body)
+	}
+	voter := authenticatedClient(t)
+	voter.CheckRedirect = administrator.CheckRedirect
+	assertJSONRequest(
+		t, voter, server.address, "/auth/sign-in",
+		map[string]string{
+			"name": "Vera Voter", "password": "voter correct horse battery staple",
+		},
+		http.StatusNoContent, "",
+	)
+	votingPage := getFrontendPage(t, voter, server.address, "/voting")
+	redeemed := postFrontendForm(t, voter, server.address, "/voting", url.Values{
+		"csrf_token": {requireFrontendCSRF(t, votingPage)},
+		"command_id": {frontendNamedValues(votingPage.body, "command_id").Get("command_id")},
+		"event_id":   {"1"},
+		"voting_key": {keyMatch[1]},
+	})
+	if redeemed.status != http.StatusOK ||
+		!strings.Contains(redeemed.body, "Voting Eligibility granted.") {
+		t.Fatalf("redeem live Voting Key = %d %q", redeemed.status, redeemed.body)
+	}
+
+	operationsPath := "/backstage/events/1/operations"
+	operationsPage := getFrontendPage(t, administrator, server.address, operationsPath)
+	started := postFrontendForm(t, administrator, server.address, operationsPath, url.Values{
+		"csrf_token":                   {requireFrontendCSRF(t, operationsPage)},
+		"action":                       {"start-session"},
+		"command_id":                   {"start-live-ballot-competition"},
+		"session_id":                   {strconv.FormatInt(competitionID, 10)},
+		"expected_live_state_revision": {"0"},
+	})
+	if started.status != http.StatusSeeOther {
+		t.Fatalf("start live Ballot Competition = %d %q", started.status, started.body)
+	}
+	votingControlPath := "/backstage/events/1/competitions/" +
+		strconv.FormatInt(competitionID, 10) + "/voting"
+	controlPage := getFrontendPage(t, administrator, server.address, votingControlPath)
+	opened := postFrontendForm(t, administrator, server.address, votingControlPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, controlPage)},
+		"command_id":        {"open-live-ballot"},
+		"action":            {"open"},
+		"expected_revision": {"0"},
+	})
+	if opened.status != http.StatusSeeOther {
+		t.Fatalf("open live Voting Window = %d %q", opened.status, opened.body)
+	}
+
+	page = getFrontendPage(t, administrator, server.address, entriesPath)
+	claimed := postFrontendForm(t, administrator, server.address, entriesPath, url.Values{
+		"csrf_token":                {requireFrontendCSRF(t, page)},
+		"action":                    {"claim-control"},
+		"command_id":                {"claim-live-ballot-control"},
+		"expected_control_revision": {"0"},
+	})
+	if claimed.status != http.StatusSeeOther {
+		t.Fatalf("claim live Ballot Program control = %d %q", claimed.status, claimed.body)
+	}
+	programClient := programv1connect.NewProgramControlServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	current, err := programClient.GetProgramChannel(t.Context(), connect.NewRequest(
+		&programv1.GetProgramChannelRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil {
+		t.Fatalf("read live Ballot Program Channel: %v", err)
+	}
+	channel := current.Msg.GetChannel()
+	for _, commandID := range []string{"take-live-ballot-upcoming", "take-live-ballot-starting"} {
+		taken, takeErr := programClient.Take(t.Context(), connect.NewRequest(
+			&programv1.TakeRequest{
+				EventId: 1, SessionId: competitionID, CommandId: commandID,
+				ExpectedLiveStateRevision:    channel.GetLiveStateRevision(),
+				ExpectedControlStateRevision: channel.GetControlStateRevision(),
+				Preview:                      channel.GetPreview(),
+			},
+		))
+		if takeErr != nil {
+			t.Fatalf("advance live Ballot Program: %v", takeErr)
+		}
+		channel = taken.Msg.GetChannel()
+	}
+	ballotPath := "/voting/" + strconv.FormatInt(competitionID, 10) + "?event_id=1"
+	beforePresentation := getFrontendPage(t, voter, server.address, ballotPath)
+	if beforePresentation.status != http.StatusOK ||
+		!strings.Contains(beforePresentation.body, "No Entries have been presented yet.") {
+		t.Fatalf("pre-presentation Ballot = %d %q", beforePresentation.status, beforePresentation.body)
+	}
+	streamPath := frontendSSEPath(t, beforePresentation.body)
+	streamContext, cancelStream := context.WithCancel(t.Context())
+	defer cancelStream()
+	streamRequest, err := http.NewRequestWithContext(
+		streamContext,
+		http.MethodGet,
+		"http://"+server.address+streamPath,
+		http.NoBody,
+	)
+	if err != nil {
+		t.Fatalf("create Ballot stream request: %v", err)
+	}
+	streamResponse, err := voter.Do(streamRequest)
+	if err != nil {
+		t.Fatalf("open Ballot stream: %v", err)
+	}
+	defer func() { _ = streamResponse.Body.Close() }()
+	if streamResponse.StatusCode != http.StatusOK ||
+		streamResponse.Header.Get("Content-Type") != "text/event-stream" {
+		t.Fatalf("Ballot stream = %d %q", streamResponse.StatusCode, streamResponse.Header)
+	}
+	notifications := make(chan error, 1)
+	go func() {
+		notifications <- readBallotInvalidation(bufio.NewReader(streamResponse.Body))
+	}()
+	order, err := competitionv1connect.NewCompetitionServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	).PreviewEntryOrder(t.Context(), connect.NewRequest(
+		&competitionv1.PreviewEntryOrderRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil {
+		t.Fatalf("preview live Ballot Entry Order: %v", err)
+	}
+	taken, err := programClient.Take(t.Context(), connect.NewRequest(
+		&programv1.TakeRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "take-live-ballot-entry",
+			ExpectedLiveStateRevision:    channel.GetLiveStateRevision(),
+			ExpectedControlStateRevision: channel.GetControlStateRevision(),
+			Preview:                      channel.GetPreview(),
+			ExpectedEntryOrderRevision:   order.Msg.GetEntryOrder().GetRevision(),
+			EntryOrderFingerprint:        order.Msg.GetFingerprint(),
+		},
+	))
+	if err != nil {
+		t.Fatalf("present live Ballot Entry: %v", err)
+	}
+	select {
+	case notificationErr := <-notifications:
+		if notificationErr != nil {
+			t.Fatalf("read Ballot invalidation: %v", notificationErr)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Ballot received no presentation invalidation")
+	}
+	cancelStream()
+	if closeErr := streamResponse.Body.Close(); closeErr != nil {
+		t.Fatalf("close Ballot stream: %v", closeErr)
+	}
+
+	ballot := getFrontendPage(t, voter, server.address, ballotPath)
+	if ballot.status != http.StatusOK || !strings.Contains(ballot.body, "Live Ballot Entry") {
+		t.Fatalf("presented Entry Ballot = %d %q", ballot.status, ballot.body)
+	}
+	values := frontendNamedValues(ballot.body, "expected_revision")
+	voted := postFrontendForm(t, voter, server.address, ballotPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, ballot)},
+		"command_id":        {"cast-live-ballot-vote"},
+		"event_id":          {"1"},
+		"entry_id":          {strconv.FormatInt(taken.Msg.GetChannel().GetProgramOutput().GetEntryId(), 10)},
+		"expected_revision": {values.Get("expected_revision")},
+		"value":             {"5"},
+	})
+	if voted.status != http.StatusSeeOther {
+		t.Fatalf("cast live Vote = %d %q", voted.status, voted.body)
+	}
+	ballot = getFrontendPage(t, voter, server.address, ballotPath)
+	editedVote := postFrontendForm(t, voter, server.address, ballotPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, ballot)},
+		"command_id":        {"edit-live-ballot-vote"},
+		"event_id":          {"1"},
+		"entry_id":          {strconv.FormatInt(taken.Msg.GetChannel().GetProgramOutput().GetEntryId(), 10)},
+		"expected_revision": {frontendNamedValues(ballot.body, "expected_revision").Get("expected_revision")},
+		"value":             {"4"},
+	})
+	if editedVote.status != http.StatusSeeOther {
+		t.Fatalf("edit live Vote = %d %q", editedVote.status, editedVote.body)
+	}
+	controlPage = getFrontendPage(t, administrator, server.address, votingControlPath)
+	if !strings.Contains(controlPage.body, "Participating: 1.") ||
+		strings.Contains(controlPage.body, "Your score") ||
+		strings.Contains(controlPage.body, `name="value"`) {
+		t.Fatalf("Crew Voting projection leaked or missed participation: %q", controlPage.body)
+	}
+	closed := postFrontendForm(t, administrator, server.address, votingControlPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, controlPage)},
+		"command_id":        {"close-live-ballot"},
+		"action":            {"close"},
+		"expected_revision": {frontendNamedValues(controlPage.body, "expected_revision").Get("expected_revision")},
+	})
+	if closed.status != http.StatusSeeOther {
+		t.Fatalf("close live Voting Window = %d %q", closed.status, closed.body)
+	}
+	readOnly := getFrontendPage(t, voter, server.address, ballotPath)
+	if !strings.Contains(readOnly.body, "Voting is closed.") ||
+		!strings.Contains(readOnly.body, "Your score: 4") {
+		t.Fatalf("closed private Ballot = %d %q", readOnly.status, readOnly.body)
+	}
+
+	dataDir, bin := server.dataDir, server.bin
+	server.stop(t)
+	server = startBeamersWithPublicListener(t, bin, dataDir)
+	recoveryContext, cancelRecovery := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancelRecovery()
+	recoveryRequest, err := http.NewRequestWithContext(
+		recoveryContext, http.MethodGet, "http://"+server.address+streamPath, http.NoBody,
+	)
+	if err != nil {
+		t.Fatalf("create restarted Ballot stream request: %v", err)
+	}
+	recoveryResponse, err := voter.Do(recoveryRequest)
+	if err != nil {
+		t.Fatalf("open restarted Ballot stream: %v", err)
+	}
+	if err = readBallotInvalidation(bufio.NewReader(recoveryResponse.Body)); err != nil {
+		t.Fatalf("read restarted Ballot invalidation: %v", err)
+	}
+	if closeErr := recoveryResponse.Body.Close(); closeErr != nil {
+		t.Fatalf("close restarted Ballot stream: %v", closeErr)
+	}
+	restarted := getFrontendPage(t, voter, server.address, ballotPath)
+	if restarted.status != http.StatusOK ||
+		!strings.Contains(restarted.body, "Voting is closed.") ||
+		!strings.Contains(restarted.body, "Your score: 4") {
+		t.Fatalf("restarted private Ballot = %d %q", restarted.status, restarted.body)
 	}
 	server.stop(t)
 }

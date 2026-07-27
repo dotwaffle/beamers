@@ -71,6 +71,7 @@ func DowngradeBeforeUpgradeContracts(ctx context.Context, path string) error {
 	return mutateSchema(path, func(database *sql.DB) error {
 		const statement = `
 PRAGMA foreign_keys = off;
+DROP TABLE votes;
 DROP TABLE voting_keys;
 DROP TABLE voting_eligibilities;
 CREATE TABLE competition_entries_before_submissions (
@@ -126,7 +127,17 @@ CREATE INDEX competitionentry_competition_session_id_created_at
 	ON competition_entries (competition_session_id, created_at);
 ALTER TABLE sessions DROP COLUMN submission_eligibility_revision;
 ALTER TABLE sessions DROP COLUMN submission_eligibility_override;
+ALTER TABLE sessions DROP COLUMN voting_closed_at;
+ALTER TABLE sessions DROP COLUMN voting_opened_at;
+ALTER TABLE sessions DROP COLUMN voting_revision;
+ALTER TABLE sessions DROP COLUMN frozen_self_vote_policy;
+ALTER TABLE sessions DROP COLUMN frozen_voting_method;
+ALTER TABLE sessions DROP COLUMN voting_window_state;
+ALTER TABLE sessions DROP COLUMN self_vote_policy_override;
+ALTER TABLE sessions DROP COLUMN voting_method_override;
 ALTER TABLE events DROP COLUMN submission_eligibility;
+ALTER TABLE events DROP COLUMN self_vote_policy;
+ALTER TABLE events DROP COLUMN voting_method;
 DROP TABLE federated_identities;
 DROP TABLE web_authn_credentials;
 DROP INDEX accounts_webauthn_user_handle_key;

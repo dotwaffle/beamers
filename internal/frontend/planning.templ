@@ -154,6 +154,19 @@ templ Planning(page PlanningPage) {
 								</select>
 							</label>
 							<label>
+								Competition Voting Method
+								<select name="voting_method">
+									<option value="Range1To5">Range 1–5</option>
+								</select>
+							</label>
+							<label>
+								Competition Self-Vote Policy
+								<select name="self_vote_policy">
+									<option value="Allowed" selected?={ page.Event.SelfVotePolicy == "Allowed" }>Allowed</option>
+									<option value="Neutral" selected?={ page.Event.SelfVotePolicy == "Neutral" }>Neutral substitution</option>
+								</select>
+							</label>
+							<label>
 								Target adjustment presets in seconds
 								<input name="target_adjustment_presets_seconds" value={ planningPresets(page.Event.TargetAdjustmentPresetsSeconds) }/>
 							</label>
@@ -690,6 +703,15 @@ templ NewEvent(page NewEventPage) {
 							<select name="submission_eligibility">
 								<option value="AllAccounts">All Accounts</option>
 								<option value="VotingEligibleAccounts">Voting Eligible Accounts</option>
+							</select>
+						</label>
+						<label>Competition Voting Method
+							<select name="voting_method"><option value="Range1To5">Range 1–5</option></select>
+						</label>
+						<label>Competition Self-Vote Policy
+							<select name="self_vote_policy">
+								<option value="Allowed">Allowed</option>
+								<option value="Neutral">Neutral substitution</option>
 							</select>
 						</label>
 						<label>Target adjustment presets in seconds

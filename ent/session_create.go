@@ -24,6 +24,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/sessiondraft"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
+	"github.com/dotwaffle/beamers/ent/vote"
 	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 )
 
@@ -286,6 +287,118 @@ func (_c *SessionCreate) SetSubmissionEligibilityRevision(v int) *SessionCreate 
 func (_c *SessionCreate) SetNillableSubmissionEligibilityRevision(v *int) *SessionCreate {
 	if v != nil {
 		_c.SetSubmissionEligibilityRevision(*v)
+	}
+	return _c
+}
+
+// SetVotingMethodOverride sets the "voting_method_override" field.
+func (_c *SessionCreate) SetVotingMethodOverride(v session.VotingMethodOverride) *SessionCreate {
+	_c.mutation.SetVotingMethodOverride(v)
+	return _c
+}
+
+// SetNillableVotingMethodOverride sets the "voting_method_override" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableVotingMethodOverride(v *session.VotingMethodOverride) *SessionCreate {
+	if v != nil {
+		_c.SetVotingMethodOverride(*v)
+	}
+	return _c
+}
+
+// SetSelfVotePolicyOverride sets the "self_vote_policy_override" field.
+func (_c *SessionCreate) SetSelfVotePolicyOverride(v session.SelfVotePolicyOverride) *SessionCreate {
+	_c.mutation.SetSelfVotePolicyOverride(v)
+	return _c
+}
+
+// SetNillableSelfVotePolicyOverride sets the "self_vote_policy_override" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableSelfVotePolicyOverride(v *session.SelfVotePolicyOverride) *SessionCreate {
+	if v != nil {
+		_c.SetSelfVotePolicyOverride(*v)
+	}
+	return _c
+}
+
+// SetVotingWindowState sets the "voting_window_state" field.
+func (_c *SessionCreate) SetVotingWindowState(v session.VotingWindowState) *SessionCreate {
+	_c.mutation.SetVotingWindowState(v)
+	return _c
+}
+
+// SetNillableVotingWindowState sets the "voting_window_state" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableVotingWindowState(v *session.VotingWindowState) *SessionCreate {
+	if v != nil {
+		_c.SetVotingWindowState(*v)
+	}
+	return _c
+}
+
+// SetFrozenVotingMethod sets the "frozen_voting_method" field.
+func (_c *SessionCreate) SetFrozenVotingMethod(v session.FrozenVotingMethod) *SessionCreate {
+	_c.mutation.SetFrozenVotingMethod(v)
+	return _c
+}
+
+// SetNillableFrozenVotingMethod sets the "frozen_voting_method" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableFrozenVotingMethod(v *session.FrozenVotingMethod) *SessionCreate {
+	if v != nil {
+		_c.SetFrozenVotingMethod(*v)
+	}
+	return _c
+}
+
+// SetFrozenSelfVotePolicy sets the "frozen_self_vote_policy" field.
+func (_c *SessionCreate) SetFrozenSelfVotePolicy(v session.FrozenSelfVotePolicy) *SessionCreate {
+	_c.mutation.SetFrozenSelfVotePolicy(v)
+	return _c
+}
+
+// SetNillableFrozenSelfVotePolicy sets the "frozen_self_vote_policy" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableFrozenSelfVotePolicy(v *session.FrozenSelfVotePolicy) *SessionCreate {
+	if v != nil {
+		_c.SetFrozenSelfVotePolicy(*v)
+	}
+	return _c
+}
+
+// SetVotingRevision sets the "voting_revision" field.
+func (_c *SessionCreate) SetVotingRevision(v int) *SessionCreate {
+	_c.mutation.SetVotingRevision(v)
+	return _c
+}
+
+// SetNillableVotingRevision sets the "voting_revision" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableVotingRevision(v *int) *SessionCreate {
+	if v != nil {
+		_c.SetVotingRevision(*v)
+	}
+	return _c
+}
+
+// SetVotingOpenedAt sets the "voting_opened_at" field.
+func (_c *SessionCreate) SetVotingOpenedAt(v time.Time) *SessionCreate {
+	_c.mutation.SetVotingOpenedAt(v)
+	return _c
+}
+
+// SetNillableVotingOpenedAt sets the "voting_opened_at" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableVotingOpenedAt(v *time.Time) *SessionCreate {
+	if v != nil {
+		_c.SetVotingOpenedAt(*v)
+	}
+	return _c
+}
+
+// SetVotingClosedAt sets the "voting_closed_at" field.
+func (_c *SessionCreate) SetVotingClosedAt(v time.Time) *SessionCreate {
+	_c.mutation.SetVotingClosedAt(v)
+	return _c
+}
+
+// SetNillableVotingClosedAt sets the "voting_closed_at" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableVotingClosedAt(v *time.Time) *SessionCreate {
+	if v != nil {
+		_c.SetVotingClosedAt(*v)
 	}
 	return _c
 }
@@ -679,6 +792,21 @@ func (_c *SessionCreate) AddCompetitionResultStandings(v ...*CompetitionResultSt
 	return _c.AddCompetitionResultStandingIDs(ids...)
 }
 
+// AddVoteIDs adds the "votes" edge to the Vote entity by IDs.
+func (_c *SessionCreate) AddVoteIDs(ids ...int) *SessionCreate {
+	_c.mutation.AddVoteIDs(ids...)
+	return _c
+}
+
+// AddVotes adds the "votes" edges to the Vote entity.
+func (_c *SessionCreate) AddVotes(v ...*Vote) *SessionCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddVoteIDs(ids...)
+}
+
 // SetPrizegivingID sets the "prizegiving" edge to the Prizegiving entity by ID.
 func (_c *SessionCreate) SetPrizegivingID(id int) *SessionCreate {
 	_c.mutation.SetPrizegivingID(id)
@@ -773,6 +901,14 @@ func (_c *SessionCreate) defaults() error {
 	if _, ok := _c.mutation.SubmissionEligibilityRevision(); !ok {
 		v := session.DefaultSubmissionEligibilityRevision
 		_c.mutation.SetSubmissionEligibilityRevision(v)
+	}
+	if _, ok := _c.mutation.VotingWindowState(); !ok {
+		v := session.DefaultVotingWindowState
+		_c.mutation.SetVotingWindowState(v)
+	}
+	if _, ok := _c.mutation.VotingRevision(); !ok {
+		v := session.DefaultVotingRevision
+		_c.mutation.SetVotingRevision(v)
 	}
 	if _, ok := _c.mutation.ReadinessRevision(); !ok {
 		v := session.DefaultReadinessRevision
@@ -889,6 +1025,42 @@ func (_c *SessionCreate) check() error {
 	if v, ok := _c.mutation.SubmissionEligibilityRevision(); ok {
 		if err := session.SubmissionEligibilityRevisionValidator(v); err != nil {
 			return &ValidationError{Name: "submission_eligibility_revision", err: fmt.Errorf(`ent: validator failed for field "Session.submission_eligibility_revision": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.VotingMethodOverride(); ok {
+		if err := session.VotingMethodOverrideValidator(v); err != nil {
+			return &ValidationError{Name: "voting_method_override", err: fmt.Errorf(`ent: validator failed for field "Session.voting_method_override": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.SelfVotePolicyOverride(); ok {
+		if err := session.SelfVotePolicyOverrideValidator(v); err != nil {
+			return &ValidationError{Name: "self_vote_policy_override", err: fmt.Errorf(`ent: validator failed for field "Session.self_vote_policy_override": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.VotingWindowState(); !ok {
+		return &ValidationError{Name: "voting_window_state", err: errors.New(`ent: missing required field "Session.voting_window_state"`)}
+	}
+	if v, ok := _c.mutation.VotingWindowState(); ok {
+		if err := session.VotingWindowStateValidator(v); err != nil {
+			return &ValidationError{Name: "voting_window_state", err: fmt.Errorf(`ent: validator failed for field "Session.voting_window_state": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.FrozenVotingMethod(); ok {
+		if err := session.FrozenVotingMethodValidator(v); err != nil {
+			return &ValidationError{Name: "frozen_voting_method", err: fmt.Errorf(`ent: validator failed for field "Session.frozen_voting_method": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.FrozenSelfVotePolicy(); ok {
+		if err := session.FrozenSelfVotePolicyValidator(v); err != nil {
+			return &ValidationError{Name: "frozen_self_vote_policy", err: fmt.Errorf(`ent: validator failed for field "Session.frozen_self_vote_policy": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.VotingRevision(); !ok {
+		return &ValidationError{Name: "voting_revision", err: errors.New(`ent: missing required field "Session.voting_revision"`)}
+	}
+	if v, ok := _c.mutation.VotingRevision(); ok {
+		if err := session.VotingRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "voting_revision", err: fmt.Errorf(`ent: validator failed for field "Session.voting_revision": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.ReadinessRevision(); !ok {
@@ -1063,6 +1235,38 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.SubmissionEligibilityRevision(); ok {
 		_spec.SetField(session.FieldSubmissionEligibilityRevision, field.TypeInt, value)
 		_node.SubmissionEligibilityRevision = value
+	}
+	if value, ok := _c.mutation.VotingMethodOverride(); ok {
+		_spec.SetField(session.FieldVotingMethodOverride, field.TypeEnum, value)
+		_node.VotingMethodOverride = &value
+	}
+	if value, ok := _c.mutation.SelfVotePolicyOverride(); ok {
+		_spec.SetField(session.FieldSelfVotePolicyOverride, field.TypeEnum, value)
+		_node.SelfVotePolicyOverride = &value
+	}
+	if value, ok := _c.mutation.VotingWindowState(); ok {
+		_spec.SetField(session.FieldVotingWindowState, field.TypeEnum, value)
+		_node.VotingWindowState = value
+	}
+	if value, ok := _c.mutation.FrozenVotingMethod(); ok {
+		_spec.SetField(session.FieldFrozenVotingMethod, field.TypeEnum, value)
+		_node.FrozenVotingMethod = &value
+	}
+	if value, ok := _c.mutation.FrozenSelfVotePolicy(); ok {
+		_spec.SetField(session.FieldFrozenSelfVotePolicy, field.TypeEnum, value)
+		_node.FrozenSelfVotePolicy = &value
+	}
+	if value, ok := _c.mutation.VotingRevision(); ok {
+		_spec.SetField(session.FieldVotingRevision, field.TypeInt, value)
+		_node.VotingRevision = value
+	}
+	if value, ok := _c.mutation.VotingOpenedAt(); ok {
+		_spec.SetField(session.FieldVotingOpenedAt, field.TypeTime, value)
+		_node.VotingOpenedAt = value
+	}
+	if value, ok := _c.mutation.VotingClosedAt(); ok {
+		_spec.SetField(session.FieldVotingClosedAt, field.TypeTime, value)
+		_node.VotingClosedAt = value
 	}
 	if value, ok := _c.mutation.FileDeliveryRequired(); ok {
 		_spec.SetField(session.FieldFileDeliveryRequired, field.TypeBool, value)
@@ -1303,6 +1507,22 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(competitionresultstanding.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.VotesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.VotesTable,
+			Columns: []string{session.VotesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(vote.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

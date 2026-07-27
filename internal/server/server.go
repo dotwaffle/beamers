@@ -144,6 +144,10 @@ func Run(ctx context.Context, config Config) error {
 	if err != nil {
 		return errors.Join(err, listener.Close(), closeListener(publicListener), installation.Close(), upgrade.Close())
 	}
+	votingStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
+	if err != nil {
+		return errors.Join(err, listener.Close(), closeListener(publicListener), installation.Close(), upgrade.Close())
+	}
 	var replica *replication.Adapter
 	replicationSync := config.ReplicationSync
 	replicationContext, cancelReplication := context.WithCancel(ctx)
@@ -166,6 +170,7 @@ func Run(ctx context.Context, config Config) error {
 		DisplayStream:   displayStream,
 		ProgramStream:   programStream,
 		ScheduleStream:  scheduleStream,
+		VotingStream:    votingStream,
 		Replication:     replica,
 		SceneID:         sceneID,
 	}

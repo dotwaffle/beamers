@@ -65,6 +65,22 @@ type Session struct {
 	SubmissionEligibilityOverride *session.SubmissionEligibilityOverride `json:"submission_eligibility_override,omitempty"`
 	// SubmissionEligibilityRevision holds the value of the "submission_eligibility_revision" field.
 	SubmissionEligibilityRevision int `json:"submission_eligibility_revision,omitempty"`
+	// VotingMethodOverride holds the value of the "voting_method_override" field.
+	VotingMethodOverride *session.VotingMethodOverride `json:"voting_method_override,omitempty"`
+	// SelfVotePolicyOverride holds the value of the "self_vote_policy_override" field.
+	SelfVotePolicyOverride *session.SelfVotePolicyOverride `json:"self_vote_policy_override,omitempty"`
+	// VotingWindowState holds the value of the "voting_window_state" field.
+	VotingWindowState session.VotingWindowState `json:"voting_window_state,omitempty"`
+	// FrozenVotingMethod holds the value of the "frozen_voting_method" field.
+	FrozenVotingMethod *session.FrozenVotingMethod `json:"frozen_voting_method,omitempty"`
+	// FrozenSelfVotePolicy holds the value of the "frozen_self_vote_policy" field.
+	FrozenSelfVotePolicy *session.FrozenSelfVotePolicy `json:"frozen_self_vote_policy,omitempty"`
+	// VotingRevision holds the value of the "voting_revision" field.
+	VotingRevision int `json:"voting_revision,omitempty"`
+	// VotingOpenedAt holds the value of the "voting_opened_at" field.
+	VotingOpenedAt time.Time `json:"voting_opened_at,omitempty"`
+	// VotingClosedAt holds the value of the "voting_closed_at" field.
+	VotingClosedAt time.Time `json:"voting_closed_at,omitempty"`
 	// FileDeliveryRequired holds the value of the "file_delivery_required" field.
 	FileDeliveryRequired *bool `json:"file_delivery_required,omitempty"`
 	// ReadinessRevision holds the value of the "readiness_revision" field.
@@ -129,13 +145,15 @@ type SessionEdges struct {
 	CompetitionResultsDrafts []*CompetitionResultsDraft `json:"competition_results_drafts,omitempty"`
 	// CompetitionResultStandings holds the value of the competition_result_standings edge.
 	CompetitionResultStandings []*CompetitionResultStanding `json:"competition_result_standings,omitempty"`
+	// Votes holds the value of the votes edge.
+	Votes []*Vote `json:"votes,omitempty"`
 	// Prizegiving holds the value of the prizegiving edge.
 	Prizegiving *Prizegiving `json:"prizegiving,omitempty"`
 	// PrizegivingAssignment holds the value of the prizegiving_assignment edge.
 	PrizegivingAssignment *PrizegivingCompetition `json:"prizegiving_assignment,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [13]bool
+	loadedTypes [14]bool
 }
 
 // EventOrErr returns the Event value or an error if the edge
@@ -245,12 +263,21 @@ func (e SessionEdges) CompetitionResultStandingsOrErr() ([]*CompetitionResultSta
 	return nil, &NotLoadedError{edge: "competition_result_standings"}
 }
 
+// VotesOrErr returns the Votes value or an error if the edge
+// was not loaded in eager-loading.
+func (e SessionEdges) VotesOrErr() ([]*Vote, error) {
+	if e.loadedTypes[11] {
+		return e.Votes, nil
+	}
+	return nil, &NotLoadedError{edge: "votes"}
+}
+
 // PrizegivingOrErr returns the Prizegiving value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e SessionEdges) PrizegivingOrErr() (*Prizegiving, error) {
 	if e.Prizegiving != nil {
 		return e.Prizegiving, nil
-	} else if e.loadedTypes[11] {
+	} else if e.loadedTypes[12] {
 		return nil, &NotFoundError{label: prizegiving.Label}
 	}
 	return nil, &NotLoadedError{edge: "prizegiving"}
@@ -261,7 +288,7 @@ func (e SessionEdges) PrizegivingOrErr() (*Prizegiving, error) {
 func (e SessionEdges) PrizegivingAssignmentOrErr() (*PrizegivingCompetition, error) {
 	if e.PrizegivingAssignment != nil {
 		return e.PrizegivingAssignment, nil
-	} else if e.loadedTypes[12] {
+	} else if e.loadedTypes[13] {
 		return nil, &NotFoundError{label: prizegivingcompetition.Label}
 	}
 	return nil, &NotLoadedError{edge: "prizegiving_assignment"}
@@ -276,11 +303,11 @@ func (*Session) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case session.FieldRequireEntryReview, session.FieldFileDeliveryRequired:
 			values[i] = new(sql.NullBool)
-		case session.FieldID, session.FieldEventID, session.FieldLiveStateRevision, session.FieldSubmitterAccountID, session.FieldPresentationSubmissionRevision, session.FieldSubmissionEligibilityRevision, session.FieldReadinessRevision, session.FieldEntryOrderSeed, session.FieldEntryOrderRevision, session.FieldProgramOutputEntryID, session.FieldProgramOutputRevision, session.FieldProgramCursor, session.FieldAttachmentReleaseRevision:
+		case session.FieldID, session.FieldEventID, session.FieldLiveStateRevision, session.FieldSubmitterAccountID, session.FieldPresentationSubmissionRevision, session.FieldSubmissionEligibilityRevision, session.FieldVotingRevision, session.FieldReadinessRevision, session.FieldEntryOrderSeed, session.FieldEntryOrderRevision, session.FieldProgramOutputEntryID, session.FieldProgramOutputRevision, session.FieldProgramCursor, session.FieldAttachmentReleaseRevision:
 			values[i] = new(sql.NullInt64)
-		case session.FieldLifecycle, session.FieldPublicCancellationMessage, session.FieldCancellationCrewNotes, session.FieldCorrectedTitle, session.FieldCorrectedSpeaker, session.FieldCorrectedPublicDetails, session.FieldSubmissionEligibilityOverride, session.FieldEntryOrderPolicy, session.FieldProgramOutputKind, session.FieldAttachmentReleasePolicyOverride:
+		case session.FieldLifecycle, session.FieldPublicCancellationMessage, session.FieldCancellationCrewNotes, session.FieldCorrectedTitle, session.FieldCorrectedSpeaker, session.FieldCorrectedPublicDetails, session.FieldSubmissionEligibilityOverride, session.FieldVotingMethodOverride, session.FieldSelfVotePolicyOverride, session.FieldVotingWindowState, session.FieldFrozenVotingMethod, session.FieldFrozenSelfVotePolicy, session.FieldEntryOrderPolicy, session.FieldProgramOutputKind, session.FieldAttachmentReleasePolicyOverride:
 			values[i] = new(sql.NullString)
-		case session.FieldForecastStart, session.FieldForecastEnd, session.FieldCommunicatedStart, session.FieldCommunicatedEnd, session.FieldPreviousForecastStart, session.FieldEntryOrderLockedAt, session.FieldProgramOutputTakenAt, session.FieldCreatedAt:
+		case session.FieldForecastStart, session.FieldForecastEnd, session.FieldCommunicatedStart, session.FieldCommunicatedEnd, session.FieldPreviousForecastStart, session.FieldVotingOpenedAt, session.FieldVotingClosedAt, session.FieldEntryOrderLockedAt, session.FieldProgramOutputTakenAt, session.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -431,6 +458,58 @@ func (_m *Session) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field submission_eligibility_revision", values[i])
 			} else if value.Valid {
 				_m.SubmissionEligibilityRevision = int(value.Int64)
+			}
+		case session.FieldVotingMethodOverride:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field voting_method_override", values[i])
+			} else if value.Valid {
+				_m.VotingMethodOverride = new(session.VotingMethodOverride)
+				*_m.VotingMethodOverride = session.VotingMethodOverride(value.String)
+			}
+		case session.FieldSelfVotePolicyOverride:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field self_vote_policy_override", values[i])
+			} else if value.Valid {
+				_m.SelfVotePolicyOverride = new(session.SelfVotePolicyOverride)
+				*_m.SelfVotePolicyOverride = session.SelfVotePolicyOverride(value.String)
+			}
+		case session.FieldVotingWindowState:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field voting_window_state", values[i])
+			} else if value.Valid {
+				_m.VotingWindowState = session.VotingWindowState(value.String)
+			}
+		case session.FieldFrozenVotingMethod:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field frozen_voting_method", values[i])
+			} else if value.Valid {
+				_m.FrozenVotingMethod = new(session.FrozenVotingMethod)
+				*_m.FrozenVotingMethod = session.FrozenVotingMethod(value.String)
+			}
+		case session.FieldFrozenSelfVotePolicy:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field frozen_self_vote_policy", values[i])
+			} else if value.Valid {
+				_m.FrozenSelfVotePolicy = new(session.FrozenSelfVotePolicy)
+				*_m.FrozenSelfVotePolicy = session.FrozenSelfVotePolicy(value.String)
+			}
+		case session.FieldVotingRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field voting_revision", values[i])
+			} else if value.Valid {
+				_m.VotingRevision = int(value.Int64)
+			}
+		case session.FieldVotingOpenedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field voting_opened_at", values[i])
+			} else if value.Valid {
+				_m.VotingOpenedAt = value.Time
+			}
+		case session.FieldVotingClosedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field voting_closed_at", values[i])
+			} else if value.Valid {
+				_m.VotingClosedAt = value.Time
 			}
 		case session.FieldFileDeliveryRequired:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -611,6 +690,11 @@ func (_m *Session) QueryCompetitionResultStandings() *CompetitionResultStandingQ
 	return NewSessionClient(_m.config).QueryCompetitionResultStandings(_m)
 }
 
+// QueryVotes queries the "votes" edge of the Session entity.
+func (_m *Session) QueryVotes() *VoteQuery {
+	return NewSessionClient(_m.config).QueryVotes(_m)
+}
+
 // QueryPrizegiving queries the "prizegiving" edge of the Session entity.
 func (_m *Session) QueryPrizegiving() *PrizegivingQuery {
 	return NewSessionClient(_m.config).QueryPrizegiving(_m)
@@ -713,6 +797,38 @@ func (_m *Session) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("submission_eligibility_revision=")
 	builder.WriteString(fmt.Sprintf("%v", _m.SubmissionEligibilityRevision))
+	builder.WriteString(", ")
+	if v := _m.VotingMethodOverride; v != nil {
+		builder.WriteString("voting_method_override=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.SelfVotePolicyOverride; v != nil {
+		builder.WriteString("self_vote_policy_override=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("voting_window_state=")
+	builder.WriteString(fmt.Sprintf("%v", _m.VotingWindowState))
+	builder.WriteString(", ")
+	if v := _m.FrozenVotingMethod; v != nil {
+		builder.WriteString("frozen_voting_method=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.FrozenSelfVotePolicy; v != nil {
+		builder.WriteString("frozen_self_vote_policy=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("voting_revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.VotingRevision))
+	builder.WriteString(", ")
+	builder.WriteString("voting_opened_at=")
+	builder.WriteString(_m.VotingOpenedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("voting_closed_at=")
+	builder.WriteString(_m.VotingClosedAt.Format(time.ANSIC))
 	builder.WriteString(", ")
 	if v := _m.FileDeliveryRequired; v != nil {
 		builder.WriteString("file_delivery_required=")

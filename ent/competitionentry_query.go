@@ -19,6 +19,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/ent/vote"
 )
 
 // CompetitionEntryQuery is the builder for querying CompetitionEntry entities.
@@ -32,6 +33,7 @@ type CompetitionEntryQuery struct {
 	withCompetition     *SessionQuery
 	withSubmitter       *AccountQuery
 	withResultStandings *CompetitionResultStandingQuery
+	withVotes           *VoteQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -149,6 +151,28 @@ func (_q *CompetitionEntryQuery) QueryResultStandings() *CompetitionResultStandi
 			sqlgraph.From(competitionentry.Table, competitionentry.FieldID, selector),
 			sqlgraph.To(competitionresultstanding.Table, competitionresultstanding.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, competitionentry.ResultStandingsTable, competitionentry.ResultStandingsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryVotes chains the current query on the "votes" edge.
+func (_q *CompetitionEntryQuery) QueryVotes() *VoteQuery {
+	query := (&VoteClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(competitionentry.Table, competitionentry.FieldID, selector),
+			sqlgraph.To(vote.Table, vote.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, competitionentry.VotesTable, competitionentry.VotesColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -352,6 +376,7 @@ func (_q *CompetitionEntryQuery) Clone() *CompetitionEntryQuery {
 		withCompetition:     _q.withCompetition.Clone(),
 		withSubmitter:       _q.withSubmitter.Clone(),
 		withResultStandings: _q.withResultStandings.Clone(),
+		withVotes:           _q.withVotes.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -399,6 +424,17 @@ func (_q *CompetitionEntryQuery) WithResultStandings(opts ...func(*CompetitionRe
 		opt(query)
 	}
 	_q.withResultStandings = query
+	return _q
+}
+
+// WithVotes tells the query-builder to eager-load the nodes that are connected to
+// the "votes" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *CompetitionEntryQuery) WithVotes(opts ...func(*VoteQuery)) *CompetitionEntryQuery {
+	query := (&VoteClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withVotes = query
 	return _q
 }
 
@@ -486,11 +522,12 @@ func (_q *CompetitionEntryQuery) sqlAll(ctx context.Context, hooks ...queryHook)
 	var (
 		nodes       = []*CompetitionEntry{}
 		_spec       = _q.querySpec()
-		loadedTypes = [4]bool{
+		loadedTypes = [5]bool{
 			_q.withEvent != nil,
 			_q.withCompetition != nil,
 			_q.withSubmitter != nil,
 			_q.withResultStandings != nil,
+			_q.withVotes != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -535,6 +572,13 @@ func (_q *CompetitionEntryQuery) sqlAll(ctx context.Context, hooks ...queryHook)
 			func(n *CompetitionEntry, e *CompetitionResultStanding) {
 				n.Edges.ResultStandings = append(n.Edges.ResultStandings, e)
 			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withVotes; query != nil {
+		if err := _q.loadVotes(ctx, query, nodes,
+			func(n *CompetitionEntry) { n.Edges.Votes = []*Vote{} },
+			func(n *CompetitionEntry, e *Vote) { n.Edges.Votes = append(n.Edges.Votes, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -646,6 +690,36 @@ func (_q *CompetitionEntryQuery) loadResultStandings(ctx context.Context, query 
 	}
 	query.Where(predicate.CompetitionResultStanding(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(competitionentry.ResultStandingsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.EntryID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "entry_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *CompetitionEntryQuery) loadVotes(ctx context.Context, query *VoteQuery, nodes []*CompetitionEntry, init func(*CompetitionEntry), assign func(*CompetitionEntry, *Vote)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*CompetitionEntry)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(vote.FieldEntryID)
+	}
+	query.Where(predicate.Vote(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(competitionentry.VotesColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

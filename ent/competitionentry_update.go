@@ -15,6 +15,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
 	"github.com/dotwaffle/beamers/ent/predicate"
+	"github.com/dotwaffle/beamers/ent/vote"
 )
 
 // CompetitionEntryUpdate is the builder for updating CompetitionEntry entities.
@@ -451,6 +452,21 @@ func (_u *CompetitionEntryUpdate) AddResultStandings(v ...*CompetitionResultStan
 	return _u.AddResultStandingIDs(ids...)
 }
 
+// AddVoteIDs adds the "votes" edge to the Vote entity by IDs.
+func (_u *CompetitionEntryUpdate) AddVoteIDs(ids ...int) *CompetitionEntryUpdate {
+	_u.mutation.AddVoteIDs(ids...)
+	return _u
+}
+
+// AddVotes adds the "votes" edges to the Vote entity.
+func (_u *CompetitionEntryUpdate) AddVotes(v ...*Vote) *CompetitionEntryUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddVoteIDs(ids...)
+}
+
 // Mutation returns the CompetitionEntryMutation object of the builder.
 func (_u *CompetitionEntryUpdate) Mutation() *CompetitionEntryMutation {
 	return _u.mutation
@@ -481,6 +497,27 @@ func (_u *CompetitionEntryUpdate) RemoveResultStandings(v ...*CompetitionResultS
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveResultStandingIDs(ids...)
+}
+
+// ClearVotes clears all "votes" edges to the Vote entity.
+func (_u *CompetitionEntryUpdate) ClearVotes() *CompetitionEntryUpdate {
+	_u.mutation.ClearVotes()
+	return _u
+}
+
+// RemoveVoteIDs removes the "votes" edge to Vote entities by IDs.
+func (_u *CompetitionEntryUpdate) RemoveVoteIDs(ids ...int) *CompetitionEntryUpdate {
+	_u.mutation.RemoveVoteIDs(ids...)
+	return _u
+}
+
+// RemoveVotes removes "votes" edges to Vote entities.
+func (_u *CompetitionEntryUpdate) RemoveVotes(v ...*Vote) *CompetitionEntryUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveVoteIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -780,6 +817,51 @@ func (_u *CompetitionEntryUpdate) sqlSave(ctx context.Context) (_node int, err e
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(competitionresultstanding.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.VotesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   competitionentry.VotesTable,
+			Columns: []string{competitionentry.VotesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(vote.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedVotesIDs(); len(nodes) > 0 && !_u.mutation.VotesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   competitionentry.VotesTable,
+			Columns: []string{competitionentry.VotesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(vote.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.VotesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   competitionentry.VotesTable,
+			Columns: []string{competitionentry.VotesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(vote.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -1228,6 +1310,21 @@ func (_u *CompetitionEntryUpdateOne) AddResultStandings(v ...*CompetitionResultS
 	return _u.AddResultStandingIDs(ids...)
 }
 
+// AddVoteIDs adds the "votes" edge to the Vote entity by IDs.
+func (_u *CompetitionEntryUpdateOne) AddVoteIDs(ids ...int) *CompetitionEntryUpdateOne {
+	_u.mutation.AddVoteIDs(ids...)
+	return _u
+}
+
+// AddVotes adds the "votes" edges to the Vote entity.
+func (_u *CompetitionEntryUpdateOne) AddVotes(v ...*Vote) *CompetitionEntryUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddVoteIDs(ids...)
+}
+
 // Mutation returns the CompetitionEntryMutation object of the builder.
 func (_u *CompetitionEntryUpdateOne) Mutation() *CompetitionEntryMutation {
 	return _u.mutation
@@ -1258,6 +1355,27 @@ func (_u *CompetitionEntryUpdateOne) RemoveResultStandings(v ...*CompetitionResu
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveResultStandingIDs(ids...)
+}
+
+// ClearVotes clears all "votes" edges to the Vote entity.
+func (_u *CompetitionEntryUpdateOne) ClearVotes() *CompetitionEntryUpdateOne {
+	_u.mutation.ClearVotes()
+	return _u
+}
+
+// RemoveVoteIDs removes the "votes" edge to Vote entities by IDs.
+func (_u *CompetitionEntryUpdateOne) RemoveVoteIDs(ids ...int) *CompetitionEntryUpdateOne {
+	_u.mutation.RemoveVoteIDs(ids...)
+	return _u
+}
+
+// RemoveVotes removes "votes" edges to Vote entities.
+func (_u *CompetitionEntryUpdateOne) RemoveVotes(v ...*Vote) *CompetitionEntryUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveVoteIDs(ids...)
 }
 
 // Where appends a list predicates to the CompetitionEntryUpdate builder.
@@ -1587,6 +1705,51 @@ func (_u *CompetitionEntryUpdateOne) sqlSave(ctx context.Context) (_node *Compet
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(competitionresultstanding.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.VotesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   competitionentry.VotesTable,
+			Columns: []string{competitionentry.VotesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(vote.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedVotesIDs(); len(nodes) > 0 && !_u.mutation.VotesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   competitionentry.VotesTable,
+			Columns: []string{competitionentry.VotesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(vote.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.VotesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   competitionentry.VotesTable,
+			Columns: []string{competitionentry.VotesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(vote.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

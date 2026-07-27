@@ -27,6 +27,7 @@ type applicationConfig struct {
 	DisplayStream   *displaystream.Hub
 	ProgramStream   *displaystream.Hub
 	ScheduleStream  *displaystream.Hub
+	VotingStream    *displaystream.Hub
 	Replication     *replication.Adapter
 	SceneID         *federation.SceneID
 }
@@ -95,6 +96,13 @@ func newApplication(ctx context.Context, config applicationConfig) (*application
 	if config.ScheduleStream == nil {
 		var err error
 		config.ScheduleStream, err = displaystream.NewProcess(displaySubscriberQueueCapacity)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if config.VotingStream == nil {
+		var err error
+		config.VotingStream, err = displaystream.NewProcess(displaySubscriberQueueCapacity)
 		if err != nil {
 			return nil, err
 		}
@@ -620,6 +628,7 @@ func (application *application) buildHandler(
 		application.config.DisplayStream,
 		application.config.ProgramStream,
 		application.config.ScheduleStream,
+		application.config.VotingStream,
 		application.scheduleMetrics,
 		application.config.Telemetry,
 		application.config.Replication,
@@ -679,6 +688,7 @@ func (application *application) buildHandler(
 		installation.Events(),
 		installation.Voting(),
 		authenticationLimiter,
+		application.config.VotingStream,
 		application.config.Logger,
 	)
 	registerOperationRoutes(
@@ -841,6 +851,7 @@ func (application *application) buildHandler(
 		installation.Displays(),
 		application.config.DisplayStream,
 		application.config.ProgramStream,
+		application.config.VotingStream,
 		application.config.ListenerAddress,
 		application.config.TracerProvider,
 		application.config.MeterProvider,

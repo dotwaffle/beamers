@@ -85,6 +85,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 				@BackstageNavigationViews(page.Navigation)
 				<main>
 					<h1>Competition Entries and Attachments</h1>
+					<p><a href={ "/backstage/events/" + strconv.Itoa(page.Event.ID) + "/competitions/" + strconv.Itoa(page.State.SessionID) + "/voting" }>Competition Voting</a></p>
 					<p><strong>Submission Deadline:</strong> @EventTime(page.State.SubmissionDeadline, page.Event.Timezone, page.Event.EventLocale)</p>
 					<p><strong>Submission Eligibility:</strong> { string(page.State.EffectiveSubmissionEligibility) }</p>
 					<p>Forecast Time is managed independently in Program Control.</p>

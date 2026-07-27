@@ -32,6 +32,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/track"
+	"github.com/dotwaffle/beamers/ent/vote"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
 	"github.com/dotwaffle/beamers/ent/votingkey"
 )
@@ -145,6 +146,34 @@ func (_c *EventCreate) SetSubmissionEligibility(v event.SubmissionEligibility) *
 func (_c *EventCreate) SetNillableSubmissionEligibility(v *event.SubmissionEligibility) *EventCreate {
 	if v != nil {
 		_c.SetSubmissionEligibility(*v)
+	}
+	return _c
+}
+
+// SetVotingMethod sets the "voting_method" field.
+func (_c *EventCreate) SetVotingMethod(v event.VotingMethod) *EventCreate {
+	_c.mutation.SetVotingMethod(v)
+	return _c
+}
+
+// SetNillableVotingMethod sets the "voting_method" field if the given value is not nil.
+func (_c *EventCreate) SetNillableVotingMethod(v *event.VotingMethod) *EventCreate {
+	if v != nil {
+		_c.SetVotingMethod(*v)
+	}
+	return _c
+}
+
+// SetSelfVotePolicy sets the "self_vote_policy" field.
+func (_c *EventCreate) SetSelfVotePolicy(v event.SelfVotePolicy) *EventCreate {
+	_c.mutation.SetSelfVotePolicy(v)
+	return _c
+}
+
+// SetNillableSelfVotePolicy sets the "self_vote_policy" field if the given value is not nil.
+func (_c *EventCreate) SetNillableSelfVotePolicy(v *event.SelfVotePolicy) *EventCreate {
+	if v != nil {
+		_c.SetSelfVotePolicy(*v)
 	}
 	return _c
 }
@@ -562,6 +591,21 @@ func (_c *EventCreate) AddVotingKeys(v ...*VotingKey) *EventCreate {
 	return _c.AddVotingKeyIDs(ids...)
 }
 
+// AddVoteIDs adds the "votes" edge to the Vote entity by IDs.
+func (_c *EventCreate) AddVoteIDs(ids ...int) *EventCreate {
+	_c.mutation.AddVoteIDs(ids...)
+	return _c
+}
+
+// AddVotes adds the "votes" edges to the Vote entity.
+func (_c *EventCreate) AddVotes(v ...*Vote) *EventCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddVoteIDs(ids...)
+}
+
 // AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by IDs.
 func (_c *EventCreate) AddDraftEditIDs(ids ...int) *EventCreate {
 	_c.mutation.AddDraftEditIDs(ids...)
@@ -705,6 +749,14 @@ func (_c *EventCreate) defaults() error {
 		v := event.DefaultSubmissionEligibility
 		_c.mutation.SetSubmissionEligibility(v)
 	}
+	if _, ok := _c.mutation.VotingMethod(); !ok {
+		v := event.DefaultVotingMethod
+		_c.mutation.SetVotingMethod(v)
+	}
+	if _, ok := _c.mutation.SelfVotePolicy(); !ok {
+		v := event.DefaultSelfVotePolicy
+		_c.mutation.SetSelfVotePolicy(v)
+	}
 	if _, ok := _c.mutation.TargetAdjustmentPresets(); !ok {
 		v := event.DefaultTargetAdjustmentPresets
 		_c.mutation.SetTargetAdjustmentPresets(v)
@@ -824,6 +876,22 @@ func (_c *EventCreate) check() error {
 	if v, ok := _c.mutation.SubmissionEligibility(); ok {
 		if err := event.SubmissionEligibilityValidator(v); err != nil {
 			return &ValidationError{Name: "submission_eligibility", err: fmt.Errorf(`ent: validator failed for field "Event.submission_eligibility": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.VotingMethod(); !ok {
+		return &ValidationError{Name: "voting_method", err: errors.New(`ent: missing required field "Event.voting_method"`)}
+	}
+	if v, ok := _c.mutation.VotingMethod(); ok {
+		if err := event.VotingMethodValidator(v); err != nil {
+			return &ValidationError{Name: "voting_method", err: fmt.Errorf(`ent: validator failed for field "Event.voting_method": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.SelfVotePolicy(); !ok {
+		return &ValidationError{Name: "self_vote_policy", err: errors.New(`ent: missing required field "Event.self_vote_policy"`)}
+	}
+	if v, ok := _c.mutation.SelfVotePolicy(); ok {
+		if err := event.SelfVotePolicyValidator(v); err != nil {
+			return &ValidationError{Name: "self_vote_policy", err: fmt.Errorf(`ent: validator failed for field "Event.self_vote_policy": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.TargetAdjustmentPresets(); !ok {
@@ -962,6 +1030,14 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.SubmissionEligibility(); ok {
 		_spec.SetField(event.FieldSubmissionEligibility, field.TypeEnum, value)
 		_node.SubmissionEligibility = value
+	}
+	if value, ok := _c.mutation.VotingMethod(); ok {
+		_spec.SetField(event.FieldVotingMethod, field.TypeEnum, value)
+		_node.VotingMethod = value
+	}
+	if value, ok := _c.mutation.SelfVotePolicy(); ok {
+		_spec.SetField(event.FieldSelfVotePolicy, field.TypeEnum, value)
+		_node.SelfVotePolicy = value
 	}
 	if value, ok := _c.mutation.TargetAdjustmentPresets(); ok {
 		_spec.SetField(event.FieldTargetAdjustmentPresets, field.TypeString, value)
@@ -1272,6 +1348,22 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(votingkey.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.VotesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.VotesTable,
+			Columns: []string{event.VotesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(vote.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

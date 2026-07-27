@@ -705,6 +705,18 @@ func (f TrackPublishedVersionFunc) Mutate(ctx context.Context, m ent.Mutation) (
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.TrackPublishedVersionMutation", m)
 }
 
+// The VoteFunc type is an adapter to allow the use of ordinary
+// function as Vote mutator.
+type VoteFunc func(context.Context, *ent.VoteMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f VoteFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.VoteMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.VoteMutation", m)
+}
+
 // The VotingEligibilityFunc type is an adapter to allow the use of ordinary
 // function as VotingEligibility mutator.
 type VotingEligibilityFunc func(context.Context, *ent.VotingEligibilityMutation) (ent.Value, error)

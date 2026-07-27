@@ -214,6 +214,10 @@ func (transaction *CommandTx) TakeCompetitionEntrySlide(
 			Save(ctx); err != nil {
 			return EntryOrderState{}, opaqueError("mark presented Entry", err)
 		}
+		updated, err = updated.Update().SetVotingRevision(updated.VotingRevision + 1).Save(ctx)
+		if err != nil {
+			return EntryOrderState{}, opaqueError("advance Competition Ballot revision", err)
+		}
 	}
 	if !presented.FirstPresentedAt.IsZero() &&
 		presented.PresentationStatus != competitionentry.PresentationStatusPresented {

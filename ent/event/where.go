@@ -740,6 +740,46 @@ func SubmissionEligibilityNotIn(vs ...SubmissionEligibility) predicate.Event {
 	return predicate.Event(sql.FieldNotIn(FieldSubmissionEligibility, vs...))
 }
 
+// VotingMethodEQ applies the EQ predicate on the "voting_method" field.
+func VotingMethodEQ(v VotingMethod) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldVotingMethod, v))
+}
+
+// VotingMethodNEQ applies the NEQ predicate on the "voting_method" field.
+func VotingMethodNEQ(v VotingMethod) predicate.Event {
+	return predicate.Event(sql.FieldNEQ(FieldVotingMethod, v))
+}
+
+// VotingMethodIn applies the In predicate on the "voting_method" field.
+func VotingMethodIn(vs ...VotingMethod) predicate.Event {
+	return predicate.Event(sql.FieldIn(FieldVotingMethod, vs...))
+}
+
+// VotingMethodNotIn applies the NotIn predicate on the "voting_method" field.
+func VotingMethodNotIn(vs ...VotingMethod) predicate.Event {
+	return predicate.Event(sql.FieldNotIn(FieldVotingMethod, vs...))
+}
+
+// SelfVotePolicyEQ applies the EQ predicate on the "self_vote_policy" field.
+func SelfVotePolicyEQ(v SelfVotePolicy) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldSelfVotePolicy, v))
+}
+
+// SelfVotePolicyNEQ applies the NEQ predicate on the "self_vote_policy" field.
+func SelfVotePolicyNEQ(v SelfVotePolicy) predicate.Event {
+	return predicate.Event(sql.FieldNEQ(FieldSelfVotePolicy, v))
+}
+
+// SelfVotePolicyIn applies the In predicate on the "self_vote_policy" field.
+func SelfVotePolicyIn(vs ...SelfVotePolicy) predicate.Event {
+	return predicate.Event(sql.FieldIn(FieldSelfVotePolicy, vs...))
+}
+
+// SelfVotePolicyNotIn applies the NotIn predicate on the "self_vote_policy" field.
+func SelfVotePolicyNotIn(vs ...SelfVotePolicy) predicate.Event {
+	return predicate.Event(sql.FieldNotIn(FieldSelfVotePolicy, vs...))
+}
+
 // TargetAdjustmentPresetsEQ applies the EQ predicate on the "target_adjustment_presets" field.
 func TargetAdjustmentPresetsEQ(v string) predicate.Event {
 	return predicate.Event(sql.FieldEQ(FieldTargetAdjustmentPresets, v))
@@ -1638,6 +1678,29 @@ func HasVotingKeys() predicate.Event {
 func HasVotingKeysWith(preds ...predicate.VotingKey) predicate.Event {
 	return predicate.Event(func(s *sql.Selector) {
 		step := newVotingKeysStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasVotes applies the HasEdge predicate on the "votes" edge.
+func HasVotes() predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, VotesTable, VotesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasVotesWith applies the HasEdge predicate on the "votes" edge with a given conditions (other predicates).
+func HasVotesWith(preds ...predicate.Vote) predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := newVotesStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

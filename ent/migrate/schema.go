@@ -734,6 +734,8 @@ var (
 		{Name: "event_day_boundary", Type: field.TypeString, Size: 5},
 		{Name: "entry_default_disposition", Type: field.TypeEnum, Enums: []string{"Pending", "Included"}, Default: "Pending"},
 		{Name: "submission_eligibility", Type: field.TypeEnum, Enums: []string{"AllAccounts", "VotingEligibleAccounts"}, Default: "AllAccounts"},
+		{Name: "voting_method", Type: field.TypeEnum, Enums: []string{"Range1To5"}, Default: "Range1To5"},
+		{Name: "self_vote_policy", Type: field.TypeEnum, Enums: []string{"Allowed", "Neutral"}, Default: "Allowed"},
 		{Name: "target_adjustment_presets", Type: field.TypeString, Size: 256, Default: "[-300,300,600]"},
 		{Name: "display_configuration", Type: field.TypeString, Size: 4096, Default: "{\"rotation_seconds\":15,\"theme\":{\"branding\":\"\",\"foreground_color\":\"#ffffff\",\"background_color\":\"#101828\",\"accent_color\":\"#1d4ed8\",\"background\":\"solid\",\"scrim_color\":\"#000000\",\"scrim_opacity\":85,\"font\":\"sans\",\"transition\":\"fade\"}}"},
 		{Name: "attachment_release_policy", Type: field.TypeEnum, Enums: []string{"OnLive", "OnEnded", "OnEventReleaseCue"}, Default: "OnEnded"},
@@ -1533,6 +1535,14 @@ var (
 		{Name: "require_entry_review", Type: field.TypeBool, Default: false},
 		{Name: "submission_eligibility_override", Type: field.TypeEnum, Nullable: true, Enums: []string{"AllAccounts", "VotingEligibleAccounts"}},
 		{Name: "submission_eligibility_revision", Type: field.TypeInt, Default: 0},
+		{Name: "voting_method_override", Type: field.TypeEnum, Nullable: true, Enums: []string{"Range1To5"}},
+		{Name: "self_vote_policy_override", Type: field.TypeEnum, Nullable: true, Enums: []string{"Allowed", "Neutral"}},
+		{Name: "voting_window_state", Type: field.TypeEnum, Enums: []string{"Unopened", "Open", "Closed"}, Default: "Unopened"},
+		{Name: "frozen_voting_method", Type: field.TypeEnum, Nullable: true, Enums: []string{"Range1To5"}},
+		{Name: "frozen_self_vote_policy", Type: field.TypeEnum, Nullable: true, Enums: []string{"Allowed", "Neutral"}},
+		{Name: "voting_revision", Type: field.TypeInt, Default: 0},
+		{Name: "voting_opened_at", Type: field.TypeTime, Nullable: true},
+		{Name: "voting_closed_at", Type: field.TypeTime, Nullable: true},
 		{Name: "file_delivery_required", Type: field.TypeBool, Nullable: true},
 		{Name: "readiness_revision", Type: field.TypeInt, Default: 0},
 		{Name: "entry_order_policy", Type: field.TypeEnum, Enums: []string{"SubmissionOrder", "ManualOrder", "DeterministicShuffle"}, Default: "DeterministicShuffle"},
@@ -1561,13 +1571,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "sessions_accounts_submitted_presentations",
-				Columns:    []*schema.Column{SessionsColumns[36]},
+				Columns:    []*schema.Column{SessionsColumns[44]},
 				RefColumns: []*schema.Column{AccountsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "sessions_events_sessions",
-				Columns:    []*schema.Column{SessionsColumns[37]},
+				Columns:    []*schema.Column{SessionsColumns[45]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -1576,7 +1586,7 @@ var (
 			{
 				Name:    "session_submitter_account_id",
 				Unique:  false,
-				Columns: []*schema.Column{SessionsColumns[36]},
+				Columns: []*schema.Column{SessionsColumns[44]},
 			},
 		},
 	}
@@ -1819,6 +1829,61 @@ var (
 				Name:    "trackpublishedversion_track_id_published_revision",
 				Unique:  true,
 				Columns: []*schema.Column{TrackPublishedVersionsColumns[5], TrackPublishedVersionsColumns[1]},
+			},
+		},
+	}
+	// VotesColumns holds the columns for the "votes" table.
+	VotesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "value", Type: field.TypeInt},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "account_id", Type: field.TypeInt},
+		{Name: "entry_id", Type: field.TypeInt},
+		{Name: "event_id", Type: field.TypeInt},
+		{Name: "competition_session_id", Type: field.TypeInt},
+	}
+	// VotesTable holds the schema information for the "votes" table.
+	VotesTable = &schema.Table{
+		Name:       "votes",
+		Columns:    VotesColumns,
+		PrimaryKey: []*schema.Column{VotesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "votes_accounts_votes",
+				Columns:    []*schema.Column{VotesColumns[4]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "votes_competition_entries_votes",
+				Columns:    []*schema.Column{VotesColumns[5]},
+				RefColumns: []*schema.Column{CompetitionEntriesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "votes_events_votes",
+				Columns:    []*schema.Column{VotesColumns[6]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "votes_sessions_votes",
+				Columns:    []*schema.Column{VotesColumns[7]},
+				RefColumns: []*schema.Column{SessionsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "vote_competition_session_id_account_id_entry_id",
+				Unique:  true,
+				Columns: []*schema.Column{VotesColumns[7], VotesColumns[4], VotesColumns[5]},
+			},
+			{
+				Name:    "vote_competition_session_id_account_id",
+				Unique:  false,
+				Columns: []*schema.Column{VotesColumns[7], VotesColumns[4]},
 			},
 		},
 	}
@@ -2137,6 +2202,7 @@ var (
 		TracksTable,
 		TrackDraftsTable,
 		TrackPublishedVersionsTable,
+		VotesTable,
 		VotingEligibilitiesTable,
 		VotingKeysTable,
 		WebAuthnCredentialsTable,
@@ -2225,6 +2291,10 @@ func init() {
 	TracksTable.ForeignKeys[0].RefTable = EventsTable
 	TrackDraftsTable.ForeignKeys[0].RefTable = TracksTable
 	TrackPublishedVersionsTable.ForeignKeys[0].RefTable = TracksTable
+	VotesTable.ForeignKeys[0].RefTable = AccountsTable
+	VotesTable.ForeignKeys[1].RefTable = CompetitionEntriesTable
+	VotesTable.ForeignKeys[2].RefTable = EventsTable
+	VotesTable.ForeignKeys[3].RefTable = SessionsTable
 	VotingEligibilitiesTable.ForeignKeys[0].RefTable = AccountsTable
 	VotingEligibilitiesTable.ForeignKeys[1].RefTable = EventsTable
 	VotingKeysTable.ForeignKeys[0].RefTable = AccountsTable

@@ -56,6 +56,22 @@ const (
 	FieldSubmissionEligibilityOverride = "submission_eligibility_override"
 	// FieldSubmissionEligibilityRevision holds the string denoting the submission_eligibility_revision field in the database.
 	FieldSubmissionEligibilityRevision = "submission_eligibility_revision"
+	// FieldVotingMethodOverride holds the string denoting the voting_method_override field in the database.
+	FieldVotingMethodOverride = "voting_method_override"
+	// FieldSelfVotePolicyOverride holds the string denoting the self_vote_policy_override field in the database.
+	FieldSelfVotePolicyOverride = "self_vote_policy_override"
+	// FieldVotingWindowState holds the string denoting the voting_window_state field in the database.
+	FieldVotingWindowState = "voting_window_state"
+	// FieldFrozenVotingMethod holds the string denoting the frozen_voting_method field in the database.
+	FieldFrozenVotingMethod = "frozen_voting_method"
+	// FieldFrozenSelfVotePolicy holds the string denoting the frozen_self_vote_policy field in the database.
+	FieldFrozenSelfVotePolicy = "frozen_self_vote_policy"
+	// FieldVotingRevision holds the string denoting the voting_revision field in the database.
+	FieldVotingRevision = "voting_revision"
+	// FieldVotingOpenedAt holds the string denoting the voting_opened_at field in the database.
+	FieldVotingOpenedAt = "voting_opened_at"
+	// FieldVotingClosedAt holds the string denoting the voting_closed_at field in the database.
+	FieldVotingClosedAt = "voting_closed_at"
 	// FieldFileDeliveryRequired holds the string denoting the file_delivery_required field in the database.
 	FieldFileDeliveryRequired = "file_delivery_required"
 	// FieldReadinessRevision holds the string denoting the readiness_revision field in the database.
@@ -112,6 +128,8 @@ const (
 	EdgeCompetitionResultsDrafts = "competition_results_drafts"
 	// EdgeCompetitionResultStandings holds the string denoting the competition_result_standings edge name in mutations.
 	EdgeCompetitionResultStandings = "competition_result_standings"
+	// EdgeVotes holds the string denoting the votes edge name in mutations.
+	EdgeVotes = "votes"
 	// EdgePrizegiving holds the string denoting the prizegiving edge name in mutations.
 	EdgePrizegiving = "prizegiving"
 	// EdgePrizegivingAssignment holds the string denoting the prizegiving_assignment edge name in mutations.
@@ -195,6 +213,13 @@ const (
 	CompetitionResultStandingsInverseTable = "competition_result_standings"
 	// CompetitionResultStandingsColumn is the table column denoting the competition_result_standings relation/edge.
 	CompetitionResultStandingsColumn = "competition_session_id"
+	// VotesTable is the table that holds the votes relation/edge.
+	VotesTable = "votes"
+	// VotesInverseTable is the table name for the Vote entity.
+	// It exists in this package in order to avoid circular dependency with the "vote" package.
+	VotesInverseTable = "votes"
+	// VotesColumn is the table column denoting the votes relation/edge.
+	VotesColumn = "competition_session_id"
 	// PrizegivingTable is the table that holds the prizegiving relation/edge.
 	PrizegivingTable = "prizegivings"
 	// PrizegivingInverseTable is the table name for the Prizegiving entity.
@@ -234,6 +259,14 @@ var Columns = []string{
 	FieldRequireEntryReview,
 	FieldSubmissionEligibilityOverride,
 	FieldSubmissionEligibilityRevision,
+	FieldVotingMethodOverride,
+	FieldSelfVotePolicyOverride,
+	FieldVotingWindowState,
+	FieldFrozenVotingMethod,
+	FieldFrozenSelfVotePolicy,
+	FieldVotingRevision,
+	FieldVotingOpenedAt,
+	FieldVotingClosedAt,
 	FieldFileDeliveryRequired,
 	FieldReadinessRevision,
 	FieldEntryOrderPolicy,
@@ -297,6 +330,10 @@ var (
 	DefaultSubmissionEligibilityRevision int
 	// SubmissionEligibilityRevisionValidator is a validator for the "submission_eligibility_revision" field. It is called by the builders before save.
 	SubmissionEligibilityRevisionValidator func(int) error
+	// DefaultVotingRevision holds the default value on creation for the "voting_revision" field.
+	DefaultVotingRevision int
+	// VotingRevisionValidator is a validator for the "voting_revision" field. It is called by the builders before save.
+	VotingRevisionValidator func(int) error
 	// DefaultReadinessRevision holds the default value on creation for the "readiness_revision" field.
 	DefaultReadinessRevision int
 	// ReadinessRevisionValidator is a validator for the "readiness_revision" field. It is called by the builders before save.
@@ -373,6 +410,123 @@ func SubmissionEligibilityOverrideValidator(seo SubmissionEligibilityOverride) e
 		return nil
 	default:
 		return fmt.Errorf("session: invalid enum value for submission_eligibility_override field: %q", seo)
+	}
+}
+
+// VotingMethodOverride defines the type for the "voting_method_override" enum field.
+type VotingMethodOverride string
+
+// VotingMethodOverride values.
+const (
+	VotingMethodOverrideRange1To5 VotingMethodOverride = "Range1To5"
+)
+
+func (vmo VotingMethodOverride) String() string {
+	return string(vmo)
+}
+
+// VotingMethodOverrideValidator is a validator for the "voting_method_override" field enum values. It is called by the builders before save.
+func VotingMethodOverrideValidator(vmo VotingMethodOverride) error {
+	switch vmo {
+	case VotingMethodOverrideRange1To5:
+		return nil
+	default:
+		return fmt.Errorf("session: invalid enum value for voting_method_override field: %q", vmo)
+	}
+}
+
+// SelfVotePolicyOverride defines the type for the "self_vote_policy_override" enum field.
+type SelfVotePolicyOverride string
+
+// SelfVotePolicyOverride values.
+const (
+	SelfVotePolicyOverrideAllowed SelfVotePolicyOverride = "Allowed"
+	SelfVotePolicyOverrideNeutral SelfVotePolicyOverride = "Neutral"
+)
+
+func (svpo SelfVotePolicyOverride) String() string {
+	return string(svpo)
+}
+
+// SelfVotePolicyOverrideValidator is a validator for the "self_vote_policy_override" field enum values. It is called by the builders before save.
+func SelfVotePolicyOverrideValidator(svpo SelfVotePolicyOverride) error {
+	switch svpo {
+	case SelfVotePolicyOverrideAllowed, SelfVotePolicyOverrideNeutral:
+		return nil
+	default:
+		return fmt.Errorf("session: invalid enum value for self_vote_policy_override field: %q", svpo)
+	}
+}
+
+// VotingWindowState defines the type for the "voting_window_state" enum field.
+type VotingWindowState string
+
+// VotingWindowStateUnopened is the default value of the VotingWindowState enum.
+const DefaultVotingWindowState = VotingWindowStateUnopened
+
+// VotingWindowState values.
+const (
+	VotingWindowStateUnopened VotingWindowState = "Unopened"
+	VotingWindowStateOpen     VotingWindowState = "Open"
+	VotingWindowStateClosed   VotingWindowState = "Closed"
+)
+
+func (vws VotingWindowState) String() string {
+	return string(vws)
+}
+
+// VotingWindowStateValidator is a validator for the "voting_window_state" field enum values. It is called by the builders before save.
+func VotingWindowStateValidator(vws VotingWindowState) error {
+	switch vws {
+	case VotingWindowStateUnopened, VotingWindowStateOpen, VotingWindowStateClosed:
+		return nil
+	default:
+		return fmt.Errorf("session: invalid enum value for voting_window_state field: %q", vws)
+	}
+}
+
+// FrozenVotingMethod defines the type for the "frozen_voting_method" enum field.
+type FrozenVotingMethod string
+
+// FrozenVotingMethod values.
+const (
+	FrozenVotingMethodRange1To5 FrozenVotingMethod = "Range1To5"
+)
+
+func (fvm FrozenVotingMethod) String() string {
+	return string(fvm)
+}
+
+// FrozenVotingMethodValidator is a validator for the "frozen_voting_method" field enum values. It is called by the builders before save.
+func FrozenVotingMethodValidator(fvm FrozenVotingMethod) error {
+	switch fvm {
+	case FrozenVotingMethodRange1To5:
+		return nil
+	default:
+		return fmt.Errorf("session: invalid enum value for frozen_voting_method field: %q", fvm)
+	}
+}
+
+// FrozenSelfVotePolicy defines the type for the "frozen_self_vote_policy" enum field.
+type FrozenSelfVotePolicy string
+
+// FrozenSelfVotePolicy values.
+const (
+	FrozenSelfVotePolicyAllowed FrozenSelfVotePolicy = "Allowed"
+	FrozenSelfVotePolicyNeutral FrozenSelfVotePolicy = "Neutral"
+)
+
+func (fsvp FrozenSelfVotePolicy) String() string {
+	return string(fsvp)
+}
+
+// FrozenSelfVotePolicyValidator is a validator for the "frozen_self_vote_policy" field enum values. It is called by the builders before save.
+func FrozenSelfVotePolicyValidator(fsvp FrozenSelfVotePolicy) error {
+	switch fsvp {
+	case FrozenSelfVotePolicyAllowed, FrozenSelfVotePolicyNeutral:
+		return nil
+	default:
+		return fmt.Errorf("session: invalid enum value for frozen_self_vote_policy field: %q", fsvp)
 	}
 }
 
@@ -553,6 +707,46 @@ func BySubmissionEligibilityOverride(opts ...sql.OrderTermOption) OrderOption {
 // BySubmissionEligibilityRevision orders the results by the submission_eligibility_revision field.
 func BySubmissionEligibilityRevision(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSubmissionEligibilityRevision, opts...).ToFunc()
+}
+
+// ByVotingMethodOverride orders the results by the voting_method_override field.
+func ByVotingMethodOverride(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldVotingMethodOverride, opts...).ToFunc()
+}
+
+// BySelfVotePolicyOverride orders the results by the self_vote_policy_override field.
+func BySelfVotePolicyOverride(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSelfVotePolicyOverride, opts...).ToFunc()
+}
+
+// ByVotingWindowState orders the results by the voting_window_state field.
+func ByVotingWindowState(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldVotingWindowState, opts...).ToFunc()
+}
+
+// ByFrozenVotingMethod orders the results by the frozen_voting_method field.
+func ByFrozenVotingMethod(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFrozenVotingMethod, opts...).ToFunc()
+}
+
+// ByFrozenSelfVotePolicy orders the results by the frozen_self_vote_policy field.
+func ByFrozenSelfVotePolicy(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFrozenSelfVotePolicy, opts...).ToFunc()
+}
+
+// ByVotingRevision orders the results by the voting_revision field.
+func ByVotingRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldVotingRevision, opts...).ToFunc()
+}
+
+// ByVotingOpenedAt orders the results by the voting_opened_at field.
+func ByVotingOpenedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldVotingOpenedAt, opts...).ToFunc()
+}
+
+// ByVotingClosedAt orders the results by the voting_closed_at field.
+func ByVotingClosedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldVotingClosedAt, opts...).ToFunc()
 }
 
 // ByFileDeliveryRequired orders the results by the file_delivery_required field.
@@ -751,6 +945,20 @@ func ByCompetitionResultStandings(term sql.OrderTerm, terms ...sql.OrderTerm) Or
 	}
 }
 
+// ByVotesCount orders the results by votes count.
+func ByVotesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newVotesStep(), opts...)
+	}
+}
+
+// ByVotes orders the results by votes terms.
+func ByVotes(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newVotesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByPrizegivingField orders the results by prizegiving field.
 func ByPrizegivingField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -839,6 +1047,13 @@ func newCompetitionResultStandingsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(CompetitionResultStandingsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, CompetitionResultStandingsTable, CompetitionResultStandingsColumn),
+	)
+}
+func newVotesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(VotesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, VotesTable, VotesColumn),
 	)
 }
 func newPrizegivingStep() *sqlgraph.Step {

@@ -38,6 +38,10 @@ const (
 	FieldEntryDefaultDisposition = "entry_default_disposition"
 	// FieldSubmissionEligibility holds the string denoting the submission_eligibility field in the database.
 	FieldSubmissionEligibility = "submission_eligibility"
+	// FieldVotingMethod holds the string denoting the voting_method field in the database.
+	FieldVotingMethod = "voting_method"
+	// FieldSelfVotePolicy holds the string denoting the self_vote_policy field in the database.
+	FieldSelfVotePolicy = "self_vote_policy"
 	// FieldTargetAdjustmentPresets holds the string denoting the target_adjustment_presets field in the database.
 	FieldTargetAdjustmentPresets = "target_adjustment_presets"
 	// FieldDisplayConfiguration holds the string denoting the display_configuration field in the database.
@@ -94,6 +98,8 @@ const (
 	EdgeVotingEligibilities = "voting_eligibilities"
 	// EdgeVotingKeys holds the string denoting the voting_keys edge name in mutations.
 	EdgeVotingKeys = "voting_keys"
+	// EdgeVotes holds the string denoting the votes edge name in mutations.
+	EdgeVotes = "votes"
 	// EdgeDraftEdits holds the string denoting the draft_edits edge name in mutations.
 	EdgeDraftEdits = "draft_edits"
 	// EdgeDraftChanges holds the string denoting the draft_changes edge name in mutations.
@@ -227,6 +233,13 @@ const (
 	VotingKeysInverseTable = "voting_keys"
 	// VotingKeysColumn is the table column denoting the voting_keys relation/edge.
 	VotingKeysColumn = "event_id"
+	// VotesTable is the table that holds the votes relation/edge.
+	VotesTable = "votes"
+	// VotesInverseTable is the table name for the Vote entity.
+	// It exists in this package in order to avoid circular dependency with the "vote" package.
+	VotesInverseTable = "votes"
+	// VotesColumn is the table column denoting the votes relation/edge.
+	VotesColumn = "event_id"
 	// DraftEditsTable is the table that holds the draft_edits relation/edge.
 	DraftEditsTable = "draft_edits"
 	// DraftEditsInverseTable is the table name for the DraftEdit entity.
@@ -285,6 +298,8 @@ var Columns = []string{
 	FieldEventDayBoundary,
 	FieldEntryDefaultDisposition,
 	FieldSubmissionEligibility,
+	FieldVotingMethod,
+	FieldSelfVotePolicy,
 	FieldTargetAdjustmentPresets,
 	FieldDisplayConfiguration,
 	FieldAttachmentReleasePolicy,
@@ -418,6 +433,57 @@ func SubmissionEligibilityValidator(se SubmissionEligibility) error {
 	}
 }
 
+// VotingMethod defines the type for the "voting_method" enum field.
+type VotingMethod string
+
+// VotingMethodRange1To5 is the default value of the VotingMethod enum.
+const DefaultVotingMethod = VotingMethodRange1To5
+
+// VotingMethod values.
+const (
+	VotingMethodRange1To5 VotingMethod = "Range1To5"
+)
+
+func (vm VotingMethod) String() string {
+	return string(vm)
+}
+
+// VotingMethodValidator is a validator for the "voting_method" field enum values. It is called by the builders before save.
+func VotingMethodValidator(vm VotingMethod) error {
+	switch vm {
+	case VotingMethodRange1To5:
+		return nil
+	default:
+		return fmt.Errorf("event: invalid enum value for voting_method field: %q", vm)
+	}
+}
+
+// SelfVotePolicy defines the type for the "self_vote_policy" enum field.
+type SelfVotePolicy string
+
+// SelfVotePolicyAllowed is the default value of the SelfVotePolicy enum.
+const DefaultSelfVotePolicy = SelfVotePolicyAllowed
+
+// SelfVotePolicy values.
+const (
+	SelfVotePolicyAllowed SelfVotePolicy = "Allowed"
+	SelfVotePolicyNeutral SelfVotePolicy = "Neutral"
+)
+
+func (svp SelfVotePolicy) String() string {
+	return string(svp)
+}
+
+// SelfVotePolicyValidator is a validator for the "self_vote_policy" field enum values. It is called by the builders before save.
+func SelfVotePolicyValidator(svp SelfVotePolicy) error {
+	switch svp {
+	case SelfVotePolicyAllowed, SelfVotePolicyNeutral:
+		return nil
+	default:
+		return fmt.Errorf("event: invalid enum value for self_vote_policy field: %q", svp)
+	}
+}
+
 // AttachmentReleasePolicy defines the type for the "attachment_release_policy" enum field.
 type AttachmentReleasePolicy string
 
@@ -506,6 +572,16 @@ func ByEntryDefaultDisposition(opts ...sql.OrderTermOption) OrderOption {
 // BySubmissionEligibility orders the results by the submission_eligibility field.
 func BySubmissionEligibility(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSubmissionEligibility, opts...).ToFunc()
+}
+
+// ByVotingMethod orders the results by the voting_method field.
+func ByVotingMethod(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldVotingMethod, opts...).ToFunc()
+}
+
+// BySelfVotePolicy orders the results by the self_vote_policy field.
+func BySelfVotePolicy(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSelfVotePolicy, opts...).ToFunc()
 }
 
 // ByTargetAdjustmentPresets orders the results by the target_adjustment_presets field.
@@ -794,6 +870,20 @@ func ByVotingKeys(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByVotesCount orders the results by votes count.
+func ByVotesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newVotesStep(), opts...)
+	}
+}
+
+// ByVotes orders the results by votes terms.
+func ByVotes(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newVotesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByDraftEditsCount orders the results by draft_edits count.
 func ByDraftEditsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -987,6 +1077,13 @@ func newVotingKeysStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(VotingKeysInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, VotingKeysTable, VotingKeysColumn),
+	)
+}
+func newVotesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(VotesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, VotesTable, VotesColumn),
 	)
 }
 func newDraftEditsStep() *sqlgraph.Step {

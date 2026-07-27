@@ -15,6 +15,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/ent/vote"
 )
 
 // CompetitionEntryCreate is the builder for creating a CompetitionEntry entity.
@@ -362,6 +363,21 @@ func (_c *CompetitionEntryCreate) AddResultStandings(v ...*CompetitionResultStan
 		ids[i] = v[i].ID
 	}
 	return _c.AddResultStandingIDs(ids...)
+}
+
+// AddVoteIDs adds the "votes" edge to the Vote entity by IDs.
+func (_c *CompetitionEntryCreate) AddVoteIDs(ids ...int) *CompetitionEntryCreate {
+	_c.mutation.AddVoteIDs(ids...)
+	return _c
+}
+
+// AddVotes adds the "votes" edges to the Vote entity.
+func (_c *CompetitionEntryCreate) AddVotes(v ...*Vote) *CompetitionEntryCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddVoteIDs(ids...)
 }
 
 // Mutation returns the CompetitionEntryMutation object of the builder.
@@ -717,6 +733,22 @@ func (_c *CompetitionEntryCreate) createSpec() (*CompetitionEntry, *sqlgraph.Cre
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(competitionresultstanding.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.VotesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   competitionentry.VotesTable,
+			Columns: []string{competitionentry.VotesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(vote.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

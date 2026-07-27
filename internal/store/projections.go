@@ -16,6 +16,8 @@ func eventProjection(found *ent.Event) Event {
 		EventDayBoundary:        found.EventDayBoundary,
 		EntryDefaultDisposition: string(found.EntryDefaultDisposition),
 		SubmissionEligibility:   string(found.SubmissionEligibility),
+		VotingMethod:            string(found.VotingMethod),
+		SelfVotePolicy:          string(found.SelfVotePolicy),
 		TargetAdjustmentPresets: found.TargetAdjustmentPresets,
 		Revision:                found.Revision,
 	}

@@ -3,12 +3,14 @@ package server
 import (
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/frontend"
 	"github.com/dotwaffle/beamers/internal/voting"
@@ -19,6 +21,7 @@ type votingHandlers struct {
 	events  *events.Service
 	voting  *voting.Service
 	limiter *authFailureLimiter
+	stream  *displaystream.Hub
 }
 
 func registerVotingRoutes(
@@ -27,23 +30,33 @@ func registerVotingRoutes(
 	eventService *events.Service,
 	votingService *voting.Service,
 	limiter *authFailureLimiter,
+	stream *displaystream.Hub,
 	logger *slog.Logger,
 ) {
 	handlers := votingHandlers{
 		browser: &frontendHandlers{
 			authentication: authentication, limiter: limiter, logger: logger, random: rand.Reader,
 		},
-		events: eventService, voting: votingService, limiter: limiter,
+		events: eventService, voting: votingService, limiter: limiter, stream: stream,
 	}
 	redemptionRoute := browserPageRoute()
 	redemptionRoute.maxBodyBytes = maxAuthBodyBytes
 	mux.HandleFunc("/voting", redemptionRoute, handlers.redeem)
+	mux.HandleFunc("/voting/{sessionID}", redemptionRoute, handlers.ballot)
+	streamRoute := browserPageRoute()
+	streamRoute.persistent = true
+	mux.HandleFunc("/voting/{sessionID}/events", streamRoute, handlers.ballotEvents)
 	backstageRoute := backstagePageRoute()
 	backstageRoute.maxBodyBytes = maxAuthBodyBytes
 	mux.HandleFunc(
 		"/backstage/events/{eventID}/voting-keys",
 		backstageRoute,
 		handlers.keys,
+	)
+	mux.HandleFunc(
+		"/backstage/events/{eventID}/competitions/{sessionID}/voting",
+		backstageRoute,
+		handlers.competition,
 	)
 }
 
@@ -122,6 +135,11 @@ func (handlers votingHandlers) renderRedemption(
 		handlers.browser.frontendError(response, request, "create Voting command identity", err)
 		return
 	}
+	ballots, err := handlers.voting.OpenBallots(request.Context(), actor)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "list open Ballots", err)
+		return
+	}
 	handlers.browser.render(response, request, status, frontend.VotingRedemption(
 		frontend.VotingRedemptionPage{
 			AccountName: actor.Name, CSRFToken: csrfToken,
@@ -129,6 +147,304 @@ func (handlers votingHandlers) renderRedemption(
 			Backstage: backstageAccessible(request) &&
 				backstageAvailable(backstageNavigation(actor)),
 			CommandID: commandID, EventID: eventID, Message: message, Success: success,
+			OpenBallots: ballots,
+		},
+	))
+}
+
+func (handlers votingHandlers) ballot(response http.ResponseWriter, request *http.Request) {
+	actor, ok := handlers.browser.browserAccount(response, request)
+	if !ok {
+		return
+	}
+	sessionID, sessionErr := positivePathID(request, "sessionID")
+	eventID, eventErr := strconv.Atoi(request.URL.Query().Get("event_id"))
+	if sessionErr != nil || eventErr != nil || eventID <= 0 {
+		http.NotFound(response, request)
+		return
+	}
+	csrfToken, err := handlers.browser.csrfToken(response, request)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+		return
+	}
+	switch request.Method {
+	case http.MethodGet, http.MethodHead:
+		handlers.renderBallot(response, request, actor, csrfToken, eventID, sessionID)
+	case http.MethodPost:
+		if !handlers.browser.validForm(response, request) {
+			return
+		}
+		entryID, entryErr := strconv.Atoi(request.Form.Get("entry_id"))
+		value, valueErr := strconv.Atoi(request.Form.Get("value"))
+		revision, revisionErr := strconv.Atoi(request.Form.Get("expected_revision"))
+		if entryErr != nil || valueErr != nil || revisionErr != nil {
+			http.Error(response, "Check the Vote and try again.", http.StatusUnprocessableEntity)
+			return
+		}
+		_, err = handlers.voting.Vote(request.Context(), actor, voting.VoteInput{
+			EventID: eventID, SessionID: sessionID, EntryID: entryID,
+			Value: value, ExpectedRevision: revision, CommandID: request.Form.Get("command_id"),
+		})
+		if err != nil {
+			status, message := ballotError(err)
+			http.Error(response, message, status)
+			return
+		}
+		handlers.stream.Notify()
+		http.Redirect(
+			response, request,
+			"/voting/"+strconv.Itoa(sessionID)+"?event_id="+strconv.Itoa(eventID),
+			http.StatusSeeOther,
+		)
+	default:
+		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
+	}
+}
+
+func (handlers votingHandlers) renderBallot(
+	response http.ResponseWriter,
+	request *http.Request,
+	actor auth.Account,
+	csrfToken string,
+	eventID, sessionID int,
+) {
+	cursor := handlers.stream.Cursor()
+	ballot, err := handlers.voting.Ballot(request.Context(), actor, eventID, sessionID)
+	if err != nil {
+		status, message := ballotError(err)
+		http.Error(response, message, status)
+		return
+	}
+	commandID, err := planningCommandID(handlers.browser.random)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "create Vote command identity", err)
+		return
+	}
+	handlers.browser.render(response, request, http.StatusOK, frontend.VotingBallot(
+		frontend.VotingBallotPage{
+			AccountName: actor.Name, CSRFToken: csrfToken,
+			ReducedEffects: reducedEffectsCookie(request),
+			Backstage:      backstageAccessible(request) && backstageAvailable(backstageNavigation(actor)),
+			CommandID:      commandID, Ballot: ballot,
+			StreamID: cursor.StreamID, StreamPosition: cursor.Position,
+		},
+	))
+}
+
+func ballotError(err error) (int, string) {
+	switch {
+	case errors.Is(err, voting.ErrVotingRevision):
+		return http.StatusConflict, "The Ballot changed. Review the latest Entries and try again."
+	case errors.Is(err, voting.ErrInvalidInput):
+		return http.StatusUnprocessableEntity, "Check the Vote and try again."
+	case errors.Is(err, voting.ErrVotingIneligible),
+		errors.Is(err, voting.ErrVoteUnavailable),
+		errors.Is(err, voting.ErrWindowUnavailable):
+		return http.StatusNotFound, "Ballot not found."
+	default:
+		return http.StatusInternalServerError, "Ballot unavailable."
+	}
+}
+
+func (handlers votingHandlers) ballotEvents(response http.ResponseWriter, request *http.Request) {
+	if request.Method != http.MethodGet {
+		frontendMethodNotAllowed(response, http.MethodGet)
+		return
+	}
+	actor, ok := handlers.browser.browserAccount(response, request)
+	if !ok {
+		return
+	}
+	sessionID, sessionErr := positivePathID(request, "sessionID")
+	eventID, eventErr := strconv.Atoi(request.URL.Query().Get("event_id"))
+	if sessionErr != nil || eventErr != nil || eventID <= 0 {
+		http.NotFound(response, request)
+		return
+	}
+	if _, err := handlers.voting.Ballot(
+		request.Context(), actor, eventID, sessionID,
+	); err != nil {
+		http.NotFound(response, request)
+		return
+	}
+	after, err := scheduleStreamPosition(request)
+	if err != nil {
+		http.Error(response, "invalid Ballot stream position", http.StatusBadRequest)
+		return
+	}
+	cursor := handlers.stream.Cursor()
+	streamChanged := request.URL.Query().Get("stream_id") != cursor.StreamID
+	unknownPosition := after > cursor.Position
+	incompatible := streamChanged || unknownPosition
+	if incompatible {
+		after = cursor.Position
+	}
+	subscription := handlers.stream.Subscribe(after)
+	defer subscription.Close()
+	response.Header().Set("Cache-Control", "no-store")
+	response.Header().Set("Content-Type", "text/event-stream")
+	response.Header().Set("X-Accel-Buffering", "no")
+	if err = writeDisplayHeartbeat(response); err != nil {
+		return
+	}
+	if incompatible {
+		if err = writeBallotInvalidation(response, cursor); err != nil {
+			return
+		}
+	}
+	heartbeats := time.NewTicker(displayHeartbeatInterval)
+	defer heartbeats.Stop()
+	for {
+		select {
+		case <-request.Context().Done():
+			return
+		case notification, open := <-subscription.Notifications:
+			if !open {
+				return
+			}
+			if writeBallotInvalidation(response, notification) != nil {
+				return
+			}
+		case <-heartbeats.C:
+			if writeDisplayHeartbeat(response) != nil {
+				return
+			}
+		}
+	}
+}
+
+func writeBallotInvalidation(
+	response http.ResponseWriter,
+	cursor displaystream.Cursor,
+) error {
+	return writeDisplaySSE(response, fmt.Sprintf(
+		"id: %d\nevent: ballot\ndata: refresh\n\n",
+		cursor.Position,
+	))
+}
+
+func (handlers votingHandlers) competition(response http.ResponseWriter, request *http.Request) {
+	actor, ok := handlers.browser.browserAccount(response, request)
+	if !ok {
+		return
+	}
+	eventID, eventErr := positivePathID(request, "eventID")
+	sessionID, sessionErr := positivePathID(request, "sessionID")
+	if eventErr != nil || sessionErr != nil {
+		http.NotFound(response, request)
+		return
+	}
+	if _, crew := actor.EventRoles[eventID]; !crew {
+		http.NotFound(response, request)
+		return
+	}
+	csrfToken, err := handlers.browser.csrfToken(response, request)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+		return
+	}
+	message := ""
+	status := http.StatusOK
+	if request.Method == http.MethodPost {
+		if !handlers.browser.validForm(response, request) {
+			return
+		}
+		if !actor.CanProduceEvent(eventID) {
+			http.NotFound(response, request)
+			return
+		}
+		err = handlers.submitCompetition(request, actor, eventID, sessionID)
+		if err == nil {
+			handlers.stream.Notify()
+			http.Redirect(
+				response, request,
+				"/backstage/events/"+strconv.Itoa(eventID)+"/competitions/"+
+					strconv.Itoa(sessionID)+"/voting",
+				http.StatusSeeOther,
+			)
+			return
+		}
+		status, message = ballotError(err)
+	} else if request.Method != http.MethodGet && request.Method != http.MethodHead {
+		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
+		return
+	}
+	handlers.renderCompetition(
+		response, request, actor, csrfToken, eventID, sessionID, status, message,
+	)
+}
+
+func (handlers votingHandlers) submitCompetition(
+	request *http.Request,
+	actor auth.Account,
+	eventID, sessionID int,
+) error {
+	revision, err := strconv.Atoi(request.Form.Get("expected_revision"))
+	if err != nil || revision < 0 {
+		return voting.ErrInvalidInput
+	}
+	switch request.Form.Get("action") {
+	case "configure":
+		method, policy := "", ""
+		if request.Form.Get("method_override") == "true" {
+			method = request.Form.Get("voting_method")
+		}
+		if request.Form.Get("self_vote_override") == "true" {
+			policy = request.Form.Get("self_vote_policy")
+		}
+		_, err = handlers.voting.Configure(request.Context(), actor, voting.ConfigureInput{
+			EventID: eventID, SessionID: sessionID, ExpectedRevision: revision,
+			MethodOverride: method, SelfVoteOverride: policy,
+			CommandID: request.Form.Get("command_id"),
+		})
+	case "open":
+		_, err = handlers.voting.Open(request.Context(), actor, voting.WindowInput{
+			EventID: eventID, SessionID: sessionID, ExpectedRevision: revision,
+			CommandID: request.Form.Get("command_id"),
+		})
+	case "close":
+		_, err = handlers.voting.Close(request.Context(), actor, voting.WindowInput{
+			EventID: eventID, SessionID: sessionID, ExpectedRevision: revision,
+			CommandID: request.Form.Get("command_id"),
+		})
+	default:
+		err = voting.ErrInvalidInput
+	}
+	return err
+}
+
+func (handlers votingHandlers) renderCompetition(
+	response http.ResponseWriter,
+	request *http.Request,
+	actor auth.Account,
+	csrfToken string,
+	eventID, sessionID, status int,
+	message string,
+) {
+	window, err := handlers.voting.Window(request.Context(), actor, eventID, sessionID)
+	if err != nil {
+		http.NotFound(response, request)
+		return
+	}
+	participation, err := handlers.voting.Participation(
+		request.Context(), actor, eventID, sessionID,
+	)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "read Voting participation", err)
+		return
+	}
+	commandID, err := planningCommandID(handlers.browser.random)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "create Voting command identity", err)
+		return
+	}
+	handlers.browser.render(response, request, status, frontend.CompetitionVoting(
+		frontend.CompetitionVotingPage{
+			AccountName: actor.Name, CSRFToken: csrfToken,
+			ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
+			Producer: actor.CanProduceEvent(eventID), CommandID: commandID,
+			Window: window, Participation: participation, Message: message,
 		},
 	))
 }

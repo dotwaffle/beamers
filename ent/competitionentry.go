@@ -82,9 +82,11 @@ type CompetitionEntryEdges struct {
 	Submitter *Account `json:"submitter,omitempty"`
 	// ResultStandings holds the value of the result_standings edge.
 	ResultStandings []*CompetitionResultStanding `json:"result_standings,omitempty"`
+	// Votes holds the value of the votes edge.
+	Votes []*Vote `json:"votes,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [5]bool
 }
 
 // EventOrErr returns the Event value or an error if the edge
@@ -127,6 +129,15 @@ func (e CompetitionEntryEdges) ResultStandingsOrErr() ([]*CompetitionResultStand
 		return e.ResultStandings, nil
 	}
 	return nil, &NotLoadedError{edge: "result_standings"}
+}
+
+// VotesOrErr returns the Votes value or an error if the edge
+// was not loaded in eager-loading.
+func (e CompetitionEntryEdges) VotesOrErr() ([]*Vote, error) {
+	if e.loadedTypes[4] {
+		return e.Votes, nil
+	}
+	return nil, &NotLoadedError{edge: "votes"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -333,6 +344,11 @@ func (_m *CompetitionEntry) QuerySubmitter() *AccountQuery {
 // QueryResultStandings queries the "result_standings" edge of the CompetitionEntry entity.
 func (_m *CompetitionEntry) QueryResultStandings() *CompetitionResultStandingQuery {
 	return NewCompetitionEntryClient(_m.config).QueryResultStandings(_m)
+}
+
+// QueryVotes queries the "votes" edge of the CompetitionEntry entity.
+func (_m *CompetitionEntry) QueryVotes() *VoteQuery {
+	return NewCompetitionEntryClient(_m.config).QueryVotes(_m)
 }
 
 // Update returns a builder for updating this CompetitionEntry.

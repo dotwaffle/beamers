@@ -87,11 +87,11 @@ func TestAttestedMigrationPlanUpgradesStagedSQLite(t *testing.T) {
 		t.Fatalf("plan migrations: %v", err)
 	}
 	if plan.FromVersion != 47 ||
-		plan.ToVersion != 60 ||
+		plan.ToVersion != 61 ||
 		plan.Safety != MigrationDestructive ||
-		plan.MinimumReaderSchemaVersion != 60 ||
-		plan.MinimumWriterSchemaVersion != 60 ||
-		len(plan.Migrations) != 13 ||
+		plan.MinimumReaderSchemaVersion != 61 ||
+		plan.MinimumWriterSchemaVersion != 61 ||
+		len(plan.Migrations) != 14 ||
 		plan.Migrations[0].Version != 48 ||
 		plan.Migrations[1].Version != 49 ||
 		plan.Migrations[2].Version != 50 ||
@@ -104,7 +104,8 @@ func TestAttestedMigrationPlanUpgradesStagedSQLite(t *testing.T) {
 		plan.Migrations[9].Version != 57 ||
 		plan.Migrations[10].Version != 58 ||
 		plan.Migrations[11].Version != 59 ||
-		plan.Migrations[12].Version != 60 {
+		plan.Migrations[12].Version != 60 ||
+		plan.Migrations[13].Version != 61 {
 		t.Fatalf("migration plan = %+v", plan)
 	}
 
@@ -130,13 +131,13 @@ func TestAttestedMigrationPlanUpgradesStagedSQLite(t *testing.T) {
 		ctx,
 		"SELECT safety, minimum_reader_schema_version, "+
 			"minimum_writer_schema_version FROM beamers_schema_migrations "+
-			"WHERE version = 60",
+			"WHERE version = 61",
 	).Scan(&safety, &minimumReader, &minimumWriter); err != nil {
 		t.Fatalf("read migration contract: %v", err)
 	}
 	if safety != string(MigrationNonDestructive) ||
-		minimumReader != 60 ||
-		minimumWriter != 60 {
+		minimumReader != 61 ||
+		minimumWriter != 61 {
 		t.Fatalf(
 			"migration contract = %q/%d/%d",
 			safety,
@@ -294,13 +295,13 @@ func TestDeclaredForwardWriterRangeAllowsNewerSchema(t *testing.T) {
 		"INSERT INTO beamers_schema_migrations "+
 			"(version, name, checksum, safety, minimum_reader_schema_version, "+
 			"minimum_writer_schema_version, applied_at) "+
-			"VALUES (61, 'future_addition', printf('%064d', 1), "+
-			"'NonDestructive', 60, 60, CURRENT_TIMESTAMP)",
+			"VALUES (62, 'future_addition', printf('%064d', 1), "+
+			"'NonDestructive', 61, 61, CURRENT_TIMESTAMP)",
 	); err != nil {
 		_ = database.Close()
 		t.Fatalf("record future migration: %v", err)
 	}
-	if _, err = database.ExecContext(t.Context(), "PRAGMA user_version = 61"); err != nil {
+	if _, err = database.ExecContext(t.Context(), "PRAGMA user_version = 62"); err != nil {
 		_ = database.Close()
 		t.Fatalf("set future schema version: %v", err)
 	}
@@ -320,8 +321,8 @@ func TestDeclaredForwardWriterRangeAllowsNewerSchema(t *testing.T) {
 	if err = installation.StartupError(); err != nil {
 		t.Fatalf("forward-compatible startup: %v", err)
 	}
-	if installation.SchemaVersion() != 61 {
-		t.Fatalf("opened schema version = %d, want 61", installation.SchemaVersion())
+	if installation.SchemaVersion() != 62 {
+		t.Fatalf("opened schema version = %d, want 62", installation.SchemaVersion())
 	}
 }
 

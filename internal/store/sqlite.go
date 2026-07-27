@@ -208,6 +208,14 @@ var migrationContracts = map[int]migrationContract{
 		minimumWriter: 60,
 		consequence:   "adds protected single-use Event Voting Keys",
 	},
+	61: {
+		name:          "add_competition_ballots",
+		checksum:      "3312375a678484242faac6469a6ab4efa8bd58c181365b9f68dc51539804bf81",
+		safety:        MigrationNonDestructive,
+		minimumReader: 61,
+		minimumWriter: 61,
+		consequence:   "adds frozen Competition Voting Windows and private Account Ballots",
+	},
 }
 
 // MigrationStep is one exact committed migration in an upgrade plan.

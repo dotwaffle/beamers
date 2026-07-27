@@ -55,6 +55,8 @@ const (
 	EdgeVotingEligibilities = "voting_eligibilities"
 	// EdgeRedeemedVotingKeys holds the string denoting the redeemed_voting_keys edge name in mutations.
 	EdgeRedeemedVotingKeys = "redeemed_voting_keys"
+	// EdgeVotes holds the string denoting the votes edge name in mutations.
+	EdgeVotes = "votes"
 	// EdgeAuditEntries holds the string denoting the audit_entries edge name in mutations.
 	EdgeAuditEntries = "audit_entries"
 	// EdgeCommandReceipts holds the string denoting the command_receipts edge name in mutations.
@@ -161,6 +163,13 @@ const (
 	RedeemedVotingKeysInverseTable = "voting_keys"
 	// RedeemedVotingKeysColumn is the table column denoting the redeemed_voting_keys relation/edge.
 	RedeemedVotingKeysColumn = "redeemed_by_account_id"
+	// VotesTable is the table that holds the votes relation/edge.
+	VotesTable = "votes"
+	// VotesInverseTable is the table name for the Vote entity.
+	// It exists in this package in order to avoid circular dependency with the "vote" package.
+	VotesInverseTable = "votes"
+	// VotesColumn is the table column denoting the votes relation/edge.
+	VotesColumn = "account_id"
 	// AuditEntriesTable is the table that holds the audit_entries relation/edge.
 	AuditEntriesTable = "audit_entries"
 	// AuditEntriesInverseTable is the table name for the AuditEntry entity.
@@ -429,6 +438,20 @@ func ByRedeemedVotingKeys(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOptio
 	}
 }
 
+// ByVotesCount orders the results by votes count.
+func ByVotesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newVotesStep(), opts...)
+	}
+}
+
+// ByVotes orders the results by votes terms.
+func ByVotes(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newVotesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByAuditEntriesCount orders the results by audit_entries count.
 func ByAuditEntriesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -566,6 +589,13 @@ func newRedeemedVotingKeysStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(RedeemedVotingKeysInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, RedeemedVotingKeysTable, RedeemedVotingKeysColumn),
+	)
+}
+func newVotesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(VotesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, VotesTable, VotesColumn),
 	)
 }
 func newAuditEntriesStep() *sqlgraph.Step {

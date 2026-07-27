@@ -1570,11 +1570,16 @@ func newResultRPCInvoker(
 	if err != nil {
 		t.Fatalf("create Program stream: %v", err)
 	}
+	votingStream, err := displaystream.New("result-rpc-voting", 1)
+	if err != nil {
+		t.Fatalf("create Voting stream: %v", err)
+	}
 	handler, err := programconnect.NewHandler(
 		programService,
 		displayService,
 		displayStream,
 		programStream,
+		votingStream,
 	)
 	if err != nil {
 		t.Fatalf("create Program Connect handler: %v", err)

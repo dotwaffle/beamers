@@ -342,6 +342,10 @@ func TestTakeCompetitionEntrySlideLocksRunOrderAndPresentation(t *testing.T) {
 	if !presented.FirstPresentedAt.Equal(now) {
 		t.Fatalf("first presented at = %v, want %v", presented.FirstPresentedAt, now)
 	}
+	competition = client.Session.GetX(fixtureContext, competition.ID)
+	if competition.VotingRevision != 1 {
+		t.Fatalf("Voting revision = %d, want 1", competition.VotingRevision)
+	}
 	lockedPreview, lockedFingerprint, err := installation.LoadCompetitionEntryOrder(
 		producerContext, event.ID, competition.ID,
 	)
@@ -363,6 +367,10 @@ func TestTakeCompetitionEntrySlideLocksRunOrderAndPresentation(t *testing.T) {
 		t.Fatalf("commit second Entry Slide Take: %v", err)
 	}
 	first = client.CompetitionEntry.GetX(fixtureContext, first.ID)
+	competition = client.Session.GetX(fixtureContext, competition.ID)
+	if competition.VotingRevision != 2 {
+		t.Fatalf("Voting revision = %d, want 2", competition.VotingRevision)
+	}
 	disposition, err := installation.BeginCommand(producerContext)
 	if err != nil {
 		t.Fatalf("begin presented Entry disposition: %v", err)

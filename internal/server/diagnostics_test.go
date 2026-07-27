@@ -80,6 +80,7 @@ func TestDiagnosticsRetainIndependentComponentsWhenStorageFails(t *testing.T) {
 		2,
 		3,
 		4,
+		5,
 		scheduleStreamMetricSnapshot{Connections: 5, Resnapshots: 6},
 		true,
 		nil,
@@ -93,6 +94,7 @@ func TestDiagnosticsRetainIndependentComponentsWhenStorageFails(t *testing.T) {
 		found.Streams.Display.Subscribers != 2 ||
 		found.Streams.Program.Subscribers != 3 ||
 		found.Streams.Schedule.Subscribers != 4 ||
+		found.Streams.Voting.Subscribers != 5 ||
 		found.Streams.Schedule.Connections != 5 ||
 		found.Streams.Schedule.Resnapshots != 6 ||
 		found.Telemetry.Status != "enabled" {
@@ -107,8 +109,10 @@ func TestDiagnosticsReportScheduleReadersSeparately(t *testing.T) {
 	)
 	display := displayStream.SubscribeDisplay(0, 7)
 	schedule := application.config.ScheduleStream.Subscribe(0)
+	voting := application.config.VotingStream.Subscribe(0)
 	t.Cleanup(display.Close)
 	t.Cleanup(schedule.Close)
+	t.Cleanup(voting.Close)
 	scheduleCursor := application.config.ScheduleStream.Cursor()
 	displayStream.Notify()
 	if current := application.config.ScheduleStream.Cursor(); current != scheduleCursor {
@@ -125,7 +129,8 @@ func TestDiagnosticsReportScheduleReadersSeparately(t *testing.T) {
 		t.Fatalf("decode diagnostics: %v", err)
 	}
 	if found.Streams.Display.Subscribers != 1 ||
-		found.Streams.Schedule.Subscribers != 1 {
+		found.Streams.Schedule.Subscribers != 1 ||
+		found.Streams.Voting.Subscribers != 1 {
 		t.Fatalf("stream diagnostics = %+v", found.Streams)
 	}
 }
@@ -146,6 +151,7 @@ func TestDiagnosticsWarnBeyondTestedCapacityWithoutRefusal(t *testing.T) {
 		nil,
 		252,
 		251,
+		0,
 		0,
 		0,
 		scheduleStreamMetricSnapshot{},

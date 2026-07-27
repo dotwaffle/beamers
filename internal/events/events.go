@@ -72,6 +72,8 @@ type Event struct {
 	Revision                       int    `json:"revision"`
 	EntryDefaultDisposition        string `json:"-"`
 	SubmissionEligibility          string `json:"-"`
+	VotingMethod                   string `json:"-"`
+	SelfVotePolicy                 string `json:"-"`
 	TargetAdjustmentPresetsSeconds []int  `json:"-"`
 }
 
@@ -88,6 +90,8 @@ type CreateInput struct {
 	EventDayBoundary               string `json:"event_day_boundary"`
 	EntryDefaultDisposition        string `json:"entry_default_disposition,omitempty"`
 	SubmissionEligibility          string `json:"submission_eligibility,omitempty"`
+	VotingMethod                   string `json:"voting_method,omitempty"`
+	SelfVotePolicy                 string `json:"self_vote_policy,omitempty"`
 	TargetAdjustmentPresetsSeconds []int  `json:"target_adjustment_presets_seconds,omitempty"`
 	CommandID                      string `json:"command_id"`
 	ExpectedRevision               int    `json:"expected_revision,omitempty"`
@@ -199,6 +203,8 @@ func (service *Service) Create(
 				ContentLanguage: normalized.ContentLanguage, EventDayBoundary: normalized.EventDayBoundary,
 				EntryDefaultDisposition:        normalized.EntryDefaultDisposition,
 				SubmissionEligibility:          normalized.SubmissionEligibility,
+				VotingMethod:                   normalized.VotingMethod,
+				SelfVotePolicy:                 normalized.SelfVotePolicy,
 				TargetAdjustmentPresetsSeconds: normalized.TargetAdjustmentPresetsSeconds,
 				Now:                            identity.Now,
 				CommandID:                      input.CommandID,
@@ -466,6 +472,8 @@ func (service *Service) Update(
 				ContentLanguage: normalized.ContentLanguage, EventDayBoundary: normalized.EventDayBoundary,
 				EntryDefaultDisposition:        normalized.EntryDefaultDisposition,
 				SubmissionEligibility:          normalized.SubmissionEligibility,
+				VotingMethod:                   normalized.VotingMethod,
+				SelfVotePolicy:                 normalized.SelfVotePolicy,
 				TargetAdjustmentPresetsSeconds: normalized.TargetAdjustmentPresetsSeconds,
 				Now:                            identity.Now,
 				CommandID:                      input.CommandID, PayloadHash: eventPayloadHash(normalized, input.ExpectedRevision),
@@ -689,6 +697,18 @@ func ValidateCreateInput(input CreateInput) (CreateInput, error) {
 			"must be AllAccounts or VotingEligibleAccounts",
 		)
 	}
+	if input.VotingMethod == "" {
+		input.VotingMethod = "Range1To5"
+	}
+	if input.VotingMethod != "Range1To5" {
+		return CreateInput{}, invalid("voting_method", "must be Range1To5")
+	}
+	if input.SelfVotePolicy == "" {
+		input.SelfVotePolicy = "Allowed"
+	}
+	if input.SelfVotePolicy != "Allowed" && input.SelfVotePolicy != "Neutral" {
+		return CreateInput{}, invalid("self_vote_policy", "must be Allowed or Neutral")
+	}
 	if len(input.TargetAdjustmentPresetsSeconds) > 12 {
 		return CreateInput{}, invalid("target_adjustment_presets_seconds", "must contain no more than 12 presets")
 	}
@@ -793,6 +813,8 @@ func event(found store.Event) (Event, error) {
 		ContentLanguage: found.ContentLanguage, EventDayBoundary: found.EventDayBoundary,
 		Revision: found.Revision, EntryDefaultDisposition: found.EntryDefaultDisposition,
 		SubmissionEligibility:          found.SubmissionEligibility,
+		VotingMethod:                   found.VotingMethod,
+		SelfVotePolicy:                 found.SelfVotePolicy,
 		TargetAdjustmentPresetsSeconds: targetAdjustmentPresets,
 	}, nil
 }
@@ -951,6 +973,12 @@ func eventPayloadHash(input CreateInput, expectedRevision int) string {
 	if input.SubmissionEligibility != "" &&
 		input.SubmissionEligibility != "AllAccounts" {
 		parts = append(parts, "submission_eligibility="+input.SubmissionEligibility)
+	}
+	if input.VotingMethod != "" && input.VotingMethod != "Range1To5" {
+		parts = append(parts, "voting_method="+input.VotingMethod)
+	}
+	if input.SelfVotePolicy != "" && input.SelfVotePolicy != "Allowed" {
+		parts = append(parts, "self_vote_policy="+input.SelfVotePolicy)
 	}
 	return command.PayloadHash(parts...)
 }

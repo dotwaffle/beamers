@@ -56,6 +56,28 @@ func (Session) Fields() []ent.Field {
 			Optional().
 			Nillable(),
 		field.Int("submission_eligibility_revision").Default(0).NonNegative(),
+		field.Enum("voting_method_override").
+			Values("Range1To5").
+			Optional().
+			Nillable(),
+		field.Enum("self_vote_policy_override").
+			Values("Allowed", "Neutral").
+			Optional().
+			Nillable(),
+		field.Enum("voting_window_state").
+			Values("Unopened", "Open", "Closed").
+			Default("Unopened"),
+		field.Enum("frozen_voting_method").
+			Values("Range1To5").
+			Optional().
+			Nillable(),
+		field.Enum("frozen_self_vote_policy").
+			Values("Allowed", "Neutral").
+			Optional().
+			Nillable(),
+		field.Int("voting_revision").Default(0).NonNegative(),
+		field.Time("voting_opened_at").Optional(),
+		field.Time("voting_closed_at").Optional(),
 		field.Bool("file_delivery_required").Optional().Nillable(),
 		field.Int("readiness_revision").Default(0).NonNegative(),
 		field.Enum("entry_order_policy").
@@ -105,6 +127,7 @@ func (Session) Edges() []ent.Edge {
 		edge.To("competition_entries", CompetitionEntry.Type),
 		edge.To("competition_results_drafts", CompetitionResultsDraft.Type),
 		edge.To("competition_result_standings", CompetitionResultStanding.Type),
+		edge.To("votes", Vote.Type),
 		edge.To("prizegiving", Prizegiving.Type).Unique(),
 		edge.To("prizegiving_assignment", PrizegivingCompetition.Type).Unique(),
 	}

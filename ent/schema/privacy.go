@@ -902,6 +902,7 @@ func allowScopedSessionLiveMutation() privacy.MutationRule {
 			"locked_entry_order_ids",
 			"entry_order_locked_at",
 			"entry_order_revision",
+			"voting_revision",
 			"program_output_kind",
 			"program_output_entry_id",
 			"program_output_result",

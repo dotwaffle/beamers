@@ -462,6 +462,8 @@ func eventConfigurationFormInput(request *http.Request) (events.CreateInput, err
 		EventDayBoundary:               request.Form.Get("event_day_boundary"),
 		EntryDefaultDisposition:        request.Form.Get("entry_default_disposition"),
 		SubmissionEligibility:          request.Form.Get("submission_eligibility"),
+		VotingMethod:                   request.Form.Get("voting_method"),
+		SelfVotePolicy:                 request.Form.Get("self_vote_policy"),
 		TargetAdjustmentPresetsSeconds: presets,
 		CommandID:                      request.Form.Get("command_id"),
 	}, nil

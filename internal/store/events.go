@@ -49,6 +49,8 @@ type Event struct {
 	EventDayBoundary        string `json:"event_day_boundary"`
 	EntryDefaultDisposition string `json:"entry_default_disposition"`
 	SubmissionEligibility   string `json:"submission_eligibility"`
+	VotingMethod            string `json:"voting_method"`
+	SelfVotePolicy          string `json:"self_vote_policy"`
 	TargetAdjustmentPresets string `json:"target_adjustment_presets"`
 	Revision                int    `json:"revision"`
 }
@@ -90,6 +92,8 @@ type CreateEventParams struct {
 	EventDayBoundary               string
 	EntryDefaultDisposition        string
 	SubmissionEligibility          string
+	VotingMethod                   string
+	SelfVotePolicy                 string
 	TargetAdjustmentPresetsSeconds []int
 	Now                            time.Time
 	CommandID                      string
@@ -135,6 +139,8 @@ type UpdateEventParams struct {
 	EventDayBoundary               string
 	EntryDefaultDisposition        string
 	SubmissionEligibility          string
+	VotingMethod                   string
+	SelfVotePolicy                 string
 	TargetAdjustmentPresetsSeconds []int
 	Now                            time.Time
 	CommandID                      string
@@ -167,6 +173,12 @@ func (transaction *CommandTx) CreateEvent(ctx context.Context, params CreateEven
 	}
 	if params.SubmissionEligibility != "" {
 		create.SetSubmissionEligibility(event.SubmissionEligibility(params.SubmissionEligibility))
+	}
+	if params.VotingMethod != "" {
+		create.SetVotingMethod(event.VotingMethod(params.VotingMethod))
+	}
+	if params.SelfVotePolicy != "" {
+		create.SetSelfVotePolicy(event.SelfVotePolicy(params.SelfVotePolicy))
 	}
 	if params.ContentLanguage != "" {
 		create.SetContentLanguage(params.ContentLanguage)
@@ -473,6 +485,14 @@ func (transaction *CommandTx) UpdateEvent(ctx context.Context, params UpdateEven
 	if submissionEligibility == "" {
 		submissionEligibility = "AllAccounts"
 	}
+	votingMethod := params.VotingMethod
+	if votingMethod == "" {
+		votingMethod = "Range1To5"
+	}
+	selfVotePolicy := params.SelfVotePolicy
+	if selfVotePolicy == "" {
+		selfVotePolicy = "Allowed"
+	}
 	update := transaction.transaction.Event.UpdateOneID(params.EventID).
 		Where(event.RevisionEQ(params.ExpectedRevision)).
 		SetName(params.Name).
@@ -484,6 +504,8 @@ func (transaction *CommandTx) UpdateEvent(ctx context.Context, params UpdateEven
 		SetEventDayBoundary(params.EventDayBoundary).
 		SetEntryDefaultDisposition(event.EntryDefaultDisposition(entryDefaultDisposition)).
 		SetSubmissionEligibility(event.SubmissionEligibility(submissionEligibility)).
+		SetVotingMethod(event.VotingMethod(votingMethod)).
+		SetSelfVotePolicy(event.SelfVotePolicy(selfVotePolicy)).
 		SetTargetAdjustmentPresets(string(presets)).
 		AddRevision(1)
 	if publicSlug != "" {

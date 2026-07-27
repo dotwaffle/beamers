@@ -29,6 +29,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/recoverycode"
 	"github.com/dotwaffle/beamers/ent/recoverytoken"
 	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/ent/vote"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
 	"github.com/dotwaffle/beamers/ent/votingkey"
 	"github.com/dotwaffle/beamers/ent/webauthncredential"
@@ -55,6 +56,7 @@ type AccountQuery struct {
 	withSubmittedPresentations *SessionQuery
 	withVotingEligibilities    *VotingEligibilityQuery
 	withRedeemedVotingKeys     *VotingKeyQuery
+	withVotes                  *VoteQuery
 	withAuditEntries           *AuditEntryQuery
 	withCommandReceipts        *CommandReceiptQuery
 	withDraftEdits             *DraftEditQuery
@@ -402,6 +404,28 @@ func (_q *AccountQuery) QueryRedeemedVotingKeys() *VotingKeyQuery {
 	return query
 }
 
+// QueryVotes chains the current query on the "votes" edge.
+func (_q *AccountQuery) QueryVotes() *VoteQuery {
+	query := (&VoteClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, selector),
+			sqlgraph.To(vote.Table, vote.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.VotesTable, account.VotesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // QueryAuditEntries chains the current query on the "audit_entries" edge.
 func (_q *AccountQuery) QueryAuditEntries() *AuditEntryQuery {
 	query := (&AuditEntryClient{config: _q.config}).Query()
@@ -674,6 +698,7 @@ func (_q *AccountQuery) Clone() *AccountQuery {
 		withSubmittedPresentations: _q.withSubmittedPresentations.Clone(),
 		withVotingEligibilities:    _q.withVotingEligibilities.Clone(),
 		withRedeemedVotingKeys:     _q.withRedeemedVotingKeys.Clone(),
+		withVotes:                  _q.withVotes.Clone(),
 		withAuditEntries:           _q.withAuditEntries.Clone(),
 		withCommandReceipts:        _q.withCommandReceipts.Clone(),
 		withDraftEdits:             _q.withDraftEdits.Clone(),
@@ -837,6 +862,17 @@ func (_q *AccountQuery) WithRedeemedVotingKeys(opts ...func(*VotingKeyQuery)) *A
 	return _q
 }
 
+// WithVotes tells the query-builder to eager-load the nodes that are connected to
+// the "votes" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AccountQuery) WithVotes(opts ...func(*VoteQuery)) *AccountQuery {
+	query := (&VoteClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withVotes = query
+	return _q
+}
+
 // WithAuditEntries tells the query-builder to eager-load the nodes that are connected to
 // the "audit_entries" edge. The optional arguments are used to configure the query builder of the edge.
 func (_q *AccountQuery) WithAuditEntries(opts ...func(*AuditEntryQuery)) *AccountQuery {
@@ -954,7 +990,7 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	var (
 		nodes       = []*Account{}
 		_spec       = _q.querySpec()
-		loadedTypes = [17]bool{
+		loadedTypes = [18]bool{
 			_q.withPasswordCredential != nil,
 			_q.withWebauthnCredentials != nil,
 			_q.withFederatedIdentities != nil,
@@ -969,6 +1005,7 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 			_q.withSubmittedPresentations != nil,
 			_q.withVotingEligibilities != nil,
 			_q.withRedeemedVotingKeys != nil,
+			_q.withVotes != nil,
 			_q.withAuditEntries != nil,
 			_q.withCommandReceipts != nil,
 			_q.withDraftEdits != nil,
@@ -1094,6 +1131,13 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 		if err := _q.loadRedeemedVotingKeys(ctx, query, nodes,
 			func(n *Account) { n.Edges.RedeemedVotingKeys = []*VotingKey{} },
 			func(n *Account, e *VotingKey) { n.Edges.RedeemedVotingKeys = append(n.Edges.RedeemedVotingKeys, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withVotes; query != nil {
+		if err := _q.loadVotes(ctx, query, nodes,
+			func(n *Account) { n.Edges.Votes = []*Vote{} },
+			func(n *Account, e *Vote) { n.Edges.Votes = append(n.Edges.Votes, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -1533,6 +1577,36 @@ func (_q *AccountQuery) loadRedeemedVotingKeys(ctx context.Context, query *Votin
 		node, ok := nodeids[fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "redeemed_by_account_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *AccountQuery) loadVotes(ctx context.Context, query *VoteQuery, nodes []*Account, init func(*Account), assign func(*Account, *Vote)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Account)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(vote.FieldAccountID)
+	}
+	query.Where(predicate.Vote(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(account.VotesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.AccountID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "account_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}

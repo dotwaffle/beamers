@@ -33,6 +33,7 @@ func registerProgramControlRoutes(
 	displayService *displays.Service,
 	displayStream *displaystream.Hub,
 	programStream *displaystream.Hub,
+	votingStream *displaystream.Hub,
 	listenerAddress net.Addr,
 	tracerProvider trace.TracerProvider,
 	meterProvider metric.MeterProvider,
@@ -41,7 +42,7 @@ func registerProgramControlRoutes(
 	logger *slog.Logger,
 ) error {
 	adapter, err := programconnect.NewHandler(
-		service, displayService, displayStream, programStream,
+		service, displayService, displayStream, programStream, votingStream,
 	)
 	if err != nil {
 		return err

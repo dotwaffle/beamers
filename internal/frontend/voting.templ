@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"net/url"
 	"strconv"
 	"time"
 
@@ -17,6 +18,7 @@ type VotingRedemptionPage struct {
 	EventID        int
 	Message        string
 	Success        bool
+	OpenBallots    []voting.Window
 }
 
 type VotingKeyPage struct {
@@ -31,6 +33,29 @@ type VotingKeyPage struct {
 	Issued         []voting.IssuedKey
 	Message        string
 	Now            time.Time
+}
+
+type VotingBallotPage struct {
+	AccountName    string
+	CSRFToken      string
+	ReducedEffects bool
+	Backstage      bool
+	CommandID      string
+	Ballot         voting.Ballot
+	StreamID       string
+	StreamPosition uint64
+}
+
+type CompetitionVotingPage struct {
+	AccountName    string
+	CSRFToken      string
+	ReducedEffects bool
+	Navigation     BackstageNavigation
+	Producer       bool
+	CommandID      string
+	Window         voting.Window
+	Participation  voting.Participation
+	Message        string
 }
 
 templ VotingRedemption(page VotingRedemptionPage) {
@@ -61,7 +86,162 @@ templ VotingRedemption(page VotingRedemptionPage) {
 					</label>
 					<button type="submit">Redeem Voting Key</button>
 				</form>
+				<section>
+					<h2>Open Ballots</h2>
+					if len(page.OpenBallots) == 0 {
+						<p>No open Ballots.</p>
+					} else {
+						<ul>
+							for _, window := range page.OpenBallots {
+								<li>
+									<a href={ votingBallotPath(window.EventID, window.SessionID) }>
+										{ window.EventName }: { window.Title }
+									</a>
+								</li>
+							}
+						</ul>
+					}
+				</section>
 			</main>
+		</body>
+	</html>
+}
+
+templ VotingBallot(page VotingBallotPage) {
+	<!doctype html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<link rel="stylesheet" href={ StylesheetPath }/>
+			<script src={ HTMXPath } defer></script>
+			<script src={ SSEPath } defer></script>
+			<title>{ page.Ballot.Window.Title } Ballot · Beamers</title>
+		</head>
+		<body
+			data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }
+			hx-ext="sse"
+			sse-connect={ votingBallotEventsPath(page) }
+		>
+			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, page.Backstage)
+			@VotingBallotSnapshot(page)
+		</body>
+	</html>
+}
+
+templ VotingBallotSnapshot(page VotingBallotPage) {
+	<main
+		id="ballot"
+		hx-get={ votingBallotPath(page.Ballot.Window.EventID, page.Ballot.Window.SessionID) }
+		hx-trigger="sse:ballot"
+		hx-target="this"
+		hx-select="#ballot"
+		hx-swap="outerHTML"
+	>
+		<h1>{ page.Ballot.Window.Title } Ballot</h1>
+		<p>{ page.Ballot.Window.EventName }</p>
+		if page.Ballot.Window.State == "Closed" {
+			<p role="status">Voting is closed. Your Ballot is read-only.</p>
+		} else if len(page.Ballot.Entries) == 0 {
+			<p role="status">No Entries have been presented yet.</p>
+		}
+		for _, entry := range page.Ballot.Entries {
+			<section>
+				<h2>{ entry.Name }</h2>
+				if !entry.CanVote {
+					<p>Self-Vote Policy contributes the neutral value when you participate.</p>
+				} else if page.Ballot.Window.State == "Open" {
+					<form method="post">
+						<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+						<input type="hidden" name="command_id" value={ page.CommandID + "-" + strconv.Itoa(entry.ID) }/>
+						<input type="hidden" name="event_id" value={ strconv.Itoa(page.Ballot.Window.EventID) }/>
+						<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
+						<input type="hidden" name="expected_revision" value={ strconv.Itoa(page.Ballot.Window.Revision) }/>
+						<fieldset>
+							<legend>Score from 1 through 5</legend>
+							for value := 1; value <= 5; value++ {
+								<label>
+									<input type="radio" name="value" value={ strconv.Itoa(value) } checked?={ entry.Value == value } required/>
+									{ strconv.Itoa(value) }
+								</label>
+							}
+						</fieldset>
+						<button type="submit">Save Vote</button>
+					</form>
+				} else if entry.Value > 0 {
+					<p>Your score: { strconv.Itoa(entry.Value) }</p>
+				} else {
+					<p>No explicit score.</p>
+				}
+			</section>
+		}
+		<p id="ballot-status" role="status" aria-live="polite" aria-atomic="true">Ballot updated.</p>
+	</main>
+}
+
+templ CompetitionVoting(page CompetitionVotingPage) {
+	<!doctype html>
+	<html lang="en">
+		@Head("Competition Voting · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
+			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
+			<div class="backstage-layout">
+				@BackstageNavigationViews(page.Navigation)
+				<main>
+					<h1>{ page.Window.Title } Voting</h1>
+					if page.Message != "" {
+						<p class="error" role="alert">{ page.Message }</p>
+					}
+					<p>Window: { page.Window.State }. Method: { page.Window.Method }. Self-Vote Policy: { page.Window.SelfVotePolicy }.</p>
+					<p>
+						Eligible: { strconv.Itoa(page.Participation.Eligible) }.
+						Participating: { strconv.Itoa(page.Participation.Participating) }.
+						Complete: { strconv.Itoa(page.Participation.Complete) }.
+						Votable Entries: { strconv.Itoa(page.Participation.Votable) }.
+					</p>
+					if page.Producer && page.Window.State == "Unopened" {
+						<form class="stack" method="post">
+							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+							<input type="hidden" name="command_id" value={ page.CommandID + "-configure" }/>
+							<input type="hidden" name="action" value="configure"/>
+							<input type="hidden" name="expected_revision" value={ strconv.Itoa(page.Window.Revision) }/>
+							<label>
+								<input type="checkbox" name="method_override" value="true"/>
+								Override Event Voting Method
+							</label>
+							<label>Method
+								<select name="voting_method"><option value="Range1To5">Range 1–5</option></select>
+							</label>
+							<label>
+								<input type="checkbox" name="self_vote_override" value="true"/>
+								Override Event Self-Vote Policy
+							</label>
+							<label>Self-Vote Policy
+								<select name="self_vote_policy">
+									<option value="Allowed" selected?={ page.Window.SelfVotePolicy == "Allowed" }>Allowed</option>
+									<option value="Neutral" selected?={ page.Window.SelfVotePolicy == "Neutral" }>Neutral substitution</option>
+								</select>
+							</label>
+							<button type="submit">Save Voting configuration</button>
+						</form>
+						<form method="post">
+							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+							<input type="hidden" name="command_id" value={ page.CommandID + "-open" }/>
+							<input type="hidden" name="action" value="open"/>
+							<input type="hidden" name="expected_revision" value={ strconv.Itoa(page.Window.Revision) }/>
+							<button type="submit">Open Voting Window</button>
+						</form>
+					} else if page.Producer && page.Window.State == "Open" {
+						<form method="post">
+							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+							<input type="hidden" name="command_id" value={ page.CommandID + "-close" }/>
+							<input type="hidden" name="action" value="close"/>
+							<input type="hidden" name="expected_revision" value={ strconv.Itoa(page.Window.Revision) }/>
+							<button type="submit">Close Voting Window</button>
+						</form>
+					}
+				</main>
+			</div>
 		</body>
 	</html>
 }
@@ -159,4 +339,16 @@ func votingKeyStatus(key voting.Key, now time.Time) string {
 	default:
 		return "Available"
 	}
+}
+
+func votingBallotPath(eventID, sessionID int) string {
+	return "/voting/" + strconv.Itoa(sessionID) + "?event_id=" + strconv.Itoa(eventID)
+}
+
+func votingBallotEventsPath(page VotingBallotPage) string {
+	values := url.Values{}
+	values.Set("after", strconv.FormatUint(page.StreamPosition, 10))
+	values.Set("event_id", strconv.Itoa(page.Ballot.Window.EventID))
+	values.Set("stream_id", page.StreamID)
+	return "/voting/" + strconv.Itoa(page.Ballot.Window.SessionID) + "/events?" + values.Encode()
 }

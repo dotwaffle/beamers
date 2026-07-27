@@ -41,6 +41,10 @@ type Event struct {
 	EntryDefaultDisposition event.EntryDefaultDisposition `json:"entry_default_disposition,omitempty"`
 	// SubmissionEligibility holds the value of the "submission_eligibility" field.
 	SubmissionEligibility event.SubmissionEligibility `json:"submission_eligibility,omitempty"`
+	// VotingMethod holds the value of the "voting_method" field.
+	VotingMethod event.VotingMethod `json:"voting_method,omitempty"`
+	// SelfVotePolicy holds the value of the "self_vote_policy" field.
+	SelfVotePolicy event.SelfVotePolicy `json:"self_vote_policy,omitempty"`
 	// TargetAdjustmentPresets holds the value of the "target_adjustment_presets" field.
 	TargetAdjustmentPresets string `json:"target_adjustment_presets,omitempty"`
 	// DisplayConfiguration holds the value of the "display_configuration" field.
@@ -105,6 +109,8 @@ type EventEdges struct {
 	VotingEligibilities []*VotingEligibility `json:"voting_eligibilities,omitempty"`
 	// VotingKeys holds the value of the voting_keys edge.
 	VotingKeys []*VotingKey `json:"voting_keys,omitempty"`
+	// Votes holds the value of the votes edge.
+	Votes []*Vote `json:"votes,omitempty"`
 	// DraftEdits holds the value of the draft_edits edge.
 	DraftEdits []*DraftEdit `json:"draft_edits,omitempty"`
 	// DraftChanges holds the value of the draft_changes edge.
@@ -119,7 +125,7 @@ type EventEdges struct {
 	DisplayOverrides []*DisplayOverride `json:"display_overrides,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [23]bool
+	loadedTypes [24]bool
 }
 
 // GrantsOrErr returns the Grants value or an error if the edge
@@ -277,10 +283,19 @@ func (e EventEdges) VotingKeysOrErr() ([]*VotingKey, error) {
 	return nil, &NotLoadedError{edge: "voting_keys"}
 }
 
+// VotesOrErr returns the Votes value or an error if the edge
+// was not loaded in eager-loading.
+func (e EventEdges) VotesOrErr() ([]*Vote, error) {
+	if e.loadedTypes[17] {
+		return e.Votes, nil
+	}
+	return nil, &NotLoadedError{edge: "votes"}
+}
+
 // DraftEditsOrErr returns the DraftEdits value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) DraftEditsOrErr() ([]*DraftEdit, error) {
-	if e.loadedTypes[17] {
+	if e.loadedTypes[18] {
 		return e.DraftEdits, nil
 	}
 	return nil, &NotLoadedError{edge: "draft_edits"}
@@ -289,7 +304,7 @@ func (e EventEdges) DraftEditsOrErr() ([]*DraftEdit, error) {
 // DraftChangesOrErr returns the DraftChanges value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) DraftChangesOrErr() ([]*DraftChange, error) {
-	if e.loadedTypes[18] {
+	if e.loadedTypes[19] {
 		return e.DraftChanges, nil
 	}
 	return nil, &NotLoadedError{edge: "draft_changes"}
@@ -298,7 +313,7 @@ func (e EventEdges) DraftChangesOrErr() ([]*DraftChange, error) {
 // ImportReferencesOrErr returns the ImportReferences value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) ImportReferencesOrErr() ([]*ImportReference, error) {
-	if e.loadedTypes[19] {
+	if e.loadedTypes[20] {
 		return e.ImportReferences, nil
 	}
 	return nil, &NotLoadedError{edge: "import_references"}
@@ -309,7 +324,7 @@ func (e EventEdges) ImportReferencesOrErr() ([]*ImportReference, error) {
 func (e EventEdges) PublicScheduleBaselineOrErr() (*PublicScheduleBaseline, error) {
 	if e.PublicScheduleBaseline != nil {
 		return e.PublicScheduleBaseline, nil
-	} else if e.loadedTypes[20] {
+	} else if e.loadedTypes[21] {
 		return nil, &NotFoundError{label: publicschedulebaseline.Label}
 	}
 	return nil, &NotLoadedError{edge: "public_schedule_baseline"}
@@ -318,7 +333,7 @@ func (e EventEdges) PublicScheduleBaselineOrErr() (*PublicScheduleBaseline, erro
 // DisplayAssignmentsOrErr returns the DisplayAssignments value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) DisplayAssignmentsOrErr() ([]*DisplayAssignment, error) {
-	if e.loadedTypes[21] {
+	if e.loadedTypes[22] {
 		return e.DisplayAssignments, nil
 	}
 	return nil, &NotLoadedError{edge: "display_assignments"}
@@ -327,7 +342,7 @@ func (e EventEdges) DisplayAssignmentsOrErr() ([]*DisplayAssignment, error) {
 // DisplayOverridesOrErr returns the DisplayOverrides value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) DisplayOverridesOrErr() ([]*DisplayOverride, error) {
-	if e.loadedTypes[22] {
+	if e.loadedTypes[23] {
 		return e.DisplayOverrides, nil
 	}
 	return nil, &NotLoadedError{edge: "display_overrides"}
@@ -342,7 +357,7 @@ func (*Event) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case event.FieldID, event.FieldAttachmentReleaseCueSessionID, event.FieldAttachmentReleaseRevision, event.FieldStageMessageDefaultDurationSeconds, event.FieldStageMessageConfigurationRevision, event.FieldRevision:
 			values[i] = new(sql.NullInt64)
-		case event.FieldName, event.FieldPublicSlug, event.FieldPlannedStartDate, event.FieldPlannedEndDate, event.FieldTimezone, event.FieldEventLocale, event.FieldContentLanguage, event.FieldEventDayBoundary, event.FieldEntryDefaultDisposition, event.FieldSubmissionEligibility, event.FieldTargetAdjustmentPresets, event.FieldDisplayConfiguration, event.FieldAttachmentReleasePolicy, event.FieldStageMessagePresets:
+		case event.FieldName, event.FieldPublicSlug, event.FieldPlannedStartDate, event.FieldPlannedEndDate, event.FieldTimezone, event.FieldEventLocale, event.FieldContentLanguage, event.FieldEventDayBoundary, event.FieldEntryDefaultDisposition, event.FieldSubmissionEligibility, event.FieldVotingMethod, event.FieldSelfVotePolicy, event.FieldTargetAdjustmentPresets, event.FieldDisplayConfiguration, event.FieldAttachmentReleasePolicy, event.FieldStageMessagePresets:
 			values[i] = new(sql.NullString)
 		case event.FieldAttachmentReleaseCueAt, event.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -432,6 +447,18 @@ func (_m *Event) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field submission_eligibility", values[i])
 			} else if value.Valid {
 				_m.SubmissionEligibility = event.SubmissionEligibility(value.String)
+			}
+		case event.FieldVotingMethod:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field voting_method", values[i])
+			} else if value.Valid {
+				_m.VotingMethod = event.VotingMethod(value.String)
+			}
+		case event.FieldSelfVotePolicy:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field self_vote_policy", values[i])
+			} else if value.Valid {
+				_m.SelfVotePolicy = event.SelfVotePolicy(value.String)
 			}
 		case event.FieldTargetAdjustmentPresets:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -598,6 +625,11 @@ func (_m *Event) QueryVotingKeys() *VotingKeyQuery {
 	return NewEventClient(_m.config).QueryVotingKeys(_m)
 }
 
+// QueryVotes queries the "votes" edge of the Event entity.
+func (_m *Event) QueryVotes() *VoteQuery {
+	return NewEventClient(_m.config).QueryVotes(_m)
+}
+
 // QueryDraftEdits queries the "draft_edits" edge of the Event entity.
 func (_m *Event) QueryDraftEdits() *DraftEditQuery {
 	return NewEventClient(_m.config).QueryDraftEdits(_m)
@@ -683,6 +715,12 @@ func (_m *Event) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("submission_eligibility=")
 	builder.WriteString(fmt.Sprintf("%v", _m.SubmissionEligibility))
+	builder.WriteString(", ")
+	builder.WriteString("voting_method=")
+	builder.WriteString(fmt.Sprintf("%v", _m.VotingMethod))
+	builder.WriteString(", ")
+	builder.WriteString("self_vote_policy=")
+	builder.WriteString(fmt.Sprintf("%v", _m.SelfVotePolicy))
 	builder.WriteString(", ")
 	builder.WriteString("target_adjustment_presets=")
 	builder.WriteString(_m.TargetAdjustmentPresets)

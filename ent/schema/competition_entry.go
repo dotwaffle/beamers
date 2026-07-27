@@ -81,6 +81,7 @@ func (CompetitionEntry) Edges() []ent.Edge {
 			Field("submitter_account_id").
 			Unique(),
 		edge.To("result_standings", CompetitionResultStanding.Type),
+		edge.To("votes", Vote.Type),
 	}
 }
 

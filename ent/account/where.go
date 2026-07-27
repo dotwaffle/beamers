@@ -687,6 +687,29 @@ func HasRedeemedVotingKeysWith(preds ...predicate.VotingKey) predicate.Account {
 	})
 }
 
+// HasVotes applies the HasEdge predicate on the "votes" edge.
+func HasVotes() predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, VotesTable, VotesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasVotesWith applies the HasEdge predicate on the "votes" edge with a given conditions (other predicates).
+func HasVotesWith(preds ...predicate.Vote) predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := newVotesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasAuditEntries applies the HasEdge predicate on the "audit_entries" edge.
 func HasAuditEntries() predicate.Account {
 	return predicate.Account(func(s *sql.Selector) {

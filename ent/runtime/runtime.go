@@ -65,6 +65,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
+	"github.com/dotwaffle/beamers/ent/vote"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
 	"github.com/dotwaffle/beamers/ent/votingkey"
 	"github.com/dotwaffle/beamers/ent/webauthncredential"
@@ -1318,7 +1319,7 @@ func init() {
 		}
 	}()
 	// eventDescTargetAdjustmentPresets is the schema descriptor for target_adjustment_presets field.
-	eventDescTargetAdjustmentPresets := eventFields[11].Descriptor()
+	eventDescTargetAdjustmentPresets := eventFields[13].Descriptor()
 	// event.DefaultTargetAdjustmentPresets holds the default value on creation for the target_adjustment_presets field.
 	event.DefaultTargetAdjustmentPresets = eventDescTargetAdjustmentPresets.Default.(string)
 	// event.TargetAdjustmentPresetsValidator is a validator for the "target_adjustment_presets" field. It is called by the builders before save.
@@ -1338,7 +1339,7 @@ func init() {
 		}
 	}()
 	// eventDescDisplayConfiguration is the schema descriptor for display_configuration field.
-	eventDescDisplayConfiguration := eventFields[12].Descriptor()
+	eventDescDisplayConfiguration := eventFields[14].Descriptor()
 	// event.DefaultDisplayConfiguration holds the default value on creation for the display_configuration field.
 	event.DefaultDisplayConfiguration = eventDescDisplayConfiguration.Default.(string)
 	// event.DisplayConfigurationValidator is a validator for the "display_configuration" field. It is called by the builders before save.
@@ -1358,39 +1359,39 @@ func init() {
 		}
 	}()
 	// eventDescAttachmentReleaseCueSessionID is the schema descriptor for attachment_release_cue_session_id field.
-	eventDescAttachmentReleaseCueSessionID := eventFields[14].Descriptor()
+	eventDescAttachmentReleaseCueSessionID := eventFields[16].Descriptor()
 	// event.AttachmentReleaseCueSessionIDValidator is a validator for the "attachment_release_cue_session_id" field. It is called by the builders before save.
 	event.AttachmentReleaseCueSessionIDValidator = eventDescAttachmentReleaseCueSessionID.Validators[0].(func(int) error)
 	// eventDescAttachmentReleaseRevision is the schema descriptor for attachment_release_revision field.
-	eventDescAttachmentReleaseRevision := eventFields[16].Descriptor()
+	eventDescAttachmentReleaseRevision := eventFields[18].Descriptor()
 	// event.DefaultAttachmentReleaseRevision holds the default value on creation for the attachment_release_revision field.
 	event.DefaultAttachmentReleaseRevision = eventDescAttachmentReleaseRevision.Default.(int)
 	// event.AttachmentReleaseRevisionValidator is a validator for the "attachment_release_revision" field. It is called by the builders before save.
 	event.AttachmentReleaseRevisionValidator = eventDescAttachmentReleaseRevision.Validators[0].(func(int) error)
 	// eventDescStageMessagePresets is the schema descriptor for stage_message_presets field.
-	eventDescStageMessagePresets := eventFields[17].Descriptor()
+	eventDescStageMessagePresets := eventFields[19].Descriptor()
 	// event.DefaultStageMessagePresets holds the default value on creation for the stage_message_presets field.
 	event.DefaultStageMessagePresets = eventDescStageMessagePresets.Default.(string)
 	// event.StageMessagePresetsValidator is a validator for the "stage_message_presets" field. It is called by the builders before save.
 	event.StageMessagePresetsValidator = eventDescStageMessagePresets.Validators[0].(func(string) error)
 	// eventDescStageMessageDefaultDurationSeconds is the schema descriptor for stage_message_default_duration_seconds field.
-	eventDescStageMessageDefaultDurationSeconds := eventFields[18].Descriptor()
+	eventDescStageMessageDefaultDurationSeconds := eventFields[20].Descriptor()
 	// event.DefaultStageMessageDefaultDurationSeconds holds the default value on creation for the stage_message_default_duration_seconds field.
 	event.DefaultStageMessageDefaultDurationSeconds = eventDescStageMessageDefaultDurationSeconds.Default.(int)
 	// event.StageMessageDefaultDurationSecondsValidator is a validator for the "stage_message_default_duration_seconds" field. It is called by the builders before save.
 	event.StageMessageDefaultDurationSecondsValidator = eventDescStageMessageDefaultDurationSeconds.Validators[0].(func(int) error)
 	// eventDescStageMessageConfigurationRevision is the schema descriptor for stage_message_configuration_revision field.
-	eventDescStageMessageConfigurationRevision := eventFields[19].Descriptor()
+	eventDescStageMessageConfigurationRevision := eventFields[21].Descriptor()
 	// event.DefaultStageMessageConfigurationRevision holds the default value on creation for the stage_message_configuration_revision field.
 	event.DefaultStageMessageConfigurationRevision = eventDescStageMessageConfigurationRevision.Default.(int)
 	// event.StageMessageConfigurationRevisionValidator is a validator for the "stage_message_configuration_revision" field. It is called by the builders before save.
 	event.StageMessageConfigurationRevisionValidator = eventDescStageMessageConfigurationRevision.Validators[0].(func(int) error)
 	// eventDescRevision is the schema descriptor for revision field.
-	eventDescRevision := eventFields[20].Descriptor()
+	eventDescRevision := eventFields[22].Descriptor()
 	// event.DefaultRevision holds the default value on creation for the revision field.
 	event.DefaultRevision = eventDescRevision.Default.(int)
 	// eventDescCreatedAt is the schema descriptor for created_at field.
-	eventDescCreatedAt := eventFields[21].Descriptor()
+	eventDescCreatedAt := eventFields[23].Descriptor()
 	// event.DefaultCreatedAt holds the default value on creation for the created_at field.
 	event.DefaultCreatedAt = eventDescCreatedAt.Default.(func() time.Time)
 	eventawardsdraft.Policy = privacy.NewPolicies(schema.EventAwardsDraft{})
@@ -2270,46 +2271,52 @@ func init() {
 	session.DefaultSubmissionEligibilityRevision = sessionDescSubmissionEligibilityRevision.Default.(int)
 	// session.SubmissionEligibilityRevisionValidator is a validator for the "submission_eligibility_revision" field. It is called by the builders before save.
 	session.SubmissionEligibilityRevisionValidator = sessionDescSubmissionEligibilityRevision.Validators[0].(func(int) error)
+	// sessionDescVotingRevision is the schema descriptor for voting_revision field.
+	sessionDescVotingRevision := sessionFields[25].Descriptor()
+	// session.DefaultVotingRevision holds the default value on creation for the voting_revision field.
+	session.DefaultVotingRevision = sessionDescVotingRevision.Default.(int)
+	// session.VotingRevisionValidator is a validator for the "voting_revision" field. It is called by the builders before save.
+	session.VotingRevisionValidator = sessionDescVotingRevision.Validators[0].(func(int) error)
 	// sessionDescReadinessRevision is the schema descriptor for readiness_revision field.
-	sessionDescReadinessRevision := sessionFields[21].Descriptor()
+	sessionDescReadinessRevision := sessionFields[29].Descriptor()
 	// session.DefaultReadinessRevision holds the default value on creation for the readiness_revision field.
 	session.DefaultReadinessRevision = sessionDescReadinessRevision.Default.(int)
 	// session.ReadinessRevisionValidator is a validator for the "readiness_revision" field. It is called by the builders before save.
 	session.ReadinessRevisionValidator = sessionDescReadinessRevision.Validators[0].(func(int) error)
 	// sessionDescEntryOrderSeed is the schema descriptor for entry_order_seed field.
-	sessionDescEntryOrderSeed := sessionFields[23].Descriptor()
+	sessionDescEntryOrderSeed := sessionFields[31].Descriptor()
 	// session.DefaultEntryOrderSeed holds the default value on creation for the entry_order_seed field.
 	session.DefaultEntryOrderSeed = sessionDescEntryOrderSeed.Default.(int64)
 	// session.EntryOrderSeedValidator is a validator for the "entry_order_seed" field. It is called by the builders before save.
 	session.EntryOrderSeedValidator = sessionDescEntryOrderSeed.Validators[0].(func(int64) error)
 	// sessionDescEntryOrderRevision is the schema descriptor for entry_order_revision field.
-	sessionDescEntryOrderRevision := sessionFields[27].Descriptor()
+	sessionDescEntryOrderRevision := sessionFields[35].Descriptor()
 	// session.DefaultEntryOrderRevision holds the default value on creation for the entry_order_revision field.
 	session.DefaultEntryOrderRevision = sessionDescEntryOrderRevision.Default.(int)
 	// session.EntryOrderRevisionValidator is a validator for the "entry_order_revision" field. It is called by the builders before save.
 	session.EntryOrderRevisionValidator = sessionDescEntryOrderRevision.Validators[0].(func(int) error)
 	// sessionDescProgramOutputEntryID is the schema descriptor for program_output_entry_id field.
-	sessionDescProgramOutputEntryID := sessionFields[29].Descriptor()
+	sessionDescProgramOutputEntryID := sessionFields[37].Descriptor()
 	// session.ProgramOutputEntryIDValidator is a validator for the "program_output_entry_id" field. It is called by the builders before save.
 	session.ProgramOutputEntryIDValidator = sessionDescProgramOutputEntryID.Validators[0].(func(int) error)
 	// sessionDescProgramOutputRevision is the schema descriptor for program_output_revision field.
-	sessionDescProgramOutputRevision := sessionFields[31].Descriptor()
+	sessionDescProgramOutputRevision := sessionFields[39].Descriptor()
 	// session.DefaultProgramOutputRevision holds the default value on creation for the program_output_revision field.
 	session.DefaultProgramOutputRevision = sessionDescProgramOutputRevision.Default.(int)
 	// session.ProgramOutputRevisionValidator is a validator for the "program_output_revision" field. It is called by the builders before save.
 	session.ProgramOutputRevisionValidator = sessionDescProgramOutputRevision.Validators[0].(func(int) error)
 	// sessionDescProgramCursor is the schema descriptor for program_cursor field.
-	sessionDescProgramCursor := sessionFields[32].Descriptor()
+	sessionDescProgramCursor := sessionFields[40].Descriptor()
 	// session.DefaultProgramCursor holds the default value on creation for the program_cursor field.
 	session.DefaultProgramCursor = sessionDescProgramCursor.Default.(int)
 	// sessionDescAttachmentReleaseRevision is the schema descriptor for attachment_release_revision field.
-	sessionDescAttachmentReleaseRevision := sessionFields[35].Descriptor()
+	sessionDescAttachmentReleaseRevision := sessionFields[43].Descriptor()
 	// session.DefaultAttachmentReleaseRevision holds the default value on creation for the attachment_release_revision field.
 	session.DefaultAttachmentReleaseRevision = sessionDescAttachmentReleaseRevision.Default.(int)
 	// session.AttachmentReleaseRevisionValidator is a validator for the "attachment_release_revision" field. It is called by the builders before save.
 	session.AttachmentReleaseRevisionValidator = sessionDescAttachmentReleaseRevision.Validators[0].(func(int) error)
 	// sessionDescCreatedAt is the schema descriptor for created_at field.
-	sessionDescCreatedAt := sessionFields[36].Descriptor()
+	sessionDescCreatedAt := sessionFields[44].Descriptor()
 	// session.DefaultCreatedAt holds the default value on creation for the created_at field.
 	session.DefaultCreatedAt = sessionDescCreatedAt.Default.(func() time.Time)
 	sessioncancellation.Policy = privacy.NewPolicies(schema.SessionCancellation{})
@@ -2574,6 +2581,43 @@ func init() {
 	trackpublishedversionDescCreatedAt := trackpublishedversionFields[4].Descriptor()
 	// trackpublishedversion.DefaultCreatedAt holds the default value on creation for the created_at field.
 	trackpublishedversion.DefaultCreatedAt = trackpublishedversionDescCreatedAt.Default.(func() time.Time)
+	vote.Policy = privacy.NewPolicies(schema.Vote{})
+	vote.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := vote.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	voteFields := schema.Vote{}.Fields()
+	_ = voteFields
+	// voteDescValue is the schema descriptor for value field.
+	voteDescValue := voteFields[4].Descriptor()
+	// vote.ValueValidator is a validator for the "value" field. It is called by the builders before save.
+	vote.ValueValidator = func() func(int) error {
+		validators := voteDescValue.Validators
+		fns := [...]func(int) error{
+			validators[0].(func(int) error),
+			validators[1].(func(int) error),
+		}
+		return func(value int) error {
+			for _, fn := range fns {
+				if err := fn(value); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// voteDescCreatedAt is the schema descriptor for created_at field.
+	voteDescCreatedAt := voteFields[5].Descriptor()
+	// vote.DefaultCreatedAt holds the default value on creation for the created_at field.
+	vote.DefaultCreatedAt = voteDescCreatedAt.Default.(func() time.Time)
+	// voteDescUpdatedAt is the schema descriptor for updated_at field.
+	voteDescUpdatedAt := voteFields[6].Descriptor()
+	// vote.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	vote.DefaultUpdatedAt = voteDescUpdatedAt.Default.(func() time.Time)
 	votingeligibility.Policy = privacy.NewPolicies(schema.VotingEligibility{})
 	votingeligibility.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
