@@ -60,6 +60,8 @@ const (
 	FieldCreatedAt = "created_at"
 	// EdgeGrants holds the string denoting the grants edge name in mutations.
 	EdgeGrants = "grants"
+	// EdgeSlugs holds the string denoting the slugs edge name in mutations.
+	EdgeSlugs = "slugs"
 	// EdgeRundown holds the string denoting the rundown edge name in mutations.
 	EdgeRundown = "rundown"
 	// EdgeLocations holds the string denoting the locations edge name in mutations.
@@ -109,6 +111,13 @@ const (
 	GrantsInverseTable = "event_grants"
 	// GrantsColumn is the table column denoting the grants relation/edge.
 	GrantsColumn = "event_id"
+	// SlugsTable is the table that holds the slugs relation/edge.
+	SlugsTable = "event_slugs"
+	// SlugsInverseTable is the table name for the EventSlug entity.
+	// It exists in this package in order to avoid circular dependency with the "eventslug" package.
+	SlugsInverseTable = "event_slugs"
+	// SlugsColumn is the table column denoting the slugs relation/edge.
+	SlugsColumn = "event_id"
 	// RundownTable is the table that holds the rundown relation/edge.
 	RundownTable = "rundowns"
 	// RundownInverseTable is the table name for the Rundown entity.
@@ -525,6 +534,20 @@ func ByGrants(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// BySlugsCount orders the results by slugs count.
+func BySlugsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSlugsStep(), opts...)
+	}
+}
+
+// BySlugs orders the results by slugs terms.
+func BySlugs(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSlugsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByRundownField orders the results by rundown field.
 func ByRundownField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -795,6 +818,13 @@ func newGrantsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(GrantsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, GrantsTable, GrantsColumn),
+	)
+}
+func newSlugsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SlugsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, SlugsTable, SlugsColumn),
 	)
 }
 func newRundownStep() *sqlgraph.Step {

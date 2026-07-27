@@ -625,7 +625,7 @@ func (handlers frontendHandlers) publicEvent(
 	if !frontendReadAllowed(response, request) {
 		return
 	}
-	found, err := handlers.events.PublicEvent(
+	found, alias, err := handlers.events.PublicEvent(
 		request.Context(),
 		request.PathValue("slug"),
 	)
@@ -635,6 +635,15 @@ func (handlers frontendHandlers) publicEvent(
 	}
 	if err != nil {
 		handlers.frontendError(response, request, "read public Event", err)
+		return
+	}
+	if alias {
+		http.Redirect(
+			response,
+			request,
+			"/events/"+found.Slug,
+			http.StatusFound,
+		)
 		return
 	}
 	handlers.render(

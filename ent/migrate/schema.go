@@ -812,6 +812,28 @@ var (
 			},
 		},
 	}
+	// EventSlugsColumns holds the columns for the "event_slugs" table.
+	EventSlugsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "slug", Type: field.TypeString, Unique: true, Size: 200},
+		{Name: "exposed", Type: field.TypeBool, Default: false},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "event_id", Type: field.TypeInt},
+	}
+	// EventSlugsTable holds the schema information for the "event_slugs" table.
+	EventSlugsTable = &schema.Table{
+		Name:       "event_slugs",
+		Columns:    EventSlugsColumns,
+		PrimaryKey: []*schema.Column{EventSlugsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "event_slugs_events_slugs",
+				Columns:    []*schema.Column{EventSlugsColumns[4]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
 	// ImportReferencesColumns holds the columns for the "import_references" table.
 	ImportReferencesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -1872,6 +1894,7 @@ var (
 		EventsTable,
 		EventAwardsDraftsTable,
 		EventGrantsTable,
+		EventSlugsTable,
 		ImportReferencesTable,
 		InstallationsTable,
 		LanesTable,
@@ -1942,6 +1965,7 @@ func init() {
 	EventAwardsDraftsTable.ForeignKeys[0].RefTable = EventsTable
 	EventGrantsTable.ForeignKeys[0].RefTable = AccountsTable
 	EventGrantsTable.ForeignKeys[1].RefTable = EventsTable
+	EventSlugsTable.ForeignKeys[0].RefTable = EventsTable
 	ImportReferencesTable.ForeignKeys[0].RefTable = EventsTable
 	InstallationsTable.ForeignKeys[0].RefTable = EventsTable
 	LanesTable.ForeignKeys[0].RefTable = EventsTable

@@ -29,6 +29,8 @@ type AdministrationPage struct {
 	AccountCommandID string
 	GrantCommandID string
 	DisableCommandIDs map[int]string
+	SlugAliases []events.EventSlugAlias
+	PruneAliasCommandIDs map[int]string
 	AuditEntries   []auth.AuditEntry
 	ActiveEvent    activation.ActiveEvent
 	Preflight      *activation.Preflight
@@ -210,6 +212,37 @@ templ Administration(page AdministrationPage) {
 									<button type="submit">Activate Event</button>
 								</form>
 							}
+						}
+					</section>
+					<section>
+						<h2>Event Slug Aliases</h2>
+						if len(page.SlugAliases) == 0 {
+							<p>No retained Event Slug Aliases.</p>
+						}
+						if len(page.SlugAliases) > 0 {
+							<ul>
+								for _, alias := range page.SlugAliases {
+									<li>
+										<code>{ alias.Slug }</code>
+										redirects to
+										<a href={ templ.SafeURL("/events/" + alias.CurrentSlug) }>
+											/events/{ alias.CurrentSlug }
+										</a>
+										<span>Event: { alias.EventName }.</span>
+										<form method="post" action="/backstage/administration">
+											<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+											<input type="hidden" name="action" value="prune-event-slug-alias"/>
+											<input type="hidden" name="command_id" value={ page.PruneAliasCommandIDs[alias.ID] }/>
+											<input type="hidden" name="alias_id" value={ strconv.Itoa(alias.ID) }/>
+											<label>
+												<input type="checkbox" name="confirmed" value="true" required/>
+												Prune this alias. Its slug becomes reusable; stale links may break or retarget.
+											</label>
+											<button type="submit">Prune Event Slug Alias</button>
+										</form>
+									</li>
+								}
+							</ul>
 						}
 					</section>
 					<section>

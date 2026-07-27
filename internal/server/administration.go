@@ -98,6 +98,8 @@ func (handlers administrationHandlers) submit(
 		err = handlers.createGrant(request, actor)
 	case "disable-account":
 		err = handlers.disableAccount(request, actor)
+	case "prune-event-slug-alias":
+		err = handlers.pruneEventSlugAlias(request, actor)
 	case "preflight":
 		preflight, err = handlers.preflight(request, actor)
 	case "activate":
@@ -124,6 +126,24 @@ func (handlers administrationHandlers) submit(
 		return
 	}
 	handlers.render(response, request, actor, csrfToken, status, message, preflight)
+}
+
+func (handlers administrationHandlers) pruneEventSlugAlias(
+	request *http.Request,
+	actor auth.Account,
+) error {
+	aliasID, err := positiveAdministrationFormID(request, "alias_id")
+	if err != nil {
+		return err
+	}
+	_, err = handlers.events.PruneEventSlugAlias(
+		request.Context(),
+		actor,
+		aliasID,
+		request.Form.Get("confirmed") == "true",
+		request.Form.Get("command_id"),
+	)
+	return err
 }
 
 func (handlers administrationHandlers) createAccount(
@@ -275,6 +295,11 @@ func (handlers administrationHandlers) render(
 		handlers.browser.frontendError(response, request, "list Event Grants", err)
 		return
 	}
+	slugAliases, err := handlers.events.ListEventSlugAliases(request.Context(), actor)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "list Event Slug Aliases", err)
+		return
+	}
 	auditEntries, err := handlers.browser.authentication.ListAuditEntries(
 		request.Context(),
 		actor,
@@ -306,6 +331,19 @@ func (handlers administrationHandlers) render(
 			return
 		}
 	}
+	pruneAliasCommandIDs := make(map[int]string, len(slugAliases))
+	for _, alias := range slugAliases {
+		pruneAliasCommandIDs[alias.ID], err = planningCommandID(handlers.browser.random)
+		if err != nil {
+			handlers.browser.frontendError(
+				response,
+				request,
+				"create Event Slug Alias command identity",
+				err,
+			)
+			return
+		}
+	}
 	activationCommandID, err := planningCommandID(handlers.browser.random)
 	if err != nil {
 		handlers.browser.frontendError(response, request, "create Activate Event command identity", err)
@@ -317,19 +355,21 @@ func (handlers administrationHandlers) render(
 		status,
 		frontend.Administration(frontend.AdministrationPage{
 			AccountName: actor.Name, CSRFToken: csrfToken,
-			ReducedEffects:      reducedEffectsCookie(request),
-			Navigation:          backstageNavigation(actor),
-			Accounts:            accounts,
-			Events:              foundEvents,
-			Grants:              grants,
-			AccountCommandID:    accountCommandID,
-			GrantCommandID:      grantCommandID,
-			DisableCommandIDs:   disableCommandIDs,
-			AuditEntries:        auditEntries,
-			ActiveEvent:         activeEvent,
-			Preflight:           preflight,
-			ActivationCommandID: activationCommandID,
-			Error:               message,
+			ReducedEffects:       reducedEffectsCookie(request),
+			Navigation:           backstageNavigation(actor),
+			Accounts:             accounts,
+			Events:               foundEvents,
+			Grants:               grants,
+			AccountCommandID:     accountCommandID,
+			GrantCommandID:       grantCommandID,
+			DisableCommandIDs:    disableCommandIDs,
+			SlugAliases:          slugAliases,
+			PruneAliasCommandIDs: pruneAliasCommandIDs,
+			AuditEntries:         auditEntries,
+			ActiveEvent:          activeEvent,
+			Preflight:            preflight,
+			ActivationCommandID:  activationCommandID,
+			Error:                message,
 		}),
 	)
 }
@@ -357,6 +397,10 @@ func administrationError(err error) (int, string, bool) {
 		return http.StatusUnprocessableEntity, "Check the Account details and try again.", true
 	case errors.Is(err, command.ErrInvalidID):
 		return http.StatusUnprocessableEntity, "A valid command identity is required.", true
+	case errors.Is(err, events.ErrEventSlugAliasNotFound):
+		return http.StatusNotFound, "Event Slug Alias not found.", true
+	case errors.Is(err, events.ErrEventSlugPruneConfirmationRequired):
+		return http.StatusUnprocessableEntity, "Confirm the Event Slug Alias pruning warning.", true
 	case errors.Is(err, auth.ErrAccountExists):
 		return http.StatusConflict, "That Account Handle is already in use.", true
 	case errors.Is(err, auth.ErrAdministratorRequired),

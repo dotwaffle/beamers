@@ -1258,6 +1258,29 @@ func HasGrantsWith(preds ...predicate.EventGrant) predicate.Event {
 	})
 }
 
+// HasSlugs applies the HasEdge predicate on the "slugs" edge.
+func HasSlugs() predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, SlugsTable, SlugsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSlugsWith applies the HasEdge predicate on the "slugs" edge with a given conditions (other predicates).
+func HasSlugsWith(preds ...predicate.EventSlug) predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := newSlugsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasRundown applies the HasEdge predicate on the "rundown" edge.
 func HasRundown() predicate.Event {
 	return predicate.Event(func(s *sql.Selector) {

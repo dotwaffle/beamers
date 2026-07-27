@@ -21,6 +21,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/eventslug"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/location"
@@ -403,6 +404,21 @@ func (_u *EventUpdate) AddGrants(v ...*EventGrant) *EventUpdate {
 	return _u.AddGrantIDs(ids...)
 }
 
+// AddSlugIDs adds the "slugs" edge to the EventSlug entity by IDs.
+func (_u *EventUpdate) AddSlugIDs(ids ...int) *EventUpdate {
+	_u.mutation.AddSlugIDs(ids...)
+	return _u
+}
+
+// AddSlugs adds the "slugs" edges to the EventSlug entity.
+func (_u *EventUpdate) AddSlugs(v ...*EventSlug) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSlugIDs(ids...)
+}
+
 // SetRundownID sets the "rundown" edge to the Rundown entity by ID.
 func (_u *EventUpdate) SetRundownID(id int) *EventUpdate {
 	_u.mutation.SetRundownID(id)
@@ -735,6 +751,27 @@ func (_u *EventUpdate) RemoveGrants(v ...*EventGrant) *EventUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveGrantIDs(ids...)
+}
+
+// ClearSlugs clears all "slugs" edges to the EventSlug entity.
+func (_u *EventUpdate) ClearSlugs() *EventUpdate {
+	_u.mutation.ClearSlugs()
+	return _u
+}
+
+// RemoveSlugIDs removes the "slugs" edge to EventSlug entities by IDs.
+func (_u *EventUpdate) RemoveSlugIDs(ids ...int) *EventUpdate {
+	_u.mutation.RemoveSlugIDs(ids...)
+	return _u
+}
+
+// RemoveSlugs removes "slugs" edges to EventSlug entities.
+func (_u *EventUpdate) RemoveSlugs(v ...*EventSlug) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSlugIDs(ids...)
 }
 
 // ClearRundown clears the "rundown" edge to the Rundown entity.
@@ -1381,6 +1418,51 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(eventgrant.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SlugsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.SlugsTable,
+			Columns: []string{event.SlugsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventslug.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSlugsIDs(); len(nodes) > 0 && !_u.mutation.SlugsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.SlugsTable,
+			Columns: []string{event.SlugsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventslug.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SlugsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.SlugsTable,
+			Columns: []string{event.SlugsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventslug.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -2630,6 +2712,21 @@ func (_u *EventUpdateOne) AddGrants(v ...*EventGrant) *EventUpdateOne {
 	return _u.AddGrantIDs(ids...)
 }
 
+// AddSlugIDs adds the "slugs" edge to the EventSlug entity by IDs.
+func (_u *EventUpdateOne) AddSlugIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.AddSlugIDs(ids...)
+	return _u
+}
+
+// AddSlugs adds the "slugs" edges to the EventSlug entity.
+func (_u *EventUpdateOne) AddSlugs(v ...*EventSlug) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSlugIDs(ids...)
+}
+
 // SetRundownID sets the "rundown" edge to the Rundown entity by ID.
 func (_u *EventUpdateOne) SetRundownID(id int) *EventUpdateOne {
 	_u.mutation.SetRundownID(id)
@@ -2962,6 +3059,27 @@ func (_u *EventUpdateOne) RemoveGrants(v ...*EventGrant) *EventUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveGrantIDs(ids...)
+}
+
+// ClearSlugs clears all "slugs" edges to the EventSlug entity.
+func (_u *EventUpdateOne) ClearSlugs() *EventUpdateOne {
+	_u.mutation.ClearSlugs()
+	return _u
+}
+
+// RemoveSlugIDs removes the "slugs" edge to EventSlug entities by IDs.
+func (_u *EventUpdateOne) RemoveSlugIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.RemoveSlugIDs(ids...)
+	return _u
+}
+
+// RemoveSlugs removes "slugs" edges to EventSlug entities.
+func (_u *EventUpdateOne) RemoveSlugs(v ...*EventSlug) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSlugIDs(ids...)
 }
 
 // ClearRundown clears the "rundown" edge to the Rundown entity.
@@ -3638,6 +3756,51 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(eventgrant.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SlugsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.SlugsTable,
+			Columns: []string{event.SlugsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventslug.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSlugsIDs(); len(nodes) > 0 && !_u.mutation.SlugsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.SlugsTable,
+			Columns: []string{event.SlugsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventslug.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SlugsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.SlugsTable,
+			Columns: []string{event.SlugsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventslug.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

@@ -136,6 +136,14 @@ var migrationContracts = map[int]migrationContract{
 		minimumWriter: 51,
 		consequence:   "adds Producer-controlled Public Event Listing state and current Event Slugs",
 	},
+	52: {
+		name:          "preserve_event_slugs",
+		checksum:      "853800837cd48d3cd70aa928848a3311b10c2f34f405980a6343148313dabf57",
+		safety:        MigrationNonDestructive,
+		minimumReader: 52,
+		minimumWriter: 52,
+		consequence:   "reserves current and retained Event Slugs in one shared namespace",
+	},
 }
 
 // MigrationStep is one exact committed migration in an upgrade plan.

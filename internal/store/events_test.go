@@ -163,6 +163,92 @@ func TestFirstPublicationAssignsSlugToMigratedEvent(t *testing.T) {
 	}
 }
 
+func TestEventSlugAliasesShareNamespaceAndPermitWarnedReuse(t *testing.T) {
+	installation := openEventTestInstallation(t)
+	now := time.Date(2026, time.July, 22, 12, 0, 0, 0, time.UTC)
+	administrator := bootstrapEventTestAdministrator(t, installation, now)
+	ctx := viewer.NewContext(t.Context(), viewer.Identity{
+		AccountID: administrator.ID, Administrator: true,
+	})
+	create := func(name, commandID string) Event {
+		t.Helper()
+		created, err := createEventCommand(t, installation, ctx, CreateEventParams{
+			ActorAccountID: administrator.ID, Name: name,
+			PlannedStartDate: "2026-08-21", PlannedEndDate: "2026-08-23",
+			Timezone: "Europe/Berlin", EventLocale: "en-GB", EventDayBoundary: "00:00",
+			Now: now, CommandID: commandID, PayloadHash: commandID,
+		})
+		if err != nil {
+			t.Fatalf("create %s: %v", name, err)
+		}
+		return created
+	}
+	updateSlug := func(found Event, slug string) (Event, error) {
+		t.Helper()
+		transaction, err := installation.BeginCommand(ctx)
+		if err != nil {
+			t.Fatalf("begin Event Slug update: %v", err)
+		}
+		defer func() { _ = transaction.Rollback() }()
+		updated, err := transaction.UpdateEvent(systemContext(ctx), UpdateEventParams{
+			EventID: found.ID, Name: found.Name, Public: true, PublicSlug: slug,
+			PlannedStartDate: found.PlannedStartDate, PlannedEndDate: found.PlannedEndDate,
+			Timezone: found.Timezone, EventLocale: found.EventLocale,
+			EventDayBoundary: found.EventDayBoundary, ExpectedRevision: found.Revision,
+		})
+		if err != nil {
+			return Event{}, err
+		}
+		if err = transaction.Commit(); err != nil {
+			t.Fatalf("commit Event Slug update: %v", err)
+		}
+		return updated, nil
+	}
+
+	first := create("Summer Showcase", "create-summer")
+	second := create("Winter Showcase", "create-winter")
+	first, err := updateSlug(first, first.PublicSlug)
+	if err != nil {
+		t.Fatalf("publish Event under initial Slug: %v", err)
+	}
+	renamed, err := updateSlug(first, "autumn-showcase")
+	if err != nil {
+		t.Fatalf("rename Event Slug: %v", err)
+	}
+	resolved, alias, err := installation.FindPublicEvent(t.Context(), "summer-showcase")
+	if err != nil || !alias || resolved.ID != first.ID || resolved.PublicSlug != "autumn-showcase" {
+		t.Fatalf("resolve retained Event Slug Alias = %+v, alias=%t, err=%v", resolved, alias, err)
+	}
+	aliases, err := installation.ListEventSlugAliases(ctx)
+	if err != nil || len(aliases) != 1 || aliases[0].Slug != "summer-showcase" {
+		t.Fatalf("Event Slug Aliases = %+v, err=%v", aliases, err)
+	}
+	if _, err = updateSlug(second, "summer-showcase"); !errors.Is(err, ErrEventSlugUnavailable) {
+		t.Fatalf("reuse retained Event Slug Alias error = %v, want %v", err, ErrEventSlugUnavailable)
+	}
+	transaction, err := installation.BeginCommand(ctx)
+	if err != nil {
+		t.Fatalf("begin Event Slug Alias pruning: %v", err)
+	}
+	if _, err = transaction.PruneEventSlugAlias(ctx, aliases[0].ID); err != nil {
+		t.Fatalf("prune Event Slug Alias: %v", err)
+	}
+	if err = transaction.Commit(); err != nil {
+		t.Fatalf("commit Event Slug Alias pruning: %v", err)
+	}
+	reused, err := updateSlug(second, "summer-showcase")
+	if err != nil || reused.PublicSlug != "summer-showcase" {
+		t.Fatalf("reuse pruned Event Slug Alias = %+v, err=%v", reused, err)
+	}
+	resolved, alias, err = installation.FindPublicEvent(t.Context(), "summer-showcase")
+	if err != nil || alias || resolved.ID != second.ID {
+		t.Fatalf("resolve reused current Event Slug = %+v, alias=%t, err=%v", resolved, alias, err)
+	}
+	if _, alias, err = installation.FindPublicEvent(t.Context(), renamed.PublicSlug); err != nil || alias {
+		t.Fatalf("resolve renamed current Event Slug alias=%t, err=%v", alias, err)
+	}
+}
+
 func TestEventCommandRetryReturnsOriginalOutcomeAndConflictIsAudited(t *testing.T) {
 	installation := openEventTestInstallation(t)
 	now := time.Date(2026, time.July, 22, 12, 0, 0, 0, time.UTC)
@@ -301,6 +387,20 @@ func TestEventPrivacyDefaultsDenyAndScopesEveryRole(t *testing.T) {
 	operatorContext := viewer.NewContext(t.Context(), viewer.Identity{
 		AccountID: operator.ID, EventRoles: map[int]viewer.Role{first.ID: viewer.Operator},
 	})
+	for name, ctx := range map[string]context.Context{
+		"missing viewer": t.Context(),
+		"Administrator":  administratorContext,
+		"Producer":       producerContext,
+	} {
+		if _, err := installation.client.EventSlug.Query().Count(ctx); !errors.Is(err, privacy.Deny) {
+			t.Errorf("%s Event Slug query error = %v, want privacy denial", name, err)
+		}
+		if _, err := installation.client.EventSlug.Update().
+			SetExposed(true).
+			Save(ctx); !errors.Is(err, privacy.Deny) {
+			t.Errorf("%s Event Slug mutation error = %v, want privacy denial", name, err)
+		}
+	}
 	if _, err := installation.client.Event.Get(producerContext, first.ID); err != nil {
 		t.Errorf("Producer read granted Event: %v", err)
 	}

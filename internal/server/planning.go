@@ -410,6 +410,8 @@ func planningError(err error) (int, string) {
 		return http.StatusUnprocessableEntity, rundownValidation.Error()
 	case errors.Is(err, events.ErrRevisionConflict):
 		return http.StatusConflict, "Event changed. Reload and review the latest revision."
+	case errors.Is(err, events.ErrEventSlugUnavailable):
+		return http.StatusConflict, "Event Slug is already in use."
 	case errors.Is(err, rundown.ErrDraftRevisionConflict):
 		return http.StatusConflict, "Draft changed. Reload and review the latest revision."
 	case errors.Is(err, rundown.ErrStalePreview):
@@ -451,6 +453,7 @@ func eventConfigurationFormInput(request *http.Request) (events.CreateInput, err
 	return events.CreateInput{
 		Name:                           request.Form.Get("event_name"),
 		Public:                         request.Form.Get("public") == "true",
+		PublicSlug:                     request.Form.Get("public_slug"),
 		PlannedStartDate:               request.Form.Get("planned_start_date"),
 		PlannedEndDate:                 request.Form.Get("planned_end_date"),
 		Timezone:                       request.Form.Get("timezone"),

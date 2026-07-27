@@ -16,6 +16,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/eventslug"
 	"github.com/dotwaffle/beamers/ent/lane"
 )
 
@@ -28,6 +29,10 @@ var (
 	ErrEventGrantExists = errors.New("Event Grant already exists")
 	// ErrEventAccessDenied hides whether an unauthorized Event exists.
 	ErrEventAccessDenied = errors.New("Event access denied")
+	// ErrEventSlugUnavailable means a current slug or retained alias already owns the identifier.
+	ErrEventSlugUnavailable = errors.New("Event Slug is already in use")
+	// ErrEventSlugAliasNotFound means the requested retained alias does not exist.
+	ErrEventSlugAliasNotFound = errors.New("Event Slug Alias not found")
 )
 
 // Event is the persistence projection of an Event's core configuration.
@@ -55,6 +60,15 @@ type PublicEvent struct {
 	PlannedStartDate string
 	PlannedEndDate   string
 	EventLocale      string
+}
+
+// EventSlugAlias is one retained public Event URL identifier.
+type EventSlugAlias struct {
+	ID          int    `json:"id"`
+	EventID     int    `json:"event_id"`
+	EventName   string `json:"event_name"`
+	Slug        string `json:"slug"`
+	CurrentSlug string `json:"current_slug"`
 }
 
 // EventInterchangeState is one portable Event snapshot.
@@ -110,6 +124,7 @@ type UpdateEventParams struct {
 	EventID                        int
 	Name                           string
 	Public                         bool
+	PublicSlug                     string
 	PlannedStartDate               string
 	PlannedEndDate                 string
 	Timezone                       string
@@ -154,6 +169,14 @@ func (transaction *CommandTx) CreateEvent(ctx context.Context, params CreateEven
 	if err != nil {
 		return Event{}, opaqueError("create Event", err)
 	}
+	if _, err = transaction.transaction.EventSlug.Create().
+		SetEventID(created.ID).
+		SetSlug(publicSlug).
+		SetExposed(false).
+		SetCreatedAt(params.Now).
+		Save(systemContext(ctx)); err != nil {
+		return Event{}, opaqueError("reserve Event Slug", err)
+	}
 	if _, createErr := transaction.transaction.Rundown.Create().
 		SetEventID(created.ID).
 		Save(systemContext(ctx)); createErr != nil {
@@ -197,19 +220,89 @@ func (installation *SQLite) ListPublicEvents(ctx context.Context) ([]PublicEvent
 	return events, active.EventID, nil
 }
 
-// FindPublicEvent returns one attendee-visible Event by its current Event Slug.
-func (installation *SQLite) FindPublicEvent(ctx context.Context, slug string) (PublicEvent, error) {
-	found, err := installation.client.Event.Query().Where(
-		event.PublicEQ(true),
-		event.PublicSlugEQ(slug),
-	).Only(systemContext(ctx))
+// FindPublicEvent resolves one attendee-visible current Event Slug or retained alias.
+func (installation *SQLite) FindPublicEvent(
+	ctx context.Context,
+	slug string,
+) (PublicEvent, bool, error) {
+	reserved, err := installation.client.EventSlug.Query().
+		Where(eventslug.SlugEQ(slug)).
+		Only(systemContext(ctx))
 	if ent.IsNotFound(err) {
-		return PublicEvent{}, ErrEventNotFound
+		return PublicEvent{}, false, ErrEventNotFound
 	}
 	if err != nil {
-		return PublicEvent{}, opaqueError("find public Event", err)
+		return PublicEvent{}, false, opaqueError("find public Event Slug", err)
 	}
-	return publicEventProjection(found), nil
+	found, err := reserved.QueryEvent().
+		Where(event.PublicEQ(true)).
+		Only(systemContext(ctx))
+	if ent.IsNotFound(err) {
+		return PublicEvent{}, false, ErrEventNotFound
+	}
+	if err != nil {
+		return PublicEvent{}, false, opaqueError("find public Event", err)
+	}
+	return publicEventProjection(found), reserved.Slug != found.PublicSlug, nil
+}
+
+// ListEventSlugAliases returns retained aliases in stable creation order.
+func (installation *SQLite) ListEventSlugAliases(
+	ctx context.Context,
+) ([]EventSlugAlias, error) {
+	found, err := installation.client.EventSlug.Query().
+		WithEvent().
+		Order(ent.Asc(eventslug.FieldID)).
+		All(systemContext(ctx))
+	if err != nil {
+		return nil, opaqueError("list Event Slug Aliases", err)
+	}
+	aliases := make([]EventSlugAlias, 0, len(found))
+	for _, item := range found {
+		linked, edgeErr := item.Edges.EventOrErr()
+		if edgeErr != nil {
+			return nil, opaqueError("read Event for Slug Alias", edgeErr)
+		}
+		if item.Slug == linked.PublicSlug {
+			continue
+		}
+		aliases = append(aliases, EventSlugAlias{
+			ID: item.ID, EventID: item.EventID, EventName: linked.Name,
+			Slug: item.Slug, CurrentSlug: linked.PublicSlug,
+		})
+	}
+	return aliases, nil
+}
+
+// PruneEventSlugAlias releases one retained alias for reuse.
+func (transaction *CommandTx) PruneEventSlugAlias(
+	ctx context.Context,
+	aliasID int,
+) (EventSlugAlias, error) {
+	found, err := transaction.transaction.EventSlug.Query().
+		Where(eventslug.IDEQ(aliasID)).
+		WithEvent().
+		Only(systemContext(ctx))
+	if ent.IsNotFound(err) {
+		return EventSlugAlias{}, ErrEventSlugAliasNotFound
+	}
+	if err != nil {
+		return EventSlugAlias{}, opaqueError("find Event Slug Alias", err)
+	}
+	linked, err := found.Edges.EventOrErr()
+	if err != nil {
+		return EventSlugAlias{}, opaqueError("read Event for Slug Alias", err)
+	}
+	if found.Slug == linked.PublicSlug {
+		return EventSlugAlias{}, ErrEventSlugAliasNotFound
+	}
+	if err = transaction.transaction.EventSlug.DeleteOne(found).Exec(systemContext(ctx)); err != nil {
+		return EventSlugAlias{}, opaqueError("prune Event Slug Alias", err)
+	}
+	return EventSlugAlias{
+		ID: found.ID, EventID: found.EventID, EventName: linked.Name,
+		Slug: found.Slug, CurrentSlug: linked.PublicSlug,
+	}, nil
 }
 
 // ListEventGrants returns installation Event Grants in stable creation order.
@@ -315,24 +408,55 @@ func (transaction *CommandTx) UpdateEvent(ctx context.Context, params UpdateEven
 	if err != nil {
 		return Event{}, opaqueError("encode Adjust Target presets", err)
 	}
-	publicSlug := ""
-	if params.Public {
-		current, currentErr := transaction.transaction.Event.Query().Where(
-			event.IDEQ(params.EventID),
-			event.RevisionEQ(params.ExpectedRevision),
-		).Only(systemContext(ctx))
-		if ent.IsNotFound(currentErr) {
-			return Event{}, ErrRevisionConflict
-		}
-		if currentErr != nil {
-			return Event{}, opaqueError("read Event Slug before publication", currentErr)
-		}
-		publicSlug = current.PublicSlug
-		if publicSlug == "" {
-			publicSlug, err = transaction.availableEventSlug(ctx, params.Name)
-			if err != nil {
-				return Event{}, err
+	current, currentErr := transaction.transaction.Event.Query().Where(
+		event.IDEQ(params.EventID),
+		event.RevisionEQ(params.ExpectedRevision),
+	).Only(systemContext(ctx))
+	if ent.IsNotFound(currentErr) {
+		return Event{}, ErrRevisionConflict
+	}
+	if currentErr != nil {
+		return Event{}, opaqueError("read Event Slug before update", currentErr)
+	}
+	publicSlug := current.PublicSlug
+	if params.PublicSlug != "" {
+		requestedSlug := eventSlug(params.PublicSlug)
+		if requestedSlug != publicSlug {
+			if replaceErr := transaction.replaceEventSlug(
+				ctx,
+				current,
+				requestedSlug,
+				params.Public,
+				params.Now,
+			); replaceErr != nil {
+				return Event{}, replaceErr
 			}
+			publicSlug = requestedSlug
+		}
+	}
+	if params.Public && publicSlug == "" {
+		publicSlug, err = transaction.availableEventSlug(ctx, params.Name)
+		if err != nil {
+			return Event{}, err
+		}
+		if reserveErr := transaction.reserveCurrentEventSlug(
+			ctx,
+			params.EventID,
+			publicSlug,
+			true,
+			params.Now,
+		); reserveErr != nil {
+			return Event{}, reserveErr
+		}
+	} else if params.Public && !current.Public && publicSlug != "" {
+		if _, err = transaction.transaction.EventSlug.Update().
+			Where(
+				eventslug.EventIDEQ(params.EventID),
+				eventslug.SlugEQ(publicSlug),
+			).
+			SetExposed(true).
+			Save(systemContext(ctx)); err != nil {
+			return Event{}, opaqueError("mark Event Slug public", err)
 		}
 	}
 	entryDefaultDisposition := params.EntryDefaultDisposition
@@ -379,8 +503,8 @@ func (transaction *CommandTx) availableEventSlug(ctx context.Context, name strin
 			limit := 200 - utf8.RuneCountInString(trailer)
 			candidate = strings.TrimRight(string(runes[:min(len(runes), limit)]), "-") + trailer
 		}
-		exists, err := transaction.transaction.Event.Query().
-			Where(event.PublicSlugEQ(candidate)).
+		exists, err := transaction.transaction.EventSlug.Query().
+			Where(eventslug.SlugEQ(candidate)).
 			Exist(systemContext(ctx))
 		if err != nil {
 			return "", opaqueError("find available Event Slug", err)
@@ -389,6 +513,73 @@ func (transaction *CommandTx) availableEventSlug(ctx context.Context, name strin
 			return candidate, nil
 		}
 	}
+}
+
+func (transaction *CommandTx) replaceEventSlug(
+	ctx context.Context,
+	found *ent.Event,
+	slug string,
+	exposed bool,
+	now time.Time,
+) error {
+	exists, err := transaction.transaction.EventSlug.Query().
+		Where(eventslug.SlugEQ(slug)).
+		Exist(systemContext(ctx))
+	if err != nil {
+		return opaqueError("check Event Slug availability", err)
+	}
+	if exists {
+		return ErrEventSlugUnavailable
+	}
+	if found.PublicSlug != "" {
+		current, currentErr := transaction.transaction.EventSlug.Query().
+			Where(
+				eventslug.EventIDEQ(found.ID),
+				eventslug.SlugEQ(found.PublicSlug),
+			).
+			Only(systemContext(ctx))
+		switch {
+		case currentErr != nil && !ent.IsNotFound(currentErr):
+			return opaqueError("read previous Event Slug", currentErr)
+		case ent.IsNotFound(currentErr) && found.Public:
+			if _, currentErr = transaction.transaction.EventSlug.Create().
+				SetEventID(found.ID).
+				SetSlug(found.PublicSlug).
+				SetExposed(true).
+				SetCreatedAt(now).
+				Save(systemContext(ctx)); currentErr != nil {
+				return opaqueError("retain previous Event Slug", currentErr)
+			}
+		case currentErr == nil && !current.Exposed:
+			if currentErr = transaction.transaction.EventSlug.DeleteOne(current).
+				Exec(systemContext(ctx)); currentErr != nil {
+				return opaqueError("release private Event Slug", currentErr)
+			}
+		}
+	}
+	return transaction.reserveCurrentEventSlug(ctx, found.ID, slug, exposed, now)
+}
+
+func (transaction *CommandTx) reserveCurrentEventSlug(
+	ctx context.Context,
+	eventID int,
+	slug string,
+	exposed bool,
+	now time.Time,
+) error {
+	_, err := transaction.transaction.EventSlug.Create().
+		SetEventID(eventID).
+		SetSlug(slug).
+		SetExposed(exposed).
+		SetCreatedAt(now).
+		Save(systemContext(ctx))
+	if ent.IsConstraintError(err) {
+		return ErrEventSlugUnavailable
+	}
+	if err != nil {
+		return opaqueError("reserve Event Slug", err)
+	}
+	return nil
 }
 
 func eventSlug(name string) string {

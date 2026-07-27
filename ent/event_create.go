@@ -20,6 +20,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/eventslug"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/location"
@@ -300,6 +301,21 @@ func (_c *EventCreate) AddGrants(v ...*EventGrant) *EventCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddGrantIDs(ids...)
+}
+
+// AddSlugIDs adds the "slugs" edge to the EventSlug entity by IDs.
+func (_c *EventCreate) AddSlugIDs(ids ...int) *EventCreate {
+	_c.mutation.AddSlugIDs(ids...)
+	return _c
+}
+
+// AddSlugs adds the "slugs" edges to the EventSlug entity.
+func (_c *EventCreate) AddSlugs(v ...*EventSlug) *EventCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddSlugIDs(ids...)
 }
 
 // SetRundownID sets the "rundown" edge to the Rundown entity by ID.
@@ -954,6 +970,22 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(eventgrant.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.SlugsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.SlugsTable,
+			Columns: []string{event.SlugsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventslug.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

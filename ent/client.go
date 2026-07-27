@@ -39,6 +39,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/eventslug"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/lane"
@@ -126,6 +127,8 @@ type Client struct {
 	EventAwardsDraft *EventAwardsDraftClient
 	// EventGrant is the client for interacting with the EventGrant builders.
 	EventGrant *EventGrantClient
+	// EventSlug is the client for interacting with the EventSlug builders.
+	EventSlug *EventSlugClient
 	// ImportReference is the client for interacting with the ImportReference builders.
 	ImportReference *ImportReferenceClient
 	// Installation is the client for interacting with the Installation builders.
@@ -221,6 +224,7 @@ func (c *Client) init() {
 	c.Event = NewEventClient(c.config)
 	c.EventAwardsDraft = NewEventAwardsDraftClient(c.config)
 	c.EventGrant = NewEventGrantClient(c.config)
+	c.EventSlug = NewEventSlugClient(c.config)
 	c.ImportReference = NewImportReferenceClient(c.config)
 	c.Installation = NewInstallationClient(c.config)
 	c.Lane = NewLaneClient(c.config)
@@ -367,6 +371,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Event:                       NewEventClient(cfg),
 		EventAwardsDraft:            NewEventAwardsDraftClient(cfg),
 		EventGrant:                  NewEventGrantClient(cfg),
+		EventSlug:                   NewEventSlugClient(cfg),
 		ImportReference:             NewImportReferenceClient(cfg),
 		Installation:                NewInstallationClient(cfg),
 		Lane:                        NewLaneClient(cfg),
@@ -440,6 +445,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Event:                       NewEventClient(cfg),
 		EventAwardsDraft:            NewEventAwardsDraftClient(cfg),
 		EventGrant:                  NewEventGrantClient(cfg),
+		EventSlug:                   NewEventSlugClient(cfg),
 		ImportReference:             NewImportReferenceClient(cfg),
 		Installation:                NewInstallationClient(cfg),
 		Lane:                        NewLaneClient(cfg),
@@ -505,8 +511,8 @@ func (c *Client) Use(hooks ...Hook) {
 		c.CompetitionResultsDraft, c.Display, c.DisplayAssignment, c.DisplayCredential,
 		c.DisplayEnrollment, c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventAwardsDraft,
-		c.EventGrant, c.ImportReference, c.Installation, c.Lane, c.LaneDraft,
-		c.LanePublishedVersion, c.Location, c.LocationDraft,
+		c.EventGrant, c.EventSlug, c.ImportReference, c.Installation, c.Lane,
+		c.LaneDraft, c.LanePublishedVersion, c.Location, c.LocationDraft,
 		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Prizegiving,
 		c.PrizegivingCompetition, c.PublicScheduleBaseline,
 		c.PublicScheduleBaselineEntry, c.RegistrationPolicy, c.ReleasedProfileEntry,
@@ -529,8 +535,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.CompetitionResultsDraft, c.Display, c.DisplayAssignment, c.DisplayCredential,
 		c.DisplayEnrollment, c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventAwardsDraft,
-		c.EventGrant, c.ImportReference, c.Installation, c.Lane, c.LaneDraft,
-		c.LanePublishedVersion, c.Location, c.LocationDraft,
+		c.EventGrant, c.EventSlug, c.ImportReference, c.Installation, c.Lane,
+		c.LaneDraft, c.LanePublishedVersion, c.Location, c.LocationDraft,
 		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Prizegiving,
 		c.PrizegivingCompetition, c.PublicScheduleBaseline,
 		c.PublicScheduleBaselineEntry, c.RegistrationPolicy, c.ReleasedProfileEntry,
@@ -594,6 +600,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.EventAwardsDraft.mutate(ctx, m)
 	case *EventGrantMutation:
 		return c.EventGrant.mutate(ctx, m)
+	case *EventSlugMutation:
+		return c.EventSlug.mutate(ctx, m)
 	case *ImportReferenceMutation:
 		return c.ImportReference.mutate(ctx, m)
 	case *InstallationMutation:
@@ -4317,6 +4325,22 @@ func (c *EventClient) QueryGrants(_m *Event) *EventGrantQuery {
 	return query
 }
 
+// QuerySlugs queries the slugs edge of a Event.
+func (c *EventClient) QuerySlugs(_m *Event) *EventSlugQuery {
+	query := (&EventSlugClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(eventslug.Table, eventslug.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.SlugsTable, event.SlugsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryRundown queries the rundown edge of a Event.
 func (c *EventClient) QueryRundown(_m *Event) *RundownQuery {
 	query := (&RundownClient{config: c.config}).Query()
@@ -4976,6 +5000,156 @@ func (c *EventGrantClient) mutate(ctx context.Context, m *EventGrantMutation) (V
 		return (&EventGrantDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown EventGrant mutation op: %q", m.Op())
+	}
+}
+
+// EventSlugClient is a client for the EventSlug schema.
+type EventSlugClient struct {
+	config
+}
+
+// NewEventSlugClient returns a client for the EventSlug from the given config.
+func NewEventSlugClient(c config) *EventSlugClient {
+	return &EventSlugClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `eventslug.Hooks(f(g(h())))`.
+func (c *EventSlugClient) Use(hooks ...Hook) {
+	c.hooks.EventSlug = append(c.hooks.EventSlug, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `eventslug.Intercept(f(g(h())))`.
+func (c *EventSlugClient) Intercept(interceptors ...Interceptor) {
+	c.inters.EventSlug = append(c.inters.EventSlug, interceptors...)
+}
+
+// Create returns a builder for creating a EventSlug entity.
+func (c *EventSlugClient) Create() *EventSlugCreate {
+	mutation := newEventSlugMutation(c.config, OpCreate)
+	return &EventSlugCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of EventSlug entities.
+func (c *EventSlugClient) CreateBulk(builders ...*EventSlugCreate) *EventSlugCreateBulk {
+	return &EventSlugCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *EventSlugClient) MapCreateBulk(slice any, setFunc func(*EventSlugCreate, int)) *EventSlugCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &EventSlugCreateBulk{err: fmt.Errorf("calling to EventSlugClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*EventSlugCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &EventSlugCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for EventSlug.
+func (c *EventSlugClient) Update() *EventSlugUpdate {
+	mutation := newEventSlugMutation(c.config, OpUpdate)
+	return &EventSlugUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *EventSlugClient) UpdateOne(_m *EventSlug) *EventSlugUpdateOne {
+	mutation := newEventSlugMutation(c.config, OpUpdateOne, withEventSlug(_m))
+	return &EventSlugUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *EventSlugClient) UpdateOneID(id int) *EventSlugUpdateOne {
+	mutation := newEventSlugMutation(c.config, OpUpdateOne, withEventSlugID(id))
+	return &EventSlugUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for EventSlug.
+func (c *EventSlugClient) Delete() *EventSlugDelete {
+	mutation := newEventSlugMutation(c.config, OpDelete)
+	return &EventSlugDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *EventSlugClient) DeleteOne(_m *EventSlug) *EventSlugDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *EventSlugClient) DeleteOneID(id int) *EventSlugDeleteOne {
+	builder := c.Delete().Where(eventslug.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &EventSlugDeleteOne{builder}
+}
+
+// Query returns a query builder for EventSlug.
+func (c *EventSlugClient) Query() *EventSlugQuery {
+	return &EventSlugQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeEventSlug},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a EventSlug entity by its id.
+func (c *EventSlugClient) Get(ctx context.Context, id int) (*EventSlug, error) {
+	return c.Query().Where(eventslug.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *EventSlugClient) GetX(ctx context.Context, id int) *EventSlug {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a EventSlug.
+func (c *EventSlugClient) QueryEvent(_m *EventSlug) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(eventslug.Table, eventslug.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, eventslug.EventTable, eventslug.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *EventSlugClient) Hooks() []Hook {
+	hooks := c.hooks.EventSlug
+	return append(hooks[:len(hooks):len(hooks)], eventslug.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *EventSlugClient) Interceptors() []Interceptor {
+	return c.inters.EventSlug
+}
+
+func (c *EventSlugClient) mutate(ctx context.Context, m *EventSlugMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&EventSlugCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&EventSlugUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&EventSlugUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&EventSlugDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown EventSlug mutation op: %q", m.Op())
 	}
 }
 
@@ -10062,14 +10236,14 @@ type (
 		CompetitionEntry, CompetitionResultStanding, CompetitionResultsDraft, Display,
 		DisplayAssignment, DisplayCredential, DisplayEnrollment, DisplayOverride,
 		DisplayOverrideState, DraftChange, DraftChangeDependency, DraftEdit, Event,
-		EventAwardsDraft, EventGrant, ImportReference, Installation, Lane, LaneDraft,
-		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
-		Migration, PasswordCredential, Prizegiving, PrizegivingCompetition,
-		PublicScheduleBaseline, PublicScheduleBaselineEntry, RegistrationPolicy,
-		ReleasedProfileEntry, ReopenWindow, ResultsCorrection, ResultsPublication,
-		Rundown, Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
-		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
-		UploadLink []ent.Hook
+		EventAwardsDraft, EventGrant, EventSlug, ImportReference, Installation, Lane,
+		LaneDraft, LanePublishedVersion, Location, LocationDraft,
+		LocationPublishedVersion, Migration, PasswordCredential, Prizegiving,
+		PrizegivingCompetition, PublicScheduleBaseline, PublicScheduleBaselineEntry,
+		RegistrationPolicy, ReleasedProfileEntry, ReopenWindow, ResultsCorrection,
+		ResultsPublication, Rundown, Session, SessionCancellation, SessionDraft,
+		SessionPublishedVersion, SessionRun, SessionRunAmendment, Track, TrackDraft,
+		TrackPublishedVersion, UploadLink []ent.Hook
 	}
 	inters struct {
 		Account, AccountPreference, AccountProfile, AccountSession, Attachment,
@@ -10077,14 +10251,14 @@ type (
 		CompetitionEntry, CompetitionResultStanding, CompetitionResultsDraft, Display,
 		DisplayAssignment, DisplayCredential, DisplayEnrollment, DisplayOverride,
 		DisplayOverrideState, DraftChange, DraftChangeDependency, DraftEdit, Event,
-		EventAwardsDraft, EventGrant, ImportReference, Installation, Lane, LaneDraft,
-		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
-		Migration, PasswordCredential, Prizegiving, PrizegivingCompetition,
-		PublicScheduleBaseline, PublicScheduleBaselineEntry, RegistrationPolicy,
-		ReleasedProfileEntry, ReopenWindow, ResultsCorrection, ResultsPublication,
-		Rundown, Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
-		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
-		UploadLink []ent.Interceptor
+		EventAwardsDraft, EventGrant, EventSlug, ImportReference, Installation, Lane,
+		LaneDraft, LanePublishedVersion, Location, LocationDraft,
+		LocationPublishedVersion, Migration, PasswordCredential, Prizegiving,
+		PrizegivingCompetition, PublicScheduleBaseline, PublicScheduleBaselineEntry,
+		RegistrationPolicy, ReleasedProfileEntry, ReopenWindow, ResultsCorrection,
+		ResultsPublication, Rundown, Session, SessionCancellation, SessionDraft,
+		SessionPublishedVersion, SessionRun, SessionRunAmendment, Track, TrackDraft,
+		TrackPublishedVersion, UploadLink []ent.Interceptor
 	}
 )
 

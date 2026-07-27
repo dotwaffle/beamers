@@ -78,6 +78,9 @@ type EventAwardsDraft func(*sql.Selector)
 // EventGrant is the predicate function for eventgrant builders.
 type EventGrant func(*sql.Selector)
 
+// EventSlug is the predicate function for eventslug builders.
+type EventSlug func(*sql.Selector)
+
 // ImportReference is the predicate function for importreference builders.
 type ImportReference func(*sql.Selector)
 

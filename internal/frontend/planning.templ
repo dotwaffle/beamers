@@ -123,6 +123,11 @@ templ Planning(page PlanningPage) {
 										/events/{ page.Event.PublicSlug }
 									</a>
 								</p>
+								<label>
+									Current Event Slug
+									<input name="public_slug" value={ page.Event.PublicSlug } required/>
+								</label>
+								<p>Previously public slugs are retained as redirects.</p>
 							}
 							<label>
 								<input type="checkbox" name="public" value="true" checked?={ page.Event.Public }/>

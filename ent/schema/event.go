@@ -61,6 +61,7 @@ func (Event) Fields() []ent.Field {
 func (Event) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("grants", EventGrant.Type),
+		edge.To("slugs", EventSlug.Type),
 		edge.To("rundown", Rundown.Type).Unique(),
 		edge.To("locations", Location.Type),
 		edge.To("lanes", Lane.Type),

@@ -35,6 +35,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/eventslug"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/lane"
@@ -104,6 +105,7 @@ const (
 	TypeEvent                       = "Event"
 	TypeEventAwardsDraft            = "EventAwardsDraft"
 	TypeEventGrant                  = "EventGrant"
+	TypeEventSlug                   = "EventSlug"
 	TypeImportReference             = "ImportReference"
 	TypeInstallation                = "Installation"
 	TypeLane                        = "Lane"
@@ -21260,6 +21262,9 @@ type EventMutation struct {
 	grants                                    map[int]struct{}
 	removedgrants                             map[int]struct{}
 	clearedgrants                             bool
+	slugs                                     map[int]struct{}
+	removedslugs                              map[int]struct{}
+	clearedslugs                              bool
 	rundown                                   *int
 	clearedrundown                            bool
 	locations                                 map[int]struct{}
@@ -22382,6 +22387,60 @@ func (m *EventMutation) ResetGrants() {
 	m.grants = nil
 	m.clearedgrants = false
 	m.removedgrants = nil
+}
+
+// AddSlugIDs adds the "slugs" edge to the EventSlug entity by ids.
+func (m *EventMutation) AddSlugIDs(ids ...int) {
+	if m.slugs == nil {
+		m.slugs = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.slugs[ids[i]] = struct{}{}
+	}
+}
+
+// ClearSlugs clears the "slugs" edge to the EventSlug entity.
+func (m *EventMutation) ClearSlugs() {
+	m.clearedslugs = true
+}
+
+// SlugsCleared reports if the "slugs" edge to the EventSlug entity was cleared.
+func (m *EventMutation) SlugsCleared() bool {
+	return m.clearedslugs
+}
+
+// RemoveSlugIDs removes the "slugs" edge to the EventSlug entity by IDs.
+func (m *EventMutation) RemoveSlugIDs(ids ...int) {
+	if m.removedslugs == nil {
+		m.removedslugs = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.slugs, ids[i])
+		m.removedslugs[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedSlugs returns the removed IDs of the "slugs" edge to the EventSlug entity.
+func (m *EventMutation) RemovedSlugsIDs() (ids []int) {
+	for id := range m.removedslugs {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// SlugsIDs returns the "slugs" edge IDs in the mutation.
+func (m *EventMutation) SlugsIDs() (ids []int) {
+	for id := range m.slugs {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetSlugs resets all changes to the "slugs" edge.
+func (m *EventMutation) ResetSlugs() {
+	m.slugs = nil
+	m.clearedslugs = false
+	m.removedslugs = nil
 }
 
 // SetRundownID sets the "rundown" edge to the Rundown entity by id.
@@ -23997,9 +24056,12 @@ func (m *EventMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *EventMutation) AddedEdges() []string {
-	edges := make([]string, 0, 21)
+	edges := make([]string, 0, 22)
 	if m.grants != nil {
 		edges = append(edges, event.EdgeGrants)
+	}
+	if m.slugs != nil {
+		edges = append(edges, event.EdgeSlugs)
 	}
 	if m.rundown != nil {
 		edges = append(edges, event.EdgeRundown)
@@ -24071,6 +24133,12 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 	case event.EdgeGrants:
 		ids := make([]ent.Value, 0, len(m.grants))
 		for id := range m.grants {
+			ids = append(ids, id)
+		}
+		return ids
+	case event.EdgeSlugs:
+		ids := make([]ent.Value, 0, len(m.slugs))
+		for id := range m.slugs {
 			ids = append(ids, id)
 		}
 		return ids
@@ -24196,9 +24264,12 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *EventMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 21)
+	edges := make([]string, 0, 22)
 	if m.removedgrants != nil {
 		edges = append(edges, event.EdgeGrants)
+	}
+	if m.removedslugs != nil {
+		edges = append(edges, event.EdgeSlugs)
 	}
 	if m.removedlocations != nil {
 		edges = append(edges, event.EdgeLocations)
@@ -24264,6 +24335,12 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 	case event.EdgeGrants:
 		ids := make([]ent.Value, 0, len(m.removedgrants))
 		for id := range m.removedgrants {
+			ids = append(ids, id)
+		}
+		return ids
+	case event.EdgeSlugs:
+		ids := make([]ent.Value, 0, len(m.removedslugs))
+		for id := range m.removedslugs {
 			ids = append(ids, id)
 		}
 		return ids
@@ -24381,9 +24458,12 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *EventMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 21)
+	edges := make([]string, 0, 22)
 	if m.clearedgrants {
 		edges = append(edges, event.EdgeGrants)
+	}
+	if m.clearedslugs {
+		edges = append(edges, event.EdgeSlugs)
 	}
 	if m.clearedrundown {
 		edges = append(edges, event.EdgeRundown)
@@ -24454,6 +24534,8 @@ func (m *EventMutation) EdgeCleared(name string) bool {
 	switch name {
 	case event.EdgeGrants:
 		return m.clearedgrants
+	case event.EdgeSlugs:
+		return m.clearedslugs
 	case event.EdgeRundown:
 		return m.clearedrundown
 	case event.EdgeLocations:
@@ -24518,6 +24600,9 @@ func (m *EventMutation) ResetEdge(name string) error {
 	switch name {
 	case event.EdgeGrants:
 		m.ResetGrants()
+		return nil
+	case event.EdgeSlugs:
+		m.ResetSlugs()
 		return nil
 	case event.EdgeRundown:
 		m.ResetRundown()
@@ -26239,6 +26324,551 @@ func (m *EventGrantMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown EventGrant edge %s", name)
+}
+
+// EventSlugMutation represents an operation that mutates the EventSlug nodes in the graph.
+type EventSlugMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int
+	slug          *string
+	exposed       *bool
+	created_at    *time.Time
+	clearedFields map[string]struct{}
+	event         *int
+	clearedevent  bool
+	done          bool
+	oldValue      func(context.Context) (*EventSlug, error)
+	predicates    []predicate.EventSlug
+}
+
+var _ ent.Mutation = (*EventSlugMutation)(nil)
+
+// eventslugOption allows management of the mutation configuration using functional options.
+type eventslugOption func(*EventSlugMutation)
+
+// newEventSlugMutation creates new mutation for the EventSlug entity.
+func newEventSlugMutation(c config, op Op, opts ...eventslugOption) *EventSlugMutation {
+	m := &EventSlugMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeEventSlug,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withEventSlugID sets the ID field of the mutation.
+func withEventSlugID(id int) eventslugOption {
+	return func(m *EventSlugMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *EventSlug
+		)
+		m.oldValue = func(ctx context.Context) (*EventSlug, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().EventSlug.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withEventSlug sets the old EventSlug of the mutation.
+func withEventSlug(node *EventSlug) eventslugOption {
+	return func(m *EventSlugMutation) {
+		m.oldValue = func(context.Context) (*EventSlug, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m EventSlugMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m EventSlugMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *EventSlugMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *EventSlugMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().EventSlug.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetEventID sets the "event_id" field.
+func (m *EventSlugMutation) SetEventID(i int) {
+	m.event = &i
+}
+
+// EventID returns the value of the "event_id" field in the mutation.
+func (m *EventSlugMutation) EventID() (r int, exists bool) {
+	v := m.event
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventID returns the old "event_id" field's value of the EventSlug entity.
+// If the EventSlug object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventSlugMutation) OldEventID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventID: %w", err)
+	}
+	return oldValue.EventID, nil
+}
+
+// ResetEventID resets all changes to the "event_id" field.
+func (m *EventSlugMutation) ResetEventID() {
+	m.event = nil
+}
+
+// SetSlug sets the "slug" field.
+func (m *EventSlugMutation) SetSlug(s string) {
+	m.slug = &s
+}
+
+// Slug returns the value of the "slug" field in the mutation.
+func (m *EventSlugMutation) Slug() (r string, exists bool) {
+	v := m.slug
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSlug returns the old "slug" field's value of the EventSlug entity.
+// If the EventSlug object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventSlugMutation) OldSlug(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSlug is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSlug requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSlug: %w", err)
+	}
+	return oldValue.Slug, nil
+}
+
+// ResetSlug resets all changes to the "slug" field.
+func (m *EventSlugMutation) ResetSlug() {
+	m.slug = nil
+}
+
+// SetExposed sets the "exposed" field.
+func (m *EventSlugMutation) SetExposed(b bool) {
+	m.exposed = &b
+}
+
+// Exposed returns the value of the "exposed" field in the mutation.
+func (m *EventSlugMutation) Exposed() (r bool, exists bool) {
+	v := m.exposed
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExposed returns the old "exposed" field's value of the EventSlug entity.
+// If the EventSlug object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventSlugMutation) OldExposed(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExposed is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExposed requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExposed: %w", err)
+	}
+	return oldValue.Exposed, nil
+}
+
+// ResetExposed resets all changes to the "exposed" field.
+func (m *EventSlugMutation) ResetExposed() {
+	m.exposed = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *EventSlugMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *EventSlugMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the EventSlug entity.
+// If the EventSlug object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventSlugMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *EventSlugMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearEvent clears the "event" edge to the Event entity.
+func (m *EventSlugMutation) ClearEvent() {
+	m.clearedevent = true
+	m.clearedFields[eventslug.FieldEventID] = struct{}{}
+}
+
+// EventCleared reports if the "event" edge to the Event entity was cleared.
+func (m *EventSlugMutation) EventCleared() bool {
+	return m.clearedevent
+}
+
+// EventIDs returns the "event" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// EventID instead. It exists only for internal usage by the builders.
+func (m *EventSlugMutation) EventIDs() (ids []int) {
+	if id := m.event; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetEvent resets all changes to the "event" edge.
+func (m *EventSlugMutation) ResetEvent() {
+	m.event = nil
+	m.clearedevent = false
+}
+
+// Where appends a list predicates to the EventSlugMutation builder.
+func (m *EventSlugMutation) Where(ps ...predicate.EventSlug) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the EventSlugMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *EventSlugMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.EventSlug, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *EventSlugMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *EventSlugMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (EventSlug).
+func (m *EventSlugMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *EventSlugMutation) Fields() []string {
+	fields := make([]string, 0, 4)
+	if m.event != nil {
+		fields = append(fields, eventslug.FieldEventID)
+	}
+	if m.slug != nil {
+		fields = append(fields, eventslug.FieldSlug)
+	}
+	if m.exposed != nil {
+		fields = append(fields, eventslug.FieldExposed)
+	}
+	if m.created_at != nil {
+		fields = append(fields, eventslug.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *EventSlugMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case eventslug.FieldEventID:
+		return m.EventID()
+	case eventslug.FieldSlug:
+		return m.Slug()
+	case eventslug.FieldExposed:
+		return m.Exposed()
+	case eventslug.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *EventSlugMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case eventslug.FieldEventID:
+		return m.OldEventID(ctx)
+	case eventslug.FieldSlug:
+		return m.OldSlug(ctx)
+	case eventslug.FieldExposed:
+		return m.OldExposed(ctx)
+	case eventslug.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown EventSlug field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *EventSlugMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case eventslug.FieldEventID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventID(v)
+		return nil
+	case eventslug.FieldSlug:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSlug(v)
+		return nil
+	case eventslug.FieldExposed:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExposed(v)
+		return nil
+	case eventslug.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown EventSlug field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *EventSlugMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *EventSlugMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *EventSlugMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown EventSlug numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *EventSlugMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *EventSlugMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *EventSlugMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown EventSlug nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *EventSlugMutation) ResetField(name string) error {
+	switch name {
+	case eventslug.FieldEventID:
+		m.ResetEventID()
+		return nil
+	case eventslug.FieldSlug:
+		m.ResetSlug()
+		return nil
+	case eventslug.FieldExposed:
+		m.ResetExposed()
+		return nil
+	case eventslug.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown EventSlug field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *EventSlugMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.event != nil {
+		edges = append(edges, eventslug.EdgeEvent)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *EventSlugMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case eventslug.EdgeEvent:
+		if id := m.event; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *EventSlugMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *EventSlugMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *EventSlugMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedevent {
+		edges = append(edges, eventslug.EdgeEvent)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *EventSlugMutation) EdgeCleared(name string) bool {
+	switch name {
+	case eventslug.EdgeEvent:
+		return m.clearedevent
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *EventSlugMutation) ClearEdge(name string) error {
+	switch name {
+	case eventslug.EdgeEvent:
+		m.ClearEvent()
+		return nil
+	}
+	return fmt.Errorf("unknown EventSlug unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *EventSlugMutation) ResetEdge(name string) error {
+	switch name {
+	case eventslug.EdgeEvent:
+		m.ResetEvent()
+		return nil
+	}
+	return fmt.Errorf("unknown EventSlug edge %s", name)
 }
 
 // ImportReferenceMutation represents an operation that mutates the ImportReference nodes in the graph.

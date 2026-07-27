@@ -23,6 +23,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/eventslug"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/location"
@@ -46,6 +47,7 @@ type EventQuery struct {
 	inters                         []Interceptor
 	predicates                     []predicate.Event
 	withGrants                     *EventGrantQuery
+	withSlugs                      *EventSlugQuery
 	withRundown                    *RundownQuery
 	withLocations                  *LocationQuery
 	withLanes                      *LaneQuery
@@ -117,6 +119,28 @@ func (_q *EventQuery) QueryGrants() *EventGrantQuery {
 			sqlgraph.From(event.Table, event.FieldID, selector),
 			sqlgraph.To(eventgrant.Table, eventgrant.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, event.GrantsTable, event.GrantsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QuerySlugs chains the current query on the "slugs" edge.
+func (_q *EventQuery) QuerySlugs() *EventSlugQuery {
+	query := (&EventSlugClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, selector),
+			sqlgraph.To(eventslug.Table, eventslug.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.SlugsTable, event.SlugsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -757,6 +781,7 @@ func (_q *EventQuery) Clone() *EventQuery {
 		inters:                         append([]Interceptor{}, _q.inters...),
 		predicates:                     append([]predicate.Event{}, _q.predicates...),
 		withGrants:                     _q.withGrants.Clone(),
+		withSlugs:                      _q.withSlugs.Clone(),
 		withRundown:                    _q.withRundown.Clone(),
 		withLocations:                  _q.withLocations.Clone(),
 		withLanes:                      _q.withLanes.Clone(),
@@ -791,6 +816,17 @@ func (_q *EventQuery) WithGrants(opts ...func(*EventGrantQuery)) *EventQuery {
 		opt(query)
 	}
 	_q.withGrants = query
+	return _q
+}
+
+// WithSlugs tells the query-builder to eager-load the nodes that are connected to
+// the "slugs" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *EventQuery) WithSlugs(opts ...func(*EventSlugQuery)) *EventQuery {
+	query := (&EventSlugClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withSlugs = query
 	return _q
 }
 
@@ -1098,8 +1134,9 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 	var (
 		nodes       = []*Event{}
 		_spec       = _q.querySpec()
-		loadedTypes = [21]bool{
+		loadedTypes = [22]bool{
 			_q.withGrants != nil,
+			_q.withSlugs != nil,
 			_q.withRundown != nil,
 			_q.withLocations != nil,
 			_q.withLanes != nil,
@@ -1144,6 +1181,13 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 		if err := _q.loadGrants(ctx, query, nodes,
 			func(n *Event) { n.Edges.Grants = []*EventGrant{} },
 			func(n *Event, e *EventGrant) { n.Edges.Grants = append(n.Edges.Grants, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withSlugs; query != nil {
+		if err := _q.loadSlugs(ctx, query, nodes,
+			func(n *Event) { n.Edges.Slugs = []*EventSlug{} },
+			func(n *Event, e *EventSlug) { n.Edges.Slugs = append(n.Edges.Slugs, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -1317,6 +1361,36 @@ func (_q *EventQuery) loadGrants(ctx context.Context, query *EventGrantQuery, no
 	}
 	query.Where(predicate.EventGrant(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(event.GrantsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.EventID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "event_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *EventQuery) loadSlugs(ctx context.Context, query *EventSlugQuery, nodes []*Event, init func(*Event), assign func(*Event, *EventSlug)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Event)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(eventslug.FieldEventID)
+	}
+	query.Where(predicate.EventSlug(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(event.SlugsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

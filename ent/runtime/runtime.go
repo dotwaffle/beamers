@@ -30,6 +30,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
+	"github.com/dotwaffle/beamers/ent/eventslug"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/lane"
@@ -1420,6 +1421,43 @@ func init() {
 	eventgrantDescCreatedAt := eventgrantFields[6].Descriptor()
 	// eventgrant.DefaultCreatedAt holds the default value on creation for the created_at field.
 	eventgrant.DefaultCreatedAt = eventgrantDescCreatedAt.Default.(func() time.Time)
+	eventslug.Policy = privacy.NewPolicies(schema.EventSlug{})
+	eventslug.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := eventslug.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	eventslugFields := schema.EventSlug{}.Fields()
+	_ = eventslugFields
+	// eventslugDescSlug is the schema descriptor for slug field.
+	eventslugDescSlug := eventslugFields[1].Descriptor()
+	// eventslug.SlugValidator is a validator for the "slug" field. It is called by the builders before save.
+	eventslug.SlugValidator = func() func(string) error {
+		validators := eventslugDescSlug.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(slug string) error {
+			for _, fn := range fns {
+				if err := fn(slug); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// eventslugDescExposed is the schema descriptor for exposed field.
+	eventslugDescExposed := eventslugFields[2].Descriptor()
+	// eventslug.DefaultExposed holds the default value on creation for the exposed field.
+	eventslug.DefaultExposed = eventslugDescExposed.Default.(bool)
+	// eventslugDescCreatedAt is the schema descriptor for created_at field.
+	eventslugDescCreatedAt := eventslugFields[3].Descriptor()
+	// eventslug.DefaultCreatedAt holds the default value on creation for the created_at field.
+	eventslug.DefaultCreatedAt = eventslugDescCreatedAt.Default.(func() time.Time)
 	importreference.Policy = privacy.NewPolicies(schema.ImportReference{})
 	importreference.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

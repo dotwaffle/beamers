@@ -87,15 +87,16 @@ func TestAttestedMigrationPlanUpgradesStagedSQLite(t *testing.T) {
 		t.Fatalf("plan migrations: %v", err)
 	}
 	if plan.FromVersion != 47 ||
-		plan.ToVersion != 51 ||
+		plan.ToVersion != 52 ||
 		plan.Safety != MigrationNonDestructive ||
-		plan.MinimumReaderSchemaVersion != 51 ||
-		plan.MinimumWriterSchemaVersion != 51 ||
-		len(plan.Migrations) != 4 ||
+		plan.MinimumReaderSchemaVersion != 52 ||
+		plan.MinimumWriterSchemaVersion != 52 ||
+		len(plan.Migrations) != 5 ||
 		plan.Migrations[0].Version != 48 ||
 		plan.Migrations[1].Version != 49 ||
 		plan.Migrations[2].Version != 50 ||
-		plan.Migrations[3].Version != 51 {
+		plan.Migrations[3].Version != 51 ||
+		plan.Migrations[4].Version != 52 {
 		t.Fatalf("migration plan = %+v", plan)
 	}
 
@@ -121,19 +122,71 @@ func TestAttestedMigrationPlanUpgradesStagedSQLite(t *testing.T) {
 		ctx,
 		"SELECT safety, minimum_reader_schema_version, "+
 			"minimum_writer_schema_version FROM beamers_schema_migrations "+
-			"WHERE version = 51",
+			"WHERE version = 52",
 	).Scan(&safety, &minimumReader, &minimumWriter); err != nil {
 		t.Fatalf("read migration contract: %v", err)
 	}
 	if safety != string(MigrationNonDestructive) ||
-		minimumReader != 51 ||
-		minimumWriter != 51 {
+		minimumReader != 52 ||
+		minimumWriter != 52 {
 		t.Fatalf(
 			"migration contract = %q/%d/%d",
 			safety,
 			minimumReader,
 			minimumWriter,
 		)
+	}
+}
+
+func TestEventSlugMigrationBackfillsCurrentNamespace(t *testing.T) {
+	ctx := t.Context()
+	databasePath := initializeSchemaFixture(t, 51)
+	database, err := openDatabase(ctx, databasePath)
+	if err != nil {
+		t.Fatalf("open schema 51 database: %v", err)
+	}
+	if _, err = database.ExecContext(
+		ctx,
+		`INSERT INTO events (
+			name, public_slug, public, planned_start_date, planned_end_date,
+			timezone, event_locale, event_day_boundary, created_at
+		) VALUES (
+			'Summer Showcase', 'summer-showcase', true, '2026-08-21', '2026-08-23',
+			'Europe/Berlin', 'en-GB', '00:00', CURRENT_TIMESTAMP
+		)`,
+	); err != nil {
+		_ = database.Close()
+		t.Fatalf("insert schema 51 Event: %v", err)
+	}
+	if err = database.Close(); err != nil {
+		t.Fatalf("close schema 51 database: %v", err)
+	}
+	plan, err := PlanMigrations(ctx, databasePath)
+	if err != nil {
+		t.Fatalf("plan Event Slug migration: %v", err)
+	}
+	if err = MigrateSnapshot(ctx, databasePath, plan); err != nil {
+		t.Fatalf("apply Event Slug migration: %v", err)
+	}
+	database, err = openValidationDatabase(ctx, databasePath)
+	if err != nil {
+		t.Fatalf("open migrated database: %v", err)
+	}
+	defer func() {
+		if closeErr := database.Close(); closeErr != nil {
+			t.Errorf("close migrated database: %v", closeErr)
+		}
+	}()
+	var slug string
+	var exposed bool
+	if err = database.QueryRowContext(
+		ctx,
+		"SELECT slug, exposed FROM event_slugs",
+	).Scan(&slug, &exposed); err != nil {
+		t.Fatalf("read migrated Event Slug: %v", err)
+	}
+	if slug != "summer-showcase" || !exposed {
+		t.Fatalf("migrated Event Slug = %q exposed=%t", slug, exposed)
 	}
 }
 
@@ -175,13 +228,13 @@ func TestDeclaredForwardWriterRangeAllowsNewerSchema(t *testing.T) {
 		"INSERT INTO beamers_schema_migrations "+
 			"(version, name, checksum, safety, minimum_reader_schema_version, "+
 			"minimum_writer_schema_version, applied_at) "+
-			"VALUES (52, 'future_addition', printf('%064d', 1), "+
-			"'NonDestructive', 51, 51, CURRENT_TIMESTAMP)",
+			"VALUES (53, 'future_addition', printf('%064d', 1), "+
+			"'NonDestructive', 52, 52, CURRENT_TIMESTAMP)",
 	); err != nil {
 		_ = database.Close()
 		t.Fatalf("record future migration: %v", err)
 	}
-	if _, err = database.ExecContext(t.Context(), "PRAGMA user_version = 52"); err != nil {
+	if _, err = database.ExecContext(t.Context(), "PRAGMA user_version = 53"); err != nil {
 		_ = database.Close()
 		t.Fatalf("set future schema version: %v", err)
 	}
@@ -201,8 +254,8 @@ func TestDeclaredForwardWriterRangeAllowsNewerSchema(t *testing.T) {
 	if err = installation.StartupError(); err != nil {
 		t.Fatalf("forward-compatible startup: %v", err)
 	}
-	if installation.SchemaVersion() != 52 {
-		t.Fatalf("opened schema version = %d, want 52", installation.SchemaVersion())
+	if installation.SchemaVersion() != 53 {
+		t.Fatalf("opened schema version = %d, want 53", installation.SchemaVersion())
 	}
 }
 

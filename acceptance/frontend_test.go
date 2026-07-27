@@ -253,7 +253,7 @@ func TestBrowserPublishesEventsUnderCurrentSlugs(t *testing.T) {
 		"{\"id\":3,\"name\":\"Secret Draft\",\"planned_start_date\":\"2026-08-21\",\"planned_end_date\":\"2026-08-23\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"de-DE\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":1}\n",
 	)
 
-	setListed := func(eventID int, name, start, end, locale string, listed bool) {
+	submitEvent := func(eventID int, name, slug, start, end, locale string, listed bool) frontendResponse {
 		t.Helper()
 		path := "/backstage/events/" + strconv.Itoa(eventID) + "/planning"
 		page := getFrontendPage(t, administrator, server.address, path)
@@ -265,6 +265,7 @@ func TestBrowserPublishesEventsUnderCurrentSlugs(t *testing.T) {
 		values.Set("csrf_token", requireFrontendCSRF(t, page))
 		values.Set("action", "event")
 		values.Set("event_name", name)
+		values.Set("public_slug", slug)
 		values.Set("planned_start_date", start)
 		values.Set("planned_end_date", end)
 		values.Set("timezone", "Europe/Berlin")
@@ -276,13 +277,18 @@ func TestBrowserPublishesEventsUnderCurrentSlugs(t *testing.T) {
 		if listed {
 			values.Set("public", "true")
 		}
-		saved := postFrontendForm(t, administrator, server.address, path, values)
+		return postFrontendForm(t, administrator, server.address, path, values)
+	}
+	setListed := func(eventID int, name, slug, start, end, locale string, listed bool) {
+		t.Helper()
+		saved := submitEvent(eventID, name, slug, start, end, locale, listed)
 		if saved.status != http.StatusSeeOther {
 			t.Fatalf("set Event %d listing to %t = %d %q", eventID, listed, saved.status, saved.body)
 		}
 	}
-	setListed(1, "Revision 2099", "2099-08-21", "2099-08-23", "en-GB", true)
-	setListed(2, "Summer Showcase", "2026-08-21", "2026-08-23", "de-DE", true)
+	setListed(1, "Revision 2099", "revision-2099", "2099-08-21", "2099-08-23", "en-GB", true)
+	setListed(2, "Summer Showcase", "summer-private", "2026-08-21", "2026-08-23", "de-DE", false)
+	setListed(2, "Summer Showcase", "summer-showcase", "2026-08-21", "2026-08-23", "de-DE", true)
 
 	root := getFrontendPage(t, authenticatedClient(t), server.publicAddress, "/")
 	for _, want := range []string{
@@ -298,6 +304,15 @@ func TestBrowserPublishesEventsUnderCurrentSlugs(t *testing.T) {
 	}
 	if strings.Contains(root.body, "Secret Draft") {
 		t.Fatalf("Public Event Listing disclosed Draft Event: %q", root.body)
+	}
+	privateSlug := getFrontendPage(
+		t,
+		authenticatedClient(t),
+		server.publicAddress,
+		"/events/summer-private",
+	)
+	if privateSlug.status != http.StatusNotFound {
+		t.Fatalf("never-public Event Slug = %d %q", privateSlug.status, privateSlug.body)
 	}
 	for path, name := range map[string]string{
 		"/events/revision-2099":   "Revision 2099",
@@ -323,6 +338,130 @@ func TestBrowserPublishesEventsUnderCurrentSlugs(t *testing.T) {
 		)
 	}
 
+	setListed(2, "Summer Showcase", "summer-stage", "2026-08-21", "2026-08-23", "de-DE", true)
+	setListed(2, "Summer Showcase", "summer-final", "2026-08-21", "2026-08-23", "de-DE", true)
+	publicClient := authenticatedClient(t)
+	publicClient.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	for _, alias := range []string{"summer-showcase", "summer-stage"} {
+		redirect := getFrontendPage(
+			t,
+			publicClient,
+			server.publicAddress,
+			"/events/"+alias,
+		)
+		if redirect.status != http.StatusFound ||
+			redirect.header.Get("Location") != "/events/summer-final" {
+			t.Fatalf(
+				"Event Slug Alias %q = %d Location %q",
+				alias,
+				redirect.status,
+				redirect.header.Get("Location"),
+			)
+		}
+	}
+	collision := submitEvent(
+		1,
+		"Revision 2099",
+		"summer-stage",
+		"2099-08-21",
+		"2099-08-23",
+		"en-GB",
+		true,
+	)
+	if collision.status != http.StatusConflict ||
+		!strings.Contains(collision.body, "Event Slug is already in use.") {
+		t.Fatalf("retained Event Slug collision = %d %q", collision.status, collision.body)
+	}
+
+	setListed(2, "Summer Showcase", "summer-final", "2026-08-21", "2026-08-23", "de-DE", false)
+	privateAlias := getFrontendPage(
+		t,
+		publicClient,
+		server.publicAddress,
+		"/events/summer-stage",
+	)
+	unknownAlias := getFrontendPage(
+		t,
+		publicClient,
+		server.publicAddress,
+		"/events/unknown-alias",
+	)
+	if privateAlias.status != http.StatusNotFound ||
+		privateAlias.status != unknownAlias.status ||
+		privateAlias.body != unknownAlias.body {
+		t.Fatalf(
+			"private and unknown Event Slug Aliases differ: private=%d %q unknown=%d %q",
+			privateAlias.status,
+			privateAlias.body,
+			unknownAlias.status,
+			unknownAlias.body,
+		)
+	}
+	setListed(2, "Summer Showcase", "summer-final", "2026-08-21", "2026-08-23", "de-DE", true)
+
+	administration := getFrontendPage(
+		t,
+		administrator,
+		server.address,
+		"/backstage/administration",
+	)
+	aliasForm := regexp.MustCompile(
+		`name="action" value="prune-event-slug-alias">\s*` +
+			`<input type="hidden" name="command_id" value="([^"]+)">\s*` +
+			`<input type="hidden" name="alias_id" value="([0-9]+)">`,
+	).FindStringSubmatch(administration.body)
+	if len(aliasForm) != 3 {
+		t.Fatalf("Event Slug Alias prune form missing: %q", administration.body)
+	}
+	pruneValues := url.Values{
+		"csrf_token": {requireFrontendCSRF(t, administration)},
+		"action":     {"prune-event-slug-alias"},
+		"command_id": {aliasForm[1]},
+		"alias_id":   {aliasForm[2]},
+	}
+	unconfirmed := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/administration",
+		pruneValues,
+	)
+	if unconfirmed.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(unconfirmed.body, "Confirm the Event Slug Alias pruning warning.") {
+		t.Fatalf("unconfirmed Event Slug Alias pruning = %d %q", unconfirmed.status, unconfirmed.body)
+	}
+	administration = getFrontendPage(
+		t,
+		administrator,
+		server.address,
+		"/backstage/administration",
+	)
+	aliasForm = regexp.MustCompile(
+		`name="action" value="prune-event-slug-alias">\s*` +
+			`<input type="hidden" name="command_id" value="([^"]+)">\s*` +
+			`<input type="hidden" name="alias_id" value="([0-9]+)">`,
+	).FindStringSubmatch(administration.body)
+	pruneValues = url.Values{
+		"csrf_token": {requireFrontendCSRF(t, administration)},
+		"action":     {"prune-event-slug-alias"},
+		"command_id": {aliasForm[1]},
+		"alias_id":   {aliasForm[2]},
+		"confirmed":  {"true"},
+	}
+	pruned := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/administration",
+		pruneValues,
+	)
+	if pruned.status != http.StatusSeeOther {
+		t.Fatalf("prune Event Slug Alias = %d %q", pruned.status, pruned.body)
+	}
+	setListed(2, "Summer Showcase", "summer-showcase", "2026-08-21", "2026-08-23", "de-DE", true)
+
 	root = getFrontendPage(t, administrator, server.address, "/")
 	denied := postFrontendForm(
 		t,
@@ -339,7 +478,7 @@ func TestBrowserPublishesEventsUnderCurrentSlugs(t *testing.T) {
 		t.Fatalf("Administrator published without Event Grant: %d %q", denied.status, denied.body)
 	}
 
-	setListed(1, "Revision 2099", "2099-08-21", "2099-08-23", "en-GB", false)
+	setListed(1, "Revision 2099", "revision-2099", "2099-08-21", "2099-08-23", "en-GB", false)
 	root = getFrontendPage(t, authenticatedClient(t), server.publicAddress, "/")
 	if strings.Contains(root.body, "Revision 2099") ||
 		!strings.Contains(root.body, "Summer Showcase") {
@@ -358,6 +497,23 @@ func TestBrowserPublishesEventsUnderCurrentSlugs(t *testing.T) {
 	if !strings.Contains(root.body, `href="/events/summer-showcase"`) ||
 		strings.Contains(root.body, "Revision 2099") {
 		t.Fatalf("restarted Public Event Listing = %d %q", root.status, root.body)
+	}
+	for _, alias := range []string{"summer-stage", "summer-final"} {
+		redirect := getFrontendPage(
+			t,
+			publicClient,
+			server.publicAddress,
+			"/events/"+alias,
+		)
+		if redirect.status != http.StatusFound ||
+			redirect.header.Get("Location") != "/events/summer-showcase" {
+			t.Fatalf(
+				"restarted Event Slug Alias %q = %d Location %q",
+				alias,
+				redirect.status,
+				redirect.header.Get("Location"),
+			)
+		}
 	}
 	server.stop(t)
 }

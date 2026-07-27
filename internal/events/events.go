@@ -38,6 +38,12 @@ var (
 	ErrCommandConflict = store.ErrCommandConflict
 	// ErrRevisionConflict means an Event update expected an outdated revision.
 	ErrRevisionConflict = store.ErrRevisionConflict
+	// ErrEventSlugUnavailable means a current slug or retained alias already owns the identifier.
+	ErrEventSlugUnavailable = store.ErrEventSlugUnavailable
+	// ErrEventSlugAliasNotFound means the requested retained alias does not exist.
+	ErrEventSlugAliasNotFound = store.ErrEventSlugAliasNotFound
+	// ErrEventSlugPruneConfirmationRequired means an Administrator omitted the destructive warning.
+	ErrEventSlugPruneConfirmationRequired = errors.New("Event Slug Alias pruning confirmation required")
 )
 
 // ValidationError describes one actionable invalid Event field.
@@ -72,6 +78,7 @@ type Event struct {
 type CreateInput struct {
 	Name                           string `json:"name"`
 	Public                         bool   `json:"public,omitempty"`
+	PublicSlug                     string `json:"public_slug,omitempty"`
 	PlannedStartDate               string `json:"planned_start_date"`
 	PlannedEndDate                 string `json:"planned_end_date"`
 	Timezone                       string `json:"timezone"`
@@ -92,6 +99,15 @@ type PublicEvent struct {
 	PlannedEndDate   string
 	EventLocale      string
 	Active           bool
+}
+
+// EventSlugAlias is one retained public Event URL identifier.
+type EventSlugAlias struct {
+	ID          int
+	EventID     int
+	EventName   string
+	Slug        string
+	CurrentSlug string
 }
 
 // Grant is an Account's role for one Event.
@@ -233,13 +249,81 @@ func (service *Service) PublicListing(ctx context.Context) ([]PublicEvent, error
 	return result, nil
 }
 
-// PublicEvent returns one listed Event by its current Event Slug.
-func (service *Service) PublicEvent(ctx context.Context, slug string) (PublicEvent, error) {
-	found, err := service.storage.FindPublicEvent(ctx, slug)
+// PublicEvent resolves one listed Event by a current Event Slug or retained alias.
+func (service *Service) PublicEvent(
+	ctx context.Context,
+	slug string,
+) (PublicEvent, bool, error) {
+	found, alias, err := service.storage.FindPublicEvent(ctx, slug)
 	if err != nil {
-		return PublicEvent{}, err
+		return PublicEvent{}, false, err
 	}
-	return publicEvent(found, false), nil
+	return publicEvent(found, false), alias, nil
+}
+
+// ListEventSlugAliases returns retained aliases to an Administrator.
+func (service *Service) ListEventSlugAliases(
+	ctx context.Context,
+	actor auth.Account,
+) ([]EventSlugAlias, error) {
+	if !actor.Administrator {
+		return nil, ErrAdministratorRequired
+	}
+	found, err := service.storage.ListEventSlugAliases(actor.Context(ctx))
+	if err != nil {
+		return nil, err
+	}
+	result := make([]EventSlugAlias, 0, len(found))
+	for _, alias := range found {
+		result = append(result, eventSlugAlias(alias))
+	}
+	return result, nil
+}
+
+// PruneEventSlugAlias releases a retained alias after an Administrator confirms the warning.
+func (service *Service) PruneEventSlugAlias(
+	ctx context.Context,
+	actor auth.Account,
+	aliasID int,
+	confirmed bool,
+	commandID string,
+) (EventSlugAlias, error) {
+	if err := command.ValidateID(commandID); err != nil {
+		return EventSlugAlias{}, invalid("command_id", err.Error())
+	}
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID, CommandID: commandID,
+		PayloadHash: command.PayloadHash(strconv.Itoa(aliasID), strconv.FormatBool(confirmed)),
+		Action:      "PruneEventSlugAlias", TargetType: "EventSlugAlias",
+		TargetID: strconv.Itoa(aliasID), Now: service.now().UTC(),
+	}
+	return command.Execute(actor.Context(ctx), command.Plan[EventSlugAlias]{
+		Storage: service.storage, Identity: identity, Replay: replayEventSlugAlias,
+		Apply: func(transaction *store.CommandTx) (command.Execution[EventSlugAlias], error) {
+			if !actor.Administrator {
+				return eventRejection[EventSlugAlias](ErrAdministratorRequired), nil
+			}
+			if !confirmed {
+				return eventRejection[EventSlugAlias](
+					ErrEventSlugPruneConfirmationRequired,
+				), nil
+			}
+			pruned, pruneErr := transaction.PruneEventSlugAlias(actor.Context(ctx), aliasID)
+			if errors.Is(pruneErr, ErrEventSlugAliasNotFound) {
+				return eventRejection[EventSlugAlias](pruneErr), nil
+			}
+			if pruneErr != nil {
+				return command.Execution[EventSlugAlias]{}, pruneErr
+			}
+			result := eventSlugAlias(pruned)
+			return eventSuccess(
+				result,
+				pruned,
+				"",
+				"encode Event Slug Alias pruning outcome",
+			)
+		},
+	})
 }
 
 // ListGrants returns all Event Grants to an Administrator.
@@ -373,6 +457,7 @@ func (service *Service) Update(
 			updated, updateErr := transaction.UpdateEvent(actor.Context(ctx), store.UpdateEventParams{
 				ActorAccountID: actor.ID, EventID: eventID, Name: normalized.Name,
 				Public:           normalized.Public,
+				PublicSlug:       normalized.PublicSlug,
 				PlannedStartDate: normalized.PlannedStartDate, PlannedEndDate: normalized.PlannedEndDate,
 				Timezone: normalized.Timezone, EventLocale: normalized.EventLocale,
 				ContentLanguage: normalized.ContentLanguage, EventDayBoundary: normalized.EventDayBoundary,
@@ -382,7 +467,8 @@ func (service *Service) Update(
 				CommandID:                      input.CommandID, PayloadHash: eventPayloadHash(normalized, input.ExpectedRevision),
 				ExpectedRevision: input.ExpectedRevision,
 			})
-			if errors.Is(updateErr, ErrRevisionConflict) {
+			if errors.Is(updateErr, ErrRevisionConflict) ||
+				errors.Is(updateErr, ErrEventSlugUnavailable) {
 				return eventRejection[Event](updateErr), nil
 			}
 			if updateErr != nil {
@@ -503,6 +589,14 @@ func replayDisplayConfiguration(outcome string) (DisplayConfiguration, error) {
 		return DisplayConfiguration{}, restoreRejected(err)
 	}
 	return displayConfiguration(original)
+}
+
+func replayEventSlugAlias(outcome string) (EventSlugAlias, error) {
+	var original store.EventSlugAlias
+	if err := store.DecodeCommandReceipt(outcome, &original); err != nil {
+		return EventSlugAlias{}, restoreRejected(err)
+	}
+	return eventSlugAlias(original), nil
 }
 
 func replayGrant(outcome string) (Grant, error) {
@@ -698,6 +792,13 @@ func publicEvent(found store.PublicEvent, active bool) PublicEvent {
 	}
 }
 
+func eventSlugAlias(found store.EventSlugAlias) EventSlugAlias {
+	return EventSlugAlias{
+		ID: found.ID, EventID: found.EventID, EventName: found.EventName,
+		Slug: found.Slug, CurrentSlug: found.CurrentSlug,
+	}
+}
+
 func grant(found store.EventGrant) Grant {
 	return Grant{
 		EventID: found.EventID, AccountID: found.AccountID, Role: found.Role,
@@ -829,6 +930,9 @@ func eventPayloadHash(input CreateInput, expectedRevision int) string {
 	if input.Public {
 		parts = append(parts, "public=true")
 	}
+	if input.PublicSlug != "" {
+		parts = append(parts, "public_slug="+input.PublicSlug)
+	}
 	return command.PayloadHash(parts...)
 }
 
@@ -851,13 +955,16 @@ func commandRejection(reason error) store.CommandRejection {
 		return store.CommandRejection{Code: "validation", Field: validation.Field, Message: validation.Message}
 	}
 	for candidate, code := range map[error]string{
-		ErrAdministratorRequired: "administrator_required",
-		ErrGrantRoleRequired:     "grant_role_required",
-		ErrEventNotFound:         "event_not_found",
-		ErrAccountNotFound:       "account_not_found",
-		ErrEventGrantExists:      "event_grant_exists",
-		ErrEventAccessDenied:     "event_access_denied",
-		ErrRevisionConflict:      "revision_conflict",
+		ErrAdministratorRequired:              "administrator_required",
+		ErrGrantRoleRequired:                  "grant_role_required",
+		ErrEventNotFound:                      "event_not_found",
+		ErrAccountNotFound:                    "account_not_found",
+		ErrEventGrantExists:                   "event_grant_exists",
+		ErrEventAccessDenied:                  "event_access_denied",
+		ErrRevisionConflict:                   "revision_conflict",
+		ErrEventSlugUnavailable:               "event_slug_unavailable",
+		ErrEventSlugAliasNotFound:             "event_slug_alias_not_found",
+		ErrEventSlugPruneConfirmationRequired: "event_slug_prune_confirmation_required",
 	} {
 		if errors.Is(reason, candidate) {
 			return store.CommandRejection{Code: code}
@@ -888,6 +995,12 @@ func restoreRejected(err error) error {
 		return ErrEventAccessDenied
 	case "revision_conflict":
 		return ErrRevisionConflict
+	case "event_slug_unavailable":
+		return ErrEventSlugUnavailable
+	case "event_slug_alias_not_found":
+		return ErrEventSlugAliasNotFound
+	case "event_slug_prune_confirmation_required":
+		return ErrEventSlugPruneConfirmationRequired
 	default:
 		return errors.New("Event command unavailable")
 	}
